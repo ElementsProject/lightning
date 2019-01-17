@@ -51,7 +51,7 @@ bool json_tok_is_num(const char *buffer, const jsmntok_t *tok);
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 
-/* Returns next token with same parent. */
+/* Returns next token with same parent (WARNING: slow!). */
 const jsmntok_t *json_next(const jsmntok_t *tok);
 
 /* Get top-level member. */
@@ -84,5 +84,14 @@ void json_tok_remove(jsmntok_t **tokens, jsmntok_t *tok, size_t num);
 const jsmntok_t *json_delve(const char *buffer,
 			    const jsmntok_t *tok,
 			    const char *guide);
+
+/* Iterator macro for array: i is counter, t is token ptr, arr is JSMN_ARRAY */
+#define json_for_each_arr(i, t, arr) \
+	for (i = 0, t = (arr) + 1; i < (arr)->size; t = json_next(t), i++)
+
+/* Iterator macro for object: i is counter, t is token ptr (t+1 is
+ * contents of obj member), obj is JSMN_OBJECT */
+#define json_for_each_obj(i, t, obj) \
+	for (i = 0, t = (obj) + 1; i < (obj)->size; t = json_next(t+1), i++)
 
 #endif /* LIGHTNING_COMMON_JSON_H */

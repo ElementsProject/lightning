@@ -307,13 +307,13 @@ static struct route_info *unpack_route(const tal_t *ctx,
 				       const char *buffer,
 				       const jsmntok_t *routetok)
 {
-	const jsmntok_t *t, *end;
-	struct route_info *route = tal_arr(ctx, struct route_info, 0);
+	const jsmntok_t *t;
+	size_t i;
+	struct route_info *route = tal_arr(ctx, struct route_info, routetok->size);
 
-	end = json_next(routetok);
-	for (t = routetok + 1; t < end; t = json_next(t)) {
+	json_for_each_arr(i, t, routetok) {
 		const jsmntok_t *pubkey, *fee_base, *fee_prop, *scid, *cltv;
-		struct route_info r;
+		struct route_info *r = &route[i];
 		u32 cltv_u32;
 
 		pubkey = json_get_member(buffer, t, "id");
@@ -323,17 +323,16 @@ static struct route_info *unpack_route(const tal_t *ctx,
 					   "fee_proportional_millionths");
 		cltv = json_get_member(buffer, t, "cltv_expiry_delta");
 
-		if (!json_to_pubkey(buffer, pubkey, &r.pubkey)
+		if (!json_to_pubkey(buffer, pubkey, &r->pubkey)
 		    || !json_to_short_channel_id(buffer, scid,
-						 &r.short_channel_id)
-		    || !json_to_number(buffer, fee_base, &r.fee_base_msat)
+						 &r->short_channel_id)
+		    || !json_to_number(buffer, fee_base, &r->fee_base_msat)
 		    || !json_to_number(buffer, fee_prop,
-				       &r.fee_proportional_millionths)
+				       &r->fee_proportional_millionths)
 		    || !json_to_number(buffer, cltv, &cltv_u32))
 			abort();
 		/* We don't have a json_to_u16 */
-		r.cltv_expiry_delta = cltv_u32;
-		tal_arr_expand(&route, r);
+		r->cltv_expiry_delta = cltv_u32;
 	}
 	return route;
 }
@@ -343,17 +342,16 @@ static struct route_info **unpack_routes(const tal_t *ctx,
 					 const jsmntok_t *routestok)
 {
 	struct route_info **routes;
-	const jsmntok_t *t, *end;
+	const jsmntok_t *t;
+	size_t i;
 
 	if (!routestok)
 		return NULL;
 
-	routes = tal_arr(ctx, struct route_info *, 0);
-	end = json_next(routestok);
-	for (t = routestok + 1; t < end; t = json_next(t)) {
-		struct route_info *r = unpack_route(routes, buffer, t);
-		tal_arr_expand(&routes, r);
-	}
+	routes = tal_arr(ctx, struct route_info *, routestok->size);
+	json_for_each_arr(i, t, routestok)
+		routes[i] = unpack_route(routes, buffer, t);
+
 	return routes;
 }
 #endif /* DEVELOPER */
@@ -409,16 +407,16 @@ static struct command_result *json_invoice(struct command *cmd,
 	}
 
 	if (fallbacks) {
-		const jsmntok_t *i, *end = json_next(fallbacks);
+		size_t i;
+		const jsmntok_t *t;
 
-		fallback_scripts = tal_arr(cmd, const u8 *, 0);
-		for (i = fallbacks + 1; i < end; i = json_next(i)) {
+		fallback_scripts = tal_arr(cmd, const u8 *, fallbacks->size);
+		json_for_each_arr(i, t, fallbacks) {
 			struct command_result *r;
-			const u8 *fs;
-			r = parse_fallback(cmd, buffer, i, &fs);
+
+			r = parse_fallback(cmd, buffer, t, &fallback_scripts[i]);
 			if (r)
 				return r;
-			tal_arr_expand(&fallback_scripts, fs);
 		}
 	}
 

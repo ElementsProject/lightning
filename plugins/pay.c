@@ -345,15 +345,15 @@ static const jsmntok_t *find_worst_channel(const char *buf,
 					   u64 final)
 {
 	u64 prev = final, worstval = 0;
-	const jsmntok_t *worst = NULL, *end;
+	const jsmntok_t *worst = NULL, *t;
+	size_t i;
 
-	end = json_next(route);
-	for (route = route + 1; route < end; route = json_next(route)) {
+	json_for_each_arr(i, t, route) {
 		u64 val;
 
-		json_to_u64(buf, json_get_member(buf, route, fieldname), &val);
+		json_to_u64(buf, json_get_member(buf, t, fieldname), &val);
 		if (worst == NULL || val - prev > worstval) {
-			worst = route;
+			worst = t;
 			worstval = val - prev;
 		}
 		prev = val;
@@ -616,12 +616,12 @@ static struct command_result *add_shadow_route(struct command *cmd,
 {
 	/* Use reservoir sampling across the capable channels. */
 	const jsmntok_t *channels = json_get_member(buf, result, "channels");
-	const jsmntok_t *chan, *end, *best = NULL;
+	const jsmntok_t *chan, *best = NULL;
+	size_t i;
 	u64 sample;
 	u32 cltv, best_cltv;
 
-	end = json_next(channels);
-	for (chan = channels + 1; chan < end; chan = json_next(chan)) {
+	json_for_each_arr(i, chan, channels) {
 		u64 sats, v;
 
 		json_to_u64(buf, json_get_member(buf, chan, "satoshis"), &sats);
@@ -676,24 +676,24 @@ static struct command_result *listpeers_done(struct command *cmd,
 					     const jsmntok_t *result,
 					     struct pay_command *pc)
 {
-	const jsmntok_t *peer, *peers_end;
+	const jsmntok_t *peers, *peer;
+	size_t i;
 	char *mods = tal_strdup(tmpctx, "");
 
-	peer = json_get_member(buf, result, "peers");
-	if (!peer)
+	peers = json_get_member(buf, result, "peers");
+	if (!peers)
 		plugin_err("listpeers gave no 'peers'? '%.*s'",
 			   result->end - result->start, buf);
 
-	peers_end = json_next(peer);
-	for (peer = peer + 1; peer < peers_end; peer = json_next(peer)) {
-		const jsmntok_t *chan, *chans_end;
+	json_for_each_arr(i, peer, peers) {
+		const jsmntok_t *chans, *chan;
 		bool connected;
+		size_t j;
 
 		json_to_bool(buf, json_get_member(buf, peer, "connected"),
 			     &connected);
-		chan = json_get_member(buf, peer, "channels");
-		chans_end = json_next(chan);
-		for (chan = chan + 1; chan < chans_end; chan = json_next(chan)) {
+		chans = json_get_member(buf, peer, "channels");
+		json_for_each_arr(j, chan, chans) {
 			const jsmntok_t *state, *scid, *dir;
 			u64 spendable;
 

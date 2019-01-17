@@ -68,27 +68,27 @@ static struct command_result *parse_by_position(struct command *cmd,
 						bool allow_extra)
 {
 	struct command_result *res;
-	const jsmntok_t *tok = tokens + 1;
-	const jsmntok_t *end = json_next(tokens);
-	struct param *first = params;
-	struct param *last = first + tal_count(params);
+	const jsmntok_t *tok;
+	size_t i;
 
-	while (first != last && tok != end) {
+	json_for_each_arr(i, tok, tokens) {
+		/* check for unexpected trailing params */
+		if (i == tal_count(params)) {
+			if (!allow_extra) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "too many parameters:"
+						    " got %u, expected %zu",
+						    tokens->size,
+						    tal_count(params));
+			}
+			break;
+		}
+
 		if (!json_tok_is_null(buffer, tok)) {
-			res = make_callback(cmd, first, buffer, tok);
+			res = make_callback(cmd, params+i, buffer, tok);
 			if (res)
 				return res;
 		}
-		tok = json_next(tok);
-		first++;
-	}
-
-	/* check for unexpected trailing params */
-	if (!allow_extra && tok != end) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "too many parameters:"
-				    " got %u, expected %zu",
-				    tokens->size, tal_count(params));
 	}
 
 	return post_check(cmd, params);
@@ -115,18 +115,18 @@ static struct command_result *parse_by_name(struct command *cmd,
 					    const jsmntok_t tokens[],
 					    bool allow_extra)
 {
-	const jsmntok_t *first = tokens + 1;
-	const jsmntok_t *last = json_next(tokens);
+	size_t i;
+	const jsmntok_t *t;
 
-	while (first != last) {
-		struct param *p = find_param(params, buffer + first->start,
-					     first->end - first->start);
+	json_for_each_obj(i, t, tokens) {
+		struct param *p = find_param(params, buffer + t->start,
+					     t->end - t->start);
 		if (!p) {
 			if (!allow_extra) {
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "unknown parameter: '%.*s'",
-						    first->end - first->start,
-						    buffer + first->start);
+						    t->end - t->start,
+						    buffer + t->start);
 			}
 		} else {
 			struct command_result *res;
@@ -137,11 +137,10 @@ static struct command_result *parse_by_name(struct command *cmd,
 						    p->name);
 			}
 
-			res = make_callback(cmd, p, buffer, first + 1);
+			res = make_callback(cmd, p, buffer, t + 1);
 			if (res)
 				return res;
 		}
-		first = json_next(first + 1);
 	}
 	return post_check(cmd, params);
 }
