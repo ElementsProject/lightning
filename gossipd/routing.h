@@ -271,6 +271,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 void routing_failure(struct routing_state *rstate,
 		     const struct pubkey *erring_node,
 		     const struct short_channel_id *erring_channel,
+		     int erring_direction,
 		     enum onion_type failcode,
 		     const u8 *channel_update);
 
