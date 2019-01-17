@@ -2540,24 +2540,6 @@ static struct io_plan *handle_routing_failure(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
-/*~ This allows lightningd to explicitly mark a channel temporarily unroutable.
- * This is used when we get an unparsable error, and we don't know who to blame;
- * lightningd uses this to marking routes unroutable at random... */
-static struct io_plan *
-handle_mark_channel_unroutable(struct io_conn *conn,
-			       struct daemon *daemon,
-			       const u8 *msg)
-{
-	struct short_channel_id channel;
-
-	if (!fromwire_gossip_mark_channel_unroutable(msg, &channel))
-		master_badmsg(WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE, msg);
-
-	mark_channel_unroutable(daemon->rstate, &channel);
-
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
 /*~ This is where lightningd tells us that a channel's funding transaction has
  * been spent. */
 static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
@@ -2641,9 +2623,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 		return handle_routing_failure(conn, daemon, msg);
-
-	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
-		return handle_mark_channel_unroutable(conn, daemon, msg);
 
 	case WIRE_GOSSIP_OUTPOINT_SPENT:
 		return handle_outpoint_spent(conn, daemon, msg);
