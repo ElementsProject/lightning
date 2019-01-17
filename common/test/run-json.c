@@ -40,6 +40,42 @@ static int test_json_tok_bitcoin_amount(void)
 	return 0;
 }
 
+static void test_json_tok_size(void)
+{
+	const jsmntok_t *toks;
+	char *buf;
+	bool ok;
+
+	buf = "[\"e1\", [\"e2\", \"e3\"]]";
+	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	assert(ok);
+	/* size only counts *direct* children */
+	assert(toks[0].size == 2);
+	assert(toks[2].size == 2);
+
+	buf = "[[\"e1\", \"e2\"], \"e3\"]";
+	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	assert(ok);
+	/* size only counts *direct* children */
+	assert(toks[0].size == 2);
+	assert(toks[1].size == 2);
+
+	buf = "{\"e1\" : {\"e2\", \"e3\"}}";
+	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	assert(ok);
+	/* size only counts *direct* children */
+	assert(toks[0].size == 1);
+	assert(toks[2].size == 2);
+
+	buf = "{\"e1\" : {\"e2\", \"e3\"}, \"e4\" : {\"e5\", \"e6\"}}";
+	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	assert(ok);
+	/* size only counts *direct* children */
+	assert(toks[0].size == 2);
+	assert(toks[2].size == 2);
+	assert(toks[6].size == 2);
+}
+
 static void test_json_delve(void)
 {
 	const jsmntok_t *toks, *t;
@@ -49,6 +85,7 @@ static void test_json_delve(void)
 	buf = "{\"1\":\"one\", \"2\":\"two\", \"3\":[\"three\", {\"deeper\": 17}]}";
 	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
 	assert(ok);
+	assert(toks->size == 3);
 
 	t = json_delve(buf, toks, ".1");
 	assert(t);
@@ -66,6 +103,7 @@ static void test_json_delve(void)
 	assert(t);
 	assert(t->type == JSMN_ARRAY);
 	assert(t == toks+6);
+	assert(t->size == 2);
 
 	t = json_delve(buf, toks, ".3[0]");
 	assert(t);
@@ -77,6 +115,7 @@ static void test_json_delve(void)
 	assert(t);
 	assert(t->type == JSMN_OBJECT);
 	assert(t == toks+8);
+	assert(t->size == 1);
 
 	t = json_delve(buf, toks, ".3[1].deeper");
 	assert(t);
@@ -118,11 +157,15 @@ static void test_json_delve(void)
 		"\n";
 	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
 	assert(ok);
+	assert(toks->size == 4);
 
 	t = json_delve(buf, toks, ".rpcfile");
 	assert(!t);
 	t = json_delve(buf, toks, ".configuration.rpc-file");
 	assert(!t);
+	t = json_delve(buf, toks, ".params.configuration");
+	assert(t);
+	assert(t->size == 2);
 	t = json_delve(buf, toks, ".params.configuration.rpc-file");
 	assert(t);
 	assert(t->type == JSMN_STRING);
@@ -134,6 +177,7 @@ int main(void)
 	setup_locale();
 	setup_tmpctx();
 
+	test_json_tok_size();
 	test_json_tok_bitcoin_amount();
 	test_json_delve();
 	assert(!taken_any());
