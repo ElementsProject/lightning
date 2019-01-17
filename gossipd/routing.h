@@ -39,10 +39,6 @@ struct half_chan {
 	/* Flags as specified by the `channel_update`s, indicates
 	 * optional fields.  */
 	u8 message_flags;
-
-	/* If greater than current time, this connection should not
-	 * be used for routing. */
-	time_t unroutable_until;
 };
 
 struct chan {
@@ -277,9 +273,6 @@ void routing_failure(struct routing_state *rstate,
 		     const struct short_channel_id *erring_channel,
 		     enum onion_type failcode,
 		     const u8 *channel_update);
-/* Disable specific channel from routing. */
-void mark_channel_unroutable(struct routing_state *rstate,
-			     const struct short_channel_id *channel);
 
 void route_prune(struct routing_state *rstate);
 

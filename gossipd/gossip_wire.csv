@@ -126,11 +126,6 @@ gossip_routing_failure,,failcode,u16
 gossip_routing_failure,,len,u16
 gossip_routing_failure,,channel_update,len*u8
 
-# master->gossipd temporarily mark a channel unroutable
-# (used in case of unparseable onion reply)
-gossip_mark_channel_unroutable,3022
-gossip_mark_channel_unroutable,,channel,struct short_channel_id
-
 # master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
 gossip_outpoint_spent,3024
 gossip_outpoint_spent,,short_channel_id,struct short_channel_id
