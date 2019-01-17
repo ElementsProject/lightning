@@ -33,11 +33,6 @@ struct wireaddr_internal;
 void json_add_route(struct json_stream *r, char const *n,
 		    const struct route_hop *hops, size_t hops_len);
 
-/* Output the fields of a wallet payment.
- * Should be used within an object context. */
-void json_add_payment_fields(struct json_stream *response,
-			     const struct wallet_payment *t);
-
 /* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
 void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,

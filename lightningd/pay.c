@@ -18,9 +18,37 @@
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
-/*-----------------------------------------------------------------------------
-Internal sendpay interface
------------------------------------------------------------------------------*/
+/* Routing failure object */
+struct routing_failure {
+	unsigned int erring_index;
+	enum onion_type failcode;
+	struct pubkey erring_node;
+	struct short_channel_id erring_channel;
+	int channel_dir;
+};
+
+/* Result of send_payment */
+struct sendpay_result {
+	/* Did the payment succeed? */
+	bool succeeded;
+	/* Preimage. Only loaded if payment succeeded. */
+	struct preimage preimage;
+	/* Error code, one of the PAY_* macro in jsonrpc_errors.h.
+	 * Only loaded if payment failed. */
+	int errorcode;
+	/* Pointer to the payment. Only loaded if payment
+	 * succeeded or if error is PAY_IN_PROGRESS */
+	const struct wallet_payment *payment;
+	/* Unparseable onion reply. Only loaded if payment failed,
+	 * and errorcode == PAY_UNPARSEABLE_ONION. */
+	const u8* onionreply;
+	/* Routing failure object. Only loaded if payment failed,
+	 * and errorcode == PAY_DESTINATION_PERM_FAIL or
+	 * errorcode == PAY_TRY_OTHER_ROUTE */
+	struct routing_failure* routing_failure;
+	/* Error message. Only loaded if payment failed. */
+	const char *details;
+};
 
 /* sendpay command */
 struct sendpay_command {
@@ -463,11 +491,11 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
  * no longer be called.
  * Return false if we called callback already, true if
  * callback is scheduled for later. */
-bool wait_payment(const tal_t *cxt,
-		  struct lightningd *ld,
-		  const struct sha256 *payment_hash,
-		  void (*cb)(const struct sendpay_result *, void*),
-		  void *cbarg)
+static bool wait_payment(const tal_t *cxt,
+			 struct lightningd *ld,
+			 const struct sha256 *payment_hash,
+			 void (*cb)(const struct sendpay_result *, void*),
+			 void *cbarg)
 {
 	struct wallet_payment *payment;
 	struct sendpay_result *result;
@@ -558,7 +586,7 @@ end:
 }
 
 /* Returns false if cb was called, true if cb not yet called. */
-bool
+static bool
 send_payment(const tal_t *ctx,
 	     struct lightningd* ld,
 	     const struct sha256 *rhash,
@@ -741,6 +769,37 @@ send_payment(const tal_t *ctx,
 /*-----------------------------------------------------------------------------
 JSON-RPC sendpay interface
 -----------------------------------------------------------------------------*/
+
+/* Outputs fields, not a separate object*/
+static void
+json_add_payment_fields(struct json_stream *response,
+			const struct wallet_payment *t)
+{
+	json_add_u64(response, "id", t->id);
+	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
+	json_add_pubkey(response, "destination", &t->destination);
+	json_add_u64(response, "msatoshi", t->msatoshi);
+	json_add_u64(response, "msatoshi_sent", t->msatoshi_sent);
+	json_add_u64(response, "created_at", t->timestamp);
+
+	switch (t->status) {
+	case PAYMENT_PENDING:
+		json_add_string(response, "status", "pending");
+		break;
+	case PAYMENT_COMPLETE:
+		json_add_string(response, "status", "complete");
+		break;
+	case PAYMENT_FAILED:
+		json_add_string(response, "status", "failed");
+		break;
+	}
+	if (t->payment_preimage)
+		json_add_hex(response, "payment_preimage",
+			     t->payment_preimage,
+			     sizeof(*t->payment_preimage));
+	if (t->description)
+		json_add_string(response, "description", t->description);
+}
 
 static void
 json_sendpay_success(struct command *cmd,
