@@ -183,7 +183,7 @@ static void tok_tok(void)
 	{
 		unsigned int n;
 		const jsmntok_t *tok = NULL;
-		struct json *j = json_parse(cmd, "{ 'satoshi', '546' }");
+		struct json *j = json_parse(cmd, "{ 'satoshi': '546' }");
 
 		assert(param(cmd, j->buffer, j->toks,
 			     p_req("satoshi", param_tok, &tok), NULL));
