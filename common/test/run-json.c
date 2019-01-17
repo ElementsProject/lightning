@@ -74,6 +74,11 @@ static void test_json_tok_size(void)
 	assert(toks[0].size == 2);
 	assert(toks[2].size == 2);
 	assert(toks[6].size == 2);
+
+	/* This should *not* parse! (used to give toks[0]->size == 2!) */
+	buf = "{ 'satoshi', '546' }";
+	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	assert(!ok);
 }
 
 static void test_json_delve(void)
