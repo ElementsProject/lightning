@@ -188,63 +188,6 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 	payment_trigger_success(ld, &hout->payment_hash);
 }
 
-/* Fix up the channel_update to include the type if it doesn't currently have
- * one. See ElementsProject/lightning#1730 and lightningnetwork/lnd#1599 for the
- * in-depth discussion on why we break message parsing here... */
-static u8 *patch_channel_update(const tal_t *ctx, u8 *channel_update TAKES)
-{
-	u8 *fixed;
-	if (channel_update != NULL &&
-	    fromwire_peektype(channel_update) != WIRE_CHANNEL_UPDATE) {
-		/* This should be a channel_update, prefix with the
-		 * WIRE_CHANNEL_UPDATE type, but isn't. Let's prefix it. */
-		fixed = tal_arr(ctx, u8, 0);
-		towire_u16(&fixed, WIRE_CHANNEL_UPDATE);
-		towire(&fixed, channel_update, tal_bytelen(channel_update));
-		if (taken(channel_update))
-			tal_free(channel_update);
-		return fixed;
-	} else {
-		return tal_dup_arr(ctx, u8,
-				   channel_update, tal_count(channel_update), 0);
-	}
-}
-
-/* Return NULL if the wrapped onion error message has no
- * channel_update field, or return the embedded
- * channel_update message otherwise. */
-static u8 *channel_update_from_onion_error(const tal_t *ctx,
-					   const u8 *onion_message)
-{
-	u8 *channel_update = NULL;
-	u64 unused64;
-	u32 unused32;
-
-	/* Identify failcodes that have some channel_update.
-	 *
-	 * TODO > BOLT 1.0: Add new failcodes when updating to a
-	 * new BOLT version. */
-	if (!fromwire_temporary_channel_failure(ctx,
-						onion_message,
-						&channel_update) &&
-	    !fromwire_amount_below_minimum(ctx,
-					   onion_message, &unused64,
-					   &channel_update) &&
-	    !fromwire_fee_insufficient(ctx,
-		    		       onion_message, &unused64,
-				       &channel_update) &&
-	    !fromwire_incorrect_cltv_expiry(ctx,
-		    			    onion_message, &unused32,
-					    &channel_update) &&
-	    !fromwire_expiry_too_soon(ctx,
-		    		      onion_message,
-				      &channel_update))
-		/* No channel update. */
-		return NULL;
-
-	return patch_channel_update(ctx, take(channel_update));
-}
-
 /* Return a struct routing_failure for an immediate failure
  * (returned directly from send_htlc_out). The returned
  * failure is allocated from the given context. */
@@ -269,7 +212,6 @@ immediate_routing_failure(const tal_t *ctx,
 	/* FIXME: Don't set at all unless we know. */
 	else
 		routing_failure->channel_dir = 0;
-	routing_failure->channel_update = NULL;
 
 	return routing_failure;
 }
@@ -293,8 +235,9 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure->erring_channel = payment->route_channels[0];
 	routing_failure->channel_dir = pubkey_idx(&ld->id,
 						  &payment->route_nodes[0]);
-	routing_failure->channel_update = NULL;
 
+	log_debug(hout->key.channel->log, "local_routing_failure: %u (%s)",
+		  hout->failcode, onion_type_name(hout->failcode));
 	return routing_failure;
 }
 
@@ -304,14 +247,13 @@ local_routing_failure(const tal_t *ctx,
  * failure to report (allocated from ctx) otherwise. */
 static struct routing_failure*
 remote_routing_failure(const tal_t *ctx,
+		       struct lightningd *ld,
 		       bool *p_retry_plausible,
-		       bool *p_report_to_gossipd,
 		       const struct wallet_payment *payment,
 		       const struct onionreply *failure,
 		       struct log *log)
 {
 	enum onion_type failcode = fromwire_peektype(failure->msg);
-	u8 *channel_update;
 	struct routing_failure *routing_failure;
 	const struct pubkey *route_nodes;
 	const struct pubkey *erring_node;
@@ -320,23 +262,13 @@ remote_routing_failure(const tal_t *ctx,
 	static const struct short_channel_id dummy_channel = { 0 };
 	int origin_index;
 	bool retry_plausible;
-	bool report_to_gossipd;
 	int dir;
 
 	routing_failure = tal(ctx, struct routing_failure);
 	route_nodes = payment->route_nodes;
 	route_channels = payment->route_channels;
 	origin_index = failure->origin_index;
-	channel_update
-		= channel_update_from_onion_error(routing_failure,
-						  failure->msg);
-	if (channel_update)
-		log_debug(log, "Extracted channel_update %s from onionreply %s",
-			  tal_hex(tmpctx, channel_update),
-			  tal_hex(tmpctx, failure->msg));
-
 	retry_plausible = true;
-	report_to_gossipd = true;
 
 	assert(origin_index < tal_count(route_nodes));
 
@@ -356,15 +288,10 @@ remote_routing_failure(const tal_t *ctx,
 			retry_plausible = false;
 		else
 			retry_plausible = true;
-		/* Only send message to gossipd if NODE error;
-		 * there is no "next" channel to report as
-		 * failing if this is the last node. */
-		if (failcode & NODE)
-			report_to_gossipd = true;
-		else
-			report_to_gossipd = false;
 		erring_node = &route_nodes[origin_index];
 	} else {
+		u8 *gossip_msg;
+
 		/* Report the *next* channel as failing. */
 		erring_channel = &route_channels[origin_index + 1];
 
@@ -379,44 +306,27 @@ remote_routing_failure(const tal_t *ctx,
 			erring_node = &route_nodes[origin_index + 1];
 		} else
 			erring_node = &route_nodes[origin_index];
+
+		/* Tell gossipd: it may want to remove channels or even nodes
+		 * in response to this, and there may be a channel_update
+		 * embedded too */
+		gossip_msg = towire_gossip_payment_failure(NULL,
+							   erring_node,
+							   erring_channel,
+							   dir,
+							   failure->msg);
+		subd_send_msg(ld->gossip, take(gossip_msg));
 	}
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node = *erring_node;
 	routing_failure->erring_channel = *erring_channel;
-	routing_failure->channel_update = channel_update;
 	routing_failure->channel_dir = dir;
 
 	*p_retry_plausible = retry_plausible;
-	*p_report_to_gossipd = report_to_gossipd;
 
 	return routing_failure;
-}
-
-static void report_routing_failure(struct log *log,
-				   struct subd *gossip,
-				   struct routing_failure *fail)
-{
-	u8 *gossip_msg;
-	assert(fail);
-
-	log_debug(log,
-		  "Reporting route failure to gossipd: 0x%04x (%s) "
-		  "node %s channel %s update %s",
-		  fail->failcode, onion_type_name(fail->failcode),
-		  type_to_string(tmpctx, struct pubkey,
-				 &fail->erring_node),
-		  type_to_string(tmpctx, struct short_channel_id,
-			  	 &fail->erring_channel),
-		  tal_hex(tmpctx, fail->channel_update));
-
-	gossip_msg = towire_gossip_routing_failure(tmpctx,
-						   &fail->erring_node,
-						   &fail->erring_channel,
-						   (u16) fail->failcode,
-						   fail->channel_update);
-	subd_send_msg(gossip, gossip_msg);
 }
 
 void payment_store(struct lightningd *ld,
@@ -453,7 +363,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct routing_failure* fail = NULL;
 	const char *failmsg;
 	bool retry_plausible;
-	bool report_to_gossipd;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash);
@@ -493,14 +402,15 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		fail = local_routing_failure(tmpctx, ld, hout, payment);
 		failmsg = localfail;
 		retry_plausible = true;
-		report_to_gossipd = true;
 	} else {
 		/* Must be remote fail. */
 		assert(!hout->failcode);
 		failmsg = "reply from remote";
 		/* Try to parse reply. */
 		struct secret *path_secrets = payment->path_secrets;
-		struct onionreply *reply = unwrap_onionreply(tmpctx, path_secrets,
+		struct onionreply *reply;
+
+		reply = unwrap_onionreply(tmpctx, path_secrets,
 					  tal_count(path_secrets),
 					  hout->failuremsg);
 		if (!reply) {
@@ -508,14 +418,9 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				 "htlc %"PRIu64" failed with bad reply (%s)",
 				 hout->key.id,
 				 tal_hex(tmpctx, hout->failuremsg));
-			/* Cannot report failure. */
+			/* Cannot record failure. */
 			fail = NULL;
-			/* Can now retry; we selected a channel to mark
-			 * unroutable by random */
 			retry_plausible = true;
-			/* Already reported something to gossipd, do not
-			 * report anything else */
-			report_to_gossipd = false;
 		} else {
 			enum onion_type failcode = fromwire_peektype(reply->msg);
 			log_info(hout->key.channel->log,
@@ -525,9 +430,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				 hout->key.id,
 				 reply->origin_index,
 				 failcode, onion_type_name(failcode));
-			fail = remote_routing_failure(tmpctx,
+			fail = remote_routing_failure(tmpctx, ld,
 						      &retry_plausible,
-						      &report_to_gossipd,
 						      payment, reply,
 						      hout->key.channel->log);
 		}
@@ -545,14 +449,9 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    fail ? fail->failcode : 0,
 				    fail ? &fail->erring_node : NULL,
 				    fail ? &fail->erring_channel : NULL,
-				    fail ? fail->channel_update : NULL,
+				    NULL,
 				    failmsg,
 				    fail ? fail->channel_dir : 0);
-
-	/* Report to gossipd if we decided we should. */
-	if (report_to_gossipd)
-		report_routing_failure(ld->log, ld->gossip, fail);
-
 
 	/* Report to client. */
 	payment_route_failure(ld, &hout->payment_hash,
@@ -642,7 +541,6 @@ bool wait_payment(const tal_t *cxt,
 			fail->failcode = failcode;
 			fail->erring_node = *failnode;
 			fail->erring_channel = *failchannel;
-			fail->channel_update = failupdate;
 			fail->channel_dir = faildirection;
 			result = sendpay_result_route_failure(tmpctx, !faildestperm, fail, NULL, faildetail);
 		}
@@ -763,7 +661,6 @@ send_payment(const tal_t *ctx,
 						 WIRE_UNKNOWN_NEXT_PEER,
 						 &route[0].channel_id,
 						 0);
-		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
 		result = sendpay_result_route_failure(tmpctx, true, fail, NULL,
@@ -792,7 +689,6 @@ send_payment(const tal_t *ctx,
 						 failcode,
 						 &route[0].channel_id,
 						 &channel->peer->id);
-		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
 		result = sendpay_result_route_failure(tmpctx, true, fail, NULL,
@@ -917,9 +813,6 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 						  &fail->erring_channel);
 			json_add_num(data, "erring_direction",
 				     fail->channel_dir);
-			if (fail->channel_update)
-				json_add_hex_talarr(data, "channel_update",
-						    fail->channel_update);
 			json_object_end(data);
 			was_pending(command_failed(cmd, data));
 			return;

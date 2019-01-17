@@ -1563,65 +1563,57 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	return hops;
 }
 
-/**
- * routing_failure_channel_out - Handle routing failure on a specific channel
- *
- * If we want to delete the channel, we reparent it to disposal_context.
- */
-static void routing_failure_channel_out(const tal_t *disposal_context,
-					struct node *node,
-					enum onion_type failcode,
-					struct chan *chan,
-					time_t now)
-{
-	/* BOLT #4:
-	 *
-	 * - if the PERM bit is NOT set:
-	 *   - SHOULD restore the channels as it receives new `channel_update`s.
-	 */
-	if (failcode & PERM)
-		/* Set it up to be pruned. */
-		tal_steal(disposal_context, chan);
-}
-
 void routing_failure(struct routing_state *rstate,
 		     const struct pubkey *erring_node_pubkey,
 		     const struct short_channel_id *scid,
+		     int erring_direction,
 		     enum onion_type failcode,
 		     const u8 *channel_update)
 {
-	struct node *node;
-	time_t now = time_now().ts.tv_sec;
-
 	status_trace("Received routing failure 0x%04x (%s), "
 		     "erring node %s, "
-		     "channel %s",
+		     "channel %s/%u",
 		     (int) failcode, onion_type_name(failcode),
 		     type_to_string(tmpctx, struct pubkey, erring_node_pubkey),
-		     type_to_string(tmpctx, struct short_channel_id, scid));
+		     type_to_string(tmpctx, struct short_channel_id, scid),
+		     erring_direction);
 
-	node = get_node(rstate, erring_node_pubkey);
-	if (!node) {
-		status_unusual("routing_failure: Erring node %s not in map",
-			       type_to_string(tmpctx, struct pubkey,
-					      erring_node_pubkey));
-		/* No node, so no channel, so any channel_update
-		 * can also be ignored. */
-		return;
+	/* lightningd will only extract this if UPDATE is set. */
+	if (channel_update) {
+		u8 *err = handle_channel_update(rstate, channel_update, "error");
+		if (err) {
+			status_unusual("routing_failure: "
+				       "bad channel_update %s",
+				       sanitize_error(err, err, NULL));
+			tal_free(err);
+		}
+	} else if (failcode & UPDATE) {
+		status_unusual("routing_failure: "
+			       "UPDATE bit set, no channel_update. "
+			       "failcode: 0x%04x",
+			       (int) failcode);
 	}
 
-	/* BOLT #4:
-	 *
-	 * - if the NODE bit is set:
-	 *   - SHOULD remove all channels connected with the erring node from
-	 *   consideration.
-	 *
-	 */
+	/* We respond to permanent errors, ignore the rest: they're
+	 * for the pay command to worry about.  */
+	if (!(failcode & PERM))
+		return;
+
 	if (failcode & NODE) {
-		for (int i = 0; i < tal_count(node->chans); ++i) {
-			routing_failure_channel_out(tmpctx, node, failcode,
-						    node->chans[i],
-						    now);
+		struct node *node = get_node(rstate, erring_node_pubkey);
+		if (!node) {
+			status_unusual("routing_failure: Erring node %s not in map",
+				       type_to_string(tmpctx, struct pubkey,
+						      erring_node_pubkey));
+		} else {
+			status_trace("Deleting node %s",
+				     type_to_string(tmpctx,
+						    struct pubkey,
+						    &node->id));
+			for (size_t i = 0; i < tal_count(node->chans); ++i) {
+				/* Set it up to be pruned. */
+				tal_steal(tmpctx, node->chans[i]);
+			}
 		}
 	} else {
 		struct chan *chan = get_channel(rstate, scid);
@@ -1632,49 +1624,21 @@ void routing_failure(struct routing_state *rstate,
 				       type_to_string(tmpctx,
 						      struct short_channel_id,
 						      scid));
-		else if (chan->nodes[0] != node && chan->nodes[1] != node)
-			status_unusual("routing_failure: "
-				       "Channel %s does not connect to %s",
-				       type_to_string(tmpctx,
-						      struct short_channel_id,
-						      scid),
-				       type_to_string(tmpctx, struct pubkey,
-						      erring_node_pubkey));
-		else
-			routing_failure_channel_out(tmpctx,
-						    node, failcode, chan, now);
-	}
-
-	/* Update the channel if UPDATE failcode. Do
-	 * this after deactivating, so that if the
-	 * channel_update is newer it will be
-	 * reactivated. */
-	if (failcode & UPDATE) {
-		u8 *err;
-		if (tal_count(channel_update) == 0) {
-			/* Suppress UNUSUAL log if local failure */
-			if (pubkey_eq(erring_node_pubkey, &rstate->local_id))
+		else {
+			/* This error can be triggered by sendpay if caller
+			 * uses the wrong key for dest. */
+			if (failcode == WIRE_INVALID_ONION_HMAC
+			    && !pubkey_eq(&chan->nodes[!erring_direction]->id,
+					  erring_node_pubkey))
 				return;
-			status_unusual("routing_failure: "
-				       "UPDATE bit set, no channel_update. "
-				       "failcode: 0x%04x",
-				       (int) failcode);
-			return;
+
+			status_trace("Deleting channel %s",
+				     type_to_string(tmpctx,
+						    struct short_channel_id,
+						    scid));
+			/* Set it up to be deleted. */
+			tal_steal(tmpctx, chan);
 		}
-		err = handle_channel_update(rstate, channel_update, "error");
-		if (err) {
-			status_unusual("routing_failure: "
-				       "bad channel_update %s",
-				       sanitize_error(err, err, NULL));
-			tal_free(err);
-			return;
-		}
-	} else {
-		if (tal_count(channel_update) != 0)
-			status_unusual("routing_failure: "
-				       "UPDATE bit clear, channel_update given. "
-				       "failcode: 0x%04x",
-				       (int) failcode);
 	}
 }
 
