@@ -30,6 +30,8 @@ changes.
 
 ### Removed
 
+- JSON API: the `waitsendpay` command error return no longer includes `channel_update`
+
 ### Fixed
 
 - Protocol: handling `query_channel_range` for large numbers of blocks
