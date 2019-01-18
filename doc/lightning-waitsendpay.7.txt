@@ -71,13 +71,10 @@ A routing failure object has the fields below:
 * 'erring_node'. The hex string of the pubkey id of the node
   that reported the error.
 * 'erring_channel'. The short channel ID of the channel that
-  has the error, or '0:0:0' if the destination node raised
-  the error.
+  has the error (or the final channel if the destination raised the error).
+* 'erring_direction'. The direction of traversing the 'erring_channel'.
 * 'failcode'. The failure code, as per BOLT #4.
-* 'channel_update'. The hex string of the 'channel_update'
-  message received from the remote node. Only present if
-  error is from the remote node and the 'failcode' has the
-  UPDATE bit set, as per BOLT #4.
+* 'failcodename'. The human-readable name corresponding to 'failcode', if known.
 
 AUTHOR
 ------
