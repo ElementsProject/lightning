@@ -1979,6 +1979,7 @@ static void check_future_dataloss_fields(struct peer *peer,
  */
 static void check_current_dataloss_fields(struct peer *peer,
 			u64 next_remote_revocation_number,
+			u64 next_local_commitment_number,
 			const struct secret *last_local_per_commit_secret,
 			const struct pubkey *remote_current_per_commitment_point)
 {
@@ -1988,6 +1989,11 @@ static void check_current_dataloss_fields(struct peer *peer,
 	 * number. */
 	assert(next_remote_revocation_number == peer->next_index[LOCAL] - 2
 	       || next_remote_revocation_number == peer->next_index[LOCAL] - 1);
+
+	/* By the time we're called, we've ensured we're within 1 of
+	 * their commitment chain */
+	assert(next_local_commitment_number == peer->next_index[REMOTE] ||
+			next_local_commitment_number == peer->next_index[REMOTE] - 1);
 
 	if (!last_local_per_commit_secret)
 		return;
@@ -2021,16 +2027,23 @@ static void check_current_dataloss_fields(struct peer *peer,
 			    type_to_string(tmpctx, struct secret,
 					   &old_commit_secret));
 
-	/* FIXME: We don't keep really old per_commit numbers, so we can't
-	 * check this 'needs retransmit' case! */
-	if (next_remote_revocation_number == peer->next_index[REMOTE]) {
+	status_trace("Reestablish, comparing commitments. Remote's next local commitment number"
+			" is %"PRIu64". Our next remote is %"PRIu64" with %"PRIu64
+			" revocations received",
+			next_local_commitment_number,
+			peer->next_index[REMOTE],
+			peer->revocations_received);
+
+	/* Either they haven't received our commitment yet, or we're up to date */
+	if (next_local_commitment_number == peer->revocations_received + 1) {
 		if (!pubkey_eq(remote_current_per_commitment_point,
-			       &peer->old_remote_per_commit)) {
+				&peer->old_remote_per_commit)) {
 			peer_failed(&peer->cs,
 				    &peer->channel_id,
-				    "bad reestablish: my_current_per_commitment_point %"PRIu64
-				    ": %s should be %s (new is %s)",
-				    next_remote_revocation_number,
+				    "bad reestablish: remote's "
+				    "my_current_per_commitment_point %"PRIu64
+				    "is %s; expected %s (new is %s).",
+				    next_local_commitment_number - 1,
 				    type_to_string(tmpctx, struct pubkey,
 						   remote_current_per_commitment_point),
 				    type_to_string(tmpctx, struct pubkey,
@@ -2038,12 +2051,24 @@ static void check_current_dataloss_fields(struct peer *peer,
 				    type_to_string(tmpctx, struct pubkey,
 						   &peer->remote_per_commit));
 		}
-	} else
-		status_trace("option_data_loss_protect: can't check their claimed per_commitment_point %s #%"PRIu64"-1 as we're at %"PRIu64,
-			     type_to_string(tmpctx, struct pubkey,
-					    remote_current_per_commitment_point),
-			     next_remote_revocation_number,
-			     peer->next_index[REMOTE]);
+	} else {
+		/* We've sent a commit sig but haven't gotten a revoke+ack back */
+		if (!pubkey_eq(remote_current_per_commitment_point,
+				&peer->remote_per_commit)) {
+			peer_failed(&peer->cs,
+				    &peer->channel_id,
+				    "bad reestablish: remote's "
+				    "my_current_per_commitment_point %"PRIu64
+				    "is %s; expected %s (old is %s).",
+				    next_local_commitment_number - 1,
+				    type_to_string(tmpctx, struct pubkey,
+						   remote_current_per_commitment_point),
+				    type_to_string(tmpctx, struct pubkey,
+						   &peer->remote_per_commit),
+				    type_to_string(tmpctx, struct pubkey,
+						   &peer->old_remote_per_commit));
+		}
+	}
 
 	status_trace("option_data_loss_protect: fields are correct");
 }
@@ -2066,7 +2091,9 @@ static void peer_reconnect(struct peer *peer,
 	dataloss_protect = local_feature_negotiated(peer->localfeatures,
 						    LOCAL_DATA_LOSS_PROTECT);
 
-	get_per_commitment_point(peer->next_index[LOCAL]-1,
+	/* Our current per-commitment point is the commitment point in the last
+	 * received signed commitment */
+	get_per_commitment_point(peer->next_index[LOCAL] - 1,
 				 &my_current_per_commitment_point, NULL);
 
 	/* BOLT #2:
@@ -2265,6 +2292,7 @@ static void peer_reconnect(struct peer *peer,
 	if (dataloss_protect)
 		check_current_dataloss_fields(peer,
 					      next_remote_revocation_number,
+					      next_local_commitment_number,
 					      &last_local_per_commitment_secret,
 					      &remote_current_per_commitment_point);
 
