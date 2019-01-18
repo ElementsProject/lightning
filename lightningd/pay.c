@@ -297,7 +297,6 @@ remote_routing_failure(const tal_t *ctx,
 	const struct pubkey *erring_node;
 	const struct short_channel_id *route_channels;
 	const struct short_channel_id *erring_channel;
-	static const struct short_channel_id dummy_channel = { 0 };
 	int origin_index;
 	int dir;
 
@@ -310,9 +309,15 @@ remote_routing_failure(const tal_t *ctx,
 
 	/* Check if at destination. */
 	if (origin_index == tal_count(route_nodes) - 1) {
-		/* FIXME: Don't set erring_channel or dir in this case! */
-		erring_channel = &dummy_channel;
-		dir = 0;
+		/* If any channel is to blame, it's the last one. */
+		erring_channel = &route_channels[origin_index];
+		/* Single hop? */
+		if (origin_index == 0)
+			dir = pubkey_idx(&ld->id,
+					 &route_nodes[origin_index]);
+		else
+			dir = pubkey_idx(&route_nodes[origin_index - 1],
+					 &route_nodes[origin_index]);
 
 		/* BOLT #4:
 		 *
