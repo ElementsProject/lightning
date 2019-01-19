@@ -44,6 +44,7 @@
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/plugin_hook.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
@@ -411,39 +412,51 @@ void channel_errmsg(struct channel *channel,
 			       err_for_them ? "sent" : "received", desc);
 }
 
-/* Connectd tells us a peer has connected: it never hands us duplicates, since
- * it holds them until we say peer_died. */
-void peer_connected(struct lightningd *ld, const u8 *msg,
-		    int peer_fd, int gossip_fd)
-{
-	struct pubkey id;
-	struct crypto_state cs;
-	u8 *globalfeatures, *localfeatures;
-	u8 *error;
+/* Possible outcomes returned by the `connected` hook. */
+enum peer_connected_hook_result {
+	PEER_CONNECTED_CONTINUE,
+	PEER_CONNECTED_DISCONNECT,
+};
+
+struct peer_connected_hook_payload {
+	struct lightningd *ld;
+	struct crypto_state crypto_state;
 	struct channel *channel;
 	struct wireaddr_internal addr;
 	struct peer *peer;
+	int peer_fd;
+	int gossip_fd;
+};
 
-	if (!fromwire_connect_peer_connected(msg, msg,
-					     &id, &addr, &cs,
-					     &globalfeatures, &localfeatures))
-		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
-		      tal_hex(msg, msg));
+struct peer_connected_hook_response {
+	enum peer_connected_hook_result result;
+};
 
-	/* Complete any outstanding connect commands. */
-	connect_succeeded(ld, &id);
+static void
+peer_connected_serialize(struct peer_connected_hook_payload *payload,
+			 struct json_stream *stream)
+{
+}
 
-	/* If we're already dealing with this peer, hand off to correct
-	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
-	peer = peer_by_id(ld, &id);
-	if (!peer)
-		peer = new_peer(ld, 0, &id, &addr);
+static struct peer_connected_hook_response *
+peer_connected_deserialize(const tal_t *ctx, const char *buffer,
+			   const jsmntok_t *toks)
+{
+	return NULL;
+}
 
-	peer_update_features(peer, globalfeatures, localfeatures);
-
-	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
-	assert(!peer->uncommitted_channel);
-	channel = peer_active_channel(peer);
+static void
+peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
+		       struct peer_connected_hook_response *response)
+{
+	struct lightningd *ld = payload->ld;
+	struct crypto_state *cs = &payload->crypto_state;
+	struct channel *channel = payload->channel;
+	struct wireaddr_internal addr = payload->addr;
+	struct peer *peer = payload->peer;
+	int gossip_fd = payload->gossip_fd;
+	int peer_fd = payload->peer_fd;
+	u8 *error;
 
 	if (channel) {
 		log_debug(channel->log, "Peer has reconnected, state %s",
@@ -490,30 +503,82 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_channeld(channel, &cs,
+			peer_start_channeld(channel, cs,
 					    peer_fd, gossip_fd, NULL,
 					    true);
+			tal_free(payload);
 			return;
 
 		case CLOSINGD_SIGEXCHANGE:
 			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_closingd(channel, &cs,
+			peer_start_closingd(channel, cs,
 					    peer_fd, gossip_fd,
 					    true, NULL);
+			tal_free(payload);
 			return;
 		}
 		abort();
 	}
 
-	notify_connect(ld, &id, &addr);
+	notify_connect(ld, &peer->id, &addr);
 
 	/* No err, all good. */
 	error = NULL;
 
 send_error:
-	peer_start_openingd(peer, &cs, peer_fd, gossip_fd, error);
+	peer_start_openingd(peer, cs, peer_fd, gossip_fd, error);
+	tal_free(payload);
+}
+
+REGISTER_PLUGIN_HOOK(peer_connected, peer_connected_hook_cb,
+		     struct peer_connected_hook_payload *,
+		     peer_connected_serialize,
+		     struct peer_connected_hook_payload *,
+		     peer_connected_deserialize,
+		     struct peer_connected_hook_response *);
+
+/* Connectd tells us a peer has connected: it never hands us duplicates, since
+ * it holds them until we say peer_died. */
+void peer_connected(struct lightningd *ld, const u8 *msg,
+		    int peer_fd, int gossip_fd)
+{
+	struct pubkey id;
+	u8 *globalfeatures, *localfeatures;
+	struct peer *peer;
+	struct peer_connected_hook_payload *hook_payload;
+
+	hook_payload = tal(NULL, struct peer_connected_hook_payload);
+	hook_payload->ld = ld;
+	hook_payload->gossip_fd = gossip_fd;
+	hook_payload->peer_fd = peer_fd;
+
+	if (!fromwire_connect_peer_connected(msg, msg,
+					     &id, &hook_payload->addr, &hook_payload->crypto_state,
+					     &globalfeatures, &localfeatures))
+		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
+		      tal_hex(msg, msg));
+
+	/* Complete any outstanding connect commands. */
+	connect_succeeded(ld, &id);
+
+	/* If we're already dealing with this peer, hand off to correct
+	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
+	peer = peer_by_id(ld, &id);
+	if (!peer)
+		peer = new_peer(ld, 0, &id, &hook_payload->addr);
+
+	tal_steal(peer, hook_payload);
+	hook_payload->peer = peer;
+
+	peer_update_features(peer, globalfeatures, localfeatures);
+
+	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
+	assert(!peer->uncommitted_channel);
+	hook_payload->channel = peer_active_channel(peer);
+
+	plugin_hook_call_peer_connected(ld, hook_payload, hook_payload);
 }
 
 static enum watch_result funding_lockin_cb(struct lightningd *ld,

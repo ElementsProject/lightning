@@ -407,6 +407,10 @@ void peer_start_openingd(struct peer *peer UNNEEDED,
 			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
 			 const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
+/* Generated stub for plugin_hook_call_ */
+void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
+		       void *payload UNNEEDED, void *cb_arg UNNEEDED)
+{ fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
 /* Generated stub for process_onionpacket */
 struct route_step *process_onionpacket(
 	const tal_t * ctx UNNEEDED,
