@@ -4,9 +4,7 @@
 #include <wire/peer_wire.h>
 
 static const u32 our_localfeatures[] = {
-#if EXPERIMENTAL_FEATURES
 	LOCAL_DATA_LOSS_PROTECT,
-#endif
 	LOCAL_INITIAL_ROUTING_SYNC,
 	LOCAL_GOSSIP_QUERIES
 };
