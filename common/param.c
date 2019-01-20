@@ -53,7 +53,7 @@ static struct command_result *post_check(struct command *cmd,
 	while (first != last && first->required) {
 		if (!first->is_set) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "missing required parameter: '%s'",
+					    "missing required parameter: %s",
 					    first->name);
 		}
 		first++;
@@ -124,7 +124,7 @@ static struct command_result *parse_by_name(struct command *cmd,
 		if (!p) {
 			if (!allow_extra) {
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "unknown parameter: '%.*s'",
+						    "unknown parameter: %.*s",
 						    t->end - t->start,
 						    buffer + t->start);
 			}
@@ -133,7 +133,7 @@ static struct command_result *parse_by_name(struct command *cmd,
 
 			if (p->is_set) {
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "duplicate json names: '%s'",
+						    "duplicate json names: %s",
 						    p->name);
 			}
 

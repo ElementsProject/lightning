@@ -116,3 +116,6 @@ def test_pay_plugin(node_factory):
 
     res = l1.rpc.pay(bolt11=inv['bolt11'])
     assert res['status'] == 'complete'
+
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.call('pay')
