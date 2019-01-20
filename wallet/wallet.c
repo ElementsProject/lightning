@@ -594,7 +594,8 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 
 	if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
 		scid = tal(tmpctx, struct short_channel_id);
-		sqlite3_column_short_channel_id(stmt, 2, scid);
+		if (!sqlite3_column_short_channel_id(stmt, 2, scid))
+			return NULL;
 	} else {
 		scid = NULL;
 	}

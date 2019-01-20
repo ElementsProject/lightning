@@ -134,8 +134,8 @@ void *sqlite3_column_arr_(const tal_t *ctx, sqlite3_stmt *stmt, int col,
 
 bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
 				   const struct short_channel_id *id);
-bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
-				     struct short_channel_id *dest);
+WARN_UNUSED_RESULT bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
+							struct short_channel_id *dest);
 bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
 					 const struct short_channel_id *id);
 struct short_channel_id *
