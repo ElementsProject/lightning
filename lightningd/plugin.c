@@ -31,7 +31,7 @@
  * hangs we can't do much, so we put an upper bound on the time we're
  * willing to wait. Plugins shouldn't do any initialization in the
  * `getmanifest` call anyway, that's what `init `is for. */
-#define PLUGIN_MANIFEST_TIMEOUT 10
+#define PLUGIN_MANIFEST_TIMEOUT 60
 
 struct plugin {
 	struct list_node list;
