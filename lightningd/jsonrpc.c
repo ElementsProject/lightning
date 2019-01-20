@@ -353,8 +353,8 @@ static struct command_result *json_help(struct command *cmd,
 		}
 		return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
 				    "Unknown command '%.*s'",
-				    json_tok_full_len(cmdtok),
-				    json_tok_full(buffer, cmdtok));
+				    cmdtok->end - cmdtok->start,
+				    buffer + cmdtok->start);
 	}
 
 	response = json_stream_success(cmd);
@@ -584,12 +584,11 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    "Expected string for method");
 	}
 
-        c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
-        if (!c->json_cmd) {
-		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
-				    "Unknown command '%.*s'",
-				    json_tok_full_len(method),
-				    json_tok_full(jcon->buffer, method));
+	c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
+	if (!c->json_cmd) {
+		return command_fail(
+		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
+		    method->end - method->start, jcon->buffer + method->start);
 	}
 	if (c->json_cmd->deprecated && !deprecated_apis) {
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
