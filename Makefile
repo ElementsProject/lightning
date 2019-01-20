@@ -473,7 +473,7 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
 	       lightningd/lightning_openingd
-PLUGINS=
+PLUGINS=plugins/pay
 
 install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS)
 	@$(NORMAL_INSTALL)
