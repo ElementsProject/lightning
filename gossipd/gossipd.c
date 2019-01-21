@@ -664,13 +664,14 @@ static void reply_channel_range(struct peer *peer,
  * tail_blocks is the empty blocks at the end, in case they asked for all
  * blocks to 4 billion.
  */
-static void queue_channel_ranges(struct peer *peer,
+static bool queue_channel_ranges(struct peer *peer,
 				 u32 first_blocknum, u32 number_of_blocks,
 				 u32 tail_blocks)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
 	u8 *encoded = encode_short_channel_ids_start(tmpctx);
 	struct short_channel_id scid;
+	bool scid_ok;
 
 	/* BOLT #7:
 	 *
@@ -688,10 +689,12 @@ static void queue_channel_ranges(struct peer *peer,
 
 	/* Avoid underflow: we don't use block 0 anyway */
 	if (first_blocknum == 0)
-		mk_short_channel_id(&scid, 1, 0, 0);
+		scid_ok = mk_short_channel_id(&scid, 1, 0, 0);
 	else
-		mk_short_channel_id(&scid, first_blocknum, 0, 0);
+		scid_ok = mk_short_channel_id(&scid, first_blocknum, 0, 0);
 	scid.u64--;
+	if (!scid_ok)
+		return false;
 
 	/* We keep a `uintmap` of `short_channel_id` to `struct chan *`.
 	 * Unlike a htable, it's efficient to iterate through, but it only
@@ -712,7 +715,7 @@ static void queue_channel_ranges(struct peer *peer,
 		reply_channel_range(peer, first_blocknum,
 				    number_of_blocks + tail_blocks,
 				    encoded);
-		return;
+		return true;
 	}
 
 	/* It wouldn't all fit: divide in half */
@@ -721,7 +724,7 @@ static void queue_channel_ranges(struct peer *peer,
 		/* We always assume we can send 1 blocks worth */
 		status_broken("Could not fit scids for single block %u",
 			      first_blocknum);
-		return;
+		return false;
 	}
 	status_debug("queue_channel_ranges full: splitting %u+%u and %u+%u(+%u)",
 		     first_blocknum,
@@ -729,10 +732,10 @@ static void queue_channel_ranges(struct peer *peer,
 		     first_blocknum + number_of_blocks / 2,
 		     number_of_blocks - number_of_blocks / 2,
 		     tail_blocks);
-	queue_channel_ranges(peer, first_blocknum, number_of_blocks / 2, 0);
-	queue_channel_ranges(peer, first_blocknum + number_of_blocks / 2,
-			     number_of_blocks - number_of_blocks / 2,
-			     tail_blocks);
+	return queue_channel_ranges(peer, first_blocknum, number_of_blocks / 2, 0)
+		&& queue_channel_ranges(peer, first_blocknum + number_of_blocks / 2,
+					number_of_blocks - number_of_blocks / 2,
+					tail_blocks);
 }
 
 /*~ The peer can ask for all channels is a series of blocks.  We reply with one
@@ -778,8 +781,12 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	} else
 		tail_blocks = 0;
 
-	queue_channel_ranges(peer, first_blocknum, number_of_blocks,
-			     tail_blocks);
+	if (!queue_channel_ranges(peer, first_blocknum, number_of_blocks,
+				  tail_blocks))
+		return towire_errorfmt(peer, NULL,
+				       "Invalid query_channel_range %u+%u",
+				       first_blocknum, number_of_blocks + tail_blocks);
+
 	return NULL;
 }
 

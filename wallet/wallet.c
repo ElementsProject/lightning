@@ -2166,8 +2166,11 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 		assert(res == SQLITE_ROW);
 
 		scid = tal(ctx, struct short_channel_id);
-		mk_short_channel_id(scid, sqlite3_column_int(stmt, 0),
-				    sqlite3_column_int(stmt, 1), outnum);
+		if (!mk_short_channel_id(scid, sqlite3_column_int(stmt, 0),
+					 sqlite3_column_int(stmt, 1), outnum))
+			fatal("wallet_outpoint_spend: invalid scid %u:%u:%u",
+			      sqlite3_column_int(stmt, 0),
+			      sqlite3_column_int(stmt, 1), outnum);
 		db_stmt_done(stmt);
 		return scid;
 	}

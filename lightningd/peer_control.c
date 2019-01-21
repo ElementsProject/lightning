@@ -537,9 +537,15 @@ static enum watch_result funding_lockin_cb(struct lightningd *ld,
 
 		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 		channel->scid = tal(channel, struct short_channel_id);
-		mk_short_channel_id(channel->scid,
-				    loc->blkheight, loc->index,
-				    channel->funding_outnum);
+		if (!mk_short_channel_id(channel->scid,
+					 loc->blkheight, loc->index,
+					 channel->funding_outnum)) {
+			channel_fail_permanent(channel, "Invalid funding scid %u:%u:%u",
+					       loc->blkheight, loc->index,
+					       channel->funding_outnum);
+			return DELETE_WATCH;
+		}
+
 		/* We've added scid, update */
 		wallet_channel_save(ld->wallet, channel);
 	}
