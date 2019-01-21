@@ -343,7 +343,7 @@ class PluginStream(object):
     def write(self, payload):
         self.buff += payload
 
-        if payload[-1] == '\n':
+        if len(payload) > 0 and payload[-1] == '\n':
             self.flush()
 
     def flush(self):
