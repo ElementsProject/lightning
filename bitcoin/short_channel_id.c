@@ -22,12 +22,17 @@
 */
 
 
-void mk_short_channel_id(struct short_channel_id *scid,
-			 u32 blocknum, u32 txnum, u16 outnum)
+bool mk_short_channel_id(struct short_channel_id *scid,
+			 u64 blocknum, u64 txnum, u64 outnum)
 {
+	if ((blocknum & 0xFFFFFF) != blocknum
+	    || (txnum & 0xFFFFFF) != txnum
+	    || (outnum & 0xFFFF) != outnum)
+		return false;
 	scid->u64 = (((u64)blocknum & 0xFFFFFF) << 40 |
 		     ((u64)txnum & 0xFFFFFF) << 16 |
 		     (outnum & 0xFFFF));
+	return true;
 }
 
 bool short_channel_id_from_str(const char *str, size_t strlen,
@@ -50,8 +55,8 @@ bool short_channel_id_from_str(const char *str, size_t strlen,
 #else
 	matches = sscanf(buf, "%ux%ux%hu", &blocknum, &txnum, &outnum);
 #endif
-	mk_short_channel_id(dst, blocknum, txnum, outnum);
-	return matches == 3;
+	return matches == 3
+		&& mk_short_channel_id(dst, blocknum, txnum, outnum);
 }
 
 char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid)
