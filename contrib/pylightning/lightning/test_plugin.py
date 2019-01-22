@@ -1,22 +1,21 @@
-from .plugin import Plugin
+from .plugin import Plugin, Request
 import itertools
 
 
 def test_positional_inject():
     p = Plugin()
-    rdict = {
-        'id': 1,
-        'jsonrpc':
-        '2.0',
-        'method': 'func',
-        'params': {'a': 1, 'b': 2, 'kwa': 3, 'kwb': 4}
-    }
-    rarr = {
-        'id': 1,
-        'jsonrpc': '2.0',
-        'method': 'func',
-        'params': [1, 2, 3, 4]
-    }
+    rdict = Request(
+        plugin=p,
+        req_id=1,
+        method='func',
+        params={'a': 1, 'b': 2, 'kwa': 3, 'kwb': 4}
+    )
+    rarr = Request(
+        plugin=p,
+        req_id=1,
+        method='func',
+        params=[1, 2, 3, 4],
+    )
 
     def pre_args(plugin, a, b, kwa=3, kwb=4):
         assert (plugin, a, b, kwa, kwb) == (p, 1, 2, 3, 4)
