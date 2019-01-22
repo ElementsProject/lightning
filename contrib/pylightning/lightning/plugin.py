@@ -113,7 +113,7 @@ class Plugin(object):
         if os.getenv('LIGHTNINGD_PLUGIN') and autopatch:
             monkey_patch(self, stdout=True, stderr=True)
 
-        self.add_method("getmanifest", self._getmanifest)
+        self.add_method("getmanifest", self._getmanifest, background=False)
         self.rpc_filename = None
         self.lightning_dir = None
         self.rpc = None
@@ -121,7 +121,7 @@ class Plugin(object):
 
         self.write_lock = RLock()
 
-    def add_method(self, name, func):
+    def add_method(self, name, func, background=False):
         """Add a plugin method to the dispatch table.
 
         The function will be expected at call time (see `_dispatch`)
@@ -141,6 +141,13 @@ class Plugin(object):
         plugin and request argument should always be the last two
         arguments and have a default on None.
 
+        The `background` argument can be used to specify whether the method is
+        going to return a result that should be sent back to the lightning
+        daemon (`background=False`) or whether the method will return without
+        sending back a result. In the latter case the method MUST use
+        `request.set_result` or `result.set_exception` to return a result or
+        raise an exception for the call.
+
         """
         if name in self.methods:
             raise ValueError(
@@ -149,6 +156,7 @@ class Plugin(object):
 
         # Register the function with the name
         method = Method(name, func, MethodType.RPCMETHOD)
+        method.background = background
         self.methods[name] = method
 
     def add_subscription(self, topic, func):
@@ -206,17 +214,17 @@ class Plugin(object):
         else:
             return self.options[name]['default']
 
-    def method(self, method_name, *args, **kwargs):
+    def method(self, method_name, background=True):
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f):
-            self.add_method(method_name, f)
+            self.add_method(method_name, f, background=background)
             return f
         return decorator
 
-    def add_hook(self, name, func):
+    def add_hook(self, name, func, background=False):
         """Register a hook that is called synchronously by lightningd on events
         """
         if name in self.methods:
@@ -224,15 +232,16 @@ class Plugin(object):
                 "Method {} was already registered".format(name, self.methods[name])
             )
         method = Method(name, func, MethodType.HOOK)
+        method.background = background
         self.methods[name] = method
 
-    def hook(self, method_name):
+    def hook(self, method_name, background=False):
         """Decorator to add a plugin hook to the dispatch table.
 
         Internally uses add_hook.
         """
         def decorator(f):
-            self.add_hook(method_name, f)
+            self.add_hook(method_name, f, background=background)
             return f
         return decorator
 
