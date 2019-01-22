@@ -15,6 +15,20 @@ class MethodType(Enum):
     HOOK = 1
 
 
+class Method(object):
+    """Description of methods that are registered with the plugin.
+
+    These can be one of the following:
+
+     - RPC exposed by RPC passthrough
+     - HOOK registered to be called synchronously by lightningd
+    """
+    def __init__(self, name, func, mtype=MethodType.RPCMETHOD):
+        self.name = name
+        self.func = func
+        self.mtype = mtype
+
+
 class Plugin(object):
     """Controls interactions with lightningd, and bundles functionality.
 
@@ -25,7 +39,7 @@ class Plugin(object):
     """
 
     def __init__(self, stdout=None, stdin=None, autopatch=True):
-        self.methods = {'init': (self._init, MethodType.RPCMETHOD)}
+        self.methods = {'init': Method('init', self._init, MethodType.RPCMETHOD)}
         self.options = {}
 
         # A dict from topics to handler functions
@@ -72,7 +86,8 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        self.methods[name] = (func, MethodType.RPCMETHOD)
+        method = Method(name, func, MethodType.RPCMETHOD)
+        self.methods[name] = method
 
     def add_subscription(self, topic, func):
         """Add a subscription to our list of subscriptions.
@@ -146,7 +161,8 @@ class Plugin(object):
             raise ValueError(
                 "Method {} was already registered".format(name, self.methods[name])
             )
-        self.methods[name] = (func, MethodType.HOOK)
+        method = Method(name, func, MethodType.HOOK)
+        self.methods[name] = method
 
     def hook(self, method_name):
         """Decorator to add a plugin hook to the dispatch table.
@@ -211,13 +227,13 @@ class Plugin(object):
 
         if name not in self.methods:
             raise ValueError("No method {} found.".format(name))
-        func, _ = self.methods[name]
+        method = self.methods[name]
 
         try:
             result = {
                 'jsonrpc': '2.0',
                 'id': request['id'],
-                'result': self._exec_func(func, request)
+                'result': self._exec_func(method.func, request)
             }
         except Exception as e:
             result = {
@@ -291,27 +307,26 @@ class Plugin(object):
     def _getmanifest(self, **kwargs):
         methods = []
         hooks = []
-        for name, entry in self.methods.items():
-            func, typ = entry
+        for method in self.methods.values():
             # Skip the builtin ones, they don't get reported
-            if name in ['getmanifest', 'init']:
+            if method.name in ['getmanifest', 'init']:
                 continue
 
-            if typ == MethodType.HOOK:
-                hooks.append(name)
+            if method.mtype == MethodType.HOOK:
+                hooks.append(method.name)
                 continue
 
-            doc = inspect.getdoc(func)
+            doc = inspect.getdoc(method.func)
             if not doc:
                 self.log(
-                    'RPC method \'{}\' does not have a docstring.'.format(name)
+                    'RPC method \'{}\' does not have a docstring.'.format(method.name)
                 )
                 doc = "Undocumented RPC method from a plugin."
             doc = re.sub('\n+', ' ', doc)
 
             # Handles out-of-order use of parameters like:
             # def hello_obfus(arg1, arg2, plugin, thing3, request=None, thing5='at', thing6=21)
-            argspec = inspect.getargspec(func)
+            argspec = inspect.getargspec(method.func)
             defaults = argspec.defaults
             num_defaults = len(defaults) if defaults else 0
             start_kwargs_idx = len(argspec.args) - num_defaults
@@ -327,7 +342,7 @@ class Plugin(object):
                     args.append("[%s]" % arg)
 
             methods.append({
-                'name': name,
+                'name': method.name,
                 'usage': " ".join(args),
                 'description': doc
             })
