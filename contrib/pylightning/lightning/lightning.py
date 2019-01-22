@@ -130,6 +130,7 @@ class UnixDomainSocketRpc(object):
 
         # Do we require the compatibility mode?
         self._compat = True
+        self.next_id = 0
 
     def _writeobj(self, sock, obj):
         s = json.dumps(obj, cls=self.encoder)
@@ -208,8 +209,9 @@ class UnixDomainSocketRpc(object):
         self._writeobj(sock, {
             "method": method,
             "params": payload,
-            "id": 0
+            "id": self.next_id,
         })
+        self.next_id += 1
         resp, _ = self._readobj_compat(sock)
         sock.close()
 
