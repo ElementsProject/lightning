@@ -252,7 +252,7 @@ class Plugin(object):
 
         arguments = OrderedDict()
         for name, value in sig.parameters.items():
-            arguments[name] = inspect.Signature.empty
+            arguments[name] = inspect._empty
 
         # Fill in any injected parameters
         if 'plugin' in arguments:
@@ -267,7 +267,7 @@ class Plugin(object):
         else:
             pos = 0
             for k, v in arguments.items():
-                if v is not inspect.Signature.empty:
+                if v != inspect._empty:
                     continue
                 if pos < len(params):
                     # Apply positional args if we have them
@@ -279,6 +279,15 @@ class Plugin(object):
                     # For the remainder apply default args
                     arguments[k] = sig.parameters[k].default
                 pos += 1
+
+        missing = [k for k, v in arguments.items() if v == inspect._empty]
+        if missing:
+            raise TypeError("Missing positional arguments ({given} given, "
+                            "expected {expected}): {missing}".format(
+                                missing=", ".join(missing),
+                                given=len(arguments) - len(missing),
+                                expected=len(arguments)
+                            ))
 
         ba = sig.bind(**arguments)
         ba.apply_defaults()

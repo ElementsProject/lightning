@@ -1,5 +1,6 @@
 from .plugin import Plugin, Request
 import itertools
+import pytest
 
 
 def test_positional_inject():
@@ -42,9 +43,28 @@ def test_positional_inject():
         """
         assert (a, b, c, d, e) == (1, 2, 3, 4, 42)
 
+    def count(plugin, count, request):
+        assert count == 42 and plugin == p
+
     funcs = [pre_args, in_args, post_args, post_kwargs, in_multi_args]
 
     for func, request in itertools.product(funcs, [rdict, rarr]):
         p._exec_func(func, request)
 
     p._exec_func(extra_def_arg, rarr)
+
+    p._exec_func(count, Request(
+        plugin=p,
+        req_id=1,
+        method='func',
+        params=[42],
+    ))
+
+    # This should fail since it is missing one positional argument
+    with pytest.raises(ValueError):
+        p._exec_func(count, Request(
+            plugin=p,
+            req_id=1,
+            method='func',
+            params=[])
+        )
