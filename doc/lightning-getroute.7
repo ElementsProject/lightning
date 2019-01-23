@@ -2,12 +2,12 @@
 .\"     Title: lightning-getroute
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 12/17/2018
+.\"      Date: 01/23/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-GETROUTE" "7" "12/17/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-GETROUTE" "7" "01/23/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -257,9 +257,9 @@ T}
 1000 is an aggressive value for trying to minimize timeouts at all costs\&.
 .SH "RETURN VALUE"
 .sp
-On success, a "route" array is returned\&. Each array element contains
+On success, a "route" array is returned\&. Each array element contains \fIid\fR (the node being routed through), \fImsatoshi\fR (the millisatoshis sent), and \fIdelay\fR (the number of blocks to timeout at this node)\&.
 .sp
-timeout for the payment failure, in blocks\&.
+The final \fIid\fR will be the destination \fIid\fR given in the input\&. The difference between the first \fImsatoshi\fR minus the \fImsatoshi\fR given in the input is the fee\&. The first \fIdelay\fR is the very worst case timeout for the payment failure, in blocks\&.
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.

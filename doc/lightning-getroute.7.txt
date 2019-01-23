@@ -95,13 +95,14 @@ costs.
 RETURN VALUE
 ------------
 
-On success, a "route" array is returned.  Each array element contains
-{id} (the node being routed through), {msatoshi} (the millisatoshis
-sent), and {delay} (the number of blocks to timeout at this node).
+On success, a "route" array is returned.
+Each array element contains 'id' (the node being routed through), 'msatoshi'
+(the millisatoshis sent), and 'delay' (the number of blocks to timeout at this
+node).
 
-The final {id} will be the destination {id} given in the input.  The
-difference between the first {msatoshi} minus the {msatoshi} given in
-the input is the fee.  The first {delay} is the very worst case
+The final 'id' will be the destination 'id' given in the input.  The
+difference between the first 'msatoshi' minus the 'msatoshi' given in
+the input is the fee.  The first 'delay' is the very worst case
 timeout for the payment failure, in blocks.
 
 //FIXME:Enumerate errors
