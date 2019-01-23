@@ -1112,7 +1112,7 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     time.sleep(1)
 
     def mock_sendrawtransaction(r):
-        return {'error': 'sendrawtransaction disabled'}
+        return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
 
     # Prevent funder from broadcasting funding tx (any tx really).
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
