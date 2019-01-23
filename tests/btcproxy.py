@@ -56,6 +56,7 @@ class BitcoinRpcProxy(object):
         except JSONRPCError as e:
             reply = {
                 "error": e.error,
+                "code": -32603,
                 "id": r['id']
             }
         self.request_count += 1
