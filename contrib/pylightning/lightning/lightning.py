@@ -293,7 +293,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
-    def getroute(self, peer_id, msatoshi, riskfactor, cltv=9, fromid=None, fuzzpercent=None, seed=None, exclude=[]):
+    def getroute(self, node_id, msatoshi, riskfactor, cltv=9, fromid=None, fuzzpercent=None, seed=None, exclude=[]):
         """
         Show route to {id} for {msatoshi}, using {riskfactor} and optional
         {cltv} (default 9). If specified search from {fromid} otherwise use
@@ -302,7 +302,7 @@ class LightningRpc(UnixDomainSocketRpc):
         seed. {exclude} is an optional array of scid/direction to exclude.
         """
         payload = {
-            "id": peer_id,
+            "id": node_id,
             "msatoshi": msatoshi,
             "riskfactor": riskfactor,
             "cltv": cltv,
