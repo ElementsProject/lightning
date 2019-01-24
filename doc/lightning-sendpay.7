@@ -2,12 +2,12 @@
 .\"     Title: lightning-sendpay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 10/23/2018
+.\"      Date: 01/25/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-SENDPAY" "7" "10/23/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-SENDPAY" "7" "01/25/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,7 +34,7 @@ lightning-sendpay \- Command for sending a payment via a route\&.
 \fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIdescription\fR] [\fImsatoshi\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBsendpay\fR RPC command attempts to send funds associated with the given payment_\(cqhash\*(Aq, along a route to the final destination in the route\&.
+The \fBsendpay\fR RPC command attempts to send funds associated with the given \fIpayment_hash\fR, along a route to the final destination in the route\&.
 .sp
 Generally, a client would call lightning\-getroute(7) to resolve a route, then use \fBsendpay\fR to send it\&. If it fails, it would call lightning\-getroute(7) again to retry\&.
 .sp

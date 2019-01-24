@@ -14,7 +14,7 @@ DESCRIPTION
 -----------
 
 The *sendpay* RPC command attempts to send funds associated with the
-given payment_'hash', along a route to the final destination in the route.
+given 'payment_hash', along a route to the final destination in the route.
 
 Generally, a client would call lightning-getroute(7) to resolve a route, then
 use *sendpay* to send it.  If it fails, it would call lightning-getroute(7)
