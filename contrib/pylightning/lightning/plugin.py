@@ -227,7 +227,7 @@ class Plugin(object):
 
         try:
             self._exec_func(func, request)
-        except Exception as _:
+        except Exception:
             self.log(traceback.format_exc())
 
     def notify(self, method, params):
