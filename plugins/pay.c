@@ -345,8 +345,8 @@ static const jsmntok_t *find_worst_channel(const char *buf,
 					   u64 final)
 {
 	u64 prev = final, worstval = 0;
-	const jsmntok_t *worst = NULL, *t;
-	size_t i;
+	const jsmntok_t *worst = NULL, *t = NULL;
+	size_t i = 0;
 
 	json_for_each_arr(i, t, route) {
 		u64 val;
@@ -616,8 +616,8 @@ static struct command_result *add_shadow_route(struct command *cmd,
 {
 	/* Use reservoir sampling across the capable channels. */
 	const jsmntok_t *channels = json_get_member(buf, result, "channels");
-	const jsmntok_t *chan, *best = NULL;
-	size_t i;
+	const jsmntok_t *chan = NULL, *best = NULL;
+	size_t i = 0;
 	u64 sample;
 	u32 cltv, best_cltv;
 
@@ -676,8 +676,8 @@ static struct command_result *listpeers_done(struct command *cmd,
 					     const jsmntok_t *result,
 					     struct pay_command *pc)
 {
-	const jsmntok_t *peers, *peer;
-	size_t i;
+	const jsmntok_t *peers, *peer = NULL;
+	size_t i = 0;
 	char *mods = tal_strdup(tmpctx, "");
 
 	peers = json_get_member(buf, result, "peers");
@@ -686,9 +686,9 @@ static struct command_result *listpeers_done(struct command *cmd,
 			   result->end - result->start, buf);
 
 	json_for_each_arr(i, peer, peers) {
-		const jsmntok_t *chans, *chan;
+		const jsmntok_t *chans, *chan = NULL;
 		bool connected;
-		size_t j;
+		size_t j = 0;
 
 		json_to_bool(buf, json_get_member(buf, peer, "connected"),
 			     &connected);

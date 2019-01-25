@@ -307,8 +307,8 @@ static struct route_info *unpack_route(const tal_t *ctx,
 				       const char *buffer,
 				       const jsmntok_t *routetok)
 {
-	const jsmntok_t *t;
-	size_t i;
+	const jsmntok_t *t = NULL;
+	size_t i = 0;
 	struct route_info *route = tal_arr(ctx, struct route_info, routetok->size);
 
 	json_for_each_arr(i, t, routetok) {
@@ -407,8 +407,8 @@ static struct command_result *json_invoice(struct command *cmd,
 	}
 
 	if (fallbacks) {
-		size_t i;
-		const jsmntok_t *t;
+		size_t i = 0;
+		const jsmntok_t *t = NULL;
 
 		fallback_scripts = tal_arr(cmd, const u8 *, fallbacks->size);
 		json_for_each_arr(i, t, fallbacks) {

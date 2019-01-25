@@ -330,8 +330,8 @@ static struct command_result *json_getroute(struct command *cmd,
 	*fuzz = *fuzz / 100.0;
 
 	if (excludetok) {
-		const jsmntok_t *t;
-		size_t i;
+		const jsmntok_t *t = NULL;
+		size_t i = 0;
 
 		excluded = tal_arr(cmd, struct short_channel_id_dir,
 				   excludetok->size);
@@ -483,10 +483,10 @@ static struct command_result *json_dev_query_scids(struct command *cmd,
 {
 	u8 *msg;
 	const jsmntok_t *scidstok;
-	const jsmntok_t *t;
+	const jsmntok_t *t = NULL;
 	struct pubkey *id;
 	struct short_channel_id *scids;
-	size_t i;
+	size_t i = 0;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_pubkey, &id),

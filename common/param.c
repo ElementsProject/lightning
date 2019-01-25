@@ -68,8 +68,8 @@ static struct command_result *parse_by_position(struct command *cmd,
 						bool allow_extra)
 {
 	struct command_result *res;
-	const jsmntok_t *tok;
-	size_t i;
+	const jsmntok_t *tok = NULL;
+	size_t i = 0;
 
 	json_for_each_arr(i, tok, tokens) {
 		/* check for unexpected trailing params */
@@ -115,8 +115,8 @@ static struct command_result *parse_by_name(struct command *cmd,
 					    const jsmntok_t tokens[],
 					    bool allow_extra)
 {
-	size_t i;
-	const jsmntok_t *t;
+	size_t i = 0;
+	const jsmntok_t *t = NULL;
 
 	json_for_each_obj(i, t, tokens) {
 		struct param *p = find_param(params, buffer + t->start,

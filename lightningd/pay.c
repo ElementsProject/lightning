@@ -732,8 +732,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 					   const jsmntok_t *params)
 {
 	const jsmntok_t *routetok;
-	const jsmntok_t *t;
-	size_t i;
+	const jsmntok_t *t = NULL;
+	size_t i = 0;
 	struct sha256 *rhash;
 	struct route_hop *route;
 	u64 *msatoshi;
