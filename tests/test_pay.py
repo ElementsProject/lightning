@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
-from utils import DEVELOPER, wait_for, only_one, sync_blockheight
+from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE
 
 
 import copy
@@ -1090,7 +1090,7 @@ def test_forward_stats(node_factory, bitcoind):
     assert l3.rpc.getinfo()['msatoshi_fees_collected'] == 0
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
+@unittest.skipIf(not DEVELOPER or SLOW_MACHINE, "needs DEVELOPER=1 for dev_ignore_htlcs, and temporarily disabled on Travis")
 def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     # l1 -> l2 -> l3 -> l4
     # l4 ignores htlcs, so they stay.
