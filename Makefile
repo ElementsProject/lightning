@@ -52,7 +52,7 @@ endif
 
 # Timeout shortly before the 600 second travis silence timeout
 # (method=thread to support xdist)
-PYTEST_OPTS := -v --timeout=550 --timeout_method=thread
+PYTEST_OPTS := -v --timeout=550 --timeout_method=thread -p no:logging
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
