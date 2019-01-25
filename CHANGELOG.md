@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API: `listpeers` now has a `direction` field in `channels`.
 - JSON API: `listchannels` now takes a `source` option to filter by node id.
 - JSON API: New command `paystatus` gives detailed information on `pay` commands.
+- lightningd: native bitcoin rpc client.
 
 ### Changed
 
@@ -31,6 +32,7 @@ changes.
 ### Removed
 
 - JSON API: the `waitsendpay` command error return no longer includes `channel_update`
+- lightningd: remove bitcoin-cli dependcy
 
 ### Fixed
 
