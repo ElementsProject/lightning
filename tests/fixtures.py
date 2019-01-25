@@ -93,7 +93,7 @@ def bitcoind(directory):
     yield bitcoind
 
     try:
-        bitcoind.rpc.stop()
+        bitcoind.stop()
     except Exception:
         bitcoind.proc.kill()
     bitcoind.proc.wait()
