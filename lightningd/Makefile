@@ -57,6 +57,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\
+	lightningd/bitcoin_rpc.c		\
 	lightningd/chaintopology.c		\
 	lightningd/channel.c			\
 	lightningd/channel_control.c		\
