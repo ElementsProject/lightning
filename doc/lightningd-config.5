@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 12/03/2018
+.\"      Date: 12/06/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "12/03/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "12/06/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -88,17 +88,15 @@ Alias for
 \fInetwork=bitcoin\fR\&.
 .RE
 .PP
-\fBbitcoin\-cli\fR=\fIPATH\fR
-.RS 4
-The name of
-\fIbitcoin\-cli\fR
-executable to run\&.
-.RE
-.PP
 \fBbitcoin\-datadir\fR=\fIDIR\fR
 .RS 4
 \fI\-datadir\fR
-argument to supply to bitcoin\-cli(1)\&.
+argument to supply to bitcoin rpc(1)\&.
+.RE
+.PP
+\fBbitcoin\-rpccookiefile\fR=\fIPATH\fR
+.RS 4
+The RPC auth cookie location\&. Relative paths will be prefixed by a net\-specific datadir location\&. (default: bitcoin data dir)
 .RE
 .PP
 \fBbitcoin\-rpcuser\fR=\fIUSER\fR
@@ -119,6 +117,16 @@ The bitcoind(1) RPC host to connect to\&.
 \fBbitcoin\-rpcport\fR=\fIPORT\fR
 .RS 4
 The bitcoind(1) RPC port to connect to\&.
+.RE
+.PP
+\fBbitcoin\-rpcclienttimeout\fR=\fISECONDS\fR
+.RS 4
+The bitcoind(1) RPC timeout\&.
+.RE
+.PP
+\fBbitcoin\-rpcthreads\fR=\fINUMBERS\fR
+.RS 4
+The bitcoind(1) RPC thread numbers\&.
 .RE
 .PP
 \fBrescan\fR=\fIBLOCKS\fR
@@ -439,7 +447,7 @@ to authenticate to the Tor control port\&.
 .RE
 .SS "Lightning Plugins"
 .sp
-lightningd(8) supports plugins, which offer additional configuration options and JSON\-RPC methods, depending on the plugin\&. Some are supplied by default (usually located in \fBlibexec/c\-lightning/plugins\fR), but you can add your own, too\&.
+lightningd(8) supports plugins, which offer additional configuration options and JSON\-RPC methods, depending on the plugin\&. Some are supplied by default (usually located in \fBlibexec/c\-lightning/plugins/\fR), but you can add your own, too\&.
 .PP
 \fBplugin\fR=\fIPATH\fR
 .RS 4
@@ -448,10 +456,11 @@ Specify a plugin to run as part of c\-lightning\&. This can be specified multipl
 .PP
 \fBplugin\-dir\fR=\fIDIRECTORY\fR
 .RS 4
-Specify a directory to look for plugins; all files beginning with
-\fIlplugin_\fR
-in
-\fIDIRECTORY\fR
+Specify a directory to look for plugins; all executable files not containing punctuation (other than
+\fI\&.\fR,
+\fI\-\fR
+or
+\fI_) in \*(AqDIRECTORY\fR
 are loaded\&.
 \fIDIRECTORY\fR
 must exist; this can be specified multiple times to add multiple directories\&.

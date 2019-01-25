@@ -70,11 +70,12 @@ Bitcoin control options:
 *mainnet*::
     Alias for 'network=bitcoin'.
 
-*bitcoin-cli*='PATH'::
-    The name of 'bitcoin-cli' executable to run.
-
 *bitcoin-datadir*='DIR'::
-    '-datadir' argument to supply to bitcoin-cli(1).
+    '-datadir' argument to supply to bitcoin rpc(1).
+
+*bitcoin-rpccookiefile*='PATH'::
+    The RPC auth cookie location. Relative paths will be prefixed by a 
+    net-specific datadir location. (default: bitcoin data dir)
 
 *bitcoin-rpcuser*='USER'::
     The RPC username for talking to bitcoind(1).
@@ -87,6 +88,12 @@ Bitcoin control options:
 
 *bitcoin-rpcport*='PORT'::
     The bitcoind(1) RPC port to connect to.
+
+*bitcoin-rpcclienttimeout*='SECONDS'::
+    The bitcoind(1) RPC timeout.
+
+*bitcoin-rpcthreads*='NUMBERS'::
+    The bitcoind(1) RPC thread numbers.
 
 *rescan*='BLOCKS'::
     Number of blocks to rescan from the current head, or absolute blockheight
