@@ -298,6 +298,7 @@ class BitcoinD(TailableProc):
         btc_conf_file = os.path.join(bitcoin_dir, 'bitcoin.conf')
         write_config(btc_conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST)
         self.rpc = SimpleBitcoinProxy(btc_conf_file=btc_conf_file)
+        self.proxies = []
 
     def start(self):
         TailableProc.start(self)
@@ -305,13 +306,24 @@ class BitcoinD(TailableProc):
 
         logging.info("BitcoinD started")
 
+    def stop(self):
+        for p in self.proxies:
+            p.stop()
+        self.rpc.stop()
+        return TailableProc.stop(self)
+
+    def get_proxy(self):
+        proxy = BitcoinRpcProxy(self)
+        self.proxies.append(proxy)
+        return proxy
+
     def generate_block(self, numblocks=1):
         # As of 0.16, generate() is removed; use generatetoaddress.
         return self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
 
 
 class LightningD(TailableProc):
-    def __init__(self, lightning_dir, bitcoind, port=9735, random_hsm=False, node_id=0):
+    def __init__(self, lightning_dir, bitcoindproxy, port=9735, random_hsm=False, node_id=0):
         TailableProc.__init__(self, lightning_dir)
         self.executable = 'lightningd/lightningd'
         self.lightning_dir = lightning_dir
@@ -319,7 +331,7 @@ class LightningD(TailableProc):
         self.cmd_prefix = []
         self.disconnect_file = None
 
-        self.rpcproxy = BitcoinRpcProxy(bitcoind)
+        self.rpcproxy = bitcoindproxy
 
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
@@ -384,7 +396,6 @@ class LightningD(TailableProc):
         not return before the timeout triggers.
         """
         self.proc.wait(timeout)
-        self.rpcproxy.stop()
         return self.proc.returncode
 
 
@@ -743,7 +754,7 @@ class NodeFactory(object):
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
         daemon = LightningD(
-            lightning_dir, self.bitcoind,
+            lightning_dir, bitcoindproxy=self.bitcoind.get_proxy(),
             port=port, random_hsm=random_hsm, node_id=node_id
         )
         # If we have a disconnect string, dump it to a file for daemon.
