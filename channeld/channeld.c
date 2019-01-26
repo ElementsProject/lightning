@@ -2928,6 +2928,10 @@ int main(int argc, char *argv[])
 					      "Can't read command: %s",
 					      strerror(errno));
 			req_in(peer, msg);
+		} else if (FD_ISSET(PEER_FD, &rfds)) {
+			/* This could take forever, but who cares? */
+			msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
+			peer_in(peer, msg);
 		} else if (FD_ISSET(GOSSIP_FD, &rfds)) {
 			msg = wire_sync_read(tmpctx, GOSSIP_FD);
 			/* Gossipd hangs up on us to kill us when a new
@@ -2935,10 +2939,6 @@ int main(int argc, char *argv[])
 			if (!msg)
 				peer_failed_connection_lost();
 			handle_gossip_msg(PEER_FD, &peer->cs, take(msg));
-		} else if (FD_ISSET(PEER_FD, &rfds)) {
-			/* This could take forever, but who cares? */
-			msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
-			peer_in(peer, msg);
 		}
 	}
 
