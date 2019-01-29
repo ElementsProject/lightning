@@ -26,18 +26,18 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
 	select(peer_fd > gossip_fd ? peer_fd + 1 : gossip_fd + 1,
 	       &readfds, NULL, NULL, NULL);
 
-	if (FD_ISSET(gossip_fd, &readfds)) {
-		msg = wire_sync_read(ctx, gossip_fd);
-		if (!msg)
-			status_failed(STATUS_FAIL_GOSSIP_IO,
-				      "Error reading gossip msg: %s",
-				      strerror(errno));
-		*from_gossipd = true;
+	if (FD_ISSET(peer_fd, &readfds)) {
+		msg = sync_crypto_read(ctx, cs, peer_fd);
+		*from_gossipd = false;
 		return msg;
 	}
 
-	msg = sync_crypto_read(ctx, cs, peer_fd);
-	*from_gossipd = false;
+	msg = wire_sync_read(ctx, gossip_fd);
+	if (!msg)
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Error reading gossip msg: %s",
+			      strerror(errno));
+	*from_gossipd = true;
 	return msg;
 }
 
