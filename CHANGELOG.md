@@ -36,6 +36,7 @@ changes.
 
 - Protocol: handling `query_channel_range` for large numbers of blocks
   (eg. 4 billion) was slow due to a bug.
+- Fixed occasional deadlock with peers when exchanging huge amounts of gossip.
 
 ### Security
 
