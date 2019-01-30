@@ -86,11 +86,13 @@ RECOMMENDED RISKFACTOR VALUES
 0.001 is a value for tie-breaking in favor of shorter routes, but not really
 costing in any risk.
 
-1 is a conservative value for a stable lightning network with very few
-failures.
+10 is a conservative value for the current network, and usually avoids
+gratuitous extra hops (this is the default for lightning-pay(7)).
 
 1000 is an aggressive value for trying to minimize timeouts at all
 costs.
+
+The pay command
 
 RETURN VALUE
 ------------
