@@ -1357,3 +1357,41 @@ def test_pay_routeboost(node_factory, bitcoind):
 
         assert [h['channel'] for h in attempts[0]['routehint']] == [r['short_channel_id'] for r in routel3l4l5]
         assert [h['channel'] for h in attempts[1]['routehint']] == [r['short_channel_id'] for r in routel3l5]
+
+
+@pytest.mark.xfail(strict=True)
+def test_pay_direct(node_factory, bitcoind):
+    """Check that we prefer the direct route.
+    """
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    # Direct channel
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fund_channel(l3, 10**7)
+    # Indirect route
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 10**7)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    c3 = l2.fund_channel(l3, 10**7)
+
+    # Let channels lock in.
+    bitcoind.generate_block(5)
+
+    # Make sure l1 knows the l2->l3 channel.
+    l1.wait_channel_active(c3)
+
+    # Find out how much msatoshi l1 owns on l1->l2 channel.
+    l1l2msatreference = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']
+
+    # Try multiple times to ensure that route randomization
+    # will not override our preference for direct route.
+    for i in range(8):
+        inv = l3.rpc.invoice(10000, 'pay{}'.format(i), 'desc')['bolt11']
+
+        l1.rpc.pay(inv)
+
+        # We should have gone the direct route, so
+        # l1->l2 channel msatoshi_to_us should not
+        # have changed.
+        l1l2msat = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']
+        assert l1l2msat == l1l2msatreference
