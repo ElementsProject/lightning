@@ -1132,11 +1132,11 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo->blockheight = blockheight?blockheight:NULL;
 		utxo->spendheight = NULL;
 
-		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s",
+		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s %s",
 			  output, tx->output[output].amount,
 			  is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
-					 &utxo->txid));
+					 &utxo->txid), blockheight ? "CONFIRMED" : "");
 
 		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {
 			/* In case we already know the output, make

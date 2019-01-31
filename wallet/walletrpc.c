@@ -60,6 +60,8 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		 * generated the hex tx, so this should always work */
 		struct bitcoin_tx *tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
 		assert(tx != NULL);
+
+		/* Extract the change output and add it to the DB */
 		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change_satoshi);
 
 		/* Note normally, change_satoshi == withdraw->wtx.change, but
@@ -95,6 +97,8 @@ static struct command_result *json_withdraw(struct command *cmd,
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
 	u32 *feerate_per_kw;
 	struct bitcoin_tx *tx;
+	struct ext_key ext;
+	struct pubkey pubkey;
 	enum address_parse_result addr_parse;
 	struct command_result *res;
 
@@ -142,6 +146,18 @@ static struct command_result *json_withdraw(struct command *cmd,
 			       tal_count(withdraw->destination));
 	if (res)
 		return res;
+
+	if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, withdraw->wtx.change_key_index,
+			BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+		return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
+	}
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
+			ext.pub_key, sizeof(ext.pub_key))) {
+		return command_fail(cmd, LIGHTNINGD, "Key parsing failure");
+	}
+
+	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
 					     withdraw->wtx.amount,
