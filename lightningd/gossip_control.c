@@ -352,7 +352,8 @@ static struct command_result *json_getroute(struct command *cmd,
 	}
 
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
-						 *msatoshi, *riskfactor * 1000,
+						 *msatoshi,
+						 *riskfactor * 1000000.0,
 						 *cltv, fuzz,
 						 excluded,
 						 *max_hops);
