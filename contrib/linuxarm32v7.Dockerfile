@@ -82,7 +82,10 @@ RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
 
 COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
 WORKDIR /opt/lightningd
-COPY . .
+COPY . /tmp/lightning
+RUN git clone --recursive /tmp/lightning . && \
+    git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
+
 ARG DEVELOPER=0
 RUN ./configure --enable-static && make -j3 DEVELOPER=${DEVELOPER} && cp lightningd/lightning* cli/lightning-cli /usr/bin/
 
