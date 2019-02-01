@@ -1341,7 +1341,6 @@ def test_pay_routeboost(node_factory, bitcoind):
         assert [h['channel'] for h in attempts[2]['routehint']] == [r['short_channel_id'] for r in routel3l5]
 
 
-@pytest.mark.xfail(strict=True)
 def test_pay_direct(node_factory, bitcoind):
     """Check that we prefer the direct route.
     """

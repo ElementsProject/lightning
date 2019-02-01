@@ -2,12 +2,12 @@
 .\"     Title: lightning-getroute
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/23/2019
+.\"      Date: 02/01/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-GETROUTE" "7" "01/23/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-GETROUTE" "7" "02/01/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,9 +36,9 @@ lightning-getroute \- Command for routing a payment (low\-level)\&.
 .sp
 The \fBgetroute\fR RPC command attempts to find the best route for the payment of \fImsatoshi\fR to lightning node \fIid\fR, such that the payment will arrive at \fIid\fR with \fIcltv\fR\-blocks to spare (default 9)\&.
 .sp
-There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck if a node goes down during the process\&. The \fIriskfactor\fR floating\-point field controls this tradeoff; it is the annual cost of your funds being stuck (as a percentage), multiplied by the percentage chance of each node failing\&.
+There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck if a node goes down during the process\&. The \fIriskfactor\fR floating\-point field controls this tradeoff; it is the annual cost of your funds being stuck (as a percentage)\&.
 .sp
-For example, if you thought there was a 1% chance that a node would fail, and it would cost you 20% per annum if that happened, \fIriskfactor\fR would be 20\&.
+For example, if you thought the inconvenience of having funds stuck was worth 20% per annum interest, \fIriskfactor\fR would be 20\&.
 .sp
 If you didn\(cqt care about risk, \fIriskfactor\fR would be zero\&.
 .sp
@@ -55,15 +55,13 @@ The formula used is the following approximation:
 .RS 4
 .\}
 .nf
-hop\-risk = num\-hops x per\-hop\-risk
-timeout\-cost = blocks\-timeout x per\-block\-cost
-risk\-fee = amount x hop\-risk x timeout\-cost
+risk\-fee = amount x blocks\-timeout x per\-block\-cost
 .fi
 .if n \{\
 .RE
 .\}
 .sp
-We are given a \fIriskfactor\fR; expressed as two multiplied percentages is the same as fractions multiplied by 10000\&. There are 52596 blocks per year, thus \fIper\-block\-cost\fR x \fIper\-hop\-risk\fR is riskfactor\*(Aq divided by 5,259,600,000\&.
+We are given a \fIriskfactor\fR expressed as a percentage\&. There are 52596 blocks per year, thus \fIper\-block\-cost\fR is \fIriskfactor\fR divided by 5,259,600\&.
 .sp
 The final result is:
 .sp
@@ -71,28 +69,43 @@ The final result is:
 .RS 4
 .\}
 .nf
-risk\-fee = amount x num\-hops x blocks\-timeout x riskfactor / 5259600000
+risk\-fee = amount x blocks\-timeout x riskfactor / 5259600
 .fi
 .if n \{\
 .RE
 .\}
 .sp
-Here are the risk fees as a percentage of the amount sent, using various parameters\&. For comparison with actual fees, we assume nodes charge 0\&.05%:
+Here are the risk fees in millisatoshis, using various parameters\&. I assume a channel charges the default of 1000 millisatoshis plus 1 part\-per\-million\&. Common delay values on the network at 14 and 144\&.
 .TS
 allbox tab(:);
 ltB ltB ltB ltB ltB.
 T{
+Amount (msat)
+T}:T{
 Riskfactor
 T}:T{
-Nodes
+Delay
 T}:T{
-Delay per node
+Risk Fee
 T}:T{
-Risk Fee %
-T}:T{
-Route fee %
+Route fee
 T}
 .T&
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
 lt lt lt lt lt
 lt lt lt lt lt
 lt lt lt lt lt
@@ -104,157 +117,399 @@ lt lt lt lt lt
 lt lt lt lt lt.
 T{
 .sp
-0\&.001
+10,000
 T}:T{
-.sp
-5
-T}:T{
-.sp
-6
-T}:T{
-.sp
-0
-T}:T{
-.sp
-0\&.25
-T}
-T{
 .sp
 1
 T}:T{
 .sp
-5
-T}:T{
-.sp
-6
+14
 T}:T{
 .sp
 0
 T}:T{
 .sp
-0\&.25
+1001
 T}
 T{
 .sp
-1000
-T}:T{
-.sp
-5
-T}:T{
-.sp
-6
-T}:T{
-.sp
-0\&.0029
-T}:T{
-.sp
-0\&.25
-T}
-T{
-.sp
-0\&.001
+10,000
 T}:T{
 .sp
 10
 T}:T{
 .sp
-72
+14
 T}:T{
 .sp
 0
 T}:T{
 .sp
-0\&.5
+1001
 T}
 T{
 .sp
-1
+10,000
 T}:T{
 .sp
-10
+100
 T}:T{
 .sp
-72
+14
 T}:T{
 .sp
-0\&.0001
+2
 T}:T{
 .sp
-0\&.5
+1001
 T}
 T{
+.sp
+10,000
+T}:T{
 .sp
 1000
 T}:T{
 .sp
-10
+14
 T}:T{
 .sp
-72
+26
 T}:T{
 .sp
-0\&.1369
-T}:T{
-.sp
-0\&.5
+1001
 T}
 T{
 .sp
-0\&.001
+1,000,000
 T}:T{
 .sp
-20
+1
 T}:T{
 .sp
-1008
+14
+T}:T{
+.sp
+2
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+1,000,000
+T}:T{
+.sp
+10
+T}:T{
+.sp
+14
+T}:T{
+.sp
+26
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+1,000,000
+T}:T{
+.sp
+100
+T}:T{
+.sp
+14
+T}:T{
+.sp
+266
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+1,000,000
+T}:T{
+.sp
+1000
+T}:T{
+.sp
+14
+T}:T{
+.sp
+2661
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+1
+T}:T{
+.sp
+14
+T}:T{
+.sp
+266
+T}:T{
+.sp
+1100
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+10
+T}:T{
+.sp
+14
+T}:T{
+.sp
+2661
+T}:T{
+.sp
+1100
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+100
+T}:T{
+.sp
+14
+T}:T{
+.sp
+26617
+T}:T{
+.sp
+1100
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+1000
+T}:T{
+.sp
+14
+T}:T{
+.sp
+266179
+T}:T{
+.sp
+1100
+T}
+T{
+.sp
+10,000
+T}:T{
+.sp
+1
+T}:T{
+.sp
+144
 T}:T{
 .sp
 0
 T}:T{
 .sp
-1\&.0
+1001
 T}
 T{
 .sp
-1
+10,000
 T}:T{
 .sp
-20
+10
 T}:T{
 .sp
-1008
+144
 T}:T{
 .sp
-0\&.0077
+2
 T}:T{
 .sp
-1\&.0
+1001
 T}
 T{
+.sp
+10,000
+T}:T{
+.sp
+100
+T}:T{
+.sp
+144
+T}:T{
+.sp
+27
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+10,000
+T}:T{
 .sp
 1000
 T}:T{
 .sp
-20
+144
 T}:T{
 .sp
-1008
+273
 T}:T{
 .sp
-7\&.6660
+1001
+T}
+T{
+.sp
+1,000,000
 T}:T{
 .sp
-1\&.0
+1
+T}:T{
+.sp
+144
+T}:T{
+.sp
+27
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+1,000,000
+T}:T{
+.sp
+10
+T}:T{
+.sp
+144
+T}:T{
+.sp
+273
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+1,000,000
+T}:T{
+.sp
+100
+T}:T{
+.sp
+144
+T}:T{
+.sp
+2737
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+1,000,000
+T}:T{
+.sp
+1000
+T}:T{
+.sp
+144
+T}:T{
+.sp
+27378
+T}:T{
+.sp
+1001
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+1
+T}:T{
+.sp
+144
+T}:T{
+.sp
+2737
+T}:T{
+.sp
+1100
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+10
+T}:T{
+.sp
+144
+T}:T{
+.sp
+27378
+T}:T{
+.sp
+1100
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+100
+T}:T{
+.sp
+144
+T}:T{
+.sp
+273785
+T}:T{
+.sp
+1100
+T}
+T{
+.sp
+100,000,000
+T}:T{
+.sp
+1000
+T}:T{
+.sp
+144
+T}:T{
+.sp
+2737850
+T}:T{
+.sp
+1100
 T}
 .TE
 .sp 1
 .SH "RECOMMENDED RISKFACTOR VALUES"
 .sp
-0\&.001 is a value for tie\-breaking in favor of shorter routes, but not really costing in any risk\&.
+The default \fIfuzz\fR factor is 5%, so as you can see from the table above, that tends to overwhelm the effect of \fIriskfactor\fR less than about 5\&.
 .sp
 1 is a conservative value for a stable lightning network with very few failures\&.
 .sp
 1000 is an aggressive value for trying to minimize timeouts at all costs\&.
+.sp
+The default for lightning\-pay(7) is 10, which starts to become a major factor for larger amounts, and is basically ignored for tiny ones\&.
 .SH "RETURN VALUE"
 .sp
 On success, a "route" array is returned\&. Each array element contains \fIid\fR (the node being routed through), \fImsatoshi\fR (the millisatoshis sent), and \fIdelay\fR (the number of blocks to timeout at this node)\&.
