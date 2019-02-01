@@ -76,10 +76,14 @@ def test_pay_limits(node_factory):
 
     # It should have retried (once without routehint, too)
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][0]['attempts']
-    assert len(status) == 3
+
+    # Hits weird corner case: it excludes channel, then uses routehint
+    # which reintroduces it, so then it excludes other channel.
+    assert len(status) == 4
     assert status[0]['strategy'] == "Initial attempt"
     assert status[1]['strategy'].startswith("Excluded expensive channel ")
-    assert status[2]['strategy'] == "Removed route hint"
+    assert status[2]['strategy'] == "Trying route hint"
+    assert status[3]['strategy'].startswith("Excluded expensive channel ")
 
     # Delay too high.
     with pytest.raises(RpcError, match=r'Route wanted delay of .* blocks') as err:
@@ -88,10 +92,11 @@ def test_pay_limits(node_factory):
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
     # Should also have retried.
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][1]['attempts']
-    assert len(status) == 3
+    assert len(status) == 4
     assert status[0]['strategy'] == "Initial attempt"
     assert status[1]['strategy'].startswith("Excluded delaying channel ")
-    assert status[2]['strategy'] == "Removed route hint"
+    assert status[2]['strategy'] == "Trying route hint"
+    assert status[3]['strategy'].startswith("Excluded delaying channel ")
 
     # This works, because fee is less than exemptfee.
     l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
@@ -1259,13 +1264,21 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert 'description' not in only_one(status['pay'])
     assert 'routehint_modifications' not in only_one(status['pay'])
     assert 'local_exclusions' not in only_one(status['pay'])
-    attempt = only_one(only_one(status['pay'])['attempts'])
-    assert attempt['age_in_seconds'] <= time.time() - start
-    assert attempt['duration_in_seconds'] <= end - start
-    assert only_one(attempt['routehint'])
-    assert only_one(attempt['routehint'])['id'] == l3.info['id']
-    assert only_one(attempt['routehint'])['msatoshi'] == 10**5 + 1 + 10**5 // 100000
-    assert only_one(attempt['routehint'])['delay'] == 5 + 6
+    # First attempt will fail, then it will try route hint
+    attempts = only_one(status['pay'])['attempts']
+    assert len(attempts) == 2
+    assert attempts[0]['strategy'] == "Initial attempt"
+    # FIXME!
+    PAY_ROUTE_NOT_FOUND = 205
+    assert attempts[0]['failure']['code'] == PAY_ROUTE_NOT_FOUND
+    assert attempts[1]['strategy'] == "Trying route hint"
+    assert 'success' in attempts[1]
+    assert attempts[1]['age_in_seconds'] <= time.time() - start
+    assert attempts[1]['duration_in_seconds'] <= end - start
+    assert only_one(attempts[1]['routehint'])
+    assert only_one(attempts[1]['routehint'])['id'] == l3.info['id']
+    assert only_one(attempts[1]['routehint'])['msatoshi'] == 10**5 + 1 + 10**5 // 100000
+    assert only_one(attempts[1]['routehint'])['delay'] == 5 + 6
 
     # With dev-route option we can test longer routehints.
     if DEVELOPER:
@@ -1287,43 +1300,11 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'dev-routes': [routel3l4l5]})
         l1.rpc.pay(inv['bolt11'])
         status = l1.rpc.call('paystatus', [inv['bolt11']])
-        assert len(only_one(status['pay'])['attempts']) == 1
-        assert 'failure' not in only_one(status['pay'])['attempts'][0]
-        assert 'success' in only_one(status['pay'])['attempts'][0]
-
-        # Now test that it falls back correctly to not using routeboost
-        # if it can't route to the node mentioned
-        routel4l3 = [{'id': l4.info['id'],
-                      'short_channel_id': scid34,
-                      'fee_base_msat': 1000,
-                      'fee_proportional_millionths': 10,
-                      'cltv_expiry_delta': 6}]
-        inv = l3.rpc.call('invoice', {'msatoshi': 10**5,
-                                      'label': 'test_pay_routeboost3',
-                                      'description': 'test_pay_routeboost3',
-                                      'dev-routes': [routel4l3]})
-        l1.rpc.pay(inv['bolt11'])
-        status = l1.rpc.call('paystatus', [inv['bolt11']])
         assert len(only_one(status['pay'])['attempts']) == 2
         assert 'failure' in only_one(status['pay'])['attempts'][0]
         assert 'success' not in only_one(status['pay'])['attempts'][0]
-        routehint = only_one(status['pay'])['attempts'][0]['routehint']
-        assert [h['channel'] for h in routehint] == [r['short_channel_id'] for r in routel4l3]
         assert 'failure' not in only_one(status['pay'])['attempts'][1]
         assert 'success' in only_one(status['pay'])['attempts'][1]
-        assert 'routehint' not in only_one(status['pay'])['attempts'][1]
-
-        # Similarly if it can route, but payment fails.
-        routel2bad = [{'id': l2.info['id'],
-                       'short_channel_id': scid34,  # Invalid scid
-                       'fee_base_msat': 1000,
-                       'fee_proportional_millionths': 10,
-                       'cltv_expiry_delta': 6}]
-        inv = l3.rpc.call('invoice', {'msatoshi': 10**5,
-                                      'label': 'test_pay_routeboost4',
-                                      'description': 'test_pay_routeboost4',
-                                      'dev-routes': [routel2bad]})
-        l1.rpc.pay(inv['bolt11'])
 
         # Finally, it should fall back to second routehint if first fails.
         # (Note, this is not public because it's not 6 deep)
@@ -1350,13 +1331,14 @@ def test_pay_routeboost(node_factory, bitcoind):
         assert 'local_exclusions' not in only_one(status['pay'])
         attempts = only_one(status['pay'])['attempts']
 
-        # First failed, second succeeded.
-        assert len(attempts) == 2
+        # First two failed (w/o routehint and w bad hint), third succeeded.
+        assert len(attempts) == 3
         assert 'success' not in attempts[0]
-        assert 'success' in attempts[1]
+        assert 'success' not in attempts[1]
+        assert 'success' in attempts[2]
 
-        assert [h['channel'] for h in attempts[0]['routehint']] == [r['short_channel_id'] for r in routel3l4l5]
-        assert [h['channel'] for h in attempts[1]['routehint']] == [r['short_channel_id'] for r in routel3l5]
+        assert [h['channel'] for h in attempts[1]['routehint']] == [r['short_channel_id'] for r in routel3l4l5]
+        assert [h['channel'] for h in attempts[2]['routehint']] == [r['short_channel_id'] for r in routel3l5]
 
 
 @pytest.mark.xfail(strict=True)
