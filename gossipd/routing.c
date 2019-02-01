@@ -1528,7 +1528,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	}
 
 	route = find_route(ctx, rstate, source, destination, msatoshi,
-			   riskfactor / BLOCKS_PER_YEAR / 10000,
+			   riskfactor / BLOCKS_PER_YEAR / 100,
 			   fuzz, &base_seed, max_hops, &fee);
 
 	/* Now restore the capacity. */
