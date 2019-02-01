@@ -1,0 +1,140 @@
+version: 2
+jobs:
+  # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
+  linuxamd64_publish:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            LATEST_TAG=${CIRCLE_TAG:1} #trim "v" from tag
+            #
+            sudo docker build --pull -t $DOCKERHUB_REPO:$LATEST_TAG-amd64 -f Dockerfile .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-amd64
+  linuxarm32v7_publish:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            LATEST_TAG=${CIRCLE_TAG:1} #trim "v" from tag
+            # Make sure the builder is copy the arm emulator
+            sudo docker run --rm --privileged multiarch/qemu-user-static:register --reset
+            sed -i -e 's/#EnableQEMU //g' "contrib/linuxarm32v7.Dockerfile"
+            #
+            sudo docker build --pull -t $DOCKERHUB_REPO:$LATEST_TAG-arm32v7 -f contrib/linuxarm32v7.Dockerfile .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-arm32v7
+  linuxarm32v7_dev_publish:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            LATEST_TAG=${CIRCLE_TAG:1} #trim "v" from tag
+            #
+            sudo docker build --build-arg "DEVELOPER=1" -t "$DOCKERHUB_REPO:$LATEST_TAG-dev" .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-dev
+  publish_docker_multiarch:
+    machine:
+      enabled: true
+      image: circleci/classic:201808-01
+    steps:
+      - checkout
+      - run:
+          command: |
+            # Turn on Experimental features
+            sudo mkdir $HOME/.docker
+            sudo sh -c 'echo "{ \"experimental\": \"enabled\" }" >> $HOME/.docker/config.json'
+            #
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            #
+            LATEST_TAG=${CIRCLE_TAG:1} #trim "v" from tag
+            sudo docker manifest create --amend $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-amd64 $DOCKERHUB_REPO:$LATEST_TAG-arm32v7
+            sudo docker manifest annotate $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-amd64 --os linux --arch amd64
+            sudo docker manifest annotate $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-arm32v7 --os linux --arch arm --variant v7
+            sudo docker manifest push $DOCKERHUB_REPO:$LATEST_TAG -p
+  linuxamd64_dev_build:
+    machine:
+      enabled: true
+      image: circleci/classic:201808-01
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo docker build --build-arg "DEVELOPER=1" -t "temp-dev" .
+  linuxamd64_build:
+    machine:
+      enabled: true
+      image: circleci/classic:201808-01
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo docker build -t "temp" .
+  linuxarm32v7_build:
+    machine:
+      enabled: true
+      image: circleci/classic:201808-01
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo docker run --rm --privileged multiarch/qemu-user-static:register --reset
+            sed -i -e 's/#EnableQEMU //g' "contrib/linuxarm32v7.Dockerfile"
+            sudo docker build -t "temp-arm" -f contrib/linuxarm32v7.Dockerfile .
+workflows:
+  version: 2
+  publish:
+    jobs:
+      - linuxamd64_build:
+          filters:
+            branches:
+              only: /.*/
+      - linuxamd64_dev_build:
+          filters:
+            branches:
+              only: /.*/
+      - linuxarm32v7_build:
+          filters:
+            branches:
+              only: /.*/
+      - linuxamd64_publish:
+          filters:
+            # ignore any commit on any branch by default 
+            branches:
+              ignore: /.*/
+            # only act on version tags
+            tags:
+              only: /v.+/
+      - linuxarm32v7_publish:
+          filters:
+            # ignore any commit on any branch by default
+            branches:
+              ignore: /.*/
+            # only act on version tags
+            tags:
+              only: /v.+/
+      - linuxarm32v7_dev_publish:
+          filters:
+            # ignore any commit on any branch by default
+            branches:
+              ignore: /.*/
+            # only act on version tags
+            tags:
+              only: /v.+/
+      - publish_docker_multiarch:
+          requires:
+            - linuxamd64_publish
+            - linuxarm32v7_publish
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /v.+/
+
