@@ -1894,7 +1894,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	struct pubkey source, destination;
 	u64 msatoshi;
 	u32 final_cltv;
-	u16 riskfactor;
+	u64 riskfactor_by_million;
 	u32 max_hops;
 	u8 *out;
 	struct route_hop *hops;
@@ -1909,7 +1909,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	 * avoid being too predictable. */
 	if (!fromwire_gossip_getroute_request(msg, msg,
 					      &source, &destination,
-					      &msatoshi, &riskfactor,
+					      &msatoshi, &riskfactor_by_million,
 					      &final_cltv, &fuzz,
 					      &excluded,
 					      &max_hops))
@@ -1921,7 +1921,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
-			 msatoshi, riskfactor, final_cltv,
+			 msatoshi, riskfactor_by_million / 1000000.0, final_cltv,
 			 fuzz, pseudorand_u64(), excluded, max_hops);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
