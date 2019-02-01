@@ -1922,7 +1922,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, riskfactor, final_cltv,
-			 fuzz, siphash_seed(), excluded, max_hops);
+			 fuzz, pseudorand_u64(), excluded, max_hops);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
 	daemon_conn_send(daemon->master, take(out));

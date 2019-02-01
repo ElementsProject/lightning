@@ -37,6 +37,13 @@ uint64_t pseudorand(uint64_t max)
 	return isaac64_next_uint(&isaac64, max);
 }
 
+uint64_t pseudorand_u64(void)
+{
+	init_if_needed();
+
+	return isaac64_next_uint64(&isaac64);
+}
+
 const struct siphash_seed *siphash_seed(void)
 {
 	init_if_needed();
