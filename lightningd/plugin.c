@@ -621,8 +621,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	char id[STR_MAX_CHARS(u64)];
 
 	if (cmd->mode == CMD_USAGE || cmd->mode == CMD_CHECK) {
-		/* FIXME! */
-		cmd->usage = "[params]";
+		cmd->usage = cmd->json_cmd->usage;
 		return command_param_failed();
 	}
 
@@ -646,10 +645,11 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 				 const char *buffer,
 				 const jsmntok_t *meth)
 {
-	const jsmntok_t *nametok, *desctok, *longdesctok;
+	const jsmntok_t *nametok, *argstok, *desctok, *longdesctok;
 	struct json_command *cmd;
 
 	nametok = json_get_member(buffer, meth, "name");
+	argstok = json_get_member(buffer, meth, "args");
 	desctok = json_get_member(buffer, meth, "description");
 	longdesctok = json_get_member(buffer, meth, "long_description");
 
@@ -657,6 +657,13 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 		plugin_kill(plugin,
 			    "rpcmethod does not have a string \"name\": %.*s",
 			    meth->end - meth->start, buffer + meth->start);
+		return false;
+	}
+
+	if (argstok && argstok->type != JSMN_ARRAY) {
+		plugin_kill(plugin,
+				"\"args\" is not an array: %.*s",
+				meth->end - meth->start, buffer + meth->start);
 		return false;
 	}
 
@@ -675,8 +682,21 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 		return false;
 	}
 
+
 	cmd = notleak(tal(plugin, struct json_command));
 	cmd->name = json_strdup(cmd, buffer, nametok);
+
+	if (argstok) {
+		char *ret = tal_strdup(cmd, "");
+		for (size_t i = 0; i < argstok->size; i++) {
+			ret = tal_strcat(cmd, take(ret), json_strdup(cmd, buffer, json_get_arr(argstok, i)));
+			ret = tal_strcat(cmd, take(ret), " ");
+		}
+		cmd->usage = tal_strdup(cmd, ret);
+	} else {
+		cmd->usage = "[params]";
+	}
+
 	cmd->description = json_strdup(cmd, buffer, desctok);
 	if (longdesctok)
 		cmd->verbose = json_strdup(cmd, buffer, longdesctok);

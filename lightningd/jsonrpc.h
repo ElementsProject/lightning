@@ -28,7 +28,7 @@ struct command {
 	/* The 'id' which we need to include in the response. */
 	const char *id;
 	/* What command we're running (for logging) */
-	const struct json_command *json_cmd;
+	struct json_command *json_cmd;
 	/* The connection, or NULL if it closed. */
 	struct json_connection *jcon;
 	/* Have we been marked by command_still_pending?  For debugging... */
@@ -56,6 +56,7 @@ struct json_command {
 	const char *description;
 	bool deprecated;
 	const char *verbose;
+	const char *usage;
 };
 
 struct jsonrpc_notification {

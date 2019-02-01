@@ -304,9 +304,17 @@ static void json_add_help_command(struct command *cmd,
 				  struct json_command *json_command)
 {
 	char *usage;
+	struct json_command *tmp;
 	cmd->mode = CMD_USAGE;
+
+	// Temporarily swap the json_cmd pointer, so the dispatch
+	// method can set cmd->usage properly based on the actual
+	// json_command usage
+	tmp = cmd->json_cmd;
+	cmd->json_cmd = json_command;
 	json_command->dispatch(cmd, NULL, NULL, NULL);
 	usage = tal_fmt(cmd, "%s %s", json_command->name, cmd->usage);
+	cmd->json_cmd = tmp;
 
 	json_object_start(response, NULL);
 
@@ -370,7 +378,7 @@ done:
 	return command_success(cmd, response);
 }
 
-static const struct json_command *find_cmd(const struct jsonrpc *rpc,
+static struct json_command *find_cmd(const struct jsonrpc *rpc,
 					   const char *buffer,
 					   const jsmntok_t *tok)
 {
