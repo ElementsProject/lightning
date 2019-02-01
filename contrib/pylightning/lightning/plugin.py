@@ -302,9 +302,20 @@ class Plugin(object):
                 doc = "Undocumented RPC method from a plugin."
             doc = re.sub('\n+', ' ', doc)
 
+            argspec = inspect.getargspec(func)
+            args = argspec.args[1:]
+            defaults = argspec.defaults
+
+            # Make optional args be surrounded by square brackets
+            # list regular lightning-cli commands args
+            if defaults:
+                for idx in range(-len(defaults), 0):
+                    args[idx] = '[' + args[idx] + ']'
+
             methods.append({
                 'name': name,
-                'description': doc,
+                'args': args,
+                'description': doc
             })
 
         return {
