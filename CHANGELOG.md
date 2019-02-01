@@ -39,6 +39,7 @@ changes.
   (eg. 4 billion) was slow due to a bug.
 - Fixed occasional deadlock with peers when exchanging huge amounts of gossip.
 - You can no longer make giant unpayable "wumbo" invoices.
+- CLTV of total route now correctly evaluated when finding best route.
 
 ### Security
 

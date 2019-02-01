@@ -529,9 +529,13 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	best = 0;
 	for (i = 1; i <= max_hops; i++) {
-		if (dst->bfg[i].total < dst->bfg[best].total)
+		status_trace("%i hop solution: %"PRIu64" + %"PRIu64,
+			     i, dst->bfg[i].total, dst->bfg[i].risk);
+		if (dst->bfg[i].total + dst->bfg[i].risk
+		    < dst->bfg[best].total + dst->bfg[best].risk)
 			best = i;
 	}
+	status_trace("=> chose %i hop solution", best);
 
 	/* No route? */
 	if (dst->bfg[best].total >= INFINITE) {
