@@ -70,6 +70,7 @@ this example:
 	"rpcmethods": [
 		{
 			"name": "hello",
+			"args": ["[name]"],
 			"description": "Returns a personalized greeting for {greeting} (set via options)."
 		},
 		{
@@ -136,25 +137,36 @@ of custom methods without having to modify the daemon itself.
 
 JSON-RPC methods are registered as part of the `getmanifest`
 result. Each registered method must provide a `name` and a
-`description`. An optional `long_description` may also be
+`description`. An optional `args` and `long_description` may also be
 provided. This information is then added to the internal dispatch
 table, and used to return the help text when using `lightning-cli
 help`, and the methods can be called using the `name`.
 
-For example the above `getmanifest` result will register two methods,
-called `hello` and `gettime`:
+Specifying `args` requires a list of string argument names expected
+by the RPC method. Optional arguments may be specified by closing the arg
+string in square brackets, as is done with regular lightning-cli commands.
+
+For example the above `getmanifest` result will register three methods,
+called `hello`, `gettime`, and `convert_amount`
 
 ```json
     ...
 	"rpcmethods": [
 		{
 			"name": "hello",
+			"args": ["[name]"],
 			"description": "Returns a personalized greeting for {greeting} (set via options)."
 		},
 		{
 			"name": "gettime",
 			"description": "Returns the current time in {timezone}",
 			"long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
+		},
+		{
+			"name": "convert_amount",
+			"args": ["amount", "in_unit", "out_unit"],
+			"description": "Convert a bitcoin `amount` from one unit to another unit",
+			"long_description": "Convert the input `amount` from one unit to another.\nValid units are `msat`, `sat`, `mbtc`, and `btc`"
 		}
 	],
 	...
