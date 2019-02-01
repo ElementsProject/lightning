@@ -9,9 +9,6 @@ void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED
 /* Generated stub for db_commit_transaction */
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
-/* Generated stub for fatal */
-void   fatal(const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "fatal called!\n"); abort(); }
 /* Generated stub for feerate_from_style */
 u32 feerate_from_style(u32 feerate UNNEEDED, enum feerate_style style UNNEEDED)
 { fprintf(stderr, "feerate_from_style called!\n"); abort(); }
@@ -43,12 +40,6 @@ const char *log_prefix(const struct log *log UNNEEDED)
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
-/* Generated stub for new_reltimer_ */
-struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
-			      const tal_t *ctx UNNEEDED,
-			      struct timerel expire UNNEEDED,
-			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
-{ fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
 /* Generated stub for param */
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
@@ -58,16 +49,6 @@ struct command_result *param_feerate_estimate(struct command *cmd UNNEEDED,
 					      u32 **feerate_per_kw UNNEEDED,
 					      enum feerate feerate UNNEEDED)
 { fprintf(stderr, "param_feerate_estimate called!\n"); abort(); }
-/* Generated stub for param_number */
-struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    unsigned int **num UNNEEDED)
-{ fprintf(stderr, "param_number called!\n"); abort(); }
-/* Generated stub for param_sha256 */
-struct command_result *param_sha256(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    struct sha256 **hash UNNEEDED)
-{ fprintf(stderr, "param_sha256 called!\n"); abort(); }
 /* Generated stub for param_tok */
 struct command_result *param_tok(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				 const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,

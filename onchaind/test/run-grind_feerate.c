@@ -33,9 +33,6 @@ bool fromwire_hsm_sign_tx_reply(const void *p UNNEEDED, struct bitcoin_signature
 /* Generated stub for fromwire_onchain_depth */
 bool fromwire_onchain_depth(const void *p UNNEEDED, struct bitcoin_txid *txid UNNEEDED, u32 *depth UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_depth called!\n"); abort(); }
-/* Generated stub for fromwire_onchain_dev_memleak */
-bool fromwire_onchain_dev_memleak(const void *p UNNEEDED)
-{ fprintf(stderr, "fromwire_onchain_dev_memleak called!\n"); abort(); }
 /* Generated stub for fromwire_onchain_htlc */
 bool fromwire_onchain_htlc(const void *p UNNEEDED, struct htlc_stub *htlc UNNEEDED, bool *tell_if_missing UNNEEDED, bool *tell_immediately UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_htlc called!\n"); abort(); }
@@ -132,9 +129,6 @@ u8 *towire_onchain_all_irrevocably_resolved(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_onchain_broadcast_tx */
 u8 *towire_onchain_broadcast_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_tx *tx UNNEEDED)
 { fprintf(stderr, "towire_onchain_broadcast_tx called!\n"); abort(); }
-/* Generated stub for towire_onchain_dev_memleak_reply */
-u8 *towire_onchain_dev_memleak_reply(const tal_t *ctx UNNEEDED, bool leak UNNEEDED)
-{ fprintf(stderr, "towire_onchain_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for towire_onchain_extracted_preimage */
 u8 *towire_onchain_extracted_preimage(const tal_t *ctx UNNEEDED, const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "towire_onchain_extracted_preimage called!\n"); abort(); }
