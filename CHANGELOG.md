@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - plugins: fully enabled, and ready for you to write some!
 - plugins: `pay` is now a plugin.
+- protocol: `pay` will now use routehints in invoices if it needs to.
 - lightning-cli: `help <cmd>` finds man pages even if `make install` not run.
 - JSON API: `waitsendpay` now has an `erring_direction` field.
 - JSON API: `listpeers` now has a `direction` field in `channels`.
