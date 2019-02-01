@@ -1345,12 +1345,22 @@ def test_pay_routeboost(node_factory, bitcoind):
 def test_pay_direct(node_factory, bitcoind):
     """Check that we prefer the direct route.
     """
-    l1, l2, l3 = node_factory.get_nodes(3)
+    # l2->l3 is really cheap by comparison.
+    l0, l1, l2, l3 = node_factory.get_nodes(4, opts=[{'fee-base': 1000,
+                                                      'cltv-delta': 14},
+                                                     {'fee-base': 1000,
+                                                      'cltv-delta': 14},
+                                                     {'fee-base': 0,
+                                                      'cltv-delta': 14},
+                                                     {'fee-base': 1000,
+                                                      'cltv-delta': 14}])
 
-    # Direct channel
+    # Direct channel l0->l1->l3
+    l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l0.fund_channel(l1, 10**7)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fund_channel(l3, 10**7)
-    # Indirect route
+    # Indirect route l0->l1->l2->l3
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 10**7)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -1359,8 +1369,8 @@ def test_pay_direct(node_factory, bitcoind):
     # Let channels lock in.
     bitcoind.generate_block(5)
 
-    # Make sure l1 knows the l2->l3 channel.
-    l1.wait_channel_active(c3)
+    # Make sure l0 knows the l2->l3 channel.
+    l0.wait_channel_active(c3)
 
     # Find out how much msatoshi l1 owns on l1->l2 channel.
     l1l2msatreference = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']
@@ -1368,9 +1378,9 @@ def test_pay_direct(node_factory, bitcoind):
     # Try multiple times to ensure that route randomization
     # will not override our preference for direct route.
     for i in range(8):
-        inv = l3.rpc.invoice(10000, 'pay{}'.format(i), 'desc')['bolt11']
+        inv = l3.rpc.invoice(15000000, 'pay{}'.format(i), 'desc')['bolt11']
 
-        l1.rpc.pay(inv)
+        l0.rpc.pay(inv)
 
         # We should have gone the direct route, so
         # l1->l2 channel msatoshi_to_us should not
