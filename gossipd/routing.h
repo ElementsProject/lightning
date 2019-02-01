@@ -264,7 +264,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const u64 msatoshi, double riskfactor,
 			    u32 final_cltv,
 			    double fuzz,
-			    const struct siphash_seed *base_seed,
+			    u64 seed,
 			    const struct short_channel_id_dir *excluded,
 			    size_t max_hops);
 /* Disable channel(s) based on the given routing failure. */
