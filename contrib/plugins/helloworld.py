@@ -19,7 +19,7 @@ def hello(plugin, name="world"):
     return s
 
 
-@plugin.method("init")
+@plugin.init()
 def init(options, configuration, plugin):
     plugin.log("Plugin helloworld.py initialized")
 
