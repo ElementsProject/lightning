@@ -96,6 +96,7 @@ CCAN_OBJS :=					\
 	ccan-str-base32.o			\
 	ccan-str-hex.o				\
 	ccan-str.o				\
+	ccan-strmap.o				\
 	ccan-take.o				\
 	ccan-tal-grab_file.o			\
 	ccan-tal-link.o				\
