@@ -2,6 +2,7 @@
 #include "memdump.h"
 #if DEVELOPER
 #include <backtrace.h>
+#include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/json_command.h>
@@ -118,6 +119,22 @@ static void json_add_backtrace(struct json_stream *response,
 				 NULL, response);
 	}
 	json_array_end(response);
+}
+
+static bool handle_strmap(const char *member, void *p, void *memtable_)
+{
+	struct htable *memtable = memtable_;
+
+	memleak_scan_region(memtable, p, tal_bytelen(p));
+
+	/* Keep going */
+	return true;
+}
+
+/* FIXME: If strmap used tal, this wouldn't be necessary! */
+void memleak_remove_strmap_(struct htable *memtable, const struct strmap *m)
+{
+	strmap_iterate_(m, handle_strmap, memtable);
 }
 
 static void scan_mem(struct command *cmd,
