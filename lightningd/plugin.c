@@ -547,12 +547,6 @@ static bool plugin_opts_add(struct plugin *plugin,
 	return true;
 }
 
-static void plugin_rpcmethod_destroy(struct json_command *cmd,
-				     struct jsonrpc *rpc)
-{
-	jsonrpc_command_remove(rpc, cmd->name);
-}
-
 static void json_stream_forward_change_id(struct json_stream *stream,
 					  const char *buffer,
 					  const jsmntok_t *toks,
@@ -685,7 +679,6 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 
 	cmd->deprecated = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
-	tal_add_destructor2(cmd, plugin_rpcmethod_destroy, plugin->plugins->rpc);
 	if (!jsonrpc_command_add(plugin->plugins->rpc, cmd)) {
 		log_broken(plugin->log,
 			   "Could not register method \"%s\", a method with "
