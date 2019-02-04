@@ -37,8 +37,6 @@ struct command {
 	bool pending;
 	/* Tell param() how to process the command */
 	enum command_mode mode;
-	/* This is created if mode is CMD_USAGE */
-	const char *usage;
 	/* Have we started a json stream already?  For debugging. */
 	bool have_json_stream;
 };
@@ -175,7 +173,8 @@ void jsonrpc_listen(struct jsonrpc *rpc, struct lightningd *ld);
  *
  * Free @command to remove it.
  */
-bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command);
+bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
+			 const char *usage TAKES);
 
 /**
  * Begin a JSON-RPC notification with the specified topic.
@@ -208,4 +207,13 @@ struct jsonrpc_request *jsonrpc_request_start_(
 void jsonrpc_request_end(struct jsonrpc_request *request);
 
 AUTODATA_TYPE(json_command, struct json_command);
+
+#if DEVELOPER
+struct htable;
+struct jsonrpc;
+
+void jsonrpc_remove_memleak(struct htable *memtable,
+			    const struct jsonrpc *jsonrpc);
+#endif /* DEVELOPER */
+
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */

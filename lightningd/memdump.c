@@ -154,6 +154,7 @@ static void scan_mem(struct command *cmd,
 	memleak_remove_htable(memtable, &ld->topology->txowatches.raw);
 	memleak_remove_htable(memtable, &ld->htlcs_in.raw);
 	memleak_remove_htable(memtable, &ld->htlcs_out.raw);
+	jsonrpc_remove_memleak(memtable, ld->jsonrpc);
 
 	/* Now delete ld and those which it has pointers to. */
 	memleak_remove_referenced(memtable, ld);

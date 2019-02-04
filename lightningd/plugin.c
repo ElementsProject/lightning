@@ -610,11 +610,8 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	struct jsonrpc_request *req;
 	char id[STR_MAX_CHARS(u64)];
 
-	if (cmd->mode == CMD_USAGE || cmd->mode == CMD_CHECK) {
-		/* FIXME! */
-		cmd->usage = "[params]";
+	if (cmd->mode == CMD_CHECK)
 		return command_param_failed();
-	}
 
 	plugin = find_plugin_for_command(cmd);
 
@@ -675,7 +672,9 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 
 	cmd->deprecated = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
-	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd)) {
+	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd,
+				 /* FIXME */
+				 "[params]")) {
 		log_broken(plugin->log,
 			   "Could not register method \"%s\", a method with "
 			   "that name is already registered",

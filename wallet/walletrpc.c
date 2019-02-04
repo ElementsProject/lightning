@@ -316,12 +316,15 @@ static struct command_result *json_listaddrs(struct command *cmd,
 	u64 *bip32_max_index;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("bip32_max_index", param_u64, &bip32_max_index,
-				 db_get_intvar(cmd->ld->wallet->db,
-				 "bip32_max_index", 0)),
+		   p_opt("bip32_max_index", param_u64, &bip32_max_index),
 		   NULL))
 		return command_param_failed();
 
+	if (!bip32_max_index) {
+		bip32_max_index = tal(cmd, u64);
+		*bip32_max_index = db_get_intvar(cmd->ld->wallet->db,
+						 "bip32_max_index", 0);
+	}
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "addresses");
