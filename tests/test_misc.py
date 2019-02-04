@@ -731,7 +731,7 @@ def test_cli(node_factory):
                                    '-J',
                                    'help', 'command=help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['verbose']
+    assert 'help [command]' in j['help'][0]['verbose']
 
     # Test keyword input (forced)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -740,7 +740,7 @@ def test_cli(node_factory):
                                    '-J', '-k',
                                    'help', 'command=help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['verbose']
+    assert 'help [command]' in j['help'][0]['verbose']
 
     # Test ordered input (autodetect)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -749,7 +749,7 @@ def test_cli(node_factory):
                                    '-J',
                                    'help', 'help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['verbose']
+    assert 'help [command]' in j['help'][0]['verbose']
 
     # Test ordered input (forced)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -758,7 +758,7 @@ def test_cli(node_factory):
                                    '-J', '-o',
                                    'help', 'help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['verbose']
+    assert 'help [command]' in j['help'][0]['verbose']
 
     # Test missing parameters.
     try:
