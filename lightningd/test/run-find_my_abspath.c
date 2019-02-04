@@ -94,9 +94,9 @@ void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
 /* Generated stub for jsonrpc_listen */
 void jsonrpc_listen(struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "jsonrpc_listen called!\n"); abort(); }
-/* Generated stub for jsonrpc_new */
-struct jsonrpc *jsonrpc_new(const tal_t *ctx UNNEEDED, struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "jsonrpc_new called!\n"); abort(); }
+/* Generated stub for jsonrpc_setup */
+void jsonrpc_setup(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "jsonrpc_setup called!\n"); abort(); }
 /* Generated stub for load_channels_from_wallet */
 void load_channels_from_wallet(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "load_channels_from_wallet called!\n"); abort(); }

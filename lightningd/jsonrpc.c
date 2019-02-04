@@ -803,20 +803,19 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
 	return true;
 }
 
-struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld)
+void jsonrpc_setup(struct lightningd *ld)
 {
-	struct jsonrpc *jsonrpc = tal(ctx, struct jsonrpc);
 	struct json_command **commands = get_cmdlist();
 
-	jsonrpc->commands = tal_arr(jsonrpc, struct json_command *, 0);
-	jsonrpc->log = new_log(jsonrpc, ld->log_book, "jsonrpc");
+	ld->jsonrpc = tal(ld, struct jsonrpc);
+	ld->jsonrpc->commands = tal_arr(ld->jsonrpc, struct json_command *, 0);
+	ld->jsonrpc->log = new_log(ld->jsonrpc, ld->log_book, "jsonrpc");
 	for (size_t i=0; i<num_cmdlist; i++) {
-		if (!jsonrpc_command_add_perm(jsonrpc, commands[i]))
+		if (!jsonrpc_command_add_perm(ld->jsonrpc, commands[i]))
 			fatal("Cannot add duplicate command %s",
 			      commands[i]->name);
 	}
-	jsonrpc->rpc_listener = NULL;
-	return jsonrpc;
+	ld->jsonrpc->rpc_listener = NULL;
 }
 
 bool command_usage_only(const struct command *cmd)

@@ -8,6 +8,8 @@
 #include <lightningd/json_stream.h>
 #include <stdarg.h>
 
+struct jsonrpc;
+
 /* The command mode tells param() how to process. */
 enum command_mode {
 	/* Normal command processing */
@@ -152,8 +154,10 @@ struct command_result *command_its_complicated(const char *why);
  * This doesn't setup the listener yet, see `jsonrpc_listen` for
  * that. This just creates the container for all jsonrpc-related
  * information so we can start gathering it before actually starting.
+ *
+ * It initializes ld->jsonrpc.
  */
-struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld);
+void jsonrpc_setup(struct lightningd *ld);
 
 
 /**

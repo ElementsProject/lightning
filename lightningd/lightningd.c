@@ -207,7 +207,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 *  lightningd needs to have something to put those in. This
 	 *  is that :-)
 	 */
-	ld->jsonrpc = jsonrpc_new(ld, ld);
+	jsonrpc_setup(ld);
 
 	/*~ We run a number of plugins (subprocesses that we talk JSON-RPC with)
 	 *alongside this process. This allows us to have an easy way for users
