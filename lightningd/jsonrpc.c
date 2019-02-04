@@ -329,6 +329,17 @@ static void json_add_help_command(struct command *cmd,
 
 }
 
+static const struct json_command *find_command(struct json_command **commands,
+					       const char *buffer,
+					       const jsmntok_t *cmdtok)
+{
+	for (size_t i = 0; i < tal_count(commands); i++) {
+		if (json_tok_streq(buffer, cmdtok, commands[i]->name))
+			return commands[i];
+	}
+	return NULL;
+}
+
 static struct command_result *json_help(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *obj UNNEEDED,
@@ -337,6 +348,7 @@ static struct command_result *json_help(struct command *cmd,
 	struct json_stream *response;
 	const jsmntok_t *cmdtok;
 	struct json_command **commands = cmd->ld->jsonrpc->commands;
+	const struct json_command *one_cmd;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("command", param_tok, &cmdtok),
@@ -344,29 +356,25 @@ static struct command_result *json_help(struct command *cmd,
 		return command_param_failed();
 
 	if (cmdtok) {
-		for (size_t i = 0; i < tal_count(commands); i++) {
-			if (json_tok_streq(buffer, cmdtok, commands[i]->name)) {
-				response = json_stream_success(cmd);
-				json_add_help_command(cmd, response, commands[i]);
-				goto done;
-			}
-		}
-		return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
-				    "Unknown command '%.*s'",
-				    cmdtok->end - cmdtok->start,
-				    buffer + cmdtok->start);
-	}
+		one_cmd = find_command(commands, buffer, cmdtok);
+		if (!one_cmd)
+			return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
+					    "Unknown command '%.*s'",
+					    cmdtok->end - cmdtok->start,
+					    buffer + cmdtok->start);
+	} else
+		one_cmd = NULL;
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "help");
-	for (size_t i=0; i<tal_count(commands); i++) {
-		json_add_help_command(cmd, response, commands[i]);
+	for (size_t i = 0; i < tal_count(commands); i++) {
+		if (!one_cmd || one_cmd == commands[i])
+			json_add_help_command(cmd, response, commands[i]);
 	}
 	json_array_end(response);
 	json_object_end(response);
 
-done:
 	return command_success(cmd, response);
 }
 
