@@ -769,7 +769,20 @@ static struct io_plan *incoming_jcon_connected(struct io_conn *conn,
 	return jcon_connected(notleak(conn), ld);
 }
 
-bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
+static void destroy_json_command(struct json_command *command, struct jsonrpc *rpc)
+{
+	for (size_t i = 0; i < tal_count(rpc->commands); i++) {
+		if (rpc->commands[i] == command) {
+			tal_arr_remove(&rpc->commands, i);
+			return;
+		}
+	}
+	abort();
+}
+
+/* For built-in ones, they're not tal objects, so no destructor */
+static bool jsonrpc_command_add_perm(struct jsonrpc *rpc,
+				     struct json_command *command)
 {
 	size_t count = tal_count(rpc->commands);
 
@@ -782,16 +795,12 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
 	return true;
 }
 
-void jsonrpc_command_remove(struct jsonrpc *rpc, const char *method)
+bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
 {
-	for (size_t i=0; i<tal_count(rpc->commands); i++) {
-		struct json_command *cmd = rpc->commands[i];
-		if (streq(cmd->name, method)) {
-			tal_arr_remove(&rpc->commands, i);
-			tal_free(cmd);
-			break;
-		}
-	}
+	if (!jsonrpc_command_add_perm(rpc, command))
+		return false;
+	tal_add_destructor2(command, destroy_json_command, rpc);
+	return true;
 }
 
 struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld)
@@ -802,7 +811,9 @@ struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld)
 	jsonrpc->commands = tal_arr(jsonrpc, struct json_command *, 0);
 	jsonrpc->log = new_log(jsonrpc, ld->log_book, "jsonrpc");
 	for (size_t i=0; i<num_cmdlist; i++) {
-		jsonrpc_command_add(jsonrpc, commands[i]);
+		if (!jsonrpc_command_add_perm(jsonrpc, commands[i]))
+			fatal("Cannot add duplicate command %s",
+			      commands[i]->name);
 	}
 	jsonrpc->rpc_listener = NULL;
 	return jsonrpc;
