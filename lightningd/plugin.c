@@ -76,9 +76,6 @@ struct plugins {
 	struct log *log;
 	struct log_book *log_book;
 
-	/* RPC interface to bind JSON-RPC methods to */
-	struct jsonrpc *rpc;
-
 	struct timers timers;
 	struct lightningd *ld;
 };
@@ -93,14 +90,13 @@ struct plugin_opt {
 };
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
-			    struct jsonrpc *rpc, struct lightningd *ld)
+			    struct lightningd *ld)
 {
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
 	list_head_init(&p->plugins);
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
-	p->rpc = rpc;
 	timers_init(&p->timers, time_mono());
 	p->ld = ld;
 	return p;
@@ -679,7 +675,7 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 
 	cmd->deprecated = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
-	if (!jsonrpc_command_add(plugin->plugins->rpc, cmd)) {
+	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd)) {
 		log_broken(plugin->log,
 			   "Could not register method \"%s\", a method with "
 			   "that name is already registered",

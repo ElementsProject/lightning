@@ -22,7 +22,7 @@ struct plugin;
  * Create a new plugins context.
  */
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
-			    struct jsonrpc *rpc, struct lightningd *ld);
+			    struct lightningd *ld);
 
 /**
  * Initialize the registered plugins.
