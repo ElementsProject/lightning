@@ -241,11 +241,14 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("decodepay", payload)
 
-    def help(self):
+    def help(self, command=None):
         """
-        Show available commands
+        Show available commands, or just {command} if supplied.
         """
-        return self.call("help")
+        payload = {
+            "command": command,
+        }
+        return self.call("help", payload)
 
     def stop(self):
         """
