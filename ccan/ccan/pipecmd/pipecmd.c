@@ -142,7 +142,8 @@ pid_t pipecmdarr(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 
 	close(tochild[0]);
 	close(fromchild[1]);
-	close(errfromchild[1]);
+	if (errfromchild[1] != STDERR_FILENO)
+		close(errfromchild[1]);
 	close(execfail[1]);
 	/* Child will close this without writing on successful exec. */
 	if (read(execfail[0], &err, sizeof(err)) == sizeof(err)) {
