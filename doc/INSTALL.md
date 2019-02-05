@@ -174,21 +174,19 @@ valgrind asciidoc --run make
 To Build on macOS
 ---------------------
 
-Assume you have Xcode and HomeBrew installed on your Mac.
-Get dependencies:
+Assuming you have Xcode and Homebrew installed. Install dependencies:
 
     $ brew install autoconf automake libtool python3 gmp gnu-sed
 
 If you don't have bitcoind installed locally you'll need to install that
 as well:
 
-    $ brew install \
-    berkeley-db4 boost miniupnpc openssl pkg-config protobuf qt libevent
+    $ brew install berkeley-db4 boost miniupnpc openssl pkg-config libevent
     $ git clone https://github.com/bitcoin/bitcoin
     $ cd bitcoin
     $ ./autogen.sh
     $ ./configure
-    $ make & make install
+    $ make src/bitcoind src/bitcoin-cli && make install
 
 Clone lightning:
 
