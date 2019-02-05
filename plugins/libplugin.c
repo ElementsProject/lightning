@@ -27,6 +27,7 @@ struct plugin_conn {
 
 struct command {
 	u64 id;
+	const char *methodname;
 	struct plugin_conn *rpc;
 };
 
@@ -110,11 +111,10 @@ static int read_json(struct plugin_conn *conn)
 static struct command *read_json_request(const tal_t *ctx,
 					 struct plugin_conn *conn,
 					 struct plugin_conn *rpc,
-					 const jsmntok_t **method,
 					 const jsmntok_t **params,
 					 int *reqlen)
 {
-	const jsmntok_t *toks, *id;
+	const jsmntok_t *toks, *id, *method;
 	bool valid;
 	struct command *cmd = tal(ctx, struct command);
 
@@ -128,7 +128,7 @@ static struct command *read_json_request(const tal_t *ctx,
 		plugin_err("Malformed JSON command '%*.s' is not an object",
 			   *reqlen, membuf_elems(&conn->mb));
 
-	*method = json_get_member(membuf_elems(&conn->mb), toks, "method");
+	method = json_get_member(membuf_elems(&conn->mb), toks, "method");
 	*params = json_get_member(membuf_elems(&conn->mb), toks, "params");
 	/* FIXME: Notifications don't have id! */
 	id = json_get_member(membuf_elems(&conn->mb), toks, "id");
@@ -138,6 +138,7 @@ static struct command *read_json_request(const tal_t *ctx,
 			   membuf_elems(&conn->mb) + id->start);
 	/* Putting this in cmd avoids a global, or direct exposure to users */
 	cmd->rpc = rpc;
+	cmd->methodname = json_strdup(cmd, membuf_elems(&conn->mb), method);
 
 	return cmd;
 }
@@ -474,14 +475,12 @@ static void handle_new_command(const tal_t *ctx,
 			       size_t num_commands)
 {
 	struct command *cmd;
-	const jsmntok_t *method, *params;
+	const jsmntok_t *params;
 	int reqlen;
 
-	cmd = read_json_request(ctx, request_conn, rpc_conn,
-				&method, &params, &reqlen);
+	cmd = read_json_request(ctx, request_conn, rpc_conn, &params, &reqlen);
 	for (size_t i = 0; i < num_commands; i++) {
-		if (json_tok_streq(membuf_elems(&request_conn->mb), method,
-				   commands[i].name)) {
+		if (streq(cmd->methodname, commands[i].name)) {
 			commands[i].handle(cmd, membuf_elems(&request_conn->mb),
 					   params);
 			membuf_consume(&request_conn->mb, reqlen);
@@ -489,9 +488,7 @@ static void handle_new_command(const tal_t *ctx,
 		}
 	}
 
-	plugin_err("Unknown command '%.*s'",
-		   method->end - method->start,
-		   membuf_elems(&request_conn->mb) + method->start);
+	plugin_err("Unknown command '%s'", cmd->methodname);
 }
 
 void plugin_main(char *argv[],
@@ -502,7 +499,7 @@ void plugin_main(char *argv[],
 	struct plugin_conn request_conn, rpc_conn;
 	const tal_t *ctx = tal(NULL, char);
 	struct command *cmd;
-	const jsmntok_t *method, *params;
+	const jsmntok_t *params;
 	int reqlen;
 	struct pollfd fds[2];
 
@@ -523,23 +520,18 @@ void plugin_main(char *argv[],
 	uintmap_init(&out_reqs);
 
 	cmd = read_json_request(tmpctx, &request_conn, NULL,
-				&method, &params, &reqlen);
-	if (!json_tok_streq(membuf_elems(&request_conn.mb), method,
-			    "getmanifest")) {
-		plugin_err("Expected getmanifest not '%.*s'",
-			   method->end - method->start,
-			   membuf_elems(&request_conn.mb) + method->start);
-	}
+				&params, &reqlen);
+	if (!streq(cmd->methodname, "getmanifest"))
+		plugin_err("Expected getmanifest not %s", cmd->methodname);
+
 	membuf_consume(&request_conn.mb, reqlen);
 	handle_getmanifest(cmd, commands, num_commands);
 
 	cmd = read_json_request(tmpctx, &request_conn, &rpc_conn,
-				&method, &params, &reqlen);
-	if (!json_tok_streq(membuf_elems(&request_conn.mb), method, "init")) {
-		plugin_err("Expected init not '%.*s'",
-			   method->end - method->start,
-			   membuf_elems(&request_conn.mb) + method->start);
-	}
+				&params, &reqlen);
+	if (!streq(cmd->methodname, "init"))
+		plugin_err("Expected init not %s", cmd->methodname);
+
 	handle_init(cmd, membuf_elems(&request_conn.mb),
 		    params, init);
 	membuf_consume(&request_conn.mb, reqlen);
