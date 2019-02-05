@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
+from utils import only_one
 
 import pytest
 import subprocess
@@ -47,6 +48,8 @@ def test_rpc_passthrough(node_factory):
     cmd = [hlp for hlp in n.rpc.help()['help'] if 'hello' in hlp['command']]
     assert(len(cmd) == 1)
 
+    # Make sure usage message is present.
+    assert only_one(n.rpc.help('hello')['help'])['command'] == 'hello [name]'
     # While we're at it, let's check that helloworld.py is logging
     # correctly via the notifications plugin->lightningd
     assert n.daemon.is_in_log('Plugin helloworld.py initialized')
@@ -119,3 +122,7 @@ def test_pay_plugin(node_factory):
 
     with pytest.raises(RpcError, match=r'missing required parameter'):
         l1.rpc.call('pay')
+
+    # Make sure usage messages are present.
+    assert only_one(l1.rpc.help('pay')['help'])['command'] == 'pay bolt11 [msatoshi] [description] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee]'
+    assert only_one(l1.rpc.help('paystatus')['help'])['command'] == 'paystatus [bolt11]'

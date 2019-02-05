@@ -19,6 +19,7 @@
 #include <lightningd/json.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
+#include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
 #include <signal.h>
 #include <sys/stat.h>
@@ -633,12 +634,14 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 				 const char *buffer,
 				 const jsmntok_t *meth)
 {
-	const jsmntok_t *nametok, *desctok, *longdesctok;
+	const jsmntok_t *nametok, *desctok, *longdesctok, *usagetok;
 	struct json_command *cmd;
+	const char *usage;
 
 	nametok = json_get_member(buffer, meth, "name");
 	desctok = json_get_member(buffer, meth, "description");
 	longdesctok = json_get_member(buffer, meth, "long_description");
+	usagetok = json_get_member(buffer, meth, "usage");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
 		plugin_kill(plugin,
@@ -662,6 +665,13 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 		return false;
 	}
 
+	if (usagetok && usagetok->type != JSMN_STRING) {
+		plugin_kill(plugin,
+			    "\"usage\" is not a string: %.*s",
+			    meth->end - meth->start, buffer + meth->start);
+		return false;
+	}
+
 	cmd = notleak(tal(plugin, struct json_command));
 	cmd->name = json_strdup(cmd, buffer, nametok);
 	cmd->description = json_strdup(cmd, buffer, desctok);
@@ -669,12 +679,18 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 		cmd->verbose = json_strdup(cmd, buffer, longdesctok);
 	else
 		cmd->verbose = cmd->description;
+	if (usagetok)
+		usage = json_strdup(tmpctx, buffer, usagetok);
+	else if (!deprecated_apis) {
+		plugin_kill(plugin,
+			    "\"usage\" not provided by plugin");
+		return false;
+	} else
+		usage = "[params]";
 
 	cmd->deprecated = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
-	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd,
-				 /* FIXME */
-				 "[params]")) {
+	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
 		log_broken(plugin->log,
 			   "Could not register method \"%s\", a method with "
 			   "that name is already registered",
