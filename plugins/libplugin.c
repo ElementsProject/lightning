@@ -2,6 +2,7 @@
 #include <ccan/intmap/intmap.h>
 #include <ccan/membuf/membuf.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/utils.h>
@@ -19,6 +20,10 @@
 /* Tracking requests */
 static UINTMAP(struct out_req *) out_reqs;
 static u64 next_outreq_id;
+
+/* Map from json command names to usage strings: we don't put this inside
+ * struct json_command as it's good practice to have those const. */
+static STRMAP(const char *) usagemap;
 
 struct plugin_conn {
 	int fd;
@@ -260,20 +265,23 @@ struct command_result *command_fail(struct command *cmd,
 	return res;
 }
 
-/* We never invoke param for usage. */
+/* We invoke param for usage at registration time. */
 bool command_usage_only(const struct command *cmd)
 {
-	return false;
+	return cmd->rpc == NULL;
 }
 
+/* FIXME: would be good to support this! */
 bool command_check_only(const struct command *cmd)
 {
 	return false;
 }
 
-void command_set_usage(struct command *cmd, const char *usage)
+void command_set_usage(struct command *cmd, const char *usage TAKES)
 {
-	abort();
+	usage = tal_strdup(NULL, usage);
+	if (!strmap_add(&usagemap, cmd->methodname, usage))
+		plugin_err("Two usages for command %s?", cmd->methodname);
 }
 
 /* Reads rpc reply and returns tokens, setting contents to 'error' or
@@ -418,8 +426,10 @@ handle_getmanifest(struct command *getmanifest_cmd,
 				   "'rpcmethods': [ ");
 	for (size_t i = 0; i < num_commands; i++) {
 		tal_append_fmt(&params, "{ 'name': '%s',"
+			       "    'usage': '%s',"
 			       "    'description': '%s'",
 			       commands[i].name,
+			       strmap_get(&usagemap, commands[i].name),
 			       commands[i].description);
 		if (commands[i].long_description)
 			tal_append_fmt(&params,
@@ -491,6 +501,23 @@ static void handle_new_command(const tal_t *ctx,
 	plugin_err("Unknown command '%s'", cmd->methodname);
 }
 
+static void setup_command_usage(const struct plugin_command *commands,
+				size_t num_commands)
+{
+	struct command *usage_cmd = tal(tmpctx, struct command);
+
+	/* This is how common/param can tell it's just a usage request */
+	usage_cmd->rpc = NULL;
+	for (size_t i = 0; i < num_commands; i++) {
+		struct command_result *res;
+
+		usage_cmd->methodname = commands[i].name;
+		res = commands[i].handle(usage_cmd, NULL, NULL);
+		assert(res == NULL);
+		assert(strmap_get(&usagemap, commands[i].name));
+	}
+}
+
 void plugin_main(char *argv[],
 		 void (*init)(struct plugin_conn *rpc),
 		 const struct plugin_command *commands,
@@ -509,6 +536,8 @@ void plugin_main(char *argv[],
 
 	/* Note this already prints to stderr, which is enough for now */
 	daemon_setup(argv[0], NULL, NULL);
+
+	setup_command_usage(commands, num_commands);
 
 	membuf_init(&rpc_conn.mb,
 		    tal_arr(ctx, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
