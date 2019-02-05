@@ -33,8 +33,8 @@ env:
   - VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=6 TEST_GROUP_COUNT=6 SOURCE_CHECK_ONLY=false
 cache:
   directories:
-    dependencies
-    external
+    - dependencies
+    - external
 
 script:
   .travis/build.sh
