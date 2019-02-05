@@ -70,10 +70,12 @@ this example:
 	"rpcmethods": [
 		{
 			"name": "hello",
+			"usage": "[name]",
 			"description": "Returns a personalized greeting for {greeting} (set via options)."
 		},
 		{
 			"name": "gettime",
+			"usage": "",
 			"description": "Returns the current time in {timezone}",
 			"long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
 		}
@@ -93,9 +95,10 @@ currently only string options are supported.*
 The `rpcmethods` are methods that will be exposed via `lightningd`'s
 JSON-RPC over Unix-Socket interface, just like the builtin
 commands. Any parameters given to the JSON-RPC calls will be passed
-through verbatim. Notice that the `name` and the `description` fields
+through verbatim. Notice that the `name`, `description` and `usage` fields
 are mandatory, while the `long_description` can be omitted (it'll be
-set to `description` if it was not provided).
+set to `description` if it was not provided). `usage` should surround optional
+parameter names in `[]`.
 
 Plugins are free to register any `name` for their `rpcmethod` as long
 as the name was not previously registered. This includes both built-in
@@ -149,11 +152,13 @@ called `hello` and `gettime`:
 	"rpcmethods": [
 		{
 			"name": "hello",
+			"usage": "[name]",
 			"description": "Returns a personalized greeting for {greeting} (set via options)."
 		},
 		{
 			"name": "gettime",
 			"description": "Returns the current time in {timezone}",
+			"usage": "",
 			"long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
 		}
 	],
