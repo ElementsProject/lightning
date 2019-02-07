@@ -617,6 +617,15 @@ static void
 peer_connected_serialize(struct peer_connected_hook_payload *payload,
 			 struct json_stream *stream)
 {
+	const struct peer *p = payload->peer;
+	json_object_start(stream, "peer");
+	json_add_pubkey(stream, "id", &p->id);
+	json_add_string(
+	    stream, "addr",
+	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
+	json_add_hex_talarr(stream, "globalfeatures", p->globalfeatures);
+	json_add_hex_talarr(stream, "localfeatures", p->localfeatures);
+	json_object_end(stream); /* .peer */
 }
 
 static struct peer_connected_hook_response *
