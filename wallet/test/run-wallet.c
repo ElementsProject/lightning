@@ -215,6 +215,9 @@ void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 void json_add_log(struct json_stream *result UNNEEDED,
 		  const struct log_book *lr UNNEEDED, enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
+/* Generated stub for json_add_null */
+void json_add_null(struct json_stream *stream UNNEEDED, const char *fieldname UNNEEDED)
+{ fprintf(stderr, "json_add_null called!\n"); abort(); }
 /* Generated stub for json_add_num */
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
