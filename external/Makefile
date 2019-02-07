@@ -15,16 +15,22 @@ JSMN_HEADERS := external/jsmn/jsmn.h
 LIBBASE58_HEADERS := external/libbase58/libbase58.h
 
 EXTERNAL_HEADERS := $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS) $(LIBBASE58_HEADERS)
-EXTERNAL_LIBS := external/libwallycore.a external/libsecp256k1.a external/libsodium.a external/libjsmn.a external/libbase58.a external/libbacktrace.a
+EXTERNAL_LIBS := external/libwallycore.a external/libsecp256k1.a external/libjsmn.a external/libbase58.a external/libbacktrace.a
 
 EXTERNAL_INCLUDE_FLAGS :=					\
-	-I external/libsodium/src/libsodium/include		\
 	-I external/libwally-core/include/			\
 	-I external/libwally-core/src/secp256k1/include/	\
 	-I external/jsmn/					\
 	-I external/libbase58/					\
 	-I external/libbacktrace/				\
 	-I external/libbacktrace-build
+
+ifneq ($(HAVE_GOOD_LIBSODIUM),1)
+EXTERNAL_INCLUDE_FLAGS += -I external/libsodium/src/libsodium/include
+EXTERNAL_LIBS += external/libsodium.a
+else
+LDLIBS += -lsodium
+endif
 
 EXTERNAL_LDLIBS := -Lexternal $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 

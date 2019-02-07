@@ -156,7 +156,22 @@ if [ "$ASAN" = "1" ]; then
 fi
 
 rm -f $CONFIG_VAR_FILE.$$
-$CONFIGURATOR --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" $CWARNFLAGS $CDEBUGFLAGS
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" $CWARNFLAGS $CDEBUGFLAGS <<EOF
+var=HAVE_GOOD_LIBSODIUM
+desc=libsodium with IETF chacha20 variants
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=-lsodium
+code=
+#include <sodium.h>
+#include <stdio.h>
+
+int main(void)
+{
+	printf("%p\n", crypto_aead_chacha20poly1305_ietf_encrypt);
+	exit(0);
+}
+/*END*/
+EOF
 mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
 
 add_var PREFIX "$PREFIX"
