@@ -36,7 +36,7 @@ Get dependencies:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python python3 net-tools zlib1g-dev
+      libsqlite3-dev python python3 net-tools zlib1g-dev libsodium
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -93,7 +93,8 @@ $ sudo dnf update -y && \
                 net-tools \
                 valgrind \
                 wget \
-                zlib-devel && \
+                zlib-devel \
+				libsodium-devel && \
         sudo dnf clean all
 ```
 
@@ -132,7 +133,7 @@ OS version: FreeBSD 11.1-RELEASE or above
 Get dependencies:
 
     # pkg install -y \
-      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3
+      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3 libsodium
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -167,7 +168,7 @@ Use nix-shell launch a shell with a full clightning dev environment:
 
 ```
 $ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
-autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
+autogen automake libsodium 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind asciidoc --run make
 ```
 
@@ -181,7 +182,7 @@ Assuming you have Xcode and Homebrew installed. Install dependencies:
 If you don't have bitcoind installed locally you'll need to install that
 as well:
 
-    $ brew install berkeley-db4 boost miniupnpc openssl pkg-config libevent
+    $ brew install berkeley-db4 boost miniupnpc openssl pkg-config libevent libsodium
     $ git clone https://github.com/bitcoin/bitcoin
     $ cd bitcoin
     $ ./autogen.sh
