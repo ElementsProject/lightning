@@ -632,7 +632,23 @@ static struct peer_connected_hook_response *
 peer_connected_deserialize(const tal_t *ctx, const char *buffer,
 			   const jsmntok_t *toks)
 {
-	return NULL;
+	const jsmntok_t *resulttok;
+	struct peer_connected_hook_response *resp;
+	resulttok = json_get_member(buffer, toks, "result");
+	if (!resulttok) {
+		return NULL;
+	}
+
+	resp = tal(ctx, struct peer_connected_hook_response);
+	if (json_tok_streq(buffer, resulttok, "continue"))
+		resp->result = PEER_CONNECTED_CONTINUE;
+	else if (json_tok_streq(buffer, resulttok, "disconnect"))
+		resp->result = PEER_CONNECTED_DISCONNECT;
+	else
+		fatal("Plugin returned an invalid response to the connected "
+		      "hook: %s", buffer);
+
+	return resp;
 }
 
 static void
@@ -647,6 +663,12 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 	int gossip_fd = payload->gossip_fd;
 	int peer_fd = payload->peer_fd;
 	u8 *error;
+
+	if (response && response->result == PEER_CONNECTED_DISCONNECT) {
+		close(peer_fd);
+		tal_free(payload);
+		return;
+	}
 
 	if (channel) {
 		log_debug(channel->log, "Peer has reconnected, state %s",
