@@ -253,7 +253,7 @@ REGISTER_TYPE_TO_HEXSTR(channel_id);
  * (i.e. `funding_output_index` alters the last 2 bytes).
  */
 void derive_channel_id(struct channel_id *channel_id,
-		       struct bitcoin_txid *txid, u16 txout)
+		       const struct bitcoin_txid *txid, u16 txout)
 {
 	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
 	memcpy(channel_id, txid, sizeof(*channel_id));
