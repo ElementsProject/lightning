@@ -306,15 +306,22 @@ class Plugin(object):
                 doc = "Undocumented RPC method from a plugin."
             doc = re.sub('\n+', ' ', doc)
 
+            # Handles out-of-order use of parameters like:
+            # def hello_obfus(arg1, arg2, plugin, thing3, request=None, thing5='at', thing6=21)
             argspec = inspect.getargspec(func)
-            args = argspec.args[1:]
             defaults = argspec.defaults
-
-            # Make optional args be surrounded by square brackets
-            # list regular lightning-cli commands args
-            if defaults:
-                for idx in range(-len(defaults), 0):
-                    args[idx] = '[' + args[idx] + ']'
+            num_defaults = len(defaults) if defaults else 0
+            start_kwargs_idx = len(argspec.args) - num_defaults
+            args = []
+            for idx, arg in enumerate(argspec.args):
+                if arg in ('plugin', 'request'):
+                    continue
+                # Positional arg
+                if idx < start_kwargs_idx:
+                    args.append("%s" % arg)
+                # Keyword arg
+                else:
+                    args.append("[%s]" % arg)
 
             methods.append({
                 'name': name,
