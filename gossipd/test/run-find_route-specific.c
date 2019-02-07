@@ -126,7 +126,8 @@ get_or_make_connection(struct routing_state *rstate,
 	struct chan *chan;
 	const int idx = pubkey_idx(from_id, to_id);
 
-	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid))
+	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid,
+				       false))
 		abort();
 	chan = get_channel(rstate, &scid);
 	if (!chan)

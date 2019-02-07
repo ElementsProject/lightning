@@ -17,6 +17,7 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 
 /* Extract a short_channel_id from this */
 bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			      struct short_channel_id *scid);
+			      struct short_channel_id *scid,
+			      bool may_be_deprecated_form);
 
 #endif /* LIGHTNING_COMMON_JSON_HELPERS_H */

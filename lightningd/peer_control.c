@@ -897,7 +897,8 @@ command_find_channel(struct command *cmd,
 				    "Channel ID not found: '%.*s'",
 				    tok->end - tok->start,
 				    buffer + tok->start);
-	} else if (json_to_short_channel_id(buffer, tok, &scid)) {
+	} else if (json_to_short_channel_id(buffer, tok, &scid,
+					    deprecated_apis)) {
 		list_for_each(&ld->peers, peer, list) {
 			*channel = peer_active_channel(peer);
 			if (!*channel)

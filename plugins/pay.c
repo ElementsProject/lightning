@@ -148,7 +148,7 @@ static bool channel_in_routehint(const struct route_info *routehint,
 {
 	struct short_channel_id scid;
 
-	if (!json_to_short_channel_id(buf, scidtok, &scid))
+	if (!json_to_short_channel_id(buf, scidtok, &scid, false))
 		plugin_err("bad erring_channel '%.*s'",
 			   scidtok->end - scidtok->start, buf + scidtok->start);
 
