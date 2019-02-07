@@ -888,7 +888,8 @@ static void read_tests(size_t num_tests)
 {
 	while (read_test(tests + num_tests)) {
 		num_tests++;
-		tests = realloc(tests, num_tests * sizeof(tests[0]));
+		tests = realloc(tests, (num_tests + 1) * sizeof(tests[0]));
+		tests[num_tests].name = NULL;
 	}
 }
 
