@@ -1357,12 +1357,15 @@ def test_pay_direct(node_factory, bitcoind):
     # Direct channel l0->l1->l3
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
     # Waiting takes a *long* time if !DEVELOPER.
-    l0.fund_channel(l1, 10**7, wait_for_active=False)
+    c0 = l0.fund_channel(l1, 10**7, wait_for_active=False)
+
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l1.fund_channel(l3, 10**7, wait_for_active=False)
+    c1 = l1.fund_channel(l3, 10**7, wait_for_active=False)
+
     # Indirect route l0->l1->l2->l3
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.fund_channel(l2, 10**7, wait_for_active=False)
+    c2 = l1.fund_channel(l2, 10**7, wait_for_active=False)
+
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     c3 = l2.fund_channel(l3, 10**7, wait_for_active=False)
 
@@ -1372,7 +1375,7 @@ def test_pay_direct(node_factory, bitcoind):
     # Make sure l0 knows the l2->l3 channel.
     # Without DEVELOPER, channel lockin can take 30 seconds to detect,
     # and gossip 2 minutes to propagate
-    wait_for(lambda: l0.is_channel_active(c3), timeout=180)
+    l0.wait_for_channel_updates([c0, c1, c2, c3])
 
     # Find out how much msatoshi l1 owns on l1->l2 channel.
     l1l2msatreference = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']

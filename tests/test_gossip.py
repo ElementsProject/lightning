@@ -151,7 +151,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     chan12 = l1.fund_channel(l2, 10**5)
     bitcoind.generate_block(5)
 
-    l3.wait_for_routes([chan12])
+    l3.wait_for_channel_updates([chan12])
     after_12 = int(time.time())
     # Full IO logging for l1's channeld
     subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
@@ -160,7 +160,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     chan23 = l2.fund_channel(l3, 10**5)
     bitcoind.generate_block(5)
 
-    l1.wait_for_routes([chan23])
+    l1.wait_for_channel_updates([chan23])
     after_23 = int(time.time())
 
     # Make sure l1 has received all the gossip.
@@ -750,7 +750,7 @@ def test_report_routing_failure(node_factory, bitcoind):
         lsrc.rpc.connect(ldst.info['id'], 'localhost', ldst.port)
         c = lsrc.fund_channel(ldst, 10000000)
         bitcoind.generate_block(5)
-        lpayer.wait_for_routes([c])
+        lpayer.wait_for_channel_updates([c])
 
     # Setup
     # Construct lightningd

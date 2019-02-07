@@ -606,12 +606,25 @@ class LightningNode(object):
 
     # This waits until gossipd sees channel_update in both directions
     # (or for local channels, at least a local announcement)
-    def wait_for_routes(self, channel_ids):
+    def wait_for_channel_updates(self, scids):
         # Could happen in any order...
         self.daemon.wait_for_logs(['Received channel_update for channel {}/0'.format(c)
-                                   for c in channel_ids]
+                                   for c in scids]
                                   + ['Received channel_update for channel {}/1'.format(c)
-                                     for c in channel_ids])
+                                     for c in scids])
+
+    def wait_for_route(self, destination, timeout=30):
+        """ Wait for a route to the destination to become available.
+        """
+        start_time = time.time()
+        while time.time() < start_time + timeout:
+            try:
+                self.rpc.getroute(destination.info['id'], 1, 1)
+                return True
+            except Exception:
+                time.sleep(1)
+        if time.time() > start_time + timeout:
+            raise ValueError("Error waiting for a route to destination {}".format(destination))
 
     def pay(self, dst, amt, label=None):
         if not label:
