@@ -171,6 +171,20 @@ int main(void)
 	exit(0);
 }
 /*END*/
+var=HAVE_SYSTEM_LIBBASE58
+desc=libbase58
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=-lbase58
+code=
+#include <libbase58.h>
+#include <stdio.h>
+
+int main(void)
+{
+	printf("%p\n", b58check);
+	exit(0);
+}
+/*END*/
 EOF
 mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
 
