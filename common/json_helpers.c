@@ -39,8 +39,10 @@ bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
 }
 
 bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			      struct short_channel_id *scid)
+			      struct short_channel_id *scid,
+			      bool may_be_deprecated_form)
 {
 	return (short_channel_id_from_str(buffer + tok->start,
-					  tok->end - tok->start, scid));
+					  tok->end - tok->start, scid,
+					  may_be_deprecated_form));
 }

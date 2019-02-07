@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
 
+- JSON API: `short_channel_id` fields in JSON commands with `:` separators (use `x` instead).
+
 ### Removed
 
 - JSON API: the `waitsendpay` command error return no longer includes `channel_update`

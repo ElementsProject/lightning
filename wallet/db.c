@@ -742,7 +742,7 @@ bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
 {
 	const char *source = sqlite3_column_blob(stmt, col);
 	size_t sourcelen = sqlite3_column_bytes(stmt, col);
-	return short_channel_id_from_str(source, sourcelen, dest);
+	return short_channel_id_from_str(source, sourcelen, dest, true);
 }
 bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
 					 const struct short_channel_id *id)

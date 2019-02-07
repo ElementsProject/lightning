@@ -51,13 +51,16 @@ static inline u16 short_channel_id_outnum(const struct short_channel_id *scid)
 bool WARN_UNUSED_RESULT mk_short_channel_id(struct short_channel_id *scid,
 					    u64 blocknum, u64 txnum, u64 outnum);
 
+/* may_be_deprecated_form allows : separators if COMPAT defined */
 bool WARN_UNUSED_RESULT short_channel_id_from_str(const char *str, size_t strlen,
-						  struct short_channel_id *dst);
+						  struct short_channel_id *dst,
+						  bool may_be_deprecated_form);
 
 char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid);
 
 bool WARN_UNUSED_RESULT short_channel_id_dir_from_str(const char *str, size_t strlen,
-						      struct short_channel_id_dir *scidd);
+						      struct short_channel_id_dir *scidd,
+						      bool may_be_deprecated_form);
 
 char *short_channel_id_dir_to_str(const tal_t *ctx,
 				  const struct short_channel_id_dir *scidd);

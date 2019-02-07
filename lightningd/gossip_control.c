@@ -339,7 +339,8 @@ static struct command_result *json_getroute(struct command *cmd,
 		json_for_each_arr(i, t, excludetok) {
 			if (!short_channel_id_dir_from_str(buffer + t->start,
 							   t->end - t->start,
-							   &excluded[i])) {
+							   &excluded[i],
+							   deprecated_apis)) {
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "%.*s is not a valid"
 						    " short_channel_id/direction",
@@ -497,7 +498,8 @@ static struct command_result *json_dev_query_scids(struct command *cmd,
 
 	scids = tal_arr(cmd, struct short_channel_id, scidstok->size);
 	json_for_each_arr(i, t, scidstok) {
-		if (!json_to_short_channel_id(buffer, t, &scids[i])) {
+		if (!json_to_short_channel_id(buffer, t, &scids[i],
+					      deprecated_apis)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "scid %zu '%.*s' is not an scid",
 					    i, json_tok_full_len(t),

@@ -325,7 +325,8 @@ static struct route_info *unpack_route(const tal_t *ctx,
 
 		if (!json_to_pubkey(buffer, pubkey, &r->pubkey)
 		    || !json_to_short_channel_id(buffer, scid,
-						 &r->short_channel_id)
+						 &r->short_channel_id,
+						 deprecated_apis)
 		    || !json_to_number(buffer, fee_base, &r->fee_base_msat)
 		    || !json_to_number(buffer, fee_prop,
 				       &r->fee_proportional_millionths)
