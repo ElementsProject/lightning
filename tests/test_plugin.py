@@ -126,3 +126,23 @@ def test_pay_plugin(node_factory):
     # Make sure usage messages are present.
     assert only_one(l1.rpc.help('pay')['help'])['command'] == 'pay bolt11 [msatoshi] [description] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee]'
     assert only_one(l1.rpc.help('paystatus')['help'])['command'] == 'paystatus [bolt11]'
+
+
+def test_plugin_connected_hook(node_factory):
+    """ l1 uses the reject plugin to reject connections.
+
+    l1 is configured to accept connections from l2, but not from l3.
+    """
+    opts = [{'plugin': 'tests/plugins/reject.py'}, {}, {}]
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    l1.rpc.reject(l3.info['id'])
+
+    l2.connect(l1)
+    l1.daemon.wait_for_log(r"{} is allowed".format(l2.info['id']))
+    assert len(l1.rpc.listpeers(l2.info['id'])['peers']) == 1
+
+    l3.connect(l1)
+    l1.daemon.wait_for_log(r"{} is in reject list".format(l3.info['id']))
+
+    peer = l1.rpc.listpeers(l3.info['id'])['peers']
+    assert(peer == [] or not peer[0]['connected'])
