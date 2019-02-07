@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 EXIT_CODE=0
-for FILE in $(git grep -lE 'int main\(' | grep -vE '^ccan/'); do
+for FILE in $(git grep -lE 'int main\(' | grep -vE '^ccan/' | grep '.c$'); do
     if ! grep -q 'setup_locale();' "${FILE}"; then
         echo "main(...) in ${FILE} does not call setup_locale() (see common/utils.h)"
         EXIT_CODE=1
