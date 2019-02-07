@@ -299,6 +299,11 @@ void json_add_bool(struct json_stream *result, const char *fieldname, bool value
 	json_add_member(result, fieldname, value ? "true" : "false");
 }
 
+void json_add_null(struct json_stream *stream, const char *fieldname)
+{
+	json_add_member(stream, fieldname, "null");
+}
+
 void json_add_hex(struct json_stream *result, const char *fieldname,
 		  const void *data, size_t len)
 {

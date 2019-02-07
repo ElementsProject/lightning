@@ -115,6 +115,10 @@ void json_add_u64(struct json_stream *result, const char *fieldname,
 /* '"fieldname" : true|false' or 'true|false' if fieldname is NULL */
 void json_add_bool(struct json_stream *result, const char *fieldname,
 		   bool value);
+
+/* '"fieldname" : null' or 'null' if fieldname is NULL */
+void json_add_null(struct json_stream *stream, const char *fieldname);
+
 /* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
 void json_add_hex(struct json_stream *result, const char *fieldname,
 		  const void *data, size_t len);
