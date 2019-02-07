@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API: `listpeers` now includes `funding_allocation_msat`, which returns a map of the amounts initially funded to the channel by each peer, indexed by channel id.
 - `option_data_loss_protect` is now enabled by default.
 - JSON API: `help` with a `command` argument gives a JSON array, like other commands.
+- build: we'll use the system libbase58 and libsodium if found suitable.
 
 ### Deprecated
 
