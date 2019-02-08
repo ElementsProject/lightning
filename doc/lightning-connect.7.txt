@@ -9,50 +9,48 @@ lightning node.
 
 SYNOPSIS
 --------
-*connect* 'node_id'[@('ip_addr'|'hostname')[:'port']]
-
-or
-
-*connect* 'node_id'[ ('ip_addr'|'hostname')[:'port']]
+*connect* 'id' ['host' 'port']
 
 DESCRIPTION
 -----------
 The *connect* RPC command establishes a new connection 
 with another node in the Lightning Network.
 
-'node_id' represents the target node's public key and 
-'ip_addr' can be either IPv4 or IPv6. 
+'id' represents the target node's public key.
+As a convenience, 'id' may be of the form 'id@host' or 'id@host:port'.
+In this case, the 'host' and 'port' parameters must be omitted.
 
-If not specified the 'port' is assumed to be 9375 
-(default lightning port).
+'host' is the peer's hostname or IP address.
 
-If neither 'ip_addr' or 'hostname' is specified, 
+If not specified, the 'port' defaults to 9375.
+
+If 'host' is not specified, the
 connection will be attempted to an IP belonging to 
-'node_id' learned through gossip with other already 
-connected peers
+'id' obtained through gossip with other already
+connected peers.
 
 Connecting to a node is just the first step in opening 
-a channel with another node, once the peer is connected
-a channel can be opened with lightning-fundchannel(7)
+a channel with another node.
+Once the peer is connected a channel can be opened with
+lightning-fundchannel(7).
 
 
 RETURN VALUE
 ------------
-On success the response will include just the peer id 
-(peer's public key)
+On success the peer 'id' is returned.
 
-ERRORS
-------
-If 'node_id' or 'ip_addr' are invalid or if 'hostname' 
-can't be resolved to a valid IP address an error message
-will be returned. An error will also be returned if the 
-simplified version (only 'node_id') is used and there's
-no published IP for the peer. *connect* will make up to 
-10(?) attempts to connect to the peer before giving up
+The following error codes may occur:
+
+* -1. Catchall nonspecific error.
+      This may occur if the host is not valid or there are problems
+      communicating with the peer.
+      *connect* will make up to 10 attempts to connect to the peer before
+      giving up.
 
 AUTHOR
 ------
-Felix <fixone@gmail.com> is mainly responsible.
+Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+Felix <fixone@gmail.com> is the original author of this manpage.
 
 SEE ALSO
 --------
