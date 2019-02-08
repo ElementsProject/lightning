@@ -1,4 +1,6 @@
-# Table of Contents
+Install
+=======
+
 1. [Library Requirements](#library-requirements)
 2. [Ubuntu](#to-build-on-ubuntu)
 3. [Fedora](#to-build-on-fedora)

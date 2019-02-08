@@ -1,3 +1,6 @@
+Hacking
+=======
+
 Welcome, fellow coder!
 
 This repository contains a code to run a lightning protocol daemon.
