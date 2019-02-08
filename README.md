@@ -16,6 +16,7 @@ http://lightning.network.
 [![Build Status][travis-ci]][travis-ci-link]
 [![Pull Requests Welcome][prs]][prs-link]
 [![Irc][IRC]][IRC-link]
+[![Documentation Status](https://readthedocs.org/projects/lightning/badge/?version=docs)](https://lightning.readthedocs.io/)
 
 [travis-ci]: https://travis-ci.org/ElementsProject/lightning.svg?branch=master
 [travis-ci-link]: https://travis-ci.org/ElementsProject/lightning
