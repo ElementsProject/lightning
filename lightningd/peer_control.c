@@ -1407,7 +1407,8 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 	}
 	if (!forget->channel) {
 		return command_fail(cmd, LIGHTNINGD,
-				    "No channels matching that short_channel_id");
+				    "No channels matching that peer_id%s",
+					scid ? " and that short_channel_id" : "");
 	}
 
 	if (channel_has_htlc_out(forget->channel) ||
