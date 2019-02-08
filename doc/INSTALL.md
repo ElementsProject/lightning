@@ -296,7 +296,7 @@ Download and build gmp:
     wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
     tar xvf gmp-6.1.2.tar.xz 
     cd gmp-6.1.2
-    ./configure --disable-assembly --prefix=$QEMU_LD_PREFIX
+    ./configure --disable-assembly --host=$target_host --prefix=$QEMU_LD_PREFIX
     make
     make install
 
