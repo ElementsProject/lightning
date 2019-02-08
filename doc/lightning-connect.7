@@ -2,12 +2,12 @@
 .\"     Title: lightning-connect
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/26/2018
+.\"      Date: 02/11/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-CONNECT" "7" "04/26/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-CONNECT" "7" "02/11/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,31 +31,41 @@
 lightning-connect \- Command for connecting to another lightning node\&.
 .SH "SYNOPSIS"
 .sp
-\fBconnect\fR \fInode_id\fR[@(\fIip_addr\fR|\fIhostname\fR)[:\*(Aqport\*(Aq]]
-.sp
-or
-.sp
-\fBconnect\fR \fInode_id\fR[ (\fIip_addr\fR|\fIhostname\fR)[:\*(Aqport\*(Aq]]
+\fBconnect\fR \fIid\fR [\fIhost\fR \fIport\fR]
 .SH "DESCRIPTION"
 .sp
 The \fBconnect\fR RPC command establishes a new connection with another node in the Lightning Network\&.
 .sp
-\fInode_id\fR represents the target node\(cqs public key and \fIip_addr\fR can be either IPv4 or IPv6\&.
+\fIid\fR represents the target node\(cqs public key\&. As a convenience, \fIid\fR may be of the form \fIid@host\fR or \fIid@host:port\fR\&. In this case, the \fIhost\fR and \fIport\fR parameters must be omitted\&.
 .sp
-If not specified the \fIport\fR is assumed to be 9375 (default lightning port)\&.
+\fIhost\fR is the peer\(cqs hostname or IP address\&.
 .sp
-If neither \fIip_addr\fR or \fIhostname\fR is specified, connection will be attempted to an IP belonging to \fInode_id\fR learned through gossip with other already connected peers
+If not specified, the \fIport\fR defaults to 9375\&.
 .sp
-Connecting to a node is just the first step in opening a channel with another node, once the peer is connected a channel can be opened with lightning\-fundchannel(7)
+If \fIhost\fR is not specified, the connection will be attempted to an IP belonging to \fIid\fR obtained through gossip with other already connected peers\&.
+.sp
+Connecting to a node is just the first step in opening a channel with another node\&. Once the peer is connected a channel can be opened with lightning\-fundchannel(7)\&.
 .SH "RETURN VALUE"
 .sp
-On success the response will include just the peer id (peer\(cqs public key)
-.SH "ERRORS"
+On success the peer \fIid\fR is returned\&.
 .sp
-If \fInode_id\fR or \fIip_addr\fR are invalid or if \fIhostname\fR can\(cqt be resolved to a valid IP address an error message will be returned\&. An error will also be returned if the simplified version (only \fInode_id\fR) is used and there\(cqs no published IP for the peer\&. \fBconnect\fR will make up to 10(?) attempts to connect to the peer before giving up
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Catchall nonspecific error\&. This may occur if the host is not valid or there are problems communicating with the peer\&.
+\fBconnect\fR
+will make up to 10 attempts to connect to the peer before giving up\&.
+.RE
 .SH "AUTHOR"
 .sp
-Felix <fixone@gmail\&.com> is mainly responsible\&.
+Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&. Felix <fixone@gmail\&.com> is the original author of this manpage\&.
 .SH "SEE ALSO"
 .sp
 lightning\-fundchannel(7), lightning\-listpeers(7), lightning\-listchannels(7), lightning\-disconnect(7)
