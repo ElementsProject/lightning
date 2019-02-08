@@ -1,9 +1,8 @@
-# HOWTO USE TOR WITH C-LIGHTNING
+# Setting up TOR with c-lightning
 
 to use tor you have to have tor installed an running.
 
-i.e.
-```
+```bash
 sudo apt install tor
 ```
 then `/etc/init.d/tor start` or `sudo systemctl start tor` Depending 
