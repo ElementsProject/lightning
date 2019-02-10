@@ -40,7 +40,7 @@ struct config {
 
 	/* Fee rates. */
 	u32 fee_base;
-	s32 fee_per_satoshi;
+	u32 fee_per_satoshi;
 
 	/* How long between changing commit and sending COMMIT message. */
 	u32 commit_time_ms;
