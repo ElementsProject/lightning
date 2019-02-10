@@ -157,6 +157,10 @@ struct peer {
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
 static void start_commit_timer(struct peer *peer);
+static char *get_funding_depth(const struct peer *peer);
+/* we need its return value, declare here*/
+static u8 *master_wait_sync_reply(const tal_t *ctx, struct peer *peer,
+	const u8 *msg, enum channel_wire_type replytype);
 
 static void billboard_update(const struct peer *peer)
 {
@@ -164,9 +168,10 @@ static void billboard_update(const struct peer *peer)
 
 	if (peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
 		funding_status = "Funding transaction locked.";
-	else if (!peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
-		/* FIXME: Say how many blocks to go! */
-		funding_status = "Funding needs more confirmations.";
+	else if (!peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE]) {
+		char *infor = get_funding_depth(peer);
+		funding_status = cast_const(const char *, infor);
+	}
 	else if (peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
 		funding_status = "We've confirmed funding, they haven't yet.";
 	else if (!peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
@@ -200,6 +205,51 @@ static void billboard_update(const struct peer *peer)
 	}
 	peer_billboard(false, "%s%s%s", funding_status,
 		       announce_status, shutdown_status);
+}
+
+/* used in billboard_update to say how many blocks to go! */
+static char *get_funding_depth(const struct peer *peer)
+{
+	status_trace("Please wait. We are trying to get depth...");
+	u8 *msg, *reply;
+	u32 minimum_depth, funding_depth;
+	char *infor = tal_arr(tmpctx, char, 0);
+	struct bitcoin_txid txid;
+
+	msg = towire_channel_funding_depth(tmpctx, &peer->channel->funding_txid);
+
+	/* wait for the reply, this loop may cost some minutes */
+	reply = master_wait_sync_reply(tmpctx,
+				       cast_const(struct peer *, peer),
+				       msg,
+				       WIRE_CHANNEL_FUNDING_DEPTH_REPLY);
+
+	if (!fromwire_channel_funding_depth_reply(reply,
+						  &txid,
+						  &minimum_depth,
+						  &funding_depth))
+		master_badmsg(WIRE_CHANNEL_FUNDING_DEPTH_REPLY, msg);
+
+	/* the struct channel in channeld.c and the struct channel in
+	** channel_control.c are different, there should compare txid
+	** to confirm channeld and master are saying the same
+	** (funding_txid)channel */
+	if(!bitcoin_txid_eq(&peer->channel->funding_txid, &txid))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				"Could not get funding depth: %s",
+				type_to_string(tmpctx, struct bitcoin_txid,
+				&peer->channel->funding_txid));
+	u32 blocks_needed = (minimum_depth > funding_depth) ? minimum_depth - funding_depth : 0;
+	infor = tal_fmt(tmpctx,
+			"funding %s depth %u, minimum depth %u,"
+			"we need %u blocks for lockin",
+			type_to_string(tmpctx, struct bitcoin_txid,
+				       &peer->channel->funding_txid),
+			funding_depth,
+			minimum_depth,
+			blocks_needed);
+
+	return infor;
 }
 
 static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
@@ -2635,6 +2685,8 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
+	case WIRE_CHANNEL_FUNDING_DEPTH:
+	case WIRE_CHANNEL_FUNDING_DEPTH_REPLY:
 		break;
 	}
 	master_badmsg(-1, msg);

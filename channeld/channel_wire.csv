@@ -62,6 +62,16 @@ channel_init,,last_remote_secret,struct secret
 channel_init,,lflen,u16
 channel_init,,localfeatures,lflen*u8
 
+# ask master how many blocks to go!
+channel_funding_depth,1001
+channel_funding_depth,,funding_txid,struct bitcoin_txid
+
+# reply channeld how many blocks to go!
+channel_funding_depth_reply,1101
+channel_funding_depth_reply,,funding_txid,struct bitcoin_txid
+channel_funding_depth_reply,,minimum_depth,u32
+channel_funding_depth_reply,,funding_depth,u32
+
 # master->channeld funding hit new depth >= lock depth
 channel_funding_locked,1002
 channel_funding_locked,,short_channel_id,struct short_channel_id
