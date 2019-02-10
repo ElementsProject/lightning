@@ -900,6 +900,8 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
 
 	/* Success */
+	// MSC: Cppcheck 1.86 gets this false positive
+	// cppcheck-suppress autoVariables
 	*scid = &pending->short_channel_id;
 	return NULL;
 
