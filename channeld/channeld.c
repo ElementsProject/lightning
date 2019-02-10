@@ -166,7 +166,7 @@ static void billboard_update(const struct peer *peer)
 		funding_status = "Funding transaction locked.";
 	else if (!peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
 		/* FIXME: Say how many blocks to go! */
-		funding_status = "Funding needs more confirmations.";
+		funding_status = get_funding_depth(peer);
 	else if (peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
 		funding_status = "We've confirmed funding, they haven't yet.";
 	else if (!peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
@@ -200,6 +200,31 @@ static void billboard_update(const struct peer *peer)
 	}
 	peer_billboard(false, "%s%s%s", funding_status,
 		       announce_status, shutdown_status);
+}
+
+/* used in billboard_update to say how many blocks to go! */
+char *get_funding_depth(const struct peer *peer) 
+{
+	status_trace("Please wait. We are trying to get depth...")
+	u8 *msg, u8 *reply;
+	u32 *minimum_depth, *funding_depth;
+	msg = towire_channel_funding_depth(tmpctx, peer->channel->funding_txid);
+	reply = master_wait_sync_reply(tmpctx, peer, msg, WIRE_CHANNEL_FUNDING_DEPTH_REPLY);
+	struct bitcoin_txid *txid;
+	if (!fromwire_channel_funding_depth_reply(msg, txid, minimum_depth, funding_depth))
+		master_badmsg(WIRE_CHANNEL_FUNDING_DEPTH_REPLY, msg);
+
+	if(!bitcoin_txid_eq(&peer->channel->funding_txid, txid))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR, 
+			"Could not get funding depth: %s",  
+			type_to_string(tmpctx, struct bitcoin_txid, 
+			&peer->channel->funding_txid));
+
+	retuen tal_fmt(tmpctx, "funding %s now depth %u, minimum depth %u, need %u blocks(about %u min) to confirm!", 
+			type_to_string(tmpctx, struct bitcoin_txid, &peer->channel->funding_txid), 
+			*funding_depth, *minimun_depth, 
+			((*minimum_depth>*funding_depth)?*minimum_depth-*funding_depth:0), 
+			10*((*minimum_depth>*funding_depth)?*minimum_depth-*funding_depth:0));
 }
 
 static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
@@ -2635,6 +2660,10 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
+	/* channeld send that, don't receive*/
+	case WIRE_CHANNEL_FUNDING_DEPTH:
+	/* don't handle: when we send a request, we wait for the reply and handle it at once without "enqueue" */
+	case WIRE_CHANNEL_FUNDING_DEPTH_REPLY:
 		break;
 	}
 	master_badmsg(-1, msg);

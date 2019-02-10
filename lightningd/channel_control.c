@@ -190,6 +190,31 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
+/* reply the depth of the funding during bilboard_update*/
+void peer_tell_funding_depth(struct channel *channel, const u8 *msg)
+{
+	u32 depth;
+	u8 *reply;
+	struct bitcoin_txid *txid;
+	if(!fromwire_channel_funding_depth(msg, txid)) {
+		channel_internal_error(channel, "bad channel_funding_depth %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+	if(!bitcoin_txid_eq(&channel->funding_txid, txid)){
+		channel_internal_error(channel,
+				       "channel funding %s received channel_funding_depth request with error funding %s",
+					type_to_string(tmpctx, struct bitcoin_txid, &channel->funding_txid), 
+					type_to_string(tmpctx, struct bitcoin_txid, txid));
+		return;
+	}
+
+	depth = get_tx_depth(channel->peer->ld->topology, txid);
+	reply = towire_channel_funding_depth_reply(tmpctx, txid, channel->minimum_depth, depth);
+
+	subd_send_msg(channel->owner, take(reply));
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -218,6 +243,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		break;
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 		channel_fail_fallen_behind(sd->channel, msg);
+		break;
+	case WIRE_CHANNEL_FUNDING_DEPTH:
+		peer_tell_funding_depth(sd->channel, msg);
 		break;
 
 	/* And we never get these from channeld. */
