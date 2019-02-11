@@ -34,6 +34,13 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 {
 	struct command_result *res;
 	u64 fee_estimate;
+
+	/* any output in _reserved means a previous wtx wasn't successfully broadcast */
+	if (tal_count(wallet_get_utxos(tmpctx, tx->cmd->ld->wallet,
+			output_state_reserved)))
+		return command_fail(tx->cmd, LIGHTNINGD,
+				"Owned output found in status _reserved, probably the prev_out_tx failed to broadcast");
+
 	if (tx->all_funds) {
 		u64 amount;
 		tx->utxos = wallet_select_all(tx->cmd, tx->cmd->ld->wallet,
