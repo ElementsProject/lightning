@@ -6,6 +6,10 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
+/**
+ * txfilter -- Contains scriptpubkeys, usually of owned addresses. The name is
+ * a bit of a misnomer and could better be called scriptpubkey_filter.
+ */
 struct txfilter;
 
 /**

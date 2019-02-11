@@ -72,9 +72,10 @@ struct funding_channel {
 	u64 push_msat;
 	u8 channel_flags;
 
-	/* Variables we need to compose fields in cmd's response */
+	/* Variables we need in the _broadcast_success handler */
 	u8 *linear;
 	struct channel_id cid;
+	u32 *owned_outnums; /* ptr to tal allocated array of owned outnums in wtx */
 
 	/* Peer we're trying to reach. */
 	struct pubkey peerid;
@@ -227,7 +228,8 @@ static void funding_broadcast_failed(struct channel *channel,
 	struct command *cmd = fc->cmd;
 
 	/* Massage output into shape so it doesn't kill the JSON serialization */
-	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
+	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY),
+			" ", STR_NO_TRAIL);
 	was_pending(command_fail(cmd, FUNDING_BROADCAST_FAIL,
 			"Error broadcasting funding transaction: %s", output));
 
@@ -242,6 +244,13 @@ static void funding_broadcast_success(struct channel *channel)
 	struct json_stream *response;
 	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
 	struct command *cmd = fc->cmd;
+
+	/* Mark fully-owned (change) outputs in funding tx as _available  */
+	for (size_t i = 0; i < tal_count(fc->owned_outnums); i++) {
+		u32 outnum = fc->owned_outnums[i];
+		wallet_update_output_status(cmd->ld->wallet, &channel->funding_txid,
+				outnum, output_state_reserved, output_state_available);
+	}
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
@@ -404,25 +413,29 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(msg, resp));
 
-	/* Extract the change output and add it to the DB */
-	wallet_extract_owned_outputs(ld->wallet, fundingtx, NULL, &change_satoshi);
+	/* Extract owned outputs, add them to db and store their outnums */
+	fc->owned_outnums = tal_arr(fc, u32, 0);
+	wallet_extract_owned_outputs(ld->wallet, fundingtx, NULL,
+			&change_satoshi, &fc->owned_outnums);
 
-	/* Make sure we recognize our change output by its scriptpubkey in
-	 * future. This assumes that we have only two outputs, may not be true
-	 * if we add support for multifundchannel */
-	if (tal_count(fundingtx->output) == 2)
-		txfilter_add_scriptpubkey(ld->owned_txfilter, fundingtx->output[!funding_outnum].script);
+	/* Make sure we recognize (when confirmed) every owned output
+	 * by its scriptpubkey */
+	for (size_t i = 0; i < tal_count(fc->owned_outnums); i++) {
+		size_t outnum = fc->owned_outnums[i];
+		u8 *script = fundingtx->output[outnum].script;
+		txfilter_add_scriptpubkey(ld->owned_txfilter, script);
+	}
 
-	/* We need these to compose cmd's response in funding_broadcast_success */
+	/* We need these in the funding_broadcast_success handler */
 	fc->linear = linearize_tx(fc->cmd, fundingtx);
 	derive_channel_id(&fc->cid, &channel->funding_txid, funding_outnum);
+
+	/* Mark consumed outputs as spent */
+	wallet_confirm_utxos(ld->wallet, fc->wtx.utxos);
 
 	/* Send it out and watch for confirms. */
 	broadcast_tx(ld->topology, channel, fundingtx, funding_broadcast_failed_or_success);
 	channel_watch_funding(ld, channel);
-
-	/* Mark consumed outputs as spent */
-	wallet_confirm_utxos(ld->wallet, fc->wtx.utxos);
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(channel, &cs, fds[0], fds[1], NULL, false);
