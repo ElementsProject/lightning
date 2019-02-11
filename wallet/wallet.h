@@ -462,10 +462,28 @@ void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats
 void wallet_blocks_heights(struct wallet *w, u32 def, u32 *min, u32 *max);
 
 /**
- * wallet_extract_owned_outputs - given a tx, extract all of our outputs
+ * wallet_extract_owned_outputs - given tx, extract outputs we can spent
+ *
+ * @w: wallet to test spent-ability and to store the owned output into
+ * @tx: bitcoin transaction to extract outputs from
+ * @blockheight: confirmation height of `tx`, or NULL
+ * @total_satoshi: variable to store the amount of owned satoshis in this `tx`
+ * @owned_outnums: pointer to tal allocated array to store owned outnums or NULL
+ *
+ * For all outputs in `tx` that wallet `w` can spent:
+ * - add it to 'outputs' table in db if not already there
+ * - set 'confirmation_height' in db to `blockheight`
+ * - when a (non NULL) `blockheight` is given, set the output 'status' in db to
+ *   _available or update it from _reserved to _available
+ * - add it to owned_outpoints filter
+ * - add its amount to `total_satoshis`
+ * - add (expand) its outnum to owned_outnums array
+ *
+ * Returns the number of outputs in `tx` that wallet `w` can spent.
  */
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
-				 const u32 *blockheight, u64 *total_satoshi);
+				 const u32 *blockheight, u64 *total_satoshi,
+				 u32 **owned_outnums);
 
 /**
  * wallet_htlc_save_in - store an htlc_in in the database

@@ -87,7 +87,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
 						     tx, &b->height,
-						     &satoshi_owned);
+						     &satoshi_owned, NULL);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
@@ -608,7 +608,9 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	topo->tip = b;
 	wallet_block_add(topo->ld->wallet, b);
 
+	/* add new utxos to outpointfilter utxoset_outpoints */
 	topo_add_utxos(topo, b);
+	/* update spends in utxoset_outpoints and in owned_outpoints */
 	topo_update_spends(topo, b);
 
 	/* Only keep the transactions we care about. */

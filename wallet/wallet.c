@@ -80,7 +80,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
 	sqlite3_bind_int64(stmt, 3, utxo->amount);
 	sqlite3_bind_int(stmt, 4, wallet_output_type_in_db(type));
-	sqlite3_bind_int(stmt, 5, output_state_available);
+	sqlite3_bind_int(stmt, 5, utxo->status);
 	sqlite3_bind_int(stmt, 6, utxo->keyindex);
 	if (utxo->close_info) {
 		sqlite3_bind_int64(stmt, 7, utxo->close_info->channel_id);
@@ -1108,13 +1108,14 @@ void wallet_confirm_tx(struct wallet *w,
 }
 
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
-				 const u32 *blockheight, u64 *total_satoshi)
+				 const u32 *blockheight, u64 *total_satoshi,
+				 u32 **owned_outnums)
 {
 	int num_utxos = 0;
 	for (size_t output = 0; output < tal_count(tx->output); output++) {
 		struct utxo *utxo;
 		u32 index;
-		bool is_p2sh;
+		bool is_p2sh, was_reserved = 0;
 
 		if (!wallet_can_spend(w, tx->output[output].script, &index,
 				      &is_p2sh))
@@ -1124,32 +1125,46 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo->keyindex = index;
 		utxo->is_p2sh = is_p2sh;
 		utxo->amount = tx->output[output].amount;
-		utxo->status = output_state_available;
+		utxo->status = blockheight ? output_state_available : output_state_reserved;
 		bitcoin_txid(tx, &utxo->txid);
 		utxo->outnum = output;
 		utxo->close_info = NULL;
 
-		utxo->blockheight = blockheight?blockheight:NULL;
+		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
 
-		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s %s",
+		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {
+			/* In case we already know the output, make sure we actually track
+			 * its blockheight. This can happen when we grab the output from a
+			 * transaction we created ourselves. */
+			if (blockheight) {
+				wallet_confirm_tx(w, &utxo->txid, *blockheight);
+				/* status _reserved at this stage means the tx was initially
+				 * not successfully broadcast, but later manually */
+				was_reserved = wallet_update_output_status(w, &utxo->txid,
+						output, output_state_reserved, output_state_available);
+			}
+			tal_free(utxo);
+			continue;
+		} else if (blockheight) {
+			/* In case we did not known the output (tx), this could mean:
+			 * - a deposit to an address of us created with newaddr
+			 * - reuse of an address of us, FIXME: should we check this with key_index */
+			log_debug(w->log, "Deposit received on one of our addresses");
+		}
+
+		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s%s%s",
 			  output, tx->output[output].amount,
 			  is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
-					 &utxo->txid), blockheight ? "CONFIRMED" : "");
+					  &utxo->txid), blockheight ? " CONFIRMED" : "",
+							  was_reserved ? " status updated from _reserved to _available" : "");
 
-		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {
-			/* In case we already know the output, make
-			 * sure we actually track its
-			 * blockheight. This can happen when we grab
-			 * the output from a transaction we created
-			 * ourselves. */
-			if (blockheight)
-				wallet_confirm_tx(w, &utxo->txid, *blockheight);
-			tal_free(utxo);
-			continue;
-		}
+		/* Make sure it gets detected when spent */
 		outpointfilter_add(w->owned_outpoints, &utxo->txid, utxo->outnum);
+
+		if (owned_outnums)
+			tal_arr_expand(owned_outnums, output);
 
 		*total_satoshi += utxo->amount;
 		tal_free(utxo);
