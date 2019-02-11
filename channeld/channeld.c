@@ -206,7 +206,8 @@ static void billboard_update(const struct peer *peer)
 char *get_funding_depth(const struct peer *peer) 
 {
 	status_trace("Please wait. We are trying to get depth...")
-	u8 *msg, u8 *reply;
+	u8 *msg;
+	u8 *reply;
 	u32 *minimum_depth, *funding_depth;
 	msg = towire_channel_funding_depth(tmpctx, peer->channel->funding_txid);
 	reply = master_wait_sync_reply(tmpctx, peer, msg, WIRE_CHANNEL_FUNDING_DEPTH_REPLY);
