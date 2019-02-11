@@ -1,6 +1,9 @@
 #include <ccan/io/io.h>
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>
+#if DISSECTOR
+#include <common/dissector.h>
+#endif
 #include <common/features.h>
 #include <common/status.h>
 #include <common/wire_error.h>
@@ -142,6 +145,17 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->id = *id;
 	peer->addr = *addr;
 	peer->cs = *cs;
+
+
+#if DISSECTOR
+	status_fmt(LOG_DBG, "adding keys (%s,%s) for %s", 
+			tal_hexstr(tmpctx, &cs->sk, sizeof(cs->sk)),
+			tal_hexstr(tmpctx, &cs->rk, sizeof(cs->rk)),
+			fmt_wireaddr_internal(tmpctx, addr));
+	dissector_add_keys(fmt_wireaddr_internal(tmpctx, addr),
+			tal_hexstr(tmpctx, &cs->sk, sizeof(cs->sk)),
+			tal_hexstr(tmpctx, &cs->rk, sizeof(cs->rk)));
+#endif
 
 	/* BOLT #1:
 	 *
