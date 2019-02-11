@@ -168,7 +168,7 @@ pip3 install -r tests/requirements.txt
 Re-run `configure` for the python dependencies
 
 ```
-./configure
+./configure --enable-developer
 ```
 
 Tests are run with: `make check [flags]` where the pertinent flags are:
