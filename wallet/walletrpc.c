@@ -31,6 +31,7 @@ struct withdrawal {
 	struct wallet_tx wtx;
 	u8 *destination;
 	const char *hextx;
+	u32 *owned_outnums; /* ptr to tal allocated array of owned outnums in wtx */
 };
 
 /**
@@ -38,9 +39,8 @@ struct withdrawal {
  *
  * This is the final step in the withdrawal. We either successfully
  * broadcast the withdrawal transaction or it failed somehow. So we
- * report success or a broadcast failure. Upon success we also mark
- * the used outputs as spent, and add the change output to our pool of
- * available outputs.
+ * report success or a broadcast failure. Upon success we update all owned
+ * (change) outputs in this tx from _reserved to _available in the db.
  */
 static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 					int exitstatus, const char *msg,
@@ -48,25 +48,25 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 {
 	struct command *cmd = withdraw->cmd;
 	struct lightningd *ld = withdraw->cmd->ld;
-	u64 change_satoshi = 0;
 
 	/* Massage output into shape so it doesn't kill the JSON serialization */
-	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
+	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY),
+			" ", STR_NO_TRAIL);
 	if (exitstatus == 0) {
-		/* Mark used outputs as spent */
-		wallet_confirm_utxos(ld->wallet, withdraw->wtx.utxos);
-
-		/* Parse the tx and extract the change output. We
-		 * generated the hex tx, so this should always work */
-		struct bitcoin_tx *tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
+		/* Parse the tx. We generated the hex tx, so this should always work */
+		struct bitcoin_tx *tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx,
+				strlen(withdraw->hextx));
 		assert(tx != NULL);
 
-		/* Extract the change output and add it to the DB */
-		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change_satoshi);
+		struct bitcoin_txid txid;
+		bitcoin_txid(tx, &txid);
 
-		/* Note normally, change_satoshi == withdraw->wtx.change, but
-		 * not if we're actually making a payment to ourselves! */
-		assert(change_satoshi >= withdraw->wtx.change);
+		/* Mark owned outputs in this withdraw as _available  */
+		for (size_t i = 0; i < tal_count(withdraw->owned_outnums); i++) {
+			u32 outnum = withdraw->owned_outnums[i];
+			wallet_update_output_status(ld->wallet, &txid, outnum,
+					output_state_reserved, output_state_available);
+		}
 
 		struct json_stream *response = json_stream_success(cmd);
 		json_object_start(response, NULL);
@@ -86,7 +86,9 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
  *
  * A user has requested a withdrawal over the JSON-RPC, parse the
  * request, select coins and a change key. Then send the request to
- * the HSM to generate the signatures.
+ * the HSM to generate the signatures and broadcast the transaction.
+ * If the broadcast failed, (any) change outputs are left in state
+ * _reserved and consumed outputs in state _spent.
  */
 static struct command_result *json_withdraw(struct command *cmd,
 					    const char *buffer,
@@ -96,6 +98,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 	const jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
 	u32 *feerate_per_kw;
+	u64 change_satoshi = 0;
 	struct bitcoin_tx *tx;
 	struct ext_key ext;
 	struct pubkey pubkey;
@@ -176,8 +179,22 @@ static struct command_result *json_withdraw(struct command *cmd,
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 
-	/* Now broadcast the transaction */
+	/* Extract owned outputs, add them to db and store their outnums */
+	withdraw->owned_outnums = tal_arr(withdraw, u32, 0);
+	wallet_extract_owned_outputs(cmd->ld->wallet, tx, NULL,
+			&change_satoshi, &withdraw->owned_outnums);
+
+	/* Note normally, change_satoshi == withdraw->wtx.change, but
+	 * not if we're actually making a payment to ourselves! */
+	assert(change_satoshi >= withdraw->wtx.change);
+
+	/* Mark used outputs as spent */
+	wallet_confirm_utxos(cmd->ld->wallet, withdraw->wtx.utxos);
+
+	/* We need this in wallet_withdrawal_broadcast */
 	withdraw->hextx = tal_hex(withdraw, linearize_tx(cmd, tx));
+
+	/* Now broadcast the transaction */
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind, withdraw->hextx,
 			   wallet_withdrawal_broadcast, withdraw);
 	return command_still_pending(cmd);
