@@ -459,7 +459,7 @@ static void dev_register_opts(struct lightningd *ld)
 			 NULL, ld, "File containing disconnection points");
 	opt_register_noarg("--dev-allow-localhost", opt_set_bool,
 			   &ld->dev_allow_localhost,
-			   "Announce and allow announcments for localhost address");
+			   "Announce and allow announcements for localhost address");
 	opt_register_arg("--dev-bitcoind-poll", opt_set_u32, opt_show_u32,
 			 &ld->topology->poll_seconds,
 			 "Time between polling for new transactions");
