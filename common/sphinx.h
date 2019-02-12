@@ -12,17 +12,19 @@
 #include <wire/gen_onion_wire.h>
 #include <wire/wire.h>
 
-#define SECURITY_PARAMETER 32
-#define NUM_MAX_HOPS 20
-#define PAYLOAD_SIZE 32
-#define HOP_DATA_SIZE (1 + SECURITY_PARAMETER + PAYLOAD_SIZE)
-#define ROUTING_INFO_SIZE (HOP_DATA_SIZE * NUM_MAX_HOPS)
-#define TOTAL_PACKET_SIZE (1 + 33 + SECURITY_PARAMETER + ROUTING_INFO_SIZE)
+#define VERSION_SIZE 1
+#define REALM_SIZE 1
+#define HMAC_SIZE 32
+#define PUBKEY_SIZE 33
+#define FRAME_SIZE 65
+#define NUM_MAX_FRAMES 20
+#define ROUTING_INFO_SIZE (FRAME_SIZE * NUM_MAX_FRAMES)
+#define TOTAL_PACKET_SIZE (VERSION_SIZE + PUBKEY_SIZE + HMAC_SIZE + ROUTING_INFO_SIZE)
 
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
-	u8 mac[SECURITY_PARAMETER];
+	u8 mac[HMAC_SIZE];
 	struct pubkey ephemeralkey;
 
 	/* Encrypted information */
@@ -70,7 +72,7 @@ struct hop_data {
 	struct amount_msat amt_forward;
 	u32 outgoing_cltv;
 	/* Padding omitted, will be zeroed */
-	u8 hmac[SECURITY_PARAMETER];
+	u8 hmac[HMAC_SIZE];
 };
 
 struct route_step {
