@@ -22,7 +22,7 @@ LIGHTNINGD_CHANNEL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN) $(LIGHTNINGD_CHA
 
 LIGHTNINGD_CHANNEL_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
-	channeld/full_channel.c		\
+	channeld/full_channel.c			\
 	channeld/gen_channel_wire.c
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 
@@ -34,7 +34,7 @@ ALL_GEN_HEADERS += $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
 	common/base32.o				\
-	common/bip32.o			\
+	common/bip32.o				\
 	common/channel_config.o			\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
