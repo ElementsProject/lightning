@@ -16,10 +16,9 @@
 
 #define BLINDING_FACTOR_SIZE 32
 #define SHARED_SECRET_SIZE 32
-#define HMAC_SIZE 32
-
-#define NUM_STREAM_BYTES ((NUM_MAX_HOPS + 1) * HOP_DATA_SIZE)
 #define KEY_LEN 32
+
+#define NUM_STREAM_BYTES (2*ROUTING_INFO_SIZE)
 #define ONION_REPLY_SIZE 256
 
 struct hop_params {
@@ -98,7 +97,7 @@ struct onionpacket *parse_onionpacket(const tal_t *ctx,
 	}
 
 	read_buffer(&m->routinginfo, src, ROUTING_INFO_SIZE, &p);
-	read_buffer(&m->mac, src, SECURITY_PARAMETER, &p);
+	read_buffer(&m->mac, src, HMAC_SIZE, &p);
 	return m;
 }
 
@@ -148,7 +147,7 @@ static void compute_packet_hmac(const struct onionpacket *packet,
 	write_buffer(mactemp, assocdata, assocdatalen, &pos);
 
 	compute_hmac(mac, mactemp, sizeof(mactemp), mukey, KEY_LEN);
-	memcpy(hmac, mac, SECURITY_PARAMETER);
+	memcpy(hmac, mac, HMAC_SIZE);
 }
 
 static bool generate_key(void *k, const char *t, u8 tlen, const u8 *s)
@@ -166,7 +165,7 @@ static bool generate_header_padding(
 	)
 {
 	int i;
-	u8 cipher_stream[(NUM_MAX_HOPS + 1) * hopsize];
+	u8 cipher_stream[(NUM_MAX_FRAMES + 1) * FRAME_SIZE];
 	u8 key[KEY_LEN];
 
 	memset(dst, 0, dstlen);
@@ -175,7 +174,7 @@ static bool generate_header_padding(
 			return false;
 
 		generate_cipher_stream(cipher_stream, key, sizeof(cipher_stream));
-		int pos = ((NUM_MAX_HOPS - i) + 1) * hopsize;
+		int pos = ((NUM_MAX_FRAMES - i) + 1) * hopsize;
 		xorbytes(dst, dst, cipher_stream + pos, sizeof(cipher_stream) - pos);
 	}
 	return true;
@@ -311,7 +310,7 @@ static void serialize_hop_data(tal_t *ctx, u8 *dst, const struct hop_data *data)
 	towire_amount_msat(&buf, data->amt_forward);
 	towire_u32(&buf, data->outgoing_cltv);
 	towire_pad(&buf, 12);
-	towire(&buf, data->hmac, SECURITY_PARAMETER);
+	towire(&buf, data->hmac, HMAC_SIZE);
 	memcpy(dst, buf, tal_count(buf));
 	tal_free(buf);
 }
@@ -319,13 +318,13 @@ static void serialize_hop_data(tal_t *ctx, u8 *dst, const struct hop_data *data)
 static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 {
 	const u8 *cursor = src;
-	size_t max = HOP_DATA_SIZE;
+	size_t max = FRAME_SIZE;
 	data->realm = fromwire_u8(&cursor, &max);
 	fromwire_short_channel_id(&cursor, &max, &data->channel_id);
 	data->amt_forward = fromwire_amount_msat(&cursor, &max);
 	data->outgoing_cltv = fromwire_u32(&cursor, &max);
 	fromwire_pad(&cursor, &max, 12);
-	fromwire(&cursor, &max, &data->hmac, SECURITY_PARAMETER);
+	fromwire(&cursor, &max, &data->hmac, HMAC_SIZE);
 }
 
 struct onionpacket *create_onionpacket(
@@ -340,9 +339,9 @@ struct onionpacket *create_onionpacket(
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
 	int i, num_hops = tal_count(path);
-	u8 filler[(num_hops - 1) * HOP_DATA_SIZE];
+	u8 filler[(num_hops - 1) * FRAME_SIZE];
 	struct keyset keys;
-	u8 nexthmac[SECURITY_PARAMETER];
+	u8 nexthmac[HMAC_SIZE];
 	u8 stream[ROUTING_INFO_SIZE];
 	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
 	struct secret *secrets = tal_arr(ctx, struct secret, num_hops);
@@ -353,26 +352,26 @@ struct onionpacket *create_onionpacket(
 		return NULL;
 	}
 	packet->version = 0;
-	memset(nexthmac, 0, SECURITY_PARAMETER);
+	memset(nexthmac, 0, HMAC_SIZE);
 	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
 
-	generate_header_padding(filler, sizeof(filler), HOP_DATA_SIZE,
+	generate_header_padding(filler, sizeof(filler), FRAME_SIZE,
 				"rho", 3, num_hops, params);
 
 	for (i = num_hops - 1; i >= 0; i--) {
-		memcpy(hops_data[i].hmac, nexthmac, SECURITY_PARAMETER);
+		memcpy(hops_data[i].hmac, nexthmac, HMAC_SIZE);
 		hops_data[i].realm = 0;
 		generate_key_set(params[i].secret, &keys);
 		generate_cipher_stream(stream, keys.rho, ROUTING_INFO_SIZE);
 
-		/* Rightshift mix-header by 2*SECURITY_PARAMETER */
-		memmove(packet->routinginfo + HOP_DATA_SIZE, packet->routinginfo,
-			ROUTING_INFO_SIZE - HOP_DATA_SIZE);
+		/* Rightshift mix-header by 2*HMAC_SIZE */
+		memmove(packet->routinginfo + FRAME_SIZE, packet->routinginfo,
+			ROUTING_INFO_SIZE - FRAME_SIZE);
 		serialize_hop_data(packet, packet->routinginfo, &hops_data[i]);
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
-			size_t len = (NUM_MAX_HOPS - num_hops + 1) * HOP_DATA_SIZE;
+			size_t len = (NUM_MAX_FRAMES - num_hops + 1) * FRAME_SIZE;
 			memcpy(packet->routinginfo + len, filler, sizeof(filler));
 		}
 
@@ -403,11 +402,11 @@ struct route_step *process_onionpacket(
 	)
 {
 	struct route_step *step = talz(ctx, struct route_step);
-	u8 hmac[SECURITY_PARAMETER];
+	u8 hmac[HMAC_SIZE];
 	struct keyset keys;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 stream[NUM_STREAM_BYTES];
-	u8 paddedheader[ROUTING_INFO_SIZE + HOP_DATA_SIZE];
+	u8 paddedheader[ROUTING_INFO_SIZE + FRAME_SIZE];
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
@@ -433,9 +432,9 @@ struct route_step *process_onionpacket(
 
 	deserialize_hop_data(&step->hop_data, paddedheader);
 
-        memcpy(&step->next->mac, step->hop_data.hmac, SECURITY_PARAMETER);
+        memcpy(&step->next->mac, step->hop_data.hmac, HMAC_SIZE);
 
-	memcpy(&step->next->routinginfo, paddedheader + HOP_DATA_SIZE, ROUTING_INFO_SIZE);
+	memcpy(&step->next->routinginfo, paddedheader + FRAME_SIZE, ROUTING_INFO_SIZE);
 
 	if (memeqzero(step->next->mac, sizeof(step->next->mac))) {
 		step->nextcase = ONION_END;
