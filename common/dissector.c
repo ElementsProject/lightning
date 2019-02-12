@@ -1,4 +1,3 @@
-#include "config.h"
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/dissector.h>
@@ -26,18 +25,15 @@ void dissector_init(void)
 		if (nftw(keys_directory_path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS) == -1)
 			status_debug("Error removing %s", keys_directory_path);
 	}
-	
 	if (mkdir(keys_directory_path, 0744) != 0) {
 		status_debug("Unable to create directory %s", keys_directory_path);
 	}
 }
-/* 
- * Print starting crypto state keys for a connection to file
- */
+ /* Print starting crypto state keys for a connection to file */
 void dissector_print_keys(const char *our_addr, const char *peer_addr, const struct crypto_state *cs)
 {
 	FILE *fp;
-	char *filename = tal_fmt(NULL, "%s/%s-%s", 
+	char *filename = tal_fmt(NULL, "%s/%s-%s",
 			keys_directory_path, our_addr, peer_addr);
 
 	fp = fopen(filename, "w");
@@ -60,7 +56,7 @@ void dissector_print_keys(const char *our_addr, const char *peer_addr, const str
 
 void dissector_remove_connection(const char *our_addr, const char *peer_addr)
 {
-	char *filename = tal_fmt(NULL, "%s/%s-%s", 
+	char *filename = tal_fmt(NULL, "%s/%s-%s",
 			keys_directory_path, our_addr, peer_addr);
 	if (remove(filename))
 		status_debug("Unable to delete %s", filename);

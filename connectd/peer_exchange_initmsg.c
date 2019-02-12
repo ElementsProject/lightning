@@ -9,7 +9,13 @@
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
 #include <connectd/gen_connect_wire.h>
+#if DISSECTOR
+#include <connectd/netaddress.h>
+#endif
 #include <connectd/peer_exchange_initmsg.h>
+#if DISSECTOR
+#include <errno.h>
+#endif
 #include <wire/peer_wire.h>
 
 /* Temporary structure for us to read peer message in */
@@ -147,8 +153,13 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->cs = *cs;
 
 #if DISSECTOR
-	// FIXME: put in actual ip + port for local socket
-	dissector_print_keys("hello", fmt_wireaddr_internal(tmpctx, addr), cs);
+	struct wireaddr *my_addr = tal(tmpctx, struct wireaddr);
+	if (fd_local_address(io_conn_fd(conn), my_addr))
+		dissector_print_keys(fmt_wireaddr(tmpctx, my_addr),
+				fmt_wireaddr_internal(tmpctx, addr),
+				cs);
+	else
+		status_debug("Unable to get local address %d", errno);
 #endif
 
 	/* BOLT #1:

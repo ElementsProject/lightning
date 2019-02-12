@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_COMMON_DISSECTOR_H
 #define LIGHTNING_COMMON_DISSECTOR_H
+#include "config.h"
 #include <common/crypto_state.h>
 
 /* Set of utilities for writing out and storing
