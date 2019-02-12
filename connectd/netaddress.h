@@ -4,6 +4,9 @@
 #include <ccan/short_types/short_types.h>
 #include <common/wireaddr.h>
 
+/* Helper to extract a wireaddr from a (socket) fd.  Sets errno if false. */
+bool fd_local_address(int fd, struct wireaddr *wireaddr);
+
 /* Address is a wildcard: try to guess what it looks like to outside world */
 bool guess_address(struct wireaddr *wireaddr);
 

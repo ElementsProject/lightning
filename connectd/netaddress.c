@@ -196,40 +196,63 @@ static bool IsRoutable(const struct wireaddr *addr)
     return IsValid(addr) && !(IsRFC1918(addr) || IsRFC2544(addr) || IsRFC3927(addr) || IsRFC4862(addr) || IsRFC6598(addr) || IsRFC5737(addr) || (IsRFC4193(addr) && !IsTor(addr)) || IsRFC4843(addr) || IsLocal(addr) || IsInternal(addr));
 }
 
+bool fd_local_address(int fd, struct wireaddr *addr)
+{
+    struct sockaddr_in6 sin6;
+    struct sockaddr_in sin;
+    struct sockaddr_storage saddr;
+    socklen_t addrlen;
+
+    if (getsockname(fd, (void *)&saddr, &addrlen) != 0)
+	return false;
+
+    switch (saddr.ss_family) {
+    case AF_INET:
+	memcpy(&sin, &saddr, addrlen);
+	addr->type = ADDR_TYPE_IPV4;
+	addr->addrlen = sizeof(sin.sin_addr);
+	memcpy(addr->addr, &sin.sin_addr, addr->addrlen);
+	addr->port = ntohs(sin.sin_port);
+	return true;
+    case AF_INET6:
+	memcpy(&sin6, &saddr, addrlen);
+	addr->type = ADDR_TYPE_IPV6;
+	addr->addrlen = sizeof(sin6.sin6_addr);
+	memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
+	addr->port = ntohs(sin6.sin6_port);
+	return true;
+    default:
+	errno = EINVAL;
+	return false;
+    }
+}
+
 /* Trick I learned from Harald Welte: create UDP socket, connect() and
  * then query address. */
-/* Returns 0 if protocol completely unsupported, ADDR_LISTEN if we
- * can't reach addr, ADDR_LISTEN_AND_ANNOUNCE if we can (and fill saddr). */
-static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
+/* Returns -1 if protocol completely unsupported. */
+static int get_local_sock(int af, void *saddr, socklen_t saddrlen)
 {
     int fd = socket(af, SOCK_DGRAM, 0);
     if (fd < 0) {
         status_trace("Failed to create %u socket: %s",
 		     af, strerror(errno));
-        return false;
+        return -1;
     }
 
     if (connect(fd, saddr, saddrlen) != 0) {
         status_trace("Failed to connect %u socket: %s",
 		     af, strerror(errno));
         close(fd);
-        return false;
+        return -1;
     }
 
-    if (getsockname(fd, saddr, &saddrlen) != 0) {
-        status_trace("Failed to get %u socket name: %s",
-		     af, strerror(errno));
-        close(fd);
-        return false;
-    }
-
-    close(fd);
-    return true;
+    return fd;
 }
 
 bool guess_address(struct wireaddr *addr)
 {
     bool ret;
+    int fd;
 
     /* We point to Google nameservers, works unless you're inside Google :) */
     switch (addr->type) {
@@ -239,10 +262,8 @@ bool guess_address(struct wireaddr *addr)
         /* 8.8.8.8 */
 	sin.sin_addr.s_addr = 0x08080808;
         sin.sin_family = AF_INET;
-        ret = get_local_sockname(AF_INET, &sin, sizeof(sin));
-        addr->addrlen = sizeof(sin.sin_addr);
-        memcpy(addr->addr, &sin.sin_addr, addr->addrlen);
-        return ret;
+        fd = get_local_sock(AF_INET, &sin, sizeof(sin));
+        goto fd;
     }
     case ADDR_TYPE_IPV6: {
         struct sockaddr_in6 sin6;
@@ -253,17 +274,22 @@ bool guess_address(struct wireaddr *addr)
         sin6.sin6_port = htons(53);
         sin6.sin6_family = AF_INET6;
         memcpy(sin6.sin6_addr.s6_addr, pchGoogle, sizeof(pchGoogle));
-        ret = get_local_sockname(AF_INET6, &sin6, sizeof(sin6));
-        addr->addrlen = sizeof(sin6.sin6_addr);
-        memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
-        return ret;
+        fd = get_local_sock(AF_INET6, &sin6, sizeof(sin6));
+        goto fd;
     }
     case ADDR_TYPE_TOR_V2:
     case ADDR_TYPE_TOR_V3:
         status_broken("Cannot guess address type %u", addr->type);
-        break;
+        return false;
     }
     abort();
+
+fd:
+    if (fd < 0)
+	    return false;
+    ret = fd_local_address(fd, addr);
+    close(fd);
+    return ret;
 }
 
 bool address_routable(const struct wireaddr *wireaddr, bool allow_localhost)
