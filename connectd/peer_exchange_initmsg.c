@@ -146,15 +146,9 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->addr = *addr;
 	peer->cs = *cs;
 
-
 #if DISSECTOR
-	status_fmt(LOG_DBG, "adding keys (%s,%s) for %s", 
-			tal_hexstr(tmpctx, &cs->sk, sizeof(cs->sk)),
-			tal_hexstr(tmpctx, &cs->rk, sizeof(cs->rk)),
-			fmt_wireaddr_internal(tmpctx, addr));
-	dissector_add_keys(fmt_wireaddr_internal(tmpctx, addr),
-			tal_hexstr(tmpctx, &cs->sk, sizeof(cs->sk)),
-			tal_hexstr(tmpctx, &cs->rk, sizeof(cs->rk)));
+	// FIXME: put in actual ip + port for local socket
+	dissector_print_keys("hello", fmt_wireaddr_internal(tmpctx, addr), cs);
 #endif
 
 	/* BOLT #1:

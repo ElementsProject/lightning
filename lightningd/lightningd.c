@@ -57,6 +57,9 @@
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
+#if DISSECTOR
+#include <common/dissector.h>
+#endif /* DISSECTOR */
 #include <common/json_escaped.h>
 #include <common/timeout.h>
 #include <common/utils.h>
@@ -665,6 +668,11 @@ int main(int argc, char *argv[])
 
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);
+
+#if DISSECTOR
+	/*~ Setup directory for connection keys */
+	dissector_init();
+#endif /* DISSECTOR */
 
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);

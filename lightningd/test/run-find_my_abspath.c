@@ -55,6 +55,9 @@ s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNN
 /* Generated stub for db_reopen_after_fork */
 void db_reopen_after_fork(struct db *db UNNEEDED)
 { fprintf(stderr, "db_reopen_after_fork called!\n"); abort(); }
+/* Generated stub for dissector_init */
+void dissector_init(void)
+{ fprintf(stderr, "dissector_init called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }

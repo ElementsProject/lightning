@@ -54,6 +54,10 @@ COMMON_SRC_NOGEN :=				\
 	common/wire_error.c			\
 	common/withdraw_tx.c
 
+ifneq ($(DISSECTOR),0)
+COMMON_SRC_NOGEN += common/dissector.c
+endif
+
 COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h) common/overflows.h common/htlc.h common/status_levels.h common/json_command.h common/jsonrpc_errors.h

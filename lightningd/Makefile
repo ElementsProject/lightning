@@ -55,6 +55,13 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/withdraw_tx.o			\
 	hsmd/gen_hsm_wire.o
 
+ifneq ($(DISSECTOR),0)
+LIGHTNINGD_COMMON_OBJS += 			\
+	common/daemon_conn.o			\
+	common/dissector.o 			\
+	common/status.o	
+endif
+
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\
 	lightningd/chaintopology.c		\

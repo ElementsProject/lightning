@@ -7,102 +7,12 @@
 #include <ccan/take/take.h>
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>
-#if DISSECTOR
-#include <ccan/strmap/strmap.h>
-#include <ccan/tal/str/str.h>
-#include <common/dissector.h>
-#endif
 #include <common/status.h>
 #include <common/utils.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <stdio.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>
-
-#if DISSECTOR
-/* Map of key -> host.
- * There are two entries for each host, one is the outgoing (sending key) 
- * and the other is the incoming (receiving key).
- *
- * We store them by key so that we can lookup/replace them more easily.
- */
-static STRMAP(const char *) keymap;
-
-/* Print keys to file in format: 
- *  ->ip.add.re.ss:port sending_key
- *  <-ip.add.re.ss:port receiving_key
- *
- *  i.e.
- *    ->8.8.8.8:9735 0000000000000000000000000000000
- *    <-8.8.8.8:9735 1111111111111111111111111111111
- */
-static bool write_key(const char *key, const char *value, FILE *outfile)
-{
-	char buf[256];
-	snprintf(buf, sizeof buf, "%s %s\n", value, key);
-	if (fputs(buf, outfile) == -1) {
-		status_trace("Error printing keys.log file, exiting early");
-		return false;
-	}
-	return true;
-}
-
-static bool update_file(void)
-{
-	FILE *fp;
-	char *filename="keys.log";
-
-	fp = fopen(filename, "w");
-	if (fp == NULL)
-		return false;
-
-	strmap_iterate(&keymap, write_key, fp);
-
-	fclose(fp);
-	return true;
-}
-
-void dissector_add_keys(const char *host, const char *sk, const char *rk)
-{
-	char host_out[256], host_in[256];
-	snprintf(host_out, sizeof host_out, "->%s", host);
-	snprintf(host_in, sizeof host_in, "<-%s", host);
-	strmap_add(&keymap, strdup(sk), strdup(host_in));
-	strmap_add(&keymap, strdup(rk), strdup(host_out));
-	update_file();
-}
-
-/*
- * When any key is updated, we update the map and then reprint the
- * file that wireshark reads to update keys.
- */
-void dissector_update_key(const char *old_key, const char *new_key)
-{
-	const char *host;
-	const char *key = strdup(new_key);
-	/* Delete the old key's entry + retrieve host */
-  	if (!strmap_del(&keymap, old_key, &host)) {
-		status_trace("Unable to find old key %s in dissector map.", old_key);
-		return;
-	}
-
-	status_trace("OLD KEY %s, HOST %s, NEW KEY %s", old_key, host, new_key);
-	
-	/* Add new entry, with same host mapping */
-	if (!strmap_add(&keymap, key, host))
-		status_trace("Key %s already in dissector map.", key);
-
-	/* Finally, print out updated set to file */
-	update_file();
-}
-
-void dissector_delete_host(const char *host)
-{
-	// FIXME: implement this
-}
-
-#endif /* DISSECTOR */
 
 static void hkdf_two_keys(struct secret *out1, struct secret *out2,
 			  const struct secret *in1,
@@ -158,11 +68,7 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 		     tal_hexstr(trc, &new_k, sizeof(new_k)),
 		     tal_hexstr(trc, ck, sizeof(*ck)),
 		     tal_hexstr(trc, k, sizeof(*k)));
-#endif /* END SUPERVERBOSE */
-#if DISSECTOR
-	dissector_update_key(tal_hexstr(tmpctx, k, sizeof(*k)),
-				tal_hexstr(tmpctx, &new_k, sizeof(new_k)));
-#endif /* END DISSECTOR */
+#endif
 	*ck = new_ck;
 	*k = new_k;
 	*n = 0;
