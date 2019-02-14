@@ -46,8 +46,10 @@ class UnixDomainSocketRpc(object):
                     continue
                 # Convert late to UTF-8 so glyphs split across recvs do not
                 # impact us
-                objs, len_used = self.decoder.raw_decode(buff.decode("UTF-8"))
-                return objs, buff[len_used:].lstrip()
+                buff = buff.decode("UTF-8")
+                objs, len_used = self.decoder.raw_decode(buff)
+                buff = buff[len_used:].lstrip().encode("UTF-8")
+                return objs, buff
             except ValueError:
                 # Probably didn't read enough
                 pass
