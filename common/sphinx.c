@@ -4,6 +4,7 @@
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
+#include <common/node_id.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 
@@ -83,6 +84,67 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 	struct sphinx_path *sp = sphinx_path_new(ctx, associated_data);
 	sp->session_key = tal_dup(sp, struct secret, session_key);
 	return sp;
+}
+
+static size_t sphinx_hop_size(const struct sphinx_hop *hop)
+{
+	size_t size = tal_bytelen(hop->payload), vsize;
+
+	/* There is no point really in trying to serialize something that is
+	 * larger than the maximum length we can fit into the payload region
+	 * anyway. 3 here is the maximum varint size that we allow. */
+	assert(size < ROUTING_INFO_SIZE - 3 - HMAC_SIZE);
+
+	/* Backwards compatibility: realm 0 is the legacy hop_data format and
+	 * always has 65 bytes in size */
+	if (hop->realm == 0x00)
+		return 65;
+
+	/* Since this uses the bigsize serialization format for variable
+	 * length integer encodings we need to allocate enough space for
+	 * it. Values >= 0xfd are used to signal multi-byte serializations. */
+	if (size < 0xFD)
+		vsize = 1;
+	else
+		vsize = 3;
+
+	/* The hop must accomodate the hop_payload, as well as the varint
+	 * describing the length and HMAC. */
+	return vsize + size + HMAC_SIZE;
+}
+
+static size_t sphinx_path_payloads_size(const struct sphinx_path *path)
+{
+	size_t size = 0;
+	for (size_t i=0; i<tal_count(path->hops); i++)
+		size += sphinx_hop_size(&path->hops[i]);
+	return size;
+}
+
+/**
+ * Add a raw payload hop to the path.
+ */
+static void sphinx_add_raw_hop(struct sphinx_path *path,
+			       const struct pubkey *pubkey, u8 realm,
+			       const u8 *payload)
+{
+	struct sphinx_hop sp;
+	sp.payload = payload;
+	sp.realm = realm;
+	sp.pubkey = *pubkey;
+	tal_arr_expand(&path->hops, sp);
+	assert(sphinx_path_payloads_size(path) <= ROUTING_INFO_SIZE);
+}
+
+void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		       const struct short_channel_id *scid,
+		       struct amount_msat forward, u32 outgoing_cltv)
+{
+	u8 *buf = tal_arr(path, u8, 0);
+	towire_short_channel_id(&buf, scid);
+	towire_u64(&buf, forward.millisatoshis); /* Raw: low-level serializer */
+	towire_u32(&buf, outgoing_cltv);
+	sphinx_add_raw_hop(path, pubkey, 0, buf);
 }
 
 /* Small helper to append data to a buffer and update the position
@@ -247,28 +309,24 @@ static void compute_blinding_factor(const struct pubkey *key,
 	memcpy(res, &temp, 32);
 }
 
-static bool blind_group_element(
-	struct pubkey *blindedelement,
-	const struct pubkey *pubkey,
-	const u8 blind[BLINDING_FACTOR_SIZE])
+static bool blind_group_element(struct pubkey *blindedelement,
+				const struct pubkey *pubkey,
+				const u8 blind[BLINDING_FACTOR_SIZE])
 {
 	/* tweak_mul is inplace so copy first. */
 	if (pubkey != blindedelement)
 		*blindedelement = *pubkey;
-	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, &blindedelement->pubkey, blind) != 1)
+	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
+					  &blindedelement->pubkey, blind) != 1)
 		return false;
 	return true;
 }
 
-static bool create_shared_secret(
-	u8 *secret,
-	const struct pubkey *pubkey,
-	const u8 *sessionkey)
+static bool create_shared_secret(u8 *secret, const struct pubkey *pubkey,
+				 const struct secret *session_key)
 {
-
-	if (secp256k1_ecdh(secp256k1_ctx, secret, &pubkey->pubkey, sessionkey,
-			   NULL, NULL)
-	    != 1)
+	if (secp256k1_ecdh(secp256k1_ctx, secret, &pubkey->pubkey,
+			   session_key->data, NULL, NULL) != 1)
 		return false;
 	return true;
 }
@@ -279,7 +337,7 @@ bool onion_shared_secret(
 	const struct privkey *privkey)
 {
 	return create_shared_secret(secret, &packet->ephemeralkey,
-				    privkey->secret.data);
+				    &privkey->secret);
 }
 
 static void generate_key_set(const u8 secret[SHARED_SECRET_SIZE],
@@ -294,19 +352,21 @@ static void generate_key_set(const u8 secret[SHARED_SECRET_SIZE],
 static struct hop_params *generate_hop_params(
 	const tal_t *ctx,
 	const u8 *sessionkey,
-	struct pubkey path[])
+	struct sphinx_path *path)
 {
-	int i, j, num_hops = tal_count(path);
+	int i, j, num_hops = tal_count(path->hops);
 	struct pubkey temp;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	struct hop_params *params = tal_arr(ctx, struct hop_params, num_hops);
 
 	/* Initialize the first hop with the raw information */
-	if (secp256k1_ec_pubkey_create(
-		    secp256k1_ctx, &params[0].ephemeralkey.pubkey, sessionkey) != 1)
+	if (secp256k1_ec_pubkey_create(secp256k1_ctx,
+				       &params[0].ephemeralkey.pubkey,
+				       path->session_key->data) != 1)
 		return NULL;
 
-	if (!create_shared_secret(params[0].secret, &path[0], sessionkey))
+	if (!create_shared_secret(params[0].secret, &path->hops[0].pubkey,
+				  path->session_key))
 		return NULL;
 
 	compute_blinding_factor(
@@ -327,7 +387,7 @@ static struct hop_params *generate_hop_params(
 		 * Order is indifferent, multiplication is commutative.
 		 */
 		memcpy(&blind, sessionkey, 32);
-		temp = path[i];
+		temp = path->hops[i].pubkey;
 		if (!blind_group_element(&temp, &temp, blind))
 			return NULL;
 		for (j = 0; j < i; j++)
@@ -353,19 +413,6 @@ static struct hop_params *generate_hop_params(
 	return params;
 }
 
-static void serialize_hop_data(tal_t *ctx, u8 *dst, const struct hop_data *data)
-{
-	u8 *buf = tal_arr(ctx, u8, 0);
-	towire_u8(&buf, data->realm);
-	towire_short_channel_id(&buf, &data->channel_id);
-	towire_amount_msat(&buf, data->amt_forward);
-	towire_u32(&buf, data->outgoing_cltv);
-	towire_pad(&buf, 12);
-	towire(&buf, data->hmac, HMAC_SIZE);
-	memcpy(dst, buf, tal_count(buf));
-	tal_free(buf);
-}
-
 static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 {
 	const u8 *cursor = src;
@@ -378,25 +425,35 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 	fromwire(&cursor, &max, &data->hmac, HMAC_SIZE);
 }
 
+static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
+{
+		memset(dest, 0, FRAME_SIZE);
+		dest[0] = hop->realm;
+		memcpy(dest + 1, hop->payload, tal_bytelen(hop->payload));
+		memcpy(dest + FRAME_SIZE - HMAC_SIZE, hop->hmac, HMAC_SIZE);
+}
+
 struct onionpacket *create_onionpacket(
 	const tal_t *ctx,
-	struct pubkey *path,
-	struct hop_data hops_data[],
-	const u8 *sessionkey,
-	const u8 *assocdata,
-	const size_t assocdatalen,
+	struct sphinx_path *sp,
 	struct secret **path_secrets
 	)
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
-	int i, num_hops = tal_count(path);
+	int i, num_hops = tal_count(sp->hops);
 	u8 filler[(num_hops - 1) * FRAME_SIZE];
 	struct keyset keys;
 	u8 nexthmac[HMAC_SIZE];
 	u8 stream[ROUTING_INFO_SIZE];
-	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
+	struct hop_params *params;
 	struct secret *secrets = tal_arr(ctx, struct secret, num_hops);
 
+	if (sp->session_key == NULL) {
+		sp->session_key = tal(sp, struct secret);
+		randombytes_buf(sp->session_key, sizeof(struct secret));
+	}
+
+	params = generate_hop_params(ctx, sp->session_key->data, sp);
 	if (!params) {
 		tal_free(packet);
 		tal_free(secrets);
@@ -410,15 +467,15 @@ struct onionpacket *create_onionpacket(
 				"rho", 3, num_hops, params);
 
 	for (i = num_hops - 1; i >= 0; i--) {
-		memcpy(hops_data[i].hmac, nexthmac, HMAC_SIZE);
-		hops_data[i].realm = 0;
+		memcpy(sp->hops[i].hmac, nexthmac, HMAC_SIZE);
 		generate_key_set(params[i].secret, &keys);
 		generate_cipher_stream(stream, keys.rho, ROUTING_INFO_SIZE);
 
-		/* Rightshift mix-header by 2*HMAC_SIZE */
+		/* Rightshift mix-header by FRAME_SIZE */
 		memmove(packet->routinginfo + FRAME_SIZE, packet->routinginfo,
 			ROUTING_INFO_SIZE - FRAME_SIZE);
-		serialize_hop_data(packet, packet->routinginfo, &hops_data[i]);
+		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
+
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
@@ -426,7 +483,7 @@ struct onionpacket *create_onionpacket(
 			memcpy(packet->routinginfo + len, filler, sizeof(filler));
 		}
 
-		compute_packet_hmac(packet, assocdata, assocdatalen, keys.mu,
+		compute_packet_hmac(packet, sp->associated_data, tal_bytelen(sp->associated_data), keys.mu,
 				    nexthmac);
 	}
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
