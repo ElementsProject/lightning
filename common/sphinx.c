@@ -34,6 +34,57 @@ struct keyset {
 	u8 gamma[KEY_LEN];
 };
 
+/*
+ * All the necessary information to generate a valid onion for this hop on a
+ * sphinx path. The payload is preserialized in order since the onion
+ * generation is payload agnostic. */
+struct sphinx_hop {
+	struct pubkey pubkey;
+	u8 realm;
+	const u8 *payload;
+	u8 hmac[HMAC_SIZE];
+};
+
+/* Encapsulates the information about a given payment path for the the onion
+ * routing algorithm.
+ */
+struct sphinx_path {
+	/* The session_key used to generate the shared secrets along the
+	 * path. This MUST be generated in a cryptographically secure manner,
+	 * and is exposed solely for testing, i.e., it can be set to known
+	 * values in unit tests. If unset it'll be generated during the packet
+	 * generation. */
+	struct secret *session_key;
+
+	/* The associated data is appended to the packet when generating the
+	 * HMAC, but is not passed along as part of the packet. It is used to
+	 * ensure some external data (HTLC payment_hash) is not modified along
+	 * the way. */
+	u8 *associated_data;
+
+	/* The individual hops on this route. */
+	struct sphinx_hop *hops;
+};
+
+struct sphinx_path *sphinx_path_new(const tal_t *ctx, const u8 *associated_data)
+{
+	struct sphinx_path *sp = tal(ctx, struct sphinx_path);
+	sp->associated_data = tal_dup_arr(sp, u8, associated_data,
+					  tal_bytelen(associated_data), 0);
+	sp->session_key = NULL;
+	sp->hops = tal_arr(sp, struct sphinx_hop, 0);
+	return sp;
+}
+
+struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
+					     const u8 *associated_data,
+					     const struct secret *session_key)
+{
+	struct sphinx_path *sp = sphinx_path_new(ctx, associated_data);
+	sp->session_key = tal_dup(sp, struct secret, session_key);
+	return sp;
+}
+
 /* Small helper to append data to a buffer and update the position
  * into the buffer
  */

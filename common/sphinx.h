@@ -36,6 +36,18 @@ enum route_next_case {
 	ONION_FORWARD = 1,
 };
 
+/**
+ * A sphinx payment path.
+ *
+ * This struct defines a path a payment is taking through the Lightning
+ * Network, including the session_key used to generate secrets, the associated
+ * data that'll be included in the HMACs and the payloads at each hop in the
+ * path. The struct is opaque since it should not be modified externally. Use
+ * `sphinx_path_new` or `sphinx_path_new_with_key` (testing only) to create a
+ * new instance.
+ */
+struct sphinx_path;
+
 /* BOLT #4:
  *
  * The `hops_data` field is a structure that holds obfuscations of the
@@ -198,5 +210,24 @@ u8 *wrap_onionreply(const tal_t *ctx, const struct secret *shared_secret,
 struct onionreply *unwrap_onionreply(const tal_t *ctx,
 				     const struct secret *shared_secrets,
 				     const int numhops, const u8 *reply);
+
+/**
+ * Create a new empty sphinx_path.
+ *
+ * The sphinx_path instance can then be decorated with other functions and
+ * passed to `create_onionpacket` to generate the packet.
+ */
+struct sphinx_path *sphinx_path_new(const tal_t *ctx,
+				    const u8 *associated_data);
+
+/**
+ * Create a new empty sphinx_path with a given `session_key`.
+ *
+ * This MUST NOT be used outside of tests and tools as it may leak the path
+ * details if the `session_key` is not randomly generated.
+ */
+struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
+					     const u8 *associated_data,
+					     const struct secret *session_key);
 
 #endif /* LIGHTNING_COMMON_SPHINX_H */
