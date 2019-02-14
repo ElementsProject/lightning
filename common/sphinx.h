@@ -109,11 +109,7 @@ struct route_step {
  */
 struct onionpacket *create_onionpacket(
 	const tal_t * ctx,
-	struct pubkey path[],
-	struct hop_data hops_data[],
-	const u8 * sessionkey,
-	const u8 *assocdata,
-	const size_t assocdatalen,
+	struct sphinx_path *sp,
 	struct secret **path_secrets
 	);
 
@@ -230,4 +226,10 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 					     const u8 *associated_data,
 					     const struct secret *session_key);
 
+/**
+ * Add a V0 (Realm 0) single frame hop to the path.
+ */
+void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		       const struct short_channel_id *scid,
+		       struct amount_msat forward, u32 outgoing_cltv);
 #endif /* LIGHTNING_COMMON_SPHINX_H */

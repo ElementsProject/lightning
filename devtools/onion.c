@@ -2,6 +2,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/str/hex/hex.h>
+#include <common/amount.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 #include <err.h>
@@ -15,13 +16,17 @@ static void do_generate(int argc, char **argv)
 	int num_hops = argc - 1;
 	struct pubkey *path = tal_arr(ctx, struct pubkey, num_hops);
 	u8 privkeys[argc - 1][32];
-	u8 sessionkey[32];
+	struct secret session_key;
 	struct hop_data hops_data[num_hops];
 	struct secret *shared_secrets;
-	u8 assocdata[32];
+	u8 *assocdata;
+	struct sphinx_path *sp;
 
-	memset(&sessionkey, 'A', sizeof(sessionkey));
-	memset(&assocdata, 'B', sizeof(assocdata));
+	assocdata = tal_arr(ctx, u8, 32);
+	memset(&session_key, 'A', sizeof(struct secret));
+	memset(assocdata, 'B', tal_bytelen(assocdata));
+
+	sp = sphinx_path_new_with_key(ctx, assocdata, &session_key);
 
 	for (int i = 0; i < num_hops; i++) {
 		if (!hex_decode(argv[1 + i], 66, privkeys[i], 33)) {
@@ -31,9 +36,7 @@ static void do_generate(int argc, char **argv)
 					       privkeys[i]) != 1)
 			errx(1, "Could not decode pubkey");
 		fprintf(stderr, "Node %d pubkey %s\n", i, secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
-	}
 
-	for (int i = 0; i < num_hops; i++) {
 		memset(&hops_data[i], 0, sizeof(hops_data[i]));
 		hops_data[i].realm = i;
 		memset(&hops_data[i].channel_id, i,
@@ -41,11 +44,11 @@ static void do_generate(int argc, char **argv)
 		hops_data[i].amt_forward.millisatoshis = i; /* Raw: test code */
 		hops_data[i].outgoing_cltv = i;
 		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
+		sphinx_add_v0_hop(sp, &path[i], &hops_data[i].channel_id, hops_data[i].amt_forward, i);
 	}
 
 	struct onionpacket *res =
-	    create_onionpacket(ctx, path, hops_data, sessionkey, assocdata,
-			       sizeof(assocdata), &shared_secrets);
+		create_onionpacket(ctx, sp, &shared_secrets);
 
 	u8 *serialized = serialize_onionpacket(ctx, res);
 	if (!serialized)

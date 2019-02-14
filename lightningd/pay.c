@@ -596,37 +596,36 @@ send_payment(struct lightningd *ld,
 	enum onion_type failcode;
 	size_t i, n_hops = tal_count(route);
 	struct hop_data *hop_data = tal_arr(tmpctx, struct hop_data, n_hops);
-	struct pubkey *path = tal_arr(tmpctx, struct pubkey, n_hops);
 	struct node_id *ids = tal_arr(tmpctx, struct node_id, n_hops);
 	struct wallet_payment *payment = NULL;
 	struct htlc_out *hout;
 	struct short_channel_id *channels;
 	struct routing_failure *fail;
 	struct channel *channel;
+	struct sphinx_path *path;
+	struct short_channel_id finalscid;
+	struct pubkey pubkey;
+	bool ret;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(ld->topology) + 1;
 
-	/* Extract IDs for each hop: create_onionpacket wants array of *keys*,
-	 * and wallet wants continuous array of node_ids */
-	for (i = 0; i < n_hops; i++) {
+	path = sphinx_path_new(tmpctx, rhash->u.u8);
+	/* Extract IDs for each hop: create_onionpacket wants array. */
+	for (i = 0; i < n_hops; i++)
 		ids[i] = route[i].nodeid;
-		/* JSON parsing checked these were valid, so Shouldn't Happen */
-		if (!pubkey_from_node_id(&path[i], &ids[i])) {
-			return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
-					    "Invalid nodeid %s",
-					    type_to_string(tmpctx,
-							   struct node_id,
-							   &ids[i]));
-		}
-	}
 
 	/* Copy hop_data[n] from route[n+1] (ie. where it goes next) */
 	for (i = 0; i < n_hops - 1; i++) {
+		ret = pubkey_from_node_id(&pubkey, &ids[i]);
+		assert(ret);
 		hop_data[i].realm = 0;
 		hop_data[i].channel_id = route[i+1].channel_id;
 		hop_data[i].amt_forward = route[i+1].amount;
 		hop_data[i].outgoing_cltv = base_expiry + route[i+1].delay;
+		sphinx_add_v0_hop(path, &pubkey, &route[i + 1].channel_id,
+				  route[i + 1].amount,
+				  base_expiry + route[i + 1].delay);
 	}
 
 	/* And finally set the final hop to the special values in
@@ -635,6 +634,13 @@ send_payment(struct lightningd *ld,
 	hop_data[i].outgoing_cltv = base_expiry + route[i].delay;
 	memset(&hop_data[i].channel_id, 0, sizeof(struct short_channel_id));
 	hop_data[i].amt_forward = route[i].amount;
+
+	memset(&finalscid, 0, sizeof(struct short_channel_id));
+	ret = pubkey_from_node_id(&pubkey, &ids[i]);
+	assert(ret);
+	sphinx_add_v0_hop(path, &pubkey, &finalscid,
+			  route[i].amount,
+			  base_expiry + route[i].delay);
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);
@@ -684,8 +690,7 @@ send_payment(struct lightningd *ld,
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 
 	/* Onion will carry us from first peer onwards. */
-	packet = create_onionpacket(tmpctx, path, hop_data, sessionkey, rhash->u.u8,
-				    sizeof(struct sha256), &path_secrets);
+	packet = create_onionpacket(tmpctx, path, &path_secrets);
 	onion = serialize_onionpacket(tmpctx, packet);
 
 	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
