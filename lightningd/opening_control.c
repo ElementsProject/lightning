@@ -73,7 +73,7 @@ struct funding_channel {
 	u8 channel_flags;
 
 	/* Variables we need to compose fields in cmd's response */
-	u8 *linear;
+	const char *hextx;
 	struct channel_id cid;
 
 	/* Peer we're trying to reach. */
@@ -245,7 +245,7 @@ static void funding_broadcast_success(struct channel *channel)
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
-	json_add_hex_talarr(response, "tx", fc->linear);
+	json_add_string(response, "tx", fc->hextx);
 	json_add_txid(response, "txid", &channel->funding_txid);
 	json_add_string(response, "channel_id",
 					type_to_string(tmpctx, struct channel_id, &fc->cid));
@@ -414,7 +414,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		txfilter_add_scriptpubkey(ld->owned_txfilter, fundingtx->output[!funding_outnum].script);
 
 	/* We need these to compose cmd's response in funding_broadcast_success */
-	fc->linear = linearize_tx(fc->cmd, fundingtx);
+	fc->hextx = tal_hex(fc, linearize_tx(fc->cmd, fundingtx));
 	derive_channel_id(&fc->cid, &channel->funding_txid, funding_outnum);
 
 	/* Send it out and watch for confirms. */
