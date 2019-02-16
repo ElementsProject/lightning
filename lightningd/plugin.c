@@ -81,8 +81,6 @@ struct plugins {
 	struct lightningd *ld;
 };
 
-/* Simple storage for plugin options inbetween registering them on the
- * command line and passing them off to the plugin */
 struct plugin_opt {
 	struct list_node list;
 	const char *name;
@@ -463,9 +461,7 @@ static struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 			       plugin_read_json, plugin);
 }
 
-/* Callback called when parsing options. It just stores the value in
- * the plugin_opt */
-static char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
+char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 {
 	tal_free(popt->value);
 	popt->value = tal_strdup(popt, arg);
