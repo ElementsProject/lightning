@@ -984,6 +984,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
     assert(l1.rpc.listnodes()['nodes'] == [])
 
 
+@unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
 def test_getroute_exclude(node_factory, bitcoind):
     """Test getroute's exclude argument"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
