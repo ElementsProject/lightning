@@ -172,6 +172,7 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_offline' not in inv
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_invoice_routeboost_private(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice for private channels
     """

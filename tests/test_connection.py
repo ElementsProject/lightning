@@ -791,6 +791,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(' to ONCHAIN')
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_private_channel(node_factory):
     l1, l2 = node_factory.line_graph(2, announce_channels=False, wait_for_announce=False)
     l3, l4 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
@@ -1418,6 +1419,7 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
     l3.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_restart_many_payments(node_factory):
     l1 = node_factory.get_node(may_reconnect=True)
 

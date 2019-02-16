@@ -1167,6 +1167,7 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_pay_retry(node_factory, bitcoind):
     """Make sure pay command retries properly. """
     def exhaust_channel(funder, fundee, scid, already_spent=0):
@@ -1341,6 +1342,7 @@ def test_pay_routeboost(node_factory, bitcoind):
         assert [h['channel'] for h in attempts[2]['routehint']] == [r['short_channel_id'] for r in routel3l5]
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_pay_direct(node_factory, bitcoind):
     """Check that we prefer the direct route.
     """
