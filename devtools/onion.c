@@ -15,7 +15,7 @@ static void do_generate(int argc, char **argv)
 	const tal_t *ctx = talz(NULL, tal_t);
 	int num_hops = argc - 1;
 	struct pubkey *path = tal_arr(ctx, struct pubkey, num_hops);
-	u8 privkeys[argc - 1][32];
+	u8 rawpubkey[33];
 	struct secret session_key;
 	struct hop_data hops_data[num_hops];
 	struct secret *shared_secrets;
@@ -29,13 +29,16 @@ static void do_generate(int argc, char **argv)
 	sp = sphinx_path_new_with_key(ctx, assocdata, &session_key);
 
 	for (int i = 0; i < num_hops; i++) {
-		if (!hex_decode(argv[1 + i], 66, privkeys[i], 33)) {
-			errx(1, "Invalid private key hex '%s'", argv[1 + i]);
+		if (!hex_decode(argv[1 + i], 66, rawpubkey, 33)) {
+			errx(1, "Invalid public key hex '%s'", argv[1 + i]);
 		}
-		if (secp256k1_ec_pubkey_create(secp256k1_ctx, &path[i].pubkey,
-					       privkeys[i]) != 1)
+
+		if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &path[i].pubkey,
+					      rawpubkey, 33) != 1)
 			errx(1, "Could not decode pubkey");
-		fprintf(stderr, "Node %d pubkey %s\n", i, secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
+
+		fprintf(stderr, "Node %d pubkey %s\n", i,
+			secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
 
 		memset(&hops_data[i], 0, sizeof(hops_data[i]));
 		hops_data[i].realm = i;
@@ -43,7 +46,6 @@ static void do_generate(int argc, char **argv)
 		       sizeof(hops_data[i].channel_id));
 		hops_data[i].amt_forward.millisatoshis = i; /* Raw: test code */
 		hops_data[i].outgoing_cltv = i;
-		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
 		sphinx_add_v0_hop(sp, &path[i], &hops_data[i].channel_id, hops_data[i].amt_forward, i);
 	}
 
