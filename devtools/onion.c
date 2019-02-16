@@ -24,9 +24,9 @@ static void do_generate(int argc, char **argv,
 	struct pubkey *path = tal_arr(ctx, struct pubkey, num_hops);
 	u8 rawpubkey[PUBKEY_LEN], rawprivkey[PRIVKEY_LEN];
 	struct secret session_key;
-	struct hop_data hops_data[num_hops];
 	struct secret *shared_secrets;
 	struct sphinx_path *sp;
+	struct hop_data hops_data[num_hops];
 
 	assocdata = tal_arr(ctx, u8, ASSOC_DATA_SIZE);
 	memset(&session_key, 'A', sizeof(struct secret));
@@ -109,14 +109,12 @@ static void do_generate(int argc, char **argv,
 		sphinx_add_v0_hop(sp, &path[i], &hops_data[i].channel_id, hops_data[i].amt_forward, i);
 	}
 
-	struct onionpacket *res =
-		create_onionpacket(ctx, sp, &shared_secrets);
+	struct onionpacket *res = create_onionpacket(ctx, sp, &shared_secrets);
 
 	u8 *serialized = serialize_onionpacket(ctx, res);
 	if (!serialized)
 		errx(1, "Error serializing message.");
-	else
-		printf("%s\n", tal_hex(ctx, serialized));
+	printf("%s\n", tal_hex(ctx, serialized));
 	tal_free(ctx);
 }
 
