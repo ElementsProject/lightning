@@ -18,13 +18,13 @@ of 'msatoshi' to lightning node 'id', such that the payment will arrive
 at 'id' with 'cltv'-blocks to spare (default 9).
 
 There are two considerations for how good a route is: how low the
-fees are, and how long your payment will get stuck if a node goes down
+fees are, and how long your payment will get stuck in a delayed output if a node goes down
 during the process.  The 'riskfactor' floating-point field controls
 this tradeoff; it is the annual cost of your funds being stuck (as a
 percentage).
 
-For example, if you thought the inconvenience of having funds stuck was
-worth 20% per annum interest, 'riskfactor' would be 20.
+For example, if you thought the convenience of keeping your funds liquid
+(not stuck) was worth 20% per annum interest, 'riskfactor' would be 20.
 
 If you didn't care about risk, 'riskfactor' would be zero.
 
@@ -58,7 +58,7 @@ risk-fee = amount x blocks-timeout x riskfactor / 5259600
 
 Here are the risk fees in millisatoshis, using various parameters.  I
 assume a channel charges the default of 1000 millisatoshis plus 1
-part-per-million.  Common delay values on the network at 14 and 144.
+part-per-million.  Common to_self_delay values on the network at 14 and 144 blocks.
 
 [options="header"]
 |=======================
