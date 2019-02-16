@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -12,6 +13,8 @@
 #include <unistd.h>
 
 #define ASSOC_DATA_SIZE 32
+#define PUBKEY_LEN 33
+#define PRIVKEY_LEN 32
 
 static void do_generate(int argc, char **argv,
 			const u8 assocdata[ASSOC_DATA_SIZE])
@@ -19,25 +22,46 @@ static void do_generate(int argc, char **argv,
 	const tal_t *ctx = talz(NULL, tal_t);
 	int num_hops = argc - 1;
 	struct pubkey *path = tal_arr(ctx, struct pubkey, num_hops);
-	u8 privkeys[argc - 1][32];
+	u8 rawpubkey[PUBKEY_LEN], rawprivkey[PRIVKEY_LEN];
 	struct secret session_key;
 	struct hop_data hops_data[num_hops];
 	struct secret *shared_secrets;
 	struct sphinx_path *sp;
 
-	assocdata = tal_arr(ctx, u8, 32);
+	assocdata = tal_arr(ctx, u8, ASSOC_DATA_SIZE);
 	memset(&session_key, 'A', sizeof(struct secret));
 
 	sp = sphinx_path_new_with_key(ctx, assocdata, &session_key);
 
 	for (int i = 0; i < num_hops; i++) {
 		size_t klen = strcspn(argv[1 + i], "/");
-		if (!hex_decode(argv[1 + i], klen, privkeys[i], 32))
-			errx(1, "Invalid private key hex '%s'", argv[1 + i]);
+		assert(klen == 2 * PUBKEY_LEN || klen == 2 * PRIVKEY_LEN);
+		if (klen == 2 * PRIVKEY_LEN) {
+			if (!hex_decode(argv[1 + i], klen, rawprivkey, PRIVKEY_LEN))
+				errx(1, "Invalid private key hex '%s'",
+				     argv[1 + i]);
 
-		if (secp256k1_ec_pubkey_create(secp256k1_ctx, &path[i].pubkey,
-					       privkeys[i]) != 1)
-			errx(1, "Could not decode pubkey");
+			if (secp256k1_ec_pubkey_create(secp256k1_ctx,
+						       &path[i].pubkey,
+						       rawprivkey) != 1)
+				errx(1, "Could not decode pubkey");
+		} else if (klen == 2 * PUBKEY_LEN) {
+			if (!hex_decode(argv[1 + i], 2 * PUBKEY_LEN, rawpubkey,
+					PUBKEY_LEN)) {
+				errx(1, "Invalid public key hex '%s'",
+				     argv[1 + i]);
+			}
+
+			if (secp256k1_ec_pubkey_parse(secp256k1_ctx,
+						      &path[i].pubkey,
+						      rawpubkey, PUBKEY_LEN) != 1)
+				errx(1, "Could not decode pubkey");
+		} else {
+			fprintf(stderr,
+				"Provided key is neither a pubkey nor a "
+				"privkey: %s\n",
+				argv[1 + i]);
+		}
 		fprintf(stderr, "Node %d pubkey %s\n", i,
 			secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
 
@@ -171,6 +195,7 @@ int main(int argc, char **argv)
 						 SECP256K1_CONTEXT_SIGN);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "--generate <pubkey1>[/hopdata] <pubkey2>[/hopdata]... OR\n"
 			   "--generate <privkey1>[/hopdata] <privkey2>[/hopdata]... OR\n"
 			   "--decode <privkey>\n"
 			   "Either create an onion message, or decode one step",
