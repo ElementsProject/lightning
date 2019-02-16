@@ -609,6 +609,7 @@ send_payment(struct lightningd *ld,
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(ld->topology) + 1;
+	memset(&finalscid, 0, sizeof(struct short_channel_id));
 
 	path = sphinx_path_new(tmpctx, rhash->u.u8);
 	/* Extract IDs for each hop: create_onionpacket wants array. */
@@ -627,14 +628,10 @@ send_payment(struct lightningd *ld,
 				  route[i + 1].amount,
 				  base_expiry + route[i + 1].delay);
 	}
+	for (i = 0; i < n_hops - 1; i++)
 
 	/* And finally set the final hop to the special values in
 	 * BOLT04 */
-	hop_data[i].realm = 0;
-	hop_data[i].outgoing_cltv = base_expiry + route[i].delay;
-	memset(&hop_data[i].channel_id, 0, sizeof(struct short_channel_id));
-	hop_data[i].amt_forward = route[i].amount;
-
 	memset(&finalscid, 0, sizeof(struct short_channel_id));
 	ret = pubkey_from_node_id(&pubkey, &ids[i]);
 	assert(ret);
