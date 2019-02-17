@@ -557,7 +557,7 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	}
 
 	db = tal(ctx, struct db);
-	db->filename = tal_dup_arr(db, char, filename, strlen(filename), 0);
+	db->filename = tal_strdup(db, filename);
 	db->sql = sql;
 	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
