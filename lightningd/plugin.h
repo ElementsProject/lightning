@@ -19,6 +19,12 @@ struct plugins;
 struct plugin;
 
 /**
+ * Simple storage for plugin options inbetween registering them on the
+ * command line and passing them off to the plugin
+ */
+struct plugin_opt;
+
+/**
  * Create a new plugins context.
  */
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
@@ -92,5 +98,11 @@ void plugins_notify(struct plugins *plugins,
  */
 void plugin_request_send(struct plugin *plugin,
 			 struct jsonrpc_request *req TAKES);
+
+/**
+ * Callback called when parsing options. It just stores the value in
+ * the plugin_opt
+ */
+char *plugin_opt_set(const char *arg, struct plugin_opt *popt);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

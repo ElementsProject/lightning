@@ -1027,7 +1027,8 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
 			json_add_opt_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_add_plugin_dir
-			   || opt->cb_arg == (void *)opt_disable_plugin) {
+			   || opt->cb_arg == (void *)opt_disable_plugin
+			   || opt->cb_arg == (void *)plugin_opt_set) {
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
 #if DEVELOPER
