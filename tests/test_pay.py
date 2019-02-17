@@ -1372,6 +1372,9 @@ def test_pay_direct(node_factory, bitcoind):
     # Let channels lock in.
     bitcoind.generate_block(5)
 
+    # Make l1 sees it, so it doesn't produce bad CLTVs.
+    sync_blockheight(bitcoind, [l1])
+
     # Make sure l0 knows the l2->l3 channel.
     # Without DEVELOPER, channel lockin can take 30 seconds to detect,
     # and gossip 2 minutes to propagate

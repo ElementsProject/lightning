@@ -328,6 +328,7 @@ remote_routing_failure(const tal_t *ctx,
 		if (failcode & PERM)
 			*pay_errcode = PAY_DESTINATION_PERM_FAIL;
 		else
+			/* FIXME: not right for WIRE_FINAL_EXPIRY_TOO_SOON */
 			*pay_errcode = PAY_TRY_OTHER_ROUTE;
 		erring_node = &route_nodes[origin_index];
 	} else {
