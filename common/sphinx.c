@@ -267,15 +267,15 @@ static bool generate_header_padding(void *dst, size_t dstlen,
 		 * that gives us the start in the stream */
 		fillerFrames = 0;
 		for (int j = 0; j < i; j++)
-			fillerFrames += 1; /* Currently constant, will change
-					     with multi-frame hops */
+			fillerFrames += sphinx_hop_count_frames(&path->hops[j]);
 		fillerStart = ROUTING_INFO_SIZE - (fillerFrames * FRAME_SIZE);
 
 		/* The filler will dangle off of the end by the current
 		 * hop-size, we'll make sure to copy it into the correct
 		 * position in the next step. */
-		/* TODO: This'll change with multi-frame hops */
-		fillerEnd = ROUTING_INFO_SIZE + FRAME_SIZE;
+		fillerEnd =
+		    ROUTING_INFO_SIZE +
+		    (sphinx_hop_count_frames(&path->hops[i]) * FRAME_SIZE);
 
 		/* Apply the cipher-stream to the part of the filler that'll
 		 * be added by this hop */
@@ -419,10 +419,12 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 
 static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 {
-		memset(dest, 0, FRAME_SIZE);
-		dest[0] = hop->realm;
-		memcpy(dest + 1, hop->payload, tal_bytelen(hop->payload));
-		memcpy(dest + FRAME_SIZE - HMAC_SIZE, hop->hmac, HMAC_SIZE);
+	u8 num_frames = sphinx_hop_count_frames(hop);
+	memset(dest, 0, num_frames * FRAME_SIZE);
+	dest[0] = hop->realm | (num_frames-1) << 4;
+	memcpy(dest + 1, hop->payload, tal_bytelen(hop->payload));
+	memcpy(dest + (sphinx_hop_count_frames(hop) * FRAME_SIZE) - HMAC_SIZE,
+	       hop->hmac, HMAC_SIZE);
 }
 
 struct onionpacket *create_onionpacket(
@@ -433,7 +435,9 @@ struct onionpacket *create_onionpacket(
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
 	int i, num_hops = tal_count(sp->hops);
-	u8 filler[(num_hops - 1) * FRAME_SIZE];
+	size_t fillerFrames = sphinx_path_count_frames(sp) -
+			      sphinx_hop_count_frames(&sp->hops[num_hops - 1]);
+	u8 filler[fillerFrames * FRAME_SIZE];
 	struct keyset keys;
 	u8 nexthmac[HMAC_SIZE];
 	u8 stream[ROUTING_INFO_SIZE];
@@ -463,15 +467,16 @@ struct onionpacket *create_onionpacket(
 		generate_cipher_stream(stream, keys.rho, ROUTING_INFO_SIZE);
 
 		/* Rightshift mix-header by FRAME_SIZE */
-		memmove(packet->routinginfo + FRAME_SIZE, packet->routinginfo,
-			ROUTING_INFO_SIZE - FRAME_SIZE);
+		size_t shiftSize = sphinx_hop_count_frames(&sp->hops[i]) * FRAME_SIZE;
+		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
+			ROUTING_INFO_SIZE-shiftSize);
 		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
 
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
-			size_t len = (NUM_MAX_FRAMES - num_hops + 1) * FRAME_SIZE;
-			memcpy(packet->routinginfo + len, filler, sizeof(filler));
+			size_t fillerSize = fillerFrames * FRAME_SIZE;
+			memcpy(packet->routinginfo + ROUTING_INFO_SIZE - fillerSize, filler, fillerSize);
 		}
 
 		compute_packet_hmac(packet, sp->associated_data, tal_bytelen(sp->associated_data), keys.mu,
