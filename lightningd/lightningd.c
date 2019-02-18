@@ -764,6 +764,11 @@ int main(int argc, char *argv[])
 	 * can start talking to us. */
 	plugins_config(ld->plugins);
 
+	/*~ Setting this (global) activates the crash log: we don't usually need
+	 * a backtrace if we fail during startup.  We do this before daemonize,
+	 * in case that runs into trouble. */
+	crashlog = ld->log;
+
 	/*~ We defer --daemon until we've completed most initialization: that
 	 *  way we'll exit with an error rather than silently exiting 0, then
 	 *  realizing we can't start and forcing the confused user to read the
@@ -807,10 +812,6 @@ int main(int argc, char *argv[])
 	/*~ Now that all the notifications for transactions are in place, we
 	 *  can start the poll loop which queries bitcoind for new blocks. */
 	begin_topology(ld->topology);
-
-	/*~ Setting this (global) activates the crash log: we don't usually need
-	 * a backtrace if we fail during startup. */
-	crashlog = ld->log;
 
 	/*~ The root of every backtrace (almost).  This is our main event
 	 *  loop. */
