@@ -104,11 +104,8 @@ static size_t sphinx_path_count_frames(const struct sphinx_path *path)
 	return size;
 }
 
-/**
- * Add a raw payload hop to the path.
- */
-static void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey, u8 realm,
-			       const u8 *payload)
+void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+			u8 realm, const u8 *payload)
 {
 	struct sphinx_hop sp;
 	sp.payload = payload;
