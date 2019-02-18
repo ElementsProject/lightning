@@ -83,7 +83,7 @@ bool deprecated_apis;
 
 static int test_json_filter(void)
 {
-	struct json_stream *result = new_json_stream(NULL, NULL);
+	struct json_stream *result = new_json_stream(NULL, NULL, NULL);
 	jsmntok_t *toks;
 	const jsmntok_t *x;
 	bool valid;
@@ -129,7 +129,7 @@ static void test_json_escape(void)
 
 	for (i = 1; i < 256; i++) {
 		char badstr[2];
-		struct json_stream *result = new_json_stream(NULL, NULL);
+		struct json_stream *result = new_json_stream(NULL, NULL, NULL);
 		struct json_escaped *esc;
 
 		badstr[0] = i;

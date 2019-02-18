@@ -4,6 +4,7 @@
 #include <common/utils.h>
 #include <lightningd/json.h>
 #include <lightningd/json_stream.h>
+#include <lightningd/log.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -29,6 +30,9 @@ struct json_stream {
 	void *reader_arg;
 	size_t len_read;
 
+	/* Where to log I/O */
+	struct log *log;
+
 	/* Current command's output. */
 	MEMBUF(char) outbuf;
 };
@@ -43,7 +47,9 @@ static void *membuf_tal_realloc(struct membuf *mb,
 	return p;
 }
 
-struct json_stream *new_json_stream(const tal_t *ctx, struct command *writer)
+struct json_stream *new_json_stream(const tal_t *ctx,
+				    struct command *writer,
+				    struct log *log)
 {
 	struct json_stream *js = tal(ctx, struct json_stream);
 
@@ -56,6 +62,7 @@ struct json_stream *new_json_stream(const tal_t *ctx, struct command *writer)
 #endif
 	js->indent = 0;
 	js->empty = true;
+	js->log = log;
 	return js;
 }
 
@@ -109,6 +116,8 @@ static void js_written_some(struct json_stream *js)
 void json_stream_append_part(struct json_stream *js, const char *str, size_t len)
 {
 	mkroom(js, len);
+	if (js->log)
+		log_io(js->log, LOG_IO_OUT, "", str, len);
 	memcpy(membuf_add(&js->outbuf, len), str, len);
 	js_written_some(js);
 }
@@ -139,6 +148,9 @@ static void json_stream_append_vfmt(struct json_stream *js,
 		mkroom(js, fmtlen + 1);
 		vsprintf(membuf_space(&js->outbuf), fmt, ap2);
 	}
+	if (js->log)
+		log_io(js->log, LOG_IO_OUT, "",
+		       membuf_space(&js->outbuf), fmtlen);
 	membuf_added(&js->outbuf, fmtlen);
 	js_written_some(js);
 	va_end(ap2);
