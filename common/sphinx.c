@@ -22,6 +22,8 @@
 #define NUM_STREAM_BYTES (2*ROUTING_INFO_SIZE)
 #define ONION_REPLY_SIZE 256
 
+#define RHO_KEYTYPE "rho"
+
 struct hop_params {
 	u8 secret[SHARED_SECRET_SIZE];
 	u8 blind[BLINDING_FACTOR_SIZE];
@@ -248,27 +250,40 @@ static bool generate_key(void *k, const char *t, u8 tlen, const u8 *s)
 	return compute_hmac(k, s, KEY_LEN, t, tlen);
 }
 
-static bool generate_header_padding(
-	void *dst, size_t dstlen,
-	const size_t hopsize,
-	const char *keytype,
-	size_t keytypelen,
-	const u8 numhops,
-	struct hop_params *params
-	)
+static bool generate_header_padding(void *dst, size_t dstlen,
+				    const struct sphinx_path *path,
+				    struct hop_params *params)
 {
-	int i;
-	u8 cipher_stream[(NUM_MAX_FRAMES + 1) * FRAME_SIZE];
+	u8 stream[2 * NUM_MAX_FRAMES * FRAME_SIZE];
 	u8 key[KEY_LEN];
+	size_t fillerStart, fillerEnd, fillerFrames;
 
 	memset(dst, 0, dstlen);
-	for (i = 1; i < numhops; i++) {
-		if (!generate_key(&key, keytype, keytypelen, params[i - 1].secret))
+	for (int i = 0; i < tal_count(path->hops) - 1; i++) {
+		if (!generate_key(&key, RHO_KEYTYPE, strlen(RHO_KEYTYPE),
+				  params[i].secret))
 			return false;
 
-		generate_cipher_stream(cipher_stream, key, sizeof(cipher_stream));
-		int pos = ((NUM_MAX_FRAMES - i) + 1) * hopsize;
-		xorbytes(dst, dst, cipher_stream + pos, sizeof(cipher_stream) - pos);
+		generate_cipher_stream(stream, key, sizeof(stream));
+
+		/* Sum up how many frames have been used by previous hops,
+		 * that gives us the start in the stream */
+		fillerFrames = 0;
+		for (int j = 0; j < i; j++)
+			fillerFrames += 1; /* Currently constant, will change
+					     with multi-frame hops */
+		fillerStart = ROUTING_INFO_SIZE - (fillerFrames * FRAME_SIZE);
+
+		/* The filler will dangle off of the end by the current
+		 * hop-size, we'll make sure to copy it into the correct
+		 * position in the next step. */
+		/* TODO: This'll change with multi-frame hops */
+		fillerEnd = ROUTING_INFO_SIZE + FRAME_SIZE;
+
+		/* Apply the cipher-stream to the part of the filler that'll
+		 * be added by this hop */
+		xorbytes(dst, dst, stream + fillerStart,
+			 fillerEnd - fillerStart);
 	}
 	return true;
 }
@@ -443,8 +458,7 @@ struct onionpacket *create_onionpacket(
 	memset(nexthmac, 0, HMAC_SIZE);
 	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
 
-	generate_header_padding(filler, sizeof(filler), FRAME_SIZE,
-				"rho", 3, num_hops, params);
+	generate_header_padding(filler, sizeof(filler), sp, params);
 
 	for (i = num_hops - 1; i >= 0; i--) {
 		memcpy(sp->hops[i].hmac, nexthmac, HMAC_SIZE);
