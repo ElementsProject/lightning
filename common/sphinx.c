@@ -1,5 +1,7 @@
 #include <assert.h>
 
+#include <bitcoin/varint.h>
+
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -120,12 +122,8 @@ static size_t sphinx_path_payloads_size(const struct sphinx_path *path)
 	return size;
 }
 
-/**
- * Add a raw payload hop to the path.
- */
-static void sphinx_add_raw_hop(struct sphinx_path *path,
-			       const struct pubkey *pubkey, u8 realm,
-			       const u8 *payload)
+void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+			u8 realm, const u8 *payload)
 {
 	struct sphinx_hop sp;
 	sp.payload = payload;
@@ -139,10 +137,14 @@ void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 		       const struct short_channel_id *scid,
 		       struct amount_msat forward, u32 outgoing_cltv)
 {
+	u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 	u8 *buf = tal_arr(path, u8, 0);
 	towire_short_channel_id(&buf, scid);
 	towire_u64(&buf, forward.millisatoshis); /* Raw: low-level serializer */
 	towire_u32(&buf, outgoing_cltv);
+	towire(&buf, padding, ARRAY_SIZE(padding));
+	assert(tal_bytelen(buf) == 32);
 	sphinx_add_raw_hop(path, pubkey, 0, buf);
 }
 
@@ -287,15 +289,13 @@ static bool generate_header_padding(void *dst, size_t dstlen,
 		 * that gives us the start in the stream */
 		fillerSize = 0;
 		for (int j = 0; j < i; j++)
-			fillerSize += FRAME_SIZE; /* Currently constant, will change
-						     with multi-frame hops */
+			fillerSize += sphinx_hop_size(&path->hops[j]);
 		fillerStart = ROUTING_INFO_SIZE - fillerSize;
 
 		/* The filler will dangle off of the end by the current
 		 * hop-size, we'll make sure to copy it into the correct
 		 * position in the next step. */
-		/* TODO: This'll change with multi-frame hops */
-		fillerEnd = ROUTING_INFO_SIZE + FRAME_SIZE;
+		fillerEnd = ROUTING_INFO_SIZE + sphinx_hop_size(&path->hops[i]);
 
 		/* Apply the cipher-stream to the part of the filler that'll
 		 * be added by this hop */
@@ -439,10 +439,20 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 
 static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 {
-		memset(dest, 0, FRAME_SIZE);
-		dest[0] = hop->realm;
-		memcpy(dest + 1, hop->payload, tal_bytelen(hop->payload));
-		memcpy(dest + FRAME_SIZE - HMAC_SIZE, hop->hmac, HMAC_SIZE);
+	size_t raw_size = tal_bytelen(hop->payload);
+	size_t hop_size = sphinx_hop_size(hop);
+	int pos = 0;
+	memset(dest, 0, hop_size);
+
+	/* Backwards compatibility for the legacy hop_data format. */
+	if (hop->realm == 0x00)
+		dest[pos++] = 0x00;
+	else
+		pos += varint_put(dest+pos, raw_size);
+
+	memcpy(dest + pos, hop->payload, raw_size);
+	pos += raw_size;
+	memcpy(dest + hop_size - HMAC_SIZE, hop->hmac, HMAC_SIZE);
 }
 
 struct onionpacket *create_onionpacket(
@@ -453,7 +463,9 @@ struct onionpacket *create_onionpacket(
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
 	int i, num_hops = tal_count(sp->hops);
-	u8 filler[(num_hops - 1) * FRAME_SIZE];
+	size_t fillerSize = sphinx_path_payloads_size(sp) -
+			      sphinx_hop_size(&sp->hops[num_hops - 1]);
+	u8 filler[fillerSize];
 	struct keyset keys;
 	u8 nexthmac[HMAC_SIZE];
 	u8 stream[ROUTING_INFO_SIZE];
@@ -483,15 +495,15 @@ struct onionpacket *create_onionpacket(
 		generate_cipher_stream(stream, keys.rho, ROUTING_INFO_SIZE);
 
 		/* Rightshift mix-header by FRAME_SIZE */
-		memmove(packet->routinginfo + FRAME_SIZE, packet->routinginfo,
-			ROUTING_INFO_SIZE - FRAME_SIZE);
+		size_t shiftSize = sphinx_hop_size(&sp->hops[i]);
+		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
+			ROUTING_INFO_SIZE-shiftSize);
 		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
 
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
-			size_t len = (NUM_MAX_FRAMES - num_hops + 1) * FRAME_SIZE;
-			memcpy(packet->routinginfo + len, filler, sizeof(filler));
+			memcpy(packet->routinginfo + ROUTING_INFO_SIZE - fillerSize, filler, fillerSize);
 		}
 
 		compute_packet_hmac(packet, sp->associated_data, tal_bytelen(sp->associated_data), keys.mu,
