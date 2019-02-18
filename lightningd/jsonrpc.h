@@ -189,9 +189,9 @@ struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const 
  */
 void jsonrpc_notification_end(struct jsonrpc_notification *n);
 
-#define jsonrpc_request_start(ctx, method, response_cb, response_cb_arg)			\
+#define jsonrpc_request_start(ctx, method, log, response_cb, response_cb_arg) \
 	jsonrpc_request_start_(					\
-		(ctx), (method),					\
+		(ctx), (method), (log),					\
 	    typesafe_cb_preargs(void, void *, (response_cb), (response_cb_arg),	\
 				const char *buffer,		\
 				const jsmntok_t *toks,		\
@@ -199,7 +199,7 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n);
 	    (response_cb_arg))
 
 struct jsonrpc_request *jsonrpc_request_start_(
-    const tal_t *ctx, const char *method,
+    const tal_t *ctx, const char *method, struct log *log,
     void (*response_cb)(const char *buffer, const jsmntok_t *toks,
 			const jsmntok_t *idtok, void *),
     void *response_cb_arg);

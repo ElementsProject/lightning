@@ -71,7 +71,8 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		 * currently have a list to store these. We might want
 		 * to eventually to inspect in-flight requests. */
 		ph_req = notleak(tal(hook->plugin, struct plugin_hook_request));
-		req = jsonrpc_request_start(NULL, hook->name,
+		/* FIXME: do IO logging for these! */
+		req = jsonrpc_request_start(NULL, hook->name, NULL,
 					    plugin_hook_callback, ph_req);
 		ph_req->hook = hook;
 		ph_req->cb_arg = cb_arg;

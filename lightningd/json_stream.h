@@ -15,13 +15,16 @@
 struct command;
 struct io_conn;
 struct json_stream;
+struct log;
 
 /**
  * new_json_stream - create a new JSON stream.
  * @ctx: tal context for allocation.
  * @writer: object responsible for writing to this stream.
+ * @log: where to log the IO
  */
-struct json_stream *new_json_stream(const tal_t *ctx, struct command *writer);
+struct json_stream *new_json_stream(const tal_t *ctx, struct command *writer,
+				    struct log *log);
 
 /**
  * Duplicate an existing stream.
