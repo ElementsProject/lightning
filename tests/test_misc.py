@@ -773,6 +773,31 @@ def test_cli(node_factory):
         pass
 
 
+def test_daemon_option(node_factory):
+    """
+    Make sure --daemon at least vaguely works!
+    """
+    # Lazy way to set up command line and env, plus do VALGRIND checks
+    l1 = node_factory.get_node()
+    l1.stop()
+
+    os.unlink(l1.rpc.socket_path)
+    subprocess.run(l1.daemon.cmd_line + ['--daemon', '--log-file={}/log-daemon'.format(l1.daemon.lightning_dir)], env=l1.daemon.env,
+                   check=True)
+
+    # Test some known output (wait for rpc to be ready)
+    wait_for(lambda: os.path.exists(l1.rpc.socket_path))
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'help']).decode('utf-8')
+    assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
+
+    subprocess.run(['cli/lightning-cli',
+                    '--lightning-dir={}'.format(l1.daemon.lightning_dir),
+                    'stop'], check=True)
+
+
 @flaky
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_blockchaintrack(node_factory, bitcoind):
