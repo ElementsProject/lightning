@@ -13,10 +13,10 @@ REGISTER_TYPE_TO_HEXSTR(ripemd160);
 /* This one in bitcoin/ but doesn't have its own C file */
 REGISTER_TYPE_TO_HEXSTR(preimage);
 
-char *type_to_string_(const tal_t *ctx,  const char *typename,
-		      union printable_types u)
+const char *type_to_string_(const tal_t *ctx,  const char *typename,
+			    union printable_types u)
 {
-	char *s = NULL;
+	const char *s = NULL;
 	size_t i;
 	static size_t num_p;
 	static struct type_to_string **t = NULL;

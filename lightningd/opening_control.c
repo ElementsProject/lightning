@@ -604,7 +604,7 @@ new_uncommitted_channel(struct peer *peer)
 {
 	struct lightningd *ld = peer->ld;
 	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
-	char *idname;
+	const char *idname;
 
 	uc->peer = peer;
 	assert(!peer->uncommitted_channel);

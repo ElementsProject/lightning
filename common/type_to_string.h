@@ -38,12 +38,12 @@ union printable_types {
 			((void)sizeof((ptr) == (type *)NULL),		\
 			 ((union printable_types)((const type *)ptr))))
 
-char *type_to_string_(const tal_t *ctx, const char *typename,
-		      union printable_types u);
+const char *type_to_string_(const tal_t *ctx, const char *typename,
+			    union printable_types u);
 
 #define REGISTER_TYPE_TO_STRING(typename, fmtfn)			\
-	static char *fmt_##typename##_(const tal_t *ctx,		\
-				       union printable_types u)		\
+	static const char *fmt_##typename##_(const tal_t *ctx,		\
+					     union printable_types u)	\
 	{								\
 		return fmtfn(ctx, u.typename);				\
 	}								\
@@ -53,8 +53,8 @@ char *type_to_string_(const tal_t *ctx, const char *typename,
 	AUTODATA(type_to_string, &ttos_##typename)
 
 #define REGISTER_TYPE_TO_HEXSTR(typename)				\
-	static char *fmt_##typename##_(const tal_t *ctx,		\
-				       union printable_types u)		\
+	static const char *fmt_##typename##_(const tal_t *ctx,		\
+					     union printable_types u)	\
 	{								\
 		return tal_hexstr(ctx, u.typename, sizeof(*u.typename)); \
 	}								\
@@ -65,7 +65,7 @@ char *type_to_string_(const tal_t *ctx, const char *typename,
 
 struct type_to_string {
 	const char *typename;
-	char *(*fmt)(const tal_t *ctx, union printable_types u);
+	const char *(*fmt)(const tal_t *ctx, union printable_types u);
 };
 AUTODATA_TYPE(type_to_string, struct type_to_string);
 #endif /* LIGHTNING_COMMON_TYPE_TO_STRING_H */
