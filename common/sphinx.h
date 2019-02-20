@@ -93,7 +93,6 @@ enum sphinx_payload_type {
 struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
-	struct hop_data hop_data;
 	u8 realm;
 	enum sphinx_payload_type type;
 	union {
