@@ -46,6 +46,8 @@ changes.
 - You can no longer make giant unpayable "wumbo" invoices.
 - CLTV of total route now correctly evaluated when finding best route.
 - `riskfactor` arguments to `pay` and `getroute` now have an effect.
+- Handle lnd sending premature 'funding_locked' message when we're expected 'reestablish';
+  we used to close channel if this happened.
 
 ### Security
 
