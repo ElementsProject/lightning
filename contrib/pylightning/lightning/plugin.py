@@ -285,7 +285,7 @@ class Plugin(object):
 
             partial = self._multi_dispatch(msgs)
 
-    def _getmanifest(self):
+    def _getmanifest(self, **kwargs):
         methods = []
         hooks = []
         for name, entry in self.methods.items():
