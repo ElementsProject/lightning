@@ -241,8 +241,6 @@ char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
 	return NULL;
 }
 
-REGISTER_TYPE_TO_STRING(short_channel_id, short_channel_id_to_str);
-REGISTER_TYPE_TO_STRING(short_channel_id_dir, short_channel_id_dir_to_str);
 REGISTER_TYPE_TO_HEXSTR(channel_id);
 
 /* BOLT #2:

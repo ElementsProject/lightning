@@ -1,5 +1,6 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/tal/str/str.h>
+#include <common/type_to_string.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -95,3 +96,7 @@ char *short_channel_id_dir_to_str(const tal_t *ctx,
 	tal_free(scidstr);
 	return str;
 }
+
+REGISTER_TYPE_TO_STRING(short_channel_id, short_channel_id_to_str);
+REGISTER_TYPE_TO_STRING(short_channel_id_dir, short_channel_id_dir_to_str);
+
