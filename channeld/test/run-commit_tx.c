@@ -12,6 +12,7 @@ static bool print_superverbose;
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
+#include <common/amount.h>
 #include <common/key_derive.h>
 #include <common/status.h>
 

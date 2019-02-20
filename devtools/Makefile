@@ -5,6 +5,7 @@ DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c)
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
 DEVTOOLS_COMMON_OBJS :=				\
+	common/amount.o				\
 	common/base32.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\

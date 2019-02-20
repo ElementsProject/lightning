@@ -22,9 +22,6 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-/* 1000 * 10^8 millisatoshi == 1 bitcoin */
-#define MSAT_PER_BTC 100000000000ULL
-
 struct multiplier {
         const char letter;
         /* We can't represent p postfix to msat, so we multiply this by 10 */

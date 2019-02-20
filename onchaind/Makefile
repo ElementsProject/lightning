@@ -47,6 +47,7 @@ $(LIGHTNINGD_ONCHAIN_OBJS): $(LIGHTNINGD_HEADERS)
 
 # Common source we use.
 ONCHAIND_COMMON_OBJS :=				\
+	common/amount.o				\
 	common/bip32.o				\
 	common/daemon.o				\
 	common/daemon_conn.o			\

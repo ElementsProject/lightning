@@ -10,6 +10,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
+#include <common/amount.h>
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
 
@@ -56,6 +57,8 @@ void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig);
 void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid);
 void towire_preimage(u8 **pptr, const struct preimage *preimage);
 void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd);
+void towire_amount_msat(u8 **pptr, const struct amount_msat msat);
+void towire_amount_sat(u8 **pptr, const struct amount_sat sat);
 void towire_u8(u8 **pptr, u8 v);
 void towire_u16(u8 **pptr, u16 v);
 void towire_u32(u8 **pptr, u32 v);
@@ -102,6 +105,8 @@ void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
 			   struct bitcoin_blkid *blkid);
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage);
 void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd);
+struct amount_msat fromwire_amount_msat(const u8 **cursor, size_t *max);
+struct amount_sat fromwire_amount_sat(const u8 **cursor, size_t *max);
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);
