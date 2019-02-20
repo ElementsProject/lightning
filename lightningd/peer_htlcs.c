@@ -710,12 +710,12 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_object_start(s, "onion");
 
 	json_add_hex_talarr (s, "payload", rs->raw_payload);
-	if (rs->hop_data.realm == 0x00) {
+	if (rs->type == SPHINX_V0_PAYLOAD) {
 		json_object_start(s, "per_hop_v0");
-		json_add_hex(s, "realm", &rs->hop_data.realm, 1);
-		json_add_short_channel_id(s, "short_channel_id", &rs->hop_data.channel_id);
-		json_add_amount_msat_only(s, "forward_amount", rs->hop_data.amt_forward);
-		json_add_u64(s, "outgoing_cltv_value", rs->hop_data.outgoing_cltv);
+		json_add_string(s, "realm", "00");
+		json_add_short_channel_id(s, "short_channel_id", &rs->payload.v0.channel_id);
+		json_add_amount_msat_only(s, "forward_amount", rs->payload.v0.amt_forward);
+		json_add_u64(s, "outgoing_cltv_value", rs->payload.v0.outgoing_cltv);
 		json_object_end(s);
 	}
 
@@ -747,35 +747,31 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	enum htlc_accepted_result result;
 	enum onion_type failure_code;
 	u8 *channel_update;
+	struct hop_data *hop_data;
 	result = htlc_accepted_hook_deserialize(buffer, toks, &payment_preimage, &failure_code, &channel_update);
 
+	hop_data = &rs->payload.v0;
 	switch (result) {
 	case htlc_accepted_continue:
 		if (rs->nextcase == ONION_FORWARD) {
-			struct gossip_resolve *gr =
-			    tal(ld, struct gossip_resolve);
+			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
-			gr->next_onion = tal_steal(gr, request->next_onion);
-			serialize_onionpacket(gr, rs->next);
-			gr->next_channel = rs->hop_data.channel_id;
-			gr->amt_to_forward = rs->hop_data.amt_forward;
-			gr->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
+			gr->next_onion = serialize_onionpacket(gr, rs->next);
+			gr->next_channel = hop_data->channel_id;
+			gr->amt_to_forward = hop_data->amt_forward;
+			gr->outgoing_cltv_value = hop_data->outgoing_cltv;
 			gr->hin = hin;
 
-			req = towire_gossip_get_channel_peer(tmpctx,
-							     &gr->next_channel);
-			log_debug(
-			    channel->log, "Asking gossip to resolve channel %s",
-			    type_to_string(tmpctx, struct short_channel_id,
-					   &gr->next_channel));
+			req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
+			log_debug(channel->log, "Asking gossip to resolve channel %s",
+				  type_to_string(tmpctx, struct short_channel_id,
+						 &gr->next_channel));
 			subd_req(hin, ld->gossip, req, -1, 0,
 				 channel_resolve_reply, gr);
 		} else
-			handle_localpay(hin, hin->cltv_expiry,
-					&hin->payment_hash,
-					rs->hop_data.amt_forward,
-					rs->hop_data.outgoing_cltv);
-
+			handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
+					hop_data->amt_forward,
+					hop_data->outgoing_cltv);
 		break;
 	case htlc_accepted_fail:
 		log_debug(channel->log,
@@ -888,7 +884,7 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 	/* Unknown realm isn't a bad onion, it's a normal failure. */
 	/* FIXME: if we want hooks to handle foreign realms we should
 	 * move this check to the hook callback. */
-	if (rs->hop_data.realm != 0) {
+	if (rs->type != SPHINX_V0_PAYLOAD) {
 		*failcode = WIRE_INVALID_REALM;
 		goto out;
 	}

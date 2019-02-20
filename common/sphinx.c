@@ -591,7 +591,6 @@ struct route_step *process_onionpacket(
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 
-	deserialize_hop_data(&step->hop_data, paddedheader);
 	sphinx_parse_payload(step, paddedheader);
 
 	/* Extract how many bytes we need to shift away */
