@@ -2087,6 +2087,7 @@ static void peer_reconnect(struct peer *peer,
 		remote_current_per_commitment_point;
 	struct secret last_local_per_commitment_secret;
 	bool dataloss_protect;
+	const u8 *premature_funding_locked = NULL;
 
 	dataloss_protect = local_feature_negotiated(peer->localfeatures,
 						    LOCAL_DATA_LOSS_PROTECT);
@@ -2143,8 +2144,16 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
-	} while (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &peer->cs,
-					     &peer->channel_id, msg));
+
+		/* Older LND sometimes sends funding_locked before reestablish! */
+		if (fromwire_peektype(msg) == WIRE_FUNDING_LOCKED
+		    && !premature_funding_locked) {
+			status_trace("Stashing early funding_locked msg!");
+			premature_funding_locked = tal_steal(peer, msg);
+			msg = NULL;
+		}
+	} while (!msg || handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &peer->cs,
+						     &peer->channel_id, msg));
 
 	if (dataloss_protect) {
 		if (!fromwire_channel_reestablish_option_data_loss_protect(msg,
@@ -2342,6 +2351,11 @@ static void peer_reconnect(struct peer *peer,
 		peer->channel->changes_pending[LOCAL] = true;
 
 	peer_billboard(true, "Reconnected, and reestablished.");
+
+	if (premature_funding_locked) {
+		handle_peer_funding_locked(peer, premature_funding_locked);
+		tal_free(premature_funding_locked);
+	}
 }
 
 /* Funding has locked in, and reached depth. */
