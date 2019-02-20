@@ -42,7 +42,7 @@ class UnixDomainSocketRpc(object):
 
                 if len(b) == 0:
                     return {'error': 'Connection to RPC server lost.'}
-                if b' }\n' not in buff:
+                if b' }\n' not in buff[-4:]:
                     continue
                 # Convert late to UTF-8 so glyphs split across recvs do not
                 # impact us
