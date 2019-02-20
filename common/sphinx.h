@@ -83,15 +83,24 @@ struct hop_data {
 	struct short_channel_id channel_id;
 	struct amount_msat amt_forward;
 	u32 outgoing_cltv;
-	/* Padding omitted, will be zeroed */
-	u8 hmac[HMAC_SIZE];
+};
+
+enum sphinx_payload_type {
+	SPHINX_V0_PAYLOAD = 0,
+	SPHINX_RAW_PAYLOAD = 255,
 };
 
 struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
 	struct hop_data hop_data;
+	u8 realm;
+	enum sphinx_payload_type type;
+	union {
+		struct hop_data v0;
+	} payload;
 	u8 *raw_payload;
+	u8 payload_frames;
 };
 
 /**
