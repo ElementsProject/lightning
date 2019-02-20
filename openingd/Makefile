@@ -35,6 +35,7 @@ LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
 
 # Common source we use.
 OPENINGD_COMMON_OBJS :=				\
+	common/amount.o				\
 	common/base32.o				\
 	common/bip32.o				\
 	common/channel_config.o			\

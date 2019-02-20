@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <common/amount.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>

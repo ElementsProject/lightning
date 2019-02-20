@@ -8,6 +8,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 #include <common/utils.h>
 
 void towire(u8 **pptr, const void *data, size_t len)
@@ -181,4 +182,14 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
 {
 	towire(pptr, seed, sizeof(*seed));
+}
+
+void towire_amount_msat(u8 **pptr, const struct amount_msat msat)
+{
+	towire_u64(pptr, msat.millisatoshis);
+}
+
+void towire_amount_sat(u8 **pptr, const struct amount_sat sat)
+{
+	towire_u64(pptr, sat.satoshis);
 }

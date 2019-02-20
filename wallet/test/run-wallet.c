@@ -19,6 +19,7 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const c
 
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/amount.h>
 #include <common/memleak.h>
 #include <stdarg.h>
 #include <stddef.h>

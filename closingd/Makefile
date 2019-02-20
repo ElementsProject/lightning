@@ -42,6 +42,7 @@ $(LIGHTNINGD_CLOSING_OBJS): $(LIGHTNINGD_HEADERS)
 
 # Common source we use.
 CLOSINGD_COMMON_OBJS :=				\
+	common/amount.o				\
 	common/base32.o				\
 	common/bip32.o				\
 	common/close_tx.o			\

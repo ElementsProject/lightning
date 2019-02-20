@@ -30,6 +30,8 @@ union printable_types {
 	const secp256k1_ecdsa_signature *secp256k1_ecdsa_signature;
 	const struct bitcoin_signature *bitcoin_signature;
 	const struct channel *channel;
+	const struct amount_msat *amount_msat;
+	const struct amount_sat *amount_sat;
 	const char *charp_;
 };
 

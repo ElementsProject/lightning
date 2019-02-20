@@ -37,6 +37,7 @@ LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CONNECT_HEADERS)
 
 # Common source we use.
 CONNECTD_COMMON_OBJS :=				\
+	common/amount.o				\
 	common/base32.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
