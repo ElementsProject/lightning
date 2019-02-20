@@ -510,7 +510,8 @@ struct route_step *process_onionpacket(
 	struct keyset keys;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 stream[NUM_STREAM_BYTES];
-	u8 paddedheader[ROUTING_INFO_SIZE + FRAME_SIZE];
+	u8 paddedheader[2*ROUTING_INFO_SIZE];
+	size_t shift_size;
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
@@ -536,9 +537,14 @@ struct route_step *process_onionpacket(
 
 	deserialize_hop_data(&step->hop_data, paddedheader);
 
-        memcpy(&step->next->mac, step->hop_data.hmac, HMAC_SIZE);
+	/* Extract how many frames we need to shift away */
+	shift_size = ((paddedheader[0] >> 4) + 1) * FRAME_SIZE;
 
-	memcpy(&step->next->routinginfo, paddedheader + FRAME_SIZE, ROUTING_INFO_SIZE);
+	/* Copy the hmac from the last HMAC_SIZE bytes */
+        memcpy(&step->next->mac, paddedheader + shift_size - HMAC_SIZE, HMAC_SIZE);
+
+	/* Left shift the current payload out and make the remainder the new onion */
+	memcpy(&step->next->routinginfo, paddedheader + shift_size, ROUTING_INFO_SIZE);
 
 	if (memeqzero(step->next->mac, sizeof(step->next->mac))) {
 		step->nextcase = ONION_END;
