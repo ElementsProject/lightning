@@ -413,8 +413,6 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 	fromwire_short_channel_id(&cursor, &max, &data->channel_id);
 	data->amt_forward = fromwire_amount_msat(&cursor, &max);
 	data->outgoing_cltv = fromwire_u32(&cursor, &max);
-	fromwire_pad(&cursor, &max, 12);
-	fromwire(&cursor, &max, &data->hmac, HMAC_SIZE);
 }
 
 static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
@@ -425,6 +423,30 @@ static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	memcpy(dest + 1, hop->payload, tal_bytelen(hop->payload));
 	memcpy(dest + (sphinx_hop_count_frames(hop) * FRAME_SIZE) - HMAC_SIZE,
 	       hop->hmac, HMAC_SIZE);
+}
+
+static void sphinx_parse_payload(struct route_step *step, const u8 *src)
+{
+	size_t hop_size;
+
+	/* Read the realm byte and extract the number of framse */
+	step->realm = src[0] & 0x0F;
+	step->payload_frames = (src[0] >> 4) + 1;
+	hop_size = step->payload_frames * FRAME_SIZE;
+
+	/* Copy common pieces over */
+	step->raw_payload =
+	    tal_dup_arr(step, u8, src + 1, hop_size - HMAC_SIZE - 1, 0);
+	memcpy(step->next->mac, src + hop_size - HMAC_SIZE, HMAC_SIZE);
+
+	/* And now try to parse whatever the payload contains so we can use it
+	 * later. */
+	if (step->realm == SPHINX_V0_PAYLOAD) {
+		step->type = SPHINX_V0_PAYLOAD;
+		deserialize_hop_data(&step->payload.v0, src);
+	} else {
+		step->type = SPHINX_RAW_PAYLOAD;
+	}
 }
 
 struct onionpacket *create_onionpacket(
@@ -536,9 +558,10 @@ struct route_step *process_onionpacket(
 		return tal_free(step);
 
 	deserialize_hop_data(&step->hop_data, paddedheader);
+	sphinx_parse_payload(step, paddedheader);
 
 	/* Extract how many frames we need to shift away */
-	shift_size = ((paddedheader[0] >> 4) + 1) * FRAME_SIZE;
+	shift_size = step->payload_frames * FRAME_SIZE;
 
 	/* Copy the hmac from the last HMAC_SIZE bytes */
         memcpy(&step->next->mac, paddedheader + shift_size - HMAC_SIZE, HMAC_SIZE);
