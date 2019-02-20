@@ -8,6 +8,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 #include <secp256k1_ecdh.h>
 #include <sqlite3.h>
 #include <stdbool.h>
@@ -170,4 +171,11 @@ struct json_escaped *sqlite3_column_json_escaped(const tal_t *ctx,
 						 sqlite3_stmt *stmt, int col);
 bool sqlite3_bind_json_escaped(sqlite3_stmt *stmt, int col,
 			       const struct json_escaped *esc);
+
+struct amount_msat sqlite3_column_amount_msat(sqlite3_stmt *stmt, int col);
+struct amount_sat sqlite3_column_amount_sat(sqlite3_stmt *stmt, int col);
+void sqlite3_bind_amount_msat(sqlite3_stmt *stmt, int col,
+			      struct amount_msat msat);
+void sqlite3_bind_amount_sat(sqlite3_stmt *stmt, int col,
+			     struct amount_sat sat);
 #endif /* LIGHTNING_WALLET_DB_H */
