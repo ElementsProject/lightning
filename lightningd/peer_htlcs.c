@@ -622,6 +622,7 @@ static bool peer_accepted_htlc(struct channel *channel,
 	struct route_step *rs;
 	struct onionpacket *op;
 	struct lightningd *ld = channel->peer->ld;
+	struct hop_data *hop_data;
 
 	hin = find_htlc_in(&ld->htlcs_in, channel, id);
 	if (!hin) {
@@ -695,18 +696,19 @@ static bool peer_accepted_htlc(struct channel *channel,
 	}
 
 	/* Unknown realm isn't a bad onion, it's a normal failure. */
-	if (rs->hop_data.realm != 0) {
+	if (rs->type != SPHINX_V0_PAYLOAD) {
 		*failcode = WIRE_INVALID_REALM;
 		goto out;
 	}
+	hop_data = &rs->payload.v0;
 
 	if (rs->nextcase == ONION_FORWARD) {
 		struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
 		gr->next_onion = serialize_onionpacket(gr, rs->next);
-		gr->next_channel = rs->hop_data.channel_id;
-		gr->amt_to_forward = rs->hop_data.amt_forward;
-		gr->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
+		gr->next_channel = hop_data->channel_id;
+		gr->amt_to_forward = hop_data->amt_forward;
+		gr->outgoing_cltv_value = hop_data->outgoing_cltv;
 		gr->hin = hin;
 
 		req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
@@ -717,8 +719,8 @@ static bool peer_accepted_htlc(struct channel *channel,
 			 channel_resolve_reply, gr);
 	} else
 		handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
-				rs->hop_data.amt_forward,
-				rs->hop_data.outgoing_cltv);
+				hop_data->amt_forward,
+				hop_data->outgoing_cltv);
 
 	*failcode = 0;
 out:
