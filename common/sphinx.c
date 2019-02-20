@@ -436,8 +436,6 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 	fromwire_short_channel_id(&cursor, &max, &data->channel_id);
 	data->amt_forward = fromwire_amount_msat(&cursor, &max);
 	data->outgoing_cltv = fromwire_u32(&cursor, &max);
-	fromwire_pad(&cursor, &max, 12);
-	fromwire(&cursor, &max, &data->hmac, HMAC_SIZE);
 }
 
 static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
@@ -455,6 +453,35 @@ static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 
 	memcpy(dest + pos, hop->payload, raw_size);
 	memcpy(dest + hop_size - HMAC_SIZE, hop->hmac, HMAC_SIZE);
+}
+
+static void sphinx_parse_payload(struct route_step *step, const u8 *src)
+{
+	size_t hop_size, raw_size, vsize;
+
+	/* Legacy hop_data support */
+	if (src[0] == 0x00) {
+		vsize = 1;
+		raw_size = 32;
+		hop_size = FRAME_SIZE;
+		step->realm = src[0];
+	} else {
+		vsize = varint_get(src, 3, &raw_size);
+		hop_size = raw_size + vsize + HMAC_SIZE;
+	}
+
+	/* Copy common pieces over */
+	step->raw_payload = tal_dup_arr(step, u8, src + vsize, raw_size, 0);
+	memcpy(step->next->mac, src + hop_size - HMAC_SIZE, HMAC_SIZE);
+
+	/* And now try to parse whatever the payload contains so we can use it
+	 * later. */
+	if (step->realm == SPHINX_V0_PAYLOAD) {
+		step->type = SPHINX_V0_PAYLOAD;
+		deserialize_hop_data(&step->payload.v0, src);
+	} else {
+		step->type = SPHINX_RAW_PAYLOAD;
+	}
 }
 
 struct onionpacket *create_onionpacket(
@@ -539,7 +566,8 @@ struct route_step *process_onionpacket(
 	struct keyset keys;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 stream[NUM_STREAM_BYTES];
-	u8 paddedheader[ROUTING_INFO_SIZE + FRAME_SIZE];
+	u8 paddedheader[2*ROUTING_INFO_SIZE];
+	size_t shift_size, vsize;
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
@@ -564,12 +592,30 @@ struct route_step *process_onionpacket(
 		return tal_free(step);
 
 	deserialize_hop_data(&step->hop_data, paddedheader);
+	sphinx_parse_payload(step, paddedheader);
 
-        memcpy(&step->next->mac, step->hop_data.hmac, HMAC_SIZE);
+	/* Extract how many bytes we need to shift away */
+	if (paddedheader[0] == 0x00) {
+		shift_size = FRAME_SIZE;
+	} else {
+		/* In addition to the raw payload we need to also shift the
+		 * length encoding itself and the HMAC away. */
+		vsize = varint_get(paddedheader, 3, &shift_size);
+		shift_size += vsize + HMAC_SIZE;
+
+		/* If we get an unreasonable shift size we must return an error. */
+		if (shift_size >= ROUTING_INFO_SIZE)
+			return tal_free(step);
+	}
+
 	step->raw_payload = tal_dup_arr(step, u8, paddedheader + 1,
-					FRAME_SIZE - 1 - HMAC_SIZE, 0);
+					shift_size - 1 - HMAC_SIZE, 0);
 
-	memcpy(&step->next->routinginfo, paddedheader + FRAME_SIZE, ROUTING_INFO_SIZE);
+	/* Copy the hmac from the last HMAC_SIZE bytes */
+        memcpy(&step->next->mac, paddedheader + shift_size - HMAC_SIZE, HMAC_SIZE);
+
+	/* Left shift the current payload out and make the remainder the new onion */
+	memcpy(&step->next->routinginfo, paddedheader + shift_size, ROUTING_INFO_SIZE);
 
 	if (memeqzero(step->next->mac, sizeof(step->next->mac))) {
 		step->nextcase = ONION_END;
