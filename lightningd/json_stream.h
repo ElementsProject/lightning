@@ -85,8 +85,8 @@ void json_stream_append_part(struct json_stream *js, const char *str,
  * @js: the json_stream.
  * @fmt...: the printf-style format
  */
-void PRINTF_FMT(2,3)
-json_stream_append_fmt(struct json_stream *js, const char *fmt, ...);
+PRINTF_FMT(2,3)
+void json_stream_append_fmt(struct json_stream *js, const char *fmt, ...);
 
 /**
  * json_add_member - add a generic member.
@@ -94,9 +94,9 @@ json_stream_append_fmt(struct json_stream *js, const char *fmt, ...);
  * @fieldname: optional fieldname.
  * @fmt...: the printf-style format
  */
-void PRINTF_FMT(3,4)
-json_add_member(struct json_stream *js, const char *fieldname,
-		const char *fmt, ...);
+PRINTF_FMT(3,4)
+void json_add_member(struct json_stream *js, const char *fieldname,
+		     const char *fmt, ...);
 
 /**
  * json_stream_output - start writing out a json_stream to this conn.
