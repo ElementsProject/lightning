@@ -42,6 +42,7 @@ ever have this value set to true.  Local channels are side-loaded by this node,
 rather than obtained through the gossip network, and so may have this value set
 to false.
 - 'satoshis' : Funds available in the channel.
+- 'amount_sat' : Same as above, but ending in 'sat'.
 - 'message_flags' : Bitfield showing the presence of optional fields in the
 'channel_update' message (BOLT #7).
 - 'channel_flags' : Bitfields indicating the direction of the channel and

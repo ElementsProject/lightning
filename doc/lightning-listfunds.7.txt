@@ -33,6 +33,8 @@ Each entry in 'outputs' will include:
 
 - 'value'
 
+- 'amount_sat' (the same as 'value' with 'sat' appended)
+
 - 'status'
 
 Each entry in 'channels' will include: 
@@ -43,10 +45,13 @@ Each entry in 'channels' will include:
 number and output index of the channel funding transaction).
 
 - 'channel_sat' - available satoshis on our node's end of the channel 
-(values rounded to the nearest satoshi as internal storage is in millisatoshi).
+(values rounded down to satoshis as internal storage is in millisatoshi).
+
+- 'our_amount_sat' - same as above, but with 'sat' appended.
 
 - 'channel_total_sat' - total channel value in satoshi 
-(values rounded to the nearest satoshi as internal storage is in millisatoshi). 
+
+- 'amount_sat' - same as above, but with 'sat' appended.
 
 - 'funding_txid' - funding transaction id.
 

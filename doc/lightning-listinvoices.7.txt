@@ -20,10 +20,13 @@ RETURN VALUE
 On success, an array 'invoices' of objects is returned.  Each object contains
 'label', 'payment_hash', 'status' (one of 'unpaid', 'paid' or 'expired'), and
 'expiry_time' (a UNIX timestamp).  If the 'msatoshi' argument to 
-lightning-invoice(7) was not "any", there will be an 'msatoshi' field. If the
-invoice 'status' is 'paid', there will be a 'pay_index' field and an 
+lightning-invoice(7) was not "any", there will be an 'msatoshi' field as
+a number, and 'amount_msat' as the same number ending in 'msat'. If the
+invoice 'status' is 'paid', there will be a 'pay_index' field and an
 'msatoshi_received' field (which may be slightly greater than 'msatoshi' as
-some overpaying is permitted to allow clients to obscure payment paths).
+some overpaying is permitted to allow clients to obscure payment paths);
+there will also be an 'amount_received_msat' field with the same number as
+'msatoshi_received' but ending in 'msat'.
 
 //FIXME:Enumerate errors
 
