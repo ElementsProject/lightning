@@ -110,6 +110,9 @@ struct channel {
 	/* Do we have an "impossible" future per_commitment_point from
 	 * peer via option_data_loss_protect? */
 	const struct pubkey *future_per_commitment_point;
+
+	/* Feerate per channel */
+	u32 feerate_base, feerate_ppm;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -154,7 +157,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool connected,
 			    const struct basepoints *local_basepoints,
 			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *future_per_commitment_point);
+			    const struct pubkey *future_per_commitment_point,
+			    u32 feerate_base,
+			    u32 feerate_ppm);
 
 void delete_channel(struct channel *channel);
 

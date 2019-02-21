@@ -740,7 +740,9 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   /* Not connected */
 			   false,
 			   &local_basepoints, &local_funding_pubkey,
-			   future_per_commitment_point);
+			   future_per_commitment_point,
+			   sqlite3_column_int(stmt, 42),
+			   sqlite3_column_int(stmt, 43));
 
 	return chan;
 }
@@ -765,7 +767,8 @@ static const char *channel_fields =
     /*32*/ "last_tx, last_sig, last_was_revoke, first_blocknum, "
     /*36*/ "min_possible_feerate, max_possible_feerate, "
     /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max, future_per_commitment_point, "
-    /*41*/ "last_sent_commit";
+    /*41*/ "last_sent_commit, "
+    /*42*/ "feerate_base, feerate_ppm";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 {
@@ -983,7 +986,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 			  "  min_possible_feerate=?,"
 			  "  max_possible_feerate=?,"
 			  "  msatoshi_to_us_min=?,"
-			  "  msatoshi_to_us_max=?"
+			  "  msatoshi_to_us_max=?,"
+			  "  feerate_base=?,"
+			  "  feerate_ppm=?"
 			  " WHERE id=?");
 	sqlite3_bind_int64(stmt, 1, chan->their_shachain.id);
 	if (chan->scid)
@@ -1023,7 +1028,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int(stmt, 23, chan->max_possible_feerate);
 	sqlite3_bind_amount_msat(stmt, 24, chan->msat_to_us_min);
 	sqlite3_bind_amount_msat(stmt, 25, chan->msat_to_us_max);
-	sqlite3_bind_int64(stmt, 26, chan->dbid);
+	sqlite3_bind_int(stmt, 26, chan->feerate_base);
+	sqlite3_bind_int(stmt, 27, chan->feerate_ppm);
+	sqlite3_bind_int64(stmt, 28, chan->dbid);
 	db_exec_prepared(w->db, stmt);
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);

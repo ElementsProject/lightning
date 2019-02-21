@@ -171,7 +171,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool connected,
 			    const struct basepoints *local_basepoints,
 			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *future_per_commitment_point)
+			    const struct pubkey *future_per_commitment_point,
+			    u32 feerate_base,
+			    u32 feerate_ppm)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -234,6 +236,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->local_funding_pubkey = *local_funding_pubkey;
 	channel->future_per_commitment_point
 		= tal_steal(channel, future_per_commitment_point);
+	channel->feerate_base = feerate_base;
+	channel->feerate_ppm = feerate_ppm;
 
 	list_add_tail(&peer->channels, &channel->list);
 	tal_add_destructor(channel, destroy_channel);
