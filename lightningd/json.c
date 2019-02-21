@@ -10,6 +10,7 @@
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
+#include <common/wallet_tx.h>
 #include <common/wireaddr.h>
 #include <gossipd/routing.h>
 #include <lightningd/json.h>

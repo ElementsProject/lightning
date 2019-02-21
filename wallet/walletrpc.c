@@ -66,7 +66,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 
 		/* Note normally, change_satoshi == withdraw->wtx.change, but
 		 * not if we're actually making a payment to ourselves! */
-		assert(change_satoshi >= withdraw->wtx.change);
+		assert(change_satoshi >= withdraw->wtx.change.satoshis);
 
 		struct json_stream *response = json_stream_success(cmd);
 		json_object_start(response, NULL);
@@ -93,7 +93,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 					    const jsmntok_t *obj UNNEEDED,
 					    const jsmntok_t *params)
 {
-	const jsmntok_t *desttok, *sattok;
+	const jsmntok_t *desttok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
 	u32 *feerate_per_kw;
 	struct bitcoin_tx *tx;
@@ -103,18 +103,14 @@ static struct command_result *json_withdraw(struct command *cmd,
 	struct command_result *res;
 
 	withdraw->cmd = cmd;
-	wtx_init(cmd, &withdraw->wtx);
+	wtx_init(cmd, &withdraw->wtx, AMOUNT_SAT(-1ULL));
 
 	if (!param(cmd, buffer, params,
 		   p_req("destination", param_tok, &desttok),
-		   p_req("satoshi", param_tok, &sattok),
+		   p_req("satoshi", param_wtx, &withdraw->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   NULL))
 		return command_param_failed();
-
-	res = param_wtx(&withdraw->wtx, buffer, sattok, -1ULL);
-	if (res)
-		return res;
 
 	if (!feerate_per_kw) {
 		res = param_feerate_estimate(cmd, &feerate_per_kw,
@@ -160,8 +156,8 @@ static struct command_result *json_withdraw(struct command *cmd,
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
-					     withdraw->wtx.amount,
-					     withdraw->wtx.change,
+					     withdraw->wtx.amount.satoshis,
+					     withdraw->wtx.change.satoshis,
 					     withdraw->wtx.change_key_index,
 					     withdraw->destination,
 					     withdraw->wtx.utxos);

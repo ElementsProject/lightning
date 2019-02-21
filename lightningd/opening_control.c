@@ -128,7 +128,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 		json_array_end(response);
 	}
 
-	msatoshi_total = uc->fc->wtx.amount * 1000;
+	msatoshi_total = uc->fc->wtx.amount.satoshis * 1000;
 	our_msatoshi = msatoshi_total - uc->fc->push_msat;
 	json_add_u64(response, "msatoshi_to_us", our_msatoshi);
 	json_add_u64(response, "msatoshi_total", msatoshi_total);
@@ -317,16 +317,16 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				       &channel_info.remote_per_commit));
 
 	/* Generate the funding tx. */
-	if (fc->wtx.change
+	if (!amount_sat_eq(fc->wtx.change, AMOUNT_SAT(0))
 	    && !bip32_pubkey(ld->wallet->bip32_base,
 			     &changekey, fc->wtx.change_key_index))
 		fatal("Error deriving change key %u", fc->wtx.change_key_index);
 
 	fundingtx = funding_tx(tmpctx, &funding_outnum,
-			       fc->wtx.utxos, fc->wtx.amount,
+			       fc->wtx.utxos, fc->wtx.amount.satoshis,
 			       &fc->uc->local_funding_pubkey,
 			       &channel_info.remote_fundingkey,
-			       fc->wtx.change, &changekey,
+			       fc->wtx.change.satoshis, &changekey,
 			       ld->wallet->bip32_base);
 
 	log_debug(fc->uc->log, "Funding tx has %zi inputs, %zu outputs:",
@@ -346,22 +346,29 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	if (!bitcoin_txid_eq(&funding_txid, &expected_txid)) {
 		log_broken(fc->uc->log,
 			   "Funding txid mismatch:"
-			   " satoshi %"PRIu64" change %"PRIu64
+			   " amount %s change %s"
 			   " changeidx %u"
 			   " localkey %s remotekey %s",
-			   fc->wtx.amount,
-			   fc->wtx.change, fc->wtx.change_key_index,
+			   type_to_string(tmpctx, struct amount_sat,
+					  &fc->wtx.amount),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &fc->wtx.change),
+			   fc->wtx.change_key_index,
 			   type_to_string(fc, struct pubkey,
 					  &fc->uc->local_funding_pubkey),
 			   type_to_string(fc, struct pubkey,
 					  &channel_info.remote_fundingkey));
 		was_pending(command_fail(fc->cmd, JSONRPC2_INVALID_PARAMS,
 					 "Funding txid mismatch:"
-					 " satoshi %"PRIu64" change %"PRIu64
+					 " amount %s change %s"
 					 " changeidx %u"
 					 " localkey %s remotekey %s",
-					 fc->wtx.amount,
-					 fc->wtx.change,
+					 type_to_string(tmpctx,
+							struct amount_sat,
+							&fc->wtx.amount),
+					 type_to_string(tmpctx,
+							struct amount_sat,
+							&fc->wtx.change),
 					 fc->wtx.change_key_index,
 					 type_to_string(fc, struct pubkey,
 							&fc->uc->local_funding_pubkey),
@@ -376,7 +383,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&remote_commit_sig,
 					&funding_txid,
 					funding_outnum,
-					fc->wtx.amount,
+					fc->wtx.amount.satoshis,
 					fc->push_msat,
 					fc->channel_flags,
 					&channel_info,
@@ -391,7 +398,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	log_debug(channel->log, "Getting HSM to sign funding tx");
 
 	msg = towire_hsm_sign_funding(tmpctx, channel->funding_satoshi,
-				      fc->wtx.change, fc->wtx.change_key_index,
+				      fc->wtx.change.satoshis,
+				      fc->wtx.change_key_index,
 				      &fc->uc->local_funding_pubkey,
 				      &channel_info.remote_fundingkey,
 				      fc->wtx.utxos);
@@ -804,7 +812,6 @@ static struct command_result *json_fund_channel(struct command *cmd,
 						const jsmntok_t *params)
 {
 	struct command_result *res;
-	const jsmntok_t *sattok;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
 	struct pubkey *id;
 	struct peer *peer;
@@ -812,22 +819,20 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	u32 *feerate_per_kw;
 	bool *announce_channel;
 	u8 *msg;
-	u64 max_funding_satoshi = get_chainparams(cmd->ld)->max_funding_satoshi;
+	struct amount_sat max_funding_satoshi;
+
+	max_funding_satoshi.satoshis = get_chainparams(cmd->ld)->max_funding_satoshi;
 
 	fc->cmd = cmd;
 	fc->uc = NULL;
-	wtx_init(cmd, &fc->wtx);
+	wtx_init(cmd, &fc->wtx, max_funding_satoshi);
 	if (!param(fc->cmd, buffer, params,
 		   p_req("id", param_pubkey, &id),
-		   p_req("satoshi", param_tok, &sattok),
+		   p_req("satoshi", param_wtx, &fc->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   NULL))
 		return command_param_failed();
-
-	res = param_wtx(&fc->wtx, buffer, sattok, max_funding_satoshi);
-	if (res)
-		return res;
 
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
@@ -876,16 +881,16 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	if (res)
 		return res;
 
-	assert(fc->wtx.amount <= max_funding_satoshi);
+	assert(!amount_sat_greater(fc->wtx.amount, max_funding_satoshi));
 
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
 
 	msg = towire_opening_funder(NULL,
-				    fc->wtx.amount,
+				    fc->wtx.amount.satoshis,
 				    fc->push_msat,
 				    *feerate_per_kw,
-				    fc->wtx.change,
+				    fc->wtx.change.satoshis,
 				    fc->wtx.change_key_index,
 				    fc->channel_flags,
 				    fc->wtx.utxos,
