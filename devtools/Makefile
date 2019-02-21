@@ -13,6 +13,8 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/decode_short_channel_ids.o	\
 	common/hash_u5.o			\
 	common/node_id.o			\
+	common/json.o				\
+	common/json_helpers.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
