@@ -110,7 +110,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 		   p_req("destination", param_tok, &desttok),
 		   p_req("satoshi", param_wtx, &withdraw->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
-		   p_opt_def("minconf", param_number, &minconf, 0),
+		   p_opt_def("minconf", param_number, &minconf, 1),
 		   NULL))
 		return command_param_failed();
 

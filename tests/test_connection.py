@@ -1169,7 +1169,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Can with manual feerate.
     l1.rpc.withdraw(l2.rpc.newaddr()['address'], 10000, '1500perkb')
-    l1.rpc.fundchannel(l2.info['id'], 10**6, '2000perkw')
+    l1.rpc.fundchannel(l2.info['id'], 10**6, '2000perkw', minconf=0)
 
     # Make sure we clean up cahnnel for later attempt.
     l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -1554,3 +1554,28 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 200000, wait_for_active=True)
+
+
+def test_change_chaining(node_factory, bitcoind):
+    """Test change chaining of unconfirmed fundings
+
+    Change chaining is the case where one transaction is broadcast but not
+    confirmed yet and we already build a followup on top of the change. If the
+    first transaction doesn't confirm we may end up creating a series of
+    unconfirmable transactions. This is why we generally disallow chaining.
+
+    """
+    l1, l2, l3 = node_factory.get_nodes(3)
+    l1.fundwallet(10**8)  # This will create an output with 1 confirmation
+
+    # Now fund a channel from l1 to l2, that should succeed, with minconf=1 but not before
+    l1.connect(l2)
+    with pytest.raises(RpcError):
+        l1.rpc.fundchannel(l2.info['id'], 10**7, minconf=2)
+    l1.rpc.fundchannel(l2.info['id'], 10**7)  # Defaults to minconf=1
+
+    # We don't have confirmed outputs anymore, so this should fail without minconf=0
+    l1.connect(l3)
+    with pytest.raises(RpcError):
+        l1.rpc.fundchannel(l3.info['id'], 10**7)  # Defaults to minconf=1
+    l1.rpc.fundchannel(l3.info['id'], 10**7, minconf=0)
