@@ -1286,6 +1286,7 @@ def test_pay_routeboost(node_factory, bitcoind):
     status = l1.rpc.call('paystatus', [inv['bolt11']])
     assert only_one(status['pay'])['bolt11'] == inv['bolt11']
     assert only_one(status['pay'])['msatoshi'] == 10**5
+    assert only_one(status['pay'])['amount_msat'] == Millisatoshi(10**5)
     assert only_one(status['pay'])['destination'] == l4.info['id']
     assert 'description' not in only_one(status['pay'])
     assert 'routehint_modifications' not in only_one(status['pay'])
@@ -1303,12 +1304,14 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert attempts[1]['duration_in_seconds'] <= end - start
     assert only_one(attempts[1]['routehint'])
     assert only_one(attempts[1]['routehint'])['id'] == l3.info['id']
-    assert only_one(attempts[1]['routehint'])['msatoshi'] == 10**5 + 1 + 10**5 // 100000
-    assert only_one(attempts[1]['routehint'])['delay'] == 5 + 6
+    scid34 = only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['channels'][0]['short_channel_id']
+    assert only_one(attempts[1]['routehint'])['channel'] == scid34
+    assert only_one(attempts[1]['routehint'])['fee_base_msat'] == 1
+    assert only_one(attempts[1]['routehint'])['fee_proportional_millionths'] == 10
+    assert only_one(attempts[1]['routehint'])['cltv_expiry_delta'] == 6
 
     # With dev-route option we can test longer routehints.
     if DEVELOPER:
-        scid34 = only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['channels'][0]['short_channel_id']
         scid45 = only_one(l4.rpc.listpeers(l5.info['id'])['peers'])['channels'][0]['short_channel_id']
         routel3l4l5 = [{'id': l3.info['id'],
                         'short_channel_id': scid34,
