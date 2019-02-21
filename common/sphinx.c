@@ -434,6 +434,8 @@ struct route_step *process_onionpacket(
 	deserialize_hop_data(&step->hop_data, paddedheader);
 
         memcpy(&step->next->mac, step->hop_data.hmac, SECURITY_PARAMETER);
+	step->raw_payload = tal_dup_arr(step, u8, paddedheader + 1,
+					HOP_DATA_SIZE - 1 - HMAC_SIZE, 0);
 
 	memcpy(&step->next->routinginfo, paddedheader + HOP_DATA_SIZE, ROUTING_INFO_SIZE);
 
