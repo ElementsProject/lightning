@@ -435,11 +435,17 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 	data->outgoing_cltv = fromwire_u32(&cursor, &max);
 }
 
-static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
+static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 {
 	size_t raw_size = tal_bytelen(hop->payload);
 	size_t hop_size = sphinx_hop_size(hop);
 	int pos = 0;
+
+#if !EXPERIMENTAL_FEATURES
+	if (hop->realm != 0x00)
+		return false;
+#endif
+
 	memset(dest, 0, hop_size);
 
 	/* Backwards compatibility for the legacy hop_data format. */
@@ -451,11 +457,18 @@ static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	memcpy(dest + pos, hop->payload, raw_size);
 	pos += raw_size;
 	memcpy(dest + hop_size - HMAC_SIZE, hop->hmac, HMAC_SIZE);
+	return true;
 }
 
 static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 {
 	size_t hop_size, raw_size, vsize;
+#if !EXPERIMENTAL_FEATURES
+	if (src[0] != 0x00) {
+		step->type = SPHINX_INVALID_PAYLOAD;
+		return;
+	}
+#endif
 
 	/* Legacy hop_data support */
 	if (src[0] == 0x00) {
@@ -525,8 +538,11 @@ struct onionpacket *create_onionpacket(
 		size_t shiftSize = sphinx_hop_size(&sp->hops[i]);
 		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
 			ROUTING_INFO_SIZE-shiftSize);
-		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
-
+		if (!sphinx_write_frame(packet->routinginfo, &sp->hops[i])) {
+			tal_free(packet);
+			tal_free(secrets);
+			return NULL;
+		}
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
