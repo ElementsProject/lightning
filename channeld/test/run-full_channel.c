@@ -379,17 +379,17 @@ int main(void)
 	funding_amount_satoshi = 10000000;
 
 	remote_config->to_self_delay = 144;
-	local_config->dust_limit_satoshis = 546;
+	local_config->dust_limit = AMOUNT_SAT(546);
 	/* This matters only because we check if added HTLC will create new
 	 * output, for fee considerations. */
-	remote_config->dust_limit_satoshis = 546;
+	remote_config->dust_limit = AMOUNT_SAT(546);
 
-	local_config->max_htlc_value_in_flight_msat = -1ULL;
-	remote_config->max_htlc_value_in_flight_msat = -1ULL;
-	local_config->channel_reserve_satoshis = 0;
-	remote_config->channel_reserve_satoshis = 0;
-	local_config->htlc_minimum_msat = 0;
-	remote_config->htlc_minimum_msat = 0;
+	local_config->max_htlc_value_in_flight = AMOUNT_MSAT(-1ULL);
+	remote_config->max_htlc_value_in_flight = AMOUNT_MSAT(-1ULL);
+	local_config->channel_reserve = AMOUNT_SAT(0);
+	remote_config->channel_reserve = AMOUNT_SAT(0);
+	local_config->htlc_minimum = AMOUNT_MSAT(0);
+	remote_config->htlc_minimum = AMOUNT_MSAT(0);
 	local_config->max_accepted_htlcs = 0xFFFF;
 	remote_config->max_accepted_htlcs = 0xFFFF;
 
@@ -495,7 +495,7 @@ int main(void)
 			   LOCAL, remote_config->to_self_delay,
 			   &keyset,
 			   feerate_per_kw[LOCAL],
-			   local_config->dust_limit_satoshis,
+			   local_config->dust_limit.satoshis,
 			   to_local_msat,
 			   to_remote_msat,
 			   NULL, &htlc_map, 0x2bb038521914 ^ 42, LOCAL);
@@ -613,7 +613,7 @@ int main(void)
 				   LOCAL, remote_config->to_self_delay,
 				   &keyset,
 				   feerate_per_kw[LOCAL],
-				   local_config->dust_limit_satoshis,
+				   local_config->dust_limit.satoshis,
 				   to_local_msat,
 				   to_remote_msat,
 				   htlcs, &htlc_map,

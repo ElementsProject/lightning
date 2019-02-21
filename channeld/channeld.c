@@ -234,20 +234,45 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
  */
 static u64 advertised_htlc_max(const struct channel *channel)
 {
-	u64 lower_bound;
-	u64 cumulative_reserve_msat;
+	struct amount_sat cumulative_reserve, funding, lower_bound;
+	struct amount_msat lower_bound_msat;
 
-	cumulative_reserve_msat =
-		(channel->config[LOCAL].channel_reserve_satoshis +
-		 channel->config[REMOTE].channel_reserve_satoshis) * 1000;
+	funding.satoshis = channel->funding_msat / 1000;
 
-	lower_bound = channel->config[REMOTE].max_htlc_value_in_flight_msat;
-	if (channel->funding_msat - cumulative_reserve_msat < lower_bound)
-		lower_bound = channel->funding_msat - cumulative_reserve_msat;
+	/* This shouldn't fail */
+	if (!amount_sat_add(&cumulative_reserve,
+			    channel->config[LOCAL].channel_reserve,
+			    channel->config[REMOTE].channel_reserve)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "reserve overflow: local %s + remote %s",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &channel->config[LOCAL].channel_reserve),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &channel->config[REMOTE].channel_reserve));
+	}
+
+	/* This shouldn't fail either */
+	if (!amount_sat_sub(&lower_bound, funding, cumulative_reserve)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "funding %s - cumulative_reserve %s?",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &funding),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &cumulative_reserve));
+	}
+
+	if (!amount_sat_to_msat(&lower_bound_msat, lower_bound)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "lower_bound %s invalid?",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &lower_bound));
+	}
 	/* FIXME BOLT QUOTE: https://github.com/lightningnetwork/lightning-rfc/pull/512 once merged */
-	if (channel->chainparams->max_payment.millisatoshis < lower_bound)
-		lower_bound = channel->chainparams->max_payment.millisatoshis;
-	return lower_bound;
+	if (amount_msat_greater(lower_bound_msat,
+				channel->chainparams->max_payment))
+		lower_bound_msat = channel->chainparams->max_payment;
+
+	return lower_bound_msat.millisatoshis;
 }
 
 /* Create and send channel_update to gossipd (and maybe peer) */
@@ -268,7 +293,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  disable_flag
 						  == ROUTING_FLAGS_DISABLED,
 						  peer->cltv_delta,
-						  peer->channel->config[REMOTE].htlc_minimum_msat,
+						  peer->channel->config[REMOTE].htlc_minimum.millisatoshis,
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
 						  advertised_htlc_max(peer->channel));
@@ -2455,8 +2480,10 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		goto failed;
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
 		failcode = WIRE_AMOUNT_BELOW_MINIMUM;
-		failmsg = tal_fmt(inmsg, "HTLC too small (%"PRIu64" minimum)",
-				  peer->channel->config[REMOTE].htlc_minimum_msat);
+		failmsg = tal_fmt(inmsg, "HTLC too small (%s minimum)",
+				  type_to_string(tmpctx,
+						 struct amount_msat,
+						 &peer->channel->config[REMOTE].htlc_minimum));
 		goto failed;
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;

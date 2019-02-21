@@ -998,10 +998,10 @@ static bool test_channel_config_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wallet *w = create_test_wallet(ld, ctx);
 	CHECK(w);
 
-	cc1->dust_limit_satoshis = 1;
-	cc1->max_htlc_value_in_flight_msat = 2;
-	cc1->channel_reserve_satoshis = 3;
-	cc1->htlc_minimum_msat = 4;
+	cc1->dust_limit.satoshis = 1;
+	cc1->max_htlc_value_in_flight.millisatoshis = 2;
+	cc1->channel_reserve.satoshis = 3;
+	cc1->htlc_minimum.millisatoshis = 4;
 	cc1->to_self_delay = 5;
 	cc1->max_accepted_htlcs = 6;
 

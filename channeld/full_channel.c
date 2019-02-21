@@ -262,7 +262,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 		       channel->config[!side].to_self_delay,
 		       &keyset,
 		       channel->view[side].feerate_per_kw,
-		       channel->config[side].dust_limit_satoshis,
+		       channel->config[side].dust_limit.satoshis,
 		       channel->view[side].owed_msat[side],
 		       channel->view[side].owed_msat[!side],
 		       committed,
@@ -348,7 +348,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (htlc->msatoshi == 0) {
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
-	if (htlc->msatoshi < channel->config[recipient].htlc_minimum_msat) {
+	if (htlc->msatoshi < channel->config[recipient].htlc_minimum.millisatoshis) {
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
 
@@ -389,7 +389,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *     - SHOULD fail the channel.
 	 */
 	if (enforce_aggregate_limits
-	    && msat_in_htlcs > channel->config[recipient].max_htlc_value_in_flight_msat) {
+	    && msat_in_htlcs > channel->config[recipient].max_htlc_value_in_flight.millisatoshis) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 
@@ -404,7 +404,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 */
 	if (channel->funder == htlc_owner(htlc)) {
 		u32 feerate = view->feerate_per_kw;
-		u64 dust = channel->config[recipient].dust_limit_satoshis;
+		u64 dust = channel->config[recipient].dust_limit.satoshis;
 		size_t untrimmed;
 
 		untrimmed = commit_tx_num_untrimmed(committed, feerate, dust,
@@ -438,12 +438,13 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * here is that the balance to the sender doesn't go below the
 	 * sender's reserve. */
 	if (enforce_aggregate_limits
-	    && balance_msat - fee_msat < (s64)channel_reserve_msat(channel, sender)) {
+	    && balance_msat - fee_msat < (s64)channel->config[!sender].channel_reserve.satoshis * 1000) {
 		status_trace("balance = %"PRIu64
 			     ", fee is %"PRIu64
-			     ", reserve is %"PRIu64,
+			     ", reserve is %s",
 			     balance_msat, fee_msat,
-			     channel_reserve_msat(channel, sender));
+			     type_to_string(tmpctx, struct amount_sat,
+					    &channel->config[!sender].channel_reserve));
 		return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 	}
 
@@ -697,7 +698,7 @@ u32 approx_max_feerate(const struct channel *channel)
 
 	/* We should never go below reserve. */
 	avail_msat = channel->view[!channel->funder].owed_msat[channel->funder]
-		- channel_reserve_msat(channel, channel->funder);
+		- channel->config[!channel->funder].channel_reserve.satoshis * 1000;
 
 	/* We have to pay fee from onchain funds, so it's in satoshi. */
 	return avail_msat / 1000 / weight * 1000;
@@ -705,7 +706,7 @@ u32 approx_max_feerate(const struct channel *channel)
 
 bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw)
 {
-	u64 fee_msat, dust = channel->config[!channel->funder].dust_limit_satoshis;
+	u64 fee_msat, dust = channel->config[!channel->funder].dust_limit.satoshis;
 	size_t untrimmed;
 	const struct htlc **committed, **adding, **removing;
 	gather_htlcs(tmpctx, channel, !channel->funder,
@@ -730,7 +731,7 @@ bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 
 	/* How much does it think it has?  Must be >= reserve + fee */
 	return channel->view[!channel->funder].owed_msat[channel->funder]
-		>= channel_reserve_msat(channel, channel->funder) + fee_msat;
+		>= channel->config[!channel->funder].channel_reserve.satoshis * 1000 + fee_msat;
 }
 
 bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)

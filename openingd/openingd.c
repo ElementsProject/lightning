@@ -61,7 +61,7 @@ struct state {
 	/* Constraints on a channel they open. */
 	u32 minimum_depth;
 	u32 min_feerate, max_feerate;
-	u64 min_effective_htlc_capacity_msat;
+	struct amount_msat min_effective_htlc_capacity;
 
 	/* Limits on what remote config we accept. */
 	u32 max_to_self_delay;
@@ -79,7 +79,8 @@ struct state {
 	struct channel_id channel_id;
 
 	/* Funding and feerate: set by opening peer. */
-	u64 funding_satoshis, push_msat;
+	struct amount_sat funding;
+	struct amount_msat push_msat;
 	u32 feerate_per_kw;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
@@ -155,8 +156,8 @@ static bool check_config_bounds(struct state *state,
 				const struct channel_config *remoteconf,
 				bool am_funder)
 {
-	u64 capacity_msat;
-	u64 reserve_msat;
+	struct amount_sat capacity;
+	struct amount_sat reserve;
 
 	/* BOLT #2:
 	 *
@@ -185,67 +186,74 @@ static bool check_config_bounds(struct state *state,
 	/* We accumulate this into an effective bandwidth minimum. */
 
 	/* Add both reserves to deduct from capacity. */
-	if (mul_overflows_u64(remoteconf->channel_reserve_satoshis, 1000)
-	    || add_overflows_u64(remoteconf->channel_reserve_satoshis * 1000,
-				 state->localconf.channel_reserve_satoshis * 1000)) {
+	if (!amount_sat_add(&reserve,
+			    remoteconf->channel_reserve,
+			    state->localconf.channel_reserve)) {
 		negotiation_failed(state, am_funder,
-				   "channel_reserve_satoshis %"PRIu64
+				   "channel_reserve_satoshis %s"
 				   " too large",
-				   remoteconf->channel_reserve_satoshis);
+				   type_to_string(tmpctx, struct amount_sat,
+						  &remoteconf->channel_reserve));
 		return false;
 	}
-	reserve_msat = remoteconf->channel_reserve_satoshis * 1000
-		+ state->localconf.channel_reserve_satoshis * 1000;
 
-	/* We checked this before, or it's ours. */
-	assert(!mul_overflows_u64(state->funding_satoshis, 1000));
-
-	/* If reserves are larger than total msat, we fail. */
-	if (reserve_msat > state->funding_satoshis * 1000) {
+	/* If reserves are larger than total sat, we fail. */
+	if (!amount_sat_sub(&capacity, state->funding, reserve)) {
 		negotiation_failed(state, am_funder,
-				   "channel_reserve_satoshis %"PRIu64
-				   " and %"PRIu64" too large for funding_satoshis %"PRIu64,
-				   remoteconf->channel_reserve_satoshis,
-				   state->localconf.channel_reserve_satoshis,
-				   state->funding_satoshis);
+				   "channel_reserve_satoshis %s"
+				   " and %s too large for funding %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &remoteconf->channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->funding));
 		return false;
 	}
-
-	capacity_msat = state->funding_satoshis * 1000 - reserve_msat;
 
 	/* If they set the max HTLC value to less than that number, it caps
 	 * the channel capacity. */
-	if (remoteconf->max_htlc_value_in_flight_msat < capacity_msat)
-		capacity_msat = remoteconf->max_htlc_value_in_flight_msat;
+	if (amount_sat_greater(capacity,
+			       amount_msat_to_sat_round_down(remoteconf->max_htlc_value_in_flight)))
+		capacity = amount_msat_to_sat_round_down(remoteconf->max_htlc_value_in_flight);
 
 	/* If the minimum htlc is greater than the capacity, the channel is
 	 * useless. */
-	if (mul_overflows_u64(remoteconf->htlc_minimum_msat, 1000)
-	    || remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat) {
+	if (amount_msat_greater_sat(remoteconf->htlc_minimum, capacity)) {
 		negotiation_failed(state, am_funder,
-				   "htlc_minimum_msat %"PRIu64
-				   " too large for funding_satoshis %"PRIu64
-				   " capacity_msat %"PRIu64,
-				   remoteconf->htlc_minimum_msat,
-				   state->funding_satoshis,
-				   capacity_msat);
+				   "htlc_minimum_msat %s"
+				   " too large for funding %s"
+				   " capacity_msat %s",
+				   type_to_string(tmpctx, struct amount_msat,
+						  &remoteconf->htlc_minimum),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->funding),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &capacity));
 		return false;
 	}
 
 	/* If the resulting channel doesn't meet our minimum "effective capacity"
 	 * set by lightningd, don't bother opening it. */
-	if (capacity_msat < state->min_effective_htlc_capacity_msat) {
+	if (amount_msat_greater_sat(state->min_effective_htlc_capacity,
+				    capacity)) {
 		negotiation_failed(state, am_funder,
-				   "channel capacity with funding %"PRIu64" msat,"
-				   " reserves %"PRIu64"/%"PRIu64" msat,"
-				   " max_htlc_value_in_flight_msat %"PRIu64
-				   " is %"PRIu64" msat, which is below %"PRIu64" msat",
-				   state->funding_satoshis * 1000,
-				   remoteconf->channel_reserve_satoshis * 1000,
-				   state->localconf.channel_reserve_satoshis * 1000,
-				   remoteconf->max_htlc_value_in_flight_msat,
-				   capacity_msat,
-				   state->min_effective_htlc_capacity_msat);
+				   "channel capacity with funding %s,"
+				   " reserves %s/%s,"
+				   " max_htlc_value_in_flight_msat %s"
+				   " is %s msat, which is below %s msat",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->funding),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &remoteconf->channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.channel_reserve),
+				   type_to_string(tmpctx, struct amount_msat,
+						  &remoteconf->max_htlc_value_in_flight),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &capacity),
+				   type_to_string(tmpctx, struct amount_msat,
+						  &state->min_effective_htlc_capacity));
 		return false;
 	}
 
@@ -276,14 +284,15 @@ static bool check_config_bounds(struct state *state,
 	 *...
 	 *  - `dust_limit_satoshis` is greater than `channel_reserve_satoshis`.
 	 */
-	if (remoteconf->dust_limit_satoshis
-	    > remoteconf->channel_reserve_satoshis) {
+	if (amount_sat_greater(remoteconf->dust_limit,
+			       remoteconf->channel_reserve)) {
 		negotiation_failed(state, am_funder,
-				   "dust_limit_satoshis %"PRIu64
-				   " too large for channel_reserve_satoshis %"
-				   PRIu64,
-				   remoteconf->dust_limit_satoshis,
-				   remoteconf->channel_reserve_satoshis);
+				   "dust_limit_satoshis %s"
+				   " too large for channel_reserve_satoshis %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &remoteconf->dust_limit),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &remoteconf->channel_reserve));
 		return false;
 	}
 
@@ -293,8 +302,8 @@ static bool check_config_bounds(struct state *state,
 /* We always set channel_reserve_satoshis to 1%, rounded up. */
 static void set_reserve(struct state *state)
 {
-	state->localconf.channel_reserve_satoshis
-		= (state->funding_satoshis + 99) / 100;
+	state->localconf.channel_reserve.satoshis
+		= (state->funding.satoshis + 99) / 100;
 
 	/* BOLT #2:
 	 *
@@ -303,10 +312,10 @@ static void set_reserve(struct state *state)
 	 * - MUST set `channel_reserve_satoshis` greater than or equal to
          *   `dust_limit_satoshis`.
 	 */
-	if (state->localconf.channel_reserve_satoshis
-	    < state->localconf.dust_limit_satoshis)
-		state->localconf.channel_reserve_satoshis
-			= state->localconf.dust_limit_satoshis;
+	if (amount_sat_greater(state->localconf.dust_limit,
+			       state->localconf.channel_reserve))
+		state->localconf.channel_reserve
+			= state->localconf.dust_limit;
 }
 
 /* BOLT #2:
@@ -419,7 +428,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 /*~ OK, let's fund a channel!  Returns the reply for lightningd on success,
  * or NULL if something goes wrong. */
 static u8 *funder_channel(struct state *state,
-			  u64 change_satoshis, u32 change_keyindex,
+			  struct amount_sat change,
+			  u32 change_keyindex,
 			  u8 channel_flags,
 			  struct utxo **utxos TAKES,
 			  const struct ext_key *bip32_base)
@@ -449,12 +459,13 @@ static u8 *funder_channel(struct state *state,
 	 *...
 	 *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
 	 */
-	if (state->funding_satoshis > state->chainparams->max_funding.satoshis)
+	if (amount_sat_greater(state->funding, state->chainparams->max_funding))
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "funding_satoshis must be < %s, not %"PRIu64,
+			      "funding_satoshis must be < %s, not %s",
 			      type_to_string(tmpctx, struct amount_sat,
 					     &state->chainparams->max_funding),
-			      state->funding_satoshis);
+			      type_to_string(tmpctx, struct amount_sat,
+					     &state->funding));
 
 	/* BOLT #2:
 	 *
@@ -463,19 +474,21 @@ static u8 *funder_channel(struct state *state,
 	 *  - MUST set `push_msat` to equal or less than 1000 *
 	 *   `funding_satoshis`.
 	 */
-	if (state->push_msat > 1000 * state->funding_satoshis)
+	if (amount_msat_greater_sat(state->push_msat, state->funding))
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "push-msat must be < %"PRIu64,
-			      1000 * state->funding_satoshis);
+			      "push-msat must be < %s",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &state->funding));
 
 	msg = towire_open_channel(NULL,
 				  &state->chainparams->genesis_blockhash,
 				  &state->channel_id,
-				  state->funding_satoshis, state->push_msat,
-				  state->localconf.dust_limit_satoshis,
-				  state->localconf.max_htlc_value_in_flight_msat,
-				  state->localconf.channel_reserve_satoshis,
-				  state->localconf.htlc_minimum_msat,
+				  state->funding.satoshis,
+				  state->push_msat.millisatoshis,
+				  state->localconf.dust_limit.satoshis,
+				  state->localconf.max_htlc_value_in_flight.millisatoshis,
+				  state->localconf.channel_reserve.satoshis,
+				  state->localconf.htlc_minimum.millisatoshis,
 				  state->feerate_per_kw,
 				  state->localconf.to_self_delay,
 				  state->localconf.max_accepted_htlcs,
@@ -505,12 +518,12 @@ static u8 *funder_channel(struct state *state,
 	 *    valid DER-encoded compressed secp256k1 pubkeys.
 	 */
 	if (!fromwire_accept_channel(msg, &id_in,
-				     &state->remoteconf.dust_limit_satoshis,
+				     &state->remoteconf.dust_limit.satoshis,
 				     &state->remoteconf
-				     .max_htlc_value_in_flight_msat,
+				     .max_htlc_value_in_flight.millisatoshis,
 				     &state->remoteconf
-				     .channel_reserve_satoshis,
-				     &state->remoteconf.htlc_minimum_msat,
+				     .channel_reserve.satoshis,
+				     &state->remoteconf.htlc_minimum.millisatoshis,
 				     &minimum_depth,
 				     &state->remoteconf.to_self_delay,
 				     &state->remoteconf.max_accepted_htlcs,
@@ -564,22 +577,26 @@ static u8 *funder_channel(struct state *state,
 	 *    less than `dust_limit_satoshis`:
 	 *    - MUST reject the channel.
 	 */
-	if (state->remoteconf.channel_reserve_satoshis
-	    < state->localconf.dust_limit_satoshis) {
+	if (amount_sat_greater(state->localconf.dust_limit,
+			       state->remoteconf.channel_reserve)) {
 		negotiation_failed(state, true,
-				   "channel reserve %"PRIu64
-				   " would be below our dust %"PRIu64,
-				   state->remoteconf.channel_reserve_satoshis,
-				   state->localconf.dust_limit_satoshis);
+				   "channel reserve %s"
+				   " would be below our dust %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->remoteconf.channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.dust_limit));
 		goto fail;
 	}
-	if (state->localconf.channel_reserve_satoshis
-	    < state->remoteconf.dust_limit_satoshis) {
+	if (amount_sat_greater(state->remoteconf.dust_limit,
+			       state->localconf.channel_reserve)) {
 		negotiation_failed(state, true,
-				   "dust limit %"PRIu64
-				   " would be above our reserve %"PRIu64,
-				   state->remoteconf.dust_limit_satoshis,
-				   state->localconf.channel_reserve_satoshis);
+				   "dust limit %s"
+				   " would be above our reserve %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->remoteconf.dust_limit),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.channel_reserve));
 		goto fail;
 	}
 
@@ -588,7 +605,7 @@ static u8 *funder_channel(struct state *state,
 
 	/*~ If lightningd told us to create change, use change index to do
 	 * that. */
-	if (change_satoshis) {
+	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
 		changekey = tal(tmpctx, struct pubkey);
 		if (!bip32_pubkey(bip32_base, changekey, change_keyindex))
 			status_failed(STATUS_FAIL_MASTER_IO,
@@ -603,10 +620,10 @@ static u8 *funder_channel(struct state *state,
 	 */
 	funding = funding_tx(state, &state->funding_txout,
 			     cast_const2(const struct utxo **, utxos),
-			     state->funding_satoshis,
+			     state->funding.satoshis,
 			     &state->our_funding_pubkey,
 			     &their_funding_pubkey,
-			     change_satoshis, changekey,
+			     change.satoshis, changekey,
 			     bip32_base);
 	bitcoin_txid(funding, &state->funding_txid);
 
@@ -622,9 +639,9 @@ static u8 *funder_channel(struct state *state,
 					     &state->chainparams->genesis_blockhash,
 					     &state->funding_txid,
 					     state->funding_txout,
-					     state->funding_satoshis,
-					     state->funding_satoshis * 1000
-					     - state->push_msat,
+					     state->funding.satoshis,
+					     state->funding.satoshis * 1000
+					     - state->push_msat.millisatoshis,
 					     state->feerate_per_kw,
 					     &state->localconf,
 					     &state->remoteconf,
@@ -805,7 +822,7 @@ static u8 *funder_channel(struct state *state,
 					   &their_funding_pubkey,
 					   &state->funding_txid,
 					   state->feerate_per_kw,
-					   state->localconf.channel_reserve_satoshis);
+					   state->localconf.channel_reserve.satoshis);
 
 fail:
 	if (taken(utxos))
@@ -836,11 +853,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 */
 	if (!fromwire_open_channel(open_channel_msg, &chain_hash,
 				   &state->channel_id,
-				   &state->funding_satoshis, &state->push_msat,
-				   &state->remoteconf.dust_limit_satoshis,
-				   &state->remoteconf.max_htlc_value_in_flight_msat,
-				   &state->remoteconf.channel_reserve_satoshis,
-				   &state->remoteconf.htlc_minimum_msat,
+				   &state->funding.satoshis,
+				   &state->push_msat.millisatoshis,
+				   &state->remoteconf.dust_limit.satoshis,
+				   &state->remoteconf.max_htlc_value_in_flight.millisatoshis,
+				   &state->remoteconf.channel_reserve.satoshis,
+				   &state->remoteconf.htlc_minimum.millisatoshis,
 				   &state->feerate_per_kw,
 				   &state->remoteconf.to_self_delay,
 				   &state->remoteconf.max_accepted_htlcs,
@@ -885,10 +903,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
-	if (state->funding_satoshis > state->chainparams->max_funding.satoshis) {
+	if (amount_sat_greater(state->funding, state->chainparams->max_funding)) {
 		negotiation_failed(state, false,
-				   "funding_satoshis %"PRIu64" too large",
-				   state->funding_satoshis);
+				   "funding_satoshis %s too large",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->funding));
 		return NULL;
 	}
 
@@ -898,12 +917,15 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * ...
 	 *   - `push_msat` is greater than `funding_satoshis` * 1000.
 	 */
-	if (state->push_msat > state->funding_satoshis * 1000) {
+	if (amount_msat_greater_sat(state->push_msat, state->funding)) {
 		peer_failed(&state->cs,
 			    &state->channel_id,
-			    "Our push_msat %"PRIu64
-			    " would be too large for funding_satoshis %"PRIu64,
-			    state->push_msat, state->funding_satoshis);
+			    "Our push_msat %s"
+			    " would be too large for funding_satoshis %s",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &state->push_msat),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &state->funding));
 		return NULL;
 	}
 
@@ -940,22 +962,26 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * - MUST set `dust_limit_satoshis` less than or equal to
          *   `channel_reserve_satoshis` from the `open_channel` message.
 	 */
-	if (state->localconf.channel_reserve_satoshis
-	    < state->remoteconf.dust_limit_satoshis) {
+	if (amount_sat_greater(state->remoteconf.dust_limit,
+			       state->localconf.channel_reserve)) {
 		negotiation_failed(state, false,
-				   "Our channel reserve %"PRIu64
-				   " would be below their dust %"PRIu64,
-				   state->localconf.channel_reserve_satoshis,
-				   state->remoteconf.dust_limit_satoshis);
+				   "Our channel reserve %s"
+				   " would be below their dust %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->remoteconf.dust_limit));
 		return NULL;
 	}
-	if (state->localconf.dust_limit_satoshis
-	    > state->remoteconf.channel_reserve_satoshis) {
+	if (amount_sat_greater(state->localconf.dust_limit,
+			       state->remoteconf.channel_reserve)) {
 		negotiation_failed(state, false,
-				   "Our dust limit %"PRIu64
-				   " would be above their reserve %"PRIu64,
-				   state->localconf.dust_limit_satoshis,
-				   state->remoteconf.channel_reserve_satoshis);
+				   "Our dust limit %s"
+				   " would be above their reserve %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.dust_limit),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->remoteconf.channel_reserve));
 		return NULL;
 	}
 
@@ -965,11 +991,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	/* OK, we accept! */
 	msg = towire_accept_channel(NULL, &state->channel_id,
-				    state->localconf.dust_limit_satoshis,
+				    state->localconf.dust_limit.satoshis,
 				    state->localconf
-				      .max_htlc_value_in_flight_msat,
-				    state->localconf.channel_reserve_satoshis,
-				    state->localconf.htlc_minimum_msat,
+				      .max_htlc_value_in_flight.millisatoshis,
+				    state->localconf.channel_reserve.satoshis,
+				    state->localconf.htlc_minimum.millisatoshis,
 				    state->minimum_depth,
 				    state->localconf.to_self_delay,
 				    state->localconf.max_accepted_htlcs,
@@ -1018,8 +1044,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &chain_hash,
 					     &state->funding_txid,
 					     state->funding_txout,
-					     state->funding_satoshis,
-					     state->push_msat,
+					     state->funding.satoshis,
+					     state->push_msat.millisatoshis,
 					     state->feerate_per_kw,
 					     &state->localconf,
 					     &state->remoteconf,
@@ -1139,12 +1165,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     &their_funding_pubkey,
 				     &state->funding_txid,
 				     state->funding_txout,
-				     state->funding_satoshis,
-				     state->push_msat,
+				     state->funding.satoshis,
+				     state->push_msat.millisatoshis,
 				     channel_flags,
 				     state->feerate_per_kw,
 				     msg,
-				     state->localconf.channel_reserve_satoshis);
+				     state->localconf.channel_reserve.satoshis);
 }
 
 /*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
@@ -1272,7 +1298,7 @@ static u8 *handle_master_in(struct state *state)
 {
 	u8 *msg = wire_sync_read(tmpctx, REQ_FD);
 	enum opening_wire_type t = fromwire_peektype(msg);
-	u64 change_satoshis;
+	struct amount_sat change;
 	u32 change_keyindex;
 	u8 channel_flags;
 	struct utxo **utxos;
@@ -1281,16 +1307,17 @@ static u8 *handle_master_in(struct state *state)
 	switch (t) {
 	case WIRE_OPENING_FUNDER:
 		if (!fromwire_opening_funder(state, msg,
-					     &state->funding_satoshis,
-					     &state->push_msat,
+					     &state->funding.satoshis,
+					     &state->push_msat.millisatoshis,
 					     &state->feerate_per_kw,
-					     &change_satoshis, &change_keyindex,
+					     &change.satoshis,
+					     &change_keyindex,
 					     &channel_flags, &utxos,
 					     &bip32_base))
 			master_badmsg(WIRE_OPENING_FUNDER, msg);
 
 		msg = funder_channel(state,
-				     change_satoshis,
+				     change,
 				     change_keyindex, channel_flags,
 				     take(utxos), &bip32_base);
 		return msg;
@@ -1340,7 +1367,7 @@ int main(int argc, char *argv[])
 				   &chain_hash,
 				   &state->localconf,
 				   &state->max_to_self_delay,
-				   &state->min_effective_htlc_capacity_msat,
+				   &state->min_effective_htlc_capacity.millisatoshis,
 				   &state->cs,
 				   &state->our_points,
 				   &state->our_funding_pubkey,
