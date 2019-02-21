@@ -453,7 +453,9 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_object_start(response, NULL);
 		json_add_string(response, "direction", "in");
 		json_add_u64(response, "id", hin->key.id);
-		json_add_u64(response, "msatoshi", hin->msatoshi);
+		json_add_amount_msat(response,
+				     (struct amount_msat){ hin->msatoshi },
+				     "msatoshi", "amount_msat");
 		json_add_u64(response, "expiry", hin->cltv_expiry);
 		json_add_hex(response, "payment_hash",
 			     &hin->payment_hash, sizeof(hin->payment_hash));
@@ -471,7 +473,9 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_object_start(response, NULL);
 		json_add_string(response, "direction", "out");
 		json_add_u64(response, "id", hout->key.id);
-		json_add_u64(response, "msatoshi", hout->msatoshi);
+		json_add_amount_msat(response,
+				     (struct amount_msat){ hout->msatoshi },
+				     "msatoshi", "amount_msat");
 		json_add_u64(response, "expiry", hout->cltv_expiry);
 		json_add_hex(response, "payment_hash",
 			     &hout->payment_hash, sizeof(hout->payment_hash));
