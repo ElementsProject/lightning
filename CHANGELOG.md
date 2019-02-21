@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `listchannels` now takes a `source` option to filter by node id.
 - JSON API: New command `paystatus` gives detailed information on `pay` commands.
 - JSON API: `getroute` `riskfactor` argument is simplified; `pay` now defaults to setting it to 10.
+- pylightning: New class 'Millisatoshi' can be used for JSON API, and new '_msat' fields are turned into this on reading.
 
 ### Changed
 

@@ -1,3 +1,4 @@
+from decimal import Decimal
 import json
 import logging
 import socket
@@ -13,19 +14,125 @@ class RpcError(ValueError):
         self.error = error
 
 
+class Millisatoshi:
+    """
+    A subtype to represent thousandths of a satoshi.
+
+    Many JSON API fields are expressed in millisatoshis: these automatically get
+    turned into Millisatoshi types.  Converts to and from int.
+    """
+    def __init__(self, v):
+        """
+        Takes either a string ending in 'msat', 'sat', 'btc' or an integer.
+        """
+        if isinstance(v, str):
+            if v.endswith("msat"):
+                self.millisatoshis = int(v[0:-4])
+            elif v.endswith("sat"):
+                self.millisatoshis = Decimal(v[0:-3]) * 1000
+            elif v.endswith("btc"):
+                self.millisatoshis = Decimal(v[0:-3]) * 1000 * 10**8
+            if self.millisatoshis != int(self.millisatoshis):
+                raise ValueError("Millisatoshi must be a whole number")
+        elif isinstance(v, Millisatoshi):
+            self.millisatoshis = v.millisatoshis
+        elif int(v) == v:
+            self.millisatoshis = v
+        else:
+            raise TypeError("Millisatoshi must be string with msat/sat/btc suffix or int")
+
+        if self.millisatoshis < 0:
+            raise ValueError("Millisatoshi must be >= 0")
+
+    def __repr__(self):
+        """
+        Appends the 'msat' as expected for this type.
+        """
+        return str(self.millisatoshis) + "msat"
+
+    def to_satoshi(self):
+        """
+        Return a Decimal representing the number of satoshis
+        """
+        return Decimal(self.millisatoshis) / 1000
+
+    def to_btc(self):
+        """
+        Return a Decimal representing the number of bitcoin
+        """
+        return Decimal(self.millisatoshis) / 1000 / 10**8
+
+    def to_satoshi_str(self):
+        """
+        Return a string of form 1234sat or 1234.567sat.
+        """
+        if self.millisatoshis % 1000:
+            return '{:.3f}sat'.format(self.to_satoshi())
+        else:
+            return '{:.0f}sat'.format(self.to_satoshi())
+
+    def to_btc_str(self):
+        """
+        Return a string of form 12.34567890btc or 12.34567890123btc.
+        """
+        if self.millisatoshis % 1000:
+            return '{:.8f}btc'.format(self.to_btc())
+        else:
+            return '{:.11f}btc'.format(self.to_btc())
+
+    def to_json(self):
+        return self.__repr__()
+
+    def __int__(self):
+        return self.millisatoshis
+
+    def __lt__(self, other):
+        return self.millisatoshis < other.millisatoshis
+
+    def __le__(self, other):
+        return self.millisatoshis <= other.millisatoshis
+
+    def __eq__(self, other):
+        return self.millisatoshis == other.millisatoshis
+
+    def __gt__(self, other):
+        return self.millisatoshis > other.millisatoshis
+
+    def __ge__(self, other):
+        return self.millisatoshis >= other.millisatoshis
+
+    def __add__(self, other):
+        return Millisatoshi(int(self) + int(other))
+
+    def __sub__(self, other):
+        return Millisatoshi(int(self) - int(other))
+
+    def __mul__(self, other):
+        return Millisatoshi(int(self) * other)
+
+    def __truediv__(self, other):
+        return Millisatoshi(int(self) / other)
+
+    def __floordiv__(self, other):
+        return Millisatoshi(int(self) // other)
+
+    def __mod__(self, other):
+        return Millisatoshi(int(self) % other)
+
+
 class UnixDomainSocketRpc(object):
-    def __init__(self, socket_path, executor=None, logger=logging):
+    def __init__(self, socket_path, executor=None, logger=logging, encoder=json.JSONEncoder, decoder=json.JSONDecoder):
         self.socket_path = socket_path
-        self.decoder = json.JSONDecoder()
+        self.encoder = encoder
+        self.decoder = decoder
         self.executor = executor
         self.logger = logger
 
         # Do we require the compatibility mode?
         self._compat = True
 
-    @staticmethod
-    def _writeobj(sock, obj):
-        s = json.dumps(obj)
+    def _writeobj(self, sock, obj):
+        s = json.dumps(obj, cls=self.encoder)
         sock.sendall(bytearray(s, 'UTF-8'))
 
     def _readobj_compat(self, sock, buff=b''):
@@ -127,6 +234,41 @@ class LightningRpc(UnixDomainSocketRpc):
     This implementation is thread safe in that it locks the socket
     between calls, but it does not (yet) support concurrent calls.
     """
+
+    class LightningJSONEncoder(json.JSONEncoder):
+        def default(self, o):
+            try:
+                return o.to_json()
+            except NameError:
+                pass
+            return json.JSONEncoder.default(self, o)
+
+    @staticmethod
+    def lightning_json_hook(json_object):
+        return json_object
+
+    @staticmethod
+    def replace_amounts(obj):
+        """
+        Recursively replace _msat fields with appropriate values with Millisatoshi.
+        """
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k.endswith('msat'):
+                    if isinstance(v, str) and v.endswith('msat'):
+                        obj[k] = Millisatoshi(v)
+                    # Special case for array of msat values
+                    elif isinstance(v, list) and all(isinstance(e, str) and e.endswith('msat') for e in v):
+                        obj[k] = [Millisatoshi(e) for e in v]
+                else:
+                    obj[k] = LightningRpc.replace_amounts(v)
+        elif isinstance(obj, list):
+            obj = [LightningRpc.replace_amounts(e) for e in obj]
+
+        return obj
+
+    def __init__(self, socket_path, executor=None, logger=logging):
+        super().__init__(socket_path, executor, logging, self.LightningJSONEncoder, json.JSONDecoder(object_hook=self.replace_amounts))
 
     def getpeer(self, peer_id, level=None):
         """
