@@ -1510,7 +1510,6 @@ def test_restart_many_payments(node_factory):
         wait_for(lambda: 'pending' not in [p['status'] for p in n.rpc.listpayments()['payments']])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "need dev-disconnect")
 def test_fail_unconfirmed(node_factory, bitcoind, executor):
     """Test that if we crash with an unconfirmed connection to a known
