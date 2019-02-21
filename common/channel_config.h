@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 
 /* BOLT #2:
  *
@@ -38,27 +39,27 @@ struct channel_config {
 	 *
 	 * `dust_limit_satoshis` is the threshold below which outputs should
 	 * not be generated for this node's commitment or HTLC transaction */
-	u64 dust_limit_satoshis;
+	struct amount_sat dust_limit;
 
 	/* BOLT #2:
 	 *
 	 * `max_htlc_value_in_flight_msat` is a cap on total value of
 	 * outstanding HTLCs, which allows a node to limit its exposure to
 	 * HTLCs */
-	u64 max_htlc_value_in_flight_msat;
+	struct amount_msat max_htlc_value_in_flight;
 
 	/* BOLT #2:
 	 *
 	 * `channel_reserve_satoshis` is the minimum amount that the other
 	 * node is to keep as a direct payment. */
-	u64 channel_reserve_satoshis;
+	struct amount_sat channel_reserve;
 
 	/* BOLT #2:
 	 *
 	 * `htlc_minimum_msat` indicates the smallest value HTLC this node
 	 * will accept.
 	 */
-	u64 htlc_minimum_msat;
+	struct amount_msat htlc_minimum;
 
 	/* BOLT #2:
 	 *

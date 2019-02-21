@@ -581,10 +581,10 @@ static void json_add_channel(struct lightningd *ld,
 
 	/* channel config */
 	json_add_amount_sat(response,
-			    (struct amount_sat){channel->our_config.dust_limit_satoshis},
+			    channel->our_config.dust_limit,
 			    "dust_limit_satoshis", "dust_limit_msat");
 	json_add_amount_msat(response,
-			     (struct amount_msat){channel->our_config.max_htlc_value_in_flight_msat},
+			     channel->our_config.max_htlc_value_in_flight,
 			     "max_htlc_value_in_flight_msat",
 			     "max_total_htlc_in_msat");
 
@@ -596,23 +596,23 @@ static void json_add_channel(struct lightningd *ld,
 	 * configuration `channel_reserve_satoshis` is
 	 * imposed on ours. */
 	json_add_amount_sat(response,
-			    (struct amount_sat){channel->our_config.channel_reserve_satoshis},
+			    channel->our_config.channel_reserve,
 			    "their_channel_reserve_satoshis",
 			    "their_reserve_msat");
 	json_add_amount_sat(response,
-			    (struct amount_sat){channel->channel_info.their_config.channel_reserve_satoshis},
+			    channel->channel_info.their_config.channel_reserve,
 			    "our_channel_reserve_satoshis",
 			    "our_reserve_msat");
 	/* Compute how much we can send via this channel. */
 	if (!amount_msat_sub_sat(&spendable,
 				 (struct amount_msat){channel->our_msatoshi},
-				 (struct amount_sat){channel->channel_info.their_config.channel_reserve_satoshis}))
+				 channel->channel_info.their_config.channel_reserve))
 		spendable = AMOUNT_MSAT(0);
 
 	json_add_amount_msat(response, spendable,
 			     "spendable_msatoshi", "spendable_msat");
 	json_add_amount_msat(response,
-			     (struct amount_msat){channel->our_config.htlc_minimum_msat},
+			     channel->our_config.htlc_minimum,
 			     "htlc_minimum_msat",
 			     "minimum_htlc_in_msat");
 

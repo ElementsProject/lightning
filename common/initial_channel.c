@@ -97,10 +97,10 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 channel->config[!side].to_self_delay,
 				 &keyset,
 				 channel->view[side].feerate_per_kw,
-				 channel->config[side].dust_limit_satoshis,
+				 channel->config[side].dust_limit.satoshis,
 				 channel->view[side].owed_msat[side],
 				 channel->view[side].owed_msat[!side],
-				 channel_reserve_msat(channel, side),
+				 channel->config[!side].channel_reserve.satoshis * 1000,
 				 0 ^ channel->commitment_number_obscurer,
 				 side);
 }

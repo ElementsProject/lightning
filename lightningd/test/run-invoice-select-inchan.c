@@ -600,7 +600,7 @@ static void add_peer(struct lightningd *ld, int n, enum channel_state state,
 	/* Channel has incoming capacity n*1000 - 1 millisatoshi */
 	c->funding_satoshi = n+1;
 	c->our_msatoshi = 1;
-	c->our_config.channel_reserve_satoshis = 1;
+	c->our_config.channel_reserve.satoshis = 1;
 	list_add_tail(&peer->channels, &c->list);
 }
 

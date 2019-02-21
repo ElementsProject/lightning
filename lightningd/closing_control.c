@@ -227,7 +227,7 @@ void peer_start_closingd(struct channel *channel,
 				      channel->funder,
 				      our_msatoshi / 1000, /* Rounds down */
 				      their_msatoshi / 1000, /* Rounds down */
-				      channel->our_config.dust_limit_satoshis,
+				      channel->our_config.dust_limit.satoshis,
 				      minfee, feelimit, startfee,
 				      p2wpkh_for_keyidx(tmpctx, ld,
 							channel->final_key_idx),

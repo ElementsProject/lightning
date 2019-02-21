@@ -1108,12 +1108,14 @@ static bool channel_added_their_htlc(struct channel *channel,
 	 *    - SHOULD fail the channel.
 	 */
 	if (added->amount_msat == 0
-	    || added->amount_msat < channel->our_config.htlc_minimum_msat) {
+	    || added->amount_msat < channel->our_config.htlc_minimum.millisatoshis) {
 		channel_internal_error(channel,
 				    "trying to add HTLC msat %"PRIu64
-				    " but minimum is %"PRIu64,
+				    " but minimum is %s",
 				    added->amount_msat,
-				    channel->our_config.htlc_minimum_msat);
+				       type_to_string(tmpctx,
+						      struct amount_msat,
+						      &channel->our_config.htlc_minimum));
 		return false;
 	}
 

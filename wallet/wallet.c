@@ -868,10 +868,10 @@ static void wallet_channel_config_save(struct wallet *w,
 			  "  to_self_delay=?,"
 			  "  max_accepted_htlcs=?"
 			  " WHERE id=?;");
-	sqlite3_bind_int64(stmt, 1, cc->dust_limit_satoshis);
-	sqlite3_bind_int64(stmt, 2, cc->max_htlc_value_in_flight_msat);
-	sqlite3_bind_int64(stmt, 3, cc->channel_reserve_satoshis);
-	sqlite3_bind_int64(stmt, 4, cc->htlc_minimum_msat);
+	sqlite3_bind_amount_sat(stmt, 1, cc->dust_limit);
+	sqlite3_bind_amount_msat(stmt, 2, cc->max_htlc_value_in_flight);
+	sqlite3_bind_amount_sat(stmt, 3, cc->channel_reserve);
+	sqlite3_bind_amount_msat(stmt, 4, cc->htlc_minimum);
 	sqlite3_bind_int(stmt, 5, cc->to_self_delay);
 	sqlite3_bind_int(stmt, 6, cc->max_accepted_htlcs);
 	sqlite3_bind_int64(stmt, 7, cc->id);
@@ -893,10 +893,10 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 		return false;
 	}
 	cc->id = id;
-	cc->dust_limit_satoshis = sqlite3_column_int64(stmt, col++);
-	cc->max_htlc_value_in_flight_msat = sqlite3_column_int64(stmt, col++);
-	cc->channel_reserve_satoshis = sqlite3_column_int64(stmt, col++);
-	cc->htlc_minimum_msat = sqlite3_column_int64(stmt, col++);
+	cc->dust_limit = sqlite3_column_amount_sat(stmt, col++);
+	cc->max_htlc_value_in_flight = sqlite3_column_amount_msat(stmt, col++);
+	cc->channel_reserve = sqlite3_column_amount_sat(stmt, col++);
+	cc->htlc_minimum = sqlite3_column_amount_msat(stmt, col++);
 	cc->to_self_delay = sqlite3_column_int(stmt, col++);
 	cc->max_accepted_htlcs = sqlite3_column_int(stmt, col++);
 	assert(col == 7);

@@ -305,7 +305,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &channel_info.remote_fundingkey,
 					   &expected_txid,
 					   &feerate,
-					   &fc->uc->our_config.channel_reserve_satoshis)) {
+					   &fc->uc->our_config.channel_reserve.satoshis)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -495,7 +495,7 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &channel_flags,
 					   &feerate,
 					   &funding_signed,
-					   &uc->our_config.channel_reserve_satoshis)) {
+					   &uc->our_config.channel_reserve.satoshis)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		uncommitted_channel_disconnect(uc, "bad OPENING_FUNDEE_REPLY");
@@ -644,12 +644,12 @@ new_uncommitted_channel(struct peer *peer)
 static void channel_config(struct lightningd *ld,
 			   struct channel_config *ours,
 			   u32 *max_to_self_delay,
-			   u64 *min_effective_htlc_capacity_msat)
+			   struct amount_msat *min_effective_htlc_capacity)
 {
 	/* FIXME: depend on feerate. */
 	*max_to_self_delay = ld->config.locktime_max;
 	/* This is 1c at $1000/BTC */
-	*min_effective_htlc_capacity_msat = 1000000;
+	*min_effective_htlc_capacity = AMOUNT_MSAT(1000000);
 
 	/* BOLT #2:
 	 *
@@ -658,11 +658,11 @@ static void channel_config(struct lightningd *ld,
 	 *   - set `dust_limit_satoshis` to a sufficient value to allow
 	 *     commitment transactions to propagate through the Bitcoin network.
 	 */
-	ours->dust_limit_satoshis = 546;
-	ours->max_htlc_value_in_flight_msat = UINT64_MAX;
+	ours->dust_limit = AMOUNT_SAT(546);
+	ours->max_htlc_value_in_flight = AMOUNT_MSAT(UINT64_MAX);
 
 	/* Don't care */
-	ours->htlc_minimum_msat = 0;
+	ours->htlc_minimum = AMOUNT_MSAT(0);
 
 	/* BOLT #2:
 	 *
@@ -682,7 +682,7 @@ static void channel_config(struct lightningd *ld,
 	 ours->max_accepted_htlcs = 483;
 
 	 /* This is filled in by lightning_openingd, for consistency. */
-	 ours->channel_reserve_satoshis = -1;
+	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
 }
 
 static unsigned int openingd_msg(struct subd *openingd,
@@ -742,7 +742,7 @@ void peer_start_openingd(struct peer *peer,
 {
 	int hsmfd;
 	u32 max_to_self_delay;
-	u64 min_effective_htlc_capacity_msat;
+	struct amount_msat min_effective_htlc_capacity;
 	struct uncommitted_channel *uc;
 	const u8 *msg;
 
@@ -773,7 +773,7 @@ void peer_start_openingd(struct peer *peer,
 
 	channel_config(peer->ld, &uc->our_config,
 		       &max_to_self_delay,
-		       &min_effective_htlc_capacity_msat);
+		       &min_effective_htlc_capacity);
 
 	/* BOLT #2:
 	 *
@@ -787,7 +787,7 @@ void peer_start_openingd(struct peer *peer,
 				  &get_chainparams(peer->ld)->genesis_blockhash,
 				  &uc->our_config,
 				  max_to_self_delay,
-				  min_effective_htlc_capacity_msat,
+				  min_effective_htlc_capacity.millisatoshis,
 				  cs, &uc->local_basepoints,
 				  &uc->local_funding_pubkey,
 				  uc->minimum_depth,

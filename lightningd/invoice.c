@@ -178,11 +178,11 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		msatoshi_avail = c->funding_satoshi * 1000 - c->our_msatoshi;
 
 		/* Even after reserve taken into account */
-		if (c->our_config.channel_reserve_satoshis * 1000
+		if (c->our_config.channel_reserve.satoshis * 1000
 		    > msatoshi_avail)
 			continue;
 
-		msatoshi_avail -= c->our_config.channel_reserve_satoshis * 1000;
+		msatoshi_avail -= c->our_config.channel_reserve.satoshis * 1000;
 		if (msatoshi_avail < capacity_needed)
 			continue;
 

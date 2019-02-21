@@ -62,14 +62,6 @@ struct channel {
 	const struct chainparams *chainparams;
 };
 
-/* This side's reserve is specified by the *other* side, and in satoshis:
- * this is a convenience function to convert it. */
-static inline u64 channel_reserve_msat(const struct channel *channel,
-				       enum side side)
-{
-	return channel->config[!side].channel_reserve_satoshis * 1000;
-}
-
 /**
  * new_initial_channel: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
