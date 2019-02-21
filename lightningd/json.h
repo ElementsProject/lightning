@@ -7,6 +7,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -126,6 +127,20 @@ void json_add_hex(struct json_stream *result, const char *fieldname,
 void json_add_hex_talarr(struct json_stream *result,
 			 const char *fieldname,
 			 const tal_t *data);
+
+/* Adds both a 'raw' number field and an 'amount_msat' field */
+void json_add_amount_msat(struct json_stream *result,
+			  struct amount_msat msat,
+			  const char *rawfieldname,
+			  const char *msatfieldname)
+	NO_NULL_ARGS;
+
+/* Adds both a 'raw' number field and an 'amount_msat' field */
+void json_add_amount_sat(struct json_stream *result,
+			 struct amount_sat sat,
+			 const char *rawfieldname,
+			 const char *msatfieldname)
+	NO_NULL_ARGS;
 
 enum address_parse_result {
 	/* Not recognized as an onchain address */
