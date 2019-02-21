@@ -224,7 +224,7 @@ static void send_offer(struct crypto_state *cs,
 		     type_to_string(tmpctx, struct amount_sat, &fee_to_offer));
 
 	assert(our_sig.sighash_type == SIGHASH_ALL);
-	msg = towire_closing_signed(NULL, channel_id, fee_to_offer.satoshis, &our_sig.s);
+	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig.s);
 	sync_crypto_write(cs, PEER_FD, take(msg));
 }
 
@@ -288,7 +288,7 @@ receive_offer(struct crypto_state *cs,
 
 	their_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_closing_signed(msg, &their_channel_id,
-				     &received_fee.satoshis, &their_sig.s))
+				     &received_fee, &their_sig.s))
 		peer_failed(cs, channel_id,
 			    "Expected closing_signed: %s",
 			    tal_hex(tmpctx, msg));

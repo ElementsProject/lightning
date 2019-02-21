@@ -1241,10 +1241,10 @@ static void update_local_channel(struct daemon *daemon,
 				       timestamp,
 				       message_flags, channel_flags,
 				       cltv_expiry_delta,
-				       htlc_minimum.millisatoshis,
+				       htlc_minimum,
 				       fee_base_msat,
 				       fee_proportional_millionths,
-				       htlc_maximum.millisatoshis);
+				       htlc_maximum);
 
 	/* Note that we treat the hsmd as synchronous.  This is simple (no
 	 * callback hell)!, but may need to change to async if we ever want
@@ -2539,7 +2539,7 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 					   const u8 *onion_message)
 {
 	u8 *channel_update = NULL;
-	u64 unused64;
+	struct amount_msat unused_msat;
 	u32 unused32;
 
 	/* Identify failcodes that have some channel_update.
@@ -2550,10 +2550,10 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 						onion_message,
 						&channel_update) &&
 	    !fromwire_amount_below_minimum(ctx,
-					   onion_message, &unused64,
+					   onion_message, &unused_msat,
 					   &channel_update) &&
 	    !fromwire_fee_insufficient(ctx,
-		    		       onion_message, &unused64,
+		    		       onion_message, &unused_msat,
 				       &channel_update) &&
 	    !fromwire_incorrect_cltv_expiry(ctx,
 		    			    onion_message, &unused32,

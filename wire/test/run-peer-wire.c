@@ -81,7 +81,7 @@ struct msg_error {
 };
 struct msg_closing_signed {
 	struct channel_id channel_id;
-	u64 fee_satoshis;
+	struct amount_sat fee_satoshis;
 	secp256k1_ecdsa_signature signature;
 };
 struct msg_funding_created {
@@ -92,10 +92,10 @@ struct msg_funding_created {
 };
 struct msg_accept_channel {
 	struct channel_id temporary_channel_id;
-	u64 dust_limit_satoshis;
-	u64 max_htlc_value_in_flight_msat;
-	u64 channel_reserve_satoshis;
-	u64 htlc_minimum_msat;
+	struct amount_sat dust_limit_satoshis;
+	struct amount_msat max_htlc_value_in_flight_msat;
+	struct amount_sat channel_reserve_satoshis;
+	struct amount_msat htlc_minimum_msat;
 	u32 minimum_depth;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
@@ -130,7 +130,7 @@ struct msg_channel_update {
 	u8 message_flags;
 	u8 channel_flags;
 	u16 expiry;
-	u64 htlc_minimum_msat;
+	struct amount_msat htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	struct bitcoin_blkid chain_hash;
@@ -142,10 +142,10 @@ struct msg_channel_update_opt_htlc_max {
 	u8 message_flags;
 	u8 channel_flags;
 	u16 expiry;
-	u64 htlc_minimum_msat;
+	struct amount_msat htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
-	u64 htlc_maximum_msat;
+	struct amount_msat htlc_maximum_msat;
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id short_channel_id;
 };
@@ -176,12 +176,12 @@ struct msg_node_announcement {
 struct msg_open_channel {
 	struct bitcoin_blkid chain_hash;
 	struct channel_id temporary_channel_id;
-	u64 funding_satoshis;
-	u64 push_msat;
-	u64 dust_limit_satoshis;
-	u64 max_htlc_value_in_flight_msat;
-	u64 channel_reserve_satoshis;
-	u64 htlc_minimum_msat;
+	struct amount_sat funding_satoshis;
+	struct amount_msat push_msat;
+	struct amount_sat dust_limit_satoshis;
+	struct amount_msat max_htlc_value_in_flight_msat;
+	struct amount_sat channel_reserve_satoshis;
+	struct amount_msat htlc_minimum_msat;
 	u32 feerate_per_kw;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
@@ -218,7 +218,7 @@ struct msg_init {
 struct msg_update_add_htlc {
 	struct channel_id channel_id;
 	u64 id;
-	u64 amount_msat;
+	struct amount_msat amount_msat;
 	u32 expiry;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];

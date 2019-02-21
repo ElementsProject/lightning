@@ -83,6 +83,8 @@ bool is_unknown_msg_discardable(const u8 *cursor)
 /* Extract channel_id from various packets, return true if possible. */
 bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 {
+	struct amount_sat ignored_sat;
+	struct amount_msat ignored_msat;
 	u64 ignored_u64;
 	u32 ignored_u32;
 	u16 ignored_u16;
@@ -94,10 +96,10 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 					 &ignored_u64, &ignored_u64))
 		return true;
 	if (fromwire_open_channel(in_pkt, &ignored_chainhash,
-				  channel_id, &ignored_u64,
-				  &ignored_u64, &ignored_u64,
-				  &ignored_u64, &ignored_u64,
-				  &ignored_u64, &ignored_u32,
+				  channel_id, &ignored_sat,
+				  &ignored_msat, &ignored_sat,
+				  &ignored_msat, &ignored_sat,
+				  &ignored_msat, &ignored_u32,
 				  &ignored_u16, &ignored_u16,
 				  &ignored_pubkey, &ignored_pubkey,
 				  &ignored_pubkey, &ignored_pubkey,
