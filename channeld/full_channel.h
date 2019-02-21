@@ -84,7 +84,7 @@ u32 actual_feerate(const struct channel *channel,
  * @channel: The channel
  * @offerer: the side offering the HTLC (to the other side).
  * @id: unique HTLC id.
- * @msatoshi: amount in millisatoshi.
+ * @amount: amount in millisatoshi.
  * @cltv_expiry: block number when HTLC can no longer be redeemed.
  * @payment_hash: hash whose preimage can redeem HTLC.
  * @routing: routing information (copied)
@@ -97,7 +97,7 @@ u32 actual_feerate(const struct channel *channel,
 enum channel_add_err channel_add_htlc(struct channel *channel,
 				      enum side sender,
 				      u64 id,
-				      u64 msatoshi,
+				      struct amount_msat msatoshi,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE],

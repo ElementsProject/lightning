@@ -589,21 +589,21 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
 	u64 id;
-	u64 amount_msat;
+	struct amount_msat amount;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err add_err;
 	struct htlc *htlc;
 
-	if (!fromwire_update_add_htlc(msg, &channel_id, &id, &amount_msat,
+	if (!fromwire_update_add_htlc(msg, &channel_id, &id, &amount.millisatoshis,
 				      &payment_hash, &cltv_expiry,
 				      onion_routing_packet))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Bad peer_add_htlc %s", tal_hex(msg, msg));
 
-	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount_msat,
+	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet, &htlc);
 	if (add_err != CHANNEL_ERR_ADD_OK)
@@ -866,12 +866,12 @@ static u8 *make_failmsg(const tal_t *ctx,
 		goto done;
 	case WIRE_AMOUNT_BELOW_MINIMUM:
 		channel_update = foreign_channel_update(ctx, peer, scid);
-		msg = towire_amount_below_minimum(ctx, htlc->msatoshi,
+		msg = towire_amount_below_minimum(ctx, htlc->amount.millisatoshis,
 						  channel_update);
 		goto done;
 	case WIRE_FEE_INSUFFICIENT:
 		channel_update = foreign_channel_update(ctx, peer, scid);
-		msg = towire_fee_insufficient(ctx, htlc->msatoshi,
+		msg = towire_fee_insufficient(ctx, htlc->amount.millisatoshis,
 					      channel_update);
 		goto done;
 	case WIRE_INCORRECT_CLTV_EXPIRY:
@@ -888,7 +888,7 @@ static u8 *make_failmsg(const tal_t *ctx,
 		goto done;
 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 		msg = towire_incorrect_or_unknown_payment_details(
-		    ctx, htlc->msatoshi);
+		    ctx, htlc->amount.millisatoshis);
 		goto done;
 	case WIRE_FINAL_EXPIRY_TOO_SOON:
 		msg = towire_final_expiry_too_soon(ctx);
@@ -897,7 +897,7 @@ static u8 *make_failmsg(const tal_t *ctx,
 		msg = towire_final_incorrect_cltv_expiry(ctx, cltv_expiry);
 		goto done;
 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
-		msg = towire_final_incorrect_htlc_amount(ctx, htlc->msatoshi);
+		msg = towire_final_incorrect_htlc_amount(ctx, htlc->amount.millisatoshis);
 		goto done;
 	case WIRE_INVALID_ONION_VERSION:
 		msg = towire_invalid_onion_version(ctx, sha256);
@@ -1251,7 +1251,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			struct secret s;
 
 			a.id = htlc->id;
-			a.amount_msat = htlc->msatoshi;
+			a.amount_msat = htlc->amount.millisatoshis;
 			a.payment_hash = htlc->rhash;
 			a.cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
 			memcpy(a.onion_routing_packet,
@@ -1899,7 +1899,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 
 		if (h->state == SENT_ADD_COMMIT) {
 			u8 *msg = towire_update_add_htlc(NULL, &peer->channel_id,
-							 h->id, h->msatoshi,
+							 h->id, h->amount.millisatoshis,
 							 &h->rhash,
 							 abs_locktime_to_blocks(
 								 &h->expiry),
@@ -2419,7 +2419,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 {
 	u8 *msg;
 	u32 cltv_expiry;
-	u64 amount_msat;
+	struct amount_msat amount;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err e;
@@ -2431,23 +2431,25 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding not locked for offer_htlc");
 
-	if (!fromwire_channel_offer_htlc(inmsg, &amount_msat,
+	if (!fromwire_channel_offer_htlc(inmsg, &amount.millisatoshis,
 					 &cltv_expiry, &payment_hash,
 					 onion_routing_packet))
 		master_badmsg(WIRE_CHANNEL_OFFER_HTLC, inmsg);
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
-			     amount_msat, cltv_expiry, &payment_hash,
+			     amount, cltv_expiry, &payment_hash,
 			     onion_routing_packet, NULL);
-	status_trace("Adding HTLC %"PRIu64" msat=%"PRIu64" cltv=%u gave %s",
-		     peer->htlc_id, amount_msat, cltv_expiry,
+	status_trace("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
+		     peer->htlc_id,
+		     type_to_string(tmpctx, struct amount_msat, &amount),
+		     cltv_expiry,
 		     channel_add_err_name(e));
 
 	switch (e) {
 	case CHANNEL_ERR_ADD_OK:
 		/* Tell the peer. */
 		msg = towire_update_add_htlc(NULL, &peer->channel_id,
-					     peer->htlc_id, amount_msat,
+					     peer->htlc_id, amount.millisatoshis,
 					     &payment_hash, cltv_expiry,
 					     onion_routing_packet);
 		sync_crypto_write(&peer->cs, PEER_FD, take(msg));

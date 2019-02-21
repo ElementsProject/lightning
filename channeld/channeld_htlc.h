@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/locktime.h>
 #include <ccan/short_types/short_types.h>
+#include <common/amount.h>
 #include <common/htlc.h>
 #include <common/pseudorand.h>
 #include <wire/gen_onion_wire.h>
@@ -13,7 +14,7 @@ struct htlc {
 	/* The unique ID for this peer and this direction (LOCAL or REMOTE) */
 	u64 id;
 	/* The amount in millisatoshi. */
-	u64 msatoshi;
+	struct amount_msat amount;
 	/* When the HTLC can no longer be redeemed. */
 	struct abs_locktime expiry;
 	/* The hash of the preimage which can redeem this HTLC */

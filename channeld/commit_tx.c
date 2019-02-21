@@ -45,7 +45,7 @@ static bool trim(const struct htlc *htlc,
 	/* If these overflow, it implies htlc must be less. */
 	if (!amount_sat_add(&htlc_min, dust_limit, htlc_fee))
 		return true;
-	return htlc->msatoshi / 1000 < htlc_min.satoshis;
+	return amount_msat_less_sat(htlc->amount, htlc_min);
 }
 
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
@@ -70,7 +70,7 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
 	wscript = htlc_offered_wscript(tx->output, &ripemd, keyset);
-	tx->output[n].amount = htlc->msatoshi / 1000;
+	tx->output[n].amount = amount_msat_to_sat_round_down(htlc->amount).satoshis;
 	tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 	SUPERVERBOSE("# HTLC %"PRIu64" offered amount %"PRIu64" wscript %s\n",
 		     htlc->id, tx->output[n].amount, tal_hex(wscript, wscript));
@@ -86,7 +86,7 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
 	wscript = htlc_received_wscript(tx, &ripemd, &htlc->expiry, keyset);
-	tx->output[n].amount = htlc->msatoshi / 1000;
+	tx->output[n].amount = amount_msat_to_sat_round_down(htlc->amount).satoshis;
 	tx->output[n].script = scriptpubkey_p2wsh(tx->output, wscript);
 	SUPERVERBOSE("# HTLC %"PRIu64" received amount %"PRIu64" wscript %s\n",
 		     htlc->id, tx->output[n].amount, tal_hex(wscript, wscript));
@@ -147,18 +147,19 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 #ifdef PRINT_ACTUAL_FEE
 	{
-		u64 satoshis_out = 0;
+		struct amount_sat out = AMOUNT_SAT(0);
+		bool ok = true;
 		for (i = 0; i < tal_count(htlcs); i++) {
-			if (!trim(htlcs[i], feerate_per_kw, dust_limit,
-				  side))
-				satoshis_out += htlcs[i]->msatoshi / 1000;
+			if (!trim(htlcs[i], feerate_per_kw, dust_limit, side))
+				ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(htlcs[i]->amount));
 		}
 		if (amount_msat_greater_sat(self_pay, dust_limit))
-			satoshis_out += self_pay.millisatoshis / 1000;
+			ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(self_pay));
 		if (amount_msat_greater_sat(other_pay, dust_limit))
-			satoshis_out += other_pay.millisatoshis / 1000;
+			ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(other_pay));
+		assert(ok);
 		SUPERVERBOSE("# actual commitment transaction fee = %"PRIu64"\n",
-			     funding.satoshis - satoshis_out);
+			     funding.satoshis - out.satoshis);
 	}
 #endif
 
