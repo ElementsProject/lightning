@@ -6,6 +6,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 
+struct amount_msat;
 struct db;
 struct json_escaped;
 struct invoice;
@@ -34,7 +35,7 @@ struct invoices *invoices_new(const tal_t *ctx,
  *
  * @invoices - the invoice handler.
  * @pinvoice - pointer to location to load new invoice in.
- * @msatoshi - the amount the invoice should have, or
+ * @msat - the amount the invoice should have, or
  * NULL for any-amount invoices.
  * @label - the unique label for this invoice. Must be
  * non-NULL.
@@ -47,7 +48,7 @@ struct invoices *invoices_new(const tal_t *ctx,
  */
 bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
-		     u64 *msatoshi TAKES,
+		     const struct amount_msat *msat TAKES,
 		     const struct json_escaped *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,

@@ -1473,7 +1473,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
-			   u64 *msatoshi TAKES,
+			   const struct amount_msat *msat TAKES,
 			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
@@ -1481,7 +1481,7 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   const struct preimage *r,
 			   const struct sha256 *rhash)
 {
-	return invoices_create(wallet->invoices, pinvoice, msatoshi, label, expiry, b11enc, description, r, rhash);
+	return invoices_create(wallet->invoices, pinvoice, msat, label, expiry, b11enc, description, r, rhash);
 }
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,

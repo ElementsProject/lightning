@@ -236,7 +236,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	info->b11->routes
 		= select_inchan(info->b11,
 				info->cmd->ld,
-				info->b11->msatoshi ? *info->b11->msatoshi : 1,
+				info->b11->msat ? info->b11->msat->millisatoshis : 1,
 				inchans,
 				&any_offline);
 
@@ -255,7 +255,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 
 	if (!wallet_invoice_create(wallet,
 				   &invoice,
-				   info->b11->msatoshi,
+				   info->b11->msat,
 				   info->label,
 				   info->b11->expiry,
 				   b11enc,
@@ -283,7 +283,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 		log_unusual(info->cmd->ld->log,
 			    "invoice: insufficient incoming capacity for %"PRIu64
 			    " msatoshis%s",
-			    info->b11->msatoshi ? *info->b11->msatoshi : 0,
+			    info->b11->msat ? info->b11->msat->millisatoshis : 0,
 			    any_offline
 			    ? " (among currently connected peers)" : "");
 
@@ -469,11 +469,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	/* Generate preimage hash. */
 	sha256(&rhash, &info->payment_preimage, sizeof(info->payment_preimage));
 
-	/* FIXME: Make bolt11 take struct amount_msat */
-	if (msatoshi_val)
-		info->b11 = new_bolt11(info, &msatoshi_val->millisatoshis);
-	else
-		info->b11 = new_bolt11(info, NULL);
+	info->b11 = new_bolt11(info, msatoshi_val);
 	info->b11->chain = chainparams;
 	info->b11->timestamp = time_now().ts.tv_sec;
 	info->b11->payment_hash = rhash;
@@ -806,8 +802,9 @@ static struct command_result *json_decodepay(struct command *cmd,
 	json_add_u64(response, "created_at", b11->timestamp);
 	json_add_u64(response, "expiry", b11->expiry);
 	json_add_pubkey(response, "payee", &b11->receiver_id);
-        if (b11->msatoshi)
-                json_add_u64(response, "msatoshi", *b11->msatoshi);
+        if (b11->msat)
+                json_add_amount_msat(response, *b11->msat,
+				     "msatoshi", "amount_msat");
         if (b11->description) {
 		struct json_escaped *esc = json_escape(NULL, b11->description);
                 json_add_escaped_string(response, "description", take(esc));

@@ -433,7 +433,8 @@ static char *decode_r(struct bolt11 *b11,
         return NULL;
 }
 
-struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi)
+struct bolt11 *new_bolt11(const tal_t *ctx,
+			  const struct amount_msat *msat TAKES)
 {
         struct bolt11 *b11 = tal(ctx, struct bolt11);
 
@@ -442,12 +443,12 @@ struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi)
         b11->description_hash = NULL;
         b11->fallbacks = NULL;
         b11->routes = NULL;
-        b11->msatoshi = NULL;
+        b11->msat = NULL;
         b11->expiry = DEFAULT_X;
         b11->min_final_cltv_expiry = DEFAULT_C;
 
-        if (msatoshi)
-                b11->msatoshi = tal_dup(b11, u64, msatoshi);
+        if (msat)
+                b11->msat = tal_dup(b11, struct amount_msat, msat);
         return b11;
 }
 
@@ -520,7 +521,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                  *
 	         * - SHOULD indicate to the payer that amount is unspecified.
                  */
-                b11->msatoshi = NULL;
+                b11->msat = NULL;
         } else {
                 u64 m10 = 10;
                 u64 amount;
@@ -556,8 +557,8 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 		 * `amount` by the `multiplier` value to derive the
 		 * amount required for payment.
 		*/
-                b11->msatoshi = tal(b11, u64);
-                *b11->msatoshi = amount * m10 / 10;
+                b11->msat = tal(b11, struct amount_msat);
+                b11->msat->millisatoshis = amount * m10 / 10;
         }
 
         /* BOLT #11:
@@ -886,19 +887,20 @@ char *bolt11_encode_(const tal_t *ctx,
 	 * - MUST encode `amount` as a positive decimal integer with no leading 0s.
 	 * - SHOULD use the shortest representation possible, by using the largest multiplier or omitting the multiplier.
 	 */
-        if (b11->msatoshi) {
+        if (b11->msat) {
                 char postfix;
-                if (*b11->msatoshi % MSAT_PER_BTC == 0) {
+		u64 msat = b11->msat->millisatoshis;
+                if (msat % MSAT_PER_BTC == 0) {
                         postfix = '\0';
-                        amount = *b11->msatoshi / MSAT_PER_BTC;
+                        amount = msat / MSAT_PER_BTC;
                 } else {
                         size_t i;
                         for (i = 0; i < ARRAY_SIZE(multipliers)-1; i++) {
-                                if (!(*b11->msatoshi * 10 % multipliers[i].m10))
+                                if (!(msat * 10 % multipliers[i].m10))
                                         break;
                         }
                         postfix = multipliers[i].letter;
-                        amount = *b11->msatoshi * 10 / multipliers[i].m10;
+                        amount = msat * 10 / multipliers[i].m10;
                 }
                 hrp = tal_fmt(tmpctx, "ln%s%"PRIu64"%c",
                               b11->chain->bip173_name, amount, postfix);
