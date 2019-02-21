@@ -15,6 +15,7 @@ PLUGIN_COMMON_OBJS :=				\
 	bitcoin/signature.o			\
 	bitcoin/tx.o				\
 	bitcoin/varint.o			\
+	common/amount.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bolt11.o				\

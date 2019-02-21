@@ -7,6 +7,7 @@
 #include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/amount.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/json_command.h>
@@ -357,6 +358,27 @@ static struct route_info **unpack_routes(const tal_t *ctx,
 }
 #endif /* DEVELOPER */
 
+static struct command_result *param_msat_or_any(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						struct amount_msat **msat)
+{
+	if (json_tok_streq(buffer, tok, "any")) {
+		*msat = NULL;
+		return NULL;
+	}
+	*msat = tal(cmd, struct amount_msat);
+	if (parse_amount_msat(*msat, buffer + tok->start, tok->end - tok->start))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be millisatoshis or 'any', not '%.*s'",
+			    name,
+			    tok->end - tok->start,
+			    buffer + tok->start);
+}
+
 static struct command_result *json_invoice(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -364,7 +386,7 @@ static struct command_result *json_invoice(struct command *cmd,
 {
 	const jsmntok_t *fallbacks;
 	const jsmntok_t *preimagetok;
-	u64 *msatoshi_val;
+	struct amount_msat *msatoshi_val;
 	struct invoice_info *info;
 	const char *desc_val;
 	const u8 **fallback_scripts = NULL;
@@ -380,7 +402,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->cmd = cmd;
 
 	if (!param(cmd, buffer, params,
-		   p_req("msatoshi", param_msat, &msatoshi_val),
+		   p_req("msatoshi", param_msat_or_any, &msatoshi_val),
 		   p_req("label", param_label, &info->label),
 		   p_req("description", param_escaped_string, &desc_val),
 		   p_opt_def("expiry", param_u64, &expiry, 3600),
@@ -409,7 +431,8 @@ static struct command_result *json_invoice(struct command *cmd,
 	}
 
 	chainparams = get_chainparams(cmd->ld);
-	if (msatoshi_val && *msatoshi_val > chainparams->max_payment_msat) {
+	if (msatoshi_val
+	    && msatoshi_val->millisatoshis > chainparams->max_payment_msat) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "msatoshi cannot exceed %"PRIu64
 				    " millisatoshis",
@@ -446,8 +469,11 @@ static struct command_result *json_invoice(struct command *cmd,
 	/* Generate preimage hash. */
 	sha256(&rhash, &info->payment_preimage, sizeof(info->payment_preimage));
 
-	/* Construct bolt11 string. */
-	info->b11 = new_bolt11(info, msatoshi_val);
+	/* FIXME: Make bolt11 take struct amount_msat */
+	if (msatoshi_val)
+		info->b11 = new_bolt11(info, &msatoshi_val->millisatoshis);
+	else
+		info->b11 = new_bolt11(info, NULL);
 	info->b11->chain = chainparams;
 	info->b11->timestamp = time_now().ts.tv_sec;
 	info->b11->payment_hash = rhash;

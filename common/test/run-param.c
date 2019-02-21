@@ -1,4 +1,5 @@
 #include "config.h"
+#include "../amount.c"
 #include "../json.c"
 #include "../json_escaped.c"
 #include "../json_tok.c"
@@ -444,10 +445,10 @@ static void advanced(void)
 
 		assert(param(cmd, j->buffer, j->toks,
 			     p_req("description", param_label, &label),
-			     p_req("msat", param_msat, &msat),
+			     p_req("msat", param_u64, &msat),
 			     p_req("tok", param_tok, &tok),
-			     p_opt("msat_opt1", param_msat, &msat_opt1),
-			     p_opt("msat_opt2", param_msat, &msat_opt2),
+			     p_opt("msat_opt1", param_u64, &msat_opt1),
+			     p_opt("msat_opt2", param_u64, &msat_opt2),
 			     NULL));
 		assert(label != NULL);
 		assert(streq(label->s, "lightning"));
@@ -472,8 +473,8 @@ static void advanced(void)
 		u64 *msat2;
 		struct json *j = json_parse(cmd, "[ 3 ]");
 		assert(param(cmd, j->buffer, j->toks,
-			      p_opt_def("msat", param_msat, &msat, 23),
-			      p_opt_def("msat2", param_msat, &msat2, 53),
+			      p_opt_def("msat", param_u64, &msat, 23),
+			      p_opt_def("msat2", param_u64, &msat2, 53),
 			      NULL));
 		assert(*msat == 3);
 		assert(msat2);
@@ -487,11 +488,10 @@ static void advanced_fail(void)
 		struct json *j = json_parse(cmd, "[ 'anyx' ]");
 		u64 *msat;
 		assert(!param(cmd, j->buffer, j->toks,
-			      p_req("msat", param_msat, &msat),
+			      p_req("msat", param_u64, &msat),
 			      NULL));
 		assert(check_fail());
-		assert(strstr(fail_msg, "'msat' should be a positive"
-			      " number or 'any', not 'anyx'"));
+		assert(strstr(fail_msg, "'msat' should be an unsigned 64 bit integer, not 'anyx'"));
 	}
 }
 
@@ -540,7 +540,7 @@ static void test_invoice(struct command *cmd,
 
 	assert(cmd->mode == CMD_USAGE);
 	if(!param(cmd, buffer, params,
-		  p_req("msatoshi", param_msat, &msatoshi_val),
+		  p_req("msatoshi", param_u64, &msatoshi_val),
 		  p_req("label", param_label, &label_val),
 		  p_req("description", param_escaped_string, &desc_val),
 		  p_opt("expiry", param_u64, &expiry),

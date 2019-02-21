@@ -5,6 +5,8 @@
 #include <ccan/short_types/short_types.h>
 #include <common/json.h>
 
+struct amount_msat;
+struct amount_sat;
 struct command;
 struct command_result;
 struct json_escaped;
@@ -52,11 +54,6 @@ struct command_result *param_sha256(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct sha256 **hash);
 
-/* Extract positive integer, or NULL if tok is 'any'. */
-struct command_result *param_msat(struct command *cmd, const char *name,
-				  const char *buffer, const jsmntok_t * tok,
-				  u64 **msatoshi_val);
-
 /* Extract double in range [0.0, 100.0] */
 struct command_result *param_percent(struct command *cmd, const char *name,
 				     const char *buffer, const jsmntok_t *tok,
@@ -66,6 +63,16 @@ struct command_result *param_percent(struct command *cmd, const char *name,
 struct command_result *param_u64(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 uint64_t **num);
+
+/* Extra msatoshi amount from this string */
+struct command_result *param_msat(struct command *cmd, const char *name,
+				  const char *buffer, const jsmntok_t *tok,
+				  struct amount_msat **msat);
+
+/* Extra satoshi amount from this string */
+struct command_result *param_sat(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 struct amount_sat **sat);
 
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that
