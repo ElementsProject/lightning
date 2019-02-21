@@ -346,10 +346,10 @@ static WARN_UNUSED_RESULT bool risk_add_fee(struct amount_msat *risk,
 	double r;
 
 	/* Won't overflow on add, just lose precision */
-	r = 1.0 + riskfactor * delay * msat.millisatoshis + risk->millisatoshis;
+	r = 1.0 + riskfactor * delay * msat.millisatoshis + risk->millisatoshis; /* Raw: to double */
 	if (r > UINT64_MAX)
 		return false;
-	risk->millisatoshis = r;
+	risk->millisatoshis = r; /* Raw: from double */
 	return true;
 }
 
@@ -406,7 +406,7 @@ static void bfg_one_edge(struct node *node,
 				     c->base_fee, c->proportional_fee))
 			continue;
 
-		if (!fuzz_fee(&fee.millisatoshis, fee_scale))
+		if (!fuzz_fee(&fee.millisatoshis, fee_scale)) /* Raw: double manipulation */
 			continue;
 
 		if (!amount_msat_add(&requiredcap, node->bfg[h].total, fee))

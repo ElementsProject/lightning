@@ -558,7 +558,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 		 * amount required for payment.
 		*/
                 b11->msat = tal(b11, struct amount_msat);
-                b11->msat->millisatoshis = amount * m10 / 10;
+                b11->msat->millisatoshis = amount * m10 / 10; /* Raw: raw amount multiplier calculation */
         }
 
         /* BOLT #11:
@@ -889,7 +889,7 @@ char *bolt11_encode_(const tal_t *ctx,
 	 */
         if (b11->msat) {
                 char postfix;
-		u64 msat = b11->msat->millisatoshis;
+		u64 msat = b11->msat->millisatoshis; /* Raw: best-multiplier calc */
                 if (msat % MSAT_PER_BTC == 0) {
                         postfix = '\0';
                         amount = msat / MSAT_PER_BTC;

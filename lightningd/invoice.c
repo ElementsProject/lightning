@@ -198,9 +198,9 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		}
 
 		/* Avoid divide-by-zero corner case. */
-		wsum += excess.millisatoshis + 1;
+		wsum += excess.millisatoshis + 1; /* Raw: rand select */
 		if (pseudorand(1ULL << 32)
-		    <= ((excess.millisatoshis + 1) << 32) / wsum)
+		    <= ((excess.millisatoshis + 1) << 32) / wsum) /* Raw: rand select */
 			r = &inchans[i];
 	}
 
@@ -289,9 +289,11 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	/* Warn if there's not sufficient incoming capacity. */
 	if (tal_count(info->b11->routes) == 0) {
 		log_unusual(info->cmd->ld->log,
-			    "invoice: insufficient incoming capacity for %"PRIu64
-			    " msatoshis%s",
-			    info->b11->msat ? info->b11->msat->millisatoshis : 0,
+			    "invoice: insufficient incoming capacity for %s%s",
+			    info->b11->msat
+			    ? type_to_string(tmpctx, struct amount_msat,
+					     info->b11->msat)
+			    : "0",
 			    any_offline
 			    ? " (among currently connected peers)" : "");
 

@@ -38,7 +38,7 @@ static void do_generate(int argc, char **argv)
 		hops_data[i].realm = i;
 		memset(&hops_data[i].channel_id, i,
 		       sizeof(hops_data[i].channel_id));
-		hops_data[i].amt_forward.millisatoshis = i;
+		hops_data[i].amt_forward.millisatoshis = i; /* Raw: test code */
 		hops_data[i].outgoing_cltv = i;
 		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
 	}

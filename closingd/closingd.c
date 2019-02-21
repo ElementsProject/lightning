@@ -463,7 +463,7 @@ static struct amount_sat adjust_offer(struct crypto_state *cs,
 			    type_to_string(tmpctx, struct amount_sat,
 					   &feerange->max));
 
-	avg.satoshis /= 2;
+	avg.satoshis /= 2; /* Raw: average calculation */
 	return avg;
 }
 

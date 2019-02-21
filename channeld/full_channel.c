@@ -445,7 +445,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	} else
 		fee = AMOUNT_SAT(0);
 
-	assert((s64)fee.satoshis >= 0);
+	assert((s64)fee.satoshis >= 0); /* Raw: explicit signedness test */
 
 	if (enforce_aggregate_limits) {
 		/* Figure out what balance sender would have after applying all
@@ -788,7 +788,7 @@ u32 approx_max_feerate(const struct channel *channel)
 			    channel->config[!channel->funder].channel_reserve))
 		avail = AMOUNT_SAT(0);
 
-	return avail.satoshis / weight * 1000;
+	return avail.satoshis / weight * 1000; /* Raw: once-off reverse feerate*/
 }
 
 bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw)

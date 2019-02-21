@@ -787,7 +787,7 @@ void wallet_channel_stats_incr_x(struct wallet *w,
 				  "     , %s = COALESCE(%s, 0) + %"PRIu64""
 				  " WHERE id = %"PRIu64";",
 				  payments_stat, payments_stat,
-				  msatoshi_stat, msatoshi_stat, msat.millisatoshis,
+				  msatoshi_stat, msatoshi_stat, msat.millisatoshis, /* Raw: db access */
 				  cdbid);
 	sqlite3_stmt *stmt = db_prepare(w->db, qry);
 	db_exec_prepared(w->db, stmt);

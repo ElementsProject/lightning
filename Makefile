@@ -324,7 +324,13 @@ check-tmpctx:
 check-discouraged-functions:
 	@if git grep -E "[^a-z_/](fgets|fputs|gets|scanf|sprintf)\(" -- "*.c" "*.h" ":(exclude)ccan/"; then exit 1; fi
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions
+# Don't access amount_msat and amount_sat members directly without a good reason
+# since it risks overflow.
+check-amount-access:
+	@! (git grep -nE "(->|\.)(milli)?satoshis" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" | grep -v '/* Raw:')
+	@! git grep -nE "\\(struct amount_(m)?sat\\)" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*"
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access
 
 full-check: check check-source
 

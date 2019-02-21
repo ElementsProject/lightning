@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 	       tal_hexstr(ctx, &b11->payment_hash, sizeof(b11->payment_hash)));
 	printf("min_final_cltv_expiry: %u\n", b11->min_final_cltv_expiry);
         if (b11->msat) {
-		printf("msatoshi: %"PRIu64"\n", b11->msat->millisatoshis);
+		printf("msatoshi: %"PRIu64"\n", b11->msat->millisatoshis); /* Raw: raw int for backwards compat */
 		printf("amount_msat: %s\n",
 		       type_to_string(tmpctx, struct amount_msat, b11->msat));
 	}

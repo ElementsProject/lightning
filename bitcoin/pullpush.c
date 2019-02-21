@@ -29,7 +29,7 @@ void push_le64(u64 v,
 void push_amount_sat(struct amount_sat v,
 		     void (*push)(const void *, size_t, void *), void *pushp)
 {
-	push_le64(v.satoshis, push, pushp);
+	push_le64(v.satoshis, push, pushp); /* Raw: low-level helper */
 }
 
 void push_varint_blob(const tal_t *blob,

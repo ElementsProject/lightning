@@ -366,7 +366,7 @@ static struct amount_sat pull_amount_sat(const u8 **cursor, size_t *max)
 {
 	struct amount_sat sat;
 
-	sat.satoshis = pull_value(cursor, max);
+	sat.satoshis = pull_value(cursor, max); /* Raw: low-level helper */
 	return sat;
 }
 

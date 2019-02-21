@@ -538,11 +538,11 @@ static void json_add_channel(struct lightningd *ld,
 	if (channel->funder == LOCAL) {
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id), 0);
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id),
-			     channel->funding.satoshis * 1000);
+			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
 	} else {
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id), 0);
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id),
-			     channel->funding.satoshis * 1000);
+			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
 	}
 	json_object_end(response);
 

@@ -948,7 +948,7 @@ struct amount_msat sqlite3_column_amount_msat(sqlite3_stmt *stmt, int col)
 {
 	struct amount_msat msat;
 
-	msat.millisatoshis = sqlite3_column_int64(stmt, col);
+	msat.millisatoshis = sqlite3_column_int64(stmt, col); /* Raw: low level function */
 	return msat;
 }
 
@@ -956,18 +956,18 @@ struct amount_sat sqlite3_column_amount_sat(sqlite3_stmt *stmt, int col)
 {
 	struct amount_sat sat;
 
-	sat.satoshis = sqlite3_column_int64(stmt, col);
+	sat.satoshis = sqlite3_column_int64(stmt, col); /* Raw: low level function */
 	return sat;
 }
 
 void sqlite3_bind_amount_msat(sqlite3_stmt *stmt, int col,
 			      struct amount_msat msat)
 {
-	sqlite3_bind_int64(stmt, col, msat.millisatoshis);
+	sqlite3_bind_int64(stmt, col, msat.millisatoshis); /* Raw: low level function */
 }
 
 void sqlite3_bind_amount_sat(sqlite3_stmt *stmt, int col,
 			     struct amount_sat sat)
 {
-	sqlite3_bind_int64(stmt, col, sat.satoshis);
+	sqlite3_bind_int64(stmt, col, sat.satoshis); /* Raw: low level function */
 }

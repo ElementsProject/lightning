@@ -464,7 +464,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				return KEEP_WATCHING;
 			}
 
-		feerate = fee.satoshis / measure_tx_weight(tx);
+		feerate = fee.satoshis / measure_tx_weight(tx); /* Raw: reverse feerate extraction */
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
