@@ -7,6 +7,7 @@ from lightning import LightningRpc
 
 import json
 import logging
+import lzma
 import os
 import random
 import re
@@ -753,7 +754,8 @@ class NodeFactory(object):
 
     def get_node(self, disconnect=None, options=None, may_fail=False,
                  may_reconnect=False, random_hsm=False,
-                 feerates=(15000, 7500, 3750), start=True, log_all_io=False):
+                 feerates=(15000, 7500, 3750), start=True, log_all_io=False,
+                 dbfile=None):
         with self.lock:
             node_id = self.next_id
             self.next_id += 1
@@ -811,6 +813,11 @@ class NodeFactory(object):
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
             ]
+
+        if dbfile:
+            out = open(os.path.join(node.daemon.lightning_dir, 'lightningd.sqlite3'), 'xb')
+            with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
+                out.write(f.read())
 
         if start:
             try:
