@@ -830,7 +830,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	struct pubkey *id;
 	struct peer *peer;
 	struct channel *channel;
-	u32 *feerate_per_kw;
+	u32 *feerate_per_kw, *minconf, maxheight;
 	bool *announce_channel;
 	u8 *msg;
 	struct amount_sat max_funding_satoshi;
@@ -845,6 +845,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 		   p_req("satoshi", param_wtx, &fc->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
+		   p_opt_def("minconf", param_number, &minconf, 0),
 		   NULL))
 		return command_param_failed();
 
@@ -890,8 +891,9 @@ static struct command_result *json_fund_channel(struct command *cmd,
 			type_to_string(fc, struct pubkey, id));
 	}
 
+	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
 	res = wtx_select_utxos(&fc->wtx, *feerate_per_kw,
-			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN, 0);
+			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN, maxheight);
 	if (res)
 		return res;
 
@@ -917,9 +919,9 @@ static struct command_result *json_fund_channel(struct command *cmd,
 }
 
 static const struct json_command fund_channel_command = {
-	"fundchannel",
-	json_fund_channel,
-	"Fund channel with {id} using {satoshi} (or 'all') satoshis, at optional {feerate}"
+    "fundchannel", json_fund_channel,
+    "Fund channel with {id} using {satoshi} (or 'all') satoshis, at optional "
+    "{feerate}. Only use outputs that have {minconf} confirmations."
 };
 AUTODATA(json_command, &fund_channel_command);
 
