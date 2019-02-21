@@ -16,7 +16,7 @@ def init(configuration, options, plugin):
     plugin.requests = []
 
 
-@plugin.method('asyncqueue', sync=False)
+@plugin.async_method('asyncqueue')
 def async_queue(request, plugin):
     plugin.requests.append(request)
 
