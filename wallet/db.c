@@ -20,6 +20,8 @@ struct migration {
 	void (*func)(struct lightningd *ld, struct db *db);
 };
 
+void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -367,6 +369,10 @@ static struct migration dbmigrations[] = {
 	{ "ALTER TABLE outputs ADD scriptpubkey BLOB;", NULL },
 	/* Keep bolt11 string for payments. */
 	{ "ALTER TABLE payments ADD bolt11 TEXT;", NULL },
+	/* PR #2342 feerate per channel */
+	{ "ALTER TABLE channels ADD feerate_base INTEGER;", NULL },
+	{ "ALTER TABLE channels ADD feerate_ppm INTEGER;", NULL },
+	{ NULL, migrate_pr2342_feerate_per_channel },
 };
 
 /* Leak tracking. */
@@ -971,4 +977,13 @@ void sqlite3_bind_amount_sat(sqlite3_stmt *stmt, int col,
 			     struct amount_sat sat)
 {
 	sqlite3_bind_int64(stmt, col, sat.satoshis); /* Raw: low level function */
+}
+
+/* Will apply the current config fee settings to all channels */
+void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
+{
+	db_exec(__func__, db,
+			"UPDATE channels SET feerate_base = %u, feerate_ppm = %u;",
+			ld->config.fee_base,
+			ld->config.fee_per_satoshi);
 }
