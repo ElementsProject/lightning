@@ -194,6 +194,9 @@ class Plugin(object):
                 if pos < len(params):
                     # Apply positional args if we have them
                     arguments[k] = params[pos]
+                elif sig.parameters[k].default is inspect.Signature.empty:
+                    # This is a positional arg with no value passed
+                    raise TypeError("Missing required parameter: %s" % sig.parameters[k])
                 else:
                     # For the remainder apply default args
                     arguments[k] = sig.parameters[k].default
