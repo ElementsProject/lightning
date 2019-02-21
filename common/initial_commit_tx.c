@@ -166,7 +166,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 */
 	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
-		tx->output[n].amount = amount_msat_to_sat_round_down(self_pay).satoshis;
+		tx->output[n].amount = amount_msat_to_sat_round_down(self_pay);
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 		n++;
 	}
@@ -185,7 +185,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		 * This output sends funds to the other peer and thus is a simple
 		 * P2WPKH to `remotepubkey`.
 		 */
-		tx->output[n].amount = amount_msat_to_sat_round_down(other_pay).satoshis;
+		tx->output[n].amount = amount_msat_to_sat_round_down(other_pay);
 		tx->output[n].script = scriptpubkey_p2wpkh(tx,
 						   &keyset->other_payment_key);
 		n++;
@@ -234,7 +234,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		= (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
 
 	/* Input amount needed for signature code. */
-	tx->input[0].amount = tal_dup(tx->input, u64, &funding.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &funding);
 
 	return tx;
 }

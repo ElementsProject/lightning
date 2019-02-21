@@ -16,7 +16,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, 1, 1);
 	u8 *wscript;
-	struct amount_sat amount, out_amount;
+	struct amount_sat amount;
 
 	/* BOLT #3:
 	 *
@@ -49,7 +49,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 
 	/* We need amount for signing. */
 	amount = amount_msat_to_sat_round_down(msat);
-	tx->input[0].amount = tal_dup(tx, u64, &amount.satoshis);
+	tx->input[0].amount = tal_dup(tx, struct amount_sat, &amount);
 
 	/* BOLT #3:
 	 *    * `txin[0]` sequence: `0`
@@ -63,10 +63,9 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 *    * `txout[0]` script: version-0 P2WSH with witness script as shown
 	 *       below
 	 */
-	if (!amount_sat_sub(&out_amount, amount, htlc_fee))
+	if (!amount_sat_sub(&tx->output[0].amount, amount, htlc_fee))
 		abort();
 
-	tx->output[0].amount = out_amount.satoshis;
 	wscript = bitcoin_wscript_htlc_tx(tx, to_self_delay,
 					  revocation_pubkey, local_delayedkey);
 	tx->output[0].script = scriptpubkey_p2wsh(tx, wscript);

@@ -3,11 +3,14 @@
 #include "config.h"
 #include "bitcoin/varint.h"
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 
 void push_varint(varint_t v,
 		 void (*push)(const void *, size_t, void *), void *pushp);
 void push_le32(u32 v, void (*push)(const void *, size_t, void *), void *pushp);
 void push_le64(u64 v, void (*push)(const void *, size_t, void *), void *pushp);
+void push_amount_sat(struct amount_sat v,
+		     void (*push)(const void *, size_t, void *), void *pushp);
 void push_varint_blob(const tal_t *blob,
 		      void (*push)(const void *, size_t, void *),
 		      void *pushp);

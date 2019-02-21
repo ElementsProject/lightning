@@ -114,7 +114,6 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 			      u64 weight)
 {
 	struct amount_sat prev_fee = AMOUNT_SAT(UINT64_MAX);
-	struct amount_sat input_amount = (struct amount_sat){*tx->input[0].amount};
 
 	for (u64 i = min_possible_feerate; i <= max_possible_feerate; i++) {
 		/* BOLT #3:
@@ -138,10 +137,10 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 			continue;
 
 		prev_fee = *fee;
-		if (!amount_sat_sub(&out, input_amount, *fee))
+		if (!amount_sat_sub(&out, *tx->input[0].amount, *fee))
 			break;
 
-		tx->output[0].amount = out.satoshis;
+		tx->output[0].amount = out;
 		if (!check_tx_sig(tx, 0, NULL, wscript,
 				  &keyset->other_htlc_key, remotesig))
 			continue;
@@ -158,7 +157,6 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 				 const u8 *wscript)
 {
 	static struct amount_sat fee = AMOUNT_SAT(UINT64_MAX);
-	struct amount_sat out;
 
 	/* BOLT #3:
 	 *
@@ -170,13 +168,11 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX)))
 		return grind_htlc_tx_fee(&fee, tx, remotesig, wscript, 663);
 
-	out.satoshis = tx->output[0].amount;
-	if (!amount_sat_sub(&out, out, fee))
+	if (!amount_sat_sub(&tx->output[0].amount, tx->output[0].amount, fee))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot deduct htlc-timeout fee %s from tx %s",
 			      type_to_string(tmpctx, struct amount_sat, &fee),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
-	tx->output[0].amount = out.satoshis;
 	return check_tx_sig(tx, 0, NULL, wscript,
 			    &keyset->other_htlc_key, remotesig);
 }
@@ -186,7 +182,6 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 				 const u8 *wscript)
 {
 	static struct amount_sat fee = AMOUNT_SAT(UINT64_MAX);
-	struct amount_sat out;
 
 	/* BOLT #3:
 	 *
@@ -209,13 +204,11 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 		return;
 	}
 
-	out.satoshis = tx->output[0].amount;
-	if (!amount_sat_sub(&out, out, fee))
+	if (!amount_sat_sub(&tx->output[0].amount, tx->output[0].amount, fee))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot deduct htlc-success fee %s from tx %s",
 			      type_to_string(tmpctx, struct amount_sat, &fee),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
-	tx->output[0].amount = out.satoshis;
 
 	if (check_tx_sig(tx, 0, NULL, wscript,
 			 &keyset->other_htlc_key, remotesig))
@@ -256,7 +249,7 @@ static u8 *delayed_payment_to_us(const tal_t *ctx,
 {
 	return towire_hsm_sign_delayed_payment_to_us(ctx, commit_num,
 						     tx, wscript,
-						     (struct amount_sat){*tx->input[0].amount});
+						     *tx->input[0].amount);
 }
 
 static u8 *remote_htlc_to_us(const tal_t *ctx,
@@ -266,7 +259,7 @@ static u8 *remote_htlc_to_us(const tal_t *ctx,
 	return towire_hsm_sign_remote_htlc_to_us(ctx,
 						 remote_per_commitment_point,
 						 tx, wscript,
-						 (struct amount_sat){*tx->input[0].amount});
+						 *tx->input[0].amount);
 }
 
 static u8 *penalty_to_us(const tal_t *ctx,
@@ -274,7 +267,7 @@ static u8 *penalty_to_us(const tal_t *ctx,
 			 const u8 *wscript)
 {
 	return towire_hsm_sign_penalty_to_us(ctx, remote_per_commitment_secret,
-					     tx, wscript, (struct amount_sat){*tx->input[0].amount});
+					     tx, wscript, *tx->input[0].amount);
 }
 
 /*
@@ -299,7 +292,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 				   enum tx_type *tx_type)
 {
 	struct bitcoin_tx *tx;
-	struct amount_sat fee, min_out, outsat;
+	struct amount_sat fee, min_out;
 	struct bitcoin_signature sig;
 	size_t weight;
 	u8 *msg;
@@ -309,9 +302,9 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	tx->input[0].sequence_number = to_self_delay;
 	tx->input[0].txid = out->txid;
 	tx->input[0].index = out->outnum;
-	tx->input[0].amount = tal_dup(tx->input, u64, &out->sat.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &out->sat);
 
-	tx->output[0].amount = out->sat.satoshis;
+	tx->output[0].amount = out->sat;
 	tx->output[0].script = scriptpubkey_p2wpkh(tx->output,
 						   &our_wallet_pubkey);
 
@@ -340,14 +333,14 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	/* This can only happen if feerate_floor() is still too high; shouldn't
 	 * happen! */
-	if (!amount_sat_sub(&outsat, out->sat, fee)) {
-		outsat = dust_limit;
+	if (!amount_sat_sub(&tx->output[0].amount, out->sat, fee)) {
+		tx->output[0].amount = dust_limit;
 		status_broken("TX %s can't afford minimal feerate"
 			      "; setting output to %s",
 			      tx_type_name(*tx_type),
-			       type_to_string(tmpctx, struct amount_sat, &outsat));
+			      type_to_string(tmpctx, struct amount_sat,
+					     &tx->output[0].amount));
 	}
-	tx->output[0].amount = outsat.satoshis;
 
 	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg(NULL, tx, wscript))))
 		status_failed(STATUS_FAIL_HSM_IO, "Writing sign request to hsm");
@@ -371,7 +364,7 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 {
 	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
 					  tx, wscript,
-					  (struct amount_sat){*tx->input[0].amount});
+					  *tx->input[0].amount);
 
 	if (!wire_sync_write(HSM_FD, take(msg)))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -406,16 +399,14 @@ static struct tracked_output *
 			   u32 tx_blockheight,
 			   enum tx_type tx_type,
 			   u32 outnum,
-			   u64 satoshi,
+			   struct amount_sat sat,
 			   enum output_type output_type,
 			   const struct htlc_stub *htlc,
 			   const u8 *wscript,
 			   const secp256k1_ecdsa_signature *remote_htlc_sig)
 {
 	struct tracked_output *out = tal(*outs, struct tracked_output);
-	struct amount_sat sat;
 
-	sat.satoshis = satoshi;
 	status_trace("Tracking output %u of %s: %s/%s",
 		     outnum,
 		     type_to_string(tmpctx, struct bitcoin_txid, txid),
@@ -2030,7 +2021,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
 						    tmpctx, txid, i,
 						    remote_per_commitment_point,
-						    (struct amount_sat){tx->output[i].amount},
+						    tx->output[i].amount,
 						    tx_blockheight));
 			continue;
 		}
@@ -2242,7 +2233,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
 						    tmpctx, txid, i,
 						    remote_per_commitment_point,
-						    (struct amount_sat){tx->output[i].amount},
+						    tx->output[i].amount,
 						    tx_blockheight));
 			continue;
 		}
@@ -2371,7 +2362,7 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
 						    tmpctx, txid, i,
 						    possible_remote_per_commitment_point,
-						    (struct amount_sat){tx->output[i].amount},
+						    tx->output[i].amount,
 						    tx_blockheight));
 			to_us_output = i;
 		}
@@ -2485,7 +2476,7 @@ int main(int argc, char *argv[])
 			   0, /* We don't care about funding blockheight */
 			   FUNDING_TRANSACTION,
 			   tx->input[0].index,
-			   funding.satoshis,
+			   funding,
 			   FUNDING_OUTPUT, NULL, NULL, NULL);
 
 	status_trace("Remote per-commit point: %s",

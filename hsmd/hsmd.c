@@ -759,7 +759,7 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	 * pointer, as we don't always know it (and zero is a valid amount, so
 	 * NULL is better to mean 'unknown' and has the nice property that
 	 * you'll crash if you assume it's there and you're wrong. */
-	tx->input[0].amount = tal_dup(tx->input, u64, &funding.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
@@ -804,7 +804,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey);
 	/* Need input amount for signing */
-	tx->input[0].amount = tal_dup(tx->input, u64, &funding.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
@@ -853,7 +853,7 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 				   "Failed deriving htlc pubkey");
 
 	/* Need input amount for signing */
-	tx->input[0].amount = tal_dup(tx->input, u64, &amount.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &amount);
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      SIGHASH_ALL, &sig);
 
@@ -880,7 +880,7 @@ static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 	if (tal_count(tx->input) != 1)
 		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 
-	tx->input[0].amount = tal_dup(tx->input, u64, &input_sat.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &input_sat);
 	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, SIGHASH_ALL, &sig);
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
@@ -1079,7 +1079,7 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 
 	/* FIXME: Check that output script is correct! */
-	tx->input[0].amount = tal_dup(tx->input, u64, &input_sat.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &input_sat);
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      SIGHASH_ALL, &sig);
 
@@ -1194,7 +1194,7 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey);
 	/* Need input amount for signing */
-	tx->input[0].amount = tal_dup(tx->input, u64, &funding.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
@@ -1394,8 +1394,8 @@ static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
 			 * ccan/cast which ensures the type is correct and
 			 * we're not casting something random */
 			cast_const2(const struct utxo **, utxos),
-			satoshi_out.satoshis, &local_pubkey, &remote_pubkey,
-			change_out.satoshis, changekey,
+			satoshi_out, &local_pubkey, &remote_pubkey,
+			change_out, changekey,
 			NULL);
 
 	sign_all_inputs(tx, utxos);
@@ -1428,8 +1428,8 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(tmpctx, cast_const2(const struct utxo **, utxos),
-			 scriptpubkey, satoshi_out.satoshis,
-			 &changekey, change_out.satoshis, NULL);
+			 scriptpubkey, satoshi_out,
+			 &changekey, change_out, NULL);
 
 	sign_all_inputs(tx, utxos);
 

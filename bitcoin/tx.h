@@ -7,6 +7,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 
 struct bitcoin_txid {
 	struct sha256_double shad;
@@ -22,7 +23,7 @@ struct bitcoin_tx {
 };
 
 struct bitcoin_tx_output {
-	u64 amount;
+	struct amount_sat amount;
 	u8 *script;
 };
 
@@ -33,7 +34,7 @@ struct bitcoin_tx_input {
 	u32 sequence_number;
 
 	/* Value of the output we're spending (NULL if unknown). */
-	u64 *amount;
+	struct amount_sat *amount;
 
 	/* Only if BIP141 used. */
 	u8 **witness;

@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 
 struct bitcoin_tx;
 struct ext_key;
@@ -15,10 +16,10 @@ struct utxo;
  * @ctx: context to tal from.
  * @outnum: (out) txout (0 or 1) which is the funding output.
  * @utxomap: (in/out) tal_arr of UTXO pointers to spend (permuted to match)
- * @funding_satoshis: (in) satoshis to output.
+ * @funding: (in) satoshis to output.
  * @local_fundingkey: (in) local key for 2of2 funding output.
  * @remote_fundingkey: (in) remote key for 2of2 funding output.
- * @change_satoshis: (in) amount to send as change.
+ * @change: (in) amount to send as change.
  * @changekey: (in) key to send change to (only used if change_satoshis != 0).
  * @bip32_base: (in) bip32 base for key derivation, or NULL.
  *
@@ -34,10 +35,10 @@ struct utxo;
 struct bitcoin_tx *funding_tx(const tal_t *ctx,
 			      u16 *outnum,
 			      const struct utxo **utxomap,
-			      u64 funding_satoshis,
+			      struct amount_sat funding,
 			      const struct pubkey *local_fundingkey,
 			      const struct pubkey *remote_fundingkey,
-			      u64 change_satoshis,
+			      struct amount_sat change,
 			      const struct pubkey *changekey,
 			      const struct ext_key *bip32_base);
 #endif /* LIGHTNING_COMMON_FUNDING_TX_H */

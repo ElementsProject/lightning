@@ -452,7 +452,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		struct amount_sat fee = channel->funding;
 		for (size_t i = 0; i < tal_count(channel->last_tx->output); i++)
 			if (!amount_sat_sub(&fee, fee,
-					    (struct amount_sat) {channel->last_tx->output[i].amount})) {
+					    channel->last_tx->output[i].amount)) {
 				log_broken(channel->log, "Could not get fee"
 					   " funding %s tx %s",
 					   type_to_string(tmpctx,

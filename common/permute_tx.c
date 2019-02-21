@@ -107,8 +107,8 @@ static bool output_better(const struct bitcoin_tx_output *a,
 	size_t len, lena, lenb;
 	int ret;
 
-	if (a->amount != b->amount)
-		return a->amount < b->amount;
+	if (!amount_sat_eq(a->amount, b->amount))
+		return amount_sat_less(a->amount, b->amount);
 
 	/* Lexicographical sort. */
 	lena = tal_count(a->script);

@@ -1144,7 +1144,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo = tal(w, struct utxo);
 		utxo->keyindex = index;
 		utxo->is_p2sh = is_p2sh;
-		utxo->amount.satoshis = tx->output[output].amount;
+		utxo->amount = tx->output[output].amount;
 		utxo->status = output_state_available;
 		bitcoin_txid(tx, &utxo->txid);
 		utxo->outnum = output;
@@ -1153,8 +1153,10 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
 
-		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s%s",
-			  output, tx->output[output].amount,
+		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s",
+			  output,
+			  type_to_string(tmpctx, struct amount_sat,
+					 &tx->output[output].amount),
 			  is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->txid), blockheight ? " CONFIRMED" : "");

@@ -22,7 +22,7 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 {
 	struct amount_sat fee = sat_in;
 	for (size_t i = 0; i < tal_count(tx->output); i++) {
-		if (!amount_sat_sub(&fee, fee, (struct amount_sat){tx->output[i].amount}))
+		if (!amount_sat_sub(&fee, fee, tx->output[i].amount))
 			fatal("Tx spends more than input %s? %s",
 			      type_to_string(tmpctx, struct amount_sat, &sat_in),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));

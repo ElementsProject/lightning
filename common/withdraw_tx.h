@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 
 struct bitcoin_tx;
 struct ext_key;
@@ -19,15 +20,15 @@ struct utxo;
  * @destination: (in) tal_arr of u8, scriptPubKey to send to.
  * @amount: (in) satoshis to send to the destination
  * @changekey: (in) key to send change to (only used if change_satoshis != 0).
- * @changesat: (in) amount to send as change.
+ * @change: (in) amount to send as change.
  * @bip32_base: (in) bip32 base for key derivation, or NULL.
  */
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct utxo **utxos,
 			       u8 *destination,
-			       const u64 withdraw_amount,
+			       struct amount_sat withdraw_amount,
 			       const struct pubkey *changekey,
-			       const u64 changesat,
+			       struct amount_sat change,
 			       const struct ext_key *bip32_base);
 
 #endif /* LIGHTNING_COMMON_WITHDRAW_TX_H */
