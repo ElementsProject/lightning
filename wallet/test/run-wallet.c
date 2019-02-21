@@ -112,11 +112,6 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 /* Generated stub for get_chainparams */
 const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "get_chainparams called!\n"); abort(); }
-/* Generated stub for invoices_autoclean_set */
-void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
-			    u64 cycle_seconds UNNEEDED,
-			    u64 expired_by UNNEEDED)
-{ fprintf(stderr, "invoices_autoclean_set called!\n"); abort(); }
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
@@ -255,6 +250,10 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_s32 */
+void json_add_s32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  int32_t value UNNEEDED)
+{ fprintf(stderr, "json_add_s32 called!\n"); abort(); }
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
@@ -271,6 +270,10 @@ void json_add_timeabs(struct json_stream *result UNNEEDED, const char *fieldname
 void json_add_txid(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "json_add_txid called!\n"); abort(); }
+/* Generated stub for json_add_u32 */
+void json_add_u32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  uint32_t value UNNEEDED)
+{ fprintf(stderr, "json_add_u32 called!\n"); abort(); }
 /* Generated stub for json_add_u64 */
 void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  uint64_t value UNNEEDED)
@@ -332,10 +335,6 @@ bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 /* Generated stub for json_to_preimage */
 bool json_to_preimage(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_to_preimage called!\n"); abort(); }
-/* Generated stub for json_to_pubkey */
-bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		    struct pubkey *pubkey UNNEEDED)
-{ fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
 /* Generated stub for json_to_short_channel_id */
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED,
