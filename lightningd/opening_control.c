@@ -69,7 +69,7 @@ struct funding_channel {
 	struct command *cmd; /* Which initially owns us until openingd request */
 
 	struct wallet_tx wtx;
-	u64 push_msat;
+	struct amount_msat push;
 	u8 channel_flags;
 
 	/* Variables we need to compose fields in cmd's response */
@@ -110,7 +110,7 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc,
 void json_add_uncommitted_channel(struct json_stream *response,
 				  const struct uncommitted_channel *uc)
 {
-	u64 msatoshi_total, our_msatoshi;
+	struct amount_msat total, ours;
 	if (!uc)
 		return;
 
@@ -128,12 +128,14 @@ void json_add_uncommitted_channel(struct json_stream *response,
 		json_array_end(response);
 	}
 
-	msatoshi_total = uc->fc->wtx.amount.satoshis * 1000;
-	our_msatoshi = msatoshi_total - uc->fc->push_msat;
-	json_add_amount_msat(response, (struct amount_msat){our_msatoshi},
+	/* These should never fail. */
+	if (amount_sat_to_msat(&total, uc->fc->wtx.amount)
+	    && amount_msat_sub(&ours, total, uc->fc->push)) {
+		json_add_amount_msat(response, ours,
 			     "msatoshi_to_us", "to_us_msat");
-	json_add_amount_msat(response, (struct amount_msat){msatoshi_total},
-			     "msatoshi_total", "total_msat");
+		json_add_amount_msat(response, total,
+				     "msatoshi_total", "total_msat");
+	}
 	json_object_end(response);
 }
 
@@ -146,14 +148,14 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct bitcoin_signature *remote_commit_sig,
 		      const struct bitcoin_txid *funding_txid,
 		      u16 funding_outnum,
-		      u64 funding_satoshi,
-		      u64 push_msat,
+		      struct amount_sat funding,
+		      struct amount_msat push,
 		      u8 channel_flags,
 		      struct channel_info *channel_info,
 		      u32 feerate)
 {
 	struct channel *channel;
-	u64 our_msatoshi;
+	struct amount_msat our_msat;
 	s64 final_key_idx;
 
 	/* Get a key to use for closing outputs from this tx */
@@ -163,10 +165,17 @@ wallet_commit_channel(struct lightningd *ld,
 		return NULL;
 	}
 
-	if (uc->fc)
-		our_msatoshi = funding_satoshi * 1000 - push_msat;
-	else
-		our_msatoshi = push_msat;
+	if (uc->fc) {
+		if (!amount_sat_sub_msat(&our_msat, funding, push)) {
+			log_broken(uc->log, "push %s exceeds funding %s",
+				   type_to_string(tmpctx, struct amount_msat,
+						  &push),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &funding));
+			return NULL;
+		}
+	} else
+		our_msat = push;
 
 	/* Feerates begin identical. */
 	channel_info->feerate_per_kw[LOCAL]
@@ -188,17 +197,17 @@ wallet_commit_channel(struct lightningd *ld,
 			      1, 1, 0,
 			      funding_txid,
 			      funding_outnum,
-			      funding_satoshi,
-			      push_msat,
+			      funding,
+			      push,
 			      false, /* !remote_funding_locked */
 			      NULL, /* no scid yet */
 			      /* The three arguments below are msatoshi_to_us,
 			       * msatoshi_to_us_min, and msatoshi_to_us_max.
 			       * Because, this is a newly-funded channel,
 			       * all three are same value. */
-			      our_msatoshi,
-			      our_msatoshi, /* msatoshi_to_us_min */
-			      our_msatoshi, /* msatoshi_to_us_max */
+			      our_msat,
+			      our_msat, /* msat_to_us_min */
+			      our_msat, /* msat_to_us_max */
 			      remote_commit,
 			      remote_commit_sig,
 			      NULL, /* No HTLC sigs yet */
@@ -305,7 +314,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &channel_info.remote_fundingkey,
 					   &expected_txid,
 					   &feerate,
-					   &fc->uc->our_config.channel_reserve.satoshis)) {
+					   &fc->uc->our_config.channel_reserve)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -387,8 +396,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&remote_commit_sig,
 					&funding_txid,
 					funding_outnum,
-					fc->wtx.amount.satoshis,
-					fc->push_msat,
+					fc->wtx.amount,
+					fc->push,
 					fc->channel_flags,
 					&channel_info,
 					feerate);
@@ -401,8 +410,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* Get HSM to sign the funding tx. */
 	log_debug(channel->log, "Getting HSM to sign funding tx");
 
-	msg = towire_hsm_sign_funding(tmpctx, channel->funding_satoshi,
-				      fc->wtx.change.satoshis,
+	msg = towire_hsm_sign_funding(tmpctx, channel->funding,
+				      fc->wtx.change,
 				      fc->wtx.change_key_index,
 				      &fc->uc->local_funding_pubkey,
 				      &channel_info.remote_fundingkey,
@@ -466,7 +475,8 @@ static void opening_fundee_finished(struct subd *openingd,
 	struct lightningd *ld = openingd->ld;
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
-	u64 funding_satoshi, push_msat;
+	struct amount_sat funding;
+	struct amount_msat push;
 	u32 feerate;
 	u8 channel_flags;
 	struct channel *channel;
@@ -490,12 +500,12 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &channel_info.remote_fundingkey,
 					   &funding_txid,
 					   &funding_outnum,
-					   &funding_satoshi,
-					   &push_msat,
+					   &funding,
+					   &push,
 					   &channel_flags,
 					   &feerate,
 					   &funding_signed,
-					   &uc->our_config.channel_reserve.satoshis)) {
+					   &uc->our_config.channel_reserve)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		uncommitted_channel_disconnect(uc, "bad OPENING_FUNDEE_REPLY");
@@ -515,8 +525,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					&remote_commit_sig,
 					&funding_txid,
 					funding_outnum,
-					funding_satoshi,
-					push_msat,
+					funding,
+					push,
 					channel_flags,
 					&channel_info,
 					feerate);
@@ -787,7 +797,7 @@ void peer_start_openingd(struct peer *peer,
 				  &get_chainparams(peer->ld)->genesis_blockhash,
 				  &uc->our_config,
 				  max_to_self_delay,
-				  min_effective_htlc_capacity.millisatoshis,
+				  min_effective_htlc_capacity,
 				  cs, &uc->local_basepoints,
 				  &uc->local_funding_pubkey,
 				  uc->minimum_depth,
@@ -872,7 +882,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	}
 
 	/* FIXME: Support push_msat? */
-	fc->push_msat = 0;
+	fc->push = AMOUNT_MSAT(0);
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
 	if (!*announce_channel) {
 		fc->channel_flags &= ~CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
@@ -891,10 +901,10 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	fc->uc = peer->uncommitted_channel;
 
 	msg = towire_opening_funder(NULL,
-				    fc->wtx.amount.satoshis,
-				    fc->push_msat,
+				    fc->wtx.amount,
+				    fc->push,
 				    *feerate_per_kw,
-				    fc->wtx.change.satoshis,
+				    fc->wtx.change,
 				    fc->wtx.change_key_index,
 				    fc->channel_flags,
 				    fc->wtx.utxos,

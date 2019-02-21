@@ -234,7 +234,7 @@ struct outpoint {
 	u32 blockheight;
 	u32 txindex;
 	u32 outnum;
-	u64 satoshis;
+	struct amount_sat sat;
 	u8 *scriptpubkey;
 	u32 spendheight;
 };
@@ -242,9 +242,9 @@ struct outpoint {
 /* Statistics for a channel */
 struct channel_stats {
 	u64  in_payments_offered,  in_payments_fulfilled;
-	u64  in_msatoshi_offered,  in_msatoshi_fulfilled;
+	struct amount_msat  in_msatoshi_offered,  in_msatoshi_fulfilled;
 	u64 out_payments_offered, out_payments_fulfilled;
-	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
+	struct amount_msat out_msatoshi_offered, out_msatoshi_fulfilled;
 };
 
 struct channeltx {
@@ -435,10 +435,10 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w);
  * @cdbid: channel database id
  * @msatoshi: amount in msatoshi being transferred
  */
-void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
-void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
-void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
-void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
+void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
+void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
+void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
 
 /**
  * wallet_channel_stats_load - Load channel statistics

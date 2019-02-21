@@ -145,14 +145,14 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_htlc_id,
 			    const struct bitcoin_txid *funding_txid,
 			    u16 funding_outnum,
-			    u64 funding_satoshi,
-			    u64 push_msat,
+			    struct amount_sat funding,
+			    struct amount_msat push,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
-			    u64 our_msatoshi,
-			    u64 msatoshi_to_us_min,
-			    u64 msatoshi_to_us_max,
+			    struct amount_msat our_msat,
+			    struct amount_msat msat_to_us_min,
+			    struct amount_msat msat_to_us_max,
 			    /* Stolen */
 			    struct bitcoin_tx *last_tx,
 			    const struct bitcoin_signature *last_sig,
@@ -210,13 +210,13 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_htlc_id = next_htlc_id;
 	channel->funding_txid = *funding_txid;
 	channel->funding_outnum = funding_outnum;
-	channel->funding_satoshi = funding_satoshi;
-	channel->push_msat = push_msat;
+	channel->funding = funding;
+	channel->push = push;
 	channel->remote_funding_locked = remote_funding_locked;
 	channel->scid = tal_steal(channel, scid);
-	channel->our_msatoshi = our_msatoshi;
-	channel->msatoshi_to_us_min = msatoshi_to_us_min;
-	channel->msatoshi_to_us_max = msatoshi_to_us_max;
+	channel->our_msat = our_msat;
+	channel->msat_to_us_min = msat_to_us_min;
+	channel->msat_to_us_max = msat_to_us_max;
 	channel->last_tx = tal_steal(channel, last_tx);
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);

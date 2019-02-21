@@ -10,7 +10,7 @@
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 {
 	towire_u64(pptr, added->id);
-	towire_u64(pptr, added->amount_msat);
+	towire_amount_msat(pptr, added->amount);
  	towire_sha256(pptr, &added->payment_hash);
 	towire_u32(pptr, added->cltv_expiry);
 	towire(pptr, added->onion_routing_packet,
@@ -77,7 +77,7 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added)
 {
 	added->id = fromwire_u64(cursor, max);
-	added->amount_msat = fromwire_u64(cursor, max);
+	added->amount = fromwire_amount_msat(cursor, max);
 	fromwire_sha256(cursor, max, &added->payment_hash);
 	added->cltv_expiry = fromwire_u32(cursor, max);
 	fromwire(cursor, max, added->onion_routing_packet,

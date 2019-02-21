@@ -17,6 +17,19 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
+static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
+				     const struct bitcoin_tx *tx)
+{
+	struct amount_sat fee = sat_in;
+	for (size_t i = 0; i < tal_count(tx->output); i++) {
+		if (!amount_sat_sub(&fee, fee, (struct amount_sat){tx->output[i].amount}))
+			fatal("Tx spends more than input %s? %s",
+			      type_to_string(tmpctx, struct amount_sat, &sat_in),
+			      type_to_string(tmpctx, struct bitcoin_tx, tx));
+	}
+	return fee;
+}
+
 /* Is this better than the last tx we were holding?  This can happen
  * even without closingd misbehaving, if we have multiple,
  * interrupted, rounds of negotiation. */
@@ -24,22 +37,19 @@ static bool better_closing_fee(struct lightningd *ld,
 			       struct channel *channel,
 			       const struct bitcoin_tx *tx)
 {
-	u64 weight, fee, last_fee, min_fee;
+	struct amount_sat fee, last_fee, min_fee;
+	u64 weight;
 	u32 min_feerate;
-	size_t i;
 	bool feerate_unknown;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
-	fee = channel->funding_satoshi;
-	for (i = 0; i < tal_count(tx->output); i++)
-		fee -= tx->output[i].amount;
+	fee = calc_tx_fee(channel->funding, tx);
+	last_fee = calc_tx_fee(channel->funding, channel->last_tx);
 
-	last_fee = channel->funding_satoshi;
-	for (i = 0; i < tal_count(channel->last_tx->output); i++)
-		last_fee -= channel->last_tx->output[i].amount;
-
-	log_debug(channel->log, "Their actual closing tx fee is %"PRIu64
-		 " vs previous %"PRIu64, fee, last_fee);
+	log_debug(channel->log, "Their actual closing tx fee is %s"
+		 " vs previous %s",
+		  type_to_string(tmpctx, struct amount_sat, &fee),
+		  type_to_string(tmpctx, struct amount_sat, &last_fee));
 
 	/* Weight once we add in sigs. */
 	weight = measure_tx_weight(tx) + 74 * 2;
@@ -47,11 +57,12 @@ static bool better_closing_fee(struct lightningd *ld,
 	/* If we don't have a feerate estimate, this gives feerate_floor */
 	min_feerate = feerate_min(ld, &feerate_unknown);
 
-	min_fee = min_feerate * weight / 1000;
-	if (fee < min_fee) {
-		log_debug(channel->log, "... That's below our min %"PRIu64
-			 " for weight %"PRIu64" at feerate %u",
-			 min_fee, weight, min_feerate);
+	min_fee = amount_tx_fee(min_feerate, weight);
+	if (amount_sat_less(fee, min_fee)) {
+		log_debug(channel->log, "... That's below our min %s"
+			  " for weight %"PRIu64" at feerate %u",
+			  type_to_string(tmpctx, struct amount_sat, &fee),
+			  weight, min_feerate);
 		return false;
 	}
 
@@ -60,10 +71,10 @@ static bool better_closing_fee(struct lightningd *ld,
 
 	/* If we don't know the feerate, prefer higher fee. */
 	if (feerate_unknown)
-		return fee >= last_fee;
+		return amount_sat_greater_eq(fee, last_fee);
 
 	/* Otherwise prefer lower fee. */
-	return fee <= last_fee;
+	return amount_sat_less_eq(fee, last_fee);
 }
 
 static void peer_received_closing_signature(struct channel *channel,
@@ -143,9 +154,9 @@ void peer_start_closingd(struct channel *channel,
 {
 	u8 *initmsg;
 	u32 feerate;
-	u64 minfee, startfee, feelimit;
+	struct amount_sat minfee, startfee, feelimit;
 	u64 num_revocations;
-	u64 funding_msatoshi, our_msatoshi, their_msatoshi;
+	struct amount_msat their_msat;
 	int hsmfd;
 	struct lightningd *ld = channel->peer->ld;
 
@@ -185,10 +196,10 @@ void peer_start_closingd(struct channel *channel,
 	 *    [BOLT #3](03-transactions.md#fee-calculation).
 	 */
 	feelimit = commit_tx_base_fee(channel->channel_info.feerate_per_kw[LOCAL],
-				      0).satoshis;
+				      0);
 
 	/* Pick some value above slow feerate (or min possible if unknown) */
-	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0).satoshis;
+	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0);
 
 	/* If we can't determine feerate, start at half unilateral feerate. */
 	feerate = mutual_close_feerate(ld->topology);
@@ -197,11 +208,11 @@ void peer_start_closingd(struct channel *channel,
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
-	startfee = commit_tx_base_fee(feerate, 0).satoshis;
+	startfee = commit_tx_base_fee(feerate, 0);
 
-	if (startfee > feelimit)
+	if (amount_sat_greater(startfee, feelimit))
 		startfee = feelimit;
-	if (minfee > feelimit)
+	if (amount_sat_greater(minfee, feelimit))
 		minfee = feelimit;
 
 	num_revocations
@@ -212,22 +223,28 @@ void peer_start_closingd(struct channel *channel,
 	 * Each node offering a signature:
 	 *  - MUST round each output down to whole satoshis.
 	 */
-	/* Convert unit */
-	funding_msatoshi = channel->funding_satoshi * 1000;
 	/* What is not ours is theirs */
-	our_msatoshi = channel->our_msatoshi;
-	their_msatoshi = funding_msatoshi - our_msatoshi;
+	if (!amount_sat_sub_msat(&their_msat,
+				 channel->funding, channel->our_msat)) {
+		log_broken(channel->log, "our_msat overflow funding %s minus %s",
+			  type_to_string(tmpctx, struct amount_sat,
+					 &channel->funding),
+			  type_to_string(tmpctx, struct amount_msat,
+					 &channel->our_msat));
+		channel_fail_permanent(channel, "our_msat overflow on closing");
+		return;
+	}
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
-				      channel->funding_satoshi,
+				      channel->funding,
 				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey,
 				      channel->funder,
-				      our_msatoshi / 1000, /* Rounds down */
-				      their_msatoshi / 1000, /* Rounds down */
-				      channel->our_config.dust_limit.satoshis,
+				      amount_msat_to_sat_round_down(channel->our_msat),
+				      amount_msat_to_sat_round_down(their_msat),
+				      channel->our_config.dust_limit,
 				      minfee, feelimit, startfee,
 				      p2wpkh_for_keyidx(tmpctx, ld,
 							channel->final_key_idx),

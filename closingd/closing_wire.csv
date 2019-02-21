@@ -5,16 +5,16 @@ closing_init,2001
 closing_init,,crypto_state,struct crypto_state
 closing_init,,funding_txid,struct bitcoin_txid
 closing_init,,funding_txout,u16
-closing_init,,funding_satoshi,u64
+closing_init,,funding_satoshi,struct amount_sat
 closing_init,,local_fundingkey,struct pubkey
 closing_init,,remote_fundingkey,struct pubkey
 closing_init,,funder,enum side
-closing_init,,local_msatoshi,u64
-closing_init,,remote_msatoshi,u64
-closing_init,,our_dust_limit,u64
-closing_init,,min_fee_satoshi,u64
-closing_init,,fee_limit_satoshi,u64
-closing_init,,initial_fee_satoshi,u64
+closing_init,,local_sat,struct amount_sat
+closing_init,,remote_sat,struct amount_sat
+closing_init,,our_dust_limit,struct amount_sat
+closing_init,,min_fee_satoshi,struct amount_sat
+closing_init,,fee_limit_satoshi,struct amount_sat
+closing_init,,initial_fee_satoshi,struct amount_sat
 closing_init,,local_scriptpubkey_len,u16
 closing_init,,local_scriptpubkey,local_scriptpubkey_len*u8
 closing_init,,remote_scriptpubkey_len,u16

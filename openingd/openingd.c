@@ -686,7 +686,7 @@ static u8 *funder_channel(struct state *state,
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   tx,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding.satoshis);
+						   state->channel->funding);
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
@@ -822,7 +822,7 @@ static u8 *funder_channel(struct state *state,
 					   &their_funding_pubkey,
 					   &state->funding_txid,
 					   state->feerate_per_kw,
-					   state->localconf.channel_reserve.satoshis);
+					   state->localconf.channel_reserve);
 
 fail:
 	if (taken(utxos))
@@ -1139,7 +1139,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding.satoshis);
+						   state->channel->funding);
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
@@ -1165,12 +1165,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     &their_funding_pubkey,
 				     &state->funding_txid,
 				     state->funding_txout,
-				     state->funding.satoshis,
-				     state->push_msat.millisatoshis,
+				     state->funding,
+				     state->push_msat,
 				     channel_flags,
 				     state->feerate_per_kw,
 				     msg,
-				     state->localconf.channel_reserve.satoshis);
+				     state->localconf.channel_reserve);
 }
 
 /*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
@@ -1307,10 +1307,10 @@ static u8 *handle_master_in(struct state *state)
 	switch (t) {
 	case WIRE_OPENING_FUNDER:
 		if (!fromwire_opening_funder(state, msg,
-					     &state->funding.satoshis,
-					     &state->push_msat.millisatoshis,
+					     &state->funding,
+					     &state->push_msat,
 					     &state->feerate_per_kw,
-					     &change.satoshis,
+					     &change,
 					     &change_keyindex,
 					     &channel_flags, &utxos,
 					     &bip32_base))
@@ -1367,7 +1367,7 @@ int main(int argc, char *argv[])
 				   &chain_hash,
 				   &state->localconf,
 				   &state->max_to_self_delay,
-				   &state->min_effective_htlc_capacity.millisatoshis,
+				   &state->min_effective_htlc_capacity,
 				   &state->cs,
 				   &state->our_points,
 				   &state->our_funding_pubkey,

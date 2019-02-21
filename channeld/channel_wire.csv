@@ -7,7 +7,7 @@ channel_init,1000
 channel_init,,chain_hash,struct bitcoin_blkid
 channel_init,,funding_txid,struct bitcoin_txid
 channel_init,,funding_txout,u16
-channel_init,,funding_satoshi,u64
+channel_init,,funding_satoshi,struct amount_sat
 channel_init,,our_config,struct channel_config
 channel_init,,their_config,struct channel_config
 # FIXME: Fix generate-wire.py to allow NUM_SIDES*u32 here.
@@ -23,7 +23,7 @@ channel_init,,old_remote_per_commit,struct pubkey
 channel_init,,funder,enum side
 channel_init,,fee_base,u32
 channel_init,,fee_proportional,u32
-channel_init,,local_msatoshi,u64
+channel_init,,local_msatoshi,struct amount_msat
 channel_init,,our_basepoints,struct basepoints
 channel_init,,our_funding_pubkey,struct pubkey
 channel_init,,local_node_id,struct pubkey
@@ -69,7 +69,7 @@ channel_funding_locked,,depth,u32
 
 # Tell channel to offer this htlc
 channel_offer_htlc,1004
-channel_offer_htlc,,amount_msat,u64
+channel_offer_htlc,,amount_msat,struct amount_msat
 channel_offer_htlc,,cltv_expiry,u32
 channel_offer_htlc,,payment_hash,struct sha256
 channel_offer_htlc,,onion_routing_packet,1366*u8

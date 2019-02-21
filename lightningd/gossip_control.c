@@ -42,20 +42,20 @@ static void got_txout(struct bitcoind *bitcoind,
 		      struct short_channel_id *scid)
 {
 	const u8 *script;
-	u64 satoshis;
+	struct amount_sat sat;
 
 	/* output will be NULL if it wasn't found */
 	if (output) {
 		script = output->script;
-		satoshis = output->amount;
+		sat = (struct amount_sat){ output->amount};
 	} else {
 		script = NULL;
-		satoshis = 0;
+		sat = AMOUNT_SAT(0);
 	}
 
 	subd_send_msg(
 	    bitcoind->ld->gossip,
-	    towire_gossip_get_txout_reply(scid, scid, satoshis, script));
+	    towire_gossip_get_txout_reply(scid, scid, sat, script));
 	tal_free(scid);
 }
 
@@ -78,7 +78,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	if (op) {
 		subd_send_msg(gossip,
 			      towire_gossip_get_txout_reply(
-				  scid, scid, op->satoshis, op->scriptpubkey));
+				  scid, scid, op->sat, op->scriptpubkey));
 		tal_free(scid);
 	} else if (blockheight >= topo->min_blockheight &&
 		   blockheight <= topo->max_blockheight) {
@@ -87,7 +87,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 		 * this is either a spent outpoint or an invalid one. Return a
 		 * failure. */
 		subd_send_msg(gossip, take(towire_gossip_get_txout_reply(
-					  NULL, scid, 0, NULL)));
+						   NULL, scid, AMOUNT_SAT(0), NULL)));
 		tal_free(scid);
 	} else {
 		bitcoind_getoutput(topo->bitcoind,
@@ -354,7 +354,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	}
 
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
-						 msat->millisatoshis,
+						 *msat,
 						 *riskfactor * 1000000.0,
 						 *cltv, fuzz,
 						 excluded,
@@ -399,8 +399,7 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 				type_to_string(reply, struct short_channel_id,
 					       &entries[i].short_channel_id));
 		json_add_bool(response, "public", entries[i].public);
-		json_add_amount_sat(response,
-				    (struct amount_sat){ entries[i].satoshis },
+		json_add_amount_sat(response, entries[i].sat,
 				    "satoshis", "amount_msat");
 		json_add_num(response, "message_flags", entries[i].message_flags);
 		json_add_num(response, "channel_flags", entries[i].channel_flags);

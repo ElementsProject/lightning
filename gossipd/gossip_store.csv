@@ -2,7 +2,7 @@
 gossip_store_channel_announcement,4096
 gossip_store_channel_announcement,,len,u16
 gossip_store_channel_announcement,,announcement,len*u8
-gossip_store_channel_announcement,,satoshis,u64
+gossip_store_channel_announcement,,satoshis,struct amount_sat
 
 gossip_store_channel_update,4097
 gossip_store_channel_update,,len,u16

@@ -35,46 +35,53 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   u8 *scriptpubkey[NUM_SIDES],
 				   const struct bitcoin_txid *funding_txid,
 				   unsigned int funding_txout,
-				   u64 funding_satoshi,
-				   const u64 satoshi_out[NUM_SIDES],
+				   struct amount_sat funding,
+				   const struct amount_sat out[NUM_SIDES],
 				   enum side funder,
-				   uint64_t fee,
-				   uint64_t dust_limit)
+				   struct amount_sat fee,
+				   struct amount_sat dust_limit)
 {
 	struct bitcoin_tx *tx;
+	struct amount_sat out_minus_fee[NUM_SIDES];
 
-	if (satoshi_out[funder] < fee)
+	out_minus_fee[LOCAL] = out[LOCAL];
+	out_minus_fee[REMOTE] = out[REMOTE];
+	if (!amount_sat_sub(&out_minus_fee[funder], out[funder], fee))
 		peer_failed(cs, channel_id,
-			      "Funder cannot afford fee %"PRIu64
-			      " (%"PRIu64" and %"PRIu64")",
-			      fee, satoshi_out[LOCAL],
-			      satoshi_out[REMOTE]);
+			    "Funder cannot afford fee %s (%s and %s)",
+			    type_to_string(tmpctx, struct amount_sat, &fee),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &out[LOCAL]),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &out[REMOTE]));
 
-	status_trace("Making close tx at = %"PRIu64"/%"PRIu64" fee %"PRIu64,
-		     satoshi_out[LOCAL], satoshi_out[REMOTE], fee);
+	status_trace("Making close tx at = %s/%s fee %s",
+		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
+		     type_to_string(tmpctx, struct amount_sat, &out[REMOTE]),
+		     type_to_string(tmpctx, struct amount_sat, &fee));
 
 	/* FIXME: We need to allow this! */
 	tx = create_close_tx(ctx,
 			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_txid,
 			     funding_txout,
-			     funding_satoshi,
-			     satoshi_out[LOCAL] - (funder == LOCAL ? fee : 0),
-			     satoshi_out[REMOTE] - (funder == REMOTE ? fee : 0),
+			     funding,
+			     out_minus_fee[LOCAL],
+			     out_minus_fee[REMOTE],
 			     dust_limit);
 	if (!tx)
 		peer_failed(cs, channel_id,
 			    "Both outputs below dust limit:"
-			    " funding = %"PRIu64
-			    " fee = %"PRIu64
-			    " dust_limit = %"PRIu64
-			    " LOCAL = %"PRIu64
-			    " REMOTE = %"PRIu64,
-			    funding_satoshi,
-			    fee,
-			    dust_limit,
-			    satoshi_out[LOCAL],
-			    satoshi_out[REMOTE]);
+			    " funding = %s"
+			    " fee = %s"
+			    " dust_limit = %s"
+			    " LOCAL = %s"
+			    " REMOTE = %s",
+			    type_to_string(tmpctx, struct amount_sat, &funding),
+			    type_to_string(tmpctx, struct amount_sat, &fee),
+			    type_to_string(tmpctx, struct amount_sat, &dust_limit),
+			    type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
+			    type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
 	return tx;
 }
 
@@ -170,11 +177,11 @@ static void send_offer(struct crypto_state *cs,
 		       u8 *scriptpubkey[NUM_SIDES],
 		       const struct bitcoin_txid *funding_txid,
 		       unsigned int funding_txout,
-		       u64 funding_satoshi,
-		       const u64 satoshi_out[NUM_SIDES],
+		       struct amount_sat funding,
+		       const struct amount_sat out[NUM_SIDES],
 		       enum side funder,
-		       uint64_t our_dust_limit,
-		       uint64_t fee_to_offer)
+		       struct amount_sat our_dust_limit,
+		       struct amount_sat fee_to_offer)
 {
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature our_sig;
@@ -190,8 +197,8 @@ static void send_offer(struct crypto_state *cs,
 		      scriptpubkey,
 		      funding_txid,
 		      funding_txout,
-		      funding_satoshi,
-		      satoshi_out,
+		      funding,
+		      out,
 		      funder, fee_to_offer, our_dust_limit);
 
 	/* BOLT #3:
@@ -206,17 +213,18 @@ static void send_offer(struct crypto_state *cs,
 			take(towire_hsm_sign_mutual_close_tx(NULL,
 							     tx,
 							     &funding_pubkey[REMOTE],
-							     funding_satoshi)));
+							     funding)));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsm_sign_tx_reply(msg, &our_sig))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad hsm_sign_mutual_close_tx reply %s",
 			      tal_hex(tmpctx, msg));
 
-	status_trace("sending fee offer %"PRIu64, fee_to_offer);
+	status_trace("sending fee offer %s",
+		     type_to_string(tmpctx, struct amount_sat, &fee_to_offer));
 
 	assert(our_sig.sighash_type == SIGHASH_ALL);
-	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig.s);
+	msg = towire_closing_signed(NULL, channel_id, fee_to_offer.satoshis, &our_sig.s);
 	sync_crypto_write(cs, PEER_FD, take(msg));
 }
 
@@ -237,22 +245,23 @@ static void tell_master_their_offer(const struct bitcoin_signature *their_sig,
 }
 
 /* Returns fee they offered. */
-static uint64_t receive_offer(struct crypto_state *cs,
-			      const struct channel_id *channel_id,
-			      const struct pubkey funding_pubkey[NUM_SIDES],
-			      const u8 *funding_wscript,
-			      u8 *scriptpubkey[NUM_SIDES],
-			      const struct bitcoin_txid *funding_txid,
-			      unsigned int funding_txout,
-			      u64 funding_satoshi,
-			      const u64 satoshi_out[NUM_SIDES],
-			      enum side funder,
-			      uint64_t our_dust_limit,
-			      u64 min_fee_to_accept)
+static struct amount_sat
+receive_offer(struct crypto_state *cs,
+	      const struct channel_id *channel_id,
+	      const struct pubkey funding_pubkey[NUM_SIDES],
+	      const u8 *funding_wscript,
+	      u8 *scriptpubkey[NUM_SIDES],
+	      const struct bitcoin_txid *funding_txid,
+	      unsigned int funding_txout,
+	      struct amount_sat funding,
+	      const struct amount_sat out[NUM_SIDES],
+	      enum side funder,
+	      struct amount_sat our_dust_limit,
+	      struct amount_sat min_fee_to_accept)
 {
 	u8 *msg;
 	struct channel_id their_channel_id;
-	u64 received_fee;
+	struct amount_sat received_fee;
 	struct bitcoin_signature their_sig;
 	struct bitcoin_tx *tx;
 
@@ -279,7 +288,7 @@ static uint64_t receive_offer(struct crypto_state *cs,
 
 	their_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_closing_signed(msg, &their_channel_id,
-				     &received_fee, &their_sig.s))
+				     &received_fee.satoshis, &their_sig.s))
 		peer_failed(cs, channel_id,
 			    "Expected closing_signed: %s",
 			    tal_hex(tmpctx, msg));
@@ -295,20 +304,20 @@ static uint64_t receive_offer(struct crypto_state *cs,
 		      scriptpubkey,
 		      funding_txid,
 		      funding_txout,
-		      funding_satoshi,
-		      satoshi_out, funder, received_fee, our_dust_limit);
+		      funding,
+		      out, funder, received_fee, our_dust_limit);
 
 	if (!check_tx_sig(tx, 0, NULL, funding_wscript,
 			  &funding_pubkey[REMOTE], &their_sig)) {
 		/* Trim it by reducing their output to minimum */
 		struct bitcoin_tx *trimmed;
-		u64 trimming_satoshi_out[NUM_SIDES];
+		struct amount_sat trimming_out[NUM_SIDES];
 
 		if (funder == REMOTE)
-			trimming_satoshi_out[REMOTE] = received_fee;
+			trimming_out[REMOTE] = received_fee;
 		else
-			trimming_satoshi_out[REMOTE] = 0;
-		trimming_satoshi_out[LOCAL] = satoshi_out[LOCAL];
+			trimming_out[REMOTE] = AMOUNT_SAT(0);
+		trimming_out[LOCAL] = out[LOCAL];
 
 		/* BOLT #3:
 		 *
@@ -324,8 +333,8 @@ static uint64_t receive_offer(struct crypto_state *cs,
 				   scriptpubkey,
 				   funding_txid,
 				   funding_txout,
-				   funding_satoshi,
-				   trimming_satoshi_out,
+				   funding,
+				   trimming_out,
 				   funder, received_fee, our_dust_limit);
 		if (!trimmed
 		    || !check_tx_sig(trimmed, 0, NULL, funding_wscript,
@@ -345,10 +354,11 @@ static uint64_t receive_offer(struct crypto_state *cs,
 		tx = trimmed;
 	}
 
-	status_trace("Received fee offer %"PRIu64, received_fee);
+	status_trace("Received fee offer %s",
+		     type_to_string(tmpctx, struct amount_sat, &received_fee));
 
 	/* Master sorts out what is best offer, we just tell it any above min */
-	if (received_fee >= min_fee_to_accept) {
+	if (amount_sat_greater_eq(received_fee, min_fee_to_accept)) {
 		status_trace("...offer is reasonable");
 		tell_master_their_offer(&their_sig, tx);
 	}
@@ -358,14 +368,14 @@ static uint64_t receive_offer(struct crypto_state *cs,
 
 struct feerange {
 	enum side higher_side;
-	u64 min, max;
+	struct amount_sat min, max;
 };
 
 static void init_feerange(struct feerange *feerange,
-			  u64 commitment_fee,
-			  const u64 offer[NUM_SIDES])
+			  struct amount_sat commitment_fee,
+			  const struct amount_sat offer[NUM_SIDES])
 {
-	feerange->min = 0;
+	feerange->min = AMOUNT_SAT(0);
 
 	/* BOLT #2:
 	 *
@@ -375,58 +385,86 @@ static void init_feerange(struct feerange *feerange,
 	 */
 	feerange->max = commitment_fee;
 
-	if (offer[LOCAL] > offer[REMOTE])
+	if (amount_sat_greater(offer[LOCAL], offer[REMOTE]))
 		feerange->higher_side = LOCAL;
 	else
 		feerange->higher_side = REMOTE;
 
-	status_trace("Feerange init %"PRIu64"-%"PRIu64", %s higher",
-		     feerange->min, feerange->max,
+	status_trace("Feerange init %s-%s, %s higher",
+		     type_to_string(tmpctx, struct amount_sat, &feerange->min),
+		     type_to_string(tmpctx, struct amount_sat, &feerange->max),
 		     feerange->higher_side == LOCAL ? "local" : "remote");
 }
 
 static void adjust_feerange(struct feerange *feerange,
-			    u64 offer, enum side side)
+			    struct amount_sat offer, enum side side)
 {
+	bool ok;
+
 	/* BOLT #2:
 	 *
 	 *     - MUST propose a value "strictly between" the received
 	 *      `fee_satoshis` and its previously-sent `fee_satoshis`.
 	 */
 	if (side == feerange->higher_side)
-		feerange->max = offer - 1;
+		ok = amount_sat_sub(&feerange->max, offer, AMOUNT_SAT(1));
 	else
-		feerange->min = offer + 1;
+		ok = amount_sat_add(&feerange->min, offer, AMOUNT_SAT(1));
 
-	status_trace("Feerange %s update %"PRIu64": now %"PRIu64"-%"PRIu64,
+	status_trace("Feerange %s update %s: now %s-%s",
 		     side == LOCAL ? "local" : "remote",
-		     offer, feerange->min, feerange->max);
+		     type_to_string(tmpctx, struct amount_sat, &offer),
+		     type_to_string(tmpctx, struct amount_sat, &feerange->min),
+		     type_to_string(tmpctx, struct amount_sat, &feerange->max));
+
+	if (!ok)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Overflow in updating fee range");
 }
 
 /* Figure out what we should offer now. */
-static u64 adjust_offer(struct crypto_state *cs,
-			const struct channel_id *channel_id,
-			const struct feerange *feerange,
-			u64 remote_offer,
-			u64 min_fee_to_accept)
+static struct amount_sat adjust_offer(struct crypto_state *cs,
+				      const struct channel_id *channel_id,
+				      const struct feerange *feerange,
+				      struct amount_sat remote_offer,
+				      struct amount_sat min_fee_to_accept)
 {
+	struct amount_sat min_plus_one, avg;
+
 	/* Within 1 satoshi?  Agree. */
-	if (feerange->min + 1 >= feerange->max)
+	if (!amount_sat_add(&min_plus_one, feerange->min, AMOUNT_SAT(1)))
+		peer_failed(cs, channel_id,
+			    "Fee offer %s min too large",
+			    type_to_string(tmpctx, struct amount_sat,
+					   &feerange->min));
+
+	if (amount_sat_greater_eq(min_plus_one, feerange->max))
 		return remote_offer;
 
 	/* Max is below our minimum acceptable? */
-	if (feerange->max < min_fee_to_accept)
+	if (amount_sat_less(feerange->max, min_fee_to_accept))
 		peer_failed(cs, channel_id,
-			    "Feerange %"PRIu64"-%"PRIu64
-			    " below minimum acceptable %"PRIu64,
-			    feerange->min, feerange->max,
-			    min_fee_to_accept);
+			    "Feerange %s-%s"
+			    " below minimum acceptable %s",
+			    type_to_string(tmpctx, struct amount_sat,
+					   &feerange->min),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &feerange->max),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &min_fee_to_accept));
 
 	/* Bisect between our minimum and max. */
-	if (feerange->min > min_fee_to_accept)
+	if (amount_sat_greater(feerange->min, min_fee_to_accept))
 		min_fee_to_accept = feerange->min;
 
-	return (feerange->max + min_fee_to_accept)/2;
+	if (!amount_sat_add(&avg, feerange->max, min_fee_to_accept))
+		peer_failed(cs, channel_id,
+			    "Fee offer %s max too large",
+			    type_to_string(tmpctx, struct amount_sat,
+					   &feerange->max));
+
+	avg.satoshis /= 2;
+	return avg;
 }
 
 #if DEVELOPER
@@ -460,9 +498,9 @@ int main(int argc, char *argv[])
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
-	u64 funding_satoshi, satoshi_out[NUM_SIDES];
-	u64 our_dust_limit;
-	u64 min_fee_to_accept, commitment_fee, offer[NUM_SIDES];
+	struct amount_sat funding, out[NUM_SIDES];
+	struct amount_sat our_dust_limit;
+	struct amount_sat min_fee_to_accept, commitment_fee, offer[NUM_SIDES];
 	struct feerange feerange;
 	enum side funder;
 	u8 *scriptpubkey[NUM_SIDES], *funding_wscript, *final_scriptpubkey;
@@ -480,12 +518,12 @@ int main(int argc, char *argv[])
 	if (!fromwire_closing_init(ctx, msg,
 				   &cs,
 				   &funding_txid, &funding_txout,
-				   &funding_satoshi,
+				   &funding,
 				   &funding_pubkey[LOCAL],
 				   &funding_pubkey[REMOTE],
 				   &funder,
-				   &satoshi_out[LOCAL],
-				   &satoshi_out[REMOTE],
+				   &out[LOCAL],
+				   &out[REMOTE],
 				   &our_dust_limit,
 				   &min_fee_to_accept, &commitment_fee,
 				   &offer[LOCAL],
@@ -499,10 +537,13 @@ int main(int argc, char *argv[])
 				   &final_scriptpubkey))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
 
-	status_trace("satoshi_out = %"PRIu64"/%"PRIu64,
-		     satoshi_out[LOCAL], satoshi_out[REMOTE]);
-	status_trace("dustlimit = %"PRIu64, our_dust_limit);
-	status_trace("fee = %"PRIu64, offer[LOCAL]);
+	status_trace("out = %s/%s",
+		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
+		     type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
+	status_trace("dustlimit = %s",
+		     type_to_string(tmpctx, struct amount_sat, &our_dust_limit));
+	status_trace("fee = %s",
+		     type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]));
 	derive_channel_id(&channel_id, &funding_txid, funding_txout);
 
 	funding_wscript = bitcoin_redeem_2of2(ctx,
@@ -517,9 +558,13 @@ int main(int argc, char *argv[])
 	/* We don't need this any more */
 	tal_free(final_scriptpubkey);
 
-	peer_billboard(true, "Negotiating closing fee between %"PRIu64
-		       " and %"PRIu64" satoshi (ideal %"PRIu64")",
-		       min_fee_to_accept, commitment_fee, offer[LOCAL]);
+	peer_billboard(true, "Negotiating closing fee between %s"
+		       " and %s satoshi (ideal %s)",
+		       type_to_string(tmpctx, struct amount_sat,
+				      &min_fee_to_accept),
+		       type_to_string(tmpctx, struct amount_sat,
+				      &commitment_fee),
+		       type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]));
 
 	/* BOLT #2:
 	 *
@@ -534,7 +579,7 @@ int main(int argc, char *argv[])
 			send_offer(&cs,
 				   &channel_id, funding_pubkey,
 				   scriptpubkey, &funding_txid, funding_txout,
-				   funding_satoshi, satoshi_out, funder,
+				   funding, out, funder,
 				   our_dust_limit,
 				   offer[LOCAL]);
 		} else {
@@ -544,15 +589,17 @@ int main(int argc, char *argv[])
 			else
 				peer_billboard(false, "Waiting for their initial"
 					       " closing fee offer:"
-					       " ours was %"PRIu64" satoshi",
-					       offer[LOCAL]);
+					       " ours was %s",
+					       type_to_string(tmpctx,
+							      struct amount_sat,
+							      &offer[LOCAL]));
 			offer[REMOTE]
 				= receive_offer(&cs,
 						&channel_id, funding_pubkey,
 						funding_wscript,
 						scriptpubkey, &funding_txid,
-						funding_txout, funding_satoshi,
-						satoshi_out, funder,
+						funding_txout, funding,
+						out, funder,
 						our_dust_limit,
 						min_fee_to_accept);
 		}
@@ -565,7 +612,7 @@ int main(int argc, char *argv[])
 	adjust_feerange(&feerange, offer[funder], funder);
 
 	/* Now any extra rounds required. */
-	while (offer[LOCAL] != offer[REMOTE]) {
+	while (!amount_sat_eq(offer[LOCAL], offer[REMOTE])) {
 		/* Still don't agree: adjust feerange based on previous offer */
 		adjust_feerange(&feerange,
 				offer[!whose_turn], !whose_turn);
@@ -578,7 +625,7 @@ int main(int argc, char *argv[])
 			send_offer(&cs, &channel_id,
 				   funding_pubkey,
 				   scriptpubkey, &funding_txid, funding_txout,
-				   funding_satoshi, satoshi_out, funder,
+				   funding, out, funder,
 				   our_dust_limit,
 				   offer[LOCAL]);
 		} else {
@@ -592,8 +639,8 @@ int main(int argc, char *argv[])
 						funding_pubkey,
 						funding_wscript,
 						scriptpubkey, &funding_txid,
-						funding_txout, funding_satoshi,
-						satoshi_out, funder,
+						funding_txout, funding,
+						out, funder,
 						our_dust_limit,
 						min_fee_to_accept);
 		}

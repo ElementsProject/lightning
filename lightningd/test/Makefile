@@ -8,6 +8,7 @@ ALL_TEST_PROGRAMS += $(LIGHTNINGD_TEST_PROGRAMS)
 ALL_OBJS += $(LIGHTNINGD_TEST_OBJS)
 
 LIGHTNINGD_TEST_COMMON_OBJS :=			\
+	common/amount.o				\
 	common/bech32.o				\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\

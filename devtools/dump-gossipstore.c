@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
 	while (read(fd, &belen, sizeof(belen)) == sizeof(belen) &&
 	       read(fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
-		u64 satoshis;
+		struct amount_sat sat;
 		struct short_channel_id scid;
 		u8 *gossip_msg;
 		u32 msglen = be32_to_cpu(belen);
@@ -54,9 +54,10 @@ int main(int argc, char *argv[])
 
 		if (fromwire_gossip_store_channel_announcement(msg, msg,
 							       &gossip_msg,
-							       &satoshis)) {
-			printf("channel_announce for %"PRIu64" satoshis: %s\n",
-			       satoshis, tal_hex(msg, gossip_msg));
+							       &sat)) {
+			printf("channel_announce for %s: %s\n",
+			       type_to_string(tmpctx, struct amount_sat, &sat),
+			       tal_hex(msg, gossip_msg));
 		} else if (fromwire_gossip_store_channel_update(msg, msg,
 								&gossip_msg)) {
 			printf("channel_update: %s\n",

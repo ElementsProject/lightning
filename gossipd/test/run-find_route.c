@@ -31,10 +31,10 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, u64 *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, u64 *satoshis UNNEEDED)
+bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_announcement */
-bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, u64 *satoshis UNNEEDED)
+bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_announcement called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_delete */
 bool fromwire_gossip_store_channel_delete(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
@@ -83,7 +83,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_announcement */
-u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, u64 satoshis UNNEEDED)
+u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_announcement called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_delete */
 u8 *towire_gossip_store_channel_delete(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
@@ -121,7 +121,7 @@ static void add_connection(struct routing_state *rstate,
 	struct short_channel_id scid;
 	struct half_chan *c;
 	struct chan *chan;
-	int satoshis = 100000;
+	struct amount_sat satoshis = AMOUNT_SAT(100000);
 
 	/* Make a unique scid. */
 	memcpy(&scid, from, sizeof(scid) / 2);
@@ -138,8 +138,8 @@ static void add_connection(struct routing_state *rstate,
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->channel_flags = get_channel_direction(from, to);
-	c->htlc_minimum_msat = 0;
-	c->htlc_maximum_msat = satoshis * 1000;
+	c->htlc_minimum = AMOUNT_MSAT(0);
+	c->htlc_maximum = AMOUNT_MSAT(100000 * 1000);
 }
 
 /* Returns chan connecting from and to: *idx set to refer
@@ -201,7 +201,7 @@ int main(void)
 	struct routing_state *rstate;
 	struct pubkey a, b, c, d;
 	struct privkey tmp;
-	u64 fee;
+	struct amount_msat fee;
 	struct chan **route;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
@@ -222,11 +222,11 @@ int main(void)
 	/* A<->B */
 	add_connection(rstate, &a, &b, 1, 1, 1);
 
-	route = find_route(tmpctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &b, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 1);
-	assert(fee == 0);
+	assert(amount_msat_eq(fee, AMOUNT_MSAT(0)));
 
 	/* A<->B<->C */
 	memset(&tmp, 'c', sizeof(tmp));
@@ -238,11 +238,11 @@ int main(void)
 	status_trace("C = %s", type_to_string(tmpctx, struct pubkey, &c));
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
-	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
-	assert(fee == 1);
+	assert(amount_msat_eq(fee, AMOUNT_MSAT(1)));
 
 	/* A<->D<->C: Lower base, higher percentage. */
 	memset(&tmp, 'd', sizeof(tmp));
@@ -254,32 +254,32 @@ int main(void)
 	add_connection(rstate, &d, &c, 0, 2, 1);
 
 	/* Will go via D for small amounts. */
-	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));
 	assert(channel_is_between(route[1], &d, &c));
-	assert(fee == 0);
+	assert(amount_msat_eq(fee, AMOUNT_MSAT(0)));
 
 	/* Will go via B for large amounts. */
-	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(3000000), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
 	assert(channel_is_between(route[1], &b, &c));
-	assert(fee == 1 + 3);
+	assert(amount_msat_eq(fee, AMOUNT_MSAT(1 + 3)));
 
 	/* Make B->C inactive, force it back via D */
 	get_connection(rstate, &b, &c)->channel_flags |= ROUTING_FLAGS_DISABLED;
-	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(3000000), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));
 	assert(channel_is_between(route[1], &d, &c));
-	assert(fee == 0 + 6);
+	assert(amount_msat_eq(fee, AMOUNT_MSAT(0 + 6)));
 
 	tal_free(tmpctx);
 	secp256k1_context_destroy(secp256k1_ctx);

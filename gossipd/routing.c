@@ -25,12 +25,6 @@
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
-/* For overflow avoidance, we never deal with msatoshi > 40 bits. */
-#define MAX_MSATOSHI (1ULL << 40)
-
-/* Proportional fee must be less than 24 bits, so never overflows. */
-#define MAX_PROPORTIONAL_FEE (1 << 24)
-
 /* We've unpacked and checked its signatures, now we wait for master to tell
  * us the txout to check */
 struct pending_cannouncement {
@@ -287,7 +281,7 @@ struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct pubkey *id1,
 		      const struct pubkey *id2,
-		      u64 satoshis)
+		      struct amount_sat satoshis)
 {
 	struct chan *chan = tal(rstate, struct chan);
 	int n1idx = pubkey_idx(id1, id2);
@@ -310,7 +304,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->txout_script = NULL;
 	chan->channel_announce = NULL;
 	chan->channel_announcement_index = 0;
-	chan->satoshis = satoshis;
+	chan->sat = satoshis;
 	chan->local_disabled = false;
 
 	tal_arr_expand(&n2->chans, chan);
@@ -327,7 +321,7 @@ struct chan *new_chan(struct routing_state *rstate,
 }
 
 /* Too big to reach, but don't overflow if added. */
-#define INFINITE 0x3FFFFFFFFFFFFFFFULL
+#define INFINITE AMOUNT_MSAT(0x3FFFFFFFFFFFFFFFULL)
 
 static void clear_bfg(struct node_map *nodes)
 {
@@ -338,37 +332,45 @@ static void clear_bfg(struct node_map *nodes)
 		size_t i;
 		for (i = 0; i < ARRAY_SIZE(n->bfg); i++) {
 			n->bfg[i].total = INFINITE;
-			n->bfg[i].risk = 0;
+			n->bfg[i].risk = AMOUNT_MSAT(0);
 		}
 	}
 }
 
-static u64 connection_fee(const struct half_chan *c, u64 msatoshi)
-{
-	u64 fee;
-
-	assert(msatoshi < MAX_MSATOSHI);
-	assert(c->proportional_fee < MAX_PROPORTIONAL_FEE);
-
-	fee = (c->proportional_fee * msatoshi) / 1000000;
-	/* This can't overflow: c->base_fee is a u32 */
-	return c->base_fee + fee;
-}
-
 /* Risk of passing through this channel.  We insert a tiny constant here
  * in order to prefer shorter routes, all things equal. */
-static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
+static WARN_UNUSED_RESULT bool risk_add_fee(struct amount_msat *risk,
+					    struct amount_msat msat,
+					    u32 delay, double riskfactor)
 {
-	return 1 + amount * delay * riskfactor;
+	double r;
+
+	/* Won't overflow on add, just lose precision */
+	r = 1.0 + riskfactor * delay * msat.millisatoshis + risk->millisatoshis;
+	if (r > UINT64_MAX)
+		return false;
+	risk->millisatoshis = r;
+	return true;
 }
 
 /* Check that we can fit through this channel's indicated
  * maximum_ and minimum_msat requirements.
  */
-static bool hc_can_carry(const struct half_chan *hc, u64 requiredcap)
+static bool hc_can_carry(const struct half_chan *hc,
+			 struct amount_msat requiredcap)
 {
-	return hc->htlc_maximum_msat >= requiredcap &&
-		hc->htlc_minimum_msat <= requiredcap;
+	return amount_msat_greater_eq(hc->htlc_maximum, requiredcap) &&
+		amount_msat_less_eq(hc->htlc_minimum, requiredcap);
+}
+
+/* Theoretically, this could overflow. */
+static bool fuzz_fee(u64 *fee, double fee_scale)
+{
+	u64 fuzzed_fee = *fee * fee_scale;
+	if (fee_scale > 1.0 && fuzzed_fee < *fee)
+		return false;
+	*fee = fuzzed_fee;
+	return true;
 }
 
 /* We track totals, rather than costs.  That's because the fee depends
@@ -397,38 +399,57 @@ static void bfg_one_edge(struct node *node,
 	for (h = 0; h < max_hops; h++) {
 		struct node *src;
 		/* FIXME: Bias against smaller channels. */
-		u64 fee;
-		u64 risk;
-		u64 requiredcap;
+		struct amount_msat fee, risk, requiredcap,
+			this_total, curr_total;
 
-		if (node->bfg[h].total == INFINITE)
+		if (!amount_msat_fee(&fee, node->bfg[h].total,
+				     c->base_fee, c->proportional_fee))
 			continue;
 
-		fee = connection_fee(c, node->bfg[h].total) * fee_scale;
-		requiredcap = node->bfg[h].total + fee;
-		risk = node->bfg[h].risk +
-		       risk_fee(requiredcap, c->delay, riskfactor);
+		if (!fuzz_fee(&fee.millisatoshis, fee_scale))
+			continue;
+
+		if (!amount_msat_add(&requiredcap, node->bfg[h].total, fee))
+			continue;
+
+		risk = node->bfg[h].risk;
+		if (!risk_add_fee(&risk, requiredcap, c->delay, riskfactor))
+			continue;
 
 		if (!hc_can_carry(c, requiredcap)) {
 			/* Skip a channel if it indicated that it won't route
 			 * the requested amount. */
 			continue;
-		} else if (requiredcap >= MAX_MSATOSHI) {
-			SUPERVERBOSE("...extreme %"PRIu64
-				     " + fee %"PRIu64
-				     " + risk %"PRIu64" ignored",
-				     node->bfg[h].total, fee, risk);
-			continue;
 		}
+
+		if (!amount_msat_add(&this_total, requiredcap, risk))
+			continue;
 
 		/* nodes[0] is src for connections[0] */
 		src = chan->nodes[idx];
-		if (requiredcap + risk <
-		    src->bfg[h + 1].total + src->bfg[h + 1].risk) {
-			SUPERVERBOSE("...%s can reach here in hoplen %zu total %"PRIu64,
+
+		if (!amount_msat_add(&curr_total,
+				     src->bfg[h + 1].total,
+				     src->bfg[h + 1].risk)) {
+			/* We just calculated this: shouldn't happen! */
+			status_broken("Overflow: total %s + risk %s",
+				      type_to_string(tmpctx, struct amount_msat,
+						     &src->bfg[h + 1].total),
+				      type_to_string(tmpctx, struct amount_msat,
+						     &src->bfg[h + 1].risk));
+			continue;
+		}
+
+		if (amount_msat_less(this_total, curr_total)) {
+			SUPERVERBOSE("...%s can reach here hoplen %zu"
+				     " total %s risk %s",
 				     type_to_string(tmpctx, struct pubkey,
 						    &src->id),
-				     h, node->bfg[h].total + fee);
+				     h,
+				     type_to_string(tmpctx, struct amount_msat,
+						    &requiredcap),
+				     type_to_string(tmpctx, struct amount_msat,
+						    &risk));
 			src->bfg[h+1].total = requiredcap;
 			src->bfg[h+1].risk = risk;
 			src->bfg[h+1].prev = chan;
@@ -446,15 +467,17 @@ static bool hc_is_routable(const struct chan *chan, int idx)
 /* riskfactor is already scaled to per-block amount */
 static struct chan **
 find_route(const tal_t *ctx, struct routing_state *rstate,
-	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
+	   const struct pubkey *from, const struct pubkey *to,
+	   struct amount_msat msat,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
 	   size_t max_hops,
-	   u64 *fee)
+	   struct amount_msat *fee)
 {
 	struct chan **route;
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
+	struct amount_msat best_total;
 	int runs, i, best;
 
 	/* Note: we map backwards, since we know the amount of satoshi we want
@@ -476,12 +499,6 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		return NULL;
 	}
 
-	if (msatoshi >= MAX_MSATOSHI) {
-		status_info("find_route: can't route huge amount %"PRIu64,
-			    msatoshi);
-		return NULL;
-	}
-
 	if (max_hops > ROUTING_MAX_HOPS) {
 		status_info("find_route: max_hops huge amount %zu > %u",
 			    max_hops, ROUTING_MAX_HOPS);
@@ -493,8 +510,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* Bellman-Ford-Gibson: like Bellman-Ford, but keep values for
 	 * every path length. */
-	src->bfg[0].total = msatoshi;
-	src->bfg[0].risk = 0;
+	src->bfg[0].total = msat;
+	src->bfg[0].risk = AMOUNT_MSAT(0);
 
 	for (runs = 0; runs < max_hops; runs++) {
 		SUPERVERBOSE("Run %i", runs);
@@ -528,17 +545,27 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	}
 
 	best = 0;
-	for (i = 1; i <= max_hops; i++) {
-		status_trace("%i hop solution: %"PRIu64" + %"PRIu64,
-			     i, dst->bfg[i].total, dst->bfg[i].risk);
-		if (dst->bfg[i].total + dst->bfg[i].risk
-		    < dst->bfg[best].total + dst->bfg[best].risk)
+	best_total = INFINITE;
+	for (i = 0; i <= max_hops; i++) {
+		struct amount_msat total;
+		status_trace("%i hop solution: %s + %s",
+			     i,
+			     type_to_string(tmpctx, struct amount_msat,
+					    &dst->bfg[i].total),
+			     type_to_string(tmpctx, struct amount_msat,
+					    &dst->bfg[i].risk));
+		if (!amount_msat_add(&total,
+				     dst->bfg[i].total, dst->bfg[i].risk))
+			continue;
+		if (amount_msat_less(total, best_total)) {
 			best = i;
+			best_total = total;
+		}
 	}
 	status_trace("=> chose %i hop solution", best);
 
 	/* No route? */
-	if (dst->bfg[best].total >= INFINITE) {
+	if (amount_msat_greater_eq(best_total, INFINITE)) {
 		status_trace("find_route: No route to %s",
 			     type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
@@ -546,7 +573,13 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* We (dst) don't charge ourselves fees, so skip first hop */
 	n = other_node(dst, dst->bfg[best].prev);
-	*fee = n->bfg[best-1].total - msatoshi;
+	if (!amount_msat_sub(fee, n->bfg[best-1].total, msat)) {
+		status_broken("Could not subtract %s - %s for fee",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &n->bfg[best-1].total),
+			      type_to_string(tmpctx, struct amount_msat, &msat));
+		return NULL;
+	}
 
 	/* Lay out route */
 	route = tal_arr(ctx, struct chan *, best);
@@ -732,7 +765,8 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 }
 
 bool routing_add_channel_announcement(struct routing_state *rstate,
-				      const u8 *msg TAKES, u64 satoshis)
+				      const u8 *msg TAKES,
+				      struct amount_sat sat)
 {
 	struct chan *chan;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
@@ -756,7 +790,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	 * channel_announcements.  See handle_channel_announcement. */
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2, satoshis);
+		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2, sat);
 
 	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_count(msg), 0);
@@ -937,7 +971,7 @@ static void process_pending_channel_update(struct routing_state *rstate,
 
 void handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
-				  const u64 satoshis,
+				  struct amount_sat sat,
 				  const u8 *outscript)
 {
 	const u8 *s;
@@ -985,7 +1019,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 		return;
 	}
 
-	if (!routing_add_channel_announcement(rstate, pending->announce, satoshis))
+	if (!routing_add_channel_announcement(rstate, pending->announce, sat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
 
@@ -1025,14 +1059,14 @@ static void set_connection_values(struct chan *chan,
 				  u8 message_flags,
 				  u8 channel_flags,
 				  u64 timestamp,
-				  u64 htlc_minimum_msat,
-				  u64 htlc_maximum_msat)
+				  struct amount_msat htlc_minimum,
+				  struct amount_msat htlc_maximum)
 {
 	struct half_chan *c = &chan->half[idx];
 
 	c->delay = delay;
-	c->htlc_minimum_msat = htlc_minimum_msat;
-	c->htlc_maximum_msat = htlc_maximum_msat;
+	c->htlc_minimum = htlc_minimum;
+	c->htlc_maximum = htlc_maximum;
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->message_flags = message_flags;
@@ -1043,16 +1077,6 @@ static void set_connection_values(struct chan *chan,
 	SUPERVERBOSE("Channel %s/%d was updated.",
 		     type_to_string(tmpctx, struct short_channel_id, &chan->scid),
 		     idx);
-
-	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
-		status_trace("Channel %s/%d massive proportional fee %u:"
-			     " disabling.",
-			     type_to_string(tmpctx, struct short_channel_id,
-					    &chan->scid),
-			     idx,
-			     c->proportional_fee);
-		c->channel_flags |= ROUTING_FLAGS_DISABLED;
-	}
 }
 
 bool routing_add_channel_update(struct routing_state *rstate,
@@ -1063,10 +1087,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	u32 timestamp;
 	u8 message_flags, channel_flags;
 	u16 expiry;
-	u64 htlc_minimum_msat;
+	struct amount_msat htlc_minimum, htlc_maximum;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
-	u64 htlc_maximum_msat;
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	u8 direction;
@@ -1074,7 +1097,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,
-				     &expiry, &htlc_minimum_msat, &fee_base_msat,
+				     &expiry, &htlc_minimum.millisatoshis, &fee_base_msat,
 				     &fee_proportional_millionths))
 		return false;
 	/* If it's flagged as containing the optional field, reparse for
@@ -1084,9 +1107,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				update, &signature, &chain_hash,
 				&short_channel_id, &timestamp,
 				&message_flags, &channel_flags,
-				&expiry, &htlc_minimum_msat, &fee_base_msat,
+				&expiry, &htlc_minimum.millisatoshis, &fee_base_msat,
 				&fee_proportional_millionths,
-				&htlc_maximum_msat))
+				&htlc_maximum.millisatoshis))
 		return false;
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
@@ -1095,25 +1118,29 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (message_flags & ROUTING_OPT_HTLC_MAX_MSAT) {
 		/* Reject update if the `htlc_maximum_msat` is greater
 		 * than the total available channel satoshis */
-		if (htlc_maximum_msat > chan->satoshis * 1000)
+		if (amount_msat_greater_sat(htlc_maximum, chan->sat))
 			return false;
 	} else {
 		/* If not indicated, set htlc_max_msat to channel capacity */
-		htlc_maximum_msat = chan->satoshis * 1000;
+		if (!amount_sat_to_msat(&htlc_maximum, chan->sat)) {
+			status_broken("Channel capacity %s overflows!",
+				      type_to_string(tmpctx, struct amount_sat,
+						     &chan->sat));
+			return false;
+		}
 	}
 
 	/* FIXME: https://github.com/lightningnetwork/lightning-rfc/pull/512
 	 * says we MUST NOT exceed 2^32-1, but c-lightning did, so just trim
 	 * rather than rejecting. */
-	if (htlc_maximum_msat > rstate->chainparams->max_payment.millisatoshis)
-		htlc_maximum_msat = rstate->chainparams->max_payment.millisatoshis;
+	if (amount_msat_greater(htlc_maximum, rstate->chainparams->max_payment))
+		htlc_maximum = rstate->chainparams->max_payment;
 
 	direction = channel_flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
 			      message_flags, channel_flags,
-			      timestamp, htlc_minimum_msat,
-			      htlc_maximum_msat);
+			      timestamp, htlc_minimum, htlc_maximum);
 
 	/* Replace any old one. */
 	tal_free(chan->half[direction].channel_update);
@@ -1500,22 +1527,22 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
-			    const u64 msatoshi, double riskfactor,
+			    struct amount_msat msat, double riskfactor,
 			    u32 final_cltv,
 			    double fuzz, u64 seed,
 			    const struct short_channel_id_dir *excluded,
 			    size_t max_hops)
 {
 	struct chan **route;
-	u64 total_amount;
+	struct amount_msat total_amount;
 	unsigned int total_delay;
-	u64 fee;
+	struct amount_msat fee;
 	struct route_hop *hops;
 	struct node *n;
-	u64 *saved_capacity;
+	struct amount_msat *saved_capacity;
 	struct siphash_seed base_seed;
 
-	saved_capacity = tal_arr(tmpctx, u64, tal_count(excluded));
+	saved_capacity = tal_arr(tmpctx, struct amount_msat, tal_count(excluded));
 
 	base_seed.u.u64[0] = base_seed.u.u64[1] = seed;
 
@@ -1524,12 +1551,11 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 		struct chan *chan = get_channel(rstate, &excluded[i].scid);
 		if (!chan)
 			continue;
-		saved_capacity[i]
-			= chan->half[excluded[i].dir].htlc_maximum_msat;
-		chan->half[excluded[i].dir].htlc_maximum_msat = 0;
+		saved_capacity[i] = chan->half[excluded[i].dir].htlc_maximum;
+		chan->half[excluded[i].dir].htlc_maximum = AMOUNT_MSAT(0);
 	}
 
-	route = find_route(ctx, rstate, source, destination, msatoshi,
+	route = find_route(ctx, rstate, source, destination, msat,
 			   riskfactor / BLOCKS_PER_YEAR / 100,
 			   fuzz, &base_seed, max_hops, &fee);
 
@@ -1538,8 +1564,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 		struct chan *chan = get_channel(rstate, &excluded[i].scid);
 		if (!chan)
 			continue;
-		chan->half[excluded[i].dir].htlc_maximum_msat
-			= saved_capacity[i];
+		chan->half[excluded[i].dir].htlc_maximum = saved_capacity[i];
 	}
 
 	if (!route) {
@@ -1548,27 +1573,36 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* Fees, delays need to be calculated backwards along route. */
 	hops = tal_arr(ctx, struct route_hop, tal_count(route));
-	total_amount = msatoshi;
+	total_amount = msat;
 	total_delay = final_cltv;
 
 	/* Start at destination node. */
 	n = get_node(rstate, destination);
 	for (int i = tal_count(route) - 1; i >= 0; i--) {
 		const struct half_chan *c;
+
 		int idx = half_chan_to(n, route[i]);
 		c = &route[i]->half[idx];
 		hops[i].channel_id = route[i]->scid;
 		hops[i].nodeid = n->id;
-		hops[i].amount.millisatoshis = total_amount;
+		hops[i].amount = total_amount;
 		hops[i].delay = total_delay;
 		hops[i].direction = idx;
-		total_amount += connection_fee(c, total_amount);
+
+		/* Since we calculated this route, it should not overflow! */
+		if (!amount_msat_add_fee(&total_amount,
+					 c->base_fee, c->proportional_fee)) {
+			status_broken("Route overflow step %i: %s + %u/%u!?",
+				      i, type_to_string(tmpctx, struct amount_msat,
+							&total_amount),
+				      c->base_fee, c->proportional_fee);
+			return tal_free(hops);
+		}
 		total_delay += c->delay;
 		n = other_node(n, route[i]);
 	}
 	assert(pubkey_eq(&n->id, source));
 
-	/* FIXME: Shadow route! */
 	return hops;
 }
 
@@ -1701,10 +1735,10 @@ bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct pubkey remote_node_id;
-	u64 satoshis;
+	struct amount_sat sat;
 
 	if (!fromwire_gossipd_local_add_channel(msg, &scid, &remote_node_id,
-						&satoshis)) {
+						&sat)) {
 		status_broken("Unable to parse local_add_channel message: %s",
 			      tal_hex(msg, msg));
 		return false;
@@ -1720,6 +1754,6 @@ bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, satoshis);
+	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
 	return true;
 }

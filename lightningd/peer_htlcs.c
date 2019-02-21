@@ -167,13 +167,22 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
  *   the final node.
  */
 static bool check_amount(struct htlc_in *hin,
-			 u64 amt_to_forward, u64 amt_in_htlc, u64 fee)
+			 struct amount_msat amt_to_forward,
+			 struct amount_msat amt_in_htlc,
+			 struct amount_msat fee)
 {
-	if (amt_in_htlc - fee >= amt_to_forward)
+	struct amount_msat fwd;
+
+	if (amount_msat_sub(&fwd, amt_in_htlc, fee)
+	    && amount_msat_greater_eq(fwd, amt_to_forward))
 		return true;
+
 	log_debug(hin->key.channel->log, "HTLC %"PRIu64" incorrect amount:"
-		  " %"PRIu64" in, %"PRIu64" out, fee reqd %"PRIu64,
-		  hin->key.id, amt_in_htlc, amt_to_forward, fee);
+		  " %s in, %s out, fee reqd %s",
+		  hin->key.id,
+		  type_to_string(tmpctx, struct amount_msat, &amt_in_htlc),
+		  type_to_string(tmpctx, struct amount_msat, &amt_to_forward),
+		  type_to_string(tmpctx, struct amount_msat, &fee));
 	return false;
 }
 
@@ -223,7 +232,7 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	/* Update channel stats */
 	wallet_channel_stats_incr_in_fulfilled(wallet,
 					       channel->dbid,
-					       hin->msatoshi);
+					       hin->msat);
 
 	/* No owner?  We'll either send to channeld in peer_htlcs, or
 	 * onchaind in onchaind_tell_fulfill. */
@@ -246,7 +255,7 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 static void handle_localpay(struct htlc_in *hin,
 			    u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
-			    u64 amt_to_forward,
+			    struct amount_msat amt_to_forward,
 			    u32 outgoing_cltv_value)
 {
 	enum onion_type failcode;
@@ -262,7 +271,7 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 * The amount in the HTLC doesn't match the value in the onion.
 	 */
-	if (!check_amount(hin, amt_to_forward, hin->msatoshi, 0)) {
+	if (!check_amount(hin, amt_to_forward, hin->msat, AMOUNT_MSAT(0))) {
 		failcode = WIRE_FINAL_INCORRECT_HTLC_AMOUNT;
 		goto fail;
 	}
@@ -293,10 +302,10 @@ static void handle_localpay(struct htlc_in *hin,
 	 *   - if the amount paid is less than the amount expected:
 	 *     - MUST fail the HTLC.
 	 */
-	if (details->msatoshi != NULL && hin->msatoshi < *details->msatoshi) {
+	if (details->msatoshi != NULL && hin->msat.millisatoshis < *details->msatoshi) {
 		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 		goto fail;
-	} else if (details->msatoshi != NULL && hin->msatoshi > *details->msatoshi * 2) {
+	} else if (details->msatoshi != NULL && hin->msat.millisatoshis > *details->msatoshi * 2) {
 		/* FIXME: bolt update fixes this quote! */
 		/* BOLT #4:
 		 *
@@ -327,10 +336,12 @@ static void handle_localpay(struct htlc_in *hin,
 
 	log_info(ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
 		 details->label->s, hin->key.id);
-	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
-		  details->label->s, hin->msatoshi, cltv_expiry);
+	log_debug(ld->log, "%s: Actual amount %s, HTLC expiry %u",
+		  details->label->s,
+		  type_to_string(tmpctx, struct amount_msat, &hin->msat),
+		  cltv_expiry);
 	fulfill_htlc(hin, &details->r);
-	wallet_invoice_resolve(ld->wallet, invoice, hin->msatoshi);
+	wallet_invoice_resolve(ld->wallet, invoice, hin->msat.millisatoshis);
 
 	return;
 
@@ -429,7 +440,8 @@ static void htlc_offer_timeout(struct channel *channel)
 			      "Adding HTLC timed out: killed channel");
 }
 
-enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
+enum onion_type send_htlc_out(struct channel *out,
+			      struct amount_msat amount, u32 cltv,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
@@ -472,13 +484,13 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 
 static void forward_htlc(struct htlc_in *hin,
 			 u32 cltv_expiry,
-			 u64 amt_to_forward,
+			 struct amount_msat amt_to_forward,
 			 u32 outgoing_cltv_value,
 			 const struct pubkey *next_hop,
 			 const u8 next_onion[TOTAL_PACKET_SIZE])
 {
 	enum onion_type failcode;
-	u64 fee;
+	struct amount_msat fee;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next = active_channel_by_id(ld, next_hop, NULL);
 
@@ -494,14 +506,16 @@ static void forward_htlc(struct htlc_in *hin,
 	 *   - SHOULD accept HTLCs that pay a fee equal to or greater than:
 	 *     - fee_base_msat + ( amount_to_forward * fee_proportional_millionths / 1000000 )
 	 */
-	if (mul_overflows_u64(amt_to_forward,
-			      ld->config.fee_per_satoshi)) {
+	if (!amount_msat_fee(&fee, amt_to_forward,
+			     ld->config.fee_base,
+			     ld->config.fee_per_satoshi)) {
+		log_broken(ld->log, "Fee overflow forwarding %s!",
+			   type_to_string(tmpctx, struct amount_msat,
+					  &amt_to_forward));
 		failcode = WIRE_FEE_INSUFFICIENT;
 		goto fail;
 	}
-	fee = ld->config.fee_base
-		+ amt_to_forward * ld->config.fee_per_satoshi / 1000000;
-	if (!check_amount(hin, amt_to_forward, hin->msatoshi, fee)) {
+	if (!check_amount(hin, amt_to_forward, hin->msat, fee)) {
 		failcode = WIRE_FEE_INSUFFICIENT;
 		goto fail;
 	}
@@ -559,7 +573,7 @@ fail:
 /* Temporary information, while we resolve the next hop */
 struct gossip_resolve {
 	struct short_channel_id next_channel;
-	u64 amt_to_forward;
+	struct amount_msat amt_to_forward;
 	u32 outgoing_cltv_value;
 	u8 *next_onion;
 	struct htlc_in *hin;
@@ -721,7 +735,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
 						channel->dbid,
-						hout->msatoshi);
+						hout->msat);
 
 	if (hout->am_origin)
 		payment_succeeded(ld, hout, preimage);
@@ -874,12 +888,25 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 
 	/* If we fulfilled their HTLC, credit us. */
 	if (hin->preimage) {
-		log_debug(channel->log, "Balance %"PRIu64" -> %"PRIu64,
-			  channel->our_msatoshi,
-			  channel->our_msatoshi + hin->msatoshi);
-		channel->our_msatoshi += hin->msatoshi;
-		if (channel->our_msatoshi > channel->msatoshi_to_us_max)
-			channel->msatoshi_to_us_max = channel->our_msatoshi;
+		struct amount_msat oldamt = channel->our_msat;
+		if (!amount_msat_add(&channel->our_msat, channel->our_msat,
+				     hin->msat)) {
+			channel_internal_error(channel,
+					       "Overflow our_msat %s + HTLC %s",
+					       type_to_string(tmpctx,
+							      struct amount_msat,
+							      &channel->our_msat),
+					       type_to_string(tmpctx,
+							      struct amount_msat,
+							      &hin->msat));
+		}
+		log_debug(channel->log, "Balance %s -> %s",
+			  type_to_string(tmpctx, struct amount_msat, &oldamt),
+			  type_to_string(tmpctx, struct amount_msat,
+					 &channel->our_msat));
+		if (amount_msat_greater(channel->our_msat,
+					channel->msat_to_us_max))
+			channel->msat_to_us_max = channel->our_msat;
 	}
 
 	tal_free(hin);
@@ -899,13 +926,26 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 	if (!hout->preimage) {
 		fail_out_htlc(hout, NULL);
 	} else {
+		struct amount_msat oldamt = channel->our_msat;
 		/* We paid for this HTLC, so deduct balance. */
-		log_debug(channel->log, "Balance %"PRIu64" -> %"PRIu64,
-			  channel->our_msatoshi,
-			  channel->our_msatoshi - hout->msatoshi);
-		channel->our_msatoshi -= hout->msatoshi;
-		if (channel->our_msatoshi < channel->msatoshi_to_us_min)
-			channel->msatoshi_to_us_min = channel->our_msatoshi;
+		if (!amount_msat_sub(&channel->our_msat, channel->our_msat,
+				     hout->msat)) {
+			channel_internal_error(channel,
+					       "Underflow our_msat %s - HTLC %s",
+					       type_to_string(tmpctx,
+							      struct amount_msat,
+							      &channel->our_msat),
+					       type_to_string(tmpctx,
+							      struct amount_msat,
+							      &hout->msat));
+		}
+
+		log_debug(channel->log, "Balance %s -> %s",
+			  type_to_string(tmpctx, struct amount_msat, &oldamt),
+			  type_to_string(tmpctx, struct amount_msat,
+					 &channel->our_msat));
+		if (amount_msat_less(channel->our_msat, channel->msat_to_us_min))
+			channel->msat_to_us_min = channel->our_msat;
 	}
 
 	tal_free(hout);
@@ -950,7 +990,7 @@ static bool update_out_htlc(struct channel *channel,
 		/* Update channel stats */
 		wallet_channel_stats_incr_out_offered(ld->wallet,
 						      channel->dbid,
-						      hout->msatoshi);
+						      hout->msat);
 
 		if (hout->in)
 			wallet_forwarded_payment_add(ld->wallet, hout->in, hout,
@@ -1107,12 +1147,14 @@ static bool channel_added_their_htlc(struct channel *channel,
 	 *  - receiving an `amount_msat` equal to 0, OR less than its own `htlc_minimum_msat`:
 	 *    - SHOULD fail the channel.
 	 */
-	if (added->amount_msat == 0
-	    || added->amount_msat < channel->our_config.htlc_minimum.millisatoshis) {
+	if (amount_msat_eq(added->amount, AMOUNT_MSAT(0))
+	    || amount_msat_less(added->amount, channel->our_config.htlc_minimum)) {
 		channel_internal_error(channel,
-				    "trying to add HTLC msat %"PRIu64
-				    " but minimum is %s",
-				    added->amount_msat,
+				       "trying to add HTLC amount %s"
+				       " but minimum is %s",
+				       type_to_string(tmpctx,
+						      struct amount_msat,
+						      &added->amount),
 				       type_to_string(tmpctx,
 						      struct amount_msat,
 						      &channel->our_config.htlc_minimum));
@@ -1126,7 +1168,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 
 	/* This stays around even if we fail it immediately: it *is*
 	 * part of the current commitment. */
-	hin = new_htlc_in(channel, channel, added->id, added->amount_msat,
+	hin = new_htlc_in(channel, channel, added->id, added->amount,
 			  added->cltv_expiry, &added->payment_hash,
 			  shared_secret, added->onion_routing_packet);
 
@@ -1134,7 +1176,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	wallet_htlc_save_in(ld->wallet, channel, hin);
 	/* Update channel stats */
 	wallet_channel_stats_incr_in_offered(ld->wallet, channel->dbid,
-					     added->amount_msat);
+					     added->amount);
 
 	log_debug(channel->log, "Adding their HTLC %"PRIu64, added->id);
 	connect_htlc_in(&channel->peer->ld->htlcs_in, hin);
@@ -1386,7 +1428,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 static void add_htlc(struct added_htlc **htlcs,
 		     enum htlc_state **htlc_states,
 		     u64 id,
-		     u64 amount_msat,
+		     struct amount_msat amount,
 		     const struct sha256 *payment_hash,
 		     u32 cltv_expiry,
 		     const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
@@ -1395,7 +1437,7 @@ static void add_htlc(struct added_htlc **htlcs,
 	struct added_htlc a;
 
 	a.id = id;
-	a.amount_msat = amount_msat;
+	a.amount = amount;
 	a.payment_hash = *payment_hash;
 	a.cltv_expiry = cltv_expiry;
 	memcpy(a.onion_routing_packet, onion_routing_packet,
@@ -1478,7 +1520,7 @@ void peer_htlcs(const tal_t *ctx,
 			continue;
 
 		add_htlc(htlcs, htlc_states,
-			 hin->key.id, hin->msatoshi, &hin->payment_hash,
+			 hin->key.id, hin->msat, &hin->payment_hash,
 			 hin->cltv_expiry, hin->onion_routing_packet,
 			 hin->hstate);
 
@@ -1498,7 +1540,7 @@ void peer_htlcs(const tal_t *ctx,
 			continue;
 
 		add_htlc(htlcs, htlc_states,
-			 hout->key.id, hout->msatoshi, &hout->payment_hash,
+			 hout->key.id, hout->msat, &hout->payment_hash,
 			 hout->cltv_expiry, hout->onion_routing_packet,
 			 hout->hstate);
 
@@ -1701,11 +1743,11 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 	}
 
 	log_broken(ld->log, "HTLC #%"PRIu64" (%s) "
-		   " for amount %"PRIu64
+		   " for amount %s"
 		   " to %s"
 		   " is missing a resolution: %s.",
 		   hout->key.id, htlc_state_name(hout->hstate),
-		   hout->msatoshi,
+		   type_to_string(tmpctx, struct amount_msat, &hout->msat),
 		   type_to_string(tmpctx, struct pubkey,
 				  &hout->key.channel->peer->id),
 		   fix);
