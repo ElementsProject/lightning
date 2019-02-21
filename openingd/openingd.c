@@ -449,10 +449,11 @@ static u8 *funder_channel(struct state *state,
 	 *...
 	 *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
 	 */
-	if (state->funding_satoshis > state->chainparams->max_funding_satoshi)
+	if (state->funding_satoshis > state->chainparams->max_funding.satoshis)
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "funding_satoshis must be < %"PRIu64", not %"PRIu64,
-			      state->chainparams->max_funding_satoshi,
+			      "funding_satoshis must be < %s, not %"PRIu64,
+			      type_to_string(tmpctx, struct amount_sat,
+					     &state->chainparams->max_funding),
 			      state->funding_satoshis);
 
 	/* BOLT #2:
@@ -884,7 +885,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
-	if (state->funding_satoshis > state->chainparams->max_funding_satoshi) {
+	if (state->funding_satoshis > state->chainparams->max_funding.satoshis) {
 		negotiation_failed(state, false,
 				   "funding_satoshis %"PRIu64" too large",
 				   state->funding_satoshis);

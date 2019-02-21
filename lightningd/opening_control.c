@@ -825,7 +825,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	u8 *msg;
 	struct amount_sat max_funding_satoshi;
 
-	max_funding_satoshi.satoshis = get_chainparams(cmd->ld)->max_funding_satoshi;
+	max_funding_satoshi = get_chainparams(cmd->ld)->max_funding;
 
 	fc->cmd = cmd;
 	fc->uc = NULL;

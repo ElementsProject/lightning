@@ -435,11 +435,11 @@ static struct command_result *json_invoice(struct command *cmd,
 
 	chainparams = get_chainparams(cmd->ld);
 	if (msatoshi_val
-	    && msatoshi_val->millisatoshis > chainparams->max_payment_msat) {
+	    && amount_msat_greater(*msatoshi_val, chainparams->max_payment)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "msatoshi cannot exceed %"PRIu64
-				    " millisatoshis",
-				    chainparams->max_payment_msat);
+				    "msatoshi cannot exceed %s",
+				    type_to_string(tmpctx, struct amount_msat,
+						   &chainparams->max_payment));
 	}
 
 	if (fallbacks) {

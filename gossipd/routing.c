@@ -1105,8 +1105,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* FIXME: https://github.com/lightningnetwork/lightning-rfc/pull/512
 	 * says we MUST NOT exceed 2^32-1, but c-lightning did, so just trim
 	 * rather than rejecting. */
-	if (htlc_maximum_msat > rstate->chainparams->max_payment_msat)
-		htlc_maximum_msat = rstate->chainparams->max_payment_msat;
+	if (htlc_maximum_msat > rstate->chainparams->max_payment.millisatoshis)
+		htlc_maximum_msat = rstate->chainparams->max_payment.millisatoshis;
 
 	direction = channel_flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
