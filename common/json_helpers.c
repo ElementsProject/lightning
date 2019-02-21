@@ -1,5 +1,6 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
+#include <common/amount.h>
 #include <common/json_helpers.h>
 #include <errno.h>
 
@@ -36,6 +37,19 @@ bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
 {
 	return pubkey_from_hexstr(buffer + tok->start,
 				  tok->end - tok->start, pubkey);
+}
+
+bool json_to_msat(const char *buffer, const jsmntok_t *tok,
+		  struct amount_msat *msat)
+{
+	return parse_amount_msat(msat,
+				 buffer + tok->start, tok->end - tok->start);
+}
+
+bool json_to_sat(const char *buffer, const jsmntok_t *tok,
+		 struct amount_sat *sat)
+{
+	return parse_amount_sat(sat, buffer + tok->start, tok->end - tok->start);
 }
 
 bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
