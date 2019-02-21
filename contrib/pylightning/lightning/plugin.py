@@ -390,20 +390,23 @@ class Plugin(object):
         for line in message.split('\n'):
             self.notify('log', {'level': level, 'message': line})
 
+    def _parse_request(self, jsrequest):
+        request = Request(
+            plugin=self,
+            req_id=jsrequest.get('id', None),
+            method=jsrequest['method'],
+            params=jsrequest['params'],
+            background=False,
+        )
+        return request
+
     def _multi_dispatch(self, msgs):
         """We received a couple of messages, now try to dispatch them all.
 
         Returns the last partial message that was not complete yet.
         """
         for payload in msgs[:-1]:
-            request = json.loads(payload)
-            request = Request(
-                plugin=self,
-                req_id=request.get('id', None),
-                method=request['method'],
-                params=request['params'],
-                background=False,
-            )
+            request = self._parse_request(json.loads(payload))
 
             # If this has an 'id'-field, it's a request and returns a
             # result. Otherwise it's a notification and it doesn't

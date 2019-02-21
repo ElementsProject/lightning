@@ -1,6 +1,6 @@
 from lightning import Plugin
-
-
+from lightning.plugin import Request
+import itertools
 import pytest
 
 
@@ -15,13 +15,13 @@ def test_simple_methods():
         """Has a single positional argument."""
         assert name == 'World'
         call_list.append(test1)
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test1',
         'params': {'name': 'World'}
-    }
-    p._dispatch(request)
+    })
+    p._dispatch_request(request)
     assert call_list == [test1]
 
     @p.method("test2")
@@ -29,13 +29,13 @@ def test_simple_methods():
         """Also asks for the plugin instance. """
         assert plugin == p
         call_list.append(test2)
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test2',
         'params': {'name': 'World'}
-    }
-    p._dispatch(request)
+    })
+    p._dispatch_request(request)
     assert call_list == [test1, test2]
 
     @p.method("test3")
@@ -43,13 +43,13 @@ def test_simple_methods():
         """Also asks for the request instance. """
         assert request is not None
         call_list.append(test3)
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test3',
         'params': {'name': 'World'}
-    }
-    p._dispatch(request)
+    })
+    p._dispatch_request(request)
     assert call_list == [test1, test2, test3]
 
     @p.method("test4")
@@ -57,13 +57,13 @@ def test_simple_methods():
         """Try the positional arguments."""
         assert name == 'World'
         call_list.append(test4)
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test4',
         'params': ['World']
-    }
-    p._dispatch(request)
+    })
+    p._dispatch_request(request)
     assert call_list == [test1, test2, test3, test4]
 
     @p.method("test5")
@@ -73,13 +73,13 @@ def test_simple_methods():
         assert request is not None
         assert p == plugin
         call_list.append(test5)
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test5',
         'params': ['World']
-    }
-    p._dispatch(request)
+    })
+    p._dispatch_request(request)
     assert call_list == [test1, test2, test3, test4, test5]
 
     answers = []
@@ -92,23 +92,23 @@ def test_simple_methods():
         call_list.append(test6)
 
     # Both calls should work (with and without the default param
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test6',
         'params': ['World']
-    }
-    p._dispatch(request)
+    })
+    p._dispatch_request(request)
     assert call_list == [test1, test2, test3, test4, test5, test6]
     assert answers == [42]
 
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test6',
         'params': ['World', 31337]
-    }
-    p._dispatch(request)
+    })
+    p._dispatch_request(request)
     assert call_list == [test1, test2, test3, test4, test5, test6, test6]
     assert answers == [42, 31337]
 
@@ -119,14 +119,14 @@ def test_methods_errors():
     p = Plugin(autopatch=False)
 
     # Fails because we haven't added the method yet
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test1',
         'params': {}
-    }
+    })
     with pytest.raises(ValueError):
-        p._dispatch(request)
+        p._dispatch_request(request)
     assert call_list == []
 
     @p.method("test1")
@@ -138,34 +138,102 @@ def test_methods_errors():
         p.add_method("test1", test1)
 
     # Fails because it is missing the 'name' argument
-    request = {'id': 1, 'jsonrpc': '2.0', 'method': 'test1', 'params': {}}
+    request = p._parse_request({'id': 1, 'jsonrpc': '2.0', 'method': 'test1', 'params': {}})
     with pytest.raises(TypeError):
-        p._dispatch(request)
+        p._exec_func(test1, request)
     assert call_list == []
 
     # The same with positional arguments
-    request = {'id': 1, 'jsonrpc': '2.0', 'method': 'test1', 'params': []}
+    request = p._parse_request({'id': 1, 'jsonrpc': '2.0', 'method': 'test1', 'params': []})
     with pytest.raises(TypeError):
-        p._dispatch(request)
+        p._exec_func(test1, request)
     assert call_list == []
 
     # Fails because we have a non-matching argument
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test1',
         'params': {'name': 'World', 'extra': 1}
-    }
+    })
     with pytest.raises(TypeError):
-        p._dispatch(request)
+        p._exec_func(test1, request)
     assert call_list == []
 
-    request = {
+    request = p._parse_request({
         'id': 1,
         'jsonrpc': '2.0',
         'method': 'test1',
         'params': ['World', 1]
-    }
+    })
+
     with pytest.raises(TypeError):
-        p._dispatch(request)
+        p._exec_func(test1, request)
     assert call_list == []
+
+
+def test_positional_inject():
+    p = Plugin()
+    rdict = Request(
+        plugin=p,
+        req_id=1,
+        method='func',
+        params={'a': 1, 'b': 2, 'kwa': 3, 'kwb': 4}
+    )
+    rarr = Request(
+        plugin=p,
+        req_id=1,
+        method='func',
+        params=[1, 2, 3, 4],
+    )
+
+    def pre_args(plugin, a, b, kwa=3, kwb=4):
+        assert (plugin, a, b, kwa, kwb) == (p, 1, 2, 3, 4)
+
+    def in_args(a, plugin, b, kwa=3, kwb=4):
+        assert (plugin, a, b, kwa, kwb) == (p, 1, 2, 3, 4)
+
+    def post_args(a, b, plugin, kwa=3, kwb=4):
+        assert (plugin, a, b, kwa, kwb) == (p, 1, 2, 3, 4)
+
+    def post_kwargs(a, b, kwa=3, kwb=4, plugin=None):
+        assert (plugin, a, b, kwa, kwb) == (p, 1, 2, 3, 4)
+
+    def in_multi_args(a, request, plugin, b, kwa=3, kwb=4):
+        assert request in [rarr, rdict]
+        assert (plugin, a, b, kwa, kwb) == (p, 1, 2, 3, 4)
+
+    def in_multi_mix_args(a, plugin, b, request=None, kwa=3, kwb=4):
+        assert request in [rarr, rdict]
+        assert (plugin, a, b, kwa, kwb) == (p, 1, 2, 3, 4)
+
+    def extra_def_arg(a, b, c, d, e=42):
+        """ Also uses a different name for kwa and kwb
+        """
+        assert (a, b, c, d, e) == (1, 2, 3, 4, 42)
+
+    def count(plugin, count, request):
+        assert count == 42 and plugin == p
+
+    funcs = [pre_args, in_args, post_args, post_kwargs, in_multi_args]
+
+    for func, request in itertools.product(funcs, [rdict, rarr]):
+        p._exec_func(func, request)
+
+    p._exec_func(extra_def_arg, rarr)
+
+    p._exec_func(count, Request(
+        plugin=p,
+        req_id=1,
+        method='func',
+        params=[42],
+    ))
+
+    # This should fail since it is missing one positional argument
+    with pytest.raises(TypeError):
+        p._exec_func(count, Request(
+            plugin=p,
+            req_id=1,
+            method='func',
+            params=[])
+        )
