@@ -24,16 +24,6 @@ struct amount_sat amount_msat_to_sat_round_down(struct amount_msat msat)
 	return sat;
 }
 
-/* You may not be able to do this. */
-bool amount_msat_to_sat_exact(struct amount_sat *sat,
-			      const struct amount_msat *msat)
-{
-	if (msat->millisatoshis % MSAT_PER_SAT != 0)
-		return false;
-	sat->satoshis = msat->millisatoshis / MSAT_PER_SAT;
-	return true;
-}
-
 /* Different formatting by amounts: btc, sat and msat */
 const char *fmt_amount_msat_btc(const tal_t *ctx,
 				const struct amount_msat *msat,

@@ -39,10 +39,6 @@ struct amount_msat {
 WARN_UNUSED_RESULT bool amount_sat_to_msat(struct amount_msat *msat,
 					   struct amount_sat sat);
 
-/* This may require rounding. */
-WARN_UNUSED_RESULT bool amount_msat_to_sat_exact(struct amount_sat *,
-						 const struct amount_msat *);
-
 /* You can always truncate millisatoshis->satoshis. */
 struct amount_sat amount_msat_to_sat_round_down(struct amount_msat msat);
 
@@ -110,16 +106,18 @@ WARN_UNUSED_RESULT bool amount_msat_add_fee(struct amount_msat *amt,
 struct amount_sat amount_tx_fee(u32 fee_per_kw, size_t weight);
 
 /* Different formatting by amounts: btc, sat and msat */
+/* => 1.23456789012btc (11 decimals!) */
 const char *fmt_amount_msat_btc(const tal_t *ctx,
 				const struct amount_msat *msat,
 				bool append_unit);
-/* 1234msat */
+/* => 1234msat */
 const char *fmt_amount_msat(const tal_t *ctx, const struct amount_msat *msat);
 
+/* => 1.23456789btc (8 decimals!) */
 const char *fmt_amount_sat_btc(const tal_t *ctx,
 			       const struct amount_sat *sat,
 			       bool append_unit);
-/* 1234sat */
+/* => 1234sat */
 const char *fmt_amount_sat(const tal_t *ctx, const struct amount_sat *sat);
 
 /* Valid strings:
