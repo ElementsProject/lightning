@@ -680,7 +680,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	CHECK(w);
 
 	memset(&u, 0, sizeof(u));
-	u.amount = 1;
+	u.amount = AMOUNT_SAT(1);
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 
 	db_begin_transaction(w->db);

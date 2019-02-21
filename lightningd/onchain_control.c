@@ -275,7 +275,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 
 	if (!fromwire_onchain_add_utxo(msg, &u->txid, &u->outnum,
 				       &u->close_info->commitment_point,
-				       &u->amount, &blockheight)) {
+				       &u->amount.satoshis, &blockheight)) {
 		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
 	}
 	u->blockheight = blockheight>0?&blockheight:NULL;
