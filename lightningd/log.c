@@ -504,6 +504,7 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
 	const struct log_entry *i;
 	FILE *logf;
+	int size;
 
 	if (ld->logfile) {
 		fclose(ld->log->lr->print_arg);
@@ -516,6 +517,11 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 	if (!logf)
 		return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
 	set_log_outfn(ld->log->lr, log_to_file, logf);
+
+	/* For convenience make a block of empty lines just like Bitcoin Core */
+	size = ftell(logf);
+	if (size > 0)
+		fprintf(logf, "\n\n\n\n");
 
 	/* Catch up */
 	list_for_each(&ld->log->lr->log, i, list)
