@@ -215,7 +215,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
             peers.append(p)
 
     for p in peers:
-        p.channel = l1.rpc.fundchannel(p.info['id'], 10**6)['channel_id']
+        p.channel = l1.rpc.fundchannel(p.info['id'], 10**6, minconf=0)['channel_id']
         # Technically, this is async to fundchannel returning.
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
