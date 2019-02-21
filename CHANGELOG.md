@@ -63,6 +63,9 @@ provide appropriate suffixes for JSON input fields.
 - `riskfactor` arguments to `pay` and `getroute` now have an effect.
 - Handle lnd sending premature 'funding_locked' message when we're expected 'reestablish';
   we used to close channel if this happened.
+- Cleanup peers that started opening a channel, but then disconnected. These
+  would leave a dangling entry in the DB that would cause this peer to be
+  unable to connect. (PR #2371)
 
 ### Security
 
