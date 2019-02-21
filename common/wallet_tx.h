@@ -31,4 +31,13 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 					u32 fee_rate_per_kw,
 					size_t out_len,
 					u32 maxheight);
+
+static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
+{
+	/* No confirmations is special, we need to disable the check in the
+	 * selection */
+	if (minconf == 0)
+		return 0;
+	return ld->topology->tip->height - minconf + 1;
+}
 #endif /* LIGHTNING_COMMON_WALLET_TX_H */
