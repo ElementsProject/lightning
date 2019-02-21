@@ -15,8 +15,13 @@ DESCRIPTION
 
 The *pay* RPC command attempts to find a route to the given destination,
 and send the funds it asks for.  If the 'bolt11' does not contain an amount,
-'msatoshi' is required, otherwise if it is specified it must be 'null'.  If
-'bolt11' contains a description hash ('h' field) 'description' is
+'msatoshi' is required, otherwise if it is specified it must be 'null'.
+'msatoshi' is in millisatoshi precision; it can be a whole number, or
+a whole number with suffix 'msat', 'sat', or 'btc', or a three decimal
+point number with suffix 'sat', or an 8 or 11 decimal point number
+postfixed by 'btc'.
+
+If 'bolt11' contains a description hash ('h' field) 'description' is
 required, otherwise it is unused.  The 'riskfactor' is described in detail
 in lightning-getroute(7), and defaults to 10.
 The 'maxfeepercent' limits the money paid in fees, and defaults to 0.5.

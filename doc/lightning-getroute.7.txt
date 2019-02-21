@@ -17,6 +17,11 @@ The *getroute* RPC command attempts to find the best route for the payment
 of 'msatoshi' to lightning node 'id', such that the payment will arrive
 at 'id' with 'cltv'-blocks to spare (default 9).
 
+'msatoshi' is in millisatoshi precision; it can be a whole number, or
+a whole number ending in 'msat' or 'sat', or a number with three
+decimal places ending in 'sat', or a number with 8 or 11 decimal
+places ending in 'btc'.
+
 There are two considerations for how good a route is: how low the
 fees are, and how long your payment will get stuck in a delayed output if a node goes down
 during the process.  The 'riskfactor' floating-point field controls
@@ -113,7 +118,7 @@ RETURN VALUE
 
 On success, a "route" array is returned.
 Each array element contains 'id' (the node being routed through), 'msatoshi'
-(the millisatoshis sent), and 'delay' (the number of blocks to timeout at this
+(the millisatoshis sent), 'amount_msat' (the same, with 'msat' appended), and 'delay' (the number of blocks to timeout at this
 node).
 
 The final 'id' will be the destination 'id' given in the input.  The
