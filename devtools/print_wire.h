@@ -14,6 +14,8 @@ void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, 
 void printwire_bitcoin_blkid(const char *fieldname, const struct bitcoin_blkid *bitcoin_blkid);
 void printwire_bitcoin_txid(const char *fieldname, const struct bitcoin_txid *bitcoin_txid);
 void printwire_channel_id(const char *fieldname, const struct channel_id *channel_id);
+void printwire_amount_sat(const char *fieldname, const struct amount_sat *sat);
+void printwire_amount_msat(const char *fieldname, const struct amount_msat *msat);
 void printwire_preimage(const char *fieldname, const struct preimage *preimage);
 void printwire_pubkey(const char *fieldname, const struct pubkey *pubkey);
 void printwire_secp256k1_ecdsa_signature(const char *fieldname, const secp256k1_ecdsa_signature *);

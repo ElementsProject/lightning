@@ -1097,7 +1097,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,
-				     &expiry, &htlc_minimum.millisatoshis, &fee_base_msat,
+				     &expiry, &htlc_minimum, &fee_base_msat,
 				     &fee_proportional_millionths))
 		return false;
 	/* If it's flagged as containing the optional field, reparse for
@@ -1107,9 +1107,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				update, &signature, &chain_hash,
 				&short_channel_id, &timestamp,
 				&message_flags, &channel_flags,
-				&expiry, &htlc_minimum.millisatoshis, &fee_base_msat,
+				&expiry, &htlc_minimum, &fee_base_msat,
 				&fee_proportional_millionths,
-				&htlc_maximum.millisatoshis))
+				&htlc_maximum))
 		return false;
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
@@ -1176,7 +1176,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	u32 timestamp;
 	u8 message_flags, channel_flags;
 	u16 expiry;
-	u64 htlc_minimum_msat;
+	struct amount_msat htlc_minimum;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	struct bitcoin_blkid chain_hash;
@@ -1190,7 +1190,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 				     &chain_hash, &short_channel_id,
 				     &timestamp, &message_flags,
 				     &channel_flags, &expiry,
-				     &htlc_minimum_msat, &fee_base_msat,
+				     &htlc_minimum, &fee_base_msat,
 				     &fee_proportional_millionths)) {
 		err = towire_errorfmt(rstate, NULL,
 				      "Malformed channel_update %s",

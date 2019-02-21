@@ -654,8 +654,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	secp256k1_ecdsa_signature sig;
 	struct short_channel_id scid;
 	u32 timestamp, fee_base_msat, fee_proportional_mill;
-	u64 htlc_minimum_msat;
-	u64 htlc_maximum_msat;
+	struct amount_msat htlc_minimum, htlc_maximum;
 	u8 message_flags, channel_flags;
 	u16 cltv_expiry_delta;
 	struct bitcoin_blkid chain_hash;
@@ -667,8 +666,8 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	if (!fromwire_channel_update_option_channel_htlc_max(cu, &sig,
 			&chain_hash, &scid, &timestamp, &message_flags,
 			&channel_flags, &cltv_expiry_delta,
-			&htlc_minimum_msat, &fee_base_msat,
-			&fee_proportional_mill, &htlc_maximum_msat)) {
+			&htlc_minimum, &fee_base_msat,
+			&fee_proportional_mill, &htlc_maximum)) {
 		return bad_req_fmt(conn, c, msg_in, "Bad inner channel_update");
 	}
 	if (tal_count(cu) < offset)
@@ -682,9 +681,9 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 
 	cu = towire_channel_update_option_channel_htlc_max(tmpctx, &sig, &chain_hash,
 				   &scid, timestamp, message_flags, channel_flags,
-				   cltv_expiry_delta, htlc_minimum_msat,
+				   cltv_expiry_delta, htlc_minimum,
 				   fee_base_msat, fee_proportional_mill,
-				   htlc_maximum_msat);
+				   htlc_maximum);
 	return req_reply(conn, c, take(towire_hsm_cupdate_sig_reply(NULL, cu)));
 }
 
