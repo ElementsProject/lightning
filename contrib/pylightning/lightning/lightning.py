@@ -511,17 +511,19 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def fundchannel(self, node_id, satoshi, feerate=None, announce=True):
+    def fundchannel(self, node_id, satoshi, feerate=None, announce=True, minconf=None):
         """
         Fund channel with {id} using {satoshi} satoshis
         with feerate of {feerate} (uses default feerate if unset).
         If {announce} is False, don't send channel announcements.
+        Only select outputs with {minconf} confirmations
         """
         payload = {
             "id": node_id,
             "satoshi": satoshi,
             "feerate": feerate,
-            "announce": announce
+            "announce": announce,
+            "minconf": minconf,
         }
         return self.call("fundchannel", payload)
 
@@ -588,15 +590,17 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("dev-memleak")
 
-    def withdraw(self, destination, satoshi, feerate=None):
+    def withdraw(self, destination, satoshi, feerate=None, minconf=None):
         """
         Send to {destination} address {satoshi} (or "all")
-        amount via Bitcoin transaction
+        amount via Bitcoin transaction. Only select outputs
+        with {minconf} confirmations
         """
         payload = {
             "destination": destination,
             "satoshi": satoshi,
-            "feerate": feerate
+            "feerate": feerate,
+            "minconf": minconf,
         }
         return self.call("withdraw", payload)
 
