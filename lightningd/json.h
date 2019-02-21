@@ -157,9 +157,4 @@ enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx,
 			     const struct chainparams *chainparams,
 			     const char *buffer,
 			     const jsmntok_t *tok, const u8 **scriptpubkey);
-
-/* Parse the satoshi token in wallet_tx. */
-struct command_result *param_wtx(struct wallet_tx * tx, const char * buffer,
-				 const jsmntok_t * sattok, u64 max);
-
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */

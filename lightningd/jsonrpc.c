@@ -31,7 +31,6 @@
 #include <common/param.h>
 #include <common/timeout.h>
 #include <common/version.h>
-#include <common/wallet_tx.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -1029,22 +1028,6 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	}
 
 	return ADDRESS_PARSE_UNRECOGNIZED;
-}
-
-struct command_result *param_wtx(struct wallet_tx * tx, const char * buffer,
-				 const jsmntok_t *sattok, u64 max)
-{
-        if (json_tok_streq(buffer, sattok, "all")) {
-                tx->all_funds = true;
-		tx->amount = max;
-        } else if (!json_to_u64(buffer, sattok, &tx->amount)) {
-                return command_fail(tx->cmd, JSONRPC2_INVALID_PARAMS,
-				    "Invalid satoshis");
-	} else if (tx->amount > max) {
-                return command_fail(tx->cmd, FUND_MAX_EXCEEDED,
-				    "Amount exceeded %"PRIu64, max);
-	}
-        return NULL;
 }
 
 static struct command_result *param_command(struct command *cmd,

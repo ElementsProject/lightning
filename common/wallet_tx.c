@@ -4,26 +4,53 @@
 #include <inttypes.h>
 #include <wallet/wallet.h>
 
-void wtx_init(struct command *cmd, struct wallet_tx * wtx)
+void wtx_init(struct command *cmd, struct wallet_tx *wtx, struct amount_sat max)
 {
 	wtx->cmd = cmd;
-	wtx->amount = 0;
-	wtx->change_key_index = 0;
-	wtx->utxos = NULL;
-	wtx->all_funds = false;
+	wtx->amount = max;
 }
 
-static struct command_result *check_amount(const struct wallet_tx *tx,
-					   u64 amount)
+struct command_result *param_wtx(struct command *cmd,
+				 const char *name,
+				 const char *buffer,
+				 const jsmntok_t *tok,
+				 struct wallet_tx *wtx)
 {
-	if (tal_count(tx->utxos) == 0) {
-		return command_fail(tx->cmd, FUND_CANNOT_AFFORD,
+	struct amount_sat max = wtx->amount;
+
+	if (json_tok_streq(buffer, tok, "all")) {
+		wtx->all_funds = true;
+		return NULL;
+	}
+	wtx->all_funds = false;
+	if (!parse_amount_sat(&wtx->amount,
+			      buffer + tok->start, tok->end - tok->start))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be satoshis or 'all', not '%.*s'",
+				    name,
+				    tok->end - tok->start,
+				    buffer + tok->start);
+
+	if (amount_sat_greater(wtx->amount, max))
+                return command_fail(wtx->cmd, FUND_MAX_EXCEEDED,
+				    "Amount exceeded %s",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &max));
+        return NULL;
+}
+
+static struct command_result *check_amount(const struct wallet_tx *wtx,
+					   struct amount_sat amount)
+{
+	if (tal_count(wtx->utxos) == 0) {
+		return command_fail(wtx->cmd, FUND_CANNOT_AFFORD,
 				    "Cannot afford transaction");
 	}
-	if (amount < 546) {
-		return command_fail(tx->cmd, FUND_OUTPUT_IS_DUST,
-				    "Output %"PRIu64" satoshis would be dust",
-				    amount);
+	if (amount.satoshis < get_chainparams(wtx->cmd->ld)->dust_limit) {
+		return command_fail(wtx->cmd, FUND_OUTPUT_IS_DUST,
+				    "Output %s would be dust",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &amount));
 	}
 	return NULL;
 }
@@ -34,18 +61,21 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 {
 	struct command_result *res;
 	u64 fee_estimate;
+
 	if (tx->all_funds) {
-		u64 amount;
+		struct amount_sat amount;
 		tx->utxos = wallet_select_all(tx->cmd, tx->cmd->ld->wallet,
 					      fee_rate_per_kw, out_len,
-					      &amount,
+					      &amount.satoshis,
 					      &fee_estimate);
 		res = check_amount(tx, amount);
 		if (res)
 			return res;
 
-		if (amount <= tx->amount) {
-			tx->change = 0;
+		/* tx->amount is max permissible */
+		if (amount_sat_less_eq(amount, tx->amount)) {
+			tx->change = AMOUNT_SAT(0);
+			tx->change_key_index = 0;
 			tx->amount = amount;
 			return NULL;
 		}
@@ -56,15 +86,15 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	}
 
 	tx->utxos = wallet_select_coins(tx->cmd, tx->cmd->ld->wallet,
-					tx->amount,
+					tx->amount.satoshis,
 					fee_rate_per_kw, out_len,
-					&fee_estimate, &tx->change);
+					&fee_estimate, &tx->change.satoshis);
 	res = check_amount(tx, tx->amount);
 	if (res)
 		return res;
 
-	if (tx->change < 546) {
-		tx->change = 0;
+	if (tx->change.satoshis < get_chainparams(tx->cmd->ld)->dust_limit) {
+		tx->change = AMOUNT_SAT(0);
 		tx->change_key_index = 0;
 	} else {
 		tx->change_key_index = wallet_get_newindex(tx->cmd->ld);
