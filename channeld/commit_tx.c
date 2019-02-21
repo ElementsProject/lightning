@@ -165,7 +165,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(other_pay));
 		assert(ok);
 		SUPERVERBOSE("# actual commitment transaction fee = %"PRIu64"\n",
-			     funding.satoshis - out.satoshis);
+			     funding.satoshis - out.satoshis);  /* Raw: test output */
 	}
 #endif
 

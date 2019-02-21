@@ -447,7 +447,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	 * in feepercent will be like 3.0000..(some dots)..1 % - 3.0 %.
 	 * That loss will not be representable in double. So, it's Okay to
 	 * cast u64 to double for feepercent calculation. */
-	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) pc->msat.millisatoshis);
+	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) pc->msat.millisatoshis); /* Raw: fee double manipulation */
 
 	if (amount_msat_greater(fee, pc->exemptfee)
 	    && feepercent > pc->maxfeepercent) {
@@ -468,7 +468,7 @@ static struct command_result *getroute_done(struct command *cmd,
 
 		/* Try excluding most fee-charging channel (unless it's in
 		 * routeboost). */
-		charger = find_worst_channel(buf, t, "msatoshi", pc->msat.millisatoshis);
+		charger = find_worst_channel(buf, t, "msatoshi", pc->msat.millisatoshis); /* Raw: shared function needs u64 */
 		if (maybe_exclude(pc, buf, charger)) {
 			return start_pay_attempt(cmd, pc,
 						 "Excluded expensive channel %s",
@@ -1030,7 +1030,7 @@ static struct command_result *handle_paystatus(struct command *cmd,
 			       " 'amount_msat': '%s', "
 			       " 'destination': '%s'",
 			       ps->bolt11,
-			       ps->msat.millisatoshis,
+			       ps->msat.millisatoshis, /* Raw: JSON */
 			       type_to_string(tmpctx, struct amount_msat,
 					      &ps->msat), ps->dest);
 		if (ps->desc)

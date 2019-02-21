@@ -558,7 +558,7 @@ static bool process_gettxout(struct bitcoin_cli *bcli)
 		      bcli_args(tmpctx, bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
-	if (!json_to_bitcoin_amount(bcli->output, valuetok, &out.amount.satoshis))
+	if (!json_to_bitcoin_amount(bcli->output, valuetok, &out.amount.satoshis)) /* Raw: talking to bitcoind */
 		fatal("%s: had bad value (%.*s)?",
 		      bcli_args(tmpctx, bcli),
 		      (int)bcli->output_bytes, bcli->output);

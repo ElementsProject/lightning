@@ -811,11 +811,9 @@ static struct command_result *json_sendpay(struct command *cmd,
 
 	/* if not: msatoshi <= finalhop.amount <= 2 * msatoshi, fail. */
 	if (msat) {
-		struct amount_msat two_times_final;
+		struct amount_msat limit = route[routetok->size-1].amount;
 
-		two_times_final.millisatoshis
-			= route[routetok->size-1].amount.millisatoshis * 2;
-		if (amount_msat_less(*msat, route[routetok->size-1].amount))
+		if (amount_msat_less(*msat, limit))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi %s less than final %s",
 					    type_to_string(tmpctx,
@@ -824,7 +822,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 					    type_to_string(tmpctx,
 							   struct amount_msat,
 							   &route[routetok->size-1].amount));
-		if (amount_msat_greater(*msat, two_times_final))
+		limit.millisatoshis *= 2; /* Raw: sanity check */
+		if (amount_msat_greater(*msat, limit))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi %s more than twice final %s",
 					    type_to_string(tmpctx,
