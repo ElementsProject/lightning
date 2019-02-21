@@ -7,6 +7,7 @@
 #include <bitcoin/shadouble.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 #include <common/channel_config.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc.h>
@@ -23,7 +24,7 @@ struct channel_view {
 	u32 feerate_per_kw;
 
 	/* How much is owed to each side (includes pending changes) */
-	u64 owed_msat[NUM_SIDES];
+	struct amount_msat owed[NUM_SIDES];
 };
 
 struct channel {
@@ -34,8 +35,8 @@ struct channel {
 	/* Keys used to spend funding tx. */
 	struct pubkey funding_pubkey[NUM_SIDES];
 
-	/* Millisatoshis in from commitment tx */
-	u64 funding_msat;
+	/* satoshis in from commitment tx */
+	struct amount_sat funding;
 
 	/* Who is paying fees. */
 	enum side funder;
@@ -86,8 +87,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
-				    u64 funding_satoshis,
-				    u64 local_msatoshi,
+				    struct amount_sat funding,
+				    struct amount_msat local_msatoshi,
 				    u32 feerate_per_kw,
 				    const struct channel_config *local,
 				    const struct channel_config *remote,

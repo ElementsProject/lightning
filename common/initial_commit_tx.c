@@ -5,6 +5,7 @@
 #include <common/keyset.h>
 #include <common/permute_tx.h>
 #include <common/status.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
 
@@ -31,22 +32,22 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 }
 
 bool try_subtract_fee(enum side funder, enum side side,
-		      u64 base_fee_msat, u64 *self_msat, u64 *other_msat)
+		      struct amount_sat base_fee,
+		      struct amount_msat *self,
+		      struct amount_msat *other)
 {
-	u64 *funder_msat;
+	struct amount_msat *funder_amount;
 
 	if (funder == side)
-		funder_msat = self_msat;
+		funder_amount = self;
 	else
-		funder_msat = other_msat;
+		funder_amount = other;
 
-	if (*funder_msat >= base_fee_msat) {
-		*funder_msat -= base_fee_msat;
+	if (amount_msat_sub_sat(funder_amount, *funder_amount, base_fee))
 		return true;
-	} else {
-		*funder_msat = 0;
-		return false;
-	}
+
+	*funder_amount = AMOUNT_MSAT(0);
+	return false;
 }
 
 u8 *to_self_wscript(const tal_t *ctx,
@@ -61,23 +62,26 @@ u8 *to_self_wscript(const tal_t *ctx,
 struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
-				     u64 funding_satoshis,
+				     struct amount_sat funding,
 				     enum side funder,
 				     u16 to_self_delay,
 				     const struct keyset *keyset,
 				     u32 feerate_per_kw,
-				     u64 dust_limit_satoshis,
-				     u64 self_pay_msat,
-				     u64 other_pay_msat,
-				     u64 self_reserve_msat,
+				     struct amount_sat dust_limit,
+				     struct amount_msat self_pay,
+				     struct amount_msat other_pay,
+				     struct amount_sat self_reserve,
 				     u64 obscured_commitment_number,
 				     enum side side)
 {
-	u64 base_fee_msat;
+	struct amount_sat base_fee;
 	struct bitcoin_tx *tx;
 	size_t n, untrimmed;
+	struct amount_msat total_pay;
 
-	assert(self_pay_msat + other_pay_msat <= funding_satoshis * 1000);
+	if (!amount_msat_add(&total_pay, self_pay, other_pay))
+		abort();
+	assert(!amount_msat_greater_sat(total_pay, funding));
 
 	/* BOLT #3:
 	 *
@@ -91,15 +95,14 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 2. Calculate the base [commitment transaction
 	 * fee](#fee-calculation).
 	 */
-	base_fee_msat = commit_tx_base_fee_msat(feerate_per_kw, untrimmed);
+	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed);
 
 	/* BOLT #3:
 	 *
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
-	if (!try_subtract_fee(funder, side, base_fee_msat,
-			      &self_pay_msat, &other_pay_msat)) {
+	if (!try_subtract_fee(funder, side, base_fee, &self_pay, &other_pay)) {
 		/* BOLT #2:
 		 *
 		 * The receiving node MUST fail the channel if:
@@ -120,15 +123,18 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *   commitment transaction are less than or equal to
 	 *   `channel_reserve_satoshis`.
 	 */
-	if (self_pay_msat <= self_reserve_msat
-	    && other_pay_msat <= self_reserve_msat) {
-		status_unusual("Neither self amount %"PRIu64
-			       " nor other amount %"PRIu64
-			       " exceed reserve %"PRIu64
+	if (!amount_msat_greater_sat(self_pay, self_reserve)
+	    && !amount_msat_greater_sat(other_pay, self_reserve)) {
+		status_unusual("Neither self amount %s"
+			       " nor other amount %s"
+			       " exceed reserve %s"
 			       " on initial commitment transaction",
-			       self_pay_msat / 1000,
-			       other_pay_msat / 1000,
-			       self_reserve_msat / 1000);
+			       type_to_string(tmpctx, struct amount_msat,
+					      &self_pay),
+			       type_to_string(tmpctx, struct amount_msat,
+					      &other_pay),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &self_reserve));
 		return NULL;
 	}
 
@@ -158,9 +164,9 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    `dust_limit_satoshis`, add a [`to_local`
 	 *    output](#to_local-output).
 	 */
-	if (self_pay_msat / 1000 >= dust_limit_satoshis) {
+	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
-		tx->output[n].amount = self_pay_msat / 1000;
+		tx->output[n].amount = amount_msat_to_sat_round_down(self_pay).satoshis;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 		n++;
 	}
@@ -171,7 +177,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    `dust_limit_satoshis`, add a [`to_remote`
 	 *    output](#to_remote-output).
 	 */
-	if (other_pay_msat / 1000 >= dust_limit_satoshis) {
+	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
 		/* BOLT #3:
 		 *
 		 * #### `to_remote` Output
@@ -179,7 +185,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		 * This output sends funds to the other peer and thus is a simple
 		 * P2WPKH to `remotepubkey`.
 		 */
-		tx->output[n].amount = other_pay_msat / 1000;
+		tx->output[n].amount = amount_msat_to_sat_round_down(other_pay).satoshis;
 		tx->output[n].script = scriptpubkey_p2wpkh(tx,
 						   &keyset->other_payment_key);
 		n++;
@@ -228,7 +234,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		= (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
 
 	/* Input amount needed for signature code. */
-	tx->input[0].amount = tal_dup(tx->input, u64, &funding_satoshis);
+	tx->input[0].amount = tal_dup(tx->input, u64, &funding.satoshis);
 
 	return tx;
 }

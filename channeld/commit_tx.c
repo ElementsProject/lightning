@@ -104,7 +104,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 obscured_commitment_number,
 			     enum side side)
 {
-	u64 base_fee_msat;
+	struct amount_sat base_fee;
 	struct bitcoin_tx *tx;
 	size_t i, n, untrimmed;
 	u32 *cltvs;
@@ -125,18 +125,23 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 2. Calculate the base [commitment transaction
 	 * fee](#fee-calculation).
 	 */
-	base_fee_msat = commit_tx_base_fee_msat(feerate_per_kw, untrimmed);
+	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed);
 
-	SUPERVERBOSE("# base commitment transaction fee = %"PRIu64"\n",
-		     base_fee_msat / 1000);
+	SUPERVERBOSE("# base commitment transaction fee = %s\n",
+		     type_to_string(tmpctx, struct amount_sat, &base_fee));
 
 	/* BOLT #3:
 	 *
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
-	try_subtract_fee(funder, side, base_fee_msat,
-			 &self_pay_msat, &other_pay_msat);
+	struct amount_msat self_pay, other_pay;
+	self_pay.millisatoshis = self_pay_msat;
+	other_pay.millisatoshis = other_pay_msat;
+
+	try_subtract_fee(funder, side, base_fee, &self_pay, &other_pay);
+	self_pay_msat = self_pay.millisatoshis;
+	other_pay_msat = other_pay.millisatoshis;
 
 #ifdef PRINT_ACTUAL_FEE
 	{

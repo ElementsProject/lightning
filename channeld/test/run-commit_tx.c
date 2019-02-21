@@ -917,9 +917,12 @@ int main(void)
 	/* Now make sure we cover case where funder can't afford the fee;
 	 * its output cannot go negative! */
 	for (;;) {
-		u64 base_fee_msat = commit_tx_base_fee_msat(feerate_per_kw, 0);
+		struct amount_msat to_local;
+		struct amount_sat base_fee
+			= commit_tx_base_fee(feerate_per_kw, 0);
 
-		if (base_fee_msat <= to_local_msat) {
+		to_local.millisatoshis = to_local_msat;
+		if (amount_msat_greater_eq_sat(to_local, base_fee)) {
 			feerate_per_kw++;
 			continue;
 		}

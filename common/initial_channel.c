@@ -12,8 +12,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
-				    u64 funding_satoshis,
-				    u64 local_msatoshi,
+				    struct amount_sat funding,
+				    struct amount_msat local_msatoshi,
 				    u32 feerate_per_kw,
 				    const struct channel_config *local,
 				    const struct channel_config *remote,
@@ -24,14 +24,13 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    enum side funder)
 {
 	struct channel *channel = tal(ctx, struct channel);
+	struct amount_msat remote_msatoshi;
 
 	channel->funding_txid = *funding_txid;
 	channel->funding_txout = funding_txout;
-	if (funding_satoshis > UINT64_MAX / 1000)
-		return tal_free(channel);
-
-	channel->funding_msat = funding_satoshis * 1000;
-	if (local_msatoshi > channel->funding_msat)
+	channel->funding = funding;
+	if (!amount_sat_sub_msat(&remote_msatoshi,
+				 channel->funding, local_msatoshi))
 		return tal_free(channel);
 
 	channel->funder = funder;
@@ -47,12 +46,12 @@ struct channel *new_initial_channel(const tal_t *ctx,
 		= channel->view[REMOTE].feerate_per_kw
 		= feerate_per_kw;
 
-	channel->view[LOCAL].owed_msat[LOCAL]
-		= channel->view[REMOTE].owed_msat[LOCAL]
+	channel->view[LOCAL].owed[LOCAL]
+		= channel->view[REMOTE].owed[LOCAL]
 		= local_msatoshi;
-	channel->view[REMOTE].owed_msat[REMOTE]
-		= channel->view[LOCAL].owed_msat[REMOTE]
-		= channel->funding_msat - local_msatoshi;
+	channel->view[REMOTE].owed[REMOTE]
+		= channel->view[LOCAL].owed[REMOTE]
+		= remote_msatoshi;
 
 	channel->basepoints[LOCAL] = *local_basepoints;
 	channel->basepoints[REMOTE] = *remote_basepoints;
@@ -91,16 +90,16 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 
 	return initial_commit_tx(ctx, &channel->funding_txid,
 				 channel->funding_txout,
-				 channel->funding_msat / 1000,
+				 channel->funding,
 				 channel->funder,
 				 /* They specify our to_self_delay and v.v. */
 				 channel->config[!side].to_self_delay,
 				 &keyset,
 				 channel->view[side].feerate_per_kw,
-				 channel->config[side].dust_limit.satoshis,
-				 channel->view[side].owed_msat[side],
-				 channel->view[side].owed_msat[!side],
-				 channel->config[!side].channel_reserve.satoshis * 1000,
+				 channel->config[side].dust_limit,
+				 channel->view[side].owed[side],
+				 channel->view[side].owed[!side],
+				 channel->config[!side].channel_reserve,
 				 0 ^ channel->commitment_number_obscurer,
 				 side);
 }
@@ -108,21 +107,24 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
 {
 	return tal_fmt(ctx, "{ feerate_per_kw=%"PRIu32","
-		       " owed_local=%"PRIu64","
-		       " owed_remote=%"PRIu64" }",
+		       " owed_local=%s,"
+		       " owed_remote=%s }",
 		       view->feerate_per_kw,
-		       view->owed_msat[LOCAL],
-		       view->owed_msat[REMOTE]);
+		       type_to_string(tmpctx, struct amount_msat,
+				      &view->owed[LOCAL]),
+		       type_to_string(tmpctx, struct amount_msat,
+				      &view->owed[REMOTE]));
 }
 
 /* FIXME: This should reference HTLCs somehow. */
 static char *fmt_channel(const tal_t *ctx, const struct channel *channel)
 {
-	return tal_fmt(ctx, "{ funding_msat=%"PRIu64","
+	return tal_fmt(ctx, "{ funding=%s,"
 		       " funder=%s,"
 		       " local=%s,"
 		       " remote=%s }",
-		       channel->funding_msat,
+		       type_to_string(tmpctx, struct amount_sat,
+				      &channel->funding),
 		       side_to_str(channel->funder),
 		       fmt_channel_view(ctx, &channel->view[LOCAL]),
 		       fmt_channel_view(ctx, &channel->view[REMOTE]));

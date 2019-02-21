@@ -444,6 +444,7 @@ static u8 *funder_channel(struct state *state,
 	u32 minimum_depth;
 	const u8 *wscript;
 	struct bitcoin_tx *funding;
+	struct amount_msat local_msat;
 
 	/*~ For symmetry, we calculate our own reserve even though lightningd
 	 * could do it for the we-are-funding case. */
@@ -474,7 +475,7 @@ static u8 *funder_channel(struct state *state,
 	 *  - MUST set `push_msat` to equal or less than 1000 *
 	 *   `funding_satoshis`.
 	 */
-	if (amount_msat_greater_sat(state->push_msat, state->funding))
+	if (!amount_sat_sub_msat(&local_msat, state->funding, state->push_msat))
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "push-msat must be < %s",
 			      type_to_string(tmpctx, struct amount_sat,
@@ -639,9 +640,8 @@ static u8 *funder_channel(struct state *state,
 					     &state->chainparams->genesis_blockhash,
 					     &state->funding_txid,
 					     state->funding_txout,
-					     state->funding.satoshis,
-					     state->funding.satoshis * 1000
-					     - state->push_msat.millisatoshis,
+					     state->funding,
+					     local_msat,
 					     state->feerate_per_kw,
 					     &state->localconf,
 					     &state->remoteconf,
@@ -686,7 +686,7 @@ static u8 *funder_channel(struct state *state,
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   tx,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding_msat / 1000);
+						   state->channel->funding.satoshis);
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
@@ -1044,8 +1044,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &chain_hash,
 					     &state->funding_txid,
 					     state->funding_txout,
-					     state->funding.satoshis,
-					     state->push_msat.millisatoshis,
+					     state->funding,
+					     state->push_msat,
 					     state->feerate_per_kw,
 					     &state->localconf,
 					     &state->remoteconf,
@@ -1139,7 +1139,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding_msat / 1000);
+						   state->channel->funding.satoshis);
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);

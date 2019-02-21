@@ -8,6 +8,7 @@ ALL_TEST_PROGRAMS += $(CHANNELD_TEST_PROGRAMS)
 ALL_OBJS += $(CHANNELD_TEST_OBJS)
 
 CHANNELD_TEST_COMMON_OBJS :=			\
+	common/amount.o				\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
 	common/htlc_tx.o			\

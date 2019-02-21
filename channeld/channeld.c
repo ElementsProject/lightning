@@ -232,12 +232,10 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
  * capacity minus the cumulative reserve.
  * FIXME: does this need fuzz?
  */
-static u64 advertised_htlc_max(const struct channel *channel)
+static struct amount_msat advertised_htlc_max(const struct channel *channel)
 {
-	struct amount_sat cumulative_reserve, funding, lower_bound;
+	struct amount_sat cumulative_reserve, lower_bound;
 	struct amount_msat lower_bound_msat;
-
-	funding.satoshis = channel->funding_msat / 1000;
 
 	/* This shouldn't fail */
 	if (!amount_sat_add(&cumulative_reserve,
@@ -252,11 +250,11 @@ static u64 advertised_htlc_max(const struct channel *channel)
 	}
 
 	/* This shouldn't fail either */
-	if (!amount_sat_sub(&lower_bound, funding, cumulative_reserve)) {
+	if (!amount_sat_sub(&lower_bound, channel->funding, cumulative_reserve)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "funding %s - cumulative_reserve %s?",
 			      type_to_string(tmpctx, struct amount_sat,
-					     &funding),
+					     &channel->funding),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &cumulative_reserve));
 	}
@@ -272,7 +270,7 @@ static u64 advertised_htlc_max(const struct channel *channel)
 				channel->chainparams->max_payment))
 		lower_bound_msat = channel->chainparams->max_payment;
 
-	return lower_bound_msat.millisatoshis;
+	return lower_bound_msat;
 }
 
 /* Create and send channel_update to gossipd (and maybe peer) */
@@ -296,7 +294,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  peer->channel->config[REMOTE].htlc_minimum.millisatoshis,
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
-						  advertised_htlc_max(peer->channel));
+						  advertised_htlc_max(peer->channel).millisatoshis);
 	wire_sync_write(GOSSIP_FD, take(msg));
 }
 
@@ -318,7 +316,7 @@ static void make_channel_local_active(struct peer *peer)
 	msg = towire_gossipd_local_add_channel(NULL,
 					       &peer->short_channel_ids[LOCAL],
 					       &peer->node_ids[REMOTE],
-					       peer->channel->funding_msat / 1000);
+					       peer->channel->funding.satoshis);
  	wire_sync_write(GOSSIP_FD, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should
@@ -2703,9 +2701,9 @@ static void init_shared_secrets(struct channel *channel,
 static void init_channel(struct peer *peer)
 {
 	struct basepoints points[NUM_SIDES];
-	u64 funding_satoshi;
+	struct amount_sat funding;
 	u16 funding_txout;
-	u64 local_msatoshi;
+	struct amount_msat local_msat;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct channel_config conf[NUM_SIDES];
 	struct bitcoin_txid funding_txid;
@@ -2730,7 +2728,7 @@ static void init_channel(struct peer *peer)
 	if (!fromwire_channel_init(peer, msg,
 				   &peer->chain_hash,
 				   &funding_txid, &funding_txout,
-				   &funding_satoshi,
+				   &funding.satoshis,
 				   &conf[LOCAL], &conf[REMOTE],
 				   feerate_per_kw,
 				   &peer->feerate_min, &peer->feerate_max,
@@ -2743,7 +2741,7 @@ static void init_channel(struct peer *peer)
 				   &funder,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,
-				   &local_msatoshi,
+				   &local_msat.millisatoshis,
 				   &points[LOCAL],
 				   &funding_pubkey[LOCAL],
 				   &peer->node_ids[LOCAL],
@@ -2805,8 +2803,8 @@ static void init_channel(struct peer *peer)
 	peer->channel = new_full_channel(peer,
 					 &peer->chain_hash,
 					 &funding_txid, funding_txout,
-					 funding_satoshi,
-					 local_msatoshi,
+					 funding,
+					 local_msat,
 					 feerate_per_kw,
 					 &conf[LOCAL], &conf[REMOTE],
 					 &points[LOCAL], &points[REMOTE],
