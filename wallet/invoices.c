@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
+#include <common/amount.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <lightningd/invoice.h>
@@ -259,7 +260,7 @@ static void install_expiration_timer(struct invoices *invoices)
 
 bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
-		     u64 *msatoshi TAKES,
+		     const struct amount_msat *msat TAKES,
 		     const struct json_escaped *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
@@ -273,8 +274,8 @@ bool invoices_create(struct invoices *invoices,
 	u64 now = time_now().ts.tv_sec;
 
 	if (invoices_find_by_label(invoices, &dummy, label)) {
-		if (taken(msatoshi))
-			tal_free(msatoshi);
+		if (taken(msat))
+			tal_free(msat);
 		if (taken(label))
 			tal_free(label);
 		return false;
@@ -301,8 +302,8 @@ bool invoices_create(struct invoices *invoices,
 	sqlite3_bind_blob(stmt, 1, rhash, sizeof(struct sha256), SQLITE_TRANSIENT);
 	sqlite3_bind_blob(stmt, 2, r, sizeof(struct preimage), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 3, UNPAID);
-	if (msatoshi)
-		sqlite3_bind_int64(stmt, 4, *msatoshi);
+	if (msat)
+		sqlite3_bind_int64(stmt, 4, msat->millisatoshis);
 	else
 		sqlite3_bind_null(stmt, 4);
 	sqlite3_bind_json_escaped(stmt, 5, label);
@@ -322,8 +323,8 @@ bool invoices_create(struct invoices *invoices,
 		install_expiration_timer(invoices);
 	}
 
-	if (taken(msatoshi))
-		tal_free(msatoshi);
+	if (taken(msat))
+		tal_free(msat);
 	if (taken(label))
 		tal_free(label);
 	return true;

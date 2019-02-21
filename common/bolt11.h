@@ -6,6 +6,7 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/take/take.h>
 #include <common/hash_u5.h>
 #include <secp256k1_recovery.h>
 
@@ -37,7 +38,7 @@ struct route_info {
 struct bolt11 {
 	const struct chainparams *chain;
 	u64 timestamp;
-	u64 *msatoshi; /* NULL if not specified. */
+	struct amount_msat *msat; /* NULL if not specified. */
 
 	struct sha256 payment_hash;
 	struct pubkey receiver_id;
@@ -70,7 +71,8 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const char *description, char **fail);
 
 /* Initialize an empty bolt11 struct with optional amount */
-struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi);
+struct bolt11 *new_bolt11(const tal_t *ctx,
+			  const struct amount_msat *msat TAKES);
 
 /* Encodes and signs, even if it's nonsense. */
 char *bolt11_encode_(const tal_t *ctx,

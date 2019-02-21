@@ -286,7 +286,7 @@ void json_add_literal(struct json_stream *result, const char *fieldname,
 	json_add_member(result, fieldname, "%.*s", len, literal);
 }
 
-void json_add_string(struct json_stream *result, const char *fieldname, const char *value)
+void json_add_string(struct json_stream *result, const char *fieldname, const char *value TAKES)
 {
 	struct json_escaped *esc = json_partial_escape(NULL, value);
 

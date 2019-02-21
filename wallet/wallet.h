@@ -19,6 +19,7 @@
 #include <wally_bip32.h>
 
 enum onion_type;
+struct amount_msat;
 struct invoices;
 struct channel;
 struct lightningd;
@@ -611,7 +612,7 @@ struct invoice {
  *
  * @wallet - the wallet to create the invoice in.
  * @pinvoice - pointer to location to load new invoice in.
- * @msatoshi - the amount the invoice should have, or
+ * @msat - the amount the invoice should have, or
  * NULL for any-amount invoices.
  * @label - the unique label for this invoice. Must be
  * non-NULL.
@@ -624,7 +625,7 @@ struct invoice {
  */
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
-			   u64 *msatoshi TAKES,
+			   const struct amount_msat *msat TAKES,
 			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,

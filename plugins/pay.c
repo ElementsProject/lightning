@@ -2,6 +2,7 @@
 #include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/amount.h>
 #include <common/bolt11.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
@@ -852,12 +853,12 @@ static struct command_result *handle_pay(struct command *cmd,
 		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
 	}
 
-	if (b11->msatoshi) {
+	if (b11->msat) {
 		if (msatoshi) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter unnecessary");
 		}
-		pc->msatoshi = *b11->msatoshi;
+		pc->msatoshi = b11->msat->millisatoshis;
 	} else {
 		if (!msatoshi) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

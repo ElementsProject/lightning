@@ -573,6 +573,7 @@ def test_decodepay(node_factory):
     )
     assert b11['currency'] == 'bc'
     assert b11['msatoshi'] == 2500 * 10**11 // 1000000
+    assert b11['amount_msat'] == str(2500 * 10**11 // 1000000) + 'msat'
     assert b11['created_at'] == 1496314658
     assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
     assert b11['description'] == '1 cup coffee'
@@ -606,6 +607,7 @@ def test_decodepay(node_factory):
     )
     assert b11['currency'] == 'bc'
     assert b11['msatoshi'] == 20 * 10**11 // 1000
+    assert b11['amount_msat'] == str(20 * 10**11 // 1000) + 'msat'
     assert b11['created_at'] == 1496314658
     assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
     assert b11['expiry'] == 3600
@@ -638,6 +640,7 @@ def test_decodepay(node_factory):
     )
     assert b11['currency'] == 'tb'
     assert b11['msatoshi'] == 20 * 10**11 // 1000
+    assert b11['amount_msat'] == str(20 * 10**11 // 1000) + 'msat'
     assert b11['created_at'] == 1496314658
     assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
     assert b11['expiry'] == 3600
@@ -669,6 +672,7 @@ def test_decodepay(node_factory):
     b11 = l1.rpc.decodepay('lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3qjmp7lwpagxun9pygexvgpjdc4jdj85fr9yq20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqpqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqgqqqqq7qqzqj9n4evl6mr5aj9f58zp6fyjzup6ywn3x6sk8akg5v4tgn2q8g4fhx05wf6juaxu9760yp46454gpg5mtzgerlzezqcqvjnhjh8z3g2qqdhhwkj', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
     assert b11['currency'] == 'bc'
     assert b11['msatoshi'] == 20 * 10**11 // 1000
+    assert b11['amount_msat'] == str(20 * 10**11 // 1000) + 'msat'
     assert b11['created_at'] == 1496314658
     assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
     assert b11['expiry'] == 3600
@@ -711,6 +715,7 @@ def test_decodepay(node_factory):
     b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppj3a24vwu6r8ejrss3axul8rxldph2q7z9kmrgvr7xlaqm47apw3d48zm203kzcq357a4ls9al2ea73r8jcceyjtya6fu5wzzpe50zrge6ulk4nvjcpxlekvmxl6qcs9j3tz0469gq5g658y', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
     assert b11['currency'] == 'bc'
     assert b11['msatoshi'] == 20 * 10**11 // 1000
+    assert b11['amount_msat'] == str(20 * 10**11 // 1000) + 'msat'
     assert b11['created_at'] == 1496314658
     assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
     assert b11['expiry'] == 3600
@@ -737,6 +742,7 @@ def test_decodepay(node_factory):
     b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
     assert b11['currency'] == 'bc'
     assert b11['msatoshi'] == 20 * 10**11 // 1000
+    assert b11['amount_msat'] == str(20 * 10**11 // 1000) + 'msat'
     assert b11['created_at'] == 1496314658
     assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
     assert b11['expiry'] == 3600
@@ -763,6 +769,7 @@ def test_decodepay(node_factory):
     b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfp4qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q28j0v3rwgy9pvjnd48ee2pl8xrpxysd5g44td63g6xcjcu003j3qe8878hluqlvl3km8rm92f5stamd3jw763n3hck0ct7p8wwj463cql26ava', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
     assert b11['currency'] == 'bc'
     assert b11['msatoshi'] == 20 * 10**11 // 1000
+    assert b11['amount_msat'] == str(20 * 10**11 // 1000) + 'msat'
     assert b11['created_at'] == 1496314658
     assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
     assert b11['expiry'] == 3600

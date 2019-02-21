@@ -120,6 +120,13 @@ void json_add_address_internal(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
 			       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "json_add_address_internal called!\n"); abort(); }
+/* Generated stub for json_add_amount_msat */
+void json_add_amount_msat(struct json_stream *result UNNEEDED,
+			  struct amount_msat msat UNNEEDED,
+			  const char *rawfieldname UNNEEDED,
+			  const char *msatfieldname)
+
+{ fprintf(stderr, "json_add_amount_msat called!\n"); abort(); }
 /* Generated stub for json_add_bool */
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
@@ -229,7 +236,8 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *c
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
 /* Generated stub for new_bolt11 */
-struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED, u64 *msatoshi UNNEEDED)
+struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED,
+			  const struct amount_msat *msat TAKES UNNEEDED)
 { fprintf(stderr, "new_bolt11 called!\n"); abort(); }
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
@@ -454,7 +462,7 @@ void wallet_invoice_autoclean(struct wallet * wallet UNNEEDED,
 /* Generated stub for wallet_invoice_create */
 bool wallet_invoice_create(struct wallet *wallet UNNEEDED,
 			   struct invoice *pinvoice UNNEEDED,
-			   u64 *msatoshi TAKES UNNEEDED,
+			   const struct amount_msat *msat TAKES UNNEEDED,
 			   const struct json_escaped *label TAKES UNNEEDED,
 			   u64 expiry UNNEEDED,
 			   const char *b11enc UNNEEDED,

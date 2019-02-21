@@ -1,3 +1,4 @@
+#include "../amount.c"
 #include "../bech32.c"
 #include "../bech32_util.c"
 #include "../bolt11.c"
@@ -79,10 +80,10 @@ static void test_b11(const char *b11str,
 
 	assert(b11->chain == expect_b11->chain);
 	assert(b11->timestamp == expect_b11->timestamp);
-	if (!b11->msatoshi)
-		assert(!expect_b11->msatoshi);
+	if (!b11->msat)
+		assert(!expect_b11->msat);
 	else
-		assert(*b11->msatoshi == *expect_b11->msatoshi);
+		assert(amount_msat_eq(*b11->msat, *expect_b11->msat));
 	assert(sha256_eq(&b11->payment_hash, &expect_b11->payment_hash));
 	if (!b11->description)
 		assert(!expect_b11->description);
@@ -120,7 +121,7 @@ int main(void)
 
 	struct bolt11 *b11;
 	struct pubkey node;
-	u64 msatoshi;
+	struct amount_msat msatoshi;
 	const char *badstr;
 
 	wally_init(0);
@@ -195,7 +196,7 @@ int main(void)
 	 * * `aztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rsp`: signature
 	 * * `fj9srp`: Bech32 checksum
 	 */
-	msatoshi = 2500 * (1000ULL * 100000000) / 1000000;
+	msatoshi = AMOUNT_MSAT(2500 * (1000ULL * 100000000) / 1000000);
 	b11 = new_bolt11(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
@@ -227,7 +228,7 @@ int main(void)
 	 * * `cc6gd6ql3jrc5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf4sefvf9sygkshp5zfem29trqq`: signature
 	 * * `2yxxz7`: Bech32 checksum
 	 */
-	msatoshi = 20 * (1000ULL * 100000000) / 1000;
+	msatoshi = AMOUNT_MSAT(20 * (1000ULL * 100000000) / 1000);
 	b11 = new_bolt11(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
@@ -252,7 +253,7 @@ int main(void)
 	}
 
 	/* ALL UPPERCASE is allowed (useful for QR codes) */
-	msatoshi = 2500 * (1000ULL * 100000000) / 1000000;
+	msatoshi = AMOUNT_MSAT(2500 * (1000ULL * 100000000) / 1000000);
 	b11 = new_bolt11(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;

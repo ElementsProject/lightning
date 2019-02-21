@@ -120,7 +120,7 @@ void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
-		     u64 *msatoshi TAKES UNNEEDED,
+		     const struct amount_msat *msat TAKES UNNEEDED,
 		     const struct json_escaped *label TAKES UNNEEDED,
 		     u64 expiry UNNEEDED,
 		     const char *b11enc UNNEEDED,
