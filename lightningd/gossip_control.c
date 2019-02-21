@@ -47,7 +47,7 @@ static void got_txout(struct bitcoind *bitcoind,
 	/* output will be NULL if it wasn't found */
 	if (output) {
 		script = output->script;
-		sat = (struct amount_sat){ output->amount};
+		sat = output->amount;
 	} else {
 		script = NULL;
 		sat = AMOUNT_SAT(0);

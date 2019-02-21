@@ -198,7 +198,7 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     time.sleep(3)
     bitcoind.generate_block(1)
     l1.daemon.wait_for_logs([
-        r'Owning output . (\d+) .SEGWIT. txid',
+        r'Owning output . (\d+)sat .SEGWIT. txid',
     ])
 
     # We should now have a) the change from funding, b) the

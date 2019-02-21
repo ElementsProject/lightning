@@ -28,7 +28,7 @@ static void push_tx_input(const struct bitcoin_tx_input *input,
 static void push_tx_output(const struct bitcoin_tx_output *output,
 			  void (*push)(const void *, size_t, void *), void *pushp)
 {
-	push_le64(output->amount, push, pushp);
+	push_amount_sat(output->amount, push, pushp);
 	push_varint_blob(output->script, push, pushp);
 }
 
@@ -204,7 +204,7 @@ static void hash_outputs(struct sha256_double *h, const struct bitcoin_tx *tx,
 		if (sighash_single(sighash_type) && i != input_num)
 			continue;
 
-		push_le64(tx->output[i].amount, push_sha, &ctx);
+		push_amount_sat(tx->output[i].amount, push_sha, &ctx);
 		push_varint_blob(tx->output[i].script, push_sha, &ctx);
 	}
 
@@ -243,7 +243,7 @@ static void hash_for_segwit(struct sha256_ctx *ctx,
 	push_varint_blob(witness_script, push_sha, ctx);
 
 	/*     6. value of the output spent by this input (8-byte little end) */
-	push_le64(*tx->input[input_num].amount, push_sha, ctx);
+	push_amount_sat(*tx->input[input_num].amount, push_sha, ctx);
 
 	/*     7. nSequence of the input (4-byte little endian) */
 	push_le32(tx->input[input_num].sequence_number, push_sha, ctx);
@@ -362,6 +362,14 @@ static u64 pull_value(const u8 **cursor, size_t *max)
 	return amount;
 }
 
+static struct amount_sat pull_amount_sat(const u8 **cursor, size_t *max)
+{
+	struct amount_sat sat;
+
+	sat.satoshis = pull_value(cursor, max);
+	return sat;
+}
+
 /* Pulls a varint which specifies n items of mult size: ensures basic
  * sanity to avoid trivial OOM */
 static u64 pull_length(const u8 **cursor, size_t *max, size_t mult)
@@ -393,7 +401,7 @@ static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
 			struct bitcoin_tx_output *output)
 {
-	output->amount = pull_value(cursor, max);
+	output->amount = pull_amount_sat(cursor, max);
 	output->script = tal_arr(ctx, u8, pull_length(cursor, max, 1));
 	pull(cursor, max, output->script, tal_count(output->script));
 }

@@ -593,7 +593,7 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 			if (is_p2wsh(output->script, NULL)) {
 				wallet_utxoset_add(topo->ld->wallet, tx, j,
 						   b->height, i, output->script,
-						   (struct amount_sat){ output->amount });
+						   output->amount);
 			}
 		}
 	}

@@ -53,7 +53,8 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		tx->input[i].txid = utxos[i]->txid;
 		tx->input[i].index = utxos[i]->outnum;
-		tx->input[i].amount = tal_dup(tx, u64, &utxos[i]->amount.satoshis);
+		tx->input[i].amount = tal_dup(tx, struct amount_sat,
+					      &utxos[i]->amount);
 		if (utxos[i]->is_p2sh && bip32_base) {
 			struct pubkey key;
 			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);

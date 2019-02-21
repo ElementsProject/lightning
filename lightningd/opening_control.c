@@ -334,10 +334,10 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		fatal("Error deriving change key %u", fc->wtx.change_key_index);
 
 	fundingtx = funding_tx(tmpctx, &funding_outnum,
-			       fc->wtx.utxos, fc->wtx.amount.satoshis,
+			       fc->wtx.utxos, fc->wtx.amount,
 			       &fc->uc->local_funding_pubkey,
 			       &channel_info.remote_fundingkey,
-			       fc->wtx.change.satoshis, &changekey,
+			       fc->wtx.change, &changekey,
 			       ld->wallet->bip32_base);
 
 	log_debug(fc->uc->log, "Funding tx has %zi inputs, %zu outputs:",

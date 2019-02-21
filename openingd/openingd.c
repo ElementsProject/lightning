@@ -621,10 +621,10 @@ static u8 *funder_channel(struct state *state,
 	 */
 	funding = funding_tx(state, &state->funding_txout,
 			     cast_const2(const struct utxo **, utxos),
-			     state->funding.satoshis,
+			     state->funding,
 			     &state->our_funding_pubkey,
 			     &their_funding_pubkey,
-			     change.satoshis, changekey,
+			     change, changekey,
 			     bip32_base);
 	bitcoin_txid(funding, &state->funding_txid);
 

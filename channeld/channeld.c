@@ -942,7 +942,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
-						   (struct amount_sat){*txs[0]->input[0].amount});
+						   *txs[0]->input[0].amount);
 
 	msg = hsm_req(tmpctx, take(msg));
 	if (!fromwire_hsm_sign_tx_reply(msg, commit_sig))
@@ -980,8 +980,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 		struct bitcoin_signature sig;
 		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1],
 						     wscripts[i + 1],
-						     (struct amount_sat)
-						     { *txs[i+1]->input[0].amount },
+						     *txs[i+1]->input[0].amount,
 						     &peer->remote_per_commit);
 
 		msg = hsm_req(tmpctx, take(msg));

@@ -37,11 +37,11 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
 	tx->input[0].index = anchor_index;
-	tx->input[0].amount = tal_dup(tx->input, u64, &funding.satoshis);
+	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &funding);
 
 	if (amount_sat_greater_eq(to_us, dust_limit)) {
 		/* One output is to us. */
-		tx->output[num_outputs].amount = to_us.satoshis;
+		tx->output[num_outputs].amount = to_us;
 		tx->output[num_outputs].script = tal_dup_arr(tx, u8,
 					   our_script, tal_count(our_script), 0);
 		num_outputs++;
@@ -49,7 +49,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 
 	if (amount_sat_greater_eq(to_them, dust_limit)) {
 		/* Other output is to them. */
-		tx->output[num_outputs].amount = to_them.satoshis;
+		tx->output[num_outputs].amount = to_them;
 		tx->output[num_outputs].script = tal_dup_arr(tx, u8,
 					   their_script, tal_count(their_script),
 					   0);
