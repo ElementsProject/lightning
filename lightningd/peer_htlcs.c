@@ -721,6 +721,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	const struct htlc_in *hin = p->hin;
 	json_object_start(s, "onion");
 
+	json_add_hex_talarr (s, "payload", rs->raw_payload);
 	json_object_start(s, "hop_data");
 	json_add_hex(s, "realm", &rs->hop_data.realm, 1);
 	json_add_short_channel_id(s, "short_channel_id", &rs->hop_data.channel_id);
