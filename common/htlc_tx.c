@@ -7,16 +7,16 @@
 static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 				  const struct bitcoin_txid *commit_txid,
 				  unsigned int commit_output_number,
-				  u64 msatoshi,
+				  struct amount_msat msat,
 				  u16 to_self_delay,
 				  const struct pubkey *revocation_pubkey,
 				  const struct pubkey *local_delayedkey,
-				  u64 htlc_fee_satoshi,
+				  struct amount_sat htlc_fee,
 				  u32 locktime)
 {
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, 1, 1);
 	u8 *wscript;
-	u64 amount;
+	struct amount_sat amount, out_amount;
 
 	/* BOLT #3:
 	 *
@@ -48,8 +48,8 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	tx->input[0].index = commit_output_number;
 
 	/* We need amount for signing. */
-	amount = msatoshi / 1000;
-	tx->input[0].amount = tal_dup(tx, u64, &amount);
+	amount = amount_msat_to_sat_round_down(msat);
+	tx->input[0].amount = tal_dup(tx, u64, &amount.satoshis);
 
 	/* BOLT #3:
 	 *    * `txin[0]` sequence: `0`
@@ -63,7 +63,10 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 *    * `txout[0]` script: version-0 P2WSH with witness script as shown
 	 *       below
 	 */
-	tx->output[0].amount = amount - htlc_fee_satoshi;
+	if (!amount_sat_sub(&out_amount, amount, htlc_fee))
+		abort();
+
+	tx->output[0].amount = out_amount.satoshis;
 	wscript = bitcoin_wscript_htlc_tx(tx, to_self_delay,
 					  revocation_pubkey, local_delayedkey);
 	tx->output[0].script = scriptpubkey_p2wsh(tx, wscript);
@@ -75,7 +78,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
-				   u64 htlc_msatoshi,
+				   struct amount_msat htlc_msatoshi,
 				   u16 to_self_delay,
 				   u32 feerate_per_kw,
 				   const struct keyset *keyset)
@@ -120,7 +123,7 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
-				   u64 htlc_msatoshi,
+				   struct amount_msat htlc_msatoshi,
 				   u32 cltv_expiry,
 				   u16 to_self_delay,
 				   u32 feerate_per_kw,
