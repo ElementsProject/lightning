@@ -123,23 +123,23 @@ static const struct htlc **setup_htlcs(const tal_t *ctx)
 		switch (i) {
 		case 0:
 			htlc->state = RCVD_ADD_ACK_REVOCATION;
-			htlc->msatoshi = 1000000;
+			htlc->amount = AMOUNT_MSAT(1000000);
 			break;
 		case 1:
 			htlc->state = RCVD_ADD_ACK_REVOCATION;
-			htlc->msatoshi = 2000000;
+			htlc->amount = AMOUNT_MSAT(2000000);
 			break;
 		case 2:
 			htlc->state = SENT_ADD_ACK_REVOCATION;
-			htlc->msatoshi = 2000000;
+			htlc->amount = AMOUNT_MSAT(2000000);
 			break;
 		case 3:
 			htlc->state = SENT_ADD_ACK_REVOCATION;
-			htlc->msatoshi = 3000000;
+			htlc->amount = AMOUNT_MSAT(3000000);
 			break;
 		case 4:
 			htlc->state = RCVD_ADD_ACK_REVOCATION;
-			htlc->msatoshi = 4000000;
+			htlc->amount = AMOUNT_MSAT(4000000);
 			break;
 		}
 
@@ -217,15 +217,13 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 
 	for (i = 0; i < tal_count(htlc_map); i++) {
 		const struct htlc *htlc = htlc_map[i];
-		struct amount_msat htlc_amount;
 
 		if (!htlc)
 			continue;
 
-		htlc_amount.millisatoshis = htlc->msatoshi;
 		if (htlc_owner(htlc) == LOCAL) {
 			htlc_tx[i] = htlc_timeout_tx(htlc_tx, &txid, i,
-						     htlc_amount,
+						     htlc->amount,
 						     htlc->expiry.locktime,
 						     to_self_delay,
 						     feerate_per_kw,
@@ -237,7 +235,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								remote_revocation_key);
 		} else {
 			htlc_tx[i] = htlc_success_tx(htlc_tx, &txid, i,
-						     htlc_amount,
+						     htlc->amount,
 						     to_self_delay,
 						     feerate_per_kw,
 						     &keyset);

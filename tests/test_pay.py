@@ -974,9 +974,9 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
 
     # We add one to the blockcount for a bit of fuzz (FIXME: Shadowroute would fix this!)
     shadow_route = 1
-    l1.daemon.wait_for_log("Adding HTLC 0 msat=5010198 cltv={} gave CHANNEL_ERR_ADD_OK"
+    l1.daemon.wait_for_log("Adding HTLC 0 amount=5010198msat cltv={} gave CHANNEL_ERR_ADD_OK"
                            .format(bitcoind.rpc.getblockcount() + 20 + 9 + shadow_route))
-    l2.daemon.wait_for_log("Adding HTLC 0 msat=4999999 cltv={} gave CHANNEL_ERR_ADD_OK"
+    l2.daemon.wait_for_log("Adding HTLC 0 amount=4999999msat cltv={} gave CHANNEL_ERR_ADD_OK"
                            .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
     l3.daemon.wait_for_log("test_forward_different_fees_and_cltv: Actual amount 4999999msat, HTLC expiry {}"
                            .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))

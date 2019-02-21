@@ -121,31 +121,31 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 		struct sha256 hash;
 		enum channel_add_err e;
 		enum side sender;
-		u64 msatoshi = 0;
+		struct amount_msat msatoshi = AMOUNT_MSAT(0);
 
 		switch (i) {
 		case 0:
 			sender = !side;
-			msatoshi = 1000000;
+			msatoshi = AMOUNT_MSAT(1000000);
 			break;
 		case 1:
 			sender = !side;
-			msatoshi = 2000000;
+			msatoshi = AMOUNT_MSAT(2000000);
 			break;
 		case 2:
 			sender = side;
-			msatoshi = 2000000;
+			msatoshi = AMOUNT_MSAT(2000000);
 			break;
 		case 3:
 			sender = side;
-			msatoshi = 3000000;
+			msatoshi = AMOUNT_MSAT(3000000);
 			break;
 		case 4:
 			sender = !side;
-			msatoshi = 4000000;
+			msatoshi = AMOUNT_MSAT(4000000);
 			break;
 		}
-		assert(msatoshi != 0);
+		assert(msatoshi.millisatoshis != 0);
 
 		memset(&preimage, i, sizeof(preimage));
 		sha256(&hash, &preimage, sizeof(preimage));
@@ -230,7 +230,7 @@ static void txs_must_be_eq(struct bitcoin_tx **a, struct bitcoin_tx **b)
 
 static void send_and_fulfill_htlc(struct channel *channel,
 				  enum side sender,
-				  u64 msatoshi)
+				  struct amount_msat msatoshi)
 {
 	struct preimage r;
 	struct sha256 rhash;
@@ -531,8 +531,8 @@ int main(void)
 	 * here: it's as if local side paid for all the HTLCs.  We can
 	 * fix this by having local side offer an HTLC, and having
 	 * remote side accept it */
-	send_and_fulfill_htlc(lchannel, LOCAL, 7000000);
-	send_and_fulfill_htlc(rchannel, REMOTE, 7000000);
+	send_and_fulfill_htlc(lchannel, LOCAL, AMOUNT_MSAT(7000000));
+	send_and_fulfill_htlc(rchannel, REMOTE, AMOUNT_MSAT(7000000));
 
 	assert(lchannel->view[LOCAL].owed[LOCAL].millisatoshis
 	       == rchannel->view[REMOTE].owed[REMOTE].millisatoshis);
