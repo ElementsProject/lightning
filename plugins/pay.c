@@ -42,7 +42,7 @@ struct pay_status {
 	/* Description user provided (if any) */
 	const char *desc;
 	/* Amount they wanted to pay. */
-	u64 msatoshi;
+	struct amount_msat msat;
 	/* CLTV delay required by destination. */
 	u32 final_cltv;
 	/* Bolt11 invoice. */
@@ -66,14 +66,14 @@ struct pay_command {
 	const char *dest;
 
 	/* How much we're paying, and what riskfactor for routing. */
-	u64 msatoshi;
+	struct amount_msat msat;
 	double riskfactor;
 	unsigned int final_cltv;
 
 	/* Limits on what routes we'll accept. */
 	double maxfeepercent;
 	unsigned int maxdelay;
-	u64 exemptfee;
+	struct amount_msat exemptfee;
 
 	/* Payment hash, as text. */
 	const char *payment_hash;
@@ -278,17 +278,18 @@ static struct command_result *sendpay_done(struct command *cmd,
 
 /* Calculate how many millisatoshi we need at the start of this route
  * to get msatoshi to the end. */
-static u64 route_msatoshi(u64 msatoshi,
-			  const struct route_info *route, size_t num_route)
+static bool route_msatoshi(struct amount_msat *total,
+			   const struct amount_msat msat,
+			   const struct route_info *route, size_t num_route)
 {
+	*total = msat;
 	for (ssize_t i = num_route - 1; i >= 0; i--) {
-		u64 fee;
-
-		fee = route[i].fee_base_msat;
-		fee += (route[i].fee_proportional_millionths * msatoshi) / 1000000;
-		msatoshi += fee;
+		if (!amount_msat_add_fee(total,
+					 route[i].fee_base_msat,
+					 route[i].fee_proportional_millionths))
+			return false;
 	}
-	return msatoshi;
+	return true;
 }
 
 /* Calculate cltv we need at the start of this route to get cltv at the end. */
@@ -322,18 +323,25 @@ static const char *join_routehint(const tal_t *ctx,
 	/* Truncate closing ] from route */
 	ret = tal_strndup(ctx, buf + route->start, route->end - route->start - 1);
 	for (size_t i = 0; i < tal_count(routehint); i++) {
+		/* amount to be received by *destination* */
+		struct amount_msat dest_amount;
+
+		if (!route_msatoshi(&dest_amount, pc->msat,
+				    routehint + i + 1,
+				    tal_count(routehint) - i - 1))
+			return tal_free(ret);
+
 		tal_append_fmt(&ret, ", {"
 			       " 'id': '%s',"
 			       " 'channel': '%s',"
-			       " 'msatoshi': %"PRIu64","
+			       " 'msatoshi': '%s',"
 			       " 'delay': %u }",
 			       /* pubkey of *destination* */
 			       route_pubkey(tmpctx, pc, routehint, i + 1),
 			       type_to_string(tmpctx, struct short_channel_id,
 					      &routehint[i].short_channel_id),
-			       /* amount to be received by *destination* */
-			       route_msatoshi(pc->msatoshi, routehint + i + 1,
-					      tal_count(routehint) - i - 1),
+			       type_to_string(tmpctx, struct amount_msat,
+					      &dest_amount),
 			       /* cltv for *destination* */
 			       route_cltv(pc->final_cltv, routehint + i + 1,
 					  tal_count(routehint) - i - 1));
@@ -412,16 +420,24 @@ static struct command_result *getroute_done(struct command *cmd,
 		plugin_err("getroute gave no 'route'? '%.*s'",
 			   result->end - result->start, buf);
 
-	if (pc->current_routehint)
+	if (pc->current_routehint) {
 		attempt->route = join_routehint(pc->ps->attempts, buf, t,
 						pc, pc->current_routehint);
-	else
+		if (!attempt->route) {
+			attempt_failed_fmt(pc,
+					   "{ 'message': 'Joining routehint gave absurd fee' }");
+			return next_routehint(cmd, pc);
+		}
+	} else
 		attempt->route = json_strdup(pc->ps->attempts, buf, t);
 
 	if (!json_to_msat(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
 		plugin_err("getroute with invalid msatoshi? %.*s",
 			   result->end - result->start, buf);
-	fee.millisatoshis -= pc->msatoshi;
+	if (!amount_msat_sub(&fee, fee, pc->msat))
+		plugin_err("final amount %s less than paid %s",
+			   type_to_string(tmpctx, struct amount_msat, &fee),
+			   type_to_string(tmpctx, struct amount_msat, &pc->msat));
 
 	if (!json_to_number(buf, json_delve(buf, t, "[0].delay"), &delay))
 		plugin_err("getroute with invalid delay? %.*s",
@@ -431,9 +447,10 @@ static struct command_result *getroute_done(struct command *cmd,
 	 * in feepercent will be like 3.0000..(some dots)..1 % - 3.0 %.
 	 * That loss will not be representable in double. So, it's Okay to
 	 * cast u64 to double for feepercent calculation. */
-	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) pc->msatoshi);
+	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) pc->msat.millisatoshis);
 
-	if (fee.millisatoshis > pc->exemptfee && feepercent > pc->maxfeepercent) {
+	if (amount_msat_greater(fee, pc->exemptfee)
+	    && feepercent > pc->maxfeepercent) {
 		const jsmntok_t *charger;
 
 		attempt_failed_fmt(pc, "{ 'message': 'Route wanted fee of %s' }",
@@ -451,7 +468,7 @@ static struct command_result *getroute_done(struct command *cmd,
 
 		/* Try excluding most fee-charging channel (unless it's in
 		 * routeboost). */
-		charger = find_worst_channel(buf, t, "msatoshi", pc->msatoshi);
+		charger = find_worst_channel(buf, t, "msatoshi", pc->msat.millisatoshis);
 		if (maybe_exclude(pc, buf, charger)) {
 			return start_pay_attempt(cmd, pc,
 						 "Excluded expensive channel %s",
@@ -538,22 +555,27 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 						const char *fmt, ...)
 {
 	char *exclude;
-	u64 amount;
+	struct amount_msat msat;
 	const char *dest;
 	size_t max_hops = ROUTING_MAX_HOPS;
 	u32 cltv;
-	struct pay_attempt attempt;
+	struct pay_attempt *attempt;
 	va_list ap;
+	size_t n;
+
+	n = tal_count(pc->ps->attempts);
+	tal_resize(&pc->ps->attempts, n+1);
+	attempt = &pc->ps->attempts[n];
 
 	va_start(ap, fmt);
-	attempt.start = time_now();
+	attempt->start = time_now();
 	/* Mark it unfinished */
-	attempt.end.ts.tv_sec = -1;
-	attempt.excludes = dup_excludes(pc->ps, pc->excludes);
-	attempt.route = NULL;
-	attempt.failure = NULL;
-	attempt.result = NULL;
-	attempt.why = tal_vfmt(pc->ps, fmt, ap);
+	attempt->end.ts.tv_sec = -1;
+	attempt->excludes = dup_excludes(pc->ps, pc->excludes);
+	attempt->route = NULL;
+	attempt->failure = NULL;
+	attempt->result = NULL;
+	attempt->why = tal_vfmt(pc->ps, fmt, ap);
 	va_end(ap);
 
 	/* routehint set below. */
@@ -572,33 +594,37 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	/* If we have a routehint, try that first; we need to do extra
 	 * checks that it meets our criteria though. */
 	if (pc->current_routehint) {
-		amount = route_msatoshi(pc->msatoshi,
-					pc->current_routehint,
-					tal_count(pc->current_routehint));
+		attempt->routehint = tal_steal(pc->ps, pc->current_routehint);
+		if (!route_msatoshi(&msat, pc->msat,
+				    attempt->routehint,
+				    tal_count(attempt->routehint))) {
+			attempt_failed_fmt(pc,
+					   "{ 'message': 'Routehint absurd fee' }");
+			return next_routehint(cmd, pc);
+		}
 		dest = type_to_string(tmpctx, struct pubkey,
-				      &pc->current_routehint[0].pubkey);
-		max_hops -= tal_count(pc->current_routehint);
+				      &attempt->routehint[0].pubkey);
+		max_hops -= tal_count(attempt->routehint);
 		cltv = route_cltv(pc->final_cltv,
-				  pc->current_routehint,
-				  tal_count(pc->current_routehint));
-		attempt.routehint = tal_steal(pc->ps, pc->current_routehint);
+				  attempt->routehint,
+				  tal_count(attempt->routehint));
 	} else {
-		amount = pc->msatoshi;
+		msat = pc->msat;
 		dest = pc->dest;
 		cltv = pc->final_cltv;
-		attempt.routehint = NULL;
+		attempt->routehint = NULL;
 	}
-
-	tal_arr_expand(&pc->ps->attempts, attempt);
 
 	/* OK, ask for route to destination */
 	return send_outreq(cmd, "getroute", getroute_done, getroute_error, pc,
 			   "'id': '%s',"
-			   "'msatoshi': %"PRIu64","
+			   "'msatoshi': '%s',"
 			   "'cltv': %u,"
 			   "'maxhops': %zu,"
 			   "'riskfactor': %f%s",
-			   dest, amount, cltv, max_hops, pc->riskfactor, exclude);
+			   dest,
+			   type_to_string(tmpctx, struct amount_msat, &msat),
+			   cltv, max_hops, pc->riskfactor, exclude);
 }
 
 /* BOLT #7:
@@ -634,11 +660,11 @@ static struct command_result *add_shadow_route(struct command *cmd,
 	u32 cltv, best_cltv;
 
 	json_for_each_arr(i, chan, channels) {
-		struct amount_sat sats;
+		struct amount_sat sat;
 		u64 v;
 
-		json_to_sat(buf, json_get_member(buf, chan, "satoshis"), &sats);
-		if (sats.satoshis * 1000 < pc->msatoshi)
+		json_to_sat(buf, json_get_member(buf, chan, "satoshis"), &sat);
+		if (amount_msat_greater_sat(pc->msat, sat))
 			continue;
 
 		/* Don't use if total would exceed 1/4 of our time allowance. */
@@ -708,7 +734,7 @@ static struct command_result *listpeers_done(struct command *cmd,
 		chans = json_get_member(buf, peer, "channels");
 		json_for_each_arr(j, chan, chans) {
 			const jsmntok_t *state, *scid, *dir;
-			u64 spendable;
+			struct amount_msat spendable;
 
 			/* gossipd will only consider things in state NORMAL
 			 * anyway; we don't need to exclude others. */
@@ -716,12 +742,13 @@ static struct command_result *listpeers_done(struct command *cmd,
 			if (!json_tok_streq(buf, state, "CHANNELD_NORMAL"))
 				continue;
 
-			json_to_u64(buf,
+			json_to_msat(buf,
 				    json_get_member(buf, chan,
 						    "spendable_msatoshi"),
 				    &spendable);
 
-			if (connected && spendable >= pc->msatoshi)
+			if (connected
+			    && amount_msat_greater_eq(spendable, pc->msat))
 				continue;
 
 			/* Exclude this disconnected or low-capacity channel */
@@ -734,9 +761,10 @@ static struct command_result *listpeers_done(struct command *cmd,
 					       buf[dir->start]));
 
 			tal_append_fmt(&mods,
-				       "Excluded channel %s (%"PRIu64" msat, %s). ",
+				       "Excluded channel %s (%s, %s). ",
 				       pc->excludes[tal_count(pc->excludes)-1],
-				       spendable,
+				       type_to_string(tmpctx, struct amount_msat,
+						      &spendable),
 				       connected ? "connected" : "disconnected");
 		}
 	}
@@ -806,7 +834,7 @@ static struct pay_status *add_pay_status(struct pay_command *pc,
 	/* The pay_status outlives the pc, so it simply takes field ownership */
 	ps->dest = tal_steal(ps, pc->dest);
 	ps->desc = tal_steal(ps, pc->desc);
-	ps->msatoshi = pc->msatoshi;
+	ps->msat = pc->msat;
 	ps->final_cltv = pc->final_cltv;
 	ps->bolt11 = tal_steal(ps, b11str);
 	ps->routehint_modifications = NULL;
@@ -831,7 +859,7 @@ static struct command_result *handle_pay(struct command *cmd,
 	struct pay_command *pc = tal(cmd, struct pay_command);
 	double *maxfeepercent;
 	unsigned int *maxdelay;
-	u64 *exemptfee;
+	struct amount_msat *exemptfee;
 
 	setup_locale();
 
@@ -844,7 +872,7 @@ static struct command_result *handle_pay(struct command *cmd,
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     maxdelay_default),
-		   p_opt_def("exemptfee", param_u64, &exemptfee, 5000),
+		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
 		   NULL))
 		return NULL;
 
@@ -863,13 +891,13 @@ static struct command_result *handle_pay(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter unnecessary");
 		}
-		pc->msatoshi = b11->msat->millisatoshis;
+		pc->msat = *b11->msat;
 	} else {
 		if (!msat) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter required");
 		}
-		pc->msatoshi = msat->millisatoshis;
+		pc->msat = *msat;
 	}
 
 	pc->maxfeepercent = *maxfeepercent;
@@ -935,20 +963,18 @@ static void add_attempt(char **ret,
 			tal_append_fmt(ret, "%s{"
 				       " 'id': '%s',"
 				       " 'channel': '%s',"
-				       " 'msatoshi': %"PRIu64","
-				       " 'delay': %u }",
+				       " 'fee_base_msat': %u,"
+				       " 'fee_proportional_millionths': %u,"
+				       " 'cltv_expiry_delta': %u }",
 				       i == 0 ? "" : ", ",
 				       type_to_string(tmpctx, struct pubkey,
 						      &attempt->routehint[i].pubkey),
 				       type_to_string(tmpctx,
 						      struct short_channel_id,
 						      &attempt->routehint[i].short_channel_id),
-				       route_msatoshi(ps->msatoshi,
-						      attempt->routehint + i,
-						      tal_count(attempt->routehint) - i),
-				       route_cltv(ps->final_cltv,
-						  attempt->routehint + i,
-						  tal_count(attempt->routehint) - i));
+				       attempt->routehint[i].fee_base_msat,
+				       attempt->routehint[i].fee_proportional_millionths,
+				       attempt->routehint[i].cltv_expiry_delta);
 		}
 		tal_append_fmt(ret, "]");
 	}
@@ -1001,8 +1027,12 @@ static struct command_result *handle_paystatus(struct command *cmd,
 
 		tal_append_fmt(&ret, "{ 'bolt11': '%s',"
 			       " 'msatoshi': %"PRIu64", "
+			       " 'amount_msat': '%s', "
 			       " 'destination': '%s'",
-			       ps->bolt11, ps->msatoshi, ps->dest);
+			       ps->bolt11,
+			       ps->msat.millisatoshis,
+			       type_to_string(tmpctx, struct amount_msat,
+					      &ps->msat), ps->dest);
 		if (ps->desc)
 			tal_append_fmt(&ret, ", 'description': '%s'", ps->desc);
 		if (ps->routehint_modifications)
@@ -1046,7 +1076,7 @@ static void init(struct plugin_conn *rpc)
 
 static const struct plugin_command commands[] = { {
 		"pay",
-		"Send payment specified by {bolt11} with {msatoshi}",
+		"Send payment specified by {bolt11} with {amount}",
 		"Try to send a payment, retrying {retry_for} seconds before giving up",
 		handle_pay
 	}, {
