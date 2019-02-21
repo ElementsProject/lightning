@@ -404,7 +404,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	struct pay_attempt *attempt = current_attempt(pc);
 	const jsmntok_t *t = json_get_member(buf, result, "route");
 	char *json_desc;
-	u64 fee;
+	struct amount_msat fee;
 	u32 delay;
 	double feepercent;
 
@@ -418,32 +418,36 @@ static struct command_result *getroute_done(struct command *cmd,
 	else
 		attempt->route = json_strdup(pc->ps->attempts, buf, t);
 
-	if (!json_to_u64(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
-		plugin_err("getroute with invalid msatoshi? '%.*s'",
+	if (!json_to_msat(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
+		plugin_err("getroute with invalid msatoshi? %.*s",
 			   result->end - result->start, buf);
-	fee -= pc->msatoshi;
+	fee.millisatoshis -= pc->msatoshi;
 
 	if (!json_to_number(buf, json_delve(buf, t, "[0].delay"), &delay))
-		plugin_err("getroute with invalid delay? '%.*s'",
+		plugin_err("getroute with invalid delay? %.*s",
 			   result->end - result->start, buf);
 
 	/* Casting u64 to double will lose some precision. The loss of precision
 	 * in feepercent will be like 3.0000..(some dots)..1 % - 3.0 %.
 	 * That loss will not be representable in double. So, it's Okay to
 	 * cast u64 to double for feepercent calculation. */
-	feepercent = ((double)fee) * 100.0 / ((double) pc->msatoshi);
+	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) pc->msatoshi);
 
-	if (fee > pc->exemptfee && feepercent > pc->maxfeepercent) {
+	if (fee.millisatoshis > pc->exemptfee && feepercent > pc->maxfeepercent) {
 		const jsmntok_t *charger;
 
-		attempt_failed_fmt(pc, "{ 'message': 'Route wanted fee of %"PRIu64" msatoshis' }", fee);
+		attempt_failed_fmt(pc, "{ 'message': 'Route wanted fee of %s' }",
+				   type_to_string(tmpctx, struct amount_msat,
+						  &fee));
 
 		/* Remember this if we eliminating this causes us to have no
 		 * routes at all! */
 		if (!pc->expensive_route)
 			pc->expensive_route
-				= tal_fmt(pc, "Route wanted fee of %"PRIu64
-					  " msatoshis", fee);
+				= tal_fmt(pc, "Route wanted fee of %s",
+					  type_to_string(tmpctx,
+							 struct amount_msat,
+							 &fee));
 
 		/* Try excluding most fee-charging channel (unless it's in
 		 * routeboost). */
@@ -817,7 +821,7 @@ static struct command_result *handle_pay(struct command *cmd,
 					 const char *buf,
 					 const jsmntok_t *params)
 {
-	u64 *msatoshi;
+	struct amount_msat *msat;
 	struct bolt11 *b11;
 	const char *b11str;
 	char *fail;
@@ -832,7 +836,7 @@ static struct command_result *handle_pay(struct command *cmd,
 
 	if (!param(cmd, buf, params,
 		   p_req("bolt11", param_string, &b11str),
-		   p_opt("msatoshi", param_u64, &msatoshi),
+		   p_opt("msatoshi", param_msat, &msat),
 		   p_opt("description", param_string, &pc->desc),
 		   p_opt_def("riskfactor", param_double, &riskfactor, 10),
 		   p_opt_def("maxfeepercent", param_percent, &maxfeepercent, 0.5),
@@ -854,17 +858,17 @@ static struct command_result *handle_pay(struct command *cmd,
 	}
 
 	if (b11->msat) {
-		if (msatoshi) {
+		if (msat) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter unnecessary");
 		}
 		pc->msatoshi = b11->msat->millisatoshis;
 	} else {
-		if (!msatoshi) {
+		if (!msat) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter required");
 		}
-		pc->msatoshi = *msatoshi;
+		pc->msatoshi = msat->millisatoshis;
 	}
 
 	pc->maxfeepercent = *maxfeepercent;

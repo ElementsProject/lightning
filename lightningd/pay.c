@@ -78,8 +78,12 @@ json_add_payment_fields(struct json_stream *response,
 	json_add_u64(response, "id", t->id);
 	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
 	json_add_pubkey(response, "destination", &t->destination);
-	json_add_u64(response, "msatoshi", t->msatoshi);
-	json_add_u64(response, "msatoshi_sent", t->msatoshi_sent);
+	json_add_amount_msat(response,
+			     ((struct amount_msat){ t->msatoshi }),
+			     "msatoshi", "amount_msat");
+	json_add_amount_msat(response,
+			     ((struct amount_msat){ t->msatoshi_sent }),
+			     "msatoshi_sent", "amount_sent_msat");
 	json_add_u64(response, "created_at", t->timestamp);
 
 	switch (t->status) {
@@ -606,7 +610,7 @@ send_payment(struct lightningd *ld,
 	for (i = 0; i < n_hops - 1; i++) {
 		hop_data[i].realm = 0;
 		hop_data[i].channel_id = route[i+1].channel_id;
-		hop_data[i].amt_forward = route[i+1].amount;
+		hop_data[i].amt_forward = route[i+1].amount.millisatoshis;
 		hop_data[i].outgoing_cltv = base_expiry + route[i+1].delay;
 	}
 
@@ -615,7 +619,7 @@ send_payment(struct lightningd *ld,
 	hop_data[i].realm = 0;
 	hop_data[i].outgoing_cltv = base_expiry + route[i].delay;
 	memset(&hop_data[i].channel_id, 0, sizeof(struct short_channel_id));
-	hop_data[i].amt_forward = route[i].amount;
+	hop_data[i].amt_forward = route[i].amount.millisatoshis;
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);
@@ -667,10 +671,11 @@ send_payment(struct lightningd *ld,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(tmpctx, packet);
 
-	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64"",
-		 route[0].amount, n_hops, msatoshi);
+	log_info(ld->log, "Sending %s over %zu hops to deliver %"PRIu64"",
+		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
+		 n_hops, msatoshi);
 
-	failcode = send_htlc_out(channel, route[0].amount,
+	failcode = send_htlc_out(channel, route[0].amount.millisatoshis,
 				 base_expiry + route[0].delay,
 				 rhash, onion, NULL, &hout);
 	if (failcode) {
@@ -705,7 +710,7 @@ send_payment(struct lightningd *ld,
 	payment->destination = ids[n_hops - 1];
 	payment->status = PAYMENT_PENDING;
 	payment->msatoshi = msatoshi;
-	payment->msatoshi_sent = route[0].amount;
+	payment->msatoshi_sent = route[0].amount.millisatoshis;
 	payment->timestamp = time_now().ts.tv_sec;
 	payment->payment_preimage = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
@@ -737,7 +742,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	size_t i;
 	struct sha256 *rhash;
 	struct route_hop *route;
-	u64 *msatoshi;
+	struct amount_msat *msat;
 	const char *description;
 	struct command_result *res;
 
@@ -745,7 +750,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_req("route", param_array, &routetok),
 		   p_req("payment_hash", param_sha256, &rhash),
 		   p_opt("description", param_escaped_string, &description),
-		   p_opt("msatoshi", param_u64, &msatoshi),
+		   p_opt("msatoshi", param_msat, &msat),
 		   NULL))
 		return command_param_failed();
 
@@ -792,7 +797,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		if (!msat)
 			msat = amount_msat;
 
-		route[i].amount = msat->millisatoshis;
+		route[i].amount = *msat;
 		route[i].nodeid = *id;
 		route[i].delay = *delay;
 		route[i].channel_id = *channel;
@@ -805,17 +810,33 @@ static struct command_result *json_sendpay(struct command *cmd,
 	 * be from the msatoshi to twice msatoshi. */
 
 	/* if not: msatoshi <= finalhop.amount <= 2 * msatoshi, fail. */
-	if (msatoshi) {
-		if (!(*msatoshi <= route[routetok->size-1].amount &&
-		      route[routetok->size-1].amount <= 2 * *msatoshi)) {
+	if (msat) {
+		struct amount_msat two_times_final;
+
+		two_times_final.millisatoshis
+			= route[routetok->size-1].amount.millisatoshis * 2;
+		if (amount_msat_less(*msat, route[routetok->size-1].amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "msatoshi %"PRIu64" out of range",
-					    *msatoshi);
-		}
+					    "msatoshi %s less than final %s",
+					    type_to_string(tmpctx,
+							   struct amount_msat,
+							   msat),
+					    type_to_string(tmpctx,
+							   struct amount_msat,
+							   &route[routetok->size-1].amount));
+		if (amount_msat_greater(*msat, two_times_final))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "msatoshi %s more than twice final %s",
+					    type_to_string(tmpctx,
+							   struct amount_msat,
+							   msat),
+					    type_to_string(tmpctx,
+							   struct amount_msat,
+							   &route[routetok->size-1].amount));
 	}
 
 	res = send_payment(cmd->ld, cmd, rhash, route,
-			   msatoshi ? *msatoshi : route[routetok->size-1].amount,
+			   msat ? msat->millisatoshis : route[routetok->size-1].amount.millisatoshis,
 			   description);
 	if (res)
 		return res;

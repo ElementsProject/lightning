@@ -1559,7 +1559,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 		c = &route[i]->half[idx];
 		hops[i].channel_id = route[i]->scid;
 		hops[i].nodeid = n->id;
-		hops[i].amount = total_amount;
+		hops[i].amount.millisatoshis = total_amount;
 		hops[i].delay = total_delay;
 		hops[i].direction = idx;
 		total_amount += connection_fee(c, total_amount);

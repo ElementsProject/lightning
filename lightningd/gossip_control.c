@@ -10,6 +10,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/amount.h>
 #include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_escaped.h>
@@ -300,7 +301,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	struct pubkey *destination;
 	struct pubkey *source;
 	const jsmntok_t *excludetok;
-	u64 *msatoshi;
+	struct amount_msat *msat;
 	unsigned *cltv;
 	double *riskfactor;
 	struct short_channel_id_dir *excluded;
@@ -315,7 +316,7 @@ static struct command_result *json_getroute(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_pubkey, &destination),
-		   p_req("msatoshi", param_u64, &msatoshi),
+		   p_req("msatoshi", param_msat, &msat),
 		   p_req("riskfactor", param_double, &riskfactor),
 		   p_opt_def("cltv", param_number, &cltv, 9),
 		   p_opt_def("fromid", param_pubkey, &source, ld->id),
@@ -353,7 +354,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	}
 
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
-						 *msatoshi,
+						 msat->millisatoshis,
 						 *riskfactor * 1000000.0,
 						 *cltv, fuzz,
 						 excluded,
@@ -398,7 +399,9 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 				type_to_string(reply, struct short_channel_id,
 					       &entries[i].short_channel_id));
 		json_add_bool(response, "public", entries[i].public);
-		json_add_u64(response, "satoshis", entries[i].satoshis);
+		json_add_amount_sat(response,
+				    (struct amount_sat){ entries[i].satoshis },
+				    "satoshis", "amount_msat");
 		json_add_num(response, "message_flags", entries[i].message_flags);
 		json_add_num(response, "channel_flags", entries[i].channel_flags);
 		/* Prior to spec v0891374d47ddffa64c5a2e6ad151247e3d6b7a59, these two were a single u16 field */

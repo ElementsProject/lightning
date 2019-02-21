@@ -69,7 +69,7 @@ def test_pay_limits(node_factory):
     inv = l3.rpc.invoice("any", "any", 'description')
 
     # Fee too high.
-    with pytest.raises(RpcError, match=r'Route wanted fee of .* msatoshis') as err:
+    with pytest.raises(RpcError, match=r'Route wanted fee of .*msat') as err:
         l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 0})
 
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
@@ -1016,8 +1016,10 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
 
     # Modify so we overpay, overdo the cltv.
     route[0]['msatoshi'] += 2000
+    route[0]['amount_msat'] = str(route[0]['msatoshi']) + 'msat'
     route[0]['delay'] += 20
     route[1]['msatoshi'] += 1000
+    route[1]['amount_msat'] = str(route[1]['msatoshi']) + 'msat'
     route[1]['delay'] += 10
 
     # This should work.

@@ -5,6 +5,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/time/time.h>
+#include <common/amount.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gossip_constants.h>
 #include <gossipd/gossip_store.h>
@@ -205,7 +206,7 @@ struct route_hop {
 	struct short_channel_id channel_id;
 	int direction;
 	struct pubkey nodeid;
-	u64 amount;
+	struct amount_msat amount;
 	u32 delay;
 };
 
