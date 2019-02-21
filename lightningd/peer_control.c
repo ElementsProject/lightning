@@ -138,10 +138,16 @@ static void delete_peer(struct peer *peer)
 /* Last one out deletes peer. */
 void maybe_delete_peer(struct peer *peer)
 {
-	if (peer->uncommitted_channel)
-		return;
 	if (!list_empty(&peer->channels))
 		return;
+	if (peer->uncommitted_channel) {
+		/* This isn't sufficient to keep it in db! */
+		if (peer->dbid != 0) {
+			wallet_peer_delete(peer->ld->wallet, peer->dbid);
+			peer->dbid = 0;
+		}
+		return;
+	}
 	delete_peer(peer);
 }
 
