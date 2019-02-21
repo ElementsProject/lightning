@@ -9,7 +9,7 @@ opening_init,,chain_hash,struct bitcoin_blkid
 opening_init,,our_config,struct channel_config
 # Minimum/maximum configuration values we'll accept
 opening_init,,max_to_self_delay,u32
-opening_init,,min_effective_htlc_capacity_msat,u64
+opening_init,,min_effective_htlc_capacity_msat,struct amount_msat
 opening_init,,crypto_state,struct crypto_state
 opening_init,,our_basepoints,struct basepoints
 opening_init,,our_funding_pubkey,struct pubkey
@@ -29,10 +29,10 @@ opening_can_accept_channel,6002
 #include <common/htlc_wire.h>
 # Master->openingd: please fund a channel.
 opening_funder,6001
-opening_funder,,funding_satoshis,u64
-opening_funder,,push_msat,u64
+opening_funder,,funding_satoshis,struct amount_sat
+opening_funder,,push_msat,struct amount_msat
 opening_funder,,feerate_per_kw,u32
-opening_funder,,change_satoshis,u64
+opening_funder,,change_satoshis,struct amount_sat
 opening_funder,,change_keyindex,u32
 opening_funder,,channel_flags,u8
 #include <common/utxo.h>
@@ -56,7 +56,7 @@ opening_funder_reply,,minimum_depth,u32
 opening_funder_reply,,remote_fundingkey,struct pubkey
 opening_funder_reply,,funding_txid,struct bitcoin_txid
 opening_funder_reply,,feerate_per_kw,u32
-opening_funder_reply,,our_channel_reserve_satoshis,u64
+opening_funder_reply,,our_channel_reserve_satoshis,struct amount_sat
 
 # Openingd->master: we failed to negotiation channel
 opening_funder_failed,6004
@@ -77,14 +77,14 @@ opening_fundee,,their_per_commit_point,struct pubkey
 opening_fundee,,remote_fundingkey,struct pubkey
 opening_fundee,,funding_txid,struct bitcoin_txid
 opening_fundee,,funding_txout,u16
-opening_fundee,,funding_satoshis,u64
-opening_fundee,,push_msat,u64
+opening_fundee,,funding_satoshis,struct amount_sat
+opening_fundee,,push_msat,struct amount_msat
 opening_fundee,,channel_flags,u8
 opening_fundee,,feerate_per_kw,u32
 # The funding signed message: send this and we're committed.
 opening_fundee,,msglen,u16
 opening_fundee,,funding_signed_msg,msglen*u8
-opening_fundee,,our_channel_reserve_satoshis,u64
+opening_fundee,,our_channel_reserve_satoshis,struct amount_sat
 
 # master -> openingd: do you have a memleak?
 opening_dev_memleak,6033

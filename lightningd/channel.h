@@ -59,16 +59,17 @@ struct channel {
 	/* Funding txid and amounts */
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
-	u64 funding_satoshi, push_msat;
+	struct amount_sat funding;
+	struct amount_msat push;
 	bool remote_funding_locked;
 	/* Channel if locked locally. */
 	struct short_channel_id *scid;
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
-	u64 our_msatoshi;
+	struct amount_msat our_msat;
 	/* Statistics for min and max our_msatoshi. */
-	u64 msatoshi_to_us_min;
-	u64 msatoshi_to_us_max;
+	struct amount_msat msat_to_us_min;
+	struct amount_msat msat_to_us_max;
 
 	/* Timer we use in case they don't add an HTLC in a timely manner. */
 	struct oneshot *htlc_timeout;
@@ -127,14 +128,14 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_htlc_id,
 			    const struct bitcoin_txid *funding_txid,
 			    u16 funding_outnum,
-			    u64 funding_satoshi,
-			    u64 push_msat,
+			    struct amount_sat funding,
+			    struct amount_msat push,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
-			    u64 our_msatoshi,
-			    u64 msatoshi_to_us_min,
-			    u64 msatoshi_to_us_max,
+			    struct amount_msat our_msatoshi,
+			    struct amount_msat msatoshi_to_us_min,
+			    struct amount_msat msatoshi_to_us_max,
 			    /* Stolen */
 			    struct bitcoin_tx *last_tx,
 			    const struct bitcoin_signature *last_sig,

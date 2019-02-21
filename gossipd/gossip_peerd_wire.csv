@@ -19,14 +19,14 @@ gossipd_send_gossip,,gossip,len*u8
 gossipd_local_add_channel,3503
 gossipd_local_add_channel,,short_channel_id,struct short_channel_id
 gossipd_local_add_channel,,remote_node_id,struct pubkey
-gossipd_local_add_channel,,satoshis,u64
+gossipd_local_add_channel,,satoshis,struct amount_sat
 
 # Send this channel_update.
 gossipd_local_channel_update,3504
 gossipd_local_channel_update,,short_channel_id,struct short_channel_id
 gossipd_local_channel_update,,disable,bool
 gossipd_local_channel_update,,cltv_expiry_delta,u16
-gossipd_local_channel_update,,htlc_minimum_msat,u64
+gossipd_local_channel_update,,htlc_minimum_msat,struct amount_msat
 gossipd_local_channel_update,,fee_base_msat,u32
 gossipd_local_channel_update,,fee_proportional_millionths,u32
-gossipd_local_channel_update,,htlc_maximum_msat,u64
+gossipd_local_channel_update,,htlc_maximum_msat,struct amount_msat

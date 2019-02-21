@@ -291,10 +291,10 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  disable_flag
 						  == ROUTING_FLAGS_DISABLED,
 						  peer->cltv_delta,
-						  peer->channel->config[REMOTE].htlc_minimum.millisatoshis,
+						  peer->channel->config[REMOTE].htlc_minimum,
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
-						  advertised_htlc_max(peer->channel).millisatoshis);
+						  advertised_htlc_max(peer->channel));
 	wire_sync_write(GOSSIP_FD, take(msg));
 }
 
@@ -316,7 +316,7 @@ static void make_channel_local_active(struct peer *peer)
 	msg = towire_gossipd_local_add_channel(NULL,
 					       &peer->short_channel_ids[LOCAL],
 					       &peer->node_ids[REMOTE],
-					       peer->channel->funding.satoshis);
+					       peer->channel->funding);
  	wire_sync_write(GOSSIP_FD, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should
@@ -942,7 +942,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
-						   *txs[0]->input[0].amount);
+						   (struct amount_sat){*txs[0]->input[0].amount});
 
 	msg = hsm_req(tmpctx, take(msg));
 	if (!fromwire_hsm_sign_tx_reply(msg, commit_sig))
@@ -980,7 +980,8 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 		struct bitcoin_signature sig;
 		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1],
 						     wscripts[i + 1],
-						     *txs[i+1]->input[0].amount,
+						     (struct amount_sat)
+						     { *txs[i+1]->input[0].amount },
 						     &peer->remote_per_commit);
 
 		msg = hsm_req(tmpctx, take(msg));
@@ -1251,7 +1252,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			struct secret s;
 
 			a.id = htlc->id;
-			a.amount_msat = htlc->amount.millisatoshis;
+			a.amount = htlc->amount;
 			a.payment_hash = htlc->rhash;
 			a.cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
 			memcpy(a.onion_routing_packet,
@@ -2431,7 +2432,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding not locked for offer_htlc");
 
-	if (!fromwire_channel_offer_htlc(inmsg, &amount.millisatoshis,
+	if (!fromwire_channel_offer_htlc(inmsg, &amount,
 					 &cltv_expiry, &payment_hash,
 					 onion_routing_packet))
 		master_badmsg(WIRE_CHANNEL_OFFER_HTLC, inmsg);
@@ -2730,7 +2731,7 @@ static void init_channel(struct peer *peer)
 	if (!fromwire_channel_init(peer, msg,
 				   &peer->chain_hash,
 				   &funding_txid, &funding_txout,
-				   &funding.satoshis,
+				   &funding,
 				   &conf[LOCAL], &conf[REMOTE],
 				   feerate_per_kw,
 				   &peer->feerate_min, &peer->feerate_max,
@@ -2743,7 +2744,7 @@ static void init_channel(struct peer *peer)
 				   &funder,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,
-				   &local_msat.millisatoshis,
+				   &local_msat,
 				   &points[LOCAL],
 				   &funding_pubkey[LOCAL],
 				   &peer->node_ids[LOCAL],

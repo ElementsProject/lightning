@@ -44,10 +44,10 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, u64 *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, u64 *satoshis UNNEEDED)
+bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_announcement */
-bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, u64 *satoshis UNNEEDED)
+bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_announcement called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_delete */
 bool fromwire_gossip_store_channel_delete(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
@@ -96,7 +96,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_announcement */
-u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, u64 satoshis UNNEEDED)
+u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_announcement called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_delete */
 u8 *towire_gossip_store_channel_delete(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
@@ -143,7 +143,7 @@ static void add_connection(struct routing_state *rstate,
 	chan = get_channel(rstate, &scid);
 	if (!chan)
 		chan = new_chan(rstate, &scid, &nodes[from], &nodes[to],
-				1000000);
+				AMOUNT_SAT(1000000));
 
 	c = &chan->half[idx];
 	c->base_fee = base_fee;
@@ -152,8 +152,8 @@ static void add_connection(struct routing_state *rstate,
 	c->channel_flags = get_channel_direction(&nodes[from], &nodes[to]);
 	/* This must be non-NULL, otherwise we consider it disabled! */
 	c->channel_update = tal(chan, u8);
-	c->htlc_maximum_msat = -1ULL;
-	c->htlc_minimum_msat = 0;
+	c->htlc_maximum = AMOUNT_MSAT(-1ULL);
+	c->htlc_minimum = AMOUNT_MSAT(0);
 }
 
 static struct pubkey nodeid(size_t n)
@@ -254,11 +254,11 @@ int main(int argc, char *argv[])
 	for (size_t i = 0; i < num_runs; i++) {
 		const struct pubkey *from = &nodes[pseudorand(num_nodes)];
 		const struct pubkey *to = &nodes[pseudorand(num_nodes)];
-		u64 fee;
+		struct amount_msat fee;
 		struct chan **route;
 
 		route = find_route(tmpctx, rstate, from, to,
-				   pseudorand(100000),
+				   (struct amount_msat){pseudorand(100000)},
 				   riskfactor,
 				   0.75, &base_seed,
 				   ROUTING_MAX_HOPS,

@@ -610,7 +610,7 @@ send_payment(struct lightningd *ld,
 	for (i = 0; i < n_hops - 1; i++) {
 		hop_data[i].realm = 0;
 		hop_data[i].channel_id = route[i+1].channel_id;
-		hop_data[i].amt_forward = route[i+1].amount.millisatoshis;
+		hop_data[i].amt_forward = route[i+1].amount;
 		hop_data[i].outgoing_cltv = base_expiry + route[i+1].delay;
 	}
 
@@ -619,7 +619,7 @@ send_payment(struct lightningd *ld,
 	hop_data[i].realm = 0;
 	hop_data[i].outgoing_cltv = base_expiry + route[i].delay;
 	memset(&hop_data[i].channel_id, 0, sizeof(struct short_channel_id));
-	hop_data[i].amt_forward = route[i].amount.millisatoshis;
+	hop_data[i].amt_forward = route[i].amount;
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);
@@ -675,7 +675,7 @@ send_payment(struct lightningd *ld,
 		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
 		 n_hops, msatoshi);
 
-	failcode = send_htlc_out(channel, route[0].amount.millisatoshis,
+	failcode = send_htlc_out(channel, route[0].amount,
 				 base_expiry + route[0].delay,
 				 rhash, onion, NULL, &hout);
 	if (failcode) {

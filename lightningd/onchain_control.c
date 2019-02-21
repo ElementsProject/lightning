@@ -275,7 +275,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 
 	if (!fromwire_onchain_add_utxo(msg, &u->txid, &u->outnum,
 				       &u->close_info->commitment_point,
-				       &u->amount.satoshis, &blockheight)) {
+				       &u->amount, &blockheight)) {
 		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
 	}
 	u->blockheight = blockheight>0?&blockheight:NULL;
@@ -449,18 +449,29 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	feerate = try_get_feerate(ld->topology, FEERATE_NORMAL);
 	if (!feerate) {
 		/* We have at least one data point: the last tx's feerate. */
-		u64 fee = channel->funding_satoshi;
+		struct amount_sat fee = channel->funding;
 		for (size_t i = 0; i < tal_count(channel->last_tx->output); i++)
-			fee -= channel->last_tx->output[i].amount;
+			if (!amount_sat_sub(&fee, fee,
+					    (struct amount_sat) {channel->last_tx->output[i].amount})) {
+				log_broken(channel->log, "Could not get fee"
+					   " funding %s tx %s",
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &channel->funding),
+					   type_to_string(tmpctx,
+							  struct bitcoin_tx,
+							  channel->last_tx));
+				return KEEP_WATCHING;
+			}
 
-		feerate = fee / measure_tx_weight(tx);
+		feerate = fee.satoshis / measure_tx_weight(tx);
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
 
 	msg = towire_onchain_init(channel,
 				  &channel->their_shachain.chain,
-				  channel->funding_satoshi,
+				  channel->funding,
 				  &channel->channel_info.old_remote_per_commit,
 				  &channel->channel_info.remote_per_commit,
 				   /* BOLT #2:
@@ -472,7 +483,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->channel_info.their_config.to_self_delay,
 				  channel->our_config.to_self_delay,
 				  feerate,
-				  channel->our_config.dust_limit.satoshis,
+				  channel->our_config.dust_limit,
 				  &our_last_txid,
 				  p2wpkh_for_keyidx(tmpctx, ld,
 						    channel->final_key_idx),

@@ -102,7 +102,7 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
 	fromwire(pptr, max, entry->source, sizeof(entry->source));
 	fromwire(pptr, max, entry->destination, sizeof(entry->destination));
-	entry->satoshis = fromwire_u64(pptr, max);
+	entry->sat = fromwire_amount_sat(pptr, max);
 	entry->message_flags = fromwire_u8(pptr, max);
 	entry->channel_flags = fromwire_u8(pptr, max);
 	entry->public = fromwire_bool(pptr, max);
@@ -119,7 +119,7 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 	towire_short_channel_id(pptr, &entry->short_channel_id);
 	towire(pptr, entry->source, sizeof(entry->source));
 	towire(pptr, entry->destination, sizeof(entry->destination));
-	towire_u64(pptr, entry->satoshis);
+	towire_amount_sat(pptr, entry->sat);
 	towire_u8(pptr, entry->message_flags);
 	towire_u8(pptr, entry->channel_flags);
 	towire_bool(pptr, entry->public);

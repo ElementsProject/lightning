@@ -1066,20 +1066,20 @@ bool channel_force_htlcs(struct channel *channel,
 	for (i = 0; i < tal_count(htlcs); i++) {
 		enum channel_add_err e;
 		struct htlc *htlc;
-		struct amount_msat amount;
 
 		status_trace("Restoring HTLC %zu/%zu:"
-			     " id=%"PRIu64" msat=%"PRIu64" cltv=%u"
+			     " id=%"PRIu64" amount=%s cltv=%u"
 			     " payment_hash=%s",
 			     i, tal_count(htlcs),
-			     htlcs[i].id, htlcs[i].amount_msat,
+			     htlcs[i].id,
+			     type_to_string(tmpctx, struct amount_msat,
+					    &htlcs[i].amount),
 			     htlcs[i].cltv_expiry,
 			     type_to_string(tmpctx, struct sha256,
 					    &htlcs[i].payment_hash));
 
-		amount.millisatoshis = htlcs[i].amount_msat;
 		e = add_htlc(channel, hstates[i],
-			     htlcs[i].id, amount,
+			     htlcs[i].id, htlcs[i].amount,
 			     htlcs[i].cltv_expiry,
 			     &htlcs[i].payment_hash,
 			     htlcs[i].onion_routing_packet, &htlc, false);

@@ -27,11 +27,8 @@ struct half_chan {
 	/* -1 if channel_update is NULL */
 	s64 last_timestamp;
 
-	/* Minimum number of msatoshi in an HTLC */
-	u64 htlc_minimum_msat;
-
-	/* Maximum number of msatoshis in an HTLC */
-	u64 htlc_maximum_msat;
+	/* Minimum and maximum number of msatoshi in an HTLC */
+	struct amount_msat htlc_minimum, htlc_maximum;
 
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
@@ -62,7 +59,7 @@ struct chan {
 	/* Disabled locally (due to peer disconnect) */
 	bool local_disabled;
 
-	u64 satoshis;
+	struct amount_sat sat;
 };
 
 /* A local channel can exist which isn't announcable. */
@@ -103,9 +100,9 @@ struct node {
 	/* Temporary data for routefinding. */
 	struct {
 		/* Total to get to here from target. */
-		u64 total;
+		struct amount_msat total;
 		/* Total risk premium of this route. */
-		u64 risk;
+		struct amount_msat risk;
 		/* Where that came from. */
 		struct chan *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
@@ -225,7 +222,7 @@ struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct pubkey *id1,
 		      const struct pubkey *id2,
-		      u64 satoshis);
+		      struct amount_sat sat);
 
 /* Handlers for incoming messages */
 
@@ -245,7 +242,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
  */
 void handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
-				  const u64 satoshis,
+				  const struct amount_sat sat,
 				  const u8 *txscript);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
@@ -262,7 +259,7 @@ struct node *get_node(struct routing_state *rstate, const struct pubkey *id);
 struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
-			    const u64 msatoshi, double riskfactor,
+			    const struct amount_msat msat, double riskfactor,
 			    u32 final_cltv,
 			    double fuzz,
 			    u64 seed,
@@ -286,7 +283,8 @@ void route_prune(struct routing_state *rstate);
  * @see{handle_channel_announcement} entrypoint to check before adding.
  */
 bool routing_add_channel_announcement(struct routing_state *rstate,
-				      const u8 *msg TAKES, u64 satoshis);
+				      const u8 *msg TAKES,
+				      struct amount_sat sat);
 
 /**
  * Add a channel_update without checking for errors

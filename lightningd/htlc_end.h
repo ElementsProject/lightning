@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/htable/htable_type.h>
 #include <ccan/short_types/short_types.h>
+#include <common/amount.h>
 #include <common/htlc_state.h>
 #include <common/sphinx.h>
 #include <wire/gen_onion_wire.h>
@@ -22,7 +23,7 @@ struct htlc_in {
 	 * database. */
 	u64 dbid;
 	struct htlc_key key;
-	u64 msatoshi;
+	struct amount_msat msat;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
 
@@ -55,7 +56,7 @@ struct htlc_out {
 	u64 dbid;
 	u64 origin_htlc_id;
 	struct htlc_key key;
-	u64 msatoshi;
+	struct amount_msat msat;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
 
@@ -122,7 +123,7 @@ struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
 /* You still need to connect_htlc_in this! */
 struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct channel *channel, u64 id,
-			    u64 msatoshi, u32 cltv_expiry,
+			    struct amount_msat msat, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret TAKES,
 			    const u8 *onion_routing_packet);
@@ -130,7 +131,8 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct channel *channel,
-			      u64 msatoshi, u32 cltv_expiry,
+			      struct amount_msat msat,
+			      u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      bool am_origin,

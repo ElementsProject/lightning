@@ -37,8 +37,8 @@ hsm_get_channel_basepoints_reply,,funding_pubkey,struct pubkey
 #include <common/utxo.h>
 # FIXME: This should also take their commit sig & details, to verify.
 hsm_sign_funding,4
-hsm_sign_funding,,satoshi_out,u64
-hsm_sign_funding,,change_out,u64
+hsm_sign_funding,,satoshi_out,struct amount_sat
+hsm_sign_funding,,change_out,struct amount_sat
 hsm_sign_funding,,change_keyindex,u32
 hsm_sign_funding,,our_pubkey,struct pubkey
 hsm_sign_funding,,their_pubkey,struct pubkey
@@ -58,8 +58,8 @@ hsm_node_announcement_sig_reply,,signature,secp256k1_ecdsa_signature
 
 # Sign a withdrawal request
 hsm_sign_withdrawal,7
-hsm_sign_withdrawal,,satoshi_out,u64
-hsm_sign_withdrawal,,change_out,u64
+hsm_sign_withdrawal,,satoshi_out,struct amount_sat
+hsm_sign_withdrawal,,change_out,struct amount_sat
 hsm_sign_withdrawal,,change_keyindex,u32
 hsm_sign_withdrawal,,scriptpubkey_len,u16
 hsm_sign_withdrawal,,scriptpubkey,scriptpubkey_len*u8
@@ -107,7 +107,7 @@ hsm_sign_commitment_tx,,peer_id,struct pubkey
 hsm_sign_commitment_tx,,channel_dbid,u64
 hsm_sign_commitment_tx,,tx,struct bitcoin_tx
 hsm_sign_commitment_tx,,remote_funding_key,struct pubkey
-hsm_sign_commitment_tx,,funding_amount,u64
+hsm_sign_commitment_tx,,funding_amount,struct amount_sat
 
 hsm_sign_commitment_tx_reply,105
 hsm_sign_commitment_tx_reply,,sig,struct bitcoin_signature
@@ -120,21 +120,21 @@ hsm_sign_delayed_payment_to_us,,commit_num,u64
 hsm_sign_delayed_payment_to_us,,tx,struct bitcoin_tx
 hsm_sign_delayed_payment_to_us,,wscript_len,u16
 hsm_sign_delayed_payment_to_us,,wscript,wscript_len*u8
-hsm_sign_delayed_payment_to_us,,input_amount,u64
+hsm_sign_delayed_payment_to_us,,input_amount,struct amount_sat
 
 hsm_sign_remote_htlc_to_us,13
 hsm_sign_remote_htlc_to_us,,remote_per_commitment_point,struct pubkey
 hsm_sign_remote_htlc_to_us,,tx,struct bitcoin_tx
 hsm_sign_remote_htlc_to_us,,wscript_len,u16
 hsm_sign_remote_htlc_to_us,,wscript,wscript_len*u8
-hsm_sign_remote_htlc_to_us,,input_amount,u64
+hsm_sign_remote_htlc_to_us,,input_amount,struct amount_sat
 
 hsm_sign_penalty_to_us,14
 hsm_sign_penalty_to_us,,revocation_secret,struct secret
 hsm_sign_penalty_to_us,,tx,struct bitcoin_tx
 hsm_sign_penalty_to_us,,wscript_len,u16
 hsm_sign_penalty_to_us,,wscript,wscript_len*u8
-hsm_sign_penalty_to_us,,input_amount,u64
+hsm_sign_penalty_to_us,,input_amount,struct amount_sat
 
 # Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
 hsm_sign_local_htlc_tx,16
@@ -142,27 +142,27 @@ hsm_sign_local_htlc_tx,,commit_num,u64
 hsm_sign_local_htlc_tx,,tx,struct bitcoin_tx
 hsm_sign_local_htlc_tx,,wscript_len,u16
 hsm_sign_local_htlc_tx,,wscript,wscript_len*u8
-hsm_sign_local_htlc_tx,,input_amount,u64
+hsm_sign_local_htlc_tx,,input_amount,struct amount_sat
 
 # Openingd/channeld asks HSM to sign the other sides' commitment tx.
 hsm_sign_remote_commitment_tx,19
 hsm_sign_remote_commitment_tx,,tx,struct bitcoin_tx
 hsm_sign_remote_commitment_tx,,remote_funding_key,struct pubkey
-hsm_sign_remote_commitment_tx,,funding_amount,u64
+hsm_sign_remote_commitment_tx,,funding_amount,struct amount_sat
 
 # channeld asks HSM to sign remote HTLC tx.
 hsm_sign_remote_htlc_tx,20
 hsm_sign_remote_htlc_tx,,tx,struct bitcoin_tx
 hsm_sign_remote_htlc_tx,,len,u16
 hsm_sign_remote_htlc_tx,,wscript,len*u8
-hsm_sign_remote_htlc_tx,,amounts_satoshi,u64
+hsm_sign_remote_htlc_tx,,amounts_satoshi,struct amount_sat
 hsm_sign_remote_htlc_tx,,remote_per_commit_point,struct pubkey
 
 # closingd asks HSM to sign mutual close tx.
 hsm_sign_mutual_close_tx,21
 hsm_sign_mutual_close_tx,,tx,struct bitcoin_tx
 hsm_sign_mutual_close_tx,,remote_funding_key,struct pubkey
-hsm_sign_mutual_close_tx,,funding_amount,u64
+hsm_sign_mutual_close_tx,,funding,struct amount_sat
 
 # Reply for all the above requests.
 hsm_sign_tx_reply,112

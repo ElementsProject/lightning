@@ -202,7 +202,7 @@ static void sign_last_tx(struct channel *channel)
 					    channel->last_tx,
 					    &channel->channel_info
 					    .remote_fundingkey,
-					    channel->funding_satoshi);
+					    channel->funding);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -453,8 +453,7 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_object_start(response, NULL);
 		json_add_string(response, "direction", "in");
 		json_add_u64(response, "id", hin->key.id);
-		json_add_amount_msat(response,
-				     (struct amount_msat){ hin->msatoshi },
+		json_add_amount_msat(response, hin->msat,
 				     "msatoshi", "amount_msat");
 		json_add_u64(response, "expiry", hin->cltv_expiry);
 		json_add_hex(response, "payment_hash",
@@ -473,8 +472,7 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_object_start(response, NULL);
 		json_add_string(response, "direction", "out");
 		json_add_u64(response, "id", hout->key.id);
-		json_add_amount_msat(response,
-				     (struct amount_msat){ hout->msatoshi },
+		json_add_amount_msat(response, hout->msat,
 				     "msatoshi", "amount_msat");
 		json_add_u64(response, "expiry", hout->cltv_expiry);
 		json_add_hex(response, "payment_hash",
@@ -504,7 +502,7 @@ static void json_add_channel(struct lightningd *ld,
 {
 	struct channel_id cid;
 	struct channel_stats channel_stats;
-	struct amount_msat spendable;
+	struct amount_msat spendable, funding_msat;
 	struct peer *p = channel->peer;
 
 	json_object_start(response, key);
@@ -540,11 +538,11 @@ static void json_add_channel(struct lightningd *ld,
 	if (channel->funder == LOCAL) {
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id), 0);
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id),
-			     channel->funding_satoshi * 1000);
+			     channel->funding.satoshis * 1000);
 	} else {
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id), 0);
 		json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id),
-			     channel->funding_satoshi * 1000);
+			     channel->funding.satoshis * 1000);
 	}
 	json_object_end(response);
 
@@ -555,28 +553,31 @@ static void json_add_channel(struct lightningd *ld,
 				  AMOUNT_SAT(0));
 		json_add_sat_only(response,
 				  pubkey_to_hexstr(tmpctx, &ld->id),
-				  (struct amount_sat){channel->funding_satoshi});
+				  channel->funding);
 	} else {
 		json_add_sat_only(response,
 				  pubkey_to_hexstr(tmpctx, &ld->id),
 				  AMOUNT_SAT(0));
 		json_add_sat_only(response,
 				  pubkey_to_hexstr(tmpctx, &p->id),
-				  (struct amount_sat){channel->funding_satoshi});
+				  channel->funding);
 	}
 	json_object_end(response);
 
-	json_add_amount_msat(response,
-			     (struct amount_msat){channel->our_msatoshi},
+	if (!amount_sat_to_msat(&funding_msat, channel->funding)) {
+		log_broken(channel->log,
+			   "Overflow converting funding %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->funding));
+		funding_msat = AMOUNT_MSAT(0);
+	}
+	json_add_amount_msat(response, channel->our_msat,
 			     "msatoshi_to_us", "to_us_msat");
-	json_add_amount_msat(response,
-			     (struct amount_msat){channel->msatoshi_to_us_min},
+	json_add_amount_msat(response, channel->msat_to_us_min,
 			     "msatoshi_to_us_min", "min_to_us_msat");
-	json_add_amount_msat(response,
-			     (struct amount_msat){channel->msatoshi_to_us_max},
+	json_add_amount_msat(response, channel->msat_to_us_max,
 			     "msatoshi_to_us_max", "max_to_us_msat");
-	json_add_amount_msat(response,
-			     (struct amount_msat){channel->funding_satoshi * 1000},
+	json_add_amount_msat(response, funding_msat,
 			     "msatoshi_total", "total_msat");
 
 	/* channel config */
@@ -605,7 +606,7 @@ static void json_add_channel(struct lightningd *ld,
 			    "our_reserve_msat");
 	/* Compute how much we can send via this channel. */
 	if (!amount_msat_sub_sat(&spendable,
-				 (struct amount_msat){channel->our_msatoshi},
+				 channel->our_msat,
 				 channel->channel_info.their_config.channel_reserve))
 		spendable = AMOUNT_MSAT(0);
 
@@ -643,25 +644,25 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_u64(response, "in_payments_offered",
 		     channel_stats.in_payments_offered);
 	json_add_amount_msat(response,
-			     (struct amount_msat){channel_stats.in_msatoshi_offered},
+			     channel_stats.in_msatoshi_offered,
 			     "in_msatoshi_offered",
 			     "in_offered_msat");
 	json_add_u64(response, "in_payments_fulfilled",
 		     channel_stats.in_payments_fulfilled);
 	json_add_amount_msat(response,
-			     (struct amount_msat){channel_stats.in_msatoshi_fulfilled},
+			     channel_stats.in_msatoshi_fulfilled,
 			     "in_msatoshi_fulfilled",
 			     "in_fulfilled_msat");
 	json_add_u64(response, "out_payments_offered",
 		     channel_stats.out_payments_offered);
 	json_add_amount_msat(response,
-			     (struct amount_msat){channel_stats.out_msatoshi_offered},
+			     channel_stats.out_msatoshi_offered,
 			     "out_msatoshi_offered",
 			     "out_offered_msat");
 	json_add_u64(response, "out_payments_fulfilled",
 		     channel_stats.out_payments_fulfilled);
 	json_add_amount_msat(response,
-			     (struct amount_msat){channel_stats.out_msatoshi_fulfilled},
+			     channel_stats.out_msatoshi_fulfilled,
 			     "out_msatoshi_fulfilled",
 			     "out_fulfilled_msat");
 

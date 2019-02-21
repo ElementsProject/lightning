@@ -156,8 +156,8 @@ static struct command_result *json_withdraw(struct command *cmd,
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
-					     withdraw->wtx.amount.satoshis,
-					     withdraw->wtx.change.satoshis,
+					     withdraw->wtx.amount,
+					     withdraw->wtx.change,
 					     withdraw->wtx.change_key_index,
 					     withdraw->destination,
 					     withdraw->wtx.utxos);
@@ -463,10 +463,9 @@ static struct command_result *json_listfunds(struct command *cmd,
 							  c->scid);
 
 			json_add_amount_sat(response,
-					    amount_msat_to_sat_round_down((struct amount_msat){c->our_msatoshi}),
+					    amount_msat_to_sat_round_down(c->our_msat),
 					    "channel_sat", "our_amount_msat");
-			json_add_amount_sat(response,
-					    (struct amount_sat){c->funding_satoshi},
+			json_add_amount_sat(response, c->funding,
 					    "channel_total_sat", "amount_msat");
 			json_add_txid(response, "funding_txid",
 				      &c->funding_txid);

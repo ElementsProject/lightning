@@ -7,6 +7,7 @@ ONCHAIND_TEST_OBJS := $(ONCHAIND_TEST_SRC:.c=.o)
 ONCHAIND_TEST_PROGRAMS := $(ONCHAIND_TEST_OBJS:.o=)
 
 ONCHAIND_TEST_COMMON_OBJS :=			\
+	common/amount.o				\
 	common/features.o			\
 	common/pseudorand.o			\
 	common/type_to_string.o			\

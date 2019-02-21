@@ -104,10 +104,10 @@ static u8 *gossip_store_wrap_channel_announcement(const tal_t *ctx,
 			      "Error parsing channel_announcement");
 
 	struct chan *chan = get_channel(rstate, &scid);
-	assert(chan && chan->satoshis > 0);
+	assert(chan && amount_sat_greater(chan->sat, AMOUNT_SAT(0)));
 
 	u8 *msg = towire_gossip_store_channel_announcement(ctx, gossip_msg,
-							   chan->satoshis);
+							   chan->sat);
 	return msg;
 }
 
@@ -247,7 +247,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	beint32_t belen, becsum;
 	u32 msglen, checksum;
 	u8 *msg, *gossip_msg;
-	u64 satoshis;
+	struct amount_sat satoshis;
 	struct short_channel_id scid;
 	/* We set/check version byte on creation */
 	off_t known_good = 1;

@@ -307,7 +307,7 @@ static void serialize_hop_data(tal_t *ctx, u8 *dst, const struct hop_data *data)
 	u8 *buf = tal_arr(ctx, u8, 0);
 	towire_u8(&buf, data->realm);
 	towire_short_channel_id(&buf, &data->channel_id);
-	towire_u64(&buf, data->amt_forward);
+	towire_amount_msat(&buf, data->amt_forward);
 	towire_u32(&buf, data->outgoing_cltv);
 	towire_pad(&buf, 12);
 	towire(&buf, data->hmac, SECURITY_PARAMETER);
@@ -321,7 +321,7 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 	size_t max = HOP_DATA_SIZE;
 	data->realm = fromwire_u8(&cursor, &max);
 	fromwire_short_channel_id(&cursor, &max, &data->channel_id);
-	data->amt_forward = fromwire_u64(&cursor, &max);
+	data->amt_forward = fromwire_amount_msat(&cursor, &max);
 	data->outgoing_cltv = fromwire_u32(&cursor, &max);
 	fromwire_pad(&cursor, &max, 12);
 	fromwire(&cursor, &max, &data->hmac, SECURITY_PARAMETER);

@@ -1180,10 +1180,10 @@ static void update_local_channel(struct daemon *daemon,
 				 int direction,
 				 bool disable,
 				 u16 cltv_expiry_delta,
-				 u64 htlc_minimum_msat,
+				 struct amount_msat htlc_minimum,
 				 u32 fee_base_msat,
 				 u32 fee_proportional_millionths,
-				 u64 htlc_maximum_msat,
+				 struct amount_msat htlc_maximum,
 				 const char *caller)
 {
 	secp256k1_ecdsa_signature dummy_sig;
@@ -1241,10 +1241,10 @@ static void update_local_channel(struct daemon *daemon,
 				       timestamp,
 				       message_flags, channel_flags,
 				       cltv_expiry_delta,
-				       htlc_minimum_msat,
+				       htlc_minimum.millisatoshis,
 				       fee_base_msat,
 				       fee_proportional_millionths,
-				       htlc_maximum_msat);
+				       htlc_maximum.millisatoshis);
 
 	/* Note that we treat the hsmd as synchronous.  This is simple (no
 	 * callback hell)!, but may need to change to async if we ever want
@@ -1316,10 +1316,10 @@ static void maybe_update_local_channel(struct daemon *daemon,
 	update_local_channel(daemon, chan, direction,
 			     chan->local_disabled,
 			     hc->delay,
-			     hc->htlc_minimum_msat,
+			     hc->htlc_minimum,
 			     hc->base_fee,
 			     hc->proportional_fee,
-			     hc->htlc_maximum_msat,
+			     hc->htlc_maximum,
 			     /* Note this magic C macro which expands to the
 			      * function name, for debug messages */
 			     __func__);
@@ -1402,18 +1402,18 @@ out:
 * currently happen if the user restarts with different fee options, but we
 * don't assume that. */
 static bool halfchan_new_info(const struct half_chan *hc,
-			      u16 cltv_delta, u64 htlc_minimum_msat,
+			      u16 cltv_delta, struct amount_msat htlc_minimum,
 			      u32 fee_base_msat, u32 fee_proportional_millionths,
-			      u64 htlc_maximum_msat)
+			      struct amount_msat htlc_maximum)
 {
 	if (!is_halfchan_defined(hc))
 		return true;
 
 	return hc->delay != cltv_delta
-		|| hc->htlc_minimum_msat != htlc_minimum_msat
+		|| !amount_msat_eq(hc->htlc_minimum, htlc_minimum)
 		|| hc->base_fee != fee_base_msat
 		|| hc->proportional_fee != fee_proportional_millionths
-		|| hc->htlc_maximum_msat != htlc_maximum_msat;
+		|| !amount_msat_eq(hc->htlc_maximum, htlc_maximum);
 }
 
 /*~ channeld asks us to update the local channel. */
@@ -1423,8 +1423,7 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 	struct short_channel_id scid;
 	bool disable;
 	u16 cltv_expiry_delta;
-	u64 htlc_minimum_msat;
-	u64 htlc_maximum_msat;
+	struct amount_msat htlc_minimum, htlc_maximum;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	int direction;
@@ -1436,10 +1435,10 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 						   &scid,
 						   &disable,
 						   &cltv_expiry_delta,
-						   &htlc_minimum_msat,
+						   &htlc_minimum,
 						   &fee_base_msat,
 						   &fee_proportional_millionths,
-						   &htlc_maximum_msat)) {
+						   &htlc_maximum)) {
 		status_broken("peer %s bad local_channel_update %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      tal_hex(tmpctx, msg));
@@ -1469,19 +1468,19 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 	 * Or, if we're *enabling* an announced-disabled channel.
 	 * Or, if it's an unannounced channel (only sending to peer). */
 	if (halfchan_new_info(&chan->half[direction],
-			      cltv_expiry_delta, htlc_minimum_msat,
+			      cltv_expiry_delta, htlc_minimum,
 			      fee_base_msat, fee_proportional_millionths,
-			      htlc_maximum_msat)
+			      htlc_maximum)
 	    || ((chan->half[direction].channel_flags & ROUTING_FLAGS_DISABLED)
 		&& !disable)
 	    || !is_chan_public(chan)) {
 		update_local_channel(peer->daemon, chan, direction,
 				     disable,
 				     cltv_expiry_delta,
-				     htlc_minimum_msat,
+				     htlc_minimum,
 				     fee_base_msat,
 				     fee_proportional_millionths,
-				     htlc_maximum_msat,
+				     htlc_maximum,
 				     __func__);
 	}
 
@@ -1766,10 +1765,10 @@ static void gossip_send_keepalive_update(struct daemon *daemon,
 			     hc->channel_flags & ROUTING_FLAGS_DIRECTION,
 			     chan->local_disabled,
 			     hc->delay,
-			     hc->htlc_minimum_msat,
+			     hc->htlc_minimum,
 			     hc->base_fee,
 			     hc->proportional_fee,
-			     hc->htlc_maximum_msat,
+			     hc->htlc_maximum,
 			     __func__);
 }
 
@@ -1892,7 +1891,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
 {
 	struct pubkey source, destination;
-	u64 msatoshi;
+	struct amount_msat msat;
 	u32 final_cltv;
 	u64 riskfactor_by_million;
 	u32 max_hops;
@@ -1909,19 +1908,20 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	 * avoid being too predictable. */
 	if (!fromwire_gossip_getroute_request(msg, msg,
 					      &source, &destination,
-					      &msatoshi, &riskfactor_by_million,
+					      &msat, &riskfactor_by_million,
 					      &final_cltv, &fuzz,
 					      &excluded,
 					      &max_hops))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
-	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
+	status_trace("Trying to find a route from %s to %s for %s",
 		     pubkey_to_hexstr(tmpctx, &source),
-		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
+		     pubkey_to_hexstr(tmpctx, &destination),
+		     type_to_string(tmpctx, struct amount_msat, &msat));
 
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
-			 msatoshi, riskfactor_by_million / 1000000.0, final_cltv,
+			 msat, riskfactor_by_million / 1000000.0, final_cltv,
 			 fuzz, pseudorand_u64(), excluded, max_hops);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
@@ -1967,7 +1967,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	 * raw in this case. */
 	raw_pubkey(e.source, &chan->nodes[idx]->id);
 	raw_pubkey(e.destination, &chan->nodes[!idx]->id);
-	e.satoshis = chan->satoshis;
+	e.sat = chan->sat;
 	e.channel_flags = c->channel_flags;
 	e.message_flags = c->message_flags;
 	e.local_disabled = chan->local_disabled;
@@ -2496,13 +2496,13 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 {
 	struct short_channel_id scid;
 	u8 *outscript;
-	u64 satoshis;
+	struct amount_sat sat;
 
-	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &satoshis, &outscript))
+	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &sat, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
 	/* Outscript is NULL if it's not an unspent output */
-	handle_pending_cannouncement(daemon->rstate, &scid, satoshis, outscript);
+	handle_pending_cannouncement(daemon->rstate, &scid, sat, outscript);
 
 	/* Anywhere we might have announced a channel, we check if it's time to
 	 * announce ourselves (ie. if we just announced our own first channel) */

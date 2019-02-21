@@ -75,7 +75,7 @@ static void *PRINTF_FMT(2,3)
 
 struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 {
-	if (hin->msatoshi == 0)
+	if (amount_msat_eq(hin->msat, AMOUNT_MSAT(0)))
 		return corrupt(abortstr, "zero msatoshi");
 	else if (htlc_state_owner(hin->hstate) != REMOTE)
 		return corrupt(abortstr, "invalid state %s",
@@ -109,7 +109,7 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 
 struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct channel *channel, u64 id,
-			    u64 msatoshi, u32 cltv_expiry,
+			    struct amount_msat msat, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret TAKES,
 			    const u8 *onion_routing_packet)
@@ -119,7 +119,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->dbid = 0;
 	hin->key.channel = channel;
 	hin->key.id = id;
-	hin->msatoshi = msatoshi;
+	hin->msat = msat;
 	hin->cltv_expiry = cltv_expiry;
 	hin->payment_hash = *payment_hash;
 	if (shared_secret)
@@ -150,10 +150,13 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 		return corrupt(abortstr, "Both origin and incoming");
 
 	if (hout->in) {
-		if (hout->in->msatoshi < hout->msatoshi)
-			return corrupt(abortstr, "Input msatoshi %"PRIu64
-				       " less than %"PRIu64,
-				       hout->in->msatoshi, hout->msatoshi);
+		if (amount_msat_less(hout->in->msat, hout->msat))
+			return corrupt(abortstr, "Input amount %s"
+				       " less than %s",
+				       type_to_string(tmpctx, struct amount_msat,
+						      &hout->in->msat),
+				       type_to_string(tmpctx, struct amount_msat,
+						      &hout->msat));
 		if (hout->in->cltv_expiry <= hout->cltv_expiry)
 			return corrupt(abortstr, "Input cltv_expiry %u"
 				       " less than %u",
@@ -240,7 +243,8 @@ void htlc_out_connect_htlc_in(struct htlc_out *hout, struct htlc_in *hin)
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct channel *channel,
-			      u64 msatoshi, u32 cltv_expiry,
+			      struct amount_msat msat,
+			      u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      bool am_origin,
@@ -253,7 +257,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 
 	hout->key.channel = channel;
 	hout->key.id = HTLC_INVALID_ID;
-	hout->msatoshi = msatoshi;
+	hout->msat = msat;
 	hout->cltv_expiry = cltv_expiry;
 	hout->payment_hash = *payment_hash;
 	memcpy(hout->onion_routing_packet, onion_routing_packet,

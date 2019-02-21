@@ -145,7 +145,7 @@ static struct command_result *parse_fallback(struct command *cmd,
 /* BOLT11 struct wants an array of arrays (can provide multiple routes) */
 static struct route_info **select_inchan(const tal_t *ctx,
 					 struct lightningd *ld,
-					 u64 capacity_needed,
+					 struct amount_msat capacity_needed,
 					 const struct route_info *inchans,
 					 bool *any_offline)
 {
@@ -162,7 +162,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(inchans); i++) {
 		struct peer *peer;
 		struct channel *c;
-		u64 msatoshi_avail;
+		struct amount_msat avail, excess;
 
 		/* Do we know about this peer? */
 		peer = peer_by_id(ld, &inchans[i].pubkey);
@@ -175,15 +175,22 @@ static struct route_info **select_inchan(const tal_t *ctx,
 			continue;
 
 		/* Does it have sufficient capacity. */
-		msatoshi_avail = c->funding_satoshi * 1000 - c->our_msatoshi;
+		if (!amount_sat_sub_msat(&avail, c->funding, c->our_msat)) {
+			log_broken(ld->log,
+				   "underflow: funding %s - our_msat %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &c->funding),
+				   type_to_string(tmpctx, struct amount_msat,
+						  &c->our_msat));
+			continue;
+		}
 
 		/* Even after reserve taken into account */
-		if (c->our_config.channel_reserve.satoshis * 1000
-		    > msatoshi_avail)
+		if (!amount_msat_sub_sat(&avail,
+					 avail, c->our_config.channel_reserve))
 			continue;
 
-		msatoshi_avail -= c->our_config.channel_reserve.satoshis * 1000;
-		if (msatoshi_avail < capacity_needed)
+		if (!amount_msat_sub(&excess, avail, capacity_needed))
 			continue;
 
 		/* Is it offline? */
@@ -193,9 +200,9 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		}
 
 		/* Avoid divide-by-zero corner case. */
-		wsum += (msatoshi_avail - capacity_needed + 1);
+		wsum += excess.millisatoshis + 1;
 		if (pseudorand(1ULL << 32)
-		    <= ((msatoshi_avail - capacity_needed + 1) << 32) / wsum)
+		    <= ((excess.millisatoshis + 1) << 32) / wsum)
 			r = &inchans[i];
 	}
 
@@ -239,7 +246,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	info->b11->routes
 		= select_inchan(info->b11,
 				info->cmd->ld,
-				info->b11->msat ? info->b11->msat->millisatoshis : 1,
+				info->b11->msat ? *info->b11->msat : AMOUNT_MSAT(1),
 				inchans,
 				&any_offline);
 

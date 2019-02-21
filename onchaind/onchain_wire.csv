@@ -4,7 +4,7 @@
 # Begin!  Here's the onchain tx which spends funding tx, followed by all HTLCs.
 onchain_init,5001
 onchain_init,,shachain,struct shachain
-onchain_init,,funding_amount_satoshi,u64
+onchain_init,,funding_amount_satoshi,struct amount_sat
 # Remote per commit point for committed tx.
 onchain_init,,old_remote_per_commitment_point,struct pubkey
 # Remote per commit point for current tx (needed if we haven't got revoke_and_ack yet).
@@ -12,7 +12,7 @@ onchain_init,,remote_per_commitment_point,struct pubkey
 onchain_init,,local_to_self_delay,u32
 onchain_init,,remote_to_self_delay,u32
 onchain_init,,feerate_per_kw,u32
-onchain_init,,local_dust_limit_satoshi,u64
+onchain_init,,local_dust_limit_satoshi,struct amount_sat
 # Gives an easy way to tell if it's our unilateral close or theirs...
 onchain_init,,our_broadcast_txid,struct bitcoin_txid
 onchain_init,,local_scriptpubkey_len,u16
@@ -88,7 +88,7 @@ onchain_add_utxo,5012
 onchain_add_utxo,,prev_out_tx,struct bitcoin_txid
 onchain_add_utxo,,prev_out_index,u32
 onchain_add_utxo,,per_commit_point,struct pubkey
-onchain_add_utxo,,value,u64
+onchain_add_utxo,,value,struct amount_sat
 onchain_add_utxo,,blockheight,u32
 
 # master -> onchaind: do you have a memleak?

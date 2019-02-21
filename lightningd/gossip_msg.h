@@ -24,7 +24,7 @@ struct gossip_getnodes_entry {
 struct gossip_getchannels_entry {
 	/* These are raw to optimize marshaling: be careful! */
 	u8 source[sizeof(struct pubkey)], destination[sizeof(struct pubkey)];
-	u64 satoshis;
+	struct amount_sat sat;
 	struct short_channel_id short_channel_id;
 	u8 message_flags;
 	u8 channel_flags;

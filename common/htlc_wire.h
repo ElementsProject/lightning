@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <ccan/short_types/short_types.h>
+#include <common/amount.h>
 #include <common/htlc.h>
 #include <common/sphinx.h>
 #include <wire/gen_onion_wire.h>
@@ -13,7 +14,7 @@ struct shachain;
 /* These are how we communicate about HTLC state to the master daemon */
 struct added_htlc {
 	u64 id;
-	u64 amount_msat;
+	struct amount_msat amount;
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];

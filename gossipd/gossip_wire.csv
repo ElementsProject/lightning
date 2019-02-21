@@ -28,7 +28,7 @@ gossip_getnodes_reply,,nodes,num_nodes*struct gossip_getnodes_entry
 gossip_getroute_request,3006
 gossip_getroute_request,,source,struct pubkey
 gossip_getroute_request,,destination,struct pubkey
-gossip_getroute_request,,msatoshi,u64
+gossip_getroute_request,,msatoshi,struct amount_msat
 # We don't pass doubles, so pass riskfactor * 1000000.
 gossip_getroute_request,,riskfactor_by_million,u64
 gossip_getroute_request,,final_cltv,u32
@@ -115,7 +115,7 @@ gossip_get_txout,,short_channel_id,struct short_channel_id
 # master->gossipd here is the output, or empty if none.
 gossip_get_txout_reply,3118
 gossip_get_txout_reply,,short_channel_id,struct short_channel_id
-gossip_get_txout_reply,,satoshis,u64
+gossip_get_txout_reply,,satoshis,struct amount_sat
 gossip_get_txout_reply,,len,u16
 gossip_get_txout_reply,,outscript,len*u8
 

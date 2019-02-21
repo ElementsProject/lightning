@@ -33,10 +33,10 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, u64 *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, u64 *satoshis UNNEEDED)
+bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_announcement */
-bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, u64 *satoshis UNNEEDED)
+bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_announcement called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_delete */
 bool fromwire_gossip_store_channel_delete(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
@@ -85,7 +85,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_announcement */
-u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, u64 satoshis UNNEEDED)
+u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_announcement called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_delete */
 u8 *towire_gossip_store_channel_delete(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
@@ -120,7 +120,7 @@ get_or_make_connection(struct routing_state *rstate,
 		       const struct pubkey *from_id,
 		       const struct pubkey *to_id,
 		       const char *shortid,
-		       const u64 satoshis)
+		       struct amount_sat satoshis)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
@@ -135,8 +135,9 @@ get_or_make_connection(struct routing_state *rstate,
 
 	/* Make sure it's seen as initialized (update non-NULL). */
 	chan->half[idx].channel_update = (void *)chan;
-	chan->half[idx].htlc_minimum_msat = 0;
-	chan->half[idx].htlc_maximum_msat = satoshis * 1000;
+	chan->half[idx].htlc_minimum = AMOUNT_MSAT(0);
+	if (!amount_sat_to_msat(&chan->half[idx].htlc_maximum, satoshis))
+		abort();
 
 	return &chan->half[idx];
 }
@@ -162,7 +163,7 @@ int main(void)
 	struct half_chan *nc;
 	struct routing_state *rstate;
 	struct pubkey a, b, c, d;
-	u64 fee;
+	struct amount_msat fee;
 	struct chan **route;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
@@ -187,7 +188,7 @@ int main(void)
 
 	/* [{'active': True, 'short_id': '6990:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'last_update': 1504064344}, */
 
-	nc = get_or_make_connection(rstate, &c, &b, "6990x2x1", 1000);
+	nc = get_or_make_connection(rstate, &c, &b, "6990x2x1", AMOUNT_SAT(1000));
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
@@ -196,7 +197,7 @@ int main(void)
 	nc->last_timestamp = 1504064344;
 
 	/* {'active': True, 'short_id': '6989:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 0, 'destination': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'source': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'last_update': 1504064344}, */
-	nc = get_or_make_connection(rstate, &b, &a, "6989x2x1", 1000);
+	nc = get_or_make_connection(rstate, &b, &a, "6989x2x1", AMOUNT_SAT(1000));
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
@@ -205,17 +206,17 @@ int main(void)
 	nc->last_timestamp = 1504064344;
 
 	/* {'active': True, 'short_id': '6990:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 0, 'destination': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'source': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'last_update': 1504064344}, */
-	nc = get_or_make_connection(rstate, &b, &c, "6990x2x1", 1000);
+	nc = get_or_make_connection(rstate, &b, &c, "6990x2x1", AMOUNT_SAT(1000));
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
 	nc->channel_flags = 0;
 	nc->message_flags = 0;
 	nc->last_timestamp = 1504064344;
-	nc->htlc_minimum_msat = 100;
+	nc->htlc_minimum = AMOUNT_MSAT(100);
 
 	/* {'active': True, 'short_id': '6989:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}]} */
-	nc = get_or_make_connection(rstate, &a, &b, "6989x2x1", 1000);
+	nc = get_or_make_connection(rstate, &a, &b, "6989x2x1", AMOUNT_SAT(1000));
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
@@ -223,7 +224,7 @@ int main(void)
 	nc->message_flags = 0;
 	nc->last_timestamp = 1504064344;
 
-	route = find_route(tmpctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(100000), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
@@ -232,41 +233,41 @@ int main(void)
 
 
 	/* We should not be able to find a route that exceeds our own capacity */
-	route = find_route(tmpctx, rstate, &a, &c, 1000001, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1000001), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(!route);
 
 	/* Now test with a query that exceeds the channel capacity after adding
 	 * some fees */
-	route = find_route(tmpctx, rstate, &a, &c, 999999, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(999999), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(!route);
 
 	/* This should fail to return a route because it is smaller than these
 	 * htlc_minimum_msat on the last channel. */
-	route = find_route(tmpctx, rstate, &a, &c, 1, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(!route);
 
 	/* {'active': True, 'short_id': '6990:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 1, 'htlc_maximum_msat': 500000, 'htlc_minimum_msat': 100, 'channel_flags': 0, 'destination': '02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}, */
-	nc = get_or_make_connection(rstate, &a, &d, "6991x2x1", 1000);
+	nc = get_or_make_connection(rstate, &a, &d, "6991x2x1", AMOUNT_SAT(1000));
 	nc->base_fee = 0;
 	nc->proportional_fee = 0;
 	nc->delay = 5;
 	nc->channel_flags = 0;
 	nc->message_flags = 1;
 	nc->last_timestamp = 1504064344;
-	nc->htlc_minimum_msat = 100;
-	nc->htlc_maximum_msat = 500000; /* half capacity */
+	nc->htlc_minimum = AMOUNT_MSAT(100);
+	nc->htlc_maximum = AMOUNT_MSAT(500000); /* half capacity */
 
 	/* This should route correctly at the max_msat level */
-	route = find_route(tmpctx, rstate, &a, &d, 500000, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &d, AMOUNT_MSAT(500000), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 
 	/* This should fail to return a route because it's larger than the
 	 * htlc_maximum_msat on the last channel. */
-	route = find_route(tmpctx, rstate, &a, &d, 500001, riskfactor, 0.0, NULL,
+	route = find_route(tmpctx, rstate, &a, &d, AMOUNT_MSAT(500001), riskfactor, 0.0, NULL,
 			   ROUTING_MAX_HOPS, &fee);
 	assert(!route);
 

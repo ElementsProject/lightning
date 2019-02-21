@@ -680,13 +680,13 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   sqlite3_column_int64(stmt, 11),
 			   &funding_txid,
 			   sqlite3_column_int(stmt, 13),
-			   sqlite3_column_int64(stmt, 14),
-			   sqlite3_column_int64(stmt, 16),
+			   sqlite3_column_amount_sat(stmt, 14),
+			   sqlite3_column_amount_msat(stmt, 16),
 			   sqlite3_column_int(stmt, 15) != 0,
 			   scid,
-			   sqlite3_column_int64(stmt, 17),
-			   sqlite3_column_int64(stmt, 38), /* msatoshi_to_us_min */
-			   sqlite3_column_int64(stmt, 39), /* msatoshi_to_us_max */
+			   sqlite3_column_amount_msat(stmt, 17),
+			   sqlite3_column_amount_msat(stmt, 38), /* msatoshi_to_us_min */
+			   sqlite3_column_amount_msat(stmt, 39), /* msatoshi_to_us_max */
 			   sqlite3_column_tx(tmpctx, stmt, 32),
 			   &last_sig,
 			   wallet_htlc_sigs_load(tmpctx, w,
@@ -761,7 +761,7 @@ void wallet_channel_stats_incr_x(struct wallet *w,
 				 char const *dir,
 				 char const *typ,
 				 u64 cdbid,
-				 u64 msatoshi)
+				 struct amount_msat msat)
 {
 	char const *payments_stat = tal_fmt(tmpctx, "%s_payments_%s",
 					    dir, typ);
@@ -773,24 +773,28 @@ void wallet_channel_stats_incr_x(struct wallet *w,
 				  "     , %s = COALESCE(%s, 0) + %"PRIu64""
 				  " WHERE id = %"PRIu64";",
 				  payments_stat, payments_stat,
-				  msatoshi_stat, msatoshi_stat, msatoshi,
+				  msatoshi_stat, msatoshi_stat, msat.millisatoshis,
 				  cdbid);
 	sqlite3_stmt *stmt = db_prepare(w->db, qry);
 	db_exec_prepared(w->db, stmt);
 }
-void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 id, u64 m)
+void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 id,
+					  struct amount_msat m)
 {
 	wallet_channel_stats_incr_x(w, "in", "offered", id, m);
 }
-void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 id, u64 m)
+void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 id,
+					    struct amount_msat m)
 {
 	wallet_channel_stats_incr_x(w, "in", "fulfilled", id, m);
 }
-void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 id, u64 m)
+void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 id,
+					    struct amount_msat m)
 {
 	wallet_channel_stats_incr_x(w, "out", "offered", id, m);
 }
-void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id, u64 m)
+void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id,
+					    struct amount_msat m)
 {
 	wallet_channel_stats_incr_x(w, "out", "fulfilled", id, m);
 }
@@ -817,12 +821,12 @@ void wallet_channel_stats_load(struct wallet *w,
 
 	stats->in_payments_offered = sqlite3_column_int64(stmt, 0);
 	stats->in_payments_fulfilled = sqlite3_column_int64(stmt, 1);
-	stats->in_msatoshi_offered = sqlite3_column_int64(stmt, 2);
-	stats->in_msatoshi_fulfilled = sqlite3_column_int64(stmt, 3);
+	stats->in_msatoshi_offered = sqlite3_column_amount_msat(stmt, 2);
+	stats->in_msatoshi_fulfilled = sqlite3_column_amount_msat(stmt, 3);
 	stats->out_payments_offered = sqlite3_column_int64(stmt, 4);
 	stats->out_payments_fulfilled = sqlite3_column_int64(stmt, 5);
-	stats->out_msatoshi_offered = sqlite3_column_int64(stmt, 6);
-	stats->out_msatoshi_fulfilled = sqlite3_column_int64(stmt, 7);
+	stats->out_msatoshi_offered = sqlite3_column_amount_msat(stmt, 6);
+	stats->out_msatoshi_fulfilled = sqlite3_column_amount_msat(stmt, 7);
 	db_stmt_done(stmt);
 }
 
@@ -960,10 +964,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_sha256_double(stmt, 10, &chan->funding_txid.shad);
 
 	sqlite3_bind_int(stmt, 11, chan->funding_outnum);
-	sqlite3_bind_int64(stmt, 12, chan->funding_satoshi);
+	sqlite3_bind_amount_sat(stmt, 12, chan->funding);
 	sqlite3_bind_int(stmt, 13, chan->remote_funding_locked);
-	sqlite3_bind_int64(stmt, 14, chan->push_msat);
-	sqlite3_bind_int64(stmt, 15, chan->our_msatoshi);
+	sqlite3_bind_amount_msat(stmt, 14, chan->push);
+	sqlite3_bind_amount_msat(stmt, 15, chan->our_msat);
 
 	if (chan->remote_shutdown_scriptpubkey)
 		sqlite3_bind_blob(stmt, 16, chan->remote_shutdown_scriptpubkey,
@@ -979,8 +983,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int(stmt, 21, chan->last_was_revoke);
 	sqlite3_bind_int(stmt, 22, chan->min_possible_feerate);
 	sqlite3_bind_int(stmt, 23, chan->max_possible_feerate);
-	sqlite3_bind_int64(stmt, 24, chan->msatoshi_to_us_min);
-	sqlite3_bind_int64(stmt, 25, chan->msatoshi_to_us_max);
+	sqlite3_bind_amount_msat(stmt, 24, chan->msat_to_us_min);
+	sqlite3_bind_amount_msat(stmt, 25, chan->msat_to_us_max);
 	sqlite3_bind_int64(stmt, 26, chan->dbid);
 	db_exec_prepared(w->db, stmt);
 
@@ -1181,7 +1185,7 @@ void wallet_htlc_save_in(struct wallet *wallet,
 	sqlite3_bind_int64(stmt, 1, chan->dbid);
 	sqlite3_bind_int64(stmt, 2, in->key.id);
 	sqlite3_bind_int(stmt, 3, DIRECTION_INCOMING);
-	sqlite3_bind_int64(stmt, 4, in->msatoshi);
+	sqlite3_bind_amount_msat(stmt, 4, in->msat);
 	sqlite3_bind_int(stmt, 5, in->cltv_expiry);
 	sqlite3_bind_sha256(stmt, 6, &in->payment_hash);
 
@@ -1236,7 +1240,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		sqlite3_bind_int64(stmt, 4, out->in->dbid);
 	else
 		sqlite3_bind_null(stmt, 4);
-	sqlite3_bind_int64(stmt, 5, out->msatoshi);
+	sqlite3_bind_amount_msat(stmt, 5, out->msat);
 	sqlite3_bind_int(stmt, 6, out->cltv_expiry);
 	sqlite3_bind_sha256(stmt, 7, &out->payment_hash);
 
@@ -1302,7 +1306,7 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	in->dbid = sqlite3_column_int64(stmt, 0);
 	in->key.id = sqlite3_column_int64(stmt, 1);
 	in->key.channel = channel;
-	in->msatoshi = sqlite3_column_int64(stmt, 2);
+	in->msat = sqlite3_column_amount_msat(stmt, 2);
 	in->cltv_expiry = sqlite3_column_int(stmt, 3);
 	in->hstate = sqlite3_column_int(stmt, 4);
 
@@ -1345,7 +1349,7 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 	out->dbid = sqlite3_column_int64(stmt, 0);
 	out->key.id = sqlite3_column_int64(stmt, 1);
 	out->key.channel = channel;
-	out->msatoshi = sqlite3_column_int64(stmt, 2);
+	out->msat = sqlite3_column_amount_msat(stmt, 2);
 	out->cltv_expiry = sqlite3_column_int(stmt, 3);
 	out->hstate = sqlite3_column_int(stmt, 4);
 	sqlite3_column_sha256(stmt, 5, &out->payment_hash);
@@ -1405,12 +1409,12 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 	hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
 
 	log_broken(wallet->log, "HTLC #%"PRIu64" (%s) "
-		   " for amount %"PRIu64
+		   " for amount %s"
 		   " from %s"
 		   " is missing a resolution:"
 		   " subsituting temporary node failure",
 		   hin->key.id, htlc_state_name(hin->hstate),
-		   hin->msatoshi,
+		   type_to_string(tmpctx, struct amount_msat, &hin->msat),
 		   type_to_string(tmpctx, struct pubkey,
 				  &hin->key.channel->peer->id));
 #endif
@@ -2240,7 +2244,7 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 	op->spendheight = sqlite3_column_int(stmt, 1);
 	op->scriptpubkey = tal_arr(op, u8, sqlite3_column_bytes(stmt, 2));
 	memcpy(op->scriptpubkey, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
-	op->satoshis = sqlite3_column_int64(stmt, 3);
+	op->sat = sqlite3_column_amount_sat(stmt, 3);
 	db_stmt_done(stmt);
 
 	return op;
@@ -2450,8 +2454,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	sqlite3_bind_int64(stmt, 2, out->dbid);
 	sqlite3_bind_int64(stmt, 3, in->key.channel->scid->u64);
 	sqlite3_bind_int64(stmt, 4, out->key.channel->scid->u64);
-	sqlite3_bind_int64(stmt, 5, in->msatoshi);
-	sqlite3_bind_int64(stmt, 6, out->msatoshi);
+	sqlite3_bind_amount_msat(stmt, 5, in->msat);
+	sqlite3_bind_amount_msat(stmt, 6, out->msat);
 	sqlite3_bind_int(stmt, 7, wallet_forward_status_in_db(state));
 	db_exec_prepared(w->db, stmt);
 }
