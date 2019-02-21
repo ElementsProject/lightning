@@ -130,8 +130,10 @@ void json_add_uncommitted_channel(struct json_stream *response,
 
 	msatoshi_total = uc->fc->wtx.amount.satoshis * 1000;
 	our_msatoshi = msatoshi_total - uc->fc->push_msat;
-	json_add_u64(response, "msatoshi_to_us", our_msatoshi);
-	json_add_u64(response, "msatoshi_total", msatoshi_total);
+	json_add_amount_msat(response, (struct amount_msat){our_msatoshi},
+			     "msatoshi_to_us", "to_us_msat");
+	json_add_amount_msat(response, (struct amount_msat){msatoshi_total},
+			     "msatoshi_total", "total_msat");
 	json_object_end(response);
 }
 
