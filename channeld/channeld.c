@@ -245,8 +245,8 @@ static u64 advertised_htlc_max(const struct channel *channel)
 	if (channel->funding_msat - cumulative_reserve_msat < lower_bound)
 		lower_bound = channel->funding_msat - cumulative_reserve_msat;
 	/* FIXME BOLT QUOTE: https://github.com/lightningnetwork/lightning-rfc/pull/512 once merged */
-	if (channel->chainparams->max_payment_msat < lower_bound)
-		lower_bound = channel->chainparams->max_payment_msat;
+	if (channel->chainparams->max_payment.millisatoshis < lower_bound)
+		lower_bound = channel->chainparams->max_payment.millisatoshis;
 	return lower_bound;
 }
 

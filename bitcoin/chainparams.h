@@ -4,6 +4,7 @@
 #include "config.h"
 #include <bitcoin/block.h>
 #include <ccan/short_types/short_types.h>
+#include <common/amount.h>
 #include <stdbool.h>
 
 struct chainparams {
@@ -13,9 +14,9 @@ struct chainparams {
 	const int rpc_port;
 	const char *cli;
 	const char *cli_args;
-	const u64 dust_limit;
-	const u64 max_funding_satoshi;
-	const u64 max_payment_msat;
+	const struct amount_sat dust_limit;
+	const struct amount_sat max_funding;
+	const struct amount_msat max_payment;
 	const u32 when_lightning_became_cool;
 
 	/* Whether this is a test network or not */

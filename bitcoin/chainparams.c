@@ -10,15 +10,15 @@ const struct chainparams networks[] = {
      .rpc_port = 8332,
      .cli = "bitcoin-cli",
      .cli_args = NULL,
-     .dust_limit = 546,
+     .dust_limit = { 546 },
      /* BOLT #2:
       *
       * The sending node:
       *...
       *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
       */
-     .max_funding_satoshi = (1 << 24) - 1,
-     .max_payment_msat = 0xFFFFFFFFULL,
+     .max_funding = AMOUNT_SAT((1 << 24) - 1),
+     .max_payment = AMOUNT_MSAT(0xFFFFFFFFULL),
      /* "Lightning Charge Powers Developers & Blockstream Store" */
      .when_lightning_became_cool = 504500,
      .testnet = false},
@@ -28,9 +28,9 @@ const struct chainparams networks[] = {
      .rpc_port = 18332,
      .cli = "bitcoin-cli",
      .cli_args = "-regtest",
-     .dust_limit = 546,
-     .max_funding_satoshi = (1 << 24) - 1,
-     .max_payment_msat = 0xFFFFFFFFULL,
+     .dust_limit = { 546 },
+     .max_funding = AMOUNT_SAT((1 << 24) - 1),
+     .max_payment = AMOUNT_MSAT(0xFFFFFFFFULL),
      .when_lightning_became_cool = 1,
      .testnet = true},
     {.network_name = "testnet",
@@ -39,9 +39,9 @@ const struct chainparams networks[] = {
      .rpc_port = 18332,
      .cli = "bitcoin-cli",
      .cli_args = "-testnet",
-     .dust_limit = 546,
-     .max_funding_satoshi = (1 << 24) - 1,
-     .max_payment_msat = 0xFFFFFFFFULL,
+     .dust_limit = { 546 },
+     .max_funding = AMOUNT_SAT((1 << 24) - 1),
+     .max_payment = AMOUNT_MSAT(0xFFFFFFFFULL),
      .testnet = true},
     {.network_name = "litecoin",
      .bip173_name = "ltc",
@@ -49,9 +49,9 @@ const struct chainparams networks[] = {
      .rpc_port = 9332,
      .cli = "litecoin-cli",
      .cli_args = NULL,
-     .dust_limit = 100000,
-     .max_funding_satoshi = 60 * ((1 << 24) - 1),
-     .max_payment_msat = 60 * 0xFFFFFFFFULL,
+     .dust_limit = { 100000 },
+     .max_funding = AMOUNT_SAT(60 * ((1 << 24) - 1)),
+     .max_payment = AMOUNT_MSAT(60 * 0xFFFFFFFFULL),
      .when_lightning_became_cool = 1320000,
      .testnet = false},
     {.network_name = "litecoin-testnet",
@@ -60,9 +60,9 @@ const struct chainparams networks[] = {
      .rpc_port = 19332,
      .cli = "litecoin-cli",
      .cli_args = "-testnet",
-     .dust_limit = 100000,
-     .max_funding_satoshi = 60 * ((1 << 24) - 1),
-     .max_payment_msat = 60 * 0xFFFFFFFFULL,
+     .dust_limit = { 100000 },
+     .max_funding = AMOUNT_SAT(60 * ((1 << 24) - 1)),
+     .max_payment = AMOUNT_MSAT(60 * 0xFFFFFFFFULL),
      .when_lightning_became_cool = 1,
      .testnet = true}
 };
