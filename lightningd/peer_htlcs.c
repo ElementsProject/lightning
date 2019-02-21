@@ -718,6 +718,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	s32 expiry = hin->cltv_expiry, blockheight = p->ld->topology->tip->height;
 	json_object_start(s, "onion");
 
+	json_add_hex_talarr (s, "payload", rs->raw_payload);
 	if (rs->hop_data.realm == 0x00) {
 		json_object_start(s, "per_hop_v0");
 		json_add_hex(s, "realm", &rs->hop_data.realm, 1);

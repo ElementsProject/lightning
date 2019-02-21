@@ -77,6 +77,7 @@ struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
 	struct hop_data hop_data;
+	u8 *raw_payload;
 };
 
 /**
