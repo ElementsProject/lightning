@@ -328,3 +328,25 @@ void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 	if (taken(esc))
 		tal_free(esc);
 }
+
+void json_add_amount_msat(struct json_stream *result,
+			  struct amount_msat msat,
+			  const char *rawfieldname,
+			  const char *msatfieldname)
+{
+	json_add_u64(result, rawfieldname, msat.millisatoshis);
+	json_add_member(result, msatfieldname, "\"%s\"",
+			type_to_string(tmpctx, struct amount_msat, &msat));
+}
+
+void json_add_amount_sat(struct json_stream *result,
+			 struct amount_sat sat,
+			 const char *rawfieldname,
+			 const char *msatfieldname)
+{
+	struct amount_msat msat;
+	json_add_u64(result, rawfieldname, sat.satoshis);
+	if (amount_sat_to_msat(&msat, sat))
+		json_add_member(result, msatfieldname, "\"%s\"",
+				type_to_string(tmpctx, struct amount_msat, &msat));
+}
