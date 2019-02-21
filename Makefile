@@ -302,6 +302,8 @@ check-python:
 	@# W503: line break before binary operator
 	@flake8 --ignore=E501,E731,W503 --exclude=contrib/pylightning/lightning/__init__.py ${PYSRC}
 
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH $(PYTEST) contrib/pylightning/
+
 check-includes:
 	@tools/check-includes.sh
 
