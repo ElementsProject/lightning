@@ -291,7 +291,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct bitcoin_tx *remote_commit;
 	u16 funding_outnum;
 	u32 feerate;
-	u64 change_satoshi;
+	struct amount_sat change;
 	struct channel *channel;
 	struct lightningd *ld = openingd->ld;
 
@@ -426,7 +426,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		      tal_hex(msg, resp));
 
 	/* Extract the change output and add it to the DB */
-	wallet_extract_owned_outputs(ld->wallet, fundingtx, NULL, &change_satoshi);
+	wallet_extract_owned_outputs(ld->wallet, fundingtx, NULL, &change);
 
 	/* Make sure we recognize our change output by its scriptpubkey in
 	 * future. This assumes that we have only two outputs, may not be true

@@ -1324,7 +1324,7 @@ static struct command_result *json_getinfo(struct command *cmd,
     json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
     json_add_string(response, "network", get_chainparams(cmd->ld)->network_name);
     json_add_amount_msat(response,
-			 (struct amount_msat){ wallet_total_forward_fees(cmd->ld->wallet) },
+			 wallet_total_forward_fees(cmd->ld->wallet),
 			 "msatoshi_fees_collected", "fees_collected_msat");
     json_object_end(response);
     return command_success(cmd, response);

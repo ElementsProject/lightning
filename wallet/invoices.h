@@ -174,14 +174,14 @@ const struct invoice_details *invoices_iterator_deref(
  *
  * @invoices - the invoice handler.
  * @invoice - the invoice to mark as paid.
- * @msatoshi_received - the actual amount received.
+ * @received - the actual amount received.
  *
  * Precondition: the invoice must not yet be expired (invoices
  * does not check).
  */
 void invoices_resolve(struct invoices *invoices,
 		      struct invoice invoice,
-		      u64 msatoshi_received);
+		      struct amount_msat received);
 
 /**
  * invoices_waitany - Wait for any invoice to be paid.

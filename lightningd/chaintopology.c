@@ -60,7 +60,7 @@ static bool we_broadcast(const struct chain_topology *topo,
 static void filter_block_txs(struct chain_topology *topo, struct block *b)
 {
 	size_t i;
-	u64 satoshi_owned;
+	struct amount_sat owned;
 
 	/* Now we see if any of those txs are interesting. */
 	for (i = 0; i < tal_count(b->full_txs); i++) {
@@ -83,17 +83,17 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 			}
 		}
 
-		satoshi_owned = 0;
+		owned = AMOUNT_SAT(0);
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
 						     tx, &b->height,
-						     &satoshi_owned);
+						     &owned);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid) ||
-		    satoshi_owned != 0) {
+		    !amount_sat_eq(owned, AMOUNT_SAT(0))) {
 			wallet_transaction_add(topo->ld->wallet,
 					       tx, b->height, i);
 		}
@@ -593,7 +593,7 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 			if (is_p2wsh(output->script, NULL)) {
 				wallet_utxoset_add(topo->ld->wallet, tx, j,
 						   b->height, i, output->script,
-						   output->amount);
+						   (struct amount_sat){ output->amount });
 			}
 		}
 	}
