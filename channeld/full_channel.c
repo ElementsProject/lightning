@@ -290,7 +290,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     bool enforce_aggregate_limits)
 {
 	struct htlc *htlc, *old;
-	s64 msat_in_htlcs, fee_msat, balance_msat;
+	s64 msat_in_htlcs, fee_msat;
 	enum side sender = htlc_state_owner(state), recipient = !sender;
 	const struct htlc **committed, **adding, **removing;
 	const struct channel_view *view;
@@ -371,8 +371,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *     its local commitment transaction...
 	 *     - SHOULD fail the channel.
 	 */
-	if (enforce_aggregate_limits
-	    && tal_count(committed) - tal_count(removing) + tal_count(adding)
+	if (tal_count(committed) - tal_count(removing) + tal_count(adding)
 	    > channel->config[recipient].max_accepted_htlcs) {
 		return CHANNEL_ERR_TOO_MANY_HTLCS;
 	}
@@ -388,6 +387,9 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *     local commitment transaction:
 	 *     - SHOULD fail the channel.
 	 */
+
+	/* We don't enforce this for channel_force_htlcs: some might already
+	 * be fulfilled/failed */
 	if (enforce_aggregate_limits
 	    && msat_in_htlcs > channel->config[recipient].max_htlc_value_in_flight.millisatoshis) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
@@ -420,32 +422,33 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	assert(fee_msat >= 0);
 
-	/* Figure out what balance sender would have after applying all
-	 * pending changes. */
-	balance_msat = view->owed_msat[sender];
+	if (enforce_aggregate_limits) {
+		/* Figure out what balance sender would have after applying all
+		 * pending changes. */
+		s64 balance_msat = view->owed_msat[sender];
 
-	assert(balance_msat >= 0);
-	for (i = 0; i < tal_count(removing); i++)
-		balance_msat += balance_removing_htlc(removing[i], sender);
-	assert(balance_msat >= 0);
-	for (i = 0; i < tal_count(adding); i++)
-		balance_msat += balance_adding_htlc(adding[i], sender);
+		assert(balance_msat >= 0);
+		for (i = 0; i < tal_count(removing); i++)
+			balance_msat += balance_removing_htlc(removing[i], sender);
+		assert(balance_msat >= 0);
+		for (i = 0; i < tal_count(adding); i++)
+			balance_msat += balance_adding_htlc(adding[i], sender);
 
-	/* This is a little subtle:
-	 *
-	 * The change is being applied to the receiver but it will
-	 * come back to the sender after revoke_and_ack.  So the check
-	 * here is that the balance to the sender doesn't go below the
-	 * sender's reserve. */
-	if (enforce_aggregate_limits
-	    && balance_msat - fee_msat < (s64)channel->config[!sender].channel_reserve.satoshis * 1000) {
-		status_trace("balance = %"PRIu64
-			     ", fee is %"PRIu64
-			     ", reserve is %s",
-			     balance_msat, fee_msat,
-			     type_to_string(tmpctx, struct amount_sat,
-					    &channel->config[!sender].channel_reserve));
-		return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+		/* This is a little subtle:
+		 *
+		 * The change is being applied to the receiver but it will
+		 * come back to the sender after revoke_and_ack.  So the check
+		 * here is that the balance to the sender doesn't go below the
+		 * sender's reserve. */
+		if (balance_msat - fee_msat < (s64)channel->config[!sender].channel_reserve.satoshis * 1000) {
+			status_trace("balance = %"PRIu64
+				     ", fee is %"PRIu64
+				     ", reserve is %s",
+				     balance_msat, fee_msat,
+				     type_to_string(tmpctx, struct amount_sat,
+						    &channel->config[!sender].channel_reserve));
+			return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+		}
 	}
 
 	dump_htlc(htlc, "NEW:");
@@ -479,7 +482,6 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	else
 		state = RCVD_ADD_HTLC;
 
-	/* FIXME: check expiry etc. against config. */
 	return add_htlc(channel, state, id, msatoshi, cltv_expiry,
 			payment_hash, routing, htlcp, true);
 }
@@ -918,6 +920,8 @@ bool channel_force_htlcs(struct channel *channel,
 			 const enum side *failed_sides)
 {
 	size_t i;
+	struct htlc *htlc;
+	struct htlc_map_iter it;
 
 	if (tal_count(hstates) != tal_count(htlcs)) {
 		status_trace("#hstates %zu != #htlcs %zu",
@@ -1052,12 +1056,11 @@ bool channel_force_htlcs(struct channel *channel,
 			htlc->failed_scid = NULL;
 	}
 
-	for (i = 0; i < tal_count(htlcs); i++) {
-		struct htlc *htlc;
-		htlc = channel_get_htlc(channel,
-					htlc_state_owner(hstates[i]),
-					htlcs[i].id);
-
+	/* Now adjust balances.  The balance never goes negative, because
+	 * we do them in id order. */
+	for (htlc = htlc_map_first(channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(channel->htlcs, &it)) {
 		if (!adjust_balance(channel, htlc))
 			return false;
 	}
