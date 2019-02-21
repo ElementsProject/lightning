@@ -29,5 +29,6 @@ struct command_result *param_wtx(struct command *cmd,
 
 struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 					u32 fee_rate_per_kw,
-					size_t out_len);
+					size_t out_len,
+					u32 maxheight);
 #endif /* LIGHTNING_COMMON_WALLET_TX_H */

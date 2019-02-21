@@ -319,14 +319,16 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					struct amount_sat value,
 					const u32 feerate_per_kw,
 					size_t outscriptlen,
+					u32 maxheight,
 					struct amount_sat *fee_estimate,
 					struct amount_sat *change_satoshi);
 
 const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
-					const u32 feerate_per_kw,
-					size_t outscriptlen,
-					struct amount_sat *sat,
-					struct amount_sat *fee_estimate);
+				      const u32 feerate_per_kw,
+				      size_t outscriptlen,
+				      u32 maxheight,
+				      struct amount_sat *sat,
+				      struct amount_sat *fee_estimate);
 
 /**
  * wallet_confirm_utxos - Once we've spent a set of utxos, mark them confirmed.

@@ -891,7 +891,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	}
 
 	res = wtx_select_utxos(&fc->wtx, *feerate_per_kw,
-			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
+			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN, 0);
 	if (res)
 		return res;
 

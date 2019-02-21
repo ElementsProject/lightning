@@ -57,7 +57,8 @@ static struct command_result *check_amount(const struct wallet_tx *wtx,
 
 struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 					u32 fee_rate_per_kw,
-					size_t out_len)
+					size_t out_len,
+					u32 maxheight)
 {
 	struct command_result *res;
 	struct amount_sat fee_estimate;
@@ -66,6 +67,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 		struct amount_sat amount;
 		tx->utxos = wallet_select_all(tx->cmd, tx->cmd->ld->wallet,
 					      fee_rate_per_kw, out_len,
+					      maxheight,
 					      &amount,
 					      &fee_estimate);
 		res = check_amount(tx, amount);
@@ -88,6 +90,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	tx->utxos = wallet_select_coins(tx->cmd, tx->cmd->ld->wallet,
 					tx->amount,
 					fee_rate_per_kw, out_len,
+					maxheight,
 					&fee_estimate, &tx->change);
 	res = check_amount(tx, tx->amount);
 	if (res)
