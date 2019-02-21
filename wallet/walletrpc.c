@@ -139,7 +139,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 	}
 
 	res = wtx_select_utxos(&withdraw->wtx, *feerate_per_kw,
-			       tal_count(withdraw->destination));
+			       tal_count(withdraw->destination), 0);
 	if (res)
 		return res;
 

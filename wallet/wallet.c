@@ -254,6 +254,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 					 const u32 feerate_per_kw,
 					 size_t outscriptlen,
 					 bool may_have_change,
+					 u32 maxheight,
 					 struct amount_sat *satoshi_in,
 					 struct amount_sat *fee_estimate)
 {
@@ -282,6 +283,13 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 		size_t input_weight;
 		struct amount_sat needed;
 		struct utxo *u = tal_steal(utxos, available[i]);
+
+		/* If we require confirmations check that we have a
+		 * confirmation height and that it is below the required
+		 * maxheight (current_height - minconf */
+		if (maxheight != 0 &&
+		    (!u->blockheight || *u->blockheight > maxheight))
+			continue;
 
 		tal_arr_expand(&utxos, u);
 
@@ -332,6 +340,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					struct amount_sat sat,
 					const u32 feerate_per_kw,
 					size_t outscriptlen,
+					u32 maxheight,
 					struct amount_sat *fee_estimate,
 					struct amount_sat *change)
 {
@@ -339,7 +348,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	const struct utxo **utxo;
 
 	utxo = wallet_select(ctx, w, sat, feerate_per_kw,
-			     outscriptlen, true,
+			     outscriptlen, true, maxheight,
 			     &satoshi_in, fee_estimate);
 
 	/* Couldn't afford it? */
@@ -353,6 +362,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 				      const u32 feerate_per_kw,
 				      size_t outscriptlen,
+				      u32 maxheight,
 				      struct amount_sat *value,
 				      struct amount_sat *fee_estimate)
 {
@@ -361,7 +371,7 @@ const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 
 	/* Huge value, but won't overflow on addition */
 	utxo = wallet_select(ctx, w, AMOUNT_SAT(1ULL << 56), feerate_per_kw,
-			     outscriptlen, false,
+			     outscriptlen, false, maxheight,
 			     &satoshi_in, fee_estimate);
 
 	/* Can't afford fees? */
