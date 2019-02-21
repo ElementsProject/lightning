@@ -1,6 +1,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/amount.h>
 #include <common/json_command.h>
 #include <common/json_escaped.h>
 #include <common/json_tok.h>
@@ -116,26 +117,6 @@ struct command_result *param_sha256(struct command *cmd, const char *name,
 			    name, tok->end - tok->start, buffer + tok->start);
 }
 
-struct command_result *param_msat(struct command *cmd, const char *name,
-				  const char *buffer, const jsmntok_t * tok,
-				  u64 **msatoshi_val)
-{
-	if (json_tok_streq(buffer, tok, "any")) {
-		*msatoshi_val = NULL;
-		return NULL;
-	}
-	*msatoshi_val = tal(cmd, u64);
-
-	if (json_to_u64(buffer, tok, *msatoshi_val) && *msatoshi_val != 0)
-		return NULL;
-
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a positive number or 'any', not '%.*s'",
-			    name,
-			    tok->end - tok->start,
-			    buffer + tok->start);
-}
-
 struct command_result *param_percent(struct command *cmd, const char *name,
 				     const char *buffer, const jsmntok_t *tok,
 				     double **num)
@@ -169,3 +150,30 @@ struct command_result *param_tok(struct command *cmd, const char *name,
 	*out = tok;
 	return NULL;
 }
+
+struct command_result *param_msat(struct command *cmd, const char *name,
+				  const char *buffer, const jsmntok_t *tok,
+				  struct amount_msat **msat)
+{
+	*msat = tal(cmd, struct amount_msat);
+	if (parse_amount_msat(*msat, buffer + tok->start, tok->end - tok->start))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a millisatoshi amount, not '%.*s'",
+			    name, tok->end - tok->start, buffer + tok->start);
+}
+
+struct command_result *param_sat(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 struct amount_sat **sat)
+{
+	*sat = tal(cmd, struct amount_sat);
+	if (parse_amount_sat(*sat, buffer + tok->start, tok->end - tok->start))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a satoshi amount, not '%.*s'",
+			    name, tok->end - tok->start, buffer + tok->start);
+}
+

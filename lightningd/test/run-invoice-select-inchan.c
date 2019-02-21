@@ -295,11 +295,6 @@ struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const jsmntok_t *tok UNNEEDED,
 				      enum log_level **level UNNEEDED)
 { fprintf(stderr, "param_loglevel called!\n"); abort(); }
-/* Generated stub for param_msat */
-struct command_result *param_msat(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				  const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
-				  u64 **msatoshi_val UNNEEDED)
-{ fprintf(stderr, "param_msat called!\n"); abort(); }
 /* Generated stub for param_number */
 struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
@@ -332,6 +327,9 @@ struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name 
 				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				 uint64_t **num UNNEEDED)
 { fprintf(stderr, "param_u64 called!\n"); abort(); }
+/* Generated stub for parse_amount_msat */
+bool parse_amount_msat(struct amount_msat *msat UNNEEDED, const char *s UNNEEDED, size_t slen UNNEEDED)
+{ fprintf(stderr, "parse_amount_msat called!\n"); abort(); }
 /* Generated stub for peer_memleak_done */
 void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "peer_memleak_done called!\n"); abort(); }
