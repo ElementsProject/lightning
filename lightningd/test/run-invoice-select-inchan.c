@@ -525,7 +525,7 @@ void wallet_invoice_waitone(const tal_t *ctx UNNEEDED,
 void wallet_peer_delete(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_peer_delete called!\n"); abort(); }
 /* Generated stub for wallet_total_forward_fees */
-u64 wallet_total_forward_fees(struct wallet *w UNNEEDED)
+struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }
 /* Generated stub for wallet_transaction_locate */
 struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,

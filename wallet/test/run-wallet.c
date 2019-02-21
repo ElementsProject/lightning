@@ -174,7 +174,7 @@ struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 /* Generated stub for invoices_resolve */
 void invoices_resolve(struct invoices *invoices UNNEEDED,
 		      struct invoice invoice UNNEEDED,
-		      u64 msatoshi_received UNNEEDED)
+		      struct amount_msat received UNNEEDED)
 { fprintf(stderr, "invoices_resolve called!\n"); abort(); }
 /* Generated stub for invoices_waitany */
 void invoices_waitany(const tal_t *ctx UNNEEDED,
@@ -683,7 +683,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	struct wallet *w = create_test_wallet(ld, ctx);
 	struct utxo u;
 	struct pubkey pk;
-	u64 fee_estimate, change_satoshis;
+	struct amount_sat fee_estimate, change_satoshis;
 	const struct utxo **utxos;
 	CHECK(w);
 
@@ -711,7 +711,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info");
 
 	/* Now select them */
-	utxos = wallet_select_coins(w, w, 2, 0, 21, &fee_estimate, &change_satoshis);
+	utxos = wallet_select_coins(w, w, AMOUNT_SAT(2), 0, 21, &fee_estimate, &change_satoshis);
 	CHECK(utxos && tal_count(utxos) == 2);
 
 	u = *utxos[1];
@@ -1106,8 +1106,8 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	memset(&t->destination, 1, sizeof(t->destination));
 
 	t->id = 0;
-	t->msatoshi = 100;
-	t->msatoshi_sent = 101;
+	t->msatoshi = AMOUNT_MSAT(100);
+	t->msatoshi_sent = AMOUNT_MSAT(101);
 	t->status = PAYMENT_PENDING;
 	t->payment_preimage = NULL;
 	memset(&t->payment_hash, 1, sizeof(t->payment_hash));
@@ -1119,8 +1119,8 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
 	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
-	CHECK(t2->msatoshi == t->msatoshi);
-	CHECK(t2->msatoshi_sent == t->msatoshi_sent);
+	CHECK(amount_msat_eq(t2->msatoshi, t->msatoshi));
+	CHECK(amount_msat_eq(t2->msatoshi_sent, t->msatoshi_sent));
 	CHECK(!t2->payment_preimage);
 
 	t->status = PAYMENT_COMPLETE;
@@ -1132,8 +1132,8 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
 	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
-	CHECK(t2->msatoshi == t->msatoshi);
-	CHECK(t2->msatoshi_sent == t->msatoshi_sent);
+	CHECK(amount_msat_eq(t2->msatoshi, t->msatoshi));
+	CHECK(amount_msat_eq(t2->msatoshi_sent, t->msatoshi_sent));
 	CHECK(preimage_eq(t->payment_preimage, t2->payment_preimage));
 
 	db_commit_transaction(w->db);

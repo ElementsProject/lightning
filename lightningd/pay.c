@@ -78,11 +78,9 @@ json_add_payment_fields(struct json_stream *response,
 	json_add_u64(response, "id", t->id);
 	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
 	json_add_pubkey(response, "destination", &t->destination);
-	json_add_amount_msat(response,
-			     ((struct amount_msat){ t->msatoshi }),
+	json_add_amount_msat(response, t->msatoshi,
 			     "msatoshi", "amount_msat");
-	json_add_amount_msat(response,
-			     ((struct amount_msat){ t->msatoshi_sent }),
+	json_add_amount_msat(response, t->msatoshi_sent,
 			     "msatoshi_sent", "amount_sent_msat");
 	json_add_u64(response, "created_at", t->timestamp);
 
@@ -581,7 +579,7 @@ send_payment(struct lightningd *ld,
 	     struct command *cmd,
 	     const struct sha256 *rhash,
 	     const struct route_hop *route,
-	     u64 msatoshi,
+	     struct amount_msat msat,
 	     const char *description TAKES)
 {
 	const u8 *onion;
@@ -633,11 +631,13 @@ send_payment(struct lightningd *ld,
 		if (payment->status == PAYMENT_COMPLETE) {
 			log_add(ld->log, "... succeeded");
 			/* Must match successful payment parameters. */
-			if (payment->msatoshi != msatoshi) {
+			if (!amount_msat_eq(payment->msatoshi, msat)) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
 						    "Already succeeded "
-						    "with amount %"PRIu64,
-						    payment->msatoshi);
+						    "with amount %s",
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &payment->msatoshi));
 			}
 			if (!pubkey_eq(&payment->destination, &ids[n_hops-1])) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
@@ -671,9 +671,9 @@ send_payment(struct lightningd *ld,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(tmpctx, packet);
 
-	log_info(ld->log, "Sending %s over %zu hops to deliver %"PRIu64"",
+	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
 		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
-		 n_hops, msatoshi);
+		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
 
 	failcode = send_htlc_out(channel, route[0].amount,
 				 base_expiry + route[0].delay,
@@ -709,8 +709,8 @@ send_payment(struct lightningd *ld,
 	payment->payment_hash = *rhash;
 	payment->destination = ids[n_hops - 1];
 	payment->status = PAYMENT_PENDING;
-	payment->msatoshi = msatoshi;
-	payment->msatoshi_sent = route[0].amount.millisatoshis;
+	payment->msatoshi = msat;
+	payment->msatoshi_sent = route[0].amount;
 	payment->timestamp = time_now().ts.tv_sec;
 	payment->payment_preimage = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
@@ -836,7 +836,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	}
 
 	res = send_payment(cmd->ld, cmd, rhash, route,
-			   msat ? msat->millisatoshis : route[routetok->size-1].amount.millisatoshis,
+			   msat ? *msat : route[routetok->size-1].amount,
 			   description);
 	if (res)
 		return res;

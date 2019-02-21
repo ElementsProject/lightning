@@ -302,19 +302,26 @@ static void handle_localpay(struct htlc_in *hin,
 	 *   - if the amount paid is less than the amount expected:
 	 *     - MUST fail the HTLC.
 	 */
-	if (details->msatoshi != NULL && hin->msat.millisatoshis < *details->msatoshi) {
-		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
-		goto fail;
-	} else if (details->msatoshi != NULL && hin->msat.millisatoshis > *details->msatoshi * 2) {
-		/* FIXME: bolt update fixes this quote! */
-		/* BOLT #4:
-		 *
-		 *   - if the amount paid is more than twice the amount expected:
-		 *     - SHOULD fail the HTLC.
-		 *     - SHOULD return an `incorrect_payment_amount` error.
-		 */
-		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
-		goto fail;
+	if (details->msat != NULL) {
+		struct amount_msat twice;
+
+		if (amount_msat_less(hin->msat, *details->msat)) {
+			failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
+			goto fail;
+		}
+
+		if (amount_msat_add(&twice, *details->msat, *details->msat)
+		    && amount_msat_greater(hin->msat, twice)) {
+			/* FIXME: bolt update fixes this quote! */
+			/* BOLT #4:
+			 *
+			 *   - if the amount paid is more than twice the amount expected:
+			 *     - SHOULD fail the HTLC.
+			 *     - SHOULD return an `incorrect_payment_amount` error.
+			 */
+			failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
+			goto fail;
+		}
 	}
 
 	/* BOLT #4:
@@ -341,7 +348,7 @@ static void handle_localpay(struct htlc_in *hin,
 		  type_to_string(tmpctx, struct amount_msat, &hin->msat),
 		  cltv_expiry);
 	fulfill_htlc(hin, &details->r);
-	wallet_invoice_resolve(ld->wallet, invoice, hin->msat.millisatoshis);
+	wallet_invoice_resolve(ld->wallet, invoice, hin->msat);
 
 	return;
 
@@ -1886,13 +1893,13 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 		json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 		json_add_short_channel_id(response, "out_channel", &cur->channel_out);
 		json_add_amount_msat(response,
-				     (struct amount_msat) { cur->msatoshi_in },
+				     cur->msat_in,
 				     "in_msatoshi", "in_msat");
 		json_add_amount_msat(response,
-				     (struct amount_msat) { cur->msatoshi_out },
+				     cur->msat_out,
 				     "out_msatoshi",  "out_msat");
 		json_add_amount_msat(response,
-				     (struct amount_msat) { cur->fee },
+				     cur->fee,
 				     "fee", "fee_msat");
 		json_add_string(response, "status", forward_status_name(cur->status));
 		json_object_end(response);

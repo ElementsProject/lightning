@@ -60,13 +60,13 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 					size_t out_len)
 {
 	struct command_result *res;
-	u64 fee_estimate;
+	struct amount_sat fee_estimate;
 
 	if (tx->all_funds) {
 		struct amount_sat amount;
 		tx->utxos = wallet_select_all(tx->cmd, tx->cmd->ld->wallet,
 					      fee_rate_per_kw, out_len,
-					      &amount.satoshis,
+					      &amount,
 					      &fee_estimate);
 		res = check_amount(tx, amount);
 		if (res)
@@ -86,9 +86,9 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	}
 
 	tx->utxos = wallet_select_coins(tx->cmd, tx->cmd->ld->wallet,
-					tx->amount.satoshis,
+					tx->amount,
 					fee_rate_per_kw, out_len,
-					&fee_estimate, &tx->change.satoshis);
+					&fee_estimate, &tx->change);
 	res = check_amount(tx, tx->amount);
 	if (res)
 		return res;

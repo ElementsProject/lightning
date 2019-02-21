@@ -48,7 +48,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 {
 	struct command *cmd = withdraw->cmd;
 	struct lightningd *ld = withdraw->cmd->ld;
-	u64 change_satoshi = 0;
+	struct amount_sat change = AMOUNT_SAT(0);
 
 	/* Massage output into shape so it doesn't kill the JSON serialization */
 	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
@@ -62,11 +62,11 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		assert(tx != NULL);
 
 		/* Extract the change output and add it to the DB */
-		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change_satoshi);
+		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change);
 
 		/* Note normally, change_satoshi == withdraw->wtx.change, but
 		 * not if we're actually making a payment to ourselves! */
-		assert(change_satoshi >= withdraw->wtx.change.satoshis);
+		assert(amount_sat_greater_eq(change, withdraw->wtx.change));
 
 		struct json_stream *response = json_stream_success(cmd);
 		json_object_start(response, NULL);

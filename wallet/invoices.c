@@ -103,17 +103,17 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 	dtl->label = sqlite3_column_json_escaped(dtl, stmt, 3);
 
 	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
-		dtl->msatoshi = tal(dtl, u64);
-		*dtl->msatoshi = sqlite3_column_int64(stmt, 4);
+		dtl->msat = tal(dtl, struct amount_msat);
+		*dtl->msat = sqlite3_column_amount_msat(stmt, 4);
 	} else {
-		dtl->msatoshi = NULL;
+		dtl->msat = NULL;
 	}
 
 	dtl->expiry_time = sqlite3_column_int64(stmt, 5);
 
 	if (dtl->state == PAID) {
 		dtl->pay_index = sqlite3_column_int64(stmt, 6);
-		dtl->msatoshi_received = sqlite3_column_int64(stmt, 7);
+		dtl->received = sqlite3_column_amount_msat(stmt, 7);
 		dtl->paid_timestamp = sqlite3_column_int64(stmt, 8);
 	}
 
@@ -303,7 +303,7 @@ bool invoices_create(struct invoices *invoices,
 	sqlite3_bind_blob(stmt, 2, r, sizeof(struct preimage), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 3, UNPAID);
 	if (msat)
-		sqlite3_bind_int64(stmt, 4, msat->millisatoshis);
+		sqlite3_bind_amount_msat(stmt, 4, *msat);
 	else
 		sqlite3_bind_null(stmt, 4);
 	sqlite3_bind_json_escaped(stmt, 5, label);
@@ -508,7 +508,7 @@ static s64 get_next_pay_index(struct db *db)
 
 void invoices_resolve(struct invoices *invoices,
 		      struct invoice invoice,
-		      u64 msatoshi_received)
+		      struct amount_msat received)
 {
 	sqlite3_stmt *stmt;
 	s64 pay_index;
@@ -528,7 +528,7 @@ void invoices_resolve(struct invoices *invoices,
 			  " WHERE id=?;");
 	sqlite3_bind_int(stmt, 1, PAID);
 	sqlite3_bind_int64(stmt, 2, pay_index);
-	sqlite3_bind_int64(stmt, 3, msatoshi_received);
+	sqlite3_bind_amount_msat(stmt, 3, received);
 	sqlite3_bind_int64(stmt, 4, paid_timestamp);
 	sqlite3_bind_int64(stmt, 5, invoice.id);
 	db_exec_prepared(invoices->db, stmt);
