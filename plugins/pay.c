@@ -634,10 +634,11 @@ static struct command_result *add_shadow_route(struct command *cmd,
 	u32 cltv, best_cltv;
 
 	json_for_each_arr(i, chan, channels) {
-		u64 sats, v;
+		struct amount_sat sats;
+		u64 v;
 
-		json_to_u64(buf, json_get_member(buf, chan, "satoshis"), &sats);
-		if (sats * 1000 < pc->msatoshi)
+		json_to_sat(buf, json_get_member(buf, chan, "satoshis"), &sats);
+		if (sats.satoshis * 1000 < pc->msatoshi)
 			continue;
 
 		/* Don't use if total would exceed 1/4 of our time allowance. */

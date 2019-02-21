@@ -47,12 +47,15 @@ static void json_add_invoice(struct json_stream *response,
 	json_add_string(response, "bolt11", inv->bolt11);
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
 	if (inv->msatoshi)
-		json_add_u64(response, "msatoshi", *inv->msatoshi);
+		json_add_amount_msat(response,
+				     (struct amount_msat){*inv->msatoshi},
+				     "msatoshi", "amount_msat");
 	json_add_string(response, "status", invoice_status_str(inv));
 	if (inv->state == PAID) {
 		json_add_u64(response, "pay_index", inv->pay_index);
-		json_add_u64(response, "msatoshi_received",
-			     inv->msatoshi_received);
+		json_add_amount_msat(response,
+				     (struct amount_msat){inv->msatoshi_received},
+				     "msatoshi_received", "amount_received_msat");
 		json_add_u64(response, "paid_at", inv->paid_timestamp);
 	}
 

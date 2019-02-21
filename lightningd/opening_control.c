@@ -334,8 +334,10 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		  tal_count(fundingtx->output));
 
 	for (size_t i = 0; i < tal_count(fundingtx->input); i++) {
-		log_debug(fc->uc->log, "%zi: %"PRIu64" satoshi (%s) %s\n",
-			  i, fc->wtx.utxos[i]->amount,
+		log_debug(fc->uc->log, "%zi: %s (%s) %s\n",
+			  i,
+			  type_to_string(tmpctx, struct amount_sat,
+					 &fc->wtx.utxos[i]->amount),
 			  fc->wtx.utxos[i]->is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &fundingtx->input[i].txid));

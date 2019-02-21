@@ -78,7 +78,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
-	sqlite3_bind_int64(stmt, 3, utxo->amount);
+	sqlite3_bind_amount_sat(stmt, 3, utxo->amount);
 	sqlite3_bind_int(stmt, 4, wallet_output_type_in_db(type));
 	sqlite3_bind_int(stmt, 5, output_state_available);
 	sqlite3_bind_int(stmt, 6, utxo->keyindex);
@@ -116,7 +116,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, sqlite3_stmt *stmt)
 	u32 *blockheight, *spendheight;
 	sqlite3_column_sha256_double(stmt, 0, &utxo->txid.shad);
 	utxo->outnum = sqlite3_column_int(stmt, 1);
-	utxo->amount = sqlite3_column_int64(stmt, 2);
+	utxo->amount = sqlite3_column_amount_sat(stmt, 2);
 	utxo->is_p2sh = sqlite3_column_int(stmt, 3) == p2sh_wpkh;
 	utxo->status = sqlite3_column_int(stmt, 4);
 	utxo->keyindex = sqlite3_column_int(stmt, 5);
@@ -305,7 +305,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 		weight += input_weight;
 
 		*fee_estimate = weight * feerate_per_kw / 1000;
-		*satoshi_in += utxos[i]->amount;
+		*satoshi_in += utxos[i]->amount.satoshis;
 		if (*satoshi_in >= *fee_estimate + value)
 			break;
 	}
@@ -1123,7 +1123,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo = tal(w, struct utxo);
 		utxo->keyindex = index;
 		utxo->is_p2sh = is_p2sh;
-		utxo->amount = tx->output[output].amount;
+		utxo->amount.satoshis = tx->output[output].amount;
 		utxo->status = output_state_available;
 		bitcoin_txid(tx, &utxo->txid);
 		utxo->outnum = output;
@@ -1151,7 +1151,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		}
 		outpointfilter_add(w->owned_outpoints, &utxo->txid, utxo->outnum);
 
-		*total_satoshi += utxo->amount;
+		*total_satoshi += utxo->amount.satoshis;
 		tal_free(utxo);
 		num_utxos++;
 	}

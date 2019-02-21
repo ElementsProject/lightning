@@ -6,6 +6,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 #include <stdbool.h>
 
 struct ext_key;
@@ -20,7 +21,7 @@ struct unilateral_close_info {
 struct utxo {
 	struct bitcoin_txid txid;
 	u32 outnum;
-	u64 amount;
+	struct amount_sat amount;
 	u32 keyindex;
 	bool is_p2sh;
 	u8 status;
