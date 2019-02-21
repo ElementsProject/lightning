@@ -1150,9 +1150,11 @@ static void handle_preimage(struct tracked_output **outs,
 		 *      HTLC-success transaction.
 		 */
 		if (outs[i]->remote_htlc_sig) {
+			struct amount_msat htlc_amount;
+			htlc_amount.millisatoshis = outs[i]->satoshi * 1000;
 			tx = htlc_success_tx(outs[i], &outs[i]->txid,
 					     outs[i]->outnum,
-					     outs[i]->satoshi * 1000,
+					     htlc_amount,
 					     to_self_delay[LOCAL],
 					     0,
 					     keyset);
@@ -1342,6 +1344,9 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 	struct bitcoin_tx *tx = NULL;
 	struct bitcoin_signature localsig;
 	size_t i;
+	struct amount_msat htlc_amount;
+
+	htlc_amount.millisatoshis = out->satoshi * 1000;
 
 	assert(tal_count(matches));
 
@@ -1358,7 +1363,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 		 *    HTLC-timeout transaction.
 		 */
 		tx = htlc_timeout_tx(tmpctx, &out->txid, out->outnum,
-				     out->satoshi * 1000,
+				     htlc_amount,
 				     htlcs[matches[i]].cltv_expiry,
 				     to_self_delay[LOCAL], 0, keyset);
 

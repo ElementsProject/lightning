@@ -12,10 +12,11 @@
 #endif
 
 static bool trim(const struct htlc *htlc,
-		 u32 feerate_per_kw, u64 dust_limit_satoshis,
+		 u32 feerate_per_kw,
+		 struct amount_sat dust_limit,
 		 enum side side)
 {
-	u64 htlc_fee;
+	struct amount_sat htlc_fee, htlc_min;
 
 	/* BOLT #3:
 	 *
@@ -41,17 +42,21 @@ static bool trim(const struct htlc *htlc,
 	else
 		htlc_fee = htlc_success_fee(feerate_per_kw);
 
-	return htlc->msatoshi / 1000 < dust_limit_satoshis + htlc_fee;
+	/* If these overflow, it implies htlc must be less. */
+	if (!amount_sat_add(&htlc_min, dust_limit, htlc_fee))
+		return true;
+	return htlc->msatoshi / 1000 < htlc_min.satoshis;
 }
 
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
-			       u32 feerate_per_kw, u64 dust_limit_satoshis,
+			       u32 feerate_per_kw,
+			       struct amount_sat dust_limit,
 			       enum side side)
 {
 	size_t i, n;
 
 	for (i = n = 0; i < tal_count(htlcs); i++)
-		n += !trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side);
+		n += !trim(htlcs[i], feerate_per_kw, dust_limit, side);
 
 	return n;
 }
@@ -91,25 +96,28 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
-			     u64 funding_satoshis,
+			     struct amount_sat funding,
 			     enum side funder,
 			     u16 to_self_delay,
 			     const struct keyset *keyset,
 			     u32 feerate_per_kw,
-			     u64 dust_limit_satoshis,
-			     u64 self_pay_msat,
-			     u64 other_pay_msat,
+			     struct amount_sat dust_limit,
+			     struct amount_msat self_pay,
+			     struct amount_msat other_pay,
 			     const struct htlc **htlcs,
 			     const struct htlc ***htlcmap,
 			     u64 obscured_commitment_number,
 			     enum side side)
 {
 	struct amount_sat base_fee;
+	struct amount_msat total_pay;
 	struct bitcoin_tx *tx;
 	size_t i, n, untrimmed;
 	u32 *cltvs;
 
-	assert(self_pay_msat + other_pay_msat <= funding_satoshis * 1000);
+	if (!amount_msat_add(&total_pay, self_pay, other_pay))
+		abort();
+	assert(!amount_msat_greater_sat(total_pay, funding));
 
 	/* BOLT #3:
 	 *
@@ -118,7 +126,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 */
 	untrimmed = commit_tx_num_untrimmed(htlcs,
 					    feerate_per_kw,
-					    dust_limit_satoshis, side);
+					    dust_limit, side);
 
 	/* BOLT #3:
 	 *
@@ -135,28 +143,22 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
-	struct amount_msat self_pay, other_pay;
-	self_pay.millisatoshis = self_pay_msat;
-	other_pay.millisatoshis = other_pay_msat;
-
 	try_subtract_fee(funder, side, base_fee, &self_pay, &other_pay);
-	self_pay_msat = self_pay.millisatoshis;
-	other_pay_msat = other_pay.millisatoshis;
 
 #ifdef PRINT_ACTUAL_FEE
 	{
 		u64 satoshis_out = 0;
 		for (i = 0; i < tal_count(htlcs); i++) {
-			if (!trim(htlcs[i], feerate_per_kw, dust_limit_satoshis,
+			if (!trim(htlcs[i], feerate_per_kw, dust_limit,
 				  side))
 				satoshis_out += htlcs[i]->msatoshi / 1000;
 		}
-		if (self_pay_msat / 1000 >= dust_limit_satoshis)
-			satoshis_out += self_pay_msat / 1000;
-		if (other_pay_msat / 1000 >= dust_limit_satoshis)
-			satoshis_out += other_pay_msat / 1000;
+		if (amount_msat_greater_sat(self_pay, dust_limit))
+			satoshis_out += self_pay.millisatoshis / 1000;
+		if (amount_msat_greater_sat(other_pay, dust_limit))
+			satoshis_out += other_pay.millisatoshis / 1000;
 		SUPERVERBOSE("# actual commitment transaction fee = %"PRIu64"\n",
-			     funding_satoshis - satoshis_out);
+			     funding.satoshis - satoshis_out);
 	}
 #endif
 
@@ -182,7 +184,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	for (i = 0; i < tal_count(htlcs); i++) {
 		if (htlc_owner(htlcs[i]) != side)
 			continue;
-		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
+		if (trim(htlcs[i], feerate_per_kw, dust_limit, side))
 			continue;
 		add_offered_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
@@ -198,7 +200,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	for (i = 0; i < tal_count(htlcs); i++) {
 		if (htlc_owner(htlcs[i]) == side)
 			continue;
-		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
+		if (trim(htlcs[i], feerate_per_kw, dust_limit, side))
 			continue;
 		add_received_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
@@ -212,9 +214,9 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    `dust_limit_satoshis`, add a [`to_local`
 	 *    output](#to_local-output).
 	 */
-	if (self_pay_msat / 1000 >= dust_limit_satoshis) {
+	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
-		tx->output[n].amount = self_pay_msat / 1000;
+		tx->output[n].amount = self_pay.millisatoshis / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 		(*htlcmap)[n] = NULL;
 		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
@@ -231,7 +233,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    `dust_limit_satoshis`, add a [`to_remote`
 	 *    output](#to_remote-output).
 	 */
-	if (other_pay_msat / 1000 >= dust_limit_satoshis) {
+	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
 		/* BOLT #3:
 		 *
 		 * #### `to_remote` Output
@@ -239,7 +241,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * This output sends funds to the other peer and thus is a simple
 		 * P2WPKH to `remotepubkey`.
 		 */
-		tx->output[n].amount = other_pay_msat / 1000;
+		tx->output[n].amount = other_pay.millisatoshis / 1000;
 		tx->output[n].script = scriptpubkey_p2wpkh(tx,
 						   &keyset->other_payment_key);
 		(*htlcmap)[n] = NULL;
@@ -295,7 +297,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		= (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
 
 	/* Input amount needed for signature code. */
-	tx->input[0].amount = tal_dup(tx->input, u64, &funding_satoshis);
+	tx->input[0].amount = tal_dup(tx->input, u64, &funding.satoshis);
 
 	return tx;
 }

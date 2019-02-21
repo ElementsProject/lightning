@@ -338,7 +338,7 @@ int main(void)
 	struct pubkey *unknown;
 	struct bitcoin_tx *raw_tx, **txs, **txs2;
 	struct channel_config *local_config, *remote_config;
-	struct amount_msat to_local_msat, to_remote_msat;
+	struct amount_msat to_local, to_remote;
 	const struct htlc **htlc_map, **htlcs;
 	const u8 *funding_wscript, **wscripts;
 	size_t i;
@@ -448,13 +448,13 @@ int main(void)
 	 *    local_feerate_per_kw: 15000
 	 */
 
-	to_local_msat = AMOUNT_MSAT(7000000000);
-	to_remote_msat = AMOUNT_MSAT(3000000000);
+	to_local = AMOUNT_MSAT(7000000000);
+	to_remote = AMOUNT_MSAT(3000000000);
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
 	lchannel = new_full_channel(tmpctx,
 				    &chainparams->genesis_blockhash,
 				    &funding_txid, funding_output_index,
-				    funding_amount, to_local_msat,
+				    funding_amount, to_local,
 				    feerate_per_kw,
 				    local_config,
 				    remote_config,
@@ -465,7 +465,7 @@ int main(void)
 	rchannel = new_full_channel(tmpctx,
 				    &chainparams->genesis_blockhash,
 				    &funding_txid, funding_output_index,
-				    funding_amount, to_remote_msat,
+				    funding_amount, to_remote,
 				    feerate_per_kw,
 				    remote_config,
 				    local_config,
@@ -495,13 +495,13 @@ int main(void)
 	keyset.other_htlc_key = keyset.other_payment_key;
 
 	raw_tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
-			   funding_amount.satoshis,
+			   funding_amount,
 			   LOCAL, remote_config->to_self_delay,
 			   &keyset,
 			   feerate_per_kw[LOCAL],
-			   local_config->dust_limit.satoshis,
-			   to_local_msat.millisatoshis,
-			   to_remote_msat.millisatoshis,
+			   local_config->dust_limit,
+			   to_local,
+			   to_remote,
 			   NULL, &htlc_map, 0x2bb038521914 ^ 42, LOCAL);
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts,
@@ -523,8 +523,8 @@ int main(void)
 	 *    to_remote_msat: 3000000000
 	 *    local_feerate_per_kw: 0
 	 */
-	to_local_msat = AMOUNT_MSAT(6988000000);
-	to_remote_msat = AMOUNT_MSAT(3000000000);
+	to_local = AMOUNT_MSAT(6988000000);
+	to_remote = AMOUNT_MSAT(3000000000);
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 0;
 
 	/* Now, BOLT doesn't adjust owed amounts the same way we do
@@ -613,13 +613,13 @@ int main(void)
 		rchannel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
 
 		raw_tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
-				   funding_amount.satoshis,
+				   funding_amount,
 				   LOCAL, remote_config->to_self_delay,
 				   &keyset,
 				   feerate_per_kw[LOCAL],
-				   local_config->dust_limit.satoshis,
-				   to_local_msat.millisatoshis,
-				   to_remote_msat.millisatoshis,
+				   local_config->dust_limit,
+				   to_local,
+				   to_remote,
 				   htlcs, &htlc_map,
 				   0x2bb038521914 ^ 42, LOCAL);
 

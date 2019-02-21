@@ -211,13 +211,15 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 		const struct htlc *htlc = htlcmap[i];
 		struct bitcoin_tx *tx;
 		u8 *wscript;
+		struct amount_msat htlc_amount;
 
 		if (!htlc)
 			continue;
 
+		htlc_amount.millisatoshis = htlc->msatoshi;
 		if (htlc_owner(htlc) == side) {
 			tx = htlc_timeout_tx(*txs, &txid, i,
-					     htlc->msatoshi,
+					     htlc_amount,
 					     htlc->expiry.locktime,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
@@ -229,7 +231,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 						     &keyset->self_revocation_key);
 		} else {
 			tx = htlc_success_tx(*txs, &txid, i,
-					     htlc->msatoshi,
+					     htlc_amount,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
 					     keyset);
@@ -274,14 +276,14 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(ctx, &channel->funding_txid,
 		       channel->funding_txout,
-		       channel->funding.satoshis,
+		       channel->funding,
 		       channel->funder,
 		       channel->config[!side].to_self_delay,
 		       &keyset,
 		       channel->view[side].feerate_per_kw,
-		       channel->config[side].dust_limit.satoshis,
-		       channel->view[side].owed[side].millisatoshis,
-		       channel->view[side].owed[!side].millisatoshis,
+		       channel->config[side].dust_limit,
+		       channel->view[side].owed[side],
+		       channel->view[side].owed[!side],
 		       committed,
 		       htlcmap,
 		       commitment_number ^ channel->commitment_number_obscurer,
@@ -438,14 +440,14 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 */
 	if (channel->funder == htlc_owner(htlc)) {
 		u32 feerate = view->feerate_per_kw;
-		u64 dust = channel->config[recipient].dust_limit.satoshis;
+		struct amount_sat dust_limit = channel->config[recipient].dust_limit;
 		size_t untrimmed;
 
-		untrimmed = commit_tx_num_untrimmed(committed, feerate, dust,
+		untrimmed = commit_tx_num_untrimmed(committed, feerate, dust_limit,
 						    recipient)
-			+ commit_tx_num_untrimmed(adding, feerate, dust,
+			+ commit_tx_num_untrimmed(adding, feerate, dust_limit,
 						  recipient)
-			- commit_tx_num_untrimmed(removing, feerate, dust,
+			- commit_tx_num_untrimmed(removing, feerate, dust_limit,
 						  recipient);
 
 		fee = commit_tx_base_fee(feerate, untrimmed);
@@ -793,17 +795,17 @@ u32 approx_max_feerate(const struct channel *channel)
 bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw)
 {
 	struct amount_sat needed, fee;
-	u64 dust = channel->config[!channel->funder].dust_limit.satoshis;
+	struct amount_sat dust_limit = channel->config[!channel->funder].dust_limit;
 	size_t untrimmed;
 	const struct htlc **committed, **adding, **removing;
 	gather_htlcs(tmpctx, channel, !channel->funder,
 		     &committed, &removing, &adding);
 
-	untrimmed = commit_tx_num_untrimmed(committed, feerate_per_kw, dust,
+	untrimmed = commit_tx_num_untrimmed(committed, feerate_per_kw, dust_limit,
 					    !channel->funder)
-			+ commit_tx_num_untrimmed(adding, feerate_per_kw, dust,
+			+ commit_tx_num_untrimmed(adding, feerate_per_kw, dust_limit,
 						  !channel->funder)
-			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust,
+			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust_limit,
 						  !channel->funder);
 
 	fee = commit_tx_base_fee(feerate_per_kw, untrimmed);
