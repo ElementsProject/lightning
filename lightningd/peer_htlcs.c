@@ -1841,9 +1841,15 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 
 		json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 		json_add_short_channel_id(response, "out_channel", &cur->channel_out);
-		json_add_num(response, "in_msatoshi", cur->msatoshi_in);
-		json_add_num(response, "out_msatoshi", cur->msatoshi_out);
-		json_add_num(response, "fee", cur->fee);
+		json_add_amount_msat(response,
+				     (struct amount_msat) { cur->msatoshi_in },
+				     "in_msatoshi", "in_msat");
+		json_add_amount_msat(response,
+				     (struct amount_msat) { cur->msatoshi_out },
+				     "out_msatoshi",  "out_msat");
+		json_add_amount_msat(response,
+				     (struct amount_msat) { cur->fee },
+				     "fee", "fee_msat");
 		json_add_string(response, "status", forward_status_name(cur->status));
 		json_object_end(response);
 	}
