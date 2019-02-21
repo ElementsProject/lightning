@@ -214,13 +214,23 @@ class Plugin(object):
         else:
             return self.options[name]['default']
 
-    def method(self, method_name, background=True):
+    def async_method(self, method_name):
+        """Decorator to add an async plugin method to the dispatch table.
+
+        Internally uses add_method.
+        """
+        def decorator(f):
+            self.add_method(method_name, f, background=True)
+            return f
+        return decorator
+
+    def method(self, method_name):
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f):
-            self.add_method(method_name, f, background=background)
+            self.add_method(method_name, f, background=False)
             return f
         return decorator
 
@@ -235,13 +245,23 @@ class Plugin(object):
         method.background = background
         self.methods[name] = method
 
-    def hook(self, method_name, background=False):
+    def hook(self, method_name):
         """Decorator to add a plugin hook to the dispatch table.
 
         Internally uses add_hook.
         """
         def decorator(f):
-            self.add_hook(method_name, f, background=background)
+            self.add_hook(method_name, f, background=False)
+            return f
+        return decorator
+
+    def async_hook(self, method_name):
+        """Decorator to add an async plugin hook to the dispatch table.
+
+        Internally uses add_hook.
+        """
+        def decorator(f):
+            self.add_hook(method_name, f, background=True)
             return f
         return decorator
 
