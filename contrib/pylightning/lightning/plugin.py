@@ -261,14 +261,22 @@ class Plugin(object):
         if 'request' in arguments:
             arguments['request'] = request
 
+        args = []
+        kwargs = {}
         # Now zip the provided arguments and the prefilled a together
         if isinstance(params, dict):
-            arguments.update(params)
+            for k, v in params.items():
+                if k in arguments:
+                    arguments[k] = v
+                else:
+                    kwargs[k] = v
         else:
             pos = 0
             for k, v in arguments.items():
-                if v != inspect._empty:
+                # Skip already assigned args and special catch-all args
+                if v != inspect._empty or k in ['args', 'kwargs']:
                     continue
+
                 if pos < len(params):
                     # Apply positional args if we have them
                     arguments[k] = params[pos]
@@ -279,6 +287,18 @@ class Plugin(object):
                     # For the remainder apply default args
                     arguments[k] = sig.parameters[k].default
                 pos += 1
+            if len(arguments) < len(params):
+                args = params[len(arguments):]
+
+        if 'kwargs' in arguments:
+            arguments['kwargs'] = kwargs
+        elif len(kwargs) > 0:
+            raise TypeError("Extra arguments given: {kwargs}".format(kwargs=kwargs))
+
+        if 'args' in arguments:
+            arguments['args'] = args
+        elif len(args) > 0:
+            raise TypeError("Extra arguments given: {args}".format(args=args))
 
         missing = [k for k, v in arguments.items() if v == inspect._empty]
         if missing:
