@@ -358,6 +358,7 @@ char *dbmigrations[] = {
     "ALTER TABLE payments ADD faildirection INTEGER;", /* erring_direction */
     /* Fix dangling peers with no channels. */
     "DELETE FROM peers WHERE id NOT IN (SELECT peer_id FROM channels);",
+    "ALTER TABLE outputs ADD scriptpubkey BLOB;",
     NULL,
 };
 
