@@ -90,6 +90,8 @@ onchain_add_utxo,,prev_out_index,u32
 onchain_add_utxo,,per_commit_point,struct pubkey
 onchain_add_utxo,,value,struct amount_sat
 onchain_add_utxo,,blockheight,u32
+onchain_add_utxo,,len,u16
+onchain_add_utxo,,scriptpubkey,len*u8
 
 # master -> onchaind: do you have a memleak?
 onchain_dev_memleak,5033
