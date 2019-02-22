@@ -48,7 +48,8 @@ else
     TARGETS=" $* "
 fi
 
-if [ "$(git status --porcelain -u no)" != "" ] && ! $FORCE_UNCLEAN; then
+# `status --porcelain -u no` suppressed modified!  Bug reported...
+if [ "$(git diff --name-only)" != "" ] && ! $FORCE_UNCLEAN; then
     echo "Not a clean git directory" >&2
     exit 1
 fi
