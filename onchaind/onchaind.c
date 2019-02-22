@@ -2014,7 +2014,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 i, tx->output[i].amount,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
-			script[LOCAL] = NULL;
 
 			/* Tell the master that it will want to add
 			 * this UTXO to its outputs */
@@ -2022,7 +2021,9 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						    tmpctx, txid, i,
 						    remote_per_commitment_point,
 						    tx->output[i].amount,
-						    tx_blockheight));
+						    tx_blockheight,
+						    script[LOCAL]));
+			script[LOCAL] = NULL;
 			continue;
 		}
 		if (script[REMOTE]
@@ -2226,7 +2227,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						 i, tx->output[i].amount,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
-			script[LOCAL] = NULL;
 
 			/* Tell the master that it will want to add
 			 * this UTXO to its outputs */
@@ -2234,7 +2234,9 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						    tmpctx, txid, i,
 						    remote_per_commitment_point,
 						    tx->output[i].amount,
-						    tx_blockheight));
+						    tx_blockheight,
+						    script[LOCAL]));
+			script[LOCAL] = NULL;
 			continue;
 		}
 		if (script[REMOTE]
@@ -2355,7 +2357,6 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 						 i, tx->output[i].amount,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
-			local_script = NULL;
 
 			/* Tell the master that it will want to add
 			 * this UTXO to its outputs */
@@ -2363,7 +2364,9 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 						    tmpctx, txid, i,
 						    possible_remote_per_commitment_point,
 						    tx->output[i].amount,
-						    tx_blockheight));
+						    tx_blockheight,
+						    local_script));
+			local_script = NULL;
 			to_us_output = i;
 		}
 	}
