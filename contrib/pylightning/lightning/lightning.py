@@ -160,7 +160,7 @@ class UnixDomainSocketRpc(object):
                 return objs, buff
             except ValueError:
                 # Probably didn't read enough
-                pass
+                buff = buff.lstrip().encode("UTF-8")
 
     def _readobj(self, sock, buff=b''):
         """Read a JSON object, starting with buff; returns object and any buffer left over"""
