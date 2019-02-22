@@ -70,6 +70,9 @@ if [ -z "$MTIME" ]; then
     exit 1
 fi
 
+# If it's a completely clean directory, we need submodules!
+make submodcheck
+
 rm -rf release
 mkdir -p release
 for target in $TARGETS; do
