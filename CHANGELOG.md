@@ -107,7 +107,7 @@ changes.
 - Protocol: don't send invalid onion errors if peer says onion was bad.
 - Protocol: don't crash when peer sends a 0-block-expiry HTLC.
 - pylightning: handle multiple simultanous RPC replies reliably.
-
+- build: we use `--prefix` as handed to `./configure`
 
 ### Security
 
