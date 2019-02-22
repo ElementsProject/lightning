@@ -13,13 +13,16 @@ if [ x"$1" = x"--inside-docker" ]; then
     exit 0
 fi
 
-ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu-16.04-amd64 bin-Ubuntu-16.04-i386 tarball sign"
+ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu-16.04-amd64 bin-Ubuntu-16.04-i386 zipfile sign"
 
 FORCE_VERSION=
 FORCE_UNCLEAN=false
 
 for arg; do
     case "$arg" in
+	--force-mtime=*)
+	    FORCE_MTIME=${arg#*=}
+	    ;;
 	--force-version=*)
 	    FORCE_VERSION=${arg#*=}
 	    ;;
@@ -27,7 +30,7 @@ for arg; do
 	    FORCE_UNCLEAN=true
 	    ;;
 	--help)
-	    echo "Usage: [--force-version=<ver>] [--force-unclean] [TARGETS]"
+	    echo "Usage: [--force-version=<ver>] [--force-unclean]  [--force-mtime=YYYY-MM-DD] [TARGETS]"
 	    echo Known targets: "$ALL_TARGETS"
 	    exit 0
 	    ;;
@@ -61,6 +64,12 @@ if [ "$VERSION" = "" ]; then
     exit 1
 fi
 
+MTIME=${FORCE_MTIME:-$(sed -n "s/^## \\[$VERSION\\] - \\([-0-9]*\\).*/\\1/p" < CHANGELOG.md)}
+if [ -z "$MTIME" ]; then
+    echo "No date found for $VERSION in CHANGELOG.md" >&2
+    exit 1
+fi
+
 rm -rf release
 mkdir -p release
 for target in $TARGETS; do
@@ -89,13 +98,14 @@ for target in $TARGETS; do
     docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform" /build
 done
 
-if [ -z "${TARGETS##* tarball *}" ]; then
-    # git archive won't go into submodules :(
-    ln -sf .. "release/clightning-$VERSION"
-    FILES=$(git ls-files --recurse-submodules | sed "s,^,clightning-$VERSION/,")
-    # shellcheck disable=SC2086
-    (cd release && zip "clightning-$VERSION.zip" $FILES)
-    rm "release/clightning-$VERSION"
+if [ -z "${TARGETS##* zipfile *}" ]; then
+    mkdir "release/clightning-$VERSION"
+    # git archive won't go into submodules :(; We use tar to copy
+    git ls-files -z --recurse-submodules | tar --null --files-from=- -c -f - | (cd "release/clightning-$VERSION" && tar xf -)
+    # tar can set dates on files, but zip cares about dates in directories!
+    find "release/clightning-$VERSION" -print0 | xargs -0r touch --no-dereference --date="$MTIME 00:00Z"
+    (cd release && zip -r -X "clightning-$VERSION.zip" "clightning-$VERSION")
+    rm -r "release/clightning-$VERSION"
 fi
 
 if [ -z "${TARGETS##* sign *}" ]; then
