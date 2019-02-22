@@ -35,6 +35,9 @@ struct utxo {
 
 	/* NULL if not spent yet, otherwise, the block the spending transaction is in */
 	const u32 *spendheight;
+
+	/* The scriptPubkey if it is known */
+	u8 *scriptPubkey;
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);

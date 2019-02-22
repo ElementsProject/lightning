@@ -65,7 +65,7 @@ struct wallet *wallet_new(struct lightningd *ld,
 #define UTXO_FIELDS							\
 	"prev_out_tx, prev_out_index, value, type, status, keyindex, "	\
 	"channel_id, peer_id, commitment_point, confirmation_height, "	\
-	"spend_height"
+	"spend_height, scriptpubkey"
 
 /* We actually use the db constraints to uniquify, so OK if this fails. */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
@@ -75,7 +75,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 
 	stmt = db_prepare(w->db, "INSERT INTO outputs ("
 			  UTXO_FIELDS
-			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
 	sqlite3_bind_amount_sat(stmt, 3, utxo->amount);
@@ -101,6 +101,13 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		sqlite3_bind_int(stmt, 11, *utxo->spendheight);
 	else
 		sqlite3_bind_null(stmt, 11);
+
+	if (utxo->scriptPubkey)
+		sqlite3_bind_blob(stmt, 12, utxo->scriptPubkey,
+				  tal_bytelen(utxo->scriptPubkey),
+				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 12);
 
 	/* May fail if we already know about the tx, e.g., because
 	 * it's change or some internal tx. */
@@ -131,6 +138,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, sqlite3_stmt *stmt)
 
 	utxo->blockheight = NULL;
 	utxo->spendheight = NULL;
+	utxo->scriptPubkey = NULL;
 
 	if (sqlite3_column_type(stmt, 9) != SQLITE_NULL) {
 		blockheight = tal(utxo, u32);
@@ -142,6 +150,12 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, sqlite3_stmt *stmt)
 		spendheight = tal(utxo, u32);
 		*spendheight = sqlite3_column_int(stmt, 10);
 		utxo->spendheight = spendheight;
+	}
+
+	if (sqlite3_column_type(stmt, 11) != SQLITE_NULL) {
+		utxo->scriptPubkey =
+		    tal_dup_arr(utxo, u8, sqlite3_column_blob(stmt, 11),
+				sqlite3_column_bytes(stmt, 11), 0);
 	}
 
 	return utxo;
@@ -1162,6 +1176,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 
 		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
+		utxo->scriptPubkey = tx->output[output].script;
 
 		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s",
 			  output,

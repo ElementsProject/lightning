@@ -31,6 +31,11 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	utxo->amount = fromwire_amount_sat(ptr, max);
 	utxo->keyindex = fromwire_u32(ptr, max);
 	utxo->is_p2sh = fromwire_bool(ptr, max);
+
+	/* No need to tell hsmd about the scriptPubkey, it has all the info to
+	 * derive it from the rest. */
+	utxo->scriptPubkey = NULL;
+
 	if (fromwire_bool(ptr, max)) {
 		utxo->close_info = tal(utxo, struct unilateral_close_info);
 		utxo->close_info->channel_id = fromwire_u64(ptr, max);
