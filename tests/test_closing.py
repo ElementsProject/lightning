@@ -1469,6 +1469,12 @@ def test_permfail(node_factory, bitcoind):
     # generated some more blocks.
     assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']])
 
+    # Check that the all the addresses match what we generated ourselves:
+    for o in l1.rpc.listfunds()['outputs']:
+        txout = bitcoind.rpc.gettxout(o['txid'], o['output'])
+        addr = txout['scriptPubKey']['addresses'][0]
+        assert(addr == o['address'])
+
     addr = l1.bitcoin.rpc.getnewaddress()
     l1.rpc.withdraw(addr, "all")
 
