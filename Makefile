@@ -436,13 +436,12 @@ unittest/%: %
 	$(VG) $(VG_TEST_ARGS) $* > /dev/null
 
 # Installation directories
-prefix = /usr/local
-exec_prefix = $(prefix)
+exec_prefix = $(PREFIX)
 bindir = $(exec_prefix)/bin
 libexecdir = $(exec_prefix)/libexec
 pkglibexecdir = $(libexecdir)/$(PKGNAME)
 plugindir = $(pkglibexecdir)/plugins
-datadir = $(prefix)/share
+datadir = $(PREFIX)/share
 docdir = $(datadir)/doc/$(PKGNAME)
 mandir = $(datadir)/man
 man1dir = $(mandir)/man1
