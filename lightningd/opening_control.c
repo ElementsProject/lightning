@@ -668,7 +668,7 @@ static void channel_config(struct lightningd *ld,
 	 *   - set `dust_limit_satoshis` to a sufficient value to allow
 	 *     commitment transactions to propagate through the Bitcoin network.
 	 */
-	ours->dust_limit = AMOUNT_SAT(546);
+	ours->dust_limit = get_chainparams(ld)->dust_limit;
 	ours->max_htlc_value_in_flight = AMOUNT_MSAT(UINT64_MAX);
 
 	/* Don't care */
