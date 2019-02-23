@@ -12,6 +12,8 @@
 struct command;
 struct plugin_conn;
 
+extern bool deprecated_apis;
+
 /* Create an array of these, one for each command you support. */
 struct plugin_command {
 	const char *name;
