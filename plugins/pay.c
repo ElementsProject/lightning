@@ -511,9 +511,10 @@ static struct command_result *getroute_done(struct command *cmd,
 		json_desc = "";
 
 	return send_outreq(cmd, "sendpay", sendpay_done, sendpay_error, pc,
-			   "'route': %s, 'payment_hash': '%s'%s",
+			   "'route': %s, 'payment_hash': '%s', 'bolt11': '%s'%s",
 			   attempt->route,
 			   pc->payment_hash,
+			   pc->ps->bolt11,
 			   json_desc);
 
 }
