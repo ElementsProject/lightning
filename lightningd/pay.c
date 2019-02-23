@@ -927,7 +927,7 @@ static const struct json_command waitsendpay_command = {
 };
 AUTODATA(json_command, &waitsendpay_command);
 
-static struct command_result *json_listpayments(struct command *cmd,
+static struct command_result *json_listsendpays(struct command *cmd,
 						const char *buffer,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
@@ -980,7 +980,15 @@ static struct command_result *json_listpayments(struct command *cmd,
 
 static const struct json_command listpayments_command = {
 	"listpayments",
-	json_listpayments,
-	"Show outgoing payments"
+	json_listsendpays,
+	"Show outgoing payments",
+	true /* deprecated, use new name */
 };
 AUTODATA(json_command, &listpayments_command);
+
+static const struct json_command listsendpays_command = {
+	"listsendpays",
+	json_listsendpays,
+	"Show sendpay, old and current, optionally limiting to {bolt11} or {payment_hash}."
+};
+AUTODATA(json_command, &listsendpays_command);

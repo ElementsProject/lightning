@@ -22,7 +22,7 @@ point number with suffix 'sat', or an 1 to 11 decimal point number
 suffixed by 'btc'.
 
 The 'label' field is used to attach a label to payments, and is returned
-in lightning-listpays(7) and lightning-listpayments(7).
+in lightning-listpays(7) and lightning-listsendpays(7).
 The 'riskfactor' is described in detail
 in lightning-getroute(7), and defaults to 10.
 The 'maxfeepercent' limits the money paid in fees, and defaults to 0.5.

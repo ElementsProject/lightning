@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `listfunds` now displays addresses for all outputs owned by the wallet (#2387)
 - JSON API: `waitsendpay` and `sendpay` output field `label` as specified by `sendpay` call.
 - JSON API: `listpays` command for higher-level payment view than `listpayments`, especially important with multi-part-payments coming.
+- JSON API: `listpayments` is now `listsendpays`.
 
 ### Changed
 
@@ -56,6 +57,7 @@ provide appropriate suffixes for JSON input fields.
 - JSON API: `short_channel_id` fields in JSON commands with `:` separators (use `x` instead).
 - JSON API: `pay` `description` is deprecated, as is support for BOLT11 strings using `h`.
 - JSON API: `sendpay` parameter `description` and `waitsendpay` and `sendpay` output fields `description` (now `label`).
+- JSON API: `listpayments` has been deprecated (you probably want `listpays`)
 
 ### Removed
 

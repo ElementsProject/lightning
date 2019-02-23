@@ -28,7 +28,7 @@ Instead, use the *waitsendpay* RPC command to poll or wait for
 definite success or definite failure.
 
 The 'label' and 'bolt11' parameters, if provided, will be returned in
-'waitsendpay' and 'listpayments' results.
+'waitsendpay' and 'listsendpays' results.
 
 The 'msatoshi' amount, if provided, is the amount that will be
 recorded as the target payment value.
@@ -54,7 +54,7 @@ immediately with success.
 RETURN VALUE
 ------------
 
-On success, an object similar to the output of *listpayments* will
+On success, an object similar to the output of *listsendpays* will
 be returned.
 This object will have a 'status' field that is typically the
 string '"pending"', but may be '"complete"' if the payment was

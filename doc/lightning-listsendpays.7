@@ -1,13 +1,13 @@
 '\" t
-.\"     Title: lightning-listpayments
+.\"     Title: lightning-listsendpays
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/22/2019
+.\"      Date: 02/23/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-LISTPAYME" "7" "02/22/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-LISTSENDP" "7" "02/23/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,13 +28,13 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-lightning-listpayments \- Low\-level command for querying payment status
+lightning-listsendpays \- Low\-level command for querying sendpay status
 .SH "SYNOPSIS"
 .sp
-\fBlistpayments\fR [\fIbolt11\fR] [\fIpayment_hash\fR]
+\fBlistsendpays\fR [\fIbolt11\fR] [\fIpayment_hash\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBlistpayments\fR RPC command gets the status of all \fIsendpay\fR commands (which is also used by the \fIpay\fR command), or with \fIbolt11\fR or \fIpayment_hash\fR limits results to that specific payment\&. You cannot specify both\&.
+The \fBlistsendpays\fR RPC command gets the status of all \fIsendpay\fR commands (which is also used by the \fIpay\fR command), or with \fIbolt11\fR or \fIpayment_hash\fR limits results to that specific payment\&. You cannot specify both\&.
 .sp
 Note that in future there may be more than one concurrent \fIsendpay\fR command per \fIpay\fR, so this command should be used with caution\&.
 .SH "RETURN VALUE"
