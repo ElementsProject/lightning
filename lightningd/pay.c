@@ -99,8 +99,11 @@ json_add_payment_fields(struct json_stream *response,
 		json_add_hex(response, "payment_preimage",
 			     t->payment_preimage,
 			     sizeof(*t->payment_preimage));
-	if (t->description)
-		json_add_string(response, "description", t->description);
+	if (t->label) {
+		if (deprecated_apis)
+			json_add_string(response, "description", t->label);
+		json_add_string(response, "label", t->label);
+	}
 	if (t->bolt11)
 		json_add_string(response, "bolt11", t->bolt11);
 }
@@ -582,7 +585,7 @@ send_payment(struct lightningd *ld,
 	     const struct sha256 *rhash,
 	     const struct route_hop *route,
 	     struct amount_msat msat,
-	     const char *description TAKES,
+	     const char *label TAKES,
 	     const char *b11str TAKES)
 {
 	const u8 *onion;
@@ -719,10 +722,10 @@ send_payment(struct lightningd *ld,
 	payment->path_secrets = tal_steal(payment, path_secrets);
 	payment->route_nodes = tal_steal(payment, ids);
 	payment->route_channels = tal_steal(payment, channels);
-	if (description != NULL)
-		payment->description = tal_strdup(payment, description);
+	if (label != NULL)
+		payment->label = tal_strdup(payment, label);
 	else
-		payment->description = NULL;
+		payment->label = NULL;
 	if (b11str != NULL)
 		payment->bolt11 = tal_strdup(payment, b11str);
 	else
@@ -750,17 +753,45 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct sha256 *rhash;
 	struct route_hop *route;
 	struct amount_msat *msat;
-	const char *description, *b11str;
+	const char *b11str, *label;
 	struct command_result *res;
 
-	if (!param(cmd, buffer, params,
-		   p_req("route", param_array, &routetok),
-		   p_req("payment_hash", param_sha256, &rhash),
-		   p_opt("description", param_escaped_string, &description),
-		   p_opt("msatoshi", param_msat, &msat),
-		   p_opt("bolt11", param_string, &b11str),
-		   NULL))
-		return command_param_failed();
+	/* If by array, or 'check' command, use 'label' as param name */
+	if (!params || params->type == JSMN_ARRAY) {
+		if (!param(cmd, buffer, params,
+			   p_req("route", param_array, &routetok),
+			   p_req("payment_hash", param_sha256, &rhash),
+			   p_opt("label", param_escaped_string, &label),
+			   p_opt("msatoshi", param_msat, &msat),
+			   p_opt("bolt11", param_string, &b11str),
+			   NULL))
+			return command_param_failed();
+	} else {
+		const char *description_deprecated;
+
+		/* If by keyword, treat description and label as
+		 * separate parameters. */
+		if (!param(cmd, buffer, params,
+			   p_req("route", param_array, &routetok),
+			   p_req("payment_hash", param_sha256, &rhash),
+			   p_opt("label", param_escaped_string, &label),
+			   p_opt("description", param_escaped_string,
+				 &description_deprecated),
+			   p_opt("msatoshi", param_msat, &msat),
+			   p_opt("bolt11", param_string, &b11str),
+			   NULL))
+			return command_param_failed();
+
+		if (description_deprecated) {
+			if (!deprecated_apis)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Deprecated parameter description, use label");
+			if (label)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Cannot specify both description and label");
+			label = description_deprecated;
+		}
+	}
 
 	if (routetok->size == 0)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");
@@ -844,7 +875,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 
 	res = send_payment(cmd->ld, cmd, rhash, route,
 			   msat ? *msat : route[routetok->size-1].amount,
-			   description, b11str);
+			   label, b11str);
 	if (res)
 		return res;
 	return command_still_pending(cmd);

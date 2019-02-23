@@ -31,7 +31,7 @@
 lightning-sendpay \- Low\-level command for sending a payment via a route\&.
 .SH "SYNOPSIS"
 .sp
-\fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIdescription\fR] [\fImsatoshi\fR] [\fIbolt11\fR]
+\fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIlabel\fR] [\fImsatoshi\fR] [\fIbolt11\fR]
 .SH "DESCRIPTION"
 .sp
 The \fBsendpay\fR RPC command attempts to send funds associated with the given \fIpayment_hash\fR, along a route to the final destination in the route\&.
@@ -40,7 +40,7 @@ Generally, a client would call lightning\-getroute(7) to resolve a route, then u
 .sp
 The response will occur when the payment is on its way to the destination\&. The \fBsendpay\fR RPC command does not wait for definite success or definite failure of the payment\&. Instead, use the \fBwaitsendpay\fR RPC command to poll or wait for definite success or definite failure\&.
 .sp
-The \fIdescription\fR and \fIbolt11\fR parameters, if provided, will be returned in \fIwaitsendpay\fR and \fIlistpayments\fR results\&.
+The \fIlabel\fR and \fIbolt11\fR parameters, if provided, will be returned in \fIwaitsendpay\fR and \fIlistpayments\fR results\&.
 .sp
 The \fImsatoshi\fR amount, if provided, is the amount that will be recorded as the target payment value\&. If not specified, it will be the final amount to the destination\&. If specified, then the final amount at the destination must be from the specified \fImsatoshi\fR to twice the specified \fImsatoshi\fR, inclusive\&. This is intended to obscure payments by overpaying slightly at the destination; the actual target payment is what should be specified as the \fImsatoshi\fR argument\&. \fImsatoshi\fR is in millisatoshi precision; it can be a whole number, or a whole number ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places ending in \fIsat\fR, or a number with 1 to 11 decimal places ending in \fIbtc\fR\&.
 .sp

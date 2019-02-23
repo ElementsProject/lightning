@@ -227,8 +227,8 @@ struct wallet_payment {
 	/* bolt11 string; NULL for old payments. */
 	const char *bolt11;
 
-	/* The description of the payment. Must support `tal_len` */
-	const char *description;
+	/* The label of the payment. Must support `tal_len` */
+	const char *label;
 };
 
 struct outpoint {
