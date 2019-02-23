@@ -103,7 +103,7 @@ static bool breakup(const char *str, size_t slen,
 	return true;
 }
 
-static bool from_number(u64 *res, const char *s, size_t len, u64 multipler)
+static bool from_number(u64 *res, const char *s, size_t len, int tens_factor)
 {
 	if (len == 0)
 		return false;
@@ -118,19 +118,25 @@ static bool from_number(u64 *res, const char *s, size_t len, u64 multipler)
 			return false;
 		*res += s[i] - '0';
 	}
-	if (mul_overflows_u64(*res, multipler))
-		return false;
-	*res *= multipler;
+	while (tens_factor > 0) {
+		if (mul_overflows_u64(*res, 10))
+			return false;
+		*res *= 10;
+		tens_factor--;
+	}
 	return true;
 }
 
 static bool from_numbers(u64 *res,
-			 const char *s1, size_t len1, u64 multipler1,
-			 const char *s2, size_t len2, u64 multipler2)
+			 const char *s1, size_t len1, int tens_factor,
+			 const char *s2, size_t len2)
 {
 	u64 p1, p2;
-	if (!from_number(&p1, s1, len1, multipler1)
-	    || !from_number(&p2, s2, len2, multipler2))
+	if (len2 > tens_factor)
+		return false;
+
+	if (!from_number(&p1, s1, len1, tens_factor)
+	    || !from_number(&p2, s2, len2, tens_factor - len2))
 		return false;
 
 	if (add_overflows_u64(p1, p2))
@@ -144,8 +150,7 @@ static bool from_numbers(u64 *res,
  *  [0-9]+ => millisatoshi.
  *  [0-9]+msat => millisatoshi.
  *  [0-9]+sat => *1000 -> millisatopshi.
- *  [0-9]+.[0-9]{8}btc => *1000 -> millisatoshi.
- *  [0-9]+.[0-9]{11}btc => millisatoshi.
+ *  [0-9]+.[0-9]{1,11}btc => millisatoshi.
  */
 bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen)
 {
@@ -158,25 +163,15 @@ bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen)
 		return false;
 
 	if (!post_decimal_ptr && !suffix_ptr)
-		return from_number(&msat->millisatoshis, s, whole_number_len, 1);
+		return from_number(&msat->millisatoshis, s, whole_number_len, 0);
 	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "msat"))
-		return from_number(&msat->millisatoshis, s, whole_number_len, 1);
+		return from_number(&msat->millisatoshis, s, whole_number_len, 0);
 	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "sat"))
-		return from_number(&msat->millisatoshis, s, whole_number_len,
-				   MSAT_PER_SAT);
-	if (post_decimal_ptr && post_decimal_len == 8
-	    && memeqstr(suffix_ptr, suffix_len, "btc"))
+		return from_number(&msat->millisatoshis, s, whole_number_len, 3);
+	if (post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "btc"))
 		return from_numbers(&msat->millisatoshis,
-				    s, whole_number_len,
-				    MSAT_PER_BTC,
-				    post_decimal_ptr, post_decimal_len,
-				    MSAT_PER_SAT);
-	if (post_decimal_ptr && post_decimal_len == 11
-	    && memeqstr(suffix_ptr, suffix_len, "btc"))
-		return from_numbers(&msat->millisatoshis,
-				    s, whole_number_len,
-				    MSAT_PER_BTC,
-				    post_decimal_ptr, post_decimal_len, 1);
+				    s, whole_number_len, 11,
+				    post_decimal_ptr, post_decimal_len);
 	return false;
 }
 
@@ -184,7 +179,7 @@ bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen)
  *  [0-9]+ => satoshi.
  *  [0-9]+sat => satoshi.
  *  [0-9]+000msat => satoshi.
- *  [0-9]+.[0-9]{8}btc => satoshi.
+ *  [0-9]+.[0-9]{1,8}btc => satoshi.
  */
 bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen)
 {
@@ -197,21 +192,18 @@ bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen)
 		return false;
 
 	if (!post_decimal_ptr && !suffix_ptr)
-		return from_number(&sat->satoshis, s, whole_number_len, 1);
+		return from_number(&sat->satoshis, s, whole_number_len, 0);
 	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "sat"))
-		return from_number(&sat->satoshis, s, whole_number_len, 1);
+		return from_number(&sat->satoshis, s, whole_number_len, 0);
 	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "msat")) {
 		if (!memends(s, whole_number_len, "000", strlen("000")))
 			return false;
-		return from_number(&sat->satoshis, s, whole_number_len - 3, 1);
+		return from_number(&sat->satoshis, s, whole_number_len - 3, 0);
 	}
-	if (post_decimal_ptr && post_decimal_len == 8
-	    && memeqstr(suffix_ptr, suffix_len, "btc"))
+	if (post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "btc"))
 		return from_numbers(&sat->satoshis,
-				    s, whole_number_len,
-				    SAT_PER_BTC,
-				    post_decimal_ptr, post_decimal_len,
-				    1);
+				    s, whole_number_len, 8,
+				    post_decimal_ptr, post_decimal_len);
 
 	return false;
 }
