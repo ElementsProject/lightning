@@ -21,6 +21,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listfunds.7 \
 	doc/lightning-listinvoices.7 \
 	doc/lightning-listpayments.7 \
+	doc/lightning-listpays.7 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-newaddr.7 \
 	doc/lightning-pay.7 \
@@ -29,7 +30,6 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-waitanyinvoice.7 \
 	doc/lightning-waitsendpay.7 \
 	doc/lightning-withdraw.7 
-	
 
 doc-all: $(MANPAGES)
 

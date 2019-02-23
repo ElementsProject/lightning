@@ -1,4 +1,5 @@
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
@@ -1093,6 +1094,90 @@ static struct command_result *handle_paystatus(struct command *cmd,
 	return command_success(cmd, ret);
 }
 
+static const jsmntok_t *copy_member(char **ret,
+				    const char *buf,
+				    const jsmntok_t *result,
+				    const char *membername,
+				    const char *term)
+{
+	const jsmntok_t *m = json_get_member(buf, result, membername);
+	if (m)
+		tal_append_fmt(ret, "'%s': %.*s%s",
+			       membername,
+			       json_tok_full_len(m), json_tok_full(buf, m),
+			       term);
+	return m;
+}
+
+static struct command_result *listpayments_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						char *b11str)
+{
+	size_t i;
+	const jsmntok_t *t, *arr;
+	char *ret;
+	bool some = false;
+
+	arr = json_get_member(buf, result, "payments");
+	if (!arr || arr->type != JSMN_ARRAY)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Unexpected non-array result from listpayments");
+
+	ret = tal_fmt(cmd, "{ 'pays': [");
+	json_for_each_arr(i, t, arr) {
+		const jsmntok_t *status;
+
+		if (some)
+			tal_append_fmt(&ret, ",\n");
+		some = true;
+
+		tal_append_fmt(&ret, "{");
+		/* Old payments didn't have bolt11 field */
+		if (!copy_member(&ret, buf, t, "bolt11", ",")) {
+			if (b11str) {
+				/* If it's a single query, we can fake it */
+				tal_append_fmt(&ret, "'bolt11': '%s',", b11str);
+			} else {
+				copy_member(&ret, buf, t, "payment_hash", ",");
+				copy_member(&ret, buf, t, "destination", ",");
+				copy_member(&ret, buf, t, "amount_msat", ",");
+			}
+		}
+
+		status = copy_member(&ret, buf, t, "status", ",");
+		if (status && json_tok_streq(buf, status, "complete"))
+			copy_member(&ret, buf, t, "payment_preimage", ",");
+		copy_member(&ret, buf, t, "label", ",");
+		copy_member(&ret, buf, t, "amount_sent_msat", "");
+		tal_append_fmt(&ret, "}");
+	}
+	tal_append_fmt(&ret, "] }");
+	return command_success(cmd, ret);
+}
+
+static struct command_result *handle_listpays(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *params)
+{
+	const char *b11str, *paramstr;
+
+	/* FIXME: would be nice to parse as a bolt11 so check worked in future */
+	if (!param(cmd, buf, params,
+		   p_opt("bolt11", param_string, &b11str),
+		   NULL))
+		return NULL;
+
+	if (b11str)
+		paramstr = tal_fmt(tmpctx, "'bolt11' : '%s'", b11str);
+	else
+		paramstr = "";
+	return send_outreq(cmd, "listpayments",
+			   listpayments_done, forward_error,
+			   cast_const(char *, b11str),
+			   "%s", paramstr);
+}
+
 static void init(struct plugin_conn *rpc)
 {
 	const char *field;
@@ -1117,6 +1202,11 @@ static const struct plugin_command commands[] = { {
 		"Detail status of attempts to pay {bolt11}, or all",
 		"Covers both old payments and current ones.",
 		handle_paystatus
+	}, {
+		"listpays",
+		"List result of payment {bolt11}, or all",
+		"Covers old payments (failed and succeeded) and current ones.",
+		handle_listpays
 	}
 };
 

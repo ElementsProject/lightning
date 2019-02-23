@@ -40,7 +40,7 @@ succeed immediately.
 The command will keep finding routes and retrying the payment until
 it succeeds, or the given 'retry_for' seconds passes.
 Note that the command may stop retrying while a pending payment is
-ongoing, which you need to monitor with *listpayments* or *waitsendpay*.
+ongoing, which you need to monitor with *listpays*.
 'retry_for' defaults to 60 seconds and can only be an integer.
 
 When using 'lightning-cli', you may skip optional parameters by using
@@ -91,8 +91,7 @@ The following error codes may occur:
 
 * -1. Catchall nonspecific error.
 * 200. Payment timed out while a payment is in progress. Monitor
-  the status of that payment with 'listpayments' command, or
-  wait for that payment to complete with 'pay' command.
+  the status of that payment with 'listpays' command.
 * 201. Already paid with this 'hash' using different amount or
   destination.
 * 203. Permanent failure at destination. The 'data' field of
@@ -145,7 +144,7 @@ Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
 
 SEE ALSO
 --------
-lightning-listpayments(7), lightning-decodepay(7),
+lightning-listpays(7), lightning-decodepay(7),
 lightning-listinvoice(7), lightning-delinvoice(7),
 lightning-getroute(7), lightning-invoice(7).
 

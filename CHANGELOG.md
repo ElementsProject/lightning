@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `fundchannel` and `withdraw` now have a new parameter `minconf` that limits coinselection to outputs that have at least `minconf` confirmations (default 1). (#2380)
 - JSON API: `listfunds` now displays addresses for all outputs owned by the wallet (#2387)
 - JSON API: `waitsendpay` and `sendpay` output field `label` as specified by `sendpay` call.
+- JSON API: `listpays` command for higher-level payment view than `listpayments`, especially important with multi-part-payments coming.
 
 ### Changed
 
