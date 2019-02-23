@@ -848,9 +848,9 @@ static struct pay_status *add_pay_status(struct pay_command *pc,
 	return ps;
 }
 
-static struct command_result *handle_pay(struct command *cmd,
-					 const char *buf,
-					 const jsmntok_t *params)
+static struct command_result *json_pay(struct command *cmd,
+				       const char *buf,
+				       const jsmntok_t *params)
 {
 	struct amount_msat *msat;
 	struct bolt11 *b11;
@@ -1035,9 +1035,9 @@ static void add_attempt(char **ret,
 	tal_append_fmt(ret, "}");
 }
 
-static struct command_result *handle_paystatus(struct command *cmd,
-						const char *buf,
-						const jsmntok_t *params)
+static struct command_result *json_paystatus(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *params)
 {
 	struct pay_status *ps;
 	const char *b11str;
@@ -1156,9 +1156,9 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	return command_success(cmd, ret);
 }
 
-static struct command_result *handle_listpays(struct command *cmd,
-					      const char *buf,
-					      const jsmntok_t *params)
+static struct command_result *json_listpays(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *params)
 {
 	const char *b11str, *paramstr;
 
@@ -1196,17 +1196,17 @@ static const struct plugin_command commands[] = { {
 		"pay",
 		"Send payment specified by {bolt11} with {amount}",
 		"Try to send a payment, retrying {retry_for} seconds before giving up",
-		handle_pay
+		json_pay
 	}, {
 		"paystatus",
 		"Detail status of attempts to pay {bolt11}, or all",
 		"Covers both old payments and current ones.",
-		handle_paystatus
+		json_paystatus
 	}, {
 		"listpays",
 		"List result of payment {bolt11}, or all",
 		"Covers old payments (failed and succeeded) and current ones.",
-		handle_listpays
+		json_listpays
 	}
 };
 
