@@ -19,7 +19,7 @@ at 'id' with 'cltv'-blocks to spare (default 9).
 
 'msatoshi' is in millisatoshi precision; it can be a whole number, or
 a whole number ending in 'msat' or 'sat', or a number with three
-decimal places ending in 'sat', or a number with 8 or 11 decimal
+decimal places ending in 'sat', or a number with 1 to 11 decimal
 places ending in 'btc'.
 
 There are two considerations for how good a route is: how low the
