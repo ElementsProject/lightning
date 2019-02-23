@@ -40,14 +40,14 @@ Generally, a client would call lightning\-getroute(7) to resolve a route, then u
 .sp
 The response will occur when the payment is on its way to the destination\&. The \fBsendpay\fR RPC command does not wait for definite success or definite failure of the payment\&. Instead, use the \fBwaitsendpay\fR RPC command to poll or wait for definite success or definite failure\&.
 .sp
-The \fIlabel\fR and \fIbolt11\fR parameters, if provided, will be returned in \fIwaitsendpay\fR and \fIlistpayments\fR results\&.
+The \fIlabel\fR and \fIbolt11\fR parameters, if provided, will be returned in \fIwaitsendpay\fR and \fIlistsendpays\fR results\&.
 .sp
 The \fImsatoshi\fR amount, if provided, is the amount that will be recorded as the target payment value\&. If not specified, it will be the final amount to the destination\&. If specified, then the final amount at the destination must be from the specified \fImsatoshi\fR to twice the specified \fImsatoshi\fR, inclusive\&. This is intended to obscure payments by overpaying slightly at the destination; the actual target payment is what should be specified as the \fImsatoshi\fR argument\&. \fImsatoshi\fR is in millisatoshi precision; it can be a whole number, or a whole number ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places ending in \fIsat\fR, or a number with 1 to 11 decimal places ending in \fIbtc\fR\&.
 .sp
 Once a payment has succeeded, calls to \fBsendpay\fR with the same \fIpayment_hash\fR but a different \fImsatoshi\fR or destination will fail; this prevents accidental multiple payments\&. Calls to \fBsendpay\fR with the same \fIpayment_hash\fR, \fImsatoshi\fR, and destination as a previous successful payment (even if a different route) will return immediately with success\&.
 .SH "RETURN VALUE"
 .sp
-On success, an object similar to the output of \fBlistpayments\fR will be returned\&. This object will have a \fIstatus\fR field that is typically the string \fI"pending"\fR, but may be \fI"complete"\fR if the payment was already performed successfully\&.
+On success, an object similar to the output of \fBlistsendpays\fR will be returned\&. This object will have a \fIstatus\fR field that is typically the string \fI"pending"\fR, but may be \fI"complete"\fR if the payment was already performed successfully\&.
 .sp
 On error, if the error occurred from a node other than the final destination, the route table will be updated so that lightning\-getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
 .sp

@@ -1109,7 +1109,7 @@ static const jsmntok_t *copy_member(char **ret,
 	return m;
 }
 
-static struct command_result *listpayments_done(struct command *cmd,
+static struct command_result *listsendpays_done(struct command *cmd,
 						const char *buf,
 						const jsmntok_t *result,
 						char *b11str)
@@ -1122,7 +1122,7 @@ static struct command_result *listpayments_done(struct command *cmd,
 	arr = json_get_member(buf, result, "payments");
 	if (!arr || arr->type != JSMN_ARRAY)
 		return command_fail(cmd, LIGHTNINGD,
-				    "Unexpected non-array result from listpayments");
+				    "Unexpected non-array result from listsendpays");
 
 	ret = tal_fmt(cmd, "{ 'pays': [");
 	json_for_each_arr(i, t, arr) {
@@ -1172,8 +1172,8 @@ static struct command_result *handle_listpays(struct command *cmd,
 		paramstr = tal_fmt(tmpctx, "'bolt11' : '%s'", b11str);
 	else
 		paramstr = "";
-	return send_outreq(cmd, "listpayments",
-			   listpayments_done, forward_error,
+	return send_outreq(cmd, "listsendpays",
+			   listsendpays_done, forward_error,
 			   cast_const(char *, b11str),
 			   "%s", paramstr);
 }

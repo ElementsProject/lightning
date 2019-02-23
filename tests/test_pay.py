@@ -52,10 +52,10 @@ def test_pay(node_factory):
         l1.rpc.pay(inv2, random.randint(1000, 999999))
 
     # Should see 6 completed payments
-    assert len(l1.rpc.listpayments()['payments']) == 6
+    assert len(l1.rpc.listsendpays()['payments']) == 6
 
-    # Test listpayments indexed by bolt11.
-    payments = l1.rpc.listpayments(inv)['payments']
+    # Test listsendpays indexed by bolt11.
+    payments = l1.rpc.listsendpays(inv)['payments']
     assert len(payments) == 1 and payments[0]['payment_preimage'] == preimage
 
 
@@ -221,23 +221,23 @@ def test_pay_optional_args(node_factory):
 
     inv1 = l2.rpc.invoice(123000, 'test_pay', 'desc')['bolt11']
     l1.rpc.pay(inv1, label='desc')
-    payment1 = l1.rpc.listpayments(inv1)['payments']
+    payment1 = l1.rpc.listsendpays(inv1)['payments']
     assert len(payment1) and payment1[0]['msatoshi'] == 123000
     assert payment1[0]['label'] == 'desc'
 
     inv2 = l2.rpc.invoice(321000, 'test_pay2', 'description')['bolt11']
     l1.rpc.pay(inv2, riskfactor=5.0)
-    payment2 = l1.rpc.listpayments(inv2)['payments']
+    payment2 = l1.rpc.listsendpays(inv2)['payments']
     assert len(payment2) == 1 and payment2[0]['msatoshi'] == 321000
 
     anyinv = l2.rpc.invoice('any', 'any_pay', 'desc')['bolt11']
     l1.rpc.pay(anyinv, label='desc', msatoshi='500')
-    payment3 = l1.rpc.listpayments(anyinv)['payments']
+    payment3 = l1.rpc.listsendpays(anyinv)['payments']
     assert len(payment3) == 1 and payment3[0]['msatoshi'] == 500
     assert payment3[0]['label'] == 'desc'
 
     # Should see 3 completed transactions
-    assert len(l1.rpc.listpayments()['payments']) == 3
+    assert len(l1.rpc.listsendpays()['payments']) == 3
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -270,9 +270,9 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     # Should reconnect, and sort the payment out.
     l1.start()
 
-    wait_for(lambda: l1.rpc.listpayments()['payments'][0]['status'] != 'pending')
+    wait_for(lambda: l1.rpc.listsendpays()['payments'][0]['status'] != 'pending')
 
-    payments = l1.rpc.listpayments()['payments']
+    payments = l1.rpc.listsendpays()['payments']
     invoices = l2.rpc.listinvoices('inv1')['invoices']
     assert len(payments) == 1 and payments[0]['status'] == 'complete'
     assert len(invoices) == 1 and invoices[0]['status'] == 'paid'
@@ -320,9 +320,9 @@ def test_payment_failed_persistence(node_factory, executor):
     # Should reconnect, and fail the payment
     l1.start()
 
-    wait_for(lambda: l1.rpc.listpayments()['payments'][0]['status'] != 'pending')
+    wait_for(lambda: l1.rpc.listsendpays()['payments'][0]['status'] != 'pending')
 
-    payments = l1.rpc.listpayments()['payments']
+    payments = l1.rpc.listsendpays()['payments']
     invoices = l2.rpc.listinvoices('inv1')['invoices']
     assert len(invoices) == 1 and invoices[0]['status'] == 'expired'
     assert len(payments) == 1 and payments[0]['status'] == 'failed'
@@ -350,8 +350,8 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     # Make sure that's started...
     l1.daemon.wait_for_log('dev_disconnect: =WIRE_UPDATE_ADD_HTLC-nocommit')
 
-    # We should see it in listpayments
-    payments = l1.rpc.listpayments()['payments']
+    # We should see it in listsendpays
+    payments = l1.rpc.listsendpays()['payments']
     assert len(payments) == 1
     assert payments[0]['status'] == 'pending' and payments[0]['payment_hash'] == inv1['payment_hash']
 
@@ -473,19 +473,19 @@ def test_sendpay(node_factory):
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['status'] == 'paid'
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['msatoshi_received'] == amt * 2
 
-    # Test listpayments
-    payments = l1.rpc.listpayments()['payments']
+    # Test listsendpays
+    payments = l1.rpc.listsendpays()['payments']
     assert len(payments) == 2
 
     invoice2 = only_one(l2.rpc.listinvoices('testpayment2')['invoices'])
-    payments = l1.rpc.listpayments(payment_hash=invoice2['payment_hash'])['payments']
+    payments = l1.rpc.listsendpays(payment_hash=invoice2['payment_hash'])['payments']
     assert len(payments) == 1
 
     assert payments[0]['status'] == 'complete'
     assert payments[0]['payment_preimage'] == preimage2
 
     invoice3 = only_one(l2.rpc.listinvoices('testpayment3')['invoices'])
-    payments = l1.rpc.listpayments(payment_hash=invoice3['payment_hash'])['payments']
+    payments = l1.rpc.listsendpays(payment_hash=invoice3['payment_hash'])['payments']
     assert len(payments) == 1
 
     assert payments[0]['status'] == 'complete'
@@ -1163,9 +1163,9 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     l4.restart()
     l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    wait_for(lambda: only_one(l1.rpc.listpayments()['payments'])['status'] == 'failed')
-    wait_for(lambda: only_one(l2.rpc.listpayments()['payments'])['status'] == 'failed')
-    wait_for(lambda: only_one(l3.rpc.listpayments()['payments'])['status'] == 'failed')
+    wait_for(lambda: only_one(l1.rpc.listsendpays()['payments'])['status'] == 'failed')
+    wait_for(lambda: only_one(l2.rpc.listsendpays()['payments'])['status'] == 'failed')
+    wait_for(lambda: only_one(l3.rpc.listsendpays()['payments'])['status'] == 'failed')
 
     # Should all still be connected.
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']

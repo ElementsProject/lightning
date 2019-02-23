@@ -42,7 +42,7 @@ Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
 
 SEE ALSO
 --------
-lightning-pay(7), lightning-paystatus(7), lightning-listpayments(7).
+lightning-pay(7), lightning-paystatus(7), lightning-listsendpays(7).
 
 RESOURCES
 ---------

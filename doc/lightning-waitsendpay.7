@@ -2,12 +2,12 @@
 .\"     Title: lightning-waitsendpay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/15/2019
+.\"      Date: 02/23/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-WAITSENDP" "7" "01/15/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-WAITSENDP" "7" "02/23/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,7 +43,7 @@ Indicating a \fItimeout\fR of 0 effectively makes this call a pollable query of 
 If the payment completed with success, this command returns with success\&. Otherwise, if the payment completed with failure, this command returns an error\&.
 .SH "RETURN VALUE"
 .sp
-On success, an object similar to the output of \fBlistpayments\fR will be returned\&. This object will have a \fIstatus\fR field that is the string \fI"complete"\fR\&.
+On success, an object similar to the output of \fBlistsendpays\fR will be returned\&. This object will have a \fIstatus\fR field that is the string \fI"complete"\fR\&.
 .sp
 On error, if the error occurred from a node other than the final destination, the route table will be updated so that getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
 .sp

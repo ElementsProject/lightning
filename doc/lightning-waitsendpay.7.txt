@@ -36,7 +36,7 @@ returns an error.
 RETURN VALUE
 ------------
 
-On success, an object similar to the output of *listpayments* will
+On success, an object similar to the output of *listsendpays* will
 be returned.
 This object will have a 'status' field that is the
 string '"complete"'.

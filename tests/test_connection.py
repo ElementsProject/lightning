@@ -1371,9 +1371,9 @@ def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
     del l1.daemon.opts['dev-disconnect']
     l1.start()
 
-    # Payments will fail due to restart, but we can see results in listpayments.
-    print(l1.rpc.listpayments())
-    wait_for(lambda: [p['status'] for p in l1.rpc.listpayments()['payments']] == ['complete', 'complete'])
+    # Payments will fail due to restart, but we can see results in listsendpays.
+    print(l1.rpc.listsendpays())
+    wait_for(lambda: [p['status'] for p in l1.rpc.listsendpays()['payments']] == ['complete', 'complete'])
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
@@ -1507,7 +1507,7 @@ def test_restart_many_payments(node_factory):
 
     # Wait for them to finish.
     for n in innodes:
-        wait_for(lambda: 'pending' not in [p['status'] for p in n.rpc.listpayments()['payments']])
+        wait_for(lambda: 'pending' not in [p['status'] for p in n.rpc.listsendpays()['payments']])
 
 
 @unittest.skipIf(not DEVELOPER, "need dev-disconnect")
