@@ -40,7 +40,7 @@ The \fIlabel\fR field is used to attach a label to payments, and is returned in 
 .sp
 The response will occur when the payment fails or succeeds\&. Once a payment has succeeded, calls to \fBpay\fR with the same \fIbolt11\fR will succeed immediately\&.
 .sp
-The command will keep finding routes and retrying the payment until it succeeds, or the given \fIretry_for\fR seconds passes\&. Note that the command may stop retrying while a pending payment is ongoing, which you need to monitor with \fBlistpayments\fR or \fBwaitsendpay\fR\&. \fIretry_for\fR defaults to 60 seconds and can only be an integer\&.
+The command will keep finding routes and retrying the payment until it succeeds, or the given \fIretry_for\fR seconds passes\&. Note that the command may stop retrying while a pending payment is ongoing, which you need to monitor with \fBlistpays\fR\&. \fIretry_for\fR defaults to 60 seconds and can only be an integer\&.
 .sp
 When using \fIlightning\-cli\fR, you may skip optional parameters by using \fInull\fR\&. Alternatively, use \fB\-k\fR option to provide parameters by name\&.
 .SH "RANDOMIZATION"
@@ -102,9 +102,7 @@ The following error codes may occur:
 .IP \(bu 2.3
 .\}
 200\&. Payment timed out while a payment is in progress\&. Monitor the status of that payment with
-\fIlistpayments\fR
-command, or wait for that payment to complete with
-\fIpay\fR
+\fIlistpays\fR
 command\&.
 .RE
 .sp
@@ -267,7 +265,7 @@ The \fIdata\fR field of errors will include statistics \fIgetroute_tries\fR and 
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
 .SH "SEE ALSO"
 .sp
-lightning\-listpayments(7), lightning\-decodepay(7), lightning\-listinvoice(7), lightning\-delinvoice(7), lightning\-getroute(7), lightning\-invoice(7)\&.
+lightning\-listpays(7), lightning\-decodepay(7), lightning\-listinvoice(7), lightning\-delinvoice(7), lightning\-getroute(7), lightning\-invoice(7)\&.
 .SH "RESOURCES"
 .sp
 Main web site: https://github\&.com/ElementsProject/lightning

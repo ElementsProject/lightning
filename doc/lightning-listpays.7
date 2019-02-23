@@ -1,0 +1,108 @@
+'\" t
+.\"     Title: lightning-listpays
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 02/23/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-LISTPAYS" "7" "02/23/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-listpays \- Command for querying payment status
+.SH "SYNOPSIS"
+.sp
+\fBlistpays\fR [bolt11]
+.SH "DESCRIPTION"
+.sp
+The \fBlistpay\fR RPC command gets the status of all \fIpay\fR commands, or a single one if \fIbolt11\fR is specified\&.
+.SH "RETURN VALUE"
+.sp
+On success, an array of objects is returned\&. Each object contains:
+.PP
+\fIbolt11\fR
+.RS 4
+the
+\fIbolt11\fR
+argument given to
+\fIpay\fR
+(see below for exceptions)\&.
+.RE
+.PP
+\fIstatus\fR
+.RS 4
+one of
+\fIcomplete\fR,
+\fIfailed\fR
+or
+\fIpending\fR\&.
+.RE
+.PP
+\fIpayment_preimage\fR
+.RS 4
+(if
+\fIstatus\fR
+is
+\fIcomplete\fR) proves payment was received\&.
+.RE
+.PP
+\fIlabel\fR
+.RS 4
+optional
+\fIlabel\fR, if provided to
+\fIpay\fR\&.
+.RE
+.PP
+\fIamount_sent_msat\fR
+.RS 4
+total amount sent, in "NNNmsat" format\&.
+.RE
+.sp
+For old payments (pre\-0\&.7) we didn\(cqt save the \fIbolt11\fR string, so in its place are three other fields:
+.PP
+\fIpayment_hash\fR
+.RS 4
+the hash of the
+\fIpayment_preimage\fR
+which will prove payment\&.
+.RE
+.PP
+\fIdestination\fR
+.RS 4
+the final destination of the payment\&.
+.RE
+.PP
+\fIamount_msat\fR
+.RS 4
+the amount the destination received, in "NNNmsat" format\&.
+.RE
+.sp
+These three can all be extracted from \fIbolt11\fR, hence are obsolete\&.
+.SH "AUTHOR"
+.sp
+Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-pay(7), lightning\-paystatus(7), lightning\-listpayments(7)\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
