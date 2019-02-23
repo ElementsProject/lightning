@@ -4,11 +4,11 @@ LIGHTNING-SENDPAY(7)
 
 NAME
 ----
-lightning-sendpay - Command for sending a payment via a route.
+lightning-sendpay - Low-level command for sending a payment via a route.
 
 SYNOPSIS
 --------
-*sendpay* 'route' 'payment_hash' ['description'] ['msatoshi']
+*sendpay* 'route' 'payment_hash' ['description'] ['msatoshi'] ['bolt11']
 
 DESCRIPTION
 -----------
@@ -27,7 +27,7 @@ definite failure of the payment.
 Instead, use the *waitsendpay* RPC command to poll or wait for
 definite success or definite failure.
 
-The 'description' parameter, if provided, will be returned in
+The 'description' and 'bolt11' parameters, if provided, will be returned in
 'waitsendpay' and 'listpayments' results.
 
 The 'msatoshi' amount, if provided, is the amount that will be
@@ -43,7 +43,6 @@ the actual target payment is what should be specified as the
 be a whole number, or a whole number ending in 'msat' or 'sat', or a
 number with three decimal places ending in 'sat', or a number with 1
 to 11 decimal places ending in 'btc'.
-
 
 Once a payment has succeeded, calls to *sendpay* with the same 'payment_hash'
 but a different 'msatoshi' or destination will fail; this prevents
