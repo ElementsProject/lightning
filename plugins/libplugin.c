@@ -25,6 +25,8 @@ static u64 next_outreq_id;
  * struct json_command as it's good practice to have those const. */
 static STRMAP(const char *) usagemap;
 
+bool deprecated_apis;
+
 struct plugin_conn {
 	int fd;
 	MEMBUF(char) mb;
@@ -471,6 +473,12 @@ static struct command_result *handle_init(struct command *init_cmd,
 		plugin_err("Connecting to '%.*s': %s",
 			   rpctok->end - rpctok->start, buf + rpctok->start,
 			   strerror(errno));
+
+	deprecated_apis = streq(rpc_delve(tmpctx, "listconfigs",
+					  "'config': 'allow-deprecated-apis'",
+					  init_cmd->rpc,
+					  ".allow-deprecated-apis"),
+				"true");
 
 	if (init)
 		init(init_cmd->rpc);
