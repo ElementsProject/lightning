@@ -1739,9 +1739,9 @@ void wallet_payment_store(struct wallet *wallet,
 					    payment->route_channels);
 	sqlite3_bind_amount_msat(stmt, 9, payment->msatoshi_sent);
 
-	if (payment->description != NULL)
-		sqlite3_bind_text(stmt, 10, payment->description,
-				  strlen(payment->description),
+	if (payment->label != NULL)
+		sqlite3_bind_text(stmt, 10, payment->label,
+				  strlen(payment->label),
 				  SQLITE_TRANSIENT);
 	else
 		sqlite3_bind_null(stmt, 10);
@@ -1807,10 +1807,10 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	payment->msatoshi_sent = sqlite3_column_amount_msat(stmt, 10);
 
 	if (sqlite3_column_type(stmt, 11) != SQLITE_NULL)
-		payment->description = tal_strdup(
+		payment->label = tal_strdup(
 		    payment, (const char *)sqlite3_column_text(stmt, 11));
 	else
-		payment->description = NULL;
+		payment->label = NULL;
 
 	if (sqlite3_column_type(stmt, 12) != SQLITE_NULL)
 		payment->bolt11 = tal_strdup(payment,

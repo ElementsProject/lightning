@@ -8,7 +8,7 @@ lightning-sendpay - Low-level command for sending a payment via a route.
 
 SYNOPSIS
 --------
-*sendpay* 'route' 'payment_hash' ['description'] ['msatoshi'] ['bolt11']
+*sendpay* 'route' 'payment_hash' ['label'] ['msatoshi'] ['bolt11']
 
 DESCRIPTION
 -----------
@@ -27,7 +27,7 @@ definite failure of the payment.
 Instead, use the *waitsendpay* RPC command to poll or wait for
 definite success or definite failure.
 
-The 'description' and 'bolt11' parameters, if provided, will be returned in
+The 'label' and 'bolt11' parameters, if provided, will be returned in
 'waitsendpay' and 'listpayments' results.
 
 The 'msatoshi' amount, if provided, is the amount that will be

@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - pylightning: New class 'Millisatoshi' can be used for JSON API, and new '_msat' fields are turned into this on reading.
 - JSON API: `fundchannel` and `withdraw` now have a new parameter `minconf` that limits coinselection to outputs that have at least `minconf` confirmations (default 1). (#2380)
 - JSON API: `listfunds` now displays addresses for all outputs owned by the wallet (#2387)
+- JSON API: `waitsendpay` and `sendpay` output field `label` as specified by `sendpay` call.
 
 ### Changed
 
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `listpeers` now includes `funding_allocation_msat`, which returns a map of the amounts initially funded to the channel by each peer, indexed by channel id.
 - `option_data_loss_protect` is now enabled by default.
 - JSON API: `help` with a `command` argument gives a JSON array, like other commands.
+- JSON API: `sendpay` `description` parameter is renamed `label`.
 - build: we'll use the system libbase58 and libsodium if found suitable.
 
 ### Deprecated
@@ -50,6 +52,7 @@ fields for your own sanity checking, and that you similarly
 provide appropriate suffixes for JSON input fields.
 
 - JSON API: `short_channel_id` fields in JSON commands with `:` separators (use `x` instead).
+- JSON API: `sendpay` parameter `description` and `waitsendpay` and `sendpay` output fields `description` (now `label`).
 
 ### Removed
 
