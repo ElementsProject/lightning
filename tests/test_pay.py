@@ -220,10 +220,10 @@ def test_pay_optional_args(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
     inv1 = l2.rpc.invoice(123000, 'test_pay', 'desc')['bolt11']
-    l1.rpc.pay(inv1, description='desc')
+    l1.rpc.pay(inv1, label='desc')
     payment1 = l1.rpc.listpayments(inv1)['payments']
     assert len(payment1) and payment1[0]['msatoshi'] == 123000
-    assert payment1[0]['description'] == 'desc'
+    assert payment1[0]['label'] == 'desc'
 
     inv2 = l2.rpc.invoice(321000, 'test_pay2', 'description')['bolt11']
     l1.rpc.pay(inv2, riskfactor=5.0)
@@ -231,10 +231,10 @@ def test_pay_optional_args(node_factory):
     assert len(payment2) == 1 and payment2[0]['msatoshi'] == 321000
 
     anyinv = l2.rpc.invoice('any', 'any_pay', 'desc')['bolt11']
-    l1.rpc.pay(anyinv, description='desc', msatoshi='500')
+    l1.rpc.pay(anyinv, label='desc', msatoshi='500')
     payment3 = l1.rpc.listpayments(anyinv)['payments']
     assert len(payment3) == 1 and payment3[0]['msatoshi'] == 500
-    assert payment3[0]['description'] == 'desc'
+    assert payment3[0]['label'] == 'desc'
 
     # Should see 3 completed transactions
     assert len(l1.rpc.listpayments()['payments']) == 3
@@ -1288,7 +1288,7 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert only_one(status['pay'])['msatoshi'] == 10**5
     assert only_one(status['pay'])['amount_msat'] == Millisatoshi(10**5)
     assert only_one(status['pay'])['destination'] == l4.info['id']
-    assert 'description' not in only_one(status['pay'])
+    assert 'label' not in only_one(status['pay'])
     assert 'routehint_modifications' not in only_one(status['pay'])
     assert 'local_exclusions' not in only_one(status['pay'])
     # First attempt will fail, then it will try route hint
@@ -1349,13 +1349,13 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'label': 'test_pay_routeboost5',
                                       'description': 'test_pay_routeboost5',
                                       'dev-routes': [routel3l4l5, routel3l5]})
-        l1.rpc.pay(inv['bolt11'], description="paying test_pay_routeboost5")
+        l1.rpc.pay(inv['bolt11'], label="paying test_pay_routeboost5")
 
         status = l1.rpc.call('paystatus', [inv['bolt11']])
         assert only_one(status['pay'])['bolt11'] == inv['bolt11']
         assert only_one(status['pay'])['msatoshi'] == 10**5
         assert only_one(status['pay'])['destination'] == l5.info['id']
-        assert only_one(status['pay'])['description'] == "paying test_pay_routeboost5"
+        assert only_one(status['pay'])['label'] == "paying test_pay_routeboost5"
         assert 'routehint_modifications' not in only_one(status['pay'])
         assert 'local_exclusions' not in only_one(status['pay'])
         attempts = only_one(status['pay'])['attempts']

@@ -8,7 +8,7 @@ lightning-pay - Command for sending a payment to a BOLT11 invoice
 
 SYNOPSIS
 --------
-*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent'] ['retry_for'] ['maxdelay'] ['exemptfee']
+*pay* 'bolt11' ['msatoshi'] ['label'] ['riskfactor'] ['maxfeepercent'] ['retry_for'] ['maxdelay'] ['exemptfee']
 
 DESCRIPTION
 -----------
@@ -21,8 +21,9 @@ a whole number with suffix 'msat' or 'sat', or a three decimal
 point number with suffix 'sat', or an 1 to 11 decimal point number
 suffixed by 'btc'.
 
-If 'bolt11' contains a description hash ('h' field) 'description' is
-required, otherwise it is unused.  The 'riskfactor' is described in detail
+The 'label' field is used to attach a label to payments, and is returned
+in lightning-listpays(7) and lightning-listpayments(7).
+The 'riskfactor' is described in detail
 in lightning-getroute(7), and defaults to 10.
 The 'maxfeepercent' limits the money paid in fees, and defaults to 0.5.
 The `maxfeepercent' is a percentage of the amount that is to be
