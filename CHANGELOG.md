@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `help` with a `command` argument gives a JSON array, like other commands.
 - JSON API: `sendpay` `description` parameter is renamed `label`.
 - build: we'll use the system libbase58 and libsodium if found suitable.
+- JSON API: `pay` now takes an optional `label` parameter for labelling payments, in place of never-used `description`.
 
 ### Deprecated
 
@@ -52,6 +53,7 @@ fields for your own sanity checking, and that you similarly
 provide appropriate suffixes for JSON input fields.
 
 - JSON API: `short_channel_id` fields in JSON commands with `:` separators (use `x` instead).
+- JSON API: `pay` `description` is deprecated, as is support for BOLT11 strings using `h`.
 - JSON API: `sendpay` parameter `description` and `waitsendpay` and `sendpay` output fields `description` (now `label`).
 
 ### Removed

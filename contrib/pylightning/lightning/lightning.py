@@ -464,19 +464,19 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("waitsendpay", payload)
 
-    def pay(self, bolt11, msatoshi=None, description=None, riskfactor=None):
+    def pay(self, bolt11, msatoshi=None, label=None, riskfactor=None, description=None):
         """
         Send payment specified by {bolt11} with {msatoshi}
-        (ignored if {bolt11} has an amount),
-
-        {description} (required if {bolt11} uses description hash)
+        (ignored if {bolt11} has an amount), optional {label}
         and {riskfactor} (default 1.0)
         """
         payload = {
             "bolt11": bolt11,
             "msatoshi": msatoshi,
+            "label": label,
+            "riskfactor": riskfactor,
+            # Deprecated.
             "description": description,
-            "riskfactor": riskfactor
         }
         return self.call("pay", payload)
 
