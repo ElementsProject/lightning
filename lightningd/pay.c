@@ -101,6 +101,8 @@ json_add_payment_fields(struct json_stream *response,
 			     sizeof(*t->payment_preimage));
 	if (t->description)
 		json_add_string(response, "description", t->description);
+	if (t->bolt11)
+		json_add_string(response, "bolt11", t->bolt11);
 }
 
 static struct command_result *sendpay_success(struct command *cmd,
@@ -580,7 +582,8 @@ send_payment(struct lightningd *ld,
 	     const struct sha256 *rhash,
 	     const struct route_hop *route,
 	     struct amount_msat msat,
-	     const char *description TAKES)
+	     const char *description TAKES,
+	     const char *b11str TAKES)
 {
 	const u8 *onion;
 	u8 sessionkey[32];
@@ -720,6 +723,10 @@ send_payment(struct lightningd *ld,
 		payment->description = tal_strdup(payment, description);
 	else
 		payment->description = NULL;
+	if (b11str != NULL)
+		payment->bolt11 = tal_strdup(payment, b11str);
+	else
+		payment->bolt11 = NULL;
 
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
@@ -743,7 +750,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct sha256 *rhash;
 	struct route_hop *route;
 	struct amount_msat *msat;
-	const char *description;
+	const char *description, *b11str;
 	struct command_result *res;
 
 	if (!param(cmd, buffer, params,
@@ -751,6 +758,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_req("payment_hash", param_sha256, &rhash),
 		   p_opt("description", param_escaped_string, &description),
 		   p_opt("msatoshi", param_msat, &msat),
+		   p_opt("bolt11", param_string, &b11str),
 		   NULL))
 		return command_param_failed();
 
@@ -836,7 +844,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 
 	res = send_payment(cmd->ld, cmd, rhash, route,
 			   msat ? *msat : route[routetok->size-1].amount,
-			   description);
+			   description, b11str);
 	if (res)
 		return res;
 	return command_still_pending(cmd);

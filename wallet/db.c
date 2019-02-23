@@ -359,6 +359,8 @@ char *dbmigrations[] = {
     /* Fix dangling peers with no channels. */
     "DELETE FROM peers WHERE id NOT IN (SELECT peer_id FROM channels);",
     "ALTER TABLE outputs ADD scriptpubkey BLOB;",
+    /* Keep bolt11 string for payments. */
+    "ALTER TABLE payments ADD bolt11 TEXT;",
     NULL,
 };
 

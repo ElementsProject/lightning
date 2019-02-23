@@ -224,6 +224,8 @@ struct wallet_payment {
 	struct secret *path_secrets;
 	struct pubkey *route_nodes;
 	struct short_channel_id *route_channels;
+	/* bolt11 string; NULL for old payments. */
+	const char *bolt11;
 
 	/* The description of the payment. Must support `tal_len` */
 	const char *description;

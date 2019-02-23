@@ -1722,8 +1722,9 @@ void wallet_payment_store(struct wallet *wallet,
 		"  route_nodes,"
 		"  route_channels,"
 		"  msatoshi_sent,"
-		"  description"
-		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+		"  description,"
+		"  bolt11"
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 
 	sqlite3_bind_int(stmt, 1, payment->status);
 	sqlite3_bind_sha256(stmt, 2, &payment->payment_hash);
@@ -1744,6 +1745,13 @@ void wallet_payment_store(struct wallet *wallet,
 				  SQLITE_TRANSIENT);
 	else
 		sqlite3_bind_null(stmt, 10);
+
+	if (payment->bolt11 != NULL)
+		sqlite3_bind_text(stmt, 11, payment->bolt11,
+				  strlen(payment->bolt11),
+				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 11);
 
 	db_exec_prepared(wallet->db, stmt);
 
@@ -1804,6 +1812,12 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	else
 		payment->description = NULL;
 
+	if (sqlite3_column_type(stmt, 12) != SQLITE_NULL)
+		payment->bolt11 = tal_strdup(payment,
+					     (const char *)sqlite3_column_text(stmt, 12));
+	else
+		payment->bolt11 = NULL;
+
 	return payment;
 }
 
@@ -1811,7 +1825,7 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 #define PAYMENT_FIELDS                                                         \
 	"id, status, destination, msatoshi, payment_hash, timestamp, "         \
 	"payment_preimage, path_secrets, route_nodes, route_channels, "        \
-	"msatoshi_sent, description "
+	"msatoshi_sent, description, bolt11 "
 
 struct wallet_payment *
 wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
