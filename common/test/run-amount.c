@@ -52,11 +52,19 @@ int main(void)
 	PASS_MSAT(&msat, "0.00000000000btc", 0);
 	PASS_MSAT(&msat, "0.00000001btc", 1000);
 	PASS_MSAT(&msat, "0.00000000001btc", 1);
+	PASS_MSAT(&msat, "1.2btc", 120000000000);
+	PASS_MSAT(&msat, "1.23btc", 123000000000);
+	PASS_MSAT(&msat, "1.234btc", 123400000000);
+	PASS_MSAT(&msat, "1.2345btc", 123450000000);
+	PASS_MSAT(&msat, "1.23456btc", 123456000000);
+	PASS_MSAT(&msat, "1.234567btc", 123456700000);
+	PASS_MSAT(&msat, "1.2345678btc", 123456780000);
 	PASS_MSAT(&msat, "1.23456789btc", 123456789000);
+	PASS_MSAT(&msat, "1.234567890btc", 123456789000);
+	PASS_MSAT(&msat, "1.2345678901btc", 123456789010);
 	PASS_MSAT(&msat, "1.23456789012btc", 123456789012);
 	FAIL_MSAT(&msat, "1btc");
-	FAIL_MSAT(&msat, "1.0000000btc");
-	FAIL_MSAT(&msat, "1.000000000btc");
+	FAIL_MSAT(&msat, "1.000000000000btc");
 	FAIL_MSAT(&msat, "-1.23456789btc");
 	FAIL_MSAT(&msat, "-1.23456789012btc");
 
@@ -95,10 +103,16 @@ int main(void)
 	PASS_SAT(&sat, "0.00000001btc", 1);
 	FAIL_SAT(&sat, "0.00000000001btc");
 	PASS_SAT(&sat, "1.23456789btc", 123456789);
-	FAIL_SAT(&sat, "1.23456789012btc");
+	PASS_SAT(&sat, "1.2btc", 120000000);
+	PASS_SAT(&sat, "1.23btc", 123000000);
+	PASS_SAT(&sat, "1.234btc", 123400000);
+	PASS_SAT(&sat, "1.2345btc", 123450000);
+	PASS_SAT(&sat, "1.23456btc", 123456000);
+	PASS_SAT(&sat, "1.234567btc", 123456700);
+	PASS_SAT(&sat, "1.2345678btc", 123456780);
+	PASS_SAT(&sat, "1.23456789btc", 123456789);
+	FAIL_SAT(&sat, "1.234567890btc");
 	FAIL_SAT(&sat, "1btc");
-	FAIL_SAT(&sat, "1.0000000btc");
-	FAIL_SAT(&sat, "1.000000000btc");
 	FAIL_SAT(&sat, "-1.23456789btc");
 
 	/* Overflowingly big. */
