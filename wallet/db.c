@@ -636,8 +636,8 @@ static void db_migrate(struct db *db, struct log *log)
 		log_info(log, "Updating database from version %u to %u",
 			 current, available);
 
-	while (++current <= available)
-		db_exec(__func__, db, "%s", dbmigrations[current]);
+	while (current < available)
+		db_exec(__func__, db, "%s", dbmigrations[++current]);
 
 	/* Finally update the version number in the version table */
 	db_exec(__func__, db, "UPDATE version SET version=%d;", available);
