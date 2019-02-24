@@ -13,6 +13,7 @@
 #include <sqlite3.h>
 #include <stdbool.h>
 
+struct lightningd;
 struct log;
 
 struct db {
@@ -30,9 +31,10 @@ struct db {
  *
  * Params:
  *  @ctx: the tal_t context to allocate from
+ *  @ld: the lightningd context to hand to ugprade functions.
  *  @log: where to log messages to
  */
-struct db *db_setup(const tal_t *ctx, struct log *log);
+struct db *db_setup(const tal_t *ctx, struct lightningd *ld, struct log *log);
 
 /**
  * db_query - Prepare and execute a query, and return the result (or NULL)
