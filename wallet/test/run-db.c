@@ -51,6 +51,14 @@ static struct db *create_test_db(void)
 	return db;
 }
 
+static int db_migration_count(void)
+{
+	int count = 0;
+	while (dbmigrations[count] != NULL)
+		count++;
+	return count - 1;
+}
+
 static bool test_empty_db_migrate(void)
 {
 	struct db *db = create_test_db();
@@ -61,6 +69,7 @@ static bool test_empty_db_migrate(void)
 	db_migrate(db, NULL);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == db_migration_count());
+	CHECK(db_get_version(db) == ARRAY_SIZE(dbmigrations) - 2);
 	db_commit_transaction(db);
 
 	tal_free(db);
