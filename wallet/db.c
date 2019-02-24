@@ -1,5 +1,6 @@
 #include "db.h"
 
+#include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_escaped.h>
 #include <common/version.h>
@@ -601,20 +602,6 @@ static int db_get_version(struct db *db)
 }
 
 /**
- * db_migration_count - Count how many migrations are available
- *
- * Returns the maximum migration index, i.e., the version number of an
- * up-to-date database schema.
- */
-static int db_migration_count(void)
-{
-	int count = 0;
-	while (dbmigrations[count] != NULL)
-		count++;
-	return count - 1;
-}
-
-/**
  * db_migrate - Apply all remaining migrations from the current version
  */
 static void db_migrate(struct db *db, struct log *log)
@@ -625,7 +612,7 @@ static void db_migrate(struct db *db, struct log *log)
 	db_begin_transaction(db);
 
 	orig = current = db_get_version(db);
-	available = db_migration_count();
+	available = ARRAY_SIZE(dbmigrations) - 2;
 
 	if (current == -1)
 		log_info(log, "Creating database");
