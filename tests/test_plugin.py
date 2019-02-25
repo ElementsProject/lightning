@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
-from lightning import RpcError
+from lightning import RpcError, Millisatoshi
 from utils import only_one
 
 import pytest
@@ -32,6 +32,24 @@ def test_option_passthrough(node_factory):
     # option didn't exist
     n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
     n.stop()
+
+
+@pytest.mark.xfail(strict=True)
+def test_millisatoshi_passthrough(node_factory):
+    """ Ensure that Millisatoshi arguments and return work.
+    """
+    plugin_path = 'tests/plugins/millisatoshis.py'
+    n = node_factory.get_node(options={'plugin': plugin_path, 'log-level': 'io'})
+
+    # By keyword
+    ret = n.rpc.call('echo', {'msat': Millisatoshi(17), 'not_an_msat': '22msat'})['echo_msat']
+    assert type(ret) == Millisatoshi
+    assert ret == Millisatoshi(17)
+
+    # By position
+    ret = n.rpc.call('echo', [Millisatoshi(18), '22msat'])['echo_msat']
+    assert type(ret) == Millisatoshi
+    assert ret == Millisatoshi(18)
 
 
 def test_rpc_passthrough(node_factory):
