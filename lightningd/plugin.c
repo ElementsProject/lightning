@@ -810,7 +810,9 @@ static void plugin_manifest_cb(const char *buffer,
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok || resulttok->type != JSMN_OBJECT) {
 		plugin_kill(plugin,
-			    "\"getmanifest\" result is not an object");
+			    "\"getmanifest\" result is not an object: %.*s",
+			    toks[0].end - toks[0].start,
+			    buffer + toks[0].start);
 		return;
 	}
 
