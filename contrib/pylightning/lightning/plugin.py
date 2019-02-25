@@ -371,7 +371,7 @@ class Plugin(object):
             self.log(traceback.format_exc())
 
     def _write_locked(self, obj):
-        s = json.dumps(obj) + "\n\n"
+        s = json.dumps(obj, cls=LightningRpc.LightningJSONEncoder) + "\n\n"
         with self.write_lock:
             self.stdout.write(s)
             self.stdout.flush()
