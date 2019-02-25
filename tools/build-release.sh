@@ -106,8 +106,17 @@ if [ -z "${TARGETS##* zipfile *}" ]; then
     # git archive won't go into submodules :(; We use tar to copy
     git ls-files -z --recurse-submodules | tar --null --files-from=- -c -f - | (cd "release/clightning-$VERSION" && tar xf -)
     # tar can set dates on files, but zip cares about dates in directories!
-    find "release/clightning-$VERSION" -print0 | xargs -0r touch --no-dereference --date="$MTIME 00:00Z"
-    (cd release && zip -r -X "clightning-$VERSION.zip" "clightning-$VERSION")
+    # We set to local time (not "$MTIME 00:00Z") because zip uses local time!
+    find "release/clightning-$VERSION" -print0 | xargs -0r touch --no-dereference --date="$MTIME"
+    # Seriously, we can have differing permissions, too.  Normalize.
+    # Directories become drwxr-xr-x
+    find "release/clightning-$VERSION" -type d -print0 | xargs -0r chmod 755
+    # Executables become -rwxr-xr-x
+    find "release/clightning-$VERSION" -type f -perm -100 -print0 | xargs -0r chmod 755
+    # Non-executables become -rw-r--r--
+    find "release/clightning-$VERSION" -type f ! -perm -100 -print0 | xargs -0r chmod 644
+    # zip -r doesn't have a deterministic order, and git ls-files does.
+    LANG=C git ls-files --recurse-submodules | sed "s@^@clightning-$VERSION/@" | (cd release && zip -@ -X "clightning-$VERSION.zip")
     rm -r "release/clightning-$VERSION"
 fi
 
