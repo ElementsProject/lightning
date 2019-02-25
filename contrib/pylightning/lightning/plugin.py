@@ -451,7 +451,7 @@ class Plugin(object):
 
             # Handles out-of-order use of parameters like:
             # def hello_obfus(arg1, arg2, plugin, thing3, request=None, thing5='at', thing6=21)
-            argspec = inspect.getargspec(method.func)
+            argspec = inspect.getfullargspec(method.func)
             defaults = argspec.defaults
             num_defaults = len(defaults) if defaults else 0
             start_kwargs_idx = len(argspec.args) - num_defaults
