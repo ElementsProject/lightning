@@ -83,10 +83,7 @@ class Request(dict):
         })
 
     def _write_result(self, result):
-        with self.plugin.write_lock:
-            json.dump(result, fp=self.plugin.stdout)
-            self.plugin.stdout.write('\n\n')
-            self.plugin.stdout.flush()
+        self.plugin._write_locked(result)
 
 
 class Plugin(object):
@@ -373,16 +370,19 @@ class Plugin(object):
         except Exception:
             self.log(traceback.format_exc())
 
+    def _write_locked(self, obj):
+        s = json.dumps(obj) + "\n\n"
+        with self.write_lock:
+            self.stdout.write(s)
+            self.stdout.flush()
+
     def notify(self, method, params):
         payload = {
             'jsonrpc': '2.0',
             'method': method,
             'params': params,
         }
-        with self.write_lock:
-            json.dump(payload, self.stdout)
-            self.stdout.write("\n\n")
-            self.stdout.flush()
+        self._write_locked(payload)
 
     def log(self, message, level='info'):
         # Split the log into multiple lines and print them
