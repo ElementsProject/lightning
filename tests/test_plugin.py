@@ -34,7 +34,6 @@ def test_option_passthrough(node_factory):
     n.stop()
 
 
-@pytest.mark.xfail(strict=True)
 def test_millisatoshi_passthrough(node_factory):
     """ Ensure that Millisatoshi arguments and return work.
     """
