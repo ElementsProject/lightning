@@ -300,7 +300,7 @@ class Plugin(object):
             pos = 0
             for k, v in arguments.items():
                 # Skip already assigned args and special catch-all args
-                if v != inspect._empty or k in ['args', 'kwargs']:
+                if v is not inspect._empty or k in ['args', 'kwargs']:
                     continue
 
                 if pos < len(params):
@@ -326,7 +326,7 @@ class Plugin(object):
         elif len(args) > 0:
             raise TypeError("Extra arguments given: {args}".format(args=args))
 
-        missing = [k for k, v in arguments.items() if v == inspect._empty]
+        missing = [k for k, v in arguments.items() if v is inspect._empty]
         if missing:
             raise TypeError("Missing positional arguments ({given} given, "
                             "expected {expected}): {missing}".format(
