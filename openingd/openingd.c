@@ -632,12 +632,13 @@ static u8 *funder_channel(struct state *state,
 	 *
 	 * The routines to support `struct channel` are split into a common
 	 * part (common/initial_channel) which doesn't support HTLCs and is
-	 * enough for us hgere, and the complete channel support required by
+	 * enough for us here, and the complete channel support required by
 	 * `channeld` which lives in channeld/full_channel. */
 	state->channel = new_initial_channel(state,
 					     &state->chainparams->genesis_blockhash,
 					     &state->funding_txid,
 					     state->funding_txout,
+					     minimum_depth,
 					     state->funding,
 					     local_msat,
 					     state->feerate_per_kw,
@@ -1041,6 +1042,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &chain_hash,
 					     &state->funding_txid,
 					     state->funding_txout,
+					     state->minimum_depth,
 					     state->funding,
 					     state->push_msat,
 					     state->feerate_per_kw,

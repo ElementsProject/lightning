@@ -8,6 +8,7 @@ channel_init,,chain_hash,struct bitcoin_blkid
 channel_init,,funding_txid,struct bitcoin_txid
 channel_init,,funding_txout,u16
 channel_init,,funding_satoshi,struct amount_sat
+channel_init,,minimum_depth,u32
 channel_init,,our_config,struct channel_config
 channel_init,,their_config,struct channel_config
 # FIXME: Fix generate-wire.py to allow NUM_SIDES*u32 here.
@@ -62,10 +63,10 @@ channel_init,,last_remote_secret,struct secret
 channel_init,,lflen,u16
 channel_init,,localfeatures,lflen*u8
 
-# master->channeld funding hit new depth >= lock depth
-channel_funding_locked,1002
-channel_funding_locked,,short_channel_id,struct short_channel_id
-channel_funding_locked,,depth,u32
+# master->channeld funding hit new depth(funding locked if >= lock depth)
+channel_funding_depth,1002
+channel_funding_depth,,short_channel_id,?struct short_channel_id
+channel_funding_depth,,depth,u32
 
 # Tell channel to offer this htlc
 channel_offer_htlc,1004

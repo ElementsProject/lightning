@@ -153,6 +153,9 @@ struct peer {
 
 	/* Make sure peer is live. */
 	struct timeabs last_recv;
+
+	/* Additional confirmations need for local lockin. */
+	u32 depth_togo;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -165,8 +168,9 @@ static void billboard_update(const struct peer *peer)
 	if (peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
 		funding_status = "Funding transaction locked.";
 	else if (!peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
-		/* FIXME: Say how many blocks to go! */
-		funding_status = "Funding needs more confirmations.";
+		funding_status = tal_fmt(tmpctx,
+					"Funding needs %d confirmations to reach lockin.",
+					peer->depth_togo);
 	else if (peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
 		funding_status = "We've confirmed funding, they haven't yet.";
 	else if (!peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
@@ -2381,36 +2385,52 @@ static void peer_reconnect(struct peer *peer,
 	}
 }
 
-/* Funding has locked in, and reached depth. */
-static void handle_funding_locked(struct peer *peer, const u8 *msg)
+/* ignores the funding_depth unless depth >= minimum_depth
+ * (except to update billboard, and set peer->depth_togo). */
+static void handle_funding_depth(struct peer *peer, const u8 *msg)
 {
-	unsigned int depth;
+	u32 depth;
+	struct short_channel_id *scid;
 
-	if (!fromwire_channel_funding_locked(msg,
-					     &peer->short_channel_ids[LOCAL],
-					     &depth))
-		master_badmsg(WIRE_CHANNEL_FUNDING_LOCKED, msg);
+	if (!fromwire_channel_funding_depth(tmpctx,
+					    msg,
+					    &scid,
+					    &depth))
+		master_badmsg(WIRE_CHANNEL_FUNDING_DEPTH, msg);
 
 	/* Too late, we're shutting down! */
 	if (peer->shutdown_sent[LOCAL])
 		return;
 
-	if (!peer->funding_locked[LOCAL]) {
-		status_trace("funding_locked: sending commit index %"PRIu64": %s",
-			     peer->next_index[LOCAL],
-			     type_to_string(tmpctx, struct pubkey,
-					    &peer->next_local_per_commit));
-		msg = towire_funding_locked(NULL,
-					    &peer->channel_id,
-					    &peer->next_local_per_commit);
-		sync_crypto_write(&peer->cs, PEER_FD, take(msg));
-		peer->funding_locked[LOCAL] = true;
+	if (depth < peer->channel->minimum_depth) {
+		peer->depth_togo = peer->channel->minimum_depth - depth;
+
+	} else {
+		peer->depth_togo = 0;
+
+		assert(scid);
+		peer->short_channel_ids[LOCAL] = *scid;
+
+		if (!peer->funding_locked[LOCAL]) {
+
+			status_trace("funding_locked: sending commit index %"PRIu64": %s",
+						peer->next_index[LOCAL],
+						type_to_string(tmpctx, struct pubkey,
+					&peer->next_local_per_commit));
+
+			msg = towire_funding_locked(NULL,
+						    &peer->channel_id,
+						    &peer->next_local_per_commit);
+			sync_crypto_write(&peer->cs, PEER_FD, take(msg));
+
+			peer->funding_locked[LOCAL] = true;
+		}
+
+		peer->announce_depth_reached = (depth >= ANNOUNCE_MIN_DEPTH);
+
+		/* Send temporary or final announcements */
+		channel_announcement_negotiate(peer);
 	}
-
-	peer->announce_depth_reached = (depth >= ANNOUNCE_MIN_DEPTH);
-
-	/* Send temporary or final announcements */
-	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
 }
@@ -2633,8 +2653,8 @@ static void req_in(struct peer *peer, const u8 *msg)
 	enum channel_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_CHANNEL_FUNDING_LOCKED:
-		handle_funding_locked(peer, msg);
+	case WIRE_CHANNEL_FUNDING_DEPTH:
+		handle_funding_depth(peer, msg);
 		return;
 	case WIRE_CHANNEL_OFFER_HTLC:
 		handle_offer_htlc(peer, msg);
@@ -2720,6 +2740,7 @@ static void init_channel(struct peer *peer)
 	u8 *funding_signed;
 	const u8 *msg;
 	u32 feerate_per_kw[NUM_SIDES];
+	u32 minimum_depth;
 	struct secret last_remote_per_commit_secret;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
@@ -2731,6 +2752,7 @@ static void init_channel(struct peer *peer)
 				   &peer->chain_hash,
 				   &funding_txid, &funding_txout,
 				   &funding,
+				   &minimum_depth,
 				   &conf[LOCAL], &conf[REMOTE],
 				   feerate_per_kw,
 				   &peer->feerate_min, &peer->feerate_max,
@@ -2773,8 +2795,9 @@ static void init_channel(struct peer *peer)
 				   &funding_signed,
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
-				   &peer->localfeatures))
-		master_badmsg(WIRE_CHANNEL_INIT, msg);
+				   &peer->localfeatures)) {
+					   master_badmsg(WIRE_CHANNEL_INIT, msg);
+	}
 
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
@@ -2804,7 +2827,9 @@ static void init_channel(struct peer *peer)
 
 	peer->channel = new_full_channel(peer,
 					 &peer->chain_hash,
-					 &funding_txid, funding_txout,
+					 &funding_txid,
+					 funding_txout,
+					 minimum_depth,
 					 funding,
 					 local_msat,
 					 feerate_per_kw,
@@ -2840,6 +2865,9 @@ static void init_channel(struct peer *peer)
 	/* Default desired feerate is the feerate we set for them last. */
 	if (peer->channel->funder == LOCAL)
 		peer->desired_feerate = feerate_per_kw[REMOTE];
+
+	/* from now we need keep watch over WIRE_CHANNEL_FUNDING_DEPTH */
+	peer->depth_togo = minimum_depth;
 
 	/* OK, now we can process peer messages. */
 	if (reconnected)

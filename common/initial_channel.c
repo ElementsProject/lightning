@@ -12,6 +12,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
+				    u32 minimum_depth,
 				    struct amount_sat funding,
 				    struct amount_msat local_msatoshi,
 				    u32 feerate_per_kw,
@@ -29,6 +30,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->funding_txid = *funding_txid;
 	channel->funding_txout = funding_txout;
 	channel->funding = funding;
+	channel->minimum_depth = minimum_depth;
 	if (!amount_sat_sub_msat(&remote_msatoshi,
 				 channel->funding, local_msatoshi))
 		return tal_free(channel);

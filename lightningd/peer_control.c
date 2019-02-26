@@ -856,23 +856,22 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	plugin_hook_call_peer_connected(ld, hook_payload, hook_payload);
 }
 
-static enum watch_result funding_lockin_cb(struct lightningd *ld,
+static enum watch_result funding_depth_cb(struct lightningd *ld,
 					   struct channel *channel,
 					   const struct bitcoin_txid *txid,
 					   unsigned int depth)
 {
 	const char *txidstr;
 
-	txidstr = type_to_string(channel, struct bitcoin_txid, txid);
+	txidstr = type_to_string(tmpctx, struct bitcoin_txid, txid);
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, channel->minimum_depth);
 	tal_free(txidstr);
 
-	if (depth < channel->minimum_depth)
-		return KEEP_WATCHING;
+	bool local_locked = depth >= channel->minimum_depth;
 
 	/* If we restart, we could already have peer->scid from database */
-	if (!channel->scid) {
+	if (local_locked && !channel->scid) {
 		struct txlocator *loc;
 
 		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
@@ -891,9 +890,11 @@ static enum watch_result funding_lockin_cb(struct lightningd *ld,
 	}
 
 	/* Try to tell subdaemon */
-	if (!channel_tell_funding_locked(ld, channel, txid, depth))
+	if (!channel_tell_depth(ld, channel, txid, depth))
 		return KEEP_WATCHING;
 
+	if (!local_locked)
+		return KEEP_WATCHING;
 	/* BOLT #7:
 	 *
 	 * A node:
@@ -932,7 +933,7 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* FIXME: Remove arg from cb? */
 	watch_txid(channel, ld->topology, channel,
-		   &channel->funding_txid, funding_lockin_cb);
+		   &channel->funding_txid, funding_depth_cb);
 	watch_txo(channel, ld->topology, channel,
 		  &channel->funding_txid, channel->funding_outnum,
 		  funding_spent);
