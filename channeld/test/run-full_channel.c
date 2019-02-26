@@ -453,7 +453,7 @@ int main(void)
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
 	lchannel = new_full_channel(tmpctx,
 				    &chainparams->genesis_blockhash,
-				    &funding_txid, funding_output_index,
+				    &funding_txid, funding_output_index, 0,
 				    funding_amount, to_local,
 				    feerate_per_kw,
 				    local_config,
@@ -464,7 +464,7 @@ int main(void)
 				    LOCAL);
 	rchannel = new_full_channel(tmpctx,
 				    &chainparams->genesis_blockhash,
-				    &funding_txid, funding_output_index,
+				    &funding_txid, funding_output_index, 0,
 				    funding_amount, to_remote,
 				    feerate_per_kw,
 				    remote_config,
