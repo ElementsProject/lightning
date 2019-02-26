@@ -283,7 +283,7 @@ JSON-RPC interface is documented in the following manual pages:
 * [getroute](doc/lightning-getroute.7.txt)
 * [sendpay](doc/lightning-sendpay.7.txt)
 * [pay](doc/lightning-pay.7.txt)
-* [listpayments](doc/lightning-listpayments.7.txt)
+* [listpays](doc/lightning-listpays.7.txt)
 * [decodepay](doc/lightning-decodepay.7.txt)
 
 For simple access to the JSON-RPC interface you can use the
