@@ -13,7 +13,7 @@ Here's a checklist for the release process.
 
 ### Prepering for -rc1
 
-1. Check that CHANGELOG.md is well formetted, ordered in areas,
+1. Check that CHANGELOG.md is well formatted, ordered in areas,
    covers all signficant changes, and sub-ordered approximately by user impact
    & coolness.
 2. Update the CHANGELOG.md with [Unreleased] changed to -rc1, and add a new
