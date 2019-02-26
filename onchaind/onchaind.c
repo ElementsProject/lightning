@@ -156,7 +156,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 				 const struct bitcoin_signature *remotesig,
 				 const u8 *wscript)
 {
-	static struct amount_sat fee = AMOUNT_SAT(UINT64_MAX);
+	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
 
 	/* BOLT #3:
 	 *
@@ -181,7 +181,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 				 const struct bitcoin_signature *remotesig,
 				 const u8 *wscript)
 {
-	static struct amount_sat fee = AMOUNT_SAT(UINT64_MAX);
+	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
 
 	/* BOLT #3:
 	 *

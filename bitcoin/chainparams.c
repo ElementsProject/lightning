@@ -17,8 +17,8 @@ const struct chainparams networks[] = {
       *...
       *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
       */
-     .max_funding = AMOUNT_SAT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
+     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
      /* "Lightning Charge Powers Developers & Blockstream Store" */
      .when_lightning_became_cool = 504500,
      .testnet = false},
@@ -29,8 +29,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-regtest",
      .dust_limit = { 546 },
-     .max_funding = AMOUNT_SAT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
+     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
      .when_lightning_became_cool = 1,
      .testnet = true},
     {.network_name = "testnet",
@@ -40,8 +40,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-testnet",
      .dust_limit = { 546 },
-     .max_funding = AMOUNT_SAT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
+     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
      .testnet = true},
     {.network_name = "litecoin",
      .bip173_name = "ltc",
@@ -50,8 +50,8 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = NULL,
      .dust_limit = { 100000 },
-     .max_funding = AMOUNT_SAT(60 * ((1 << 24) - 1)),
-     .max_payment = AMOUNT_MSAT(60 * 0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(60 * ((1 << 24) - 1)),
+     .max_payment = AMOUNT_MSAT_INIT(60 * 0xFFFFFFFFULL),
      .when_lightning_became_cool = 1320000,
      .testnet = false},
     {.network_name = "litecoin-testnet",
@@ -61,8 +61,8 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = "-testnet",
      .dust_limit = { 100000 },
-     .max_funding = AMOUNT_SAT(60 * ((1 << 24) - 1)),
-     .max_payment = AMOUNT_MSAT(60 * 0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(60 * ((1 << 24) - 1)),
+     .max_payment = AMOUNT_MSAT_INIT(60 * 0xFFFFFFFFULL),
      .when_lightning_became_cool = 1,
      .testnet = true}
 };

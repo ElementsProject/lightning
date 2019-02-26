@@ -29,6 +29,13 @@ struct amount_msat {
 #define AMOUNT_MUST_BE_CONST(c) 0
 #endif
 
+/* GCC 4.8.5 (Centos 7.6!) thinks struct casts are not constants, so we
+ * need to not use a cast for static initializations. */
+#define AMOUNT_MSAT_INIT(msat)		\
+	{ .millisatoshis = (msat) }
+#define AMOUNT_SAT_INIT(sat)		\
+	{ .satoshis = (sat) }
+
 #define AMOUNT_MSAT(constant)						\
 	((struct amount_msat){(constant) + AMOUNT_MUST_BE_CONST(constant)})
 
