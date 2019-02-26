@@ -54,7 +54,8 @@ PLATFORM="$OS"-"$VER"
 VERSION=$(git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's,.*/clightning-\(v[0-9.rc]*\)$,\1,p')
 
 # eg. ## [0.6.3] - 2019-01-09: "The Smallblock Conspiracy"
-MTIME=${FORCE_MTIME:-$(sed -n "s/^## \\[$VERSION\\] - \\([-0-9]*\\).*/\\1/p" < CHANGELOG.md)}
+# Skip 'v' here in $VERSION
+MTIME=${FORCE_MTIME:-$(sed -n "s/^## \\[${VERSION#v}\\] - \\([-0-9]*\\).*/\\1/p" < CHANGELOG.md)}
 if [ -z "$MTIME" ]; then
     echo "No date found for $VERSION in CHANGELOG.md" >&2
     exit 1

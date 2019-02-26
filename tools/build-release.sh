@@ -64,7 +64,8 @@ if [ "$VERSION" = "" ]; then
     exit 1
 fi
 
-MTIME=${FORCE_MTIME:-$(sed -n "s/^## \\[$VERSION\\] - \\([-0-9]*\\).*/\\1/p" < CHANGELOG.md)}
+# Skip 'v' here in $VERSION
+MTIME=${FORCE_MTIME:-$(sed -n "s/^## \\[${VERSION#v}\\] - \\([-0-9]*\\).*/\\1/p" < CHANGELOG.md)}
 if [ -z "$MTIME" ]; then
     echo "No date found for $VERSION in CHANGELOG.md" >&2
     exit 1
