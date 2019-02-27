@@ -145,7 +145,7 @@ if [ -z "$VALGRIND" ]; then
 fi
 
 if [ "$ASAN" = "1" ]; then
-    if [ "$CC" == "clang" ]; then
+    if [ "$CC" = "clang" ]; then
 	echo "Address sanitizer (ASAN) is currently only supported with gcc"
 	exit 1
     fi
