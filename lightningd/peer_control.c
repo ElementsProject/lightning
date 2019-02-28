@@ -1291,10 +1291,6 @@ static struct command_result *json_getinfo(struct command *cmd,
     /* Add some peer and channel stats */
     list_for_each(&cmd->ld->peers, peer, list) {
         num_peers++;
-        /* Count towards pending? */
-        if (peer->uncommitted_channel) {
-            pending_channels++;
-        }
 
         list_for_each(&peer->channels, channel, list) {
             if (channel->state == CHANNELD_AWAITING_LOCKIN) {
