@@ -9,7 +9,7 @@ if [ x"$1" = x"--inside-docker" ]; then
     ./configure
     make -j3
     make install DESTDIR=/"$VER"
-    tar cvfz /release/clightning-"$VER".tar.gz -- *
+    cd /"$VER" && tar cvfz /release/clightning-"$VER".tar.gz -- *
     exit 0
 fi
 
