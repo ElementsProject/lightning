@@ -9,7 +9,7 @@ lightning-getroute - Command for routing a payment (low-level).
 
 SYNOPSIS
 --------
-*getroute* 'id' 'msatoshi' 'riskfactor' ['cltv'] ['fromid'] ['fuzzpercent']
+*getroute* 'id' 'msatoshi' 'riskfactor' ['cltv'] ['fromid'] ['fuzzpercent'] ['exclude'] ['maxhops']
 
 DESCRIPTION
 -----------
@@ -42,6 +42,9 @@ to provide some randomization to the route generated.
 while 100.0 means the fee used might be from 0 to twice the actual fee.
 The default is 5.0, or up to 5% fee distortion.
 
+'exclude' is a JSON array of short-channel-id/direction (e.g. [ "564334x877x1/0", "564195x1292x0/1" ]) which should be excluded from consideration for routing.  The default is not to exclude any channels.
+
+'maxhops' is the maximum number of channels to return; default is 20.
 
 RISKFACTOR EFFECT ON ROUTING
 ----------------------------
