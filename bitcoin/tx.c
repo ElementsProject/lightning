@@ -328,11 +328,21 @@ void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid)
 	sha256_double_done(&ctx, &txid->shad);
 }
 
+/* Use the bitcoin_tx destructor to also free the wally_tx */
+static void bitcoin_tx_destroy(struct bitcoin_tx *tx)
+{
+	wally_tx_free(tx->wtx);
+}
+
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			      varint_t output_count)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
+
+	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,
+			    &tx->wtx);
+	tal_add_destructor(tx, bitcoin_tx_destroy);
 
 	tx->output = tal_arrz(tx, struct bitcoin_tx_output, output_count);
 	tx->input = tal_arrz(tx, struct bitcoin_tx_input, input_count);
@@ -441,6 +451,11 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	u64 count;
 	u8 flag = 0;
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+	if (wally_tx_from_bytes(*cursor, *max, 0, &tx->wtx) != WALLY_OK) {
+		*cursor = 0;
+		return tal_free(tx);
+	}
+	tal_add_destructor(tx, bitcoin_tx_destroy);
 
 	tx->version = pull_le32(cursor, max);
 	count = pull_length(cursor, max, 32 + 4 + 4 + 1);

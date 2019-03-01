@@ -8,6 +8,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <wally_transaction.h>
 
 struct bitcoin_txid {
 	struct sha256_double shad;
@@ -20,6 +21,7 @@ struct bitcoin_tx {
 	struct bitcoin_tx_input *input;
 	struct bitcoin_tx_output *output;
 	u32 lock_time;
+	struct wally_tx *wtx;
 };
 
 struct bitcoin_tx_output {
