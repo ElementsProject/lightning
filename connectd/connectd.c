@@ -1164,7 +1164,7 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 		for (size_t i = 0; i < tal_count(daemon->listen_fds); i++) {
 			/* On Linux, at least, we may bind to all addresses
 			 * for IPv4 and IPv6, but we'll fail to listen. */
-			if (listen(daemon->listen_fds[i].fd, 5) != 0) {
+			if (listen(daemon->listen_fds[i].fd, 64) != 0) {
 				if (daemon->listen_fds[i].mayfail)
 					continue;
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
