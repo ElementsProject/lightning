@@ -658,7 +658,7 @@ static struct command_result *add_shadow_route(struct command *cmd,
 	const jsmntok_t *channels = json_get_member(buf, result, "channels");
 	const jsmntok_t *chan, *best = NULL;
 	size_t i;
-	u64 sample;
+	u64 sample = 0;
 	u32 cltv, best_cltv;
 
 	json_for_each_arr(i, chan, channels) {
