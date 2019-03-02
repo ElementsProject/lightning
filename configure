@@ -168,6 +168,7 @@ code=
 int main(void)
 {
 	printf("%p\n", crypto_aead_chacha20poly1305_ietf_encrypt);
+	printf("%d\n", crypto_aead_chacha20poly1305_ietf_NPUBBYTES);
 	exit(0);
 }
 /*END*/
