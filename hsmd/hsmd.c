@@ -360,7 +360,7 @@ static void populate_secretstuff(void)
 			    "bip32 seed", strlen("bip32 seed"));
 		salt++;
 	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-				     BIP32_VER_TEST_PRIVATE,
+				     BIP32_VER_MAIN_PRIVATE,
 				     0, &master_extkey) != WALLY_OK);
 
 	/* BIP 32:
