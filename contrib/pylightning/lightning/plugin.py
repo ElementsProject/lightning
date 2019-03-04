@@ -378,9 +378,11 @@ class Plugin(object):
             self.log(traceback.format_exc())
 
     def _write_locked(self, obj):
-        s = json.dumps(obj, cls=LightningRpc.LightningJSONEncoder) + "\n\n"
+        # ensure_ascii turns UTF-8 into \uXXXX so we need to suppress that,
+        # then utf8 ourselves.
+        s = bytes(json.dumps(obj, cls=LightningRpc.LightningJSONEncoder, ensure_ascii=False) + "\n\n", encoding='utf-8')
         with self.write_lock:
-            self.stdout.write(s)
+            self.stdout.buffer.write(s)
             self.stdout.flush()
 
     def notify(self, method, params):
@@ -415,7 +417,7 @@ class Plugin(object):
         for payload in msgs[:-1]:
             # Note that we use function annotations to do Millisatoshi conversions
             # in _exec_func, so we don't use LightningJSONDecoder here.
-            request = self._parse_request(json.loads(payload))
+            request = self._parse_request(json.loads(payload.decode('utf8')))
 
             # If this has an 'id'-field, it's a request and returns a
             # result. Otherwise it's a notification and it doesn't
@@ -428,11 +430,11 @@ class Plugin(object):
         return msgs[-1]
 
     def run(self):
-        partial = ""
-        for l in self.stdin:
+        partial = b""
+        for l in self.stdin.buffer:
             partial += l
 
-            msgs = partial.split('\n\n')
+            msgs = partial.split(b'\n\n')
             if len(msgs) < 2:
                 continue
 

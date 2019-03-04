@@ -190,7 +190,6 @@ def test_async_rpcmethod(node_factory, executor):
     assert [r.result() for r in results] == [42] * len(results)
 
 
-@pytest.mark.xfail(strict=True)
 def test_utf8_passthrough(node_factory, executor):
     l1 = node_factory.get_node(options={'plugin': 'tests/plugins/utf8.py',
                                         'log-level': 'io'})
