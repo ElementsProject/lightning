@@ -188,3 +188,22 @@ def test_async_rpcmethod(node_factory, executor):
     l1.rpc.asyncflush(42)
 
     assert [r.result() for r in results] == [42] * len(results)
+
+
+@pytest.mark.xfail(strict=True)
+def test_utf8_passthrough(node_factory, executor):
+    l1 = node_factory.get_node(options={'plugin': 'tests/plugins/utf8.py',
+                                        'log-level': 'io'})
+
+    # This works because Python unmangles.
+    res = l1.rpc.call('utf8', ['ナンセンス 1杯'])
+    assert '\\u' not in res['utf8']
+    assert res['utf8'] == 'ナンセンス 1杯'
+
+    # Now, try native.
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'utf8', 'ナンセンス 1杯']).decode('utf-8')
+    assert '\\u' not in out
+    assert out == '{"utf8": "ナンセンス 1杯"}\n'
