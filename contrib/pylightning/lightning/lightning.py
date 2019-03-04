@@ -3,6 +3,8 @@ import json
 import logging
 import socket
 
+__version__ = "0.0.7.1"
+
 
 class RpcError(ValueError):
     def __init__(self, method, payload, error):
