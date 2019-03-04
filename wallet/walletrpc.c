@@ -266,25 +266,31 @@ encode_scriptpubkey_to_addr(const tal_t *ctx,
 	return out;
 }
 
-/* Extract a bool indicating "p2sh-segwit" or "bech32" */
+enum addrtype {
+	ADDR_P2SH_SEGWIT = 1,
+	ADDR_BECH32 = 2,
+	ADDR_ALL = (ADDR_P2SH_SEGWIT + ADDR_BECH32)
+};
+
+/* Extract  bool indicating "p2sh-segwit" or "bech32" */
 static struct command_result *param_newaddr(struct command *cmd,
 					    const char *name,
 					    const char *buffer,
 					    const jsmntok_t *tok,
-					    bool **is_p2wpkh)
+					    enum addrtype **addrtype)
 {
-	*is_p2wpkh = tal(cmd, bool);
-	if (json_tok_streq(buffer, tok, "p2sh-segwit")) {
-		**is_p2wpkh = false;
-		return NULL;
-	}
-	if (json_tok_streq(buffer, tok, "bech32")) {
-		**is_p2wpkh = true;
-		return NULL;
-	}
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be 'bech32' or 'p2sh-segwit', not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	*addrtype = tal(cmd, enum addrtype);
+	if (json_tok_streq(buffer, tok, "p2sh-segwit"))
+		**addrtype = ADDR_P2SH_SEGWIT;
+	else if (json_tok_streq(buffer, tok, "bech32"))
+		**addrtype = ADDR_BECH32;
+	else if (json_tok_streq(buffer, tok, "all"))
+		**addrtype = ADDR_ALL;
+	else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be 'bech32', 'p2sh-segwit' or 'all', not '%.*s'",
+				    name, tok->end - tok->start, buffer + tok->start);
+	return NULL;
 }
 
 static struct command_result *json_newaddr(struct command *cmd,
@@ -295,12 +301,12 @@ static struct command_result *json_newaddr(struct command *cmd,
 	struct json_stream *response;
 	struct ext_key ext;
 	struct pubkey pubkey;
-	bool *is_p2wpkh;
+	enum addrtype *addrtype;
 	s64 keyidx;
-	char *out;
+	char *p2sh, *bech32;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("addresstype", param_newaddr, &is_p2wpkh, true),
+		   p_opt_def("addresstype", param_newaddr, &addrtype, ADDR_BECH32),
 		   NULL))
 		return command_param_failed();
 
@@ -321,17 +327,20 @@ static struct command_result *json_newaddr(struct command *cmd,
 
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
-	out = encode_pubkey_to_addr(cmd, cmd->ld,
-				    &pubkey, !*is_p2wpkh,
-				    NULL);
-	if (!out) {
+	p2sh = encode_pubkey_to_addr(cmd, cmd->ld, &pubkey, true, NULL);
+	bech32 = encode_pubkey_to_addr(cmd, cmd->ld, &pubkey, false, NULL);
+	if (!p2sh || !bech32) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "p2wpkh address encoding failure.");
 	}
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
-	json_add_string(response, "address", out);
+	json_add_string(response, "address", bech32 ? bech32 : p2sh);
+	if (*addrtype & ADDR_BECH32)
+		json_add_string(response, "bech32", bech32);
+	if (*addrtype & ADDR_P2SH_SEGWIT)
+		json_add_string(response, "p2sh-segwit", p2sh);
 	json_object_end(response);
 	return command_success(cmd, response);
 }
@@ -339,8 +348,8 @@ static struct command_result *json_newaddr(struct command *cmd,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new {bech32, p2sh-segwit} address to fund a channel (default is bech32)", false,
-	"Generates a new address that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
+	"Get a new {bech32, p2sh-segwit} (or all) address to fund a channel (default is bech32)", false,
+	"Generates a new address (or both) that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
 };
 AUTODATA(json_command, &newaddr_command);
 
