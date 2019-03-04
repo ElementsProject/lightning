@@ -51,14 +51,14 @@ static struct db *create_test_db(void)
 	return db;
 }
 
-static bool test_empty_db_migrate(void)
+static bool test_empty_db_migrate(struct lightningd *ld)
 {
 	struct db *db = create_test_db();
 	CHECK(db);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
 	db_commit_transaction(db);
-	db_migrate(NULL, db, NULL);
+	db_migrate(ld, db, NULL);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == ARRAY_SIZE(dbmigrations) - 1);
 	db_commit_transaction(db);
@@ -91,12 +91,12 @@ static bool test_primitives(void)
 	return true;
 }
 
-static bool test_vars(void)
+static bool test_vars(struct lightningd *ld)
 {
 	struct db *db = create_test_db();
 	char *varname = "testvar";
 	CHECK(db);
-	db_migrate(NULL, db, NULL);
+	db_migrate(ld, db, NULL);
 
 	db_begin_transaction(db);
 	/* Check default behavior */
@@ -120,10 +120,13 @@ int main(void)
 	setup_locale();
 
 	bool ok = true;
+	/* Dummy for migration hooks */
+	struct lightningd *ld = tal(NULL, struct lightningd);
 
-	ok &= test_empty_db_migrate();
-	ok &= test_vars();
+	ok &= test_empty_db_migrate(ld);
+	ok &= test_vars(ld);
 	ok &= test_primitives();
 
+	tal_free(ld);
 	return !ok;
 }
