@@ -198,7 +198,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     amounts = [0, 545999, 546000]
     num_peers = len(feerates) * len(amounts)
 
-    addr = l1.rpc.newaddr()['address']
+    addr = l1.rpc.newaddr()['bech32']
     bitcoind.rpc.sendtoaddress(addr, 1)
     numfunds = len(l1.rpc.listfunds()['outputs'])
     bitcoind.generate_block(1)
@@ -501,7 +501,7 @@ def test_onchain_unwatch(node_factory, bitcoind):
 
     # Now test unrelated onchain churn.
     # Daemon gets told about wallet; says it doesn't care.
-    l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
+    l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all')
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log("but we don't care")
 
@@ -510,7 +510,7 @@ def test_onchain_unwatch(node_factory, bitcoind):
 
     # So these should not generate further messages
     for i in range(5):
-        l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
+        l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all')
         bitcoind.generate_block(1)
         # Make sure it digests the block
         sync_blockheight(bitcoind, [l1])

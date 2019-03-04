@@ -365,7 +365,7 @@ def test_withdraw(node_factory, bitcoind):
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True)
     l2 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['address']
+    addr = l1.rpc.newaddr()['bech32']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -401,7 +401,7 @@ def test_withdraw(node_factory, bitcoind):
 
     # Now send some money to l2.
     # lightningd uses P2SH-P2WPKH
-    waddr = l2.rpc.newaddr('bech32')['address']
+    waddr = l2.rpc.newaddr('bech32')['bech32']
     l1.rpc.withdraw(waddr, 2 * amount)
     bitcoind.generate_block(1)
 
@@ -471,7 +471,7 @@ def test_withdraw(node_factory, bitcoind):
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 6
 
     # Test withdrawal to self.
-    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['address'], 'all', minconf=0)
+    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all', minconf=0)
     bitcoind.generate_block(1)
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
 
@@ -489,7 +489,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     # Previous runs with same bitcoind can leave funds!
     l1 = node_factory.get_node(random_hsm=True)
 
-    addr = l1.rpc.newaddr()['address']
+    addr = l1.rpc.newaddr()['bech32']
     bitcoind.rpc.sendtoaddress(addr, 0.1)
     bitcoind.generate_block(1)
 
@@ -503,7 +503,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     assert output['address'] == addr
 
     # Send all our money to a P2WPKH address this time.
-    addr = l1.rpc.newaddr("bech32")['address']
+    addr = l1.rpc.newaddr("bech32")['bech32']
     l1.rpc.withdraw(addr, "all")
     bitcoind.generate_block(1)
     time.sleep(1)
@@ -804,7 +804,7 @@ def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['address']
+    addr = l1.rpc.newaddr()['bech32']
 
     ######################################################################
     # First failure scenario: rollback on startup doesn't work,

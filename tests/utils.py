@@ -438,7 +438,7 @@ class LightningNode(object):
         return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': fundingtx}
 
     def fundwallet(self, sats, addrtype="p2sh-segwit"):
-        addr = self.rpc.newaddr(addrtype)['address']
+        addr = self.rpc.newaddr(addrtype)[addrtype]
         txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
         self.bitcoin.generate_block(1)
         self.daemon.wait_for_log('Owning output .* txid {}'.format(txid))
@@ -529,7 +529,7 @@ class LightningNode(object):
     def fund_channel(self, l2, amount, wait_for_active=True):
 
         # Give yourself some funds to work with
-        addr = self.rpc.newaddr()['address']
+        addr = self.rpc.newaddr()['bech32']
         self.bitcoin.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
         numfunds = len(self.rpc.listfunds()['outputs'])
         self.bitcoin.generate_block(1)
@@ -847,7 +847,7 @@ class NodeFactory(object):
 
         # If we got here, we want to fund channels
         for src, dst in connections:
-            addr = src.rpc.newaddr()['address']
+            addr = src.rpc.newaddr()['bech32']
             src.bitcoin.rpc.sendtoaddress(addr, (fundamount + 1000000) / 10**8)
 
         bitcoin.generate_block(1)

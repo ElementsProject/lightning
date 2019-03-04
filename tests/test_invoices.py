@@ -11,8 +11,8 @@ import unittest
 def test_invoice(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
-    addr1 = l2.rpc.newaddr('bech32')['address']
-    addr2 = l2.rpc.newaddr('p2sh-segwit')['address']
+    addr1 = l2.rpc.newaddr('bech32')['bech32']
+    addr2 = l2.rpc.newaddr('p2sh-segwit')['p2sh-segwit']
     before = int(time.time())
     inv = l1.rpc.invoice(123000, 'label', 'description', '3700', [addr1, addr2])
     after = int(time.time())

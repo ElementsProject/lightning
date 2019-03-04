@@ -621,7 +621,7 @@ def test_funding_fail(node_factory, bitcoind):
 
     funds = 1000000
 
-    addr = l1.rpc.newaddr()['address']
+    addr = l1.rpc.newaddr()['bech32']
     l1.bitcoin.rpc.sendtoaddress(addr, funds / 10**8)
     bitcoind.generate_block(1)
 
@@ -661,7 +661,7 @@ def test_funding_toolarge(node_factory, bitcoind):
 
     # Send funds.
     amount = 2**24
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['address'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
 
     # Wait for it to arrive.
@@ -701,7 +701,7 @@ def test_lockin_between_restart(node_factory, bitcoind):
 
 def test_funding_while_offline(node_factory, bitcoind):
     l1 = node_factory.get_node()
-    addr = l1.rpc.newaddr()['address']
+    addr = l1.rpc.newaddr()['bech32']
     sync_blockheight(bitcoind, [l1])
 
     # l1 goes down.
@@ -1154,13 +1154,13 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Can't withdraw either.
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
-        l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all')
+        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all')
 
     # Can't use feerate names, either.
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
-        l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all', 'urgent')
-        l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all', 'normal')
-        l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all', 'slow')
+        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'urgent')
+        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'normal')
+        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'slow')
 
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.fundchannel(l2.info['id'], 10**6, 'urgent')
@@ -1168,7 +1168,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
         l1.rpc.fundchannel(l2.info['id'], 10**6, 'slow')
 
     # Can with manual feerate.
-    l1.rpc.withdraw(l2.rpc.newaddr()['address'], 10000, '1500perkb')
+    l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 10000, '1500perkb')
     l1.rpc.fundchannel(l2.info['id'], 10**6, '2000perkw', minconf=0)
 
     # Make sure we clean up cahnnel for later attempt.
@@ -1210,7 +1210,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     l1.rpc.fundchannel(l2.info['id'], 10**6, 'slow')
 
     # Can withdraw (use urgent feerate).
-    l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all', 'urgent')
+    l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'urgent')
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")

@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
 
+- JSON API: `newaddr` output field `address`: use `bech32` or `p2sh-segwit` instead.
+
 ### Removed
 
 ### Fixed

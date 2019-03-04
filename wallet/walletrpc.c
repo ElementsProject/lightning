@@ -21,6 +21,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wally_bip32.h>
@@ -336,7 +337,8 @@ static struct command_result *json_newaddr(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
-	json_add_string(response, "address", bech32 ? bech32 : p2sh);
+	if (deprecated_apis)
+		json_add_string(response, "address", bech32 ? bech32 : p2sh);
 	if (*addrtype & ADDR_BECH32)
 		json_add_string(response, "bech32", bech32);
 	if (*addrtype & ADDR_P2SH_SEGWIT)
