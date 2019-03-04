@@ -1232,3 +1232,16 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
     assert err.value.error['data']['erring_node'] == mangled_nodeid
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
+
+
+def test_newaddr(node_factory):
+    l1 = node_factory.get_node()
+    p2sh = l1.rpc.newaddr('p2sh-segwit')
+    assert 'bech32' not in p2sh
+    assert p2sh['p2sh-segwit'].startswith('2')
+    bech32 = l1.rpc.newaddr('bech32')
+    assert 'p2sh-segwit' not in bech32
+    assert bech32['bech32'].startswith('bcrt1')
+    both = l1.rpc.newaddr('all')
+    assert both['p2sh-segwit'].startswith('2')
+    assert both['bech32'].startswith('bcrt1')

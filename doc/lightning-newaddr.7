@@ -2,12 +2,12 @@
 .\"     Title: lightning-newaddr
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 07/23/2018
+.\"      Date: 02/23/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-NEWADDR" "7" "07/23/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-NEWADDR" "7" "02/23/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,12 +38,12 @@ The \fBnewaddr\fR RPC command generates a new address which can subsequently be 
 .sp
 The funding transaction needs to be confirmed before funds can be used\&.
 .sp
-\fIaddresstype\fR specifies the type of address wanted; i\&.e\&. p2sh\-segwit (e\&.g\&. 2MxaozoqWwiUcuD9KKgUSrLFDafLqimT9Ta on bitcoin testnet or 3MZxzq3jBSKNQ2e7dzneo9hy4FvNzmMmt3 on bitcoin mainnet) or bech32 (e\&.g\&. tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg on bitcoin testnet or bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej on bitcoin mainnet)\&.
+\fIaddresstype\fR specifies the type of address wanted; i\&.e\&. \fIp2sh\-segwit\fR (e\&.g\&. 2MxaozoqWwiUcuD9KKgUSrLFDafLqimT9Ta on bitcoin testnet or 3MZxzq3jBSKNQ2e7dzneo9hy4FvNzmMmt3 on bitcoin mainnet) or \fIbech32 \*(Aq (e\&.g\&. tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg on bitcoin testnet or bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej on bitcoin mainnet)\&. The special value \*(Aqall\fR generates both address types for the same underlying key\&.
 .sp
 If not specified the address generated is bech32\&.
 .SH "RETURN VALUE"
 .sp
-On success, a new address will be returned\&.
+On success, a \fIbech32\fR address and/or a \fIp2sh\-segwit\fR address will be returned\&.
 .SH "ERRORS"
 .sp
 If an unrecognized address type is requested an error message will be returned\&.
