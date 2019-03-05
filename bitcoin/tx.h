@@ -10,6 +10,8 @@
 #include <common/amount.h>
 #include <wally_transaction.h>
 
+#define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF
+
 struct bitcoin_txid {
 	struct sha256_double shad;
 };
@@ -17,10 +19,8 @@ struct bitcoin_txid {
 STRUCTEQ_DEF(bitcoin_txid, 0, shad.sha.u);
 
 struct bitcoin_tx {
-	u32 version;
 	struct bitcoin_tx_input *input;
 	struct bitcoin_tx_output *output;
-	u32 lock_time;
 	struct wally_tx *wtx;
 };
 

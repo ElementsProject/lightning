@@ -98,7 +98,7 @@ static void push_tx(const struct bitcoin_tx *tx,
 	varint_t i;
 	u8 flag = 0;
 
-	push_le32(tx->version, push, pushp);
+	push_le32(tx->wtx->version, push, pushp);
 
         if (bip144 && uses_witness(tx))
 		flag |= SEGREGATED_WITNESS_FLAG;
@@ -133,7 +133,7 @@ static void push_tx(const struct bitcoin_tx *tx,
 	if (flag & SEGREGATED_WITNESS_FLAG)
 		push_witnesses(tx, push, pushp);
 
-	push_le32(tx->lock_time, push, pushp);
+	push_le32(tx->wtx->locktime, push, pushp);
 }
 
 static void push_sha(const void *data, size_t len, void *shactx_)
@@ -224,7 +224,7 @@ static void hash_for_segwit(struct sha256_ctx *ctx,
 	 * Double SHA256 of the serialization of:
 	 *     1. nVersion of the transaction (4-byte little endian)
 	 */
-	push_le32(tx->version, push_sha, ctx);
+	push_le32(tx->wtx->version, push_sha, ctx);
 
 	/*     2. hashPrevouts (32-byte hash) */
 	hash_prevouts(&h, tx, sighash_type);
@@ -253,7 +253,7 @@ static void hash_for_segwit(struct sha256_ctx *ctx,
 	push_sha(&h, sizeof(h), ctx);
 
 	/*     9. nLocktime of the transaction (4-byte little endian) */
-	push_le32(tx->lock_time, push_sha, ctx);
+	push_le32(tx->wtx->locktime, push_sha, ctx);
 }
 
 void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
@@ -349,12 +349,12 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 	for (i = 0; i < tal_count(tx->input); i++) {
 		/* We assume NULL is a zero bitmap */
 		assert(tx->input[i].script == NULL);
-		tx->input[i].sequence_number = 0xFFFFFFFF;
+		tx->input[i].sequence_number = BITCOIN_TX_DEFAULT_SEQUENCE;
 		tx->input[i].amount = NULL;
 		tx->input[i].witness = NULL;
 	}
-	tx->lock_time = 0;
-	tx->version = 2;
+	tx->wtx->locktime = 0;
+	tx->wtx->version = 2;
 	return tx;
 }
 
@@ -457,7 +457,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	}
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 
-	tx->version = pull_le32(cursor, max);
+	assert(pull_le32(cursor, max) == tx->wtx->version);
 	count = pull_length(cursor, max, 32 + 4 + 4 + 1);
 	/* BIP 144 marker is 0 (impossible to have tx with 0 inputs) */
 	if (count == 0) {
@@ -483,7 +483,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 		for (i = 0; i < tal_count(tx->input); i++)
 			tx->input[i].witness = NULL;
 	}
-	tx->lock_time = pull_le32(cursor, max);
+	assert(pull_le32(cursor, max) == tx->wtx->locktime);
 
 	/* If we ran short, fail. */
 	if (!*cursor)

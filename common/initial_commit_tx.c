@@ -207,14 +207,14 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *
 	 * * version: 2
 	 */
-	assert(tx->version == 2);
+	assert(tx->wtx->version == 2);
 
 	/* BOLT #3:
 	 *
 	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the
 	 * lower 24 bits of the obscured commitment number
 	 */
-	tx->lock_time
+	tx->wtx->locktime
 		= (0x20000000 | (obscured_commitment_number & 0xFFFFFF));
 
 	/* BOLT #3:
