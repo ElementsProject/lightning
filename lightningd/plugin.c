@@ -887,6 +887,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 		if (fullpath)
 			plugin_register(plugins, take(fullpath));
 	}
+	closedir(d);
 	return NULL;
 }
 
