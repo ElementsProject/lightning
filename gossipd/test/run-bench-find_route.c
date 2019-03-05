@@ -162,7 +162,7 @@ static struct pubkey nodeid(size_t n)
 	struct secret s;
 
 	memset(&s, 0xFF, sizeof(s));
-	memcpy(&s, &n, sizeof(s) / sizeof(n));
+	memcpy(&s, &n, sizeof(n));
 	pubkey_from_secret(&s, &id);
 	return id;
 }
