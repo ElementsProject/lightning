@@ -264,7 +264,7 @@ network=testnet
 
 For a full list of possible lightningd configuration options, run:
 ```
-lightningd/lightningd --help
+elementsproject/lightningd --help
 ```
 
 ## Further information
