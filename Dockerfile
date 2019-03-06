@@ -20,6 +20,7 @@ RUN apk add --no-cache \
      zlib-dev
 
 WORKDIR /opt
+
 ARG BITCOIN_VERSION=0.17.0
 ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
 ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
