@@ -1,5 +1,3 @@
-ARG PREFIX=/tmp/lightning_install
-
 FROM alpine:3.7 as builder
 
 RUN apk add --no-cache \
@@ -22,7 +20,6 @@ RUN apk add --no-cache \
      zlib-dev
 
 WORKDIR /opt
-ARG PREFIX
 ARG BITCOIN_VERSION=0.17.0
 ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
 ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
@@ -63,7 +60,7 @@ RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=0
-RUN ./configure --prefix=$PREFIX && make -j3 DEVELOPER=${DEVELOPER} && make install
+RUN ./configure --prefix=/tmp/lightning_install && make -j3 DEVELOPER=${DEVELOPER} && make install
 
 FROM alpine:3.7
 
@@ -95,8 +92,7 @@ ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_RPC_PORT=9835
 
 VOLUME [ "/root/.lightning" ]
-ARG PREFIX
-COPY --from=builder $PREFIX/ /usr/local/
+COPY --from=builder /tmp/lightning_install/ /usr/local/
 COPY --from=builder /opt/bitcoin/bin /usr/bin
 COPY --from=builder /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh

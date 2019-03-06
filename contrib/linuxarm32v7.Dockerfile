@@ -5,8 +5,6 @@
 # * final: Copy the binaries required at runtime
 # The resulting image uploaded to dockerhub will only contain what is needed for runtime.
 # From the root of the repository, run "docker build -t yourimage:yourtag -f contrib/linuxarm32v7.Dockerfile ."
-ARG PREFIX=/tmp/lightning_install
-
 FROM debian:stretch-slim as downloader
 
 RUN set -ex \
@@ -17,7 +15,6 @@ RUN set -ex \
 WORKDIR /opt
 
 ARG BITCOIN_VERSION=0.17.0
-ARG PREFIX
 ENV BITCOIN_TARBALL bitcoin-$BITCOIN_VERSION-arm-linux-gnueabihf.tar.gz
 ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
 ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS.asc
@@ -90,7 +87,7 @@ RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=0
-RUN ./configure --prefix=$PREFIX --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
+RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 
 FROM arm32v7/debian:stretch-slim as final
 COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
@@ -103,8 +100,7 @@ ENV LIGHTNINGD_PORT=9835
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
 VOLUME [ "/root/.lightning" ]
-ARG PREFIX
-COPY --from=builder $PREFIX/ /usr/local/
+COPY --from=builder /tmp/lightning_install/ /usr/local/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
