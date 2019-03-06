@@ -258,7 +258,6 @@ the file, for example:
 ```
 alias=SLEEPYDRAGON
 rgb=008000
-port=9735
 network=testnet
 ```
 
