@@ -178,3 +178,7 @@ channel_dev_memleak_reply,,leak,bool
 channel_fail_fallen_behind,1028
 channel_fail_fallen_behind,,remote_per_commitment_point,struct pubkey
 
+# Handle a channel specific feerate base ppm configuration
+channel_specific_feerates,1029
+channel_specific_feerates,,feerate_base,u32
+channel_specific_feerates,,feerate_ppm,u32
