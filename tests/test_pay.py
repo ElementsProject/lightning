@@ -6,6 +6,7 @@ from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE
 import copy
 import pytest
 import random
+import re
 import string
 import time
 import unittest
@@ -1425,3 +1426,333 @@ def test_pay_direct(node_factory, bitcoind):
         # have changed.
         l1l2msat = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']
         assert l1l2msat == l1l2msatreference
+
+
+def test_setchannelfee_usage(node_factory, bitcoind):
+    # TEST SETUP
+    #
+    # [l1] ---> [l2]  (channel funded)
+    #   |
+    #   o - - > [l3]  (only connected)
+    #
+    # - check initial SQL values
+    # - check setchannelfee can be used
+    # - checks command's return object format
+    # - check custom SQL fee values
+    # - check values in local nodes listchannels output
+    # - json throws exception on negative values
+    # - checks if peer id can be used instead of scid
+    DEF_BASE = 10
+    DEF_PPM = 100
+
+    l1 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l3 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fund_channel(l2, 1000000)
+
+    # get short channel id
+    scid = l1.get_channel_scid(l2)
+    scid_hex = scid.encode('utf-8').hex()
+
+    # feerates should be init with global config
+    db_fees = l1.db_query('SELECT feerate_base, feerate_ppm FROM channels;')
+    assert(db_fees[0]['feerate_base'] == DEF_BASE)
+    assert(db_fees[0]['feerate_ppm'] == DEF_PPM)
+
+    # custom setchannelfee scid <base> <ppm>
+    result = l1.rpc.setchannelfee(scid, 1337, 137)
+
+    # check result format
+    assert(re.match('^[0-9a-f]{64}$', result['channel_id']))
+    assert(result['peer_id'] == l2.info['id'])
+    assert(result['short_channel_id'] == scid)
+    assert(result['base'] == 1337)
+    assert(result['ppm'] == 137)
+
+    # check if custom values made it into the database
+    db_fees = l1.db_query(
+        'SELECT feerate_base, feerate_ppm FROM channels '
+        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    assert(db_fees[0]['feerate_base'] == 1337)
+    assert(db_fees[0]['feerate_ppm'] == 137)
+
+    # wait for gossip and check if l1 sees new fees in listchannels
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_BASE, 1337])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_PPM, 137])
+
+    # also test with named and missing paramters
+    result = l1.rpc.setchannelfee(ppm=42, id=scid)
+    assert(re.match('^[0-9a-f]{64}$', result['channel_id']))
+    assert(result['short_channel_id'] == scid)
+    assert(result['base'] == DEF_BASE)
+    assert(result['ppm'] == 42)
+    result = l1.rpc.setchannelfee(base=42, id=scid)
+    assert(re.match('^[0-9a-f]{64}$', result['channel_id']))
+    assert(result['short_channel_id'] == scid)
+    assert(result['base'] == 42)
+    assert(result['ppm'] == DEF_PPM)
+
+    # check if negative fees raise error and DB keeps values
+    # JSONRPC2_INVALID_PARAMS := -32602
+    with pytest.raises(RpcError, match=r'-32602'):
+        l1.rpc.setchannelfee(scid, -1, -1)
+
+    # test if zero fees is possible
+    result = l1.rpc.setchannelfee(scid, 0, 0)
+    assert(result['base'] == 0)
+    assert(result['ppm'] == 0)
+    db_fees = l1.db_query(
+        'SELECT feerate_base, feerate_ppm FROM channels '
+        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    assert(db_fees[0]['feerate_base'] == 0)
+    assert(db_fees[0]['feerate_ppm'] == 0)
+
+    # disable and check for global values to be returned
+    result = l1.rpc.setchannelfee(scid)
+    assert(result['base'] == DEF_BASE)
+    assert(result['ppm'] == DEF_PPM)
+    # check default values in DB
+    db_fees = l1.db_query(
+        'SELECT feerate_base, feerate_ppm FROM channels '
+        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    assert(db_fees[0]['feerate_base'] == DEF_BASE)
+    assert(db_fees[0]['feerate_ppm'] == DEF_PPM)
+
+    # check also peer id can be used
+    result = l1.rpc.setchannelfee(l2.info['id'], 42, 43)
+    assert(result['peer_id'] == l2.info['id'])
+    assert(result['short_channel_id'] == scid)
+    assert(result['base'] == 42)
+    assert(result['ppm'] == 43)
+    db_fees = l1.db_query(
+        'SELECT feerate_base, feerate_ppm FROM channels '
+        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    assert(db_fees[0]['feerate_base'] == 42)
+    assert(db_fees[0]['feerate_ppm'] == 43)
+
+    # check if invalid scid raises proper error
+    with pytest.raises(RpcError, match=r'-1.*Could not find active channel of peer with that id'):
+        result = l1.rpc.setchannelfee(l3.info['id'], 42, 43)
+    with pytest.raises(RpcError, match=r'-32602.*Given id is not a channel ID or short channel ID'):
+        result = l1.rpc.setchannelfee('f42' + scid[3:], 42, 43)
+
+    # check if 'base' unit can be modified to satoshi
+    result = l1.rpc.setchannelfee(scid, '1sat')
+    assert(result['base'] == 1000)
+    db_fees = l1.db_query(
+        'SELECT feerate_base, feerate_ppm FROM channels '
+        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    assert(db_fees[0]['feerate_base'] == 1000)
+
+    # check if 'ppm' values greater than u32_max fail
+    with pytest.raises(RpcError, match=r'-32602.*should be an integer, not'):
+        l1.rpc.setchannelfee(scid, 0, 2**32)
+
+    # check if 'ppm' values greater than u32_max fail
+    with pytest.raises(RpcError, match=r'-32602.*exceeds u32 max'):
+        l1.rpc.setchannelfee(scid, 2**32)
+
+
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+def test_setchannelfee_state(node_factory, bitcoind):
+    # TEST SETUP
+    #
+    # [l0] --> [l1] --> [l2]
+    #
+    # Initiate channel [l1,l2] and try to set feerates other states than
+    # CHANNELD_NORMAL or CHANNELD_AWAITING_LOCKIN. Should raise error.
+    # Use l0 to make a forward through l1/l2 for testing.
+    DEF_BASE = 0
+    DEF_PPM = 0
+
+    l0 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l1 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+
+    # connection and funding
+    l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l0.fund_channel(l1, 1000000, wait_for_active=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid = l1.fund_channel(l2, 1000000, wait_for_active=False)
+
+    # try setting the fee in state AWAITING_LOCKIN should be possible
+    # assert(l1.channel_state(l2) == "CHANNELD_AWAITING_LOCKIN")
+    result = l1.rpc.setchannelfee(l2.info['id'], 42, 0)
+    assert(result['peer_id'] == l2.info['id'])
+    # cid = result['channel_id']
+
+    # test routing correct new fees once routing is established
+    bitcoind.generate_block(6)
+    l0.wait_for_route(l2)
+    inv = l2.rpc.invoice(100000, 'test_setchannelfee_state', 'desc')['bolt11']
+    result = l0.rpc.pay(inv)
+    assert result['status'] == 'complete'
+    assert result['msatoshi_sent'] == 100042
+
+    # Disconnect and unilaterally close from l2 to l1
+    l2.rpc.disconnect(l1.info['id'], force=True)
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    result = l2.rpc.close(scid, True, 0)
+    assert result['type'] == 'unilateral'
+
+    # wait for l1 to see unilateral close via bitcoin network
+    while l1.channel_state(l2) == "CHANNELD_NORMAL":
+        bitcoind.generate_block(1)
+    # assert l1.channel_state(l2) == "FUNDING_SPEND_SEEN"
+
+    # Try to setchannelfee in order to raise expected error.
+    # To reduce false positive flakes, only test if state is not NORMAL anymore.
+    with pytest.raises(RpcError, match=r'-1.*'):
+        # l1.rpc.setchannelfee(l2.info['id'], 10, 1)
+        l1.rpc.setchannelfee(l2.info['id'], 10, 1)
+
+
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+def test_setchannelfee_routing(node_factory, bitcoind):
+    # TEST SETUP
+    #
+    # [l1] <--default_fees--> [l2] <--specific_fees--> [l3]
+    #
+    # - json listchannels is able to see the new values in foreign node
+    # - routing calculates fees correctly
+    # - payment can be done using specific fees
+    # - channel specific fees can be disabled again
+    # - payment can be done using global fees
+    DEF_BASE = 1
+    DEF_PPM = 10
+
+    l1, l2, l3 = node_factory.line_graph(
+        3, announce_channels=True, wait_for_announce=True,
+        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+
+    # get short channel id for 2->3
+    scid = l2.get_channel_scid(l3)
+
+    # TEST CUSTOM VALUES
+    l2.rpc.setchannelfee(scid, 1337, 137)
+
+    # wait for l1 to see updated channel via gossip
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [1337, DEF_BASE])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [137, DEF_PPM])
+
+    # test fees are applied to HTLC forwards
+    #
+    # BOLT #7:
+    # If l1 were to send 4,999,999 millisatoshi to l3 via l2, it needs to
+    # pay l2 the fee it specified in the l2->l3 `channel_update`, calculated as
+    # per [HTLC Fees](#htlc_fees):  base + amt * pm / 10**6
+    #
+    # 1337 + 4999999 * 137 / 1000000 = 2021.999 (2021)
+    route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+    assert len(route) == 2
+    assert route[0]['msatoshi'] == 5002020
+    assert route[1]['msatoshi'] == 4999999
+
+    # do and check actual payment
+    inv = l3.rpc.invoice(4999999, 'test_setchannelfee_1', 'desc')['bolt11']
+    result = l1.rpc.pay(inv)
+    assert result['status'] == 'complete'
+    assert result['msatoshi_sent'] == 5002020
+
+    # TEST DISABLE and check global fee routing
+    l2.rpc.setchannelfee(scid)
+
+    # wait for l1 to see default values again via gossip
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_BASE, DEF_BASE])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_PPM, DEF_PPM])
+
+    # test if global fees are applied again (base 1 ppm 10)
+    # 1 + 4999999 * 10 / 1000000 = 50.999 (50)
+    route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+    assert len(route) == 2
+    assert route[0]['msatoshi'] == 5000049
+    assert route[1]['msatoshi'] == 4999999
+
+    # do and check actual payment
+    inv = l3.rpc.invoice(4999999, 'test_setchannelfee_2', 'desc')['bolt11']
+    result = l1.rpc.pay(inv)
+    assert result['status'] == 'complete'
+    assert result['msatoshi_sent'] == 5000049
+
+
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+def test_setchannelfee_zero(node_factory, bitcoind):
+    # TEST SETUP
+    #
+    # [l1] <--default_fees--> [l2] <--specific_fees--> [l3]
+    #
+    # - json listchannels is able to see the new values in foreign node
+    # - routing calculates fees correctly
+    # - payment can be done using zero fees
+    DEF_BASE = 1
+    DEF_PPM = 10
+
+    l1, l2, l3 = node_factory.line_graph(
+        3, announce_channels=True, wait_for_announce=True,
+        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+
+    # get short channel id for 2->3
+    scid = l2.get_channel_scid(l3)
+
+    # TEST ZERO fees possible
+    l2.rpc.setchannelfee(scid, 0, 0)
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [0, DEF_BASE])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [0, DEF_PPM])
+
+    # test if zero fees are applied
+    route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+    assert len(route) == 2
+    assert route[0]['msatoshi'] == 4999999
+    assert route[1]['msatoshi'] == 4999999
+
+    # do and check actual payment
+    inv = l3.rpc.invoice(4999999, 'test_setchannelfee_3', 'desc')['bolt11']
+    result = l1.rpc.pay(inv)
+    assert result['status'] == 'complete'
+    assert result['msatoshi_sent'] == 4999999
+
+
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+def test_setchannelfee_restart(node_factory, bitcoind):
+    # TEST SETUP
+    #
+    # [l1] <--default_fees--> [l2] <--specific_fees--> [l3]
+    #
+    # - l2 sets fees to custom values and restarts
+    # - l1 routing can be made with the custom fees
+    # - l2 sets fees to UIN32_MAX (db update default) and restarts
+    # - l1 routing can be made to l3 and global (1 10) fees are applied
+    DEF_BASE = 1
+    DEF_PPM = 10
+    OPTS = {'may_reconnect': True, 'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM}
+
+    l1, l2, l3 = node_factory.line_graph(3, announce_channels=True, wait_for_announce=True, opts=OPTS)
+
+    # get short channel id for 2->3
+    scid = l2.get_channel_scid(l3)
+
+    # l2 set custom fees
+    l2.rpc.setchannelfee(scid, 1337, 137)
+
+    # restart l2 and reconnect
+    l2.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    # l1 wait for channel update
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [1337, DEF_BASE])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [137, DEF_PPM])
+
+    # for slow travis: wait for everyone to see all channels
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 4)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+
+    # l1 can make payment to l3 with custom fees being applied
+    # Note: BOLT #7 math works out to 2021 msat fees
+    inv = l3.rpc.invoice(4999999, 'test_setchannelfee_1', 'desc')['bolt11']
+    result = l1.rpc.pay(inv)
+    assert result['status'] == 'complete'
+    assert result['msatoshi_sent'] == 5002020
