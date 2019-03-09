@@ -126,7 +126,7 @@ sizetypemap = {
 # arraysize := length '*' type
 # length := lenvar | number
 class Field(object):
-    def __init__(self, message, name, size, comments, prevname):
+    def __init__(self, message, name, size, comments, prevname, includes):
         self.message = message
         self.comments = comments
         self.name = name
@@ -141,8 +141,8 @@ class Field(object):
             self.is_tlv = True
             self.name = name[:-1]
             if self.name not in tlv_fields:
-                # FIXME: use the rest of this
-                tlv_includes, tlv_messages, tlv_comments = parse_tlv_file(self.name)
+                tlv_includes, tlv_messages = parse_tlv_file(self.name)
+                includes += tlv_includes
                 tlv_fields[self.name] = tlv_messages
 
         # ? means optional field (not supported for arrays)
@@ -1029,14 +1029,14 @@ def parse_tlv_file(tlv_field_name):
                 else:
                     raise ValueError('Line {} malformed'.format(line.rstrip()))
 
-                f = Field(m.name, parts[2], parts[3], tlv_comments, tlv_prevfield)
+                f = Field(m.name, parts[2], parts[3], tlv_comments, tlv_prevfield, includes)
                 m.addField(f)
                 # If it used prevfield as lenvar, keep that for next
                 # time (multiple fields can use the same lenvar).
                 if not f.lenvar:
                     tlv_prevfield = parts[2]
                 tlv_comments = []
-        return tlv_includes, tlv_messages, tlv_comments
+        return tlv_includes, tlv_messages
 
 
 parser = argparse.ArgumentParser(description='Generate C from CSV')
@@ -1092,7 +1092,7 @@ for line in fileinput.input(options.files):
         else:
             raise ValueError('Line {} malformed'.format(line.rstrip()))
 
-        f = Field(m.name, parts[2], parts[3], comments, prevfield)
+        f = Field(m.name, parts[2], parts[3], comments, prevfield, includes)
         m.addField(f)
         # If it used prevfield as lenvar, keep that for next
         # time (multiple fields can use the same lenvar).
