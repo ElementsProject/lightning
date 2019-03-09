@@ -514,8 +514,8 @@ static void forward_htlc(struct htlc_in *hin,
 	 *     - fee_base_msat + ( amount_to_forward * fee_proportional_millionths / 1000000 )
 	 */
 	if (!amount_msat_fee(&fee, amt_to_forward,
-			     ld->config.fee_base,
-			     ld->config.fee_per_satoshi)) {
+				next->feerate_base,
+				next->feerate_ppm)) {
 		log_broken(ld->log, "Fee overflow forwarding %s!",
 			   type_to_string(tmpctx, struct amount_msat,
 					  &amt_to_forward));
