@@ -26,6 +26,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-newaddr.7 \
 	doc/lightning-pay.7 \
 	doc/lightning-sendpay.7 \
+	doc/lightning-setchannelfee.7 \
 	doc/lightning-waitinvoice.7 \
 	doc/lightning-waitanyinvoice.7 \
 	doc/lightning-waitsendpay.7 \

@@ -1,0 +1,80 @@
+'\" t
+.\"     Title: lightning-setchannelfee
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 03/12/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-SETCHANNE" "7" "03/12/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-setchannelfee \- Command for setting specific routing fees on a lightning channel\&.
+.SH "SYNOPSIS"
+.sp
+\fBsetchannelfee\fR \fIid\fR [\fIbase\fR] [\fIppm\fR]
+.SH "DESCRIPTION"
+.sp
+The \fBsetchannelfee\fR RPC command sets channel specific routing fees as defined in BOLT #7\&. The channel has to be in normal or awaiting state\&. This can be checked by \fBlistpeers\fR reporting a \fIstate\fR of CHANNELD_NORMAL or CHANNELD_AWAITING_LOCKIN for the channel\&.
+.sp
+\fIid\fR is required and should contain a scid (short channel ID), channel id or peerid (pubkey) of the channel to be modified\&.
+.sp
+\fIbase\fR is an optional value in millisatoshi that is added as base fee to any routed payment\&. If the parameter is left out, the global config value fee\-base will be used again\&.
+.sp
+\fIppm\fR is an optional value that is added proportionally per\-millionths to any routed payment volume in satoshi\&. For example, if ppm is 1,000 and 1,000,000 satoshi is being routed trhough the channel, an proportional fee of 1,000 satoshi is added, resulting in a 0\&.1% fee\&. If the parameter is left out, the global config value will be used again\&.
+.SH "RETURN VALUE"
+.sp
+On success, an object with fields \fIchannel_id\fR, \fIshort_channel_id\fR, \fIbase\fR and \fIppm\fR, describing the new values for this cannel, is returned\&.
+.SH "ERRORS"
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Channel is in incorrect state, i\&.e\&. Catchall nonspecific error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-32602\&. JSONRPC2_INVALID_PARAMS, i\&.e\&. Given id is not a channel ID or short channel ID\&.
+.RE
+.SH "AUTHOR"
+.sp
+Michael Schmoock <michael@schmoock\&.net> is the author of this feature\&. Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible for the c\-lightning project\&.
+.SH "SEE ALSO"
+.sp
+lightningd\-config(5), lightning\-fundchannel(7), lightning\-listchannels(7), lightning\-listpeers(7)
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
