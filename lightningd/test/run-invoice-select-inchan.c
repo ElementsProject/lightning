@@ -131,7 +131,7 @@ void json_add_amount_msat(struct json_stream *result UNNEEDED,
 void json_add_amount_sat(struct json_stream *result UNNEEDED,
 			 struct amount_sat sat UNNEEDED,
 			 const char *rawfieldname UNNEEDED,
-			 const char *satfieldname)
+			 const char *msatfieldname)
 
 { fprintf(stderr, "json_add_amount_sat called!\n"); abort(); }
 /* Generated stub for json_add_bool */
@@ -311,6 +311,11 @@ struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const jsmntok_t *tok UNNEEDED,
 				      enum log_level **level UNNEEDED)
 { fprintf(stderr, "param_loglevel called!\n"); abort(); }
+/* Generated stub for param_msat */
+struct command_result *param_msat(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				  struct amount_msat **msat UNNEEDED)
+{ fprintf(stderr, "param_msat called!\n"); abort(); }
 /* Generated stub for param_number */
 struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
@@ -404,6 +409,9 @@ u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
+/* Generated stub for towire_channel_specific_feerates */
+u8 *towire_channel_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_base UNNEEDED, u32 feerate_ppm UNNEEDED)
+{ fprintf(stderr, "towire_channel_specific_feerates called!\n"); abort(); }
 /* Generated stub for towire_connectctl_connect_to_peer */
 u8 *towire_connectctl_connect_to_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "towire_connectctl_connect_to_peer called!\n"); abort(); }

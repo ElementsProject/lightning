@@ -232,6 +232,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_SEND_SHUTDOWN:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
 	case WIRE_CHANNEL_FEERATES:
+	case WIRE_CHANNEL_SPECIFIC_FEERATES:
 	case WIRE_CHANNEL_DEV_MEMLEAK:
 	/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:

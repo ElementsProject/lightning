@@ -98,6 +98,15 @@ bool amount_msat_less_sat(struct amount_msat msat, struct amount_sat sat);
 /* Is msat <= sat? */
 bool amount_msat_less_eq_sat(struct amount_msat msat, struct amount_sat sat);
 
+/* Does value overflow u32 bit */
+bool amount_msat_overflow_u32(struct amount_msat msat);
+
+/* Return unchecked u32 value */
+u32 amount_msat_to_u32(struct amount_msat msat);
+
+/* Set by u32 value */
+void amount_msat_from_u32(struct amount_msat *msat, u32 value);
+
 /* Common operation: what is the HTLC fee for given feerate?  Can overflow! */
 WARN_UNUSED_RESULT bool amount_msat_fee(struct amount_msat *fee,
 					struct amount_msat amt,

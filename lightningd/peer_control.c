@@ -1034,7 +1034,7 @@ AUTODATA(json_command, &listpeers_command);
 static struct command_result *
 command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
-		     struct channel **channel, struct peer **peer_out)
+		     struct channel **channel)
 {
 	struct lightningd *ld = cmd->ld;
 	struct channel_id cid;
@@ -1050,10 +1050,8 @@ command_find_channel(struct command *cmd,
 			derive_channel_id(&channel_cid,
 					  &(*channel)->funding_txid,
 					  (*channel)->funding_outnum);
-			if (channel_id_eq(&channel_cid, &cid)) {
-				if (peer_out) *peer_out = peer;
+			if (channel_id_eq(&channel_cid, &cid))
 				return NULL;
-			}
 		}
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Channel ID not found: '%.*s'",
@@ -1066,10 +1064,8 @@ command_find_channel(struct command *cmd,
 			if (!*channel)
 				continue;
 			if ((*channel)->scid
-			    && (*channel)->scid->u64 == scid.u64) {
-				if (peer_out) *peer_out = peer;
+			    && (*channel)->scid->u64 == scid.u64)
 				return NULL;
-			}
 		}
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Short channel ID not found: '%.*s'",
@@ -1108,7 +1104,7 @@ static struct command_result *json_close(struct command *cmd,
 		channel = peer_active_channel(peer);
 	else {
 		struct command_result *res;
-		res = command_find_channel(cmd, buffer, idtok, &channel, NULL);
+		res = command_find_channel(cmd, buffer, idtok, &channel);
 		if (res)
 			return res;
 	}
@@ -1342,6 +1338,104 @@ static const struct json_command getinfo_command = {
     "Show information about this node"
 };
 AUTODATA(json_command, &getinfo_command);
+
+
+static struct command_result *json_setchannelfee(struct command *cmd,
+					 const char *buffer,
+					 const jsmntok_t *obj UNNEEDED,
+					 const jsmntok_t *params)
+{
+	struct json_stream *response;
+	const jsmntok_t *idtok;
+	struct peer *peer;
+	struct channel *channel;
+	struct channel_id cid;
+	struct command_result *res;
+	struct amount_msat *base, base_default;
+	u32 *ppm, ppm_default;
+
+	/* Use daemon config values base/ppm as default */
+	amount_msat_from_u32(&base_default, cmd->ld->config.fee_base);
+	ppm_default = cmd->ld->config.fee_per_satoshi;
+
+	/* Parse the JSON command */
+	if (!param(cmd, buffer, params,
+			p_req("id", param_tok, &idtok),
+			p_opt_def("base", param_msat, &base, base_default),
+			p_opt_def("ppm", param_number, &ppm, ppm_default),
+			NULL))
+		return command_param_failed();
+
+	/* Check base for u32 overflow */
+	if (amount_msat_overflow_u32(*base))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				"Value 'base' exceeds u32 max");
+
+	/* Find the channel */
+	peer = peer_from_json(cmd->ld, buffer, idtok);
+	if (peer) {
+		channel = peer_active_channel(peer);
+		if (!channel)
+			return command_fail(cmd, LIGHTNINGD,
+					"Could not find active channel of peer with that id");
+	} else {
+		res = command_find_channel(cmd, buffer, idtok, &channel);
+		if (res)
+			return res;
+		/* check channel is found and in valid state */
+		if (!channel)
+			return command_fail(cmd, LIGHTNINGD,
+					"Could not find channel with that id");
+		peer = channel->peer;
+	}
+
+	if (channel->state != CHANNELD_NORMAL &&
+		channel->state != CHANNELD_AWAITING_LOCKIN)
+		return command_fail(cmd, LIGHTNINGD,
+				"Channel is in state %s", channel_state_name(channel));
+
+	/* set, notify and save new values */
+	channel->feerate_base = amount_msat_to_u32(*base);
+	channel->feerate_ppm = *ppm;
+
+	/* tell channeld to make a send_channel_update */
+	if (channel->owner && streq(channel->owner->name, "lightning_channeld"))
+		subd_send_msg(channel->owner,
+				take(towire_channel_specific_feerates(channel,
+						amount_msat_to_u32(*base), *ppm)));
+
+	/* save values to database */
+	wallet_channel_save(cmd->ld->wallet, channel);
+
+	/* get channel id */
+	derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
+
+	/* write response */
+	response = json_stream_success(cmd);
+	json_object_start(response, NULL);
+	json_add_num(response, "base", amount_msat_to_u32(*base));
+	json_add_num(response, "ppm", *ppm);
+	json_add_pubkey(response, "peer_id", &peer->id);
+	json_add_string(response, "channel_id",
+			type_to_string(tmpctx, struct channel_id, &cid));
+	if (channel->scid)
+		json_add_short_channel_id(response, "short_channel_id", channel->scid);
+	json_object_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command setchannelfee_command = {
+	"setchannelfee",
+	json_setchannelfee,
+	"Sets specific routing fees for channel with {id} "
+	"(either peer ID, channel ID or short channel ID). "
+	"The routing fees are defined by a fixed {base} (msat) "
+	"and a {ppm} value (proportional per millionth)."
+	"To disable channel specific fees and restore global values, "
+	"just leave out the optional {base} and {ppm} values. "
+	"{base} can also be supplied in other units, i.e. '1sat'."
+};
+AUTODATA(json_command, &setchannelfee_command);
 
 #if DEVELOPER
 static struct command_result *json_sign_last_tx(struct command *cmd,

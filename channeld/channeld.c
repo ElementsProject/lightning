@@ -2528,6 +2528,22 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 	}
 }
 
+static void handle_specific_feerates(struct peer *peer, const u8 *inmsg)
+{
+	u32 base_old = peer->fee_base;
+	u32 per_satoshi_old = peer->fee_per_satoshi;
+
+	if (!fromwire_channel_specific_feerates(inmsg,
+				       &peer->fee_base,
+				       &peer->fee_per_satoshi))
+		master_badmsg(WIRE_CHANNEL_SPECIFIC_FEERATES, inmsg);
+
+	/* only send channel updates if values actually changed */
+	if (peer->fee_base != base_old || peer->fee_per_satoshi != per_satoshi_old)
+		send_channel_update(peer, 0);
+}
+
+
 static void handle_preimage(struct peer *peer, const u8 *inmsg)
 {
 	struct fulfilled_htlc fulfilled_htlc;
@@ -2647,6 +2663,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 		return;
 	case WIRE_CHANNEL_FAIL_HTLC:
 		handle_fail(peer, msg);
+		return;
+	case WIRE_CHANNEL_SPECIFIC_FEERATES:
+		handle_specific_feerates(peer, msg);
 		return;
 	case WIRE_CHANNEL_SEND_SHUTDOWN:
 		handle_shutdown_cmd(peer, msg);
