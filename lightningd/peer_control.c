@@ -1034,7 +1034,7 @@ AUTODATA(json_command, &listpeers_command);
 static struct command_result *
 command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
-		     struct channel **channel)
+		     struct channel **channel, struct peer **peer_out)
 {
 	struct lightningd *ld = cmd->ld;
 	struct channel_id cid;
@@ -1050,8 +1050,10 @@ command_find_channel(struct command *cmd,
 			derive_channel_id(&channel_cid,
 					  &(*channel)->funding_txid,
 					  (*channel)->funding_outnum);
-			if (channel_id_eq(&channel_cid, &cid))
+			if (channel_id_eq(&channel_cid, &cid)) {
+				if (peer_out) *peer_out = peer;
 				return NULL;
+			}
 		}
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Channel ID not found: '%.*s'",
@@ -1064,8 +1066,10 @@ command_find_channel(struct command *cmd,
 			if (!*channel)
 				continue;
 			if ((*channel)->scid
-			    && (*channel)->scid->u64 == scid.u64)
+			    && (*channel)->scid->u64 == scid.u64) {
+				if (peer_out) *peer_out = peer;
 				return NULL;
+			}
 		}
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Short channel ID not found: '%.*s'",
@@ -1104,7 +1108,7 @@ static struct command_result *json_close(struct command *cmd,
 		channel = peer_active_channel(peer);
 	else {
 		struct command_result *res;
-		res = command_find_channel(cmd, buffer, idtok, &channel);
+		res = command_find_channel(cmd, buffer, idtok, &channel, NULL);
 		if (res)
 			return res;
 	}
