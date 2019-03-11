@@ -1,4 +1,5 @@
 #include "wire.h"
+#include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
@@ -288,3 +289,9 @@ struct amount_sat fromwire_amount_sat(const u8 **cursor, size_t *max)
 	return sat;
 }
 
+void fromwire_bip32_key_version(const u8** cursor, size_t *max,
+					struct bip32_key_version *version)
+{
+	version->bip32_pubkey_version = fromwire_u32(cursor, max);
+	version->bip32_privkey_version = fromwire_u32(cursor, max);
+}

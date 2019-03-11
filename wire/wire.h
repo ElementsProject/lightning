@@ -2,6 +2,7 @@
 #define LIGHTNING_WIRE_WIRE_H
 #include "config.h"
 #include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
@@ -73,6 +74,8 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_wirestring(u8 **pptr, const char *str);
 void towire_siphash_seed(u8 **cursor, const struct siphash_seed *seed);
 
+void towire_bip32_key_version(u8 **cursor, const struct bip32_key_version *version);
+
 const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n);
 u8 fromwire_u8(const u8 **cursor, size_t *max);
 u16 fromwire_u16(const u8 **cursor, size_t *max);
@@ -115,4 +118,6 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 				       const u8 **cursor, size_t *max);
 void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 			   struct siphash_seed *seed);
+void fromwire_bip32_key_version(const u8 **cursor, size_t *max,
+				struct bip32_key_version *version);
 #endif /* LIGHTNING_WIRE_WIRE_H */

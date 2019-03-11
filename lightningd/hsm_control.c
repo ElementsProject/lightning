@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
 #include <lightningd/log_status.h>
@@ -92,7 +93,8 @@ void hsm_init(struct lightningd *ld)
 		err(1, "Could not subd hsm");
 
 	ld->hsm_fd = fds[0];
-	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx)))
+	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
+				  &ld->topology->bitcoind->chainparams->bip32_key_version)))
 		err(1, "Writing init msg to hsm");
 
 	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);

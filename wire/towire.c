@@ -1,5 +1,6 @@
 #include "wire.h"
 #include <assert.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/shadouble.h>
 #include <bitcoin/tx.h>
@@ -192,4 +193,10 @@ void towire_amount_msat(u8 **pptr, const struct amount_msat msat)
 void towire_amount_sat(u8 **pptr, const struct amount_sat sat)
 {
 	towire_u64(pptr, sat.satoshis); /* Raw: primitive */
+}
+
+void towire_bip32_key_version(u8 **pptr, const struct bip32_key_version *version)
+{
+	towire_u32(pptr, version->bip32_pubkey_version);
+	towire_u32(pptr, version->bip32_privkey_version);
 }

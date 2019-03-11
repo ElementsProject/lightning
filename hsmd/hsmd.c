@@ -66,6 +66,11 @@ static struct {
 	struct ext_key bip32;
 } secretstuff;
 
+/* Version codes for BIP32 extended keys in libwally-core.
+ * It's not suitable to add this struct into client struct,
+ * so set it static.*/
+static struct  bip32_key_version  bip32_key_version;
+
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
 	/* The ccan/io async io connection for this client: it closes, we die. */
@@ -351,7 +356,16 @@ static void populate_secretstuff(void)
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
 
+	assert(bip32_key_version.bip32_pubkey_version == BIP32_VER_MAIN_PUBLIC
+			|| bip32_key_version.bip32_pubkey_version == BIP32_VER_TEST_PUBLIC);
+
+	assert(bip32_key_version.bip32_privkey_version == BIP32_VER_MAIN_PRIVATE
+			|| bip32_key_version.bip32_privkey_version == BIP32_VER_TEST_PRIVATE);
+
 	/* Fill in the BIP32 tree for bitcoin addresses. */
+	/* In libwally-core, the version BIP32_VER_TEST_PRIVATE is for testnet/regtest,
+	 * and BIP32_VER_MAIN_PRIVATE is for mainnet. For litecoin, we also set it like
+	 * bitcoin else.*/
 	do {
 		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
 			    &salt, sizeof(salt),
@@ -360,7 +374,7 @@ static void populate_secretstuff(void)
 			    "bip32 seed", strlen("bip32 seed"));
 		salt++;
 	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-				     BIP32_VER_TEST_PRIVATE,
+				     bip32_key_version.bip32_privkey_version,
 				     0, &master_extkey) != WALLY_OK);
 
 	/* BIP 32:
@@ -380,7 +394,8 @@ static void populate_secretstuff(void)
 	 * separate keychains for these should use the external one for
 	 * everything.
 	 *
-	 *  - m/iH/0/k corresponds to the k'th keypair of the external chain of account number i of the HDW derived from master m.
+	 *  - m/iH/0/k corresponds to the k'th keypair of the external chain of
+	 * account number i of the HDW derived from master m.
 	 */
 	/* Hence child 0, then child 0 again to get extkey to derive from. */
 	if (bip32_key_from_parent(&master_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
@@ -522,7 +537,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * definitions in hsm_client_wire.csv.  The format of those files is
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
-	if (!fromwire_hsm_init(msg_in))
+	if (!fromwire_hsm_init(msg_in, &bip32_key_version))
 		return bad_req(conn, c, msg_in);
 
 	maybe_create_new_hsm();

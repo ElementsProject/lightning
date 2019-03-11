@@ -102,6 +102,9 @@ provide appropriate suffixes for JSON input fields.
 - You can no longer make giant unpayable "wumbo" invoices.
 - CLTV of total route now correctly evaluated when finding best route.
 - `riskfactor` arguments to `pay` and `getroute` now have an effect.
+- Fixed the version of bip32 private_key to BIP32_VER_MAIN_PRIVATE: we used
+  BIP32_VER_MAIN_PRIVATE for bitcoin/litecoin mainnet, and BIP32_VER_TEST_PRIVATE
+  for others. (PR #2436)
 
 ### Security
 
