@@ -103,7 +103,6 @@ services:
       - --bitcoin-rpcconnect=bitcoind
       - --bitcoin-rpcuser=rpcuser
       - --bitcoin-rpcpassword=rpcpass
-      - --plugin-dir=/usr/libexec/c-lightning/plugins
       - --network=testnet
       - --alias=myawesomenode
       - --log-level=debug

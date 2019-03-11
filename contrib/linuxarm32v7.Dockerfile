@@ -87,7 +87,7 @@ RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=0
-RUN ./configure --enable-static && make -j3 DEVELOPER=${DEVELOPER} && cp lightningd/lightning* cli/lightning-cli /usr/bin/
+RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 
 FROM arm32v7/debian:stretch-slim as final
 COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
@@ -100,10 +100,7 @@ ENV LIGHTNINGD_PORT=9835
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
 VOLUME [ "/root/.lightning" ]
-
-COPY --from=builder /opt/lightningd/cli/lightning-cli /usr/bin
-COPY --from=builder /opt/lightningd/lightningd/lightning* /usr/bin/
-COPY --from=builder /opt/lightningd/plugins/pay /usr/libexec/c-lightning/plugins/
+COPY --from=builder /tmp/lightning_install/ /usr/local/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
