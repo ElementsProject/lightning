@@ -9,6 +9,8 @@ channel_init,,funding_txid,struct bitcoin_txid
 channel_init,,funding_txout,u16
 channel_init,,funding_satoshi,struct amount_sat
 channel_init,,minimum_depth,u32
+channel_init,,remote_announcement_node_sigs,?secp256k1_ecdsa_signature
+channel_init,,remote_announcement_bitcoin_sigs,?secp256k1_ecdsa_signature
 channel_init,,our_config,struct channel_config
 channel_init,,their_config,struct channel_config
 # FIXME: Fix generate-wire.py to allow NUM_SIDES*u32 here.
@@ -92,9 +94,13 @@ channel_fulfill_htlc,,fulfilled_htlc,struct fulfilled_htlc
 channel_fail_htlc,1006
 channel_fail_htlc,,failed_htlc,struct failed_htlc
 
-# When we receive funding_locked.
-channel_got_funding_locked,1019
-channel_got_funding_locked,,next_per_commit_point,struct pubkey
+# We will send it when we receive funding_locked and announcement message
+channel_got_locked_and_announced,1019
+# we set ture iff when we receive remote channel announcement
+channel_got_locked_and_announced,,got_remote_announcement,bool
+channel_got_locked_and_announced,,next_per_commit_point,?struct pubkey
+channel_got_locked_and_announced,,remote_announcement_node_sigs,?secp256k1_ecdsa_signature
+channel_got_locked_and_announced,,remote_announcement_bitcoin_sigs,?secp256k1_ecdsa_signature
 
 # When we send a commitment_signed message, tell master.
 channel_sending_commitsig,1020

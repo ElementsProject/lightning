@@ -198,6 +198,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      funding_txid,
 			      funding_outnum,
 			      funding,
+			      NULL, /* no remote announcement sigs yet */
 			      push,
 			      false, /* !remote_funding_locked */
 			      NULL, /* no scid yet */

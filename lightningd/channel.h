@@ -14,6 +14,11 @@ struct billboard {
 	const char *transient;
 };
 
+struct announcement {
+	secp256k1_ecdsa_signature announcement_node_sigs;
+	secp256k1_ecdsa_signature announcement_bitcoin_sigs;
+};
+
 struct channel {
 	/* Inside peer->channels. */
 	struct list_node list;
@@ -64,6 +69,9 @@ struct channel {
 	bool remote_funding_locked;
 	/* Channel if locked locally. */
 	struct short_channel_id *scid;
+
+	/* remote peer announcement information */
+	struct announcement *remote_announcement;
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
 	struct amount_msat our_msat;
@@ -132,6 +140,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct bitcoin_txid *funding_txid,
 			    u16 funding_outnum,
 			    struct amount_sat funding,
+			    struct announcement *remote_announcement,
 			    struct amount_msat push,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */

@@ -24,6 +24,7 @@ struct invoices;
 struct channel;
 struct lightningd;
 struct node_id;
+struct announcement;
 struct oneshot;
 struct peer;
 struct timers;
@@ -545,6 +546,20 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct htlc_in_map *htlcs_in,
 				   struct htlc_out_map *htlcs_out);
 
+/**
+ * wallet_announcement_save - Save remote announcement information with channel.
+ *
+ * @wallet: wallet to load from
+ * @channel: remote peer announcement information associated with this channel
+ * @announcement: announcement struct including rannouncement_node_sigs and
+ *	announcement_bitcoin_sigs
+ *
+ * This function is only used to save REMOTE announcement information into DB
+ * when the channel has set the announce_channel bit and don't send the shutdown
+ * message(BOLT#7).
+ */
+void wallet_announcement_save(struct wallet *wallet, struct channel *channel,
+			   struct announcement *announcement);
 
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */

@@ -146,6 +146,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct bitcoin_txid *funding_txid,
 			    u16 funding_outnum,
 			    struct amount_sat funding,
+			    struct announcement *remote_announcement,
 			    struct amount_msat push,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
@@ -215,6 +216,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->funding_txid = *funding_txid;
 	channel->funding_outnum = funding_outnum;
 	channel->funding = funding;
+	channel->remote_announcement = tal_steal(channel, remote_announcement);
 	channel->push = push;
 	channel->remote_funding_locked = remote_funding_locked;
 	channel->scid = tal_steal(channel, scid);

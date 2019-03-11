@@ -375,6 +375,12 @@ static struct migration dbmigrations[] = {
 	{ "ALTER TABLE channels ADD feerate_base INTEGER;", NULL },
 	{ "ALTER TABLE channels ADD feerate_ppm INTEGER;", NULL },
 	{ NULL, migrate_pr2342_feerate_per_channel },
+	/* store remote announcement into DB*/
+	{ "CREATE TABLE announcement ("
+	  "  channelid INTEGER REFERENCES channels(id) ON DELETE CASCADE"
+	  ", remote_announcement_node_signature BLOB"
+	  ", remote_announcement_bitcoin_signature BLOB"
+	  ");", NULL },
 };
 
 /* Leak tracking. */

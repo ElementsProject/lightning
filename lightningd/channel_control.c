@@ -82,30 +82,60 @@ static void lockin_complete(struct channel *channel)
  * first step is to build the provisional announcement and ask the HSM
  * to sign it. */
 
-static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
+static void peer_got_funding_locked_and_announced(struct channel *channel, const u8 *msg)
 {
-	struct pubkey next_per_commitment_point;
+	bool announced;
+	struct pubkey *next_per_commitment_point;
+	secp256k1_ecdsa_signature *remote_node_sigs;
+	secp256k1_ecdsa_signature *remote_bitcoin_sigs;
 
-	if (!fromwire_channel_got_funding_locked(msg,
-						 &next_per_commitment_point)) {
+	if (!fromwire_channel_got_locked_and_announced(tmpctx,
+						 msg,
+						 &announced,
+						 &next_per_commitment_point,
+						 &remote_node_sigs,
+						 &remote_bitcoin_sigs)) {
 		channel_internal_error(channel,
 				       "bad channel_got_funding_locked %s",
 				       tal_hex(channel, msg));
 		return;
 	}
 
-	if (channel->remote_funding_locked) {
-		channel_internal_error(channel,
-				       "channel_got_funding_locked twice");
-		return;
+	if(!announced) {
+		assert(next_per_commitment_point);
+		assert(remote_node_sigs == NULL);
+		assert(remote_bitcoin_sigs == NULL);
+
+		if (channel->remote_funding_locked) {
+			channel_internal_error(channel,
+					       "channel_got_funding_locked twice");
+			return;
+		}
+		update_per_commit_point(channel, next_per_commitment_point);
+
+		log_debug(channel->log, "Got funding_locked");
+		channel->remote_funding_locked = true;
+
+		if (channel->scid)
+			lockin_complete(channel);
 	}
-	update_per_commit_point(channel, &next_per_commitment_point);
+	else {
+		assert(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
 
-	log_debug(channel->log, "Got funding_locked");
-	channel->remote_funding_locked = true;
+		assert(next_per_commitment_point == NULL);
+		assert(remote_node_sigs);
+		assert(remote_bitcoin_sigs);
 
-	if (channel->scid)
-		lockin_complete(channel);
+		channel->remote_announcement = tal_free(channel->remote_announcement);
+		channel->remote_announcement = tal(channel, struct announcement);
+		channel->remote_announcement->announcement_node_sigs = *remote_node_sigs;
+		channel->remote_announcement->announcement_bitcoin_sigs = *remote_bitcoin_sigs;
+
+		/* save remote peer announcement signatures into DB! */
+		wallet_announcement_save(channel->peer->ld->wallet,
+						channel,
+						channel->remote_announcement);
+	}
 }
 
 static void peer_got_shutdown(struct channel *channel, const u8 *msg)
@@ -204,8 +234,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_GOT_REVOKE:
 		peer_got_revoke(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
-		peer_got_funding_locked(sd->channel, msg);
+	case WIRE_CHANNEL_GOT_LOCKED_AND_ANNOUNCED:
+		peer_got_funding_locked_and_announced(sd->channel, msg);
 		break;
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
 		peer_got_shutdown(sd->channel, msg);
@@ -264,6 +294,9 @@ void peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	bool reached_announce_depth;
 	struct secret last_remote_per_commit_secret;
+	secp256k1_ecdsa_signature *announcement_node_sigs;
+	secp256k1_ecdsa_signature *announcement_bitcoin_sigs;
+	struct announcement *remote = channel->remote_announcement;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -336,12 +369,25 @@ void peer_start_channeld(struct channel *channel,
 	if (ld->config.ignore_fee_limits)
 		log_debug(channel->log, "Ignoring fee limits!");
 
+	if((channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) &&
+			remote) {
+		announcement_node_sigs = tal(tmpctx, secp256k1_ecdsa_signature);
+		announcement_bitcoin_sigs = tal(tmpctx, secp256k1_ecdsa_signature);
+		*announcement_node_sigs = remote->announcement_node_sigs;
+		*announcement_bitcoin_sigs = remote->announcement_bitcoin_sigs;
+	} else {
+		announcement_node_sigs = NULL;
+		announcement_bitcoin_sigs = NULL;
+	}
+
 	initmsg = towire_channel_init(tmpctx,
 				      &get_chainparams(ld)->genesis_blockhash,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding,
 				      channel->minimum_depth,
+				      announcement_node_sigs,
+				      announcement_bitcoin_sigs,
 				      &channel->our_config,
 				      &channel->channel_info.their_config,
 				      channel->channel_info.feerate_per_kw,

@@ -157,6 +157,9 @@ struct peer {
 
 	/* Additional confirmations need for local lockin. */
 	u32 depth_togo;
+
+	/* It means if we are in reconnection process*/
+	bool reconnected;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -444,8 +447,6 @@ static void announce_channel(struct peer *peer)
 {
 	u8 *cannounce;
 
-	check_short_ids_match(peer);
-
 	cannounce = create_channel_announcement(tmpctx, peer);
 
 	wire_sync_write(GOSSIP_FD, cannounce);
@@ -494,7 +495,27 @@ static void channel_announcement_negotiate(struct peer *peer)
 	/* If we've completed the signature exchange, we can send a real
 	 * announcement, otherwise we send a temporary one */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
+	{
+		check_short_ids_match(peer);
+
+		/* After making sure short_channel_ids match, we can send remote
+		 * announcement to MASTER.
+		 * But we won't do this when restart, because we load announcement
+		 * signatures form DB when we reenable Channeld! */
+		if(peer->reconnected == false){
+			/* Ask Master to save remote announcement into DB.
+			 * We will never waste time on waiting for remote peer announcement
+			 * reply when restart.
+			 */
+			wire_sync_write(MASTER_FD,
+					take(towire_channel_got_locked_and_announced(NULL,
+								true,
+								NULL,
+								&peer->announcement_node_sigs[REMOTE],
+								&peer->announcement_bitcoin_sigs[REMOTE])));
+		}
 		announce_channel(peer);
+	}
 }
 
 static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
@@ -532,8 +553,11 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 
 	peer->funding_locked[REMOTE] = true;
 	wire_sync_write(MASTER_FD,
-			take(towire_channel_got_funding_locked(NULL,
-						&peer->remote_per_commit)));
+			take(towire_channel_got_locked_and_announced(NULL,
+						false,
+						&peer->remote_per_commit,
+						NULL,
+						NULL)));
 
 	channel_announcement_negotiate(peer);
 	billboard_update(peer);
@@ -542,12 +566,18 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
 {
 	struct channel_id chanid;
+	secp256k1_ecdsa_signature *remote_node_sigs;
+	secp256k1_ecdsa_signature *remote_bitcoin_sigs;
+	struct short_channel_id *remote_scid = tal(tmpctx, struct short_channel_id);
+
+	remote_node_sigs = talz(tmpctx, secp256k1_ecdsa_signature);
+	remote_bitcoin_sigs = talz(tmpctx, secp256k1_ecdsa_signature);
 
 	if (!fromwire_announcement_signatures(msg,
 					      &chanid,
-					      &peer->short_channel_ids[REMOTE],
-					      &peer->announcement_node_sigs[REMOTE],
-					      &peer->announcement_bitcoin_sigs[REMOTE]))
+					      remote_scid,
+					      remote_node_sigs,
+					      remote_bitcoin_sigs))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Bad announcement_signatures %s",
@@ -563,8 +593,54 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 			    type_to_string(tmpctx, struct channel_id, &chanid));
 	}
 
-	peer->have_sigs[REMOTE] = true;
-	billboard_update(peer);
+	/* If we received remote announcement before, now we need to make
+	 * sure the new announcement is same as the old and then ignore it.
+	 */
+	if(peer->have_sigs[REMOTE] == true) {
+
+		/* make sure new short_channel_id must equal the old one */
+		if (!short_channel_id_eq(remote_scid,
+				 &peer->short_channel_ids[REMOTE]))
+			peer_failed(&peer->cs,
+				&peer->channel_id,
+			    	"Wrong announcement: "
+				"first received short_channel_ids: %s"
+			    	" , now second get %s",
+			    	type_to_string(peer, struct short_channel_id,
+						   &peer->short_channel_ids[REMOTE]),
+			    	type_to_string(peer, struct short_channel_id,
+						   remote_scid));
+
+		/* make sure new node signature and bitcoin signature equal
+		 * the old signatures
+		 */
+		if(memcmp(&peer->announcement_node_sigs[REMOTE], remote_node_sigs,
+					  sizeof(peer->announcement_node_sigs[REMOTE])) ||
+					  memcmp(&peer->announcement_bitcoin_sigs[REMOTE],
+					  remote_bitcoin_sigs,
+					  sizeof(peer->announcement_bitcoin_sigs[REMOTE])))
+			peer_failed(&peer->cs,
+			    	&peer->channel_id,
+			    	"Wrong announcement: first received node_sigs %s, "
+				"now second get %s , first received bitcoin_sigs %s,"
+				"now second get %s",
+			    	type_to_string(tmpctx, secp256k1_ecdsa_signature,
+						   &peer->announcement_node_sigs[REMOTE]),
+			    	type_to_string(tmpctx, secp256k1_ecdsa_signature,
+						   remote_node_sigs),
+			    	type_to_string(tmpctx, secp256k1_ecdsa_signature,
+						   &peer->announcement_bitcoin_sigs[REMOTE]),
+			    	type_to_string(tmpctx, secp256k1_ecdsa_signature,
+						   remote_bitcoin_sigs));
+	} else {
+		peer->have_sigs[REMOTE] = true;
+
+		peer->short_channel_ids[REMOTE] = *remote_scid;
+		peer->announcement_node_sigs[REMOTE] = *remote_node_sigs;
+		peer->announcement_bitcoin_sigs[REMOTE] = *remote_bitcoin_sigs;
+
+		billboard_update(peer);
+	}
 
 	channel_announcement_negotiate(peer);
 }
@@ -2723,7 +2799,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
-	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
+	case WIRE_CHANNEL_GOT_LOCKED_AND_ANNOUNCED:
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
@@ -2769,12 +2845,13 @@ static void init_channel(struct peer *peer)
 	struct failed_htlc **failed;
 	enum side *failed_sides;
 	struct added_htlc *htlcs;
-	bool reconnected;
 	u8 *funding_signed;
 	const u8 *msg;
 	u32 feerate_per_kw[NUM_SIDES];
 	u32 minimum_depth;
 	struct secret last_remote_per_commit_secret;
+	secp256k1_ecdsa_signature *remote_node_sigs;
+	secp256k1_ecdsa_signature *remote_bitcoin_sigs;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2786,6 +2863,8 @@ static void init_channel(struct peer *peer)
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &minimum_depth,
+				   &remote_node_sigs,
+				   &remote_bitcoin_sigs,
 				   &conf[LOCAL], &conf[REMOTE],
 				   feerate_per_kw,
 				   &peer->feerate_min, &peer->feerate_max,
@@ -2820,7 +2899,7 @@ static void init_channel(struct peer *peer)
 				   &peer->funding_locked[LOCAL],
 				   &peer->funding_locked[REMOTE],
 				   &peer->short_channel_ids[LOCAL],
-				   &reconnected,
+				   &peer->reconnected,
 				   &peer->send_shutdown,
 				   &peer->shutdown_sent[REMOTE],
 				   &peer->final_scriptpubkey,
@@ -2846,6 +2925,20 @@ static void init_channel(struct peer *peer)
 		     peer->revocations_received,
 		     feerate_per_kw[LOCAL], feerate_per_kw[REMOTE],
 		     peer->feerate_min, peer->feerate_max);
+
+	if(remote_node_sigs && remote_bitcoin_sigs) {
+		peer->announcement_node_sigs[REMOTE] = *remote_node_sigs;
+		peer->announcement_bitcoin_sigs[REMOTE] = *remote_bitcoin_sigs;
+		peer->have_sigs[REMOTE] = true;
+
+		tal_steal(tmpctx, remote_node_sigs);
+		tal_steal(tmpctx, remote_bitcoin_sigs);
+		/* Before we store announcement into DB, we have made sure
+		 * remote short_channel_id matched the local. Now we initial
+		 * it directly!
+		 */
+		peer->short_channel_ids[REMOTE] = peer->short_channel_ids[LOCAL];
+	}
 
 	/* First commit is used for opening: if we've sent 0, we're on
 	 * index 1. */
@@ -2903,7 +2996,7 @@ static void init_channel(struct peer *peer)
 	peer->depth_togo = minimum_depth;
 
 	/* OK, now we can process peer messages. */
-	if (reconnected)
+	if (peer->reconnected)
 		peer_reconnect(peer, &last_remote_per_commit_secret);
 
 	/* If we have a funding_signed message, send that immediately */
@@ -2914,6 +3007,8 @@ static void init_channel(struct peer *peer)
 	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
+
+	peer->reconnected = false;
 }
 
 static void send_shutdown_complete(struct peer *peer)
@@ -2949,6 +3044,7 @@ int main(int argc, char *argv[])
 	peer->last_update_timestamp = 0;
 	/* We actually received it in the previous daemon, but near enough */
 	peer->last_recv = time_now();
+	peer->reconnected = false;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */

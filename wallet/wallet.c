@@ -595,6 +595,81 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
 	return htlc_sigs;
 }
 
+/* after called 'wallet_channel_insert()', we only call this function
+ * when we receive the remote announcement message */
+void wallet_announcement_save(struct wallet *w, struct channel *chan,
+			   struct announcement *ann)
+{
+	/* Clear any existing remote announcement for this channel */
+	sqlite3_stmt *stmt =
+	    db_prepare(w->db, "DELETE FROM announcement WHERE channelid = ?");
+	sqlite3_bind_int64(stmt, 1, chan->dbid);
+	db_exec_prepared(w->db, stmt);
+
+	/* Now insert the new ones */
+	stmt = db_prepare(w->db, "INSERT INTO announcement (channelid, "
+					"remote_announcement_node_signature, "
+					"remote_announcement_bitcoin_signature) "
+					"VALUES (?, ?, ?)");
+
+	sqlite3_bind_int64(stmt, 1, chan->dbid);
+	if ((chan->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) &&
+			chan->remote_announcement) {
+		sqlite3_bind_signature(stmt, 2, &ann->announcement_node_sigs);
+		sqlite3_bind_signature(stmt, 3, &ann->announcement_bitcoin_sigs);
+	} else {
+		sqlite3_bind_null(stmt, 2);
+		sqlite3_bind_null(stmt, 3);
+	}
+
+	db_exec_prepared(w->db, stmt);
+}
+
+static struct announcement *
+wallet_announcement_load(const tal_t *ctx, struct wallet *w, u64 channelid)
+{
+	struct announcement * ann;
+	secp256k1_ecdsa_signature *remote_node_sigs, *remote_bitcoin_sigs;
+
+	sqlite3_stmt *stmt = db_prepare(w->db,
+					"SELECT remote_announcement_node_signature, "
+					"remote_announcement_bitcoin_signature "
+					"FROM announcement WHERE channelid = ?");
+	sqlite3_bind_int64(stmt, 1, channelid);
+
+	if (sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
+		remote_node_sigs = tal(ctx, secp256k1_ecdsa_signature);
+		if (!sqlite3_column_signature(stmt, 0, remote_node_sigs)) {
+			db_stmt_done(stmt);
+			return NULL;
+		}
+	} else {
+		remote_node_sigs = NULL;
+	}
+
+	if (sqlite3_column_type(stmt, 1) != SQLITE_NULL) {
+		remote_bitcoin_sigs = tal(ctx, secp256k1_ecdsa_signature);
+		if (!sqlite3_column_signature(stmt, 1, remote_bitcoin_sigs)) {
+			db_stmt_done(stmt);
+			return NULL;
+		}
+	} else {
+		remote_node_sigs = NULL;
+	}
+
+	db_stmt_done(stmt);
+
+	if(remote_node_sigs && remote_bitcoin_sigs) {
+		ann = tal(ctx, struct announcement);
+		ann->announcement_node_sigs = *remote_node_sigs;
+		ann->announcement_bitcoin_sigs = *remote_bitcoin_sigs;
+	} else {
+		return NULL;
+	}
+
+	return ann;
+}
+
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a sqlite3_stmt
  */
@@ -715,6 +790,9 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   &funding_txid,
 			   sqlite3_column_int(stmt, 13),
 			   sqlite3_column_amount_sat(stmt, 14),
+			   /* remote announcement signatures */
+			   wallet_announcement_load(tmpctx, w,
+						 sqlite3_column_int64(stmt, 0)),
 			   sqlite3_column_amount_msat(stmt, 16),
 			   sqlite3_column_int(stmt, 15) != 0,
 			   scid,
@@ -1005,6 +1083,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int(stmt, 11, chan->funding_outnum);
 	sqlite3_bind_amount_sat(stmt, 12, chan->funding);
 	sqlite3_bind_int(stmt, 13, chan->remote_funding_locked);
+
 	sqlite3_bind_amount_msat(stmt, 14, chan->push);
 	sqlite3_bind_amount_msat(stmt, 15, chan->our_msat);
 
@@ -1106,6 +1185,29 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 	wallet_channel_config_insert(w, &chan->our_config);
 	wallet_channel_config_insert(w, &chan->channel_info.their_config);
 	wallet_shachain_init(w, &chan->their_shachain);
+
+	/* insert announcement: here we create announcement with
+	 * (channelid, NULL, NULL) for (private) channel. It's
+	 * convenient for us to load channel data and call
+	 * 'new_channel' to rebuild channel.
+	 */
+	stmt = db_prepare(w->db, "INSERT INTO announcement (channelid, "
+					"remote_announcement_node_signature, "
+					"remote_announcement_bitcoin_signature) "
+					"VALUES (?, ?, ?)");
+	sqlite3_bind_int64(stmt, 1, chan->dbid);
+	if ((chan->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) &&
+			chan->remote_announcement) {
+		sqlite3_bind_signature(stmt, 2,
+					&chan->remote_announcement->announcement_node_sigs);
+		sqlite3_bind_signature(stmt, 3,
+					&chan->remote_announcement->announcement_bitcoin_sigs);
+	} else {
+		sqlite3_bind_null(stmt, 2);
+		sqlite3_bind_null(stmt, 3);
+	}
+
+	db_exec_prepared(w->db, stmt);
 
 	/* Now save path as normal */
 	wallet_channel_save(w, chan);

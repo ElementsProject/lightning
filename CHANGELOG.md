@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `newaddr` outputs `bech32` or `p2sh-segwit`, or both with new `all` parameter (#2390)
 - JSON API: `listpeers` status now shows how many confirmations until channel is open (#2405)
 - Config: Adds parameter `min-capacity-sat` to reject tiny channels.
+- Lightningd: Store channel_announcement information of remote peer into DB (#2409)
 
 ### Changed
 
