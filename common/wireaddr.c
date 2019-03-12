@@ -428,6 +428,8 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 				*err_msg = "Socket name too long";
 			return false;
 		}
+		/* Zero it out for passing across the wire */
+		memset(addr->u.sockname, 0, sizeof(addr->u.sockname));
 		strcpy(addr->u.sockname, arg);
 		return true;
 	}
