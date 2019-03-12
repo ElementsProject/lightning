@@ -2,12 +2,12 @@
 .\"     Title: lightning-connect
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/11/2019
+.\"      Date: 03/12/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-CONNECT" "7" "02/11/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-CONNECT" "7" "03/12/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,6 +43,8 @@ The \fBconnect\fR RPC command establishes a new connection with another node in 
 If not specified, the \fIport\fR defaults to 9375\&.
 .sp
 If \fIhost\fR is not specified, the connection will be attempted to an IP belonging to \fIid\fR obtained through gossip with other already connected peers\&.
+.sp
+If \fIhost\fR begins with a \fI/\fR it is interpreted as a local path, and the connection will be made to that local socket (see \fBbind\-addr\fR in lightningd\-config(5))\&.
 .sp
 Connecting to a node is just the first step in opening a channel with another node\&. Once the peer is connected a channel can be opened with lightning\-fundchannel(7)\&.
 .SH "RETURN VALUE"
