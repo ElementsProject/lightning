@@ -29,6 +29,10 @@ connection will be attempted to an IP belonging to
 'id' obtained through gossip with other already
 connected peers.
 
+If 'host' begins with a '/' it is interpreted as a local path,
+and the connection will be made to that local socket (see *bind-addr*
+in lightningd-config(5)).
+
 Connecting to a node is just the first step in opening 
 a channel with another node.
 Once the peer is connected a channel can be opened with
