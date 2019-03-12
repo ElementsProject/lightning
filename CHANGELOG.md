@@ -23,6 +23,8 @@ changes.
 
 ### Fixed
 
+- `--bind-addr=<path>` fixed for nodes using local sockets (eg. testing).
+
 ### Security
 
 ## [0.7.0] - 2019-02-28: "Actually an Altcoin"

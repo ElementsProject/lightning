@@ -988,7 +988,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			addrun.sun_family = AF_UNIX;
 			memcpy(addrun.sun_path, wa.u.sockname,
 			       sizeof(addrun.sun_path));
-			fd = make_listen_fd(AF_INET, &addrun, sizeof(addrun),
+			fd = make_listen_fd(AF_UNIX, &addrun, sizeof(addrun),
 					    false);
 			status_trace("Created socket listener on file %s",
 				     addrun.sun_path);
