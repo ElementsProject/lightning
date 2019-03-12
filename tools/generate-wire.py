@@ -678,6 +678,7 @@ def parse_tlv_file(tlv_field_name):
     tlv_includes = []
     tlv_messages = []
     tlv_comments = []
+    tlv_prevfield = None
     with open(get_directory_prefix() + get_tlv_filename(tlv_field_name)) as f:
         for line in f:
             # #include gets inserted into header
@@ -697,7 +698,31 @@ def parse_tlv_file(tlv_field_name):
 
             if len(parts) == 2:
                 # eg commit_sig,132
-                tlv_messages.append(Message(parts[0], Enumtype("TLV_" + parts[0].upper(), parts[1]), tlv_comments))
+                tlv_msg = Message(parts[0], Enumtype("TLV_" + parts[0].upper(), parts[1]), tlv_comments)
+                tlv_messages.append(tlv_msg)
+
+                tlv_comments = []
+                tlv_prevfield = None
+            else:
+                if len(parts) == 4:
+                    # eg commit_sig,0,channel-id,8 OR
+                    #    commit_sig,0,channel-id,u64
+                    m = find_message(tlv_messages, parts[0])
+                    if m is None:
+                        raise ValueError('Unknown message {}'.format(parts[0]))
+                elif len(parts) == 5:
+                    # eg.
+                    # channel_reestablish,48,your_last_per_commitment_secret,32,option209
+                    m = find_message_with_option(tlv_messages, messages_with_option, parts[0], parts[4])
+                else:
+                    raise ValueError('Line {} malformed'.format(line.rstrip()))
+
+                f = Field(m.name, parts[2], parts[3], tlv_comments, tlv_prevfield)
+                m.addField(f)
+                # If it used prevfield as lenvar, keep that for next
+                # time (multiple fields can use the same lenvar).
+                if not f.lenvar:
+                    tlv_prevfield = parts[2]
                 tlv_comments = []
         return tlv_includes, tlv_messages, tlv_comments
 
