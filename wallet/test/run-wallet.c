@@ -1161,6 +1161,7 @@ int main(void)
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	ld = tal(tmpctx, struct lightningd);
+	ld->config = test_config;
 
 	/* Only elements in ld we should access */
 	list_head_init(&ld->peers);
