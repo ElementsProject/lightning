@@ -189,6 +189,9 @@ Lightning channel and HTLC options
     they're outside this range, we abort their opening attempt.  Note
     that *commit-fee-max* can (should!) be greater than 100.
 
+*dust-limit*='AMOUNT'::
+    set dust limmit amount (default: 546sat)
+
 *cltv-delta*='BLOCKS'::
     The number of blocks between incoming payments and outgoing payments:
     this needs to be enough to make sure that if we have to, we can close

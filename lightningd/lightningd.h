@@ -6,6 +6,7 @@
 #include <ccan/container_of/container_of.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
+#include <common/amount.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/plugin.h>
 #include <stdio.h>
@@ -67,6 +68,8 @@ struct config {
 
 	/* Are we allowed to use DNS lookup for peers. */
 	bool use_dns;
+
+	struct amount_sat dust_limit;
 };
 
 struct lightningd {

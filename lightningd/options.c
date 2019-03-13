@@ -9,6 +9,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/amount.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_escaped.h>
@@ -313,6 +314,22 @@ static char *opt_clear_plugins(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_dust_limit(const char *arg, struct lightningd *ld)
+{
+	assert(arg != NULL);
+
+	if (!parse_amount_sat(&ld->config.dust_limit,
+		arg, strlen(arg)))
+		return tal_fmt(NULL, "Should be a satoshi amount, not '%s'", arg);
+	return NULL;
+}
+
+static void opt_show_dust_limit(char buf[OPT_SHOW_LEN], const struct lightningd *ld)
+{
+	snprintf(buf, OPT_SHOW_LEN, "%s",
+		fmt_amount_sat(NULL, &ld->config.dust_limit));
+}
+
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
@@ -356,6 +373,9 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--commit-fee=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_percent,
 			 "Percentage of fee to request for their commitment");
+	opt_register_arg("--dust_limit=<amount_sat>", opt_set_dust_limit, opt_show_dust_limit,
+			 ld,
+			 "set dust limit amount");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
 			 "Number of blocks for cltv_expiry_delta");
@@ -528,6 +548,8 @@ static const struct config testnet_config = {
 	.max_fee_multiplier = 10,
 
 	.use_dns = true,
+
+	.dust_limit = { 546 },
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -591,6 +613,8 @@ static const struct config mainnet_config = {
 	.max_fee_multiplier = 10,
 
 	.use_dns = true,
+
+	.dust_limit = { 546 },
 };
 
 static void check_config(struct lightningd *ld)

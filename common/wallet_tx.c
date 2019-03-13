@@ -46,7 +46,7 @@ static struct command_result *check_amount(const struct wallet_tx *wtx,
 		return command_fail(wtx->cmd, FUND_CANNOT_AFFORD,
 				    "Cannot afford transaction");
 	}
-	if (amount_sat_less(amount, get_chainparams(wtx->cmd->ld)->dust_limit)) {
+	if (amount_sat_less(amount, wtx->cmd->ld->config.dust_limit)) {
 		return command_fail(wtx->cmd, FUND_OUTPUT_IS_DUST,
 				    "Output %s would be dust",
 				    type_to_string(tmpctx, struct amount_sat,
@@ -96,7 +96,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	if (res)
 		return res;
 
-	if (amount_sat_less(tx->change, get_chainparams(tx->cmd->ld)->dust_limit)) {
+	if (amount_sat_less(tx->change, tx->cmd->ld->config.dust_limit)) {
 		tx->change = AMOUNT_SAT(0);
 		tx->change_key_index = 0;
 	} else {
