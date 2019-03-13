@@ -122,6 +122,7 @@ int main(void)
 	bool ok = true;
 	/* Dummy for migration hooks */
 	struct lightningd *ld = tal(NULL, struct lightningd);
+	ld->config = test_config;
 
 	ok &= test_empty_db_migrate(ld);
 	ok &= test_vars(ld);
