@@ -61,6 +61,6 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 		return tal_free(tx);
 	tal_resize(&tx->output, num_outputs);
 
-	permute_outputs(tx->output, NULL, NULL);
+	permute_outputs(tx, NULL, NULL);
 	return tx;
 }
