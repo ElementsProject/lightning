@@ -71,7 +71,8 @@ RUN apk add --no-cache \
      inotify-tools \
      socat \
      bash \
-     zlib-dev
+     zlib-dev \
+     tini
 
 ENV GLIBC_VERSION 2.27-r0
 ENV GLIBC_SHA256 938bceae3b83c53e7fa9cc4135ce45e04aae99256c5e74cf186c794b97473bc7
@@ -99,4 +100,4 @@ COPY --from=builder /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835
-ENTRYPOINT  [ "./entrypoint.sh" ]
+ENTRYPOINT  [ "/sbin/tini", "-g", "--", "./entrypoint.sh" ]
