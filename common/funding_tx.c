@@ -39,12 +39,12 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
 		map[1] = int2ptr(1);
 		tx->output[1].script = scriptpubkey_p2wpkh(tx, changekey);
 		tx->output[1].amount = change;
-		permute_outputs(tx->output, NULL, map);
+		permute_outputs(tx, NULL, map);
 		*outnum = (map[0] == int2ptr(0) ? 0 : 1);
 	} else {
 		*outnum = 0;
 	}
 
-	permute_inputs(tx->input, (const void **)utxomap);
+	permute_inputs(tx, (const void **)utxomap);
 	return tx;
 }
