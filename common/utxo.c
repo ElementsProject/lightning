@@ -52,20 +52,22 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 				     const struct ext_key *bip32_base,
 				     bool add_change_output)
 {
-	struct bitcoin_tx *tx =
-	    bitcoin_tx(ctx, tal_count(utxos), add_change_output ? 2 : 1);
+	struct pubkey key;
+	u8 *script;
+	size_t outcount = add_change_output ? 2 : 1;
+	struct bitcoin_tx *tx = bitcoin_tx(ctx, tal_count(utxos), outcount);
 
 	for (size_t i = 0; i < tal_count(utxos); i++) {
-		tx->input[i].txid = utxos[i]->txid;
-		tx->input[i].index = utxos[i]->outnum;
-		tx->input[i].amount = tal_dup(tx, struct amount_sat,
-					      &utxos[i]->amount);
 		if (utxos[i]->is_p2sh && bip32_base) {
-			struct pubkey key;
 			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
-			tx->input[i].script =
-				bitcoin_scriptsig_p2sh_p2wpkh(tx, &key);
+			script = bitcoin_scriptsig_p2sh_p2wpkh(tx, &key);
+		} else {
+			script = NULL;
 		}
+
+		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
+				     BITCOIN_TX_DEFAULT_SEQUENCE,
+		 		     &utxos[i]->amount, script);
 	}
 
 	return tx;
