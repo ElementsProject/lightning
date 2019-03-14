@@ -22,6 +22,10 @@ struct bitcoin_tx {
 	struct bitcoin_tx_input *input;
 	struct bitcoin_tx_output *output;
 	struct wally_tx *wtx;
+
+	/* Keep track of how many inputs and outputs were filled so far. This
+	 * is needed since we allocate them in bulk. */
+	size_t used_inputs, used_outputs;
 };
 
 struct bitcoin_tx_output {
@@ -80,5 +84,12 @@ bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 /* Internal de-linearization functions. */
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
+
+int bitcoin_tx_add_output(struct bitcoin_tx *tx, u8 *script,
+			  struct amount_sat *amount);
+
+int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
+			 u32 outnum, u32 sequence,
+			 const struct amount_sat *amount, u8 *script);
 
 #endif /* LIGHTNING_BITCOIN_TX_H */
