@@ -15,6 +15,54 @@
 
 static struct sha256_double all_zeroes;
 
+int bitcoin_tx_add_output(struct bitcoin_tx *tx, u8 *script,
+			  struct amount_sat *amount)
+{
+	size_t i = tx->used_outputs;
+	struct wally_tx_output *output;
+	assert(i < tal_count(tx->output));
+	assert(memeqzero(&tx->output[i], sizeof(struct bitcoin_tx_output)));
+
+	tx->output[i].amount = *amount;
+	tx->output[i].script = script;
+
+	assert(tx->wtx != NULL);
+	wally_tx_output_init_alloc(amount->satoshis /* Raw: low-level helper */,
+				   script, tal_bytelen(script), &output);
+	wally_tx_add_output(tx->wtx, output);
+	wally_tx_output_free(output);
+
+	tx->used_outputs++;
+	return i;
+}
+
+int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
+			 u32 outnum, u32 sequence,
+			 const struct amount_sat *amount, u8 *script)
+{
+	size_t i = tx->used_inputs;
+	struct wally_tx_input *input;
+	assert(i < tal_count(tx->input));
+	assert(memeqzero(&tx->input[i].txid, sizeof(struct bitcoin_txid)));
+
+	tx->input[i].txid = *txid;
+	tx->input[i].index = outnum;
+	tx->input[i].sequence_number = sequence;
+	tx->input[i].amount = tal_dup(tx, struct amount_sat, amount);
+	tx->input[i].script = script;
+
+	assert(tx->wtx != NULL);
+	wally_tx_input_init_alloc(txid->shad.sha.u.u8,
+				  sizeof(struct bitcoin_txid), outnum, sequence,
+				  script, tal_bytelen(script),
+				  NULL /* Empty witness stack */, &input);
+	wally_tx_add_input(tx->wtx, input);
+	wally_tx_input_free(input);
+
+	tx->used_inputs++;
+	return i;
+}
+
 static void push_tx_input(const struct bitcoin_tx_input *input,
 			  const u8 *input_script,
 			  void (*push)(const void *, size_t, void *), void *pushp)
@@ -339,6 +387,8 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
+	tx->used_inputs = 0;
+	tx->used_outputs = 0;
 
 	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,
 			    &tx->wtx);
@@ -468,11 +518,15 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	}
 
 	tx->input = tal_arr(tx, struct bitcoin_tx_input, count);
+	tx->used_inputs = count;
+
 	for (i = 0; i < tal_count(tx->input); i++)
 		pull_input(tx, cursor, max, tx->input + i);
 
 	count = pull_length(cursor, max, 8 + 1);
 	tx->output = tal_arr(tx, struct bitcoin_tx_output, count);
+	tx->used_outputs = count;
+
 	for (i = 0; i < tal_count(tx->output); i++)
 		pull_output(tx, cursor, max, tx->output + i);
 
