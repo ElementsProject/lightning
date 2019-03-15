@@ -440,6 +440,36 @@ void db_stmt_done(sqlite3_stmt *stmt)
 	sqlite3_finalize(stmt);
 }
 
+sqlite3_stmt *db_select_prepare_(const char *location, struct db *db, const char *query)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	const char *full_query = tal_fmt(db, "SELECT %s", query);
+
+	assert(db->in_transaction);
+
+	err = sqlite3_prepare_v2(db->sql, full_query, -1, &stmt, NULL);
+
+	if (err != SQLITE_OK)
+		db_fatal("%s: %s: %s", location, full_query, sqlite3_errmsg(db->sql));
+
+	dev_statement_start(stmt, location);
+	tal_free(full_query);
+	return stmt;
+}
+
+bool db_select_step_(const char *location, struct db *db, struct sqlite3_stmt *stmt)
+{
+	int ret;
+
+	ret = sqlite3_step(stmt);
+	if (ret == SQLITE_ROW)
+		return true;
+	if (ret != SQLITE_DONE)
+		db_fatal("%s: %s", location, sqlite3_errmsg(db->sql));
+	db_stmt_done(stmt);
+	return false;
+}
 sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query)
 {
 	int err;
@@ -496,24 +526,39 @@ static void PRINTF_FMT(3, 4)
 	tal_free(cmd);
 }
 
+/* This one can fail: returns NULL if so */
+static sqlite3_stmt *db_query(const char *location,
+			      struct db *db, const char *query)
+{
+	sqlite3_stmt *stmt;
+
+	assert(db->in_transaction);
+
+	/* Sets stmt to NULL if not SQLITE_OK */
+	sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
+	if (stmt)
+		dev_statement_start(stmt, location);
+	return stmt;
+}
+
 sqlite3_stmt *PRINTF_FMT(3, 4)
-    db_query_(const char *location, struct db *db, const char *fmt, ...)
+    db_select_(const char *location, struct db *db, const char *fmt, ...)
 {
 	va_list ap;
-	char *query;
+	char *query = tal_strdup(db, "SELECT ");
 	sqlite3_stmt *stmt;
 
 	assert(db->in_transaction);
 
 	va_start(ap, fmt);
-	query = tal_vfmt(db, fmt, ap);
+ 	tal_append_vfmt(&query, fmt, ap);
 	va_end(ap);
 
-	/* Sets stmt to NULL if not SQLITE_OK */
-	sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
+	stmt = db_query(location, db, query);
+	if (!stmt)
+		db_fatal("%s:%s:%s", location, query, sqlite3_errmsg(db->sql));
 	tal_free(query);
-	if (stmt)
-		dev_statement_start(stmt, location);
+
 	return stmt;
 }
 
@@ -577,22 +622,19 @@ static struct db *db_open(const tal_t *ctx, char *filename)
  */
 static int db_get_version(struct db *db)
 {
-	int err;
-	u64 res = -1;
-	sqlite3_stmt *stmt = db_query(db, "SELECT version FROM version LIMIT 1");
+	int res;
+	sqlite3_stmt *stmt = db_query(__func__,
+				      db, "SELECT version FROM version LIMIT 1");
 
 	if (!stmt)
 		return -1;
 
-	err = sqlite3_step(stmt);
-	if (err != SQLITE_ROW) {
-		db_stmt_done(stmt);
+	if (!db_select_step(db, stmt))
 		return -1;
-	} else {
-		res = sqlite3_column_int64(stmt, 0);
-		db_stmt_done(stmt);
-		return res;
-	}
+
+	res = sqlite3_column_int64(stmt, 0);
+	db_stmt_done(stmt);
+	return res;
 }
 
 /**
@@ -670,21 +712,24 @@ void db_reopen_after_fork(struct db *db)
 
 s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 {
-	int err;
-	s64 res = defval;
-	sqlite3_stmt *stmt =
-	    db_query(db,
-		     "SELECT val FROM vars WHERE name='%s' LIMIT 1", varname);
+	s64 res;
+	sqlite3_stmt *stmt;
+	const char *query;
+
+	query = tal_fmt(db, "SELECT val FROM vars WHERE name='%s' LIMIT 1", varname);
+	stmt = db_query(__func__, db, query);
+	tal_free(query);
 
 	if (!stmt)
 		return defval;
 
-	err = sqlite3_step(stmt);
-	if (err == SQLITE_ROW) {
+	if (db_select_step(db, stmt)) {
 		const unsigned char *stringvar = sqlite3_column_text(stmt, 0);
 		res = atol((const char *)stringvar);
-	}
-	db_stmt_done(stmt);
+		db_stmt_done(stmt);
+	} else
+		res = defval;
+
 	return res;
 }
 
