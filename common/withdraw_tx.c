@@ -1,4 +1,5 @@
 #include "withdraw_tx.h"
+#include <assert.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <ccan/ptrint/ptrint.h>
@@ -20,18 +21,18 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 	tx = tx_spending_utxos(ctx, utxos, bip32_base,
 			       !amount_sat_eq(change, AMOUNT_SAT(0)));
 
-	tx->output[0].amount = withdraw_amount;
-	tx->output[0].script = destination;
+	bitcoin_tx_add_output(tx, destination, &withdraw_amount);
 
 	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
 		const void *map[2];
 		map[0] = int2ptr(0);
 		map[1] = int2ptr(1);
-		tx->output[1].script = scriptpubkey_p2wpkh(tx, changekey);
-		tx->output[1].amount = change;
+		bitcoin_tx_add_output(tx, scriptpubkey_p2wpkh(tx, changekey),
+				      &change);
 		permute_outputs(tx, NULL, map);
 	}
 	permute_inputs(tx, (const void **)utxos);
+	assert(bitcoin_tx_check(tx));
 	return tx;
 }
 
