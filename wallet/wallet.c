@@ -67,11 +67,23 @@ struct wallet *wallet_new(struct lightningd *ld,
 	"channel_id, peer_id, commitment_point, confirmation_height, "	\
 	"spend_height, scriptpubkey"
 
-/* We actually use the db constraints to uniquify, so OK if this fails. */
+/* This can fail if we've already seen UTXO. */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
 {
 	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(w->db,
+			  "SELECT * from outputs WHERE prev_out_tx=? AND prev_out_index=?");
+	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
+	sqlite3_bind_int(stmt, 2, utxo->outnum);
+
+	/* If we get a result, that means a clash. */
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		db_stmt_done(stmt);
+		return false;
+	}
+	db_stmt_done(stmt);
 
 	stmt = db_prepare(w->db, "INSERT INTO outputs ("
 			  UTXO_FIELDS
@@ -109,9 +121,8 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	else
 		sqlite3_bind_null(stmt, 12);
 
-	/* May fail if we already know about the tx, e.g., because
-	 * it's change or some internal tx. */
-	return db_exec_prepared_mayfail(w->db, stmt);
+	db_exec_prepared(w->db, stmt);
+	return true;
 }
 
 /**

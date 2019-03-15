@@ -496,21 +496,6 @@ static void PRINTF_FMT(3, 4)
 	tal_free(cmd);
 }
 
-bool db_exec_prepared_mayfail_(const char *caller UNUSED, struct db *db, sqlite3_stmt *stmt)
-{
-	assert(db->in_transaction);
-
-	if (sqlite3_step(stmt) != SQLITE_DONE) {
-		goto fail;
-	}
-
-	db_stmt_done(stmt);
-	return true;
-fail:
-	db_stmt_done(stmt);
-	return false;
-}
-
 sqlite3_stmt *PRINTF_FMT(3, 4)
     db_query_(const char *location, struct db *db, const char *fmt, ...)
 {
