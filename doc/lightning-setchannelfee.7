@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lightning-setchannelfee
 .\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 03/12/2019
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 03/15/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-SETCHANNE" "7" "03/12/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-SETCHANNE" "7" "03/15/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,7 +38,7 @@ The \fBsetchannelfee\fR RPC command sets channel specific routing fees as define
 .sp
 \fIid\fR is required and should contain a scid (short channel ID), channel id or peerid (pubkey) of the channel to be modified\&.
 .sp
-\fIbase\fR is an optional value in millisatoshi that is added as base fee to any routed payment\&. If the parameter is left out, the global config value fee\-base will be used again\&.
+\fIbase\fR is an optional value in millisatoshi that is added as base fee to any routed payment\&. If the parameter is left out, the global config value fee\-base will be used again\&. It can be a whole number, or a whole number ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places ending in \fIsat\fR, or a number with 1 to 11 decimal places ending in \fIbtc\fR\&.
 .sp
 \fIppm\fR is an optional value that is added proportionally per\-millionths to any routed payment volume in satoshi\&. For example, if ppm is 1,000 and 1,000,000 satoshi is being routed trhough the channel, an proportional fee of 1,000 satoshi is added, resulting in a 0\&.1% fee\&. If the parameter is left out, the global config value will be used again\&.
 .SH "RETURN VALUE"
