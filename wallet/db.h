@@ -109,15 +109,6 @@ sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query
 #define db_exec_prepared(db,stmt) db_exec_prepared_(__func__,db,stmt)
 void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
 
-/**
- * db_exec_prepared_mayfail - db_exec_prepared, but don't fatal() it fails.
- */
-#define db_exec_prepared_mayfail(db,stmt) \
-	db_exec_prepared_mayfail_(__func__,db,stmt)
-bool db_exec_prepared_mayfail_(const char *caller,
-			       struct db *db,
-			       sqlite3_stmt *stmt);
-
 /* Wrapper around sqlite3_finalize(), for tracking statements. */
 void db_stmt_done(sqlite3_stmt *stmt);
 
