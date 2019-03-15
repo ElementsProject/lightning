@@ -362,19 +362,12 @@ bool amount_msat_less_eq_sat(struct amount_msat msat, struct amount_sat sat)
 	return msat.millisatoshis <= msat_from_sat.millisatoshis;
 }
 
-bool amount_msat_overflow_u32(struct amount_msat msat)
+bool amount_msat_to_u32(struct amount_msat msat, u32 *millisatoshis)
 {
-	return amount_msat_greater_eq(msat, AMOUNT_MSAT(0x100000000));
-}
-
-u32 amount_msat_to_u32(struct amount_msat msat)
-{
-	return (u32)msat.millisatoshis;
-}
-
-void amount_msat_from_u32(struct amount_msat *msat, u32 value)
-{
-	msat->millisatoshis = (u64)value;
+	if (amount_msat_greater_eq(msat, AMOUNT_MSAT(0x100000000)))
+		return false;
+	*millisatoshis = msat.millisatoshis;
+	return true;
 }
 
 bool amount_msat_fee(struct amount_msat *fee,

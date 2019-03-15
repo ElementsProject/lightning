@@ -1339,6 +1339,33 @@ static const struct json_command getinfo_command = {
 };
 AUTODATA(json_command, &getinfo_command);
 
+/* Fee base is a u32, but it's convenient to let them specify it using
+ * msat etc. suffix. */
+static struct command_result *param_msat_u32(struct command *cmd,
+					     const char *name,
+					     const char *buffer,
+					     const jsmntok_t *tok,
+					     u32 **num)
+{
+	struct amount_msat *msat;
+	struct command_result *res;
+
+	/* Parse just like an msat. */
+	res = param_msat(cmd, name, buffer, tok, &msat);
+	if (res)
+		return res;
+
+	*num = tal(cmd, u32);
+	if (!amount_msat_to_u32(*msat, *num)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' value '%s' exceeds u32 max",
+				    name,
+				    type_to_string(tmpctx, struct amount_msat,
+						   msat));
+	}
+
+	return NULL;
+}
 
 static struct command_result *json_setchannelfee(struct command *cmd,
 					 const char *buffer,
@@ -1351,25 +1378,17 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	struct channel *channel;
 	struct channel_id cid;
 	struct command_result *res;
-	struct amount_msat *base, base_default;
-	u32 *ppm, ppm_default;
-
-	/* Use daemon config values base/ppm as default */
-	amount_msat_from_u32(&base_default, cmd->ld->config.fee_base);
-	ppm_default = cmd->ld->config.fee_per_satoshi;
+	u32 *base, *ppm;
 
 	/* Parse the JSON command */
 	if (!param(cmd, buffer, params,
-			p_req("id", param_tok, &idtok),
-			p_opt_def("base", param_msat, &base, base_default),
-			p_opt_def("ppm", param_number, &ppm, ppm_default),
-			NULL))
+		   p_req("id", param_tok, &idtok),
+		   p_opt_def("base", param_msat_u32,
+			     &base, cmd->ld->config.fee_base),
+		   p_opt_def("ppm", param_number, &ppm,
+			     cmd->ld->config.fee_per_satoshi),
+		   NULL))
 		return command_param_failed();
-
-	/* Check base for u32 overflow */
-	if (amount_msat_overflow_u32(*base))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				"Value 'base' exceeds u32 max");
 
 	/* Find the channel */
 	peer = peer_from_json(cmd->ld, buffer, idtok);
@@ -1395,14 +1414,14 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 				"Channel is in state %s", channel_state_name(channel));
 
 	/* set, notify and save new values */
-	channel->feerate_base = amount_msat_to_u32(*base);
+	channel->feerate_base = *base;
 	channel->feerate_ppm = *ppm;
 
 	/* tell channeld to make a send_channel_update */
 	if (channel->owner && streq(channel->owner->name, "lightning_channeld"))
 		subd_send_msg(channel->owner,
-				take(towire_channel_specific_feerates(channel,
-						amount_msat_to_u32(*base), *ppm)));
+				take(towire_channel_specific_feerates(NULL,
+						      *base, *ppm)));
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);
@@ -1413,7 +1432,7 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	/* write response */
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
-	json_add_num(response, "base", amount_msat_to_u32(*base));
+	json_add_num(response, "base", *base);
 	json_add_num(response, "ppm", *ppm);
 	json_add_pubkey(response, "peer_id", &peer->id);
 	json_add_string(response, "channel_id",
