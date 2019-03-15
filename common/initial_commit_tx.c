@@ -78,6 +78,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	size_t n, untrimmed;
 	struct amount_msat total_pay;
+	struct amount_sat amount;
+	u32 sequence;
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
@@ -165,9 +167,11 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    output](#to_local-output).
 	 */
 	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
-		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
-		tx->output[n].amount = amount_msat_to_sat_round_down(self_pay);
-		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
+		u8 *wscript = to_self_wscript(tmpctx, to_self_delay, keyset);
+		amount = amount_msat_to_sat_round_down(self_pay);
+		int pos = bitcoin_tx_add_output(
+		    tx, scriptpubkey_p2wsh(tx, wscript), &amount);
+		assert(pos == n);
 		n++;
 	}
 
@@ -185,9 +189,11 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		 * This output sends funds to the other peer and thus is a simple
 		 * P2WPKH to `remotepubkey`.
 		 */
-		tx->output[n].amount = amount_msat_to_sat_round_down(other_pay);
-		tx->output[n].script = scriptpubkey_p2wpkh(tx,
-						   &keyset->other_payment_key);
+		amount = amount_msat_to_sat_round_down(other_pay);
+		int pos = bitcoin_tx_add_output(
+		    tx, scriptpubkey_p2wpkh(tx, &keyset->other_payment_key),
+		    &amount);
+		assert(pos == n);
 		n++;
 	}
 
@@ -214,27 +220,21 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the
 	 * lower 24 bits of the obscured commitment number
 	 */
-	tx->wtx->locktime
-		= (0x20000000 | (obscured_commitment_number & 0xFFFFFF));
+	tx->wtx->locktime =
+	    (0x20000000 | (obscured_commitment_number & 0xFFFFFF));
 
 	/* BOLT #3:
 	 *
 	 * * txin count: 1
 	 *    * `txin[0]` outpoint: `txid` and `output_index` from
 	 *      `funding_created` message
-	 */
-	tx->input[0].txid = *funding_txid;
-	tx->input[0].index = funding_txout;
-
-	/* BOLT #3:
-	 *
 	 *    * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are upper 24 bits of the obscured commitment number
+	 *    * `txin[0]` script bytes: 0
 	 */
-	tx->input[0].sequence_number
-		= (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
+	sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
+	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, &funding, NULL);
 
-	/* Input amount needed for signature code. */
-	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &funding);
+	assert(bitcoin_tx_check(tx));
 
 	return tx;
 }
