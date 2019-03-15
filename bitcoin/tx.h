@@ -92,4 +92,12 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 const struct amount_sat *amount, u8 *script);
 
+/**
+ * Check a transaction for consistency.
+ *
+ * Mainly for the transition from `bitcoin_tx` to the `wally_tx`. Checks that
+ * both transactions serialize to two identical representations.
+ */
+bool bitcoin_tx_check(const struct bitcoin_tx *tx);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

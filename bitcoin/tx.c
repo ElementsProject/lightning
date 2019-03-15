@@ -63,6 +63,27 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	return i;
 }
 
+bool bitcoin_tx_check(const struct bitcoin_tx *tx)
+{
+	u8 *oldtx = linearize_tx(tmpctx, tx);
+	u8 *newtx;
+	size_t written;
+
+	if (wally_tx_get_length(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, &written) !=
+	    WALLY_OK)
+		return false;
+
+	newtx = tal_arr(tmpctx, u8, written);
+	if (wally_tx_to_bytes(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, newtx, written,
+			      &written) != WALLY_OK)
+		return false;
+
+	if (written != tal_bytelen(newtx))
+		return false;
+
+	return memeq(oldtx, tal_bytelen(oldtx), newtx, tal_bytelen(newtx));
+}
+
 static void push_tx_input(const struct bitcoin_tx_input *input,
 			  const u8 *input_script,
 			  void (*push)(const void *, size_t, void *), void *pushp)
