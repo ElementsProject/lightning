@@ -1465,11 +1465,12 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     result = l1.rpc.setchannelfee(scid, 1337, 137)
 
     # check result format
-    assert(re.match('^[0-9a-f]{64}$', result['channel_id']))
-    assert(result['peer_id'] == l2.info['id'])
-    assert(result['short_channel_id'] == scid)
     assert(result['base'] == 1337)
     assert(result['ppm'] == 137)
+    assert(len(result['channels']) == 1)
+    assert(re.match('^[0-9a-f]{64}$', result['channels'][0]['channel_id']))
+    assert(result['channels'][0]['peer_id'] == l2.info['id'])
+    assert(result['channels'][0]['short_channel_id'] == scid)
 
     # check if custom values made it into the database
     db_fees = l1.db_query(
@@ -1484,15 +1485,17 @@ def test_setchannelfee_usage(node_factory, bitcoind):
 
     # also test with named and missing paramters
     result = l1.rpc.setchannelfee(ppm=42, id=scid)
-    assert(re.match('^[0-9a-f]{64}$', result['channel_id']))
-    assert(result['short_channel_id'] == scid)
     assert(result['base'] == DEF_BASE)
     assert(result['ppm'] == 42)
+    assert(len(result['channels']) == 1)
+    assert(re.match('^[0-9a-f]{64}$', result['channels'][0]['channel_id']))
+    assert(result['channels'][0]['short_channel_id'] == scid)
     result = l1.rpc.setchannelfee(base=42, id=scid)
-    assert(re.match('^[0-9a-f]{64}$', result['channel_id']))
-    assert(result['short_channel_id'] == scid)
     assert(result['base'] == 42)
     assert(result['ppm'] == DEF_PPM)
+    assert(len(result['channels']) == 1)
+    assert(re.match('^[0-9a-f]{64}$', result['channels'][0]['channel_id']))
+    assert(result['channels'][0]['short_channel_id'] == scid)
 
     # check if negative fees raise error and DB keeps values
     # JSONRPC2_INVALID_PARAMS := -32602
@@ -1522,10 +1525,11 @@ def test_setchannelfee_usage(node_factory, bitcoind):
 
     # check also peer id can be used
     result = l1.rpc.setchannelfee(l2.info['id'], 42, 43)
-    assert(result['peer_id'] == l2.info['id'])
-    assert(result['short_channel_id'] == scid)
     assert(result['base'] == 42)
     assert(result['ppm'] == 43)
+    assert(len(result['channels']) == 1)
+    assert(result['channels'][0]['peer_id'] == l2.info['id'])
+    assert(result['channels'][0]['short_channel_id'] == scid)
     db_fees = l1.db_query(
         'SELECT feerate_base, feerate_ppm FROM channels '
         'WHERE hex(short_channel_id)="' + scid_hex + '";')
@@ -1580,8 +1584,8 @@ def test_setchannelfee_state(node_factory, bitcoind):
     # try setting the fee in state AWAITING_LOCKIN should be possible
     # assert(l1.channel_state(l2) == "CHANNELD_AWAITING_LOCKIN")
     result = l1.rpc.setchannelfee(l2.info['id'], 42, 0)
-    assert(result['peer_id'] == l2.info['id'])
-    # cid = result['channel_id']
+    assert(result['channels'][0]['peer_id'] == l2.info['id'])
+    # cid = result['channels'][0]['channel_id']
 
     # test routing correct new fees once routing is established
     bitcoind.generate_block(6)
@@ -1756,3 +1760,41 @@ def test_setchannelfee_restart(node_factory, bitcoind):
     result = l1.rpc.pay(inv)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 5002020
+
+
+def test_setchannelfee_all(node_factory, bitcoind):
+    # TEST SETUP
+    #
+    # [l1]----> [l2]
+    #   |
+    #   o-----> [l3]
+    DEF_BASE = 10
+    DEF_PPM = 100
+
+    l1 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l3 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fund_channel(l2, 1000000)
+    l1.fund_channel(l3, 1000000)
+
+    # get short channel id
+    scid2 = l1.get_channel_scid(l2)
+    scid3 = l1.get_channel_scid(l3)
+
+    # now try to set all (two) channels using wildcard syntax
+    result = l1.rpc.setchannelfee("all", 0xDEAD, 0xBEEF)
+
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_BASE, 0xDEAD])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_PPM, 0xBEEF])
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xDEAD, DEF_BASE])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xBEEF, DEF_PPM])
+
+    assert len(result['channels']) == 2
+    assert result['base'] == 0xDEAD
+    assert result['ppm'] == 0xBEEF
+    assert result['channels'][0]['peer_id'] == l2.info['id']
+    assert result['channels'][0]['short_channel_id'] == scid2
+    assert result['channels'][1]['peer_id'] == l3.info['id']
+    assert result['channels'][1]['short_channel_id'] == scid3
