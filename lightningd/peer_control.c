@@ -1492,12 +1492,12 @@ static const struct json_command setchannelfee_command = {
 	"setchannelfee",
 	json_setchannelfee,
 	"Sets specific routing fees for channel with {id} "
-	"(either peer ID, channel ID or short channel ID). "
-	"The routing fees are defined by a fixed {base} (msat) "
-	"and a {ppm} value (proportional per millionth)."
-	"To disable channel specific fees and restore global values, "
-	"just leave out the optional {base} and {ppm} values. "
-	"{base} can also be supplied in other units, i.e. '1sat'."
+	"(either peer ID, channel ID, short channel ID or 'all'). "
+	"Routing fees are defined by a fixed {base} (msat) "
+	"and a {ppm} (proportional per millionth) value. "
+	"If values for {base} or {ppm} are left out, defaults will be used. "
+	"{base} can also be defined in other units, for example '1sat'. "
+	"If {id} is 'all', the fees will be applied for all channels. "
 };
 AUTODATA(json_command, &setchannelfee_command);
 
