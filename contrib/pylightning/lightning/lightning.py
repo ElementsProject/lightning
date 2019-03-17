@@ -302,13 +302,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
-    def getroute(self, node_id, msatoshi, riskfactor, cltv=9, fromid=None, fuzzpercent=None, seed=None, exclude=[]):
+    def getroute(self, node_id, msatoshi, riskfactor, cltv=9, fromid=None, fuzzpercent=None, exclude=[], maxhops=20):
         """
         Show route to {id} for {msatoshi}, using {riskfactor} and optional
         {cltv} (default 9). If specified search from {fromid} otherwise use
         this node as source. Randomize the route with up to {fuzzpercent}
-        (0.0 -> 100.0, default 5.0) using {seed} as an arbitrary-size string
-        seed. {exclude} is an optional array of scid/direction to exclude.
+        (0.0 -> 100.0, default 5.0). {exclude} is an optional array of 
+        scid/direction to exclude. Limit the number of hops in the route to
+        {maxhops}.
+        
         """
         payload = {
             "id": node_id,
@@ -317,8 +319,8 @@ class LightningRpc(UnixDomainSocketRpc):
             "cltv": cltv,
             "fromid": fromid,
             "fuzzpercent": fuzzpercent,
-            "seed": seed,
-            "exclude": exclude
+            "exclude": exclude,
+            "maxhops": maxhops
         }
         return self.call("getroute", payload)
 
