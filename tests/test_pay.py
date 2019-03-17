@@ -1730,25 +1730,23 @@ def test_setchannelfee_restart(node_factory, bitcoind):
 
     l1, l2, l3 = node_factory.line_graph(3, announce_channels=True, wait_for_announce=True, opts=OPTS)
 
-    # get short channel id for 2->3
-    scid = l2.get_channel_scid(l3)
+    # get short channel idS
+    scid12 = l1.get_channel_scid(l2)
+    scid23 = l2.get_channel_scid(l3)
 
     # l2 set custom fees
-    l2.rpc.setchannelfee(scid, 1337, 137)
+    l2.rpc.setchannelfee(scid23, 1337, 137)
 
     # restart l2 and reconnect
     l2.restart()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
-    # l1 wait for channel update
-    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [1337, DEF_BASE])
-    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [137, DEF_PPM])
+    # Make sure l1's gossipd registered channeld activating channel.
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(scid12)['channels']] == [True, True])
 
-    # for slow travis: wait for everyone to see all channels
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
-    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 4)
-    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+    # l1 wait for channel update from l2
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['active']) for c in l1.rpc.listchannels(scid23)['channels']] == [(1337, 137, True), (DEF_BASE, DEF_PPM, True)])
 
     # l1 can make payment to l3 with custom fees being applied
     # Note: BOLT #7 math works out to 2021 msat fees
