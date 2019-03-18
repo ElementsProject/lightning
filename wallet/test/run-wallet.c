@@ -564,6 +564,9 @@ u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 {
 	return NULL;
 }
+void plugin_hook_db_sync(struct db *db UNNEEDED, const char **changes UNNEEDED, const char *final UNNEEDED)
+{
+}
 bool fromwire_hsm_get_channel_basepoints_reply(const void *p UNNEEDED,
 					       struct basepoints *basepoints,
 					       struct pubkey *funding_pubkey)

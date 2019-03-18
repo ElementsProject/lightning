@@ -37,6 +37,10 @@ static void db_test_fatal(const char *fmt, ...)
 	va_end(ap);
 }
 
+void plugin_hook_db_sync(struct db *db UNNEEDED, const char **changes UNNEEDED, const char *final UNNEEDED)
+{
+}
+
 static struct db *create_test_db(void)
 {
 	struct db *db;

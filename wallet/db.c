@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/plugin_hook.h>
 
 #define DB_FILE "lightningd.sqlite3"
 
@@ -578,13 +579,8 @@ static void db_report_changes(struct db *db, const char *final, size_t min)
 	assert(db->changes);
 	assert(tal_count(db->changes) >= min);
 
-	if (tal_count(db->changes) > min) {
-		fprintf(stderr, "Committing db changes:\n");
-		for (size_t i = 0; i < tal_count(db->changes); i++)
-			fprintf(stderr, "  %zu: %s\n", i, db->changes[i]);
-		if (final)
-			fprintf(stderr, "  %s\n", final);
-	}
+	if (tal_count(db->changes) > min)
+		plugin_hook_db_sync(db, db->changes, final);
 	db->changes = tal_free(db->changes);
 }
 
