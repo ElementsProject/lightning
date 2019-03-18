@@ -493,6 +493,8 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 	if (sqlite3_step(stmt) !=  SQLITE_DONE)
 		db_fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
 
+	tal_arr_expand(&db->changes,
+		       tal_strdup(db->changes, sqlite3_expanded_sql(stmt)));
 	db_stmt_done(stmt);
 }
 
@@ -508,6 +510,7 @@ static void db_do_exec(const char *caller, struct db *db, const char *cmd)
 		/* Only reached in testing */
 		sqlite3_free(errmsg);
 	}
+	tal_arr_expand(&db->changes, tal_strdup(db->changes, cmd));
 }
 
 static void PRINTF_FMT(3, 4)
@@ -568,21 +571,66 @@ static void destroy_db(struct db *db)
 	sqlite3_close(db->sql);
 }
 
+/* We expect min changes (ie. BEGIN TRANSACTION): report if more.
+ * Optionally add "final" at the end (ie. COMMIT). */
+static void db_report_changes(struct db *db, const char *final, size_t min)
+{
+	assert(db->changes);
+	assert(tal_count(db->changes) >= min);
+
+	if (tal_count(db->changes) > min) {
+		fprintf(stderr, "Committing db changes:\n");
+		for (size_t i = 0; i < tal_count(db->changes); i++)
+			fprintf(stderr, "  %zu: %s\n", i, db->changes[i]);
+		if (final)
+			fprintf(stderr, "  %s\n", final);
+	}
+	db->changes = tal_free(db->changes);
+}
+
+static void db_prepare_for_changes(struct db *db)
+{
+	assert(!db->changes);
+	db->changes = tal_arr(db, const char *, 0);
+}
+
 void db_begin_transaction_(struct db *db, const char *location)
 {
 	if (db->in_transaction)
 		db_fatal("Already in transaction from %s", db->in_transaction);
 
+	db_prepare_for_changes(db);
 	db_do_exec(location, db, "BEGIN TRANSACTION;");
 	db->in_transaction = location;
 }
 
 void db_commit_transaction(struct db *db)
 {
+	int err;
+	char *errmsg;
+	const char *cmd = "COMMIT;";
+
 	assert(db->in_transaction);
 	db_assert_no_outstanding_statements();
-	db_exec(__func__, db, "COMMIT;");
+
+	/* We expect at least the BEGIN TRANSACTION */
+	db_report_changes(db, cmd, 1);
+
+	err = sqlite3_exec(db->sql, cmd, NULL, NULL, &errmsg);
+	if (err != SQLITE_OK)
+		db_fatal("%s:%s:%s:%s", __func__, sqlite3_errstr(err), cmd, errmsg);
+
 	db->in_transaction = NULL;
+}
+
+static void enable_foreign_keys(struct db *db)
+{
+	/* This must be outside a transaction, so catch it */
+	assert(!db->in_transaction);
+
+	db_prepare_for_changes(db);
+	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
+	db_report_changes(db, NULL, 0);
 }
 
 /**
@@ -607,7 +655,9 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db->sql = sql;
 	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
-	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
+	db->changes = NULL;
+
+	enable_foreign_keys(db);
 
 	return db;
 }
@@ -707,7 +757,7 @@ void db_reopen_after_fork(struct db *db)
 		db_fatal("failed to re-open database %s: %s", db->filename,
 			 sqlite3_errstr(err));
 	}
-	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
+	enable_foreign_keys(db);
 }
 
 s64 db_get_intvar(struct db *db, char *varname, s64 defval)
