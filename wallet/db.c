@@ -435,6 +435,22 @@ void db_assert_no_outstanding_statements(void)
 }
 #endif
 
+#if !HAVE_SQLITE3_EXPANDED_SQL
+/* Prior to sqlite3 v3.14, we have to use tracing to dump statements */
+static void trace_sqlite3(void *dbv, const char *stmt)
+{
+	struct db *db = dbv;
+
+	/* We get a "COMMIT;" after we've sent our changes. */
+	if (!db->changes) {
+		assert(streq(stmt, "COMMIT;"));
+		return;
+	}
+
+	tal_arr_expand(&db->changes, tal_strdup(db->changes, stmt));
+}
+#endif
+
 void db_stmt_done(sqlite3_stmt *stmt)
 {
 	dev_statement_end(stmt);
@@ -494,8 +510,10 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 	if (sqlite3_step(stmt) !=  SQLITE_DONE)
 		db_fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
 
+#if HAVE_SQLITE3_EXPANDED_SQL
 	tal_arr_expand(&db->changes,
 		       tal_strdup(db->changes, sqlite3_expanded_sql(stmt)));
+#endif
 	db_stmt_done(stmt);
 }
 
@@ -511,7 +529,9 @@ static void db_do_exec(const char *caller, struct db *db, const char *cmd)
 		/* Only reached in testing */
 		sqlite3_free(errmsg);
 	}
+#if HAVE_SQLITE3_EXPANDED_SQL
 	tal_arr_expand(&db->changes, tal_strdup(db->changes, cmd));
+#endif
 }
 
 static void PRINTF_FMT(3, 4)
@@ -619,8 +639,12 @@ void db_commit_transaction(struct db *db)
 	db->in_transaction = NULL;
 }
 
-static void enable_foreign_keys(struct db *db)
+static void setup_open_db(struct db *db)
 {
+#if !HAVE_SQLITE3_EXPANDED_SQL
+	sqlite3_trace(db->sql, trace_sqlite3, db);
+#endif
+
 	/* This must be outside a transaction, so catch it */
 	assert(!db->in_transaction);
 
@@ -653,7 +677,7 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db->in_transaction = NULL;
 	db->changes = NULL;
 
-	enable_foreign_keys(db);
+	setup_open_db(db);
 
 	return db;
 }
@@ -753,7 +777,7 @@ void db_reopen_after_fork(struct db *db)
 		db_fatal("failed to re-open database %s: %s", db->filename,
 			 sqlite3_errstr(err));
 	}
-	enable_foreign_keys(db);
+	setup_open_db(db);
 }
 
 s64 db_get_intvar(struct db *db, char *varname, s64 defval)
