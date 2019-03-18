@@ -240,8 +240,8 @@ static bool check_config_bounds(struct state *state,
 		negotiation_failed(state, am_funder,
 				   "channel capacity with funding %s,"
 				   " reserves %s/%s,"
-				   " max_htlc_value_in_flight_msat %s"
-				   " is %s msat, which is below %s msat",
+				   " max_htlc_value_in_flight_msat is %s,"
+				   " channel capacity is %s, which is below %s",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &state->funding),
 				   type_to_string(tmpctx, struct amount_sat,
