@@ -101,7 +101,7 @@ sqlite3_stmt *db_select_prepare_(const char *location,
 /**
  * db_select_step -- iterate through db results.
  *
- * Returns false and frees stmt if we've we've reached end, otherwise
+ * Returns false and frees stmt if we've reached end, otherwise
  * it means sqlite3_step has returned SQLITE_ROW.
  */
 #define db_select_step(db, stmt)					\
