@@ -868,7 +868,7 @@ def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr(addresstype='all')['p2sh-segwit']
 
     ######################################################################
     # First failure scenario: rollback on startup doesn't work,
@@ -883,7 +883,7 @@ def test_blockchaintrack(node_factory, bitcoind):
     time.sleep(1)  # mempool is still unpredictable
     bitcoind.generate_block(1)
 
-    l1.daemon.wait_for_log(r'Owning')
+    l1.daemon.wait_for_log(r'Owning output.* \(P2SH\).* CONFIRMED')
     outputs = l1.rpc.listfunds()['outputs']
     assert len(outputs) == 1
 
