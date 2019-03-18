@@ -263,12 +263,12 @@
  * The compiler will warn if any of the specified pointer args are NULL.
  *
  * Example:
- * char *my_copy2(char *buf, char *maybenull) NON_NULL_ARGS(1, 2);
+ * char *my_copy2(char *buf, char *maybenull) NON_NULL_ARGS(1);
  */
-#define NON_NULL_ARGS(index, ...) __attribute__((__nonnull__(index, __VA_ARGS__)))
+#define NON_NULL_ARGS(...) __attribute__((__nonnull__(__VA_ARGS__)))
 #else
 #define NO_NULL_ARGS
-#define NON_NULL_ARGS(index, ...)
+#define NON_NULL_ARGS(...)
 #endif
 
 
