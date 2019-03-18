@@ -1053,3 +1053,21 @@ void plugin_request_send(struct plugin *plugin,
 	 * pointer here */
 	req->stream = NULL;
 }
+
+void *plugin_exclusive_loop(struct plugin *plugin)
+{
+	void *ret;
+
+	io_conn_out_exclusive(plugin->stdin_conn, true);
+	io_conn_exclusive(plugin->stdout_conn, true);
+
+	/* We don't service timers here, either! */
+	ret = io_loop(NULL, NULL);
+
+	io_conn_out_exclusive(plugin->stdin_conn, false);
+	if (io_conn_exclusive(plugin->stdout_conn, false))
+		fatal("Still io_exclusive after removing plugin %s?",
+		      plugin->cmd);
+
+	return ret;
+}

@@ -80,6 +80,14 @@ void json_add_opt_plugins(struct json_stream *response,
 
 
 /**
+ * Used by db hooks which can't have any other I/O while talking to plugin.
+ *
+ * Returns output of io_loop() (ie. whatever gets passed to io_break()
+ * to end exclusive loop).
+ */
+void *plugin_exclusive_loop(struct plugin *plugin);
+
+/**
  * Add a directory to the plugin path to automatically load plugins.
  */
 char *add_plugin_dir(struct plugins *plugins, const char *dir,
