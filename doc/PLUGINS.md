@@ -16,8 +16,6 @@ variety of ways:
    internal events in `lightningd` and alter its behavior or inject
    custom behaviors.
    
-*Note: Hooks are not yet implemented, and the API is under active development.*
-
 A plugin may be written in any language, and communicates with
 `lightningd` through the plugin's `stdin` and `stdout`. JSON-RPCv2 is
 used as protocol on top of the two streams, with the plugin acting as
@@ -269,6 +267,26 @@ The hook is sparse on purpose, since the plugin can use the JSON-RPC
 gossiped list of known addresses. In particular this means that the port for
 incoming connections is an ephemeral port, that may not be available for
 reconnections.
+
+#### `db_write`
+
+This hook is called whenever a change is about to be committed to the database.
+It is currently extremely restricted:
+
+1. a plugin registering for this hook should not perform anything that may cause
+   a db operation in response (pretty much, anything but logging).
+2. a plugin registering for this hook should not register for other hooks or
+   commands, as these may become intermingled and break rule #1.
+3. the hook will be called before your plugin is initialized!
+
+```json
+{
+  "writes": [ "PRAGMA foreign_keys = ON" ]
+}
+```
+
+Any response but "true" will cause lightningd to error without
+committing to the database!
 
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
