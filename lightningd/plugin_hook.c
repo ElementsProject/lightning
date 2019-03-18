@@ -1,3 +1,4 @@
+#include <ccan/io/io.h>
 #include <common/memleak.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/plugin_hook.h>
@@ -87,5 +88,76 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		 * were expecting a default response it should have
 		 * been part of the `cb_arg`. */
 		hook->response_cb(cb_arg, NULL);
+	}
+}
+
+/* We open-code this, because it's just different and special enough to be
+ * annoying, and to make it clear that it's totally synchronous. */
+
+/* Special synchronous hook for db */
+static struct plugin_hook db_write_hook = { "db_write", NULL, NULL, NULL, NULL };
+AUTODATA(hooks, &db_write_hook);
+
+static void db_hook_response(const char *buffer, const jsmntok_t *toks,
+			     const jsmntok_t *idtok,
+			     struct plugin_hook_request *ph_req)
+{
+	const jsmntok_t *resulttok;
+	bool resp;
+
+	resulttok = json_get_member(buffer, toks, "result");
+	if (!resulttok)
+		fatal("Plugin returned an invalid response to the db_write "
+		      "hook: %s", buffer);
+
+	/* We expect result: True.  Anything else we abort. */
+	if (!json_to_bool(buffer, resulttok, &resp))
+		fatal("Plugin returned an invalid result to the db_write "
+		      "hook: %s", buffer);
+
+	/* If it fails, we must not commit to our db. */
+	if (!resp)
+		fatal("Plugin returned failed db_write: %s.", buffer);
+
+	/* We're done, exit exclusive loop. */
+	io_break(ph_req);
+}
+
+void plugin_hook_db_sync(struct db *db, const char **changes, const char *final)
+{
+	const struct plugin_hook *hook = &db_write_hook;
+	struct jsonrpc_request *req;
+	struct plugin_hook_request *ph_req;
+	void *ret;
+
+	if (!hook->plugin)
+		return;
+
+	ph_req = notleak(tal(hook->plugin, struct plugin_hook_request));
+	/* FIXME: do IO logging for this! */
+	req = jsonrpc_request_start(NULL, hook->name, NULL, db_hook_response,
+				    ph_req);
+
+	ph_req->hook = hook;
+	ph_req->db = db;
+
+	json_array_start(req->stream, "writes");
+	for (size_t i = 0; i < tal_count(changes); i++)
+		json_add_string(req->stream, NULL, changes[i]);
+	if (final)
+		json_add_string(req->stream, NULL, final);
+	json_array_end(req->stream);
+	jsonrpc_request_end(req);
+
+	plugin_request_send(hook->plugin, req);
+
+	/* We can be called on way out of an io_loop, which is already breaking.
+	 * That will make this immediately return; save the break value and call
+	 * again, then hand it onwards. */
+	ret = plugin_exclusive_loop(hook->plugin);
+	if (ret != ph_req) {
+		void *ret2 = plugin_exclusive_loop(hook->plugin);
+		assert(ret2 == ph_req);
+		io_break(ret);
 	}
 }
