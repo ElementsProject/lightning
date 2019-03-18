@@ -17,6 +17,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	size_t num_outputs = 0;
 	struct amount_sat total_out;
+	u8 *script;
 
 	assert(amount_sat_add(&total_out, to_us, to_them));
 	assert(amount_sat_less_eq(total_out, funding));
@@ -35,24 +36,22 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tx = bitcoin_tx(ctx, 1, 2);
 
 	/* Our input spends the anchor tx output. */
-	tx->input[0].txid = *anchor_txid;
-	tx->input[0].index = anchor_index;
-	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &funding);
+	bitcoin_tx_add_input(tx, anchor_txid, anchor_index,
+			     BITCOIN_TX_DEFAULT_SEQUENCE, &funding, NULL);
 
 	if (amount_sat_greater_eq(to_us, dust_limit)) {
+		script =
+		    tal_dup_arr(tx, u8, our_script, tal_count(our_script), 0);
 		/* One output is to us. */
-		tx->output[num_outputs].amount = to_us;
-		tx->output[num_outputs].script = tal_dup_arr(tx, u8,
-					   our_script, tal_count(our_script), 0);
+		bitcoin_tx_add_output(tx, script, &to_us);
 		num_outputs++;
 	}
 
 	if (amount_sat_greater_eq(to_them, dust_limit)) {
+		script = tal_dup_arr(tx, u8, their_script,
+				     tal_count(their_script), 0);
 		/* Other output is to them. */
-		tx->output[num_outputs].amount = to_them;
-		tx->output[num_outputs].script = tal_dup_arr(tx, u8,
-					   their_script, tal_count(their_script),
-					   0);
+		bitcoin_tx_add_output(tx, script, &to_them);
 		num_outputs++;
 	}
 
@@ -62,5 +61,6 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tal_resize(&tx->output, num_outputs);
 
 	permute_outputs(tx, NULL, NULL);
+	assert(bitcoin_tx_check(tx));
 	return tx;
 }
