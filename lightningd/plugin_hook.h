@@ -112,4 +112,8 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 
 bool plugin_hook_register(struct plugin *plugin, const char *method);
 
+/* Special sync plugin hook for db: changes[] are SQL statements, with optional
+ * final command appended. */
+void plugin_hook_db_sync(struct db *db, const char **changes, const char *final);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_HOOK_H */
