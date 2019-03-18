@@ -3,7 +3,9 @@ from fixtures import *  # noqa: F401,F403
 from lightning import RpcError, Millisatoshi
 from utils import only_one
 
+import os
 import pytest
+import sqlite3
 import subprocess
 import time
 
@@ -188,6 +190,31 @@ def test_async_rpcmethod(node_factory, executor):
     l1.rpc.asyncflush(42)
 
     assert [r.result() for r in results] == [42] * len(results)
+
+
+def test_db_hook(node_factory, executor):
+    """This tests the db hook."""
+    dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
+    l1 = node_factory.get_node(options={'plugin': 'tests/plugins/dblog.py',
+                                        'dblog-file': dbfile})
+
+    # It should see the db being created, and sometime later actually get
+    # initted.
+    # This precedes startup, so needle already past
+    assert l1.daemon.is_in_log('plugin-dblog.py deferring 1 commands')
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log('plugin-dblog.py replaying pre-init data:')
+    l1.daemon.wait_for_log('plugin-dblog.py PRAGMA foreign_keys = ON;')
+    l1.daemon.wait_for_log('plugin-dblog.py CREATE TABLE version \\(version INTEGER\\)')
+    l1.daemon.wait_for_log('plugin-dblog.py initialized')
+
+    l1.stop()
+
+    # Databases should be identical.
+    db1 = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, 'lightningd.sqlite3'))
+    db2 = sqlite3.connect(dbfile)
+
+    assert [x for x in db1.iterdump()] == [x for x in db2.iterdump()]
 
 
 def test_utf8_passthrough(node_factory, executor):
