@@ -87,8 +87,11 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			    || strends(name, "struct linkable"))
 				continue;
 
-			/* ccan/io allocates pollfd array. */
+			/* ccan/io allocates pollfd array, always array. */
 			if (strends(name, "struct pollfd[]") && !tal_parent(i))
+				continue;
+
+			if (strends(name, "struct io_plan *[]") && !tal_parent(i))
 				continue;
 
 			/* Don't add tmpctx. */

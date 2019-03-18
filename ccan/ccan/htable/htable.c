@@ -11,6 +11,30 @@
 /* We use 0x1 as deleted marker. */
 #define HTABLE_DELETED (0x1)
 
+static void *htable_default_alloc(struct htable *ht, size_t len)
+{
+	return calloc(len, 1);
+}
+
+static void htable_default_free(struct htable *ht, void *p)
+{
+	free(p);
+}
+
+static void *(*htable_alloc)(struct htable *, size_t) = htable_default_alloc;
+static void (*htable_free)(struct htable *, void *) = htable_default_free;
+
+void htable_set_allocator(void *(*alloc)(struct htable *, size_t len),
+			  void (*free)(struct htable *, void *p))
+{
+	if (!alloc)
+		alloc = htable_default_alloc;
+	if (!free)
+		free = htable_default_free;
+	htable_alloc = alloc;
+	htable_free = free;
+}
+
 /* We clear out the bits which are always the same, and put metadata there. */
 static inline uintptr_t get_extra_ptr_bits(const struct htable *ht,
 					   uintptr_t e)
@@ -73,7 +97,7 @@ bool htable_init_sized(struct htable *ht,
 			break;
 	}
 
-	ht->table = calloc(1 << ht->bits, sizeof(size_t));
+	ht->table = htable_alloc(ht, sizeof(size_t) << ht->bits);
 	if (!ht->table) {
 		ht->table = &ht->perfect_bit;
 		return false;
@@ -86,13 +110,13 @@ bool htable_init_sized(struct htable *ht,
 void htable_clear(struct htable *ht)
 {
 	if (ht->table != &ht->perfect_bit)
-		free((void *)ht->table);
+		htable_free(ht, (void *)ht->table);
 	htable_init(ht, ht->rehash, ht->priv);
 }
 
 bool htable_copy_(struct htable *dst, const struct htable *src)
 {
-	uintptr_t *htable = malloc(sizeof(size_t) << src->bits);
+	uintptr_t *htable = htable_alloc(dst, sizeof(size_t) << src->bits);
 
 	if (!htable)
 		return false;
@@ -189,7 +213,7 @@ static COLD bool double_table(struct htable *ht)
 	uintptr_t *oldtable, e;
 
 	oldtable = ht->table;
-	ht->table = calloc(1 << (ht->bits+1), sizeof(size_t));
+	ht->table = htable_alloc(ht, sizeof(size_t) << (ht->bits+1));
 	if (!ht->table) {
 		ht->table = oldtable;
 		return false;
@@ -214,7 +238,7 @@ static COLD bool double_table(struct htable *ht)
 				ht_add(ht, p, ht->rehash(p, ht->priv));
 			}
 		}
-		free(oldtable);
+		htable_free(ht, oldtable);
 	}
 	ht->deleted = 0;
 

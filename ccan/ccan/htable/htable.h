@@ -259,4 +259,11 @@ void *htable_prev_(const struct htable *htable, struct htable_iter *i);
 	htable_delval_(htable_debug(htable, HTABLE_LOC), i)
 void htable_delval_(struct htable *ht, struct htable_iter *i);
 
+/**
+ * htable_set_allocator - set calloc/free functions.
+ * @alloc: allocator to use, must zero memory!
+ * @free: unallocator to use (@p is NULL or a return from @alloc)
+ */
+void htable_set_allocator(void *(*alloc)(struct htable *, size_t len),
+			  void (*free)(struct htable *, void *p));
 #endif /* CCAN_HTABLE_H */
