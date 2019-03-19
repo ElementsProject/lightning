@@ -43,18 +43,11 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 *    * `txin[0]` outpoint: `txid` of the commitment transaction and
 	 *      `output_index` of the matching HTLC output for the HTLC
 	 *      transaction
-	 */
-	tx->input[0].txid = *commit_txid;
-	tx->input[0].index = commit_output_number;
-
-	/* We need amount for signing. */
-	amount = amount_msat_to_sat_round_down(msat);
-	tx->input[0].amount = tal_dup(tx, struct amount_sat, &amount);
-
-	/* BOLT #3:
 	 *    * `txin[0]` sequence: `0`
 	 */
-	tx->input[0].sequence_number = 0;
+	amount = amount_msat_to_sat_round_down(msat);
+	bitcoin_tx_add_input(tx, commit_txid, commit_output_number, 0, &amount,
+			     NULL);
 
 	/* BOLT #3:
 	 * * txout count: 1
@@ -63,12 +56,12 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 *    * `txout[0]` script: version-0 P2WSH with witness script as shown
 	 *       below
 	 */
-	if (!amount_sat_sub(&tx->output[0].amount, amount, htlc_fee))
+	if (!amount_sat_sub(&amount, amount, htlc_fee))
 		abort();
 
-	wscript = bitcoin_wscript_htlc_tx(tx, to_self_delay,
-					  revocation_pubkey, local_delayedkey);
-	tx->output[0].script = scriptpubkey_p2wsh(tx, wscript);
+	wscript = bitcoin_wscript_htlc_tx(tx, to_self_delay, revocation_pubkey,
+					  local_delayedkey);
+	bitcoin_tx_add_output(tx, scriptpubkey_p2wsh(tx, wscript), &amount);
 	tal_free(wscript);
 
 	return tx;
