@@ -320,6 +320,7 @@ static void report(struct bitcoin_tx *tx,
 {
 	char *txhex;
 	struct bitcoin_signature localsig, remotesig;
+	u8 **witness;
 
 	sign_tx_input(tx, 0,
 		      NULL,
@@ -337,10 +338,11 @@ static void report(struct bitcoin_tx *tx,
 		      &localsig);
 	printf("# local_signature = %s\n",
 	       type_to_string(tmpctx, struct bitcoin_signature, &localsig));
-	tx->input[0].witness = bitcoin_witness_2of2(tx->input,
-						    &localsig, &remotesig,
-						    local_funding_pubkey,
-						    remote_funding_pubkey);
+
+	witness =
+	    bitcoin_witness_2of2(tx->input, &localsig, &remotesig,
+				 local_funding_pubkey, remote_funding_pubkey);
+	bitcoin_tx_input_set_witness(tx, 0, witness);
 	txhex = tal_hex(tmpctx, linearize_tx(tx, tx));
 	printf("output commit_tx: %s\n", txhex);
 

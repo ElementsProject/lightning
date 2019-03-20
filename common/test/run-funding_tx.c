@@ -97,7 +97,7 @@ int main(void)
 	const struct utxo **utxomap;
 	struct amount_sat funding_sat;
 	u16 funding_outnum;
-	u8 *subscript;
+	u8 *subscript, *script;
 	struct bitcoin_signature sig;
 	struct bitcoin_address addr;
 
@@ -181,8 +181,8 @@ int main(void)
 	sign_tx_input(funding, 0, subscript, NULL, &input_privkey, &inputkey,
 		      SIGHASH_ALL, &sig);
 
-	funding->input[0].script = bitcoin_redeem_p2pkh(funding, &inputkey,
-							&sig);
+	script = bitcoin_redeem_p2pkh(funding, &inputkey, &sig);
+	bitcoin_tx_input_set_script(funding, 0, script);
 	printf("funding tx: %s\n",
 	       tal_hex(tmpctx, linearize_tx(tmpctx, funding)));
 
