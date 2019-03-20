@@ -140,7 +140,7 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 		if (!amount_sat_sub(&out, *tx->input[0].amount, *fee))
 			break;
 
-		tx->output[0].amount = out;
+		bitcoin_tx_output_set_amount(tx, 0, &out);
 		if (!check_tx_sig(tx, 0, NULL, wscript,
 				  &keyset->other_htlc_key, remotesig))
 			continue;
@@ -157,6 +157,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 				 const u8 *wscript)
 {
 	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
+	struct amount_sat amount = tx->output[0].amount;
 
 	/* BOLT #3:
 	 *
@@ -168,11 +169,13 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX)))
 		return grind_htlc_tx_fee(&fee, tx, remotesig, wscript, 663);
 
-	if (!amount_sat_sub(&tx->output[0].amount, tx->output[0].amount, fee))
+	if (!amount_sat_sub(&amount, amount, fee))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot deduct htlc-timeout fee %s from tx %s",
 			      type_to_string(tmpctx, struct amount_sat, &fee),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
+
+	bitcoin_tx_output_set_amount(tx, 0, &amount);
 	return check_tx_sig(tx, 0, NULL, wscript,
 			    &keyset->other_htlc_key, remotesig);
 }

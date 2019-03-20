@@ -1343,7 +1343,7 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 		struct pubkey inkey;
 		struct privkey inprivkey;
 		const struct utxo *in = utxos[i];
-		u8 *subscript, *wscript;
+		u8 *subscript, *wscript, *script;
 		struct bitcoin_signature sig;
 
 		/* Figure out keys to spend this. */
@@ -1356,9 +1356,8 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 			/* For P2SH-wrapped Segwit, the (implied) redeemScript
 			 * is defined in BIP141 */
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
-			tx->input[i].script
-				= bitcoin_scriptsig_p2sh_p2wpkh(tx->input,
-								&inkey);
+			script = bitcoin_scriptsig_p2sh_p2wpkh(tx->input, &inkey);
+			bitcoin_tx_input_set_script(tx, i, script);
 		} else {
 			/* Pure segwit uses an empty inputScript; NULL has
 			 * tal_count() == 0, so it works great here. */
@@ -1370,7 +1369,8 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 			      SIGHASH_ALL, &sig);
 
 		/* The witness is [sig] [key] */
-		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
+		bitcoin_tx_input_set_witness(
+		    tx, i, bitcoin_witness_p2wpkh(tx, &sig, &inkey));
 	}
 }
 
