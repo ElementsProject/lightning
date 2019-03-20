@@ -84,6 +84,41 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 	return memeq(oldtx, tal_bytelen(oldtx), newtx, tal_bytelen(newtx));
 }
 
+void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
+				  struct amount_sat *amount)
+{
+	assert(outnum < tx->used_outputs);
+	tx->output[outnum].amount = *amount;
+	tx->wtx->outputs[outnum].satoshi = amount->satoshis; /* Raw: low-level helper */
+}
+
+void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
+				  u8 **witness)
+{
+	struct wally_tx_witness_stack *stack = NULL;
+	size_t stack_size = tal_count(witness);
+
+	/* Free any lingering witness */
+	tal_free(tx->input[innum].witness);
+	tx->input[innum].witness = witness;
+
+	if (witness) {
+		wally_tx_witness_stack_init_alloc(stack_size, &stack);
+		for (size_t i = 0; i < stack_size; i++)
+			wally_tx_witness_stack_add(stack, witness[i],
+						   tal_bytelen(witness[i]));
+	}
+	wally_tx_set_input_witness(tx->wtx, innum, stack);
+	if (stack)
+		wally_tx_witness_stack_free(stack);
+}
+
+void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
+{
+	tx->input[innum].script = script;
+	wally_tx_set_input_script(tx->wtx, innum, script, tal_bytelen(script));
+}
+
 static void push_tx_input(const struct bitcoin_tx_input *input,
 			  const u8 *input_script,
 			  void (*push)(const void *, size_t, void *), void *pushp)

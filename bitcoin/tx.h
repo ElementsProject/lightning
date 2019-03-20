@@ -92,6 +92,31 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 const struct amount_sat *amount, u8 *script);
 
+
+/**
+ * Set the output amount on the transaction.
+ *
+ * Allows changing the amount on the transaction output after it was set on
+ * creation. This is useful to grind a feerate or subtract the fee from an
+ * existing output.
+ */
+void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
+				  struct amount_sat *amount);
+
+/**
+ * Set the input witness.
+ *
+ * Given that we generate the witness after constructing the transaction
+ * itself, we need a way to attach a witness to an existing input.
+ */
+void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
+				  u8 **witness);
+
+/**
+ * Set the input script on the given input.
+ */
+void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script);
+
 /**
  * Check a transaction for consistency.
  *
