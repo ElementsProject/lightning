@@ -53,6 +53,14 @@ class FieldType(object):
     def has_array_helper(self):
         return self.name in ['u8']
 
+    def base(self):
+        basetype = self.name
+        if basetype.startswith('struct '):
+            basetype = basetype[7:]
+        elif basetype.startswith('enum '):
+            basetype = basetype[5:]
+        return basetype
+
     # Returns base size
     @staticmethod
     def _typesize(typename):
@@ -170,14 +178,6 @@ class Field(object):
         else:
             # Real typename.
             self.fieldtype = FieldType(size)
-
-    def basetype(self):
-        base = self.fieldtype.name
-        if base.startswith('struct '):
-            base = base[7:]
-        elif base.startswith('enum '):
-            base = base[5:]
-        return base
 
     def is_padding(self):
         return self.name.startswith('pad')
@@ -378,7 +378,7 @@ class Message(object):
         if field.is_variable_size():
             self.checkLenField(field)
             self.has_variable_fields = True
-        elif field.basetype() in varlen_structs or field.optional:
+        elif field.fieldtype.base() in varlen_structs or field.optional:
             self.has_variable_fields = True
         self.fields.append(field)
 
@@ -409,7 +409,7 @@ class Message(object):
         fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
         subcalls = CCode()
         for f in self.fields:
-            basetype = f.basetype()
+            basetype = f.fieldtype.base()
             if f.is_tlv:
                 raise TypeError('Nested TLVs arent allowed!!')
             elif f.optional:
@@ -482,7 +482,7 @@ class Message(object):
                 if f.needs_ptr_to_ptr():
                     ptrs += '*'
                 # If each type is a variable length, we need a ptr to that.
-                if f.basetype() in varlen_structs:
+                if f.fieldtype.base() in varlen_structs:
                     ptrs += '*'
 
                 args.append(', {} {}{}'.format(f.fieldtype.name, ptrs, f.name))
@@ -492,7 +492,7 @@ class Message(object):
 
         subcalls = CCode()
         for f in self.fields:
-            basetype = f.basetype()
+            basetype = f.fieldtype.base()
 
             for c in f.comments:
                 subcalls.append('/*{} */'.format(c))
@@ -591,12 +591,7 @@ class Message(object):
 
         subcalls = CCode()
         for f in self.fields:
-            basetype = f.fieldtype.name
-            if basetype.startswith('struct '):
-                basetype = basetype[7:]
-            elif basetype.startswith('enum '):
-                basetype = basetype[5:]
-
+            basetype = f.fieldtype.base()
             for c in f.comments:
                 subcalls.append('/*{} */'.format(c))
 
@@ -632,7 +627,7 @@ class Message(object):
                 args.append(', const struct _{} *{}'.format(f.name, f.name))
             elif f.is_assignable():
                 args.append(', {} {}'.format(f.fieldtype.name, f.name))
-            elif f.is_variable_size() and f.basetype() in varlen_structs:
+            elif f.is_variable_size() and f.fieldtype.base() in varlen_structs:
                 args.append(', const {} **{}'.format(f.fieldtype.name, f.name))
             else:
                 args.append(', const {} *{}'.format(f.fieldtype.name, f.name))
@@ -651,11 +646,7 @@ class Message(object):
 
         subcalls = CCode()
         for f in self.fields:
-            basetype = f.fieldtype.name
-            if basetype.startswith('struct '):
-                basetype = basetype[7:]
-            elif basetype.startswith('enum '):
-                basetype = basetype[5:]
+            basetype = f.fieldtype.base()
 
             for c in f.comments:
                 subcalls.append('/*{} */'.format(c))
@@ -735,7 +726,7 @@ class Message(object):
 
         subcalls = CCode()
         for f in self.fields:
-            basetype = f.basetype()
+            basetype = f.fieldtype.base()
 
             for c in f.comments:
                 subcalls.append('/*{} */'.format(c))
