@@ -198,7 +198,7 @@ static void sign_last_tx(struct channel *channel)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct bitcoin_signature sig;
-	u8 *msg;
+	u8 *msg, **witness;
 
 	assert(!channel->last_tx->input[0].witness);
 
@@ -218,17 +218,17 @@ static void sign_last_tx(struct channel *channel)
 		fatal("HSM gave bad sign_commitment_tx_reply %s",
 		      tal_hex(tmpctx, msg));
 
-	channel->last_tx->input[0].witness
-		= bitcoin_witness_2of2(channel->last_tx->input,
-				       &channel->last_sig,
-				       &sig,
-				       &channel->channel_info.remote_fundingkey,
-				       &channel->local_funding_pubkey);
+	witness =
+	    bitcoin_witness_2of2(channel->last_tx->input, &channel->last_sig,
+				 &sig, &channel->channel_info.remote_fundingkey,
+				 &channel->local_funding_pubkey);
+
+	bitcoin_tx_input_set_witness(channel->last_tx, 0, witness);
 }
 
 static void remove_sig(struct bitcoin_tx *signed_tx)
 {
-	signed_tx->input[0].witness = tal_free(signed_tx->input[0].witness);
+	bitcoin_tx_input_set_witness(signed_tx, 0, NULL);
 }
 
 /* Resolve a single close command. */
