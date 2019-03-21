@@ -556,12 +556,15 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	size_t i;
 	u64 count;
 	u8 flag = 0;
+	const u8 *oldcursor = *cursor;
+	size_t wsize;
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	if (wally_tx_from_bytes(*cursor, *max, 0, &tx->wtx) != WALLY_OK) {
 		*cursor = 0;
 		return tal_free(tx);
 	}
 	tal_add_destructor(tx, bitcoin_tx_destroy);
+	wally_tx_get_length(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, &wsize);
 
 	assert(pull_le32(cursor, max) == tx->wtx->version);
 	count = pull_length(cursor, max, 32 + 4 + 4 + 1);
@@ -595,6 +598,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	}
 	assert(pull_le32(cursor, max) == tx->wtx->locktime);
 
+	assert(!*cursor || oldcursor + wsize == *cursor);
 	/* If we ran short, fail. */
 	if (!*cursor)
 		tx = tal_free(tx);
