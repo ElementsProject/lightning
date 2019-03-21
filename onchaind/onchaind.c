@@ -295,21 +295,19 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 				   enum tx_type *tx_type)
 {
 	struct bitcoin_tx *tx;
-	struct amount_sat fee, min_out;
+	struct amount_sat fee, min_out, amt;
 	struct bitcoin_signature sig;
 	size_t weight;
 	u8 *msg;
+	u8 **witness;
 
 	tx = bitcoin_tx(ctx, 1, 1);
 	tx->wtx->locktime = locktime;
-	tx->input[0].sequence_number = to_self_delay;
-	tx->input[0].txid = out->txid;
-	tx->input[0].index = out->outnum;
-	tx->input[0].amount = tal_dup(tx->input, struct amount_sat, &out->sat);
+	bitcoin_tx_add_input(tx, &out->txid, out->outnum, to_self_delay,
+			     &out->sat, NULL);
 
-	tx->output[0].amount = out->sat;
-	tx->output[0].script = scriptpubkey_p2wpkh(tx->output,
-						   &our_wallet_pubkey);
+	bitcoin_tx_add_output(
+	    tx, scriptpubkey_p2wpkh(tx->output, &our_wallet_pubkey), &out->sat);
 
 	/* Worst-case sig is 73 bytes */
 	weight = measure_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
@@ -336,14 +334,15 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	/* This can only happen if feerate_floor() is still too high; shouldn't
 	 * happen! */
-	if (!amount_sat_sub(&tx->output[0].amount, out->sat, fee)) {
-		tx->output[0].amount = dust_limit;
+	if (!amount_sat_sub(&amt, out->sat, fee)) {
+		amt = dust_limit;
 		status_broken("TX %s can't afford minimal feerate"
 			      "; setting output to %s",
 			      tx_type_name(*tx_type),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &tx->output[0].amount));
 	}
+	bitcoin_tx_output_set_amount(tx, 0, &amt);
 
 	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg(NULL, tx, wscript))))
 		status_failed(STATUS_FAIL_HSM_IO, "Writing sign request to hsm");
@@ -354,10 +353,9 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 			      tal_hex(tmpctx, msg));
 	}
 
-	tx->input[0].witness = bitcoin_witness_sig_and_element(tx->input,
-							       &sig,
-							       elem, elemsize,
-							       wscript);
+	witness = bitcoin_witness_sig_and_element(tx->input, &sig, elem,
+						  elemsize, wscript);
+	bitcoin_tx_input_set_witness(tx, 0, witness);
 	return tx;
 }
 
@@ -1137,6 +1135,7 @@ static void handle_preimage(struct tracked_output **outs,
 	size_t i;
 	struct sha256 sha;
 	struct ripemd160 ripemd;
+	u8 **witness;
 
 	sha256(&sha, preimage, sizeof(*preimage));
 	ripemd160(&ripemd, &sha, sizeof(sha));
@@ -1194,12 +1193,10 @@ static void handle_preimage(struct tracked_output **outs,
 			set_htlc_success_fee(tx, outs[i]->remote_htlc_sig,
 					     outs[i]->wscript);
 			hsm_sign_local_htlc_tx(tx, outs[i]->wscript, &sig);
-			tx->input[0].witness
-				= bitcoin_witness_htlc_success_tx(tx->input,
-								  &sig,
-								  outs[i]->remote_htlc_sig,
-								  preimage,
-								  outs[i]->wscript);
+			witness = bitcoin_witness_htlc_success_tx(
+			    tx->input, &sig, outs[i]->remote_htlc_sig, preimage,
+			    outs[i]->wscript);
+			bitcoin_tx_input_set_witness(tx, 0, witness);
 			propose_resolution(outs[i], tx, 0, OUR_HTLC_SUCCESS_TX);
 		} else {
 			enum tx_type tx_type = THEIR_HTLC_FULFILL_TO_US;
@@ -1378,6 +1375,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 	struct bitcoin_signature localsig;
 	size_t i;
 	struct amount_msat htlc_amount;
+	u8 **witness;
 
 	if (!amount_sat_to_msat(&htlc_amount, out->sat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1441,11 +1439,11 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 
 	hsm_sign_local_htlc_tx(tx, htlc_scripts[matches[i]], &localsig);
 
-	tx->input[0].witness
-		= bitcoin_witness_htlc_timeout_tx(tx->input,
-						  &localsig,
+	witness = bitcoin_witness_htlc_timeout_tx(tx->input, &localsig,
 						  out->remote_htlc_sig,
 						  htlc_scripts[matches[i]]);
+
+	bitcoin_tx_input_set_witness(tx, 0, witness);
 
 	/* Steals tx onto out */
 	propose_resolution_at_block(out, tx, htlcs[matches[i]].cltv_expiry,
