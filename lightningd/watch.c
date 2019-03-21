@@ -220,10 +220,12 @@ static bool txw_fire(struct txwatch *txw,
 	else
 		log = txw->topo->log;
 
+	/* We assume zero depth signals a reorganization */
 	log_debug(log,
-		  "Got depth change %u->%u for %s",
+		  "Got depth change %u->%u for %s%s",
 		  txw->depth, depth,
-		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid));
+		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid),
+		  depth ? "" : " REORG");
 	txw->depth = depth;
 	r = txw->cb(txw->topo->bitcoind->ld, txw->channel, txid, txw->depth);
 	switch (r) {
