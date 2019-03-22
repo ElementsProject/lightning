@@ -2,27 +2,28 @@
 #include <stdbool.h>
 #include <string.h>
 
-static bool input_better(const struct bitcoin_tx_input *a,
-			 const struct bitcoin_tx_input *b)
+static bool input_better(const struct wally_tx_input *a,
+			 const struct wally_tx_input *b)
 {
 	int cmp;
 
-	cmp = memcmp(&a->txid, &b->txid, sizeof(a->txid));
+	cmp = memcmp(a->txhash, b->txhash, sizeof(a->txhash));
 	if (cmp != 0)
 		return cmp < 0;
 	if (a->index != b->index)
 		return a->index < b->index;
 
 	/* These shouldn't happen, but let's get a canonical order anyway. */
-	if (tal_count(a->script) != tal_count(b->script))
-		return tal_count(a->script) < tal_count(b->script);
-	cmp = memcmp(a->script, b->script, tal_count(a->script));
+	if (a->script_len != b->script_len)
+		return a->script_len < b->script_len;
+
+	cmp = memcmp(a->script, b->script, a->script_len);
 	if (cmp != 0)
 		return cmp < 0;
-	return a->sequence_number < b->sequence_number;
+	return a->sequence < b->sequence;
 }
 
-static size_t find_best_in(struct bitcoin_tx_input *inputs, size_t num)
+static size_t find_best_in(struct wally_tx_input *inputs, size_t num)
 {
 	size_t i, best = 0;
 
@@ -86,8 +87,8 @@ static void swap_input_amounts(struct amount_sat **amounts, size_t i1,
 void permute_inputs(struct bitcoin_tx *tx, const void **map)
 {
 	size_t i, best_pos;
-	struct bitcoin_tx_input *inputs = tx->input;
-	size_t num_inputs = tal_count(inputs);
+	struct wally_tx_input *inputs = tx->wtx->inputs;
+	size_t num_inputs = tx->wtx->num_inputs;
 
 	/* We can't permute nothing! */
 	if (num_inputs == 0)
@@ -97,13 +98,8 @@ void permute_inputs(struct bitcoin_tx *tx, const void **map)
 	for (i = 0; i < num_inputs-1; i++) {
 		best_pos = i + find_best_in(inputs + i, num_inputs - i);
 		/* Swap best into first place. */
-		swap_inputs(inputs, map, i, best_pos);
-
-		/* TODO(cdecker) Remove once all transactions pass this test */
-		if (tx->wtx->num_inputs == num_inputs)
-			/* TODO(cdecker) Set `map` once the old style is removed */
-			swap_wally_inputs(tx->wtx->inputs, NULL, i, best_pos);
-
+		swap_wally_inputs(tx->wtx->inputs, map, i, best_pos);
+		swap_inputs(tx->input, NULL, i, best_pos);
 		swap_input_amounts(tx->input_amounts, i, best_pos);
 	}
 }
@@ -162,20 +158,18 @@ static void swap_wally_outputs(struct wally_tx_output *outputs,
 	}
 }
 
-static bool output_better(const struct bitcoin_tx_output *a,
-			  u32 cltv_a,
-			  const struct bitcoin_tx_output *b,
-			  u32 cltv_b)
+static bool output_better(const struct wally_tx_output *a, u32 cltv_a,
+			  const struct wally_tx_output *b, u32 cltv_b)
 {
 	size_t len, lena, lenb;
 	int ret;
 
-	if (!amount_sat_eq(a->amount, b->amount))
-		return amount_sat_less(a->amount, b->amount);
+	if (a->satoshi != b->satoshi)
+		return a->satoshi < b->satoshi;
 
 	/* Lexicographical sort. */
-	lena = tal_count(a->script);
-	lenb = tal_count(b->script);
+	lena = a->script_len;
+	lenb = b->script_len;
 	if (lena < lenb)
 		len = lena;
 	else
@@ -198,8 +192,7 @@ static u32 cltv_of(const u32 *cltvs, size_t idx)
 	return cltvs[idx];
 }
 
-static size_t find_best_out(struct bitcoin_tx_output *outputs,
-			    const u32 *cltvs,
+static size_t find_best_out(struct wally_tx_output *outputs, const u32 *cltvs,
 			    size_t num)
 {
 	size_t i, best = 0;
@@ -215,27 +208,21 @@ static size_t find_best_out(struct bitcoin_tx_output *outputs,
 void permute_outputs(struct bitcoin_tx *tx, u32 *cltvs, const void **map)
 {
 	size_t i, best_pos;
-	struct bitcoin_tx_output *outputs = tx->output;
-	size_t num_outputs = tal_count(outputs);
+	struct wally_tx_output *outputs = tx->wtx->outputs;
+	size_t num_outputs = tx->wtx->num_outputs;
 
 	/* We can't permute nothing! */
 	if (num_outputs == 0)
 		return;
 
 	/* Now do a dumb sort (num_outputs is small). */
-	for (i = 0; i < num_outputs-1; i++) {
+	for (i = 0; i < num_outputs - 1; i++) {
 		best_pos =
 		    i + find_best_out(outputs + i, cltvs ? cltvs + i : NULL,
 				      num_outputs - i);
 
 		/* Swap best into first place. */
-		swap_outputs(outputs, map, cltvs,
-			     i, best_pos);
-
-		/* TODO(cdecker) Remove once all transactions pass this test */
-		if (tx->wtx->num_outputs == num_outputs)
-			/* TODO(cdecker) Set `map` once the old style is removed */
-			swap_wally_outputs(tx->wtx->outputs, NULL, NULL,
-					   i, best_pos);
+		swap_wally_outputs(tx->wtx->outputs, map, cltvs, i, best_pos);
+		swap_outputs(tx->output, NULL, NULL, i, best_pos);
 	}
 }
