@@ -122,23 +122,6 @@ void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
 	wally_tx_set_input_script(tx->wtx, innum, script, tal_bytelen(script));
 }
 
-static void push_tx_input(const struct bitcoin_tx_input *input,
-			  const u8 *input_script,
-			  void (*push)(const void *, size_t, void *), void *pushp)
-{
-	push(&input->txid, sizeof(input->txid), pushp);
-	push_le32(input->index, push, pushp);
-	push_varint_blob(input_script, push, pushp);
-	push_le32(input->sequence_number, push, pushp);
-}
-
-static void push_tx_output(const struct bitcoin_tx_output *output,
-			  void (*push)(const void *, size_t, void *), void *pushp)
-{
-	push_amount_sat(output->amount, push, pushp);
-	push_varint_blob(output->script, push, pushp);
-}
-
 /* BIP 141:
  * It is followed by stack items, with each item starts with a var_int
  * to indicate the length. */
@@ -202,45 +185,21 @@ static void push_tx(const struct bitcoin_tx *tx,
 		    void (*push)(const void *, size_t, void *), void *pushp,
 		    bool bip144)
 {
-	varint_t i;
+	int res;
+	size_t len, written;
+	u8 *serialized;;
 	u8 flag = 0;
 
-	push_le32(tx->wtx->version, push, pushp);
-
         if (bip144 && uses_witness(tx))
-		flag |= SEGREGATED_WITNESS_FLAG;
+		flag |= WALLY_TX_FLAG_USE_WITNESS;
 
-	/* BIP 141: The flag MUST be a 1-byte non-zero value. */
-	/* ie. if no flags set, we fallback to pre-BIP144-style */
-	if (flag) {
-		u8 marker = 0;
-		/* BIP 144 */
-		/* marker 	char 	Must be zero */
-		/* flag 	char 	Must be nonzero */
-		push(&marker, 1, pushp);
-		push(&flag, 1, pushp);
-	}
+	wally_tx_get_length(tx->wtx, flag, &len);
+	serialized = tal_arr(tmpctx, u8, len);
 
-	push_varint(tal_count(tx->input), push, pushp);
-	for (i = 0; i < tal_count(tx->input); i++) {
-		const u8 *input_script = tx->input[i].script;
-		if (override_script) {
-			if (input_num == i)
-				input_script = override_script;
-			else
-				input_script = NULL;
-		}
-		push_tx_input(&tx->input[i], input_script, push, pushp);
-	}
-
-	push_varint(tal_count(tx->output), push, pushp);
-	for (i = 0; i < tal_count(tx->output); i++)
-		push_tx_output(&tx->output[i], push, pushp);
-
-	if (flag & SEGREGATED_WITNESS_FLAG)
-		push_witnesses(tx, push, pushp);
-
-	push_le32(tx->wtx->locktime, push, pushp);
+	res = wally_tx_to_bytes(tx->wtx, flag, serialized, len, &written);
+	assert(res == WALLY_OK && len == written);
+	push(serialized, len, pushp);
+	tal_free(serialized);
 }
 
 static void push_sha(const void *data, size_t len, void *shactx_)
