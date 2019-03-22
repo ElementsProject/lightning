@@ -93,6 +93,27 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 	tx->wtx->outputs[outnum].satoshi = amount->satoshis; /* Raw: low-level helper */
 }
 
+const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
+				       const struct bitcoin_tx *tx, int outnum)
+{
+	const struct wally_tx_output *output;
+	u8 *res;
+	assert(outnum < tx->wtx->num_outputs);
+	output = &tx->wtx->outputs[outnum];
+	res = tal_arr(ctx, u8, output->script_len);
+	memcpy(res, output->script, output->script_len);
+	return res;
+}
+
+struct amount_sat bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
+					       int outnum)
+{
+	struct amount_sat amount;
+	assert(outnum < tx->wtx->num_outputs);
+	amount.satoshis = tx->wtx->outputs[outnum].satoshi; /* Raw: helper */
+	return amount;
+}
+
 void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 				  u8 **witness)
 {
@@ -118,6 +139,29 @@ void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
 {
 	tx->input[innum].script = script;
 	wally_tx_set_input_script(tx->wtx, innum, script, tal_bytelen(script));
+}
+
+const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
+				       const struct bitcoin_tx *tx, int innum,
+				       int witnum)
+{
+	const u8 *witness_item;
+	struct wally_tx_witness_item *item;
+	assert(innum < tx->wtx->num_inputs);
+	assert(witnum < tx->wtx->inputs[innum].witness->num_items);
+	item = &tx->wtx->inputs[innum].witness->items[witnum];
+	witness_item =
+	    tal_dup_arr(ctx, u8, item->witness, item->witness_len, 0);
+	return witness_item;
+}
+
+void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
+			       struct bitcoin_txid *out)
+{
+	assert(innum < tx->wtx->num_inputs);
+	assert(sizeof(struct bitcoin_txid) ==
+	       sizeof(tx->wtx->inputs[innum].txhash));
+	memcpy(out, tx->wtx->inputs[innum].txhash, sizeof(struct bitcoin_txid));
 }
 
 /* BIP 141:

@@ -96,6 +96,22 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 				  struct amount_sat *amount);
 
 /**
+ * Helper to get the script of a script's output as a tal_arr
+ *
+ * Internally we use a `wally_tx` to represent the transaction. The script
+ * attached to a `wally_tx_output` is not a `tal_arr`, so in order to keep the
+ * comfort of being able to call `tal_bytelen` and similar on a script we just
+ * return a `tal_arr` clone of the original script.
+ */
+const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
+
+/**
+ * Helper to just get an amount_sat for the output amount.
+ */
+struct amount_sat bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
+					       int outnum);
+
+/**
  * Set the input witness.
  *
  * Given that we generate the witness after constructing the transaction
@@ -108,6 +124,19 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
  * Set the input script on the given input.
  */
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script);
+
+/**
+ * Helper to get a witness as a tal_arr array.
+ */
+const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
+				       const struct bitcoin_tx *tx, int innum,
+				       int witnum);
+
+/**
+ * Wrap the raw txhash in the wally_tx_input into a bitcoin_txid
+ */
+void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
+			       struct bitcoin_txid *out);
 
 /**
  * Check a transaction for consistency.
