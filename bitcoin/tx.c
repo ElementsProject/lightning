@@ -48,7 +48,6 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	tx->input[i].txid = *txid;
 	tx->input[i].index = outnum;
 	tx->input[i].sequence_number = sequence;
-	tx->input[i].amount = tal_dup(tx, struct amount_sat, amount);
 	tx->input[i].script = script;
 
 	assert(tx->wtx != NULL);
@@ -58,6 +57,10 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 				  NULL /* Empty witness stack */, &input);
 	wally_tx_add_input(tx->wtx, input);
 	wally_tx_input_free(input);
+
+	/* Now store the input amount if we know it, so we can sign later */
+	tx->input_amounts[i] = tal_free(tx->input_amounts[i]);
+	tx->input_amounts[i] = tal_dup(tx, struct amount_sat, amount);
 
 	tx->used_inputs++;
 	return i;
@@ -347,7 +350,7 @@ static void hash_for_segwit(struct sha256_ctx *ctx,
 	push_varint_blob(witness_script, push_sha, ctx);
 
 	/*     6. value of the output spent by this input (8-byte little end) */
-	push_amount_sat(*tx->input[input_num].amount, push_sha, ctx);
+	push_amount_sat(*tx->input_amounts[input_num], push_sha, ctx);
 
 	/*     7. nSequence of the input (4-byte little endian) */
 	push_le32(tx->input[input_num].sequence_number, push_sha, ctx);
@@ -450,13 +453,13 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			    &tx->wtx);
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 
+	tx->input_amounts = tal_arrz(tx, struct amount_sat*, input_count);
 	tx->output = tal_arrz(tx, struct bitcoin_tx_output, output_count);
 	tx->input = tal_arrz(tx, struct bitcoin_tx_input, input_count);
 	for (i = 0; i < tal_count(tx->input); i++) {
 		/* We assume NULL is a zero bitmap */
 		assert(tx->input[i].script == NULL);
 		tx->input[i].sequence_number = BITCOIN_TX_DEFAULT_SEQUENCE;
-		tx->input[i].amount = NULL;
 		tx->input[i].witness = NULL;
 	}
 	tx->wtx->locktime = 0;
@@ -565,6 +568,8 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	}
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 	wally_tx_get_length(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, &wsize);
+	tx->input_amounts =
+	    tal_arrz(tx, struct amount_sat *, tx->wtx->inputs_allocation_len);
 
 	assert(pull_le32(cursor, max) == tx->wtx->version);
 	count = pull_length(cursor, max, 32 + 4 + 4 + 1);

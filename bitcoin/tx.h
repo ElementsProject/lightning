@@ -19,6 +19,9 @@ struct bitcoin_txid {
 STRUCTEQ_DEF(bitcoin_txid, 0, shad.sha.u);
 
 struct bitcoin_tx {
+	/* Keep track of input amounts, this is needed for signatures (NULL if
+	 * unknown) */
+	struct amount_sat **input_amounts;
 	struct bitcoin_tx_input *input;
 	struct bitcoin_tx_output *output;
 	struct wally_tx *wtx;
@@ -38,9 +41,6 @@ struct bitcoin_tx_input {
 	u32 index; /* output number referred to by above */
 	u8 *script;
 	u32 sequence_number;
-
-	/* Value of the output we're spending (NULL if unknown). */
-	struct amount_sat *amount;
 
 	/* Only if BIP141 used. */
 	u8 **witness;

@@ -137,7 +137,7 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 			continue;
 
 		prev_fee = *fee;
-		if (!amount_sat_sub(&out, *tx->input[0].amount, *fee))
+		if (!amount_sat_sub(&out, *tx->input_amounts[0], *fee))
 			break;
 
 		bitcoin_tx_output_set_amount(tx, 0, &out);
@@ -252,7 +252,7 @@ static u8 *delayed_payment_to_us(const tal_t *ctx,
 {
 	return towire_hsm_sign_delayed_payment_to_us(ctx, commit_num,
 						     tx, wscript,
-						     *tx->input[0].amount);
+						     *tx->input_amounts[0]);
 }
 
 static u8 *remote_htlc_to_us(const tal_t *ctx,
@@ -262,7 +262,7 @@ static u8 *remote_htlc_to_us(const tal_t *ctx,
 	return towire_hsm_sign_remote_htlc_to_us(ctx,
 						 remote_per_commitment_point,
 						 tx, wscript,
-						 *tx->input[0].amount);
+						 *tx->input_amounts[0]);
 }
 
 static u8 *penalty_to_us(const tal_t *ctx,
@@ -270,7 +270,7 @@ static u8 *penalty_to_us(const tal_t *ctx,
 			 const u8 *wscript)
 {
 	return towire_hsm_sign_penalty_to_us(ctx, remote_per_commitment_secret,
-					     tx, wscript, *tx->input[0].amount);
+					     tx, wscript, *tx->input_amounts[0]);
 }
 
 /*
@@ -365,7 +365,7 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 {
 	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
 					  tx, wscript,
-					  *tx->input[0].amount);
+					  *tx->input_amounts[0]);
 
 	if (!wire_sync_write(HSM_FD, take(msg)))
 		status_failed(STATUS_FAIL_HSM_IO,
