@@ -863,9 +863,13 @@ tlv__type_impl_fromwire_template = """static struct {tlv_name} *fromwire__{tlv_n
 \t\t}}
 \t\tswitch((enum {tlv_name}_type)msg_type) {{
 {cases}\t\tdefault:
-\t\t\t// FIXME: print a warning / message?
-\t\t\t*p+= msg_len;
-\t\t\tplen -= msg_len;
+\t\t\tif (msg_type % 2 == 0) {{ // it's ok to be odd
+\t\t\t\tfromwire_fail(p, plen);
+\t\t\t\ttal_free({tlv_name});
+\t\t\t\treturn NULL;
+\t\t\t}}
+\t\t\t*p += msg_len;
+\t\t\t*plen -= msg_len;
 \t\t}}
 \t}}
 \tif (!*p) {{
