@@ -609,7 +609,7 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	/* Attach to tip; b is now the tip. */
 	assert(b->height == topo->tip->height + 1);
 	b->prev = topo->tip;
-	topo->tip->next = b;
+	topo->tip->next = b;	/* FIXME this doesn't seem to be used anywhere */
 	topo->tip = b;
 	wallet_block_add(topo->ld->wallet, b);
 
@@ -653,8 +653,13 @@ static void remove_tip(struct chain_topology *topo)
 	struct bitcoin_txid *txs;
 	size_t i, n;
 
+	log_debug(topo->log, "Removing stale block %u: %s",
+			  topo->tip->height,
+			  type_to_string(tmpctx, struct bitcoin_blkid, &b->blkid));
+
 	/* Move tip back one. */
 	topo->tip = b->prev;
+
 	if (!topo->tip)
 		fatal("Initial block %u (%s) reorganized out!",
 		      b->height,
@@ -663,7 +668,7 @@ static void remove_tip(struct chain_topology *topo)
 	txs = wallet_transactions_by_height(b, topo->ld->wallet, b->height);
 	n = tal_count(txs);
 
-	/* Notify that txs are kicked out. */
+	/* Notify that txs are kicked out (their height will be set NULL in db) */
 	for (i = 0; i < n; i++)
 		txwatch_fire(topo, &txs[i], 0);
 
