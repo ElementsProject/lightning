@@ -18,11 +18,7 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, u8 *script,
 {
 	size_t i = tx->used_outputs;
 	struct wally_tx_output *output;
-	assert(i < tal_count(tx->output));
-	assert(memeqzero(&tx->output[i], sizeof(struct bitcoin_tx_output)));
-
-	tx->output[i].amount = *amount;
-	tx->output[i].script = script;
+	assert(i < tx->wtx->outputs_allocation_len);
 
 	assert(tx->wtx != NULL);
 	wally_tx_output_init_alloc(amount->satoshis /* Raw: low-level helper */,
@@ -40,13 +36,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 {
 	size_t i = tx->used_inputs;
 	struct wally_tx_input *input;
-	assert(i < tal_count(tx->input));
-	assert(memeqzero(&tx->input[i].txid, sizeof(struct bitcoin_txid)));
-
-	tx->input[i].txid = *txid;
-	tx->input[i].index = outnum;
-	tx->input[i].sequence_number = sequence;
-	tx->input[i].script = script;
+	assert(i < tx->wtx->inputs_allocation_len);
 
 	assert(tx->wtx != NULL);
 	wally_tx_input_init_alloc(txid->shad.sha.u.u8,
@@ -66,7 +56,6 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 
 bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 {
-	u8 *oldtx = linearize_tx(tmpctx, tx);
 	u8 *newtx;
 	size_t written;
 
@@ -75,21 +64,24 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 		return false;
 
 	newtx = tal_arr(tmpctx, u8, written);
-	if (wally_tx_to_bytes(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, newtx, written,
-			      &written) != WALLY_OK)
+	if (wally_tx_to_bytes(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, newtx,
+			      written, &written) != WALLY_OK)
 		return false;
 
 	if (written != tal_bytelen(newtx))
 		return false;
 
-	return memeq(oldtx, tal_bytelen(oldtx), newtx, tal_bytelen(newtx));
+	if (tx->used_inputs != tx->wtx->num_inputs ||
+	    tx->used_outputs != tx->wtx->num_outputs)
+		return false;
+
+	return true;
 }
 
 void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 				  struct amount_sat *amount)
 {
 	assert(outnum < tx->used_outputs);
-	tx->output[outnum].amount = *amount;
 	tx->wtx->outputs[outnum].satoshi = amount->satoshis; /* Raw: low-level helper */
 }
 
@@ -121,9 +113,6 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 	size_t stack_size = tal_count(witness);
 
 	/* Free any lingering witness */
-	tal_free(tx->input[innum].witness);
-	tx->input[innum].witness = witness;
-
 	if (witness) {
 		wally_tx_witness_stack_init_alloc(stack_size, &stack);
 		for (size_t i = 0; i < stack_size; i++)
@@ -133,11 +122,11 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 	wally_tx_set_input_witness(tx->wtx, innum, stack);
 	if (stack)
 		wally_tx_witness_stack_free(stack);
+	tal_free(witness);
 }
 
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
 {
-	tx->input[innum].script = script;
 	wally_tx_set_input_script(tx->wtx, innum, script, tal_bytelen(script));
 }
 
@@ -294,7 +283,6 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			      varint_t output_count)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
-	size_t i;
 	tx->used_inputs = 0;
 	tx->used_outputs = 0;
 
@@ -303,112 +291,14 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 
 	tx->input_amounts = tal_arrz(tx, struct amount_sat*, input_count);
-	tx->output = tal_arrz(tx, struct bitcoin_tx_output, output_count);
-	tx->input = tal_arrz(tx, struct bitcoin_tx_input, input_count);
-	for (i = 0; i < tal_count(tx->input); i++) {
-		/* We assume NULL is a zero bitmap */
-		assert(tx->input[i].script == NULL);
-		tx->input[i].sequence_number = BITCOIN_TX_DEFAULT_SEQUENCE;
-		tx->input[i].witness = NULL;
-	}
 	tx->wtx->locktime = 0;
 	tx->wtx->version = 2;
 	return tx;
 }
 
-static bool pull_sha256_double(const u8 **cursor, size_t *max,
-			       struct sha256_double *h)
-{
-	return pull(cursor, max, h, sizeof(*h));
-}
-
-static u64 pull_value(const u8 **cursor, size_t *max)
-{
-	u64 amount;
-
-	amount = pull_le64(cursor, max);
-	return amount;
-}
-
-static struct amount_sat pull_amount_sat(const u8 **cursor, size_t *max)
-{
-	struct amount_sat sat;
-
-	sat.satoshis = pull_value(cursor, max); /* Raw: low-level helper */
-	return sat;
-}
-
-/* Pulls a varint which specifies n items of mult size: ensures basic
- * sanity to avoid trivial OOM */
-static u64 pull_length(const u8 **cursor, size_t *max, size_t mult)
-{
-	u64 v = pull_varint(cursor, max);
-	if (v * mult > *max) {
-		*cursor = NULL;
-		*max = 0;
-		return 0;
-	}
-	return v;
-}
-
-static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
-		       struct bitcoin_tx_input *input)
-{
-	u64 script_len;
-	pull_sha256_double(cursor, max, &input->txid.shad);
-	input->index = pull_le32(cursor, max);
-	script_len = pull_length(cursor, max, 1);
-	if (script_len)
-		input->script = tal_arr(ctx, u8, script_len);
-	else
-		input->script = NULL;
-	pull(cursor, max, input->script, tal_count(input->script));
-	input->sequence_number = pull_le32(cursor, max);
-}
-
-static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
-			struct bitcoin_tx_output *output)
-{
-	output->amount = pull_amount_sat(cursor, max);
-	output->script = tal_arr(ctx, u8, pull_length(cursor, max, 1));
-	pull(cursor, max, output->script, tal_count(output->script));
-}
-
-static u8 *pull_witness_item(const tal_t *ctx, const u8 **cursor, size_t *max)
-{
-	uint64_t len = pull_length(cursor, max, 1);
-	u8 *item;
-
-	item = tal_arr(ctx, u8, len);
-	pull(cursor, max, item, len);
-	return item;
-}
-
-static void pull_witness(struct bitcoin_tx_input *inputs, size_t i,
-			 const u8 **cursor, size_t *max)
-{
-	uint64_t j, num = pull_length(cursor, max, 1);
-
-	/* 0 means not using witness. */
-	if (num == 0) {
-		inputs[i].witness = NULL;
-		return;
-	}
-
-	inputs[i].witness = tal_arr(inputs, u8 *, num);
-	for (j = 0; j < num; j++) {
-		inputs[i].witness[j] = pull_witness_item(inputs[i].witness,
-							 cursor, max);
-	}
-}
-
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 				   size_t *max)
 {
-	size_t i;
-	u64 count;
-	u8 flag = 0;
-	const u8 *oldcursor = *cursor;
 	size_t wsize;
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	if (wally_tx_from_bytes(*cursor, *max, 0, &tx->wtx) != WALLY_OK) {
@@ -417,45 +307,16 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	}
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 	wally_tx_get_length(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, &wsize);
+
+	/* We don't know the input amounts yet, so set them all to NULL */
 	tx->input_amounts =
 	    tal_arrz(tx, struct amount_sat *, tx->wtx->inputs_allocation_len);
 
-	assert(pull_le32(cursor, max) == tx->wtx->version);
-	count = pull_length(cursor, max, 32 + 4 + 4 + 1);
-	/* BIP 144 marker is 0 (impossible to have tx with 0 inputs) */
-	if (count == 0) {
-		pull(cursor, max, &flag, 1);
-		if (flag != SEGREGATED_WITNESS_FLAG)
-			return tal_free(tx);
-		count = pull_length(cursor, max, 32 + 4 + 4 + 1);
-	}
+	tx->used_outputs = tx->wtx->num_outputs;
+	tx->used_inputs = tx->wtx->num_inputs;
 
-	tx->input = tal_arr(tx, struct bitcoin_tx_input, count);
-	tx->used_inputs = count;
-
-	for (i = 0; i < tal_count(tx->input); i++)
-		pull_input(tx, cursor, max, tx->input + i);
-
-	count = pull_length(cursor, max, 8 + 1);
-	tx->output = tal_arr(tx, struct bitcoin_tx_output, count);
-	tx->used_outputs = count;
-
-	for (i = 0; i < tal_count(tx->output); i++)
-		pull_output(tx, cursor, max, tx->output + i);
-
-	if (flag & SEGREGATED_WITNESS_FLAG) {
-		for (i = 0; i < tal_count(tx->input); i++)
-			pull_witness(tx->input, i, cursor, max);
-	} else {
-		for (i = 0; i < tal_count(tx->input); i++)
-			tx->input[i].witness = NULL;
-	}
-	assert(pull_le32(cursor, max) == tx->wtx->locktime);
-
-	assert(!*cursor || oldcursor + wsize == *cursor);
-	/* If we ran short, fail. */
-	if (!*cursor)
-		tx = tal_free(tx);
+	*cursor += wsize;
+	*max -= wsize;
 	return tx;
 }
 

@@ -270,7 +270,6 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	}
 
 	assert(n <= tx->wtx->outputs_allocation_len);
-	tal_resize(&tx->output, n);
 	tal_resize(htlcmap, n);
 
 	/* BOLT #3:

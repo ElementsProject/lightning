@@ -34,27 +34,6 @@ static size_t find_best_in(struct wally_tx_input *inputs, size_t num)
 	return best;
 }
 
-static void swap_inputs(struct bitcoin_tx_input *inputs,
-			const void **map,
-			size_t i1, size_t i2)
-{
-	struct bitcoin_tx_input tmpinput;
-	const void *tmp;
-
-	if (i1 == i2)
-		return;
-
-	tmpinput = inputs[i1];
-	inputs[i1] = inputs[i2];
-	inputs[i2] = tmpinput;
-
-	if (map) {
-		tmp = map[i1];
-		map[i1] = map[i2];
-		map[i2] = tmp;
-	}
-}
-
 static void swap_wally_inputs(struct wally_tx_input *inputs,
                              const void **map,
                              size_t i1, size_t i2)
@@ -99,35 +78,7 @@ void permute_inputs(struct bitcoin_tx *tx, const void **map)
 		best_pos = i + find_best_in(inputs + i, num_inputs - i);
 		/* Swap best into first place. */
 		swap_wally_inputs(tx->wtx->inputs, map, i, best_pos);
-		swap_inputs(tx->input, NULL, i, best_pos);
 		swap_input_amounts(tx->input_amounts, i, best_pos);
-	}
-}
-
-static void swap_outputs(struct bitcoin_tx_output *outputs,
-			 const void **map,
-			 u32 *cltvs,
-			 size_t i1, size_t i2)
-{
-	struct bitcoin_tx_output tmpoutput;
-
-	if (i1 == i2)
-		return;
-
-	tmpoutput = outputs[i1];
-	outputs[i1] = outputs[i2];
-	outputs[i2] = tmpoutput;
-
-	if (map) {
-		const void *tmp = map[i1];
-		map[i1] = map[i2];
-		map[i2] = tmp;
-	}
-
-	if (cltvs) {
-		u32 tmp = cltvs[i1];
-		cltvs[i1] = cltvs[i2];
-		cltvs[i2] = tmp;
 	}
 }
 
@@ -223,6 +174,5 @@ void permute_outputs(struct bitcoin_tx *tx, u32 *cltvs, const void **map)
 
 		/* Swap best into first place. */
 		swap_wally_outputs(tx->wtx->outputs, map, cltvs, i, best_pos);
-		swap_outputs(tx->output, NULL, NULL, i, best_pos);
 	}
 }
