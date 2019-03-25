@@ -773,8 +773,7 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	 * pointer, as we don't always know it (and zero is a valid amount, so
 	 * NULL is better to mean 'unknown' and has the nice property that
 	 * you'll crash if you assume it's there and you're wrong. */
-	tx->input_amounts[0] = tal_dup(tx->input, struct amount_sat, &funding);
-	tx->input_amounts[0] = tx->input_amounts[0];
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
@@ -819,7 +818,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey);
 	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx->input, struct amount_sat, &funding);
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
@@ -868,7 +867,7 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 				   "Failed deriving htlc pubkey");
 
 	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx->input, struct amount_sat, &amount);
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &amount);
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      SIGHASH_ALL, &sig);
 
@@ -892,10 +891,10 @@ static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 	if (!pubkey_from_privkey(privkey, &pubkey))
 		return bad_req_fmt(conn, c, msg_in, "bad pubkey_from_privkey");
 
-	if (tal_count(tx->input) != 1)
+	if (tx->wtx->num_inputs != 1)
 		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 
-	tx->input_amounts[0] = tal_dup(tx->input, struct amount_sat, &input_sat);
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
 	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, SIGHASH_ALL, &sig);
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
@@ -1090,11 +1089,11 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 	if (!pubkey_from_privkey(&htlc_privkey, &htlc_pubkey))
 		return bad_req_fmt(conn, c, msg_in, "bad pubkey_from_privkey");
 
-	if (tal_count(tx->input) != 1)
+	if (tx->wtx->num_inputs != 1)
 		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 
 	/* FIXME: Check that output script is correct! */
-	tx->input_amounts[0] = tal_dup(tx->input, struct amount_sat, &input_sat);
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      SIGHASH_ALL, &sig);
 
@@ -1209,7 +1208,7 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey);
 	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx->input, struct amount_sat, &funding);
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
@@ -1339,7 +1338,7 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 	 * define what it is?
 	 *
 	 *... I'm not sure that helps! */
-	assert(tal_count(tx->input) == tal_count(utxos));
+	assert(tx->wtx->num_inputs == tal_count(utxos));
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
@@ -1357,13 +1356,13 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 			/* For P2SH-wrapped Segwit, the (implied) redeemScript
 			 * is defined in BIP141 */
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
-			script = bitcoin_scriptsig_p2sh_p2wpkh(tx->input, &inkey);
+			script = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
 			bitcoin_tx_input_set_script(tx, i, script);
 		} else {
 			/* Pure segwit uses an empty inputScript; NULL has
 			 * tal_count() == 0, so it works great here. */
 			subscript = NULL;
-			tx->input[i].script = NULL;
+			bitcoin_tx_input_set_script(tx, i, NULL);
 		}
 		/* This is the core crypto magic. */
 		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
