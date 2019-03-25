@@ -144,7 +144,7 @@ bool check_tx_sig(const struct bitcoin_tx *tx, size_t input_num,
 		if (sig->sighash_type != (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY))
 			return false;
 	}
-	assert(input_num < tal_count(tx->input));
+	assert(input_num < tx->wtx->num_inputs);
 
 	wally_tx_get_btc_signature_hash(
 	    tx->wtx, input_num, script, tal_bytelen(script),

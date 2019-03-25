@@ -69,11 +69,11 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		size_t j;
 
 		/* Tell them if it spends a txo we care about. */
-		for (j = 0; j < tal_count(tx->input); j++) {
+		for (j = 0; j < tx->wtx->num_inputs; j++) {
 			struct txwatch_output out;
 			struct txowatch *txo;
-			out.txid = tx->input[j].txid;
-			out.index = tx->input[j].index;
+			bitcoin_tx_input_get_txid(tx, j, &out.txid);
+			out.index = tx->wtx->inputs[j].index;
 
 			txo = txowatch_hash_get(&topo->txowatches, &out);
 			if (txo) {
@@ -571,10 +571,13 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 	const struct short_channel_id *scid;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
-		for (size_t j = 0; j < tal_count(tx->input); j++) {
-			const struct bitcoin_tx_input *input = &tx->input[j];
+		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
+			const struct wally_tx_input *input = &tx->wtx->inputs[j];
+			struct bitcoin_txid txid;
+			bitcoin_tx_input_get_txid(tx, j, &txid);
+
 			scid = wallet_outpoint_spend(topo->ld->wallet, tmpctx,
-						     b->height, &input->txid,
+						     b->height, &txid,
 						     input->index);
 			if (scid) {
 				gossipd_notify_spend(topo->bitcoind->ld, scid);
@@ -588,12 +591,14 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 {
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
-		for (size_t j = 0; j < tal_count(tx->output); j++) {
-			const struct bitcoin_tx_output *output = &tx->output[j];
-			if (is_p2wsh(output->script, NULL)) {
+		for (size_t j = 0; j < tx->wtx->num_outputs; j++) {
+			const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, j);
+			struct amount_sat amt = bitcoin_tx_output_get_amount(tx, j);
+
+			if (is_p2wsh(script, NULL)) {
 				wallet_utxoset_add(topo->ld->wallet, tx, j,
-						   b->height, i, output->script,
-						   output->amount);
+						   b->height, i, script,
+						   amt);
 			}
 		}
 	}

@@ -157,7 +157,7 @@ static void watch_tx_and_outputs(struct channel *channel,
 	txw = watch_tx(channel->owner, ld->topology, channel, tx,
 		       onchain_tx_watched);
 
-	for (size_t i = 0; i < tal_count(tx->output); i++)
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++)
 		watch_txo(txw, ld->topology, channel, &txid, i,
 			  onchain_txo_watched);
 }
@@ -450,9 +450,10 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	if (!feerate) {
 		/* We have at least one data point: the last tx's feerate. */
 		struct amount_sat fee = channel->funding;
-		for (size_t i = 0; i < tal_count(channel->last_tx->output); i++)
+		for (size_t i = 0; i < channel->last_tx->wtx->num_outputs; i++)
 			if (!amount_sat_sub(&fee, fee,
-					    channel->last_tx->output[i].amount)) {
+					    bitcoin_tx_output_get_amount(
+						channel->last_tx, i))) {
 				log_broken(channel->log, "Could not get fee"
 					   " funding %s tx %s",
 					   type_to_string(tmpctx,

@@ -343,17 +343,19 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 			       ld->wallet->bip32_base);
 
 	log_debug(fc->uc->log, "Funding tx has %zi inputs, %zu outputs:",
-		  tal_count(fundingtx->input),
-		  tal_count(fundingtx->output));
+		  fundingtx->wtx->num_inputs,
+		  fundingtx->wtx->num_outputs);
 
-	for (size_t i = 0; i < tal_count(fundingtx->input); i++) {
+	for (size_t i = 0; i < fundingtx->wtx->num_inputs; i++) {
+		struct bitcoin_txid tmptxid;
+		bitcoin_tx_input_get_txid(fundingtx, i, &tmptxid);
 		log_debug(fc->uc->log, "%zi: %s (%s) %s\n",
 			  i,
 			  type_to_string(tmpctx, struct amount_sat,
 					 &fc->wtx.utxos[i]->amount),
 			  fc->wtx.utxos[i]->is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
-					 &fundingtx->input[i].txid));
+					 &tmptxid));
 	}
 
 	bitcoin_txid(fundingtx, &funding_txid);
@@ -433,8 +435,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* Make sure we recognize our change output by its scriptpubkey in
 	 * future. This assumes that we have only two outputs, may not be true
 	 * if we add support for multifundchannel */
-	if (tal_count(fundingtx->output) == 2)
-		txfilter_add_scriptpubkey(ld->owned_txfilter, fundingtx->output[!funding_outnum].script);
+	if (fundingtx->wtx->num_outputs == 2)
+		txfilter_add_scriptpubkey(ld->owned_txfilter, bitcoin_tx_output_get_script(tmpctx, fundingtx, !funding_outnum));
 
 	/* We need these to compose cmd's response in funding_broadcast_success */
 	fc->hextx = tal_hex(fc, linearize_tx(fc->cmd, fundingtx));
