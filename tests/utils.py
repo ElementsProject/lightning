@@ -441,7 +441,7 @@ class LightningNode(object):
         addr = self.rpc.newaddr(addrtype)[addrtype]
         txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
         self.bitcoin.generate_block(1)
-        self.daemon.wait_for_log('Owning output .* txid {}'.format(txid))
+        self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         return addr, txid
 
     def getactivechannels(self):
