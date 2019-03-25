@@ -100,4 +100,4 @@ COPY --from=builder /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835
-ENTRYPOINT  [ "/sbin/tini", "-g", "--", "./entrypoint.sh" ]
+ENTRYPOINT  [ "/sbin/tini", "--", "./entrypoint.sh" ]
