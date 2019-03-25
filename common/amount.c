@@ -410,7 +410,7 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw, size_t weight)
 
 	/* If this overflows, weight must be > 2^32, which is not a real tx */
 	assert(!mul_overflows_u64(fee_per_kw, weight));
-	fee.satoshis = fee_per_kw * weight / 1000;
+	fee.satoshis = (u64)fee_per_kw * weight / 1000;
 
 	return fee;
 }
