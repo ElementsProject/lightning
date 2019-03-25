@@ -1163,19 +1163,21 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 	int num_utxos = 0;
 
 	*total = AMOUNT_SAT(0);
-	for (size_t output = 0; output < tal_count(tx->output); output++) {
+	for (size_t output = 0; output < tx->wtx->num_outputs; output++) {
 		struct utxo *utxo;
 		u32 index;
 		bool is_p2sh;
+		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, output);
 
-		if (!wallet_can_spend(w, tx->output[output].script, &index,
+
+		if (!wallet_can_spend(w, script, &index,
 				      &is_p2sh))
 			continue;
 
 		utxo = tal(w, struct utxo);
 		utxo->keyindex = index;
 		utxo->is_p2sh = is_p2sh;
-		utxo->amount = tx->output[output].amount;
+		utxo->amount = bitcoin_tx_output_get_amount(tx, output);
 		utxo->status = output_state_available;
 		bitcoin_txid(tx, &utxo->txid);
 		utxo->outnum = output;
@@ -1183,12 +1185,12 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 
 		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
-		utxo->scriptPubkey = tx->output[output].script;
+		utxo->scriptPubkey = tal_dup_arr(utxo, u8, script, tal_bytelen(script), 0);
 
 		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s",
 			  output,
 			  type_to_string(tmpctx, struct amount_sat,
-					 &tx->output[output].amount),
+					 &utxo->amount),
 			  is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->txid), blockheight ? " CONFIRMED" : "");
@@ -1208,7 +1210,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 
 		if (!amount_sat_add(total, *total, utxo->amount))
 			fatal("Cannot add utxo output %zu/%zu %s + %s",
-			      output, tal_count(tx->output),
+			      output, tx->wtx->num_outputs,
 			      type_to_string(tmpctx, struct amount_sat, total),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &utxo->amount));

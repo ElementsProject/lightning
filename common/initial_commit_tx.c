@@ -197,7 +197,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		n++;
 	}
 
-	assert(n <= tal_count(tx->output));
+	assert(n <= tx->wtx->num_outputs);
 	tal_resize(&tx->output, n);
 
 	/* BOLT #3:

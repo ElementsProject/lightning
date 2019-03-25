@@ -164,23 +164,14 @@ void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 	memcpy(out, tx->wtx->inputs[innum].txhash, sizeof(struct bitcoin_txid));
 }
 
-/* BIP 141:
- * It is followed by stack items, with each item starts with a var_int
- * to indicate the length. */
-static void push_witness(const u8 *witness,
-			void (*push)(const void *, size_t, void *), void *pushp)
-{
-	push_varint_blob(witness, push, pushp);
-}
-
 /* BIP144:
  * If the witness is empty, the old serialization format should be used. */
 static bool uses_witness(const struct bitcoin_tx *tx)
 {
 	size_t i;
 
-	for (i = 0; i < tal_count(tx->input); i++) {
-		if (tx->input[i].witness)
+	for (i = 0; i < tx->wtx->num_inputs; i++) {
+		if (tx->wtx->inputs[i].witness)
 			return true;
 	}
 	return false;
@@ -193,22 +184,21 @@ static bool uses_witness(const struct bitcoin_tx *tx)
 static void push_witnesses(const struct bitcoin_tx *tx,
 			  void (*push)(const void *, size_t, void *), void *pushp)
 {
-	size_t i;
-	for (i = 0; i < tal_count(tx->input); i++) {
-		size_t j, elements;
+	for (size_t i = 0; i < tx->wtx->num_inputs; i++) {
+		struct wally_tx_witness_stack *witness = tx->wtx->inputs[i].witness;
 
 		/* Not every input needs a witness. */
-		if (!tx->input[i].witness) {
+		if (!witness) {
 			push_varint(0, push, pushp);
 			continue;
 		}
-		elements = tal_count(tx->input[i].witness);
-		push_varint(elements, push, pushp);
-		for (j = 0;
-		     j < tal_count(tx->input[i].witness);
-		     j++) {
-			push_witness(tx->input[i].witness[j],
-				    push, pushp);
+
+		push_varint(witness->num_items, push, pushp);
+		for (size_t j = 0; j < witness->num_items; j++) {
+			size_t witlen = witness->items[j].witness_len;
+			const u8 *wit = witness->items[j].witness;
+			push_varint(witlen, push, pushp);
+			push(wit, witlen, pushp);
 		}
 	}
 }

@@ -200,7 +200,7 @@ static void sign_last_tx(struct channel *channel)
 	struct bitcoin_signature sig;
 	u8 *msg, **witness;
 
-	assert(!channel->last_tx->input[0].witness);
+	assert(!channel->last_tx->wtx->inputs[0].witness);
 
 	msg = towire_hsm_sign_commitment_tx(tmpctx,
 					    &channel->peer->id,
@@ -219,7 +219,7 @@ static void sign_last_tx(struct channel *channel)
 		      tal_hex(tmpctx, msg));
 
 	witness =
-	    bitcoin_witness_2of2(channel->last_tx->input, &channel->last_sig,
+	    bitcoin_witness_2of2(channel->last_tx, &channel->last_sig,
 				 &sig, &channel->channel_info.remote_fundingkey,
 				 &channel->local_funding_pubkey);
 
@@ -1531,7 +1531,7 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	log_debug(channel->log, "dev-sign-last-tx: signing tx with %zu outputs",
-		  tal_count(channel->last_tx->output));
+		  channel->last_tx->wtx->num_outputs);
 	sign_last_tx(channel);
 	linear = linearize_tx(cmd, channel->last_tx);
 	remove_sig(channel->last_tx);
