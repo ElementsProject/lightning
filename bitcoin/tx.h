@@ -23,10 +23,6 @@ struct bitcoin_tx {
 	 * unknown) */
 	struct amount_sat **input_amounts;
 	struct wally_tx *wtx;
-
-	/* Keep track of how many inputs and outputs were filled so far. This
-	 * is needed since we allocate them in bulk. */
-	size_t used_inputs, used_outputs;
 };
 
 struct bitcoin_tx_output {

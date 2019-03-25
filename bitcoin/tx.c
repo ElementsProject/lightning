@@ -16,7 +16,7 @@
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, u8 *script,
 			  struct amount_sat *amount)
 {
-	size_t i = tx->used_outputs;
+	size_t i = tx->wtx->num_outputs;
 	struct wally_tx_output *output;
 	assert(i < tx->wtx->outputs_allocation_len);
 
@@ -26,7 +26,6 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, u8 *script,
 	wally_tx_add_output(tx->wtx, output);
 	wally_tx_output_free(output);
 
-	tx->used_outputs++;
 	return i;
 }
 
@@ -34,7 +33,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 const struct amount_sat *amount, u8 *script)
 {
-	size_t i = tx->used_inputs;
+	size_t i = tx->wtx->num_inputs;
 	struct wally_tx_input *input;
 	assert(i < tx->wtx->inputs_allocation_len);
 
@@ -50,7 +49,6 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	tx->input_amounts[i] = tal_free(tx->input_amounts[i]);
 	tx->input_amounts[i] = tal_dup(tx, struct amount_sat, amount);
 
-	tx->used_inputs++;
 	return i;
 }
 
@@ -71,17 +69,13 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 	if (written != tal_bytelen(newtx))
 		return false;
 
-	if (tx->used_inputs != tx->wtx->num_inputs ||
-	    tx->used_outputs != tx->wtx->num_outputs)
-		return false;
-
 	return true;
 }
 
 void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 				  struct amount_sat *amount)
 {
-	assert(outnum < tx->used_outputs);
+	assert(outnum < tx->wtx->num_outputs);
 	tx->wtx->outputs[outnum].satoshi = amount->satoshis; /* Raw: low-level helper */
 }
 
@@ -283,9 +277,6 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			      varint_t output_count)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
-	tx->used_inputs = 0;
-	tx->used_outputs = 0;
-
 	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,
 			    &tx->wtx);
 	tal_add_destructor(tx, bitcoin_tx_destroy);
@@ -311,9 +302,6 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	/* We don't know the input amounts yet, so set them all to NULL */
 	tx->input_amounts =
 	    tal_arrz(tx, struct amount_sat *, tx->wtx->inputs_allocation_len);
-
-	tx->used_outputs = tx->wtx->num_outputs;
-	tx->used_inputs = tx->wtx->num_inputs;
 
 	*cursor += wsize;
 	*max -= wsize;
