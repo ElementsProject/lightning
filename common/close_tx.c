@@ -58,7 +58,6 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	/* Can't have no outputs at all! */
 	if (num_outputs == 0)
 		return tal_free(tx);
-	tal_resize(&tx->output, num_outputs);
 
 	permute_outputs(tx, NULL, NULL);
 	assert(bitcoin_tx_check(tx));

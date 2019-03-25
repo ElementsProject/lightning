@@ -22,8 +22,6 @@ struct bitcoin_tx {
 	/* Keep track of input amounts, this is needed for signatures (NULL if
 	 * unknown) */
 	struct amount_sat **input_amounts;
-	struct bitcoin_tx_input *input;
-	struct bitcoin_tx_output *output;
 	struct wally_tx *wtx;
 
 	/* Keep track of how many inputs and outputs were filled so far. This
