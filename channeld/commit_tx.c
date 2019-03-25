@@ -263,7 +263,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * However, valgrind will warn us something wierd is happening */
 		SUPERVERBOSE("# to-remote amount %s P2WPKH(%s)\n",
 			     type_to_string(tmpctx, struct amount_sat,
-					    &tx->output[n].amount),
+					    &amount),
 			     type_to_string(tmpctx, struct pubkey,
 					    &keyset->other_payment_key));
 		n++;
