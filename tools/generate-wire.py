@@ -850,6 +850,7 @@ tlv__type_impl_towire_template = """static void towire__{tlv_name}(const tal_t *
 
 tlv__type_impl_fromwire_template = """static struct {tlv_name} *fromwire__{tlv_name}(const tal_t *ctx, const u8 **p, size_t *plen, const u16 *len) {{
 \tu8 msg_type, msg_len;
+\tsize_t start_len = *plen;
 \tif (*plen < *len)
 \t\treturn NULL;
 
@@ -873,7 +874,7 @@ tlv__type_impl_fromwire_template = """static struct {tlv_name} *fromwire__{tlv_n
 \t\t\t*plen -= msg_len;
 \t\t}}
 \t}}
-\tif (!*p) {{
+\tif (!*p || start_len - *plen != *len) {{
 \t\ttal_free({tlv_name});
 \t\treturn NULL;
 \t}}
