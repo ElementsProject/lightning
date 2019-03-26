@@ -8,6 +8,7 @@ from ephemeral_port_reserve import reserve
 import json
 import os
 import pytest
+import random
 import re
 import shutil
 import signal
@@ -875,10 +876,10 @@ def test_blockchaintrack(node_factory, bitcoind):
     # and we try to add a block twice when rescanning:
     l1.restart()
 
-    height = bitcoind.rpc.getblockcount()
+    height = bitcoind.rpc.getblockcount()   # 101
 
     # At height 111 we receive an incoming payment
-    hashes = bitcoind.generate_block(9)
+    hashes = bitcoind.generate_block(9)     # 102-110
     bitcoind.rpc.sendtoaddress(addr, 1)
     time.sleep(1)  # mempool is still unpredictable
     bitcoind.generate_block(1)
@@ -903,7 +904,48 @@ def test_blockchaintrack(node_factory, bitcoind):
     l1.daemon.wait_for_log('Adding block {}: '.format(height + 30))
 
     # Our funds got reorged out, we should not have any funds that are confirmed
+    # NOTE: sendtoaddress() sets locktime=103 and the reorg at 102 invalidates that tx
+    # and deletes it from mempool
     assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
+
+
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_funding_reorg_private(node_factory, bitcoind):
+    """Change funding tx height after lockin, between node restart.
+    """
+    # Rescan to detect reorg at restart and may_reconnect so channeld
+    # will restart
+    opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True}
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
+    l1.fundwallet(10000000)
+    sync_blockheight(bitcoind, [l1])                # height 102
+    bitcoind.generate_block(3)                      # heights 103-105
+
+    l1.rpc.fundchannel(l2.info['id'], "all", announce=False)
+    bitcoind.generate_block(1)                      # height 106
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['status']
+             == ['CHANNELD_AWAITING_LOCKIN:Funding needs 1 more confirmations for lockin.'])
+    bitcoind.generate_block(1)                      # height 107
+    l1.wait_channel_active('106x1x0')
+    l1.stop()
+
+    # Create a fork that changes short_channel_id from 106x1x0 to 108x1x0
+    bitcoind.simple_reorg(106, 2)                   # heights 106-108
+    bitcoind.generate_block(1)                      # height 109 (to reach minimum_depth=2 again)
+    l1.daemon.rpcproxy = bitcoind.get_proxy()       # otherwise complains `address already in use`
+    l1.start()
+
+    # l2 was running, sees last stale block being removed
+    l2.daemon.wait_for_logs([r'Removing stale block {}'.format(106),
+                             r'Got depth change .->{} for .* REORG'.format(0)])
+
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('106x1x0')['channels']] == [False, False])
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('108x1x0')['channels']] == [True, True])
+
+    l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log(r'Deleting channel')
+    l2.daemon.wait_for_log(r'Deleting channel')
 
 
 def test_rescan(node_factory, bitcoind):
