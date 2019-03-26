@@ -322,6 +322,49 @@ class BitcoinD(TailableProc):
         # As of 0.16, generate() is removed; use generatetoaddress.
         return self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
 
+    def simple_reorg(self, height, shift=0):
+        """
+        Reorganize chain by creating a fork at height=[height] and re-mine all mempool
+        transactions into [height + shift], where shift >= 0. Returns hashes of generated
+        blocks.
+
+        Note that tx's that become invalid at [height] (because coin maturity, locktime
+        etc.) are removed from mempool. The length of the new chain will be original + 1
+        OR original + [shift], whichever is larger.
+
+        For example: to push tx's backward from height h1 to h2 < h1, use [height]=h2.
+
+        Or to change the txindex of tx's at height h1:
+        1. A block at height h2 < h1 should contain a non-coinbase tx that can be pulled
+           forward to h1.
+        2. Set [height]=h2 and [shift]= h1-h2
+        """
+        hashes = []
+        fee_delta = 1000000
+        orig_len = self.rpc.getblockcount()
+        old_hash = self.rpc.getblockhash(height)
+        final_len = height + shift if height + shift > orig_len else 1 + orig_len
+        # TODO: raise error for insane args?
+
+        self.rpc.invalidateblock(old_hash)
+        self.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'.format(height))
+        memp = self.rpc.getrawmempool()
+
+        if shift == 0:
+            hashes += self.generate_block(1 + final_len - height)
+        else:
+            for txid in memp:
+                # lower priority (to effective feerate=0) so they are not mined
+                self.rpc.prioritisetransaction(txid, None, -fee_delta)
+            hashes += self.generate_block(shift)
+
+            for txid in memp:
+                # restore priority so they are mined
+                self.rpc.prioritisetransaction(txid, None, fee_delta)
+            hashes += self.generate_block(1 + final_len - (height + shift))
+        self.wait_for_log(r'UpdateTip: new best=.* height={}'.format(final_len))
+        return hashes
+
 
 class LightningD(TailableProc):
     def __init__(self, lightning_dir, bitcoindproxy, port=9735, random_hsm=False, node_id=0):
