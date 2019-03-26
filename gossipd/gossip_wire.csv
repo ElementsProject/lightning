@@ -21,7 +21,7 @@ gossip_getnodes_request,,id,?struct pubkey
 
 #include <lightningd/gossip_msg.h>
 gossip_getnodes_reply,3105
-gossip_getnodes_reply,,num_nodes,u16
+gossip_getnodes_reply,,num_nodes,u32
 gossip_getnodes_reply,,nodes,num_nodes*struct gossip_getnodes_entry
 
 # Pass JSON-RPC getroute call through
