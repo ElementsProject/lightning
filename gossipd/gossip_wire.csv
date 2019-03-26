@@ -46,7 +46,7 @@ gossip_getchannels_request,,short_channel_id,?struct short_channel_id
 gossip_getchannels_request,,source,?struct pubkey
 
 gossip_getchannels_reply,3107
-gossip_getchannels_reply,,num_channels,u16
+gossip_getchannels_reply,,num_channels,u32
 gossip_getchannels_reply,,nodes,num_channels*struct gossip_getchannels_entry
 
 # Ping/pong test.  Waits for a reply if it expects one.
