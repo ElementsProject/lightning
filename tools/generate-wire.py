@@ -832,28 +832,28 @@ struct {tlv_name} {{
 
 tlv__type_impl_towire_fields = """\tif ({tlv_name}->{name}) {{
 \t\ttlv_msg = tal_arr(ctx, u8, 0);
-\t\ttowire_u16(p, {enum});
+\t\ttowire_u8(p, {enum});
 \t\ttowire_{tlv_name}_{name}(&tlv_msg, {tlv_name}->{name});
 \t\tmsg_len = tal_count(tlv_msg);
-\t\ttowire_u16(p, msg_len);
+\t\ttowire_u8(p, msg_len);
 \t\ttowire_u8_array(p, tlv_msg, msg_len);
 \t}}
 """
 
 tlv__type_impl_towire_template = """static void towire__{tlv_name}(const tal_t *ctx, u8 **p, const struct {tlv_name} *{tlv_name}) {{
-\tu16 msg_len;
+\tu8 msg_len;
 \tu8 *tlv_msg;
 {fields}}}
 """
 
 tlv__type_impl_fromwire_template = """static bool fromwire__{tlv_name}(const tal_t *ctx, const u8 **p, size_t *plen, const u16 *len, struct {tlv_name} *{tlv_name}) {{
-\tu16 msg_type, msg_len;
+\tu8 msg_type, msg_len;
 \tif (*plen < *len)
 \t\treturn false;
 
 \twhile (*plen) {{
-\t\tmsg_type = fromwire_u16(p, plen);
-\t\tmsg_len = fromwire_u16(p, plen);
+\t\tmsg_type = fromwire_u8(p, plen);
+\t\tmsg_len = fromwire_u8(p, plen);
 \t\tif (*plen < msg_len) {{
 \t\t\tfromwire_fail(p, plen);
 \t\t\tbreak;
