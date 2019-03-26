@@ -839,6 +839,7 @@ tlv__type_impl_towire_fields = """\tif ({tlv_name}->{name}) {{
 \t\tmsg_len = tal_count(tlv_msg);
 \t\ttowire_u8(p, msg_len);
 \t\ttowire_u8_array(p, tlv_msg, msg_len);
+\t\ttal_free(tlv_msg);
 \t}}
 """
 
