@@ -128,6 +128,35 @@ def test_bad_opening(node_factory):
     l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
 
+def test_opening_tiny_channel(node_factory):
+    # Try to establish channels with smaller than 1000000 msat (default)
+    #
+    # [l1] ---> [l2]
+    #
+    # BOLT2
+    # The receiving node MAY fail the channel if:
+    #  - funding_satoshis is too small
+    #
+    # Expects: opening is rejected
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    min_capacity_sat = 1000
+    dustlimit_sat = 546
+    reserves = 2 * dustlimit_sat
+
+    # Open channel with less than 1000 sats (default) should be rejected
+    with pytest.raises(RpcError, match=r'channel capacity is 999sat, which is below 1000000msat'):
+        l1.fund_channel(l2, min_capacity_sat + reserves - 1)
+
+    # When the capacity is precisely met for the fundee
+    # NOTE: The next line will (currently) raise an exception
+    with pytest.raises(RpcError, match=r'Could not meet their fees and reserve'):
+        l1.fund_channel(l2, min_capacity_sat + reserves)
+
+
 def test_second_channel(node_factory):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
