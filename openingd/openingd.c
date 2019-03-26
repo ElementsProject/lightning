@@ -442,8 +442,8 @@ static u8 *funder_channel(struct state *state,
 	struct pubkey *changekey;
 	struct bitcoin_signature sig;
 	u32 minimum_depth;
-	const u8 *wscript;
-	struct bitcoin_tx *funding;
+	struct bitcoin_tx *funding = 0;
+	const u8 *wscript = 0;
 	struct amount_msat local_msat;
 
 	/*~ For symmetry, we calculate our own reserve even though lightningd
@@ -825,6 +825,10 @@ static u8 *funder_channel(struct state *state,
 fail:
 	if (taken(utxos))
 		tal_free(utxos);
+	if (funding)
+		tal_free(funding);
+	if (wscript)
+		tal_free(wscript);
 	return NULL;
 }
 
