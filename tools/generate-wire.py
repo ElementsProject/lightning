@@ -308,7 +308,7 @@ class Message(object):
             return
         for f in self.fields:
             if f.name == field.lenvar:
-                if f.fieldtype.name != 'u16':
+                if f.fieldtype.name != 'u16' and options.bolt:
                     raise ValueError('Field {} has non-u16 length variable {} (type {})'
                                      .format(field.name, field.lenvar, f.fieldtype.name))
 
