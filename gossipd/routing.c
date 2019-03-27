@@ -94,6 +94,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->local_channel_announced = false;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
+	uintmap_init(&rstate->txout_failures);
 
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
@@ -845,6 +846,18 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		goto malformed;
 	}
 
+	/* If a prior txout lookup failed there is little point it trying
+	 * again. Just drop the announcement and walk away whistling. Any non-0
+	 * result means this failed before. */
+	if (uintmap_get(&rstate->txout_failures, pending->short_channel_id.u64)) {
+		SUPERVERBOSE(
+		    "Ignoring channel_announcement of %s due to a prior txout "
+		    "query failure. The channel was likely closed on-chain.",
+		    type_to_string(tmpctx, struct short_channel_id,
+				   &pending->short_channel_id));
+		goto ignored;
+	}
+
 	/* Check if we know the channel already (no matter in what
 	 * state, we stop here if yes). */
 	chan = get_channel(rstate, &pending->short_channel_id);
@@ -993,6 +1006,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 			     type_to_string(pending, struct short_channel_id,
 					    scid));
 		tal_free(pending);
+		uintmap_add(&rstate->txout_failures, scid->u64, true);
 		return;
 	}
 
@@ -1214,6 +1228,12 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 					    &chain_hash));
 		return NULL;
 	}
+
+	/* If we dropped the matching announcement for this channel due to the
+	 * txout query failing, don't report failure, it's just too noisy on
+	 * mainnet */
+	if (uintmap_get(&rstate->txout_failures, short_channel_id.u64))
+		return NULL;
 
 	chan = get_channel(rstate, &short_channel_id);
 
