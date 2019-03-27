@@ -411,72 +411,7 @@ class Message(object):
                 subcalls.append('fromwire_{}({}cursor, {}plen, {} + i);'
                                 .format(basetype, p_ref, p_ref, name))
 
-    def print_tlv_fromwire(self, tlv_name):
-        """ prints fromwire function definition for a TLV message.
-        these are significantly different in that they take in a struct
-        to populate, instead of fields, as well as a length to read in
-        """
-        ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
-        args = 'const u8 **cursor, size_t *plen, const u64 len, struct tlv_msg_{name} *{name}'.format(name=self.name)
-        fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-            if f.is_tlv:
-                raise TypeError('Nested TLVs arent allowed!!')
-            elif f.optional:
-                raise TypeError('Optional fields on TLV messages not currently supported')
-
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('fromwire_pad(cursor, plen, {});'
-                                .format(f.num_elems))
-            elif f.is_array():
-                name = '*{}->{}'.format(self.name, f.name)
-                self.print_fromwire_array('ctx', subcalls, basetype, f, name,
-                                          f.num_elems, is_tlv=True)
-            elif f.is_variable_size():
-                subcalls.append("// 2nd case {name}".format(name=f.name))
-                typename = f.fieldtype.name
-                # If structs are varlen, need array of ptrs to them.
-                if basetype in varlen_structs:
-                    typename += ' *'
-                subcalls.append('{}->{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
-                                .format(self.name, f.name, f.lenvar, typename, f.lenvar))
-
-                name = '{}->{}'.format(self.name, f.name)
-                # Allocate these off the array itself, if they need alloc.
-                self.print_fromwire_array('*' + f.name, subcalls, basetype, f,
-                                          name, f.lenvar, is_tlv=True)
-            else:
-                if f.is_assignable():
-                    if f.is_len_var:
-                        s = '{} = fromwire_{}(cursor, plen);'.format(f.name, basetype)
-                    else:
-                        s = '{}->{} = fromwire_{}(cursor, plen);'.format(
-                            self.name, f.name, basetype)
-                else:
-                    s = 'fromwire_{}(cursor, plen, *{}->{});'.format(
-                        basetype, self.name, f.name)
-                subcalls.append(s)
-
-        return fromwire_tlv_impl_templ.format(
-            tlv_name=tlv_name,
-            name=self.name,
-            ctx=ctx_arg,
-            args=''.join(args),
-            fields=''.join(fields),
-            subcalls=str(subcalls)
-        )
-
     def print_fromwire(self, is_header, tlv_name):
-        if self.is_tlv:
-            if is_header:
-                return ''
-            return self.print_tlv_fromwire(tlv_name)
-
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
 
         args = []
@@ -592,49 +527,10 @@ class Message(object):
                 subcalls.append('towire_{}({}p, {}{} + i);'
                                 .format(basetype, p_ref, msg_name, f.name))
 
-    def print_tlv_towire(self, tlv_name):
-        """ prints towire function definition for a TLV message."""
-        field_decls = []
-        for f in self.fields:
-            if f.is_tlv:
-                raise TypeError("Nested TLVs aren't allowed!! {}->{}".format(tlv_name, f.name))
-            elif f.optional:
-                raise TypeError("Optional fields on TLV messages not currently supported. {}->{}".format(tlv_name, f.name))
-            if f.is_len_var:
-                field_decls.append('\t{0} {1} = tal_count({2}->{3});'.format(
-                    f.fieldtype.name, f.name, self.name, f.lenvar_for.name
-                ))
-
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('towire_pad(p, {});'.format(f.num_elems))
-            elif f.is_array():
-                self.print_towire_array(subcalls, basetype, f, f.num_elems, is_tlv=True)
-            elif f.is_variable_size():
-                self.print_towire_array(subcalls, basetype, f, f.lenvar, is_tlv=True)
-            elif f.is_len_var:
-                subcalls.append('towire_{}(p, {});'.format(basetype, f.name))
-            else:
-                subcalls.append('towire_{}(p, {}->{});'.format(basetype, self.name, f.name))
-        return tlv_message_towire_stub.format(
-            tlv_name=tlv_name,
-            name=self.name,
-            field_decls='\n'.join(field_decls),
-            subcalls=str(subcalls))
-
     def find_tlv_lenvar_field(self, tlv_name):
         return [f for f in self.fields if f.is_len_var and f.lenvar_for.is_tlv and f.lenvar_for.name == tlv_name][0]
 
     def print_towire(self, is_header, tlv_name):
-        if self.is_tlv:
-            if is_header:
-                return ''
-            return self.print_tlv_towire(tlv_name)
         template = towire_header_templ if is_header else towire_impl_templ
         args = []
         for f in self.fields:
@@ -853,6 +749,107 @@ struct {struct_name} {{
 """.format(
             struct_name=struct_name,
             fields=str(fmt_fields))
+
+    def print_towire(self, is_header, tlv_name):
+        if is_header:
+            return ''
+        """ prints towire function definition for a TLV message."""
+        field_decls = []
+        for f in self.fields:
+            if f.is_tlv:
+                raise TypeError("Nested TLVs aren't allowed!! {}->{}".format(tlv_name, f.name))
+            elif f.optional:
+                raise TypeError("Optional fields on TLV messages not currently supported. {}->{}".format(tlv_name, f.name))
+            if f.is_len_var:
+                field_decls.append('\t{0} {1} = tal_count({2}->{3});'.format(
+                    f.fieldtype.name, f.name, self.name, f.lenvar_for.name
+                ))
+
+        subcalls = CCode()
+        for f in self.fields:
+            basetype = f.fieldtype.base()
+            for c in f.comments:
+                subcalls.append('/*{} */'.format(c))
+
+            if f.is_padding():
+                subcalls.append('towire_pad(p, {});'.format(f.num_elems))
+            elif f.is_array():
+                self.print_towire_array(subcalls, basetype, f, f.num_elems,
+                                        is_tlv=True)
+            elif f.is_variable_size():
+                self.print_towire_array(subcalls, basetype, f, f.lenvar,
+                                        is_tlv=True)
+            elif f.is_len_var:
+                subcalls.append('towire_{}(p, {});'.format(basetype, f.name))
+            else:
+                subcalls.append('towire_{}(p, {}->{});'.format(basetype, self.name, f.name))
+        return tlv_message_towire_stub.format(
+            tlv_name=tlv_name,
+            name=self.name,
+            field_decls='\n'.join(field_decls),
+            subcalls=str(subcalls))
+
+    def print_fromwire(self, is_header, tlv_name):
+        """ prints fromwire function definition for a TLV message.
+        these are significantly different in that they take in a struct
+        to populate, instead of fields, as well as a length to read in
+        """
+        if is_header:
+            return ''
+        ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
+        args = 'const u8 **cursor, size_t *plen, const u16 len, struct tlv_msg_{name} *{name}'.format(name=self.name)
+        fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
+        subcalls = CCode()
+        for f in self.fields:
+            basetype = f.fieldtype.base()
+            if f.is_tlv:
+                raise TypeError('Nested TLVs arent allowed!!')
+            elif f.optional:
+                raise TypeError('Optional fields on TLV messages not currently supported')
+
+            for c in f.comments:
+                subcalls.append('/*{} */'.format(c))
+
+            if f.is_padding():
+                subcalls.append('fromwire_pad(cursor, plen, {});'
+                                .format(f.num_elems))
+            elif f.is_array():
+                name = '*{}->{}'.format(self.name, f.name)
+                self.print_fromwire_array('ctx', subcalls, basetype, f, name,
+                                          f.num_elems, is_tlv=True)
+            elif f.is_variable_size():
+                subcalls.append("// 2nd case {name}".format(name=f.name))
+                typename = f.fieldtype.name
+                # If structs are varlen, need array of ptrs to them.
+                if basetype in varlen_structs:
+                    typename += ' *'
+                subcalls.append('{}->{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
+                                .format(self.name, f.name, f.lenvar, typename, f.lenvar))
+
+                name = '{}->{}'.format(self.name, f.name)
+                # Allocate these off the array itself, if they need alloc.
+                self.print_fromwire_array('*' + f.name, subcalls, basetype, f,
+                                          name, f.lenvar, is_tlv=True)
+            else:
+                if f.is_assignable():
+                    if f.is_len_var:
+                        s = '{} = fromwire_{}(cursor, plen);'.format(f.name, basetype)
+                    else:
+                        s = '{}->{} = fromwire_{}(cursor, plen);'.format(
+                            self.name, f.name, basetype)
+                else:
+                    s = 'fromwire_{}(cursor, plen, *{}->{});'.format(
+                        basetype, self.name, f.name)
+                subcalls.append(s)
+
+        return fromwire_tlv_impl_templ.format(
+            tlv_name=tlv_name,
+            name=self.name,
+            ctx=ctx_arg,
+            args=''.join(args),
+            fields=''.join(fields),
+            subcalls=str(subcalls)
+        )
 
 
 class Subtype(Message):
