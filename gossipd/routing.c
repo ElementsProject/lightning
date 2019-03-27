@@ -1255,7 +1255,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 
 	/* Note: we can consider old timestamps a case of "instant prune" too */
 	if (timestamp < time_now().ts.tv_sec - rstate->prune_timeout) {
-		status_debug("Received channel_update for %s with old time %u",
+		SUPERVERBOSE("Received channel_update for %s with old time %u",
 			     type_to_string(tmpctx, struct short_channel_id,
 					    &short_channel_id),
 			     timestamp);
