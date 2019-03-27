@@ -354,7 +354,7 @@ class CCode(object):
 
 
 class Message(object):
-    def __init__(self, name, enum, comments, is_tlv):
+    def __init__(self, name, enum, comments, is_tlv=False):
         self.name = name
         self.enum = enum
         self.comments = comments
@@ -820,16 +820,22 @@ class Message(object):
             is_internal=('' if not is_tlv else 'static ')
         )
 
+
+class TlvMessage(Message):
+    def __init__(self, name, enum, comments):
+        super().__init__(name, enum, comments, is_tlv=True)
+
     def print_struct(self):
+        return TlvMessage._inner_print_struct('tlv_msg_' + self.name, self.fields)
+
+    @staticmethod
+    def _inner_print_struct(struct_name, fields):
         """ returns a string representation of this message as
         a struct"""
-        if not self.is_tlv:
-            raise TypeError('{} is not a TLV-message').format(self.name)
-
         fmt_fields = CCode()
-        for f in self.fields:
+        for f in fields:
             if f.is_len_var or f.is_padding():
-                # there is no ethical padding under TLVs
+                # there is no ethical padding under structs
                 continue
             elif f.is_variable_size():
                 fmt_fields.append('{} *{};'.format(f.fieldtype.name, f.name))
@@ -838,8 +844,12 @@ class Message(object):
             else:
                 fmt_fields.append('{} {};'.format(f.fieldtype.name, f.name))
 
-        return tlv_msg_struct_template.format(
-            msg_name=self.name,
+        return """
+struct {struct_name} {{
+{fields}
+}};
+""".format(
+            struct_name=struct_name,
             fields=str(fmt_fields))
 
 
@@ -847,13 +857,6 @@ tlv_message_towire_stub = """static void towire_{tlv_name}_{name}(u8 **p, struct
 {field_decls}
 {subcalls}
 }}
-"""
-
-
-tlv_msg_struct_template = """
-struct tlv_msg_{msg_name} {{
-{fields}
-}};
 """
 
 tlv_struct_template = """
@@ -1093,10 +1096,14 @@ for line in fileinput.input(options.files):
     is_tlv_msg = len(parts) == 3
     if len(parts) == 2 or is_tlv_msg:
         # eg: commit_sig,132,(_tlv)
-        message = Message(parts[0],
-                          Enumtype("WIRE_" + parts[0].upper(), parts[1]),
-                          comments,
-                          is_tlv_msg)
+        if is_tlv_msg:
+            message = TlvMessage(parts[0],
+                                 Enumtype("WIRE_" + parts[0].upper(), parts[1]),
+                                 comments)
+        else:
+            message = Message(parts[0],
+                              Enumtype("WIRE_" + parts[0].upper(), parts[1]),
+                              comments)
 
         messages.append(message)
         if is_tlv_msg:
