@@ -190,6 +190,10 @@ struct routing_state {
 
 	/* Has one of our own channels been announced? */
 	bool local_channel_announced;
+
+	/* Cache for txout queries that failed. Allows us to skip failed
+	 * checks if we get another announcement for the same scid. */
+	UINTMAP(bool) txout_failures;
 };
 
 static inline struct chan *
