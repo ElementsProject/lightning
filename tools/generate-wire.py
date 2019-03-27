@@ -411,7 +411,7 @@ class Message(object):
                 subcalls.append('fromwire_{}({}cursor, {}plen, {} + i);'
                                 .format(basetype, p_ref, p_ref, name))
 
-    def print_fromwire(self, is_header, tlv_name):
+    def print_fromwire(self, is_header):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
 
         args = []
@@ -530,7 +530,7 @@ class Message(object):
     def find_tlv_lenvar_field(self, tlv_name):
         return [f for f in self.fields if f.is_len_var and f.lenvar_for.is_tlv and f.lenvar_for.name == tlv_name][0]
 
-    def print_towire(self, is_header, tlv_name):
+    def print_towire(self, is_header):
         template = towire_header_templ if is_header else towire_impl_templ
         args = []
         for f in self.fields:
@@ -751,9 +751,9 @@ struct {struct_name} {{
             fields=str(fmt_fields))
 
     def print_towire(self, is_header, tlv_name):
+        """ prints towire function definition for a TLV message."""
         if is_header:
             return ''
-        """ prints towire function definition for a TLV message."""
         field_decls = []
         for f in self.fields:
             if f.is_tlv:
@@ -1346,8 +1346,8 @@ else:
         towire_decls += build_tlv_towires(tlv_fields)
         fromwire_decls += build_tlv_fromwires(tlv_fields)
 
-    towire_decls += [m.print_towire(options.header, '') for m in toplevel_messages + messages_with_option]
-    fromwire_decls += [m.print_fromwire(options.header, '') for m in toplevel_messages + messages_with_option]
+    towire_decls += [m.print_towire(options.header) for m in toplevel_messages + messages_with_option]
+    fromwire_decls += [m.print_fromwire(options.header) for m in toplevel_messages + messages_with_option]
     decls = fromwire_decls + towire_decls
 
 print(template.format(
