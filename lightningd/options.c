@@ -712,7 +712,7 @@ static void opt_parse_from_config(struct lightningd *ld, bool early)
 			if (all_args[i] != NULL) {
 				config_parse_line_number = i + 1;
 				argv[1] = all_args[i];
-				opt_early_parse(argc, argv,
+				opt_early_parse_incomplete(argc, argv,
 						config_log_stderr_exit);
 			}
 		}
