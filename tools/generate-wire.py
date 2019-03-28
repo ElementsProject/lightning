@@ -330,12 +330,13 @@ class CCode(object):
 
 
 class Message(object):
-    def __init__(self, name, enum, comments):
+    def __init__(self, name, enum, comments, is_tlv):
         self.name = name
         self.enum = enum
         self.comments = comments
         self.fields = []
         self.has_variable_fields = False
+        self.is_tlv = is_tlv
 
     def checkLenField(self, field):
         # Optional fields don't have a len.
@@ -698,8 +699,9 @@ def parse_tlv_file(tlv_field_name):
 
             if len(parts) == 2:
                 # eg commit_sig,132
-                tlv_msg = Message(parts[0], Enumtype("TLV_" + parts[0].upper(), parts[1]), tlv_comments)
+                tlv_msg = Message(parts[0], Enumtype("TLV_" + parts[0].upper(), parts[1]), tlv_comments, True)
                 tlv_messages.append(tlv_msg)
+                messages.append(tlv_msg)
 
                 tlv_comments = []
                 tlv_prevfield = None
@@ -763,7 +765,7 @@ for line in fileinput.input(options.files):
 
     if len(parts) == 2:
         # eg commit_sig,132
-        messages.append(Message(parts[0], Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments))
+        messages.append(Message(parts[0], Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments, False))
         comments = []
         prevfield = None
     else:
@@ -816,21 +818,21 @@ def format_enums(template, enums, enumname):
         enumname=enumname)
 
 
-def build_hdr_enums(toplevel_enumname, messages, tlv_fields):
+def build_hdr_enums(toplevel_enumname, toplevel_messages, tlv_fields):
     enum_set = ""
-    enum_set += enum_header(construct_hdr_enums(messages), toplevel_enumname)
-    for field_name, messages in tlv_fields.items():
+    enum_set += enum_header(construct_hdr_enums(toplevel_messages), toplevel_enumname)
+    for field_name, tlv_messages in tlv_fields.items():
         enum_set += "\n"
-        enum_set += enum_header(construct_hdr_enums(messages), field_name + '_type')
+        enum_set += enum_header(construct_hdr_enums(tlv_messages), field_name + '_type')
     return enum_set
 
 
-def build_impl_enums(toplevel_enumname, messages, tlv_fields):
+def build_impl_enums(toplevel_enumname, toplevel_messages, tlv_fields):
     enum_set = ""
-    enum_set += enum_impl(construct_impl_enums(messages), toplevel_enumname)
-    for field_name, messages in tlv_fields.items():
+    enum_set += enum_impl(construct_impl_enums(toplevel_messages), toplevel_enumname)
+    for field_name, tlv_messages in tlv_fields.items():
         enum_set += "\n"
-        enum_set += enum_impl(construct_impl_enums(messages), field_name + '_type')
+        enum_set += enum_impl(construct_impl_enums(tlv_messages), field_name + '_type')
     return enum_set
 
 
@@ -921,11 +923,12 @@ elif options.header:
 else:
     template = impl_template
 
-# Dump out enum, sorted by value order.
-built_hdr_enums = build_hdr_enums(options.enumname, messages, tlv_fields)
-built_impl_enums = build_impl_enums(options.enumname, messages, tlv_fields)
+# Print out all the things
+toplevel_messages = [m for m in messages if not m.is_tlv]
+built_hdr_enums = build_hdr_enums(options.enumname, toplevel_messages, tlv_fields)
+built_impl_enums = build_impl_enums(options.enumname, toplevel_messages, tlv_fields)
 includes = '\n'.join(includes)
-printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}("{name}", msg); return;'.format(enum=m.enum, name=m.name) for m in messages]
+printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}("{name}", msg); return;'.format(enum=m.enum, name=m.name) for m in toplevel_messages]
 
 if options.printwire:
     decls = [m.print_printwire(options.header) for m in messages + messages_with_option]
