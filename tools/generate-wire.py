@@ -504,10 +504,11 @@ class Message(object):
             elif f.is_tlv:
                 if not f.is_variable_size():
                     raise TypeError('TLV {} not variable size'.format(f.name))
-                subcalls.append('{tlv_name} = fromwire__{tlv_name}(ctx, &cursor, &plen, &{tlv_len});'
+                subcalls.append('struct {tlv_name} *_tlv = fromwire__{tlv_name}(ctx, &cursor, &plen, &{tlv_len});'
                                 .format(tlv_name=f.name, tlv_len=f.lenvar))
-                subcalls.append('if (!{tlv_name})'.format(tlv_name=f.name))
+                subcalls.append('if (!_tlv)')
                 subcalls.append('return false;')
+                subcalls.append('*{tlv_name} = *_tlv;'.format(tlv_name=f.name))
             elif f.is_variable_size():
                 subcalls.append("//2nd case {name}".format(name=f.name))
                 typename = f.fieldtype.name
