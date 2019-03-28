@@ -382,20 +382,20 @@ class Message(object):
     def print_fromwire_array(self, ctx, subcalls, basetype, f, name, num_elems, is_tlv=False):
         p_ref = '' if is_tlv else '&'
         if f.has_array_helper():
-            subcalls.append('fromwire_{}_array(&cursor, {}plen, {}, {});'
-                            .format(basetype, p_ref, name, num_elems))
+            subcalls.append('fromwire_{}_array({}cursor, {}plen, {}, {});'
+                            .format(basetype, p_ref, p_ref, name, num_elems))
         else:
             subcalls.append('for (size_t i = 0; i < {}; i++)'
                             .format(num_elems))
             if f.fieldtype.is_assignable():
-                subcalls.append('({})[i] = fromwire_{}(&cursor, {}plen);'
-                                .format(name, basetype, p_ref))
+                subcalls.append('({})[i] = fromwire_{}({}cursor, {}plen);'
+                                .format(name, basetype, p_ref, p_ref))
             elif basetype in varlen_structs:
-                subcalls.append('({})[i] = fromwire_{}({}, &cursor, {}plen);'
-                                .format(name, basetype, ctx, p_ref))
+                subcalls.append('({})[i] = fromwire_{}({}, {}cursor, {}plen);'
+                                .format(name, basetype, ctx, p_ref, p_ref))
             else:
-                subcalls.append('fromwire_{}(&cursor, {}plen, {} + i);'
-                                .format(basetype, p_ref, name))
+                subcalls.append('fromwire_{}({}cursor, {}plen, {} + i);'
+                                .format(basetype, p_ref, p_ref, name))
 
     def print_tlv_fromwire(self, tlv_name):
         """ prints fromwire function definition for a TLV message.
@@ -403,7 +403,7 @@ class Message(object):
         to populate, instead of fields, as well as a length to read in
         """
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
-        args = 'const u8 *cursor, size_t *plen, const u16 len, struct tlv_msg_{name} *{name}'.format(name=self.name)
+        args = 'const u8 **cursor, size_t *plen, const u16 len, struct tlv_msg_{name} *{name}'.format(name=self.name)
         fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
         subcalls = CCode()
         for f in self.fields:
@@ -417,7 +417,7 @@ class Message(object):
                 subcalls.append('/*{} */'.format(c))
 
             if f.is_padding():
-                subcalls.append('fromwire_pad(&cursor, plen, {});'
+                subcalls.append('fromwire_pad(cursor, plen, {});'
                                 .format(f.num_elems))
             elif f.is_array():
                 name = '*{}->{}'.format(self.name, f.name)
@@ -439,12 +439,12 @@ class Message(object):
             else:
                 if f.is_assignable():
                     if f.is_len_var:
-                        s = '{} = fromwire_{}(&cursor, plen);'.format(f.name, basetype)
+                        s = '{} = fromwire_{}(cursor, plen);'.format(f.name, basetype)
                     else:
-                        s = '{}->{} = fromwire_{}(&cursor, plen);'.format(
+                        s = '{}->{} = fromwire_{}(cursor, plen);'.format(
                             self.name, f.name, basetype)
                 else:
-                    s = 'fromwire_{}(&cursor, plen, *{}->{});'.format(
+                    s = 'fromwire_{}(cursor, plen, *{}->{});'.format(
                         basetype, self.name, f.name)
                 subcalls.append(s)
 
@@ -889,7 +889,7 @@ case_tmpl = """\t\tcase {tlv_msg_enum}:
 \t\t\t\treturn NULL;
 \t\t\t}}
 \t\t\t{tlv_name}->{tlv_msg_name} = tal({tlv_name}, struct tlv_msg_{tlv_msg_name});
-\t\t\tif (!fromwire_{tlv_name}_{tlv_msg_name}({ctx_arg}*p, plen, msg_len, {tlv_name}->{tlv_msg_name})) {{
+\t\t\tif (!fromwire_{tlv_name}_{tlv_msg_name}({ctx_arg}p, plen, msg_len, {tlv_name}->{tlv_msg_name})) {{
 \t\t\t\ttal_free({tlv_name});
 \t\t\t\treturn NULL;
 \t\t\t}}
