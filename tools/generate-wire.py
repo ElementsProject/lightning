@@ -232,7 +232,7 @@ fromwire_impl_templ = """bool fromwire_{name}({ctx}const void *p{args})
 }}
 """
 
-fromwire_tlv_impl_templ = """static bool _fromwire_{tlv_name}_{name}({ctx}{args})
+fromwire_tlv_impl_templ = """static bool fromwire_{tlv_name}_{name}({ctx}{args})
 {{
 
 \tsize_t start_len = *plen;
@@ -403,7 +403,7 @@ class Message(object):
         to populate, instead of fields, as well as a length to read in
         """
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
-        args = 'const u8 *cursor, size_t *plen, const u16 len, struct _tlv_msg_{name} *{name}'.format(name=self.name)
+        args = 'const u8 *cursor, size_t *plen, const u16 len, struct tlv_msg_{name} *{name}'.format(name=self.name)
         fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
         subcalls = CCode()
         for f in self.fields:
@@ -473,7 +473,7 @@ class Message(object):
             elif f.is_array():
                 args.append(', {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
             elif f.is_tlv:
-                args.append(', struct _{} *{}'.format(f.name, f.name))
+                args.append(', struct {} *{}'.format(f.name, f.name))
             else:
                 ptrs = '*'
                 # If we're handing a variable array, we need a ptr-to-ptr.
@@ -625,7 +625,7 @@ class Message(object):
             if f.is_array():
                 args.append(', const {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
             elif f.is_tlv:
-                args.append(', const struct _{} *{}'.format(f.name, f.name))
+                args.append(', const struct {} *{}'.format(f.name, f.name))
             elif f.is_assignable():
                 args.append(', {} {}'.format(f.fieldtype.name, f.name))
             elif f.is_variable_size() and f.fieldtype.base() in varlen_structs:
@@ -811,7 +811,7 @@ class Message(object):
             fields=str(fmt_fields))
 
 
-tlv_message_towire_stub = """static void _towire_{tlv_name}_{name}(u8 **p, struct _tlv_msg_{name} *{name}) {{
+tlv_message_towire_stub = """static void towire_{tlv_name}_{name}(u8 **p, struct tlv_msg_{name} *{name}) {{
 {field_decls}
 {subcalls}
 }}
@@ -819,13 +819,13 @@ tlv_message_towire_stub = """static void _towire_{tlv_name}_{name}(u8 **p, struc
 
 
 tlv_msg_struct_template = """
-struct _tlv_msg_{msg_name} {{
+struct tlv_msg_{msg_name} {{
 {fields}
 }};
 """
 
 tlv_struct_template = """
-struct _{tlv_name} {{
+struct {tlv_name} {{
 {msg_type_structs}
 }};
 """
@@ -833,20 +833,20 @@ struct _{tlv_name} {{
 tlv__type_impl_towire_fields = """\tif ({tlv_name}->{name}) {{
 \t\ttlv_msg = tal_arr(ctx, u8, 0);
 \t\ttowire_u16(p, {enum});
-\t\t_towire_{tlv_name}_{name}(&tlv_msg, {tlv_name}->{name});
+\t\ttowire_{tlv_name}_{name}(&tlv_msg, {tlv_name}->{name});
 \t\tmsg_len = tal_count(tlv_msg);
 \t\ttowire_u16(p, msg_len);
 \t\ttowire_u8_array(p, tlv_msg, msg_len);
 \t}}
 """
 
-tlv__type_impl_towire_template = """static void towire__{tlv_name}(const tal_t *ctx, u8 **p, const struct _{tlv_name} *{tlv_name}) {{
+tlv__type_impl_towire_template = """static void towire__{tlv_name}(const tal_t *ctx, u8 **p, const struct {tlv_name} *{tlv_name}) {{
 \tu16 msg_len;
 \tu8 *tlv_msg;
 {fields}}}
 """
 
-tlv__type_impl_fromwire_template = """static bool fromwire__{tlv_name}(const tal_t *ctx, const u8 **p, size_t *plen, const u16 *len, struct _{tlv_name} *{tlv_name}) {{
+tlv__type_impl_fromwire_template = """static bool fromwire__{tlv_name}(const tal_t *ctx, const u8 **p, size_t *plen, const u16 *len, struct {tlv_name} *{tlv_name}) {{
 \tu16 msg_type, msg_len;
 \tif (*plen < *len)
 \t\treturn false;
@@ -870,8 +870,8 @@ tlv__type_impl_fromwire_template = """static bool fromwire__{tlv_name}(const tal
 """
 
 case_tmpl = """\t\tcase {tlv_msg_enum}:
-\t\t\t{tlv_name}->{tlv_msg_name} = tal(ctx, struct _tlv_msg_{tlv_msg_name});
-\t\t\tif (!_fromwire_{tlv_name}_{tlv_msg_name}({ctx_arg}*p, plen, msg_len, {tlv_name}->{tlv_msg_name}))
+\t\t\t{tlv_name}->{tlv_msg_name} = tal(ctx, struct tlv_msg_{tlv_msg_name});
+\t\t\tif (!fromwire_{tlv_name}_{tlv_msg_name}({ctx_arg}*p, plen, msg_len, {tlv_name}->{tlv_msg_name}))
 \t\t\t\treturn false;
 \t\t\tbreak;
 """
@@ -919,7 +919,7 @@ def print_tlv_fromwire(tlv_field_name, messages):
 def build_tlv_type_struct(name, messages):
     inner_structs = CCode()
     for m in messages:
-        inner_structs.append('struct _tlv_msg_{} *{};'.format(m.name, m.name))
+        inner_structs.append('struct tlv_msg_{} *{};'.format(m.name, m.name))
     return tlv_struct_template.format(
         tlv_name=name,
         msg_type_structs=str(inner_structs))
