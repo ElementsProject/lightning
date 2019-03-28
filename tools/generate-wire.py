@@ -864,7 +864,7 @@ struct {struct_name} {{
                         s = '{}->{} = fromwire_{}(cursor, plen);'.format(
                             self.name, f.name, basetype)
                 else:
-                    s = 'fromwire_{}(cursor, plen, *{}->{});'.format(
+                    s = 'fromwire_{}(cursor, plen, &{}->{});'.format(
                         basetype, self.name, f.name)
                 subcalls.append(s)
 
