@@ -659,16 +659,38 @@ class Message(object):
             else:
                 fmt_fields.append('{} {};'.format(f.fieldtype.name, f.name))
 
-        return tlv_struct_template.format(
-            tlv_name=self.name,
+        return tlv_msg_struct_template.format(
+            msg_name=self.name,
             fields=str(fmt_fields))
 
 
-tlv_struct_template = """
-struct tlv_{tlv_name} {{
+tlv_msg_struct_template = """
+struct _tlv_msg_{msg_name} {{
 {fields}
 }};
 """
+
+tlv_struct_template = """
+struct _{tlv_name} {{
+{msg_type_structs}
+}};
+"""
+
+
+def build_tlv_type_struct(name, messages):
+    inner_structs = CCode()
+    for m in messages:
+        inner_structs.append('struct _tlv_msg_{} *{};'.format(m.name, m.name))
+    return tlv_struct_template.format(
+        tlv_name=name,
+        msg_type_structs=str(inner_structs))
+
+
+def build_tlv_type_structs(tlv_fields):
+    structs = ''
+    for name, messages in tlv_fields.items():
+        structs += build_tlv_type_struct(name, messages)
+    return structs
 
 
 def find_message(messages, name):
@@ -965,6 +987,7 @@ toplevel_messages = [m for m in messages if not m.is_tlv]
 built_hdr_enums = build_hdr_enums(options.enumname, toplevel_messages, tlv_fields)
 built_impl_enums = build_impl_enums(options.enumname, toplevel_messages, tlv_fields)
 tlv_structs = build_tlv_structs(tlv_fields)
+tlv_structs += build_tlv_type_structs(tlv_fields)
 includes = '\n'.join(includes)
 printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}("{name}", msg); return;'.format(enum=m.enum, name=m.name) for m in toplevel_messages]
 
