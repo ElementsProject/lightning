@@ -276,7 +276,7 @@ or `--addr=your.onionAddress:port` if you are NOT on an internal network.
 In this case it is difficult to track the node.
 You specify just:
 ```
---bind-addr=yourInternalIPAddress:port --bind-addr=autotor:127.0.0.1:9051
+--bind-addr=yourInternalIPAddress:port --addr=autotor:127.0.0.1:9051
 ```
 In the `lightningd` command line.
 
