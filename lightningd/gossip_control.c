@@ -368,8 +368,10 @@ static const struct json_command getroute_command = {
 	json_getroute,
 	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9). "
 	"If specified search from {fromid} otherwise use this node as source. "
-	"Randomize the route with up to {fuzzpercent} (default 5.0) "
-	"using {seed} as an arbitrary-size string seed."
+	"Randomize the route with up to {fuzzpercent} (default 5.0). "
+	"{exclude} an array of short-channel-id/direction (e.g. [ '564334x877x1/0', '564195x1292x0/1' ]) "
+	"from consideration. "
+	"Set the {maxhops} the route can take (default 20)."
 };
 AUTODATA(json_command, &getroute_command);
 
