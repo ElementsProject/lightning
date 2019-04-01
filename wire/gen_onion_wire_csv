@@ -32,7 +32,6 @@ expiry_too_soon,0,len,2
 expiry_too_soon,2,channel_update,len
 incorrect_or_unknown_payment_details,PERM|15
 incorrect_or_unknown_payment_details,0,htlc_msat,8
-incorrect_payment_amount,PERM|16
 final_expiry_too_soon,17
 final_incorrect_cltv_expiry,18
 final_incorrect_cltv_expiry,0,cltv_expiry,4

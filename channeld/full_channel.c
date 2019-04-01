@@ -379,8 +379,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	/* BOLT #2:
 	 *
-	 *   - if a sending node adds more than its `max_accepted_htlcs` HTLCs to
-	 *     its local commitment transaction...
+	 *   - if a sending node adds more than receiver `max_accepted_htlcs`
+	 *     HTLCs to its local commitment transaction...
 	 *     - SHOULD fail the channel.
 	 */
 	if (tal_count(committed) - tal_count(removing) + tal_count(adding)
@@ -406,7 +406,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	/* BOLT #2:
 	 *
-	 *   - if a sending node... adds more than its
+	 *   - if a sending node... adds more than receiver
 	 *     `max_htlc_value_in_flight_msat` worth of offered HTLCs to its
 	 *     local commitment transaction:
 	 *     - SHOULD fail the channel.
