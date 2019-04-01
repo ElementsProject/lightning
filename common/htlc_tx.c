@@ -23,8 +23,8 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *
 	 * These HTLC transactions are almost identical, except the
-	 * HTLC-timeout transaction is timelocked.  The HTLC-timeout
-	 * transaction is also the transaction that can be spent by a valid
+	 * HTLC-timeout transaction is timelocked.  Both
+	 * HTLC-timeout/HTLC-success transactions can be spent by a valid
 	 * penalty transaction.
 	 */
 

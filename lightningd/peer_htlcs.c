@@ -317,7 +317,7 @@ static void handle_localpay(struct htlc_in *hin,
 			 *
 			 *   - if the amount paid is more than twice the amount expected:
 			 *     - SHOULD fail the HTLC.
-			 *     - SHOULD return an `incorrect_payment_amount` error.
+			 *     - SHOULD return an `incorrect_or_unknown_payment_details` error.
 			 */
 			failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 			goto fail;

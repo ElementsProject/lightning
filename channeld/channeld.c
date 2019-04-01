@@ -908,9 +908,6 @@ static u8 *make_failmsg(const tal_t *ctx,
 	case WIRE_INVALID_ONION_KEY:
 		msg = towire_invalid_onion_key(ctx, sha256);
 		goto done;
-	case WIRE_INCORRECT_PAYMENT_AMOUNT:
-		/* Deprecated: we should never make this any more! */
-		break;
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Asked to create failmsg %u (%s)",
@@ -971,8 +968,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 	 * A sending node:
 	 *...
 	 *  - MUST include one `htlc_signature` for every HTLC transaction
-	 *    corresponding to BIP69 lexicographic ordering of the commitment
-	 *    transaction.
+	 *    corresponding to the ordering of the commitment transaction
 	 */
 	htlc_sigs = tal_arr(ctx, secp256k1_ecdsa_signature, tal_count(txs) - 1);
 
@@ -2243,7 +2239,7 @@ static void peer_reconnect(struct peer *peer,
 	 *      receiving node has sent:
 	 *      - SHOULD fail the channel.
 	 *    - if it has not sent `revoke_and_ack`, AND
-	 *      `next_remote_revocation_number` is equal to 0:
+	 *      `next_remote_revocation_number` is not equal to 0:
 	 *      - SHOULD fail the channel.
 	 */
 	if (next_remote_revocation_number == peer->next_index[LOCAL] - 2) {
