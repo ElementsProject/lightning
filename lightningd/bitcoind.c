@@ -117,10 +117,10 @@ static char *bcli_args(const tal_t *ctx, struct bitcoin_cli *bcli)
 	char *ret = tal_strdup(ctx, bcli->args[0]);
 
 	for (i = 1; bcli->args[i]; i++) {
-        if (!strstarts(bcli->args[i], "-rpcuser") && !strstarts(bcli->args[i], "-rpcpassword")) {
-            ret = tal_strcat(ctx, take(ret), " ");
-            ret = tal_strcat(ctx, take(ret), bcli->args[i]);
-        }
+            if (!strstarts(bcli->args[i], "-rpcuser") && !strstarts(bcli->args[i], "-rpcpassword")) {
+                ret = tal_strcat(ctx, take(ret), " ");
+                ret = tal_strcat(ctx, take(ret), bcli->args[i]);
+            }
 	}
 	return ret;
 }
