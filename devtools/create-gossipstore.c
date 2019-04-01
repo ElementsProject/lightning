@@ -4,15 +4,33 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <devtools/create-gossipstore.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gossip_store.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
+
+
+
+struct scidsat * load_scid_file(FILE * scidfd) 
+{
+        int n;
+        fscanf(scidfd, "%d\n", &n);	
+	char title[16];
+        fscanf(scidfd, "%s\n", title);	
+	struct scidsat * scids = calloc(n, sizeof(scidsat));
+	int i = 0;
+        while(fscanf(scidfd, "%s ,%ld\n", scids[i].scid, &scids[i].sat.satoshis) == 2 ) {
+			i++;
+	}
+	return scids;
+}
 
 int main(int argc, char *argv[])
 {
@@ -20,8 +38,10 @@ int main(int argc, char *argv[])
 	beint16_t be_inlen;
 	struct amount_sat sat;
 	bool verbose = false;
-	char *infile = NULL, *outfile = NULL;
+	char *infile = NULL, *outfile = NULL, *scidfile = NULL, *csat = NULL;
 	int infd, outfd;
+       	FILE * scidfd;
+	struct scidsat * scids;
 
 	setup_locale();
 
@@ -31,23 +51,38 @@ int main(int argc, char *argv[])
 			 "Send output to this file instead of stdout");
 	opt_register_arg("--input|-i", opt_set_charp, NULL, &infile,
 			 "Read input from this file instead of stdin");
+	opt_register_arg("--scidfile", opt_set_charp, NULL, &scidfile,
+			 "Input for 'scid, satshis' csv");
+	opt_register_arg("--sat", opt_set_charp, NULL, &csat,
+			 "default satoshi value if --scidfile flag not present");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "default-satoshis\n"
 			   "Create gossip store, from be16 / input messages",
 			   "Print this message.");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
-	if (argc != 2)
-		errx(1, "Need default-satoshi argument for channel amounts");
-	if (!parse_amount_sat(&sat, argv[1], strlen(argv[1])))
-		errx(1, "Invalid satoshi amount %s", argv[1]);
+
+
+        if (scidfile) {
+		scidfd = fopen(scidfile, "r");
+		if (scidfd < 0)
+			err(1, "opening %s", scidfile);
+                scids = load_scid_file(scidfd);
+	        fclose(scidfd);
+	}
+	else if (csat) {
+		if (!parse_amount_sat(&sat, csat, strlen(csat))) {
+		        errx(1, "Invalid satoshi amount %s", csat);
+		}
+	}
+	else {
+		err(1, "must contain either --sat xor --scidfile");
+	}
 
 	if (infile) {
 		infd = open(infile, O_RDONLY);
 		if (infd < 0)
 			err(1, "opening %s", infile);
-	} else
-		infd = STDIN_FILENO;
+	}
 
 	if (outfile) {
 		outfd = open(outfile, O_WRONLY|O_TRUNC|O_CREAT, 0666);
@@ -60,6 +95,10 @@ int main(int argc, char *argv[])
 	if (!write_all(outfd, &version, sizeof(version)))
 		err(1, "Writing version");
 
+	int scidi = 0;
+	int channels = 0;
+	int nodes = 0;
+	int updates = 0;
 	while (read_all(infd, &be_inlen, sizeof(be_inlen))) {
 		u32 msglen = be16_to_cpu(be_inlen);
 		u8 *inmsg = tal_arr(NULL, u8, msglen), *outmsg;
@@ -71,13 +110,20 @@ int main(int argc, char *argv[])
 
 		switch (fromwire_peektype(inmsg)) {
 		case WIRE_CHANNEL_ANNOUNCEMENT:
+			if (scidfile) {
+				sat = scids[scidi].sat;
+				scidi += 1;
+			}
+			channels += 1;
 			outmsg = towire_gossip_store_channel_announcement(inmsg, inmsg, sat);
 			break;
 		case WIRE_CHANNEL_UPDATE:
 			outmsg = towire_gossip_store_channel_update(inmsg, inmsg);
+			updates += 1;
 			break;
 		case WIRE_NODE_ANNOUNCEMENT:
 			outmsg = towire_gossip_store_node_announcement(inmsg, inmsg);
+			nodes += 1;
 			break;
 		default:
 			warnx("Unknown message %u (%s)", fromwire_peektype(inmsg),
@@ -99,5 +145,8 @@ int main(int argc, char *argv[])
 		}
 		tal_free(inmsg);
 	}
+        printf("channels %d, updates %d, nodes %d\n", channels, updates, nodes);
+	if (scidfile)
+                free(scids);
 	return 0;
 }
