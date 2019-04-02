@@ -118,9 +118,9 @@ static char *bcli_args(const tal_t *ctx, struct bitcoin_cli *bcli)
 
 	for (i = 1; bcli->args[i]; i++) {
             ret = tal_strcat(ctx, take(ret), " ");
-            if (strstarts(bcli->args[i], "-rpcpassword") {
+            if (strstarts(bcli->args[i], "-rpcpassword")) {
                     ret = tal_strcat(ctx, take(ret), "-rpcpassword=...");
-            } else if (strstarts(bcli->args[i], "-rpcuser") {
+            } else if (strstarts(bcli->args[i], "-rpcuser")) {
                     ret = tal_strcat(ctx, take(ret), "-rpcuser=...");
             } else {
                 ret = tal_strcat(ctx, take(ret), bcli->args[i]);
