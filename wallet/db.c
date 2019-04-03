@@ -377,6 +377,8 @@ static struct migration dbmigrations[] = {
 	{ "ALTER TABLE channels ADD feerate_ppm INTEGER;", NULL },
 	{ NULL, migrate_pr2342_feerate_per_channel },
 	{ "ALTER TABLE channel_htlcs ADD received_time INTEGER", NULL },
+	{ "ALTER TABLE forwarded_payments ADD received_time INTEGER", NULL },
+	{ "ALTER TABLE forwarded_payments ADD resolved_time INTEGER", NULL },
 };
 
 /* Leak tracking. */
