@@ -445,6 +445,7 @@ static u8 *funder_channel(struct state *state,
 	struct bitcoin_tx *funding;
 	const u8 *wscript;
 	struct amount_msat local_msat;
+	char* err_reason;
 
 	/*~ For symmetry, we calculate our own reserve even though lightningd
 	 * could do it for the we-are-funding case. */
@@ -668,12 +669,12 @@ static u8 *funder_channel(struct state *state,
 	/* This gives us their first commitment transaction. */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->first_per_commitment_point[REMOTE],
-				REMOTE);
+				REMOTE, &err_reason);
 	if (!tx) {
 		/* This should not happen: we should never create channels we
 		 * can't afford the fees for after reserve. */
 		negotiation_failed(state, true,
-				   "Could not meet their fees and reserve");
+				   "Could not meet their fees and reserve: %s", err_reason);
 		goto fail_2;
 	}
 
@@ -775,10 +776,10 @@ static u8 *funder_channel(struct state *state,
 	 * signature they sent against that. */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->first_per_commitment_point[LOCAL],
-				LOCAL);
+				LOCAL, &err_reason);
 	if (!tx) {
 		negotiation_failed(state, true,
-				   "Could not meet our fees and reserve");
+				   "Could not meet our fees and reserve: %s", err_reason);
 		goto fail_2;
 	}
 
@@ -844,6 +845,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	u8 *msg;
 	const u8 *wscript;
 	u8 channel_flags;
+	char* err_reason;
 
 	/* BOLT #2:
 	 *
@@ -1070,11 +1072,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 */
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->first_per_commitment_point[LOCAL],
-					  LOCAL);
+					  LOCAL, &err_reason);
 	/* This shouldn't happen either, AFAICT. */
 	if (!local_commit) {
 		negotiation_failed(state, false,
-				   "Could not meet our fees and reserve");
+				   "Could not meet our fees and reserve: %s", err_reason);
 		return NULL;
 	}
 
@@ -1130,10 +1132,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 */
 	remote_commit = initial_channel_tx(state, &wscript, state->channel,
 					   &state->first_per_commitment_point[REMOTE],
-					   REMOTE);
+					   REMOTE, &err_reason);
 	if (!remote_commit) {
 		negotiation_failed(state, false,
-				   "Could not meet their fees and reserve");
+				   "Could not meet their fees and reserve: %s", err_reason);
 		return NULL;
 	}
 
