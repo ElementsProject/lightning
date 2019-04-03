@@ -47,6 +47,9 @@ struct htlc_in {
 	/* If they fulfilled, here's the preimage. */
 	struct preimage *preimage;
 
+	/* Remember the timestamp we received this HTLC so we can later record
+	 * it, and the resolution time, in the forwards table. */
+        time_t received_time;
 };
 
 struct htlc_out {

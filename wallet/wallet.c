@@ -1235,8 +1235,9 @@ void wallet_htlc_save_in(struct wallet *wallet,
 		" payment_key,"
 		" hstate,"
 		" shared_secret,"
-		" routing_onion) VALUES "
-		"(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+		" routing_onion,"
+		" received_time) VALUES "
+		"(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 
 	sqlite3_bind_int64(stmt, 1, chan->dbid);
 	sqlite3_bind_int64(stmt, 2, in->key.id);
@@ -1259,6 +1260,8 @@ void wallet_htlc_save_in(struct wallet *wallet,
 
 	sqlite3_bind_blob(stmt, 10, &in->onion_routing_packet,
 			  sizeof(in->onion_routing_packet), SQLITE_TRANSIENT);
+
+	sqlite3_bind_int(stmt, 11, in->received_time);
 
 	db_exec_prepared(wallet->db, stmt);
 	in->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
@@ -1353,7 +1356,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	"id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "	\
 	"payment_hash, payment_key, routing_onion, "		\
 	"failuremsg, malformed_onion,"				\
-	"origin_htlc, shared_secret"
+	"origin_htlc, shared_secret, received_time"
 
 static bool wallet_stmt2htlc_in(struct channel *channel,
 				sqlite3_stmt *stmt, struct htlc_in *in)
@@ -1394,6 +1397,8 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 			in->shared_secret = tal_free(in->shared_secret);
 #endif
 	}
+
+	in->received_time = sqlite3_column_int(stmt, 12);
 
 	return ok;
 }
