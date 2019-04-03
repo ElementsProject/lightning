@@ -67,6 +67,9 @@ struct config {
 
 	/* Are we allowed to use DNS lookup for peers. */
 	bool use_dns;
+
+	/* Minimal amount of effective funding_satoshis for accepting channels */
+	u64 min_capacity_sat;
 };
 
 struct lightningd {
