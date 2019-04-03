@@ -103,11 +103,6 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 
 u64 fromwire_var_int(const u8 **cursor, size_t *max)
 {
-	if (*max < 1) {
-		fromwire_fail(cursor, max);
-		return 0;
-	}
-
 	u8 flag = fromwire_u8(cursor, max);
 
 	switch(flag) {
