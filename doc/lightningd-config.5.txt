@@ -151,6 +151,11 @@ Lightning node customization options
     not existing ones.  If you want to change fees for existing channels, use
     the RPC call lightningd-setchannelfee(7).
 
+*min-capacity-sat*='SATOSHI'::
+    This value defines the minimal effective channel capacity in satoshi to
+    accept for channel opening requests. If a peer tries to open a channel
+    smaller than this, the opening will be rejected.
+
 *ignore-fee-limits*='BOOL'::
     Allow nodes which establish channels to us to set any fee they
     want.  This may result in a channel which cannot be closed, should
