@@ -128,6 +128,67 @@ def test_bad_opening(node_factory):
     l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
 
+def test_opening_tiny_channel(node_factory):
+    # Test custom min-capacity-sat parameters
+    #
+    #       ----> [l2] (1000) - default
+    #      /
+    #  [l1] ----> [l3] (3000) - less than own initial commit tx
+    #      \
+    #       ----> [l4] (~6000) - enough to cover own initial commit tx
+    #
+    # For each:
+    #  1. Try to establish channel 1sat smaller than min_capacity_sat
+    #  2. Try to establish channel exact min_capacity_sat
+    #
+    # BOLT2
+    # The receiving node MAY fail the channel if:
+    #  - funding_satoshis is too small
+    #  - it considers `feerate_per_kw` too small for timely processing or unreasonably large.
+    #
+    dustlimit = 546
+    reserves = 2 * dustlimit
+    min_commit_tx_fees = 5430
+    min_for_funder = min_commit_tx_fees + dustlimit + 1
+
+    l2_min_capacity = 1000
+    l3_min_capacity = 3000
+    l4_min_capacity = min_for_funder
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+    l3 = node_factory.get_node(options={'min-capacity-sat': l3_min_capacity})
+    l4 = node_factory.get_node(options={'min-capacity-sat': l4_min_capacity})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+    # Open channel with less than default 1000 sats should be rejected
+    with pytest.raises(RpcError, match=r'channel capacity is 999sat, which is below 1000000msat'):
+        l1.fund_channel(l2, l2_min_capacity + reserves - 1)
+    # Open a channel with exactly the minimal amount for the fundee.
+    # This will raise an exception at l1, as the funder cannot afford fees for initial_commit_tx.
+    with pytest.raises(RpcError, match=r'Funder cannot afford fee on initial commitment transaction'):
+        l1.fund_channel(l2, l2_min_capacity + reserves)
+
+    # Open channel with less than custom 3000 sats should be rejected at l3
+    with pytest.raises(RpcError, match=r'channel capacity is 2999sat, which is below 3000000msat'):
+        l1.fund_channel(l3, l3_min_capacity + reserves - 1)
+    with pytest.raises(RpcError, match=r'Funder cannot afford fee on initial commitment transaction'):
+        l1.fund_channel(l3, l3_min_capacity + reserves)
+
+    # Open channel with less than custom ~6000 sats should be rejected at l4
+    with pytest.raises(RpcError, match=r'channel capacity is .*, which is below .*msat'):
+        l1.fund_channel(l4, l4_min_capacity + reserves - 1)
+    # When amount exactly matches, own initial_commit_tx fees can now be covered
+    l1.fund_channel(l4, l4_min_capacity + reserves)
+
+    # Also fund channels with minimal funder amount that should not be rejected by own daemon
+    l1.fund_channel(l2, min_for_funder)
+    l1.fund_channel(l3, min_for_funder)
+
+
 def test_second_channel(node_factory):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
