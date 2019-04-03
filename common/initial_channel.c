@@ -73,7 +73,8 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      const u8 **wscript,
 				      const struct channel *channel,
 				      const struct pubkey *per_commitment_point,
-				      enum side side)
+				      enum side side,
+				      char** err_reason)
 {
 	struct keyset keyset;
 
@@ -83,8 +84,10 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
 			   &channel->basepoints[!side],
-			   &keyset))
+			   &keyset)){
+		*err_reason = "Cannot derive keyset";
 		return NULL;
+	}
 
 	*wscript = bitcoin_redeem_2of2(ctx,
 				       &channel->funding_pubkey[side],
@@ -103,7 +106,8 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 channel->view[side].owed[!side],
 				 channel->config[!side].channel_reserve,
 				 0 ^ channel->commitment_number_obscurer,
-				 side);
+				 side,
+				 err_reason);
 }
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)

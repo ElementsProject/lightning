@@ -72,7 +72,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     struct amount_msat other_pay,
 				     struct amount_sat self_reserve,
 				     u64 obscured_commitment_number,
-				     enum side side)
+				     enum side side,
+				     char** err_reason)
 {
 	struct amount_sat base_fee;
 	struct bitcoin_tx *tx;
@@ -112,6 +113,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		 *   - it considers `feerate_per_kw` too small for timely
 		 *     processing or unreasonably large.
 		 */
+		*err_reason = "Funder cannot afford fee on initial commitment transaction";
 		status_unusual("Funder cannot afford fee"
 			       " on initial commitment transaction");
 		return NULL;
@@ -127,6 +129,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 */
 	if (!amount_msat_greater_sat(self_pay, self_reserve)
 	    && !amount_msat_greater_sat(other_pay, self_reserve)) {
+		*err_reason = "Neither self amount nor other amount exceed reserve on "
+				   "initial commitment transaction";
 		status_unusual("Neither self amount %s"
 			       " nor other amount %s"
 			       " exceed reserve %s"

@@ -61,6 +61,7 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
  * @self_reserve: reserve the other side insisted we have
  * @obscured_commitment_number: number to encode in commitment transaction
  * @side: side to generate commitment transaction for.
+ * @err_reason: When NULL is returned, this will point to a human readable reason.
  *
  * We need to be able to generate the remote side's tx to create signatures,
  * but the BOLT is expressed in terms of generating our local commitment
@@ -79,7 +80,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     struct amount_msat other_pay,
 				     struct amount_sat self_reserve,
 				     u64 obscured_commitment_number,
-				     enum side side);
+				     enum side side,
+				     char** err_reason);
 
 /* try_subtract_fee - take away this fee from the funder (and return true), or all if insufficient (and return false). */
 bool try_subtract_fee(enum side funder, enum side side,

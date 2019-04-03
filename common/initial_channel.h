@@ -111,6 +111,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
  * @channel: The channel to evaluate
  * @per_commitment_point: Per-commitment point to determine keys
  * @side: which side to get the commitment transaction for
+ * @err_reason: When NULL is returned, this will point to a human readable reason.
  *
  * Returns the unsigned initial commitment transaction for @side, or NULL
  * if the channel size was insufficient to cover fees or reserves.
@@ -119,6 +120,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      const u8 **wscript,
 				      const struct channel *channel,
 				      const struct pubkey *per_commitment_point,
-				      enum side side);
+				      enum side side,
+				      char** err_reason);
 
 #endif /* LIGHTNING_COMMON_INITIAL_CHANNEL_H */
