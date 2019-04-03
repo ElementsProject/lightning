@@ -2524,7 +2524,10 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		", out_channel_scid"
 		", in_msatoshi"
 		", out_msatoshi"
-		", state) VALUES (?, ?, ?, ?, ?, ?, ?);");
+		", state"
+		", received_time"
+		", resolved_time"
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_int64(stmt, 1, in->dbid);
 	sqlite3_bind_int64(stmt, 2, out->dbid);
 	sqlite3_bind_int64(stmt, 3, in->key.channel->scid->u64);
@@ -2532,6 +2535,13 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	sqlite3_bind_amount_msat(stmt, 5, in->msat);
 	sqlite3_bind_amount_msat(stmt, 6, out->msat);
 	sqlite3_bind_int(stmt, 7, wallet_forward_status_in_db(state));
+	sqlite3_bind_int(stmt, 8, in->received_time);
+
+	if (state == FORWARD_SETTLED || state == FORWARD_FAILED)
+		sqlite3_bind_int(stmt, 9, time_now().ts.tv_sec);
+	else
+		sqlite3_bind_null(stmt, 9);
+
 	db_exec_prepared(w->db, stmt);
 }
 
