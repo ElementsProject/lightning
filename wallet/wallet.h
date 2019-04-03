@@ -165,6 +165,9 @@ struct forwarding {
 	struct amount_msat msat_in, msat_out, fee;
 	struct sha256_double *payment_hash;
 	enum forward_status status;
+	struct timeabs received_time;
+	/* May not be present if the HTLC was not resolved yet. */
+	struct timeabs *resolved_time;
 };
 
 /* A database backed shachain struct. The datastructure is
