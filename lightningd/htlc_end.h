@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/htable/htable_type.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/htlc_state.h>
 #include <common/sphinx.h>
@@ -47,6 +48,9 @@ struct htlc_in {
 	/* If they fulfilled, here's the preimage. */
 	struct preimage *preimage;
 
+	/* Remember the timestamp we received this HTLC so we can later record
+	 * it, and the resolution time, in the forwards table. */
+        struct timeabs received_time;
 };
 
 struct htlc_out {
