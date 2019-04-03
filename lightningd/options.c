@@ -376,6 +376,9 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-per-satoshi", opt_set_u32, opt_show_u32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
+	opt_register_arg("--min-capacity-sat", opt_set_u64, opt_show_u64,
+			 &ld->config.min_capacity_sat,
+			 "Minimum capacity in satoshis for accepting channels");
 	opt_register_arg("--addr", opt_add_addr, NULL,
 			 ld,
 			 "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
@@ -544,6 +547,9 @@ static const struct config testnet_config = {
 	.max_fee_multiplier = 10,
 
 	.use_dns = true,
+
+	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 1ct */
+	.min_capacity_sat = 1000,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -607,6 +613,9 @@ static const struct config mainnet_config = {
 	.max_fee_multiplier = 10,
 
 	.use_dns = true,
+
+	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 1ct */
+	.min_capacity_sat = 1000,
 };
 
 static void check_config(struct lightningd *ld)

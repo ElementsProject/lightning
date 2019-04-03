@@ -22,4 +22,5 @@ const struct config test_config = {
 	.rescan = 30,
 	.max_fee_multiplier = 10,
 	.use_dns = true,
+	.min_capacity_sat = 1000,
 };

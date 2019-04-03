@@ -662,8 +662,10 @@ static void channel_config(struct lightningd *ld,
 {
 	/* FIXME: depend on feerate. */
 	*max_to_self_delay = ld->config.locktime_max;
-	/* This is 1c at $1000/BTC */
-	*min_effective_htlc_capacity = AMOUNT_MSAT(1000000);
+
+	/* Take minimal effective capacity from config min_capacity_sat */
+	amount_msat_from_sat_u64(min_effective_htlc_capacity,
+		ld->config.min_capacity_sat);
 
 	/* BOLT #2:
 	 *
