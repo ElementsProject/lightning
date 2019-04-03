@@ -1902,6 +1902,17 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 				     cur->fee,
 				     "fee", "fee_msat");
 		json_add_string(response, "status", forward_status_name(cur->status));
+#if COMPAT_V070
+		/* If a forwarding doesn't have received_time it was created
+		 * before we added the tracking, do not include it here. */
+		if (cur->received_time != 0) {
+			json_add_u64(response, "received_time", cur->received_time);
+			json_add_u64(response, "resolved_time", cur->resolved_time);
+		}
+#else
+		json_add_u64(response, "received_time", cur->received_time);
+		json_add_u64(response, "resolved_time", cur->resolved_time);
+#endif
 		json_object_end(response);
 	}
 	json_array_end(response);

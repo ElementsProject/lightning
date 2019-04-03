@@ -2581,7 +2581,9 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			  ", out_msatoshi"
 			  ", hin.payment_hash as payment_hash"
 			  ", in_channel_scid"
-			  ", out_channel_scid "
+			  ", out_channel_scid"
+			  ", f.received_time"
+			  ", f.resolved_time "
 			  "FROM forwarded_payments f "
 			  "LEFT JOIN channel_htlcs hin ON (f.in_htlc_id == hin.id)");
 
@@ -2609,6 +2611,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 
 		cur->channel_in.u64 = sqlite3_column_int64(stmt, 4);
 		cur->channel_out.u64 = sqlite3_column_int64(stmt, 5);
+		cur->received_time = sqlite3_column_int64(stmt, 6);
+		cur->resolved_time = sqlite3_column_int64(stmt, 7);
 	}
 
 	db_stmt_done(stmt);
