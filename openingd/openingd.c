@@ -442,8 +442,8 @@ static u8 *funder_channel(struct state *state,
 	struct pubkey *changekey;
 	struct bitcoin_signature sig;
 	u32 minimum_depth;
-	const u8 *wscript;
 	struct bitcoin_tx *funding;
+	const u8 *wscript;
 	struct amount_msat local_msat;
 
 	/*~ For symmetry, we calculate our own reserve even though lightningd
@@ -674,7 +674,7 @@ static u8 *funder_channel(struct state *state,
 		 * can't afford the fees for after reserve. */
 		negotiation_failed(state, true,
 				   "Could not meet their fees and reserve");
-		goto fail;
+		goto fail_2;
 	}
 
 	/* We ask the HSM to sign their commitment transaction for us: it knows
@@ -724,7 +724,7 @@ static u8 *funder_channel(struct state *state,
 	 * transaction. */
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
-		goto fail;
+		goto fail_2;
 
 	sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_funding_signed(msg, &id_in, &sig.s))
@@ -779,7 +779,7 @@ static u8 *funder_channel(struct state *state,
 	if (!tx) {
 		negotiation_failed(state, true,
 				   "Could not meet our fees and reserve");
-		goto fail;
+		goto fail_2;
 	}
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
@@ -823,6 +823,9 @@ static u8 *funder_channel(struct state *state,
 					   state->feerate_per_kw,
 					   state->localconf.channel_reserve);
 
+fail_2:
+	tal_free(wscript);
+	tal_free(funding);
 fail:
 	if (taken(utxos))
 		tal_free(utxos);
