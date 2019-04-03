@@ -136,14 +136,10 @@ class Field(object):
         self.optional = False
         self.is_tlv = False
 
-        # field name appended with '+' means this field contains a tlv
-        if name.endswith('+'):
+        if name.endswith('_tlv'):
             self.is_tlv = True
-            self.name = name[:-1]
             if self.name not in tlv_fields:
-                tlv_includes, tlv_messages = parse_tlv_file(self.name)
-                includes += tlv_includes
-                tlv_fields[self.name] = tlv_messages
+                tlv_fields[self.name] = []
 
         # ? means optional field (not supported for arrays)
         if size.startswith('?'):
@@ -977,68 +973,6 @@ def find_message_with_option(messages, optional_messages, name, option):
     return m
 
 
-def get_directory_prefix():
-    # FIXME: use prefix of filename
-    return "wire/"
-
-
-def get_tlv_filename(field_name):
-    return 'gen_{}_csv'.format(field_name)
-
-
-def parse_tlv_file(tlv_field_name):
-    tlv_includes = []
-    tlv_messages = []
-    tlv_comments = []
-    tlv_prevfield = None
-    with open(get_directory_prefix() + get_tlv_filename(tlv_field_name)) as f:
-        for line in f:
-            # #include gets inserted into header
-            if line.startswith('#include '):
-                tlv_includes.append(line)
-                continue
-
-            by_comments = line.rstrip().split('#')
-
-            # Emit a comment if they included one
-            if by_comments[1:]:
-                tlv_comments.append(' '.join(by_comments[1:]))
-
-            parts = by_comments[0].split(',')
-            if parts == ['']:
-                continue
-
-            if len(parts) == 2:
-                # eg commit_sig,132
-                tlv_msg = Message(parts[0], Enumtype("TLV_" + parts[0].upper(), parts[1]), tlv_comments, True)
-                tlv_messages.append(tlv_msg)
-
-                tlv_comments = []
-                tlv_prevfield = None
-            else:
-                if len(parts) == 4:
-                    # eg commit_sig,0,channel-id,8 OR
-                    #    commit_sig,0,channel-id,u64
-                    m = find_message(tlv_messages, parts[0])
-                    if m is None:
-                        raise ValueError('Unknown message {}'.format(parts[0]))
-                elif len(parts) == 5:
-                    # eg.
-                    # channel_reestablish,48,your_last_per_commitment_secret,32,option209
-                    m = find_message_with_option(tlv_messages, messages_with_option, parts[0], parts[4])
-                else:
-                    raise ValueError('Line {} malformed'.format(line.rstrip()))
-
-                f = Field(m.name, parts[2], parts[3], tlv_comments, tlv_prevfield, includes)
-                m.addField(f)
-                # If it used prevfield as lenvar, keep that for next
-                # time (multiple fields can use the same lenvar).
-                if not f.lenvar:
-                    tlv_prevfield = parts[2]
-                tlv_comments = []
-        return tlv_includes, tlv_messages
-
-
 parser = argparse.ArgumentParser(description='Generate C from CSV')
 parser.add_argument('--header', action='store_true', help="Create wire header")
 parser.add_argument('--bolt', action='store_true', help="Generate wire-format for BOLT")
@@ -1073,9 +1007,18 @@ for line in fileinput.input(options.files):
     if parts == ['']:
         continue
 
-    if len(parts) == 2:
-        # eg commit_sig,132
-        messages.append(Message(parts[0], Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments, False))
+    is_tlv_msg = len(parts) == 3
+    if len(parts) == 2 or is_tlv_msg:
+        # eg: commit_sig,132,(_tlv)
+        message = Message(parts[0],
+                          Enumtype("WIRE_" + parts[0].upper(), parts[1]),
+                          comments,
+                          is_tlv_msg)
+
+        messages.append(message)
+        if is_tlv_msg:
+            tlv_fields[parts[2]].append(message)
+
         comments = []
         prevfield = None
     else:
@@ -1265,8 +1208,8 @@ else:
         towire_decls += build_tlv_towires(tlv_fields)
         fromwire_decls += build_tlv_fromwires(tlv_fields)
 
-    towire_decls += [m.print_towire(options.header, '') for m in messages + messages_with_option]
-    fromwire_decls += [m.print_fromwire(options.header, '') for m in messages + messages_with_option]
+    towire_decls += [m.print_towire(options.header, '') for m in toplevel_messages + messages_with_option]
+    fromwire_decls += [m.print_fromwire(options.header, '') for m in toplevel_messages + messages_with_option]
     decls = fromwire_decls + towire_decls
 
 print(template.format(
