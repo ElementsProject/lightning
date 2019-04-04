@@ -8,13 +8,14 @@ lightning-disconnect - Command for disconnecting from another lightning node.
 
 SYNOPSIS
 --------
-*disconnect* 'id'
+*disconnect* 'id' ['force']
 
 DESCRIPTION
 -----------
 The disconnect RPC command closes an existing connection to a
 peer, identified by 'id', in the Lightning Network, as long as it
-doesn't have an active channel.
+doesn't have an active channel. If 'force' is set then it will disconnect
+even with an active channel.
 
 The 'id' can be discovered in the output of the listpeers
 command, which returns a set of peers:
@@ -41,6 +42,11 @@ ERRORS
 If 'id' is invalid, an error message will be returned:
 
      { "code" : -1, "message" : "Peer not connected" }
+
+If the peer has an active channel and 'force' is not set, an error message
+will be returned:
+
+    { "code" : -1, "message" : "Peer is in state CHANNELD_NORMAL" }
 
 AUTHOR
 ------

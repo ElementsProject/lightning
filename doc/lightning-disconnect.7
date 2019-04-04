@@ -2,12 +2,12 @@
 .\"     Title: lightning-disconnect
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 12/04/2018
+.\"      Date: 04/03/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-DISCONNEC" "7" "12/04/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-DISCONNEC" "7" "04/03/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,10 +31,10 @@
 lightning-disconnect \- Command for disconnecting from another lightning node\&.
 .SH "SYNOPSIS"
 .sp
-\fBdisconnect\fR \fIid\fR
+\fBdisconnect\fR \fIid\fR [\fIforce\fR]
 .SH "DESCRIPTION"
 .sp
-The disconnect RPC command closes an existing connection to a peer, identified by \fIid\fR, in the Lightning Network, as long as it doesn\(cqt have an active channel\&.
+The disconnect RPC command closes an existing connection to a peer, identified by \fIid\fR, in the Lightning Network, as long as it doesn\(cqt have an active channel\&. If \fIforce\fR is set then it will disconnect even with an active channel\&.
 .sp
 The \fIid\fR can be discovered in the output of the listpeers command, which returns a set of peers:
 .sp
@@ -56,7 +56,7 @@ The \fIid\fR can be discovered in the output of the listpeers command, which ret
 .RE
 .\}
 .sp
-Passing the \fIid\fR attribute of a peer to lightning\-disconnect will terminate the connection\&.
+Passing the \fIid\fR attribute of a peer to \fIdisconnect\fR will terminate the connection\&.
 .SH "RETURN VALUE"
 .sp
 On success, an empty object is returned\&.
@@ -69,6 +69,18 @@ If \fIid\fR is invalid, an error message will be returned:
 .\}
 .nf
 { "code" : \-1, "message" : "Peer not connected" }
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+If the peer has an active channel and \fIforce\fR is not set, an error message will be returned:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+{ "code" : \-1, "message" : "Peer is in state CHANNELD_NORMAL" }
 .fi
 .if n \{\
 .RE
