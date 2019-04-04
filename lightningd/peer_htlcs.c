@@ -1907,11 +1907,13 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 		 * before we added the tracking, do not include it here. */
 		if (cur->received_time != 0) {
 			json_add_u64(response, "received_time", cur->received_time);
-			json_add_u64(response, "resolved_time", cur->resolved_time);
+			if (cur->resolved_time)
+				json_add_u64(response, "resolved_time", cur->resolved_time);
 		}
 #else
 		json_add_u64(response, "received_time", cur->received_time);
-		json_add_u64(response, "resolved_time", cur->resolved_time);
+		if (cur->resolved_time)
+			json_add_u64(response, "resolved_time", cur->resolved_time);
 #endif
 		json_object_end(response);
 	}
