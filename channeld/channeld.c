@@ -265,9 +265,18 @@ static struct amount_msat advertised_htlc_max(const struct channel *channel)
 			      type_to_string(tmpctx, struct amount_sat,
 					     &lower_bound));
 	}
-	/* FIXME BOLT QUOTE: https://github.com/lightningnetwork/lightning-rfc/pull/512 once merged */
+
 	if (amount_msat_greater(lower_bound_msat,
 				channel->chainparams->max_payment))
+		/* BOLT #7:
+		 *
+		 * The origin node:
+		 * ...
+		 *   - if the `htlc_maximum_msat` field is present:
+		 * ...
+		 *         - for channels with `chain_hash` identifying the Bitcoin blockchain:
+		 * 			 - MUST set this to less than 2^32.
+		 */
 		lower_bound_msat = channel->chainparams->max_payment;
 
 	return lower_bound_msat;
