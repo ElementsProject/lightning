@@ -12,10 +12,14 @@ int main(int argc, char *argv[])
 {
 	const u8 *m;
 	bool onion = false;
+	char *tlv_name = NULL;
 	setup_locale();
 
 	opt_register_noarg("--onion", opt_set_bool, &onion,
 			   "Decode an error message instead of a peer message");
+	opt_register_arg("--tlv", opt_set_charp, opt_show_charp,
+			&tlv_name,
+			"Deocde a TLV of this type instead of a peer message");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "[<hexmsg>]"
 			   "Decode a lightning spec wire message from hex, or a series of messages from stdin",
@@ -32,7 +36,12 @@ int main(int argc, char *argv[])
 			errx(1, "'%s' is not valid hex", argv[1]);
 
 		if (onion)
-			printonion_type_message(m);
+			if (tlv_name)
+				printonion_type_tlv_message(tlv_name, m);
+			else
+				printonion_type_message(m);
+		else if (tlv_name)
+			printwire_type_tlv_message(tlv_name, m);
 		else
 			printwire_type_message(m);
 	} else {
@@ -54,7 +63,12 @@ int main(int argc, char *argv[])
 			}
 			m = tal_dup_arr(f, u8, f + off, be16_to_cpu(len), 0);
 			if (onion)
-				printonion_type_message(m);
+				if (tlv_name)
+					printonion_type_tlv_message(tlv_name, m);
+				else
+					printonion_type_message(m);
+			else if (tlv_name)
+				printwire_type_tlv_message(tlv_name, m);
 			else
 				printwire_type_message(m);
 			off += be16_to_cpu(len);
