@@ -611,7 +611,6 @@ int main(void)
 	bool any_offline;
 	struct route_info *inchans;
 	struct route_info **ret;
-	size_t n;
 
 	setup_locale();
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -631,7 +630,7 @@ int main(void)
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
 	assert(any_offline == false);
 
-	/* connected peer but no inchan -> NULL result. */
+	/* inchan but peer not connected -> NULL result. */
 	add_peer(ld, 1, CHANNELD_NORMAL, false);
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
 	assert(any_offline == false);
@@ -667,40 +666,11 @@ int main(void)
 	assert(ret == NULL);
 	assert(any_offline == false); /* Other candidate insufficient funds. */
 
-	/* Add another candidate, with twice as much excess. */
-	add_inchan(&inchans, 3);
-	add_peer(ld, 3, CHANNELD_NORMAL, true);
-
-	for (size_t i = n = 0; i < 1000; i++) {
-		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1000), inchans, &any_offline);
-		assert(tal_count(ret) == 1);
-		assert(tal_count(ret[0]) == 1);
-		assert(any_offline == false); /* Other candidate insufficient funds. */
-		assert(route_info_eq(ret[0], &inchans[2])
-		       || route_info_eq(ret[0], &inchans[3]));
-		n += route_info_eq(ret[0], &inchans[2]);
-	}
-
-	/* Handwave over probability of this happening!  Within 20% */
-	assert(n > 333 - 66 && n < 333 + 66);
-	printf("Number of selections with 999 excess: %zu\n"
-	       "Number of selections with 1999 excess: %zu\n",
-	       n, 1000 - n);
-
-	for (size_t i = n = 0; i < 1000; i++) {
-		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, &any_offline);
-		assert(tal_count(ret) == 1);
-		assert(tal_count(ret[0]) == 1);
-		assert(any_offline == false); /* Other candidate insufficient funds. */
-		assert(route_info_eq(ret[0], &inchans[2])
-		       || route_info_eq(ret[0], &inchans[3]));
-		n += route_info_eq(ret[0], &inchans[2]);
-	}
-
-	assert(n > 250 - 50 && n < 250 + 50);
-	printf("Number of selections with 500 excess: %zu\n"
-	       "Number of selections with 1500 excess: %zu\n",
-	       n, 1000 - n);
+	/* Highest excess capacity is first choice */
+	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1), inchans, &any_offline);
+	assert(tal_count(ret) == 1);
+	assert(tal_count(ret[0]) == 1);
+	assert(route_info_eq(ret[0], &inchans[2]));
 
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);

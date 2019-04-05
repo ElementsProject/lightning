@@ -149,14 +149,9 @@ static struct route_info **select_inchan(const tal_t *ctx,
 {
 	const struct route_info *r = NULL;
 	struct route_info **ret;
-
+	struct amount_msat excess_max = AMOUNT_MSAT(0);
 	*any_offline = false;
 
-	/* Weighted reservoir sampling.
-	 * Based on https://en.wikipedia.org/wiki/Reservoir_sampling
-	 *	 Algorithm A-Chao
-	 */
-	u64 wsum = 0;
 	for (size_t i = 0; i < tal_count(inchans); i++) {
 		struct peer *peer;
 		struct channel *c;
@@ -197,11 +192,11 @@ static struct route_info **select_inchan(const tal_t *ctx,
 			continue;
 		}
 
-		/* Avoid divide-by-zero corner case. */
-		wsum += excess.millisatoshis + 1; /* Raw: rand select */
-		if (pseudorand(1ULL << 32)
-		    <= ((excess.millisatoshis + 1) << 32) / wsum) /* Raw: rand select */
+		/* Pick the channel with largest excess (incoming) capacity */
+		if (amount_msat_greater_eq(excess,excess_max)) {
+			excess_max = excess;
 			r = &inchans[i];
+		}
 	}
 
 	if (!r)
