@@ -1555,7 +1555,10 @@ static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Node announcement too short");
 
-	/* FIXME(cdecker) Check the node announcement's content */
+	if (fromwire_peektype(ann) != WIRE_NODE_ANNOUNCEMENT)
+		return bad_req_fmt(conn, c, msg_in,
+				   "Invalid announcement");
+
 	node_key(&node_pkey, NULL);
 	sha256_double(&hash, ann + offset, tal_count(ann) - offset);
 
