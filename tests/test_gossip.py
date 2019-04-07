@@ -1031,3 +1031,55 @@ def test_getroute_exclude(node_factory, bitcoind):
     # This doesn't
     with pytest.raises(RpcError):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, chan_l2l4])
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
+def test_gossip_store_local_channels(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=False)
+
+    # We see this channel, even though it's not announced, because it's local.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+
+    l2.stop()
+    l1.restart()
+
+    # We should still see local channels!
+    time.sleep(3)  # Make sure store is loaded
+    chans = l1.rpc.listchannels()['channels']
+    assert len(chans) == 2
+
+    # Now compact store
+    l1.rpc.call('dev-compact-gossip-store')
+    l1.restart()
+
+    time.sleep(3)  # Make sure store is loaded
+    # We should still see local channels!
+    chans = l1.rpc.listchannels()['channels']
+    assert len(chans) == 2
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
+def test_gossip_store_private_channels(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, announce_channels=False)
+
+    # We see this channel, even though it's not announced, because it's local.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+
+    l2.stop()
+    l1.restart()
+
+    # We should still see local channels!
+    time.sleep(3)  # Make sure store is loaded
+    chans = l1.rpc.listchannels()['channels']
+    assert len(chans) == 2
+
+    # Now compact store
+    l1.rpc.call('dev-compact-gossip-store')
+    l1.restart()
+
+    time.sleep(3)  # Make sure store is loaded
+    # We should still see local channels!
+    chans = l1.rpc.listchannels()['channels']
+    assert len(chans) == 2
