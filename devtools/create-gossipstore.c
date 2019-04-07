@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 	int infd, outfd;
        	FILE * scidfd;
 	struct scidsat * scids;
+	unsigned max = -1U;
 
 	setup_locale();
 
@@ -55,6 +56,8 @@ int main(int argc, char *argv[])
 			 "Input for 'scid, satshis' csv");
 	opt_register_arg("--sat", opt_set_charp, NULL, &csat,
 			 "default satoshi value if --scidfile flag not present");
+	opt_register_arg("--max", opt_set_uintval, opt_show_uintval, &max,
+			 "maximum number of messages to read");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "Create gossip store, from be16 / input messages",
 			   "Print this message.");
@@ -144,6 +147,8 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		tal_free(inmsg);
+		if (--max == 0)
+			break;
 	}
 	fprintf(stderr, "channels %d, updates %d, nodes %d\n", channels, updates, nodes);
 	if (scidfile)
