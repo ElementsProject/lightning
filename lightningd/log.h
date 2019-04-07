@@ -50,7 +50,7 @@ struct log_book *get_log_book(const struct log *log);
 					   bool,			\
 					   const struct timeabs *,	\
 					   const char *,		\
-					   const u8 *), (arg))
+					   const u8 *, size_t), (arg))
 
 /* If level == LOG_IO_IN/LOG_IO_OUT, then io contains data */
 void set_log_outfn_(struct log_book *lr,
@@ -59,7 +59,7 @@ void set_log_outfn_(struct log_book *lr,
 				  bool continued,
 				  const struct timeabs *time,
 				  const char *str,
-				  const u8 *io,
+				  const u8 *io, size_t io_len,
 				  void *arg),
 		    void *arg);
 
