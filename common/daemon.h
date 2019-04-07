@@ -11,6 +11,9 @@ void daemon_setup(const char *argv0,
 /* Exposed for lightningd's use. */
 int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
+/* Print a backtrace to stderr, and via backtrace_print */
+void send_backtrace(const char *why);
+
 /* Shutdown for a valgrind-clean exit (frees everything) */
 void daemon_shutdown(void);
 

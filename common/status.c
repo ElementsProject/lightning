@@ -5,6 +5,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
+#include <common/daemon.h>
 #include <common/daemon_conn.h>
 #include <common/gen_status_wire.h>
 #include <common/status.h>
@@ -166,6 +167,10 @@ void status_failed(enum status_failreason reason, const char *fmt, ...)
 	va_start(ap, fmt);
 	str = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
+
+	/* Give a nice backtrace when this happens! */
+	if (reason == STATUS_FAIL_INTERNAL_ERROR)
+		send_backtrace(str);
 
 	status_send_fatal(take(towire_status_fail(NULL, reason, str)),
 			  -1, -1);

@@ -32,17 +32,25 @@ static int backtrace_status(void *unused UNUSED, uintptr_t pc,
 	return 0;
 }
 
-static void crashdump(int sig)
+void send_backtrace(const char *why)
 {
 	/* We do stderr first, since it's most reliable. */
-	warnx("Fatal signal %d (version %s)", sig, version());
+	warnx("%s (version %s)", why, version());
 	if (backtrace_state)
 		backtrace_print(backtrace_state, 0, stderr);
 
 	/* Now send to parent. */
-	bt_print("FATAL SIGNAL %d (version %s)", sig, version());
+	bt_print("%s (version %s)", why, version());
 	if (backtrace_state)
 		backtrace_full(backtrace_state, 0, backtrace_status, NULL, NULL);
+}
+
+static void crashdump(int sig)
+{
+	char why[100];
+
+	snprintf(why, 100, "FATAL SIGNAL %d", sig);
+	send_backtrace(why);
 
 	/* Probably shouldn't return. */
 	bt_exit();
@@ -65,6 +73,10 @@ static void crashlog_activate(void)
 	sigaction(SIGFPE, &sa, NULL);
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGBUS, &sa, NULL);
+}
+#else
+void send_backtrace(const char *why)
+{
 }
 #endif
 
