@@ -9,8 +9,6 @@
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gossip_store.h>
 #include <inttypes.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -26,7 +24,7 @@ struct scidsat * load_scid_file(FILE * scidfd)
         fscanf(scidfd, "%s\n", title);	
 	struct scidsat * scids = calloc(n, sizeof(scidsat));
 	int i = 0;
-        while(fscanf(scidfd, "%s ,%ld\n", scids[i].scid, &scids[i].sat.satoshis) == 2 ) {
+        while(fscanf(scidfd, "%s ,%ld\n", scids[i].scid, &scids[i].sat.satoshis) == 2 ) { /* Raw: read from file */
 			i++;
 	}
 	return scids;
@@ -41,7 +39,7 @@ int main(int argc, char *argv[])
 	char *infile = NULL, *outfile = NULL, *scidfile = NULL, *csat = NULL;
 	int infd, outfd;
        	FILE * scidfd;
-	struct scidsat * scids;
+	struct scidsat * scids = NULL;
 	unsigned max = -1U;
 
 	setup_locale();
@@ -113,7 +111,7 @@ int main(int argc, char *argv[])
 
 		switch (fromwire_peektype(inmsg)) {
 		case WIRE_CHANNEL_ANNOUNCEMENT:
-			if (scidfile) {
+			if (scids) {
 				sat = scids[scidi].sat;
 				scidi += 1;
 			}
@@ -151,7 +149,6 @@ int main(int argc, char *argv[])
 			break;
 	}
 	fprintf(stderr, "channels %d, updates %d, nodes %d\n", channels, updates, nodes);
-	if (scidfile)
-                free(scids);
+	free(scids);
 	return 0;
 }
