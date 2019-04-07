@@ -6,7 +6,8 @@
 #include <ccan/short_types/short_types.h>
 
 /* We don't allow > 64M msgs: enough for 483 64k failure msgs. */
-#define WIRE_LEN_LIMIT (1 << 26)
+/* FIXME: Too big, but allows the million-channels project at 327077670 bytes */
+#define WIRE_LEN_LIMIT (1 << 29)
 
 typedef be32 wire_len_t;
 #define wirelen_to_cpu be32_to_cpu
