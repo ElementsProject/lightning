@@ -9,7 +9,7 @@ HEADER_ID_SUFFIX="_H"
 REGEXP_EXCLUDE_FILES_WITH_PREFIX="ccan/"
 for HEADER_FILE in $(git ls-files -- "*.h" | grep -vE "^${REGEXP_EXCLUDE_FILES_WITH_PREFIX}")
 do
-    HEADER_ID_BASE=$(tr / _ <<< "${HEADER_FILE/%.h/}" | tr "[:lower:]" "[:upper:]")
+    HEADER_ID_BASE=$(tr /- _ <<< "${HEADER_FILE/%.h/}" | tr "[:lower:]" "[:upper:]")
     HEADER_ID="${HEADER_ID_PREFIX}${HEADER_ID_BASE}${HEADER_ID_SUFFIX}"
     if [[ $(grep -cE "^#((ifndef|define) ${HEADER_ID}|endif /\\* ${HEADER_ID} \\*/)$" "${HEADER_FILE}") != 3 ]]; then
         echo "${HEADER_FILE} seems to be missing the expected include guard:"
