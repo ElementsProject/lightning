@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
 		}
 		tal_free(inmsg);
 	}
-        printf("channels %d, updates %d, nodes %d\n", channels, updates, nodes);
+	fprintf(stderr, "channels %d, updates %d, nodes %d\n", channels, updates, nodes);
 	if (scidfile)
                 free(scids);
 	return 0;
