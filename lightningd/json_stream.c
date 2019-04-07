@@ -116,8 +116,6 @@ static void js_written_some(struct json_stream *js)
 void json_stream_append_part(struct json_stream *js, const char *str, size_t len)
 {
 	mkroom(js, len);
-	if (js->log)
-		log_io(js->log, LOG_IO_OUT, "", str, len);
 	memcpy(membuf_add(&js->outbuf, len), str, len);
 	js_written_some(js);
 }
@@ -148,9 +146,6 @@ static void json_stream_append_vfmt(struct json_stream *js,
 		mkroom(js, fmtlen + 1);
 		vsprintf(membuf_space(&js->outbuf), fmt, ap2);
 	}
-	if (js->log)
-		log_io(js->log, LOG_IO_OUT, "",
-		       membuf_space(&js->outbuf), fmtlen);
 	membuf_added(&js->outbuf, fmtlen);
 	js_written_some(js);
 	va_end(ap2);
@@ -296,6 +291,9 @@ static struct io_plan *json_stream_output_write(struct io_conn *conn,
 	}
 
 	js->reader = conn;
+	if (js->log)
+		log_io(js->log, LOG_IO_OUT, "",
+		       membuf_elems(&js->outbuf), js->len_read);
 	return io_write(conn,
 			membuf_elems(&js->outbuf), js->len_read,
 			json_stream_output_write, js);
