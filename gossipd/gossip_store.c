@@ -303,6 +303,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	size_t stats[] = {0, 0, 0, 0};
 	int fd = gs->fd;
 	gs->fd = -1;
+	struct timeabs start = time_now();
 
 	if (lseek(fd, known_good, SEEK_SET) < 0) {
 		status_unusual("gossip_store: lseek failure");
@@ -381,6 +382,15 @@ truncate_nomsg:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating store: %s", strerror(errno));
 out:
+#if DEVELOPER
+	status_info("total store load time: %"PRIu64" msec (%zu entries, %zu bytes)",
+		    time_to_msec(time_between(time_now(), start)),
+		    stats[0] + stats[1] + stats[2] + stats[3],
+		    (size_t)known_good);
+#else
+	status_trace("total store load time: %"PRIu64" msec",
+		     time_to_msec(time_between(time_now(), start)));
+#endif
 	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store in %"PRIu64" bytes",
 		     stats[0], stats[1], stats[2], stats[3],
 		     (u64)known_good);
