@@ -196,6 +196,9 @@ struct lightningd {
 	/* Allow and accept localhost node_announcement addresses */
 	bool dev_allow_localhost;
 
+	/* Timestamp to use for gossipd, iff non-zero */
+	u32 dev_gossip_time;
+
 	/* Things we've marked as not leaking. */
 	const void **notleaks;
 #endif /* DEVELOPER */
