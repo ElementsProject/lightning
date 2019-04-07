@@ -1860,6 +1860,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 {
 	u32 update_channel_interval;
 	u32 *dev_gossip_time;
+	struct amount_sat *dev_unknown_channel_satoshis;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     /* 60,000 ms
@@ -1873,7 +1874,8 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				      * (unless --dev-channel-update-interval) */
 				     &update_channel_interval,
 				     &daemon->announcable,
-				     &dev_gossip_time)) {
+				     &dev_gossip_time,
+				     &dev_unknown_channel_satoshis)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 
@@ -1882,7 +1884,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   chainparams_by_chainhash(&daemon->chain_hash),
 					   &daemon->id,
 					   update_channel_interval * 2,
-					   dev_gossip_time);
+					   dev_gossip_time,
+					   dev_unknown_channel_satoshis);
+
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
 
