@@ -82,7 +82,8 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct pubkey *local_id,
-					u32 prune_timeout)
+					u32 prune_timeout,
+					const u32 *dev_gossip_time)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
@@ -98,6 +99,16 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
+
+
+#if DEVELOPER
+	if (dev_gossip_time) {
+		rstate->gossip_time = tal(rstate, struct timeabs);
+		rstate->gossip_time->ts.tv_sec = *dev_gossip_time;
+		rstate->gossip_time->ts.tv_nsec = 0;
+	} else
+		rstate->gossip_time = NULL;
+#endif
 
 	return rstate;
 }
@@ -270,7 +281,7 @@ static void init_half_chan(struct routing_state *rstate,
 	c->message_flags = 0;
 	/* We haven't seen channel_update: make it halfway to prune time,
 	 * which should be older than any update we'd see. */
-	c->last_timestamp = time_now().ts.tv_sec - rstate->prune_timeout/2;
+	c->last_timestamp = gossip_time_now(rstate).ts.tv_sec - rstate->prune_timeout/2;
 }
 
 static void bad_gossip_order(const u8 *msg, const char *source,
@@ -1273,7 +1284,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	 *  - if the `timestamp` is unreasonably far in the future:
 	 *    - MAY discard the `channel_update`.
 	 */
-	if (timestamp > time_now().ts.tv_sec + rstate->prune_timeout) {
+	if (timestamp > gossip_time_now(rstate).ts.tv_sec + rstate->prune_timeout) {
 		status_debug("Received channel_update for %s with far time %u",
 			     type_to_string(tmpctx, struct short_channel_id,
 					    &short_channel_id),
@@ -1282,7 +1293,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	}
 
 	/* Note: we can consider old timestamps a case of "instant prune" too */
-	if (timestamp < time_now().ts.tv_sec - rstate->prune_timeout) {
+	if (timestamp < gossip_time_now(rstate).ts.tv_sec - rstate->prune_timeout) {
 		status_debug("Received channel_update for %s with old time %u",
 			     type_to_string(tmpctx, struct short_channel_id,
 					    &short_channel_id),
@@ -1721,7 +1732,7 @@ void routing_failure(struct routing_state *rstate,
 
 void route_prune(struct routing_state *rstate)
 {
-	u64 now = time_now().ts.tv_sec;
+	u64 now = gossip_time_now(rstate).ts.tv_sec;
 	/* Anything below this highwater mark ought to be pruned */
 	const s64 highwater = now - rstate->prune_timeout;
 	const tal_t *pruned = tal(NULL, char);
@@ -1798,4 +1809,13 @@ bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 	/* Create new (unannounced) channel */
 	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
 	return true;
+}
+
+struct timeabs gossip_time_now(const struct routing_state *rstate)
+{
+#if DEVELOPER
+	if (rstate->gossip_time)
+		return *rstate->gossip_time;
+#endif
+	return time_now();
 }

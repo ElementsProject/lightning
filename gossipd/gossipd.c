@@ -1859,6 +1859,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				   const u8 *msg)
 {
 	u32 update_channel_interval;
+	u32 *dev_gossip_time;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     /* 60,000 ms
@@ -1871,7 +1872,8 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				     /* 1 week in seconds
 				      * (unless --dev-channel-update-interval) */
 				     &update_channel_interval,
-				     &daemon->announcable)) {
+				     &daemon->announcable,
+				     &dev_gossip_time)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 
@@ -1879,8 +1881,8 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	daemon->rstate = new_routing_state(daemon,
 					   chainparams_by_chainhash(&daemon->chain_hash),
 					   &daemon->id,
-					   update_channel_interval * 2);
-
+					   update_channel_interval * 2,
+					   dev_gossip_time);
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
 

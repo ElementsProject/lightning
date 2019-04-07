@@ -475,6 +475,10 @@ static void dev_register_opts(struct lightningd *ld)
 	    "--dev-channel-update-interval=<s>", opt_set_u32, opt_show_u32,
 	    &ld->config.channel_update_interval,
 	    "Time in seconds between channel updates for our own channels.");
+
+	opt_register_arg("--dev-gossip-time", opt_set_u32, opt_show_u32,
+			 &ld->dev_gossip_time,
+			 "UNIX time to override gossipd to use.");
 }
 #endif
 
