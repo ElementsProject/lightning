@@ -1192,9 +1192,13 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		= tal_dup_arr(chan, u8, update, tal_count(update), 0);
 
 	/* For private channels, we get updates without an announce: don't
-	 * broadcast them! */
-	if (!chan->channel_announce)
+	 * broadcast them!  But save local ones to store anyway. */
+	if (!chan->channel_announce) {
+		if (is_local_channel(rstate, chan))
+			gossip_store_add(rstate->store,
+					 chan->half[direction].channel_update);
 		return true;
+	}
 
 	/* BOLT #7:
 	 *   - MUST consider the `timestamp` of the `channel_announcement` to be
