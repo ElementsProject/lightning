@@ -149,14 +149,16 @@ static struct chan *find_channel(struct routing_state *rstate UNUSED,
 					    const struct node *to,
 					    int *idx)
 {
-	int i, n;
+	struct chan_map_iter i;
+	struct chan *c;
 
 	*idx = pubkey_idx(&from->id, &to->id);
 
-	n = tal_count(to->chans);
-	for (i = 0; i < n; i++) {
-		if (to->chans[i]->nodes[*idx] == from)
-			return to->chans[i];
+	for (c = chan_map_first(&to->chans, &i);
+	     c;
+	     c = chan_map_next(&to->chans, &i)) {
+		if (c->nodes[*idx] == from)
+			return c;
 	}
 	return NULL;
 }
