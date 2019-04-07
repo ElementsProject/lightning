@@ -14,6 +14,7 @@
 #define io_write_ simple_write
 #define io_read_ simple_read
 #define io_close simple_close
+static bool stream_stdin = false;
 
 static struct io_plan *simple_write(struct io_conn *conn,
 				    const void *data, size_t len,
@@ -130,6 +131,19 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	tal_free(sync_crypto_read(NULL, &cs, conn->fd));
 
 	/* Did they ask us to send any messages?  Do so now. */
+	if (stream_stdin) {
+		beint16_t be_inlen;
+
+		while (read_all(STDIN_FILENO, &be_inlen, sizeof(be_inlen))) {
+			u32 msglen = be16_to_cpu(be_inlen);
+			u8 *msg = tal_arr(NULL, u8, msglen);
+
+			if (!read_all(STDIN_FILENO, msg, msglen))
+				err(1, "Only read partial message");
+			sync_crypto_write(&cs, conn->fd, take(msg));
+		}
+	}
+
 	while (*args) {
 		u8 *m = tal_hexdata(NULL, *args, strlen(*args));
 		if (!m)
@@ -172,6 +186,8 @@ int main(int argc, char *argv[])
 	opt_register_arg("--max-messages", opt_set_ulongval, opt_show_ulongval,
 			 &max_messages,
 			 "Terminate after reading this many messages (> 0)");
+	opt_register_noarg("--stdin", opt_set_bool, &stream_stdin,
+			   "Stream gossip messages from stdin.");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
