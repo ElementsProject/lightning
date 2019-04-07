@@ -85,6 +85,26 @@ static inline bool is_halfchan_enabled(const struct half_chan *hc)
 	return is_halfchan_defined(hc) && !(hc->channel_flags & ROUTING_FLAGS_DISABLED);
 }
 
+/* Container for per-node channel pointers.  Better cache performance
+* than uintmap, and we don't need ordering. */
+static inline const struct short_channel_id *chan_map_scid(const struct chan *c)
+{
+	return &c->scid;
+}
+
+static inline size_t hash_scid(const struct short_channel_id *scid)
+{
+	/* scids cost money to generate, so simple hash works here */
+	return (scid->u64 >> 32) ^ (scid->u64 >> 16) ^ scid->u64;
+}
+
+static inline bool chan_eq_scid(const struct chan *c,
+				const struct short_channel_id *scid)
+{
+	return short_channel_id_eq(scid, &c->scid);
+}
+HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map);
+
 struct node {
 	struct pubkey id;
 
@@ -95,7 +115,7 @@ struct node {
 	struct wireaddr *addresses;
 
 	/* Channels connecting us to other nodes */
-	struct chan **chans;
+	struct chan_map chans;
 
 	/* Temporary data for routefinding. */
 	struct {
