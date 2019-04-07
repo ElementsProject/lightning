@@ -25,6 +25,7 @@ changes.
 ### Fixed
 
 - `--bind-addr=<path>` fixed for nodes using local sockets (eg. testing).
+- Unannounced local channels were forgotten for routing on restart until reconnection occurred.
 
 ### Security
 

@@ -150,6 +150,46 @@ static bool gossip_store_append(int fd, struct routing_state *rstate, const u8 *
 		write(fd, msg, msglen) == msglen);
 }
 
+/* Local unannounced channels don't appear in broadcast map, but we need to
+ * remember them anyway, so we manually append to the store.
+ *
+ * Note these do *not* add to gs->count, since that's compared with
+ * the broadcast map count.
+*/
+static bool add_local_unnannounced(int fd,
+				   struct routing_state *rstate,
+				   struct node *self)
+{
+	struct chan_map_iter i;
+	struct chan *c;
+
+	for (c = chan_map_first(&self->chans, &i);
+	     c;
+	     c = chan_map_next(&self->chans, &i)) {
+		struct node *peer = other_node(self, c);
+		const u8 *msg;
+
+		/* Ignore already announced. */
+		if (c->channel_announce)
+			continue;
+
+		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
+						       &peer->id, c->sat);
+		if (!gossip_store_append(fd, rstate, msg))
+			return false;
+
+		for (size_t i = 0; i < 2; i++) {
+			msg = c->half[i].channel_update;
+			if (!msg)
+				continue;
+			if (!gossip_store_append(fd, rstate, msg))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 /**
  * Rewrite the on-disk gossip store, compacting it along the way
  *
@@ -162,6 +202,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 	u64 index = 0;
 	int fd;
 	const u8 *msg;
+	struct node *self;
 
 	assert(gs->broadcast);
 	status_trace(
@@ -187,9 +228,16 @@ bool gossip_store_compact(struct gossip_store *gs)
 			status_broken("Failed writing to gossip store: %s",
 				      strerror(errno));
 			goto unlink_disable;
-
 		}
 		count++;
+	}
+
+	/* Local unannounced channels are not in the store! */
+	self = get_node(gs->rstate, &gs->rstate->local_id);
+	if (self && !add_local_unnannounced(fd, gs->rstate, self)) {
+		status_broken("Failed writing unannounced to gossip store: %s",
+			      strerror(errno));
+		goto unlink_disable;
 	}
 
 	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) == -1) {

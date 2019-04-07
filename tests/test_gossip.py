@@ -1033,7 +1033,6 @@ def test_getroute_exclude(node_factory, bitcoind):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, chan_l2l4])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
 def test_gossip_store_local_channels(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=False)
@@ -1059,7 +1058,6 @@ def test_gossip_store_local_channels(node_factory, bitcoind):
     assert len(chans) == 2
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
 def test_gossip_store_private_channels(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, announce_channels=False)
