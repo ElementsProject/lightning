@@ -156,8 +156,7 @@ static bool gossip_store_append(int fd, struct routing_state *rstate, const u8 *
  * Creates a new file, writes all the updates from the `broadcast_state`, and
  * then atomically swaps the files.
  */
-
-static void gossip_store_compact(struct gossip_store *gs)
+bool gossip_store_compact(struct gossip_store *gs)
 {
 	size_t count = 0;
 	u64 index = 0;
@@ -206,7 +205,7 @@ static void gossip_store_compact(struct gossip_store *gs)
 	gs->count = count;
 	close(gs->fd);
 	gs->fd = fd;
-	return;
+	return true;
 
 unlink_disable:
 	unlink(GOSSIP_STORE_TEMP_FILENAME);
@@ -214,6 +213,7 @@ disable:
 	status_trace("Encountered an error while compacting, disabling "
 		     "future compactions.");
 	gs->disable_compaction = true;
+	return false;
 }
 
 void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)

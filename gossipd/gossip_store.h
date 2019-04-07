@@ -39,4 +39,6 @@ void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg);
 void gossip_store_add_channel_delete(struct gossip_store *gs,
 				     const struct short_channel_id *scid);
 
+/* Expose for dev-compact-gossip-store */
+bool gossip_store_compact(struct gossip_store *gs);
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

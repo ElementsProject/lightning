@@ -142,6 +142,13 @@ gossip_dev_memleak,3033
 gossip_dev_memleak_reply,3133
 gossip_dev_memleak_reply,,leak,bool
 
+# master -> gossipd: please rewrite the gossip_store
+gossip_dev_compact_store,3034
+
+# gossipd -> master: ok
+gossip_dev_compact_store_reply,3134
+gossip_dev_compact_store_reply,,success,bool
+
 #include <common/bolt11.h>
 
 # master -> gossipd: get route_info for our incoming channels
