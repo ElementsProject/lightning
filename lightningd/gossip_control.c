@@ -121,6 +121,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_DEV_SUPPRESS:
 	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
 	case WIRE_GOSSIP_DEV_MEMLEAK:
+	case WIRE_GOSSIP_DEV_COMPACT_STORE:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
@@ -130,6 +131,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_DEV_MEMLEAK_REPLY:
+	case WIRE_GOSSIP_DEV_COMPACT_STORE_REPLY:
 		break;
 
 	case WIRE_GOSSIP_PING_REPLY:
@@ -680,4 +682,46 @@ static const struct json_command dev_suppress_gossip = {
 	"Stop this node from sending any more gossip."
 };
 AUTODATA(json_command, &dev_suppress_gossip);
+
+static void dev_compact_gossip_store_reply(struct subd *gossip UNUSED,
+					   const u8 *reply,
+					   const int *fds UNUSED,
+					   struct command *cmd)
+{
+	bool success;
+
+	if (!fromwire_gossip_dev_compact_store_reply(reply, &success)) {
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Gossip gave bad dev_gossip_compact_store_reply"));
+		return;
+	}
+
+	if (!success)
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "gossip_compact_store failed"));
+	else
+		was_pending(command_success(cmd, null_response(cmd)));
+}
+
+static struct command_result *json_dev_compact_gossip_store(struct command *cmd,
+							    const char *buffer,
+							    const jsmntok_t *obj UNNEEDED,
+							    const jsmntok_t *params)
+{
+	u8 *msg;
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	msg = towire_gossip_dev_compact_store(NULL);
+	subd_req(cmd->ld->gossip, cmd->ld->gossip,
+		 take(msg), -1, 0, dev_compact_gossip_store_reply, cmd);
+	return command_still_pending(cmd);
+}
+
+static const struct json_command dev_compact_gossip_store = {
+	"dev-compact-gossip-store",
+	json_dev_compact_gossip_store,
+	"Ask gossipd to rewrite the gossip store."
+};
+AUTODATA(json_command, &dev_compact_gossip_store);
 #endif /* DEVELOPER */
