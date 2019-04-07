@@ -218,6 +218,10 @@ struct routing_state {
 #if DEVELOPER
 	/* Override local time for gossip messages */
 	struct timeabs *gossip_time;
+
+	/* Instead of ignoring unknown channels, pretend they're valid
+	 * with this many satoshis (if non-NULL) */
+	const struct amount_sat *dev_unknown_channel_satoshis;
 #endif
 };
 
@@ -240,7 +244,8 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct pubkey *local_id,
 					u32 prune_timeout,
-					const u32 *dev_gossip_time);
+					const u32 *dev_gossip_time,
+					const struct amount_sat *dev_unknown_channel_satoshis);
 
 /**
  * Add a new bidirectional channel from id1 to id2 with the given
