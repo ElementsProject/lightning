@@ -49,7 +49,9 @@ struct log_book {
 		      enum log_level level,
 		      bool continued,
 		      const struct timeabs *time,
-		      const char *str, const u8 *io, void *arg);
+		      const char *str,
+		      const u8 *io, size_t io_len,
+		      void *arg);
 	void *print_arg;
 	enum log_level print_level;
 	struct timeabs init_time;
@@ -68,6 +70,7 @@ static void log_to_file(const char *prefix,
 			const struct timeabs *time,
 			const char *str,
 			const u8 *io,
+			size_t io_len,
 			FILE *logf)
 {
 	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
@@ -77,7 +80,7 @@ static void log_to_file(const char *prefix,
 
 	if (level == LOG_IO_IN || level == LOG_IO_OUT) {
 		const char *dir = level == LOG_IO_IN ? "[IN]" : "[OUT]";
-		char *hex = tal_hex(NULL, io);
+		char *hex = tal_hexstr(NULL, io, io_len);
 		fprintf(logf, "%s %s%s%s %s\n",
 			iso8601_s, prefix, str, dir, hex);
 		tal_free(hex);
@@ -94,9 +97,10 @@ static void log_to_stdout(const char *prefix,
 			  bool continued,
 			  const struct timeabs *time,
 			  const char *str,
-			  const u8 *io, void *unused UNUSED)
+			  const u8 *io, size_t io_len,
+			  void *unused UNUSED)
 {
-	log_to_file(prefix, level, continued, time, str, io, stdout);
+	log_to_file(prefix, level, continued, time, str, io, io_len, stdout);
 }
 
 static size_t mem_used(const struct log_entry *e)
@@ -191,7 +195,9 @@ void set_log_outfn_(struct log_book *lr,
 				  enum log_level level,
 				  bool continued,
 				  const struct timeabs *time,
-				  const char *str, const u8 *io, void *arg),
+				  const char *str,
+				  const u8 *io, size_t io_len,
+				  void *arg),
 		    void *arg)
 {
 	lr->print = print;
@@ -250,7 +256,7 @@ static void maybe_print(const struct log *log, const struct log_entry *l,
 	if (l->level >= log->lr->print_level)
 		log->lr->print(log->prefix, l->level, offset != 0,
 			       &l->time, l->log + offset,
-			       l->io, log->lr->print_arg);
+			       l->io, tal_bytelen(l->io), log->lr->print_arg);
 }
 
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
@@ -282,10 +288,21 @@ void log_io(struct log *log, enum log_level dir,
 
 	assert(dir == LOG_IO_IN || dir == LOG_IO_OUT);
 
+	/* Print first, in case we need to truncate. */
+	if (l->level >= log->lr->print_level)
+		log->lr->print(log->prefix, l->level, false,
+			       &l->time, str,
+			       data, len, log->lr->print_arg);
+
 	l->log = tal_strdup(l, str);
+
+	/* Don't immediately fill buffer with giant IOs */
+	if (len > log->lr->max_mem / 64) {
+		l->skipped++;
+		len = log->lr->max_mem / 64;
+	}
 	l->io = tal_dup_arr(l, u8, data, len, 0);
 
-	maybe_print(log, l, 0);
 	add_entry(log, l);
 	errno = save_errno;
 }

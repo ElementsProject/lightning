@@ -620,6 +620,7 @@ void set_log_outfn_(struct log_book *lr UNNEEDED,
 				  const struct timeabs *time UNNEEDED,
 				  const char *str UNNEEDED,
 				  const u8 *io UNNEEDED,
+				  size_t io_len UNNEEDED,
 				  void *arg) UNNEEDED,
 		    void *arg UNNEEDED)
 {

@@ -72,11 +72,11 @@ static void copy_to_parent_log(const char *prefix,
 			       bool continued,
 			       const struct timeabs *time UNUSED,
 			       const char *str,
-			       const u8 *io,
+			       const u8 *io, size_t io_len,
 			       struct log *parent_log)
 {
 	if (level == LOG_IO_IN || level == LOG_IO_OUT)
-		log_io(parent_log, level, prefix, io, tal_count(io));
+		log_io(parent_log, level, prefix, io, io_len);
 	else if (continued)
 		log_add(parent_log, "%s ... %s", prefix, str);
 	else
