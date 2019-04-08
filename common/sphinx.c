@@ -90,10 +90,14 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 
 static size_t sphinx_hop_count_frames(const struct sphinx_hop *hop)
 {
+#if EXPERIMENTAL_FEATURES
 	size_t size = REALM_SIZE + tal_bytelen(hop->payload) + HMAC_SIZE;
 
 	/* Rounding up to the closest multiple of FRAME_SIZE) */
 	return (size + FRAME_SIZE - 1) / FRAME_SIZE;
+#else
+	return 1;
+#endif
 }
 
 static size_t sphinx_path_count_frames(const struct sphinx_path *path)
@@ -415,23 +419,38 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 	data->outgoing_cltv = fromwire_u32(&cursor, &max);
 }
 
-static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
+static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 {
 	u8 num_frames = sphinx_hop_count_frames(hop);
+
+	if (num_frames > MAX_FRAMES_PER_HOP)
+		return false;
+
+#if !EXPERIMENTAL_FEATURES
+	if (REALM_SIZE + tal_bytelen(hop->payload) + HMAC_SIZE > FRAME_SIZE)
+		return false;
+#endif
+
 	memset(dest, 0, num_frames * FRAME_SIZE);
 	dest[0] = hop->realm | (num_frames-1) << 4;
 	memcpy(dest + 1, hop->payload, tal_bytelen(hop->payload));
 	memcpy(dest + (sphinx_hop_count_frames(hop) * FRAME_SIZE) - HMAC_SIZE,
 	       hop->hmac, HMAC_SIZE);
+	return true;
 }
 
 static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 {
 	size_t hop_size;
 
+#if EXPERIMENTAL_FEATURES
 	/* Read the realm byte and extract the number of framse */
 	step->realm = src[0] & 0x0F;
 	step->payload_frames = (src[0] >> 4) + 1;
+#else
+	step->realm = src[0];
+	step->payload_frames = 1;
+#endif
 	hop_size = step->payload_frames * FRAME_SIZE;
 
 	/* Copy common pieces over */
@@ -492,8 +511,11 @@ struct onionpacket *create_onionpacket(
 		size_t shiftSize = sphinx_hop_count_frames(&sp->hops[i]) * FRAME_SIZE;
 		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
 			ROUTING_INFO_SIZE-shiftSize);
-		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
-
+		if (!sphinx_write_frame(packet->routinginfo, &sp->hops[i])) {
+			tal_free(packet);
+			tal_free(secrets);
+			return NULL;
+		}
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {

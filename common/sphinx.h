@@ -21,6 +21,12 @@
 #define ROUTING_INFO_SIZE (FRAME_SIZE * NUM_MAX_FRAMES)
 #define TOTAL_PACKET_SIZE (VERSION_SIZE + PUBKEY_SIZE + HMAC_SIZE + ROUTING_INFO_SIZE)
 
+#if EXPERIMENTAL_FEATURES
+#define MAX_FRAMES_PER_HOP (1 << 4)
+#else
+#define MAX_FRAMES_PER_HOP 1
+#endif
+
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
