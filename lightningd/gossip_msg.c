@@ -96,38 +96,76 @@ void towire_route_info(u8 **pptr, const struct route_info *entry)
 	towire_u16(pptr, entry->cltv_expiry_delta);
 }
 
-void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
-				       struct gossip_getchannels_entry *entry)
+static void fromwire_gossip_halfchannel_entry(const u8 **pptr, size_t *max,
+					      struct gossip_halfchannel_entry *entry)
 {
-	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
-	fromwire_node_id(pptr, max, &entry->source);
-	fromwire_node_id(pptr, max, &entry->destination);
-	entry->sat = fromwire_amount_sat(pptr, max);
 	entry->message_flags = fromwire_u8(pptr, max);
 	entry->channel_flags = fromwire_u8(pptr, max);
-	entry->public = fromwire_bool(pptr, max);
-	entry->local_disabled = fromwire_bool(pptr, max);
 	entry->last_update_timestamp = fromwire_u32(pptr, max);
+	entry->delay = fromwire_u32(pptr, max);
 	entry->base_fee_msat = fromwire_u32(pptr, max);
 	entry->fee_per_millionth = fromwire_u32(pptr, max);
-	entry->delay = fromwire_u32(pptr, max);
+}
+
+struct gossip_getchannels_entry *
+fromwire_gossip_getchannels_entry(const tal_t *ctx,
+				  const u8 **pptr, size_t *max)
+{
+	struct gossip_getchannels_entry *entry;
+
+	entry= tal(ctx, struct gossip_getchannels_entry);
+	fromwire_node_id(pptr, max, &entry->node[0]);
+	fromwire_node_id(pptr, max, &entry->node[1]);
+	entry->sat = fromwire_amount_sat(pptr, max);
+	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
+	entry->public = fromwire_bool(pptr, max);
+	entry->local_disabled = fromwire_bool(pptr, max);
+
+	if (fromwire_bool(pptr, max)) {
+		entry->e[0] = tal(entry, struct gossip_halfchannel_entry);
+		fromwire_gossip_halfchannel_entry(pptr, max, entry->e[0]);
+	} else
+		entry->e[0] = NULL;
+	if (fromwire_bool(pptr, max)) {
+		entry->e[1] = tal(entry, struct gossip_halfchannel_entry);
+		fromwire_gossip_halfchannel_entry(pptr, max, entry->e[1]);
+	} else
+		entry->e[1] = NULL;
+
+	return entry;
+}
+
+static void towire_gossip_halfchannel_entry(u8 **pptr,
+					    const struct gossip_halfchannel_entry *entry)
+{
+	towire_u8(pptr, entry->message_flags);
+	towire_u8(pptr, entry->channel_flags);
+	towire_u32(pptr, entry->last_update_timestamp);
+	towire_u32(pptr, entry->delay);
+	towire_u32(pptr, entry->base_fee_msat);
+	towire_u32(pptr, entry->fee_per_millionth);
 }
 
 void towire_gossip_getchannels_entry(u8 **pptr,
 				     const struct gossip_getchannels_entry *entry)
 {
-	towire_short_channel_id(pptr, &entry->short_channel_id);
-	towire_node_id(pptr, &entry->source);
-	towire_node_id(pptr, &entry->destination);
+	towire_node_id(pptr, &entry->node[0]);
+	towire_node_id(pptr, &entry->node[1]);
 	towire_amount_sat(pptr, entry->sat);
-	towire_u8(pptr, entry->message_flags);
-	towire_u8(pptr, entry->channel_flags);
+	towire_short_channel_id(pptr, &entry->short_channel_id);
 	towire_bool(pptr, entry->public);
 	towire_bool(pptr, entry->local_disabled);
-	towire_u32(pptr, entry->last_update_timestamp);
-	towire_u32(pptr, entry->base_fee_msat);
-	towire_u32(pptr, entry->fee_per_millionth);
-	towire_u32(pptr, entry->delay);
+	if (entry->e[0]) {
+		towire_bool(pptr, true);
+		towire_gossip_halfchannel_entry(pptr, entry->e[0]);
+	} else
+		towire_bool(pptr, false);
+
+	if (entry->e[1]) {
+		towire_bool(pptr, true);
+		towire_gossip_halfchannel_entry(pptr, entry->e[1]);
+	} else
+		towire_bool(pptr, false);
 }
 
 struct peer_features *

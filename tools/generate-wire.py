@@ -37,6 +37,7 @@ type2size = {
 varlen_structs = [
     'peer_features',
     'gossip_getnodes_entry',
+    'gossip_getchannels_entry',
     'failed_htlc',
     'utxo',
     'bitcoin_tx',
