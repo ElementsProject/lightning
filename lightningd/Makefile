@@ -40,6 +40,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/json_tok.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/node_id.o			\
 	common/param.o				\
 	common/permute_tx.o			\
 	common/pseudorand.o			\

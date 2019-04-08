@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_escaped.h>
+#include <common/node_id.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
@@ -951,6 +952,20 @@ bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk)
 	return err == SQLITE_OK;
 }
 
+bool sqlite3_column_node_id(sqlite3_stmt *stmt, int col, struct node_id *dest)
+{
+	assert(sqlite3_column_bytes(stmt, col) == sizeof(dest->k));
+	memcpy(dest->k, sqlite3_column_blob(stmt, col), sizeof(dest->k));
+	return node_id_valid(dest);
+}
+
+bool sqlite3_bind_node_id(sqlite3_stmt *stmt, int col, const struct node_id *id)
+{
+	assert(node_id_valid(id));
+	int err = sqlite3_bind_blob(stmt, col, id->k, sizeof(id->k), SQLITE_TRANSIENT);
+	return err == SQLITE_OK;
+}
+
 bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
 			       const struct pubkey *pks)
 {
@@ -991,6 +1006,56 @@ struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
 
 	for (i = 0; i < n; ++i) {
 		if (!pubkey_from_der(&ders[i * PUBKEY_CMPR_LEN], PUBKEY_CMPR_LEN, &ret[i]))
+			return tal_free(ret);
+	}
+
+	return ret;
+}
+
+bool sqlite3_bind_node_id_array(sqlite3_stmt *stmt, int col,
+				const struct node_id *ids)
+{
+	size_t n;
+	u8 *arr;
+
+	if (!ids) {
+		int err = sqlite3_bind_null(stmt, col);
+		return err == SQLITE_OK;
+	}
+
+	/* Copy into contiguous array: ARM will add padding to struct node_id! */
+	n = tal_count(ids);
+	arr = tal_arr(NULL, u8, n * sizeof(ids[0].k));
+	for (size_t i = 0; i < n; ++i) {
+		assert(node_id_valid(&ids[i]));
+		memcpy(arr + sizeof(ids[i].k) * i,
+		       ids[i].k,
+		       sizeof(ids[i].k));
+	}
+	int err = sqlite3_bind_blob(stmt, col, arr, tal_count(arr), SQLITE_TRANSIENT);
+
+	tal_free(arr);
+	return err == SQLITE_OK;
+}
+
+struct node_id *sqlite3_column_node_id_array(const tal_t *ctx,
+					     sqlite3_stmt *stmt, int col)
+{
+	size_t n;
+	struct node_id *ret;
+	const u8 *arr;
+
+	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
+		return NULL;
+
+	n = sqlite3_column_bytes(stmt, col) / sizeof(ret->k);
+	assert(n * sizeof(ret->k) == (size_t)sqlite3_column_bytes(stmt, col));
+	ret = tal_arr(ctx, struct node_id, n);
+	arr = sqlite3_column_blob(stmt, col);
+
+	for (size_t i = 0; i < n; i++) {
+		memcpy(ret[i].k, arr + i * sizeof(ret[i].k), sizeof(ret[i].k));
+		if (!node_id_valid(&ret[i]))
 			return tal_free(ret);
 	}
 

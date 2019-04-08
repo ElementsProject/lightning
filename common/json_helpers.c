@@ -2,6 +2,7 @@
 #include <bitcoin/short_channel_id.h>
 #include <common/amount.h>
 #include <common/json_helpers.h>
+#include <common/node_id.h>
 #include <errno.h>
 
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
@@ -30,6 +31,13 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 		return false;
 
 	return true;
+}
+
+bool json_to_node_id(const char *buffer, const jsmntok_t *tok,
+		     struct node_id *id)
+{
+	return node_id_from_hexstr(buffer + tok->start,
+				   tok->end - tok->start, id);
 }
 
 bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,

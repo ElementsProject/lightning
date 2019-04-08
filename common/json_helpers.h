@@ -7,11 +7,16 @@
 struct amount_msat;
 struct amount_sat;
 struct pubkey;
+struct node_id;
 struct short_channel_id;
 
 /* Extract a pubkey from this */
 bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
 		    struct pubkey *pubkey);
+
+/* Extract node_id from this: makes sure *id is valid! */
+bool json_to_node_id(const char *buffer, const jsmntok_t *tok,
+			       struct node_id *id);
 
 /* Extract satoshis from this (may be a string, or a decimal number literal) */
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,

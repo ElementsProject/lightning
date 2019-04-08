@@ -33,6 +33,7 @@ COMMON_SRC_NOGEN :=				\
 	common/keyset.c				\
 	common/memleak.c			\
 	common/msg_queue.c			\
+	common/node_id.c			\
 	common/param.c				\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\

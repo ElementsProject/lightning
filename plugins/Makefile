@@ -26,6 +26,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/json_helpers.o			\
 	common/json_tok.o			\
 	common/memleak.o			\
+	common/node_id.o			\
 	common/param.o				\
 	common/pseudorand.o			\
 	common/type_to_string.o			\

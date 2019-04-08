@@ -175,6 +175,7 @@ void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, 
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bitcoin_blkid);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bitcoin_txid);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(channel_id);
+PRINTWIRE_STRUCT_TYPE_TO_STRING(node_id);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(preimage);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(pubkey);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(sha256);

@@ -319,6 +319,9 @@ void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
+/* Generated stub for node_id_valid */
+bool node_id_valid(const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "node_id_valid called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED, struct pubkey *nodeid UNNEEDED,
 		    struct wireaddr_internal *addr UNNEEDED)
