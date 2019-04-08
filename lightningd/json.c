@@ -330,16 +330,6 @@ void json_add_null(struct json_stream *stream, const char *fieldname)
 	json_add_member(stream, fieldname, "null");
 }
 
-void json_add_hex(struct json_stream *result, const char *fieldname,
-		  const void *data, size_t len)
-{
-	char *hex = tal_arr(NULL, char, hex_str_size(len));
-
-	hex_encode(data, len, hex, hex_str_size(len));
-	json_add_string(result, fieldname, hex);
-	tal_free(hex);
-}
-
 void json_add_hex_talarr(struct json_stream *result,
 			 const char *fieldname,
 			 const tal_t *data)
