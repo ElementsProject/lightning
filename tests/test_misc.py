@@ -566,6 +566,7 @@ def test_io_logging(node_factory, executor):
     assert any(l['type'] == 'IO_IN' for l in peerlog)
 
 
+@pytest.mark.xfail(strict=True)
 def test_address(node_factory):
     if DEVELOPER:
         opts = {'dev-allow-localhost': None}
@@ -594,6 +595,16 @@ def test_address(node_factory):
 
     l2 = node_factory.get_node()
     l2.rpc.connect(l1.info['id'], l1.daemon.opts['bind-addr'])
+
+    # 'addr' with local socket works too.
+    l1.stop()
+    del l1.daemon.opts['bind-addr']
+    l1.daemon.opts['addr'] = os.path.join(l1.daemon.lightning_dir, "sock")
+    # start expects a port, so we open-code here.
+    l1.daemon.start()
+
+    l2 = node_factory.get_node()
+    l2.rpc.connect(l1.info['id'], l1.daemon.opts['addr'])
 
 
 def test_listconfigs(node_factory, bitcoind):
