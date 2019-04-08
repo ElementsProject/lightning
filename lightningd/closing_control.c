@@ -159,6 +159,7 @@ void peer_start_closingd(struct channel *channel,
 	u64 num_revocations;
 	struct amount_msat their_msat;
 	int hsmfd;
+	struct secret last_remote_per_commit_secret;
 	struct lightningd *ld = channel->peer->ld;
 
 	if (!channel->remote_shutdown_scriptpubkey) {
@@ -168,7 +169,8 @@ void peer_start_closingd(struct channel *channel,
 	}
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id, channel->dbid,
-				  HSM_CAP_SIGN_CLOSING_TX);
+				  HSM_CAP_SIGN_CLOSING_TX
+				  | HSM_CAP_COMMITMENT_POINT);
 
 	channel_set_owner(channel,
 			  new_channel_subd(ld,
@@ -235,6 +237,27 @@ void peer_start_closingd(struct channel *channel,
 		channel_fail_permanent(channel, "our_msat overflow on closing");
 		return;
 	}
+
+	/* BOLT #2:
+	 *
+	 *   - if it supports `option_data_loss_protect`:
+	 *     - if `next_remote_revocation_number` equals 0:
+	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
+	 *     - otherwise:
+	 *       - MUST set `your_last_per_commitment_secret` to the last
+	 *         `per_commitment_secret` it received
+	 */
+	if (num_revocations == 0)
+		memset(&last_remote_per_commit_secret, 0,
+		       sizeof(last_remote_per_commit_secret));
+	else if (!shachain_get_secret(&channel->their_shachain.chain,
+				      num_revocations-1,
+				      &last_remote_per_commit_secret)) {
+		channel_fail_permanent(channel,
+				       "Could not get revocation secret %"PRIu64,
+				       num_revocations-1);
+		return;
+	}
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
 				      &channel->funding_txid,
@@ -256,7 +279,8 @@ void peer_start_closingd(struct channel *channel,
 				      num_revocations,
 				      channel_reestablish,
 				      p2wpkh_for_keyidx(tmpctx, ld,
-							channel->final_key_idx));
+							channel->final_key_idx),
+				      &last_remote_per_commit_secret);
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */
