@@ -191,8 +191,8 @@ static void json_add_raw_pubkey(struct json_stream *response,
 			 const u8 raw_pubkey[sizeof(struct pubkey)])
 {
 	secp256k1_pubkey pubkey;
-	u8 der[PUBKEY_DER_LEN];
-	size_t outlen = PUBKEY_DER_LEN;
+	u8 der[PUBKEY_CMPR_LEN];
+	size_t outlen = PUBKEY_CMPR_LEN;
 
 	memcpy(&pubkey, raw_pubkey, sizeof(pubkey));
 	if (!secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &outlen,

@@ -1189,11 +1189,11 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 static const char *seedname(const tal_t *ctx, const struct pubkey *id)
 {
 	char bech32[100];
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	u5 *data = tal_arr(ctx, u5, 0);
 
 	pubkey_to_der(der, id);
-	bech32_push_bits(&data, der, PUBKEY_DER_LEN*8);
+	bech32_push_bits(&data, der, PUBKEY_CMPR_LEN*8);
 	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
 	return tal_fmt(ctx, "%s.lseed.bitcoinstats.com", bech32);
 }

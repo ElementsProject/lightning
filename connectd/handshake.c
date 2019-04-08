@@ -39,7 +39,7 @@ enum bolt8_side {
  */
 struct act_one {
 	u8 v;
-	u8 pubkey[PUBKEY_DER_LEN];
+	u8 pubkey[PUBKEY_CMPR_LEN];
 	u8 tag[crypto_aead_chacha20poly1305_ietf_ABYTES];
 };
 
@@ -68,7 +68,7 @@ static inline void check_act_one(const struct act_one *act1)
  */
 struct act_two {
 	u8 v;
-	u8 pubkey[PUBKEY_DER_LEN];
+	u8 pubkey[PUBKEY_CMPR_LEN];
 	u8 tag[crypto_aead_chacha20poly1305_ietf_ABYTES];
 };
 
@@ -98,7 +98,7 @@ static inline void check_act_two(const struct act_two *act2)
  */
 struct act_three {
 	u8 v;
-	u8 ciphertext[PUBKEY_DER_LEN + crypto_aead_chacha20poly1305_ietf_ABYTES];
+	u8 ciphertext[PUBKEY_CMPR_LEN + crypto_aead_chacha20poly1305_ietf_ABYTES];
 	u8 tag[crypto_aead_chacha20poly1305_ietf_ABYTES];
 };
 
@@ -211,7 +211,7 @@ static void sha_mix_in(struct sha256 *h, const void *data, size_t len)
 /* h = SHA-256(h || pub.serializeCompressed()) */
 static void sha_mix_in_key(struct sha256 *h, const struct pubkey *key)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	size_t len = sizeof(der);
 
 	secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &len, &key->pubkey,
@@ -442,7 +442,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 static struct io_plan *act_three_initiator(struct io_conn *conn,
 					   struct handshake *h)
 {
-	u8 spub[PUBKEY_DER_LEN];
+	u8 spub[PUBKEY_CMPR_LEN];
 	size_t len = sizeof(spub);
 
 	SUPERVERBOSE("Initiator: Act 3");
@@ -689,7 +689,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 static struct io_plan *act_three_responder2(struct io_conn *conn,
 					    struct handshake *h)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 
 	SUPERVERBOSE("input: 0x%s", tal_hexstr(tmpctx, &h->act3, ACT_THREE_SIZE));
 

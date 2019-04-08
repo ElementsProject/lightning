@@ -72,7 +72,7 @@ void towire_var_int(u8 **pptr, const u64 val)
 
 void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 {
-	u8 output[PUBKEY_DER_LEN];
+	u8 output[PUBKEY_CMPR_LEN];
 	size_t outputlen = sizeof(output);
 
 	secp256k1_ec_pubkey_serialize(secp256k1_ctx, output, &outputlen,

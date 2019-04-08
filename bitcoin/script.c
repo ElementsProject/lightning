@@ -104,7 +104,7 @@ static void add_number(u8 **script, u32 num)
 
 static void add_push_key(u8 **scriptp, const struct pubkey *key)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	pubkey_to_der(der, key);
 
 	add_push_bytes(scriptp, der, sizeof(der));
@@ -120,7 +120,7 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 
 static u8 *stack_key(const tal_t *ctx, const struct pubkey *key)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	pubkey_to_der(der, key);
 
 	return tal_dup_arr(ctx, u8, der, sizeof(der), 0);
@@ -305,7 +305,7 @@ u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33])
 	struct ripemd160 h;
 
 	add_op(&script, OP_0);
-	hash160(&h, der, PUBKEY_DER_LEN);
+	hash160(&h, der, PUBKEY_CMPR_LEN);
 	add_push_bytes(&script, &h, sizeof(h));
 	return script;
 }

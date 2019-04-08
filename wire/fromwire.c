@@ -119,7 +119,7 @@ u64 fromwire_var_int(const u8 **cursor, size_t *max)
 
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 
 	if (!fromwire(cursor, max, der, sizeof(der)))
 		return;

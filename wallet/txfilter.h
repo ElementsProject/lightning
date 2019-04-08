@@ -27,7 +27,7 @@ struct txfilter *txfilter_new(const tal_t *ctx);
  * scriptpubkey for both raw p2wpkh and p2wpkh wrapped in p2sh.
  */
 void txfilter_add_derkey(struct txfilter *filter,
-			 const u8 derkey[PUBKEY_DER_LEN]);
+			 const u8 derkey[PUBKEY_CMPR_LEN]);
 
 /**
  * txfilter_match -- Check whether the tx matches the filter
