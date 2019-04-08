@@ -94,14 +94,16 @@ static void adjust_io_write(struct io_conn *conn, ptrdiff_t delta)
 	conn->plan[IO_OUT].arg.u1.cp += delta;
 }
 
-/* Make sure js->outbuf has room for len */
-static void mkroom(struct json_stream *js, size_t len)
+/* Make sure js->outbuf has room for len: return pointer */
+static char *mkroom(struct json_stream *js, size_t len)
 {
 	ptrdiff_t delta = membuf_prepare_space(&js->outbuf, len);
 
 	/* If io_write is in progress, we shift it to point to new buffer pos */
 	if (js->reader)
 		adjust_io_write(js->reader, delta);
+
+	return membuf_space(&js->outbuf);
 }
 
 static void js_written_some(struct json_stream *js)
@@ -140,8 +142,7 @@ static void json_stream_append_vfmt(struct json_stream *js,
 	 * membuf_num_space(&jcon->outbuf), the result was truncated! */
 	if (fmtlen >= membuf_num_space(&js->outbuf)) {
 		/* Make room for NUL terminator, even though we don't want it */
-		mkroom(js, fmtlen + 1);
-		vsprintf(membuf_space(&js->outbuf), fmt, ap2);
+		vsprintf(mkroom(js, fmtlen + 1), fmt, ap2);
 	}
 	membuf_added(&js->outbuf, fmtlen);
 	js_written_some(js);
@@ -175,16 +176,43 @@ static void check_fieldname(const struct json_stream *js,
 #endif
 }
 
-static void json_start_member(struct json_stream *js, const char *fieldname)
+/* Caller must call js_written_some() if this returns non-NULL!
+ * Will never return NULL if extra is nonzero.
+ */
+static char *json_start_member(struct json_stream *js,
+			       const char *fieldname, size_t extra)
 {
+	char *dest;
+
 	/* Prepend comma if required. */
 	if (!js->empty)
-		json_stream_append(js, ",");
+		extra++;
 
 	check_fieldname(js, fieldname);
 	if (fieldname)
-		json_stream_append_fmt(js, "\"%s\":", fieldname);
+		extra += 1 + strlen(fieldname) + 2;
+
+	if (!extra) {
+		dest = NULL;
+		goto out;
+	}
+
+	dest = mkroom(js, extra);
+
+	if (!js->empty)
+		*(dest++) = ',';
+	if (fieldname) {
+		*(dest++) = '"';
+		memcpy(dest, fieldname, strlen(fieldname));
+		dest += strlen(fieldname);
+		*(dest++) = '"';
+		*(dest++) = ':';
+	}
+	membuf_added(&js->outbuf, extra);
+
+out:
 	js->empty = false;
+	return dest;
 }
 
 static void js_indent(struct json_stream *js, jsmntype_t type)
@@ -208,8 +236,8 @@ static void js_unindent(struct json_stream *js, jsmntype_t type)
 
 void json_array_start(struct json_stream *js, const char *fieldname)
 {
-	json_start_member(js, fieldname);
-	json_stream_append(js, "[");
+	json_start_member(js, fieldname, 1)[0] = '[';
+	js_written_some(js);
 	js_indent(js, JSMN_ARRAY);
 }
 
@@ -221,8 +249,8 @@ void json_array_end(struct json_stream *js)
 
 void json_object_start(struct json_stream *js, const char *fieldname)
 {
-	json_start_member(js, fieldname);
-	json_stream_append(js, "{");
+	json_start_member(js, fieldname, 1)[0] = '{';
+	js_written_some(js);
 	js_indent(js, JSMN_OBJECT);
 }
 
@@ -238,7 +266,7 @@ json_add_member(struct json_stream *js, const char *fieldname,
 {
 	va_list ap;
 
-	json_start_member(js, fieldname);
+	json_start_member(js, fieldname, 0);
 	va_start(ap, fmt);
 	json_stream_append_vfmt(js, fmt, ap);
 	va_end(ap);
@@ -251,9 +279,7 @@ void json_add_hex(struct json_stream *js, const char *fieldname,
 	size_t hexlen = hex_str_size(len) - 1;
 	char *dest;
 
-	json_start_member(js, fieldname);
-	mkroom(js, 1 + hexlen + 1);
-	dest = membuf_add(&js->outbuf, 1 + hexlen + 1);
+	dest = json_start_member(js, fieldname, 1 + hexlen + 1);
 	dest[0] = '"';
 	if (!hex_encode(data, len, dest + 1, hexlen + 1))
 		abort();
