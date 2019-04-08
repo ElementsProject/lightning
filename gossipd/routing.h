@@ -105,6 +105,8 @@ static inline bool chan_eq_scid(const struct chan *c,
 }
 HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map);
 
+#define NUM_IMMEDIATE_CHANS (sizeof(struct chan_map) / sizeof(struct chan *) - 1)
+
 struct node {
 	struct pubkey id;
 
@@ -115,7 +117,10 @@ struct node {
 	struct wireaddr *addresses;
 
 	/* Channels connecting us to other nodes */
-	struct chan_map chans;
+	union {
+		struct chan_map map;
+		struct chan *arr[NUM_IMMEDIATE_CHANS+1];
+	} chans;
 
 	/* Temporary data for routefinding. */
 	struct {
