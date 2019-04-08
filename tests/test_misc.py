@@ -566,7 +566,6 @@ def test_io_logging(node_factory, executor):
     assert any(l['type'] == 'IO_IN' for l in peerlog)
 
 
-@pytest.mark.xfail(strict=True)
 def test_address(node_factory):
     if DEVELOPER:
         opts = {'dev-allow-localhost': None}
