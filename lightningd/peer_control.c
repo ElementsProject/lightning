@@ -98,7 +98,7 @@ static void peer_update_features(struct peer *peer,
 }
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
-		      const struct pubkey *id,
+		      const struct node_id *id,
 		      const struct wireaddr_internal *addr)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
@@ -111,7 +111,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->addr = *addr;
 	peer->globalfeatures = peer->localfeatures = NULL;
 	list_head_init(&peer->channels);
-	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
+	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
 
 #if DEVELOPER
 	peer->ignore_htlcs = false;
@@ -162,12 +162,12 @@ struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)
 	return NULL;
 }
 
-struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
+struct peer *peer_by_id(struct lightningd *ld, const struct node_id *id)
 {
 	struct peer *p;
 
 	list_for_each(&ld->peers, p, list)
-		if (pubkey_eq(&p->id, id))
+		if (node_id_eq(&p->id, id))
 			return p;
 	return NULL;
 }
@@ -176,9 +176,9 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    const jsmntok_t *peeridtok)
 {
-	struct pubkey peerid;
+	struct node_id peerid;
 
-	if (!json_to_pubkey(buffer, peeridtok, &peerid))
+	if (!json_to_node_id(buffer, peeridtok, &peerid))
 		return NULL;
 
 	return peer_by_id(ld, &peerid);
@@ -526,7 +526,7 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_short_channel_id(response, "short_channel_id",
 					  channel->scid);
 		json_add_num(response, "direction",
-			     pubkey_idx(&ld->id, &channel->peer->id));
+			     node_id_idx(&ld->id, &channel->peer->id));
 	}
 
 	derive_channel_id(&cid, &channel->funding_txid,
@@ -542,12 +542,12 @@ static void json_add_channel(struct lightningd *ld,
 	// are implemented
 	json_object_start(response, "funding_allocation_msat");
 	if (channel->funder == LOCAL) {
-		json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id), 0);
-		json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id),
+		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id), 0);
+		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
 			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
 	} else {
-		json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id), 0);
-		json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id),
+		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id), 0);
+		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
 			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
 	}
 	json_object_end(response);
@@ -555,17 +555,17 @@ static void json_add_channel(struct lightningd *ld,
 	json_object_start(response, "funding_msat");
 	if (channel->funder == LOCAL) {
 		json_add_sat_only(response,
-				  pubkey_to_hexstr(tmpctx, &p->id),
+				  node_id_to_hexstr(tmpctx, &p->id),
 				  AMOUNT_SAT(0));
 		json_add_sat_only(response,
-				  pubkey_to_hexstr(tmpctx, &ld->id),
+				  node_id_to_hexstr(tmpctx, &ld->id),
 				  channel->funding);
 	} else {
 		json_add_sat_only(response,
-				  pubkey_to_hexstr(tmpctx, &ld->id),
+				  node_id_to_hexstr(tmpctx, &ld->id),
 				  AMOUNT_SAT(0));
 		json_add_sat_only(response,
-				  pubkey_to_hexstr(tmpctx, &p->id),
+				  node_id_to_hexstr(tmpctx, &p->id),
 				  channel->funding);
 	}
 	json_object_end(response);
@@ -682,7 +682,7 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 {
 	const struct peer *p = payload->peer;
 	json_object_start(stream, "peer");
-	json_add_pubkey(stream, "id", &p->id);
+	json_add_node_id(stream, "id", &p->id);
 	json_add_string(
 	    stream, "addr",
 	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
@@ -819,7 +819,7 @@ REGISTER_PLUGIN_HOOK(peer_connected, peer_connected_hook_cb,
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd)
 {
-	struct pubkey id;
+	struct node_id id;
 	u8 *globalfeatures, *localfeatures;
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
@@ -948,7 +948,7 @@ static void json_add_peer(struct lightningd *ld,
 	struct channel *channel;
 
 	json_object_start(response, NULL);
-	json_add_pubkey(response, "id", &p->id);
+	json_add_node_id(response, "id", &p->id);
 
 	/* Channel is also connected if uncommitted channel */
 	if (p->uncommitted_channel)
@@ -999,12 +999,12 @@ static struct command_result *json_listpeers(struct command *cmd,
 					     const jsmntok_t *params)
 {
 	enum log_level *ll;
-	struct pubkey *specific_id;
+	struct node_id *specific_id;
 	struct peer *peer;
 	struct json_stream *response;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("id", param_pubkey, &specific_id),
+		   p_opt("id", param_node_id, &specific_id),
 		   p_opt("level", param_loglevel, &ll),
 		   NULL))
 		return command_param_failed();
@@ -1229,13 +1229,13 @@ static struct command_result *json_disconnect(struct command *cmd,
 					      const jsmntok_t *obj UNNEEDED,
 					      const jsmntok_t *params)
 {
-	struct pubkey *id;
+	struct node_id *id;
 	struct peer *peer;
 	struct channel *channel;
 	bool *force;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_pubkey, &id),
+		   p_req("id", param_node_id, &id),
 		   p_opt_def("force", param_bool, &force, false),
 		   NULL))
 		return command_param_failed();
@@ -1285,7 +1285,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 
     response = json_stream_success(cmd);
     json_object_start(response, NULL);
-    json_add_pubkey(response, "id", &cmd->ld->id);
+    json_add_node_id(response, "id", &cmd->ld->id);
     json_add_string(response, "alias", (const char *)cmd->ld->alias);
     json_add_hex_talarr(response, "color", cmd->ld->rgb);
 
@@ -1425,7 +1425,7 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 	/* write JSON response entry */
 	derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
 	json_object_start(response, NULL);
-	json_add_pubkey(response, "peer_id", &channel->peer->id);
+	json_add_node_id(response, "peer_id", &channel->peer->id);
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &cid));
 	if (channel->scid)
@@ -1508,14 +1508,14 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
-	struct pubkey *peerid;
+	struct node_id *peerid;
 	struct peer *peer;
 	struct json_stream *response;
 	u8 *linear;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_pubkey, &peerid),
+		   p_req("id", param_node_id, &peerid),
 		   NULL))
 		return command_param_failed();
 
@@ -1555,12 +1555,12 @@ static struct command_result *json_dev_fail(struct command *cmd,
 					    const jsmntok_t *obj UNNEEDED,
 					    const jsmntok_t *params)
 {
-	struct pubkey *peerid;
+	struct node_id *peerid;
 	struct peer *peer;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_pubkey, &peerid),
+		   p_req("id", param_node_id, &peerid),
 		   NULL))
 		return command_param_failed();
 
@@ -1600,13 +1600,13 @@ static struct command_result *json_dev_reenable_commit(struct command *cmd,
 						       const jsmntok_t *obj UNNEEDED,
 						       const jsmntok_t *params)
 {
-	struct pubkey *peerid;
+	struct node_id *peerid;
 	struct peer *peer;
 	u8 *msg;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_pubkey, &peerid),
+		   p_req("id", param_node_id, &peerid),
 		   NULL))
 		return command_param_failed();
 
@@ -1688,7 +1688,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 						      const jsmntok_t *obj UNNEEDED,
 						      const jsmntok_t *params)
 {
-	struct pubkey *peerid;
+	struct node_id *peerid;
 	struct peer *peer;
 	struct channel *channel;
 	struct short_channel_id *scid;
@@ -1697,7 +1697,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 
 	bool *force;
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_pubkey, &peerid),
+		   p_req("id", param_node_id, &peerid),
 		   p_opt("short_channel_id", param_short_channel_id, &scid),
 		   p_opt_def("force", param_bool, &force, false),
 		   NULL))

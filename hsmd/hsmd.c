@@ -31,6 +31,7 @@
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
+#include <common/node_id.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -81,7 +82,7 @@ struct client {
 	u8 *msg_in;
 
 	/* ~Useful for logging, but also used to derive the per-channel seed. */
-	struct pubkey id;
+	struct node_id id;
 
 	/* ~This is a unique value handed to us from lightningd, used for
 	 * per-channel seed generation (a single id may have multiple channels
@@ -195,7 +196,7 @@ static void destroy_client(struct client *c)
 }
 
 static struct client *new_client(const tal_t *ctx,
-				 const struct pubkey *id,
+				 const struct node_id *id,
 				 u64 dbid,
 				 const u64 capabilities,
 				 int fd)
@@ -205,6 +206,11 @@ static struct client *new_client(const tal_t *ctx,
 	/*~ All-zero pubkey is used for the initial master connection */
 	if (id) {
 		c->id = *id;
+		if (!node_id_valid(id))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Invalid node id %s",
+				      type_to_string(tmpctx, struct node_id,
+						     id));
 	} else {
 		memset(&c->id, 0, sizeof(c->id));
 	}
@@ -323,11 +329,11 @@ static void hsm_channel_secret_base(struct secret *channel_seed_base)
 }
 
 /*~ This gets the seed for this particular channel. */
-static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
+static void get_channel_seed(const struct node_id *peer_id, u64 dbid,
 			     struct secret *channel_seed)
 {
 	struct secret channel_base;
-	u8 input[PUBKEY_CMPR_LEN + sizeof(dbid)];
+	u8 input[sizeof(peer_id->k) + sizeof(dbid)];
 	/*~ Again, "per-peer" should be "per-channel", but Hysterical Raisins */
 	const char *info = "per-peer seed";
 
@@ -337,7 +343,8 @@ static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
 	/* FIXME: lnd has a nicer BIP32 method for deriving secrets which we
 	 * should migrate to. */
 	hsm_channel_secret_base(&channel_base);
-	pubkey_to_der(input, peer_id);
+	memcpy(input, peer_id->k, sizeof(peer_id->k));
+	BUILD_ASSERT(sizeof(peer_id->k) == PUBKEY_CMPR_LEN);
 	/*~ For all that talk about platform-independence, note that this
 	 * field is endian-dependent!  But let's face it, little-endian won.
 	 * In related news, we don't support EBCDIC or middle-endian. */
@@ -528,7 +535,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				struct client *c,
 				const u8 *msg_in)
 {
-	struct pubkey node_id;
+	struct node_id node_id;
+	struct pubkey key;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -544,7 +552,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	load_hsm();
 
 	/*~ We tell lightning our node id and (public) bip32 seed. */
-	node_key(NULL, &node_id);
+	node_key(NULL, &key);
+	node_id_from_pubkey(&node_id, &key);
 
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
 	 * not the secrets!  So we're not actually handing them out here!
@@ -712,7 +721,7 @@ static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
 						     struct client *c,
 						     const u8 *msg_in)
 {
-	struct pubkey peer_id;
+	struct node_id peer_id;
 	u64 dbid;
 	struct secret seed;
 	struct basepoints basepoints;
@@ -741,7 +750,8 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 						 struct client *c,
 						 const u8 *msg_in)
 {
-	struct pubkey peer_id, remote_funding_pubkey, local_funding_pubkey;
+	struct pubkey remote_funding_pubkey, local_funding_pubkey;
+	struct node_id peer_id;
 	u64 dbid;
 	struct amount_sat funding;
 	struct secret channel_seed;
@@ -1255,7 +1265,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 {
 	int fds[2];
 	u64 dbid, capabilities;
-	struct pubkey id;
+	struct node_id id;
 
 	/* This must be lightningd itself. */
 	assert(is_lightningd(c));

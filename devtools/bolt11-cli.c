@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 	printf("expiry: %"PRIu64" (%s)\n",
 	       b11->expiry, fmt_time(ctx, b11->timestamp + b11->expiry));
 	printf("payee: %s\n",
-	       type_to_string(ctx, struct pubkey, &b11->receiver_id));
+	       type_to_string(ctx, struct node_id, &b11->receiver_id));
 	printf("payment_hash: %s\n",
 	       tal_hexstr(ctx, &b11->payment_hash, sizeof(b11->payment_hash)));
 	printf("min_final_cltv_expiry: %u\n", b11->min_final_cltv_expiry);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 		printf("route: (node/chanid/fee/expirydelta) ");
 		for (size_t n = 0; n < tal_count(b11->routes[i]); n++) {
 			printf(" %s/%s/%u/%u/%u",
-			       type_to_string(ctx, struct pubkey,
+			       type_to_string(ctx, struct node_id,
 					      &b11->routes[i][n].pubkey),
 			       type_to_string(ctx, struct short_channel_id,
 					      &b11->routes[i][n].short_channel_id),

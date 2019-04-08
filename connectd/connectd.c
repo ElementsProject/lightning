@@ -7,6 +7,7 @@
  * up to lightningd which will fire up a specific per-peer daemon to talk to
  * it.
  */
+#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
@@ -86,9 +87,9 @@
  * peers are already connected.  The HTABLE_DEFINE_TYPE() macro needs a
  * keyof() function to extract the key.  For this simple use case, that's the
  * identity function: */
-static const struct pubkey *pubkey_keyof(const struct pubkey *pk)
+static const struct node_id *node_id_keyof(const struct node_id *pc)
 {
-	return pk;
+	return pc;
 }
 
 /*~ We also need to define a hashing function. siphash24 is a fast yet
@@ -97,26 +98,29 @@ static const struct pubkey *pubkey_keyof(const struct pubkey *pk)
  * use this unless it's a proven bottleneck.  siphash_seed() is a function in
  * common/pseudorand which sets up a seed for our hashing; it's different
  * every time the program is run. */
-static size_t pubkey_hash(const struct pubkey *id)
+static size_t node_id_hash(const struct node_id *id)
 {
-	return siphash24(siphash_seed(), id, sizeof(*id));
+	return siphash24(siphash_seed(), id->k, sizeof(id->k));
 }
 
-/*~ This defines 'struct pubkey_set' which contains 'struct pubkey' pointers. */
-HTABLE_DEFINE_TYPE(struct pubkey,
-		   pubkey_keyof,
-		   pubkey_hash,
-		   pubkey_eq,
-		   pubkey_set);
+/*~ This defines 'struct node_set' which contains 'struct node_id' pointers. */
+HTABLE_DEFINE_TYPE(struct node_id,
+		   node_id_keyof,
+		   node_id_hash,
+		   node_id_eq,
+		   node_set);
 
 /*~ This is the global state, like `struct lightningd *ld` in lightningd. */
 struct daemon {
 	/* Who am I? */
-	struct pubkey id;
+	struct node_id id;
+
+	/* pubkey equivalent. */
+	struct pubkey mykey;
 
 	/* Peers that we've handed to `lightningd`, which it hasn't told us
 	 * have disconnected. */
-	struct pubkey_set peers;
+	struct node_set peers;
 
 	/* Peers we are trying to reach */
 	struct list_head connecting;
@@ -155,7 +159,7 @@ struct connecting {
 	struct daemon *daemon;
 
 	/* The ID of the peer (not necessarily unique, in transit!) */
-	struct pubkey id;
+	struct node_id id;
 
 	/* We iterate through the tal_count(addrs) */
 	size_t addrnum;
@@ -236,7 +240,7 @@ static void destroy_connecting(struct connecting *connect)
 /*~ Most simple search functions start with find_; in this case, search
  * for an existing attempt to connect the given peer id. */
 static struct connecting *find_connecting(struct daemon *daemon,
-					  const struct pubkey *id)
+					  const struct node_id *id)
 {
 	struct connecting *i;
 
@@ -246,7 +250,7 @@ static struct connecting *find_connecting(struct daemon *daemon,
 	 * members (unnecessary here, as there's no padding in a `struct
 	 * pubkey`). */
 	list_for_each(&daemon->connecting, i, list)
-		if (pubkey_eq(id, &i->id))
+		if (node_id_eq(id, &i->id))
 			return i;
 	return NULL;
 }
@@ -255,7 +259,7 @@ static struct connecting *find_connecting(struct daemon *daemon,
  * to try the next address. */
 static void connected_to_peer(struct daemon *daemon,
 			      struct io_conn *conn,
-			      const struct pubkey *id)
+			      const struct node_id *id)
 {
 	/* Don't call destroy_io_conn */
 	io_set_finish(conn, NULL, NULL);
@@ -277,7 +281,7 @@ static void connected_to_peer(struct daemon *daemon,
  * when you're connected to it like we are: there are also 'globalfeatures'
  * which specify requirements to route a payment through a node. */
 static int get_gossipfd(struct daemon *daemon,
-			const struct pubkey *id,
+			const struct node_id *id,
 			const u8 *localfeatures)
 {
 	bool gossip_queries_feature, initial_routing_sync, success;
@@ -313,7 +317,7 @@ static int get_gossipfd(struct daemon *daemon,
 	 * give up on connecting this peer. */
 	if (!success) {
 		status_broken("Gossipd did not give us an fd: losing peer %s",
-			      type_to_string(tmpctx, struct pubkey, id));
+			      type_to_string(tmpctx, struct node_id, id));
 		return -1;
 	}
 
@@ -326,7 +330,7 @@ static int get_gossipfd(struct daemon *daemon,
  * can call peer_connected again. */
 struct peer_reconnected {
 	struct daemon *daemon;
-	struct pubkey id;
+	struct node_id id;
 	const u8 *peer_connected_msg;
 	const u8 *localfeatures;
 };
@@ -341,7 +345,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 
 	/*~ As you can see, we've had issues with this code before :( */
 	status_trace("peer %s: processing now old peer gone",
-		     type_to_string(tmpctx, struct pubkey, &pr->id));
+		     type_to_string(tmpctx, struct node_id, &pr->id));
 
 	/*~ Usually the pattern is to return this directly, but we have to free
 	 * our temporary structure. */
@@ -356,7 +360,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
  * the old one.  We wait until it tells us that's happened. */
 static struct io_plan *peer_reconnected(struct io_conn *conn,
 					struct daemon *daemon,
-					const struct pubkey *id,
+					const struct node_id *id,
 					const u8 *peer_connected_msg TAKES,
 					const u8 *localfeatures TAKES)
 {
@@ -364,7 +368,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	struct peer_reconnected *pr;
 
 	status_trace("peer %s: reconnect",
-		     type_to_string(tmpctx, struct pubkey, id));
+		     type_to_string(tmpctx, struct node_id, id));
 
 	/* Tell master to kill it: will send peer_disconnect */
 	msg = towire_connect_reconnected(NULL, id);
@@ -387,7 +391,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	/*~ ccan/io supports waiting on an address: in this case, the key in
 	 * the peer set.  When someone calls `io_wake()` on that address, it
 	 * will call retry_peer_connected above. */
-	return io_wait(conn, pubkey_set_get(&daemon->peers, id),
+	return io_wait(conn, node_set_get(&daemon->peers, id),
 		       /*~ The notleak() wrapper is a DEVELOPER-mode hack so
 			* that our memory leak detection doesn't consider 'pr'
 			* (which is not referenced from our code) to be a
@@ -399,13 +403,13 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
  * INIT messages are exchanged, and also by the retry code above. */
 struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
-			       const struct pubkey *id,
+			       const struct node_id *id,
 			       const u8 *peer_connected_msg TAKES,
 			       const u8 *localfeatures TAKES)
 {
 	int gossip_fd;
 
-	if (pubkey_set_get(&daemon->peers, id))
+	if (node_set_get(&daemon->peers, id))
 		return peer_reconnected(conn, daemon, id, peer_connected_msg,
 					localfeatures);
 
@@ -432,7 +436,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	/*~ Finally, we add it to the set of pubkeys: tal_dup will handle
 	 * take() args for us, by simply tal_steal()ing it. */
-	pubkey_set_add(&daemon->peers, tal_dup(daemon, struct pubkey, id));
+	node_set_add(&daemon->peers, tal_dup(daemon, struct node_id, id));
 
 	/*~ We want to free the connection, but not close the fd (which is
 	 * queued to go to lightningd), so use this variation on io_close: */
@@ -443,14 +447,16 @@ struct io_plan *peer_connected(struct io_conn *conn,
  * in; we hand it straight to peer_exchange_initmsg() to send and receive INIT
  * and call peer_connected(). */
 static struct io_plan *handshake_in_success(struct io_conn *conn,
-					    const struct pubkey *id,
+					    const struct pubkey *id_key,
 					    const struct wireaddr_internal *addr,
 					    const struct crypto_state *cs,
 					    struct daemon *daemon)
 {
+	struct node_id id;
+	node_id_from_pubkey(&id, id_key);
 	status_trace("Connect IN from %s",
-		     type_to_string(tmpctx, struct pubkey, id));
-	return peer_exchange_initmsg(conn, daemon, cs, id, addr);
+		     type_to_string(tmpctx, struct node_id, &id));
+	return peer_exchange_initmsg(conn, daemon, cs, &id, addr);
 }
 
 /*~ When we get a connection in we set up its network address then call
@@ -494,31 +500,44 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 	 * Note, again, the notleak() to avoid our simplistic leak detection
 	 * code from thinking `conn` (which we don't keep a pointer to) is
 	 * leaked */
-	return responder_handshake(notleak(conn), &daemon->id, &addr,
+	return responder_handshake(notleak(conn), &daemon->mykey, &addr,
 				   handshake_in_success, daemon);
 }
 
 /*~ These are the mirror functions for the connecting-out case. */
 static struct io_plan *handshake_out_success(struct io_conn *conn,
-					     const struct pubkey *id,
+					     const struct pubkey *key,
 					     const struct wireaddr_internal *addr,
 					     const struct crypto_state *cs,
 					     struct connecting *connect)
 {
+	struct node_id id;
+
+	node_id_from_pubkey(&id, key);
 	connect->connstate = "Exchanging init messages";
 	status_trace("Connect OUT to %s",
-		     type_to_string(tmpctx, struct pubkey, id));
-	return peer_exchange_initmsg(conn, connect->daemon, cs, id, addr);
+		     type_to_string(tmpctx, struct node_id, &id));
+	return peer_exchange_initmsg(conn, connect->daemon, cs, &id, addr);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 {
+	struct pubkey outkey;
+
+	/* This shouldn't happen: lightningd should not give invalid ids! */
+	if (!pubkey_from_node_id(&outkey, &connect->id)) {
+		status_broken("Connection out to invalid id %s",
+			      type_to_string(tmpctx, struct node_id,
+					     &connect->id));
+		return io_close(conn);
+	}
+
 	/* FIXME: Timeout */
 	status_trace("Connected out for %s",
-		     type_to_string(tmpctx, struct pubkey, &connect->id));
+		     type_to_string(tmpctx, struct node_id, &connect->id));
 
 	connect->connstate = "Cryptographic handshake";
-	return initiator_handshake(conn, &connect->daemon->id, &connect->id,
+	return initiator_handshake(conn, &connect->daemon->mykey, &outkey,
 				   &connect->addrs[connect->addrnum],
 				   handshake_out_success, connect);
 }
@@ -526,7 +545,7 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 /*~ When we've exhausted all addresses without success, we come here. */
 static void PRINTF_FMT(5,6)
 	connect_failed(struct daemon *daemon,
-		       const struct pubkey *id,
+		       const struct node_id *id,
 		       u32 seconds_waited,
 		       const struct wireaddr_internal *addrhint,
 		       const char *errfmt, ...)
@@ -556,7 +575,7 @@ static void PRINTF_FMT(5,6)
 	daemon_conn_send(daemon->master, take(msg));
 
 	status_trace("Failed connected out for %s: %s",
-		     type_to_string(tmpctx, struct pubkey, id),
+		     type_to_string(tmpctx, struct node_id, id),
 		     err);
 }
 
@@ -1112,6 +1131,12 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
 	}
 
+	if (!pubkey_from_node_id(&daemon->mykey, &daemon->id))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Invalid id for me %s",
+			      type_to_string(tmpctx, struct node_id,
+					     &daemon->id));
+
 	/* Resolve Tor proxy address if any: we need an addrinfo to connect()
 	 * to. */
 	if (proxyaddr) {
@@ -1186,14 +1211,12 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 }
 
 /*~ This is where we'd put a BOLT #10 reference, but it doesn't exist :( */
-static const char *seedname(const tal_t *ctx, const struct pubkey *id)
+static const char *seedname(const tal_t *ctx, const struct node_id *id)
 {
 	char bech32[100];
-	u8 der[PUBKEY_CMPR_LEN];
 	u5 *data = tal_arr(ctx, u5, 0);
 
-	pubkey_to_der(der, id);
-	bech32_push_bits(&data, der, PUBKEY_CMPR_LEN*8);
+	bech32_push_bits(&data, id->k, ARRAY_SIZE(id->k)*8);
 	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
 	return tal_fmt(ctx, "%s.lseed.bitcoinstats.com", bech32);
 }
@@ -1206,7 +1229,7 @@ static const char *seedname(const tal_t *ctx, const struct pubkey *id)
  * has the nice property that DNS is cached, and the seed only sees a request
  * from the ISP, not directly from the user. */
 static void add_seed_addrs(struct wireaddr_internal **addrs,
-			   const struct pubkey *id,
+			   const struct node_id *id,
 			   struct sockaddr *broken_reply)
 {
 	struct wireaddr_internal a;
@@ -1230,7 +1253,7 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 
 /*~ This asks gossipd for any addresses advertized by the node. */
 static void add_gossip_addrs(struct wireaddr_internal **addrs,
-			     const struct pubkey *id)
+			     const struct node_id *id)
 {
 	u8 *msg;
 	struct wireaddr *normal_addrs;
@@ -1264,7 +1287,7 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
  * That's a pretty ugly interface: we should use TAKEN, but we only have one
  * caller so it's marginal. */
 static void try_connect_peer(struct daemon *daemon,
-			     const struct pubkey *id,
+			     const struct node_id *id,
 			     u32 seconds_waited,
 			     struct wireaddr_internal *addrhint)
 {
@@ -1273,7 +1296,7 @@ static void try_connect_peer(struct daemon *daemon,
 	struct connecting *connect;
 
 	/* Already done?  May happen with timer. */
-	if (pubkey_set_get(&daemon->peers, id))
+	if (node_set_get(&daemon->peers, id))
 		return;
 
 	/* If we're trying to connect it right now, that's OK. */
@@ -1338,7 +1361,7 @@ static void try_connect_peer(struct daemon *daemon,
 static struct io_plan *connect_to_peer(struct io_conn *conn,
 				       struct daemon *daemon, const u8 *msg)
 {
-	struct pubkey id;
+	struct node_id id;
 	u32 seconds_waited;
 	struct wireaddr_internal *addrhint;
 
@@ -1355,25 +1378,25 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 static struct io_plan *peer_disconnected(struct io_conn *conn,
 					 struct daemon *daemon, const u8 *msg)
 {
-	struct pubkey id, *key;
+	struct node_id id, *node;
 
 	if (!fromwire_connectctl_peer_disconnected(msg, &id))
 		master_badmsg(WIRE_CONNECTCTL_PEER_DISCONNECTED, msg);
 
 	/* We should stay in sync with lightningd at all times. */
-	key = pubkey_set_get(&daemon->peers, &id);
-	if (!key)
+	node = node_set_get(&daemon->peers, &id);
+	if (!node)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "peer_disconnected unknown peer: %s",
-			      type_to_string(tmpctx, struct pubkey, &id));
-	pubkey_set_del(&daemon->peers, key);
+			      type_to_string(tmpctx, struct node_id, &id));
+	node_set_del(&daemon->peers, node);
 
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
-	io_wake(key);
+	io_wake(node);
 
-	/* Note: deleting from a htable (a-la pubkey_set_del) does not free it:
+	/* Note: deleting from a htable (a-la node_set_del) does not free it:
 	 * htable doesn't assume it's a tal object at all. */
-	tal_free(key);
+	tal_free(node);
 
 	/* Read the next message from lightningd. */
 	return daemon_conn_read_next(conn, daemon->master);
@@ -1489,7 +1512,7 @@ int main(int argc, char *argv[])
 
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);
-	pubkey_set_init(&daemon->peers);
+	node_set_init(&daemon->peers);
 	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */

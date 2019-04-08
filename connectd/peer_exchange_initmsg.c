@@ -14,7 +14,7 @@ struct peer {
 	struct daemon *daemon;
 
 	/* The ID of the peer */
-	struct pubkey id;
+	struct node_id id;
 
 	/* Where it's connected to/from. */
 	struct wireaddr_internal addr;
@@ -51,7 +51,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 
 	if (!fromwire_init(peer, msg, &globalfeatures, &localfeatures)) {
 		status_trace("peer %s bad fromwire_init '%s', closing",
-			     type_to_string(tmpctx, struct pubkey, &peer->id),
+			     type_to_string(tmpctx, struct node_id, &peer->id),
 			     tal_hex(tmpctx, msg));
 		return io_close(conn);
 	}
@@ -131,7 +131,7 @@ static struct io_plan *peer_write_postclose(struct io_conn *conn,
 struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      struct daemon *daemon,
 				      const struct crypto_state *cs,
-				      const struct pubkey *id,
+				      const struct node_id *id,
 				      const struct wireaddr_internal *addr)
 {
 	/* If conn is closed, forget peer */

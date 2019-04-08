@@ -7,11 +7,11 @@
 #include <stdbool.h>
 
 struct lightningd;
-struct pubkey;
+struct node_id;
 
 /* Ask HSM for a new fd for a subdaemon to use. */
 int hsm_get_client_fd(struct lightningd *ld,
-		      const struct pubkey *id,
+		      const struct node_id *id,
 		      u64 dbid,
 		      int capabilities);
 

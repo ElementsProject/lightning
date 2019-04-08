@@ -7,8 +7,8 @@
 
 bool notifications_have_topic(const char *topic);
 
-void notify_connect(struct lightningd *ld, struct pubkey *nodeid,
+void notify_connect(struct lightningd *ld, struct node_id *nodeid,
 		    struct wireaddr_internal *addr);
-void notify_disconnect(struct lightningd *ld, struct pubkey *nodeid);
+void notify_disconnect(struct lightningd *ld, struct node_id *nodeid);
 
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

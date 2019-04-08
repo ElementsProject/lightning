@@ -189,7 +189,7 @@ struct channel *peer_normal_channel(struct peer *peer);
 
 /* Get active channel for peer, optionally any uncommitted_channel. */
 struct channel *active_channel_by_id(struct lightningd *ld,
-				     const struct pubkey *id,
+				     const struct node_id *id,
 				     struct uncommitted_channel **uc);
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
@@ -227,7 +227,7 @@ static inline bool channel_active(const struct channel *channel)
 }
 
 void get_channel_basepoints(struct lightningd *ld,
-			    const struct pubkey *peer_id,
+			    const struct node_id *peer_id,
 			    const u64 dbid,
 			    struct basepoints *local_basepoints,
 			    struct pubkey *local_funding_pubkey);

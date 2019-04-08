@@ -29,7 +29,7 @@ json_add_route_hop(struct json_stream *r, char const *n,
 {
 	/* Imitate what getroute/sendpay use */
 	json_object_start(r, n);
-	json_add_pubkey(r, "id", &h->nodeid);
+	json_add_node_id(r, "id", &h->nodeid);
 	json_add_short_channel_id(r, "channel",
 				  &h->channel_id);
 	json_add_num(r, "direction", h->direction);

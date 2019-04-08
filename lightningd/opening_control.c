@@ -638,7 +638,7 @@ new_uncommitted_channel(struct peer *peer)
 	uc->transient_billboard = NULL;
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
 
-	idname = type_to_string(uc, struct pubkey, &uc->peer->id);
+	idname = type_to_string(uc, struct node_id, &uc->peer->id);
 	uc->log = new_log(uc, uc->peer->log_book, "%s chan #%"PRIu64":",
 			  idname, uc->dbid);
 	tal_free(idname);
@@ -831,7 +831,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 {
 	struct command_result *res;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
-	struct pubkey *id;
+	struct node_id *id;
 	struct peer *peer;
 	struct channel *channel;
 	u32 *feerate_per_kw, *minconf, maxheight;
@@ -845,7 +845,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	fc->uc = NULL;
 	wtx_init(cmd, &fc->wtx, max_funding_satoshi);
 	if (!param(fc->cmd, buffer, params,
-		   p_req("id", param_pubkey, &id),
+		   p_req("id", param_node_id, &id),
 		   p_req("satoshi", param_wtx, &fc->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
@@ -892,7 +892,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	if (!*announce_channel) {
 		fc->channel_flags &= ~CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
 		log_info(peer->ld->log, "Will open private channel with node %s",
-			type_to_string(fc, struct pubkey, id));
+			type_to_string(fc, struct node_id, id));
 	}
 
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);

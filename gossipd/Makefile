@@ -53,6 +53,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/node_id.o			\
 	common/ping.o				\
 	common/pseudorand.o			\
 	common/status.o				\

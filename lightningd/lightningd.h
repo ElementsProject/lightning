@@ -102,7 +102,7 @@ struct lightningd {
 	const char *logfile;
 
 	/* This is us. */
-	struct pubkey id;
+	struct node_id id;
 
 	/* My name is... my favorite color is... */
 	u8 *alias; /* At least 32 bytes (zero-filled) */

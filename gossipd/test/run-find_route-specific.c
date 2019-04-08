@@ -33,7 +33,7 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
+bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_announcement */
 bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, struct amount_sat *satoshis UNNEEDED)
@@ -85,7 +85,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossipd_local_add_channel */
-u8 *towire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, const struct pubkey *remote_node_id UNNEEDED, struct amount_sat satoshis UNNEEDED)
+u8 *towire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, const struct node_id *remote_node_id UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_announcement */
 u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, struct amount_sat satoshis UNNEEDED)
@@ -120,14 +120,14 @@ const void *trc;
 
 static struct half_chan *
 get_or_make_connection(struct routing_state *rstate,
-		       const struct pubkey *from_id,
-		       const struct pubkey *to_id,
+		       const struct node_id *from_id,
+		       const struct node_id *to_id,
 		       const char *shortid,
 		       struct amount_sat satoshis)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
-	const int idx = pubkey_idx(from_id, to_id);
+	const int idx = node_id_idx(from_id, to_id);
 
 	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid,
 				       false))
@@ -146,14 +146,14 @@ get_or_make_connection(struct routing_state *rstate,
 }
 
 static bool channel_is_between(const struct chan *chan,
-			       const struct pubkey *a, const struct pubkey *b)
+			       const struct node_id *a, const struct node_id *b)
 {
-	if (pubkey_eq(&chan->nodes[0]->id, a)
-	    && pubkey_eq(&chan->nodes[1]->id, b))
+	if (node_id_eq(&chan->nodes[0]->id, a)
+	    && node_id_eq(&chan->nodes[1]->id, b))
 		return true;
 
-	if (pubkey_eq(&chan->nodes[0]->id, b)
-	    && pubkey_eq(&chan->nodes[1]->id, a))
+	if (node_id_eq(&chan->nodes[0]->id, b)
+	    && node_id_eq(&chan->nodes[1]->id, a))
 		return true;
 
 	return false;
@@ -165,7 +165,7 @@ int main(void)
 
 	struct half_chan *nc;
 	struct routing_state *rstate;
-	struct pubkey a, b, c, d;
+	struct node_id a, b, c, d;
 	struct amount_msat fee;
 	struct chan **route;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
@@ -174,16 +174,16 @@ int main(void)
 						 | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
 
-	pubkey_from_hexstr("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf",
+	node_id_from_hexstr("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf",
 			   strlen("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf"),
 			   &a);
-	pubkey_from_hexstr("0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae",
+	node_id_from_hexstr("0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae",
 			   strlen("0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae"),
 			   &b);
-	pubkey_from_hexstr("02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06",
+	node_id_from_hexstr("02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06",
 			   strlen("02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06"),
 			   &c);
-	pubkey_from_hexstr("02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636",
+	node_id_from_hexstr("02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636",
 			   strlen("02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636"),
 			   &d);
 

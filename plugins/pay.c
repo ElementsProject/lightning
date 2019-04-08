@@ -12,7 +12,7 @@
 #include <stdio.h>
 
 /* Public key of this node. */
-static struct pubkey my_id;
+static struct node_id my_id;
 static unsigned int maxdelay_default;
 static LIST_HEAD(pay_status);
 
@@ -310,7 +310,7 @@ static const char *route_pubkey(const tal_t *ctx,
 {
 	if (n == tal_count(routehint))
 		return pc->dest;
-	return type_to_string(ctx, struct pubkey, &routehint[n].pubkey);
+	return type_to_string(ctx, struct node_id, &routehint[n].pubkey);
 }
 
 static const char *join_routehint(const tal_t *ctx,
@@ -604,7 +604,7 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 					   "{ 'message': 'Routehint absurd fee' }");
 			return next_routehint(cmd, pc);
 		}
-		dest = type_to_string(tmpctx, struct pubkey,
+		dest = type_to_string(tmpctx, struct node_id,
 				      &attempt->routehint[0].pubkey);
 		max_hops -= tal_count(attempt->routehint);
 		cltv = route_cltv(pc->final_cltv,
@@ -806,7 +806,7 @@ static struct route_info **filter_routehints(struct pay_command *pc,
 
 		/* If we are first hop, trim. */
 		if (tal_count(hints[i]) > 0
-		    && pubkey_eq(&hints[i][0].pubkey, &my_id)) {
+		    && node_id_eq(&hints[i][0].pubkey, &my_id)) {
 			tal_append_fmt(&mods,
 				       "Removed ourselves from routehint %zu. ",
 				       i);
@@ -939,7 +939,7 @@ static struct command_result *json_pay(struct command *cmd,
 	pc->exemptfee = *exemptfee;
 	pc->riskfactor = *riskfactor;
 	pc->final_cltv = b11->min_final_cltv_expiry;
-	pc->dest = type_to_string(cmd, struct pubkey, &b11->receiver_id);
+	pc->dest = type_to_string(cmd, struct node_id, &b11->receiver_id);
 	pc->shadow_dest = tal_strdup(pc, pc->dest);
 	pc->payment_hash = type_to_string(pc, struct sha256,
 					  &b11->payment_hash);
@@ -1001,7 +1001,7 @@ static void add_attempt(char **ret,
 				       " 'fee_proportional_millionths': %u,"
 				       " 'cltv_expiry_delta': %u }",
 				       i == 0 ? "" : ", ",
-				       type_to_string(tmpctx, struct pubkey,
+				       type_to_string(tmpctx, struct node_id,
 						      &attempt->routehint[i].pubkey),
 				       type_to_string(tmpctx,
 						      struct short_channel_id,
@@ -1183,7 +1183,7 @@ static void init(struct plugin_conn *rpc)
 	const char *field;
 
 	field = rpc_delve(tmpctx, "getinfo", "", rpc, ".id");
-	if (!pubkey_from_hexstr(field, strlen(field), &my_id))
+	if (!node_id_from_hexstr(field, strlen(field), &my_id))
 		plugin_err("getinfo didn't contain valid id: '%s'", field);
 
 	field = rpc_delve(tmpctx, "listconfigs",

@@ -7,6 +7,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <common/node_id.h>
 #include <stdbool.h>
 
 struct ext_key;
@@ -14,7 +15,7 @@ struct ext_key;
 /* Information needed for their_unilateral/to-us outputs */
 struct unilateral_close_info {
 	u64 channel_id;
-	struct pubkey peer_id;
+	struct node_id peer_id;
 	struct pubkey commitment_point;
 };
 

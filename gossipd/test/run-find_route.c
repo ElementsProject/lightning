@@ -31,7 +31,7 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
+bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_announcement */
 bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, struct amount_sat *satoshis UNNEEDED)
@@ -83,7 +83,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossipd_local_add_channel */
-u8 *towire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, const struct pubkey *remote_node_id UNNEEDED, struct amount_sat satoshis UNNEEDED)
+u8 *towire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, const struct node_id *remote_node_id UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_announcement */
 u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, struct amount_sat satoshis UNNEEDED)
@@ -114,10 +114,17 @@ void memleak_remove_intmap_(struct htable *memtable UNNEEDED, const struct intma
 { fprintf(stderr, "memleak_remove_intmap_ called!\n"); abort(); }
 #endif
 
+static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
+{
+	struct pubkey k;
+	pubkey_from_privkey(p, &k);
+	node_id_from_pubkey(id, &k);
+}
+
 /* Updates existing route if required. */
 static void add_connection(struct routing_state *rstate,
-					      const struct pubkey *from,
-					      const struct pubkey *to,
+					      const struct node_id *from,
+					      const struct node_id *to,
 					      u32 base_fee, s32 proportional_fee,
 					      u32 delay)
 {
@@ -134,13 +141,13 @@ static void add_connection(struct routing_state *rstate,
 	if (!chan)
 		chan = new_chan(rstate, &scid, from, to, satoshis);
 
-	c = &chan->half[pubkey_idx(from, to)];
+	c = &chan->half[node_id_idx(from, to)];
 	/* Make sure it's seen as initialized (update non-NULL). */
 	c->channel_update = (void *)c;
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
-	c->channel_flags = get_channel_direction(from, to);
+	c->channel_flags = node_id_idx(from, to);
 	c->htlc_minimum = AMOUNT_MSAT(0);
 	c->htlc_maximum = AMOUNT_MSAT(100000 * 1000);
 }
@@ -155,7 +162,7 @@ static struct chan *find_channel(struct routing_state *rstate UNUSED,
 	struct chan_map_iter i;
 	struct chan *c;
 
-	*idx = pubkey_idx(&from->id, &to->id);
+	*idx = node_id_idx(&from->id, &to->id);
 
 	for (c = first_chan(to, &i); c; c = next_chan(to, &i)) {
 		if (c->nodes[*idx] == from)
@@ -165,8 +172,8 @@ static struct chan *find_channel(struct routing_state *rstate UNUSED,
 }
 
 static struct half_chan *get_connection(struct routing_state *rstate,
-					       const struct pubkey *from_id,
-					       const struct pubkey *to_id)
+					       const struct node_id *from_id,
+					       const struct node_id *to_id)
 {
 	int idx;
 	struct node *from, *to;
@@ -184,14 +191,14 @@ static struct half_chan *get_connection(struct routing_state *rstate,
 }
 
 static bool channel_is_between(const struct chan *chan,
-			       const struct pubkey *a, const struct pubkey *b)
+			       const struct node_id *a, const struct node_id *b)
 {
-	if (pubkey_eq(&chan->nodes[0]->id, a)
-	    && pubkey_eq(&chan->nodes[1]->id, b))
+	if (node_id_eq(&chan->nodes[0]->id, a)
+	    && node_id_eq(&chan->nodes[1]->id, b))
 		return true;
 
-	if (pubkey_eq(&chan->nodes[0]->id, b)
-	    && pubkey_eq(&chan->nodes[1]->id, a))
+	if (node_id_eq(&chan->nodes[0]->id, b)
+	    && node_id_eq(&chan->nodes[1]->id, a))
 		return true;
 
 	return false;
@@ -202,7 +209,7 @@ int main(void)
 	setup_locale();
 
 	struct routing_state *rstate;
-	struct pubkey a, b, c, d;
+	struct node_id a, b, c, d;
 	struct privkey tmp;
 	struct amount_msat fee;
 	struct chan **route;
@@ -213,13 +220,13 @@ int main(void)
 	setup_tmpctx();
 
 	memset(&tmp, 'a', sizeof(tmp));
-	pubkey_from_privkey(&tmp, &a);
+	node_id_from_privkey(&tmp, &a);
 	rstate = new_routing_state(tmpctx, NULL, &a, 0, NULL, NULL);
 
 	new_node(rstate, &a);
 
 	memset(&tmp, 'b', sizeof(tmp));
-	pubkey_from_privkey(&tmp, &b);
+	node_id_from_privkey(&tmp, &b);
 	new_node(rstate, &b);
 
 	/* A<->B */
@@ -233,12 +240,12 @@ int main(void)
 
 	/* A<->B<->C */
 	memset(&tmp, 'c', sizeof(tmp));
-	pubkey_from_privkey(&tmp, &c);
+	node_id_from_privkey(&tmp, &c);
 	new_node(rstate, &c);
 
-	status_trace("A = %s", type_to_string(tmpctx, struct pubkey, &a));
-	status_trace("B = %s", type_to_string(tmpctx, struct pubkey, &b));
-	status_trace("C = %s", type_to_string(tmpctx, struct pubkey, &c));
+	status_trace("A = %s", type_to_string(tmpctx, struct node_id, &a));
+	status_trace("B = %s", type_to_string(tmpctx, struct node_id, &b));
+	status_trace("C = %s", type_to_string(tmpctx, struct node_id, &c));
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
 	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
@@ -249,9 +256,9 @@ int main(void)
 
 	/* A<->D<->C: Lower base, higher percentage. */
 	memset(&tmp, 'd', sizeof(tmp));
-	pubkey_from_privkey(&tmp, &d);
+	node_id_from_privkey(&tmp, &d);
 	new_node(rstate, &d);
-	status_trace("D = %s", type_to_string(tmpctx, struct pubkey, &d));
+	status_trace("D = %s", type_to_string(tmpctx, struct node_id, &d));
 
 	add_connection(rstate, &a, &d, 0, 2, 1);
 	add_connection(rstate, &d, &c, 0, 2, 1);

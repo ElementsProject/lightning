@@ -33,6 +33,7 @@
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/msg_queue.h>
+#include <common/node_id.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
@@ -117,7 +118,7 @@ struct peer {
 	u32 desired_feerate;
 
 	/* Announcement related information */
-	struct pubkey node_ids[NUM_SIDES];
+	struct node_id node_ids[NUM_SIDES];
 	struct short_channel_id short_channel_ids[NUM_SIDES];
 	secp256k1_ecdsa_signature announcement_node_sigs[NUM_SIDES];
 	secp256k1_ecdsa_signature announcement_bitcoin_sigs[NUM_SIDES];
@@ -343,6 +344,7 @@ static void send_announcement_signatures(struct peer *peer)
 	size_t offset = 258;
 	struct sha256_double hash;
 	const u8 *msg, *ca, *req;
+	struct pubkey mykey;
 
 	status_trace("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
@@ -358,8 +360,13 @@ static void send_announcement_signatures(struct peer *peer)
 
 	/* Double-check that HSM gave valid signatures. */
 	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
+	if (!pubkey_from_node_id(&mykey, &peer->node_ids[LOCAL]))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not convert my id '%s' to pubkey",
+			      type_to_string(tmpctx, struct node_id,
+					     &peer->node_ids[LOCAL]));
 	if (!check_signed_hash(&hash, &peer->announcement_node_sigs[LOCAL],
-			       &peer->node_ids[LOCAL])) {
+			       &mykey)) {
 		/* It's ok to fail here, the channel announcement is
 		 * unique, unlike the channel update which may have
 		 * been replaced in the meantime. */
@@ -399,6 +406,12 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 		second = LOCAL;
 	}
 
+	/* FIXME */
+	struct pubkey pk1, pk2;
+	if (!pubkey_from_node_id(&pk1, &peer->node_ids[first])
+	    || !pubkey_from_node_id(&pk2, &peer->node_ids[second]))
+		abort();
+
 	cannounce = towire_channel_announcement(
 	    ctx, &peer->announcement_node_sigs[first],
 	    &peer->announcement_node_sigs[second],
@@ -406,8 +419,8 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	    &peer->announcement_bitcoin_sigs[second],
 	    features,
 	    &peer->chain_hash,
-	    &peer->short_channel_ids[LOCAL], &peer->node_ids[first],
-	    &peer->node_ids[second], &peer->channel->funding_pubkey[first],
+	    &peer->short_channel_ids[LOCAL], &pk1,
+	    &pk2, &peer->channel->funding_pubkey[first],
 	    &peer->channel->funding_pubkey[second]);
 	tal_free(features);
 	return cannounce;
@@ -2883,8 +2896,8 @@ static void init_channel(struct peer *peer)
 	tal_free(failed);
 	tal_free(failed_sides);
 
-	peer->channel_direction = get_channel_direction(
-	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
+	peer->channel_direction = node_id_idx(&peer->node_ids[LOCAL],
+					      &peer->node_ids[REMOTE]);
 
 	/* Default desired feerate is the feerate we set for them last. */
 	if (peer->channel->funder == LOCAL)

@@ -3,7 +3,7 @@
 #include <lightningd/gossip_msg.h>
 
 connectctl_init,2000
-connectctl_init,,id,struct pubkey
+connectctl_init,,id,struct node_id
 connectctl_init,,num_wireaddrs,u16
 connectctl_init,,wireaddrs,num_wireaddrs*struct wireaddr_internal
 connectctl_init,,listen_announce,num_wireaddrs*enum addr_listen_announce
@@ -30,24 +30,24 @@ connectctl_activate_reply,2125
 
 # connectd->master: disconnect this peer please (due to reconnect).
 connect_reconnected,2112
-connect_reconnected,,id,struct pubkey
+connect_reconnected,,id,struct node_id
 
 # Master -> connectd: connect to a peer.
 connectctl_connect_to_peer,2001
-connectctl_connect_to_peer,,id,struct pubkey
+connectctl_connect_to_peer,,id,struct node_id
 connectctl_connect_to_peer,,seconds_waited,u32
 connectctl_connect_to_peer,,addrhint,?struct wireaddr_internal
 
 # Connectd->master: connect failed.
 connectctl_connect_failed,2020
-connectctl_connect_failed,,id,struct pubkey
+connectctl_connect_failed,,id,struct node_id
 connectctl_connect_failed,,failreason,wirestring
 connectctl_connect_failed,,seconds_to_delay,u32
 connectctl_connect_failed,,addrhint,?struct wireaddr_internal
 
 # Connectd -> master: we got a peer. Two fds: peer and gossip
 connect_peer_connected,2002
-connect_peer_connected,,id,struct pubkey
+connect_peer_connected,,id,struct node_id
 connect_peer_connected,,addr,struct wireaddr_internal
 connect_peer_connected,,crypto_state,struct crypto_state
 connect_peer_connected,,gflen,u16
@@ -57,7 +57,7 @@ connect_peer_connected,,localfeatures,lflen*u8
 
 # master -> connectd: peer has disconnected.
 connectctl_peer_disconnected,2015
-connectctl_peer_disconnected,,id,struct pubkey
+connectctl_peer_disconnected,,id,struct node_id
 
 # master -> connectd: do you have a memleak?
 connect_dev_memleak,2033
