@@ -1,6 +1,7 @@
 #include <ccan/io/io.h>
   /* To reach into io_plan: not a public header! */
   #include <ccan/io/backend.h>
+#include <ccan/str/hex/hex.h>
 #include <common/utils.h>
 #include <lightningd/json.h>
 #include <lightningd/json_stream.h>
@@ -269,6 +270,23 @@ json_add_member(struct json_stream *js, const char *fieldname,
 	va_start(ap, fmt);
 	json_stream_append_vfmt(js, fmt, ap);
 	va_end(ap);
+}
+
+void json_add_hex(struct json_stream *js, const char *fieldname,
+		  const void *data, size_t len)
+{
+	/* Size without NUL term */
+	size_t hexlen = hex_str_size(len) - 1;
+	char *dest;
+
+	json_start_member(js, fieldname);
+	mkroom(js, 1 + hexlen + 1);
+	dest = membuf_add(&js->outbuf, 1 + hexlen + 1);
+	dest[0] = '"';
+	if (!hex_encode(data, len, dest + 1, hexlen + 1))
+		abort();
+	dest[1+hexlen] = '"';
+	js_written_some(js);
 }
 
 /* This is where we read the json_stream and write it to conn */
