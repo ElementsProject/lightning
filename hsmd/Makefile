@@ -24,6 +24,7 @@ HSMD_COMMON_OBJS :=				\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/node_id.o			\
 	common/permute_tx.o			\
 	common/status.o				\
 	common/status_wire.o			\

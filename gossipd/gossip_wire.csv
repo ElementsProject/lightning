@@ -6,7 +6,7 @@
 gossipctl_init,3000
 gossipctl_init,,broadcast_interval_msec,u32
 gossipctl_init,,chain_hash,struct bitcoin_blkid
-gossipctl_init,,id,struct pubkey
+gossipctl_init,,id,struct node_id
 gossipctl_init,,gflen,u16
 gossipctl_init,,globalfeatures,gflen*u8
 gossipctl_init,,rgb,3*u8
@@ -19,7 +19,7 @@ gossipctl_init,,dev_unknown_channel_satoshis,?struct amount_sat
 
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005
-gossip_getnodes_request,,id,?struct pubkey
+gossip_getnodes_request,,id,?struct node_id
 
 #include <lightningd/gossip_msg.h>
 gossip_getnodes_reply,3105
@@ -28,8 +28,8 @@ gossip_getnodes_reply,,nodes,num_nodes*struct gossip_getnodes_entry
 
 # Pass JSON-RPC getroute call through
 gossip_getroute_request,3006
-gossip_getroute_request,,source,struct pubkey
-gossip_getroute_request,,destination,struct pubkey
+gossip_getroute_request,,source,struct node_id
+gossip_getroute_request,,destination,struct node_id
 gossip_getroute_request,,msatoshi,struct amount_msat
 # We don't pass doubles, so pass riskfactor * 1000000.
 gossip_getroute_request,,riskfactor_by_million,u64
@@ -45,7 +45,7 @@ gossip_getroute_reply,,hops,num_hops*struct route_hop
 
 gossip_getchannels_request,3007
 gossip_getchannels_request,,short_channel_id,?struct short_channel_id
-gossip_getchannels_request,,source,?struct pubkey
+gossip_getchannels_request,,source,?struct node_id
 
 gossip_getchannels_reply,3107
 gossip_getchannels_reply,,num_channels,u32
@@ -53,12 +53,12 @@ gossip_getchannels_reply,,nodes,num_channels*struct gossip_getchannels_entry
 
 # Ping/pong test.  Waits for a reply if it expects one.
 gossip_ping,3008
-gossip_ping,,id,struct pubkey
+gossip_ping,,id,struct node_id
 gossip_ping,,num_pong_bytes,u16
 gossip_ping,,len,u16
 
 gossip_ping_reply,3108
-gossip_ping_reply,,id,struct pubkey
+gossip_ping_reply,,id,struct node_id
 # False if id in gossip_ping was unknown.
 gossip_ping_reply,,sent,bool
 # 0 == no pong expected
@@ -66,7 +66,7 @@ gossip_ping_reply,,totlen,u16
 
 # Test of query_short_channel_ids.  Master->gossipd
 gossip_query_scids,3031
-gossip_query_scids,,id,struct pubkey
+gossip_query_scids,,id,struct node_id
 gossip_query_scids,,num_ids,u16
 gossip_query_scids,,ids,num_ids*struct short_channel_id
 
@@ -77,13 +77,13 @@ gossip_scids_reply,,complete,bool
 
 # Test gossip timestamp filtering.
 gossip_send_timestamp_filter,3028
-gossip_send_timestamp_filter,,id,struct pubkey
+gossip_send_timestamp_filter,,id,struct node_id
 gossip_send_timestamp_filter,,first_timestamp,u32
 gossip_send_timestamp_filter,,timestamp_range,u32
 
 # Test of query_channel_range.  Master->gossipd
 gossip_query_channel_range,3029
-gossip_query_channel_range,,id,struct pubkey
+gossip_query_channel_range,,id,struct node_id
 gossip_query_channel_range,,first_blocknum,u32
 gossip_query_channel_range,,number_of_blocks,u32
 
@@ -104,7 +104,7 @@ gossip_get_channel_peer,3009
 gossip_get_channel_peer,,channel_id,struct short_channel_id
 
 gossip_get_channel_peer_reply,3109
-gossip_get_channel_peer_reply,,peer_id,?struct pubkey
+gossip_get_channel_peer_reply,,peer_id,?struct node_id
 
 # gossipd->master: we're closing this channel.
 gossip_local_channel_close,3027
@@ -123,7 +123,7 @@ gossip_get_txout_reply,,outscript,len*u8
 
 # master->gossipd an htlc failed with this onion error.
 gossip_payment_failure,3021
-gossip_payment_failure,,erring_node,struct pubkey
+gossip_payment_failure,,erring_node,struct node_id
 gossip_payment_failure,,erring_channel,struct short_channel_id
 gossip_payment_failure,,erring_channel_direction,u8
 gossip_payment_failure,,len,u16

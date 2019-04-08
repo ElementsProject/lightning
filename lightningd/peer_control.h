@@ -7,6 +7,7 @@
 #include <common/channel_config.h>
 #include <common/htlc.h>
 #include <common/json.h>
+#include <common/node_id.h>
 #include <common/wireaddr.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_state.h>
@@ -27,7 +28,7 @@ struct peer {
 	u64 dbid;
 
 	/* ID of peer */
-	struct pubkey id;
+	struct node_id id;
 
 	/* Our channels */
 	struct list_head channels;
@@ -56,13 +57,13 @@ struct peer {
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
-		      const struct pubkey *id,
+		      const struct node_id *id,
 		      const struct wireaddr_internal *addr);
 
 /* Last one out deletes peer.  Also removes from db. */
 void maybe_delete_peer(struct peer *peer);
 
-struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
+struct peer *peer_by_id(struct lightningd *ld, const struct node_id *id);
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    const jsmntok_t *peeridtok);

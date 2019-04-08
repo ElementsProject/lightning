@@ -28,6 +28,9 @@ void fromwire_bitcoin_txid(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_bool */
 bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bool called!\n"); abort(); }
+/* Generated stub for fromwire_node_id */
+void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
+{ fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
 /* Generated stub for fromwire_pubkey */
 void fromwire_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "fromwire_pubkey called!\n"); abort(); }
@@ -46,6 +49,9 @@ void towire_bitcoin_txid(u8 **pptr UNNEEDED, const struct bitcoin_txid *txid UNN
 /* Generated stub for towire_bool */
 void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 { fprintf(stderr, "towire_bool called!\n"); abort(); }
+/* Generated stub for towire_node_id */
+void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "towire_node_id called!\n"); abort(); }
 /* Generated stub for towire_pubkey */
 void towire_pubkey(u8 **pptr UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_pubkey called!\n"); abort(); }

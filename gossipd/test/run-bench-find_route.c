@@ -44,7 +44,7 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
+bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_announcement */
 bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, struct amount_sat *satoshis UNNEEDED)
@@ -96,7 +96,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossipd_local_add_channel */
-u8 *towire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, const struct pubkey *remote_node_id UNNEEDED, struct amount_sat satoshis UNNEEDED)
+u8 *towire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, const struct node_id *remote_node_id UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_announcement */
 u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, struct amount_sat satoshis UNNEEDED)
@@ -129,7 +129,7 @@ void memleak_remove_intmap_(struct htable *memtable UNNEEDED, const struct intma
 
 /* Updates existing route if required. */
 static void add_connection(struct routing_state *rstate,
-			   const struct pubkey *nodes,
+			   const struct node_id *nodes,
 			   u32 from, u32 to,
 			   u32 base_fee, s32 proportional_fee,
 			   u32 delay)
@@ -137,7 +137,7 @@ static void add_connection(struct routing_state *rstate,
 	struct short_channel_id scid;
 	struct half_chan *c;
 	struct chan *chan;
-	int idx = pubkey_idx(&nodes[from], &nodes[to]);
+	int idx = node_id_idx(&nodes[from], &nodes[to]);
 
 	/* Encode src and dst in scid. */
 	memcpy((char *)&scid + idx * sizeof(from), &from, sizeof(from));
@@ -152,26 +152,28 @@ static void add_connection(struct routing_state *rstate,
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
-	c->channel_flags = get_channel_direction(&nodes[from], &nodes[to]);
+	c->channel_flags = node_id_idx(&nodes[from], &nodes[to]);
 	/* This must be non-NULL, otherwise we consider it disabled! */
 	c->channel_update = tal(chan, u8);
 	c->htlc_maximum = AMOUNT_MSAT(-1ULL);
 	c->htlc_minimum = AMOUNT_MSAT(0);
 }
 
-static struct pubkey nodeid(size_t n)
+static struct node_id nodeid(size_t n)
 {
-	struct pubkey id;
+	struct node_id id;
+	struct pubkey k;
 	struct secret s;
 
 	memset(&s, 0xFF, sizeof(s));
 	memcpy(&s, &n, sizeof(n));
-	pubkey_from_secret(&s, &id);
+	pubkey_from_secret(&s, &k);
+	node_id_from_pubkey(&id, &k);
 	return id;
 }
 
 static void populate_random_node(struct routing_state *rstate,
-				 const struct pubkey *nodes,
+				 const struct node_id *nodes,
 				 u32 n)
 {
 	/* Create 2 random channels. */
@@ -217,8 +219,8 @@ int main(int argc, char *argv[])
 	size_t num_nodes = 100, num_runs = 1;
 	struct timemono start, end;
 	size_t num_success;
-	struct pubkey me;
-	struct pubkey *nodes;
+	struct node_id me;
+	struct node_id *nodes;
 	bool perfme = false;
 	const double riskfactor = 0.01 / BLOCKS_PER_YEAR / 10000;
 	struct siphash_seed base_seed;
@@ -241,7 +243,7 @@ int main(int argc, char *argv[])
 	if (argc > 3)
 		opt_usage_and_exit("[num_nodes [num_runs]]");
 
-	nodes = tal_arr(rstate, struct pubkey, num_nodes);
+	nodes = tal_arr(rstate, struct node_id, num_nodes);
 	for (size_t i = 0; i < num_nodes; i++)
 		nodes[i] = nodeid(i);
 
@@ -255,8 +257,8 @@ int main(int argc, char *argv[])
 	start = time_mono();
 	num_success = 0;
 	for (size_t i = 0; i < num_runs; i++) {
-		const struct pubkey *from = &nodes[pseudorand(num_nodes)];
-		const struct pubkey *to = &nodes[pseudorand(num_nodes)];
+		const struct node_id *from = &nodes[pseudorand(num_nodes)];
+		const struct node_id *to = &nodes[pseudorand(num_nodes)];
 		struct amount_msat fee;
 		struct chan **route;
 

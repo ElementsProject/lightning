@@ -70,7 +70,7 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
-void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
+void connect_succeeded(struct lightningd *ld UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for delay_then_reconnect */
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
@@ -95,10 +95,10 @@ bool fromwire_channel_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p 
 bool fromwire_channel_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, u32 *feerate UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_signature *commit_sig UNNEEDED, secp256k1_ecdsa_signature **htlc_sigs UNNEEDED)
 { fprintf(stderr, "fromwire_channel_sending_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_connect_peer_connected */
-bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **globalfeatures UNNEEDED, u8 **localfeatures UNNEEDED)
+bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **globalfeatures UNNEEDED, u8 **localfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_get_channel_peer_reply */
-bool fromwire_gossip_get_channel_peer_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **peer_id UNNEEDED)
+bool fromwire_gossip_get_channel_peer_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id **peer_id UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_channel_peer_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_commitment_tx_reply */
 bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
@@ -234,15 +234,15 @@ void json_add_log(struct json_stream *result UNNEEDED,
 void json_add_member(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED,
 		     const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "json_add_member called!\n"); abort(); }
+/* Generated stub for json_add_node_id */
+void json_add_node_id(struct json_stream *response UNNEEDED,
+				const char *fieldname UNNEEDED,
+				const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "json_add_node_id called!\n"); abort(); }
 /* Generated stub for json_add_num */
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
-/* Generated stub for json_add_pubkey */
-void json_add_pubkey(struct json_stream *response UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     const struct pubkey *key UNNEEDED)
-{ fprintf(stderr, "json_add_pubkey called!\n"); abort(); }
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
@@ -299,10 +299,10 @@ int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 /* Generated stub for json_tok_streq */
 bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
 { fprintf(stderr, "json_tok_streq called!\n"); abort(); }
-/* Generated stub for json_to_pubkey */
-bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		    struct pubkey *pubkey UNNEEDED)
-{ fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
+/* Generated stub for json_to_node_id */
+bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			       struct node_id *id UNNEEDED)
+{ fprintf(stderr, "json_to_node_id called!\n"); abort(); }
 /* Generated stub for json_to_short_channel_id */
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED,
@@ -319,15 +319,12 @@ void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
-/* Generated stub for node_id_valid */
-bool node_id_valid(const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "node_id_valid called!\n"); abort(); }
 /* Generated stub for notify_connect */
-void notify_connect(struct lightningd *ld UNNEEDED, struct pubkey *nodeid UNNEEDED,
+void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED,
 		    struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "notify_connect called!\n"); abort(); }
 /* Generated stub for notify_disconnect */
-void notify_disconnect(struct lightningd *ld UNNEEDED, struct pubkey *nodeid UNNEEDED)
+void notify_disconnect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED)
 { fprintf(stderr, "notify_disconnect called!\n"); abort(); }
 /* Generated stub for null_response */
 struct json_stream *null_response(struct command *cmd UNNEEDED)
@@ -379,16 +376,18 @@ struct command_result *param_msat(struct command *cmd UNNEEDED, const char *name
 				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				  struct amount_msat **msat UNNEEDED)
 { fprintf(stderr, "param_msat called!\n"); abort(); }
+/* Generated stub for param_node_id */
+struct command_result *param_node_id(struct command *cmd UNNEEDED,
+					       const char *name UNNEEDED,
+					       const char *buffer UNNEEDED,
+					       const jsmntok_t *tok UNNEEDED,
+					       struct node_id **id UNNEEDED)
+{ fprintf(stderr, "param_node_id called!\n"); abort(); }
 /* Generated stub for param_number */
 struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    unsigned int **num UNNEEDED)
 { fprintf(stderr, "param_number called!\n"); abort(); }
-/* Generated stub for param_pubkey */
-struct command_result *param_pubkey(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    struct pubkey **pubkey UNNEEDED)
-{ fprintf(stderr, "param_pubkey called!\n"); abort(); }
 /* Generated stub for param_short_channel_id */
 struct command_result *param_short_channel_id(struct command *cmd UNNEEDED,
 					      const char *name UNNEEDED,
@@ -504,10 +503,10 @@ u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 u8 *towire_channel_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_base UNNEEDED, u32 feerate_ppm UNNEEDED)
 { fprintf(stderr, "towire_channel_specific_feerates called!\n"); abort(); }
 /* Generated stub for towire_connectctl_connect_to_peer */
-u8 *towire_connectctl_connect_to_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
+u8 *towire_connectctl_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "towire_connectctl_connect_to_peer called!\n"); abort(); }
 /* Generated stub for towire_connectctl_peer_disconnected */
-u8 *towire_connectctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
+u8 *towire_connectctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_connectctl_peer_disconnected called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
@@ -518,7 +517,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 u8 *towire_gossip_get_channel_peer(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_gossip_get_channel_peer called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_commitment_tx */
-u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct pubkey *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, struct amount_sat funding_amount UNNEEDED)
+u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, struct amount_sat funding_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_commitment_tx called!\n"); abort(); }
 /* Generated stub for towire_onchain_dev_memleak */
 u8 *towire_onchain_dev_memleak(const tal_t *ctx UNNEEDED)
@@ -555,7 +554,7 @@ bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 #endif
 
 /* Fake stubs to talk to hsm */
-u8 *towire_hsm_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct pubkey *peerid UNNEEDED, u64 dbid UNNEEDED)
+u8 *towire_hsm_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
 {
 	return NULL;
 }
@@ -698,6 +697,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	struct wallet *w = create_test_wallet(ld, ctx);
 	struct utxo u;
 	struct pubkey pk;
+	struct node_id id;
 	struct amount_sat fee_estimate, change_satoshis;
 	const struct utxo **utxos;
 	CHECK(w);
@@ -705,6 +705,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	memset(&u, 0, sizeof(u));
 	u.amount = AMOUNT_SAT(1);
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
+	node_id_from_pubkey(&id, &pk);
 
 	db_begin_transaction(w->db);
 
@@ -720,7 +721,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	memset(&u.txid, 1, sizeof(u.txid));
 	u.close_info = tal(w, struct unilateral_close_info);
 	u.close_info->channel_id = 42;
-	u.close_info->peer_id = pk;
+	u.close_info->peer_id = id;
 	u.close_info->commitment_point = pk;
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info");
@@ -734,7 +735,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u = *utxos[1];
 	CHECK(u.close_info->channel_id == 42 &&
 	      pubkey_eq(&u.close_info->commitment_point, &pk) &&
-	      pubkey_eq(&u.close_info->peer_id, &pk));
+	      node_id_eq(&u.close_info->peer_id, &id));
 	/* Now un-reserve them for the tests below */
 	tal_free(utxos);
 
@@ -826,7 +827,7 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK(c1->peer->dbid == c2->peer->dbid);
 	CHECK(c1->peer == c2->peer);
 	CHECK(c1->their_shachain.id == c2->their_shachain.id);
-	CHECK_MSG(pubkey_eq(&p1->id, &p2->id), "NodeIDs do not match");
+	CHECK_MSG(node_id_eq(&p1->id, &p2->id), "NodeIDs do not match");
 	CHECK((c1->scid == NULL && c2->scid == NULL)
 	      || short_channel_id_eq(c1->scid, c2->scid));
 	CHECK(amount_msat_eq(c1->our_msat, c2->our_msat));
@@ -900,6 +901,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	struct channel_info *ci = &c1.channel_info;
 	struct bitcoin_txid *hash = tal(w, struct bitcoin_txid);
 	struct pubkey pk;
+	struct node_id id;
 	struct changed_htlc *last_commit;
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
 	u8 *scriptpubkey = tal_arr(ctx, u8, 100);
@@ -912,13 +914,14 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	last_commit = tal_arr(w, struct changed_htlc, 2);
 	mempat(last_commit, tal_bytelen(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
+	node_id_from_pubkey(&id, &pk);
 	ci->feerate_per_kw[LOCAL] = ci->feerate_per_kw[REMOTE] = 31337;
 	mempat(scriptpubkey, tal_count(scriptpubkey));
 	c1.first_blocknum = 1;
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
 				NULL);
 	c1.final_key_idx = 1337;
-	p = new_peer(ld, 0, &pk, &addr);
+	p = new_peer(ld, 0, &id, &addr);
 	c1.peer = p;
 	c1.dbid = wallet_get_channel_dbid(w);
 	c1.state = CHANNELD_NORMAL;
@@ -1120,7 +1123,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wallet *w = create_test_wallet(ld, ctx);
 
 	mempat(t, sizeof(*t));
-	memset(&t->destination, 1, sizeof(t->destination));
+	memset(&t->destination, 2, sizeof(t->destination));
 
 	t->id = 0;
 	t->msatoshi = AMOUNT_MSAT(100);
@@ -1135,7 +1138,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
-	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
+	CHECK(node_id_cmp(&t2->destination, &t->destination) == 0);
 	CHECK(amount_msat_eq(t2->msatoshi, t->msatoshi));
 	CHECK(amount_msat_eq(t2->msatoshi_sent, t->msatoshi_sent));
 	CHECK(!t2->payment_preimage);
@@ -1148,7 +1151,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
-	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
+	CHECK(node_id_eq(&t2->destination, &t->destination));
 	CHECK(amount_msat_eq(t2->msatoshi, t->msatoshi));
 	CHECK(amount_msat_eq(t2->msatoshi_sent, t->msatoshi_sent));
 	CHECK(preimage_eq(t->payment_preimage, t2->payment_preimage));
@@ -1180,7 +1183,7 @@ int main(void)
 
 	/* Only elements in ld we should access */
 	list_head_init(&ld->peers);
-	pubkey_from_der(tal_hexdata(tmpctx, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &ld->id);
+	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->id);
 	/* Accessed in peer destructor sanity check */
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);

@@ -8,6 +8,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
 #include <common/hash_u5.h>
+#include <common/node_id.h>
 #include <secp256k1_recovery.h>
 
 /* We only have 10 bits for the field length, meaning < 640 bytes */
@@ -29,10 +30,11 @@ struct bolt11_field {
  */
 
 struct route_info {
-	struct pubkey pubkey;
+	/* This is 33 bytes, so we pack cltv_expiry_delta next to it */
+	struct node_id pubkey;
+	u16 cltv_expiry_delta;
 	struct short_channel_id short_channel_id;
 	u32 fee_base_msat, fee_proportional_millionths;
-	u16 cltv_expiry_delta;
 };
 
 struct bolt11 {
@@ -41,7 +43,7 @@ struct bolt11 {
 	struct amount_msat *msat; /* NULL if not specified. */
 
 	struct sha256 payment_hash;
-	struct pubkey receiver_id;
+	struct node_id receiver_id;
 
 	/* description_hash valid if and only if description is NULL. */
 	const char *description;

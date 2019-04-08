@@ -85,6 +85,8 @@ void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 
 void towire_node_id(u8 **pptr, const struct node_id *id)
 {
+	/* Cheap sanity check */
+	assert(id->k[0] == 0x2 || id->k[0] == 0x3);
 	towire(pptr, id->k, sizeof(id->k));
 }
 

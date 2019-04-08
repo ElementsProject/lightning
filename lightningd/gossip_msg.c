@@ -12,7 +12,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	u16 flen;
 
 	entry = tal(ctx, struct gossip_getnodes_entry);
-	fromwire(pptr, max, entry->nodeid, sizeof(entry->nodeid));
+	fromwire_node_id(pptr, max, &entry->nodeid);
 
 	entry->last_timestamp = fromwire_u64(pptr, max);
 	if (entry->last_timestamp < 0) {
@@ -43,7 +43,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 void towire_gossip_getnodes_entry(u8 **pptr,
 				  const struct gossip_getnodes_entry *entry)
 {
-	towire(pptr, entry->nodeid, sizeof(entry->nodeid));
+	towire_node_id(pptr, &entry->nodeid);
 	towire_u64(pptr, entry->last_timestamp);
 
 	if (entry->last_timestamp < 0)
@@ -62,7 +62,7 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 
 void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)
 {
-	fromwire_pubkey(pptr, max, &entry->nodeid);
+	fromwire_node_id(pptr, max, &entry->nodeid);
 	fromwire_short_channel_id(pptr, max, &entry->channel_id);
 	entry->direction = fromwire_u8(pptr, max);
 	entry->amount = fromwire_amount_msat(pptr, max);
@@ -71,7 +71,7 @@ void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)
 
 void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 {
-	towire_pubkey(pptr, &entry->nodeid);
+	towire_node_id(pptr, &entry->nodeid);
 	towire_short_channel_id(pptr, &entry->channel_id);
 	towire_u8(pptr, entry->direction);
 	towire_amount_msat(pptr, entry->amount);
@@ -80,7 +80,7 @@ void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 
 void fromwire_route_info(const u8 **pptr, size_t *max, struct route_info *entry)
 {
-	fromwire_pubkey(pptr, max, &entry->pubkey);
+	fromwire_node_id(pptr, max, &entry->pubkey);
 	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
 	entry->fee_base_msat = fromwire_u32(pptr, max);
 	entry->fee_proportional_millionths = fromwire_u32(pptr, max);
@@ -89,7 +89,7 @@ void fromwire_route_info(const u8 **pptr, size_t *max, struct route_info *entry)
 
 void towire_route_info(u8 **pptr, const struct route_info *entry)
 {
-	towire_pubkey(pptr, &entry->pubkey);
+	towire_node_id(pptr, &entry->pubkey);
 	towire_short_channel_id(pptr, &entry->short_channel_id);
 	towire_u32(pptr, entry->fee_base_msat);
 	towire_u32(pptr, entry->fee_proportional_millionths);
@@ -100,8 +100,8 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 				       struct gossip_getchannels_entry *entry)
 {
 	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
-	fromwire(pptr, max, entry->source, sizeof(entry->source));
-	fromwire(pptr, max, entry->destination, sizeof(entry->destination));
+	fromwire_node_id(pptr, max, &entry->source);
+	fromwire_node_id(pptr, max, &entry->destination);
 	entry->sat = fromwire_amount_sat(pptr, max);
 	entry->message_flags = fromwire_u8(pptr, max);
 	entry->channel_flags = fromwire_u8(pptr, max);
@@ -117,8 +117,8 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 				     const struct gossip_getchannels_entry *entry)
 {
 	towire_short_channel_id(pptr, &entry->short_channel_id);
-	towire(pptr, entry->source, sizeof(entry->source));
-	towire(pptr, entry->destination, sizeof(entry->destination));
+	towire_node_id(pptr, &entry->source);
+	towire_node_id(pptr, &entry->destination);
 	towire_amount_sat(pptr, entry->sat);
 	towire_u8(pptr, entry->message_flags);
 	towire_u8(pptr, entry->channel_flags);

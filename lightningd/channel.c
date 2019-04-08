@@ -110,7 +110,7 @@ void delete_channel(struct channel *channel)
 }
 
 void get_channel_basepoints(struct lightningd *ld,
-			    const struct pubkey *peer_id,
+			    const struct node_id *peer_id,
 			    const u64 dbid,
 			    struct basepoints *local_basepoints,
 			    struct pubkey *local_funding_pubkey)
@@ -197,7 +197,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	if (!log) {
 		/* FIXME: update log prefix when we get scid */
 		/* FIXME: Use minimal unique pubkey prefix for logs! */
-		const char *idname = type_to_string(peer, struct pubkey, &peer->id);
+		const char *idname = type_to_string(peer,
+						    struct node_id,
+						    &peer->id);
 		channel->log = new_log(channel,
 				       peer->log_book, "%s chan #%"PRIu64":",
 				       idname, dbid);
@@ -286,7 +288,7 @@ struct channel *peer_normal_channel(struct peer *peer)
 }
 
 struct channel *active_channel_by_id(struct lightningd *ld,
-				     const struct pubkey *id,
+				     const struct node_id *id,
 				     struct uncommitted_channel **uc)
 {
 	struct peer *peer = peer_by_id(ld, id);

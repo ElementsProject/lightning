@@ -18,7 +18,7 @@ gossipd_send_gossip,,gossip,len*u8
 # we (and peer) can update it already.
 gossipd_local_add_channel,3503
 gossipd_local_add_channel,,short_channel_id,struct short_channel_id
-gossipd_local_add_channel,,remote_node_id,struct pubkey
+gossipd_local_add_channel,,remote_node_id,struct node_id
 gossipd_local_add_channel,,satoshis,struct amount_sat
 
 # Send this channel_update.

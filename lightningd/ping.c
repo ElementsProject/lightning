@@ -16,17 +16,17 @@
 
 struct ping_command {
 	struct list_node list;
-	struct pubkey id;
+	struct node_id id;
 	struct command *cmd;
 };
 
 static struct ping_command *find_ping_cmd(struct lightningd *ld,
-					  const struct pubkey *id)
+					  const struct node_id *id)
 {
 	struct ping_command *i;
 
 	list_for_each(&ld->ping_commands, i, list) {
-		if (pubkey_eq(id, &i->id))
+		if (node_id_eq(id, &i->id))
 			return i;
 	}
 	return NULL;
@@ -39,7 +39,7 @@ static void destroy_ping_command(struct ping_command *pc)
 
 static struct ping_command *new_ping_command(const tal_t *ctx,
 					     struct lightningd *ld,
-					     const struct pubkey *peer_id,
+					     const struct node_id *peer_id,
 					     struct command *cmd)
 {
 	struct ping_command *pc = tal(ctx, struct ping_command);
@@ -56,7 +56,7 @@ void ping_reply(struct subd *subd, const u8 *msg)
 {
 	u16 totlen;
 	bool ok, sent = true;
-	struct pubkey id;
+	struct node_id id;
 	struct ping_command *pc;
 
 	log_debug(subd->ld->log, "Got ping reply!");
@@ -87,10 +87,10 @@ static struct command_result *json_ping(struct command *cmd,
 {
 	u8 *msg;
 	unsigned int *len, *pongbytes;
-	struct pubkey *id;
+	struct node_id *id;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_pubkey, &id),
+		   p_req("id", param_node_id, &id),
 		   p_opt_def("len", param_number, &len, 128),
 		   p_opt_def("pongbytes", param_number, &pongbytes, 128),
 		   NULL))

@@ -334,7 +334,7 @@ static struct route_info *unpack_route(const tal_t *ctx,
 					   "fee_proportional_millionths");
 		cltv = json_get_member(buffer, t, "cltv_expiry_delta");
 
-		if (!json_to_pubkey(buffer, pubkey, &r->pubkey)
+		if (!json_to_node_id(buffer, pubkey, &r->pubkey)
 		    || !json_to_short_channel_id(buffer, scid,
 						 &r->short_channel_id,
 						 deprecated_apis)
@@ -811,7 +811,7 @@ static struct command_result *json_decodepay(struct command *cmd,
 	json_add_string(response, "currency", b11->chain->bip173_name);
 	json_add_u64(response, "created_at", b11->timestamp);
 	json_add_u64(response, "expiry", b11->expiry);
-	json_add_pubkey(response, "payee", &b11->receiver_id);
+	json_add_node_id(response, "payee", &b11->receiver_id);
         if (b11->msat)
                 json_add_amount_msat(response, *b11->msat,
 				     "msatoshi", "amount_msat");
@@ -841,8 +841,8 @@ static struct command_result *json_decodepay(struct command *cmd,
                         json_array_start(response, NULL);
                         for (n = 0; n < tal_count(b11->routes[i]); n++) {
                                 json_object_start(response, NULL);
-                                json_add_pubkey(response, "pubkey",
-                                                &b11->routes[i][n].pubkey);
+                                json_add_node_id(response, "pubkey",
+						 &b11->routes[i][n].pubkey);
                                 json_add_short_channel_id(response,
                                                           "short_channel_id",
                                                           &b11->routes[i][n]

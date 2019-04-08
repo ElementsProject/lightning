@@ -500,7 +500,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 		struct channel *c;
 		list_for_each(&p->channels, c, list) {
 			json_object_start(response, NULL);
-			json_add_pubkey(response, "peer_id", &p->id);
+			json_add_node_id(response, "peer_id", &p->id);
 			if (c->scid)
 				json_add_short_channel_id(response,
 							  "short_channel_id",

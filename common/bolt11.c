@@ -279,8 +279,6 @@ static char *decode_n(struct bolt11 *b11,
                       u5 **data, size_t *data_len,
                       size_t data_length, bool *have_n)
 {
-        u8 der[PUBKEY_CMPR_LEN];
-
         if (*have_n)
                 return unknown_field(b11, hu5, data, data_len, 'n',
                                      data_length);
@@ -294,10 +292,12 @@ static char *decode_n(struct bolt11 *b11,
                 return unknown_field(b11, hu5, data, data_len, 'n',
                                      data_length);
 
-        pull_bits_certain(hu5, data, data_len, der, data_length * 5, false);
-        if (!pubkey_from_der(der, sizeof(der), &b11->receiver_id))
-                return tal_fmt(b11, "n: invalid pubkey %.*s",
-                               (int)sizeof(der), der);
+        pull_bits_certain(hu5, data, data_len, &b11->receiver_id.k,
+			  data_length * 5, false);
+        if (!node_id_valid(&b11->receiver_id))
+                return tal_fmt(b11, "n: invalid pubkey %s",
+			       type_to_string(tmpctx, struct node_id,
+					      &b11->receiver_id));
 
         *have_n = true;
         return NULL;
@@ -377,7 +377,7 @@ static char *decode_f(struct bolt11 *b11,
 static bool fromwire_route_info(const u8 **cursor, size_t *max,
                                 struct route_info *route_info)
 {
-        fromwire_pubkey(cursor, max, &route_info->pubkey);
+        fromwire_node_id(cursor, max, &route_info->pubkey);
         fromwire_short_channel_id(cursor, max, &route_info->short_channel_id);
         route_info->fee_base_msat = fromwire_u32(cursor, max);
         route_info->fee_proportional_millionths = fromwire_u32(cursor, max);
@@ -387,7 +387,7 @@ static bool fromwire_route_info(const u8 **cursor, size_t *max,
 
 static void towire_route_info(u8 **pptr, const struct route_info *route_info)
 {
-        towire_pubkey(pptr, &route_info->pubkey);
+        towire_node_id(pptr, &route_info->pubkey);
         towire_short_channel_id(pptr, &route_info->short_channel_id);
         towire_u32(pptr, route_info->fee_base_msat);
         towire_u32(pptr, route_info->fee_proportional_millionths);
@@ -697,16 +697,22 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 	 * performing signature recovery.
 	 */
         if (!have_n) {
+		struct pubkey k;
                 if (!secp256k1_ecdsa_recover(secp256k1_ctx,
-                                             &b11->receiver_id.pubkey,
+                                             &k.pubkey,
                                              &sig,
                                              (const u8 *)&hash))
                         return decode_fail(b11, fail,
                                            "signature recovery failed");
+		node_id_from_pubkey(&b11->receiver_id, &k);
         } else {
+		struct pubkey k;
+		/* n parsing checked this! */
+		if (!pubkey_from_node_id(&k, &b11->receiver_id))
+			abort();
                 if (!secp256k1_ecdsa_verify(secp256k1_ctx, &b11->sig,
                                             (const u8 *)&hash,
-                                            &b11->receiver_id.pubkey))
+                                            &k.pubkey))
                         return decode_fail(b11, fail, "invalid signature");
         }
 
@@ -785,12 +791,10 @@ static void encode_h(u5 **data, const struct sha256 *hash)
         push_field(data, 'h', hash, 256);
 }
 
-static void encode_n(u5 **data, const struct pubkey *id)
+static void encode_n(u5 **data, const struct node_id *id)
 {
-        u8 der[PUBKEY_CMPR_LEN];
-
-        pubkey_to_der(der, id);
-        push_field(data, 'n', der, sizeof(der) * CHAR_BIT);
+        assert(node_id_valid(id));
+        push_field(data, 'n', id->k, sizeof(id->k) * CHAR_BIT);
 }
 
 static void encode_x(u5 **data, u64 expiry)

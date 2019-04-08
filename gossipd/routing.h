@@ -6,6 +6,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
+#include <common/node_id.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gossip_constants.h>
 #include <gossipd/gossip_store.h>
@@ -111,7 +112,7 @@ HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map
 #define NUM_IMMEDIATE_CHANS (sizeof(struct chan_map) / sizeof(struct chan *) - 1)
 
 struct node {
-	struct pubkey id;
+	struct node_id id;
 
 	/* -1 means never; other fields undefined */
 	s64 last_timestamp;
@@ -150,9 +151,9 @@ struct node {
 	u64 node_announcement_index;
 };
 
-const struct pubkey *node_map_keyof_node(const struct node *n);
-size_t node_map_hash_key(const struct pubkey *key);
-bool node_map_node_eq(const struct node *n, const struct pubkey *key);
+const struct node_id *node_map_keyof_node(const struct node *n);
+size_t node_map_hash_key(const struct node_id *pc);
+bool node_map_node_eq(const struct node *n, const struct node_id *pc);
 HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map_node_eq, node_map);
 
 struct pending_node_map;
@@ -204,7 +205,7 @@ struct routing_state {
 	struct broadcast_state *broadcasts;
 
 	/* Our own ID so we can identify local channels */
-	struct pubkey local_id;
+	struct node_id local_id;
 
 	/* How old does a channel have to be before we prune it? */
 	u32 prune_timeout;
@@ -243,14 +244,14 @@ get_channel(const struct routing_state *rstate,
 struct route_hop {
 	struct short_channel_id channel_id;
 	int direction;
-	struct pubkey nodeid;
+	struct node_id nodeid;
 	struct amount_msat amount;
 	u32 delay;
 };
 
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
-					const struct pubkey *local_id,
+					const struct node_id *local_id,
 					u32 prune_timeout,
 					const u32 *dev_gossip_time,
 					const struct amount_sat *dev_unknown_channel_satoshis);
@@ -263,8 +264,8 @@ struct routing_state *new_routing_state(const tal_t *ctx,
  */
 struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
-		      const struct pubkey *id1,
-		      const struct pubkey *id2,
+		      const struct node_id *id1,
+		      const struct node_id *id2,
 		      struct amount_sat sat);
 
 /* Handlers for incoming messages */
@@ -300,12 +301,13 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
 /* Get a node: use this instead of node_map_get() */
-struct node *get_node(struct routing_state *rstate, const struct pubkey *id);
+struct node *get_node(struct routing_state *rstate,
+		      const struct node_id *id);
 
 /* Compute a route to a destination, for a given amount and riskfactor. */
 struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
-			    const struct pubkey *source,
-			    const struct pubkey *destination,
+			    const struct node_id *source,
+			    const struct node_id *destination,
 			    const struct amount_msat msat, double riskfactor,
 			    u32 final_cltv,
 			    double fuzz,
@@ -314,7 +316,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    size_t max_hops);
 /* Disable channel(s) based on the given routing failure. */
 void routing_failure(struct routing_state *rstate,
-		     const struct pubkey *erring_node,
+		     const struct node_id *erring_node,
 		     const struct short_channel_id *erring_channel,
 		     int erring_direction,
 		     enum onion_type failcode,

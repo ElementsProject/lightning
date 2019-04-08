@@ -493,7 +493,7 @@ static void forward_htlc(struct htlc_in *hin,
 			 u32 cltv_expiry,
 			 struct amount_msat amt_to_forward,
 			 u32 outgoing_cltv_value,
-			 const struct pubkey *next_hop,
+			 const struct node_id *next_hop,
 			 const u8 next_onion[TOTAL_PACKET_SIZE])
 {
 	enum onion_type failcode;
@@ -591,7 +591,7 @@ struct gossip_resolve {
 static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 				  const int *fds UNUSED, struct gossip_resolve *gr)
 {
-	struct pubkey *peer_id;
+	struct node_id *peer_id;
 
 	if (!fromwire_gossip_get_channel_peer_reply(msg, msg, &peer_id)) {
 		log_broken(gossip->log,
@@ -1755,7 +1755,7 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 		   " is missing a resolution: %s.",
 		   hout->key.id, htlc_state_name(hout->hstate),
 		   type_to_string(tmpctx, struct amount_msat, &hout->msat),
-		   type_to_string(tmpctx, struct pubkey,
+		   type_to_string(tmpctx, struct node_id,
 				  &hout->key.channel->peer->id),
 		   fix);
 }
@@ -1852,12 +1852,12 @@ static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 						    const jsmntok_t *obj UNNEEDED,
 						    const jsmntok_t *params)
 {
-	struct pubkey *peerid;
+	struct node_id *peerid;
 	struct peer *peer;
 	bool *ignore;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_pubkey, &peerid),
+		   p_req("id", param_node_id, &peerid),
 		   p_req("ignore", param_bool, &ignore),
 		   NULL))
 		return command_param_failed();

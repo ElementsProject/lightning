@@ -23,9 +23,9 @@ struct amount_msat;
 struct invoices;
 struct channel;
 struct lightningd;
+struct node_id;
 struct oneshot;
 struct peer;
-struct pubkey;
 struct timers;
 
 struct wallet {
@@ -215,14 +215,14 @@ struct wallet_payment {
 	u32 timestamp;
 	struct sha256 payment_hash;
 	enum wallet_payment_status status;
-	struct pubkey destination;
+	struct node_id destination;
 	struct amount_msat msatoshi;
 	struct amount_msat msatoshi_sent;
 	/* If and only if PAYMENT_COMPLETE */
 	struct preimage *payment_preimage;
 	/* Needed for recovering from routing failures. */
 	struct secret *path_secrets;
-	struct pubkey *route_nodes;
+	struct node_id *route_nodes;
 	struct short_channel_id *route_channels;
 	/* bolt11 string; NULL for old payments. */
 	const char *bolt11;
@@ -900,7 +900,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 bool *faildestperm,
 				 int *failindex,
 				 enum onion_type *failcode,
-				 struct pubkey **failnode,
+				 struct node_id **failnode,
 				 struct short_channel_id **failchannel,
 				 u8 **failupdate,
 				 char **faildetail,
@@ -915,7 +915,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 bool faildestperm,
 				 int failindex,
 				 enum onion_type failcode,
-				 const struct pubkey *failnode,
+				 const struct node_id *failnode,
 				 const struct short_channel_id *failchannel,
 				 const u8 *failupdate,
 				 const char *faildetail,
