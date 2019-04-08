@@ -25,30 +25,6 @@
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
-/* We've unpacked and checked its signatures, now we wait for master to tell
- * us the txout to check */
-struct pending_cannouncement {
-	/* Off routing_state->pending_cannouncement */
-	struct list_node list;
-
-	/* Unpacked fields here */
-	struct short_channel_id short_channel_id;
-	struct node_id node_id_1;
-	struct node_id node_id_2;
-	struct pubkey bitcoin_key_1;
-	struct pubkey bitcoin_key_2;
-
-	/* The raw bits */
-	const u8 *announce;
-
-	/* Deferred updates, if we received them while waiting for
-	 * this (one for each direction) */
-	const u8 *updates[2];
-
-	/* Only ever replace with newer updates */
-	u32 update_timestamps[2];
-};
-
 struct pending_node_announce {
 	struct routing_state *rstate;
 	struct node_id nodeid;
@@ -193,7 +169,9 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
 	rstate->local_channel_announced = false;
-	list_head_init(&rstate->pending_cannouncement);
+
+	pending_cannouncement_map_init(&rstate->pending_cannouncements);
+
 	uintmap_init(&rstate->chanmap);
 	uintmap_init(&rstate->unupdated_chanmap);
 	chan_map_init(&rstate->local_disabled_map);
@@ -895,19 +873,17 @@ static struct pending_cannouncement *
 find_pending_cannouncement(struct routing_state *rstate,
 			   const struct short_channel_id *scid)
 {
-	struct pending_cannouncement *i;
+	struct pending_cannouncement *pann;
 
-	list_for_each(&rstate->pending_cannouncement, i, list) {
-		if (short_channel_id_eq(scid, &i->short_channel_id))
-			return i;
-	}
-	return NULL;
+	pann = pending_cannouncement_map_get(&rstate->pending_cannouncements, scid);
+
+	return pann;
 }
 
 static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 					  struct routing_state *rstate)
 {
-	list_del_from(&rstate->pending_cannouncement, &pending->list);
+	pending_cannouncement_map_del(&rstate->pending_cannouncements, pending);
 }
 
 static bool is_local_channel(const struct routing_state *rstate,
@@ -1152,7 +1128,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	catch_node_announcement(pending, rstate, &pending->node_id_1);
 	catch_node_announcement(pending, rstate, &pending->node_id_2);
 
-	list_add_tail(&rstate->pending_cannouncement, &pending->list);
+	pending_cannouncement_map_add(&rstate->pending_cannouncements, pending);
 	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
 
 	/* Success */
@@ -1253,7 +1229,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	}
 
 	/* Remove pending now, so below functions don't see it. */
-	list_del_from(&rstate->pending_cannouncement, &pending->list);
+	pending_cannouncement_map_del(&rstate->pending_cannouncements, pending);
 	tal_del_destructor2(pending, destroy_pending_cannouncement, rstate);
 
 	if (!routing_add_channel_announcement(rstate, pending->announce, sat, 0))
@@ -2017,6 +1993,7 @@ void memleak_remove_routing_tables(struct htable *memtable,
 
 	memleak_remove_htable(memtable, &rstate->nodes->raw);
 	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
+	memleak_remove_htable(memtable, &rstate->pending_cannouncements.raw);
 
 	for (n = node_map_first(rstate->nodes, &nit);
 	     n;

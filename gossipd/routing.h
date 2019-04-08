@@ -89,6 +89,7 @@ static inline bool chan_eq_scid(const struct chan *c,
 {
 	return short_channel_id_eq(scid, &c->scid);
 }
+
 HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map);
 
 /* For a small number of channels (by far the most common) we use a simple
@@ -124,8 +125,54 @@ size_t node_map_hash_key(const struct node_id *pc);
 bool node_map_node_eq(const struct node *n, const struct node_id *pc);
 HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map_node_eq, node_map);
 
+/* We've unpacked and checked its signatures, now we wait for master to tell
+ * us the txout to check */
+struct pending_cannouncement {
+	/* Unpacked fields here */
+
+	/* also the key in routing_state->pending_cannouncements */
+	struct short_channel_id short_channel_id;
+	struct node_id node_id_1;
+	struct node_id node_id_2;
+	struct pubkey bitcoin_key_1;
+	struct pubkey bitcoin_key_2;
+
+	/* The raw bits */
+	const u8 *announce;
+
+	/* Deferred updates, if we received them while waiting for
+	 * this (one for each direction) */
+	const u8 *updates[2];
+
+	/* Only ever replace with newer updates */
+	u32 update_timestamps[2];
+};
+
+static inline const struct short_channel_id *panding_cannouncement_map_scid(
+				const struct pending_cannouncement *pending_ann)
+{
+	return &pending_ann->short_channel_id;
+}
+
+static inline size_t hash_pending_cannouncement_scid(
+				const struct short_channel_id *scid)
+{
+	/* like hash_scid() for struct chan above */
+	return (scid->u64 >> 32) ^ (scid->u64 >> 16) ^ scid->u64;
+}
+
+static inline bool pending_cannouncement_eq_scid(
+				const struct pending_cannouncement *pending_ann,
+				const struct short_channel_id *scid)
+{
+	return short_channel_id_eq(scid, &pending_ann->short_channel_id);
+}
+
+HTABLE_DEFINE_TYPE(struct pending_cannouncement, panding_cannouncement_map_scid,
+		   hash_pending_cannouncement_scid, pending_cannouncement_eq_scid,
+		   pending_cannouncement_map);
+
 struct pending_node_map;
-struct pending_cannouncement;
 struct unupdated_channel;
 
 /* Fast versions: if you know n is one end of the channel */
@@ -167,9 +214,8 @@ struct routing_state {
 	/* node_announcements which are waiting on pending_cannouncement */
 	struct pending_node_map *pending_node_map;
 
-	/* FIXME: Make this a htable! */
 	/* channel_announcement which are pending short_channel_id lookup */
-	struct list_head pending_cannouncement;
+	struct pending_cannouncement_map pending_cannouncements;
 
 	/* Broadcast map, and access to gossip store */
 	struct broadcast_state *broadcasts;
