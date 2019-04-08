@@ -105,6 +105,9 @@ static inline bool chan_eq_scid(const struct chan *c,
 }
 HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map);
 
+/* For a small number of channels (by far the most common) we use a simple
+ * array, with empty buckets NULL.  For larger, we use a proper hash table,
+ * with the extra allocation that implies. */
 #define NUM_IMMEDIATE_CHANS (sizeof(struct chan_map) / sizeof(struct chan *) - 1)
 
 struct node {
