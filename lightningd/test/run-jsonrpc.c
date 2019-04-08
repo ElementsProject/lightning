@@ -149,12 +149,12 @@ static void test_json_escape(void)
 		if (i == '\\' || i == '"'
 		    || i == '\n' || i == '\r' || i == '\b'
 		    || i == '\t' || i == '\f')
-			assert(strstarts(str, "\n{\n  \"x\": \"\\"));
+			assert(strstarts(str, "{\"x\":\"\\"));
 		else if (i < 32 || i == 127) {
-			assert(strstarts(str, "\n{\n  \"x\": \"\\u00"));
+			assert(strstarts(str, "{\"x\":\"\\u00"));
 		} else {
-			char expect[] = "\n{\n  \"x\": \"?\"\n}";
-			expect[11] = i;
+			char expect[] = "{\"x\":\"?\"}";
+			expect[6] = i;
 			assert(streq(str, expect));
 		}
 		tal_free(result);
