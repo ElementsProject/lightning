@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	struct amount_sat sat;
 	bool verbose = false;
 	char *infile = NULL, *outfile = NULL, *scidfile = NULL, *csat = NULL;
-	int infd, outfd;
+	int infd = 0, outfd;
        	FILE * scidfd;
 	struct scidsat * scids = NULL;
 	unsigned max = -1U;
