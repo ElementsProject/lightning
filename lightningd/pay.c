@@ -613,7 +613,7 @@ send_payment(struct lightningd *ld,
 		ids[i] = route[i].nodeid;
 		/* JSON parsing checked these were valid, so Shouldn't Happen */
 		if (!pubkey_from_node_id(&path[i], &ids[i])) {
-			return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+			return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
 					    "Invalid nodeid %s",
 					    type_to_string(tmpctx,
 							   struct node_id,
