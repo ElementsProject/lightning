@@ -1947,55 +1947,62 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
  * marshalling the channel information for all channels into an array of
  * gossip_getchannels_entry, which lightningd converts to JSON.  Each channel
  * is represented by two half_chan; one in each direction.
- *
- * FIXME: I run a lightning node permanently under valgrind, and Christian ran
- * `listchannels` on it.  After about 15 minutes I simply rebooted.  There's
- * been some optimization since then, but blocking gossipd to marshall all the
- * channels will become in issue in future, I expect.  We may even hit the
- * 2^24 internal message limit.
  */
-static void append_half_channel(struct gossip_getchannels_entry **entries,
-				const struct chan *chan,
-				int idx)
+static struct gossip_halfchannel_entry *hc_entry(const tal_t *ctx,
+						 const struct chan *chan,
+						 int idx)
 {
-	const struct half_chan *c = &chan->half[idx];
-	struct gossip_getchannels_entry e;
-
-	/* If we've never seen a channel_update for this direction... */
-	if (!is_halfchan_defined(c))
-		return;
-
 	/* Our 'struct chan' contains two nodes: they are in pubkey_cmp order
 	 * (ie. chan->nodes[0] is the lesser pubkey) and this is the same as
 	 * the direction bit in `channel_update`s `channel_flags`.
 	 *
 	 * The halfchans are arranged so that half[0] src == nodes[0], and we
-	 * use that here.  We also avoid using libsecp256k1 to translate the
-	 * pubkeys to DER and back: that proves quite expensive, and we assume
-	 * we're on the same architecture as lightningd, so we just send them
-	 * raw in this case. */
-	e.source = chan->nodes[idx]->id;
-	e.destination = chan->nodes[!idx]->id;
-	e.sat = chan->sat;
-	e.channel_flags = c->channel_flags;
-	e.message_flags = c->message_flags;
-	e.local_disabled = chan->local_disabled;
-	e.public = is_chan_public(chan);
-	e.short_channel_id = chan->scid;
-	e.last_update_timestamp = c->last_timestamp;
-	e.base_fee_msat = c->base_fee;
-	e.fee_per_millionth = c->proportional_fee;
-	e.delay = c->delay;
+	 * use that here. */
+	const struct half_chan *c = &chan->half[idx];
+	struct gossip_halfchannel_entry *e;
 
-	tal_arr_expand(entries, e);
+	/* If we've never seen a channel_update for this direction... */
+	if (!is_halfchan_defined(c))
+		return NULL;
+
+	e = tal(ctx, struct gossip_halfchannel_entry);
+	e->channel_flags = c->channel_flags;
+	e->message_flags = c->message_flags;
+	e->last_update_timestamp = c->last_timestamp;
+	e->base_fee_msat = c->base_fee;
+	e->fee_per_millionth = c->proportional_fee;
+	e->delay = c->delay;
+
+	return e;
 }
 
-/*~ Marshal (possibly) both channel directions into entries */
-static void append_channel(struct gossip_getchannels_entry **entries,
-			   const struct chan *chan)
+/*~ Marshal (possibly) both channel directions into entries. */
+static void append_channel(const struct gossip_getchannels_entry ***entries,
+			   const struct chan *chan,
+			   const struct node_id *srcfilter)
 {
-	append_half_channel(entries, chan, 0);
-	append_half_channel(entries, chan, 1);
+	struct gossip_getchannels_entry *e = tal(*entries, struct gossip_getchannels_entry);
+
+	e->node[0] = chan->nodes[0]->id;
+	e->node[1] = chan->nodes[1]->id;
+	e->sat = chan->sat;
+	e->local_disabled = chan->local_disabled;
+	e->public = is_chan_public(chan);
+	e->short_channel_id = chan->scid;
+	if (!srcfilter || node_id_eq(&e->node[0], srcfilter))
+		e->e[0] = hc_entry(*entries, chan, 0);
+	else
+		e->e[0] = NULL;
+	if (!srcfilter || node_id_eq(&e->node[1], srcfilter))
+		e->e[1] = hc_entry(*entries, chan, 1);
+	else
+		e->e[1] = NULL;
+
+	/* We choose not to tell lightningd about channels with no updates,
+	 * as they're unusable and can't be represented in the listchannels
+	 * JSON output we use anyway. */
+	if (e->e[0] || e->e[1])
+		tal_arr_expand(entries, e);
 }
 
 /*~ This is where lightningd asks for all channels we know about. */
@@ -2004,7 +2011,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 				       const u8 *msg)
 {
 	u8 *out;
-	struct gossip_getchannels_entry *entries;
+	const struct gossip_getchannels_entry **entries;
 	struct chan *chan;
 	struct short_channel_id *scid;
 	struct node_id *source;
@@ -2013,12 +2020,12 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 	if (!fromwire_gossip_getchannels_request(msg, msg, &scid, &source))
 		master_badmsg(WIRE_GOSSIP_GETCHANNELS_REQUEST, msg);
 
-	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, 0);
+	entries = tal_arr(tmpctx, const struct gossip_getchannels_entry *, 0);
 	/* They can ask about a particular channel by short_channel_id */
 	if (scid) {
 		chan = get_channel(daemon->rstate, scid);
 		if (chan)
-			append_channel(&entries, chan);
+			append_channel(&entries, chan, NULL);
 	} else if (source) {
 		struct node *s = get_node(daemon->rstate, source);
 		if (s) {
@@ -2026,9 +2033,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 			struct chan *c;
 
 			for (c = first_chan(s, &i); c; c = next_chan(s, &i)) {
-				append_half_channel(&entries,
-						    c,
-						    !half_chan_to(s, c));
+				append_channel(&entries, c, source);
 			}
 		}
 	} else {
@@ -2039,7 +2044,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 		for (chan = uintmap_first(&daemon->rstate->chanmap, &idx);
 		     chan;
 		     chan = uintmap_after(&daemon->rstate->chanmap, &idx)) {
-			append_channel(&entries, chan);
+			append_channel(&entries, chan, NULL);
 		}
 	}
 
