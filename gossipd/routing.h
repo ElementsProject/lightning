@@ -280,6 +280,10 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct amount_sat sat,
 				  const u8 *txscript);
 
+/* Iterate through channels in a node */
+struct chan *first_chan(const struct node *node, struct chan_map_iter *i);
+struct chan *next_chan(const struct node *node, struct chan_map_iter *i);
+
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 			  const char *source);

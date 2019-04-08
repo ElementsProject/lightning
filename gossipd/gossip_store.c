@@ -163,9 +163,7 @@ static bool add_local_unnannounced(int fd,
 	struct chan_map_iter i;
 	struct chan *c;
 
-	for (c = chan_map_first(&self->chans, &i);
-	     c;
-	     c = chan_map_next(&self->chans, &i)) {
+	for (c = first_chan(self, &i); c; c = next_chan(self, &i)) {
 		struct node *peer = other_node(self, c);
 		const u8 *msg;
 

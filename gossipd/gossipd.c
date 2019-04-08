@@ -178,9 +178,7 @@ static void peer_disable_channels(struct daemon *daemon, struct node *node)
 	struct chan_map_iter i;
 	struct chan *c;
 
-	for (c = chan_map_first(&node->chans, &i);
-	     c;
-	     c = chan_map_next(&node->chans, &i)) {
+	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 		if (pubkey_eq(&other_node(node, c)->id, &daemon->id))
 			c->local_disabled = true;
 	}
@@ -1805,9 +1803,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 		struct chan_map_iter i;
 		struct chan *c;
 
-		for (c = chan_map_first(&n->chans, &i);
-		     c;
-		     c = chan_map_next(&n->chans, &i)) {
+		for (c = first_chan(n, &i); c; c = next_chan(n, &i)) {
 			struct half_chan *hc = half_chan_from(n, c);
 
 			if (!is_halfchan_defined(hc)) {
@@ -1847,9 +1843,7 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 	if (!local_node)
 		return;
 
-	for (c = chan_map_first(&local_node->chans, &i);
-	     c;
-	     c = chan_map_next(&local_node->chans, &i))
+	for (c = first_chan(local_node, &i); c; c = next_chan(local_node, &i))
 		c->local_disabled = true;
 }
 
@@ -2035,9 +2029,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 			struct chan_map_iter i;
 			struct chan *c;
 
-			for (c = chan_map_first(&s->chans, &i);
-			     c;
-			     c = chan_map_next(&s->chans, &i)) {
+			for (c = first_chan(s, &i); c; c = next_chan(s, &i)) {
 				append_half_channel(&entries,
 						    c,
 						    !half_chan_to(s, c));
@@ -2179,9 +2171,7 @@ static bool node_has_public_channels(const struct node *peer,
 	struct chan_map_iter i;
 	struct chan *c;
 
-	for (c = chan_map_first(&peer->chans, &i);
-	     c;
-	     c = chan_map_next(&peer->chans, &i)) {
+	for (c = first_chan(peer, &i); c; c = next_chan(peer, &i)) {
 		if (c == exclude)
 			continue;
 		if (is_chan_public(c))
@@ -2232,9 +2222,7 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 		struct chan_map_iter i;
 		struct chan *c;
 
-		for (c = chan_map_first(&node->chans, &i);
-		     c;
-		     c = chan_map_next(&node->chans, &i)) {
+		for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 			const struct half_chan *hc;
 			struct route_info ri;
 
