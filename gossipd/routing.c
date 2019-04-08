@@ -79,14 +79,70 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 	return map;
 }
 
+/* We use a simple array until we have too many. */
+static bool node_uses_chan_map(const struct node *node)
+{
+	/* This is a layering violation: last entry in htable is the table ptr,
+	 * which is never NULL */
+	return node->chans.arr[NUM_IMMEDIATE_CHANS] != NULL;
+}
+
+/* When simple array fills, use a htable. */
+static void convert_node_to_chan_map(struct node *node)
+{
+	struct chan *chans[NUM_IMMEDIATE_CHANS];
+
+	memcpy(chans, node->chans.arr, sizeof(chans));
+	chan_map_init_sized(&node->chans.map, NUM_IMMEDIATE_CHANS + 1);
+	assert(node_uses_chan_map(node));
+	for (size_t i = 0; i < ARRAY_SIZE(chans); i++)
+		chan_map_add(&node->chans.map, chans[i]);
+}
+
+static void add_chan(struct node *node, struct chan *chan)
+{
+	if (!node_uses_chan_map(node)) {
+		for (size_t i = 0; i < NUM_IMMEDIATE_CHANS; i++) {
+			if (node->chans.arr[i] == NULL) {
+				node->chans.arr[i] = chan;
+				return;
+			}
+		}
+		convert_node_to_chan_map(node);
+	}
+
+	chan_map_add(&node->chans.map, chan);
+}
+
+static struct chan *next_chan_arr(const struct node *node,
+				  struct chan_map_iter *i)
+{
+	while (i->i.off < NUM_IMMEDIATE_CHANS) {
+		if (node->chans.arr[i->i.off])
+			return node->chans.arr[i->i.off];
+		i->i.off++;
+	}
+	return NULL;
+}
+
 struct chan *first_chan(const struct node *node, struct chan_map_iter *i)
 {
-	return chan_map_first(&node->chans, i);
+	if (!node_uses_chan_map(node)) {
+		i->i.off = 0;
+		return next_chan_arr(node, i);
+	}
+
+	return chan_map_first(&node->chans.map, i);
 }
 
 struct chan *next_chan(const struct node *node, struct chan_map_iter *i)
 {
-	return chan_map_next(&node->chans, i);
+	if (!node_uses_chan_map(node)) {
+		i->i.off++;
+		return next_chan_arr(node, i);
+	}
+
+	return chan_map_next(&node->chans.map, i);
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
@@ -140,16 +196,20 @@ bool node_map_node_eq(const struct node *n, const struct pubkey *key)
 	return pubkey_eq(&n->id, key);
 }
 
+
 static void destroy_node(struct node *node, struct routing_state *rstate)
 {
 	struct chan_map_iter i;
 	struct chan *c;
 	node_map_del(rstate->nodes, node);
 
-	/* These remove themselves from the map. */
+	/* These remove themselves from chans[]. */
 	while ((c = first_chan(node, &i)) != NULL)
 		tal_free(c);
-	chan_map_clear(&node->chans);
+
+	/* Free htable if we need. */
+	if (node_uses_chan_map(node))
+		chan_map_clear(&node->chans.map);
 }
 
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id)
@@ -166,7 +226,7 @@ static struct node *new_node(struct routing_state *rstate,
 
 	n = tal(rstate, struct node);
 	n->id = *id;
-	chan_map_init(&n->chans);
+	memset(n->chans.arr, 0, sizeof(n->chans.arr));
 	n->globalfeatures = NULL;
 	n->node_announcement = NULL;
 	n->node_announcement_index = 0;
@@ -235,11 +295,25 @@ static u64 persistent_broadcast(struct routing_state *rstate, const u8 *msg, u32
 static void remove_chan_from_node(struct routing_state *rstate,
 				  struct node *node, const struct chan *chan)
 {
-	if (!chan_map_del(&node->chans, chan))
-		abort();
+	size_t num_chans;
+
+	if (!node_uses_chan_map(node)) {
+		num_chans = 0;
+		for (size_t i = 0; i < NUM_IMMEDIATE_CHANS; i++) {
+			if (node->chans.arr[i] == chan)
+				node->chans.arr[i] = NULL;
+			else if (node->chans.arr[i] != NULL)
+				num_chans++;
+		}
+	} else {
+		if (!chan_map_del(&node->chans.map, chan))
+			abort();
+		/* FIXME: Expose this in ccan/htable */
+		num_chans = node->chans.map.raw.elems;
+	}
 
 	/* Last channel?  Simply delete node (and associated announce) */
-	if (node->chans.raw.elems == 0) {
+	if (num_chans == 0) {
 		tal_free(node);
 		return;
 	}
@@ -327,8 +401,8 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->sat = satoshis;
 	chan->local_disabled = false;
 
-	chan_map_add(&n2->chans, chan);
-	chan_map_add(&n1->chans, chan);
+	add_chan(n2, chan);
+	add_chan(n1, chan);
 
 	/* Populate with (inactive) connections */
 	init_half_chan(rstate, chan, n1idx);
@@ -1796,7 +1870,8 @@ void memleak_remove_routing_tables(struct htable *memtable,
 	for (n = node_map_first(rstate->nodes, &nit);
 	     n;
 	     n = node_map_next(rstate->nodes, &nit)) {
-		memleak_remove_htable(memtable, &n->chans.raw);
+		if (node_uses_chan_map(n))
+			memleak_remove_htable(memtable, &n->chans.map.raw);
 	}
 }
 #endif /* DEVELOPER */
