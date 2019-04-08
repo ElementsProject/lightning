@@ -29,6 +29,8 @@ OPTIONS
   Follow strictly the order of parameters for the command
 *--json*/*-J*::
   Return result in JSON format (default unless 'help' command)
+*--raw*/*-R*::
+  Return raw JSON directly as lightningd replies
 *--human-readable*/*-H*::
   Return result in human-readable output (default for 'help' command)
 *--help*/*-h*::

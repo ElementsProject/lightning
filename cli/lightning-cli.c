@@ -114,7 +114,8 @@ static void human_help(const char *buffer, const jsmntok_t *result, bool has_com
 enum format {
 	JSON,
 	HUMAN,
-	DEFAULT_FORMAT
+	DEFAULT_FORMAT,
+	RAW
 };
 
 static char *opt_set_human(enum format *format)
@@ -126,6 +127,12 @@ static char *opt_set_human(enum format *format)
 static char *opt_set_json(enum format *format)
 {
 	*format = JSON;
+	return NULL;
+}
+
+static char *opt_set_raw(enum format *format)
+{
+	*format = RAW;
 	return NULL;
 }
 
@@ -202,6 +209,61 @@ try_exec_man (const char *page, char *relative_to) {
 		exit(0);
 }
 
+static void print_json(const char *str, const jsmntok_t *tok, const char *indent)
+{
+	size_t i;
+	const jsmntok_t *t;
+	bool first;
+	char next_indent[strlen(indent) + 3 + 1];
+
+	memset(next_indent, ' ', sizeof(next_indent)-1);
+	next_indent[sizeof(next_indent)-1] = '\0';
+
+	switch (tok->type) {
+	case JSMN_PRIMITIVE:
+	case JSMN_STRING:
+		printf("%.*s", json_tok_full_len(tok), json_tok_full(str, tok));
+		return;
+
+	case JSMN_ARRAY:
+		first = true;
+		json_for_each_arr(i, t, tok) {
+			if (first)
+				printf("[\n%s", next_indent);
+			else
+				printf(",\n%s", next_indent);
+			print_json(str, t, next_indent);
+			first = false;
+		}
+		if (first)
+			printf("[]");
+		else
+			printf("\n%s]", indent);
+		return;
+
+	case JSMN_OBJECT:
+		first = true;
+		json_for_each_obj(i, t, tok) {
+			if (first)
+				printf("{\n%s", next_indent);
+			else
+				printf(",\n%s", next_indent);
+			print_json(str, t, next_indent);
+			printf(" : ");
+			print_json(str, t + 1, next_indent);
+			first = false;
+		}
+		if (first)
+			printf("{}");
+		else
+			printf("\n%s}", indent);
+		return;
+	case JSMN_UNDEFINED:
+		break;
+	}
+	abort();
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -232,6 +294,8 @@ int main(int argc, char *argv[])
 			   "Human-readable output (default for 'help')");
 	opt_register_noarg("-J|--json", opt_set_json, &format,
 			   "JSON output (default unless 'help')");
+	opt_register_noarg("-R|--raw", opt_set_raw, &format,
+			   "Raw, unformatted JSON output");
 	opt_register_noarg("-k|--keywords", opt_set_keywords, &input,
 			   "Use format key=value for <params>");
 	opt_register_noarg("-o|--order", opt_set_ordered, &input,
@@ -387,10 +451,14 @@ int main(int argc, char *argv[])
 				human_help(resp, result, false);
 			else
 				human_readable(resp, result, '\n');
-		else
+		else if (format == RAW)
 			printf("%.*s\n",
 			       json_tok_full_len(result),
 			       json_tok_full(resp, result));
+		else {
+			print_json(resp, result, "");
+			printf("\n");
+		}
 		tal_free(lightning_dir);
 		tal_free(rpc_filename);
 		tal_free(ctx);
@@ -398,8 +466,13 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	printf("%.*s\n",
-	       json_tok_full_len(error), json_tok_full(resp, error));
+	if (format == RAW)
+		printf("%.*s\n",
+		       json_tok_full_len(error), json_tok_full(resp, error));
+	else {
+		print_json(resp, error, "");
+		printf("\n");
+	}
 	tal_free(lightning_dir);
 	tal_free(rpc_filename);
 	tal_free(ctx);

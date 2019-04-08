@@ -232,4 +232,4 @@ def test_utf8_passthrough(node_factory, executor):
                                    .format(l1.daemon.lightning_dir),
                                    'utf8', 'ナンセンス 1杯']).decode('utf-8')
     assert '\\u' not in out
-    assert out == '{"utf8": "ナンセンス 1杯"}\n'
+    assert out == '{\n   "utf8" : "ナンセンス 1杯"\n}\n'
