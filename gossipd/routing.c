@@ -890,15 +890,11 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 
-	/* FIXME */
-	struct pubkey pk1, pk2;
 	if (!fromwire_channel_announcement(
 		    tmpctx, msg, &node_signature_1, &node_signature_2,
 		    &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
-		    &scid, &pk1, &pk2, &bitcoin_key_1, &bitcoin_key_2))
+		    &scid, &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2))
 		return false;
-	node_id_from_pubkey(&node_id_1, &pk1);
-	node_id_from_pubkey(&node_id_2, &pk2);
 
 	/* The channel may already exist if it was non-public from
 	 * local_add_channel(); normally we don't accept new
@@ -942,8 +938,6 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 					announce, tal_count(announce), 0);
 	pending->update_timestamps[0] = pending->update_timestamps[1] = 0;
 
-	/* FIXME */
-	struct pubkey pk1, pk2;
 	if (!fromwire_channel_announcement(pending, pending->announce,
 					   &node_signature_1,
 					   &node_signature_2,
@@ -952,7 +946,8 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 					   &features,
 					   &chain_hash,
 					   &pending->short_channel_id,
-					   &pk1, &pk2,
+					   &pending->node_id_1,
+					   &pending->node_id_2,
 					   &pending->bitcoin_key_1,
 					   &pending->bitcoin_key_2)) {
 		err = towire_errorfmt(rstate, NULL,
@@ -960,8 +955,6 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 				      tal_hex(pending, pending->announce));
 		goto malformed;
 	}
-	node_id_from_pubkey(&pending->node_id_1, &pk1);
-	node_id_from_pubkey(&pending->node_id_2, &pk2);
 
 	/* If a prior txout lookup failed there is little point it trying
 	 * again. Just drop the announcement and walk away whistling. Any non-0
@@ -1030,6 +1023,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		goto ignored;
 	}
 
+	/* Note that if node_id_1 or node_id_2 are malformed, it's caught here */
 	err = check_channel_announcement(rstate,
 					 &pending->node_id_1,
 					 &pending->node_id_2,
@@ -1506,14 +1500,12 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
 
-	/* FIXME */
-	struct pubkey pk;
+	/* Note: validity of node_id is already checked. */
 	if (!fromwire_node_announcement(tmpctx, msg,
 					&signature, &features, &timestamp,
-					&pk, rgb_color, alias,
+					&node_id, rgb_color, alias,
 					&addresses))
 		return false;
-	node_id_from_pubkey(&node_id, &pk);
 
 	node = get_node(rstate, &node_id);
 
@@ -1560,11 +1552,9 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	bool applied;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
-	/* FIXME */
-	struct pubkey pk;
 	if (!fromwire_node_announcement(tmpctx, serialized,
 					&signature, &features, &timestamp,
-					&pk, rgb_color, alias,
+					&node_id, rgb_color, alias,
 					&addresses)) {
 		/* BOLT #7:
 		 *
@@ -1577,7 +1567,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 					  tal_hex(tmpctx, node_ann));
 		return err;
 	}
-	node_id_from_pubkey(&node_id, &pk);
 
 	/* BOLT #7:
 	 *
@@ -1596,6 +1585,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	}
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
+	/* If node_id is invalid, it fails here */
 	if (!check_signed_hash_nodeid(&hash, &signature, &node_id)) {
 		/* BOLT #7:
 		 *

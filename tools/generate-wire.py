@@ -18,6 +18,7 @@ type2size = {
     'secp256k1_ecdsa_signature': 64,
     'struct preimage': 32,
     'struct pubkey': 33,
+    'struct node_id': 33,
     'struct sha256': 32,
     'struct bitcoin_blkid': 32,
     'struct bitcoin_txid': 32,
@@ -110,6 +111,7 @@ partialtypemap = {
     'pad': FieldType('pad'),
     'msat': FieldType('struct amount_msat'),
     'satoshis': FieldType('struct amount_sat'),
+    'node_id': FieldType('struct node_id'),
 }
 
 # Size to typename match

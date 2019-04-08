@@ -406,12 +406,6 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 		second = LOCAL;
 	}
 
-	/* FIXME */
-	struct pubkey pk1, pk2;
-	if (!pubkey_from_node_id(&pk1, &peer->node_ids[first])
-	    || !pubkey_from_node_id(&pk2, &peer->node_ids[second]))
-		abort();
-
 	cannounce = towire_channel_announcement(
 	    ctx, &peer->announcement_node_sigs[first],
 	    &peer->announcement_node_sigs[second],
@@ -419,8 +413,10 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	    &peer->announcement_bitcoin_sigs[second],
 	    features,
 	    &peer->chain_hash,
-	    &peer->short_channel_ids[LOCAL], &pk1,
-	    &pk2, &peer->channel->funding_pubkey[first],
+	    &peer->short_channel_ids[LOCAL],
+	    &peer->node_ids[first],
+	    &peer->node_ids[second],
+	    &peer->channel->funding_pubkey[first],
 	    &peer->channel->funding_pubkey[second]);
 	tal_free(features);
 	return cannounce;

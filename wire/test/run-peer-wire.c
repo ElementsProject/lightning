@@ -42,6 +42,11 @@ static void set_pubkey(struct pubkey *key)
 	assert(pubkey_from_der(der, sizeof(der), key));
 }
 
+static void set_node_id(struct node_id *id)
+{
+	memset(id->k, 2, sizeof(id->k));
+}
+
 /* Size up to field. */
 #define upto_field(p, field)				\
 	((char *)&(p)->field - (char *)(p))
@@ -167,7 +172,7 @@ struct msg_commitment_signed {
 struct msg_node_announcement {
 	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
-	struct pubkey node_id;
+	struct node_id node_id;
 	u8 rgb_color[3];
 	u8 alias[32];
 	u8 *features;
@@ -206,8 +211,8 @@ struct msg_channel_announcement {
 	u8 *features;
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id short_channel_id;
-	struct pubkey node_id_1;
-	struct pubkey node_id_2;
+	struct node_id node_id_1;
+	struct node_id node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 };
@@ -762,7 +767,9 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 		&& eq_field(a, b, chain_hash)
 		&& short_channel_id_eq(&a->short_channel_id,
 				       &b->short_channel_id)
-		&& eq_between(a, b, node_id_1, bitcoin_key_2);
+		&& eq_field(a, b, node_id_1)
+		&& eq_field(a, b, node_id_2)
+		&& eq_between(a, b, bitcoin_key_1, bitcoin_key_2);
 }
 
 static bool funding_locked_eq(const struct msg_funding_locked *a,
@@ -887,7 +894,9 @@ static bool update_add_htlc_eq(const struct msg_update_add_htlc *a,
 static bool node_announcement_eq(const struct msg_node_announcement *a,
 				 const struct msg_node_announcement *b)
 {
-	return eq_with(a, b, alias)
+	return eq_with(a, b, node_id)
+		&& eq_field(a, b, rgb_color)
+		&& eq_field(a, b, alias)
 		&& eq_var(a, b, features)
 		&& eq_var(a, b, addresses);
 }
@@ -938,8 +947,8 @@ int main(void)
 						 | SECP256K1_CONTEXT_SIGN);
 
 	memset(&ca, 2, sizeof(ca));
-	set_pubkey(&ca.node_id_1);
-	set_pubkey(&ca.node_id_2);
+	set_node_id(&ca.node_id_1);
+	set_node_id(&ca.node_id_2);
 	set_pubkey(&ca.bitcoin_key_1);
 	set_pubkey(&ca.bitcoin_key_2);
  	ca.features = tal_arr(ctx, u8, 2);
@@ -1103,7 +1112,7 @@ int main(void)
 	test_corruption(&uah, uah2, update_add_htlc);
 
 	memset(&na, 2, sizeof(na));
-	set_pubkey(&na.node_id);
+	set_node_id(&na.node_id);
 	na.features = tal_arr(ctx, u8, 2);
 	memset(na.features, 2, 2);
 	na.addresses = tal_arr(ctx, u8, 2);
