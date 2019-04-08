@@ -993,8 +993,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			status_trace("Created socket listener on file %s",
 				     addrun.sun_path);
 			add_listen_fd(daemon, fd, false);
-			/* We don't announce socket names */
-			assert(!announce);
+			/* We don't announce socket names, though we allow
+			 * them to lazily specify --addr=/socket. */
 			add_binding(&binding, &wa);
 			continue;
 		case ADDR_INTERNAL_AUTOTOR:
