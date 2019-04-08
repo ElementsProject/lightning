@@ -14,9 +14,6 @@ struct json_stream {
 	/* tal_arr of types (JSMN_OBJECT/JSMN_ARRAY) we're enclosed in. */
 	jsmntype_t *wrapping;
 #endif
-	/* How far to indent. */
-	size_t indent;
-
 	/* True if we haven't yet put an element in current wrapping */
 	bool empty;
 
@@ -61,7 +58,6 @@ struct json_stream *new_json_stream(const tal_t *ctx,
 #if DEVELOPER
 	js->wrapping = tal_arr(js, jsmntype_t, 0);
 #endif
-	js->indent = 0;
 	js->empty = true;
 	js->log = log;
 	return js;
@@ -179,33 +175,15 @@ static void check_fieldname(const struct json_stream *js,
 #endif
 }
 
-static void js_append_indent(struct json_stream *js)
-{
-	static const char indent_buf[] = "                                ";
-	size_t len;
-
-	for (size_t i = 0; i < js->indent * 2; i += len) {
-		len = js->indent * 2;
-		if (len > sizeof(indent_buf)-1)
-			len = sizeof(indent_buf)-1;
-		/* Use tail of indent_buf string. */
-		json_stream_append(js, indent_buf + sizeof(indent_buf) - 1 - len);
-	}
-}
-
 static void json_start_member(struct json_stream *js, const char *fieldname)
 {
 	/* Prepend comma if required. */
 	if (!js->empty)
-		json_stream_append(js, ", \n");
-	else
-		json_stream_append(js, "\n");
-
-	js_append_indent(js);
+		json_stream_append(js, ",");
 
 	check_fieldname(js, fieldname);
 	if (fieldname)
-		json_stream_append_fmt(js, "\"%s\": ", fieldname);
+		json_stream_append_fmt(js, "\"%s\":", fieldname);
 	js->empty = false;
 }
 
@@ -215,19 +193,17 @@ static void js_indent(struct json_stream *js, jsmntype_t type)
 	tal_arr_expand(&js->wrapping, type);
 #endif
 	js->empty = true;
-	js->indent++;
 }
 
 static void js_unindent(struct json_stream *js, jsmntype_t type)
 {
-	assert(js->indent);
 #if DEVELOPER
-	assert(tal_count(js->wrapping) == js->indent);
-	assert(js->wrapping[js->indent-1] == type);
-	tal_resize(&js->wrapping, js->indent-1);
+	size_t indent = tal_count(js->wrapping);
+	assert(indent > 0);
+	assert(js->wrapping[indent-1] == type);
+	tal_resize(&js->wrapping, indent-1);
 #endif
 	js->empty = false;
-	js->indent--;
 }
 
 void json_array_start(struct json_stream *js, const char *fieldname)
@@ -239,9 +215,7 @@ void json_array_start(struct json_stream *js, const char *fieldname)
 
 void json_array_end(struct json_stream *js)
 {
-	json_stream_append(js, "\n");
 	js_unindent(js, JSMN_ARRAY);
-	js_append_indent(js);
 	json_stream_append(js, "]");
 }
 
@@ -254,9 +228,7 @@ void json_object_start(struct json_stream *js, const char *fieldname)
 
 void json_object_end(struct json_stream *js)
 {
-	json_stream_append(js, "\n");
 	js_unindent(js, JSMN_OBJECT);
-	js_append_indent(js);
 	json_stream_append(js, "}");
 }
 
