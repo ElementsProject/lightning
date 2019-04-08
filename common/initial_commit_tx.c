@@ -18,12 +18,12 @@
 u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 			   const struct pubkey *accepter_payment_basepoint)
 {
-	u8 ders[PUBKEY_DER_LEN * 2];
+	u8 ders[PUBKEY_CMPR_LEN * 2];
 	struct sha256 sha;
 	be64 obscurer = 0;
 
 	pubkey_to_der(ders, opener_payment_basepoint);
-	pubkey_to_der(ders + PUBKEY_DER_LEN, accepter_payment_basepoint);
+	pubkey_to_der(ders + PUBKEY_CMPR_LEN, accepter_payment_basepoint);
 
 	sha256(&sha, ders, sizeof(ders));
 	/* Lower 48 bits */

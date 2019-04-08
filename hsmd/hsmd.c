@@ -327,7 +327,7 @@ static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
 			     struct secret *channel_seed)
 {
 	struct secret channel_base;
-	u8 input[PUBKEY_DER_LEN + sizeof(dbid)];
+	u8 input[PUBKEY_CMPR_LEN + sizeof(dbid)];
 	/*~ Again, "per-peer" should be "per-channel", but Hysterical Raisins */
 	const char *info = "per-peer seed";
 
@@ -341,7 +341,7 @@ static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
 	/*~ For all that talk about platform-independence, note that this
 	 * field is endian-dependent!  But let's face it, little-endian won.
 	 * In related news, we don't support EBCDIC or middle-endian. */
-	memcpy(input + PUBKEY_DER_LEN, &dbid, sizeof(dbid));
+	memcpy(input + PUBKEY_CMPR_LEN, &dbid, sizeof(dbid));
 
 	hkdf_sha256(channel_seed, sizeof(*channel_seed),
 		    input, sizeof(input),

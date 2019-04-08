@@ -11,7 +11,7 @@
 struct privkey;
 struct secret;
 
-#define PUBKEY_DER_LEN 33
+#define PUBKEY_CMPR_LEN 33
 
 struct pubkey {
 	/* Unpacked pubkey (as used by libsecp256k1 internally) */
@@ -40,7 +40,7 @@ bool pubkey_from_privkey(const struct privkey *privkey,
 bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key);
 
 /* Pubkey to DER encoding: must be valid pubkey. */
-void pubkey_to_der(u8 der[PUBKEY_DER_LEN], const struct pubkey *key);
+void pubkey_to_der(u8 der[PUBKEY_CMPR_LEN], const struct pubkey *key);
 
 /* Compare the keys `a` and `b`. Return <0 if `a`<`b`, 0 if equal and >0 otherwise */
 int pubkey_cmp(const struct pubkey *a, const struct pubkey *b);

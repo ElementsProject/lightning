@@ -25,16 +25,16 @@ bool derive_simple_key(const struct pubkey *basepoint,
 		    struct pubkey *key)
 {
 	struct sha256 sha;
-	unsigned char der_keys[PUBKEY_DER_LEN * 2];
+	unsigned char der_keys[PUBKEY_CMPR_LEN * 2];
 
 	pubkey_to_der(der_keys, per_commitment_point);
-	pubkey_to_der(der_keys + PUBKEY_DER_LEN, basepoint);
+	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, basepoint);
 	sha256(&sha, der_keys, sizeof(der_keys));
 #ifdef SUPERVERBOSE
 	printf("# SHA256(per_commitment_point || basepoint)\n");
 	printf("# => SHA256(0x%s || 0x%s)\n",
-	       tal_hexstr(tmpctx, der_keys, PUBKEY_DER_LEN),
-	       tal_hexstr(tmpctx, der_keys + PUBKEY_DER_LEN, PUBKEY_DER_LEN));
+	       tal_hexstr(tmpctx, der_keys, PUBKEY_CMPR_LEN),
+	       tal_hexstr(tmpctx, der_keys + PUBKEY_CMPR_LEN, PUBKEY_CMPR_LEN));
 	printf("# = 0x%s\n",
 	       tal_hexstr(tmpctx, &sha, sizeof(sha)));
 #endif
@@ -66,16 +66,16 @@ bool derive_simple_privkey(const struct secret *base_secret,
 			struct privkey *key)
 {
 	struct sha256 sha;
-	unsigned char der_keys[PUBKEY_DER_LEN * 2];
+	unsigned char der_keys[PUBKEY_CMPR_LEN * 2];
 
 	pubkey_to_der(der_keys, per_commitment_point);
-	pubkey_to_der(der_keys + PUBKEY_DER_LEN, basepoint);
+	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, basepoint);
 	sha256(&sha, der_keys, sizeof(der_keys));
 #ifdef SUPERVERBOSE
 	printf("# SHA256(per_commitment_point || basepoint)\n");
 	printf("# => SHA256(0x%s || 0x%s)\n",
-	       tal_hexstr(tmpctx, der_keys, PUBKEY_DER_LEN),
-	       tal_hexstr(tmpctx, der_keys + PUBKEY_DER_LEN, PUBKEY_DER_LEN));
+	       tal_hexstr(tmpctx, der_keys, PUBKEY_CMPR_LEN),
+	       tal_hexstr(tmpctx, der_keys + PUBKEY_CMPR_LEN, PUBKEY_CMPR_LEN));
 	printf("# = 0x%s\n", tal_hexstr(tmpctx, &sha, sizeof(sha)));
 #endif
 
@@ -117,18 +117,18 @@ bool derive_revocation_key(const struct pubkey *basepoint,
 			struct pubkey *key)
 {
 	struct sha256 sha;
-	unsigned char der_keys[PUBKEY_DER_LEN * 2];
+	unsigned char der_keys[PUBKEY_CMPR_LEN * 2];
 	secp256k1_pubkey add[2];
 	const secp256k1_pubkey *args[2];
 
 	pubkey_to_der(der_keys, basepoint);
-	pubkey_to_der(der_keys + PUBKEY_DER_LEN, per_commitment_point);
+	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, per_commitment_point);
 	sha256(&sha, der_keys, sizeof(der_keys));
 #ifdef SUPERVERBOSE
 	printf("# SHA256(revocation_basepoint || per_commitment_point)\n");
 	printf("# => SHA256(0x%s || 0x%s)\n",
-	       tal_hexstr(tmpctx, der_keys, PUBKEY_DER_LEN),
-	       tal_hexstr(tmpctx, der_keys + PUBKEY_DER_LEN, PUBKEY_DER_LEN));
+	       tal_hexstr(tmpctx, der_keys, PUBKEY_CMPR_LEN),
+	       tal_hexstr(tmpctx, der_keys + PUBKEY_CMPR_LEN, PUBKEY_CMPR_LEN));
 	printf("# = 0x%s\n", tal_hexstr(tmpctx, sha.u.u8, sizeof(sha.u.u8))),
 #endif
 
@@ -141,13 +141,13 @@ bool derive_revocation_key(const struct pubkey *basepoint,
 #endif
 
 	pubkey_to_der(der_keys, per_commitment_point);
-	pubkey_to_der(der_keys + PUBKEY_DER_LEN, basepoint);
+	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, basepoint);
 	sha256(&sha, der_keys, sizeof(der_keys));
 #ifdef SUPERVERBOSE
 	printf("# SHA256(per_commitment_point || revocation_basepoint)\n");
 	printf("# => SHA256(0x%s || 0x%s)\n",
-	       tal_hexstr(tmpctx, der_keys, PUBKEY_DER_LEN),
-	       tal_hexstr(tmpctx, der_keys + PUBKEY_DER_LEN, PUBKEY_DER_LEN));
+	       tal_hexstr(tmpctx, der_keys, PUBKEY_CMPR_LEN),
+	       tal_hexstr(tmpctx, der_keys + PUBKEY_CMPR_LEN, PUBKEY_CMPR_LEN));
 	printf("# = 0x%s\n", tal_hexstr(tmpctx, sha.u.u8, sizeof(sha.u.u8))),
 #endif
 
@@ -188,17 +188,17 @@ bool derive_revocation_privkey(const struct secret *base_secret,
 			       struct privkey *key)
 {
 	struct sha256 sha;
-	unsigned char der_keys[PUBKEY_DER_LEN * 2];
+	unsigned char der_keys[PUBKEY_CMPR_LEN * 2];
 	struct secret part2;
 
 	pubkey_to_der(der_keys, basepoint);
-	pubkey_to_der(der_keys + PUBKEY_DER_LEN, per_commitment_point);
+	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, per_commitment_point);
 	sha256(&sha, der_keys, sizeof(der_keys));
 #ifdef SUPERVERBOSE
 	printf("# SHA256(revocation_basepoint || per_commitment_point)\n");
 	printf("# => SHA256(0x%s || 0x%s)\n",
-	       tal_hexstr(tmpctx, der_keys, PUBKEY_DER_LEN),
-	       tal_hexstr(tmpctx, der_keys + PUBKEY_DER_LEN, PUBKEY_DER_LEN));
+	       tal_hexstr(tmpctx, der_keys, PUBKEY_CMPR_LEN),
+	       tal_hexstr(tmpctx, der_keys + PUBKEY_CMPR_LEN, PUBKEY_CMPR_LEN));
 	printf("# = 0x%s\n", tal_hexstr(tmpctx, sha.u.u8, sizeof(sha.u.u8))),
 #endif
 
@@ -214,13 +214,13 @@ bool derive_revocation_privkey(const struct secret *base_secret,
 #endif
 
 	pubkey_to_der(der_keys, per_commitment_point);
-	pubkey_to_der(der_keys + PUBKEY_DER_LEN, basepoint);
+	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, basepoint);
 	sha256(&sha, der_keys, sizeof(der_keys));
 #ifdef SUPERVERBOSE
 	printf("# SHA256(per_commitment_point || revocation_basepoint)\n");
 	printf("# => SHA256(0x%s || 0x%s)\n",
-	       tal_hexstr(tmpctx, der_keys, PUBKEY_DER_LEN),
-	       tal_hexstr(tmpctx, der_keys + PUBKEY_DER_LEN, PUBKEY_DER_LEN));
+	       tal_hexstr(tmpctx, der_keys, PUBKEY_CMPR_LEN),
+	       tal_hexstr(tmpctx, der_keys + PUBKEY_CMPR_LEN, PUBKEY_CMPR_LEN));
 	printf("# = 0x%s\n", tal_hexstr(tmpctx, sha.u.u8, sizeof(sha.u.u8))),
 #endif
 

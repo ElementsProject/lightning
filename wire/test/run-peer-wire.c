@@ -37,7 +37,7 @@ void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
 /* memsetting pubkeys doesn't work */
 static void set_pubkey(struct pubkey *key)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	memset(der, 2, sizeof(der));
 	assert(pubkey_from_der(der, sizeof(der), key));
 }

@@ -155,7 +155,7 @@ void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
 void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
-			 const u8 derkey[PUBKEY_DER_LEN])
+			 const u8 derkey[PUBKEY_CMPR_LEN])
 { fprintf(stderr, "txfilter_add_derkey called!\n"); abort(); }
 /* Generated stub for txfilter_new */
 struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)

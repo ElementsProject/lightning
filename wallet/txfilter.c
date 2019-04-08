@@ -59,7 +59,7 @@ void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES)
 }
 
 void txfilter_add_derkey(struct txfilter *filter,
-			 const u8 derkey[PUBKEY_DER_LEN])
+			 const u8 derkey[PUBKEY_CMPR_LEN])
 {
 	u8 *skp, *p2sh;
 

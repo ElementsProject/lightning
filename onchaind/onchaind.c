@@ -1872,7 +1872,7 @@ static void steal_htlc(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx;
 	enum tx_type tx_type = OUR_PENALTY_TX;
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 
 	/* BOLT #3:
 	 *

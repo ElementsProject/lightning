@@ -59,7 +59,7 @@ u8 *serialize_onionpacket(
 {
 	u8 *dst = tal_arr(ctx, u8, TOTAL_PACKET_SIZE);
 
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	int p = 0;
 
 	pubkey_to_der(der, &m->ephemeralkey);
@@ -77,7 +77,7 @@ struct onionpacket *parse_onionpacket(const tal_t *ctx,
 {
 	struct onionpacket *m;
 	int p = 0;
-	u8 rawEphemeralkey[PUBKEY_DER_LEN];
+	u8 rawEphemeralkey[PUBKEY_CMPR_LEN];
 
 	assert(srclen == TOTAL_PACKET_SIZE);
 
@@ -186,7 +186,7 @@ static void compute_blinding_factor(const struct pubkey *key,
 				    u8 res[BLINDING_FACTOR_SIZE])
 {
 	struct sha256_ctx ctx;
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	struct sha256 temp;
 
 	pubkey_to_der(der, key);
@@ -289,7 +289,7 @@ static struct hop_params *generate_hop_params(
 		/* Now hash temp and store it. This requires us to
 		 * DER-serialize first and then skip the sign byte.
 		 */
-		u8 der[PUBKEY_DER_LEN];
+		u8 der[PUBKEY_CMPR_LEN];
 		pubkey_to_der(der, &temp);
 		struct sha256 h;
 		sha256(&h, der, sizeof(der));

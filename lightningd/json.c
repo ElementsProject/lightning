@@ -54,7 +54,7 @@ void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 
 	pubkey_to_der(der, key);
 	json_add_hex(response, fieldname, der, sizeof(der));

@@ -279,7 +279,7 @@ static char *decode_n(struct bolt11 *b11,
                       u5 **data, size_t *data_len,
                       size_t data_length, bool *have_n)
 {
-        u8 der[PUBKEY_DER_LEN];
+        u8 der[PUBKEY_CMPR_LEN];
 
         if (*have_n)
                 return unknown_field(b11, hu5, data, data_len, 'n',
@@ -787,7 +787,7 @@ static void encode_h(u5 **data, const struct sha256 *hash)
 
 static void encode_n(u5 **data, const struct pubkey *id)
 {
-        u8 der[PUBKEY_DER_LEN];
+        u8 der[PUBKEY_CMPR_LEN];
 
         pubkey_to_der(der, id);
         push_field(data, 'n', der, sizeof(der) * CHAR_BIT);

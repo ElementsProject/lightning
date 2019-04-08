@@ -845,7 +845,7 @@ static const char *codename_noun[]
 
 void setup_color_and_alias(struct lightningd *ld)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	pubkey_to_der(der, &ld->id);
 
 	if (!ld->rgb)
