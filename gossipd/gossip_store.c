@@ -89,8 +89,8 @@ static u8 *gossip_store_wrap_channel_announcement(const tal_t *ctx,
 	u8 *features;
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id scid;
-	struct pubkey node_id_1;
-	struct pubkey node_id_2;
+	struct node_id node_id_1;
+	struct node_id node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 

@@ -372,13 +372,9 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 	for (i = 0; i < tal_count(daemon->announcable); i++)
 		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
-	/* FIXME */
-	struct pubkey me;
-	if (!pubkey_from_node_id(&me, &daemon->id))
-		abort();
 	announcement =
 	    towire_node_announcement(ctx, sig, daemon->globalfeatures, timestamp,
-				     &me, daemon->rgb, daemon->alias,
+				     &daemon->id, daemon->rgb, daemon->alias,
 				     addresses);
 	return announcement;
 }
