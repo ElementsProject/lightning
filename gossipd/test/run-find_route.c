@@ -157,9 +157,7 @@ static struct chan *find_channel(struct routing_state *rstate UNUSED,
 
 	*idx = pubkey_idx(&from->id, &to->id);
 
-	for (c = chan_map_first(&to->chans, &i);
-	     c;
-	     c = chan_map_next(&to->chans, &i)) {
+	for (c = first_chan(to, &i); c; c = next_chan(to, &i)) {
 		if (c->nodes[*idx] == from)
 			return c;
 	}

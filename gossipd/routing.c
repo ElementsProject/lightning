@@ -79,6 +79,16 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 	return map;
 }
 
+struct chan *first_chan(const struct node *node, struct chan_map_iter *i)
+{
+	return chan_map_first(&node->chans, i);
+}
+
+struct chan *next_chan(const struct node *node, struct chan_map_iter *i)
+{
+	return chan_map_next(&node->chans, i);
+}
+
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct pubkey *local_id,
@@ -137,7 +147,7 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 	node_map_del(rstate->nodes, node);
 
 	/* These remove themselves from the map. */
-	while ((c = chan_map_first(&node->chans, &i)) != NULL)
+	while ((c = first_chan(node, &i)) != NULL)
 		tal_free(c);
 	chan_map_clear(&node->chans);
 }
@@ -174,9 +184,7 @@ static bool node_has_public_channels(struct node *node)
 	struct chan_map_iter i;
 	struct chan *c;
 
-	for (c = chan_map_first(&node->chans, &i);
-	     c;
-	     c = chan_map_next(&node->chans, &i)) {
+	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 		if (is_chan_public(c))
 			return true;
 	}
@@ -190,9 +198,7 @@ static bool node_has_broadcastable_channels(struct node *node)
 	struct chan_map_iter i;
 	struct chan *c;
 
-	for (c = chan_map_first(&node->chans, &i);
-	     c;
-	     c = chan_map_next(&node->chans, &i)) {
+	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 		if (!is_chan_public(c))
 			continue;
 		if (is_halfchan_defined(&c->half[0])
@@ -207,9 +213,7 @@ static bool node_announce_predates_channels(const struct node *node)
 	struct chan_map_iter i;
 	struct chan *c;
 
-	for (c = chan_map_first(&node->chans, &i);
-	     c;
-	     c = chan_map_next(&node->chans, &i)) {
+	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 		if (!is_chan_announced(c))
 			continue;
 
@@ -538,9 +542,9 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 			struct chan_map_iter i;
 			struct chan *chan;
 
-			for (chan = chan_map_first(&n->chans, &i);
+			for (chan = first_chan(n, &i);
 			     chan;
-			     chan = chan_map_next(&n->chans, &i)) {
+			     chan = next_chan(n, &i)) {
 				int idx = half_chan_to(n, chan);
 
 				SUPERVERBOSE("Node %s edge %s",
@@ -1710,9 +1714,7 @@ void routing_failure(struct routing_state *rstate,
 				     type_to_string(tmpctx,
 						    struct pubkey,
 						    &node->id));
-			for (c = chan_map_first(&node->chans, &i);
-			     c;
-			     c = chan_map_next(&node->chans, &i)) {
+			for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 				/* Set it up to be pruned. */
 				tal_steal(tmpctx, c);
 			}
