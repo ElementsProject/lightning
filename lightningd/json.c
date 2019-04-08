@@ -110,10 +110,12 @@ struct command_result *param_pubkey(struct command *cmd, const char *name,
 
 void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
-			       const struct short_channel_id *id)
+			       const struct short_channel_id *scid)
 {
-	json_add_string(response, fieldname,
-			type_to_string(response, struct short_channel_id, id));
+	json_add_member(response, fieldname, "\"%dx%dx%d\"",
+			short_channel_id_blocknum(scid),
+			short_channel_id_txnum(scid),
+			short_channel_id_outnum(scid));
 }
 
 struct command_result *param_short_channel_id(struct command *cmd,
