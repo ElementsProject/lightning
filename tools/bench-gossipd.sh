@@ -76,7 +76,7 @@ if ! bitcoin-cli -regtest ping >/dev/null 2>&1; then
 fi
 
 LIGHTNINGD="./lightningd/lightningd --network=regtest --dev-gossip-time=1550513768 --dev-unknown-channel-satoshis=100000"
-LCLI1="./cli/lightning-cli --lightning-dir=$DIR"
+LCLI1="./cli/lightning-cli --lightning-dir=$DIR -R"
 
 if [ -z "$DIR" ]; then
     trap 'rm -rf "$DIR"' 0
