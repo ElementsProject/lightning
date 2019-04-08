@@ -9,7 +9,7 @@ internal wallet.
 
 SYNOPSIS
 --------
-*withdraw* 'destination' 'satoshi' ['feerate']
+*withdraw* 'destination' 'satoshi' ['feerate'] ['minconf']
 
 DESCRIPTION
 -----------
@@ -32,6 +32,8 @@ Otherwise, 'feerate' is a number, with an optional suffix:
 'perkw' means the number is interpreted as satoshi-per-kilosipa
 (weight), and 'perkb' means it is interpreted bitcoind-style as
 satoshi-per-kilobyte.  Omitting the suffix is equivalent to 'perkb'.
+
+'minconf' specifies the minimum number of confirmations that used outputs should have. Default is 1.
 
 RETURN VALUE
 ------------

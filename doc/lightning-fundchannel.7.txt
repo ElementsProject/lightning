@@ -8,7 +8,7 @@ lightning-fundchannel - Command for establishing a lightning channel.
 
 SYNOPSIS
 --------
-*fundchannel* 'id' 'satoshi' ['feerate' 'announce']
+*fundchannel* 'id' 'satoshi' ['feerate' 'announce'] ['minconf']
 
 DESCRIPTION
 -----------
@@ -41,6 +41,8 @@ Otherwise, 'feerate' is a number, with an optional suffix:
 'perkw' means the number is interpreted as satoshi-per-kilosipa
 (weight), and 'perkb' means it is interpreted bitcoind-style as
 satoshi-per-kilobyte.  Omitting the suffix is equivalent to 'perkb'.
+
+'minconf' specifies the minimum number of confirmations that used outputs should have. Default is 1.
 
 RETURN VALUE
 ------------
