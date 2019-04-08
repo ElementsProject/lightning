@@ -79,7 +79,7 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 	return map;
 }
 
-/* We use a simple array until we have too many. */
+/* We use a simple array (with NULL entries) until we have too many. */
 static bool node_uses_chan_map(const struct node *node)
 {
 	/* This is a layering violation: last entry in htable is the table ptr,
