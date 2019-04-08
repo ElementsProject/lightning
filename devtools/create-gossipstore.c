@@ -24,7 +24,7 @@ struct scidsat * load_scid_file(FILE * scidfd)
         fscanf(scidfd, "%s\n", title);	
 	struct scidsat * scids = calloc(n, sizeof(scidsat));
 	int i = 0;
-        while(fscanf(scidfd, "%s ,%ld\n", scids[i].scid, &scids[i].sat.satoshis) == 2 ) { /* Raw: read from file */
+        while(fscanf(scidfd, "%s ,%ld\n", scids[i].scid, (long *)&scids[i].sat.satoshis) == 2 ) { /* Raw: read from file */
 			i++;
 	}
 	return scids;
