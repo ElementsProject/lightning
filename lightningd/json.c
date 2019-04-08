@@ -8,6 +8,7 @@
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/node_id.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
 #include <common/wallet_tx.h>
@@ -50,6 +51,13 @@ json_add_route(struct json_stream *r, char const *n,
 	json_array_end(r);
 }
 
+void json_add_node_id(struct json_stream *response,
+		      const char *fieldname,
+		      const struct node_id *id)
+{
+	json_add_hex(response, fieldname, id->k, sizeof(id->k));
+}
+
 void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key)
@@ -68,6 +76,23 @@ void json_add_txid(struct json_stream *result, const char *fieldname,
 	bitcoin_txid_to_hex(txid, hex, sizeof(hex));
 	json_add_string(result, fieldname, hex);
 }
+
+struct command_result *param_node_id(struct command *cmd,
+				     const char *name,
+				     const char *buffer,
+				     const jsmntok_t *tok,
+				     struct node_id **id)
+{
+	*id = tal(cmd, struct node_id);
+	if (json_to_node_id(buffer, tok, *id))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a pubkey, not '%.*s'",
+			    name, json_tok_full_len(tok),
+			    json_tok_full(buffer, tok));
+}
+
 
 struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,

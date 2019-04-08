@@ -18,6 +18,7 @@ void printwire_amount_sat(const char *fieldname, const struct amount_sat *sat);
 void printwire_amount_msat(const char *fieldname, const struct amount_msat *msat);
 void printwire_preimage(const char *fieldname, const struct preimage *preimage);
 void printwire_pubkey(const char *fieldname, const struct pubkey *pubkey);
+void printwire_node_id(const char *fieldname, const struct node_id *id);
 void printwire_secp256k1_ecdsa_signature(const char *fieldname, const secp256k1_ecdsa_signature *);
 void printwire_sha256(const char *fieldname, const struct sha256 *sha256);
 void printwire_secret(const char *fieldname, const struct secret *secret);

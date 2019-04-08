@@ -22,6 +22,7 @@ struct command;
 struct json_escaped;
 struct json_stream;
 struct pubkey;
+struct node_id;
 struct route_hop;
 struct sha256;
 struct short_channel_id;
@@ -39,6 +40,11 @@ void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key);
 
+/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
+void json_add_node_id(struct json_stream *response,
+				const char *fieldname,
+				const struct node_id *id);
+
 /* '"fieldname" : <hexrev>' or "<hexrev>" if fieldname is NULL */
 void json_add_txid(struct json_stream *result, const char *fieldname,
 		   const struct bitcoin_txid *txid);
@@ -46,6 +52,13 @@ void json_add_txid(struct json_stream *result, const char *fieldname,
 struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct pubkey **pubkey);
+
+/* Makes sure *id is valid. */
+struct command_result *param_node_id(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       struct node_id **id);
 
 struct command_result *param_short_channel_id(struct command *cmd,
 					      const char *name,

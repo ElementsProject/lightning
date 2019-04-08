@@ -10,6 +10,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <common/node_id.h>
 #include <common/utils.h>
 
 void towire(u8 **pptr, const void *data, size_t len)
@@ -80,6 +81,11 @@ void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 				      SECP256K1_EC_COMPRESSED);
 
 	towire(pptr, output, outputlen);
+}
+
+void towire_node_id(u8 **pptr, const struct node_id *id)
+{
+	towire(pptr, id->k, sizeof(id->k));
 }
 
 void towire_secret(u8 **pptr, const struct secret *secret)
