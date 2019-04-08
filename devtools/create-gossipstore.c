@@ -16,12 +16,12 @@
 
 
 
-struct scidsat * load_scid_file(FILE * scidfd) 
+struct scidsat * load_scid_file(FILE * scidfd)
 {
         int n;
-        fscanf(scidfd, "%d\n", &n);	
+        fscanf(scidfd, "%d\n", &n);
 	char title[16];
-        fscanf(scidfd, "%s\n", title);	
+        fscanf(scidfd, "%s\n", title);
 	struct scidsat * scids = calloc(n, sizeof(scidsat));
 	int i = 0;
         while(fscanf(scidfd, "%s ,%ld\n", scids[i].scid, &scids[i].sat.satoshis) == 2 ) { /* Raw: read from file */
