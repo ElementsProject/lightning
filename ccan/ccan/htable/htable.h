@@ -24,11 +24,10 @@
 struct htable {
 	size_t (*rehash)(const void *elem, void *priv);
 	void *priv;
-	unsigned int bits;
-	size_t elems, deleted, max, max_with_deleted;
+	unsigned int bits, perfect_bitnum;
+	size_t elems, deleted;
 	/* These are the bits which are the same in all pointers. */
 	uintptr_t common_mask, common_bits;
-	uintptr_t perfect_bit;
 	uintptr_t *table;
 };
 
@@ -50,7 +49,7 @@ struct htable {
  *	static struct htable ht = HTABLE_INITIALIZER(ht, rehash, NULL);
  */
 #define HTABLE_INITIALIZER(name, rehash, priv)				\
-	{ rehash, priv, 0, 0, 0, 0, 0, -1, 0, 0, &name.perfect_bit }
+	{ rehash, priv, 0, 0, 0, 0, -1, 0, &name.common_bits }
 
 /**
  * htable_init - initialize an empty hash table.

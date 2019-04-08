@@ -127,7 +127,7 @@ int main(void)
 	dne = i;
 
 	htable_obj_init(&ht);
-	ok1(ht.raw.max == 0);
+	ok1(ht_max(&ht.raw) == 0);
 	ok1(ht.raw.bits == 0);
 
 	/* We cannot find an entry which doesn't exist. */
@@ -136,7 +136,7 @@ int main(void)
 	/* Fill it, it should increase in size. */
 	add_vals(&ht, val, NUM_VALS);
 	ok1(ht.raw.bits == NUM_BITS + 1);
-	ok1(ht.raw.max < (1 << ht.raw.bits));
+	ok1(ht_max(&ht.raw) < (1 << ht.raw.bits));
 
 	/* Mask should be set. */
 	ok1(ht.raw.common_mask != 0);
