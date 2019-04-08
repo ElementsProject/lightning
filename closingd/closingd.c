@@ -112,11 +112,36 @@ static void do_reconnect(struct crypto_state *cs,
 			 const u64 next_index[NUM_SIDES],
 			 u64 revocations_received,
 			 const u8 *channel_reestablish,
-			 const u8 *final_scriptpubkey)
+			 const u8 *final_scriptpubkey,
+			 const struct secret *last_remote_per_commit_secret)
 {
 	u8 *msg;
 	struct channel_id their_channel_id;
 	u64 next_local_commitment_number, next_remote_revocation_number;
+	struct pubkey my_current_per_commitment_point;
+	struct secret *s;
+
+	/* Our current per-commitment point is the commitment point in the last
+	 * received signed commitment; HSM gives us that and the previous
+	 * secret (which we don't need). */
+	msg = towire_hsm_get_per_commitment_point(NULL,
+						  next_index[LOCAL]-1);
+	if (!wire_sync_write(HSM_FD, take(msg)))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing get_per_commitment_point to HSM: %s",
+			      strerror(errno));
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg)
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading resp get_per_commitment_point reply: %s",
+			      strerror(errno));
+	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+					&my_current_per_commitment_point,
+					&s))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad per_commitment_point reply %s",
+			      tal_hex(tmpctx, msg));
 
 	/* BOLT #2:
 	 *
@@ -135,9 +160,14 @@ static void do_reconnect(struct crypto_state *cs,
 	 *   - MUST set `next_remote_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
 	 */
-	msg = towire_channel_reestablish(NULL, channel_id,
+
+	/* We're always allowed to send extra fields, so we send dataloss_protect
+	 * even if we didn't negotiate it */
+	msg = towire_channel_reestablish_option_data_loss_protect(NULL, channel_id,
 					 next_index[LOCAL],
-					 revocations_received);
+					 revocations_received,
+					 last_remote_per_commit_secret,
+					 &my_current_per_commitment_point);
 	sync_crypto_write(cs, PEER_FD, take(msg));
 
 	/* They might have already send reestablish, which triggered us */
@@ -509,6 +539,7 @@ int main(int argc, char *argv[])
 	u64 next_index[NUM_SIDES], revocations_received;
 	enum side whose_turn;
 	u8 *channel_reestablish;
+	struct secret last_remote_per_commit_secret;
 
 	subdaemon_setup(argc, argv);
 
@@ -534,7 +565,8 @@ int main(int argc, char *argv[])
 				   &next_index[REMOTE],
 				   &revocations_received,
 				   &channel_reestablish,
-				   &final_scriptpubkey))
+				   &final_scriptpubkey,
+				   &last_remote_per_commit_secret))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
 
 	status_trace("out = %s/%s",
@@ -553,7 +585,8 @@ int main(int argc, char *argv[])
 	if (reconnected)
 		do_reconnect(&cs, &channel_id,
 			     next_index, revocations_received,
-			     channel_reestablish, final_scriptpubkey);
+			     channel_reestablish, final_scriptpubkey,
+			     &last_remote_per_commit_secret);
 
 	/* We don't need this any more */
 	tal_free(final_scriptpubkey);

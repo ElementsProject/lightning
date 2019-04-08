@@ -24,6 +24,8 @@ changes.
 
 ### Fixed
 
+- protocol: reconnection during closing negotiation now supports
+  `option_data_loss_protect` properly.
 - `--bind-addr=<path>` fixed for nodes using local sockets (eg. testing).
 
 ### Security
