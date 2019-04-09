@@ -1184,7 +1184,7 @@ def print_tlv_printwire(tlv_name, messages):
         printcases=printcases)
 
 
-def print_tlv_printwires(tlv_fields):
+def print_tlv_printwires(enumname, tlv_fields):
     decls = []
     switches = ''
     for name, messages in tlv_fields.items():
@@ -1196,7 +1196,7 @@ def print_tlv_printwires(tlv_fields):
 
         # Print the 'master' print_tlv_messages cases
         switches += tlv_switch_template.format(tlv_name=name)
-    decls.append(print_master_tlv_template.format(tlv_switches=switches))
+    decls.append(print_master_tlv_template.format(enumname=enumname, tlv_switches=switches))
     return decls
 
 
@@ -1444,7 +1444,7 @@ void print{enumname}_message(const u8 *msg)
 """
 
 print_master_tlv_template = """
-void print_tlv_message(const char *tlv_name, const u8 *msg)
+void print{enumname}_tlv_message(const char *tlv_name, const u8 *msg)
 {{
 \t{tlv_switches}
 \tprintf("ERR: Unknown TLV message type: %s\\n", tlv_name);
@@ -1483,7 +1483,7 @@ if options.printwire:
     decls = [m.print_printwire(options.header) for m in toplevel_messages + messages_with_option]
     if not options.header:
         if len(tlv_fields):
-            decls += print_tlv_printwires(tlv_fields)
+            decls += print_tlv_printwires(options.enumname, tlv_fields)
         else:
             decls += [print_tlv_message_printwire_empty.format(enumname=options.enumname)]
 else:
