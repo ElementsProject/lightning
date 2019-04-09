@@ -179,29 +179,26 @@ class Field(object):
 
         # Bolts use just a number: Guess type based on size.
         if options.bolt:
-            if size.startswith('$'):  # this is a subtype
-                self.fieldtype = FieldType('struct {}'.format(name))
-                self.is_subtype = True
-                if size[1:] == prevname:
-                    self.lenvar = size[1:]
-                else:
-                    raise ValueError('Expected size field for subtype field {}'.format(name))
+            if size == 'var_int':
+                base_size = 8
+                self.fieldtype = FieldType(size)
             else:
-                if size == 'var_int':
-                    base_size = 8
-                    self.fieldtype = FieldType(size)
-                else:
+                try:
                     base_size = int(size)
                     self.fieldtype = Field._guess_type(message, self.name, base_size)
-                # There are some arrays which we have to guess, based on sizes.
-                tsize = FieldType._typesize(self.fieldtype.name)
-                if base_size % tsize != 0:
-                    raise ValueError('Invalid size {} for {}.{} not a multiple of {}'
-                                     .format(base_size,
-                                             self.message,
-                                             self.name,
-                                             tsize))
-                self.num_elems = int(base_size / tsize)
+                    # There are some arrays which we have to guess, based on sizes.
+                    tsize = FieldType._typesize(self.fieldtype.name)
+                    if base_size % tsize != 0:
+                        raise ValueError('Invalid size {} for {}.{} not a multiple of {}'
+                                         .format(base_size,
+                                                 self.message,
+                                                 self.name,
+                                                 tsize))
+                    self.num_elems = int(base_size / tsize)
+                except ValueError:  # for subtypes
+                    self.fieldtype = FieldType('struct {}'.format(name))
+                    self.is_subtype = True
+
         else:
             # Real typename.
             self.fieldtype = FieldType(size)
@@ -1237,9 +1234,9 @@ for line in fileinput.input(options.files):
         continue
 
     is_tlv_msg = len(parts) == 3
-    if len(parts) == 2 or is_tlv_msg:
+    if len(parts) == 1 or len(parts) == 2 or is_tlv_msg:
         # eg: commit_sig,132,(_tlv)
-        if parts[1] == '$':  # this is a subtype
+        if len(parts) == 1:  # this is a subtype, it has no type number.
             subtypes.append(Subtype(parts[0], comments))
         else:
             if is_tlv_msg:
@@ -1483,10 +1480,16 @@ else:
         towire_decls += build_tlv_towires(tlv_fields)
         fromwire_decls += build_tlv_fromwires(tlv_fields)
 
-    if not options.header or options.header and options.subtypes:
+    if not options.header or (options.header and options.subtypes):
+        subtype_towires = []
+        subtype_fromwires = []
         for subtype in subtypes:
-            towire_decls.append(subtype.print_towire())
-            fromwire_decls.append(subtype.print_fromwire())
+            subtype_towires.append(subtype.print_towire())
+            subtype_fromwires.append(subtype.print_fromwire())
+        subtype_towires.reverse()
+        subtype_fromwires.reverse()
+        towire_decls += subtype_towires
+        fromwire_decls += subtype_fromwires
 
     towire_decls += [m.print_towire(options.header) for m in toplevel_messages + messages_with_option]
     fromwire_decls += [m.print_fromwire(options.header) for m in toplevel_messages + messages_with_option]
