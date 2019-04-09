@@ -231,7 +231,6 @@ static struct node *new_node(struct routing_state *rstate,
 	n->globalfeatures = NULL;
 	n->node_announcement = NULL;
 	n->node_announcement_index = 0;
-	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor2(n, destroy_node, rstate);
@@ -1193,7 +1192,7 @@ static void set_connection_values(struct chan *chan,
 				  u32 delay,
 				  u8 message_flags,
 				  u8 channel_flags,
-				  u64 timestamp,
+				  u32 timestamp,
 				  struct amount_msat htlc_minimum,
 				  struct amount_msat htlc_maximum)
 {
@@ -1658,7 +1657,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		return NULL;
 	}
 
-	if (node->last_timestamp >= timestamp) {
+	if (node->node_announcement && node->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
 		return NULL;
 	}
@@ -1853,6 +1852,8 @@ void route_prune(struct routing_state *rstate)
 		if (!is_chan_public(chan))
 			continue;
 
+		/* Rare case where we examine timestamp even without update;
+		 * it's used to prune channels where update never arrives */
 		if (chan->half[0].last_timestamp < highwater
 		    && chan->half[1].last_timestamp < highwater) {
 			status_trace(

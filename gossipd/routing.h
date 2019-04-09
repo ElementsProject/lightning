@@ -25,8 +25,7 @@ struct half_chan {
 	/* Delay for HTLC in blocks.*/
 	u32 delay;
 
-	/* -1 if channel_update is NULL */
-	s64 last_timestamp;
+	u32 last_timestamp;
 
 	/* Minimum and maximum number of msatoshi in an HTLC */
 	struct amount_msat htlc_minimum, htlc_maximum;
@@ -114,8 +113,7 @@ HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map
 struct node {
 	struct node_id id;
 
-	/* -1 means never; other fields undefined */
-	s64 last_timestamp;
+	u32 last_timestamp;
 
 	/* IP/Hostname and port of this node (may be NULL) */
 	struct wireaddr *addresses;
