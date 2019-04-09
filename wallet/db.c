@@ -511,8 +511,11 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 		db_fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
 
 #if HAVE_SQLITE3_EXPANDED_SQL
+	char *expanded_sql;
+	expanded_sql = sqlite3_expanded_sql(stmt);
 	tal_arr_expand(&db->changes,
-		       tal_strdup(db->changes, sqlite3_expanded_sql(stmt)));
+		       tal_strdup(db->changes, expanded_sql));
+	sqlite3_free(expanded_sql);
 #endif
 	db_stmt_done(stmt);
 }
