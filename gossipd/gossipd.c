@@ -388,7 +388,6 @@ static void send_node_announcement(struct daemon *daemon)
 	u32 timestamp = time_now().ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
 	u8 *msg, *nannounce, *err;
-	s64 last_timestamp;
 	struct node *self = get_node(daemon->rstate, &daemon->id);
 
 	/* BOLT #7:
@@ -397,14 +396,8 @@ static void send_node_announcement(struct daemon *daemon)
 	 *   - MUST set `timestamp` to be greater than that of any previous
 	 *   `node_announcement` it has previously created.
 	 */
-	if (self)
-		last_timestamp = self->last_timestamp;
-	else
-		/* last_timestamp is carefully a s64, so this works */
-		last_timestamp = -1;
-
-	if (timestamp <= last_timestamp)
-		timestamp = last_timestamp + 1;
+	if (self && self->node_announcement && timestamp <= self->last_timestamp)
+		timestamp = self->last_timestamp + 1;
 
 	/* Get an unsigned one. */
 	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
@@ -438,7 +431,7 @@ static bool node_announcement_redundant(struct daemon *daemon)
 	if (!n)
 		return false;
 
-	if (n->last_timestamp == -1)
+	if (!n->node_announcement)
 		return false;
 
 	if (tal_count(n->addresses) != tal_count(daemon->announcable))
@@ -2062,10 +2055,12 @@ static void append_node(const struct gossip_getnodes_entry ***entries,
 
 	e = tal(*entries, struct gossip_getnodes_entry);
 	e->nodeid = n->id;
-	e->last_timestamp = n->last_timestamp;
 	/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit signed, so
 	 * -1 means "we never received a channel_update". */
-	if (e->last_timestamp >= 0) {
+	if (!n->node_announcement)
+		e->last_timestamp = -1;
+	else {
+		e->last_timestamp = n->last_timestamp;
 		e->globalfeatures = n->globalfeatures;
 		e->addresses = n->addresses;
 		BUILD_ASSERT(ARRAY_SIZE(e->alias) == ARRAY_SIZE(n->alias));
