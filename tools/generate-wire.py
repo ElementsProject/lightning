@@ -705,6 +705,8 @@ class Message(object):
             elif f.is_array():
                 self.print_printwire_array(subcalls, basetype, f, f.num_elems, ref)
                 self.add_truncate_check(subcalls, truncate_check_ref)
+            elif f.fieldtype.is_subtype():
+                Subtype._inner_print_printwire_array(subcalls, basetype, f, f.lenvar, ref)
             elif f.is_variable_size():
                 self.print_printwire_array(subcalls, basetype, f, f.lenvar, ref)
                 self.add_truncate_check(subcalls, truncate_check_ref)
@@ -981,6 +983,23 @@ class Subtype(Message):
             fields=''.join(fields),
             subcalls=str(subcalls)
         )
+
+    def print_printwire_array(self, subcalls, basetype, f, num_elems, ref):
+        return Subtype._inner_print_printwire_array(subcalls, basetype, f, num_elems, '')
+
+    @staticmethod
+    def _inner_print_printwire_array(subcalls, basetype, f, num_elems, ref):
+        if f.has_array_helper():
+            subcalls.append('printwire_{}_array(tal_fmt(NULL, "%s.{}", fieldname), {}cursor, {}plen, {});'
+                            .format(basetype, f.name, ref, ref, num_elems))
+        else:
+            subcalls.append('printf("[");')
+            subcalls.append('for (size_t i = 0; i < {}; i++) {{'
+                            .format(num_elems))
+            subcalls.append('printwire_{}(tal_fmt(NULL, "%s.{}", fieldname), {}cursor, {}plen);'
+                            .format(basetype, f.name, ref, ref))
+            subcalls.append('}')
+            subcalls.append('printf("]");')
 
 
 tlv_message_towire_stub = """static void towire_{tlv_name}_{name}(u8 **p, struct tlv_msg_{name} *{name}) {{
