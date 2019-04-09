@@ -958,7 +958,7 @@ class Subtype(Message):
 
                 name = '{}->{}'.format(self.name, f.name)
                 # Allocate these off the array itself, if they need alloc.
-                self.print_fromwire_array('*' + f.name, subcalls, basetype, f,
+                self.print_fromwire_array(name, subcalls, basetype, f,
                                           name, f.lenvar, is_tlv=True)
             else:
                 if f.is_assignable():
