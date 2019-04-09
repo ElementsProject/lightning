@@ -1480,12 +1480,16 @@ includes = '\n'.join(includes)
 printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}("{name}", msg); return;'.format(enum=m.enum, name=m.name) for m in toplevel_messages]
 
 if options.printwire:
-    decls = [m.print_printwire(options.header) for m in toplevel_messages + messages_with_option]
+    decls = []
     if not options.header:
+        subtype_decls = [m.print_printwire(options.header, is_embedded=True) for m in subtypes]
+        subtype_decls.reverse()
+        decls += subtype_decls
         if len(tlv_fields):
             decls += print_tlv_printwires(options.enumname, tlv_fields)
         else:
             decls += [print_tlv_message_printwire_empty.format(enumname=options.enumname)]
+    decls += [m.print_printwire(options.header) for m in toplevel_messages + messages_with_option]
 else:
     towire_decls = []
     fromwire_decls = []
