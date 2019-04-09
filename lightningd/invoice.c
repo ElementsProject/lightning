@@ -313,27 +313,45 @@ static struct command_result *parse_fallback(struct command *cmd,
 	return NULL;
 }
 
-/* BOLT11 struct wants an array of arrays (can provide multiple routes) */
+/*
+ * From array of incoming channels [inchan], find suitable ones for
+ * a payment-to-us of [amount_needed], using criteria:
+ * 1. Channel's peer is known, in state CHANNELD_NORMAL and is online.
+ * 2. Channel's peer capacity to pay us is sufficient.
+ *
+ * Then use weighted reservoir sampling, which makes probing channel balances
+ * harder, to choose one channel from the set of suitable channels. It favors
+ * channels that have less balance on our side as fraction of their capacity.
+ *
+ * [any_offline] is set if the peer of any suitable channel appears offline.
+ */
 static struct route_info **select_inchan(const tal_t *ctx,
 					 struct lightningd *ld,
-					 struct amount_msat capacity_needed,
+					 struct amount_msat amount_needed,
 					 const struct route_info *inchans,
 					 bool *any_offline)
 {
-	const struct route_info *r = NULL;
-	struct route_info **ret;
+	/* BOLT11 struct wants an array of arrays (can provide multiple routes) */
+	struct route_info **R;
+	double wsum, p;
+
+	struct sample {
+		const struct route_info *route;
+		double weight;
+	};
+
+	struct sample *S = tal_arr(tmpctx, struct sample, 0);
 
 	*any_offline = false;
 
-	/* Weighted reservoir sampling.
-	 * Based on https://en.wikipedia.org/wiki/Reservoir_sampling
-	 *	 Algorithm A-Chao
-	 */
-	u64 wsum = 0;
+	/* Collect suitable channels and assign each a weight.  */
 	for (size_t i = 0; i < tal_count(inchans); i++) {
 		struct peer *peer;
 		struct channel *c;
-		struct amount_msat avail, excess;
+		struct sample sample;
+		struct amount_msat their_msat, capacity_to_pay_us, excess, capacity;
+		struct amount_sat cumulative_reserve;
+		double excess_frac;
 
 		/* Do we know about this peer? */
 		peer = peer_by_id(ld, &inchans[i].pubkey);
@@ -345,8 +363,23 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		if (!c)
 			continue;
 
-		/* Does it have sufficient capacity. */
-		if (!amount_sat_sub_msat(&avail, c->funding, c->our_msat)) {
+		/* Channel balance as seen by our node:
+
+		        |<----------------- capacity ----------------->|
+		        .                                              .
+		        .             |<------------------ their_msat -------------------->|
+		        .             |                                .                   |
+		        .             |<----- capacity_to_pay_us ----->|<- their_reserve ->|
+		        .             |                                |                   |
+		        .             |<- amount_needed --><- excess ->|                   |
+		        .             |                                |                   |
+		|-------|-------------|--------------------------------|-------------------|
+		0       ^             ^                                ^                funding
+		   our_reserve     our_msat	*/
+
+		/* Does the peer have sufficient balance to pay us. */
+		if (!amount_sat_sub_msat(&their_msat, c->funding, c->our_msat)) {
+
 			log_broken(ld->log,
 				   "underflow: funding %s - our_msat %s",
 				   type_to_string(tmpctx, struct amount_sat,
@@ -356,12 +389,12 @@ static struct route_info **select_inchan(const tal_t *ctx,
 			continue;
 		}
 
-		/* Even after reserve taken into account */
-		if (!amount_msat_sub_sat(&avail,
-					 avail, c->our_config.channel_reserve))
+		/* Even after taken into account their reserve */
+		if (!amount_msat_sub_sat(&capacity_to_pay_us, their_msat,
+				c->our_config.channel_reserve))
 			continue;
 
-		if (!amount_msat_sub(&excess, avail, capacity_needed))
+		if (!amount_msat_sub(&excess, capacity_to_pay_us, amount_needed))
 			continue;
 
 		/* Is it offline? */
@@ -370,19 +403,44 @@ static struct route_info **select_inchan(const tal_t *ctx,
 			continue;
 		}
 
-		/* Avoid divide-by-zero corner case. */
-		wsum += excess.millisatoshis + 1; /* Raw: rand select */
-		if (pseudorand(1ULL << 32)
-		    <= ((excess.millisatoshis + 1) << 32) / wsum) /* Raw: rand select */
-			r = &inchans[i];
+		/* Find capacity and calculate its excess fraction */
+		if (!amount_sat_add(&cumulative_reserve,
+				c->our_config.channel_reserve,
+				c->channel_info.their_config.channel_reserve)
+			|| !amount_sat_to_msat(&capacity, c->funding)
+			|| !amount_msat_sub_sat(&capacity, capacity, cumulative_reserve)) {
+			log_broken(ld->log, "Channel %s capacity overflow!",
+					type_to_string(tmpctx, struct short_channel_id, c->scid));
+			continue;
+		}
+
+		excess_frac = (double)excess.millisatoshis / capacity.millisatoshis; /* Raw: double fraction */
+
+		sample.route = &inchans[i];
+		sample.weight = excess_frac;
+		tal_arr_expand(&S, sample);
 	}
 
-	if (!r)
+	if (!tal_count(S))
 		return NULL;
 
-	ret = tal_arr(ctx, struct route_info *, 1);
-	ret[0] = tal_dup(ret, struct route_info, r);
-	return ret;
+	/* Use weighted reservoir sampling, see:
+	 * https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Chao
+	 * But (currently) the result will consist of only one sample (k=1) */
+	R = tal_arr(ctx, struct route_info *, 1);
+	R[0] = tal_dup(R, struct route_info, S[0].route);
+	wsum = S[0].weight;
+
+	for (size_t i = 1; i < tal_count(S); i++) {
+		wsum += S[i].weight;
+		p = S[i].weight / wsum;
+		double random_1 = pseudorand_double();	/* range [0,1) */
+
+		if (random_1 <= p)
+			R[0] = tal_dup(R, struct route_info, S[i].route);
+	}
+
+	return R;
 }
 
 /* Encapsulating struct while we wait for gossipd to give us incoming channels */

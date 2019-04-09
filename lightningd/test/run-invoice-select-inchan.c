@@ -618,6 +618,7 @@ static void add_peer(struct lightningd *ld, int n, enum channel_state state,
 	c->funding.satoshis = n+1;
 	c->our_msat = AMOUNT_MSAT(1);
 	c->our_config.channel_reserve = AMOUNT_SAT(1);
+	c->channel_info.their_config.channel_reserve = AMOUNT_SAT(0);
 	list_add_tail(&peer->channels, &c->list);
 }
 
@@ -647,71 +648,59 @@ int main(void)
 	list_head_init(&ld->peers);
 
 	inchans = tal_arr(tmpctx, struct route_info, 0);
-	/* Nothing to choose from -> NULL result. */
+	/* 1. Nothing to choose from -> NULL result. */
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
 	assert(any_offline == false);
 
-	/* inchan but no peer -> NULL result. */
+	/* 2. inchan but no corresponding peer -> NULL result. */
 	add_inchan(&inchans, 0);
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
 	assert(any_offline == false);
 
-	/* connected peer but no inchan -> NULL result. */
-	add_peer(ld, 1, CHANNELD_NORMAL, false);
-	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
-	assert(any_offline == false);
-
-	/* inchan but peer awaiting lockin -> NULL result. */
+	/* 3. inchan but its peer in awaiting lockin -> NULL result. */
 	add_peer(ld, 0, CHANNELD_AWAITING_LOCKIN, true);
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
 	assert(any_offline == false);
 
-	/* inchan but peer not connected -> NULL result. */
+	/* 4. connected peer but no corresponding inchan -> NULL result. */
+	add_peer(ld, 1, CHANNELD_NORMAL, true);
+	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
+	assert(any_offline == false);
+
+	/* 5. inchan but its peer (replaced with one) offline -> NULL result. */
+	list_del_from(&ld->peers, &list_tail(&ld->peers, struct peer, list)->list);
+	add_peer(ld, 1, CHANNELD_NORMAL, false);
 	add_inchan(&inchans, 1);
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
 	assert(any_offline == true);
 
-	/* Finally, a correct peer! */
+	/* 6. Finally, a correct peer! */
 	add_inchan(&inchans, 2);
 	add_peer(ld, 2, CHANNELD_NORMAL, true);
 
 	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline);
 	assert(tal_count(ret) == 1);
 	assert(tal_count(ret[0]) == 1);
-	assert(any_offline == true);
+	assert(any_offline == true); /* Peer 1 is offline */
 	assert(route_info_eq(ret[0], &inchans[2]));
 
-	/* Not if we ask for too much! Reserve is 1 satoshi */
+	/* 7. Correct peer with just enough capacity_to_pay_us */
 	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1999), inchans, &any_offline);
 	assert(tal_count(ret) == 1);
 	assert(tal_count(ret[0]) == 1);
 	assert(any_offline == false); /* Other candidate insufficient funds. */
 	assert(route_info_eq(ret[0], &inchans[2]));
 
+	/* 8. Not if we ask for too much! Our balance is 1msat. */
 	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(2000), inchans, &any_offline);
 	assert(ret == NULL);
 	assert(any_offline == false); /* Other candidate insufficient funds. */
 
-	/* Add another candidate, with twice as much excess. */
+	/* 9. Add another peer */
 	add_inchan(&inchans, 3);
 	add_peer(ld, 3, CHANNELD_NORMAL, true);
 
-	for (size_t i = n = 0; i < 1000; i++) {
-		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1000), inchans, &any_offline);
-		assert(tal_count(ret) == 1);
-		assert(tal_count(ret[0]) == 1);
-		assert(any_offline == false); /* Other candidate insufficient funds. */
-		assert(route_info_eq(ret[0], &inchans[2])
-		       || route_info_eq(ret[0], &inchans[3]));
-		n += route_info_eq(ret[0], &inchans[2]);
-	}
-
-	/* Handwave over probability of this happening!  Within 20% */
-	assert(n > 333 - 66 && n < 333 + 66);
-	printf("Number of selections with 999 excess: %zu\n"
-	       "Number of selections with 1999 excess: %zu\n",
-	       n, 1000 - n);
-
+	/* Simulate selection ratios between excesses 25% and 50% of capacity*/
 	for (size_t i = n = 0; i < 1000; i++) {
 		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, &any_offline);
 		assert(tal_count(ret) == 1);
@@ -722,10 +711,33 @@ int main(void)
 		n += route_info_eq(ret[0], &inchans[2]);
 	}
 
-	assert(n > 250 - 50 && n < 250 + 50);
-	printf("Number of selections with 500 excess: %zu\n"
-	       "Number of selections with 1500 excess: %zu\n",
+	/* Handwave over probability of this happening!  Within 20% */
+	printf("Number of selections with excess 25 percent of capacity: %zu\n"
+	       "Number of selections with excess 50 percent of capacity: %zu\n",
 	       n, 1000 - n);
+	assert(n > 333 - 66 && n < 333 + 66);
+
+	/* 10. Last peer's capacity goes from 3 to 2 sat*/
+		list_tail(&list_tail(&ld->peers, struct peer, list)->channels, struct channel, list)->
+				channel_info.their_config.channel_reserve = AMOUNT_SAT(1);
+		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, &any_offline);
+
+		/* Simulate selection ratios between excesses 25% and 75% of capacity*/
+	for (size_t i = n = 0; i < 1000; i++) {
+		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, &any_offline);
+		assert(tal_count(ret) == 1);
+		assert(tal_count(ret[0]) == 1);
+		assert(any_offline == false); /* Other candidate insufficient funds. */
+		assert(route_info_eq(ret[0], &inchans[2])
+		       || route_info_eq(ret[0], &inchans[3]));
+		n += route_info_eq(ret[0], &inchans[2]);
+	}
+
+	/* Handwave over probability of this happening!  Within 20% */
+	printf("Number of selections with excess 25 percent of capacity: %zu\n"
+	       "Number of selections with excess 75 percent of capacity: %zu\n",
+	       n, 1000 - n);
+	assert(n > 250 - 50 && n < 250 + 50);
 
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);

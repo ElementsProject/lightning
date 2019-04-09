@@ -176,7 +176,7 @@ def test_invoice_routeboost(node_factory, bitcoind):
 def test_invoice_routeboost_private(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice for private channels
     """
-    l1, l2 = node_factory.line_graph(2, fundamount=10**6, announce_channels=False)
+    l1, l2 = node_factory.line_graph(2, fundamount=16777215, announce_channels=False)
 
     # Attach public channel to l1 so it doesn't look like a dead-end.
     l0 = node_factory.get_node()
