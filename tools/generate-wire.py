@@ -417,8 +417,8 @@ class Message(object):
             self.has_variable_fields = True
         self.fields.append(field)
 
-    def print_fromwire_array(self, ctx, subcalls, basetype, f, name, num_elems, is_tlv=False):
-        p_ref = '' if is_tlv else '&'
+    def print_fromwire_array(self, ctx, subcalls, basetype, f, name, num_elems, is_embedded=False):
+        p_ref = '' if is_embedded else '&'
         if f.has_array_helper():
             subcalls.append('fromwire_{}_array({}cursor, {}plen, {}, {});'
                             .format(basetype, p_ref, p_ref, name, num_elems))
@@ -668,16 +668,16 @@ class Message(object):
             subcalls.append('}')
             subcalls.append('printf("]");')
 
-    def print_printwire(self, is_header, is_tlv=False):
+    def print_printwire(self, is_header, is_embedded=False):
         template = printwire_header_templ if is_header else printwire_impl_templ
         fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
 
-        tlv_args = '' if not is_tlv else ', size_t *plen'
-        ref = '&' if not is_tlv else ''
-        truncate_check_ref = '' if not is_tlv else '*'
+        tlv_args = '' if not is_embedded else ', size_t *plen'
+        ref = '&' if not is_embedded else ''
+        truncate_check_ref = '' if not is_embedded else '*'
 
         toplevel_msg_setup = ''
-        if not is_tlv:
+        if not is_embedded:
             toplevel_msg_setup = printwire_toplevel_tmpl.format(enum=self.enum)
 
         subcalls = CCode()
@@ -731,7 +731,7 @@ class Message(object):
                     self.add_truncate_check(subcalls, truncate_check_ref)
                     subcalls.append("}")
 
-        len_check = '' if is_tlv else printwire_lencheck
+        len_check = '' if is_embedded else printwire_lencheck
         return template.format(
             tlv_args=tlv_args,
             name=self.name,
@@ -739,8 +739,8 @@ class Message(object):
             toplevel_msg_setup=toplevel_msg_setup,
             subcalls=str(subcalls),
             lencheck=len_check,
-            cursor_ptr=('' if not is_tlv else '*'),
-            is_internal=('' if not is_tlv else 'static ')
+            cursor_ptr=('' if not is_embedded else '*'),
+            is_internal=('' if not is_embedded else 'static ')
         )
 
 
@@ -841,7 +841,7 @@ struct {struct_name} {{
             elif f.is_array():
                 name = '*{}->{}'.format(self.name, f.name)
                 self.print_fromwire_array('ctx', subcalls, basetype, f, name,
-                                          f.num_elems, is_tlv=True)
+                                          f.num_elems, is_embedded=True)
             elif f.is_variable_size():
                 subcalls.append("// 2nd case {name}".format(name=f.name))
                 typename = f.fieldtype.name
@@ -854,7 +854,7 @@ struct {struct_name} {{
                 name = '{}->{}'.format(self.name, f.name)
                 # Allocate these off the array itself, if they need alloc.
                 self.print_fromwire_array('*' + f.name, subcalls, basetype, f,
-                                          name, f.lenvar, is_tlv=True)
+                                          name, f.lenvar, is_embedded=True)
             else:
                 if f.is_assignable():
                     if f.is_len_var:
@@ -946,7 +946,7 @@ class Subtype(Message):
             elif f.is_array():
                 name = '*{}->{}'.format(self.name, f.name)
                 self.print_fromwire_array('ctx', subcalls, basetype, f, name,
-                                          f.num_elems, is_tlv=True)
+                                          f.num_elems, is_embedded=True)
             elif f.is_variable_size():
                 subcalls.append("// 2nd case {name}".format(name=f.name))
                 typename = f.fieldtype.name
@@ -959,7 +959,7 @@ class Subtype(Message):
                 name = '{}->{}'.format(self.name, f.name)
                 # Allocate these off the array itself, if they need alloc.
                 self.print_fromwire_array(name, subcalls, basetype, f,
-                                          name, f.lenvar, is_tlv=True)
+                                          name, f.lenvar, is_embedded=True)
             else:
                 if f.is_assignable():
                     if f.is_len_var:
@@ -1170,7 +1170,7 @@ def print_tlv_printwires(tlv_fields):
     switches = ''
     for name, messages in tlv_fields.items():
         # Print each of the message parsers
-        decls += [m.print_printwire(options.header, is_tlv=True) for m in messages]
+        decls += [m.print_printwire(options.header, is_embedded=True) for m in messages]
 
         # Print the TLV body parser
         decls.append(print_tlv_printwire(name, messages))
