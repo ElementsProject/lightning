@@ -1428,7 +1428,7 @@ print_master_tlv_template = """
 void print_tlv_message(const char *tlv_name, const u8 *msg)
 {{
 \t{tlv_switches}
-\tprintf("ERR: Unknown TLV message type: %s\n", tlv_name);
+\tprintf("ERR: Unknown TLV message type: %s\\n", tlv_name);
 }}
 """
 
