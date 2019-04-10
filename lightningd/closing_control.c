@@ -83,6 +83,7 @@ static void peer_received_closing_signature(struct channel *channel,
 {
 	struct bitcoin_signature sig;
 	struct bitcoin_tx *tx;
+	struct bitcoin_txid tx_id;
 	struct lightningd *ld = channel->peer->ld;
 
 	if (!fromwire_closing_received_signature(msg, msg, &sig, &tx)) {
@@ -98,9 +99,12 @@ static void peer_received_closing_signature(struct channel *channel,
 		wallet_channel_save(ld->wallet, channel);
 	}
 
+
+	// Send back the txid so we can update the billboard on selection.
+	bitcoin_txid(channel->last_tx, &tx_id);
 	/* OK, you can continue now. */
 	subd_send_msg(channel->owner,
-		      take(towire_closing_received_signature_reply(channel)));
+		      take(towire_closing_received_signature_reply(channel, &tx_id)));
 }
 
 static void peer_closing_complete(struct channel *channel, const u8 *msg)

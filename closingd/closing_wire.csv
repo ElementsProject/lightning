@@ -35,6 +35,7 @@ closing_received_signature,,signature,struct bitcoin_signature
 closing_received_signature,,tx,struct bitcoin_tx
 
 closing_received_signature_reply,2102
+closing_received_signature_reply,,closing_txid,struct bitcoin_txid
 
 # Negotiations complete, we're exiting.
 closing_complete,2004

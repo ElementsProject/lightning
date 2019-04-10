@@ -61,7 +61,9 @@ def test_closing(node_factory, bitcoind):
     closetxid = only_one(bitcoind.rpc.getrawmempool(False))
 
     billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
-    assert billboard == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi']
+    assert billboard == [
+        'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi for tx:{}'.format(closetxid),
+    ]
     bitcoind.generate_block(1)
 
     l1.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
@@ -72,14 +74,14 @@ def test_closing(node_factory, bitcoind):
     assert closetxid in set([o['txid'] for o in l2.rpc.listfunds()['outputs']])
 
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status'] == [
-        'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi',
+        'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi for tx:{}'.format(closetxid),
         'ONCHAIN:Tracking mutual close transaction',
         'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'
     ])
 
     bitcoind.generate_block(9)
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status'] == [
-        'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi',
+        'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi for tx:{}'.format(closetxid),
         'ONCHAIN:Tracking mutual close transaction',
         'ONCHAIN:All outputs resolved: waiting 90 more blocks before forgetting channel'
     ])
