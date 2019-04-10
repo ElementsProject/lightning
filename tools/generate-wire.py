@@ -1252,9 +1252,9 @@ for line in fileinput.input(options.files):
     if parts == ['']:
         continue
 
-    is_tlv_msg = len(parts) == 3
-    if len(parts) == 1 or len(parts) == 2 or is_tlv_msg:
+    if len(parts) in [1, 2, 3]:
         # eg: commit_sig,132,(_tlv)
+        is_tlv_msg = len(parts) == 3
         if len(parts) == 1:  # this is a subtype, it has no type number.
             subtypes.append(Subtype(parts[0], comments))
         else:
