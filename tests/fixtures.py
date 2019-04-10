@@ -54,8 +54,13 @@ def directory(request, test_base_dir, test_name):
     yield directory
 
     # This uses the status set in conftest.pytest_runtest_makereport to
-    # determine whether we succeeded or failed.
-    if not request.node.has_errors and request.node.rep_call.outcome == 'passed':
+    # determine whether we succeeded or failed. Outcome can be None if the
+    # failure occurs during the setup phase, hence the use to getattr instead
+    # of accessing it directly.
+    outcome = getattr(request.node, 'rep_call', None)
+    failed = not outcome or request.node.has_errors or outcome != 'passed'
+
+    if not failed:
         shutil.rmtree(directory)
     else:
         logging.debug("Test execution failed, leaving the test directory {} intact.".format(directory))
