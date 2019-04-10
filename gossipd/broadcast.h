@@ -12,7 +12,6 @@
 struct routing_state;
 
 struct broadcast_state {
-	u64 next_index;
 	UINTMAP(struct queued_message *) broadcasts;
 	size_t count;
 	struct gossip_store *gs;
@@ -37,8 +36,14 @@ struct broadcast_state *new_broadcast_state(struct routing_state *rstate);
 
 /* Append a queued message for broadcast.  Must be explicitly deleted.
  * Also adds it to the gossip store. */
-void insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
+void insert_broadcast(struct broadcast_state **bstate,
+		      const u8 *msg,
 		      struct broadcastable *bcast);
+
+/* Add to broadcast, but not store: for gossip store compaction. */
+void insert_broadcast_nostore(struct broadcast_state *bstate,
+			      const u8 *msg,
+			      struct broadcastable *bcast);
 
 /* Delete a broadcast: not usually needed, since destructor does it */
 void broadcast_del(struct broadcast_state *bstate,
@@ -50,6 +55,13 @@ void broadcast_del(struct broadcast_state *bstate,
 const u8 *next_broadcast(struct broadcast_state *bstate,
 			 u32 timestamp_min, u32 timestamp_max,
 			 u32 *last_index);
+
+/* index of last entry. */
+u64 broadcast_final_index(const struct broadcast_state *bstate);
+
+/* Return and remove first element: used by gossip_store_compact */
+const u8 *pop_first_broadcast(struct broadcast_state *bstate,
+			      struct broadcastable **bcast);
 
 /* Returns b if all OK, otherwise aborts if abortstr non-NULL, otherwise returns
  * NULL. */
