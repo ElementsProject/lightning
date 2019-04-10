@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- JSON API: `invoice` expiry defaults to 7 days.
+
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for
