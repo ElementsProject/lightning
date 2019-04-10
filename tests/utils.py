@@ -440,7 +440,7 @@ class LightningD(TailableProc):
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
-            'network': 'regtest',
+            'network': config.get('TEST_NETWORK', 'regtest'),
             'ignore-fee-limits': 'false',
             'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
             'bitcoin-rpcpassword': BITCOIND_CONFIG['rpcpassword'],
