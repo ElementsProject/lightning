@@ -780,6 +780,27 @@ def test_cli(node_factory):
     except Exception:
         pass
 
+    # Test it escapes JSON properly in both method and params.
+    out = subprocess.run(['cli/lightning-cli',
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'x"[]{}'],
+                         stdout=subprocess.PIPE)
+    assert 'Unknown command \'x\\"[]{}\'' in out.stdout.decode('utf-8')
+
+    subprocess.check_output(['cli/lightning-cli',
+                             '--lightning-dir={}'
+                             .format(l1.daemon.lightning_dir),
+                             'invoice', '123000', 'l"[]{}', 'd"[]{}']).decode('utf-8')
+    # Check label is correct, and also that cli's keyword parsing works.
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-k',
+                                   'listinvoices', 'label=l"[]{}']).decode('utf-8')
+    j = json.loads(out)
+    assert only_one(j['invoices'])['label'] == 'l"[]{}'
+
 
 def test_daemon_option(node_factory):
     """
