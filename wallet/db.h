@@ -8,6 +8,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <ccan/time/time.h>
 #include <common/amount.h>
 #include <secp256k1_ecdh.h>
 #include <sqlite3.h>
@@ -203,4 +204,9 @@ void sqlite3_bind_amount_msat(sqlite3_stmt *stmt, int col,
 			      struct amount_msat msat);
 void sqlite3_bind_amount_sat(sqlite3_stmt *stmt, int col,
 			     struct amount_sat sat);
+
+/* Helpers to read and write absolute times from and to the database. */
+void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t);
+struct timeabs sqlite3_column_timeabs(sqlite3_stmt *stmt, int col);
+
 #endif /* LIGHTNING_WALLET_DB_H */
