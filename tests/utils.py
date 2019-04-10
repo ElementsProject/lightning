@@ -66,12 +66,12 @@ def wait_for(success, timeout=TIMEOUT):
         raise ValueError("Error waiting for {}", success)
 
 
-def write_config(filename, opts, regtest_opts=None):
+def write_config(filename, opts, regtest_opts=None, section_name='regtest'):
     with open(filename, 'w') as f:
         for k, v in opts.items():
             f.write("{}={}\n".format(k, v))
         if regtest_opts:
-            f.write("[regtest]\n")
+            f.write("[{}]\n".format(section_name))
             for k, v in regtest_opts.items():
                 f.write("{}={}\n".format(k, v))
 
