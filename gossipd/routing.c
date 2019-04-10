@@ -889,6 +889,10 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 
+	/* Make sure we own msg, even if we don't save it. */
+	if (taken(msg))
+		tal_steal(tmpctx, msg);
+
 	if (!fromwire_channel_announcement(
 		    tmpctx, msg, &node_signature_1, &node_signature_2,
 		    &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
@@ -1228,6 +1232,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct chan *chan;
 	u8 direction;
 
+	/* Make sure we own msg, even if we don't save it. */
+	if (taken(update))
+		tal_steal(tmpctx, update);
+
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,
@@ -1498,6 +1506,10 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	u8 alias[32];
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
+
+	/* Make sure we own msg, even if we don't save it. */
+	if (taken(msg))
+		tal_steal(tmpctx, msg);
 
 	/* Note: validity of node_id is already checked. */
 	if (!fromwire_node_announcement(tmpctx, msg,

@@ -327,7 +327,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 							       &gossip_msg,
 							       &satoshis)) {
 			if (!routing_add_channel_announcement(rstate,
-							      gossip_msg,
+							      take(gossip_msg),
 							      satoshis)) {
 				bad = "Bad channel_announcement";
 				goto truncate;
@@ -335,14 +335,16 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			stats[0]++;
 		} else if (fromwire_gossip_store_channel_update(msg, msg,
 								&gossip_msg)) {
-			if (!routing_add_channel_update(rstate, gossip_msg)) {
+			if (!routing_add_channel_update(rstate,
+							take(gossip_msg))) {
 				bad = "Bad channel_update";
 				goto truncate;
 			}
 			stats[1]++;
 		} else if (fromwire_gossip_store_node_announcement(msg, msg,
 								   &gossip_msg)) {
-			if (!routing_add_node_announcement(rstate, gossip_msg)) {
+			if (!routing_add_node_announcement(rstate,
+							   take(gossip_msg))) {
 				bad = "Bad node_announcement";
 				goto truncate;
 			}
