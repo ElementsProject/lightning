@@ -363,7 +363,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			bad = "Unknown message";
 			goto truncate;
 		}
-		known_good += sizeof(belen) + msglen;
+		known_good += sizeof(belen) + sizeof(becsum) + msglen;
 		gs->count++;
 		tal_free(msg);
 	}
