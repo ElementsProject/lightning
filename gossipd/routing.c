@@ -1164,6 +1164,10 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 		return;
 	}
 
+	/* Remove pending now, so below functions don't see it. */
+	list_del_from(&rstate->pending_cannouncement, &pending->list);
+	tal_del_destructor2(pending, destroy_pending_cannouncement, rstate);
+
 	if (!routing_add_channel_announcement(rstate, pending->announce, sat, 0))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
@@ -1239,6 +1243,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	u32 fee_proportional_millionths;
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
+	struct half_chan *hc;
 	u8 direction;
 
 	/* Make sure we own msg, even if we don't save it. */
@@ -1262,6 +1267,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				&fee_proportional_millionths,
 				&htlc_maximum))
 		return false;
+
+	direction = channel_flags & 0x1;
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
 		return false;
@@ -1281,13 +1288,32 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		}
 	}
 
+	/* Discard older updates */
+	hc = &chan->half[direction];
+	if (is_halfchan_defined(hc) && timestamp <= hc->bcast.timestamp) {
+		/* They're not supposed to do this! */
+		if (timestamp == hc->bcast.timestamp
+		    && !memeq(hc->channel_update, tal_count(hc->channel_update),
+			      update, tal_count(update))) {
+			status_debug("Bad gossip repeated timestamp for %s(%u): %s then %s",
+				       type_to_string(tmpctx,
+						      struct short_channel_id,
+						      &short_channel_id),
+				       channel_flags,
+				       tal_hex(tmpctx, hc->channel_update),
+				       tal_hex(tmpctx, update));
+		}
+		SUPERVERBOSE("Ignoring outdated update.");
+		/* Ignoring != failing */
+		return true;
+	}
+
 	/* FIXME: https://github.com/lightningnetwork/lightning-rfc/pull/512
 	 * says we MUST NOT exceed 2^32-1, but c-lightning did, so just trim
 	 * rather than rejecting. */
 	if (amount_msat_greater(htlc_maximum, rstate->chainparams->max_payment))
 		htlc_maximum = rstate->chainparams->max_payment;
 
-	direction = channel_flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
 			      message_flags, channel_flags,
@@ -1331,11 +1357,22 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	return true;
 }
 
+static const struct node_id *get_channel_owner(struct routing_state *rstate,
+					       const struct short_channel_id *scid,
+					       int direction)
+{
+	struct chan *chan = get_channel(rstate, scid);
+
+	if (chan)
+		return &chan->nodes[direction]->id;
+	return NULL;
+}
+
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 			  const char *source)
 {
 	u8 *serialized;
-	struct half_chan *c;
+	const struct node_id *owner;
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
 	u32 timestamp;
@@ -1345,9 +1382,9 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	struct bitcoin_blkid chain_hash;
-	struct chan *chan;
 	u8 direction;
 	size_t len = tal_count(update);
+	struct pending_cannouncement *pending;
 	u8 *err;
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
@@ -1386,74 +1423,31 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	if (uintmap_get(&rstate->txout_failures, short_channel_id.u64))
 		return NULL;
 
-	chan = get_channel(rstate, &short_channel_id);
+	/* If we have an unvalidated channel, just queue on that */
+	pending = find_pending_cannouncement(rstate, &short_channel_id);
+	if (pending) {
+		status_trace("Updated pending announce with update %s/%u",
+			     type_to_string(tmpctx,
+					    struct short_channel_id,
+					    &short_channel_id),
+			     direction);
+		update_pending(pending, timestamp, serialized, direction);
+		return NULL;
+	}
 
-	/* Optimization: only check for pending if not public */
-	if (!chan || !is_chan_public(chan)) {
-		struct pending_cannouncement *pending;
-
-		pending = find_pending_cannouncement(rstate, &short_channel_id);
-		if (pending) {
-			update_pending(pending,
-				       timestamp, serialized, direction);
-			return NULL;
-		}
-
-		if (!chan) {
-			bad_gossip_order(serialized,
-					 source,
-					 tal_fmt(tmpctx, "%s(%u)",
-						 type_to_string(tmpctx,
+	owner = get_channel_owner(rstate, &short_channel_id, direction);
+	if (!owner) {
+		bad_gossip_order(serialized,
+				 source,
+				 tal_fmt(tmpctx, "%s/%u",
+					 type_to_string(tmpctx,
 							struct short_channel_id,
 							&short_channel_id),
-						 channel_flags));
-			return NULL;
-		}
-	}
-
-	/* BOLT #7:
-	 *
-	 *  - if the `timestamp` is unreasonably far in the future:
-	 *    - MAY discard the `channel_update`.
-	 */
-	if (timestamp > gossip_time_now(rstate).ts.tv_sec + rstate->prune_timeout) {
-		status_debug("Received channel_update for %s with far time %u",
-			     type_to_string(tmpctx, struct short_channel_id,
-					    &short_channel_id),
-			     timestamp);
+					 direction));
 		return NULL;
 	}
 
-	/* Note: we can consider old timestamps a case of "instant prune" too */
-	if (timestamp < gossip_time_now(rstate).ts.tv_sec - rstate->prune_timeout) {
-		status_debug("Received channel_update for %s with old time %u",
-			     type_to_string(tmpctx, struct short_channel_id,
-					    &short_channel_id),
-			     timestamp);
-		return NULL;
-	}
-
-	c = &chan->half[direction];
-
-	if (is_halfchan_defined(c) && timestamp <= c->bcast.timestamp) {
-		/* They're not supposed to do this! */
-		if (timestamp == c->bcast.timestamp
-		    && !memeq(c->channel_update, tal_count(c->channel_update),
-			      serialized, tal_count(serialized))) {
-			status_unusual("Bad gossip repeated timestamp for %s(%u): %s then %s",
-				       type_to_string(tmpctx,
-						      struct short_channel_id,
-						      &short_channel_id),
-				       channel_flags,
-				       tal_hex(tmpctx, c->channel_update),
-				       tal_hex(tmpctx, serialized));
-		}
-		SUPERVERBOSE("Ignoring outdated update.");
-		return NULL;
-	}
-
-	err = check_channel_update(rstate, &chan->nodes[direction]->id,
-				   &signature, serialized);
+	err = check_channel_update(rstate, owner, &signature, serialized);
 	if (err) {
 		/* BOLT #7:
 		 *
@@ -1467,14 +1461,11 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return err;
 	}
 
-	status_trace("Received channel_update for channel %s/%d now %s was %s (from %s)",
+	status_trace("Received channel_update for channel %s/%d now %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     channel_flags & 0x01,
 		     channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
-		     is_halfchan_defined(c)
-		     ? (c->channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
-		     : "UNDEFINED",
 		     source);
 
 	if (!routing_add_channel_update(rstate, serialized, 0))
