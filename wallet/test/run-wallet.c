@@ -251,6 +251,10 @@ void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 /* Generated stub for json_add_string */
 void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
+/* Generated stub for json_add_timeabs */
+void json_add_timeabs(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		      struct timeabs t UNNEEDED)
+{ fprintf(stderr, "json_add_timeabs called!\n"); abort(); }
 /* Generated stub for json_add_txid */
 void json_add_txid(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   const struct bitcoin_txid *txid UNNEEDED)
