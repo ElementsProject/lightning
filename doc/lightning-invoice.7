@@ -42,7 +42,7 @@ The \fIlabel\fR must be a unique string or number (which is treated as a string,
 .sp
 The \fIdescription\fR is a short description of purpose of payment, e\&.g\&. \fI1 cup of coffee\fR\&. This value is encoded into the BOLT11 invoice and is viewable by any node you send this invoice to\&. It must be UTF\-8, and cannot use \fI\eu\fR JSON escape codes\&.
 .sp
-The \fIexpiry\fR is optionally the number of seconds the invoice is valid for\&. If no value is provided the default of 604800 (1 week) is used\&.
+The \fIexpiry\fR is optionally the time the invoice is valid for; without a suffix it is interpreted as seconds, otherwise suffixes \fIs\fR, \fIm\fR, \fIh\fR, \fId\fR, \fIw\fR indicate seconds, minutes, hours, days and weeks respectively\&. If no value is provided the default of 604800 (1w) is used\&.
 .sp
 The \fIfallbacks\fR array is one or more fallback addresses to include in the invoice (in order from most\-preferred to least): note that these arrays are not currently tracked to fulfill the invoice\&.
 .sp
