@@ -114,7 +114,21 @@ const struct chainparams networks[] = {
      .p2pkh_version = 111,
      .p2sh_version = 58,
      .testnet = true,
-     .bip32_key_version = {.bip32_pubkey_version = BIP32_VER_TEST_PUBLIC, .bip32_privkey_version = BIP32_VER_TEST_PRIVATE}}
+     .bip32_key_version = {.bip32_pubkey_version = BIP32_VER_TEST_PUBLIC, .bip32_privkey_version = BIP32_VER_TEST_PRIVATE}},
+    {
+	    .network_name = "liquid-regtest",
+	    .bip173_name = "tltc",
+	    .genesis_blockhash = {{{.u.u8 = { 0xa0, 0x29, 0x3e, 0x4e, 0xeb, 0x3d, 0xa6, 0xe6, 0xf5, 0x6f, 0x81, 0xed, 0x59, 0x5f, 0x57, 0x88, 0x0d, 0x1a, 0x21, 0x56, 0x9e, 0x13, 0xee, 0xfd, 0xd9, 0x51, 0x28, 0x4b, 0x5a, 0x62, 0x66, 0x49 }}}},
+	    .rpc_port = 19332,
+	    .cli = "elements-cli",
+	    .cli_args = "-chain=liquid-regtest",
+	    .dust_limit = { 546 },
+	    .max_funding = AMOUNT_SAT_INIT(((1 << 24) - 1)),
+	    .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
+	    .when_lightning_became_cool = 1,
+	    .testnet = true,
+	    .bip32_key_version = {.bip32_pubkey_version = BIP32_VER_TEST_PUBLIC, .bip32_privkey_version = BIP32_VER_TEST_PRIVATE}
+    },
 };
 
 const struct chainparams *chainparams_for_network(const char *network_name)
