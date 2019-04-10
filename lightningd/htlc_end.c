@@ -134,7 +134,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->failuremsg = NULL;
 	hin->preimage = NULL;
 
-	hin->received_time = time_now().ts.tv_sec;
+	hin->received_time = time_now();
 
 	return htlc_in_check(hin, "new_htlc_in");
 }
