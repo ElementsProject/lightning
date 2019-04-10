@@ -1261,7 +1261,7 @@ void wallet_htlc_save_in(struct wallet *wallet,
 	sqlite3_bind_blob(stmt, 10, &in->onion_routing_packet,
 			  sizeof(in->onion_routing_packet), SQLITE_TRANSIENT);
 
-	sqlite3_bind_int(stmt, 11, in->received_time);
+	sqlite3_bind_timeabs(stmt, 11, in->received_time);
 
 	db_exec_prepared(wallet->db, stmt);
 	in->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
@@ -1398,7 +1398,7 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 #endif
 	}
 
-	in->received_time = sqlite3_column_int(stmt, 12);
+	in->received_time = sqlite3_column_timeabs(stmt, 12);
 
 	return ok;
 }
