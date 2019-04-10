@@ -9,6 +9,7 @@
 #include <lightningd/log.h>
 
 #define DB_FILE "lightningd.sqlite3"
+#define NSEC_IN_SEC 1000000000
 
 /* For testing, we want to catch fatal messages. */
 #ifndef db_fatal
@@ -989,4 +990,20 @@ void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
 			"UPDATE channels SET feerate_base = %u, feerate_ppm = %u;",
 			ld->config.fee_base,
 			ld->config.fee_per_satoshi);
+}
+
+void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t)
+{
+	u64 timestamp =  t.ts.tv_nsec + (t.ts.tv_sec * NSEC_IN_SEC);
+	sqlite3_bind_int64(stmt, col, timestamp);
+}
+
+struct timeabs sqlite3_column_timeabs(sqlite3_stmt *stmt, int col)
+{
+	struct timeabs t;
+	u64 timestamp = sqlite3_column_int64(stmt, col);
+	t.ts.tv_sec = timestamp / NSEC_IN_SEC;
+	t.ts.tv_nsec = timestamp % NSEC_IN_SEC;
+	return t;
+
 }
