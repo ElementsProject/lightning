@@ -44,14 +44,13 @@ static void gossip_store_destroy(struct gossip_store *gs)
 	close(gs->fd);
 }
 
-struct gossip_store *gossip_store_new(const tal_t *ctx,
-				      struct routing_state *rstate,
-				      struct broadcast_state *broadcast)
+struct gossip_store *gossip_store_new(struct routing_state *rstate,
+				      struct broadcast_state *bstate)
 {
-	struct gossip_store *gs = tal(ctx, struct gossip_store);
+	struct gossip_store *gs = tal(rstate, struct gossip_store);
 	gs->count = 0;
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
-	gs->broadcast = broadcast;
+	gs->broadcast = bstate;
 	gs->rstate = rstate;
 	gs->disable_compaction = false;
 
@@ -197,7 +196,7 @@ static bool add_local_unnannounced(int fd,
 bool gossip_store_compact(struct gossip_store *gs)
 {
 	size_t count = 0;
-	u64 index = 0;
+	u32 index = 0;
 	int fd;
 	const u8 *msg;
 	struct node *self;

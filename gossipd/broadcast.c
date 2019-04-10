@@ -9,83 +9,80 @@
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <gossipd/broadcast.h>
+#include <gossipd/gossip_store.h>
 #include <wire/gen_peer_wire.h>
 
 struct queued_message {
-	/* Broadcast index. */
-	u64 index;
-
-	/* Timestamp, for filtering. */
-	u32 timestamp;
+	struct broadcastable *bcast;
 
 	/* Serialized payload */
 	const u8 *payload;
 };
 
-struct broadcast_state *new_broadcast_state(tal_t *ctx)
+struct broadcast_state *new_broadcast_state(struct routing_state *rstate)
 {
-	struct broadcast_state *bstate = tal(ctx, struct broadcast_state);
+	struct broadcast_state *bstate = tal(rstate, struct broadcast_state);
 	uintmap_init(&bstate->broadcasts);
+	bstate->count = 0;
 	/* Skip 0 because we initialize peers with 0 */
 	bstate->next_index = 1;
-	bstate->count = 0;
+	bstate->gs = gossip_store_new(rstate, bstate);
 	return bstate;
 }
 
-void broadcast_del(struct broadcast_state *bstate, u64 index, const u8 *payload)
+void broadcast_del(struct broadcast_state *bstate,
+		   struct broadcastable *bcast)
 {
-	const struct queued_message *q = uintmap_del(&bstate->broadcasts, index);
+	const struct queued_message *q
+		= uintmap_del(&bstate->broadcasts, bcast->index);
 	if (q != NULL) {
-		assert(q->payload == payload);
+		assert(q->bcast == bcast);
 		tal_free(q);
+		bstate->count--;
 		broadcast_state_check(bstate, "broadcast_del");
+		bcast->index = 0;
 	}
 }
 
-static void destroy_queued_message(struct queued_message *msg,
-				   struct broadcast_state *bstate)
-{
-	broadcast_del(bstate, msg->index, msg->payload);
-	bstate->count--;
-}
-
-static struct queued_message *new_queued_message(const tal_t *ctx,
-						 struct broadcast_state *bstate,
+static struct queued_message *new_queued_message(struct broadcast_state *bstate,
 						 const u8 *payload,
-						 u32 timestamp,
-						 u64 index)
+						 struct broadcastable *bcast)
 {
-	struct queued_message *msg = tal(ctx, struct queued_message);
+	struct queued_message *msg = tal(bstate, struct queued_message);
 	assert(payload);
+	assert(bcast);
+	assert(bcast->index);
 	msg->payload = payload;
-	msg->index = index;
-	msg->timestamp = timestamp;
-	uintmap_add(&bstate->broadcasts, index, msg);
-	tal_add_destructor2(msg, destroy_queued_message, bstate);
+	msg->bcast = bcast;
+	if (!uintmap_add(&bstate->broadcasts, bcast->index, msg))
+		abort();
 	bstate->count++;
 	return msg;
 }
 
-u64 insert_broadcast(struct broadcast_state *bstate,
-		      const u8 *payload, u32 timestamp)
+void insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
+		      struct broadcastable *bcast)
 {
-	/* Free payload, free index. */
-	new_queued_message(payload, bstate, payload, timestamp,
-			   bstate->next_index);
+	assert(!bcast->index);
+	bcast->index = bstate->next_index++;
+	new_queued_message(bstate, msg, bcast);
 	broadcast_state_check(bstate, "insert_broadcast");
-	return bstate->next_index++;
+	gossip_store_add(bstate->gs, msg);
 }
 
 const u8 *next_broadcast(struct broadcast_state *bstate,
 			 u32 timestamp_min, u32 timestamp_max,
-			 u64 *last_index)
+			 u32 *last_index)
 {
 	struct queued_message *m;
+	u64 idx = *last_index;
 
-	while ((m = uintmap_after(&bstate->broadcasts, last_index)) != NULL) {
-		if (m->timestamp >= timestamp_min
-		    && m->timestamp <= timestamp_max)
+	while ((m = uintmap_after(&bstate->broadcasts, &idx)) != NULL) {
+		if (m->bcast->timestamp >= timestamp_min
+		    && m->bcast->timestamp <= timestamp_max) {
+			*last_index = idx;
 			return m->payload;
+		}
 	}
 	return NULL;
 }
@@ -134,7 +131,8 @@ struct broadcast_state *broadcast_state_check(struct broadcast_state *b,
 	struct pubkey node_id_1,  node_id_2, bitcoin_key;
 	u32 timestamp, fees;
 	u16 flags, expiry;
-	u64 index = 0, htlc_minimum_msat;
+	u32 index = 0;
+	u64 htlc_minimum_msat;
 	struct pubkey_set pubkeys;
 	/* We actually only need a set, not a map. */
 	UINTMAP(u64 *) channels;

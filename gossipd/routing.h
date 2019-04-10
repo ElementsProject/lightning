@@ -25,10 +25,8 @@ struct half_chan {
 	/* Delay for HTLC in blocks.*/
 	u32 delay;
 
-	u32 last_timestamp;
-
-	/* Minimum and maximum number of msatoshi in an HTLC */
-	struct amount_msat htlc_minimum, htlc_maximum;
+	/* Timestamp and index into store file */
+	struct broadcastable bcast;
 
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
@@ -37,6 +35,9 @@ struct half_chan {
 	/* Flags as specified by the `channel_update`s, indicates
 	 * optional fields.  */
 	u8 message_flags;
+
+	/* Minimum and maximum number of msatoshi in an HTLC */
+	struct amount_msat htlc_minimum, htlc_maximum;
 };
 
 struct chan {
@@ -53,8 +54,9 @@ struct chan {
 
 	/* NULL if not announced yet (ie. not public). */
 	const u8 *channel_announce;
-	/* Index in broadcast map, if public (otherwise 0) */
-	u64 channel_announcement_index;
+
+	/* Timestamp and index into store file */
+	struct broadcastable bcast;
 
 	/* Disabled locally (due to peer disconnect) */
 	bool local_disabled;
@@ -72,7 +74,7 @@ static inline bool is_chan_public(const struct chan *chan)
  * with it. */
 static inline bool is_chan_announced(const struct chan *chan)
 {
-	return chan->channel_announcement_index != 0;
+	return chan->bcast.index != 0;
 }
 
 static inline bool is_halfchan_defined(const struct half_chan *hc)
@@ -113,7 +115,8 @@ HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map
 struct node {
 	struct node_id id;
 
-	u32 last_timestamp;
+	/* Timestamp and index into store file */
+	struct broadcastable bcast;
 
 	/* IP/Hostname and port of this node (may be NULL) */
 	struct wireaddr *addresses;
@@ -145,8 +148,6 @@ struct node {
 
 	/* Cached `node_announcement` we might forward to new peers (or NULL). */
 	const u8 *node_announcement;
-	/* If public, this is non-zero. */
-	u64 node_announcement_index;
 };
 
 const struct node_id *node_map_keyof_node(const struct node *n);
@@ -200,6 +201,7 @@ struct routing_state {
 	/* channel_announcement which are pending short_channel_id lookup */
 	struct list_head pending_cannouncement;
 
+	/* Broadcast map, and access to gossip store */
 	struct broadcast_state *broadcasts;
 
 	/* Our own ID so we can identify local channels */
@@ -207,10 +209,6 @@ struct routing_state {
 
 	/* How old does a channel have to be before we prune it? */
 	u32 prune_timeout;
-
-	/* Store for processed messages that we might want to remember across
-	 * restarts */
-	struct gossip_store *store;
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
