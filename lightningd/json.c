@@ -368,3 +368,10 @@ void json_add_amount_sat(struct json_stream *result,
 		json_add_member(result, msatfieldname, "\"%s\"",
 				type_to_string(tmpctx, struct amount_msat, &msat));
 }
+
+void json_add_timeabs(struct json_stream *result, const char *fieldname,
+		      struct timeabs t)
+{
+	json_add_member(result, fieldname, "%" PRIu64 ".%03" PRIu64,
+			(u64)t.ts.tv_sec, (u64)t.ts.tv_nsec / 1000000);
+}
