@@ -39,6 +39,15 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 				     const struct short_channel_id *scid);
 
 /**
+ * Direct store accessor: loads gossip msg back from store.
+ *
+ * Caller must ensure offset != 0.  Never returns NULL.
+ */
+const u8 *gossip_store_get(const tal_t *ctx,
+			   struct gossip_store *gs,
+			   u64 offset);
+
+/**
  * If we need to compact the gossip store, do so.
  * @gs: the gossip store.
  * @bs: a pointer to the broadcast state: replaced if we compact it.

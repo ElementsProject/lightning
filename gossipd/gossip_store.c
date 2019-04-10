@@ -329,6 +329,63 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 	tal_free(msg);
 }
 
+const u8 *gossip_store_get(const tal_t *ctx,
+			   struct gossip_store *gs,
+			   u64 offset)
+{
+	beint32_t belen, becsum;
+	u32 msglen, checksum;
+	u8 *msg, *gossip_msg;
+	struct amount_sat satoshis;
+
+	if (offset == 0 || offset > gs->len)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: can't access offset %"PRIu64
+			      ", store len %"PRIu64,
+			      offset, gs->len);
+	if (lseek(gs->fd, offset, SEEK_SET) < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: can't seek offset %"PRIu64
+			      ", store len %"PRIu64": %s",
+			      offset, gs->len, strerror(errno));
+
+	if (read(gs->fd, &belen, sizeof(belen)) != sizeof(belen)
+	    || read(gs->fd, &becsum, sizeof(becsum)) != sizeof(becsum)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: can't read hdr offset %"PRIu64
+			      ", store len %"PRIu64": %s",
+			      offset, gs->len, strerror(errno));
+	}
+
+	msglen = be32_to_cpu(belen);
+	checksum = be32_to_cpu(becsum);
+	msg = tal_arr(ctx, u8, msglen);
+	if (read(gs->fd, msg, msglen) != msglen)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: can't read len %u offset %"PRIu64
+			      ", store len %"PRIu64,
+			      msglen, offset, gs->len);
+
+	if (checksum != crc32c(0, msg, msglen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: bad checksum offset %"PRIu64
+			      ", store len %"PRIu64,
+			      offset, gs->len);
+
+	/* Now try decoding it */
+	if (!fromwire_gossip_store_node_announcement(ctx, msg, &gossip_msg)
+	    && !fromwire_gossip_store_channel_announcement(ctx, msg,
+							   &gossip_msg,
+							   &satoshis)
+	    && !fromwire_gossip_store_channel_update(ctx, msg, &gossip_msg)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: bad message %s offset %"PRIu64
+			      " from store len %"PRIu64,
+			      tal_hex(tmpctx, msg), offset, gs->len);
+	}
+	return gossip_msg;
+}
+
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
 	beint32_t belen, becsum;
