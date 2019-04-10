@@ -2,12 +2,12 @@
 .\"     Title: lightning-invoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/23/2019
+.\"      Date: 04/10/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-INVOICE" "7" "02/23/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-INVOICE" "7" "04/10/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,7 +42,7 @@ The \fIlabel\fR must be a unique string or number (which is treated as a string,
 .sp
 The \fIdescription\fR is a short description of purpose of payment, e\&.g\&. \fI1 cup of coffee\fR\&. This value is encoded into the BOLT11 invoice and is viewable by any node you send this invoice to\&. It must be UTF\-8, and cannot use \fI\eu\fR JSON escape codes\&.
 .sp
-The \fIexpiry\fR is optionally the number of seconds the invoice is valid for\&. If no value is provided the default of 3600 (1 Hour) is used\&.
+The \fIexpiry\fR is optionally the number of seconds the invoice is valid for\&. If no value is provided the default of 604800 (1 week) is used\&.
 .sp
 The \fIfallbacks\fR array is one or more fallback addresses to include in the invoice (in order from most\-preferred to least): note that these arrays are not currently tracked to fulfill the invoice\&.
 .sp
