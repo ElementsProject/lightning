@@ -112,6 +112,7 @@ set_defaults()
     COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEVELOPER")}
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
+    TEST_NETWORK=${TEST_NETWORK:-regtest}
 }
 
 usage()
@@ -352,6 +353,7 @@ add_var COMPAT "$COMPAT" $CONFIG_HEADER
 add_var PYTEST "$PYTEST"
 add_var STATIC "$STATIC"
 add_var ASAN "$ASAN"
+add_var TEST_NETWORK "$TEST_NETWORK"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
