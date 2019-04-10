@@ -133,7 +133,7 @@ struct peer {
 	bool gossip_queries_feature, initial_routing_sync_feature;
 
 	/* High water mark for the staggered broadcast */
-	u64 broadcast_index;
+	u32 broadcast_index;
 
 	/* Timestamp range the peer asked us to filter gossip by */
 	u32 gossip_timestamp_min, gossip_timestamp_max;
@@ -396,8 +396,8 @@ static void send_node_announcement(struct daemon *daemon)
 	 *   - MUST set `timestamp` to be greater than that of any previous
 	 *   `node_announcement` it has previously created.
 	 */
-	if (self && self->node_announcement && timestamp <= self->last_timestamp)
-		timestamp = self->last_timestamp + 1;
+	if (self && self->bcast.index && timestamp <= self->bcast.timestamp)
+		timestamp = self->bcast.timestamp + 1;
 
 	/* Get an unsigned one. */
 	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
@@ -1074,7 +1074,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		/* Not every node announces itself (we know it exists because
 		 * of a channel_announcement, however) */
 		n = get_node(rstate, &peer->scid_query_nodes[i]);
-		if (!n || !n->node_announcement_index)
+		if (!n || !n->bcast.index)
 			continue;
 
 		queue_peer_msg(peer, n->node_announcement);
@@ -1199,7 +1199,7 @@ static void update_local_channel(struct daemon *daemon,
 	 *     - SHOULD base `timestamp` on a UNIX timestamp.
 	 */
 	if (is_halfchan_defined(&chan->half[direction])
-	    && timestamp == chan->half[direction].last_timestamp)
+	    && timestamp == chan->half[direction].bcast.timestamp)
 		timestamp++;
 
 	/* BOLT #7:
@@ -1562,7 +1562,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
 		ok = handle_local_add_channel(peer->daemon->rstate, msg);
 		if (ok)
-			gossip_store_add(peer->daemon->rstate->store, msg);
+			gossip_store_add(peer->daemon->rstate->broadcasts->gs,
+					 msg);
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
 		ok = handle_local_channel_update(peer, msg);
@@ -1646,7 +1647,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	 *	- MUST NOT relay any gossip messages unless explicitly requested.
 	 */
 	if (peer->gossip_queries_feature) {
-		peer->broadcast_index = UINT64_MAX;
+		peer->broadcast_index = UINT32_MAX;
 		/* Nothing in this "impossible" range */
 		peer->gossip_timestamp_min = UINT32_MAX;
 		peer->gossip_timestamp_max = 0;
@@ -1806,7 +1807,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 				continue;
 			}
 
-			if (hc->last_timestamp > highwater) {
+			if (hc->bcast.timestamp > highwater) {
 				/* No need to send a keepalive update message */
 				continue;
 			}
@@ -1876,7 +1877,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   dev_unknown_channel_satoshis);
 
 	/* Load stored gossip messages */
-	gossip_store_load(daemon->rstate, daemon->rstate->store);
+	gossip_store_load(daemon->rstate, daemon->rstate->broadcasts->gs);
 
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
@@ -1961,7 +1962,7 @@ static struct gossip_halfchannel_entry *hc_entry(const tal_t *ctx,
 	e = tal(ctx, struct gossip_halfchannel_entry);
 	e->channel_flags = c->channel_flags;
 	e->message_flags = c->message_flags;
-	e->last_update_timestamp = c->last_timestamp;
+	e->last_update_timestamp = c->bcast.timestamp;
 	e->base_fee_msat = c->base_fee;
 	e->fee_per_millionth = c->proportional_fee;
 	e->delay = c->delay;
@@ -2060,7 +2061,7 @@ static void append_node(const struct gossip_getnodes_entry ***entries,
 	if (!n->node_announcement)
 		e->last_timestamp = -1;
 	else {
-		e->last_timestamp = n->last_timestamp;
+		e->last_timestamp = n->bcast.timestamp;
 		e->globalfeatures = n->globalfeatures;
 		e->addresses = n->addresses;
 		BUILD_ASSERT(ARRAY_SIZE(e->alias) == ARRAY_SIZE(n->alias));
@@ -2479,7 +2480,7 @@ static struct io_plan *dev_compact_store(struct io_conn *conn,
 					 struct daemon *daemon,
 					 const u8 *msg)
 {
-	bool done = gossip_store_compact(daemon->rstate->store);
+	bool done = gossip_store_compact(daemon->rstate->broadcasts->gs);
 	daemon_conn_send(daemon->master,
 			 take(towire_gossip_dev_compact_store_reply(NULL,
 								    done)));
@@ -2656,7 +2657,7 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 		tal_free(chan);
 		/* We put a tombstone marker in the channel store, so we don't
 		 * have to replay blockchain spends on restart. */
-		gossip_store_add_channel_delete(rstate->store, &scid);
+		gossip_store_add_channel_delete(rstate->broadcasts->gs, &scid);
 	}
 
 	return daemon_conn_read_next(conn, daemon->master);

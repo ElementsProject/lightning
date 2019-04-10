@@ -9,27 +9,47 @@
 
 /* Common functionality to implement staggered broadcasts with replacement. */
 
+struct routing_state;
+
 struct broadcast_state {
 	u64 next_index;
 	UINTMAP(struct queued_message *) broadcasts;
 	size_t count;
+	struct gossip_store *gs;
 };
 
-struct broadcast_state *new_broadcast_state(tal_t *ctx);
+/* This is nested inside a node, chan or half_chan; rewriting the store can
+ * cause it to change! */
+struct broadcastable {
+	/* This is also the offset within the gossip_store; even with 1M
+	 * channels we still have a factor of 8 before this wraps. */
+	u32 index;
+	u32 timestamp;
+};
 
-/* Append a queued message for broadcast.  Freeing the msg will remove it. */
-u64 insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
-		     u32 timestamp);
+static inline void broadcastable_init(struct broadcastable *bcast)
+{
+	bcast->index = 0;
+}
 
-/* Manually delete a broadcast: not usually needed, since destructor does it */
-void broadcast_del(struct broadcast_state *bstate, u64 index, const u8 *payload);
+struct broadcast_state *new_broadcast_state(struct routing_state *rstate);
+
+
+/* Append a queued message for broadcast.  Must be explicitly deleted.
+ * Also adds it to the gossip store. */
+void insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
+		      struct broadcastable *bcast);
+
+/* Delete a broadcast: not usually needed, since destructor does it */
+void broadcast_del(struct broadcast_state *bstate,
+		   struct broadcastable *bcast);
 
 /* Return the broadcast with index >= *last_index, timestamp >= min and <= max
  * and update *last_index.
  * There's no broadcast with index 0. */
 const u8 *next_broadcast(struct broadcast_state *bstate,
 			 u32 timestamp_min, u32 timestamp_max,
-			 u64 *last_index);
+			 u32 *last_index);
 
 /* Returns b if all OK, otherwise aborts if abortstr non-NULL, otherwise returns
  * NULL. */

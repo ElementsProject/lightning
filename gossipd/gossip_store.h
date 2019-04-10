@@ -13,12 +13,12 @@
  */
 #define GOSSIP_STORE_VERSION 3
 
+struct broadcast_state;
 struct gossip_store;
 struct routing_state;
 
-struct gossip_store *gossip_store_new(const tal_t *ctx,
-				      struct routing_state *rstate,
-				      struct broadcast_state *broadcast);
+struct gossip_store *gossip_store_new(struct routing_state *rstate,
+				      struct broadcast_state *bstate);
 
 /**
  * Load the initial gossip store, if any.
