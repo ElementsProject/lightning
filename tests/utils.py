@@ -305,9 +305,9 @@ class BitcoinD(TailableProc):
         # For after 0.16.1 (eg. 3f398d7a17f136cd4a67998406ca41a124ae2966), this
         # needs its own [regtest] section.
         BITCOIND_REGTEST = {'rpcport': rpcport}
-        btc_conf_file = os.path.join(bitcoin_dir, 'bitcoin.conf')
-        write_config(btc_conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST)
-        self.rpc = SimpleBitcoinProxy(btc_conf_file=btc_conf_file)
+        self.conf_file = os.path.join(bitcoin_dir, 'bitcoin.conf')
+        write_config(self.conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST)
+        self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
         self.proxies = []
 
     def start(self):
