@@ -13,57 +13,49 @@
 #include <gossipd/gossip_store.h>
 #include <wire/gen_peer_wire.h>
 
-struct queued_message {
-	struct broadcastable *bcast;
+static void destroy_broadcast_state(struct broadcast_state *bstate)
+{
+	uintmap_clear(&bstate->broadcasts);
+}
 
-	/* Serialized payload */
-	const u8 *payload;
-};
-
-struct broadcast_state *new_broadcast_state(struct routing_state *rstate)
+struct broadcast_state *new_broadcast_state(struct routing_state *rstate,
+					    struct gossip_store *gs)
 {
 	struct broadcast_state *bstate = tal(rstate, struct broadcast_state);
 	uintmap_init(&bstate->broadcasts);
 	bstate->count = 0;
-	bstate->gs = gossip_store_new(rstate);
+	bstate->gs = gs;
+	tal_add_destructor(bstate, destroy_broadcast_state);
 	return bstate;
 }
 
 void broadcast_del(struct broadcast_state *bstate,
 		   struct broadcastable *bcast)
 {
-	const struct queued_message *q
+	const struct broadcastable *b
 		= uintmap_del(&bstate->broadcasts, bcast->index);
-	if (q != NULL) {
-		assert(q->bcast == bcast);
-		tal_free(q);
+	if (b != NULL) {
+		assert(b == bcast);
 		bstate->count--;
 		broadcast_state_check(bstate, "broadcast_del");
 		bcast->index = 0;
 	}
 }
 
-static struct queued_message *new_queued_message(struct broadcast_state *bstate,
-						 const u8 *payload,
-						 struct broadcastable *bcast)
+static void add_broadcast(struct broadcast_state *bstate,
+			  struct broadcastable *bcast)
 {
-	struct queued_message *msg = tal(bstate, struct queued_message);
-	assert(payload);
 	assert(bcast);
 	assert(bcast->index);
-	msg->payload = payload;
-	msg->bcast = bcast;
-	if (!uintmap_add(&bstate->broadcasts, bcast->index, msg))
+	if (!uintmap_add(&bstate->broadcasts, bcast->index, bcast))
 		abort();
 	bstate->count++;
-	return msg;
 }
 
 void insert_broadcast_nostore(struct broadcast_state *bstate,
-			      const u8 *msg,
 			      struct broadcastable *bcast)
 {
-	new_queued_message(bstate, msg, bcast);
+	add_broadcast(bstate, bcast);
 	broadcast_state_check(bstate, "insert_broadcast");
 }
 
@@ -84,40 +76,38 @@ void insert_broadcast(struct broadcast_state **bstate,
 		assert(idx == bcast->index);
 	}
 
-	insert_broadcast_nostore(*bstate, msg, bcast);
+	insert_broadcast_nostore(*bstate, bcast);
 
 	/* If it compacts, it replaces *bstate */
 	gossip_store_maybe_compact((*bstate)->gs, bstate);
 }
 
-const u8 *pop_first_broadcast(struct broadcast_state *bstate,
-			      struct broadcastable **bcast)
+struct broadcastable *next_broadcast_raw(struct broadcast_state *bstate,
+					 u32 *last_index)
 {
-	u64 idx;
-	const u8 *msg;
-	struct queued_message *q = uintmap_first(&bstate->broadcasts, &idx);
-	if (!q)
+	struct broadcastable *b;
+	u64 idx = *last_index;
+
+	b = uintmap_after(&bstate->broadcasts, &idx);
+	if (!b)
 		return NULL;
-
-	*bcast = q->bcast;
-	msg = q->payload;
-
-	broadcast_del(bstate, *bcast);
-	return msg;
+	/* Assert no overflow */
+	*last_index = idx;
+	assert(*last_index == idx);
+	return b;
 }
 
-const u8 *next_broadcast(struct broadcast_state *bstate,
+const u8 *next_broadcast(const tal_t *ctx,
+			 struct broadcast_state *bstate,
 			 u32 timestamp_min, u32 timestamp_max,
 			 u32 *last_index)
 {
-	struct queued_message *m;
-	u64 idx = *last_index;
+	struct broadcastable *b;
 
-	while ((m = uintmap_after(&bstate->broadcasts, &idx)) != NULL) {
-		if (m->bcast->timestamp >= timestamp_min
-		    && m->bcast->timestamp <= timestamp_max) {
-			*last_index = idx;
-			return m->payload;
+	while ((b = next_broadcast_raw(bstate, last_index)) != NULL) {
+		if (b->timestamp >= timestamp_min
+		    && b->timestamp <= timestamp_max) {
+			return gossip_store_get(ctx, bstate->gs, b->index);
 		}
 	}
 	return NULL;

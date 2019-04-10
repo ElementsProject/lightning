@@ -208,12 +208,12 @@ bool gossip_store_compact(struct gossip_store *gs,
 {
 	size_t count = 0;
 	int fd;
-	const u8 *msg;
 	struct node *self;
 	u64 len = sizeof(gs->version);
 	struct broadcastable *bcast;
 	struct broadcast_state *oldb = *bs;
 	struct broadcast_state *newb;
+	u32 idx = 0;
 
 	if (gs->disable_compaction)
 		return false;
@@ -223,7 +223,7 @@ bool gossip_store_compact(struct gossip_store *gs,
 	    "Compacting gossip_store with %zu entries, %zu of which are stale",
 	    gs->count, gs->count - oldb->count);
 
-	newb = new_broadcast_state(gs->rstate);
+	newb = new_broadcast_state(gs->rstate, gs);
 	fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 
 	if (fd < 0) {
@@ -238,14 +238,45 @@ bool gossip_store_compact(struct gossip_store *gs,
 		goto unlink_disable;
 	}
 
-	while ((msg = pop_first_broadcast(oldb, &bcast)) != NULL) {
+	/* Copy entries one at a time. */
+	while ((bcast = next_broadcast_raw(oldb, &idx)) != NULL) {
+		beint32_t belen, becsum;
+		u32 msglen;
+		u8 *msg;
+
+		/* FIXME: optimize both read and allocation */
+		if (lseek(gs->fd, bcast->index, SEEK_SET) < 0
+		    || read(gs->fd, &belen, sizeof(belen)) != sizeof(belen)
+		    || read(gs->fd, &becsum, sizeof(becsum)) != sizeof(becsum)) {
+			status_broken("Failed reading header from to gossip store @%u"
+				      ": %s",
+				      bcast->index, strerror(errno));
+			goto unlink_disable;
+		}
+
+		msglen = be32_to_cpu(belen);
+		msg = tal_arr(tmpctx, u8, sizeof(belen) + sizeof(becsum) + msglen);
+		memcpy(msg, &belen, sizeof(belen));
+		memcpy(msg + sizeof(belen), &becsum, sizeof(becsum));
+		if (read(gs->fd, msg + sizeof(belen) + sizeof(becsum), msglen)
+		    != msglen) {
+			status_broken("Failed reading %u from to gossip store @%u"
+				      ": %s",
+				      msglen, bcast->index, strerror(errno));
+			goto unlink_disable;
+		}
+
+		broadcast_del(oldb, bcast);
 		bcast->index = len;
-		insert_broadcast_nostore(newb, msg, bcast);
-		if (!gossip_store_append(fd, gs->rstate, msg, &len)) {
+		insert_broadcast_nostore(newb, bcast);
+
+		if (write(fd, msg, msglen + sizeof(belen) + sizeof(becsum))
+		    != msglen + sizeof(belen) + sizeof(becsum)) {
 			status_broken("Failed writing to gossip store: %s",
 				      strerror(errno));
 			goto unlink_disable;
 		}
+		len += sizeof(belen) + sizeof(becsum) + msglen;
 		count++;
 	}
 
@@ -266,8 +297,8 @@ bool gossip_store_compact(struct gossip_store *gs,
 	}
 
 	status_trace(
-	    "Compaction completed: dropped %zu messages, new count %zu",
-	    gs->count - count, count);
+	    "Compaction completed: dropped %zu messages, new count %zu, len %"PRIu64,
+	    gs->count - count, count, len);
 	gs->count = count;
 	gs->len = len;
 	close(gs->fd);
@@ -359,7 +390,7 @@ const u8 *gossip_store_get(const tal_t *ctx,
 
 	msglen = be32_to_cpu(belen);
 	checksum = be32_to_cpu(becsum);
-	msg = tal_arr(ctx, u8, msglen);
+	msg = tal_arr(tmpctx, u8, msglen);
 	if (read(gs->fd, msg, msglen) != msglen)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store: can't read len %u offset %"PRIu64
