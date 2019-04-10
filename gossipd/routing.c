@@ -154,7 +154,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
-	rstate->broadcasts = new_broadcast_state(rstate);
+	rstate->broadcasts = new_broadcast_state(rstate, gossip_store_new(rstate));
 	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
@@ -1919,7 +1919,6 @@ void memleak_remove_routing_tables(struct htable *memtable,
 
 	memleak_remove_htable(memtable, &rstate->nodes->raw);
 	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
-	memleak_remove_uintmap(memtable, &rstate->broadcasts->broadcasts);
 
 	for (n = node_map_first(rstate->nodes, &nit);
 	     n;

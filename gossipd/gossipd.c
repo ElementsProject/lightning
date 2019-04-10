@@ -1127,13 +1127,13 @@ static void maybe_queue_gossip(struct peer *peer)
 	 * only needs to keep an index; this returns the next gossip message
 	 * which is past the previous index and within the timestamp: it
 	 * also updates `broadcast_index`. */
-	next = next_broadcast(peer->daemon->rstate->broadcasts,
+	next = next_broadcast(NULL, peer->daemon->rstate->broadcasts,
 			      peer->gossip_timestamp_min,
 			      peer->gossip_timestamp_max,
 			      &peer->broadcast_index);
 
 	if (next) {
-		queue_peer_msg(peer, next);
+		queue_peer_msg(peer, take(next));
 		return;
 	}
 
