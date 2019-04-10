@@ -1669,7 +1669,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 			peer->broadcast_index = 0;
 		else
 			peer->broadcast_index
-				= peer->daemon->rstate->broadcasts->next_index;
+				= broadcast_final_index(peer->daemon->rstate->broadcasts) + 1;
 	}
 
 	/* This is the new connection: calls dump_gossip when nothing else to
@@ -2480,7 +2480,8 @@ static struct io_plan *dev_compact_store(struct io_conn *conn,
 					 struct daemon *daemon,
 					 const u8 *msg)
 {
-	bool done = gossip_store_compact(daemon->rstate->broadcasts->gs);
+	bool done = gossip_store_compact(daemon->rstate->broadcasts->gs,
+					 &daemon->rstate->broadcasts);
 	daemon_conn_send(daemon->master,
 			 take(towire_gossip_dev_compact_store_reply(NULL,
 								    done)));

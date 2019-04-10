@@ -323,7 +323,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 		 * channel_announce, but we don't care that much about spurious
 		 * retransmissions in this corner case */
 		broadcast_del(rstate->broadcasts, &node->bcast);
-		insert_broadcast(rstate->broadcasts,
+		insert_broadcast(&rstate->broadcasts,
 				 node->node_announcement,
 				 &node->bcast);
 	}
@@ -856,7 +856,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      u32 timestamp)
 {
 	chan->bcast.timestamp = timestamp;
-	insert_broadcast(rstate->broadcasts, chan->channel_announce,
+	insert_broadcast(&rstate->broadcasts, chan->channel_announce,
 			 &chan->bcast);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 
@@ -866,7 +866,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 		if (!node->node_announcement)
 			continue;
 		if (!node->bcast.index) {
-			insert_broadcast(rstate->broadcasts,
+			insert_broadcast(&rstate->broadcasts,
 					 node->node_announcement,
 					 &node->bcast);
 		}
@@ -875,7 +875,8 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES,
-				      struct amount_sat sat)
+				      struct amount_sat sat,
+				      u32 index)
 {
 	struct chan *chan;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
@@ -908,6 +909,11 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_count(msg), 0);
 
+	/* If we're loading from the store, save index now */
+	chan->bcast.index = index;
+	/* This is filled in when we get a channel_update */
+	chan->bcast.timestamp = 0;
+
 	/* Apply any private updates. */
 	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
 		const u8 *update = chan->half[i].channel_update;
@@ -916,7 +922,9 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 		/* Remove from channel, otherwise it will be freed! */
 		chan->half[i].channel_update = NULL;
-		routing_add_channel_update(rstate, take(update));
+		/* If we loaded from store, index will be non-zero */
+		routing_add_channel_update(rstate, take(update),
+					   chan->half[i].bcast.index);
 	}
 
 	return true;
@@ -1156,7 +1164,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 		return;
 	}
 
-	if (!routing_add_channel_announcement(rstate, pending->announce, sat))
+	if (!routing_add_channel_announcement(rstate, pending->announce, sat, 0))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
 
@@ -1217,7 +1225,9 @@ static void set_connection_values(struct chan *chan,
 }
 
 bool routing_add_channel_update(struct routing_state *rstate,
-				const u8 *update TAKES)
+				const u8 *update TAKES,
+				u32 index)
+
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -1291,12 +1301,18 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	chan->half[direction].channel_update
 		= tal_dup_arr(chan, u8, update, tal_count(update), 0);
 
+	/* If we're loading from store, this means we don't re-add to store */
+	chan->half[direction].bcast.index = index;
+
 	/* For private channels, we get updates without an announce: don't
 	 * broadcast them!  But save local ones to store anyway. */
 	if (!chan->channel_announce) {
-		if (is_local_channel(rstate, chan))
-			gossip_store_add(rstate->broadcasts->gs,
-					 chan->half[direction].channel_update);
+		struct half_chan *hc = &chan->half[direction];
+		/* Don't save if we're loading from store */
+		if (is_local_channel(rstate, chan) && !hc->bcast.index) {
+			hc->bcast.index = gossip_store_add(rstate->broadcasts->gs,
+							   hc->channel_update);
+		}
 		return true;
 	}
 
@@ -1306,10 +1322,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 *   - MUST consider whether to send the `channel_announcement` after
 	 *     receiving the first corresponding `channel_update`.
 	 */
-	if (chan->bcast.index == 0)
+	if (chan->bcast.timestamp == 0)
 		add_channel_announce_to_broadcast(rstate, chan, timestamp);
 
-	insert_broadcast(rstate->broadcasts,
+	insert_broadcast(&rstate->broadcasts,
 			 chan->half[direction].channel_update,
 			 &chan->half[direction].bcast);
 	return true;
@@ -1461,7 +1477,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		     : "UNDEFINED",
 		     source);
 
-	if (!routing_add_channel_update(rstate, serialized))
+	if (!routing_add_channel_update(rstate, serialized, 0))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed adding channel_update");
 
@@ -1499,7 +1515,9 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
-bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg TAKES)
+bool routing_add_node_announcement(struct routing_state *rstate,
+				   const u8 *msg TAKES,
+				   u32 index)
 {
 	struct node *node;
 	secp256k1_ecdsa_signature signature;
@@ -1537,6 +1555,7 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	node->addresses = tal_steal(node, wireaddrs);
 
 	node->bcast.timestamp = timestamp;
+	node->bcast.index = index;
 	memcpy(node->rgb_color, rgb_color, ARRAY_SIZE(node->rgb_color));
 	memcpy(node->alias, alias, ARRAY_SIZE(node->alias));
 	tal_free(node->globalfeatures);
@@ -1546,7 +1565,7 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 
 	/* We might be waiting for channel_announce to be released. */
 	if (node_has_broadcastable_channels(node)) {
-		insert_broadcast(rstate->broadcasts,
+		insert_broadcast(&rstate->broadcasts,
 				 node->node_announcement,
 				 &node->bcast);
 	}
@@ -1684,7 +1703,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	status_trace("Received node_announcement for node %s",
 		     type_to_string(tmpctx, struct node_id, &node_id));
 
-	applied = routing_add_node_announcement(rstate, serialized);
+	applied = routing_add_node_announcement(rstate, serialized, 0);
 	assert(applied);
 	return NULL;
 }

@@ -326,10 +326,14 @@ void route_prune(struct routing_state *rstate);
  * Directly add the channel to the local network, without checking it first. Use
  * this only for messages from trusted sources. Untrusted sources should use the
  * @see{handle_channel_announcement} entrypoint to check before adding.
+ *
+ * index is usually 0, in which case it's set by insert_broadcast adding it
+ * to the store.
  */
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES,
-				      struct amount_sat sat);
+				      struct amount_sat sat,
+				      u32 index);
 
 /**
  * Add a channel_update without checking for errors
@@ -340,7 +344,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
  * @see{handle_channel_update}
  */
 bool routing_add_channel_update(struct routing_state *rstate,
-				const u8 *update TAKES);
+				const u8 *update TAKES,
+				u32 index);
 
 /**
  * Add a node_announcement to the network view without checking it
@@ -350,7 +355,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
  * sources (peers) please use @see{handle_node_announcement}.
  */
 bool routing_add_node_announcement(struct routing_state *rstate,
-                                  const u8 *msg TAKES);
+				   const u8 *msg TAKES,
+				   u32 index);
 
 
 /**

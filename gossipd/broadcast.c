@@ -8,6 +8,7 @@
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <errno.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gossip_store.h>
 #include <wire/gen_peer_wire.h>
@@ -24,9 +25,7 @@ struct broadcast_state *new_broadcast_state(struct routing_state *rstate)
 	struct broadcast_state *bstate = tal(rstate, struct broadcast_state);
 	uintmap_init(&bstate->broadcasts);
 	bstate->count = 0;
-	/* Skip 0 because we initialize peers with 0 */
-	bstate->next_index = 1;
-	bstate->gs = gossip_store_new(rstate, bstate);
+	bstate->gs = gossip_store_new(rstate);
 	return bstate;
 }
 
@@ -60,14 +59,51 @@ static struct queued_message *new_queued_message(struct broadcast_state *bstate,
 	return msg;
 }
 
-void insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
-		      struct broadcastable *bcast)
+void insert_broadcast_nostore(struct broadcast_state *bstate,
+			      const u8 *msg,
+			      struct broadcastable *bcast)
 {
-	assert(!bcast->index);
-	bcast->index = bstate->next_index++;
 	new_queued_message(bstate, msg, bcast);
 	broadcast_state_check(bstate, "insert_broadcast");
-	gossip_store_add(bstate->gs, msg);
+}
+
+void insert_broadcast(struct broadcast_state **bstate,
+		      const u8 *msg,
+		      struct broadcastable *bcast)
+{
+	/* If we're loading from the store, we already have index */
+	if (!bcast->index) {
+		u64 idx;
+
+		bcast->index = idx = gossip_store_add((*bstate)->gs, msg);
+		if (!idx)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Could not add to gossip store: %s",
+				      strerror(errno));
+		/* We assume we can fit in 32 bits for now! */
+		assert(idx == bcast->index);
+	}
+
+	insert_broadcast_nostore(*bstate, msg, bcast);
+
+	/* If it compacts, it replaces *bstate */
+	gossip_store_maybe_compact((*bstate)->gs, bstate);
+}
+
+const u8 *pop_first_broadcast(struct broadcast_state *bstate,
+			      struct broadcastable **bcast)
+{
+	u64 idx;
+	const u8 *msg;
+	struct queued_message *q = uintmap_first(&bstate->broadcasts, &idx);
+	if (!q)
+		return NULL;
+
+	*bcast = q->bcast;
+	msg = q->payload;
+
+	broadcast_del(bstate, *bcast);
+	return msg;
 }
 
 const u8 *next_broadcast(struct broadcast_state *bstate,
@@ -85,6 +121,15 @@ const u8 *next_broadcast(struct broadcast_state *bstate,
 		}
 	}
 	return NULL;
+}
+
+u64 broadcast_final_index(const struct broadcast_state *bstate)
+{
+	u64 idx;
+
+	if (!uintmap_last(&bstate->broadcasts, &idx))
+		return 0;
+	return idx;
 }
 
 #ifdef PEDANTIC

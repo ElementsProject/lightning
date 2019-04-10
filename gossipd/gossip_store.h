@@ -17,8 +17,7 @@ struct broadcast_state;
 struct gossip_store;
 struct routing_state;
 
-struct gossip_store *gossip_store_new(struct routing_state *rstate,
-				      struct broadcast_state *bstate);
+struct gossip_store *gossip_store_new(struct routing_state *rstate);
 
 /**
  * Load the initial gossip store, if any.
@@ -31,7 +30,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 /**
  * Add a gossip message to the gossip_store
  */
-void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg);
+u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg);
 
 /**
  * Remember that we deleted a channel as a result of its outpoint being spent
@@ -39,6 +38,16 @@ void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg);
 void gossip_store_add_channel_delete(struct gossip_store *gs,
 				     const struct short_channel_id *scid);
 
-/* Expose for dev-compact-gossip-store */
-bool gossip_store_compact(struct gossip_store *gs);
+/**
+ * If we need to compact the gossip store, do so.
+ * @gs: the gossip store.
+ * @bs: a pointer to the broadcast state: replaced if we compact it.
+ */
+void gossip_store_maybe_compact(struct gossip_store *gs,
+				struct broadcast_state **bs);
+
+
+/* Expose for dev-compact-gossip-store to force compaction. */
+bool gossip_store_compact(struct gossip_store *gs,
+			  struct broadcast_state **bs);
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */
