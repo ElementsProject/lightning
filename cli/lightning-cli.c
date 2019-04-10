@@ -8,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json.h>
+#include <common/json_escaped.h>
 #include <common/memleak.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -177,7 +178,7 @@ static void add_input(char **cmd, const char *input,
 	if (is_literal(input))
 		tal_append_fmt(cmd, "%s", input);
 	else
-		tal_append_fmt(cmd, "\"%s\"", input);
+		tal_append_fmt(cmd, "\"%s\"", json_escape(*cmd, input)->s);
 	if (i != argc - 1)
 		tal_append_fmt(cmd, ", ");
 }
@@ -355,7 +356,7 @@ int main(int argc, char *argv[])
 	idstr = tal_fmt(ctx, "lightning-cli-%i", getpid());
 	cmd = tal_fmt(ctx,
 		      "{ \"jsonrpc\" : \"2.0\", \"method\" : \"%s\", \"id\" : \"%s\", \"params\" :",
-		      method, idstr);
+		      json_escape(ctx, method)->s, idstr);
 
 	if (input == DEFAULT_INPUT) {
 		/* Hacky autodetect; only matters if more than single arg */

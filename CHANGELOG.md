@@ -30,6 +30,7 @@ changes.
   `option_data_loss_protect` properly.
 - `--bind-addr=<path>` fixed for nodes using local sockets (eg. testing).
 - Unannounced local channels were forgotten for routing on restart until reconnection occurred.
+- lightning-cli: arguments containing `"` now succeed, rather than causing JSON errors.
 
 ### Security
 
