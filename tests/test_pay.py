@@ -1119,6 +1119,9 @@ def test_forward_stats(node_factory, bitcoind):
     assert l2.rpc.getinfo()['msatoshi_fees_collected'] == 1 + amount // 100000
     assert l1.rpc.getinfo()['msatoshi_fees_collected'] == 0
     assert l3.rpc.getinfo()['msatoshi_fees_collected'] == 0
+    assert stats['forwards'][0]['received_time'] <= stats['forwards'][0]['resolved_time']
+    assert stats['forwards'][1]['received_time'] <= stats['forwards'][1]['resolved_time']
+    assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
 
 
 @unittest.skipIf(not DEVELOPER or SLOW_MACHINE, "needs DEVELOPER=1 for dev_ignore_htlcs, and temporarily disabled on Travis")
