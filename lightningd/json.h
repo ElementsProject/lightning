@@ -7,6 +7,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <ccan/time/time.h>
 #include <common/amount.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -157,4 +158,8 @@ enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx,
 			     const struct chainparams *chainparams,
 			     const char *buffer,
 			     const jsmntok_t *tok, const u8 **scriptpubkey);
+
+void json_add_timeabs(struct json_stream *result, const char *fieldname,
+		      struct timeabs t);
+
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */
