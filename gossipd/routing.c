@@ -50,7 +50,9 @@ struct pending_cannouncement {
 };
 
 struct pending_node_announce {
+	struct routing_state *rstate;
 	struct node_id nodeid;
+	size_t refcount;
 	u8 *node_announcement;
 	u32 timestamp;
 };
@@ -240,7 +242,8 @@ static struct node *new_node(struct routing_state *rstate,
 	return n;
 }
 
-/* We've received a channel_announce for a channel attached to this node */
+/* We've received a channel_announce for a channel attached to this node:
+ * otherwise it's in the map only because it's a peer, or us. */
 static bool node_has_public_channels(struct node *node)
 {
 	struct chan_map_iter i;
@@ -791,13 +794,49 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 	return NULL;
 }
 
-static void add_pending_node_announcement(struct routing_state *rstate, struct node_id *nodeid)
+/* We allow node announcements for this node if it doesn't otherwise exist, so
+ * we can process them once it does exist (a channel_announce is being
+ * validated right now).
+ *
+ * If we attach one, remove it on destruction of @ctx.
+ */
+static void del_pending_node_announcement(const tal_t *ctx UNUSED,
+					  struct pending_node_announce *pna)
 {
-	struct pending_node_announce *pna = tal(rstate, struct pending_node_announce);
-	pna->nodeid = *nodeid;
-	pna->node_announcement = NULL;
-	pna->timestamp = 0;
-	pending_node_map_add(rstate->pending_node_map, pna);
+	if (--pna->refcount == 0) {
+		pending_node_map_del(pna->rstate->pending_node_map, pna);
+		tal_free(pna);
+	}
+}
+
+static void catch_node_announcement(const tal_t *ctx,
+				    struct routing_state *rstate,
+				    struct node_id *nodeid)
+{
+	struct pending_node_announce *pna;
+	struct node *node;
+
+	/* No need if we already know about the node.  We might, however, only
+	 * know about it because it's a peer (maybe with private or
+	 * not-yet-announced channels), so check for that too. */
+	node = get_node(rstate, nodeid);
+	if (node && node_has_public_channels(node))
+		return;
+
+	/* We can have multiple channels announced at same time for nodes;
+	 * but we can only have one of these in the map. */
+	pna = pending_node_map_get(rstate->pending_node_map, nodeid);
+	if (!pna) {
+		pna = tal(rstate, struct pending_node_announce);
+		pna->rstate = rstate;
+		pna->nodeid = *nodeid;
+		pna->node_announcement = NULL;
+		pna->timestamp = 0;
+		pna->refcount = 0;
+		pending_node_map_add(rstate->pending_node_map, pna);
+	}
+	pna->refcount++;
+	tal_add_destructor2(ctx, del_pending_node_announcement, pna);
 }
 
 static void process_pending_node_announcement(struct routing_state *rstate,
@@ -821,8 +860,6 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 				      tal_hex(tmpctx, pna->node_announcement),
 				      sanitize_error(tmpctx, err, NULL));
 	}
-	pending_node_map_del(rstate->pending_node_map, pna);
-	tal_free(pna);
 }
 
 static struct pending_cannouncement *
@@ -926,6 +963,11 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 		routing_add_channel_update(rstate, take(update),
 					   chan->half[i].bcast.index);
 	}
+
+	/* If we were waiting for these nodes to appear (or gain a
+	   public channel), process node_announcements now */
+	process_pending_node_announcement(rstate, &chan->nodes[0]->id);
+	process_pending_node_announcement(rstate, &chan->nodes[1]->id);
 
 	return true;
 }
@@ -1061,8 +1103,8 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 
 	/* Add both endpoints to the pending_node_map so we can stash
 	 * node_announcements while we wait for the txout check */
-	add_pending_node_announcement(rstate, &pending->node_id_1);
-	add_pending_node_announcement(rstate, &pending->node_id_2);
+	catch_node_announcement(pending, rstate, &pending->node_id_1);
+	catch_node_announcement(pending, rstate, &pending->node_id_2);
 
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
@@ -1175,9 +1217,6 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	/* Did we have an update waiting?  If so, apply now. */
 	process_pending_channel_update(rstate, scid, pending->updates[0]);
 	process_pending_channel_update(rstate, scid, pending->updates[1]);
-
-	process_pending_node_announcement(rstate, &pending->node_id_1);
-	process_pending_node_announcement(rstate, &pending->node_id_2);
 
 	tal_free(pending);
 }
