@@ -388,6 +388,42 @@ class BitcoinD(TailableProc):
         return hashes
 
 
+class ElementsD(BitcoinD):
+    def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
+        del BITCOIND_CONFIG['regtest']
+        BITCOIND_CONFIG['chain']='liquid-regtest'
+        BitcoinD.__init__(self, bitcoin_dir, rpcport)
+
+        self.cmd_line = [
+            'elementsd',
+            '-datadir={}'.format(bitcoin_dir),
+            '-printtoconsole',
+            '-server',
+            '-logtimestamps',
+            '-nolisten',
+            '-validatepegin=0',
+            '-con_blocksubsidy=5000000000',
+        ]
+        conf_file = os.path.join(bitcoin_dir, 'elements.conf')
+        BITCOIND_CONFIG['rpcport'] = self.rpcport
+        BITCOIND_REGTEST = {'rpcport': self.rpcport}
+        write_config(conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST, section_name='liquid-regtest')
+        self.conf_file = conf_file
+        self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
+        self.prefix = 'elementsd'
+
+    def generate_block(self, numblocks=1, wait_for_mempool=0):
+        if wait_for_mempool:
+            if isinstance(wait_for_mempool, str):
+                wait_for_mempool = [wait_for_mempool]
+            if isinstance(wait_for_mempool, list):
+                wait_for(lambda: all(txid in self.rpc.getrawmempool() for txid in wait_for_mempool))
+            else:
+                wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
+        # As of 0.16, generate() is removed; use generatetoaddress.
+        return self.rpc.generate(numblocks)
+
+
 class LightningD(TailableProc):
     def __init__(self, lightning_dir, bitcoindproxy, port=9735, random_hsm=False, node_id=0):
         TailableProc.__init__(self, lightning_dir)
