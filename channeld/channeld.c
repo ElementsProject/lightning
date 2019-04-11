@@ -2114,6 +2114,24 @@ static void check_current_dataloss_fields(struct peer *peer,
 	status_trace("option_data_loss_protect: fields are correct");
 }
 
+/* Older LND sometimes sends funding_locked before reestablish! */
+/* ... or announcement_signatures.  Sigh, let's handle whatever they send. */
+static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
+{
+	if (fromwire_peektype(msg) == WIRE_CHANNEL_REESTABLISH)
+		return false;
+
+	/* Don't allow infinite memory consumption. */
+	if (tal_count(*shit_lnd_says) > 10)
+		return false;
+
+	status_trace("Stashing early %s msg!",
+		     wire_type_name(fromwire_peektype(msg)));
+
+	tal_arr_expand(shit_lnd_says, tal_steal(*shit_lnd_says, msg));
+	return true;
+}
+
 static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret)
 {
@@ -2128,7 +2146,7 @@ static void peer_reconnect(struct peer *peer,
 		remote_current_per_commitment_point;
 	struct secret last_local_per_commitment_secret;
 	bool dataloss_protect;
-	const u8 *premature_funding_locked = NULL;
+	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 
 	dataloss_protect = local_feature_negotiated(peer->localfeatures,
 						    LOCAL_DATA_LOSS_PROTECT);
@@ -2185,16 +2203,9 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
-
-		/* Older LND sometimes sends funding_locked before reestablish! */
-		if (fromwire_peektype(msg) == WIRE_FUNDING_LOCKED
-		    && !premature_funding_locked) {
-			status_trace("Stashing early funding_locked msg!");
-			premature_funding_locked = tal_steal(peer, msg);
-			msg = NULL;
-		}
-	} while (!msg || handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &peer->cs,
-						     &peer->channel_id, msg));
+	} while (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &peer->cs,
+					     &peer->channel_id, msg)
+		 || capture_premature_msg(&premature_msgs, msg));
 
 	if (dataloss_protect) {
 		if (!fromwire_channel_reestablish_option_data_loss_protect(msg,
@@ -2393,10 +2404,17 @@ static void peer_reconnect(struct peer *peer,
 
 	peer_billboard(true, "Reconnected, and reestablished.");
 
-	if (premature_funding_locked) {
-		handle_peer_funding_locked(peer, premature_funding_locked);
-		tal_free(premature_funding_locked);
-	}
+	/* BOLT #2:
+	 *   - upon reconnection:
+	 *...
+	 *       - MUST transmit `channel_reestablish` for each channel.
+	 *       - MUST wait to receive the other node's `channel_reestablish`
+	 *         message before sending any other messages for that channel.
+	 */
+	/* LND doesn't wait. */
+	for (size_t i = 0; i < tal_count(premature_msgs); i++)
+		peer_in(peer, premature_msgs[i]);
+	tal_free(premature_msgs);
 }
 
 /* ignores the funding_depth unless depth >= minimum_depth
