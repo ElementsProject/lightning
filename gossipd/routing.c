@@ -1584,7 +1584,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	return NULL;
 }
 
-static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
+struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 {
 	const u8 *cursor = ser;
 	size_t len = tal_count(ser);

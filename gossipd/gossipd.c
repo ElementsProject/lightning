@@ -427,32 +427,51 @@ static void send_node_announcement(struct daemon *daemon)
 /* Return true if the only change would be the timestamp. */
 static bool node_announcement_redundant(struct daemon *daemon)
 {
+	secp256k1_ecdsa_signature signature;
+	u32 timestamp;
+	struct node_id node_id;
+	u8 rgb_color[3];
+	u8 alias[32];
+	u8 *features, *addresses;
+	struct wireaddr *wireaddrs;
 	struct node *n = get_node(daemon->rstate, &daemon->id);
+
 	if (!n)
 		return false;
 
 	if (!n->node_announcement)
 		return false;
 
-	if (tal_count(n->addresses) != tal_count(daemon->announcable))
+	/* Note: validity of node_id is already checked. */
+	if (!fromwire_node_announcement(tmpctx, n->node_announcement,
+					&signature, &features, &timestamp,
+					&node_id, rgb_color, alias,
+					&addresses)) {
+		status_broken("Bad local node_announcement: %s",
+			      tal_hex(tmpctx, n->node_announcement));
+		return false;
+	}
+
+	wireaddrs = read_addresses(tmpctx, addresses);
+	if (tal_count(wireaddrs) != tal_count(daemon->announcable))
 		return false;
 
-	for (size_t i = 0; i < tal_count(n->addresses); i++)
-		if (!wireaddr_eq(&n->addresses[i], &daemon->announcable[i]))
+	for (size_t i = 0; i < tal_count(wireaddrs); i++)
+		if (!wireaddr_eq(&wireaddrs[i], &daemon->announcable[i]))
 			return false;
 
-	BUILD_ASSERT(ARRAY_SIZE(daemon->alias) == ARRAY_SIZE(n->alias));
+	BUILD_ASSERT(ARRAY_SIZE(daemon->alias) == ARRAY_SIZE(alias));
 	if (!memeq(daemon->alias, ARRAY_SIZE(daemon->alias),
-		   n->alias, ARRAY_SIZE(n->alias)))
+		   alias, ARRAY_SIZE(alias)))
 		return false;
 
-	BUILD_ASSERT(ARRAY_SIZE(daemon->rgb) == ARRAY_SIZE(n->rgb_color));
+	BUILD_ASSERT(ARRAY_SIZE(daemon->rgb) == ARRAY_SIZE(rgb_color));
 	if (!memeq(daemon->rgb, ARRAY_SIZE(daemon->rgb),
-		   n->rgb_color, ARRAY_SIZE(n->rgb_color)))
+		   rgb_color, ARRAY_SIZE(rgb_color)))
 		return false;
 
 	if (!memeq(daemon->globalfeatures, tal_count(daemon->globalfeatures),
-		   n->globalfeatures, tal_count(n->globalfeatures)))
+		   features, tal_count(features)))
 		return false;
 
 	return true;
