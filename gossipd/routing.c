@@ -424,7 +424,6 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
-	chan->channel_announce = NULL;
 	broadcastable_init(&chan->bcast);
 	chan->sat = satoshis;
 	chan->local_disabled = false;
@@ -917,14 +916,14 @@ static bool is_local_channel(const struct routing_state *rstate,
 
 static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      struct chan *chan,
+					      const u8 *channel_announce,
 					      u32 timestamp,
 					      u32 index)
 {
 	chan->bcast.timestamp = timestamp;
 	/* 0, unless we're loading from store */
 	chan->bcast.index = index;
-	insert_broadcast(&rstate->broadcasts, chan->channel_announce,
-			 &chan->bcast);
+	insert_broadcast(&rstate->broadcasts, channel_announce, &chan->bcast);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 }
 
@@ -947,6 +946,9 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	const u8 *private_updates[2] = { NULL, NULL };
 
 	/* Make sure we own msg, even if we don't save it. */
+	if (taken(msg))
+		tal_steal(tmpctx, msg);
+
 	if (taken(msg))
 		tal_steal(tmpctx, msg);
 
@@ -1427,15 +1429,17 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 *     receiving the first corresponding `channel_update`.
 	 */
 	if (uc) {
-		chan->channel_announce = tal_steal(chan, uc->channel_announce);
-		add_channel_announce_to_broadcast(rstate, chan, timestamp,
+		add_channel_announce_to_broadcast(rstate, chan,
+						  uc->channel_announce,
+						  timestamp,
 						  uc->index);
-	} else if (!chan->channel_announce) {
+	} else if (!is_chan_public(chan)) {
 		/* For private channels, we get updates without an announce: don't
 		 * broadcast them!  But save local ones to store anyway. */
 		struct half_chan *hc = &chan->half[direction];
 		/* Don't save if we're loading from store */
-		if (is_local_channel(rstate, chan) && !index) {
+		assert(is_local_channel(rstate, chan));
+		if (!index) {
 			hc->bcast.index = gossip_store_add(rstate->broadcasts->gs,
 							   hc->channel_update);
 		} else

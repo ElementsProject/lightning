@@ -52,9 +52,6 @@ struct chan {
 	/* node[0].id < node[1].id */
 	struct node *nodes[2];
 
-	/* NULL if not announced yet (ie. not public). */
-	const u8 *channel_announce;
-
 	/* Timestamp and index into store file */
 	struct broadcastable bcast;
 

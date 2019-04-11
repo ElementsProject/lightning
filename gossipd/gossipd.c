@@ -1112,7 +1112,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		if (!chan || !is_chan_public(chan))
 			continue;
 
-		queue_peer_msg(peer, chan->channel_announce);
+		queue_peer_from_store(peer, &chan->bcast);
 		if (chan->half[0].channel_update)
 			queue_peer_msg(peer, chan->half[0].channel_update);
 		if (chan->half[1].channel_update)
