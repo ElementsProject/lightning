@@ -171,8 +171,17 @@ static void do_reconnect(struct crypto_state *cs,
 	sync_crypto_write(cs, PEER_FD, take(msg));
 
 	/* They might have already send reestablish, which triggered us */
-	if (!channel_reestablish)
-		channel_reestablish = closing_read_peer_msg(tmpctx, cs, channel_id);
+	if (!channel_reestablish) {
+		do {
+			tal_free(channel_reestablish);
+			channel_reestablish = closing_read_peer_msg(tmpctx, cs,
+								    channel_id);
+			/* They *should* send reestablish first, but lnd
+			 * sends other messages, which we can ignore since
+			 * we're closing anyway... */
+		} while (fromwire_peektype(channel_reestablish)
+			 != WIRE_CHANNEL_REESTABLISH);
+	}
 
 	if (!fromwire_channel_reestablish(channel_reestablish, &their_channel_id,
 					  &next_local_commitment_number,
