@@ -6,6 +6,7 @@
 
 secp256k1_context *secp256k1_ctx;
 const tal_t *tmpctx;
+bool is_elements = false;
 
 char *tal_hexstr(const tal_t *ctx, const void *data, size_t len)
 {
