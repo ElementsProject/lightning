@@ -194,6 +194,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
 	uintmap_init(&rstate->unupdated_chanmap);
+	chan_map_init(&rstate->local_disabled_map);
 	uintmap_init(&rstate->txout_failures);
 
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
@@ -374,6 +375,9 @@ static void destroy_chan(struct chan *chan, struct routing_state *rstate)
 	broadcast_del(rstate->broadcasts, &chan->half[1].bcast);
 
 	uintmap_del(&rstate->chanmap, chan->scid.u64);
+
+	/* Remove from local_disabled_map if it's there. */
+	chan_map_del(&rstate->local_disabled_map, chan);
 }
 
 static void init_half_chan(struct routing_state *rstate,
@@ -423,10 +427,8 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->scid = *scid;
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
-	chan->txout_script = NULL;
 	broadcastable_init(&chan->bcast);
 	chan->sat = satoshis;
-	chan->local_disabled = false;
 
 	add_chan(n2, chan);
 	add_chan(n1, chan);
@@ -579,10 +581,11 @@ static void bfg_one_edge(struct node *node,
 }
 
 /* Determine if the given half_chan is routable */
-static bool hc_is_routable(const struct chan *chan, int idx)
+static bool hc_is_routable(struct routing_state *rstate,
+			   const struct chan *chan, int idx)
 {
-	return !chan->local_disabled
-		&& is_halfchan_enabled(&chan->half[idx]);
+	return is_halfchan_enabled(&chan->half[idx])
+		&& !is_chan_local_disabled(rstate, chan);
 }
 
 /* riskfactor is already scaled to per-block amount */
@@ -655,9 +658,9 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 							    struct short_channel_id,
 							    &c->scid));
 
-				if (!hc_is_routable(chan, idx)) {
+				if (!hc_is_routable(rstate, chan, idx)) {
 					SUPERVERBOSE("...unroutable (local_disabled = %i, is_halfchan_enabled = %i, unroutable_until = %i",
-						     chan->local_disabled,
+						     is_chan_local_disabled(rstate, chan),
 						     is_halfchan_enabled(&chan->half[idx]),
 						     chan->half[idx].unroutable_until >= now);
 					continue;
