@@ -307,7 +307,7 @@ static bool node_announce_predates_channels(const struct node *node)
 	struct chan *c;
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (!is_chan_announced(c))
+		if (!is_chan_public(c))
 			continue;
 
 		if (c->bcast.index < node->bcast.index)

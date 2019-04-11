@@ -64,15 +64,9 @@ struct chan {
 	struct amount_sat sat;
 };
 
-/* A local channel can exist which isn't announcable. */
+/* A local channel can exist which isn't announced; normal channels are only
+ * created once we have both an announcement *and* an update. */
 static inline bool is_chan_public(const struct chan *chan)
-{
-	return chan->channel_announce != NULL;
-}
-
-/* A channel is only announced once we have a channel_update to send
- * with it. */
-static inline bool is_chan_announced(const struct chan *chan)
 {
 	return chan->bcast.index != 0;
 }
