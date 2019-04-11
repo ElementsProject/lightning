@@ -288,5 +288,26 @@ It is currently extremely restricted:
 Any response but "true" will cause lightningd to error without
 committing to the database!
 
+#### `invoice_payment`
+
+This hook is called whenever a valid payment for an unpaid invoice has arrived.
+
+```json
+{
+  "payment": {
+	"label": "unique-label-for-invoice",
+	"preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+	"msat": "10000msat"
+  }
+}
+```
+
+The hook is sparse on purpose, since the plugin can use the JSON-RPC
+`listinvoices` command to get additional details about this invoice.
+It can return a non-zero `failure_code` field as defined for final
+nodes in [BOLT 4][bolt4-failure-codes], or otherwise an empty object
+to accept the payment.
+
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
+[bolt4-failure-codes]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
