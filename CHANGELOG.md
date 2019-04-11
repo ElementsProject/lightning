@@ -26,6 +26,8 @@ changes.
 
 ### Removed
 
+- JSON RPC: `global_features` and `local_features` fields and `listchannels`' `flags` field.  (Deprecated since 0.6.2).
+
 ### Fixed
 
 - protocol: reconnection during closing negotiation now supports

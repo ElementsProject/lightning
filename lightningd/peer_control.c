@@ -969,12 +969,6 @@ static void json_add_peer(struct lightningd *ld,
 					       struct wireaddr_internal,
 					       &p->addr));
 		json_array_end(response);
-		if (deprecated_apis) {
-			json_add_hex_talarr(response, "global_features",
-					    p->globalfeatures);
-			json_add_hex_talarr(response, "local_features",
-					    p->localfeatures);
-		}
 		json_add_hex_talarr(response, "globalfeatures",
 				    p->globalfeatures);
 		json_add_hex_talarr(response, "localfeatures",
