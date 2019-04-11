@@ -435,21 +435,22 @@ static void send_node_announcement(struct daemon *daemon)
 			      tal_hex(tmpctx, err));
 }
 
-/* Return true if the only change would be the timestamp. */
-static bool node_announcement_redundant(struct daemon *daemon)
+/*~ We don't actually keep node_announcements in memory; we keep them in
+ * a file called `gossip_store`.  If we need some node details, we reload
+ * and reparse.  It's slow, but generally rare. */
+static bool get_node_announcement(const tal_t *ctx,
+				  struct daemon *daemon,
+				  const struct node *n,
+				  u8 rgb_color[3],
+				  u8 alias[32],
+				  u8 **features,
+				  struct wireaddr **wireaddrs)
 {
+	const u8 *msg;
+	struct node_id id;
 	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
-	struct node_id node_id;
-	u8 rgb_color[3];
-	u8 alias[32];
-	u8 *features, *addresses;
-	struct wireaddr *wireaddrs;
-	struct node *n = get_node(daemon->rstate, &daemon->id);
-	const u8 *msg;
-
-	if (!n)
-		return false;
+	u8 *addresses;
 
 	if (!n->bcast.index)
 		return false;
@@ -458,17 +459,54 @@ static bool node_announcement_redundant(struct daemon *daemon)
 			       n->bcast.index);
 
 	/* Note: validity of node_id is already checked. */
-	if (!fromwire_node_announcement(tmpctx, msg,
-					&signature, &features,
+	if (!fromwire_node_announcement(ctx, msg,
+					&signature, features,
 					&timestamp,
-					&node_id, rgb_color, alias,
+					&id, rgb_color, alias,
 					&addresses)) {
 		status_broken("Bad local node_announcement @%u: %s",
 			      n->bcast.index, tal_hex(tmpctx, msg));
 		return false;
 	}
+	assert(node_id_eq(&id, &n->id));
+	assert(timestamp == n->bcast.timestamp);
 
-	wireaddrs = read_addresses(tmpctx, addresses);
+	*wireaddrs = read_addresses(ctx, addresses);
+	tal_free(addresses);
+	return true;
+}
+
+/* Version which also does nodeid lookup */
+static bool get_node_announcement_by_id(const tal_t *ctx,
+					struct daemon *daemon,
+					const struct node_id *node_id,
+					u8 rgb_color[3],
+					u8 alias[32],
+					u8 **features,
+					struct wireaddr **wireaddrs)
+{
+	struct node *n = get_node(daemon->rstate, node_id);
+	if (!n)
+		return false;
+
+	return get_node_announcement(ctx, daemon, n, rgb_color, alias,
+				     features, wireaddrs);
+}
+
+
+/* Return true if the only change would be the timestamp. */
+static bool node_announcement_redundant(struct daemon *daemon)
+{
+	u8 rgb_color[3];
+	u8 alias[32];
+	u8 *features;
+	struct wireaddr *wireaddrs;
+
+	if (!get_node_announcement_by_id(tmpctx, daemon, &daemon->id,
+					 rgb_color, alias, &features,
+					 &wireaddrs))
+		return false;
+
 	if (tal_count(wireaddrs) != tal_count(daemon->announcable))
 		return false;
 
@@ -1735,8 +1773,10 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 					    const u8 *msg)
 {
 	struct node_id id;
-	struct node *node;
-	const struct wireaddr *addrs;
+	u8 rgb_color[3];
+	u8 alias[32];
+	u8 *features;
+	struct wireaddr *addrs;
 
 	if (!fromwire_gossip_get_addrs(msg, &id)) {
 		status_broken("Bad gossip_get_addrs msg from connectd: %s",
@@ -1744,10 +1784,8 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	node = get_node(daemon->rstate, &id);
-	if (node)
-		addrs = node->addresses;
-	else
+	if (!get_node_announcement_by_id(tmpctx, daemon, &id,
+					 rgb_color, alias, &features, &addrs))
 		addrs = NULL;
 
 	daemon_conn_send(daemon->connectd,
@@ -2084,25 +2122,25 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 
 /*~ Similarly, lightningd asks us for all nodes when it gets `listnodes` */
 /* We keep pointers into n, assuming it won't change. */
-static void append_node(const struct gossip_getnodes_entry ***entries,
+static void append_node(struct daemon *daemon,
+			const struct gossip_getnodes_entry ***entries,
 			const struct node *n)
 {
 	struct gossip_getnodes_entry *e;
 
 	e = tal(*entries, struct gossip_getnodes_entry);
 	e->nodeid = n->id;
-	/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit signed, so
-	 * -1 means "we never received a channel_update". */
-	if (!n->bcast.index)
-		e->last_timestamp = -1;
-	else {
+
+	if (get_node_announcement(e, daemon, n,
+				  e->color, e->alias,
+				  &e->globalfeatures,
+				  &e->addresses)) {
 		e->last_timestamp = n->bcast.timestamp;
-		e->globalfeatures = n->globalfeatures;
-		e->addresses = n->addresses;
-		BUILD_ASSERT(ARRAY_SIZE(e->alias) == ARRAY_SIZE(n->alias));
-		BUILD_ASSERT(ARRAY_SIZE(e->color) == ARRAY_SIZE(n->rgb_color));
-		memcpy(e->alias, n->alias, ARRAY_SIZE(e->alias));
-		memcpy(e->color, n->rgb_color, ARRAY_SIZE(e->color));
+	} else {
+		/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit
+		 * signed, so -1 means "we never received a
+		 * channel_update". */
+		e->last_timestamp = -1;
 	}
 
 	tal_arr_expand(entries, e);
@@ -2126,12 +2164,12 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	if (id) {
 		n = get_node(daemon->rstate, id);
 		if (n)
-			append_node(&nodes, n);
+			append_node(daemon, &nodes, n);
 	} else {
 		struct node_map_iter i;
 		n = node_map_first(daemon->rstate->nodes, &i);
 		while (n != NULL) {
-			append_node(&nodes, n);
+			append_node(daemon, &nodes, n);
 			n = node_map_next(daemon->rstate->nodes, &i);
 		}
 	}

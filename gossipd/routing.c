@@ -263,9 +263,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n = tal(rstate, struct node);
 	n->id = *id;
 	memset(n->chans.arr, 0, sizeof(n->chans.arr));
-	n->globalfeatures = NULL;
 	broadcastable_init(&n->bcast);
-	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor2(n, destroy_node, rstate);
 
@@ -1628,7 +1626,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	u8 rgb_color[3];
 	u8 alias[32];
 	u8 *features, *addresses;
-	struct wireaddr *wireaddrs;
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(msg))
@@ -1656,17 +1653,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	/* Harmless if it was never added */
 	broadcast_del(rstate->broadcasts, &node->bcast);
 
-	wireaddrs = read_addresses(tmpctx, addresses);
-	tal_free(node->addresses);
-	node->addresses = tal_steal(node, wireaddrs);
-
 	node->bcast.timestamp = timestamp;
 	node->bcast.index = index;
-	memcpy(node->rgb_color, rgb_color, ARRAY_SIZE(node->rgb_color));
-	memcpy(node->alias, alias, ARRAY_SIZE(node->alias));
-	tal_free(node->globalfeatures);
-	node->globalfeatures = tal_steal(node, features);
-
 	insert_broadcast(&rstate->broadcasts, msg, &node->bcast);
 	return true;
 }
