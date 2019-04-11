@@ -1109,7 +1109,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		struct chan *chan;
 
 		chan = get_channel(rstate, &peer->scid_queries[i]);
-		if (!chan || !is_chan_announced(chan))
+		if (!chan || !is_chan_public(chan))
 			continue;
 
 		queue_peer_msg(peer, chan->channel_announce);
