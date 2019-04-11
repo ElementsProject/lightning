@@ -19,7 +19,9 @@
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
 
 struct gossip_store {
-	/* This is -1 when we're loading */
+	/* This is false when we're loading */
+	bool writable;
+
 	int fd;
 	u8 version;
 
@@ -48,6 +50,7 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 {
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
 	gs->count = 0;
+	gs->writable = true;
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 	gs->rstate = rstate;
 	gs->disable_compaction = false;
@@ -322,7 +325,7 @@ void gossip_store_maybe_compact(struct gossip_store *gs,
 				struct broadcast_state **bs)
 {
 	/* Don't compact while loading! */
-	if (gs->fd == -1)
+	if (!gs->writable)
 		return;
 	if (gs->count < 1000)
 		return;
@@ -337,7 +340,7 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
 	u64 off = gs->len;
 
 	/* Should never get here during loading! */
-	assert(gs->fd != -1);
+	assert(gs->writable);
 
 	if (!gossip_store_append(gs->fd, gs->rstate, gossip_msg, &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
@@ -353,6 +356,10 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 				     const struct short_channel_id *scid)
 {
 	u8 *msg = towire_gossip_store_channel_delete(NULL, scid);
+
+	/* Should never get here during loading! */
+	assert(gs->writable);
+
 	if (!gossip_store_append(gs->fd, gs->rstate, msg, &gs->len))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing channel_delete to gossip store: %s",
@@ -426,21 +433,20 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	struct short_channel_id scid;
 	const char *bad;
 	size_t stats[] = {0, 0, 0, 0};
-	int fd = gs->fd;
-	gs->fd = -1;
 	struct timeabs start = time_now();
 
-	if (lseek(fd, gs->len, SEEK_SET) < 0) {
+	gs->writable = false;
+	if (lseek(gs->fd, gs->len, SEEK_SET) < 0) {
 		status_unusual("gossip_store: lseek failure");
 		goto truncate_nomsg;
 	}
-	while (read(fd, &belen, sizeof(belen)) == sizeof(belen) &&
-	       read(fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
+	while (read(gs->fd, &belen, sizeof(belen)) == sizeof(belen) &&
+	       read(gs->fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
 		msglen = be32_to_cpu(belen);
 		checksum = be32_to_cpu(becsum);
 		msg = tal_arr(tmpctx, u8, msglen);
 
-		if (read(fd, msg, msglen) != msglen) {
+		if (read(gs->fd, msg, msglen) != msglen) {
 			status_unusual("gossip_store: truncated file?");
 			goto truncate_nomsg;
 		}
@@ -508,7 +514,7 @@ truncate_nomsg:
 	 * miss channel_delete msgs.  If we put block numbers into the store
 	 * as we process them, we can know how far we need to roll back if we
 	 * truncate the store */
-	if (ftruncate(fd, 1) != 0)
+	if (ftruncate(gs->fd, 1) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating store: %s", strerror(errno));
 out:
@@ -524,5 +530,5 @@ out:
 	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store in %"PRIu64" bytes",
 		     stats[0], stats[1], stats[2], stats[3],
 		     gs->len);
-	gs->fd = fd;
+	gs->writable = true;
 }
