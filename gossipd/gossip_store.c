@@ -243,25 +243,23 @@ bool gossip_store_compact(struct gossip_store *gs,
 
 	/* Copy entries one at a time. */
 	while ((bcast = next_broadcast_raw(oldb, &idx)) != NULL) {
-		beint32_t belen, becsum;
+		beint32_t hdr[2];
 		u32 msglen;
 		u8 *msg;
 
-		/* FIXME: optimize both read and allocation */
-		if (lseek(gs->fd, bcast->index, SEEK_SET) < 0
-		    || read(gs->fd, &belen, sizeof(belen)) != sizeof(belen)
-		    || read(gs->fd, &becsum, sizeof(becsum)) != sizeof(becsum)) {
+		if (pread(gs->fd, hdr, sizeof(hdr), bcast->index) != sizeof(hdr)) {
 			status_broken("Failed reading header from to gossip store @%u"
 				      ": %s",
 				      bcast->index, strerror(errno));
 			goto unlink_disable;
 		}
 
-		msglen = be32_to_cpu(belen);
-		msg = tal_arr(tmpctx, u8, sizeof(belen) + sizeof(becsum) + msglen);
-		memcpy(msg, &belen, sizeof(belen));
-		memcpy(msg + sizeof(belen), &becsum, sizeof(becsum));
-		if (read(gs->fd, msg + sizeof(belen) + sizeof(becsum), msglen)
+		msglen = be32_to_cpu(hdr[0]);
+		/* FIXME: Reuse buffer? */
+		msg = tal_arr(tmpctx, u8, sizeof(hdr) + msglen);
+		memcpy(msg, hdr, sizeof(hdr));
+		if (pread(gs->fd, msg + sizeof(hdr), msglen,
+			  bcast->index + sizeof(hdr))
 		    != msglen) {
 			status_broken("Failed reading %u from to gossip store @%u"
 				      ": %s",
@@ -273,13 +271,13 @@ bool gossip_store_compact(struct gossip_store *gs,
 		bcast->index = len;
 		insert_broadcast_nostore(newb, bcast);
 
-		if (write(fd, msg, msglen + sizeof(belen) + sizeof(becsum))
-		    != msglen + sizeof(belen) + sizeof(becsum)) {
+		if (write(fd, msg, msglen + sizeof(hdr))
+		    != msglen + sizeof(hdr)) {
 			status_broken("Failed writing to gossip store: %s",
 				      strerror(errno));
 			goto unlink_disable;
 		}
-		len += sizeof(belen) + sizeof(becsum) + msglen;
+		len += sizeof(hdr) + msglen;
 		count++;
 	}
 
@@ -371,7 +369,7 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset)
 {
-	beint32_t belen, becsum;
+	beint32_t hdr[2];
 	u32 msglen, checksum;
 	u8 *msg, *gossip_msg;
 	struct amount_sat satoshis;
@@ -381,24 +379,17 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			      "gossip_store: can't access offset %"PRIu64
 			      ", store len %"PRIu64,
 			      offset, gs->len);
-	if (lseek(gs->fd, offset, SEEK_SET) < 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: can't seek offset %"PRIu64
-			      ", store len %"PRIu64": %s",
-			      offset, gs->len, strerror(errno));
-
-	if (read(gs->fd, &belen, sizeof(belen)) != sizeof(belen)
-	    || read(gs->fd, &becsum, sizeof(becsum)) != sizeof(becsum)) {
+	if (pread(gs->fd, hdr, sizeof(hdr), offset) != sizeof(hdr)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store: can't read hdr offset %"PRIu64
 			      ", store len %"PRIu64": %s",
 			      offset, gs->len, strerror(errno));
 	}
 
-	msglen = be32_to_cpu(belen);
-	checksum = be32_to_cpu(becsum);
+	msglen = be32_to_cpu(hdr[0]);
+	checksum = be32_to_cpu(hdr[1]);
 	msg = tal_arr(tmpctx, u8, msglen);
-	if (read(gs->fd, msg, msglen) != msglen)
+	if (pread(gs->fd, msg, msglen, offset + sizeof(hdr)) != msglen)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store: can't read len %u offset %"PRIu64
 			      ", store len %"PRIu64,
@@ -426,7 +417,7 @@ const u8 *gossip_store_get(const tal_t *ctx,
 
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
-	beint32_t belen, becsum;
+	beint32_t hdr[2];
 	u32 msglen, checksum;
 	u8 *msg, *gossip_msg;
 	struct amount_sat satoshis;
@@ -436,17 +427,12 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	struct timeabs start = time_now();
 
 	gs->writable = false;
-	if (lseek(gs->fd, gs->len, SEEK_SET) < 0) {
-		status_unusual("gossip_store: lseek failure");
-		goto truncate_nomsg;
-	}
-	while (read(gs->fd, &belen, sizeof(belen)) == sizeof(belen) &&
-	       read(gs->fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
-		msglen = be32_to_cpu(belen);
-		checksum = be32_to_cpu(becsum);
+	while (pread(gs->fd, hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
+		msglen = be32_to_cpu(hdr[0]);
+		checksum = be32_to_cpu(hdr[1]);
 		msg = tal_arr(tmpctx, u8, msglen);
 
-		if (read(gs->fd, msg, msglen) != msglen) {
+		if (pread(gs->fd, msg, msglen, gs->len+sizeof(hdr)) != msglen) {
 			status_unusual("gossip_store: truncated file?");
 			goto truncate_nomsg;
 		}
@@ -500,7 +486,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			bad = "Unknown message";
 			goto truncate;
 		}
-		gs->len += sizeof(belen) + sizeof(becsum) + msglen;
+		gs->len += sizeof(hdr) + msglen;
 		gs->count++;
 		clean_tmpctx();
 	}
