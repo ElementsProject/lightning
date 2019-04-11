@@ -14,9 +14,6 @@
 #include <wire/wire.h>
 
 struct half_chan {
-	/* Cached `channel_update` which initialized below (or NULL) */
-	const u8 *channel_update;
-
 	/* millisatoshi. */
 	u32 base_fee;
 	/* millionths */
@@ -66,7 +63,7 @@ static inline bool is_chan_public(const struct chan *chan)
 
 static inline bool is_halfchan_defined(const struct half_chan *hc)
 {
-	return hc->channel_update != NULL;
+	return hc->bcast.index != 0;
 }
 
 static inline bool is_halfchan_enabled(const struct half_chan *hc)

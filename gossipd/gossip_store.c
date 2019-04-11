@@ -158,13 +158,56 @@ static bool gossip_store_append(int fd,
 		write(fd, msg, msglen) == msglen);
 }
 
+/* Copy a whole message from one gossip_store to another.  Returns
+ * total msg length including header, or 0 on error. */
+static size_t copy_message(int in_fd, int out_fd, unsigned offset)
+{
+	beint32_t belen, becsum;
+	u32 msglen;
+	u8 *msg;
+
+	/* FIXME: optimize both read and allocation */
+	if (lseek(in_fd, offset, SEEK_SET) < 0
+	    || read(in_fd, &belen, sizeof(belen)) != sizeof(belen)
+	    || read(in_fd, &becsum, sizeof(becsum)) != sizeof(becsum)) {
+		status_broken("Failed reading header from to gossip store @%u"
+			      ": %s",
+			      offset, strerror(errno));
+		return 0;
+	}
+
+	msglen = be32_to_cpu(belen);
+	msg = tal_arr(NULL, u8, sizeof(belen) + sizeof(becsum) + msglen);
+	memcpy(msg, &belen, sizeof(belen));
+	memcpy(msg + sizeof(belen), &becsum, sizeof(becsum));
+	if (read(in_fd, msg + sizeof(belen) + sizeof(becsum), msglen)
+	    != msglen) {
+		status_broken("Failed reading %u from to gossip store @%u"
+			      ": %s",
+			      msglen, offset, strerror(errno));
+		tal_free(msg);
+		return 0;
+	}
+
+	if (write(out_fd, msg, msglen + sizeof(belen) + sizeof(becsum))
+	    != msglen + sizeof(belen) + sizeof(becsum)) {
+		status_broken("Failed writing to gossip store: %s",
+			      strerror(errno));
+		tal_free(msg);
+		return 0;
+	}
+
+	tal_free(msg);
+	return msglen + sizeof(belen) + sizeof(becsum);
+}
+
 /* Local unannounced channels don't appear in broadcast map, but we need to
  * remember them anyway, so we manually append to the store.
  *
  * Note these do *not* add to gs->count, since that's compared with
  * the broadcast map count.
 */
-static bool add_local_unnannounced(int fd,
+static bool add_local_unnannounced(int in_fd, int out_fd,
 				   struct routing_state *rstate,
 				   struct node *self,
 				   u64 *len)
@@ -182,18 +225,23 @@ static bool add_local_unnannounced(int fd,
 
 		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
 						       &peer->id, c->sat);
-		if (!gossip_store_append(fd, rstate, msg, len))
+		if (!gossip_store_append(out_fd, rstate, msg, len))
 			return false;
 
 		for (size_t i = 0; i < 2; i++) {
-			u32 idx;
-			msg = c->half[i].channel_update;
-			if (!msg)
+			size_t len_with_header;
+
+			if (!is_halfchan_defined(&c->half[i]))
 				continue;
-			idx = *len;
-			if (!gossip_store_append(fd, rstate, msg, len))
+
+			len_with_header = copy_message(in_fd, out_fd,
+						       c->half[i].bcast.index);
+			if (!len_with_header)
 				return false;
-			c->half[i].bcast.index = idx;
+
+			c->half[i].bcast.index = *len;
+
+			*len += len_with_header;
 		}
 	}
 
@@ -283,7 +331,7 @@ bool gossip_store_compact(struct gossip_store *gs,
 
 	/* Local unannounced channels are not in the store! */
 	self = get_node(gs->rstate, &gs->rstate->local_id);
-	if (self && !add_local_unnannounced(fd, gs->rstate, self,
+	if (self && !add_local_unnannounced(gs->fd, fd, gs->rstate, self,
 					    &len)) {
 		status_broken("Failed writing unannounced to gossip store: %s",
 			      strerror(errno));
