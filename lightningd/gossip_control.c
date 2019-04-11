@@ -223,9 +223,6 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 			     nodes[i]->last_timestamp);
 		json_add_hex_talarr(response, "globalfeatures",
 				    nodes[i]->globalfeatures);
-		if (deprecated_apis)
-			json_add_hex_talarr(response, "global_features",
-					    nodes[i]->globalfeatures);
 		json_array_start(response, "addresses");
 		for (j=0; j<tal_count(nodes[i]->addresses); j++) {
 			json_add_address(response, NULL, &nodes[i]->addresses[j]);
@@ -385,9 +382,6 @@ static void json_add_halfchan(struct json_stream *response,
 			    "satoshis", "amount_msat");
 	json_add_num(response, "message_flags", he->message_flags);
 	json_add_num(response, "channel_flags", he->channel_flags);
-	/* Prior to spec v0891374d47ddffa64c5a2e6ad151247e3d6b7a59, these two were a single u16 field */
-	if (deprecated_apis)
-		json_add_num(response, "flags", ((u16)he->message_flags << 8) | he->channel_flags);
 	json_add_bool(response, "active",
 		      !(he->channel_flags & ROUTING_FLAGS_DISABLED)
 		      && !e->local_disabled);
