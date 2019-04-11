@@ -126,8 +126,8 @@ static void add_connection(struct routing_state *rstate,
 		chan = new_chan(rstate, &scid, from, to, satoshis);
 
 	c = &chan->half[node_id_idx(from, to)];
-	/* Make sure it's seen as initialized (update non-NULL). */
-	c->channel_update = (void *)c;
+	/* Make sure it's seen as initialized (index non-zero). */
+	c->bcast.index = 1;
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;

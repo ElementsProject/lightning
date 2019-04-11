@@ -137,8 +137,8 @@ static void add_connection(struct routing_state *rstate,
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->channel_flags = node_id_idx(&nodes[from], &nodes[to]);
-	/* This must be non-NULL, otherwise we consider it disabled! */
-	c->channel_update = tal(chan, u8);
+	/* This must be non-zero, otherwise we consider it disabled! */
+	c->bcast.index = 1;
 	c->htlc_maximum = AMOUNT_MSAT(-1ULL);
 	c->htlc_minimum = AMOUNT_MSAT(0);
 }

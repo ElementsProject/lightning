@@ -120,8 +120,8 @@ get_or_make_connection(struct routing_state *rstate,
 	if (!chan)
 		chan = new_chan(rstate, &scid, from_id, to_id, satoshis);
 
-	/* Make sure it's seen as initialized (update non-NULL). */
-	chan->half[idx].channel_update = (void *)chan;
+	/* Make sure it's seen as initialized (index non-zero). */
+	chan->half[idx].bcast.index = 1;
 	chan->half[idx].htlc_minimum = AMOUNT_MSAT(0);
 	if (!amount_sat_to_msat(&chan->half[idx].htlc_maximum, satoshis))
 		abort();

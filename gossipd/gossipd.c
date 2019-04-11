@@ -1113,10 +1113,10 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 			continue;
 
 		queue_peer_from_store(peer, &chan->bcast);
-		if (chan->half[0].channel_update)
-			queue_peer_msg(peer, chan->half[0].channel_update);
-		if (chan->half[1].channel_update)
-			queue_peer_msg(peer, chan->half[1].channel_update);
+		if (is_halfchan_defined(&chan->half[0]))
+			queue_peer_from_store(peer, &chan->half[0].bcast);
+		if (is_halfchan_defined(&chan->half[1]))
+			queue_peer_from_store(peer, &chan->half[1].bcast);
 
 		/* Record node ids for later transmission of node_announcement */
 		tal_arr_expand(&peer->scid_query_nodes, chan->nodes[0]->id);
@@ -1374,7 +1374,7 @@ static void maybe_update_local_channel(struct daemon *daemon,
 	bool local_disabled;
 
 	/* Don't generate a channel_update for an uninitialized channel. */
-	if (!hc->channel_update)
+	if (!is_halfchan_defined(hc))
 		return;
 
 	/* Nothing to update? */
@@ -1455,9 +1455,13 @@ static bool handle_get_update(struct peer *peer, const u8 *msg)
 	/* Since we're going to send it out, make sure it's up-to-date. */
 	maybe_update_local_channel(peer->daemon, chan, direction);
 
-	/* It's possible this is NULL, if we've never sent a channel_update
+ 	/* It's possible this is zero, if we've never sent a channel_update
 	 * for that channel. */
-	update = chan->half[direction].channel_update;
+	if (!is_halfchan_defined(&chan->half[direction]))
+		update = NULL;
+	else
+		update = gossip_store_get(tmpctx, rstate->broadcasts->gs,
+					  chan->half[direction].bcast.index);
 out:
 	status_trace("peer %s schanid %s: %s update",
 		     type_to_string(tmpctx, struct node_id, &peer->id),
