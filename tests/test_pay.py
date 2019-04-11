@@ -979,8 +979,7 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
                            .format(bitcoind.rpc.getblockcount() + 20 + 9 + shadow_route))
     l2.daemon.wait_for_log("Adding HTLC 0 amount=4999999msat cltv={} gave CHANNEL_ERR_ADD_OK"
                            .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
-    l3.daemon.wait_for_log("test_forward_different_fees_and_cltv: Actual amount 4999999msat, HTLC expiry {}"
-                           .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
+    l3.daemon.wait_for_log("Resolved invoice 'test_forward_different_fees_and_cltv' with amount 4999999msat")
     assert only_one(l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'])['status'] == 'paid'
 
     # Check that we see all the channels

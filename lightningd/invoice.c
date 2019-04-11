@@ -26,6 +26,7 @@
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
@@ -96,6 +97,58 @@ static void wait_on_invoice(const struct invoice *invoice, void *cmd)
 		tell_waiter((struct command *) cmd, invoice);
 	else
 		tell_waiter_deleted((struct command *) cmd);
+}
+
+void invoice_try_pay(struct lightningd *ld,
+		     struct htlc_in *hin,
+		     const struct sha256 *payment_hash,
+		     const struct amount_msat msat)
+{
+	struct invoice invoice;
+	const struct invoice_details *details;
+
+	if (!wallet_invoice_find_unpaid(ld->wallet, &invoice, payment_hash)) {
+		fail_htlc(hin, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+		return;
+	}
+	details = wallet_invoice_details(tmpctx, ld->wallet, invoice);
+
+	/* BOLT #4:
+	 *
+	 * An _intermediate hop_ MUST NOT, but the _final node_:
+	 *...
+	 *   - if the amount paid is less than the amount expected:
+	 *     - MUST fail the HTLC.
+	 */
+	if (details->msat != NULL) {
+		struct amount_msat twice;
+
+		if (amount_msat_less(msat, *details->msat)) {
+			fail_htlc(hin,
+				  WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+			return;
+		}
+
+		if (amount_msat_add(&twice, *details->msat, *details->msat)
+		    && amount_msat_greater(msat, twice)) {
+			/* FIXME: bolt update fixes this quote! */
+			/* BOLT #4:
+			 *
+			 *   - if the amount paid is more than twice the amount expected:
+			 *     - SHOULD fail the HTLC.
+			 *     - SHOULD return an `incorrect_or_unknown_payment_details` error.
+			 */
+			fail_htlc(hin,
+				  WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+			return;
+		}
+	}
+
+	log_info(ld->log, "Resolved invoice '%s' with amount %s",
+		  details->label->s,
+		  type_to_string(tmpctx, struct amount_msat, &msat));
+	wallet_invoice_resolve(ld->wallet, invoice, msat);
+	fulfill_htlc(hin, &details->r);
 }
 
 static bool hsm_sign_b11(const u5 *u5bytes,
