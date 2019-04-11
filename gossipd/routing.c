@@ -73,6 +73,36 @@ HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
 		   node_map_hash_key, pending_node_announce_eq,
 		   pending_node_map);
 
+/* We keep around announcements for channels until we have an
+ * update for them (which gives us their timestamp) */
+struct unupdated_channel {
+	/* The channel_announcement message */
+	const u8 *channel_announce;
+	/* The short_channel_id */
+	struct short_channel_id scid;
+	/* The ids of the nodes */
+	struct node_id id[2];
+	/* When we added, so we can discard old ones */
+	struct timeabs added;
+	/* If we loaded from the store, this is where. */
+	u32 index;
+	/* Channel capacity */
+	struct amount_sat sat;
+};
+
+static struct unupdated_channel *
+get_unupdated_channel(const struct routing_state *rstate,
+		      const struct short_channel_id *scid)
+{
+	return uintmap_get(&rstate->unupdated_chanmap, scid->u64);
+}
+
+static void destroy_unupdated_channel(struct unupdated_channel *uc,
+				      struct routing_state *rstate)
+{
+	uintmap_del(&rstate->unupdated_chanmap, uc->scid.u64);
+}
+
 static struct node_map *empty_node_map(const tal_t *ctx)
 {
 	struct node_map *map = tal(ctx, struct node_map);
@@ -163,6 +193,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->local_channel_announced = false;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
+	uintmap_init(&rstate->unupdated_chanmap);
 	uintmap_init(&rstate->txout_failures);
 
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
@@ -358,10 +389,6 @@ static void init_half_chan(struct routing_state *rstate,
 	// TODO: wireup message_flags
 	c->message_flags = 0;
 	broadcastable_init(&c->bcast);
-
-	/* We haven't seen channel_update: make it halfway to prune time,
-	 * which should be older than any update we'd see. */
-	c->bcast.timestamp = gossip_time_now(rstate).ts.tv_sec - rstate->prune_timeout/2;
 }
 
 static void bad_gossip_order(const u8 *msg, const char *source,
@@ -890,24 +917,15 @@ static bool is_local_channel(const struct routing_state *rstate,
 
 static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      struct chan *chan,
-					      u32 timestamp)
+					      u32 timestamp,
+					      u32 index)
 {
 	chan->bcast.timestamp = timestamp;
+	/* 0, unless we're loading from store */
+	chan->bcast.index = index;
 	insert_broadcast(&rstate->broadcasts, chan->channel_announce,
 			 &chan->bcast);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
-
-	/* If we've been waiting for this, now we can announce node */
-	for (size_t i = 0; i < ARRAY_SIZE(chan->nodes); i++) {
-		struct node *node = chan->nodes[i];
-		if (!node->node_announcement)
-			continue;
-		if (!node->bcast.index) {
-			insert_broadcast(&rstate->broadcasts,
-					 node->node_announcement,
-					 &node->bcast);
-		}
-	}
 }
 
 bool routing_add_channel_announcement(struct routing_state *rstate,
@@ -925,6 +943,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct node_id node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
+	struct unupdated_channel *uc;
+	const u8 *private_updates[2] = { NULL, NULL };
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(msg))
@@ -940,34 +960,42 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	 * local_add_channel(); normally we don't accept new
 	 * channel_announcements.  See handle_channel_announcement. */
 	chan = get_channel(rstate, &scid);
-	if (!chan)
-		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2, sat);
 
-	/* Channel is now public. */
-	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_count(msg), 0);
-
-	/* If we're loading from the store, save index now */
-	chan->bcast.index = index;
-	/* This is filled in when we get a channel_update */
-	chan->bcast.timestamp = 0;
-
-	/* Apply any private updates. */
-	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
-		const u8 *update = chan->half[i].channel_update;
-		if (!update)
-			continue;
-
-		/* Remove from channel, otherwise it will be freed! */
-		chan->half[i].channel_update = NULL;
-		/* If we loaded from store, index will be non-zero */
-		routing_add_channel_update(rstate, take(update),
-					   chan->half[i].bcast.index);
+	/* private updates will exist in the store before the announce: we
+	 * can't index those for broadcast since they would predate it, so we
+	 * add fresh ones.  But if we're loading off disk right now, we can't
+	 * do that. */
+	if (chan && index == 0) {
+		/* Steal any private updates */
+		private_updates[0]
+			= tal_steal(NULL, chan->half[0].channel_update);
+		private_updates[1]
+			= tal_steal(NULL, chan->half[1].channel_update);
 	}
 
-	/* If we were waiting for these nodes to appear (or gain a
-	   public channel), process node_announcements now */
-	process_pending_node_announcement(rstate, &chan->nodes[0]->id);
-	process_pending_node_announcement(rstate, &chan->nodes[1]->id);
+	/* Pretend it didn't exist, for the moment. */
+	tal_free(chan);
+
+	uc = tal(rstate, struct unupdated_channel);
+	uc->channel_announce = tal_dup_arr(uc, u8, msg, tal_count(msg), 0);
+	uc->added = time_now();
+	uc->index = index;
+	uc->sat = sat;
+	uc->scid = scid;
+	uc->id[0] = node_id_1;
+	uc->id[1] = node_id_2;
+	uintmap_add(&rstate->unupdated_chanmap, scid.u64, uc);
+	tal_add_destructor2(uc, destroy_unupdated_channel, rstate);
+
+	/* If a node_announcement comes along, save it for once we're updated */
+	catch_node_announcement(uc, rstate, &node_id_1);
+	catch_node_announcement(uc, rstate, &node_id_2);
+
+	/* If we had private updates, they'll immediately create the channel. */
+	if (private_updates[0])
+		routing_add_channel_update(rstate, take(private_updates[0]), 0);
+	if (private_updates[1])
+		routing_add_channel_update(rstate, take(private_updates[1]), 0);
 
 	return true;
 }
@@ -1025,6 +1053,13 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	chan = get_channel(rstate, &pending->short_channel_id);
 	if (chan != NULL && is_chan_public(chan)) {
 		SUPERVERBOSE("%s: %s already has public channel",
+			     __func__,
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &pending->short_channel_id));
+		goto ignored;
+	}
+	if (get_unupdated_channel(rstate, &pending->short_channel_id)) {
+		SUPERVERBOSE("%s: %s already has unupdated channel",
 			     __func__,
 			     type_to_string(tmpctx, struct short_channel_id,
 					    &pending->short_channel_id));
@@ -1270,7 +1305,6 @@ static void set_connection_values(struct chan *chan,
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index)
-
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -1283,7 +1317,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	struct half_chan *hc;
+	struct unupdated_channel *uc;
 	u8 direction;
+	struct amount_sat sat;
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(update))
@@ -1309,22 +1345,39 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	direction = channel_flags & 0x1;
 	chan = get_channel(rstate, &short_channel_id);
-	if (!chan)
-		return false;
+
+	if (chan) {
+		uc = NULL;
+		sat = chan->sat;
+	} else {
+		/* Maybe announcement was waiting for this update? */
+		uc = get_unupdated_channel(rstate, &short_channel_id);
+		if (!uc) {
+			return false;
+		}
+		sat = uc->sat;
+	}
 
 	if (message_flags & ROUTING_OPT_HTLC_MAX_MSAT) {
 		/* Reject update if the `htlc_maximum_msat` is greater
 		 * than the total available channel satoshis */
-		if (amount_msat_greater_sat(htlc_maximum, chan->sat))
+		if (amount_msat_greater_sat(htlc_maximum, sat))
 			return false;
 	} else {
 		/* If not indicated, set htlc_max_msat to channel capacity */
-		if (!amount_sat_to_msat(&htlc_maximum, chan->sat)) {
+		if (!amount_sat_to_msat(&htlc_maximum, sat)) {
 			status_broken("Channel capacity %s overflows!",
 				      type_to_string(tmpctx, struct amount_sat,
-						     &chan->sat));
+						     &sat));
 			return false;
 		}
+	}
+
+	/* OK, we're going to accept this, so create chan if doesn't exist */
+	if (uc) {
+		assert(!chan);
+		chan = new_chan(rstate, &short_channel_id,
+				&uc->id[0], &uc->id[1], sat);
 	}
 
 	/* Discard older updates */
@@ -1366,20 +1419,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	chan->half[direction].channel_update
 		= tal_dup_arr(chan, u8, update, tal_count(update), 0);
 
-	/* If we're loading from store, this means we don't re-add to store */
-	chan->half[direction].bcast.index = index;
-
-	/* For private channels, we get updates without an announce: don't
-	 * broadcast them!  But save local ones to store anyway. */
-	if (!chan->channel_announce) {
-		struct half_chan *hc = &chan->half[direction];
-		/* Don't save if we're loading from store */
-		if (is_local_channel(rstate, chan) && !hc->bcast.index) {
-			hc->bcast.index = gossip_store_add(rstate->broadcasts->gs,
-							   hc->channel_update);
-		}
-		return true;
-	}
 
 	/* BOLT #7:
 	 *   - MUST consider the `timestamp` of the `channel_announcement` to be
@@ -1387,12 +1426,37 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 *   - MUST consider whether to send the `channel_announcement` after
 	 *     receiving the first corresponding `channel_update`.
 	 */
-	if (chan->bcast.timestamp == 0)
-		add_channel_announce_to_broadcast(rstate, chan, timestamp);
+	if (uc) {
+		chan->channel_announce = tal_steal(chan, uc->channel_announce);
+		add_channel_announce_to_broadcast(rstate, chan, timestamp,
+						  uc->index);
+	} else if (!chan->channel_announce) {
+		/* For private channels, we get updates without an announce: don't
+		 * broadcast them!  But save local ones to store anyway. */
+		struct half_chan *hc = &chan->half[direction];
+		/* Don't save if we're loading from store */
+		if (is_local_channel(rstate, chan) && !index) {
+			hc->bcast.index = gossip_store_add(rstate->broadcasts->gs,
+							   hc->channel_update);
+		} else
+			hc->bcast.index = index;
+		return true;
+	}
+
+	/* If we're loading from store, this means we don't re-add to store. */
+	chan->half[direction].bcast.index = index;
 
 	insert_broadcast(&rstate->broadcasts,
 			 chan->half[direction].channel_update,
 			 &chan->half[direction].bcast);
+
+	if (uc) {
+		/* If we were waiting for these nodes to appear (or gain a
+		   public channel), process node_announcements now */
+		process_pending_node_announcement(rstate, &chan->nodes[0]->id);
+		process_pending_node_announcement(rstate, &chan->nodes[1]->id);
+		tal_free(uc);
+	}
 	return true;
 }
 
@@ -1401,9 +1465,15 @@ static const struct node_id *get_channel_owner(struct routing_state *rstate,
 					       int direction)
 {
 	struct chan *chan = get_channel(rstate, scid);
+	struct unupdated_channel *uc;
 
 	if (chan)
 		return &chan->nodes[direction]->id;
+
+	/* Might be unupdated channel */
+	uc = get_unupdated_channel(rstate, scid);
+	if (uc)
+		return &uc->id[direction];
 	return NULL;
 }
 
@@ -1572,9 +1642,12 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	node = get_node(rstate, &node_id);
 
 	/* May happen if we accepted the node_announcement due to a local
-	* channel, for which we didn't have the announcement yet. */
-	if (node == NULL)
+	 * channel, for which we didn't have the announcement yet. */
+	if (node == NULL) {
+		if (taken(msg))
+			tal_free(msg);
 		return false;
+	}
 
 	tal_free(node->node_announcement);
 	/* Harmless if it was never added */
@@ -1910,6 +1983,7 @@ void route_prune(struct routing_state *rstate)
 	const s64 highwater = now - rstate->prune_timeout;
 	const tal_t *pruned = tal(NULL, char);
 	struct chan *chan;
+	struct unupdated_channel *uc;
 	u64 idx;
 
 	/* Now iterate through all channels and see if it is still alive */
@@ -1920,19 +1994,30 @@ void route_prune(struct routing_state *rstate)
 		if (!is_chan_public(chan))
 			continue;
 
-		/* Rare case where we examine timestamp even without update;
-		 * it's used to prune channels where update never arrives */
-		if (chan->half[0].bcast.timestamp < highwater
-		    && chan->half[1].bcast.timestamp < highwater) {
+		if ((!is_halfchan_defined(&chan->half[0])
+		     || chan->half[0].bcast.timestamp < highwater)
+		    && (!is_halfchan_defined(&chan->half[1])
+			|| chan->half[1].bcast.timestamp < highwater)) {
 			status_trace(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(tmpctx, struct short_channel_id,
 					   &chan->scid),
-			    now - chan->half[0].bcast.timestamp,
-			    now - chan->half[1].bcast.timestamp);
+			    is_halfchan_defined(&chan->half[0]) ? 0
+			    : now - chan->half[0].bcast.timestamp,
+			    is_halfchan_defined(&chan->half[1]) ? 0
+			    : now - chan->half[1].bcast.timestamp);
 
 			/* This may perturb iteration so do outside loop. */
 			tal_steal(pruned, chan);
+		}
+	}
+
+	/* Look for channels we had an announcement for, but no update. */
+	for (uc = uintmap_first(&rstate->unupdated_chanmap, &idx);
+	     uc;
+	     uc = uintmap_after(&rstate->unupdated_chanmap, &idx)) {
+		if (uc->added.ts.tv_sec < highwater) {
+			tal_steal(pruned, uc);
 		}
 	}
 

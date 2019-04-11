@@ -157,6 +157,7 @@ HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map
 
 struct pending_node_map;
 struct pending_cannouncement;
+struct unupdated_channel;
 
 /* Fast versions: if you know n is one end of the channel */
 static inline struct node *other_node(const struct node *n,
@@ -212,6 +213,10 @@ struct routing_state {
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
+
+        /* A map of channel_announcements indexed by short_channel_ids:
+	 * we haven't got a channel_update for these yet. */
+	UINTMAP(struct unupdated_channel *) unupdated_chanmap;
 
 	/* Has one of our own channels been announced? */
 	bool local_channel_announced;
