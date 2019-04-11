@@ -51,12 +51,20 @@ const u8 *gossip_store_get(const tal_t *ctx,
  * If we need to compact the gossip store, do so.
  * @gs: the gossip store.
  * @bs: a pointer to the broadcast state: replaced if we compact it.
+ * @offset: the change in the store, if any.
+ *
+ * If @offset is non-zero on return, caller must update peers.
  */
 void gossip_store_maybe_compact(struct gossip_store *gs,
-				struct broadcast_state **bs);
+				struct broadcast_state **bs,
+				u32 *offset);
 
 
 /* Expose for dev-compact-gossip-store to force compaction. */
 bool gossip_store_compact(struct gossip_store *gs,
-			  struct broadcast_state **bs);
+			  struct broadcast_state **bs,
+			  u32 *offset);
+
+/* Callback for when gossip_store indexes move */
+
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

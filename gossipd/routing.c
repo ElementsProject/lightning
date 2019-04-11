@@ -181,12 +181,14 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
 					u32 prune_timeout,
+					struct list_head *peers,
 					const u32 *dev_gossip_time,
 					const struct amount_sat *dev_unknown_channel_satoshis)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
-	rstate->broadcasts = new_broadcast_state(rstate, gossip_store_new(rstate));
+	rstate->broadcasts
+		= new_broadcast_state(rstate, gossip_store_new(rstate), peers);
 	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;

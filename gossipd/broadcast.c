@@ -19,12 +19,14 @@ static void destroy_broadcast_state(struct broadcast_state *bstate)
 }
 
 struct broadcast_state *new_broadcast_state(struct routing_state *rstate,
-					    struct gossip_store *gs)
+					    struct gossip_store *gs,
+					    struct list_head *peers)
 {
 	struct broadcast_state *bstate = tal(rstate, struct broadcast_state);
 	uintmap_init(&bstate->broadcasts);
 	bstate->count = 0;
 	bstate->gs = gs;
+	bstate->peers = peers;
 	tal_add_destructor(bstate, destroy_broadcast_state);
 	return bstate;
 }
@@ -63,6 +65,8 @@ void insert_broadcast(struct broadcast_state **bstate,
 		      const u8 *msg,
 		      struct broadcastable *bcast)
 {
+	u32 offset;
+
 	/* If we're loading from the store, we already have index */
 	if (!bcast->index) {
 		u64 idx;
@@ -79,7 +83,9 @@ void insert_broadcast(struct broadcast_state **bstate,
 	insert_broadcast_nostore(*bstate, bcast);
 
 	/* If it compacts, it replaces *bstate */
-	gossip_store_maybe_compact((*bstate)->gs, bstate);
+	gossip_store_maybe_compact((*bstate)->gs, bstate, &offset);
+	if (offset)
+		update_peers_broadcast_index((*bstate)->peers, offset);
 }
 
 struct broadcastable *next_broadcast_raw(struct broadcast_state *bstate,

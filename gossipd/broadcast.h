@@ -24,6 +24,7 @@ struct broadcast_state {
 	UINTMAP(struct broadcastable *) broadcasts;
 	size_t count;
 	struct gossip_store *gs;
+	struct list_head *peers;
 };
 
 static inline void broadcastable_init(struct broadcastable *bcast)
@@ -32,7 +33,8 @@ static inline void broadcastable_init(struct broadcastable *bcast)
 }
 
 struct broadcast_state *new_broadcast_state(struct routing_state *rstate,
-					    struct gossip_store *gs);
+					    struct gossip_store *gs,
+					    struct list_head *peers);
 
 /* Append a queued message for broadcast.  Must be explicitly deleted.
  * Also adds it to the gossip store. */
@@ -68,4 +70,6 @@ u64 broadcast_final_index(const struct broadcast_state *bstate);
 struct broadcast_state *broadcast_state_check(struct broadcast_state *b,
 					      const char *abortstr);
 
+/* Callback for after we compacted the store */
+void update_peers_broadcast_index(struct list_head *peers, u32 offset);
 #endif /* LIGHTNING_GOSSIPD_BROADCAST_H */

@@ -226,6 +226,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
 					u32 prune_timeout,
+					struct list_head *peers,
 					const u32 *dev_gossip_time,
 					const struct amount_sat *dev_unknown_channel_satoshis);
 
