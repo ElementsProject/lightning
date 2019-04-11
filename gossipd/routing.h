@@ -145,9 +145,6 @@ struct node {
 
 	/* (Global) features */
 	u8 *globalfeatures;
-
-	/* Cached `node_announcement` we might forward to new peers (or NULL). */
-	const u8 *node_announcement;
 };
 
 const struct node_id *node_map_keyof_node(const struct node *n);
