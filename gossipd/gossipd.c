@@ -695,6 +695,21 @@ static u8 *handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
+/*~ When we compact the gossip store, all the broadcast indexs move.
+ * We simply offset everyone, which means in theory they could retransmit
+ * some, but that's a lesser evil than skipping some. */
+void update_peers_broadcast_index(struct list_head *peers, u32 offset)
+{
+	struct peer *peer;
+
+	list_for_each(peers, peer, list) {
+		if (peer->broadcast_index < offset)
+			peer->broadcast_index = 0;
+		else
+			peer->broadcast_index -= offset;
+	}
+}
+
 /*~ We can send multiple replies when the peer queries for all channels in
  * a given range of blocks; each one indicates the range of blocks it covers. */
 static void reply_channel_range(struct peer *peer,
@@ -1956,6 +1971,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   chainparams_by_chainhash(&daemon->chain_hash),
 					   &daemon->id,
 					   update_channel_interval * 2,
+					   &daemon->peers,
 					   dev_gossip_time,
 					   dev_unknown_channel_satoshis);
 
@@ -2565,8 +2581,15 @@ static struct io_plan *dev_compact_store(struct io_conn *conn,
 					 struct daemon *daemon,
 					 const u8 *msg)
 {
+	u32 offset;
 	bool done = gossip_store_compact(daemon->rstate->broadcasts->gs,
-					 &daemon->rstate->broadcasts);
+					 &daemon->rstate->broadcasts,
+					 &offset);
+
+	/* Peers keep an offset into where they are with gossip. */
+	if (done)
+		update_peers_broadcast_index(&daemon->peers, offset);
+
 	daemon_conn_send(daemon->master,
 			 take(towire_gossip_dev_compact_store_reply(NULL,
 								    done)));

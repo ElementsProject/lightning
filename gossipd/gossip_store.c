@@ -253,9 +253,13 @@ static bool add_local_unnannounced(int in_fd, int out_fd,
  *
  * Creates a new file, writes all the updates from the `broadcast_state`, and
  * then atomically swaps the files.
+ *
+ * Returns the amount of shrinkage in @offset on success, otherwise @offset
+ * is unchanged.
  */
 bool gossip_store_compact(struct gossip_store *gs,
-			  struct broadcast_state **bs)
+			  struct broadcast_state **bs,
+			  u32 *offset)
 {
 	size_t count = 0;
 	int fd;
@@ -274,7 +278,7 @@ bool gossip_store_compact(struct gossip_store *gs,
 	    "Compacting gossip_store with %zu entries, %zu of which are stale",
 	    gs->count, gs->count - oldb->count);
 
-	newb = new_broadcast_state(gs->rstate, gs);
+	newb = new_broadcast_state(gs->rstate, gs, oldb->peers);
 	fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 
 	if (fd < 0) {
@@ -349,6 +353,7 @@ bool gossip_store_compact(struct gossip_store *gs,
 	    "Compaction completed: dropped %zu messages, new count %zu, len %"PRIu64,
 	    gs->count - count, count, len);
 	gs->count = count;
+	*offset = gs->len - len;
 	gs->len = len;
 	close(gs->fd);
 	gs->fd = fd;
@@ -368,8 +373,11 @@ disable:
 }
 
 void gossip_store_maybe_compact(struct gossip_store *gs,
-				struct broadcast_state **bs)
+				struct broadcast_state **bs,
+				u32 *offset)
 {
+	*offset = 0;
+
 	/* Don't compact while loading! */
 	if (!gs->writable)
 		return;
@@ -378,7 +386,7 @@ void gossip_store_maybe_compact(struct gossip_store *gs,
 	if (gs->count < (*bs)->count * 1.25)
 		return;
 
-	gossip_store_compact(gs, bs);
+	gossip_store_compact(gs, bs, offset);
 }
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)

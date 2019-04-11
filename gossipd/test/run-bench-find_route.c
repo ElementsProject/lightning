@@ -97,6 +97,9 @@ u8 *towire_gossip_store_local_add_channel(const tal_t *ctx UNNEEDED, const u8 *l
 /* Generated stub for towire_gossip_store_node_announcement */
 u8 *towire_gossip_store_node_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_node_announcement called!\n"); abort(); }
+/* Generated stub for update_peers_broadcast_index */
+void update_peers_broadcast_index(struct list_head *peers UNNEEDED, u32 offset UNNEEDED)
+{ fprintf(stderr, "update_peers_broadcast_index called!\n"); abort(); }
 /* Generated stub for wire_type_name */
 const char *wire_type_name(int e UNNEEDED)
 { fprintf(stderr, "wire_type_name called!\n"); abort(); }
@@ -214,7 +217,7 @@ int main(int argc, char *argv[])
 	setup_tmpctx();
 
 	me = nodeid(0);
-	rstate = new_routing_state(tmpctx, NULL, &me, 0, NULL, NULL);
+	rstate = new_routing_state(tmpctx, NULL, &me, 0, NULL, NULL, NULL);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
 
