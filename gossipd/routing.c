@@ -264,7 +264,6 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	memset(n->chans.arr, 0, sizeof(n->chans.arr));
 	n->globalfeatures = NULL;
-	n->node_announcement = NULL;
 	broadcastable_init(&n->bcast);
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -352,14 +351,17 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	if (!node_has_broadcastable_channels(node)) {
 		broadcast_del(rstate->broadcasts, &node->bcast);
 	} else if (node_announce_predates_channels(node)) {
+		const u8 *announce;
+
+		announce = gossip_store_get(tmpctx, rstate->broadcasts->gs,
+					    node->bcast.index);
+
 		/* node announcement predates all channel announcements?
 		 * Move to end (we could, in theory, move to just past next
 		 * channel_announce, but we don't care that much about spurious
 		 * retransmissions in this corner case */
 		broadcast_del(rstate->broadcasts, &node->bcast);
-		insert_broadcast(&rstate->broadcasts,
-				 node->node_announcement,
-				 &node->bcast);
+		insert_broadcast(&rstate->broadcasts, announce, &node->bcast);
 	}
 }
 
@@ -1636,20 +1638,21 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	if (!fromwire_node_announcement(tmpctx, msg,
 					&signature, &features, &timestamp,
 					&node_id, rgb_color, alias,
-					&addresses))
+					&addresses)) {
 		return false;
+	}
 
 	node = get_node(rstate, &node_id);
 
 	/* May happen if we accepted the node_announcement due to a local
 	 * channel, for which we didn't have the announcement yet. */
-	if (node == NULL) {
-		if (taken(msg))
-			tal_free(msg);
+	if (node == NULL)
 		return false;
-	}
 
-	tal_free(node->node_announcement);
+	/* Shouldn't get here, but gossip_store bugs are possible. */
+	if (!node_has_broadcastable_channels(node))
+		return false;
+
 	/* Harmless if it was never added */
 	broadcast_del(rstate->broadcasts, &node->bcast);
 
@@ -1664,14 +1667,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	tal_free(node->globalfeatures);
 	node->globalfeatures = tal_steal(node, features);
 
-	node->node_announcement = tal_dup_arr(node, u8, msg, tal_count(msg), 0);
-
-	/* We might be waiting for channel_announce to be released. */
-	if (node_has_broadcastable_channels(node)) {
-		insert_broadcast(&rstate->broadcasts,
-				 node->node_announcement,
-				 &node->bcast);
-	}
+	insert_broadcast(&rstate->broadcasts, msg, &node->bcast);
 	return true;
 }
 

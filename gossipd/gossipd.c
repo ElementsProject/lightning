@@ -235,6 +235,17 @@ static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	daemon_conn_send(peer->dc, take(send));
 }
 
+/* Load a message from the gossip_store, and queue to send. */
+static void queue_peer_from_store(struct peer *peer,
+				  const struct broadcastable *bcast)
+{
+	const u8 *msg;
+
+	msg = gossip_store_get(NULL, peer->daemon->rstate->broadcasts->gs,
+			       bcast->index);
+	queue_peer_msg(peer, take(msg));
+}
+
 /* This pokes daemon_conn, which calls dump_gossip: the NULL gossip_timer
  * tells it that the gossip timer has expired and it should send any queued
  * gossip messages. */
@@ -435,20 +446,25 @@ static bool node_announcement_redundant(struct daemon *daemon)
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
 	struct node *n = get_node(daemon->rstate, &daemon->id);
+	const u8 *msg;
 
 	if (!n)
 		return false;
 
-	if (!n->node_announcement)
+	if (!n->bcast.index)
 		return false;
 
+	msg = gossip_store_get(tmpctx, daemon->rstate->broadcasts->gs,
+			       n->bcast.index);
+
 	/* Note: validity of node_id is already checked. */
-	if (!fromwire_node_announcement(tmpctx, n->node_announcement,
-					&signature, &features, &timestamp,
+	if (!fromwire_node_announcement(tmpctx, msg,
+					&signature, &features,
+					&timestamp,
 					&node_id, rgb_color, alias,
 					&addresses)) {
-		status_broken("Bad local node_announcement: %s",
-			      tal_hex(tmpctx, n->node_announcement));
+		status_broken("Bad local node_announcement @%u: %s",
+			      n->bcast.index, tal_hex(tmpctx, msg));
 		return false;
 	}
 
@@ -1096,7 +1112,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		if (!n || !n->bcast.index)
 			continue;
 
-		queue_peer_msg(peer, n->node_announcement);
+		queue_peer_from_store(peer, &n->bcast);
 		sent = true;
 	}
 	peer->scid_query_nodes_idx = i;
@@ -2077,7 +2093,7 @@ static void append_node(const struct gossip_getnodes_entry ***entries,
 	e->nodeid = n->id;
 	/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit signed, so
 	 * -1 means "we never received a channel_update". */
-	if (!n->node_announcement)
+	if (!n->bcast.index)
 		e->last_timestamp = -1;
 	else {
 		e->last_timestamp = n->bcast.timestamp;
