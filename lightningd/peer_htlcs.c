@@ -135,6 +135,14 @@ static void local_fail_htlc(struct htlc_in *hin, enum onion_type failcode,
 	fail_in_htlc(hin, failcode, NULL, out_channel);
 }
 
+void fail_htlc(struct htlc_in *hin, enum onion_type failcode)
+{
+	assert(failcode);
+	/* Final hop never sends an UPDATE. */
+	assert(!(failcode & UPDATE));
+	local_fail_htlc(hin, failcode, NULL);
+}
+
 /* localfail are for handing to the local payer if it's local. */
 static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 {
@@ -216,11 +224,18 @@ static bool check_cltv(struct htlc_in *hin,
 	return false;
 }
 
-static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
+void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 {
 	u8 *msg;
 	struct channel *channel = hin->key.channel;
 	struct wallet *wallet = channel->peer->ld->wallet;
+
+	if (hin->hstate != RCVD_ADD_ACK_REVOCATION) {
+		log_debug(channel->log,
+			  "HTLC fulfilled, but not ready any more (%s).",
+			  htlc_state_name(hin->hstate));
+		return;
+	}
 
 	hin->preimage = tal_dup(hin, struct preimage, preimage);
 
@@ -259,8 +274,6 @@ static void handle_localpay(struct htlc_in *hin,
 			    u32 outgoing_cltv_value)
 {
 	enum onion_type failcode;
-	struct invoice invoice;
-	const struct invoice_details *details;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 
 	/* BOLT #4:
@@ -289,41 +302,6 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	if (!wallet_invoice_find_unpaid(ld->wallet, &invoice, payment_hash)) {
-		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
-		goto fail;
-	}
-	details = wallet_invoice_details(tmpctx, ld->wallet, invoice);
-
-	/* BOLT #4:
-	 *
-	 * An _intermediate hop_ MUST NOT, but the _final node_:
-	 *...
-	 *   - if the amount paid is less than the amount expected:
-	 *     - MUST fail the HTLC.
-	 */
-	if (details->msat != NULL) {
-		struct amount_msat twice;
-
-		if (amount_msat_less(hin->msat, *details->msat)) {
-			failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
-			goto fail;
-		}
-
-		if (amount_msat_add(&twice, *details->msat, *details->msat)
-		    && amount_msat_greater(hin->msat, twice)) {
-			/* FIXME: bolt update fixes this quote! */
-			/* BOLT #4:
-			 *
-			 *   - if the amount paid is more than twice the amount expected:
-			 *     - SHOULD fail the HTLC.
-			 *     - SHOULD return an `incorrect_or_unknown_payment_details` error.
-			 */
-			failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
-			goto fail;
-		}
-	}
-
 	/* BOLT #4:
 	 *
 	 *   - if the `cltv_expiry` value is unreasonably near the present:
@@ -341,21 +319,11 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	log_info(ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
-		 details->label->s, hin->key.id);
-	log_debug(ld->log, "%s: Actual amount %s, HTLC expiry %u",
-		  details->label->s,
-		  type_to_string(tmpctx, struct amount_msat, &hin->msat),
-		  cltv_expiry);
-	fulfill_htlc(hin, &details->r);
-	wallet_invoice_resolve(ld->wallet, invoice, hin->msat);
-
+	invoice_try_pay(ld, hin, payment_hash, amt_to_forward);
 	return;
 
 fail:
-	/* Final hop never sends an UPDATE. */
-	assert(!(failcode & UPDATE));
-	local_fail_htlc(hin, failcode, NULL);
+	fail_htlc(hin, failcode);
 }
 
 /*

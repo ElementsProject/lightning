@@ -73,6 +73,9 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct node_id *id 
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
+/* Generated stub for fail_htlc */
+void fail_htlc(struct htlc_in *hin UNNEEDED, enum onion_type failcode UNNEEDED)
+{ fprintf(stderr, "fail_htlc called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -97,6 +100,9 @@ bool fromwire_hsm_sign_invoice_reply(const void *p UNNEEDED, secp256k1_ecdsa_rec
 /* Generated stub for fromwire_onchain_dev_memleak_reply */
 bool fromwire_onchain_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fulfill_htlc */
+void fulfill_htlc(struct htlc_in *hin UNNEEDED, const struct preimage *preimage UNNEEDED)
+{ fprintf(stderr, "fulfill_htlc called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -514,6 +520,11 @@ bool wallet_invoice_find_by_rhash(struct wallet *wallet UNNEEDED,
 				  struct invoice *pinvoice UNNEEDED,
 				  const struct sha256 *rhash UNNEEDED)
 { fprintf(stderr, "wallet_invoice_find_by_rhash called!\n"); abort(); }
+/* Generated stub for wallet_invoice_find_unpaid */
+bool wallet_invoice_find_unpaid(struct wallet *wallet UNNEEDED,
+				struct invoice *pinvoice UNNEEDED,
+				const struct sha256 *rhash UNNEEDED)
+{ fprintf(stderr, "wallet_invoice_find_unpaid called!\n"); abort(); }
 /* Generated stub for wallet_invoice_iterate */
 bool wallet_invoice_iterate(struct wallet *wallet UNNEEDED,
 			    struct invoice_iterator *it UNNEEDED)
@@ -523,6 +534,11 @@ const struct invoice_details *wallet_invoice_iterator_deref(const tal_t *ctx UNN
 			      struct wallet *wallet UNNEEDED,
 			      const struct invoice_iterator *it UNNEEDED)
 { fprintf(stderr, "wallet_invoice_iterator_deref called!\n"); abort(); }
+/* Generated stub for wallet_invoice_resolve */
+void wallet_invoice_resolve(struct wallet *wallet UNNEEDED,
+			    struct invoice invoice UNNEEDED,
+			    struct amount_msat received UNNEEDED)
+{ fprintf(stderr, "wallet_invoice_resolve called!\n"); abort(); }
 /* Generated stub for wallet_invoice_waitany */
 void wallet_invoice_waitany(const tal_t *ctx UNNEEDED,
 			    struct wallet *wallet UNNEEDED,
