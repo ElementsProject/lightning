@@ -180,7 +180,7 @@ static void peer_disable_channels(struct daemon *daemon, struct node *node)
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 		if (node_id_eq(&other_node(node, c)->id, &daemon->id))
-			c->local_disabled = true;
+			local_disable_chan(daemon->rstate, c);
 	}
 }
 
@@ -1371,19 +1371,21 @@ static void maybe_update_local_channel(struct daemon *daemon,
 				       struct chan *chan, int direction)
 {
 	const struct half_chan *hc = &chan->half[direction];
+	bool local_disabled;
 
 	/* Don't generate a channel_update for an uninitialized channel. */
 	if (!hc->channel_update)
 		return;
 
 	/* Nothing to update? */
+	local_disabled = is_chan_local_disabled(daemon->rstate, chan);
 	/*~ Note the inversions here on both sides, which is cheap conversion to
 	 * boolean for the RHS! */
-	if (!chan->local_disabled == !(hc->channel_flags & ROUTING_FLAGS_DISABLED))
+	if (!local_disabled == !(hc->channel_flags & ROUTING_FLAGS_DISABLED))
 		return;
 
 	update_local_channel(daemon, chan, direction,
-			     chan->local_disabled,
+			     local_disabled,
 			     hc->delay,
 			     hc->htlc_minimum,
 			     hc->base_fee,
@@ -1555,7 +1557,11 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 
 	/* Normal case: just toggle local_disabled, and generate broadcast in
 	 * maybe_update_local_channel when/if someone asks about it. */
-	chan->local_disabled = disable;
+	if (disable)
+		local_disable_chan(peer->daemon->rstate, chan);
+	else
+		local_enable_chan(peer->daemon->rstate, chan);
+
 	return true;
 }
 
@@ -1833,7 +1839,7 @@ static void gossip_send_keepalive_update(struct daemon *daemon,
 	 * local_disabled state */
 	update_local_channel(daemon, chan,
 			     hc->channel_flags & ROUTING_FLAGS_DIRECTION,
-			     chan->local_disabled,
+			     is_chan_local_disabled(daemon->rstate, chan),
 			     hc->delay,
 			     hc->htlc_minimum,
 			     hc->base_fee,
@@ -1912,7 +1918,7 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		return;
 
 	for (c = first_chan(local_node, &i); c; c = next_chan(local_node, &i))
-		c->local_disabled = true;
+		local_disable_chan(daemon->rstate, c);
 }
 
 /*~ Parse init message from lightningd: starts the daemon properly. */
@@ -2044,7 +2050,8 @@ static struct gossip_halfchannel_entry *hc_entry(const tal_t *ctx,
 }
 
 /*~ Marshal (possibly) both channel directions into entries. */
-static void append_channel(const struct gossip_getchannels_entry ***entries,
+static void append_channel(struct routing_state *rstate,
+			   const struct gossip_getchannels_entry ***entries,
 			   const struct chan *chan,
 			   const struct node_id *srcfilter)
 {
@@ -2053,7 +2060,7 @@ static void append_channel(const struct gossip_getchannels_entry ***entries,
 	e->node[0] = chan->nodes[0]->id;
 	e->node[1] = chan->nodes[1]->id;
 	e->sat = chan->sat;
-	e->local_disabled = chan->local_disabled;
+	e->local_disabled = is_chan_local_disabled(rstate, chan);
 	e->public = is_chan_public(chan);
 	e->short_channel_id = chan->scid;
 	if (!srcfilter || node_id_eq(&e->node[0], srcfilter))
@@ -2092,7 +2099,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 	if (scid) {
 		chan = get_channel(daemon->rstate, scid);
 		if (chan)
-			append_channel(&entries, chan, NULL);
+			append_channel(daemon->rstate, &entries, chan, NULL);
 	} else if (source) {
 		struct node *s = get_node(daemon->rstate, source);
 		if (s) {
@@ -2100,7 +2107,8 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 			struct chan *c;
 
 			for (c = first_chan(s, &i); c; c = next_chan(s, &i)) {
-				append_channel(&entries, c, source);
+				append_channel(daemon->rstate,
+					       &entries, c, source);
 			}
 		}
 	} else {
@@ -2111,7 +2119,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 		for (chan = uintmap_first(&daemon->rstate->chanmap, &idx);
 		     chan;
 		     chan = uintmap_after(&daemon->rstate->chanmap, &idx)) {
-			append_channel(&entries, chan, NULL);
+			append_channel(daemon->rstate, &entries, chan, NULL);
 		}
 	}
 
@@ -2758,7 +2766,7 @@ static struct io_plan *handle_local_channel_close(struct io_conn *conn,
 
 	chan = get_channel(rstate, &scid);
 	if (chan)
-		chan->local_disabled = true;
+		local_disable_chan(rstate, chan);
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
