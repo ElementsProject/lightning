@@ -118,9 +118,6 @@ struct node {
 	/* Timestamp and index into store file */
 	struct broadcastable bcast;
 
-	/* IP/Hostname and port of this node (may be NULL) */
-	struct wireaddr *addresses;
-
 	/* Channels connecting us to other nodes */
 	union {
 		struct chan_map map;
@@ -136,15 +133,6 @@ struct node {
 		/* Where that came from. */
 		struct chan *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
-
-	/* UTF-8 encoded alias, not zero terminated */
-	u8 alias[32];
-
-	/* Color to be used when displaying the name */
-	u8 rgb_color[3];
-
-	/* (Global) features */
-	u8 *globalfeatures;
 };
 
 const struct node_id *node_map_keyof_node(const struct node *n);
