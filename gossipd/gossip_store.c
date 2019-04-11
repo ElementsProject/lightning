@@ -438,7 +438,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	       read(fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
 		msglen = be32_to_cpu(belen);
 		checksum = be32_to_cpu(becsum);
-		msg = tal_arr(gs, u8, msglen);
+		msg = tal_arr(tmpctx, u8, msglen);
 
 		if (read(fd, msg, msglen) != msglen) {
 			status_unusual("gossip_store: truncated file?");
@@ -496,7 +496,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		}
 		gs->len += sizeof(belen) + sizeof(becsum) + msglen;
 		gs->count++;
-		tal_free(msg);
+		clean_tmpctx();
 	}
 	goto out;
 
