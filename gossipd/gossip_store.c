@@ -174,7 +174,7 @@ static bool add_local_unnannounced(int fd,
 		const u8 *msg;
 
 		/* Ignore already announced. */
-		if (c->channel_announce)
+		if (is_chan_public(c))
 			continue;
 
 		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
