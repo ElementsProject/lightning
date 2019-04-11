@@ -10,6 +10,10 @@
 
 extern secp256k1_context *secp256k1_ctx;
 
+/* FIXME: Instead of using this as a global, we might want to pass it as
+ * context whenever we need it. The global var is just lazy... */
+extern bool is_elements;
+
 /* Allocate and fill in a hex-encoded string of this data. */
 char *tal_hexstr(const tal_t *ctx, const void *data, size_t len);
 
