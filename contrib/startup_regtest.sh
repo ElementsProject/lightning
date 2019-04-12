@@ -2,8 +2,28 @@
 
 ## Short script to startup two local nodes with
 ## bitcoind, all running on regtest
+## Makes it easier to test things out, by hand.
 
 ## Should be called by source since it sets aliases
+##
+##  $ source contrib/startup_regtest.sh
+##    Bitcoin server starting
+## 
+##  Let's connect the nodes.
+##
+##  $ l2-cli getinfo | jq .id
+##    "02b96b03e42d9126cb5228752c575c628ad09bdb7a138ec5142bbca21e244ddceb"
+##  $ l2-cli getinfo | jq .binding[0].port
+##    9090
+##  $ l1-cli connect 02b96b03e42d9126cb5228752c575c628ad09bdb7a138ec5142bbca21e244ddceb@localhost:9090
+##    {
+##      "id" : "030b02fc3d043d2d47ae25a9306d98d2abb7fc9bee824e68b8ce75d6d8f09d5eb7"
+##    }
+##
+##  When you're finished, clean up
+##
+##  cleanup_lightning
+##
 
 if [ -z "$PATH_TO_LIGHTNING" ]
 then
