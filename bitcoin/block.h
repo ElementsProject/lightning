@@ -25,8 +25,19 @@ struct bitcoin_block_hdr {
 	le32 nonce;
 };
 
+struct elements_block_proof {
+	u8 *challenge;
+	u8 *solution;
+};
+
+struct elements_block_hdr {
+	u32 block_height;
+	struct elements_block_proof proof;
+};
+
 struct bitcoin_block {
 	struct bitcoin_block_hdr hdr;
+	struct elements_block_hdr *elements_hdr;
 	/* tal_count shows now many */
 	struct bitcoin_tx **tx;
 };
