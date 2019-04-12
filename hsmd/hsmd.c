@@ -582,7 +582,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn,
 	 * we kill them for bad randomness (~1 in 2^127 if ss.data is random) */
 	node_key(&privkey, NULL);
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
-			   privkey.secret.data) != 1) {
+			   privkey.secret.data, NULL, NULL) != 1) {
 		return bad_req_fmt(conn, c, msg_in, "secp256k1_ecdh fail");
 	}
 

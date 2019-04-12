@@ -130,7 +130,8 @@ int main(void)
 	const char *badstr;
 
 	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
+	/* FIXME: https://github.com/ElementsProject/libwally-core/issues/95 */
+	secp256k1_ctx = (secp256k1_context *)wally_get_secp_context();
 	setup_tmpctx();
 
 	/* BOLT #11:
