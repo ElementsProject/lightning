@@ -216,7 +216,8 @@ static bool create_shared_secret(
 	const u8 *sessionkey)
 {
 
-	if (secp256k1_ecdh(secp256k1_ctx, secret, &pubkey->pubkey, sessionkey)
+	if (secp256k1_ecdh(secp256k1_ctx, secret, &pubkey->pubkey, sessionkey,
+			   NULL, NULL)
 	    != 1)
 		return false;
 	return true;

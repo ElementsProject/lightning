@@ -547,7 +547,7 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 	 * 5. `es = ECDH(s.priv, re)`
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
-			    h->e.priv.secret.data))
+			    h->e.priv.secret.data, NULL, NULL))
 		return handshake_failed(conn, h);
 
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
@@ -638,7 +638,8 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	 */
 	h->ss = tal(h, struct secret);
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data,
-			    &h->their_id.pubkey, h->e.priv.secret.data))
+			    &h->their_id.pubkey, h->e.priv.secret.data,
+			    NULL, NULL))
 		return handshake_failed(conn, h);
 
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss->data, sizeof(h->ss->data)));
@@ -739,7 +740,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 	 *      * where `e` is the responder's original ephemeral key
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->their_id.pubkey,
-			    h->e.priv.secret.data))
+			    h->e.priv.secret.data, NULL, NULL))
 		return handshake_failed(conn, h);
 
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
@@ -814,7 +815,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 *        during Act One
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
-			    h->e.priv.secret.data))
+			    h->e.priv.secret.data, NULL, NULL))
 		return handshake_failed(conn, h);
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 

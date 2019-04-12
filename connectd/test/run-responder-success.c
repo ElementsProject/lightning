@@ -191,7 +191,7 @@ struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
 {
 	struct secret *ss = tal(ctx, struct secret);
 	if (secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
-			   ls_priv.secret.data) != 1)
+			   ls_priv.secret.data, NULL, NULL) != 1)
 		return tal_free(ss);
 	return ss;
 }

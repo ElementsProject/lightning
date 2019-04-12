@@ -55,7 +55,8 @@ int main(void)
 	struct info *baseline, *info;
 
 	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
+	/* FIXME: https://github.com/ElementsProject/libwally-core/issues/95 */
+	secp256k1_ctx = (secp256k1_context *)wally_get_secp_context();
 	baseline = new_info(ctx);
 	assert(derive_basepoints(&baseline->seed, &baseline->funding_pubkey,
 				 &baseline->basepoints,
