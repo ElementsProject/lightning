@@ -26,7 +26,28 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	if (!hex_decode(hex, hexlen, linear_tx, len))
 		return tal_free(b);
 
-	pull(&p, &len, &b->hdr, sizeof(b->hdr));
+	b->hdr.version = pull_le32(&p, &len);
+	pull(&p, &len, &b->hdr.prev_hash, sizeof(b->hdr.prev_hash));
+	pull(&p, &len, &b->hdr.merkle_hash, sizeof(b->hdr.merkle_hash));
+	b->hdr.timestamp = pull_le32(&p, &len);
+
+	if (is_elements) {
+		b->elements_hdr = tal(b, struct elements_block_hdr);
+		b->elements_hdr->block_height = pull_le32(&p, &len);
+
+		size_t challenge_len = pull_varint(&p, &len);
+		b->elements_hdr->proof.challenge = tal_arr(b->elements_hdr, u8, challenge_len);
+		pull(&p, &len, b->elements_hdr->proof.challenge, challenge_len);
+
+		size_t solution_len = pull_varint(&p, &len);
+		b->elements_hdr->proof.solution = tal_arr(b->elements_hdr, u8, solution_len);
+		pull(&p, &len, b->elements_hdr->proof.solution, solution_len);
+
+	} else {
+		b->hdr.target = pull_le32(&p, &len);
+		b->hdr.nonce = pull_le32(&p, &len);
+	}
+
 	num = pull_varint(&p, &len);
 	b->tx = tal_arr(b, struct bitcoin_tx *, num);
 	for (i = 0; i < num; i++) {
