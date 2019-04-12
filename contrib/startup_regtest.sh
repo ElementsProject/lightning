@@ -6,8 +6,13 @@
 
 ## Should be called by source since it sets aliases
 ##
+##  First load this file up.
+##
 ##  $ source contrib/startup_regtest.sh
-##    Bitcoin server starting
+##
+##  Start up the nodeset
+##
+##  $ start_ln
 ##
 ##  Let's connect the nodes.
 ##
@@ -20,9 +25,10 @@
 ##      "id" : "030b02fc3d043d2d47ae25a9306d98d2abb7fc9bee824e68b8ce75d6d8f09d5eb7"
 ##    }
 ##
-##  When you're finished, clean up
+##  When you're finished, clean up or stop
 ##
-##  cleanup_lightning
+##  $ stop_ln  # stops the services, keeps the aliases
+##  $ cleanup_ln # stops and cleans up aliases
 ##
 
 if [ -z "$PATH_TO_LIGHTNING" ]
@@ -56,21 +62,24 @@ log-file=/tmp/l2-regtest/log
 addr=localhost:9090
 EOF
 
-# Start bitcoind in the background
-test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
-	bitcoind -daemon -regtest
-
-# Start the lightning nodes
-test -f /tmp/l1-regtest/lightningd-regtest.pid || \
-	"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l1-regtest
-test  -f /tmp/l2-regtest/lightningd-regtest.pid || \
-	"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l2-regtest
-
 alias l1-cli='$PATH_TO_LIGHTNING/cli/lightning-cli --lightning-dir=/tmp/l1-regtest'
 alias l2-cli='$PATH_TO_LIGHTNING/cli/lightning-cli --lightning-dir=/tmp/l2-regtest'
 alias bt-cli='bitcoin-cli -regtest'
 
-cleanup_lightning() {
+start_ln() {
+	# Start bitcoind in the background
+	test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
+		bitcoind -daemon -regtest
+
+	# Start the lightning nodes
+	test -f /tmp/l1-regtest/lightningd-regtest.pid || \
+		"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l1-regtest
+	test  -f /tmp/l2-regtest/lightningd-regtest.pid || \
+		"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l2-regtest
+
+}
+
+stop_ln() {
 	test ! -f /tmp/l1-regtest/lightningd-regtest.pid || \
 		(kill "$(cat /tmp/l1-regtest/lightningd-regtest.pid)" && \
 		rm /tmp/l1-regtest/lightningd-regtest.pid)
@@ -80,8 +89,14 @@ cleanup_lightning() {
 	test ! -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
 		(kill "$(cat "$PATH_TO_BITCOIN/regtest/bitcoind.pid")" && \
 		rm "$PATH_TO_BITCOIN/regtest/bitcoind.pid")
+}
+
+cleanup_ln() {
+	stop_ln
 	unalias l1-cli
 	unalias l2-cli
 	unalias bt-cli
-	unset -f cleanup_lightning
+	unset -f start_ln
+	unset -f stop_ln
+	unset -f cleanup_ln
 }
