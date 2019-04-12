@@ -8,7 +8,7 @@
 ##
 ##  $ source contrib/startup_regtest.sh
 ##    Bitcoin server starting
-## 
+##
 ##  Let's connect the nodes.
 ##
 ##  $ l2-cli getinfo | jq .id
@@ -57,11 +57,14 @@ addr=localhost:9090
 EOF
 
 # Start bitcoind in the background
-bitcoind -daemon -regtest
+test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
+	bitcoind -daemon -regtest
 
 # Start the lightning nodes
-"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l1-regtest
-"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l2-regtest
+test -f /tmp/l1-regtest/lightningd-regtest.pid || \
+	"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l1-regtest
+test  -f /tmp/l2-regtest/lightningd-regtest.pid || \
+	"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l2-regtest
 
 alias l1-cli='$PATH_TO_LIGHTNING/cli/lightning-cli --lightning-dir=/tmp/l1-regtest'
 alias l2-cli='$PATH_TO_LIGHTNING/cli/lightning-cli --lightning-dir=/tmp/l2-regtest'
