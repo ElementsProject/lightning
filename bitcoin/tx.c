@@ -309,13 +309,27 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 				   size_t *max)
 {
 	size_t wsize;
+	int flags = WALLY_TX_FLAG_USE_WITNESS;
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
-	if (wally_tx_from_bytes(*cursor, *max, 0, &tx->wtx) != WALLY_OK) {
+
+	if (is_elements)
+		flags |= WALLY_TX_FLAG_USE_ELEMENTS;
+
+	if (wally_tx_from_bytes(*cursor, *max, flags, &tx->wtx) != WALLY_OK) {
 		fromwire_fail(cursor, max);
 		return tal_free(tx);
 	}
+
 	tal_add_destructor(tx, bitcoin_tx_destroy);
-	wally_tx_get_length(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, &wsize);
+
+	/* For whatever reason the length computation gets upset if we tell it
+	 * that we are using elements. It wants to discover it on its own, NO
+	 * CLUES! (Ms. Doyle)
+	 *
+	 * https://github.com/ElementsProject/libwally-core/issues/139
+	 */
+	wally_tx_get_length(tx->wtx, flags & ~WALLY_TX_FLAG_USE_ELEMENTS,
+			    &wsize);
 
 	/* We don't know the input amounts yet, so set them all to NULL */
 	tx->input_amounts =
