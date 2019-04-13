@@ -51,7 +51,7 @@ external/libsecp256k1.% external/libwallycore.%: external/libwally-core/src/secp
 	$(MAKE) -C external/libwally-core DESTDIR=$$(pwd)/external install-exec
 
 external/libwally-core/src/libwallycore.% external/libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
-	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(MAKE_HOST)" --build="$(BUILD)" --enable-module-recovery --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
+	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(MAKE_HOST)" --build="$(BUILD)" --enable-module-recovery --enable-elements --enable-shared=no --prefix=/ --libdir=/ --enable-debug && $(MAKE)
 
 external/jsmn/jsmn.h: submodcheck
 
