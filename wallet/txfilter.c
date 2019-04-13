@@ -103,6 +103,9 @@ bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx)
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 
+		if (!oscript)
+			continue;
+
 		if (scriptpubkeyset_get(&filter->scriptpubkeyset, oscript))
 			return true;
 	}

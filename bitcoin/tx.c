@@ -97,6 +97,9 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 	u8 *res;
 	assert(outnum < tx->wtx->num_outputs);
 	output = &tx->wtx->outputs[outnum];
+	if (output->features & WALLY_TX_IS_COINBASE)
+		return NULL;
+
 	res = tal_arr(ctx, u8, output->script_len);
 	memcpy(res, output->script, output->script_len);
 	return res;
@@ -220,7 +223,10 @@ static void push_tx(const struct bitcoin_tx *tx,
         if (bip144 && uses_witness(tx))
 		flag |= WALLY_TX_FLAG_USE_WITNESS;
 
-	res = wally_tx_get_length(tx->wtx, flag, &len);
+	if (is_elements)
+		flag |= WALLY_TX_FLAG_USE_ELEMENTS;
+
+	res = wally_tx_get_length(tx->wtx, flag & WALLY_TX_FLAG_USE_WITNESS, &len);
 	assert(res == WALLY_OK);
 	serialized = tal_arr(tmpctx, u8, len);
 

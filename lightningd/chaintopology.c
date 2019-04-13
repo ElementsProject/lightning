@@ -654,6 +654,9 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
 		for (size_t j = 0; j < tx->wtx->num_outputs; j++) {
+			if (tx->wtx->outputs[j].features & WALLY_TX_IS_COINBASE)
+				continue;
+
 			const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, j);
 			struct amount_sat amt = bitcoin_tx_output_get_amount(tx, j);
 
