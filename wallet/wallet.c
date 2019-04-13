@@ -1498,11 +1498,13 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		struct utxo *utxo;
 		u32 index;
 		bool is_p2sh;
-		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, output);
+		const u8 *script;
 
+		script = bitcoin_tx_output_get_script(tmpctx, tx, output);
+		if (!script)
+			continue;
 
-		if (!wallet_can_spend(w, script, &index,
-				      &is_p2sh))
+		if (!wallet_can_spend(w, script, &index, &is_p2sh))
 			continue;
 
 		utxo = tal(w, struct utxo);
