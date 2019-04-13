@@ -46,6 +46,10 @@ struct bitcoin_block *
 bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 		       const char *hex, size_t hexlen);
 
+/* Compute the double SHA block ID from the block header. */
+void bitcoin_block_blkid(const struct bitcoin_block *block,
+			 struct bitcoin_blkid *out);
+
 /* Parse hex string to get blockid (reversed, a-la bitcoind). */
 bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
 			    struct bitcoin_blkid *blockid);
