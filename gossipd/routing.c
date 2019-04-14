@@ -103,7 +103,7 @@ static void destroy_unupdated_channel(struct unupdated_channel *uc,
 	uintmap_del(&rstate->unupdated_chanmap, uc->scid.u64);
 }
 
-static struct node_map *empty_node_map(const tal_t *ctx)
+static struct node_map *new_node_map(const tal_t *ctx)
 {
 	struct node_map *map = tal(ctx, struct node_map);
 	node_map_init(map);
@@ -186,7 +186,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct amount_sat *dev_unknown_channel_satoshis)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
-	rstate->nodes = empty_node_map(rstate);
+	rstate->nodes = new_node_map(rstate);
 	rstate->broadcasts
 		= new_broadcast_state(rstate, gossip_store_new(rstate), peers);
 	rstate->chainparams = chainparams;
