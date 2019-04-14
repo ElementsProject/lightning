@@ -204,7 +204,7 @@ struct broadcast_state *broadcast_state_check(struct broadcast_state *b,
 						      &timestamp,
 						      &node_id_1, color, alias,
 						      &addresses))
-			if (!uintmap_get(&channels, scid.u64))
+			if (!pubkey_set_get(&pubkeys, &node_id_1))
 				return corrupt(abortstr,
 					       "node announced before channel",
 					       NULL, &node_id_1);
