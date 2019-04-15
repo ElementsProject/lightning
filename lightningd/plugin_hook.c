@@ -39,9 +39,6 @@ bool plugin_hook_register(struct plugin *plugin, const char *method)
 	return true;
 }
 
-/* FIXME(cdecker): Remove dummy hook, once we have a real one */
-REGISTER_PLUGIN_HOOK(hello, NULL, void *, NULL, void *, NULL, void *);
-
 /**
  * Callback to be passed to the jsonrpc_request.
  *
@@ -53,9 +50,8 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 struct plugin_hook_request *r)
 {
 	const jsmntok_t *resulttok = json_get_member(buffer, toks, "result");
-	void *response = r->hook->deserialize_response(r, buffer, resulttok);
 	db_begin_transaction(r->db);
-	r->hook->response_cb(r->cb_arg, response);
+	r->hook->response_cb(r->cb_arg, buffer, resulttok);
 	db_commit_transaction(r->db);
 	tal_free(r);
 }
@@ -87,7 +83,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		 * roundtrip to the serializer and deserializer. If we
 		 * were expecting a default response it should have
 		 * been part of the `cb_arg`. */
-		hook->response_cb(cb_arg, NULL);
+		hook->response_cb(cb_arg, NULL, NULL);
 	}
 }
 
@@ -95,7 +91,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
  * annoying, and to make it clear that it's totally synchronous. */
 
 /* Special synchronous hook for db */
-static struct plugin_hook db_write_hook = { "db_write", NULL, NULL, NULL, NULL };
+static struct plugin_hook db_write_hook = { "db_write", NULL, NULL, NULL };
 AUTODATA(hooks, &db_write_hook);
 
 static void db_hook_response(const char *buffer, const jsmntok_t *toks,
