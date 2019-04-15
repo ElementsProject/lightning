@@ -2,7 +2,7 @@
 from lightning import Plugin
 
 
-plugin = Plugin(autopatch=True)
+plugin = Plugin()
 
 
 @plugin.method("hello")
