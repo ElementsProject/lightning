@@ -1040,7 +1040,8 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
  */
 void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  const struct htlc_out *out,
-				  enum forward_status state);
+				  enum forward_status state,
+				  enum onion_type failcode);
 
 /**
  * Retrieve summary of successful forwarded payments' fees
