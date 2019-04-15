@@ -548,8 +548,8 @@ static const struct config testnet_config = {
 
 	.use_dns = true,
 
-	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 1ct */
-	.min_capacity_sat = 1000,
+	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
+	.min_capacity_sat = 10000,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -614,8 +614,8 @@ static const struct config mainnet_config = {
 
 	.use_dns = true,
 
-	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 1ct */
-	.min_capacity_sat = 1000,
+	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
+	.min_capacity_sat = 10000,
 };
 
 static void check_config(struct lightningd *ld)
