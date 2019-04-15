@@ -17,6 +17,7 @@
 #include <lightningd/log.h>
 #include <onchaind/onchain_wire.h>
 #include <wally_bip32.h>
+#include <wire/gen_onion_wire.h>
 
 enum onion_type;
 struct amount_msat;
@@ -171,6 +172,7 @@ struct forwarding {
 	struct amount_msat msat_in, msat_out, fee;
 	struct sha256_double *payment_hash;
 	enum forward_status status;
+	enum onion_type failcode;
 	struct timeabs received_time;
 	/* May not be present if the HTLC was not resolved yet. */
 	struct timeabs *resolved_time;
