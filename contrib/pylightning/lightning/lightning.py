@@ -3,7 +3,7 @@ import json
 import logging
 import socket
 
-__version__ = "0.0.7.1"
+__version__ = "0.0.7.2"
 
 
 class RpcError(ValueError):

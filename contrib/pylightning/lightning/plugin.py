@@ -22,6 +22,27 @@ class RequestState(Enum):
     FAILED = 'failed'
 
 
+class PluginError(ValueError):
+    def __init__(self, message, code=-1, data=None):
+        super(ValueError, self).__init__("Plugin call failed: code: {}, message: {}, data: {}"
+                                         .format(code, message, data))
+
+        self.message = message
+        self.code = code
+        self.data = data
+
+    def to_json_error(self, rpcid):
+        d = {
+            'jsonrpc': '2.0',
+            'id': rpcid,
+            'error': {'code': self.code,
+                      'message': self.message}
+        }
+        if self.data:
+            d['error']['data'] = self.data
+        return d
+
+
 class Method(object):
     """Description of methods that are registered with the plugin.
 
@@ -74,13 +95,17 @@ class Request(dict):
                 "Cannot set the exception of a request that is not pending, "
                 "current state is {state}".format(self.state))
         self.exc = exc
-        self._write_result({
-            'jsonrpc': '2.0',
-            'id': self.id,
-            "error": "Error while processing {method}: {exc}".format(
-                method=self.method, exc=repr(exc)
-            ),
-        })
+        if isinstance(self.exc, PluginError):
+            jsdict = self.exc.to_json_error(self.id)
+        else:
+            jsdict = {
+                'jsonrpc': '2.0',
+                'id': self.id,
+                "error": "Error while processing {method}: {exc}".format(
+                    method=self.method, exc=repr(exc)
+                ),
+            }
+        self._write_result(jsdict)
 
     def _write_result(self, result):
         self.plugin._write_locked(result)
@@ -364,7 +389,6 @@ class Plugin(object):
                 request.set_result(result)
         except Exception as e:
             request.set_exception(e)
-            self.log(traceback.format_exc())
 
     def _dispatch_notification(self, request):
         if request.method not in self.subscriptions:
