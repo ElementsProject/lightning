@@ -24,7 +24,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
 
 - JSON API: `newaddr` output field `address`: use `bech32` or `p2sh-segwit` instead.
-- Plugins: the `peer_connected` hook should return `result` directly as a string: `disconnect` or `continue`, not a nested in a `result` sub-object.
+- Plugins: hooks should return JSON-RPC errors to fail hooks.
 
 ### Removed
 

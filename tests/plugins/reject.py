@@ -14,6 +14,7 @@ plugin = Plugin()
 
 @plugin.hook('peer_connected')
 def on_connected(peer, plugin):
+    # Note: this is the deprecated method!  Throw PluginError instead
     if peer['id'] in plugin.reject_ids:
         print("{} is in reject list, disconnecting".format(peer['id']))
         return {'result': 'disconnect'}

@@ -141,33 +141,33 @@ static bool hook_gives_failcode(const char *buffer,
 				const jsmntok_t *toks,
 				enum onion_type *failcode)
 {
-	const jsmntok_t *resulttok, *t;
-	unsigned int val;
+	const jsmntok_t *errtok, *t;
 
 	/* No plugin registered on hook at all? */
 	if (!buffer)
 		return false;
 
-	resulttok = json_get_member(buffer, toks, "result");
-	if (!resulttok)
-		fatal("Invalid invoice_payment_hook response: %.*s",
-		      toks[0].end - toks[1].start, buffer);
-
-	t = json_get_member(buffer, resulttok, "failure_code");
-	if (!t)
+	errtok = json_get_member(buffer, toks, "error");
+	if (!errtok)
 		return false;
 
+	*failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 
-	if (!json_to_number(buffer, t, &val))
-		fatal("Invalid invoice_payment_hook failure_code: %.*s",
-		      toks[0].end - toks[1].start, buffer);
+	/* data.failure_code can override */
+	if ((t = json_get_member(buffer, errtok, "data")) != NULL
+	    && (t = json_get_member(buffer, t, "failure_code")) != NULL) {
+		unsigned int val;
+		if (!json_to_number(buffer, t, &val))
+			fatal("Invalid invoice_payment_hook failure_code: %.*s",
+			      t->end - t->start, buffer);
 
-	/* UPDATE isn't valid for final nodes to return, and I think
-	 * we assert elsewhere that we don't do this! */
-	if (val & UPDATE)
-		fatal("Invalid invoice_payment_hook UPDATE failure_code: %.*s",
-		      toks[0].end - toks[1].start, buffer);
-	*failcode = val;
+		/* UPDATE isn't valid for final nodes to return, and I think
+		 * we assert elsewhere that we don't do this! */
+		if (val & UPDATE)
+			fatal("Invalid invoice_payment_hook UPDATE failure_code: %.*s",
+			      t->end - t->start, buffer);
+		*failcode = val;
+	}
 	return true;
 }
 

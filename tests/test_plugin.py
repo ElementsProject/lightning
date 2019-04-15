@@ -1,13 +1,14 @@
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError, Millisatoshi
-from utils import only_one
+from utils import only_one, config
 
 import os
 import pytest
 import sqlite3
 import subprocess
 import time
+import unittest
 
 
 def test_option_passthrough(node_factory):
@@ -148,6 +149,7 @@ def test_pay_plugin(node_factory):
     assert only_one(l1.rpc.help('paystatus')['help'])['command'] == 'paystatus [bolt11]'
 
 
+@unittest.skipIf(not config['COMPAT'], "Reject plugin uses old connected_hook return")
 def test_plugin_connected_hook(node_factory):
     """ l1 uses the reject plugin to reject connections.
 
@@ -168,7 +170,6 @@ def test_plugin_connected_hook(node_factory):
     assert(peer == [] or not peer[0]['connected'])
 
 
-@pytest.mark.xfail(strict=True)
 def test_plugin_hook_error(node_factory):
     """ l1 uses the connected_fail plugin to return error for connections.
 
@@ -185,6 +186,10 @@ def test_plugin_hook_error(node_factory):
     l3.connect(l1)
     l1.daemon.wait_for_log(r"{} is in reject list".format(l3.info['id']))
 
+    # FIXME: this error occurs *after* connection, so we connect then drop.
+    l3.daemon.wait_for_log(r"lightning_openingd-{} chan #1: peer_in WIRE_ERROR"
+                           .format(l1.info['id']))
+    l3.daemon.wait_for_log(r"{} is in reject list, disconnecting".format(l3.info['id']))
     peer = l1.rpc.listpeers(l3.info['id'])['peers']
     assert(peer == [] or not peer[0]['connected'])
 

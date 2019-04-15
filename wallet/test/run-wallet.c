@@ -279,6 +279,11 @@ void json_array_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
+/* Generated stub for json_delve */
+const jsmntok_t *json_delve(const char *buffer UNNEEDED,
+			    const jsmntok_t *tok UNNEEDED,
+			    const char *guide UNNEEDED)
+{ fprintf(stderr, "json_delve called!\n"); abort(); }
 /* Generated stub for json_escaped_string_ */
 struct json_escaped *json_escaped_string_(const tal_t *ctx UNNEEDED,
 					  const void *bytes UNNEEDED, size_t len UNNEEDED)
@@ -306,6 +311,9 @@ const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEED
 /* Generated stub for json_tok_full_len */
 int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 { fprintf(stderr, "json_tok_full_len called!\n"); abort(); }
+/* Generated stub for json_tok_is_null */
+bool json_tok_is_null(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_tok_is_null called!\n"); abort(); }
 /* Generated stub for json_tok_streq */
 bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
 { fprintf(stderr, "json_tok_streq called!\n"); abort(); }

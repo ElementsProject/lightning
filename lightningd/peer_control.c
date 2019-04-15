@@ -697,27 +697,34 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 
 	/* If we had a hook, interpret result. */
 	if (buffer) {
-		const jsmntok_t *resulttok;
+		const jsmntok_t *errtok;
 
-		resulttok = json_get_member(buffer, toks, "result");
-		if (!resulttok) {
-			fatal("Plugin returned an invalid response to the connected "
-			      "hook: %s", buffer);
-		}
+		errtok = json_get_member(buffer, toks, "error");
+		if (errtok) {
+			const jsmntok_t *m;
 
-		/* FIXME: For 0.7.0, hook had nested results! */
-#ifdef COMPAT_V070
-		if (json_get_member(buffer, resulttok, "result"))
-			resulttok = json_get_member(buffer, resulttok, "result");
-#endif /* COMPAT_V070 */
-
-		if (json_tok_streq(buffer, resulttok, "disconnect")) {
+			m = json_get_member(buffer, errtok, "message");
+			if (m && !json_tok_is_null(buffer, m)) {
+				error = towire_errorfmt(tmpctx, NULL,
+							"%.*s",
+							m->end - m->start,
+							buffer + m->start);
+				goto send_error;
+			}
 			close(peer_fd);
 			tal_free(payload);
 			return;
-		} else if (!json_tok_streq(buffer, resulttok, "continue"))
-			fatal("Plugin returned an invalid response to the connected "
-			      "hook: %s", buffer);
+		}
+
+#ifdef COMPAT_V070
+		/* For 0.7.0, we used a nested result value */
+		errtok = json_delve(buffer, toks, ".result.result");
+		if (errtok && json_tok_streq(buffer, errtok, "disconnect")) {
+			close(peer_fd);
+			tal_free(payload);
+			return;
+		}
+#endif /* COMPAT_V070 */
 	}
 
 	if (channel) {

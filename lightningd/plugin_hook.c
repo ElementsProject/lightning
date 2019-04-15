@@ -97,22 +97,12 @@ static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 			     const jsmntok_t *idtok,
 			     struct plugin_hook_request *ph_req)
 {
-	const jsmntok_t *resulttok;
-	bool resp;
+	const jsmntok_t *errtok;
 
-	resulttok = json_get_member(buffer, toks, "result");
-	if (!resulttok)
-		fatal("Plugin returned an invalid response to the db_write "
-		      "hook: %s", buffer);
-
-	/* We expect result: True.  Anything else we abort. */
-	if (!json_to_bool(buffer, resulttok, &resp))
-		fatal("Plugin returned an invalid result to the db_write "
-		      "hook: %s", buffer);
-
-	/* If it fails, we must not commit to our db. */
-	if (!resp)
-		fatal("Plugin returned failed db_write: %s.", buffer);
+	errtok = json_get_member(buffer, toks, "error");
+	if (errtok)
+		fatal("Plugin returned error for db_write: %.*s.",
+		      errtok->end - errtok->start, buffer + errtok->start);
 
 	/* We're done, exit exclusive loop. */
 	io_break(ph_req);

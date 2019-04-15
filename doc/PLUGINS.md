@@ -268,6 +268,11 @@ gossiped list of known addresses. In particular this means that the port for
 incoming connections is an ephemeral port, that may not be available for
 reconnections.
 
+The plugin can return an empty `result` object to allow the
+connection, otherwise it should return an `error`; the `message`
+field, if not `null`, will be sent to the peer as the error before
+closing the connection.
+
 #### `db_write`
 
 This hook is called whenever a change is about to be committed to the database.
@@ -285,8 +290,8 @@ It is currently extremely restricted:
 }
 ```
 
-Any response but "true" will cause lightningd to error without
-committing to the database!
+An `error` return will cause lightningd to shutdown without committing to
+the database!
 
 #### `invoice_payment`
 
@@ -304,9 +309,13 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
 
 The hook is sparse on purpose, since the plugin can use the JSON-RPC
 `listinvoices` command to get additional details about this invoice.
-It can return a non-zero `failure_code` field as defined for final
-nodes in [BOLT 4][bolt4-failure-codes], or otherwise an empty object
-to accept the payment.
+
+The plugin can return an empty `result` to allow the payment; if it
+returns an `error` then it will be failed using the generic
+`incorrect_or_unknown_payment_details`.  This can be overridden by
+specifying the `failure_code` field in the `error`'s `data` object.
+See valid failure codes as defined for final nodes in [BOLT
+4][bolt4-failure-codes].
 
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification

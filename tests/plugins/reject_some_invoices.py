@@ -4,7 +4,7 @@
 We just refuse to let them pay invoices with preimages divisible by 16.
 """
 
-from lightning import Plugin
+from lightning import Plugin, PluginError
 
 plugin = Plugin()
 
@@ -18,7 +18,8 @@ def on_payment(payment, plugin):
     if payment['preimage'].endswith('0'):
         # FIXME: Define this!
         WIRE_TEMPORARY_NODE_FAILURE = 0x2002
-        return {'failure_code': WIRE_TEMPORARY_NODE_FAILURE}
+        raise PluginError("Don't like you!",
+                          data={'failure_code': WIRE_TEMPORARY_NODE_FAILURE})
 
     return {}
 
