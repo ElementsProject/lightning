@@ -2488,7 +2488,8 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
 
 void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  const struct htlc_out *out,
-				  enum forward_status state)
+				  enum forward_status state,
+				  enum onion_type failcode)
 {
 	sqlite3_stmt *stmt;
 	stmt = db_prepare(
@@ -2503,13 +2504,27 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		", state"
 		", received_time"
 		", resolved_time"
-		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
+		", failcode"
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_int64(stmt, 1, in->dbid);
-	sqlite3_bind_int64(stmt, 2, out->dbid);
+
+	if(out) {
+		sqlite3_bind_int64(stmt, 2, out->dbid);
+		sqlite3_bind_int64(stmt, 4, out->key.channel->scid->u64);
+		sqlite3_bind_amount_msat(stmt, 6, out->msat);
+	} else {
+		/* FORWARD_LOCAL_FAILED may occur before we get htlc_out */
+		assert(failcode != 0);
+		assert(state == FORWARD_LOCAL_FAILED);
+		sqlite3_bind_null(stmt, 2);
+		sqlite3_bind_null(stmt, 4);
+		sqlite3_bind_null(stmt, 6);
+	}
+
 	sqlite3_bind_int64(stmt, 3, in->key.channel->scid->u64);
-	sqlite3_bind_int64(stmt, 4, out->key.channel->scid->u64);
+
 	sqlite3_bind_amount_msat(stmt, 5, in->msat);
-	sqlite3_bind_amount_msat(stmt, 6, out->msat);
+
 	sqlite3_bind_int(stmt, 7, wallet_forward_status_in_db(state));
 	sqlite3_bind_timeabs(stmt, 8, in->received_time);
 
@@ -2517,6 +2532,13 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		sqlite3_bind_timeabs(stmt, 9, time_now());
 	else
 		sqlite3_bind_null(stmt, 9);
+
+	if(failcode != 0) {
+		assert(state == FORWARD_FAILED || state == FORWARD_LOCAL_FAILED);
+		sqlite3_bind_int(stmt, 10, (int)failcode);
+	} else {
+		sqlite3_bind_null(stmt, 10);
+	}
 
 	db_exec_prepared(w->db, stmt);
 }
