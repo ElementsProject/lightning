@@ -630,6 +630,9 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	 * yourself should go ahead an implement.  Sometimes they're deceptive
 	 * quagmires which will cause you nothing but grief.  You decide! */
 
+	/*~ Christian uses TODO(cdecker) or FIXME(cdecker), but I'm sure he won't
+	 * mind if you fix this for him! */
+
 	/* FIXME: We should cache these. */
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_funding_key(&channel_seed, &funding_pubkey, &funding_privkey);
@@ -645,10 +648,10 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 				   "bad cannounce length %zu",
 				   tal_count(ca));
 
-	/*~ Christian uses TODO(cdecker), but I'm sure he won't mind if you fix
-	 * this for him! */
-	/* TODO(cdecker) Check that this is actually a valid
-	 * channel_announcement */
+	if (fromwire_peektype(ca) != WIRE_CHANNEL_ANNOUNCEMENT)
+		return bad_req_fmt(conn, c, msg_in,
+				   "Invalid channel announcement");
+
 	node_key(&node_pkey, NULL);
 	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
 
