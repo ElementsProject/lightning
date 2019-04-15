@@ -148,6 +148,7 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 {
 	htlc_out_check(hout, __func__);
 	assert(hout->failcode || hout->failuremsg);
+
 	if (hout->am_origin) {
 		payment_failed(hout->key.channel->peer->ld, hout, localfail);
 	} else if (hout->in) {
@@ -374,9 +375,19 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 						  (int)tal_count(failurestr),
 						  (const char *)failurestr);
 			payment_failed(ld, hout, localfail);
-		} else if (hout->in)
+
+		} else if (hout->in) {
 			local_fail_htlc(hout->in, failure_code,
-					hout->key.channel->scid);
+					 hout->key.channel->scid);
+
+			/* here we haven't called connect_htlc_out(),
+			 * so set htlc field with NULL */
+			wallet_forwarded_payment_add(ld->wallet,
+					 hout->in, NULL,
+					 FORWARD_LOCAL_FAILED,
+					 failure_code);
+		}
+
 		/* Prevent hout from being failed twice. */
 		tal_del_destructor(hout, destroy_hout_subd_died);
 		tal_free(hout);
@@ -468,10 +479,15 @@ static void forward_htlc(struct htlc_in *hin,
 	struct amount_msat fee;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next = active_channel_by_id(ld, next_hop, NULL);
+	struct htlc_out *hout = NULL;
 
 	/* Unknown peer, or peer not ready. */
 	if (!next || !next->scid) {
 		local_fail_htlc(hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
+		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
+					 hin, NULL,
+					 FORWARD_LOCAL_FAILED,
+					 hin->failcode);
 		return;
 	}
 
@@ -535,14 +551,26 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
+	hout = tal(tmpctx, struct htlc_out);
 	failcode = send_htlc_out(next, amt_to_forward,
 				 outgoing_cltv_value, &hin->payment_hash,
-				 next_onion, hin, NULL);
+				 next_onion, hin, &hout);
 	if (!failcode)
 		return;
 
+	/* In fact, we didn't get the new htlc_out in these 2 cases */
+	if (failcode == WIRE_UNKNOWN_NEXT_PEER ||
+		failcode == WIRE_TEMPORARY_CHANNEL_FAILURE) {
+		tal_free(hout);
+		hout = NULL;
+	}
+
 fail:
 	local_fail_htlc(hin, failcode, next->scid);
+	wallet_forwarded_payment_add(ld->wallet,
+				 hin, hout,
+				 FORWARD_LOCAL_FAILED,
+				 hin->failcode);
 }
 
 /* Temporary information, while we resolve the next hop */
@@ -570,6 +598,10 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 
 	if (!peer_id) {
 		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
+		wallet_forwarded_payment_add(gr->hin->key.channel->peer->ld->wallet,
+					 gr->hin, NULL,
+					 FORWARD_LOCAL_FAILED,
+					 gr->hin->failcode);
 		tal_free(gr);
 		return;
 	}
@@ -717,7 +749,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	else if (hout->in) {
 		fulfill_htlc(hout->in, preimage);
 		wallet_forwarded_payment_add(ld->wallet, hout->in, hout,
-					     FORWARD_SETTLED);
+					     FORWARD_SETTLED, 0);
 	}
 }
 
@@ -810,7 +842,8 @@ static bool peer_failed_our_htlc(struct channel *channel,
 	htlc_out_check(hout, __func__);
 
 	if (hout->in)
-		wallet_forwarded_payment_add(ld->wallet, hout->in, hout, FORWARD_FAILED);
+		wallet_forwarded_payment_add(ld->wallet, hout->in,
+					 hout, FORWARD_FAILED, hout->failcode);
 
 	return true;
 }
@@ -845,9 +878,14 @@ void onchain_failed_our_htlc(const struct channel *channel,
 					  why);
 		payment_failed(ld, hout, localfail);
 		tal_free(localfail);
-	} else if (hout->in)
+	} else if (hout->in) {
 		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE,
 				hout->key.channel->scid);
+		wallet_forwarded_payment_add(hout->key.channel->peer->ld->wallet,
+					 hout->in, hout,
+					 FORWARD_LOCAL_FAILED,
+					 hout->failcode);
+	}
 }
 
 static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
@@ -967,9 +1005,10 @@ static bool update_out_htlc(struct channel *channel,
 						      channel->dbid,
 						      hout->msat);
 
-		if (hout->in)
+		if (hout->in) {
 			wallet_forwarded_payment_add(ld->wallet, hout->in, hout,
-						     FORWARD_OFFERED);
+						     FORWARD_OFFERED, 0);
+		}
 
 		/* For our own HTLCs, we commit payment to db lazily */
 		if (hout->origin_htlc_id == 0)
@@ -1396,6 +1435,11 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 
 		hin = find_htlc_in(&ld->htlcs_in, channel, changed[i].id);
 		local_fail_htlc(hin, failcodes[i], NULL);
+		// in fact, now we don't know if this htlc is a forward or localpay!
+		wallet_forwarded_payment_add(ld->wallet,
+					 hin, NULL,
+					 FORWARD_LOCAL_FAILED,
+					 hin->failcode);
 	}
 	wallet_channel_save(ld->wallet, channel);
 }
@@ -1870,6 +1914,7 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 				     cur->fee,
 				     "fee", "fee_msat");
 		json_add_string(response, "status", forward_status_name(cur->status));
+
 #ifdef COMPAT_V070
 		/* If a forwarding doesn't have received_time it was created
 		 * before we added the tracking, do not include it here. */
