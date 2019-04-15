@@ -104,7 +104,7 @@ WARN_UNUSED_RESULT bool amount_msat_to_u32(struct amount_msat msat,
 
 /* Programatically initialize from various types */
 void amount_msat_from_u64(struct amount_msat *msat, u64 millisatoshis);
-void amount_msat_from_sat_u64(struct amount_msat *msat, u64 satoshis);
+WARN_UNUSED_RESULT bool amount_msat_from_sat_u64(struct amount_msat *msat, u64 satoshis);
 
 /* Common operation: what is the HTLC fee for given feerate?  Can overflow! */
 WARN_UNUSED_RESULT bool amount_msat_fee(struct amount_msat *fee,
