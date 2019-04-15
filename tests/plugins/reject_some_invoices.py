@@ -18,9 +18,9 @@ def on_payment(payment, plugin):
     if payment['preimage'].endswith('0'):
         # FIXME: Define this!
         WIRE_TEMPORARY_NODE_FAILURE = 0x2002
-        return {'result': {'failure_code': WIRE_TEMPORARY_NODE_FAILURE}}
+        return {'failure_code': WIRE_TEMPORARY_NODE_FAILURE}
 
-    return {'result': {}}
+    return {}
 
 
 plugin.run()

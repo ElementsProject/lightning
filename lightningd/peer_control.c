@@ -705,6 +705,12 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 			      "hook: %s", buffer);
 		}
 
+		/* FIXME: For 0.7.0, hook had nested results! */
+#ifdef COMPAT_V070
+		if (json_get_member(buffer, resulttok, "result"))
+			resulttok = json_get_member(buffer, resulttok, "result");
+#endif /* COMPAT_V070 */
+
 		if (json_tok_streq(buffer, resulttok, "disconnect")) {
 			close(peer_fd);
 			tal_free(payload);

@@ -49,9 +49,8 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 const jsmntok_t *idtok,
 				 struct plugin_hook_request *r)
 {
-	const jsmntok_t *resulttok = json_get_member(buffer, toks, "result");
 	db_begin_transaction(r->db);
-	r->hook->response_cb(r->cb_arg, buffer, resulttok);
+	r->hook->response_cb(r->cb_arg, buffer, toks);
 	db_commit_transaction(r->db);
 	tal_free(r);
 }
