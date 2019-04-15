@@ -2579,7 +2579,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			  ", in_channel_scid"
 			  ", out_channel_scid"
 			  ", f.received_time"
-			  ", f.resolved_time "
+			  ", f.resolved_time"
+			  ", f.failcode "
 			  "FROM forwarded_payments f "
 			  "LEFT JOIN channel_htlcs hin ON (f.in_htlc_id == hin.id)");
 
@@ -2588,7 +2589,14 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		struct forwarding *cur = &results[count];
 		cur->status = sqlite3_column_int(stmt, 0);
 		cur->msat_in = sqlite3_column_amount_msat(stmt, 1);
-		cur->msat_out = sqlite3_column_amount_msat(stmt, 2);
+
+		if (sqlite3_column_type(stmt, 2) != SQLITE_NULL)
+			cur->msat_out = sqlite3_column_amount_msat(stmt, 2);
+		else {
+			assert(cur->status == FORWARD_LOCAL_FAILED);
+			cur->msat_out = AMOUNT_MSAT(0);
+		}
+
 		if (!amount_msat_sub(&cur->fee, cur->msat_in, cur->msat_out)) {
 			log_broken(w->log, "Forwarded in %s less than out %s!",
 				   type_to_string(tmpctx, struct amount_msat,
@@ -2606,9 +2614,16 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		}
 
 		cur->channel_in.u64 = sqlite3_column_int64(stmt, 4);
-		cur->channel_out.u64 = sqlite3_column_int64(stmt, 5);
+
+		if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
+			cur->channel_out.u64 = sqlite3_column_int64(stmt, 5);
+		} else {
+			assert(cur->status == FORWARD_LOCAL_FAILED);
+			cur->channel_out.u64 = 0;
+		}
 
 		cur->received_time = sqlite3_column_timeabs(stmt, 6);
+
 		if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
 			cur->resolved_time = tal(ctx, struct timeabs);
 			*cur->resolved_time = sqlite3_column_timeabs(stmt, 7);
@@ -2616,6 +2631,12 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			cur->resolved_time = NULL;
 		}
 
+		if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
+			assert(cur->status == FORWARD_FAILED || cur->status == FORWARD_LOCAL_FAILED);
+			cur->failcode = sqlite3_column_int(stmt, 8);
+		} else {
+			cur->failcode = 0;
+		}
 	}
 
 	return results;
