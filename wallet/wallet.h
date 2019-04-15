@@ -128,7 +128,8 @@ static inline enum wallet_output_type wallet_output_type_in_db(enum wallet_outpu
 enum forward_status {
 	FORWARD_OFFERED = 0,
 	FORWARD_SETTLED = 1,
-	FORWARD_FAILED = 2
+	FORWARD_FAILED = 2,
+	FORWARD_LOCAL_FAILED = 3
 };
 
 static inline enum forward_status wallet_forward_status_in_db(enum forward_status s)
@@ -143,6 +144,9 @@ static inline enum forward_status wallet_forward_status_in_db(enum forward_statu
 	case FORWARD_FAILED:
 		BUILD_ASSERT(FORWARD_FAILED == 2);
 		return s;
+	case FORWARD_LOCAL_FAILED:
+		BUILD_ASSERT(FORWARD_LOCAL_FAILED == 3);
+		return s;
 	}
 	fatal("%s: %u is invalid", __func__, s);
 }
@@ -156,6 +160,8 @@ static inline const char* forward_status_name(enum forward_status status)
 		return "settled";
 	case FORWARD_FAILED:
 		return "failed";
+	case FORWARD_LOCAL_FAILED:
+		return "local_failed";
 	}
 	abort();
 }
