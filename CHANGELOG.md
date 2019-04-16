@@ -38,6 +38,7 @@ changes.
 - Unannounced local channels were forgotten for routing on restart until reconnection occurred.
 - lightning-cli: arguments containing `"` now succeed, rather than causing JSON errors.
 - protocol: handle lnd sending more messages before `reestablish`; don't fail channel.
+- lightningd: fixed occasional hang on `connect` when peer had sent error.
 
 ### Security
 
