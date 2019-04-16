@@ -225,7 +225,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      &uc->local_funding_pubkey,
 			      NULL,
 			      ld->config.fee_base,
-			      ld->config.fee_per_satoshi);
+			      ld->config.fee_per_satoshi,
+			      NULL);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);

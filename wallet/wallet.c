@@ -685,6 +685,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	ok &= sqlite3_column_pubkey(stmt, 24, &channel_info.old_remote_per_commit);
 	channel_info.feerate_per_kw[LOCAL] = sqlite3_column_int(stmt, 25);
 	channel_info.feerate_per_kw[REMOTE] = sqlite3_column_int(stmt, 26);
+
 	wallet_channel_config_load(w, sqlite3_column_int64(stmt, 4),
 				   &channel_info.their_config);
 
@@ -738,8 +739,8 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   &local_basepoints, &local_funding_pubkey,
 			   future_per_commitment_point,
 			   sqlite3_column_int(stmt, 42),
-			   sqlite3_column_int(stmt, 43));
-
+			   sqlite3_column_int(stmt, 43),
+			   sqlite3_column_arr(tmpctx, stmt, 44, u8));
 	return chan;
 }
 
@@ -764,7 +765,7 @@ static const char *channel_fields =
     /*36*/ "min_possible_feerate, max_possible_feerate, "
     /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max, future_per_commitment_point, "
     /*41*/ "last_sent_commit, "
-    /*42*/ "feerate_base, feerate_ppm";
+    /*42*/ "feerate_base, feerate_ppm, remote_upfront_shutdown_script";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 {
@@ -984,7 +985,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 			  "  msatoshi_to_us_min=?,"
 			  "  msatoshi_to_us_max=?,"
 			  "  feerate_base=?,"
-			  "  feerate_ppm=?"
+			  "  feerate_ppm=?,"
+			  "  remote_upfront_shutdown_script=?"
 			  " WHERE id=?");
 	sqlite3_bind_int64(stmt, 1, chan->their_shachain.id);
 	if (chan->scid)
@@ -1026,7 +1028,13 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_amount_msat(stmt, 25, chan->msat_to_us_max);
 	sqlite3_bind_int(stmt, 26, chan->feerate_base);
 	sqlite3_bind_int(stmt, 27, chan->feerate_ppm);
-	sqlite3_bind_int64(stmt, 28, chan->dbid);
+	if (chan->remote_upfront_shutdown_script)
+		sqlite3_bind_blob(stmt, 28, chan->remote_upfront_shutdown_script,
+				  tal_count(chan->remote_upfront_shutdown_script),
+				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 28);
+	sqlite3_bind_int64(stmt, 29, chan->dbid);
 	db_exec_prepared(w->db, stmt);
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);
