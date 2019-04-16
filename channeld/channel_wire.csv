@@ -62,6 +62,8 @@ channel_init,,reached_announce_depth,bool
 channel_init,,last_remote_secret,struct secret
 channel_init,,lflen,u16
 channel_init,,localfeatures,lflen*u8
+channel_init,,upfront_shutdown_script_len,u16
+channel_init,,upfront_shutdown_script,upfront_shutdown_script_len*u8
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 channel_funding_depth,1002
