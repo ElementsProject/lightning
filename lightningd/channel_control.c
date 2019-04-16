@@ -70,6 +70,14 @@ static void lockin_complete(struct channel *channel)
 	assert(channel->scid);
 	/* We set this once they're locked in. */
 	assert(channel->remote_funding_locked);
+
+	/* We might have already started shutting down */
+	if (channel->state != CHANNELD_AWAITING_LOCKIN) {
+		log_debug(channel->log, "Lockin complete, but state %s",
+			  channel_state_name(channel));
+		return;
+	}
+
 	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
 
 	/* Fees might have changed (and we use IMMEDIATE once we're funded),
