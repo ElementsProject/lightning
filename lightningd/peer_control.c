@@ -418,12 +418,6 @@ void channel_errmsg(struct channel *channel,
 			       err_for_them ? "sent" : "received", desc);
 }
 
-/* Possible outcomes returned by the `connected` hook. */
-enum peer_connected_hook_result {
-	PEER_CONNECTED_CONTINUE,
-	PEER_CONNECTED_DISCONNECT,
-};
-
 struct peer_connected_hook_payload {
 	struct lightningd *ld;
 	struct crypto_state crypto_state;
@@ -432,10 +426,6 @@ struct peer_connected_hook_payload {
 	struct peer *peer;
 	int peer_fd;
 	int gossip_fd;
-};
-
-struct peer_connected_hook_response {
-	enum peer_connected_hook_result result;
 };
 
 static void json_add_htlcs(struct lightningd *ld,
@@ -691,32 +681,10 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_object_end(stream); /* .peer */
 }
 
-static struct peer_connected_hook_response *
-peer_connected_deserialize(const tal_t *ctx, const char *buffer,
-			   const jsmntok_t *toks)
-{
-	const jsmntok_t *resulttok;
-	struct peer_connected_hook_response *resp;
-	resulttok = json_get_member(buffer, toks, "result");
-	if (!resulttok) {
-		return NULL;
-	}
-
-	resp = tal(ctx, struct peer_connected_hook_response);
-	if (json_tok_streq(buffer, resulttok, "continue"))
-		resp->result = PEER_CONNECTED_CONTINUE;
-	else if (json_tok_streq(buffer, resulttok, "disconnect"))
-		resp->result = PEER_CONNECTED_DISCONNECT;
-	else
-		fatal("Plugin returned an invalid response to the connected "
-		      "hook: %s", buffer);
-
-	return resp;
-}
-
 static void
 peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
-		       struct peer_connected_hook_response *response)
+		       const char *buffer,
+		       const jsmntok_t *toks)
 {
 	struct lightningd *ld = payload->ld;
 	struct crypto_state *cs = &payload->crypto_state;
@@ -727,10 +695,23 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 	int peer_fd = payload->peer_fd;
 	u8 *error;
 
-	if (response && response->result == PEER_CONNECTED_DISCONNECT) {
-		close(peer_fd);
-		tal_free(payload);
-		return;
+	/* If we had a hook, interpret result. */
+	if (buffer) {
+		const jsmntok_t *resulttok;
+
+		resulttok = json_get_member(buffer, toks, "result");
+		if (!resulttok) {
+			fatal("Plugin returned an invalid response to the connected "
+			      "hook: %s", buffer);
+		}
+
+		if (json_tok_streq(buffer, resulttok, "disconnect")) {
+			close(peer_fd);
+			tal_free(payload);
+			return;
+		} else if (!json_tok_streq(buffer, resulttok, "continue"))
+			fatal("Plugin returned an invalid response to the connected "
+			      "hook: %s", buffer);
 	}
 
 	if (channel) {
@@ -810,9 +791,7 @@ send_error:
 REGISTER_PLUGIN_HOOK(peer_connected, peer_connected_hook_cb,
 		     struct peer_connected_hook_payload *,
 		     peer_connected_serialize,
-		     struct peer_connected_hook_payload *,
-		     peer_connected_deserialize,
-		     struct peer_connected_hook_response *);
+		     struct peer_connected_hook_payload *);
 
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_died. */
