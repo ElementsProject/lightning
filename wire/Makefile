@@ -34,17 +34,23 @@ extract-bolt-csv: bolt-precheck
 	@echo '#include <wire/onion_defs.h>' > wire/extracted_onion_wire_csv
 	@$(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/04*.md >> wire/extracted_onion_wire_csv
 
-wire/gen_peer_wire.h: $(WIRE_GEN) wire/extracted_peer_wire_csv
-	$(WIRE_GEN) --bolt --header $@ wire_type < wire/gen_peer_wire_csv > $@
+wire/gen_peer_wire_csv: wire/extracted_peer_wire_csv
+	@cp $< $@
 
-wire/gen_peer_wire.c: $(WIRE_GEN) wire/extracted_peer_wire_csv
-	$(WIRE_GEN) --bolt ${@:.c=.h} wire_type < wire/gen_peer_wire_csv > $@
+wire/gen_onion_wire_csv: wire/extracted_onion_wire_csv
+	@cp $< $@
 
-wire/gen_onion_wire.h: $(WIRE_GEN) wire/gen_onion_wire_csv
-	$(WIRE_GEN) --bolt --header $@ onion_type < wire/gen_onion_wire_csv > $@
+wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_GEN)
+	$(WIRE_GEN) --bolt --header $@ wire_type < $< > $@
 
-wire/gen_onion_wire.c: $(WIRE_GEN) wire/gen_onion_wire_csv
-	$(WIRE_GEN) --bolt ${@:.c=.h} onion_type < wire/gen_onion_wire_csv > $@
+wire/gen_peer_wire.c: wire/gen_peer_wire_csv $(WIRE_GEN)
+	$(WIRE_GEN) --bolt ${@:.c=.h} wire_type < $< > $@
+
+wire/gen_onion_wire.h: wire/gen_onion_wire_csv $(WIRE_GEN)
+	$(WIRE_GEN) --bolt --header $@ onion_type < $< > $@
+
+wire/gen_onion_wire.c: wire/gen_onion_wire_csv $(WIRE_GEN)
+	$(WIRE_GEN) --bolt ${@:.c=.h} onion_type < $< > $@
 
 check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS_NOGEN:%=check-hdr-include-order/%)
 
@@ -62,6 +68,6 @@ wire-maintainer-clean:
 wire-all: $(WIRE_OBJS) $(WIRE_ONION_OBJS)
 
 wire-clean:
-	$(RM) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_ONION_SRC) $(WIRE_GEN_HEADERS)
+	$(RM) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_ONION_SRC) $(WIRE_GEN_HEADERS) wire/gen_*_wire_csv
 
 include wire/test/Makefile
