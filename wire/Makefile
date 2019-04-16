@@ -34,11 +34,31 @@ extract-bolt-csv: bolt-precheck
 	@echo '#include <wire/onion_defs.h>' > wire/extracted_onion_wire_csv
 	@$(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/04*.md >> wire/extracted_onion_wire_csv
 
+# Explicit command to add diff of BOLT CSV's to an experimental_csv file
+extract-experimental-bolt-csv:
+	@$(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/extracted_peer_wire_csv - >>wire/extracted_peer_experimental_csv | if [ $$? -lt 0 ];then exit 1;fi
+	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/extracted_onion_wire_csv - >>wire/extracted_onion_experimental_csv | if [ $$? -lt 0 ];then exit 1;fi
+
+wire/extracted_peer_experimental_csv:
+	@touch $@
+
+wire/extracted_onion_experimental_csv:
+	@touch $@
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+wire/gen_peer_wire_csv: wire/extracted_peer_experimental_csv wire/extracted_peer_wire_csv
+	@patch --silent -o $@ wire/extracted_peer_wire_csv $<
+
+wire/gen_onion_wire_csv: wire/extracted_onion_experimental_csv wire/extracted_onion_wire_csv
+	@patch --silent -o $@ wire/extracted_onion_wire_csv $<
+
+else # /* EXPERIMENTAL_FEATURES */
 wire/gen_peer_wire_csv: wire/extracted_peer_wire_csv
 	@cp $< $@
 
 wire/gen_onion_wire_csv: wire/extracted_onion_wire_csv
 	@cp $< $@
+endif
 
 wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_GEN)
 	$(WIRE_GEN) --bolt --header $@ wire_type < $< > $@
@@ -63,7 +83,7 @@ clean: wire-clean
 maintainer-clean: wire-maintainer-clean
 
 wire-maintainer-clean:
-	$(RM) wire/gen_*_csv
+	$(RM) wire/gen_*_csv wire/extracted_*_experimental_csv
 
 wire-all: $(WIRE_OBJS) $(WIRE_ONION_OBJS)
 
