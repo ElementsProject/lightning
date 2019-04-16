@@ -53,7 +53,14 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 struct plugin_hook_request *r)
 {
 	const jsmntok_t *resulttok = json_get_member(buffer, toks, "result");
-	void *response = r->hook->deserialize_response(r, buffer, resulttok);
+	void *response;
+
+	if (!resulttok)
+		fatal("Plugin for %s returned non-result response %.*s",
+		      r->hook->name,
+		      toks->end - toks->start, buffer + toks->end);
+
+	response = r->hook->deserialize_response(r, buffer, resulttok);
 	db_begin_transaction(r->db);
 	r->hook->response_cb(r->cb_arg, response);
 	db_commit_transaction(r->db);
