@@ -706,6 +706,15 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 		}
 
 		if (json_tok_streq(buffer, resulttok, "disconnect")) {
+			const jsmntok_t *m = json_get_member(buffer, toks,
+							     "error_message");
+			if (m) {
+				error = towire_errorfmt(tmpctx, NULL,
+							"%.*s",
+							m->end - m->start,
+							buffer + m->start);
+				goto send_error;
+			}
 			close(peer_fd);
 			tal_free(payload);
 			return;
