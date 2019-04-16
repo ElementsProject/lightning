@@ -141,22 +141,16 @@ static bool hook_gives_failcode(const char *buffer,
 				const jsmntok_t *toks,
 				enum onion_type *failcode)
 {
-	const jsmntok_t *resulttok, *t;
+	const jsmntok_t *t;
 	unsigned int val;
 
 	/* No plugin registered on hook at all? */
 	if (!buffer)
 		return false;
 
-	resulttok = json_get_member(buffer, toks, "result");
-	if (!resulttok)
-		fatal("Invalid invoice_payment_hook response: %.*s",
-		      toks[0].end - toks[1].start, buffer);
-
-	t = json_get_member(buffer, resulttok, "failure_code");
+	t = json_get_member(buffer, toks, "failure_code");
 	if (!t)
 		return false;
-
 
 	if (!json_to_number(buffer, t, &val))
 		fatal("Invalid invoice_payment_hook failure_code: %.*s",
