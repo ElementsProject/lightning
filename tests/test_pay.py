@@ -278,8 +278,6 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     assert len(payments) == 1 and payments[0]['status'] == 'complete'
     assert len(invoices) == 1 and invoices[0]['status'] == 'paid'
 
-    # FIXME: We should re-add pre-announced routes on startup!
-    bitcoind.generate_block(5)
     l1.wait_channel_active(chanid)
 
     # A duplicate should succeed immediately (nop) and return correct preimage.
