@@ -24,6 +24,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
 #include <wire/wire.h>
@@ -709,18 +710,144 @@ static void channel_config(struct lightningd *ld,
 	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
 }
 
+struct openchannel_hook_payload {
+	struct subd *openingd;
+	struct amount_sat funding_satoshis;
+	struct amount_msat push_msat;
+	struct amount_sat dust_limit_satoshis;
+	struct amount_msat max_htlc_value_in_flight_msat;
+	struct amount_sat channel_reserve_satoshis;
+	struct amount_msat htlc_minimum_msat;
+	u32 feerate_per_kw;
+	u16 to_self_delay;
+	u16 max_accepted_htlcs;
+	u8 channel_flags;
+	u8 *shutdown_scriptpubkey;
+};
+
+static void
+openchannel_hook_serialize(struct openchannel_hook_payload *payload,
+		       struct json_stream *stream)
+{
+	struct uncommitted_channel *uc = payload->openingd->channel;
+	json_object_start(stream, "openchannel");
+	json_add_node_id(stream, "id", &uc->peer->id);
+	json_add_amount_sat(stream, "funding_satoshis",
+			    payload->funding_satoshis);
+	json_add_amount_msat(stream, "push_msat", payload->push_msat);
+	json_add_amount_sat(stream, "dust_limit_satoshis",
+			    payload->dust_limit_satoshis);
+	json_add_amount_msat(stream, "max_htlc_value_in_flight_msat",
+			     payload->max_htlc_value_in_flight_msat);
+	json_add_amount_sat(stream, "channel_reserve_satoshis",
+			    payload->channel_reserve_satoshis);
+	json_add_amount_msat(stream, "htlc_minimum_msat",
+			     payload->htlc_minimum_msat);
+	json_add_num(stream, "feerate_per_kw", payload->feerate_per_kw);
+	json_add_num(stream, "to_self_delay", payload->to_self_delay);
+	json_add_num(stream, "max_accepted_htlcs", payload->max_accepted_htlcs);
+	json_add_num(stream, "channel_flags", payload->channel_flags);
+	if (tal_count(payload->shutdown_scriptpubkey) != 0)
+		json_add_hex(stream, "shutdown_scriptpubkey",
+			     payload->shutdown_scriptpubkey,
+			     tal_count(payload->shutdown_scriptpubkey));
+	json_object_end(stream); /* .openchannel */
+}
+
+/* openingd dies?  Remove openingd ptr from payload */
+static void openchannel_payload_remove_openingd(struct subd *openingd,
+					    struct openchannel_hook_payload *payload)
+{
+	assert(payload->openingd == openingd);
+	payload->openingd = NULL;
+}
+
+static void openchannel_hook_cb(struct openchannel_hook_payload *payload,
+			    const char *buffer,
+			    const jsmntok_t *toks)
+{
+	struct subd *openingd = payload->openingd;
+	const char *errmsg = NULL;
+
+	/* We want to free this, whatever happens. */
+	tal_steal(tmpctx, payload);
+
+	/* If openingd went away, don't send it anything! */
+	if (!openingd)
+		return;
+
+	tal_del_destructor2(openingd, openchannel_payload_remove_openingd, payload);
+
+	/* If we had a hook, check what it says */
+	if (buffer) {
+		const jsmntok_t *t = json_get_member(buffer, toks, "result");
+		if (!t)
+			fatal("Plugin returned an invalid response to the"
+			      " openchannel hook: %.*s",
+			      toks[0].end - toks[0].start,
+			      buffer + toks[0].start);
+
+		if (json_tok_streq(buffer, t, "reject")) {
+			t = json_get_member(buffer, toks, "error_message");
+			if (t)
+				errmsg = json_strdup(tmpctx, buffer, t);
+			else
+				errmsg = "";
+			log_debug(openingd->ld->log,
+				  "openchannel_hook_cb says '%s'",
+				  errmsg);
+		} else if (!json_tok_streq(buffer, t, "continue"))
+			fatal("Plugin returned an invalid result for the "
+			      "openchannel hook: %.*s",
+			      t->end - t->start, buffer + t->start);
+	}
+
+	subd_send_msg(openingd,
+		      take(towire_opening_got_offer_reply(NULL, errmsg)));
+}
+
+REGISTER_PLUGIN_HOOK(openchannel,
+		     openchannel_hook_cb,
+		     struct openchannel_hook_payload *,
+		     openchannel_hook_serialize,
+		     struct openchannel_hook_payload *);
+
 static void opening_got_offer(struct subd *openingd,
 			      const u8 *msg,
 			      struct uncommitted_channel *uc)
 {
-	const char *reason = NULL;
+	struct openchannel_hook_payload *payload;
 
 	/* Tell them they can't open, if we already have open channel. */
-	if (peer_active_channel(uc->peer))
-		reason = "Already have active channel";
+	if (peer_active_channel(uc->peer)) {
+		subd_send_msg(openingd,
+			      take(towire_opening_got_offer_reply(NULL,
+					  "Already have active channel")));
+		return;
+	}
 
-	subd_send_msg(openingd,
-		      take(towire_opening_got_offer_reply(NULL, reason)));
+	payload = tal(openingd->ld, struct openchannel_hook_payload);
+	payload->openingd = openingd;
+	if (!fromwire_opening_got_offer(payload, msg,
+					&payload->funding_satoshis,
+					&payload->push_msat,
+					&payload->dust_limit_satoshis,
+					&payload->max_htlc_value_in_flight_msat,
+					&payload->channel_reserve_satoshis,
+					&payload->htlc_minimum_msat,
+					&payload->feerate_per_kw,
+					&payload->to_self_delay,
+					&payload->max_accepted_htlcs,
+					&payload->channel_flags,
+					&payload->shutdown_scriptpubkey)) {
+		log_broken(openingd->log, "Malformed opening_got_offer %s",
+			   tal_hex(tmpctx, msg));
+		tal_free(openingd);
+		return;
+	}
+
+	tal_add_destructor2(openingd, openchannel_payload_remove_openingd, payload);
+	plugin_hook_call_openchannel(openingd->ld, payload, payload);
 }
 
 static unsigned int openingd_msg(struct subd *openingd,
