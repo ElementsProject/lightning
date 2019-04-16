@@ -44,6 +44,13 @@ uint64_t pseudorand_u64(void)
 	return isaac64_next_uint64(&isaac64);
 }
 
+double pseudorand_double(void)
+{
+	init_if_needed();
+
+	return isaac64_next_double(&isaac64);
+}
+
 const struct siphash_seed *siphash_seed(void)
 {
 	init_if_needed();
