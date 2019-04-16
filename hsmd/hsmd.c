@@ -603,6 +603,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	/* Once we have read the init message we know which params the master
 	 * will use */
 	c->chainparams = chainparams_by_chainhash(&chain_hash);
+	is_elements = c->chainparams->is_elements;
+
 	maybe_create_new_hsm();
 	load_hsm();
 
