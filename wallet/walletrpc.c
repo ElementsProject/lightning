@@ -460,8 +460,8 @@ static struct command_result *json_listfunds(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_txid(response, "txid", &utxos[i]->txid);
 		json_add_num(response, "output", utxos[i]->outnum);
-		json_add_amount_sat(response, utxos[i]->amount,
-				    "value", "amount_msat");
+		json_add_amount_sat_compat(response, utxos[i]->amount,
+					   "value", "amount_msat");
 
 		/* @close_info is for outputs that are not yet claimable */
 		if (utxos[i]->close_info == NULL) {
@@ -506,11 +506,13 @@ static struct command_result *json_listfunds(struct command *cmd,
 							  "short_channel_id",
 							  c->scid);
 
-			json_add_amount_sat(response,
-					    amount_msat_to_sat_round_down(c->our_msat),
-					    "channel_sat", "our_amount_msat");
-			json_add_amount_sat(response, c->funding,
-					    "channel_total_sat", "amount_msat");
+			json_add_amount_sat_compat(response,
+						   amount_msat_to_sat_round_down(c->our_msat),
+						   "channel_sat",
+						   "our_amount_msat");
+			json_add_amount_sat_compat(response, c->funding,
+						   "channel_total_sat",
+						   "amount_msat");
 			json_add_txid(response, "funding_txid",
 				      &c->funding_txid);
 			json_object_end(response);

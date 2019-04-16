@@ -131,10 +131,10 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	/* These should never fail. */
 	if (amount_sat_to_msat(&total, uc->fc->wtx.amount)
 	    && amount_msat_sub(&ours, total, uc->fc->push)) {
-		json_add_amount_msat(response, ours,
-			     "msatoshi_to_us", "to_us_msat");
-		json_add_amount_msat(response, total,
-				     "msatoshi_total", "total_msat");
+		json_add_amount_msat_compat(response, ours,
+					    "msatoshi_to_us", "to_us_msat");
+		json_add_amount_msat_compat(response, total,
+					    "msatoshi_total", "total_msat");
 	}
 	json_object_end(response);
 }

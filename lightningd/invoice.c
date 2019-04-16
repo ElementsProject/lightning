@@ -51,13 +51,14 @@ static void json_add_invoice(struct json_stream *response,
 	json_add_string(response, "bolt11", inv->bolt11);
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
 	if (inv->msat)
-		json_add_amount_msat(response, *inv->msat,
-				     "msatoshi", "amount_msat");
+		json_add_amount_msat_compat(response, *inv->msat,
+					    "msatoshi", "amount_msat");
 	json_add_string(response, "status", invoice_status_str(inv));
 	if (inv->state == PAID) {
 		json_add_u64(response, "pay_index", inv->pay_index);
-		json_add_amount_msat(response, inv->received,
-				     "msatoshi_received", "amount_received_msat");
+		json_add_amount_msat_compat(response, inv->received,
+					    "msatoshi_received",
+					    "amount_received_msat");
 		json_add_u64(response, "paid_at", inv->paid_timestamp);
 	}
 
@@ -1035,8 +1036,8 @@ static struct command_result *json_decodepay(struct command *cmd,
 	json_add_u64(response, "expiry", b11->expiry);
 	json_add_node_id(response, "payee", &b11->receiver_id);
         if (b11->msat)
-                json_add_amount_msat(response, *b11->msat,
-				     "msatoshi", "amount_msat");
+                json_add_amount_msat_compat(response, *b11->msat,
+					    "msatoshi", "amount_msat");
         if (b11->description) {
 		struct json_escaped *esc = json_escape(NULL, b11->description);
                 json_add_escaped_string(response, "description", take(esc));

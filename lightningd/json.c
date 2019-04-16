@@ -33,7 +33,7 @@ json_add_route_hop(struct json_stream *r, char const *n,
 	json_add_short_channel_id(r, "channel",
 				  &h->channel_id);
 	json_add_num(r, "direction", h->direction);
-	json_add_amount_msat(r, h->amount, "msatoshi", "amount_msat");
+	json_add_amount_msat_compat(r, h->amount, "msatoshi", "amount_msat");
 	json_add_num(r, "delay", h->delay);
 	json_object_end(r);
 }
@@ -347,23 +347,37 @@ void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 		tal_free(esc);
 }
 
-void json_add_amount_msat(struct json_stream *result,
-			  struct amount_msat msat,
-			  const char *rawfieldname,
-			  const char *msatfieldname)
+void json_add_amount_msat_compat(struct json_stream *result,
+				 struct amount_msat msat,
+				 const char *rawfieldname,
+				 const char *msatfieldname)
 {
 	json_add_u64(result, rawfieldname, msat.millisatoshis); /* Raw: low-level helper */
+	json_add_amount_msat(result, msatfieldname, msat);
+}
+
+void json_add_amount_msat(struct json_stream *result,
+			  const char *msatfieldname,
+			  struct amount_msat msat)
+{
 	json_add_member(result, msatfieldname, "\"%s\"",
 			type_to_string(tmpctx, struct amount_msat, &msat));
 }
 
+void json_add_amount_sat_compat(struct json_stream *result,
+				struct amount_sat sat,
+				const char *rawfieldname,
+				const char *msatfieldname)
+{
+	json_add_u64(result, rawfieldname, sat.satoshis); /* Raw: low-level helper */
+	json_add_amount_sat(result, msatfieldname, sat);
+}
+
 void json_add_amount_sat(struct json_stream *result,
-			 struct amount_sat sat,
-			 const char *rawfieldname,
-			 const char *msatfieldname)
+			 const char *msatfieldname,
+			 struct amount_sat sat)
 {
 	struct amount_msat msat;
-	json_add_u64(result, rawfieldname, sat.satoshis); /* Raw: low-level helper */
 	if (amount_sat_to_msat(&msat, sat))
 		json_add_member(result, msatfieldname, "\"%s\"",
 				type_to_string(tmpctx, struct amount_msat, &msat));

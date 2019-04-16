@@ -378,8 +378,8 @@ static void json_add_halfchan(struct json_stream *response,
 	json_add_short_channel_id(response, "short_channel_id",
 				  &e->short_channel_id);
 	json_add_bool(response, "public", e->public);
-	json_add_amount_sat(response, e->sat,
-			    "satoshis", "amount_msat");
+	json_add_amount_sat_compat(response, e->sat,
+				   "satoshis", "amount_msat");
 	json_add_num(response, "message_flags", he->message_flags);
 	json_add_num(response, "channel_flags", he->channel_flags);
 	json_add_bool(response, "active",
