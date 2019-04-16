@@ -347,9 +347,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
 { fprintf(stderr, "onion_type_name called!\n"); abort(); }
-/* Generated stub for opening_peer_no_active_channels */
-void opening_peer_no_active_channels(struct peer *peer UNNEEDED)
-{ fprintf(stderr, "opening_peer_no_active_channels called!\n"); abort(); }
 /* Generated stub for outpointfilter_add */
 void outpointfilter_add(struct outpointfilter *of UNNEEDED,
 			const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)

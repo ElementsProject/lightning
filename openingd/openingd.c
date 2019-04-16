@@ -100,12 +100,6 @@ struct state {
 	 * as initial channels never have HTLCs. */
 	struct channel *channel;
 
-	/*~ We only allow one active channel at a time per peer.  Otherwise
-	 * all our per-peer daemons would have to handle multiple channels,
-	 * or we would need some other daemon to demux the messages.
-	 * Thus, lightningd tells is if/when there's no active channel. */
-	bool can_accept_channel;
-
 	/* Which chain we're on, so we can check/set `chain_hash` fields */
 	const struct chainparams *chainparams;
 };
@@ -961,16 +955,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			    "Bad open_channel %s",
 			    tal_hex(open_channel_msg, open_channel_msg));
 
-	/* We can't handle talking about more than one channel at once. */
-	if (!state->can_accept_channel) {
-		u8 *errmsg;
-		errmsg = towire_errorfmt(NULL, &state->channel_id,
-					 "Already have active channel");
-
-		sync_crypto_write(&state->cs, PEER_FD, take(errmsg));
-		return NULL;
-	}
-
 	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if:
@@ -1008,7 +992,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (amount_msat_greater_sat(state->push_msat, state->funding)) {
 		peer_failed(&state->cs,
 			    &state->channel_id,
-			    "Our push_msat %s"
+			    "Their push_msat %s"
 			    " would be too large for funding_satoshis %s",
 			    type_to_string(tmpctx, struct amount_msat,
 					   &state->push_msat),
@@ -1076,6 +1060,34 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* These checks are the same whether we're funder or fundee... */
 	if (!check_config_bounds(state, &state->remoteconf, false))
 		return NULL;
+
+	/* Check with lightningd that we can accept this?  In particular,
+	 * if we have an existing channel, we don't support it. */
+	msg = towire_opening_got_offer(NULL,
+				       state->funding,
+				       state->push_msat,
+				       state->remoteconf.dust_limit,
+				       state->remoteconf.max_htlc_value_in_flight,
+				       state->remoteconf.channel_reserve,
+				       state->remoteconf.htlc_minimum,
+				       state->feerate_per_kw,
+				       state->remoteconf.to_self_delay,
+				       state->remoteconf.max_accepted_htlcs,
+				       channel_flags,
+				       state->remote_upfront_shutdown_script);
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+
+	if (!fromwire_opening_got_offer_reply(tmpctx, msg, &err_reason))
+		master_badmsg(WIRE_OPENING_GOT_OFFER_REPLY, msg);
+
+	/* If they give us a reason to reject, do so. */
+	if (err_reason) {
+		u8 *errmsg = towire_errorfmt(NULL, &state->channel_id,
+					     "%s", err_reason);
+		sync_crypto_write(&state->cs, PEER_FD, take(errmsg));
+		return NULL;
+	}
 
 	/* OK, we accept! */
 	msg = towire_accept_channel_option_upfront_shutdown_script(NULL, &state->channel_id,
@@ -1412,12 +1424,6 @@ static u8 *handle_master_in(struct state *state)
 				     take(utxos), &bip32_base);
 		return msg;
 
-	case WIRE_OPENING_CAN_ACCEPT_CHANNEL:
-		if (!fromwire_opening_can_accept_channel(msg))
-			master_badmsg(WIRE_OPENING_CAN_ACCEPT_CHANNEL, msg);
-		state->can_accept_channel = true;
-		return NULL;
-
 	case WIRE_OPENING_DEV_MEMLEAK:
 #if DEVELOPER
 		handle_dev_memleak(state, msg);
@@ -1428,6 +1434,8 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENING_FUNDER_REPLY:
 	case WIRE_OPENING_FUNDEE:
 	case WIRE_OPENING_FUNDER_FAILED:
+	case WIRE_OPENING_GOT_OFFER:
+	case WIRE_OPENING_GOT_OFFER_REPLY:
 		break;
 	}
 
@@ -1463,7 +1471,6 @@ int main(int argc, char *argv[])
 				   &state->our_funding_pubkey,
 				   &state->minimum_depth,
 				   &state->min_feerate, &state->max_feerate,
-				   &state->can_accept_channel,
 				   &state->localfeatures,
 				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
