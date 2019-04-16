@@ -388,8 +388,6 @@ void channel_errmsg(struct channel *channel,
 					     err_for_them,
 					     tal_count(err_for_them), 0);
 
-	/* Make sure channel_fail_permanent doesn't tell connectd we died! */
-	channel->connected = false;
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
 
 	/* BOLT #1:
