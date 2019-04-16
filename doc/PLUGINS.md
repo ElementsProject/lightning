@@ -268,6 +268,12 @@ gossiped list of known addresses. In particular this means that the port for
 incoming connections is an ephemeral port, that may not be available for
 reconnections.
 
+The returned result must contain a `result` member which is either
+the string `disconnect` or `continue`.  If `disconnect` and
+there's a member `error_message`, that member is sent to the peer
+before disconnection.
+
+
 #### `db_write`
 
 This hook is called whenever a change is about to be committed to the database.

@@ -164,6 +164,11 @@ def test_plugin_connected_hook(node_factory):
     l3.connect(l1)
     l1.daemon.wait_for_log(r"{} is in reject list".format(l3.info['id']))
 
+    # FIXME: this error occurs *after* connection, so we connect then drop.
+    l3.daemon.wait_for_log(r"lightning_openingd-{} chan #1: peer_in WIRE_ERROR"
+                           .format(l1.info['id']))
+    l3.daemon.wait_for_log(r"You are in reject list")
+
     peer = l1.rpc.listpeers(l3.info['id'])['peers']
     assert(peer == [] or not peer[0]['connected'])
 
