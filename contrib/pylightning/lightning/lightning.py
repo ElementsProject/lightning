@@ -34,12 +34,15 @@ class Millisatoshi:
                 self.millisatoshis = Decimal(v[0:-3]) * 1000
             elif v.endswith("btc"):
                 self.millisatoshis = Decimal(v[0:-3]) * 1000 * 10**8
+            else:
+                raise TypeError("Millisatoshi must be string with msat/sat/btc suffix or int")
             if self.millisatoshis != int(self.millisatoshis):
                 raise ValueError("Millisatoshi must be a whole number")
+            self.millisatoshis = int(self.millisatoshis)
         elif isinstance(v, Millisatoshi):
             self.millisatoshis = v.millisatoshis
         elif int(v) == v:
-            self.millisatoshis = v
+            self.millisatoshis = int(v)
         else:
             raise TypeError("Millisatoshi must be string with msat/sat/btc suffix or int")
 
