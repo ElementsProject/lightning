@@ -31,13 +31,10 @@
  * - `serialize_payload` which takes a payload of type `payload_type`
  *   and serializes it into the given `json_stream`. `
  *
- * - `deserialize_response` takes a `json_stream` and parses it into a
- *   new struct of type `response_type`,
- *
- * - `response_cb` is called once the plugin has responded and the
- *   response has been parsed by `deserialize_response`. In addition
- *   an arbitrary additional argument of type `cb_arg_type` can be
- *   passed along that may contain any additional context necessary.
+ * - `response_cb` is called once the plugin has responded (or with
+ *   buffer == NULL if there's no plugin).  In addition an arbitrary
+ *   additional argument of type `cb_arg_type` can be passed along
+ *   that may contain any additional context necessary.
  *
  *
  * To make hook invocations easier, each hook registered with
@@ -49,10 +46,8 @@
 
 struct plugin_hook {
 	const char *name;
-	void (*response_cb)(void *arg, void *response);
+	void (*response_cb)(void *arg, const char *buffer, const jsmntok_t *toks);
 	void (*serialize_payload)(void *src, struct json_stream *dest);
-	void *(*deserialize_response)(const tal_t *, const char *buffer,
-				      const jsmntok_t *toks);
 
 	/* Which plugin has registered this hook? */
 	struct plugin *plugin;
@@ -90,21 +85,16 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
  * an arbitrary extra argument used to maintain context.
  */
 #define REGISTER_PLUGIN_HOOK(name, response_cb, response_cb_arg_type,          \
-			     serialize_payload, payload_type,                  \
-			     deserialize_response, response_type)              \
+			     serialize_payload, payload_type)                  \
 	struct plugin_hook name##_hook_gen = {                                 \
 	    stringify(name),                                                   \
-	    typesafe_cb_cast(void (*)(void *, void *),                         \
-			     void (*)(response_cb_arg_type, response_type),    \
+	    typesafe_cb_cast(void (*)(void *, const char *, const jsmntok_t *),\
+			     void (*)(response_cb_arg_type,		       \
+				      const char *, const jsmntok_t *),	       \
 			     response_cb),                                     \
 	    typesafe_cb_cast(void (*)(void *, struct json_stream *),           \
 			     void (*)(payload_type, struct json_stream *),     \
 			     serialize_payload),                               \
-	    typesafe_cb_cast(                                                  \
-		void *(*)(const tal_t *, const char *, const jsmntok_t *),     \
-		response_type (*)(const tal_t *, const char *,                 \
-				  const jsmntok_t *),                          \
-		deserialize_response),                                         \
 	    NULL, /* .plugin */                                                \
 	};                                                                     \
 	AUTODATA(hooks, &name##_hook_gen);                                     \

@@ -129,36 +129,6 @@ invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 	json_object_end(stream); /* .payment */
 }
 
-/* We cheat and return 0 (not a valid onion_type) for "OK" */
-static enum onion_type
-invoice_payment_deserialize(const tal_t *ctx, const char *buffer,
-			    const jsmntok_t *toks)
-{
-	const jsmntok_t *resulttok, *t;
-	unsigned int val;
-
-	resulttok = json_get_member(buffer, toks, "result");
-	if (!resulttok)
-		fatal("Invalid invoice_payment_hook response: %.*s",
-		      toks[0].end - toks[1].start, buffer);
-
-	t = json_get_member(buffer, resulttok, "failure_code");
-	if (!t)
-		return 0;
-
-	if (!json_to_number(buffer, t, &val))
-		fatal("Invalid invoice_payment_hook failure_code: %.*s",
-		      toks[0].end - toks[1].start, buffer);
-
-	/* UPDATE isn't valid for final nodes to return, and I think we
-	 * assert elsewhere that we don't do this! */
-	if (val & UPDATE)
-		fatal("Invalid invoice_payment_hook UPDATE failure_code: %.*s",
-		      toks[0].end - toks[1].start, buffer);
-
-	return val;
-}
-
 /* Peer dies?  Remove hin ptr from payload so we know to ignore plugin return */
 static void invoice_payload_remove_hin(struct htlc_in *hin,
 				       struct invoice_payment_hook_payload *payload)
@@ -167,12 +137,48 @@ static void invoice_payload_remove_hin(struct htlc_in *hin,
 	payload->hin = NULL;
 }
 
+static bool hook_gives_failcode(const char *buffer,
+				const jsmntok_t *toks,
+				enum onion_type *failcode)
+{
+	const jsmntok_t *resulttok, *t;
+	unsigned int val;
+
+	/* No plugin registered on hook at all? */
+	if (!buffer)
+		return false;
+
+	resulttok = json_get_member(buffer, toks, "result");
+	if (!resulttok)
+		fatal("Invalid invoice_payment_hook response: %.*s",
+		      toks[0].end - toks[1].start, buffer);
+
+	t = json_get_member(buffer, resulttok, "failure_code");
+	if (!t)
+		return false;
+
+
+	if (!json_to_number(buffer, t, &val))
+		fatal("Invalid invoice_payment_hook failure_code: %.*s",
+		      toks[0].end - toks[1].start, buffer);
+
+	/* UPDATE isn't valid for final nodes to return, and I think
+	 * we assert elsewhere that we don't do this! */
+	if (val & UPDATE)
+		fatal("Invalid invoice_payment_hook UPDATE failure_code: %.*s",
+		      toks[0].end - toks[1].start, buffer);
+	*failcode = val;
+	return true;
+}
+
 static void
 invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
-			enum onion_type failcode)
+			const char *buffer,
+			const jsmntok_t *toks)
 {
 	struct lightningd *ld = payload->ld;
 	struct invoice invoice;
+	enum onion_type failcode;
 
 	tal_del_destructor2(payload->hin, invoice_payload_remove_hin, payload);
 	/* We want to free this, whatever happens. */
@@ -193,7 +199,8 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 		return;
 	}
 
-	if (failcode != 0) {
+	/* Did we have a hook result? */
+	if (hook_gives_failcode(buffer, toks, &failcode)) {
 		fail_htlc(payload->hin, failcode);
 		return;
 	}
@@ -209,9 +216,7 @@ REGISTER_PLUGIN_HOOK(invoice_payment,
 		     invoice_payment_hook_cb,
 		     struct invoice_payment_hook_payload *,
 		     invoice_payment_serialize,
-		     struct invoice_payment_hook_payload *,
-		     invoice_payment_deserialize,
-		     enum onion_type);
+		     struct invoice_payment_hook_payload *);
 
 void invoice_try_pay(struct lightningd *ld,
 		     struct htlc_in *hin,
