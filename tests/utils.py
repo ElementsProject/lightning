@@ -390,8 +390,11 @@ class BitcoinD(TailableProc):
 
 class ElementsD(BitcoinD):
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
-        del BITCOIND_CONFIG['regtest']
-        BITCOIND_CONFIG['chain']='liquid-regtest'
+        config = BITCOIND_CONFIG.copy()
+        if 'regtest' in config:
+            del config['regtest']
+
+        config['chain'] = 'liquid-regtest'
         BitcoinD.__init__(self, bitcoin_dir, rpcport)
 
         self.cmd_line = [
@@ -405,9 +408,9 @@ class ElementsD(BitcoinD):
             '-con_blocksubsidy=5000000000',
         ]
         conf_file = os.path.join(bitcoin_dir, 'elements.conf')
-        BITCOIND_CONFIG['rpcport'] = self.rpcport
+        config['rpcport'] = self.rpcport
         BITCOIND_REGTEST = {'rpcport': self.rpcport}
-        write_config(conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST, section_name='liquid-regtest')
+        write_config(conf_file, config, BITCOIND_REGTEST, section_name='liquid-regtest')
         self.conf_file = conf_file
         self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
         self.prefix = 'elementsd'
