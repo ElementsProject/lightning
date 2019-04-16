@@ -157,6 +157,9 @@ struct peer {
 
 	/* Additional confirmations need for local lockin. */
 	u32 depth_togo;
+
+	/* Empty commitments.  Spec violation, but a minor one. */
+	u64 last_empty_commitment;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -1344,9 +1347,13 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 		 *   - MUST NOT send a `commitment_signed` message that does not
 		 *     include any updates.
 		 */
-		peer_failed(&peer->cs,
-			    &peer->channel_id,
-			    "commit_sig with no changes");
+		status_trace("Oh hi LND! Empty commitment at #%"PRIu64,
+			     peer->next_index[LOCAL]);
+		if (peer->last_empty_commitment == peer->next_index[LOCAL] - 1)
+			peer_failed(&peer->cs,
+				    &peer->channel_id,
+				    "commit_sig with no changes (again!)");
+		peer->last_empty_commitment = peer->next_index[LOCAL];
 	}
 
 	/* We were supposed to check this was affordable as we go. */
@@ -2967,6 +2974,7 @@ int main(int argc, char *argv[])
 	peer->last_update_timestamp = 0;
 	/* We actually received it in the previous daemon, but near enough */
 	peer->last_recv = time_now();
+	peer->last_empty_commitment = 0;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
