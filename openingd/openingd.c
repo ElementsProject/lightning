@@ -18,6 +18,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
+#include <common/features.h>
 #include <common/funding_tx.h>
 #include <common/gen_peer_status_wire.h>
 #include <common/initial_channel.h>
@@ -58,6 +59,9 @@ struct state {
 	 * featured in BOLT #8) */
 	struct crypto_state cs;
 
+	/* Features they offered */
+	u8 *localfeatures;
+
 	/* Constraints on a channel they open. */
 	u32 minimum_depth;
 	u32 min_feerate, max_feerate;
@@ -84,6 +88,8 @@ struct state {
 	u32 feerate_per_kw;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
+	/* If set, this is the scriptpubkey they *must* close with */
+	u8 *remote_upfront_shutdown_script;
 
 	/* This is a cluster of fields in open_channel and accept_channel which
 	 * indicate the restrictions each side places on the channel. */
@@ -481,8 +487,19 @@ static u8 *funder_channel(struct state *state,
 			      "push-msat must be < %s",
 			      type_to_string(tmpctx, struct amount_sat,
 					     &state->funding));
-
-	msg = towire_open_channel(NULL,
+	/* BOLT #2:
+	 *
+	 * - if both nodes advertised the `option_upfront_shutdown_script`
+	 *   feature:
+	 *   - MUST include either a valid `shutdown_scriptpubkey` as required
+	 *     by `shutdown` `scriptpubkey`, or a zero-length
+	 *     `shutdown_scriptpubkey`.
+	 * - otherwise:
+	 *   - MAY include a`shutdown_scriptpubkey`.
+	 */
+	/* We don't use shutdown_scriptpubkey (at least for now), so leave it
+	 * NULL. */
+	msg = towire_open_channel_option_upfront_shutdown_script(NULL,
 				  &state->chainparams->genesis_blockhash,
 				  &state->channel_id,
 				  state->funding,
@@ -500,7 +517,7 @@ static u8 *funder_channel(struct state *state,
 				  &state->our_points.delayed_payment,
 				  &state->our_points.htlc,
 				  &state->first_per_commitment_point[LOCAL],
-				  channel_flags);
+				  channel_flags, NULL);
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
 	/* This is usually a very transient state... */
@@ -511,6 +528,10 @@ static u8 *funder_channel(struct state *state,
 	if (!msg)
 		goto fail;
 
+	/* Default is no shutdown_scriptpubkey: free any leftover one. */
+	state->remote_upfront_shutdown_script
+		= tal_free(state->remote_upfront_shutdown_script);
+
 	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if:
@@ -519,7 +540,28 @@ static u8 *funder_channel(struct state *state,
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
 	 *    valid DER-encoded compressed secp256k1 pubkeys.
 	 */
-	if (!fromwire_accept_channel(msg, &id_in,
+	if (local_feature_negotiated(state->localfeatures,
+				     LOCAL_UPFRONT_SHUTDOWN_SCRIPT)) {
+		if (!fromwire_accept_channel_option_upfront_shutdown_script(state,
+				     msg, &id_in,
+				     &state->remoteconf.dust_limit,
+				     &state->remoteconf.max_htlc_value_in_flight,
+				     &state->remoteconf.channel_reserve,
+				     &state->remoteconf.htlc_minimum,
+				     &minimum_depth,
+				     &state->remoteconf.to_self_delay,
+				     &state->remoteconf.max_accepted_htlcs,
+				     &their_funding_pubkey,
+				     &theirs.revocation,
+				     &theirs.payment,
+				     &theirs.delayed_payment,
+				     &theirs.htlc,
+				     &state->first_per_commitment_point[REMOTE],
+				     &state->remote_upfront_shutdown_script))
+			peer_failed(&state->cs,
+				    &state->channel_id,
+				    "Parsing accept_channel with option_upfront_shutdown_script %s", tal_hex(msg, msg));
+	} else if (!fromwire_accept_channel(msg, &id_in,
 				     &state->remoteconf.dust_limit,
 				     &state->remoteconf.max_htlc_value_in_flight,
 				     &state->remoteconf.channel_reserve,
@@ -822,7 +864,8 @@ static u8 *funder_channel(struct state *state,
 					   &their_funding_pubkey,
 					   &state->funding_txid,
 					   state->feerate_per_kw,
-					   state->localconf.channel_reserve);
+					   state->localconf.channel_reserve,
+					   state->remote_upfront_shutdown_script);
 
 fail_2:
 	tal_free(wscript);
@@ -847,6 +890,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	u8 channel_flags;
 	char* err_reason;
 
+	/* Default is no shutdown_scriptpubkey: free any leftover one. */
+	state->remote_upfront_shutdown_script
+		= tal_free(state->remote_upfront_shutdown_script);
+
 	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if:
@@ -855,24 +902,49 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
 	 *     DER-encoded compressed secp256k1 pubkeys.
 	 */
-	if (!fromwire_open_channel(open_channel_msg, &chain_hash,
-				   &state->channel_id,
-				   &state->funding,
-				   &state->push_msat,
-				   &state->remoteconf.dust_limit,
-				   &state->remoteconf.max_htlc_value_in_flight,
-				   &state->remoteconf.channel_reserve,
-				   &state->remoteconf.htlc_minimum,
-				   &state->feerate_per_kw,
-				   &state->remoteconf.to_self_delay,
-				   &state->remoteconf.max_accepted_htlcs,
-				   &their_funding_pubkey,
-				   &theirs.revocation,
-				   &theirs.payment,
-				   &theirs.delayed_payment,
-				   &theirs.htlc,
-				   &state->first_per_commitment_point[REMOTE],
-				   &channel_flags))
+	if (local_feature_negotiated(state->localfeatures,
+				     LOCAL_UPFRONT_SHUTDOWN_SCRIPT)) {
+		if (!fromwire_open_channel_option_upfront_shutdown_script(state,
+			    open_channel_msg, &chain_hash,
+			    &state->channel_id,
+			    &state->funding,
+			    &state->push_msat,
+			    &state->remoteconf.dust_limit,
+			    &state->remoteconf.max_htlc_value_in_flight,
+			    &state->remoteconf.channel_reserve,
+			    &state->remoteconf.htlc_minimum,
+			    &state->feerate_per_kw,
+			    &state->remoteconf.to_self_delay,
+			    &state->remoteconf.max_accepted_htlcs,
+			    &their_funding_pubkey,
+			    &theirs.revocation,
+			    &theirs.payment,
+			    &theirs.delayed_payment,
+			    &theirs.htlc,
+			    &state->first_per_commitment_point[REMOTE],
+			    &channel_flags,
+			    &state->remote_upfront_shutdown_script))
+		    peer_failed(&state->cs,
+				&state->channel_id,
+				"Parsing open_channel with option_upfront_shutdown_script %s", tal_hex(tmpctx, open_channel_msg));
+	} else if (!fromwire_open_channel(open_channel_msg, &chain_hash,
+				      &state->channel_id,
+				      &state->funding,
+				      &state->push_msat,
+				      &state->remoteconf.dust_limit,
+				      &state->remoteconf.max_htlc_value_in_flight,
+				      &state->remoteconf.channel_reserve,
+				      &state->remoteconf.htlc_minimum,
+				      &state->feerate_per_kw,
+				      &state->remoteconf.to_self_delay,
+				      &state->remoteconf.max_accepted_htlcs,
+				      &their_funding_pubkey,
+				      &theirs.revocation,
+				      &theirs.payment,
+				      &theirs.delayed_payment,
+				      &theirs.htlc,
+				      &state->first_per_commitment_point[REMOTE],
+				      &channel_flags))
 		peer_failed(&state->cs, NULL,
 			    "Bad open_channel %s",
 			    tal_hex(open_channel_msg, open_channel_msg));
@@ -994,7 +1066,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 
 	/* OK, we accept! */
-	msg = towire_accept_channel(NULL, &state->channel_id,
+	msg = towire_accept_channel_option_upfront_shutdown_script(NULL, &state->channel_id,
 				    state->localconf.dust_limit,
 				    state->localconf.max_htlc_value_in_flight,
 				    state->localconf.channel_reserve,
@@ -1007,7 +1079,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->our_points.payment,
 				    &state->our_points.delayed_payment,
 				    &state->our_points.htlc,
-				    &state->first_per_commitment_point[LOCAL]);
+				    &state->first_per_commitment_point[LOCAL],
+				    NULL);
 
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
@@ -1174,7 +1247,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     channel_flags,
 				     state->feerate_per_kw,
 				     msg,
-				     state->localconf.channel_reserve);
+				     state->localconf.channel_reserve,
+				     state->remote_upfront_shutdown_script);
 }
 
 /*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
@@ -1367,7 +1441,7 @@ int main(int argc, char *argv[])
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_opening_init(tmpctx, msg,
+	if (!fromwire_opening_init(state, msg,
 				   &chain_hash,
 				   &state->localconf,
 				   &state->max_to_self_delay,
@@ -1378,6 +1452,7 @@ int main(int argc, char *argv[])
 				   &state->minimum_depth,
 				   &state->min_feerate, &state->max_feerate,
 				   &state->can_accept_channel,
+				   &state->localfeatures,
 				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
@@ -1386,6 +1461,7 @@ int main(int argc, char *argv[])
 	if (inner != NULL) {
 		sync_crypto_write(&state->cs, PEER_FD, inner);
 		fail_if_all_error(inner);
+		tal_free(inner);
 	}
 
 	/*~ Even though I only care about bitcoin, there's still testnet and
@@ -1396,6 +1472,9 @@ int main(int argc, char *argv[])
 	 * handle_peer_gossip_or_error compares this. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
+
+	/*~ We set this to NULL, meaning no requirements on shutdown */
+	state->remote_upfront_shutdown_script = NULL;
 
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,
