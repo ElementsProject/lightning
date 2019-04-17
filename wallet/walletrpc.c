@@ -531,6 +531,68 @@ static const struct json_command listfunds_command = {
 };
 AUTODATA(json_command, &listfunds_command);
 
+static struct command_result *json_getbalance(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+    struct json_stream *response;
+    struct peer *p;
+    struct channel *c;
+    struct utxo **utxos;
+    struct amount_sat on_chain, on_channels, total;
+
+    if (!param(cmd, buffer, params, NULL))
+        return command_param_failed();
+
+    response = json_stream_success(cmd);
+    json_object_start(response, NULL);
+
+    /* Add funds from utxos */
+    on_chain = AMOUNT_SAT(0);
+    utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
+    for (size_t i = 0; i < tal_count(utxos); i++) {
+        if (utxos[i]->blockheight && !utxos[i]->spendheight) {
+            if (!amount_sat_add(&on_chain, on_chain, utxos[i]->amount))
+                return command_fail(cmd, LIGHTNINGD,
+                        "utxos addition failure.");
+        }
+    }
+    json_add_amount_sat(response, on_chain, "on_chain", "on_chain_msat");
+
+    /* Add funds that are allocated to channels */
+    on_channels = AMOUNT_SAT(0);
+    list_for_each(&cmd->ld->peers, p, list) {
+        list_for_each(&p->channels, c, list) {
+            if(!amount_sat_add(&on_channels, on_channels,
+                    amount_msat_to_sat_round_down(c->our_msat)))
+                return command_fail(cmd, LIGHTNINGD,
+                        "channels allocated funds addition failure.");
+        }
+    }
+    json_add_amount_sat(response, on_channels, "on_channels", "on_channels_msat");
+
+    /* Add the total of both on chain and on channels */
+    total = AMOUNT_SAT(0);
+    if (amount_sat_add(&total, on_chain, on_channels))
+        json_add_amount_sat(response, total, "total", "total_msat");
+    else
+        return command_fail(cmd, LIGHTNINGD, "on_chain and on_channels addition failed");
+
+    json_object_end(response);
+
+    return command_success(cmd, response);
+}
+
+static const struct json_command getbalance_command = {
+    "getbalance",
+    json_getbalance,
+    "Shows the wallet total balance on chain and locked on channels",
+    false,
+    "Shows the sum of all utxos and the sum of all our sats locked on channels, along with the total of all the funds managed by the wallet."
+};
+AUTODATA(json_command, &getbalance_command);
+
 struct txo_rescan {
 	struct command *cmd;
 	struct utxo **utxos;
