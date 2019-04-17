@@ -22,6 +22,8 @@
 #define SUPERVERBOSE(...)
 #endif
 
+bool only_dijkstra = false;
+
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
@@ -424,6 +426,12 @@ struct chan *new_chan(struct routing_state *rstate,
 /* Too big to reach, but don't overflow if added. */
 #define INFINITE AMOUNT_MSAT(0x3FFFFFFFFFFFFFFFULL)
 
+/* We hack a multimap into a uintmap to implement a minheap by cost.
+ * This is relatively inefficient, containing an array for each cost
+ * value, assuming there aren't too many at same cost.  FIXME:
+ * implement an array heap */
+typedef UINTMAP(struct node **) unvisited_t;
+
 static void clear_bfg(struct node_map *nodes)
 {
 	struct node *n;
@@ -589,15 +597,363 @@ static bool hc_is_routable(struct routing_state *rstate,
 		&& !is_chan_local_disabled(rstate, chan);
 }
 
+static bool is_unvisited(const struct node *node,
+			 const unvisited_t *unvisited)
+{
+	struct node **arr;
+	struct amount_msat cost;
+
+	/* If it's infinite, definitely unvisited */
+	if (amount_msat_eq(node->dijkstra.total, INFINITE))
+		return true;
+
+	/* Shouldn't happen! */
+	if (!amount_msat_add(&cost, node->dijkstra.total, node->dijkstra.risk)) {
+		status_broken("Can't add cost of node %s + %s",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &node->dijkstra.total),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &node->dijkstra.risk));
+		return false;
+	}
+
+	arr = uintmap_get(unvisited, cost.millisatoshis);
+	for (size_t i = 0; i < tal_count(arr); i++) {
+		if (arr[i] == node)
+			return true;
+	}
+	return false;
+}
+
+static void unvisited_add(unvisited_t *unvisited, struct amount_msat cost,
+			  struct node **arr)
+{
+	uintmap_add(unvisited, cost.millisatoshis, arr); /* Raw: uintmap */
+}
+
+static struct node **unvisited_del(unvisited_t *unvisited,
+				   struct amount_msat cost)
+{
+	return uintmap_del(unvisited, cost.millisatoshis); /* Raw: uintmap */
+}
+
+static void unvisited_del_node(unvisited_t *unvisited,
+			       struct amount_msat cost,
+			       const struct node *node)
+{
+	size_t i;
+	struct node **arr;
+
+	/* Remove may reallocate, so we delete and re-add. */
+	arr = unvisited_del(unvisited, cost);
+	for (i = 0; arr[i] != node; i++)
+		assert(i < tal_count(arr));
+
+	tal_arr_remove(&arr, i);
+	if (tal_count(arr) == 0)
+		tal_free(arr);
+	else
+		unvisited_add(unvisited, cost, arr);
+}
+
+static void adjust_unvisited(struct node *node,
+			     unvisited_t *unvisited,
+			     struct amount_msat cost_before,
+			     struct amount_msat total,
+			     struct amount_msat risk,
+			     struct amount_msat cost_after)
+{
+	struct node **arr;
+
+	/* If it was in unvisited map, remove it. */
+	if (!amount_msat_eq(node->dijkstra.total, INFINITE))
+		unvisited_del_node(unvisited, cost_before, node);
+
+	/* Update node */
+	node->dijkstra.total = total;
+	node->dijkstra.risk = risk;
+
+	/* Update map of unvisited nodes */
+	arr = unvisited_del(unvisited, cost_after);
+	if (!arr) {
+		arr = tal_arr(unvisited, struct node *, 1);
+		arr[0] = node;
+	} else
+		tal_arr_expand(&arr, node);
+
+	unvisited_add(unvisited, cost_after, arr);
+}
+
+static void remove_unvisited(struct node *node, unvisited_t *unvisited)
+{
+	struct amount_msat cost;
+
+	/* Shouldn't happen! */
+	if (!amount_msat_add(&cost, node->dijkstra.total, node->dijkstra.risk)) {
+		status_broken("Can't add unvisited cost of node %s + %s",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &node->dijkstra.total),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &node->dijkstra.risk));
+		return;
+	}
+
+	unvisited_del_node(unvisited, cost, node);
+}
+
+static void update_unvisited_neighbors(struct routing_state *rstate,
+				       struct node *cur,
+				       double riskfactor,
+				       unvisited_t *unvisited)
+{
+	struct chan_map_iter i;
+	struct chan *chan;
+
+	/* Consider all neighbors */
+	for (chan = first_chan(cur, &i); chan; chan = next_chan(cur, &i)) {
+		struct amount_msat total, risk, cost_before, cost_after;
+		int idx = half_chan_to(cur, chan);
+		struct node *peer = chan->nodes[idx];
+
+		if (!hc_is_routable(rstate, chan, idx))
+			continue;
+
+		if (!is_unvisited(peer, unvisited))
+			continue;
+
+		if (!can_reach(&chan->half[idx],
+			       cur->dijkstra.total, cur->dijkstra.risk,
+			       riskfactor, 1.0 /*FIXME*/, &total, &risk))
+			continue;
+
+		/* This effectively adds it to the map if it was infinite */
+		if (costs_less(total, risk, &cost_after,
+			       peer->dijkstra.total, peer->dijkstra.risk,
+			       &cost_before)) {
+			SUPERVERBOSE("...%s can reach %s"
+				     " total %s risk %s",
+				     type_to_string(tmpctx, struct node_id,
+						    &cur->id),
+				     type_to_string(tmpctx, struct node_id,
+						    &peer->id),
+				     type_to_string(tmpctx, struct amount_msat,
+						    &total),
+				     type_to_string(tmpctx, struct amount_msat,
+						    &risk));
+			adjust_unvisited(peer, unvisited,
+					 cost_before, total, risk, cost_after);
+		}
+	}
+}
+
+static struct node *first_unvisited(unvisited_t *unvisited)
+{
+	u64 idx;
+	struct node **arr = uintmap_first(unvisited, &idx);
+
+	if (arr)
+		return arr[0];
+	return NULL;
+}
+
+static void dijkstra(struct routing_state *rstate,
+		     const struct node *dst,
+		     double riskfactor,
+		     unvisited_t *unvisited)
+{
+	struct node *cur;
+
+	while ((cur = first_unvisited(unvisited)) != NULL) {
+		update_unvisited_neighbors(rstate, cur, riskfactor, unvisited);
+		remove_unvisited(cur, unvisited);
+		if (cur == dst)
+			return;
+	}
+}
+
+/* Note that we calculated route *backwards*, for fees.  So "from"
+ * here has a high cost, "to" has a cost of exact amount sent. */
+static struct chan **build_route(const tal_t *ctx,
+				 struct routing_state *rstate,
+				 const struct node *from,
+				 const struct node *to,
+				 double riskfactor,
+				 struct amount_msat *fee)
+{
+	const struct node *i;
+	struct chan **route, *chan;
+
+	SUPERVERBOSE("Building route from %s (%s) -> %s (%s)",
+		     type_to_string(tmpctx, struct node_id, &from->id),
+		     type_to_string(tmpctx, struct amount_msat,
+				    &from->dijkstra.total),
+		     type_to_string(tmpctx, struct node_id, &to->id),
+		     type_to_string(tmpctx, struct amount_msat,
+				    &to->dijkstra.total));
+	/* Never reached? */
+	if (amount_msat_eq(from->dijkstra.total, INFINITE))
+		return NULL;
+
+	/* Walk to find which neighbors we used */
+	route = tal_arr(ctx, struct chan *, 0);
+	for (i = from; i != to; i = other_node(i, chan)) {
+		struct chan_map_iter it;
+
+		/* Consider all neighbors */
+		for (chan = first_chan(i, &it); chan; chan = next_chan(i, &it)) {
+			struct node *peer = other_node(i, chan);
+			struct half_chan *hc = half_chan_from(i, chan);
+			struct amount_msat total, risk;
+
+			SUPERVERBOSE("CONSIDER: %s -> %s (%s)",
+				     type_to_string(tmpctx, struct node_id,
+						    &i->id),
+				     type_to_string(tmpctx, struct node_id,
+						    &peer->id),
+				     type_to_string(tmpctx, struct amount_msat,
+						    &peer->dijkstra.total));
+
+			/* If traversing this wasn't possible, ignore */
+			if (!hc_is_routable(rstate, chan, !half_chan_to(i, chan)))
+				continue;
+
+			if (!can_reach(hc,
+				       peer->dijkstra.total, peer->dijkstra.risk,
+				       riskfactor, 1.0 /*FIXME*/, &total, &risk))
+				continue;
+
+			/* If this was the path we took, we're done (if there are
+			 * two identical ones, it doesn't matter which) */
+			if (amount_msat_eq(total, i->dijkstra.total)
+			    && amount_msat_eq(risk, i->dijkstra.risk))
+				break;
+		}
+
+		if (!chan) {
+			status_broken("Could not find hop to %s",
+				      type_to_string(tmpctx, struct node_id,
+						     &i->id));
+			return tal_free(route);
+		}
+		tal_arr_expand(&route, chan);
+	}
+
+	/* We don't charge ourselves fees, so skip first hop */
+	if (!amount_msat_sub(fee,
+			     other_node(from, route[0])->dijkstra.total,
+			     to->dijkstra.total)) {
+		status_broken("Could not subtract %s - %s for fee",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &other_node(from, route[0])
+					     ->dijkstra.total),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &to->dijkstra.total));
+		return tal_free(route);
+	}
+
+	return route;
+}
+
+static unvisited_t *dijkstra_prepare(const tal_t *ctx,
+				     struct routing_state *rstate,
+				     struct node *src,
+				     struct amount_msat msat)
+{
+	struct node_map_iter it;
+	unvisited_t *unvisited;
+	struct node *n;
+	struct node **arr;
+
+	unvisited = tal(ctx, unvisited_t);
+	uintmap_init(unvisited);
+
+	/* Reset all the information. */
+	for (n = node_map_first(rstate->nodes, &it);
+	     n;
+	     n = node_map_next(rstate->nodes, &it)) {
+		if (n == src)
+			continue;
+		n->dijkstra.total = INFINITE;
+		n->dijkstra.risk = AMOUNT_MSAT(0);
+	}
+
+	/* Mark start cost: place in unvisited map. */
+	src->dijkstra.total = msat;
+	src->dijkstra.risk = AMOUNT_MSAT(0);
+	arr = tal_arr(unvisited, struct node *, 1);
+	arr[0] = src;
+	unvisited_add(unvisited, msat, arr);
+
+	return unvisited;
+}
+
+static void dijkstra_cleanup(unvisited_t *unvisited)
+{
+	struct node **arr;
+	u64 idx;
+
+	/* uintmap uses malloc, so manual cleaning needed */
+	while ((arr = uintmap_first(unvisited, &idx)) != NULL) {
+		tal_free(arr);
+		uintmap_del(unvisited, idx);
+	}
+	tal_free(unvisited);
+}
+
 /* riskfactor is already scaled to per-block amount */
 static struct chan **
-find_route(const tal_t *ctx, struct routing_state *rstate,
-	   const struct node_id *from, const struct node_id *to,
-	   struct amount_msat msat,
-	   double riskfactor,
-	   double fuzz, const struct siphash_seed *base_seed,
-	   size_t max_hops,
-	   struct amount_msat *fee)
+find_route_dijkstra(const tal_t *ctx, struct routing_state *rstate,
+		    const struct node_id *from, const struct node_id *to,
+		    struct amount_msat msat,
+		    double riskfactor,
+		    double fuzz, const struct siphash_seed *base_seed,
+		    size_t max_hops,
+		    struct amount_msat *fee)
+{
+	struct node *src, *dst;
+	unvisited_t *unvisited;
+
+	/* Note: we map backwards, since we know the amount of satoshi we want
+	 * at the end, and need to derive how much we need to send. */
+	dst = get_node(rstate, from);
+	src = get_node(rstate, to);
+
+	if (!src) {
+		status_info("find_route: cannot find %s",
+			    type_to_string(tmpctx, struct node_id, to));
+		return NULL;
+	} else if (!dst) {
+		status_info("find_route: cannot find myself (%s)",
+			    type_to_string(tmpctx, struct node_id, to));
+		return NULL;
+	} else if (dst == src) {
+		status_info("find_route: this is %s, refusing to create empty route",
+			    type_to_string(tmpctx, struct node_id, to));
+		return NULL;
+	}
+
+	if (max_hops > ROUTING_MAX_HOPS) {
+		status_info("find_route: max_hops huge amount %zu > %u",
+			    max_hops, ROUTING_MAX_HOPS);
+		return NULL;
+	}
+
+	unvisited = dijkstra_prepare(tmpctx, rstate, src, msat);
+	dijkstra(rstate, dst, riskfactor, unvisited);
+	dijkstra_cleanup(unvisited);
+
+	return build_route(ctx, rstate, dst, src, riskfactor, fee);
+}
+
+/* riskfactor is already scaled to per-block amount */
+static struct chan **
+find_route_bfg(const tal_t *ctx, struct routing_state *rstate,
+	       const struct node_id *from, const struct node_id *to,
+	       struct amount_msat msat,
+	       double riskfactor,
+	       double fuzz, const struct siphash_seed *base_seed,
+	       size_t max_hops,
+	       struct amount_msat *fee)
 {
 	struct chan **route;
 	struct node *n, *src, *dst;
@@ -1791,6 +2147,34 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	applied = routing_add_node_announcement(rstate, serialized, 0);
 	assert(applied);
 	return NULL;
+}
+
+static struct chan **
+find_route(const tal_t *ctx, struct routing_state *rstate,
+	   const struct node_id *from, const struct node_id *to,
+	   struct amount_msat msat,
+	   double riskfactor,
+	   double fuzz, const struct siphash_seed *base_seed,
+	   size_t max_hops,
+	   struct amount_msat *fee)
+{
+	struct chan **rd, **rbfg;
+
+	rd = find_route_dijkstra(ctx, rstate, from, to, msat,
+				 riskfactor,
+				 fuzz, base_seed, max_hops, fee);
+	if (only_dijkstra)
+		return rd;
+
+	/* Make sure they match */
+	rbfg = find_route_bfg(ctx, rstate, from, to, msat,
+			      riskfactor,
+			      fuzz, base_seed, max_hops, fee);
+	/* FIXME: Dijkstra can give overlength! */
+	if (tal_count(rd) < max_hops)
+		assert(memeq(rd, tal_bytelen(rd), rbfg, tal_bytelen(rbfg)));
+	tal_free(rd);
+	return rbfg;
 }
 
 struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,

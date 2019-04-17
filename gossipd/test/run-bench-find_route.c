@@ -171,12 +171,12 @@ static void populate_random_node(struct routing_state *rstate,
 		u32 randnode = pseudorand(n);
 
 		add_connection(rstate, nodes, n, randnode,
-			       pseudorand(100),
-			       pseudorand(100),
+			       pseudorand(1000),
+			       pseudorand(1000),
 			       pseudorand(144));
 		add_connection(rstate, nodes, randnode, n,
-			       pseudorand(100),
-			       pseudorand(100),
+			       pseudorand(1000),
+			       pseudorand(1000),
 			       pseudorand(144));
 	}
 }
@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 	struct routing_state *rstate;
 	size_t num_nodes = 100, num_runs = 1;
 	struct timemono start, end;
-	size_t num_success;
+	size_t route_lengths[ROUTING_MAX_HOPS+1];
 	struct node_id me;
 	struct node_id *nodes;
 	bool perfme = false;
@@ -222,6 +222,7 @@ int main(int argc, char *argv[])
 			   "Run perfme-start and perfme-stop around benchmark");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
+	only_dijkstra = true;
 
 	if (argc > 1)
 		num_nodes = atoi(argv[1]);
@@ -230,10 +231,12 @@ int main(int argc, char *argv[])
 	if (argc > 3)
 		opt_usage_and_exit("[num_nodes [num_runs]]");
 
+	printf("Creating nodes...\n");
 	nodes = tal_arr(rstate, struct node_id, num_nodes);
 	for (size_t i = 0; i < num_nodes; i++)
 		nodes[i] = nodeid(i);
 
+	printf("Populating nodes...\n");
 	memset(&base_seed, 0, sizeof(base_seed));
 	for (size_t i = 0; i < num_nodes; i++)
 		populate_random_node(rstate, nodes, i);
@@ -241,13 +244,15 @@ int main(int argc, char *argv[])
 	if (perfme)
 		run("perfme-start");
 
+	printf("Starting...\n");
+	memset(route_lengths, 0, sizeof(route_lengths));
 	start = time_mono();
-	num_success = 0;
 	for (size_t i = 0; i < num_runs; i++) {
 		const struct node_id *from = &nodes[pseudorand(num_nodes)];
 		const struct node_id *to = &nodes[pseudorand(num_nodes)];
 		struct amount_msat fee;
 		struct chan **route;
+		size_t num_hops;
 
 		route = find_route(tmpctx, rstate, from, to,
 				   (struct amount_msat){pseudorand(100000)},
@@ -255,7 +260,10 @@ int main(int argc, char *argv[])
 				   0.75, &base_seed,
 				   ROUTING_MAX_HOPS,
 				   &fee);
-		num_success += (route != NULL);
+		num_hops = tal_count(route);
+		/* FIXME: Dijkstra can give overlength! */
+		if (num_hops < ARRAY_SIZE(route_lengths))
+			route_lengths[num_hops]++;
 		tal_free(route);
 	}
 	end = time_mono();
@@ -263,10 +271,13 @@ int main(int argc, char *argv[])
 	if (perfme)
 		run("perfme-stop");
 
-	printf("%zu (%zu succeeded) routes in %zu nodes in %"PRIu64" msec (%"PRIu64" nanoseconds per route)",
-	       num_runs, num_success, num_nodes,
+	printf("%zu (%zu succeeded) routes in %zu nodes in %"PRIu64" msec (%"PRIu64" nanoseconds per route)\n",
+	       num_runs, num_runs - route_lengths[0], num_nodes,
 	       time_to_msec(timemono_between(end, start)),
 	       time_to_nsec(time_divide(timemono_between(end, start), num_runs)));
+	for (size_t i = 0; i < ARRAY_SIZE(route_lengths); i++)
+		if (route_lengths[i])
+			printf(" Length %zu: %zu\n", i, route_lengths[i]);
 
 	tal_free(tmpctx);
 	secp256k1_context_destroy(secp256k1_ctx);
