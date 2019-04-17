@@ -488,9 +488,25 @@ static bool hc_can_carry(const struct half_chan *hc,
 }
 
 /* Theoretically, this could overflow. */
-static bool fuzz_fee(u64 *fee, double fee_scale)
+static bool fuzz_fee(u64 *fee,
+		     const struct short_channel_id *scid,
+		     double fuzz, const struct siphash_seed *base_seed)
 {
-	u64 fuzzed_fee = *fee * fee_scale;
+	u64 fuzzed_fee, h;
+ 	double fee_scale;
+
+	if (fuzz == 0.0)
+		return true;
+
+	h = siphash24(base_seed, scid, sizeof(*scid));
+
+	/* Scale fees for this channel */
+	/* rand = (h / UINT64_MAX)  random number between 0.0 -> 1.0
+	 * 2*fuzz*rand              random number between 0.0 -> 2*fuzz
+	 * 2*fuzz*rand - fuzz       random number between -fuzz -> +fuzz
+	 */
+	fee_scale = 1.0 + (2.0 * fuzz * h / UINT64_MAX) - fuzz;
+	fuzzed_fee = *fee * fee_scale;
 	if (fee_scale > 1.0 && fuzzed_fee < *fee)
 		return false;
 	*fee = fuzzed_fee;
@@ -500,10 +516,12 @@ static bool fuzz_fee(u64 *fee, double fee_scale)
 /* Can we carry this amount across the channel?  If so, returns true and
  * sets newtotal and newrisk */
 static bool can_reach(const struct half_chan *c,
+		      const struct short_channel_id *scid,
 		      struct amount_msat total,
 		      struct amount_msat risk,
-		      double riskfactor, double fee_scale,
+		      double riskfactor,
 		      u64 riskbias,
+		      double fuzz, const struct siphash_seed *base_seed,
 		      struct amount_msat *newtotal, struct amount_msat *newrisk)
 {
 	/* FIXME: Bias against smaller channels. */
@@ -512,7 +530,7 @@ static bool can_reach(const struct half_chan *c,
 	if (!amount_msat_fee(&fee, total, c->base_fee, c->proportional_fee))
 		return false;
 
-	if (!fuzz_fee(&fee.millisatoshis, fee_scale)) /* Raw: double manipulation */
+	if (!fuzz_fee(&fee.millisatoshis, scid, fuzz, base_seed)) /* Raw: double manipulation */
 		return false;
 
 	if (!amount_msat_add(newtotal, total, fee))
@@ -595,15 +613,14 @@ static void bfg_one_edge(struct node *node,
 			 size_t max_hops)
 {
 	size_t h;
-	double fee_scale = 1.0;
 	const struct half_chan *c = &chan->half[idx];
 
 	for (h = 0; h < max_hops; h++) {
 		struct node *src;
 		struct amount_msat total, risk;
 
-		if (!can_reach(c, node->bfg[h].total, node->bfg[h].risk,
-			       riskfactor, fee_scale, 1, &total, &risk))
+		if (!can_reach(c, &chan->scid, node->bfg[h].total, node->bfg[h].risk,
+			       riskfactor, 1, fuzz, base_seed, &total, &risk))
 			continue;
 
 		/* nodes[0] is src for connections[0] */
@@ -764,6 +781,8 @@ static void update_unvisited_neighbors(struct routing_state *rstate,
 				       struct node *cur,
 				       double riskfactor,
 				       u64 riskbias,
+				       double fuzz,
+				       const struct siphash_seed *base_seed,
 				       struct unvisited *unvisited,
 				       costfn_t *costfn)
 {
@@ -796,9 +815,9 @@ static void update_unvisited_neighbors(struct routing_state *rstate,
 			continue;
 		}
 
-		if (!can_reach(&chan->half[idx],
+		if (!can_reach(&chan->half[idx], &chan->scid,
 			       cur->dijkstra.total, cur->dijkstra.risk,
-			       riskfactor, 1.0 /*FIXME*/, riskbias,
+			       riskfactor, riskbias, fuzz, base_seed,
 			       &total, &risk)) {
 			SUPERVERBOSE("... can't reach");
 			continue;
@@ -845,6 +864,7 @@ static void dijkstra(struct routing_state *rstate,
 		     const struct node *dst,
 		     double riskfactor,
 		     u64 riskbias,
+		     double fuzz, const struct siphash_seed *base_seed,
 		     struct unvisited *unvisited,
 		     costfn_t *costfn)
 {
@@ -852,7 +872,7 @@ static void dijkstra(struct routing_state *rstate,
 
 	while ((cur = first_unvisited(unvisited)) != NULL) {
 		update_unvisited_neighbors(rstate, cur, riskfactor, riskbias,
-					   unvisited, costfn);
+					   fuzz, base_seed, unvisited, costfn);
 		remove_unvisited(cur, unvisited, costfn);
 		if (cur == dst)
 			return;
@@ -867,6 +887,8 @@ static struct chan **build_route(const tal_t *ctx,
 				 const struct node *to,
 				 double riskfactor,
 				 u64 riskbias,
+				 double fuzz,
+				 const struct siphash_seed *base_seed,
 				 struct amount_msat *fee)
 {
 	const struct node *i;
@@ -909,10 +931,11 @@ static struct chan **build_route(const tal_t *ctx,
 				continue;
 			}
 
-			if (!can_reach(hc,
+			if (!can_reach(hc, &chan->scid,
 				       peer->dijkstra.total, peer->dijkstra.risk,
-				       riskfactor, 1.0 /*FIXME*/,
+				       riskfactor,
 				       riskbias,
+				       fuzz, base_seed,
 				       &total, &risk))
 				continue;
 
@@ -1006,6 +1029,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 		   struct node *src, struct node *dst,
 		   struct amount_msat msat,
 		   size_t max_hops,
+		   double fuzz, const struct siphash_seed *base_seed,
 		   struct chan **long_route,
 		   struct amount_msat *fee)
 {
@@ -1036,11 +1060,13 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 	SUPERVERBOSE("Running shortest path from %s -> %s",
 		     type_to_string(tmpctx, struct node_id, &dst->id),
 		     type_to_string(tmpctx, struct node_id, &src->id));
-	dijkstra(rstate, dst, riskfactor, 1, unvisited, shortest_cost_function);
+	dijkstra(rstate, dst, riskfactor, 1, fuzz, base_seed,
+		 unvisited, shortest_cost_function);
 	dijkstra_cleanup(unvisited);
 
 	/* This must succeed, since we found a route before */
-	short_route = build_route(ctx, rstate, dst, src, riskfactor, 1, fee);
+	short_route = build_route(ctx, rstate, dst, src, riskfactor, 1,
+				  fuzz, base_seed, fee);
 	assert(short_route);
 	if (!amount_msat_sub(&short_cost,
 			     dst->dijkstra.total, src->dijkstra.total))
@@ -1081,12 +1107,12 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 
 		unvisited = dijkstra_prepare(tmpctx, rstate, src, msat,
 					     normal_cost_function);
-		dijkstra(rstate, dst, riskfactor, riskbias, unvisited,
-			 normal_cost_function);
+		dijkstra(rstate, dst, riskfactor, riskbias, fuzz, base_seed,
+			 unvisited, normal_cost_function);
 		dijkstra_cleanup(unvisited);
 
 		route = build_route(ctx, rstate, dst, src, riskfactor, riskbias,
-				    &this_fee);
+				    fuzz, base_seed, &this_fee);
 
 		SUPERVERBOSE("riskbias %"PRIu64" rlen %zu",
 			     riskbias, tal_count(route));
@@ -1152,16 +1178,18 @@ find_route_dijkstra(const tal_t *ctx, struct routing_state *rstate,
 
 	unvisited = dijkstra_prepare(tmpctx, rstate, src, msat,
 				     normal_cost_function);
-	dijkstra(rstate, dst, riskfactor, 1, unvisited, normal_cost_function);
+	dijkstra(rstate, dst, riskfactor, 1, fuzz, base_seed,
+		 unvisited, normal_cost_function);
 	dijkstra_cleanup(unvisited);
 
-	route = build_route(ctx, rstate, dst, src, riskfactor, 1, fee);
+	route = build_route(ctx, rstate, dst, src, riskfactor, 1,
+			    fuzz, base_seed, fee);
 	if (tal_count(route) <= max_hops)
 		return route;
 
 	/* This is the far more unlikely case */
 	return find_shorter_route(ctx, rstate, src, dst, msat,
-				  max_hops, route, fee);
+				  max_hops, fuzz, base_seed, route, fee);
 }
 
 /* riskfactor is already scaled to per-block amount */
