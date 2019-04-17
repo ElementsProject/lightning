@@ -222,7 +222,6 @@ int main(int argc, char *argv[])
 			   "Run perfme-start and perfme-stop around benchmark");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
-	only_dijkstra = true;
 
 	if (argc > 1)
 		num_nodes = atoi(argv[1]);
