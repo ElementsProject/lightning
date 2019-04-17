@@ -428,9 +428,16 @@ struct chan *new_chan(struct routing_state *rstate,
 
 /* We hack a multimap into a uintmap to implement a minheap by cost.
  * This is relatively inefficient, containing an array for each cost
- * value, assuming there aren't too many at same cost.  FIXME:
- * implement an array heap */
-typedef UINTMAP(struct node **) unvisited_t;
+ * value, assuming there aren't too many at same cost.
+ *
+ * We further optimize by never freeing or shrinking these entries,
+ * but delete by replacing with NULL.  This means that we cache the
+ * lowest index which actually contains something, since others may
+ * contain empty arrays. */
+struct unvisited {
+	u64 min_index;
+	UINTMAP(struct node **) map;
+};
 
 static void clear_bfg(struct node_map *nodes)
 {
@@ -597,8 +604,31 @@ static bool hc_is_routable(struct routing_state *rstate,
 		&& !is_chan_local_disabled(rstate, chan);
 }
 
+static void unvisited_add(struct unvisited *unvisited, struct amount_msat cost,
+			  struct node **arr)
+{
+	u64 idx = cost.millisatoshis; /* Raw: uintmap needs u64 index */
+	if (idx < unvisited->min_index) {
+		assert(idx); /* We don't allow sending 0 satoshis */
+		unvisited->min_index = idx - 1;
+	}
+	uintmap_add(&unvisited->map, idx, arr);
+}
+
+static struct node **unvisited_get(const struct unvisited *unvisited,
+				   struct amount_msat cost)
+{
+	return uintmap_get(&unvisited->map, cost.millisatoshis); /* Raw: uintmap */
+}
+
+static struct node **unvisited_del(struct unvisited *unvisited,
+				   struct amount_msat cost)
+{
+	return uintmap_del(&unvisited->map, cost.millisatoshis); /* Raw: uintmap */
+}
+
 static bool is_unvisited(const struct node *node,
-			 const unvisited_t *unvisited)
+			 const struct unvisited *unvisited)
 {
 	struct node **arr;
 	struct amount_msat cost;
@@ -617,7 +647,7 @@ static bool is_unvisited(const struct node *node,
 		return false;
 	}
 
-	arr = uintmap_get(unvisited, cost.millisatoshis);
+	arr = unvisited_get(unvisited, cost);
 	for (size_t i = 0; i < tal_count(arr); i++) {
 		if (arr[i] == node)
 			return true;
@@ -625,39 +655,24 @@ static bool is_unvisited(const struct node *node,
 	return false;
 }
 
-static void unvisited_add(unvisited_t *unvisited, struct amount_msat cost,
-			  struct node **arr)
-{
-	uintmap_add(unvisited, cost.millisatoshis, arr); /* Raw: uintmap */
-}
-
-static struct node **unvisited_del(unvisited_t *unvisited,
-				   struct amount_msat cost)
-{
-	return uintmap_del(unvisited, cost.millisatoshis); /* Raw: uintmap */
-}
-
-static void unvisited_del_node(unvisited_t *unvisited,
+static void unvisited_del_node(struct unvisited *unvisited,
 			       struct amount_msat cost,
 			       const struct node *node)
 {
-	size_t i;
 	struct node **arr;
 
-	/* Remove may reallocate, so we delete and re-add. */
-	arr = unvisited_del(unvisited, cost);
-	for (i = 0; arr[i] != node; i++)
-		assert(i < tal_count(arr));
-
-	tal_arr_remove(&arr, i);
-	if (tal_count(arr) == 0)
-		tal_free(arr);
-	else
-		unvisited_add(unvisited, cost, arr);
+	arr = unvisited_get(unvisited, cost);
+	for (size_t i = 0; i < tal_count(arr); i++) {
+		if (arr[i] == node) {
+			arr[i] = NULL;
+			return;
+		}
+	}
+	abort();
 }
 
 static void adjust_unvisited(struct node *node,
-			     unvisited_t *unvisited,
+			     struct unvisited *unvisited,
 			     struct amount_msat cost_before,
 			     struct amount_msat total,
 			     struct amount_msat risk,
@@ -674,17 +689,33 @@ static void adjust_unvisited(struct node *node,
 	node->dijkstra.risk = risk;
 
 	/* Update map of unvisited nodes */
-	arr = unvisited_del(unvisited, cost_after);
-	if (!arr) {
+	arr = unvisited_get(unvisited, cost_after);
+	if (arr) {
+		struct node **old_arr;
+		/* Try for empty slot */
+		for (size_t i = 0; i < tal_count(arr); i++) {
+			if (arr[i] == NULL) {
+				arr[i] = node;
+				return;
+			}
+		}
+		/* Nope, expand */
+		old_arr = arr;
+		tal_arr_expand(&arr, node);
+		if (arr == old_arr)
+			return;
+
+		/* Realloc moved it; del and add again. */
+		unvisited_del(unvisited, cost_after);
+	} else {
 		arr = tal_arr(unvisited, struct node *, 1);
 		arr[0] = node;
-	} else
-		tal_arr_expand(&arr, node);
+	}
 
 	unvisited_add(unvisited, cost_after, arr);
 }
 
-static void remove_unvisited(struct node *node, unvisited_t *unvisited)
+static void remove_unvisited(struct node *node, struct unvisited *unvisited)
 {
 	struct amount_msat cost;
 
@@ -704,7 +735,7 @@ static void remove_unvisited(struct node *node, unvisited_t *unvisited)
 static void update_unvisited_neighbors(struct routing_state *rstate,
 				       struct node *cur,
 				       double riskfactor,
-				       unvisited_t *unvisited)
+				       struct unvisited *unvisited)
 {
 	struct chan_map_iter i;
 	struct chan *chan;
@@ -746,20 +777,23 @@ static void update_unvisited_neighbors(struct routing_state *rstate,
 	}
 }
 
-static struct node *first_unvisited(unvisited_t *unvisited)
+static struct node *first_unvisited(struct unvisited *unvisited)
 {
-	u64 idx;
-	struct node **arr = uintmap_first(unvisited, &idx);
+	struct node **arr;
 
-	if (arr)
-		return arr[0];
+	while ((arr = uintmap_after(&unvisited->map, &unvisited->min_index))) {
+		for (size_t i = 0; i < tal_count(arr); i++)
+			if (arr[i])
+				return arr[i];
+	}
+
 	return NULL;
 }
 
 static void dijkstra(struct routing_state *rstate,
 		     const struct node *dst,
 		     double riskfactor,
-		     unvisited_t *unvisited)
+		     struct unvisited *unvisited)
 {
 	struct node *cur;
 
@@ -854,18 +888,19 @@ static struct chan **build_route(const tal_t *ctx,
 	return route;
 }
 
-static unvisited_t *dijkstra_prepare(const tal_t *ctx,
-				     struct routing_state *rstate,
-				     struct node *src,
-				     struct amount_msat msat)
+static struct unvisited *dijkstra_prepare(const tal_t *ctx,
+					  struct routing_state *rstate,
+					  struct node *src,
+					  struct amount_msat msat)
 {
 	struct node_map_iter it;
-	unvisited_t *unvisited;
+	struct unvisited *unvisited;
 	struct node *n;
 	struct node **arr;
 
-	unvisited = tal(ctx, unvisited_t);
-	uintmap_init(unvisited);
+	unvisited = tal(tmpctx, struct unvisited);
+	uintmap_init(&unvisited->map);
+	unvisited->min_index = UINT64_MAX;
 
 	/* Reset all the information. */
 	for (n = node_map_first(rstate->nodes, &it);
@@ -887,15 +922,15 @@ static unvisited_t *dijkstra_prepare(const tal_t *ctx,
 	return unvisited;
 }
 
-static void dijkstra_cleanup(unvisited_t *unvisited)
+static void dijkstra_cleanup(struct unvisited *unvisited)
 {
 	struct node **arr;
 	u64 idx;
 
 	/* uintmap uses malloc, so manual cleaning needed */
-	while ((arr = uintmap_first(unvisited, &idx)) != NULL) {
+	while ((arr = uintmap_first(&unvisited->map, &idx)) != NULL) {
 		tal_free(arr);
-		uintmap_del(unvisited, idx);
+		uintmap_del(&unvisited->map, idx);
 	}
 	tal_free(unvisited);
 }
@@ -911,7 +946,7 @@ find_route_dijkstra(const tal_t *ctx, struct routing_state *rstate,
 		    struct amount_msat *fee)
 {
 	struct node *src, *dst;
-	unvisited_t *unvisited;
+	struct unvisited *unvisited;
 
 	/* Note: we map backwards, since we know the amount of satoshi we want
 	 * at the end, and need to derive how much we need to send. */
@@ -2198,6 +2233,9 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	saved_capacity = tal_arr(tmpctx, struct amount_msat, tal_count(excluded));
 
 	base_seed.u.u64[0] = base_seed.u.u64[1] = seed;
+
+	if (amount_msat_eq(msat, AMOUNT_MSAT(0)))
+		return NULL;
 
 	/* Temporarily set excluded channels' capacity to zero. */
 	for (size_t i = 0; i < tal_count(excluded); i++) {
