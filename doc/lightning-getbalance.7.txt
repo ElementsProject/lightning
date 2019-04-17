@@ -1,0 +1,43 @@
+LIGHTNING-GETBALANCE(7)
+======================
+:doctype: manpage
+
+NAME
+----
+lightning-getbalance - Command showing the total wallet balance.
+
+SYNOPSIS
+--------
+*getbalance*
+
+DESCRIPTION
+-----------
+The *getbalance* RPC command displays the total funds either on chain or locked on channels.
+
+RETURN VALUE
+------------
+On success an object will be returned with six entries :
+
+- 'on_chain' - The sum of all the wallet utxos, in satoshis.
+
+- 'on_chain_msat' - The sum of all the wallet utxos, in milli satoshis.
+
+- 'on_channels' - The sum of all our satoshis locked in channels, in satoshis.
+
+- 'on_channels_msat' - The sum of all our satoshis locked in channels, in milli satoshis (rounded).
+
+- 'total' - The sum of on chain and on channels funds, in satoshis.
+
+- 'total_msat' - The sum of on chain and on channels funds, in milli satoshis.
+
+AUTHOR
+------
+Darosior <darosior@protonmail.com> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-listfunds(7), lightning-newaddr(7), lightning-fundchannel(7), lightning-withdraw(7)
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning
