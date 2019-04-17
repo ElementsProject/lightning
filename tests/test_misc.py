@@ -1284,3 +1284,18 @@ def test_newaddr(node_factory):
     both = l1.rpc.newaddr('all')
     assert both['p2sh-segwit'].startswith('2')
     assert both['bech32'].startswith('bcrt1')
+
+
+def test_getbalance(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+    balance = l1.rpc.getbalance()
+    funds = l1.rpc.listfunds()
+    outputs_value = 0
+    for i in funds["outputs"]:
+        outputs_value += i["value"]
+    channels_sat = 0
+    for i in funds["channels"]:
+        channels_sat += int(i["our_amount_msat"]) // 1000
+    assert balance["on_chain"] == outputs_value
+    assert balance["on_channels"] == channels_sat
+    assert balance["total"] == outputs_value + channels_sat
