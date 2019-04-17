@@ -22,8 +22,6 @@
 #define SUPERVERBOSE(...)
 #endif
 
-bool only_dijkstra = false;
-
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
@@ -439,19 +437,6 @@ struct unvisited {
 	UINTMAP(struct node **) map;
 };
 
-static void clear_bfg(struct node_map *nodes)
-{
-	struct node *n;
-	struct node_map_iter it;
-
-	for (n = node_map_first(nodes, &it); n; n = node_map_next(nodes, &it)) {
-		size_t i;
-		for (i = 0; i < ARRAY_SIZE(n->bfg); i++) {
-			n->bfg[i].total = INFINITE;
-			n->bfg[i].risk = AMOUNT_MSAT(0);
-		}
-	}
-}
 
 /* Risk of passing through this channel.
  *
@@ -602,49 +587,6 @@ static bool costs_less(struct amount_msat totala,
 	if (costb)
 		*costb = sumb;
 	return amount_msat_less(suma, sumb);
-}
-
-/* We track totals, rather than costs.  That's because the fee depends
- * on the current amount passing through. */
-static void bfg_one_edge(struct node *node,
-			 struct chan *chan, int idx,
-			 double riskfactor,
-			 double fuzz, const struct siphash_seed *base_seed,
-			 size_t max_hops)
-{
-	size_t h;
-	const struct half_chan *c = &chan->half[idx];
-
-	for (h = 0; h < max_hops; h++) {
-		struct node *src;
-		struct amount_msat total, risk;
-
-		if (!can_reach(c, &chan->scid, node->bfg[h].total, node->bfg[h].risk,
-			       riskfactor, 1, fuzz, base_seed, &total, &risk))
-			continue;
-
-		/* nodes[0] is src for connections[0] */
-		src = chan->nodes[idx];
-
-		if (costs_less(total, risk, NULL,
-			       src->bfg[h + 1].total,
-			       src->bfg[h + 1].risk,
-			       NULL,
-			       normal_cost_function)) {
-			SUPERVERBOSE("...%s can reach here hoplen %zu"
-				     " total %s risk %s",
-				     type_to_string(tmpctx, struct node_id,
-						    &src->id),
-				     h,
-				     type_to_string(tmpctx, struct amount_msat,
-						    &requiredcap),
-				     type_to_string(tmpctx, struct amount_msat,
-						    &risk));
-			src->bfg[h+1].total = total;
-			src->bfg[h+1].risk = risk;
-			src->bfg[h+1].prev = chan;
-		}
-	}
 }
 
 /* Determine if the given half_chan is routable */
@@ -1145,13 +1087,13 @@ out:
 
 /* riskfactor is already scaled to per-block amount */
 static struct chan **
-find_route_dijkstra(const tal_t *ctx, struct routing_state *rstate,
-		    const struct node_id *from, const struct node_id *to,
-		    struct amount_msat msat,
-		    double riskfactor,
-		    double fuzz, const struct siphash_seed *base_seed,
-		    size_t max_hops,
-		    struct amount_msat *fee)
+find_route(const tal_t *ctx, struct routing_state *rstate,
+	   const struct node_id *from, const struct node_id *to,
+	   struct amount_msat msat,
+	   double riskfactor,
+	   double fuzz, const struct siphash_seed *base_seed,
+	   size_t max_hops,
+	   struct amount_msat *fee)
 {
 	struct node *src, *dst;
 	struct unvisited *unvisited;
@@ -1190,140 +1132,6 @@ find_route_dijkstra(const tal_t *ctx, struct routing_state *rstate,
 	/* This is the far more unlikely case */
 	return find_shorter_route(ctx, rstate, src, dst, msat,
 				  max_hops, fuzz, base_seed, route, fee);
-}
-
-/* riskfactor is already scaled to per-block amount */
-static struct chan **
-find_route_bfg(const tal_t *ctx, struct routing_state *rstate,
-	       const struct node_id *from, const struct node_id *to,
-	       struct amount_msat msat,
-	       double riskfactor,
-	       double fuzz, const struct siphash_seed *base_seed,
-	       size_t max_hops,
-	       struct amount_msat *fee)
-{
-	struct chan **route;
-	struct node *n, *src, *dst;
-	struct node_map_iter it;
-	struct amount_msat best_total;
-	int runs, i, best;
-
-	/* Note: we map backwards, since we know the amount of satoshi we want
-	 * at the end, and need to derive how much we need to send. */
-	dst = get_node(rstate, from);
-	src = get_node(rstate, to);
-
-	if (!src) {
-		status_info("find_route: cannot find %s",
-			    type_to_string(tmpctx, struct node_id, to));
-		return NULL;
-	} else if (!dst) {
-		status_info("find_route: cannot find myself (%s)",
-			    type_to_string(tmpctx, struct node_id, to));
-		return NULL;
-	} else if (dst == src) {
-		status_info("find_route: this is %s, refusing to create empty route",
-			    type_to_string(tmpctx, struct node_id, to));
-		return NULL;
-	}
-
-	if (max_hops > ROUTING_MAX_HOPS) {
-		status_info("find_route: max_hops huge amount %zu > %u",
-			    max_hops, ROUTING_MAX_HOPS);
-		return NULL;
-	}
-
-	/* Reset all the information. */
-	clear_bfg(rstate->nodes);
-
-	/* Bellman-Ford-Gibson: like Bellman-Ford, but keep values for
-	 * every path length. */
-	src->bfg[0].total = msat;
-	src->bfg[0].risk = AMOUNT_MSAT(0);
-
-	for (runs = 0; runs < max_hops; runs++) {
-		SUPERVERBOSE("Run %i", runs);
-		/* Run through every edge. */
-		for (n = node_map_first(rstate->nodes, &it);
-		     n;
-		     n = node_map_next(rstate->nodes, &it)) {
-			struct chan_map_iter i;
-			struct chan *chan;
-
-			for (chan = first_chan(n, &i);
-			     chan;
-			     chan = next_chan(n, &i)) {
-				int idx = half_chan_to(n, chan);
-
-				SUPERVERBOSE("Node %s edge %s",
-					     type_to_string(tmpctx, struct node_id,
-							    &n->id),
-					     type_to_string(tmpctx,
-							    struct short_channel_id,
-							    &c->scid));
-
-				if (!hc_is_routable(rstate, chan, idx)) {
-					SUPERVERBOSE("...unroutable (local_disabled = %i, is_halfchan_enabled = %i, unroutable_until = %i",
-						     is_chan_local_disabled(rstate, chan),
-						     is_halfchan_enabled(&chan->half[idx]),
-						     chan->half[idx].unroutable_until >= now);
-					continue;
-				}
-				bfg_one_edge(n, chan, idx,
-					     riskfactor, fuzz, base_seed,
-					     max_hops);
-				SUPERVERBOSE("...done");
-			}
-		}
-	}
-
-	best = 0;
-	best_total = INFINITE;
-	for (i = 0; i <= max_hops; i++) {
-		struct amount_msat total;
-		status_trace("%i hop solution: %s + %s",
-			     i,
-			     type_to_string(tmpctx, struct amount_msat,
-					    &dst->bfg[i].total),
-			     type_to_string(tmpctx, struct amount_msat,
-					    &dst->bfg[i].risk));
-		if (!amount_msat_add(&total,
-				     dst->bfg[i].total, dst->bfg[i].risk))
-			continue;
-		if (amount_msat_less(total, best_total)) {
-			best = i;
-			best_total = total;
-		}
-	}
-	status_trace("=> chose %i hop solution", best);
-
-	/* No route? */
-	if (amount_msat_greater_eq(best_total, INFINITE)) {
-		status_trace("find_route: No route to %s",
-			     type_to_string(tmpctx, struct node_id, to));
-		return NULL;
-	}
-
-	/* We (dst) don't charge ourselves fees, so skip first hop */
-	n = other_node(dst, dst->bfg[best].prev);
-	if (!amount_msat_sub(fee, n->bfg[best-1].total, msat)) {
-		status_broken("Could not subtract %s - %s for fee",
-			      type_to_string(tmpctx, struct amount_msat,
-					     &n->bfg[best-1].total),
-			      type_to_string(tmpctx, struct amount_msat, &msat));
-		return NULL;
-	}
-
-	/* Lay out route */
-	route = tal_arr(ctx, struct chan *, best);
-	for (i = 0, n = dst;
-	     i < best;
-	     n = other_node(n, n->bfg[best-i].prev), i++) {
-		route[i] = n->bfg[best-i].prev;
-	}
-	assert(n == src);
-
-	return route;
 }
 
 /* Checks that key is valid, and signed this hash */
@@ -2394,34 +2202,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	applied = routing_add_node_announcement(rstate, serialized, 0);
 	assert(applied);
 	return NULL;
-}
-
-static struct chan **
-find_route(const tal_t *ctx, struct routing_state *rstate,
-	   const struct node_id *from, const struct node_id *to,
-	   struct amount_msat msat,
-	   double riskfactor,
-	   double fuzz, const struct siphash_seed *base_seed,
-	   size_t max_hops,
-	   struct amount_msat *fee)
-{
-	struct chan **rd, **rbfg;
-
-	rd = find_route_dijkstra(ctx, rstate, from, to, msat,
-				 riskfactor,
-				 fuzz, base_seed, max_hops, fee);
-	if (only_dijkstra)
-		return rd;
-
-	/* Make sure they match */
-	rbfg = find_route_bfg(ctx, rstate, from, to, msat,
-			      riskfactor,
-			      fuzz, base_seed, max_hops, fee);
-	/* FIXME: Dijkstra can give overlength! */
-	if (tal_count(rd) < max_hops)
-		assert(memeq(rd, tal_bytelen(rd), rbfg, tal_bytelen(rbfg)));
-	tal_free(rd);
-	return rbfg;
 }
 
 struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
