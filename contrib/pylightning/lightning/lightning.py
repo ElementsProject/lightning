@@ -670,3 +670,9 @@ class LightningRpc(UnixDomainSocketRpc):
             "slow": slow
         }
         return self.call("feerates", payload)
+
+    def getbalance(self):
+        """
+        Returns the total balance on chain and on channels
+        """
+        return self.call("getbalance")
