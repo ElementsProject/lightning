@@ -131,8 +131,9 @@ if [ -z "${TARGETS##* routing_sec *}" ]; then
     # shellcheck disable=SC2046
     # shellcheck disable=SC2005
     echo $(tr '{}' '\n' < "$DIR"/listnodes.json | grep nodeid | cut -d'"' -f4 | sort | head -n2) | while read -r from to; do
+	# Channels have htlc_min of 10000 msat.
 	# shellcheck disable=SC2086
-	/usr/bin/time --quiet --append -f %e $LCLI1 getroute $from 1 1 6 $to 2>&1 > /dev/null | print_stat routing_sec # FIXME: this shouldn't fail
+	/usr/bin/time --quiet --append -f %e $LCLI1 getroute $from 10000 1 6 $to 2>&1 > /dev/null | print_stat routing_sec
     done
 fi
 
