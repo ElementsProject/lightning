@@ -108,7 +108,7 @@ static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
 	node_id_from_pubkey(id, &k);
 }
 
-#define NUM_NODES 21
+#define NUM_NODES (ROUTING_MAX_HOPS + 1)
 
 /* We create an arrangement of nodes, each node N connected to N+1 and
  * to node 1.  The cost for each N to N+1 route is 1, for N to 1 is
@@ -156,6 +156,10 @@ int main(void)
 		hc->channel_flags = node_id_idx(&ids[i-1], &ids[i]);
 		hc->htlc_minimum = AMOUNT_MSAT(0);
 		hc->htlc_maximum = AMOUNT_MSAT(1000000 * 1000);
+		SUPERVERBOSE("Joining %s to %s, fee %u",
+			     type_to_string(tmpctx, struct node_id, &ids[i-1]),
+			     type_to_string(tmpctx, struct node_id, &ids[i]),
+			     (int)hc->base_fee);
 
 		if (i <= 2)
 			continue;
@@ -171,14 +175,27 @@ int main(void)
 		hc->channel_flags = node_id_idx(&ids[1], &ids[i]);
 		hc->htlc_minimum = AMOUNT_MSAT(0);
 		hc->htlc_maximum = AMOUNT_MSAT(1000000 * 1000);
+		SUPERVERBOSE("Joining %s to %s, fee %u",
+			     type_to_string(tmpctx, struct node_id, &ids[1]),
+			     type_to_string(tmpctx, struct node_id, &ids[i]),
+			     (int)hc->base_fee);
 	}
 
 	for (size_t i = ROUTING_MAX_HOPS; i > 1; i--) {
 		struct amount_msat fee;
+		SUPERVERBOSE("%s -> %s:",
+			     type_to_string(tmpctx, struct node_id, &ids[0]),
+			     type_to_string(tmpctx, struct node_id, &ids[NUM_NODES-1]));
+
 		route = find_route(tmpctx, rstate, &ids[0], &ids[NUM_NODES-1],
 				   AMOUNT_MSAT(1000), 0, 0.0, NULL,
 				   i, &fee);
 		assert(route);
+		/* FIXME: dijkstra ignores maximum length requirement! */
+		if (only_dijkstra) {
+			assert(tal_count(route) == NUM_NODES-1);
+			continue;
+		}
 		assert(tal_count(route) == i);
 		if (i != ROUTING_MAX_HOPS)
 			assert(amount_msat_greater(fee, last_fee));

@@ -118,6 +118,13 @@ struct node {
 		/* Where that came from. */
 		struct chan *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
+
+	struct {
+		/* Total to get to here from target. */
+		struct amount_msat total;
+		/* Total risk premium of this route. */
+		struct amount_msat risk;
+	} dijkstra;
 };
 
 const struct node_id *node_map_keyof_node(const struct node *n);
@@ -428,4 +435,7 @@ static inline void local_enable_chan(struct routing_state *rstate,
 
 /* Helper to convert on-wire addresses format to wireaddrs array */
 struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser);
+
+/* Temporary to set routing algo */
+extern bool only_dijkstra;
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
