@@ -550,17 +550,6 @@ static void bfg_one_edge(struct node *node,
 	double fee_scale = 1.0;
 	const struct half_chan *c = &chan->half[idx];
 
-	if (fuzz != 0.0) {
-		u64 h =	siphash24(base_seed, &chan->scid, sizeof(chan->scid));
-
-		/* Scale fees for this channel */
-		/* rand = (h / UINT64_MAX)  random number between 0.0 -> 1.0
-		 * 2*fuzz*rand              random number between 0.0 -> 2*fuzz
-		 * 2*fuzz*rand - fuzz       random number between -fuzz -> +fuzz
-		 */
-		fee_scale = 1.0 + (2.0 * fuzz * h / UINT64_MAX) - fuzz;
-	}
-
 	for (h = 0; h < max_hops; h++) {
 		struct node *src;
 		struct amount_msat total, risk;
