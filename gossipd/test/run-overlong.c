@@ -191,11 +191,6 @@ int main(void)
 				   AMOUNT_MSAT(1000), 0, 0.0, NULL,
 				   i, &fee);
 		assert(route);
-		/* FIXME: dijkstra ignores maximum length requirement! */
-		if (only_dijkstra) {
-			assert(tal_count(route) == NUM_NODES-1);
-			continue;
-		}
 		assert(tal_count(route) == i);
 		if (i != ROUTING_MAX_HOPS)
 			assert(amount_msat_greater(fee, last_fee));
