@@ -261,9 +261,8 @@ int main(int argc, char *argv[])
 				   ROUTING_MAX_HOPS,
 				   &fee);
 		num_hops = tal_count(route);
-		/* FIXME: Dijkstra can give overlength! */
-		if (num_hops < ARRAY_SIZE(route_lengths))
-			route_lengths[num_hops]++;
+		assert(num_hops < ARRAY_SIZE(route_lengths));
+		route_lengths[num_hops]++;
 		tal_free(route);
 	}
 	end = time_mono();
