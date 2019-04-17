@@ -474,6 +474,70 @@ static bool fuzz_fee(u64 *fee, double fee_scale)
 	return true;
 }
 
+/* Can we carry this amount across the channel?  If so, returns true and
+ * sets newtotal and newrisk */
+static bool can_reach(const struct half_chan *c,
+		      struct amount_msat total,
+		      struct amount_msat risk,
+		      double riskfactor, double fee_scale,
+		      struct amount_msat *newtotal, struct amount_msat *newrisk)
+{
+	/* FIXME: Bias against smaller channels. */
+	struct amount_msat fee;
+
+	if (!amount_msat_fee(&fee, total, c->base_fee, c->proportional_fee))
+		return false;
+
+	if (!fuzz_fee(&fee.millisatoshis, fee_scale)) /* Raw: double manipulation */
+		return false;
+
+	if (!amount_msat_add(newtotal, total, fee))
+		return false;
+
+	/* Skip a channel if it indicated that it won't route the
+	 * requested amount. */
+	if (!hc_can_carry(c, *newtotal))
+		return false;
+
+	*newrisk = risk;
+	if (!risk_add_fee(newrisk, *newtotal, c->delay, riskfactor))
+		return false;
+
+	return true;
+}
+
+/* Does totala+riska add up to less than totalb+riskb?
+ * Saves sums if you want them.
+ */
+static bool costs_less(struct amount_msat totala,
+		       struct amount_msat riska,
+		       struct amount_msat *costa,
+		       struct amount_msat totalb,
+		       struct amount_msat riskb,
+		       struct amount_msat *costb)
+{
+	struct amount_msat suma, sumb;
+
+	if (!amount_msat_add(&suma, totala, riska))
+		return false;
+
+	if (!amount_msat_add(&sumb, totalb, riskb)) {
+		/* We calculated this before: shouldn't happen! */
+		status_broken("Overflow: total %s + risk %s",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &totalb),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &riskb));
+		return false;
+	}
+
+	if (costa)
+		*costa = suma;
+	if (costb)
+		*costb = sumb;
+	return amount_msat_less(suma, sumb);
+}
+
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
 static void bfg_one_edge(struct node *node,
@@ -499,49 +563,19 @@ static void bfg_one_edge(struct node *node,
 
 	for (h = 0; h < max_hops; h++) {
 		struct node *src;
-		/* FIXME: Bias against smaller channels. */
-		struct amount_msat fee, risk, requiredcap,
-			this_total, curr_total;
+		struct amount_msat total, risk;
 
-		if (!amount_msat_fee(&fee, node->bfg[h].total,
-				     c->base_fee, c->proportional_fee))
-			continue;
-
-		if (!fuzz_fee(&fee.millisatoshis, fee_scale)) /* Raw: double manipulation */
-			continue;
-
-		if (!amount_msat_add(&requiredcap, node->bfg[h].total, fee))
-			continue;
-
-		risk = node->bfg[h].risk;
-		if (!risk_add_fee(&risk, requiredcap, c->delay, riskfactor))
-			continue;
-
-		if (!hc_can_carry(c, requiredcap)) {
-			/* Skip a channel if it indicated that it won't route
-			 * the requested amount. */
-			continue;
-		}
-
-		if (!amount_msat_add(&this_total, requiredcap, risk))
+		if (!can_reach(c, node->bfg[h].total, node->bfg[h].risk,
+			       riskfactor, fee_scale, &total, &risk))
 			continue;
 
 		/* nodes[0] is src for connections[0] */
 		src = chan->nodes[idx];
 
-		if (!amount_msat_add(&curr_total,
-				     src->bfg[h + 1].total,
-				     src->bfg[h + 1].risk)) {
-			/* We just calculated this: shouldn't happen! */
-			status_broken("Overflow: total %s + risk %s",
-				      type_to_string(tmpctx, struct amount_msat,
-						     &src->bfg[h + 1].total),
-				      type_to_string(tmpctx, struct amount_msat,
-						     &src->bfg[h + 1].risk));
-			continue;
-		}
-
-		if (amount_msat_less(this_total, curr_total)) {
+		if (costs_less(total, risk, NULL,
+			       src->bfg[h + 1].total,
+			       src->bfg[h + 1].risk,
+			       NULL)) {
 			SUPERVERBOSE("...%s can reach here hoplen %zu"
 				     " total %s risk %s",
 				     type_to_string(tmpctx, struct node_id,
@@ -551,7 +585,7 @@ static void bfg_one_edge(struct node *node,
 						    &requiredcap),
 				     type_to_string(tmpctx, struct amount_msat,
 						    &risk));
-			src->bfg[h+1].total = requiredcap;
+			src->bfg[h+1].total = total;
 			src->bfg[h+1].risk = risk;
 			src->bfg[h+1].prev = chan;
 		}
