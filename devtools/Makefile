@@ -43,7 +43,7 @@ devtools/dump-gossipstore: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS)
 devtools/dump-gossipstore.o: gossipd/gen_gossip_store.h
 
 devtools/create-gossipstore: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/create-gossipstore.o gossipd/gen_gossip_store.o
-devtools/create-gossipstore.o: gossipd/gen_gossip_store.h devtools/create-gossipstore.h
+devtools/create-gossipstore.o: gossipd/gen_gossip_store.h
 
 devtools/onion.c: ccan/config.h
 

@@ -82,7 +82,7 @@ if [ -z "$DIR" ]; then
     trap 'rm -rf "$DIR"' 0
 
     DIR="$(mktemp -d)"
-    ./devtools/create-gossipstore 100000 -i "$MCP_DIR"/1M.gossip -o "$DIR"/gossip_store
+    ./devtools/create-gossipstore --csv "$MCP_DIR"/scidSatoshis.csv -i "$MCP_DIR"/1M.gossip -o "$DIR"/gossip_store
 fi
 
 # shellcheck disable=SC2086
