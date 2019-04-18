@@ -39,6 +39,7 @@ changes.
 - Unannounced local channels were forgotten for routing on restart until reconnection occurred.
 - lightning-cli: arguments containing `"` now succeed, rather than causing JSON errors.
 - protocol: handle lnd sending more messages before `reestablish`; don't fail channel, and handle older lnd's spurious empty commitments.
+- Fixed `fundchannel` crash when we have many UTXOs and we skip unconfirmed ones.
 
 ### Security
 

@@ -331,13 +331,13 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 
 		weight += input_weight;
 
-		if (!amount_sat_add(satoshi_in, *satoshi_in, utxos[i]->amount))
+		if (!amount_sat_add(satoshi_in, *satoshi_in, u->amount))
 			fatal("Overflow in available satoshis %zu/%zu %s + %s",
 			      i, tal_count(available),
 			      type_to_string(tmpctx, struct amount_sat,
 					     satoshi_in),
 			      type_to_string(tmpctx, struct amount_sat,
-					     &utxos[i]->amount));
+					     &u->amount));
 
 		*fee_estimate = amount_tx_fee(feerate_per_kw, weight);
 		if (!amount_sat_add(&needed, sat, *fee_estimate))
