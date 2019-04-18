@@ -150,6 +150,7 @@ int main(int argc, char *argv[])
 					errx(1, "bad channel_announcement");
 			        if (!short_channel_id_eq(&scid, &scidsats[scidi].scid))
 			        	errx(1, "scid of message does not match scid in csv");
+				sat = scidsats[scidi].sat;
 				scidi++;
 			}
 			outmsg = towire_gossip_store_channel_announcement(inmsg, inmsg, sat);
