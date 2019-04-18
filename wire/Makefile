@@ -28,18 +28,16 @@ ALL_GEN_HEADERS += $(WIRE_GEN_HEADERS)
 # They may not have the bolts.
 BOLT_EXTRACT=$(LOCAL_BOLTDIR)/tools/extract-formats.py
 
-ifeq ($(DEVELOPER),1)
-wire/gen_peer_wire_csv: bolt-precheck
-	@set -e; if [ -d $(LOCAL_BOLTDIR) ]; then for f in $(LOCAL_BOLTDIR)/0[127]*.md $(BOLT_EXTRACT); do if [ $$f -nt $@ -o ! -f $@ ]; then $(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/0[127]*.md > $@; break; fi; done; fi
+# Explicit command to re-extract CSV from BOLTs.
+extract-bolt-csv: bolt-precheck
+	@$(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/0[127]*.md > wire/extracted_peer_wire_csv
+	@echo '#include <wire/onion_defs.h>' > wire/extracted_onion_wire_csv
+	@$(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/04*.md >> wire/extracted_onion_wire_csv
 
-wire/gen_onion_wire_csv: bolt-precheck
-	@set -e; if [ -f $(BOLT_EXTRACT) ]; then for f in $(LOCAL_BOLTDIR)/04*.md $(BOLT_EXTRACT); do if [ $$f -nt $@ -o ! -f $@ ]; then echo '#include <wire/onion_defs.h>' > $@ && $(BOLT_EXTRACT) --message-fields --message-types $(LOCAL_BOLTDIR)/04*.md >> $@; break; fi; done; fi
-endif
-
-wire/gen_peer_wire.h: $(WIRE_GEN) wire/gen_peer_wire_csv
+wire/gen_peer_wire.h: $(WIRE_GEN) wire/extracted_peer_wire_csv
 	$(WIRE_GEN) --bolt --header $@ wire_type < wire/gen_peer_wire_csv > $@
 
-wire/gen_peer_wire.c: $(WIRE_GEN) wire/gen_peer_wire_csv
+wire/gen_peer_wire.c: $(WIRE_GEN) wire/extracted_peer_wire_csv
 	$(WIRE_GEN) --bolt ${@:.c=.h} wire_type < wire/gen_peer_wire_csv > $@
 
 wire/gen_onion_wire.h: $(WIRE_GEN) wire/gen_onion_wire_csv

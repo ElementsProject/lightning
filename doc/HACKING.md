@@ -244,6 +244,17 @@ parts of the code:
   This has to be the *first* field of the structure, or else `dev-memleak`
   command will think your structure has leaked.
 
+
+Protocol Modifications
+----------------------
+
+The source tree contains CSV files extracted from the v1.0 BOLT
+specifications (wire/extracted_peer_wire_csv and
+wire/extracted_onion_wire_csv).  You can regenerate these by setting
+`BOLTDIR` and `BOLTVERSION` appropriately, and running `make
+extract-bolt-csv`.
+
+
 Further Information
 -------------------
 
