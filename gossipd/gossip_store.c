@@ -560,15 +560,8 @@ truncate_nomsg:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating store: %s", strerror(errno));
 out:
-#if DEVELOPER
-	status_info("total store load time: %"PRIu64" msec (%zu entries, %zu bytes)",
-		    time_to_msec(time_between(time_now(), start)),
-		    stats[0] + stats[1] + stats[2] + stats[3],
-		    (size_t)gs->len);
-#else
 	status_trace("total store load time: %"PRIu64" msec",
 		     time_to_msec(time_between(time_now(), start)));
-#endif
 	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store in %"PRIu64" bytes",
 		     stats[0], stats[1], stats[2], stats[3],
 		     gs->len);
