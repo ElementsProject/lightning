@@ -23,6 +23,8 @@ wait_for_start()
 	    exit 1
 	fi
     done
+    # Wait for it to catch up with bitcoind.
+    while [ "$($LCLI1 -H getinfo 2>/dev/null | grep '^blockheight=' | cut -d= -f2)" != "$(bitcoin-cli -regtest getblockcount)" ]; do sleep 1; done
     echo "$ID"
 }
 
