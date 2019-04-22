@@ -172,20 +172,6 @@ int main(void)
 	return 0;
 }
 /*END*/
-var=HAVE_SYSTEM_LIBBASE58
-desc=libbase58
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=-lbase58
-code=
-#include <libbase58.h>
-#include <stdio.h>
-
-int main(void)
-{
-	printf("%p\n", b58check);
-	return 0;
-}
-/*END*/
 var=HAVE_SQLITE3_EXPANDED_SQL
 desc=sqlite3_expanded_sql
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
