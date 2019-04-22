@@ -149,8 +149,7 @@ void daemon_setup(const char *argv0,
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);
 	wally_init(0);
-	/* FIXME: https://github.com/ElementsProject/libwally-core/issues/95 */
-	secp256k1_ctx = (secp256k1_context *)wally_get_secp_context();
+	secp256k1_ctx = wally_get_secp_context();
 
 	setup_tmpctx();
 	io_poll_override(daemon_poll);
