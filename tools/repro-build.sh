@@ -70,7 +70,7 @@ case "$PLATFORM" in
 	    exit 1
 	fi
 	DOWNLOAD='sudo apt --no-install-recommends --reinstall -d install'
-	PKGS='autoconf automake libtool make gcc libgmp-dev libsqlite3-dev zlib1g-dev libsodium-dev libbase58-dev'
+	PKGS='autoconf automake libtool make gcc libgmp-dev libsqlite3-dev zlib1g-dev libsodium-dev'
 	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
 a909ad8b2e97f45960a05458140cff737df30bf7c616778a5a0ca74b9d012d93  /var/cache/apt/archives/autoconf_2.69-11_all.deb
@@ -80,8 +80,6 @@ abe8f767884414dde79c4c5c4b6b7447ce057a07277a6de24f1b96e7e2b5da5a  /var/cache/apt
 e8d83c288e08da39c5ccd289b550e2097f562bf848480f71f94cebbd187e60da  /var/cache/apt/archives/gcc-7_7.3.0-16ubuntu3_amd64.deb
 92f5f15faca8cee48608b58a0300c469c076dd1dd8946b93b8428abd404d54f9  /var/cache/apt/archives/libasan4_7.3.0-16ubuntu3_amd64.deb
 fc386b12f324c34e405502767216daef22bf7d2f0e597b1c7ccea5cef1821bd3  /var/cache/apt/archives/libatomic1_8-20180414-1ubuntu2_amd64.deb
-76e511f41c4aa7d7683a06d2a76c24df968d5c084a63c9ff27a544de899585a5  /var/cache/apt/archives/libbase58-0_0.1.4-1_amd64.deb
-ce48723acc07e67db5da181cd0e4dfecfe50b2147f8de8bc1bab5f15833562cb  /var/cache/apt/archives/libbase58-dev_0.1.4-1_amd64.deb
 e426c70a940a7d0c5c95823a5fd01f26bd8bcb08d109df2f8c96c439da8dc440  /var/cache/apt/archives/libc6-dev_2.27-3ubuntu1_amd64.deb
 69ea1317b37cbd467eb7d216f5d23aa8831d926908e9e12477aa28bdc1d5e62b  /var/cache/apt/archives/libc-dev-bin_2.27-3ubuntu1_amd64.deb
 357185ad09d689b61efda9576888feea2a0f178ae1422cddc6cd0d48f7c22d50  /var/cache/apt/archives/libcilkrts5_7.3.0-16ubuntu3_amd64.deb
