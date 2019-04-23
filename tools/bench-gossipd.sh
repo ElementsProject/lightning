@@ -79,7 +79,7 @@ fi
 
 DEVELOPER=$(grep '^DEVELOPER=' config.vars | cut -d= -f2-)
 
-if [ $DEVELOPER = 1 ]; then
+if [ "$DEVELOPER" = 1 ]; then
     LIGHTNINGD="./lightningd/lightningd --network=regtest --dev-gossip-time=1550513768 --dev-unknown-channel-satoshis=100000"
 else
     # Means we can't do the peer_read_all test properly, since it will time out.
@@ -117,7 +117,7 @@ if [ -z "${TARGETS##* vsz_kb *}" ]; then
 fi
 
 # How long does rewriting the store take?
-if [ -z "${TARGETS##* store_rewrite_sec *}" -a "$DEVELOPER" = 1 ]; then
+if [ -z "${TARGETS##* store_rewrite_sec *}" ] && [ "$DEVELOPER" = 1 ]; then
     # shellcheck disable=SC2086
     /usr/bin/time --append -f %e $LCLI1 dev-compact-gossip-store 2>&1 > /dev/null | print_stat store_rewrite_sec
 fi
@@ -154,7 +154,7 @@ fi
 
 # Needs DEVELOPER otherwise timestamps will be more than 2 weeks old and it
 # will ignore gossip.
-if [ -z "${TARGETS##* peer_read_all_sec *}" -a "$DEVELOPER" = 1 ]; then
+if [ -z "${TARGETS##* peer_read_all_sec *}" ] && [ "$DEVELOPER" = 1 ]; then
     # shellcheck disable=SC2086
     $LCLI1 stop > /dev/null
     sleep 5
