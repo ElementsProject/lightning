@@ -1355,7 +1355,7 @@ def build_tlv_structs(tlv_fields):
 
 def build_subtype_structs(subtypes):
     structs = ""
-    for subtype in subtypes:
+    for subtype in reversed(subtypes):
         structs += subtype.print_struct()
     return structs
 
