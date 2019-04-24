@@ -809,7 +809,8 @@ struct {struct_name} {{
             elif f.is_len_var:
                 subcalls.append('towire_{}(p, {});'.format(basetype, f.name))
             else:
-                subcalls.append('towire_{}(p, {}->{});'.format(basetype, self.name, f.name))
+                ref = '&' if f.fieldtype.needs_ptr() else ''
+                subcalls.append('towire_{}(p, {}{}->{});'.format(basetype, ref, self.name, f.name))
         return tlv_message_towire_stub.format(
             tlv_name=tlv_name,
             name=self.name,
@@ -865,8 +866,9 @@ struct {struct_name} {{
                         s = '{}->{} = fromwire_{}(cursor, plen);'.format(
                             self.name, f.name, basetype)
                 else:
-                    s = 'fromwire_{}(cursor, plen, &{}->{});'.format(
-                        basetype, self.name, f.name)
+                    ref = '&' if f.fieldtype.needs_ptr() else ''
+                    s = 'fromwire_{}(cursor, plen, {}{}->{});'.format(
+                        basetype, ref, self.name, f.name)
                 subcalls.append(s)
 
         return fromwire_tlv_impl_templ.format(
