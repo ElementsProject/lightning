@@ -482,7 +482,7 @@ def test_withdraw(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Cannot afford transaction'):
         l1.rpc.withdraw(waddr, 'all')
 
-@pytest.mark.xfail(strict=True)
+
 def test_minconf_withdraw(node_factory, bitcoind):
     """Issue 2518: ensure that ridiculous confirmation levels don't overflow
 

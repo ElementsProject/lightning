@@ -38,6 +38,12 @@ static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
 	 * selection */
 	if (minconf == 0)
 		return 0;
+
+	/* Avoid wrapping around and suddenly allowing any confirmed
+	 * outputs. Since we can't have a coinbase output, and 0 is taken for
+	 * the disable case, we can just clamp to 1. */
+	if (minconf >= ld->topology->tip->height)
+		return 1;
 	return ld->topology->tip->height - minconf + 1;
 }
 #endif /* LIGHTNING_COMMON_WALLET_TX_H */
