@@ -482,6 +482,31 @@ def test_withdraw(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Cannot afford transaction'):
         l1.rpc.withdraw(waddr, 'all')
 
+@pytest.mark.xfail(strict=True)
+def test_minconf_withdraw(node_factory, bitcoind):
+    """Issue 2518: ensure that ridiculous confirmation levels don't overflow
+
+    The number of confirmations is used to compute a maximum height that is to
+    be accepted. If the current height is smaller than the number of
+    confirmations we wrap around and just select everything. The fix is to
+    clamp the maxheight parameter to a positive small number.
+
+    """
+    amount = 1000000
+    # Don't get any funds from previous runs.
+    l1 = node_factory.get_node(random_hsm=True)
+    addr = l1.rpc.newaddr()['bech32']
+
+    # Add some funds to withdraw later
+    for i in range(10):
+        l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
+
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
+    with pytest.raises(RpcError):
+        l1.rpc.withdraw(destination=addr, satoshi=10000, feerate='normal', minconf=9999999)
+
 
 def test_addfunds_from_block(node_factory, bitcoind):
     """Send funds to the daemon without telling it explicitly
