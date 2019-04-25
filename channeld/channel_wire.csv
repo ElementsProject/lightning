@@ -185,3 +185,8 @@ channel_fail_fallen_behind,,remote_per_commitment_point,struct pubkey
 channel_specific_feerates,1029
 channel_specific_feerates,,feerate_base,u32
 channel_specific_feerates,,feerate_ppm,u32
+
+# When we receive announcement_signatures for channel announce
+channel_got_announcement,1017
+channel_got_announcement,,remote_ann_node_sig,secp256k1_ecdsa_signature
+channel_got_announcement,,remote_ann_bitcoin_sig,secp256k1_ecdsa_signature
