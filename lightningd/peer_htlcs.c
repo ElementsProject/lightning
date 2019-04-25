@@ -827,7 +827,10 @@ static bool peer_accepted_htlc(struct channel *channel,
 		return false;
 	}
 
-	if (!htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION))
+	/* We are either already in committed (in case of reload from DB) or
+	 * we transition now. */
+	if (hin->hstate != RCVD_ADD_ACK_REVOCATION &&
+	    !htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION))
 		return false;
 	htlc_in_check(hin, __func__);
 
@@ -1979,7 +1982,7 @@ void htlcs_reconnect(struct lightningd *ld,
 	struct htlc_out_map_iter outi;
 	struct htlc_in *hin;
 	struct htlc_out *hout;
-	struct htlc_in_map unprocessed;
+	enum onion_type failcode;
 
 	/* Any HTLCs which happened to be incoming and weren't forwarded before
 	 * we shutdown/crashed: fail them now.
@@ -1987,11 +1990,14 @@ void htlcs_reconnect(struct lightningd *ld,
 	 * Note that since we do local processing synchronously, so this never
 	 * captures local payments.  But if it did, it would be a tiny corner
 	 * case. */
-	htlc_in_map_init(&unprocessed);
 	for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
 	     hin = htlc_in_map_next(htlcs_in, &ini)) {
-		if (hin->hstate == RCVD_ADD_ACK_REVOCATION)
-			htlc_in_map_add(&unprocessed, hin);
+		if (hin->hstate == RCVD_ADD_ACK_REVOCATION) {
+			if (!peer_accepted_htlc(hin->key.channel, hin->key.id, &failcode))
+				fail_in_htlc(hin, WIRE_TEMPORARY_NODE_FAILURE, NULL, NULL);
+			else if (failcode)
+				fail_in_htlc(hin, failcode, NULL, NULL);
+		}
 	}
 
 	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
@@ -2031,21 +2037,7 @@ void htlcs_reconnect(struct lightningd *ld,
 		fixup_hout(ld, hout);
 #endif
 
-		if (hout->in)
-			htlc_in_map_del(&unprocessed, hout->in);
 	}
-
-	/* Now fail any which were stuck. */
-	for (hin = htlc_in_map_first(&unprocessed, &ini); hin;
-	     hin = htlc_in_map_next(&unprocessed, &ini)) {
-		log_unusual(hin->key.channel->log,
-			    "Failing old unprocessed HTLC #%"PRIu64,
-			    hin->key.id);
-		fail_in_htlc(hin, WIRE_TEMPORARY_NODE_FAILURE, NULL, NULL);
-	}
-
-	/* Don't leak memory! */
-	htlc_in_map_clear(&unprocessed);
 }
 
 

@@ -727,9 +727,6 @@ int main(int argc, char *argv[])
 				 ld->ini_autocleaninvoice_cycle,
 				 ld->ini_autocleaninvoice_expiredby);
 
-	/*~ Pull peers, channels and HTLCs from db. */
-	load_channels_from_wallet(ld);
-
 	/*~ Get the blockheight we are currently at, UINT32_MAX is used to signal
 	 * an uninitialized wallet and that we should start off of bitcoind's
 	 * current height */
@@ -753,6 +750,11 @@ int main(int argc, char *argv[])
 	 * talk to bitcoind, so does its own db transactions. */
 	setup_topology(ld->topology, &ld->timers,
 		       min_blockheight, max_blockheight);
+
+	/*~ Pull peers, channels and HTLCs from db. */
+	db_begin_transaction(ld->wallet->db);
+	load_channels_from_wallet(ld);
+	db_commit_transaction(ld->wallet->db);
 
 	/*~ Now create the PID file: this errors out if there's already a
 	 * daemon running, so we call before trying to create an RPC socket. */

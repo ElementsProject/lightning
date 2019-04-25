@@ -341,3 +341,36 @@ def test_htlc_accepted_hook_resolve(node_factory):
     # And the invoice must still be unpaid
     inv = l3.rpc.listinvoices("lbl")['invoices']
     assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
+
+def test_htlc_accepted_hook_direct_restart(node_factory, executor):
+    """l2 restarts while it is pondering what to do with an HTLC.
+    """
+    l1, l2 = node_factory.line_graph(2, opts=[
+        {'may_reconnect': True},
+        {'may_reconnect': True, 'plugin': 'tests/plugins/hold_htlcs.py'}
+    ])
+
+    i1 = l2.rpc.invoice(msatoshi=1000, label="direct", description="desc")['bolt11']
+    f1 = executor.submit(l1.rpc.pay, i1)
+
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+    l2.restart()
+
+    f1.result()
+
+def test_htlc_accepted_hook_forward_restart(node_factory, executor):
+    """l2 restarts while it is pondering what to do with an HTLC.
+    """
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {'may_reconnect': True},
+        {'may_reconnect': True, 'plugin': 'tests/plugins/hold_htlcs.py'},
+        {'may_reconnect': True},
+    ], wait_for_announce=True)
+
+    i1 = l3.rpc.invoice(msatoshi=1000, label="direct", description="desc")['bolt11']
+    f1 = executor.submit(l1.rpc.pay, i1)
+
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+    l2.restart()
+
+    f1.result()
