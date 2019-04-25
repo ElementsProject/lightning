@@ -117,6 +117,25 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 		lockin_complete(channel);
 }
 
+static void peer_got_announcement(struct channel *channel, const u8 *msg)
+{
+	secp256k1_ecdsa_signature remote_ann_node_sig;
+	secp256k1_ecdsa_signature remote_ann_bitcoin_sig;
+
+	if (!fromwire_channel_got_announcement(msg,
+					       &remote_ann_node_sig,
+					       &remote_ann_bitcoin_sig)) {
+		channel_internal_error(channel,
+				       "bad channel_got_funding_locked %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	wallet_announcement_save(channel->peer->ld->wallet, channel->dbid,
+				 &remote_ann_node_sig,
+				 &remote_ann_bitcoin_sig);
+}
+
 static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 {
 	u8 *scriptpubkey;
@@ -218,6 +237,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		break;
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
 		peer_got_funding_locked(sd->channel, msg);
+		break;
+	case WIRE_CHANNEL_GOT_ANNOUNCEMENT:
+		peer_got_announcement(sd->channel, msg);
 		break;
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
 		peer_got_shutdown(sd->channel, msg);

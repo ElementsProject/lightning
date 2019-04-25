@@ -451,8 +451,6 @@ static void announce_channel(struct peer *peer)
 {
 	u8 *cannounce;
 
-	check_short_ids_match(peer);
-
 	cannounce = create_channel_announcement(tmpctx, peer);
 
 	wire_sync_write(GOSSIP_FD, cannounce);
@@ -493,6 +491,10 @@ static void channel_announcement_negotiate(struct peer *peer)
 	 *      has been sent and received AND the funding transaction has at least six confirmations.
  	 */
 	if (peer->announce_depth_reached && !peer->have_sigs[LOCAL]) {
+		/* When we reenable the channel, we will also send the announcement to remote peer, and
+		 * receive the remote announcement reply. But we will rebuild the channel with announcement
+		 * from the DB directly, other than waiting for the remote announcement reply.
+		 */
 		send_announcement_signatures(peer);
 		peer->have_sigs[LOCAL] = true;
 		billboard_update(peer);
@@ -500,8 +502,18 @@ static void channel_announcement_negotiate(struct peer *peer)
 
 	/* If we've completed the signature exchange, we can send a real
 	 * announcement, otherwise we send a temporary one */
-	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
+	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
+		check_short_ids_match(peer);
+
+		/* After making sure short_channel_ids match, we can send remote
+		 * announcement to MASTER. */
+		wire_sync_write(MASTER_FD,
+			        take(towire_channel_got_announcement(NULL,
+			        &peer->announcement_node_sigs[REMOTE],
+			        &peer->announcement_bitcoin_sigs[REMOTE])));
+
 		announce_channel(peer);
+	}
 }
 
 static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
@@ -2778,6 +2790,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
+	case WIRE_CHANNEL_GOT_ANNOUNCEMENT:
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
