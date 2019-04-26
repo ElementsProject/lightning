@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: new plugin `invoice_payment` hook for intercepting invoices before they're paid.
 - plugin: the `connected` hook can now send an `error_message` to the rejected peer.
 - Protocol: we now enforce `option_upfront_shutdown_script` if a peer negotiates it.
+- JSON API: `listforwards` now includes the local_failed forwards with failcode (Issue [#2435](https://github.com/ElementsProject/lightning/issues/2435), PR [#2524](https://github.com/ElementsProject/lightning/pull/2524))
 
 ### Changed
 

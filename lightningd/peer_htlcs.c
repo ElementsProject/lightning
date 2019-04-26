@@ -1915,6 +1915,12 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 				     "fee", "fee_msat");
 		json_add_string(response, "status", forward_status_name(cur->status));
 
+		if(cur->failcode != 0) {
+			json_add_num(response, "failcode", cur->failcode);
+			json_add_string(response, "failreason",
+					 onion_type_name(cur->failcode));
+		}
+
 #ifdef COMPAT_V070
 		/* If a forwarding doesn't have received_time it was created
 		 * before we added the tracking, do not include it here. */
