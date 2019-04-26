@@ -1452,6 +1452,8 @@ int main(int argc, char *argv[])
 	 * regtest modes, so we have a general "parameters for this chain"
 	 * function. */
 	state->chainparams = chainparams_by_chainhash(&chain_hash);
+	is_elements = state->chainparams->is_elements;
+
 	/*~ Initially we're not associated with a channel, but
 	 * handle_peer_gossip_or_error compares this. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
