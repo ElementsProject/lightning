@@ -27,9 +27,10 @@ static char *to_base58(const tal_t *ctx, u8 version,
 	if (wally_base58_from_bytes((const unsigned char *) buf, total_length, BASE58_FLAG_CHECKSUM, &out) != WALLY_OK) {
 		return NULL;
 	}else{
-		char *res;
+		char *res = NULL;
 		res = tal_strdup(ctx, out);
-		return wally_free_string(out) == WALLY_OK ? res : NULL;
+		wally_free_string(out);
+		return res;
 	}
 }
 
@@ -53,14 +54,12 @@ static bool from_base58(u8 *version,
 	/* Avoid memcheck complaining if decoding resulted in a short value */
 	size_t buflen = sizeof(buf);
 	memset(buf, 0, buflen);
-	char *terminated_base58 = malloc(base58_len + 1);
-	memcpy(terminated_base58, base58, base58_len);
+	char *terminated_base58 = tal_dup_arr(NULL, char, base58, base58_len, 1);
 	terminated_base58[base58_len] = '\0';
 
 	size_t written = 0;
 	int r = wally_base58_to_bytes(terminated_base58, BASE58_FLAG_CHECKSUM, buf, buflen, &written);
-	wally_bzero(terminated_base58, base58_len + 1);
-	free(terminated_base58);
+	tal_free(terminated_base58);
 	if (r != WALLY_OK || written > buflen) {
 		return false;
 	}
@@ -110,8 +109,7 @@ bool key_from_base58(const char *base58, size_t base58_len,
 {
 	// 1 byte version, 32 byte private key, 1 byte compressed, 4 byte checksum
 	u8 keybuf[1 + 32 + 1 + 4];
-	char *terminated_base58 = malloc(base58_len + 1);
-	memcpy(terminated_base58, base58, base58_len);
+	char *terminated_base58 = tal_dup_arr(NULL, char, base58, base58_len, 1);
 	terminated_base58[base58_len] = '\0';
 	size_t keybuflen = sizeof(keybuf);
 
@@ -119,7 +117,7 @@ bool key_from_base58(const char *base58, size_t base58_len,
 	size_t written = 0;
 	int r = wally_base58_to_bytes(terminated_base58, BASE58_FLAG_CHECKSUM, keybuf, keybuflen, &written);
 	wally_bzero(terminated_base58, base58_len + 1);
-	free(terminated_base58);
+	tal_free(terminated_base58);
 	if (r != WALLY_OK || written > keybuflen)
 		return false;
 
