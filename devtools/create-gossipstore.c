@@ -41,7 +41,7 @@ static struct scidsat *load_csv_file(FILE *scidf)
 	if (r != 2 || strcmp(title, "scid") != 0 || strcmp(&title[6], "satoshis") != 0)
 		err(1, "reading 'scid ,satoshis' from csv failed");
 
-        while(fscanf(scidf, "%s ,%ld\n", str, &scidsats[i].sat.satoshis) == 2 ) { /* Raw: read from file */
+        while(fscanf(scidf, "%s ,%"SCNu64"\n", str, &scidsats[i].sat.satoshis) == 2 ) { /* Raw: read from file */
 		if (!short_channel_id_from_str(str, strlen(str), &scidsats[i].scid, 0))
 			err(1, "failed to make scid struct");
 		i++;
