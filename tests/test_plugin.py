@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError, Millisatoshi
-from utils import only_one
+from utils import only_one, wait_for
 
 import os
 import pytest
@@ -169,8 +169,11 @@ def test_plugin_connected_hook(node_factory):
                            .format(l1.info['id']))
     l3.daemon.wait_for_log(r"You are in reject list")
 
-    peer = l1.rpc.listpeers(l3.info['id'])['peers']
-    assert(peer == [] or not peer[0]['connected'])
+    def check_disconnect():
+        peers = l1.rpc.listpeers(l3.info['id'])['peers']
+        return peers == [] or not peers[0]['connected']
+
+    wait_for(check_disconnect)
 
 
 def test_async_rpcmethod(node_factory, executor):
