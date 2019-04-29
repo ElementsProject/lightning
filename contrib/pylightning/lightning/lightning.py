@@ -113,10 +113,10 @@ class Millisatoshi:
         return Millisatoshi(int(self) - int(other))
 
     def __mul__(self, other):
-        return Millisatoshi(int(self) * other)
+        return Millisatoshi(int(int(self) * other))
 
     def __truediv__(self, other):
-        return Millisatoshi(int(self) / other)
+        return Millisatoshi(int(int(self) / other))
 
     def __floordiv__(self, other):
         return Millisatoshi(int(self) // other)
