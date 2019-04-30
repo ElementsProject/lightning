@@ -957,8 +957,7 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 			      const char *buffer,
 			      const jsmntok_t *tok, const u8 **scriptpubkey)
 {
-	struct bitcoin_address p2pkh_destination;
-	struct ripemd160 p2sh_destination;
+	struct bitcoin_address destination;
 	int witness_version;
 	/* segwit_addr_net_decode requires a buffer of size 40, and will
 	 * not write to the buffer if the address is too long, so a buffer
@@ -971,27 +970,24 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 
 	bool parsed;
 	bool right_network;
-	bool testnet;
+	u8 addr_version;
 
-	parsed = false;
-	if (bitcoin_from_base58(&testnet, &p2pkh_destination,
-				buffer + tok->start, tok->end - tok->start)) {
-		*scriptpubkey = scriptpubkey_p2pkh(cxt, &p2pkh_destination);
-		parsed = true;
-		right_network = (testnet == chainparams->testnet);
-	} else if (p2sh_from_base58(&testnet, &p2sh_destination,
-				    buffer + tok->start, tok->end - tok->start)) {
-		*scriptpubkey = scriptpubkey_p2sh_hash(cxt, &p2sh_destination);
-		parsed = true;
-		right_network = (testnet == chainparams->testnet);
-	}
-	/* Insert other parsers that accept pointer+len here. */
+	parsed =
+	    ripemd160_from_base58(&addr_version, &destination.addr,
+				  buffer + tok->start, tok->end - tok->start);
 
 	if (parsed) {
-		if (right_network)
+		if (addr_version == chainparams->p2pkh_version) {
+			*scriptpubkey = scriptpubkey_p2pkh(cxt, &destination);
 			return ADDRESS_PARSE_SUCCESS;
-		else
+		} else if (addr_version == chainparams->p2sh_version) {
+			*scriptpubkey =
+			    scriptpubkey_p2sh_hash(cxt, &destination.addr);
+			return ADDRESS_PARSE_SUCCESS;
+		} else {
 			return ADDRESS_PARSE_WRONG_NETWORK;
+		}
+		/* Insert other parsers that accept pointer+len here. */
 	}
 
 	/* Generate null-terminated address. */
