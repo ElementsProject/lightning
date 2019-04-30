@@ -848,21 +848,22 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 					   unsigned int depth)
 {
 	const char *txidstr;
+	struct short_channel_id scid;
 
 	txidstr = type_to_string(tmpctx, struct bitcoin_txid, txid);
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, channel->minimum_depth);
 	tal_free(txidstr);
 
-	bool local_locked = depth >= channel->minimum_depth;
+	bool min_depth_reached = depth >= channel->minimum_depth;
 
-	/* If we restart, we could already have peer->scid from database */
-	if (local_locked && !channel->scid) {
+	/* Reorg can change scid, so always update/save scid when possible (depth=0
+	 * means the stale block with our funding tx was removed) */
+	if ((min_depth_reached && !channel->scid) || (depth && channel->scid)) {
 		struct txlocator *loc;
 
 		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-		channel->scid = tal(channel, struct short_channel_id);
-		if (!mk_short_channel_id(channel->scid,
+		if (!mk_short_channel_id(&scid,
 					 loc->blkheight, loc->index,
 					 channel->funding_outnum)) {
 			channel_fail_permanent(channel, "Invalid funding scid %u:%u:%u",
@@ -871,30 +872,34 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 			return DELETE_WATCH;
 		}
 
-		/* We've added scid, update */
-		wallet_channel_save(ld->wallet, channel);
+		/* If we restart, we could already have peer->scid from database */
+		if (!channel->scid) {
+			channel->scid = tal(channel, struct short_channel_id);
+			*channel->scid = scid;
+			wallet_channel_save(ld->wallet, channel);
+
+		} else if (!short_channel_id_eq(channel->scid, &scid)) {
+			/* This normally restarts channeld, initialized with updated scid
+			 * and also adds it (at least our halve_chan) to rtable. */
+			channel_fail_transient(channel,
+					        "short_channel_id changed to %s (was %s)",
+					        short_channel_id_to_str(tmpctx, &scid),
+					        short_channel_id_to_str(tmpctx, channel->scid));
+
+			*channel->scid = scid;
+			wallet_channel_save(ld->wallet, channel);
+			return KEEP_WATCHING;
+		}
 	}
 
 	/* Try to tell subdaemon */
 	if (!channel_tell_depth(ld, channel, txid, depth))
 		return KEEP_WATCHING;
 
-	if (!local_locked)
+	if (!min_depth_reached)
 		return KEEP_WATCHING;
-	/* BOLT #7:
-	 *
-	 * A node:
-	 *   - if the `open_channel` message has the `announce_channel` bit set AND a `shutdown` message has not been sent:
-	 *     - MUST send the `announcement_signatures` message.
-	 *       - MUST NOT send `announcement_signatures` messages until `funding_locked`
-	 *       has been sent and received AND the funding transaction has at least six confirmations.
-	 *   - otherwise:
-	 *     - MUST NOT send the `announcement_signatures` message.
-	 */
-	if (!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
-		return DELETE_WATCH;
 
-	/* We keep telling it depth until we get to announce depth. */
+	/* We keep telling it depth/scid until we get to announce depth. */
 	if (depth < ANNOUNCE_MIN_DEPTH)
 		return KEEP_WATCHING;
 
