@@ -113,6 +113,9 @@ struct channel {
 
 	/* Feerate per channel */
 	u32 feerate_base, feerate_ppm;
+
+	/* If they used option_upfront_shutdown_script. */
+	const u8 *remote_upfront_shutdown_script;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -159,7 +162,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct pubkey *local_funding_pubkey,
 			    const struct pubkey *future_per_commitment_point,
 			    u32 feerate_base,
-			    u32 feerate_ppm);
+			    u32 feerate_ppm,
+			    /* NULL or stolen */
+			    const u8 *remote_upfront_shutdown_script);
 
 void delete_channel(struct channel *channel);
 
