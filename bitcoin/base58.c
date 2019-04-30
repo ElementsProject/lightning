@@ -27,8 +27,7 @@ static char *to_base58(const tal_t *ctx, u8 version,
 	if (wally_base58_from_bytes((const unsigned char *) buf, total_length, BASE58_FLAG_CHECKSUM, &out) != WALLY_OK) {
 		return NULL;
 	}else{
-		char *res = NULL;
-		res = tal_strdup(ctx, out);
+		char *res = tal_strdup(ctx, out);
 		wally_free_string(out);
 		return res;
 	}
