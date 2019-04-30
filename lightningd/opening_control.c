@@ -152,7 +152,8 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct amount_msat push,
 		      u8 channel_flags,
 		      struct channel_info *channel_info,
-		      u32 feerate)
+		      u32 feerate,
+		      const u8 *remote_upfront_shutdown_script)
 {
 	struct channel *channel;
 	struct amount_msat our_msat;
@@ -226,7 +227,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL,
 			      ld->config.fee_base,
 			      ld->config.fee_per_satoshi,
-			      NULL);
+			      remote_upfront_shutdown_script);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -297,6 +298,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct amount_sat change;
 	struct channel *channel;
 	struct lightningd *ld = openingd->ld;
+	u8 *remote_upfront_shutdown_script;
 
 	assert(tal_count(fds) == 2);
 
@@ -317,7 +319,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &channel_info.remote_fundingkey,
 					   &expected_txid,
 					   &feerate,
-					   &fc->uc->our_config.channel_reserve)) {
+					   &fc->uc->our_config.channel_reserve,
+					   &remote_upfront_shutdown_script)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -405,7 +408,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					fc->push,
 					fc->channel_flags,
 					&channel_info,
-					feerate);
+					feerate,
+					remote_upfront_shutdown_script);
 	if (!channel) {
 		was_pending(command_fail(fc->cmd, LIGHTNINGD,
 					 "Key generation failure"));
@@ -485,6 +489,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	u32 feerate;
 	u8 channel_flags;
 	struct channel *channel;
+	u8 *remote_upfront_shutdown_script;
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
@@ -510,7 +515,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &channel_flags,
 					   &feerate,
 					   &funding_signed,
-					   &uc->our_config.channel_reserve)) {
+				           &uc->our_config.channel_reserve,
+				           &remote_upfront_shutdown_script)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		uncommitted_channel_disconnect(uc, "bad OPENING_FUNDEE_REPLY");
@@ -534,7 +540,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					push,
 					channel_flags,
 					&channel_info,
-					feerate);
+					feerate,
+					remote_upfront_shutdown_script);
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, "Commit channel failed");
 		goto failed;
@@ -825,6 +832,7 @@ void peer_start_openingd(struct peer *peer,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
 				  !peer_active_channel(peer),
+				  peer->localfeatures,
 				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
 }
