@@ -103,6 +103,12 @@ bool p2sh_from_base58(bool *test_net,
 	return true;
 }
 
+bool ripemd160_from_base58(u8 *version, struct ripemd160 *rmd,
+			   const char *base58, size_t base58_len)
+{
+	return from_base58(version, rmd, base58, base58_len);
+}
+
 bool key_from_base58(const char *base58, size_t base58_len,
 		     bool *test_net, struct privkey *priv, struct pubkey *key)
 {
