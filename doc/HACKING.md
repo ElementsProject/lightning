@@ -40,7 +40,6 @@ Here's a list of parts, with notes:
   - libwally-core - bitcoin helper library
   - secp256k1 - bitcoin curve encryption library within libwally-core
   - jsmn - tiny JSON parsing helper
-  - libbase58 - base58 address encoding/decoding library.
 
 * tools/ - tools for building
   - check-bolt.c: check the source code contains correct BOLT quotes

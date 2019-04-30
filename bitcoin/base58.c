@@ -12,26 +12,24 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
-#include <libbase58.h>
 #include <string.h>
-
-static bool my_sha256(void *digest, const void *data, size_t datasz)
-{
-	sha256(digest, data, datasz);
-	return true;
-}
+#include <wally_core.h>
 
 static char *to_base58(const tal_t *ctx, u8 version,
 		       const struct ripemd160 *rmd)
 {
-	char out[BASE58_ADDR_MAX_LEN + 1];
-	size_t outlen = sizeof(out);
+	char *out;
+	size_t total_length = sizeof(*rmd) + 1;
+	u8 buf[total_length];
+	buf[0] = version;
+	memcpy(buf + 1, rmd, sizeof(*rmd));
 
-	b58_sha256_impl = my_sha256;
-	if (!b58check_enc(out, &outlen, version, rmd, sizeof(*rmd))) {
+	if (wally_base58_from_bytes((const unsigned char *) buf, total_length, BASE58_FLAG_CHECKSUM, &out) != WALLY_OK) {
 		return NULL;
 	}else{
-		return tal_strdup(ctx, out);
+		char *res = tal_strdup(ctx, out);
+		wally_free_string(out);
+		return res;
 	}
 }
 
@@ -53,16 +51,20 @@ static bool from_base58(u8 *version,
 {
 	u8 buf[1 + sizeof(*rmd) + 4];
 	/* Avoid memcheck complaining if decoding resulted in a short value */
-	memset(buf, 0, sizeof(buf));
-	b58_sha256_impl = my_sha256;
-
 	size_t buflen = sizeof(buf);
-	b58tobin(buf, &buflen, base58, base58_len);
+	memset(buf, 0, buflen);
+	char *terminated_base58 = tal_dup_arr(NULL, char, base58, base58_len, 1);
+	terminated_base58[base58_len] = '\0';
 
-	int r = b58check(buf, buflen, base58, base58_len);
+	size_t written = 0;
+	int r = wally_base58_to_bytes(terminated_base58, BASE58_FLAG_CHECKSUM, buf, buflen, &written);
+	tal_free(terminated_base58);
+	if (r != WALLY_OK || written > buflen) {
+		return false;
+	}
 	*version = buf[0];
 	memcpy(rmd, buf + 1, sizeof(*rmd));
-	return r >= 0;
+	return true;
 }
 
 bool bitcoin_from_base58(bool *test_net,
@@ -106,12 +108,16 @@ bool key_from_base58(const char *base58, size_t base58_len,
 {
 	// 1 byte version, 32 byte private key, 1 byte compressed, 4 byte checksum
 	u8 keybuf[1 + 32 + 1 + 4];
+	char *terminated_base58 = tal_dup_arr(NULL, char, base58, base58_len, 1);
+	terminated_base58[base58_len] = '\0';
 	size_t keybuflen = sizeof(keybuf);
 
-	b58_sha256_impl = my_sha256;
 
-	b58tobin(keybuf, &keybuflen, base58, base58_len);
-	if (b58check(keybuf, sizeof(keybuf), base58, base58_len) < 0)
+	size_t written = 0;
+	int r = wally_base58_to_bytes(terminated_base58, BASE58_FLAG_CHECKSUM, keybuf, keybuflen, &written);
+	wally_bzero(terminated_base58, base58_len + 1);
+	tal_free(terminated_base58);
+	if (r != WALLY_OK || written > keybuflen)
 		return false;
 
 	/* Byte after key should be 1 to represent a compressed key. */
