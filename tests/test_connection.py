@@ -1081,7 +1081,7 @@ def test_forget_channel(node_factory):
 
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
-    lfeatures = '8a'
+    lfeatures = 'aa'
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
@@ -1338,8 +1338,8 @@ def test_dataloss_protection(node_factory, bitcoind):
                            "0000"
                            # lflen == 1
                            "0001"
-                           # Local features 1, 3 and 7 (0x8a).
-                           "8a")
+                           # Local features 1, 3, 5 and 7 (0xaa).
+                           "aa")
 
     l1.fund_channel(l2, 10**6)
     l2.stop()

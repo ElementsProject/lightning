@@ -18,6 +18,8 @@ opening_init,,minimum_depth,u32
 opening_init,,min_feerate,u32
 opening_init,,max_feerate,u32
 opening_init,,can_open_channel,bool
+opening_init,,lfeatures_len,u16
+opening_init,,lfeatures,lfeatures_len*u8
 # Optional msg to send.
 opening_init,,len,u16
 opening_init,,msg,len*u8
@@ -57,6 +59,8 @@ opening_funder_reply,,remote_fundingkey,struct pubkey
 opening_funder_reply,,funding_txid,struct bitcoin_txid
 opening_funder_reply,,feerate_per_kw,u32
 opening_funder_reply,,our_channel_reserve_satoshis,struct amount_sat
+opening_funder_reply,,shutdown_len,u16
+opening_funder_reply,,shutdown_scriptpubkey,shutdown_len*u8
 
 # Openingd->master: we failed to negotiation channel
 opening_funder_failed,6004
@@ -85,6 +89,8 @@ opening_fundee,,feerate_per_kw,u32
 opening_fundee,,msglen,u16
 opening_fundee,,funding_signed_msg,msglen*u8
 opening_fundee,,our_channel_reserve_satoshis,struct amount_sat
+opening_fundee,,shutdown_len,u16
+opening_fundee,,shutdown_scriptpubkey,shutdown_len*u8
 
 # master -> openingd: do you have a memleak?
 opening_dev_memleak,6033

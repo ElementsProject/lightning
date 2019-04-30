@@ -46,6 +46,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
+	common/features.o			\
 	common/funding_tx.o			\
 	common/gen_status_wire.o		\
 	common/gen_peer_status_wire.o		\
