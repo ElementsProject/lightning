@@ -29,4 +29,8 @@ bool p2sh_from_base58(bool *test_net,
 bool key_from_base58(const char *base58, size_t base58_len,
 		     bool *test_net, struct privkey *priv, struct pubkey *key);
 
+/* Decode a p2pkh or p2sh into the ripemd160 hash */
+bool ripemd160_from_base58(u8 *version, struct ripemd160 *rmd,
+			   const char *base58, size_t base58_len);
+
 #endif /* LIGHTNING_BITCOIN_BASE58_H */
