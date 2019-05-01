@@ -110,6 +110,17 @@ struct state {
 	const struct chainparams *chainparams;
 };
 
+static const u8 *dev_upfront_shutdown_script(const tal_t *ctx)
+{
+#if DEVELOPER
+	/* This is a hack, for feature testing */
+	const char *e = getenv("DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT");
+	if (e)
+		return tal_hexdata(ctx, e, strlen(e));
+#endif
+	return NULL;
+}
+
 /*~ If we can't agree on parameters, we fail to open the channel.  If we're
  * the funder, we need to tell lightningd, otherwise it never really notices. */
 static void negotiation_aborted(struct state *state, bool am_funder,
@@ -517,7 +528,8 @@ static u8 *funder_channel(struct state *state,
 				  &state->our_points.delayed_payment,
 				  &state->our_points.htlc,
 				  &state->first_per_commitment_point[LOCAL],
-				  channel_flags, NULL);
+				  channel_flags,
+				  dev_upfront_shutdown_script(tmpctx));
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
 	/* This is usually a very transient state... */
@@ -1080,7 +1092,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->our_points.delayed_payment,
 				    &state->our_points.htlc,
 				    &state->first_per_commitment_point[LOCAL],
-				    NULL);
+				    dev_upfront_shutdown_script(tmpctx));
 
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `listforwards` now includes the time an HTLC was received and when it was resolved. Both are expressed as UNIX timestamps to facilitate parsing (Issue [#2491](https://github.com/ElementsProject/lightning/issues/2491), PR [#2528](https://github.com/ElementsProject/lightning/pull/2528))
 - JSON API: new plugin `invoice_payment` hook for intercepting invoices before they're paid.
 - plugin: the `connected` hook can now send an `error_message` to the rejected peer.
+- Protocol: we now enforce `option_upfront_shutdown_script` if a peer negotiates it.
 
 ### Changed
 
