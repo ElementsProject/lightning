@@ -733,6 +733,14 @@ class NodeFactory(object):
         with self.lock:
             return reserve()
 
+    def get_node_id(self):
+        """Generate a unique numeric ID for a lightning node
+        """
+        with self.lock:
+            node_id = self.next_id
+            self.next_id += 1
+            return node_id
+
     def get_nodes(self, num_nodes, opts=None):
         """Start a number of nodes in parallel, each with its own options
         """
@@ -748,17 +756,20 @@ class NodeFactory(object):
         jobs = []
         for i in range(num_nodes):
             node_opts, cli_opts = self.split_options(opts[i])
-            jobs.append(self.executor.submit(self.get_node, options=cli_opts, **node_opts))
+            jobs.append(self.executor.submit(
+                self.get_node, options=cli_opts,
+                node_id=self.get_node_id(), **node_opts
+            ))
 
         return [j.result() for j in jobs]
 
     def get_node(self, disconnect=None, options=None, may_fail=False,
                  may_reconnect=False, random_hsm=False,
                  feerates=(15000, 7500, 3750), start=True, log_all_io=False,
-                 dbfile=None):
-        with self.lock:
-            node_id = self.next_id
-            self.next_id += 1
+                 dbfile=None, node_id=None):
+        if not node_id:
+            node_id = self.get_node_id()
+
         port = self.get_next_port()
 
         lightning_dir = os.path.join(
