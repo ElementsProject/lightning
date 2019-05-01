@@ -392,7 +392,8 @@ void peer_start_channeld(struct channel *channel,
 				      funding_signed,
 				      reached_announce_depth,
 				      &last_remote_per_commit_secret,
-				      channel->peer->localfeatures);
+				      channel->peer->localfeatures,
+				      channel->remote_upfront_shutdown_script);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
