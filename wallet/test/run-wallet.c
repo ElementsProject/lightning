@@ -912,12 +912,18 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	struct changed_htlc *last_commit;
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
 	u8 *scriptpubkey = tal_arr(ctx, u8, 100);
+	secp256k1_ecdsa_signature *node_sig1 = tal(w, secp256k1_ecdsa_signature);
+	secp256k1_ecdsa_signature *bitcoin_sig1 = tal(w, secp256k1_ecdsa_signature);
+	secp256k1_ecdsa_signature *node_sig2, *bitcoin_sig2;
+	bool load;
 
 	memset(&c1, 0, sizeof(c1));
 	memset(c2, 0, sizeof(*c2));
 	memset(ci, 3, sizeof(*ci));
 	mempat(hash, sizeof(*hash));
 	mempat(sig, sizeof(*sig));
+	mempat(node_sig1, sizeof(*node_sig1));
+	mempat(bitcoin_sig1, sizeof(*bitcoin_sig1));
 	last_commit = tal_arr(w, struct changed_htlc, 2);
 	mempat(last_commit, tal_bytelen(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
@@ -992,6 +998,11 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v3)");
 	tal_free(c2);
 
+	/* Updates should not result in new ids */
+	CHECK(c1.dbid == 1);
+	CHECK(c1.peer->dbid == 1);
+	CHECK(c1.their_shachain.id == 1);
+
 	/* Variant 4: update and add remote_shutdown_scriptpubkey */
 	c1.remote_shutdown_scriptpubkey = scriptpubkey;
 	wallet_channel_save(w, &c1);
@@ -1002,8 +1013,30 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v4)");
 	tal_free(c2);
 
+	/* Updates should not result in new ids */
+	CHECK(c1.dbid == 1);
+	CHECK(c1.peer->dbid == 1);
+	CHECK(c1.their_shachain.id == 1);
+
+	/* Variant 5: update with remote_ann sigs */
+	/* set flag of CHANNEL_FLAGS_ANNOUNCE_CHANNEL */
+	c1.channel_flags |= 1;
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
+	wallet_announcement_save(w, c1.dbid, node_sig1, bitcoin_sig1);
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert ann sigs into DB: %s", wallet_err));
+	CHECK_MSG(load = wallet_remote_ann_sigs_load(w, w, c1.dbid, &node_sig2, &bitcoin_sig2), tal_fmt(w, "Load ann sigs from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Load ann sigs from DB: %s", wallet_err));
+	CHECK(load == true);
+	CHECK_MSG(!memcmp(node_sig1, node_sig2, sizeof(*node_sig1)), "Compare ann sigs loaded with saved (v5)");
+	CHECK_MSG(!memcmp(bitcoin_sig1, bitcoin_sig2, sizeof(*node_sig1)), "Compare ann sigs loaded with saved (v5)");
+
 	db_commit_transaction(w->db);
 	CHECK(!wallet_err);
+
 	/* Normally freed by destroy_channel, but we don't call that */
 	tal_free(p);
 	return true;
