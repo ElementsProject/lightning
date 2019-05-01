@@ -1491,3 +1491,56 @@ def test_shutdown(node_factory):
             raise Exception("Node {} has memory leaks: {}"
                             .format(l1.daemon.lightning_dir, leaks))
     l1.rpc.stop()
+
+
+@unittest.skipIf(not DEVELOPER, "needs to set upfront_shutdown_script")
+def test_option_upfront_shutdown_script(node_factory, bitcoind):
+    l1 = node_factory.get_node(start=False)
+    # Insist on upfront script we're not going to match.
+    l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac"
+    l1.start()
+
+    l2 = node_factory.get_node()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 1000000, False)
+
+    l1.rpc.close(l2.info['id'])
+
+    # l2 will close unilaterally when it dislikes shutdown script.
+    l1.daemon.wait_for_log(r'received ERROR.*scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
+
+    # Clear channel.
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
+    bitcoind.generate_block(1)
+    wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
+
+    # Works when l2 closes channel, too.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 1000000, False)
+
+    l2.rpc.close(l1.info['id'])
+
+    # l2 will close unilaterally when it dislikes shutdown script.
+    l1.daemon.wait_for_log(r'received ERROR.*scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
+
+    # Clear channel.
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
+    bitcoind.generate_block(1)
+    wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
+
+    # Figure out what address it will try to use.
+    keyidx = int(l1.db_query("SELECT val FROM vars WHERE name='bip32_max_index';")[0]['val'])
+
+    # Expect 1 for change address, 1 for the channel final address.
+    addr = l1.rpc.call('dev-listaddrs', [keyidx + 2])['addresses'][-1]
+
+    # Now, if we specify upfront and it's OK, all good.
+    l1.stop()
+    # We need to prepend the segwit version (0) and push opcode (14).
+    l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = '0014' + addr['bech32_redeemscript']
+    l1.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 1000000)
+    l1.rpc.close(l2.info['id'])
+    wait_for(lambda: sorted([c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']]) == ['CLOSINGD_COMPLETE', 'ONCHAIN', 'ONCHAIN'])
