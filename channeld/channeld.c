@@ -158,6 +158,9 @@ struct peer {
 	/* Additional confirmations need for local lockin. */
 	u32 depth_togo;
 
+	/* Non-empty if they specified a fixed shutdown script */
+	u8 *remote_upfront_shutdown_script;
+
 	/* Empty commitments.  Spec violation, but a minor one. */
 	u64 last_empty_commitment;
 };
@@ -1716,6 +1719,25 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 			    &peer->channel_id,
 			    "Bad shutdown %s", tal_hex(peer, shutdown));
 
+	/* BOLT #2:
+	 *
+	 * - if both nodes advertised the `option_upfront_shutdown_script`
+	 * feature, and the receiving node received a non-zero-length
+	 * `shutdown_scriptpubkey` in `open_channel` or `accept_channel`, and
+	 * that `shutdown_scriptpubkey` is not equal to `scriptpubkey`:
+	 *    - MUST fail the connection.
+	 */
+	/* openingd only sets this if feature was negotiated at opening. */
+	if (tal_count(peer->remote_upfront_shutdown_script)
+	    && !memeq(scriptpubkey, tal_count(scriptpubkey),
+		      peer->remote_upfront_shutdown_script,
+		      tal_count(peer->remote_upfront_shutdown_script)))
+		peer_failed(&peer->cs,
+			    &peer->channel_id,
+			    "scriptpubkey %s is not as agreed upfront (%s)",
+			    tal_hex(peer, scriptpubkey),
+			    tal_hex(peer, peer->remote_upfront_shutdown_script));
+
 	/* Tell master: we don't have to wait because on reconnect other end
 	 * will re-send anyway. */
 	wire_sync_write(MASTER_FD,
@@ -2853,7 +2875,8 @@ static void init_channel(struct peer *peer)
 				   &funding_signed,
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
-				   &peer->localfeatures)) {
+				   &peer->localfeatures,
+				   &peer->remote_upfront_shutdown_script)) {
 					   master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
 
