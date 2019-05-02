@@ -15,6 +15,9 @@ struct msg_queue *msg_queue_new(const tal_t *ctx);
 /* If add is taken(), freed after sending.  msg_wake() implied. */
 void msg_enqueue(struct msg_queue *q, const u8 *add TAKES);
 
+/* Get current queue length */
+size_t msg_queue_length(const struct msg_queue *q);
+
 /* Fd is closed after sending.  msg_wake() implied. */
 void msg_enqueue_fd(struct msg_queue *q, int fd);
 

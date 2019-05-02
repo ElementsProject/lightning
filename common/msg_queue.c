@@ -22,6 +22,11 @@ static void do_enqueue(struct msg_queue *q, const u8 *add TAKES)
 	io_wake(q);
 }
 
+size_t msg_queue_length(const struct msg_queue *q)
+{
+	return tal_count(q->q);
+}
+
 void msg_enqueue(struct msg_queue *q, const u8 *add)
 {
 	assert(fromwire_peektype(add) != MSG_PASS_FD);

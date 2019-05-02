@@ -146,3 +146,8 @@ void daemon_conn_wake(struct daemon_conn *dc)
 {
 	msg_wake(dc->out);
 }
+
+size_t daemon_conn_queue_length(const struct daemon_conn *dc)
+{
+	return msg_queue_length(dc->out);
+}

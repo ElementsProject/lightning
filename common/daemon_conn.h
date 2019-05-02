@@ -56,4 +56,10 @@ struct io_plan *daemon_conn_read_next(struct io_conn *conn,
  * daemon_conn_sync_flush - Flush connection by sending all messages now..
  */
 bool daemon_conn_sync_flush(struct daemon_conn *dc);
+
+/**
+ * daemon_conn_queue_length - Get number of message in outgoing queue.
+ */
+size_t daemon_conn_queue_length(const struct daemon_conn *dc);
+
 #endif /* LIGHTNING_COMMON_DAEMON_CONN_H */
