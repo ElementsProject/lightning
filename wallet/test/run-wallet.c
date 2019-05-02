@@ -976,7 +976,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
-		  tal_fmt(w, "Insert into DB: %s", wallet_err));
+		  tal_fmt(w, "Load from DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v2)");
 	tal_free(c2);
 
@@ -991,7 +991,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
-		  tal_fmt(w, "Insert into DB: %s", wallet_err));
+		  tal_fmt(w, "Load from DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v6)");
 	tal_free(c2);
 
@@ -1001,7 +1001,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
-		  tal_fmt(w, "Insert into DB: %s", wallet_err));
+		  tal_fmt(w, "Load from DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v8)");
 	tal_free(c2);
 
