@@ -1411,21 +1411,23 @@ def test_pay_direct(node_factory, bitcoind):
     # and gossip 2 minutes to propagate
     l0.wait_for_channel_updates([c0, c1, c2, c3])
 
-    # Find out how much msatoshi l1 owns on l1->l2 channel.
-    l1l2msatreference = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']
+    # Try multiple times because route randomization
+    # can override our preference for direct route
+    n_direct = 0
+    for i in range(10):
+        # Find out how much msatoshi l1 owns on l1->l2 channel.
+        l1l2msatreference = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']
 
-    # Try multiple times to ensure that route randomization
-    # will not override our preference for direct route.
-    for i in range(8):
         inv = l3.rpc.invoice(20000000, 'pay{}'.format(i), 'desc')['bolt11']
-
         l0.rpc.pay(inv)
 
         # We should have gone the direct route, so
         # l1->l2 channel msatoshi_to_us should not
         # have changed.
         l1l2msat = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['msatoshi_to_us']
-        assert l1l2msat == l1l2msatreference
+        n_direct += l1l2msat == l1l2msatreference
+    # Handwave about probability this happening < 20 percent.
+    assert n_direct >= 8
 
 
 def test_setchannelfee_usage(node_factory, bitcoind):
