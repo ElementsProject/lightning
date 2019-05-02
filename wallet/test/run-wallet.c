@@ -992,7 +992,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Load from DB: %s", wallet_err));
-	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v6)");
+	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v3)");
 	tal_free(c2);
 
 	/* Variant 4: update and add remote_shutdown_scriptpubkey */
@@ -1002,7 +1002,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Load from DB: %s", wallet_err));
-	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v8)");
+	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v4)");
 	tal_free(c2);
 
 	db_commit_transaction(w->db);
