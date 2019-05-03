@@ -2150,16 +2150,13 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 
 /*~ Similarly, lightningd asks us for all nodes when it gets `listnodes` */
 /* We keep pointers into n, assuming it won't change. */
-static void append_node(struct daemon *daemon,
-			const struct gossip_getnodes_entry ***entries,
-			const struct node *n)
+static void add_node_entry(const tal_t *ctx,
+			   struct daemon *daemon,
+			   const struct node *n,
+			   struct gossip_getnodes_entry *e)
 {
-	struct gossip_getnodes_entry *e;
-
-	e = tal(*entries, struct gossip_getnodes_entry);
 	e->nodeid = n->id;
-
-	if (get_node_announcement(e, daemon, n,
+	if (get_node_announcement(ctx, daemon, n,
 				  e->color, e->alias,
 				  &e->globalfeatures,
 				  &e->addresses)) {
@@ -2170,8 +2167,6 @@ static void append_node(struct daemon *daemon,
 		 * channel_update". */
 		e->last_timestamp = -1;
 	}
-
-	tal_arr_expand(entries, e);
 }
 
 /* Simply routine when they ask for `listnodes` */
@@ -2181,6 +2176,7 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct node *n;
 	const struct gossip_getnodes_entry **nodes;
+	struct gossip_getnodes_entry *node_arr;
 	struct node_id *id;
 
 	if (!fromwire_gossip_getnodes_request(tmpctx, msg, &id))
@@ -2188,19 +2184,33 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 
 	/* Format of reply is the same whether they ask for a specific node
 	 * (0 or one responses) or all nodes (0 or more) */
-	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (id) {
 		n = get_node(daemon->rstate, id);
-		if (n)
-			append_node(daemon, &nodes, n);
+		if (n) {
+			node_arr = tal_arr(tmpctx,
+					   struct gossip_getnodes_entry,
+					   1);
+			add_node_entry(node_arr, daemon, n, &node_arr[0]);
+		} else
+			nodes = NULL;
 	} else {
-		struct node_map_iter i;
-		n = node_map_first(daemon->rstate->nodes, &i);
+		struct node_map_iter it;
+		size_t i = 0;
+		node_arr = tal_arr(tmpctx, struct gossip_getnodes_entry,
+				   daemon->rstate->nodes->raw.elems);
+		n = node_map_first(daemon->rstate->nodes, &it);
 		while (n != NULL) {
-			append_node(daemon, &nodes, n);
-			n = node_map_next(daemon->rstate->nodes, &i);
+			add_node_entry(node_arr, daemon, n, &node_arr[i++]);
+			n = node_map_next(daemon->rstate->nodes, &it);
 		}
+		assert(i == daemon->rstate->nodes->raw.elems);
 	}
+
+	/* FIXME: towire wants array of pointers. */
+	nodes = tal_arr(node_arr, const struct gossip_getnodes_entry *,
+			tal_count(node_arr));
+	for (size_t i = 0; i < tal_count(node_arr); i++)
+		nodes[i] = &node_arr[i];
 	out = towire_gossip_getnodes_reply(NULL, nodes);
 	daemon_conn_send(daemon->master, take(out));
 	return daemon_conn_read_next(conn, daemon->master);
