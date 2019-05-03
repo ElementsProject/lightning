@@ -948,6 +948,55 @@ def test_funding_reorg_private(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'Deleting channel')
 
 
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_funding_reorg_remote_lags(node_factory, bitcoind):
+    """Nodes may disagree about short_channel_id before channel announcement
+    """
+    # may_reconnect so channeld will restart
+    opts = {'funding-confirms': 1, 'may_reconnect': True}
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
+    l2.may_fail = True                              # mock_rpc causes dev_memleak
+    l1.fundwallet(10000000)
+    sync_blockheight(bitcoind, [l1])                # height 102
+
+    l1.rpc.fundchannel(l2.info['id'], "all")
+    bitcoind.generate_block(5)                      # heights 103 - 107
+    l1.wait_channel_active('103x1x0')
+
+    # Make l2 temporary blind for blocks > 107
+    def no_more_blocks():          # although the mock doesn't imitate exitstatus=8, it suffices
+            return {'code': -8, 'message': 'Block height out of range'}
+
+    l2.daemon.rpcproxy.mock_rpc('getblockhash', no_more_blocks)
+
+    # Reorg changes short_channel_id 103x1x0 to 103x2x0, l1 sees it, restarts channeld
+    bitcoind.simple_reorg(102, 1)                   # heights 102 - 108
+    l1.daemon.wait_for_log(r'Peer transient failure .* short_channel_id changed to 103x2x0 \(was 103x1x0\)')
+
+    # l1 watches at least one more funding confirmation
+    # to depth=7 and sends its announce signature
+    bitcoind.generate_block(1)                      # height 109
+
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
+        'CHANNELD_NORMAL:Reconnected, and reestablished.',
+        'CHANNELD_NORMAL:Funding transaction locked. They need our announcement signatures.'])
+
+    # Unblinding l2 brings it back in sync, restarts channeld and sends its announce sig
+    l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
+
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('103x1x0')['channels']] == [False, False])
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('103x2x0')['channels']] == [True, True])
+
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
+        'CHANNELD_NORMAL:Reconnected, and reestablished.',
+        'CHANNELD_NORMAL:Funding transaction locked. Channel announced.'])
+
+    l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log(r'Deleting channel')
+    l2.daemon.wait_for_log(r'Deleting channel')
+
+
 def test_rescan(node_factory, bitcoind):
     """Test the rescan option
     """
