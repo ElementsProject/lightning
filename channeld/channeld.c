@@ -176,7 +176,7 @@ static void billboard_update(const struct peer *peer)
 		funding_status = "Funding transaction locked.";
 	else if (!peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
 		funding_status = tal_fmt(tmpctx,
-					"Funding needs %d confirmations to reach lockin.",
+					"Funding needs %d more confirmations for lockin.",
 					peer->depth_togo);
 	else if (peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
 		funding_status = "We've confirmed funding, they haven't yet.";
