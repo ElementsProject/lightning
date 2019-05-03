@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	bool verbose = false;
 	char *infile = NULL, *outfile = NULL, *csvfile = NULL, *csat = NULL;
 	int infd, outfd, scidi = 0, channels = 0, nodes = 0, updates = 0;
-	struct scidsat *scidsats;
+	struct scidsat *scidsats = NULL;
 	unsigned max = -1U;
 
 	setup_locale();
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 
 		switch (fromwire_peektype(inmsg)) {
 		case WIRE_CHANNEL_ANNOUNCEMENT:
-			if (csvfile) {
+			if (scidsats) {
 				struct short_channel_id scid;
 				/* We ignore these; we just want scid */
 				secp256k1_ecdsa_signature sig;
@@ -187,7 +187,6 @@ int main(int argc, char *argv[])
 			break;
 	}
 	fprintf(stderr, "channels %d, updates %d, nodes %d\n", channels, updates, nodes);
-	if (csvfile)
-                tal_free(scidsats);
+	tal_free(scidsats);
 	return 0;
 }
