@@ -997,6 +997,90 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'Deleting channel')
 
 
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_funding_reorg_disagree_scid_route(node_factory, bitcoind):
+    """Graph l1 --> l2 --> l3 and before announce, l2, l3 disagree on scid, l1 pays l3
+    """
+    # may_reconnect so channeld will restart
+    opts = {'funding-confirms': 1, 'may_reconnect': True}
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False, opts=opts)
+    l3.may_fail = True                              # mock_rpc causes dev_memleak
+    l1.fundwallet(10**6)
+    l2.fundwallet(10**6)
+    sync_blockheight(bitcoind, [l1, l2, l3])        # height 103
+
+    l1.rpc.fundchannel(l2.info['id'], "all")        # announced channel, so route-hint can find it
+    bitcoind.generate_block(6)                      # height 104 - 109
+    l2.rpc.fundchannel(l3.info['id'], "all")
+    bitcoind.generate_block(1)                      # height 110
+
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('110x1x0')['channels']] == [True, True])
+
+    # Make l3 temporary blind for blocks > 110 (and the reorg)
+    def no_more_blocks():          # although the mock doesn't imitate exitstatus=8, it suffices
+            return {'code': -8, 'message': 'Block height out of range'}
+
+    l3.daemon.rpcproxy.mock_rpc('getblockhash', no_more_blocks)
+
+    # scid changes from 110x1x0 to 109x1x0
+    bitcoind.simple_reorg(109)                      # heights 109 - 111
+
+    # l2 adds new scid 109x1x0 to routing table, l3 doesn't know about it yet
+    l2.daemon.wait_for_log(r'local_add_channel 109x1x0')
+    l3.daemon.wait_for_log(r'Bad gossip order from subdaemon: .* 109x1x0')
+
+    def payload(scid):
+        return {"msatoshi": 100,
+                "label": 'invoice-{}'.format(random.random()),
+                "description": 'desc',
+                "dev-routes": [[{'id': l2.info['id'],
+                                 'short_channel_id': scid,
+                                 'fee_base_msat': 1000,
+                                 'fee_proportional_millionths': 10,
+                                 'cltv_expiry_delta': 6}]]}
+
+    # Paying an invoice to l3 with 110x1x0 or 109x1x0 in route-hint both succeed.
+    inv1 = l3.rpc.call("invoice", payload('109x1x0'))
+    inv2 = l3.rpc.call("invoice", payload('110x1x0'))
+    assert l1.rpc.call("pay", {"bolt11": inv1['bolt11'], "retry_for": 5})['status'] == 'complete'
+    assert l1.rpc.call("pay", {"bolt11": inv2['bolt11'], "retry_for": 5})['status'] == 'complete'
+
+    # Unblinding l3 makes it see the reorg
+    l3.daemon.rpcproxy.mock_rpc('getblockhash', None)
+    l3.wait_channel_active('109x1x0')
+
+    # Reaching announce depth (6), only channel with latest scid (in rtable) is active and public
+    bitcoind.generate_block(3)
+    wait_for(lambda: [c['public'] for c in l3.rpc.listchannels('110x1x0')['channels']] == [False, False])
+    wait_for(lambda: [c['active'] for c in l3.rpc.listchannels('110x1x0')['channels']] == [False, False])
+    wait_for(lambda: [c['public'] for c in l3.rpc.listchannels('109x1x0')['channels']] == [True, True])
+    wait_for(lambda: [c['active'] for c in l3.rpc.listchannels('109x1x0')['channels']] == [True, True])
+
+    # But payments l1->l2->l3 using the inactive/private 110x1x0 still succeed. Q. Is this correct?
+    # A. Yes, a channel is **active** when its channeld is running. States in rtable are not enforced.
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('110x1x0')['channels']] == [False, False])
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels('109x1x0')['channels']] == [True, True])
+
+    def try_route(r):
+        h1 = l3.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['payment_hash']
+        r1 = l1.rpc.getroute(l3.info['id'], 1000, 0)['route']
+        r1[1]['channel'] = r
+        l1.rpc.sendpay(r1, h1)
+        return l1.rpc.waitsendpay(h1, 10)['status'] == 'complete'
+
+    assert try_route('110x1x0')
+    assert try_route('109x1x0')
+    with pytest.raises(RpcError):
+        try_route('111x1x0')    # So scid does have meaning: `it should be in rtable to route through it`
+
+    l2.rpc.close(l3.info['id'])                     # to ignore `Bad gossip order` error in killall
+    l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
+    bitcoind.generate_block(1)
+    l2.daemon.wait_for_log(r'Deleting channel')
+    l1.daemon.wait_for_log(r'Deleting channel')
+    l3.daemon.wait_for_log(r'Deleting channel')
+
+
 def test_rescan(node_factory, bitcoind):
     """Test the rescan option
     """
