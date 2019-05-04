@@ -877,8 +877,9 @@ def test_gossip_store_load(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log('gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store in 756 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log('gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store in 754 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
+    assert l1.daemon.is_in_log('Upgraded gossip_store from version 3 to 4')
 
 
 @unittest.skipIf(not DEVELOPER, "Needs fast gossip propagation")
