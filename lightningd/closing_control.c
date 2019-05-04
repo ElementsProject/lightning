@@ -14,6 +14,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
+#include <lightningd/peer_comms.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
@@ -152,8 +153,7 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 }
 
 void peer_start_closingd(struct channel *channel,
-			 const struct crypto_state *cs,
-			 int peer_fd, int gossip_fd,
+			 struct peer_comms *pcomms,
 			 bool reconnected,
 			 const u8 *channel_reestablish)
 {
@@ -183,7 +183,8 @@ void peer_start_closingd(struct channel *channel,
 					   closing_wire_type_name, closing_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
-					   take(&peer_fd), take(&gossip_fd),
+					   take(&pcomms->peer_fd),
+					   take(&pcomms->gossip_fd),
 					   take(&hsmfd),
 					   NULL),
 			  false);
@@ -263,7 +264,7 @@ void peer_start_closingd(struct channel *channel,
 		return;
 	}
 	initmsg = towire_closing_init(tmpctx,
-				      cs,
+				      &pcomms->cs,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding,
