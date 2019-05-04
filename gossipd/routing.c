@@ -340,7 +340,8 @@ static void remove_chan_from_node(struct routing_state *rstate,
 		 * channel_announce, but we don't care that much about spurious
 		 * retransmissions in this corner case */
 		broadcast_del(rstate->broadcasts, &node->bcast);
-		insert_broadcast(&rstate->broadcasts, announce, &node->bcast);
+		insert_broadcast(&rstate->broadcasts, announce, NULL,
+				 &node->bcast);
 	}
 }
 
@@ -1336,7 +1337,8 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 	chan->bcast.timestamp = timestamp;
 	/* 0, unless we're loading from store */
 	chan->bcast.index = index;
-	insert_broadcast(&rstate->broadcasts, channel_announce, &chan->bcast);
+	insert_broadcast(&rstate->broadcasts, channel_announce, &chan->sat,
+			 &chan->bcast);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 }
 
@@ -1843,7 +1845,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		assert(is_local_channel(rstate, chan));
 		if (!index) {
 			hc->bcast.index = gossip_store_add(rstate->broadcasts->gs,
-							   update);
+							   update, NULL);
 		} else
 			hc->bcast.index = index;
 		return true;
@@ -1853,7 +1855,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	chan->half[direction].bcast.index = index;
 
 	insert_broadcast(&rstate->broadcasts,
-			 update,
+			 update, NULL,
 			 &chan->half[direction].bcast);
 
 	if (uc) {
@@ -2061,7 +2063,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 	node->bcast.timestamp = timestamp;
 	node->bcast.index = index;
-	insert_broadcast(&rstate->broadcasts, msg, &node->bcast);
+	insert_broadcast(&rstate->broadcasts, msg, NULL, &node->bcast);
 	return true;
 }
 

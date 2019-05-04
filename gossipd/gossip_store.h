@@ -30,7 +30,8 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 /**
  * Add a gossip message to the gossip_store
  */
-u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg);
+u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
+		     const struct amount_sat *channel_announce_sat);
 
 /**
  * Remember that we deleted a channel as a result of its outpoint being spent
