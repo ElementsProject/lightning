@@ -700,13 +700,28 @@ static u8 *handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
  * some, but that's a lesser evil than skipping some. */
 void update_peers_broadcast_index(struct list_head *peers, u32 offset)
 {
-	struct peer *peer;
+	struct peer *peer, *next;
 
-	list_for_each(peers, peer, list) {
+	list_for_each_safe(peers, peer, next, list) {
+		int gs_fd;
 		if (peer->broadcast_index < offset)
 			peer->broadcast_index = 0;
 		else
 			peer->broadcast_index -= offset;
+
+		/*~ Since store has been compacted, they need a new fd for the
+		 * new store.  The only one will still work, but after this
+		 * any offsets will refer to the new store. */
+		gs_fd = gossip_store_readonly_fd(peer->daemon->rstate->broadcasts->gs);
+		if (gs_fd < 0) {
+			status_broken("Can't get read-only gossip store fd:"
+				      " killing peer");
+			tal_free(peer);
+		} else {
+			u8 *msg = towire_gossipd_new_store_fd(NULL);
+			daemon_conn_send(peer->dc, take(msg));
+			daemon_conn_send_fd(peer->dc, gs_fd);
+		}
 	}
 }
 
@@ -1670,6 +1685,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	/* These are the ones we send, not them */
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY:
 	case WIRE_GOSSIPD_SEND_GOSSIP:
+	case WIRE_GOSSIPD_NEW_STORE_FD:
 		break;
 	}
 

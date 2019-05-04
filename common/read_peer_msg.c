@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
 #include <sys/select.h>
+#include <unistd.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -151,4 +152,13 @@ handled:
 	if (taken(msg))
 		tal_free(msg);
 	return true;
+}
+
+void new_gossip_store(int gossip_store_fd, int new_gossip_store_fd)
+{
+	if (dup2(new_gossip_store_fd, gossip_store_fd) == -1)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not dup2 new fd %i onto %i: %s",
+			      new_gossip_store_fd, gossip_store_fd,
+			      strerror(errno));
 }

@@ -793,18 +793,24 @@ static u8 *wait_sync_reply(const tal_t *ctx,
 	status_trace("... , awaiting %u", replytype);
 
 	for (;;) {
+		int type;
+
 		reply = wire_sync_read(ctx, fd);
 		if (!reply)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not set sync read from %s: %s",
 				      who, strerror(errno));
-		if (fromwire_peektype(reply) == replytype) {
+		type = fromwire_peektype(reply);
+		if (type == replytype) {
 			status_trace("Got it!");
 			break;
 		}
 
-		status_trace("Nope, got %u instead", fromwire_peektype(reply));
+		status_trace("Nope, got %u instead", type);
 		msg_enqueue(queue, take(reply));
+		/* This one has an fd appended */
+		if (type == WIRE_GOSSIPD_NEW_STORE_FD)
+			msg_enqueue_fd(queue, fdpass_recv(fd));
 	}
 
 	return reply;
@@ -3052,6 +3058,14 @@ int main(int argc, char *argv[])
 
 		msg = msg_dequeue(peer->from_gossipd);
 		if (msg) {
+			if (fromwire_gossipd_new_store_fd(msg)) {
+				tal_free(msg);
+				msg = msg_dequeue(peer->from_gossipd);
+				new_gossip_store(GOSSIP_STORE_FD,
+						 msg_extract_fd(msg));
+				tal_free(msg);
+				continue;
+			}
 			status_trace("Now dealing with deferred gossip %u",
 				     fromwire_peektype(msg));
 			handle_gossip_msg(PEER_FD, &peer->cs, take(msg));
@@ -3091,6 +3105,12 @@ int main(int argc, char *argv[])
 			 * connection comes in. */
 			if (!msg)
 				peer_failed_connection_lost();
+			if (fromwire_gossipd_new_store_fd(msg)) {
+				tal_free(msg);
+				new_gossip_store(GOSSIP_STORE_FD,
+						 fdpass_recv(GOSSIP_FD));
+				continue;
+			}
 			handle_gossip_msg(PEER_FD, &peer->cs, take(msg));
 		}
 	}

@@ -1,4 +1,5 @@
 #include <bitcoin/script.h>
+#include <ccan/fdpass/fdpass.h>
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/crypto_sync.h>
@@ -16,6 +17,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -99,6 +101,12 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
 					       cs, &from_gossipd);
 		if (from_gossipd) {
+			if (fromwire_gossipd_new_store_fd(msg)) {
+				tal_free(msg);
+				new_gossip_store(GOSSIP_STORE_FD,
+						 fdpass_recv(GOSSIP_FD));
+				continue;
+			}
 			handle_gossip_msg(PEER_FD, cs, take(msg));
 			continue;
 		}
