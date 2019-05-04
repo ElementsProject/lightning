@@ -57,7 +57,7 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 
 /**
  * handle_peer_gossip_or_error - simple handler for all the above cases.
- * @peer_fd, @gossip_fd: peer and gossip fd.
+ * @peer_fd, @gossip_fd, @gossip_store_fd: peer, gossip and gossip_store fds.
  * @cs: the cryptostate (updated)
  * @msg: the peer message (only taken if returns true).
  *
@@ -65,7 +65,7 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
  * to gossipd), an error packet (causes peer_failed_received_errmsg or
  * ignored), or a message about the wrong channel (sends sync error reply).
  */
-bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd,
+bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd, int gossip_store_fd,
 				 struct crypto_state *cs,
 				 const struct channel_id *channel_id,
 				 const u8 *msg TAKES);

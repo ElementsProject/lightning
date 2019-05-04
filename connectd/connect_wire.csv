@@ -45,7 +45,7 @@ connectctl_connect_failed,,failreason,wirestring
 connectctl_connect_failed,,seconds_to_delay,u32
 connectctl_connect_failed,,addrhint,?struct wireaddr_internal
 
-# Connectd -> master: we got a peer. Two fds: peer and gossip
+# Connectd -> master: we got a peer. Three fds: peer, gossip and gossip_store
 connect_peer_connected,2002
 connect_peer_connected,,id,struct node_id
 connect_peer_connected,,addr,struct wireaddr_internal

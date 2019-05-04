@@ -185,6 +185,7 @@ void peer_start_closingd(struct channel *channel,
 					   channel_set_billboard,
 					   take(&pcomms->peer_fd),
 					   take(&pcomms->gossip_fd),
+					   take(&pcomms->gossip_store_fd),
 					   take(&hsmfd),
 					   NULL),
 			  false);

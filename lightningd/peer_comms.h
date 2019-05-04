@@ -9,7 +9,7 @@
 struct peer_comms {
 	struct crypto_state cs;
 	/* If not -1, closed on freeing */
-	int peer_fd, gossip_fd;
+	int peer_fd, gossip_fd, gossip_store_fd;
 };
 
 struct peer_comms *new_peer_comms(const tal_t *ctx);

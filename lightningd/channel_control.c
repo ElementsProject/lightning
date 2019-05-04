@@ -185,8 +185,8 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 {
 	struct peer_comms *pcomms = new_peer_comms(msg);
 
-	/* We expect 2 fds. */
-	assert(tal_count(fds) == 2);
+	/* We expect 3 fds. */
+	assert(tal_count(fds) == 3);
 
 	if (!fromwire_channel_shutdown_complete(msg, &pcomms->cs)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
@@ -195,6 +195,7 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	}
 	pcomms->peer_fd = fds[0];
 	pcomms->gossip_fd = fds[1];
+	pcomms->gossip_store_fd = fds[2];
 
 	/* This sets channel->owner, closes down channeld. */
 	peer_start_closingd(channel, pcomms, false, NULL);
@@ -222,9 +223,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		peer_got_shutdown(sd->channel, msg);
 		break;
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
-		/* We expect 2 fds. */
+		/* We expect 3 fds. */
 		if (!fds)
-			return 2;
+			return 3;
 		peer_start_closingd_after_shutdown(sd->channel, msg, fds);
 		break;
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
@@ -292,6 +293,7 @@ void peer_start_channeld(struct channel *channel,
 					   channel_set_billboard,
 					   take(&pcomms->peer_fd),
 					   take(&pcomms->gossip_fd),
+					   take(&pcomms->gossip_store_fd),
 					   take(&hsmfd), NULL),
 			  false);
 

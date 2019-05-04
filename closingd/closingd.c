@@ -23,11 +23,12 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer, 4 = gossip */
+/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 #define GOSSIP_FD 4
-#define HSM_FD 5
+#define GOSSIP_STORE_FD 5
+#define HSM_FD 6
 
 static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   struct crypto_state *cs,
@@ -101,7 +102,9 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 			handle_gossip_msg(PEER_FD, cs, take(msg));
 			continue;
 		}
-		if (!handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, cs,
+		if (!handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD,
+						 GOSSIP_STORE_FD,
+						 cs,
 						 channel_id, msg))
 			return msg;
 	}

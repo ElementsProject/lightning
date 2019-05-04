@@ -59,11 +59,12 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer, 4 = gossip, 5 = HSM */
+/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 #define MASTER_FD STDIN_FILENO
 #define PEER_FD 3
 #define GOSSIP_FD 4
-#define HSM_FD 5
+#define GOSSIP_STORE_FD 5
+#define HSM_FD 6
 
 struct peer {
 	struct crypto_state cs;
@@ -1771,7 +1772,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	if (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD,
+	if (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD,
 					&peer->cs,
 					&peer->channel_id, msg))
 		return;
@@ -2232,8 +2233,8 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
-	} while (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &peer->cs,
-					     &peer->channel_id, msg)
+	} while (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD,
+					     &peer->cs, &peer->channel_id, msg)
 		 || capture_premature_msg(&premature_msgs, msg));
 
 	if (dataloss_protect) {
@@ -2971,6 +2972,7 @@ static void send_shutdown_complete(struct peer *peer)
 			take(towire_channel_shutdown_complete(NULL, &peer->cs)));
 	fdpass_send(MASTER_FD, PEER_FD);
 	fdpass_send(MASTER_FD, GOSSIP_FD);
+	fdpass_send(MASTER_FD, GOSSIP_STORE_FD);
 	close(MASTER_FD);
 }
 

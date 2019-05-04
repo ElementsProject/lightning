@@ -363,7 +363,7 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 	return true;
 }
 
-static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
+static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[3])
 {
 	void *channel = sd->channel;
 	struct channel_id channel_id;
@@ -378,6 +378,7 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
 
 	pcomms->peer_fd = fds[0];
 	pcomms->gossip_fd = fds[1];
+	pcomms->gossip_store_fd = fds[2];
 
 	/* Don't free sd; we may be about to free channel. */
 	sd->channel = NULL;
@@ -455,11 +456,11 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	if (sd->channel) {
 		switch ((enum peer_status)type) {
 		case WIRE_STATUS_PEER_ERROR:
-			/* We expect 2 fds after this */
+			/* We expect 3 fds after this */
 			if (!sd->fds_in) {
 				/* Don't free msg_in: we go around again. */
 				tal_steal(sd, sd->msg_in);
-				plan = sd_collect_fds(conn, sd, 2);
+				plan = sd_collect_fds(conn, sd, 3);
 				goto out;
 			}
 			if (!handle_peer_error(sd, sd->msg_in, sd->fds_in))
