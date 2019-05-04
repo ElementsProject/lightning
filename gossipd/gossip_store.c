@@ -200,47 +200,18 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 	return gs;
 }
 
-static u8 *make_store_channel_amount(const tal_t *ctx,
-				     struct routing_state *rstate,
-				     const u8 *gossip_msg)
-{
-	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
-	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
-	u8 *features;
-	struct bitcoin_blkid chain_hash;
-	struct short_channel_id scid;
-	struct node_id node_id_1;
-	struct node_id node_id_2;
-	struct pubkey bitcoin_key_1;
-	struct pubkey bitcoin_key_2;
-
-	/* Which channel are we talking about here? */
-	if (!fromwire_channel_announcement(
-		tmpctx, gossip_msg, &node_signature_1, &node_signature_2,
-		&bitcoin_signature_1, &bitcoin_signature_2, &features,
-		&chain_hash, &scid, &node_id_1, &node_id_2, &bitcoin_key_1,
-		&bitcoin_key_2))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Error parsing channel_announcement");
-
-	struct chan *chan = get_channel(rstate, &scid);
-	assert(chan && amount_sat_greater(chan->sat, AMOUNT_SAT(0)));
-
-	return towire_gossip_store_channel_amount(ctx, chan->sat);
-}
-
 /**
  * Wrap the raw gossip message and write it to fd
  *
  * @param fd File descriptor to write the wrapped message into
- * @param rstate Routing state if we need to look up channel capacity
  * @param gossip_msg The message to write
+ * @param channel_announce_sat Amount iff gossip_msg is a channel_announcement
  * @param lenp The length to increase by amount written.
  * @return true if the message was written
  */
 static bool gossip_store_append(int fd,
-				struct routing_state *rstate,
 				const u8 *gossip_msg,
+				const struct amount_sat *channel_announce_sat,
 				u64 *lenp)
 {
 	if (!append_msg(fd, gossip_msg, lenp))
@@ -248,7 +219,8 @@ static bool gossip_store_append(int fd,
 
 	if (fromwire_peektype(gossip_msg) == WIRE_CHANNEL_ANNOUNCEMENT) {
 		/* This gives the channel amount. */
-		u8 *msg = make_store_channel_amount(tmpctx, rstate, gossip_msg);
+		u8 *msg = towire_gossip_store_channel_amount(tmpctx,
+						     *channel_announce_sat);
 		if (!append_msg(fd, msg, lenp))
 			return false;
 	}
@@ -305,7 +277,6 @@ static size_t copy_message(int in_fd, int out_fd, unsigned offset)
  * the broadcast map count.
 */
 static bool add_local_unnannounced(int in_fd, int out_fd,
-				   struct routing_state *rstate,
 				   struct node *self,
 				   u64 *len)
 {
@@ -322,7 +293,7 @@ static bool add_local_unnannounced(int in_fd, int out_fd,
 
 		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
 						       &peer->id, c->sat);
-		if (!gossip_store_append(out_fd, rstate, msg, len))
+		if (!gossip_store_append(out_fd, msg, NULL, len))
 			return false;
 
 		for (size_t i = 0; i < 2; i++) {
@@ -469,8 +440,7 @@ bool gossip_store_compact(struct gossip_store *gs,
 
 	/* Local unannounced channels are not in the store! */
 	self = get_node(gs->rstate, &gs->rstate->local_id);
-	if (self && !add_local_unnannounced(gs->fd, fd, gs->rstate, self,
-					    &len)) {
+	if (self && !add_local_unnannounced(gs->fd, fd, self, &len)) {
 		status_broken("Failed writing unannounced to gossip store: %s",
 			      strerror(errno));
 		goto unlink_disable;
@@ -523,14 +493,16 @@ void gossip_store_maybe_compact(struct gossip_store *gs,
 	gossip_store_compact(gs, bs, offset);
 }
 
-u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
+u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
+		     const struct amount_sat *channel_announce_sat)
 {
 	u64 off = gs->len;
 
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!gossip_store_append(gs->fd, gs->rstate, gossip_msg, &gs->len)) {
+	if (!gossip_store_append(gs->fd, gossip_msg, channel_announce_sat,
+				 &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
 			      strerror(errno));
 		return 0;
@@ -548,7 +520,7 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!gossip_store_append(gs->fd, gs->rstate, msg, &gs->len))
+	if (!gossip_store_append(gs->fd, msg, NULL, &gs->len))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing channel_delete to gossip store: %s",
 			      strerror(errno));
