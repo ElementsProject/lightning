@@ -3,6 +3,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gossip_store.h>
 #include <inttypes.h>
@@ -10,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wire/gen_peer_wire.h>
 
 int main(int argc, char *argv[])
 {
@@ -42,7 +44,6 @@ int main(int argc, char *argv[])
 	       read(fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
 		struct amount_sat sat;
 		struct short_channel_id scid;
-		u8 *gossip_msg;
 		u32 msglen = be32_to_cpu(belen);
 		u8 *msg = tal_arr(NULL, u8, msglen);
 
@@ -52,28 +53,21 @@ int main(int argc, char *argv[])
 		if (be32_to_cpu(becsum) != crc32c(0, msg, msglen))
 			warnx("Checksum verification failed");
 
-		if (fromwire_gossip_store_channel_announcement(msg, msg,
-							       &gossip_msg,
-							       &sat)) {
-			printf("channel_announce for %s: %s\n",
-			       type_to_string(tmpctx, struct amount_sat, &sat),
-			       tal_hex(msg, gossip_msg));
-		} else if (fromwire_gossip_store_channel_update(msg, msg,
-								&gossip_msg)) {
-			printf("channel_update: %s\n",
-			       tal_hex(msg, gossip_msg));
-		} else if (fromwire_gossip_store_node_announcement(msg, msg,
-								   &gossip_msg)) {
-			printf("node_announcement: %s\n",
-			       tal_hex(msg, gossip_msg));
+		if (fromwire_gossip_store_channel_amount(msg, &sat)) {
+			printf("channel_amount: %s\n",
+			       type_to_string(tmpctx, struct amount_sat, &sat));
+		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_ANNOUNCEMENT) {
+			printf("channel_announcement: %s\n", tal_hex(msg, msg));
+		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_UPDATE) {
+			printf("channel_update: %s\n", tal_hex(msg, msg));
+		} else if (fromwire_peektype(msg) == WIRE_NODE_ANNOUNCEMENT) {
+			printf("node_announcement: %s\n", tal_hex(msg, msg));
+		} else if (fromwire_peektype(msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL) {
+			printf("local_add_channel: %s\n", tal_hex(msg, msg));
 		} else if (fromwire_gossip_store_channel_delete(msg, &scid)) {
 			printf("channel_delete: %s\n",
 			       type_to_string(msg, struct short_channel_id,
 					      &scid));
-		} else if (fromwire_gossip_store_local_add_channel(
-			       msg, msg, &gossip_msg)) {
-			printf("local_add_channel: %s\n",
-			       tal_hex(msg, gossip_msg));
 		} else {
 			warnx("Unknown message %u", fromwire_peektype(msg));
 		}

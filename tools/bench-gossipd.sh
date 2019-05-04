@@ -17,7 +17,8 @@ wait_for_start()
 	ID="$($LCLI1 -H getinfo 2>/dev/null | grep '^id=' | cut -d= -f2)"
 	sleep 1
 	i=$((i + 1))
-	if [ $i = 10 ]; then
+	# If it has to upgrade the gossip store, that can take a while!
+	if [ $i = 120 ]; then
 	    echo "lightningd didn't start?" >&2
 	    cat "$DIR"/log
 	    exit 1
@@ -98,7 +99,8 @@ fi
 if $CSV; then echo $TARGETS | tr ' ' ,; fi
 
 # First, measure load time.
-rm -f "$DIR"/log "$DIR"/peer
+rm -f "$DIR"/peer
+mv "$DIR"/log  "$DIR"/log.old.$$
 $LIGHTNINGD --lightning-dir="$DIR" --log-file="$DIR"/log --bind-addr="$DIR"/peer &
 
 rm -f "$DIR"/stats
@@ -149,6 +151,7 @@ fi
 # Try getting all from the peer.
 if [ -z "${TARGETS##* peer_write_all_sec *}" ]; then
     ENTRIES=$(grep 'Read .* cannounce/cupdate/nannounce/cdelete' "$DIR"/log | cut -d\  -f5 | tr / + | bc)
+    if [ "$ENTRIES" = 0 ]; then echo "Bad store?"; exit 1; fi
     /usr/bin/time --quiet --append -f %e devtools/gossipwith --initial-sync --max-messages=$((ENTRIES - 5)) "$ID"@"$DIR"/peer 2>&1 > /dev/null | print_stat peer_write_all_sec
 fi
 

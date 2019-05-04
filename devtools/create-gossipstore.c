@@ -49,6 +49,18 @@ static struct scidsat *load_csv_file(FILE *scidf)
 	return scidsats;
 }
 
+static void write_outmsg(int outfd, const u8 *outmsg)
+{
+	beint32_t hdr[2];
+
+	hdr[0] = cpu_to_be32(tal_count(outmsg));
+	hdr[1] = cpu_to_be32(crc32c(0, outmsg, tal_count(outmsg)));
+
+	if (!write_all(outfd, hdr, sizeof(hdr))
+	    || !write_all(outfd, outmsg, tal_count(outmsg)))
+		err(1, "Writing output");
+}
+
 int main(int argc, char *argv[])
 {
 	u8 version;
@@ -116,9 +128,7 @@ int main(int argc, char *argv[])
 
 	while (read_all(infd, &be_inlen, sizeof(be_inlen))) {
 		u32 msglen = be16_to_cpu(be_inlen);
-		u8 *inmsg = tal_arr(NULL, u8, msglen), *outmsg;
-		beint32_t be_outlen;
-		beint32_t becsum;
+		u8 *inmsg = tal_arr(NULL, u8, msglen);
 
 		if (!read_all(infd, inmsg, msglen))
 			err(1, "Only read partial message");
@@ -153,34 +163,30 @@ int main(int argc, char *argv[])
 				sat = scidsats[scidi].sat;
 				scidi++;
 			}
-			outmsg = towire_gossip_store_channel_announcement(inmsg, inmsg, sat);
+			/* First write announce */
+			write_outmsg(outfd, inmsg);
 			channels += 1;
+			/* Now write amount */
+			write_outmsg(outfd,
+				     towire_gossip_store_channel_amount(inmsg,
+									sat));
 			break;
+
 		case WIRE_CHANNEL_UPDATE:
-			outmsg = towire_gossip_store_channel_update(inmsg, inmsg);
+			write_outmsg(outfd, inmsg);
 			updates += 1;
 			break;
+
 		case WIRE_NODE_ANNOUNCEMENT:
-			outmsg = towire_gossip_store_node_announcement(inmsg, inmsg);
+			write_outmsg(outfd, inmsg);
 			nodes += 1;
 			break;
+
 		default:
 			warnx("Unknown message %u (%s)", fromwire_peektype(inmsg),
 			      wire_type_name(fromwire_peektype(inmsg)));
 			tal_free(inmsg);
 			continue;
-		}
-		if (verbose)
-			fprintf(stderr, "%s->%s\n",
-				wire_type_name(fromwire_peektype(inmsg)),
-				gossip_store_type_name(fromwire_peektype(outmsg)));
-
-		becsum = cpu_to_be32(crc32c(0, outmsg, tal_count(outmsg)));
-		be_outlen = cpu_to_be32(tal_count(outmsg));
-		if (!write_all(outfd, &be_outlen, sizeof(be_outlen))
-		    || !write_all(outfd, &becsum, sizeof(becsum))
-		    || !write_all(outfd, outmsg, tal_count(outmsg))) {
-			exit(1);
 		}
 		tal_free(inmsg);
 		if (--max == 0)
