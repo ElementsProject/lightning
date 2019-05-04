@@ -476,7 +476,7 @@ disable:
 	return false;
 }
 
-void gossip_store_maybe_compact(struct gossip_store *gs,
+bool gossip_store_maybe_compact(struct gossip_store *gs,
 				struct broadcast_state **bs,
 				u32 *offset)
 {
@@ -484,13 +484,13 @@ void gossip_store_maybe_compact(struct gossip_store *gs,
 
 	/* Don't compact while loading! */
 	if (!gs->writable)
-		return;
+		return false;
 	if (gs->count < 1000)
-		return;
+		return false;
 	if (gs->count < (*bs)->count * 1.25)
-		return;
+		return false;
 
-	gossip_store_compact(gs, bs, offset);
+	return gossip_store_compact(gs, bs, offset);
 }
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,

@@ -85,8 +85,7 @@ void insert_broadcast(struct broadcast_state **bstate,
 	insert_broadcast_nostore(*bstate, bcast);
 
 	/* If it compacts, it replaces *bstate */
-	gossip_store_maybe_compact((*bstate)->gs, bstate, &offset);
-	if (offset)
+	if (gossip_store_maybe_compact((*bstate)->gs, bstate, &offset))
 		update_peers_broadcast_index((*bstate)->peers, offset);
 }
 

@@ -35,6 +35,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <openingd/gen_opening_wire.h>
@@ -376,6 +377,12 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		/* Use standard helper for gossip msgs (forwards, if it's an
 		 * error, exits). */
 		if (from_gossipd) {
+			if (fromwire_gossipd_new_store_fd(msg)) {
+				tal_free(msg);
+				new_gossip_store(GOSSIP_STORE_FD,
+						 fdpass_recv(GOSSIP_FD));
+				continue;
+			}
 			handle_gossip_msg(PEER_FD, &state->cs, take(msg));
 			continue;
 		}

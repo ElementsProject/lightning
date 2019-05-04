@@ -30,3 +30,6 @@ gossipd_local_channel_update,,htlc_minimum_msat,struct amount_msat
 gossipd_local_channel_update,,fee_base_msat,u32
 gossipd_local_channel_update,,fee_proportional_millionths,u32
 gossipd_local_channel_update,,htlc_maximum_msat,struct amount_msat
+
+# Update your gossip_store fd: + gossip_store_fd
+gossipd_new_store_fd,3505

@@ -54,9 +54,9 @@ const u8 *gossip_store_get(const tal_t *ctx,
  * @bs: a pointer to the broadcast state: replaced if we compact it.
  * @offset: the change in the store, if any.
  *
- * If @offset is non-zero on return, caller must update peers.
+ * If return value is true, caller must update peers.
  */
-void gossip_store_maybe_compact(struct gossip_store *gs,
+bool gossip_store_maybe_compact(struct gossip_store *gs,
 				struct broadcast_state **bs,
 				u32 *offset);
 
