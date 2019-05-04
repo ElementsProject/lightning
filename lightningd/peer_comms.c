@@ -7,6 +7,8 @@ static void destroy_peer_comms(struct peer_comms *pcomms)
 		close(pcomms->peer_fd);
 	if (pcomms->gossip_fd != -1)
 		close(pcomms->gossip_fd);
+	if (pcomms->gossip_store_fd != -1)
+		close(pcomms->gossip_store_fd);
 }
 
 struct peer_comms *new_peer_comms(const tal_t *ctx)

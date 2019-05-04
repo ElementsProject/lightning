@@ -162,7 +162,7 @@ static NORETURN void flush_and_exit(int reason)
 	exit(0x80 | (reason & 0xFF));
 }
 
-void status_send_fatal(const u8 *msg TAKES, int fd1, int fd2)
+void status_send_fatal(const u8 *msg TAKES, int fd1, int fd2, int fd3)
 {
 	int reason = fromwire_peektype(msg);
 	breakpoint();
@@ -173,6 +173,7 @@ void status_send_fatal(const u8 *msg TAKES, int fd1, int fd2)
 		assert(!status_conn);
 		fdpass_send(status_fd, fd1);
 		fdpass_send(status_fd, fd2);
+		fdpass_send(status_fd, fd3);
 	}
 
 	flush_and_exit(reason);
@@ -193,7 +194,7 @@ void status_failed(enum status_failreason reason, const char *fmt, ...)
 		send_backtrace(str);
 
 	status_send_fatal(take(towire_status_fail(NULL, reason, str)),
-			  -1, -1);
+			  -1, -1, -1);
 }
 
 void master_badmsg(u32 type_expected, const u8 *msg)

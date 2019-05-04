@@ -106,7 +106,7 @@ void handle_gossip_msg(int peer_fd, struct crypto_state *cs, const u8 *msg TAKES
 		tal_free(msg);
 }
 
-bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd,
+bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd, int gossip_store_fd,
 				 struct crypto_state *cs,
 				 const struct channel_id *channel_id,
 				 const u8 *msg TAKES)
@@ -124,6 +124,7 @@ bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd,
 	if (is_peer_error(tmpctx, msg, channel_id, &err, &all_channels)) {
 		if (err)
 			peer_failed_received_errmsg(peer_fd, gossip_fd,
+						    gossip_store_fd,
 						    cs, err,
 						    all_channels
 						    ? NULL : channel_id);

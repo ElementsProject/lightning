@@ -8,7 +8,7 @@ gossip_new_peer,,gossip_queries_feature,bool
 # Did they offer LOCAL_INITIAL_ROUTING_SYNC?
 gossip_new_peer,,initial_routing_sync,bool
 
-# if success: + fd.
+# if success: + gossip fd and gossip_store fd
 gossip_new_peer_reply,4100
 gossip_new_peer_reply,,success,bool
 

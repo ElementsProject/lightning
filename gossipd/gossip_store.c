@@ -565,6 +565,11 @@ const u8 *gossip_store_get(const tal_t *ctx,
 	return msg;
 }
 
+int gossip_store_readonly_fd(struct gossip_store *gs)
+{
+	return open(GOSSIP_STORE_FILENAME, O_RDONLY);
+}
+
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
 	beint32_t hdr[2];

@@ -795,7 +795,7 @@ REGISTER_PLUGIN_HOOK(peer_connected, peer_connected_hook_cb,
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_died. */
 void peer_connected(struct lightningd *ld, const u8 *msg,
-		    int peer_fd, int gossip_fd)
+		    int peer_fd, int gossip_fd, int gossip_store_fd)
 {
 	struct node_id id;
 	u8 *globalfeatures, *localfeatures;
@@ -807,6 +807,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	hook_payload->pcomms = new_peer_comms(hook_payload);
 	hook_payload->pcomms->peer_fd = peer_fd;
 	hook_payload->pcomms->gossip_fd = gossip_fd;
+	hook_payload->pcomms->gossip_store_fd = gossip_store_fd;
 
 	if (!fromwire_connect_peer_connected(msg, msg,
 					     &id, &hook_payload->addr,

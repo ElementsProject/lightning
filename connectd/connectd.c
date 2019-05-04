@@ -277,12 +277,17 @@ static void connected_to_peer(struct daemon *daemon,
  * it to forward gossip to/from the peer.  The gossip daemon needs to know a
  * few of the features of the peer and its id (for reporting).
  *
+ * Every peer also has read-only access to the gossip_store, which is handed
+ * out by gossipd too.
+ *
  * The 'localfeatures' is a field in the `init` message, indicating properties
  * when you're connected to it like we are: there are also 'globalfeatures'
  * which specify requirements to route a payment through a node. */
-static int get_gossipfd(struct daemon *daemon,
-			const struct node_id *id,
-			const u8 *localfeatures)
+static bool get_gossipfds(struct daemon *daemon,
+			  const struct node_id *id,
+			  const u8 *localfeatures,
+			  int *gossip_fd,
+			  int *gossip_store_fd)
 {
 	bool gossip_queries_feature, initial_routing_sync, success;
 	u8 *msg;
@@ -318,12 +323,14 @@ static int get_gossipfd(struct daemon *daemon,
 	if (!success) {
 		status_broken("Gossipd did not give us an fd: losing peer %s",
 			      type_to_string(tmpctx, struct node_id, id));
-		return -1;
+		return false;
 	}
 
-	/* Otherwise, the next thing in the socket will be the file descriptor
+	/* Otherwise, the next thing in the socket will be the file descriptors
 	 * for the per-peer daemon. */
-	return fdpass_recv(GOSSIPCTL_FD);
+	*gossip_fd = fdpass_recv(GOSSIPCTL_FD);
+	*gossip_store_fd = fdpass_recv(GOSSIPCTL_FD);
+	return true;
 }
 
 /*~ This is an ad-hoc marshalling structure where we store arguments so we
@@ -407,7 +414,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const u8 *peer_connected_msg TAKES,
 			       const u8 *localfeatures TAKES)
 {
-	int gossip_fd;
+	int gossip_fd, gossip_store_fd;
 
 	if (node_set_get(&daemon->peers, id))
 		return peer_reconnected(conn, daemon, id, peer_connected_msg,
@@ -416,14 +423,12 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	/* We've successfully connected. */
 	connected_to_peer(daemon, conn, id);
 
-	gossip_fd = get_gossipfd(daemon, id, localfeatures);
-
-	/* We promised we'd take it by marking it TAKEN above; simply free it. */
+	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
 	if (taken(localfeatures))
-		tal_free(localfeatures);
+		tal_steal(tmpctx, localfeatures);
 
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	if (gossip_fd < 0)
+	if (!get_gossipfds(daemon, id, localfeatures, &gossip_fd, &gossip_store_fd))
 		return io_close(conn);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
@@ -433,6 +438,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	/* io_conn_fd() extracts the fd from ccan/io's io_conn */
 	daemon_conn_send_fd(daemon->master, io_conn_fd(conn));
 	daemon_conn_send_fd(daemon->master, gossip_fd);
+	daemon_conn_send_fd(daemon->master, gossip_store_fd);
 
 	/*~ Finally, we add it to the set of pubkeys: tal_dup will handle
 	 * take() args for us, by simply tal_steal()ing it. */

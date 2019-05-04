@@ -301,9 +301,10 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	u8 *remote_upfront_shutdown_script;
 	struct peer_comms *pcomms = new_peer_comms(resp);
 
-	assert(tal_count(fds) == 2);
+	assert(tal_count(fds) == 3);
 	pcomms->peer_fd = fds[0];
 	pcomms->gossip_fd = fds[1];
+	pcomms->gossip_store_fd = fds[2];
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -493,9 +494,10 @@ static void opening_fundee_finished(struct subd *openingd,
 	struct peer_comms *pcomms = new_peer_comms(reply);
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
-	assert(tal_count(fds) == 2);
+	assert(tal_count(fds) == 3);
 	pcomms->peer_fd = fds[0];
 	pcomms->gossip_fd = fds[1];
+	pcomms->gossip_store_fd = fds[2];
 
 	/* This is a new channel_info.their_config, set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -567,6 +569,7 @@ static void opening_fundee_finished(struct subd *openingd,
 failed:
 	close(fds[0]);
 	close(fds[1]);
+	close(fds[3]);
 	tal_free(uc);
 }
 
@@ -736,8 +739,8 @@ static unsigned int openingd_msg(struct subd *openingd,
 			tal_free(openingd);
 			return 0;
 		}
-		if (tal_count(fds) != 2)
-			return 2;
+		if (tal_count(fds) != 3)
+			return 3;
 		opening_funder_finished(openingd, msg, fds, uc->fc);
 		return 0;
 
@@ -752,8 +755,8 @@ static unsigned int openingd_msg(struct subd *openingd,
 		return 0;
 
 	case WIRE_OPENING_FUNDEE:
-		if (tal_count(fds) != 2)
-			return 2;
+		if (tal_count(fds) != 3)
+			return 3;
 		opening_fundee_finished(openingd, msg, fds, uc);
 		return 0;
 
@@ -799,6 +802,7 @@ void peer_start_openingd(struct peer *peer,
 					opening_channel_set_billboard,
 					take(&pcomms->peer_fd),
 					take(&pcomms->gossip_fd),
+					take(&pcomms->gossip_store_fd),
 					take(&hsmfd), NULL);
 	if (!uc->openingd) {
 		uncommitted_channel_disconnect(uc,

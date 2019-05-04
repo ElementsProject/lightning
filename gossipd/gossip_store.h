@@ -66,6 +66,12 @@ bool gossip_store_compact(struct gossip_store *gs,
 			  struct broadcast_state **bs,
 			  u32 *offset);
 
-/* Callback for when gossip_store indexes move */
+/**
+ * Get a readonly fd for the gossip_store.
+ * @gs: the gossip store.
+ *
+ * Returns -1 on failure, and sets errno.
+ */
+int gossip_store_readonly_fd(struct gossip_store *gs);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */
