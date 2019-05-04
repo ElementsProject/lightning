@@ -83,6 +83,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/pay.c			\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
+	lightningd/peer_comms.c			\
 	lightningd/ping.c			\
 	lightningd/plugin.c			\
 	lightningd/plugin_hook.c		\

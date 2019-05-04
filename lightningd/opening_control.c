@@ -23,6 +23,7 @@
 #include <lightningd/log.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_control.h>
+#include <lightningd/peer_comms.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
@@ -290,7 +291,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct bitcoin_tx *fundingtx;
 	struct bitcoin_txid funding_txid, expected_txid;
 	struct pubkey changekey;
-	struct crypto_state cs;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 	u16 funding_outnum;
@@ -299,8 +299,11 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct channel *channel;
 	struct lightningd *ld = openingd->ld;
 	u8 *remote_upfront_shutdown_script;
+	struct peer_comms *pcomms = new_peer_comms(resp);
 
 	assert(tal_count(fds) == 2);
+	pcomms->peer_fd = fds[0];
+	pcomms->gossip_fd = fds[1];
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -309,7 +312,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &channel_info.their_config,
 					   &remote_commit,
 					   &remote_commit_sig,
-					   &cs,
+					   &pcomms->cs,
 					   &channel_info.theirbase.revocation,
 					   &channel_info.theirbase.payment,
 					   &channel_info.theirbase.htlc,
@@ -455,7 +458,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	wallet_confirm_utxos(ld->wallet, fc->wtx.utxos);
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(channel, &cs, fds[0], fds[1], NULL, false);
+	peer_start_channeld(channel, pcomms, NULL, false);
 
 	subd_release_channel(openingd, fc->uc);
 	fc->uc->openingd = NULL;
@@ -463,8 +466,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	return;
 
 failed:
-	close(fds[0]);
-	close(fds[1]);
 	subd_release_channel(openingd, fc->uc);
 	fc->uc->openingd = NULL;
 	/* Frees fc too, and tmpctx */
@@ -478,7 +479,6 @@ static void opening_fundee_finished(struct subd *openingd,
 {
 	u8 *funding_signed;
 	struct channel_info channel_info;
-	struct crypto_state cs;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 	struct lightningd *ld = openingd->ld;
@@ -490,9 +490,12 @@ static void opening_fundee_finished(struct subd *openingd,
 	u8 channel_flags;
 	struct channel *channel;
 	u8 *remote_upfront_shutdown_script;
+	struct peer_comms *pcomms = new_peer_comms(reply);
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
+	pcomms->peer_fd = fds[0];
+	pcomms->gossip_fd = fds[1];
 
 	/* This is a new channel_info.their_config, set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -501,7 +504,7 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &channel_info.their_config,
 					   &remote_commit,
 					   &remote_commit_sig,
-					   &cs,
+					   &pcomms->cs,
 					   &channel_info.theirbase.revocation,
 					   &channel_info.theirbase.payment,
 					   &channel_info.theirbase.htlc,
@@ -554,8 +557,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	channel_watch_funding(ld, channel);
 
 	/* On to normal operation! */
-	peer_start_channeld(channel, &cs,
-			    fds[0], fds[1], funding_signed, false);
+	peer_start_channeld(channel, pcomms, funding_signed, false);
 
 	subd_release_channel(openingd, uc);
 	uc->openingd = NULL;
@@ -592,16 +594,13 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 }
 
 static void opening_channel_errmsg(struct uncommitted_channel *uc,
-				   int peer_fd, int gossip_fd,
-				   const struct crypto_state *cs,
+				   struct peer_comms *pcomms,
 				   const struct channel_id *channel_id UNUSED,
 				   const char *desc,
 				   const u8 *err_for_them UNUSED)
 {
-	if (peer_fd != -1) {
-		close(peer_fd);
-		close(gossip_fd);
-	}
+	/* Close fds, if any. */
+	tal_free(pcomms);
 	uncommitted_channel_disconnect(uc, desc);
 	tal_free(uc);
 }
@@ -774,8 +773,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 }
 
 void peer_start_openingd(struct peer *peer,
-			 const struct crypto_state *cs,
-			 int peer_fd, int gossip_fd,
+			 struct peer_comms *pcomms,
 			 const u8 *send_msg)
 {
 	int hsmfd;
@@ -799,7 +797,8 @@ void peer_start_openingd(struct peer *peer,
 					openingd_msg,
 					opening_channel_errmsg,
 					opening_channel_set_billboard,
-					take(&peer_fd), take(&gossip_fd),
+					take(&pcomms->peer_fd),
+					take(&pcomms->gossip_fd),
 					take(&hsmfd), NULL);
 	if (!uc->openingd) {
 		uncommitted_channel_disconnect(uc,
@@ -826,7 +825,7 @@ void peer_start_openingd(struct peer *peer,
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity,
-				  cs, &uc->local_basepoints,
+				  &pcomms->cs, &uc->local_basepoints,
 				  &uc->local_funding_pubkey,
 				  uc->minimum_depth,
 				  feerate_min(peer->ld, NULL),

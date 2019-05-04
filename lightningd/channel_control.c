@@ -14,6 +14,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_comms.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
@@ -182,19 +183,21 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 					       const u8 *msg,
 					       const int *fds)
 {
-	struct crypto_state cs;
+	struct peer_comms *pcomms = new_peer_comms(msg);
 
 	/* We expect 2 fds. */
 	assert(tal_count(fds) == 2);
 
-	if (!fromwire_channel_shutdown_complete(msg, &cs)) {
+	if (!fromwire_channel_shutdown_complete(msg, &pcomms->cs)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
 				       tal_hex(msg, msg));
 		return;
 	}
+	pcomms->peer_fd = fds[0];
+	pcomms->gossip_fd = fds[1];
 
 	/* This sets channel->owner, closes down channeld. */
-	peer_start_closingd(channel, &cs, fds[0], fds[1], false, NULL);
+	peer_start_closingd(channel, pcomms, false, NULL);
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
@@ -253,8 +256,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 }
 
 void peer_start_channeld(struct channel *channel,
-			 const struct crypto_state *cs,
-			 int peer_fd, int gossip_fd,
+			 struct peer_comms *pcomms,
 			 const u8 *funding_signed,
 			 bool reconnected)
 {
@@ -288,8 +290,8 @@ void peer_start_channeld(struct channel *channel,
 					   channel_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
-					   take(&peer_fd),
-					   take(&gossip_fd),
+					   take(&pcomms->peer_fd),
+					   take(&pcomms->gossip_fd),
 					   take(&hsmfd), NULL),
 			  false);
 
@@ -356,7 +358,7 @@ void peer_start_channeld(struct channel *channel,
 				      feerate_min(ld, NULL),
 				      feerate_max(ld, NULL),
 				      &channel->last_sig,
-				      cs,
+				      &pcomms->cs,
 				      &channel->channel_info.remote_fundingkey,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,

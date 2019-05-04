@@ -7,10 +7,10 @@
 struct channel;
 struct crypto_state;
 struct lightningd;
+struct peer_comms;
 
 void peer_start_channeld(struct channel *channel,
-			 const struct crypto_state *cs,
-			 int peer_fd, int gossip_fd,
+			 struct peer_comms *pcomms,
 			 const u8 *funding_signed,
 			 bool reconnected);
 

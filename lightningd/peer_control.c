@@ -43,6 +43,7 @@
 #include <lightningd/onchain_control.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
+#include <lightningd/peer_comms.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <unistd.h>
@@ -369,14 +370,13 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 }
 
 void channel_errmsg(struct channel *channel,
-		    int peer_fd, int gossip_fd,
-		    const struct crypto_state *cs,
+		    struct peer_comms *pcomms,
 		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
 		    const u8 *err_for_them)
 {
-	/* No peer fd means a subd crash or disconnection. */
-	if (peer_fd == -1) {
+	/* No peer_comms means a subd crash or disconnection. */
+	if (!pcomms) {
 		channel_fail_transient(channel, "%s: %s",
 				       channel->owner->name, desc);
 		return;
@@ -418,12 +418,10 @@ void channel_errmsg(struct channel *channel,
 
 struct peer_connected_hook_payload {
 	struct lightningd *ld;
-	struct crypto_state crypto_state;
 	struct channel *channel;
 	struct wireaddr_internal addr;
 	struct peer *peer;
-	int peer_fd;
-	int gossip_fd;
+	struct peer_comms *pcomms;
 };
 
 static void json_add_htlcs(struct lightningd *ld,
@@ -685,12 +683,9 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 		       const jsmntok_t *toks)
 {
 	struct lightningd *ld = payload->ld;
-	struct crypto_state *cs = &payload->crypto_state;
 	struct channel *channel = payload->channel;
 	struct wireaddr_internal addr = payload->addr;
 	struct peer *peer = payload->peer;
-	int gossip_fd = payload->gossip_fd;
-	int peer_fd = payload->peer_fd;
 	u8 *error;
 
 	/* If we had a hook, interpret result. */
@@ -713,7 +708,6 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 							buffer + m->start);
 				goto send_error;
 			}
-			close(peer_fd);
 			tal_free(payload);
 			return;
 		} else if (!json_tok_streq(buffer, resulttok, "continue"))
@@ -766,8 +760,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_channeld(channel, cs,
-					    peer_fd, gossip_fd, NULL,
+			peer_start_channeld(channel, payload->pcomms, NULL,
 					    true);
 			tal_free(payload);
 			return;
@@ -776,8 +769,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_closingd(channel, cs,
-					    peer_fd, gossip_fd,
+			peer_start_closingd(channel, payload->pcomms,
 					    true, NULL);
 			tal_free(payload);
 			return;
@@ -791,7 +783,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 	error = NULL;
 
 send_error:
-	peer_start_openingd(peer, cs, peer_fd, gossip_fd, error);
+	peer_start_openingd(peer, payload->pcomms, error);
 	tal_free(payload);
 }
 
@@ -812,11 +804,13 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
-	hook_payload->gossip_fd = gossip_fd;
-	hook_payload->peer_fd = peer_fd;
+	hook_payload->pcomms = new_peer_comms(hook_payload);
+	hook_payload->pcomms->peer_fd = peer_fd;
+	hook_payload->pcomms->gossip_fd = gossip_fd;
 
 	if (!fromwire_connect_peer_connected(msg, msg,
-					     &id, &hook_payload->addr, &hook_payload->crypto_state,
+					     &id, &hook_payload->addr,
+					     &hook_payload->pcomms->cs,
 					     &globalfeatures, &localfeatures))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
