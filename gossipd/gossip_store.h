@@ -11,7 +11,6 @@
 /**
  * gossip_store -- On-disk storage related information
  */
-#define GOSSIP_STORE_VERSION 4
 
 struct broadcast_state;
 struct gossip_store;

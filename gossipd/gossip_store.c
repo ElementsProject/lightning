@@ -3,6 +3,7 @@
 #include <ccan/crc/crc.h>
 #include <ccan/endian/endian.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <common/gossip_store.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -531,38 +532,7 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset)
 {
-	beint32_t hdr[2];
-	u32 msglen, checksum;
-	u8 *msg;
-
-	if (offset == 0 || offset > gs->len)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: can't access offset %"PRIu64
-			      ", store len %"PRIu64,
-			      offset, gs->len);
-	if (pread(gs->fd, hdr, sizeof(hdr), offset) != sizeof(hdr)) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: can't read hdr offset %"PRIu64
-			      ", store len %"PRIu64": %s",
-			      offset, gs->len, strerror(errno));
-	}
-
-	msglen = be32_to_cpu(hdr[0]);
-	checksum = be32_to_cpu(hdr[1]);
-	msg = tal_arr(ctx, u8, msglen);
-	if (pread(gs->fd, msg, msglen, offset + sizeof(hdr)) != msglen)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: can't read len %u offset %"PRIu64
-			      ", store len %"PRIu64,
-			      msglen, offset, gs->len);
-
-	if (checksum != crc32c(0, msg, msglen))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: bad checksum offset %"PRIu64
-			      ", store len %"PRIu64,
-			      offset, gs->len);
-
-	return msg;
+	return gossip_store_read(ctx, gs->fd, offset);
 }
 
 int gossip_store_readonly_fd(struct gossip_store *gs)

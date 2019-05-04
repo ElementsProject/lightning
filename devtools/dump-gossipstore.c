@@ -3,9 +3,9 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
+#include <common/gossip_store.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_store.h>
-#include <gossipd/gossip_store.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <sys/stat.h>
