@@ -383,7 +383,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 						 fdpass_recv(GOSSIP_FD));
 				continue;
 			}
-			handle_gossip_msg(PEER_FD, &state->cs, take(msg));
+			handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD,
+					  &state->cs, take(msg));
 			continue;
 		}
 
@@ -1347,7 +1348,7 @@ static void handle_gossip_in(struct state *state)
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Reading gossip: %s", strerror(errno));
 
-	handle_gossip_msg(PEER_FD, &state->cs, take(msg));
+	handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD, &state->cs, take(msg));
 }
 
 /*~ Is this message of type `error` with the special zero-id

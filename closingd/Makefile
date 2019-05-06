@@ -55,6 +55,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
 	common/gen_peer_status_wire.o		\
 	common/gen_status_wire.o		\
+	common/gossip_store.o			\
 	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/memleak.o			\

@@ -107,7 +107,8 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 						 fdpass_recv(GOSSIP_FD));
 				continue;
 			}
-			handle_gossip_msg(PEER_FD, cs, take(msg));
+			handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD,
+					  cs, take(msg));
 			continue;
 		}
 		if (!handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD,

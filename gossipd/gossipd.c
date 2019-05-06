@@ -235,15 +235,15 @@ static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	daemon_conn_send(peer->dc, take(send));
 }
 
-/* Load a message from the gossip_store, and queue to send. */
+/*~ We have a shortcut for messages from the store: we send the offset, and
+ * the other daemon reads and sends, saving us much work. */
 static void queue_peer_from_store(struct peer *peer,
 				  const struct broadcastable *bcast)
 {
-	const u8 *msg;
+	const u8 *msg = towire_gossipd_send_gossip_from_store(NULL,
+							      bcast->index);
 
-	msg = gossip_store_get(NULL, peer->daemon->rstate->broadcasts->gs,
-			       bcast->index);
-	queue_peer_msg(peer, take(msg));
+	daemon_conn_send(peer->dc, take(msg));
 }
 
 /* This pokes daemon_conn, which calls dump_gossip: the NULL gossip_timer
@@ -1214,7 +1214,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 /*~ If we're supposed to be sending gossip, do so now. */
 static void maybe_queue_gossip(struct peer *peer)
 {
-	const u8 *next;
+	struct broadcastable *next;
 
 	/* If the gossip timer is still running, don't send. */
 	if (peer->gossip_timer)
@@ -1230,13 +1230,13 @@ static void maybe_queue_gossip(struct peer *peer)
 	 * only needs to keep an index; this returns the next gossip message
 	 * which is past the previous index and within the timestamp: it
 	 * also updates `broadcast_index`. */
-	next = next_broadcast(NULL, peer->daemon->rstate->broadcasts,
+	next = next_broadcast(peer->daemon->rstate->broadcasts,
 			      peer->gossip_timestamp_min,
 			      peer->gossip_timestamp_max,
 			      &peer->broadcast_index);
 
 	if (next) {
-		queue_peer_msg(peer, take(next));
+		queue_peer_from_store(peer, next);
 		return;
 	}
 
@@ -1686,6 +1686,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY:
 	case WIRE_GOSSIPD_SEND_GOSSIP:
 	case WIRE_GOSSIPD_NEW_STORE_FD:
+	case WIRE_GOSSIPD_SEND_GOSSIP_FROM_STORE:
 		break;
 	}
 

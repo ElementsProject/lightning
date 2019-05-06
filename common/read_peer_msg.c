@@ -1,4 +1,5 @@
 #include <common/crypto_sync.h>
+#include <common/gossip_store.h>
 #include <common/peer_failed.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
@@ -81,11 +82,15 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 	return !channel_id_eq(expected, actual);
 }
 
-void handle_gossip_msg(int peer_fd, struct crypto_state *cs, const u8 *msg TAKES)
+void handle_gossip_msg(int peer_fd, int gossip_store_fd,
+		       struct crypto_state *cs, const u8 *msg TAKES)
 {
 	u8 *gossip;
+	u64 offset;
 
-	if (!fromwire_gossipd_send_gossip(tmpctx, msg, &gossip)) {
+	if (fromwire_gossipd_send_gossip_from_store(msg, &offset))
+		gossip = gossip_store_read(tmpctx, gossip_store_fd, offset);
+	else if (!fromwire_gossipd_send_gossip(tmpctx, msg, &gossip)) {
 		status_broken("Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
 		peer_failed_connection_lost();
