@@ -148,4 +148,17 @@ void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
  */
 bool bitcoin_tx_check(const struct bitcoin_tx *tx);
 
+/**
+ * Add an explicit fee output if necessary.
+ *
+ * An explicit fee output is only necessary if we are using an elements
+ * transaction, and we have a non-zero fee. This method may be called multiple
+ * times if input and output values do not change, however it may result in
+ * multiple change outputs if the fee is changed.
+ *
+ * Returns the position of the fee output, or -1 in the case of non-elements
+ * transactions.
+ */
+int bitcoin_tx_add_fee_output(struct bitcoin_tx *tx);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */
