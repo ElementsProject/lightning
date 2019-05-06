@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/closing_control.h>

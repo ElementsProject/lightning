@@ -5,6 +5,7 @@
 msgtype,closing_init,2001
 msgdata,closing_init,chain_hash,chain_hash,
 msgdata,closing_init,pps,per_peer_state,
+msgdata,closing_init,chain_hash,bitcoin_blkid,
 msgdata,closing_init,funding_txid,bitcoin_txid,
 msgdata,closing_init,funding_txout,u16,
 msgdata,closing_init,funding_satoshi,amount_sat,
