@@ -33,16 +33,16 @@ static char *to_base58(const tal_t *ctx, u8 version,
 	}
 }
 
-char *bitcoin_to_base58(const tal_t *ctx, bool test_net,
+char *bitcoin_to_base58(const tal_t *ctx, const struct chainparams *chainparams,
 			const struct bitcoin_address *addr)
 {
-	return to_base58(ctx, test_net ? 111 : 0, &addr->addr);
+	return to_base58(ctx, chainparams->p2pkh_version, &addr->addr);
 }
 
-char *p2sh_to_base58(const tal_t *ctx, bool test_net,
+char *p2sh_to_base58(const tal_t *ctx, const struct chainparams *chainparams,
 		     const struct ripemd160 *p2sh)
 {
-	return to_base58(ctx, test_net ? 196 : 5, p2sh);
+	return to_base58(ctx, chainparams->p2sh_version, p2sh);
 }
 
 static bool from_base58(u8 *version,
