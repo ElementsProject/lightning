@@ -612,6 +612,7 @@ int main(int argc, char *argv[])
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(pps, 3, 4, 5);
 	chainparams = chainparams_by_chainhash(&chain_hash);
+	is_elements = chainparams->is_elements;
 
 	status_debug("out = %s/%s",
 		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
