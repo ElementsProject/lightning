@@ -68,6 +68,42 @@ int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
 	return tx->wtx->num_outputs;
 }
 
+/**
+ * Compute how much fee we are actually sending with this transaction.
+ */
+static u64 bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
+{
+	u64 fee = 0, satoshi;
+
+	for (size_t i=0; i<tal_count(tx->input_amounts); i++)
+		fee += tx->input_amounts[i]->satoshis; /* Raw: fee computation */
+
+	for (size_t i=0; i<tx->wtx->num_outputs; i++) {
+		if (!is_elements) {
+			fee -= tx->wtx->outputs[i].satoshi; /* Raw: low-level helper */
+		} else {
+			beint64_t tmp;
+			memcpy(&tmp, &tx->wtx->outputs[i].value[1] , sizeof(tmp));
+			satoshi = be64_to_cpu(tmp);
+			fee -= satoshi;
+		}
+	}
+
+	return fee;
+}
+
+int bitcoin_tx_add_fee_output(struct bitcoin_tx *tx)
+{
+	struct amount_sat fee;
+	u64 rawsats = bitcoin_tx_compute_fee(tx); /* Raw: pedantic much? */
+	fee.satoshis = rawsats; /* Raw: need amounts later */
+
+	/* If we aren't using elements, we don't add explicit fee outputs */
+	if (!is_elements || rawsats == 0)
+		return -1;
+	return bitcoin_tx_add_output(tx, NULL, fee);
+}
+
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 struct amount_sat amount, u8 *script)
@@ -96,14 +132,21 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 {
 	u8 *newtx;
 	size_t written;
+	int flags = WALLY_TX_FLAG_USE_WITNESS;
 
-	if (wally_tx_get_length(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, &written) !=
-	    WALLY_OK)
+	if (wally_tx_get_length(tx->wtx, flags, &written) != WALLY_OK)
 		return false;
 
+	if (is_elements) {
+		flags |= WALLY_TX_FLAG_USE_ELEMENTS;
+		/* Elements transactions must have an explicit fee */
+		if (bitcoin_tx_compute_fee(tx) != 0)
+			return false;
+	}
+
 	newtx = tal_arr(tmpctx, u8, written);
-	if (wally_tx_to_bytes(tx->wtx, WALLY_TX_FLAG_USE_WITNESS, newtx,
-			      written, &written) != WALLY_OK)
+	if (wally_tx_to_bytes(tx->wtx, flags, newtx, written, &written) !=
+	    WALLY_OK)
 		return false;
 
 	if (written != tal_bytelen(newtx))
@@ -353,6 +396,12 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	assert(chainparams);
+
+	/* If we are constructing an elements transaction we need to
+	 * explicitly add the fee as an extra output. So allocate one more
+	 * than the outputs we need internally. */
+	if (is_elements)
+		output_count += 1;
 
 	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,
 			    &tx->wtx);
