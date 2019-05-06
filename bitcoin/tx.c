@@ -81,6 +81,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 				  sizeof(struct bitcoin_txid), outnum, sequence,
 				  script, tal_bytelen(script),
 				  NULL /* Empty witness stack */, &input);
+	input->features = is_elements ? WALLY_TX_IS_ELEMENTS : 0;
 	wally_tx_add_input(tx->wtx, input);
 	wally_tx_input_free(input);
 
