@@ -61,10 +61,9 @@ struct broadcastable *next_broadcast_raw(struct broadcast_state *bstate,
 /* Return the broadcast with index >= *last_index, timestamp >= min and <= max
  * and update *last_index.
  * There's no broadcast with index 0. */
-const u8 *next_broadcast(const tal_t *ctx,
-			 struct broadcast_state *bstate,
-			 u32 timestamp_min, u32 timestamp_max,
-			 u32 *last_index);
+struct broadcastable *next_broadcast(struct broadcast_state *bstate,
+				     u32 timestamp_min, u32 timestamp_max,
+				     u32 *last_index);
 
 /* index of last entry. */
 u64 broadcast_final_index(const struct broadcast_state *bstate);

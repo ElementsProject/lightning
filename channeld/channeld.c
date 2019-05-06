@@ -3068,7 +3068,8 @@ int main(int argc, char *argv[])
 			}
 			status_trace("Now dealing with deferred gossip %u",
 				     fromwire_peektype(msg));
-			handle_gossip_msg(PEER_FD, &peer->cs, take(msg));
+			handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD,
+					  &peer->cs, take(msg));
 			continue;
 		}
 
@@ -3111,7 +3112,8 @@ int main(int argc, char *argv[])
 						 fdpass_recv(GOSSIP_FD));
 				continue;
 			}
-			handle_gossip_msg(PEER_FD, &peer->cs, take(msg));
+			handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD,
+					  &peer->cs, take(msg));
 		}
 	}
 

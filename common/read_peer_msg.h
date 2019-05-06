@@ -71,7 +71,9 @@ bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd, int gossip_store_fd
 				 const u8 *msg TAKES);
 
 /* We got this message from gossipd: forward/quit as it asks. */
-void handle_gossip_msg(int peer_fd, struct crypto_state *cs,
+void handle_gossip_msg(int peer_fd,
+		       int gossip_store_fd,
+		       struct crypto_state *cs,
 		       const u8 *msg TAKES);
 
 /**
