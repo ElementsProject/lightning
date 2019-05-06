@@ -915,7 +915,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
     """
     # Rescan to detect reorg at restart and may_reconnect so channeld
     # will restart
-    opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True}
+    opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True, 'dev-channel-update-interval': 5}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
@@ -941,6 +941,10 @@ def test_funding_reorg_private(node_factory, bitcoind):
 
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('106x1x0')['channels']] == [False, False])
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('108x1x0')['channels']] == [True, True])
+
+#     import ipdb; ipdb.set_trace()
+#     print("\n".join(l2.daemon.logs))
+    l2.daemon.wait_for_log("Pruning channel {} from network view".format('106x1x0'))
 
     l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
     bitcoind.generate_block(1)

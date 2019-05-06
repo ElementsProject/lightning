@@ -2383,9 +2383,10 @@ void route_prune(struct routing_state *rstate)
 	for (chan = uintmap_first(&rstate->chanmap, &idx);
 	     chan;
 	     chan = uintmap_after(&rstate->chanmap, &idx)) {
-		/* Local-only?  Don't prune. */
-		if (!is_chan_public(chan))
-			continue;
+		/* Local-only?  Don't prune.
+		 * Sivr: why not?*/
+//		if (!is_chan_public(chan))
+//			continue;
 
 		if ((!is_halfchan_defined(&chan->half[0])
 		     || chan->half[0].bcast.timestamp < highwater)
