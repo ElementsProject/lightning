@@ -426,7 +426,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_bech32_funding(node_factory):
+def test_bech32_funding(node_factory, chainparams):
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True)
     l2 = node_factory.get_node(random_hsm=True)
@@ -437,7 +437,7 @@ def test_bech32_funding(node_factory):
     # fund a bech32 address and then open a channel with it
     res = l1.openchannel(l2, 20000, 'bech32')
     address = res['address']
-    assert address[0:4] == "bcrt"
+    assert address[0:4] == chainparams['bip173_prefix']
 
     # probably overly paranoid checking
     wallettxid = res['wallettxid']
@@ -546,13 +546,13 @@ def test_address(node_factory):
     l2.rpc.connect(l1.info['id'], l1.daemon.opts['addr'])
 
 
-def test_listconfigs(node_factory, bitcoind):
+def test_listconfigs(node_factory, bitcoind, chainparams):
     l1 = node_factory.get_node()
 
     configs = l1.rpc.listconfigs()
     # See utils.py
     assert configs['allow-deprecated-apis'] is False
-    assert configs['network'] == 'regtest'
+    assert configs['network'] == chainparams['name']
     assert configs['ignore-fee-limits'] is False
 
     # Test one at a time.
@@ -1317,17 +1317,17 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
 
 
-def test_newaddr(node_factory):
+def test_newaddr(node_factory, chainparams):
     l1 = node_factory.get_node()
     p2sh = l1.rpc.newaddr('p2sh-segwit')
     assert 'bech32' not in p2sh
-    assert p2sh['p2sh-segwit'].startswith('2')
+    assert p2sh['p2sh-segwit'].startswith(chainparams['p2sh_prefix'])
     bech32 = l1.rpc.newaddr('bech32')
     assert 'p2sh-segwit' not in bech32
-    assert bech32['bech32'].startswith('bcrt1')
+    assert bech32['bech32'].startswith(chainparams['bip173_prefix'])
     both = l1.rpc.newaddr('all')
-    assert both['p2sh-segwit'].startswith('2')
-    assert both['bech32'].startswith('bcrt1')
+    assert both['p2sh-segwit'].startswith(chainparams['p2sh_prefix'])
+    assert both['bech32'].startswith(chainparams['bip173_prefix'])
 
 
 def test_newaddr_deprecated(node_factory):

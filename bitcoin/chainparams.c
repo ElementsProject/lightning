@@ -161,6 +161,8 @@ const struct chainparams networks[] = {
      .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
      .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
      .when_lightning_became_cool = 1,
+     .p2pkh_version = 91,
+     .p2sh_version = 75,
      .testnet = true,
      .bip32_key_version = {.bip32_pubkey_version = BIP32_VER_TEST_PUBLIC,
 			   .bip32_privkey_version = BIP32_VER_TEST_PRIVATE},
