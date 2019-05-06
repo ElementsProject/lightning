@@ -1362,9 +1362,6 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	if (taken(msg))
 		tal_steal(tmpctx, msg);
 
-	if (taken(msg))
-		tal_steal(tmpctx, msg);
-
 	if (!fromwire_channel_announcement(
 		    tmpctx, msg, &node_signature_1, &node_signature_2,
 		    &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
