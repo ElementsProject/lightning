@@ -26,13 +26,34 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 {
 	size_t i = tx->wtx->num_outputs;
 	struct wally_tx_output *output;
+	int ret;
+	u64 satoshis = amount.satoshis; /* Raw: low-level helper */
 	assert(i < tx->wtx->outputs_allocation_len);
 
 	assert(tx->wtx != NULL);
-	wally_tx_output_init_alloc(amount.satoshis /* Raw: low-level helper */,
-				   script, tal_bytelen(script), &output);
-	wally_tx_add_output(tx->wtx, output);
+
+	if (is_elements) {
+		u8 value[9];
+		ret = wally_tx_confidential_value_from_satoshi(satoshis, value,
+							       sizeof(value));
+		assert(ret == WALLY_OK);
+		ret = wally_tx_elements_output_init_alloc(
+		    script, tal_bytelen(script), bitcoin_asset,
+		    sizeof(bitcoin_asset), value, sizeof(value), NULL, 0, NULL,
+		    0, NULL, 0, &output);
+		assert(ret == WALLY_OK);
+		/* Cheat a bit by also setting the numeric satoshi value,
+		 * otherwise we end up converting a number of times */
+		output->satoshi = satoshis;
+	} else {
+		ret = wally_tx_output_init_alloc(satoshis, script,
+						 tal_bytelen(script), &output);
+	}
+	ret = wally_tx_add_output(tx->wtx, output);
+	assert(ret == WALLY_OK);
+
 	wally_tx_output_free(output);
+	bitcoin_tx_output_set_amount(tx, i, amount);
 
 	return i;
 }
@@ -97,15 +118,9 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 	struct wally_tx_output *output = &tx->wtx->outputs[outnum];
 	assert(outnum < tx->wtx->num_outputs);
 	if (is_elements) {
-		u8 raw[9];
-		be64 rawu64;
-		output->asset = bitcoin_asset;
-		output->asset_len = sizeof(bitcoin_asset);
-		output->value_len = 9;
-		raw[0] = 0x01; /* Value version 01 */
-		rawu64 = cpu_to_be64(satoshis);
-		memcpy(raw+1, &rawu64, 8);
-		output->satoshi = UINT64_MAX;
+		int ret = wally_tx_confidential_value_from_satoshi(satoshis, output->value,
+							       output->value_len);
+		assert(ret == WALLY_OK);
 	} else {
 		output->satoshi = satoshis;
 	}
