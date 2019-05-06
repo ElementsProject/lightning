@@ -496,6 +496,21 @@ static s64 get_next_pay_index(struct db *db)
 	return next_pay_index;
 }
 
+static enum invoice_status invoice_get_status(struct invoices *invoices, struct invoice invoice)
+{
+	sqlite3_stmt *stmt;
+	enum invoice_status state;
+	bool res;
+
+	stmt = db_select_prepare(invoices->db,
+				 "state FROM invoices WHERE id = ?;");
+	sqlite3_bind_int64(stmt, 1, invoice.id);
+	res = db_select_step(invoices->db, stmt);
+	assert(res);
+	state = sqlite3_column_int(stmt, 0);
+	db_stmt_done(stmt);
+	return state;
+}
 
 void invoices_resolve(struct invoices *invoices,
 		      struct invoice invoice,
@@ -504,6 +519,9 @@ void invoices_resolve(struct invoices *invoices,
 	sqlite3_stmt *stmt;
 	s64 pay_index;
 	u64 paid_timestamp;
+	enum invoice_status state = invoice_get_status(invoices, invoice);
+
+	assert(state == UNPAID);
 
 	/* Assign a pay-index. */
 	pay_index = get_next_pay_index(invoices->db);
@@ -589,25 +607,14 @@ void invoices_waitany(const tal_t *ctx,
 
 
 void invoices_waitone(const tal_t *ctx,
-		      struct invoices *invoices UNUSED,
+		      struct invoices *invoices,
 		      struct invoice invoice,
 		      void (*cb)(const struct invoice *, void*),
 		      void *cbarg)
 {
-	sqlite3_stmt *stmt;
-	bool res;
 	enum invoice_status state;
 
-	stmt = db_select_prepare(invoices->db,
-				 "state"
-				 "  FROM invoices"
-				 " WHERE id = ?;");
-	sqlite3_bind_int64(stmt, 1, invoice.id);
-
-	res = db_select_step(invoices->db, stmt);
-	assert(res);
-	state = sqlite3_column_int(stmt, 0);
-	db_stmt_done(stmt);
+	state = invoice_get_status(invoices, invoice);
 
 	if (state == PAID || state == EXPIRED) {
 		cb(&invoice, cbarg);
