@@ -81,9 +81,9 @@ class Millisatoshi:
         Return a string of form 12.34567890btc or 12.34567890123btc.
         """
         if self.millisatoshis % 1000:
-            return '{:.8f}btc'.format(self.to_btc())
-        else:
             return '{:.11f}btc'.format(self.to_btc())
+        else:
+            return '{:.8f}btc'.format(self.to_btc())
 
     def to_json(self):
         return self.__repr__()
