@@ -59,6 +59,7 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
  * handle_peer_gossip_or_error - simple handler for all the above cases.
  * @peer_fd, @gossip_fd, @gossip_store_fd: peer, gossip and gossip_store fds.
  * @cs: the cryptostate (updated)
+ * @channel_id: the channel id of the current channel.
  * @msg: the peer message (only taken if returns true).
  *
  * This returns true if it handled the packet: a gossip packet (forwarded
