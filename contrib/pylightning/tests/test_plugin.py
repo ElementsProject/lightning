@@ -1,5 +1,5 @@
 from lightning import Plugin
-from lightning.plugin import Request
+from lightning.plugin import Request, Millisatoshi
 import itertools
 import pytest
 
@@ -237,3 +237,128 @@ def test_positional_inject():
             method='func',
             params=[])
         )
+
+
+def test_bind_pos():
+    p = Plugin(autopatch=False)
+
+    req = object()
+    params = ['World']
+
+    def test1(name):
+        assert name == 'World'
+    bound = p._bind_pos(test1, params, req)
+    test1(*bound.args, **bound.kwargs)
+
+    def test2(name, plugin):
+        assert name == 'World'
+        assert plugin == p
+    bound = p._bind_pos(test2, params, req)
+    test2(*bound.args, **bound.kwargs)
+
+    def test3(plugin, name):
+        assert name == 'World'
+        assert plugin == p
+    bound = p._bind_pos(test3, params, req)
+    test3(*bound.args, **bound.kwargs)
+
+    def test4(plugin, name, request):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+    bound = p._bind_pos(test4, params, req)
+    test4(*bound.args, **bound.kwargs)
+
+    def test5(request, name, plugin):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+    bound = p._bind_pos(test5, params, req)
+    test5(*bound.args, **bound.kwargs)
+
+    def test6(request, name, plugin, answer=42):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+        assert answer == 42
+    bound = p._bind_pos(test6, params, req)
+    test6(*bound.args, **bound.kwargs)
+
+    # Now mix in a catch-all parameter that needs to be assigned
+    def test6(request, name, plugin, *args, **kwargs):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+        assert args == (42,)
+        assert kwargs == {}
+    bound = p._bind_pos(test6, params + [42], req)
+    test6(*bound.args, **bound.kwargs)
+
+
+def test_bind_kwargs():
+    p = Plugin(autopatch=False)
+
+    req = object()
+    params = {'name': 'World'}
+
+    def test1(name):
+        assert name == 'World'
+    bound = p._bind_kwargs(test1, params, req)
+    test1(*bound.args, **bound.kwargs)
+
+    def test2(name, plugin):
+        assert name == 'World'
+        assert plugin == p
+    bound = p._bind_kwargs(test2, params, req)
+    test2(*bound.args, **bound.kwargs)
+
+    def test3(plugin, name):
+        assert name == 'World'
+        assert plugin == p
+    bound = p._bind_kwargs(test3, params, req)
+    test3(*bound.args, **bound.kwargs)
+
+    def test4(plugin, name, request):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+    bound = p._bind_kwargs(test4, params, req)
+    test4(*bound.args, **bound.kwargs)
+
+    def test5(request, name, plugin):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+    bound = p._bind_kwargs(test5, params, req)
+    test5(*bound.args, **bound.kwargs)
+
+    def test6(request, name, plugin, answer=42):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+        assert answer == 42
+    bound = p._bind_kwargs(test6, params, req)
+    test6(*bound.args, **bound.kwargs)
+
+    # Now mix in a catch-all parameter that needs to be assigned
+    def test6(request, name, plugin, *args, **kwargs):
+        assert name == 'World'
+        assert plugin == p
+        assert request == req
+        assert args == ()
+        assert kwargs == {'answer': 42}
+    bound = p._bind_kwargs(test6, {'name': 'World', 'answer': 42}, req)
+    test6(*bound.args, **bound.kwargs)
+
+
+def test_argument_coercion():
+    p = Plugin(autopatch=False)
+
+    def test1(msat: Millisatoshi):
+        assert isinstance(msat, Millisatoshi)
+
+    ba = p._bind_kwargs(test1, {"msat": "100msat"}, None)
+    test1(*ba.args)
+
+    ba = p._bind_pos(test1, ["100msat"], None)
+    test1(*ba.args, **ba.kwargs)
