@@ -23,8 +23,17 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 				     const struct bitcoin_tx *tx)
 {
 	struct amount_sat amt, fee = sat_in;
+	const u8 *oscript;
+	size_t scriptlen;
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		amt = bitcoin_tx_output_get_amount(tx, i);
+		oscript = bitcoin_tx_output_get_script(NULL, tx, i);
+		scriptlen = tal_bytelen(oscript);
+		tal_free(oscript);
+
+		if (is_elements && scriptlen == 0)
+			continue;
+
 		if (!amount_sat_sub(&fee, fee, amt))
 			fatal("Tx spends more than input %s? %s",
 			      type_to_string(tmpctx, struct amount_sat, &sat_in),
