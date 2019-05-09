@@ -38,6 +38,7 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 	} else if (change_outnum)
 		*change_outnum = -1;
 	permute_inputs(tx, (const void **)utxos);
+	bitcoin_tx_add_fee_output(tx);
 	assert(bitcoin_tx_check(tx));
 	return tx;
 }
