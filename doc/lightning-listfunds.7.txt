@@ -27,15 +27,15 @@ Each entry in 'outputs' will include:
 
 - 'txid'
 
+- 'output' (the index of the output in the transaction)
+
+- 'value' (the output value in satoshis)
+
+- 'amount_msat' (the same as 'value', but in millisatoshi with 'msat' appended)
+
 - 'address'
 
-- 'output'
-
-- 'value'
-
-- 'amount_sat' (the same as 'value' with 'sat' appended)
-
-- 'status'
+- 'status' (whether 'unconfirmed', 'confirmed', or 'spent')
 
 Each entry in 'channels' will include: 
 
@@ -47,11 +47,11 @@ number and output index of the channel funding transaction).
 - 'channel_sat' - available satoshis on our node's end of the channel 
 (values rounded down to satoshis as internal storage is in millisatoshi).
 
-- 'our_amount_sat' - same as above, but with 'sat' appended.
+- 'our_amount_msat' - same as above, but in millisatoshis with 'msat' appended.
 
 - 'channel_total_sat' - total channel value in satoshi 
 
-- 'amount_sat' - same as above, but with 'sat' appended.
+- 'amount_msat' - same as above, but in millisatoshis with 'msat' appended.
 
 - 'funding_txid' - funding transaction id.
 
