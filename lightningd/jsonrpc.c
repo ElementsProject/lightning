@@ -935,20 +935,18 @@ void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
  *  In:  addrz:    Pointer to the null-terminated address.
  *  Returns string containing the human readable segment of bech32 address
  */
-static const char* segwit_addr_net_decode(int *witness_version,
-				   uint8_t *witness_program,
-				   size_t *witness_program_len,
-				   const char *addrz)
+static const char *segwit_addr_net_decode(int *witness_version,
+					  uint8_t *witness_program,
+					  size_t *witness_program_len,
+					  const char *addrz,
+					  const struct chainparams *chainparams)
 {
-	const char *network[] = { "bc", "tb", "bcrt" };
-	for (int i = 0; i < sizeof(network) / sizeof(*network); ++i) {
-		if (segwit_addr_decode(witness_version,
-				       witness_program, witness_program_len,
-				       network[i], addrz))
-			return network[i];
-	}
-
-	return NULL;
+	if (segwit_addr_decode(witness_version, witness_program,
+			       witness_program_len, chainparams->bip173_name,
+			       addrz))
+		return chainparams->bip173_name;
+	else
+		return NULL;
 }
 
 enum address_parse_result
@@ -995,7 +993,7 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	addrz[tok->end - tok->start] = '\0';
 
 	bip173 = segwit_addr_net_decode(&witness_version, witness_program,
-					&witness_program_len, addrz);
+					&witness_program_len, addrz, chainparams);
 
 	if (bip173) {
 		bool witness_ok = false;
