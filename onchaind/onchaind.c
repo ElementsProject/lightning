@@ -723,7 +723,10 @@ static bool is_mutual_close(const struct bitcoin_tx *tx,
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		/* To be paranoid, we only let each one match once. */
-		if (scripteq(script, local_scriptpubkey)
+		if (is_elements && tal_bytelen(script) == 0) {
+			/* This is a fee output, ignore please */
+			continue;
+		} else if (scripteq(script, local_scriptpubkey)
 		    && !local_matched)
 			local_matched = true;
 		else if (scripteq(script, remote_scriptpubkey)
@@ -1093,6 +1096,7 @@ static void output_spent(const struct chainparams *chainparams,
 		/* Um, we don't track these! */
 		case OUTPUT_TO_THEM:
 		case DELAYED_OUTPUT_TO_THEM:
+		case ELEMENTS_FEE:
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tracked spend of %s/%s?",
 				      tx_type_name(out->tx_type),
@@ -1787,7 +1791,19 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (script[LOCAL]
+		if (is_elements && tal_bytelen(oscript) == 0) {
+			status_debug("OUTPUT %zu is a fee output", i);
+			/* An empty script simply means that that this is a
+			 * fee output. */
+			out = new_tracked_output(tx->chainparams, &outs,
+						 txid, tx_blockheight,
+						 OUR_UNILATERAL, i,
+						 amt,
+						 ELEMENTS_FEE,
+						 NULL, NULL, NULL);
+			ignore_output(out);
+			continue;
+		}else if (script[LOCAL]
 		    && scripteq(oscript, script[LOCAL])) {
 			struct bitcoin_tx *to_us;
 			enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
@@ -2134,6 +2150,19 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
+		if (is_elements && tal_bytelen(oscript) == 0) {
+			/* An empty script simply means that that this is a
+			 * fee output. */
+			out = new_tracked_output(tx->chainparams,
+						 &outs, txid, tx_blockheight,
+						 OUR_UNILATERAL, i,
+						 amt,
+						 ELEMENTS_FEE,
+						 NULL, NULL, NULL);
+			ignore_output(out);
+			continue;
+		}
+
 		if (script[LOCAL]
 		    && scripteq(oscript, script[LOCAL])) {
 			/* BOLT #5:
@@ -2353,7 +2382,18 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (script[LOCAL] && scripteq(oscript, script[LOCAL])) {
+		if (is_elements && tal_bytelen(oscript) == 0) {
+			/* An empty script simply means that that this is a
+			 * fee output. */
+			out = new_tracked_output(tx->chainparams,
+						 &outs, txid, tx_blockheight,
+						 OUR_UNILATERAL, i,
+						 amt,
+						 ELEMENTS_FEE,
+						 NULL, NULL, NULL);
+			ignore_output(out);
+			continue;
+		} else if (script[LOCAL] && scripteq(oscript, script[LOCAL])) {
 			/* BOLT #5:
 			 *
 			 * - MAY take no action in regard to the associated
