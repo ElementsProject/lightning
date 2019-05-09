@@ -387,6 +387,9 @@ class BitcoinD(TailableProc):
         self.wait_for_log(r'UpdateTip: new best=.* height={}'.format(final_len))
         return hashes
 
+    def getnewaddress(self):
+        return self.rpc.getnewaddress()
+
 
 class ElementsD(BitcoinD):
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
@@ -425,6 +428,13 @@ class ElementsD(BitcoinD):
                 wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
         # As of 0.16, generate() is removed; use generatetoaddress.
         return self.rpc.generate(numblocks)
+
+    def getnewaddress(self):
+        """Need to get an address and then make it unconfidential
+        """
+        addr = self.rpc.getnewaddress()
+        info = self.rpc.getaddressinfo(addr)
+        return info['unconfidential']
 
 
 class LightningD(TailableProc):
