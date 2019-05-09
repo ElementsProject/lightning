@@ -64,6 +64,9 @@ enum output_type {
 	/* HTLC outputs: their offers and our offers */
 	THEIR_HTLC,
 	OUR_HTLC,
+
+	/* For elements we need a fee output type */
+	ELEMENTS_FEE,
 };
 
 
