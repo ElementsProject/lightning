@@ -1495,7 +1495,7 @@ def test_permfail(node_factory, bitcoind):
         addr = txout['scriptPubKey']['addresses'][0]
         assert(addr == o['address'])
 
-    addr = l1.bitcoin.rpc.getnewaddress()
+    addr = l1.bitcoin.getnewaddress()
     l1.rpc.withdraw(addr, "all")
 
 
