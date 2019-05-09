@@ -147,6 +147,7 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 			break;
 
 		bitcoin_tx_output_set_amount(tx, 0, out);
+		bitcoin_tx_add_fee_output(tx);
 		if (!check_tx_sig(tx, 0, NULL, wscript,
 				  &keyset->other_htlc_key, remotesig))
 			continue;
@@ -189,6 +190,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
 
 	bitcoin_tx_output_set_amount(tx, 0, amount);
+	bitcoin_tx_add_fee_output(tx);
 	return check_tx_sig(tx, 0, NULL, wscript,
 			    &keyset->other_htlc_key, remotesig);
 }
@@ -227,7 +229,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 			      type_to_string(tmpctx, struct amount_sat, &fee),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
 	bitcoin_tx_output_set_amount(tx, 0, amt);
-
+	bitcoin_tx_add_fee_output(tx);
 
 	if (check_tx_sig(tx, 0, NULL, wscript,
 			 &keyset->other_htlc_key, remotesig))
@@ -359,6 +361,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 					     &amt));
 	}
 	bitcoin_tx_output_set_amount(tx, 0, amt);
+	bitcoin_tx_add_fee_output(tx);
 
 	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg(NULL, tx, wscript))))
 		status_failed(STATUS_FAIL_HSM_IO, "Writing sign request to hsm");
