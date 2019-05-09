@@ -63,6 +63,8 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	wscript = bitcoin_wscript_htlc_tx(tx, to_self_delay, revocation_pubkey,
 					  local_delayedkey);
 	bitcoin_tx_add_output(tx, scriptpubkey_p2wsh(tx, wscript), amount);
+	bitcoin_tx_add_fee_output(tx);
+
 	tal_free(wscript);
 
 	return tx;
