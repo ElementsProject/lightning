@@ -469,3 +469,22 @@ def test_autocleaninvoice(node_factory):
     # Everything deleted
     assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
     assert len(l1.rpc.listinvoices('inv2')['invoices']) == 0
+
+
+def test_decode_unknown(node_factory):
+    l1 = node_factory.get_node()
+
+    b11 = l1.rpc.decodepay('lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8gu2etcvsym36pdjpz04wm9nn96f9ntc3t3h5r08pe9d62p3js5wt5rkurqnrl7zkj2fjpvl3rmn7wwazt80letwxlm22hngu8n88g7hsp542qpl')
+    assert b11['currency'] == 'tb'
+    assert b11['created_at'] == 1554294928
+    assert b11['payment_hash'] == '850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91'
+    assert b11['description'] == 'Payment request with multipart support'
+    assert b11['expiry'] == 28800
+    assert b11['payee'] == '02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd'
+    assert b11['min_final_cltv_expiry'] == 9
+    extra = only_one(b11['extra'])
+    assert extra['tag'] == 'v'
+    assert extra['data'] == 'dp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g'
+    assert b11['signature'] == '3045022100e2b2bc3204dc7416c8227d5db2ce65d24b35e22b8de8379c392b74a0c650a397022041db8304c7ff0ad25264167e23dcfce7744b3bff95b8dfda9579a38799ce8f5e'
+    assert 'fallbacks' not in b11
+    assert 'routes' not in b11

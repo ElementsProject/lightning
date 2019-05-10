@@ -78,6 +78,7 @@ static void test_b11(const char *b11str,
 	struct bolt11 *b11;
 	char *fail;
 	char *reproduce;
+	struct bolt11_field *b11_extra, *expect_extra;
 
 	b11 = bolt11_decode(tmpctx, b11str, hashed_desc, &fail);
 	if (!b11)
@@ -107,8 +108,16 @@ static void test_b11(const char *b11str,
 	/* FIXME: compare routes. */
 	assert(tal_count(b11->routes) == tal_count(expect_b11->routes));
 
-	/* FIXME: compare extra fields. */
-	assert(list_empty(&b11->extra_fields) == list_empty(&expect_b11->extra_fields));
+	expect_extra = list_top(&expect_b11->extra_fields, struct bolt11_field,
+				list);
+	list_for_each(&b11->extra_fields, b11_extra, list) {
+		assert(expect_extra->tag == b11_extra->tag);
+		assert(memeq(expect_extra->data, tal_bytelen(expect_extra->data),
+			     b11_extra->data, tal_bytelen(b11_extra->data)));
+		expect_extra = list_next(&expect_b11->extra_fields,
+					 expect_extra, list);
+	}
+	assert(!expect_extra);
 
 	/* Re-encode to check */
 	reproduce = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
@@ -128,6 +137,7 @@ int main(void)
 	struct node_id node;
 	struct amount_msat msatoshi;
 	const char *badstr;
+        struct bolt11_field *extra;
 
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
@@ -271,6 +281,31 @@ int main(void)
 	b11->expiry = 60;
 
 	test_b11("LNBC2500U1PVJLUEZPP5QQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQYPQDQ5XYSXXATSYP3K7ENXV4JSXQZPUAZTRNWNGZN3KDZW5HYDLZF03QDGM2HDQ27CQV3AGM2AWHZ5SE903VRUATFHQ77W3LS4EVS3CH9ZW97J25EMUDUPQ63NYW24CG27H2RSPFJ9SRP", b11, NULL);
+
+	/* Unknown field handling */
+	if (!node_id_from_hexstr("02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd", strlen("02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd"), &node))
+		abort();
+	msatoshi = AMOUNT_MSAT(3000000000);
+	b11 = new_bolt11(tmpctx, &msatoshi);
+	b11->chain = chainparams_for_network("testnet");
+	b11->timestamp = 1554294928;
+	if (!hex_decode("850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91",
+			strlen("850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91"),
+			&b11->payment_hash, sizeof(b11->payment_hash)))
+		abort();
+	b11->min_final_cltv_expiry = 9;
+	b11->receiver_id = node;
+	b11->description = "Payment request with multipart support";
+	b11->expiry = 28800;
+        extra = tal(b11, struct bolt11_field);
+	extra->tag = 'v';
+	extra->data = tal_arr(extra, u5, 77);
+	for (size_t i = 0; i < 77; i++)
+		extra->data[i] = bech32_charset_rev[(u8)"dp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g"[i]];
+	list_add(&b11->extra_fields, &extra->list);
+
+	test_b11("lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g4a3hx0v945csrmpm7yxyaamgt2xu7mu4xyt3vp7045n4k4czxf9kj0vw0m8dr5t3pjxuek04rtgyy8uzss5eet5gcyekd6m7u0mzv5sp7mdsag", b11, NULL);
+
 	/* FIXME: Test the others! */
 	wally_cleanup(0);
 	tal_free(tmpctx);

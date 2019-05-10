@@ -129,9 +129,7 @@ static char *unknown_field(struct bolt11 *b11,
         extra->data = tal_dup_arr(extra, u5, *data, length, 0);
         list_add_tail(&b11->extra_fields, &extra->list);
 
-        pull_bits_certain(hu5, data, data_len, u8data, length, false);
-        (*data) += length;
-        (*data_len) -= length;
+        pull_bits_certain(hu5, data, data_len, u8data, length * 5, true);
         return NULL;
 }
 
@@ -851,17 +849,22 @@ static void encode_r(u5 **data, const struct route_info *r)
         tal_free(rinfo);
 }
 
-static void encode_extra(u5 **data, const struct bolt11_field *extra)
+static bool encode_extra(u5 **data, const struct bolt11_field *extra)
 {
         size_t len;
 
-        push_varlen_uint(data, extra->tag, 5);
+	/* Can't encode an invalid tag. */
+	if (bech32_charset_rev[(unsigned char)extra->tag] == -1)
+		return false;
+
+        push_varlen_uint(data, bech32_charset_rev[(unsigned char)extra->tag], 5);
         push_varlen_uint(data, tal_count(extra->data), 10);
 
         /* extra->data is already u5s, so do this raw. */
         len = tal_count(*data);
         tal_resize(data, len + tal_count(extra->data));
         memcpy(*data + len, extra->data, tal_count(extra->data));
+	return true;
 }
 
 /* Encodes, even if it's nonsense. */
@@ -950,7 +953,8 @@ char *bolt11_encode_(const tal_t *ctx,
                 encode_r(&data, b11->routes[i]);
 
         list_for_each(&b11->extra_fields, extra, list)
-                encode_extra(&data, extra);
+                if (!encode_extra(&data, extra))
+			return NULL;
 
         /* FIXME: towire_ should check this? */
         if (tal_count(data) > 65535)
