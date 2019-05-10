@@ -44,6 +44,7 @@ changes.
 - protocol: handle lnd sending more messages before `reestablish`; don't fail channel, and handle older lnd's spurious empty commitments.
 - Fixed `fundchannel` crash when we have many UTXOs and we skip unconfirmed ones.
 - lightningd: fixed occasional hang on `connect` when peer had sent error.
+- JSON RPC: `decodeinvoice` and `pay` now handle unknown invoice fields properly.
 
 ### Security
 
