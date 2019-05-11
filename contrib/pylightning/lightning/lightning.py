@@ -371,6 +371,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("delinvoice", payload)
 
+    def delexpiredinvoice(self, maxexpirytime=None):
+        """
+        Delete all invoices that have expired on or before the given {maxexpirytime}
+        """
+        payload = {
+            "maxexpirytime": maxexpirytime
+        }
+        return self.call("delexpiredinvoice", payload)
+
     def waitanyinvoice(self, lastpay_index=None):
         """
         Wait for the next invoice to be paid, after {lastpay_index}
