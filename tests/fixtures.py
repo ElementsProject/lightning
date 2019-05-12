@@ -15,6 +15,7 @@ with open('config.vars') as configfile:
     config = dict([(line.rstrip().split('=', 1)) for line in configfile])
 
 VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
+TEST_NETWORK = os.getenv("TEST_NETWORK", config['TEST_NETWORK'])
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
