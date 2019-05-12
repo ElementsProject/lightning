@@ -297,7 +297,7 @@ def test_closing_negotiation_reconnect(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_penalty_inhtlc(node_factory, bitcoind, executor):
+def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
     # We suppress each one after first commit; HTLC gets added not fulfilled.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -364,12 +364,13 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor):
     outputs = l2.rpc.listfunds()['outputs']
     assert [o['status'] for o in outputs] == ['confirmed'] * 2
     # Allow some lossage for fees.
+    slack = 27000 if chainparams['elements'] else 15000
     assert sum(o['value'] for o in outputs) < 10**6
-    assert sum(o['value'] for o in outputs) > 10**6 - 15000
+    assert sum(o['value'] for o in outputs) > 10**6 - slack
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_penalty_outhtlc(node_factory, bitcoind, executor):
+def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an outgoing HTLC"""
     # First we need to get funds to l2, so suppress after second.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -443,8 +444,9 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor):
     outputs = l2.rpc.listfunds()['outputs']
     assert [o['status'] for o in outputs] == ['confirmed'] * 3
     # Allow some lossage for fees.
+    slack = 27000 if chainparams['elements'] else 15000
     assert sum(o['value'] for o in outputs) < 10**6
-    assert sum(o['value'] for o in outputs) > 10**6 - 15000
+    assert sum(o['value'] for o in outputs) > 10**6 - slack
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
