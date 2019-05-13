@@ -290,6 +290,7 @@ class BitcoinD(TailableProc):
             '-server',
             '-logtimestamps',
             '-nolisten',
+            '-txindex',
         ]
         # For up to and including 0.16.1, this needs to be in main section.
         BITCOIND_CONFIG['rpcport'] = rpcport
