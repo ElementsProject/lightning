@@ -112,3 +112,27 @@ def test_units():
     with pytest.raises(TypeError, match=r'Millisatoshi must be.*'):
         # hex not supported yet
         amount = Millisatoshi('0x123 sat')
+
+
+def test_short_str():
+    amount = Millisatoshi('10000000sat')
+    assert amount.to_short_str() == "0.1btc"
+    amount = Millisatoshi('1000000sat')
+    assert amount.to_short_str() == "10mbtc"
+    amount = Millisatoshi('10000sat')
+    assert amount.to_short_str() == "0.1mbtc"
+    amount = Millisatoshi('1000sat')
+    assert amount.to_short_str() == "10µbtc"
+
+    amount = Millisatoshi('10001234sat')
+    assert amount.to_short_str() == "0.1btc"
+    amount = Millisatoshi('1234sat')
+    assert amount.to_short_str() == "1230sat"
+    amount = Millisatoshi('1234sat')
+    assert amount.to_short_str(2) == "12µbtc"
+    amount = Millisatoshi('12345678sat')
+    assert amount.to_short_str() == "123mbtc"
+    amount = Millisatoshi('12345678sat')
+    assert amount.to_short_str(1) == "0.1btc"
+    amount = Millisatoshi('15345678sat')
+    assert amount.to_short_str(1) == "0.2btc"
