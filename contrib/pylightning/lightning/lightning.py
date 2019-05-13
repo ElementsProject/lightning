@@ -1,9 +1,13 @@
 from decimal import Decimal
 import json
 import logging
+import re
 import socket
 
-__version__ = "0.0.7.1"
+__version__ = "0.0.7.2"
+
+unit_regex = re.compile(r'^\s*([\d.]+)\s*([\w]+)\s*$')
+unit_error = TypeError("Millisatoshi must be numeric string with msat/sat/btc/mBTC/uBTC/µBTC/bits/finney... suffix or int")
 
 
 class RpcError(ValueError):
@@ -22,20 +26,48 @@ class Millisatoshi:
 
     Many JSON API fields are expressed in millisatoshis: these automatically get
     turned into Millisatoshi types.  Converts to and from int.
+
+    For common Bitcoin currency units see: https://en.bitcoin.it/wiki/Units
     """
     def __init__(self, v):
         """
-        Takes either a string ending in 'msat', 'sat', 'btc' or an integer.
+        Takes either a decimal string with suffix: 'msat', 'sat', 'btc', 'mbtc', 'finney', ... or just an integer (msat).
         """
         if isinstance(v, str):
-            if v.endswith("msat"):
-                self.millisatoshis = int(v[0:-4])
-            elif v.endswith("sat"):
-                self.millisatoshis = Decimal(v[0:-3]) * 1000
-            elif v.endswith("btc"):
-                self.millisatoshis = Decimal(v[0:-3]) * 1000 * 10**8
+            # extract decimal and unit
+            match = unit_regex.match(v)
+            if match is None:
+                raise unit_error
+            amount = match.group(1)
+            unit = match.group(2)
+
+            # lowercase and remove plurals
+            # luckily no unit ends with 's'
+            unit = unit.lower()
+            if unit.endswith("s"):
+                unit = unit[:-1]
+
+            # base units
+            if unit == "msat" or unit == "millisatoshi" or unit == "millisat":
+                self.millisatoshis = int(amount)
+            elif unit == "sat" or unit == "satoshi":
+                self.millisatoshis = Decimal(amount) * 1000
+            elif unit == "btc" or unit == "bitcoin" or unit == "coin":
+                self.millisatoshis = Decimal(amount) * 1000 * 10**8
+
+            # extended units
+            elif unit == "cbtc" or unit == "cent" or unit == "bitcent":
+                self.millisatoshis = Decimal(amount) * 1000 * 10**6
+            elif unit == "mbtc" or unit == "millie" or unit == "millibit" or unit == "milli":
+                self.millisatoshis = Decimal(amount) * 1000 * 10**5
+            elif unit == "µbtc" or unit == "ubtc" or unit == "bit":
+                self.millisatoshis = Decimal(amount) * 1000 * 10**2
+            elif unit == "finney" or unit == "finnie":
+                self.millisatoshis = Decimal(amount) * 1000 * 10
+
+            # errors
             else:
-                raise TypeError("Millisatoshi must be string with msat/sat/btc suffix or int")
+                raise unit_error
             if self.millisatoshis != int(self.millisatoshis):
                 raise ValueError("Millisatoshi must be a whole number")
             self.millisatoshis = int(self.millisatoshis)
@@ -44,7 +76,7 @@ class Millisatoshi:
         elif int(v) == v:
             self.millisatoshis = int(v)
         else:
-            raise TypeError("Millisatoshi must be string with msat/sat/btc suffix or int")
+            raise unit_error
 
         if self.millisatoshis < 0:
             raise ValueError("Millisatoshi must be >= 0")
