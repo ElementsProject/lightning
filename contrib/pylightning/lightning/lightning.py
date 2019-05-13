@@ -1,6 +1,7 @@
 from decimal import Decimal
 import json
 import logging
+from math import floor, log10
 import re
 import socket
 
@@ -116,6 +117,25 @@ class Millisatoshi:
             return '{:.11f}btc'.format(self.to_btc())
         else:
             return '{:.8f}btc'.format(self.to_btc())
+
+    def to_short_str(self, digits: int = 3):
+        """
+        Returns the shortmost string using common units representation.
+        Rounds to significant `digits`. Default: 3
+        """
+        # first round everything down 3 effective digits
+        round_to_n = lambda x, n: round(x, -int(floor(log10(x))) + (n - 1))
+        amount_eff = round_to_n(self.millisatoshis, digits)
+
+        # try different units and take shortest resulting normalized string
+        amounts = [
+            "%gbtc" % (amount_eff / 1000 / 10**8),
+            "%gmbtc" % (amount_eff / 1000 / 10**5),
+            "%gµbtc" % (amount_eff / 1000 / 10**2),
+            "%gsat" % (amount_eff / 1000),
+            "%gmsat" % (amount_eff),
+        ]
+        return min(amounts, key=len)
 
     def to_json(self):
         return self.__repr__()
