@@ -284,6 +284,27 @@ class LightningRpc(UnixDomainSocketRpc):
     def __init__(self, socket_path, executor=None, logger=logging):
         super().__init__(socket_path, executor, logging, self.LightningJSONEncoder, self.LightningJSONDecoder())
 
+    def autocleaninvoice(self, cycle_seconds=None, expired_by=None):
+        """
+        Sets up automatic cleaning of expired invoices. {cycle_seconds} sets
+        the cleaning frequency in seconds (defaults to 3600) and {expired_by}
+        sets the minimum time an invoice should have been expired for to be
+        cleaned in seconds (defaults to 86400).
+        """
+        payload = {
+            "cycle_seconds": cycle_seconds,
+            "expired_by": expired_by
+        }
+        return self.call("autocleaninvoice", payload)
+
+    def check(self, command_to_check, **kwargs):
+        """
+        Checks if a command is valid without running it.
+        """
+        payload = {"command_to_check": command_to_check}
+        payload.update({k: v for k, v in kwargs.items()})
+        return self.call("check", payload)
+
     def close(self, peer_id, force=None, timeout=None):
         """
         Close the channel with peer {id}, forcing a unilateral
@@ -453,7 +474,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel", payload)
 
-   def getinfo(self):
+    def getinfo(self):
         """
         Show information about this node
         """
@@ -630,6 +651,19 @@ class LightningRpc(UnixDomainSocketRpc):
             "msatoshi": msatoshi,
         }
         return self.call("sendpay", payload)
+
+    def setchannelfee(self, id, base=None, ppm=None):
+        """
+        Set routing fees for a channel/peer {id} (or 'all'). {base} is a value in millisatoshi
+        that is added as base fee to any routed payment. {ppm} is a value added proportionally
+        per-millionths to any routed payment volume in satoshi.
+        """
+        payload = {
+            "id": id,
+            "base": base,
+            "ppm": ppm
+        }
+        return self.call("setchannelfee", payload)
 
     def stop(self):
         """
