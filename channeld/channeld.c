@@ -2842,6 +2842,8 @@ static void init_channel(struct peer *peer)
 	u32 feerate_per_kw[NUM_SIDES];
 	u32 minimum_depth;
 	struct secret last_remote_per_commit_secret;
+	secp256k1_ecdsa_signature *remote_ann_node_sig;
+	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2896,7 +2898,9 @@ static void init_channel(struct peer *peer)
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
 				   &peer->localfeatures,
-				   &peer->remote_upfront_shutdown_script)) {
+				   &peer->remote_upfront_shutdown_script,
+				   &remote_ann_node_sig,
+				   &remote_ann_bitcoin_sig)) {
 					   master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
 
@@ -2914,6 +2918,18 @@ static void init_channel(struct peer *peer)
 		     peer->revocations_received,
 		     feerate_per_kw[LOCAL], feerate_per_kw[REMOTE],
 		     peer->feerate_min, peer->feerate_max);
+
+	if(remote_ann_node_sig && remote_ann_bitcoin_sig) {
+		peer->announcement_node_sigs[REMOTE] = *remote_ann_node_sig;
+		peer->announcement_bitcoin_sigs[REMOTE] = *remote_ann_bitcoin_sig;
+		peer->have_sigs[REMOTE] = true;
+
+		/* Before we store announcement into DB, we have made sure
+		 * remote short_channel_id matched the local. Now we initial
+		 * it directly!
+		 */
+		peer->short_channel_ids[REMOTE] = peer->short_channel_ids[LOCAL];
+	}
 
 	/* First commit is used for opening: if we've sent 0, we're on
 	 * index 1. */
@@ -2959,6 +2975,8 @@ static void init_channel(struct peer *peer)
 	tal_free(fulfilled_sides);
 	tal_free(failed);
 	tal_free(failed_sides);
+	tal_free(remote_ann_node_sig);
+	tal_free(remote_ann_bitcoin_sig);
 
 	peer->channel_direction = node_id_idx(&peer->node_ids[LOCAL],
 					      &peer->node_ids[REMOTE]);
