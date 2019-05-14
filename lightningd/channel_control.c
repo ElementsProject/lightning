@@ -297,6 +297,7 @@ void peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	bool reached_announce_depth;
 	struct secret last_remote_per_commit_secret;
+	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -370,6 +371,13 @@ void peer_start_channeld(struct channel *channel,
 	if (ld->config.ignore_fee_limits)
 		log_debug(channel->log, "Ignoring fee limits!");
 
+	if(!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet, channel->dbid,
+				       &remote_ann_node_sig, &remote_ann_bitcoin_sig)) {
+		channel_internal_error(channel,
+				       "Could not load remote announcement signatures");
+		return;
+	}
+
 	initmsg = towire_channel_init(tmpctx,
 				      &get_chainparams(ld)->genesis_blockhash,
 				      &channel->funding_txid,
@@ -419,7 +427,9 @@ void peer_start_channeld(struct channel *channel,
 				      reached_announce_depth,
 				      &last_remote_per_commit_secret,
 				      channel->peer->localfeatures,
-				      channel->remote_upfront_shutdown_script);
+				      channel->remote_upfront_shutdown_script,
+				      remote_ann_node_sig,
+				      remote_ann_bitcoin_sig);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

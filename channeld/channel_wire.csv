@@ -64,6 +64,8 @@ channel_init,,lflen,u16
 channel_init,,localfeatures,lflen*u8
 channel_init,,upfront_shutdown_script_len,u16
 channel_init,,upfront_shutdown_script,upfront_shutdown_script_len*u8
+channel_init,,remote_ann_node_sig,?secp256k1_ecdsa_signature
+channel_init,,remote_ann_bitcoin_sig,?secp256k1_ecdsa_signature
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 channel_funding_depth,1002
