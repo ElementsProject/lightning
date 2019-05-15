@@ -1348,6 +1348,11 @@ static void handle_gossip_in(struct state *state)
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Reading gossip: %s", strerror(errno));
 
+	if (fromwire_gossipd_new_store_fd(msg)) {
+		tal_free(msg);
+		new_gossip_store(GOSSIP_STORE_FD, fdpass_recv(GOSSIP_FD));
+		return;
+	}
 	handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD, &state->cs, take(msg));
 }
 
