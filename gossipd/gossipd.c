@@ -2220,8 +2220,10 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 					   struct gossip_getnodes_entry,
 					   1);
 			add_node_entry(node_arr, daemon, n, &node_arr[0]);
-		} else
+		} else {
 			nodes = NULL;
+			node_arr = NULL;
+		}
 	} else {
 		struct node_map_iter it;
 		size_t i = 0;
