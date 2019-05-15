@@ -1080,3 +1080,18 @@ def test_gossip_store_private_channels(node_factory, bitcoind):
     # We should still see local channels!
     chans = l1.rpc.listchannels()['channels']
     assert len(chans) == 2
+
+
+@unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
+def test_gossip_store_compact(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
+
+    # Create channel.
+    l2.fund_channel(l3, 10**6)
+
+    # Now compact store.
+    l2.rpc.call('dev-compact-gossip-store')
+
+    # Should still be connected.
+    time.sleep(1)
+    assert len(l2.rpc.listpeers()['peers']) == 2
