@@ -1,6 +1,7 @@
 from decimal import Decimal
 import json
 import logging
+from math import floor, log10
 import socket
 
 __version__ = "0.0.7.1"
@@ -84,6 +85,37 @@ class Millisatoshi:
             return '{:.11f}btc'.format(self.to_btc())
         else:
             return '{:.8f}btc'.format(self.to_btc())
+
+    def to_approx_str(self, digits: int = 3):
+        """Returns the shortmost string using common units representation.
+
+        Rounds to significant `digits`. Default: 3
+        """
+        round_to_n = lambda x, n: round(x, -int(floor(log10(x))) + (n - 1))
+        result = None
+
+        # we try to increase digits to check if we did loose out on precision
+        # without gaining a shorter string, since this is a rarely used UI
+        # function, performance is not an issue. Adds at least one iteration.
+        while True:
+            # first round everything down to effective digits
+            amount_rounded = round_to_n(self.millisatoshis, digits)
+            # try different units and take shortest resulting normalized string
+            amounts_str = [
+                "%gbtc" % (amount_rounded / 1000 / 10**8),
+                "%gsat" % (amount_rounded / 1000),
+                "%gmsat" % (amount_rounded),
+            ]
+            test_result = min(amounts_str, key=len)
+
+            # check result and do another run if necessary
+            if test_result == result:
+                return result
+            elif not result or len(test_result) <= len(result):
+                digits = digits + 1
+                result = test_result
+            else:
+                return result
 
     def to_json(self):
         return self.__repr__()
