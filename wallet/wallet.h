@@ -555,6 +555,21 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct htlc_in_map *htlcs_in,
 				   struct htlc_out_map *htlcs_out);
 
+/**
+ * wallet_announcement_save - Save remote announcement information with channel.
+ *
+ * @wallet: wallet to load from
+ * @id: channel database id
+ * @remote_ann_node_sig: location to load remote_ann_node_sig to
+ * @remote_ann_bitcoin_sig: location to load remote_ann_bitcoin_sig to
+ *
+ * This function is only used to save REMOTE announcement information into DB
+ * when the channel has set the announce_channel bit and don't send the shutdown
+ * message(BOLT#7).
+ */
+void wallet_announcement_save(struct wallet *wallet, u64 id,
+			      secp256k1_ecdsa_signature *remote_ann_node_sig,
+			      secp256k1_ecdsa_signature *remote_ann_bitcoin_sig);
 
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */
@@ -1052,4 +1067,17 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w);
  */
 const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 						       const tal_t *ctx);
+
+/**
+ * Load remote_ann_node_sig and remote_ann_bitcoin_sig
+ *
+ * @ctx: allocation context for the return value
+ * @w: wallet containing the channel
+ * @id: channel database id
+ * @remote_ann_node_sig: location to load remote_ann_node_sig to
+ * @remote_ann_bitcoin_sig: location to load remote_ann_bitcoin_sig to
+ */
+bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
+				 secp256k1_ecdsa_signature **remote_ann_node_sig,
+				 secp256k1_ecdsa_signature **remote_ann_bitcoin_sig);
 #endif /* LIGHTNING_WALLET_WALLET_H */

@@ -382,6 +382,9 @@ static struct migration dbmigrations[] = {
 	{ "ALTER TABLE channels ADD remote_upfront_shutdown_script BLOB;", NULL },
 	/* PR #2524: Add failcode into forward_payment */
 	{ "ALTER TABLE forwarded_payments ADD failcode INTEGER;", NULL },
+	/* remote signatures for channel announcement */
+	{ "ALTER TABLE channels ADD remote_ann_node_sig BLOB;", NULL },
+	{ "ALTER TABLE channels ADD remote_ann_bitcoin_sig BLOB;", NULL },
 };
 
 /* Leak tracking. */

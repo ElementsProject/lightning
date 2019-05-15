@@ -595,6 +595,50 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
 	return htlc_sigs;
 }
 
+bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
+				 secp256k1_ecdsa_signature **remote_ann_node_sig,
+				 secp256k1_ecdsa_signature **remote_ann_bitcoin_sig)
+{
+	sqlite3_stmt *stmt;
+	int res;
+	stmt = db_select_prepare(w->db,
+				 "remote_ann_node_sig, remote_ann_bitcoin_sig"
+				 " FROM channels WHERE id = ?");
+	sqlite3_bind_int64(stmt, 1, id);
+
+	res = sqlite3_step(stmt);
+
+	/* This must succeed, since we know the channel exists */
+	assert(res == SQLITE_ROW);
+
+	/* if only one sig exists, forget the sig and hope peer send new ones*/
+	if(sqlite3_column_type(stmt, 0) == SQLITE_NULL ||
+			sqlite3_column_type(stmt, 1) == SQLITE_NULL) {
+		*remote_ann_node_sig = *remote_ann_bitcoin_sig = NULL;
+		db_stmt_done(stmt);
+		return true;
+	}
+
+	/* the case left over is both sigs exist */
+	*remote_ann_node_sig = tal(ctx, secp256k1_ecdsa_signature);
+	*remote_ann_bitcoin_sig = tal(ctx, secp256k1_ecdsa_signature);
+
+	if (!sqlite3_column_signature(stmt, 0, *remote_ann_node_sig))
+		goto fail;
+
+	if (!sqlite3_column_signature(stmt, 1, *remote_ann_bitcoin_sig))
+		goto fail;
+
+	db_stmt_done(stmt);
+	return true;
+
+fail:
+	*remote_ann_node_sig = tal_free(*remote_ann_node_sig);
+	*remote_ann_bitcoin_sig = tal_free(*remote_ann_bitcoin_sig);
+	db_stmt_done(stmt);
+	return false;
+}
+
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a sqlite3_stmt
  */
@@ -949,6 +993,24 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 u64 wallet_get_channel_dbid(struct wallet *wallet)
 {
 	return ++wallet->max_channel_dbid;
+}
+
+/* When we receive the remote announcement message, we will also call this function */
+void wallet_announcement_save(struct wallet *w, u64 id,
+			      secp256k1_ecdsa_signature *remote_ann_node_sig,
+			      secp256k1_ecdsa_signature *remote_ann_bitcoin_sig)
+{
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(w->db, "UPDATE channels SET"
+			  "  remote_ann_node_sig=?,"
+			  "  remote_ann_bitcoin_sig=?"
+			  " WHERE id=?");
+
+	sqlite3_bind_signature(stmt, 1, remote_ann_node_sig);
+	sqlite3_bind_signature(stmt, 2, remote_ann_bitcoin_sig);
+	sqlite3_bind_int64(stmt, 3, id);
+	db_exec_prepared(w->db, stmt);
 }
 
 void wallet_channel_save(struct wallet *w, struct channel *chan)
