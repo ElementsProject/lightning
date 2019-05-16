@@ -208,7 +208,7 @@ int main(void)
 
 	memset(&tmp, 'a', sizeof(tmp));
 	node_id_from_privkey(&tmp, &a);
-	rstate = new_routing_state(tmpctx, NULL, &a, 0, NULL, NULL, NULL);
+	rstate = new_routing_state(tmpctx, NULL, &a, 0, NULL, NULL);
 
 	new_node(rstate, &a);
 
