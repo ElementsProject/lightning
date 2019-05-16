@@ -63,7 +63,7 @@ void insert_broadcast_nostore(struct broadcast_state *bstate,
 
 void insert_broadcast(struct broadcast_state **bstate,
 		      const u8 *msg,
-		      const struct amount_sat *channel_announce_sat,
+		      const u8 *addendum,
 		      struct broadcastable *bcast)
 {
 	u32 offset;
@@ -73,7 +73,7 @@ void insert_broadcast(struct broadcast_state **bstate,
 		u64 idx;
 
 		bcast->index = idx = gossip_store_add((*bstate)->gs, msg,
-						      channel_announce_sat);
+						      addendum);
 		if (!idx)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not add to gossip store: %s",

@@ -201,33 +201,6 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 	return gs;
 }
 
-/**
- * Wrap the raw gossip message and write it to fd
- *
- * @param fd File descriptor to write the wrapped message into
- * @param gossip_msg The message to write
- * @param channel_announce_sat Amount iff gossip_msg is a channel_announcement
- * @param lenp The length to increase by amount written.
- * @return true if the message was written
- */
-static bool gossip_store_append(int fd,
-				const u8 *gossip_msg,
-				const struct amount_sat *channel_announce_sat,
-				u64 *lenp)
-{
-	if (!append_msg(fd, gossip_msg, lenp))
-		return false;
-
-	if (fromwire_peektype(gossip_msg) == WIRE_CHANNEL_ANNOUNCEMENT) {
-		/* This gives the channel amount. */
-		u8 *msg = towire_gossip_store_channel_amount(tmpctx,
-						     *channel_announce_sat);
-		if (!append_msg(fd, msg, lenp))
-			return false;
-	}
-	return true;
-}
-
 /* Copy a whole message from one gossip_store to another.  Returns
  * total msg length including header, or 0 on error. */
 static size_t copy_message(int in_fd, int out_fd, unsigned offset)
@@ -294,7 +267,7 @@ static bool add_local_unnannounced(int in_fd, int out_fd,
 
 		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
 						       &peer->id, c->sat);
-		if (!gossip_store_append(out_fd, msg, NULL, len))
+		if (!append_msg(out_fd, msg, len))
 			return false;
 
 		for (size_t i = 0; i < 2; i++) {
@@ -495,16 +468,20 @@ bool gossip_store_maybe_compact(struct gossip_store *gs,
 }
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     const struct amount_sat *channel_announce_sat)
+		     const u8 *addendum)
 {
 	u64 off = gs->len;
 
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!gossip_store_append(gs->fd, gossip_msg, channel_announce_sat,
-				 &gs->len)) {
+	if (!append_msg(gs->fd, gossip_msg, &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
+			      strerror(errno));
+		return 0;
+	}
+	if (addendum && !append_msg(gs->fd, addendum, &gs->len)) {
+		status_broken("Failed writing addendum to gossip store: %s",
 			      strerror(errno));
 		return 0;
 	}
@@ -521,7 +498,7 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!gossip_store_append(gs->fd, msg, NULL, &gs->len))
+	if (!append_msg(gs->fd, msg, &gs->len))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing channel_delete to gossip store: %s",
 			      strerror(errno));
