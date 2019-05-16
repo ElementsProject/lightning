@@ -598,7 +598,7 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a sqlite3_stmt
  */
-static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, sqlite3_stmt *stmt)
+static struct channel *wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt)
 {
 	bool ok = true;
 	struct channel_info channel_info;
@@ -767,7 +767,7 @@ static const char *channel_fields =
     /*41*/ "last_sent_commit, "
     /*42*/ "feerate_base, feerate_ppm, remote_upfront_shutdown_script";
 
-bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
+bool wallet_channels_load_active(struct wallet *w)
 {
 	bool ok = true;
 	sqlite3_stmt *stmt;
@@ -779,7 +779,7 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 
 	int count = 0;
 	while (db_select_step(w->db, stmt)) {
-		struct channel *c = wallet_stmt2channel(ctx, w, stmt);
+		struct channel *c = wallet_stmt2channel(w, stmt);
 		if (!c) {
 			ok = false;
 			db_stmt_done(stmt);
