@@ -14,6 +14,7 @@
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
+#include <gossipd/gen_gossip_store.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
@@ -1334,10 +1335,12 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      u32 timestamp,
 					      u32 index)
 {
+	u8 *addendum = towire_gossip_store_channel_amount(tmpctx, chan->sat);
+
 	chan->bcast.timestamp = timestamp;
 	/* 0, unless we're loading from store */
 	chan->bcast.index = index;
-	insert_broadcast(&rstate->broadcasts, channel_announce, &chan->sat,
+	insert_broadcast(&rstate->broadcasts, channel_announce, addendum,
 			 &chan->bcast);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 }

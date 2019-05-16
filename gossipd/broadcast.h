@@ -39,11 +39,12 @@ struct broadcast_state *new_broadcast_state(struct routing_state *rstate,
 /* Append a queued message for broadcast.  Must be explicitly deleted.
  * Also adds it to the gossip store.
  *
- * If it's a channel_announcement, channel_announce_sat must be set.
+ * If it's a channel_announcement, caller sets addendum to the
+ * WIRE_GOSSIP_STORE_CHANNEL_AMOUNT to immediately follow the announcement.
  */
 void insert_broadcast(struct broadcast_state **bstate,
 		      const u8 *msg,
-		      const struct amount_sat *channel_announce_sat,
+		      const u8 *addendum,
 		      struct broadcastable *bcast);
 
 /* Add to broadcast, but not store: for gossip store compaction. */

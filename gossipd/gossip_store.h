@@ -27,10 +27,11 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate);
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 
 /**
- * Add a gossip message to the gossip_store
+ * Add a gossip message to the gossip_store (and optional addendum)
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     const struct amount_sat *channel_announce_sat);
+		     const u8 *addendum);
+
 
 /**
  * Remember that we deleted a channel as a result of its outpoint being spent
