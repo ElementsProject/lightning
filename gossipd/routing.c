@@ -159,8 +159,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct node_id *local_id,
 					u32 prune_timeout,
 					struct list_head *peers,
-					const u32 *dev_gossip_time,
-					const struct amount_sat *dev_unknown_channel_satoshis)
+					const u32 *dev_gossip_time)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = new_node_map(rstate);
@@ -188,7 +187,6 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 		rstate->gossip_time->ts.tv_nsec = 0;
 	} else
 		rstate->gossip_time = NULL;
-	rstate->dev_unknown_channel_satoshis = dev_unknown_channel_satoshis;
 #endif
 
 	return rstate;
@@ -1614,16 +1612,6 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
 		return;
-
-#if DEVELOPER
-	if (rstate->dev_unknown_channel_satoshis) {
-		outscript = scriptpubkey_p2wsh(pending,
-			       bitcoin_redeem_2of2(pending,
-						   &pending->bitcoin_key_1,
-						   &pending->bitcoin_key_2));
-		sat = *rstate->dev_unknown_channel_satoshis;
-	}
-#endif
 
 	/* BOLT #7:
 	 *

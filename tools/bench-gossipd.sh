@@ -81,7 +81,7 @@ fi
 DEVELOPER=$(grep '^DEVELOPER=' config.vars | cut -d= -f2-)
 
 if [ "$DEVELOPER" = 1 ]; then
-    LIGHTNINGD="./lightningd/lightningd --network=regtest --dev-gossip-time=1550513768 --dev-unknown-channel-satoshis=100000"
+    LIGHTNINGD="./lightningd/lightningd --network=regtest --dev-gossip-time=1550513768"
 else
     # Means we can't do the peer_read_all test properly, since it will time out.
     LIGHTNINGD="./lightningd/lightningd --network=regtest"
@@ -100,8 +100,8 @@ if $CSV; then echo $TARGETS | tr ' ' ,; fi
 
 # First, measure load time.
 rm -f "$DIR"/peer
-mv "$DIR"/log  "$DIR"/log.old.$$
-$LIGHTNINGD --lightning-dir="$DIR" --log-file="$DIR"/log --bind-addr="$DIR"/peer &
+[ ! -f "$DIR"/log ] || mv "$DIR"/log  "$DIR"/log.old.$$
+$LIGHTNINGD --lightning-dir="$DIR" --log-file="$DIR"/log --log-level=debug --bind-addr="$DIR"/peer &
 
 rm -f "$DIR"/stats
 ID=$(wait_for_start)

@@ -168,10 +168,8 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    ld->alias, ld->config.channel_update_interval,
 	    ld->announcable,
 #if DEVELOPER
-	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL,
-	    ld->dev_unknown_channel_satoshis
+	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL
 #else
-	    NULL,
 	    NULL
 #endif
 		);
