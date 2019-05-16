@@ -435,13 +435,12 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 /**
  * wlalet_channels_load_active -- Load persisted active channels into the peers
  *
- * @ctx: context to allocate peers from
  * @w: wallet to load from
  *
  * Be sure to call this only once on startup since it'll append peers
  * loaded from the database to the list without checking.
  */
-bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w);
+bool wallet_channels_load_active(struct wallet *w);
 
 /**
  * wallet_channel_stats_incr_* - Increase channel statistics.
