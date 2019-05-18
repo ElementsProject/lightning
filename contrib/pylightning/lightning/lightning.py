@@ -645,6 +645,13 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("pay", payload)
 
+    def paystatus(self, bolt11=None):
+        """Detail status of attempts to pay {bolt11} or any"""
+        payload = {
+            "bolt11": bolt11
+        }
+        return self.call("paystatus", payload)
+
     def ping(self, peer_id, length=128, pongbytes=128):
         """
         Send {peer_id} a ping of length {len} asking for {pongbytes}"
