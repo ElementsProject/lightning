@@ -533,7 +533,7 @@ class LightningRpc(UnixDomainSocketRpc):
     def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None, preimage=None, exposeprivatechannels=None):
         """
         Create an invoice for {msatoshi} with {label} and {description} with
-        optional {expiry} seconds (default 1 hour)
+        optional {expiry} seconds (default 1 week)
         """
         payload = {
             "msatoshi": msatoshi,
@@ -555,6 +555,14 @@ class LightningRpc(UnixDomainSocketRpc):
             "source": source
         }
         return self.call("listchannels", payload)
+
+    def listconfigs(self, config=None):
+        """List this node's config
+        """
+        payload = {
+            "config": config
+        }
+        return self.call("listconfigs", payload)
 
     def listforwards(self):
         """List all forwarded payments and their information
@@ -607,6 +615,14 @@ class LightningRpc(UnixDomainSocketRpc):
             "level": level,
         }
         return self.call("listpeers", payload)
+
+    def listsendpays(self, bolt11=None, payment_hash=None):
+        """Show all sendpays results, or only for `bolt11` or `payment_hash`"""
+        payload = {
+            "bolt11": bolt11,
+            "payment_hash": payment_hash
+        }
+        return self.call("listsendpays", payload)
 
     def newaddr(self, addresstype=None):
         """Get a new address of type {addresstype} of the internal wallet.
