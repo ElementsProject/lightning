@@ -41,10 +41,10 @@ be returned.
 This object will have a 'status' field that is the
 string '"complete"'.
 
-On error, if the error occurred from a node other than the final
-destination, the route table will be updated so that getroute(7)
-should return an alternate route (if any).  An error from the final
-destination implies the payment should not be retried.
+On error, and even if the error occurred from a node other than the
+final destination, the route table will no longer be updated. Use
+the 'exclude' parameter of the `getroute` command to ignore the
+failing route.
 
 The following error codes may occur:
 
