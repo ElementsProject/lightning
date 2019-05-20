@@ -13,11 +13,13 @@
  * that point, the `json_connection` becomes the owner (or it's simply freed).
  */
 /* eg: { "jsonrpc":"2.0", "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
+#include "ccan/config.h"
 #include <arpa/inet.h>
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/str/hex/hex.h>
@@ -346,6 +348,12 @@ static const struct json_command *find_command(struct json_command **commands,
 	return NULL;
 }
 
+static int compare_commands_name(struct json_command *const *a,
+					struct json_command *const *b, void *unused)
+{
+	return strcmp((*a)->name, (*b)->name);
+}
+
 static struct command_result *json_help(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *obj UNNEEDED,
@@ -371,6 +379,8 @@ static struct command_result *json_help(struct command *cmd,
 					    buffer + cmdtok->start);
 	} else
 		one_cmd = NULL;
+
+	asort(commands, tal_count(commands), compare_commands_name, NULL);
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
