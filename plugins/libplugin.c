@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <poll.h>
 #include <plugins/libplugin.h>
+#include <stdarg.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -421,11 +422,25 @@ send_outreq_(struct command *cmd,
 static struct command_result *
 handle_getmanifest(struct command *getmanifest_cmd,
 		   const struct plugin_command *commands,
-		   size_t num_commands)
+		   size_t num_commands,
+		   const struct plugin_option *opts)
 {
 	char *params = tal_strdup(getmanifest_cmd,
-				   "'options': [],\n"
-				   "'rpcmethods': [ ");
+				  "'options': [");
+
+	for (size_t i = 0; i < tal_count(opts); i++) {
+		tal_append_fmt(&params, "{ 'name': '%s',"
+			       "    'type': 'string',"
+			       "    'description': '%s' }%s",
+			       opts[i].name,
+			       opts[i].description,
+			       i == tal_count(opts) - 1 ? "" : ",\n");
+	}
+
+	tal_append_fmt(&params,
+		       "],\n"
+		       "'rpcmethods': [ ");
+
 	for (size_t i = 0; i < num_commands; i++) {
 		tal_append_fmt(&params, "{ 'name': '%s',"
 			       "    'usage': '%s',"
@@ -447,10 +462,12 @@ handle_getmanifest(struct command *getmanifest_cmd,
 static struct command_result *handle_init(struct command *init_cmd,
 					  const char *buf,
 					  const jsmntok_t *params,
+					  const struct plugin_option *opts,
 					  void (*init)(struct plugin_conn *))
 {
-	const jsmntok_t *rpctok, *dirtok;
+	const jsmntok_t *rpctok, *dirtok, *opttok, *t;
 	struct sockaddr_un addr;
+	size_t i;
 	char *dir;
 
 	/* Move into lightning directory: other files are relative */
@@ -480,10 +497,47 @@ static struct command_result *handle_init(struct command *init_cmd,
 					  ".allow-deprecated-apis"),
 				"true");
 
+	opttok = json_get_member(buf, params, "options");
+	json_for_each_obj(i, t, opttok) {
+		char *opt = json_strdup(NULL, buf, t);
+		for (size_t i = 0; i < tal_count(opts); i++) {
+			char *problem;
+			if (!streq(opts[i].name, opt))
+				continue;
+			problem = opts[i].handle(json_strdup(opt, buf, t+1),
+						 opts[i].arg);
+			if (problem)
+				plugin_err("option '%s': %s",
+					   opts[i].name, problem);
+			break;
+		}
+		tal_free(opt);
+	}
+
 	if (init)
 		init(init_cmd->rpc);
 
 	return command_done_ok(init_cmd, "");
+}
+
+char *u64_option(const char *arg, u64 *i)
+{
+	char *endp;
+
+	/* This is how the manpage says to do it.  Yech. */
+	errno = 0;
+	*i = strtol(arg, &endp, 0);
+	if (*endp || !arg[0])
+		return tal_fmt(NULL, "'%s' is not a number", arg);
+	if (errno)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+	return NULL;
+}
+
+char *charp_option(const char *arg, char **p)
+{
+	*p = tal_strdup(NULL, arg);
+	return NULL;
 }
 
 static void handle_new_command(const tal_t *ctx,
@@ -529,7 +583,7 @@ static void setup_command_usage(const struct plugin_command *commands,
 void plugin_main(char *argv[],
 		 void (*init)(struct plugin_conn *rpc),
 		 const struct plugin_command *commands,
-		 size_t num_commands)
+		 size_t num_commands, ...)
 {
 	struct plugin_conn request_conn, rpc_conn;
 	const tal_t *ctx = tal(NULL, char);
@@ -537,6 +591,9 @@ void plugin_main(char *argv[],
 	const jsmntok_t *params;
 	int reqlen;
 	struct pollfd fds[2];
+	struct plugin_option *opts = tal_arr(ctx, struct plugin_option, 0);
+	va_list ap;
+	const char *optname;
 
 	setup_locale();
 
@@ -556,13 +613,24 @@ void plugin_main(char *argv[],
 		    membuf_tal_realloc);
 	uintmap_init(&out_reqs);
 
+	va_start(ap, num_commands);
+	while ((optname = va_arg(ap, const char *)) != NULL) {
+		struct plugin_option o;
+		o.name = optname;
+		o.description = va_arg(ap, const char *);
+		o.handle = va_arg(ap, char *(*)(const char *str, void *arg));
+		o.arg = va_arg(ap, void *);
+		tal_arr_expand(&opts, o);
+	}
+	va_end(ap);
+
 	cmd = read_json_request(tmpctx, &request_conn, NULL,
 				&params, &reqlen);
 	if (!streq(cmd->methodname, "getmanifest"))
 		plugin_err("Expected getmanifest not %s", cmd->methodname);
 
 	membuf_consume(&request_conn.mb, reqlen);
-	handle_getmanifest(cmd, commands, num_commands);
+	handle_getmanifest(cmd, commands, num_commands, opts);
 
 	cmd = read_json_request(tmpctx, &request_conn, &rpc_conn,
 				&params, &reqlen);
@@ -570,7 +638,7 @@ void plugin_main(char *argv[],
 		plugin_err("Expected init not %s", cmd->methodname);
 
 	handle_init(cmd, membuf_elems(&request_conn.mb),
-		    params, init);
+		    params, opts, init);
 	membuf_consume(&request_conn.mb, reqlen);
 
 	/* Set up fds for poll. */

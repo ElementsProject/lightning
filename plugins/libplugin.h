@@ -24,6 +24,14 @@ struct plugin_command {
 					 const jsmntok_t *params);
 };
 
+/* Create an array of these, one for each --option you support. */
+struct plugin_option {
+	const char *name;
+	const char *description;
+	char *(*handle)(const char *str, void *arg);
+	void *arg;
+};
+
 /* Return this iff the param() call failed in your handler. */
 struct command_result *command_param_failed(void);
 
@@ -88,9 +96,20 @@ struct command_result *forward_result(struct command *cmd,
 				      const jsmntok_t *result,
 				      void *arg);
 
-/* The main plugin runner. */
-void NORETURN plugin_main(char *argv[],
-			  void (*init)(struct plugin_conn *rpc),
-			  const struct plugin_command *commands,
-			  size_t num_commands);
+/* Macro to define arguments */
+#define plugin_option(name, description, set, arg)			\
+	(name),								\
+	(description),							\
+	typesafe_cb_preargs(char *, void *, (set), (arg), const char *),	\
+	(arg)
+
+/* Standard helpers */
+char *u64_option(const char *arg, u64 *i);
+char *charp_option(const char *arg, char **p);
+
+/* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
+void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
+					void (*init)(struct plugin_conn *rpc),
+					const struct plugin_command *commands,
+					size_t num_commands, ...);
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_H */
