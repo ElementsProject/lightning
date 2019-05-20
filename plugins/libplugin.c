@@ -33,10 +33,13 @@ struct plugin_conn {
 	MEMBUF(char) mb;
 };
 
+/* Connection to make RPC requests. */
+static struct plugin_conn rpc_conn;
+
 struct command {
 	u64 id;
 	const char *methodname;
-	struct plugin_conn *rpc;
+	bool usage_only;
 };
 
 struct out_req {
@@ -144,8 +147,7 @@ static struct command *read_json_request(const tal_t *ctx,
 		plugin_err("JSON id '%*.s' is not a number",
 			   id->end - id->start,
 			   membuf_elems(&conn->mb) + id->start);
-	/* Putting this in cmd avoids a global, or direct exposure to users */
-	cmd->rpc = rpc;
+	cmd->usage_only = false;
 	cmd->methodname = json_strdup(cmd, membuf_elems(&conn->mb), method);
 
 	return cmd;
@@ -271,7 +273,7 @@ struct command_result *command_fail(struct command *cmd,
 /* We invoke param for usage at registration time. */
 bool command_usage_only(const struct command *cmd)
 {
-	return cmd->rpc == NULL;
+	return cmd->usage_only;
 }
 
 /* FIXME: would be good to support this! */
@@ -409,13 +411,13 @@ send_outreq_(struct command *cmd,
 	out->arg = arg;
 	uintmap_add(&out_reqs, out->id, out);
 
-	printf_json(cmd->rpc->fd,
+	printf_json(rpc_conn.fd,
 		    "{ 'method': '%s', 'id': %"PRIu64", 'params': {",
 		    method, out->id);
 	va_start(ap, paramfmt_single_ticks);
-	vprintf_json(cmd->rpc->fd, paramfmt_single_ticks, ap);
+	vprintf_json(rpc_conn.fd, paramfmt_single_ticks, ap);
 	va_end(ap);
-	printf_json(cmd->rpc->fd, "} }");
+	printf_json(rpc_conn.fd, "} }");
 	return &pending;
 }
 
@@ -477,7 +479,7 @@ static struct command_result *handle_init(struct command *init_cmd,
 		plugin_err("chdir to %s: %s", dir, strerror(errno));
 
 	rpctok = json_delve(buf, params, ".configuration.rpc-file");
-	init_cmd->rpc->fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	rpc_conn.fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (rpctok->end - rpctok->start + 1 > sizeof(addr.sun_path))
 		plugin_err("rpc filename '%.*s' too long",
 			   rpctok->end - rpctok->start,
@@ -486,14 +488,14 @@ static struct command_result *handle_init(struct command *init_cmd,
 	addr.sun_path[rpctok->end - rpctok->start] = '\0';
 	addr.sun_family = AF_UNIX;
 
-	if (connect(init_cmd->rpc->fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+	if (connect(rpc_conn.fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 		plugin_err("Connecting to '%.*s': %s",
 			   rpctok->end - rpctok->start, buf + rpctok->start,
 			   strerror(errno));
 
 	deprecated_apis = streq(rpc_delve(tmpctx, "listconfigs",
 					  "'config': 'allow-deprecated-apis'",
-					  init_cmd->rpc,
+					  &rpc_conn,
 					  ".allow-deprecated-apis"),
 				"true");
 
@@ -515,7 +517,7 @@ static struct command_result *handle_init(struct command *init_cmd,
 	}
 
 	if (init)
-		init(init_cmd->rpc);
+		init(&rpc_conn);
 
 	return command_done_ok(init_cmd, "");
 }
@@ -569,7 +571,7 @@ static void setup_command_usage(const struct plugin_command *commands,
 	struct command *usage_cmd = tal(tmpctx, struct command);
 
 	/* This is how common/param can tell it's just a usage request */
-	usage_cmd->rpc = NULL;
+	usage_cmd->usage_only = true;
 	for (size_t i = 0; i < num_commands; i++) {
 		struct command_result *res;
 
@@ -585,7 +587,7 @@ void plugin_main(char *argv[],
 		 const struct plugin_command *commands,
 		 size_t num_commands, ...)
 {
-	struct plugin_conn request_conn, rpc_conn;
+	struct plugin_conn request_conn;
 	const tal_t *ctx = tal(NULL, char);
 	struct command *cmd;
 	const jsmntok_t *params;
