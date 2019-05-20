@@ -314,6 +314,40 @@ It can return a non-zero `failure_code` field as defined for final
 nodes in [BOLT 4][bolt4-failure-codes], or otherwise an empty object
 to accept the payment.
 
+
+#### `openchannel`
+
+This hook is called whenever a remote peer tries to fund a channel to us,
+and it has passed basic sanity checks:
+
+```json
+{
+  "openchannel": {
+	"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+	"funding_satoshis": "100000000msat",
+	"push_msat": "0msat",
+	"dust_limit_satoshis": "546000msat",
+	"max_htlc_value_in_flight_msat": "18446744073709551615msat",
+	"channel_reserve_satoshis": "1000000msat",
+	"htlc_minimum_msat": "0msat",
+	"feerate_per_kw": 7500,
+	"to_self_delay": 5,
+	"max_accepted_htlcs": 483,
+	"channel_flags": 1
+  }
+}
+```
+
+There may be additional fields, including `shutdown_scriptpubkey` and
+a hex-string.  You can see the definitions of these fields in [BOLT 2's description of the open_channel message][bolt2-open-channel].
+
+The returned result must contain a `result` member which is either
+the string `reject` or `continue`.  If `reject` and
+there's a member `error_message`, that member is sent to the peer
+before disconnection.
+
+
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4-failure-codes]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
+[bolt2-open-channel]: https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#the-open_channel-message
