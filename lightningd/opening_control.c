@@ -725,6 +725,20 @@ static void channel_config(struct lightningd *ld,
 	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
 }
 
+static void opening_got_offer(struct subd *openingd,
+			      const u8 *msg,
+			      struct uncommitted_channel *uc)
+{
+	const char *reason = NULL;
+
+	/* Tell them they can't open, if we already have open channel. */
+	if (peer_active_channel(uc->peer))
+		reason = "Already have active channel";
+
+	subd_send_msg(openingd,
+		      take(towire_opening_got_offer_reply(NULL, reason)));
+}
+
 static unsigned int openingd_msg(struct subd *openingd,
 				 const u8 *msg, const int *fds)
 {
@@ -760,10 +774,14 @@ static unsigned int openingd_msg(struct subd *openingd,
 		opening_fundee_finished(openingd, msg, fds, uc);
 		return 0;
 
+	case WIRE_OPENING_GOT_OFFER:
+		opening_got_offer(openingd, msg, uc);
+		return 0;
+
 	/* We send these! */
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER:
-	case WIRE_OPENING_CAN_ACCEPT_CHANNEL:
+	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_DEV_MEMLEAK:
 	/* Replies never get here */
 	case WIRE_OPENING_DEV_MEMLEAK_REPLY:
@@ -834,19 +852,9 @@ void peer_start_openingd(struct peer *peer,
 				  uc->minimum_depth,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
-				  !peer_active_channel(peer),
 				  peer->localfeatures,
 				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
-}
-
-void opening_peer_no_active_channels(struct peer *peer)
-{
-	assert(!peer_active_channel(peer));
-	if (peer->uncommitted_channel) {
-		subd_send_msg(peer->uncommitted_channel->openingd,
-			      take(towire_opening_can_accept_channel(NULL)));
-	}
 }
 
 /**
