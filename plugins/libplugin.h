@@ -55,7 +55,9 @@ const char *rpc_delve(const tal_t *ctx,
 		      const char *method, const char *params,
 		      struct plugin_conn *rpc, const char *guide);
 
-/* Async rpc request.  For convenience, and single ' are turned into ". */
+/* Async rpc request.  For convenience, and single ' are turned into ".
+ * @cmd can be NULL if we're coming from a timer callback.
+ */
 PRINTF_FMT(6,7) struct command_result *
 send_outreq_(struct command *cmd,
 	     const char *method,
@@ -95,6 +97,17 @@ struct command_result *forward_result(struct command *cmd,
 				      const char *buf,
 				      const jsmntok_t *result,
 				      void *arg);
+
+/* Callback for timer where we expect a 'command_result'. */
+struct command_result *timer_complete(void);
+
+/* Access timer infrastructure to add a timer.
+ *
+ * Freeing this releases the timer (don't free it in timer cb though)
+ */
+struct plugin_timer *plugin_timer(struct plugin_conn *rpc,
+				  struct timerel t,
+				  struct command_result *(*cb)(void));
 
 /* Macro to define arguments */
 #define plugin_option(name, description, set, arg)			\

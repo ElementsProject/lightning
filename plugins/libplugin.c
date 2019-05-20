@@ -4,6 +4,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/timer/timer.h>
 #include <common/daemon.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -26,7 +27,16 @@ static u64 next_outreq_id;
  * struct json_command as it's good practice to have those const. */
 static STRMAP(const char *) usagemap;
 
+/* Timers */
+static struct timers timers;
+static bool in_timer;
+
 bool deprecated_apis;
+
+struct plugin_timer {
+	struct timer timer;
+	struct command_result *(*cb)(void);
+};
 
 struct plugin_conn {
 	int fd;
@@ -230,6 +240,13 @@ command_done_raw(struct command *cmd,
 		    " '%s' : %.*s }\n\n",
 		    cmd->id, label, size, str);
 	return end_cmd(cmd);
+}
+
+struct command_result *timer_complete(void)
+{
+	assert(in_timer);
+	in_timer = false;
+	return &complete;
 }
 
 struct command_result *command_success(struct command *cmd, const char *result)
@@ -582,6 +599,31 @@ static void setup_command_usage(const struct plugin_command *commands,
 	}
 }
 
+static void call_plugin_timer(struct plugin_conn *rpc, struct timer *timer)
+{
+	struct plugin_timer *t = container_of(timer, struct plugin_timer, timer);
+
+	in_timer = true;
+	t->cb();
+	tal_free(t);
+}
+
+static void destroy_plugin_timer(struct plugin_timer *timer)
+{
+	timer_del(&timers, &timer->timer);
+}
+
+struct plugin_timer *plugin_timer(struct plugin_conn *rpc, struct timerel t,
+				  struct command_result *(*cb)(void))
+{
+	struct plugin_timer *timer = tal(NULL, struct plugin_timer);
+	timer->cb = cb;
+	timer_init(&timer->timer);
+	timer_addrel(&timers, &timer->timer, t);
+	tal_add_destructor(timer, destroy_plugin_timer);
+	return timer;
+}
+
 void plugin_main(char *argv[],
 		 void (*init)(struct plugin_conn *rpc),
 		 const struct plugin_command *commands,
@@ -606,6 +648,7 @@ void plugin_main(char *argv[],
 
 	setup_command_usage(commands, num_commands);
 
+	timers_init(&timers, time_mono());
 	membuf_init(&rpc_conn.mb,
 		    tal_arr(ctx, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
 		    membuf_tal_realloc);
@@ -650,6 +693,10 @@ void plugin_main(char *argv[],
 	fds[1].events = POLLIN;
 
 	for (;;) {
+		struct timer *expired;
+		struct timemono now, first;
+		int t;
+
 		clean_tmpctx();
 
 		/* If we already have some input, process now. */
@@ -663,8 +710,22 @@ void plugin_main(char *argv[],
 			continue;
 		}
 
+		/* Handle any timeouts */
+		now = time_mono();
+		expired = timers_expire(&timers, now);
+		if (expired) {
+			call_plugin_timer(&rpc_conn, expired);
+			continue;
+		}
+
+		/* If we have a pending timer, timeout then */
+		if (timer_earliest(&timers, &first))
+			t = time_to_msec(timemono_between(first, now));
+		else
+			t = -1;
+
 		/* Otherwise, we poll. */
-		poll(fds, 2, -1);
+		poll(fds, 2, t);
 
 		if (fds[0].revents & POLLIN)
 			handle_new_command(ctx, &request_conn, &rpc_conn,
