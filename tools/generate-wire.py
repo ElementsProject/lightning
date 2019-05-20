@@ -453,8 +453,9 @@ class Message(object):
                 # If we're handing a variable array, we need a ptr-to-ptr.
                 if f.needs_ptr_to_ptr():
                     ptrs += '*'
-                # If each type is a variable length, we need a ptr to that.
-                if f.fieldtype.base() in varlen_structs:
+                # If each type is a variable length, we need a ptr to that,
+                # unless it's already optional, so we got one above.
+                if not f.optional and f.fieldtype.base() in varlen_structs:
                     ptrs += '*'
 
                 args.append(', {} {}{}'.format(f.fieldtype.name, ptrs, f.name))
@@ -500,7 +501,11 @@ class Message(object):
             else:
                 if f.optional:
                     assignable = f.fieldtype.is_assignable()
-                    deref = '*'
+                    # Optional varlens don't need to be derefed twice.
+                    if basetype in varlen_structs:
+                        deref = ''
+                    else:
+                        deref = '*'
                 else:
                     deref = ''
                     assignable = f.is_assignable()
