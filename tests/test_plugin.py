@@ -268,3 +268,44 @@ def test_invoice_payment_hook(node_factory):
     l2.daemon.wait_for_log('label=label2')
     l2.daemon.wait_for_log('msat=')
     l2.daemon.wait_for_log('preimage=' + '0' * 64)
+
+
+def test_openchannel_hook(node_factory, bitcoind):
+    """ l2 uses the reject_odd_funding_amounts plugin to reject some openings.
+    """
+    opts = [{}, {'plugin': 'tests/plugins/reject_odd_funding_amounts.py'}]
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
+
+    # Get some funds.
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 10)
+    numfunds = len(l1.rpc.listfunds()['outputs'])
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > numfunds)
+
+    # Even amount: works.
+    l1.rpc.fundchannel(l2.info['id'], 100000)
+
+    # Make sure plugin got all the vars we expect
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py 11 VARS')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py channel_flags=1')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py channel_reserve_satoshis=1000000msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py dust_limit_satoshis=546000msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py feerate_per_kw=7500')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py funding_satoshis=100000000msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py htlc_minimum_msat=0msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py id={}'.format(l1.info['id']))
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py max_accepted_htlcs=483')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py max_htlc_value_in_flight_msat=18446744073709551615msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py push_msat=0msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py to_self_delay=5')
+
+    # Close it.
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1)
+    wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']] == ['ONCHAIN'])
+
+    # Odd amount: fails
+    l1.connect(l2)
+    with pytest.raises(RpcError, match=r"I don't like odd amounts"):
+        l1.rpc.fundchannel(l2.info['id'], 100001)
