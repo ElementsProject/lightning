@@ -900,6 +900,20 @@ void clear_plugins(struct plugins *plugins)
 		tal_free(p);
 }
 
+void plugins_add_default_dir(struct plugins *plugins, const char *default_dir)
+{
+	DIR *d = opendir(default_dir);
+	if (d) {
+		struct dirent *di;
+		while ((di = readdir(d)) != NULL) {
+			if (streq(di->d_name, ".") || streq(di->d_name, ".."))
+				continue;
+			add_plugin_dir(plugins, path_join(tmpctx, default_dir, di->d_name), true);
+		}
+	}
+	closedir(d);
+}
+
 void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 {
 	struct plugin *p;
@@ -909,6 +923,8 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 	struct jsonrpc_request *req;
 	plugins->pending_manifests = 0;
 	uintmap_init(&plugins->pending_requests);
+
+	plugins_add_default_dir(plugins, path_join(tmpctx, plugins->ld->config_dir, "plugins"));
 
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	/* Spawn the plugin processes before entering the io_loop */
