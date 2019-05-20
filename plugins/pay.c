@@ -162,7 +162,8 @@ static bool channel_in_routehint(const struct route_info *routehint,
 }
 
 static struct command_result *waitsendpay_expired(struct command *cmd,
-						  struct pay_command *pc)
+						  struct pay_command *pc,
+						  int code)
 {
 	char *errmsg, *data;
 
@@ -181,7 +182,7 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 				       pc->ps->attempts[i].failure);
 	}
 	tal_append_fmt(&data, "]");
-	return command_done_err(cmd, PAY_STOPPED_RETRYING, errmsg, data);
+	return command_done_err(cmd, code, errmsg, data);
 }
 
 static struct command_result *next_routehint(struct command *cmd,
@@ -202,6 +203,9 @@ static struct command_result *next_routehint(struct command *cmd,
 	return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
 				    "Could not find a route");
 }
+
+static struct command_result *perform_waitsendpay(struct command *cmd,
+						  struct pay_command *pc);
 
 static struct command_result *waitsendpay_error(struct command *cmd,
 						const char *buf,
@@ -225,6 +229,18 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 		return forward_error(cmd, buf, error, pc);
 	}
 
+	/* This error code is DEFINITELY NOT FINAL.
+	 * Users of `pay` command should check for this error from
+	 * `pay`, which simply means that `pay` gave up, but a
+	 * payment is still enroute.
+	 */
+	if (code == PAY_IN_PROGRESS) {
+		if (time_after(time_now(), pc->stoptime)) {
+			return waitsendpay_expired(cmd, pc, PAY_IN_PROGRESS);
+		}
+		return perform_waitsendpay(cmd, pc);
+	}
+
 	scidtok = json_delve(buf, error, ".data.erring_channel");
 	if (!scidtok)
 		plugin_err("waitsendpay error no erring_channel '%.*s'",
@@ -235,7 +251,7 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 			   error->end - error->start, buf + error->start);
 
 	if (time_after(time_now(), pc->stoptime)) {
-		return waitsendpay_expired(cmd, pc);
+		return waitsendpay_expired(cmd, pc, PAY_STOPPED_RETRYING);
 	}
 
 	/* If failure is in routehint part, try next one */
@@ -266,15 +282,24 @@ static struct command_result *waitsendpay_done(struct command *cmd,
 	return forward_result(cmd, buf, result, pc);
 }
 
+static struct command_result *perform_waitsendpay(struct command *cmd,
+						  struct pay_command *pc)
+{
+	/* retry_for is in unit of seconds, so have `waitsendpay`
+	 * wait for 1 second timeouts.
+	 */
+	return send_outreq(cmd, "waitsendpay",
+			   waitsendpay_done, waitsendpay_error, pc,
+			   "'payment_hash': '%s', 'timeout': 1",
+			   pc->payment_hash);
+}
+
 static struct command_result *sendpay_done(struct command *cmd,
 					   const char *buf,
 					   const jsmntok_t *result,
 					   struct pay_command *pc)
 {
-	return send_outreq(cmd, "waitsendpay",
-			   waitsendpay_done, waitsendpay_error, pc,
-			   "'payment_hash': '%s', 'timeout': 60",
-			   pc->payment_hash);
+	return perform_waitsendpay(cmd, pc);
 }
 
 /* Calculate how many millisatoshi we need at the start of this route
