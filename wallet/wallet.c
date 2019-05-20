@@ -354,6 +354,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	size_t i = 0;
 	struct utxo **available;
 	u64 weight;
+	size_t num_outputs = may_have_change ? 2 : 1;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
@@ -369,6 +370,18 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	/* Change output will be P2WPKH */
 	if (may_have_change)
 		weight += (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN) * 4;
+
+	/* A couple of things need to change for elements: */
+	if (is_elements) {
+                /* Each transaction has surjection and rangeproof (both empty
+		 * for us as long as we use unblinded L-BTC transactions). */
+		weight += 2 * 4;
+
+		/* Each output additionally has an asset_tag (1 + 32), value
+		 * is prefixed by a version (1 byte) and an empty nonce (1
+		 * byte). */
+		weight += (32 + 1 + 1 + 1) * 4 * num_outputs;
+	}
 
 	*fee_estimate = AMOUNT_SAT(0);
 	*satoshi_in = AMOUNT_SAT(0);
