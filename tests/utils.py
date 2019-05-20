@@ -317,6 +317,7 @@ class BitcoinD(TailableProc):
     def get_proxy(self):
         proxy = BitcoinRpcProxy(self)
         self.proxies.append(proxy)
+        proxy.start()
         return proxy
 
     def generate_block(self, numblocks=1):
@@ -384,8 +385,6 @@ class LightningD(TailableProc):
         return self.cmd_prefix + [self.executable] + opts
 
     def start(self):
-        self.rpcproxy.start()
-
         self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
         TailableProc.start(self)
         self.wait_for_log("Server started with public key")
