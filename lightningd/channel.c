@@ -332,8 +332,6 @@ void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
 		       enum channel_state state)
 {
-	bool was_active = channel_active(channel);
-
 	log_info(channel->log, "State changed from %s to %s",
 		 channel_state_name(channel), channel_state_str(state));
 	if (channel->state != old_state)
@@ -344,11 +342,6 @@ void channel_set_state(struct channel *channel,
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
-
-	/* If openingd is running, it might want to know we're no longer
-	 * active */
-	if (was_active && !channel_active(channel))
-		opening_peer_no_active_channels(channel->peer);
 }
 
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
