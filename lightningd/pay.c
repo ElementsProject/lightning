@@ -78,10 +78,10 @@ json_add_payment_fields(struct json_stream *response,
 	json_add_u64(response, "id", t->id);
 	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
 	json_add_node_id(response, "destination", &t->destination);
-	json_add_amount_msat(response, t->msatoshi,
-			     "msatoshi", "amount_msat");
-	json_add_amount_msat(response, t->msatoshi_sent,
-			     "msatoshi_sent", "amount_sent_msat");
+	json_add_amount_msat_compat(response, t->msatoshi,
+				    "msatoshi", "amount_msat");
+	json_add_amount_msat_compat(response, t->msatoshi_sent,
+				    "msatoshi_sent", "amount_sent_msat");
 	json_add_u64(response, "created_at", t->timestamp);
 
 	switch (t->status) {

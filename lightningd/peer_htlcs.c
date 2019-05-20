@@ -1904,15 +1904,15 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 
 		json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 		json_add_short_channel_id(response, "out_channel", &cur->channel_out);
-		json_add_amount_msat(response,
-				     cur->msat_in,
-				     "in_msatoshi", "in_msat");
-		json_add_amount_msat(response,
-				     cur->msat_out,
-				     "out_msatoshi",  "out_msat");
-		json_add_amount_msat(response,
-				     cur->fee,
-				     "fee", "fee_msat");
+		json_add_amount_msat_compat(response,
+					    cur->msat_in,
+					    "in_msatoshi", "in_msat");
+		json_add_amount_msat_compat(response,
+					    cur->msat_out,
+					    "out_msatoshi",  "out_msat");
+		json_add_amount_msat_compat(response,
+					    cur->fee,
+					    "fee", "fee_msat");
 		json_add_string(response, "status", forward_status_name(cur->status));
 
 		if(cur->failcode != 0) {
