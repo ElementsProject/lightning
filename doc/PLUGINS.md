@@ -40,7 +40,7 @@ methods are required:
  - `getmanifest` asks the plugin for command line options and JSON-RPC
    commands that should be passed through
  - `init` is called after the command line options have been
-   parsed and passes them through with the real values. This is also
+   parsed and passes them through with the real values (if specified). This is also
    the signal that `lightningd`'s JSON-RPC over Unix Socket is now up
    and ready to receive incoming requests from the plugin.
 

@@ -1000,9 +1000,8 @@ static void plugin_config(struct plugin *plugin)
 	list_for_each(&plugin->plugin_opts, opt, list) {
 		/* Trim the `--` that we added before */
 		name = opt->name + 2;
-		if (!opt->value)
-			opt->value = "";
-		json_add_string(req->stream, name, opt->value);
+		if (opt->value)
+			json_add_string(req->stream, name, opt->value);
 	}
 	json_object_end(req->stream); /* end of .params.options */
 
