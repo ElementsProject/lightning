@@ -1309,3 +1309,57 @@ def test_newaddr(node_factory):
     both = l1.rpc.newaddr('all')
     assert both['p2sh-segwit'].startswith('2')
     assert both['bech32'].startswith('bcrt1')
+
+
+def test_unit_btc(node_factory):
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+    l3 = node_factory.get_node()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fundwallet(10**6)
+    l2.fundwallet(10**9)
+    l3.fundwallet(10**6)
+
+    l1.rpc.fundchannel(l2.info['id'], '0.001btc')['tx']
+    sats = l2.rpc.listfunds()['channels'][0]['channel_total_sat']
+    assert sats == 100000
+
+    # m-schmoock: common/amount.c currently does not support btc w/o decimal
+    #
+    # l2.rpc.fundchannel(l3.info['id'], '1btc')['tx']
+    # sats = l3.rpc.listfunds()['channels'][0]['channel_total_sat']
+    # assert sats == 10**8
+
+    addr = l1.rpc.newaddr()['bech32']
+    txid = l3.rpc.withdraw(addr, '0.001btc')['txid']
+    assert len(txid) > 0
+
+    payment_hash = l1.rpc.invoice('0.001btc', 'foo', 'bar')['payment_hash']
+    assert len(payment_hash) > 0
+
+
+def test_unit_mbtc(node_factory):
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+    l3 = node_factory.get_node()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fundwallet(10**6)
+    l2.fundwallet(10**6)
+    l3.fundwallet(10**6)
+
+    l1.rpc.fundchannel(l2.info['id'], '1mbtc')
+    sats = l2.rpc.listfunds()['channels'][0]['channel_total_sat']
+    assert sats == 100000
+
+    l2.rpc.fundchannel(l3.info['id'], '0.1mbtc')
+    sats = l3.rpc.listfunds()['channels'][0]['channel_total_sat']
+    assert sats == 10000
+
+    addr = l1.rpc.newaddr()['bech32']
+    txid = l3.rpc.withdraw(addr, '0.1mbtc')['txid']
+    assert len(txid) > 0
+
+    payment_hash = l1.rpc.invoice('0.1mbtc', 'foo', 'bar')['payment_hash']
+    assert len(payment_hash) > 0
