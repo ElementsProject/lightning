@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `invoice` expiry defaults to 7 days, and can have s/m/h/d/w suffixes.
 - Config: Increased default amount for minimal channel capacity from 1k sat to 10k sat.
 - Build: Non-developer builds are now done with "-Og" optimization.
+- JSON API: `pay` will no longer return failure until it is no longer retrying; previously it could "timeout" but still make the payment.
 
 ### Deprecated
 

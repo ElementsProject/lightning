@@ -2,12 +2,12 @@
 .\"     Title: lightning-pay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/23/2019
+.\"      Date: 05/22/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-PAY" "7" "02/23/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-PAY" "7" "05/22/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -40,7 +40,7 @@ The \fIlabel\fR field is used to attach a label to payments, and is returned in 
 .sp
 The response will occur when the payment fails or succeeds\&. Once a payment has succeeded, calls to \fBpay\fR with the same \fIbolt11\fR will succeed immediately\&.
 .sp
-The command will keep finding routes and retrying the payment until it succeeds, or the given \fIretry_for\fR seconds passes\&. Note that the command may stop retrying while a pending payment is ongoing, which you need to monitor with \fBlistpays\fR\&. \fIretry_for\fR defaults to 60 seconds and can only be an integer\&.
+Until \fIretry_for\fR seconds passes (default: 60), the command will keep finding routes and retrying the payment\&. However, a payment may be delayed for up to maxdelay blocks by another node; clients should be prepared for this worst case\&.
 .sp
 When using \fIlightning\-cli\fR, you may skip optional parameters by using \fInull\fR\&. Alternatively, use \fB\-k\fR option to provide parameters by name\&.
 .SH "RANDOMIZATION"
@@ -78,7 +78,7 @@ Both randomizations respect \fImaxfeepercent\fR\&. Route randomization plus the 
 .sp
 On success, this returns the payment \fIpreimage\fR which hashes to the \fIpayment_hash\fR to prove that the payment was successful\&. It will also return, a \fIgetroute_tries\fR and a \fIsendpay_tries\fR statistics for the number of times it internally called \fBgetroute\fR and \fBsendpay\fR\&.
 .sp
-On error, if the error occurred from a node other than the final destination, the route table will be updated so that getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
+You can monitor the progress and retries of a payment using the lightning\-paystatus(7) command\&.
 .sp
 The following error codes may occur:
 .sp
@@ -91,19 +91,6 @@ The following error codes may occur:
 .IP \(bu 2.3
 .\}
 \-1\&. Catchall nonspecific error\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-200\&. Payment timed out while a payment is in progress\&. Monitor the status of that payment with
-\fIlistpays\fR
-command\&.
 .RE
 .sp
 .RS 4

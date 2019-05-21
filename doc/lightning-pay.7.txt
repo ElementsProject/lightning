@@ -37,11 +37,10 @@ The response will occur when the payment fails or succeeds.  Once a
 payment has succeeded, calls to *pay* with the same 'bolt11' will
 succeed immediately.
 
-The command will keep finding routes and retrying the payment until
-it succeeds, or the given 'retry_for' seconds passes.
-Note that the command may stop retrying while a pending payment is
-ongoing, which you need to monitor with *listpays*.
-'retry_for' defaults to 60 seconds and can only be an integer.
+Until 'retry_for' seconds passes (default: 60), the command will keep
+finding routes and retrying the payment.  However, a payment may be
+delayed for up to `maxdelay` blocks by another node; clients should be
+prepared for this worst case.
 
 When using 'lightning-cli', you may skip optional parameters by using
 'null'.
@@ -82,16 +81,12 @@ It will also return, a 'getroute_tries' and a 'sendpay_tries'
 statistics for the number of times it internally called *getroute*
 and *sendpay*.
 
-On error, if the error occurred from a node other than the final
-destination, the route table will be updated so that getroute(7)
-should return an alternate route (if any).  An error from the final
-destination implies the payment should not be retried.
+You can monitor the progress and retries of a payment using the
+lightning-paystatus(7) command.
 
 The following error codes may occur:
 
 * -1. Catchall nonspecific error.
-* 200. Payment timed out while a payment is in progress. Monitor
-  the status of that payment with 'listpays' command.
 * 201. Already paid with this 'hash' using different amount or
   destination.
 * 203. Permanent failure at destination. The 'data' field of
