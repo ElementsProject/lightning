@@ -921,33 +921,6 @@ static const struct json_command delexpiredinvoice_command = {
 };
 AUTODATA(json_command, &delexpiredinvoice_command);
 
-static struct command_result *json_autocleaninvoice(struct command *cmd,
-						    const char *buffer,
-						    const jsmntok_t *obj UNNEEDED,
-						    const jsmntok_t *params)
-{
-	u64 *cycle;
-	u64 *exby;
-
-	if (!param(cmd, buffer, params,
-		   p_opt_def("cycle_seconds", param_u64, &cycle, 3600),
-		   p_opt_def("expired_by", param_u64, &exby, 86400),
-		   NULL))
-		return command_param_failed();
-
-	wallet_invoice_autoclean(cmd->ld->wallet, *cycle, *exby);
-
-	return command_success(cmd, null_response(cmd));
-}
-static const struct json_command autocleaninvoice_command = {
-	"autocleaninvoice",
-	json_autocleaninvoice,
-	"Set up autoclean of expired invoices. "
-	"Perform cleanup every {cycle_seconds} (default 3600), or disable autoclean if 0. "
-	"Clean up expired invoices that have expired for {expired_by} seconds (default 86400). "
-};
-AUTODATA(json_command, &autocleaninvoice_command);
-
 static struct command_result *json_waitanyinvoice(struct command *cmd,
 						  const char *buffer,
 						  const jsmntok_t *obj UNNEEDED,
