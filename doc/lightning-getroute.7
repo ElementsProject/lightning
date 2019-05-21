@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lightning-getroute
 .\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 03/01/2019
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 05/22/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-GETROUTE" "7" "03/01/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-GETROUTE" "7" "05/22/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,7 +36,7 @@ lightning-getroute \- Command for routing a payment (low\-level)\&.
 .sp
 The \fBgetroute\fR RPC command attempts to find the best route for the payment of \fImsatoshi\fR to lightning node \fIid\fR, such that the payment will arrive at \fIid\fR with \fIcltv\fR\-blocks to spare (default 9)\&.
 .sp
-\fImsatoshi\fR is in millisatoshi precision; it can be a whole number, or a whole number ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places ending in \fIsat\fR, or a number with 1 to 11 decimal places ending in \fIbtc\fR\&.
+\fImsatoshi\fR is in millisatoshi precision; it can be a whole number, or a whole number ending in \fImsat\fR, \fIsat\fR or \fImbtc\fR, or a decimal number ending in \fIsat\fR, \fImbtc\fR or \fIbtc\fR\&.
 .sp
 There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck in a delayed output if a node goes down during the process\&. The \fIriskfactor\fR floating\-point field controls this tradeoff; it is the annual cost of your funds being stuck (as a percentage)\&.
 .sp

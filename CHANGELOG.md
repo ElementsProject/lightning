@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Protocol: we now enforce `option_upfront_shutdown_script` if a peer negotiates it.
 - JSON API: `listforwards` now includes the local_failed forwards with failcode (Issue [#2435](https://github.com/ElementsProject/lightning/issues/2435), PR [#2524](https://github.com/ElementsProject/lightning/pull/2524))
 - Config: Added a default plugin directory : `lightning_dir/plugins`. Each plugin directory it contains will be added to lightningd on startup.
+- JSON API: Amounts can now also be given in milli-bitcoin, i.e `42mbtc`.
 
 ### Changed
 

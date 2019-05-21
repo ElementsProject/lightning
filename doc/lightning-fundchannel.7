@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lightning-fundchannel
-.\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 05/24/2019
+.\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 05/26/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-FUNDCHANN" "7" "05/24/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-FUNDCHANN" "7" "05/26/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,7 +38,7 @@ The \fBfundchannel\fR RPC command opens a payment channel with a peer by committ
 .sp
 \fIid\fR is the peer id obtained from \fBconnect\fR\&.
 .sp
-\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds (or 16777215 satoshi if more is available)\&. Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in \fIsat\fR, a whole number ending in \fI000msat\fR, or a number with 1 to 8 decimal places ending in \fIbtc\fR\&. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi\&.
+\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds (or 16777215 satoshi if more is available)\&. Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in \fIsat\fR or \fImbtc\fR, a whole number ending in \fI000msat\fR, or a decimal number ending in \fIbtc\fR or \fImbtc\fR\&. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi\&.
 .sp
 \fIfeerate\fR is an optional feerate used for the opening transaction and as initial feerate for commitment and HTLC transactions\&. It can be one of the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR (next 100 blocks or so) to use lightningd\(cqs internal estimates: \fInormal\fR is the default\&.
 .sp

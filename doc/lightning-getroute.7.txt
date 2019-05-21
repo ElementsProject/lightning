@@ -18,9 +18,8 @@ of 'msatoshi' to lightning node 'id', such that the payment will arrive
 at 'id' with 'cltv'-blocks to spare (default 9).
 
 'msatoshi' is in millisatoshi precision; it can be a whole number, or
-a whole number ending in 'msat' or 'sat', or a number with three
-decimal places ending in 'sat', or a number with 1 to 11 decimal
-places ending in 'btc'.
+a whole number ending in 'msat', 'sat' or 'mbtc', or a decimal number ending in
+'sat', 'mbtc' or 'btc'.
 
 There are two considerations for how good a route is: how low the
 fees are, and how long your payment will get stuck in a delayed output if a node goes down

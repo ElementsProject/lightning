@@ -40,9 +40,8 @@ This is intended to obscure payments by overpaying slightly at
 the destination;
 the actual target payment is what should be specified as the
 'msatoshi' argument.  'msatoshi' is in millisatoshi precision; it can
-be a whole number, or a whole number ending in 'msat' or 'sat', or a
-number with three decimal places ending in 'sat', or a number with 1
-to 11 decimal places ending in 'btc'.
+be a whole number, or a whole number ending in 'msat', 'sat' or 'mbtc', or a
+decimal number ending in 'sat', 'btc' or 'mbtc'.
 
 Once a payment has succeeded, calls to *sendpay* with the same 'payment_hash'
 but a different 'msatoshi' or destination will fail; this prevents

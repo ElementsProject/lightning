@@ -24,7 +24,9 @@ for the channel.
 
 'satoshi' is the amount in satoshis taken from the internal wallet to fund the channel.
 The string 'all' can be used to specify all available funds (or 16777215 satoshi if more is available).
-Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in 'sat', a whole number ending in '000msat', or a number with 1 to 8 decimal places ending in 'btc'.
+Otherwise, it is in satoshi precision; it can be a whole number, a whole number
+ending in 'sat' or 'mbtc', a whole number ending in '000msat', or a decimal
+number ending in 'btc' or 'mbtc'.
 The value cannot be less than the dust limit, currently set to 546, nor more
 than 16777215 satoshi.
 
