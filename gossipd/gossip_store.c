@@ -604,7 +604,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 				bad = "Bad channel_delete scid";
 				goto truncate;
 			}
-			tal_free(c);
+			free_chan(rstate, c);
 			stats[3]++;
 			break;
 		case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:

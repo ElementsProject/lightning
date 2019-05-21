@@ -197,6 +197,13 @@ int main(void)
 		last_fee = fee;
 	}
 
+	/* Since we omitted destructors on these, clean up manually */
+	u64 idx;
+	for (struct chan *chan = uintmap_first(&rstate->chanmap, &idx);
+	     chan;
+	     chan = uintmap_after(&rstate->chanmap, &idx))
+		free_chan(rstate, chan);
+
 	tal_free(tmpctx);
 	secp256k1_context_destroy(secp256k1_ctx);
 	return 0;

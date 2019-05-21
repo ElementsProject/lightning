@@ -220,7 +220,7 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 
 	/* These remove themselves from chans[]. */
 	while ((c = first_chan(node, &i)) != NULL)
-		tal_free(c);
+		free_chan(rstate, c);
 
 	/* Free htable if we need. */
 	if (node_uses_chan_map(node))
@@ -344,7 +344,9 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	}
 }
 
-static void destroy_chan(struct chan *chan, struct routing_state *rstate)
+/* We used to make this a tal_add_destructor2, but that costs 40 bytes per
+ * chan, and we only ever explicitly free it anyway. */
+void free_chan(struct routing_state *rstate, struct chan *chan)
 {
 	remove_chan_from_node(rstate, chan->nodes[0], chan);
 	remove_chan_from_node(rstate, chan->nodes[1], chan);
@@ -358,6 +360,7 @@ static void destroy_chan(struct chan *chan, struct routing_state *rstate)
 
 	/* Remove from local_disabled_map if it's there. */
 	chan_map_del(&rstate->local_disabled_map, chan);
+	tal_free(chan);
 }
 
 static void init_half_chan(struct routing_state *rstate,
@@ -416,8 +419,6 @@ struct chan *new_chan(struct routing_state *rstate,
 	init_half_chan(rstate, chan, !n1idx);
 
 	uintmap_add(&rstate->chanmap, scid->u64, chan);
-
-	tal_add_destructor2(chan, destroy_chan, rstate);
 	return chan;
 }
 
@@ -1395,7 +1396,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	}
 
 	/* Pretend it didn't exist, for the moment. */
-	tal_free(chan);
+	if (chan)
+		free_chan(rstate, chan);
 
 	uc = tal(rstate, struct unupdated_channel);
 	uc->channel_announce = tal_dup_arr(uc, u8, msg, tal_count(msg), 0);
@@ -2286,6 +2288,8 @@ void routing_failure(struct routing_state *rstate,
 		     enum onion_type failcode,
 		     const u8 *channel_update)
 {
+	struct chan **pruned = tal_arr(tmpctx, struct chan *, 0);
+
 	status_trace("Received routing failure 0x%04x (%s), "
 		     "erring node %s, "
 		     "channel %s/%u",
@@ -2331,7 +2335,7 @@ void routing_failure(struct routing_state *rstate,
 						    &node->id));
 			for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 				/* Set it up to be pruned. */
-				tal_steal(tmpctx, c);
+				tal_arr_expand(&pruned, c);
 			}
 		}
 	} else {
@@ -2356,9 +2360,13 @@ void routing_failure(struct routing_state *rstate,
 						    struct short_channel_id,
 						    scid));
 			/* Set it up to be deleted. */
-			tal_steal(tmpctx, chan);
+			tal_arr_expand(&pruned, chan);
 		}
 	}
+
+	/* Now free all the chans and maybe even nodes. */
+	for (size_t i = 0; i < tal_count(pruned); i++)
+		free_chan(rstate, pruned[i]);
 }
 
 
@@ -2367,7 +2375,7 @@ void route_prune(struct routing_state *rstate)
 	u64 now = gossip_time_now(rstate).ts.tv_sec;
 	/* Anything below this highwater mark ought to be pruned */
 	const s64 highwater = now - rstate->prune_timeout;
-	const tal_t *pruned = tal(NULL, char);
+	struct chan **pruned = tal_arr(tmpctx, struct chan *, 0);
 	struct chan *chan;
 	struct unupdated_channel *uc;
 	u64 idx;
@@ -2394,7 +2402,7 @@ void route_prune(struct routing_state *rstate)
 			    : now - chan->half[1].bcast.timestamp);
 
 			/* This may perturb iteration so do outside loop. */
-			tal_steal(pruned, chan);
+			tal_arr_expand(&pruned, chan);
 		}
 	}
 
@@ -2403,12 +2411,13 @@ void route_prune(struct routing_state *rstate)
 	     uc;
 	     uc = uintmap_after(&rstate->unupdated_chanmap, &idx)) {
 		if (uc->added.ts.tv_sec < highwater) {
-			tal_steal(pruned, uc);
+			tal_arr_expand(&pruned, chan);
 		}
 	}
 
-	/* This frees all the chans and maybe even nodes. */
-	tal_free(pruned);
+	/* Now free all the chans and maybe even nodes. */
+	for (size_t i = 0; i < tal_count(pruned); i++)
+		free_chan(rstate, pruned[i]);
 }
 
 #if DEVELOPER

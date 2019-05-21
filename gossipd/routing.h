@@ -54,6 +54,9 @@ struct chan {
 	struct amount_sat sat;
 };
 
+/* Use this instead of tal_free(chan)! */
+void free_chan(struct routing_state *rstate, struct chan *chan);
+
 /* A local channel can exist which isn't announced; normal channels are only
  * created once we have both an announcement *and* an update. */
 static inline bool is_chan_public(const struct chan *chan)
