@@ -1465,7 +1465,7 @@ def test_pay_retry(node_factory, bitcoind):
     # This should make it fail.
     exhaust_channel(l4, l5, scid45, 10**8)
 
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r'5 attempts'):
         l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11'])
 
 
@@ -1475,6 +1475,11 @@ def test_pay_routeboost(node_factory, bitcoind):
     # l1->l2->l3--private-->l4
     l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
+
+    # This should a "could not find a route" because that's true.
+    with pytest.raises(RpcError, match=r'Could not find a route'):
+        l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
+
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     scidl2l3 = l2.fund_channel(l3, 10**6)
 
