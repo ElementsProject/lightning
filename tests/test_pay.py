@@ -4,6 +4,7 @@ from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE
 
 
 import copy
+import concurrent.futures
 import pytest
 import random
 import re
@@ -1412,6 +1413,7 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_pay_retry(node_factory, bitcoind):
     """Make sure pay command retries properly. """
@@ -1459,8 +1461,26 @@ def test_pay_retry(node_factory, bitcoind):
     exhaust_channel(l2, l5, scid25)
     exhaust_channel(l3, l5, scid35)
 
+    def listpays_nofail(b11):
+        while True:
+            pays = l1.rpc.listpays(b11)['pays']
+            if len(pays) != 0:
+                if only_one(pays)['status'] == 'complete':
+                    return
+                assert only_one(pays)['status'] != 'failed'
+
+    inv = l5.rpc.invoice(10**8, 'test_retry', 'test_retry')
+
+    # Make sure listpays doesn't transiently show failure while pay
+    # is retrying.
+    executor = concurrent.futures.ThreadPoolExecutor()
+    fut = executor.submit(listpays_nofail, inv['bolt11'])
+
     # Pay l1->l5 should succeed via straight line (eventually)
-    l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
+    l1.rpc.pay(inv['bolt11'])
+
+    # This should be OK.
+    fut.result()
 
     # This should make it fail.
     exhaust_channel(l4, l5, scid45, 10**8)
