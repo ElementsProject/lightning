@@ -1125,6 +1125,10 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
 
     # Now, restart and manually reconnect end nodes (so they don't ignore HTLCs)
     # In fact, they'll fail them with WIRE_TEMPORARY_NODE_FAILURE.
+    # TODO Remove our reliance on HTLCs failing on startup and the need for
+    #      this plugin
+    nodes[0].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
+    nodes[-1].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
     nodes[0].restart()
     nodes[-1].restart()
 
@@ -1213,6 +1217,10 @@ def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
 
     # Now, restart and manually reconnect end nodes (so they don't ignore HTLCs)
     # In fact, they'll fail them with WIRE_TEMPORARY_NODE_FAILURE.
+    # TODO Remove our reliance on HTLCs failing on startup and the need for
+    #      this plugin
+    nodes[0].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
+    nodes[-1].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
     nodes[0].restart()
     nodes[-1].restart()
 

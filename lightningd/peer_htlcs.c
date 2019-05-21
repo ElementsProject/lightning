@@ -1978,6 +1978,7 @@ void htlcs_reconnect(struct lightningd *ld,
 	struct htlc_in *hin;
 	struct htlc_out *hout;
 	struct htlc_in_map unprocessed;
+	enum onion_type failcode;
 
 	/* Any HTLCs which happened to be incoming and weren't forwarded before
 	 * we shutdown/crashed: fail them now.
@@ -2037,9 +2038,17 @@ void htlcs_reconnect(struct lightningd *ld,
 	for (hin = htlc_in_map_first(&unprocessed, &ini); hin;
 	     hin = htlc_in_map_next(&unprocessed, &ini)) {
 		log_unusual(hin->key.channel->log,
-			    "Failing old unprocessed HTLC #%"PRIu64,
+			    "Replaying old unprocessed HTLC #%"PRIu64,
 			    hin->key.id);
-		fail_in_htlc(hin, WIRE_TEMPORARY_NODE_FAILURE, NULL, NULL);
+		if (!peer_accepted_htlc(hin->key.channel, hin->key.id, &failcode)) {
+			fail_in_htlc(hin,
+				     failcode != 0
+					 ? failcode
+					 : WIRE_TEMPORARY_NODE_FAILURE,
+				     NULL, NULL);
+		}  else if (failcode) {
+			fail_in_htlc(hin, failcode, NULL, NULL);
+		}
 	}
 
 	/* Don't leak memory! */
