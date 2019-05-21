@@ -407,14 +407,6 @@ static void config_register_opts(struct lightningd *ld)
 			       opt_set_bool_arg, opt_show_bool,
 			       &deprecated_apis,
 			       "Enable deprecated options, JSONRPC commands, fields, etc.");
-	opt_register_arg("--autocleaninvoice-cycle",
-			 opt_set_u64, opt_show_u64,
-			 &ld->ini_autocleaninvoice_cycle,
-			 "Perform cleanup of expired invoices every given seconds, or do not autoclean if 0");
-	opt_register_arg("--autocleaninvoice-expired-by",
-			 opt_set_u64, opt_show_u64,
-			 &ld->ini_autocleaninvoice_expiredby,
-			 "If expired invoice autoclean enabled, invoices that have expired for at least this given seconds are cleaned");
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
