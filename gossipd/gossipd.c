@@ -2806,9 +2806,9 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 		    "spent",
 		    type_to_string(msg, struct short_channel_id, &scid));
 		/* Freeing is sufficient since everything else is allocated off
-		 * of the channel and the destructor takes care of unregistering
+		 * of the channel and this takes care of unregistering
 		 * the channel */
-		tal_free(chan);
+		free_chan(rstate, chan);
 		/* We put a tombstone marker in the channel store, so we don't
 		 * have to replay blockchain spends on restart. */
 		gossip_store_add_channel_delete(rstate->broadcasts->gs, &scid);

@@ -131,9 +131,10 @@ static void add_connection(struct routing_state *rstate,
 	memcpy((char *)&scid + (!idx) * sizeof(to), &to, sizeof(to));
 
 	chan = get_channel(rstate, &scid);
-	if (!chan)
+	if (!chan) {
 		chan = new_chan(rstate, &scid, &nodes[from], &nodes[to],
 				AMOUNT_SAT(1000000));
+	}
 
 	c = &chan->half[idx];
 	c->base_fee = base_fee;
@@ -276,6 +277,13 @@ int main(int argc, char *argv[])
 	for (size_t i = 0; i < ARRAY_SIZE(route_lengths); i++)
 		if (route_lengths[i])
 			printf(" Length %zu: %zu\n", i, route_lengths[i]);
+
+	/* Since we omitted destructors on these, clean up manually */
+	u64 idx;
+	for (struct chan *chan = uintmap_first(&rstate->chanmap, &idx);
+	     chan;
+	     chan = uintmap_after(&rstate->chanmap, &idx))
+		free_chan(rstate, chan);
 
 	tal_free(tmpctx);
 	secp256k1_context_destroy(secp256k1_ctx);
