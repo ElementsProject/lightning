@@ -154,6 +154,16 @@ struct chan *next_chan(const struct node *node, struct chan_map_iter *i)
 	return chan_map_next(&node->chans.map, i);
 }
 
+static void destroy_routing_state(struct routing_state *rstate)
+{
+	/* Since we omitted destructors on these, clean up manually */
+	u64 idx;
+	for (struct chan *chan = uintmap_first(&rstate->chanmap, &idx);
+	     chan;
+	     chan = uintmap_after(&rstate->chanmap, &idx))
+		free_chan(rstate, chan);
+}
+
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
@@ -188,6 +198,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	} else
 		rstate->gossip_time = NULL;
 #endif
+	tal_add_destructor(rstate, destroy_routing_state);
 
 	return rstate;
 }
