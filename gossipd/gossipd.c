@@ -2133,11 +2133,13 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 	u8 *out;
 	const struct gossip_getchannels_entry **entries;
 	struct chan *chan;
-	struct short_channel_id *scid;
+	struct short_channel_id *scid, *prev;
 	struct node_id *source;
+	bool complete = true;
 
 	/* Note: scid is marked optional in gossip_wire.csv */
-	if (!fromwire_gossip_getchannels_request(msg, msg, &scid, &source))
+	if (!fromwire_gossip_getchannels_request(msg, msg, &scid, &source,
+						 &prev))
 		master_badmsg(WIRE_GOSSIP_GETCHANNELS_REQUEST, msg);
 
 	entries = tal_arr(tmpctx, const struct gossip_getchannels_entry *, 0);
@@ -2161,15 +2163,20 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 		u64 idx;
 
 		/* For the more general case, we just iterate through every
-		 * short channel id. */
-		for (chan = uintmap_first(&daemon->rstate->chanmap, &idx);
-		     chan;
-		     chan = uintmap_after(&daemon->rstate->chanmap, &idx)) {
+		 * short channel id, starting with previous if any (there is
+		 * no scid 0). */
+		idx = prev ? prev->u64 : 0;
+		while ((chan = uintmap_after(&daemon->rstate->chanmap, &idx))) {
 			append_channel(daemon->rstate, &entries, chan, NULL);
+			/* Limit how many we do at once. */
+			if (tal_count(entries) == 4096) {
+				complete = false;
+				break;
+			}
 		}
 	}
 
-	out = towire_gossip_getchannels_reply(NULL, entries);
+	out = towire_gossip_getchannels_reply(NULL, complete, entries);
 	daemon_conn_send(daemon->master, take(out));
 	return daemon_conn_read_next(conn, daemon->master);
 }
