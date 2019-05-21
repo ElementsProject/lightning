@@ -33,6 +33,8 @@ class Millisatoshi:
                 self.millisatoshis = int(v[0:-4])
             elif v.endswith("sat"):
                 self.millisatoshis = Decimal(v[0:-3]) * 1000
+            elif v.endswith("mbtc"):
+                self.millisatoshis = Decimal(v[0:-4]) * 1000 * 10**5
             elif v.endswith("btc"):
                 self.millisatoshis = Decimal(v[0:-3]) * 1000 * 10**8
             else:
@@ -62,6 +64,12 @@ class Millisatoshi:
         """
         return Decimal(self.millisatoshis) / 1000
 
+    def to_mbtc(self):
+        """
+        Return a Decimal representing the number of milli-bitcoin
+        """
+        return Decimal(self.millisatoshis) / 1000 / 10**5
+
     def to_btc(self):
         """
         Return a Decimal representing the number of bitcoin
@@ -70,16 +78,25 @@ class Millisatoshi:
 
     def to_satoshi_str(self):
         """
-        Return a string of form 1234sat or 1234.567sat.
+        Return a string of form '1234sat' or '1234.567sat'.
         """
         if self.millisatoshis % 1000:
             return '{:.3f}sat'.format(self.to_satoshi())
         else:
             return '{:.0f}sat'.format(self.to_satoshi())
 
+    def to_mbtc_str(self):
+        """
+        Return a string of form '42mbtc' or '0.42mbtc'.
+        """
+        if self.millisatoshis % 1000:
+            return '{:.8f}mbtc'.format(self.to_mbtc())
+        else:
+            return '{:.5f}mbtc'.format(self.to_mbtc())
+
     def to_btc_str(self):
         """
-        Return a string of form 12.34567890btc or 12.34567890123btc.
+        Return a string of form '12.34567890btc or '12.34567890123btc'.
         """
         if self.millisatoshis % 1000:
             return '{:.11f}btc'.format(self.to_btc())
