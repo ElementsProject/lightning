@@ -390,30 +390,51 @@ static void json_add_halfchan(struct json_stream *response,
 	json_object_end(response);
 }
 
+struct listchannels_info {
+	struct command *cmd;
+	struct json_stream *response;
+	struct short_channel_id *id;
+	struct node_id *source;
+};
+
 /* Called upon receiving a getchannels_reply from `gossipd` */
 static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
-				   const int *fds UNUSED, struct command *cmd)
+				    const int *fds UNUSED,
+				    struct listchannels_info *linfo)
 {
 	size_t i;
 	struct gossip_getchannels_entry **entries;
-	struct json_stream *response;
+	bool complete;
 
-	if (!fromwire_gossip_getchannels_reply(reply, reply, &entries)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Invalid reply from gossipd"));
+	if (!fromwire_gossip_getchannels_reply(reply, reply,
+					       &complete, &entries)) {
+		/* Shouldn't happen: just end json stream. */
+		log_broken(linfo->cmd->ld->log, "Invalid reply from gossipd");
+		was_pending(command_raw_complete(linfo->cmd, linfo->response));
 		return;
 	}
 
-	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
-	json_array_start(response, "channels");
 	for (i = 0; i < tal_count(entries); i++) {
-		json_add_halfchan(response, entries[i], 0);
-		json_add_halfchan(response, entries[i], 1);
+		json_add_halfchan(linfo->response, entries[i], 0);
+		json_add_halfchan(linfo->response, entries[i], 1);
 	}
-	json_array_end(response);
-	json_object_end(response);
-	was_pending(command_success(cmd, response));
+
+	/* More coming?  Ask from this point on.. */
+	if (!complete) {
+		u8 *req;
+		assert(tal_count(entries) != 0);
+		req = towire_gossip_getchannels_request(linfo->cmd,
+							linfo->id,
+							linfo->source,
+							&entries[i-1]
+							->short_channel_id);
+		subd_req(linfo->cmd->ld->gossip, linfo->cmd->ld->gossip,
+			 req, -1, 0, json_listchannels_reply, linfo);
+	} else {
+		json_array_end(linfo->response);
+		json_object_end(linfo->response);
+		was_pending(command_success(linfo->cmd, linfo->response));
+	}
 }
 
 static struct command_result *json_listchannels(struct command *cmd,
@@ -422,21 +443,29 @@ static struct command_result *json_listchannels(struct command *cmd,
 						const jsmntok_t *params)
 {
 	u8 *req;
-	struct short_channel_id *id;
-	struct node_id *source;
+	struct listchannels_info *linfo = tal(cmd, struct listchannels_info);
 
+	linfo->cmd = cmd;
 	if (!param(cmd, buffer, params,
-		   p_opt("short_channel_id", param_short_channel_id, &id),
-		   p_opt("source", param_node_id, &source),
+		   p_opt("short_channel_id", param_short_channel_id, &linfo->id),
+		   p_opt("source", param_node_id, &linfo->source),
 		   NULL))
 		return command_param_failed();
 
-	if (id && source)
+	if (linfo->id && linfo->source)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Cannot specify both source and short_channel_id");
-	req = towire_gossip_getchannels_request(cmd, id, source);
+
+	/* Start JSON response, then we stream. */
+	linfo->response = json_stream_success(cmd);
+	json_object_start(linfo->response, NULL);
+	json_array_start(linfo->response, "channels");
+
+	req = towire_gossip_getchannels_request(cmd, linfo->id, linfo->source,
+						NULL);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
-		 req, -1, 0, json_listchannels_reply, cmd);
+		 req, -1, 0, json_listchannels_reply, linfo);
+
 	return command_still_pending(cmd);
 }
 
