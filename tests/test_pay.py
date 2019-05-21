@@ -1413,7 +1413,6 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_pay_retry(node_factory, bitcoind):
     """Make sure pay command retries properly. """

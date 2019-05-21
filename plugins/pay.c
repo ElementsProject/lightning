@@ -1115,6 +1115,20 @@ static const jsmntok_t *copy_member(char **ret,
 	return m;
 }
 
+static bool attempt_ongoing(const char *buf, const jsmntok_t *b11)
+{
+	struct pay_status *ps;
+	struct pay_attempt *attempt;
+
+	list_for_each(&pay_status, ps, list) {
+		if (!json_tok_streq(buf, b11, ps->bolt11))
+			continue;
+		attempt = &ps->attempts[tal_count(ps->attempts)-1];
+		return attempt->result == NULL && attempt->failure == NULL;
+	}
+	return false;
+}
+
 static struct command_result *listsendpays_done(struct command *cmd,
 						const char *buf,
 						const jsmntok_t *result,
@@ -1132,7 +1146,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 	ret = tal_fmt(cmd, "{ 'pays': [");
 	json_for_each_arr(i, t, arr) {
-		const jsmntok_t *status;
+		const jsmntok_t *status, *b11;
 
 		if (some)
 			tal_append_fmt(&ret, ",\n");
@@ -1140,7 +1154,8 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 		tal_append_fmt(&ret, "{");
 		/* Old payments didn't have bolt11 field */
-		if (!copy_member(&ret, buf, t, "bolt11", ",")) {
+		b11 = copy_member(&ret, buf, t, "bolt11", ",");
+		if (!b11) {
 			if (b11str) {
 				/* If it's a single query, we can fake it */
 				tal_append_fmt(&ret, "'bolt11': '%s',", b11str);
@@ -1151,9 +1166,19 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			}
 		}
 
-		status = copy_member(&ret, buf, t, "status", ",");
-		if (status && json_tok_streq(buf, status, "complete"))
-			copy_member(&ret, buf, t, "payment_preimage", ",");
+		/* listsendpays might say it failed, but we're still retrying */
+		status = json_get_member(buf, t, "status");
+		if (status) {
+			if (json_tok_streq(buf, status, "failed")
+			    && attempt_ongoing(buf, b11)) {
+				tal_append_fmt(&ret, "'status': 'pending',");
+			} else {
+				copy_member(&ret, buf, t, "status", ",");
+				if (json_tok_streq(buf, status, "complete"))
+					copy_member(&ret, buf, t,
+						    "payment_preimage", ",");
+			}
+		}
 		copy_member(&ret, buf, t, "label", ",");
 		copy_member(&ret, buf, t, "amount_sent_msat", "");
 		tal_append_fmt(&ret, "}");
