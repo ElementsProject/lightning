@@ -7,7 +7,9 @@
 #include <stdbool.h>
 
 #define MSAT_PER_SAT ((u64)1000)
+#define SAT_PER_MBTC ((u64)100000)
 #define SAT_PER_BTC ((u64)100000000)
+#define MSAT_PER_MBTC (MSAT_PER_SAT * SAT_PER_MBTC)
 #define MSAT_PER_BTC (MSAT_PER_SAT * SAT_PER_BTC)
 
 /* Use these to wrap amounts, for typesafety.  Please use ops where possible,
@@ -139,6 +141,7 @@ const char *fmt_amount_sat(const tal_t *ctx, const struct amount_sat *sat);
  *  [0-9]+ => millisatoshi.
  *  [0-9]+msat => millisatoshi.
  *  [0-9]+sat => *1000 -> millisatopshi.
+ *  [0-9]+.[0-9]{1,8}mbtc => millisatoshi.
  *  [0-9]+.[0-9]{1,11}btc => millisatoshi.
  */
 bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen);
@@ -147,6 +150,7 @@ bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen);
  *  [0-9]+ => satoshi.
  *  [0-9]+sat => satoshi.
  *  [0-9]+000msat => satoshi.
+ *  [0-9]+.[0-9]{1,5}mbtc => satoshi.
  *  [0-9]+.[0-9]{1,8}btc => satoshi.
  */
 bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen);
