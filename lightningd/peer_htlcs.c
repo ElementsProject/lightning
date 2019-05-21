@@ -807,10 +807,18 @@ REGISTER_PLUGIN_HOOK(htlc_accepted, htlc_accepted_hook_callback,
 		     htlc_accepted_hook_serialize,
 		     struct htlc_accepted_hook_payload *);
 
-/* Everyone is committed to this htlc of theirs */
-static bool peer_accepted_htlc(struct channel *channel,
-			       u64 id,
-			       enum onion_type *failcode)
+/**
+ * Everyone is committed to this htlc of theirs
+ *
+ * @param channel: The channel this HTLC was accepted from.
+ * @param id: the ID of the HTLC we accepted
+ * @param replay: Are we loading from the database and therefore should not
+ *        perform the transition to RCVD_ADD_ACK_REVOCATION?
+ * @param[out] failcode: If we decide to fail right away this will be set to a
+ *        non-zero failcode.
+ */
+static bool peer_accepted_htlc(struct channel *channel, u64 id,
+			       bool replay, enum onion_type *failcode)
 {
 	struct htlc_in *hin;
 	struct route_step *rs;
@@ -825,7 +833,7 @@ static bool peer_accepted_htlc(struct channel *channel,
 		return false;
 	}
 
-	if (!htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION))
+	if (!replay && !htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION))
 		return false;
 	htlc_in_check(hin, __func__);
 
@@ -1558,7 +1566,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	for (i = 0; i < tal_count(changed); i++) {
 		/* If we're doing final accept, we need to forward */
 		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
-			if (!peer_accepted_htlc(channel, changed[i].id,
+			if (!peer_accepted_htlc(channel, changed[i].id, false,
 						&failcodes[i]))
 				return;
 		} else {
@@ -2040,7 +2048,7 @@ void htlcs_reconnect(struct lightningd *ld,
 		log_unusual(hin->key.channel->log,
 			    "Replaying old unprocessed HTLC #%"PRIu64,
 			    hin->key.id);
-		if (!peer_accepted_htlc(hin->key.channel, hin->key.id, &failcode)) {
+		if (!peer_accepted_htlc(hin->key.channel, hin->key.id, true, &failcode)) {
 			fail_in_htlc(hin,
 				     failcode != 0
 					 ? failcode
