@@ -199,6 +199,12 @@ static struct command_result *next_routehint(struct command *cmd,
 		return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
 				    "%s", pc->expensive_route);
 
+	if (tal_count(pc->ps->attempts) > 1)
+		return command_fail(cmd, PAY_STOPPED_RETRYING,
+				    "Ran out of routes to try after"
+				    " %zu attempts: see paystatus",
+				    tal_count(pc->ps->attempts));
+
 	return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
 				    "Could not find a route");
 }
