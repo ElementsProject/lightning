@@ -83,16 +83,6 @@ struct command_result *command_param_failed(void)
 	return &complete;
 }
 
-void NORETURN plugin_err(const char *fmt, ...)
-{
-	va_list ap;
-
-	/* FIXME: log */
-	va_start(ap, fmt);
-	errx(1, "%s", tal_vfmt(NULL, fmt, ap));
-	va_end(ap);
-}
-
 /* Realloc helper for tal membufs */
 static void *membuf_tal_realloc(struct membuf *mb, void *rawelems,
 				size_t newsize)
@@ -623,6 +613,46 @@ struct plugin_timer *plugin_timer(struct plugin_conn *rpc, struct timerel t,
 	timer_addrel(&timers, &timer->timer, t);
 	tal_add_destructor(timer, destroy_plugin_timer);
 	return timer;
+}
+
+static void plugin_logv(enum log_level l, const char *fmt, va_list ap)
+{
+	char *message;
+
+	printf_json(STDOUT_FILENO,
+		    "{ 'jsonrpc': '2.0', "
+		    "'method': 'log', "
+		    "'params': { 'level': '%s', 'message': \"",
+		    l == LOG_DBG ? "debug"
+		    : l == LOG_INFORM ? "info"
+		    : l == LOG_UNUSUAL ? "warn"
+		    : "error");
+
+	message = tal_vfmt(NULL, fmt, ap);
+	write_all(STDOUT_FILENO, message, strlen(message));
+	printf_json(STDOUT_FILENO, "\" } }\n\n");
+	tal_free(message);
+}
+
+void NORETURN plugin_err(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	plugin_logv(LOG_BROKEN, fmt, ap);
+	va_end(ap);
+	va_start(ap, fmt);
+	errx(1, "%s", tal_vfmt(NULL, fmt, ap));
+	va_end(ap);
+}
+
+void plugin_log(enum log_level l, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	plugin_logv(l, fmt, ap);
+	va_end(ap);
 }
 
 void plugin_main(char *argv[],
