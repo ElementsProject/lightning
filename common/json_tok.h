@@ -64,12 +64,12 @@ struct command_result *param_u64(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 uint64_t **num);
 
-/* Extra msatoshi amount from this string */
+/* Extract msatoshi amount from this string */
 struct command_result *param_msat(struct command *cmd, const char *name,
 				  const char *buffer, const jsmntok_t *tok,
 				  struct amount_msat **msat);
 
-/* Extra satoshi amount from this string */
+/* Extract satoshi amount from this string */
 struct command_result *param_sat(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 struct amount_sat **sat);
