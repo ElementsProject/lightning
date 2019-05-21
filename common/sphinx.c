@@ -445,8 +445,8 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 
 #if EXPERIMENTAL_FEATURES
 	/* Read the realm byte and extract the number of framse */
-	step->realm = src[0] & 0x0F;
-	step->payload_frames = (src[0] >> 4) + 1;
+	step->realm = src[0] & 0x07;
+	step->payload_frames = (src[0] >> 3) + 1;
 #else
 	step->realm = src[0];
 	step->payload_frames = 1;
