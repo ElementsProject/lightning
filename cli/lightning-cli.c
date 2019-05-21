@@ -1,6 +1,8 @@
 /*
  * Helper to submit via JSON-RPC and get back response.
  */
+#include "config.h"
+#include <assert.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -265,11 +267,45 @@ static void print_json(const char *str, const jsmntok_t *tok, const char *indent
 	abort();
 }
 
+/* Always returns a positive number < len.  len must be > 0! */
+static size_t read_nofail(int fd, void *buf, size_t len)
+{
+	ssize_t i;
+	assert(len > 0);
+
+	i = read(fd, buf, len);
+	if (i == 0)
+		errx(ERROR_TALKING_TO_LIGHTNINGD,
+		     "reading response: socket closed");
+	else if (i < 0)
+		err(ERROR_TALKING_TO_LIGHTNINGD, "reading response");
+	return i;
+}
+
+/* We rely on the fact that lightningd terminates all JSON RPC responses with
+ * "\n\n", so we can stream even if we can't parse. */
+static void oom_dump(int fd, char *resp, size_t resp_len, size_t off)
+{
+	warnx("Out of memory: sending raw output");
+
+	/* Note: resp does not already end in '\n\n', and resp_len is > 0 */
+	do {
+		/* Keep last char, to avoid splitting \n\n */
+		write_all(STDOUT_FILENO, resp, off-1);
+		resp[0] = resp[off-1];
+		off = 1 + read_nofail(fd, resp + 1, resp_len - 1);
+	} while (resp[off-2] != '\n' || resp[off-1] != '\n');
+	write_all(STDOUT_FILENO, resp, off-1);
+	/* We assume giant answer means "success" */
+	exit(0);
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
 
-	int fd, i, off;
+	int fd, i;
+	size_t off;
 	const char *method;
 	char *cmd, *resp, *idstr, *rpc_filename;
 	struct sockaddr_un addr;
@@ -282,6 +318,7 @@ int main(int argc, char *argv[])
 	enum format format = DEFAULT_FORMAT;
 	enum input input = DEFAULT_INPUT;
 	char *command = NULL;
+	size_t resp_len, num_toks;
 
 	err_set_progname(argv[0]);
 	jsmn_init(&parser);
@@ -392,15 +429,21 @@ int main(int argc, char *argv[])
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing command");
 
 	/* Start with 1000 characters, 100 tokens. */
-	resp = tal_arr(ctx, char, 1000);
-	toks = tal_arr(ctx, jsmntok_t, 100);
+	resp_len = 1000;
+	resp = malloc(resp_len);
+	num_toks = 100;
+	toks = malloc(sizeof(jsmntok_t) * num_toks);
+
 	off = 0;
 	parserr = 0;
 	while (parserr <= 0) {
 		/* Read more if parser says, or we have 0 tokens. */
 		if (parserr == 0 || parserr == JSMN_ERROR_PART) {
-			i = read(fd, resp + off, tal_count(resp) - 1 - off);
-			if (i <= 0)
+			ssize_t i = read(fd, resp + off, resp_len - 1 - off);
+			if (i == 0)
+				errx(ERROR_TALKING_TO_LIGHTNINGD,
+				     "reading response: socket closed");
+			else if (i < 0)
 				err(ERROR_TALKING_TO_LIGHTNINGD,
 				    "reading response");
 			off += i;
@@ -409,20 +452,32 @@ int main(int argc, char *argv[])
 		}
 
 		/* (Continue) parsing */
-		parserr = jsmn_parse(&parser, resp, off, toks, tal_count(toks));
+		parserr = jsmn_parse(&parser, resp, off, toks, num_toks);
 
 		switch (parserr) {
 		case JSMN_ERROR_INVAL:
 			errx(ERROR_TALKING_TO_LIGHTNINGD,
 			     "Malformed response '%s'", resp);
-		case JSMN_ERROR_NOMEM:
+		case JSMN_ERROR_NOMEM: {
 			/* Need more tokens, double it */
-			tal_resize(&toks, tal_count(toks) * 2);
+			jsmntok_t *newtoks = realloc(toks,
+						     sizeof(jsmntok_t)
+						     * num_toks * 2);
+			if (!newtoks)
+				oom_dump(fd, resp, resp_len, off);
+			toks = newtoks;
+			num_toks *= 2;
 			break;
+		}
 		case JSMN_ERROR_PART:
 			/* Need more data: make room if necessary */
-			if (off == tal_count(resp) - 1)
-				tal_resize(&resp, tal_count(resp) * 2);
+			if (off == resp_len - 1) {
+				char *newresp = realloc(resp, resp_len * 2);
+				if (!newresp)
+					oom_dump(fd, resp, resp_len, off);
+				resp = newresp;
+				resp_len *= 2;
+			}
 			break;
 		}
 	}

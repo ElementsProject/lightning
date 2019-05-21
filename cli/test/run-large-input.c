@@ -13,6 +13,8 @@ int test_connect(int sockfd, const struct sockaddr *addr,
 		 socklen_t addrlen);
 int test_getpid(void);
 int test_printf(const char *format, ...);
+void *test_malloc(size_t n);
+void *test_realloc(void *p, size_t n);
 
 #define main test_main
 #define read test_read
@@ -20,6 +22,8 @@ int test_printf(const char *format, ...);
 #define connect test_connect
 #define getpid test_getpid
 #define printf test_printf
+#define malloc test_malloc
+#define realloc test_realloc
 
   #include "../lightning-cli.c"
 #undef main
@@ -54,6 +58,17 @@ int test_printf(const char *fmt UNUSED, ...)
 
 static char *response;
 static size_t response_off, max_read_return;
+
+void *test_malloc(size_t n)
+{
+	return tal_arr(response, u8, n);
+}
+
+void *test_realloc(void *p, size_t n)
+{
+	tal_resize(&p, n);
+	return p;
+}
 
 ssize_t test_read(int fd UNUSED, void *buf, size_t len)
 {
