@@ -1,4 +1,5 @@
 from fixtures import *  # noqa: F401,F403
+from flaky import flaky
 from lightning import RpcError
 from utils import only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND, SLOW_MACHINE
 
@@ -1493,6 +1494,7 @@ def test_shutdown(node_factory):
     l1.rpc.stop()
 
 
+@flaky
 @unittest.skipIf(not DEVELOPER, "needs to set upfront_shutdown_script")
 def test_option_upfront_shutdown_script(node_factory, bitcoind):
     l1 = node_factory.get_node(start=False)
