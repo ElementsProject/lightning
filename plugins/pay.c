@@ -273,7 +273,7 @@ static struct command_result *sendpay_done(struct command *cmd,
 {
 	return send_outreq(cmd, "waitsendpay",
 			   waitsendpay_done, waitsendpay_error, pc,
-			   "'payment_hash': '%s', 'timeout': 60",
+			   "'payment_hash': '%s'",
 			   pc->payment_hash);
 }
 
