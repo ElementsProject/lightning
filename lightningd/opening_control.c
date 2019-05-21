@@ -282,6 +282,13 @@ static void funding_broadcast_failed_or_success(struct channel *channel,
 	}
 }
 
+static void opening_funder_start_finished(struct subd *openingd, const u8 *resp,
+					  const int *fds,
+					  struct funding_channel *fc)
+{
+	// todo: this.
+}
+
 static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
@@ -889,7 +896,15 @@ static unsigned int openingd_msg(struct subd *openingd,
 			return 3;
 		opening_funder_finished(openingd, msg, fds, uc->fc);
 		return 0;
-
+	case WIRE_OPENING_FUNDER_START_REPLY:
+		if (!uc->fc) {
+			log_broken(openingd->log, "Unexpected FUNDER_START_REPLY %s",
+				   tal_hex(tmpctx, msg));
+			tal_free(openingd);
+			return 0;
+		}
+		opening_funder_start_finished(openingd, msg, fds, uc->fc);
+		return 0;
 	case WIRE_OPENING_FUNDER_FAILED:
 		if (!uc->fc) {
 			log_broken(openingd->log, "Unexpected FUNDER_FAILED %s",
@@ -913,6 +928,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	/* We send these! */
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER:
+	case WIRE_OPENING_FUNDER_START:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_DEV_MEMLEAK:
 	/* Replies never get here */
@@ -987,6 +1003,93 @@ void peer_start_openingd(struct peer *peer,
 				  peer->localfeatures,
 				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
+}
+
+static struct command_result *json_fund_channel_start(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *obj UNNEEDED,
+						      const jsmntok_t *params)
+{
+	struct funding_channel * fc = tal(cmd, struct funding_channel);
+	struct node_id *id;
+	struct peer *peer;
+	struct channel *channel;
+	bool *announce_channel;
+	u32 *feerate_per_kw;
+
+	u8 *msg = NULL;
+	struct amount_sat max_funding_satoshi, *amount;
+
+	max_funding_satoshi = get_chainparams(cmd->ld)->max_funding;
+	fc->cmd = cmd;
+	fc->uc = NULL;
+	if (!param(fc->cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("satoshi", param_sat, &amount),
+		   p_opt("feerate", param_feerate, &feerate_per_kw),
+		   p_opt_def("announce", param_bool, &announce_channel, true),
+		   NULL))
+		return command_param_failed();
+
+	if (amount_sat_greater(*amount, max_funding_satoshi))
+                return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Amount exceeded %s",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &max_funding_satoshi));
+
+	if (!feerate_per_kw) {
+		feerate_per_kw = tal(cmd, u32);
+		*feerate_per_kw = opening_feerate(cmd->ld->topology);
+		if (!*feerate_per_kw) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "Cannot estimate fees");
+		}
+	}
+
+	if (*feerate_per_kw < feerate_floor()) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Feerate below feerate floor");
+	}
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer) {
+		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
+	}
+
+	channel = peer_active_channel(peer);
+	if (channel) {
+		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
+				    channel_state_name(channel));
+	}
+
+	if (!peer->uncommitted_channel) {
+		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+	}
+
+	if (peer->uncommitted_channel->fc) {
+		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
+	}
+
+	fc->push = AMOUNT_MSAT(0);
+	fc->channel_flags = OUR_CHANNEL_FLAGS;
+	if (!*announce_channel) {
+		fc->channel_flags &= ~CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
+		log_info(peer->ld->log, "Will open private channel with node %s",
+			type_to_string(fc, struct node_id, id));
+	}
+
+	assert(!amount_sat_greater(*amount, max_funding_satoshi));
+	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
+	fc->uc = peer->uncommitted_channel;
+
+	msg = towire_opening_funder_start(NULL,
+					  *amount,
+					  fc->push,
+					  *feerate_per_kw,
+					  fc->channel_flags);
+
+	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+	return command_still_pending(cmd);
 }
 
 /**
@@ -1105,6 +1208,15 @@ static const struct json_command fund_channel_command = {
 	"{feerate}. Only use outputs that have {minconf} confirmations."
 };
 AUTODATA(json_command, &fund_channel_command);
+
+static const struct json_command fund_channel_start_command = {
+    "fundchannel_start",
+    "channels",
+    json_fund_channel_start,
+    "Start fund channel with {id} using {amount} satoshis. "
+    "Returns a bech32 address to use as an output for a funding transaction."
+};
+AUTODATA(json_command, &fund_channel_start_command);
 
 #if DEVELOPER
  /* Indented to avoid include ordering check */

@@ -438,6 +438,14 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 	}
 }
 
+/* We start the 'fund a channel' negotation with the supplied peer, but
+ * stop when we get to the part where we need the funding txid */
+static u8 *funder_channel_start(struct state *state,
+				 u8 channel_flags)
+{
+	return towire_opening_funder_start_reply(state, NULL);
+}
+
 /*~ OK, let's fund a channel!  Returns the reply for lightningd on success,
  * or NULL if something goes wrong. */
 static u8 *funder_channel(struct state *state,
@@ -1425,7 +1433,17 @@ static u8 *handle_master_in(struct state *state)
 				     change_keyindex, channel_flags,
 				     take(utxos), &bip32_base);
 		return msg;
+	case WIRE_OPENING_FUNDER_START:
+		if (!fromwire_opening_funder_start(msg, &state->funding,
+						   &state->push_msat,
+						   &state->feerate_per_kw,
+						   &channel_flags))
+			master_badmsg(WIRE_OPENING_FUNDER_START, msg);
+		msg = funder_channel_start(state, channel_flags);
 
+		/* We want to keep openingd alive, since we're not done yet */
+		wire_sync_write(REQ_FD, take(msg));
+		return NULL;
 	case WIRE_OPENING_DEV_MEMLEAK:
 #if DEVELOPER
 		handle_dev_memleak(state, msg);
@@ -1434,6 +1452,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENING_DEV_MEMLEAK_REPLY:
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER_REPLY:
+	case WIRE_OPENING_FUNDER_START_REPLY:
 	case WIRE_OPENING_FUNDEE:
 	case WIRE_OPENING_FUNDER_FAILED:
 	case WIRE_OPENING_GOT_OFFER:

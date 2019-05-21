@@ -77,6 +77,19 @@ opening_funder_reply,,our_channel_reserve_satoshis,struct amount_sat
 opening_funder_reply,,shutdown_len,u16
 opening_funder_reply,,shutdown_scriptpubkey,shutdown_len*u8
 
+# master->openingd: start channel establishment for a funding
+# tx that will be paid for by an external wallet
+opening_funder_start,6002
+opening_funder_start,,funding_satoshis,struct amount_sat
+opening_funder_start,,push_msat,struct amount_msat
+opening_funder_start,,feerate_per_kw,u32
+opening_funder_start,,channel_flags,u8
+
+# openingd->master: send back output script for 2-of-2 funding output
+opening_funder_start_reply,6102
+opening_funder_start_reply,,script_len,u8
+opening_funder_start_reply,,scriptpubkey,script_len*u8
+
 # Openingd->master: we failed to negotiation channel
 opening_funder_failed,6004
 opening_funder_failed,,reason,wirestring
