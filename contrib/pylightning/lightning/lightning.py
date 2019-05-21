@@ -120,6 +120,7 @@ class Millisatoshi:
             # try different units and take shortest resulting normalized string
             amounts_str = [
                 "%gbtc" % (amount_rounded / 1000 / 10**8),
+                "%gmbtc" % (amount_rounded / 1000 / 10**5),
                 "%gsat" % (amount_rounded / 1000),
                 "%gmsat" % (amount_rounded),
             ]

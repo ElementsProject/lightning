@@ -37,11 +37,11 @@ def test_to_approx_str():
     amount = Millisatoshi('10000000sat')
     assert amount.to_approx_str() == "0.1btc"
     amount = Millisatoshi('1000000sat')
-    assert amount.to_approx_str() == "0.01btc"
+    assert amount.to_approx_str() == "10mbtc"
     amount = Millisatoshi('100000sat')
-    assert amount.to_approx_str() == "0.001btc"
+    assert amount.to_approx_str() == "1mbtc"
     amount = Millisatoshi('10000sat')
-    assert amount.to_approx_str() == "10000sat"
+    assert amount.to_approx_str() == "0.1mbtc"
     amount = Millisatoshi('1000sat')
     assert amount.to_approx_str() == "1000sat"
     amount = Millisatoshi('100msat')
@@ -57,7 +57,7 @@ def test_to_approx_str():
     amount = Millisatoshi('1230sat')
     assert amount.to_approx_str(2) == "1230sat"  # note: no rounding
     amount = Millisatoshi('12345678sat')
-    assert amount.to_approx_str() == "0.123btc"
+    assert amount.to_approx_str() == "123mbtc"
     amount = Millisatoshi('12345678sat')
     assert amount.to_approx_str(1) == "0.1btc"
     amount = Millisatoshi('15345678sat')
