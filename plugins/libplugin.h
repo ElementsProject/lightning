@@ -8,6 +8,7 @@
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
+#include <common/status_levels.h>
 
 struct command;
 struct plugin_conn;
@@ -112,6 +113,9 @@ struct command_result *timer_complete(void);
 struct plugin_timer *plugin_timer(struct plugin_conn *rpc,
 				  struct timerel t,
 				  struct command_result *(*cb)(void));
+
+/* Log something */
+void PRINTF_FMT(2, 3) plugin_log(enum log_level l, const char *fmt, ...);
 
 /* Macro to define arguments */
 #define plugin_option(name, description, set, arg)			\
