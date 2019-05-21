@@ -29,7 +29,7 @@ static STRMAP(const char *) usagemap;
 
 /* Timers */
 static struct timers timers;
-static bool in_timer;
+static size_t in_timer;
 
 bool deprecated_apis;
 
@@ -244,8 +244,8 @@ command_done_raw(struct command *cmd,
 
 struct command_result *timer_complete(void)
 {
-	assert(in_timer);
-	in_timer = false;
+	assert(in_timer > 0);
+	in_timer--;
 	return &complete;
 }
 
@@ -603,9 +603,10 @@ static void call_plugin_timer(struct plugin_conn *rpc, struct timer *timer)
 {
 	struct plugin_timer *t = container_of(timer, struct plugin_timer, timer);
 
-	in_timer = true;
+	in_timer++;
+	/* Free this if they don't. */
+	tal_steal(tmpctx, t);
 	t->cb();
-	tal_free(t);
 }
 
 static void destroy_plugin_timer(struct plugin_timer *timer)

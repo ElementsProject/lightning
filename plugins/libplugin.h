@@ -38,14 +38,15 @@ struct command_result *command_param_failed(void);
 /* Call this on fatal error. */
 void NORETURN plugin_err(const char *fmt, ...);
 
-/* This command is finished, here's a detailed error. data can be NULL. */
+/* This command is finished, here's a detailed error; @cmd cannot be
+ * NULL, data can be NULL. */
 struct command_result *WARN_UNUSED_RESULT
 command_done_err(struct command *cmd,
 		 int code,
 		 const char *errmsg,
 		 const char *data);
 
-/* This command is finished, here's the success msg. */
+/* This command is finished, here's the success msg; @cmd cannot be NULL. */
 struct command_result *WARN_UNUSED_RESULT
 command_success(struct command *cmd, const char *result);
 
@@ -86,24 +87,27 @@ send_outreq_(struct command *cmd,
 					 const jsmntok_t *result),	\
 		     (arg), __VA_ARGS__)
 
-/* Callback to just forward error and close request. */
+/* Callback to just forward error and close request; @cmd cannot be NULL */
 struct command_result *forward_error(struct command *cmd,
 				     const char *buf,
 				     const jsmntok_t *error,
 				     void *arg);
 
-/* Callback to just forward result and close request. */
+/* Callback to just forward result and close request; @cmd cannot be NULL */
 struct command_result *forward_result(struct command *cmd,
 				      const char *buf,
 				      const jsmntok_t *result,
 				      void *arg);
 
-/* Callback for timer where we expect a 'command_result'. */
+/* Callback for timer where we expect a 'command_result'.  All timers
+ * must return this eventually, though they may do so via a convoluted
+ * send_req() path. */
 struct command_result *timer_complete(void);
 
 /* Access timer infrastructure to add a timer.
  *
- * Freeing this releases the timer (don't free it in timer cb though)
+ * Freeing this releases the timer, otherwise it's freed after @cb
+ * if it hasn't been freed already.
  */
 struct plugin_timer *plugin_timer(struct plugin_conn *rpc,
 				  struct timerel t,
