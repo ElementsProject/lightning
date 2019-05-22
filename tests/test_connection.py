@@ -375,6 +375,8 @@ def test_reconnect_gossiping(node_factory):
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # Make sure l2 knows about l1
+    wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'] != [])
 
     l2.rpc.ping(l1.info['id'], 1, 65532)
     wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
