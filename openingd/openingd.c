@@ -438,6 +438,35 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 	}
 }
 
+static bool setup_channel_funder(struct state *state)
+{
+	/*~ For symmetry, we calculate our own reserve even though lightningd
+	 * could do it for the we-are-funding case. */
+	set_reserve(state);
+
+	/*~ Grab a random ID until the funding tx is created (we can't do that
+	 * until we know their funding_pubkey) */
+	temporary_channel_id(&state->channel_id);
+
+	/* BOLT #2:
+	 *
+	 * The sending node:
+	 *...
+	 *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
+	 */
+	if (amount_sat_greater(state->funding, state->chainparams->max_funding)) {
+		status_failed(STATUS_FAIL_MASTER_IO,
+			      "funding_satoshis must be < %s, not %s",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &state->chainparams->max_funding),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &state->funding));
+		return false;
+	}
+
+	return true;
+}
+
 /* We start the 'fund a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
 static u8 *funder_channel_start(struct state *state,
@@ -468,27 +497,8 @@ static u8 *funder_channel(struct state *state,
 	struct amount_msat local_msat;
 	char* err_reason;
 
-	/*~ For symmetry, we calculate our own reserve even though lightningd
-	 * could do it for the we-are-funding case. */
-	set_reserve(state);
-
-	/*~ Grab a random ID until the funding tx is created (we can't do that
-	 * until we know their funding_pubkey) */
-	temporary_channel_id(&state->channel_id);
-
-	/* BOLT #2:
-	 *
-	 * The sending node:
-	 *...
-	 *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
-	 */
-	if (amount_sat_greater(state->funding, state->chainparams->max_funding))
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "funding_satoshis must be < %s, not %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &state->chainparams->max_funding),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &state->funding));
+	if (!setup_channel_funder(state))
+		goto fail;
 
 	/* BOLT #2:
 	 *
