@@ -1225,16 +1225,19 @@ static void init(struct plugin_conn *rpc)
 
 static const struct plugin_command commands[] = { {
 		"pay",
+		"payment",
 		"Send payment specified by {bolt11} with {amount}",
 		"Try to send a payment, retrying {retry_for} seconds before giving up",
 		json_pay
 	}, {
 		"paystatus",
+		"payment",
 		"Detail status of attempts to pay {bolt11}, or all",
 		"Covers both old payments and current ones.",
 		json_paystatus
 	}, {
 		"listpays",
+		"payment",
 		"List result of payment {bolt11}, or all",
 		"Covers old payments (failed and succeeded) and current ones.",
 		json_listpays

@@ -452,14 +452,16 @@ handle_getmanifest(struct command *getmanifest_cmd,
 
 	for (size_t i = 0; i < num_commands; i++) {
 		tal_append_fmt(&params, "{ 'name': '%s',"
-			       "    'usage': '%s',"
-			       "    'description': '%s'",
+				   "    'category': '%s',"
+				   "    'usage': '%s',"
+				   "    'description': '%s'",
 			       commands[i].name,
+				   commands[i].category,
 			       strmap_get(&usagemap, commands[i].name),
 			       commands[i].description);
 		if (commands[i].long_description)
 			tal_append_fmt(&params,
-				       "   'long_description': '%s'",
+				       "    'long_description': '%s'",
 				       commands[i].long_description);
 		tal_append_fmt(&params,
 			       "}%s", i == num_commands - 1 ? "" : ",\n");

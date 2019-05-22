@@ -77,6 +77,7 @@ static void init(struct plugin_conn *prpc)
 
 static const struct plugin_command commands[] = { {
 	"autocleaninvoice",
+	"payment",
 	"Set up autoclean of expired invoices. ",
 	"Perform cleanup every {cycle_seconds} (default 3600), or disable autoclean if 0. "
 	"Clean up expired invoices that have expired for {expired_by} seconds (default 86400). ",
