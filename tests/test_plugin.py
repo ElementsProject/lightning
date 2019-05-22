@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
+from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
 from utils import only_one, wait_for
 

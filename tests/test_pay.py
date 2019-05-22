@@ -1,4 +1,5 @@
 from fixtures import *  # noqa: F401,F403
+from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
 from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE
 
@@ -1614,6 +1615,7 @@ def test_pay_routeboost(node_factory, bitcoind):
         assert [h['channel'] for h in attempts[2]['routehint']] == [r['short_channel_id'] for r in routel3l5]
 
 
+@flaky
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_pay_direct(node_factory, bitcoind):
     """Check that we prefer the direct route.
