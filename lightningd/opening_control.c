@@ -282,11 +282,50 @@ static void funding_broadcast_failed_or_success(struct channel *channel,
 	}
 }
 
-static void opening_funder_start_finished(struct subd *openingd, const u8 *resp,
-					  const int *fds,
-					  struct funding_channel *fc)
+static void funding_started_success(struct funding_channel *fc,
+				    u8 *scriptPubkey)
 {
-	// todo: this.
+	struct json_stream *response;
+	struct command *cmd = fc->cmd;
+	char *out;
+
+	response = json_stream_success(cmd);
+	json_object_start(response, NULL);
+	out = encode_scriptpubkey_to_addr(cmd,
+				          get_chainparams(cmd->ld)->bip173_name,
+					  scriptPubkey);
+	if (out)
+		json_add_string(response, "funding_address", out);
+	json_object_end(response);
+	was_pending(command_success(cmd, response));
+}
+
+static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
+					 const int *fds,
+					 struct funding_channel *fc)
+{
+	u8 *funding_scriptPubkey;
+
+	if (!fromwire_opening_funder_start_reply(resp, resp,
+						 &funding_scriptPubkey)) {
+		log_broken(fc->uc->log,
+			   "bad OPENING_FUNDER_REPLY %s",
+			   tal_hex(resp, resp));
+		was_pending(command_fail(fc->cmd, LIGHTNINGD,
+					 "bad OPENING_FUNDER_REPLY %s",
+					 tal_hex(fc->cmd, resp)));
+		goto failed;
+	}
+
+	// FIXME: save the peer to the database?
+	funding_started_success(fc, funding_scriptPubkey);
+	return;
+
+failed:
+	subd_release_channel(openingd, fc->uc);
+	fc->uc->openingd = NULL;
+	/* Frees fc too, and tmpctx */
+	tal_free(fc->uc);
 }
 
 static void opening_funder_finished(struct subd *openingd, const u8 *resp,
@@ -903,7 +942,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 			tal_free(openingd);
 			return 0;
 		}
-		opening_funder_start_finished(openingd, msg, fds, uc->fc);
+		opening_funder_start_replied(openingd, msg, fds, uc->fc);
 		return 0;
 	case WIRE_OPENING_FUNDER_FAILED:
 		if (!uc->fc) {
