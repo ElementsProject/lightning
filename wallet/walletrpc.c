@@ -2,6 +2,7 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
+#include <common/addr.h>
 #include <common/bech32.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -419,26 +420,6 @@ encode_pubkey_to_addr(const tal_t *ctx,
 	return out;
 }
 
-/* Returns NULL if the script is not a P2WPKH */
-static char *
-encode_scriptpubkey_to_addr(const tal_t *ctx,
-			    const struct lightningd *ld,
-			    const u8 *scriptPubkey)
-{
-	char *out;
-	const char *hrp;
-	size_t scriptLen = tal_bytelen(scriptPubkey);
-	bool ok;
-	if (scriptLen != 22 || scriptPubkey[0] != 0x00 || scriptPubkey[1] != 0x14)
-		return NULL;
-	hrp = get_chainparams(ld)->bip173_name;
-	out = tal_arr(ctx, char, 73 + strlen(hrp));
-	ok = segwit_addr_encode(out, hrp, 0, scriptPubkey + 2, scriptLen - 2);
-	if (!ok)
-		return tal_free(out);
-	return out;
-}
-
 enum addrtype {
 	ADDR_P2SH_SEGWIT = 1,
 	ADDR_BECH32 = 2,
@@ -638,7 +619,8 @@ static struct command_result *json_listfunds(struct command *cmd,
 		        json_add_string(response, "address", out);
 		} else if (utxos[i]->scriptPubkey != NULL) {
 			out = encode_scriptpubkey_to_addr(
-			    cmd, cmd->ld, utxos[i]->scriptPubkey);
+			    cmd, get_chainparams(cmd->ld)->bip173_name,
+			    utxos[i]->scriptPubkey);
 			if (out)
 				json_add_string(response, "address", out);
 		}

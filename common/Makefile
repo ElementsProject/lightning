@@ -1,4 +1,5 @@
 COMMON_SRC_NOGEN :=				\
+	common/addr.c				\
 	common/amount.c				\
 	common/base32.c				\
 	common/bech32.c				\
