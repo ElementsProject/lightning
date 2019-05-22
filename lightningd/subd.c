@@ -469,8 +469,6 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 		}
 	}
 
-	log_debug(sd->log, "UPDATE %s", sd->msgname(type));
-
 	/* Might free sd (if returns negative); save/restore sd->conn */
 	sd->conn = NULL;
 	tal_add_destructor2(sd, mark_freed, &freed);

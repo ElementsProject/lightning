@@ -364,8 +364,10 @@ def test_reconnect_openingd(node_factory):
     l1.rpc.fundchannel(l2.info['id'], 20000)
     l1.daemon.wait_for_log('sendrawtx exit 0')
 
-    # Just to be sure, second openingd hand over to channeld.
-    l2.daemon.wait_for_log('lightning_openingd.*UPDATE WIRE_OPENING_FUNDEE')
+    l1.bitcoin.generate_block(3)
+
+    # Just to be sure, second openingd hand over to channeld. This log line is about channeld being started
+    l2.daemon.wait_for_log(r'lightning_channeld-[0-9a-f]{66} chan #[0-9]: pid [0-9]+, msgfd [0-9]+')
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -1124,8 +1126,8 @@ def test_peerinfo(node_factory, bitcoind):
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
     bitcoind.generate_block(100)
-    l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
-    l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # The only channel was closed, everybody should have forgotten the nodes
     assert l1.rpc.listnodes()['nodes'] == []
@@ -1418,7 +1420,7 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     l2.daemon.wait_for_log("ERROR: Unknown commitment #[0-9], recovering our funds!")
     bitcoind.generate_block(100)
-    l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # l2 should have it in wallet.
     assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])

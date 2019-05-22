@@ -308,7 +308,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
 
     # Make sure l1 got l2's commitment to the HTLC, and sent to master.
-    l1.daemon.wait_for_log('UPDATE WIRE_CHANNEL_GOT_COMMITSIG')
+    l1.daemon.wait_for_log('got commitsig')
 
     # Take our snapshot.
     tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
