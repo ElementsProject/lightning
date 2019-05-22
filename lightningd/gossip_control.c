@@ -253,6 +253,7 @@ static struct command_result *json_listnodes(struct command *cmd,
 
 static const struct json_command listnodes_command = {
 	"listnodes",
+	"network",
 	json_listnodes,
 	"Show node {id} (or all, if no {id}), in our local network view"
 };
@@ -352,6 +353,7 @@ static struct command_result *json_getroute(struct command *cmd,
 
 static const struct json_command getroute_command = {
 	"getroute",
+	"channels",
 	json_getroute,
 	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9). "
 	"If specified search from {fromid} otherwise use this node as source. "
@@ -471,6 +473,7 @@ static struct command_result *json_listchannels(struct command *cmd,
 
 static const struct json_command listchannels_command = {
 	"listchannels",
+	"channels",
 	json_listchannels,
 	"Show channel {short_channel_id} or {source} (or all known channels, if not specified)"
 };
@@ -540,6 +543,7 @@ static struct command_result *json_dev_query_scids(struct command *cmd,
 
 static const struct json_command dev_query_scids_command = {
 	"dev-query-scids",
+	"developer",
 	json_dev_query_scids,
 	"Query peer {id} for [scids]"
 };
@@ -572,6 +576,7 @@ json_dev_send_timestamp_filter(struct command *cmd,
 
 static const struct json_command dev_send_timestamp_filter = {
 	"dev-send-timestamp-filter",
+	"developer",
 	json_dev_send_timestamp_filter,
 	"Send peer {id} the timestamp filter {first} {range}"
 };
@@ -641,6 +646,7 @@ static struct command_result *json_dev_query_channel_range(struct command *cmd,
 
 static const struct json_command dev_query_channel_range_command = {
 	"dev-query-channel-range",
+	"developer",
 	json_dev_query_channel_range,
 	"Query peer {id} for short_channel_ids for {first} block + {num} blocks"
 };
@@ -668,6 +674,7 @@ json_dev_set_max_scids_encode_size(struct command *cmd,
 
 static const struct json_command dev_set_max_scids_encode_size = {
 	"dev-set-max-scids-encode-size",
+	"developer",
 	json_dev_set_max_scids_encode_size,
 	"Set {max} bytes of short_channel_ids per reply_channel_range"
 };
@@ -688,6 +695,7 @@ static struct command_result *json_dev_suppress_gossip(struct command *cmd,
 
 static const struct json_command dev_suppress_gossip = {
 	"dev-suppress-gossip",
+	"developer",
 	json_dev_suppress_gossip,
 	"Stop this node from sending any more gossip."
 };
@@ -730,6 +738,7 @@ static struct command_result *json_dev_compact_gossip_store(struct command *cmd,
 
 static const struct json_command dev_compact_gossip_store = {
 	"dev-compact-gossip-store",
+	"developer",
 	json_dev_compact_gossip_store,
 	"Ask gossipd to rewrite the gossip store."
 };

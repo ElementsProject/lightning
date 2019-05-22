@@ -184,14 +184,16 @@ static struct command_result *json_withdraw(struct command *cmd,
 }
 
 static const struct json_command withdraw_command = {
-    "withdraw", json_withdraw,
-    "Send to {destination} address {satoshi} (or 'all') amount via Bitcoin "
-    "transaction, at optional {feerate}",
-    false,
-    "Send funds from the internal wallet to the specified address. Either "
-    "specify a number of satoshis to send or 'all' to sweep all funds in the "
-    "internal wallet to the address. Only use outputs that have at least "
-    "{minconf} confirmations."
+	"withdraw",
+	"bitcoin",
+	json_withdraw,
+	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin "
+	"transaction, at optional {feerate}",
+	false,
+	"Send funds from the internal wallet to the specified address. Either "
+	"specify a number of satoshis to send or 'all' to sweep all funds in the "
+	"internal wallet to the address. Only use outputs that have at least "
+	"{minconf} confirmations."
 };
 AUTODATA(json_command, &withdraw_command);
 
@@ -349,6 +351,7 @@ static struct command_result *json_newaddr(struct command *cmd,
 
 static const struct json_command newaddr_command = {
 	"newaddr",
+	"bitcoin",
 	json_newaddr,
 	"Get a new {bech32, p2sh-segwit} (or all) address to fund a channel (default is bech32)", false,
 	"Generates a new address (or both) that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
@@ -431,6 +434,7 @@ static struct command_result *json_listaddrs(struct command *cmd,
 
 static const struct json_command listaddrs_command = {
 	"dev-listaddrs",
+	"developer",
 	json_listaddrs,
 	"Show addresses list up to derivation {index} (default is the last bip32 index)",
 	false,
@@ -526,6 +530,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 
 static const struct json_command listfunds_command = {
 	"listfunds",
+	"utility",
 	json_listfunds,
 	"Show available funds from the internal wallet",
 	false,
@@ -604,6 +609,7 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 
 static const struct json_command dev_rescan_output_command = {
 	"dev-rescan-outputs",
+	"developer",
 	json_dev_rescan_outputs,
 	"Synchronize the state of our funds with bitcoind",
 	false,

@@ -1086,9 +1086,11 @@ static struct command_result *json_fund_channel(struct command *cmd,
 }
 
 static const struct json_command fund_channel_command = {
-    "fundchannel", json_fund_channel,
-    "Fund channel with {id} using {satoshi} (or 'all') satoshis, at optional "
-    "{feerate}. Only use outputs that have {minconf} confirmations."
+	"fundchannel",
+	"channels",
+	json_fund_channel,
+	"Fund channel with {id} using {satoshi} (or 'all') satoshis, at optional "
+	"{feerate}. Only use outputs that have {minconf} confirmations."
 };
 AUTODATA(json_command, &fund_channel_command);
 

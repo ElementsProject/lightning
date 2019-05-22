@@ -1885,7 +1885,9 @@ static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 }
 
 static const struct json_command dev_ignore_htlcs = {
-	"dev-ignore-htlcs", json_dev_ignore_htlcs,
+	"dev-ignore-htlcs",
+	"developer",
+	json_dev_ignore_htlcs,
 	"Set ignoring incoming HTLCs for peer {id} to {ignore}", false,
 	"Set/unset ignoring of all incoming HTLCs.  For testing only."
 };
@@ -1960,7 +1962,9 @@ static struct command_result *json_listforwards(struct command *cmd,
 }
 
 static const struct json_command listforwards_command = {
-	"listforwards", json_listforwards,
+	"listforwards",
+	"channels",
+	json_listforwards,
 	"List all forwarded payments and their information", false,
 	"List all forwarded payments and their information"
 };
