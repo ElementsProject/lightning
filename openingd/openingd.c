@@ -472,7 +472,145 @@ static bool setup_channel_funder(struct state *state)
 static u8 *funder_channel_start(struct state *state,
 				 u8 channel_flags)
 {
-	return towire_opening_funder_start_reply(state, NULL);
+	struct channel_id id_in;
+	u8 *msg;
+	struct basepoints theirs;
+	struct pubkey their_funding_pubkey;
+	u32 minimum_depth;
+	u8 *funding_output_script;
+
+	if (!setup_channel_funder(state))
+		return NULL;
+
+	/* BOLT #2:
+	 *
+	 * - if both nodes advertised the `option_upfront_shutdown_script`
+	 *   feature:
+	 *   - MUST include either a valid `shutdown_scriptpubkey` as required
+	 *     by `shutdown` `scriptpubkey`, or a zero-length
+	 *     `shutdown_scriptpubkey`.
+	 * - otherwise:
+	 *   - MAY include a`shutdown_scriptpubkey`.
+	 */
+	/* We don't use shutdown_scriptpubkey (at least for now), so leave it
+	 * NULL. */
+	msg = towire_open_channel_option_upfront_shutdown_script(NULL,
+				  &state->chainparams->genesis_blockhash,
+				  &state->channel_id,
+				  state->funding,
+				  state->push_msat,
+				  state->localconf.dust_limit,
+				  state->localconf.max_htlc_value_in_flight,
+				  state->localconf.channel_reserve,
+				  state->localconf.htlc_minimum,
+				  state->feerate_per_kw,
+				  state->localconf.to_self_delay,
+				  state->localconf.max_accepted_htlcs,
+				  &state->our_funding_pubkey,
+				  &state->our_points.revocation,
+				  &state->our_points.payment,
+				  &state->our_points.delayed_payment,
+				  &state->our_points.htlc,
+				  &state->first_per_commitment_point[LOCAL],
+				  channel_flags,
+				  dev_upfront_shutdown_script(tmpctx));
+	sync_crypto_write(state->pps, take(msg));
+
+	/* This is usually a very transient state... */
+	peer_billboard(false,
+		       "Funding channel start: offered, now waiting for accept_channel");
+
+	/* ... since their reply should be immediate. */
+	msg = opening_negotiate_msg(tmpctx, state, true);
+	if (!msg)
+		return NULL;
+
+	/* Default is no shutdown_scriptpubkey: free any leftover one. */
+	state->remote_upfront_shutdown_script
+		= tal_free(state->remote_upfront_shutdown_script);
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - `funding_pubkey`, `revocation_basepoint`, `htlc_basepoint`,
+	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
+	 *    valid DER-encoded compressed secp256k1 pubkeys.
+	 */
+	if (local_feature_negotiated(state->localfeatures,
+				     LOCAL_UPFRONT_SHUTDOWN_SCRIPT)) {
+		if (!fromwire_accept_channel_option_upfront_shutdown_script(state,
+				     msg, &id_in,
+				     &state->remoteconf.dust_limit,
+				     &state->remoteconf.max_htlc_value_in_flight,
+				     &state->remoteconf.channel_reserve,
+				     &state->remoteconf.htlc_minimum,
+				     &minimum_depth,
+				     &state->remoteconf.to_self_delay,
+				     &state->remoteconf.max_accepted_htlcs,
+				     &their_funding_pubkey,
+				     &theirs.revocation,
+				     &theirs.payment,
+				     &theirs.delayed_payment,
+				     &theirs.htlc,
+				     &state->first_per_commitment_point[REMOTE],
+				     &state->remote_upfront_shutdown_script))
+			peer_failed(state->pps,
+				    &state->channel_id,
+				    "Parsing accept_channel with option_upfront_shutdown_script %s", tal_hex(msg, msg));
+	} else if (!fromwire_accept_channel(msg, &id_in,
+				     &state->remoteconf.dust_limit,
+				     &state->remoteconf.max_htlc_value_in_flight,
+				     &state->remoteconf.channel_reserve,
+				     &state->remoteconf.htlc_minimum,
+				     &minimum_depth,
+				     &state->remoteconf.to_self_delay,
+				     &state->remoteconf.max_accepted_htlcs,
+				     &their_funding_pubkey,
+				     &theirs.revocation,
+				     &theirs.payment,
+				     &theirs.delayed_payment,
+				     &theirs.htlc,
+				     &state->first_per_commitment_point[REMOTE]))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Parsing accept_channel %s", tal_hex(msg, msg));
+
+	/* BOLT #2:
+	 *
+	 * The `temporary_channel_id` MUST be the same as the
+	 * `temporary_channel_id` in the `open_channel` message. */
+	if (!channel_id_eq(&id_in, &state->channel_id))
+		/* In this case we exit, since we don't know what's going on. */
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "accept_channel ids don't match: sent %s got %s",
+			    type_to_string(msg, struct channel_id, &id_in),
+			    type_to_string(msg, struct channel_id,
+					   &state->channel_id));
+
+	if (amount_sat_greater(state->remoteconf.dust_limit,
+			       state->localconf.channel_reserve)) {
+		negotiation_failed(state, true,
+				   "dust limit %s"
+				   " would be above our reserve %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->remoteconf.dust_limit),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.channel_reserve));
+		return NULL;
+	}
+
+	if (!check_config_bounds(state, &state->remoteconf, true))
+		return NULL;
+
+	funding_output_script =
+		scriptpubkey_p2wsh(tmpctx,
+				   bitcoin_redeem_2of2(tmpctx,
+						       &state->our_funding_pubkey,
+						       &their_funding_pubkey));
+
+	return towire_opening_funder_start_reply(state, funding_output_script);
 }
 
 /*~ OK, let's fund a channel!  Returns the reply for lightningd on success,
