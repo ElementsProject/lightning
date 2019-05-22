@@ -481,6 +481,24 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel", payload)
 
+    def fundchannel_start(self, node_id, satoshi, feerate=None, announce=True):
+        """
+        Start channel funding with {id} for {satoshi} satoshis
+        with feerate of {feerate} (uses default feerate if unset).
+        If {announce} is False, don't send channel announcements.
+        Returns a Bech32 {funding_address} for an external wallet
+        to create a funding transaction for. Requires a call to
+        'fundchannel_continue' to complete channel establishment
+        with peer.
+        """
+        payload = {
+            "id": node_id,
+            "satoshi": satoshi,
+            "feerate": feerate,
+            "announce": announce,
+        }
+        return self.call("fundchannel_start", payload)
+
     def getinfo(self):
         """
         Show information about this node
