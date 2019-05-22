@@ -49,6 +49,7 @@ struct command_result;
 
 struct json_command {
 	const char *name;
+	const char *category;
 	struct command_result *(*dispatch)(struct command *,
 					   const char *buffer,
 					   const jsmntok_t *obj,

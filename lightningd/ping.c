@@ -132,6 +132,7 @@ static struct command_result *json_ping(struct command *cmd,
 
 static const struct json_command ping_command = {
 	"ping",
+	"network",
 	json_ping,
 	"Send peer {id} a ping of length {len} (default 128) asking for {pongbytes} (default 128)"
 };
