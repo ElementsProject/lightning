@@ -1,5 +1,6 @@
 from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
+from flaky import flaky  # noqa: F401
 from lightning import RpcError
 from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND
 
@@ -565,6 +566,7 @@ def test_reconnect_receiver_fulfill(node_factory):
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
 
 
+@flaky
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_shutdown_reconnect(node_factory):
     disconnects = ['-WIRE_SHUTDOWN',
