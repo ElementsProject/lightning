@@ -631,11 +631,12 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 				 const char *buffer,
 				 const jsmntok_t *meth)
 {
-	const jsmntok_t *nametok, *desctok, *longdesctok, *usagetok;
+	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok, *usagetok;
 	struct json_command *cmd;
 	const char *usage;
 
 	nametok = json_get_member(buffer, meth, "name");
+	categorytok = json_get_member(buffer, meth, "category");
 	desctok = json_get_member(buffer, meth, "description");
 	longdesctok = json_get_member(buffer, meth, "long_description");
 	usagetok = json_get_member(buffer, meth, "usage");
@@ -671,6 +672,10 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 
 	cmd = notleak(tal(plugin, struct json_command));
 	cmd->name = json_strdup(cmd, buffer, nametok);
+	if (categorytok)
+        cmd->category = json_strdup(cmd, buffer, categorytok);
+	else
+		cmd->category = "plugin";
 	cmd->description = json_strdup(cmd, buffer, desctok);
 	if (longdesctok)
 		cmd->verbose = json_strdup(cmd, buffer, longdesctok);
