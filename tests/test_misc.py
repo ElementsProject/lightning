@@ -1003,14 +1003,14 @@ def test_htlc_send_timeout(node_factory, bitcoind):
             timedout = True
 
     inv = l3.rpc.invoice(123000, 'test_htlc_send_timeout', 'description')
-    with pytest.raises(RpcError) as excinfo:
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9] attempts') as excinfo:
         l1.rpc.pay(inv['bolt11'])
 
     err = excinfo.value
-    # Complaints it couldn't find route.
+    # Complains it stopped after several attempts.
     # FIXME: include in pylightning
-    PAY_ROUTE_NOT_FOUND = 205
-    assert err.error['code'] == PAY_ROUTE_NOT_FOUND
+    PAY_STOPPED_RETRYING = 210
+    assert err.error['code'] == PAY_STOPPED_RETRYING
 
     status = only_one(l1.rpc.call('paystatus')['pay'])
 
