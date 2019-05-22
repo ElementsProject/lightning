@@ -2,6 +2,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
+#include <common/addr.h>
 #include <common/channel_config.h>
 #include <common/funding_tx.h>
 #include <common/json_command.h>

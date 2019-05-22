@@ -14,6 +14,7 @@ default: lightningd-all
 
 # Common source we use.
 LIGHTNINGD_COMMON_OBJS :=			\
+	common/addr.o				\
 	common/amount.o				\
 	common/base32.o				\
 	common/bech32.o				\
