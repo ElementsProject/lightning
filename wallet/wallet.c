@@ -2415,6 +2415,35 @@ void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
 	}
 }
 
+void wallet_transaction_annotate(struct wallet *w,
+				 const struct bitcoin_txid *txid, txtypes type,
+				 u64 channel_id)
+{
+	sqlite3_stmt *stmt = db_select_prepare(w->db, "type, channel_id FROM transactions WHERE id=?");
+	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
+	if (!db_select_step(w->db, stmt))
+		fatal("Attempting to annotate a transaction we don't have: %s",
+		      type_to_string(tmpctx, struct bitcoin_txid, txid));
+	type |= sqlite3_column_int(stmt, 0);
+	if (channel_id == 0)
+		channel_id = sqlite3_column_int64(stmt, 1);
+
+	db_stmt_done(stmt);
+
+	stmt = db_prepare(w->db, "UPDATE transactions "
+				 "SET type = ?"
+				 ", channel_id = ? "
+				 "WHERE id = ?");
+
+	sqlite3_bind_int(stmt, 1, type);
+	if (channel_id)
+		sqlite3_bind_int(stmt, 2, channel_id);
+	else
+		sqlite3_bind_null(stmt, 2);
+	sqlite3_bind_sha256(stmt, 3, &txid->shad.sha);
+	db_exec_prepared(w->db, stmt);
+}
+
 u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 {
 	u32 blockheight;

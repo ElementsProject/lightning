@@ -11,6 +11,7 @@
 #include <ccan/tal/tal.h>
 #include <common/channel_config.h>
 #include <common/utxo.h>
+#include <common/wallet.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
@@ -1027,6 +1028,18 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 
 void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
 			    const u32 blockheight, const u32 txindex);
+
+/**
+ * Annotate a transaction in the DB with its type and channel referemce.
+ *
+ * We add transactions when filtering the block, but often know its type only
+ * when we trigger the txwatches, at which point we've already discarded the
+ * full transaction. This function can be used to annotate the transactions
+ * after the fact with a channel number for grouping and a type for filtering.
+ */
+void wallet_transaction_annotate(struct wallet *w,
+				 const struct bitcoin_txid *txid, txtypes type,
+				 u64 channel_id);
 
 /**
  * Get the confirmation height of a transaction we are watching by its
