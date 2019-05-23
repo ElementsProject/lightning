@@ -1,15 +1,9 @@
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
-#include <common/amount.h>
-#include <common/bolt11.h>
-#include <common/pseudorand.h>
-#include <common/type_to_string.h>
-#include <gossipd/gossip_constants.h>
+#include <common/utils.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
-#include <stdio.h>
 
 static u64 cycle_seconds = 0, expired_by = 86400;
 static struct plugin_timer *cleantimer;
