@@ -385,6 +385,13 @@ static struct migration dbmigrations[] = {
 	/* remote signatures for channel announcement */
 	{ "ALTER TABLE channels ADD remote_ann_node_sig BLOB;", NULL },
 	{ "ALTER TABLE channels ADD remote_ann_bitcoin_sig BLOB;", NULL },
+	/* Additional information for transaction tracking and listing */
+	{ "ALTER TABLE transactions ADD type INTEGER;", NULL },
+	/* Not a foreign key on purpose since we still delete channels from
+	 * the DB which would remove this. It is mainly used to group payments
+	 * in the list view anyway, e.g., show all close and htlc transactions
+	 * as a single bundle. */
+	{ "ALTER TABLE transactions ADD channel_id INTEGER;", NULL},
 };
 
 /* Leak tracking. */
