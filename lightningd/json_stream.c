@@ -100,6 +100,13 @@ void json_stream_close(struct json_stream *js, struct command *writer)
 	js->writer = NULL;
 }
 
+void json_stream_log_suppress(struct json_stream *js, const char *cmd_name)
+{
+	/* Really shouldn't be used for anything else */
+	assert(streq(cmd_name, "getlog"));
+	js->log = NULL;
+}
+
 /* FIXME: This, or something prettier (io_replan?) belong in ccan/io! */
 static void adjust_io_write(struct io_conn *conn, ptrdiff_t delta)
 {

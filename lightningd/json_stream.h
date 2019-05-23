@@ -46,6 +46,9 @@ struct json_stream *json_stream_dup(const tal_t *ctx, struct json_stream *origin
  */
 void json_stream_close(struct json_stream *js, struct command *writer);
 
+/* For low-level JSON stream access: */
+void json_stream_log_suppress(struct json_stream *js, const char *cmd_name);
+
 /**
  * json_stream_still_writing - is someone currently writing to this stream?
  * @js: the json_stream.
