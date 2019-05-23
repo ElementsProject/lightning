@@ -910,8 +910,8 @@ void plugins_add_default_dir(struct plugins *plugins, const char *default_dir)
 				continue;
 			add_plugin_dir(plugins, path_join(tmpctx, default_dir, di->d_name), true);
 		}
+		closedir(d);
 	}
-	closedir(d);
 }
 
 void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
