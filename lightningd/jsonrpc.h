@@ -125,6 +125,8 @@ struct command_result *command_still_pending(struct command *cmd)
 
 /* For low-level JSON stream access: */
 struct json_stream *json_stream_raw_for_cmd(struct command *cmd);
+void json_stream_log_suppress_for_cmd(struct json_stream *js,
+					    const struct command *cmd);
 struct command_result *command_raw_complete(struct command *cmd,
 					    struct json_stream *result);
 

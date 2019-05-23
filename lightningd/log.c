@@ -766,6 +766,8 @@ static struct command_result *json_getlog(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
+	/* Suppress logging for this stream, to not bloat io logs */
+	json_stream_log_suppress_for_cmd(response, cmd);
 	json_object_start(response, NULL);
 	json_add_time(response, "created_at", log_init_time(lr)->ts);
 	json_add_num(response, "bytes_used", (unsigned int) log_used(lr));
