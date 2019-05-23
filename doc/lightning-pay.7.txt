@@ -52,7 +52,7 @@ RANDOMIZATION
 To protect user privacy, the payment algorithm performs some randomization.
 
 1. Route Randomization
-2. Value Randomization
+2. Shadow Route
 
 Route randomization means the payment algorithm
 does not always use the lowest-fee or shortest route.
@@ -61,16 +61,19 @@ from learning all of the user payments
 by reducing their fees below
 the network average.
 
-Value randomization means the payment algorithm
-will add a small random amount to the actual value
-paid to the destination.
-This prevents intervening nodes
-from identifying exactly how much is being transacted.
+Shadow route means the payment algorithm
+will virtually extend the time delays
+along the route,
+making it appear to intermediate nodes
+that the route is longer than it actually is.
+This prevents intermediate nodes
+from reliably guessing their distance
+from the payee.
 
-Both randomizations respect 'maxfeepercent'.
-Route randomization plus the random value in value randomization
+Route randomization
 will never exceed 'maxfeepercent' of the payment.
-Route randomization will not take routes that would exceed 'maxdelay'.
+Route randomization and shadow routing
+will not take routes that would exceed 'maxdelay'.
 
 RETURN VALUE
 ------------
