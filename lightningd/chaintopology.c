@@ -85,16 +85,18 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		}
 
 		owned = AMOUNT_SAT(0);
+		bitcoin_txid(tx, &txid);
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx, &b->height,
-						     &owned);
+						     tx, &b->height, &owned);
+			wallet_transaction_add(topo->ld->wallet, tx, b->height,
+					       i);
+			wallet_transaction_annotate(topo->ld->wallet, &txid,
+						    TX_WALLET_DEPOSIT, 0);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
-		bitcoin_txid(tx, &txid);
-		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid) ||
-		    !amount_sat_eq(owned, AMOUNT_SAT(0))) {
+		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid)) {
 			wallet_transaction_add(topo->ld->wallet,
 					       tx, b->height, i);
 		}
