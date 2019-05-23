@@ -2528,7 +2528,7 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
 			  ", t.id as txid "
 			  "FROM channeltxs c "
 			  "JOIN transactions t ON t.id == c.transaction_id "
-			  "WHERE channel_id = ? "
+			  "WHERE c.channel_id = ? "
 			  "ORDER BY c.id ASC;");
 	sqlite3_bind_int(stmt, 1, channel_id);
 
