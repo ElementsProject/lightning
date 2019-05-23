@@ -81,13 +81,13 @@ start_ln() {
 
 stop_ln() {
 	test ! -f /tmp/l1-regtest/lightningd-regtest.pid || \
-		(kill "$(cat /tmp/l1-regtest/lightningd-regtest.pid)" && \
+		(kill "$(cat /tmp/l1-regtest/lightningd-regtest.pid)"; \
 		rm /tmp/l1-regtest/lightningd-regtest.pid)
 	test ! -f /tmp/l2-regtest/lightningd-regtest.pid || \
-		(kill "$(cat /tmp/l2-regtest/lightningd-regtest.pid)" && \
+		(kill "$(cat /tmp/l2-regtest/lightningd-regtest.pid)"; \
 		rm /tmp/l2-regtest/lightningd-regtest.pid)
 	test ! -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
-		(kill "$(cat "$PATH_TO_BITCOIN/regtest/bitcoind.pid")" && \
+		(kill "$(cat "$PATH_TO_BITCOIN/regtest/bitcoind.pid")"; \
 		rm "$PATH_TO_BITCOIN/regtest/bitcoind.pid")
 }
 
