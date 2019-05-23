@@ -46,7 +46,7 @@ $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS): $(PLUGIN_LIB_HEA
 
 # Make sure these depend on everything.
 ALL_PROGRAMS += plugins/pay plugins/autoclean
-ALL_OBJS += $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS)
+ALL_OBJS += $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS)
 
 check-source: $(PLUGIN_PAY_SRC:%=check-src-include-order/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-src-include-order/%)
 check-source-bolt: $(PLUGIN_PAY_SRC:%=bolt-check/%) $(PLUGIN_AUTOCLEAN_SRC:%=bolt-check/%)
