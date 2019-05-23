@@ -557,6 +557,11 @@ void wallet_peer_delete(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 /* Generated stub for wallet_total_forward_fees */
 struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }
+/* Generated stub for wallet_transaction_annotate */
+void wallet_transaction_annotate(struct wallet *w UNNEEDED,
+				 const struct bitcoin_txid *txid UNNEEDED, txtypes type UNNEEDED,
+				 u64 channel_id UNNEEDED)
+{ fprintf(stderr, "wallet_transaction_annotate called!\n"); abort(); }
 /* Generated stub for wallet_transaction_locate */
 struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 					    const struct bitcoin_txid *txid UNNEEDED)
