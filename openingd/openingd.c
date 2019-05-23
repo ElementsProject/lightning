@@ -610,6 +610,10 @@ static u8 *funder_channel_start(struct state *state,
 						       &state->our_funding_pubkey,
 						       &their_funding_pubkey));
 
+	/* Update the billboard with our infos */
+	peer_billboard(false,
+		       "Funding channel start: awaiting funding_txid with output to %s",
+		       tal_hex(tmpctx, funding_output_script));
 	return towire_opening_funder_start_reply(state, funding_output_script);
 }
 
