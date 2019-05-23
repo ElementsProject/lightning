@@ -3,6 +3,7 @@
  */
 #include "config.h"
 #include <assert.h>
+#include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -10,6 +11,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json.h>
+#include <common/json_command.h>
 #include <common/json_escaped.h>
 #include <common/memleak.h>
 #include <common/utils.h>
@@ -94,21 +96,104 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 	abort();
 }
 
-static void human_help(const char *buffer, const jsmntok_t *result, bool has_command) {
-	int i;
-	const jsmntok_t * help_array = result + 2;
-	/* the first command object */
-	const jsmntok_t * curr = help_array + 1;
-	/* iterate through all commands, printing the name and description */
-	for (i = 0; i < help_array->size; i++) {
-		curr += 2;
-		printf("%.*s\n", curr->end - curr->start, buffer + curr->start);
-		curr += 2;
-		printf("    %.*s\n\n", curr->end - curr->start, buffer + curr->start);
-		curr += 2;
-		/* advance to next command */
-		curr++;
+static int compare_tok(const jsmntok_t *a, const jsmntok_t *b,
+		       const char *buffer)
+{
+	int a_len = a->end - a->start, b_len = b->end - b->start, min_len, cmp;
+
+	if (a_len > b_len)
+		min_len = b_len;
+	else
+		min_len = a_len;
+
+	cmp = memcmp(buffer + a->start, buffer + b->start, min_len);
+	if (cmp != 0)
+		return cmp;
+	/* If equal, shorter one wins. */
+	return a_len - b_len;
+}
+
+static int compare_help(const jsmntok_t *const *a,
+			const jsmntok_t *const *b,
+			char *buffer)
+{
+	const jsmntok_t *cat_a, *cat_b;
+	bool a_is_developer, b_is_developer;
+	int cmp;
+
+	cat_a = json_get_member(buffer, *a, "category");
+	cat_b = json_get_member(buffer, *b, "category");
+
+	/* Just in case it's an older lightningd! */
+	if (!cat_a)
+		goto same_category;
+
+	/* We always tweak "developer" category to last. */
+	a_is_developer = json_tok_streq(buffer, cat_a, "developer");
+	b_is_developer = json_tok_streq(buffer, cat_b, "developer");
+
+	if (a_is_developer && b_is_developer)
+		cmp = 0;
+	else if (a_is_developer)
+		cmp = 1;
+	else if (b_is_developer)
+		cmp = -1;
+	else
+		/* Otherwise we order category alphabetically. */
+		cmp = compare_tok(cat_a, cat_b, buffer);
+
+	if (cmp != 0)
+		return cmp;
+
+	/* After category, we order by name */
+same_category:
+	return compare_tok(json_get_member(buffer, *a, "command"),
+			   json_get_member(buffer, *b, "command"),
+			   buffer);
+}
+
+static void human_help(char *buffer, const jsmntok_t *result, bool has_command) {
+	unsigned int i;
+	/* `curr` is used as a temporary token */
+	const jsmntok_t *curr;
+	const char *prev_cat;
+	/* Contains all commands objects, which have the following structure :
+	 * {
+	 *     "command": "The command name and usage",
+	 *     "category": "The command category",
+	 *     "description": "The command's description",
+	 *     "verbose": "The command's detailed description"
+	 * }
+	 */
+	const jsmntok_t * help_array = json_get_member(buffer, result, "help");
+	const jsmntok_t **help = tal_arr(NULL, const jsmntok_t *,
+					 help_array->size);
+
+	/* Populate an array for easy sorting with asort */
+	json_for_each_arr(i, curr, help_array)
+		help[i] = curr;
+
+	asort(help, tal_count(help), compare_help, buffer);
+
+	prev_cat = "";
+	for (i = 0; i < tal_count(help); i++) {
+		const jsmntok_t *category, *command, *desc;
+
+		category = json_get_member(buffer, help[i], "category");
+		if (category && !json_tok_streq(buffer, category, prev_cat)) {
+			prev_cat = json_strdup(help, buffer, category);
+			if (!has_command)
+				printf("=== %s ===\n\n", prev_cat);
+		}
+
+		command = json_get_member(buffer, help[i], "command");
+		desc = json_get_member(buffer, help[i], "description");
+		printf("%.*s\n",
+		       command->end - command->start, buffer + command->start);
+		printf("    %.*s\n\n",
+		       desc->end - desc->start, buffer + desc->start);
 	}
+	tal_free(help);
 
 	if (!has_command)
 		printf("---\nrun `lightning-cli help <command>` for more information on a specific command\n");
