@@ -1165,7 +1165,7 @@ void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
 
 void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t)
 {
-	u64 timestamp =  t.ts.tv_nsec + (t.ts.tv_sec * NSEC_IN_SEC);
+	u64 timestamp =  t.ts.tv_nsec + (((u64) t.ts.tv_sec) * ((u64) NSEC_IN_SEC));
 	sqlite3_bind_int64(stmt, col, timestamp);
 }
 
