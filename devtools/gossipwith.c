@@ -171,11 +171,11 @@ int main(int argc, char *argv[])
 {
 	struct io_conn *conn = tal(NULL, struct io_conn);
 	struct wireaddr_internal addr;
-	int af = -1;
+	int af;
 	struct pubkey us, them;
 	const char *err_msg;
 	const char *at;
-	struct addrinfo *ai = NULL;
+	struct addrinfo *ai;
 
 	setup_locale();
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
