@@ -1390,7 +1390,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 					 const struct htlc_stub *htlcs,
 					 u8 **htlc_scripts)
 {
-	struct bitcoin_tx *tx = NULL;
+	struct bitcoin_tx *tx;
 	struct bitcoin_signature localsig;
 	size_t i;
 	struct amount_msat htlc_amount;
