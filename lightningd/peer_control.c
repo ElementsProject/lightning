@@ -344,6 +344,7 @@ register_close_command(struct lightningd *ld,
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
+	struct bitcoin_txid txid;
 	/* BOLT #2:
 	 *
 	 * - if `next_remote_revocation_number` is greater than expected
@@ -357,6 +358,9 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 			   " they have a future one");
 	} else {
 		sign_last_tx(channel);
+		bitcoin_txid(channel->last_tx, &txid);
+		wallet_transaction_add(ld->wallet, channel->last_tx, 0, 0);
+		wallet_transaction_annotate(ld->wallet, &txid, channel->last_tx_type, channel->dbid);
 
 		/* Keep broadcasting until we say stop (can fail due to dup,
 		 * if they beat us to the broadcast). */
@@ -916,7 +920,6 @@ static enum watch_result funding_spent(struct channel *channel,
 
 	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
 			      WIRE_ONCHAIN_INIT, &txid, 0, block->height);
-
 	return onchaind_funding_spent(channel, tx, block->height);
 }
 

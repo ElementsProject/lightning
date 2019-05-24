@@ -394,7 +394,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 					 u32 blockheight)
 {
 	u8 *msg;
-	struct bitcoin_txid our_last_txid;
+	struct bitcoin_txid our_last_txid, txid;
 	struct htlc_stub *stubs;
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
@@ -442,6 +442,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 	/* This could be a mutual close, but it doesn't matter. */
+	bitcoin_txid(tx, &txid);
 	bitcoin_txid(channel->last_tx, &our_last_txid);
 
 	/* We try to use normal feerate for onchaind spends. */
