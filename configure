@@ -14,6 +14,19 @@ STATIC=${STATIC:-0}
 CONFIGURATOR_CC=${CONFIGURATOR_CC:-$CC}
 ASAN=${ASAN:-0}
 
+[ "$CC" = "gcc" ] && IS_GCC=1 || IS_GCC=0
+
+# older version of gcc give warnings which break the build. Let's create
+# a few helper flags that our build can use to fix these problems.
+if [ $IS_GCC -eq 1 ]; then
+    GCC_VERSION=$(gcc --version | grep ^gcc | sed 's/^.* //g')
+    GCC_MAJOR=$(printf "%s\n" "$GCC_VERSION" | sed -E -n 's/([[:digit:]]+).*/\1/p')
+    if [ $GCC_MAJOR -eq 7 ]; then
+        printf "older gcc detected, setting UNRELIABLE_MAYBE_UNINIT_WARNINGS=1\n"
+        UNRELIABLE_MAYBE_UNINIT_WARNINGS=1
+    fi;
+fi
+
 CONFIGURATOR=ccan/tools/configurator/configurator
 CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
@@ -142,12 +155,15 @@ if [ -z ${COPTFLAGS+x} ]; then
    fi
 fi
 
-# We only enable Werror if we're -O3 or no-optimization.  Otherwise gcc gives
-# false positives.
+# We only enable Werror if we're -O3, no-optimization, or newer gcc
+# versions. Otherwise gcc gives false positives.
 if [ -z ${CWARNFLAGS+x} ]; then
     CWARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
     if [ -x ${COPTFLAGS+x} ] || [ -z "${COPTFLAGS##*-O3*}" ]; then
-	CWARNFLAGS="$CWARNFLAGS -Werror"
+        CWARNFLAGS="$CWARNFLAGS -Werror"
+    fi
+    if [ $UNRELIABLE_MAYBE_UNINIT_WARNINGS -eq 1 ]; then
+        CWARNFLAGS="$CWARNFLAGS -Wno-error=maybe-uninitialized"
     fi
 fi
 
