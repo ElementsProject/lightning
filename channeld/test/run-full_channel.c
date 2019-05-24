@@ -120,7 +120,7 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 		struct preimage preimage;
 		struct sha256 hash;
 		enum channel_add_err e;
-		enum side sender;
+		enum side sender = 0;
 		struct amount_msat msatoshi = AMOUNT_MSAT(0);
 
 		switch (i) {
