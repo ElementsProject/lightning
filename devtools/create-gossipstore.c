@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	struct amount_sat sat;
 	bool verbose = false;
 	char *infile = NULL, *outfile = NULL, *csvfile = NULL, *csat = NULL;
-	int infd, outfd, scidi = 0, channels = 0, nodes = 0, updates = 0;
+	int infd = 0, outfd, scidi = 0, channels = 0, nodes = 0, updates = 0;
 	struct scidsat *scidsats = NULL;
 	unsigned max = -1U;
 
