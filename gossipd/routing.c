@@ -988,7 +988,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 		   struct amount_msat *fee)
 {
 	struct unvisited *unvisited;
-	struct chan **short_route;
+	struct chan **short_route = NULL;
 	struct amount_msat long_cost, short_cost, cost_diff;
 	u64 min_bias, max_bias;
 	double riskfactor;
