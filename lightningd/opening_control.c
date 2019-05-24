@@ -73,6 +73,7 @@ struct funding_channel {
 
 	struct wallet_tx *wtx;
 	struct amount_msat push;
+	struct amount_sat funding;
 	u8 channel_flags;
 
 	/* Variables we need to compose fields in cmd's response */
@@ -132,7 +133,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	}
 
 	/* These should never fail. */
-	if (amount_sat_to_msat(&total, uc->fc->wtx->amount)
+	if (amount_sat_to_msat(&total, uc->fc->funding)
 	    && amount_msat_sub(&ours, total, uc->fc->push)) {
 		json_add_amount_msat_compat(response, ours,
 					    "msatoshi_to_us", "to_us_msat");
@@ -1076,6 +1077,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 				    type_to_string(tmpctx, struct amount_sat,
 						   &max_funding_satoshi));
 
+	fc->funding = *amount;
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
 		*feerate_per_kw = opening_feerate(cmd->ld->topology);
@@ -1219,6 +1221,9 @@ static struct command_result *json_fund_channel(struct command *cmd,
 		return res;
 
 	assert(!amount_sat_greater(fc->wtx->amount, max_funding_satoshi));
+	/* Stash total amount in fc as well, as externally funded
+	 * channels don't have a wtx */
+	fc->funding = fc->wtx->amount;
 
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
