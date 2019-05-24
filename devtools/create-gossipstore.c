@@ -115,6 +115,8 @@ int main(int argc, char *argv[])
 		if (infd < 0)
 			err(1, "opening %s", infile);
 	}
+	else
+		infd = STDIN_FILENO;
 
 	if (outfile) {
 		outfd = open(outfile, O_WRONLY|O_TRUNC|O_CREAT, 0666);
