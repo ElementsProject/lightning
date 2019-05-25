@@ -300,6 +300,7 @@ static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
 	const u8 *p;
 	size_t tmplen;
 
+	*type = -1;
 	if (pread(from_fd, hdr, sizeof(hdr), from_off) != sizeof(hdr)) {
 		status_broken("Failed reading header from to gossip store @%zu"
 			      ": %s",
