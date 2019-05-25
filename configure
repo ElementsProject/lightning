@@ -11,12 +11,12 @@ DEVELOPER=${DEVELOPER:-0}
 EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
 COMPAT=${COMPAT:-1}
 STATIC=${STATIC:-0}
-CONFIGURATOR_CC=${CONFIGURATOR_CC:-$CC}
 ASAN=${ASAN:-0}
 
 CONFIGURATOR=ccan/tools/configurator/configurator
 CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
+BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -Werror"
 
 usage_with_default()
 {
@@ -40,16 +40,19 @@ default_coptflags()
     fi
 }
 
-# Given COPTFLAGS, what CWARNFLAGS do we default to.
+# Given COPTFLAGS, HAVE_GCC and HAVE_MODERN_GCC, what CWARNFLAGS to default to?
 default_cwarnflags()
 {
-    BASE="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
-    # We can use -Werror if no optimization, or if -O3.
-    if [ -z "${1##*-O3*}" ]; then
-	echo "$BASE -Werror"
-    else
-	echo "$BASE"
+    F=$BASE_WARNFLAGS
+    # Clang doesn't like -Wno-error=maybe-uninitialized, but doesn't seem
+    # to give spurious warnings, either.
+    if [ "$2" = 1 ]; then
+	# With old gccs, or optimization != -O3, we need to suppress some warnings.
+	if [ -n "${1##*-O3*}" ] || [ "$3" != "1" ]; then
+	    F="$F -Wno-error=maybe-uninitialized"
+	fi
     fi
+    echo "$F"
 }
 
 usage()
@@ -58,12 +61,13 @@ usage()
     echo "If --reconfigure is specified, $CONFIG_VAR_FILE will set defaults."
     echo "Default settings:"
     DEFAULT_COPTFLAGS="$(default_coptflags $DEVELOPER)"
-    DEFAULT_CWARNFLAGS="$(default_coptflags $DEFAULT_COPTFLAGS)"
+    # We assume we have a modern gcc.
+    DEFAULT_CWARNFLAGS="$(default_coptflags $DEFAULT_COPTFLAGS 1 1)"
     usage_with_default "CC" "$CC"
     usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
     usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
     usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
-    usage_with_default "CONFIGURATOR_CC" "$CONFIGURATOR_CC"
+    usage_with_default "CONFIGURATOR_CC" "${CONFIGURATOR_CC:-$CC}"
     echo "    To override compile line for configurator itself"
     usage_with_default "PYTEST" "$PYTEST"
 
@@ -171,14 +175,14 @@ if [ -z ${COPTFLAGS+x} ]; then
     COPTFLAGS=$(default_coptflags "$DEVELOPER")
 fi
 
-# We only enable Werror if we're -O3 or no-optimization.  Otherwise gcc gives
-# false positives.
-if [ -z ${CWARNFLAGS+x} ]; then
-    CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS")
+# Default CONFIGURATOR CC is CC.
+if [ -z ${CONFIGURATOR_CC+x} ]; then
+    CONFIGURATOR_CC=$CC
 fi
 
+# We assume warning flags don't affect congfigurator that much!
 echo -n "Compiling $CONFIGURATOR..."
-$CC $CWARNFLAGS $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+$CC ${CWARNFLAGS:-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done"
 
 if [ -z "$VALGRIND" ]; then
@@ -201,7 +205,7 @@ if [ "$ASAN" = "1" ]; then
 fi
 
 rm -f $CONFIG_VAR_FILE.$$
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" $CWARNFLAGS $CDEBUGFLAGS $COPTFLAGS <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" ${CWARNFLAGS:-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS <<EOF
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
@@ -231,8 +235,34 @@ int main(void)
 	return 0;
 }
 /*END*/
+var=HAVE_GCC
+desc=compiler is GCC
+style=OUTSIDE_MAIN
+code=
+#ifndef __GNUC__
+#error "Not GCC"
+#endif
+#ifdef __clang__
+#error "clang"
+#endif
+/*END*/
+var=HAVE_MODERN_GCC
+desc=GCC version is 7 or above
+style=OUTSIDE_MAIN
+code=
+#if __GNUC__ < 7
+#error "Not modern GCC"
+#endif
+/*END*/
 EOF
 mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
+
+# Now we can finally set our warning flags
+if [ -z ${CWARNFLAGS+x} ]; then
+    CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS" \
+		    $(sed -n 's/^HAVE_GCC=//p' < $CONFIG_VAR_FILE) \
+		    $(sed -n 's/^HAVE_MODERN_GCC=//p' < $CONFIG_VAR_FILE) )
+fi
 
 add_var PREFIX "$PREFIX"
 add_var CC "$CC"
