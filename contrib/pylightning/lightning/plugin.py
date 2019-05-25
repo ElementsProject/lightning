@@ -187,7 +187,7 @@ class Plugin(object):
             return f
         return decorator
 
-    def add_option(self, name, default, description):
+    def add_option(self, name, default, description, opt_type="string"):
         """Add an option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
@@ -198,11 +198,12 @@ class Plugin(object):
             raise ValueError(
                 "Name {} is already used by another option".format(name)
             )
+
         self.options[name] = {
             'name': name,
             'default': default,
             'description': description,
-            'type': 'string',
+            'type': opt_type,
             'value': None,
         }
 
