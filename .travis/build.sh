@@ -40,5 +40,8 @@ if [ "$SOURCE_CHECK_ONLY" == "false" ]; then
     echo -en 'travis_fold:end:script.3\\r'
 else
     git clone https://github.com/lightningnetwork/lightning-rfc.git
+    echo -en 'travis_fold:start:script.2\\r'
+    make -j3 > /dev/null
+    echo -en 'travis_fold:end:script.2\\r'
     make check-source BOLTDIR=lightning-rfc
 fi
