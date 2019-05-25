@@ -88,7 +88,7 @@ struct command_result *param_node_id(struct command *cmd,
 		return NULL;
 
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a pubkey, not '%.*s'",
+			    "'%s' should be a node id, not '%.*s'",
 			    name, json_tok_full_len(tok),
 			    json_tok_full(buffer, tok));
 }
