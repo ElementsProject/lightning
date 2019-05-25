@@ -32,18 +32,40 @@ usage_with_default()
     echo "  $1 (default $DEF)"
 }
 
+# Given DEVELOPER, what COPTFLAGS do we default to.
+default_coptflags()
+{
+    if [ "$1" = 0 ]; then
+	echo "-Og"
+    fi
+}
+
+# Given COPTFLAGS, what CWARNFLAGS do we default to.
+default_cwarnflags()
+{
+    BASE="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
+    # We can use -Werror if no optimization, or if -O3.
+    if [ -z "${1##*-O3*}" ]; then
+	echo "$BASE -Werror"
+    else
+	echo "$BASE"
+    fi
+}
+
 usage()
 {
     echo "Usage: ./configure [--reconfigure] [setting=value] [options]"
-    echo "If --reconfigure is specified, $CONFIG_VAR_FILE will set defaults if it exists."
+    echo "If --reconfigure is specified, $CONFIG_VAR_FILE will set defaults."
     echo "Default settings:"
+    DEFAULT_COPTFLAGS="$(default_coptflags $DEVELOPER)"
+    DEFAULT_CWARNFLAGS="$(default_coptflags $DEFAULT_COPTFLAGS)"
     usage_with_default "CC" "$CC"
-    usage_with_default "CWARNFLAGS" "$CWARNFLAGS"
+    usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
+    usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
     usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
     usage_with_default "CONFIGURATOR_CC" "$CONFIGURATOR_CC"
-    usage_with_default "PYTEST" "$PYTEST"
-    usage_with_default "COPTFLAGS" "$COPTFLAGS"
     echo "    To override compile line for configurator itself"
+    usage_with_default "PYTEST" "$PYTEST"
 
     echo "Options include:"
     usage_with_default "--prefix=" "$PREFIX"
@@ -102,9 +124,20 @@ PYTEST=${PYTEST:-`find_pytest`}
 for opt in "$@"; do
     case "$opt" in
 	--reconfigure)
-	    # Escape spaces for things like CWARNFLAGS.
-	    sed 's/=\(.*\)$/="\1"/' $CONFIG_VAR_FILE > $CONFIG_VAR_FILE.$$
-	    . ./$CONFIG_VAR_FILE.$$
+	    # Figure out what defaulT COPTFLAGS was for this config.vars
+	    DEFAULT_COPTFLAGS=
+	    # Set from values if not already set.
+	    while IFS='=' read VAR VAL; do
+		if eval [ -z \${$VAR+x} ]; then eval $VAR=\"$VAL\"; fi
+		if [ "$VAR" = DEVELOPER ]; then
+		   DEFAULT_COPTFLAGS=$(default_coptflags "$VAL")
+		fi
+	    done < $CONFIG_VAR_FILE
+	    # If we were those defaults, unset so we get new defaults in
+	    # case DEVELOPER has changed.
+	    if [ x"$COPTFLAGS" = x"$DEFAULT_COPTFLAGS" ]; then
+		unset COPTFLAGS
+	    fi
 	    ;;
 	CC=*) CC="${opt#CC=}";;
 	CONFIGURATOR_CC=*) CONFIGURATOR_CC="${opt#CONFIGURATOR_CC=}";;
@@ -135,20 +168,13 @@ done
 
 # Default COPTFLAGS is only set if not developer
 if [ -z ${COPTFLAGS+x} ]; then
-   if [ "$DEVELOPER" = 0 ]; then
-       COPTFLAGS="-Og"
-   else
-       COPTFLAGS=""
-   fi
+    COPTFLAGS=$(default_coptflags "$DEVELOPER")
 fi
 
 # We only enable Werror if we're -O3 or no-optimization.  Otherwise gcc gives
 # false positives.
 if [ -z ${CWARNFLAGS+x} ]; then
-    CWARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
-    if [ -x ${COPTFLAGS+x} ] || [ -z "${COPTFLAGS##*-O3*}" ]; then
-	CWARNFLAGS="$CWARNFLAGS -Werror"
-    fi
+    CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS")
 fi
 
 echo -n "Compiling $CONFIGURATOR..."
