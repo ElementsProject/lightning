@@ -470,6 +470,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 
 #if DEVELOPER
 	/* dev-routes overrides this. */
+	any_offline = false;
 	if (!info->b11->routes)
 #endif
 	info->b11->routes
