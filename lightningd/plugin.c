@@ -81,11 +81,22 @@ struct plugins {
 	struct lightningd *ld;
 };
 
+/* The value of a plugin option, which can have different types.
+ * The presence of the integer and boolean values will depend of
+ * the option type, but the string value will always be filled.
+ */
+struct plugin_opt_value {
+	char *as_str;
+	int *as_int;
+	bool *as_bool;
+};
+
 struct plugin_opt {
 	struct list_node list;
 	const char *name;
+	const char *type;
 	const char *description;
-	char *value;
+	struct plugin_opt_value *value;
 };
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
@@ -467,8 +478,13 @@ static struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 {
-	tal_free(popt->value);
-	popt->value = tal_strdup(popt, arg);
+	tal_free(popt->value->as_str);
+	popt->value->as_str = tal_strdup(popt, arg);
+	if (streq(popt->type, "int"))
+		*popt->value->as_int = atoi(arg);
+	else if (streq(popt->type, "bool"))
+		*popt->value->as_bool = streq(arg, "true") || streq(arg, "True")
+			|| streq(arg, "1");
 	return NULL;
 }
 
@@ -490,31 +506,48 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 		return false;
 	}
 
-	/* FIXME(cdecker) Support numeric and boolean options as well */
-	if (!json_tok_streq(buffer, typetok, "string")) {
-		plugin_kill(plugin,
-			    "Only \"string\" options currently supported");
-		return false;
-	}
-
 	popt = tal(plugin, struct plugin_opt);
+	popt->value = talz(popt, struct plugin_opt_value);
 
 	popt->name = tal_fmt(plugin, "--%.*s", nametok->end - nametok->start,
 			     buffer + nametok->start);
-	popt->value = NULL;
-	if (defaulttok) {
-		popt->value = json_strdup(popt, buffer, defaulttok);
-		popt->description = tal_fmt(
-		    popt, "%.*s (default: %s)", desctok->end - desctok->start,
-		    buffer + desctok->start, popt->value);
+	if (json_tok_streq(buffer, typetok, "string")) {
+		popt->type = "string";
+		if (defaulttok) {
+			popt->value->as_str = json_strdup(popt, buffer, defaulttok);
+			popt->description = tal_fmt(
+					popt, "%.*s (default: %s)", desctok->end - desctok->start,
+					buffer + desctok->start, popt->value->as_str);
+		}
+	} else if (json_tok_streq(buffer, typetok, "int")) {
+		popt->type = "int";
+		popt->value->as_int = talz(popt->value, int);
+		if (defaulttok) {
+			json_to_int(buffer, defaulttok, popt->value->as_int);
+			popt->value->as_str = tal_fmt(popt->value, "%d", *popt->value->as_int);
+			popt->description = tal_fmt(
+					popt, "%.*s (default: %i)", desctok->end - desctok->start,
+					buffer + desctok->start, *popt->value->as_int);
+		}
+	} else if (json_tok_streq(buffer, typetok, "bool")) {
+		popt->type = "bool";
+		popt->value->as_bool = talz(popt->value, bool);
+		if (defaulttok) {
+			json_to_bool(buffer, defaulttok, popt->value->as_bool);
+			popt->value->as_str = tal_fmt(popt->value, *popt->value->as_bool ? "true" : "false");
+			popt->description = tal_fmt(
+					popt, "%.*s (default: %s)", desctok->end - desctok->start,
+					buffer + desctok->start, *popt->value->as_bool ? "true" : "false");
+		}
 	} else {
-		popt->description = json_strdup(popt, buffer, desctok);
+		plugin_kill(plugin, "Only \"string\", \"int\", and \"bool\" options are supported");
+		return false;
 	}
-
+	if (!defaulttok)
+		popt->description = json_strdup(popt, buffer, desctok);
 	list_add_tail(&plugin->plugin_opts, &popt->list);
-
 	opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
-			 popt->description);
+				popt->description);
 	return true;
 }
 
@@ -974,7 +1007,6 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		}
 		tal_free(cmd);
 	}
-
 	while (plugins->pending_manifests > 0) {
 		void *v = io_loop(&plugins->timers, &expired);
 		if (v == plugins)
@@ -1009,8 +1041,9 @@ static void plugin_config(struct plugin *plugin)
 	list_for_each(&plugin->plugin_opts, opt, list) {
 		/* Trim the `--` that we added before */
 		name = opt->name + 2;
-		if (opt->value)
-			json_add_string(req->stream, name, opt->value);
+		if (opt->value->as_str) {
+			json_add_string(req->stream, name, opt->value->as_str);
+		}
 	}
 	json_object_end(req->stream); /* end of .params.options */
 
