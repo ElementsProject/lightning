@@ -90,6 +90,12 @@ opening_funder_start_reply,6102
 opening_funder_start_reply,,script_len,u8
 opening_funder_start_reply,,scriptpubkey,script_len*u8
 
+# master->openingd: continue channel establsihment for a funding
+# tx that will be paid for by an external wallet
+# response to this is a normal `opening_funder_reply` ??
+opening_funder_continue,6012
+opening_funder_continue,,funding_txid,struct bitcoin_txid
+
 # Openingd->master: we failed to negotiation channel
 opening_funder_failed,6004
 opening_funder_failed,,reason,wirestring

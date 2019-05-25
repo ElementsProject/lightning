@@ -617,6 +617,13 @@ static u8 *funder_channel_start(struct state *state,
 	return towire_opening_funder_start_reply(state, funding_output_script);
 }
 
+static u8 *funder_channel_continue(struct state *state,
+				   struct bitcoin_txid *funding_txid)
+{
+	// now the what. ok we've got a funding_txid..
+	return NULL;
+}
+
 /*~ OK, let's fund a channel!  Returns the reply for lightningd on success,
  * or NULL if something goes wrong. */
 static u8 *funder_channel(struct state *state,
@@ -1565,6 +1572,7 @@ static u8 *handle_master_in(struct state *state)
 	struct amount_sat change;
 	u32 change_keyindex;
 	u8 channel_flags;
+	struct bitcoin_txid funding_txid;
 	struct utxo **utxos;
 	struct ext_key bip32_base;
 
@@ -1596,6 +1604,11 @@ static u8 *handle_master_in(struct state *state)
 		/* We want to keep openingd alive, since we're not done yet */
 		wire_sync_write(REQ_FD, take(msg));
 		return NULL;
+	case WIRE_OPENING_FUNDER_CONTINUE:
+		if (!fromwire_opening_funder_continue(msg,
+						      &funding_txid))
+			master_badmsg(WIRE_OPENING_FUNDER_CONTINUE, msg);
+		return funder_channel_continue(state, &funding_txid);
 	case WIRE_OPENING_DEV_MEMLEAK:
 #if DEVELOPER
 		handle_dev_memleak(state, msg);

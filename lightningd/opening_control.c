@@ -969,6 +969,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER:
 	case WIRE_OPENING_FUNDER_START:
+	case WIRE_OPENING_FUNDER_CONTINUE:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_DEV_MEMLEAK:
 	/* Replies never get here */
@@ -1043,6 +1044,44 @@ void peer_start_openingd(struct peer *peer,
 				  peer->localfeatures,
 				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
+}
+
+static struct command_result *json_fund_channel_continue(struct command *cmd,
+							 const char *buffer,
+							 const jsmntok_t *obj UNNEEDED,
+							 const jsmntok_t *params)
+{
+	u8 *msg;
+	struct node_id *id;
+	struct bitcoin_txid *funding_txid;
+	struct peer *peer;
+	struct channel *channel;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("txid", param_txid, &funding_txid),
+		   NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer) {
+		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
+	}
+
+	channel = peer_active_channel(peer);
+	if (channel)
+		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
+				    channel_state_name(channel));
+
+	if (!peer->uncommitted_channel)
+		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+
+	if (!peer->uncommitted_channel->fc)
+		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
+
+	msg = towire_opening_funder_continue(NULL, funding_txid);
+	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+	return command_still_pending(cmd);
 }
 
 static struct command_result *json_fund_channel_start(struct command *cmd,
@@ -1261,6 +1300,15 @@ static const struct json_command fund_channel_start_command = {
     "Returns a bech32 address to use as an output for a funding transaction."
 };
 AUTODATA(json_command, &fund_channel_start_command);
+
+static const struct json_command fund_channel_continue_command = {
+    "fundchannel_continue",
+    "channels",
+    json_fund_channel_continue,
+    "Complete channel establishment with peer {id} for funding transaction"
+    "with {txid}. Returns true on success, false otherwise."
+};
+AUTODATA(json_command, &fund_channel_continue_command);
 
 #if DEVELOPER
  /* Indented to avoid include ordering check */

@@ -499,6 +499,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel_start", payload)
 
+    def fundchannel_continue(self, node_id, funding_txid):
+        """
+        Complete channel establishment with {id}, using {funding_txid}
+        """
+        payload = {
+            "id": node_id,
+            "txid": funding_txid,
+        }
+        return self.call("fundchannel_continue", payload)
+
     def getinfo(self):
         """
         Show information about this node
