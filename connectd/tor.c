@@ -45,8 +45,8 @@ static struct io_plan *connect_finish2(struct io_conn *conn,
 				       struct connecting_socks *connect)
 {
 	status_io(LOG_IO_IN, "proxy",
-		  (connect->buffer + SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE),
-		  SIZE_OF_IPV6_RESPONSE - SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE);
+		  connect->buffer + SIZE_OF_RESPONSE + SIZE_OF_IPV4_RESPONSE,
+		  SIZE_OF_IPV6_RESPONSE - SIZE_OF_IPV4_RESPONSE);
 	status_trace("Now try LN connect out for host %s", connect->host);
 	return connection_out(conn, connect->connect);
 }
@@ -59,11 +59,12 @@ static struct io_plan *connect_finish(struct io_conn *conn,
 
 	if ( connect->buffer[1] == '\0') {
 		if ( connect->buffer[3] == SOCKS_TYP_IPV6) {
+			/* Read rest of response */
 			return io_read(conn,
-				       (connect->buffer + SIZE_OF_RESPONSE -
-					SIZE_OF_IPV4_RESPONSE),
+				       connect->buffer + SIZE_OF_RESPONSE +
+				       SIZE_OF_IPV4_RESPONSE,
 				       SIZE_OF_IPV6_RESPONSE -
-				       SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE,
+				       SIZE_OF_IPV4_RESPONSE,
 				       &connect_finish2, connect);
 
 		} else if ( connect->buffer[3] == SOCKS_TYP_IPV4) {
