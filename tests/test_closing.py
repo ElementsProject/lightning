@@ -779,7 +779,7 @@ def test_onchain_middleman(node_factory, bitcoind):
         print("Got err from sendpay thread")
         raise err
     t.join(timeout=1)
-    assert not t.isAlive()
+    assert not t.is_alive()
 
     # Three more, l2 can spend to-us.
     bitcoind.generate_block(3)
