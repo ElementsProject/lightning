@@ -529,7 +529,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	size_t stats[] = {0, 0, 0, 0};
 	struct timeabs start = time_now();
 	const u8 *chan_ann = NULL;
-	u64 chan_ann_off;
+	u64 chan_ann_off = 0; /* Spurious gcc-9 (Ubuntu 9-20190402-1ubuntu1) 9.0.1 20190402 (experimental) warning */
 
 	gs->writable = false;
 	while (pread(gs->fd, hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
