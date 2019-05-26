@@ -28,6 +28,7 @@ struct plugin_command {
 /* Create an array of these, one for each --option you support. */
 struct plugin_option {
 	const char *name;
+	const char *type;
 	const char *description;
 	char *(*handle)(const char *str, void *arg);
 	void *arg;
@@ -118,8 +119,9 @@ struct plugin_timer *plugin_timer(struct plugin_conn *rpc,
 void PRINTF_FMT(2, 3) plugin_log(enum log_level l, const char *fmt, ...);
 
 /* Macro to define arguments */
-#define plugin_option(name, description, set, arg)			\
+#define plugin_option(name, type, description, set, arg)			\
 	(name),								\
+	(type),								\
 	(description),							\
 	typesafe_cb_preargs(char *, void *, (set), (arg), const char *),	\
 	(arg)
