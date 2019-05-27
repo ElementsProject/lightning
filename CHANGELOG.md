@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config: Increased default amount for minimal channel capacity from 1k sat to 10k sat.
 - Build: Non-developer builds are now done with "-Og" optimization.
 - JSON API: `pay` will no longer return failure until it is no longer retrying; previously it could "timeout" but still make the payment.
+- JSON API: the command objects that `help` outputs now contain a new string field : `category` (can be "bitcoin", "channels", "network", "payment", "plugins", "utility", "developer" for native commands, or any other new category set by a plugin).
+- Plugins: a plugin can now set the category of a newly created RPC command. This possibility has been added to libplugin.c and pylightning.
+- CLI: the human readable help is now more human and more readable : commands are sorted alphabetically and ordered by categories.
 
 ### Deprecated
 
