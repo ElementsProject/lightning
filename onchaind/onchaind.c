@@ -980,15 +980,21 @@ static void steal_htlc_tx(struct tracked_output *out)
 	propose_resolution(out, tx, 0, tx_type);
 }
 
+static void onchain_transaction_annotate(const struct bitcoin_txid *txid, txtypes type)
+{
+	u8 *msg = towire_onchain_transaction_annotate(tmpctx, txid, type);
+	wire_sync_write(REQ_FD, take(msg));
+}
 /* An output has been spent: see if it resolves something we care about. */
 static void output_spent(struct tracked_output ***outs,
 			 const struct bitcoin_tx *tx,
 			 u32 input_num,
 			 u32 tx_blockheight)
 {
-	struct bitcoin_txid txid, tmptxid;
+	struct bitcoin_txid txid, tmptxid, spendertxid;
 
 	bitcoin_txid(tx, &txid);
+	bitcoin_txid(tx, &spendertxid);
 
 	for (size_t i = 0; i < tal_count(*outs); i++) {
 		struct tracked_output *out = (*outs)[i];
@@ -1024,6 +1030,9 @@ static void output_spent(struct tracked_output ***outs,
 			} else {
 				/* We ignore this timeout tx, since we should
 				 * resolve by ignoring once we reach depth. */
+				onchain_transaction_annotate(
+				    &spendertxid,
+				    TX_CHANNEL_HTLC_TIMEOUT | TX_THEIRS);
 			}
 			break;
 
@@ -1056,6 +1065,9 @@ static void output_spent(struct tracked_output ***outs,
 				 *    output is considered *irrevocably resolved*
 				 */
 				ignore_output(out);
+				onchain_transaction_annotate(
+				    &spendertxid,
+				    TX_CHANNEL_HTLC_SUCCESS | TX_THEIRS);
 			}
 			break;
 
@@ -1820,10 +1832,12 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 		matches = match_htlc_output(tmpctx, tx, i, htlc_scripts);
 		/* FIXME: limp along when this happens! */
-		if (tal_count(matches) == 0)
+		if (tal_count(matches) == 0) {
+			onchain_transaction_annotate(txid, TX_CHANNEL_PENALTY | TX_THEIRS);
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
+		}
 
 		if (matches_direction(matches, htlcs) == LOCAL) {
 			/* BOLT #5:
