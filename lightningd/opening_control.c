@@ -455,6 +455,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	/* Mark consumed outputs as spent */
 	wallet_confirm_utxos(ld->wallet, fc->wtx->utxos);
+	wallet_transaction_annotate(ld->wallet, &funding_txid,
+				    TX_CHANNEL_FUNDING, channel->dbid);
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(channel, pps, NULL, false);
