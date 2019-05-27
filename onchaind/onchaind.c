@@ -1093,6 +1093,7 @@ static void output_spent(struct tracked_output ***outs,
 	status_trace("Notified about tx %s output %u spend, but we don't care",
 		     type_to_string(tmpctx, struct bitcoin_txid, &txid),
 		     tx->wtx->inputs[input_num].index);
+
 	unwatch_tx(tx);
 }
 
