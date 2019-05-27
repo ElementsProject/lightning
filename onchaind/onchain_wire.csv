@@ -99,3 +99,10 @@ onchain_dev_memleak,5033
 
 onchain_dev_memleak_reply,5133
 onchain_dev_memleak_reply,,leak,bool
+
+# Tell the main daemon what we've been watching, mainly used for transactions
+# that we tracked automatically but only onchaind knows how to classify their
+# transactions.
+onchain_transaction_annotate,5034
+onchain_transaction_annotate,,txid,struct bitcoin_txid
+onchain_transaction_annotate,,type,u16
