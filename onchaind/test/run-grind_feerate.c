@@ -130,7 +130,7 @@ u8 *towire_onchain_add_utxo(const tal_t *ctx UNNEEDED, const struct bitcoin_txid
 u8 *towire_onchain_all_irrevocably_resolved(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchain_all_irrevocably_resolved called!\n"); abort(); }
 /* Generated stub for towire_onchain_broadcast_tx */
-u8 *towire_onchain_broadcast_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_tx *tx UNNEEDED)
+u8 *towire_onchain_broadcast_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, u16 type UNNEEDED)
 { fprintf(stderr, "towire_onchain_broadcast_tx called!\n"); abort(); }
 /* Generated stub for towire_onchain_dev_memleak_reply */
 u8 *towire_onchain_dev_memleak_reply(const tal_t *ctx UNNEEDED, bool leak UNNEEDED)

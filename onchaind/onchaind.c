@@ -15,6 +15,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
+#include <common/wallet.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
@@ -457,6 +458,41 @@ static void ignore_output(struct tracked_output *out)
 	out->resolved->tx_type = SELF;
 }
 
+static txtypes onchain_txtype_to_wallet_txtype(enum tx_type t)
+{
+	switch (t) {
+	case FUNDING_TRANSACTION:
+		return TX_CHANNEL_FUNDING;
+	case MUTUAL_CLOSE:
+		return TX_CHANNEL_CLOSE;
+	case OUR_UNILATERAL:
+		return TX_CHANNEL_UNILATERAL;
+	case THEIR_HTLC_FULFILL_TO_US:
+	case OUR_HTLC_SUCCESS_TX:
+		return TX_CHANNEL_HTLC_SUCCESS;
+	case OUR_HTLC_TIMEOUT_TO_US:
+	case OUR_HTLC_TIMEOUT_TX:
+		return TX_CHANNEL_HTLC_TIMEOUT;
+	case OUR_DELAYED_RETURN_TO_WALLET:
+	case SELF:
+		return TX_CHANNEL_SWEEP;
+	case OUR_PENALTY_TX:
+		return TX_CHANNEL_PENALTY;
+	case THEIR_UNILATERAL:
+	case UNKNOWN_UNILATERAL:
+	case THEIR_REVOKED_UNILATERAL:
+		return TX_CHANNEL_UNILATERAL | TX_THEIRS;
+	case THEIR_HTLC_TIMEOUT_TO_THEM:
+		return TX_CHANNEL_HTLC_TIMEOUT | TX_THEIRS;
+	case OUR_HTLC_FULFILL_TO_THEM:
+		return TX_CHANNEL_HTLC_SUCCESS | TX_THEIRS;
+	case IGNORING_TINY_PAYMENT:
+	case UNKNOWN_TXTYPE:
+		return TX_UNKNOWN;
+	}
+	abort();
+}
+
 static void proposal_meets_depth(struct tracked_output *out)
 {
 	/* If we simply wanted to ignore it after some depth */
@@ -471,9 +507,11 @@ static void proposal_meets_depth(struct tracked_output *out)
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type));
 
-	wire_sync_write(REQ_FD,
-			take(towire_onchain_broadcast_tx(NULL,
-							 out->proposal->tx)));
+	wire_sync_write(
+	    REQ_FD,
+	    take(towire_onchain_broadcast_tx(
+		NULL, out->proposal->tx,
+		onchain_txtype_to_wallet_txtype(out->proposal->tx_type))));
 
 	/* Don't wait for this if we're ignoring the tiny payment. */
 	if (out->proposal->tx_type == IGNORING_TINY_PAYMENT) {
