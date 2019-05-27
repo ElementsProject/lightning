@@ -48,6 +48,7 @@ onchain_init_reply,5101
 # onchaind->master: Send out a tx.
 onchain_broadcast_tx,5003
 onchain_broadcast_tx,,tx,struct bitcoin_tx
+onchain_broadcast_tx,,type,u16
 
 # master->onchaind: Notifier that an output has been spent by input_num of tx.
 onchain_spent,5004

@@ -165,11 +165,18 @@ static void watch_tx_and_outputs(struct channel *channel,
 static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
+	struct wallet *w = channel->peer->ld->wallet;
+	struct bitcoin_txid txid;
+	txtypes type;
 
-	if (!fromwire_onchain_broadcast_tx(msg, msg, &tx)) {
+	if (!fromwire_onchain_broadcast_tx(msg, msg, &tx, &type)) {
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
 		return;
 	}
+
+	bitcoin_txid(tx, &txid);
+	wallet_transaction_add(w, tx, 0, 0);
+	wallet_transaction_annotate(w, &txid, type, channel->dbid);
 
 	/* We don't really care if it fails, we'll respond via watch. */
 	broadcast_tx(channel->peer->ld->topology, channel, tx, NULL);
