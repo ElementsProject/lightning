@@ -291,6 +291,18 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
 }
 
+static void onchain_transaction_annotate(struct channel *channel, const u8 *msg)
+{
+	struct bitcoin_txid txid;
+	txtypes type;
+	if (!fromwire_onchain_transaction_annotate(msg, &txid, &type))
+		fatal("onchaind gave invalid onchain_transaction_annotate "
+		      "message: %s",
+		      tal_hex(msg, msg));
+	wallet_transaction_annotate(channel->peer->ld->wallet, &txid, type,
+				    channel->dbid);
+}
+
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum onchain_wire_type t = fromwire_peektype(msg);
@@ -326,6 +338,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIN_ADD_UTXO:
 		onchain_add_utxo(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIN_TRANSACTION_ANNOTATE:
+		onchain_transaction_annotate(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */
