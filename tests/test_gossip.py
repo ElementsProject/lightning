@@ -944,9 +944,9 @@ def test_gossip_notices_close(node_factory, bitcoind):
 
     bitcoind.generate_block(5)
 
-    # Make sure l1 learns about channel.
+    # Make sure l1 learns about channel and nodes.
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
-    wait_for(lambda: len(l1.rpc.listnodes()['nodes']) == 2)
+    wait_for(lambda: ['alias' in n for n in l1.rpc.listnodes()['nodes']] == [True, True])
     l1.rpc.disconnect(l2.info['id'])
 
     # Grab channel_announcement from io logs (ends in ')
