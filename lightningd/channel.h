@@ -76,6 +76,7 @@ struct channel {
 
 	/* Last tx they gave us. */
 	struct bitcoin_tx *last_tx;
+	txtypes last_tx_type;
 	struct bitcoin_signature last_sig;
 	secp256k1_ecdsa_signature *last_htlc_sigs;
 
@@ -201,7 +202,8 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
-			 const struct bitcoin_signature *sig);
+			 const struct bitcoin_signature *sig,
+			 txtypes type);
 
 static inline bool channel_can_add_htlc(const struct channel *channel)
 {

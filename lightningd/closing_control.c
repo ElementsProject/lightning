@@ -95,8 +95,7 @@ static void peer_received_closing_signature(struct channel *channel,
 
 	/* FIXME: Make sure signature is correct! */
 	if (better_closing_fee(ld, channel, tx)) {
-		channel_set_last_tx(channel, tx, &sig);
-		/* TODO(cdecker) Selectively save updated fields to DB */
+		channel_set_last_tx(channel, tx, &sig, TX_CHANNEL_CLOSE);
 		wallet_channel_save(ld->wallet, channel);
 	}
 
