@@ -132,8 +132,8 @@ def node_factory(request, directory, test_name, bitcoind, executor):
     check_errors(request, err_count, "{} nodes had unexpected reconnections")
 
     for node in nf.nodes:
-        err_count += checkBadGossipOrder(node)
-    check_errors(request, err_count, "{} nodes had bad gossip order")
+        err_count += checkBadGossip(node)
+    check_errors(request, err_count, "{} nodes had bad gossip messages")
 
     for node in nf.nodes:
         err_count += checkBadReestablish(node)
@@ -204,8 +204,17 @@ def checkReconnect(node):
     return 0
 
 
-def checkBadGossipOrder(node):
-    if node.daemon.is_in_log('Bad gossip order from (?!error)') and not node.daemon.is_in_log('Deleting channel'):
+def checkBadGossip(node):
+    # We can get bad gossip order from inside error msgs.
+    if node.daemon.is_in_log('Bad gossip order from (?!error)'):
+        # This can happen if a node sees a node_announce after a channel
+        # is deleted, however.
+        if node.daemon.is_in_log('Deleting channel'):
+            return 0
+        return 1
+
+    # Other 'Bad' messages shouldn't happen.
+    if node.daemon.is_in_log(r'gossipd.*Bad (?!gossip order from error)'):
         return 1
     return 0
 
