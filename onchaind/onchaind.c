@@ -1396,6 +1396,7 @@ static void handle_mutual_close(const struct bitcoin_txid *txid,
 				struct tracked_output **outs)
 {
 	init_reply("Tracking mutual close transaction");
+	onchain_transaction_annotate(txid, TX_CHANNEL_CLOSE);
 
 	/* BOLT #5:
 	 *
@@ -1691,6 +1692,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking our own unilateral close");
+	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL);
 
 	/* BOLT #5:
 	 *
@@ -1969,6 +1971,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking their illegal close: taking all funds");
+	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL | TX_CHANNEL_CHEAT | TX_THEIRS);
 
 	/* BOLT #5:
 	 *
@@ -2189,6 +2192,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking their unilateral close");
+	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL | TX_THEIRS);
 
 	/* HSM can't derive this. */
 	remote_per_commitment_point = this_remote_per_commitment_point;
@@ -2402,6 +2406,8 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 	struct keyset *ks;
 	int to_us_output = -1;
 	u8 *local_script;
+
+	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL | TX_THEIRS);
 
 	resolved_by_other(outs[0], txid, UNKNOWN_UNILATERAL);
 
