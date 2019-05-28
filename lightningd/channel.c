@@ -233,6 +233,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->msat_to_us_min = msat_to_us_min;
 	channel->msat_to_us_max = msat_to_us_max;
 	channel->last_tx = tal_steal(channel, last_tx);
+	channel->last_tx_type = TX_UNKNOWN;
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
 	channel->channel_info = *channel_info;
@@ -331,11 +332,13 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
-			 const struct bitcoin_signature *sig)
+			 const struct bitcoin_signature *sig,
+			 txtypes txtypes)
 {
 	channel->last_sig = *sig;
 	tal_free(channel->last_tx);
 	channel->last_tx = tal_steal(channel, tx);
+	channel->last_tx_type = txtypes;
 }
 
 void channel_set_state(struct channel *channel,

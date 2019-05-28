@@ -1240,7 +1240,7 @@ static bool peer_save_commitsig_received(struct channel *channel, u64 commitnum,
 	channel->next_index[LOCAL]++;
 
 	/* Update channel->last_sig and channel->last_tx before saving to db */
-	channel_set_last_tx(channel, tx, commit_sig);
+	channel_set_last_tx(channel, tx, commit_sig, TX_CHANNEL_UNILATERAL);
 
 	return true;
 }
