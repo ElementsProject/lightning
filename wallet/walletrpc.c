@@ -25,6 +25,7 @@
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <wallet/wallet.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
@@ -782,3 +783,79 @@ static const struct json_command dev_rescan_output_command = {
 	"For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)"
 };
 AUTODATA(json_command, &dev_rescan_output_command);
+
+struct {
+	enum wallet_tx_type t;
+	const char *name;
+} wallet_tx_type_display_names[] = {
+    {TX_THEIRS, "theirs"},
+    {TX_WALLET_DEPOSIT, "deposit"},
+    {TX_WALLET_WITHDRAWAL, "withdraw"},
+    {TX_CHANNEL_FUNDING, "channel_funding"},
+    {TX_CHANNEL_CLOSE, "channel_mutual_close"},
+    {TX_CHANNEL_UNILATERAL, "channel_unilateral_close"},
+    {TX_CHANNEL_SWEEP, "channel_sweep"},
+    {TX_CHANNEL_HTLC_SUCCESS, "channel_htlc_success"},
+    {TX_CHANNEL_HTLC_TIMEOUT, "channel_htlc_timeout"},
+    {TX_CHANNEL_PENALTY, "channel_penalty"},
+    {TX_CHANNEL_CHEAT, "channel_unilateral_cheat"},
+    {0, NULL}
+};
+
+static void json_add_txtypes(struct json_stream *result, const char *fieldname, txtypes value)
+{
+	json_array_start(result, fieldname);
+	for (size_t i=0; wallet_tx_type_display_names[i].name != NULL; i++) {
+		if (value & wallet_tx_type_display_names[i].t)
+			json_add_string(result, NULL, wallet_tx_type_display_names[i].name);
+	}
+	json_array_end(result);
+}
+
+static struct command_result *json_listtransactions(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *obj UNNEEDED,
+						      const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct wallet_transaction *txs;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	response = json_stream_success(cmd);
+	txs = wallet_transactions_get(cmd->ld->wallet, response);
+
+	json_object_start(response, NULL);
+	json_array_start(response, "transactions");
+	for (size_t i=0; i<tal_count(txs); i++) {
+		json_object_start(response, NULL);
+		json_add_txid(response, "hash", &txs[i].id);
+		json_add_hex_talarr(response, "rawtx", txs[i].rawtx);
+		json_add_u64(response, "blockheight", txs[i].blockheight);
+		json_add_num(response, "txindex", txs[i].txindex);
+		json_add_txtypes(response, "type", txs[i].type);
+		if (txs[i].channel_id != 0) {
+			json_add_num(response, "channel_id", txs[i].channel_id);
+		} else {
+			json_add_null(response, "channel_id");
+		}
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command listtransactions_command = {
+    "listtransactions",
+    "payment",
+    json_listtransactions,
+    "List transactions that we stored in the wallet",
+    false,
+    "Returns transactions tracked in the wallet. This includes deposits, "
+    "withdrawals and transactions related to channels. A transaction may have "
+    "multiple types, e.g., a transaction may both be a close and a deposit if "
+    "it closes the channel and returns funds to the wallet."
+};
+AUTODATA(json_command, &listtransactions_command);
