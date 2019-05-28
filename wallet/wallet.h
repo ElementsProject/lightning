@@ -289,6 +289,15 @@ struct channeltx {
 	u32 depth;
 };
 
+struct wallet_transaction {
+	struct bitcoin_txid id;
+	u32 blockheight;
+	u32 txindex;
+	u8 *rawtx;
+	txtypes type;
+	u64 channel_id;
+};
+
 /**
  * wallet_new - Constructor for a new sqlite3 based wallet
  *
@@ -1131,4 +1140,14 @@ void add_unreleased_tx(struct wallet *w, struct unreleased_tx *utx);
 
 /* These will touch the db, so need to be explicitly freed. */
 void free_unreleased_txs(struct wallet *w);
+
+/**
+ * Get a list of transactions that we track in the wallet.
+ *
+ * @param ctx: allocation context for the returned list
+ * @param wallet: Wallet to load from.
+ * @return A tal_arr of wallet transactions
+ */
+struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */
