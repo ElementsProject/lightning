@@ -2806,3 +2806,27 @@ void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind)
 	} else
 		tal_free(utxos);
 }
+
+struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx)
+{
+	sqlite3_stmt *stmt;
+	size_t count;
+	struct wallet_transaction *cur, *txs = tal_arr(ctx, struct wallet_transaction, 0);
+
+	stmt = db_select_prepare(w->db,
+				 "id, id, rawtx, blockheight, txindex, type, channel_id "
+				 "FROM transactions");
+	for (count = 0; db_select_step(w->db, stmt); count++) {
+		tal_resize(&txs, count + 1);
+		cur = &txs[count];
+		sqlite3_column_sha256_double(stmt, 1, &cur->id.shad);
+		cur->rawtx = tal_dup_arr(txs, u8, sqlite3_column_blob(stmt, 2),
+					 sqlite3_column_bytes(stmt, 2), 0);
+		cur->blockheight = sqlite3_column_int(stmt, 3);
+		cur->txindex = sqlite3_column_int(stmt, 4);
+		cur->type = sqlite3_column_int(stmt, 5);
+		cur->channel_id = sqlite3_column_int(stmt, 6);
+	}
+
+	return txs;
+}
