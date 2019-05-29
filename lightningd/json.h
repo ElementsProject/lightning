@@ -127,6 +127,15 @@ void json_add_num(struct json_stream *result, const char *fieldname,
 /* '"fieldname" : value' or 'value' if fieldname is NULL */
 void json_add_u64(struct json_stream *result, const char *fieldname,
 		  uint64_t value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_s64(struct json_stream *result, const char *fieldname,
+		  int64_t value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_u32(struct json_stream *result, const char *fieldname,
+		  uint32_t value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_s32(struct json_stream *result, const char *fieldname,
+		  int32_t value);
 /* '"fieldname" : true|false' or 'true|false' if fieldname is NULL */
 void json_add_bool(struct json_stream *result, const char *fieldname,
 		   bool value);
