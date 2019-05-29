@@ -308,6 +308,24 @@ void json_add_u64(struct json_stream *result, const char *fieldname,
 	json_add_member(result, fieldname, "%"PRIu64, value);
 }
 
+void json_add_s64(struct json_stream *result, const char *fieldname,
+		  int64_t value)
+{
+	json_add_member(result, fieldname, "%"PRIi64, value);
+}
+
+void json_add_u32(struct json_stream *result, const char *fieldname,
+		  uint32_t value)
+{
+	json_add_member(result, fieldname, "%d", value);
+}
+
+void json_add_s32(struct json_stream *result, const char *fieldname,
+		  int32_t value)
+{
+	json_add_member(result, fieldname, "%d", value);
+}
+
 void json_add_literal(struct json_stream *result, const char *fieldname,
 		      const char *literal, int len)
 {
