@@ -32,6 +32,7 @@ struct pending_node_announce {
 	size_t refcount;
 	u8 *node_announcement;
 	u32 timestamp;
+	u32 index;
 };
 
 static const struct node_id *
@@ -1285,6 +1286,7 @@ static void catch_node_announcement(const tal_t *ctx,
 		pna->nodeid = *nodeid;
 		pna->node_announcement = NULL;
 		pna->timestamp = 0;
+		pna->index = 0;
 		pna->refcount = 0;
 		pending_node_map_add(rstate->pending_node_map, pna);
 	}
@@ -1300,18 +1302,17 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		return;
 
 	if (pna->node_announcement) {
-		u8 *err;
 		SUPERVERBOSE(
 		    "Processing deferred node_announcement for node %s",
 		    type_to_string(pna, struct node_id, nodeid));
 
 		/* Should not error, since we processed it before */
-		err = handle_node_announcement(rstate, pna->node_announcement);
-		if (err)
+		if (!routing_add_node_announcement(rstate,
+						   pna->node_announcement,
+						   pna->index))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "pending node_announcement %s malformed %s?",
-				      tal_hex(tmpctx, pna->node_announcement),
-				      sanitize_error(tmpctx, err, NULL));
+				      "pending node_announcement %s malformed?",
+				      tal_hex(tmpctx, pna->node_announcement));
 	}
 }
 
@@ -2051,16 +2052,51 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		return false;
 	}
 
+	/* Only log this if *not* loading from store. */
+	if (!index)
+		status_trace("Received node_announcement for node %s",
+			     type_to_string(tmpctx, struct node_id, &node_id));
+
 	node = get_node(rstate, &node_id);
 
-	/* May happen if we accepted the node_announcement due to a local
-	 * channel, for which we didn't have the announcement yet. */
-	if (node == NULL)
-		return false;
+	if (node == NULL || !node_has_broadcastable_channels(node)) {
+		struct pending_node_announce *pna;
+		/* BOLT #7:
+		 *
+		 * - if `node_id` is NOT previously known from a
+		 *   `channel_announcement` message, OR if `timestamp` is NOT
+		 *   greater than the last-received `node_announcement` from
+		 *   this `node_id`:
+		 *    - SHOULD ignore the message.
+		 */
+		/* Check if we are currently verifying the txout for a
+		 * matching channel */
+		pna = pending_node_map_get(rstate->pending_node_map,
+					   &node_id);
+		if (!pna) {
+			bad_gossip_order(msg, "node_announcement",
+					 type_to_string(tmpctx, struct node_id,
+							&node_id));
+			return false;
+		} else if (timestamp <= pna->timestamp)
+			/* Ignore old ones: they're OK though. */
+			return true;
 
-	/* Shouldn't get here, but gossip_store bugs are possible. */
-	if (!node_has_broadcastable_channels(node))
-		return false;
+		SUPERVERBOSE("Deferring node_announcement for node %s",
+			     type_to_string(tmpctx, struct node_id, &node_id));
+		pna->timestamp = timestamp;
+		pna->index = index;
+		tal_free(pna->node_announcement);
+		pna->node_announcement = tal_dup_arr(pna, u8, msg,
+						     tal_count(msg),
+						     0);
+		return true;
+	}
+
+	if (node->bcast.index && node->bcast.timestamp >= timestamp) {
+		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
+		return true;
+	}
 
 	/* Harmless if it was never added */
 	broadcast_del(rstate->broadcasts, &node->bcast);
@@ -2075,7 +2111,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 {
 	u8 *serialized;
 	struct sha256_double hash;
-	struct node *node;
 	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
 	struct node_id node_id;
@@ -2083,9 +2118,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	u8 alias[32];
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
-	struct pending_node_announce *pna;
 	size_t len = tal_count(node_ann);
-	bool applied;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized,
@@ -2161,49 +2194,8 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		return err;
 	}
 
-	/* Beyond this point it's not malformed, so safe if we make it
-	 * pending and requeue later. */
-	node = get_node(rstate, &node_id);
-
-	/* BOLT #7:
-	 *
-	 * - if `node_id` is NOT previously known from a `channel_announcement`
-	 *   message, OR if `timestamp` is NOT greater than the last-received
-	 *   `node_announcement` from this `node_id`:
-	 *    - SHOULD ignore the message.
-	 */
-	if (!node || !node_has_public_channels(node)) {
-		/* Check if we are currently verifying the txout for a
-		 * matching channel */
-		pna = pending_node_map_get(rstate->pending_node_map,
-					   &node_id);
-		if (!pna) {
-			bad_gossip_order(serialized, "node_announcement",
-					 type_to_string(tmpctx, struct node_id,
-							&node_id));
-		} else if (pna->timestamp < timestamp) {
-			SUPERVERBOSE(
-			    "Deferring node_announcement for node %s",
-			    type_to_string(tmpctx, struct node_id, &node_id));
-			pna->timestamp = timestamp;
-			tal_free(pna->node_announcement);
-			pna->node_announcement = tal_dup_arr(pna, u8, node_ann,
-							     tal_count(node_ann),
-							     0);
-		}
-		return NULL;
-	}
-
-	if (node->bcast.index && node->bcast.timestamp >= timestamp) {
-		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
-		return NULL;
-	}
-
-	status_trace("Received node_announcement for node %s",
-		     type_to_string(tmpctx, struct node_id, &node_id));
-
-	applied = routing_add_node_announcement(rstate, serialized, 0);
-	assert(applied);
+	/* May still fail, if we don't know the node. */
+	routing_add_node_announcement(rstate, serialized, 0);
 	return NULL;
 }
 
