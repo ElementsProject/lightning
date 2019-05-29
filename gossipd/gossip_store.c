@@ -645,3 +645,9 @@ out:
 		     gs->len);
 	gs->writable = true;
 }
+
+/* FIXME: Remove */
+bool gossip_store_loading(const struct gossip_store *gs)
+{
+	return !gs->writable;
+}
