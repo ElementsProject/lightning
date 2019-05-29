@@ -45,7 +45,7 @@ struct keyset {
  * generation is payload agnostic. */
 struct sphinx_hop {
 	struct pubkey pubkey;
-	u8 realm;
+	enum sphinx_payload_type type;
 	const u8 *payload;
 	u8 hmac[HMAC_SIZE];
 };
@@ -101,7 +101,7 @@ static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 
 	/* Backwards compatibility: realm 0 is the legacy hop_data format and
 	 * always has 65 bytes in size */
-	if (hop->realm == 0x00)
+	if (hop->type == SPHINX_V0_PAYLOAD)
 		return 65;
 
 	if (size < 0xFD)
@@ -123,11 +123,11 @@ static size_t sphinx_path_payloads_size(const struct sphinx_path *path)
 }
 
 void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-			u8 realm, const u8 *payload)
+			enum sphinx_payload_type type, const u8 *payload)
 {
 	struct sphinx_hop sp;
 	sp.payload = payload;
-	sp.realm = realm;
+	sp.type = type;
 	sp.pubkey = *pubkey;
 	tal_arr_expand(&path->hops, sp);
 	assert(sphinx_path_payloads_size(path) <= ROUTING_INFO_SIZE);
@@ -442,14 +442,14 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	int pos = 0;
 
 #if !EXPERIMENTAL_FEATURES
-	if (hop->realm != 0x00)
+	if (hop->type != SPHINX_V0_PAYLOAD)
 		return false;
 #endif
 
 	memset(dest, 0, hop_size);
 
 	/* Backwards compatibility for the legacy hop_data format. */
-	if (hop->realm == 0x00)
+	if (hop->type == SPHINX_V0_PAYLOAD)
 		dest[pos++] = 0x00;
 	else
 		pos += varint_put(dest+pos, raw_size);
@@ -475,10 +475,11 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 		vsize = 1;
 		raw_size = 32;
 		hop_size = FRAME_SIZE;
-		step->realm = src[0];
+		step->type = SPHINX_V0_PAYLOAD;
 	} else {
 		vsize = varint_get(src, 3, &raw_size);
 		hop_size = raw_size + vsize + HMAC_SIZE;
+		step->type = SPHINX_TLV_PAYLOAD;
 	}
 
 	/* Copy common pieces over */
@@ -487,12 +488,8 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 
 	/* And now try to parse whatever the payload contains so we can use it
 	 * later. */
-	if (step->realm == SPHINX_V0_PAYLOAD) {
-		step->type = SPHINX_V0_PAYLOAD;
+	if (step->type == SPHINX_V0_PAYLOAD)
 		deserialize_hop_data(&step->payload.v0, src);
-	} else {
-		step->type = SPHINX_RAW_PAYLOAD;
-	}
 }
 
 struct onionpacket *create_onionpacket(

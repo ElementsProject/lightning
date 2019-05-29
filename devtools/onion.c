@@ -202,13 +202,13 @@ static void runtest(const char *filename)
 	bool valid;
 	char *buffer = grab_file(ctx, filename);
 	const jsmntok_t *toks, *session_key_tok, *associated_data_tok, *gentok,
-		*hopstok, *hop, *payloadtok, *pubkeytok, *realmtok, *oniontok, *decodetok;
+		*hopstok, *hop, *payloadtok, *pubkeytok, *typetok, *oniontok, *decodetok;
 	const u8 *associated_data, *session_key_raw, *payload, *serialized, *onion;
 	struct secret session_key, *shared_secrets;
 	struct pubkey pubkey;
 	struct sphinx_path *path;
 	size_t i;
-	int realm;
+	enum sphinx_payload_type type;
 	struct onionpacket *res;
 	struct route_step *step;
 	char *hexprivkey;
@@ -233,12 +233,17 @@ static void runtest(const char *filename)
 	hopstok = json_get_member(buffer, gentok, "hops");
 	json_for_each_arr(i, hop, hopstok) {
 		payloadtok = json_get_member(buffer, hop, "payload");
-		realmtok = json_get_member(buffer, hop, "realm");
+		typetok = json_get_member(buffer, hop, "type");
 		pubkeytok = json_get_member(buffer, hop, "pubkey");
 		payload = json_tok_bin_from_hex(ctx, buffer, payloadtok);
 		json_to_pubkey(buffer, pubkeytok, &pubkey);
-		json_to_int(buffer, realmtok, &realm);
-		sphinx_add_raw_hop(path, &pubkey, realm, payload);
+		if (json_tok_streq(buffer, typetok, "legacy")) {
+			type = SPHINX_V0_PAYLOAD;
+			printf("legacy\n");
+		} else {
+			type = SPHINX_RAW_PAYLOAD;
+		}
+		sphinx_add_raw_hop(path, &pubkey, type, payload);
 	}
 	res = create_onionpacket(ctx, path, &shared_secrets);
 	serialized = serialize_onionpacket(ctx, res);
@@ -263,12 +268,17 @@ static void runtest(const char *filename)
 	hopstok = json_get_member(buffer, gentok, "hops");
 	json_for_each_arr(i, hop, hopstok) {
 		payloadtok = json_get_member(buffer, hop, "payload");
-		realmtok = json_get_member(buffer, hop, "realm");
+		typetok = json_get_member(buffer, hop, "type");
 		pubkeytok = json_get_member(buffer, hop, "pubkey");
 		payload = json_tok_bin_from_hex(ctx, buffer, payloadtok);
 		json_to_pubkey(buffer, pubkeytok, &pubkey);
-		json_to_int(buffer, realmtok, &realm);
-		sphinx_add_raw_hop(path, &pubkey, realm, payload);
+		if (json_tok_streq(buffer, typetok, "legacy")) {
+			type = SPHINX_V0_PAYLOAD;
+			printf("legacy\n");
+		} else {
+			type = SPHINX_RAW_PAYLOAD;
+		}
+		sphinx_add_raw_hop(path, &pubkey, type, payload);
 	}
 
 	decodetok = json_get_member(buffer, toks, "decode");
@@ -280,7 +290,7 @@ static void runtest(const char *filename)
 		serialized = serialize_onionpacket(ctx, step->next);
 		if (!serialized)
 			errx(1, "Error serializing message.");
-		printf("  Realm: %d\n", step->realm);
+		printf("  Type: %d\n", step->type);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
 		printf("  Next onion: %s\n", tal_hex(ctx, serialized));
 		printf("  Next HMAC: %s\n", tal_hexstr(ctx, step->next->mac, HMAC_SIZE));
