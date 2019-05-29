@@ -74,4 +74,7 @@ bool gossip_store_compact(struct gossip_store *gs,
  */
 int gossip_store_readonly_fd(struct gossip_store *gs);
 
+/* FIXME: Remove */
+bool gossip_store_loading(const struct gossip_store *gs);
+
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

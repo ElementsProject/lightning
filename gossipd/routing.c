@@ -337,6 +337,12 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	if (!node->bcast.index)
 		return;
 
+	/* FIXME: Remove when we get rid of WIRE_GOSSIP_STORE_CHANNEL_DELETE.
+	 * For the moment, it can cause us to try to write to the store. */
+	(void)WIRE_GOSSIP_STORE_CHANNEL_DELETE;
+	if (gossip_store_loading(rstate->broadcasts->gs))
+		return;
+
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
 		broadcast_del(rstate->broadcasts, &node->bcast);
