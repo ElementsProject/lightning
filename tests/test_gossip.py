@@ -1082,12 +1082,60 @@ def test_gossip_store_private_channels(node_factory, bitcoind):
     assert len(chans) == 2
 
 
-@unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
-def test_gossip_store_compact(node_factory, bitcoind):
+def setup_gossip_store_test(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
 
     # Create channel.
-    l2.fund_channel(l3, 10**6)
+    scid23 = l2.fund_channel(l3, 10**6)
+
+    # Have that channel announced.
+    bitcoind.generate_block(5)
+    # Make sure we've got node_announcements
+    wait_for(lambda: ['alias' in n for n in l2.rpc.listnodes()['nodes']] == [True, True])
+
+    # Now, replace the one channel_update, so it's past the node announcements.
+    l2.rpc.setchannelfee(l3.info['id'], 20, 1000)
+    # Old base feerate is 1.
+    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l2.rpc.listchannels()['channels']]) == 21)
+
+    # Create another channel, which will stay private.
+    scid12 = l1.fund_channel(l2, 10**6)
+
+    # Now insert channel_update for previous channel; now they're both past the
+    # node announcements.
+    l3.rpc.setchannelfee(l2.info['id'], 20, 1000)
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid23)['channels']] == [20, 20])
+
+    # Replace both (private) updates for scid12.
+    l1.rpc.setchannelfee(l2.info['id'], 20, 1000)
+    l2.rpc.setchannelfee(l1.info['id'], 20, 1000)
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid12)['channels']] == [20, 20])
+
+    # Active records in store now looks like:
+    #  channel_announcement (scid23)
+    #  channel_amount
+    #  node_announcement
+    #  node_announcement
+    #  channel_update (scid23)
+    #  local_add_channel (scid12)
+    #  channel_update (scid23)
+    #  private_channel_update (scid12)
+    #  private_channel_update (scid12)
+    return l2
+
+
+def test_gossip_store_load_complex(node_factory, bitcoind):
+    l2 = setup_gossip_store_test(node_factory, bitcoind)
+
+    l2.restart()
+
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
+
+
+@pytest.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
+def test_gossip_store_compact(node_factory, bitcoind):
+    l2 = setup_gossip_store_test(node_factory, bitcoind)
 
     # Now compact store.
     l2.rpc.call('dev-compact-gossip-store')
@@ -1095,3 +1143,7 @@ def test_gossip_store_compact(node_factory, bitcoind):
     # Should still be connected.
     time.sleep(1)
     assert len(l2.rpc.listpeers()['peers']) == 2
+
+    # Should restart ok.
+    l2.restart()
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
