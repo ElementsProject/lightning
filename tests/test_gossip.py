@@ -1,5 +1,5 @@
 from fixtures import *  # noqa: F401,F403
-from lightning import RpcError
+from lightning import RpcError, Millisatoshi
 from utils import wait_for, TIMEOUT, only_one
 
 import json
@@ -1153,3 +1153,95 @@ def test_gossip_store_compact(node_factory, bitcoind):
     # Should restart ok.
     l2.restart()
     wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
+
+
+@pytest.mark.xfail(strict=True)
+def test_channel_drainage(node_factory, bitcoind):
+    """Test channel drainage.
+
+    Test to drains a channels as much as possible,
+    especially in regards to commitment fee:
+
+    [l1] <=> [l2]
+    """
+    sats = 10**6
+    l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True)
+
+    # wait for everyone to see every channel as active
+    for n in [l1, l2]:
+        wait_for(lambda: [c['active'] for c in n.rpc.listchannels()['channels']] == [True] * 2 * 1)
+
+    spendable_l1 = l1.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat']
+    spendable_l2 = l2.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat']
+
+    # so spendable is total capacity minus reserves
+    amount = spendable_l1
+    # the next substraction is up to the millisatoshi the _exact_ value
+    # we need to make getroute find a route without fuzz. why is that?
+    amount -= Millisatoshi("10009800msat")
+    # the next substraction is to get around "WIRE_TEMPORARY_CHANNEL_FAILURE: Capacity exceeded"
+    # caused by the HTLC commitment fees at l1
+    amount -= Millisatoshi("3431sat")
+
+    payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
+    route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    fees = route[0]['amount_msat'] - amount
+    print("spendable:%s  amount:%s  fees:%s" % (spendable_l1, amount, fees))
+    result = l1.rpc.sendpay(route, payment_hash)
+    print("sendpay", result)
+    result = l1.rpc.waitsendpay(payment_hash, 10)
+    print("waitsendpay", result)
+
+    # wait until spendable is updated for both nodes
+    spendable_l1_bak = spendable_l1
+    spendable_l2_bak = spendable_l2
+    while spendable_l1_bak == spendable_l1 or spendable_l2_bak == spendable_l2:
+        spendable_l1 = l1.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat']
+        spendable_l2 = l2.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat']
+
+    # now we drain twice to try to get into invalid channel state
+    # NOTE: draining twice is possible because the required commitment
+    #       fees are less when there little in the channel. dunno why.
+    print("spendable after first drain", spendable_l1)  # 13440800msat
+    amount = spendable_l1
+    # now we substract again as much as needed to get around "Capacity exceeded"
+    amount -= Millisatoshi("10860sat")
+    payment_hash = l2.rpc.invoice('any', 'inv2', 'for testing')['payment_hash']
+    route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    fees = route[0]['amount_msat'] - amount
+    print("spendable:%s  amount:%s  fees:%s" % (spendable_l1, amount, fees))
+    result = l1.rpc.sendpay(route, payment_hash)
+    print("sendpay", result)
+    result = l1.rpc.waitsendpay(payment_hash, 10)
+    print("waitsendpay", result)
+    # wait again until spendable is updated for both nodes
+    spendable_l1_bak = spendable_l1
+    spendable_l2_bak = spendable_l2
+    while spendable_l1_bak == spendable_l1 or spendable_l2_bak == spendable_l2:
+        spendable_l1 = l1.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat']
+        spendable_l2 = l2.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat']
+
+    # in the broken state the next bigger payment from l2 to l1 will crash the daemon at l2.
+    # Note1: A smaller payment (i.e. 10000sat) unlocks this state and recovers.
+    # Note2: When the remote is LND the payment will cracefully fail until the
+    #        broken state is unlocked and recovered with a small initial payment.
+    """
+lightning_channeld: channeld/channeld.c:1382: handle_peer_commit_sig: Assertion `can_funder_afford_feerate(peer->channel, peer->channel->view[LOCAL] .feerate_per_kw)' failed.
+FATAL SIGNAL 6 (version v0.7.0-397-gd803275)'
+backtrace: common/daemon.c:45 (send_backtrace) 0x562b824fa13f'
+backtrace: common/daemon.c:53 (crashdump) 0x562b824fa18f'
+backtrace: (null):0 ((null)) 0x7f1028c3c8af'
+backtrace: (null):0 ((null)) 0x7f1028c3c82f'
+backtrace: (null):0 ((null)) 0x7f1028c27671'
+backtrace: (null):0 ((null)) 0x7f1028c27547'
+backtrace: (null):0 ((null)) 0x7f1028c34db5'
+backtrace: channeld/channeld.c:1380 (handle_peer_commit_sig) 0x562b824e984d'
+backtrace: channeld/channeld.c:1819 (peer_in) 0x562b824eadcd'
+backtrace: channeld/channeld.c:3102 (main) 0x562b824ee14b'
+backtrace: (null):0 ((null)) 0x7f1028c28ce2'
+backtrace: (null):0 ((null)) 0x562b824e57fd'
+backtrace: (null):0 ((null)) 0xffffffffffffffff'
+lightning_channeld: FATAL SIGNAL 6 (version v0.7.0-397-gd803275)
+    """
+    bolt11 = l1.rpc.invoice('100000sat', 'inv', 'for testing')['bolt11']
+    result = l2.rpc.pay(bolt11)
