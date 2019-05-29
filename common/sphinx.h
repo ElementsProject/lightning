@@ -17,15 +17,8 @@
 #define HMAC_SIZE 32
 #define PUBKEY_SIZE 33
 #define FRAME_SIZE 65
-#define NUM_MAX_FRAMES 20
-#define ROUTING_INFO_SIZE (FRAME_SIZE * NUM_MAX_FRAMES)
+#define ROUTING_INFO_SIZE 1300
 #define TOTAL_PACKET_SIZE (VERSION_SIZE + PUBKEY_SIZE + HMAC_SIZE + ROUTING_INFO_SIZE)
-
-#if EXPERIMENTAL_FEATURES
-#define MAX_FRAMES_PER_HOP (1 << 4)
-#else
-#define MAX_FRAMES_PER_HOP 1
-#endif
 
 struct onionpacket {
 	/* Cleartext information */
@@ -93,6 +86,7 @@ struct hop_data {
 
 enum sphinx_payload_type {
 	SPHINX_V0_PAYLOAD = 0,
+	SPHINX_TLV_PAYLOAD = 1,
 	SPHINX_INVALID_PAYLOAD = 254,
 	SPHINX_RAW_PAYLOAD = 255,
 };
@@ -100,13 +94,11 @@ enum sphinx_payload_type {
 struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
-	u8 realm;
 	enum sphinx_payload_type type;
 	union {
 		struct hop_data v0;
 	} payload;
 	u8 *raw_payload;
-	u8 payload_frames;
 };
 
 /**
@@ -252,6 +244,6 @@ void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
  * Add a raw payload hop to the path.
  */
 void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-			u8 realm, const u8 *payload);
+			enum sphinx_payload_type type, const u8 *payload);
 
 #endif /* LIGHTNING_COMMON_SPHINX_H */
