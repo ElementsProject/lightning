@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
+#include <lightningd/io_loop_with_timers.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
@@ -894,7 +895,7 @@ void setup_topology(struct chain_topology *topo,
 	start_fee_estimate(topo);
 
 	/* Once it gets initial block, it calls io_break() and we return. */
-	io_loop(NULL, NULL);
+	io_loop_with_timers(topo->ld);
 }
 
 void begin_topology(struct chain_topology *topo)

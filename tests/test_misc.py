@@ -1401,7 +1401,6 @@ def test_newaddr(node_factory):
     assert both['bech32'].startswith('bcrt1')
 
 
-@pytest.mark.xfail(strict=True)
 def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     """Make sure we handle spurious bitcoin-cli failures during startup
 

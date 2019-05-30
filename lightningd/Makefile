@@ -69,6 +69,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/hsm_control.c		\
 	lightningd/htlc_end.c			\
 	lightningd/invoice.c			\
+	lightningd/io_loop_with_timers.c	\
 	lightningd/json.c			\
 	lightningd/json_stream.c		\
 	lightningd/jsonrpc.c			\
