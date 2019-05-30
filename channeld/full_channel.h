@@ -104,7 +104,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE],
-				      struct htlc **htlcp);
+				      struct htlc **htlcp,
+				      struct amount_sat *htlc_fee);
 
 /**
  * channel_get_htlc: find an HTLC

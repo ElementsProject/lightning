@@ -299,7 +299,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     const struct sha256 *payment_hash,
 				     const u8 routing[TOTAL_PACKET_SIZE],
 				     struct htlc **htlcp,
-				     bool enforce_aggregate_limits)
+				     bool enforce_aggregate_limits,
+				     struct amount_sat *htlc_fee)
 {
 	struct htlc *htlc, *old;
 	struct amount_msat msat_in_htlcs, committed_msat, adding_msat, removing_msat;
@@ -448,6 +449,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		fee = AMOUNT_SAT(0);
 
 	assert((s64)fee.satoshis >= 0); /* Raw: explicit signedness test */
+	if (htlc_fee) *htlc_fee = fee;  /* set fee output pointer if given */
 
 	if (enforce_aggregate_limits) {
 		/* Figure out what balance sender would have after applying all
@@ -520,7 +522,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE],
-				      struct htlc **htlcp)
+				      struct htlc **htlcp,
+				      struct amount_sat *htlc_fee)
 {
 	enum htlc_state state;
 
@@ -530,7 +533,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 		state = RCVD_ADD_HTLC;
 
 	return add_htlc(channel, state, id, amount, cltv_expiry,
-			payment_hash, routing, htlcp, true);
+			payment_hash, routing, htlcp, true, htlc_fee);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -1084,7 +1087,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     htlcs[i].id, htlcs[i].amount,
 			     htlcs[i].cltv_expiry,
 			     &htlcs[i].payment_hash,
-			     htlcs[i].onion_routing_packet, &htlc, false);
+			     htlcs[i].onion_routing_packet, &htlc, false, NULL);
 		if (e != CHANNEL_ERR_ADD_OK) {
 			status_trace("%s HTLC %"PRIu64" failed error %u",
 				     htlc_state_owner(hstates[i]) == LOCAL
