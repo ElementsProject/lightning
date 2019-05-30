@@ -2,6 +2,7 @@
 int unused_main(int argc, char *argv[]);
 #include "../../common/base32.c"
 #include "../../common/wireaddr.c"
+#include "../io_loop_with_timers.c"
 #include "../lightningd.c"
 #include "../subd.c"
 #include <common/amount.h>
