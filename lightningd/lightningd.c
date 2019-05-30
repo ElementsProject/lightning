@@ -408,9 +408,9 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	close(ld->hsm_fd);
 	/*~ The three "global" daemons, which we shutdown explicitly: we
 	 * give them 10 seconds to exit gracefully before killing them.  */
-	subd_shutdown(ld->connectd, 10);
-	subd_shutdown(ld->gossip, 10);
-	subd_shutdown(ld->hsm, 10);
+	ld->connectd = subd_shutdown(ld->connectd, 10);
+	ld->gossip = subd_shutdown(ld->gossip, 10);
+	ld->hsm = subd_shutdown(ld->hsm, 10);
 
 	/* Now we free all the HTLCs */
 	free_htlcs(ld, NULL);
