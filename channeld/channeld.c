@@ -644,7 +644,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, &htlc);
+				   onion_routing_packet, &htlc, NULL);
 	if (add_err != CHANNEL_ERR_ADD_OK)
 		peer_failed(peer->pps,
 			    &peer->channel_id,
@@ -2532,6 +2532,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	enum onion_type failcode;
 	/* Subtle: must be tal object since we marshal using tal_bytelen() */
 	const char *failmsg;
+	struct amount_sat htlc_fee;
 
 	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
 		status_failed(STATUS_FAIL_MASTER_IO,
@@ -2544,7 +2545,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
-			     onion_routing_packet, NULL);
+			     onion_routing_packet, NULL, &htlc_fee);
 	status_trace("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,
 		     type_to_string(tmpctx, struct amount_msat, &amount),
@@ -2582,7 +2583,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		goto failed;
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
-		failmsg = tal_fmt(inmsg, "Capacity exceeded");
+		failmsg = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, &htlc_fee));
 		goto failed;
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
 		failcode = WIRE_AMOUNT_BELOW_MINIMUM;
