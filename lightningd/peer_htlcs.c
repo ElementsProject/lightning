@@ -634,27 +634,20 @@ enum htlc_accepted_result {
 };
 
 /**
- * Response type from the plugin
- */
-struct htlc_accepted_hook_response {
-	enum htlc_accepted_result result;
-	struct preimage payment_key;
-	enum onion_type failure_code;
-	u8 *channel_update;
-};
-
-/**
  * Parses the JSON-RPC response into a struct understood by the callback.
  */
-static struct htlc_accepted_hook_response *
-htlc_accepted_hook_deserialize(const tal_t *ctx, const char *buffer,
-			       const jsmntok_t *toks)
+static enum htlc_accepted_result htlc_accepted_hook_deserialize(const char *buffer, const jsmntok_t *toks,
+                                                                /* If accepted */
+                                                                struct preimage *payment_preimage,
+                                                                /* If rejected */
+                                                                enum onion_type *failure_code,
+                                                                u8 **channel_update)
 {
-	struct htlc_accepted_hook_response *response;
 	const jsmntok_t *resulttok, *failcodetok, *paykeytok, *chanupdtok;
+	enum htlc_accepted_result result;
 
 	if (!toks || !buffer)
-		return NULL;
+		return htlc_accepted_continue;
 
 	resulttok = json_get_member(buffer, toks, "result");
 
@@ -666,30 +659,29 @@ htlc_accepted_hook_deserialize(const tal_t *ctx, const char *buffer,
 	}
 
 	if (json_tok_streq(buffer, resulttok, "continue")) {
-		return NULL;
+		return htlc_accepted_continue;
 	}
 
-	response = tal(ctx, struct htlc_accepted_hook_response);
 	if (json_tok_streq(buffer, resulttok, "fail")) {
-		response->result = htlc_accepted_fail;
+		result = htlc_accepted_fail;
 		failcodetok = json_get_member(buffer, toks, "failure_code");
 		chanupdtok = json_get_member(buffer, toks, "channel_update");
-		if (failcodetok && !json_to_number(buffer, failcodetok,
-						   &response->failure_code))
+		if (failcodetok &&
+		    !json_to_number(buffer, failcodetok, failure_code))
 			fatal("Plugin provided a non-numeric failcode "
 			      "in response to an htlc_accepted hook");
 
 		if (!failcodetok)
-			response->failure_code = WIRE_TEMPORARY_NODE_FAILURE;
+			*failure_code = WIRE_TEMPORARY_NODE_FAILURE;
 
 		if (chanupdtok)
-			response->channel_update =
-			    json_tok_bin_from_hex(response, buffer, chanupdtok);
+			*channel_update =
+			    json_tok_bin_from_hex(buffer, buffer, chanupdtok);
 		else
-			response->channel_update = NULL;
+			*channel_update = NULL;
 
 	} else if (json_tok_streq(buffer, resulttok, "resolve")) {
-		response->result = htlc_accepted_resolve;
+		result = htlc_accepted_resolve;
 		paykeytok = json_get_member(buffer, toks, "payment_key");
 		if (!paykeytok)
 			fatal(
@@ -698,7 +690,7 @@ htlc_accepted_hook_deserialize(const tal_t *ctx, const char *buffer,
 			    json_strdup(tmpctx, buffer, resulttok));
 
 		if (!json_to_preimage(buffer, paykeytok,
-				      &response->payment_key))
+				      payment_preimage))
 			fatal("Plugin specified an invalid 'payment_key': %s",
 			      json_tok_full(buffer, resulttok));
 	} else {
@@ -707,7 +699,7 @@ htlc_accepted_hook_deserialize(const tal_t *ctx, const char *buffer,
 		      json_strdup(tmpctx, buffer, resulttok));
 	}
 
-	return response;
+	return result;
 }
 
 static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
@@ -751,15 +743,12 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	struct htlc_in *hin = request->hin;
 	struct channel *channel = request->channel;
 	struct lightningd *ld = request->ld;
+	struct preimage payment_preimage;
 	u8 *req;
 	enum htlc_accepted_result result;
-	struct htlc_accepted_hook_response *response;
-	response = htlc_accepted_hook_deserialize(request, buffer, toks);
-
-	if (response)
-		result = response->result;
-	else
-		result = htlc_accepted_continue;
+	enum onion_type failure_code;
+	u8 *channel_update;
+	result = htlc_accepted_hook_deserialize(buffer, toks, &payment_preimage, &failure_code, &channel_update);
 
 	switch (result) {
 	case htlc_accepted_continue:
@@ -792,10 +781,10 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	case htlc_accepted_fail:
 		log_debug(channel->log,
 			  "Failing incoming HTLC as instructed by plugin hook");
-		fail_in_htlc(hin, response->failure_code, NULL, NULL);
+		fail_in_htlc(hin, failure_code, NULL, NULL);
 		break;
 	case htlc_accepted_resolve:
-		fulfill_htlc(hin, &response->payment_key);
+		fulfill_htlc(hin, &payment_preimage);
 		break;
 	}
 
