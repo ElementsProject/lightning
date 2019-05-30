@@ -32,9 +32,19 @@ void channel_set_owner(struct channel *channel, struct subd *owner,
 	if (old_owner) {
 		subd_release_channel(old_owner, channel);
 		if (channel->connected && !connects_to_peer(owner)) {
-			u8 *msg = towire_connectctl_peer_disconnected(NULL,
-							     &channel->peer->id);
-			subd_send_msg(channel->peer->ld->connectd, take(msg));
+			/* If shutting down, connectd no longer exists,
+			 * and we should not transfer peer to connectd.
+			 * Only transfer to connectd if connectd is
+			 * there to be transferred to.
+			 */
+			if (channel->peer->ld->connectd) {
+				u8 *msg;
+				msg = towire_connectctl_peer_disconnected(
+						NULL,
+						&channel->peer->id);
+				subd_send_msg(channel->peer->ld->connectd,
+					      take(msg));
+			}
 		}
 
 		if (reconnect) {
