@@ -748,7 +748,7 @@ void subd_req_(const tal_t *ctx,
 	add_req(ctx, sd, type, num_fds_in, replycb, replycb_data);
 }
 
-void subd_shutdown(struct subd *sd, unsigned int seconds)
+struct subd *subd_shutdown(struct subd *sd, unsigned int seconds)
 {
 	log_debug(sd->log, "Shutting down");
 
@@ -761,7 +761,7 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 	/* Wait for a while. */
 	while (seconds) {
 		if (waitpid(sd->pid, NULL, WNOHANG) > 0) {
-			return;
+			return (struct subd*) tal_free(sd);
 		}
 		sleep(1);
 		seconds--;
@@ -770,7 +770,7 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 	/* Didn't die?  This will kill it harder */
 	sd->must_not_exit = false;
 	destroy_subd(sd);
-	tal_free(sd);
+	return (struct subd*) tal_free(sd);
 }
 
 void subd_release_channel(struct subd *owner, void *channel)

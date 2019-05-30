@@ -198,8 +198,12 @@ void subd_release_channel(struct subd *owner, void *channel);
  *
  * This closes the fd to the subdaemon, and gives it a little while to exit.
  * The @finished callback will never be called.
+ *
+ * Return value is null, so pattern should be:
+ *
+ * sd = subd_shutdown(sd, 10);
  */
-void subd_shutdown(struct subd *subd, unsigned int seconds);
+struct subd *subd_shutdown(struct subd *subd, unsigned int seconds);
 
 /* Ugly helper to get full pathname of the current binary. */
 const char *find_my_abspath(const tal_t *ctx, const char *argv0);
