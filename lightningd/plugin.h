@@ -119,4 +119,10 @@ void plugin_request_send(struct plugin *plugin,
  */
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt);
 
+
+/**
+ * Needed for I/O logging for plugin messages.
+*/
+struct log *plugin_get_log(struct plugin *plugin);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

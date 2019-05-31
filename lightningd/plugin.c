@@ -374,6 +374,10 @@ static struct io_plan *plugin_read_json(struct io_conn *conn UNUSED,
 					struct plugin *plugin)
 {
 	bool success;
+
+	log_io(plugin->log, LOG_IO_IN, "",
+	       plugin->buffer + plugin->used, plugin->len_read);
+
 	plugin->used += plugin->len_read;
 	if (plugin->used == tal_count(plugin->buffer))
 		tal_resize(&plugin->buffer, plugin->used * 2);
@@ -1051,7 +1055,7 @@ void plugins_notify(struct plugins *plugins,
 	struct plugin *p;
 	list_for_each(&plugins->plugins, p, list) {
 		if (plugin_subscriptions_contains(p, n->method))
-			plugin_send(p, json_stream_dup(p, n->stream));
+			plugin_send(p, json_stream_dup(p, n->stream, p->log));
 	}
 	if (taken(n))
 		tal_free(n);
@@ -1085,4 +1089,9 @@ void *plugin_exclusive_loop(struct plugin *plugin)
 		      plugin->cmd);
 
 	return ret;
+}
+
+struct log *plugin_get_log(struct plugin *plugin)
+{
+	return plugin->log;
 }
