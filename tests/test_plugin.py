@@ -303,6 +303,7 @@ def test_openchannel_hook(node_factory, bitcoind):
 
     # Close it.
     l1.rpc.close(l2.info['id'])
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
     bitcoind.generate_block(1)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']] == ['ONCHAIN'])
 
