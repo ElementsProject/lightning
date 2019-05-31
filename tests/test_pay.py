@@ -2099,7 +2099,6 @@ def test_channel_spendable(node_factory, bitcoind):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 def test_channel_spendable_large(node_factory, bitcoind):
     """Test that spendable_msat is accurate for large channels"""
     # This is almost the max allowable spend.
@@ -2118,6 +2117,7 @@ def test_channel_spendable_large(node_factory, bitcoind):
         l1.rpc.sendpay(route, payment_hash)
         l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
+    print(l2.rpc.listchannels())
     # Exact amount should succeed.
     route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
     l1.rpc.sendpay(route, payment_hash)

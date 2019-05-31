@@ -237,36 +237,26 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
  * The maximum msat that this node will accept for an htlc.
  * It's flagged as an optional field in `channel_update`.
  *
- * We advertise the maximum value possible, defined as the smaller
+ * We advertize the maximum value possible, defined as the smaller
  * of the remote's maximum in-flight HTLC or the total channel
- * capacity minus the cumulative reserve.
+ * capacity the reserve we have to keep.
  * FIXME: does this need fuzz?
  */
-static struct amount_msat advertised_htlc_max(const struct channel *channel)
+static struct amount_msat advertized_htlc_max(const struct channel *channel)
 {
-	struct amount_sat cumulative_reserve, lower_bound;
+	struct amount_sat lower_bound;
 	struct amount_msat lower_bound_msat;
 
 	/* This shouldn't fail */
-	if (!amount_sat_add(&cumulative_reserve,
-			    channel->config[LOCAL].channel_reserve,
+	if (!amount_sat_sub(&lower_bound, channel->funding,
 			    channel->config[REMOTE].channel_reserve)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "reserve overflow: local %s + remote %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->config[LOCAL].channel_reserve),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->config[REMOTE].channel_reserve));
-	}
-
-	/* This shouldn't fail either */
-	if (!amount_sat_sub(&lower_bound, channel->funding, cumulative_reserve)) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "funding %s - cumulative_reserve %s?",
+			      "funding %s - remote reserve %s?",
 			      type_to_string(tmpctx, struct amount_sat,
 					     &channel->funding),
 			      type_to_string(tmpctx, struct amount_sat,
-					     &cumulative_reserve));
+					     &channel->config[REMOTE]
+					     .channel_reserve));
 	}
 
 	if (!amount_sat_to_msat(&lower_bound_msat, lower_bound)) {
@@ -313,7 +303,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  peer->channel->config[REMOTE].htlc_minimum,
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
-						  advertised_htlc_max(peer->channel));
+						  advertized_htlc_max(peer->channel));
 	wire_sync_write(peer->pps->gossip_fd, take(msg));
 }
 
