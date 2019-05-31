@@ -26,7 +26,8 @@ gossip_getnodes_reply,,nodes,num_nodes*struct gossip_getnodes_entry
 
 # Pass JSON-RPC getroute call through
 gossip_getroute_request,3006
-gossip_getroute_request,,source,struct node_id
+# Source defaults to "us", and means we don't consider first-hop channel fees
+gossip_getroute_request,,source,?struct node_id
 gossip_getroute_request,,destination,struct node_id
 gossip_getroute_request,,msatoshi,struct amount_msat
 # We don't pass doubles, so pass riskfactor * 1000000.
