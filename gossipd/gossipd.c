@@ -1880,7 +1880,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
 {
-	struct node_id source, destination;
+	struct node_id *source, destination;
 	struct amount_msat msat;
 	u32 final_cltv;
 	u64 riskfactor_by_million;
@@ -1895,7 +1895,12 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	 * we'll pay), how to trade off more locktime vs. more fees, and how
 	 * much cltv we need a the final node to give exact values for each
 	 * intermediate hop, as well as how much random fuzz to inject to
-	 * avoid being too predictable. */
+	 * avoid being too predictable.
+	 *
+	 * We also treat routing slightly differently if we're asking
+	 * for a route from ourselves (the usual case): in that case,
+	 * we don't have to consider fees on our own outgoing channels.
+	 */
 	if (!fromwire_gossip_getroute_request(msg, msg,
 					      &source, &destination,
 					      &msat, &riskfactor_by_million,
@@ -1905,12 +1910,13 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
 	status_trace("Trying to find a route from %s to %s for %s",
-		     type_to_string(tmpctx, struct node_id, &source),
+		     source
+		     ? type_to_string(tmpctx, struct node_id, source) : "(me)",
 		     type_to_string(tmpctx, struct node_id, &destination),
 		     type_to_string(tmpctx, struct amount_msat, &msat));
 
 	/* routing.c does all the hard work; can return NULL. */
-	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
+	hops = get_route(tmpctx, daemon->rstate, source, &destination,
 			 msat, riskfactor_by_million / 1000000.0, final_cltv,
 			 fuzz, pseudorand_u64(), excluded, max_hops);
 
