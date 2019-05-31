@@ -942,6 +942,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('108x1x0')['channels']] == [True, True])
 
     l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(r'Deleting channel')
     l2.daemon.wait_for_log(r'Deleting channel')
