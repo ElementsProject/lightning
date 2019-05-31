@@ -575,8 +575,11 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 				  struct uncommitted_channel *uc)
 {
 	char *desc;
+	bool is_err;
 
-	if (!fromwire_opening_funder_failed(msg, msg, &desc)) {
+	struct json_stream *response;
+
+	if (!fromwire_opening_funder_failed(msg, msg, &desc, &is_err)) {
 		log_broken(uc->log,
 			   "bad OPENING_FUNDER_FAILED %s",
 			   tal_hex(tmpctx, msg));
@@ -587,7 +590,15 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 		return;
 	}
 
-	was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
+	if (is_err)
+		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
+	else {
+		response = json_stream_success(uc->fc->cmd);
+		json_stream_append(response, "\"");
+		json_stream_append(response, desc);
+		json_stream_append(response, "\"");
+		was_pending(command_success(uc->fc->cmd, response));
+	}
 
 	/* Clear uc->fc, so we can try again, and so we don't fail twice
 	 * if they close. */
