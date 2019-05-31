@@ -54,7 +54,7 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	if (!resulttok)
 		fatal("Plugin for %s returned non-result response %.*s",
 		      r->hook->name,
-		      toks->end - toks->start, buffer + toks->end);
+		      toks->end - toks->start, buffer + toks->start);
 
 	db_begin_transaction(r->db);
 	r->hook->response_cb(r->cb_arg, buffer, resulttok);
