@@ -542,6 +542,23 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	return commit_tx_base_fee(local_feerate, num_untrimmed_htlcs);
 }
 
+static void subtract_offered_htlcs(const struct channel *channel,
+				   struct amount_msat *amount)
+{
+	const struct htlc_out *hout;
+	struct htlc_out_map_iter outi;
+	struct lightningd *ld = channel->peer->ld;
+
+	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+		if (hout->key.channel != channel)
+			continue;
+		if (!amount_msat_sub(amount, *amount, hout->msat))
+			*amount = AMOUNT_MSAT(0);
+	}
+}
+
 static void json_add_channel(struct lightningd *ld,
 			     struct json_stream *response, const char *key,
 			     const struct channel *channel)
@@ -655,6 +672,9 @@ static void json_add_channel(struct lightningd *ld,
 				 channel->our_msat,
 				 channel->channel_info.their_config.channel_reserve))
 		spendable = AMOUNT_MSAT(0);
+
+	/* Take away any currently-offered HTLCs. */
+	subtract_offered_htlcs(channel, &spendable);
 
 	/* If we're funder, subtract txfees we'll need to spend this */
 	if (channel->funder == LOCAL) {

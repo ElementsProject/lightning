@@ -2047,7 +2047,6 @@ def test_setchannelfee_all(node_factory, bitcoind):
     assert result['channels'][1]['short_channel_id'] == scid3
 
 
-@pytest.mark.xfail(strict=True)
 def test_channel_spendable(node_factory, bitcoind):
     """Test that spendable_msat is accurate"""
     sats = 10**6
