@@ -49,6 +49,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/gen_peer_status_wire.o		\
 	common/gossip_store.o			\
 	common/htlc_state.o			\
+	common/htlc_trim.o			\
 	common/htlc_tx.o			\
 	common/htlc_wire.o			\
 	common/initial_channel.o		\
