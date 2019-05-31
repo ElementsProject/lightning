@@ -2,6 +2,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/endian/endian.h>
 #include <channeld/commit_tx.h>
+#include <common/htlc_trim.h>
 #include <common/htlc_tx.h>
 #include <common/keyset.h>
 #include <common/permute_tx.h>
@@ -16,36 +17,8 @@ static bool trim(const struct htlc *htlc,
 		 struct amount_sat dust_limit,
 		 enum side side)
 {
-	struct amount_sat htlc_fee, htlc_min;
-
-	/* BOLT #3:
-	 *
-	 *   - for every offered HTLC:
-	 *    - if the HTLC amount minus the HTLC-timeout fee would be less than
-	 *    `dust_limit_satoshis` set by the transaction owner:
-	 *      - MUST NOT contain that output.
-	 *    - otherwise:
-	 *      - MUST be generated as specified in
-	 *      [Offered HTLC Outputs](#offered-htlc-outputs).
-	 */
-	if (htlc_owner(htlc) == side)
-		htlc_fee = htlc_timeout_fee(feerate_per_kw);
-	/* BOLT #3:
-	 *
-	 *  - for every received HTLC:
-	 *    - if the HTLC amount minus the HTLC-success fee would be less than
-	 *    `dust_limit_satoshis` set by the transaction owner:
-	 *      - MUST NOT contain that output.
-	 *    - otherwise:
-	 *      - MUST be generated as specified in
-	 */
-	else
-		htlc_fee = htlc_success_fee(feerate_per_kw);
-
-	/* If these overflow, it implies htlc must be less. */
-	if (!amount_sat_add(&htlc_min, dust_limit, htlc_fee))
-		return true;
-	return amount_msat_less_sat(htlc->amount, htlc_min);
+	return htlc_is_trimmed(htlc_owner(htlc), htlc->amount,
+			       feerate_per_kw, dust_limit, side);
 }
 
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,

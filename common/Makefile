@@ -21,6 +21,7 @@ COMMON_SRC_NOGEN :=				\
 	common/gossip_store.c			\
 	common/hash_u5.c			\
 	common/htlc_state.c			\
+	common/htlc_trim.c			\
 	common/htlc_tx.c			\
 	common/htlc_wire.c			\
 	common/initial_channel.c		\

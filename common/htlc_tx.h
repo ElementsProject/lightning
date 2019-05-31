@@ -4,9 +4,12 @@
 #include <common/amount.h>
 #include <common/htlc.h>
 
+struct bitcoin_signature;
+struct bitcoin_txid;
 struct keyset;
 struct preimage;
 struct pubkey;
+struct ripemd160;
 
 static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw)
 {
