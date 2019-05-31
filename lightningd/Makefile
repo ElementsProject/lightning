@@ -31,6 +31,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/gen_status_wire.o		\
 	common/hash_u5.o			\
 	common/htlc_state.o			\
+	common/htlc_trim.o			\
 	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/io_lock.o			\
