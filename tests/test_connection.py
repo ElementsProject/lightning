@@ -844,6 +844,14 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'No channel funding in progress.'):
         l1.rpc.fundchannel_continue(l2.info['id'], fake_txid, fake_txout)
 
+    l1.rpc.fundchannel_start(l2.info['id'], amount)
+    with pytest.raises(RpcError, match=r'Already funding channel'):
+        l1.rpc.fundchannel(l2.info['id'], amount)
+
+    l1.rpc.fundchannel_cancel(l2.info['id'])
+    # Should be able to 'restart' after canceling
+    l1.rpc.fundchannel_start(l2.info['id'], amount)
+
 
 def test_funding_external_wallet(node_factory, bitcoind):
     l1 = node_factory.get_node()

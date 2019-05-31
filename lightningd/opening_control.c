@@ -1023,6 +1023,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	case WIRE_OPENING_FUNDER:
 	case WIRE_OPENING_FUNDER_START:
 	case WIRE_OPENING_FUNDER_CONTINUE:
+	case WIRE_OPENING_FUNDER_CANCEL:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_DEV_MEMLEAK:
 	/* Replies never get here */
@@ -1150,6 +1151,68 @@ static struct command_result *json_fund_channel_continue(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/**
+ * json_fund_channel_cancel - Entrypoint for cancelling an in flight channel-funding
+ */
+static struct command_result *json_fund_channel_cancel(struct command *cmd,
+						       const char *buffer,
+						       const jsmntok_t *obj UNNEEDED,
+						       const jsmntok_t *params)
+{
+
+	struct node_id *id;
+	struct peer *peer;
+	u8 *msg;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer) {
+		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
+	}
+
+	if (!peer->uncommitted_channel) {
+		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+	}
+
+	if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
+		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
+
+	/**
+	 * there's a question of 'state machinery' here. as is, we're not checking
+	 * to see if you've already called `continue` -- we expect you
+	 * the caller to EITHER pick 'continue' or 'cancel'.
+	 * but if for some reason you've decided to test your luck, how much
+	 * 'handling' can we do for that case? the easiest thing to do is to
+	 * say "sorry you've already called continue", we can't cancel this.
+	 *
+	 * there's also the state you might end up in where you've called
+	 * continue (and it's completed and been passed off to channeld) but
+	 * you've decided (for whatever reason) not to broadcast the transaction
+	 * so your channels have ended up in this 'waiting' state. neither of us
+	 * are actually out any amount of cash, but it'd be nice if there's a way
+	 * to signal to c-lightning (+ your peer) that this channel is dead on arrival.
+	 * ... but also if you then broadcast this tx you'd be in trouble cuz we're
+	 * both going to forget about it. the meta question here is how 'undoable'
+	 * should we make any of this. how much tools do we give you, reader?
+	 *
+	 * for now, let's settle for the EITHER / OR case and disregard the larger
+	 * question about 'how long cancelable'.
+	 */
+
+	/* Update the cmd to the new cmd */
+	peer->uncommitted_channel->fc->cmd = cmd;
+	msg = towire_opening_funder_cancel(NULL);
+	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+	return command_still_pending(cmd);
+}
+
+/**
+ * json_fund_channel_start - Entrypoint for funding an externally funded channel
+ */
 static struct command_result *json_fund_channel_start(struct command *cmd,
 						      const char *buffer,
 						      const jsmntok_t *obj UNNEEDED,
@@ -1368,6 +1431,14 @@ static const struct json_command fund_channel_start_command = {
     "Returns a bech32 address to use as an output for a funding transaction."
 };
 AUTODATA(json_command, &fund_channel_start_command);
+
+static const struct json_command fund_channel_cancel_command = {
+    "fundchannel_cancel",
+    "channels",
+    json_fund_channel_cancel,
+    "Cancel inflight channel establishment with peer {id}."
+};
+AUTODATA(json_command, &fund_channel_cancel_command);
 
 static const struct json_command fund_channel_continue_command = {
     "fundchannel_continue",

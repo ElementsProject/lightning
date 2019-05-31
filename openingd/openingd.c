@@ -1683,6 +1683,16 @@ static u8 *handle_master_in(struct state *state)
 		state->funding_txid = funding_txid;
 		state->funding_txout = funding_txout;
 		return funder_channel_continue(state);
+	case WIRE_OPENING_FUNDER_CANCEL:
+		/* We're aborting this, simple */
+		if (!fromwire_opening_funder_cancel(msg))
+			master_badmsg(WIRE_OPENING_FUNDER_CANCEL, msg);
+
+		msg = towire_errorfmt(NULL, &state->channel_id, "Channel open canceled by us");
+		sync_crypto_write(state->pps, take(msg));
+		negotiation_aborted(state, true,
+				    "Channel open canceled by RPC", false);
+		return NULL;
 	case WIRE_OPENING_DEV_MEMLEAK:
 #if DEVELOPER
 		handle_dev_memleak(state, msg);
