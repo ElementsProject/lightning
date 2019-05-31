@@ -3,14 +3,15 @@ from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
 from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND
+from bitcoin.core import CMutableTransaction, CMutableTxOut
 
-
+import binascii
 import os
 import pytest
-import time
 import random
 import re
 import shutil
+import time
 import unittest
 
 
@@ -819,7 +820,6 @@ def test_funding_by_utxos(node_factory, bitcoind):
         l1.rpc.fundchannel(l3.info["id"], int(0.01 * 10**8), utxos=utxos)
 
 
-# Check a bunch of preliminary states for calling these RPCs
 def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
@@ -874,6 +874,34 @@ def test_funding_external_wallet(node_factory, bitcoind):
     # Trying to start a second funding should not work, it's in progress.
     with pytest.raises(RpcError, match=r'Already funding channel'):
         l1.rpc.fundchannel_start(l2.info['id'], amount)
+
+    # 'Externally' fund the address from fundchannel_start
+    addr_scriptpubkey = bitcoind.rpc.getaddressinfo(address)['scriptPubKey']
+    txout = CMutableTxOut(amount, bytearray.fromhex(addr_scriptpubkey))
+    unfunded_tx = CMutableTransaction([], [txout])
+    hextx = binascii.hexlify(unfunded_tx.serialize()).decode('utf8')
+
+    funded_tx_obj = bitcoind.rpc.fundrawtransaction(hextx)
+    raw_funded_tx = funded_tx_obj['hex']
+    txid = bitcoind.rpc.decoderawtransaction(raw_funded_tx)['txid']
+    txout = 1 if funded_tx_obj['changepos'] == 0 else 0
+
+    assert l1.rpc.fundchannel_continue(l2.info['id'], txid, txout)['commitments_secured']
+
+    # Broadcast the transaction manually and confirm that channel locks in
+    signed_tx = bitcoind.rpc.signrawtransactionwithwallet(raw_funded_tx)['hex']
+    assert txid == bitcoind.rpc.decoderawtransaction(signed_tx)['txid']
+
+    bitcoind.rpc.sendrawtransaction(signed_tx)
+    bitcoind.generate_block(1)
+
+    l1.daemon.wait_for_log(r'Funding tx {} depth 1 of 1'.format(txid))
+    l1.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    for node in [l1, l2]:
+        channel = node.rpc.listpeers()['peers'][0]['channels'][0]
+        assert 'CHANNELD_NORMAL' == channel['state']
+        assert amount * 1000 == channel['msatoshi_total']
 
 
 def test_lockin_between_restart(node_factory, bitcoind):
