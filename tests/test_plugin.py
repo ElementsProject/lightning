@@ -2,7 +2,7 @@ from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import only_one, wait_for
+from utils import only_one, wait_for, TIMEOUT
 
 import os
 import pytest
@@ -291,6 +291,16 @@ def test_invoice_payment_hook(node_factory):
     l2.daemon.wait_for_log('label=label2')
     l2.daemon.wait_for_log('msat=')
     l2.daemon.wait_for_log('preimage=' + '0' * 64)
+
+
+def test_invoice_payment_hook_hold(node_factory):
+    """ l1 uses the hold_invoice plugin to delay invoice payment.
+    """
+    opts = [{}, {'plugin': 'tests/plugins/hold_invoice.py', 'holdtime': TIMEOUT / 2}]
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    inv1 = l2.rpc.invoice(123000, 'label', 'description', preimage='1' * 64)
+    l1.rpc.pay(inv1['bolt11'])
 
 
 def test_openchannel_hook(node_factory, bitcoind):
