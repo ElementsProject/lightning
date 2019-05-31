@@ -85,6 +85,9 @@ struct funding_channel {
 
 	/* Channel, subsequent owner of us */
 	struct uncommitted_channel *uc;
+
+	/* Whether or not this is in the middle of getting funded */
+	bool inflight;
 };
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
@@ -320,8 +323,10 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 		goto failed;
 	}
 
-	// FIXME: save the peer to the database?
 	funding_started_success(fc, funding_scriptPubkey);
+
+	/* Mark that we're in-flight */
+	fc->inflight = true;
 	return;
 
 failed:
@@ -1088,7 +1093,7 @@ static struct command_result *json_fund_channel_continue(struct command *cmd,
 	if (!peer->uncommitted_channel)
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
-	if (!peer->uncommitted_channel->fc)
+	if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
 		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
 
 	msg = towire_opening_funder_continue(NULL,
@@ -1116,6 +1121,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	max_funding_satoshi = get_chainparams(cmd->ld)->max_funding;
 	fc->cmd = cmd;
 	fc->uc = NULL;
+	fc->inflight = false;
 	if (!param(fc->cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
 		   p_req("satoshi", param_sat, &amount),
@@ -1209,6 +1215,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 
 	fc->cmd = cmd;
 	fc->uc = NULL;
+	fc->inflight = false;
 	fc->wtx = tal(fc, struct wallet_tx);
 	wtx_init(cmd, fc->wtx, max_funding_satoshi);
 	if (!param(fc->cmd, buffer, params,
