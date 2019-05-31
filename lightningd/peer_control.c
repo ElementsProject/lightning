@@ -14,6 +14,7 @@
 #include <channeld/gen_channel_wire.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
+#include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -436,6 +437,7 @@ static void json_add_htlcs(struct lightningd *ld,
 	struct htlc_in_map_iter ini;
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
+	u32 local_feerate = channel->channel_info.feerate_per_kw[LOCAL];
 
 	/* FIXME: Add more fields. */
 	json_array_start(response, "htlcs");
@@ -455,6 +457,9 @@ static void json_add_htlcs(struct lightningd *ld,
 			     &hin->payment_hash, sizeof(hin->payment_hash));
 		json_add_string(response, "state",
 				htlc_state_name(hin->hstate));
+		if (htlc_is_trimmed(REMOTE, hin->msat, local_feerate,
+				    channel->our_config.dust_limit, LOCAL))
+			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
 	}
 
@@ -474,6 +479,9 @@ static void json_add_htlcs(struct lightningd *ld,
 			     &hout->payment_hash, sizeof(hout->payment_hash));
 		json_add_string(response, "state",
 				htlc_state_name(hout->hstate));
+		if (htlc_is_trimmed(LOCAL, hout->msat, local_feerate,
+				    channel->our_config.dust_limit, LOCAL))
+			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -489,6 +497,49 @@ static void json_add_sat_only(struct json_stream *result,
 	if (amount_sat_to_msat(&msat, sat))
 		json_add_member(result, fieldname, "\"%s\"",
 				type_to_string(tmpctx, struct amount_msat, &msat));
+}
+
+/* This is quite a lot of work to figure out what it would cost us! */
+static struct amount_sat commit_txfee(const struct channel *channel,
+				      struct amount_msat spendable)
+{
+	/* FIXME: make per-channel htlc maps! */
+	const struct htlc_in *hin;
+	struct htlc_in_map_iter ini;
+	const struct htlc_out *hout;
+	struct htlc_out_map_iter outi;
+	struct lightningd *ld = channel->peer->ld;
+	u32 local_feerate = channel->channel_info.feerate_per_kw[LOCAL];
+	size_t num_untrimmed_htlcs = 0;
+
+	/* Assume we tried to spend "spendable" */
+	if (!htlc_is_trimmed(LOCAL, spendable,
+			     local_feerate, channel->our_config.dust_limit,
+			     LOCAL))
+		num_untrimmed_htlcs++;
+
+	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+		if (hin->key.channel != channel)
+			continue;
+		if (!htlc_is_trimmed(REMOTE, hin->msat, local_feerate,
+				     channel->our_config.dust_limit,
+				     LOCAL))
+			num_untrimmed_htlcs++;
+	}
+	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+		if (hout->key.channel != channel)
+			continue;
+		if (!htlc_is_trimmed(LOCAL, hout->msat, local_feerate,
+				     channel->our_config.dust_limit,
+				     LOCAL))
+			num_untrimmed_htlcs++;
+	}
+
+	return commit_tx_base_fee(local_feerate, num_untrimmed_htlcs);
 }
 
 static void json_add_channel(struct lightningd *ld,
@@ -603,6 +654,18 @@ static void json_add_channel(struct lightningd *ld,
 	if (!amount_msat_sub_sat(&spendable,
 				 channel->our_msat,
 				 channel->channel_info.their_config.channel_reserve))
+		spendable = AMOUNT_MSAT(0);
+
+	/* If we're funder, subtract txfees we'll need to spend this */
+	if (channel->funder == LOCAL) {
+		if (!amount_msat_sub_sat(&spendable, spendable,
+					 commit_txfee(channel, spendable)))
+			spendable = AMOUNT_MSAT(0);
+	}
+
+	/* We can't offer an HTLC less than the other side will accept. */
+	if (amount_msat_less(spendable,
+			     channel->channel_info.their_config.htlc_minimum))
 		spendable = AMOUNT_MSAT(0);
 
 	json_add_amount_msat_compat(response, spendable,

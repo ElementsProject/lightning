@@ -112,6 +112,13 @@ const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
 /* Generated stub for get_log_level */
 enum log_level get_log_level(struct log_book *lr UNNEEDED)
 { fprintf(stderr, "get_log_level called!\n"); abort(); }
+/* Generated stub for htlc_is_trimmed */
+bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
+		     struct amount_msat htlc_amount UNNEEDED,
+		     u32 feerate_per_kw UNNEEDED,
+		     struct amount_sat dust_limit UNNEEDED,
+		     enum side side UNNEEDED)
+{ fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
 /* Generated stub for htlcs_reconnect */
 void htlcs_reconnect(struct lightningd *ld UNNEEDED,
 		     struct htlc_in_map *htlcs_in UNNEEDED,
