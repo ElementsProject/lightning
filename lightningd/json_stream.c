@@ -65,7 +65,9 @@ struct json_stream *new_json_stream(const tal_t *ctx,
 	return js;
 }
 
-struct json_stream *json_stream_dup(const tal_t *ctx, struct json_stream *original)
+struct json_stream *json_stream_dup(const tal_t *ctx,
+				    struct json_stream *original,
+				    struct log *log)
 {
 	size_t num_elems = membuf_num_elems(&original->outbuf);
 	char *elems = membuf_elems(&original->outbuf);
@@ -83,6 +85,7 @@ struct json_stream *json_stream_dup(const tal_t *ctx, struct json_stream *origin
 			membuf_added(&js->outbuf, num_elems);
 		}
 	}
+	js->log = log;
 	return js;
 }
 

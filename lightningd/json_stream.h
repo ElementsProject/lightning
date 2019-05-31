@@ -36,8 +36,11 @@ struct json_stream *new_json_stream(const tal_t *ctx, struct command *writer,
  *
  * @ctx: tal context for allocation.
  * @original: the stream to duplicate.
+ * @log: log for new stream.
  */
-struct json_stream *json_stream_dup(const tal_t *ctx, struct json_stream *original);
+struct json_stream *json_stream_dup(const tal_t *ctx,
+				    struct json_stream *original,
+				    struct log *log);
 
 /**
  * json_stream_close - finished writing to a JSON stream.
