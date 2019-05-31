@@ -1266,6 +1266,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Can do mutual close.
     l1.rpc.close(l2.info['id'])
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
     bitcoind.generate_block(100)
 
     # Can do unilateral close.
