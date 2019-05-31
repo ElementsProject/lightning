@@ -364,6 +364,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &fc->uc->minimum_depth,
 					   &channel_info.remote_fundingkey,
 					   &expected_txid,
+					   &funding_outnum,
 					   &feerate,
 					   &fc->uc->our_config.channel_reserve,
 					   &remote_upfront_shutdown_script)) {
@@ -1056,13 +1057,22 @@ static struct command_result *json_fund_channel_continue(struct command *cmd,
 	struct bitcoin_txid *funding_txid;
 	struct peer *peer;
 	struct channel *channel;
+	u32 *funding_txout_num;
+	u16 funding_txout;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
 		   p_req("txid", param_txid, &funding_txid),
+		   p_req("txout", param_number, &funding_txout_num),
 		   NULL))
 		return command_param_failed();
 
+	if (*funding_txout_num > UINT16_MAX)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Invalid parameter: funding tx vout too large %u",
+				    *funding_txout_num);
+
+	funding_txout = *funding_txout_num;
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
 		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
@@ -1079,7 +1089,9 @@ static struct command_result *json_fund_channel_continue(struct command *cmd,
 	if (!peer->uncommitted_channel->fc)
 		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
 
-	msg = towire_opening_funder_continue(NULL, funding_txid);
+	msg = towire_opening_funder_continue(NULL,
+					     funding_txid,
+					     funding_txout);
 	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
 	return command_still_pending(cmd);
 }

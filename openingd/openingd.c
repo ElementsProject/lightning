@@ -1038,6 +1038,7 @@ static u8 *funder_channel(struct state *state,
 					   minimum_depth,
 					   &their_funding_pubkey,
 					   &state->funding_txid,
+					   state->funding_txout,
 					   state->feerate_per_kw,
 					   state->localconf.channel_reserve,
 					   state->remote_upfront_shutdown_script);
@@ -1573,6 +1574,7 @@ static u8 *handle_master_in(struct state *state)
 	u32 change_keyindex;
 	u8 channel_flags;
 	struct bitcoin_txid funding_txid;
+	u16 funding_txout;
 	struct utxo **utxos;
 	struct ext_key bip32_base;
 
@@ -1606,7 +1608,8 @@ static u8 *handle_master_in(struct state *state)
 		return NULL;
 	case WIRE_OPENING_FUNDER_CONTINUE:
 		if (!fromwire_opening_funder_continue(msg,
-						      &funding_txid))
+						      &funding_txid,
+						      &funding_txout))
 			master_badmsg(WIRE_OPENING_FUNDER_CONTINUE, msg);
 		return funder_channel_continue(state, &funding_txid);
 	case WIRE_OPENING_DEV_MEMLEAK:

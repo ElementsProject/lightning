@@ -72,6 +72,7 @@ opening_funder_reply,,their_per_commit_point,struct pubkey
 opening_funder_reply,,minimum_depth,u32
 opening_funder_reply,,remote_fundingkey,struct pubkey
 opening_funder_reply,,funding_txid,struct bitcoin_txid
+opening_funder_reply,,funding_txout,u16
 opening_funder_reply,,feerate_per_kw,u32
 opening_funder_reply,,our_channel_reserve_satoshis,struct amount_sat
 opening_funder_reply,,shutdown_len,u16
@@ -90,11 +91,12 @@ opening_funder_start_reply,6102
 opening_funder_start_reply,,script_len,u8
 opening_funder_start_reply,,scriptpubkey,script_len*u8
 
-# master->openingd: continue channel establsihment for a funding
+# master->openingd: continue channel establishment for a funding
 # tx that will be paid for by an external wallet
 # response to this is a normal `opening_funder_reply` ??
 opening_funder_continue,6012
 opening_funder_continue,,funding_txid,struct bitcoin_txid
+opening_funder_continue,,funding_txout,u16
 
 # Openingd->master: we failed to negotiation channel
 opening_funder_failed,6004
