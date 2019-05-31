@@ -2124,7 +2124,6 @@ def test_channel_spendable_large(node_factory, bitcoind):
     l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 def test_channel_spendable_capped(node_factory, bitcoind):
     """Test that spendable_msat is capped at 2^32-1"""
     sats = 16777215

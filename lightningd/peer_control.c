@@ -688,6 +688,10 @@ static void json_add_channel(struct lightningd *ld,
 			     channel->channel_info.their_config.htlc_minimum))
 		spendable = AMOUNT_MSAT(0);
 
+	/* We can't offer an HTLC over the max payment threshold either. */
+	if (amount_msat_greater(spendable, get_chainparams(ld)->max_payment))
+		spendable = get_chainparams(ld)->max_payment;
+
 	json_add_amount_msat_compat(response, spendable,
 				    "spendable_msatoshi", "spendable_msat");
 	json_add_amount_msat_compat(response,
