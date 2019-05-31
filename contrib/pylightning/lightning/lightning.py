@@ -499,6 +499,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel_start", payload)
 
+    def fundchannel_cancel(self, node_id):
+        """
+        Cancel a 'started' fundchannel with node {id}.
+        """
+        payload = {
+            "id": node_id,
+        }
+        return self.call("fundchannel_cancel", payload)
+
     def fundchannel_continue(self, node_id, funding_txid, funding_txout):
         """
         Complete channel establishment with {id}, using {funding_txid} at {funding_txout}

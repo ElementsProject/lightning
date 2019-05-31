@@ -98,6 +98,9 @@ opening_funder_continue,6012
 opening_funder_continue,,funding_txid,struct bitcoin_txid
 opening_funder_continue,,funding_txout,u16
 
+#master->openingd: cancel channel establishment for a funding
+opening_funder_cancel,6013
+
 # Openingd->master: we failed to negotiation channel
 opening_funder_failed,6004
 opening_funder_failed,,reason,wirestring
