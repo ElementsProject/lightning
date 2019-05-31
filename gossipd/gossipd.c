@@ -1948,6 +1948,8 @@ static struct gossip_halfchannel_entry *hc_entry(const tal_t *ctx,
 	e->base_fee_msat = c->base_fee;
 	e->fee_per_millionth = c->proportional_fee;
 	e->delay = c->delay;
+	e->min = c->htlc_minimum;
+	e->max = c->htlc_maximum;
 
 	return e;
 }

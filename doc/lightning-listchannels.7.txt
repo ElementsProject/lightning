@@ -59,6 +59,8 @@ HTLC (BOLT #2).
 transferred satoshi (BOLT #2).
 - 'delay' : The number of blocks delay required to wait for on-chain settlement
 when unilaterally closing the channel (BOLT #2).
+- 'htlc_minimum_msat' : The minimum payment which can be send through this channel.
+- 'htlc_maximum_msat' : The maximum payment which can be send through this channel.
 
 If 'short_channel_id' or 'source' is supplied and no matching channels
 are found, a "channels" object with an empty list is returned.

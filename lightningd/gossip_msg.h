@@ -27,6 +27,7 @@ struct gossip_halfchannel_entry {
 	u32 delay;
 	u32 base_fee_msat;
 	u32 fee_per_millionth;
+	struct amount_msat min, max;
 };
 
 struct gossip_getchannels_entry {

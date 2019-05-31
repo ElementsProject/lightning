@@ -105,6 +105,8 @@ static void fromwire_gossip_halfchannel_entry(const u8 **pptr, size_t *max,
 	entry->delay = fromwire_u32(pptr, max);
 	entry->base_fee_msat = fromwire_u32(pptr, max);
 	entry->fee_per_millionth = fromwire_u32(pptr, max);
+	entry->min = fromwire_amount_msat(pptr, max);
+	entry->max = fromwire_amount_msat(pptr, max);
 }
 
 struct gossip_getchannels_entry *
@@ -144,6 +146,8 @@ static void towire_gossip_halfchannel_entry(u8 **pptr,
 	towire_u32(pptr, entry->delay);
 	towire_u32(pptr, entry->base_fee_msat);
 	towire_u32(pptr, entry->fee_per_millionth);
+	towire_amount_msat(pptr, entry->min);
+	towire_amount_msat(pptr, entry->max);
 }
 
 void towire_gossip_getchannels_entry(u8 **pptr,

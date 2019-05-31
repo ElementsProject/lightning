@@ -389,6 +389,8 @@ static void json_add_halfchan(struct json_stream *response,
 	json_add_num(response, "base_fee_millisatoshi", he->base_fee_msat);
 	json_add_num(response, "fee_per_millionth", he->fee_per_millionth);
 	json_add_num(response, "delay", he->delay);
+	json_add_amount_msat_only(response, "htlc_minimum_msat", he->min);
+	json_add_amount_msat_only(response, "htlc_maximum_msat", he->max);
 	json_object_end(response);
 }
 
