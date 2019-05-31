@@ -2131,7 +2131,6 @@ def test_channel_spendable_capped(node_factory, bitcoind):
     assert l1.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat'] == Millisatoshi(0xFFFFFFFF)
 
 
-@pytest.mark.xfail(strict=True)
 def test_channel_drainage(node_factory, bitcoind):
     """Test channel drainage.
 
@@ -2147,56 +2146,43 @@ def test_channel_drainage(node_factory, bitcoind):
     for n in [l1, l2]:
         wait_for(lambda: [c['active'] for c in n.rpc.listchannels()['channels']] == [True] * 2 * 1)
 
+    # This first HTLC drains the channel.
     amount = Millisatoshi("976559200msat")
     payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
     route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
-    fees = route[0]['amount_msat'] - amount
-    result = l1.rpc.sendpay(route, payment_hash)
-    print("sendpay", result)
-    result = l1.rpc.waitsendpay(payment_hash, 10)
-    print("waitsendpay", result)
+    l1.rpc.sendpay(route, payment_hash)
+    l1.rpc.waitsendpay(payment_hash, 10)
 
     # wait until totally settled
     wait_for(lambda: len(l1.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
     wait_for(lambda: len(l2.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
 
-    # now we drain twice to try to get into invalid channel state
-    # NOTE: draining twice is possible because the required commitment
-    #       fees are less when there little in the channel. dunno why.
+    # But we can get more!  By using a trimmed htlc output; this doesn't cause
+    # an increase in tx fee, so it's allowed.
     amount = Millisatoshi("2580800msat")
     payment_hash = l2.rpc.invoice('any', 'inv2', 'for testing')['payment_hash']
     route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
-    fees = route[0]['amount_msat'] - amount
-    result = l1.rpc.sendpay(route, payment_hash)
-    print("sendpay", result)
-    result = l1.rpc.waitsendpay(payment_hash, TIMEOUT)
-    print("waitsendpay", result)
+    l1.rpc.sendpay(route, payment_hash)
+    l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # wait until totally settled
     wait_for(lambda: len(l1.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
     wait_for(lambda: len(l2.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
 
-    # in the broken state the next bigger payment from l2 to l1 will crash the daemon at l2.
-    # Note1: A smaller payment (i.e. 10000sat) unlocks this state and recovers.
-    # Note2: When the remote is LND the payment will cracefully fail until the
-    #        broken state is unlocked and recovered with a small initial payment.
-    """
-lightning_channeld: channeld/channeld.c:1382: handle_peer_commit_sig: Assertion `can_funder_afford_feerate(peer->channel, peer->channel->view[LOCAL] .feerate_per_kw)' failed.
-FATAL SIGNAL 6 (version v0.7.0-397-gd803275)'
-backtrace: common/daemon.c:45 (send_backtrace) 0x562b824fa13f'
-backtrace: common/daemon.c:53 (crashdump) 0x562b824fa18f'
-backtrace: (null):0 ((null)) 0x7f1028c3c8af'
-backtrace: (null):0 ((null)) 0x7f1028c3c82f'
-backtrace: (null):0 ((null)) 0x7f1028c27671'
-backtrace: (null):0 ((null)) 0x7f1028c27547'
-backtrace: (null):0 ((null)) 0x7f1028c34db5'
-backtrace: channeld/channeld.c:1380 (handle_peer_commit_sig) 0x562b824e984d'
-backtrace: channeld/channeld.c:1819 (peer_in) 0x562b824eadcd'
-backtrace: channeld/channeld.c:3102 (main) 0x562b824ee14b'
-backtrace: (null):0 ((null)) 0x7f1028c28ce2'
-backtrace: (null):0 ((null)) 0x562b824e57fd'
-backtrace: (null):0 ((null)) 0xffffffffffffffff'
-lightning_channeld: FATAL SIGNAL 6 (version v0.7.0-397-gd803275)
-    """
-    bolt11 = l1.rpc.invoice('100000sat', 'inv', 'for testing')['bolt11']
-    result = l2.rpc.pay(bolt11)
+    # Now, l1 is paying fees, but it can't afford a larger tx, so any
+    # attempt to add an HTLC which is not trimmed will fail.
+    payment_hash = l1.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
+
+    # feerate_per_kw = 15000, so htlc_timeout_fee = 663 * 15000 / 1000 = 9945.
+    # dust_limit is 546.  So it's trimmed if < 9945 + 546.
+    amount = Millisatoshi("10491sat")
+    route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    l2.rpc.sendpay(route, payment_hash)
+    with pytest.raises(RpcError, match=r"Capacity exceeded.*'erring_index': 0"):
+        l2.rpc.waitsendpay(payment_hash, TIMEOUT)
+
+    # But if it's trimmed, we're ok.
+    amount -= 1
+    route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    l2.rpc.sendpay(route, payment_hash)
+    l2.rpc.waitsendpay(payment_hash, TIMEOUT)
