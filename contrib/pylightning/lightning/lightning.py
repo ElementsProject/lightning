@@ -527,13 +527,14 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel_start", payload)
 
-    def fundchannel_continue(self, node_id, funding_txid):
+    def fundchannel_continue(self, node_id, funding_txid, funding_txout):
         """
-        Complete channel establishment with {id}, using {funding_txid}
+        Complete channel establishment with {id}, using {funding_txid} at {funding_txout}
         """
         payload = {
             "id": node_id,
             "txid": funding_txid,
+            "txout": funding_txout,
         }
         return self.call("fundchannel_continue", payload)
 

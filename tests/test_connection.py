@@ -831,17 +831,18 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
     amount = amount - 1
     fake_txid = '929764844a8f9938b669a60a1d51a11c9e2613c7eb4776e4126f1f20c0a685c3'
+    fake_txout = 0
 
     with pytest.raises(RpcError, match=r'Unknown peer'):
         l1.rpc.fundchannel_start(l2.info['id'], amount)
 
     with pytest.raises(RpcError, match=r'Unknown peer'):
-        l1.rpc.fundchannel_continue(l2.info['id'], fake_txid)
+        l1.rpc.fundchannel_continue(l2.info['id'], fake_txid, fake_txout)
 
     # Should not be able to continue without being in progress.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r'No channel funding in progress.'):
-        l1.rpc.fundchannel_continue(l2.info['id'], fake_txid)
+        l1.rpc.fundchannel_continue(l2.info['id'], fake_txid, fake_txout)
 
 
 def test_funding_external_wallet(node_factory, bitcoind):
