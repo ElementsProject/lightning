@@ -1399,3 +1399,39 @@ def test_newaddr(node_factory):
     both = l1.rpc.newaddr('all')
     assert both['p2sh-segwit'].startswith('2')
     assert both['bech32'].startswith('bcrt1')
+
+
+@pytest.mark.xfail(strict=True)
+def test_bitcoind_fail_first(node_factory, bitcoind, executor):
+    """Make sure we handle spurious bitcoin-cli failures during startup
+
+    See [#2687](https://github.com/ElementsProject/lightning/issues/2687) for
+    details
+
+    """
+    # Do not start the lightning node since we need to instrument bitcoind
+    # first.
+    l1 = node_factory.get_node(start=False)
+
+    # Instrument bitcoind to fail some queries first.
+    def mock_fail(*args):
+        raise ValueError()
+
+    l1.daemon.rpcproxy.mock_rpc('getblock', mock_fail)
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_fail)
+
+    f = executor.submit(l1.start)
+
+    wait_for(lambda: l1.daemon.running)
+    # Make sure it fails on the first `getblock` call (need to use `is_in_log`
+    # since the `wait_for_log` in `start` sets the offset)
+    wait_for(lambda: l1.daemon.is_in_log(
+        r'getblock [a-z0-9]* false exited with status 1'))
+    wait_for(lambda: l1.daemon.is_in_log(
+        r'estimatesmartfee 2 CONSERVATIVE exited with status 1'))
+
+    # Now unset the mock, so calls go through again
+    l1.daemon.rpcproxy.mock_rpc('getblock', None)
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
+
+    f.result()
