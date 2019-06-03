@@ -204,4 +204,8 @@ enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx,
 void json_add_timeabs(struct json_stream *result, const char *fieldname,
 		      struct timeabs t);
 
+/* used in log.c and notification.c*/
+void json_add_time(struct json_stream *result, const char *fieldname,
+			  struct timespec ts);
+
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */
