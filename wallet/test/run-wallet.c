@@ -112,11 +112,6 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 /* Generated stub for get_chainparams */
 const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "get_chainparams called!\n"); abort(); }
-/* Generated stub for invoices_autoclean_set */
-void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
-			    u64 cycle_seconds UNNEEDED,
-			    u64 expired_by UNNEEDED)
-{ fprintf(stderr, "invoices_autoclean_set called!\n"); abort(); }
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,

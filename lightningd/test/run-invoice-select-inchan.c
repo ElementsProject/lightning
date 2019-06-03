@@ -478,11 +478,6 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
 				   struct htlc_in_map *htlcs_in UNNEEDED,
 				   struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "wallet_htlcs_load_for_channel called!\n"); abort(); }
-/* Generated stub for wallet_invoice_autoclean */
-void wallet_invoice_autoclean(struct wallet * wallet UNNEEDED,
-			      u64 cycle_seconds UNNEEDED,
-			      u64 expired_by UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_autoclean called!\n"); abort(); }
 /* Generated stub for wallet_invoice_create */
 bool wallet_invoice_create(struct wallet *wallet UNNEEDED,
 			   struct invoice *pinvoice UNNEEDED,

@@ -170,11 +170,6 @@ const char *version(void)
 /* Generated stub for wallet_blocks_heights */
 void wallet_blocks_heights(struct wallet *w UNNEEDED, u32 def UNNEEDED, u32 *min UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "wallet_blocks_heights called!\n"); abort(); }
-/* Generated stub for wallet_invoice_autoclean */
-void wallet_invoice_autoclean(struct wallet * wallet UNNEEDED,
-			      u64 cycle_seconds UNNEEDED,
-			      u64 expired_by UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_autoclean called!\n"); abort(); }
 /* Generated stub for wallet_network_check */
 bool wallet_network_check(struct wallet *w UNNEEDED,
 			  const struct chainparams *chainparams UNNEEDED)
