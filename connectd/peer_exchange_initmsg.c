@@ -80,15 +80,12 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 	}
 
-	/* Create message to tell master peer has connected. */
-	msg = towire_connect_peer_connected(NULL, &peer->id, &peer->addr,
-					    &peer->cs,
-					    globalfeatures, localfeatures);
-
 	/* Usually return io_close_taken_fd, but may wait for old peer to
 	 * be disconnected if it's a reconnect. */
 	return peer_connected(conn, peer->daemon, &peer->id,
-			      take(msg), take(localfeatures));
+			      &peer->addr, &peer->cs,
+			      take(globalfeatures),
+			      take(localfeatures));
 }
 
 static struct io_plan *peer_init_hdr_received(struct io_conn *conn,
