@@ -1838,8 +1838,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* Safe even if was never added, but if it's a private channel it
 	 * would be a WIRE_GOSSIP_STORE_PRIVATE_UPDATE. */
-	gossip_store_delete(rstate->gs,
-			    &chan->half[direction].bcast,
+	gossip_store_delete(rstate->gs, &hc->bcast,
 			    is_chan_public(chan)
 			    ? WIRE_CHANNEL_UPDATE
 			    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
@@ -1858,9 +1857,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	} else if (!is_chan_public(chan)) {
 		/* For private channels, we get updates without an announce: don't
 		 * broadcast them!  But save local ones to store anyway. */
-		struct half_chan *hc = &chan->half[direction];
-		/* Don't save if we're loading from store */
 		assert(is_local_channel(rstate, chan));
+		/* Don't save if we're loading from store */
 		if (!index) {
 			hc->bcast.index
 				= gossip_store_add_private_update(rstate->gs,
@@ -1872,11 +1870,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* If we're loading from store, this means we don't re-add to store. */
 	if (index)
-		chan->half[direction].bcast.index = index;
+		hc->bcast.index = index;
 	else
-		chan->half[direction].bcast.index
+		hc->bcast.index
 			= gossip_store_add(rstate->gs, update,
-					   chan->half[direction].bcast.timestamp,
+					   hc->bcast.timestamp,
 					   NULL);
 
 	if (uc) {
