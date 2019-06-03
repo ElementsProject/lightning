@@ -11,6 +11,7 @@
 
 struct channel_id;
 struct daemon_conn;
+struct per_peer_state;
 
 /* Simple status reporting API. */
 void status_setup_sync(int fd);
@@ -51,5 +52,8 @@ void status_failed(enum status_failreason code,
 void master_badmsg(u32 type_expected, const u8 *msg) NORETURN;
 
 void status_send(const u8 *msg TAKES);
-void status_send_fatal(const u8 *msg TAKES, int fd1, int fd2, int fd3) NORETURN;
+void status_send_fatal(const u8 *msg TAKES) NORETURN;
+
+/* Only for sync status! */
+void status_send_fd(int fd);
 #endif /* LIGHTNING_COMMON_STATUS_H */

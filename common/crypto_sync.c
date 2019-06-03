@@ -3,6 +3,7 @@
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>
 #include <common/peer_failed.h>
+#include <common/per_peer_state.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -13,7 +14,7 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-void sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
+void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 {
 #if DEVELOPER
 	bool post_sabotage = false;
@@ -22,12 +23,12 @@ void sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 	u8 *enc;
 
 	status_peer_io(LOG_IO_OUT, msg);
-	enc = cryptomsg_encrypt_msg(NULL, cs, msg);
+	enc = cryptomsg_encrypt_msg(NULL, &pps->cs, msg);
 
 #if DEVELOPER
 	switch (dev_disconnect(type)) {
 	case DEV_DISCONNECT_BEFORE:
-		dev_sabotage_fd(fd);
+		dev_sabotage_fd(pps->peer_fd);
 		peer_failed_connection_lost();
 	case DEV_DISCONNECT_DROPPKT:
 		enc = tal_free(enc); /* FALL THRU */
@@ -35,19 +36,19 @@ void sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 		post_sabotage = true;
 		break;
 	case DEV_DISCONNECT_BLACKHOLE:
-		dev_blackhole_fd(fd);
+		dev_blackhole_fd(pps->peer_fd);
 		break;
 	case DEV_DISCONNECT_NORMAL:
 		break;
 	}
 #endif
-	if (!write_all(fd, enc, tal_count(enc)))
+	if (!write_all(pps->peer_fd, enc, tal_count(enc)))
 		peer_failed_connection_lost();
 	tal_free(enc);
 
 #if DEVELOPER
 	if (post_sabotage)
-		dev_sabotage_fd(fd);
+		dev_sabotage_fd(pps->peer_fd);
 #endif
 }
 
@@ -62,7 +63,7 @@ void sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
  * afterwards.  Even if this is wrong on other non-Linux platforms, it
  * only means one extra packet.
  */
-void sync_crypto_write_no_delay(struct crypto_state *cs, int fd,
+void sync_crypto_write_no_delay(struct per_peer_state *pps,
 				const void *msg TAKES)
 {
 	int val;
@@ -81,7 +82,7 @@ void sync_crypto_write_no_delay(struct crypto_state *cs, int fd,
 #endif
 
 	val = 1;
-	if (setsockopt(fd, IPPROTO_TCP, opt, &val, sizeof(val)) != 0) {
+	if (setsockopt(pps->peer_fd, IPPROTO_TCP, opt, &val, sizeof(val)) != 0) {
 		/* This actually happens in testing, where we blackhole the fd */
 		if (!complained) {
 			status_broken("setsockopt %s=1: %s",
@@ -90,34 +91,35 @@ void sync_crypto_write_no_delay(struct crypto_state *cs, int fd,
 			complained = true;
 		}
 	}
-	sync_crypto_write(cs, fd, msg);
+	sync_crypto_write(pps, msg);
 
 	val = 0;
-	setsockopt(fd, IPPROTO_TCP, opt, &val, sizeof(val));
+	setsockopt(pps->peer_fd, IPPROTO_TCP, opt, &val, sizeof(val));
 }
 
-u8 *sync_crypto_read(const tal_t *ctx, struct crypto_state *cs, int fd)
+u8 *sync_crypto_read(const tal_t *ctx, struct per_peer_state *pps)
 {
 	u8 hdr[18], *enc, *dec;
 	u16 len;
 
-	if (!read_all(fd, hdr, sizeof(hdr))) {
+	if (!read_all(pps->peer_fd, hdr, sizeof(hdr))) {
 		status_trace("Failed reading header: %s", strerror(errno));
 		peer_failed_connection_lost();
 	}
 
-	if (!cryptomsg_decrypt_header(cs, hdr, &len)) {
-		status_trace("Failed hdr decrypt with rn=%"PRIu64, cs->rn-1);
+	if (!cryptomsg_decrypt_header(&pps->cs, hdr, &len)) {
+		status_trace("Failed hdr decrypt with rn=%"PRIu64,
+			     pps->cs.rn-1);
 		peer_failed_connection_lost();
 	}
 
 	enc = tal_arr(ctx, u8, len + 16);
-	if (!read_all(fd, enc, tal_count(enc))) {
+	if (!read_all(pps->peer_fd, enc, tal_count(enc))) {
 		status_trace("Failed reading body: %s", strerror(errno));
 		peer_failed_connection_lost();
 	}
 
-	dec = cryptomsg_decrypt_body(ctx, cs, enc);
+	dec = cryptomsg_decrypt_body(ctx, &pps->cs, enc);
 	tal_free(enc);
 	if (!dec)
 		peer_failed_connection_lost();

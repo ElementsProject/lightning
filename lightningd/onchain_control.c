@@ -376,7 +376,7 @@ static bool tell_if_missing(const struct channel *channel,
 
 /* Only error onchaind can get is if it dies. */
 static void onchain_error(struct channel *channel,
-			  struct peer_comms *pcomms UNUSED,
+			  struct per_peer_state *pps UNUSED,
 			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  const u8 *err_for_them UNUSED)

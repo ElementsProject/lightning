@@ -70,7 +70,7 @@ bool fromwire_status_fail(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, enu
 bool fromwire_status_peer_billboard(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, bool *perm UNNEEDED, wirestring **happenings UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_billboard called!\n"); abort(); }
 /* Generated stub for fromwire_status_peer_error */
-bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **error_for_them UNNEEDED)
+bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **error_for_them UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_error called!\n"); abort(); }
 /* Generated stub for get_log_book */
 struct log_book *get_log_book(const struct log *log UNNEEDED)
@@ -125,15 +125,15 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 struct log_book *new_log_book(size_t max_mem UNNEEDED,
 			      enum log_level printlevel UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }
-/* Generated stub for new_peer_comms */
-struct peer_comms *new_peer_comms(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "new_peer_comms called!\n"); abort(); }
 /* Generated stub for new_topology */
 struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
 /* Generated stub for onchaind_replay_channels */
 void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
+/* Generated stub for per_peer_state_set_fds_arr */
+void per_peer_state_set_fds_arr(struct per_peer_state *pps UNNEEDED, const int *fds UNNEEDED)
+{ fprintf(stderr, "per_peer_state_set_fds_arr called!\n"); abort(); }
 /* Generated stub for plugins_config */
 void plugins_config(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_config called!\n"); abort(); }

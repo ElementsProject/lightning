@@ -1,6 +1,7 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/derive_basepoints.h>
+#include <common/per_peer_state.h>
 
 # Begin!  (passes gossipd-client fd)
 channel_init,1000
@@ -16,7 +17,7 @@ channel_init,,feerate_per_kw,2*u32
 channel_init,,feerate_min,u32
 channel_init,,feerate_max,u32
 channel_init,,first_commit_sig,struct bitcoin_signature
-channel_init,,crypto_state,struct crypto_state
+channel_init,,per_peer_state,struct per_peer_state
 channel_init,,remote_fundingkey,struct pubkey
 channel_init,,remote_basepoints,struct basepoints
 channel_init,,remote_per_commit,struct pubkey
@@ -162,7 +163,7 @@ channel_got_shutdown,,scriptpubkey,scriptpubkey_len*u8
 
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
 channel_shutdown_complete,1025
-channel_shutdown_complete,,crypto_state,struct crypto_state
+channel_shutdown_complete,,per_peer_state,struct per_peer_state
 
 # Re-enable commit timer.
 channel_dev_reenable_commit,1026

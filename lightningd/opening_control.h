@@ -7,14 +7,14 @@ struct channel_id;
 struct crypto_state;
 struct json_stream;
 struct lightningd;
-struct peer_comms;
+struct per_peer_state;
 struct uncommitted_channel;
 
 void json_add_uncommitted_channel(struct json_stream *response,
 				  const struct uncommitted_channel *uc);
 
 void peer_start_openingd(struct peer *peer,
-			 struct peer_comms *pcomms,
+			 struct per_peer_state *pps,
 			 const u8 *msg);
 
 void kill_uncommitted_channel(struct uncommitted_channel *uc,

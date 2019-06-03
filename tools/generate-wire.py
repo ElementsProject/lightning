@@ -42,6 +42,7 @@ varlen_structs = [
     'utxo',
     'bitcoin_tx',
     'wirestring',
+    'per_peer_state',
 ]
 
 

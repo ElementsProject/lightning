@@ -20,6 +20,7 @@
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
 #include <common/param.h>
+#include <common/per_peer_state.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/version.h>
@@ -43,7 +44,6 @@
 #include <lightningd/onchain_control.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
-#include <lightningd/peer_comms.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <unistd.h>
@@ -370,13 +370,13 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 }
 
 void channel_errmsg(struct channel *channel,
-		    struct peer_comms *pcomms,
+		    struct per_peer_state *pps,
 		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
 		    const u8 *err_for_them)
 {
-	/* No peer_comms means a subd crash or disconnection. */
-	if (!pcomms) {
+	/* No per_peer_state means a subd crash or disconnection. */
+	if (!pps) {
 		channel_fail_transient(channel, "%s: %s",
 				       channel->owner->name, desc);
 		return;
@@ -421,7 +421,7 @@ struct peer_connected_hook_payload {
 	struct channel *channel;
 	struct wireaddr_internal addr;
 	struct peer *peer;
-	struct peer_comms *pcomms;
+	struct per_peer_state *pps;
 };
 
 static void json_add_htlcs(struct lightningd *ld,
@@ -760,7 +760,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_channeld(channel, payload->pcomms, NULL,
+			peer_start_channeld(channel, payload->pps, NULL,
 					    true);
 			tal_free(payload);
 			return;
@@ -769,7 +769,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_closingd(channel, payload->pcomms,
+			peer_start_closingd(channel, payload->pps,
 					    true, NULL);
 			tal_free(payload);
 			return;
@@ -783,7 +783,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 	error = NULL;
 
 send_error:
-	peer_start_openingd(peer, payload->pcomms, error);
+	peer_start_openingd(peer, payload->pps, error);
 	tal_free(payload);
 }
 
@@ -801,20 +801,20 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *globalfeatures, *localfeatures;
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
+	struct crypto_state cs;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
-	hook_payload->pcomms = new_peer_comms(hook_payload);
-	hook_payload->pcomms->peer_fd = peer_fd;
-	hook_payload->pcomms->gossip_fd = gossip_fd;
-	hook_payload->pcomms->gossip_store_fd = gossip_store_fd;
-
 	if (!fromwire_connect_peer_connected(msg, msg,
 					     &id, &hook_payload->addr,
-					     &hook_payload->pcomms->cs,
+					     &cs,
 					     &globalfeatures, &localfeatures))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
+
+	hook_payload->pps = new_per_peer_state(hook_payload, &cs);
+	per_peer_state_set_fds(hook_payload->pps,
+			       peer_fd, gossip_fd, gossip_store_fd);
 
 	/* Complete any outstanding connect commands. */
 	connect_succeeded(ld, &id);

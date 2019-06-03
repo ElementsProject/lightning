@@ -2,6 +2,7 @@
 #include <bitcoin/script.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/memleak.h>
+#include <common/per_peer_state.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
@@ -14,7 +15,6 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/peer_comms.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
@@ -202,22 +202,17 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 					       const u8 *msg,
 					       const int *fds)
 {
-	struct peer_comms *pcomms = new_peer_comms(msg);
+	struct per_peer_state *pps;
 
-	/* We expect 3 fds. */
-	assert(tal_count(fds) == 3);
-
-	if (!fromwire_channel_shutdown_complete(msg, &pcomms->cs)) {
+	if (!fromwire_channel_shutdown_complete(tmpctx, msg, &pps)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
 				       tal_hex(msg, msg));
 		return;
 	}
-	pcomms->peer_fd = fds[0];
-	pcomms->gossip_fd = fds[1];
-	pcomms->gossip_store_fd = fds[2];
+	per_peer_state_set_fds_arr(pps, fds);
 
 	/* This sets channel->owner, closes down channeld. */
-	peer_start_closingd(channel, pcomms, false, NULL);
+	peer_start_closingd(channel, pps, false, NULL);
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
@@ -279,7 +274,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 }
 
 void peer_start_channeld(struct channel *channel,
-			 struct peer_comms *pcomms,
+			 struct per_peer_state *pps,
 			 const u8 *funding_signed,
 			 bool reconnected)
 {
@@ -314,9 +309,9 @@ void peer_start_channeld(struct channel *channel,
 					   channel_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
-					   take(&pcomms->peer_fd),
-					   take(&pcomms->gossip_fd),
-					   take(&pcomms->gossip_store_fd),
+					   take(&pps->peer_fd),
+					   take(&pps->gossip_fd),
+					   take(&pps->gossip_store_fd),
 					   take(&hsmfd), NULL),
 			  false);
 
@@ -390,7 +385,7 @@ void peer_start_channeld(struct channel *channel,
 				      feerate_min(ld, NULL),
 				      feerate_max(ld, NULL),
 				      &channel->last_sig,
-				      &pcomms->cs,
+				      pps,
 				      &channel->channel_info.remote_fundingkey,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,

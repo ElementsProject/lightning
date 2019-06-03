@@ -10,9 +10,11 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bolt11.o				\
+	common/crypto_state.o			\
 	common/decode_short_channel_ids.o	\
 	common/hash_u5.o			\
 	common/node_id.o			\
+	common/per_peer_state.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\

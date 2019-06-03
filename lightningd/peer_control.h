@@ -15,7 +15,7 @@
 #include <wallet/wallet.h>
 #include <wire/peer_wire.h>
 
-struct peer_comms;
+struct per_peer_state;
 
 struct peer {
 	/* Inside ld->peers. */
@@ -75,7 +75,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
 
 void channel_errmsg(struct channel *channel,
-		    struct peer_comms *pcomms,
+		    struct per_peer_state *pps,
 		    const struct channel_id *channel_id,
 		    const char *desc,
 		    const u8 *err_for_them);
