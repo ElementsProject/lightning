@@ -429,3 +429,14 @@ void json_add_timeabs(struct json_stream *result, const char *fieldname,
 	json_add_member(result, fieldname, "%" PRIu64 ".%03" PRIu64,
 			(u64)t.ts.tv_sec, (u64)t.ts.tv_nsec / 1000000);
 }
+
+void json_add_time(struct json_stream *result, const char *fieldname,
+			  struct timespec ts)
+{
+	char timebuf[100];
+
+	snprintf(timebuf, sizeof(timebuf), "%lu.%09u",
+		(unsigned long)ts.tv_sec,
+		(unsigned)ts.tv_nsec);
+	json_add_string(result, fieldname, timebuf);
+}
