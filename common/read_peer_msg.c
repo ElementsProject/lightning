@@ -22,13 +22,32 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
 	fd_set readfds;
 	u8 *msg;
 
-	FD_ZERO(&readfds);
-	FD_SET(pps->peer_fd, &readfds);
-	FD_SET(pps->gossip_fd, &readfds);
+	for (;;) {
+		struct timeval tv, *tptr;
+		struct timerel trel;
 
-	select(pps->peer_fd > pps->gossip_fd
-	       ? pps->peer_fd + 1 : pps->gossip_fd + 1,
-	       &readfds, NULL, NULL, NULL);
+		if (time_to_next_gossip(pps, &trel)) {
+			tv = timerel_to_timeval(trel);
+			tptr = &tv;
+		} else
+			tptr = NULL;
+
+		FD_ZERO(&readfds);
+		FD_SET(pps->peer_fd, &readfds);
+		FD_SET(pps->gossip_fd, &readfds);
+
+		if (select(pps->peer_fd > pps->gossip_fd
+			   ? pps->peer_fd + 1 : pps->gossip_fd + 1,
+			   &readfds, NULL, NULL, tptr) != 0)
+			break;
+
+		/* We timed out; look in gossip_store.  Failure resets timer. */
+		msg = gossip_store_next(tmpctx, pps);
+		if (msg) {
+			*from_gossipd = true;
+			return msg;
+		}
+	}
 
 	if (FD_ISSET(pps->peer_fd, &readfds)) {
 		msg = sync_crypto_read(ctx, pps);
@@ -84,23 +103,16 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 	return !channel_id_eq(expected, actual);
 }
 
-static void new_gossip_store(struct per_peer_state *pps, int new_gossip_store_fd)
-{
-	close(pps->gossip_store_fd);
-	pps->gossip_store_fd = new_gossip_store_fd;
-}
-
 void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 {
 	u8 *gossip;
-	u64 offset;
+	u64 offset_shorter;
 
-	if (fromwire_gossipd_new_store_fd(msg)) {
-		new_gossip_store(pps, fdpass_recv(pps->gossip_fd));
+	if (fromwire_gossipd_new_store_fd(msg, &offset_shorter)) {
+		gossip_store_switch_fd(pps, fdpass_recv(pps->gossip_fd),
+				       offset_shorter);
 		goto out;
-	} else if (fromwire_gossipd_send_gossip_from_store(msg, &offset))
-		gossip = gossip_store_read(tmpctx, pps->gossip_store_fd, offset);
-	else
+	} else
 		/* It's a raw gossip msg: this copies or takes() */
 		gossip = tal_dup_arr(tmpctx, u8, msg, tal_bytelen(msg), 0);
 
@@ -113,7 +125,7 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 		peer_failed_connection_lost();
 	} else {
 		status_broken("Gossipd gave us bad send_gossip message %s",
-			      tal_hex(msg, msg));
+			      tal_hex(tmpctx, gossip));
 		peer_failed_connection_lost();
 	}
 

@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/crc/crc.h>
 #include <ccan/endian/endian.h>
+#include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
@@ -423,7 +424,7 @@ void gossip_store_delete(struct gossip_store *gs,
 	assert(gs->writable);
 
 #if DEVELOPER
-	u8 *msg = gossip_store_read(tmpctx, gs->fd, bcast->index);
+	const u8 *msg = gossip_store_get(tmpctx, gs, bcast->index);
 	assert(fromwire_peektype(msg) == type);
 #endif
 	if (pread(gs->fd, &belen, sizeof(belen), bcast->index) != sizeof(belen))
@@ -455,7 +456,36 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset)
 {
-	return gossip_store_read(ctx, gs->fd, offset);
+	beint32_t hdr[2];
+	u32 msglen, checksum;
+	u8 *msg;
+
+	if (offset == 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: can't access offset %"PRIu64,
+			      offset);
+	if (pread(gs->fd, hdr, sizeof(hdr), offset) != sizeof(hdr)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: can't read hdr offset %"PRIu64
+			      "/%"PRIu64": %s",
+			      offset, gs->len, strerror(errno));
+	}
+
+	/* FIXME: We should skip over these deleted entries! */
+	msglen = be32_to_cpu(hdr[0]) & ~GOSSIP_STORE_LEN_DELETED_BIT;
+	checksum = be32_to_cpu(hdr[1]);
+	msg = tal_arr(ctx, u8, msglen);
+	if (pread(gs->fd, msg, msglen, offset + sizeof(hdr)) != msglen)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: can't read len %u offset %"PRIu64
+			      "/%"PRIu64, msglen, offset, gs->len);
+
+	if (checksum != crc32c(0, msg, msglen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: bad checksum offset %"PRIu64": %s",
+			      offset, tal_hex(tmpctx, msg));
+
+	return msg;
 }
 
 const u8 *gossip_store_get_private_update(const tal_t *ctx,
@@ -474,7 +504,14 @@ const u8 *gossip_store_get_private_update(const tal_t *ctx,
 
 int gossip_store_readonly_fd(struct gossip_store *gs)
 {
-	return open(GOSSIP_STORE_FILENAME, O_RDONLY);
+	int fd = open(GOSSIP_STORE_FILENAME, O_RDONLY);
+
+	/* Skip over version header */
+	if (fd != -1 && lseek(fd, 1, SEEK_SET) != 1) {
+		close_noerr(fd);
+		fd = -1;
+	}
+	return fd;
 }
 
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)

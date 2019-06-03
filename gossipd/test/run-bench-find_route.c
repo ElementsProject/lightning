@@ -57,9 +57,6 @@ u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_wireaddr */
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
-/* Generated stub for gossip_store_read */
-u8 *gossip_store_read(const tal_t *ctx UNNEEDED, int gossip_store_fd UNNEEDED, u64 offset UNNEEDED)
-{ fprintf(stderr, "gossip_store_read called!\n"); abort(); }
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
 { fprintf(stderr, "onion_type_name called!\n"); abort(); }
