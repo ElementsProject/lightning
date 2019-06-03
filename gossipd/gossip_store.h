@@ -27,6 +27,11 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate);
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 
 /**
+ * Add a private channel_update message to the gossip_store
+ */
+u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update);
+
+/**
  * Add a gossip message to the gossip_store (and optional addendum)
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
@@ -47,6 +52,15 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset);
+
+/**
+ * Direct store accessor: loads private gossip msg back from store.
+ *
+ * Caller must ensure offset != 0.  Never returns NULL.
+ */
+const u8 *gossip_store_get_private_update(const tal_t *ctx,
+					  struct gossip_store *gs,
+					  u64 offset);
 
 /**
  * If we need to compact the gossip store, do so.

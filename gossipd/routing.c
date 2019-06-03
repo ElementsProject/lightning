@@ -1403,12 +1403,12 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 		/* Reload any private updates */
 		if (chan->half[0].bcast.index)
 			private_updates[0]
-				= gossip_store_get(NULL,
+				= gossip_store_get_private_update(NULL,
 						   rstate->broadcasts->gs,
 						   chan->half[0].bcast.index);
 		if (chan->half[1].bcast.index)
 			private_updates[1]
-				= gossip_store_get(NULL,
+				= gossip_store_get_private_update(NULL,
 						   rstate->broadcasts->gs,
 						   chan->half[1].bcast.index);
 	}
@@ -1855,8 +1855,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* Don't save if we're loading from store */
 		assert(is_local_channel(rstate, chan));
 		if (!index) {
-			hc->bcast.index = gossip_store_add(rstate->broadcasts->gs,
-							   update, NULL);
+			hc->bcast.index
+				= gossip_store_add_private_update(rstate->broadcasts->gs,
+								  update);
 		} else
 			hc->bcast.index = index;
 		return true;
