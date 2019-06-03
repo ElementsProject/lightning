@@ -1397,9 +1397,16 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	/* private updates will exist in the store before the announce: we
 	 * can't index those for broadcast since they would predate it, so we
-	 * add fresh ones.  But if we're loading off disk right now, we can't
-	 * do that. */
-	if (chan && index == 0) {
+	 * add fresh ones. */
+	if (chan) {
+		/* If this was in the gossip_store, gossip_store is bad! */
+		if (index) {
+			status_broken("gossip_store channel_announce"
+				      " %u replaces %u!",
+				      index, chan->bcast.index);
+			return false;
+		}
+
 		/* Reload any private updates */
 		if (chan->half[0].bcast.index)
 			private_updates[0]
@@ -1411,10 +1418,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 				= gossip_store_get_private_update(NULL,
 						   rstate->gs,
 						   chan->half[1].bcast.index);
-	}
 
-	/* Pretend it didn't exist, for the moment. */
-	if (chan) {
 		remove_channel_from_store(rstate, chan);
 		free_chan(rstate, chan);
 	}
@@ -1758,10 +1762,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (taken(update))
 		tal_steal(tmpctx, update);
 
-	/* In case it's free in a failure path */
-	if (taken(update))
-		tal_steal(tmpctx, update);
-
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,
@@ -1819,6 +1819,14 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* Discard older updates */
 	hc = &chan->half[direction];
+
+	/* If we're loading from store, duplicate entries are a bug. */
+	if (is_halfchan_defined(hc) && index != 0) {
+		status_broken("gossip_store channel_update %u replaces %u!",
+			      index, hc->bcast.index);
+		return false;
+	}
+
 	if (is_halfchan_defined(hc) && timestamp <= hc->bcast.timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
 		/* Ignoring != failing */
@@ -2129,6 +2137,11 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		return true;
 	}
 
+	if (node->bcast.index && index != 0) {
+		status_broken("gossip_store node_announcement %u replaces %u!",
+			      index, node->bcast.index);
+		return false;
+	}
 	if (node->bcast.index && node->bcast.timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
 		return true;
