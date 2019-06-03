@@ -427,6 +427,8 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
 	broadcastable_init(&chan->bcast);
+	/* This is how we indicate it's not public yet. */
+	chan->bcast.timestamp = 0;
 	chan->sat = satoshis;
 
 	add_chan(n2, chan);
@@ -2450,11 +2452,13 @@ void memleak_remove_routing_tables(struct htable *memtable,
 }
 #endif /* DEVELOPER */
 
-bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
+bool handle_local_add_channel(struct routing_state *rstate,
+			      const u8 *msg, u64 index)
 {
 	struct short_channel_id scid;
 	struct node_id remote_node_id;
 	struct amount_sat sat;
+	struct chan *chan;
 
 	if (!fromwire_gossipd_local_add_channel(msg, &scid, &remote_node_id,
 						&sat)) {
@@ -2473,7 +2477,10 @@ bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
+	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
+	if (!index)
+		index = gossip_store_add(rstate->broadcasts->gs, msg, NULL);
+	chan->bcast.index = index;
 	return true;
 }
 

@@ -1673,10 +1673,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		ok = handle_get_update(peer, msg);
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
-		ok = handle_local_add_channel(peer->daemon->rstate, msg);
-		if (ok)
-			gossip_store_add(peer->daemon->rstate->broadcasts->gs,
-					 msg, NULL);
+		ok = handle_local_add_channel(peer->daemon->rstate, msg, 0);
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
 		ok = handle_local_channel_update(peer, msg);
