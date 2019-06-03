@@ -601,6 +601,39 @@ def test_shutdown_reconnect(node_factory):
     assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
 
+@flaky
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_reconnect_remote_sends_no_sigs(node_factory):
+    """We re-announce, even when remote node doesn't send its announcement_signatures on reconnect.
+    """
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'may_reconnect': True})
+
+    # When l1 restarts (with rescan=1), make it think it hasn't
+    # reached announce_depth, so it wont re-send announcement_signatures
+    def no_blocks_above(req):
+        if req['params'][0] > 107:
+            return {"result": None,
+                    "error": {"code": -8, "message": "Block height out of range"}, "id": req['id']}
+        else:
+            return {'result': l1.bitcoin.rpc.getblockhash(req['params'][0]),
+                    "error": None, 'id': req['id']}
+
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', no_blocks_above)
+    l1.restart()
+
+    # l2 will now uses (REMOTE's) announcement_signatures it has stored
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
+        'CHANNELD_NORMAL:Reconnected, and reestablished.',
+        'CHANNELD_NORMAL:Funding transaction locked. Channel announced.'])
+
+    # But l2 still sends its own sigs on reconnect
+    l2.daemon.wait_for_logs([r'peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
+                             r'peer_out WIRE_ANNOUNCEMENT_SIGNATURES'])
+
+    # l1 only did send them the first time
+    assert(''.join(l1.daemon.logs).count(r'peer_out WIRE_ANNOUNCEMENT_SIGNATURES') == 1)
+
+
 def test_shutdown_awaiting_lockin(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(options={'funding-confirms': 3})
