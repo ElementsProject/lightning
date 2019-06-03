@@ -31,9 +31,6 @@ bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_cha
 /* Generated stub for fromwire_gossip_store_channel_amount */
 bool fromwire_gossip_store_channel_amount(const void *p UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_amount called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_store_channel_delete */
-bool fromwire_gossip_store_channel_delete(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_store_channel_delete called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_private_update */
 bool fromwire_gossip_store_private_update(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_private_update called!\n"); abort(); }
@@ -74,9 +71,6 @@ u8 *towire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const struct sho
 /* Generated stub for towire_gossip_store_channel_amount */
 u8 *towire_gossip_store_channel_amount(const tal_t *ctx UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_amount called!\n"); abort(); }
-/* Generated stub for towire_gossip_store_channel_delete */
-u8 *towire_gossip_store_channel_delete(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
-{ fprintf(stderr, "towire_gossip_store_channel_delete called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_private_update */
 u8 *towire_gossip_store_private_update(const tal_t *ctx UNNEEDED, const u8 *update UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_private_update called!\n"); abort(); }

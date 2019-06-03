@@ -2802,13 +2802,11 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 		    "Deleting channel %s due to the funding outpoint being "
 		    "spent",
 		    type_to_string(msg, struct short_channel_id, &scid));
+		remove_channel_from_store(rstate, chan);
 		/* Freeing is sufficient since everything else is allocated off
 		 * of the channel and this takes care of unregistering
 		 * the channel */
 		free_chan(rstate, chan);
-		/* We put a tombstone marker in the channel store, so we don't
-		 * have to replay blockchain spends on restart. */
-		gossip_store_add_channel_delete(rstate->broadcasts->gs, &scid);
 	}
 
 	return daemon_conn_read_next(conn, daemon->master);

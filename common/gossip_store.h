@@ -7,7 +7,12 @@
 /**
  * gossip_store -- On-disk storage related information
  */
-#define GOSSIP_STORE_VERSION 4
+#define GOSSIP_STORE_VERSION 5
+
+/**
+ * Bit of length we use to mark a deleted record.
+ */
+#define GOSSIP_STORE_LEN_DELETED_BIT 0x80000000U
 
 /**
  * Direct store accessor: loads gossip msg from store.
