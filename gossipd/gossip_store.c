@@ -63,106 +63,6 @@ static bool append_msg(int fd, const u8 *msg, u64 *len)
 		write(fd, msg, msglen) == msglen);
 }
 
-static bool upgrade_gs(struct gossip_store *gs)
-{
-	beint32_t hdr[2];
-	size_t off = gs->len;
-	int newfd;
-	const u8 newversion = GOSSIP_STORE_VERSION;
-
-	if (gs->version != 3)
-		return false;
-
-	newfd = open(GOSSIP_STORE_TEMP_FILENAME,
-		     O_RDWR|O_APPEND|O_CREAT|O_TRUNC,
-		     0600);
-	if (newfd < 0) {
-		status_broken("gossip_store: can't create temp %s: %s",
-			       GOSSIP_STORE_TEMP_FILENAME, strerror(errno));
-		return false;
-	}
-
-	if (!write_all(newfd, &newversion, sizeof(newversion))) {
-		status_broken("gossip_store: can't write header to %s: %s",
-			       GOSSIP_STORE_TEMP_FILENAME, strerror(errno));
-		close(newfd);
-		return false;
-	}
-
-	while (pread(gs->fd, hdr, sizeof(hdr), off) == sizeof(hdr)) {
-		u32 msglen, checksum;
-		u8 *msg, *gossip_msg;
-		struct amount_sat satoshis;
-
-		msglen = be32_to_cpu(hdr[0]);
-		checksum = be32_to_cpu(hdr[1]);
-		msg = tal_arr(tmpctx, u8, msglen);
-
-		if (pread(gs->fd, msg, msglen, off+sizeof(hdr)) != msglen) {
-			status_unusual("gossip_store: truncated file @%zu?",
-				       off + sizeof(hdr));
-			goto fail;
-		}
-
-		if (checksum != crc32c(0, msg, msglen)) {
-			status_unusual("gossip_store: checksum failed");
-			goto fail;
-		}
-
-		/* These need to be appended with channel size */
-		if (fromwire_gossip_store_v3_channel_announcement(msg, msg,
-								  &gossip_msg,
-								  &satoshis)) {
-			u8 *amt = towire_gossip_store_channel_amount(msg,
-								     satoshis);
-			if (!append_msg(newfd, gossip_msg, NULL))
-				goto write_fail;
-			if (!append_msg(newfd, amt, NULL))
-				goto write_fail;
-		/* These are extracted and copied verbatim */
-		} else if (fromwire_gossip_store_v3_channel_update(msg, msg,
-								   &gossip_msg)
-			   || fromwire_gossip_store_v3_node_announcement(msg,
-									 msg,
-									 &gossip_msg)
-			   || fromwire_gossip_store_v3_local_add_channel(msg,
-									 msg,
-									 &gossip_msg)) {
-			if (!append_msg(newfd, gossip_msg, NULL))
-				goto write_fail;
-		} else {
-			/* Just copy into new store. */
-			if (write(newfd, hdr, sizeof(hdr)) != sizeof(hdr)
-			    || write(newfd, msg, tal_bytelen(msg)) !=
-			    tal_bytelen(msg))
-				goto write_fail;
-		}
-		off += sizeof(hdr) + msglen;
-		clean_tmpctx();
-	}
-
-	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) == -1) {
-		status_broken(
-		    "Error swapping compacted gossip_store into place: %s",
-		    strerror(errno));
-		goto fail;
-	}
-
-	status_info("Upgraded gossip_store from version %u to %u",
-		    gs->version, newversion);
-	close(gs->fd);
-	gs->fd = newfd;
-	gs->version = newversion;
-	return true;
-
-write_fail:
-	status_unusual("gossip_store: write failed for upgrade: %s",
-		       strerror(errno));
-fail:
-	close(newfd);
-	return false;
-}
-
 struct gossip_store *gossip_store_new(struct routing_state *rstate)
 {
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
@@ -181,9 +81,6 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 	    == sizeof(gs->version)) {
 		/* Version match?  All good */
 		if (gs->version == GOSSIP_STORE_VERSION)
-			return gs;
-
-		if (upgrade_gs(gs))
 			return gs;
 
 		status_unusual("Gossip store version %u not %u: removing",
