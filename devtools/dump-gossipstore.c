@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
 	int fd;
 	u8 version;
 	beint32_t belen, becsum;
+	size_t off;
 
 	setup_locale();
 
@@ -39,38 +40,50 @@ int main(int argc, char *argv[])
 		      version, GOSSIP_STORE_VERSION);
 
 	printf("GOSSIP VERSION %u\n", version);
+	off = 1;
 
 	while (read(fd, &belen, sizeof(belen)) == sizeof(belen) &&
 	       read(fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
 		struct amount_sat sat;
 		struct short_channel_id scid;
 		u32 msglen = be32_to_cpu(belen);
-		u8 *msg = tal_arr(NULL, u8, msglen);
+		u8 *msg = tal_arr(NULL, u8, msglen), *inner;
 
 		if (read(fd, msg, msglen) != msglen)
-			errx(1, "Truncated file?");
+			errx(1, "%zu: Truncated file?", off);
 
 		if (be32_to_cpu(becsum) != crc32c(0, msg, msglen))
 			warnx("Checksum verification failed");
 
 		if (fromwire_gossip_store_channel_amount(msg, &sat)) {
-			printf("channel_amount: %s\n",
+			printf("%zu: channel_amount: %s\n", off,
 			       type_to_string(tmpctx, struct amount_sat, &sat));
 		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_ANNOUNCEMENT) {
-			printf("channel_announcement: %s\n", tal_hex(msg, msg));
+			printf("%zu: channel_announcement: %s\n",
+			       off, tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_UPDATE) {
-			printf("channel_update: %s\n", tal_hex(msg, msg));
+			printf("%zu: channel_update: %s\n",
+			       off, tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_NODE_ANNOUNCEMENT) {
-			printf("node_announcement: %s\n", tal_hex(msg, msg));
+			printf("%zu: node_announcement: %s\n",
+			       off, tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL) {
-			printf("local_add_channel: %s\n", tal_hex(msg, msg));
+			printf("%zu: local_add_channel: %s\n",
+			       off, tal_hex(msg, msg));
 		} else if (fromwire_gossip_store_channel_delete(msg, &scid)) {
-			printf("channel_delete: %s\n",
+			printf("%zu: channel_delete: %s\n",
+			       off,
 			       type_to_string(msg, struct short_channel_id,
 					      &scid));
+		} else if (fromwire_gossip_store_private_update(msg, msg,
+								&inner)) {
+			printf("%zu: private channel_update: %s\n",
+			       off, tal_hex(msg, inner));
 		} else {
-			warnx("Unknown message %u", fromwire_peektype(msg));
+			warnx("%zu: Unknown message %u",
+			      off, fromwire_peektype(msg));
 		}
+		off += sizeof(belen) + sizeof(becsum) + msglen;
 		tal_free(msg);
 	}
 	return 0;
