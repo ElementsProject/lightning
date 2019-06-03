@@ -286,7 +286,7 @@ void peer_start_channeld(struct channel *channel,
 	enum side *fulfilled_sides;
 	const struct failed_htlc **failed_htlcs;
 	enum side *failed_sides;
-	struct short_channel_id funding_channel_id;
+	struct short_channel_id scid;
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
@@ -326,16 +326,16 @@ void peer_start_channeld(struct channel *channel,
 		   &fulfilled_sides, &failed_htlcs, &failed_sides);
 
 	if (channel->scid) {
-		funding_channel_id = *channel->scid;
-		reached_announce_depth
-			= (short_channel_id_blocknum(&funding_channel_id)
-			   + ANNOUNCE_MIN_DEPTH <= get_block_height(ld->topology));
+		scid = *channel->scid;
+		/* Subtle: depth=1 at funding height. */
+		reached_announce_depth = get_block_height(ld->topology) + 1 >=
+				       short_channel_id_blocknum(&scid) + ANNOUNCE_MIN_DEPTH;
 		log_debug(channel->log, "Already have funding locked in%s",
 			  reached_announce_depth
 			  ? " (and ready to announce)" : "");
 	} else {
 		log_debug(channel->log, "Waiting for funding confirmations");
-		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
+		memset(&scid, 0, sizeof(scid));
 		reached_announce_depth = false;
 	}
 
@@ -411,7 +411,7 @@ void peer_start_channeld(struct channel *channel,
 				      failed_htlcs, failed_sides,
 				      channel->scid != NULL,
 				      channel->remote_funding_locked,
-				      &funding_channel_id,
+				      &scid,
 				      reconnected,
 				      channel->state == CHANNELD_SHUTTING_DOWN,
 				      channel->remote_shutdown_scriptpubkey != NULL,
