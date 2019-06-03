@@ -40,8 +40,8 @@ void broadcast_del(struct broadcast_state *bstate,
 		assert(b == bcast);
 		bstate->count--;
 		broadcast_state_check(bstate, "broadcast_del");
-		bcast->index = 0;
 	}
+	bcast->index = 0;
 }
 
 static void add_broadcast(struct broadcast_state *bstate,

@@ -57,11 +57,11 @@ struct chan {
 /* Use this instead of tal_free(chan)! */
 void free_chan(struct routing_state *rstate, struct chan *chan);
 
-/* A local channel can exist which isn't announced; normal channels are only
- * created once we have both an announcement *and* an update. */
+/* A local channel can exist which isn't announced: we abuse timestamp
+ * to indicate this. */
 static inline bool is_chan_public(const struct chan *chan)
 {
-	return chan->bcast.index != 0;
+	return chan->bcast.timestamp != 0;
 }
 
 static inline bool is_halfchan_defined(const struct half_chan *hc)
@@ -386,7 +386,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
  * is the case for private channels or channels that have not yet reached
  * `announce_depth`.
  */
-bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg);
+bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg,
+			      u64 index);
 
 #if DEVELOPER
 void memleak_remove_routing_tables(struct htable *memtable,
