@@ -100,11 +100,9 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 		goto out;
 	} else if (fromwire_gossipd_send_gossip_from_store(msg, &offset))
 		gossip = gossip_store_read(tmpctx, pps->gossip_store_fd, offset);
-	else if (!fromwire_gossipd_send_gossip(tmpctx, msg, &gossip)) {
-		status_broken("Got bad message from gossipd: %s",
-			      tal_hex(msg, msg));
-		peer_failed_connection_lost();
-	}
+	else
+		/* It's a raw gossip msg: this copies or takes() */
+		gossip = tal_dup_arr(tmpctx, u8, msg, tal_bytelen(msg), 0);
 
 	/* Gossipd can send us gossip messages, OR errors */
 	if (is_msg_for_gossipd(gossip)) {
