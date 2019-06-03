@@ -73,14 +73,8 @@ bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd, int gossip_store_fd
 
 /* We got this message from gossipd: forward/quit as it asks. */
 void handle_gossip_msg(int peer_fd,
+		       int gossip_fd,
 		       int gossip_store_fd,
 		       struct crypto_state *cs,
 		       const u8 *msg TAKES);
-
-/**
- * new_gossip_store - handle replacement gossip_store_fd.
- * @gossip_store_fd: our fixed fd we expect to use to read gossip_store.
- * @new_gossip_store_fd: fd received from gossipd.
- */
-void new_gossip_store(int gossip_store_fd, int new_gossip_store_fd);
 #endif /* LIGHTNING_COMMON_READ_PEER_MSG_H */

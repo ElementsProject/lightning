@@ -103,9 +103,9 @@ struct peer {
 	struct channel_id channel_id;
 	struct channel *channel;
 
-	/* Messages from master / gossipd: we queue them since we
-	 * might be waiting for a specific reply. */
-	struct msg_queue *from_master, *from_gossipd;
+	/* Messages from master: we queue them since we might be
+	 * waiting for a specific reply. */
+	struct msg_queue *from_master;
 
 	struct timers timers;
 	struct oneshot *commit_timer;
@@ -786,32 +786,30 @@ static void maybe_send_shutdown(struct peer *peer)
 }
 
 /* This queues other traffic from the fd until we get reply. */
-static u8 *wait_sync_reply(const tal_t *ctx,
-			   const u8 *msg,
-			   int replytype,
-			   int fd,
-			   struct msg_queue *queue,
-			   const char *who)
+static u8 *master_wait_sync_reply(const tal_t *ctx,
+				  struct peer *peer,
+				  const u8 *msg,
+				  int replytype)
 {
 	u8 *reply;
 
-	status_trace("Sending %s %u", who, fromwire_peektype(msg));
+	status_trace("Sending master %u", fromwire_peektype(msg));
 
-	if (!wire_sync_write(fd, msg))
+	if (!wire_sync_write(MASTER_FD, msg))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not set sync write to %s: %s",
-			      who, strerror(errno));
+			      "Could not set sync write to master: %s",
+			      strerror(errno));
 
 	status_trace("... , awaiting %u", replytype);
 
 	for (;;) {
 		int type;
 
-		reply = wire_sync_read(ctx, fd);
+		reply = wire_sync_read(ctx, MASTER_FD);
 		if (!reply)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Could not set sync read from %s: %s",
-				      who, strerror(errno));
+				      "Could not set sync read from master: %s",
+				      strerror(errno));
 		type = fromwire_peektype(reply);
 		if (type == replytype) {
 			status_trace("Got it!");
@@ -819,29 +817,44 @@ static u8 *wait_sync_reply(const tal_t *ctx,
 		}
 
 		status_trace("Nope, got %u instead", type);
-		msg_enqueue(queue, take(reply));
-		/* This one has an fd appended */
-		if (type == WIRE_GOSSIPD_NEW_STORE_FD)
-			msg_enqueue_fd(queue, fdpass_recv(fd));
+		msg_enqueue(peer->from_master, take(reply));
 	}
 
 	return reply;
-}
-
-static u8 *master_wait_sync_reply(const tal_t *ctx,
-				  struct peer *peer, const u8 *msg,
-				  enum channel_wire_type replytype)
-{
-	return wait_sync_reply(ctx, msg, replytype,
-			       MASTER_FD, peer->from_master, "master");
 }
 
 static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
 				   struct peer *peer, const u8 *msg,
 				   enum gossip_peerd_wire_type replytype)
 {
-	return wait_sync_reply(ctx, msg, replytype,
-			       GOSSIP_FD, peer->from_gossipd, "gossipd");
+	/* We can forward gossip packets while waiting for our reply. */
+	u8 *reply;
+
+	status_trace("Sending gossipd %u", fromwire_peektype(msg));
+
+	wire_sync_write(GOSSIP_FD, msg);
+	status_trace("... , awaiting %u", replytype);
+
+	for (;;) {
+		int type;
+
+		reply = wire_sync_read(tmpctx, GOSSIP_FD);
+		/* Gossipd hangs up on us to kill us when a new
+		 * connection comes in. */
+		if (!reply)
+			peer_failed_connection_lost();
+
+		type = fromwire_peektype(reply);
+		if (type == replytype) {
+			status_trace("Got it!");
+			break;
+		}
+
+		handle_gossip_msg(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD,
+				  &peer->cs, take(reply));
+	}
+
+	return reply;
 }
 
 static u8 *foreign_channel_update(const tal_t *ctx,
@@ -3031,7 +3044,6 @@ int main(int argc, char *argv[])
 	peer->announce_depth_reached = false;
 	peer->channel_local_active = false;
 	peer->from_master = msg_queue_new(peer);
-	peer->from_gossipd = msg_queue_new(peer);
 	peer->shutdown_sent[LOCAL] = false;
 	peer->last_update_timestamp = 0;
 	/* We actually received it in the previous daemon, but near enough */
@@ -3087,23 +3099,6 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		msg = msg_dequeue(peer->from_gossipd);
-		if (msg) {
-			if (fromwire_gossipd_new_store_fd(msg)) {
-				tal_free(msg);
-				msg = msg_dequeue(peer->from_gossipd);
-				new_gossip_store(GOSSIP_STORE_FD,
-						 msg_extract_fd(msg));
-				tal_free(msg);
-				continue;
-			}
-			status_trace("Now dealing with deferred gossip %u",
-				     fromwire_peektype(msg));
-			handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD,
-					  &peer->cs, take(msg));
-			continue;
-		}
-
 		if (timer_earliest(&peer->timers, &first)) {
 			timeout = timespec_to_timeval(
 				timemono_between(first, now).ts);
@@ -3137,13 +3132,7 @@ int main(int argc, char *argv[])
 			 * connection comes in. */
 			if (!msg)
 				peer_failed_connection_lost();
-			if (fromwire_gossipd_new_store_fd(msg)) {
-				tal_free(msg);
-				new_gossip_store(GOSSIP_STORE_FD,
-						 fdpass_recv(GOSSIP_FD));
-				continue;
-			}
-			handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD,
+			handle_gossip_msg(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD,
 					  &peer->cs, take(msg));
 		}
 	}
