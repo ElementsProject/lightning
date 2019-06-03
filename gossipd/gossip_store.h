@@ -39,10 +39,13 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 
 
 /**
- * Remember that we deleted a channel as a result of its outpoint being spent
+ * Delete the broadcast associated with this (if any).
+ *
+ * In developer mode, checks that type is correct.
  */
-void gossip_store_add_channel_delete(struct gossip_store *gs,
-				     const struct short_channel_id *scid);
+void gossip_store_delete(struct gossip_store *gs,
+			 struct broadcastable *bcast,
+			 int type);
 
 /**
  * Direct store accessor: loads gossip msg back from store.
@@ -87,8 +90,5 @@ bool gossip_store_compact(struct gossip_store *gs,
  * Returns -1 on failure, and sets errno.
  */
 int gossip_store_readonly_fd(struct gossip_store *gs);
-
-/* FIXME: Remove */
-bool gossip_store_loading(const struct gossip_store *gs);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

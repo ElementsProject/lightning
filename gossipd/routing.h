@@ -426,4 +426,7 @@ static inline void local_enable_chan(struct routing_state *rstate,
 /* Helper to convert on-wire addresses format to wireaddrs array */
 struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser);
 
+/* Remove channel from store: announcement and any updates. */
+void remove_channel_from_store(struct routing_state *rstate,
+			       struct chan *chan);
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */

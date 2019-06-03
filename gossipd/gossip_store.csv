@@ -6,9 +6,6 @@
 gossip_store_channel_amount,4101
 gossip_store_channel_amount,,satoshis,struct amount_sat
 
-gossip_store_channel_delete,4099
-gossip_store_channel_delete,,short_channel_id,struct short_channel_id
-
 gossip_store_private_update,4102
 gossip_store_private_update,,len,u16
 gossip_store_private_update,,update,len*u8

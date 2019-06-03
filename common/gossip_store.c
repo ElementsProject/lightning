@@ -2,6 +2,7 @@
 #include <ccan/endian/endian.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
@@ -23,7 +24,8 @@ u8 *gossip_store_read(const tal_t *ctx, int gossip_store_fd, u64 offset)
 			      offset, strerror(errno));
 	}
 
-	msglen = be32_to_cpu(hdr[0]);
+	/* FIXME: We should skip over these deleted entries! */
+	msglen = be32_to_cpu(hdr[0]) & ~GOSSIP_STORE_LEN_DELETED_BIT;
 	checksum = be32_to_cpu(hdr[1]);
 	msg = tal_arr(ctx, u8, msglen);
 	if (pread(gossip_store_fd, msg, msglen, offset + sizeof(hdr)) != msglen)
@@ -33,8 +35,8 @@ u8 *gossip_store_read(const tal_t *ctx, int gossip_store_fd, u64 offset)
 
 	if (checksum != crc32c(0, msg, msglen))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: bad checksum offset %"PRIu64,
-			      offset);
+			      "gossip_store: bad checksum offset %"PRIu64": %s",
+			      offset, tal_hex(tmpctx, msg));
 
 	return msg;
 }
