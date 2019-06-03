@@ -1,3 +1,4 @@
+#include <common/per_peer_state.h>
 #include <common/status_wire.h>
 
 status_log,0xFFF0

@@ -5,27 +5,22 @@
 #include <ccan/short_types/short_types.h>
 
 struct channel_id;
+struct per_peer_state;
 
 /**
  * peer_failed - Exit with error for peer.
- * @cs: the peer's current crypto state.
+ * @pps: the per-peer state.
  * @channel_id: channel with error, or NULL for all.
  * @fmt...: format as per status_failed(STATUS_FAIL_PEER_BAD)
  */
-#define peer_failed(cs, channel_id, ...)			\
-	peer_failed_(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD,	\
-		     (cs), (channel_id), __VA_ARGS__)
-
-void peer_failed_(int peer_fd, int gossip_fd, int gossip_store_fd,
-		  struct crypto_state *cs,
-		  const struct channel_id *channel_id,
-		  const char *fmt, ...)
-	PRINTF_FMT(6,7) NORETURN;
+void peer_failed(struct per_peer_state *pps,
+		 const struct channel_id *channel_id,
+		 const char *fmt, ...)
+	PRINTF_FMT(3,4) NORETURN;
 
 /* We're failing because peer sent us an error message: NULL
  * channel_id means all channels. */
-void peer_failed_received_errmsg(int peer_fd, int gossip_fd, int gossip_store_fd,
-				 struct crypto_state *cs,
+void peer_failed_received_errmsg(struct per_peer_state *pps,
 				 const char *desc,
 				 const struct channel_id *channel_id) NORETURN;
 

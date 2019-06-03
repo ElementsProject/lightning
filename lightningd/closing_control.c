@@ -3,6 +3,7 @@
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/initial_commit_tx.h>
+#include <common/per_peer_state.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -14,7 +15,6 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
-#include <lightningd/peer_comms.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
@@ -153,7 +153,7 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 }
 
 void peer_start_closingd(struct channel *channel,
-			 struct peer_comms *pcomms,
+			 struct per_peer_state *pps,
 			 bool reconnected,
 			 const u8 *channel_reestablish)
 {
@@ -183,9 +183,9 @@ void peer_start_closingd(struct channel *channel,
 					   closing_wire_type_name, closing_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
-					   take(&pcomms->peer_fd),
-					   take(&pcomms->gossip_fd),
-					   take(&pcomms->gossip_store_fd),
+					   take(&pps->peer_fd),
+					   take(&pps->gossip_fd),
+					   take(&pps->gossip_store_fd),
 					   take(&hsmfd),
 					   NULL),
 			  false);
@@ -265,7 +265,7 @@ void peer_start_closingd(struct channel *channel,
 		return;
 	}
 	initmsg = towire_closing_init(tmpctx,
-				      &pcomms->cs,
+				      pps,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding,

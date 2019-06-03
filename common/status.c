@@ -162,19 +162,17 @@ static NORETURN void flush_and_exit(int reason)
 	exit(0x80 | (reason & 0xFF));
 }
 
-void status_send_fatal(const u8 *msg TAKES, int fd1, int fd2, int fd3)
+void status_send_fd(int fd)
+{
+	assert(!status_conn);
+	fdpass_send(status_fd, fd);
+}
+
+void status_send_fatal(const u8 *msg TAKES)
 {
 	int reason = fromwire_peektype(msg);
 	breakpoint();
 	status_send(msg);
-
-	/* We don't support async fd passing here. */
-	if (fd1 != -1) {
-		assert(!status_conn);
-		fdpass_send(status_fd, fd1);
-		fdpass_send(status_fd, fd2);
-		fdpass_send(status_fd, fd3);
-	}
 
 	flush_and_exit(reason);
 }
@@ -193,8 +191,7 @@ void status_failed(enum status_failreason reason, const char *fmt, ...)
 	if (reason == STATUS_FAIL_INTERNAL_ERROR)
 		send_backtrace(str);
 
-	status_send_fatal(take(towire_status_fail(NULL, reason, str)),
-			  -1, -1, -1);
+	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
 }
 
 void master_badmsg(u32 type_expected, const u8 *msg)

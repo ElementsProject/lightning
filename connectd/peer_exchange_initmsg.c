@@ -2,6 +2,7 @@
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
+#include <common/per_peer_state.h>
 #include <common/status.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>

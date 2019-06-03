@@ -50,16 +50,11 @@
 
 /* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
 #define REQ_FD STDIN_FILENO
-#define PEER_FD 3
-#define GOSSIP_FD 4
-#define GOSSIP_STORE_FD 5
 #define HSM_FD 6
 
 /* Global state structure.  This is only for the one specific peer and channel */
 struct state {
-	/* Cryptographic state needed to exchange messages with the peer (as
-	 * featured in BOLT #8) */
-	struct crypto_state cs;
+	struct per_peer_state *pps;
 
 	/* Features they offered */
 	u8 *localfeatures;
@@ -157,7 +152,7 @@ static void negotiation_failed(struct state *state, bool am_funder,
 
 	msg = towire_errorfmt(NULL, &state->channel_id,
 			      "You gave bad parameters: %s", errmsg);
-	sync_crypto_write(&state->cs, PEER_FD, take(msg));
+	sync_crypto_write(state->pps, take(msg));
 
 	negotiation_aborted(state, am_funder, errmsg);
 }
@@ -366,19 +361,17 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		clean_tmpctx();
 
 		/* This helper routine polls both the peer and gossipd. */
-		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
-					       &state->cs, &from_gossipd);
+		msg = peer_or_gossip_sync_read(ctx, state->pps, &from_gossipd);
 		/* Use standard helper for gossip msgs (forwards, if it's an
 		 * error, exits). */
 		if (from_gossipd) {
-			handle_gossip_msg(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD,
-					  &state->cs, take(msg));
+			handle_gossip_msg(state->pps, take(msg));
 			continue;
 		}
 
 		/* Some messages go straight to gossipd. */
 		if (is_msg_for_gossipd(msg)) {
-			wire_sync_write(GOSSIP_FD, take(msg));
+			wire_sync_write(state->pps->gossip_fd, take(msg));
 			continue;
 		}
 
@@ -404,9 +397,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 									   err);
 					wire_sync_write(REQ_FD, take(msg));
 				}
-				peer_failed_received_errmsg(PEER_FD, GOSSIP_FD,
-							    GOSSIP_STORE_FD,
-							    &state->cs, err,
+				peer_failed_received_errmsg(state->pps, err,
 							    NULL);
 			}
 			negotiation_aborted(state, am_funder,
@@ -427,7 +418,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 				     wire_type_name(fromwire_peektype(msg)),
 				     type_to_string(tmpctx, struct channel_id,
 						    &actual));
-			sync_crypto_write(&state->cs, PEER_FD,
+			sync_crypto_write(state->pps,
 					  take(towire_errorfmt(NULL, &actual,
 							       "Multiple channels"
 							       " unsupported")));
@@ -528,7 +519,7 @@ static u8 *funder_channel(struct state *state,
 				  &state->first_per_commitment_point[LOCAL],
 				  channel_flags,
 				  dev_upfront_shutdown_script(tmpctx));
-	sync_crypto_write(&state->cs, PEER_FD, take(msg));
+	sync_crypto_write(state->pps, take(msg));
 
 	/* This is usually a very transient state... */
 	peer_billboard(false,
@@ -568,7 +559,7 @@ static u8 *funder_channel(struct state *state,
 				     &theirs.htlc,
 				     &state->first_per_commitment_point[REMOTE],
 				     &state->remote_upfront_shutdown_script))
-			peer_failed(&state->cs,
+			peer_failed(state->pps,
 				    &state->channel_id,
 				    "Parsing accept_channel with option_upfront_shutdown_script %s", tal_hex(msg, msg));
 	} else if (!fromwire_accept_channel(msg, &id_in,
@@ -585,7 +576,7 @@ static u8 *funder_channel(struct state *state,
 				     &theirs.delayed_payment,
 				     &theirs.htlc,
 				     &state->first_per_commitment_point[REMOTE]))
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Parsing accept_channel %s", tal_hex(msg, msg));
 
@@ -595,7 +586,7 @@ static u8 *funder_channel(struct state *state,
 	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!channel_id_eq(&id_in, &state->channel_id))
 		/* In this case we exit, since we don't know what's going on. */
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "accept_channel ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id, &id_in),
@@ -705,7 +696,7 @@ static u8 *funder_channel(struct state *state,
 	/* We were supposed to do enough checks above, but just in case,
 	 * new_initial_channel will fail to create absurd channels */
 	if (!state->channel)
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "could not create channel with given config");
 
@@ -760,7 +751,7 @@ static u8 *funder_channel(struct state *state,
 				     &state->funding_txid,
 				     state->funding_txout,
 				     &sig.s);
-	sync_crypto_write(&state->cs, PEER_FD, msg);
+	sync_crypto_write(state->pps, msg);
 
 	/* BOLT #2:
 	 *
@@ -781,7 +772,7 @@ static u8 *funder_channel(struct state *state,
 
 	sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_funding_signed(msg, &id_in, &sig.s))
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Parsing funding_signed: %s", tal_hex(msg, msg));
 
@@ -812,7 +803,7 @@ static u8 *funder_channel(struct state *state,
 			  &state->funding_txid, state->funding_txout);
 
 	if (!channel_id_eq(&id_in, &state->channel_id))
-		peer_failed(&state->cs, &id_in,
+		peer_failed(state->pps, &id_in,
 			    "funding_signed ids don't match: expected %s got %s",
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
@@ -836,7 +827,7 @@ static u8 *funder_channel(struct state *state,
 	}
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(tmpctx, struct bitcoin_signature,
@@ -864,7 +855,7 @@ static u8 *funder_channel(struct state *state,
 					   &state->remoteconf,
 					   tx,
 					   &sig,
-					   &state->cs,
+					   state->pps,
 					   &theirs.revocation,
 					   &theirs.payment,
 					   &theirs.htlc,
@@ -934,7 +925,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			    &state->first_per_commitment_point[REMOTE],
 			    &channel_flags,
 			    &state->remote_upfront_shutdown_script))
-		    peer_failed(&state->cs,
+		    peer_failed(state->pps,
 				&state->channel_id,
 				"Parsing open_channel with option_upfront_shutdown_script %s", tal_hex(tmpctx, open_channel_msg));
 	} else if (!fromwire_open_channel(open_channel_msg, &chain_hash,
@@ -955,7 +946,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				      &theirs.htlc,
 				      &state->first_per_commitment_point[REMOTE],
 				      &channel_flags))
-		peer_failed(&state->cs, NULL,
+		peer_failed(state->pps, NULL,
 			    "Bad open_channel %s",
 			    tal_hex(open_channel_msg, open_channel_msg));
 
@@ -994,7 +985,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *   - `push_msat` is greater than `funding_satoshis` * 1000.
 	 */
 	if (amount_msat_greater_sat(state->push_msat, state->funding)) {
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Their push_msat %s"
 			    " would be too large for funding_satoshis %s",
@@ -1089,7 +1080,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (err_reason) {
 		u8 *errmsg = towire_errorfmt(NULL, &state->channel_id,
 					     "%s", err_reason);
-		sync_crypto_write(&state->cs, PEER_FD, take(errmsg));
+		sync_crypto_write(state->pps, take(errmsg));
 		return NULL;
 	}
 
@@ -1110,7 +1101,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->first_per_commitment_point[LOCAL],
 				    dev_upfront_shutdown_script(tmpctx));
 
-	sync_crypto_write(&state->cs, PEER_FD, take(msg));
+	sync_crypto_write(state->pps, take(msg));
 
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
@@ -1127,7 +1118,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				      &state->funding_txid,
 				      &state->funding_txout,
 				      &theirsig.s))
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Parsing funding_created");
 
@@ -1137,7 +1128,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * `temporary_channel_id` in the `open_channel` message.
 	 */
 	if (!channel_id_eq(&id_in, &state->channel_id))
-		peer_failed(&state->cs, &id_in,
+		peer_failed(state->pps, &id_in,
 			    "funding_created ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
@@ -1161,7 +1152,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* We don't expect this to fail, but it does do some additional
 	 * internal sanity checks. */
 	if (!state->channel)
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "We could not create channel with given config");
 
@@ -1196,7 +1187,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		 * a courtesy to other implementaters whose brains may be so
 		 * twisted by coding in Go, Scala and Rust that they can no
 		 * longer read C code. */
-		peer_failed(&state->cs,
+		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(tmpctx, struct bitcoin_signature,
@@ -1261,7 +1252,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     &state->remoteconf,
 				     local_commit,
 				     &theirsig,
-				     &state->cs,
+				     state->pps,
 				     &theirs.revocation,
 				     &theirs.payment,
 				     &theirs.htlc,
@@ -1284,7 +1275,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
  * surprise. */
 static u8 *handle_peer_in(struct state *state)
 {
-	u8 *msg = sync_crypto_read(tmpctx, &state->cs, PEER_FD);
+	u8 *msg = sync_crypto_read(tmpctx, state->pps);
 	enum wire_type t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
@@ -1322,15 +1313,13 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_UPDATE_FEE:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 		/* Standard cases */
-		if (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD,
-						GOSSIP_STORE_FD,
-						&state->cs,
+		if (handle_peer_gossip_or_error(state->pps,
 						&state->channel_id, msg))
 			return NULL;
 		break;
 	}
 
-	sync_crypto_write(&state->cs, PEER_FD,
+	sync_crypto_write(state->pps,
 			  take(towire_errorfmt(NULL,
 					       extract_channel_id(msg, &channel_id) ? &channel_id : NULL,
 					       "Unexpected message %s: %s",
@@ -1344,17 +1333,17 @@ static u8 *handle_peer_in(struct state *state)
 	peer_failed_connection_lost();
 }
 
-/*~ If we see the GOSSIP_FD readable, we read a whole message.  Sure, we might
+/*~ If we see the gossip_fd readable, we read a whole message.  Sure, we might
  * block, but we trust gossipd. */
 static void handle_gossip_in(struct state *state)
 {
-	u8 *msg = wire_sync_read(NULL, GOSSIP_FD);
+	u8 *msg = wire_sync_read(NULL, state->pps->gossip_fd);
 
 	if (!msg)
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Reading gossip: %s", strerror(errno));
 
-	handle_gossip_msg(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD, &state->cs, take(msg));
+	handle_gossip_msg(state->pps, take(msg));
 }
 
 /*~ Is this message of type `error` with the special zero-id
@@ -1472,7 +1461,7 @@ int main(int argc, char *argv[])
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity,
-				   &state->cs,
+				   &state->pps,
 				   &state->our_points,
 				   &state->our_funding_pubkey,
 				   &state->minimum_depth,
@@ -1481,10 +1470,13 @@ int main(int argc, char *argv[])
 				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
+	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
+	per_peer_state_set_fds(state->pps, 3, 4, 5);
+
 	/*~ If lightningd wanted us to send a msg, do so before we waste time
 	 * doing work.  If it's a global error, we'll close immediately. */
 	if (inner != NULL) {
-		sync_crypto_write(&state->cs, PEER_FD, inner);
+		sync_crypto_write(state->pps, inner);
 		fail_if_all_error(inner);
 		tal_free(inner);
 	}
@@ -1523,9 +1515,9 @@ int main(int argc, char *argv[])
 	/*~ We manually run a little poll() loop here.  With only three fds */
 	pollfd[0].fd = REQ_FD;
 	pollfd[0].events = POLLIN;
-	pollfd[1].fd = GOSSIP_FD;
+	pollfd[1].fd = state->pps->gossip_fd;
 	pollfd[1].events = POLLIN;
-	pollfd[2].fd = PEER_FD;
+	pollfd[2].fd = state->pps->peer_fd;
 	pollfd[2].events = POLLIN;
 
 	/* We exit when we get a conclusion to write to lightningd: either
@@ -1553,10 +1545,8 @@ int main(int argc, char *argv[])
 	 * means that if the peer or gossipd wrote us any messages we didn't
 	 * read yet, it will simply be read by the next daemon. */
 	wire_sync_write(REQ_FD, msg);
-	fdpass_send(REQ_FD, PEER_FD);
-	fdpass_send(REQ_FD, GOSSIP_FD);
-	fdpass_send(REQ_FD, GOSSIP_STORE_FD);
-	status_trace("Sent %s with fd",
+	per_peer_state_fdpass_send(REQ_FD, state->pps);
+	status_trace("Sent %s with fds",
 		     opening_wire_type_name(fromwire_peektype(msg)));
 
 	/* This frees the entire tal tree. */

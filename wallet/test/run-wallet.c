@@ -95,7 +95,7 @@ bool fromwire_channel_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p 
 bool fromwire_channel_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, u32 *feerate UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_signature *commit_sig UNNEEDED, secp256k1_ecdsa_signature **htlc_sigs UNNEEDED)
 { fprintf(stderr, "fromwire_channel_sending_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_connect_peer_connected */
-bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **globalfeatures UNNEEDED, u8 **localfeatures UNNEEDED)
+bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *cs UNNEEDED, u8 **globalfeatures UNNEEDED, u8 **localfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_get_channel_peer_reply */
 bool fromwire_gossip_get_channel_peer_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id **peer_id UNNEEDED)
@@ -324,9 +324,10 @@ void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
-/* Generated stub for new_peer_comms */
-struct peer_comms *new_peer_comms(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "new_peer_comms called!\n"); abort(); }
+/* Generated stub for new_per_peer_state */
+struct per_peer_state *new_per_peer_state(const tal_t *ctx UNNEEDED,
+					  const struct crypto_state *cs UNNEEDED)
+{ fprintf(stderr, "new_per_peer_state called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED,
 		    struct wireaddr_internal *addr UNNEEDED)
@@ -427,21 +428,25 @@ void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDE
 { fprintf(stderr, "peer_memleak_done called!\n"); abort(); }
 /* Generated stub for peer_start_channeld */
 void peer_start_channeld(struct channel *channel UNNEEDED,
-			 struct peer_comms *pcomms UNNEEDED,
+			 struct per_peer_state *pps UNNEEDED,
 			 const u8 *funding_signed UNNEEDED,
 			 bool reconnected UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_closingd */
 void peer_start_closingd(struct channel *channel UNNEEDED,
-			 struct peer_comms *pcomms UNNEEDED,
+			 struct per_peer_state *pps UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 const u8 *channel_reestablish UNNEEDED)
 { fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_openingd */
 void peer_start_openingd(struct peer *peer UNNEEDED,
-			 struct peer_comms *pcomms UNNEEDED,
+			 struct per_peer_state *pps UNNEEDED,
 			 const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
+/* Generated stub for per_peer_state_set_fds */
+void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
+			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED, int gossip_store_fd UNNEEDED)
+{ fprintf(stderr, "per_peer_state_set_fds called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       void *payload UNNEEDED, void *cb_arg UNNEEDED)

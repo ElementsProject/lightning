@@ -42,6 +42,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/msg_queue.o			\
 	common/node_id.o			\
 	common/param.o				\
+	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
 	common/sphinx.o				\
@@ -84,7 +85,6 @@ LIGHTNINGD_SRC :=				\
 	lightningd/pay.c			\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
-	lightningd/peer_comms.c			\
 	lightningd/ping.c			\
 	lightningd/plugin.c			\
 	lightningd/plugin_hook.c		\

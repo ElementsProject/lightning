@@ -36,6 +36,7 @@ COMMON_SRC_NOGEN :=				\
 	common/msg_queue.c			\
 	common/node_id.c			\
 	common/param.c				\
+	common/per_peer_state.c			\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\
 	common/permute_tx.c			\

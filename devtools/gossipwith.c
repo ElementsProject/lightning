@@ -6,6 +6,7 @@
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/peer_failed.h>
+#include <common/per_peer_state.h>
 #include <common/status.h>
 #include <netdb.h>
 #include <secp256k1_ecdh.h>
@@ -115,9 +116,10 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 					 char **args)
 {
 	u8 *msg;
-	struct crypto_state cs = *orig_cs;
+	struct per_peer_state *pps = new_per_peer_state(conn, orig_cs);
 	u8 *localfeatures;
 
+	pps->peer_fd = io_conn_fd(conn);
 	if (initial_sync) {
 		localfeatures = tal(conn, u8);
 		localfeatures[0] = (1 << 3);
@@ -126,9 +128,9 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 
 	msg = towire_init(NULL, NULL, localfeatures);
 
-	sync_crypto_write(&cs, conn->fd, take(msg));
+	sync_crypto_write(pps, take(msg));
 	/* Ignore their init message. */
-	tal_free(sync_crypto_read(NULL, &cs, conn->fd));
+	tal_free(sync_crypto_read(NULL, pps));
 
 	/* Did they ask us to send any messages?  Do so now. */
 	if (stream_stdin) {
@@ -140,7 +142,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 
 			if (!read_all(STDIN_FILENO, msg, msglen))
 				err(1, "Only read partial message");
-			sync_crypto_write(&cs, conn->fd, take(msg));
+			sync_crypto_write(pps, take(msg));
 		}
 	}
 
@@ -148,12 +150,12 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		u8 *m = tal_hexdata(NULL, *args, strlen(*args));
 		if (!m)
 			errx(1, "Invalid hexdata '%s'", *args);
-		sync_crypto_write(&cs, conn->fd, take(m));
+		sync_crypto_write(pps, take(m));
 		args++;
 	}
 
 	/* Now write out whatever we get. */
-	while ((msg = sync_crypto_read(NULL, &cs, conn->fd)) != NULL) {
+	while ((msg = sync_crypto_read(NULL, pps)) != NULL) {
 		be16 len = cpu_to_be16(tal_bytelen(msg));
 
 		if (!write_all(STDOUT_FILENO, &len, sizeof(len))

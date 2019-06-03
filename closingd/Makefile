@@ -62,6 +62,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
+	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/read_peer_msg.o			\
 	common/socket_close.o			\
