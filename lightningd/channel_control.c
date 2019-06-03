@@ -126,7 +126,7 @@ static void peer_got_announcement(struct channel *channel, const u8 *msg)
 					       &remote_ann_node_sig,
 					       &remote_ann_bitcoin_sig)) {
 		channel_internal_error(channel,
-				       "bad channel_got_funding_locked %s",
+				       "bad channel_got_announcement %s",
 				       tal_hex(tmpctx, msg));
 		return;
 	}
