@@ -16,6 +16,7 @@ int test_getpid(void);
 int test_printf(const char *format, ...);
 void *test_malloc(size_t n);
 void *test_realloc(void *p, size_t n);
+void test_free(void *p);
 
 #define main test_main
 #define read test_read
@@ -25,6 +26,7 @@ void *test_realloc(void *p, size_t n);
 #define printf test_printf
 #define malloc test_malloc
 #define realloc test_realloc
+#define free test_free
 
   #include "../lightning-cli.c"
 #undef main
@@ -69,6 +71,11 @@ void *test_realloc(void *p, size_t n)
 {
 	tal_resize(&p, n);
 	return p;
+}
+
+void test_free(void *p)
+{
+	tal_free(p);
 }
 
 ssize_t test_read(int fd UNUSED, void *buf, size_t len)

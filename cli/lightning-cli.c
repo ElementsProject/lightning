@@ -604,6 +604,8 @@ int main(int argc, char *argv[])
 		tal_free(rpc_filename);
 		tal_free(ctx);
 		opt_free_table();
+		free(resp);
+		free(toks);
 		return 0;
 	}
 
@@ -618,5 +620,7 @@ int main(int argc, char *argv[])
 	tal_free(rpc_filename);
 	tal_free(ctx);
 	opt_free_table();
+	free(resp);
+	free(toks);
 	return 1;
 }
