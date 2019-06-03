@@ -1,5 +1,6 @@
 #include "gossip_store.h"
 
+#include <ccan/array_size/array_size.h>
 #include <ccan/crc/crc.h>
 #include <ccan/endian/endian.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -12,6 +13,7 @@
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <stdio.h>
+#include <sys/uio.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire.h>
@@ -51,6 +53,7 @@ static bool append_msg(int fd, const u8 *msg, u64 *len)
 {
 	beint32_t hdr[2];
 	u32 msglen;
+	struct iovec iov[2];
 
 	msglen = tal_count(msg);
 	hdr[0] = cpu_to_be32(msglen);
@@ -59,8 +62,12 @@ static bool append_msg(int fd, const u8 *msg, u64 *len)
 	if (len)
 		*len += sizeof(hdr) + msglen;
 
-	return (write(fd, hdr, sizeof(hdr)) == sizeof(hdr) &&
-		write(fd, msg, msglen) == msglen);
+	/* Use writev so it will appear in store atomically */
+	iov[0].iov_base = hdr;
+	iov[0].iov_len = sizeof(hdr);
+	iov[1].iov_base = (void *)msg;
+	iov[1].iov_len = msglen;
+	return writev(fd, iov, ARRAY_SIZE(iov)) == sizeof(hdr) + msglen;
 }
 
 struct gossip_store *gossip_store_new(struct routing_state *rstate)
