@@ -9,10 +9,6 @@ gossipd_get_update_reply,3601
 gossipd_get_update_reply,,len,u16
 gossipd_get_update_reply,,update,len*u8
 
-# But usually gossipd just gives an offset into the gossip_store
-gossipd_send_gossip_from_store,3506
-gossipd_send_gossip_from_store,,offset,u64
-
 # Both sides have seen the funding tx being locked, but we have not
 # yet reached the announcement depth. So we add the channel locally so
 # we (and peer) can update it already.
@@ -33,3 +29,5 @@ gossipd_local_channel_update,,htlc_maximum_msat,struct amount_msat
 
 # Update your gossip_store fd: + gossip_store_fd
 gossipd_new_store_fd,3505
+# How much shorter the new store is, so you can offset streaming.
+gossipd_new_store_fd,,offset_shorter,u64

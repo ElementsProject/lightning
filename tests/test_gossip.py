@@ -136,6 +136,8 @@ def test_announce_address(node_factory, bitcoind):
     l1.daemon.wait_for_log(r"\[OUT\] 0101.*004d010102030404d202000000000000000000000000000000002607039216a8b803f3acd758aa260704e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607'")
 
 
+# FIXME: Implement timestamp filtering
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_gossip_timestamp_filter(node_factory, bitcoind):
     # Need full IO logging so we can see gossip (from gossipd and channeld)

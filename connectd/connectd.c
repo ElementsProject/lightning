@@ -278,16 +278,16 @@ static void connected_to_peer(struct daemon *daemon,
  * few of the features of the peer and its id (for reporting).
  *
  * Every peer also has read-only access to the gossip_store, which is handed
- * out by gossipd too.
+ * out by gossipd too, and also a "gossip_state" indicating where we're up to.
  *
  * The 'localfeatures' is a field in the `init` message, indicating properties
  * when you're connected to it like we are: there are also 'globalfeatures'
- * which specify requirements to route a payment through a node. */
+ * which specify requirements to route a payment through a node.
+ */
 static bool get_gossipfds(struct daemon *daemon,
 			  const struct node_id *id,
 			  const u8 *localfeatures,
-			  int *gossip_fd,
-			  int *gossip_store_fd)
+			  struct per_peer_state *pps)
 {
 	bool gossip_queries_feature, initial_routing_sync, success;
 	u8 *msg;
@@ -313,7 +313,7 @@ static bool get_gossipfds(struct daemon *daemon,
 			      strerror(errno));
 
 	msg = wire_sync_read(tmpctx, GOSSIPCTL_FD);
-	if (!fromwire_gossip_new_peer_reply(msg, &success))
+	if (!fromwire_gossip_new_peer_reply(pps, msg, &success, &pps->gs))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed parsing msg gossipctl: %s",
 			      tal_hex(tmpctx, msg));
@@ -328,8 +328,8 @@ static bool get_gossipfds(struct daemon *daemon,
 
 	/* Otherwise, the next thing in the socket will be the file descriptors
 	 * for the per-peer daemon. */
-	*gossip_fd = fdpass_recv(GOSSIPCTL_FD);
-	*gossip_store_fd = fdpass_recv(GOSSIPCTL_FD);
+	pps->gossip_fd = fdpass_recv(GOSSIPCTL_FD);
+	pps->gossip_store_fd = fdpass_recv(GOSSIPCTL_FD);
 	return true;
 }
 
@@ -422,7 +422,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const u8 *localfeatures TAKES)
 {
 	u8 *msg;
-	int gossip_fd, gossip_store_fd;
+	struct per_peer_state *pps;
 
 	if (node_set_get(&daemon->peers, id))
 		return peer_reconnected(conn, daemon, id, addr, cs,
@@ -437,12 +437,19 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	if (taken(localfeatures))
 		tal_steal(tmpctx, localfeatures);
 
+	/* This contains the per-peer state info; gossipd fills in pps->gs */
+	pps = new_per_peer_state(tmpctx, cs);
+#if DEVELOPER
+	/* Overridden by lightningd, but initialize to keep valgrind happy */
+	pps->dev_gossip_broadcast_msec = 0;
+#endif
+
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	if (!get_gossipfds(daemon, id, localfeatures, &gossip_fd, &gossip_store_fd))
+	if (!get_gossipfds(daemon, id, localfeatures, pps))
 		return io_close(conn);
 
 	/* Create message to tell master peer has connected. */
-	msg = towire_connect_peer_connected(NULL, id, addr, cs,
+	msg = towire_connect_peer_connected(NULL, id, addr, pps,
 					    globalfeatures, localfeatures);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
@@ -451,8 +458,11 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	daemon_conn_send(daemon->master, take(msg));
 	/* io_conn_fd() extracts the fd from ccan/io's io_conn */
 	daemon_conn_send_fd(daemon->master, io_conn_fd(conn));
-	daemon_conn_send_fd(daemon->master, gossip_fd);
-	daemon_conn_send_fd(daemon->master, gossip_store_fd);
+	daemon_conn_send_fd(daemon->master, pps->gossip_fd);
+	daemon_conn_send_fd(daemon->master, pps->gossip_store_fd);
+
+	/* Don't try to close these on freeing. */
+	pps->gossip_store_fd = pps->gossip_fd = -1;
 
 	/*~ Finally, we add it to the set of pubkeys: tal_dup will handle
 	 * take() args for us, by simply tal_steal()ing it. */

@@ -104,9 +104,6 @@ struct daemon {
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 
-	/* How often we flush gossip (60 seconds unless DEVELOPER override) */
-	u32 broadcast_interval_msec;
-
 	/* Global features to list in node_announcement. */
 	u8 *globalfeatures;
 
@@ -132,12 +129,6 @@ struct peer {
 	/* The two features gossip cares about (so far) */
 	bool gossip_queries_feature, initial_routing_sync_feature;
 
-	/* High water mark for the staggered broadcast */
-	u32 broadcast_index;
-
-	/* Timestamp range the peer asked us to filter gossip by */
-	u32 gossip_timestamp_min, gossip_timestamp_max;
-
 	/* Are there outstanding queries on short_channel_ids? */
 	const struct short_channel_id *scid_queries;
 	size_t scid_query_idx;
@@ -145,9 +136,6 @@ struct peer {
 	/* Are there outstanding node_announcements from scid_queries? */
 	struct node_id *scid_query_nodes;
 	size_t scid_query_nodes_idx;
-
-	/* If this is NULL, we're syncing gossip now. */
-	struct oneshot *gossip_timer;
 
 	/* How many query responses are we expecting? */
 	size_t num_scid_queries_outstanding;
@@ -228,27 +216,12 @@ static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	daemon_conn_send(peer->dc, msg);
 }
 
-/*~ We have a shortcut for messages from the store: we send the offset, and
- * the other daemon reads and sends, saving us much work. */
+/*~ We have a helper for messages from the store. */
 static void queue_peer_from_store(struct peer *peer,
 				  const struct broadcastable *bcast)
 {
-	const u8 *msg = towire_gossipd_send_gossip_from_store(NULL,
-							      bcast->index);
-
-	daemon_conn_send(peer->dc, take(msg));
-}
-
-/* This pokes daemon_conn, which calls dump_gossip: the NULL gossip_timer
- * tells it that the gossip timer has expired and it should send any queued
- * gossip messages. */
-static void wake_gossip_out(struct peer *peer)
-{
-	/* If we were waiting, we're not any more */
-	peer->gossip_timer = tal_free(peer->gossip_timer);
-
-	/* Notify the daemon_conn-write loop */
-	daemon_conn_wake(peer->dc);
+	struct gossip_store *gs = peer->daemon->rstate->broadcasts->gs;
+	queue_peer_msg(peer, take(gossip_store_get(NULL, gs, bcast->index)));
 }
 
 /* BOLT #7:
@@ -652,39 +625,7 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 */
 static u8 *handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
 {
-	struct bitcoin_blkid chain_hash;
-	u32 first_timestamp, timestamp_range;
-
-	if (!fromwire_gossip_timestamp_filter(msg, &chain_hash,
-					      &first_timestamp,
-					      &timestamp_range)) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad gossip_timestamp_filter %s",
-				       tal_hex(tmpctx, msg));
-	}
-
-	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain_hash)) {
-		status_trace("%s sent gossip_timestamp_filter chainhash %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     type_to_string(tmpctx, struct bitcoin_blkid,
-					    &chain_hash));
-		return NULL;
-	}
-
-	/* We initialize the timestamps to "impossible" values so we can
-	 * detect that this is the first filter: in this case, we gossip sync
-	 * immediately. */
-	if (peer->gossip_timestamp_min > peer->gossip_timestamp_max)
-		wake_gossip_out(peer);
-
-	/* FIXME: We don't index by timestamp, so this forces a brute
-	 * search!  But keeping in correct order is v. hard. */
-	peer->gossip_timestamp_min = first_timestamp;
-	peer->gossip_timestamp_max = first_timestamp + timestamp_range - 1;
-	/* In case they overflow. */
-	if (peer->gossip_timestamp_max < peer->gossip_timestamp_min)
-		peer->gossip_timestamp_max = UINT32_MAX;
-	peer->broadcast_index = 0;
+	/* FIXME: Move handling this msg to peer! */
 	return NULL;
 }
 
@@ -697,21 +638,17 @@ void update_peers_broadcast_index(struct list_head *peers, u32 offset)
 
 	list_for_each_safe(peers, peer, next, list) {
 		int gs_fd;
-		if (peer->broadcast_index < offset)
-			peer->broadcast_index = 0;
-		else
-			peer->broadcast_index -= offset;
-
 		/*~ Since store has been compacted, they need a new fd for the
-		 * new store.  The only one will still work, but after this
-		 * any offsets will refer to the new store. */
+		 * new store.  We also tell them how much this is shrunk, so
+		 * they can (approximately) tell where to start in the new store.
+		 */
 		gs_fd = gossip_store_readonly_fd(peer->daemon->rstate->broadcasts->gs);
 		if (gs_fd < 0) {
 			status_broken("Can't get read-only gossip store fd:"
 				      " killing peer");
 			tal_free(peer);
 		} else {
-			u8 *msg = towire_gossipd_new_store_fd(NULL);
+			u8 *msg = towire_gossipd_new_store_fd(NULL, offset);
 			daemon_conn_send(peer->dc, take(msg));
 			daemon_conn_send_fd(peer->dc, gs_fd);
 		}
@@ -1204,64 +1141,12 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 	}
 }
 
-/*~ If we're supposed to be sending gossip, do so now. */
-static void maybe_queue_gossip(struct peer *peer)
-{
-	struct broadcastable *next;
-
-	/* If the gossip timer is still running, don't send. */
-	if (peer->gossip_timer)
-		return;
-
-#if DEVELOPER
-	/* The dev_suppress_gossip RPC is used for testing. */
-	if (suppress_gossip)
-		return;
-#endif
-
-	/*~ We maintain an ordered map of gossip to broadcast, so each peer
-	 * only needs to keep an index; this returns the next gossip message
-	 * which is past the previous index and within the timestamp: it
-	 * also updates `broadcast_index`. */
-	next = next_broadcast(peer->daemon->rstate->broadcasts,
-			      peer->gossip_timestamp_min,
-			      peer->gossip_timestamp_max,
-			      &peer->broadcast_index);
-
-	if (next) {
-		queue_peer_from_store(peer, next);
-		return;
-	}
-
-	/* BOLT #7:
-	 *
-	 * A node:
-	 *...
-	 *  - SHOULD flush outgoing gossip messages once every 60 seconds,
-	 *    independently of the arrival times of the messages.
-	 *    - Note: this results in staggered announcements that are unique
-	 *      (not duplicated).
-	 */
-
-	/* Gossip is drained; we set up timer now, which is strictly-speaking
-	 * more than 60 seconds if sending gossip took a long time.  But
-	 * that's their fault for being slow! */
-	peer->gossip_timer
-		= new_reltimer(&peer->daemon->timers, peer,
-			       /* The time is adjustable for testing */
-			       time_from_msec(peer->daemon->broadcast_interval_msec),
-			       wake_gossip_out, peer);
-}
-
 /*~ This is called when the outgoing queue is empty; gossip has lower priority
  * than just about anything else. */
 static void dump_gossip(struct peer *peer)
 {
 	/* Do we have scid query replies to send? */
 	maybe_create_next_scid_reply(peer);
-
-	/* Queue any gossip we want to send */
-	maybe_queue_gossip(peer);
 }
 
 /*~ This generates a `channel_update` message for one of our channels.  We do
@@ -1675,7 +1560,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	/* These are the ones we send, not them */
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY:
 	case WIRE_GOSSIPD_NEW_STORE_FD:
-	case WIRE_GOSSIPD_SEND_GOSSIP_FROM_STORE:
 		break;
 	}
 
@@ -1710,6 +1594,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	struct peer *peer = tal(conn, struct peer);
 	int fds[2];
 	int gossip_store_fd;
+	struct gossip_state *gs;
 
 	if (!fromwire_gossip_new_peer(msg, &peer->id,
 				      &peer->gossip_queries_feature,
@@ -1724,7 +1609,9 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 		status_broken("Failed to get readonly store fd: %s",
 			      strerror(errno));
 		daemon_conn_send(daemon->connectd,
-				 take(towire_gossip_new_peer_reply(NULL, false)));
+				 take(towire_gossip_new_peer_reply(NULL,
+								   false,
+								   NULL)));
 		goto done;
 	}
 
@@ -1734,7 +1621,9 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 			      strerror(errno));
 		close(gossip_store_fd);
 		daemon_conn_send(daemon->connectd,
-				 take(towire_gossip_new_peer_reply(NULL, false)));
+				 take(towire_gossip_new_peer_reply(NULL,
+								   false,
+								   NULL)));
 		goto done;
 	}
 
@@ -1750,42 +1639,10 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->num_scid_queries_outstanding = 0;
 	peer->query_channel_blocks = NULL;
 	peer->num_pings_outstanding = 0;
-	peer->gossip_timer = NULL;
 
 	/* We keep a list so we can find peer by id */
 	list_add_tail(&peer->daemon->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
-
-	/* BOLT #7:
-	 *
-	 *   - if the `gossip_queries` feature is negotiated:
-	 *	- MUST NOT relay any gossip messages unless explicitly requested.
-	 */
-	if (peer->gossip_queries_feature) {
-		peer->broadcast_index = UINT32_MAX;
-		/* Nothing in this "impossible" range */
-		peer->gossip_timestamp_min = UINT32_MAX;
-		peer->gossip_timestamp_max = 0;
-	} else {
-		/* BOLT #7:
-		 *
-		 * - upon receiving an `init` message with the
-		 *   `initial_routing_sync` flag set to 1:
-		 *   - SHOULD send gossip messages for all known channels and
-		 *    nodes, as if they were just received.
-		 * - if the `initial_routing_sync` flag is set to 0, OR if the
-		 *   initial sync was completed:
-		 *   - SHOULD resume normal operation, as specified in the
-		 *     following [Rebroadcasting](#rebroadcasting) section.
-		 */
-		peer->gossip_timestamp_min = 0;
-		peer->gossip_timestamp_max = UINT32_MAX;
-		if (peer->initial_routing_sync_feature)
-			peer->broadcast_index = 0;
-		else
-			peer->broadcast_index
-				= broadcast_final_index(peer->daemon->rstate->broadcasts) + 1;
-	}
 
 	/* This is the new connection: calls dump_gossip when nothing else to
 	 * send. */
@@ -1797,12 +1654,13 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	/* This sends the initial timestamp filter. */
 	setup_gossip_range(peer);
 
-	/* Start the gossip flowing. */
-	wake_gossip_out(peer);
+	/* Start gossiping immediately */
+	gs = tal(tmpctx, struct gossip_state);
+	gs->next_gossip = time_mono();
 
-	/* Reply with success, and the new fd */
+	/* Reply with success, and the new fd and gossip_state. */
 	daemon_conn_send(daemon->connectd,
-			 take(towire_gossip_new_peer_reply(NULL, true)));
+			 take(towire_gossip_new_peer_reply(NULL, true, gs)));
 	daemon_conn_send_fd(daemon->connectd, fds[1]);
 	daemon_conn_send_fd(daemon->connectd, gossip_store_fd);
 
@@ -1967,9 +1825,6 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	u32 *dev_gossip_time;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
-				     /* 60,000 ms
-				      * (unless --dev-broadcast-interval) */
-				     &daemon->broadcast_interval_msec,
 				     &daemon->chain_hash,
 				     &daemon->id, &daemon->globalfeatures,
 				     daemon->rgb,

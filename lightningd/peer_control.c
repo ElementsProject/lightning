@@ -801,18 +801,22 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *globalfeatures, *localfeatures;
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
-	struct crypto_state cs;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
-	if (!fromwire_connect_peer_connected(msg, msg,
+	if (!fromwire_connect_peer_connected(hook_payload, msg,
 					     &id, &hook_payload->addr,
-					     &cs,
+					     &hook_payload->pps,
 					     &globalfeatures, &localfeatures))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
-	hook_payload->pps = new_per_peer_state(hook_payload, &cs);
+#if DEVELOPER
+	/* Override broaedcast interval from our config */
+	hook_payload->pps->dev_gossip_broadcast_msec
+		= ld->config.broadcast_interval_msec;
+#endif
+
 	per_peer_state_set_fds(hook_payload->pps,
 			       peer_fd, gossip_fd, gossip_store_fd);
 
