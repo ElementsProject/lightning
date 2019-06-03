@@ -376,6 +376,10 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			continue;
 		}
 
+		/* Might be a timestamp filter request: handle. */
+		if (handle_timestamp_filter(state->pps, msg))
+			continue;
+
 		/* A helper which decodes an error. */
 		if (is_peer_error(tmpctx, msg, &state->channel_id,
 				  &err, &all_channels)) {

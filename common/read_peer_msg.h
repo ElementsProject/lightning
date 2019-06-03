@@ -68,6 +68,13 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const struct channel_id *channel_id,
 				 const u8 *msg TAKES);
 
+/**
+ * handle_timestamp_filter - deal with timestamp filter requests.
+ * @pps: per-peer state.
+ * @msg: the peer message (only taken if returns true).
+ */
+bool handle_timestamp_filter(struct per_peer_state *pps, const u8 *msg TAKES);
+
 /* We got this message from gossipd: forward/quit as it asks. */
 void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES);
 #endif /* LIGHTNING_COMMON_READ_PEER_MSG_H */

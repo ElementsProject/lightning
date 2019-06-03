@@ -618,17 +618,6 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 	return NULL;
 }
 
-/*~ The peer can specify a timestamp range; gossip outside this range won't be
- * sent any more, and we'll start streaming gossip in this range.  This is
- * only supposed to be used if we negotiate the `gossip_queries` in which case
- * the first send triggers the first gossip to be sent.
-*/
-static u8 *handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
-{
-	/* FIXME: Move handling this msg to peer! */
-	return NULL;
-}
-
 /*~ When we compact the gossip store, all the broadcast indexs move.
  * We simply offset everyone, which means in theory they could retransmit
  * some, but that's a lesser evil than skipping some. */
@@ -1510,9 +1499,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		err = handle_reply_short_channel_ids_end(peer, msg);
 		goto handled_relay;
-	case WIRE_GOSSIP_TIMESTAMP_FILTER:
-		err = handle_gossip_timestamp_filter(peer, msg);
-		goto handled_relay;
 	case WIRE_PING:
 		err = handle_ping(peer, msg);
 		goto handled_relay;
@@ -1539,6 +1525,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_UPDATE_FEE:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 		status_broken("peer %s: relayed unexpected msg of type %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      wire_type_name(fromwire_peektype(msg)));
@@ -1654,9 +1641,36 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	/* This sends the initial timestamp filter. */
 	setup_gossip_range(peer);
 
-	/* Start gossiping immediately */
-	gs = tal(tmpctx, struct gossip_state);
-	gs->next_gossip = time_mono();
+	/* BOLT #7:
+	 *
+	 * A node:
+	 *   - if the `gossip_queries` feature is negotiated:
+	 * 	- MUST NOT relay any gossip messages unless explicitly requested.
+	 */
+	if (peer->gossip_queries_feature) {
+		gs = NULL;
+	} else {
+		/* BOLT #7:
+		 *
+		 * - upon receiving an `init` message with the
+		 *   `initial_routing_sync` flag set to 1:
+		 *   - SHOULD send gossip messages for all known channels and
+		 *    nodes, as if they were just received.
+		 * - if the `initial_routing_sync` flag is set to 0, OR if the
+		 *   initial sync was completed:
+		 *   - SHOULD resume normal operation, as specified in the
+		 *     following [Rebroadcasting](#rebroadcasting) section.
+		 */
+		gs = tal(tmpctx, struct gossip_state);
+		gs->timestamp_min = 0;
+		gs->timestamp_max = UINT32_MAX;
+
+		/* If they don't want initial sync, start at end of store */
+		if (!peer->initial_routing_sync_feature)
+			lseek(gossip_store_fd, 0, SEEK_END);
+
+		gs->next_gossip = time_mono();
+	}
 
 	/* Reply with success, and the new fd and gossip_state. */
 	daemon_conn_send(daemon->connectd,

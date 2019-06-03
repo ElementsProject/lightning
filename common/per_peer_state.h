@@ -9,6 +9,8 @@
 struct gossip_state {
 	/* Time for next gossip burst. */
 	struct timemono next_gossip;
+	/* Timestamp filtering for gossip. */
+	u32 timestamp_min, timestamp_max;
 };
 
 /* Things we hand between daemons to talk to peers. */

@@ -117,21 +117,33 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 		gossip = tal_dup_arr(tmpctx, u8, msg, tal_bytelen(msg), 0);
 
 	/* Gossipd can send us gossip messages, OR errors */
-	if (is_msg_for_gossipd(gossip)) {
-		sync_crypto_write(pps, gossip);
-	} else if (fromwire_peektype(gossip) == WIRE_ERROR) {
+	if (fromwire_peektype(gossip) == WIRE_ERROR) {
 		status_debug("Gossipd told us to send error");
 		sync_crypto_write(pps, gossip);
 		peer_failed_connection_lost();
 	} else {
-		status_broken("Gossipd gave us bad send_gossip message %s",
-			      tal_hex(tmpctx, gossip));
-		peer_failed_connection_lost();
+		sync_crypto_write(pps, gossip);
 	}
 
 out:
 	if (taken(msg))
 		tal_free(msg);
+}
+
+/* takes iff returns true */
+bool handle_timestamp_filter(struct per_peer_state *pps, const u8 *msg TAKES)
+{
+	struct bitcoin_blkid chain_hash; /* FIXME: don't ignore! */
+	u32 first_timestamp, timestamp_range;
+
+	if (!fromwire_gossip_timestamp_filter(msg, &chain_hash,
+					      &first_timestamp,
+					      &timestamp_range)) {
+		return false;
+	}
+
+	gossip_setup_timestamp_filter(pps, first_timestamp, timestamp_range);
+	return true;
 }
 
 bool handle_peer_gossip_or_error(struct per_peer_state *pps,
@@ -142,7 +154,9 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 	bool all_channels;
 	struct channel_id actual;
 
-	if (is_msg_for_gossipd(msg)) {
+	if (handle_timestamp_filter(pps, msg))
+		return true;
+	else if (is_msg_for_gossipd(msg)) {
 		wire_sync_write(pps->gossip_fd, msg);
 		/* wire_sync_write takes, so don't take again. */
 		return true;
