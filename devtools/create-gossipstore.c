@@ -22,7 +22,7 @@
 struct scidsat {
 	struct short_channel_id scid;
         struct amount_sat sat;
-} scidsat;
+};
 
 /* read scid,satoshis csv file and create return an array of scidsat pointers */
 static struct scidsat *load_csv_file(FILE *scidf)
@@ -50,16 +50,50 @@ static struct scidsat *load_csv_file(FILE *scidf)
 	return scidsats;
 }
 
-static void write_outmsg(int outfd, const u8 *outmsg)
+static void write_outmsg(int outfd, const u8 *outmsg, u32 timestamp)
 {
-	beint32_t hdr[2];
+	struct gossip_hdr hdr;
 
-	hdr[0] = cpu_to_be32(tal_count(outmsg));
-	hdr[1] = cpu_to_be32(crc32c(0, outmsg, tal_count(outmsg)));
+	hdr.len = cpu_to_be32(tal_count(outmsg));
+	hdr.crc = cpu_to_be32(crc32c(timestamp, outmsg, tal_count(outmsg)));
+	hdr.timestamp = cpu_to_be32(timestamp);
 
-	if (!write_all(outfd, hdr, sizeof(hdr))
+	if (!write_all(outfd, &hdr, sizeof(hdr))
 	    || !write_all(outfd, outmsg, tal_count(outmsg)))
 		err(1, "Writing output");
+}
+
+static u32 get_update_timestamp(const u8 *msg, struct short_channel_id *scid)
+{
+	secp256k1_ecdsa_signature sig;
+	struct bitcoin_blkid chain_hash;
+	u32 timestamp;
+	u8 u8_ignore;
+	u16 u16_ignore;
+	u32 u32_ignore;
+	struct amount_msat msat;
+
+	if (fromwire_channel_update(msg, &sig, &chain_hash, scid,
+				    &timestamp, &u8_ignore, &u8_ignore,
+				    &u16_ignore, &msat, &u32_ignore,
+				    &u32_ignore))
+		return timestamp;
+	errx(1, "Invalid channel_update");
+}
+
+static u32 get_node_announce_timestamp(const u8 *msg)
+{
+	secp256k1_ecdsa_signature sig;
+	u32 timestamp;
+	struct node_id id;
+	u8 rgb_color[3], alias[32];
+	u8 *features, *addresses;
+
+	if (fromwire_node_announcement(tmpctx, msg, &sig, &features, &timestamp,
+				       &id, rgb_color, alias, &addresses))
+		return timestamp;
+
+	errx(1, "Invalid node_announcement");
 }
 
 int main(int argc, char *argv[])
@@ -71,6 +105,7 @@ int main(int argc, char *argv[])
 	char *infile = NULL, *outfile = NULL, *csvfile = NULL, *csat = NULL;
 	int infd, outfd, scidi = 0, channels = 0, nodes = 0, updates = 0;
 	struct scidsat *scidsats = NULL;
+	const u8 *last_announce = NULL;
 	unsigned max = -1U;
 
 	setup_locale();
@@ -132,14 +167,19 @@ int main(int argc, char *argv[])
 	while (read_all(infd, &be_inlen, sizeof(be_inlen))) {
 		u32 msglen = be16_to_cpu(be_inlen);
 		u8 *inmsg = tal_arr(NULL, u8, msglen);
+		u32 timestamp;
+		struct short_channel_id scid;
 
 		if (!read_all(infd, inmsg, msglen))
 			err(1, "Only read partial message");
 
+		if (verbose)
+			fprintf(stderr, "%s\n",
+				wire_type_name(fromwire_peektype(inmsg)));
+
 		switch (fromwire_peektype(inmsg)) {
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 			if (scidsats) {
-				struct short_channel_id scid;
 				/* We ignore these; we just want scid */
 				secp256k1_ecdsa_signature sig;
 				u8 *features;
@@ -162,26 +202,41 @@ int main(int argc, char *argv[])
 								   &pubkey))
 					errx(1, "bad channel_announcement");
 			        if (!short_channel_id_eq(&scid, &scidsats[scidi].scid))
-			        	errx(1, "scid of message does not match scid in csv");
-				sat = scidsats[scidi].sat;
-				scidi++;
+					errx(1, "scid of channel_announcement does not match scid in csv");
+				if (last_announce)
+					errx(1, "Expected update before announce");
+				last_announce = inmsg;
+				inmsg = NULL;
 			}
-			/* First write announce */
-			write_outmsg(outfd, inmsg);
-			channels += 1;
-			/* Now write amount */
-			write_outmsg(outfd,
-				     towire_gossip_store_channel_amount(inmsg,
-									sat));
 			break;
 
 		case WIRE_CHANNEL_UPDATE:
-			write_outmsg(outfd, inmsg);
+			/* We assume update immediately follows announcement */
+			timestamp = get_update_timestamp(inmsg, &scid);
+			if (last_announce) {
+				if (scidsats && !short_channel_id_eq(&scid,
+							 &scidsats[scidi].scid))
+					errx(1, "scid of channel_update does not match scid in csv");
+
+				/* Now we have timestamp, write out announce */
+				/* First write announce */
+				write_outmsg(outfd, last_announce, timestamp);
+				last_announce = tal_free(last_announce);
+				channels += 1;
+				/* Now write amount */
+				write_outmsg(outfd,
+					     towire_gossip_store_channel_amount(inmsg,
+										scidsats ? scidsats[scidi].sat: sat),
+					     0);
+				scidi++;
+			}
+			write_outmsg(outfd, inmsg, timestamp);
 			updates += 1;
 			break;
 
 		case WIRE_NODE_ANNOUNCEMENT:
-			write_outmsg(outfd, inmsg);
+			timestamp = get_node_announce_timestamp(inmsg);
+			write_outmsg(outfd, inmsg, timestamp);
 			nodes += 1;
 			break;
 
