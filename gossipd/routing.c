@@ -174,8 +174,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = new_node_map(rstate);
-	rstate->broadcasts
-		= new_broadcast_state(rstate, gossip_store_new(rstate), peers);
+	rstate->gs = gossip_store_new(rstate, peers);
 	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
@@ -226,9 +225,6 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 	struct chan_map_iter i;
 	struct chan *c;
 	node_map_del(rstate->nodes, node);
-
-	/* Safe even if never placed in broadcast map */
-	broadcast_del(rstate->broadcasts, &node->bcast);
 
 	/* These remove themselves from chans[]. */
 	while ((c = first_chan(node, &i)) != NULL)
@@ -330,7 +326,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Last channel?  Simply delete node (and associated announce) */
 	if (num_chans == 0) {
-		gossip_store_delete(rstate->broadcasts->gs,
+		gossip_store_delete(rstate->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
 		tal_free(node);
@@ -342,26 +338,26 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
-		gossip_store_delete(rstate->broadcasts->gs,
+		gossip_store_delete(rstate->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
-		broadcast_del(rstate->broadcasts, &node->bcast);
 	} else if (node_announce_predates_channels(node)) {
 		const u8 *announce;
 
-		announce = gossip_store_get(tmpctx, rstate->broadcasts->gs,
+		announce = gossip_store_get(tmpctx, rstate->gs,
 					    node->bcast.index);
 
 		/* node announcement predates all channel announcements?
 		 * Move to end (we could, in theory, move to just past next
 		 * channel_announce, but we don't care that much about spurious
 		 * retransmissions in this corner case */
-		gossip_store_delete(rstate->broadcasts->gs,
+		gossip_store_delete(rstate->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
-		broadcast_del(rstate->broadcasts, &node->bcast);
-		insert_broadcast(&rstate->broadcasts, announce, NULL,
-				 &node->bcast);
+		node->bcast.index = gossip_store_add(rstate->gs,
+						     announce,
+						     node->bcast.timestamp,
+						     NULL);
 	}
 }
 
@@ -371,11 +367,6 @@ void free_chan(struct routing_state *rstate, struct chan *chan)
 {
 	remove_chan_from_node(rstate, chan->nodes[0], chan);
 	remove_chan_from_node(rstate, chan->nodes[1], chan);
-
-	/* Safe even if never placed in map */
-	broadcast_del(rstate->broadcasts, &chan->bcast);
-	broadcast_del(rstate->broadcasts, &chan->half[0].bcast);
-	broadcast_del(rstate->broadcasts, &chan->half[1].bcast);
 
 	uintmap_del(&rstate->chanmap, chan->scid.u64);
 
@@ -1361,9 +1352,13 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 
 	chan->bcast.timestamp = timestamp;
 	/* 0, unless we're loading from store */
-	chan->bcast.index = index;
-	insert_broadcast(&rstate->broadcasts, channel_announce, addendum,
-			 &chan->bcast);
+	if (index)
+		chan->bcast.index = index;
+	else
+		chan->bcast.index = gossip_store_add(rstate->gs,
+						     channel_announce,
+						     chan->bcast.timestamp,
+						     addendum);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 }
 
@@ -1409,12 +1404,12 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 		if (chan->half[0].bcast.index)
 			private_updates[0]
 				= gossip_store_get_private_update(NULL,
-						   rstate->broadcasts->gs,
+						   rstate->gs,
 						   chan->half[0].bcast.index);
 		if (chan->half[1].bcast.index)
 			private_updates[1]
 				= gossip_store_get_private_update(NULL,
-						   rstate->broadcasts->gs,
+						   rstate->gs,
 						   chan->half[1].bcast.index);
 	}
 
@@ -1843,12 +1838,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* Safe even if was never added, but if it's a private channel it
 	 * would be a WIRE_GOSSIP_STORE_PRIVATE_UPDATE. */
-	gossip_store_delete(rstate->broadcasts->gs,
+	gossip_store_delete(rstate->gs,
 			    &chan->half[direction].bcast,
 			    is_chan_public(chan)
 			    ? WIRE_CHANNEL_UPDATE
 			    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
-	broadcast_del(rstate->broadcasts, &chan->half[direction].bcast);
 
 	/* BOLT #7:
 	 *   - MUST consider the `timestamp` of the `channel_announcement` to be
@@ -1869,7 +1863,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		assert(is_local_channel(rstate, chan));
 		if (!index) {
 			hc->bcast.index
-				= gossip_store_add_private_update(rstate->broadcasts->gs,
+				= gossip_store_add_private_update(rstate->gs,
 								  update);
 		} else
 			hc->bcast.index = index;
@@ -1877,11 +1871,13 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	}
 
 	/* If we're loading from store, this means we don't re-add to store. */
-	chan->half[direction].bcast.index = index;
-
-	insert_broadcast(&rstate->broadcasts,
-			 update, NULL,
-			 &chan->half[direction].bcast);
+	if (index)
+		chan->half[direction].bcast.index = index;
+	else
+		chan->half[direction].bcast.index
+			= gossip_store_add(rstate->gs, update,
+					   chan->half[direction].bcast.timestamp,
+					   NULL);
 
 	if (uc) {
 		/* If we were waiting for these nodes to appear (or gain a
@@ -1924,11 +1920,11 @@ void remove_channel_from_store(struct routing_state *rstate,
 	}
 
 	/* If these aren't in the store, these are noops. */
-	gossip_store_delete(rstate->broadcasts->gs,
+	gossip_store_delete(rstate->gs,
 			    &chan->bcast, announcment_type);
-	gossip_store_delete(rstate->broadcasts->gs,
+	gossip_store_delete(rstate->gs,
 			    &chan->half[0].bcast, update_type);
-	gossip_store_delete(rstate->broadcasts->gs,
+	gossip_store_delete(rstate->gs,
 			    &chan->half[1].bcast, update_type);
 }
 
@@ -2141,14 +2137,17 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	}
 
 	/* Harmless if it was never added */
-	gossip_store_delete(rstate->broadcasts->gs,
+	gossip_store_delete(rstate->gs,
 			    &node->bcast,
 			    WIRE_NODE_ANNOUNCEMENT);
-	broadcast_del(rstate->broadcasts, &node->bcast);
 
 	node->bcast.timestamp = timestamp;
-	node->bcast.index = index;
-	insert_broadcast(&rstate->broadcasts, msg, NULL, &node->bcast);
+	if (index)
+		node->bcast.index = index;
+	else
+		node->bcast.index
+			= gossip_store_add(rstate->gs, msg,
+					   node->bcast.timestamp, NULL);
 	return true;
 }
 
@@ -2517,7 +2516,7 @@ bool handle_local_add_channel(struct routing_state *rstate,
 	/* Create new (unannounced) channel */
 	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
 	if (!index)
-		index = gossip_store_add(rstate->broadcasts->gs, msg, 0, NULL);
+		index = gossip_store_add(rstate->gs, msg, 0, NULL);
 	chan->bcast.index = index;
 	return true;
 }

@@ -12,13 +12,13 @@ LIGHTNINGD_GOSSIP_CONTROL_SRC := gossipd/gen_gossip_wire.c
 LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 
 # gossipd needs these:
-LIGHTNINGD_GOSSIP_HEADERS := gossipd/gen_gossip_wire.h \
+LIGHTNINGD_GOSSIP_HEADERS_WSRC := gossipd/gen_gossip_wire.h \
 	gossipd/gen_gossip_peerd_wire.h \
 	gossipd/gen_gossip_store.h			\
 	gossipd/gossip_store.h				\
-	gossipd/routing.h				\
-	gossipd/broadcast.h
-LIGHTNINGD_GOSSIP_SRC := $(LIGHTNINGD_GOSSIP_HEADERS:.h=.c) gossipd/gossipd.c
+	gossipd/routing.h
+LIGHTNINGD_GOSSIP_HEADERS := $(LIGHTNINGD_GOSSIP_HEADERS_WSRC) gossipd/broadcast.h
+LIGHTNINGD_GOSSIP_SRC := $(LIGHTNINGD_GOSSIP_HEADERS_WSRC:.h=.c) gossipd/gossipd.c
 LIGHTNINGD_GOSSIP_OBJS := $(LIGHTNINGD_GOSSIP_SRC:.c=.o)
 
 # Make sure these depend on everything.

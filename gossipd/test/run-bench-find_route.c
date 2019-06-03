@@ -14,7 +14,6 @@
 
 #include "../routing.c"
 #include "../gossip_store.c"
-#include "../broadcast.c"
 
 void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 {
