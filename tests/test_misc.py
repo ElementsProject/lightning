@@ -752,7 +752,6 @@ def test_funding_reorg_private(node_factory, bitcoind):
     # Create a fork that changes short_channel_id from 106x1x0 to 108x1x0
     bitcoind.simple_reorg(106, 2)                   # heights 106-108
     bitcoind.generate_block(1)                      # height 109 (to reach minimum_depth=2 again)
-    l1.daemon.rpcproxy = bitcoind.get_proxy()       # otherwise complains `address already in use`
     l1.start()
 
     # l2 was running, sees last stale block being removed
@@ -776,7 +775,6 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     # may_reconnect so channeld will restart
     opts = {'funding-confirms': 1, 'may_reconnect': True}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
-    l2.may_fail = True                              # mock_rpc causes dev_memleak
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
 
@@ -785,18 +783,15 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     l1.wait_channel_active('103x1x0')
 
     # Make l2 temporary blind for blocks > 107
-    def no_more_blocks():          # although the mock doesn't imitate exitstatus=8, it suffices
-            return {'code': -8, 'message': 'Block height out of range'}
+    def no_more_blocks(req):
+            return {"result": None,
+                    "error": {"code": -8, "message": "Block height out of range"}, "id": req['id']}
 
     l2.daemon.rpcproxy.mock_rpc('getblockhash', no_more_blocks)
 
     # Reorg changes short_channel_id 103x1x0 to 103x2x0, l1 sees it, restarts channeld
     bitcoind.simple_reorg(102, 1)                   # heights 102 - 108
     l1.daemon.wait_for_log(r'Peer transient failure .* short_channel_id changed to 103x2x0 \(was 103x1x0\)')
-
-    # l1 watches at least one more funding confirmation
-    # to depth=7 and sends its announce signature
-    bitcoind.generate_block(1)                      # height 109
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
