@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <ccan/crc/crc.h>
-#include <ccan/endian/endian.h>
 #include <common/gossip_store.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
@@ -19,26 +18,26 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 		return NULL;
 
 	while (!msg) {
-		beint32_t hdr[2];
+		struct gossip_hdr hdr;
 		u32 msglen, checksum;
 		int type;
 
-		if (read(pps->gossip_store_fd, hdr, sizeof(hdr)) != sizeof(hdr)) {
+		if (read(pps->gossip_store_fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
 			per_peer_state_reset_gossip_timer(pps);
 			return NULL;
 		}
 
 		/* Skip any deleted entries. */
-		if (be32_to_cpu(hdr[0]) & GOSSIP_STORE_LEN_DELETED_BIT) {
+		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT) {
 			/* Skip over it. */
 			lseek(pps->gossip_store_fd,
-			      be32_to_cpu(hdr[0]) & ~GOSSIP_STORE_LEN_DELETED_BIT,
+			      be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT,
 			      SEEK_CUR);
 			continue;
 		}
 
-		msglen = be32_to_cpu(hdr[0]);
-		checksum = be32_to_cpu(hdr[1]);
+		msglen = be32_to_cpu(hdr.len);
+		checksum = be32_to_cpu(hdr.crc);
 		msg = tal_arr(ctx, u8, msglen);
 		if (read(pps->gossip_store_fd, msg, msglen) != msglen)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -48,7 +47,7 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 				      (s64)lseek(pps->gossip_store_fd,
 						 0, SEEK_CUR));
 
-		if (checksum != crc32c(0, msg, msglen))
+		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "gossip_store: bad checksum offset %"
 				      PRIi64": %s",
@@ -93,16 +92,16 @@ void gossip_store_switch_fd(struct per_peer_state *pps,
 		cur = 1;
 		while (cur < target) {
 			u32 msglen;
-			beint32_t hdr[2];
+			struct gossip_hdr hdr;
 
-			if (read(newfd, hdr, sizeof(hdr)) != sizeof(hdr))
+			if (read(newfd, &hdr, sizeof(hdr)) != sizeof(hdr))
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
 					      "gossip_store: "
 					      "can't read hdr offset %"PRIu64
 					      " in new store target %"PRIu64,
 					      cur, target);
 			/* Skip over it. */
-			msglen = (be32_to_cpu(hdr[0])
+			msglen = (be32_to_cpu(hdr.len)
 				  & ~GOSSIP_STORE_LEN_DELETED_BIT);
 			cur = lseek(newfd, msglen, SEEK_CUR);
 			num++;

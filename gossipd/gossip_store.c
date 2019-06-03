@@ -50,21 +50,22 @@ static void gossip_store_destroy(struct gossip_store *gs)
 	close(gs->fd);
 }
 
-static bool append_msg(int fd, const u8 *msg, u64 *len)
+static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 {
-	beint32_t hdr[2];
+	struct gossip_hdr hdr;
 	u32 msglen;
 	struct iovec iov[2];
 
 	msglen = tal_count(msg);
-	hdr[0] = cpu_to_be32(msglen);
-	hdr[1] = cpu_to_be32(crc32c(0, msg, msglen));
+	hdr.len = cpu_to_be32(msglen);
+	hdr.crc = cpu_to_be32(crc32c(timestamp, msg, msglen));
+	hdr.timestamp = cpu_to_be32(timestamp);
 
 	if (len)
 		*len += sizeof(hdr) + msglen;
 
 	/* Use writev so it will appear in store atomically */
-	iov[0].iov_base = hdr;
+	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof(hdr);
 	iov[1].iov_base = (void *)msg;
 	iov[1].iov_len = msglen;
@@ -110,21 +111,21 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
 				 int *type)
 {
-	beint32_t hdr[2];
+	struct gossip_hdr hdr;
 	u32 msglen;
 	u8 *msg;
 	const u8 *p;
 	size_t tmplen;
 
 	*type = -1;
-	if (pread(from_fd, hdr, sizeof(hdr), from_off) != sizeof(hdr)) {
+	if (pread(from_fd, &hdr, sizeof(hdr), from_off) != sizeof(hdr)) {
 		status_broken("Failed reading header from to gossip store @%zu"
 			      ": %s",
 			      from_off, strerror(errno));
 		return 0;
 	}
 
-	msglen = be32_to_cpu(hdr[0]);
+	msglen = be32_to_cpu(hdr.len);
 	if (msglen & GOSSIP_STORE_LEN_DELETED_BIT) {
 		status_broken("Can't transfer deleted msg from gossip store @%zu",
 			      from_off);
@@ -133,7 +134,7 @@ static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
 
 	/* FIXME: Reuse buffer? */
 	msg = tal_arr(tmpctx, u8, sizeof(hdr) + msglen);
-	memcpy(msg, hdr, sizeof(hdr));
+	memcpy(msg, &hdr, sizeof(hdr));
 	if (pread(from_fd, msg + sizeof(hdr), msglen, from_off + sizeof(hdr))
 	    != msglen) {
 		status_broken("Failed reading %u from to gossip store @%zu"
@@ -181,7 +182,7 @@ static bool add_local_unnannounced(int in_fd, int out_fd,
 
 		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
 						       &peer->id, c->sat);
-		if (!append_msg(out_fd, msg, len))
+		if (!append_msg(out_fd, msg, 0, len))
 			return false;
 
 		for (size_t i = 0; i < 2; i++) {
@@ -340,6 +341,7 @@ bool gossip_store_maybe_compact(struct gossip_store *gs,
 }
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
+		     u32 timestamp,
 		     const u8 *addendum)
 {
 	u64 off = gs->len;
@@ -347,12 +349,12 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!append_msg(gs->fd, gossip_msg, &gs->len)) {
+	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
 			      strerror(errno));
 		return 0;
 	}
-	if (addendum && !append_msg(gs->fd, addendum, &gs->len)) {
+	if (addendum && !append_msg(gs->fd, addendum, 0, &gs->len)) {
 		status_broken("Failed writing addendum to gossip store: %s",
 			      strerror(errno));
 		return 0;
@@ -367,7 +369,7 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
 	/* A local update for an unannounced channel: not broadcastable, but
 	 * otherwise the same as a normal channel_update */
 	const u8 *pupdate = towire_gossip_store_private_update(tmpctx, update);
-	return gossip_store_add(gs, pupdate, NULL);
+	return gossip_store_add(gs, pupdate, 0, NULL);
 }
 
 void gossip_store_delete(struct gossip_store *gs,
@@ -416,7 +418,7 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset)
 {
-	beint32_t hdr[2];
+	struct gossip_hdr hdr;
 	u32 msglen, checksum;
 	u8 *msg;
 
@@ -424,7 +426,7 @@ const u8 *gossip_store_get(const tal_t *ctx,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store: can't access offset %"PRIu64,
 			      offset);
-	if (pread(gs->fd, hdr, sizeof(hdr), offset) != sizeof(hdr)) {
+	if (pread(gs->fd, &hdr, sizeof(hdr), offset) != sizeof(hdr)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store: can't read hdr offset %"PRIu64
 			      "/%"PRIu64": %s",
@@ -432,15 +434,15 @@ const u8 *gossip_store_get(const tal_t *ctx,
 	}
 
 	/* FIXME: We should skip over these deleted entries! */
-	msglen = be32_to_cpu(hdr[0]) & ~GOSSIP_STORE_LEN_DELETED_BIT;
-	checksum = be32_to_cpu(hdr[1]);
+	msglen = be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT;
+	checksum = be32_to_cpu(hdr.crc);
 	msg = tal_arr(ctx, u8, msglen);
 	if (pread(gs->fd, msg, msglen, offset + sizeof(hdr)) != msglen)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store: can't read len %u offset %"PRIu64
 			      "/%"PRIu64, msglen, offset, gs->len);
 
-	if (checksum != crc32c(0, msg, msglen))
+	if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store: bad checksum offset %"PRIu64": %s",
 			      offset, tal_hex(tmpctx, msg));
@@ -476,7 +478,7 @@ int gossip_store_readonly_fd(struct gossip_store *gs)
 
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
-	beint32_t hdr[2];
+	struct gossip_hdr hdr;
 	u32 msglen, checksum;
 	u8 *msg;
 	struct amount_sat satoshis;
@@ -487,9 +489,9 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	u64 chan_ann_off = 0; /* Spurious gcc-9 (Ubuntu 9-20190402-1ubuntu1) 9.0.1 20190402 (experimental) warning */
 
 	gs->writable = false;
-	while (pread(gs->fd, hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
-		msglen = be32_to_cpu(hdr[0]) & ~GOSSIP_STORE_LEN_DELETED_BIT;
-		checksum = be32_to_cpu(hdr[1]);
+	while (pread(gs->fd, &hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
+		msglen = be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT;
+		checksum = be32_to_cpu(hdr.crc);
 		msg = tal_arr(tmpctx, u8, msglen);
 
 		if (pread(gs->fd, msg, msglen, gs->len+sizeof(hdr)) != msglen) {
@@ -497,13 +499,13 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			goto truncate_nomsg;
 		}
 
-		if (checksum != crc32c(0, msg, msglen)) {
+		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen)) {
 			bad = "Checksum verification failed";
 			goto truncate;
 		}
 
 		/* Skip deleted entries */
-		if (be32_to_cpu(hdr[0]) & GOSSIP_STORE_LEN_DELETED_BIT)
+		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT)
 			goto next;
 
 		switch (fromwire_peektype(msg)) {

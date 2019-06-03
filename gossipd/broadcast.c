@@ -68,11 +68,13 @@ void insert_broadcast(struct broadcast_state **bstate,
 {
 	u32 offset;
 
+	assert(bcast->timestamp);
 	/* If we're loading from the store, we already have index */
 	if (!bcast->index) {
 		u64 idx;
 
 		bcast->index = idx = gossip_store_add((*bstate)->gs, msg,
+						      bcast->timestamp,
 						      addendum);
 		if (!idx)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
