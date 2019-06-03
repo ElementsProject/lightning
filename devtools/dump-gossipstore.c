@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
 {
 	int fd;
 	u8 version;
-	beint32_t belen, becsum;
+	struct gossip_hdr hdr;
 	size_t off;
 
 	setup_locale();
@@ -42,10 +42,9 @@ int main(int argc, char *argv[])
 	printf("GOSSIP VERSION %u\n", version);
 	off = 1;
 
-	while (read(fd, &belen, sizeof(belen)) == sizeof(belen) &&
-	       read(fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
+	while (read(fd, &hdr, sizeof(hdr)) == sizeof(hdr)) {
 		struct amount_sat sat;
-		u32 msglen = be32_to_cpu(belen);
+		u32 msglen = be32_to_cpu(hdr.len);
 		u8 *msg, *inner;
 		bool deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
 
@@ -54,7 +53,8 @@ int main(int argc, char *argv[])
 		if (read(fd, msg, msglen) != msglen)
 			errx(1, "%zu: Truncated file?", off);
 
-		if (be32_to_cpu(becsum) != crc32c(0, msg, msglen))
+		if (be32_to_cpu(hdr.crc)
+		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			warnx("Checksum verification failed");
 
 		if (deleted) {
@@ -63,14 +63,17 @@ int main(int argc, char *argv[])
 			printf("%zu: channel_amount: %s\n", off,
 			       type_to_string(tmpctx, struct amount_sat, &sat));
 		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_ANNOUNCEMENT) {
-			printf("%zu: channel_announcement: %s\n",
-			       off, tal_hex(msg, msg));
+			printf("%zu: t=%u channel_announcement: %s\n",
+			       off, be32_to_cpu(hdr.timestamp),
+			       tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_UPDATE) {
-			printf("%zu: channel_update: %s\n",
-			       off, tal_hex(msg, msg));
+			printf("%zu: t=%u channel_update: %s\n",
+			       off, be32_to_cpu(hdr.timestamp),
+			       tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_NODE_ANNOUNCEMENT) {
-			printf("%zu: node_announcement: %s\n",
-			       off, tal_hex(msg, msg));
+			printf("%zu: t=%u node_announcement: %s\n",
+			       off, be32_to_cpu(hdr.timestamp),
+			       tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL) {
 			printf("%zu: local_add_channel: %s\n",
 			       off, tal_hex(msg, msg));
@@ -82,7 +85,7 @@ int main(int argc, char *argv[])
 			warnx("%zu: Unknown message %u",
 			      off, fromwire_peektype(msg));
 		}
-		off += sizeof(belen) + sizeof(becsum) + msglen;
+		off += sizeof(hdr) + msglen;
 		tal_free(msg);
 	}
 	return 0;

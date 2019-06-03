@@ -2517,7 +2517,7 @@ bool handle_local_add_channel(struct routing_state *rstate,
 	/* Create new (unannounced) channel */
 	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
 	if (!index)
-		index = gossip_store_add(rstate->broadcasts->gs, msg, NULL);
+		index = gossip_store_add(rstate->broadcasts->gs, msg, 0, NULL);
 	chan->bcast.index = index;
 	return true;
 }

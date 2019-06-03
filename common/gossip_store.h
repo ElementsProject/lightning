@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_GOSSIP_STORE_H
 #define LIGHTNING_COMMON_GOSSIP_STORE_H
 #include "config.h"
+#include <ccan/endian/endian.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
@@ -15,6 +16,15 @@ struct per_peer_state;
  * Bit of length we use to mark a deleted record.
  */
 #define GOSSIP_STORE_LEN_DELETED_BIT 0x80000000U
+
+/**
+ * gossip_hdr -- On-disk format header.
+ */
+struct gossip_hdr {
+	beint32_t len; /* Length of message after header. */
+	beint32_t crc; /* crc of message of timestamp, after header. */
+	beint32_t timestamp; /* timestamp of msg. */
+};
 
 /**
  * Direct store accessor: loads gossip msg from store.

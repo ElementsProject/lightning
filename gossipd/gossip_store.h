@@ -35,7 +35,7 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update);
  * Add a gossip message to the gossip_store (and optional addendum)
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     const u8 *addendum);
+		     u32 timestamp, const u8 *addendum);
 
 
 /**
