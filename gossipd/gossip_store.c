@@ -33,8 +33,9 @@ struct gossip_store {
 	u64 len;
 
 	/* Counters for entries in the gossip_store entries. This is used to
-	 * decide whether we should rewrite the on-disk store or not */
-	size_t count;
+	 * decide whether we should rewrite the on-disk store or not.
+	 * Note: count includes deleted. */
+	size_t count, deleted;
 
 	/* Handle to the routing_state to retrieve additional information,
 	 * should it be needed */
@@ -75,7 +76,7 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 struct gossip_store *gossip_store_new(struct routing_state *rstate)
 {
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
-	gs->count = 0;
+	gs->count = gs->deleted = 0;
 	gs->writable = true;
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 	gs->rstate = rstate;
@@ -161,13 +162,10 @@ static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
 
 /* Local unannounced channels don't appear in broadcast map, but we need to
  * remember them anyway, so we manually append to the store.
- *
- * Note these do *not* add to gs->count, since that's compared with
- * the broadcast map count.
-*/
+ */
 static bool add_local_unnannounced(int in_fd, int out_fd,
 				   struct node *self,
-				   u64 *len)
+				   u64 *len, size_t *count)
 {
 	struct chan_map_iter i;
 	struct chan *c;
@@ -184,6 +182,7 @@ static bool add_local_unnannounced(int in_fd, int out_fd,
 						       &peer->id, c->sat);
 		if (!append_msg(out_fd, msg, 0, len))
 			return false;
+		(*count)++;
 
 		for (size_t i = 0; i < 2; i++) {
 			size_t len_with_header;
@@ -202,6 +201,7 @@ static bool add_local_unnannounced(int in_fd, int out_fd,
 			c->half[i].bcast.index = *len;
 
 			*len += len_with_header;
+			(*count)++;
 		}
 	}
 
@@ -236,7 +236,7 @@ bool gossip_store_compact(struct gossip_store *gs,
 	assert(oldb);
 	status_trace(
 	    "Compacting gossip_store with %zu entries, %zu of which are stale",
-	    gs->count, gs->count - oldb->count);
+	    gs->count, gs->deleted);
 
 	newb = new_broadcast_state(gs->rstate, gs, oldb->peers);
 	fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
@@ -281,15 +281,21 @@ bool gossip_store_compact(struct gossip_store *gs,
 				goto unlink_disable;
 			}
 			len += msg_len;
-			/* This amount field doesn't add to count. */
+			count++;
 		}
 	}
 
 	/* Local unannounced channels are not in the store! */
 	self = get_node(gs->rstate, &gs->rstate->local_id);
-	if (self && !add_local_unnannounced(gs->fd, fd, self, &len)) {
+	if (self && !add_local_unnannounced(gs->fd, fd, self, &len, &count)) {
 		status_broken("Failed writing unannounced to gossip store: %s",
 			      strerror(errno));
+		goto unlink_disable;
+	}
+
+	if (count != gs->count - gs->deleted) {
+		status_broken("Expected %zu msgs in new gossip store, got %zu",
+			      gs->count - gs->deleted, count);
 		goto unlink_disable;
 	}
 
@@ -302,8 +308,9 @@ bool gossip_store_compact(struct gossip_store *gs,
 
 	status_trace(
 	    "Compaction completed: dropped %zu messages, new count %zu, len %"PRIu64,
-	    gs->count - count, count, len);
+	    gs->deleted, count, len);
 	gs->count = count;
+	gs->deleted = 0;
 	*offset = gs->len - len;
 	gs->len = len;
 	close(gs->fd);
@@ -334,7 +341,7 @@ bool gossip_store_maybe_compact(struct gossip_store *gs,
 		return false;
 	if (gs->count < 1000)
 		return false;
-	if (gs->count < (*bs)->count * 1.25)
+	if (gs->deleted < gs->count / 4)
 		return false;
 
 	return gossip_store_compact(gs, bs, offset);
@@ -361,6 +368,8 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 	}
 
 	gs->count++;
+	if (addendum)
+		gs->count++;
 	return off;
 }
 
@@ -412,6 +421,7 @@ void gossip_store_delete(struct gossip_store *gs,
 			      "Failed writing len to delete @%u: %s",
 			      bcast->index, strerror(errno));
 	fcntl(gs->fd, F_SETFL, flags);
+	gs->deleted++;
 }
 
 const u8 *gossip_store_get(const tal_t *ctx,
@@ -505,8 +515,10 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		}
 
 		/* Skip deleted entries */
-		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT)
+		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT) {
+			gs->deleted++;
 			goto next;
+		}
 
 		switch (fromwire_peektype(msg)) {
 		case WIRE_GOSSIP_STORE_CHANNEL_AMOUNT:
@@ -570,8 +582,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			goto truncate;
 		}
 
-		if (fromwire_peektype(msg) != WIRE_GOSSIP_STORE_CHANNEL_AMOUNT)
-			gs->count++;
+		gs->count++;
 	next:
 		gs->len += sizeof(hdr) + msglen;
 		clean_tmpctx();
@@ -592,8 +603,8 @@ truncate_nomsg:
 out:
 	status_trace("total store load time: %"PRIu64" msec",
 		     time_to_msec(time_between(time_now(), start)));
-	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store in %"PRIu64" bytes",
-		     stats[0], stats[1], stats[2], stats[3],
+	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store (%zu deleted) in %"PRIu64" bytes",
+		     stats[0], stats[1], stats[2], stats[3], gs->deleted,
 		     gs->len);
 	gs->writable = true;
 }
