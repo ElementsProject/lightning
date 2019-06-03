@@ -106,95 +106,6 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 	return gs;
 }
 
-/* Copy a whole message from one gossip_store to another.  Returns
- * total msg length including header, or 0 on error. */
-static size_t copy_message(int in_fd, int out_fd, unsigned offset)
-{
-	beint32_t belen, becsum;
-	u32 msglen;
-	u8 *msg;
-
-	/* FIXME: optimize both read and allocation */
-	if (lseek(in_fd, offset, SEEK_SET) < 0
-	    || read(in_fd, &belen, sizeof(belen)) != sizeof(belen)
-	    || read(in_fd, &becsum, sizeof(becsum)) != sizeof(becsum)) {
-		status_broken("Failed reading header from to gossip store @%u"
-			      ": %s",
-			      offset, strerror(errno));
-		return 0;
-	}
-
-	msglen = be32_to_cpu(belen);
-	msg = tal_arr(NULL, u8, sizeof(belen) + sizeof(becsum) + msglen);
-	memcpy(msg, &belen, sizeof(belen));
-	memcpy(msg + sizeof(belen), &becsum, sizeof(becsum));
-	if (read(in_fd, msg + sizeof(belen) + sizeof(becsum), msglen)
-	    != msglen) {
-		status_broken("Failed reading %u from to gossip store @%u"
-			      ": %s",
-			      msglen, offset, strerror(errno));
-		tal_free(msg);
-		return 0;
-	}
-
-	if (write(out_fd, msg, msglen + sizeof(belen) + sizeof(becsum))
-	    != msglen + sizeof(belen) + sizeof(becsum)) {
-		status_broken("Failed writing to gossip store: %s",
-			      strerror(errno));
-		tal_free(msg);
-		return 0;
-	}
-
-	tal_free(msg);
-	return msglen + sizeof(belen) + sizeof(becsum);
-}
-
-/* Local unannounced channels don't appear in broadcast map, but we need to
- * remember them anyway, so we manually append to the store.
- *
- * Note these do *not* add to gs->count, since that's compared with
- * the broadcast map count.
-*/
-static bool add_local_unnannounced(int in_fd, int out_fd,
-				   struct node *self,
-				   u64 *len)
-{
-	struct chan_map_iter i;
-	struct chan *c;
-
-	for (c = first_chan(self, &i); c; c = next_chan(self, &i)) {
-		struct node *peer = other_node(self, c);
-		const u8 *msg;
-
-		/* Ignore already announced. */
-		if (is_chan_public(c))
-			continue;
-
-		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
-						       &peer->id, c->sat);
-		if (!append_msg(out_fd, msg, len))
-			return false;
-
-		for (size_t i = 0; i < 2; i++) {
-			size_t len_with_header;
-
-			if (!is_halfchan_defined(&c->half[i]))
-				continue;
-
-			len_with_header = copy_message(in_fd, out_fd,
-						       c->half[i].bcast.index);
-			if (!len_with_header)
-				return false;
-
-			c->half[i].bcast.index = *len;
-
-			*len += len_with_header;
-		}
-	}
-
-	return true;
-}
-
 /* Returns bytes transferred, or 0 on error */
 static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
 				 int *type)
@@ -245,6 +156,55 @@ static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
 		*type = -1;
 	tal_free(msg);
 	return sizeof(hdr) + msglen;
+}
+
+/* Local unannounced channels don't appear in broadcast map, but we need to
+ * remember them anyway, so we manually append to the store.
+ *
+ * Note these do *not* add to gs->count, since that's compared with
+ * the broadcast map count.
+*/
+static bool add_local_unnannounced(int in_fd, int out_fd,
+				   struct node *self,
+				   u64 *len)
+{
+	struct chan_map_iter i;
+	struct chan *c;
+
+	for (c = first_chan(self, &i); c; c = next_chan(self, &i)) {
+		struct node *peer = other_node(self, c);
+		const u8 *msg;
+
+		/* Ignore already announced. */
+		if (is_chan_public(c))
+			continue;
+
+		msg = towire_gossipd_local_add_channel(tmpctx, &c->scid,
+						       &peer->id, c->sat);
+		if (!append_msg(out_fd, msg, len))
+			return false;
+
+		for (size_t i = 0; i < 2; i++) {
+			size_t len_with_header;
+			int type;
+
+			if (!is_halfchan_defined(&c->half[i]))
+				continue;
+
+			len_with_header = transfer_store_msg(in_fd,
+							     c->half[i].bcast.index,
+							     out_fd,
+							     &type);
+			if (!len_with_header)
+				return false;
+
+			c->half[i].bcast.index = *len;
+
+			*len += len_with_header;
+		}
+	}
+
+	return true;
 }
 
 /**
