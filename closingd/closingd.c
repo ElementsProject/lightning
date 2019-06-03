@@ -101,13 +101,7 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
 					       cs, &from_gossipd);
 		if (from_gossipd) {
-			if (fromwire_gossipd_new_store_fd(msg)) {
-				tal_free(msg);
-				new_gossip_store(GOSSIP_STORE_FD,
-						 fdpass_recv(GOSSIP_FD));
-				continue;
-			}
-			handle_gossip_msg(PEER_FD, GOSSIP_STORE_FD,
+			handle_gossip_msg(PEER_FD, GOSSIP_FD, GOSSIP_STORE_FD,
 					  cs, take(msg));
 			continue;
 		}

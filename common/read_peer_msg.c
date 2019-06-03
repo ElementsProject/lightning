@@ -1,3 +1,4 @@
+#include <ccan/fdpass/fdpass.h>
 #include <common/crypto_sync.h>
 #include <common/gossip_store.h>
 #include <common/peer_failed.h>
@@ -82,13 +83,25 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 	return !channel_id_eq(expected, actual);
 }
 
-void handle_gossip_msg(int peer_fd, int gossip_store_fd,
+static void new_gossip_store(int gossip_store_fd, int new_gossip_store_fd)
+{
+	if (dup2(new_gossip_store_fd, gossip_store_fd) == -1)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not dup2 new fd %i onto %i: %s",
+			      new_gossip_store_fd, gossip_store_fd,
+			      strerror(errno));
+}
+
+void handle_gossip_msg(int peer_fd, int gossip_fd, int gossip_store_fd,
 		       struct crypto_state *cs, const u8 *msg TAKES)
 {
 	u8 *gossip;
 	u64 offset;
 
-	if (fromwire_gossipd_send_gossip_from_store(msg, &offset))
+	if (fromwire_gossipd_new_store_fd(msg)) {
+		new_gossip_store(gossip_store_fd, fdpass_recv(gossip_fd));
+		goto out;
+	} else if (fromwire_gossipd_send_gossip_from_store(msg, &offset))
 		gossip = gossip_store_read(tmpctx, gossip_store_fd, offset);
 	else if (!fromwire_gossipd_send_gossip(tmpctx, msg, &gossip)) {
 		status_broken("Got bad message from gossipd: %s",
@@ -108,6 +121,8 @@ void handle_gossip_msg(int peer_fd, int gossip_store_fd,
 			      tal_hex(msg, msg));
 		peer_failed_connection_lost();
 	}
+
+out:
 	if (taken(msg))
 		tal_free(msg);
 }
@@ -157,13 +172,4 @@ handled:
 	if (taken(msg))
 		tal_free(msg);
 	return true;
-}
-
-void new_gossip_store(int gossip_store_fd, int new_gossip_store_fd)
-{
-	if (dup2(new_gossip_store_fd, gossip_store_fd) == -1)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not dup2 new fd %i onto %i: %s",
-			      new_gossip_store_fd, gossip_store_fd,
-			      strerror(errno));
 }
