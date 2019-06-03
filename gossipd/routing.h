@@ -4,6 +4,7 @@
 #include <bitcoin/pubkey.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
+#include <ccan/intmap/intmap.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/node_id.h>
@@ -12,6 +13,8 @@
 #include <gossipd/gossip_store.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire.h>
+
+struct routing_state;
 
 struct half_chan {
 	/* millisatoshi. */
@@ -218,8 +221,8 @@ struct routing_state {
 	/* channel_announcement which are pending short_channel_id lookup */
 	struct pending_cannouncement_map pending_cannouncements;
 
-	/* Broadcast map, and access to gossip store */
-	struct broadcast_state *broadcasts;
+	/* Gossip store */
+	struct gossip_store *gs;
 
 	/* Our own ID so we can identify local channels */
 	struct node_id local_id;
@@ -429,4 +432,5 @@ struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser);
 /* Remove channel from store: announcement and any updates. */
 void remove_channel_from_store(struct routing_state *rstate,
 			       struct chan *chan);
+
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */

@@ -41,6 +41,9 @@ struct gossip_store {
 	 * should it be needed */
 	struct routing_state *rstate;
 
+	/* This is daemon->peers for handling to update_peers_broadcast_index */
+	struct list_head *peers;
+
 	/* Disable compaction if we encounter an error during a prior
 	 * compaction */
 	bool disable_compaction;
@@ -73,7 +76,8 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 	return writev(fd, iov, ARRAY_SIZE(iov)) == sizeof(hdr) + msglen;
 }
 
-struct gossip_store *gossip_store_new(struct routing_state *rstate)
+struct gossip_store *gossip_store_new(struct routing_state *rstate,
+				      struct list_head *peers)
 {
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
 	gs->count = gs->deleted = 0;
@@ -82,6 +86,7 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 	gs->rstate = rstate;
 	gs->disable_compaction = false;
 	gs->len = sizeof(gs->version);
+	gs->peers = peers;
 
 	tal_add_destructor(gs, gossip_store_destroy);
 
@@ -184,8 +189,6 @@ HTABLE_DEFINE_TYPE(struct offset_map,
 		   offset_map_key, hash_offset, offset_map_eq, offmap);
 
 static void move_broadcast(struct offmap *offmap,
-			   struct broadcast_state *oldb,
-			   struct broadcast_state *newb,
 			   struct broadcastable *bcast,
 			   const char *what)
 {
@@ -199,9 +202,7 @@ static void move_broadcast(struct offmap *offmap,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not relocate %s at offset %u",
 			      what, bcast->index);
-	broadcast_del(oldb, bcast);
 	bcast->index = omap->to;
-	insert_broadcast_nostore(newb, bcast);
 	offmap_del(offmap, omap);
 }
 
@@ -215,19 +216,12 @@ static void destroy_offmap(struct offmap *offmap)
  *
  * Creates a new file, writes all the updates from the `broadcast_state`, and
  * then atomically swaps the files.
- *
- * Returns the amount of shrinkage in @offset on success, otherwise @offset
- * is unchanged.
  */
-bool gossip_store_compact(struct gossip_store *gs,
-			  struct broadcast_state **bs,
-			  u32 *offset)
+bool gossip_store_compact(struct gossip_store *gs)
 {
 	size_t count = 0, deleted = 0;
 	int fd;
 	u64 off, len = sizeof(gs->version), idx;
-	struct broadcast_state *oldb = *bs;
-	struct broadcast_state *newb;
 	struct offmap *offmap;
 	struct gossip_hdr hdr;
 	struct offmap_iter oit;
@@ -237,7 +231,6 @@ bool gossip_store_compact(struct gossip_store *gs,
 	if (gs->disable_compaction)
 		return false;
 
-	assert(oldb);
 	status_trace(
 	    "Compacting gossip_store with %zu entries, %zu of which are stale",
 	    gs->count, gs->deleted);
@@ -294,26 +287,21 @@ bool gossip_store_compact(struct gossip_store *gs,
 		off += wlen;
 	}
 
-	/* OK, now we've written file successfully, we can remap broadcast. */
-	newb = new_broadcast_state(gs->rstate, gs, oldb->peers);
-
+	/* OK, now we've written file successfully, we can move broadcasts. */
 	/* Remap node announcements. */
 	for (struct node *n = node_map_first(gs->rstate->nodes, &nit);
 	     n;
 	     n = node_map_next(gs->rstate->nodes, &nit)) {
-		move_broadcast(offmap, oldb, newb, &n->bcast, "node_announce");
+		move_broadcast(offmap, &n->bcast, "node_announce");
 	}
 
 	/* Remap channel announcements and updates */
 	for (struct chan *c = uintmap_first(&gs->rstate->chanmap, &idx);
 	     c;
 	     c = uintmap_after(&gs->rstate->chanmap, &idx)) {
-		move_broadcast(offmap, oldb, newb, &c->bcast,
-			       "channel_announce");
-		move_broadcast(offmap, oldb, newb, &c->half[0].bcast,
-			       "channel_update");
-		move_broadcast(offmap, oldb, newb, &c->half[1].bcast,
-			       "channel_update");
+		move_broadcast(offmap, &c->bcast, "channel_announce");
+		move_broadcast(offmap, &c->half[0].bcast, "channel_update");
+		move_broadcast(offmap, &c->half[1].bcast, "channel_update");
 	}
 
 	/* That should be everything. */
@@ -347,13 +335,12 @@ bool gossip_store_compact(struct gossip_store *gs,
 	    deleted, count, len);
 	gs->count = count;
 	gs->deleted = 0;
-	*offset = gs->len - len;
+	off = gs->len - len;
 	gs->len = len;
 	close(gs->fd);
 	gs->fd = fd;
 
-	tal_free(oldb);
-	*bs = newb;
+	update_peers_broadcast_index(gs->peers, off);
 	return true;
 
 unlink_disable:
@@ -362,25 +349,20 @@ disable:
 	status_trace("Encountered an error while compacting, disabling "
 		     "future compactions.");
 	gs->disable_compaction = true;
-	tal_free(newb);
 	return false;
 }
 
-bool gossip_store_maybe_compact(struct gossip_store *gs,
-				struct broadcast_state **bs,
-				u32 *offset)
+static void gossip_store_maybe_compact(struct gossip_store *gs)
 {
-	*offset = 0;
-
 	/* Don't compact while loading! */
 	if (!gs->writable)
-		return false;
+		return;
 	if (gs->count < 1000)
-		return false;
+		return;
 	if (gs->deleted < gs->count / 4)
-		return false;
+		return;
 
-	return gossip_store_compact(gs, bs, offset);
+	gossip_store_compact(gs);
 }
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
@@ -458,6 +440,11 @@ void gossip_store_delete(struct gossip_store *gs,
 			      bcast->index, strerror(errno));
 	fcntl(gs->fd, F_SETFL, flags);
 	gs->deleted++;
+
+	/* Reset index. */
+	bcast->index = 0;
+
+	gossip_store_maybe_compact(gs);
 }
 
 const u8 *gossip_store_get(const tal_t *ctx,

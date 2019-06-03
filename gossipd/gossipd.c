@@ -220,7 +220,7 @@ static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 static void queue_peer_from_store(struct peer *peer,
 				  const struct broadcastable *bcast)
 {
-	struct gossip_store *gs = peer->daemon->rstate->broadcasts->gs;
+	struct gossip_store *gs = peer->daemon->rstate->gs;
 	queue_peer_msg(peer, take(gossip_store_get(NULL, gs, bcast->index)));
 }
 
@@ -421,8 +421,7 @@ static bool get_node_announcement(const tal_t *ctx,
 	if (!n->bcast.index)
 		return false;
 
-	msg = gossip_store_get(tmpctx, daemon->rstate->broadcasts->gs,
-			       n->bcast.index);
+	msg = gossip_store_get(tmpctx, daemon->rstate->gs, n->bcast.index);
 
 	/* Note: validity of node_id is already checked. */
 	if (!fromwire_node_announcement(ctx, msg,
@@ -631,7 +630,7 @@ void update_peers_broadcast_index(struct list_head *peers, u32 offset)
 		 * new store.  We also tell them how much this is shrunk, so
 		 * they can (approximately) tell where to start in the new store.
 		 */
-		gs_fd = gossip_store_readonly_fd(peer->daemon->rstate->broadcasts->gs);
+		gs_fd = gossip_store_readonly_fd(peer->daemon->rstate->gs);
 		if (gs_fd < 0) {
 			status_broken("Can't get read-only gossip store fd:"
 				      " killing peer");
@@ -1357,7 +1356,7 @@ static bool handle_get_update(struct peer *peer, const u8 *msg)
 	if (!is_halfchan_defined(&chan->half[direction]))
 		update = NULL;
 	else
-		update = gossip_store_get(tmpctx, rstate->broadcasts->gs,
+		update = gossip_store_get(tmpctx, rstate->gs,
 					  chan->half[direction].bcast.index);
 out:
 	status_trace("peer %s schanid %s: %s update",
@@ -1591,7 +1590,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	gossip_store_fd = gossip_store_readonly_fd(daemon->rstate->broadcasts->gs);;
+	gossip_store_fd = gossip_store_readonly_fd(daemon->rstate->gs);;
 	if (gossip_store_fd < 0) {
 		status_broken("Failed to get readonly store fd: %s",
 			      strerror(errno));
@@ -1860,7 +1859,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   dev_gossip_time);
 
 	/* Load stored gossip messages */
-	gossip_store_load(daemon->rstate, daemon->rstate->broadcasts->gs);
+	gossip_store_load(daemon->rstate, daemon->rstate->gs);
 
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
@@ -2484,14 +2483,7 @@ static struct io_plan *dev_compact_store(struct io_conn *conn,
 					 struct daemon *daemon,
 					 const u8 *msg)
 {
-	u32 offset;
-	bool done = gossip_store_compact(daemon->rstate->broadcasts->gs,
-					 &daemon->rstate->broadcasts,
-					 &offset);
-
-	/* Peers keep an offset into where they are with gossip. */
-	if (done)
-		update_peers_broadcast_index(&daemon->peers, offset);
+	bool done = gossip_store_compact(daemon->rstate->gs);
 
 	daemon_conn_send(daemon->master,
 			 take(towire_gossip_dev_compact_store_reply(NULL,

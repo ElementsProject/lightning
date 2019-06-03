@@ -12,11 +12,11 @@
  * gossip_store -- On-disk storage related information
  */
 
-struct broadcast_state;
 struct gossip_store;
 struct routing_state;
 
-struct gossip_store *gossip_store_new(struct routing_state *rstate);
+struct gossip_store *gossip_store_new(struct routing_state *rstate,
+				      struct list_head *peers);
 
 /**
  * Load the initial gossip store, if any.
@@ -65,23 +65,8 @@ const u8 *gossip_store_get_private_update(const tal_t *ctx,
 					  struct gossip_store *gs,
 					  u64 offset);
 
-/**
- * If we need to compact the gossip store, do so.
- * @gs: the gossip store.
- * @bs: a pointer to the broadcast state: replaced if we compact it.
- * @offset: the change in the store, if any.
- *
- * If return value is true, caller must update peers.
- */
-bool gossip_store_maybe_compact(struct gossip_store *gs,
-				struct broadcast_state **bs,
-				u32 *offset);
-
-
-/* Expose for dev-compact-gossip-store to force compaction. */
-bool gossip_store_compact(struct gossip_store *gs,
-			  struct broadcast_state **bs,
-			  u32 *offset);
+/* Exposed for dev-compact-gossip-store to force compaction. */
+bool gossip_store_compact(struct gossip_store *gs);
 
 /**
  * Get a readonly fd for the gossip_store.
@@ -90,5 +75,8 @@ bool gossip_store_compact(struct gossip_store *gs,
  * Returns -1 on failure, and sets errno.
  */
 int gossip_store_readonly_fd(struct gossip_store *gs);
+
+/* Callback inside gossipd when store is compacted */
+void update_peers_broadcast_index(struct list_head *peers, u32 offset);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */
