@@ -338,7 +338,9 @@ static bool get_gossipfds(struct daemon *daemon,
 struct peer_reconnected {
 	struct daemon *daemon;
 	struct node_id id;
-	const u8 *peer_connected_msg;
+	struct wireaddr_internal addr;
+	struct crypto_state cs;
+	const u8 *globalfeatures;
 	const u8 *localfeatures;
 };
 
@@ -356,8 +358,8 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 
 	/*~ Usually the pattern is to return this directly, but we have to free
 	 * our temporary structure. */
-	plan = peer_connected(conn, pr->daemon, &pr->id,
-			      take(pr->peer_connected_msg),
+	plan = peer_connected(conn, pr->daemon, &pr->id, &pr->addr, &pr->cs,
+			      take(pr->globalfeatures),
 			      take(pr->localfeatures));
 	tal_free(pr);
 	return plan;
@@ -368,7 +370,9 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 static struct io_plan *peer_reconnected(struct io_conn *conn,
 					struct daemon *daemon,
 					const struct node_id *id,
-					const u8 *peer_connected_msg TAKES,
+					const struct wireaddr_internal *addr,
+					const struct crypto_state *cs,
+					const u8 *globalfeatures TAKES,
 					const u8 *localfeatures TAKES)
 {
 	u8 *msg;
@@ -385,13 +389,14 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	pr = tal(daemon, struct peer_reconnected);
 	pr->daemon = daemon;
 	pr->id = *id;
+	pr->cs = *cs;
+	pr->addr = *addr;
 
 	/*~ Note that tal_dup_arr() will do handle the take() of
-	 * peer_connected_msg and localfeatures (turning it into a simply
+	 * globalfeatures and localfeatures (turning it into a simply
 	 * tal_steal() in those cases). */
-	pr->peer_connected_msg
-		= tal_dup_arr(pr, u8, peer_connected_msg,
-			      tal_count(peer_connected_msg), 0);
+	pr->globalfeatures
+		= tal_dup_arr(pr, u8, globalfeatures, tal_count(globalfeatures), 0);
 	pr->localfeatures
 		= tal_dup_arr(pr, u8, localfeatures, tal_count(localfeatures), 0);
 
@@ -411,19 +416,24 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
 			       const struct node_id *id,
-			       const u8 *peer_connected_msg TAKES,
+			       const struct wireaddr_internal *addr,
+			       const struct crypto_state *cs,
+			       const u8 *globalfeatures TAKES,
 			       const u8 *localfeatures TAKES)
 {
+	u8 *msg;
 	int gossip_fd, gossip_store_fd;
 
 	if (node_set_get(&daemon->peers, id))
-		return peer_reconnected(conn, daemon, id, peer_connected_msg,
-					localfeatures);
+		return peer_reconnected(conn, daemon, id, addr, cs,
+					globalfeatures, localfeatures);
 
 	/* We've successfully connected. */
 	connected_to_peer(daemon, conn, id);
 
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
+	if (taken(globalfeatures))
+		tal_steal(tmpctx, globalfeatures);
 	if (taken(localfeatures))
 		tal_steal(tmpctx, localfeatures);
 
@@ -431,10 +441,14 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	if (!get_gossipfds(daemon, id, localfeatures, &gossip_fd, &gossip_store_fd))
 		return io_close(conn);
 
+	/* Create message to tell master peer has connected. */
+	msg = towire_connect_peer_connected(NULL, id, addr, cs,
+					    globalfeatures, localfeatures);
+
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
 	 * we have connected, and give the the peer and gossip fds. */
-	daemon_conn_send(daemon->master, peer_connected_msg);
+	daemon_conn_send(daemon->master, take(msg));
 	/* io_conn_fd() extracts the fd from ccan/io's io_conn */
 	daemon_conn_send_fd(daemon->master, io_conn_fd(conn));
 	daemon_conn_send_fd(daemon->master, gossip_fd);
