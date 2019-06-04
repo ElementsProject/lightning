@@ -9,7 +9,8 @@ Here's a checklist for the release process.
 2. Create a milestone for the *next* release, and go though issues and PR
    and mark accordingly.
 3. Ask the most significant contributor who has not already named a
-   release to name the release.  CC previous namers and team.
+   release to name the release (use devtools/credit).  CC previous namers
+   and team.
 
 ### Prepering for -rc1
 
@@ -25,7 +26,7 @@ Here's a checklist for the release process.
 1. Merge the PR above.
 2. Tag it `git pull && git tag -s v<VERSION>rc1 && git push --tags`
 3. Update the /topic on #c-lightning on Freenode.
-4. Prepare draft release notes, and share with team for editing.
+4. Prepare draft release notes (see devtools/credit), and share with team for editing.
 5. Upgrade your personal nodes to the rc1, to help testing.
 
 ### Tagging the Release
