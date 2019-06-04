@@ -1380,6 +1380,10 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     assert only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['connected']
     assert only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['connected']
 
+    # TODO Remove our reliance on HTLCs failing on startup and the need for
+    #      this plugin
+    l4.daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
+
     # Restarting tail node will stop it ignoring HTLCs (it will actually
     # fail them immediately).
     l4.restart()
