@@ -168,7 +168,7 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 
 	errmsg = tal_fmt(pc, "Gave up after %zu attempts",
 			 tal_count(pc->ps->attempts));
-	data = tal_strdup(pc, "'attempts': [ ");
+	data = tal_strdup(pc, "{ 'attempts': [ ");
 	for (size_t i = 0; i < tal_count(pc->ps->attempts); i++) {
 		if (pc->ps->attempts[i].route)
 			tal_append_fmt(&data, "%s { 'route': %s,\n 'failure': %s\n }",
@@ -180,7 +180,7 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 				       i == 0 ? "" : ",",
 				       pc->ps->attempts[i].failure);
 	}
-	tal_append_fmt(&data, "]");
+	tal_append_fmt(&data, "] }");
 	return command_done_err(cmd, PAY_STOPPED_RETRYING, errmsg, data);
 }
 
