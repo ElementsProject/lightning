@@ -320,7 +320,19 @@ class BitcoinD(TailableProc):
         proxy.start()
         return proxy
 
-    def generate_block(self, numblocks=1):
+    # wait_for_mempool can be used to wait for the mempool before generating blocks:
+    # True := wait for at least 1 transation
+    # int > 0 := wait for at least N transactions
+    # 'tx_id' := wait for one transaction id given as a string
+    # ['tx_id1', 'tx_id2'] := wait until all of the specified transaction IDs
+    def generate_block(self, numblocks=1, wait_for_mempool=0):
+        if wait_for_mempool:
+            if isinstance(wait_for_mempool, str):
+                wait_for_mempool = [wait_for_mempool]
+            if isinstance(wait_for_mempool, list):
+                wait_for(lambda: all(txid in self.rpc.getrawmempool() for txid in wait_for_mempool))
+            else:
+                wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
         # As of 0.16, generate() is removed; use generatetoaddress.
         return self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
 
