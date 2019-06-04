@@ -54,6 +54,7 @@ changes.
 - Fixed `fundchannel` crash when we have many UTXOs and we skip unconfirmed ones.
 - lightningd: fixed occasional hang on `connect` when peer had sent error.
 - JSON RPC: `decodeinvoice` and `pay` now handle unknown invoice fields properly.
+- JSON API: `waitsendpay` (PAY_STOPPED_RETRYING) error handler now returns valid JSON
 
 ### Security
 
