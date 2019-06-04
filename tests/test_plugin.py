@@ -299,9 +299,9 @@ def test_openchannel_hook(node_factory, bitcoind):
 
     # Get some funds.
     addr = l1.rpc.newaddr()['bech32']
-    bitcoind.rpc.sendtoaddress(addr, 10)
+    txid = bitcoind.rpc.sendtoaddress(addr, 10)
     numfunds = len(l1.rpc.listfunds()['outputs'])
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, txid)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > numfunds)
 
     # Even amount: works.
@@ -322,9 +322,8 @@ def test_openchannel_hook(node_factory, bitcoind):
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py to_self_delay=5')
 
     # Close it.
-    l1.rpc.close(l2.info['id'])
-    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
-    bitcoind.generate_block(1)
+    txid = l1.rpc.close(l2.info['id'])['txid']
+    bitcoind.generate_block(1, txid)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']] == ['ONCHAIN'])
 
     # Odd amount: fails

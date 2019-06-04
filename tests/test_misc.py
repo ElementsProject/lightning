@@ -992,7 +992,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
         'CHANNELD_NORMAL:Funding transaction locked. Channel announced.'])
 
     l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, True)
     l1.daemon.wait_for_log(r'Deleting channel')
     l2.daemon.wait_for_log(r'Deleting channel')
 
