@@ -362,7 +362,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 1. [0.1] - 2015-08-08: "MtGox's Cold Wallet" (named by Rusty Russell)
 2. [0.2] - 2016-01-22: "Butterfly Labs' Timely Delivery" (named by Anthony Towns)
 3. [0.3] - 2016-05-25: "Nakamoto's Genesis Coins" (named by Braydon Fuller)
-4. [0.4] - 2016-08-19: "Wright's Cryptographic Proof" (named by Chrstian Decker)
+4. [0.4] - 2016-08-19: "Wright's Cryptographic Proof" (named by Christian Decker)
 5. [0.5] - 2016-10-19: "Bitcoin Savings & Trust Daily Interest" (named by Glenn Willen)
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
