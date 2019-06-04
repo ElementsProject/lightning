@@ -127,7 +127,9 @@ def test_plugin_hook(node_factory, executor):
     assert(end_time >= start_time + 20)
 
 
-def test_plugin_notifications(node_factory):
+def test_plugin_connect_notifications(node_factory):
+    """ test 'connect' and 'disconnect' notifications
+    """
     l1, l2 = node_factory.get_nodes(2, opts={'plugin': 'contrib/plugins/helloworld.py'})
 
     l1.connect(l2)
@@ -418,3 +420,34 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     l2.restart()
 
     f1.result()
+
+
+def test_warning_notification(node_factory):
+    """ test 'warning' notifications
+    """
+    l1 = node_factory.get_node(options={'plugin': 'tests/plugins/pretend_badlog.py'})
+
+    # 1. test 'warn' level
+    event = "Test warning notification(for unusual event)"
+    l1.rpc.call('pretendbad', {'event': event, 'level': 'warn'})
+
+    # ensure an unusual log_entry was produced by 'pretendunusual' method
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py Test warning notification\\(for unusual event\\)')
+
+    # now wait for notification
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py Received warning')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py level: warn')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py time: *')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py source: plugin-pretend_badlog.py')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py log: Test warning notification\\(for unusual event\\)')
+
+    # 2. test 'error' level, steps like above
+    event = "Test warning notification(for broken event)"
+    l1.rpc.call('pretendbad', {'event': event, 'level': 'error'})
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py Test warning notification\\(for broken event\\)')
+
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py Received warning')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py level: error')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py time: *')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py source: plugin-pretend_badlog.py')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py log: Test warning notification\\(for broken event\\)')
