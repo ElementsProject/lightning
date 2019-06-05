@@ -54,6 +54,9 @@ struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct pubkey **pubkey);
 
+struct command_result *param_txid(struct command *cmd, const char *name,
+				  const char *buffer, const jsmntok_t *tok,
+				  struct bitcoin_txid **txid);
 /* Makes sure *id is valid. */
 struct command_result *param_node_id(struct command *cmd,
 					       const char *name,

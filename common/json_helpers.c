@@ -68,3 +68,10 @@ bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
 					  tok->end - tok->start, scid,
 					  may_be_deprecated_form));
 }
+
+bool json_to_txid(const char *buffer, const jsmntok_t *tok,
+		  struct bitcoin_txid *txid)
+{
+	return bitcoin_txid_from_hex(buffer + tok->start,
+				     tok->end - tok->start, txid);
+}
