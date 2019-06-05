@@ -10,11 +10,12 @@
 
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct utxo **utxos,
-			       u8 *destination,
+			       const u8 *destination,
 			       struct amount_sat withdraw_amount,
 			       const struct pubkey *changekey,
 			       struct amount_sat change,
-			       const struct ext_key *bip32_base)
+			       const struct ext_key *bip32_base,
+			       int *change_outnum)
 {
 	struct bitcoin_tx *tx;
 
@@ -30,7 +31,10 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 		bitcoin_tx_add_output(tx, scriptpubkey_p2wpkh(tx, changekey),
 				      &change);
 		permute_outputs(tx, NULL, map);
-	}
+		if (change_outnum)
+			*change_outnum = ptr2int(map[1]);
+	} else if (change_outnum)
+		*change_outnum = -1;
 	permute_inputs(tx, (const void **)utxos);
 	assert(bitcoin_tx_check(tx));
 	return tx;

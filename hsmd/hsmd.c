@@ -1456,7 +1456,7 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(tmpctx, cast_const2(const struct utxo **, utxos),
 			 scriptpubkey, satoshi_out,
-			 &changekey, change_out, NULL);
+			 &changekey, change_out, NULL, NULL);
 
 	sign_all_inputs(tx, utxos);
 

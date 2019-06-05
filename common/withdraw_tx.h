@@ -22,13 +22,15 @@ struct utxo;
  * @changekey: (in) key to send change to (only used if change_satoshis != 0).
  * @change: (in) amount to send as change.
  * @bip32_base: (in) bip32 base for key derivation, or NULL.
+ * @change_outnum: (out) set to output index of change output or -1 if none, unless NULL.
  */
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct utxo **utxos,
-			       u8 *destination,
+			       const u8 *destination,
 			       struct amount_sat withdraw_amount,
 			       const struct pubkey *changekey,
 			       struct amount_sat change,
-			       const struct ext_key *bip32_base);
+			       const struct ext_key *bip32_base,
+			       int *change_outnum);
 
 #endif /* LIGHTNING_COMMON_WITHDRAW_TX_H */
