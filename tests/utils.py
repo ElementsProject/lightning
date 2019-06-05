@@ -149,9 +149,6 @@ class TailableProc(object):
         self.proc.wait()
         self.thread.join()
 
-        if self.proc.returncode:
-            raise ValueError("Process '{}' did not cleanly shutdown: return code {}".format(self.proc.pid, rc))
-
         return self.proc.returncode
 
     def kill(self):

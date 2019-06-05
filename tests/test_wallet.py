@@ -321,3 +321,55 @@ def test_txsend(node_factory, bitcoind):
 
     # Change address should appear in listfunds()
     assert decode['vout'][changenum]['scriptPubKey']['addresses'][0] in [f['address'] for f in l1.rpc.listfunds()['outputs']]
+
+
+@pytest.mark.xfail(strict=True)
+def test_txprepare_restart(node_factory, bitcoind):
+    amount = 1000000
+    l1 = node_factory.get_node(may_fail=True)
+
+    # Add some funds to withdraw later: both bech32 and p2sh
+    for i in range(5):
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+                                   amount / 10**8)
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit'],
+                                   amount / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 10)
+
+    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                            'all')
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+    # All 10 inputs
+    assert len(decode['vin']) == 10
+
+    # L1 will forget all about it.
+    l1.restart()
+
+    # It goes backwards in blockchain just in case there was a reorg.  Wait.
+    wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 10)
+
+    with pytest.raises(RpcError, match=r'not an unreleased txid'):
+        l1.rpc.txdiscard(prep['txid'])
+
+    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                            'all')
+
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+    # All 10 inputs
+    assert len(decode['vin']) == 10
+
+    # This will also work if we simply kill it.
+    l1.restart(clean=False)
+
+    # It goes backwards in blockchain just in case there was a reorg.  Wait.
+    wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 10)
+
+    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                            'all')
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+    # All 10 inputs
+    assert len(decode['vin']) == 10
