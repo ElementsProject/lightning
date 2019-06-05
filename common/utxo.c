@@ -1,5 +1,6 @@
 #include <bitcoin/script.h>
 #include <common/key_derive.h>
+#include <common/utils.h>
 #include <common/utxo.h>
 #include <wire/wire.h>
 
@@ -60,7 +61,7 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (utxos[i]->is_p2sh && bip32_base) {
 			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
-			script = bitcoin_scriptsig_p2sh_p2wpkh(tx, &key);
+			script = bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
 		} else {
 			script = NULL;
 		}
