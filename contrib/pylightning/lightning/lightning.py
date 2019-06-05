@@ -4,7 +4,7 @@ import logging
 from math import floor, log10
 import socket
 
-__version__ = "0.0.7.1"
+__version__ = "0.0.7.2"
 
 
 class RpcError(ValueError):
@@ -768,3 +768,39 @@ class LightningRpc(UnixDomainSocketRpc):
             "minconf": minconf,
         }
         return self.call("withdraw", payload)
+
+    def txprepare(self, destination, satoshi, feerate=None, minconf=None):
+        """
+        Prepare a bitcoin transaction which sends to {destination} address
+        {satoshi} (or "all") amount via Bitcoin transaction. Only select outputs
+        with {minconf} confirmations.
+
+        Outputs will be reserved until you call txdiscard or txsend, or
+        lightningd restarts.
+        """
+        payload = {
+            "destination": destination,
+            "satoshi": satoshi,
+            "feerate": feerate,
+            "minconf": minconf,
+        }
+        return self.call("txprepare", payload)
+
+    def txdiscard(self, txid):
+        """
+        Cancel a bitcoin transaction returned from txprepare.  The outputs
+        it was spending are released for other use.
+        """
+        payload = {
+            "txid": txid
+        }
+        return self.call("txdiscard", payload)
+
+    def txsend(self, txid):
+        """
+        Sign and broadcast a bitcoin transaction returned from txprepare.
+        """
+        payload = {
+            "txid": txid
+        }
+        return self.call("txsend", payload)
