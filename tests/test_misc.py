@@ -1402,6 +1402,14 @@ def test_newaddr(node_factory):
     assert both['bech32'].startswith('bcrt1')
 
 
+def test_newaddr_deprecated(node_factory):
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    p2sh = l1.rpc.newaddr('p2sh-segwit')
+    assert p2sh['address'].startswith('2')
+    bech32 = l1.rpc.newaddr('bech32')
+    assert bech32['address'].startswith('bcrt1')
+
+
 def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     """Make sure we handle spurious bitcoin-cli failures during startup
 
