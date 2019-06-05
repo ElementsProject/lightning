@@ -59,7 +59,7 @@ Felix <fixone@gmail.com> is mainly responsible.
 
 SEE ALSO
 --------
-lightning-listfunds(7), lightning-fundchannel(7), lightning-newaddr(7)
+lightning-listfunds(7), lightning-fundchannel(7), lightning-newaddr(7), lightning-txprepare(7).
 
 RESOURCES
 ---------
