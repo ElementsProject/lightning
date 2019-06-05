@@ -339,8 +339,9 @@ static struct command_result *json_newaddr(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
-	if (deprecated_apis)
-		json_add_string(response, "address", bech32 ? bech32 : p2sh);
+	if (deprecated_apis && *addrtype != ADDR_ALL)
+		json_add_string(response, "address",
+				*addrtype & ADDR_BECH32 ? bech32 : p2sh);
 	if (*addrtype & ADDR_BECH32)
 		json_add_string(response, "bech32", bech32);
 	if (*addrtype & ADDR_P2SH_SEGWIT)
