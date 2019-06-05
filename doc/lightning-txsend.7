@@ -1,0 +1,66 @@
+'\" t
+.\"     Title: lightning-txsend
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 06/05/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-TXSEND" "7" "06/05/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-txsend \- Command to sign and send transaction from txprepare
+.SH "SYNOPSIS"
+.sp
+\fBtxsend\fR \fItxid\fR
+.SH "DESCRIPTION"
+.sp
+The \fBtxsend\fR RPC command signs and broadcasts a transaction created by \fBtxprepare\fR\&.
+.SH "RETURN VALUE"
+.sp
+On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\&.
+.sp
+\fItx\fR represents the fully signed raw bitcoin transaction, and \fItxid\fR is the same as the \fItxid\fR argument\&.
+.sp
+On failure, an error is reported (from bitcoind), and the inputs from the transaction are unreserved\&.
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Catchall nonspecific error\&.
+.RE
+.SH "AUTHOR"
+.sp
+Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-txprepare(7), lightning\-txdiscard(7)
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning

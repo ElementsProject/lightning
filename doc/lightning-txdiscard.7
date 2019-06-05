@@ -1,0 +1,65 @@
+'\" t
+.\"     Title: lightning-txdiscard
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 06/05/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-TXDISCARD" "7" "06/05/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-txdiscard \- Abandon a transaction from txprepare, release inputs
+.SH "SYNOPSIS"
+.sp
+\fBtxdiscard\fR \fItxid\fR
+.SH "DESCRIPTION"
+.sp
+The \fBtxdiscard\fR RPC command releases inputs which were reserved for use of the \fItxid\fR from lightning\-txprepare(7)\&.
+.SH "RETURN VALUE"
+.sp
+On success, an object with attributes \fIunsigned_tx\fR and \fItxid\fR will be returned, exactly as from lightning\-txprepare(7)\&.
+.sp
+If there is no matching \fItxid\fR, an error is reported\&. Note that this may happen due to incorrect usage (such as \fBtxdiscard\fR or \fBtxsend\fR already being called for \fItxid\fR) or due to lightningd restarting, which implicitly calls \fBtxdiscard\fR on all outputs\&.
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. An unknown
+\fItxid\fR\&.
+.RE
+.SH "AUTHOR"
+.sp
+Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-txprepare(7), lightning\-txsend(7)
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
