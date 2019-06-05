@@ -1439,7 +1439,6 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	u32 change_keyindex;
 	struct utxo **utxos;
 	struct bitcoin_tx *tx;
-	struct ext_key ext;
 	struct pubkey changekey;
 	u8 *scriptpubkey;
 
@@ -1448,12 +1447,10 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 					  &scriptpubkey, &utxos))
 		return bad_req(conn, c, msg_in);
 
-	if (bip32_key_from_parent(&secretstuff.bip32, change_keyindex,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
+	if (!bip32_pubkey(&secretstuff.bip32, &changekey, change_keyindex))
 		return bad_req_fmt(conn, c, msg_in,
 				   "Failed to get key %u", change_keyindex);
 
-	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(tmpctx, cast_const2(const struct utxo **, utxos),
 			 scriptpubkey, satoshi_out,
 			 &changekey, change_out, NULL, NULL);
