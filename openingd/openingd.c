@@ -73,7 +73,7 @@ struct state {
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
 
-	/* Information we need between funding_start and funding_continue */
+	/* Information we need between funding_start and funding_complete */
 	struct basepoints their_points;
 	struct pubkey their_funding_pubkey;
 
@@ -805,7 +805,7 @@ fail:
 	return false;
 }
 
-static u8 *funder_channel_continue(struct state *state)
+static u8 *funder_channel_complete(struct state *state)
 {
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
@@ -1675,14 +1675,14 @@ static u8 *handle_master_in(struct state *state)
 		/* We want to keep openingd alive, since we're not done yet */
 		wire_sync_write(REQ_FD, take(msg));
 		return NULL;
-	case WIRE_OPENING_FUNDER_CONTINUE:
-		if (!fromwire_opening_funder_continue(msg,
+	case WIRE_OPENING_FUNDER_COMPLETE:
+		if (!fromwire_opening_funder_complete(msg,
 						      &funding_txid,
 						      &funding_txout))
-			master_badmsg(WIRE_OPENING_FUNDER_CONTINUE, msg);
+			master_badmsg(WIRE_OPENING_FUNDER_COMPLETE, msg);
 		state->funding_txid = funding_txid;
 		state->funding_txout = funding_txout;
-		return funder_channel_continue(state);
+		return funder_channel_complete(state);
 	case WIRE_OPENING_FUNDER_CANCEL:
 		/* We're aborting this, simple */
 		if (!fromwire_opening_funder_cancel(msg))

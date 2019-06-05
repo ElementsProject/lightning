@@ -837,12 +837,12 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
         l1.rpc.fundchannel_start(l2.info['id'], amount)
 
     with pytest.raises(RpcError, match=r'Unknown peer'):
-        l1.rpc.fundchannel_continue(l2.info['id'], fake_txid, fake_txout)
+        l1.rpc.fundchannel_complete(l2.info['id'], fake_txid, fake_txout)
 
     # Should not be able to continue without being in progress.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r'No channel funding in progress.'):
-        l1.rpc.fundchannel_continue(l2.info['id'], fake_txid, fake_txout)
+        l1.rpc.fundchannel_complete(l2.info['id'], fake_txid, fake_txout)
 
     l1.rpc.fundchannel_start(l2.info['id'], amount)
     with pytest.raises(RpcError, match=r'Already funding channel'):
@@ -886,7 +886,7 @@ def test_funding_external_wallet(node_factory, bitcoind):
     txid = bitcoind.rpc.decoderawtransaction(raw_funded_tx)['txid']
     txout = 1 if funded_tx_obj['changepos'] == 0 else 0
 
-    assert l1.rpc.fundchannel_continue(l2.info['id'], txid, txout)['commitments_secured']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], txid, txout)['commitments_secured']
 
     # Broadcast the transaction manually and confirm that channel locks in
     signed_tx = bitcoind.rpc.signrawtransactionwithwallet(raw_funded_tx)['hex']

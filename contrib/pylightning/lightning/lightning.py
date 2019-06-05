@@ -516,7 +516,7 @@ class LightningRpc(UnixDomainSocketRpc):
         If {announce} is False, don't send channel announcements.
         Returns a Bech32 {funding_address} for an external wallet
         to create a funding transaction for. Requires a call to
-        'fundchannel_continue' to complete channel establishment
+        'fundchannel_complete' to complete channel establishment
         with peer.
         """
         payload = {
@@ -536,7 +536,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel_cancel", payload)
 
-    def fundchannel_continue(self, node_id, funding_txid, funding_txout):
+    def fundchannel_complete(self, node_id, funding_txid, funding_txout):
         """
         Complete channel establishment with {id}, using {funding_txid} at {funding_txout}
         """
@@ -545,7 +545,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "txid": funding_txid,
             "txout": funding_txout,
         }
-        return self.call("fundchannel_continue", payload)
+        return self.call("fundchannel_complete", payload)
 
     def getinfo(self):
         """
