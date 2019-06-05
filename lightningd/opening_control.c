@@ -70,7 +70,7 @@ struct uncommitted_channel {
 struct funding_channel {
 	struct command *cmd; /* Which initially owns us until openingd request */
 
-	struct wallet_tx wtx;
+	struct wallet_tx *wtx;
 	struct amount_msat push;
 	u8 channel_flags;
 
@@ -131,7 +131,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	}
 
 	/* These should never fail. */
-	if (amount_sat_to_msat(&total, uc->fc->wtx.amount)
+	if (amount_sat_to_msat(&total, uc->fc->wtx->amount)
 	    && amount_msat_sub(&ours, total, uc->fc->push)) {
 		json_add_amount_msat_compat(response, ours,
 					    "msatoshi_to_us", "to_us_msat");
@@ -336,16 +336,16 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				       &channel_info.remote_per_commit));
 
 	/* Generate the funding tx. */
-	if (!amount_sat_eq(fc->wtx.change, AMOUNT_SAT(0))
+	if (!amount_sat_eq(fc->wtx->change, AMOUNT_SAT(0))
 	    && !bip32_pubkey(ld->wallet->bip32_base,
-			     &changekey, fc->wtx.change_key_index))
-		fatal("Error deriving change key %u", fc->wtx.change_key_index);
+			     &changekey, fc->wtx->change_key_index))
+		fatal("Error deriving change key %u", fc->wtx->change_key_index);
 
 	fundingtx = funding_tx(tmpctx, &funding_outnum,
-			       fc->wtx.utxos, fc->wtx.amount,
+			       fc->wtx->utxos, fc->wtx->amount,
 			       &fc->uc->local_funding_pubkey,
 			       &channel_info.remote_fundingkey,
-			       fc->wtx.change, &changekey,
+			       fc->wtx->change, &changekey,
 			       ld->wallet->bip32_base);
 
 	log_debug(fc->uc->log, "Funding tx has %zi inputs, %zu outputs:",
@@ -358,8 +358,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		log_debug(fc->uc->log, "%zi: %s (%s) %s\n",
 			  i,
 			  type_to_string(tmpctx, struct amount_sat,
-					 &fc->wtx.utxos[i]->amount),
-			  fc->wtx.utxos[i]->is_p2sh ? "P2SH" : "SEGWIT",
+					 &fc->wtx->utxos[i]->amount),
+			  fc->wtx->utxos[i]->is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &tmptxid));
 	}
@@ -373,10 +373,10 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 			   " changeidx %u"
 			   " localkey %s remotekey %s",
 			   type_to_string(tmpctx, struct amount_sat,
-					  &fc->wtx.amount),
+					  &fc->wtx->amount),
 			   type_to_string(tmpctx, struct amount_sat,
-					  &fc->wtx.change),
-			   fc->wtx.change_key_index,
+					  &fc->wtx->change),
+			   fc->wtx->change_key_index,
 			   type_to_string(fc, struct pubkey,
 					  &fc->uc->local_funding_pubkey),
 			   type_to_string(fc, struct pubkey,
@@ -388,11 +388,11 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					 " localkey %s remotekey %s",
 					 type_to_string(tmpctx,
 							struct amount_sat,
-							&fc->wtx.amount),
+							&fc->wtx->amount),
 					 type_to_string(tmpctx,
 							struct amount_sat,
-							&fc->wtx.change),
-					 fc->wtx.change_key_index,
+							&fc->wtx->change),
+					 fc->wtx->change_key_index,
 					 type_to_string(fc, struct pubkey,
 							&fc->uc->local_funding_pubkey),
 					 type_to_string(fc, struct pubkey,
@@ -406,7 +406,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&remote_commit_sig,
 					&funding_txid,
 					funding_outnum,
-					fc->wtx.amount,
+					fc->wtx->amount,
 					fc->push,
 					fc->channel_flags,
 					&channel_info,
@@ -422,11 +422,11 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	log_debug(channel->log, "Getting HSM to sign funding tx");
 
 	msg = towire_hsm_sign_funding(tmpctx, channel->funding,
-				      fc->wtx.change,
-				      fc->wtx.change_key_index,
+				      fc->wtx->change,
+				      fc->wtx->change_key_index,
 				      &fc->uc->local_funding_pubkey,
 				      &channel_info.remote_fundingkey,
-				      fc->wtx.utxos);
+				      fc->wtx->utxos);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -454,7 +454,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	channel_watch_funding(ld, channel);
 
 	/* Mark consumed outputs as spent */
-	wallet_confirm_utxos(ld->wallet, fc->wtx.utxos);
+	wallet_confirm_utxos(ld->wallet, fc->wtx->utxos);
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(channel, pps, NULL, false);
@@ -999,10 +999,11 @@ static struct command_result *json_fund_channel(struct command *cmd,
 
 	fc->cmd = cmd;
 	fc->uc = NULL;
-	wtx_init(cmd, &fc->wtx, max_funding_satoshi);
+	fc->wtx = tal(fc, struct wallet_tx);
+	wtx_init(cmd, fc->wtx, max_funding_satoshi);
 	if (!param(fc->cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
-		   p_req("satoshi", param_wtx, &fc->wtx),
+		   p_req("satoshi", param_wtx, fc->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   p_opt_def("minconf", param_number, &minconf, 1),
@@ -1052,24 +1053,24 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	}
 
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
-	res = wtx_select_utxos(&fc->wtx, *feerate_per_kw,
+	res = wtx_select_utxos(fc->wtx, *feerate_per_kw,
 			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN, maxheight);
 	if (res)
 		return res;
 
-	assert(!amount_sat_greater(fc->wtx.amount, max_funding_satoshi));
+	assert(!amount_sat_greater(fc->wtx->amount, max_funding_satoshi));
 
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
 
 	msg = towire_opening_funder(NULL,
-				    fc->wtx.amount,
+				    fc->wtx->amount,
 				    fc->push,
 				    *feerate_per_kw,
-				    fc->wtx.change,
-				    fc->wtx.change_key_index,
+				    fc->wtx->change,
+				    fc->wtx->change_key_index,
 				    fc->channel_flags,
-				    fc->wtx.utxos,
+				    fc->wtx->utxos,
 				    cmd->ld->wallet->bip32_base);
 
 	/* Openingd will either succeed, or fail, or tell us the other side

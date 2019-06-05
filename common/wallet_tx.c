@@ -65,7 +65,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 
 	if (tx->all_funds) {
 		struct amount_sat amount;
-		tx->utxos = wallet_select_all(tx->cmd, tx->cmd->ld->wallet,
+		tx->utxos = wallet_select_all(tx, tx->cmd->ld->wallet,
 					      fee_rate_per_kw, out_len,
 					      maxheight,
 					      &amount,
@@ -87,7 +87,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 		tx->utxos = tal_free(tx->utxos);
 	}
 
-	tx->utxos = wallet_select_coins(tx->cmd, tx->cmd->ld->wallet,
+	tx->utxos = wallet_select_coins(tx, tx->cmd->ld->wallet,
 					tx->amount,
 					fee_rate_per_kw, out_len,
 					maxheight,
