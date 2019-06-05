@@ -1,7 +1,7 @@
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
-from lightning import RpcError
+from lightning import RpcError, Millisatoshi
 from utils import only_one, wait_for
 
 import pytest
@@ -184,3 +184,140 @@ def test_addfunds_from_block(node_factory, bitcoind):
     # The address we detect must match what was paid to.
     output = only_one(l1.rpc.listfunds()['outputs'])
     assert output['address'] == addr
+
+
+def test_txprepare(node_factory, bitcoind):
+    amount = 1000000
+    l1 = node_factory.get_node(random_hsm=True)
+
+    # Add some funds to withdraw later: both bech32 and p2sh
+    for i in range(5):
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+                                   amount / 10**8)
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit'],
+                                   amount / 10**8)
+
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
+
+    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                            Millisatoshi(amount * 3 * 1000))
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+    # 4 inputs, 2 outputs.
+    assert len(decode['vin']) == 4
+    assert len(decode['vout']) == 2
+
+    # One output will be correct.
+    if decode['vout'][0]['value'] == Decimal(amount * 3) / 10**8:
+        outnum = 0
+        changenum = 1
+    elif decode['vout'][1]['value'] == Decimal(amount * 3) / 10**8:
+        outnum = 1
+        changenum = 0
+    else:
+        assert False
+
+    assert decode['vout'][outnum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert decode['vout'][outnum]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
+
+    assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+
+    # Now prepare one with no change.
+    prep2 = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                             'all')
+    decode = bitcoind.rpc.decoderawtransaction(prep2['unsigned_tx'])
+    assert decode['txid'] == prep2['txid']
+    # 6 inputs, 1 outputs.
+    assert len(decode['vin']) == 6
+    assert len(decode['vout']) == 1
+
+    # Some fees will be paid.
+    assert decode['vout'][0]['value'] < Decimal(amount * 6) / 10**8
+    assert decode['vout'][0]['value'] > Decimal(amount * 6) / 10**8 - Decimal(0.0002)
+    assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert decode['vout'][0]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
+
+    # If I cancel the first one, I can get those first 4 outputs.
+    discard = l1.rpc.txdiscard(prep['txid'])
+    assert discard['txid'] == prep['txid']
+    assert discard['unsigned_tx'] == prep['unsigned_tx']
+
+    prep3 = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                             'all')
+    decode = bitcoind.rpc.decoderawtransaction(prep3['unsigned_tx'])
+    assert decode['txid'] == prep3['txid']
+    # 4 inputs, 1 outputs.
+    assert len(decode['vin']) == 4
+    assert len(decode['vout']) == 1
+
+    # Some fees will be taken
+    assert decode['vout'][0]['value'] < Decimal(amount * 4) / 10**8
+    assert decode['vout'][0]['value'] > Decimal(amount * 4) / 10**8 - Decimal(0.0002)
+    assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert decode['vout'][0]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
+
+    # Cannot discard twice.
+    with pytest.raises(RpcError, match=r'not an unreleased txid'):
+        l1.rpc.txdiscard(prep['txid'])
+
+    # Discard everything, we should now spend all inputs.
+    l1.rpc.txdiscard(prep2['txid'])
+    l1.rpc.txdiscard(prep3['txid'])
+    prep4 = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                             'all')
+    decode = bitcoind.rpc.decoderawtransaction(prep4['unsigned_tx'])
+    assert decode['txid'] == prep4['txid']
+    # 10 inputs, 1 outputs.
+    assert len(decode['vin']) == 10
+    assert len(decode['vout']) == 1
+
+    # Some fees will be taken
+    assert decode['vout'][0]['value'] < Decimal(amount * 10) / 10**8
+    assert decode['vout'][0]['value'] > Decimal(amount * 10) / 10**8 - Decimal(0.0003)
+    assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert decode['vout'][0]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
+
+
+def test_txsend(node_factory, bitcoind):
+    amount = 1000000
+    l1 = node_factory.get_node(random_hsm=True)
+
+    # Add some funds to withdraw later: both bech32 and p2sh
+    for i in range(5):
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+                                   amount / 10**8)
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit'],
+                                   amount / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
+
+    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
+                            Millisatoshi(amount * 3 * 1000))
+    out = l1.rpc.txsend(prep['txid'])
+
+    # Cannot discard after send!
+    with pytest.raises(RpcError, match=r'not an unreleased txid'):
+        l1.rpc.txdiscard(prep['txid'])
+
+    wait_for(lambda: prep['txid'] in bitcoind.rpc.getrawmempool())
+
+    # Signed tx should have same txid
+    decode = bitcoind.rpc.decoderawtransaction(out['tx'])
+    assert decode['txid'] == prep['txid']
+
+    bitcoind.generate_block(1)
+
+    # Change output should appear.
+    if decode['vout'][0]['value'] == Decimal(amount * 3) / 10**8:
+        changenum = 1
+    elif decode['vout'][1]['value'] == Decimal(amount * 3) / 10**8:
+        changenum = 0
+    else:
+        assert False
+
+    # Those spent outputs are gone, but change output has arrived.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10 - len(decode['vin']) + 1)
+
+    # Change address should appear in listfunds()
+    assert decode['vout'][changenum]['scriptPubKey']['addresses'][0] in [f['address'] for f in l1.rpc.listfunds()['outputs']]
