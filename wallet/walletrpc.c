@@ -82,6 +82,30 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 	}
 }
 
+static struct command_result *param_bitcoin_address(struct command *cmd,
+						    const char *name,
+						    const char *buffer,
+						    const jsmntok_t *tok,
+						    const u8 **scriptpubkey)
+{
+	/* Parse address. */
+	switch (json_tok_address_scriptpubkey(cmd,
+					      get_chainparams(cmd->ld),
+					      buffer, tok,
+					      scriptpubkey)) {
+	case ADDRESS_PARSE_UNRECOGNIZED:
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not parse destination address");
+	case ADDRESS_PARSE_WRONG_NETWORK:
+		return command_fail(cmd, LIGHTNINGD,
+				    "Destination address is not on network %s",
+				    get_chainparams(cmd->ld)->network_name);
+	case ADDRESS_PARSE_SUCCESS:
+		return NULL;
+	}
+	abort();
+}
+
 /**
  * json_withdraw - Entrypoint for the withdrawal flow
  *
@@ -94,12 +118,10 @@ static struct command_result *json_withdraw(struct command *cmd,
 					    const jsmntok_t *obj UNNEEDED,
 					    const jsmntok_t *params)
 {
-	const jsmntok_t *desttok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
 	u32 *feerate_per_kw;
 	struct bitcoin_tx *tx;
 	struct pubkey changekey;
-	enum address_parse_result addr_parse;
 	struct command_result *res;
 	u32 *minconf, maxheight;
 
@@ -107,7 +129,8 @@ static struct command_result *json_withdraw(struct command *cmd,
 	wtx_init(cmd, &withdraw->wtx, AMOUNT_SAT(-1ULL));
 
 	if (!param(cmd, buffer, params,
-		   p_req("destination", param_tok, &desttok),
+		   p_req("destination", param_bitcoin_address,
+			 (const u8 **)&withdraw->destination),
 		   p_req("satoshi", param_wtx, &withdraw->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("minconf", param_number, &minconf, 1),
@@ -119,25 +142,6 @@ static struct command_result *json_withdraw(struct command *cmd,
 					     FEERATE_NORMAL);
 		if (res)
 			return res;
-	}
-
-	/* Parse address. */
-	addr_parse = json_tok_address_scriptpubkey(cmd,
-						   get_chainparams(cmd->ld),
-						   buffer, desttok,
-						   (const u8**)(&withdraw->destination));
-
-	/* Check that destination address could be understood. */
-	if (addr_parse == ADDRESS_PARSE_UNRECOGNIZED) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could not parse destination address");
-	}
-
-	/* Check address given is compatible with the chain we are on. */
-	if (addr_parse == ADDRESS_PARSE_WRONG_NETWORK) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Destination address is not on network %s",
-				    get_chainparams(cmd->ld)->network_name);
 	}
 
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
