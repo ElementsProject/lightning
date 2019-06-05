@@ -1,0 +1,59 @@
+'\" t
+.\"     Title: lightning-fundchannel_complete
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 06/05/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-FUNDCHANN" "7" "06/05/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-fundchannel_complete \- Command for completing channel establishment
+.SH "SYNOPSIS"
+.sp
+\fBfundchannel_complete\fR \fIid\fR \fItxid\fR \fItxout\fR
+.SH "DESCRIPTION"
+.sp
+fundchannel_complete is a lower level RPC command\&. It allows a user to complete an initiated channel establishment with a connected peer
+.sp
+\fIid\fR is the node id of the remote peer
+.sp
+\fItxid\fR is the hex string of the funding transaction id\&.
+.sp
+\fItxout\fR is the integer outpoint of the funding output for this channel\&.
+.sp
+Note that the funding transaction should not be broadcast until after channel establishment has been successfully completed, as the commitment transactions for this channel are not secured until this command succesfully completes\&.
+.SH "RETURN VALUE"
+.sp
+On success, returns a confirmation that \fIcommitments_secured\fR and the derived \fIchannel_id\fR\&.
+.sp
+On failure, returns an error\&.
+.SH "AUTHOR"
+.sp
+Lisa Neigut <niftynei@gmail\&.com> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-connect(7), lightning\-fundchannel(7), lightning\-fundchannel_start(7), lightning\-fundchannel_cancel(7)
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning

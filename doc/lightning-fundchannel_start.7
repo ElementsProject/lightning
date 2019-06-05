@@ -1,0 +1,59 @@
+'\" t
+.\"     Title: lightning-fundchannel_start
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 06/05/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-FUNDCHANN" "7" "06/05/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-fundchannel_start \- Command for initiating channel establishment for a lightning channel
+.SH "SYNOPSIS"
+.sp
+\fBfundchannel_start\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR \fIannounce\fR]
+.SH "DESCRIPTION"
+.sp
+fundchannel_start is a lower level RPC command\&. It allows a user to initiate channel establishment with a connected peer\&.
+.sp
+\fIid\fR is the node id of the remote peer\&.
+.sp
+\fIsatoshi\fR is the satoshi value that the channel will be funded at\&. This value MUST be accurate, otherwise the negotiated commitment transactions will not encompass the correct channel value\&.
+.sp
+\fIfeerate\fR is an optional field\&. Sets the feerate for subsequent commitment transactions\&.
+.sp
+\fIannounce\fR whether or not to annouce this channel\&.
+.SH "RETURN VALUE"
+.sp
+On success, returns the \fIfunding_address\fR for the channel\&.
+.sp
+On failure, returns an error\&.
+.SH "AUTHOR"
+.sp
+Lisa Neigut <niftynei@gmail\&.com> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-connect(7), lightning\-fundchannel(7), lightning\-fundchannel_complete(7), lightning\-fundchannel_cancel(7)
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
