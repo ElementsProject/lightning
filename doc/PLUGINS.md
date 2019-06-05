@@ -218,6 +218,35 @@ to a peer was lost.
 	"id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
 }
 ```
+
+#### `warning`
+
+A notification for topic `warning` is sent every time a new `BROKEN`
+/`UNUSUAL` level(in plugins, we use `error`/`warn`) log generated,
+which means an unusual/borken thing happens, such as channel failed,
+message resolving failed...
+
+```json
+{
+	"warning": {
+	"level": "warn",
+	"time": "1559743608.565342521",
+	"source": "lightningd(17652): 0821f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c chan #7854:",
+	"log": "Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent ERROR bad reestablish dataloss msg"
+  }
+}
+```
+1. `level` is `warn` or `error`: `warn` means something seems bad happened
+ and it's under control, but we'd better check it; `error` means something
+extremely bad is out of control, and it may lead to crash;
+2. `time` is the second since epoch;
+3. `source` means where the event happened, it may have the following
+forms:  
+`<node_id> chan #<db_id_of_channel>:`,`lightningd(<lightningd_pid>):`,
+`plugin-<plugin_name>:`, `<daemon_name>(<daemon_pid>):`, `jsonrpc:`,
+`jcon fd <error_fd_to_jsonrpc>:`, `plugin-manager`;
+4. `log` is the context of the original log entry.
+
 ## Hooks
 
 Hooks allow a plugin to define custom behavior for `lightningd`
