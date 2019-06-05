@@ -98,8 +98,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
 	u32 *feerate_per_kw;
 	struct bitcoin_tx *tx;
-	struct ext_key ext;
-	struct pubkey pubkey;
+	struct pubkey changekey;
 	enum address_parse_result addr_parse;
 	struct command_result *res;
 	u32 *minconf, maxheight;
@@ -147,17 +146,12 @@ static struct command_result *json_withdraw(struct command *cmd,
 	if (res)
 		return res;
 
-	if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, withdraw->wtx.change_key_index,
-			BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+	if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &changekey,
+			  withdraw->wtx.change_key_index)) {
 		return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
 	}
-
-	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
-			ext.pub_key, sizeof(ext.pub_key))) {
-		return command_fail(cmd, LIGHTNINGD, "Key parsing failure");
-	}
-
-	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
+	txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
+				  scriptpubkey_p2wpkh(tmpctx, &changekey));
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
 					     withdraw->wtx.amount,
@@ -302,11 +296,11 @@ static struct command_result *json_newaddr(struct command *cmd,
 					   const jsmntok_t *params)
 {
 	struct json_stream *response;
-	struct ext_key ext;
 	struct pubkey pubkey;
 	enum addrtype *addrtype;
 	s64 keyidx;
 	char *p2sh, *bech32;
+	u8 *b32script;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("addresstype", param_newaddr, &addrtype, ADDR_BECH32),
@@ -318,17 +312,15 @@ static struct command_result *json_newaddr(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
 	}
 
-	if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+	if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &pubkey, keyidx))
 		return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
-	}
 
-	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
-				       ext.pub_key, sizeof(ext.pub_key))) {
-		return command_fail(cmd, LIGHTNINGD, "Key parsing failure");
-	}
-
-	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
+	b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+	if (*addrtype & ADDR_BECH32)
+		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+	if (*addrtype & ADDR_P2SH_SEGWIT)
+		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
+					  scriptpubkey_p2sh(tmpctx, b32script));
 
 	p2sh = encode_pubkey_to_addr(cmd, cmd->ld, &pubkey, true, NULL);
 	bech32 = encode_pubkey_to_addr(cmd, cmd->ld, &pubkey, false, NULL);
@@ -365,7 +357,6 @@ static struct command_result *json_listaddrs(struct command *cmd,
 					     const jsmntok_t *params)
 {
 	struct json_stream *response;
-	struct ext_key ext;
 	struct pubkey pubkey;
 	u64 *bip32_max_index;
 
@@ -389,15 +380,8 @@ static struct command_result *json_listaddrs(struct command *cmd,
 			break;
 		}
 
-		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
-					  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &pubkey, keyidx))
 			abort();
-		}
-
-		if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
-					       ext.pub_key, sizeof(ext.pub_key))) {
-			abort();
-		}
 
 		// p2sh
 		u8 *redeemscript_p2sh;
