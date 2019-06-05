@@ -237,13 +237,12 @@ static void
 resolve_one_close_command(struct close_command *cc, bool cooperative)
 {
 	struct json_stream *result = json_stream_success(cc->cmd);
-	u8 *tx = linearize_tx(result, cc->channel->last_tx);
 	struct bitcoin_txid txid;
 
 	bitcoin_txid(cc->channel->last_tx, &txid);
 
 	json_object_start(result, NULL);
-	json_add_hex_talarr(result, "tx", tx);
+	json_add_tx(result, "tx", cc->channel->last_tx);
 	json_add_txid(result, "txid", &txid);
 	if (cooperative)
 		json_add_string(result, "type", "mutual");
@@ -1501,7 +1500,6 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	struct node_id *peerid;
 	struct peer *peer;
 	struct json_stream *response;
-	u8 *linear;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
@@ -1523,13 +1521,13 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	response = json_stream_success(cmd);
 	log_debug(channel->log, "dev-sign-last-tx: signing tx with %zu outputs",
 		  channel->last_tx->wtx->num_outputs);
+
 	sign_last_tx(channel);
-	linear = linearize_tx(cmd, channel->last_tx);
+	json_object_start(response, NULL);
+	json_add_tx(response, "tx", channel->last_tx);
+	json_object_end(response);
 	remove_sig(channel->last_tx);
 
-	json_object_start(response, NULL);
-	json_add_hex_talarr(response, "tx", linear);
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 

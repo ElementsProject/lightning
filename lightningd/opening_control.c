@@ -758,9 +758,8 @@ openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	json_add_num(stream, "max_accepted_htlcs", payload->max_accepted_htlcs);
 	json_add_num(stream, "channel_flags", payload->channel_flags);
 	if (tal_count(payload->shutdown_scriptpubkey) != 0)
-		json_add_hex(stream, "shutdown_scriptpubkey",
-			     payload->shutdown_scriptpubkey,
-			     tal_count(payload->shutdown_scriptpubkey));
+		json_add_hex_talarr(stream, "shutdown_scriptpubkey",
+				    payload->shutdown_scriptpubkey);
 	json_object_end(stream); /* .openchannel */
 }
 

@@ -372,6 +372,13 @@ void json_add_hex_talarr(struct json_stream *result,
 	json_add_hex(result, fieldname, data, tal_bytelen(data));
 }
 
+void json_add_tx(struct json_stream *result,
+		 const char *fieldname,
+		 const struct bitcoin_tx *tx)
+{
+	json_add_hex_talarr(result, fieldname, linearize_tx(tmpctx, tx));
+}
+
 void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 			     const struct json_escaped *esc TAKES)
 {
