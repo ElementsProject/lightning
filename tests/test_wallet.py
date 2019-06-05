@@ -323,7 +323,6 @@ def test_txsend(node_factory, bitcoind):
     assert decode['vout'][changenum]['scriptPubKey']['addresses'][0] in [f['address'] for f in l1.rpc.listfunds()['outputs']]
 
 
-@pytest.mark.xfail(strict=True)
 def test_txprepare_restart(node_factory, bitcoind):
     amount = 1000000
     l1 = node_factory.get_node(may_fail=True)
@@ -366,6 +365,10 @@ def test_txprepare_restart(node_factory, bitcoind):
 
     # It goes backwards in blockchain just in case there was a reorg.  Wait.
     wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 10)
+
+    # It should have logged this for each output.
+    for i in decode['vin']:
+        assert l1.daemon.is_in_log('wallet: reserved output {}/{} reset to available'.format(i['txid'], i['vout']))
 
     prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
                             'all')

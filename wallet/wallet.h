@@ -1099,6 +1099,17 @@ bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
 				 secp256k1_ecdsa_signature **remote_ann_node_sig,
 				 secp256k1_ecdsa_signature **remote_ann_bitcoin_sig);
 
+/**
+ * wallet_clean_utxos: clean up any reserved UTXOs on restart.
+ * @w: wallet
+ *
+ * If we crash, it's unclear if we have actually used the inputs.  eg. if
+ * we crash around transaction broadcast.
+ *
+ * We ask bitcoind to clarify in this case.
+ */
+void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind);
+
 /* Operations for unreleased transactions */
 struct unreleased_tx *find_unreleased_tx(struct wallet *w,
 					 const struct bitcoin_txid *txid);
