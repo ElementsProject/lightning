@@ -29,7 +29,7 @@
 
 struct withdrawal {
 	struct command *cmd;
-	struct wallet_tx wtx;
+	struct wallet_tx *wtx;
 	u8 *destination;
 	const char *hextx;
 };
@@ -55,7 +55,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
 	if (exitstatus == 0) {
 		/* Mark used outputs as spent */
-		wallet_confirm_utxos(ld->wallet, withdraw->wtx.utxos);
+		wallet_confirm_utxos(ld->wallet, withdraw->wtx->utxos);
 
 		/* Parse the tx and extract the change output. We
 		 * generated the hex tx, so this should always work */
@@ -65,9 +65,9 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		/* Extract the change output and add it to the DB */
 		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change);
 
-		/* Note normally, change_satoshi == withdraw->wtx.change, but
+		/* Note normally, change_satoshi == withdraw->wtx->change, but
 		 * not if we're actually making a payment to ourselves! */
-		assert(amount_sat_greater_eq(change, withdraw->wtx.change));
+		assert(amount_sat_greater_eq(change, withdraw->wtx->change));
 
 		struct json_stream *response = json_stream_success(cmd);
 		json_object_start(response, NULL);
@@ -126,12 +126,13 @@ static struct command_result *json_withdraw(struct command *cmd,
 	u32 *minconf, maxheight;
 
 	withdraw->cmd = cmd;
-	wtx_init(cmd, &withdraw->wtx, AMOUNT_SAT(-1ULL));
+	withdraw->wtx = tal(withdraw, struct wallet_tx);
+	wtx_init(cmd, withdraw->wtx, AMOUNT_SAT(-1ULL));
 
 	if (!param(cmd, buffer, params,
 		   p_req("destination", param_bitcoin_address,
 			 (const u8 **)&withdraw->destination),
-		   p_req("satoshi", param_wtx, &withdraw->wtx),
+		   p_req("satoshi", param_wtx, withdraw->wtx),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("minconf", param_number, &minconf, 1),
 		   NULL))
@@ -145,24 +146,24 @@ static struct command_result *json_withdraw(struct command *cmd,
 	}
 
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
-	res = wtx_select_utxos(&withdraw->wtx, *feerate_per_kw,
+	res = wtx_select_utxos(withdraw->wtx, *feerate_per_kw,
 			       tal_count(withdraw->destination), maxheight);
 	if (res)
 		return res;
 
 	if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &changekey,
-			  withdraw->wtx.change_key_index)) {
+			  withdraw->wtx->change_key_index)) {
 		return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
 	}
 	txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
 				  scriptpubkey_p2wpkh(tmpctx, &changekey));
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
-					     withdraw->wtx.amount,
-					     withdraw->wtx.change,
-					     withdraw->wtx.change_key_index,
+					     withdraw->wtx->amount,
+					     withdraw->wtx->change,
+					     withdraw->wtx->change_key_index,
 					     withdraw->destination,
-					     withdraw->wtx.utxos);
+					     withdraw->wtx->utxos);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
