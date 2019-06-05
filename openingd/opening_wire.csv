@@ -91,12 +91,12 @@ opening_funder_start_reply,6102
 opening_funder_start_reply,,script_len,u8
 opening_funder_start_reply,,scriptpubkey,script_len*u8
 
-# master->openingd: continue channel establishment for a funding
+# master->openingd: complete channel establishment for a funding
 # tx that will be paid for by an external wallet
 # response to this is a normal `opening_funder_reply` ??
-opening_funder_continue,6012
-opening_funder_continue,,funding_txid,struct bitcoin_txid
-opening_funder_continue,,funding_txout,u16
+opening_funder_complete,6012
+opening_funder_complete,,funding_txid,struct bitcoin_txid
+opening_funder_complete,,funding_txout,u16
 
 #master->openingd: cancel channel establishment for a funding
 opening_funder_cancel,6013

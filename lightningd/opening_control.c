@@ -1020,7 +1020,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER:
 	case WIRE_OPENING_FUNDER_START:
-	case WIRE_OPENING_FUNDER_CONTINUE:
+	case WIRE_OPENING_FUNDER_COMPLETE:
 	case WIRE_OPENING_FUNDER_CANCEL:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_DEV_MEMLEAK:
@@ -1098,7 +1098,7 @@ void peer_start_openingd(struct peer *peer,
 	subd_send_msg(uc->openingd, take(msg));
 }
 
-static struct command_result *json_fund_channel_continue(struct command *cmd,
+static struct command_result *json_fund_channel_complete(struct command *cmd,
 							 const char *buffer,
 							 const jsmntok_t *obj UNNEEDED,
 							 const jsmntok_t *params)
@@ -1142,7 +1142,7 @@ static struct command_result *json_fund_channel_continue(struct command *cmd,
 
 	/* Update the cmd to the new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
-	msg = towire_opening_funder_continue(NULL,
+	msg = towire_opening_funder_complete(NULL,
 					     funding_txid,
 					     funding_txout);
 	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
@@ -1181,14 +1181,14 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 
 	/**
 	 * there's a question of 'state machinery' here. as is, we're not checking
-	 * to see if you've already called `continue` -- we expect you
-	 * the caller to EITHER pick 'continue' or 'cancel'.
+	 * to see if you've already called `complete` -- we expect you
+	 * the caller to EITHER pick 'complete' or 'cancel'.
 	 * but if for some reason you've decided to test your luck, how much
 	 * 'handling' can we do for that case? the easiest thing to do is to
-	 * say "sorry you've already called continue", we can't cancel this.
+	 * say "sorry you've already called complete", we can't cancel this.
 	 *
 	 * there's also the state you might end up in where you've called
-	 * continue (and it's completed and been passed off to channeld) but
+	 * complete (and it's completed and been passed off to channeld) but
 	 * you've decided (for whatever reason) not to broadcast the transaction
 	 * so your channels have ended up in this 'waiting' state. neither of us
 	 * are actually out any amount of cash, but it'd be nice if there's a way
@@ -1438,14 +1438,14 @@ static const struct json_command fund_channel_cancel_command = {
 };
 AUTODATA(json_command, &fund_channel_cancel_command);
 
-static const struct json_command fund_channel_continue_command = {
-    "fundchannel_continue",
+static const struct json_command fund_channel_complete_command = {
+    "fundchannel_complete",
     "channels",
-    json_fund_channel_continue,
+    json_fund_channel_complete,
     "Complete channel establishment with peer {id} for funding transaction"
     "with {txid}. Returns true on success, false otherwise."
 };
-AUTODATA(json_command, &fund_channel_continue_command);
+AUTODATA(json_command, &fund_channel_complete_command);
 
 #if DEVELOPER
  /* Indented to avoid include ordering check */
