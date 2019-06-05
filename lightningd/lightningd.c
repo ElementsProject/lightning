@@ -831,6 +831,7 @@ int main(int argc, char *argv[])
 	 * unreserving UTXOs (see #1737) */
 	db_begin_transaction(ld->wallet->db);
 	tal_free(ld->jsonrpc);
+	free_unreleased_txs(ld->wallet);
 	db_commit_transaction(ld->wallet->db);
 
 	remove(ld->pidfile);

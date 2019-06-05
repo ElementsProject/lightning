@@ -52,6 +52,7 @@ struct wallet *wallet_new(struct lightningd *ld,
 	wallet->log = log;
 	wallet->bip32_base = NULL;
 	list_head_init(&wallet->unstored_payments);
+	list_head_init(&wallet->unreleased_txs);
 
 	db_begin_transaction(wallet->db);
 	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);
@@ -2699,3 +2700,42 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 
 	return results;
 }
+
+struct unreleased_tx *find_unreleased_tx(struct wallet *w,
+					 const struct bitcoin_txid *txid)
+{
+	struct unreleased_tx *utx;
+
+	list_for_each(&w->unreleased_txs, utx, list) {
+		if (bitcoin_txid_eq(txid, &utx->txid))
+			return utx;
+	}
+	return NULL;
+}
+
+static void destroy_unreleased_tx(struct unreleased_tx *utx)
+{
+	list_del(&utx->list);
+}
+
+void remove_unreleased_tx(struct unreleased_tx *utx)
+{
+	tal_del_destructor(utx, destroy_unreleased_tx);
+	list_del(&utx->list);
+}
+
+void add_unreleased_tx(struct wallet *w, struct unreleased_tx *utx)
+{
+	list_add_tail(&w->unreleased_txs, &utx->list);
+	tal_add_destructor(utx, destroy_unreleased_tx);
+}
+
+/* These will touch the db, so need to be explicitly freed. */
+void free_unreleased_txs(struct wallet *w)
+{
+	struct unreleased_tx *utx;
+
+	while ((utx = list_top(&w->unreleased_txs, struct unreleased_tx, list)))
+		tal_free(utx);
+}
+

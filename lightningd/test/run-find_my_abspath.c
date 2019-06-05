@@ -63,6 +63,9 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for free_htlcs */
 void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "free_htlcs called!\n"); abort(); }
+/* Generated stub for free_unreleased_txs */
+void free_unreleased_txs(struct wallet *w UNNEEDED)
+{ fprintf(stderr, "free_unreleased_txs called!\n"); abort(); }
 /* Generated stub for fromwire_status_fail */
 bool fromwire_status_fail(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, enum status_failreason *failreason UNNEEDED, wirestring **desc UNNEEDED)
 { fprintf(stderr, "fromwire_status_fail called!\n"); abort(); }

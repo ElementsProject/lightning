@@ -45,6 +45,24 @@ struct wallet {
 	/* Filter matching all outpoints that might be a funding transaction on
 	 * the blockchain. This is currently all P2WSH outputs */
 	struct outpointfilter *utxoset_outpoints;
+
+	/* Unreleased txs, waiting for txdiscard/txsend */
+	struct list_head unreleased_txs;
+};
+
+/* A transaction we've txprepared, but  haven't signed and released yet */
+struct unreleased_tx {
+	/* In wallet->unreleased_txs */
+	struct list_node list;
+	/* All the utxos. */
+	struct wallet_tx *wtx;
+	/* Scriptpubkey this pays to. */
+	const u8 *destination;
+	/* The tx itself (unsigned initially) */
+	struct bitcoin_tx *tx;
+	struct bitcoin_txid txid;
+	/* Index of change output, or -1 if none. */
+	int change_outnum;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet
@@ -1080,4 +1098,13 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
 				 secp256k1_ecdsa_signature **remote_ann_node_sig,
 				 secp256k1_ecdsa_signature **remote_ann_bitcoin_sig);
+
+/* Operations for unreleased transactions */
+struct unreleased_tx *find_unreleased_tx(struct wallet *w,
+					 const struct bitcoin_txid *txid);
+void remove_unreleased_tx(struct unreleased_tx *utx);
+void add_unreleased_tx(struct wallet *w, struct unreleased_tx *utx);
+
+/* These will touch the db, so need to be explicitly freed. */
+void free_unreleased_txs(struct wallet *w);
 #endif /* LIGHTNING_WALLET_WALLET_H */
