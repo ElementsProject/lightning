@@ -5,8 +5,10 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/key_derive.h>
+#include <common/memleak.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -2739,3 +2741,39 @@ void free_unreleased_txs(struct wallet *w)
 		tal_free(utx);
 }
 
+static void process_utxo_result(struct bitcoind *bitcoind,
+				const struct bitcoin_tx_output *txout,
+				void *_utxos)
+{
+	struct utxo **utxos = _utxos;
+	enum output_status newstate =
+	    txout == NULL ? output_state_spent : output_state_available;
+
+	log_unusual(bitcoind->ld->wallet->log,
+		    "wallet: reserved output %s/%u reset to %s",
+		    type_to_string(tmpctx, struct bitcoin_txid, &utxos[0]->txid),
+		    utxos[0]->outnum,
+		    newstate == output_state_spent ? "spent" : "available");
+	wallet_update_output_status(bitcoind->ld->wallet,
+				    &utxos[0]->txid, utxos[0]->outnum,
+				    utxos[0]->status, newstate);
+
+	/* If we have more, resolve them too. */
+	tal_arr_remove(&utxos, 0);
+	if (tal_count(utxos) != 0) {
+		bitcoind_gettxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
+				  process_utxo_result, utxos);
+	} else
+		tal_free(utxos);
+}
+
+void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind)
+{
+	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_reserved);
+
+	if (tal_count(utxos) != 0) {
+		bitcoind_gettxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
+				  process_utxo_result, notleak(utxos));
+	} else
+		tal_free(utxos);
+}

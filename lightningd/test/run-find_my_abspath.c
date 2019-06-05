@@ -173,6 +173,9 @@ const char *version(void)
 /* Generated stub for wallet_blocks_heights */
 void wallet_blocks_heights(struct wallet *w UNNEEDED, u32 def UNNEEDED, u32 *min UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "wallet_blocks_heights called!\n"); abort(); }
+/* Generated stub for wallet_clean_utxos */
+void wallet_clean_utxos(struct wallet *w UNNEEDED, struct bitcoind *bitcoind UNNEEDED)
+{ fprintf(stderr, "wallet_clean_utxos called!\n"); abort(); }
 /* Generated stub for wallet_network_check */
 bool wallet_network_check(struct wallet *w UNNEEDED,
 			  const struct chainparams *chainparams UNNEEDED)

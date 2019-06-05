@@ -736,6 +736,10 @@ int main(int argc, char *argv[])
 	else if (max_blockheight != UINT32_MAX)
 		max_blockheight -= ld->config.rescan;
 
+	/*~ Tell the wallet to start figuring out what to do for any reserved
+	 * unspent outputs we may have crashed with. */
+	wallet_clean_utxos(ld->wallet, ld->topology->bitcoind);
+
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);
 
