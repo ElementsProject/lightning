@@ -13,7 +13,7 @@
 
 #define SEGREGATED_WITNESS_FLAG 0x1
 
-int bitcoin_tx_add_output(struct bitcoin_tx *tx, u8 *script,
+int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 			  struct amount_sat *amount)
 {
 	size_t i = tx->wtx->num_outputs;
