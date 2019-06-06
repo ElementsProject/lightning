@@ -39,7 +39,7 @@ bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		  struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "json_to_txid called!\n"); abort(); }
 /* Generated stub for log_ */
-void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
+void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, bool call_notifier UNNEEDED, const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
 /* Generated stub for log_io */

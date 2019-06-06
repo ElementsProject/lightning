@@ -81,7 +81,7 @@ static void copy_to_parent_log(const char *prefix,
 	else if (continued)
 		log_add(parent_log, "%s ... %s", prefix, str);
 	else
-		log_(parent_log, level, "%s %s", prefix, str);
+		log_(parent_log, level, false, "%s %s", prefix, str);
 }
 
 static void peer_update_features(struct peer *peer,
@@ -119,7 +119,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 #endif
 
 	/* Max 128k per peer. */
-	peer->log_book = new_log_book(128*1024, get_log_level(ld->log_book));
+	peer->log_book = new_log_book(peer->ld, 128*1024, get_log_level(ld->log_book));
 	set_log_outfn(peer->log_book, copy_to_parent_log, ld->log);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);

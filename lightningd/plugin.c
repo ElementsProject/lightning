@@ -196,6 +196,7 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 {
 	const jsmntok_t *msgtok, *leveltok;
 	enum log_level level;
+	bool call_notifier;
 	msgtok = json_get_member(plugin->buffer, paramstok, "message");
 	leveltok = json_get_member(plugin->buffer, paramstok, "level");
 
@@ -222,7 +223,8 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 		return;
 	}
 
-	log_(plugin->log, level, "%.*s", msgtok->end - msgtok->start,
+	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
+	log_(plugin->log, level, call_notifier, "%.*s", msgtok->end - msgtok->start,
 	     plugin->buffer + msgtok->start);
 }
 
