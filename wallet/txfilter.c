@@ -9,8 +9,28 @@
 #include <common/utils.h>
 #include <wallet/wallet.h>
 
+static size_t scriptpubkey_hash(const u8 *out)
+{
+	struct siphash24_ctx ctx;
+	siphash24_init(&ctx, siphash_seed());
+	siphash24_update(&ctx, out, tal_bytelen(out));
+	return siphash24_done(&ctx);
+}
+
+static const u8 *scriptpubkey_keyof(const u8 *out)
+{
+	return out;
+}
+
+static int scriptpubkey_eq(const u8 *a, const u8 *b)
+{
+	return memeq(a, tal_bytelen(a), b, tal_bytelen(b));
+}
+
+HTABLE_DEFINE_TYPE(u8, scriptpubkey_keyof, scriptpubkey_hash, scriptpubkey_eq, scriptpubkeyset);
+
 struct txfilter {
-	const u8 **scriptpubkeys;
+	struct scriptpubkeyset scriptpubkeyset;
 };
 
 struct outpointfilter_entry {
@@ -48,14 +68,15 @@ struct outpointfilter {
 struct txfilter *txfilter_new(const tal_t *ctx)
 {
 	struct txfilter *filter = tal(ctx, struct txfilter);
-	filter->scriptpubkeys = tal_arr(filter, const u8 *, 0);
+	scriptpubkeyset_init(&filter->scriptpubkeyset);
 	return filter;
 }
 
 void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES)
 {
-	tal_arr_expand(&filter->scriptpubkeys,
-		       tal_dup_arr(filter, u8, script, tal_count(script), 0));
+	scriptpubkeyset_add(
+	    &filter->scriptpubkeyset,
+	    notleak(tal_dup_arr(filter, u8, script, tal_count(script), 0)));
 }
 
 void txfilter_add_derkey(struct txfilter *filter,
@@ -76,10 +97,8 @@ bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx)
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 
-		for (size_t j = 0; j < tal_count(filter->scriptpubkeys); j++) {
-			if (scripteq(oscript, filter->scriptpubkeys[j]))
-				return true;
-		}
+		if (scriptpubkeyset_get(&filter->scriptpubkeyset, oscript))
+			return true;
 	}
 	return false;
 }
