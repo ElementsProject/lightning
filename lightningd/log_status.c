@@ -6,10 +6,13 @@ bool log_status_msg(struct log *log, const u8 *msg)
 	char *entry, *who;
 	u8 *data;
  	enum log_level level;
+	bool call_notifier;
 
 	if (fromwire_status_log(msg, msg, &level, &entry)) {
 		if (level != LOG_IO_IN && level != LOG_IO_OUT) {
-			log_(log, level, "%s", entry);
+			call_notifier = (level == LOG_BROKEN ||
+			         level == LOG_UNUSUAL)? true : false;
+			log_(log, level, call_notifier, "%s", entry);
 			return true;
 		}
 	} else if (fromwire_status_io(msg, msg, &level, &who, &data)) {

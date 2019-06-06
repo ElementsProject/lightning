@@ -155,7 +155,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * book to hold all the entries (and trims as necessary), and multiple
 	 * log objects which each can write into it, each with a unique
 	 * prefix. */
-	ld->log_book = new_log_book(20*1024*1024, LOG_INFORM);
+	ld->log_book = new_log_book(ld, 20*1024*1024, LOG_INFORM);
 	/*~ Note the tal context arg (by convention, the first argument to any
 	 * allocation function): ld->log will be implicitly freed when ld
 	 * is. */

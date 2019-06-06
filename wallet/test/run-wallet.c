@@ -4,7 +4,7 @@ static void wallet_test_fatal(const char *fmt, ...);
 #define db_fatal wallet_test_fatal
 #include "test_utils.h"
 
-static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const char *fmt UNUSED, ...)
+static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, bool call_notifier UNUSED, const char *fmt UNUSED, ...)
 {
 }
 #define log_ db_log_
@@ -647,7 +647,7 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 	return NULL;
 }
 
-struct log_book *new_log_book(size_t max_mem UNNEEDED,
+struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED,
 			      enum log_level printlevel UNNEEDED)
 {
 	return NULL;
