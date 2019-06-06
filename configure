@@ -3,16 +3,6 @@
 
 set -e
 
-# Default values, loaded from environment or canned.
-PREFIX=${PREFIX:-/usr/local}
-CC=${CC:-cc}
-CDEBUGFLAGS=${CDEBUGFLAGS:--std=gnu11 -g -fstack-protector}
-DEVELOPER=${DEVELOPER:-0}
-EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
-COMPAT=${COMPAT:-1}
-STATIC=${STATIC:-0}
-ASAN=${ASAN:-0}
-
 CONFIGURATOR=ccan/tools/configurator/configurator
 CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
@@ -55,14 +45,68 @@ default_cwarnflags()
     echo "$F"
 }
 
+default_pytest()
+{
+    PYTEST_BINS="pytest-3 pytest3 pytest py.test"
+    for p in $PYTEST_BINS; do
+	if [ "$(which $p)" != "" ] ; then
+	    "$p" --version 2>&1 | grep -q "python3" || continue
+	    echo "$p"
+	    return
+	fi
+    done
+
+    PYTHON_BINS="python python3"
+    for p in $PYTHON_BINS; do
+        if [ "$(which $p)" != "" ] ; then
+            $p --version 2>&1 | grep -q "Python 3." || continue
+            if $p -c "import pytest" 2>/dev/null ; then
+                echo "$p -m pytest"
+                return
+            fi
+        fi
+    done
+}
+
+default_valgrind_setting()
+{
+    # Valgrind must accept all these options (might exit with error 7 though
+    # if /bin/true leaks mem on your system!)
+    if valgrind -q --error-exitcode=7 --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all /bin/true >/dev/null 2>&1 || [ $? = 7 ]; then
+	echo 1
+    else
+	echo 0
+    fi
+}
+
+set_defaults()
+{
+    # Default values, loaded from environment or canned.
+    # Note that ":-" means substitute if empty or unset, "-" means only if unset
+    # which matters since you might explicitly set of these blank.
+    PREFIX=${PREFIX:-/usr/local}
+    CC=${CC:-cc}
+    CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector}
+    DEVELOPER=${DEVELOPER:-0}
+    EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
+    COMPAT=${COMPAT:-1}
+    STATIC=${STATIC:-0}
+    ASAN=${ASAN:-0}
+    PYTEST=${PYTEST-$(default_pytest)}
+    COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEVELOPER")}
+    CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
+    VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
+}
+
 usage()
 {
     echo "Usage: ./configure [--reconfigure] [setting=value] [options]"
     echo "If --reconfigure is specified, $CONFIG_VAR_FILE will set defaults."
     echo "Default settings:"
+    set_defaults
     DEFAULT_COPTFLAGS="$(default_coptflags $DEVELOPER)"
     # We assume we have a modern gcc.
-    DEFAULT_CWARNFLAGS="$(default_coptflags $DEFAULT_COPTFLAGS 1 1)"
+    DEFAULT_CWARNFLAGS="$(default_cwarnflags ""$DEFAULT_COPTFLAGS"" 1 1)"
     usage_with_default "CC" "$CC"
     usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
     usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
@@ -70,6 +114,7 @@ usage()
     usage_with_default "CONFIGURATOR_CC" "${CONFIGURATOR_CC:-$CC}"
     echo "    To override compile line for configurator itself"
     usage_with_default "PYTEST" "$PYTEST"
+    usage_with_default "VALGRIND" "$VALGRIND"
 
     echo "Options include:"
     usage_with_default "--prefix=" "$PREFIX"
@@ -99,31 +144,6 @@ add_var()
     echo "$1=$2" >> $CONFIG_VAR_FILE
     [ -z "$3" ] || echo "#define $1 $2" >> "$3"
 }
-
-find_pytest()
-{
-    PYTEST_BINS="pytest-3 pytest3 pytest py.test"
-    for p in $PYTEST_BINS; do
-	if [ "$(which $p)" != "" ] ; then
-	    "$p" --version 2>&1 | grep -q "python3" || continue
-	    echo "$p"
-	    return
-	fi
-    done
-
-    PYTHON_BINS="python python3"
-    for p in $PYTHON_BINS; do
-        if [ "$(which $p)" != "" ] ; then
-            $p --version 2>&1 | grep -q "Python 3." || continue
-            if $p -c "import pytest" 2>/dev/null ; then
-                echo "$p -m pytest"
-                return
-            fi
-        fi
-    done
-}
-
-PYTEST=${PYTEST:-`find_pytest`}
 
 for opt in "$@"; do
     case "$opt" in
@@ -170,28 +190,13 @@ for opt in "$@"; do
     esac
 done
 
-# Default COPTFLAGS is only set if not developer
-if [ -z ${COPTFLAGS+x} ]; then
-    COPTFLAGS=$(default_coptflags "$DEVELOPER")
-fi
-
-# Default CONFIGURATOR CC is CC.
-if [ -z ${CONFIGURATOR_CC+x} ]; then
-    CONFIGURATOR_CC=$CC
-fi
+# Now fill in any unset vars.
+set_defaults
 
 # We assume warning flags don't affect congfigurator that much!
 echo -n "Compiling $CONFIGURATOR..."
-$CC ${CWARNFLAGS:-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done"
-
-if [ -z "$VALGRIND" ]; then
-    if valgrind -q --error-exitcode=7 --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all $CONFIGURATOR --help >/dev/null 2>&1; then
-	VALGRIND=1
-    else
-	VALGRIND=0
-    fi
-fi
 
 if [ "$ASAN" = "1" ]; then
     if [ "$CC" = "clang" ]; then
@@ -205,7 +210,7 @@ if [ "$ASAN" = "1" ]; then
 fi
 
 rm -f $CONFIG_VAR_FILE.$$
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" ${CWARNFLAGS:-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS <<EOF
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
