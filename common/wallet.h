@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_WALLET_H
 
 #include "config.h"
+#include <wire/wire.h>
 
 /* Types of transactions we store in the `transactions` table. Mainly used for
  * display purposes later. */
@@ -19,7 +20,8 @@ enum wallet_tx_type {
        TX_CHANNEL_PENALTY = 512,
        TX_CHANNEL_CHEAT = 1024,
 };
-/* Any combination of the above wallet_tx_types */
-typedef unsigned short txtypes;
+
+enum wallet_tx_type fromwire_wallet_tx_type(const u8 **cursor, size_t *max);
+void towire_wallet_tx_type(u8 **pptr, const enum wallet_tx_type type);
 
 #endif /* LIGHTNING_COMMON_WALLET_H */

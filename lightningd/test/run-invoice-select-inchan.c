@@ -563,8 +563,8 @@ void wallet_transaction_add(struct wallet *w UNNEEDED, const struct bitcoin_tx *
 { fprintf(stderr, "wallet_transaction_add called!\n"); abort(); }
 /* Generated stub for wallet_transaction_annotate */
 void wallet_transaction_annotate(struct wallet *w UNNEEDED,
-				 const struct bitcoin_txid *txid UNNEEDED, txtypes type UNNEEDED,
-				 u64 channel_id UNNEEDED)
+				 const struct bitcoin_txid *txid UNNEEDED,
+				 enum wallet_tx_type type UNNEEDED, u64 channel_id UNNEEDED)
 { fprintf(stderr, "wallet_transaction_annotate called!\n"); abort(); }
 /* Generated stub for wallet_transaction_locate */
 struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,

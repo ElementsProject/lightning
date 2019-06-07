@@ -167,7 +167,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 	struct bitcoin_tx *tx;
 	struct wallet *w = channel->peer->ld->wallet;
 	struct bitcoin_txid txid;
-	txtypes type;
+	enum wallet_tx_type type;
 
 	if (!fromwire_onchain_broadcast_tx(msg, msg, &tx, &type)) {
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
@@ -294,7 +294,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 static void onchain_transaction_annotate(struct channel *channel, const u8 *msg)
 {
 	struct bitcoin_txid txid;
-	txtypes type;
+	enum wallet_tx_type type;
 	if (!fromwire_onchain_transaction_annotate(msg, &txid, &type))
 		fatal("onchaind gave invalid onchain_transaction_annotate "
 		      "message: %s",

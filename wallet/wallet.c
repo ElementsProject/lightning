@@ -2416,7 +2416,7 @@ void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
 }
 
 void wallet_transaction_annotate(struct wallet *w,
-				 const struct bitcoin_txid *txid, txtypes type,
+				 const struct bitcoin_txid *txid, enum wallet_tx_type type,
 				 u64 channel_id)
 {
 	sqlite3_stmt *stmt = db_select_prepare(w->db, "type, channel_id FROM transactions WHERE id=?");

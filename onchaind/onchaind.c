@@ -458,7 +458,7 @@ static void ignore_output(struct tracked_output *out)
 	out->resolved->tx_type = SELF;
 }
 
-static txtypes onchain_txtype_to_wallet_txtype(enum tx_type t)
+static enum wallet_tx_type onchain_txtype_to_wallet_txtype(enum tx_type t)
 {
 	switch (t) {
 	case FUNDING_TRANSACTION:
@@ -980,7 +980,8 @@ static void steal_htlc_tx(struct tracked_output *out)
 	propose_resolution(out, tx, 0, tx_type);
 }
 
-static void onchain_transaction_annotate(const struct bitcoin_txid *txid, txtypes type)
+static void onchain_transaction_annotate(const struct bitcoin_txid *txid,
+					 enum wallet_tx_type type)
 {
 	u8 *msg = towire_onchain_transaction_annotate(tmpctx, txid, type);
 	wire_sync_write(REQ_FD, take(msg));

@@ -53,6 +53,7 @@ COMMON_SRC_NOGEN :=				\
 	common/utils.c				\
 	common/utxo.c				\
 	common/version.c			\
+	common/wallet.c				\
 	common/wallet_tx.c			\
 	common/wireaddr.c			\
 	common/wire_error.c			\
@@ -60,7 +61,7 @@ COMMON_SRC_NOGEN :=				\
 
 COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
 
-COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h) common/overflows.h common/htlc.h common/status_levels.h common/json_command.h common/jsonrpc_errors.h common/wallet.h
+COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h) common/overflows.h common/htlc.h common/status_levels.h common/json_command.h common/jsonrpc_errors.h
 COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/gen_status_wire.h common/gen_peer_status_wire.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
