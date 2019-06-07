@@ -802,7 +802,7 @@ struct {
     {0, NULL}
 };
 
-static void json_add_txtypes(struct json_stream *result, const char *fieldname, txtypes value)
+static void json_add_txtypes(struct json_stream *result, const char *fieldname, enum wallet_tx_type value)
 {
 	json_array_start(result, fieldname);
 	for (size_t i=0; wallet_tx_type_display_names[i].name != NULL; i++) {

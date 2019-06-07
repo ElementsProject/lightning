@@ -52,6 +52,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\
+	common/wallet.o				\
 	common/wallet_tx.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\

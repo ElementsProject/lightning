@@ -333,7 +333,7 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig,
-			 txtypes txtypes)
+			 enum wallet_tx_type txtypes)
 {
 	channel->last_sig = *sig;
 	tal_free(channel->last_tx);

@@ -1,5 +1,6 @@
 #include <common/derive_basepoints.h>
 #include <common/htlc_wire.h>
+#include <common/wallet.h>
 
 # Begin!  Here's the onchain tx which spends funding tx, followed by all HTLCs.
 onchain_init,5001
@@ -48,7 +49,7 @@ onchain_init_reply,5101
 # onchaind->master: Send out a tx.
 onchain_broadcast_tx,5003
 onchain_broadcast_tx,,tx,struct bitcoin_tx
-onchain_broadcast_tx,,type,u16
+onchain_broadcast_tx,,type,enum wallet_tx_type
 
 # master->onchaind: Notifier that an output has been spent by input_num of tx.
 onchain_spent,5004
@@ -105,4 +106,4 @@ onchain_dev_memleak_reply,,leak,bool
 # transactions.
 onchain_transaction_annotate,5034
 onchain_transaction_annotate,,txid,struct bitcoin_txid
-onchain_transaction_annotate,,type,u16
+onchain_transaction_annotate,,type,enum wallet_tx_type
