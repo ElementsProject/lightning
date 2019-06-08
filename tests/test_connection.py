@@ -1692,7 +1692,6 @@ def test_change_chaining(node_factory, bitcoind):
     l1.rpc.fundchannel(l3.info['id'], 10**7, minconf=0)
 
 
-@pytest.mark.xfail(strict=True)
 def test_feerate_spam(node_factory):
     l1, l2 = node_factory.line_graph(2)
 

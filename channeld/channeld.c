@@ -1133,9 +1133,7 @@ static void send_commit(struct peer *peer)
 	}
 
 	/* If we wanted to update fees, do it now. */
-	if (peer->channel->funder == LOCAL
-	    && peer->desired_feerate != channel_feerate(peer->channel, REMOTE)) {
-		u8 *msg;
+	if (peer->channel->funder == LOCAL) {
 		u32 feerate, max = approx_max_feerate(peer->channel);
 
 		feerate = peer->desired_feerate;
@@ -1145,14 +1143,19 @@ static void send_commit(struct peer *peer)
 		if (feerate > max)
 			feerate = max;
 
-		if (!channel_update_feerate(peer->channel, feerate))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Could not afford feerate %u"
-				      " (vs max %u)",
-				      feerate, max);
+		if (feerate != channel_feerate(peer->channel, REMOTE)) {
+			u8 *msg;
 
-		msg = towire_update_fee(NULL, &peer->channel_id, feerate);
-		sync_crypto_write(peer->pps, take(msg));
+			if (!channel_update_feerate(peer->channel, feerate))
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Could not afford feerate %u"
+					      " (vs max %u)",
+					      feerate, max);
+
+			msg = towire_update_fee(NULL, &peer->channel_id,
+						feerate);
+			sync_crypto_write(peer->pps, take(msg));
+		}
 	}
 
 	/* BOLT #2:
