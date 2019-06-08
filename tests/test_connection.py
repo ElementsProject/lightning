@@ -786,6 +786,38 @@ def test_funding_toolarge(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], amount)
 
 
+def test_funding_by_utxos(node_factory, bitcoind):
+    """Fund a channel with specific utxos"""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
+
+    # Get 3 differents utxo
+    l1.fundwallet(0.01 * 10**8)
+    l1.fundwallet(0.01 * 10**8)
+    l1.fundwallet(0.01 * 10**8)
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) == 3)
+
+    utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]]
+
+    # Fund with utxos we don't own
+    with pytest.raises(RpcError, match=r"No matching utxo was found from the wallet"):
+        l3.rpc.fundchannel(l2.info["id"], int(0.01 * 10**8), utxos=utxos)
+
+    # Fund with an empty array
+    with pytest.raises(RpcError, match=r"Please specify an array of \\'txid:output_index\\', not \"*\""):
+        l1.rpc.fundchannel(l2.info["id"], int(0.01 * 10**8), utxos=[])
+
+    # Fund a channel from some of the utxos, without change
+    l1.rpc.fundchannel(l2.info["id"], "all", utxos=utxos[0:2])
+
+    # Fund a channel from the rest of utxos, with change
+    l1.rpc.connect(l3.info["id"], "localhost", l3.port)
+    l1.rpc.fundchannel(l3.info["id"], int(0.007 * 10**8), utxos=[utxos[2]])
+
+    # Fund another channel with already spent utxos
+    with pytest.raises(RpcError, match=r"No matching utxo was found from the wallet"):
+        l1.rpc.fundchannel(l3.info["id"], int(0.01 * 10**8), utxos=utxos)
+
+
 def test_lockin_between_restart(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(options={'funding-confirms': 3},
