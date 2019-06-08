@@ -721,7 +721,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	}
 
 	json_add_hex_talarr(s, "next_onion", p->next_onion);
-	json_add_hex(s, "shared_secret", &hin->shared_secret, sizeof(hin->shared_secret));
+	json_add_secret(s, "shared_secret", hin->shared_secret);
 	json_object_end(s);
 
 	json_object_start(s, "htlc");
