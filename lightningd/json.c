@@ -440,3 +440,9 @@ void json_add_time(struct json_stream *result, const char *fieldname,
 		(unsigned)ts.tv_nsec);
 	json_add_string(result, fieldname, timebuf);
 }
+
+void json_add_secret(struct json_stream *response, const char *fieldname,
+		     const struct secret *secret)
+{
+	json_add_hex(response, fieldname, secret, sizeof(struct secret));
+}
