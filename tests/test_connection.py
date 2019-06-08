@@ -1690,3 +1690,26 @@ def test_change_chaining(node_factory, bitcoind):
     with pytest.raises(RpcError):
         l1.rpc.fundchannel(l3.info['id'], 10**7)  # Defaults to minconf=1
     l1.rpc.fundchannel(l3.info['id'], 10**7, minconf=0)
+
+
+@pytest.mark.xfail(strict=True)
+def test_feerate_spam(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+
+    # Pay almost everything to l2.
+    l1.pay(l2, 10**9 - 25000000)
+
+    # It will send this once (may have happened before line_graph's wait)
+    wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 15000'))
+    wait_for(lambda: l1.daemon.is_in_log('peer_out WIRE_UPDATE_FEE'))
+
+    # Now change feerates to something l1 can't afford.
+    l1.set_feerates((100000, 100000, 100000))
+
+    # It will raise as far as it can (20000)
+    l1.daemon.wait_for_log('Setting REMOTE feerate to 20000')
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
+
+    # But it won't do it again once it's at max.
+    with pytest.raises(TimeoutError):
+        l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE', timeout=5)
