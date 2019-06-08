@@ -254,6 +254,11 @@ void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_s32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  int32_t value UNNEEDED)
 { fprintf(stderr, "json_add_s32 called!\n"); abort(); }
+/* Generated stub for json_add_secret */
+void json_add_secret(struct json_stream *response UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     const struct secret *secret UNNEEDED)
+{ fprintf(stderr, "json_add_secret called!\n"); abort(); }
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
