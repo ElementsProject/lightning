@@ -5,6 +5,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_JSON_H
 #define LIGHTNING_LIGHTNINGD_JSON_H
 #include "config.h"
+#include <bitcoin/privkey.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
@@ -41,6 +42,11 @@ void json_add_route(struct json_stream *r, char const *n,
 void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key);
+
+/* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
+void json_add_secret(struct json_stream *response,
+		     const char *fieldname,
+		     const struct secret *secret);
 
 /* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
 void json_add_node_id(struct json_stream *response,
