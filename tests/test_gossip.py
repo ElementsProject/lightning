@@ -861,7 +861,7 @@ def test_gossip_store_load(node_factory):
     """Make sure we can read canned gossip store"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("05"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("06"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "dc5bef89"  # csum
                                   "5b8d9b44"  # timestamp
