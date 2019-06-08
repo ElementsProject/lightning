@@ -8,7 +8,7 @@ lightning-fundchannel - Command for establishing a lightning channel.
 
 SYNOPSIS
 --------
-*fundchannel* 'id' 'satoshi' ['feerate' 'announce'] ['minconf']
+*fundchannel* 'id' 'satoshi' ['feerate' 'announce'] ['minconf'] ['utxos']
 
 DESCRIPTION
 -----------
@@ -44,6 +44,8 @@ Otherwise, 'feerate' is a number, with an optional suffix:
 satoshi-per-kilobyte.  Omitting the suffix is equivalent to 'perkb'.
 
 'minconf' specifies the minimum number of confirmations that used outputs should have. Default is 1.
+
+'utxos' specifies the utxos to be used to fund the channel, as an array of "txid:vout".
 
 RETURN VALUE
 ------------
