@@ -490,12 +490,14 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("feerates", payload)
 
-    def fundchannel(self, node_id, satoshi, feerate=None, announce=True, minconf=None):
+    def fundchannel(self, node_id, satoshi, feerate=None, announce=True, minconf=None, utxos=None):
         """
-        Fund channel with {id} using {satoshi} satoshis
-        with feerate of {feerate} (uses default feerate if unset).
+        Fund channel with {id} using {satoshi} satoshis with feerate
+        of {feerate} (uses default feerate if unset).
         If {announce} is False, don't send channel announcements.
-        Only select outputs with {minconf} confirmations
+        Only select outputs with {minconf} confirmations.
+        If {utxos} is specified (as a list of 'txid:vout' strings),
+        fund a channel from these specifics utxos.
         """
         payload = {
             "id": node_id,
@@ -503,6 +505,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "feerate": feerate,
             "announce": announce,
             "minconf": minconf,
+            "utxos": utxos
         }
         return self.call("fundchannel", payload)
 
