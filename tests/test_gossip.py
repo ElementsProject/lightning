@@ -961,9 +961,9 @@ def test_gossip_notices_close(node_factory, bitcoind):
     channel_update = l1.daemon.is_in_log(r'\[IN\] 0102').split(' ')[-1][:-1]
     node_announcement = l1.daemon.is_in_log(r'\[IN\] 0101').split(' ')[-1][:-1]
 
-    l2.rpc.close(l3.info['id'])
+    txid = l2.rpc.close(l3.info['id'])['txid']
     wait_for(lambda: only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, txid)
 
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
