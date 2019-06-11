@@ -996,6 +996,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	bool *announce_channel;
 	u8 *msg;
 	struct amount_sat max_funding_satoshi;
+	const struct utxo **chosen_utxos;
 
 	max_funding_satoshi = get_chainparams(cmd->ld)->max_funding;
 
@@ -1009,6 +1010,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   p_opt_def("minconf", param_number, &minconf, 1),
+		   p_opt("utxos", param_utxos, &chosen_utxos),
 		   NULL))
 		return command_param_failed();
 
@@ -1055,8 +1057,12 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	}
 
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
-	res = wtx_select_utxos(fc->wtx, *feerate_per_kw,
-			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN, maxheight);
+	if (chosen_utxos)
+		res = wtx_from_utxos(fc->wtx, *feerate_per_kw,
+				BITCOIN_SCRIPTPUBKEY_P2WSH_LEN, maxheight, chosen_utxos);
+	else
+		res = wtx_select_utxos(fc->wtx, *feerate_per_kw,
+				BITCOIN_SCRIPTPUBKEY_P2WSH_LEN, maxheight);
 	if (res)
 		return res;
 

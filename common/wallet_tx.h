@@ -27,10 +27,22 @@ struct command_result *param_wtx(struct command *cmd,
 				 const jsmntok_t *tok,
 				 struct wallet_tx *wtx);
 
+struct command_result *param_utxos(struct command *cmd,
+				 const char *name,
+				 const char *buffer,
+				 const jsmntok_t *tok,
+				 const struct utxo ***utxos);
+
 struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 					u32 fee_rate_per_kw,
 					size_t out_len,
 					u32 maxheight);
+
+struct command_result *wtx_from_utxos(struct wallet_tx *tx,
+					u32 fee_rate_per_kw,
+					size_t out_len,
+					u32 maxheight,
+					const struct utxo **utxos);
 
 static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
 {
