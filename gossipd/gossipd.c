@@ -116,6 +116,9 @@ struct daemon {
 
 	/* Do we think we're missing gossip? */
 	bool gossip_missing;
+
+	/* Channels we've heard about, but don't know. */
+	struct short_channel_id *unknown_scids;
 };
 
 /* This represents each peer we're gossiping with */
@@ -572,6 +575,27 @@ static bool query_short_channel_ids(struct daemon *daemon,
 	return true;
 }
 
+/*~ This peer told us about an update to an unknown channel.  Ask it for
+ * a channel_announcement. */
+static void query_unknown_channel(struct daemon *daemon,
+				  struct peer *peer,
+				  const struct short_channel_id *id)
+{
+	/* Don't go overboard if we're already asking for a lot. */
+	if (tal_count(daemon->unknown_scids) > 1000)
+		return;
+
+	/* Check we're not already getting this one. */
+	for (size_t i = 0; i < tal_count(daemon->unknown_scids); i++)
+		if (short_channel_id_eq(&daemon->unknown_scids[i], id))
+			return;
+
+	tal_arr_expand(&daemon->unknown_scids, *id);
+
+	/* This is best effort: if peer is busy, we'll try next time. */
+	query_short_channel_ids(daemon, peer, daemon->unknown_scids, true);
+}
+
 /*~Routines to handle gossip messages from peer, forwarded by subdaemons.
  *-----------------------------------------------------------------------
  *
@@ -593,7 +617,9 @@ static const u8 *handle_channel_announcement_msg(struct peer *peer,
 	const struct short_channel_id *scid;
 	const u8 *err;
 
-	/* If it's OK, tells us the short_channel_id to lookup */
+	/* If it's OK, tells us the short_channel_id to lookup; it notes
+	 * if this is the unknown channel the peer was looking for (in
+	 * which case, it frees and NULLs that ptr) */
 	err = handle_channel_announcement(peer->daemon->rstate, msg, &scid);
 	if (err)
 		return err;
@@ -605,11 +631,18 @@ static const u8 *handle_channel_announcement_msg(struct peer *peer,
 
 static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 {
+	struct short_channel_id unknown_scid;
 	/* Hand the channel_update to the routing code */
-	u8 *err = handle_channel_update(peer->daemon->rstate, msg, "subdaemon",
-					NULL);
-	if (err)
+	u8 *err;
+
+	unknown_scid.u64 = 0;
+	err = handle_channel_update(peer->daemon->rstate, msg, "subdaemon",
+				    &unknown_scid);
+	if (err) {
+		if (unknown_scid.u64 != 0)
+			query_unknown_channel(peer->daemon, peer, &unknown_scid);
 		return err;
+	}
 
 	/*~ As a nasty compromise in the spec, we only forward channel_announce
 	 * once we have a channel_update; the channel isn't *usable* for
@@ -2571,12 +2604,27 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	struct short_channel_id scid;
 	u8 *outscript;
 	struct amount_sat sat;
+	bool was_unknown;
 
 	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &sat, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
+	/* Were we looking specifically for this? */
+	was_unknown = false;
+	for (size_t i = 0; i < tal_count(daemon->unknown_scids); i++) {
+		if (short_channel_id_eq(&daemon->unknown_scids[i], &scid)) {
+			was_unknown = true;
+			tal_arr_remove(&daemon->unknown_scids, i);
+			break;
+		}
+	}
+
 	/* Outscript is NULL if it's not an unspent output */
-	handle_pending_cannouncement(daemon->rstate, &scid, sat, outscript);
+	if (handle_pending_cannouncement(daemon->rstate, &scid, sat, outscript)
+	    && was_unknown) {
+		/* It was real: we're missing gossip. */
+		gossip_missing(daemon);
+	}
 
 	/* Anywhere we might have announced a channel, we check if it's time to
 	 * announce ourselves (ie. if we just announced our own first channel) */
@@ -2840,7 +2888,8 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
-	daemon->gossip_missing = false;
+	daemon->unknown_scids = tal_arr(daemon, struct short_channel_id, 0);
+	daemon->gossip_missing = NULL;
 
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
