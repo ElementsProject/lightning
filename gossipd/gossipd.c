@@ -114,8 +114,8 @@ struct daemon {
 	/* What addresses we can actually announce. */
 	struct wireaddr *announcable;
 
-	/* Do we think we're missing gossip? */
-	bool gossip_missing;
+	/* Do we think we're missing gossip?  Contains timer to re-check */
+	struct oneshot *gossip_missing;
 
 	/* Channels we've heard about, but don't know. */
 	struct short_channel_id *unknown_scids;
@@ -1927,10 +1927,35 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		local_disable_chan(daemon->rstate, c);
 }
 
+/* Mutual recursion, so we pre-declare this. */
+static void gossip_not_missing(struct daemon *daemon);
+
 /*~ We've found gossip is missing. */
 static void gossip_missing(struct daemon *daemon)
 {
-	daemon->gossip_missing = true;
+	if (!daemon->gossip_missing)
+		status_info("We seem to be missing gossip messages");
+
+	tal_free(daemon->gossip_missing);
+	/* Check again in 10 minutes. */
+	daemon->gossip_missing = new_reltimer(&daemon->timers, daemon,
+					      time_from_sec(600),
+					      gossip_not_missing, daemon);
+}
+
+/*~ This is a timer, which goes off 10 minutes after the last time we noticed
+ * that gossip was missing. */
+static void gossip_not_missing(struct daemon *daemon)
+{
+	/* Corner case: no peers, try again! */
+	if (list_empty(&daemon->peers))
+		gossip_missing(daemon);
+	else {
+		daemon->gossip_missing = tal_free(daemon->gossip_missing);
+		status_info("We seem to be caught up on gossip messages");
+		/* Free any lagging/stale unknown scids. */
+		daemon->unknown_scids = tal_free(daemon->unknown_scids);
+	}
 }
 
 /*~ Parse init message from lightningd: starts the daemon properly. */
