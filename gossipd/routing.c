@@ -1646,7 +1646,7 @@ static void process_pending_channel_update(struct routing_state *rstate,
 		return;
 
 	/* FIXME: We don't remember who sent us updates, so can't error them */
-	err = handle_channel_update(rstate, cupdate, "pending update");
+	err = handle_channel_update(rstate, cupdate, "pending update", NULL);
 	if (err) {
 		status_trace("Pending channel_update for %s: %s",
 			     type_to_string(tmpctx, struct short_channel_id, scid),
@@ -1655,7 +1655,7 @@ static void process_pending_channel_update(struct routing_state *rstate,
 	}
 }
 
-void handle_pending_cannouncement(struct routing_state *rstate,
+bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  struct amount_sat sat,
 				  const u8 *outscript)
@@ -1665,7 +1665,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
-		return;
+		return false;
 
 	/* BOLT #7:
 	 *
@@ -1680,7 +1680,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 					    scid));
 		tal_free(pending);
 		uintmap_add(&rstate->txout_failures, scid->u64, true);
-		return;
+		return false;
 	}
 
 	/* BOLT #7:
@@ -1703,7 +1703,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 					    scid),
 			     tal_hex(tmpctx, s), tal_hex(tmpctx, outscript));
 		tal_free(pending);
-		return;
+		return false;
 	}
 
 	/* Remove pending now, so below functions don't see it. */
@@ -1719,6 +1719,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	process_pending_channel_update(rstate, scid, pending->updates[1]);
 
 	tal_free(pending);
+	return true;
 }
 
 static void update_pending(struct pending_cannouncement *pending,
@@ -1963,7 +1964,8 @@ void remove_channel_from_store(struct routing_state *rstate,
 }
 
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
-			  const char *source)
+			  const char *source,
+			  struct short_channel_id *unknown_scid)
 {
 	u8 *serialized;
 	const struct node_id *owner;
@@ -2031,6 +2033,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 
 	owner = get_channel_owner(rstate, &short_channel_id, direction);
 	if (!owner) {
+		if (unknown_scid)
+			*unknown_scid = short_channel_id;
 		bad_gossip_order(serialized,
 				 source,
 				 tal_fmt(tmpctx, "%s/%u",
@@ -2386,7 +2390,8 @@ void routing_failure(struct routing_state *rstate,
 
 	/* lightningd will only extract this if UPDATE is set. */
 	if (channel_update) {
-		u8 *err = handle_channel_update(rstate, channel_update, "error");
+		u8 *err = handle_channel_update(rstate, channel_update, "error",
+						NULL);
 		if (err) {
 			status_unusual("routing_failure: "
 				       "bad channel_update %s",

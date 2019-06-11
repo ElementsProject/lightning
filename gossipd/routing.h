@@ -301,9 +301,10 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 
 /**
  * handle_pending_cannouncement -- handle channel_announce once we've
- * completed short_channel_id lookup.
+ * completed short_channel_id lookup.  Returns true if handling created
+ * a new channel.
  */
-void handle_pending_cannouncement(struct routing_state *rstate,
+bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  const struct amount_sat sat,
 				  const u8 *txscript);
@@ -312,9 +313,12 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 struct chan *first_chan(const struct node *node, struct chan_map_iter *i);
 struct chan *next_chan(const struct node *node, struct chan_map_iter *i);
 
-/* Returns NULL if all OK, otherwise an error for the peer which sent. */
+/* Returns NULL if all OK, otherwise an error for the peer which sent.
+ * If the error is that the channel is unknown, fills in *unknown_scid
+ * (if not NULL). */
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
-			  const char *source);
+			  const char *source,
+			  struct short_channel_id *unknown_scid);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node);

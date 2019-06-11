@@ -606,7 +606,8 @@ static const u8 *handle_channel_announcement_msg(struct peer *peer,
 static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 {
 	/* Hand the channel_update to the routing code */
-	u8 *err = handle_channel_update(peer->daemon->rstate, msg, "subdaemon");
+	u8 *err = handle_channel_update(peer->daemon->rstate, msg, "subdaemon",
+					NULL);
 	if (err)
 		return err;
 
@@ -1311,7 +1312,7 @@ static void update_local_channel(struct daemon *daemon,
 	/* We feed it into routing.c like any other channel_update; it may
 	 * discard it (eg. non-public channel), but it should not complain
 	 * about it being invalid! */
-	msg = handle_channel_update(daemon->rstate, take(update), caller);
+	msg = handle_channel_update(daemon->rstate, take(update), caller, NULL);
 	if (msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s: rejected local channel update %s: %s",
