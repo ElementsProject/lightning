@@ -1,4 +1,4 @@
-#include <ccan/crc/crc.h>
+#include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>

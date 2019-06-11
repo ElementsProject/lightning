@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <ccan/crc/crc.h>
+#include <ccan/crc32c/crc32c.h>
 #include <common/features.h>
 #include <common/gossip_store.h>
 #include <common/per_peer_state.h>
