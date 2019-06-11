@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugins: a plugin can now set the category of a newly created RPC command. This possibility has been added to libplugin.c and pylightning.
 - CLI: the human readable help is now more human and more readable : commands are sorted alphabetically and ordered by categories.
 - JSON API: A new parameter is added to `fundchannel`, which now accepts an utxo array to use to fund the channel.
+- Protocol: no longer ask for entire gossip flood from peers, unless we're missing gossip.
 
 ### Deprecated
 

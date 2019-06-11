@@ -2006,11 +2006,43 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 /* Mutual recursion, so we pre-declare this. */
 static void gossip_not_missing(struct daemon *daemon);
 
+/* Pick a random peer which is not already GOSSIP_HIGH. */
+static struct peer *random_peer_to_gossip(struct daemon *daemon)
+{
+	u64 target = UINT64_MAX;
+	struct peer *best = NULL, *i;
+
+	/* Reservoir sampling */
+	list_for_each(&daemon->peers, i, list) {
+		u64 r = pseudorand_u64();
+		if (i->gossip_level != GOSSIP_HIGH && r <= target) {
+			best = i;
+			target = r;
+		}
+	}
+	return best;
+}
+
 /*~ We've found gossip is missing. */
 static void gossip_missing(struct daemon *daemon)
 {
-	if (!daemon->gossip_missing)
+	if (!daemon->gossip_missing) {
 		status_info("We seem to be missing gossip messages");
+		/* FIXME: we could use query_channel_range. */
+		/* Make some peers gossip harder. */
+		for (size_t i = 0; i < gossip_level_targets[GOSSIP_HIGH]; i++) {
+			struct peer *peer = random_peer_to_gossip(daemon);
+
+			if (!peer)
+				break;
+
+			status_info("%s: gossip harder!",
+				    type_to_string(tmpctx, struct node_id,
+						   &peer->id));
+			peer->gossip_level = GOSSIP_HIGH;
+			setup_gossip_range(peer);
+		}
+	}
 
 	tal_free(daemon->gossip_missing);
 	/* Check again in 10 minutes. */
@@ -2027,10 +2059,22 @@ static void gossip_not_missing(struct daemon *daemon)
 	if (list_empty(&daemon->peers))
 		gossip_missing(daemon);
 	else {
+		struct peer *peer;
+
 		daemon->gossip_missing = tal_free(daemon->gossip_missing);
 		status_info("We seem to be caught up on gossip messages");
 		/* Free any lagging/stale unknown scids. */
 		daemon->unknown_scids = tal_free(daemon->unknown_scids);
+
+		/* Reset peers we marked as HIGH */
+		list_for_each(&daemon->peers, peer, list) {
+			if (peer->gossip_level != GOSSIP_HIGH)
+				continue;
+			if (!peer->gossip_queries_feature)
+				continue;
+			peer->gossip_level = peer_gossip_level(daemon, true);
+			setup_gossip_range(peer);
+		}
 	}
 }
 
