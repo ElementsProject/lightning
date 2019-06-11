@@ -121,6 +121,25 @@ struct daemon {
 	struct short_channel_id *unknown_scids;
 };
 
+/*~ How gossipy do we ask a peer to be? */
+enum gossip_level {
+	/* Give us everything since epoch */
+	GOSSIP_HIGH,
+	/* Give us everything from 24 hours ago. */
+	GOSSIP_MEDIUM,
+	/* Give us everything from now. */
+	GOSSIP_LOW,
+	/* Give us nothing. */
+	GOSSIP_NONE,
+};
+
+/* What are our targets for each gossip level? (including levels above).
+ *
+ * If we're missing gossip: 3 high.
+ * Otherwise, 2 medium, and 8 low.  Rest no limit..
+ */
+static const size_t gossip_level_targets[] = { 3, 2, 8, SIZE_MAX };
+
 /* This represents each peer we're gossiping with */
 struct peer {
 	/* daemon->peers */
@@ -156,6 +175,9 @@ struct peer {
 	u32 range_first_blocknum, range_end_blocknum;
 	u32 range_blocks_remaining;
 	struct short_channel_id *query_channel_scids;
+
+	/* Are we asking this peer to give us lot of gossip? */
+	enum gossip_level gossip_level;
 
 	/* The daemon_conn used to queue messages to/from the peer. */
 	struct daemon_conn *dc;
@@ -312,6 +334,22 @@ check_length:
 	return tal_count(*encoded) <= max_bytes;
 }
 
+/*~ We have different levels of gossipiness, depending on our needs. */
+static u32 gossip_start(enum gossip_level gossip_level)
+{
+	switch (gossip_level) {
+	case GOSSIP_HIGH:
+		return 0;
+	case GOSSIP_MEDIUM:
+		return time_now().ts.tv_sec - 24 * 3600;
+	case GOSSIP_LOW:
+		return time_now().ts.tv_sec;
+	case GOSSIP_NONE:
+		return UINT32_MAX;
+	}
+	abort();
+}
+
 /* BOLT #7:
  *
  * A node:
@@ -323,16 +361,23 @@ static void setup_gossip_range(struct peer *peer)
 	u8 *msg;
 
 	/*~ Without the `gossip_queries` feature, gossip flows automatically. */
-	if (!peer->gossip_queries_feature)
+	if (!peer->gossip_queries_feature) {
+		/* This peer is gossipy whether we want it or not! */
 		return;
+	}
 
-	/*~ We need to ask for something to start the gossip flowing: we ask
-	 * for everything from 1970 to 2106; this is horribly naive.  We
-	 * should be much smarter about requesting only what we don't already
-	 * have. */
+	status_trace("Setting peer %s to gossip level %s",
+		     type_to_string(tmpctx, struct node_id, &peer->id),
+		     peer->gossip_level == GOSSIP_HIGH ? "HIGH"
+		     : peer->gossip_level == GOSSIP_MEDIUM ? "MEDIUM"
+		     : peer->gossip_level == GOSSIP_LOW ? "LOW"
+		     : peer->gossip_level == GOSSIP_NONE ? "NONE"
+		     : "INVALID");
+	/*~ We need to ask for something to start the gossip flowing. */
 	msg = towire_gossip_timestamp_filter(peer,
 					     &peer->daemon->chain_hash,
-					     0, UINT32_MAX);
+					     gossip_start(peer->gossip_level),
+					     UINT32_MAX);
 	queue_peer_msg(peer, take(msg));
 }
 
@@ -1669,6 +1714,35 @@ done:
 	return daemon_conn_read_next(conn, peer->dc);
 }
 
+/* What gossip level do we set for this to meet our target? */
+static enum gossip_level peer_gossip_level(const struct daemon *daemon,
+					   bool gossip_queries_feature)
+{
+	struct peer *peer;
+	size_t gossip_levels[ARRAY_SIZE(gossip_level_targets)];
+	enum gossip_level glevel;
+
+	/* Old peers always give us a flood. */
+	if (!gossip_queries_feature)
+		return GOSSIP_HIGH;
+
+	/* Figure out how many we have at each level. */
+	memset(gossip_levels, 0, sizeof(gossip_levels));
+	list_for_each(&daemon->peers, peer, list)
+		gossip_levels[peer->gossip_level]++;
+
+	/* If we're missing gossip, try to fill GOSSIP_HIGH */
+	if (daemon->gossip_missing != NULL)
+		glevel = GOSSIP_HIGH;
+	else
+		glevel = GOSSIP_MEDIUM;
+
+	while (gossip_levels[glevel] >= gossip_level_targets[glevel])
+		glevel++;
+
+	return glevel;
+}
+
 /*~ This is where connectd tells us about a new peer, and we hand back an fd for
  * it to send us messages via peer_msg_in above */
 static struct io_plan *connectd_new_peer(struct io_conn *conn,
@@ -1723,6 +1797,8 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->scid_query_outstanding = false;
 	peer->query_channel_blocks = NULL;
 	peer->num_pings_outstanding = 0;
+	peer->gossip_level = peer_gossip_level(daemon,
+					       peer->gossip_queries_feature);
 
 	/* We keep a list so we can find peer by id */
 	list_add_tail(&peer->daemon->peers, &peer->list);
