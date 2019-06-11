@@ -509,7 +509,7 @@ int gossip_store_readonly_fd(struct gossip_store *gs)
 	return fd;
 }
 
-void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
+bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
 	struct gossip_hdr hdr;
 	u32 msglen, checksum;
@@ -519,6 +519,8 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	size_t stats[] = {0, 0, 0, 0};
 	struct timeabs start = time_now();
 	const u8 *chan_ann = NULL;
+	bool contents_ok;
+	u32 last_timestamp = 0;
 	u64 chan_ann_off = 0; /* Spurious gcc-9 (Ubuntu 9-20190402-1ubuntu1) 9.0.1 20190402 (experimental) warning */
 
 	gs->writable = false;
@@ -571,6 +573,9 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			/* Save for channel_amount (next msg) */
 			chan_ann = tal_steal(gs, msg);
 			chan_ann_off = gs->len;
+			/* If we have a channel_announcement, that's a reasonable
+			 * timestamp to use. */
+			last_timestamp = be32_to_cpu(hdr.timestamp);
 			break;
 		case WIRE_GOSSIP_STORE_PRIVATE_UPDATE:
 			if (!fromwire_gossip_store_private_update(tmpctx, msg, &msg)) {
@@ -610,6 +615,9 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		gs->len += sizeof(hdr) + msglen;
 		clean_tmpctx();
 	}
+
+	/* If last timestamp is within 24 hours, say we're OK. */
+	contents_ok = (last_timestamp >= time_now().ts.tv_sec - 24*3600);
 	goto out;
 
 truncate:
@@ -623,6 +631,7 @@ truncate_nomsg:
 	if (ftruncate(gs->fd, gs->len) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating store: %s", strerror(errno));
+	contents_ok = false;
 out:
 	gs->writable = true;
 	/* If we ever truncated, we might have a dangling channel_announce */
@@ -638,4 +647,6 @@ out:
 	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store (%zu deleted) in %"PRIu64" bytes",
 		     stats[0], stats[1], stats[2], stats[3], gs->deleted,
 		     gs->len);
+
+	return contents_ok;
 }
