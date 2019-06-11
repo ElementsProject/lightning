@@ -39,4 +39,10 @@ bool json_to_msat(const char *buffer, const jsmntok_t *tok,
 /* Extract a bitcoin txid from this */
 bool json_to_txid(const char *buffer, const jsmntok_t *tok,
 		  struct bitcoin_txid *txid);
+
+/* Split a json token into 2 tokens given a splitting character */
+bool split_tok(const char *buffer, const jsmntok_t *tok,
+				char split,
+				jsmntok_t *a,
+				jsmntok_t *b);
 #endif /* LIGHTNING_COMMON_JSON_HELPERS_H */

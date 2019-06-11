@@ -75,3 +75,19 @@ bool json_to_txid(const char *buffer, const jsmntok_t *tok,
 	return bitcoin_txid_from_hex(buffer + tok->start,
 				     tok->end - tok->start, txid);
 }
+
+bool split_tok(const char *buffer, const jsmntok_t *tok,
+				char split,
+				jsmntok_t *a,
+				jsmntok_t *b)
+{
+	const char *p = memchr(buffer + tok->start, split, tok->end - tok->start);
+	if (!p)
+		return false;
+
+	*a = *b = *tok;
+	a->end = p - buffer;
+	b->start = p + 1 - buffer;
+
+	return true;
+}
