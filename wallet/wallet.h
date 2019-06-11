@@ -372,6 +372,15 @@ const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 				      struct amount_sat *fee_estimate);
 
 /**
+ * wallet_select_specific - Select utxos given an array of txids and an array of outputs index
+ *
+ * Returns an array of `utxo` structs.
+ */
+const struct utxo **wallet_select_specific(const tal_t *ctx, struct wallet *w,
+					struct bitcoin_txid **txids,
+					u32 **outnums);
+
+/**
  * wallet_confirm_utxos - Once we've spent a set of utxos, mark them confirmed.
  *
  * May be called once the transaction spending these UTXOs has been
