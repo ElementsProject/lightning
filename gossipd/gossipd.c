@@ -113,6 +113,9 @@ struct daemon {
 
 	/* What addresses we can actually announce. */
 	struct wireaddr *announcable;
+
+	/* Do we think we're missing gossip? */
+	bool gossip_missing;
 };
 
 /* This represents each peer we're gossiping with */
@@ -1829,6 +1832,12 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		local_disable_chan(daemon->rstate, c);
 }
 
+/*~ We've found gossip is missing. */
+static void gossip_missing(struct daemon *daemon)
+{
+	daemon->gossip_missing = true;
+}
+
 /*~ Parse init message from lightningd: starts the daemon properly. */
 static struct io_plan *gossip_init(struct io_conn *conn,
 				   struct daemon *daemon,
@@ -1859,7 +1868,8 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   dev_gossip_time);
 
 	/* Load stored gossip messages */
-	gossip_store_load(daemon->rstate, daemon->rstate->gs);
+	if (!gossip_store_load(daemon->rstate, daemon->rstate->gs))
+		gossip_missing(daemon);
 
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
@@ -2807,6 +2817,7 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
+	daemon->gossip_missing = false;
 
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
