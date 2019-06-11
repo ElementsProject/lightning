@@ -286,4 +286,19 @@
 #define LAST_ARG_NULL
 #endif
 
+#if HAVE_BUILTIN_CPU_SUPPORTS
+/**
+ * cpu_supports - test if current CPU supports the named feature.
+ *
+ * This takes a literal string, and currently only works on glibc platforms.
+ *
+ * Example:
+ * if (cpu_supports("mmx"))
+ *	printf("MMX support engaged!\n");
+ */
+#define cpu_supports(x) __builtin_cpu_supports(x)
+#else
+#define cpu_supports(x) 0
+#endif /* HAVE_BUILTIN_CPU_SUPPORTS */
+
 #endif /* CCAN_COMPILER_H */

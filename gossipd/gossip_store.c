@@ -1,7 +1,7 @@
 #include "gossip_store.h"
 
 #include <ccan/array_size/array_size.h>
-#include <ccan/crc/crc.h>
+#include <ccan/crc32c/crc32c.h>
 #include <ccan/endian/endian.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>

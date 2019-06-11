@@ -1,5 +1,5 @@
 #include <bitcoin/short_channel_id.h>
-#include <ccan/crc/crc.h>
+#include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>

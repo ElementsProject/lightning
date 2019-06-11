@@ -488,6 +488,13 @@ static const struct test base_tests[] = {
 	  "	return worked ? 0 : 1;\n"
 	  "}\n"
 	},
+	{ "HAVE_BUILTIN_CPU_SUPPORTS", "__builtin_cpu_supports()",
+	  "DEFINES_FUNC", NULL, NULL,
+	  "#include <stdbool.h>\n"
+	  "static bool func(void) {\n"
+	  "	return __builtin_cpu_supports(\"mmx\");\n"
+	  "}"
+	},
 };
 
 static void c12r_err(int eval, const char *fmt, ...)

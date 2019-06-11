@@ -3,20 +3,20 @@
 #include <stdio.h>
 
 /**
- * crc - routines for crc of bytes
+ * crc32c - routine for Castagnoli CRC (crc32c) of bytes
  *
- * Cyclic Redundancy Check routines.  These are reasonably fast
+ * Cyclic Redundancy Check routine, optimized for x86-64.  Reasonably fast
  * checksum routines, but not suitable for cryptographic use.
  *
  * They are useful for simple error detection, eg. a 32-bit CRC will
  * detect a single error burst of up to 32 bits.
  *
  * Example:
- *	#include <ccan/crc/crc.h>
+ *	#include <ccan/crc32c/crc32c.h>
  *	#include <stdio.h>
  *	#include <stdlib.h>
  *
- *	// Given "IHATEMATH" outputs 0x98a3b8df
+ *	// Given "123456789" outputs 0xe3069283
  *	int main(int argc, char *argv[])
  *	{
  *		if (argc != 2) {
@@ -28,8 +28,8 @@
  *		exit(0);
  *	}
  *
- * License: GPL (v2 or any later version)
- * Author: Gary S. Brown, Clay Haapala
+ * License: MIT
+ * Author: Mark Adler
  * Maintainer: Rusty Russell <rusty@rustcorp.com.au>
  */
 int main(int argc, char *argv[])
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (strcmp(argv[1], "depends") == 0) {
-		printf("ccan/array_size\n");
+		printf("ccan/compiler\n");
 		return 0;
 	}
 
