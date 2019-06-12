@@ -61,6 +61,7 @@ changes.
 - JSON RPC: `decodeinvoice` and `pay` now handle unknown invoice fields properly.
 - JSON API: `waitsendpay` (PAY_STOPPED_RETRYING) error handler now returns valid JSON
 - protocol: don't send multiple identical feerate changes if we want the feerate higher than we can afford.
+- JSON API: `stop` now only returns once lightningd has released all resources.
 
 ### Security
 

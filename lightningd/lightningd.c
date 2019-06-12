@@ -217,6 +217,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 */
 	ld->plugins = plugins_new(ld, ld->log_book, ld);
 
+	/*~ This is set when a JSON RPC command comes in to shut us down. */
+	ld->stop_conn = NULL;
+
 	return ld;
 }
 
@@ -615,6 +618,8 @@ int main(int argc, char *argv[])
 	struct lightningd *ld;
 	u32 min_blockheight, max_blockheight;
 	int connectd_gossipd_fd, pid_fd;
+	int stop_fd;
+	const char *stop_response;
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
@@ -826,6 +831,11 @@ int main(int argc, char *argv[])
 	 */
 	assert(io_loop_ret == ld);
 
+	/* Keep this fd around, to write final response at the end. */
+	stop_fd = io_conn_fd(ld->stop_conn);
+	io_close_taken_fd(ld->stop_conn);
+	stop_response = tal_steal(NULL, ld->stop_response);
+
 	shutdown_subdaemons(ld);
 
 	tal_free(ld->plugins);
@@ -847,6 +857,11 @@ int main(int argc, char *argv[])
 	opt_free_table();
 
 	daemon_shutdown();
+
+	/* Finally, send response to shutdown command */
+	write_all(stop_fd, stop_response, strlen(stop_response));
+	close(stop_fd);
+	tal_free(stop_response);
 
 	/*~ Farewell.  Next stop: hsmd/hsmd.c. */
 	return 0;
