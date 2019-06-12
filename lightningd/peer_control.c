@@ -1537,15 +1537,13 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	/* If the users requested 'all' channels we need to iterate */
 	if (channel == NULL) {
 		list_for_each(&cmd->ld->peers, peer, list) {
-			list_for_each(&peer->channels, channel, list) {
-				channel = peer_active_channel(peer);
-				if (!channel)
-					continue;
-				if (channel->state != CHANNELD_NORMAL &&
-					channel->state != CHANNELD_AWAITING_LOCKIN)
-					continue;
-				set_channel_fees(cmd, channel, *base, *ppm, response);
-			}
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			if (channel->state != CHANNELD_NORMAL &&
+			    channel->state != CHANNELD_AWAITING_LOCKIN)
+				continue;
+			set_channel_fees(cmd, channel, *base, *ppm, response);
 		}
 
 	/* single channel should be updated */
