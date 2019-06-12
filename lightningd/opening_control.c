@@ -266,11 +266,9 @@ static void funding_success(struct channel *channel)
 	struct command *cmd = fc->cmd;
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &fc->cid));
 	json_add_bool(response, "commitments_secured", true);
-	json_object_end(response);
 	was_pending(command_success(cmd, response));
 }
 
@@ -309,13 +307,11 @@ static void funding_started_success(struct funding_channel *fc,
 	char *out;
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	out = encode_scriptpubkey_to_addr(cmd,
 				          get_chainparams(cmd->ld)->bip173_name,
 					  scriptPubkey);
 	if (out)
 		json_add_string(response, "funding_address", out);
-	json_object_end(response);
 	was_pending(command_success(cmd, response));
 }
 
