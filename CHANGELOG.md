@@ -8,34 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Protocol: we now enforce `option_upfront_shutdown_script` if a peer negotiates it.
 - JSON API: New command `setchannelfee` sets channel specific routing fees.
+- JSON API: new withdraw methods `txprepare`, `txsend` and `txdiscard`.
+- JSON API: add three new RPC commands: `fundchannel_start`, `fundchannel_complete` and `fundchannel_cancel`. Allows a user to initiate and complete a channel open using funds that are in a external wallet.
+- Plugin: new hooks `invoice_payment` for intercepting invoices before they're paid, `openchannel` for intercepting channel opens, and `htlc_accepted` to decide whether to resolve, reject or continue an incoming or forwarded payment..
+- Plugin: new notification `warning` to report any `LOG_UNUSUAL`/`LOG_BROKEN` level event.
+- Plugin: Added a default plugin directory : `lightning_dir/plugins`. Each plugin directory it contains will be added to lightningd on startup.
+- Plugin: the `connected` hook can now send an `error_message` to the rejected peer.
 - JSON API: `newaddr` outputs `bech32` or `p2sh-segwit`, or both with new `all` parameter (#2390)
 - JSON API: `listpeers` status now shows how many confirmations until channel is open (#2405)
 - Config: Adds parameter `min-capacity-sat` to reject tiny channels.
 - JSON API: `listforwards` now includes the time an HTLC was received and when it was resolved. Both are expressed as UNIX timestamps to facilitate parsing (Issue [#2491](https://github.com/ElementsProject/lightning/issues/2491), PR [#2528](https://github.com/ElementsProject/lightning/pull/2528))
-- JSON API: new plugin hooks `invoice_payment` for intercepting invoices before they're paid, `openchannel` for intercepting channel opens, and `htlc_accepted` to decide whether to resolve, reject or continue an incoming or forwarded payment..
-- JSON API: add three new RPC commands: `fundchannel_start`, `fundchannel_complete` and `fundchannel_cancel`. Allows a user to initiate and complete a channel open using funds that are in a external wallet.
-- plugin: the `connected` hook can now send an `error_message` to the rejected peer.
-- Protocol: we now enforce `option_upfront_shutdown_script` if a peer negotiates it.
 - JSON API: `listforwards` now includes the local_failed forwards with failcode (Issue [#2435](https://github.com/ElementsProject/lightning/issues/2435), PR [#2524](https://github.com/ElementsProject/lightning/pull/2524))
-- Config: Added a default plugin directory : `lightning_dir/plugins`. Each plugin directory it contains will be added to lightningd on startup.
 - DB: Store the signatures of channel announcement sent from remote peer into DB, and init channel with signatures from DB directly when reenable the channel.
 (Issue [#2409](https://github.com/ElementsProject/lightning/issues/2409))
-- JSON API: new withdraw methods `txprepare`, `txsend` and `txdiscard`.
-- plugin: the `warning` notification can now detect any `LOG_UNUSUAL`/`LOG_BROKEN` level event.
 - JSON API: `listchannels` has new fields `htlc_minimum_msat` and `htlc_maximum_msat`.
 
 ### Changed
 
+- Protocol: no longer ask for entire gossip flood from peers, unless we're missing gossip.
 - JSON API: `invoice` expiry defaults to 7 days, and can have s/m/h/d/w suffixes.
 - Config: Increased default amount for minimal channel capacity from 1k sat to 10k sat.
+- JSON API: A new parameter is added to `fundchannel`, which now accepts an utxo array to use to fund the channel.
 - Build: Non-developer builds are now done with "-Og" optimization.
 - JSON API: `pay` will no longer return failure until it is no longer retrying; previously it could "timeout" but still make the payment.
 - JSON API: the command objects that `help` outputs now contain a new string field : `category` (can be "bitcoin", "channels", "network", "payment", "plugins", "utility", "developer" for native commands, or any other new category set by a plugin).
-- Plugins: a plugin can now set the category of a newly created RPC command. This possibility has been added to libplugin.c and pylightning.
-- CLI: the human readable help is now more human and more readable : commands are sorted alphabetically and ordered by categories.
-- JSON API: A new parameter is added to `fundchannel`, which now accepts an utxo array to use to fund the channel.
-- Protocol: no longer ask for entire gossip flood from peers, unless we're missing gossip.
+- Plugin: a plugin can now set the category of a newly created RPC command. This possibility has been added to libplugin.c and pylightning.
+- lightning-cli: the human readable help is now more human and more readable : commands are sorted alphabetically and ordered by categories.
 
 ### Deprecated
 
@@ -51,12 +51,12 @@ changes.
 
 ### Fixed
 
-- protocol: reconnection during closing negotiation now supports
+- Protocol: reconnection during closing negotiation now supports
   `option_data_loss_protect` properly.
 - `--bind-addr=<path>` fixed for nodes using local sockets (eg. testing).
 - Unannounced local channels were forgotten for routing on restart until reconnection occurred.
 - lightning-cli: arguments containing `"` now succeed, rather than causing JSON errors.
-- protocol: handle lnd sending more messages before `reestablish`; don't fail channel, and handle older lnd's spurious empty commitments.
+- Protocol: handle lnd sending more messages before `reestablish`; don't fail channel, and handle older lnd's spurious empty commitments.
 - Fixed `fundchannel` crash when we have many UTXOs and we skip unconfirmed ones.
 - lightningd: fixed occasional hang on `connect` when peer had sent error.
 - JSON RPC: `decodeinvoice` and `pay` now handle unknown invoice fields properly.
