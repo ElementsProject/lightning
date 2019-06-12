@@ -84,6 +84,20 @@ struct command_result *command_param_failed(void)
 	return &complete;
 }
 
+struct json_out *json_out_obj(const tal_t *ctx,
+			      const char *fieldname,
+			      const char *str)
+{
+	struct json_out *jout = json_out_new(ctx);
+	json_out_start(jout, NULL, '{');
+	if (str)
+		json_out_addstr(jout, fieldname, str);
+	json_out_end(jout, '}');
+	json_out_finished(jout);
+
+	return jout;
+}
+
 /* Realloc helper for tal membufs */
 static void *membuf_tal_realloc(struct membuf *mb, void *rawelems,
 				size_t newsize)
@@ -190,17 +204,7 @@ static struct command_result *WARN_UNUSED_RESULT end_cmd(struct command *cmd)
 	return &complete;
 }
 
-/* FIXME: We promised callers we'd turn ' into ". */
-static void copy_with_quote_sub(char *dst, const char *src, size_t len)
-{
-	for (size_t i = 0; i < len; i++) {
-		if (src[i] == '\'')
-			dst[i] = '"';
-		else
-			dst[i] = src[i];
-	}
-}
-
+/* str is raw JSON from RPC output. */
 static struct command_result *WARN_UNUSED_RESULT
 command_done_raw(struct command *cmd,
 		 const char *label,
@@ -208,23 +212,42 @@ command_done_raw(struct command *cmd,
 {
 	struct json_out *jout = start_json_rpc(cmd, cmd->id);
 
-	copy_with_quote_sub(json_out_member_direct(jout, label, size),
-			    str, size);
+	memcpy(json_out_member_direct(jout, label, size), str, size);
 
 	finish_and_send_json(STDOUT_FILENO, jout);
 	return end_cmd(cmd);
 }
 
-static struct command_result *WARN_UNUSED_RESULT
-command_done_ok(struct command *cmd, const char *result)
+struct command_result *WARN_UNUSED_RESULT
+command_success(struct command *cmd, const struct json_out *result)
 {
-	return command_done_raw(cmd, "result", result, strlen(result));
+	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+
+	json_out_add_splice(jout, "result", result);
+	finish_and_send_json(STDOUT_FILENO, jout);
+	return end_cmd(cmd);
+}
+
+struct command_result *WARN_UNUSED_RESULT
+command_success_str(struct command *cmd, const char *str)
+{
+	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+
+	if (str)
+		json_out_addstr(jout, "result", str);
+	else {
+		/* Use an empty object if they don't want anything. */
+		json_out_start(jout, "result", '{');
+		json_out_end(jout, '}');
+	}
+	finish_and_send_json(STDOUT_FILENO, jout);
+	return end_cmd(cmd);
 }
 
 struct command_result *command_done_err(struct command *cmd,
 					int code,
 					const char *errmsg,
-					const char *data)
+					const struct json_out *data)
 {
 	struct json_out *jout = start_json_rpc(cmd, cmd->id);
 
@@ -232,11 +255,8 @@ struct command_result *command_done_err(struct command *cmd,
 	json_out_add(jout, "code", false, "%d", code);
 	json_out_addstr(jout, "message", errmsg);
 
-	if (data) {
-		char *p;
-		p = json_out_member_direct(jout, "data", strlen(data));
-		copy_with_quote_sub(p, data, strlen(data));
-	}
+	if (data)
+		json_out_add_splice(jout, "data", data);
 	json_out_end(jout, '}');
 
 	finish_and_send_json(STDOUT_FILENO, jout);
@@ -248,11 +268,6 @@ struct command_result *timer_complete(void)
 	assert(in_timer > 0);
 	in_timer--;
 	return &complete;
-}
-
-struct command_result *command_success(struct command *cmd, const char *result)
-{
-	return command_done_raw(cmd, "result", result, strlen(result));
 }
 
 struct command_result *forward_error(struct command *cmd,
@@ -342,23 +357,23 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 static struct json_out *start_json_request(const tal_t *ctx,
 					   u64 id,
 					   const char *method,
-					   const char *params)
+					   const struct json_out *params TAKES)
 {
 	struct json_out *jout;
 
 	jout = start_json_rpc(tmpctx, id);
 	json_out_addstr(jout, "method", method);
-	json_out_start(jout, "params", '{');
-	copy_with_quote_sub(json_out_direct(jout, strlen(params)),
-			    params, strlen(params));
-	json_out_end(jout, '}');
+	json_out_add_splice(jout, "params", params);
+	if (taken(params))
+		tal_free(params);
 
 	return jout;
 }
 
 /* Synchronous routine to send command and extract single field from response */
 const char *rpc_delve(const tal_t *ctx,
-		      const char *method, const char *params,
+		      const char *method,
+		      const struct json_out *params TAKES,
 		      struct plugin_conn *rpc, const char *guide)
 {
 	bool error;
@@ -435,12 +450,10 @@ send_outreq_(struct command *cmd,
 					     const jsmntok_t *result,
 					     void *arg),
 	     void *arg,
-	     const char *paramfmt_single_ticks, ...)
+	     const struct json_out *params TAKES)
 {
-	va_list ap;
 	struct json_out *jout;
 	struct out_req *out;
-	char *params;
 
 	out = tal(cmd, struct out_req);
 	out->id = next_outreq_id++;
@@ -449,10 +462,6 @@ send_outreq_(struct command *cmd,
 	out->errcb = errcb;
 	out->arg = arg;
 	uintmap_add(&out_reqs, out->id, out);
-
-	va_start(ap, paramfmt_single_ticks);
-	params = tal_vfmt(tmpctx, paramfmt_single_ticks, ap);
-	va_end(ap);
 
 	jout = start_json_request(tmpctx, out->id, method, params);
 	finish_and_send_json(rpc_conn.fd, jout);
@@ -467,8 +476,6 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		   const struct plugin_option *opts)
 {
 	struct json_out *params = json_out_new(tmpctx);
-	size_t len;
-	const char *p;
 
 	json_out_start(params, NULL, '{');
 	json_out_start(params, "options", '[');
@@ -497,8 +504,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	json_out_end(params, '}');
 	json_out_finished(params);
 
-	p = json_out_contents(params, &len);
-	return command_done_raw(getmanifest_cmd, "result", p, len);
+	return command_success(getmanifest_cmd, params);
 }
 
 static struct command_result *handle_init(struct command *init_cmd,
@@ -511,6 +517,7 @@ static struct command_result *handle_init(struct command *init_cmd,
 	struct sockaddr_un addr;
 	size_t i;
 	char *dir;
+	struct json_out *param_obj;
 
 	/* Move into lightning directory: other files are relative */
 	dirtok = json_delve(buf, params, ".configuration.lightning-dir");
@@ -533,8 +540,9 @@ static struct command_result *handle_init(struct command *init_cmd,
 			   rpctok->end - rpctok->start, buf + rpctok->start,
 			   strerror(errno));
 
+	param_obj = json_out_obj(NULL, "config", "allow-deprecated-apis");
 	deprecated_apis = streq(rpc_delve(tmpctx, "listconfigs",
-					  "'config': 'allow-deprecated-apis'",
+					  take(param_obj),
 					  &rpc_conn,
 					  ".allow-deprecated-apis"),
 				"true");
@@ -558,7 +566,7 @@ static struct command_result *handle_init(struct command *init_cmd,
 	if (init)
 		init(&rpc_conn);
 
-	return command_done_ok(init_cmd, "{}");
+	return command_success_str(init_cmd, NULL);
 }
 
 char *u64_option(const char *arg, u64 *i)

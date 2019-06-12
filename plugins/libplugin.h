@@ -11,6 +11,7 @@
 #include <common/status_levels.h>
 
 struct command;
+struct json_out;
 struct plugin_conn;
 
 extern bool deprecated_apis;
@@ -35,6 +36,12 @@ struct plugin_option {
 	void *arg;
 };
 
+/* Helper to create a zero or single-value JSON object; if @str is NULL,
+ * object is empty. */
+struct json_out *json_out_obj(const tal_t *ctx,
+			      const char *fieldname,
+			      const char *str);
+
 /* Return this iff the param() call failed in your handler. */
 struct command_result *command_param_failed(void);
 
@@ -42,27 +49,34 @@ struct command_result *command_param_failed(void);
 void NORETURN plugin_err(const char *fmt, ...);
 
 /* This command is finished, here's a detailed error; @cmd cannot be
- * NULL, data can be NULL. */
+ * NULL, data can be NULL; otherwise it must be a JSON object. */
 struct command_result *WARN_UNUSED_RESULT
 command_done_err(struct command *cmd,
 		 int code,
 		 const char *errmsg,
-		 const char *data);
+		 const struct json_out *data);
 
-/* This command is finished, here's the success msg; @cmd cannot be NULL. */
+/* This command is finished, here's the result object; @cmd cannot be NULL. */
 struct command_result *WARN_UNUSED_RESULT
-command_success(struct command *cmd, const char *result);
+command_success(struct command *cmd, const struct json_out *result);
+
+/* Simple version where we just want to send a string, or NULL means an empty
+ * result object.  @cmd cannot be NULL. */
+struct command_result *WARN_UNUSED_RESULT
+command_success_str(struct command *cmd, const char *str);
 
 /* Synchronous helper to send command and extract single field from
  * response; can only be used in init callback. */
 const char *rpc_delve(const tal_t *ctx,
-		      const char *method, const char *params,
+		      const char *method,
+		      const struct json_out *params TAKES,
 		      struct plugin_conn *rpc, const char *guide);
 
-/* Async rpc request.  For convenience, and single ' are turned into ".
+/* Async rpc request.
  * @cmd can be NULL if we're coming from a timer callback.
+ * @params can be NULL, otherwise it's an array or object.
  */
-PRINTF_FMT(6,7) struct command_result *
+struct command_result *
 send_outreq_(struct command *cmd,
 	     const char *method,
 	     struct command_result *(*cb)(struct command *command,
@@ -74,9 +88,9 @@ send_outreq_(struct command *cmd,
 					     const jsmntok_t *result,
 					     void *arg),
 	     void *arg,
-	     const char *paramfmt_single_ticks, ...);
+	     const struct json_out *params TAKES);
 
-#define send_outreq(cmd, method, cb, errcb, arg, ...)			\
+#define send_outreq(cmd, method, cb, errcb, arg, params)		\
 	send_outreq_((cmd), (method),					\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
@@ -88,7 +102,7 @@ send_outreq_(struct command *cmd,
 					 struct command *command,	\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
-		     (arg), __VA_ARGS__)
+		     (arg), (params))
 
 /* Callback to just forward error and close request; @cmd cannot be NULL */
 struct command_result *forward_error(struct command *cmd,
