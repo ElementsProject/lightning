@@ -38,7 +38,7 @@ struct command {
 	/* Tell param() how to process the command */
 	enum command_mode mode;
 	/* Have we started a json stream already?  For debugging. */
-	bool have_json_stream;
+	struct json_stream *json_stream;
 };
 
 /**
