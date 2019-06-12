@@ -910,7 +910,7 @@ def test_htlc_send_timeout(node_factory, bitcoind):
             timedout = True
 
     inv = l3.rpc.invoice(123000, 'test_htlc_send_timeout', 'description')
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after 2 attempts') as excinfo:
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after 1 attempt: see paystatus') as excinfo:
         l1.rpc.pay(inv['bolt11'])
 
     err = excinfo.value
