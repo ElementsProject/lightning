@@ -96,13 +96,11 @@ def test_pay_limits(node_factory):
     # It should have retried (once without routehint, too)
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][0]['attempts']
 
-    # Hits weird corner case: it excludes channel, then uses routehint
-    # which reintroduces it, so then it excludes other channel.
-    assert len(status) == 4
+    # Excludes channel, then ignores routehint which includes that, then
+    # it excludes other channel.
+    assert len(status) == 2
     assert status[0]['strategy'] == "Initial attempt"
     assert status[1]['strategy'].startswith("Excluded expensive channel ")
-    assert status[2]['strategy'] == "Trying route hint"
-    assert status[3]['strategy'].startswith("Excluded expensive channel ")
 
     # Delay too high.
     with pytest.raises(RpcError, match=r'Route wanted delay of .* blocks') as err:
@@ -111,11 +109,9 @@ def test_pay_limits(node_factory):
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
     # Should also have retried.
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][1]['attempts']
-    assert len(status) == 4
+    assert len(status) == 2
     assert status[0]['strategy'] == "Initial attempt"
     assert status[1]['strategy'].startswith("Excluded delaying channel ")
-    assert status[2]['strategy'] == "Trying route hint"
-    assert status[3]['strategy'].startswith("Excluded delaying channel ")
 
     # This works, because fee is less than exemptfee.
     l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
@@ -1493,9 +1489,8 @@ def test_pay_retry(node_factory, bitcoind):
     # It will try l1->l2->l5, which fails.
     # It will try l1->l2->l3->l5, which fails.
     # It will try l1->l2->l3->l4->l5, which fails.
-    # It then tries l1->l2->l3->l4->l5, because of routeboost, which fails.
     inv = l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11']
-    with pytest.raises(RpcError, match=r'4 attempts'):
+    with pytest.raises(RpcError, match=r'3 attempts'):
         l1.rpc.pay(inv)
 
 

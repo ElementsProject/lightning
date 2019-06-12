@@ -148,13 +148,13 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 
 /* Is this (erring) channel within the routehint itself? */
 static bool channel_in_routehint(const struct route_info *routehint,
-				 const char *buf, const jsmntok_t *scidtok)
+				 const char *scidstr, size_t scidlen)
 {
 	struct short_channel_id scid;
 
-	if (!json_to_short_channel_id(buf, scidtok, &scid, false))
+	if (!short_channel_id_from_str(scidstr, scidlen, &scid, false))
 		plugin_err("bad erring_channel '%.*s'",
-			   scidtok->end - scidtok->start, buf + scidtok->start);
+			   (int)scidlen, scidstr);
 
 	for (size_t i = 0; i < tal_count(routehint); i++)
 		if (short_channel_id_eq(&scid, &routehint[i].short_channel_id))
@@ -199,15 +199,32 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 	return command_done_err(cmd, PAY_STOPPED_RETRYING, errmsg, data);
 }
 
+static bool routehint_excluded(const struct route_info *routehint,
+			       const char **excludes)
+{
+	/* Note that we ignore direction here: in theory, we could have
+	 * found that one direction of a channel is unavailable, but they
+	 * are suggesting we use it the other way.  Very unlikely though! */
+	for (size_t i = 0; i < tal_count(excludes); i++)
+		if (channel_in_routehint(routehint,
+					 excludes[i], strlen(excludes[i])))
+			return true;
+	return false;
+}
+
 static struct command_result *next_routehint(struct command *cmd,
 					     struct pay_command *pc)
 {
 	size_t num_attempts = count_sendpays(pc->ps->attempts);
 
-	if (tal_count(pc->routehints) > 0) {
-		pc->current_routehint = pc->routehints[0];
+	while (tal_count(pc->routehints) > 0) {
+		if (!routehint_excluded(pc->routehints[0], pc->excludes)) {
+			pc->current_routehint = pc->routehints[0];
+			tal_arr_remove(&pc->routehints, 0);
+			return start_pay_attempt(cmd, pc, "Trying route hint");
+		}
+		tal_free(pc->routehints[0]);
 		tal_arr_remove(&pc->routehints, 0);
-		return start_pay_attempt(cmd, pc, "Trying route hint");
 	}
 
 	/* No (more) routehints; we're out of routes. */
@@ -262,7 +279,9 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 	}
 
 	/* If failure is in routehint part, try next one */
-	if (channel_in_routehint(pc->current_routehint, buf, scidtok))
+	if (channel_in_routehint(pc->current_routehint,
+				 buf + scidtok->start,
+				 scidtok->end - scidtok->start))
 		return next_routehint(cmd, pc);
 
 	/* Otherwise, add erring channel to exclusion list. */
@@ -416,7 +435,8 @@ static bool maybe_exclude(struct pay_command *pc,
 
 	scid = json_get_member(buf, route, "channel");
 
-	if (channel_in_routehint(pc->current_routehint, buf, scid))
+	if (channel_in_routehint(pc->current_routehint,
+				 buf + scid->start, scid->end - scid->start))
 		return false;
 
 	dir = json_get_member(buf, route, "direction");
