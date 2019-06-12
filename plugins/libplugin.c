@@ -1,5 +1,6 @@
 #include <ccan/err/err.h>
 #include <ccan/intmap/intmap.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/membuf/membuf.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/strmap/strmap.h>
@@ -153,32 +154,32 @@ static struct command *read_json_request(const tal_t *ctx,
 	return cmd;
 }
 
-/* I stole this trick from @wythe (Mark Beckwith); its ugliness is beautiful */
-static void vprintf_json(int fd, const char *fmt_single_ticks, va_list ap)
+/* This starts a JSON RPC message with boilerplate */
+static struct json_out *start_json_rpc(const tal_t *ctx, u64 id)
 {
-	char *json, *p;
-	size_t n;
+	struct json_out *jout = json_out_new(ctx);
 
-	json = tal_vfmt(NULL, fmt_single_ticks, ap);
+	json_out_start(jout, NULL, '{');
+	json_out_addstr(jout, "jsonrpc", "2.0");
+	json_out_add(jout, "id", false, "%"PRIu64, id);
 
-	for (n = 0, p = strchr(json, '\''); p; p = strchr(json, '\'')) {
-		*p = '"';
-		n++;
-	}
-	/* Don't put stray single-ticks in like this comment does! */
-	assert(n % 2 == 0);
-	write_all(fd, json, strlen(json));
-	tal_free(json);
+	return jout;
 }
 
-static PRINTF_FMT(2,3) void printf_json(int fd,
-					const char *fmt_single_ticks, ...)
+/* This closes a JSON response and writes it out. */
+static void finish_and_send_json(int fd, struct json_out *jout)
 {
-	va_list ap;
+	size_t len;
+	const char *p;
 
-	va_start(ap, fmt_single_ticks);
-	vprintf_json(fd, fmt_single_ticks, ap);
-	va_end(ap);
+	json_out_end(jout, '}');
+	/* We double-\n terminate.  Don't need to, but it's more readable. */
+	memcpy(json_out_direct(jout, 2), "\n\n", 2);
+	json_out_finished(jout);
+
+	p = json_out_contents(jout, &len);
+	write_all(fd, p, len);
+	json_out_consume(jout, len);
 }
 
 /* param.c is insistant on functions returning 'struct command_result'; we
@@ -189,34 +190,15 @@ static struct command_result *WARN_UNUSED_RESULT end_cmd(struct command *cmd)
 	return &complete;
 }
 
-static struct command_result *WARN_UNUSED_RESULT
-command_done_ok(struct command *cmd, const char *result)
+/* FIXME: We promised callers we'd turn ' into ". */
+static void copy_with_quote_sub(char *dst, const char *src, size_t len)
 {
-	printf_json(STDOUT_FILENO,
-		    "{ 'jsonrpc': '2.0', "
-		    "'id': %"PRIu64", "
-		    "'result': { %s } }\n\n",
-		    cmd->id, result);
-	return end_cmd(cmd);
-}
-
-struct command_result *command_done_err(struct command *cmd,
-					int code,
-					const char *errmsg,
-					const char *data)
-{
-	printf_json(STDOUT_FILENO,
-		    "{ 'jsonrpc': '2.0', "
-		    "'id': %"PRIu64", "
-		    " 'error' : "
-		    " { 'code' : %d,"
-		    " 'message' : '%s'",
-		    cmd->id, code, errmsg);
-	if (data)
-		printf_json(STDOUT_FILENO,
-			    ", 'data': %s", data);
-	printf_json(STDOUT_FILENO, " } }\n\n");
-	return end_cmd(cmd);
+	for (size_t i = 0; i < len; i++) {
+		if (src[i] == '\'')
+			dst[i] = '"';
+		else
+			dst[i] = src[i];
+	}
 }
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -224,11 +206,40 @@ command_done_raw(struct command *cmd,
 		 const char *label,
 		 const char *str, int size)
 {
-	printf_json(STDOUT_FILENO,
-		    "{ 'jsonrpc': '2.0', "
-		    "'id': %"PRIu64", "
-		    " '%s' : %.*s }\n\n",
-		    cmd->id, label, size, str);
+	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+
+	copy_with_quote_sub(json_out_member_direct(jout, label, size),
+			    str, size);
+
+	finish_and_send_json(STDOUT_FILENO, jout);
+	return end_cmd(cmd);
+}
+
+static struct command_result *WARN_UNUSED_RESULT
+command_done_ok(struct command *cmd, const char *result)
+{
+	return command_done_raw(cmd, "result", result, strlen(result));
+}
+
+struct command_result *command_done_err(struct command *cmd,
+					int code,
+					const char *errmsg,
+					const char *data)
+{
+	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+
+	json_out_start(jout, "error", '{');
+	json_out_add(jout, "code", false, "%d", code);
+	json_out_addstr(jout, "message", errmsg);
+
+	if (data) {
+		char *p;
+		p = json_out_member_direct(jout, "data", strlen(data));
+		copy_with_quote_sub(p, data, strlen(data));
+	}
+	json_out_end(jout, '}');
+
+	finish_and_send_json(STDOUT_FILENO, jout);
 	return end_cmd(cmd);
 }
 
@@ -328,6 +339,23 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 	return toks;
 }
 
+static struct json_out *start_json_request(const tal_t *ctx,
+					   u64 id,
+					   const char *method,
+					   const char *params)
+{
+	struct json_out *jout;
+
+	jout = start_json_rpc(tmpctx, id);
+	json_out_addstr(jout, "method", method);
+	json_out_start(jout, "params", '{');
+	copy_with_quote_sub(json_out_direct(jout, strlen(params)),
+			    params, strlen(params));
+	json_out_end(jout, '}');
+
+	return jout;
+}
+
 /* Synchronous routine to send command and extract single field from response */
 const char *rpc_delve(const tal_t *ctx,
 		      const char *method, const char *params,
@@ -337,10 +365,10 @@ const char *rpc_delve(const tal_t *ctx,
 	const jsmntok_t *contents, *t;
 	int reqlen;
 	const char *ret;
+	struct json_out *jout;
 
-	printf_json(rpc->fd,
-		    "{ 'method': '%s', 'id': 0, 'params': { %s } }",
-		    method, params);
+	jout = start_json_request(tmpctx, 0, method, params);
+	finish_and_send_json(rpc->fd, jout);
 
 	read_rpc_reply(tmpctx, rpc, &contents, &error, &reqlen);
 	if (error)
@@ -410,7 +438,11 @@ send_outreq_(struct command *cmd,
 	     const char *paramfmt_single_ticks, ...)
 {
 	va_list ap;
-	struct out_req *out = tal(cmd, struct out_req);
+	struct json_out *jout;
+	struct out_req *out;
+	char *params;
+
+	out = tal(cmd, struct out_req);
 	out->id = next_outreq_id++;
 	out->cmd = cmd;
 	out->cb = cb;
@@ -418,13 +450,13 @@ send_outreq_(struct command *cmd,
 	out->arg = arg;
 	uintmap_add(&out_reqs, out->id, out);
 
-	printf_json(rpc_conn.fd,
-		    "{ 'method': '%s', 'id': %"PRIu64", 'params': {",
-		    method, out->id);
 	va_start(ap, paramfmt_single_ticks);
-	vprintf_json(rpc_conn.fd, paramfmt_single_ticks, ap);
+	params = tal_vfmt(tmpctx, paramfmt_single_ticks, ap);
 	va_end(ap);
-	printf_json(rpc_conn.fd, "} }");
+
+	jout = start_json_request(tmpctx, out->id, method, params);
+	finish_and_send_json(rpc_conn.fd, jout);
+
 	return &pending;
 }
 
@@ -434,41 +466,39 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		   size_t num_commands,
 		   const struct plugin_option *opts)
 {
-	char *params = tal_strdup(getmanifest_cmd,
-				  "'options': [");
+	struct json_out *params = json_out_new(tmpctx);
+	size_t len;
+	const char *p;
 
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "options", '[');
 	for (size_t i = 0; i < tal_count(opts); i++) {
-		tal_append_fmt(&params, "{ 'name': '%s',"
-				"    'type': '%s',"
-				"    'description': '%s' }%s",
-				opts[i].name,
-				opts[i].type,
-				opts[i].description,
-				i == tal_count(opts) - 1 ? "" : ",\n");
+		json_out_start(params, NULL, '{');
+		json_out_addstr(params, "name", opts[i].name);
+		json_out_addstr(params, "type", opts[i].type);
+		json_out_addstr(params, "description", opts[i].description);
+		json_out_end(params, '}');
 	}
+	json_out_end(params, ']');
 
-	tal_append_fmt(&params,
-		       "],\n"
-		       "'rpcmethods': [ ");
-
+	json_out_start(params, "rpcmethods", '[');
 	for (size_t i = 0; i < num_commands; i++) {
-		tal_append_fmt(&params, "{ 'name': '%s',"
-				   "    'category': '%s',"
-				   "    'usage': '%s',"
-				   "    'description': '%s'",
-			       commands[i].name,
-				   commands[i].category,
-			       strmap_get(&usagemap, commands[i].name),
-			       commands[i].description);
+		json_out_start(params, NULL, '{');
+		json_out_addstr(params, "name", commands[i].name);
+		json_out_addstr(params, "usage",
+				strmap_get(&usagemap, commands[i].name));
+		json_out_addstr(params, "description", commands[i].description);
 		if (commands[i].long_description)
-			tal_append_fmt(&params,
-				       "    'long_description': '%s'",
-				       commands[i].long_description);
-		tal_append_fmt(&params,
-			       "}%s", i == num_commands - 1 ? "" : ",\n");
+			json_out_addstr(params, "long_description",
+					commands[i].long_description);
+		json_out_end(params, '}');
 	}
-	tal_append_fmt(&params, " ]");
-	return command_done_ok(getmanifest_cmd, params);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	p = json_out_contents(params, &len);
+	return command_done_raw(getmanifest_cmd, "result", p, len);
 }
 
 static struct command_result *handle_init(struct command *init_cmd,
@@ -528,7 +558,7 @@ static struct command_result *handle_init(struct command *init_cmd,
 	if (init)
 		init(&rpc_conn);
 
-	return command_done_ok(init_cmd, "");
+	return command_done_ok(init_cmd, "{}");
 }
 
 char *u64_option(const char *arg, u64 *i)
@@ -619,21 +649,23 @@ struct plugin_timer *plugin_timer(struct plugin_conn *rpc, struct timerel t,
 
 static void plugin_logv(enum log_level l, const char *fmt, va_list ap)
 {
-	char *message;
+	struct json_out *jout = json_out_new(tmpctx);
 
-	printf_json(STDOUT_FILENO,
-		    "{ 'jsonrpc': '2.0', "
-		    "'method': 'log', "
-		    "'params': { 'level': '%s', 'message': \"",
-		    l == LOG_DBG ? "debug"
-		    : l == LOG_INFORM ? "info"
-		    : l == LOG_UNUSUAL ? "warn"
-		    : "error");
+	json_out_start(jout, NULL, '{');
+	json_out_addstr(jout, "jsonrpc", "2.0");
+	json_out_addstr(jout, "method", "log");
 
-	message = tal_vfmt(NULL, fmt, ap);
-	write_all(STDOUT_FILENO, message, strlen(message));
-	printf_json(STDOUT_FILENO, "\" } }\n\n");
-	tal_free(message);
+	json_out_start(jout, "params", '{');
+	json_out_addstr(jout, "level",
+			l == LOG_DBG ? "debug"
+			: l == LOG_INFORM ? "info"
+			: l == LOG_UNUSUAL ? "warn"
+			: "error");
+	json_out_addv(jout, "message", true, fmt, ap);
+	json_out_end(jout, '}');
+
+	/* Last '}' is done by finish_and_send_json */
+	finish_and_send_json(STDOUT_FILENO, jout);
 }
 
 void NORETURN plugin_err(const char *fmt, ...)
