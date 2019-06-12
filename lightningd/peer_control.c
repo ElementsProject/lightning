@@ -493,7 +493,7 @@ static void json_add_sat_only(struct json_stream *result,
 	struct amount_msat msat;
 
 	if (amount_sat_to_msat(&msat, sat))
-		json_add_member(result, fieldname, "\"%s\"",
+		json_add_string(result, fieldname,
 				type_to_string(tmpctx, struct amount_msat, &msat));
 }
 

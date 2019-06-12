@@ -1,7 +1,9 @@
 #include <ccan/io/io.h>
   /* To reach into io_plan: not a public header! */
   #include <ccan/io/backend.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/utils.h>
 #include <lightningd/json.h>
@@ -94,15 +96,6 @@ bool json_stream_still_writing(const struct json_stream *js)
 	return js->writer != NULL;
 }
 
-void json_stream_close(struct json_stream *js, struct command *writer)
-{
-	/* FIXME: We use writer == NULL for malformed: make writer a void *?
-	 * I used to assert(writer); here. */
-	assert(js->writer == writer);
-
-	js->writer = NULL;
-}
-
 void json_stream_log_suppress(struct json_stream *js, const char *cmd_name)
 {
 	/* Really shouldn't be used for anything else */
@@ -146,67 +139,30 @@ static char *mkroom(struct json_stream *js, size_t len)
 	return membuf_space(&js->outbuf);
 }
 
-/* Also called when we're oom, so it will kill reader. */
-static void js_written_some(struct json_stream *js)
-{
-	/* Wake the stream reader. FIXME:  Could have a flag here to optimize */
-	io_wake(js);
-}
-
-void json_stream_append_part(struct json_stream *js, const char *str, size_t len)
+void json_stream_append(struct json_stream *js,
+			const char *str, size_t len)
 {
 	if (js->oom || !mkroom(js, len))
 		return;
 	memcpy(membuf_add(&js->outbuf, len), str, len);
-	js_written_some(js);
 }
 
-void json_stream_append(struct json_stream *js, const char *str)
+void json_stream_close(struct json_stream *js, struct command *writer)
 {
-	json_stream_append_part(js, str, strlen(str));
+	/* FIXME: We use writer == NULL for malformed: make writer a void *?
+	 * I used to assert(writer); here. */
+	assert(js->writer == writer);
+
+	json_stream_append(js, "\n\n", strlen("\n\n"));
+	json_stream_flush(js);
+	js->writer = NULL;
 }
 
-static void json_stream_append_vfmt(struct json_stream *js,
-				    const char *fmt, va_list ap)
+/* Also called when we're oom, so it will kill reader. */
+void json_stream_flush(struct json_stream *js)
 {
-	size_t fmtlen;
-	va_list ap2;
-
-	if (js->oom)
-		return;
-
-	/* Make a copy in case we need it below. */
-	va_copy(ap2, ap);
-
-	/* Try printing in place first. */
-	fmtlen = vsnprintf(membuf_space(&js->outbuf),
-			   membuf_num_space(&js->outbuf), fmt, ap);
-
-	/* Horrible subtlety: vsnprintf *will* NUL terminate, even if it means
-	 * chopping off the last character.  So if fmtlen ==
-	 * membuf_num_space(&jcon->outbuf), the result was truncated! */
-	if (fmtlen >= membuf_num_space(&js->outbuf)) {
-		/* Make room for NUL terminator, even though we don't want it */
-		char *p = mkroom(js, fmtlen + 1);
-		if (!p)
-			goto oom;
-		vsprintf(p, fmt, ap2);
-	}
-	membuf_added(&js->outbuf, fmtlen);
-
-oom:
-	js_written_some(js);
-	va_end(ap2);
-}
-
-void PRINTF_FMT(2,3)
-json_stream_append_fmt(struct json_stream *js, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	json_stream_append_vfmt(js, fmt, ap);
-	va_end(ap);
+	/* Wake the stream reader. FIXME:  Could have a flag here to optimize */
+	io_wake(js);
 }
 
 static void check_fieldname(const struct json_stream *js,
@@ -226,11 +182,8 @@ static void check_fieldname(const struct json_stream *js,
 #endif
 }
 
-/* Caller must call js_written_some() if extra is non-zero returns non-NULL!
- * Can return NULL, beware:
- */
-static char *json_start_member(struct json_stream *js,
-			       const char *fieldname, size_t extra)
+char *json_member_direct(struct json_stream *js,
+			 const char *fieldname, size_t extra)
 {
 	char *dest;
 
@@ -291,61 +244,60 @@ static void js_unindent(struct json_stream *js, jsmntype_t type)
 
 void json_array_start(struct json_stream *js, const char *fieldname)
 {
-	char *dest = json_start_member(js, fieldname, 1);
+	char *dest = json_member_direct(js, fieldname, 1);
 	if (dest)
 		dest[0] = '[';
-	js_written_some(js);
 	js_indent(js, JSMN_ARRAY);
 }
 
 void json_array_end(struct json_stream *js)
 {
 	js_unindent(js, JSMN_ARRAY);
-	json_stream_append(js, "]");
+	json_stream_append(js, "]", 1);
 }
 
 void json_object_start(struct json_stream *js, const char *fieldname)
 {
-	char *dest = json_start_member(js, fieldname, 1);
+	char *dest = json_member_direct(js, fieldname, 1);
 	if (dest)
 		dest[0] = '{';
-	js_written_some(js);
 	js_indent(js, JSMN_OBJECT);
 }
 
 void json_object_end(struct json_stream *js)
 {
 	js_unindent(js, JSMN_OBJECT);
-	json_stream_append(js, "}");
+	json_stream_append(js, "}", 1);
 }
 
-void PRINTF_FMT(3,4)
-json_add_member(struct json_stream *js, const char *fieldname,
-		const char *fmt, ...)
+void json_add_member(struct json_stream *js,
+		     const char *fieldname,
+		     bool quote,
+		     const char *fmt, ...)
 {
 	va_list ap;
+	char *str, *p;
 
-	json_start_member(js, fieldname, 0);
 	va_start(ap, fmt);
-	json_stream_append_vfmt(js, fmt, ap);
+	str = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
-}
 
-void json_add_hex(struct json_stream *js, const char *fieldname,
-		  const void *data, size_t len)
-{
-	/* Size without NUL term */
-	size_t hexlen = hex_str_size(len) - 1;
-	char *dest;
+	if (quote) {
+		struct json_escape *e = json_escape(NULL, take(str));
 
-	dest = json_start_member(js, fieldname, 1 + hexlen + 1);
-	if (dest) {
-		dest[0] = '"';
-		if (!hex_encode(data, len, dest + 1, hexlen + 1))
-			abort();
-		dest[1+hexlen] = '"';
+		p = json_member_direct(js, fieldname, strlen(e->s) + 2);
+		if (!p)
+			return;
+		p[0] = p[1 + strlen(e->s)] = '"';
+		memcpy(p+1, e->s, strlen(e->s));
+		tal_free(e);
+	} else {
+		p = json_member_direct(js, fieldname, strlen(str));
+		if (!p)
+			return;
+		memcpy(p, str, strlen(str));
+		tal_free(str);
 	}
-	js_written_some(js);
 }
 
 /* This is where we read the json_stream and write it to conn */

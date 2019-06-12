@@ -591,20 +591,20 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 	 * new_id into a string, or even worse, quote a string id
 	 * twice. */
 	size_t offset = idtok->type==JSMN_STRING?1:0;
-	json_stream_append_part(stream, buffer + toks->start,
-				idtok->start - toks->start - offset);
+	json_stream_append(stream, buffer + toks->start,
+			   idtok->start - toks->start - offset);
 
-	json_stream_append(stream, new_id);
-	json_stream_append_part(stream, buffer + idtok->end + offset,
-				toks->end - idtok->end - offset);
+	json_stream_append(stream, new_id, strlen(new_id));
+	json_stream_append(stream, buffer + idtok->end + offset,
+			   toks->end - idtok->end - offset);
 
 	/* We promise it will end in '\n\n' */
 	/* It's an object (with an id!): definitely can't be less that "{}" */
 	assert(toks->end - toks->start >= 2);
 	if (buffer[toks->end-1] != '\n')
-		json_stream_append(stream, "\n\n");
+		json_stream_append(stream, "\n\n", 2);
 	else if (buffer[toks->end-2] != '\n')
-		json_stream_append(stream, "\n");
+		json_stream_append(stream, "\n", 1);
 }
 
 static void plugin_rpcmethod_cb(const char *buffer,

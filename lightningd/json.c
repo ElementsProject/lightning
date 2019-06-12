@@ -127,7 +127,7 @@ void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
 			       const struct short_channel_id *scid)
 {
-	json_add_member(response, fieldname, "\"%dx%dx%d\"",
+	json_add_member(response, fieldname, true, "%dx%dx%d",
 			short_channel_id_blocknum(scid),
 			short_channel_id_txnum(scid),
 			short_channel_id_outnum(scid));
@@ -309,60 +309,78 @@ void json_add_address_internal(struct json_stream *response,
 
 void json_add_num(struct json_stream *result, const char *fieldname, unsigned int value)
 {
-	json_add_member(result, fieldname, "%u", value);
+	json_add_member(result, fieldname, false, "%u", value);
 }
 
 void json_add_double(struct json_stream *result, const char *fieldname, double value)
 {
-	json_add_member(result, fieldname, "%f", value);
+	json_add_member(result, fieldname, false, "%f", value);
 }
 
 void json_add_u64(struct json_stream *result, const char *fieldname,
 		  uint64_t value)
 {
-	json_add_member(result, fieldname, "%"PRIu64, value);
+	json_add_member(result, fieldname, false, "%"PRIu64, value);
 }
 
 void json_add_s64(struct json_stream *result, const char *fieldname,
 		  int64_t value)
 {
-	json_add_member(result, fieldname, "%"PRIi64, value);
+	json_add_member(result, fieldname, false, "%"PRIi64, value);
 }
 
 void json_add_u32(struct json_stream *result, const char *fieldname,
 		  uint32_t value)
 {
-	json_add_member(result, fieldname, "%d", value);
+	json_add_member(result, fieldname, false, "%u", value);
 }
 
 void json_add_s32(struct json_stream *result, const char *fieldname,
 		  int32_t value)
 {
-	json_add_member(result, fieldname, "%d", value);
+	json_add_member(result, fieldname, false, "%d", value);
 }
 
 void json_add_literal(struct json_stream *result, const char *fieldname,
 		      const char *literal, int len)
 {
-	json_add_member(result, fieldname, "%.*s", len, literal);
+	/* Literal may contain quotes, so bypass normal checks */
+	char *dest = json_member_direct(result, fieldname, strlen(literal));
+	if (dest)
+		memcpy(dest, literal, strlen(literal));
 }
 
 void json_add_string(struct json_stream *result, const char *fieldname, const char *value TAKES)
 {
-	struct json_escape *esc = json_partial_escape(NULL, value);
-
-	json_add_member(result, fieldname, "\"%s\"", esc->s);
-	tal_free(esc);
+	json_add_member(result, fieldname, true, "%s", value);
+	if (taken(value))
+		tal_free(value);
 }
 
 void json_add_bool(struct json_stream *result, const char *fieldname, bool value)
 {
-	json_add_member(result, fieldname, value ? "true" : "false");
+	json_add_member(result, fieldname, false, value ? "true" : "false");
 }
 
 void json_add_null(struct json_stream *stream, const char *fieldname)
 {
-	json_add_member(stream, fieldname, "null");
+	json_add_member(stream, fieldname, false, "null");
+}
+
+void json_add_hex(struct json_stream *js, const char *fieldname,
+		  const void *data, size_t len)
+{
+	/* Size without NUL term */
+	size_t hexlen = hex_str_size(len) - 1;
+	char *dest;
+
+	dest = json_member_direct(js, fieldname, 1 + hexlen + 1);
+	if (dest) {
+		dest[0] = '"';
+		if (!hex_encode(data, len, dest + 1, hexlen + 1))
+			abort();
+		dest[1+hexlen] = '"';
+	}
 }
 
 void json_add_hex_talarr(struct json_stream *result,
@@ -382,7 +400,15 @@ void json_add_tx(struct json_stream *result,
 void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 			     const struct json_escape *esc TAKES)
 {
-	json_add_member(result, fieldname, "\"%s\"", esc->s);
+	/* Already escaped, don't re-escape! */
+	char *dest = json_member_direct(result,	fieldname,
+					1 + strlen(esc->s) + 1);
+
+	if (dest) {
+		dest[0] = '"';
+		memcpy(dest + 1, esc->s, strlen(esc->s));
+		dest[1+strlen(esc->s)] = '"';
+	}
 	if (taken(esc))
 		tal_free(esc);
 }
@@ -400,7 +426,7 @@ void json_add_amount_msat_only(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
 {
-	json_add_member(result, msatfieldname, "\"%s\"",
+	json_add_string(result, msatfieldname,
 			type_to_string(tmpctx, struct amount_msat, &msat));
 }
 
@@ -419,14 +445,14 @@ void json_add_amount_sat_only(struct json_stream *result,
 {
 	struct amount_msat msat;
 	if (amount_sat_to_msat(&msat, sat))
-		json_add_member(result, msatfieldname, "\"%s\"",
+		json_add_string(result, msatfieldname,
 				type_to_string(tmpctx, struct amount_msat, &msat));
 }
 
 void json_add_timeabs(struct json_stream *result, const char *fieldname,
 		      struct timeabs t)
 {
-	json_add_member(result, fieldname, "%" PRIu64 ".%03" PRIu64,
+	json_add_member(result, fieldname, false, "%" PRIu64 ".%03" PRIu64,
 			(u64)t.ts.tv_sec, (u64)t.ts.tv_nsec / 1000000);
 }
 

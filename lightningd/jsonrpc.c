@@ -430,8 +430,9 @@ struct command_result *command_success(struct command *cmd,
 				       struct json_stream *result)
 {
 	assert(cmd);
-	assert(cmd->have_json_stream);
-	json_stream_append(result, " } }\n\n");
+	assert(cmd->json_stream == result);
+	json_object_end(result);
+	json_object_end(result);
 
 	return command_raw_complete(cmd, result);
 }
@@ -439,9 +440,10 @@ struct command_result *command_success(struct command *cmd,
 struct command_result *command_failed(struct command *cmd,
 				      struct json_stream *result)
 {
-	assert(cmd->have_json_stream);
+	assert(cmd->json_stream == result);
 	/* Have to close error */
-	json_stream_append(result, " } }\n\n");
+	json_object_end(result);
+	json_object_end(result);
 
 	return command_raw_complete(cmd, result);
 }
@@ -465,6 +467,11 @@ struct command_result *command_still_pending(struct command *cmd)
 {
 	notleak_with_children(cmd);
 	cmd->pending = true;
+
+	/* If we've started writing, wake reader. */
+	if (cmd->json_stream)
+		json_stream_flush(cmd->json_stream);
+
 	return &pending;
 }
 
@@ -475,12 +482,14 @@ static void json_command_malformed(struct json_connection *jcon,
 	/* NULL writer is OK here, since we close it immediately. */
 	struct json_stream *js = jcon_new_json_stream(jcon, jcon, NULL);
 
-	json_stream_append_fmt(js,
-			       "{ \"jsonrpc\": \"2.0\", \"id\" : %s,"
-			       " \"error\" : "
-			       "{ \"code\" : %d,"
-			       " \"message\" : \"%s\" } }\n\n",
-			       id, JSONRPC2_INVALID_REQUEST, error);
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_literal(js, "id", id, strlen(id));
+	json_object_start(js, "error");
+	json_add_member(js, "code", false, "%d", JSONRPC2_INVALID_REQUEST);
+	json_add_string(js, "message", error);
+	json_object_end(js);
+	json_object_end(js);
 
 	json_stream_close(js, NULL);
 }
@@ -495,8 +504,8 @@ struct json_stream *json_stream_raw_for_cmd(struct command *cmd)
 	else
 		js = new_json_stream(cmd, cmd, NULL);
 
-	assert(!cmd->have_json_stream);
-	cmd->have_json_stream = true;
+	assert(!cmd->json_stream);
+	cmd->json_stream = js;
 	return js;
 }
 
@@ -514,16 +523,16 @@ static struct json_stream *json_start(struct command *cmd)
 {
 	struct json_stream *js = json_stream_raw_for_cmd(cmd);
 
-	json_stream_append_fmt(js, "{ \"jsonrpc\": \"2.0\", \"id\" : %s, ",
-			       cmd->id);
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_literal(js, "id", cmd->id, strlen(cmd->id));
 	return js;
 }
 
 struct json_stream *json_stream_success(struct command *cmd)
 {
 	struct json_stream *r = json_start(cmd);
-	json_stream_append(r, "\"result\" : ");
-	json_object_start(r, NULL);
+	json_object_start(r, "result");
 	return r;
 }
 
@@ -531,15 +540,15 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    int code,
 					    const char *errmsg)
 {
-	struct json_stream *r = json_start(cmd);
-	struct json_escape *e = json_partial_escape(tmpctx, errmsg);
+	struct json_stream *js = json_start(cmd);
 
 	assert(code);
 
-	json_stream_append_fmt(r, " \"error\" : "
-			  "{ \"code\" : %d,"
-			  " \"message\" : \"%s\"", code, e->s);
-	return r;
+	json_object_start(js, "error");
+	json_add_member(js, "code", false, "%d", code);
+	json_add_string(js, "message", errmsg);
+
+	return js;
 }
 
 struct json_stream *json_stream_fail(struct command *cmd,
@@ -548,8 +557,7 @@ struct json_stream *json_stream_fail(struct command *cmd,
 {
 	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
 
-	json_stream_append(r, ", \"data\" : ");
-	json_object_start(r, NULL);
+	json_object_start(r, "data");
 	return r;
 }
 
@@ -588,7 +596,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->jcon = jcon;
 	c->ld = jcon->ld;
 	c->pending = false;
-	c->have_json_stream = false;
+	c->json_stream = NULL;
 	c->id = tal_strndup(c,
 			    json_tok_full(jcon->buffer, id),
 			    json_tok_full_len(id));
@@ -1065,7 +1073,9 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 {
 	json_object_end(n->stream); /* closes '.params' */
 	json_object_end(n->stream); /* closes '.' */
-	json_stream_append(n->stream, "\n\n");
+
+	/* We guarantee to have \n\n at end of each response. */
+	json_stream_append(n->stream, "\n\n", strlen("\n\n"));
 }
 
 struct jsonrpc_request *jsonrpc_request_start_(
@@ -1101,7 +1111,9 @@ void jsonrpc_request_end(struct jsonrpc_request *r)
 {
 	json_object_end(r->stream); /* closes '.params' */
 	json_object_end(r->stream); /* closes '.' */
-	json_stream_append(r->stream, "\n\n");
+
+	/* We guarantee to have \n\n at end of each response. */
+	json_stream_append(r->stream, "\n\n", strlen("\n\n"));
 }
 
 /* We add this destructor as a canary to detect cmd failing. */
