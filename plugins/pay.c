@@ -31,7 +31,7 @@ struct pay_attempt {
 	/* Did we actually try to send a payment? */
 	bool sendpay;
 	/* The failure result (NULL on success) */
-	const char *failure;
+	struct json_out *failure;
 	/* The non-failure result (NULL on failure) */
 	const char *result;
 };
@@ -112,37 +112,6 @@ static struct pay_attempt *current_attempt(struct pay_command *pc)
 	return &pc->ps->attempts[tal_count(pc->ps->attempts)-1];
 }
 
-PRINTF_FMT(2,3) static void attempt_failed_fmt(struct pay_command *pc, const char *fmt, ...)
-{
-	struct pay_attempt *attempt = current_attempt(pc);
-	va_list ap;
-
-	va_start(ap,fmt);
-	attempt->failure = tal_vfmt(pc->ps->attempts, fmt, ap);
-	attempt->end = time_now();
-	va_end(ap);
-}
-
-static void attempt_failed_tok(struct pay_command *pc, const char *method,
-			       const char *buf, const jsmntok_t *errtok)
-{
-	const jsmntok_t *msg = json_get_member(buf, errtok, "message");
-
-	if (msg)
-		attempt_failed_fmt(pc, "%.*sCall to %s:%.*s",
-				   msg->start - errtok->start,
-				   buf + errtok->start,
-				   method,
-				   errtok->end - msg->start,
-				   buf + msg->start);
-	else
-		attempt_failed_fmt(pc,
-				   "{ \"message\": \"Call to %s failed\", %.*s",
-				   method,
-				   errtok->end - errtok->start - 1,
-				   buf + errtok->start + 1);
-}
-
 /* Helper to copy JSON object directly into a json_out */
 static void json_out_add_raw_len(struct json_out *jout,
 				 const char *fieldname,
@@ -159,6 +128,54 @@ static void json_out_add_raw(struct json_out *jout,
 			     const char *jsonstr)
 {
 	json_out_add_raw_len(jout, fieldname, jsonstr, strlen(jsonstr));
+}
+
+static struct json_out *failed_start(struct pay_command *pc)
+{
+	struct pay_attempt *attempt = current_attempt(pc);
+
+	attempt->end = time_now();
+	attempt->failure = json_out_new(pc->ps->attempts);
+	json_out_start(attempt->failure, NULL, '{');
+	return attempt->failure;
+}
+
+static void failed_end(struct json_out *jout)
+{
+	json_out_end(jout, '}');
+	json_out_finished(jout);
+}
+
+/* Copy field and member to output, if it exists: return member */
+static const jsmntok_t *copy_member(struct json_out *ret,
+				    const char *buf, const jsmntok_t *obj,
+				    const char *membername)
+{
+	const jsmntok_t *m = json_get_member(buf, obj, membername);
+	if (!m)
+		return NULL;
+
+	/* Literal copy: it's already JSON escaped, and may be a string. */
+	json_out_add_raw_len(ret, membername,
+			     json_tok_full(buf, m), json_tok_full_len(m));
+	return m;
+}
+
+/* Copy (and modify) error object. */
+static void attempt_failed_tok(struct pay_command *pc, const char *method,
+			       const char *buf, const jsmntok_t *errtok)
+{
+	const jsmntok_t *msg = json_get_member(buf, errtok, "message");
+	struct json_out *failed = failed_start(pc);
+
+	/* Every JSON error response has code and error. */
+	copy_member(failed, buf, errtok, "code");
+	json_out_add(failed, "message", true,
+		     "Call to %s: %.*s",
+		     method, msg->end - msg->start,
+		     buf + msg->start);
+	copy_member(failed, buf, errtok, "data");
+	failed_end(failed);
 }
 
 /* Helper to add a u64. */
@@ -218,7 +235,8 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 		if (pc->ps->attempts[i].route)
 			json_out_add_raw(data, "route",
 					 pc->ps->attempts[i].route);
-		json_out_add_raw(data, "failure", pc->ps->attempts[i].failure);
+		json_out_add_splice(data, "failure",
+				    pc->ps->attempts[i].failure);
 	}
 	json_out_end(data, ']');
 	json_out_end(data, '}');
@@ -494,8 +512,10 @@ static struct command_result *getroute_done(struct command *cmd,
 		attempt->route = join_routehint(pc->ps->attempts, buf, t,
 						pc, pc->current_routehint);
 		if (!attempt->route) {
-			attempt_failed_fmt(pc,
-					   "{ \"message\": \"Joining routehint gave absurd fee\" }");
+			struct json_out *failed = failed_start(pc);
+			json_out_add(failed, "message", true,
+				     "Joining routehint gave absurd fee");
+			failed_end(failed);
 			return next_routehint(cmd, pc);
 		}
 	} else
@@ -522,19 +542,22 @@ static struct command_result *getroute_done(struct command *cmd,
 	if (amount_msat_greater(fee, pc->exemptfee)
 	    && feepercent > pc->maxfeepercent) {
 		const jsmntok_t *charger;
+		struct json_out *failed;
+		char *feemsg;
 
-		attempt_failed_fmt(pc, "{ \"message\": \"Route wanted fee of %s\" }",
-				   type_to_string(tmpctx, struct amount_msat,
-						  &fee));
+		feemsg = tal_fmt(pc, "Route wanted fee of %s",
+				 type_to_string(tmpctx, struct amount_msat,
+						&fee));
+		failed = failed_start(pc);
+		json_out_addstr(failed, "message", feemsg);
+		failed_end(failed);
 
 		/* Remember this if we eliminating this causes us to have no
 		 * routes at all! */
 		if (!pc->expensive_route)
-			pc->expensive_route
-				= tal_fmt(pc, "Route wanted fee of %s",
-					  type_to_string(tmpctx,
-							 struct amount_msat,
-							 &fee));
+			pc->expensive_route = feemsg;
+		else
+			tal_free(feemsg);
 
 		/* Try excluding most fee-charging channel (unless it's in
 		 * routeboost). */
@@ -550,17 +573,20 @@ static struct command_result *getroute_done(struct command *cmd,
 
 	if (delay > pc->maxdelay) {
 		const jsmntok_t *delayer;
+		struct json_out *failed;
+		char *feemsg;
 
-		attempt_failed_fmt(pc,
-				   "{ \"message\": \"Route wanted delay of %u blocks\" }",
-				   delay);
+		feemsg = tal_fmt(pc, "Route wanted delay of %u blocks", delay);
+		failed = failed_start(pc);
+		json_out_addstr(failed, "message", feemsg);
+		failed_end(failed);
 
 		/* Remember this if we eliminating this causes us to have no
 		 * routes at all! */
 		if (!pc->expensive_route)
-			pc->expensive_route
-				= tal_fmt(pc, "Route wanted delay of %u blocks",
-					  delay);
+			pc->expensive_route = feemsg;
+		else
+			tal_free(failed);
 
 		delayer = find_worst_channel(buf, t, "delay", pc->final_cltv);
 
@@ -660,8 +686,12 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 		if (!route_msatoshi(&msat, pc->msat,
 				    attempt->routehint,
 				    tal_count(attempt->routehint))) {
-			attempt_failed_fmt(pc,
-					   "{ \"message\": \"Routehint absurd fee\" }");
+			struct json_out *failed;
+
+			failed = failed_start(pc);
+			json_out_addstr(failed, "message",
+					"Routehint absurd fee");
+			failed_end(failed);
 			return next_routehint(cmd, pc);
 		}
 		dest = type_to_string(tmpctx, struct node_id,
@@ -1089,7 +1119,7 @@ static void add_attempt(struct json_out *ret,
 		json_out_add_raw(ret, "route", attempt->route);
 
 	if (attempt->failure)
-		json_out_add_raw(ret, "failure", attempt->failure);
+		json_out_add_splice(ret, "failure", attempt->failure);
 
 	if (attempt->result)
 		json_out_add_raw(ret, "success", attempt->result);
@@ -1148,21 +1178,6 @@ static struct command_result *json_paystatus(struct command *cmd,
 	json_out_end(ret, '}');
 
 	return command_success(cmd, ret);
-}
-
-/* Copy field and member to output, if it exists: return member */
-static const jsmntok_t *copy_member(struct json_out *ret,
-				    const char *buf, const jsmntok_t *obj,
-				    const char *membername)
-{
-	const jsmntok_t *m = json_get_member(buf, obj, membername);
-	if (!m)
-		return NULL;
-
-	/* Literal copy: it's already JSON escaped, and may be a string. */
-	json_out_add_raw_len(ret, membername,
-			     json_tok_full(buf, m), json_tok_full_len(m));
-	return m;
 }
 
 static bool attempt_ongoing(const char *buf, const jsmntok_t *b11)
