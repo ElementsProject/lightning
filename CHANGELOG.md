@@ -46,6 +46,7 @@ changes.
 ### Removed
 
 - JSON RPC: `global_features` and `local_features` fields and `listchannels`' `flags` field.  (Deprecated since 0.6.2).
+- pylightning: Remove RPC support for c-lightning before 0.6.3.
 
 ### Fixed
 
