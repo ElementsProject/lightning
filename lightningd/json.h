@@ -22,7 +22,7 @@ struct bitcoin_txid;
 struct chainparams;
 struct channel_id;
 struct command;
-struct json_escaped;
+struct json_escape;
 struct json_stream;
 struct pubkey;
 struct node_id;
@@ -123,7 +123,7 @@ void json_add_string(struct json_stream *result, const char *fieldname, const ch
  * already be JSON escaped as necessary. */
 void json_add_escaped_string(struct json_stream *result,
 			     const char *fieldname,
-			     const struct json_escaped *esc TAKES);
+			     const struct json_escape *esc TAKES);
 
 /* '"fieldname" : literal' or 'literal' if fieldname is NULL*/
 void json_add_literal(struct json_stream *result, const char *fieldname,

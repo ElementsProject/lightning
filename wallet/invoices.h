@@ -8,7 +8,7 @@
 
 struct amount_msat;
 struct db;
-struct json_escaped;
+struct json_escape;
 struct invoice;
 struct invoice_details;
 struct invoice_iterator;
@@ -49,7 +49,7 @@ struct invoices *invoices_new(const tal_t *ctx,
 bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
 		     const struct amount_msat *msat TAKES,
-		     const struct json_escaped *label TAKES,
+		     const struct json_escape *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
 		     const char *description,
@@ -68,7 +68,7 @@ bool invoices_create(struct invoices *invoices,
  */
 bool invoices_find_by_label(struct invoices *invoices,
 			    struct invoice *pinvoice,
-			    const struct json_escaped *label);
+			    const struct json_escape *label);
 
 /**
  * invoices_find_by_rhash - Search for an invoice by

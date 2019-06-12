@@ -9,7 +9,7 @@ struct amount_msat;
 struct amount_sat;
 struct command;
 struct command_result;
-struct json_escaped;
+struct json_escape;
 struct sha256;
 
 /* Extract json array token */
@@ -42,7 +42,7 @@ struct command_result *param_string(struct command *cmd, const char *name,
 /* Extract a label. It is either an escaped string or a number. */
 struct command_result *param_label(struct command *cmd, const char *name,
 				   const char * buffer, const jsmntok_t *tok,
-				   struct json_escaped **label);
+				   struct json_escape **label);
 
 /* Extract number from this (may be a string, or a number literal) */
 struct command_result *param_number(struct command *cmd, const char *name,

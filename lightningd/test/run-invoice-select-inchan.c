@@ -154,7 +154,7 @@ void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UN
 /* Generated stub for json_add_escaped_string */
 void json_add_escaped_string(struct json_stream *result UNNEEDED,
 			     const char *fieldname UNNEEDED,
-			     const struct json_escaped *esc TAKES UNNEEDED)
+			     const struct json_escape *esc TAKES UNNEEDED)
 { fprintf(stderr, "json_add_escaped_string called!\n"); abort(); }
 /* Generated stub for json_add_hex */
 void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
@@ -323,7 +323,7 @@ struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
 /* Generated stub for param_label */
 struct command_result *param_label(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				   const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				   struct json_escaped **label UNNEEDED)
+				   struct json_escape **label UNNEEDED)
 { fprintf(stderr, "param_label called!\n"); abort(); }
 /* Generated stub for param_loglevel */
 struct command_result *param_loglevel(struct command *cmd UNNEEDED,
@@ -495,7 +495,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
 bool wallet_invoice_create(struct wallet *wallet UNNEEDED,
 			   struct invoice *pinvoice UNNEEDED,
 			   const struct amount_msat *msat TAKES UNNEEDED,
-			   const struct json_escaped *label TAKES UNNEEDED,
+			   const struct json_escape *label TAKES UNNEEDED,
 			   u64 expiry UNNEEDED,
 			   const char *b11enc UNNEEDED,
 			   const char *description UNNEEDED,
@@ -518,7 +518,7 @@ const struct invoice_details *wallet_invoice_details(const tal_t *ctx UNNEEDED,
 /* Generated stub for wallet_invoice_find_by_label */
 bool wallet_invoice_find_by_label(struct wallet *wallet UNNEEDED,
 				  struct invoice *pinvoice UNNEEDED,
-				  const struct json_escaped *label UNNEEDED)
+				  const struct json_escape *label UNNEEDED)
 { fprintf(stderr, "wallet_invoice_find_by_label called!\n"); abort(); }
 /* Generated stub for wallet_invoice_find_by_rhash */
 bool wallet_invoice_find_by_rhash(struct wallet *wallet UNNEEDED,

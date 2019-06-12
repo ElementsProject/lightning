@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/str.h>
@@ -12,7 +13,6 @@
 #include <common/configdir.h>
 #include <common/json.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/memleak.h>
 #include <common/utils.h>
 #include <common/version.h>

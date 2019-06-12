@@ -1,9 +1,9 @@
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
@@ -53,9 +53,12 @@ struct command_result *param_escaped_string(struct command *cmd,
 					    const jsmntok_t *tok,
 					    const char **str)
 {
-	struct json_escaped *esc = json_to_escaped_string(cmd, buffer, tok);
-	if (esc) {
-		*str = json_escaped_unescape(cmd, esc);
+	if (tok->type == JSMN_STRING) {
+		struct json_escape *esc;
+		/* jsmn always gives us ~ well-formed strings. */
+		esc = json_escape_string_(cmd, buffer + tok->start,
+					  tok->end - tok->start);
+		*str = json_escape_unescape(cmd, esc);
 		if (*str)
 			return NULL;
 	}
@@ -77,10 +80,10 @@ struct command_result *param_string(struct command *cmd, const char *name,
 
 struct command_result *param_label(struct command *cmd, const char *name,
 				   const char * buffer, const jsmntok_t *tok,
-				   struct json_escaped **label)
+				   struct json_escape **label)
 {
 	/* We accept both strings and number literals here. */
-	*label = json_escaped_string_(cmd, buffer + tok->start, tok->end - tok->start);
+	*label = json_escape_string_(cmd, buffer + tok->start, tok->end - tok->start);
 	if (*label && (tok->type == JSMN_STRING || json_tok_is_num(buffer, tok)))
 		return NULL;
 

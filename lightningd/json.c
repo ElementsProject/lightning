@@ -1,10 +1,10 @@
 #include <arpa/inet.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/json.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -349,7 +349,7 @@ void json_add_literal(struct json_stream *result, const char *fieldname,
 
 void json_add_string(struct json_stream *result, const char *fieldname, const char *value TAKES)
 {
-	struct json_escaped *esc = json_partial_escape(NULL, value);
+	struct json_escape *esc = json_partial_escape(NULL, value);
 
 	json_add_member(result, fieldname, "\"%s\"", esc->s);
 	tal_free(esc);
@@ -380,7 +380,7 @@ void json_add_tx(struct json_stream *result,
 }
 
 void json_add_escaped_string(struct json_stream *result, const char *fieldname,
-			     const struct json_escaped *esc TAKES)
+			     const struct json_escape *esc TAKES)
 {
 	json_add_member(result, fieldname, "\"%s\"", esc->s);
 	if (taken(esc))
