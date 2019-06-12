@@ -312,6 +312,9 @@ static void funding_started_success(struct funding_channel *fc,
 					  scriptPubkey);
 	if (out)
 		json_add_string(response, "funding_address", out);
+
+	/* Clear this so cancel doesn't think it's still in progress */
+	fc->cmd = NULL;
 	was_pending(command_success(cmd, response));
 }
 
@@ -1133,8 +1136,10 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 
 	if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
 		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
+	if (peer->uncommitted_channel->fc->cmd)
+		return command_fail(cmd, LIGHTNINGD, "Channel funding in progress.");
 
-	/* Update the cmd to the new cmd */
+	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
 	msg = towire_opening_funder_complete(NULL,
 					     funding_txid,
