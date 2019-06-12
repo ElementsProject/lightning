@@ -23,6 +23,7 @@
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
@@ -86,9 +87,6 @@ struct json_connection {
 	size_t used;
 	/* How much has just been filled. */
 	size_t len_read;
-
-	/* We've been told to stop. */
-	bool stop;
 
 	/* Our commands */
 	struct list_head commands;
@@ -182,12 +180,37 @@ static struct command_result *json_stop(struct command *cmd,
 					const jsmntok_t *obj UNNEEDED,
 					const jsmntok_t *params)
 {
+	struct json_out *jout;
+	const char *p;
+	size_t len;
+
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
 	/* This can't have closed yet! */
-	cmd->jcon->stop = true;
-	return command_success(cmd, json_stream_success(cmd));
+	cmd->ld->stop_conn = cmd->jcon->conn;
+	log_unusual(cmd->ld->log, "JSON-RPC shutdown");
+
+	/* This is the one place where result is a literal string. */
+	jout = json_out_new(tmpctx);
+	json_out_start(jout, NULL, '{');
+	json_out_addstr(jout, "jsonrpc", "2.0");
+	/* id may be a string or number, so copy direct. */
+	memcpy(json_out_member_direct(jout, "id", strlen(cmd->id)),
+	       cmd->id, strlen(cmd->id));
+	json_out_addstr(jout, "result", "Shutdown complete");
+	json_out_end(jout, '}');
+	json_out_finished(jout);
+
+	/* Add two \n */
+	memcpy(json_out_direct(jout, 2), "\n\n", strlen("\n\n"));
+	p = json_out_contents(jout, &len);
+	cmd->ld->stop_response = tal_strndup(cmd->ld, p, len);
+
+	/* Wake write loop in case it's not already. */
+	io_wake(cmd->jcon);
+
+	return command_still_pending(cmd);
 }
 
 static const struct json_command stop_command = {
@@ -661,7 +684,14 @@ static struct io_plan *start_json_stream(struct io_conn *conn,
 	/* Tell reader it can run next command. */
 	io_wake(conn);
 
-	/* Wait for attach_json_stream */
+	/* Once the stop_conn conn is drained, we can shut down. */
+	if (jcon->ld->stop_conn == conn) {
+		/* Return us to toplevel lightningd.c */
+		io_break(jcon->ld);
+		/* We never come back. */
+		return io_out_wait(conn, conn, io_never, conn);
+	}
+
 	return io_out_wait(conn, jcon, start_json_stream, jcon);
 }
 
@@ -672,13 +702,6 @@ static struct io_plan *stream_out_complete(struct io_conn *conn,
 {
 	jcon_remove_json_stream(jcon, js);
 	tal_free(js);
-
-	if (jcon->stop) {
-		log_unusual(jcon->log, "JSON-RPC shutdown");
-		/* Return us to toplevel lightningd.c */
-		io_break(jcon->ld);
-		return io_close(conn);
-	}
 
 	/* Wait for more output. */
 	return start_json_stream(conn, jcon);
@@ -761,7 +784,6 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->ld = ld;
 	jcon->used = 0;
 	jcon->buffer = tal_arr(jcon, char, 64);
-	jcon->stop = false;
 	jcon->js_arr = tal_arr(jcon, struct json_stream *, 0);
 	jcon->len_read = 0;
 	list_head_init(&jcon->commands);
