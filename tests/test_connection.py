@@ -2,7 +2,7 @@ from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
-from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND
+from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
 import binascii
@@ -851,6 +851,62 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.fundchannel_cancel(l2.info['id'])
     # Should be able to 'restart' after canceling
     l1.rpc.fundchannel_start(l2.info['id'], amount)
+
+
+@pytest.mark.xfail(strict=True)
+def test_funding_cancel_race(node_factory, bitcoind, executor):
+    l1 = node_factory.get_node()
+    nodes = node_factory.get_nodes(100)
+
+    # Speed up cleanup by not cleaning our test nodes: on my laptop, this goes
+    # from 214 to 15 seconds
+    node_factory.nodes = [l1]
+
+    num_complete = 0
+    num_cancel = 0
+
+    for n in nodes:
+        l1.rpc.connect(n.info['id'], 'localhost', n.port)
+        l1.rpc.fundchannel_start(n.info['id'], "100000sat")
+
+        # We simply make up txids.  And submit two of each at once.
+        completes = [executor.submit(l1.rpc.fundchannel_complete, n.info['id'], "9f1844419d2f41532a57fb5ef038cacb602000f7f37b3dae68dc2d047c89048f", 0),
+                     executor.submit(l1.rpc.fundchannel_complete, n.info['id'], "9f1844419d2f41532a57fb5ef038cacb602000f7f37b3dae68dc2d047c89048f", 0)]
+        cancels = [executor.submit(l1.rpc.fundchannel_cancel, n.info['id']),
+                   executor.submit(l1.rpc.fundchannel_cancel, n.info['id'])]
+
+        # Only one should succeed.
+        success = False
+        for c in completes:
+            try:
+                c.result(TIMEOUT)
+                num_complete += 1
+                assert not success
+                success = True
+            except RpcError:
+                pass
+
+        # These may both succeed, iff the above didn't.
+        cancelled = False
+        for c in cancels:
+            try:
+                c.result(TIMEOUT)
+                cancelled = True
+                assert not success
+            except RpcError:
+                pass
+
+        if cancelled:
+            num_cancel += 1
+        else:
+            assert success
+
+    print("Cancelled {} complete {}".format(num_cancel, num_complete))
+    assert num_cancel + num_complete == len(nodes)
+
+    # We should have raced at least once!
+    assert num_cancel > 0
+    assert num_complete > 0
 
 
 def test_funding_external_wallet(node_factory, bitcoind):
