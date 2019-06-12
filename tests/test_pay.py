@@ -1489,8 +1489,14 @@ def test_pay_retry(node_factory, bitcoind):
     # This should make it fail.
     exhaust_channel(l4, l5, scid45, 10**8)
 
-    with pytest.raises(RpcError, match=r'5 attempts'):
-        l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11'])
+    # It won't try l1->l5, since it knows that's under capacity.
+    # It will try l1->l2->l5, which fails.
+    # It will try l1->l2->l3->l5, which fails.
+    # It will try l1->l2->l3->l4->l5, which fails.
+    # It then tries l1->l2->l3->l4->l5, because of routeboost, which fails.
+    inv = l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11']
+    with pytest.raises(RpcError, match=r'4 attempts'):
+        l1.rpc.pay(inv)
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
