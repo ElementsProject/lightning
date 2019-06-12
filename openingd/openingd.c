@@ -1556,7 +1556,8 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_UPDATE_FEE:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
-		/* Standard cases */
+	/* Standard cases */
+	default:
 		if (handle_peer_gossip_or_error(state->pps,
 						&state->channel_id, msg))
 			return NULL;
