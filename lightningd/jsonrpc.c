@@ -22,12 +22,12 @@
 #include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
@@ -332,7 +332,7 @@ static void json_add_help_command(struct command *cmd,
 				" a description for this"
 				" json_command!");
 	} else {
-		struct json_escaped *esc;
+		struct json_escape *esc;
 
 		esc = json_escape(NULL, json_command->verbose);
 		json_add_escaped_string(response, "verbose", take(esc));
@@ -551,7 +551,7 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    const char *errmsg)
 {
 	struct json_stream *r = json_start(cmd);
-	struct json_escaped *e = json_partial_escape(tmpctx, errmsg);
+	struct json_escape *e = json_partial_escape(tmpctx, errmsg);
 
 	assert(code);
 

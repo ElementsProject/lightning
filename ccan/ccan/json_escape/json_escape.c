@@ -1,46 +1,58 @@
-#include <common/json_escaped.h>
+/* MIT (BSD) license - see LICENSE file for details */
+#include <ccan/json_escape/json_escape.h>
 #include <stdio.h>
 
-struct json_escaped *json_escaped_string_(const tal_t *ctx,
-					  const void *bytes, size_t len)
+struct json_escape *json_escape_string_(const tal_t *ctx,
+					const void *bytes, size_t len)
 {
-	struct json_escaped *esc;
+	struct json_escape *esc;
 
 	esc = (void *)tal_arr_label(ctx, char, len + 1,
-				    TAL_LABEL(struct json_escaped, ""));
+				    TAL_LABEL(struct json_escape, ""));
 	memcpy(esc->s, bytes, len);
 	esc->s[len] = '\0';
 	return esc;
 }
 
-struct json_escaped *json_to_escaped_string(const tal_t *ctx,
-					    const char *buffer,
-					    const jsmntok_t *tok)
-{
-	if (tok->type != JSMN_STRING)
-		return NULL;
-	/* jsmn always gives us ~ well-formed strings. */
-	return json_escaped_string_(ctx, buffer + tok->start,
-				    tok->end - tok->start);
-}
-
-bool json_escaped_eq(const struct json_escaped *a,
-		     const struct json_escaped *b)
+bool json_escape_eq(const struct json_escape *a, const struct json_escape *b)
 {
 	return streq(a->s, b->s);
 }
 
-static struct json_escaped *escape(const tal_t *ctx,
-				   const char *str TAKES,
-				   bool partial)
+bool json_escape_needed(const char *str, size_t len)
 {
-	struct json_escaped *esc;
+	for (size_t i = 0; i < len; i++) {
+		if ((unsigned)str[i] < ' '
+		    || str[i] == 127
+		    || str[i] == '"'
+		    || str[i] == '\\')
+			return true;
+	}
+	return false;
+}
+
+static struct json_escape *escape(const tal_t *ctx,
+				  const char *str TAKES,
+				  size_t len,
+				  bool partial)
+{
+	struct json_escape *esc;
 	size_t i, n;
 
-	/* Worst case: all \uXXXX */
-	esc = (struct json_escaped *)tal_arr(ctx, char, strlen(str) * 6 + 1);
+	/* Fast path: can steal, and nothing to escape. */
+	if (is_taken(str)
+	    && tal_count(str) > len
+	    && !json_escape_needed(str, len)) {
+		taken(str);
+		esc = (struct json_escape *)tal_steal(ctx, str);
+		esc->s[len] = '\0';
+		return esc;
+	}
 
-	for (i = n = 0; str[i]; i++, n++) {
+	/* Worst case: all \uXXXX */
+	esc = (struct json_escape *)tal_arr(ctx, char, len * 6 + 1);
+
+	for (i = n = 0; i < len; i++, n++) {
 		char escape = 0;
 		switch (str[i]) {
 		case '\n':
@@ -107,19 +119,24 @@ static struct json_escaped *escape(const tal_t *ctx,
 	return esc;
 }
 
-struct json_escaped *json_partial_escape(const tal_t *ctx, const char *str TAKES)
+struct json_escape *json_partial_escape(const tal_t *ctx, const char *str TAKES)
 {
-	return escape(ctx, str, true);
+	return escape(ctx, str, strlen(str), true);
 }
 
-struct json_escaped *json_escape(const tal_t *ctx, const char *str TAKES)
+struct json_escape *json_escape(const tal_t *ctx, const char *str TAKES)
 {
-	return escape(ctx, str, false);
+	return escape(ctx, str, strlen(str), false);
+}
+
+struct json_escape *json_escape_len(const tal_t *ctx, const char *str TAKES,
+				    size_t len)
+{
+	return escape(ctx, str, len, false);
 }
 
 /* By policy, we don't handle \u.  Use UTF-8. */
-const char *json_escaped_unescape(const tal_t *ctx,
-				  const struct json_escaped *esc)
+const char *json_escape_unescape(const tal_t *ctx, const struct json_escape *esc)
 {
 	char *unesc = tal_arr(ctx, char, strlen(esc->s) + 1);
 	size_t i, n;

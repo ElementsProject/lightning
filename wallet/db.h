@@ -202,10 +202,10 @@ bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256
 struct secret *sqlite3_column_secrets(const tal_t *ctx,
 				      sqlite3_stmt *stmt, int col);
 
-struct json_escaped *sqlite3_column_json_escaped(const tal_t *ctx,
-						 sqlite3_stmt *stmt, int col);
-bool sqlite3_bind_json_escaped(sqlite3_stmt *stmt, int col,
-			       const struct json_escaped *esc);
+struct json_escape *sqlite3_column_json_escape(const tal_t *ctx,
+					       sqlite3_stmt *stmt, int col);
+bool sqlite3_bind_json_escape(sqlite3_stmt *stmt, int col,
+			      const struct json_escape *esc);
 
 struct amount_msat sqlite3_column_amount_msat(sqlite3_stmt *stmt, int col);
 struct amount_sat sqlite3_column_amount_sat(sqlite3_stmt *stmt, int col);

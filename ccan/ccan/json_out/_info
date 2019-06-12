@@ -1,0 +1,82 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * json_out - Code for creating simple JSON output.
+ *
+ * This code helps you create well-formed JSON strings.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * License: BSD-MIT
+ *
+ * Example:
+ *	// Given "a 1 true" outputs {"argv1":"a","argv2":1,"argv3":true}
+ *	// Print arguments as a JSON array.
+ *	#include <ccan/json_out/json_out.h>
+ *	#include <stdio.h>
+ *	#include <string.h>
+ *	#include <unistd.h>
+ *
+ *	// Simplistic test to see if str needs quotes.
+ *	static bool can_be_json_literal(const char *str)
+ *	{
+ *		char *endp;
+ *		if (strtol(str, &endp, 10) != LONG_MIN
+ *		    && endp != str
+ *		    && *endp == '\0')
+ *			return true;
+ *		return !strcmp(str, "true")
+ *			|| !strcmp(str, "false")
+ *			|| !strcmp(str, "null");
+ *	}
+ *		
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct json_out *jout = json_out_new(NULL);
+ *		size_t len;
+ *		const char *p;
+ *
+ *		json_out_start(jout, NULL, '{');
+ *		for (int i = 1; i < argc; i++) {
+ *			char fieldname[80];
+ *			sprintf(fieldname, "argv%i", i);
+ *			json_out_add(jout, fieldname,
+ *				     !can_be_json_literal(argv[i]),
+ *				     "%s", argv[i]);
+ *		}
+ *		json_out_end(jout, '}');
+ *		// Force appending of \n
+ *		json_out_direct(jout, 1)[0] = '\n';
+ *		json_out_finished(jout);
+ *
+ *		// Now write it out.
+ *		while ((p = json_out_contents(jout, &len)) != NULL) {
+ *			int i = write(STDOUT_FILENO, p, len);
+ *			if (i <= 0)
+ *				exit(1);
+ *			json_out_consume(jout, i);
+ *		}
+ *
+ *		tal_free(jout);
+ *		return 0;
+ *	}
+ *	
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/compiler\n");
+		printf("ccan/json_escape\n");
+		printf("ccan/membuf\n");
+		printf("ccan/tal\n");
+		printf("ccan/typesafe_cb\n");
+		return 0;
+	}
+
+	return 1;
+}

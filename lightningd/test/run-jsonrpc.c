@@ -141,7 +141,7 @@ static void test_json_escape(void)
 	for (i = 1; i < 256; i++) {
 		char badstr[2];
 		struct json_stream *result = new_json_stream(NULL, NULL, NULL);
-		struct json_escaped *esc;
+		struct json_escape *esc;
 
 		badstr[0] = i;
 		badstr[1] = 0;

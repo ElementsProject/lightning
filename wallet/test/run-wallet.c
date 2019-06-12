@@ -123,7 +123,7 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
 		     const struct amount_msat *msat TAKES UNNEEDED,
-		     const struct json_escaped *label TAKES UNNEEDED,
+		     const struct json_escape *label TAKES UNNEEDED,
 		     u64 expiry UNNEEDED,
 		     const char *b11enc UNNEEDED,
 		     const char *description UNNEEDED,
@@ -141,7 +141,7 @@ void invoices_delete_expired(struct invoices *invoices UNNEEDED,
 /* Generated stub for invoices_find_by_label */
 bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    struct invoice *pinvoice UNNEEDED,
-			    const struct json_escaped *label UNNEEDED)
+			    const struct json_escape *label UNNEEDED)
 { fprintf(stderr, "invoices_find_by_label called!\n"); abort(); }
 /* Generated stub for invoices_find_by_rhash */
 bool invoices_find_by_rhash(struct invoices *invoices UNNEEDED,
@@ -305,10 +305,6 @@ void json_array_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_escaped_string_ */
-struct json_escaped *json_escaped_string_(const tal_t *ctx UNNEEDED,
-					  const void *bytes UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_escaped_string_ called!\n"); abort(); }
 /* Generated stub for json_get_member */
 const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
 				 const char *label UNNEEDED)

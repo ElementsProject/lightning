@@ -6,13 +6,13 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/overflows.h>
@@ -108,7 +108,7 @@ struct invoice_payment_hook_payload {
 	/* Set to NULL if it is deleted while waiting for plugin */
 	struct htlc_in *hin;
 	/* What invoice it's trying to pay. */
-	const struct json_escaped *label;
+	const struct json_escape *label;
 	/* Amount it's offering. */
 	struct amount_msat msat;
 	/* Preimage we'll give it if succeeds. */
@@ -448,7 +448,7 @@ struct invoice_info {
 	struct command *cmd;
 	struct preimage payment_preimage;
 	struct bolt11 *b11;
-	struct json_escaped *label;
+	struct json_escape *label;
 };
 
 static void gossipd_incoming_channels_reply(struct subd *gossipd,
@@ -799,7 +799,7 @@ AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_stream *response,
 			      struct wallet *wallet,
-			      const struct json_escaped *label)
+			      const struct json_escape *label)
 {
 	struct invoice_iterator it;
 	const struct invoice_details *details;
@@ -826,7 +826,7 @@ static struct command_result *json_listinvoices(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
-	struct json_escaped *label;
+	struct json_escape *label;
 	struct json_stream *response;
 	struct wallet *wallet = cmd->ld->wallet;
 	if (!param(cmd, buffer, params,
@@ -859,7 +859,7 @@ static struct command_result *json_delinvoice(struct command *cmd,
 	const struct invoice_details *details;
 	struct json_stream *response;
 	const char *status, *actual_status;
-	struct json_escaped *label;
+	struct json_escape *label;
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
@@ -978,7 +978,7 @@ static struct command_result *json_waitinvoice(struct command *cmd,
 	struct invoice i;
 	const struct invoice_details *details;
 	struct wallet *wallet = cmd->ld->wallet;
-	struct json_escaped *label;
+	struct json_escape *label;
 
 	if (!param(cmd, buffer, params,
 		   p_req("label", param_label, &label),
@@ -1079,7 +1079,7 @@ static struct command_result *json_decodepay(struct command *cmd,
                 json_add_amount_msat_compat(response, *b11->msat,
 					    "msatoshi", "amount_msat");
         if (b11->description) {
-		struct json_escaped *esc = json_escape(NULL, b11->description);
+		struct json_escape *esc = json_escape(NULL, b11->description);
                 json_add_escaped_string(response, "description", take(esc));
 	}
         if (b11->description_hash)

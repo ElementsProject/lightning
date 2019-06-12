@@ -28,7 +28,6 @@ COMMON_SRC_NOGEN :=				\
 	common/initial_commit_tx.c		\
 	common/io_lock.c			\
 	common/json.c				\
-	common/json_escaped.c			\
 	common/json_helpers.c			\
 	common/json_tok.c			\
 	common/key_derive.c			\

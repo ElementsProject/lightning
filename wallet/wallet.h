@@ -641,7 +641,7 @@ struct invoice_details {
 	/* Hash of preimage r */
 	struct sha256 rhash;
 	/* Label assigned by user */
-	const struct json_escaped *label;
+	const struct json_escape *label;
 	/* NULL if they specified "any" */
 	struct amount_msat *msat;
 	/* Absolute UNIX epoch time this will expire */
@@ -693,7 +693,7 @@ struct invoice {
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   const struct amount_msat *msat TAKES,
-			   const struct json_escaped *label TAKES,
+			   const struct json_escape *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
 			   const char *description,
@@ -712,7 +712,7 @@ bool wallet_invoice_create(struct wallet *wallet,
  */
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
-				  const struct json_escaped *label);
+				  const struct json_escape *label);
 
 /**
  * wallet_invoice_find_by_rhash - Search for an invoice by payment_hash

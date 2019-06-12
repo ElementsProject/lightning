@@ -31,7 +31,7 @@ SANITIZER_FLAGS=
 endif
 
 ifeq ($(DEVELOPER),1)
-DEV_CFLAGS=-DCCAN_TAKE_DEBUG=1 -DCCAN_TAL_DEBUG=1
+DEV_CFLAGS=-DCCAN_TAKE_DEBUG=1 -DCCAN_TAL_DEBUG=1 -DCCAN_JSON_OUT_DEBUG=1
 else
 DEV_CFLAGS=
 endif
@@ -81,6 +81,8 @@ CCAN_OBJS :=					\
 	ccan-io-fdpass.o			\
 	ccan-isaac.o				\
 	ccan-isaac64.o				\
+	ccan-json_escape.o			\
+	ccan-json_out.o				\
 	ccan-list.o				\
 	ccan-mem.o				\
 	ccan-membuf.o				\
@@ -144,6 +146,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/io/io_plan.h			\
 	$(CCANDIR)/ccan/isaac/isaac.h			\
 	$(CCANDIR)/ccan/isaac/isaac64.h			\
+	$(CCANDIR)/ccan/json_escape/json_escape.h	\
+	$(CCANDIR)/ccan/json_out/json_out.h		\
 	$(CCANDIR)/ccan/likely/likely.h			\
 	$(CCANDIR)/ccan/list/list.h			\
 	$(CCANDIR)/ccan/mem/mem.h			\
@@ -656,4 +660,8 @@ ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
 ccan-bitmap.o: $(CCANDIR)/ccan/bitmap/bitmap.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-json_escape.o: $(CCANDIR)/ccan/json_escape/json_escape.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-json_out.o: $(CCANDIR)/ccan/json_out/json_out.c
 	$(CC) $(CFLAGS) -c -o $@ $<

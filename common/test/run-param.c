@@ -1,7 +1,6 @@
 #include "config.h"
 #include "../amount.c"
 #include "../json.c"
-#include "../json_escaped.c"
 #include "../json_tok.c"
 #include "../param.c"
 #include <ccan/array_size/array_size.h>
@@ -438,7 +437,7 @@ static void advanced(void)
 	{
 		struct json *j = json_parse(cmd, "[ 'lightning', 24, 'tok', 543 ]");
 
-		struct json_escaped *label;
+		struct json_escape *label;
 		u64 *msat;
 		u64 *msat_opt1, *msat_opt2;
 		const jsmntok_t *tok;
@@ -460,7 +459,7 @@ static void advanced(void)
 	}
 	{
 		struct json *j = json_parse(cmd, "[ 3, 'foo' ]");
-		struct json_escaped *label, *foo;
+		struct json_escape *label, *foo;
 		assert(param(cmd, j->buffer, j->toks,
 			      p_req("label", param_label, &label),
 			      p_opt("foo", param_label, &foo),
@@ -532,7 +531,7 @@ static void test_invoice(struct command *cmd,
 			 const jsmntok_t *params)
 {
 	u64 *msatoshi_val;
-	struct json_escaped *label_val;
+	struct json_escape *label_val;
 	const char *desc_val;
 	u64 *expiry;
 	const jsmntok_t *fallbacks;

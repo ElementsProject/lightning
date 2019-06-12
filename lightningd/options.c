@@ -1,6 +1,7 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/opt/private.h>
@@ -11,7 +12,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
@@ -1044,7 +1044,7 @@ static void add_config(struct lightningd *ld,
 	}
 
 	if (answer) {
-		struct json_escaped *esc = json_escape(NULL, answer);
+		struct json_escape *esc = json_escape(NULL, answer);
 		json_add_escaped_string(response, name0, take(esc));
 	}
 	tal_free(name0);

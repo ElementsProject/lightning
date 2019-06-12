@@ -8,12 +8,12 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/features.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
@@ -202,7 +202,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	json_array_start(response, "nodes");
 
 	for (i = 0; i < tal_count(nodes); i++) {
-		struct json_escaped *esc;
+		struct json_escape *esc;
 
 		json_object_start(response, NULL);
 		json_add_node_id(response, "nodeid", &nodes[i]->nodeid);

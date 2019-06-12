@@ -7,7 +7,6 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/json_command.h>
-#include <common/json_escaped.h>
 #include <common/jsonrpc_errors.h>
 #include <common/overflows.h>
 #include <common/param.h>

@@ -4,7 +4,6 @@ LIGHTNING_CLI_OBJS := $(LIGHTNING_CLI_SRC:.c=.o)
 LIGHTNING_CLI_COMMON_OBJS :=			\
 	common/configdir.o			\
 	common/json.o				\
-	common/json_escaped.o			\
 	common/memleak.o			\
 	common/utils.o				\
 	common/version.o

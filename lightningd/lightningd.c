@@ -46,6 +46,7 @@
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -57,7 +58,6 @@
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
-#include <common/json_escaped.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>

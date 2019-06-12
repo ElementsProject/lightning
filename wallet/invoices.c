@@ -96,7 +96,7 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 
 	sqlite3_column_sha256(stmt, 2, &dtl->rhash);
 
-	dtl->label = sqlite3_column_json_escaped(dtl, stmt, 3);
+	dtl->label = sqlite3_column_json_escape(dtl, stmt, 3);
 
 	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
 		dtl->msat = tal(dtl, struct amount_msat);
@@ -255,7 +255,7 @@ static void install_expiration_timer(struct invoices *invoices)
 bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
 		     const struct amount_msat *msat TAKES,
-		     const struct json_escaped *label TAKES,
+		     const struct json_escape *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
 		     const char *description,
@@ -300,7 +300,7 @@ bool invoices_create(struct invoices *invoices,
 		sqlite3_bind_amount_msat(stmt, 4, *msat);
 	else
 		sqlite3_bind_null(stmt, 4);
-	sqlite3_bind_json_escaped(stmt, 5, label);
+	sqlite3_bind_json_escape(stmt, 5, label);
 	sqlite3_bind_int64(stmt, 6, expiry_time);
 	sqlite3_bind_text(stmt, 7, b11enc, strlen(b11enc), SQLITE_TRANSIENT);
 	sqlite3_bind_text(stmt, 8, description, strlen(description), SQLITE_TRANSIENT);
@@ -327,7 +327,7 @@ bool invoices_create(struct invoices *invoices,
 
 bool invoices_find_by_label(struct invoices *invoices,
 			    struct invoice *pinvoice,
-			    const struct json_escaped *label)
+			    const struct json_escape *label)
 {
 	sqlite3_stmt *stmt;
 
@@ -335,7 +335,7 @@ bool invoices_find_by_label(struct invoices *invoices,
 				 "id"
 				 "  FROM invoices"
 				 " WHERE label = ?;");
-	sqlite3_bind_json_escaped(stmt, 1, label);
+	sqlite3_bind_json_escape(stmt, 1, label);
 	if (!db_select_step(invoices->db, stmt))
 		return false;
 

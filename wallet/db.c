@@ -1,8 +1,8 @@
 #include "db.h"
 
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/str/str.h>
-#include <common/json_escaped.h>
 #include <common/node_id.h>
 #include <common/version.h>
 #include <inttypes.h>
@@ -1121,16 +1121,16 @@ bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256
 	return err == SQLITE_OK;
 }
 
-struct json_escaped *sqlite3_column_json_escaped(const tal_t *ctx,
-						 sqlite3_stmt *stmt, int col)
+struct json_escape *sqlite3_column_json_escape(const tal_t *ctx,
+					       sqlite3_stmt *stmt, int col)
 {
-	return json_escaped_string_(ctx,
-				    sqlite3_column_blob(stmt, col),
-				    sqlite3_column_bytes(stmt, col));
+	return json_escape_string_(ctx,
+				   sqlite3_column_blob(stmt, col),
+				   sqlite3_column_bytes(stmt, col));
 }
 
-bool sqlite3_bind_json_escaped(sqlite3_stmt *stmt, int col,
-			       const struct json_escaped *esc)
+bool sqlite3_bind_json_escape(sqlite3_stmt *stmt, int col,
+			      const struct json_escape *esc)
 {
 	int err = sqlite3_bind_text(stmt, col, esc->s, strlen(esc->s), SQLITE_TRANSIENT);
 	return err == SQLITE_OK;
