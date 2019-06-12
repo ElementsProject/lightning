@@ -27,6 +27,8 @@ struct pay_attempt {
 	const char **excludes;
 	/* Route we got (NULL == route lookup fail). */
 	const char *route;
+	/* Did we actually try to send a payment? */
+	bool sendpay;
 	/* The failure result (NULL on success) */
 	const char *failure;
 	/* The non-failure result (NULL on failure) */
@@ -161,13 +163,26 @@ static bool channel_in_routehint(const struct route_info *routehint,
 	return false;
 }
 
+/* Count times we actually tried to pay, not where route lookup failed or
+ * we disliked route for being too expensive, etc. */
+static size_t count_sendpays(const struct pay_attempt *attempts)
+{
+	size_t n = 0;
+
+	for (size_t i = 0; i < tal_count(attempts); i++)
+		n += attempts[i].sendpay;
+
+	return n;
+}
+
 static struct command_result *waitsendpay_expired(struct command *cmd,
 						  struct pay_command *pc)
 {
 	char *errmsg, *data;
+	size_t num_attempts = count_sendpays(pc->ps->attempts);
 
-	errmsg = tal_fmt(pc, "Gave up after %zu attempts",
-			 tal_count(pc->ps->attempts));
+	errmsg = tal_fmt(pc, "Gave up after %zu attempt%s: see paystatus",
+			 num_attempts, num_attempts == 1 ? "" : "s");
 	data = tal_strdup(pc, "{ 'attempts': [ ");
 	for (size_t i = 0; i < tal_count(pc->ps->attempts); i++) {
 		if (pc->ps->attempts[i].route)
@@ -187,6 +202,8 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 static struct command_result *next_routehint(struct command *cmd,
 					     struct pay_command *pc)
 {
+	size_t num_attempts = count_sendpays(pc->ps->attempts);
+
 	if (tal_count(pc->routehints) > 0) {
 		pc->current_routehint = pc->routehints[0];
 		tal_arr_remove(&pc->routehints, 0);
@@ -199,11 +216,11 @@ static struct command_result *next_routehint(struct command *cmd,
 		return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
 				    "%s", pc->expensive_route);
 
-	if (tal_count(pc->ps->attempts) > 1)
+	if (num_attempts > 0)
 		return command_fail(cmd, PAY_STOPPED_RETRYING,
 				    "Ran out of routes to try after"
-				    " %zu attempts: see paystatus",
-				    tal_count(pc->ps->attempts));
+				    " %zu attempt%s: see paystatus",
+				    num_attempts, num_attempts == 1 ? "" : "s");
 
 	return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
 				    "Could not find a route");
@@ -517,6 +534,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	else
 		json_desc = "";
 
+	attempt->sendpay = true;
 	return send_outreq(cmd, "sendpay", sendpay_done, sendpay_error, pc,
 			   "'route': %s, 'payment_hash': '%s', 'bolt11': '%s'%s",
 			   attempt->route,
@@ -583,6 +601,7 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	attempt->route = NULL;
 	attempt->failure = NULL;
 	attempt->result = NULL;
+	attempt->sendpay = false;
 	attempt->why = tal_vfmt(pc->ps, fmt, ap);
 	va_end(ap);
 
