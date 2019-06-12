@@ -2,6 +2,7 @@
   /* To reach into io_plan: not a public header! */
   #include <ccan/io/backend.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
@@ -13,15 +14,8 @@
 #include <stdio.h>
 
 struct json_stream {
-#if DEVELOPER
-	/* tal_arr of types (JSMN_OBJECT/JSMN_ARRAY) we're enclosed in. */
-	jsmntype_t *wrapping;
-#endif
-	/* True if we haven't yet put an element in current wrapping */
-	bool empty;
-
-	/* True if we ran out of memory: don't touch outbuf! */
-	bool oom;
+	/* NULL if we ran OOM! */
+	struct json_out *jout;
 
 	/* Who is writing to this buffer now; NULL if nobody is. */
 	struct command *writer;
@@ -36,14 +30,16 @@ struct json_stream {
 
 	/* Where to log I/O */
 	struct log *log;
-
-	/* Current command's output. */
-	MEMBUF(char) outbuf;
 };
 
-static void free_json_stream_membuf(struct json_stream *js)
+static void adjust_io_write(struct json_out *jout,
+			    ptrdiff_t delta,
+			    struct json_stream *js)
 {
-	free(membuf_cleanup(&js->outbuf));
+	/* If io_write is in progress, we shift it to point to new buffer pos */
+	if (js->reader)
+	/* FIXME: This, or something prettier (io_replan?) belong in ccan/io! */
+		js->reader->plan[IO_OUT].arg.u1.cp += delta;
 }
 
 struct json_stream *new_json_stream(const tal_t *ctx,
@@ -52,17 +48,11 @@ struct json_stream *new_json_stream(const tal_t *ctx,
 {
 	struct json_stream *js = tal(ctx, struct json_stream);
 
+	/* FIXME: Add magic so tal_resize can fail! */
+	js->jout = json_out_new(js);
+	json_out_call_on_move(js->jout, adjust_io_write, js);
 	js->writer = writer;
 	js->reader = NULL;
-	/* We don't use tal here, because we handle failure externally (tal
-	 * helpfully aborts with a msg, which is usually right) */
-	membuf_init(&js->outbuf, malloc(64), 64, membuf_realloc);
-	tal_add_destructor(js, free_json_stream_membuf);
-#if DEVELOPER
-	js->wrapping = tal_arr(js, jsmntype_t, 0);
-#endif
-	js->empty = true;
-	js->oom = false;
 	js->log = log;
 	return js;
 }
@@ -71,22 +61,10 @@ struct json_stream *json_stream_dup(const tal_t *ctx,
 				    struct json_stream *original,
 				    struct log *log)
 {
-	size_t num_elems = membuf_num_elems(&original->outbuf);
-	char *elems = membuf_elems(&original->outbuf);
 	struct json_stream *js = tal_dup(ctx, struct json_stream, original);
 
-	if (!js->oom) {
-		char *newelems = malloc(sizeof(*elems) * num_elems);
-		if (!newelems)
-			js->oom = true;
-		else {
-			memcpy(newelems, elems, sizeof(*elems) * num_elems);
-			tal_add_destructor(js, free_json_stream_membuf);
-			membuf_init(&js->outbuf, newelems, num_elems,
-				    membuf_realloc);
-			membuf_added(&js->outbuf, num_elems);
-		}
-	}
+	if (original->jout)
+		js->jout = json_out_dup(js, original->jout);
 	js->log = log;
 	return js;
 }
@@ -103,48 +81,25 @@ void json_stream_log_suppress(struct json_stream *js, const char *cmd_name)
 	js->log = NULL;
 }
 
-/* FIXME: This, or something prettier (io_replan?) belong in ccan/io! */
-static void adjust_io_write(struct io_conn *conn, ptrdiff_t delta)
+/* If we have an allocation failure. */
+static void COLD js_oom(struct json_stream *js)
 {
-	conn->plan[IO_OUT].arg.u1.cp += delta;
-}
-
-/* Make sure js->outbuf has room for len: return pointer, or NULL on OOM. */
-static char *mkroom(struct json_stream *js, size_t len)
-{
-	ptrdiff_t delta;
-	assert(!js->oom);
-
-	delta = membuf_prepare_space(&js->outbuf, len);
-	if (membuf_num_space(&js->outbuf) < len) {
-		char msg[100];
-
-		/* Be a little paranoid: avoid allocations here */
-		snprintf(msg, sizeof(msg),
-			 "Out of memory allocating JSON membuf len %zu+%zu",
-			 membuf_num_elems(&js->outbuf), len);
-
-		/* Clean it up immediately, in case we need the mem. */
-		js->oom = true;
-		free_json_stream_membuf(js);
-		tal_del_destructor(js, free_json_stream_membuf);
-		send_backtrace(msg);
-		return NULL;
-	}
-
-	/* If io_write is in progress, we shift it to point to new buffer pos */
-	if (js->reader)
-		adjust_io_write(js->reader, delta);
-
-	return membuf_space(&js->outbuf);
+	js->jout = tal_free(js->jout);
 }
 
 void json_stream_append(struct json_stream *js,
 			const char *str, size_t len)
 {
-	if (js->oom || !mkroom(js, len))
+	char *dest;
+
+	if (!js->jout)
 		return;
-	memcpy(membuf_add(&js->outbuf, len), str, len);
+	dest = json_out_direct(js->jout, len);
+	if (!dest) {
+		js_oom(js);
+		return;
+	}
+	memcpy(dest, str, len);
 }
 
 void json_stream_close(struct json_stream *js, struct command *writer)
@@ -153,6 +108,8 @@ void json_stream_close(struct json_stream *js, struct command *writer)
 	 * I used to assert(writer); here. */
 	assert(js->writer == writer);
 
+	/* Should be well-formed at this point! */
+	json_out_finished(js->jout);
 	json_stream_append(js, "\n\n", strlen("\n\n"));
 	json_stream_flush(js);
 	js->writer = NULL;
@@ -165,109 +122,42 @@ void json_stream_flush(struct json_stream *js)
 	io_wake(js);
 }
 
-static void check_fieldname(const struct json_stream *js,
-			    const char *fieldname)
-{
-#if DEVELOPER
-	size_t n = tal_count(js->wrapping);
-	if (n == 0)
-		/* Can't have a fieldname if not in anything! */
-		assert(!fieldname);
-	else if (js->wrapping[n-1] == JSMN_ARRAY)
-		/* No fieldnames in arrays. */
-		assert(!fieldname);
-	else
-		/* Must have fieldnames in objects. */
-		assert(fieldname);
-#endif
-}
-
 char *json_member_direct(struct json_stream *js,
 			 const char *fieldname, size_t extra)
 {
 	char *dest;
 
-	if (js->oom)
+	if (!js->jout)
 		return NULL;
 
-	/* Prepend comma if required. */
-	if (!js->empty)
-		extra++;
-
-	check_fieldname(js, fieldname);
-	if (fieldname)
-		extra += 1 + strlen(fieldname) + 2;
-
-	if (!extra) {
-		dest = NULL;
-		goto out;
-	}
-
-	dest = mkroom(js, extra);
+	dest = json_out_member_direct(js->jout, fieldname, extra);
 	if (!dest)
-		goto out;
-
-	if (!js->empty)
-		*(dest++) = ',';
-	if (fieldname) {
-		*(dest++) = '"';
-		memcpy(dest, fieldname, strlen(fieldname));
-		dest += strlen(fieldname);
-		*(dest++) = '"';
-		*(dest++) = ':';
-	}
-	membuf_added(&js->outbuf, extra);
-
-out:
-	js->empty = false;
+		js_oom(js);
 	return dest;
-}
-
-static void js_indent(struct json_stream *js, jsmntype_t type)
-{
-#if DEVELOPER
-	tal_arr_expand(&js->wrapping, type);
-#endif
-	js->empty = true;
-}
-
-static void js_unindent(struct json_stream *js, jsmntype_t type)
-{
-#if DEVELOPER
-	size_t indent = tal_count(js->wrapping);
-	assert(indent > 0);
-	assert(js->wrapping[indent-1] == type);
-	tal_resize(&js->wrapping, indent-1);
-#endif
-	js->empty = false;
 }
 
 void json_array_start(struct json_stream *js, const char *fieldname)
 {
-	char *dest = json_member_direct(js, fieldname, 1);
-	if (dest)
-		dest[0] = '[';
-	js_indent(js, JSMN_ARRAY);
+	if (js->jout && !json_out_start(js->jout, fieldname, '['))
+		js_oom(js);
 }
 
 void json_array_end(struct json_stream *js)
 {
-	js_unindent(js, JSMN_ARRAY);
-	json_stream_append(js, "]", 1);
+	if (js->jout && !json_out_end(js->jout, ']'))
+		js_oom(js);
 }
 
 void json_object_start(struct json_stream *js, const char *fieldname)
 {
-	char *dest = json_member_direct(js, fieldname, 1);
-	if (dest)
-		dest[0] = '{';
-	js_indent(js, JSMN_OBJECT);
+	if (js->jout && !json_out_start(js->jout, fieldname, '{'))
+		js_oom(js);
 }
 
 void json_object_end(struct json_stream *js)
 {
-	js_unindent(js, JSMN_OBJECT);
-	json_stream_append(js, "}", 1);
+	if (js->jout && !json_out_end(js->jout, '}'))
+		js_oom(js);
 }
 
 void json_add_member(struct json_stream *js,
@@ -276,46 +166,31 @@ void json_add_member(struct json_stream *js,
 		     const char *fmt, ...)
 {
 	va_list ap;
-	char *str, *p;
 
 	va_start(ap, fmt);
-	str = tal_vfmt(NULL, fmt, ap);
+	if (js->jout && !json_out_addv(js->jout, fieldname, quote, fmt, ap))
+		js_oom(js);
 	va_end(ap);
-
-	if (quote) {
-		struct json_escape *e = json_escape(NULL, take(str));
-
-		p = json_member_direct(js, fieldname, strlen(e->s) + 2);
-		if (!p)
-			return;
-		p[0] = p[1 + strlen(e->s)] = '"';
-		memcpy(p+1, e->s, strlen(e->s));
-		tal_free(e);
-	} else {
-		p = json_member_direct(js, fieldname, strlen(str));
-		if (!p)
-			return;
-		memcpy(p, str, strlen(str));
-		tal_free(str);
-	}
 }
 
 /* This is where we read the json_stream and write it to conn */
 static struct io_plan *json_stream_output_write(struct io_conn *conn,
 						struct json_stream *js)
 {
+	const char *p;
+
 	/* Out of memory?  Nothing we can do but close conn */
-	if (js->oom)
+	if (!js->jout)
 		return io_close(conn);
 
 	/* For when we've just done some output */
-	membuf_consume(&js->outbuf, js->len_read);
+	json_out_consume(js->jout, js->len_read);
 
 	/* Get how much we can write out from js */
-	js->len_read = membuf_num_elems(&js->outbuf);
+	p = json_out_contents(js->jout, &js->len_read);
 
 	/* Nothing in buffer? */
-	if (js->len_read == 0) {
+	if (!p) {
 		/* We're not doing io_write now, unset. */
 		js->reader = NULL;
 		if (!json_stream_still_writing(js))
@@ -325,10 +200,9 @@ static struct io_plan *json_stream_output_write(struct io_conn *conn,
 
 	js->reader = conn;
 	if (js->log)
-		log_io(js->log, LOG_IO_OUT, "",
-		       membuf_elems(&js->outbuf), js->len_read);
+		log_io(js->log, LOG_IO_OUT, "", p, js->len_read);
 	return io_write(conn,
-			membuf_elems(&js->outbuf), js->len_read,
+			p, js->len_read,
 			json_stream_output_write, js);
 }
 
