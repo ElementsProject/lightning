@@ -2075,7 +2075,7 @@ static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 	}
 	peer->ignore_htlcs = *ignore;
 
-	return command_success(cmd, null_response(cmd));
+	return command_success(cmd, json_stream_success(cmd));
 }
 
 static const struct json_command dev_ignore_htlcs = {
@@ -2148,9 +2148,7 @@ static struct command_result *json_listforwards(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	listforwardings_add_forwardings(response, cmd->ld->wallet);
-	json_object_end(response);
 
 	return command_success(cmd, response);
 }

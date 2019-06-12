@@ -143,7 +143,7 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 	if (txs->cursor == tal_count(txs->txs)) {
 		if (txs->cmd)
 			was_pending(command_success(txs->cmd,
-						    null_response(txs->cmd)));
+						    json_stream_success(txs->cmd)));
 		tal_free(txs);
 		return;
 	}
@@ -491,7 +491,6 @@ static struct command_result *json_feerates(struct command *cmd,
 	}
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_object_start(response, json_feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
 		if (!feerates[i])
@@ -521,8 +520,6 @@ static struct command_result *json_feerates(struct command *cmd,
 			     unilateral_feerate(cmd->ld->topology) * 598 / 1000);
 		json_object_end(response);
 	}
-
-	json_object_end(response);
 
 	return command_success(cmd, response);
 }

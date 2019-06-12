@@ -261,12 +261,10 @@ static void funding_broadcast_success(struct channel *channel)
 	struct command *cmd = fc->cmd;
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_add_string(response, "tx", fc->hextx);
 	json_add_txid(response, "txid", &channel->funding_txid);
 	json_add_string(response, "channel_id",
 					type_to_string(tmpctx, struct channel_id, &fc->cid));
-	json_object_end(response);
 	was_pending(command_success(cmd, response));
 
 	/* Frees fc too */

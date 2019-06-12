@@ -74,7 +74,7 @@ static struct command_result *json_memdump(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-	add_memdump(response, NULL, NULL, cmd);
+	add_memdump(response, "memdump", NULL, cmd);
 
 	return command_success(cmd, response);
 }
@@ -196,9 +196,7 @@ static void report_leak_info2(struct leak_info *leak_info)
 {
 	struct json_stream *response = json_stream_success(leak_info->cmd);
 
-	json_object_start(response, NULL);
 	scan_mem(leak_info->cmd, response, leak_info->cmd->ld, leak_info->leaker);
-	json_object_end(response);
 
 	was_pending(command_success(leak_info->cmd, response));
 }
