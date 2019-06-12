@@ -690,9 +690,7 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 	else {
 		response = json_stream_success(uc->fc->cmd);
-		json_stream_append(response, "\"");
-		json_stream_append(response, desc);
-		json_stream_append(response, "\"");
+		json_add_string(response, "cancelled", desc);
 		was_pending(command_success(uc->fc->cmd, response));
 	}
 
