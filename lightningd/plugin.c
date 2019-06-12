@@ -112,6 +112,11 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	return p;
 }
 
+static void destroy_plugin(struct plugin *p)
+{
+	list_del(&p->list);
+}
+
 void plugin_register(struct plugins *plugins, const char* path TAKES)
 {
 	struct plugin *p;
@@ -126,6 +131,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 			 path_basename(tmpctx, p->cmd));
 	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
+	tal_add_destructor(p, destroy_plugin);
 }
 
 static bool paths_match(const char *cmd, const char *name)
@@ -1093,9 +1099,14 @@ void plugins_notify(struct plugins *plugins,
 		    const struct jsonrpc_notification *n TAKES)
 {
 	struct plugin *p;
-	list_for_each(&plugins->plugins, p, list) {
-		if (plugin_subscriptions_contains(p, n->method))
-			plugin_send(p, json_stream_dup(p, n->stream, p->log));
+
+	/* If we're shutting down, ld->plugins will be NULL */
+	if (plugins) {
+		list_for_each(&plugins->plugins, p, list) {
+			if (plugin_subscriptions_contains(p, n->method))
+				plugin_send(p, json_stream_dup(p, n->stream,
+							       p->log));
+		}
 	}
 	if (taken(n))
 		tal_free(n);

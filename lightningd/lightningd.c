@@ -838,7 +838,8 @@ int main(int argc, char *argv[])
 
 	shutdown_subdaemons(ld);
 
-	tal_free(ld->plugins);
+	/* Remove plugins. */
+	ld->plugins = tal_free(ld->plugins);
 
 	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
 	 * it might actually be touching the DB in some destructors, e.g.,
