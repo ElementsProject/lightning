@@ -46,7 +46,6 @@ static const char *invoice_status_str(const struct invoice_details *inv)
 static void json_add_invoice(struct json_stream *response,
 			     const struct invoice_details *inv)
 {
-	json_object_start(response, NULL);
 	json_add_escaped_string(response, "label", inv->label);
 	json_add_string(response, "bolt11", inv->bolt11);
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
@@ -66,8 +65,6 @@ static void json_add_invoice(struct json_stream *response,
 		json_add_string(response, "description", inv->description);
 
 	json_add_u64(response, "expires_at", inv->expiry_time);
-
-	json_object_end(response);
 }
 
 static struct command_result *tell_waiter(struct command *cmd,
@@ -86,6 +83,7 @@ static struct command_result *tell_waiter(struct command *cmd,
 		response = json_stream_fail(cmd, -2,
 					    "invoice expired during wait");
 		json_add_invoice(response, details);
+		json_object_end(response);
 		return command_failed(cmd, response);
 	}
 }
@@ -512,7 +510,6 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	details = wallet_invoice_details(info, wallet, invoice);
 
 	response = json_stream_success(info->cmd);
-	json_object_start(response, NULL);
 	json_add_hex(response, "payment_hash", details->rhash.u.u8,
 		     sizeof(details->rhash));
 	json_add_u64(response, "expires_at", details->expiry_time);
@@ -538,7 +535,6 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 					"No channels have sufficient"
 					" incoming capacity");
 	}
-	json_object_end(response);
 
 	was_pending(command_success(info->cmd, response));
 }
@@ -809,7 +805,9 @@ static void json_add_invoices(struct json_stream *response,
 		struct invoice invoice;
 		if (wallet_invoice_find_by_label(wallet, &invoice, label)) {
 			details = wallet_invoice_details(response, wallet, invoice);
+			json_object_start(response, NULL);
 			json_add_invoice(response, details);
+			json_object_end(response);
 		}
 		return;
 	}
@@ -817,7 +815,9 @@ static void json_add_invoices(struct json_stream *response,
 	memset(&it, 0, sizeof(it));
 	while (wallet_invoice_iterate(wallet, &it)) {
 		details = wallet_invoice_iterator_deref(response, wallet, &it);
+		json_object_start(response, NULL);
 		json_add_invoice(response, details);
+		json_object_end(response);
 	}
 }
 
@@ -834,11 +834,9 @@ static struct command_result *json_listinvoices(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_array_start(response, "invoices");
 	json_add_invoices(response, wallet, label);
 	json_array_end(response);
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 
@@ -918,7 +916,7 @@ static struct command_result *json_delexpiredinvoice(struct command *cmd,
 
 	wallet_invoice_delete_expired(cmd->ld->wallet, *maxexpirytime);
 
-	return command_success(cmd, null_response(cmd));
+	return command_success(cmd, json_stream_success(cmd));
 }
 static const struct json_command delexpiredinvoice_command = {
 	"delexpiredinvoice",
@@ -1069,8 +1067,6 @@ static struct command_result *json_decodepay(struct command *cmd,
 	}
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
-
 	json_add_string(response, "currency", b11->chain->bip173_name);
 	json_add_u64(response, "created_at", b11->timestamp);
 	json_add_u64(response, "expiry", b11->expiry);
@@ -1151,7 +1147,6 @@ static struct command_result *json_decodepay(struct command *cmd,
 	json_add_string(response, "signature",
                         type_to_string(cmd, secp256k1_ecdsa_signature,
                                        &b11->sig));
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 

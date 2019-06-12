@@ -77,7 +77,7 @@ struct jsonrpc_request {
 };
 
 /**
- * json_stream_success - start streaming a successful json result.
+ * json_stream_success - start streaming a successful json result object.
  * @cmd: the command we're running.
  *
  * The returned value should go to command_success() when done.
@@ -86,13 +86,14 @@ struct jsonrpc_request {
 struct json_stream *json_stream_success(struct command *cmd);
 
 /**
- * json_stream_fail - start streaming a failed json result.
+ * json_stream_fail - start streaming a failed json result, with data object.
  * @cmd: the command we're running.
  * @code: the error code from common/jsonrpc_errors.h
  * @errmsg: the error string.
  *
  * The returned value should go to command_failed() when done;
  * json_add_* will be placed into the 'data' field of the 'error' JSON reply.
+ * You need to json_object_end() once you're done!
  */
 struct json_stream *json_stream_fail(struct command *cmd,
 				     int code,
@@ -110,12 +111,11 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    int code,
 					    const char *errmsg);
 
-struct json_stream *null_response(struct command *cmd);
-
 /* These returned values are never NULL. */
 struct command_result *command_success(struct command *cmd,
 				       struct json_stream *response)
 	 WARN_UNUSED_RESULT;
+
 struct command_result *command_failed(struct command *cmd,
 				      struct json_stream *result)
 	 WARN_UNUSED_RESULT;

@@ -182,16 +182,12 @@ static struct command_result *json_stop(struct command *cmd,
 					const jsmntok_t *obj UNNEEDED,
 					const jsmntok_t *params)
 {
-	struct json_stream *response;
-
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
 	/* This can't have closed yet! */
 	cmd->jcon->stop = true;
-	response = json_stream_success(cmd);
-	json_add_string(response, NULL, "Shutting down");
-	return command_success(cmd, response);
+	return command_success(cmd, json_stream_success(cmd));
 }
 
 static const struct json_command stop_command = {
@@ -219,9 +215,7 @@ static struct command_result *json_rhash(struct command *cmd,
 	/* Hash in place. */
 	sha256(secret, secret, sizeof(*secret));
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_add_hex(response, "rhash", secret, sizeof(*secret));
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 
@@ -241,9 +235,7 @@ struct slowcmd {
 
 static void slowcmd_finish(struct slowcmd *sc)
 {
-	json_object_start(sc->js, NULL);
 	json_add_num(sc->js, "msec", *sc->msec);
-	json_object_end(sc->js);
 	was_pending(command_success(sc->cmd, sc->js));
 }
 
@@ -388,14 +380,12 @@ static struct command_result *json_help(struct command *cmd,
 	asort(commands, tal_count(commands), compare_commands_name, NULL);
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_array_start(response, "help");
 	for (size_t i = 0; i < tal_count(commands); i++) {
 		if (!one_cmd || one_cmd == commands[i])
 			json_add_help_command(cmd, response, commands[i]);
 	}
 	json_array_end(response);
-	json_object_end(response);
 
 	return command_success(cmd, response);
 }
@@ -410,16 +400,6 @@ static const struct json_command *find_cmd(const struct jsonrpc *rpc,
 		if (json_tok_streq(buffer, tok, commands[i]->name))
 			return commands[i];
 	return NULL;
-}
-
-struct json_stream *null_response(struct command *cmd)
-{
-	struct json_stream *response;
-
-	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
-	json_object_end(response);
-	return response;
 }
 
 /* This can be called directly on shutdown, even with unfinished cmd */
@@ -451,7 +431,7 @@ struct command_result *command_success(struct command *cmd,
 {
 	assert(cmd);
 	assert(cmd->have_json_stream);
-	json_stream_append(result, " }\n\n");
+	json_stream_append(result, " } }\n\n");
 
 	return command_raw_complete(cmd, result);
 }
@@ -543,6 +523,7 @@ struct json_stream *json_stream_success(struct command *cmd)
 {
 	struct json_stream *r = json_start(cmd);
 	json_stream_append(r, "\"result\" : ");
+	json_object_start(r, NULL);
 	return r;
 }
 
@@ -568,6 +549,7 @@ struct json_stream *json_stream_fail(struct command *cmd,
 	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
 
 	json_stream_append(r, ", \"data\" : ");
+	json_object_start(r, NULL);
 	return r;
 }
 
@@ -1169,9 +1151,7 @@ static struct command_result *json_check(struct command *cmd,
 		return res;
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_add_string(response, "command_to_check", cmd->json_cmd->name);
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 

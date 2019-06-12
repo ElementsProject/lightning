@@ -242,14 +242,12 @@ resolve_one_close_command(struct close_command *cc, bool cooperative)
 
 	bitcoin_txid(cc->channel->last_tx, &txid);
 
-	json_object_start(result, NULL);
 	json_add_tx(result, "tx", cc->channel->last_tx);
 	json_add_txid(result, "txid", &txid);
 	if (cooperative)
 		json_add_string(result, "type", "mutual");
 	else
 		json_add_string(result, "type", "unilateral");
-	json_object_end(result);
 
 	was_pending(command_success(cc->cmd, result));
 }
@@ -1085,7 +1083,6 @@ static struct command_result *json_listpeers(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_array_start(response, "peers");
 	if (specific_id) {
 		peer = peer_by_id(cmd->ld, specific_id);
@@ -1096,7 +1093,7 @@ static struct command_result *json_listpeers(struct command *cmd,
 			json_add_peer(cmd->ld, response, peer, ll);
 	}
 	json_array_end(response);
-	json_object_end(response);
+
 	return command_success(cmd, response);
 }
 
@@ -1192,7 +1189,7 @@ static struct command_result *json_close(struct command *cmd,
 			/* Easy case: peer can simply be forgotten. */
 			kill_uncommitted_channel(uc, "close command called");
 
-			return command_success(cmd, null_response(cmd));
+			return command_success(cmd, json_stream_success(cmd));
 		}
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer has no active channel");
@@ -1326,7 +1323,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 		if (*force) {
 			channel_fail_transient(channel,
 					       "disconnect command force=true");
-			return command_success(cmd, null_response(cmd));
+			return command_success(cmd, json_stream_success(cmd));
 		}
 		return command_fail(cmd, LIGHTNINGD, "Peer is in state %s",
 				    channel_state_name(channel));
@@ -1336,7 +1333,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 	}
 	kill_uncommitted_channel(peer->uncommitted_channel,
 				 "disconnect command");
-	return command_success(cmd, null_response(cmd));
+	return command_success(cmd, json_stream_success(cmd));
 }
 
 static const struct json_command disconnect_command = {
@@ -1362,7 +1359,6 @@ static struct command_result *json_getinfo(struct command *cmd,
         return command_param_failed();
 
     response = json_stream_success(cmd);
-    json_object_start(response, NULL);
     json_add_node_id(response, "id", &cmd->ld->id);
     json_add_string(response, "alias", (const char *)cmd->ld->alias);
     json_add_hex_talarr(response, "color", cmd->ld->rgb);
@@ -1408,7 +1404,6 @@ static struct command_result *json_getinfo(struct command *cmd,
 				wallet_total_forward_fees(cmd->ld->wallet),
 				"msatoshi_fees_collected",
 				"fees_collected_msat");
-    json_object_end(response);
     return command_success(cmd, response);
 }
 
@@ -1535,7 +1530,6 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 
 	/* Open JSON response object for later iteration */
 	response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_add_num(response, "base", *base);
 	json_add_num(response, "ppm", *ppm);
 	json_array_start(response, "channels");
@@ -1565,7 +1559,6 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 
 	/* Close and return response */
 	json_array_end(response);
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 
@@ -1615,9 +1608,7 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 		  channel->last_tx->wtx->num_outputs);
 
 	sign_last_tx(channel);
-	json_object_start(response, NULL);
 	json_add_tx(response, "tx", channel->last_tx);
-	json_object_end(response);
 	remove_sig(channel->last_tx);
 
 	return command_success(cmd, response);
@@ -1658,7 +1649,7 @@ static struct command_result *json_dev_fail(struct command *cmd,
 	}
 
 	channel_internal_error(channel, "Failing due to dev-fail command");
-	return command_success(cmd, null_response(cmd));
+	return command_success(cmd, json_stream_success(cmd));
 }
 
 static const struct json_command dev_fail_command = {
@@ -1674,7 +1665,7 @@ static void dev_reenable_commit_finished(struct subd *channeld UNUSED,
 					 const int *fds UNUSED,
 					 struct command *cmd)
 {
-	was_pending(command_success(cmd, null_response(cmd)));
+	was_pending(command_success(cmd, json_stream_success(cmd)));
 }
 
 static struct command_result *json_dev_reenable_commit(struct command *cmd,
@@ -1752,11 +1743,9 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 		return;
 	}
 	response = json_stream_success(forget->cmd);
-	json_object_start(response, NULL);
 	json_add_bool(response, "forced", forget->force);
 	json_add_bool(response, "funding_unspent", txout != NULL);
 	json_add_txid(response, "funding_txid", &forget->channel->funding_txid);
-	json_object_end(response);
 
 	/* Set error so we don't try to reconnect. */
 	forget->channel->error = towire_errorfmt(forget->channel, NULL,

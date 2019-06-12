@@ -70,9 +70,7 @@ static struct command_result *connect_cmd_succeed(struct command *cmd,
 						  const struct node_id *id)
 {
 	struct json_stream *response = json_stream_success(cmd);
-	json_object_start(response, NULL);
 	json_add_node_id(response, "id", id);
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 

@@ -73,9 +73,7 @@ void ping_reply(struct subd *subd, const u8 *msg)
 	else {
 		struct json_stream *response = json_stream_success(pc->cmd);
 
-		json_object_start(response, NULL);
 		json_add_num(response, "totlen", totlen);
-		json_object_end(response);
 		was_pending(command_success(pc->cmd, response));
 	}
 }

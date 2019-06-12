@@ -1066,7 +1066,6 @@ static struct command_result *json_listconfigs(struct command *cmd,
 
 	if (!configtok) {
 		response = json_stream_success(cmd);
-		json_object_start(response, NULL);
 		json_add_string(response, "# version", version());
 	}
 
@@ -1091,10 +1090,8 @@ static struct command_result *json_listconfigs(struct command *cmd,
 				      name + 1, len - 1))
 				continue;
 
-			if (!response) {
+			if (!response)
 				response = json_stream_success(cmd);
-				json_object_start(response, NULL);
-			}
 			add_config(cmd->ld, response, &opt_table[i],
 				   name+1, len-1);
 		}
@@ -1106,7 +1103,6 @@ static struct command_result *json_listconfigs(struct command *cmd,
 				    json_tok_full_len(configtok),
 				    json_tok_full(buffer, configtok));
 	}
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 

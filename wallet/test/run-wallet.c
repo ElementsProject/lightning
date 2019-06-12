@@ -371,9 +371,6 @@ void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEE
 /* Generated stub for notify_disconnect */
 void notify_disconnect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED)
 { fprintf(stderr, "notify_disconnect called!\n"); abort(); }
-/* Generated stub for null_response */
-struct json_stream *null_response(struct command *cmd UNNEEDED)
-{ fprintf(stderr, "null_response called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,
