@@ -1,4 +1,5 @@
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/utils.h>
@@ -22,10 +23,16 @@ static struct command_result *ignore(struct command *timer,
 
 static struct command_result *do_clean(void)
 {
-	u64 age = time_now().ts.tv_sec - expired_by;
+	struct json_out *params = json_out_new(NULL);
+	json_out_start(params, NULL, '{');
+	json_out_add(params, "maxexpirytime", false, "%"PRIu64,
+		     time_now().ts.tv_sec - expired_by);
+	json_out_end(params, '}');
+	json_out_finished(params);
+
 	/* FIXME: delexpiredinvoice should be in our plugin too! */
 	return send_outreq(NULL, "delexpiredinvoice", ignore, ignore, NULL,
-			   "'maxexpirytime': %"PRIu64, age);
+			   take(params));
 }
 
 static struct command_result *json_autocleaninvoice(struct command *cmd,
@@ -46,15 +53,16 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 
 	if (cycle_seconds == 0) {
 		tal_free(cleantimer);
-		return command_success(cmd, "'Autoclean timer disabled'");
+		return command_success_str(cmd, "Autoclean timer disabled");
 	}
 	tal_free(cleantimer);
 	cleantimer = plugin_timer(rpc, time_from_sec(cycle_seconds), do_clean);
 
-	return command_success(cmd, tal_fmt(cmd, "'Autocleaning %"PRIu64
-					    "-second old invoices every %"PRIu64
-					    " seconds'",
-					    expired_by, cycle_seconds));
+	return command_success_str(cmd,
+				   tal_fmt(cmd, "Autocleaning %"PRIu64
+					   "-second old invoices every %"PRIu64
+					   " seconds",
+					   expired_by, cycle_seconds));
 }
 
 static void init(struct plugin_conn *prpc)
