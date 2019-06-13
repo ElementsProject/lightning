@@ -678,9 +678,8 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 				  struct uncommitted_channel *uc)
 {
 	char *desc;
-	bool is_err;
 
-	if (!fromwire_opening_funder_failed(msg, msg, &desc, &is_err)) {
+	if (!fromwire_opening_funder_failed(msg, msg, &desc)) {
 		log_broken(uc->log,
 			   "bad OPENING_FUNDER_FAILED %s",
 			   tal_hex(tmpctx, msg));
@@ -693,18 +692,11 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 
 	/* Tell anyone who was trying to cancel */
 	for (size_t i = 0; i < tal_count(uc->fc->cancels); i++) {
-		if (is_err)
-			was_pending(command_fail(uc->fc->cancels[i], LIGHTNINGD,
-						 "Funding failed anyway: %s",
-						 desc));
-		else {
-			struct json_stream *response;
+		struct json_stream *response;
 
-			response = json_stream_success(uc->fc->cancels[i]);
-			json_add_string(response, "cancelled", desc);
-			was_pending(command_success(uc->fc->cancels[i],
-						    response));
-		}
+		response = json_stream_success(uc->fc->cancels[i]);
+		json_add_string(response, "cancelled", desc);
+		was_pending(command_success(uc->fc->cancels[i], response));
 	}
 
 	/* Tell any fundchannel_complete or fundchannel command */
