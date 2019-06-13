@@ -1343,7 +1343,15 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "pending node_announcement %s malformed?",
 				      tal_hex(tmpctx, pna->node_announcement));
+		/* Never send this again. */
+		pna->node_announcement = tal_free(pna->node_announcement);
 	}
+
+	/* We don't need to catch any more node_announcements, since we've
+	 * accepted the public channel now.  But other pending announcements
+	 * may still hold a reference they use in
+	 * del_pending_node_announcement, so simply delete it from the map. */
+	pending_node_map_del(rstate->pending_node_map, pna);
 }
 
 static struct pending_cannouncement *
