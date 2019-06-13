@@ -88,6 +88,9 @@ struct funding_channel {
 
 	/* Whether or not this is in the middle of getting funded */
 	bool inflight;
+
+	/* Any commands trying to cancel us. */
+	struct command **cancels;
 };
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
@@ -264,6 +267,11 @@ static void funding_success(struct channel *channel)
 	struct json_stream *response;
 	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
 	struct command *cmd = fc->cmd;
+
+	/* Well, those cancels didn't work! */
+	for (size_t i = 0; i < tal_count(fc->cancels); i++)
+		was_pending(command_fail(fc->cancels[i], LIGHTNINGD,
+					 "Funding succeeded before cancel"));
 
 	response = json_stream_success(cmd);
 	json_add_string(response, "channel_id",
@@ -672,8 +680,6 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 	char *desc;
 	bool is_err;
 
-	struct json_stream *response;
-
 	if (!fromwire_opening_funder_failed(msg, msg, &desc, &is_err)) {
 		log_broken(uc->log,
 			   "bad OPENING_FUNDER_FAILED %s",
@@ -685,13 +691,25 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 		return;
 	}
 
-	if (is_err)
-		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
-	else {
-		response = json_stream_success(uc->fc->cmd);
-		json_add_string(response, "cancelled", desc);
-		was_pending(command_success(uc->fc->cmd, response));
+	/* Tell anyone who was trying to cancel */
+	for (size_t i = 0; i < tal_count(uc->fc->cancels); i++) {
+		if (is_err)
+			was_pending(command_fail(uc->fc->cancels[i], LIGHTNINGD,
+						 "Funding failed anyway: %s",
+						 desc));
+		else {
+			struct json_stream *response;
+
+			response = json_stream_success(uc->fc->cancels[i]);
+			json_add_string(response, "cancelled", desc);
+			was_pending(command_success(uc->fc->cancels[i],
+						    response));
+		}
 	}
+
+	/* Tell any fundchannel_complete or fundchannel command */
+	if (uc->fc->cmd)
+		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 
 	/* Clear uc->fc, so we can try again, and so we don't fail twice
 	 * if they close. */
@@ -1200,8 +1218,8 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 	 * question about 'how long cancelable'.
 	 */
 
-	/* Update the cmd to the new cmd */
-	peer->uncommitted_channel->fc->cmd = cmd;
+	/* Make sure this gets notified if we succeed or cancel */
+	tal_arr_expand(&peer->uncommitted_channel->fc->cancels, cmd);
 	msg = towire_opening_funder_cancel(NULL);
 	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
 	return command_still_pending(cmd);
@@ -1227,6 +1245,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 
 	max_funding_satoshi = get_chainparams(cmd->ld)->max_funding;
 	fc->cmd = cmd;
+	fc->cancels = tal_arr(fc, struct command *, 0);
 	fc->uc = NULL;
 	fc->inflight = false;
 	if (!param(fc->cmd, buffer, params,
@@ -1321,6 +1340,7 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	max_funding_satoshi = get_chainparams(cmd->ld)->max_funding;
 
 	fc->cmd = cmd;
+	fc->cancels = tal_arr(fc, struct command *, 0);
 	fc->uc = NULL;
 	fc->inflight = false;
 	fc->wtx = tal(fc, struct wallet_tx);
