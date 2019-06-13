@@ -853,7 +853,6 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.fundchannel_start(l2.info['id'], amount)
 
 
-@pytest.mark.xfail(strict=True)
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
     nodes = node_factory.get_nodes(100)
