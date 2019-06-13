@@ -120,7 +120,7 @@ static const u8 *dev_upfront_shutdown_script(const tal_t *ctx)
 /*~ If we can't agree on parameters, we fail to open the channel.  If we're
  * the funder, we need to tell lightningd, otherwise it never really notices. */
 static void negotiation_aborted(struct state *state, bool am_funder,
-				const char *why, bool is_err)
+				const char *why)
 {
 	status_debug("aborted opening negotiation: %s", why);
 	/*~ The "billboard" (exposed as "status" in the JSON listpeers RPC
@@ -133,7 +133,7 @@ static void negotiation_aborted(struct state *state, bool am_funder,
 
 	/* If necessary, tell master that funding failed. */
 	if (am_funder) {
-		u8 *msg = towire_opening_funder_failed(NULL, why, is_err);
+		u8 *msg = towire_opening_funder_failed(NULL, why);
 		wire_sync_write(REQ_FD, take(msg));
 	}
 
@@ -159,7 +159,7 @@ static void negotiation_failed(struct state *state, bool am_funder,
 			      "You gave bad parameters: %s", errmsg);
 	sync_crypto_write(state->pps, take(msg));
 
-	negotiation_aborted(state, am_funder, errmsg, true);
+	negotiation_aborted(state, am_funder, errmsg);
 }
 
 /*~ This is the key function that checks that their configuration is reasonable:
@@ -403,8 +403,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			if (all_channels) {
 				if (am_funder) {
 					msg = towire_opening_funder_failed(NULL,
-									   err,
-									   true);
+									   err);
 					wire_sync_write(REQ_FD, take(msg));
 				}
 				peer_failed_received_errmsg(state->pps, err,
@@ -412,8 +411,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			}
 			negotiation_aborted(state, am_funder,
 					    tal_fmt(tmpctx, "They sent error %s",
-						    err),
-					    true);
+						    err));
 			/* Return NULL so caller knows to stop negotiating. */
 			return NULL;
 		}
@@ -1690,8 +1688,7 @@ static u8 *handle_master_in(struct state *state)
 
 		msg = towire_errorfmt(NULL, &state->channel_id, "Channel open canceled by us");
 		sync_crypto_write(state->pps, take(msg));
-		negotiation_aborted(state, true,
-				    "Channel open canceled by RPC", false);
+		negotiation_aborted(state, true, "Channel open canceled by RPC");
 		return NULL;
 	case WIRE_OPENING_DEV_MEMLEAK:
 #if DEVELOPER
