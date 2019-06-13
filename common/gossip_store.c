@@ -55,6 +55,23 @@ static bool timestamp_filter(const struct per_peer_state *pps, u32 timestamp)
 		&& timestamp <= pps->gs->timestamp_max;
 }
 
+static void undo_read(int fd, int len, size_t wanted)
+{
+	if (len < 0) {
+		/* Grab errno before lseek overrides it */
+		const char *err = strerror(errno);
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: failed read @%"PRIu64": %s",
+			      (u64)lseek(fd, 0, SEEK_CUR), err);
+	}
+
+	/* Shouldn't happen, but some filesystems are not as atomic as
+	 * they should be! */
+	status_unusual("gossip_store: short read %i of %zu @%"PRIu64,
+		       len, wanted, (u64)lseek(fd, 0, SEEK_CUR) - len);
+	lseek(fd, -len, SEEK_CUR);
+}
+
 u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 {
 	u8 *msg = NULL;
@@ -66,9 +83,13 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 	while (!msg) {
 		struct gossip_hdr hdr;
 		u32 msglen, checksum, timestamp;
-		int type;
+		int type, r;
 
-		if (read(pps->gossip_store_fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+		r = read(pps->gossip_store_fd, &hdr, sizeof(hdr));
+		if (r != sizeof(hdr)) {
+			/* We expect a 0 read here at EOF */
+			if (r != 0)
+				undo_read(pps->gossip_store_fd, r, sizeof(hdr));
 			per_peer_state_reset_gossip_timer(pps);
 			return NULL;
 		}
@@ -86,13 +107,12 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 		checksum = be32_to_cpu(hdr.crc);
 		timestamp = be32_to_cpu(hdr.timestamp);
 		msg = tal_arr(ctx, u8, msglen);
-		if (read(pps->gossip_store_fd, msg, msglen) != msglen)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "gossip_store: can't read len %u"
-				      " ~offset %"PRIi64,
-				      msglen,
-				      (s64)lseek(pps->gossip_store_fd,
-						 0, SEEK_CUR));
+		r = read(pps->gossip_store_fd, msg, msglen);
+		if (r != msglen) {
+			undo_read(pps->gossip_store_fd, r, msglen);
+			per_peer_state_reset_gossip_timer(pps);
+			return NULL;
+		}
 
 		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
