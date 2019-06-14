@@ -876,6 +876,11 @@ static void destroy_chain_topology(struct chain_topology *topo)
 
 	while ((otx = list_pop(&topo->outgoing_txs, struct outgoing_tx, list)))
 		tal_free(otx);
+
+	/* htable uses malloc, so it would leak here */
+	txwatch_hash_clear(&topo->txwatches);
+	txowatch_hash_clear(&topo->txowatches);
+	block_map_clear(&topo->block_map);
 }
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
