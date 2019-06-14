@@ -311,24 +311,23 @@ bool gossip_store_compact(struct gossip_store *gs)
 			      "gossip_store: Entry at %zu->%zu not updated?",
 			      omap->from, omap->to);
 
-	if (count != gs->count - gs->deleted) {
-		status_broken("Expected %zu msgs in new gossip store, got %zu",
+	if (count != gs->count - gs->deleted)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: Expected %zu msgs in new"
+			      " gossip store, got %zu",
 			      gs->count - gs->deleted, count);
-		goto unlink_disable;
-	}
 
-	if (deleted != gs->deleted) {
-		status_broken("Expected %zu deleted msgs in old gossip store, got %zu",
+	if (deleted != gs->deleted)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: Expected %zu deleted msgs in old"
+			      " gossip store, got %zu",
 			      gs->deleted, deleted);
-		goto unlink_disable;
-	}
 
-	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) == -1) {
-		status_broken(
-		    "Error swapping compacted gossip_store into place: %s",
-		    strerror(errno));
-		goto unlink_disable;
-	}
+	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) == -1)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Error swapping compacted gossip_store into place:"
+			      " %s",
+			      strerror(errno));
 
 	status_trace(
 	    "Compaction completed: dropped %zu messages, new count %zu, len %"PRIu64,
