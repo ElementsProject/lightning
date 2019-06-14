@@ -876,6 +876,11 @@ static bool jsonrpc_command_add_perm(struct lightningd *ld,
 	return true;
 }
 
+static void destroy_jsonrpc(struct jsonrpc *jsonrpc)
+{
+	strmap_clear(&jsonrpc->usagemap);
+}
+
 void jsonrpc_setup(struct lightningd *ld)
 {
 	struct json_command **commands = get_cmdlist();
@@ -890,6 +895,7 @@ void jsonrpc_setup(struct lightningd *ld)
 			      commands[i]->name);
 	}
 	ld->jsonrpc->rpc_listener = NULL;
+	tal_add_destructor(ld->jsonrpc, destroy_jsonrpc);
 }
 
 bool command_usage_only(const struct command *cmd)
