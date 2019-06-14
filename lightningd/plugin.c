@@ -16,6 +16,7 @@
 #include <common/timeout.h>
 #include <dirent.h>
 #include <errno.h>
+#include <lightningd/io_loop_with_timers.h>
 #include <lightningd/json.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
@@ -77,7 +78,6 @@ struct plugins {
 	struct log *log;
 	struct log_book *log_book;
 
-	struct timers timers;
 	struct lightningd *ld;
 };
 
@@ -107,7 +107,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	list_head_init(&p->plugins);
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
-	timers_init(&p->timers, time_mono());
 	p->ld = ld;
 	return p;
 }
@@ -969,7 +968,6 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 	struct plugin *p;
 	char **cmd;
 	int stdin, stdout;
-	struct timer *expired;
 	struct jsonrpc_request *req;
 	plugins->pending_manifests = 0;
 	uintmap_init(&plugins->pending_requests);
@@ -1009,19 +1007,15 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 			p->timeout_timer = NULL;
 		else {
 			p->timeout_timer
-				= new_reltimer(&plugins->timers, p,
+				= new_reltimer(plugins->ld->timers, p,
 					       time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
 					       plugin_manifest_timeout, p);
 		}
 		tal_free(cmd);
 	}
-	while (plugins->pending_manifests > 0) {
-		void *v = io_loop(&plugins->timers, &expired);
-		if (v == plugins)
-			break;
-		if (expired)
-			timer_expired(plugins, expired);
-	}
+
+	if (plugins->pending_manifests > 0)
+		io_loop_with_timers(plugins->ld);
 }
 
 static void plugin_config_cb(const char *buffer,
