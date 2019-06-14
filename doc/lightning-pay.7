@@ -76,7 +76,7 @@ Shadow route means the payment algorithm will virtually extend the time delays a
 Route randomization will never exceed \fImaxfeepercent\fR of the payment\&. Route randomization and shadow routing will not take routes that would exceed \fImaxdelay\fR\&.
 .SH "RETURN VALUE"
 .sp
-On success, this returns the payment \fIpreimage\fR which hashes to the \fIpayment_hash\fR to prove that the payment was successful\&. It will also return, a \fIgetroute_tries\fR and a \fIsendpay_tries\fR statistics for the number of times it internally called \fBgetroute\fR and \fBsendpay\fR\&.
+On success, this returns the \fIpayment_preimage\fR which hashes to the \fIpayment_hash\fR to prove that the payment was successful\&. It will also return, a \fIgetroute_tries\fR and a \fIsendpay_tries\fR statistics for the number of times it internally called \fBgetroute\fR and \fBsendpay\fR\&.
 .sp
 You can monitor the progress and retries of a payment using the lightning\-paystatus(7) command\&.
 .sp

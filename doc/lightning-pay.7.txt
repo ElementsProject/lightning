@@ -78,7 +78,7 @@ will not take routes that would exceed 'maxdelay'.
 RETURN VALUE
 ------------
 
-On success, this returns the payment 'preimage' which hashes to the
+On success, this returns the 'payment_preimage' which hashes to the
 'payment_hash' to prove that the payment was successful.
 It will also return, a 'getroute_tries' and a 'sendpay_tries'
 statistics for the number of times it internally called *getroute*
