@@ -508,6 +508,48 @@ int gossip_store_readonly_fd(struct gossip_store *gs)
 	return fd;
 }
 
+static void delete_by_index(struct gossip_store *gs, u32 index, int type)
+{
+	/* We make a fake broadcastable for this corner case. */
+	struct broadcastable bcast;
+	bcast.index = index;
+	gossip_store_delete(gs, &bcast, type);
+}
+
+/* If we ever truncated, we might have a dangling entries. */
+static void cleanup_truncated_store(struct routing_state *rstate,
+				    struct gossip_store *gs,
+				    u32 chan_ann_off)
+{
+	size_t num;
+	u32 index;
+
+	/* channel_announce with no channel_amount. */
+	if (chan_ann_off) {
+		status_unusual("Deleting un-amounted channel_announcement @%u",
+			       chan_ann_off);
+		delete_by_index(gs, chan_ann_off, WIRE_CHANNEL_ANNOUNCEMENT);
+	}
+
+	num = 0;
+	while ((index = remove_unfinalized_node_announce(rstate)) != 0) {
+		delete_by_index(gs, index, WIRE_NODE_ANNOUNCEMENT);
+		num++;
+	}
+	if (num)
+		status_unusual("Deleted %zu unfinalized node_announcements",
+			       num);
+
+	num = 0;
+	while ((index = remove_unupdated_channel_announce(rstate)) != 0) {
+		delete_by_index(gs, index, WIRE_CHANNEL_ANNOUNCEMENT);
+		num++;
+	}
+	if (num)
+		status_unusual("Deleted %zu unupdated channel_announcements",
+			       num);
+}
+
 bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
 	struct gossip_hdr hdr;
@@ -635,14 +677,7 @@ truncate_nomsg:
 	contents_ok = false;
 out:
 	gs->writable = true;
-	/* If we ever truncated, we might have a dangling channel_announce */
-	if (chan_ann) {
-		struct broadcastable bcast;
-		bcast.index = chan_ann_off;
-		status_unusual("Deleting un-updated channel_announcement @%"
-			       PRIu64, chan_ann_off);
-		gossip_store_delete(gs, &bcast, WIRE_CHANNEL_ANNOUNCEMENT);
-	}
+	cleanup_truncated_store(rstate, gs, chan_ann ? chan_ann_off : 0);
 	status_trace("total store load time: %"PRIu64" msec",
 		     time_to_msec(time_between(time_now(), start)));
 	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store (%zu deleted) in %"PRIu64" bytes",
