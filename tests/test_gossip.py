@@ -1232,3 +1232,43 @@ def test_gossip_store_compact_restart(node_factory, bitcoind):
 
     # Now compact store.
     l2.rpc.call('dev-compact-gossip-store')
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
+def test_gossip_store_load_no_channel_update(node_factory):
+    """Make sure we can read truncated gossip store with a channel_announcement and no channel_update"""
+    l1 = node_factory.get_node(start=False)
+
+    # A channel announcement with no channel_update.
+    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
+        f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
+                                  "000001b0"  # len
+                                  "fea676e8"  # csum
+                                  "5b8d9b44"  # timestamp
+                                  "0100"      # WIRE_CHANNEL_ANNOUNCEMENT
+                                  "bb8d7b6998cca3c2b3ce12a6bd73a8872c808bb48de2a30c5ad9cdf835905d1e27505755087e675fb517bbac6beb227629b694ea68f49d357458327138978ebfd7adfde1c69d0d2f497154256f6d5567a5cf2317c589e0046c0cc2b3e986cf9b6d3b44742bd57bce32d72cd1180a7f657795976130b20508b239976d3d4cdc4d0d6e6fbb9ab6471f664a662972e406f519eab8bce87a8c0365646df5acbc04c91540b4c7c518cec680a4a6af14dae1aca0fd5525220f7f0e96fcd2adef3c803ac9427fe71034b55a50536638820ef21903d09ccddd38396675b598587fa886ca711415c813fc6d69f46552b9a0a539c18f265debd0e2e286980a118ba349c216000043497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea33090000000013a63c0000b50001021bf3de4e84e3d52f9a3e36fbdcd2c4e8dbf203b9ce4fc07c2f03be6c21d0c67503f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d203801fd8ab98032f11cc9e4916dd940417082727077609d5c7f8cc6e9a3ad25dd102517164b97ab46cee3826160841a36c46a2b7b9c74da37bdc070ed41ba172033a"
+                                  "0000000a"  # len
+                                  "99dc98b4"  # csum
+                                  "00000000"  # timestamp
+                                  "1005"      # WIRE_GOSSIP_STORE_CHANNEL_AMOUNT
+                                  "0000000001000000"
+                                  "00000082"  # len
+                                  "fd421aeb"  # csum
+                                  "5b8d9b44"  # timestamp
+                                  "0101"      # WIRE_NODE_ANNOUNCEMENT
+                                  "cf5d870bc7ecabcb7cd16898ef66891e5f0c6c5851bd85b670f03d325bc44d7544d367cd852e18ec03f7f4ff369b06860a3b12b07b29f36fb318ca11348bf8ec00005aab817c03f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d23974b250757a7a6c6549544300000000000000000000000000000000000000000000000007010566933e2607"))
+
+    l1.start()
+
+    # This should actually result in an empty store.
+    l1.rpc.call('dev-compact-gossip-store')
+
+    # FIXME: We leave channel_amount in the store!
+    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), "rb") as f:
+        assert bytearray(f.read()) == bytearray.fromhex("07"
+                                                        "0000000a"  # len
+                                                        "99dc98b4"  # csum
+                                                        "00000000"  # timestamp
+                                                        "1005"      # WIRE_GOSSIP_STORE_CHANNEL_AMOUNT
+                                                        "0000000001000000")
