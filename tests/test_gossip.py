@@ -1234,7 +1234,6 @@ def test_gossip_store_compact_restart(node_factory, bitcoind):
     l2.rpc.call('dev-compact-gossip-store')
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
 def test_gossip_store_load_no_channel_update(node_factory):
     """Make sure we can read truncated gossip store with a channel_announcement and no channel_update"""

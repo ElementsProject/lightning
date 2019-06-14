@@ -2581,3 +2581,43 @@ struct timeabs gossip_time_now(const struct routing_state *rstate)
 #endif
 	return time_now();
 }
+
+/* gossip_store wants to delete any dangling node_announcement msgs */
+u32 remove_unfinalized_node_announce(struct routing_state *rstate)
+{
+	/* We're only interested in node_announcement we caught. */
+	for (;;) {
+		struct pending_node_announce *pna;
+		struct pending_node_map_iter it;
+
+		pna = pending_node_map_first(rstate->pending_node_map, &it);
+		if (!pna)
+			return 0;
+
+		/* This will be deleted by the associated unupdated_channel; just
+		 * remove from map for now. */
+		pending_node_map_del(rstate->pending_node_map, pna);
+		if (!pna->node_announcement)
+			continue;
+
+		assert(pna->index);
+		return pna->index;
+	}
+}
+
+/* gossip_store wants to delete any dangling channel_announcement msgs */
+u32 remove_unupdated_channel_announce(struct routing_state *rstate)
+{
+	struct unupdated_channel *uc;
+	u64 index;
+
+	uc = uintmap_first(&rstate->unupdated_chanmap, &index);
+	if (!uc)
+		return 0;
+
+	assert(uc->index);
+	index = uc->index;
+
+	tal_free(uc);
+	return index;
+}

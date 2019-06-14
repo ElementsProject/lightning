@@ -437,4 +437,12 @@ struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser);
 void remove_channel_from_store(struct routing_state *rstate,
 			       struct chan *chan);
 
+/* gossip_store wants to delete any dangling entries immediately after
+ * load; return 0 if no more, otherwise index into store.
+ *
+ * Must call remove_unfinalized_node_announce first, because removing
+ * unupdated channels may delete associatd node_announcements. */
+u32 remove_unfinalized_node_announce(struct routing_state *rstate);
+u32 remove_unupdated_channel_announce(struct routing_state *rstate);
+
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
