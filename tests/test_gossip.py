@@ -945,7 +945,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'Deleting un-updated channel_announcement @1'))
+    wait_for(lambda: l1.daemon.is_in_log(r'Deleting un-amounted channel_announcement @1'))
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(1 deleted\) in 445 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
@@ -1263,11 +1263,5 @@ def test_gossip_store_load_no_channel_update(node_factory):
     # This should actually result in an empty store.
     l1.rpc.call('dev-compact-gossip-store')
 
-    # FIXME: We leave channel_amount in the store!
     with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("07"
-                                                        "0000000a"  # len
-                                                        "99dc98b4"  # csum
-                                                        "00000000"  # timestamp
-                                                        "1005"      # WIRE_GOSSIP_STORE_CHANNEL_AMOUNT
-                                                        "0000000001000000")
+        assert bytearray(f.read()) == bytearray.fromhex("07")
