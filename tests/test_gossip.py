@@ -932,6 +932,30 @@ def test_gossip_store_load_announce_before_update(node_factory):
         l1.rpc.call('dev-compact-gossip-store')
 
 
+def test_gossip_store_load_amount_truncated(node_factory):
+    """Make sure we can read canned gossip store with truncated amount"""
+    l1 = node_factory.get_node(start=False)
+    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
+        f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
+                                  "000001b0"  # len
+                                  "fea676e8"  # csum
+                                  "5b8d9b44"  # timestamp
+                                  "0100"      # WIRE_CHANNEL_ANNOUNCEMENT
+                                  "bb8d7b6998cca3c2b3ce12a6bd73a8872c808bb48de2a30c5ad9cdf835905d1e27505755087e675fb517bbac6beb227629b694ea68f49d357458327138978ebfd7adfde1c69d0d2f497154256f6d5567a5cf2317c589e0046c0cc2b3e986cf9b6d3b44742bd57bce32d72cd1180a7f657795976130b20508b239976d3d4cdc4d0d6e6fbb9ab6471f664a662972e406f519eab8bce87a8c0365646df5acbc04c91540b4c7c518cec680a4a6af14dae1aca0fd5525220f7f0e96fcd2adef3c803ac9427fe71034b55a50536638820ef21903d09ccddd38396675b598587fa886ca711415c813fc6d69f46552b9a0a539c18f265debd0e2e286980a118ba349c216000043497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea33090000000013a63c0000b50001021bf3de4e84e3d52f9a3e36fbdcd2c4e8dbf203b9ce4fc07c2f03be6c21d0c67503f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d203801fd8ab98032f11cc9e4916dd940417082727077609d5c7f8cc6e9a3ad25dd102517164b97ab46cee3826160841a36c46a2b7b9c74da37bdc070ed41ba172033a"))
+
+    l1.start()
+    # May preceed the Started msg waited for in 'start'.
+    wait_for(lambda: l1.daemon.is_in_log(r'Deleting un-updated channel_announcement @1'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(1 deleted\) in 445 bytes'))
+    assert not l1.daemon.is_in_log('gossip_store.*truncating')
+
+    # Extra sanity check if we can.
+    if DEVELOPER:
+        l1.rpc.call('dev-compact-gossip-store')
+        l1.restart()
+        l1.rpc.call('dev-compact-gossip-store')
+
+
 @unittest.skipIf(not DEVELOPER, "Needs fast gossip propagation")
 def test_node_reannounce(node_factory, bitcoind):
     "Test that we reannounce a node when parameters change"
