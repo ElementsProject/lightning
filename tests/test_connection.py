@@ -855,7 +855,13 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
-    nodes = node_factory.get_nodes(100)
+
+    if VALGRIND:
+        num = 5
+    else:
+        num = 100
+
+    nodes = node_factory.get_nodes(num)
 
     # Speed up cleanup by not cleaning our test nodes: on my laptop, this goes
     # from 214 to 15 seconds
@@ -904,8 +910,9 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     assert num_cancel + num_complete == len(nodes)
 
     # We should have raced at least once!
-    assert num_cancel > 0
-    assert num_complete > 0
+    if not VALGRIND:
+        assert num_cancel > 0
+        assert num_complete > 0
 
 
 def test_funding_external_wallet(node_factory, bitcoind):
