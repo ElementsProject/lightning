@@ -398,27 +398,24 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
 	return gossip_store_add(gs, pupdate, 0, NULL);
 }
 
-void gossip_store_delete(struct gossip_store *gs,
-			 struct broadcastable *bcast,
-			 int type)
+/* Returns index of following entry. */
+static u32 delete_by_index(struct gossip_store *gs, u32 index, int type)
 {
 	beint32_t belen;
 	int flags;
-
-	if (!bcast->index)
-		return;
 
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
 #if DEVELOPER
-	const u8 *msg = gossip_store_get(tmpctx, gs, bcast->index);
+	const u8 *msg = gossip_store_get(tmpctx, gs, index);
 	assert(fromwire_peektype(msg) == type);
 #endif
-	if (pread(gs->fd, &belen, sizeof(belen), bcast->index) != sizeof(belen))
+
+	if (pread(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed reading len to delete @%u: %s",
-			      bcast->index, strerror(errno));
+			      index, strerror(errno));
 
 	assert((be32_to_cpu(belen) & GOSSIP_STORE_LEN_DELETED_BIT) == 0);
 	belen |= cpu_to_be32(GOSSIP_STORE_LEN_DELETED_BIT);
@@ -433,15 +430,35 @@ void gossip_store_delete(struct gossip_store *gs,
 	 */
 	flags = fcntl(gs->fd, F_GETFL);
 	fcntl(gs->fd, F_SETFL, flags & ~O_APPEND);
-	if (pwrite(gs->fd, &belen, sizeof(belen), bcast->index) != sizeof(belen))
+	if (pwrite(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing len to delete @%u: %s",
-			      bcast->index, strerror(errno));
+			      index, strerror(errno));
 	fcntl(gs->fd, F_SETFL, flags);
 	gs->deleted++;
 
+	return index + sizeof(struct gossip_hdr)
+		+ (be32_to_cpu(belen) & ~GOSSIP_STORE_LEN_DELETED_BIT);
+}
+
+void gossip_store_delete(struct gossip_store *gs,
+			 struct broadcastable *bcast,
+			 int type)
+{
+	u32 next_index;
+
+	if (!bcast->index)
+		return;
+
+	next_index = delete_by_index(gs, bcast->index, type);
+
 	/* Reset index. */
 	bcast->index = 0;
+
+	/* For a channel_announcement, we need to delete amount too */
+	if (type == WIRE_CHANNEL_ANNOUNCEMENT)
+		delete_by_index(gs, next_index,
+				WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
 
 	gossip_store_maybe_compact(gs);
 }
@@ -508,14 +525,6 @@ int gossip_store_readonly_fd(struct gossip_store *gs)
 	return fd;
 }
 
-static void delete_by_index(struct gossip_store *gs, u32 index, int type)
-{
-	/* We make a fake broadcastable for this corner case. */
-	struct broadcastable bcast;
-	bcast.index = index;
-	gossip_store_delete(gs, &bcast, type);
-}
-
 /* If we ever truncated, we might have a dangling entries. */
 static void cleanup_truncated_store(struct routing_state *rstate,
 				    struct gossip_store *gs,
@@ -542,7 +551,11 @@ static void cleanup_truncated_store(struct routing_state *rstate,
 
 	num = 0;
 	while ((index = remove_unupdated_channel_announce(rstate)) != 0) {
-		delete_by_index(gs, index, WIRE_CHANNEL_ANNOUNCEMENT);
+		u32 next;
+
+		/* Delete announcement and channel amount, too */
+		next = delete_by_index(gs, index, WIRE_CHANNEL_ANNOUNCEMENT);
+		delete_by_index(gs, next, WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
 		num++;
 	}
 	if (num)
