@@ -189,7 +189,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * ingenious bucket system which more precisely sorts timers as they
 	 * approach expiry.  It's a fascinating implementation you should read
 	 * if you have a spare few hours. */
-	timers_init(&ld->timers, time_mono());
+	ld->timers = tal(ld, struct timers);
+	timers_init(ld->timers, time_mono());
 
 	/*~ This is detailed in chaintopology.c */
 	ld->topology = new_topology(ld, ld->log);
@@ -619,6 +620,7 @@ int main(int argc, char *argv[])
 	u32 min_blockheight, max_blockheight;
 	int connectd_gossipd_fd, pid_fd;
 	int stop_fd;
+	struct timers *timers;
 	const char *stop_response;
 
 	/*~ What happens in strange locales should stay there. */
@@ -677,7 +679,7 @@ int main(int argc, char *argv[])
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
-	ld->wallet = wallet_new(ld, ld->log, &ld->timers);
+	ld->wallet = wallet_new(ld, ld->log, ld->timers);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);
@@ -750,7 +752,7 @@ int main(int argc, char *argv[])
 
 	/*~ Initialize block topology.  This does its own io_loop to
 	 * talk to bitcoind, so does its own db transactions. */
-	setup_topology(ld->topology, &ld->timers,
+	setup_topology(ld->topology, ld->timers,
 		       min_blockheight, max_blockheight);
 
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
@@ -854,7 +856,13 @@ int main(int argc, char *argv[])
 	/* FIXME: pay can have children off tmpctx which unlink from
 	 * ld->payments, so clean that up. */
 	clean_tmpctx();
+
+	/* Free this last: other things may clean up timers. */
+	timers = tal_steal(NULL, ld->timers);
 	tal_free(ld);
+
+	timers_cleanup(timers);
+	tal_free(timers);
 	opt_free_table();
 
 	daemon_shutdown();

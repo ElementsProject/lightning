@@ -336,7 +336,7 @@ register_close_command(struct lightningd *ld,
 	tal_add_destructor2(channel,
 			    &destroy_close_command_on_channel_destroy,
 			    cc);
-	new_reltimer(&ld->timers, cc, time_from_sec(timeout),
+	new_reltimer(ld->timers, cc, time_from_sec(timeout),
 		     &close_command_timeout, cc);
 }
 

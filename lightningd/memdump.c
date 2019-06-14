@@ -209,7 +209,7 @@ static void report_leak_info(struct command *cmd, struct subd *leaker)
 	leak_info->leaker = leaker;
 
 	/* Leak detection in a reply handler thinks we're leaking conn. */
-	notleak(new_reltimer(&leak_info->cmd->ld->timers, leak_info->cmd,
+	notleak(new_reltimer(leak_info->cmd->ld->timers, leak_info->cmd,
 			     time_from_sec(0),
 			     report_leak_info2, leak_info));
 }

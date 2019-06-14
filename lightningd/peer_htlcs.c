@@ -456,7 +456,7 @@ enum onion_type send_htlc_out(struct channel *out,
 
 	/* Give channel 30 seconds to commit (first) htlc. */
 	if (!out->htlc_timeout)
-		out->htlc_timeout = new_reltimer(&out->peer->ld->timers,
+		out->htlc_timeout = new_reltimer(out->peer->ld->timers,
 						 out, time_from_sec(30),
 						 htlc_offer_timeout,
 						 out);

@@ -21,7 +21,7 @@ void *io_loop_with_timers(struct lightningd *ld)
 		 * It will only exit if there's an expired timer, *or* someone
 		 * calls io_break, or if there are no more file descriptors
 		 * (which never happens in our code). */
-		retval = io_loop(&ld->timers, &expired);
+		retval = io_loop(ld->timers, &expired);
 
 		/*~ Notice that timers are called here in the event loop like
 		 * anything else, so there are no weird concurrency issues. */
