@@ -65,10 +65,16 @@ struct outpointfilter {
 	struct outpointset *set;
 };
 
+static void destroy_txfilter(struct txfilter *filter)
+{
+	scriptpubkeyset_clear(&filter->scriptpubkeyset);
+}
+
 struct txfilter *txfilter_new(const tal_t *ctx)
 {
 	struct txfilter *filter = tal(ctx, struct txfilter);
 	scriptpubkeyset_init(&filter->scriptpubkeyset);
+	tal_add_destructor(filter, destroy_txfilter);
 	return filter;
 }
 
@@ -132,10 +138,16 @@ void outpointfilter_remove(struct outpointfilter *of, const struct bitcoin_txid 
 	outpointset_del(of->set, &op);
 }
 
+static void destroy_outpointfilter(struct outpointfilter *opf)
+{
+	outpointset_clear(opf->set);
+}
+
 struct outpointfilter *outpointfilter_new(tal_t *ctx)
 {
 	struct outpointfilter *opf = tal(ctx, struct outpointfilter);
 	opf->set = tal(opf, struct outpointset);
 	outpointset_init(opf->set);
+	tal_add_destructor(opf, destroy_outpointfilter);
 	return opf;
 }
