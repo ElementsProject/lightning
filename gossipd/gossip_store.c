@@ -541,6 +541,8 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 
 		/* Skip deleted entries */
 		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT) {
+			/* Count includes deleted! */
+			gs->count++;
 			gs->deleted++;
 			goto next;
 		}
