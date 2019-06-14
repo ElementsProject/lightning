@@ -1155,7 +1155,6 @@ def test_gossip_store_compact(node_factory, bitcoind):
     wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
 def test_gossip_store_compact_restart(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
