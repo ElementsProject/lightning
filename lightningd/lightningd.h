@@ -112,7 +112,7 @@ struct lightningd {
 	u8 *rgb; /* tal_len() == 3. */
 
 	/* Any pending timers. */
-	struct timers timers;
+	struct timers *timers;
 
 	/* Port we're listening on */
 	u16 portnum;

@@ -222,7 +222,7 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 
 	/* We fuzz the timer by up to 1 second, to avoid getting into
 	 * simultanous-reconnect deadlocks with peer. */
-	notleak(new_reltimer(&ld->timers, d,
+	notleak(new_reltimer(ld->timers, d,
 			     timerel_add(time_from_sec(seconds_delay),
 					 time_from_usec(pseudorand(1000000))),
 			     maybe_reconnect, d));

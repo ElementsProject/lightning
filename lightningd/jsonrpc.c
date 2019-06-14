@@ -265,7 +265,7 @@ static void slowcmd_finish(struct slowcmd *sc)
 static void slowcmd_start(struct slowcmd *sc)
 {
 	sc->js = json_stream_success(sc->cmd);
-	new_reltimer(&sc->cmd->ld->timers, sc, time_from_msec(*sc->msec),
+	new_reltimer(sc->cmd->ld->timers, sc, time_from_msec(*sc->msec),
 		     slowcmd_finish, sc);
 }
 
@@ -282,7 +282,7 @@ static struct command_result *json_slowcmd(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	new_reltimer(&cmd->ld->timers, sc, time_from_msec(0), slowcmd_start, sc);
+	new_reltimer(cmd->ld->timers, sc, time_from_msec(0), slowcmd_start, sc);
 	return command_still_pending(cmd);
 }
 

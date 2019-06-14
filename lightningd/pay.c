@@ -921,7 +921,7 @@ static struct command_result *json_waitsendpay(struct command *cmd,
 		return res;
 
 	if (timeout)
-		new_reltimer(&cmd->ld->timers, cmd, time_from_sec(*timeout),
+		new_reltimer(cmd->ld->timers, cmd, time_from_sec(*timeout),
 			     &waitsendpay_timeout, cmd);
 	return command_still_pending(cmd);
 }
