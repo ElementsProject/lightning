@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <onchaind/gen_onchain_wire.h>
@@ -2655,6 +2656,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  enum onion_type failcode)
 {
 	sqlite3_stmt *stmt;
+	struct timeabs *resolved_time;
 	stmt = db_prepare(
 		w->db,
 		"INSERT OR REPLACE INTO forwarded_payments ("
@@ -2691,10 +2693,14 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	sqlite3_bind_int(stmt, 7, wallet_forward_status_in_db(state));
 	sqlite3_bind_timeabs(stmt, 8, in->received_time);
 
-	if (state == FORWARD_SETTLED || state == FORWARD_FAILED)
-		sqlite3_bind_timeabs(stmt, 9, time_now());
-	else
+	if (state == FORWARD_SETTLED || state == FORWARD_FAILED) {
+		resolved_time = tal(tmpctx, struct timeabs);
+		*resolved_time = time_now();
+		sqlite3_bind_timeabs(stmt, 9, *resolved_time);
+	} else {
+		resolved_time = NULL;
 		sqlite3_bind_null(stmt, 9);
+	}
 
 	if(failcode != 0) {
 		assert(state == FORWARD_FAILED || state == FORWARD_LOCAL_FAILED);
@@ -2704,6 +2710,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	}
 
 	db_exec_prepared(w->db, stmt);
+
+	notify_forward_event(w->ld, in, out, state, failcode, resolved_time);
 }
 
 struct amount_msat wallet_total_forward_fees(struct wallet *w)
