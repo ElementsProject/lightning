@@ -2,7 +2,7 @@ from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import only_one, wait_for, TIMEOUT
+from utils import DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for
 
 import json
 import os
@@ -11,6 +11,7 @@ import re
 import sqlite3
 import subprocess
 import time
+import unittest
 
 
 def test_option_passthrough(node_factory):
@@ -568,3 +569,83 @@ def test_channel_opened_notification(node_factory):
     l2.daemon.wait_for_log(r"A channel was opened to us by {}, "
                            "with an amount of {}*"
                            .format(l1.info["id"], amount))
+
+
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_forward_event_notification(node_factory, bitcoind, executor):
+    """ test 'forward_event' notifications
+    """
+    amount = 10**8
+    disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {},
+        {'plugin': 'tests/plugins/forward_payment_status.py'},
+        {}
+    ], wait_for_announce=True)
+    l4 = node_factory.get_node()
+    l5 = node_factory.get_node(disconnect=disconnects)
+    l2.openchannel(l4, 10**6, wait_for_announce=False)
+    l2.openchannel(l5, 10**6, wait_for_announce=True)
+
+    bitcoind.generate_block(5)
+
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
+
+    payment_hash13 = l3.rpc.invoice(amount, "first", "desc")['payment_hash']
+    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+
+    # status: offered -> settled
+    l1.rpc.sendpay(route, payment_hash13)
+    l1.rpc.waitsendpay(payment_hash13)
+
+    # status: offered -> failed
+    route = l1.rpc.getroute(l4.info['id'], amount, 1)['route']
+    payment_hash14 = "f" * 64
+    with pytest.raises(RpcError):
+        l1.rpc.sendpay(route, payment_hash14)
+        l1.rpc.waitsendpay(payment_hash14)
+
+    # status: offered -> local_failed
+    payment_hash15 = l5.rpc.invoice(amount, 'onchain_timeout', 'desc')['payment_hash']
+    fee = amount * 10 // 1000000 + 1
+    c12 = l1.get_channel_scid(l2)
+    c25 = l2.get_channel_scid(l5)
+    route = [{'msatoshi': amount + fee - 1,
+              'id': l2.info['id'],
+              'delay': 12,
+              'channel': c12},
+             {'msatoshi': amount - 1,
+              'id': l5.info['id'],
+              'delay': 5,
+              'channel': c25}]
+
+    executor.submit(l1.rpc.sendpay, route, payment_hash15)
+
+    l5.daemon.wait_for_log('permfail')
+    l5.wait_for_channel_onchain(l2.info['id'])
+    l2.bitcoin.generate_block(1)
+    l2.daemon.wait_for_log(' to ONCHAIN')
+    l5.daemon.wait_for_log(' to ONCHAIN')
+
+    l2.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* after 6 blocks')
+    bitcoind.generate_block(6)
+
+    l2.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
+                                   'THEIR_UNILATERAL/OUR_HTLC')
+
+    bitcoind.generate_block(1)
+    l2.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+    l5.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
+
+    bitcoind.generate_block(100)
+    sync_blockheight(bitcoind, [l2])
+
+    stats = l2.rpc.listforwards()
+
+    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash13, 'status': 'offered', 'dbforward': stats['forwards'][0]})
+    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash13, 'status': 'settled', 'dbforward': stats['forwards'][0]})
+    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash14, 'status': 'offered', 'dbforward': stats['forwards'][1]})
+    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash14, 'status': 'failed', 'dbforward': stats['forwards'][1]})
+    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash15, 'status': 'offered', 'dbforward': stats['forwards'][2]})
+    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash15, 'status': 'local_failed', 'dbforward': stats['forwards'][2]})
