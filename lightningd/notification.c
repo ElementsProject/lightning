@@ -1,13 +1,16 @@
 #include <ccan/array_size/array_size.h>
+#include <lightningd/channel.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
+#include <lightningd/peer_htlcs.h>
 
 const char *notification_topics[] = {
 	"connect",
 	"disconnect",
 	"warning",
 	"invoice_payment",
-	"channel_opened"
+	"channel_opened",
+	"forward_event"
 };
 
 bool notifications_have_topic(const char *topic)
@@ -90,6 +93,42 @@ void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 	json_add_txid(n->stream, "funding_txid", funding_txid);
 	json_add_bool(n->stream, "funding_locked", funding_locked);
 	json_object_end(n->stream);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
+
+void notify_forward_event(struct lightningd *ld,
+			  const struct htlc_in *in,
+			  const struct htlc_out *out,
+			  enum forward_status state,
+			  enum onion_type failcode,
+			  struct timeabs *resolved_time)
+{
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, "forward_event");
+	/* Here is more neat to initial a forwarding structure than
+	 * to pass in a bunch of parameters directly*/
+	struct forwarding *cur = tal(tmpctx, struct forwarding);
+	cur->channel_in = *in->key.channel->scid;
+	cur->msat_in = in->msat;
+	if (out) {
+		cur->channel_out = *out->key.channel->scid;
+		cur->msat_out = out->msat;
+		assert(amount_msat_sub(&cur->fee, in->msat, out->msat));
+	} else {
+		cur->channel_out.u64 = 0;
+		cur->msat_out = AMOUNT_MSAT(0);
+		cur->fee = AMOUNT_MSAT(0);
+	}
+	cur->payment_hash = tal(cur, struct sha256_double);
+	cur->payment_hash->sha = in->payment_hash;
+	cur->status = state;
+	cur->failcode = failcode;
+	cur->received_time = in->received_time;
+	cur->resolved_time = tal_steal(cur, resolved_time);
+
+	json_format_forwarding_object(n->stream, "forward_event", cur);
+
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
