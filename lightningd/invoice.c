@@ -514,7 +514,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	details = wallet_invoice_details(info, wallet, invoice);
 
 	response = json_stream_success(info->cmd);
-	json_add_hex(response, "payment_hash", details->rhash.u.u8,
+	json_add_hex(response, "payment_hash", &details->rhash,
 		     sizeof(details->rhash));
 	json_add_u64(response, "expires_at", details->expiry_time);
 	json_add_string(response, "bolt11", details->bolt11);
