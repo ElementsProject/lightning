@@ -88,7 +88,7 @@ this example:
 The `options` will be added to the list of command line options that
 `lightningd` accepts. The above will add a `--greeting` option with a
 default value of `World` and the specified description. *Notice that
-currently only string options are supported.*
+currently string, (unsigned) integers, and bool options are supported.*
 
 The `rpcmethods` are methods that will be exposed via `lightningd`'s
 JSON-RPC over Unix-Socket interface, just like the builtin
