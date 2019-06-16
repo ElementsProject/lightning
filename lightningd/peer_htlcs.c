@@ -2114,6 +2114,9 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 		const struct forwarding *cur = &forwardings[i];
 		json_object_start(response, NULL);
 
+		json_add_hex(response, "payment_hash",
+			     cur->payment_hash,
+			     sizeof(*cur->payment_hash));
 		json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 		json_add_short_channel_id(response, "out_channel", &cur->channel_out);
 		json_add_amount_msat_compat(response,
