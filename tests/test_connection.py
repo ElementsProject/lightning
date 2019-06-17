@@ -896,11 +896,10 @@ def test_funding_external_wallet(node_factory, bitcoind):
     bitcoind.generate_block(1)
 
     l1.daemon.wait_for_log(r'Funding tx {} depth 1 of 1'.format(txid))
-    l1.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
 
     for node in [l1, l2]:
+        node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
         channel = node.rpc.listpeers()['peers'][0]['channels'][0]
-        assert 'CHANNELD_NORMAL' == channel['state']
         assert amount * 1000 == channel['msatoshi_total']
 
 
