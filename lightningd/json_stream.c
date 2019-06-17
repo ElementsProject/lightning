@@ -160,6 +160,15 @@ void json_object_end(struct json_stream *js)
 		js_oom(js);
 }
 
+void json_object_compat_end(struct json_stream *js)
+{
+	/* In 0.7.1 we upgraded pylightning to no longer need this. */
+#ifdef COMPAT_V070
+	json_stream_append(js, " ", 1);
+#endif
+	json_object_end(js);
+}
+
 void json_add_member(struct json_stream *js,
 		     const char *fieldname,
 		     bool quote,

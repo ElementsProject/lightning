@@ -65,10 +65,12 @@ bool json_stream_still_writing(const struct json_stream *js);
 void json_array_start(struct json_stream *js, const char *fieldname);
 /* '"fieldname" : { ' or '{ ' if fieldname is NULL */
 void json_object_start(struct json_stream *ks, const char *fieldname);
-/* ' ], ' */
+/* '],' */
 void json_array_end(struct json_stream *js);
-/* ' }, ' */
+/* '},' */
 void json_object_end(struct json_stream *js);
+/* ' },' */
+void json_object_compat_end(struct json_stream *js);
 
 /**
  * json_stream_append - literally insert this string into the json_stream.

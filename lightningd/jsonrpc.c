@@ -455,7 +455,7 @@ struct command_result *command_success(struct command *cmd,
 	assert(cmd);
 	assert(cmd->json_stream == result);
 	json_object_end(result);
-	json_object_end(result);
+	json_object_compat_end(result);
 
 	return command_raw_complete(cmd, result);
 }
@@ -466,7 +466,7 @@ struct command_result *command_failed(struct command *cmd,
 	assert(cmd->json_stream == result);
 	/* Have to close error */
 	json_object_end(result);
-	json_object_end(result);
+	json_object_compat_end(result);
 
 	return command_raw_complete(cmd, result);
 }
@@ -512,7 +512,7 @@ static void json_command_malformed(struct json_connection *jcon,
 	json_add_member(js, "code", false, "%d", JSONRPC2_INVALID_REQUEST);
 	json_add_string(js, "message", error);
 	json_object_end(js);
-	json_object_end(js);
+	json_object_compat_end(js);
 
 	json_stream_close(js, NULL);
 }
