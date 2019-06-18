@@ -1039,7 +1039,7 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 					  const struct short_channel_id *scid);
 
-void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
+void wallet_utxoset_add(struct wallet *w, const struct bitcoin_txid *txid,
 			const u32 outnum, const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			struct amount_sat sat);

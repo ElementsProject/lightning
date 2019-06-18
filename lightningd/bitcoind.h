@@ -146,6 +146,7 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 			 unsigned int blocknum, unsigned int txnum,
 			 unsigned int outnum,
 			 void (*cb)(struct bitcoind *bitcoind,
+				    const struct bitcoin_txid *txid,
 				    const struct bitcoin_tx_output *output,
 				    void *arg),
 			 void *arg);
@@ -154,6 +155,7 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\
 						struct bitcoind *,	\
+						const struct bitcoin_txid *, \
 						const struct bitcoin_tx_output*), \
 			    (arg))
 

@@ -38,6 +38,7 @@
 #include <wire/wire_sync.h>
 
 static void got_txout(struct bitcoind *bitcoind,
+		      const struct bitcoin_txid *txid,
 		      const struct bitcoin_tx_output *output,
 		      struct short_channel_id *scid)
 {
@@ -48,6 +49,13 @@ static void got_txout(struct bitcoind *bitcoind,
 	if (output) {
 		script = output->script;
 		sat = output->amount;
+
+		/* Store this UTXO: gossipd wants to know if it gets spent. */
+		wallet_utxoset_add(bitcoind->ld->wallet, txid,
+				   short_channel_id_outnum(scid),
+				   short_channel_id_blocknum(scid),
+				   short_channel_id_txnum(scid),
+				   output->script, output->amount);
 	} else {
 		script = NULL;
 		sat = AMOUNT_SAT(0);

@@ -516,8 +516,13 @@ void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 struct get_output {
 	unsigned int blocknum, txnum, outnum;
 
+	/* This is populated once we have txid. */
+	struct bitcoin_txid txid;
+
 	/* The real callback */
-	void (*cb)(struct bitcoind *bitcoind, const struct bitcoin_tx_output *txout, void *arg);
+	void (*cb)(struct bitcoind *bitcoind,
+		   const struct bitcoin_txid *txid,
+		   const struct bitcoin_tx_output *txout, void *arg);
 
 	/* The real callback arg */
 	void *cbarg;
@@ -526,7 +531,7 @@ struct get_output {
 static void process_get_output(struct bitcoind *bitcoind, const struct bitcoin_tx_output *txout, void *arg)
 {
 	struct get_output *go = arg;
-	go->cb(bitcoind, txout, go->cbarg);
+	go->cb(bitcoind, &go->txid, txout, go->cbarg);
 }
 
 static bool process_gettxout(struct bitcoin_cli *bcli)
@@ -600,12 +605,12 @@ static bool process_gettxout(struct bitcoin_cli *bcli)
 static bool process_getblock(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
+		   const struct bitcoin_txid *txid,
 		   const struct bitcoin_tx_output *output,
 		   void *arg) = bcli->cb;
 	struct get_output *go = bcli->cb_arg;
 	void *cbarg = go->cbarg;
 	const jsmntok_t *tokens, *txstok, *txidtok;
-	struct bitcoin_txid txid;
 	bool valid;
 
 	tokens = json_parse_input(bcli->output, bcli->output, bcli->output_bytes,
@@ -616,7 +621,7 @@ static bool process_getblock(struct bitcoin_cli *bcli)
 		log_debug(bcli->bitcoind->log,
 			  "%s: returned invalid block, is this a pruned node?",
 			  bcli_args(tmpctx, bcli));
-		cb(bcli->bitcoind, NULL, cbarg);
+		cb(bcli->bitcoind, NULL, NULL, cbarg);
 		tal_free(go);
 		return true;
 	}
@@ -642,14 +647,14 @@ static bool process_getblock(struct bitcoin_cli *bcli)
 	if (!txidtok) {
 		log_debug(bcli->bitcoind->log, "%s: no txnum %u",
 			  bcli_args(tmpctx, bcli), go->txnum);
-		cb(bcli->bitcoind, NULL, cbarg);
+		cb(bcli->bitcoind, NULL, NULL, cbarg);
 		tal_free(go);
 		return true;
 	}
 
 	if (!bitcoin_txid_from_hex(bcli->output + txidtok->start,
 				   txidtok->end - txidtok->start,
-				   &txid))
+				   &go->txid))
 		fatal("%s: had bad txid (%.*s)?",
 		      bcli_args(tmpctx, bcli),
 		      json_tok_full_len(txidtok),
@@ -657,7 +662,7 @@ static bool process_getblock(struct bitcoin_cli *bcli)
 
 	go->cb = cb;
 	/* Now get the raw tx output. */
-	bitcoind_gettxout(bcli->bitcoind, &txid, go->outnum, process_get_output, go);
+	bitcoind_gettxout(bcli->bitcoind, &go->txid, go->outnum, process_get_output, go);
 	return true;
 }
 
@@ -692,6 +697,7 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 			 unsigned int blocknum, unsigned int txnum,
 			 unsigned int outnum,
 			 void (*cb)(struct bitcoind *bitcoind,
+				    const struct bitcoin_txid *txid,
 				    const struct bitcoin_tx_output *output,
 				    void *arg),
 			 void *arg)

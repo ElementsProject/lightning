@@ -2335,14 +2335,12 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 	return NULL;
 }
 
-void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
+void wallet_utxoset_add(struct wallet *w, const struct bitcoin_txid *txid,
 			const u32 outnum, const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			struct amount_sat sat)
 {
 	sqlite3_stmt *stmt;
-	struct bitcoin_txid txid;
-	bitcoin_txid(tx, &txid);
 
 	stmt = db_prepare(w->db, "INSERT INTO utxoset ("
 			  " txid,"
@@ -2353,7 +2351,7 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			  " scriptpubkey,"
 			  " satoshis"
 			  ") VALUES(?, ?, ?, ?, ?, ?, ?);");
-	sqlite3_bind_sha256_double(stmt, 1, &txid.shad);
+	sqlite3_bind_sha256_double(stmt, 1, &txid->shad);
 	sqlite3_bind_int(stmt, 2, outnum);
 	sqlite3_bind_int(stmt, 3, blockheight);
 	sqlite3_bind_null(stmt, 4);
@@ -2362,7 +2360,7 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 	sqlite3_bind_amount_sat(stmt, 7, sat);
 	db_exec_prepared(w->db, stmt);
 
-	outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
+	outpointfilter_add(w->utxoset_outpoints, txid, outnum);
 }
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,

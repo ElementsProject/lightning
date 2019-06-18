@@ -1267,7 +1267,6 @@ def test_gossip_store_load_no_channel_update(node_factory):
         assert bytearray(f.read()) == bytearray.fromhex("07")
 
 
-@pytest.mark.xfail(strict=True)        
 def test_gossip_notice_channel_close(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
     l3 = node_factory.get_node()

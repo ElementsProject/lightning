@@ -590,6 +590,8 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 
 static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 {
+	log_debug(topo->log, "Adding %zu txs's UTXOs for block %u",
+		  tal_count(b->full_txs), b->height);
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
 		for (size_t j = 0; j < tx->wtx->num_outputs; j++) {
@@ -597,7 +599,9 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 			struct amount_sat amt = bitcoin_tx_output_get_amount(tx, j);
 
 			if (is_p2wsh(script, NULL)) {
-				wallet_utxoset_add(topo->ld->wallet, tx, j,
+				struct bitcoin_txid txid;
+				bitcoin_txid(tx, &txid);
+				wallet_utxoset_add(topo->ld->wallet, &txid, j,
 						   b->height, i, script,
 						   amt);
 			}
