@@ -1265,3 +1265,17 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), "rb") as f:
         assert bytearray(f.read()) == bytearray.fromhex("07")
+
+
+@pytest.mark.xfail(strict=True)        
+def test_gossip_notice_channel_close(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l3 = node_factory.get_node()
+
+    l3.connect(l2)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+
+    txid = l1.rpc.close(l2.info['id'])['txid']
+    bitcoind.generate_block(1, txid)
+
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 0)
