@@ -945,8 +945,8 @@ def test_gossip_store_load_amount_truncated(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'Deleting un-amounted channel_announcement @1'))
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(1 deleted\) in 445 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: dangling channel_announcement'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
     # Extra sanity check if we can.
