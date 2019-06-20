@@ -1198,6 +1198,20 @@ def setup_gossip_store_test(node_factory, bitcoind):
     return l2
 
 
+@unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
+def test_gossip_store_compact_noappend(node_factory, bitcoind):
+    l2 = setup_gossip_store_test(node_factory, bitcoind)
+
+    # It should truncate this, not leave junk!
+    with open(os.path.join(l2.daemon.lightning_dir, 'gossip_store.tmp'), 'wb') as f:
+        f.write(bytearray.fromhex("07deadbeef"))
+
+    l2.rpc.call('dev-compact-gossip-store')
+    l2.restart()
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
+    assert not l2.daemon.is_in_log('gossip_store:.*truncate')
+
+
 def test_gossip_store_load_complex(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
