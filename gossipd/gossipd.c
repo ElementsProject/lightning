@@ -485,8 +485,18 @@ static bool get_node_announcement(const tal_t *ctx,
 			      n->bcast.index, tal_hex(tmpctx, msg));
 		return false;
 	}
-	assert(node_id_eq(&id, &n->id));
-	assert(timestamp == n->bcast.timestamp);
+
+	if (!node_id_eq(&id, &n->id) || timestamp != n->bcast.timestamp) {
+		status_broken("Wrong node_announcement @%u:"
+			      " expected %s timestamp %u "
+			      " got %s timestamp %u",
+			      n->bcast.index,
+			      type_to_string(tmpctx, struct node_id, &n->id),
+			      timestamp,
+			      type_to_string(tmpctx, struct node_id, &id),
+			      n->bcast.timestamp);
+		return false;
+	}
 
 	*wireaddrs = read_addresses(ctx, addresses);
 	tal_free(addresses);
