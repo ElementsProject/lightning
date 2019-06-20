@@ -1266,9 +1266,9 @@ def test_gossip_store_load_no_channel_update(node_factory):
                                   "00000000"  # timestamp
                                   "1005"      # WIRE_GOSSIP_STORE_CHANNEL_AMOUNT
                                   "0000000001000000"
-                                  "00000082"  # len
-                                  "fd421aeb"  # csum
-                                  "5b8d9b44"  # timestamp
+                                  "00000095"  # len
+                                  "f036515e"  # csum
+                                  "5aab817c"  # timestamp
                                   "0101"      # WIRE_NODE_ANNOUNCEMENT
                                   "cf5d870bc7ecabcb7cd16898ef66891e5f0c6c5851bd85b670f03d325bc44d7544d367cd852e18ec03f7f4ff369b06860a3b12b07b29f36fb318ca11348bf8ec00005aab817c03f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d23974b250757a7a6c6549544300000000000000000000000000000000000000000000000007010566933e2607"))
 
@@ -1279,3 +1279,5 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), "rb") as f:
         assert bytearray(f.read()) == bytearray.fromhex("07")
+
+    assert not l1.daemon.is_in_log('gossip_store.*truncating')
