@@ -2583,42 +2583,63 @@ struct timeabs gossip_time_now(const struct routing_state *rstate)
 	return time_now();
 }
 
-/* gossip_store wants to delete any dangling node_announcement msgs */
-u32 remove_unfinalized_node_announce(struct routing_state *rstate)
-{
-	/* We're only interested in node_announcement we caught. */
-	for (;;) {
-		struct pending_node_announce *pna;
-		struct pending_node_map_iter it;
-
-		pna = pending_node_map_first(rstate->pending_node_map, &it);
-		if (!pna)
-			return 0;
-
-		/* This will be deleted by the associated unupdated_channel; just
-		 * remove from map for now. */
-		pending_node_map_del(rstate->pending_node_map, pna);
-		if (!pna->node_announcement)
-			continue;
-
-		assert(pna->index);
-		return pna->index;
-	}
-}
-
-/* gossip_store wants to delete any dangling channel_announcement msgs */
-u32 remove_unupdated_channel_announce(struct routing_state *rstate)
+const char *unfinalized_entries(const tal_t *ctx, struct routing_state *rstate)
 {
 	struct unupdated_channel *uc;
 	u64 index;
+	struct pending_node_announce *pna;
+	struct pending_node_map_iter it;
 
 	uc = uintmap_first(&rstate->unupdated_chanmap, &index);
-	if (!uc)
-		return 0;
+	if (uc)
+		return tal_fmt(ctx, "Unupdated channel_announcement at %u",
+			       uc->index);
 
-	assert(uc->index);
-	index = uc->index;
+	pna = pending_node_map_first(rstate->pending_node_map, &it);
+	if (pna)
+		return tal_fmt(ctx, "Waiting node_announcement at %u",
+			       pna->index);
 
-	tal_free(uc);
-	return index;
+	return NULL;
+}
+
+/* Gossip store was corrupt, forget anything we loaded. */
+void remove_all_gossip(struct routing_state *rstate)
+{
+	struct node *n;
+	struct node_map_iter nit;
+	struct chan *c;
+	struct unupdated_channel *uc;
+	u64 index;
+	struct pending_cannouncement *pca;
+	struct pending_cannouncement_map_iter pit;
+	struct pending_node_map_iter pnait;
+
+	/* We don't want them to try to delete from store, so do this
+	 * manually. */
+	while ((n = node_map_first(rstate->nodes, &nit)) != NULL) {
+		tal_del_destructor2(n, destroy_node, rstate);
+		if (node_uses_chan_map(n))
+			chan_map_clear(&n->chans.map);
+		node_map_del(rstate->nodes, n);
+		tal_free(n);
+	}
+
+	/* Now free all the channels. */
+	while ((c = uintmap_first(&rstate->chanmap, &index)) != NULL) {
+		uintmap_del(&rstate->chanmap, index);
+
+		/* Remove from local_disabled_map if it's there. */
+		chan_map_del(&rstate->local_disabled_map, c);
+		tal_free(c);
+	}
+
+	while ((uc = uintmap_first(&rstate->unupdated_chanmap, &index)) != NULL)
+		tal_free(uc);
+
+	while ((pca = pending_cannouncement_map_first(&rstate->pending_cannouncements, &pit)) != NULL)
+		tal_free(pca);
+
+	/* Freeing unupdated chanmaps should empty this */
+	assert(pending_node_map_first(rstate->pending_node_map, &pnait) == NULL);
 }
