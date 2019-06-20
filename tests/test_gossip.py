@@ -945,9 +945,9 @@ def test_gossip_store_load_amount_truncated(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: dangling channel_announcement'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: dangling channel_announcement. Moving to gossip_store.corrupt and truncating'))
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1 bytes'))
-    assert not l1.daemon.is_in_log('gossip_store.*truncating')
+    assert os.path.exists(os.path.join(l1.daemon.lightning_dir, 'gossip_store.corrupt'))
 
     # Extra sanity check if we can.
     if DEVELOPER:
@@ -1274,10 +1274,12 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     l1.start()
 
+    # May preceed the Started msg waited for in 'start'.
+    wait_for(lambda: l1.daemon.is_in_log('gossip_store: Unupdated channel_announcement at 1. Moving to gossip_store.corrupt and truncating'))
+    assert os.path.exists(os.path.join(l1.daemon.lightning_dir, 'gossip_store.corrupt'))
+
     # This should actually result in an empty store.
     l1.rpc.call('dev-compact-gossip-store')
 
     with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), "rb") as f:
         assert bytearray(f.read()) == bytearray.fromhex("07")
-
-    assert not l1.daemon.is_in_log('gossip_store.*truncating')

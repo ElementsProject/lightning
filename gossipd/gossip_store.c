@@ -5,6 +5,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
 #include <common/utils.h>
@@ -546,13 +547,13 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		msg = tal_arr(tmpctx, u8, msglen);
 
 		if (pread(gs->fd, msg, msglen, gs->len+sizeof(hdr)) != msglen) {
-			status_unusual("gossip_store: truncated file?");
-			goto truncate_nomsg;
+			bad = "gossip_store: truncated file?";
+			goto corrupt;
 		}
 
 		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen)) {
 			bad = "Checksum verification failed";
-			goto truncate;
+			goto badmsg;
 		}
 
 		/* Skip deleted entries */
@@ -568,7 +569,7 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			if (!fromwire_gossip_store_channel_amount(msg,
 								  &satoshis)) {
 				bad = "Bad gossip_store_channel_amount";
-				goto truncate;
+				goto badmsg;
 			}
 			/* Previous channel_announcement may have been deleted */
 			if (!chan_ann)
@@ -578,7 +579,7 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 							      satoshis,
 							      chan_ann_off)) {
 				bad = "Bad channel_announcement";
-				goto truncate;
+				goto badmsg;
 			}
 			chan_ann = NULL;
 			stats[0]++;
@@ -586,7 +587,7 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 			if (chan_ann) {
 				bad = "channel_announcement without amount";
-				goto truncate;
+				goto badmsg;
 			}
 			/* Save for channel_amount (next msg) */
 			chan_ann = tal_steal(gs, msg);
@@ -598,14 +599,14 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		case WIRE_GOSSIP_STORE_PRIVATE_UPDATE:
 			if (!fromwire_gossip_store_private_update(tmpctx, msg, &msg)) {
 				bad = "invalid gossip_store_private_update";
-				goto truncate;
+				goto badmsg;
 			}
 			/* fall thru */
 		case WIRE_CHANNEL_UPDATE:
 			if (!routing_add_channel_update(rstate,
 							take(msg), gs->len)) {
 				bad = "Bad channel_update";
-				goto truncate;
+				goto badmsg;
 			}
 			stats[1]++;
 			break;
@@ -613,19 +614,19 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			if (!routing_add_node_announcement(rstate,
 							   take(msg), gs->len)) {
 				bad = "Bad node_announcement";
-				goto truncate;
+				goto badmsg;
 			}
 			stats[2]++;
 			break;
 		case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
 			if (!handle_local_add_channel(rstate, msg, gs->len)) {
 				bad = "Bad local_add_channel";
-				goto truncate;
+				goto badmsg;
 			}
 			break;
 		default:
 			bad = "Unknown message";
-			goto truncate;
+			goto badmsg;
 		}
 
 		gs->count++;
@@ -635,29 +636,33 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	}
 
 	if (chan_ann) {
-		status_unusual("gossip_store: dangling channel_announcement");
-		goto truncate_nomsg;
+		bad = "dangling channel_announcement";
+		goto corrupt;
 	}
 
 	bad = unfinalized_entries(tmpctx, rstate);
-	if (bad) {
-		status_unusual("gossip_store: %s", bad);
-		goto truncate_nomsg;
-	}
+	if (bad)
+		goto corrupt;
 
 	/* If last timestamp is within 24 hours, say we're OK. */
 	contents_ok = (last_timestamp >= time_now().ts.tv_sec - 24*3600);
 	goto out;
 
-truncate:
-	status_unusual("gossip_store: %s (%s) truncating",
-		       bad, tal_hex(msg, msg));
+badmsg:
+	bad = tal_fmt(tmpctx, "%s (%s)", bad, tal_hex(tmpctx, msg));
 
-truncate_nomsg:
+corrupt:
+	status_broken("gossip_store: %s. Moving to %s.corrupt and truncating",
+		      bad, GOSSIP_STORE_FILENAME);
+
 	/* FIXME: Debug partial truncate case. */
-	if (ftruncate(gs->fd, 1) != 0)
+	rename(GOSSIP_STORE_FILENAME, GOSSIP_STORE_FILENAME ".corrupt");
+	close(gs->fd);
+	gs->fd = open(GOSSIP_STORE_FILENAME,
+		      O_RDWR|O_APPEND|O_TRUNC|O_CREAT, 0600);
+	if (gs->fd < 0 || !write_all(gs->fd, &gs->version, sizeof(gs->version)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Truncating store: %s", strerror(errno));
+			      "Truncating new store file: %s", strerror(errno));
 	remove_all_gossip(rstate);
 	gs->count = gs->deleted = 0;
 	gs->len = 1;
