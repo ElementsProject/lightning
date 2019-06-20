@@ -1,4 +1,4 @@
-check: wire-tests
+check-units: wire-tests
 
 # Note that these actually #include everything they need, except ccan/ and bitcoin/.
 # That allows for unit testing of statics, and special effects.

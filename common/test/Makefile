@@ -13,4 +13,4 @@ ALL_OBJS += $(COMMON_TEST_PROGRAMS:=.o)
 
 update-mocks: $(COMMON_TEST_SRC:%=update-mocks/%)
 
-check: $(COMMON_TEST_PROGRAMS:%=unittest/%)
+check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)

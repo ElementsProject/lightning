@@ -190,7 +190,8 @@ There are three kinds of tests:
   header order, and checks formatted quotes from BOLTs if BOLTDIR
   exists.
 
-* **unit tests** - standalone programs that can be run individually.
+* **unit tests** - standalone programs that can be run individually. You can
+  also run all of the unit tests with `make check-units`.
   They are `run-*.c` files in test/ subdirectories used to test routines
   inside C source files.
 

@@ -244,7 +244,9 @@ else
 PYTEST_OPTS += -x
 endif
 
-check:
+check-units:
+
+check: check-units
 	$(MAKE) installcheck
 	$(MAKE) pytest
 
