@@ -14,4 +14,4 @@ ALL_OBJS += $(BITCOIN_TEST_PROGRAMS:=.o)
 bitcoin/test/run-secret_eq_consttime.o: CFLAGS += -DCOPTFLAGS="\"${COPTFLAGS}\""
 update-mocks: $(BITCOIN_TEST_SRC:%=update-mocks/%)
 
-check: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)
+check-units: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)

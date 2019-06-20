@@ -34,4 +34,4 @@ $(WALLET_TEST_OBJS): $(WALLET_SRC)
 
 update-mocks: $(WALLET_TEST_SRC:%=update-mocks/%)
 
-check: $(WALLET_TEST_PROGRAMS:%=unittest/%)
+check-units: $(WALLET_TEST_PROGRAMS:%=unittest/%)
