@@ -2163,8 +2163,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 							&node_id));
 			return false;
 		} else if (timestamp <= pna->timestamp)
-			/* Ignore old ones: they're OK though. */
-			return true;
+			/* Ignore old ones: they're OK (unless from store). */
+			return index == 0;
 
 		SUPERVERBOSE("Deferring node_announcement for node %s",
 			     type_to_string(tmpctx, struct node_id, &node_id));
@@ -2184,7 +2184,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	}
 	if (node->bcast.index && node->bcast.timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
-		return true;
+		/* OK unless we're loading from store */
+		return index == 0;
 	}
 
 	/* Harmless if it was never added */
