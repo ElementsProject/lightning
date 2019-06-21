@@ -18,6 +18,9 @@ const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy 
 /* Generated stub for fromwire_amount_msat */
 struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_msat called!\n"); abort(); }
+/* Generated stub for fromwire_fail */
+const void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_fail called!\n"); abort(); }
 /* Generated stub for fromwire_pad */
 void fromwire_pad(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_pad called!\n"); abort(); }

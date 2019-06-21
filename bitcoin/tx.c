@@ -10,6 +10,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
 #include <stdio.h>
+#include <wire/wire.h>
 
 #define SEGREGATED_WITNESS_FLAG 0x1
 
@@ -209,7 +210,7 @@ static void push_tx(const struct bitcoin_tx *tx,
 		flag |= WALLY_TX_FLAG_USE_WITNESS;
 
 	res = wally_tx_get_length(tx->wtx, flag, &len);
-	assert(res);
+	assert(res == WALLY_OK);
 	serialized = tal_arr(tmpctx, u8, len);
 
 	res = wally_tx_to_bytes(tx->wtx, flag, serialized, len, &written);
@@ -295,7 +296,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	size_t wsize;
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	if (wally_tx_from_bytes(*cursor, *max, 0, &tx->wtx) != WALLY_OK) {
-		*cursor = 0;
+		fromwire_fail(cursor, max);
 		return tal_free(tx);
 	}
 	tal_add_destructor(tx, bitcoin_tx_destroy);
