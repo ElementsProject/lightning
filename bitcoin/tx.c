@@ -208,11 +208,13 @@ static void push_tx(const struct bitcoin_tx *tx,
         if (bip144 && uses_witness(tx))
 		flag |= WALLY_TX_FLAG_USE_WITNESS;
 
-	wally_tx_get_length(tx->wtx, flag, &len);
+	res = wally_tx_get_length(tx->wtx, flag, &len);
+	assert(res);
 	serialized = tal_arr(tmpctx, u8, len);
 
 	res = wally_tx_to_bytes(tx->wtx, flag, serialized, len, &written);
-	assert(res == WALLY_OK && len == written);
+	assert(res == WALLY_OK);
+	assert(len == written);
 	push(serialized, len, pushp);
 	tal_free(serialized);
 }
