@@ -2,7 +2,7 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import only_one, wait_for
+from utils import only_one, wait_for, sync_blockheight
 
 import pytest
 import time
@@ -376,3 +376,78 @@ def test_txprepare_restart(node_factory, bitcoind):
     assert decode['txid'] == prep['txid']
     # All 10 inputs
     assert len(decode['vin']) == 10
+
+
+def test_listtransactions(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
+    addr = l1.rpc.newaddr()['bech32']
+
+    assert l1.rpc.listtransactions()['transactions'] == []
+    assert l2.rpc.listtransactions()['transactions'] == []
+
+    # Send something.
+    txid = bitcoind.rpc.sendtoaddress(addr, 1000000 / 10**8 + 0.01)
+    rawtx = bitcoind.rpc.getrawtransaction(txid)
+    bitcoind.generate_block(1, txid)
+
+    wait_for(lambda: len(l1.rpc.listtransactions()['transactions']) == 1)
+    lt = only_one(l1.rpc.listtransactions()['transactions'])
+
+    assert lt['txid'] == txid
+#FAIL    assert lt['rawtx'] == rawtx
+    assert lt['blockheight'] == bitcoind.rpc.getblockcount()
+    assert lt['output'] == 1
+    assert lt['type'] == ['deposit']
+    assert not 'short_channel_id' in lt
+
+    # Send it to l2.
+    send = l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all')
+    txid = send['txid']
+    rawtx = send['tx']
+    bitcoind.generate_block(1, txid)
+    sync_blockheight(bitcoind, [l1, l2])
+    wait_for(lambda: len(l2.rpc.listtransactions()['transactions']) == 1)
+    wait_for(lambda: len(l1.rpc.listtransactions()['transactions']) == 2)
+    lt = only_one(l2.rpc.listtransactions()['transactions'])
+
+    assert lt['txid'] == txid
+#FAIL    assert lt['rawtx'] == rawtx
+    assert lt['blockheight'] == bitcoind.rpc.getblockcount()
+    assert lt['output'] == 1
+    assert lt['type'] == ['deposit']
+    assert not 'short_channel_id' in lt
+
+    lt = l1.rpc.listtransactions()['transactions'][1]
+    assert lt['txid'] == txid
+#FAIL    assert lt['rawtx'] == rawtx
+#FAIL    assert lt['blockheight'] == bitcoind.rpc.getblockcount()
+    assert lt['output'] == 0
+    assert lt['type'] == ['withdraw']
+    assert not 'short_channel_id' in lt
+
+    # Make a channel.
+    l2.connect(l1)
+    fund = l2.rpc.fundchannel(l1.info['id'], 'all')
+    bitcoind.generate_block(1, fund['txid'])
+    sync_blockheight(bitcoind, [l1, l2])
+
+    lt = l2.rpc.listtransactions()['transactions'][1]
+    assert lt['txid'] == fund['txid']
+    assert lt['rawtx'] == fund['tx']
+    assert lt['blockheight'] == bitcoind.rpc.getblockcount()
+#FAIL    assert lt['output'] == 0
+    assert lt['type'] == ['channel_funding']
+    height = bitcoind.rpc.getblockcount()
+    assert lt['short_channel_id'] == '{}x{}x0'.format(height, 1)
+
+    # Announce it.
+    bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, [l1, l2])
+    lt = l2.rpc.listtransactions()['transactions'][1]
+    assert lt['txid'] == fund['txid']
+    assert lt['rawtx'] == fund['tx']
+    assert lt['blockheight'] == height
+#FAIL    assert lt['output'] == 0
+    assert lt['type'] == ['channel_funding']
+    assert lt['short_channel_id'] == '{}x{}x0'.format(height, 1)
+    
