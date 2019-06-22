@@ -26,8 +26,11 @@ enum channel_state {
 	FUNDING_SPEND_SEEN,
 
 	/* On chain */
-	ONCHAIN
+	ONCHAIN,
+
+	/* Final state after we have fully settled on-chain */
+	CLOSED
 };
-#define CHANNEL_STATE_MAX ONCHAIN
+#define CHANNEL_STATE_MAX CLOSED
 
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H */

@@ -850,8 +850,7 @@ bool wallet_channels_load_active(struct wallet *w)
 	sqlite3_stmt *stmt;
 
 	/* We load all channels */
-	stmt = db_select(w->db, "%s FROM channels;", channel_fields);
-
+	stmt = db_select(w->db, "%s FROM channels WHERE state < %d;", channel_fields, CLOSED);
 	w->max_channel_dbid = 0;
 
 	int count = 0;

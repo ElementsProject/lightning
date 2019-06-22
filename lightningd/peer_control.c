@@ -826,7 +826,10 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 		case ONCHAIN:
 		case FUNDING_SPEND_SEEN:
 		case CLOSINGD_COMPLETE:
-			/* Channel is supposed to be active! */
+			/* Channel is supposed to be active!*/
+			abort();
+		case CLOSED:
+			/* Channel should not have been loaded */
 			abort();
 
 		/* We consider this "active" but we only send an error */
