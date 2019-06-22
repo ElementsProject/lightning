@@ -77,12 +77,95 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 	return writev(fd, iov, ARRAY_SIZE(iov)) == sizeof(hdr) + msglen;
 }
 
+/* Read gossip store entries, copy non-deleted ones.  This code is written
+ * as simply and robustly as possible! */
+static void gossip_store_compact_offline(void)
+{
+	size_t count = 0, deleted = 0;
+	int old_fd, new_fd;
+	struct gossip_hdr hdr;
+	u8 version;
+
+	old_fd = open(GOSSIP_STORE_FILENAME, O_RDONLY);
+	if (old_fd == -1)
+		return;
+	new_fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_TRUNC|O_CREAT, 0600);
+	if (new_fd < 0) {
+		status_broken(
+		    "Could not open file for gossip_store compaction");
+		goto close_old;
+	}
+
+	if (!read_all(old_fd, &version, sizeof(version))
+	    || version != GOSSIP_STORE_VERSION) {
+		status_broken("gossip_store_compact: bad version");
+		goto close_and_delete;
+	}
+
+	if (!write_all(new_fd, &version, sizeof(version))) {
+		status_broken("gossip_store_compact_offline: writing version to store: %s",
+			      strerror(errno));
+		goto close_and_delete;
+	}
+
+	/* Read everything, write non-deleted ones to new_fd */
+	while (read_all(old_fd, &hdr, sizeof(hdr))) {
+		size_t msglen;
+		u8 *msg;
+
+		msglen = (be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT);
+		msg = tal_arr(NULL, u8, msglen);
+		if (!read_all(old_fd, msg, msglen)) {
+			status_broken("gossip_store_compact_offline: reading msg len %zu from store: %s",
+				      msglen, strerror(errno));
+			tal_free(msg);
+			goto close_and_delete;
+		}
+
+		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT) {
+			deleted++;
+			tal_free(msg);
+			continue;
+		}
+
+		if (!write_all(new_fd, &hdr, sizeof(hdr))
+		    || !write_all(new_fd, msg, msglen)) {
+			status_broken("gossip_store_compact_offline: writing msg len %zu to new store: %s",
+				      msglen, strerror(errno));
+			tal_free(msg);
+			goto close_and_delete;
+		}
+		tal_free(msg);
+		count++;
+	}
+	if (close(new_fd) != 0) {
+		status_broken("gossip_store_compact_offline: closing new store: %s",
+			      strerror(errno));
+		goto close_old;
+	}
+	close(old_fd);
+	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) != 0) {
+		status_broken("gossip_store_compact_offline: rename failed: %s",
+			      strerror(errno));
+	}
+	status_debug("gossip_store_compact_offline: %zu deleted, %zu copied",
+		     deleted, count);
+	return;
+
+close_and_delete:
+	close(new_fd);
+close_old:
+	close(old_fd);
+	unlink(GOSSIP_STORE_TEMP_FILENAME);
+}
+
 struct gossip_store *gossip_store_new(struct routing_state *rstate,
 				      struct list_head *peers)
 {
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
 	gs->count = gs->deleted = 0;
 	gs->writable = true;
+	gossip_store_compact_offline();
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 	gs->rstate = rstate;
 	gs->disable_compaction = false;
@@ -352,19 +435,6 @@ disable:
 	return false;
 }
 
-static void gossip_store_maybe_compact(struct gossip_store *gs)
-{
-	/* Don't compact while loading! */
-	if (!gs->writable)
-		return;
-	if (gs->count < 1000)
-		return;
-	if (gs->deleted < gs->count / 4)
-		return;
-
-	gossip_store_compact(gs);
-}
-
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 		     u32 timestamp,
 		     const u8 *addendum)
@@ -460,8 +530,6 @@ void gossip_store_delete(struct gossip_store *gs,
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT)
 		delete_by_index(gs, next_index,
 				WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
-
-	gossip_store_maybe_compact(gs);
 }
 
 const u8 *gossip_store_get(const tal_t *ctx,
