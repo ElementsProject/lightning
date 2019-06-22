@@ -454,9 +454,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan);
 void wallet_channel_insert(struct wallet *w, struct channel *chan);
 
 /**
- * wallet_channel_delete -- After resolving a channel, forget about it
+ * After fully resolving a channel, only keep a lightweight stub
  */
-void wallet_channel_delete(struct wallet *w, u64 wallet_id);
+void wallet_channel_close(struct wallet *w, u64 wallet_id);
 
 /**
  * wallet_peer_delete -- After no more channels in peer, forget about it

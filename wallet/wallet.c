@@ -1213,12 +1213,56 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 	wallet_channel_save(w, chan);
 }
 
-void wallet_channel_delete(struct wallet *w, u64 wallet_id)
+void wallet_channel_close(struct wallet *w, u64 wallet_id)
 {
+	/* We keep a couple of dependent tables around as well, such as the
+	 * channel_configs table, since that might help us debug some issues,
+	 * and it is rather limited in size. Tables that can grow quite
+	 * considerably and that are of limited use after channel closure will
+	 * be pruned as well. */
+
 	sqlite3_stmt *stmt;
+
+	/* Delete entries from `channel_htlcs` */
 	stmt = db_prepare(w->db,
-			  "DELETE FROM channels WHERE id=?");
+			  "DELETE FROM channel_htlcs "
+			  "WHERE channel_id=?");
 	sqlite3_bind_int64(stmt, 1, wallet_id);
+	db_exec_prepared(w->db, stmt);
+
+	/* Delete entries from `htlc_sigs` */
+	stmt = db_prepare(w->db,
+			  "DELETE FROM htlc_sigs "
+			  "WHERE channelid=?");
+	sqlite3_bind_int64(stmt, 1, wallet_id);
+	db_exec_prepared(w->db, stmt);
+
+	/* Delete entries from `htlc_sigs` */
+	stmt = db_prepare(w->db,
+			  "DELETE FROM channeltxs "
+			  "WHERE channel_id=?");
+	sqlite3_bind_int64(stmt, 1, wallet_id);
+	db_exec_prepared(w->db, stmt);
+
+	/* Delete shachains */
+	stmt = db_prepare(w->db,
+			  "DELETE FROM shachains "
+			  "WHERE id IN ("
+			  "  SELECT shachain_remote_id "
+			  "  FROM channels "
+			  "  WHERE channels.id=?"
+			  ")");
+	sqlite3_bind_int64(stmt, 1, wallet_id);
+	db_exec_prepared(w->db, stmt);
+
+	/* Set the channel to closed and disassociate with peer */
+	stmt = db_prepare(w->db,
+			  "UPDATE channels "
+			  "SET state=?, peer_id=?"
+			  "WHERE channels.id=?");
+	sqlite3_bind_int64(stmt, 1, CLOSED);
+	sqlite3_bind_null(stmt, 2);
+	sqlite3_bind_int64(stmt, 3, wallet_id);
 	db_exec_prepared(w->db, stmt);
 }
 
