@@ -92,6 +92,10 @@ def test_closing(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 0)
     wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 0)
 
+    # The entry in the channels table should still be there
+    assert l1.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
+    assert l2.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
+
 
 def test_closing_while_disconnected(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
