@@ -790,10 +790,9 @@ static struct command_result *json_listtransactions(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
-	response = json_stream_success(cmd);
-	txs = wallet_transactions_get(cmd->ld->wallet, response);
+	txs = wallet_transactions_get(cmd->ld->wallet, cmd);
 
-	json_object_start(response, NULL);
+	response = json_stream_success(cmd);
 	json_array_start(response, "transactions");
 	for (size_t i=0; i<tal_count(txs); i++) {
 		json_object_start(response, NULL);
@@ -810,7 +809,6 @@ static struct command_result *json_listtransactions(struct command *cmd,
 		json_object_end(response);
 	}
 	json_array_end(response);
-	json_object_end(response);
 	return command_success(cmd, response);
 }
 
