@@ -295,7 +295,7 @@ struct wallet_transaction {
 	u32 txindex;
 	u8 *rawtx;
 	enum wallet_tx_type type;
-	u64 channel_id;
+	struct short_channel_id *scid;
 };
 
 /**

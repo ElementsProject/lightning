@@ -801,11 +801,10 @@ static struct command_result *json_listtransactions(struct command *cmd,
 		json_add_u64(response, "blockheight", txs[i].blockheight);
 		json_add_num(response, "txindex", txs[i].txindex);
 		json_add_txtypes(response, "type", txs[i].type);
-		if (txs[i].channel_id != 0) {
-			json_add_num(response, "channel_id", txs[i].channel_id);
-		} else {
-			json_add_null(response, "channel_id");
-		}
+		if (txs[i].scid)
+			json_add_short_channel_id(response,
+						  "short_channel_id",
+						  txs[i].scid);
 		json_object_end(response);
 	}
 	json_array_end(response);

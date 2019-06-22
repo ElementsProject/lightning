@@ -2837,11 +2837,34 @@ void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind)
 		tal_free(utxos);
 }
 
+static bool scid_for_channel(struct wallet *w,
+			     u64 channel_id,
+			     struct short_channel_id *scid)
+{
+	sqlite3_stmt *stmt;
+
+	stmt = db_select_prepare(w->db,
+				 "short_channel_id "
+				 "FROM channels "
+				 "WHERE id = ?;");
+
+	sqlite3_bind_int64(stmt, 1, channel_id);
+	if (!db_select_step(w->db, stmt))
+		return false;
+
+	if (!sqlite3_column_short_channel_id(stmt, 0, scid))
+		fatal("Cannot convert short_channel_id for channel id %"PRIu64,
+		      channel_id);
+	db_stmt_done(stmt);
+	return true;
+}
+
 struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx)
 {
 	sqlite3_stmt *stmt;
 	size_t count;
 	struct wallet_transaction *cur, *txs = tal_arr(ctx, struct wallet_transaction, 0);
+	u64 *channel_ids = tal_arr(tmpctx, u64, 0);
 
 	stmt = db_select_prepare(w->db,
 				 "id, id, rawtx, blockheight, txindex, type, channel_id "
@@ -2855,7 +2878,23 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		cur->blockheight = sqlite3_column_int(stmt, 3);
 		cur->txindex = sqlite3_column_int(stmt, 4);
 		cur->type = sqlite3_column_int(stmt, 5);
-		cur->channel_id = sqlite3_column_int(stmt, 6);
+		tal_arr_expand(&channel_ids, sqlite3_column_int(stmt, 6));
+	}
+
+	/* FIXME: This could be done with a complex join. */
+	for (size_t i = 0; i < tal_count(txs); i++) {
+		struct short_channel_id scid;
+		if (channel_ids[i] == 0) {
+			txs[i].scid = NULL;
+			continue;
+		}
+		/* May be a deleted channel. */
+		if (!scid_for_channel(w, channel_ids[i], &scid))
+			txs[i].scid = NULL;
+		else
+			txs[i].scid = tal_dup(txs,
+					      struct short_channel_id,
+					      &scid);
 	}
 
 	return txs;
