@@ -620,6 +620,12 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("listfunds")
 
+    def listtransactions(self):
+        """
+        Show wallet history
+        """
+        return self.call("listtransactions")
+
     def listinvoices(self, label=None):
         """
         Show invoice {label} (or all, if no {label))
