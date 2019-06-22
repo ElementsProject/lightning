@@ -751,6 +751,7 @@ static const struct json_command dev_rescan_output_command = {
 };
 AUTODATA(json_command, &dev_rescan_output_command);
 
+#if EXPERIMENTAL_FEATURES
 struct {
 	enum wallet_tx_type t;
 	const char *name;
@@ -826,3 +827,4 @@ static const struct json_command listtransactions_command = {
     "it closes the channel and returns funds to the wallet."
 };
 AUTODATA(json_command, &listtransactions_command);
+#endif
