@@ -1234,6 +1234,10 @@ def test_forget_channel(node_factory):
     l1.restart()
     assert len(l1.rpc.listpeers()['peers']) == 0
 
+    # The entry in the channels table should still be there
+    assert l1.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
+    assert l2.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
+
 
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
