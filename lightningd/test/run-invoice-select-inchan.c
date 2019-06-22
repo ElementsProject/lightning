@@ -461,9 +461,9 @@ void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *scrip
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
-/* Generated stub for wallet_channel_delete */
-void wallet_channel_delete(struct wallet *w UNNEEDED, u64 wallet_id UNNEEDED)
-{ fprintf(stderr, "wallet_channel_delete called!\n"); abort(); }
+/* Generated stub for wallet_channel_close */
+void wallet_channel_close(struct wallet *w UNNEEDED, u64 wallet_id UNNEEDED)
+{ fprintf(stderr, "wallet_channel_close called!\n"); abort(); }
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
