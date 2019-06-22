@@ -922,7 +922,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store \(1 deleted\) in 912 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 770 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
     # Extra sanity check if we can.
@@ -1283,3 +1283,12 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), "rb") as f:
         assert bytearray(f.read()) == bytearray.fromhex("07")
+
+
+def test_gossip_store_compact_on_load(node_factory, bitcoind):
+    l2 = setup_gossip_store_test(node_factory, bitcoind)
+
+    l2.restart()
+
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store_compact_offline: 9 deleted, 9 copied'))
+    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1446 bytes'))
