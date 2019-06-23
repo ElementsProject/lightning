@@ -12,7 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: New command `setchannelfee` sets channel specific routing fees.
 - JSON API: new withdraw methods `txprepare`, `txsend` and `txdiscard`.
 - JSON API: add three new RPC commands: `fundchannel_start`, `fundchannel_complete` and `fundchannel_cancel`. Allows a user to initiate and complete a channel open using funds that are in a external wallet.
-- JSON API: new `listtransactions` command to show wallet history.
 - Plugin: new hooks `db_write` for intercepting database writes, `invoice_payment` for intercepting invoices before they're paid, `openchannel` for intercepting channel opens, and `htlc_accepted` to decide whether to resolve, reject or continue an incoming or forwarded payment..
 - Plugin: new notification `warning` to report any `LOG_UNUSUAL`/`LOG_BROKEN` level event.
 - Plugin: Added a default plugin directory : `lightning_dir/plugins`. Each plugin directory it contains will be added to lightningd on startup.
