@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.1-rc2]
+## [0.7.1-rc3]
 
 ### Added
 
@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Gossip: we no longer compact the `gossip_store` file dynamically, due to lingering bugs.  Restart if it gets too large.
 - Protocol: no longer ask for entire gossip flood from peers, unless we're missing gossip.
 - JSON API: `invoice` expiry defaults to 7 days, and can have s/m/h/d/w suffixes.
 - Config: Increased default amount for minimal channel capacity from 1k sat to 10k sat.
@@ -377,7 +378,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[0.7.1-rc2]: https://github.com/ElementsProject/lightning/compare/v0.7.0...HEAD
+[0.7.1-rc3]: https://github.com/ElementsProject/lightning/compare/v0.7.0...HEAD
 [0.7.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.0
 [0.6.3]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.3
 [0.6.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.2
