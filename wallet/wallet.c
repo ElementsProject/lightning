@@ -2753,20 +2753,23 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		cur->status = sqlite3_column_int(stmt, 0);
 		cur->msat_in = sqlite3_column_amount_msat(stmt, 1);
 
-		if (sqlite3_column_type(stmt, 2) != SQLITE_NULL)
+		if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
 			cur->msat_out = sqlite3_column_amount_msat(stmt, 2);
+			if (!amount_msat_sub(&cur->fee, cur->msat_in, cur->msat_out)) {
+				log_broken(w->log, "Forwarded in %s less than out %s!",
+					   type_to_string(tmpctx, struct amount_msat,
+							  &cur->msat_in),
+					   type_to_string(tmpctx, struct amount_msat,
+							  &cur->msat_out));
+				cur->fee = AMOUNT_MSAT(0);
+			}
+		}
 		else {
 			assert(cur->status == FORWARD_LOCAL_FAILED);
 			cur->msat_out = AMOUNT_MSAT(0);
-		}
-
-		if (!amount_msat_sub(&cur->fee, cur->msat_in, cur->msat_out)) {
-			log_broken(w->log, "Forwarded in %s less than out %s!",
-				   type_to_string(tmpctx, struct amount_msat,
-						  &cur->msat_in),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &cur->msat_out));
-			cur->fee = AMOUNT_MSAT(0);
+			/* For this case, this forward_payment doesn't have out channel,
+			 * so the fee should be set as 0.*/
+			cur->fee =  AMOUNT_MSAT(0);
 		}
 
 		if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
@@ -2795,7 +2798,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		}
 
 		if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
-			assert(cur->status == FORWARD_FAILED || cur->status == FORWARD_LOCAL_FAILED);
+			assert(cur->status == FORWARD_FAILED ||
+			       cur->status == FORWARD_LOCAL_FAILED);
 			cur->failcode = sqlite3_column_int(stmt, 8);
 		} else {
 			cur->failcode = 0;
