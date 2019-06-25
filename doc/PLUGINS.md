@@ -295,6 +295,89 @@ forms:
 `jcon fd <error_fd_to_jsonrpc>:`, `plugin-manager`;
 4. `log` is the context of the original log entry.
 
+#### `forward_event`
+
+A notification for topic `forward_event` is sent every time the status
+of a forward payment is set. The json format is same as the API
+`listforwards`.
+
+```json
+{
+  "forward_event": {
+  "payment_hash": "f5a6a059a25d1e329d9b094aeeec8c2191ca037d3f5b0662e21ae850debe8ea2",
+  "in_channel": "103x2x1",
+  "out_channel": "103x1x1",
+  "in_msatoshi": 100001001,
+  "in_msat": "100001001msat",
+  "out_msatoshi": 100000000,
+  "out_msat": "100000000msat",
+  "fee": 1001,
+  "fee_msat": "1001msat",
+  "status": "settled",
+  "received_time": 1560696342.368,
+  "resolved_time": 1560696342.556
+  }
+}
+```
+or
+
+```json
+{
+  "forward_event": {
+  "payment_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "in_channel": "103x2x1",
+  "out_channel": "110x1x0",
+  "in_msatoshi": 100001001,
+  "in_msat": "100001001msat",
+  "out_msatoshi": 100000000,
+  "out_msat": "100000000msat",
+  "fee": 1001,
+  "fee_msat": "1001msat",
+  "status": "local_failed",
+  "failcode": 16392,
+  "failreason": "WIRE_PERMANENT_CHANNEL_FAILURE",
+  "received_time": 1560696343.052
+  }
+}
+                  
+```
+ - The status includes `offered`, `settled`, `failed` and `local_failed`,
+   and they are all string type in json.
+   - When the forward payment is valid for us, we'll set `offered`
+     and send the forward payment to next hop to resolve;
+   - When the payment forwarded by us gets paid eventually, the forward
+     payment will change the status from `offered` to `settled`;
+   - If payment fails locally(like failing to resolve locally) or the
+     corresponding htlc with next hop fails(like htlc timeout), we will
+     set the status as `local_failed`. `local_failed` may be set before
+     setting `offered` or after setting `offered`. In fact, from the
+     time we receive the htlc of the previous hop, all we can know the
+     cause of the failure is treated as `local_failed`. `local_failed`
+     only occuors locally or happens in the htlc between us and next hop;
+     - If `local_failed` is set before `offered`, this
+       means we just received htlc from the previous hop and haven't
+       generate htlc for next hop. In this case, the json of `forward_event`
+       sets the fields of `out_msatoshi`, `out_msat`,`fee` and `out_channel`
+       as 0;
+       - Note: In fact, for this case we may be not sure if this incoming
+         htlc represents a pay to us or a payment we need to forward.
+         We just simply treat all incoming failed to resolve as 
+         `local_failed`.
+     - Only in `local_failed` case, json includes `failcode` and
+       `failreason` fields;
+   - `failed` means the payment forwarded by us fails in the
+     latter hops, and the failure isn't related to us, so we aren't
+     accessed to the fail reason. `failed` must be set after
+     `offered`.
+     - `failed` case doesn't include `failcode` and `failreason`
+       fields;
+ - `received_time` means when we received the htlc of this payment from
+   the previous peer. It will be contained into all status case;
+ - `resolved_time` means when the htlc of this payment between us and the
+   next peer was resolved. The resolved result may success or fail, so
+   only `settled` and `failed` case contain `resolved_time`;
+ - The `failcode` and `failreason` are defined in [BOLT 4][bolt4-failure-codes].
+
 
 ## Hooks
 
