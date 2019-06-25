@@ -58,4 +58,11 @@ void notify_forward_event(struct lightningd *ld,
 void notify_sendpay_success(struct lightningd *ld,
 			    const struct wallet_payment *payment);
 
+void notify_sendpay_failure(struct lightningd *ld,
+			    const struct wallet_payment *payment,
+			    int pay_errcode,
+			    const u8 *onionreply,
+			    const struct routing_failure *fail,
+			    char *errmsg);
+
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

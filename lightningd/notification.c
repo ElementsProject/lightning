@@ -251,3 +251,52 @@ void notify_sendpay_success(struct lightningd *ld,
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void sendpay_failure_notification_serialize(struct json_stream *stream,
+						   const struct wallet_payment *payment,
+						   int pay_errcode,
+						   const u8 *onionreply,
+						   const struct routing_failure *fail,
+						   char *errmsg)
+{
+	json_object_start(stream, "sendpay_failure");
+
+	/* In line with the format of json error returned
+	 * by sendpay_fail(). */
+	json_add_member(stream, "code", false, "%d", pay_errcode);
+	json_add_string(stream, "message", errmsg);
+
+	json_object_start(stream, "data");
+	json_sendpay_fail_fields(stream,
+				 payment,
+				 pay_errcode,
+				 onionreply,
+				 fail);
+
+	json_object_end(stream); /* .data */
+	json_object_end(stream); /* .sendpay_failure */
+}
+
+REGISTER_NOTIFICATION(sendpay_failure,
+		      sendpay_failure_notification_serialize);
+
+void notify_sendpay_failure(struct lightningd *ld,
+			    const struct wallet_payment *payment,
+			    int pay_errcode,
+			    const u8 *onionreply,
+			    const struct routing_failure *fail,
+			    char *errmsg)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct wallet_payment *,
+			  int,
+			  const u8 *,
+			  const struct routing_failure *,
+			  char *) = sendpay_failure_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+	    jsonrpc_notification_start(NULL, "sendpay_failure");
+	serialize(n->stream, payment, pay_errcode, onionreply, fail, errmsg);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
