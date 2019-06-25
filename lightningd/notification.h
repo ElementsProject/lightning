@@ -12,6 +12,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/pay.h>
 #include <lightningd/plugin.h>
 #include <wallet/wallet.h>
 #include <wire/gen_onion_wire.h>
@@ -53,5 +54,8 @@ void notify_forward_event(struct lightningd *ld,
 			  enum forward_status state,
 			  enum onion_type failcode,
 			  struct timeabs *resolved_time);
+
+void notify_sendpay_success(struct lightningd *ld,
+			    const struct wallet_payment *payment);
 
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */
