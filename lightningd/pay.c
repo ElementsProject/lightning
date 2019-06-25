@@ -12,6 +12,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -113,6 +114,7 @@ static struct command_result *sendpay_success(struct command *cmd,
 
 	assert(payment->status == PAYMENT_COMPLETE);
 
+	notify_sendpay_success(cmd->ld, payment);
 	response = json_stream_success(cmd);
 	json_add_payment_fields(response, payment);
 	return command_success(cmd, response);
@@ -182,6 +184,13 @@ sendpay_fail(struct command *cmd,
 				 onion_type_name(fail->failcode),
 				 details);
 	}
+
+	notify_sendpay_failure(cmd->ld,
+			       payment,
+			       pay_errcode,
+			       onionreply,
+			       fail,
+			       errmsg);
 
 	data = json_stream_fail(cmd, pay_errcode,
 				errmsg);
