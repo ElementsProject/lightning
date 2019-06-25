@@ -384,6 +384,68 @@ or
    only `settled` and `failed` case contain `resolved_time`;
  - The `failcode` and `failreason` are defined in [BOLT 4][bolt4-failure-codes].
 
+#### `sendpay_success`
+
+A notification for topic `sendpay_success` is sent every time a sendpay
+success(with `complete` status). The json is same as the return value of
+command `sendpay`/`waitsendpay` when these cammand succeeds.
+
+```json
+{
+	"sendpay_success": {
+  "id": 1,
+  "payment_hash": "5c85bf402b87d4860f4a728e2e58a2418bda92cd7aea0ce494f11670cfbfb206",
+  "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+  "msatoshi": 100000000,
+  "amount_msat": "100000000msat",
+  "msatoshi_sent": 100001001,
+  "amount_sent_msat": "100001001msat",
+  "created_at": 1561390572,
+  "status": "complete",
+  "payment_preimage": "9540d98095fd7f37687ebb7759e733934234d4f934e34433d4998a37de3733ee"
+  }
+}
+```
+`sendpay` doesn't wait for the result of sendpay and `waitsendpay`
+returns the result of sendpay in specified time or timeout, but
+`sendpay_success` will always return the result anytime when sendpay
+successes if is was subscribed.
+
+#### `sendpay_failure`
+
+A notification for topic `sendpay_failure` is sent every time a sendpay
+success(with `failed` status). The json is same as the return value of
+command `sendpay`/`waitsendpay` when this cammand fails.
+
+```json
+{
+  "sendpay_failure": {
+  "code": 204,
+  "message": "failed: WIRE_UNKNOWN_NEXT_PEER (reply from remote)",
+  "data": {
+    "id": 2,
+    "payment_hash": "9036e3bdbd2515f1e653cb9f22f8e4c49b73aa2c36e937c926f43e33b8db8851",
+    "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+    "msatoshi": 100000000,
+    "amount_msat": "100000000msat",
+    "msatoshi_sent": 100001001,
+    "amount_sent_msat": "100001001msat",
+    "created_at": 1561395134,
+    "status": "failed",
+    "erring_index": 1,
+    "failcode": 16394,
+    "failcodename": "WIRE_UNKNOWN_NEXT_PEER",
+    "erring_node": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+    "erring_channel": "103x2x1",
+    "erring_direction": 0
+    }
+  }
+}
+```
+`sendpay` doesn't wait for the result of sendpay and `waitsendpay`
+returns the result of sendpay in specified time or timeout, but
+`sendpay_failure` will always return the result anytime when sendpay
+fails if is was subscribed.
 
 ## Hooks
 
