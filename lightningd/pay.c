@@ -531,7 +531,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			    pay_errcode, hout->failuremsg, fail, failmsg);
 }
 
-/* Wait for a payment. If cmd is deleted, then json_waitsendpay_on_resolve
+/* Wait for a payment. If cmd is deleted, then wait_payment()
  * no longer be called.
  * Return callback if we called already, otherwise NULL. */
 static struct command_result *wait_payment(struct lightningd *ld,
