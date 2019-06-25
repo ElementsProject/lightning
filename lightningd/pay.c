@@ -73,9 +73,8 @@ add_waitsendpay_waiter(struct lightningd *ld,
 }
 
 /* Outputs fields, not a separate object*/
-static void
-json_add_payment_fields(struct json_stream *response,
-			const struct wallet_payment *t)
+void json_add_payment_fields(struct json_stream *response,
+			     const struct wallet_payment *t)
 {
 	json_add_u64(response, "id", t->id);
 	json_add_sha256(response, "payment_hash", &t->payment_hash);

@@ -227,3 +227,27 @@ void notify_forward_event(struct lightningd *ld,
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void sendpay_success_notification_serialize(struct json_stream *stream,
+						   const struct wallet_payment *payment)
+{
+	json_object_start(stream, "sendpay_success");
+	json_add_payment_fields(stream, payment);
+	json_object_end(stream); /* .sendpay_success */
+}
+
+REGISTER_NOTIFICATION(sendpay_success,
+		      sendpay_success_notification_serialize);
+
+void notify_sendpay_success(struct lightningd *ld,
+			    const struct wallet_payment *payment)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct wallet_payment *) = sendpay_success_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+	    jsonrpc_notification_start(NULL, "sendpay_success");
+	serialize(n->stream, payment);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
