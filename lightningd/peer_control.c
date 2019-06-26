@@ -340,6 +340,18 @@ register_close_command(struct lightningd *ld,
 		     &close_command_timeout, cc);
 }
 
+static bool invalid_last_tx(const struct bitcoin_tx *tx)
+{
+	/* This problem goes back further, but was discovered just before the
+	 * 0.7.1 release. */
+#ifdef COMPAT_V070
+	/* Old bug had commitment txs with no outputs; bitcoin_txid asserts. */
+	return tx->wtx->num_outputs == 0;
+#else
+	return false;
+#endif
+}
+
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
@@ -355,6 +367,10 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		log_broken(channel->log,
 			   "Cannot broadcast our commitment tx:"
 			   " they have a future one");
+	} else if (invalid_last_tx(channel->last_tx)) {
+		log_broken(channel->log,
+			   "Cannot broadcast our commitment tx:"
+			   " it's invalid! (ancient channel?)");
 	} else {
 		sign_last_tx(channel);
 		bitcoin_txid(channel->last_tx, &txid);
@@ -568,7 +584,7 @@ static void json_add_channel(struct lightningd *ld,
 
 	json_object_start(response, key);
 	json_add_string(response, "state", channel_state_name(channel));
-	if (channel->last_tx) {
+	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
 		struct bitcoin_txid txid;
 		bitcoin_txid(channel->last_tx, &txid);
 
