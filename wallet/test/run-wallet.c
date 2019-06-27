@@ -193,7 +193,7 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 		      void *cbarg UNNEEDED)
 { fprintf(stderr, "invoices_waitone called!\n"); abort(); }
 /* Generated stub for invoice_try_pay */
-void invoice_try_pay(struct lightningd *ld UNNEEDED,
+bool invoice_try_pay(struct lightningd *ld UNNEEDED,
 		     struct htlc_in *hin UNNEEDED,
 		     const struct sha256 *payment_hash UNNEEDED,
 		     const struct amount_msat msat UNNEEDED)

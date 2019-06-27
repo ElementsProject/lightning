@@ -209,7 +209,7 @@ REGISTER_PLUGIN_HOOK(invoice_payment,
 		     invoice_payment_serialize,
 		     struct invoice_payment_hook_payload *);
 
-void invoice_try_pay(struct lightningd *ld,
+bool invoice_try_pay(struct lightningd *ld,
 		     struct htlc_in *hin,
 		     const struct sha256 *payment_hash,
 		     const struct amount_msat msat)
@@ -218,10 +218,8 @@ void invoice_try_pay(struct lightningd *ld,
 	const struct invoice_details *details;
 	struct invoice_payment_hook_payload *payload;
 
-	if (!wallet_invoice_find_unpaid(ld->wallet, &invoice, payment_hash)) {
-		fail_htlc(hin, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
-		return;
-	}
+	if (!wallet_invoice_find_unpaid(ld->wallet, &invoice, payment_hash))
+		return false;
 	details = wallet_invoice_details(tmpctx, ld->wallet, invoice);
 
 	/* BOLT #4:
@@ -237,7 +235,7 @@ void invoice_try_pay(struct lightningd *ld,
 		if (amount_msat_less(msat, *details->msat)) {
 			fail_htlc(hin,
 				  WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
-			return;
+			return true;
 		}
 
 		if (amount_msat_add(&twice, *details->msat, *details->msat)
@@ -251,7 +249,7 @@ void invoice_try_pay(struct lightningd *ld,
 			 */
 			fail_htlc(hin,
 				  WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
-			return;
+			return true;
 		}
 	}
 
@@ -265,6 +263,8 @@ void invoice_try_pay(struct lightningd *ld,
 
 	log_debug(ld->log, "Calling hook for invoice '%s'", details->label->s);
 	plugin_hook_call_invoice_payment(ld, payload, payload);
+
+	return true;
 }
 
 static bool hsm_sign_b11(const u5 *u5bytes,

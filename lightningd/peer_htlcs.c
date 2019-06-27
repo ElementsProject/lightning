@@ -275,6 +275,7 @@ static void handle_localpay(struct htlc_in *hin,
 			    struct amount_msat amt_to_forward,
 			    u32 outgoing_cltv_value)
 {
+	bool handled;
 	enum onion_type failcode;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 
@@ -321,8 +322,17 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	invoice_try_pay(ld, hin, payment_hash, amt_to_forward);
-	return;
+	/* Try handlers of incoming payments. */
+	handled = false;
+	if (!handled)
+		handled = invoice_try_pay(ld, hin, payment_hash, amt_to_forward);
+
+	/* If handled, we can finish. */
+	if (handled)
+		return;
+
+	/* Not handled, fail. */
+	failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 
 fail:
 	fail_htlc(hin, failcode);

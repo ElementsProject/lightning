@@ -15,9 +15,10 @@ struct sha256;
  * @payment_hash: hash of preimage they want.
  * @msat: amount they offer to pay.
  *
- * Either calls fulfill_htlc() or fail_htlcs().
+ * If returned true, either called fulfill_htlc() or fail_htlcs().
+ * If returned false, did not call either.
  */
-void invoice_try_pay(struct lightningd *ld,
+bool invoice_try_pay(struct lightningd *ld,
 		     struct htlc_in *hin,
 		     const struct sha256 *payment_hash,
 		     const struct amount_msat msat);
