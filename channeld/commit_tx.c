@@ -242,6 +242,14 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		n++;
 	}
 
+	/* BOLT #2:
+	 *
+	 *  - MUST set `channel_reserve_satoshis` greater than or equal to
+	 *    `dust_limit_satoshis`.
+	 */
+	/* This means there must be at least one output. */
+	assert(n > 0);
+
 	assert(n <= tx->wtx->outputs_allocation_len);
 	tal_resize(htlcmap, n);
 

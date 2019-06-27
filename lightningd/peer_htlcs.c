@@ -1224,6 +1224,21 @@ static bool changed_htlc(struct channel *channel,
 		return update_in_htlc(channel, changed->id, changed->newstate);
 }
 
+/* FIXME: This should be a complete check, not just a sanity check.
+ * Perhaps that means we need a cookie from the HSM? */
+static bool valid_commitment_tx(struct channel *channel,
+				const struct bitcoin_tx *tx)
+{
+	/* We've had past issues where all outputs are trimmed. */
+	if (tx->wtx->num_outputs == 0) {
+		channel_internal_error(channel,
+				       "channel_got_commitsig: zero output tx! %s",
+				       type_to_string(tmpctx, struct bitcoin_tx, tx));
+		return false;
+	}
+	return true;
+}
+
 static bool peer_save_commitsig_received(struct channel *channel, u64 commitnum,
 					 struct bitcoin_tx *tx,
 					 const struct bitcoin_signature *commit_sig)
@@ -1235,6 +1250,10 @@ static bool peer_save_commitsig_received(struct channel *channel, u64 commitnum,
 			   channel->next_index[LOCAL], commitnum);
 		return false;
 	}
+
+	/* Basic sanity check */
+	if (!valid_commitment_tx(channel, tx))
+		return false;
 
 	channel->next_index[LOCAL]++;
 
