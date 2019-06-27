@@ -12,6 +12,8 @@
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 
+struct paycodes;
+
 /* Various adjustable things. */
 struct config {
 	/* How long do we want them to lock up their funds? (blocks) */
@@ -159,6 +161,7 @@ struct lightningd {
 	struct htlc_out_map htlcs_out;
 
 	struct wallet *wallet;
+	struct paycodes *paycodes;
 
 	/* Outstanding waitsendpay commands. */
 	struct list_head waitsendpay_commands;

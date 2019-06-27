@@ -21,6 +21,7 @@
 #include "gossip_control.h"
 #include "hsm_control.h"
 #include "lightningd.h"
+#include "paycodes.h"
 #include "peer_control.h"
 #include "subd.h"
 
@@ -680,6 +681,13 @@ int main(int argc, char *argv[])
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
 	ld->wallet = wallet_new(ld, ld->log, ld->timers);
+
+	/*~ This is our paycodes manager.  It handles incoming payments
+	 * for use by plugins that operate by making us pay to ourself.
+	 * Paycodes are separate from invoices so that merchant software
+	 * that uses `waitanyinvoice` will not be inadvertently triggered
+	 * by plugins that trigger a payment to this node. */
+	ld->paycodes = paycodes_new(ld, ld->wallet, ld->log, ld->timers);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);

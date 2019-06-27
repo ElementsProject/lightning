@@ -198,6 +198,12 @@ bool invoice_try_pay(struct lightningd *ld UNNEEDED,
 		     const struct sha256 *payment_hash UNNEEDED,
 		     const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "invoice_try_pay called!\n"); abort(); }
+/* Generated stub for paycode_try_pay */
+bool paycode_try_pay(struct paycodes *pcs UNNEEDED,
+		     struct htlc_in *hin UNNEEDED,
+		     const struct sha256 *payment_hash UNNEEDED,
+		     const struct amount_msat msat UNNEEDED)
+{ fprintf(stderr, "paycode_try_pay called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)

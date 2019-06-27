@@ -20,6 +20,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/pay.h>
+#include <lightningd/paycodes.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
@@ -326,6 +327,9 @@ static void handle_localpay(struct htlc_in *hin,
 	handled = false;
 	if (!handled)
 		handled = invoice_try_pay(ld, hin, payment_hash, amt_to_forward);
+	if (!handled)
+		handled = paycode_try_pay(ld->paycodes, hin,
+					  payment_hash, amt_to_forward);
 
 	/* If handled, we can finish. */
 	if (handled)

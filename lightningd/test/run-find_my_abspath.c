@@ -134,6 +134,12 @@ struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *
 /* Generated stub for onchaind_replay_channels */
 void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
+/* Generated stub for paycodes_new */
+struct paycodes *paycodes_new(const tal_t *ctx UNNEEDED,
+			      struct wallet *wallet UNNEEDED,
+			      struct log *log UNNEEDED,
+			      struct timers *timers UNNEEDED)
+{ fprintf(stderr, "paycodes_new called!\n"); abort(); }
 /* Generated stub for per_peer_state_set_fds_arr */
 void per_peer_state_set_fds_arr(struct per_peer_state *pps UNNEEDED, const int *fds UNNEEDED)
 { fprintf(stderr, "per_peer_state_set_fds_arr called!\n"); abort(); }
