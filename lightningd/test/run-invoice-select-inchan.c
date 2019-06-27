@@ -349,6 +349,13 @@ struct command_result *param_short_channel_id(struct command *cmd UNNEEDED,
 					      const jsmntok_t *tok UNNEEDED,
 					      struct short_channel_id **scid UNNEEDED)
 { fprintf(stderr, "param_short_channel_id called!\n"); abort(); }
+/* Generated stub for param_preimage */
+struct command_result *param_preimage(struct command *cmd UNNEEDED,
+				      const char *name UNNEEDED,
+				      const char *buffer UNNEEDED,
+				      const jsmntok_t *tok UNNEEDED,
+				      struct preimage **preimage UNNEEDED)
+{ fprintf(stderr, "param_preimage called!\n"); abort(); }
 /* Generated stub for param_string */
 struct command_result *param_string(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

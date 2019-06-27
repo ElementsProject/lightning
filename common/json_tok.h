@@ -10,6 +10,7 @@ struct amount_sat;
 struct command;
 struct command_result;
 struct json_escape;
+struct preimage;
 struct sha256;
 
 /* Extract json array token */
@@ -73,6 +74,13 @@ struct command_result *param_msat(struct command *cmd, const char *name,
 struct command_result *param_sat(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 struct amount_sat **sat);
+
+/* Extract a preimage. */
+struct command_result *param_preimage(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      struct preimage **preimage);
 
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that

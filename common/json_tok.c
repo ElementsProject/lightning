@@ -1,3 +1,4 @@
+#include <bitcoin/preimage.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
@@ -180,3 +181,23 @@ struct command_result *param_sat(struct command *cmd, const char *name,
 			    name, tok->end - tok->start, buffer + tok->start);
 }
 
+struct command_result *param_preimage(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      struct preimage **preimage)
+{
+	*preimage = tal(cmd, struct preimage);
+	if (hex_decode(buffer + tok->start,
+		       tok->end - tok->start,
+		       *preimage, sizeof(**preimage)))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a %d byte hex value, "
+			    "not '%.*s'",
+			    name,
+			    (int)sizeof(**preimage),
+			    tok->end - tok->start,
+			    buffer + tok->start);
+}

@@ -673,7 +673,7 @@ static struct command_result *json_invoice(struct command *cmd,
 					   const jsmntok_t *params)
 {
 	const jsmntok_t *fallbacks;
-	const jsmntok_t *preimagetok;
+	struct preimage *preimage;
 	struct amount_msat *msatoshi_val;
 	struct invoice_info *info;
 	const char *desc_val;
@@ -695,7 +695,7 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_req("description", param_escaped_string, &desc_val),
 		   p_opt_def("expiry", param_time, &expiry, 3600*24*7),
 		   p_opt("fallbacks", param_array, &fallbacks),
-		   p_opt("preimage", param_tok, &preimagetok),
+		   p_opt("preimage", param_preimage, &preimage),
 		   p_opt("exposeprivatechannels", param_bool, &exposeprivate),
 #if DEVELOPER
 		   p_opt("dev-routes", param_array, &routes),
@@ -741,16 +741,10 @@ static struct command_result *json_invoice(struct command *cmd,
 		}
 	}
 
-	if (preimagetok) {
+	if (preimage)
 		/* Get secret preimage from user. */
-		if (!hex_decode(buffer + preimagetok->start,
-				preimagetok->end - preimagetok->start,
-				&info->payment_preimage,
-				sizeof(info->payment_preimage))) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "preimage must be 64 hex digits");
-		}
-	} else
+		info->payment_preimage = *preimage;
+	else
 		/* Generate random secret preimage. */
 		randombytes_buf(&info->payment_preimage,
 				sizeof(info->payment_preimage));
