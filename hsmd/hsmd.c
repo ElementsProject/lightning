@@ -152,6 +152,9 @@ static PRINTF_FMT(4,5)
 		master_badmsg(fromwire_peektype(msg_in), msg_in);
 	}
 
+	/*~ Nobody should give us bad requests; it's a sign something is broken */
+	status_broken("%s: %s", type_to_string(tmpctx, struct node_id, &c->id), str);
+
 	/*~ Note the use of NULL as the ctx arg to towire_hsmstatus_: only
 	 * use NULL as the allocation when we're about to immediately free it
 	 * or hand it off with take(), as here.  That makes it clear we don't
@@ -770,6 +773,12 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 					     &funding))
 		return bad_req(conn, c, msg_in);
 
+	/* Basic sanity checks. */
+	if (tx->wtx->num_inputs != 1)
+		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
+	if (tx->wtx->num_outputs == 0)
+		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
+
 	get_channel_seed(&peer_id, dbid, &channel_seed);
 	derive_basepoints(&channel_seed,
 			  &local_funding_pubkey, NULL, &secrets, NULL);
@@ -822,6 +831,12 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 						    &remote_funding_pubkey,
 						    &funding))
 		bad_req(conn, c, msg_in);
+
+	/* Basic sanity checks. */
+	if (tx->wtx->num_inputs != 1)
+		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
+	if (tx->wtx->num_outputs == 0)
+		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed,
