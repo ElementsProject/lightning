@@ -9,7 +9,9 @@
 
 struct channel;
 struct htlc_in;
+struct htlc_in_map;
 struct htlc_out;
+struct htlc_out_map;
 struct htlc_stub;
 struct lightningd;
 

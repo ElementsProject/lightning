@@ -63,12 +63,17 @@ struct txwatch {
 
 	/* Transaction to watch. */
 	struct bitcoin_txid txid;
+
+	/* May be NULL if we haven't seen it yet. */
+	const struct bitcoin_tx *tx;
+
 	unsigned int depth;
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
 	enum watch_result (*cb)(struct lightningd *ld,
 				struct channel *channel,
 				const struct bitcoin_txid *txid,
+				const struct bitcoin_tx *tx,
 				unsigned int depth);
 };
 
@@ -124,7 +129,8 @@ struct txwatch *watch_txid(const tal_t *ctx,
 			   const struct bitcoin_txid *txid,
 			   enum watch_result (*cb)(struct lightningd *ld,
 						   struct channel *channel,
-						   const struct bitcoin_txid *,
+						   const struct bitcoin_txid *txid,
+						   const struct bitcoin_tx *tx,
 						   unsigned int depth))
 {
 	struct txwatch *w;
@@ -133,6 +139,7 @@ struct txwatch *watch_txid(const tal_t *ctx,
 	w->topo = topo;
 	w->depth = 0;
 	w->txid = *txid;
+	w->tx = NULL;
 	w->channel = channel;
 	w->cb = cb;
 
@@ -173,11 +180,13 @@ struct txwatch *watch_tx(const tal_t *ctx,
 			 enum watch_result (*cb)(struct lightningd *ld,
 						 struct channel *channel,
 						 const struct bitcoin_txid *,
+						 const struct bitcoin_tx *,
 						 unsigned int depth))
 {
 	struct bitcoin_txid txid;
 
 	bitcoin_txid(tx, &txid);
+	/* FIXME: Save populate txwatch->tx here, too! */
 	return watch_txid(ctx, topo, channel, &txid, cb);
 }
 
@@ -227,7 +236,8 @@ static bool txw_fire(struct txwatch *txw,
 		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid),
 		  depth ? "" : " REORG");
 	txw->depth = depth;
-	r = txw->cb(txw->topo->bitcoind->ld, txw->channel, txid, txw->depth);
+	r = txw->cb(txw->topo->bitcoind->ld, txw->channel, txid, txw->tx,
+		    txw->depth);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txw);
@@ -294,4 +304,16 @@ void watch_topology_changed(struct chain_topology *topo)
 				needs_rerun |= txw_fire(w, &w->txid, depth);
 		}
 	} while (needs_rerun);
+}
+
+void txwatch_inform(const struct chain_topology *topo,
+		    const struct bitcoin_txid *txid,
+		    const struct bitcoin_tx *tx_may_steal)
+{
+	struct txwatch *txw;
+
+	txw = txwatch_hash_get(&topo->txwatches, txid);
+
+	if (txw && !txw->tx)
+		txw->tx = tal_steal(txw, tx_may_steal);
 }

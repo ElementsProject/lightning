@@ -4,6 +4,7 @@
 #include "bitcoin/tx.h"
 #include "bitcoind.h"
 #include "chaintopology.h"
+#include "channel.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -100,6 +101,8 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 			wallet_transaction_add(topo->ld->wallet,
 					       tx, b->height, i);
 		}
+
+		txwatch_inform(topo, &txid, tx);
 	}
 	b->full_txs = tal_free(b->full_txs);
 }
@@ -240,8 +243,26 @@ void broadcast_tx(struct chain_topology *topo,
 static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
 						  struct channel *channel,
 						  const struct bitcoin_txid *txid,
+						  const struct bitcoin_tx *tx,
 						  unsigned int depth)
 {
+	/* Sanity check. */
+	if (tx != NULL) {
+		struct bitcoin_txid txid2;
+
+		bitcoin_txid(tx, &txid2);
+		if (!bitcoin_txid_eq(txid, &txid2)) {
+			channel_internal_error(channel, "Txid for %s is not %s",
+					       type_to_string(tmpctx,
+							      struct bitcoin_tx,
+							      tx),
+					       type_to_string(tmpctx,
+							      struct bitcoin_txid,
+							      txid));
+			return DELETE_WATCH;
+		}
+	}
+
 	/* We delete ourselves first time, so should not be reorged out!! */
 	assert(depth > 0);
 	/* Subtle: depth 1 == current block. */

@@ -945,13 +945,47 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	plugin_hook_call_peer_connected(ld, hook_payload, hook_payload);
 }
 
+/* FIXME: Unify our watch code so we get notified by txout, instead, like
+ * the wallet code does. */
+static bool check_funding_tx(const struct bitcoin_tx *tx,
+			     const struct channel *channel)
+{
+	u8 *wscript;
+
+	if (channel->funding_outnum >= tx->wtx->num_outputs)
+		return false;
+
+	if (!amount_sat_eq(bitcoin_tx_output_get_amount(tx,
+							channel->funding_outnum),
+			   channel->funding))
+		return false;
+
+	wscript = bitcoin_redeem_2of2(tmpctx,
+				      &channel->local_funding_pubkey,
+				      &channel->channel_info.remote_fundingkey);
+	return scripteq(scriptpubkey_p2wsh(tmpctx, wscript),
+			bitcoin_tx_output_get_script(tmpctx, tx,
+						     channel->funding_outnum));
+}
+
 static enum watch_result funding_depth_cb(struct lightningd *ld,
 					   struct channel *channel,
 					   const struct bitcoin_txid *txid,
+					   const struct bitcoin_tx *tx,
 					   unsigned int depth)
 {
 	const char *txidstr;
 	struct short_channel_id scid;
+
+	/* Sanity check */
+	if (tx && !check_funding_tx(tx, channel)) {
+		channel_internal_error(channel, "Bad tx %s: %s",
+				       type_to_string(tmpctx,
+						      struct bitcoin_txid, txid),
+				       type_to_string(tmpctx,
+						      struct bitcoin_tx, tx));
+		return DELETE_WATCH;
+	}
 
 	txidstr = type_to_string(tmpctx, struct bitcoin_txid, txid);
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
