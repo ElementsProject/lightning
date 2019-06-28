@@ -79,16 +79,30 @@ static void onchain_tx_depth(struct channel *channel,
 static enum watch_result onchain_tx_watched(struct lightningd *ld,
 					    struct channel *channel,
 					    const struct bitcoin_txid *txid,
+					    const struct bitcoin_tx *tx,
 					    unsigned int depth)
 {
 	u32 blockheight = get_block_height(ld->topology);
+
+	if (tx != NULL) {
+		struct bitcoin_txid txid2;
+
+		bitcoin_txid(tx, &txid2);
+		if (!bitcoin_txid_eq(txid, &txid2)) {
+			channel_internal_error(channel, "Txid for %s is not %s",
+					       type_to_string(tmpctx,
+							      struct bitcoin_tx,
+							      tx),
+					       type_to_string(tmpctx,
+							      struct bitcoin_txid,
+							      txid));
+			return DELETE_WATCH;
+		}
+	}
+
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
 		channel_set_owner(channel, NULL, false);
-
-		/* FIXME!
-		topology_rescan(peer->ld->topology, peer->funding_txid);
-		*/
 
 		/* We will most likely be freed, so this is a noop */
 		return KEEP_WATCHING;

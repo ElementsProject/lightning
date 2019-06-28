@@ -578,6 +578,7 @@ struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
 						   struct channel *channel UNNEEDED,
 						   const struct bitcoin_txid * UNNEEDED,
+						   const struct bitcoin_tx * UNNEEDED,
 						   unsigned int depth))
 { fprintf(stderr, "watch_txid called!\n"); abort(); }
 /* Generated stub for watch_txo */
