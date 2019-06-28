@@ -86,6 +86,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/options.c			\
 	lightningd/pay.c			\
 	lightningd/paycodes.c			\
+	lightningd/paycodes_control.c		\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
 	lightningd/ping.c			\

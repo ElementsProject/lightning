@@ -1,0 +1,65 @@
+LIGHTNING-WAITNEWPAYCODE(7)
+===========================
+:doctype: manpage
+
+NAME
+----
+lightning-waitnewpaycode - Command for waiting for payments,
+intended for self-payments.
+
+SYNOPSIS
+--------
+*waitnewpaycode* 'preimage' ['min_msatoshi'] ['max_msatoshi'] ['expiry']
+
+DESCRIPTION
+-----------
+The *waitnewpaycode* RPC command waits until an incoming payment
+arrives which matches the given 'preimage'.
+
+This is usually used by plugins that need to receive funds without
+triggering the *waitanyinvoice* command.
+Existing client software may be waiting for invoices they have
+issued, and may get confused if they receive notification for an
+unknown invoice.
+The *waitanypaycode* command allows a node to be paid without
+triggering clients using invoices.
+
+The 'preimage' must be 32 random bytes in a hexadecimal string
+(64 hexadecimal digits).
+*IMPORTANT*: you are responsible, to ensure appropriate care for
+generating using a secure pseudorandom generator seeded with
+sufficient entropy, and keeping the preimage secret.
+
+If neither 'min_msatoshi' nor 'max_msatoshi' are specified,
+then any incoming amount will be accepted.
+If one is specified but not the other, only that specific amount
+will be accepted.
+Otherwise, the incoming amount must be between 'min_msatoshi'
+and 'max_msatoshi' inclusive.
+If an incoming payment arrives that fails this amount validation,
+the payment will be rejected and *waitnewpaycode* continues
+waiting for incoming payment.
+
+The wait will end after 'expiry' seconds if not paid.
+The daemon will forget about the paycode after either expiration
+or payment.
+
+RETURN VALUE
+------------
+On success, an object with a field 'status' will be returned.
+The 'status' field will be either the string "paid" or "expired".
+
+On failure, the error code 901 may be returned indicating that
+the preimage already exists as an invoice or another paycode.
+
+AUTHOR
+------
+ZmnSCPxj <ZmnSCPxj@protonmail.com> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-invoice(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

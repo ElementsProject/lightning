@@ -93,7 +93,8 @@ Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
 SEE ALSO
 --------
 lightning-listinvoice(7), lightning-delinvoice(7),
-lightning-getroute(7), lightning-sendpay(7).
+lightning-getroute(7), lightning-sendpay(7),
+lightning-waitnewpaycode(7).
 
 RESOURCES
 ---------

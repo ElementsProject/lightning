@@ -764,6 +764,22 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("waitinvoice", payload)
 
+    def waitnewpaycode(self, preimage, min_msatoshi=None, max_msatoshi=None, expiry=None):
+        """
+        Wait for an incoming payment whose payment hash matches the
+        given unique {preimage}.
+        Amount should be between {min_msatoshi} and {max_msatoshi}
+        inclusive.
+        Stop waiting and return 'expired' status after {expiry} seconds.
+        """
+        payload = {
+            "preimage": preimage,
+            "min_msatoshi": min_msatoshi,
+            "max_msatoshi": max_msatoshi,
+            "expiry": expiry
+        }
+        return self.call("waitnewpaycode", payload)
+
     def waitsendpay(self, payment_hash, timeout=None):
         """
         Wait for payment for preimage of {payment_hash} to complete
