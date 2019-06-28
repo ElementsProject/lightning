@@ -120,6 +120,10 @@ struct command_result *command_failed(struct command *cmd,
 				      struct json_stream *result)
 	 WARN_UNUSED_RESULT;
 
+struct command_result *command_fail(struct command *cmd, int code,
+				    const char *fmt, ...)
+	 WARN_UNUSED_RESULT;
+
 /* Mainly for documentation, that we plan to close this later. */
 struct command_result *command_still_pending(struct command *cmd)
 	 WARN_UNUSED_RESULT;
