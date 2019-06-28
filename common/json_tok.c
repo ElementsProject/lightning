@@ -1,4 +1,5 @@
 #include <bitcoin/preimage.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
@@ -7,6 +8,7 @@
 #include <common/json_command.h>
 #include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
+#include <common/overflows.h>
 #include <common/param.h>
 
 struct command_result *param_array(struct command *cmd, const char *name,
@@ -200,4 +202,54 @@ struct command_result *param_preimage(struct command *cmd,
 			    (int)sizeof(**preimage),
 			    tok->end - tok->start,
 			    buffer + tok->start);
+}
+
+/* Parse time with optional suffix, return seconds */
+struct command_result *param_time(struct command *cmd, const char *name,
+				  const char *buffer,
+				  const jsmntok_t *tok,
+				  uint64_t **secs)
+{
+	/* We need to manipulate this, so make copy */
+	jsmntok_t timetok = *tok;
+	u64 mul;
+	char s;
+	struct {
+		char suffix;
+		u64 mul;
+	} suffixes[] = {
+		{ 's', 1 },
+		{ 'm', 60 },
+		{ 'h', 60*60 },
+		{ 'd', 24*60*60 },
+		{ 'w', 7*24*60*60 } };
+
+	mul = 1;
+	if (timetok.end == timetok.start)
+		s = '\0';
+	else
+		s = buffer[timetok.end - 1];
+	for (size_t i = 0; i < ARRAY_SIZE(suffixes); i++) {
+		if (s == suffixes[i].suffix) {
+			mul = suffixes[i].mul;
+			timetok.end--;
+			break;
+		}
+	}
+
+	*secs = tal(cmd, uint64_t);
+	if (json_to_u64(buffer, &timetok, *secs)) {
+		if (mul_overflows_u64(**secs, mul)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "'%s' string '%.*s' is too large",
+					    name, tok->end - tok->start,
+					    buffer + tok->start);
+		}
+		**secs *= mul;
+		return NULL;
+	}
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a number with optional {s,m,h,d,w} suffix, not '%.*s'",
+			    name, tok->end - tok->start, buffer + tok->start);
 }

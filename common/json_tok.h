@@ -82,6 +82,12 @@ struct command_result *param_preimage(struct command *cmd,
 				      const jsmntok_t *tok,
 				      struct preimage **preimage);
 
+/* Parse time with optional suffix, return seconds */
+struct command_result *param_time(struct command *cmd, const char *name,
+				  const char *buffer,
+				  const jsmntok_t *tok,
+				  uint64_t **secs);
+
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that
  * want to unmarshal @tok themselves.

@@ -361,6 +361,12 @@ struct command_result *param_string(struct command *cmd UNNEEDED, const char *na
 				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    const char **str UNNEEDED)
 { fprintf(stderr, "param_string called!\n"); abort(); }
+/* Generated stub for param_time */
+struct command_result *param_time(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				  const char *buffer UNNEEDED,
+				  const jsmntok_t *tok UNNEEDED,
+				  uint64_t **secs UNNEEDED)
+{ fprintf(stderr, "param_time called!\n"); abort(); }
 /* Generated stub for param_tok */
 struct command_result *param_tok(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				 const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
