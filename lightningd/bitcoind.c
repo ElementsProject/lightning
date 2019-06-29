@@ -154,13 +154,17 @@ static void bcli_failure(struct bitcoind *bitcoind,
 		bitcoind->first_error_time = time_mono();
 
 	t = timemono_between(time_mono(), bitcoind->first_error_time);
-	if (time_greater(t, time_from_sec(60)))
-		fatal("%s exited %u (after %u other errors) '%.*s'",
+	if (time_greater(t, time_from_sec(bitcoind->retry_timeout)))
+		fatal("%s exited %u (after %u other errors) '%.*s'; "
+		      "we have been retrying command for "
+		      "--bitcoin-retry-timeout=%"PRIu64" seconds; "
+		      "bitcoind setup or our --bitcoin-* configs broken?",
 		      bcli_args(tmpctx, bcli),
 		      exitstatus,
 		      bitcoind->error_count,
 		      (int)bcli->output_bytes,
-		      bcli->output);
+		      bcli->output,
+		      bitcoind->retry_timeout);
 
 	log_unusual(bitcoind->log,
 		    "%s exited with status %u",
@@ -930,6 +934,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	}
 	bitcoind->shutdown = false;
 	bitcoind->error_count = 0;
+	bitcoind->retry_timeout = 60;
 	bitcoind->rpcuser = NULL;
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;

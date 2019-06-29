@@ -88,6 +88,11 @@ Bitcoin control options:
 *bitcoin-rpcport*='PORT'::
     The bitcoind(1) RPC port to connect to.
 
+*bitcoin-retry-timeout*='SECONDS'::
+    Number of seconds to keep trying a bitcoin-cli(1) command.
+    If the command keeps failing after this time, exit with a
+    fatal error.
+
 *rescan*='BLOCKS'::
     Number of blocks to rescan from the current head, or absolute blockheight
     if negative. This is only needed if something goes badly wrong.

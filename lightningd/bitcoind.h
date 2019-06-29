@@ -59,6 +59,10 @@ struct bitcoind {
 	/* Ignore results, we're shutting down. */
 	bool shutdown;
 
+	/* How long to keep trying to contact bitcoind
+	 * before fatally exiting. */
+	u64 retry_timeout;
+
 	/* Passthrough parameters for bitcoin-cli */
 	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
 };
