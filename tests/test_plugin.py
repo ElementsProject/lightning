@@ -4,8 +4,10 @@ from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
 from utils import only_one, wait_for, TIMEOUT
 
+import json
 import os
 import pytest
+import re
 import sqlite3
 import subprocess
 import time
@@ -427,7 +429,20 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     f1 = executor.submit(l1.rpc.pay, i1)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+
     l2.restart()
+
+    # Grab the file where the plugin wrote the onion and read it in for some
+    # additional checks
+    logline = l2.daemon.wait_for_log(r'Onion written to')
+    fname = re.search(r'Onion written to (.*\.json)', logline).group(1)
+    onion = json.load(open(fname))
+    assert re.match(r'^00006700000.000100000000000003e8000000..000000000000000000000000$', onion['payload'])
+    assert len(onion['payload']) == 64
+    assert len(onion['shared_secret']) == 64
+    assert onion['per_hop_v0']['realm'] == "00"
+    assert onion['per_hop_v0']['forward_amount'] == '1000msat'
+    assert len(onion['next_onion']) == 2 * (1300 + 32 + 33 + 1)
 
     f1.result()
 
