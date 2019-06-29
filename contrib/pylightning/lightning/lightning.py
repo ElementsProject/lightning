@@ -714,6 +714,17 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("ping", payload)
 
+    def plugin(self, command=None, parameter=None, second_parameter=None):
+        """
+        Manage plugins.
+        """
+        payload = {
+            "command": command,
+            "parameter": parameter,
+            "second_parameter": second_parameter
+        }
+        return self.call("plugin", payload)
+
     def sendpay(self, route, payment_hash, description=None, msatoshi=None):
         """
         Send along {route} in return for preimage of {payment_hash}
