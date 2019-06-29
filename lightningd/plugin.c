@@ -121,7 +121,7 @@ void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
 	msg = tal_vfmt(plugin, fmt, ap);
 	va_end(ap);
 
-	log_broken(plugin->log, "Killing plugin: %s", msg);
+	log_info(plugin->log, "Killing plugin: %s", msg);
 	plugin->stop = true;
 	io_wake(plugin);
 	kill(plugin->pid, SIGKILL);
@@ -813,6 +813,12 @@ static void plugin_manifest_cb(const char *buffer,
 		plugin_kill(
 		    plugin,
 		    "Failed to register options, methods, hooks, or subscriptions.");
+
+	/* If all plugins have replied to getmanifest and this is not
+	 * the startup init, configure them */
+	if (!plugin->plugins->startup && plugin->plugins->pending_manifests == 0)
+		plugins_config(plugin->plugins);
+
 	/* Reset timer, it'd kill us otherwise. */
 	tal_free(plugin->timeout_timer);
 }
