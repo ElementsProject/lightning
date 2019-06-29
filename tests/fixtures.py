@@ -317,6 +317,8 @@ def chainparams():
             "name": "regtest",
             "p2sh_prefix": '2',
             "elements": False,
+            "example_addr": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg",
+            "feeoutput": False,
         },
         'liquid-regtest': {
             "bip173_prefix": "ert",
@@ -324,6 +326,8 @@ def chainparams():
             "name": "liquid-regtest",
             "p2sh_prefix": 'X',
             "elements": True,
+            "example_addr": "ert1qq8adjz4u6enf0cjey9j8yt0y490tact9fahkwf",
+            "feeoutput": True,
         }
     }
 
