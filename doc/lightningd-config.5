@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 04/11/2019
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 06/30/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "04/11/2019" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "06/30/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -119,6 +119,11 @@ The bitcoind(1) RPC host to connect to\&.
 \fBbitcoin\-rpcport\fR=\fIPORT\fR
 .RS 4
 The bitcoind(1) RPC port to connect to\&.
+.RE
+.PP
+\fBbitcoin\-retry\-timeout\fR=\fISECONDS\fR
+.RS 4
+Number of seconds to keep trying a bitcoin\-cli(1) command\&. If the command keeps failing after this time, exit with a fatal error\&.
 .RE
 .PP
 \fBrescan\fR=\fIBLOCKS\fR

@@ -793,6 +793,12 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--bitcoin-rpcport", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcport,
 			 "bitcoind RPC port");
+	opt_register_arg("--bitcoin-retry-timeout",
+			 opt_set_u64, opt_show_u64,
+			 &ld->topology->bitcoind->retry_timeout,
+			 "how long to keep trying to contact bitcoind "
+			 "before fatally exiting");
+
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");
