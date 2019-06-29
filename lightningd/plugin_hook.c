@@ -39,6 +39,32 @@ bool plugin_hook_register(struct plugin *plugin, const char *method)
 	return true;
 }
 
+bool plugin_hook_unregister(struct plugin *plugin, const char *method)
+{
+	struct plugin_hook *hook = plugin_hook_by_name(method);
+	if (!hook) {
+		/* No such hook name registered */
+		return false;
+	} else if (hook->plugin == NULL) {
+		/* This name is not registered */
+		return false;
+	}
+	hook->plugin = NULL;
+	return true;
+}
+
+void plugin_hook_unregister_all(struct plugin *plugin)
+{
+	static struct plugin_hook **hooks = NULL;
+	static size_t num_hooks;
+	if (!hooks)
+		hooks = autodata_get(hooks, &num_hooks);
+
+	for (size_t i = 0; i < num_hooks; i++)
+		if (hooks[i]->plugin == plugin)
+			hooks[i]->plugin = NULL;
+}
+
 /**
  * Callback to be passed to the jsonrpc_request.
  *
