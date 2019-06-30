@@ -111,22 +111,30 @@ static struct io_plan *output_init(struct io_conn *conn, struct bitcoin_cli *bcl
 static void next_bcli(struct bitcoind *bitcoind, enum bitcoind_prio prio);
 
 /* For printing: simple string of args. */
-static char *bcli_args(const tal_t *ctx, struct bitcoin_cli *bcli)
+/* bcli_args_direct() will be used in wat_for_bitcoind(), where
+ * we send bitcoin-cli a "getblockchaininfo" command without
+ * struct bitcoin_cli */
+static char *bcli_args_direct(const tal_t *ctx, const char **args)
 {
 	size_t i;
-	char *ret = tal_strdup(ctx, bcli->args[0]);
+	char *ret = tal_strdup(ctx, args[0]);
 
-	for (i = 1; bcli->args[i]; i++) {
+	for (i = 1; args[i]; i++) {
             ret = tal_strcat(ctx, take(ret), " ");
-            if (strstarts(bcli->args[i], "-rpcpassword")) {
+            if (strstarts(args[i], "-rpcpassword")) {
                     ret = tal_strcat(ctx, take(ret), "-rpcpassword=...");
-            } else if (strstarts(bcli->args[i], "-rpcuser")) {
+            } else if (strstarts(args[i], "-rpcuser")) {
                     ret = tal_strcat(ctx, take(ret), "-rpcuser=...");
             } else {
-                ret = tal_strcat(ctx, take(ret), bcli->args[i]);
+                ret = tal_strcat(ctx, take(ret), args[i]);
             }
 	}
 	return ret;
+}
+
+static char *bcli_args(const tal_t *ctx, struct bitcoin_cli *bcli)
+{
+    return bcli_args_direct(ctx, bcli->args);
 }
 
 static void retry_bcli(struct bitcoin_cli *bcli)
