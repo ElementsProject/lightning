@@ -454,7 +454,7 @@ def test_warning_notification(node_factory):
     # 2. test 'error' level, steps like above
     event = "Test warning notification(for broken event)"
     l1.rpc.call('pretendbad', {'event': event, 'level': 'error'})
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py Test warning notification\\(for broken event\\)')
+    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-pretend_badlog.py Test warning notification\(for broken event\)')
 
     l1.daemon.wait_for_log('plugin-pretend_badlog.py Received warning')
     l1.daemon.wait_for_log('plugin-pretend_badlog.py level: error')

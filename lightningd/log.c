@@ -32,6 +32,24 @@
 /* Once we're up and running, this is set up. */
 struct log *crashlog;
 
+static const char *level_prefix(enum log_level level)
+{
+	switch (level) {
+	case LOG_IO_OUT:
+	case LOG_IO_IN:
+		return "IO";
+	case LOG_DBG:
+		return "DEBUG";
+	case LOG_INFORM:
+		return "INFO";
+	case LOG_UNUSUAL:
+		return "UNUSUAL";
+	case LOG_BROKEN:
+		return "**BROKEN**";
+	}
+	abort();
+}
+
 static void log_to_file(const char *prefix,
 			enum log_level level,
 			bool continued,
@@ -52,8 +70,8 @@ static void log_to_file(const char *prefix,
 		fprintf(logf, "%s %s%s%s %s\n",
 			iso8601_s, prefix, str, dir, hex);
 		tal_free(hex);
-	} else 	if (!continued) {
-		fprintf(logf, "%s %s %s\n", iso8601_s, prefix, str);
+	} else if (!continued) {
+		fprintf(logf, "%s %s %s %s\n", iso8601_s, level_prefix(level), prefix, str);
 	} else {
 		fprintf(logf, "%s %s \t%s\n", iso8601_s, prefix, str);
 	}
