@@ -127,6 +127,10 @@ def node_factory(request, directory, test_name, bitcoind, executor):
         err_count += printCrashLog(node)
     check_errors(request, err_count, "{} nodes had crash.log files")
 
+    for node in [n for n in nf.nodes if not n.allow_broken_log]:
+        err_count += checkBroken(node)
+    check_errors(request, err_count, "{} nodes had BROKEN messages")
+
     for node in nf.nodes:
         err_count += checkReconnect(node)
     check_errors(request, err_count, "{} nodes had unexpected reconnections")
@@ -215,6 +219,13 @@ def checkBadGossip(node):
 
     # Other 'Bad' messages shouldn't happen.
     if node.daemon.is_in_log(r'gossipd.*Bad (?!gossip order from error)'):
+        return 1
+    return 0
+
+
+def checkBroken(node):
+    # We can get bad gossip order from inside error msgs.
+    if node.daemon.is_in_log(r'\*\*BROKEN\*\*'):
         return 1
     return 0
 

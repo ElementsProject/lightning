@@ -454,13 +454,14 @@ class LightningD(TailableProc):
 
 
 class LightningNode(object):
-    def __init__(self, daemon, rpc, btc, executor, may_fail=False, may_reconnect=False):
+    def __init__(self, daemon, rpc, btc, executor, may_fail=False, may_reconnect=False, allow_broken_log=False):
         self.rpc = rpc
         self.daemon = daemon
         self.bitcoin = btc
         self.executor = executor
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
+        self.allow_broken_log = allow_broken_log
 
     def connect(self, remote_node):
             self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
@@ -773,6 +774,7 @@ class NodeFactory(object):
         node_opt_keys = [
             'disconnect',
             'may_fail',
+            'allow_broken_log',
             'may_reconnect',
             'random_hsm',
             'log_all_io',
@@ -819,7 +821,7 @@ class NodeFactory(object):
     def get_node(self, disconnect=None, options=None, may_fail=False,
                  may_reconnect=False, random_hsm=False,
                  feerates=(15000, 7500, 3750), start=True, log_all_io=False,
-                 dbfile=None, node_id=None):
+                 dbfile=None, node_id=None, allow_broken_log=False):
         if not node_id:
             node_id = self.get_node_id()
 
@@ -862,7 +864,7 @@ class NodeFactory(object):
         rpc = LightningRpc(socket_path, self.executor)
 
         node = LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail,
-                             may_reconnect=may_reconnect)
+                             may_reconnect=may_reconnect, allow_broken_log=allow_broken_log)
 
         # Regtest estimatefee are unusable, so override.
         node.set_feerates(feerates, False)

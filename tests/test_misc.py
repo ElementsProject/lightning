@@ -1044,7 +1044,7 @@ def test_logging(node_factory):
 @unittest.skipIf(VALGRIND,
                  "Valgrind sometimes fails assert on injected SEGV")
 def test_crashlog(node_factory):
-    l1 = node_factory.get_node(may_fail=True)
+    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
 
     def has_crash_log(n):
         files = os.listdir(n.daemon.lightning_dir)

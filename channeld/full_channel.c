@@ -314,10 +314,10 @@ static bool get_room_above_reserve(const struct channel *channel,
 	for (size_t i = 0; i < tal_count(adding); i++)
 		ok &= balance_add_htlc(balance, adding[i], side);
 
-	/* Overflow shouldn't happen, but if it does, complain */
+	/* Can happen if amount completely exceeds capacity */
 	if (!ok) {
-		status_broken("Failed to add %zu remove %zu htlcs",
-			      tal_count(adding), tal_count(removing));
+		status_trace("Failed to add %zu remove %zu htlcs",
+			     tal_count(adding), tal_count(removing));
 		return false;
 	}
 

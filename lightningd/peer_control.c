@@ -830,7 +830,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
 
 #if DEVELOPER
 		if (dev_disconnect_permanent(ld)) {
-			channel_internal_error(channel,
+			channel_fail_permanent(channel,
 					       "dev_disconnect permfail");
 			error = channel->error;
 			goto send_error;
@@ -1698,7 +1698,7 @@ static struct command_result *json_dev_fail(struct command *cmd,
 				    "Could not find active channel with peer");
 	}
 
-	channel_internal_error(channel, "Failing due to dev-fail command");
+	channel_fail_permanent(channel, "Failing due to dev-fail command");
 	return command_success(cmd, json_stream_success(cmd));
 }
 
