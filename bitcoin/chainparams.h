@@ -15,6 +15,9 @@ struct bip32_key_version {
 struct chainparams {
 	const char *network_name;
 	const char *bip173_name;
+	/*'bip70_name' is corresponding to the 'chain' field of
+	 * the API 'getblockchaininfo' */
+	const char *bip70_name;
 	const struct bitcoin_blkid genesis_blockhash;
 	const int rpc_port;
 	const char *cli;
