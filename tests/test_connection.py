@@ -870,15 +870,20 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     num_complete = 0
     num_cancel = 0
 
-    for n in nodes:
+    for count, n in enumerate(nodes):
         l1.rpc.connect(n.info['id'], 'localhost', n.port)
         l1.rpc.fundchannel_start(n.info['id'], "100000sat")
 
         # We simply make up txids.  And submit two of each at once.
-        completes = [executor.submit(l1.rpc.fundchannel_complete, n.info['id'], "9f1844419d2f41532a57fb5ef038cacb602000f7f37b3dae68dc2d047c89048f", 0),
-                     executor.submit(l1.rpc.fundchannel_complete, n.info['id'], "9f1844419d2f41532a57fb5ef038cacb602000f7f37b3dae68dc2d047c89048f", 0)]
-        cancels = [executor.submit(l1.rpc.fundchannel_cancel, n.info['id']),
-                   executor.submit(l1.rpc.fundchannel_cancel, n.info['id'])]
+        completes = []
+        cancels = []
+
+        # Switch order around.
+        for i in range(4):
+            if (i + count) % 2 == 0:
+                completes.append(executor.submit(l1.rpc.fundchannel_complete, n.info['id'], "9f1844419d2f41532a57fb5ef038cacb602000f7f37b3dae68dc2d047c89048f", 0))
+            else:
+                cancels.append(executor.submit(l1.rpc.fundchannel_cancel, n.info['id']))
 
         # Only one should succeed.
         success = False
