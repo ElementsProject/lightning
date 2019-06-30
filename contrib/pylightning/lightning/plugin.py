@@ -30,12 +30,15 @@ class Method(object):
      - RPC exposed by RPC passthrough
      - HOOK registered to be called synchronously by lightningd
     """
-    def __init__(self, name, func, mtype=MethodType.RPCMETHOD, category=None):
+    def __init__(self, name, func, mtype=MethodType.RPCMETHOD, category=None,
+                 desc=None, long_desc=None):
         self.name = name
         self.func = func
         self.mtype = mtype
         self.category = category
         self.background = False
+        self.desc = desc
+        self.long_desc = long_desc
 
 
 class Request(dict):
@@ -119,7 +122,8 @@ class Plugin(object):
 
         self.write_lock = RLock()
 
-    def add_method(self, name, func, background=False, category=None):
+    def add_method(self, name, func, background=False, category=None, desc=None,
+                   long_desc=None):
         """Add a plugin method to the dispatch table.
 
         The function will be expected at call time (see `_dispatch`)
@@ -156,7 +160,7 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        method = Method(name, func, MethodType.RPCMETHOD, category)
+        method = Method(name, func, MethodType.RPCMETHOD, category, desc, long_desc)
         method.background = background
         self.methods[name] = method
 
@@ -216,23 +220,25 @@ class Plugin(object):
         else:
             return self.options[name]['default']
 
-    def async_method(self, method_name, category=None):
+    def async_method(self, method_name, category=None, desc=None, long_desc=None):
         """Decorator to add an async plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f):
-            self.add_method(method_name, f, background=True, category=category)
+            self.add_method(method_name, f, background=True, category=category,
+                            desc=desc, long_desc=long_desc)
             return f
         return decorator
 
-    def method(self, method_name, category=None):
+    def method(self, method_name, category=None, desc=None, long_desc=None):
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f):
-            self.add_method(method_name, f, background=False, category=category)
+            self.add_method(method_name, f, background=False, category=category,
+                            desc=desc, long_desc=long_desc)
             return f
         return decorator
 
@@ -480,8 +486,10 @@ class Plugin(object):
                 'name': method.name,
                 'category': method.category if method.category else "plugin",
                 'usage': " ".join(args),
-                'description': doc
+                'description': doc if not method.desc else method.desc
             })
+            if method.long_desc:
+                methods[len(methods) - 1]["long_description"] = method.long_desc
 
         return {
             'options': list(self.options.values()),
