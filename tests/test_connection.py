@@ -1490,7 +1490,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True, log_all_io=True,
                                feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True, log_all_io=True,
-                               feerates=(7500, 7500, 7500))
+                               feerates=(7500, 7500, 7500), allow_broken_log=True)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)

@@ -85,9 +85,9 @@ void sync_crypto_write_no_delay(struct per_peer_state *pps,
 	if (setsockopt(pps->peer_fd, IPPROTO_TCP, opt, &val, sizeof(val)) != 0) {
 		/* This actually happens in testing, where we blackhole the fd */
 		if (!complained) {
-			status_broken("setsockopt %s=1: %s",
-				      optname,
-				      strerror(errno));
+			status_unusual("setsockopt %s=1: %s",
+				       optname,
+				       strerror(errno));
 			complained = true;
 		}
 	}

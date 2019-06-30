@@ -441,7 +441,7 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 
 #if DEVELOPER
 	if (dev_disconnect_permanent(channel->peer->ld)) {
-		channel_internal_error(channel, "dev_disconnect permfail");
+		channel_fail_permanent(channel, "dev_disconnect permfail");
 		return;
 	}
 #endif
