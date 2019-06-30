@@ -114,7 +114,6 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->globalfeatures = peer->localfeatures = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
-
 #if DEVELOPER
 	peer->ignore_htlcs = false;
 #endif
