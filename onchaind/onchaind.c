@@ -328,7 +328,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), out->sat);
 
 	/* Worst-case sig is 73 bytes */
-	weight = measure_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
+	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
 	fee = amount_tx_fee(feerate_per_kw, weight);
 
 	/* Result is trivial?  Spend with small feerate, but don't wait

@@ -293,32 +293,6 @@ static bool uses_witness(const struct bitcoin_tx *tx)
 	return false;
 }
 
-/* BIP 141: The witness is a serialization of all witness data of the
- * transaction. Each txin is associated with a witness field. A
- * witness field starts with a var_int to indicate the number of stack
- * items for the txin.  */
-static void push_witnesses(const struct bitcoin_tx *tx,
-			  void (*push)(const void *, size_t, void *), void *pushp)
-{
-	for (size_t i = 0; i < tx->wtx->num_inputs; i++) {
-		struct wally_tx_witness_stack *witness = tx->wtx->inputs[i].witness;
-
-		/* Not every input needs a witness. */
-		if (!witness) {
-			push_varint(0, push, pushp);
-			continue;
-		}
-
-		push_varint(witness->num_items, push, pushp);
-		for (size_t j = 0; j < witness->num_items; j++) {
-			size_t witlen = witness->items[j].witness_len;
-			const u8 *wit = witness->items[j].witness;
-			push_varint(witlen, push, pushp);
-			push(wit, witlen, pushp);
-		}
-	}
-}
-
 /* For signing, we ignore input scripts on other inputs, and pretend
  * the current input has a certain script: this is indicated by a
  * non-NULL override_script.
@@ -377,23 +351,12 @@ u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 	return arr;
 }
 
-static void push_measure(const void *data UNUSED, size_t len, void *lenp)
+size_t bitcoin_tx_weight(const struct bitcoin_tx *tx)
 {
-	*(size_t *)lenp += len;
-}
-
-size_t measure_tx_weight(const struct bitcoin_tx *tx)
-{
-	size_t non_witness_len = 0, witness_len = 0;
-	push_tx(tx, NULL, 0, push_measure, &non_witness_len, false);
-	if (uses_witness(tx)) {
-		push_witnesses(tx, push_measure, &witness_len);
-		/* Include BIP 144 marker and flag bytes in witness length */
-		witness_len += 2;
-	}
-
-	/* Normal bytes weigh 4 times more than Witness bytes */
-	return non_witness_len * 4 + witness_len;
+	size_t weight;
+	int ret = wally_tx_get_weight(tx->wtx, &weight);
+	assert(ret == WALLY_OK);
+	return weight;
 }
 
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid)
