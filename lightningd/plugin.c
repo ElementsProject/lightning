@@ -51,11 +51,22 @@ static void destroy_plugin(struct plugin *p)
 
 void plugin_register(struct plugins *plugins, const char* path TAKES)
 {
-	struct plugin *p;
+	struct plugin *p, *p_temp;
+
+	/* Don't register an already registered plugin */
+	list_for_each(&plugins->plugins, p_temp, list) {
+		if (streq(path, p_temp->cmd)) {
+			if (taken(path))
+				tal_free(path);
+			return;
+		}
+	}
+
 	p = tal(plugins, struct plugin);
 	list_add_tail(&plugins->plugins, &p->list);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+	p->configured = false;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
 
@@ -781,9 +792,9 @@ static void plugin_manifest_cb(const char *buffer,
 	const jsmntok_t *resulttok;
 
 	/* Check if all plugins have replied to getmanifest, and break
-	 * if they are */
+	 * if they have and this is the startup init */
 	plugin->plugins->pending_manifests--;
-	if (plugin->plugins->pending_manifests == 0)
+	if (plugin->plugins->startup && plugin->plugins->pending_manifests == 0)
 		io_break(plugin->plugins);
 
 	resulttok = json_get_member(buffer, toks, "result");
@@ -893,20 +904,17 @@ void plugins_add_default_dir(struct plugins *plugins, const char *default_dir)
 	}
 }
 
-void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
+void plugins_start(struct plugins *plugins, const char *dev_plugin_debug)
 {
 	struct plugin *p;
 	char **cmd;
 	int stdin, stdout;
 	struct jsonrpc_request *req;
-	plugins->pending_manifests = 0;
-	uintmap_init(&plugins->pending_requests);
 
-	plugins_add_default_dir(plugins, path_join(tmpctx, plugins->ld->config_dir, "plugins"));
-
-	setenv("LIGHTNINGD_PLUGIN", "1", 1);
-	/* Spawn the plugin processes before entering the io_loop */
 	list_for_each(&plugins->plugins, p, list) {
+		if (p->configured)
+			continue;
+
 		bool debug;
 
 		debug = dev_plugin_debug && strends(p->cmd, dev_plugin_debug);
@@ -943,9 +951,24 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		}
 		tal_free(cmd);
 	}
+}
+
+void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
+{
+	plugins->pending_manifests = 0;
+	uintmap_init(&plugins->pending_requests);
+
+	plugins_add_default_dir(plugins,
+				path_join(tmpctx, plugins->ld->config_dir, "plugins"));
+
+	setenv("LIGHTNINGD_PLUGIN", "1", 1);
+	/* Spawn the plugin processes before entering the io_loop */
+	plugins_start(plugins, dev_plugin_debug);
 
 	if (plugins->pending_manifests > 0)
 		io_loop_with_timers(plugins->ld);
+	// There won't be io_loop anymore to wait for plugins
+	plugins->startup = false;
 }
 
 static void plugin_config_cb(const char *buffer,
@@ -953,7 +976,7 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	/* Nothing to be done here, this is just a report */
+	plugin->configured = true;
 }
 
 /* FIXME(cdecker) This just builds a string for the request because
@@ -993,7 +1016,8 @@ void plugins_config(struct plugins *plugins)
 {
 	struct plugin *p;
 	list_for_each(&plugins->plugins, p, list) {
-		plugin_config(p);
+		if (!p->configured)
+			plugin_config(p);
 	}
 }
 
