@@ -64,7 +64,7 @@ static bool better_closing_fee(struct lightningd *ld,
 		  type_to_string(tmpctx, struct amount_sat, &last_fee));
 
 	/* Weight once we add in sigs. */
-	weight = measure_tx_weight(tx) + 74 * 2;
+	weight = bitcoin_tx_weight(tx) + 74 * 2;
 
 	/* If we don't have a feerate estimate, this gives feerate_floor */
 	min_feerate = feerate_min(ld, &feerate_unknown);
