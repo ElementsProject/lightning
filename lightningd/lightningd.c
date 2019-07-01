@@ -221,6 +221,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 *the plugins.
 	 */
 	ld->plugins = plugins_new(ld, ld->log_book, ld);
+	ld->plugins->startup = true;
 
 	/*~ This is set when a JSON RPC command comes in to shut us down. */
 	ld->stop_conn = NULL;
