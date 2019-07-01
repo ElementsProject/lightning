@@ -1,8 +1,4 @@
-#include "lightningd/plugin.h"
-
 #include <ccan/array_size/array_size.h>
-#include <ccan/intmap/intmap.h>
-#include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -21,6 +17,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
 #include <lightningd/options.h>
+#include <lightningd/plugin.h>
 #include <lightningd/plugin_hook.h>
 #include <signal.h>
 #include <sys/stat.h>
@@ -34,70 +31,6 @@
  * willing to wait. Plugins shouldn't do any initialization in the
  * `getmanifest` call anyway, that's what `init `is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
-
-struct plugin {
-	struct list_node list;
-
-	pid_t pid;
-	char *cmd;
-	struct io_conn *stdin_conn, *stdout_conn;
-	bool stop;
-	struct plugins *plugins;
-	const char **plugin_path;
-
-	/* Stuff we read */
-	char *buffer;
-	size_t used, len_read;
-
-	/* Our json_streams. Since multiple streams could start
-	 * returning data at once, we always service these in order,
-	 * freeing once empty. */
-	struct json_stream **js_arr;
-
-	struct log *log;
-
-	/* List of options that this plugin registered */
-	struct list_head plugin_opts;
-
-	const char **methods;
-
-	/* Timer to add a timeout to some plugin RPC calls. Used to
-	 * guarantee that `getmanifest` doesn't block indefinitely. */
-	const struct oneshot *timeout_timer;
-
-	/* An array of subscribed topics */
-	char **subscriptions;
-};
-
-struct plugins {
-	struct list_head plugins;
-	size_t pending_manifests;
-
-	/* Currently pending requests by their request ID */
-	UINTMAP(struct jsonrpc_request *) pending_requests;
-	struct log *log;
-	struct log_book *log_book;
-
-	struct lightningd *ld;
-};
-
-/* The value of a plugin option, which can have different types.
- * The presence of the integer and boolean values will depend of
- * the option type, but the string value will always be filled.
- */
-struct plugin_opt_value {
-	char *as_str;
-	int *as_int;
-	bool *as_bool;
-};
-
-struct plugin_opt {
-	struct list_node list;
-	const char *name;
-	const char *type;
-	const char *description;
-	struct plugin_opt_value *value;
-};
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 			    struct lightningd *ld)
@@ -133,7 +66,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	tal_add_destructor(p, destroy_plugin);
 }
 
-static bool paths_match(const char *cmd, const char *name)
+bool plugin_paths_match(const char *cmd, const char *name)
 {
 	if (strchr(name, PATH_SEP)) {
 		const char *cmd_canon, *name_canon;
@@ -159,7 +92,7 @@ bool plugin_remove(struct plugins *plugins, const char *name)
 	bool removed = false;
 
 	list_for_each_safe(&plugins->plugins, p, next, list) {
-		if (paths_match(p->cmd, name)) {
+		if (plugin_paths_match(p->cmd, name)) {
 			list_del_from(&plugins->plugins, &p->list);
 			tal_free(p);
 			removed = true;
@@ -168,10 +101,7 @@ bool plugin_remove(struct plugins *plugins, const char *name)
 	return removed;
 }
 
-/**
- * Kill a plugin process, with an error message.
- */
-static void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
+void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
 {
 	char *msg;
 	va_list ap;

@@ -1,28 +1,88 @@
 #ifndef LIGHTNING_LIGHTNINGD_PLUGIN_H
 #define LIGHTNING_LIGHTNINGD_PLUGIN_H
 #include "config.h"
+#include <ccan/intmap/intmap.h>
+#include <ccan/io/io.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 
 /**
+ * A plugin, exposed as a stub so we can pass it as an argument.
+ */
+struct plugin {
+	struct list_node list;
+
+	pid_t pid;
+	char *cmd;
+	struct io_conn *stdin_conn, *stdout_conn;
+	bool stop;
+	struct plugins *plugins;
+	const char **plugin_path;
+
+	/* Stuff we read */
+	char *buffer;
+	size_t used, len_read;
+
+	/* Our json_streams. Since multiple streams could start
+	 * returning data at once, we always service these in order,
+	 * freeing once empty. */
+	struct json_stream **js_arr;
+
+	struct log *log;
+
+	/* List of options that this plugin registered */
+	struct list_head plugin_opts;
+
+	const char **methods;
+
+	/* Timer to add a timeout to some plugin RPC calls. Used to
+	 * guarantee that `getmanifest` doesn't block indefinitely. */
+	const struct oneshot *timeout_timer;
+
+	/* An array of subscribed topics */
+	char **subscriptions;
+};
+
+/**
  * A collection of plugins, and some associated information.
  *
  * Mainly used as root context for calls in the plugin subsystem.
  */
-struct plugins;
+struct plugins {
+	struct list_head plugins;
+	size_t pending_manifests;
 
-/**
- * A plugin, exposed as a stub so we can pass it as an argument.
+	/* Currently pending requests by their request ID */
+	UINTMAP(struct jsonrpc_request *) pending_requests;
+	struct log *log;
+	struct log_book *log_book;
+
+	struct lightningd *ld;
+};
+
+/* The value of a plugin option, which can have different types.
+ * The presence of the integer and boolean values will depend of
+ * the option type, but the string value will always be filled.
  */
-struct plugin;
+struct plugin_opt_value {
+	char *as_str;
+	int *as_int;
+	bool *as_bool;
+};
 
 /**
  * Simple storage for plugin options inbetween registering them on the
  * command line and passing them off to the plugin
  */
-struct plugin_opt;
+struct plugin_opt {
+	struct list_node list;
+	const char *name;
+	const char *type;
+	const char *description;
+	struct plugin_opt_value *value;
+};
 
 /**
  * Create a new plugins context.
@@ -57,6 +117,10 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug);
  */
 void plugin_register(struct plugins *plugins, const char* path TAKES);
 
+/**
+ * Returns true if the provided name matches a plugin command
+ */
+bool plugin_paths_match(const char *cmd, const char *name);
 
 /**
  * Remove a plugin registered for initialization.
@@ -65,6 +129,11 @@ void plugin_register(struct plugins *plugins, const char* path TAKES);
  * @param arg: The basename or fullname of the executable for this plugin
  */
 bool plugin_remove(struct plugins *plugins, const char *name);
+
+/**
+ * Kill a plugin process, with an error message.
+ */
+void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...);
 
 /**
  * Send the configure message to all plugins.
