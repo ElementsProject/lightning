@@ -4,6 +4,7 @@
 #include <bitcoin/chainparams.h>
 #include <common/amount.h>
 #include <common/htlc.h>
+#include <common/utils.h>
 
 struct bitcoin_signature;
 struct bitcoin_txid;
@@ -11,6 +12,32 @@ struct keyset;
 struct preimage;
 struct pubkey;
 struct ripemd160;
+
+/** Attempt to compute the elements overhead given a base bitcoin size.
+ *
+ * The overhead consists of 2 empty proofs for the transaction, 6 bytes of
+ * proofs per input and 35 bytes per output. In addition the explicit fee
+ * output will add 9 bytes and the per output overhead as well.
+ */
+static inline size_t elements_add_overhead(size_t weight, size_t incount,
+					   size_t outcount)
+{
+	if (is_elements) {
+		/* Each transaction has surjection and rangeproof (both empty
+		 * for us as long as we use unblinded L-BTC transactions). */
+		weight += 2 * 4;
+		/* For elements we also need to add the fee output and the
+		 * overhead for rangeproofs into the mix. */
+		weight += (8 + 1) * 4; /* Bitcoin style output */
+
+		/* All outputs have a bit of elements overhead */
+		weight += (32 + 1 + 1 + 1) * 4 * (outcount + 1); /* Elements added fields */
+
+		/* Inputs have 6 bytes of blank proofs attached. */
+		weight += 6 * incount;
+	}
+	return weight;
+}
 
 static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw)
 {
@@ -21,7 +48,7 @@ static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw)
 	 *    1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
 	 *       down).
 	 */
-	return amount_tx_fee(663, feerate_per_kw);
+	return amount_tx_fee(elements_add_overhead(663, 1, 1), feerate_per_kw);
 }
 
 static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw)
@@ -33,7 +60,7 @@ static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw)
 	 *     1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding
 	 *     down).
 	 */
-	return amount_tx_fee(703, feerate_per_kw);
+	return amount_tx_fee(elements_add_overhead(703, 1, 1), feerate_per_kw);
 }
 
 /* Create HTLC-success tx to spend a received HTLC commitment tx
