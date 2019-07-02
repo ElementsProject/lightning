@@ -165,6 +165,8 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 {
 	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
 	struct amount_sat amount = bitcoin_tx_output_get_amount(tx, 0);
+	size_t weight = elements_add_overhead(663, tx->wtx->num_inputs,
+					      tx->wtx->num_outputs);
 
 	/* BOLT #3:
 	 *
@@ -175,7 +177,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	 */
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
 		struct amount_sat grindfee;
-		if (grind_htlc_tx_fee(&grindfee, tx, remotesig, wscript, 663)) {
+		if (grind_htlc_tx_fee(&grindfee, tx, remotesig, wscript, weight)) {
 			/* Cache this for next time */
 			fee = grindfee;
 			return true;
@@ -200,7 +202,8 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 				 const u8 *wscript)
 {
 	static struct amount_sat amt, fee = AMOUNT_SAT_INIT(UINT64_MAX);
-
+	size_t weight = elements_add_overhead(703, tx->wtx->num_inputs,
+					      tx->wtx->num_outputs);
 	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-success transaction:
@@ -209,7 +212,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 	 *    (rounding down).
 	 */
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
-		if (!grind_htlc_tx_fee(&fee, tx, remotesig, wscript, 703))
+		if (!grind_htlc_tx_fee(&fee, tx, remotesig, wscript, weight))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "htlc_success_fee can't be found "
 				      " for tx %s, signature %s, wscript %s",
