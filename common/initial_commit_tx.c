@@ -6,7 +6,6 @@
 #include <common/permute_tx.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <inttypes.h>
 
 /* BOLT #3:
