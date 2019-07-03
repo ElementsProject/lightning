@@ -167,6 +167,10 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 	gs->writable = true;
 	gossip_store_compact_offline();
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
+	if (gs->fd < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Opening gossip_store store: %s",
+			      strerror(errno));
 	gs->rstate = rstate;
 	gs->disable_compaction = false;
 	gs->len = sizeof(gs->version);
