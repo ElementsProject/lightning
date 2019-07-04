@@ -1,3 +1,102 @@
+lightningd (0.7.1-1) stable; urgency=low
+
+  * Protocol: we now enforce option_upfront_shutdown_script if a peer negotiates it.
+  * JSON API: New command setchannelfee sets channel specific routing fees.
+  * JSON API: new withdraw methods txprepare, txsend and txdiscard.
+  * JSON API: add three new RPC commands: fundchannel_start, fundchannel_complete and fundchannel_cancel. Allows a user to initiate and complete a channel open using funds that are in a external wallet.
+  * Plugin: new hooks db_write for intercepting database writes, invoice_payment for intercepting invoices before they're paid, openchannel for intercepting channel opens, and htlc_accepted to decide whether to resolve, reject or continue an incoming or forwarded payment..
+  * Plugin: new notification warning to report any LOG_UNUSUAL/LOG_BROKEN level event.
+  * Plugin: Added a default plugin directory : lightning_dir/plugins. Each plugin directory it contains will be added to lightningd on startup.
+  * Plugin: the connected hook can now send an error_message to the rejected peer.
+  * JSON API: newaddr outputs bech32 or p2sh-segwit, or both with new all parameter (#2390)
+  * JSON API: listpeers status now shows how many confirmations until channel is open (#2405)
+  * Config: Adds parameter min-capacity-sat to reject tiny channels.
+  * JSON API: listforwards now includes the time an HTLC was received and when it was resolved. Both are expressed as UNIX timestamps to facilitate parsing (Issue #2491, PR #2528)
+  * JSON API: listforwards now includes the local_failed forwards with failcode (Issue #2435, PR #2524)
+  * DB: Store the signatures of channel announcement sent from remote peer into DB, and init channel with signatures from DB directly when reenable the channel. (Issue #2409)
+  * JSON API: listchannels has new fields htlc_minimum_msat and htlc_maximum_msat.
+  * Gossip: we no longer compact the gossip_store file dynamically, due to lingering bugs. Restart if it gets too large.
+  * Protocol: no longer ask for entire gossip flood from peers, unless we're missing gossip.
+  * JSON API: invoice expiry defaults to 7 days, and can have s/m/h/d/w suffixes.
+  * Config: Increased default amount for minimal channel capacity from 1k sat to 10k sat.
+  * JSON API: A new parameter is added to fundchannel, which now accepts an utxo array to use to fund the channel.
+  * Build: Non-developer builds are now done with "-Og" optimization.
+  * JSON API: pay will no longer return failure until it is no longer retrying; previously it could "timeout" but still make the payment.
+  * JSON API: the command objects that help outputs now contain a new string field : category (can be "bitcoin", "channels", "network", "payment", "plugins", "utility", "developer" for native commands, or any other new category set by a plugin).
+  * Plugin: a plugin can now set the category of a newly created RPC command. This possibility has been added to libplugin.c and pylightning.
+  * lightning-cli: the human readable help is now more human and more readable : commands are sorted alphabetically and ordered by categories.
+  * JSON API: newaddr output field address: use bech32 or p2sh-segwit instead.
+  * JSON RPC: global_features and local_features fields and listchannels' flags field. (Deprecated since 0.6.2).
+  * pylightning: Remove RPC support for c-lightning before 0.6.3.
+  * Protocol: reconnection during closing negotiation now supports option_data_loss_protect properly.
+  * --bind-addr=<path> fixed for nodes using local sockets (eg. testing).
+  * Unannounced local channels were forgotten for routing on restart until reconnection occurred.
+  * lightning-cli: arguments containing " now succeed, rather than causing JSON errors.
+  * Protocol: handle lnd sending more messages before reestablish; don't fail channel, and handle older lnd's spurious empty commitments.
+  * Fixed fundchannel crash when we have many UTXOs and we skip unconfirmed ones.
+  * lightningd: fixed occasional hang on connect when peer had sent error.
+  * JSON RPC: decodeinvoice and pay now handle unknown invoice fields properly.
+  * JSON API: waitsendpay (PAY_STOPPED_RETRYING) error handler now returns valid JSON
+  * protocol: don't send multiple identical feerate changes if we want the feerate higher than we can afford.
+  * JSON API: stop now only returns once lightningd has released all resources.
+
+ -- Christian Decker <decker.christian@gmail.com>  Thu, 04 Jun 2019 13:29:00 -0100
+
+lightningd (0.7.0-1) stable; urgency=low
+
+  * plugins: fully enabled, and ready for you to write some!
+  * plugins: `pay` is now a plugin.
+  * protocol: `pay` will now use routehints in invoices if it needs to.
+  * build: reproducible source zipfile and Ubuntu 18.04.1 build.
+  * JSON API: New command `paystatus` gives detailed information on `pay` commands.
+  * JSON API: `getroute`, `invoice`, `sendpay` and `pay` commands `msatoshi`
+  parameter can have suffixes `msat`, `sat` (optionally with 3 decimals) or `btc`
+  (with 1 to 11 decimal places).
+  * JSON API: `fundchannel` and `withdraw` commands `satoshi`
+  parameter can have suffixes `msat` (must end in `000`), `sat` or `btc`
+  (with 1 to 8 decimal places).
+  * JSON API: `decodepay`, `getroute`, `sendpay`, `pay`, `listpeers`, `listfunds`, `listchannels` and
+  all invoice commands now return an `amount_msat` field which has an `msat` suffix.
+  * JSON API: `listfunds` `channels` now has `_msat` fields for each existing raw amount field, with `msat` suffix.
+  * JSON API: `waitsendpay` now has an `erring_direction` field.
+  * JSON API: `listpeers` now has a `direction` field in `channels`.
+  * JSON API: `listchannels` now takes a `source` option to filter by node id.
+  * JSON API: `getroute` `riskfactor` argument is simplified; `pay` now defaults to setting it to 10.
+  * JSON API: `sendpay` now takes a `bolt11` field, and it's returned in `listpayments` and `waitsendpay`.
+  * JSON API: `fundchannel` and `withdraw` now have a new parameter `minconf` that limits coinselection to outputs that have at least `minconf` confirmations (default 1). (#2380)
+  * JSON API: `listfunds` now displays addresses for all outputs owned by the wallet (#2387)
+  * JSON API: `waitsendpay` and `sendpay` output field `label` as specified by `sendpay` call.
+  * JSON API: `listpays` command for higher-level payment view than `listpayments`, especially important with multi-part-payments coming.
+  * JSON API: `listpayments` is now `listsendpays`.
+  * lightning-cli: `help <cmd>` finds man pages even if `make install` not run.
+  * pylightning: New class 'Millisatoshi' can be used for JSON API, and new '_msat' fields are turned into this on reading.
+  * protocol: `option_data_loss_protect` is now enabled by default.
+  * JSON API: The `short_channel_id` separator has been changed to be `x` to match the specification.
+  * JSON API: `listpeers` now includes `funding_allocation_msat`, which returns a map of the amounts initially funded to the channel by each peer, indexed by channel id.
+  * JSON API: `help` with a `command` argument gives a JSON array, like other commands.
+  * JSON API: `sendpay` `description` parameter is renamed `label`.
+  * JSON API: `pay` now takes an optional `label` parameter for labelling payments, in place of never-used `description`.
+  * build: we'll use the system libbase58 and libsodium if found suitable.
+  * JSON API: `short_channel_id` fields in JSON commands with `:` separators (use `x` instead).
+  * JSON API: `pay` `description` is deprecated, as is support for BOLT11 strings using `h`.
+  * JSON API: `sendpay` parameter `description` and `waitsendpay` and `sendpay` output fields `description` (now `label`).
+  * JSON API: `listpayments` has been deprecated (you probably want `listpays`)
+  * JSON API: the `waitsendpay` command error return no longer includes `channel_update`
+  * Protocol: handling `query_channel_range` for large numbers of blocks
+  (eg. 4 billion) was slow due to a bug.
+  * Fixed occasional deadlock with peers when exchanging huge amounts of gossip.
+  * Fixed a crash when running in daemon-mode due to db filename overrun (#2348)
+  * Handle lnd sending premature 'funding_locked' message when we're expected 'reestablish';
+  we used to close channel if this happened.
+  * Cleanup peers that started opening a channel, but then disconnected. These
+  would leave a dangling entry in the DB that would cause this peer to be
+  unable to connect. (PR #2371)
+  * You can no longer make giant unpayable "wumbo" invoices.
+  * CLTV of total route now correctly evaluated when finding best route.
+  * `riskfactor` arguments to `pay` and `getroute` now have an effect.
+
+ -- Christian Decker <decker.christian@gmail.com>  Mon, 04 Mar 2019 11:36:00 -0100
+
 lightningd (0.6.3-1) stable; urgency=low
 
   * JSON API: New command check checks the validity of a JSON API call without running it.
