@@ -612,8 +612,6 @@ static bool resolved_by_proposal(struct tracked_output *out,
 	if (!out->proposal->tx)
 		return false;
 
-	out->resolved = tal(out, struct resolution);
-
 	/* Our proposal can change as feerates change.  Input
 	 * comparison (ignoring signatures) works pretty well.
 	 *
@@ -628,6 +626,7 @@ static bool resolved_by_proposal(struct tracked_output *out,
 			return false;
 	}
 
+	out->resolved = tal(out, struct resolution);
 	bitcoin_txid(tx, &out->resolved->txid);
 	status_trace("Resolved %s/%s by our proposal %s (%s)",
 		     tx_type_name(out->tx_type),
