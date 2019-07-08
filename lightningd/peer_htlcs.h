@@ -14,6 +14,8 @@ struct htlc_out;
 struct htlc_out_map;
 struct htlc_stub;
 struct lightningd;
+struct forwarding;
+struct json_stream;
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {
@@ -69,4 +71,8 @@ void htlcs_reconnect(struct lightningd *ld,
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage);
 void fail_htlc(struct htlc_in *hin, enum onion_type failcode);
 
+/* This json process will be both used in 'notify_forward_event()'
+ * and 'listforwardings_add_forwardings()'*/
+void json_format_forwarding_object(struct json_stream *response, const char *fieldname,
+				   const struct forwarding *cur);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */

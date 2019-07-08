@@ -2104,6 +2104,53 @@ static const struct json_command dev_ignore_htlcs = {
 AUTODATA(json_command, &dev_ignore_htlcs);
 #endif /* DEVELOPER */
 
+/* Warp this process to ensure the consistent json object structure
+ * between 'listforwards' API and 'forward_event' notification. */
+void json_format_forwarding_object(struct json_stream *response,
+				   const char *fieldname,
+				   const struct forwarding *cur)
+{
+	json_object_start(response, fieldname);
+
+	json_add_hex(response, "payment_hash",
+				    cur->payment_hash,
+				    sizeof(*cur->payment_hash));
+	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
+	json_add_short_channel_id(response, "out_channel", &cur->channel_out);
+	json_add_amount_msat_compat(response,
+				    cur->msat_in,
+				    "in_msatoshi", "in_msat");
+	json_add_amount_msat_compat(response,
+				    cur->msat_out,
+				    "out_msatoshi",  "out_msat");
+	json_add_amount_msat_compat(response,
+				    cur->fee,
+				    "fee", "fee_msat");
+	json_add_string(response, "status", forward_status_name(cur->status));
+
+	if(cur->failcode != 0) {
+		json_add_num(response, "failcode", cur->failcode);
+		json_add_string(response, "failreason",
+				onion_type_name(cur->failcode));
+	}
+
+#ifdef COMPAT_V070
+		/* If a forwarding doesn't have received_time it was created
+		 * before we added the tracking, do not include it here. */
+	if (cur->received_time.ts.tv_sec) {
+		json_add_timeabs(response, "received_time", cur->received_time);
+		if (cur->resolved_time)
+			json_add_timeabs(response, "resolved_time", *cur->resolved_time);
+	}
+#else
+	json_add_timeabs(response, "received_time", cur->received_time);
+	if (cur->resolved_time)
+		json_add_timeabs(response, "resolved_time", *cur->resolved_time);
+#endif
+	json_object_end(response);
+}
+
+
 static void listforwardings_add_forwardings(struct json_stream *response, struct wallet *wallet)
 {
 	const struct forwarding *forwardings;
@@ -2112,44 +2159,7 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {
 		const struct forwarding *cur = &forwardings[i];
-		json_object_start(response, NULL);
-
-		json_add_hex(response, "payment_hash",
-			     cur->payment_hash,
-			     sizeof(*cur->payment_hash));
-		json_add_short_channel_id(response, "in_channel", &cur->channel_in);
-		json_add_short_channel_id(response, "out_channel", &cur->channel_out);
-		json_add_amount_msat_compat(response,
-					    cur->msat_in,
-					    "in_msatoshi", "in_msat");
-		json_add_amount_msat_compat(response,
-					    cur->msat_out,
-					    "out_msatoshi",  "out_msat");
-		json_add_amount_msat_compat(response,
-					    cur->fee,
-					    "fee", "fee_msat");
-		json_add_string(response, "status", forward_status_name(cur->status));
-
-		if(cur->failcode != 0) {
-			json_add_num(response, "failcode", cur->failcode);
-			json_add_string(response, "failreason",
-					 onion_type_name(cur->failcode));
-		}
-
-#ifdef COMPAT_V070
-		/* If a forwarding doesn't have received_time it was created
-		 * before we added the tracking, do not include it here. */
-		if (cur->received_time.ts.tv_sec) {
-			json_add_timeabs(response, "received_time", cur->received_time);
-			if (cur->resolved_time)
-				json_add_timeabs(response, "resolved_time", *cur->resolved_time);
-		}
-#else
-		json_add_timeabs(response, "received_time", cur->received_time);
-		if (cur->resolved_time)
-			json_add_timeabs(response, "resolved_time", *cur->resolved_time);
-#endif
-		json_object_end(response);
+		json_format_forwarding_object(response, NULL, cur);
 	}
 	json_array_end(response);
 
