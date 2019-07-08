@@ -1005,7 +1005,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 		return 0;
 	case WIRE_OPENING_FUNDER_FAILED:
 		if (!uc->fc) {
-			log_broken(openingd->log, "Unexpected FUNDER_FAILED %s",
+			log_unusual(openingd->log, "Unexpected FUNDER_FAILED %s",
 				   tal_hex(tmpctx, msg));
 			tal_free(openingd);
 			return 0;
