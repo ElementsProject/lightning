@@ -1888,7 +1888,7 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 	 *...
 	 *   - if an HTLC it has fulfilled is in either node's current commitment
 	 *   transaction, AND is past this fulfillment deadline:
-	 *     - MUST fail the connection.
+	 *     - MUST fail the channel.
 	 */
 	do {
 		struct htlc_in *hin;
