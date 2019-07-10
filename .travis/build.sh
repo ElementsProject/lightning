@@ -10,6 +10,7 @@ export COMPAT=${COMPAT:-1}
 export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export TIMEOUT=180
 export PYTEST_PAR=2
+export PYTHONPATH=$PWD/contrib/pylightning:$PYTHONPATH
 # If we're not in developer mode, tests spend a lot of time waiting for gossip!
 if [ "$DEVELOPER" = 0 ]; then
     PYTEST_PAR=4
