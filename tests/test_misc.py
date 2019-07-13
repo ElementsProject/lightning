@@ -893,8 +893,8 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     # Make l2 temporary blind for blocks > 107
     def no_more_blocks(req):
-            return {"result": None,
-                    "error": {"code": -8, "message": "Block height out of range"}, "id": req['id']}
+        return {"result": None,
+                "error": {"code": -8, "message": "Block height out of range"}, "id": req['id']}
 
     l2.daemon.rpcproxy.mock_rpc('getblockhash', no_more_blocks)
 
