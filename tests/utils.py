@@ -91,7 +91,7 @@ def get_tx_p2wsh_outnum(bitcoind, tx, amount):
     for out in decoded['vout']:
         if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
             if out['value'] == Decimal(amount) / 10**8:
-                    return out['n']
+                return out['n']
 
     return None
 
@@ -465,7 +465,7 @@ class LightningNode(object):
         self.allow_bad_gossip = allow_bad_gossip
 
     def connect(self, remote_node):
-            self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
+        self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
 
     def is_connected(self, remote_node):
         return remote_node.info['id'] in [p['id'] for p in self.rpc.listpeers()['peers']]
