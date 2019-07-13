@@ -978,9 +978,8 @@ class Subtype(Message):
                         s = '{}->{} = fromwire_{}(cursor, plen);'.format(
                             self.name, f.name, basetype)
                 else:
-                    ref = '&' if f.fieldtype.needs_ptr() else ''
-                    s = 'fromwire_{}(cursor, plen, {}{}->{});'.format(
-                        basetype, ref, self.name, f.name)
+                    s = 'fromwire_{}(cursor, plen, &{}->{});'.format(
+                        basetype, self.name, f.name)
                 subcalls.append(s)
 
         return template.format(
