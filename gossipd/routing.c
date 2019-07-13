@@ -2496,10 +2496,10 @@ void route_prune(struct routing_state *rstate)
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(tmpctx, struct short_channel_id,
 					   &chan->scid),
-			    is_halfchan_defined(&chan->half[0]) ? 0
-			    : now - chan->half[0].bcast.timestamp,
-			    is_halfchan_defined(&chan->half[1]) ? 0
-			    : now - chan->half[1].bcast.timestamp);
+			    is_halfchan_defined(&chan->half[0])
+			    ? now - chan->half[0].bcast.timestamp : 0,
+			    is_halfchan_defined(&chan->half[1])
+			    ? now - chan->half[1].bcast.timestamp : 0);
 
 			/* This may perturb iteration so do outside loop. */
 			tal_arr_expand(&pruned, chan);
