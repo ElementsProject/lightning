@@ -81,6 +81,10 @@ this example:
 	"subscriptions": [
 		"connect",
 		"disconnect"
+	],
+	"hooks": [
+		"openchannel",
+		"htlc_accepted"
 	]
 }
 ```
