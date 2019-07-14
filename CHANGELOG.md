@@ -19,6 +19,8 @@ changes.
 
 ### Fixed
 
+- Plugin: `pay` no longer crashes on timeout.
+
 ### Security
 
 ## [0.7.1] - 2019-06-29: "The Unfailing Twitter Consensus Algorithm"

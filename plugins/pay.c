@@ -232,11 +232,13 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 	json_out_start(data, NULL, '{');
 	json_out_start(data, "attempts", '[');
 	for (size_t i = 0; i < tal_count(pc->ps->attempts); i++) {
+		json_out_start(data, NULL, '{');
 		if (pc->ps->attempts[i].route)
 			json_out_add_raw(data, "route",
 					 pc->ps->attempts[i].route);
 		json_out_add_splice(data, "failure",
 				    pc->ps->attempts[i].failure);
+		json_out_end(data, '}');
 	}
 	json_out_end(data, ']');
 	json_out_end(data, '}');
