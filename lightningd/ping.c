@@ -104,9 +104,9 @@ static struct command_result *json_ping(struct command *cmd,
 	 *...
 	 * 1. type: 18 (`ping`)
 	 * 2. data:
-	 *    * [`2`:`num_pong_bytes`]
-	 *    * [`2`:`byteslen`]
-	 *    * [`byteslen`:`ignored`]
+	 *    * [`u16`:`num_pong_bytes`]
+	 *    * [`u16`:`byteslen`]
+	 *    * [`byteslen*byte`:`ignored`]
 	 */
 	if (*len > 65535 - 2 - 2 - 2) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
+
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for

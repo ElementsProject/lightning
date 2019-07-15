@@ -15,7 +15,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-BOLTVERSION := 309e86d471faf90c1f6c531701c16887684badb9
+BOLTVERSION := 6639cef095a2ecc7b8f0c48c6e7f2f906fbfbc58
 
 -include config.vars
 
@@ -185,6 +185,8 @@ ALL_GEN_HEADERS += gen_version.h
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 WIRE_GEN := tools/generate-wire.py
+BOLT_GEN := tools/generate-bolts.py
+BOLT_DEPS := $(BOLT_GEN)
 
 ALL_PROGRAMS =
 
@@ -271,6 +273,13 @@ check-hdr-include-order/%: %
 # Make sure Makefile includes all headers.
 check-makefile:
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
+
+# Check if they've installed 'mako' dependency, useful for
+# keeping your build from clobbering itself
+check-bolt-dependency:
+	@python3 -c "import mako"
+
+BOLT_DEPS += check-bolt-dependency
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
 bolt-check/%: % bolt-precheck tools/check-bolt

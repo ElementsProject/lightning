@@ -42,9 +42,9 @@ enum route_next_case {
  *
  * 1. type: `hops_data`
  * 2. data:
- *    * [`1`:`realm`]
- *    * [`32`:`per_hop`]
- *    * [`32`:`HMAC`]
+ *    * [`byte`:`realm`]
+ *    * [`32*byte`:`per_hop`]
+ *    * [`32*byte`:`HMAC`]
  *    * ...
  *    * `filler`
  *
@@ -59,10 +59,10 @@ enum route_next_case {
  *
  * 1. type: `per_hop` (for `realm` 0)
  * 2. data:
- *    * [`8`:`short_channel_id`]
- *    * [`8`:`amt_to_forward`]
- *    * [`4`:`outgoing_cltv_value`]
- *    * [`12`:`padding`]
+ *    * [`short_channel_id`:`short_channel_id`]
+ *    * [`u64`:`amt_to_forward`]
+ *    * [`u32`:`outgoing_cltv_value`]
+ *    * [`12*byte`:`padding`]
  */
 struct hop_data {
 	u8 realm;

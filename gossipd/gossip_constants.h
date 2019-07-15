@@ -7,9 +7,9 @@
  *...
  * 1. type: `onion_packet`
  * 2. data:
- *    * [`1`:`version`]
- *    * [`33`:`public_key`]
- *    * [`20*65`:`hops_data`]
+ *    * [`byte`:`version`]
+ *    * [`point`:`public_key`]
+ *    * [`1300*byte`:`hops_data`]
  */
 #define ROUTING_MAX_HOPS 20
 

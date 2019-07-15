@@ -464,11 +464,11 @@ u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
 	 * the following fields:
 	 *
 	 * 1. data:
-	 *    * [`32`:`hmac`]
-	 *    * [`2`:`failure_len`]
-	 *    * [`failure_len`:`failuremsg`]
-	 *    * [`2`:`pad_len`]
-	 *    * [`pad_len`:`pad`]
+	 *    * [`32*byte`:`hmac`]
+	 *    * [`u16`:`failure_len`]
+	 *    * [`failure_len*byte`:`failuremsg`]
+	 *    * [`u16`:`pad_len`]
+	 *    * [`pad_len*byte`:`pad`]
 	 */
 	towire_u16(&payload, msglen);
 	towire(&payload, failure_msg, msglen);

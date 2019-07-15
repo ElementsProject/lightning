@@ -587,9 +587,9 @@ static bool query_short_channel_ids(struct daemon *daemon,
 	 *
 	 * 1. type: 261 (`query_short_channel_ids`) (`gossip_queries`)
 	 * 2. data:
-	 *     * [`32`:`chain_hash`]
-	 *     * [`2`:`len`]
-	 *     * [`len`:`encoded_short_ids`]
+	 *     * [`chain_hash`:`chain_hash`]
+	 *     * [`u16`:`len`]
+	 *     * [`len*byte`:`encoded_short_ids`]
 	 */
 	const size_t reply_overhead = 32 + 2;
 	const size_t max_encoded_bytes = 65535 - 2 - reply_overhead;
@@ -841,12 +841,12 @@ static bool queue_channel_ranges(struct peer *peer,
 	 *
 	 * 1. type: 264 (`reply_channel_range`) (`gossip_queries`)
 	 * 2. data:
-	 *   * [`32`:`chain_hash`]
-	 *   * [`4`:`first_blocknum`]
-	 *   * [`4`:`number_of_blocks`]
-	 *   * [`1`:`complete`]
-	 *   * [`2`:`len`]
-	 *   * [`len`:`encoded_short_ids`]
+	 *   * [`chain_hash`:`chain_hash`]
+	 *   * [`u32`:`first_blocknum`]
+	 *   * [`u32`:`number_of_blocks`]
+	 *   * [`byte`:`complete`]
+	 *   * [`u16`:`len`]
+	 *   * [`len*byte`:`encoded_short_ids`]
 	 */
 	const size_t reply_overhead = 32 + 4 + 4 + 1 + 2;
 	const size_t max_encoded_bytes = 65535 - 2 - reply_overhead;

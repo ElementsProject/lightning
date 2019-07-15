@@ -282,7 +282,7 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 * 1. type: 19 (`final_incorrect_htlc_amount`)
 	 * 2. data:
-	 *    * [`8`:`incoming_htlc_amt`]
+	 *    * [`u64`:`incoming_htlc_amt`]
 	 *
 	 * The amount in the HTLC doesn't match the value in the onion.
 	 */
@@ -295,7 +295,7 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 * 1. type: 18 (`final_incorrect_cltv_expiry`)
 	 * 2. data:
-	 *    * [`4`:`cltv_expiry`]
+	 *    * [`u32`:`cltv_expiry`]
 	 *
 	 * The CLTV expiry in the HTLC doesn't match the value in the onion.
 	 */
