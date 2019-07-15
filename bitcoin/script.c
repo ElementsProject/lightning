@@ -454,7 +454,7 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
 /* BOLT #3:
  *
  * This output sends funds back to the owner of this commitment transaction and
- * thus must be timelocked using `OP_CSV`. It can be claimed, without delay,
+ * thus must be timelocked using `OP_CHECKSEQUENCEVERIFY`. It can be claimed, without delay,
  * by the other party if they know the revocation private key. The output is a
  * version-0 P2WSH, with a witness script:
  *
@@ -463,7 +463,7 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
  *         <revocationpubkey>
  *     OP_ELSE
  *         `to_self_delay`
- *         OP_CSV
+ *         OP_CHECKSEQUENCEVERIFY
  *         OP_DROP
  *         <local_delayedpubkey>
  *     OP_ENDIF
@@ -706,7 +706,7 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 	 *         <revocationpubkey>
 	 *     OP_ELSE
 	 *         `to_self_delay`
-	 *         OP_CSV
+	 *         OP_CHECKSEQUENCEVERIFY
 	 *         OP_DROP
 	 *         <local_delayedpubkey>
 	 *     OP_ENDIF
