@@ -26,7 +26,7 @@ msgdata,open_channel,htlc_minimum_msat,u64,
 msgdata,open_channel,feerate_per_kw,u32,
 msgdata,open_channel,to_self_delay,u16,
 msgdata,open_channel,max_accepted_htlcs,u16,
-msgdata,open_channel,funding_pubkey,pubkey,
+msgdata,open_channel,funding_pubkey,point,
 msgdata,open_channel,revocation_basepoint,point,
 msgdata,open_channel,payment_basepoint,point,
 msgdata,open_channel,delayed_payment_basepoint,point,
@@ -44,7 +44,7 @@ msgdata,accept_channel,htlc_minimum_msat,u64,
 msgdata,accept_channel,minimum_depth,u32,
 msgdata,accept_channel,to_self_delay,u16,
 msgdata,accept_channel,max_accepted_htlcs,u16,
-msgdata,accept_channel,funding_pubkey,pubkey,
+msgdata,accept_channel,funding_pubkey,point,
 msgdata,accept_channel,revocation_basepoint,point,
 msgdata,accept_channel,payment_basepoint,point,
 msgdata,accept_channel,delayed_payment_basepoint,point,
@@ -81,7 +81,7 @@ msgdata,update_add_htlc,onion_routing_packet,byte,1366
 msgtype,update_fulfill_htlc,130
 msgdata,update_fulfill_htlc,channel_id,channel_id,
 msgdata,update_fulfill_htlc,id,u64,
-msgdata,update_fulfill_htlc,payment_preimage,preimage,
+msgdata,update_fulfill_htlc,payment_preimage,byte,32
 msgtype,update_fail_htlc,131
 msgdata,update_fail_htlc,channel_id,channel_id,
 msgdata,update_fail_htlc,id,u64,
@@ -99,7 +99,7 @@ msgdata,commitment_signed,num_htlcs,u16,
 msgdata,commitment_signed,htlc_signature,signature,num_htlcs
 msgtype,revoke_and_ack,133
 msgdata,revoke_and_ack,channel_id,channel_id,
-msgdata,revoke_and_ack,per_commitment_secret,secret,
+msgdata,revoke_and_ack,per_commitment_secret,byte,32
 msgdata,revoke_and_ack,next_per_commitment_point,point,
 msgtype,update_fee,134
 msgdata,update_fee,channel_id,channel_id,
@@ -108,7 +108,7 @@ msgtype,channel_reestablish,136
 msgdata,channel_reestablish,channel_id,channel_id,
 msgdata,channel_reestablish,next_local_commitment_number,u64,
 msgdata,channel_reestablish,next_remote_revocation_number,u64,
-msgdata,channel_reestablish,your_last_per_commitment_secret,secret,,option_data_loss_protect
+msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32,option_data_loss_protect
 msgdata,channel_reestablish,my_current_per_commitment_point,point,,option_data_loss_protect
 msgtype,announcement_signatures,259
 msgdata,announcement_signatures,channel_id,channel_id,
@@ -124,16 +124,16 @@ msgdata,channel_announcement,len,u16,
 msgdata,channel_announcement,features,byte,len
 msgdata,channel_announcement,chain_hash,chain_hash,
 msgdata,channel_announcement,short_channel_id,short_channel_id,
-msgdata,channel_announcement,node_id_1,pubkey,
-msgdata,channel_announcement,node_id_2,pubkey,
-msgdata,channel_announcement,bitcoin_key_1,pubkey,
-msgdata,channel_announcement,bitcoin_key_2,pubkey,
+msgdata,channel_announcement,node_id_1,point,
+msgdata,channel_announcement,node_id_2,point,
+msgdata,channel_announcement,bitcoin_key_1,point,
+msgdata,channel_announcement,bitcoin_key_2,point,
 msgtype,node_announcement,257
 msgdata,node_announcement,signature,signature,
 msgdata,node_announcement,flen,u16,
 msgdata,node_announcement,features,byte,flen
 msgdata,node_announcement,timestamp,u32,
-msgdata,node_announcement,node_id,pubkey,
+msgdata,node_announcement,node_id,point,
 msgdata,node_announcement,rgb_color,byte,3
 msgdata,node_announcement,alias,byte,32
 msgdata,node_announcement,addrlen,u16,
