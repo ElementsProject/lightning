@@ -59,7 +59,8 @@ For the impatient here's the gist of it for Ubuntu and Debian:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python python3 net-tools zlib1g-dev libsodium-dev
+      libsqlite3-dev python python3 net-tools zlib1g-dev libsodium-dev \
+      python3-mako
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
     ./configure

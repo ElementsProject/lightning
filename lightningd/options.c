@@ -252,7 +252,7 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 	ld->alias = tal_free(ld->alias);
 	/* BOLT #7:
 	 *
-	 *    * [`32`:`alias`]
+	 *    * [`32*byte`:`alias`]
 	 *...
 	 *  - MUST set `alias` to a valid UTF-8 string, with any
 	 *   `alias` trailing-bytes equal to 0.
