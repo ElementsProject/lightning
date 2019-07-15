@@ -161,6 +161,8 @@ class Type(FieldSet):
         ('satoshis', 'u64'): ('amount_sat', False),
         ('node_id', 'pubkey'): ('node_id', False),
         ('temporary_channel_id', 'u8'): ('channel_id', True),
+        ('secret', 'u8'): ('secret', True),
+        ('preimage', 'u8'): ('preimage', True),
     }
 
     # For BOLT specified types, a few type names need to be simply 'remapped'
