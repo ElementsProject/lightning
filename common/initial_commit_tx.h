@@ -6,6 +6,7 @@
 #include <common/amount.h>
 #include <common/htlc.h>
 
+struct bitcoin_txid;
 struct keyset;
 
 /* BOLT #3:
