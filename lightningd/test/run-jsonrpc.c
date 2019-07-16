@@ -70,6 +70,11 @@ struct command_result *param_feerate_estimate(struct command *cmd UNNEEDED,
 					      u32 **feerate_per_kw UNNEEDED,
 					      enum feerate feerate UNNEEDED)
 { fprintf(stderr, "param_feerate_estimate called!\n"); abort(); }
+/* Generated stub for param_ignore */
+struct command_result *param_ignore(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    const void *unused UNNEEDED)
+{ fprintf(stderr, "param_ignore called!\n"); abort(); }
 /* Generated stub for param_number */
 struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
@@ -80,6 +85,11 @@ struct command_result *param_sha256(struct command *cmd UNNEEDED, const char *na
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    struct sha256 **hash UNNEEDED)
 { fprintf(stderr, "param_sha256 called!\n"); abort(); }
+/* Generated stub for param_subcommand */
+const char *param_subcommand(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
+			     const jsmntok_t tokens[] UNNEEDED,
+			     const char *name UNNEEDED, ...)
+{ fprintf(stderr, "param_subcommand called!\n"); abort(); }
 /* Generated stub for param_tok */
 struct command_result *param_tok(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				 const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,

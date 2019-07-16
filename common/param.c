@@ -263,6 +263,50 @@ static struct command_result *param_arr(struct command *cmd, const char *buffer,
 			    "Expected array or object for params");
 }
 
+#include <stdio.h>
+
+const char *param_subcommand(struct command *cmd, const char *buffer,
+			     const jsmntok_t tokens[],
+			     const char *name, ...)
+{
+	va_list ap;
+	struct param *params = tal_arr(cmd, struct param, 0);
+	const char *arg, **names = tal_arr(tmpctx, const char *, 1);
+	const char *subcmd;
+
+	param_add(&params, "subcommand", true, (void *)param_string, &subcmd);
+	names[0] = name;
+	va_start(ap, name);
+	while ((arg = va_arg(ap, const char *)) != NULL)
+		tal_arr_expand(&names, arg);
+	va_end(ap);
+
+	if (command_usage_only(cmd)) {
+		char *usage = tal_strdup(cmd, "subcommand");
+		for (size_t i = 0; i < tal_count(names); i++)
+			tal_append_fmt(&usage, "%c%s",
+				       i == 0 ? '=' : '|', names[i]);
+		command_set_usage(cmd, usage);
+		return NULL;
+	}
+
+	/* Check it's valid */
+	if (param_arr(cmd, buffer, tokens, params, true) != NULL) {
+		return NULL;
+	}
+
+	/* Check it's one of the known ones. */
+	for (size_t i = 0; i < tal_count(names); i++)
+		if (streq(subcmd, names[i]))
+			return subcmd;
+
+	/* We really do ignore this. */
+	if (command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			 "Unknown subcommand '%s'", subcmd))
+		;
+	return NULL;
+}
+
 bool param(struct command *cmd, const char *buffer,
 	   const jsmntok_t tokens[], ...)
 {

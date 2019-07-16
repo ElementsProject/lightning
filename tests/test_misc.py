@@ -506,14 +506,14 @@ def test_multiplexed_rpc(node_factory):
 
     # Neighbouring ones may be in or out of order.
     commands = [
-        b'{"id":1,"jsonrpc":"2.0","method":"dev-slowcmd","params":[2000]}',
-        b'{"id":1,"jsonrpc":"2.0","method":"dev-slowcmd","params":[2000]}',
-        b'{"id":2,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1500]}',
-        b'{"id":2,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1500]}',
-        b'{"id":3,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1000]}',
-        b'{"id":3,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1000]}',
-        b'{"id":4,"jsonrpc":"2.0","method":"dev-slowcmd","params":[500]}',
-        b'{"id":4,"jsonrpc":"2.0","method":"dev-slowcmd","params":[500]}'
+        b'{"id":1,"jsonrpc":"2.0","method":"dev","params":["slowcmd",2000]}',
+        b'{"id":1,"jsonrpc":"2.0","method":"dev","params":["slowcmd",2000]}',
+        b'{"id":2,"jsonrpc":"2.0","method":"dev","params":["slowcmd",1500]}',
+        b'{"id":2,"jsonrpc":"2.0","method":"dev","params":["slowcmd",1500]}',
+        b'{"id":3,"jsonrpc":"2.0","method":"dev","params":["slowcmd",1000]}',
+        b'{"id":3,"jsonrpc":"2.0","method":"dev","params":["slowcmd",1000]}',
+        b'{"id":4,"jsonrpc":"2.0","method":"dev","params":["slowcmd",500]}',
+        b'{"id":4,"jsonrpc":"2.0","method":"dev","params":["slowcmd",500]}'
     ]
 
     sock.sendall(b'\n'.join(commands))
@@ -1260,3 +1260,54 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
 
     f.result()
+
+
+@unittest.skipIf(not DEVELOPER, "needs dev command")
+def test_dev_demux(node_factory):
+    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+
+    # Check should work.
+    l1.rpc.check(command_to_check='dev', subcommand='crash')
+    l1.rpc.check(command_to_check='dev', subcommand='slowcmd', msec=1000)
+    l1.rpc.check(command_to_check='dev', subcommand='rhash', secret='00' * 32)
+    with pytest.raises(RpcError, match=r'Unknown subcommand'):
+        l1.rpc.check(command_to_check='dev', subcommand='foobar')
+    with pytest.raises(RpcError, match=r'unknown parameter'):
+        l1.rpc.check(command_to_check='dev', subcommand='crash', unk=1)
+    with pytest.raises(RpcError, match=r"'msec' should be an integer"):
+        l1.rpc.check(command_to_check='dev', subcommand='slowcmd', msec='aaa')
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.check(command_to_check='dev', subcommand='rhash')
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.check(command_to_check='dev')
+
+    # Non-check failures should fail, in both object and array form.
+    with pytest.raises(RpcError, match=r'Unknown subcommand'):
+        l1.rpc.call('dev', {'subcommand': 'foobar'})
+    with pytest.raises(RpcError, match=r'Unknown subcommand'):
+        l1.rpc.call('dev', ['foobar'])
+    with pytest.raises(RpcError, match=r'unknown parameter'):
+        l1.rpc.call('dev', {'subcommand': 'crash', 'unk': 1})
+    with pytest.raises(RpcError, match=r'too many parameters'):
+        l1.rpc.call('dev', ['crash', 1])
+    with pytest.raises(RpcError, match=r"'msec' should be an integer"):
+        l1.rpc.call('dev', {'subcommand': 'slowcmd', 'msec': 'aaa'})
+    with pytest.raises(RpcError, match=r"'msec' should be an integer"):
+        l1.rpc.call('dev', ['slowcmd', 'aaa'])
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.call('dev', {'subcommand': 'rhash'})
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.call('dev', ['rhash'])
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.call('dev')
+
+    # Help should list them all.
+    assert 'subcommand=crash|rhash|slowcmd' in l1.rpc.help('dev')['help'][0]['command']
+
+    # These work
+    assert l1.rpc.call('dev', ['slowcmd', '7'])['msec'] == 7
+    assert l1.rpc.call('dev', {'subcommand': 'slowcmd', 'msec': '7'})['msec'] == 7
+    assert l1.rpc.call('dev', {'subcommand': 'rhash', 'secret': '00' * 32})['rhash'] == '66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925'
+
+    with pytest.raises(RpcError):
+        l1.rpc.call('dev', {'subcommand': 'crash'})
