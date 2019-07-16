@@ -4,19 +4,73 @@
 #include <common/utils.h>
 #include <wire/wire.h>
 
+#if DEVELOPER
+/* If they specify --dev-force-channel-secrets it ends up in here. */
+struct secrets *dev_force_channel_secrets;
+struct sha256 *dev_force_channel_secrets_shaseed;
+
+void towire_secrets(u8 **pptr, const struct secrets *s)
+{
+	towire_privkey(pptr, &s->funding_privkey);
+	towire_secret(pptr, &s->revocation_basepoint_secret);
+	towire_secret(pptr, &s->payment_basepoint_secret);
+	towire_secret(pptr, &s->delayed_payment_basepoint_secret);
+	towire_secret(pptr, &s->htlc_basepoint_secret);
+}
+
+void fromwire_secrets(const u8 **ptr, size_t *max, struct secrets *s)
+{
+	fromwire_privkey(ptr, max, &s->funding_privkey);
+	fromwire_secret(ptr, max, &s->revocation_basepoint_secret);
+	fromwire_secret(ptr, max, &s->payment_basepoint_secret);
+	fromwire_secret(ptr, max, &s->delayed_payment_basepoint_secret);
+	fromwire_secret(ptr, max, &s->htlc_basepoint_secret);
+}
+#else /* !DEVELOPER */
+/* Generate code refers to this, but should never be called! */
+void towire_secrets(u8 **pptr, const struct secrets *s)
+{
+	abort();
+}
+
+void fromwire_secrets(const u8 **ptr, size_t *max, struct secrets *s)
+{
+	abort();
+}
+#endif
+
+struct keys {
+	struct privkey f, r, h, p, d;
+	struct sha256 shaseed;
+};
+
+static void derive_keys(const struct secret *seed, struct keys *keys)
+{
+	hkdf_sha256(keys, sizeof(*keys), NULL, 0, seed, sizeof(*seed),
+		    "c-lightning", strlen("c-lightning"));
+
+#if DEVELOPER
+	if (dev_force_channel_secrets) {
+		keys->f = dev_force_channel_secrets->funding_privkey;
+		keys->r.secret = dev_force_channel_secrets->revocation_basepoint_secret;
+		keys->p.secret = dev_force_channel_secrets->payment_basepoint_secret;
+		keys->h.secret = dev_force_channel_secrets->htlc_basepoint_secret;
+		keys->d.secret = dev_force_channel_secrets->delayed_payment_basepoint_secret;
+	}
+	if (dev_force_channel_secrets_shaseed)
+		keys->shaseed = *dev_force_channel_secrets_shaseed;
+#endif
+}
+
 bool derive_basepoints(const struct secret *seed,
 		       struct pubkey *funding_pubkey,
 		       struct basepoints *basepoints,
 		       struct secrets *secrets,
 		       struct sha256 *shaseed)
 {
-	struct keys {
-		struct privkey f, r, h, p, d;
-		struct sha256 shaseed;
-	} keys;
+	struct keys keys;
 
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
+	derive_keys(seed, &keys);
 
 	if (secrets) {
 		secrets->funding_privkey = keys.f;
@@ -95,13 +149,9 @@ bool derive_payment_basepoint(const struct secret *seed,
 			      struct pubkey *payment_basepoint,
 			      struct secret *payment_secret)
 {
-	struct keys {
-		struct privkey f, r, h, p, d;
-		struct sha256 shaseed;
-	} keys;
+	struct keys keys;
 
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
+	derive_keys(seed, &keys);
 
 	if (payment_basepoint) {
 		if (!pubkey_from_privkey(&keys.p, payment_basepoint))
@@ -118,13 +168,9 @@ bool derive_delayed_payment_basepoint(const struct secret *seed,
 				      struct pubkey *delayed_payment_basepoint,
 				      struct secret *delayed_payment_secret)
 {
-	struct keys {
-		struct privkey f, r, h, p, d;
-		struct sha256 shaseed;
-	} keys;
+	struct keys keys;
 
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
+	derive_keys(seed, &keys);
 
 	if (delayed_payment_basepoint) {
 		if (!pubkey_from_privkey(&keys.d, delayed_payment_basepoint))
@@ -139,13 +185,10 @@ bool derive_delayed_payment_basepoint(const struct secret *seed,
 
 bool derive_shaseed(const struct secret *seed, struct sha256 *shaseed)
 {
-	struct keys {
-		struct privkey f, r, h, p, d;
-		struct sha256 shaseed;
-	} keys;
+	struct keys keys;
 
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
+	derive_keys(seed, &keys);
+
 	*shaseed = keys.shaseed;
 	return true;
 }
@@ -154,18 +197,17 @@ bool derive_funding_key(const struct secret *seed,
 			struct pubkey *funding_pubkey,
 			struct privkey *funding_privkey)
 {
-	struct privkey f;
+	struct keys keys;
 
-	hkdf_sha256(&f, sizeof(f), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
+	derive_keys(seed, &keys);
 
 	if (funding_pubkey) {
-		if (!pubkey_from_privkey(&f, funding_pubkey))
+		if (!pubkey_from_privkey(&keys.f, funding_pubkey))
 			return false;
 	}
 
 	if (funding_privkey)
-		*funding_privkey = f;
+		*funding_privkey = keys.f;
 
 	return true;
 }
@@ -174,13 +216,9 @@ bool derive_revocation_basepoint(const struct secret *seed,
 				 struct pubkey *revocation_basepoint,
 				 struct secret *revocation_secret)
 {
-	struct keys {
-		struct privkey f, r, h, p, d;
-		struct sha256 shaseed;
-	} keys;
+	struct keys keys;
 
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
+	derive_keys(seed, &keys);
 
 	if (revocation_basepoint) {
 		if (!pubkey_from_privkey(&keys.r, revocation_basepoint))
@@ -197,13 +235,9 @@ bool derive_htlc_basepoint(const struct secret *seed,
 			   struct pubkey *htlc_basepoint,
 			   struct secret *htlc_secret)
 {
-	struct keys {
-		struct privkey f, r, h, p, d;
-		struct sha256 shaseed;
-	} keys;
+	struct keys keys;
 
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
+	derive_keys(seed, &keys);
 
 	if (htlc_basepoint) {
 		if (!pubkey_from_privkey(&keys.h, htlc_basepoint))

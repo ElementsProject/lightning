@@ -572,6 +572,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct pubkey key;
 	struct privkey *privkey;
 	struct secret *seed;
+	struct secrets *secrets;
+	struct sha256 *shaseed;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -581,12 +583,14 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
 	if (!fromwire_hsm_init(NULL, msg_in, &bip32_key_version,
-			       &privkey, &seed))
+			       &privkey, &seed, &secrets, &shaseed))
 		return bad_req(conn, c, msg_in);
 
 #if DEVELOPER
 	dev_force_privkey = privkey;
 	dev_force_bip32_seed = seed;
+	dev_force_channel_secrets = secrets;
+	dev_force_channel_secrets_shaseed = shaseed;
 #endif
 	maybe_create_new_hsm();
 	load_hsm();
