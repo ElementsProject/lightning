@@ -205,6 +205,9 @@ struct lightningd {
 
 	/* Things we've marked as not leaking. */
 	const void **notleaks;
+
+	/* This is the forced private key for the node. */
+	struct privkey *dev_force_privkey;
 #endif /* DEVELOPER */
 
 	/* tor support */

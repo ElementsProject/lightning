@@ -7,6 +7,7 @@
 #include <ccan/opt/private.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -438,6 +439,16 @@ static char *opt_subprocess_debug(const char *optarg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
+{
+	tal_free(ld->dev_force_privkey);
+	ld->dev_force_privkey = tal(ld, struct privkey);
+	if (!hex_decode(optarg, strlen(optarg),
+			ld->dev_force_privkey, sizeof(*ld->dev_force_privkey)))
+		return tal_fmt(NULL, "Unable to parse privkey '%s'", optarg);
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
@@ -474,6 +485,8 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-gossip-time", opt_set_u32, opt_show_u32,
 			 &ld->dev_gossip_time,
 			 "UNIX time to override gossipd to use.");
+	opt_register_arg("--dev-force-privkey", opt_force_privkey, NULL, ld,
+			 "Force HSM to use this as node private key");
  }
 #endif
 
