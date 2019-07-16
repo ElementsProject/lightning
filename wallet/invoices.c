@@ -15,8 +15,6 @@
 #include <sqlite3.h>
 #include <string.h>
 
-#define INVOICE_TBL_FIELDS "state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description"
-
 struct invoice_waiter {
 	/* Is this waiter already triggered? */
 	bool triggered;
@@ -423,7 +421,17 @@ bool invoices_iterate(struct invoices *invoices,
 
 	if (!it->p) {
 		stmt = db_select_prepare(invoices->db,
-					 INVOICE_TBL_FIELDS
+					 "  state"
+					 ", payment_key"
+					 ", payment_hash"
+					 ", label"
+					 ", msatoshi"
+					 ", expiry_time"
+					 ", pay_index"
+					 ", msatoshi_received"
+					 ", paid_timestamp"
+					 ", bolt11"
+					 ", description"
 					 " FROM invoices;");
 		it->p = stmt;
 	} else
@@ -594,7 +602,17 @@ const struct invoice_details *invoices_get_details(const tal_t *ctx,
 	struct invoice_details *details;
 
 	stmt = db_select_prepare(invoices->db,
-				 INVOICE_TBL_FIELDS
+				 "  state"
+				 ", payment_key"
+				 ", payment_hash"
+				 ", label"
+				 ", msatoshi"
+				 ", expiry_time"
+				 ", pay_index"
+				 ", msatoshi_received"
+				 ", paid_timestamp"
+				 ", bolt11"
+				 ", description"
 				 " FROM invoices"
 				 " WHERE id = ?;");
 	sqlite3_bind_int64(stmt, 1, invoice.id);
