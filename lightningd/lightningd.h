@@ -208,6 +208,9 @@ struct lightningd {
 
 	/* This is the forced private key for the node. */
 	struct privkey *dev_force_privkey;
+
+	/* This is the forced bip32 seed for the node. */
+	struct secret *dev_force_bip32_seed;
 #endif /* DEVELOPER */
 
 	/* tor support */

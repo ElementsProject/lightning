@@ -10,6 +10,7 @@ hsmstatus_client_bad_request,,msg,len*u8
 hsm_init,11
 hsm_init,,bip32_key_version,struct bip32_key_version
 hsm_init,,dev_force_privkey,?struct privkey
+hsm_init,,dev_force_bip32_seed,?struct secret
 
 #include <common/bip32.h>
 hsm_init_reply,111

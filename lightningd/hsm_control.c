@@ -96,9 +96,10 @@ void hsm_init(struct lightningd *ld)
 	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
 				  &ld->topology->bitcoind->chainparams->bip32_key_version,
 #if DEVELOPER
-							 ld->dev_force_privkey
+							 ld->dev_force_privkey,
+							 ld->dev_force_bip32_seed
 #else
-							 NULL
+							 NULL, NULL
 #endif
 				     )))
 		err(1, "Writing init msg to hsm");
