@@ -4,6 +4,7 @@
 #include <ccan/io/io.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/str/hex/hex.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/peer_failed.h>
@@ -184,6 +185,18 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	err(1, "Reading msg");
 }
 
+static char *opt_set_secret(const char *arg, struct secret *s)
+{
+	if (!hex_decode(arg, strlen(arg), s->data, sizeof(s->data)))
+		return "secret must be 64 hex digits";
+	return NULL;
+}
+
+static void opt_show_secret(char buf[OPT_SHOW_LEN], const struct secret *s)
+{
+	hex_encode(s->data, sizeof(s->data), buf, OPT_SHOW_LEN);
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_conn *conn = tal(NULL, struct io_conn);
@@ -198,6 +211,8 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
 
+	memset(&notsosecret, 0x42, sizeof(notsosecret));
+
 	opt_register_noarg("--initial-sync", opt_set_bool, &initial_sync,
 			   "Stream complete gossip history at start");
 	opt_register_arg("--max-messages", opt_set_ulongval, opt_show_ulongval,
@@ -205,6 +220,9 @@ int main(int argc, char *argv[])
 			 "Terminate after reading this many messages (> 0)");
 	opt_register_noarg("--stdin", opt_set_bool, &stream_stdin,
 			   "Stream gossip messages from stdin.");
+	opt_register_arg("--privkey", opt_set_secret, opt_show_secret,
+			 &notsosecret,
+			 "Secret key to use for our identity");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
@@ -258,7 +276,6 @@ int main(int argc, char *argv[])
 	if (conn->fd < 0)
 		err(1, "Creating socket");
 
-	memset(&notsosecret, 0x42, sizeof(notsosecret));
 	if (!pubkey_from_secret(&notsosecret, &us))
 		errx(1, "Creating pubkey");
 
