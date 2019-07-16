@@ -62,7 +62,7 @@ static void do_decode(int argc, char **argv)
 	struct privkey seckey;
 	const tal_t *ctx = talz(NULL, tal_t);
 	u8 serialized[TOTAL_PACKET_SIZE];
-	char hextemp[2 * sizeof(serialized) + 1];
+	char hextemp[2 * sizeof(serialized)];
 	memset(hextemp, 0, sizeof(hextemp));
 	u8 shared_secret[32];
 	u8 assocdata[32];
@@ -97,11 +97,13 @@ static void do_decode(int argc, char **argv)
 	if (!step || !step->next)
 		errx(1, "Error processing message.");
 
-	u8 *ser = serialize_onionpacket(ctx, step->next);
-	if (!ser)
-		errx(1, "Error serializing message.");
-
-	printf("%s\n", tal_hex(ctx, ser));
+	printf("payload=%s\n", tal_hex(ctx, step->raw_payload));
+	if (step->nextcase == ONION_FORWARD) {
+		u8 *ser = serialize_onionpacket(ctx, step->next);
+		if (!ser)
+			errx(1, "Error serializing message.");
+		printf("next=%s\n", tal_hex(ctx, ser));
+	}
 	tal_free(ctx);
 }
 
