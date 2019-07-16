@@ -1,9 +1,6 @@
 #include "lightningd/plugin.h"
 
 #include <ccan/array_size/array_size.h>
-#include <ccan/intmap/intmap.h>
-#include <ccan/io/io.h>
-#include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/tal/path/path.h>
@@ -13,7 +10,6 @@
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
-#include <common/timeout.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/io_loop_with_timers.h>
@@ -22,6 +18,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
+#include <lightningd/plugin_request.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -34,52 +31,6 @@
  * willing to wait. Plugins shouldn't do any initialization in the
  * `getmanifest` call anyway, that's what `init `is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
-
-struct plugin {
-	struct list_node list;
-
-	pid_t pid;
-	char *cmd;
-	struct io_conn *stdin_conn, *stdout_conn;
-	bool stop;
-	struct plugins *plugins;
-	const char **plugin_path;
-
-	/* Stuff we read */
-	char *buffer;
-	size_t used, len_read;
-
-	/* Our json_streams. Since multiple streams could start
-	 * returning data at once, we always service these in order,
-	 * freeing once empty. */
-	struct json_stream **js_arr;
-
-	struct log *log;
-
-	/* List of options that this plugin registered */
-	struct list_head plugin_opts;
-
-	const char **methods;
-
-	/* Timer to add a timeout to some plugin RPC calls. Used to
-	 * guarantee that `getmanifest` doesn't block indefinitely. */
-	const struct oneshot *timeout_timer;
-
-	/* An array of subscribed topics */
-	char **subscriptions;
-};
-
-struct plugins {
-	struct list_head plugins;
-	size_t pending_manifests;
-
-	/* Currently pending requests by their request ID */
-	UINTMAP(struct jsonrpc_request *) pending_requests;
-	struct log *log;
-	struct log_book *log_book;
-
-	struct lightningd *ld;
-};
 
 /* The value of a plugin option, which can have different types.
  * The presence of the integer and boolean values will depend of
@@ -108,6 +59,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
 	p->ld = ld;
+	p->pr_manager = new_plugin_request_manager(p, p);
 	return p;
 }
 
@@ -834,6 +786,30 @@ static bool plugin_hooks_add(struct plugin *plugin, const char *buffer,
 	return true;
 }
 
+static bool plugin_requests_add(struct plugin *plugin, const char *buffer,
+			     const jsmntok_t *resulttok)
+{
+	const jsmntok_t *requeststok = json_get_member(buffer, resulttok, "requests");
+	if (!requeststok)
+		return true;
+
+	for (int i = 0; i < requeststok->size; i++) {
+		char *name = json_strdup(NULL, plugin->buffer,
+					 json_get_arr(requeststok, i));
+		if (!plugin_request_register(plugin, name)) {
+			plugin_kill(plugin,
+				    "could not register request '%s', either the "
+				    "name doesn't exist or another plugin "
+				    "already registered it.",
+				    name);
+			tal_free(name);
+			return false;
+		}
+		tal_free(name);
+	}
+	return true;
+}
+
 static void plugin_manifest_timeout(struct plugin *plugin)
 {
 	log_broken(plugin->log, "The plugin failed to respond to \"getmanifest\" in time, terminating.");
@@ -868,10 +844,12 @@ static void plugin_manifest_cb(const char *buffer,
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
 	    !plugin_subscriptions_add(plugin, buffer, resulttok) ||
-	    !plugin_hooks_add(plugin, buffer, resulttok))
+	    !plugin_hooks_add(plugin, buffer, resulttok) ||
+	    !plugin_requests_add(plugin, buffer, resulttok))
 		plugin_kill(
 		    plugin,
-		    "Failed to register options, methods, hooks, or subscriptions.");
+		    "Failed to register options, methods, hooks, requests,"
+		    " or subscriptions.");
 	/* Reset timer, it'd kill us otherwise. */
 	tal_free(plugin->timeout_timer);
 }

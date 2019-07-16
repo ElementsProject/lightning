@@ -90,6 +90,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/ping.c			\
 	lightningd/plugin.c			\
 	lightningd/plugin_hook.c		\
+	lightningd/plugin_request.c		\
 	lightningd/subd.c			\
 	lightningd/watch.c
 
