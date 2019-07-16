@@ -63,11 +63,6 @@ struct wallet *wallet_new(struct lightningd *ld,
 	return wallet;
 }
 
-#define UTXO_FIELDS							\
-	"prev_out_tx, prev_out_index, value, type, status, keyindex, "	\
-	"channel_id, peer_id, commitment_point, confirmation_height, "	\
-	"spend_height, scriptpubkey"
-
 /* This can fail if we've already seen UTXO. */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
@@ -85,8 +80,20 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		return false;
 	}
 
-	stmt = db_prepare(w->db, "INSERT INTO outputs ("
-			  UTXO_FIELDS
+	stmt = db_prepare(w->db,
+			  "INSERT INTO outputs ("
+			  "  prev_out_tx"
+			  ", prev_out_index"
+			  ", value"
+			  ", type"
+			  ", status"
+			  ", keyindex"
+			  ", channel_id"
+			  ", peer_id"
+			  ", commitment_point"
+			  ", confirmation_height"
+			  ", spend_height"
+			  ", scriptpubkey"
 			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
@@ -203,10 +210,36 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	sqlite3_stmt *stmt;
 
 	if (state == output_state_any)
-		stmt = db_select_prepare(w->db, UTXO_FIELDS " FROM outputs");
+		stmt = db_select_prepare(w->db,
+					 "  prev_out_tx"
+					 ", prev_out_index"
+					 ", value"
+					 ", type"
+					 ", status"
+					 ", keyindex"
+					 ", channel_id"
+					 ", peer_id"
+					 ", commitment_point"
+					 ", confirmation_height"
+					 ", spend_height"
+					 ", scriptpubkey "
+					 "FROM outputs");
 	else {
-		stmt = db_select_prepare(w->db, UTXO_FIELDS
-					 " FROM outputs WHERE status=?1");
+		stmt = db_select_prepare(w->db,
+					 "  prev_out_tx"
+					 ", prev_out_index"
+					 ", value"
+					 ", type"
+					 ", status"
+					 ", keyindex"
+					 ", channel_id"
+					 ", peer_id"
+					 ", commitment_point"
+					 ", confirmation_height"
+					 ", spend_height"
+					 ", scriptpubkey "
+					 "FROM outputs "
+					 "WHERE status=?1");
 		sqlite3_bind_int(stmt, 1, output_status_in_db(state));
 	}
 
@@ -224,9 +257,21 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx, struct wa
 	struct utxo **results;
 	int i;
 
-	sqlite3_stmt *stmt = db_select_prepare(
-		w->db, UTXO_FIELDS
-		" FROM outputs WHERE channel_id IS NOT NULL and confirmation_height IS NULL");
+	sqlite3_stmt *stmt = db_select_prepare(w->db,
+					       "  prev_out_tx"
+					       ", prev_out_index"
+					       ", value"
+					       ", type"
+					       ", status"
+					       ", keyindex"
+					       ", channel_id"
+					       ", peer_id"
+					       ", commitment_point"
+					       ", confirmation_height"
+					       ", spend_height"
+					       ", scriptpubkey"
+					       " FROM outputs"
+					       " WHERE channel_id IS NOT NULL AND confirmation_height IS NULL");
 
        	results = tal_arr(ctx, struct utxo*, 0);
 	for (i=0; db_select_step(w->db, stmt); i++) {
@@ -824,29 +869,6 @@ static struct channel *wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt)
 	return chan;
 }
 
-/* List of fields to retrieve from the channels DB table, in the order
- * that wallet_stmt2channel understands and will parse correctly */
-/* Numbers below are sqlite3_column indices for the first field
- * of that line. */
-static const char *channel_fields =
-    /*0*/ "id, peer_id, short_channel_id, channel_config_local, "
-    /*4*/ "channel_config_remote, state, funder, channel_flags, "
-    /*8*/ "minimum_depth, "
-    /*9*/ "next_index_local, next_index_remote, "
-    /*11*/ "next_htlc_id, funding_tx_id, funding_tx_outnum, funding_satoshi, "
-    /*15*/ "funding_locked_remote, push_msatoshi, msatoshi_local, "
-    /*18*/ "fundingkey_remote, revocation_basepoint_remote, "
-    /*20*/ "payment_basepoint_remote, htlc_basepoint_remote, "
-    /*22*/ "delayed_payment_basepoint_remote, per_commit_remote, "
-    /*24*/ "old_per_commit_remote, local_feerate_per_kw, remote_feerate_per_kw, shachain_remote_id, "
-    /*28*/ "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
-    /*30*/ "last_sent_commit_state, last_sent_commit_id, "
-    /*32*/ "last_tx, last_sig, last_was_revoke, first_blocknum, "
-    /*36*/ "min_possible_feerate, max_possible_feerate, "
-    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max, future_per_commitment_point, "
-    /*41*/ "last_sent_commit, "
-    /*42*/ "feerate_base, feerate_ppm, remote_upfront_shutdown_script";
-
 static void set_max_channel_dbid(struct wallet *w)
 {
 	sqlite3_stmt *stmt;
@@ -866,11 +888,58 @@ static bool wallet_channels_load_active(struct wallet *w)
 {
 	bool ok = true;
 	sqlite3_stmt *stmt;
-
-	/* We load all non-closed channels */
-	stmt = db_select(w->db, "%s FROM channels WHERE state < %d;", channel_fields, CLOSED);
-
 	int count = 0;
+
+	/* We load all channels */
+	stmt = db_select(w->db,
+			 "  id"
+			 ", peer_id"
+			 ", short_channel_id"
+			 ", channel_config_local"
+			 ", channel_config_remote"
+			 ", state"
+			 ", funder"
+			 ", channel_flags"
+			 ", minimum_depth"
+			 ", next_index_local"
+			 ", next_index_remote"
+			 ", next_htlc_id"
+			 ", funding_tx_id"
+			 ", funding_tx_outnum"
+			 ", funding_satoshi"
+			 ", funding_locked_remote"
+			 ", push_msatoshi"
+			 ", msatoshi_local"
+			 ", fundingkey_remote"
+			 ", revocation_basepoint_remote"
+			 ", payment_basepoint_remote"
+			 ", htlc_basepoint_remote"
+			 ", delayed_payment_basepoint_remote"
+			 ", per_commit_remote"
+			 ", old_per_commit_remote"
+			 ", local_feerate_per_kw"
+			 ", remote_feerate_per_kw"
+			 ", shachain_remote_id"
+			 ", shutdown_scriptpubkey_remote"
+			 ", shutdown_keyidx_local"
+			 ", last_sent_commit_state"
+			 ", last_sent_commit_id"
+			 ", last_tx"
+			 ", last_sig"
+			 ", last_was_revoke"
+			 ", first_blocknum"
+			 ", min_possible_feerate"
+			 ", max_possible_feerate"
+			 ", msatoshi_to_us_min"
+			 ", msatoshi_to_us_max"
+			 ", future_per_commitment_point"
+			 ", last_sent_commit"
+			 ", feerate_base"
+			 ", feerate_ppm"
+			 ", remote_upfront_shutdown_script"
+			 " FROM channels WHERE state < %d;",
+			 CLOSED);
+
 	while (db_select_step(w->db, stmt)) {
 		struct channel *c = wallet_stmt2channel(w, stmt);
 		if (!c) {
@@ -1519,13 +1588,6 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	db_exec_prepared(wallet->db, stmt);
 }
 
-/* origin_htlc is htlc_out only, shared_secret is htlc_in only */
-#define HTLC_FIELDS						\
-	"id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "	\
-	"payment_hash, payment_key, routing_onion, "		\
-	"failuremsg, malformed_onion,"				\
-	"origin_htlc, shared_secret, received_time"
-
 static bool wallet_stmt2htlc_in(struct channel *channel,
 				sqlite3_stmt *stmt, struct htlc_in *in)
 {
@@ -1658,10 +1720,24 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	int incount = 0, outcount = 0;
 
 	log_debug(wallet->log, "Loading HTLCs for channel %"PRIu64, chan->dbid);
-	sqlite3_stmt *stmt = db_select(
-	    wallet->db,
-	    HTLC_FIELDS " FROM channel_htlcs WHERE "
-	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
+	sqlite3_stmt *stmt = db_select(wallet->db,
+				       "  id"
+				       ", channel_htlc_id"
+				       ", msatoshi"
+				       ", cltv_expiry"
+				       ", hstate"
+				       ", payment_hash"
+				       ", payment_key"
+				       ", routing_onion"
+				       ", failuremsg"
+				       ", malformed_onion"
+				       ", origin_htlc"
+				       ", shared_secret"
+				       ", received_time"
+				       " FROM channel_htlcs"
+				       " WHERE direction=%d"
+				       " AND channel_id=%" PRIu64
+				       " AND hstate != %d",
 	    DIRECTION_INCOMING, chan->dbid, SENT_REMOVE_ACK_REVOCATION);
 
 	while (db_select_step(wallet->db, stmt)) {
@@ -1673,10 +1749,24 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		incount++;
 	}
 
-	stmt = db_select(
-	    wallet->db,
-	    HTLC_FIELDS " FROM channel_htlcs WHERE "
-	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
+	stmt = db_select(wallet->db,
+			 "  id"
+			 ", channel_htlc_id"
+			 ", msatoshi"
+			 ", cltv_expiry"
+			 ", hstate"
+			 ", payment_hash"
+			 ", payment_key"
+			 ", routing_onion"
+			 ", failuremsg"
+			 ", malformed_onion"
+			 ", origin_htlc"
+			 ", shared_secret"
+			 ", received_time"
+			 " FROM channel_htlcs"
+			 " WHERE direction=%d"
+			 " AND channel_id=%" PRIu64
+			 " AND hstate != %d",
 	    DIRECTION_OUTGOING, chan->dbid, RCVD_REMOVE_ACK_REVOCATION);
 
 	while (db_select_step(wallet->db, stmt)) {
@@ -1985,12 +2075,6 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	return payment;
 }
 
-/* List of the fields that stmt2payment expects to correctly convert */
-#define PAYMENT_FIELDS                                                         \
-	"id, status, destination, msatoshi, payment_hash, timestamp, "         \
-	"payment_preimage, path_secrets, route_nodes, route_channels, "        \
-	"msatoshi_sent, description, bolt11 "
-
 struct wallet_payment *
 wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 		       const struct sha256 *payment_hash)
@@ -2003,8 +2087,22 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	if (payment)
 		return payment;
 
-	stmt = db_select_prepare(wallet->db, PAYMENT_FIELDS " FROM payments "
-				      "WHERE payment_hash = ?");
+	stmt = db_select_prepare(wallet->db,
+				 "  id"
+				 ", status"
+				 ", destination"
+				 ", msatoshi"
+				 ", payment_hash"
+				 ", timestamp"
+				 ", payment_preimage"
+				 ", path_secrets"
+				 ", route_nodes"
+				 ", route_channels"
+				 ", msatoshi_sent"
+				 ", description"
+				 ", bolt11"
+				 " FROM payments"
+				 " WHERE payment_hash = ?");
 
 	sqlite3_bind_sha256(stmt, 1, payment_hash);
 	if (db_select_step(wallet->db, stmt)) {
@@ -2205,12 +2303,38 @@ wallet_payment_list(const tal_t *ctx,
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
 	if (payment_hash) {
 		stmt = db_select_prepare(wallet->db,
-					 PAYMENT_FIELDS " FROM payments "
-					 "WHERE payment_hash = ?;");
+					 "  id"
+					 ", status"
+					 ", destination"
+					 ", msatoshi"
+					 ", payment_hash"
+					 ", timestamp"
+					 ", payment_preimage"
+					 ", path_secrets"
+					 ", route_nodes"
+					 ", route_channels"
+					 ", msatoshi_sent"
+					 ", description"
+					 ", bolt11"
+					 " FROM payments"
+					 " WHERE payment_hash = ?;");
 		sqlite3_bind_sha256(stmt, 1, payment_hash);
 	} else {
 		stmt = db_select_prepare(wallet->db,
-					 PAYMENT_FIELDS " FROM payments;");
+					 "  id"
+					 ", status"
+					 ", destination"
+					 ", msatoshi"
+					 ", payment_hash"
+					 ", timestamp"
+					 ", payment_preimage"
+					 ", path_secrets"
+					 ", route_nodes"
+					 ", route_channels"
+					 ", msatoshi_sent"
+					 ", description"
+					 ", bolt11"
+					 " FROM payments;");
 	}
 
 	for (i = 0; db_select_step(wallet->db, stmt); i++) {
