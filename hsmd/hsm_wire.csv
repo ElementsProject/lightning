@@ -11,6 +11,8 @@ hsm_init,11
 hsm_init,,bip32_key_version,struct bip32_key_version
 hsm_init,,dev_force_privkey,?struct privkey
 hsm_init,,dev_force_bip32_seed,?struct secret
+hsm_init,,dev_force_channel_secrets,?struct secrets
+hsm_init,,dev_force_channel_secrets_shaseed,?struct sha256
 
 #include <common/bip32.h>
 hsm_init_reply,111

@@ -97,9 +97,11 @@ void hsm_init(struct lightningd *ld)
 				  &ld->topology->bitcoind->chainparams->bip32_key_version,
 #if DEVELOPER
 							 ld->dev_force_privkey,
-							 ld->dev_force_bip32_seed
+							 ld->dev_force_bip32_seed,
+							 ld->dev_force_channel_secrets,
+							 ld->dev_force_channel_secrets_shaseed
 #else
-							 NULL, NULL
+							 NULL, NULL, NULL, NULL
 #endif
 				     )))
 		err(1, "Writing init msg to hsm");
