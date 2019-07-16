@@ -1,4 +1,5 @@
 /* Simple tool to route gossip from a peer. */
+#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/opt/opt.h>
@@ -9,6 +10,7 @@
 #include <common/per_peer_state.h>
 #include <common/status.h>
 #include <netdb.h>
+#include <poll.h>
 #include <secp256k1_ecdh.h>
 #include <wire/peer_wire.h>
 
@@ -118,6 +120,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	u8 *msg;
 	struct per_peer_state *pps = new_per_peer_state(conn, orig_cs);
 	u8 *localfeatures;
+	struct pollfd pollfd[2];
 
 	pps->peer_fd = io_conn_fd(conn);
 	if (initial_sync) {
@@ -132,19 +135,13 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	/* Ignore their init message. */
 	tal_free(sync_crypto_read(NULL, pps));
 
-	/* Did they ask us to send any messages?  Do so now. */
-	if (stream_stdin) {
-		beint16_t be_inlen;
-
-		while (read_all(STDIN_FILENO, &be_inlen, sizeof(be_inlen))) {
-			u32 msglen = be16_to_cpu(be_inlen);
-			u8 *msg = tal_arr(NULL, u8, msglen);
-
-			if (!read_all(STDIN_FILENO, msg, msglen))
-				err(1, "Only read partial message");
-			sync_crypto_write(pps, take(msg));
-		}
-	}
+	if (stream_stdin)
+		pollfd[0].fd = STDIN_FILENO;
+	else
+		pollfd[0].fd = -1;
+	pollfd[0].events = POLLIN;
+	pollfd[1].fd = pps->peer_fd;
+	pollfd[1].events = POLLIN;
 
 	while (*args) {
 		u8 *m = tal_hexdata(NULL, *args, strlen(*args));
@@ -154,17 +151,35 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		args++;
 	}
 
-	/* Now write out whatever we get. */
-	while ((msg = sync_crypto_read(NULL, pps)) != NULL) {
-		be16 len = cpu_to_be16(tal_bytelen(msg));
+	for (;;) {
+		beint16_t belen;
+		u8 *msg;
 
-		if (!write_all(STDOUT_FILENO, &len, sizeof(len))
-		    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
-			err(1, "Writing out msg");
-		tal_free(msg);
+		poll(pollfd, ARRAY_SIZE(pollfd), -1);
 
-		if (--max_messages == 0)
-			exit(0);
+		/* We always to stdin first if we can */
+		if (pollfd[0].revents & POLLIN) {
+			if (!read_all(STDIN_FILENO, &belen, sizeof(belen)))
+				pollfd[0].fd = -1;
+			else {
+				msg = tal_arr(NULL, u8, be16_to_cpu(belen));
+
+				if (!read_all(STDIN_FILENO, msg, tal_bytelen(msg)))
+					err(1, "Only read partial message");
+				sync_crypto_write(pps, take(msg));
+			}
+		} else if (pollfd[1].revents & POLLIN) {
+			msg = sync_crypto_read(NULL, pps);
+			if (!msg)
+				break;
+			belen = cpu_to_be16(tal_bytelen(msg));
+			if (!write_all(STDOUT_FILENO, &belen, sizeof(belen))
+			    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
+				err(1, "Writing out msg");
+			tal_free(msg);
+			if (--max_messages == 0)
+				exit(0);
+		}
 	}
 	err(1, "Reading msg");
 }
