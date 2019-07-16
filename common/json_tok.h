@@ -85,4 +85,8 @@ struct command_result *param_tok(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t * tok,
 				 const jsmntok_t **out);
 
+/* Ignore the token.  Not usually used. */
+struct command_result *param_ignore(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    const void *unused);
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */

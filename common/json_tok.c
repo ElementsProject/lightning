@@ -78,6 +78,13 @@ struct command_result *param_string(struct command *cmd, const char *name,
 	return NULL;
 }
 
+struct command_result *param_ignore(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    const void *unused)
+{
+	return NULL;
+}
+
 struct command_result *param_label(struct command *cmd, const char *name,
 				   const char * buffer, const jsmntok_t *tok,
 				   struct json_escape **label)

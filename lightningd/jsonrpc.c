@@ -269,49 +269,63 @@ static void slowcmd_start(struct slowcmd *sc)
 		     slowcmd_finish, sc);
 }
 
-static struct command_result *json_slowcmd(struct command *cmd,
-					   const char *buffer,
-					   const jsmntok_t *obj UNUSED,
-					   const jsmntok_t *params)
+static struct command_result *json_dev(struct command *cmd UNUSED,
+				       const char *buffer,
+				       const jsmntok_t *obj UNNEEDED,
+				       const jsmntok_t *params)
 {
-	struct slowcmd *sc = tal(cmd, struct slowcmd);
+	const char *subcmd;
 
-	sc->cmd = cmd;
-	if (!param(cmd, buffer, params,
-		   p_opt_def("msec", param_number, &sc->msec, 1000),
-		   NULL))
+	subcmd = param_subcommand(cmd, buffer, params,
+				  "crash", "rhash", "slowcmd", NULL);
+	if (!subcmd)
 		return command_param_failed();
 
-	new_reltimer(cmd->ld->timers, sc, time_from_msec(0), slowcmd_start, sc);
-	return command_still_pending(cmd);
+	if (streq(subcmd, "crash")) {
+		if (!param(cmd, buffer, params,
+			   p_req("subcommand", param_ignore, cmd),
+			   NULL))
+			return command_param_failed();
+		fatal("Crash at user request");
+	} else if (streq(subcmd, "slowcmd")) {
+		struct slowcmd *sc = tal(cmd, struct slowcmd);
+
+		sc->cmd = cmd;
+		if (!param(cmd, buffer, params,
+			   p_req("subcommand", param_ignore, cmd),
+			   p_opt_def("msec", param_number, &sc->msec, 1000),
+			   NULL))
+			return command_param_failed();
+
+		new_reltimer(cmd->ld->timers, sc, time_from_msec(0),
+			     slowcmd_start, sc);
+		return command_still_pending(cmd);
+	} else {
+		assert(streq(subcmd, "rhash"));
+		struct json_stream *response;
+		struct sha256 *secret;
+
+		if (!param(cmd, buffer, params,
+			   p_req("subcommand", param_ignore, cmd),
+			   p_req("secret", param_sha256, &secret),
+			   NULL))
+			return command_param_failed();
+
+		/* Hash in place. */
+		sha256(secret, secret, sizeof(*secret));
+		response = json_stream_success(cmd);
+		json_add_hex(response, "rhash", secret, sizeof(*secret));
+		return command_success(cmd, response);
+	}
 }
 
-static const struct json_command dev_slowcmd_command = {
-	"dev-slowcmd",
+static const struct json_command dev_command = {
+	"dev",
 	"developer",
-	json_slowcmd,
-	"Torture test for slow commands, optional {msec}"
+	json_dev,
+	"Developer command test multiplexer"
 };
-AUTODATA(json_command, &dev_slowcmd_command);
-
-static struct command_result *json_crash(struct command *cmd UNUSED,
-					 const char *buffer,
-					 const jsmntok_t *obj UNNEEDED,
-					 const jsmntok_t *params)
-{
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
-
-	fatal("Crash at user request");
-}
-
-static const struct json_command dev_crash_command = {
-	"dev-crash",
-	"developer",
-	json_crash,
-	"Crash lightningd by calling fatal()"
-};
-AUTODATA(json_command, &dev_crash_command);
+AUTODATA(json_command, &dev_command);
 #endif /* DEVELOPER */
 
 static size_t num_cmdlist;
