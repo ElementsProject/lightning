@@ -9,7 +9,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static void do_generate(int argc, char **argv)
+#define ASSOC_DATA_SIZE 32
+
+static void do_generate(int argc, char **argv,
+			const u8 assocdata[ASSOC_DATA_SIZE])
 {
 	const tal_t *ctx = talz(NULL, tal_t);
 	int num_hops = argc - 1;
@@ -18,10 +21,8 @@ static void do_generate(int argc, char **argv)
 	u8 sessionkey[32];
 	struct hop_data hops_data[num_hops];
 	struct secret *shared_secrets;
-	u8 assocdata[32];
 
 	memset(&sessionkey, 'A', sizeof(sessionkey));
-	memset(&assocdata, 'B', sizeof(assocdata));
 
 	for (int i = 0; i < num_hops; i++) {
 		if (!hex_decode(argv[1 + i], 66, privkeys[i], 33)) {
@@ -44,8 +45,8 @@ static void do_generate(int argc, char **argv)
 	}
 
 	struct onionpacket *res =
-	    create_onionpacket(ctx, path, hops_data, sessionkey, assocdata,
-			       sizeof(assocdata), &shared_secrets);
+	    create_onionpacket(ctx, path, hops_data, sessionkey,
+			       assocdata, ASSOC_DATA_SIZE, &shared_secrets);
 
 	u8 *serialized = serialize_onionpacket(ctx, res);
 	if (!serialized)
@@ -55,7 +56,7 @@ static void do_generate(int argc, char **argv)
 	tal_free(ctx);
 }
 
-static void do_decode(int argc, char **argv)
+static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE])
 {
 	struct route_step *step;
 	struct onionpacket *msg;
@@ -65,10 +66,7 @@ static void do_decode(int argc, char **argv)
 	char hextemp[2 * sizeof(serialized)];
 	memset(hextemp, 0, sizeof(hextemp));
 	u8 shared_secret[32];
-	u8 assocdata[32];
 	enum onion_type why_bad;
-
-	memset(&assocdata, 'B', sizeof(assocdata));
 
 	if (argc != 2)
 		opt_usage_exit_fail("Expect a privkey with --decode");
@@ -91,8 +89,8 @@ static void do_decode(int argc, char **argv)
 	if (!onion_shared_secret(shared_secret, msg, &seckey))
 		errx(1, "Error creating shared secret.");
 
-	step = process_onionpacket(ctx, msg, shared_secret, assocdata,
-				   sizeof(assocdata));
+	step = process_onionpacket(ctx, msg, shared_secret,
+				   assocdata, ASSOC_DATA_SIZE);
 
 	if (!step || !step->next)
 		errx(1, "Error processing message.");
@@ -107,11 +105,27 @@ static void do_decode(int argc, char **argv)
 	tal_free(ctx);
 }
 
+static char *opt_set_ad(const char *arg, u8 *assocdata)
+{
+	if (!hex_decode(arg, strlen(arg), assocdata, ASSOC_DATA_SIZE))
+		return "Bad hex string";
+	return NULL;
+}
+
+static void opt_show_ad(char buf[OPT_SHOW_LEN], const u8 *assocdata)
+{
+	hex_encode(assocdata, ASSOC_DATA_SIZE, buf, OPT_SHOW_LEN);
+}
+
 int main(int argc, char **argv)
 {
 	setup_locale();
 
 	bool generate = false, decode = false;
+	u8 assocdata[ASSOC_DATA_SIZE];
+
+	memset(&assocdata, 'B', sizeof(assocdata));
+
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
 
@@ -124,12 +138,15 @@ int main(int argc, char **argv)
 			   "Generate onion through the given hex pubkeys");
 	opt_register_noarg("--decode", opt_set_bool, &decode,
 			   "Decode onion from stdin given the private key");
+	opt_register_arg("--assoc-data", opt_set_ad, opt_show_ad,
+			 assocdata,
+			 "Associated data (usu. payment_hash of payment)");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	if (generate)
-		do_generate(argc, argv);
+		do_generate(argc, argv, assocdata);
 	else if (decode)
-		do_decode(argc, argv);
+		do_decode(argc, argv, assocdata);
 	return 0;
 }
