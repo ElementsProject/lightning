@@ -19,6 +19,7 @@
 #define io_read_ simple_read
 #define io_close simple_close
 static bool stream_stdin = false;
+static bool no_init = false;
 
 static struct io_plan *simple_write(struct io_conn *conn,
 				    const void *data, size_t len,
@@ -130,11 +131,13 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	} else
 		localfeatures = NULL;
 
-	msg = towire_init(NULL, NULL, localfeatures);
+	if (!no_init) {
+		msg = towire_init(NULL, NULL, localfeatures);
 
-	sync_crypto_write(pps, take(msg));
-	/* Ignore their init message. */
-	tal_free(sync_crypto_read(NULL, pps));
+		sync_crypto_write(pps, take(msg));
+		/* Ignore their init message. */
+		tal_free(sync_crypto_read(NULL, pps));
+	}
 
 	if (stream_stdin)
 		pollfd[0].fd = STDIN_FILENO;
@@ -220,6 +223,8 @@ int main(int argc, char *argv[])
 			 "Terminate after reading this many messages (> 0)");
 	opt_register_noarg("--stdin", opt_set_bool, &stream_stdin,
 			   "Stream gossip messages from stdin.");
+	opt_register_noarg("--no-init", opt_set_bool, &no_init,
+			   "Don't send or swallow init messages.");
 	opt_register_arg("--privkey", opt_set_secret, opt_show_secret,
 			 &notsosecret,
 			 "Secret key to use for our identity");
