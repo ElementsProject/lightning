@@ -449,6 +449,17 @@ static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_force_bip32_seed(const char *optarg, struct lightningd *ld)
+{
+	tal_free(ld->dev_force_bip32_seed);
+	ld->dev_force_bip32_seed = tal(ld, struct secret);
+	if (!hex_decode(optarg, strlen(optarg),
+			ld->dev_force_bip32_seed,
+			sizeof(*ld->dev_force_bip32_seed)))
+		return tal_fmt(NULL, "Unable to parse secret '%s'", optarg);
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
@@ -487,7 +498,9 @@ static void dev_register_opts(struct lightningd *ld)
 			 "UNIX time to override gossipd to use.");
 	opt_register_arg("--dev-force-privkey", opt_force_privkey, NULL, ld,
 			 "Force HSM to use this as node private key");
- }
+	opt_register_arg("--dev-force-bip32-seed", opt_force_bip32_seed, NULL, ld,
+			 "Force HSM to use this as bip32 seed");
+}
 #endif
 
 static const struct config testnet_config = {

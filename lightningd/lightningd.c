@@ -119,6 +119,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_allow_localhost = false;
 	ld->dev_gossip_time = 0;
 	ld->dev_force_privkey = NULL;
+	ld->dev_force_bip32_seed = NULL;
 #endif
 
 	/*~ These are CCAN lists: an embedded double-linked list.  It's not

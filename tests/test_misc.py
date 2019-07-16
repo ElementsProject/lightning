@@ -1262,6 +1262,22 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     f.result()
 
 
+@unittest.skipIf(not DEVELOPER, "needs --dev-force-bip32-seed")
+def test_dev_force_bip32_seed(node_factory):
+    l1 = node_factory.get_node(options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
+    # First is m/0/0/1 ..
+    bech32 = l1.rpc.newaddr('bech32')['bech32']
+    assert bech32 == "bcrt1qsdzqt93xsyewdjvagndw9523m27e52er5ca7hm"
+    bech32 = l1.rpc.newaddr('bech32')['bech32']
+    assert bech32 == "bcrt1qlkt93775wmf33uacykc49v2j4tayn0yj25msjn"
+    bech32 = l1.rpc.newaddr('bech32')['bech32']
+    assert bech32 == "bcrt1q2ng546gs0ylfxrvwx0fauzcvhuz655en4kwe2c"
+    bech32 = l1.rpc.newaddr('bech32')['bech32']
+    assert bech32 == "bcrt1qrdpwrlrmrnvn535l5eldt64lxm8r2nwkv0ruxq"
+    bech32 = l1.rpc.newaddr('bech32')['bech32']
+    assert bech32 == "bcrt1q622lwmdzxxterumd746eu3d3t40pq53p62zhlz"
+
+
 @unittest.skipIf(not DEVELOPER, "needs dev command")
 def test_dev_demux(node_factory):
     l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
