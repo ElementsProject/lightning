@@ -26,6 +26,28 @@ struct db {
 };
 
 /**
+ * Macro to annotate a named SQL query.
+ *
+ * This macro is used to annotate SQL queries that might need rewriting for
+ * different SQL dialects. It is used both as a marker for the query
+ * extraction logic in devtools/sql-rewrite.py to identify queries, as well as
+ * a way to swap out the query text with it's name so that the query execution
+ * engine can then look up the rewritten query using its name.
+ *
+ */
+#define NAMED_SQL(name,x) x
+
+/**
+ * Simple annotation macro that auto-generates names for NAMED_SQL
+ *
+ * If this macro is changed it is likely that the extraction logic in
+ * devtools/sql-rewrite.py needs to change as well, since they need to
+ * generate identical names to work correctly.
+ */
+#define SQL(x) NAMED_SQL( __FILE__ ":" stringify(__LINE__) ":" stringify(__COUNTER__), x)
+
+
+/**
  * db_setup - Open a the lightningd database and update the schema
  *
  * Opens the database, creating it if necessary, and applying
