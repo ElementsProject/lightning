@@ -479,17 +479,18 @@ sqlite3_stmt *db_select_prepare_(const char *location, struct db *db, const char
 {
 	int err;
 	sqlite3_stmt *stmt;
-	const char *full_query = tal_fmt(db, "SELECT %s", query);
 
+	/* Since these queries will be treated as read-only they need to start
+	 * with "SELECT" and have no side-effects. */
+	assert(strncmp(query, "SELECT", 6) == 0);
 	assert(db->in_transaction);
 
-	err = sqlite3_prepare_v2(db->sql, full_query, -1, &stmt, NULL);
+	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 
 	if (err != SQLITE_OK)
-		db_fatal("%s: %s: %s", location, full_query, sqlite3_errmsg(db->sql));
+		db_fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
 
 	dev_statement_start(stmt, location);
-	tal_free(full_query);
 	return stmt;
 }
 

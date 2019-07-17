@@ -36,7 +36,7 @@ static void outpointfilters_init(struct wallet *w)
 	tal_free(utxos);
 
 	w->utxoset_outpoints = outpointfilter_new(w);
-	stmt = db_select_prepare(w->db, "txid, outnum FROM utxoset WHERE spendheight is NULL");
+	stmt = db_select_prepare(w->db, "SELECT txid, outnum FROM utxoset WHERE spendheight is NULL");
 
 	while (db_select_step(w->db, stmt)) {
 		sqlite3_column_sha256_double(stmt, 0, &txid.shad);
@@ -70,7 +70,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	sqlite3_stmt *stmt;
 
 	stmt = db_select_prepare(w->db,
-				 "* from outputs WHERE prev_out_tx=? AND prev_out_index=?");
+				 "SELECT * from outputs WHERE prev_out_tx=? AND prev_out_index=?");
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
 
@@ -211,6 +211,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 
 	if (state == output_state_any)
 		stmt = db_select_prepare(w->db,
+					 "SELECT"
 					 "  prev_out_tx"
 					 ", prev_out_index"
 					 ", value"
@@ -226,6 +227,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 					 "FROM outputs");
 	else {
 		stmt = db_select_prepare(w->db,
+					 "SELECT"
 					 "  prev_out_tx"
 					 ", prev_out_index"
 					 ", value"
@@ -258,6 +260,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx, struct wa
 	int i;
 
 	sqlite3_stmt *stmt = db_select_prepare(w->db,
+					       "SELECT"
 					       "  prev_out_tx"
 					       ", prev_out_index"
 					       ", value"
@@ -605,7 +608,7 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 	shachain_init(&chain->chain);
 
 	/* Load shachain metadata */
-	stmt = db_select_prepare(wallet->db, "min_index, num_valid FROM shachains WHERE id=?");
+	stmt = db_select_prepare(wallet->db, "SELECT min_index, num_valid FROM shachains WHERE id=?");
 	sqlite3_bind_int64(stmt, 1, id);
 
 	if (!db_select_step(wallet->db, stmt))
@@ -616,7 +619,7 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 	db_stmt_done(stmt);
 
 	/* Load shachain known entries */
-	stmt = db_select_prepare(wallet->db, "idx, hash, pos FROM shachain_known WHERE shachain_id=?");
+	stmt = db_select_prepare(wallet->db, "SELECT idx, hash, pos FROM shachain_known WHERE shachain_id=?");
 	sqlite3_bind_int64(stmt, 1, id);
 
 	while (db_select_step(wallet->db, stmt)) {
@@ -635,7 +638,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	struct wireaddr_internal addr;
 
 	sqlite3_stmt *stmt = db_select_prepare(
-	    w->db, "id, node_id, address FROM peers WHERE id=?;");
+	    w->db, "SELECT id, node_id, address FROM peers WHERE id=?;");
 	sqlite3_bind_int64(stmt, 1, dbid);
 
 	if (!db_select_step(w->db, stmt))
@@ -661,7 +664,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 static secp256k1_ecdsa_signature *
 wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
 {
-	sqlite3_stmt *stmt = db_select_prepare(w->db, "signature FROM htlc_sigs WHERE channelid = ?");
+	sqlite3_stmt *stmt = db_select_prepare(w->db, "SELECT signature FROM htlc_sigs WHERE channelid = ?");
 	secp256k1_ecdsa_signature *htlc_sigs = tal_arr(ctx, secp256k1_ecdsa_signature, 0);
 	sqlite3_bind_int64(stmt, 1, channelid);
 
@@ -683,7 +686,7 @@ bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
 	sqlite3_stmt *stmt;
 	int res;
 	stmt = db_select_prepare(w->db,
-				 "remote_ann_node_sig, remote_ann_bitcoin_sig"
+				 "SELECT remote_ann_node_sig, remote_ann_bitcoin_sig"
 				 " FROM channels WHERE id = ?");
 	sqlite3_bind_int64(stmt, 1, id);
 
@@ -874,7 +877,7 @@ static void set_max_channel_dbid(struct wallet *w)
 	sqlite3_stmt *stmt;
 	int result;
 
-	stmt = db_select(w->db, "id FROM channels ORDER BY id DESC LIMIT 1;");
+	stmt = db_select(w->db, "SELECT id FROM channels ORDER BY id DESC LIMIT 1;");
 	w->max_channel_dbid = 0;
 
 	result = sqlite3_step(stmt);
@@ -891,53 +894,53 @@ static bool wallet_channels_load_active(struct wallet *w)
 	int count = 0;
 
 	/* We load all channels */
-	stmt = db_select(w->db,
-			 "  id"
-			 ", peer_id"
-			 ", short_channel_id"
-			 ", channel_config_local"
-			 ", channel_config_remote"
-			 ", state"
-			 ", funder"
-			 ", channel_flags"
-			 ", minimum_depth"
-			 ", next_index_local"
-			 ", next_index_remote"
-			 ", next_htlc_id"
-			 ", funding_tx_id"
-			 ", funding_tx_outnum"
-			 ", funding_satoshi"
-			 ", funding_locked_remote"
-			 ", push_msatoshi"
-			 ", msatoshi_local"
-			 ", fundingkey_remote"
-			 ", revocation_basepoint_remote"
-			 ", payment_basepoint_remote"
-			 ", htlc_basepoint_remote"
-			 ", delayed_payment_basepoint_remote"
-			 ", per_commit_remote"
-			 ", old_per_commit_remote"
-			 ", local_feerate_per_kw"
-			 ", remote_feerate_per_kw"
-			 ", shachain_remote_id"
-			 ", shutdown_scriptpubkey_remote"
-			 ", shutdown_keyidx_local"
-			 ", last_sent_commit_state"
-			 ", last_sent_commit_id"
-			 ", last_tx"
-			 ", last_sig"
-			 ", last_was_revoke"
-			 ", first_blocknum"
-			 ", min_possible_feerate"
-			 ", max_possible_feerate"
-			 ", msatoshi_to_us_min"
-			 ", msatoshi_to_us_max"
-			 ", future_per_commitment_point"
-			 ", last_sent_commit"
-			 ", feerate_base"
-			 ", feerate_ppm"
-			 ", remote_upfront_shutdown_script"
-			 " FROM channels WHERE state < ?;");
+	stmt = db_select(w->db, "SELECT"
+				"  id"
+				", peer_id"
+				", short_channel_id"
+				", channel_config_local"
+				", channel_config_remote"
+				", state"
+				", funder"
+				", channel_flags"
+				", minimum_depth"
+				", next_index_local"
+				", next_index_remote"
+				", next_htlc_id"
+				", funding_tx_id"
+				", funding_tx_outnum"
+				", funding_satoshi"
+				", funding_locked_remote"
+				", push_msatoshi"
+				", msatoshi_local"
+				", fundingkey_remote"
+				", revocation_basepoint_remote"
+				", payment_basepoint_remote"
+				", htlc_basepoint_remote"
+				", delayed_payment_basepoint_remote"
+				", per_commit_remote"
+				", old_per_commit_remote"
+				", local_feerate_per_kw"
+				", remote_feerate_per_kw"
+				", shachain_remote_id"
+				", shutdown_scriptpubkey_remote"
+				", shutdown_keyidx_local"
+				", last_sent_commit_state"
+				", last_sent_commit_id"
+				", last_tx"
+				", last_sig"
+				", last_was_revoke"
+				", first_blocknum"
+				", min_possible_feerate"
+				", max_possible_feerate"
+				", msatoshi_to_us_min"
+				", msatoshi_to_us_max"
+				", future_per_commitment_point"
+				", last_sent_commit"
+				", feerate_base"
+				", feerate_ppm"
+				", remote_upfront_shutdown_script"
+				" FROM channels WHERE state < ?;");
 	sqlite3_bind_int(stmt, 1, CLOSED);
 
 	while (db_select_step(w->db, stmt)) {
@@ -1012,6 +1015,7 @@ void wallet_channel_stats_load(struct wallet *w,
 	sqlite3_stmt *stmt;
 	int res;
 	stmt = db_select_prepare(w->db,
+				 "SELECT"
 			  "   in_payments_offered,  in_payments_fulfilled"
 			  ",  in_msatoshi_offered,  in_msatoshi_fulfilled"
 			  ", out_payments_offered, out_payments_fulfilled"
@@ -1039,7 +1043,7 @@ void wallet_channel_stats_load(struct wallet *w,
 void wallet_blocks_heights(struct wallet *w, u32 def, u32 *min, u32 *max)
 {
 	assert(min != NULL && max != NULL);
-	sqlite3_stmt *stmt = db_select_prepare(w->db, "MIN(height), MAX(height) FROM blocks;");
+	sqlite3_stmt *stmt = db_select_prepare(w->db, "SELECT MIN(height), MAX(height) FROM blocks;");
 
 	*min = def;
 	*max = def;
@@ -1096,7 +1100,7 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	bool ok = true;
 	int col = 1;
 	const char *query =
-	    "id, dust_limit_satoshis, max_htlc_value_in_flight_msat, "
+	    "SELECT id, dust_limit_satoshis, max_htlc_value_in_flight_msat, "
 	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
 	    "max_accepted_htlcs FROM channel_configs WHERE id= ? ;";
 	sqlite3_stmt *stmt = db_select_prepare(w->db, query);
@@ -1366,7 +1370,7 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	sqlite3_stmt *stmt;
 
 	/* Must not have any channels still using this peer */
-	stmt = db_select_prepare(w->db, "* FROM channels WHERE peer_id = ?;");
+	stmt = db_select_prepare(w->db, "SELECT * FROM channels WHERE peer_id = ?;");
 	sqlite3_bind_int64(stmt, 1, peer_dbid);
 
 	if (db_select_step(w->db, stmt))
@@ -1722,7 +1726,8 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	int incount = 0, outcount = 0;
 
 	log_debug(wallet->log, "Loading HTLCs for channel %"PRIu64, chan->dbid);
-	sqlite3_stmt *stmt = db_select_prepare(wallet->db, "  id"
+	sqlite3_stmt *stmt = db_select_prepare(wallet->db, "SELECT"
+							   "  id"
 							   ", channel_htlc_id"
 							   ", msatoshi"
 							   ", cltv_expiry"
@@ -1752,7 +1757,8 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		incount++;
 	}
 
-	stmt = db_select_prepare(wallet->db, "  id"
+	stmt = db_select_prepare(wallet->db, "SELECT"
+					     "  id"
 					     ", channel_htlc_id"
 					     ", msatoshi"
 					     ", cltv_expiry"
@@ -1873,7 +1879,7 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	struct htlc_stub *stubs;
 	struct sha256 payment_hash;
 	sqlite3_stmt *stmt = db_select_prepare(wallet->db,
-		"channel_id, direction, cltv_expiry, channel_htlc_id, payment_hash "
+		"SELECT channel_id, direction, cltv_expiry, channel_htlc_id, payment_hash "
 		"FROM channel_htlcs WHERE channel_id = ?;");
 
 	sqlite3_bind_int64(stmt, 1, chan->dbid);
@@ -1955,7 +1961,7 @@ void wallet_payment_store(struct wallet *wallet,
 		 * we never paid to) */
 		bool res;
 		stmt = db_select_prepare(wallet->db,
-					 "status FROM payments"
+					 "SELECT status FROM payments"
 					 " WHERE payment_hash=?;");
 		sqlite3_bind_sha256(stmt, 1, payment_hash);
 		res = db_select_step(wallet->db, stmt);
@@ -2092,6 +2098,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 		return payment;
 
 	stmt = db_select_prepare(wallet->db,
+				 "SELECT"
 				 "  id"
 				 ", status"
 				 ", destination"
@@ -2180,7 +2187,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 	size_t len;
 
 	stmt = db_select_prepare(wallet->db,
-				 "failonionreply, faildestperm"
+				 "SELECT failonionreply, faildestperm"
 				 ", failindex, failcode"
 				 ", failnode, failchannel"
 				 ", failupdate, faildetail, faildirection"
@@ -2307,6 +2314,7 @@ wallet_payment_list(const tal_t *ctx,
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
 	if (payment_hash) {
 		stmt = db_select_prepare(wallet->db,
+					 "SELECT"
 					 "  id"
 					 ", status"
 					 ", destination"
@@ -2325,6 +2333,7 @@ wallet_payment_list(const tal_t *ctx,
 		sqlite3_bind_sha256(stmt, 1, payment_hash);
 	} else {
 		stmt = db_select_prepare(wallet->db,
+					 "SELECT"
 					 "  id"
 					 ", status"
 					 ", destination"
@@ -2379,7 +2388,7 @@ bool wallet_network_check(struct wallet *w,
 			  const struct chainparams *chainparams)
 {
 	sqlite3_stmt *stmt = db_select(w->db,
-				      "val FROM vars WHERE name='genesis_hash'");
+				      "SELECT val FROM vars WHERE name='genesis_hash'");
 	struct bitcoin_blkid chainhash;
 
 	if (db_select_step(w->db, stmt)) {
@@ -2417,7 +2426,7 @@ static void wallet_utxoset_prune(struct wallet *w, const u32 blockheight)
 	sqlite3_stmt *stmt;
 	struct bitcoin_txid txid;
 
-	stmt = db_select_prepare(w->db, "txid, outnum FROM utxoset WHERE spendheight < ?");
+	stmt = db_select_prepare(w->db, "SELECT txid, outnum FROM utxoset WHERE spendheight < ?");
 	sqlite3_bind_int(stmt, 1, blockheight - UTXO_PRUNE_DEPTH);
 
 	while (db_select_step(w->db, stmt)) {
@@ -2456,7 +2465,8 @@ void wallet_block_remove(struct wallet *w, struct block *b)
 	sqlite3_bind_sha256_double(stmt, 1, &b->blkid.shad);
 	db_exec_prepared(w->db, stmt);
 
-	stmt = db_select_prepare(w->db, "* FROM blocks WHERE height >= ?;");
+	/* Make sure that all descendants of the block are also deleted */
+	stmt = db_select_prepare(w->db, "SELECT * FROM blocks WHERE height >= ?;");
 	sqlite3_bind_int(stmt, 1, b->height);
 	assert(!db_select_step(w->db, stmt));
 }
@@ -2509,6 +2519,7 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 
 		/* Now look for the outpoint's short_channel_id */
 		stmt = db_select_prepare(w->db,
+					 "SELECT "
 					 "blockheight, txindex "
 					 "FROM utxoset "
 					 "WHERE txid = ? AND outnum = ?");
@@ -2600,7 +2611,7 @@ void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
 bool wallet_have_block(struct wallet *w, u32 blockheight)
 {
 	bool result;
-	sqlite3_stmt *stmt = db_select_prepare(w->db, "height FROM blocks WHERE height = ?");
+	sqlite3_stmt *stmt = db_select_prepare(w->db, "SELECT height FROM blocks WHERE height = ?");
 	sqlite3_bind_int(stmt, 1, blockheight);
 	result = sqlite3_step(stmt) == SQLITE_ROW;
 	db_stmt_done(stmt);
@@ -2612,16 +2623,16 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 {
 	sqlite3_stmt *stmt;
 	struct outpoint *op;
-	stmt = db_select_prepare(w->db,
-			  " txid,"
-			  " spendheight,"
-			  " scriptpubkey,"
-			  " satoshis "
-			  "FROM utxoset "
-			  "WHERE blockheight = ?"
-			  " AND txindex = ?"
-			  " AND outnum = ?"
-			  " AND spendheight IS NULL");
+	stmt = db_select_prepare(w->db, "SELECT"
+					" txid,"
+					" spendheight,"
+					" scriptpubkey,"
+					" satoshis "
+					"FROM utxoset "
+					"WHERE blockheight = ?"
+					" AND txindex = ?"
+					" AND outnum = ?"
+					" AND spendheight IS NULL");
 	sqlite3_bind_int(stmt, 1, short_channel_id_blocknum(scid));
 	sqlite3_bind_int(stmt, 2, short_channel_id_txnum(scid));
 	sqlite3_bind_int(stmt, 3, short_channel_id_outnum(scid));
@@ -2648,7 +2659,7 @@ void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
 			    const u32 blockheight, const u32 txindex)
 {
 	struct bitcoin_txid txid;
-	sqlite3_stmt *stmt = db_select_prepare(w->db, "blockheight FROM transactions WHERE id=?");
+	sqlite3_stmt *stmt = db_select_prepare(w->db, "SELECT blockheight FROM transactions WHERE id=?");
 
 	bitcoin_txid(tx, &txid);
 	sqlite3_bind_sha256(stmt, 1, &txid.shad.sha);
@@ -2691,7 +2702,7 @@ void wallet_transaction_annotate(struct wallet *w,
 				 const struct bitcoin_txid *txid, enum wallet_tx_type type,
 				 u64 channel_id)
 {
-	sqlite3_stmt *stmt = db_select_prepare(w->db, "type, channel_id FROM transactions WHERE id=?");
+	sqlite3_stmt *stmt = db_select_prepare(w->db, "SELECT type, channel_id FROM transactions WHERE id=?");
 	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
 	if (!db_select_step(w->db, stmt))
 		fatal("Attempting to annotate a transaction we don't have: %s",
@@ -2720,7 +2731,7 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 {
 	u32 blockheight;
 	sqlite3_stmt *stmt = db_select_prepare(
-		w->db, "blockheight FROM transactions WHERE id=?");
+		w->db, "SELECT blockheight FROM transactions WHERE id=?");
 	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
 
 	if (!db_select_step(w->db, stmt))
@@ -2738,7 +2749,7 @@ struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
 	sqlite3_stmt *stmt;
 
 	stmt = db_select_prepare(
-	    w->db, "blockheight, txindex FROM transactions WHERE id=?");
+	    w->db, "SELECT blockheight, txindex FROM transactions WHERE id=?");
 	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
 
 	if (!db_select_step(w->db, stmt))
@@ -2763,7 +2774,7 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	struct bitcoin_txid *txids = tal_arr(ctx, struct bitcoin_txid, 0);
 	int count = 0;
 	stmt = db_select_prepare(
-	    w->db, "id FROM transactions WHERE blockheight=?");
+	    w->db, "SELECT id FROM transactions WHERE blockheight=?");
 	sqlite3_bind_int(stmt, 1, blockheight);
 
 	while (db_select_step(w->db, stmt)) {
@@ -2802,7 +2813,7 @@ u32 *wallet_onchaind_channels(struct wallet *w,
 	sqlite3_stmt *stmt;
 	size_t count = 0;
 	u32 *channel_ids = tal_arr(ctx, u32, 0);
-	stmt = db_select_prepare(w->db, "DISTINCT(channel_id) FROM channeltxs WHERE type = ?;");
+	stmt = db_select_prepare(w->db, "SELECT DISTINCT(channel_id) FROM channeltxs WHERE type = ?;");
 	sqlite3_bind_int(stmt, 1, WIRE_ONCHAIN_INIT);
 
 	while (db_select_step(w->db, stmt)) {
@@ -2820,17 +2831,18 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
 	sqlite3_stmt *stmt;
 	size_t count = 0;
 	struct channeltx *res = tal_arr(ctx, struct channeltx, 0);
-	stmt = db_select_prepare(w->db,
-			  "  c.type"
-			  ", c.blockheight"
-			  ", t.rawtx"
-			  ", c.input_num"
-			  ", c.blockheight - t.blockheight + 1 AS depth"
-			  ", t.id as txid "
-			  "FROM channeltxs c "
-			  "JOIN transactions t ON t.id == c.transaction_id "
-			  "WHERE c.channel_id = ? "
-			  "ORDER BY c.id ASC;");
+	stmt = db_select_prepare(
+	    w->db, "SELECT"
+		   "  c.type"
+		   ", c.blockheight"
+		   ", t.rawtx"
+		   ", c.input_num"
+		   ", c.blockheight - t.blockheight + 1 AS depth"
+		   ", t.id as txid "
+		   "FROM channeltxs c "
+		   "JOIN transactions t ON t.id == c.transaction_id "
+		   "WHERE c.channel_id = ? "
+		   "ORDER BY c.id ASC;");
 	sqlite3_bind_int(stmt, 1, channel_id);
 
 	while (db_select_step(w->db, stmt)) {
@@ -2918,10 +2930,10 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	struct amount_msat total;
 	bool res;
 
-	stmt = db_select_prepare(w->db,
-			  " SUM(in_msatoshi - out_msatoshi) "
-			  "FROM forwarded_payments "
-			  "WHERE state = ?;");
+	stmt = db_select_prepare(w->db, "SELECT"
+					" SUM(in_msatoshi - out_msatoshi) "
+					"FROM forwarded_payments "
+					"WHERE state = ?;");
 
 	sqlite3_bind_int(stmt, 1, wallet_forward_status_in_db(FORWARD_SETTLED));
 
@@ -2940,18 +2952,19 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	struct forwarding *results = tal_arr(ctx, struct forwarding, 0);
 	size_t count = 0;
 	sqlite3_stmt *stmt;
-	stmt = db_select_prepare(w->db,
-			  "  f.state"
-			  ", in_msatoshi"
-			  ", out_msatoshi"
-			  ", hin.payment_hash as payment_hash"
-			  ", in_channel_scid"
-			  ", out_channel_scid"
-			  ", f.received_time"
-			  ", f.resolved_time"
-			  ", f.failcode "
-			  "FROM forwarded_payments f "
-			  "LEFT JOIN channel_htlcs hin ON (f.in_htlc_id == hin.id)");
+	stmt = db_select_prepare(
+	    w->db, "SELECT"
+		   "  f.state"
+		   ", in_msatoshi"
+		   ", out_msatoshi"
+		   ", hin.payment_hash as payment_hash"
+		   ", in_channel_scid"
+		   ", out_channel_scid"
+		   ", f.received_time"
+		   ", f.resolved_time"
+		   ", f.failcode "
+		   "FROM forwarded_payments f "
+		   "LEFT JOIN channel_htlcs hin ON (f.in_htlc_id == hin.id)");
 
 	for (count=0; db_select_step(w->db, stmt); count++) {
 		tal_resize(&results, count+1);
@@ -3097,7 +3110,7 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 	struct wallet_transaction *cur, *txs = tal_arr(ctx, struct wallet_transaction, 0);
 
 	stmt = db_select_prepare(w->db,
-				 "id, id, rawtx, blockheight, txindex, type, channel_id "
+				 "SELECT id, id, rawtx, blockheight, txindex, type, channel_id "
 				 "FROM transactions");
 	for (count = 0; db_select_step(w->db, stmt); count++) {
 		tal_resize(&txs, count + 1);

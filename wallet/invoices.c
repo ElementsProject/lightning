@@ -179,7 +179,7 @@ static void trigger_expiration(struct invoices *invoices)
 	/* Acquire all expired invoices and save them in a list */
 	list_head_init(&idlist);
 	stmt = db_select_prepare(invoices->db,
-				 "id"
+				 "SELECT id"
 				 "  FROM invoices"
 				 " WHERE state = ?"
 				 "   AND expiry_time <= ?;");
@@ -218,7 +218,7 @@ static void install_expiration_timer(struct invoices *invoices)
 
 	/* Find unpaid invoice with nearest expiry time */
 	stmt = db_select_prepare(invoices->db,
-				 "MIN(expiry_time)"
+				 "SELECT MIN(expiry_time)"
 				 "  FROM invoices"
 				 " WHERE state = ?;");
 	sqlite3_bind_int(stmt, 1, UNPAID);
@@ -330,7 +330,7 @@ bool invoices_find_by_label(struct invoices *invoices,
 	sqlite3_stmt *stmt;
 
 	stmt = db_select_prepare(invoices->db,
-				 "id"
+				 "SELECT id"
 				 "  FROM invoices"
 				 " WHERE label = ?;");
 	sqlite3_bind_json_escape(stmt, 1, label);
@@ -349,7 +349,7 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 	sqlite3_stmt *stmt;
 
 	stmt = db_select_prepare(invoices->db,
-				 "id"
+				 "SELECT id"
 				 "  FROM invoices"
 				 " WHERE payment_hash = ?;");
 	sqlite3_bind_blob(stmt, 1, rhash, sizeof(*rhash), SQLITE_TRANSIENT);
@@ -368,7 +368,7 @@ bool invoices_find_unpaid(struct invoices *invoices,
 	sqlite3_stmt *stmt;
 
 	stmt = db_select_prepare(invoices->db,
-				 " id"
+				 "SELECT id"
 				 "  FROM invoices"
 				 " WHERE payment_hash = ?"
 				 "   AND state = ?;");
@@ -421,6 +421,7 @@ bool invoices_iterate(struct invoices *invoices,
 
 	if (!it->p) {
 		stmt = db_select_prepare(invoices->db,
+					 "SELECT"
 					 "  state"
 					 ", payment_key"
 					 ", payment_hash"
@@ -470,7 +471,7 @@ static enum invoice_status invoice_get_status(struct invoices *invoices, struct 
 	bool res;
 
 	stmt = db_select_prepare(invoices->db,
-				 "state FROM invoices WHERE id = ?;");
+				 "SELECT state FROM invoices WHERE id = ?;");
 	sqlite3_bind_int64(stmt, 1, invoice.id);
 	res = db_select_step(invoices->db, stmt);
 	assert(res);
@@ -552,7 +553,7 @@ void invoices_waitany(const tal_t *ctx,
 
 	/* Look for an already-paid invoice. */
 	stmt = db_select_prepare(invoices->db,
-				 "id"
+				 "SELECT id"
 				 "  FROM invoices"
 				 " WHERE pay_index NOT NULL"
 				 "   AND pay_index > ?"
@@ -602,6 +603,7 @@ const struct invoice_details *invoices_get_details(const tal_t *ctx,
 	struct invoice_details *details;
 
 	stmt = db_select_prepare(invoices->db,
+				 "SELECT"
 				 "  state"
 				 ", payment_key"
 				 ", payment_hash"
