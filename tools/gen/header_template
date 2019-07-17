@@ -32,7 +32,7 @@ const char *${enum_set['name']}_name(int e);
 % for struct in structs:
 struct ${struct.struct_name()} {
         % for f in struct.fields.values():
-        % if f.is_len_field:
+        % if bool(f.len_field_of):
 <% continue %>
         % endif
             % if f.has_len_field():
