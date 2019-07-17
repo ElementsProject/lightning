@@ -1,3 +1,4 @@
+#include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
@@ -25,23 +26,56 @@ static void do_generate(int argc, char **argv,
 	memset(&sessionkey, 'A', sizeof(sessionkey));
 
 	for (int i = 0; i < num_hops; i++) {
-		if (!hex_decode(argv[1 + i], 66, privkeys[i], 33)) {
+		size_t klen = strcspn(argv[1 + i], "/");
+		if (!hex_decode(argv[1 + i], klen, privkeys[i], 32))
 			errx(1, "Invalid private key hex '%s'", argv[1 + i]);
-		}
+
 		if (secp256k1_ec_pubkey_create(secp256k1_ctx, &path[i].pubkey,
 					       privkeys[i]) != 1)
 			errx(1, "Could not decode pubkey");
-		fprintf(stderr, "Node %d pubkey %s\n", i, secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
-	}
-
-	for (int i = 0; i < num_hops; i++) {
+		printf("# Node %d pubkey %s\n",
+		       i, secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
 		memset(&hops_data[i], 0, sizeof(hops_data[i]));
-		hops_data[i].realm = i;
-		memset(&hops_data[i].channel_id, i,
-		       sizeof(hops_data[i].channel_id));
-		hops_data[i].amt_forward.millisatoshis = i; /* Raw: test code */
-		hops_data[i].outgoing_cltv = i;
-		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
+		if (argv[1 + i][klen] != '\0') {
+			/* FIXME: Generic realm support, not this hack! */
+			/* FIXME: Multi hop! */
+			const char *hopstr = argv[1 + i] + klen + 1;
+			size_t dsize = hex_data_size(strlen(hopstr));
+			be64 scid, msat;
+			be32 cltv;
+			u8 padding[12];
+			if (dsize != 33)
+				errx(1, "hopdata expected 33 bytes");
+			if (!hex_decode(hopstr, 2,
+					&hops_data[i].realm,
+					sizeof(hops_data[i].realm))
+			    || !hex_decode(hopstr + 2, 16,
+					   &scid, sizeof(scid))
+			    || !hex_decode(hopstr + 2 + 16, 16,
+					   &msat, sizeof(msat))
+			    || !hex_decode(hopstr + 2 + 16 + 16, 8,
+					   &cltv, sizeof(cltv))
+			    || !hex_decode(hopstr + 2 + 16 + 16 + 8, 24,
+					   padding, sizeof(padding)))
+				errx(1, "hopdata bad hex");
+			if (hops_data[i].realm != 0)
+				errx(1, "FIXME: Only realm 0 supported");
+			if (!memeqzero(padding, sizeof(padding)))
+				errx(1, "FIXME: Only zero padding supported");
+			/* Fix endian up */
+			hops_data[i].channel_id.u64
+				= be64_to_cpu(scid);
+			hops_data[i].amt_forward.millisatoshis /* Raw: test code */
+				= be64_to_cpu(msat);
+			hops_data[i].outgoing_cltv
+				= be32_to_cpu(cltv);
+		} else {
+			hops_data[i].realm = i;
+			memset(&hops_data[i].channel_id, i,
+			       sizeof(hops_data[i].channel_id));
+			hops_data[i].amt_forward.millisatoshis = i; /* Raw: test code */
+			hops_data[i].outgoing_cltv = i;
+		}
 	}
 
 	struct onionpacket *res =
@@ -130,7 +164,7 @@ int main(int argc, char **argv)
 						 SECP256K1_CONTEXT_SIGN);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "--generate <pubkey1> <pubkey2>... OR\n"
+			   "--generate <privkey1>[/hopdata] <privkey2>[/hopdata]... OR\n"
 			   "--decode <privkey>\n"
 			   "Either create an onion message, or decode one step",
 			   "Print this message.");
