@@ -32,18 +32,21 @@ def next_line(args, lines):
         lines = fileinput.input(args)
 
     for i, line in enumerate(lines):
+        if not bool(line.strip()):
+            continue
         yield i, line.strip()
 
 
 # Class definitions, to keep things classy
 class Field(object):
-    def __init__(self, name, type_obj, optional=False):
+    def __init__(self, name, type_obj, optional=False, field_comments=[]):
         self.name = name
         self.type_obj = type_obj
         self.count = 1
         self.is_optional = optional
         self.len_field_of = None
         self.len_field = None
+        self.field_comments = field_comments
 
     def add_count(self, count):
         self.count = int(count)
@@ -102,12 +105,12 @@ class FieldSet(object):
         self.optional_fields = False
         self.len_fields = {}
 
-    def add_data_field(self, field_name, type_obj, count=1, is_optional=[]):
+    def add_data_field(self, field_name, type_obj, count=1, is_optional=[], comments=[]):
         # FIXME: use this somewhere?
         if is_optional:
             self.optional_fields = True
 
-        field = Field(field_name, type_obj, bool(is_optional))
+        field = Field(field_name, type_obj, bool(is_optional), comments)
         if bool(count):
             try:
                 field.add_count(int(count))
@@ -197,9 +200,10 @@ class Type(FieldSet):
         self.depends_on = {}
         # FIXME: internal msgs can be enums
         self.is_enum = False
+        self.type_comments = []
 
-    def add_data_field(self, field_name, type_obj, count=1, is_optional=[]):
-        FieldSet.add_data_field(self, field_name, type_obj, count, is_optional)
+    def add_data_field(self, field_name, type_obj, count=2, is_optional=[], comments=[]):
+        FieldSet.add_data_field(self, field_name, type_obj, count, is_optional, comments)
         if type_obj.name not in self.depends_on:
             self.depends_on[type_obj.name] = type_obj
 
@@ -217,17 +221,26 @@ class Type(FieldSet):
         return self.name
 
     def subtype_deps(self):
-        return [dep for dep in self.depends_on.values() if dep.is_subtype()]
+        return [dep for dep in self.depends_on.values() if dep.is_gen_subtype()]
 
-    def is_subtype(self):
+    def is_gen_subtype(self):
+        """ is this a 'genuine' subtype; i.e. will be generated """
         return bool(self.fields)
 
+    def is_subtype(self):
+        return self.is_gen_subtype()
+
     def is_assignable(self):
+        """ Generally typedef's and enums """
         return self.name in self.assignables or self.is_enum
+
+    def add_comments(self, comments):
+        self.type_comments = comments
 
 
 class Message(FieldSet):
-    def __init__(self, name, number, option=[], enum_prefix='wire', struct_prefix=None):
+    def __init__(self, name, number, option=[], enum_prefix='wire',
+                 struct_prefix=None, comments=[]):
         FieldSet.__init__(self)
         self.name = name
         self.number = number
@@ -235,6 +248,7 @@ class Message(FieldSet):
         self.option = option[0] if len(option) else None
         self.struct_prefix = struct_prefix
         self.enumname = None
+        self.msg_comments = comments
 
     def has_option(self):
         return self.option is not None
@@ -254,10 +268,11 @@ class Tlv(object):
         self.name = name
         self.messages = {}
 
-    def add_message(self, tokens):
+    def add_message(self, tokens, comments=[]):
         """ tokens -> (name, value[, option]) """
-        self.messages[tokens[0]] = Message(tokens[0], tokens[1], tokens[2:],
-                                           self.name, self.name)
+        self.messages[tokens[0]] = Message(tokens[0], tokens[1], option=tokens[2:],
+                                           enum_prefix=self.name, struct_prefix=self.name,
+                                           comments=comments)
 
     def find_message(self, name):
         return self.messages[name]
@@ -278,9 +293,10 @@ class Master(object):
             self.tlvs[tlv_name] = Tlv(tlv_name)
         return self.tlvs[tlv_name]
 
-    def add_message(self, tokens):
+    def add_message(self, tokens, comments=[]):
         """ tokens -> (name, value[, option])"""
-        self.messages[tokens[0]] = Message(tokens[0], tokens[1], tokens[2:])
+        self.messages[tokens[0]] = Message(tokens[0], tokens[1], option=tokens[2:],
+                                           comments=comments)
 
     def add_extension_msg(self, name, msg):
         self.extension_msgs[name] = msg
@@ -362,6 +378,8 @@ class Master(object):
 def main(options, args=None, output=sys.stdout, lines=None):
     genline = next_line(args, lines)
 
+    comment_set = []
+
     # Create a new 'master' that serves as the coordinator for the file generation
     master = Master()
     try:
@@ -370,7 +388,10 @@ def main(options, args=None, output=sys.stdout, lines=None):
             tokens = line.split(',')
             token_type = tokens[0]
             if token_type == 'subtype':
-                master.add_type(tokens[1])
+                subtype, _ = master.add_type(tokens[1])
+
+                subtype.add_comments(list(comment_set))
+                comment_set = []
             elif token_type == 'subtypedata':
                 subtype = master.find_type(tokens[1])
                 if not subtype:
@@ -381,10 +402,14 @@ def main(options, args=None, output=sys.stdout, lines=None):
                     count = 1
                 else:
                     count = tokens[4]
-                subtype.add_data_field(tokens[2], type_obj, count)
+
+                subtype.add_data_field(tokens[2], type_obj, count, list(comment_set))
+                comment_set = []
             elif token_type == 'tlvtype':
                 tlv = master.add_tlv(tokens[1])
-                tlv.add_message(tokens[2:])
+                tlv.add_message(tokens[2:], comments=list(comment_set))
+
+                comment_set = []
             elif token_type == 'tlvdata':
                 type_obj, collapse = master.add_type(tokens[4], tokens[3])
                 tlv = master.find_tlv(tokens[1])
@@ -399,9 +424,12 @@ def main(options, args=None, output=sys.stdout, lines=None):
                     count = 1
                 else:
                     count = tokens[5]
-                msg.add_data_field(tokens[3], type_obj, count)
+
+                msg.add_data_field(tokens[3], type_obj, count, list(comment_set))
+                comment_set = []
             elif token_type == 'msgtype':
-                master.add_message(tokens[1:])
+                master.add_message(tokens[1:], comments=list(comment_set))
+                comment_set = []
             elif token_type == 'msgdata':
                 msg = master.find_message(tokens[1])
                 if not msg:
@@ -430,9 +458,13 @@ def main(options, args=None, output=sys.stdout, lines=None):
                     count = 1
                 else:
                     count = tokens[4]
-                msg.add_data_field(tokens[2], type_obj, count)
+
+                msg.add_data_field(tokens[2], type_obj, count, list(comment_set))
+                comment_set = []
             elif token_type.startswith('#include'):
                 master.add_include(token_type)
+            elif token_type.startswith('#'):
+                comment_set.append(token_type[1:])
             else:
                 raise ValueError('Unknown token type {} on line {}:{}'.format(token_type, ln, line))
 

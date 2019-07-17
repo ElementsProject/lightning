@@ -14,10 +14,9 @@ ${i}
 % for enum_set in enum_sets:
 enum ${enum_set['name']} {
     % for msg in enum_set['set']:
-        ## TODO: add back comments for a message
-        ##% for comment in msg.comments:
-        ##/* ${comment} */
-        ##% endfor
+        % for comment in msg.msg_comments:
+        /* ${comment} */
+        % endfor
         ${msg.enum_name()} = ${msg.number},
     % endfor
 };
@@ -32,6 +31,9 @@ const char *${enum_set['name']}_name(int e);
 % for struct in structs:
 struct ${struct.struct_name()} {
         % for f in struct.fields.values():
+            % for c in f.field_comments:
+        /* ${c} */
+            % endfor
         % if bool(f.len_field_of):
 <% continue %>
         % endif
@@ -59,11 +61,17 @@ struct ${tlv.name} {
 /* SUBTYPE: ${subtype.name.upper()} */
 void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${subtype.name});
 bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.has_len_fields() else '' }const u8 **cursor, size_t *plen, struct ${subtype.name} *${subtype.name});
+    % for c in subtype.type_comments:
+/* ${c} */
+    % endfor
 
 % endfor
 % endif
 % for msg in messages:
 /* WIRE: ${msg.name.upper()} */
+    % for c in msg.msg_comments:
+/* ${c} */
+    % endfor
 u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values() if not f.is_optional])});
 bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.has_len_fields() else ''}const void *p${''.join([f.arg_desc_from() for f in msg.fields.values() if not f.is_optional])});
 
