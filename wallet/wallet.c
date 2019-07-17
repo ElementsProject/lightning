@@ -634,9 +634,9 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	struct node_id id;
 	struct wireaddr_internal addr;
 
-	sqlite3_stmt *stmt =
-		db_select(w->db,
-			 "id, node_id, address FROM peers WHERE id=%"PRIu64";", dbid);
+	sqlite3_stmt *stmt = db_select_prepare(
+	    w->db, "id, node_id, address FROM peers WHERE id=?;");
+	sqlite3_bind_int64(stmt, 1, dbid);
 
 	if (!db_select_step(w->db, stmt))
 		return NULL;
@@ -937,8 +937,8 @@ static bool wallet_channels_load_active(struct wallet *w)
 			 ", feerate_base"
 			 ", feerate_ppm"
 			 ", remote_upfront_shutdown_script"
-			 " FROM channels WHERE state < %d;",
-			 CLOSED);
+			 " FROM channels WHERE state < ?;");
+	sqlite3_bind_int(stmt, 1, CLOSED);
 
 	while (db_select_step(w->db, stmt)) {
 		struct channel *c = wallet_stmt2channel(w, stmt);
@@ -1098,8 +1098,10 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	const char *query =
 	    "id, dust_limit_satoshis, max_htlc_value_in_flight_msat, "
 	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
-	    "max_accepted_htlcs FROM channel_configs WHERE id=%" PRIu64 ";";
-	sqlite3_stmt *stmt = db_select(w->db, query, id);
+	    "max_accepted_htlcs FROM channel_configs WHERE id= ? ;";
+	sqlite3_stmt *stmt = db_select_prepare(w->db, query);
+	sqlite3_bind_int64(stmt, 1, id);
+
 	if (!db_select_step(w->db, stmt))
 		return false;
 
@@ -1364,9 +1366,9 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	sqlite3_stmt *stmt;
 
 	/* Must not have any channels still using this peer */
-	stmt = db_select(w->db,
-			 "* FROM channels WHERE peer_id = %"PRIu64,
-			 peer_dbid);
+	stmt = db_select_prepare(w->db, "* FROM channels WHERE peer_id = ?;");
+	sqlite3_bind_int64(stmt, 1, peer_dbid);
+
 	if (db_select_step(w->db, stmt))
 		fatal("We have channels using peer %"PRIu64, peer_dbid);
 
@@ -1720,25 +1722,26 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	int incount = 0, outcount = 0;
 
 	log_debug(wallet->log, "Loading HTLCs for channel %"PRIu64, chan->dbid);
-	sqlite3_stmt *stmt = db_select(wallet->db,
-				       "  id"
-				       ", channel_htlc_id"
-				       ", msatoshi"
-				       ", cltv_expiry"
-				       ", hstate"
-				       ", payment_hash"
-				       ", payment_key"
-				       ", routing_onion"
-				       ", failuremsg"
-				       ", malformed_onion"
-				       ", origin_htlc"
-				       ", shared_secret"
-				       ", received_time"
-				       " FROM channel_htlcs"
-				       " WHERE direction=%d"
-				       " AND channel_id=%" PRIu64
-				       " AND hstate != %d",
-	    DIRECTION_INCOMING, chan->dbid, SENT_REMOVE_ACK_REVOCATION);
+	sqlite3_stmt *stmt = db_select_prepare(wallet->db, "  id"
+							   ", channel_htlc_id"
+							   ", msatoshi"
+							   ", cltv_expiry"
+							   ", hstate"
+							   ", payment_hash"
+							   ", payment_key"
+							   ", routing_onion"
+							   ", failuremsg"
+							   ", malformed_onion"
+							   ", origin_htlc"
+							   ", shared_secret"
+							   ", received_time"
+							   " FROM channel_htlcs"
+							   " WHERE direction= ?"
+							   " AND channel_id= ?"
+							   " AND hstate != ?");
+	sqlite3_bind_int(stmt, 1, DIRECTION_INCOMING);
+	sqlite3_bind_int64(stmt, 2, chan->dbid);
+	sqlite3_bind_int(stmt, 3, SENT_REMOVE_ACK_REVOCATION);
 
 	while (db_select_step(wallet->db, stmt)) {
 		struct htlc_in *in = tal(chan, struct htlc_in);
@@ -1749,25 +1752,26 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		incount++;
 	}
 
-	stmt = db_select(wallet->db,
-			 "  id"
-			 ", channel_htlc_id"
-			 ", msatoshi"
-			 ", cltv_expiry"
-			 ", hstate"
-			 ", payment_hash"
-			 ", payment_key"
-			 ", routing_onion"
-			 ", failuremsg"
-			 ", malformed_onion"
-			 ", origin_htlc"
-			 ", shared_secret"
-			 ", received_time"
-			 " FROM channel_htlcs"
-			 " WHERE direction=%d"
-			 " AND channel_id=%" PRIu64
-			 " AND hstate != %d",
-	    DIRECTION_OUTGOING, chan->dbid, RCVD_REMOVE_ACK_REVOCATION);
+	stmt = db_select_prepare(wallet->db, "  id"
+					     ", channel_htlc_id"
+					     ", msatoshi"
+					     ", cltv_expiry"
+					     ", hstate"
+					     ", payment_hash"
+					     ", payment_key"
+					     ", routing_onion"
+					     ", failuremsg"
+					     ", malformed_onion"
+					     ", origin_htlc"
+					     ", shared_secret"
+					     ", received_time"
+					     " FROM channel_htlcs"
+					     " WHERE direction = ?"
+					     " AND channel_id = ?"
+					     " AND hstate != ?");
+	sqlite3_bind_int(stmt, 1, DIRECTION_OUTGOING);
+	sqlite3_bind_int64(stmt, 2, chan->dbid);
+	sqlite3_bind_int(stmt, 3, RCVD_REMOVE_ACK_REVOCATION);
 
 	while (db_select_step(wallet->db, stmt)) {
 		struct htlc_out *out = tal(chan, struct htlc_out);
