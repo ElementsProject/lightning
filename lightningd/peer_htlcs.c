@@ -745,7 +745,7 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	struct preimage payment_preimage;
 	u8 *req;
 	enum htlc_accepted_result result;
-	enum onion_type failure_code;
+	enum onion_type failure_code = 0;
 	u8 *channel_update;
 	result = htlc_accepted_hook_deserialize(buffer, toks, &payment_preimage, &failure_code, &channel_update);
 

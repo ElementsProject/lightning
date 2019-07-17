@@ -1024,7 +1024,7 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	const char *bip173;
 
 	bool parsed;
-	bool right_network;
+	bool right_network = false;
 	u8 addr_version;
 
 	parsed =

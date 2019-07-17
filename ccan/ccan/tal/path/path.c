@@ -302,7 +302,7 @@ fail_take_to:
 
  char *path_readlink(const tal_t *ctx, const char *linkname)
  {
-	ssize_t len, maxlen = 64; /* good first guess. */
+	ssize_t len = 0, maxlen = 64; /* good first guess. */
 	char *ret = NULL;
 
 	if (unlikely(!linkname) && is_taken(linkname))

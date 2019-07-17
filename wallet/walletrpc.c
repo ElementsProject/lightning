@@ -161,7 +161,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	u32 *feerate_per_kw;
 	struct command_result *res;
 	u32 *minconf, maxheight;
-	struct pubkey *changekey;
+	struct pubkey *changekey = NULL;
 
 	*utx = tal(cmd, struct unreleased_tx);
 	(*utx)->wtx = tal(*utx, struct wallet_tx);
