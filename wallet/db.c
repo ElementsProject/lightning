@@ -586,24 +586,13 @@ static sqlite3_stmt *db_query(const char *location,
 	return stmt;
 }
 
-sqlite3_stmt *PRINTF_FMT(3, 4)
-    db_select_(const char *location, struct db *db, const char *fmt, ...)
+sqlite3_stmt *db_select_(const char *location, struct db *db, const char *query)
 {
-	va_list ap;
-	char *query = tal_strdup(db, "SELECT ");
 	sqlite3_stmt *stmt;
 
 	assert(db->in_transaction);
 
-	va_start(ap, fmt);
- 	tal_append_vfmt(&query, fmt, ap);
-	va_end(ap);
-
-	stmt = db_query(location, db, query);
-	if (!stmt)
-		db_fatal("%s:%s:%s", location, query, sqlite3_errmsg(db->sql));
-	tal_free(query);
-
+	stmt = db_select_prepare(db, query);
 	return stmt;
 }
 
