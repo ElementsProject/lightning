@@ -1,7 +1,9 @@
-/* For example, in the spec tests we use the following:
+/* Code to make a commitment tx, useful for generating test cases.
+ *
+ * For example, in the spec tests we use the following:
  *
  * lightning/devtools/mkcommit 0 41085b995c1f591cfc3ae79ccde012bf0b37c7bde23d80a61c9732bdd6210b2f 0 999878sat 253 999878sat local \
-   6 546 9900sat						\
+   5 546 9900sat						\
    6 546 9900sat							\
    0000000000000000000000000000000000000000000000000000000000000020 0000000000000000000000000000000000000000000000000000000000000000 0000000000000000000000000000000000000000000000000000000000000021 0000000000000000000000000000000000000000000000000000000000000022 0000000000000000000000000000000000000000000000000000000000000023 0000000000000000000000000000000000000000000000000000000000000024 \
    0000000000000000000000000000000000000000000000000000000000000010 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0000000000000000000000000000000000000000000000000000000000000011 0000000000000000000000000000000000000000000000000000000000000012 0000000000000000000000000000000000000000000000000000000000000013 0000000000000000000000000000000000000000000000000000000000000014
@@ -42,7 +44,6 @@ void status_failed(enum status_failreason reason, const char *fmt, ...)
 	abort();
 }
 
-/* Code to make a commitment tx, useful for generating test cases. */
 static int parse_secrets(char *argv[],
 			 struct secrets *secrets,
 			 struct sha256 *seed,
@@ -117,9 +118,11 @@ static void print_basepoints(const char *desc,
 	printf("htlc_basepoint=%s\n",
 	       type_to_string(NULL, struct pubkey, &basepoints->htlc));
 	if (!per_commit_secret(shaseed, &per_commitment_secret, commitnum))
-		errx(1, "Bad deriving %s per_commitment_secret", desc);
+		errx(1, "Bad deriving %s per_commitment_secret #%"PRIu64,
+		     desc, commitnum);
 	if (!per_commit_point(shaseed, &per_commitment_point, commitnum))
-		errx(1, "Bad deriving %s per_commitment_point", desc);
+		errx(1, "Bad deriving %s per_commitment_point #%"PRIu64,
+		     desc, commitnum);
 	printf("# shachain seed=%s\n",
 	       type_to_string(NULL, struct sha256, shaseed));
 	printf("# per_commitment_secret %"PRIu64"=%s\n",
