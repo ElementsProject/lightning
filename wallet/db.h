@@ -44,10 +44,9 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld, struct log *log);
  *
  * A simpler version of db_select_prepare.
  */
-sqlite3_stmt *PRINTF_FMT(3, 4)
-	db_select_(const char *location, struct db *db, const char *fmt, ...);
-#define db_select(db, ...) \
-	db_select_(__FILE__ ":" stringify(__LINE__), db, __VA_ARGS__)
+sqlite3_stmt *db_select_(const char *location, struct db *db, const char *query);
+#define db_select(db, query) \
+	db_select_(__FILE__ ":" stringify(__LINE__), db, query)
 
 /**
  * db_begin_transaction - Begin a transaction
