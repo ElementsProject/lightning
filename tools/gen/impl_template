@@ -28,6 +28,9 @@ const char *${enum_set['name']}_name(int e)
 ## (shared between here and header_template)
 % for subtype in subtypes:
 /* SUBTYPE: ${subtype.name.upper()} */
+    % for c in subtype.type_comments:
+/* ${c} */
+    % endfor
 <% static = '' if options.expose_subtypes else 'static ' %>
 ${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${subtype.name})
 {
@@ -37,7 +40,9 @@ ${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${sub
 
 ## FIXME: abstract this out? (semi-shared with towire_msg, minus the optional bits)
 	% for f in subtype.fields.values():
-## FIXME: add field level comments
+	    % for c in f.field_comments:
+	/* ${c} */
+	    % endfor
 <%
     fieldname = '{}->{}'.format(subtype.name,f.name)
 %> \
@@ -66,8 +71,10 @@ ${static}bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.has_len
 	${f.type_obj.type_name()} ${f.name};
 	% endfor
 
-## FIXME: field level comments
 	% for f in subtype.fields.values():
+	    % for c in f.field_comments:
+	/* ${c} */
+	    % endfor
 <%
     fieldname = '{}->{}'.format(subtype.name,f.name)
     typename = f.type_obj.type_name()
@@ -105,12 +112,15 @@ ${static}bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.has_len
 	%endif
 	% endfor
 
-	return cursor != NULL;
+	return ${subtype.name};
 }
 
 % endfor
 % for msg in messages:
 /* WIRE: ${msg.name.upper()} */
+    % for c in msg.msg_comments:
+/* ${c} */
+    % endfor
 u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values() if not f.is_optional])})
 {
 ## FIXME: we're ignoring TLV's rn
@@ -121,7 +131,9 @@ u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.f
 
 	towire_u16(&p, ${msg.enum_name()});
 	% for f in msg.fields.values():
-## FIXME: add field level comments
+	    % for c in f.field_comments:
+	/* ${c} */
+	    % endfor
 	% if f.is_array() or f.has_len_field(): ## multiples?
 	    % if f.type_obj.has_array_helper():
 	towire_${f.type_obj.name}_array(&p, ${f.name}, ${f.size()});
@@ -168,6 +180,9 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.has_len_fields() else ''
 		typename = typename + ' *'
 	    type_ = f.type_obj.name
 	%> \
+	    % for c in f.field_comments:
+	/* ${c} */
+	    % endfor
 	% if f.has_len_field():
 	// 2nd case ${f.name}
 	*${f.name} = ${f.len_field} ? tal_arr(ctx, ${typename}, ${f.len_field}) : NULL;
@@ -209,4 +224,3 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.has_len_fields() else ''
 }
 
 % endfor
-##${func_decls}
