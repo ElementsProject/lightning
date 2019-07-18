@@ -619,6 +619,10 @@ struct route_step *process_onionpacket(
 		 * length encoding itself and the HMAC away. */
 		vsize = bigsize_get(paddedheader, 3, &shift_size);
 		shift_size += vsize + HMAC_SIZE;
+
+		/* If we get an unreasonable shift size we must return an error. */
+		if (shift_size >= ROUTING_INFO_SIZE)
+			return tal_free(step);
 	}
 
 	step->raw_payload = tal_dup_arr(step, u8, paddedheader + 1,
