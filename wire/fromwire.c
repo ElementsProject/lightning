@@ -1,4 +1,5 @@
 #include "wire.h"
+#include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
@@ -84,6 +85,58 @@ u64 fromwire_u64(const u8 **cursor, size_t *max)
 	if (!fromwire(cursor, max, &ret, sizeof(ret)))
 		return 0;
 	return be64_to_cpu(ret);
+}
+
+static u64 fromwire_tlv_uint(const u8 **cursor, size_t *max, size_t maxlen)
+{
+	u8 bytes[8];
+	size_t length;
+	be64 val;
+
+	assert(maxlen <= sizeof(bytes));
+
+	/* BOLT-EXPERIMENTAL #1:
+	 *
+	 * - if `length` is not exactly equal to that required for the
+	 *   known encoding for `type`:
+	 *      - MUST fail to parse the `tlv_stream`.
+	 */
+	length = *max;
+	if (length > maxlen) {
+		fromwire_fail(cursor, max);
+		return 0;
+	}
+
+	memset(bytes, 0, sizeof(bytes));
+	fromwire(cursor, max, bytes + sizeof(bytes) - length, length);
+
+	/* BOLT-EXPERIMENTAL #1:
+	 * - if variable-length fields within the known encoding for `type` are
+	 *   not minimal:
+	 *    - MUST fail to parse the `tlv_stream`.
+	 */
+	if (length > 0 && bytes[sizeof(bytes) - length] == 0) {
+		fromwire_fail(cursor, max);
+		return 0;
+	}
+	BUILD_ASSERT(sizeof(val) == sizeof(bytes));
+	memcpy(&val, bytes, sizeof(bytes));
+	return be64_to_cpu(val);
+}
+
+u16 fromwire_tu16(const u8 **cursor, size_t *max)
+{
+	return fromwire_tlv_uint(cursor, max, 2);
+}
+
+u32 fromwire_tu32(const u8 **cursor, size_t *max)
+{
+	return fromwire_tlv_uint(cursor, max, 4);
+}
+
+u64 fromwire_tu64(const u8 **cursor, size_t *max)
+{
+	return fromwire_tlv_uint(cursor, max, 8);
 }
 
 void fromwire_double(const u8 **cursor, size_t *max, double *ret)

@@ -44,6 +44,38 @@ void towire_u64(u8 **pptr, u64 v)
 	towire(pptr, &l, sizeof(l));
 }
 
+static void towire_tlv_uint(u8 **pptr, u64 v)
+{
+	u8 bytes[8];
+	size_t num_zeroes;
+	be64 val;
+
+	val = cpu_to_be64(v);
+	BUILD_ASSERT(sizeof(val) == sizeof(bytes));
+	memcpy(bytes, &val, sizeof(bytes));
+
+	for (num_zeroes = 0; num_zeroes < sizeof(bytes); num_zeroes++)
+		if (bytes[num_zeroes] != 0)
+			break;
+
+	towire(pptr, bytes + num_zeroes, sizeof(bytes) - num_zeroes);
+}
+
+void towire_tu16(u8 **pptr, u16 v)
+{
+	return towire_tlv_uint(pptr, v);
+}
+
+void towire_tu32(u8 **pptr, u32 v)
+{
+	return towire_tlv_uint(pptr, v);
+}
+
+void towire_tu64(u8 **pptr, u64 v)
+{
+	return towire_tlv_uint(pptr, v);
+}
+
 void towire_double(u8 **pptr, const double *v)
 {
 	towire(pptr, v, sizeof(*v));
