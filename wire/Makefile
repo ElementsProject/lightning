@@ -6,6 +6,7 @@ wire-wrongdir:
 
 WIRE_HEADERS_NOGEN := wire/onion_defs.h		\
 		wire/peer_wire.h		\
+		wire/tlvstream.h			\
 		wire/wire.h			\
 		wire/wire_sync.h		\
 		wire/wire_io.h
@@ -16,6 +17,7 @@ WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
 		wire/fromwire.c			\
 		wire/peer_wire.c		\
+		wire/tlvstream.c			\
 		wire/towire.c
 WIRE_HEADERS := $(WIRE_HEADERS_NOGEN) $(WIRE_GEN_HEADERS)
 
