@@ -23,6 +23,7 @@ struct plugin {
 	bool configured;
 	/* If this plugin can be restarted without restarting lightningd */
 	bool dynamic;
+	bool signal_startup;
 
 	/* Stuff we read */
 	char *buffer;

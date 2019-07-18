@@ -85,7 +85,8 @@ this example:
 	"hooks": [
 		"openchannel",
 		"htlc_accepted"
-	]
+	],
+	"dynamic": true
 }
 ```
 
@@ -101,6 +102,10 @@ through verbatim. Notice that the `name`, `description` and `usage` fields
 are mandatory, while the `long_description` can be omitted (it'll be
 set to `description` if it was not provided). `usage` should surround optional
 parameter names in `[]`.
+
+The `dynamic` indicates if the plugin can be managed after `lightningd`
+has been started. Critical plugins that should not be stop should set it
+to false.
 
 Plugins are free to register any `name` for their `rpcmethod` as long
 as the name was not previously registered. This includes both built-in
@@ -122,7 +127,8 @@ simple JSON object containing the options:
 	},
 	"configuration": {
 		 "lightning-dir": "/home/user/.lightning",
-		 "rpc-file": "lightning-rpc"
+		 "rpc-file": "lightning-rpc",
+		 "startup": true
 	}
 }
 ```
@@ -131,6 +137,9 @@ The plugin must respond to `init` calls, however the response can be
 arbitrary and will currently be discarded by `lightningd`. JSON-RPC
 commands were chosen over notifications in order not to force plugins
 to implement notifications which are not that well supported.
+
+The `startup` field allows a plugin to detect if it was started at
+`lightningd` startup (true), or at runtime (false).
 
 ## JSON-RPC passthrough
 
