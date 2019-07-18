@@ -39,6 +39,10 @@ static struct command_result *json_plugin_control(struct command *cmd,
 		plugin_found = false;
 		list_for_each(&cmd->ld->plugins->plugins, p, list) {
 			if (plugin_paths_match(p->cmd, plugin_name)) {
+				if (!p->dynamic)
+					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+							    "%s plugin cannot be managed when lightningd is up",
+							    plugin_name);
 				plugin_found = true;
 				plugin_hook_unregister_all(p);
 				plugin_kill(p, "%s stopped by lightningd via RPC",
