@@ -976,11 +976,11 @@ void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 
 /**
  * segwit_addr_net_decode - Try to decode a Bech32 address and detect
- * testnet/mainnet/regtest
+ * testnet/mainnet/regtest/signet
  *
  * This processes the address and returns a string if it is a Bech32
  * address specified by BIP173. The string is set whether it is
- * testnet ("tb"),  mainnet ("bc"), or regtest ("bcrt")
+ * testnet ("tb"),  mainnet ("bc"), regtest ("bcrt"), or signet ("sb")
  * It does not check, witness version and program size restrictions.
  *
  *  Out: witness_version: Pointer to an int that will be updated to contain

@@ -67,6 +67,9 @@ Bitcoin control options:
 *testnet*::
     Alias for 'network=testnet'.
 
+*signet*::
+    Alias for 'network=signet'.
+
 *mainnet*::
     Alias for 'network=bitcoin'.
 

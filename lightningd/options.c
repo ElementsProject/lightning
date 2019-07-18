@@ -220,6 +220,11 @@ static char *opt_set_testnet(struct lightningd *ld)
 	return opt_set_network("testnet", ld);
 }
 
+static char *opt_set_signet(struct lightningd *ld)
+{
+	return opt_set_network("signet", ld);
+}
+
 static char *opt_set_mainnet(struct lightningd *ld)
 {
 	return opt_set_network("bitcoin", ld);
@@ -403,6 +408,8 @@ static void config_register_opts(struct lightningd *ld)
 			       " regtest, litecoin or litecoin-testnet)");
 	opt_register_early_noarg("--testnet", opt_set_testnet, ld,
 				 "Alias for --network=testnet");
+	opt_register_early_noarg("--signet", opt_set_signet, ld,
+				 "Alias for --network=signet");
 	opt_register_early_noarg("--mainnet", opt_set_mainnet, ld,
 				 "Alias for --network=bitcoin");
 	opt_register_early_arg("--allow-deprecated-apis",
@@ -1022,6 +1029,7 @@ static void add_config(struct lightningd *ld,
 		    || opt->cb == (void *)version_and_exit
 		    /* These two show up as --network= */
 		    || opt->cb == (void *)opt_set_testnet
+		    || opt->cb == (void *)opt_set_signet
 		    || opt->cb == (void *)opt_set_mainnet
 		    || opt->cb == (void *)opt_lightningd_usage
 		    || opt->cb == (void *)test_subdaemons_and_exit
