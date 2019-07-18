@@ -21,6 +21,8 @@ struct plugin {
 	struct plugins *plugins;
 	const char **plugin_path;
 	bool configured;
+	/* If this plugin can be restarted without restarting lightningd */
+	bool dynamic;
 
 	/* Stuff we read */
 	char *buffer;
