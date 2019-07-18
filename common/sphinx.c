@@ -452,7 +452,7 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	if (hop->type == SPHINX_V0_PAYLOAD)
 		dest[pos++] = 0x00;
 	else
-		pos += varint_put(dest+pos, raw_size);
+		pos += bigsize_put(dest+pos, raw_size);
 
 	memcpy(dest + pos, hop->payload, raw_size);
 	pos += raw_size;
@@ -610,7 +610,7 @@ struct route_step *process_onionpacket(
 	} else {
 		/* In addition to the raw payload we need to also shift the
 		 * length encoding itself and the HMAC away. */
-		vsize = varint_get(paddedheader, 3, &shift_size);
+		vsize = bigsize_get(paddedheader, 3, &shift_size);
 		shift_size += vsize + HMAC_SIZE;
 	}
 
