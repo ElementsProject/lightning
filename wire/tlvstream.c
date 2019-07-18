@@ -2,6 +2,10 @@
 #include <assert.h>
 #include <wire/wire.h>
 
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
+
 static const struct tlv_record_type *
 find_record_type(u64 type,
 		 const struct tlv_record_type types[],
@@ -40,29 +44,47 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		 * format
 		 */
 		type = fromwire_bigsize(cursor, max);
+
+		/* BOLT-EXPERIMENTAL #1:
+		 *  - if a `type` or `length` is not minimally encoded:
+		 *    - MUST fail to parse the `tlv_stream`.
+		 */
+		if (!*cursor) {
+			SUPERVERBOSE("type");
+			goto fail;
+		}
 		length = fromwire_bigsize(cursor, max);
 
 		/* BOLT-EXPERIMENTAL #1:
 		 *  - if a `type` or `length` is not minimally encoded:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
-		if (!*cursor)
+		if (!*cursor) {
+			SUPERVERBOSE("length");
 			goto fail;
+		}
 
 		/* BOLT-EXPERIMENTAL #1:
 		 *  - if `length` exceeds the number of bytes remaining in the
 		 *    message:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
-		if (length > *max)
+		if (length > *max) {
+			SUPERVERBOSE("value");
 			goto fail;
+		}
 
 		/* BOLT-EXPERIMENTAL #1:
 		 *  - if decoded `type`s are not monotonically-increasing:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
-		if (!first && type <= prev_type)
+		if (!first && type <= prev_type) {
+			if (type == prev_type)
+				SUPERVERBOSE("duplicate tlv type");
+			else
+				SUPERVERBOSE("invalid ordering");
 			goto fail;
+		}
 
 		/* BOLT-EXPERIMENTAL #1:
 		 * - if `type` is known:
@@ -83,8 +105,10 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 			 *    for the known encoding for `type`:
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
-			if (tlvlen != 0)
+			if (tlvlen != 0) {
+				SUPERVERBOSE("greater than encoding length");
 				goto fail;
+			}
 
 			/* We've read bytes in ->fromwire, so update max */
 			*max -= length;
@@ -98,8 +122,10 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 			 */
 			if (type & 1)
 				fromwire(cursor, max, NULL, length);
-			else
+			else {
+				SUPERVERBOSE("unknown even");
 				goto fail;
+			}
 		}
 		first = false;
 		prev_type = type;

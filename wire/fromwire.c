@@ -15,6 +15,10 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
+
 /* Sets *cursor to NULL and returns NULL when extraction fails. */
 const void *fromwire_fail(const u8 **cursor, size_t *max)
 {
@@ -31,6 +35,8 @@ const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n)
 		/* Just make sure we don't leak uninitialized mem! */
 		if (copy)
 			memset(copy, 0, n);
+		if (*cursor)
+			SUPERVERBOSE("less than encoding length");
 		return fromwire_fail(cursor, max);
 	}
 	*cursor += n;
@@ -103,6 +109,7 @@ static u64 fromwire_tlv_uint(const u8 **cursor, size_t *max, size_t maxlen)
 	 */
 	length = *max;
 	if (length > maxlen) {
+		SUPERVERBOSE("greater than encoding length");
 		fromwire_fail(cursor, max);
 		return 0;
 	}
@@ -116,6 +123,7 @@ static u64 fromwire_tlv_uint(const u8 **cursor, size_t *max, size_t maxlen)
 	 *    - MUST fail to parse the `tlv_stream`.
 	 */
 	if (length > 0 && bytes[sizeof(bytes) - length] == 0) {
+		SUPERVERBOSE("not minimal");
 		fromwire_fail(cursor, max);
 		return 0;
 	}
@@ -163,18 +171,24 @@ u64 fromwire_bigsize(const u8 **cursor, size_t *max)
 	switch(flag) {
 	case 0xff:
 		ret = fromwire_u64(cursor, max);
-		if ((ret >> 32) == 0)
+		if ((ret >> 32) == 0) {
+			SUPERVERBOSE("not minimal encoded");
 			fromwire_fail(cursor, max);
+		}
 		break;
 	case 0xfe:
 		ret = fromwire_u32(cursor, max);
-		if ((ret >> 16) == 0)
+		if ((ret >> 16) == 0) {
+			SUPERVERBOSE("not minimal encoded");
 			fromwire_fail(cursor, max);
+		}
 		break;
 	case 0xfd:
 		ret = fromwire_u16(cursor, max);
-		if (ret < 0xfd)
+		if (ret < 0xfd) {
+			SUPERVERBOSE("not minimal encoded");
 			fromwire_fail(cursor, max);
+		}
 		break;
 	default:
 		ret = flag;
@@ -189,8 +203,10 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 	if (!fromwire(cursor, max, der, sizeof(der)))
 		return;
 
-	if (!pubkey_from_der(der, sizeof(der), pubkey))
+	if (!pubkey_from_der(der, sizeof(der), pubkey)) {
+		SUPERVERBOSE("not a valid point");
 		fromwire_fail(cursor, max);
+	}
 }
 
 void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id)
