@@ -789,7 +789,8 @@ static void plugin_manifest_cb(const char *buffer,
 			       const jsmntok_t *idtok,
 			       struct plugin *plugin)
 {
-	const jsmntok_t *resulttok;
+	const jsmntok_t *resulttok, *dynamictok;
+	bool dynamic_plugin;
 
 	/* Check if all plugins have replied to getmanifest, and break
 	 * if they have and this is the startup init */
@@ -805,6 +806,10 @@ static void plugin_manifest_cb(const char *buffer,
 			    buffer + toks[0].start);
 		return;
 	}
+
+	dynamictok = json_get_member(buffer, resulttok, "dynamic");
+	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin))
+		plugin->dynamic = dynamic_plugin;
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
@@ -1014,6 +1019,7 @@ static void plugin_config(struct plugin *plugin)
 	json_object_start(req->stream, "configuration");
 	json_add_string(req->stream, "lightning-dir", ld->config_dir);
 	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
+	json_add_bool(req->stream, "startup", plugin->plugins->startup);
 	json_object_end(req->stream);
 
 	jsonrpc_request_end(req);
