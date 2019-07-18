@@ -458,7 +458,6 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 		pos += bigsize_put(dest+pos, raw_size);
 
 	memcpy(dest + pos, hop->payload, raw_size);
-	pos += raw_size;
 	memcpy(dest + hop_size - HMAC_SIZE, hop->hmac, HMAC_SIZE);
 	return true;
 }
