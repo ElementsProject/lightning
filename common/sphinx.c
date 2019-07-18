@@ -140,8 +140,8 @@ void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 		       const struct short_channel_id *scid,
 		       struct amount_msat forward, u32 outgoing_cltv)
 {
-	u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	const u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			      0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 	u8 *buf = tal_arr(path, u8, 0);
 	towire_short_channel_id(&buf, scid);
 	towire_u64(&buf, forward.millisatoshis); /* Raw: low-level serializer */
