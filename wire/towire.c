@@ -55,16 +55,16 @@ void towire_bool(u8 **pptr, bool v)
 	towire(pptr, &val, sizeof(val));
 }
 
-void towire_var_int(u8 **pptr, const u64 val)
+void towire_bigsize(u8 **pptr, const u64 val)
 {
 	if (val < 0xfd) {
-		towire_u8(pptr, (u8)val);
+		towire_u8(pptr, val);
 	} else if (val <= 0xffff) {
 		towire_u8(pptr, 0xfd);
-		towire_u16(pptr, (u16)val);
+		towire_u16(pptr, val);
 	} else if (val <= 0xffffffff) {
 		towire_u8(pptr, 0xfe);
-		towire_u32(pptr, (u32)val);
+		towire_u32(pptr, val);
 	} else {
 		towire_u8(pptr, 0xff);
 		towire_u64(pptr, val);
