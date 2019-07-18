@@ -753,25 +753,25 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	hop_data = &rs->payload.v0;
 	switch (result) {
 	case htlc_accepted_continue:
-	if (rs->nextcase == ONION_FORWARD) {
-		struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
+		if (rs->nextcase == ONION_FORWARD) {
+			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
-		gr->next_onion = serialize_onionpacket(gr, rs->next);
-		gr->next_channel = hop_data->channel_id;
-		gr->amt_to_forward = hop_data->amt_forward;
-		gr->outgoing_cltv_value = hop_data->outgoing_cltv;
-		gr->hin = hin;
+			gr->next_onion = serialize_onionpacket(gr, rs->next);
+			gr->next_channel = hop_data->channel_id;
+			gr->amt_to_forward = hop_data->amt_forward;
+			gr->outgoing_cltv_value = hop_data->outgoing_cltv;
+			gr->hin = hin;
 
-		req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
-		log_debug(channel->log, "Asking gossip to resolve channel %s",
-			  type_to_string(tmpctx, struct short_channel_id,
-					 &gr->next_channel));
-		subd_req(hin, ld->gossip, req, -1, 0,
-			 channel_resolve_reply, gr);
-	} else
-		handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
-				hop_data->amt_forward,
-				hop_data->outgoing_cltv);
+			req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
+			log_debug(channel->log, "Asking gossip to resolve channel %s",
+				  type_to_string(tmpctx, struct short_channel_id,
+						 &gr->next_channel));
+			subd_req(hin, ld->gossip, req, -1, 0,
+				 channel_resolve_reply, gr);
+		} else
+			handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
+					hop_data->amt_forward,
+					hop_data->outgoing_cltv);
 		break;
 	case htlc_accepted_fail:
 		log_debug(channel->log,
