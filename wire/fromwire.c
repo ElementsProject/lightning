@@ -102,20 +102,31 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 	return ret;
 }
 
-u64 fromwire_var_int(const u8 **cursor, size_t *max)
+u64 fromwire_bigsize(const u8 **cursor, size_t *max)
 {
 	u8 flag = fromwire_u8(cursor, max);
+	u64 ret;
 
 	switch(flag) {
 	case 0xff:
-		return fromwire_u64(cursor, max);
+		ret = fromwire_u64(cursor, max);
+		if ((ret >> 32) == 0)
+			fromwire_fail(cursor, max);
+		break;
 	case 0xfe:
-		return (u64)fromwire_u32(cursor, max);
+		ret = fromwire_u32(cursor, max);
+		if ((ret >> 16) == 0)
+			fromwire_fail(cursor, max);
+		break;
 	case 0xfd:
-		return (u64)fromwire_u16(cursor, max);
+		ret = fromwire_u16(cursor, max);
+		if (ret < 0xfd)
+			fromwire_fail(cursor, max);
+		break;
 	default:
-		return (u64)flag;
+		ret = flag;
 	}
+	return ret;
 }
 
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)

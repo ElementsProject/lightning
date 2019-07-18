@@ -1057,7 +1057,7 @@ tlv__type_impl_fromwire_template = """static struct {tlv_name} *fromwire__{tlv_n
 
 \twhile (*plen) {{
 \t\tmsg_type = fromwire_u8(p, plen);
-\t\tmsg_len = fromwire_var_int(p, plen);
+\t\tmsg_len = fromwire_bigsize(p, plen);
 \t\tif (*plen < msg_len) {{
 \t\t\tfromwire_fail(p, plen);
 \t\t\tbreak;
@@ -1103,7 +1103,7 @@ print_tlv_template = """static void printwire_{tlv_name}(const char *fieldname, 
 
 \twhile (cursor) {{
 \t\tmsg_type = fromwire_u8(&cursor, &plen);
-\t\tmsg_size = fromwire_var_int(&cursor, &plen);
+\t\tmsg_size = fromwire_bigsize(&cursor, &plen);
 \t\tif (!cursor)
 \t\t\tbreak;
 \t\tswitch ((enum {tlv_name}_type)msg_type) {{
