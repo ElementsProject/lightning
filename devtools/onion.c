@@ -237,9 +237,8 @@ static void runtest(const char *filename)
 		pubkeytok = json_get_member(buffer, hop, "pubkey");
 		payload = json_tok_bin_from_hex(ctx, buffer, payloadtok);
 		json_to_pubkey(buffer, pubkeytok, &pubkey);
-		if (json_tok_streq(buffer, typetok, "legacy")) {
+		if (!typetok || json_tok_streq(buffer, typetok, "legacy")) {
 			type = SPHINX_V0_PAYLOAD;
-			printf("legacy\n");
 		} else {
 			type = SPHINX_RAW_PAYLOAD;
 		}
@@ -264,22 +263,6 @@ static void runtest(const char *filename)
 			     tal_hex(ctx, serialized), tal_hex(ctx, onion));
 	}
 	printf("Generated onion: %s\n", tal_hex(ctx, serialized));
-
-	hopstok = json_get_member(buffer, gentok, "hops");
-	json_for_each_arr(i, hop, hopstok) {
-		payloadtok = json_get_member(buffer, hop, "payload");
-		typetok = json_get_member(buffer, hop, "type");
-		pubkeytok = json_get_member(buffer, hop, "pubkey");
-		payload = json_tok_bin_from_hex(ctx, buffer, payloadtok);
-		json_to_pubkey(buffer, pubkeytok, &pubkey);
-		if (json_tok_streq(buffer, typetok, "legacy")) {
-			type = SPHINX_V0_PAYLOAD;
-			printf("legacy\n");
-		} else {
-			type = SPHINX_RAW_PAYLOAD;
-		}
-		sphinx_add_raw_hop(path, &pubkey, type, payload);
-	}
 
 	decodetok = json_get_member(buffer, toks, "decode");
 
