@@ -104,6 +104,9 @@ static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 	if (hop->type == SPHINX_V0_PAYLOAD)
 		return 65;
 
+	/* Since this uses the bigsize serialization format for variable
+	 * length integer encodings we need to allocate enough space for
+	 * it. Values >= 0xfd are used to signal multi-byte serializations. */
 	if (size < 0xFD)
 		vsize = 1;
 	else
@@ -111,7 +114,7 @@ static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 
 	/* The hop must accomodate the hop_payload, as well as the varint
 	 * describing the length and HMAC. */
-	return vsize + size + HMAC_SIZE;;
+	return vsize + size + HMAC_SIZE;
 }
 
 static size_t sphinx_path_payloads_size(const struct sphinx_path *path)
