@@ -79,8 +79,8 @@ void fromwire_${subtype.name}(const u8 **cursor, size_t *plen, ${subtype.type_na
     % for c in msg.msg_comments:
 /* ${c} */
     % endfor
-u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values() if not f.is_optional])});
-bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.has_len_fields() else ''}const void *p${''.join([f.arg_desc_from() for f in msg.fields.values() if not f.is_optional])});
+u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values()])});
+bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}const void *p${''.join([f.arg_desc_from() for f in msg.fields.values()])});
 
 % endfor
 #endif /* LIGHTNING_${idem} */
