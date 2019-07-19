@@ -20,7 +20,7 @@ TOOLS_WIRE_DEPS := $(BOLT_DEPS) tools/test/test_cases $(wildcard tools/gen/*_tem
 
 $(TOOL_TEST_SRC): $(TOOL_GEN_HEADER)
 $(TOOL_TEST_OBJS): $(TOOL_GEN_SRC)
-$(TOOL_TEST_PROGRAMS): $(TOOL_TEST_COMMON_OBJS)
+$(TOOL_TEST_PROGRAMS): $(TOOL_TEST_COMMON_OBJS) tools/test/gen_test.o
 $(TOOL_GEN_SRC) $(TOOL_GEN_HEADER): $(TOOLS_WIRE_DEPS)
 
 tools/test/gen_test.h:

@@ -5,6 +5,7 @@
 #ifndef LIGHTNING_${idem}
 #define LIGHTNING_${idem}
 #include <ccan/tal/tal.h>
+#include <wire/tlvstream.h>
 #include <wire/wire.h>
 % for i in includes:
 ${i}
@@ -49,15 +50,18 @@ struct ${struct.struct_name()} {
         % endfor
 };
 % endfor
-## Structs for TLV types!
-% for tlv in tlvs:
-struct ${tlv.name} {
-    % for msg_name in tlv.messages.keys():
-        struct ${tlv.name}_${msg_name} *${msg_name};
+## Structs for TLVs
+% for tlv in tlvs.values():
+struct ${tlv.struct_name()} {
+    % for msg in tlv.messages.values():
+        struct ${msg.struct_name()} *${msg.name};
     % endfor
 };
 % endfor
 
+% for tlv in tlvs.values():
+struct ${tlv.struct_name()} *${tlv.struct_name()}_new(const tal_t *ctx);
+% endfor
 % if options.expose_subtypes and bool(subtypes):
 % for subtype in subtypes:
 /* SUBTYPE: ${subtype.name.upper()} */
