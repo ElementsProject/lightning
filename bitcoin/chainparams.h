@@ -4,6 +4,7 @@
 #include "config.h"
 #include <bitcoin/block.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <stdbool.h>
 
@@ -52,5 +53,10 @@ const struct chainparams *chainparams_by_bip173(const char *bip173_name);
  * chainparams_by_chainhash - Helper to get a network by its genesis blockhash
  */
 const struct chainparams *chainparams_by_chainhash(const struct bitcoin_blkid *chain_hash);
+
+/**
+ * chainparams_get_network_names - Produce a comma-separated list of network names
+ */
+const char *chainparams_get_network_names(const tal_t *ctx);
 
 #endif /* LIGHTNING_BITCOIN_CHAINPARAMS_H */

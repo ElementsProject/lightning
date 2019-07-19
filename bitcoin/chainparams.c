@@ -123,3 +123,11 @@ const struct chainparams *chainparams_by_bip173(const char *bip173_name)
 	}
 	return NULL;
 }
+
+const char *chainparams_get_network_names(const tal_t *ctx)
+{
+    char *networks_string = tal_strdup(ctx, networks[0].network_name);
+    for (size_t i = 1; i < ARRAY_SIZE(networks); ++i)
+        tal_append_fmt(&networks_string, ", %s", networks[i].network_name);
+    return networks_string;
+}
