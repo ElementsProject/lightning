@@ -37,7 +37,9 @@ struct ${struct.struct_name()} {
         % if bool(f.len_field_of):
 <% continue %>
         % endif
-            % if f.has_len_field():
+            % if f.is_varlen() and f.type_obj.is_varsize():
+        ${f.type_obj.type_name()} **${f.name};
+            % elif f.is_varlen():
         ${f.type_obj.type_name()} *${f.name};
             % elif f.is_array():
         ${f.type_obj.type_name()} ${f.name}[${f.count}];
@@ -59,11 +61,16 @@ struct ${tlv.name} {
 % if options.expose_subtypes and bool(subtypes):
 % for subtype in subtypes:
 /* SUBTYPE: ${subtype.name.upper()} */
-void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${subtype.name});
-bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.has_len_fields() else '' }const u8 **cursor, size_t *plen, struct ${subtype.name} *${subtype.name});
     % for c in subtype.type_comments:
 /* ${c} */
     % endfor
+void towire_${subtype.name}(u8 **p, const ${subtype.type_name()} *${subtype.name});
+% if subtype.is_varsize():
+${static}${subtype.type_name()} *
+fromwire_${subtype.name}(const tal_t *ctx, const u8 **cursor, size_t *plen);
+% else:
+void fromwire_${subtype.name}(const u8 **cursor, size_t *plen, ${subtype.type_name()} *${subtype.name});
+% endif
 
 % endfor
 % endif

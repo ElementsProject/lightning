@@ -47,10 +47,10 @@ ${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${sub
 	    % endfor
 <%
     fieldname = '{}->{}'.format(subtype.name,f.name)
-%> \
-	% if f.is_array() or f.has_len_field(): ## multiples?
+%>\
+	% if f.is_array() or f.is_varlen():
 	    % if f.type_obj.has_array_helper():
-	towire_${f.type_obj.name}_array(&p, ${fieldname}, ${f.size()});
+	towire_${f.type_obj.name}_array(p, ${fieldname}, ${f.size()});
 	    % else:
 	for (size_t i = 0; i < ${f.size()}; i++)
 		% if f.type_obj.is_assignable() or f.type_obj.has_len_fields():
@@ -66,8 +66,16 @@ ${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${sub
 	% endif
 	% endfor
 }
-${static}bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.has_len_fields() else '' }const u8 **cursor, size_t *plen, struct ${subtype.name} *${subtype.name})
+% if subtype.is_varsize():
+${static}${subtype.type_name()} *
+fromwire_${subtype.name}(const tal_t *ctx, const u8 **cursor, size_t *plen)
+% else:
+${static}void fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.needs_context() else ''}const u8 **cursor, size_t *plen, ${subtype.type_name()} *${subtype.name})
+% endif
 {
+% if subtype.is_varsize():
+	${subtype.type_name()} *${subtype.name} = tal(ctx, ${subtype.type_name()});
+% endif
 	## Length field declarations
 	% for f in subtype.get_len_fields():
 	${f.type_obj.type_name()} ${f.name};
@@ -79,28 +87,28 @@ ${static}bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.has_len
 	    % endfor
 <%
     fieldname = '{}->{}'.format(subtype.name,f.name)
-    typename = f.type_obj.type_name()
-    type_ = f.type_obj.name
-%> \
-	% if f.has_len_field():
-	${fieldname} = ${f.len_field} ? tal_arr(ctx, ${typename}${' *' if f.type_obj.has_len_fields() else ''}, ${f.len_field}) : NULL;
-	% endif
-<%
+    ctx = fieldname
     if f.is_array():
 	fieldname = '*' + fieldname
-	ctx = 'ctx'
-    else:
-	ctx = fieldname
+    if f.type_obj.is_varsize():
+	typename += ' *'
+    type_ = f.type_obj.name
+    typename = f.type_obj.type_name()
 %> \
-	% if f.is_array() or f.has_len_field():
+	% if f.is_varlen():
+	${'*' if f.type_obj.is_varsize() else ''}${fieldname} = ${f.len_field} ? tal_arr(${subtype.name}, ${typename}, ${f.len_field}) : NULL;
+	% endif
+	% if f.is_array() or f.is_varlen():
 	    % if f.type_obj.has_array_helper():
 	fromwire_${type_}_array(cursor, plen, ${fieldname}, ${f.size()});
 	    % else:
 	for (size_t i = 0; i < ${f.size()}; i++)
 		% if f.type_obj.is_assignable():
 		(${fieldname})[i] = fromwire_${type_}(cursor, plen);
-		% elif f.has_len_field():
+		% elif f.is_varlen() and f.type_obj.is_varsize():
 		(${fieldname})[i] = fromwire_${type_}(${ctx}, cursor, plen);
+		% elif f.is_varlen():
+		fromwire_${type_}(cursor, plen, ${fieldname} + i);
 		% else:
 		fromwire_${type_}(${ctx}, cursor, plen, ${fieldname} + i);
 		% endif
@@ -108,17 +116,30 @@ ${static}bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.has_len
 	% else:
 	    % if f.type_obj.is_assignable():
 	${ f.name if f.len_field_of else fieldname} = fromwire_${type_}(cursor, plen);
+	    % elif f.type_obj.is_varsize():
+	${fieldname} = *fromwire_${type_}(ctx, cursor, plen);
 	    % else:
 	fromwire_${type_}(cursor, plen, &${fieldname});
 	    % endif
 	%endif
 	% endfor
+% if subtype.is_varsize():
 
 	return ${subtype.name};
+% endif
 }
-
-% endfor
+% endfor ## END Subtypes
+<%def name="fromwire_phrase(f, type_, varsized)" >\
+%if f.type_obj.is_assignable():
+*${f.name} = fromwire_${type_}(&cursor, &plen);
+% elif varsized:
+*${f.name} = fromwire_${type_}(ctx, &cursor, &plen);
+% else:
+fromwire_${type_}(${'ctx, ' if f.needs_context() else ''}&cursor, &plen, ${'*' if f.is_optional else ''}${f.name});
+% endif
+</%def>
 % for msg in messages:
+
 /* WIRE: ${msg.name.upper()} */
     % for c in msg.msg_comments:
 /* ${c} */
@@ -136,12 +157,12 @@ u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.f
 	    % for c in f.field_comments:
 	/* ${c} */
 	    % endfor
-	% if f.is_array() or f.has_len_field(): ## multiples?
+	% if f.is_array() or f.is_varlen():
 	    % if f.type_obj.has_array_helper():
 	towire_${f.type_obj.name}_array(&p, ${f.name}, ${f.size()});
 	    % else:
 	for (size_t i = 0; i < ${f.size()}; i++)
-		% if f.type_obj.is_assignable() or f.type_obj.has_len_fields():
+		% if f.type_obj.is_assignable() or f.type_obj.is_varsize():
 		towire_${f.type_obj.name}(&p, ${f.name}[i]);
 		% else:
 		towire_${f.type_obj.name}(&p, ${f.name} + i);
@@ -161,7 +182,7 @@ u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.f
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.has_len_fields() else ''}const void *p${''.join([f.arg_desc_from() for f in msg.fields.values() if not f.is_optional])})
+bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}const void *p${''.join([f.arg_desc_from() for f in msg.fields.values()])})
 {
 	% if msg.get_len_fields():
 	    % for f in msg.get_len_fields():
@@ -178,51 +199,50 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.has_len_fields() else ''
 	% for f in msg.fields.values():
 <%
 	    typename = f.type_obj.type_name()
-	    if f.type_obj.has_len_fields():
+	    if f.type_obj.is_varsize():
 		typename = typename + ' *'
 	    type_ = f.type_obj.name
+	    varsized = f.type_obj.is_varsize()
 	%> \
 	    % for c in f.field_comments:
 	/* ${c} */
 	    % endfor
-	% if f.has_len_field():
+	% if f.is_varlen():
 	// 2nd case ${f.name}
 	*${f.name} = ${f.len_field} ? tal_arr(ctx, ${typename}, ${f.len_field}) : NULL;
 	% endif
 	% if f.len_field_of:
 	${f.name} = fromwire_${type_}(&cursor, &plen);
-	% elif f.is_array() or f.has_len_field():
-<%
-	    if f.has_len_field():
-		fieldname = '*' + f.name
-		ctx = fieldname
-	    else:
-		fieldname = f.name
-		ctx = 'ctx'
-	%> \
+	% elif f.is_array() or f.is_varlen():
 	    % if f.type_obj.has_array_helper():
-	fromwire_${type_}_array(&cursor, &plen, ${fieldname}, ${f.size()});
+	fromwire_${type_}_array(&cursor, &plen, ${'*' if f.is_varlen() else ''}${f.name}, ${f.size()});
 	    % else:
 	for (size_t i = 0; i < ${f.size()}; i++)
-		% if f.type_obj.is_assignable():
-		(${fieldname})[i] = fromwire_${type_}(&cursor, &plen);
-		## FIXME: case for 'varlen' structs
-		## (${fieldname})[i] = fromwire_${type_}(${ctx}, &cursor, &plen);
+		% if not varsized and not f.type_obj.is_assignable():
+		    % if f.is_varlen():			
+		fromwire_${type_}(&cursor, &plen, *${f.name} + i);
+		    % else:
+		fromwire_${type_}(&cursor, &plen, &(${f.name}[i]));
+		    % endif
 		% else:
-		fromwire_${type_}(${ctx + ', ' if f.type_obj.is_subtype() else ''}&cursor, &plen, ${fieldname} + i);
+		(${'' if f.type_obj.is_assignable() and f.is_array() else '*'}${f.name})[i] = fromwire_${type_}(${'*'+f.name+', ' if varsized else ''}&cursor, &plen);
 		% endif
 	    % endif
 	% else:
-## FIXME: leaves out optional fields + 'varlen' structs
-	    %if f.type_obj.is_assignable():
-	*${f.name} = fromwire_${type_}(&cursor, &plen);
-	    % else:
-	fromwire_${type_}(&cursor, &plen, ${f.name});
-	## assignment
-	    % endif
+	    % if not f.is_optional:
+	${fromwire_phrase(f, type_, varsized)}\
+	    % else: ## Start optional
+	if (!fromwire_bool(&cursor, &plen))
+		*${f.name} = NULL;
+	else {
+		% if not varsized:
+		*${f.name} = tal(ctx, ${typename});
+		% endif
+		${fromwire_phrase(f, type_, varsized)}\
+	}
+	    % endif ## End optional
 	% endif
 	% endfor
 	return cursor != NULL;
 }
-
 % endfor
