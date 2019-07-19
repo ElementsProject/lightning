@@ -521,7 +521,7 @@ def main(options, args=None, output=sys.stdout, lines=None):
             elif token_type.startswith('#'):
                 comment_set.append(token_type[1:])
             else:
-                raise ValueError('Unknown token type {} on line {}:{}'.format(token_type, ln, line))
+                raise ValueError("Unknown token type {} on line {}:{}".format(token_type, ln, line))
 
     except StopIteration:
         pass
