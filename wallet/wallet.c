@@ -2239,12 +2239,12 @@ bool wallet_network_check(struct wallet *w,
 					   "match network blockchain hash: %s "
 					   "!= %s. "
 					   "Are you on the right network? "
-					   "(--network={bitcoin, testnet, regtest, "
-					   "litecoin or litecoin-testnet})",
+					   "(--network={one of %s})",
 				   type_to_string(w, struct bitcoin_blkid,
 						  &chainhash),
 				   type_to_string(w, struct bitcoin_blkid,
-						  &chainparams->genesis_blockhash));
+						  &chainparams->genesis_blockhash),
+				   chainparams_get_network_names(tmpctx));
 			return false;
 		}
 	} else {
