@@ -33,9 +33,7 @@ def next_line(args, lines):
         lines = fileinput.input(args)
 
     for i, line in enumerate(lines):
-        if not bool(line.strip()):
-            continue
-        yield i, line.strip()
+        yield i + 1, line.strip()
 
 
 # Class definitions, to keep things classy
@@ -285,6 +283,10 @@ class Master(object):
     messages = {}
     extension_msgs = {}
     inclusions = []
+    top_comments = []
+
+    def add_comments(self, comments):
+        self.top_comments += comments
 
     def add_include(self, inclusion):
         self.inclusions.append(inclusion)
@@ -362,6 +364,7 @@ class Master(object):
                 'set': tlv.messages.values(),
             })
         stuff = {}
+        stuff['top_comments'] = self.top_comments
         stuff['options'] = options
         stuff['idem'] = re.sub(r'[^A-Z]+', '_', options.header_filename.upper())
         stuff['header_filename'] = options.header_filename
@@ -388,6 +391,12 @@ def main(options, args=None, output=sys.stdout, lines=None):
             ln, line = next(genline)
             tokens = line.split(',')
             token_type = tokens[0]
+
+            if not bool(line):
+                master.add_comments(comment_set)
+                comment_set = []
+                continue
+
             if token_type == 'subtype':
                 subtype, _ = master.add_type(tokens[1])
 
