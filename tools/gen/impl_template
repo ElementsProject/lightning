@@ -144,7 +144,7 @@ fromwire_${type_}(${'ctx, ' if f.needs_context() else ''}&cursor, &plen, ${'*' i
     % for c in msg.msg_comments:
 /* ${c} */
     % endfor
-u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values() if not f.is_optional])})
+u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values()])})
 {
 ## FIXME: we're ignoring TLV's rn
 	% for f in msg.get_len_fields():
