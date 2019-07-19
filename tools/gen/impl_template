@@ -6,8 +6,11 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <stdio.h>
-
+% for comment in top_comments:
+/*${comment} */
+% endfor
 % for enum_set in enum_sets:
+
 const char *${enum_set['name']}_name(int e)
 {
 	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
@@ -29,7 +32,7 @@ const char *${enum_set['name']}_name(int e)
 % for subtype in subtypes:
 /* SUBTYPE: ${subtype.name.upper()} */
     % for c in subtype.type_comments:
-/* ${c} */
+/*${c} */
     % endfor
 <% static = '' if options.expose_subtypes else 'static ' %>
 ${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${subtype.name})
@@ -38,10 +41,9 @@ ${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${sub
 	${f.type_obj.type_name()} ${f.name} = tal_count(${subtype.name}->${f.len_field_of});
 	% endfor
 
-## FIXME: abstract this out? (semi-shared with towire_msg, minus the optional bits)
 	% for f in subtype.fields.values():
 	    % for c in f.field_comments:
-	/* ${c} */
+	/*${c} */
 	    % endfor
 <%
     fieldname = '{}->{}'.format(subtype.name,f.name)
