@@ -39,6 +39,17 @@ msgdata,test_msg,test_sbt_varsize_struct,subtype_varsize_struct,
 msgdata,test_msg,test_sbt_varsize_var_assign,subtype_var_assign,
 msgdata,test_msg,test_sbt_var_len,subtype_var_len,
 msgdata,test_msg,test_sbt_varlen_varsize,subtype_varlen_varsize,
+msgdata,test_msg,test_sbt_arrays,subtype_arrays,
+
+msgtype,test_tlv1,2
+msgdata,test_tlv1,test_struct,test_short_id,
+msgdata,test_tlv1,tlv,n1,
+
+msgtype,test_tlv2,3
+msgdata,test_tlv2,tlv,n2,
+
+msgtype,test_tlv3,4
+msgdata,test_tlv3,tlv,n3,
 
 # A subtype with a nested subtype
 subtype,subtype_nested
@@ -51,9 +62,16 @@ subtypedata,subtype_varsize_struct,field_0,test_features,
 # A subtype to test varsize things of
 # - A two level subtype comment
 subtype,subtype_var_assign
-# variable length set of assignables
+# variable length set of assignables (helper)
 subtypedata,subtype_var_assign,len_1,u8,
 subtypedata,subtype_var_assign,field_1,u16,len_1
+# variable length set of assignables (helper)
+
+# Subtype to test arrays of things
+subtype,subtype_arrays
+subtypedata,subtype_arrays,field1,u8,2
+subtypedata,subtype_arrays,field2,u16,2
+subtypedata,subtype_arrays,field3,test_short_id,2
 
 # variable length set of structs
 subtype,subtype_var_len
@@ -75,3 +93,39 @@ subtypedata,test_features,len_lf,u16,
 subtypedata,test_features,localfeatures,u8,len_lf
 subtypedata,test_features,len_gf,u16,
 subtypedata,test_features,globalfeatures,u8,len_gf
+
+# TLV's!
+tlvtype,n1,tlv1,1
+tlvtype,n1,tlv2,2
+# neseted subtype
+tlvdata,n1,tlv2,scid,test_short_id,
+tlvtype,n1,tlv3,3
+tlvdata,n1,tlv3,features,test_features,
+tlvdata,n1,tlv3,amount_msat_1,u64,
+tlvdata,n1,tlv3,amount_msat_2,u64,
+tlvtype,n1,tlv4,254
+tlvdata,n1,tlv4,cltv_delta,u16,
+tlvtype,n2,tlv1,0
+tlvtype,n2,tlv2,11
+# TLV with all varsized and array structs
+tlvtype,n3,tlv3,1
+tlvdata,n3,tlv3,subtype,test_short_id,
+tlvdata,n3,tlv3,varlen_subtype,subtype_var_len,
+tlvdata,n3,tlv3,varlen_assigned,subtype_var_assign,
+tlvdata,n3,tlv3,test_sbt_varlen_varsize,subtype_varlen_varsize,
+# array assignable
+tlvdata,n3,tlv3,arr_assign,u32,2
+# array structs
+tlvdata,n3,tlv3,arr_struct,test_short_id,2
+# varlen assignable (helper)
+tlvdata,n3,tlv3,len_lf,u16,
+tlvdata,n3,tlv3,localfeatures,u8,len_lf
+# varlen assignable (no-helper)
+tlvdata,n3,tlv3,len_varlen_ass,u16,
+tlvdata,n3,tlv3,varlen_ass,u64,len_varlen_ass
+# varlen structs
+tlvdata,n3,tlv3,len_varlen,u8,
+tlvdata,n3,tlv3,varlen_struct,test_short_id,len_varlen
+# varlen varsized structs
+tlvdata,n3,tlv3,len_varlenvarsize,u8,
+tlvdata,n3,tlv3,varlen_varsize,test_features,len_varlenvarsize
