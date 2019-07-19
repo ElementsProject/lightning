@@ -52,7 +52,7 @@ void print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg)
 	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(${cursor}, ${plen});${truncate_check(nested)} <% continue %> \
     % endif	
 	printf("${f.name}=");
-    % if f.is_array() or f.has_len_field():
+    % if f.is_array() or f.is_varlen():
 	% if f.type_obj.has_array_helper():
 	printwire_${f.type_obj.name}_array(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen}, ${f.size()});
 	% else:
