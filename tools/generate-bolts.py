@@ -63,7 +63,7 @@ class Field(object):
     def is_array(self):
         return self.count > 1
 
-    def has_len_field(self):
+    def is_varlen(self):
         return not self.count
 
     def is_optional(self):
@@ -77,17 +77,21 @@ class Field(object):
             return self.count
         return self.len_field
 
+    def needs_context(self):
+        """ A field needs a context if its type needs context
+            or if it's varsized """
+        return self.is_varlen() or self.type_obj.needs_context()
+
     def arg_desc_to(self):
         if self.len_field_of:
             return ''
         type_name = self.type_obj.type_name()
         if self.is_array():
             return ', const {} {}[{}]'.format(type_name, self.name, self.count)
-        if self.type_obj.is_assignable() and not self.has_len_field():
+        if self.type_obj.is_assignable() and not self.is_varlen():
             return ', {} {}'.format(type_name, self.name)
-        # Are we a variable number of objects with a variable number of things?
-        if self.has_len_field() and self.type_obj.has_len_fields():
-            return ', {} **{}'.format(type_name, self.name)
+        if self.is_varlen() and self.type_obj.is_varsize():
+            return ', const {} **{}'.format(type_name, self.name)
         return ', const {} *{}'.format(type_name, self.name)
 
     def arg_desc_from(self):
@@ -97,9 +101,9 @@ class Field(object):
         if self.is_array():
             return ', {} {}[{}]'.format(type_name, self.name, self.count)
         ptrs = '*'
-        if self.has_len_field():
+        if self.is_varlen() or self.is_optional or self.type_obj.is_varsize():
             ptrs += '*'
-        if self.is_optional or self.type_obj.has_len_fields():
+        if self.is_varlen() and self.type_obj.is_varsize():
             ptrs += '*'
         return ', {} {}{}'.format(type_name, ptrs, self.name)
 
@@ -139,6 +143,9 @@ class FieldSet(object):
     def has_len_fields(self):
         return bool(self.len_fields)
 
+    def needs_context(self):
+        return any([field.needs_context() for field in self.fields.values()])
+
 
 class Type(FieldSet):
     assignables = [
@@ -159,6 +166,18 @@ class Type(FieldSet):
         'u64',
         'bool',
         'secp256k1_ecdsa_signature',
+    ]
+
+    # Externally defined variable size types (require a context)
+    varsize_types = [
+        'peer_features',
+        'gossip_getnodes_entry',
+        'gossip_getchannels_entry',
+        'failed_htlc',
+        'utxo',
+        'bitcoin_tx',
+        'wirestring',
+        'per_peer_state',
     ]
 
     # Some BOLT types are re-typed based on their field name
@@ -229,18 +248,22 @@ class Type(FieldSet):
         return self.name
 
     def subtype_deps(self):
-        return [dep for dep in self.depends_on.values() if dep.is_gen_subtype()]
-
-    def is_gen_subtype(self):
-        """ is this a 'genuine' subtype; i.e. will be generated """
-        return bool(self.fields)
+        return [dep for dep in self.depends_on.values() if dep.is_subtype()]
 
     def is_subtype(self):
-        return self.is_gen_subtype()
+        return bool(self.fields)
+
+    def needs_context(self):
+        return self.is_varsize() or any([field.needs_context() for field in self.fields.values()])
 
     def is_assignable(self):
         """ Generally typedef's and enums """
         return self.name in self.assignables or self.is_enum
+
+    def is_varsize(self):
+        """ A type is variably sized if it's marked as such (in varsize_types)
+            or it contains a field of variable length """
+        return self.name in self.varsize_types or self.has_len_fields()
 
     def add_comments(self, comments):
         self.type_comments = comments
