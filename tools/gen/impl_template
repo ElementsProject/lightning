@@ -24,18 +24,19 @@ const char *${enum_set['name']}_name(int e)
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
 	return invalidbuf;
 }
-
 % endfor
-
 ## FIXME: extract out partials for the method declarations
 ## (shared between here and header_template)
 % for subtype in subtypes:
+
 /* SUBTYPE: ${subtype.name.upper()} */
     % for c in subtype.type_comments:
 /*${c} */
     % endfor
-<% static = '' if options.expose_subtypes else 'static ' %>
-${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${subtype.name})
+<%
+    static = '' if options.expose_subtypes else 'static '
+%>\
+${static}void towire_${subtype.name}(u8 **p, const ${subtype.type_name()} *${subtype.name})
 {
 	% for f in subtype.get_len_fields():
 	${f.type_obj.type_name()} ${f.name} = tal_count(${subtype.name}->${f.len_field_of});
@@ -62,7 +63,7 @@ ${static}void towire_${subtype.name}(u8 **p, const struct ${subtype.name} *${sub
 	% elif f.len_field_of:
 	towire_${f.type_obj.name}(p, ${f.name});
 	% else:
-	towire_${f.type_obj.name}(&p, ${'' if f.type_obj.is_assignable() else '*'}${fieldname});
+	towire_${f.type_obj.name}(p, ${'' if f.type_obj.is_assignable() else '&'}${fieldname});
 	% endif
 	% endfor
 }
