@@ -227,6 +227,7 @@ include lightningd/Makefile
 include cli/Makefile
 include doc/Makefile
 include devtools/Makefile
+include tools/Makefile
 include plugins/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
