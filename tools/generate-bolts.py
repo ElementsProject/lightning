@@ -226,6 +226,7 @@ class Type(FieldSet):
         # FIXME: internal msgs can be enums
         self.is_enum = False
         self.type_comments = []
+        self.tlv = False
 
     def add_data_field(self, field_name, type_obj, count=1,
                        is_extension=[], comments=[], optional=False):
@@ -237,14 +238,20 @@ class Type(FieldSet):
     def type_name(self):
         if self.name in self.typedefs:
             return self.name
-        prefix = 'enum ' if self.is_enum else 'struct '
-        return prefix + self.name
+        if self.is_enum:
+            prefix = 'enum '
+        else:
+            prefix = 'struct '
+
+        return prefix + self.struct_name()
 
     # We only accelerate the u8 case: it's common and trivial.
     def has_array_helper(self):
         return self.name in ['u8']
 
     def struct_name(self):
+        if self.is_tlv():
+            return self.tlv.struct_name()
         return self.name
 
     def subtype_deps(self):
@@ -267,6 +274,12 @@ class Type(FieldSet):
 
     def add_comments(self, comments):
         self.type_comments = comments
+
+    def mark_tlv(self, tlv):
+        self.tlv = tlv
+
+    def is_tlv(self):
+        return bool(self.tlv)
 
 
 class Message(FieldSet):
@@ -302,8 +315,12 @@ class Tlv(object):
     def add_message(self, tokens, comments=[]):
         """ tokens -> (name, value[, option]) """
         self.messages[tokens[0]] = Message(tokens[0], tokens[1], option=tokens[2:],
-                                           enum_prefix=self.name, struct_prefix=self.name,
+                                           enum_prefix=self.name,
+                                           struct_prefix=self.struct_name(),
                                            comments=comments)
+
+    def struct_name(self):
+        return "tlv_{}".format(self.name)
 
     def find_message(self, name):
         return self.messages[name]
@@ -326,6 +343,10 @@ class Master(object):
     def add_tlv(self, tlv_name):
         if tlv_name not in self.tlvs:
             self.tlvs[tlv_name] = Tlv(tlv_name)
+
+        if tlv_name not in self.types:
+            self.types[tlv_name] = Type(tlv_name)
+
         return self.tlvs[tlv_name]
 
     def add_message(self, tokens, comments=[]):
@@ -387,6 +408,13 @@ class Master(object):
 
         return Template(filename=filename)
 
+    def post_process(self):
+        """ method to handle any 'post processing' that needs to be done.
+            for now, we just need match up types to TLVs """
+        for tlv_name, tlv in self.tlvs.items():
+            if tlv_name in self.types:
+                self.types[tlv_name].mark_tlv(tlv)
+
     def write(self, options, output):
         template = self.find_template(options)
         enum_sets = []
@@ -394,11 +422,6 @@ class Master(object):
             'name': options.enum_name,
             'set': self.messages.values(),
         })
-        for tlv in self.tlvs.values():
-            enum_sets.append({
-                'name': tlv.name,
-                'set': tlv.messages.values(),
-            })
         stuff = {}
         stuff['top_comments'] = self.top_comments
         stuff['options'] = options
@@ -408,7 +431,7 @@ class Master(object):
         stuff['enum_sets'] = enum_sets
         subtypes = self.get_ordered_subtypes()
         stuff['structs'] = subtypes + self.tlv_messages()
-        stuff['tlvs'] = self.tlvs.values()
+        stuff['tlvs'] = self.tlvs
         stuff['messages'] = list(self.messages.values()) + list(self.extension_msgs.values())
         stuff['subtypes'] = subtypes
 
@@ -527,6 +550,7 @@ def main(options, args=None, output=sys.stdout, lines=None):
     except StopIteration:
         pass
 
+    master.post_process()
     master.write(options, output)
 
 
