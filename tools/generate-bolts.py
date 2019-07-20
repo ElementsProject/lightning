@@ -152,10 +152,12 @@ class Type(FieldSet):
         'u16',
         'u32',
         'u64',
+        'tu16',
+        'tu32',
+        'tu64',
         'bool',
         'amount_sat',
         'amount_msat',
-        # FIXME: omits var_int
     ]
 
     typedefs = [
@@ -165,6 +167,12 @@ class Type(FieldSet):
         'u64',
         'bool',
         'secp256k1_ecdsa_signature',
+    ]
+
+    truncated_typedefs = [
+        'tu16',
+        'tu32',
+        'tu64',
     ]
 
     # Externally defined variable size types (require a context)
@@ -237,6 +245,8 @@ class Type(FieldSet):
     def type_name(self):
         if self.name in self.typedefs:
             return self.name
+        if self.name in self.truncated_typedefs:
+            return self.name[1:]
         if self.is_enum:
             prefix = 'enum '
         else:
