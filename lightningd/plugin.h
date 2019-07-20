@@ -9,6 +9,7 @@
 #include <common/timeout.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
+#include <wallet/db.h>
 
 struct lightningd;
 struct plugin_request_manager;

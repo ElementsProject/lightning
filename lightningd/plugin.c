@@ -16,6 +16,7 @@
 #include <lightningd/json.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
+#include <lightningd/notification_in.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/plugin_request.h>
@@ -149,7 +150,7 @@ static void plugin_send(struct plugin *plugin, struct json_stream *stream)
 	io_wake(plugin);
 }
 
-static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
+static void log_notification_in_cb(struct plugin *plugin, const jsmntok_t *paramstok)
 {
 	const jsmntok_t *msgtok, *leveltok;
 	enum log_level level;
@@ -185,6 +186,8 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 	     plugin->buffer + msgtok->start);
 }
 
+REGISTER_NOTIFICATION_IN(log, log_notification_in_cb);
+
 static void plugin_notification_handle(struct plugin *plugin,
 				       const jsmntok_t *toks)
 {
@@ -206,9 +209,7 @@ static void plugin_notification_handle(struct plugin *plugin,
 	 * to just a few method types, should this ever become
 	 * unwieldy we can switch to the AUTODATA construction to
 	 * register notification handlers in a variety of places. */
-	if (json_tok_streq(plugin->buffer, methtok, "log")) {
-		plugin_log_handle(plugin, paramstok);
-	} else {
+	if (!notification_in_callback(plugin, methtok, paramstok)) {
 		plugin_kill(plugin, "Unknown notification method %.*s",
 			    json_tok_full_len(methtok),
 			    json_tok_full(plugin->buffer, methtok));

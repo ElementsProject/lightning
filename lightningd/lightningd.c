@@ -225,6 +225,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ This is set when a JSON RPC command comes in to shut us down. */
 	ld->stop_conn = NULL;
 
+	/* Initial wallet with NULL when `lightning struct` creates and before it
+	 * creates the new wallet. */
+	ld->wallet = NULL;
+
 	return ld;
 }
 
