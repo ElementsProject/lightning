@@ -53,6 +53,9 @@ struct plugin_request_req {
 	bool (*process)(void *arg, const char *buffer, const jsmntok_t *resulttoks);
 	struct db *db;
 	struct plugin_request_req **stopper;
+	struct oneshot *reply_timer;
+	/* It is also used as stopper */
+	u64 *reply_timeout;
 };
 
 static void next_plugin_request(struct plugin_request_manager *manager,
@@ -113,12 +116,74 @@ static void plugin_request_failure(struct plugin_request_req *req)
 		     retry_plugin_request, req);
 }
 
+static struct plugin_request_req *plugin_request_dup(const tal_t *ctx,
+				      struct plugin_request_req *req)
+{
+	struct plugin_request_req *new_req;
+	/* FIXME: technically this is a leak, but we don't
+	 * currently have a list to store these. We might want
+	 * to eventually to inspect in-flight requests. */
+	new_req = notleak(tal(ctx, struct plugin_request_req));
+	new_req->req_manager = req->req_manager;
+	new_req->prio = req->prio;
+	new_req->request = req->request;
+	new_req->payload = req->payload;
+	new_req->cb_arg = req->cb_arg;
+	new_req->process = new_req->process;
+	new_req->db = req->db;
+
+	/* Use reply_timeout as stopper! */
+	if(req->reply_timeout) {
+		new_req->reply_timeout = tal_dup(new_req,
+						 u64,
+						 req->reply_timeout);
+		/* Create child whose destructor will stop us calling */
+		new_req->stopper = tal_dup(new_req->reply_timeout,
+					   struct plugin_request_req *,
+					   req->stopper);
+		tal_add_destructor(new_req->stopper,
+				   stop_process_plugin_request);
+		tal_add_destructor(new_req, remove_stopper);
+	} else {
+		new_req->reply_timeout = NULL;
+		new_req->stopper = NULL;
+	}
+	new_req->reply_timer = NULL;
+
+	return new_req;
+}
+
+static void plugin_request_timeout(struct plugin_request_req *req)
+{
+	struct plugin_request_manager *manager = req->req_manager;
+	struct plugin_request_req *new_req;
+
+	req->reply_timer = NULL;
+	manager->error_count++;
+	if (manager->error_count >= 3) {
+		tal_del_destructor(req->stopper,
+				   stop_process_plugin_request);
+		tal_del_destructor(req, remove_stopper);
+		/* Clean stopper. */
+		req->reply_timeout = tal_free(req->reply_timeout);
+		req->stopper = NULL;
+		plugin_request_failure(req);
+	}
+	new_req = plugin_request_dup(req->request->plugin, req);
+	/* Stop original req and try the new one after 1 second*/
+	tal_free(req->reply_timeout);
+	new_reltimer(manager->plugins->ld->timers, notleak(new_req),
+		     time_from_sec(1),
+		     retry_plugin_request, new_req);
+}
+
 static void send_plugin_request(struct plugin_request_req *pr_req);
 
 static void next_plugin_request(struct plugin_request_manager *manager,
 			        enum request_async_prio prio)
 {
 	struct plugin_request_req *req;
+	struct timers *timers = manager->plugins->ld->timers;
 
 	if (manager->num_requests[prio] >=
 			LIGHTNINGD_PLUGIN_REQUEST_MAX_PARALLEL)
@@ -133,6 +198,11 @@ static void next_plugin_request(struct plugin_request_manager *manager,
 	send_plugin_request(req);
 
 	req->start = time_now();
+	if (req->reply_timeout)
+		req->reply_timer = new_reltimer(timers,
+						notleak(req),
+						time_from_sec(*req->reply_timeout),
+						plugin_request_timeout, req);
 	manager->num_requests[prio]++;
 }
 
@@ -153,6 +223,9 @@ static void plugin_request_callback(const char *buffer,
 	bool (*process)(void *arg, const char *buffer,
 			const jsmntok_t *toks) = req->process;
 	u64 msec = time_to_msec(time_between(time_now(), req->start));
+
+	if (req->reply_timer)
+		req->reply_timer = tal_free(req->reply_timer);
 
 	/* If it took over 10 seconds, that's rather strange. */
 	if (msec > 10000)
@@ -205,10 +278,10 @@ static void send_plugin_request(struct plugin_request_req *pr_req)
 /* If ctx is non-NULL, and is freed before we return, we don't call process().
  * process returns false() if it's a spurious error, and we should retry. */
 void plugin_request_call_(struct lightningd *ld,
-			  const tal_t *ctx,
 			  const struct plugin_request *request,
 			  void *payload, void *cb_arg,
-			  enum request_async_prio prio)
+			  enum request_async_prio prio,
+			  u64 *reply_timeout)
 {
 	struct plugin_request_manager *manager;
 	struct plugin_request_req *req;
@@ -236,16 +309,21 @@ void plugin_request_call_(struct lightningd *ld,
 	req->process = request->response_cb;
 	req->db = ld->wallet->db;
 
-	if(ctx) {
+	/* Use reply_timeout as stopper! */
+	if(reply_timeout) {
+		req->reply_timeout = tal_steal(req, reply_timeout);
 		/* Create child whose destructor will stop us calling */
-		req->stopper = tal(ctx,
+		req->stopper = tal(req->reply_timeout,
 				   struct plugin_request_req *);
 		*req->stopper = req;
 		tal_add_destructor(req->stopper,
 				   stop_process_plugin_request);
 		tal_add_destructor(req, remove_stopper);
-	} else
+	} else {
+		req->reply_timeout = NULL;
 		req->stopper = NULL;
+	}
+	req->reply_timer = NULL;
 
 	list_add_tail(&manager->pending[req->prio], &req->list);
 	next_plugin_request(manager, req->prio);
