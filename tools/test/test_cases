@@ -96,6 +96,8 @@ subtypedata,test_features,globalfeatures,u8,len_gf
 
 # TLV's!
 tlvtype,n1,tlv1,1
+# a truncated u64
+tlvdata,n1,tlv1,amount_msat,tu64,
 tlvtype,n1,tlv2,2
 # neseted subtype
 tlvdata,n1,tlv2,scid,test_short_id,
@@ -106,7 +108,9 @@ tlvdata,n1,tlv3,amount_msat_2,u64,
 tlvtype,n1,tlv4,254
 tlvdata,n1,tlv4,cltv_delta,u16,
 tlvtype,n2,tlv1,0
+tlvdata,n2,tlv1,amount_msat,tu64,
 tlvtype,n2,tlv2,11
+tlvdata,n2,tlv2,cltv_expiry,tu32,
 # TLV with all varsized and array structs
 tlvtype,n3,tlv3,1
 tlvdata,n3,tlv3,subtype,test_short_id,
