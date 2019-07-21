@@ -11,7 +11,7 @@ struct tlv_record_type {
 	/* If this type is present return marshalled value.  Otherwise
 	 * returns NULL. */
 	u8 *(*towire)(const tal_t *ctx, const void *record);
-	/* Must call fromwire_fail() it can't parse. */
+	/* Must call fromwire_fail() if it can't parse. */
 	void (*fromwire)(const u8 **cursor, size_t *max, void *record);
 };
 

@@ -270,6 +270,9 @@ class Type(FieldSet):
     def is_subtype(self):
         return bool(self.fields)
 
+    def is_truncated(self):
+        return self.name in self.truncated_typedefs
+
     def needs_context(self):
         return self.is_varsize() or any([field.needs_context() for field in self.fields.values()])
 
@@ -328,6 +331,9 @@ class Tlv(object):
                                            enum_prefix=self.name,
                                            struct_prefix=self.struct_name(),
                                            comments=comments)
+
+    def type_name(self):
+        return 'struct ' + self.struct_name()
 
     def struct_name(self):
         return "tlv_{}".format(self.name)
