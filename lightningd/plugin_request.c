@@ -37,9 +37,6 @@ bool plugin_request_register(struct plugin *plugin, const char *method)
 	return true;
 }
 
-/* FIXME: Remove dummy hook, once we have a real one */
-REGISTER_PLUGIN_REQUEST(hello, NULL, void *, NULL, void *);
-
 /* Struct containing all the information needed to deserialize and
  * dispatch an eventual plugin_request response. */
 struct plugin_request_req {

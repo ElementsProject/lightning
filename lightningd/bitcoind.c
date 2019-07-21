@@ -6,6 +6,7 @@
 #include "bitcoind.h"
 #include "lightningd.h"
 #include "log.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -21,6 +22,18 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/plugin_request.h>
+
+struct client{
+	const char* name;
+	u64 min_support_numeric_version;
+};
+
+const struct client support_clients[] =  { {
+		"bitcoind",
+		150000
+	}
+};
 
 /* Bitcoind's web server has a default of 4 threads, with queue depth 16.
  * It will *fail* rather than queue beyond that, so we must not stress it!
@@ -818,6 +831,107 @@ static void fatal_bitcoind_failure(struct bitcoind *bitcoind, const char *error_
 	exit(1);
 }
 
+struct getclientversion_request_payload {
+	struct bitcoind *bitcoind;
+};
+
+static void
+getclientversion_request_serialize(struct getclientversion_request_payload *payload,
+				   struct json_stream *stream)
+{
+	json_add_string(stream, "command", "getclientversion");
+}
+
+static bool
+find_client_and_version(const char *buffer, const jsmntok_t *clienttok, u64 version)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(support_clients); i++) {
+		if (json_tok_streq(buffer, clienttok, support_clients[i].name)) {
+			if (version >= support_clients[i].min_support_numeric_version)
+				return true;
+			break;
+		}
+	}
+
+	return false;
+}
+
+static bool
+getclientversion_request_cb(struct getclientversion_request_payload *payload,
+			    const char *buffer,
+			    const jsmntok_t *toks)
+{
+	struct bitcoind *bitcoind = payload->bitcoind;
+	const jsmntok_t *clienttok, *versiontok, *codetok;
+	int code;
+	u64 version;
+
+	if (!buffer) {
+		tal_free(payload);
+		return true;
+	}
+
+	clienttok = json_get_member(buffer, toks, "client");
+	versiontok = json_get_member(buffer, toks, "version");
+
+	if (!clienttok || !versiontok) {
+		codetok = json_get_member(buffer, toks, "errorcode");
+		if (!codetok)
+			fatal("getclientversion request: Invalid result response,"
+			      " no client/version field? %.*s",
+			      toks[0].end - toks[1].start, buffer);
+
+		if (!json_to_int(buffer, codetok, &code))
+			fatal("getclientversion request: Invalid code field %.*s",
+			      toks[0].end - toks[1].start, buffer);
+
+		fatal("getclientversion request: Client error with code(%u)",
+		      code);
+	}
+
+	if (!json_to_u64(buffer, versiontok, &version))
+		fatal("getclientversion request: Invalid version field %.*s",
+		      toks[0].end - toks[1].start, buffer);
+
+	if (!find_client_and_version(buffer, clienttok, version))
+		fatal("getclientversion request: Invalid client,"
+		      " may not support? %.*s(numeric version %"PRIu64")",
+		      clienttok->end - clienttok->start,
+		      buffer + clienttok->start,
+		      version);
+
+	log_info(bitcoind->log,
+		 "getclientversion request: Vaild client!"
+		 " %.*s(numeric version %"PRIu64")",
+		 clienttok->end - clienttok->start,
+		 buffer + clienttok->start,
+		 version);
+	tal_free(payload);
+	return true;
+}
+
+REGISTER_PLUGIN_REQUEST(getclientversion,
+		        getclientversion_request_cb,
+		        struct getclientversion_request_payload *,
+		        getclientversion_request_serialize,
+		        struct getclientversion_request_payload *);
+
+static void
+check_bitcoin_client_version(const tal_t *ctx, struct bitcoind *bitcoind)
+{
+	struct getclientversion_request_payload *payload;
+	u64 *timeout = tal(tmpctx, u64);
+
+	payload = tal(ctx, struct getclientversion_request_payload);
+	payload->bitcoind = bitcoind;
+	*timeout = 5;
+
+	plugin_request_call_getclientversion(bitcoind->ld, payload,
+					     payload,
+					     LIGHTNINGD_PLUGIN_REQUEST_HIGH_PRIO,
+					     timeout);
+}
+
 /* This function is used to check "chain" field from
  * bitcoin-cli "getblockchaininfo" API */
 static char* check_blockchain_from_bitcoincli(const tal_t *ctx,
@@ -916,6 +1030,8 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 		sleep(1);
 	}
 	tal_free(cmd);
+
+	check_bitcoin_client_version(bitcoind, bitcoind);
 }
 
 struct bitcoind *new_bitcoind(const tal_t *ctx,
