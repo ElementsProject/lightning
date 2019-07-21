@@ -13,12 +13,12 @@ plugin = Plugin()
 
 
 @plugin.hook('peer_connected')
-def on_connected(peer, plugin):
-    if peer['id'] in plugin.reject_ids:
-        print("{} is in reject list, disconnecting".format(peer['id']))
+def on_connected(peer_connected, plugin):
+    if peer_connected['id'] in plugin.reject_ids:
+        print("{} is in reject list, disconnecting".format(peer_connected['id']))
         return {'result': 'disconnect', 'error_message': 'You are in reject list'}
 
-    print("{} is allowed".format(peer['id']))
+    print("{} is allowed".format(peer_connected['id']))
     return {'result': 'continue'}
 
 

@@ -6,9 +6,9 @@ plugin = Plugin()
 
 
 @plugin.hook("htlc_accepted")
-def on_htlc_accepted(htlc, onion, plugin):
+def on_htlc_accepted(plugin, htlc_accepted):
     plugin.log("Failing htlc on purpose")
-    plugin.log("onion: %r" % (onion))
+    plugin.log("onion: %r" % (htlc_accepted.get("onion")))
     return {"result": "fail", "failure_code": 16399}
 
 

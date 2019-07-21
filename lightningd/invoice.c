@@ -118,14 +118,14 @@ static void
 invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 			  struct json_stream *stream)
 {
-	json_object_start(stream, "payment");
+	json_object_start(stream, "invoice_payment");
 	json_add_escaped_string(stream, "label", payload->label);
 	json_add_hex(stream, "preimage",
 		     &payload->preimage, sizeof(payload->preimage));
 	json_add_string(stream, "msat",
 			type_to_string(tmpctx, struct amount_msat,
 				       &payload->msat));
-	json_object_end(stream); /* .payment */
+	json_object_end(stream); /* .invoice_payment */
 }
 
 /* Peer dies?  Remove hin ptr from payload so we know to ignore plugin return */

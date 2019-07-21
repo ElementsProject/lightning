@@ -169,12 +169,14 @@ void plugin_hook_db_sync(struct db *db, const char **changes, const char *final)
 	ph_req->hook = hook;
 	ph_req->db = db;
 
+	json_object_start(req->stream, "db_write");
 	json_array_start(req->stream, "writes");
 	for (size_t i = 0; i < tal_count(changes); i++)
 		json_add_string(req->stream, NULL, changes[i]);
 	if (final)
 		json_add_string(req->stream, NULL, final);
 	json_array_end(req->stream);
+	json_object_end(req->stream);
 	jsonrpc_request_end(req);
 
 	plugin_request_send(hook->plugin, req);

@@ -23,8 +23,10 @@ void notify_connect(struct lightningd *ld, struct node_id *nodeid,
 {
 	struct jsonrpc_notification *n =
 	    jsonrpc_notification_start(NULL, "connect");
+	json_object_start(n->stream, "connect");
 	json_add_node_id(n->stream, "id", nodeid);
 	json_add_address_internal(n->stream, "address", addr);
+	json_object_end(n->stream);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
@@ -33,7 +35,9 @@ void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
 {
 	struct jsonrpc_notification *n =
 	    jsonrpc_notification_start(NULL, "disconnect");
+	json_object_start(n->stream, "disconnect");
 	json_add_node_id(n->stream, "id", nodeid);
+	json_object_end(n->stream);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
@@ -53,7 +57,7 @@ void notify_warning(struct lightningd *ld, struct log_entry *l)
 	json_add_string(n->stream, "level",
 			l->level == LOG_BROKEN ? "error"
 			: "warn");
-	/* unsuaul/broken event is rare, plugin pay more attentions on
+	/* unusual/broken event is rare, plugin pay more attentions on
 	 * the absolute time, like when channels failed. */
 	json_add_time(n->stream, "time", l->time.ts);
 	json_add_string(n->stream, "source", l->prefix);

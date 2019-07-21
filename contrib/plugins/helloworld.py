@@ -25,13 +25,13 @@ def init(options, configuration, plugin):
 
 
 @plugin.subscribe("connect")
-def on_connect(plugin, id, address):
-    plugin.log("Received connect event for peer {}".format(id))
+def on_connect(plugin, connect):
+    plugin.log("Received connect event for peer {}".format(connect.get("id")))
 
 
 @plugin.subscribe("disconnect")
-def on_disconnect(plugin, id):
-    plugin.log("Received disconnect event for peer {}".format(id))
+def on_disconnect(plugin, disconnect):
+    plugin.log("Received disconnect event for peer {}".format(disconnect.get("id")))
 
 
 @plugin.subscribe("invoice_payment")
@@ -43,7 +43,7 @@ def on_payment(plugin, invoice_payment):
 
 
 @plugin.hook("htlc_accepted")
-def on_htlc_accepted(onion, htlc, plugin):
+def on_htlc_accepted(htlc_accepted, plugin):
     plugin.log('on_htlc_accepted called')
     time.sleep(20)
     return {'result': 'continue'}

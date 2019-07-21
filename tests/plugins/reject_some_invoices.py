@@ -10,12 +10,12 @@ plugin = Plugin()
 
 
 @plugin.hook('invoice_payment')
-def on_payment(payment, plugin):
-    print("label={}".format(payment['label']))
-    print("msat={}".format(payment['msat']))
-    print("preimage={}".format(payment['preimage']))
+def on_payment(invoice_payment, plugin):
+    print("label={}".format(invoice_payment['label']))
+    print("msat={}".format(invoice_payment['msat']))
+    print("preimage={}".format(invoice_payment['preimage']))
 
-    if payment['preimage'].endswith('0'):
+    if invoice_payment['preimage'].endswith('0'):
         # FIXME: Define this!
         WIRE_TEMPORARY_NODE_FAILURE = 0x2002
         return {'failure_code': WIRE_TEMPORARY_NODE_FAILURE}

@@ -17,17 +17,17 @@ plugin = Plugin()
 
 
 @plugin.hook("htlc_accepted")
-def on_htlc_accepted(htlc, onion, plugin):
+def on_htlc_accepted(htlc_accepted, plugin):
     # Stash the onion so the test can check it
     fname = os.path.join(tempfile.mkdtemp(), "onion.json")
     with open(fname, 'w') as f:
-        f.write(json.dumps(onion))
+        f.write(json.dumps(htlc_accepted.get("onion")))
 
     plugin.log("Holding onto an incoming htlc for 10 seconds")
 
     time.sleep(10)
 
-    print("Onion written to {}".format(fname))
+    plugin.log("Onion written to {}".format(fname))
 
     # Give the tester something to look for
     plugin.log("htlc_accepted hook called")

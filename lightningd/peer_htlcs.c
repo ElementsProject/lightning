@@ -707,8 +707,9 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	const struct route_step *rs = p->route_step;
 	const struct htlc_in *hin = p->hin;
 	s32 expiry = hin->cltv_expiry, blockheight = p->ld->topology->tip->height;
-	json_object_start(s, "onion");
+	json_object_start(s, "htlc_accepted");
 
+	json_object_start(s, "onion");
 	json_add_hex_talarr (s, "payload", rs->raw_payload);
 	if (rs->hop_data.realm == 0x00) {
 		json_object_start(s, "per_hop_v0");
@@ -728,6 +729,8 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_add_u32(s, "cltv_expiry", expiry);
 	json_add_s32(s, "cltv_expiry_relative", expiry - blockheight);
 	json_add_hex(s, "payment_hash", hin->payment_hash.u.u8, sizeof(hin->payment_hash));
+	json_object_end(s);
+
 	json_object_end(s);
 }
 
