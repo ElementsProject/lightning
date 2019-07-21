@@ -1,11 +1,12 @@
-#include "lightningd/notification.h"
 #include <ccan/array_size/array_size.h>
 #include <lightningd/json.h>
+#include <lightningd/notification.h>
 
 const char *notification_topics[] = {
 	"connect",
 	"disconnect",
-	"warning"
+	"warning",
+	"invoice_payment"
 };
 
 bool notifications_have_topic(const char *topic)
@@ -57,6 +58,21 @@ void notify_warning(struct lightningd *ld, struct log_entry *l)
 	json_add_string(n->stream, "source", l->prefix);
 	json_add_string(n->stream, "log", l->log);
 	json_object_end(n->stream); /* .warning */
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
+
+void notify_invoice_payment(struct lightningd *ld, struct amount_msat amount,
+			    struct preimage preimage, const struct json_escape *label)
+{
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, notification_topics[3]);
+	json_object_start(n->stream, notification_topics[3]);
+	json_add_string(n->stream, "msat",
+			type_to_string(tmpctx, struct amount_msat, &amount));
+	json_add_hex(n->stream, "preimage", &preimage, sizeof(preimage));
+	json_add_escaped_string(n->stream, "label", label);
+	json_object_end(n->stream);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }

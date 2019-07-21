@@ -1,7 +1,4 @@
 #include "invoice.h"
-#include "json.h"
-#include "jsonrpc.h"
-#include "lightningd.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
@@ -25,7 +22,11 @@
 #include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -172,6 +173,10 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 	struct lightningd *ld = payload->ld;
 	struct invoice invoice;
 	enum onion_type failcode;
+
+	/* We notify here to benefit from the payload and because the hook callback is
+	 * called even if the hook is not registered. */
+	notify_invoice_payment(ld, payload->msat, payload->preimage, payload->label);
 
 	tal_del_destructor2(payload->hin, invoice_payload_remove_hin, payload);
 	/* We want to free this, whatever happens. */
