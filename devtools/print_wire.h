@@ -5,11 +5,18 @@
 #include <common/wireaddr.h>
 #include <wire/gen_peer_wire.h>
 
+struct tlv_print_record_type {
+	u64 type;
+	void (*print)(const char *tlv_name, const u8 **cursor, size_t *plen);
+};
+
 void printwire_u8(const char *fieldname, const u8 *v);
 void printwire_u16(const char *fieldname, const u16 *v);
 void printwire_u32(const char *fieldname, const u32 *v);
 void printwire_u64(const char *fieldname, const u64 *v);
 void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, size_t len);
+void printwire_tlvs(const char *tlv_name, const u8 **cursor, size_t *plen,
+		    const struct tlv_print_record_type types[], size_t num_types);
 
 void printwire_bitcoin_blkid(const char *fieldname, const struct bitcoin_blkid *bitcoin_blkid);
 void printwire_bitcoin_txid(const char *fieldname, const struct bitcoin_txid *bitcoin_txid);

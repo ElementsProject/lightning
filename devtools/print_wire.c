@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <wire/tlvstream.h>
 
 void printwire_u8(const char *fieldname, const u8 *v)
 {
@@ -159,6 +160,50 @@ void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, 
 	if (!print_hexstring(cursor, plen, len))
 		return;
 	printf("]\n");
+}
+
+static const struct tlv_print_record_type *
+find_print_record_type(u64 type,
+		 const struct tlv_print_record_type types[],
+		 size_t num_types)
+{
+	for (size_t i = 0; i < num_types; i++)
+		if (types[i].type == type)
+			return types + i;
+	return NULL;
+}
+
+void printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
+		    const struct tlv_print_record_type types[],
+		    size_t num_types)
+{
+	while (*plen > 0) {
+		u64 type, length;
+		const struct tlv_print_record_type *ptype;
+
+		type = fromwire_bigsize(cursor, plen);
+		if (!*cursor)
+			goto fail;
+		length = fromwire_bigsize(cursor, plen);
+		if (!*cursor)
+			goto fail;
+
+		ptype = find_print_record_type(type, types, num_types);
+		if (ptype) {
+			size_t tlvlen = length;
+			printf("{\ntype=%"PRIu64"\nlen=%"PRIu64"\n", type, length);
+			ptype->print(fieldname, cursor, &tlvlen);
+			if (!*cursor)
+				goto fail;
+			printf("}\n");
+			*plen -= length;
+		} else
+			printf("**TYPE #%ld UNKNOWN for TLV %s**\n", type, fieldname);
+	}
+	return;
+
+fail:
+	printf("**TRUNCATED TLV %s**\n", fieldname);
 }
 
 #define PRINTWIRE_TYPE_TO_STRING(T, N)					\
