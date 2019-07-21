@@ -223,6 +223,21 @@ to a peer was lost.
 }
 ```
 
+#### `invoice_payment`
+
+A notification for topic `invoice_payment` is sent every time an invoie is paid.
+
+```json
+{
+	"invoice_payment": {
+		"label": "unique-label-for-invoice",
+		"preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+		"msat": "10000msat"
+	}
+}
+```
+
+
 #### `warning`
 
 A notification for topic `warning` is sent every time a new `BROKEN`
