@@ -14,6 +14,7 @@ import traceback
 class MethodType(Enum):
     RPCMETHOD = 0
     HOOK = 1
+    REQUEST = 2
 
 
 class RequestState(Enum):
@@ -29,6 +30,7 @@ class Method(object):
 
      - RPC exposed by RPC passthrough
      - HOOK registered to be called synchronously by lightningd
+     - REQUEST registered to be called by synchronously lightningd
     """
     def __init__(self, name, func, mtype=MethodType.RPCMETHOD, category=None,
                  desc=None, long_desc=None):
@@ -95,7 +97,7 @@ class Plugin(object):
 
     The Plugin class serves two purposes: it collects RPC methods and
     options, and offers a control loop that dispatches incoming RPC
-    calls and hooks.
+    calls, hooks and requests.
 
     """
 
@@ -270,6 +272,38 @@ class Plugin(object):
         """
         def decorator(f):
             self.add_hook(method_name, f, background=True)
+            return f
+        return decorator
+
+    def add_request(self, name, func, background=False):
+        """Register a request(plugin_request type) that is called asynchronously
+           by lightningd on events
+        """
+        if name in self.methods:
+            raise ValueError(
+                "Method {} was already registered".format(name, self.methods[name])
+            )
+        method = Method(name, func, MethodType.REQUEST)
+        method.background = background
+        self.methods[name] = method
+
+    def request(self, method_name):
+        """Decorator to add a plugin request to the dispatch table.
+
+        Internally uses add_request.
+        """
+        def decorator(f):
+            self.add_request(method_name, f, background=False)
+            return f
+        return decorator
+
+    def async_request(self, method_name):
+        """Decorator to add an async plugin request to the dispatch table.
+
+        Internally uses add_request.
+        """
+        def decorator(f):
+            self.add_request(method_name, f, background=True)
             return f
         return decorator
 
@@ -448,6 +482,7 @@ class Plugin(object):
     def _getmanifest(self, **kwargs):
         methods = []
         hooks = []
+        requests = []
         for method in self.methods.values():
             # Skip the builtin ones, they don't get reported
             if method.name in ['getmanifest', 'init']:
@@ -455,6 +490,10 @@ class Plugin(object):
 
             if method.mtype == MethodType.HOOK:
                 hooks.append(method.name)
+                continue
+
+            if method.mtype == MethodType.REQUEST:
+                requests.append(method.name)
                 continue
 
             doc = inspect.getdoc(method.func)
@@ -496,6 +535,7 @@ class Plugin(object):
             'rpcmethods': methods,
             'subscriptions': list(self.subscriptions.keys()),
             'hooks': hooks,
+            'requests': requests,
         }
 
     def _init(self, options, configuration, request):
