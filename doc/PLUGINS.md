@@ -237,8 +237,10 @@ to a peer is established.
 
 ```json
 {
-	"id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
-	"address": "1.2.3.4"
+	"connect": {
+		"id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
+		"address": "1.2.3.4"
+	}
 }
 ```
 
@@ -249,7 +251,9 @@ to a peer was lost.
 
 ```json
 {
-	"id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+	"disconnect": {
+		"id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+	}
 }
 ```
 
@@ -277,11 +281,11 @@ message resolving failed...
 ```json
 {
 	"warning": {
-	"level": "warn",
-	"time": "1559743608.565342521",
-	"source": "lightningd(17652): 0821f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c chan #7854:",
-	"log": "Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent ERROR bad reestablish dataloss msg"
-  }
+		"level": "warn",
+		"time": "1559743608.565342521",
+		"source": "lightningd(17652): 0821f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c chan #7854:",
+		"log": "Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent ERROR bad reestablish dataloss msg"
+	}
 }
 ```
 1. `level` is `warn` or `error`: `warn` means something seems bad happened
@@ -330,12 +334,12 @@ the cryptographic handshake. The parameters have the following structure if ther
 
 ```json
 {
-  "peer": {
-	"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-	"addr": "34.239.230.56:9735",
-	"globalfeatures": "",
-	"localfeatures": ""
-  }
+	"peer_connected": {
+		"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+		"addr": "34.239.230.56:9735",
+		"globalfeatures": "",
+		"localfeatures": ""
+	}
 }
 ```
 
@@ -365,7 +369,9 @@ It is currently extremely restricted:
 
 ```json
 {
-  "writes": [ "PRAGMA foreign_keys = ON" ]
+	"db_write": {
+		"writes": [ "PRAGMA foreign_keys = ON" ]
+	}
 }
 ```
 
@@ -400,19 +406,19 @@ and it has passed basic sanity checks:
 
 ```json
 {
-  "openchannel": {
-	"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-	"funding_satoshis": "100000000msat",
-	"push_msat": "0msat",
-	"dust_limit_satoshis": "546000msat",
-	"max_htlc_value_in_flight_msat": "18446744073709551615msat",
-	"channel_reserve_satoshis": "1000000msat",
-	"htlc_minimum_msat": "0msat",
-	"feerate_per_kw": 7500,
-	"to_self_delay": 5,
-	"max_accepted_htlcs": 483,
-	"channel_flags": 1
-  }
+	"openchannel": {
+		"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+		"funding_satoshis": "100000000msat",
+		"push_msat": "0msat",
+		"dust_limit_satoshis": "546000msat",
+		"max_htlc_value_in_flight_msat": "18446744073709551615msat",
+		"channel_reserve_satoshis": "1000000msat",
+		"htlc_minimum_msat": "0msat",
+		"feerate_per_kw": 7500,
+		"to_self_delay": 5,
+		"max_accepted_htlcs": 483,
+		"channel_flags": 1
+	}
 }
 ```
 
@@ -433,23 +439,25 @@ The payload of the hook call has the following format:
 
 ```json
 {
-  "onion": {
-    "payload": "",
-    "per_hop_v0": {
-      "realm": "00",
-      "short_channel_id": "1x2x3",
-      "forward_amount": "42msat",
-      "outgoing_cltv_value": 500014
-    }
-  },
-  "next_onion": "[1365bytes of serialized onion]",
-  "shared_secret": "0000000000000000000000000000000000000000000000000000000000000000",
-  "htlc": {
-    "amount": "43msat",
-    "cltv_expiry": 500028,
-    "cltv_expiry_relative": 10,
-    "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000"
-  }
+	"htlc_accepted": {
+		"onion": {
+			"payload": "",
+			"per_hop_v0": {
+				"realm": "00",
+				"short_channel_id": "1x2x3",
+				"forward_amount": "42msat",
+				"outgoing_cltv_value": 500014
+			}
+		},
+		"next_onion": "[1365bytes of serialized onion]",
+		"shared_secret": "0000000000000000000000000000000000000000000000000000000000000000",
+		"htlc": {
+			"amount": "43msat",
+			"cltv_expiry": 500028,
+			"cltv_expiry_relative": 10,
+			"payment_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+		}
+	}
 }
 ```
 
@@ -492,7 +500,7 @@ The hook response must have one of the following formats:
 
 ```json
 {
-  "result": "continue"
+	"result": "continue"
 }
 ```
 
@@ -503,8 +511,8 @@ usual checks such as sufficient fees and CLTV deltas are still enforced.
 
 ```json
 {
-  "result": "fail",
-  "failure_code": 4301
+	"result": "fail",
+	"failure_code": 4301
 }
 ```
 
@@ -513,8 +521,8 @@ usual checks such as sufficient fees and CLTV deltas are still enforced.
 
 ```json
 {
-  "result": "resolve",
-  "payment_key": "0000000000000000000000000000000000000000000000000000000000000000"
+	"result": "resolve",
+	"payment_key": "0000000000000000000000000000000000000000000000000000000000000000"
 }
 ```
 
