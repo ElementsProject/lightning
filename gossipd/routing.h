@@ -441,4 +441,22 @@ void remove_channel_from_store(struct routing_state *rstate,
 const char *unfinalized_entries(const tal_t *ctx, struct routing_state *rstate);
 
 void remove_all_gossip(struct routing_state *rstate);
+
+/* Used to set up exclusions and remove them. */
+struct exclusion_memento;
+
+/* Set up exclusions, saving the needed data in a memento to be
+ * restored later.
+ * The exclusions must be restored before returning to the
+ * mainloop.
+ */
+struct exclusion_memento *
+exclude_channels(struct routing_state *rstate,
+		 const struct short_channel_id_dir *excluded TAKES);
+
+/* Restore excluded channels.
+ * This will also tal_free the given memento.
+ */
+void restore_excluded_channels(struct exclusion_memento *memento);
+
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */

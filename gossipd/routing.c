@@ -2310,45 +2310,23 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	struct amount_msat fee;
 	struct route_hop *hops;
 	struct node *n;
-	struct amount_msat *saved_capacity;
+	struct exclusion_memento *exes;
 	struct siphash_seed base_seed;
-
-	saved_capacity = tal_arr(tmpctx, struct amount_msat, tal_count(excluded));
 
 	base_seed.u.u64[0] = base_seed.u.u64[1] = seed;
 
 	if (amount_msat_eq(msat, AMOUNT_MSAT(0)))
 		return NULL;
 
-	/* Temporarily set excluded channels' capacity to zero. */
-	for (size_t i = 0; i < tal_count(excluded); i++) {
-		struct chan *chan = get_channel(rstate, &excluded[i].scid);
-		if (!chan)
-			continue;
-		saved_capacity[i] = chan->half[excluded[i].dir].htlc_maximum;
-		chan->half[excluded[i].dir].htlc_maximum = AMOUNT_MSAT(0);
-	}
+	/* Apply eclusions.  */
+	exes = exclude_channels(rstate, excluded);
 
 	route = find_route(ctx, rstate, source, destination, msat,
 			   riskfactor / BLOCKS_PER_YEAR / 100,
 			   fuzz, &base_seed, max_hops, &fee);
 
-	/* Now restore the capacity. */
-	/* Restoring is done in reverse order, in order to properly
-	 * handle the case where a channel is indicated twice in
-	 * our input.
-	 * Entries in `saved_capacity` of that channel beyond the
-	 * first entry will be 0, only the first entry of that
-	 * channel will be the correct capacity.
-	 * By restoring in reverse order we ensure we can restore
-	 * the correct capacity.
-	 */
-	for (ssize_t i = tal_count(excluded) - 1; i >= 0; i--) {
-		struct chan *chan = get_channel(rstate, &excluded[i].scid);
-		if (!chan)
-			continue;
-		chan->half[excluded[i].dir].htlc_maximum = saved_capacity[i];
-	}
+	/* Remove applied exclusions.  */
+	restore_excluded_channels(exes);
 
 	if (!route) {
 		return NULL;
@@ -2650,4 +2628,70 @@ void remove_all_gossip(struct routing_state *rstate)
 
 	/* Freeing unupdated chanmaps should empty this */
 	assert(pending_node_map_first(rstate->pending_node_map, &pnait) == NULL);
+}
+
+struct exclusion_memento {
+	struct routing_state *rstate;
+	const struct short_channel_id_dir *excluded;
+	struct amount_msat *saved_capacity;
+};
+
+struct exclusion_memento *
+exclude_channels(struct routing_state *rstate,
+		 const struct short_channel_id_dir *excluded TAKES)
+{
+	struct exclusion_memento *memento;
+	struct amount_msat *saved_capacity;
+
+	u32 len = tal_count(excluded);
+
+	/* Construct the memento object. */
+	memento = tal(rstate, struct exclusion_memento);
+	memento->rstate = rstate;
+	memento->excluded = tal_dup_arr(memento,
+					const struct short_channel_id_dir,
+					excluded,
+					len, 0);
+	memento->saved_capacity = tal_arr(memento,
+					  struct amount_msat, len);
+
+	/* Temporarily set excluded channels' capacity to zero.
+	 * Save the capacity to the array in the memento. */
+	saved_capacity = memento->saved_capacity;
+	for (size_t i = 0; i < len; i++) {
+		struct chan *chan = get_channel(rstate, &excluded[i].scid);
+		if (!chan)
+			continue;
+		saved_capacity[i] = chan->half[excluded[i].dir].htlc_maximum;
+		chan->half[excluded[i].dir].htlc_maximum = AMOUNT_MSAT(0);
+	}
+
+	return memento;
+}
+
+void restore_excluded_channels(struct exclusion_memento *memento)
+{
+	struct routing_state *rstate = memento->rstate;
+	const struct short_channel_id_dir *excluded = memento->excluded;
+	struct amount_msat *saved_capacity = memento->saved_capacity;
+
+	/* Now restore the capacity. */
+	/* Restoring is done in reverse order, in order to properly
+	 * handle the case where a channel is indicated twice in
+	 * our input.
+	 * Entries in `saved_capacity` of that channel beyond the
+	 * first entry will be 0, only the first entry of that
+	 * channel will be the correct capacity.
+	 * By restoring in reverse order we ensure we can restore
+	 * the correct capacity.
+	 */
+	for (ssize_t i = tal_count(excluded) - 1; i >= 0; i--) {
+		struct chan *chan = get_channel(rstate, &excluded[i].scid);
+		if (!chan)
+			continue;
+		chan->half[excluded[i].dir].htlc_maximum = saved_capacity[i];
+	}
+
+	/* Destroy the memento. */
+	tal_free(memento);
 }
