@@ -476,3 +476,21 @@ def test_warning_notification(node_factory):
     l1.daemon.wait_for_log('plugin-pretend_badlog.py time: *')
     l1.daemon.wait_for_log('plugin-pretend_badlog.py source: plugin-pretend_badlog.py')
     l1.daemon.wait_for_log('plugin-pretend_badlog.py log: Test warning notification\\(for broken event\\)')
+
+
+def test_invoice_payment_notification(node_factory):
+    """
+    Test the 'invoice_payment' notification
+    """
+    opts = [{}, {"plugin": "contrib/plugins/helloworld.py"}]
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    msats = 12345
+    preimage = '1' * 64
+    label = "a_descriptive_label"
+    inv1 = l2.rpc.invoice(msats, label, 'description', preimage=preimage)
+    l1.rpc.pay(inv1['bolt11'])
+
+    l2.daemon.wait_for_log(r"Received invoice_payment event for label {},"
+                           " preimage {}, and amount of {}msat"
+                           .format(label, preimage, msats))
