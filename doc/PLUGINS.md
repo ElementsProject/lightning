@@ -232,12 +232,10 @@ message resolving failed...
 
 ```json
 {
-	"warning": {
 	"level": "warn",
 	"time": "1559743608.565342521",
 	"source": "lightningd(17652): 0821f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c chan #7854:",
 	"log": "Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent ERROR bad reestablish dataloss msg"
-  }
 }
 ```
 1. `level` is `warn` or `error`: `warn` means something seems bad happened

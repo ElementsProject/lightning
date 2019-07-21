@@ -42,7 +42,6 @@ void notify_warning(struct lightningd *ld, struct log_entry *l)
 {
 	struct jsonrpc_notification *n =
 	    jsonrpc_notification_start(NULL, notification_topics[2]);
-	json_object_start(n->stream, "warning");
 	/* Choose "BROKEN"/"UNUSUAL" to keep consistent with the habit
 	 * of plugin. But this may confuses the users who want to 'getlog'
 	 * with the level indicated by notifications. It is the duty of a
@@ -56,7 +55,6 @@ void notify_warning(struct lightningd *ld, struct log_entry *l)
 	json_add_time(n->stream, "time", l->time.ts);
 	json_add_string(n->stream, "source", l->prefix);
 	json_add_string(n->stream, "log", l->log);
-	json_object_end(n->stream); /* .warning */
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }

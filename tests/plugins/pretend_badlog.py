@@ -12,12 +12,12 @@ def init(configuration, options, plugin):
 
 
 @plugin.subscribe("warning")
-def notify_warning(plugin, warning):
+def notify_warning(plugin, level, time, source, log):
     plugin.log("Received warning")
-    plugin.log("level: {}".format(warning['level']))
-    plugin.log("time: {}".format(warning['time']))
-    plugin.log("source: {}".format(warning['source']))
-    plugin.log("log: {}".format(warning['log']))
+    plugin.log("level: {}".format(level))
+    plugin.log("time: {}".format(time))
+    plugin.log("source: {}".format(source))
+    plugin.log("log: {}".format(log))
 
 
 @plugin.method("pretendbad")
