@@ -36,9 +36,9 @@ int main(void)
 	setup_locale();
 	void *ctx = tal(NULL, char);
 
-	struct tlv_n1 *n1 = tlv_n1_new(ctx);
-	struct tlv_n2 *n2 = tlv_n2_new(ctx);
-	struct tlv_n3 *n3 = tlv_n3_new(ctx);
+	struct tlv_test_n1 *n1 = tlv_test_n1_new(ctx);
+	struct tlv_test_n2 *n2 = tlv_test_n2_new(ctx);
+	struct tlv_test_n3 *n3 = tlv_test_n3_new(ctx);
 
 	assert(n1);
 	assert(n2);
