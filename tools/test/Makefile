@@ -30,7 +30,7 @@ tools/test/gen_test.c:
 	tools/generate-bolts.py --page impl ${@:.c=.h} test_type < tools/test/test_cases > $@
 	@tools/update-mocks.sh "$@"
 
-tools/test/gen_print.h:
+tools/test/gen_print.h: wire/gen_onion_wire.h
 	tools/generate-bolts.py -P --page header $@ test_type < tools/test/test_cases > $@
 
 tools/test/gen_print.c:
