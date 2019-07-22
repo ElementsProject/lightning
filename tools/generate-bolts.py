@@ -235,7 +235,7 @@ class Type(FieldSet):
         self.type_comments = []
         self.tlv = False
 
-    def add_data_field(self, field_name, type_obj, count=2,
+    def add_data_field(self, field_name, type_obj, count=1,
                        is_extension=[], comments=[], optional=False):
         FieldSet.add_data_field(self, field_name, type_obj, count,
                                 is_extension, comments=comments, optional=optional)
