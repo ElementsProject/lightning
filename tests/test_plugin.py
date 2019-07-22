@@ -90,6 +90,47 @@ def test_plugin_dir(node_factory):
     node_factory.get_node(options={'plugin-dir': plugin_dir, 'greeting': 'Mars'})
 
 
+def test_plugin_command(node_factory):
+    """Tests the 'plugin' RPC command"""
+    n = node_factory.get_node()
+
+    # Make sure that the 'hello' command from the helloworld.py plugin
+    # is not available.
+    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    assert(len(cmd) == 0)
+
+    # Add the 'contrib/plugins' test dir
+    time.sleep(2)
+    n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
+    n.daemon.wait_for_log(r"Plugin helloworld.py initialized")
+    # Make sure that the 'hello' command from the helloworld.py plugin
+    # is now available.
+    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    assert(len(cmd) == 1)
+
+    # Make sure 'rescan' and 'list' controls dont crash
+    n.rpc.plugin_rescan()
+    n.rpc.plugin_list()
+    time.sleep(1)
+
+    # Make sure the plugin behaves normally after stop and restart
+    n.rpc.plugin_stop(plugin="helloworld.py")
+    n.daemon.wait_for_log(r"Killing plugin: helloworld.py")
+    time.sleep(1)
+    n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "contrib/plugins/helloworld.py"))
+    n.daemon.wait_for_log(r"Plugin helloworld.py initialized")
+    assert("Hello world" == n.rpc.call(method="hello"))
+
+    # Now stop the helloworld plugin
+    n.rpc.plugin_stop(plugin="helloworld.py")
+    n.daemon.wait_for_log(r"Killing plugin: helloworld.py")
+    time.sleep(1)
+    # Make sure that the 'hello' command from the helloworld.py plugin
+    # is not available anymore.
+    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    assert(len(cmd) == 0)
+
+
 def test_plugin_disable(node_factory):
     """--disable-plugin works"""
     plugin_dir = 'contrib/plugins'
