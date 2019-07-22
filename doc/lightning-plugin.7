@@ -1,0 +1,56 @@
+'\" t
+.\"     Title: lightning-plugin
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 07/23/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-PLUGIN" "7" "07/23/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-plugin \- Manage plugins with RPC
+.SH "SYNOPSIS"
+.sp
+\fBplugin\fR command [parameter] [second_parameter]
+.SH "DESCRIPTION"
+.sp
+The \fBplugin\fR RPC command allows to manage plugins without having to restart lightningd\&. It takes 1 to 3 parameters: a command (start/stop/startdir/rescan/list) which describes the action to take and optionally one or two parameters which describes the plugin on which the action has to be taken\&.
+.sp
+The \fIstart\fR command takes a path as parameter and will load the plugin available from this path\&.
+.sp
+The \fIstop\fR command takes a plugin name as parameter and will kill and unload the specified plugin\&.
+.sp
+The \fIstartdir\fR command takes a directory path as parameter and will load all plugins this directory contains\&.
+.sp
+The \fIrescan\fR command starts all not\-already\-loaded plugins from the default plugins directory (by default \fI~/\&.lightning/plugins\fR)\&.
+.sp
+The \fIlist\fR command will return all the active plugins\&.
+.SH "RETURN VALUE"
+.sp
+On success, this returns an array \fIplugins\fR of objects, one by plugin\&. Each object contains the name of the plugin (\fIname\fR field) and its status (\fIactive\fR boolean field)\&. Since plugins are configured asynchronously, a freshly started plugin may not appear immediately\&.
+.SH "AUTHOR"
+.sp
+Antoine Poinsot <darosior@protonmail\&.com> is mainly responsible\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
