@@ -989,6 +989,8 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		if (p->pid == -1)
 			fatal("error starting plugin '%s': %s", p->cmd,
 			      strerror(errno));
+		else
+			log_debug(plugins->log, "started(%u) %s", p->pid, p->cmd);
 		p->buffer = tal_arr(p, char, 64);
 		p->stop = false;
 
