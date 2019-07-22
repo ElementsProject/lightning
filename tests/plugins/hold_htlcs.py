@@ -27,7 +27,7 @@ def on_htlc_accepted(htlc, onion, plugin):
 
     time.sleep(10)
 
-    print("Onion written to {}".format(fname))
+    plugin.log("Onion written to {}".format(fname))
 
     # Give the tester something to look for
     plugin.log("htlc_accepted hook called")
