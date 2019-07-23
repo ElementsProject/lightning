@@ -45,9 +45,7 @@ Here's a list of parts, with notes:
   - check-bolt.c: check the source code contains correct BOLT quotes
     (as used by check-source)
   - generate-wire.py: generates wire marshal/unmarshal-ing
-    routines for subdaemons.
-  - generate-bolts.py: generate marshal/unmarshal routines
-    from extracted BOLT specs.
+    routines for subdaemons and BOLT specs.
   - mockup.sh / update-mocks.sh: tools to generate mock functions for
     unit tests.
 

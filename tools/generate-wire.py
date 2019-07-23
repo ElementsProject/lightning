@@ -1,1537 +1,610 @@
 #! /usr/bin/env python3
-# Read from stdin, spit out C header or body.
+# Script to parse spec output CSVs and produce C files.
+# Released by lisa neigut under CC0:
+# https://creativecommons.org/publicdomain/zero/1.0/
+#
+# Reads from stdin, outputs C header or body file.
+#
+# Standard message types:
+#   msgtype,<msgname>,<value>[,<option>]
+#   msgdata,<msgname>,<fieldname>,<typename>,[<count>][,<option>]
+#
+# TLV types:
+#   tlvtype,<tlvstreamname>,<tlvname>,<value>[,<option>]
+#   tlvdata,<tlvstreamname>,<tlvname>,<fieldname>,<typename>,[<count>][,<option>]
+#
+# Subtypes:
+#   subtype,<subtypename>
+#   subtypedata,<subtypename>,<fieldname>,<typename>,[<count>]
 
-import argparse
+from argparse import ArgumentParser, REMAINDER
+from collections import OrderedDict
 import copy
 import fileinput
+from mako.template import Template
+import os
 import re
-
-from collections import namedtuple
-
-Enumtype = namedtuple('Enumtype', ['name', 'value'])
-
-type2size = {
-    'pad': 1,
-    'struct channel_id': 32,
-    'struct short_channel_id': 8,
-    'struct ipv6': 16,
-    'secp256k1_ecdsa_signature': 64,
-    'struct preimage': 32,
-    'struct pubkey': 33,
-    'struct node_id': 33,
-    'struct sha256': 32,
-    'struct bitcoin_blkid': 32,
-    'struct bitcoin_txid': 32,
-    'struct secret': 32,
-    'struct amount_msat': 8,
-    'struct amount_sat': 8,
-    'u64': 8,
-    'u32': 4,
-    'u16': 2,
-    'u8': 1,
-    'bool': 1,
-    'var_int': 8,
-}
-
-# These struct array helpers require a context to allocate from.
-varlen_structs = [
-    'peer_features',
-    'gossip_getnodes_entry',
-    'gossip_getchannels_entry',
-    'failed_htlc',
-    'utxo',
-    'bitcoin_tx',
-    'wirestring',
-    'per_peer_state',
-]
+import sys
 
 
-class FieldType(object):
-    def __init__(self, name):
+# Generator to give us one line at a time.
+def next_line(args, lines):
+    if lines is None:
+        lines = fileinput.input(args)
+
+    for i, line in enumerate(lines):
+        yield i + 1, line.strip()
+
+
+# Class definitions, to keep things classy
+class Field(object):
+    def __init__(self, name, type_obj, extensions=[],
+                 field_comments=[], optional=False):
         self.name = name
+        self.type_obj = type_obj
+        self.count = 1
+        self.len_field_of = None
+        self.len_field = None
 
-    def is_var_int(self):
-        return self.name == 'var_int'
+        self.extension_names = extensions
+        self.is_optional = optional
+        self.field_comments = field_comments
 
-    def is_assignable(self):
-        return self.name in ['u8', 'u16', 'u32', 'u64', 'bool', 'struct amount_msat', 'struct amount_sat', 'var_int'] or self.name.startswith('enum ')
+    def __deepcopy__(self, memo):
+        deepcopy_method = self.__deepcopy__
+        self.__deepcopy__ = None
+        field = copy.deepcopy(self, memo)
+        self.__deepcopy__ = deepcopy_method
 
-    def needs_ptr(self):
-        return not self.is_assignable()
+        field.type_obj = self.type_obj
+        return field
+
+    def add_count(self, count):
+        self.count = int(count)
+
+    def add_len_field(self, len_field):
+        self.count = False
+        # we cache our len-field's name
+        self.len_field = len_field.name
+        # the len-field caches our name
+        len_field.len_field_of = self.name
+
+    def is_array(self):
+        return self.count > 1
+
+    def is_varlen(self):
+        return not self.count
+
+    def is_extension(self):
+        return bool(self.extension_names)
+
+    def size(self):
+        if self.count:
+            return self.count
+        return self.len_field
+
+    def needs_context(self):
+        """ A field needs a context if it's varsized """
+        return self.is_varlen() or self.type_obj.needs_context()
+
+    def arg_desc_to(self):
+        if self.len_field_of:
+            return ''
+        type_name = self.type_obj.type_name()
+        if self.is_array():
+            return ', const {} {}[{}]'.format(type_name, self.name, self.count)
+        if self.type_obj.is_assignable() and not self.is_varlen():
+            name = self.name
+            if self.is_optional:
+                name = '*' + name
+            return ', {} {}'.format(type_name, name)
+        if self.is_varlen() and self.type_obj.is_varsize():
+            return ', const {} **{}'.format(type_name, self.name)
+        return ', const {} *{}'.format(type_name, self.name)
+
+    def arg_desc_from(self):
+        if self.len_field_of:
+            return ''
+        type_name = self.type_obj.type_name()
+        if self.is_array():
+            return ', {} {}[{}]'.format(type_name, self.name, self.count)
+        ptrs = '*'
+        if self.is_varlen() or self.is_optional or self.type_obj.is_varsize():
+            ptrs += '*'
+        if self.is_varlen() and self.type_obj.is_varsize():
+            ptrs += '*'
+        return ', {} {}{}'.format(type_name, ptrs, self.name)
+
+
+class FieldSet(object):
+    def __init__(self):
+        self.fields = OrderedDict()
+        self.len_fields = {}
+
+    def add_data_field(self, field_name, type_obj, count=1,
+                       extensions=[], comments=[], optional=False):
+        field = Field(field_name, type_obj, extensions=extensions,
+                      field_comments=comments, optional=optional)
+        if bool(count):
+            try:
+                field.add_count(int(count))
+            except ValueError:
+                len_field = self.find_data_field(count)
+                field.add_len_field(len_field)
+                self.len_fields[len_field.name] = len_field
+
+        self.fields[field_name] = field
+
+    def find_data_field(self, field_name):
+        return self.fields[field_name]
+
+    def get_len_fields(self):
+        return list(self.len_fields.values())
+
+    def has_len_fields(self):
+        return bool(self.len_fields)
+
+    def needs_context(self):
+        return any([field.needs_context() or field.is_optional for field in self.fields.values()])
+
+
+class Type(FieldSet):
+    assignables = [
+        'u8',
+        'u16',
+        'u32',
+        'u64',
+        'tu16',
+        'tu32',
+        'tu64',
+        'bool',
+        'amount_sat',
+        'amount_msat',
+    ]
+
+    typedefs = [
+        'u8',
+        'u16',
+        'u32',
+        'u64',
+        'bool',
+        'secp256k1_ecdsa_signature',
+        'secp256k1_ecdsa_recoverable_signature',
+        'wirestring',
+        'double',
+    ]
+
+    truncated_typedefs = [
+        'tu16',
+        'tu32',
+        'tu64',
+    ]
+
+    # Externally defined variable size types (require a context)
+    varsize_types = [
+        'peer_features',
+        'gossip_getnodes_entry',
+        'gossip_getchannels_entry',
+        'failed_htlc',
+        'utxo',
+        'bitcoin_tx',
+        'wirestring',
+        'per_peer_state',
+    ]
+
+    # Some BOLT types are re-typed based on their field name
+    # ('fieldname partial', 'original type'): ('true type', 'collapse array?')
+    name_field_map = {
+        ('txid', 'sha256'): ('bitcoin_txid', False),
+        ('amt', 'u64'): ('amount_msat', False),
+        ('msat', 'u64'): ('amount_msat', False),
+        ('satoshis', 'u64'): ('amount_sat', False),
+        ('node_id', 'pubkey'): ('node_id', False),
+        ('temporary_channel_id', 'u8'): ('channel_id', True),
+        ('secret', 'u8'): ('secret', True),
+        ('preimage', 'u8'): ('preimage', True),
+    }
+
+    # For BOLT specified types, a few type names need to be simply 'remapped'
+    # 'original type': 'true type'
+    name_remap = {
+        'byte': 'u8',
+        'signature': 'secp256k1_ecdsa_signature',
+        'chain_hash': 'bitcoin_blkid',
+        'point': 'pubkey',
+        # FIXME: omits 'pad'
+    }
+
+    @staticmethod
+    def true_type(type_name, field_name=None):
+        """ Returns 'true' type of a given type and a flag if
+            we've remapped a variable size/array type to a single struct
+            (an example of this is 'temporary_channel_id' which is specified
+            as a 32*byte, but we re-map it to a channel_id
+        """
+        if type_name in Type.name_remap:
+            type_name = Type.name_remap[type_name]
+
+        if field_name:
+            for (partial, t), true_type in Type.name_field_map.items():
+                if partial in field_name and t == type_name:
+                    return true_type
+        return (type_name, False)
+
+    def __init__(self, name):
+        FieldSet.__init__(self)
+        self.name, self.is_enum = self.parse_name(name)
+        self.depends_on = {}
+        self.type_comments = []
+        self.tlv = False
+
+    def parse_name(self, name):
+        if name.startswith('e:'):
+            return name[2:], True
+        return name, False
+
+    def add_data_field(self, field_name, type_obj, count=1,
+                       extensions=[], comments=[], optional=False):
+        FieldSet.add_data_field(self, field_name, type_obj, count,
+                                extensions=extensions,
+                                comments=comments, optional=optional)
+        if type_obj.name not in self.depends_on:
+            self.depends_on[type_obj.name] = type_obj
+
+    def type_name(self):
+        if self.name in self.typedefs:
+            return self.name
+        if self.name in self.truncated_typedefs:
+            return self.name[1:]
+        if self.is_enum:
+            prefix = 'enum '
+        else:
+            prefix = 'struct '
+
+        return prefix + self.struct_name()
 
     # We only accelerate the u8 case: it's common and trivial.
     def has_array_helper(self):
         return self.name in ['u8']
 
-    def base(self):
-        basetype = self.name
-        if basetype.startswith('struct '):
-            basetype = basetype[7:]
-        elif basetype.startswith('enum '):
-            basetype = basetype[5:]
-        elif self.name == 'var_int':
-            return 'u64'
-        return basetype
+    def struct_name(self):
+        if self.is_tlv():
+            return self.tlv.struct_name()
+        return self.name
+
+    def subtype_deps(self):
+        return [dep for dep in self.depends_on.values() if dep.is_subtype()]
 
     def is_subtype(self):
-        for subtype in subtypes:
-            if subtype.name == self.base():
-                return True
-        return False
+        return bool(self.fields)
 
-    # Returns base size
-    @staticmethod
-    def _typesize(typename):
-        if typename in type2size:
-            return type2size[typename]
-        elif typename.startswith('struct ') or typename.startswith('enum '):
-            # We allow unknown structures/enums, for extensibility (can only happen
-            # if explicitly specified in csv)
-            return 0
-        else:
-            raise ValueError('Unknown typename {}'.format(typename))
+    def is_truncated(self):
+        return self.name in self.truncated_typedefs
 
-
-# Full (message, fieldname)-mappings
-typemap = {
-    ('update_fail_htlc', 'reason'): FieldType('u8'),
-    ('node_announcement', 'alias'): FieldType('u8'),
-    ('update_add_htlc', 'onion_routing_packet'): FieldType('u8'),
-    ('update_fulfill_htlc', 'payment_preimage'): FieldType('struct preimage'),
-    ('error', 'data'): FieldType('u8'),
-    ('shutdown', 'scriptpubkey'): FieldType('u8'),
-    ('node_announcement', 'rgb_color'): FieldType('u8'),
-    ('node_announcement', 'addresses'): FieldType('u8'),
-    ('node_announcement', 'ipv6'): FieldType('struct ipv6'),
-    ('announcement_signatures', 'short_channel_id'): FieldType('struct short_channel_id'),
-    ('channel_announcement', 'short_channel_id'): FieldType('struct short_channel_id'),
-    ('channel_update', 'short_channel_id'): FieldType('struct short_channel_id'),
-    ('revoke_and_ack', 'per_commitment_secret'): FieldType('struct secret'),
-    ('channel_reestablish_option_data_loss_protect', 'your_last_per_commitment_secret'): FieldType('struct secret'),
-    ('channel_update', 'fee_base_msat'): FieldType('u32'),
-    ('final_incorrect_htlc_amount', 'incoming_htlc_amt'): FieldType('struct amount_msat'),
-}
-
-# Partial names that map to a datatype
-partialtypemap = {
-    'signature': FieldType('secp256k1_ecdsa_signature'),
-    'features': FieldType('u8'),
-    'channel_id': FieldType('struct channel_id'),
-    'chain_hash': FieldType('struct bitcoin_blkid'),
-    'funding_txid': FieldType('struct bitcoin_txid'),
-    'pad': FieldType('pad'),
-    'msat': FieldType('struct amount_msat'),
-    'satoshis': FieldType('struct amount_sat'),
-    'node_id': FieldType('struct node_id'),
-}
-
-# Size to typename match
-sizetypemap = {
-    33: FieldType('struct pubkey'),
-    32: FieldType('struct sha256'),
-    8: FieldType('u64'),
-    4: FieldType('u32'),
-    2: FieldType('u16'),
-    1: FieldType('u8')
-}
-
-
-# It would be nicer if we had put '*u8' in spec and disallowed bare lenvar.
-# In practice we only recognize lenvar when it's the previous field.
-
-# size := baresize | arraysize
-# baresize := simplesize | lenvar
-# simplesize := number | type
-# arraysize := length '*' type
-# length := lenvar | number
-class Field(object):
-    def __init__(self, message, name, size, comments, prevname, includes):
-        self.message = message
-        self.comments = comments
-        self.name = name
-        self.is_len_var = False
-        self.lenvar = None
-        self.num_elems = 1
-        self.optional = False
-        self.is_tlv = False
-        self.is_subtype = False
-
-        if name.endswith('_tlv'):
-            self.is_tlv = True
-            if self.name not in tlv_fields:
-                tlv_fields[self.name] = []
-
-        # ? means optional field (not supported for arrays)
-        if size.startswith('?'):
-            self.optional = True
-            size = size[1:]
-        # If it's an arraysize, swallow prefix.
-        elif '*' in size:
-            number = size.split('*')[0]
-            if number == prevname:
-                self.lenvar = number
-            else:
-                self.num_elems = int(number)
-            size = size.split('*')[1]
-        elif options.bolt and size == prevname:
-            # Raw length field, implies u8.
-            self.lenvar = size
-            size = '1'
-
-        # Bolts use just a number: Guess type based on size.
-        if options.bolt:
-            if size == 'var_int':
-                base_size = 8
-                self.fieldtype = FieldType(size)
-            else:
-                try:
-                    base_size = int(size)
-                    self.fieldtype = Field._guess_type(message, self.name, base_size)
-                    # There are some arrays which we have to guess, based on sizes.
-                    tsize = FieldType._typesize(self.fieldtype.name)
-                    if base_size % tsize != 0:
-                        raise ValueError('Invalid size {} for {}.{} not a multiple of {}'
-                                         .format(base_size,
-                                                 self.message,
-                                                 self.name,
-                                                 tsize))
-                    self.num_elems = int(base_size / tsize)
-                except ValueError:  # for subtypes
-                    self.fieldtype = FieldType('struct {}'.format(name))
-                    self.is_subtype = True
-
-        else:
-            # Real typename.
-            self.fieldtype = FieldType(size)
-
-    def is_padding(self):
-        return self.name.startswith('pad')
-
-    # Padding is always treated as an array.
-    def is_array(self):
-        return self.num_elems > 1 or self.is_padding()
-
-    def is_variable_size(self):
-        return self.lenvar is not None
-
-    def needs_ptr_to_ptr(self):
-        return self.is_variable_size() or self.optional
+    def needs_context(self):
+        return self.is_varsize()
 
     def is_assignable(self):
-        if self.is_array() or self.needs_ptr_to_ptr():
-            return False
-        return self.fieldtype.is_assignable()
+        """ Generally typedef's and enums """
+        return self.name in self.assignables or self.is_enum
 
-    def has_array_helper(self):
-        return self.fieldtype.has_array_helper()
+    def is_varsize(self):
+        """ A type is variably sized if it's marked as such (in varsize_types)
+            or it contains a field of variable length """
+        return self.name in self.varsize_types or self.has_len_fields()
 
-    # Returns FieldType
-    @staticmethod
-    def _guess_type(message, fieldname, base_size):
-        # Check for full (message, fieldname)-matches
-        if (message, fieldname) in typemap:
-            return typemap[(message, fieldname)]
+    def add_comments(self, comments):
+        self.type_comments = comments
 
-        # Check for partial field names
-        for k, v in partialtypemap.items():
-            if k in fieldname:
-                return v
+    def mark_tlv(self, tlv):
+        self.tlv = tlv
 
-        # Check for size matches
-        if base_size in sizetypemap:
-            return sizetypemap[base_size]
-
-        raise ValueError('Unknown size {} for {}'.format(base_size, fieldname))
+    def is_tlv(self):
+        return bool(self.tlv)
 
 
-fromwire_impl_templ = """bool fromwire_{name}({ctx}const void *p{args})
-{{
-{fields}
-\tconst u8 *cursor = p;
-\tsize_t plen = tal_count(p);
-
-\tif (fromwire_u16(&cursor, &plen) != {enum.name})
-\t\treturn false;
-{subcalls}
-\treturn cursor != NULL;
-}}
-"""
-
-fromwire_tlv_impl_templ = """static bool fromwire_{tlv_name}_{name}({ctx}{args})
-{{
-
-\tsize_t start_len = *plen;
-{fields}
-\tif (start_len < len)
-\t\treturn false;
-{subcalls}
-\treturn cursor != NULL && (start_len - *plen == len);
-}}
-"""
-
-fromwire_subtype_impl_templ = """{static}bool fromwire_{name}({ctx}{args})
-{{
-
-{fields}
-{subcalls}
-\treturn cursor != NULL;
-}}
-"""
-
-fromwire_subtype_header_templ = """bool fromwire_{name}({ctx}{args});"""
-
-fromwire_header_templ = """bool fromwire_{name}({ctx}const void *p{args});
-"""
-
-towire_header_templ = """u8 *towire_{name}(const tal_t *ctx{args});
-"""
-towire_impl_templ = """u8 *towire_{name}(const tal_t *ctx{args})
-{{
-{field_decls}
-\tu8 *p = tal_arr(ctx, u8, 0);
-\ttowire_u16(&p, {enumname});
-{subcalls}
-
-\treturn memcheck(p, tal_count(p));
-}}
-"""
-
-towire_tlv_templ = """u8 *towire_{name}(const tal_t *ctx{args})
-{{
-{field_decls}
-\tu8 *p = tal_arr(ctx, u8, 0);
-\ttowire_u16(&p, {enumname});
-\ttowire_u16(&p, {len});
-{subcalls}
-
-\treturn memcheck(p, tal_count(p));
-}}
-"""
-
-fromwire_tlv_templ = """bool frowire_{name}({ctx}const void *p{args})
-{{
-{fields}
-\tconst u8 *cursor = p;
-\tsize_t plen = tal_count(p);
-
-\tif (frmwire_u16(&cursor, &plen) != {enum.name})
-\t\treturn false;
-{subcalls}
-\treturn cursor != NULL;
-}}
-"""
-
-printwire_header_templ = """void printwire_{name}(const char *fieldname, const u8 *cursor);
-"""
-
-printwire_toplevel_tmpl = """\tsize_t plen = tal_count(cursor);
-
-\tif (fromwire_u16(&cursor, &plen) != {enum.name}) {{
-\t\tprintf("WRONG TYPE?!\\n");
-\t\treturn;
-\t}}"""
-
-printwire_impl_templ = """{is_internal}void printwire_{name}(const char *fieldname, const u8 *{cursor_ptr}cursor{tlv_args})
-{{
-{toplevel_msg_setup}{subcalls}{lencheck}
-}}
-"""
-
-printwire_lencheck = """
-\tif (plen != 0)
-\t\tprintf("EXTRA: %s\\n", tal_hexstr(NULL, cursor, plen));
-"""
-
-
-class CCode(object):
-    """Simple class to create indented C code"""
-    def __init__(self):
-        self.indent = 1
-        self.single_indent = False
-        self.code = []
-
-    def append(self, lines):
-        for line in lines.split('\n'):
-            # Let us to the indenting please!
-            assert '\t' not in line
-
-            # Special case: } by itself is pre-unindented.
-            if line == '}':
-                self.indent -= 1
-                self.code.append("\t" * self.indent + line)
-                continue
-
-            self.code.append("\t" * self.indent + line)
-            if self.single_indent:
-                self.indent -= 1
-                self.single_indent = False
-
-            if line.endswith('{'):
-                self.indent += 1
-            elif line.endswith('}'):
-                self.indent -= 1
-            elif line.startswith('for') or line.startswith('if'):
-                self.indent += 1
-                self.single_indent = True
-
-    def __str__(self):
-        assert self.indent == 1
-        assert not self.single_indent
-        return '\n'.join(self.code)
-
-
-class Message(object):
-    def __init__(self, name, enum, comments, is_tlv=False):
+class Message(FieldSet):
+    def __init__(self, name, number, option=[], enum_prefix='wire',
+                 struct_prefix=None, comments=[]):
+        FieldSet.__init__(self)
         self.name = name
-        self.enum = enum
-        self.comments = comments
-        self.fields = []
-        self.has_variable_fields = False
-        self.is_tlv = is_tlv
+        self.number = number
+        self.enum_prefix = enum_prefix
+        self.option = option[0] if len(option) else None
+        self.struct_prefix = struct_prefix
+        self.enumname = None
+        self.msg_comments = comments
 
-    def checkLenField(self, field):
-        # Optional fields don't have a len.
-        if field.optional:
-            return
-        for f in self.fields:
-            if f.name == field.lenvar:
-                if not (f.fieldtype.name == 'u16' or f.fieldtype.name == 'var_int') and options.bolt:
-                    raise ValueError('Field {} has non-u16 and non-var_int length variable {} (type {})'
-                                     .format(field.name, field.lenvar, f.fieldtype.name))
+    def has_option(self):
+        return self.option is not None
 
-                if f.is_array() or f.needs_ptr_to_ptr():
-                    raise ValueError('Field {} has non-simple length variable {}'
-                                     .format(field.name, field.lenvar))
-                f.is_len_var = True
-                f.lenvar_for = field
-                return
-        raise ValueError('Field {} unknown length variable {}'
-                         .format(field.name, field.lenvar))
+    def enum_name(self):
+        name = self.enumname if self.enumname else self.name
+        return "{}_{}".format(self.enum_prefix, name).upper()
 
-    def addField(self, field):
-        # We assume field lengths are 16 bit, to avoid overflow issues and
-        # massive allocations.
-        if field.is_variable_size():
-            self.checkLenField(field)
-            self.has_variable_fields = True
-        elif field.fieldtype.base() in varlen_structs or field.optional:
-            self.has_variable_fields = True
-        self.fields.append(field)
+    def struct_name(self):
+        if self.struct_prefix:
+            return self.struct_prefix + "_" + self.name
+        return self.name
 
-    def print_fromwire_array(self, ctx, subcalls, basetype, f, name, num_elems, is_embedded=False):
-        p_ref = '' if is_embedded else '&'
-        if f.has_array_helper():
-            subcalls.append('fromwire_{}_array({}cursor, {}plen, {}, {});'
-                            .format(basetype, p_ref, p_ref, name, num_elems))
+
+class Tlv(object):
+    def __init__(self, name):
+        self.name = name
+        self.messages = {}
+
+    def add_message(self, tokens, comments=[]):
+        """ tokens -> (name, value[, option]) """
+        self.messages[tokens[0]] = Message(tokens[0], tokens[1], option=tokens[2:],
+                                           enum_prefix=self.name,
+                                           struct_prefix=self.struct_name(),
+                                           comments=comments)
+
+    def type_name(self):
+        return 'struct ' + self.struct_name()
+
+    def struct_name(self):
+        return "tlv_{}".format(self.name)
+
+    def find_message(self, name):
+        return self.messages[name]
+
+
+class Master(object):
+    types = {}
+    tlvs = {}
+    messages = {}
+    extension_msgs = {}
+    inclusions = []
+    top_comments = []
+
+    def add_comments(self, comments):
+        self.top_comments += comments
+
+    def add_include(self, inclusion):
+        self.inclusions.append(inclusion)
+
+    def add_tlv(self, tlv_name):
+        if tlv_name not in self.tlvs:
+            self.tlvs[tlv_name] = Tlv(tlv_name)
+
+        if tlv_name not in self.types:
+            self.types[tlv_name] = Type(tlv_name)
+
+        return self.tlvs[tlv_name]
+
+    def add_message(self, tokens, comments=[]):
+        """ tokens -> (name, value[, option])"""
+        self.messages[tokens[0]] = Message(tokens[0], tokens[1], option=tokens[2:],
+                                           comments=comments)
+
+    def add_extension_msg(self, name, msg):
+        self.extension_msgs[name] = msg
+
+    def add_type(self, type_name, field_name=None):
+        optional = False
+        if type_name.startswith('?'):
+            type_name = type_name[1:]
+            optional = True
+        # Check for special type name re-mapping
+        type_name, collapse_original = Type.true_type(type_name, field_name)
+
+        if type_name not in self.types:
+            self.types[type_name] = Type(type_name)
+        return self.types[type_name], collapse_original, optional
+
+    def find_type(self, type_name):
+        return self.types[type_name]
+
+    def find_message(self, msg_name):
+        if msg_name in self.messages:
+            return self.messages[msg_name]
+        if msg_name in self.extension_msgs:
+            return self.extension_msgs[msg_name]
+        return None
+
+    def find_tlv(self, tlv_name):
+        return self.tlvs[tlv_name]
+
+    def get_ordered_subtypes(self):
+        """ We want to order subtypes such that the 'no dependency'
+        types are printed first """
+        subtypes = [s for s in self.types.values() if s.is_subtype()]
+
+        # Start with subtypes without subtype dependencies
+        sorted_types = [s for s in subtypes if not len(s.subtype_deps())]
+        unsorted = [s for s in subtypes if len(s.subtype_deps())]
+        while len(unsorted):
+            names = [s.name for s in sorted_types]
+            for s in list(unsorted):
+                if all([dependency.name in names for dependency in s.subtype_deps()]):
+                    sorted_types.append(s)
+                    unsorted.remove(s)
+        return sorted_types
+
+    def tlv_messages(self):
+        return [m for tlv in self.tlvs.values() for m in tlv.messages.values()]
+
+    def find_template(self, options):
+        dirpath = os.path.dirname(os.path.abspath(__file__))
+        filename = dirpath + '/gen/{}{}_template'.format(
+            'print_' if options.print_wire else '', options.page)
+
+        return Template(filename=filename)
+
+    def post_process(self):
+        """ method to handle any 'post processing' that needs to be done.
+            for now, we just need match up types to TLVs """
+        for tlv_name, tlv in self.tlvs.items():
+            if tlv_name in self.types:
+                self.types[tlv_name].mark_tlv(tlv)
+
+    def write(self, options, output):
+        template = self.find_template(options)
+        enum_sets = []
+        enum_sets.append({
+            'name': options.enum_name,
+            'set': self.messages.values(),
+        })
+        stuff = {}
+        stuff['top_comments'] = self.top_comments
+        stuff['options'] = options
+        stuff['idem'] = re.sub(r'[^A-Z]+', '_', options.header_filename.upper())
+        stuff['header_filename'] = options.header_filename
+        stuff['includes'] = self.inclusions
+        stuff['enum_sets'] = enum_sets
+        subtypes = self.get_ordered_subtypes()
+        stuff['structs'] = subtypes + self.tlv_messages()
+        stuff['tlvs'] = self.tlvs
+
+        # We leave out extension messages in the printing pages. Any extension
+        # fields will get printed under the 'original' message, if present
+        if options.print_wire:
+            stuff['messages'] = list(self.messages.values())
         else:
-            subcalls.append('for (size_t i = 0; i < {}; i++)'
-                            .format(num_elems))
-            if f.fieldtype.is_assignable():
-                subcalls.append('({})[i] = fromwire_{}({}cursor, {}plen);'
-                                .format(name, basetype, p_ref, p_ref))
-            elif basetype in varlen_structs:
-                subcalls.append('({})[i] = fromwire_{}({}, {}cursor, {}plen);'
-                                .format(name, basetype, ctx, p_ref, p_ref))
-            else:
-                ctx_arg = ctx + ', ' if f.fieldtype.is_subtype() else ''
-                subcalls.append('fromwire_{}({}{}cursor, {}plen, {} + i);'
-                                .format(basetype, ctx_arg, p_ref, p_ref, name))
+            stuff['messages'] = list(self.messages.values()) + list(self.extension_msgs.values())
+        stuff['subtypes'] = subtypes
 
-    def print_fromwire(self, is_header):
-        ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
+        print(template.render(**stuff), file=output)
 
-        args = []
 
-        for f in self.fields:
-            if f.is_len_var or f.is_padding():
-                continue
-            elif f.is_array():
-                args.append(', {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
-            elif f.is_tlv:
-                args.append(', struct {} *{}'.format(f.name, f.name))
-            else:
-                ptrs = '*'
-                # If we're handing a variable array, we need a ptr-to-ptr.
-                if f.needs_ptr_to_ptr():
-                    ptrs += '*'
-                # If each type is a variable length, we need a ptr to that,
-                # unless it's already optional, so we got one above.
-                if not f.optional and f.fieldtype.base() in varlen_structs:
-                    ptrs += '*'
+def main(options, args=None, output=sys.stdout, lines=None):
+    genline = next_line(args, lines)
 
-                args.append(', {} {}{}'.format(f.fieldtype.name, ptrs, f.name))
+    comment_set = []
 
-        template = fromwire_header_templ if is_header else fromwire_impl_templ
-        fields = ['\t{} {};\n'.format(f.fieldtype.base(), f.name) for f in self.fields if f.is_len_var]
+    # Create a new 'master' that serves as the coordinator for the file generation
+    master = Master()
+    try:
+        while True:
+            ln, line = next(genline)
+            tokens = line.split(',')
+            token_type = tokens[0]
 
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-            if f.fieldtype.is_var_int():
-                basetype = 'var_int'
-
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('fromwire_pad(&cursor, &plen, {});'
-                                .format(f.num_elems))
-            elif f.is_array():
-                self.print_fromwire_array('ctx', subcalls, basetype, f, f.name,
-                                          f.num_elems)
-            elif f.is_tlv:
-                if not f.is_variable_size():
-                    raise TypeError('TLV {} not variable size'.format(f.name))
-                subcalls.append('struct {tlv_name} *_tlv = fromwire__{tlv_name}(ctx, &cursor, &plen, &{tlv_len});'
-                                .format(tlv_name=f.name, tlv_len=f.lenvar))
-                subcalls.append('if (!_tlv)')
-                subcalls.append('return false;')
-                subcalls.append('*{tlv_name} = *_tlv;'.format(tlv_name=f.name))
-            elif f.is_variable_size():
-                subcalls.append("//2nd case {name}".format(name=f.name))
-                typename = f.fieldtype.name
-                # If structs are varlen, need array of ptrs to them.
-                if basetype in varlen_structs:
-                    typename += ' *'
-                subcalls.append('*{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
-                                .format(f.name, f.lenvar, typename, f.lenvar))
-
-                # Allocate these off the array itself, if they need alloc.
-                self.print_fromwire_array('*' + f.name, subcalls, basetype, f,
-                                          '*' + f.name, f.lenvar)
-            else:
-                if f.optional:
-                    assignable = f.fieldtype.is_assignable()
-                    # Optional varlens don't need to be derefed twice.
-                    if basetype in varlen_structs:
-                        deref = ''
-                    else:
-                        deref = '*'
-                else:
-                    deref = ''
-                    assignable = f.is_assignable()
-
-                if assignable:
-                    if f.is_len_var:
-                        s = '{} = fromwire_{}(&cursor, &plen);'.format(f.name, basetype)
-                    else:
-                        s = '{}*{} = fromwire_{}(&cursor, &plen);'.format(deref, f.name, basetype)
-                elif basetype in varlen_structs:
-                    s = '{}*{} = fromwire_{}(ctx, &cursor, &plen);'.format(deref, f.name, basetype)
-                else:
-                    s = 'fromwire_{}(&cursor, &plen, {}{});'.format(basetype, deref, f.name)
-
-                if f.optional:
-                    subcalls.append("if (!fromwire_bool(&cursor, &plen))\n"
-                                    "*{} = NULL;\n"
-                                    "else {{\n"
-                                    "*{} = tal(ctx, {});\n"
-                                    "{}\n"
-                                    "}}"
-                                    .format(f.name, f.name, f.fieldtype.name,
-                                            s))
-                else:
-                    subcalls.append(s)
-
-        return template.format(
-            name=self.name,
-            ctx=ctx_arg,
-            args=''.join(args),
-            fields=''.join(fields),
-            enum=self.enum,
-            subcalls=str(subcalls)
-        )
-
-    def print_towire_array(self, subcalls, basetype, f, num_elems, is_tlv=False):
-        p_ref = '' if is_tlv else '&'
-        msg_name = self.name + '->' if is_tlv else ''
-        if f.has_array_helper():
-            subcalls.append('towire_{}_array({}p, {}{}, {});'
-                            .format(basetype, p_ref, msg_name, f.name, num_elems))
-        else:
-            subcalls.append('for (size_t i = 0; i < {}; i++)'
-                            .format(num_elems))
-            if f.fieldtype.is_assignable() or basetype in varlen_structs:
-                subcalls.append('towire_{}({}p, {}{}[i]);'
-                                .format(basetype, p_ref, msg_name, f.name))
-            else:
-                subcalls.append('towire_{}({}p, {}{} + i);'
-                                .format(basetype, p_ref, msg_name, f.name))
-
-    def find_tlv_lenvar_field(self, tlv_name):
-        return [f for f in self.fields if f.is_len_var and f.lenvar_for.is_tlv and f.lenvar_for.name == tlv_name][0]
-
-    def print_towire(self, is_header):
-        template = towire_header_templ if is_header else towire_impl_templ
-        args = []
-        for f in self.fields:
-            if f.is_padding() or f.is_len_var:
-                continue
-            if f.is_array():
-                args.append(', const {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
-            elif f.is_tlv:
-                args.append(', const struct {} *{}'.format(f.name, f.name))
-            elif f.is_assignable():
-                args.append(', {} {}'.format(f.fieldtype.name, f.name))
-            elif f.is_variable_size() and f.fieldtype.base() in varlen_structs:
-                args.append(', const {} **{}'.format(f.fieldtype.name, f.name))
-            else:
-                args.append(', const {} *{}'.format(f.fieldtype.name, f.name))
-
-        field_decls = []
-        for f in self.fields:
-            if f.is_len_var:
-                if f.lenvar_for.is_tlv:
-                    # used below...
-                    field_decls.append('\t{0} {1};'.format(f.fieldtype.base(), f.name))
-                else:
-                    field_decls.append('\t{0} {1} = tal_count({2});'.format(
-                        f.fieldtype.name, f.name, f.lenvar_for.name
-                    ))
-
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('towire_pad(&p, {});'
-                                .format(f.num_elems))
-            elif f.is_array():
-                self.print_towire_array(subcalls, basetype, f, f.num_elems)
-            elif f.is_len_var and f.lenvar_for.is_tlv:
-                continue  # taken care of below
-            elif f.is_tlv:
-                if not f.is_variable_size():
-                    raise ValueError('TLV {} not variable size'.format(f.name))
-                lenvar_field = self.find_tlv_lenvar_field(f.name)
-                subcalls.append('/* ~~build TLV for {} ~~*/'.format(f.name))
-                subcalls.append("u8 *{tlv_name}_buffer = tal_arr(ctx, u8, 0);\n"
-                                "towire__{tlv_name}(ctx, &{tlv_name}_buffer, {tlv_name});\n"
-                                "{lenvar_field} = tal_count({tlv_name}_buffer);\n"
-                                "towire_{lenvar_fieldtype}(&p, {lenvar_field});\n"
-                                "towire_u8_array(&p, {tlv_name}_buffer, {lenvar_field});\n".format(
-                                    tlv_name=f.name,
-                                    lenvar_field=lenvar_field.name,
-                                    lenvar_fieldtype=lenvar_field.fieldtype.name))
-            elif f.is_variable_size():
-                self.print_towire_array(subcalls, basetype, f, f.lenvar)
-            else:
-                if f.optional:
-                    if f.fieldtype.is_assignable():
-                        deref = '*'
-                    else:
-                        deref = ''
-                    subcalls.append("if (!{})\n"
-                                    "towire_bool(&p, false);\n"
-                                    "else {{\n"
-                                    "towire_bool(&p, true);\n"
-                                    "towire_{}(&p, {}{});\n"
-                                    "}}".format(f.name, basetype, deref, f.name))
-                else:
-                    subcalls.append('towire_{}(&p, {});'
-                                    .format(basetype, f.name))
-
-        return template.format(
-            name=self.name,
-            args=''.join(args),
-            enumname=self.enum.name,
-            field_decls='\n'.join(field_decls),
-            subcalls=str(subcalls),
-        )
-
-    def add_truncate_check(self, subcalls, ref):
-        # Report if truncated, otherwise print.
-        call = 'if (!{}cursor) {{\nprintf("**TRUNCATED**\\n");\nreturn;\n}}'.format(ref)
-        subcalls.append(call)
-
-    def print_printwire_array(self, subcalls, basetype, f, num_elems, ref):
-        truncate_check_ref = '' if ref else '*'
-        if f.has_array_helper():
-            subcalls.append('printwire_{}_array(tal_fmt(NULL, "%s.{}", fieldname), {}cursor, {}plen, {});'
-                            .format(basetype, f.name, ref, ref, num_elems))
-        else:
-            subcalls.append('printf("[");')
-            subcalls.append('for (size_t i = 0; i < {}; i++) {{'
-                            .format(num_elems))
-            subcalls.append('{} v;'.format(f.fieldtype.name))
-            if f.fieldtype.is_assignable():
-                subcalls.append('v = fromwire_{}({}cursor, {}plen);'
-                                .format(f.fieldtype.name, basetype, ref, ref))
-            else:
-                # We don't handle this yet!
-                assert(basetype not in varlen_structs)
-
-                subcalls.append('fromwire_{}({}cursor, {}plen, &v);'
-                                .format(basetype, ref, ref))
-
-            self.add_truncate_check(subcalls, truncate_check_ref)
-
-            subcalls.append('printwire_{}(tal_fmt(NULL, "%s.{}", fieldname), &v);'
-                            .format(basetype, f.name))
-            subcalls.append('}')
-            subcalls.append('printf("]");')
-
-    def print_printwire(self, is_header, is_embedded=False):
-        template = printwire_header_templ if is_header else printwire_impl_templ
-        fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
-
-        tlv_args = '' if not is_embedded else ', size_t *plen'
-        ref = '&' if not is_embedded else ''
-        truncate_check_ref = '' if not is_embedded else '*'
-
-        toplevel_msg_setup = ''
-        if not is_embedded:
-            toplevel_msg_setup = printwire_toplevel_tmpl.format(enum=self.enum)
-
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_len_var:
-                if f.fieldtype.is_var_int():
-                    subcalls.append('{} {} = fromwire_{}({}cursor, {}plen);'
-                                    .format(basetype, f.name, 'var_int', ref, ref))
-                else:
-                    subcalls.append('{} {} = fromwire_{}({}cursor, {}plen);'
-                                    .format(f.fieldtype.name, f.name, basetype, ref, ref))
-                self.add_truncate_check(subcalls, truncate_check_ref)
+            if not bool(line):
+                master.add_comments(comment_set)
+                comment_set = []
                 continue
 
-            subcalls.append('printf("{}=");'.format(f.name))
-            if f.is_padding():
-                subcalls.append('printwire_pad(tal_fmt(NULL, "%s.{}", fieldname), {}cursor, {}plen, {});'
-                                .format(f.name, ref, ref, f.num_elems))
-                self.add_truncate_check(subcalls, truncate_check_ref)
-            elif f.is_array():
-                self.print_printwire_array(subcalls, basetype, f, f.num_elems, ref)
-                self.add_truncate_check(subcalls, truncate_check_ref)
-            elif f.fieldtype.is_subtype():
-                Subtype._inner_print_printwire_array(subcalls, basetype, f, f.lenvar, ref)
-            elif f.is_variable_size():
-                self.print_printwire_array(subcalls, basetype, f, f.lenvar, ref)
-                self.add_truncate_check(subcalls, truncate_check_ref)
-            else:
-                if f.optional:
-                    subcalls.append("if (fromwire_bool({}cursor, {}plen)) {".format(ref, ref))
+            if token_type == 'subtype':
+                subtype, _, _ = master.add_type(tokens[1])
 
-                if f.is_assignable():
-                    subcalls.append('{} {} = fromwire_{}({}cursor, {}plen);'
-                                    .format(f.fieldtype.name, f.name, basetype, ref, ref))
+                subtype.add_comments(list(comment_set))
+                comment_set = []
+            elif token_type == 'subtypedata':
+                subtype = master.find_type(tokens[1])
+                if not subtype:
+                    raise ValueError('Unknown subtype {} for data.\nat {}:{}'
+                                     .format(tokens[1], ln, line))
+                type_obj, collapse, optional = master.add_type(tokens[3], tokens[2])
+                if optional:
+                    raise ValueError('Subtypes cannot have optional fields {}.{}\n at {}:{}'
+                                     .format(subtype.name, tokens[2], ln, line))
+                if collapse:
+                    count = 1
                 else:
-                    # Don't handle these yet.
-                    assert(basetype not in varlen_structs)
-                    subcalls.append('{} {};'.
-                                    format(f.fieldtype.name, f.name))
-                    subcalls.append('fromwire_{}({}cursor, {}plen, &{});'
-                                    .format(basetype, ref, ref, f.name))
+                    count = tokens[4]
 
-                self.add_truncate_check(subcalls, truncate_check_ref)
-                subcalls.append('printwire_{}(tal_fmt(NULL, "%s.{}", fieldname), &{});'
-                                .format(basetype, f.name, f.name))
-                if f.optional:
-                    subcalls.append("} else {")
-                    self.add_truncate_check(subcalls, truncate_check_ref)
-                    subcalls.append("}")
+                subtype.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
+                                       optional=optional)
+                comment_set = []
+            elif token_type == 'tlvtype':
+                tlv = master.add_tlv(tokens[1])
+                tlv.add_message(tokens[2:], comments=list(comment_set))
 
-        len_check = '' if is_embedded else printwire_lencheck
-        return template.format(
-            tlv_args=tlv_args,
-            name=self.name,
-            fields=''.join(fields),
-            toplevel_msg_setup=toplevel_msg_setup,
-            subcalls=str(subcalls),
-            lencheck=len_check,
-            cursor_ptr=('' if not is_embedded else '*'),
-            is_internal=('' if not is_embedded else 'static ')
-        )
+                comment_set = []
+            elif token_type == 'tlvdata':
+                type_obj, collapse, optional = master.add_type(tokens[4], tokens[3])
+                if optional:
+                    raise ValueError('TLV messages cannot have optional fields {}.{}\n at {}:{}'
+                                     .format(tokens[2], tokens[3], ln, line))
 
-
-class TlvMessage(Message):
-    def __init__(self, name, enum, comments):
-        super().__init__(name, enum, comments, is_tlv=True)
-
-    def print_struct(self):
-        return TlvMessage._inner_print_struct('tlv_msg_' + self.name, self.fields)
-
-    @staticmethod
-    def _inner_print_struct(struct_name, fields):
-        """ returns a string representation of this message as
-        a struct"""
-        fmt_fields = CCode()
-        for f in fields:
-            if f.is_len_var or f.is_padding():
-                # there is no ethical padding under structs
-                continue
-            elif f.is_variable_size():
-                fmt_fields.append('{} *{};'.format(f.fieldtype.name, f.name))
-            elif f.is_array():
-                fmt_fields.append('{} {}[{}];'.format(f.fieldtype.name, f.name, f.num_elems))
-            else:
-                fmt_fields.append('{} {};'.format(f.fieldtype.name, f.name))
-
-        return """
-struct {struct_name} {{
-{fields}
-}};
-""".format(
-            struct_name=struct_name,
-            fields=str(fmt_fields))
-
-    def print_towire(self, is_header, tlv_name):
-        """ prints towire function definition for a TLV message."""
-        if is_header:
-            return ''
-        field_decls = []
-        for f in self.fields:
-            if f.is_tlv:
-                raise TypeError("Nested TLVs aren't allowed!! {}->{}".format(tlv_name, f.name))
-            elif f.optional:
-                raise TypeError("Optional fields on TLV messages not currently supported. {}->{}".format(tlv_name, f.name))
-            if f.is_len_var:
-                field_decls.append('\t{0} {1} = tal_count({2}->{3});'.format(
-                    f.fieldtype.name, f.name, self.name, f.lenvar_for.name
-                ))
-
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('towire_pad(p, {});'.format(f.num_elems))
-            elif f.is_array():
-                self.print_towire_array(subcalls, basetype, f, f.num_elems,
-                                        is_tlv=True)
-            elif f.is_variable_size():
-                self.print_towire_array(subcalls, basetype, f, f.lenvar,
-                                        is_tlv=True)
-            elif f.is_len_var:
-                subcalls.append('towire_{}(p, {});'.format(basetype, f.name))
-            else:
-                ref = '&' if f.fieldtype.needs_ptr() else ''
-                subcalls.append('towire_{}(p, {}{}->{});'.format(basetype, ref, self.name, f.name))
-        return tlv_message_towire_stub.format(
-            tlv_name=tlv_name,
-            name=self.name,
-            field_decls='\n'.join(field_decls),
-            subcalls=str(subcalls))
-
-    def print_fromwire(self, is_header, tlv_name):
-        """ prints fromwire function definition for a TLV message.
-        these are significantly different in that they take in a struct
-        to populate, instead of fields, as well as a length to read in
-        """
-        if is_header:
-            return ''
-        ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
-        args = 'const u8 **cursor, size_t *plen, const u16 len, struct tlv_msg_{name} *{name}'.format(name=self.name)
-        fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-            if f.is_tlv:
-                raise TypeError('Nested TLVs arent allowed!!')
-            elif f.optional:
-                raise TypeError('Optional fields on TLV messages not currently supported')
-
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('fromwire_pad(cursor, plen, {});'
-                                .format(f.num_elems))
-            elif f.is_array():
-                name = '*{}->{}'.format(self.name, f.name)
-                self.print_fromwire_array('ctx', subcalls, basetype, f, name,
-                                          f.num_elems, is_embedded=True)
-            elif f.is_variable_size():
-                subcalls.append("// 2nd case {name}".format(name=f.name))
-                typename = f.fieldtype.name
-                # If structs are varlen, need array of ptrs to them.
-                if basetype in varlen_structs:
-                    typename += ' *'
-                subcalls.append('{}->{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
-                                .format(self.name, f.name, f.lenvar, typename, f.lenvar))
-
-                name = '{}->{}'.format(self.name, f.name)
-                # Allocate these off the array itself, if they need alloc.
-                self.print_fromwire_array('*' + f.name, subcalls, basetype, f,
-                                          name, f.lenvar, is_embedded=True)
-            else:
-                if f.is_assignable():
-                    if f.is_len_var:
-                        s = '{} = fromwire_{}(cursor, plen);'.format(f.name, basetype)
-                    else:
-                        s = '{}->{} = fromwire_{}(cursor, plen);'.format(
-                            self.name, f.name, basetype)
+                tlv = master.find_tlv(tokens[1])
+                if not tlv:
+                    raise ValueError('tlvdata for unknown tlv {}.\nat {}:{}'
+                                     .format(tokens[1], ln, line))
+                msg = tlv.find_message(tokens[2])
+                if not msg:
+                    raise ValueError('tlvdata for unknown tlv-message {}.\nat {}:{}'
+                                     .format(tokens[2], ln, line))
+                if collapse:
+                    count = 1
                 else:
-                    ref = '&' if f.fieldtype.needs_ptr() else ''
-                    s = 'fromwire_{}(cursor, plen, {}{}->{});'.format(
-                        basetype, ref, self.name, f.name)
-                subcalls.append(s)
+                    count = tokens[5]
 
-        return fromwire_tlv_impl_templ.format(
-            tlv_name=tlv_name,
-            name=self.name,
-            ctx=ctx_arg,
-            args=''.join(args),
-            fields=''.join(fields),
-            subcalls=str(subcalls)
-        )
+                msg.add_data_field(tokens[3], type_obj, count, comments=list(comment_set),
+                                   optional=optional)
+                comment_set = []
+            elif token_type == 'msgtype':
+                master.add_message(tokens[1:], comments=list(comment_set))
+                comment_set = []
+            elif token_type == 'msgdata':
+                msg = master.find_message(tokens[1])
+                if not msg:
+                    raise ValueError('Unknown message type {}. {}:{}'.format(tokens[1], ln, line))
+                type_obj, collapse, optional = master.add_type(tokens[3], tokens[2])
 
+                # if this is an 'extension' field*, we want to add a new 'message' type
+                # in the future, extensions will be handled as TLV's
+                #
+                # *(in the spec they're called 'optional', but that term is overloaded
+                #   in that internal wire messages have 'optional' fields that are treated
+                #   differently. for the sake of clarity here, for bolt-wire messages,
+                #   we'll refer to 'optional' message fields as 'extensions')
+                #
+                if bool(tokens[5:]):  # is an extension field
+                    if optional:
+                        raise ValueError("Extension fields cannot be optional. {}:{}"
+                                         .format(ln, line))
+                    extension_name = "{}_{}".format(tokens[1], tokens[5])
+                    orig_msg = msg
+                    msg = master.find_message(extension_name)
+                    if not msg:
+                        msg = copy.deepcopy(orig_msg)
+                        msg.enumname = msg.name
+                        msg.name = extension_name
+                        master.add_extension_msg(msg.name, msg)
+                    # If this is a print_wire page, add the extension fields to the
+                    # original message, so we can print them if present.
+                    if options.print_wire:
+                        orig_msg.add_data_field(tokens[2], type_obj, count=count,
+                                                extensions=tokens[5:],
+                                                comments=list(comment_set),
+                                                optional=optional)
 
-class Subtype(Message):
-    def __init__(self, name, comments):
-        super().__init__(name, None, comments, False)
-
-    def print_struct(self):
-        return TlvMessage._inner_print_struct(self.name, self.fields)
-
-    def print_towire(self):
-        """ prints towire function definition for a subtype"""
-        template = subtype_towire_header_stub if options.header else subtype_towire_stub
-
-        field_decls = []
-        for f in self.fields:
-            if f.optional:
-                raise TypeError("Optional fields on subtypes not currently supported. {}".format(f.name))
-            if f.is_len_var:
-                field_decls.append('\t{0} {1} = tal_count({2}->{3});'.format(
-                    f.fieldtype.name, f.name, self.name, f.lenvar_for.name
-                ))
-
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('towire_pad(p, {});'.format(f.num_elems))
-            elif f.is_array():
-                self.print_towire_array(subcalls, basetype, f, f.num_elems,
-                                        is_tlv=True)
-            elif f.is_variable_size():
-                self.print_towire_array(subcalls, basetype, f, f.lenvar,
-                                        is_tlv=True)
-            elif f.is_len_var:
-                subcalls.append('towire_{}(p, {});'.format(basetype, f.name))
-            else:
-                ref = '&' if f.fieldtype.needs_ptr() else ''
-                subcalls.append('towire_{}(p, {}{}->{});'.format(basetype, ref, self.name, f.name))
-        return template.format(
-            static='' if options.subtypes else 'static ',
-            name=self.name,
-            field_decls='\n'.join(field_decls),
-            subcalls=str(subcalls))
-
-    def print_fromwire(self):
-        """ prints fromwire function definition for a subtype.
-        these are significantly different in that they take in a struct
-        to populate, instead of fields.
-        """
-        ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
-        args = 'const u8 **cursor, size_t *plen, struct {name} *{name}'.format(name=self.name)
-        fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
-        template = fromwire_subtype_header_templ if options.header else fromwire_subtype_impl_templ
-        subcalls = CCode()
-        for f in self.fields:
-            basetype = f.fieldtype.base()
-            if f.optional:
-                raise TypeError('Optional fields on subtypes not currently supported')
-
-            for c in f.comments:
-                subcalls.append('/*{} */'.format(c))
-
-            if f.is_padding():
-                subcalls.append('fromwire_pad(cursor, plen, {});'
-                                .format(f.num_elems))
-            elif f.is_array():
-                name = '*{}->{}'.format(self.name, f.name)
-                self.print_fromwire_array('ctx', subcalls, basetype, f, name,
-                                          f.num_elems, is_embedded=True)
-            elif f.is_variable_size():
-                subcalls.append("// 2nd case {name}".format(name=f.name))
-                typename = f.fieldtype.name
-                # If structs are varlen, need array of ptrs to them.
-                if basetype in varlen_structs:
-                    typename += ' *'
-                subcalls.append('{}->{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
-                                .format(self.name, f.name, f.lenvar, typename, f.lenvar))
-
-                name = '{}->{}'.format(self.name, f.name)
-                # Allocate these off the array itself, if they need alloc.
-                self.print_fromwire_array(name, subcalls, basetype, f,
-                                          name, f.lenvar, is_embedded=True)
-            else:
-                if f.is_assignable():
-                    if f.is_len_var:
-                        s = '{} = fromwire_{}(cursor, plen);'.format(f.name, basetype)
-                    else:
-                        s = '{}->{} = fromwire_{}(cursor, plen);'.format(
-                            self.name, f.name, basetype)
+                if collapse:
+                    count = 1
                 else:
-                    s = 'fromwire_{}(cursor, plen, &{}->{});'.format(
-                        basetype, self.name, f.name)
-                subcalls.append(s)
+                    count = tokens[4]
 
-        return template.format(
-            static='' if options.subtypes else 'static ',
-            name=self.name,
-            ctx=ctx_arg,
-            args=''.join(args),
-            fields=''.join(fields),
-            subcalls=str(subcalls)
-        )
+                msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
+                                   optional=optional)
 
-    def print_printwire_array(self, subcalls, basetype, f, num_elems, ref):
-        return Subtype._inner_print_printwire_array(subcalls, basetype, f, num_elems, '')
-
-    @staticmethod
-    def _inner_print_printwire_array(subcalls, basetype, f, num_elems, ref):
-        if f.has_array_helper():
-            subcalls.append('printwire_{}_array(tal_fmt(NULL, "%s.{}", fieldname), {}cursor, {}plen, {});'
-                            .format(basetype, f.name, ref, ref, num_elems))
-        else:
-            subcalls.append('printf("[");')
-            subcalls.append('for (size_t i = 0; i < {}; i++) {{'
-                            .format(num_elems))
-            subcalls.append('printwire_{}(tal_fmt(NULL, "%s.{}", fieldname), {}cursor, {}plen);'
-                            .format(basetype, f.name, ref, ref))
-            subcalls.append('}')
-            subcalls.append('printf("]");')
-
-
-tlv_message_towire_stub = """static void towire_{tlv_name}_{name}(u8 **p, struct tlv_msg_{name} *{name}) {{
-{field_decls}
-{subcalls}
-}}
-"""
-
-subtype_towire_stub = """{static}void towire_{name}(u8 **p, const struct {name} *{name}) {{
-{field_decls}
-{subcalls}
-}}
-"""
-
-subtype_towire_header_stub = """void towire_{name}(u8 **p, const struct {name} *{name});"""
-
-tlv_struct_template = """
-struct {tlv_name} {{
-{msg_type_structs}
-}};
-"""
-
-tlv__type_impl_towire_fields = """\tif ({tlv_name}->{name}) {{
-\t\ttlv_msg = tal_arr(ctx, u8, 0);
-\t\ttowire_u8(p, {enum});
-\t\ttowire_{tlv_name}_{name}(&tlv_msg, {tlv_name}->{name});
-\t\tmsg_len = tal_count(tlv_msg);
-\t\ttowire_var_int(p, msg_len);
-\t\ttowire_u8_array(p, tlv_msg, msg_len);
-\t\ttal_free(tlv_msg);
-\t}}
-"""
-
-tlv__type_impl_towire_template = """static void towire__{tlv_name}(const tal_t *ctx, u8 **p, const struct {tlv_name} *{tlv_name}) {{
-\tu64 msg_len;
-\tu8 *tlv_msg;
-{fields}}}
-"""
-
-tlv__type_impl_fromwire_template = """static struct {tlv_name} *fromwire__{tlv_name}(const tal_t *ctx, const u8 **p, size_t *plen, const u64 *len) {{
-\tu8 msg_type;
-\tu64 msg_len;
-\tsize_t start_len = *plen;
-\tif (*plen < *len)
-\t\treturn NULL;
-
-\tstruct {tlv_name} *{tlv_name} = talz(ctx, struct {tlv_name});
-
-\twhile (*plen) {{
-\t\tmsg_type = fromwire_u8(p, plen);
-\t\tmsg_len = fromwire_bigsize(p, plen);
-\t\tif (*plen < msg_len) {{
-\t\t\tfromwire_fail(p, plen);
-\t\t\tbreak;
-\t\t}}
-\t\tswitch((enum {tlv_name}_type)msg_type) {{
-{cases}\t\tdefault:
-\t\t\tif (msg_type % 2 == 0) {{ // it's ok to be odd
-\t\t\t\tfromwire_fail(p, plen);
-\t\t\t\ttal_free({tlv_name});
-\t\t\t\treturn NULL;
-\t\t\t}}
-\t\t\t*p += msg_len;
-\t\t\t*plen -= msg_len;
-\t\t}}
-\t}}
-\tif (!*p || start_len - *plen != *len) {{
-\t\ttal_free({tlv_name});
-\t\treturn NULL;
-\t}}
-\treturn {tlv_name};
-}}
-"""
-
-case_tmpl = """\t\tcase {tlv_msg_enum}:
-\t\t\tif ({tlv_name}->{tlv_msg_name} != NULL) {{
-\t\t\t\tfromwire_fail(p, plen);
-\t\t\t\ttal_free({tlv_name});
-\t\t\t\treturn NULL;
-\t\t\t}}
-\t\t\t{tlv_name}->{tlv_msg_name} = tal({tlv_name}, struct tlv_msg_{tlv_msg_name});
-\t\t\tif (!fromwire_{tlv_name}_{tlv_msg_name}({ctx_arg}p, plen, msg_len, {tlv_name}->{tlv_msg_name})) {{
-\t\t\t\ttal_free({tlv_name});
-\t\t\t\treturn NULL;
-\t\t\t}}
-\t\t\tbreak;
-"""
-
-print_tlv_template = """static void printwire_{tlv_name}(const char *fieldname, const u8 *cursor)
-{{
-\tu8 msg_type;
-\tu64 msg_size;
-\tsize_t plen = tal_count(cursor);
-
-\twhile (cursor) {{
-\t\tmsg_type = fromwire_u8(&cursor, &plen);
-\t\tmsg_size = fromwire_bigsize(&cursor, &plen);
-\t\tif (!cursor)
-\t\t\tbreak;
-\t\tswitch ((enum {tlv_name}_type)msg_type) {{
-\t\t\t{printcases}
-\t\t\tdefault:
-\t\t\t\tprintf("WARNING:No message matching type %d\\n", msg_type);
-\t\t}}
-\t}}
-\tif (plen != 0)
-\t\tprintf("EXTRA: %s\\n", tal_hexstr(NULL, cursor, plen));
-}}
-"""
-
-
-def build_tlv_fromwires(tlv_fields):
-    fromwires = []
-    for field_name, messages in tlv_fields.items():
-        fromwires.append(print_tlv_fromwire(field_name, messages))
-    return fromwires
-
-
-def build_tlv_towires(tlv_fields):
-    towires = []
-    for field_name, messages in tlv_fields.items():
-        towires.append(print_tlv_towire(field_name, messages))
-    return towires
-
-
-def print_tlv_towire(tlv_field_name, messages):
-    fields = ""
-    for m in messages:
-        fields += tlv__type_impl_towire_fields.format(
-            tlv_name=tlv_field_name,
-            enum=m.enum.name,
-            name=m.name)
-    return tlv__type_impl_towire_template.format(
-        tlv_name=tlv_field_name,
-        fields=fields)
-
-
-def print_tlv_fromwire(tlv_field_name, messages):
-    cases = ""
-    for m in messages:
-        ctx_arg = tlv_field_name + ', ' if m.has_variable_fields else ''
-        cases += case_tmpl.format(ctx_arg=ctx_arg,
-                                  tlv_msg_enum=m.enum.name,
-                                  tlv_name=tlv_field_name,
-                                  tlv_msg_name=m.name)
-    return tlv__type_impl_fromwire_template.format(
-        tlv_name=tlv_field_name,
-        cases=cases)
-
-
-def build_tlv_type_struct(name, messages):
-    inner_structs = CCode()
-    for m in messages:
-        inner_structs.append('struct tlv_msg_{} *{};'.format(m.name, m.name))
-    return tlv_struct_template.format(
-        tlv_name=name,
-        msg_type_structs=str(inner_structs))
-
-
-def build_tlv_type_structs(tlv_fields):
-    structs = ''
-    for name, messages in tlv_fields.items():
-        structs += build_tlv_type_struct(name, messages)
-    return structs
-
-
-def find_message(messages, name):
-    for m in messages:
-        if m.name == name:
-            return m
-
-    return None
-
-
-def print_tlv_printwire(tlv_name, messages):
-    printcases = ''
-    for m in messages:
-        printcases += 'case {enum.name}: printf("{enum.name} (size %"PRIu64"):\\n", msg_size); printwire_{name}("{name}", &cursor, &plen); break;'.format(
-            enum=m.enum, name=m.name, tlv_name=tlv_name)
-    return print_tlv_template.format(
-        tlv_name=tlv_name,
-        printcases=printcases)
-
-
-def print_tlv_printwires(enumname, tlv_fields):
-    decls = []
-    switches = ''
-    for name, messages in tlv_fields.items():
-        # Print each of the message parsers
-        decls += [m.print_printwire(options.header, is_embedded=True) for m in messages]
-
-        # Print the TLV body parser
-        decls.append(print_tlv_printwire(name, messages))
-
-        # Print the 'master' print_tlv_messages cases
-        switches += tlv_switch_template.format(tlv_name=name)
-    decls.append(print_master_tlv_template.format(enumname=enumname, tlv_switches=switches))
-    return decls
-
-
-def find_message_with_option(messages, optional_messages, name, option):
-    fullname = name + "_" + option.replace('-', '_')
-
-    base = find_message(messages, name)
-    if not base:
-        raise ValueError('Unknown message {}'.format(name))
-
-    m = find_message(optional_messages, fullname)
-    if not m:
-        # Add a new option.
-        m = copy.deepcopy(base)
-        m.name = fullname
-        optional_messages.append(m)
-    return m
-
-
-parser = argparse.ArgumentParser(description='Generate C from CSV')
-parser.add_argument('--header', action='store_true', help="Create wire header")
-parser.add_argument('--subtypes', action='store_true', help="Include subtype parsing function delcarations in header definition. Only active if --header also declared.")
-parser.add_argument('--bolt', action='store_true', help="Generate wire-format for BOLT")
-parser.add_argument('--printwire', action='store_true', help="Create print routines")
-parser.add_argument('headerfilename', help='The filename of the header')
-parser.add_argument('enumname', help='The name of the enum to produce')
-parser.add_argument('files', nargs='*', help='Files to read in (or stdin)')
-options = parser.parse_args()
-
-# Maps message names to messages
-messages = []
-messages_with_option = []
-subtypes = []
-comments = []
-includes = []
-tlv_fields = {}
-prevfield = None
-
-# Read csv lines.  Single comma is the message values, more is offset/len.
-for line in fileinput.input(options.files):
-    # #include gets inserted into header
-    if line.startswith('#include '):
-        includes.append(line)
-        continue
-
-    by_comments = line.rstrip().split('#')
-
-    # Emit a comment if they included one
-    if by_comments[1:]:
-        comments.append(' '.join(by_comments[1:]))
-
-    parts = by_comments[0].split(',')
-    if parts == ['']:
-        continue
-
-    if len(parts) in [1, 2, 3]:
-        # eg: commit_sig,132,(_tlv)
-        is_tlv_msg = len(parts) == 3
-        if len(parts) == 1:  # this is a subtype, it has no type number.
-            subtypes.append(Subtype(parts[0], comments))
-        else:
-            if is_tlv_msg:
-                message = TlvMessage(parts[0],
-                                     Enumtype("WIRE_" + parts[0].upper(), parts[1]),
-                                     comments)
+                comment_set = []
+            elif token_type.startswith('#include'):
+                master.add_include(token_type)
+            elif token_type.startswith('#'):
+                comment_set.append(token_type[1:])
             else:
-                message = Message(parts[0],
-                                  Enumtype("WIRE_" + parts[0].upper(), parts[1]),
-                                  comments)
+                raise ValueError("Unknown token type {} on line {}:{}".format(token_type, ln, line))
 
-            messages.append(message)
-            if is_tlv_msg:
-                tlv_fields[parts[2]].append(message)
+    except StopIteration:
+        pass
 
-        comments = []
-        prevfield = None
-    else:
-        if len(parts) == 4:
-            # eg commit_sig,0,channel-id,8 OR
-            #    commit_sig,0,channel-id,u64
-            m = find_message(messages + subtypes, parts[0])
-        elif len(parts) == 5:
-            # eg.
-            # channel_reestablish,48,your_last_per_commitment_secret,32,option209
-            m = find_message_with_option(messages, messages_with_option, parts[0], parts[4])
-        else:
-            raise ValueError('Line {} malformed'.format(line.rstrip()))
-
-        if m is None:
-            raise ValueError('Unknown message or subtype {}'.format(parts[0]))
-        f = Field(m.name, parts[2], parts[3], comments, prevfield, includes)
-        m.addField(f)
-        # If it used prevfield as lenvar, keep that for next
-        # time (multiple fields can use the same lenvar).
-        if not f.lenvar:
-            prevfield = parts[2]
-        comments = []
+    master.post_process()
+    master.write(options, output)
 
 
-def construct_hdr_enums(msgs):
-    enums = ""
-    for m in msgs:
-        for c in m.comments:
-            enums += '\t/*{} */\n'.format(c)
-        enums += '\t{} = {},\n'.format(m.enum.name, m.enum.value)
-    return enums
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("-s", "--expose-subtypes", help="print subtypes in header",
+                        action="store_true", default=False)
+    parser.add_argument("-P", "--print_wire", help="generate wire printing source files",
+                        action="store_true", default=False)
+    parser.add_argument("--page", choices=['header', 'impl'], help="page to print")
+    parser.add_argument('header_filename', help='The filename of the header')
+    parser.add_argument('enum_name', help='The name of the enum to produce')
+    parser.add_argument("files", help='Files to read in (or stdin)', nargs=REMAINDER)
+    parsed_args = parser.parse_args()
 
-
-def construct_impl_enums(msgs):
-    return '\n\t'.join(['case {enum.name}: return "{enum.name}";'.format(enum=m.enum) for m in msgs])
-
-
-def enum_header(enums, enumname):
-    return format_enums(enum_header_template, enums, enumname)
-
-
-def enum_impl(enums, enumname):
-    return format_enums(enum_impl_template, enums, enumname)
-
-
-def format_enums(template, enums, enumname):
-    return template.format(
-        enums=enums,
-        enumname=enumname)
-
-
-def build_hdr_enums(toplevel_enumname, toplevel_messages, tlv_fields):
-    enum_set = ""
-    if len(toplevel_messages):
-        enum_set += enum_header(construct_hdr_enums(toplevel_messages), toplevel_enumname)
-    for field_name, tlv_messages in tlv_fields.items():
-        enum_set += "\n"
-        enum_set += enum_header(construct_hdr_enums(tlv_messages), field_name + '_type')
-    return enum_set
-
-
-def build_impl_enums(toplevel_enumname, toplevel_messages, tlv_fields):
-    enum_set = ""
-    if len(toplevel_messages):
-        enum_set += enum_impl(construct_impl_enums(toplevel_messages), toplevel_enumname)
-    for field_name, tlv_messages in tlv_fields.items():
-        enum_set += "\n"
-        enum_set += enum_impl(construct_impl_enums(tlv_messages), field_name + '_type')
-    return enum_set
-
-
-def build_tlv_structs(tlv_fields):
-    structs = ""
-    for field_name, tlv_messages in tlv_fields.items():
-        for m in tlv_messages:
-            structs += m.print_struct()
-    return structs
-
-
-def build_subtype_structs(subtypes):
-    structs = ""
-    for subtype in reversed(subtypes):
-        structs += subtype.print_struct()
-    return structs
-
-
-enum_header_template = """enum {enumname} {{
-{enums}
-}};
-const char *{enumname}_name(int e);
-"""
-
-enum_impl_template = """
-const char *{enumname}_name(int e)
-{{
-\tstatic char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
-
-\tswitch ((enum {enumname})e) {{
-\t{enums}
-\t}}
-
-\tsnprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
-\treturn invalidbuf;
-}}
-"""
-
-header_template = """/* This file was generated by generate-wire.py */
-/* Do not modify this file! Modify the _csv file it was generated from. */
-#ifndef LIGHTNING_{idem}
-#define LIGHTNING_{idem}
-#include <ccan/tal/tal.h>
-#include <wire/wire.h>
-{includes}
-{formatted_hdr_enums}{gen_structs}
-{func_decls}
-#endif /* LIGHTNING_{idem} */
-"""
-
-impl_template = """/* This file was generated by generate-wire.py */
-/* Do not modify this file! Modify the _csv file it was generated from. */
-#include <{headerfilename}>
-#include <ccan/mem/mem.h>
-#include <ccan/tal/str/str.h>
-#include <stdio.h>
-{formatted_impl_enums}
-{func_decls}
-"""
-
-print_tlv_message_printwire_empty = """void print{enumname}_tlv_message(const char *tlv_name, const u8 *msg)
-{{
-\tprintf("~~ No TLV definition found for %s ~~\\n", tlv_name);
-}}
-"""
-
-print_header_template = """/* This file was generated by generate-wire.py */
-/* Do not modify this file! Modify the _csv file it was generated from. */
-#ifndef LIGHTNING_{idem}
-#define LIGHTNING_{idem}
-#include <ccan/tal/tal.h>
-#include <devtools/print_wire.h>
-{includes}
-
-void print{enumname}_message(const u8 *msg);
-
-void print{enumname}_tlv_message(const char *tlv_name, const u8 *msg);
-
-{func_decls}
-#endif /* LIGHTNING_{idem} */
-"""
-
-print_template = """/* This file was generated by generate-wire.py */
-/* Do not modify this file! Modify the _csv file it was generated from. */
-#include "{headerfilename}"
-#include <ccan/mem/mem.h>
-#include <ccan/tal/str/str.h>
-#include <common/utils.h>
-#include <inttypes.h>
-#include <stdio.h>
-
-void print{enumname}_message(const u8 *msg)
-{{
-\tswitch ((enum {enumname})fromwire_peektype(msg)) {{
-\t{printcases}
-\t}}
-
-\tprintf("UNKNOWN: %s\\n", tal_hex(msg, msg));
-}}
-
-{func_decls}
-"""
-
-print_master_tlv_template = """
-void print{enumname}_tlv_message(const char *tlv_name, const u8 *msg)
-{{
-\t{tlv_switches}
-\tprintf("ERR: Unknown TLV message type: %s\\n", tlv_name);
-}}
-"""
-
-tlv_switch_template = """
-\tif (strcmp(tlv_name, "{tlv_name}") == 0) {{
-\t\tprintwire_{tlv_name}("{tlv_name}", msg);
-\t\treturn;
-\t}}
-"""
-
-idem = re.sub(r'[^A-Z]+', '_', options.headerfilename.upper())
-if options.printwire:
-    if options.header:
-        template = print_header_template
-    else:
-        template = print_template
-elif options.header:
-    template = header_template
-else:
-    template = impl_template
-
-# Print out all the things
-toplevel_messages = [m for m in messages if not m.is_tlv]
-built_hdr_enums = build_hdr_enums(options.enumname, toplevel_messages, tlv_fields)
-built_impl_enums = build_impl_enums(options.enumname, toplevel_messages, tlv_fields)
-tlv_structs = build_tlv_structs(tlv_fields)
-tlv_structs += build_tlv_type_structs(tlv_fields)
-subtype_structs = build_subtype_structs(subtypes)
-includes = '\n'.join(includes)
-printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}("{name}", msg); return;'.format(enum=m.enum, name=m.name) for m in toplevel_messages]
-
-if options.printwire:
-    decls = []
-    if not options.header:
-        subtype_decls = [m.print_printwire(options.header, is_embedded=True) for m in subtypes]
-        subtype_decls.reverse()
-        decls += subtype_decls
-        if len(tlv_fields):
-            decls += print_tlv_printwires(options.enumname, tlv_fields)
-        else:
-            decls += [print_tlv_message_printwire_empty.format(enumname=options.enumname)]
-    decls += [m.print_printwire(options.header) for m in toplevel_messages + messages_with_option]
-else:
-    towire_decls = []
-    fromwire_decls = []
-
-    if not options.header or (options.header and options.subtypes):
-        subtype_towires = []
-        subtype_fromwires = []
-        for subtype in subtypes:
-            subtype_towires.append(subtype.print_towire())
-            subtype_fromwires.append(subtype.print_fromwire())
-        subtype_towires.reverse()
-        subtype_fromwires.reverse()
-        towire_decls += subtype_towires
-        fromwire_decls += subtype_fromwires
-
-    for tlv_field, tlv_messages in tlv_fields.items():
-        for m in tlv_messages:
-            towire_decls.append(m.print_towire(options.header, tlv_field))
-            fromwire_decls.append(m.print_fromwire(options.header, tlv_field))
-
-    if not options.header:
-        towire_decls += build_tlv_towires(tlv_fields)
-        fromwire_decls += build_tlv_fromwires(tlv_fields)
-
-    towire_decls += [m.print_towire(options.header) for m in toplevel_messages + messages_with_option]
-    fromwire_decls += [m.print_fromwire(options.header) for m in toplevel_messages + messages_with_option]
-    decls = fromwire_decls + towire_decls
-
-print(template.format(
-    headerfilename=options.headerfilename,
-    printcases='\n\t'.join(printcases),
-    idem=idem,
-    includes=includes,
-    enumname=options.enumname,
-    formatted_hdr_enums=built_hdr_enums,
-    formatted_impl_enums=built_impl_enums,
-    gen_structs=subtype_structs + tlv_structs,
-    func_decls='\n'.join(decls)))
+    main(parsed_args, parsed_args.files)

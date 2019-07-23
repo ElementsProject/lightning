@@ -27,18 +27,18 @@ $(TOOL_GEN_SRC) $(TOOL_GEN_HEADER): $(TOOLS_WIRE_DEPS)
 $(TOOL_GEN_SRC:.c=.o): $(TOOL_TEST_INCL_SRC:.c=.o)
 
 tools/test/gen_test.h:
-	tools/generate-bolts.py --page header $@ test_type < tools/test/test_cases > $@
+	$(BOLT_GEN) --page header $@ test_type < tools/test/test_cases > $@
 
 tools/test/gen_test.c:
-	tools/generate-bolts.py --page impl ${@:.c=.h} test_type < tools/test/test_cases > $@
+	$(BOLT_GEN) --page impl ${@:.c=.h} test_type < tools/test/test_cases > $@
 	@tools/update-mocks.sh "$@"
 
 tools/test/gen_print.h: wire/gen_onion_wire.h
-	tools/generate-bolts.py -P --page header $@ test_type < tools/test/test_cases > $@
+	$(BOLT_GEN) -P --page header $@ test_type < tools/test/test_cases > $@
 
 tools/test/gen_print.c:
 	echo '#include "gen_test.h"' > $@
-	tools/generate-bolts.py -P --page impl ${@:.c=.h} test_type < tools/test/test_cases >> $@
+	$(BOLT_GEN) -P --page impl ${@:.c=.h} test_type < tools/test/test_cases >> $@
 
 
 ALL_TEST_PROGRAMS += $(TOOL_TEST_PROGRAMS)
