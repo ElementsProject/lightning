@@ -130,9 +130,6 @@ class FieldSet(object):
                 field.add_count(int(count))
             except ValueError:
                 len_field = self.find_data_field(count)
-                if not len_field:
-                    raise ValueError("No length field found with name {} for {}:{}"
-                                     .format(count, self.name, field_name))
                 field.add_len_field(len_field)
                 self.len_fields[len_field.name] = len_field
 
