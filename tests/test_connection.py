@@ -1166,7 +1166,6 @@ def test_update_fee(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_fee_limits(node_factory):
-    # FIXME: Test case where opening denied.
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5, 'may_reconnect': True}, fundchannel=True)
 
     # L1 asks for stupid low fee (will actually hit the floor of 253)
@@ -1179,6 +1178,12 @@ def test_fee_limits(node_factory):
     # Note: may succeed, may fail with insufficient fee, depending on how
     # bitcoind feels!
     l1.daemon.wait_for_log('sendrawtx exit')
+
+    # Trying to open a channel with too low a fee-rate is denied
+    l4 = node_factory.get_node()
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    with pytest.raises(RpcError, match='They sent error .* feerate_per_kw 253 below minimum'):
+        l1.fund_channel(l4, 10**6)
 
     # Restore to normal.
     l1.stop()
