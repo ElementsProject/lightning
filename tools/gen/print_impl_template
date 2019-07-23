@@ -51,7 +51,9 @@ void print${options.enum_name}_message(const u8 *msg)
 	printf("[");
 	for (size_t i = 0; i < ${f.size()}; i++) {
 	    % if f.type_obj.is_subtype():
+		printf("{\n");
 		printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen});
+		printf("}\n");
 	    % else:
 		${f.type_obj.type_name()} v;
 		% if f.type_obj.is_assignable():
@@ -71,7 +73,9 @@ void print${options.enum_name}_message(const u8 *msg)
 	% endif
 ${truncate_check(nested)} \
     % elif f.type_obj.is_subtype():
+	printf("{\n");
 	printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen});
+	printf("}\n");
     % else:
 	    % if f.type_obj.is_assignable():
 	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(${cursor}, ${plen});
