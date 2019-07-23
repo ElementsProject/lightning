@@ -1,33 +1,33 @@
 # These must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!
 # Channel daemon can ask for updates for a specific channel, for sending
 # errors.  
-gossipd_get_update,3501
-gossipd_get_update,,short_channel_id,struct short_channel_id
+msgtype,gossipd_get_update,3501
+msgdata,gossipd_get_update,short_channel_id,short_channel_id,
 
 # If channel isn't known, update will be empty.
-gossipd_get_update_reply,3601
-gossipd_get_update_reply,,len,u16
-gossipd_get_update_reply,,update,len*u8
+msgtype,gossipd_get_update_reply,3601
+msgdata,gossipd_get_update_reply,len,u16,
+msgdata,gossipd_get_update_reply,update,u8,len
 
 # Both sides have seen the funding tx being locked, but we have not
 # yet reached the announcement depth. So we add the channel locally so
 # we (and peer) can update it already.
-gossipd_local_add_channel,3503
-gossipd_local_add_channel,,short_channel_id,struct short_channel_id
-gossipd_local_add_channel,,remote_node_id,struct node_id
-gossipd_local_add_channel,,satoshis,struct amount_sat
+msgtype,gossipd_local_add_channel,3503
+msgdata,gossipd_local_add_channel,short_channel_id,short_channel_id,
+msgdata,gossipd_local_add_channel,remote_node_id,node_id,
+msgdata,gossipd_local_add_channel,satoshis,amount_sat,
 
 # Send this channel_update.
-gossipd_local_channel_update,3504
-gossipd_local_channel_update,,short_channel_id,struct short_channel_id
-gossipd_local_channel_update,,disable,bool
-gossipd_local_channel_update,,cltv_expiry_delta,u16
-gossipd_local_channel_update,,htlc_minimum_msat,struct amount_msat
-gossipd_local_channel_update,,fee_base_msat,u32
-gossipd_local_channel_update,,fee_proportional_millionths,u32
-gossipd_local_channel_update,,htlc_maximum_msat,struct amount_msat
+msgtype,gossipd_local_channel_update,3504
+msgdata,gossipd_local_channel_update,short_channel_id,short_channel_id,
+msgdata,gossipd_local_channel_update,disable,bool,
+msgdata,gossipd_local_channel_update,cltv_expiry_delta,u16,
+msgdata,gossipd_local_channel_update,htlc_minimum_msat,amount_msat,
+msgdata,gossipd_local_channel_update,fee_base_msat,u32,
+msgdata,gossipd_local_channel_update,fee_proportional_millionths,u32,
+msgdata,gossipd_local_channel_update,htlc_maximum_msat,amount_msat,
 
 # Update your gossip_store fd: + gossip_store_fd
-gossipd_new_store_fd,3505
+msgtype,gossipd_new_store_fd,3505
 # How much shorter the new store is, so you can offset streaming.
-gossipd_new_store_fd,,offset_shorter,u64
+msgdata,gossipd_new_store_fd,offset_shorter,u64,

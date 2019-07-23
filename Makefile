@@ -184,8 +184,8 @@ ALL_GEN_HEADERS += gen_version.h
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
-WIRE_GEN := tools/generate-wire.py
 BOLT_GEN := tools/generate-bolts.py
+WIRE_GEN := $(BOLT_GEN)
 BOLT_DEPS := $(BOLT_GEN)
 
 ALL_PROGRAMS =

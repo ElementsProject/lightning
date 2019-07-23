@@ -169,6 +169,9 @@ class Type(FieldSet):
         'u64',
         'bool',
         'secp256k1_ecdsa_signature',
+        'secp256k1_ecdsa_recoverable_signature',
+        'wirestring',
+        'double',
     ]
 
     truncated_typedefs = [
@@ -576,6 +579,7 @@ def main(options, args=None, output=sys.stdout, lines=None):
 
                 msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
                                    optional=optional)
+
                 comment_set = []
             elif token_type.startswith('#include'):
                 master.add_include(token_type)

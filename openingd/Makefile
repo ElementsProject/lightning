@@ -80,10 +80,10 @@ OPENINGD_COMMON_OBJS :=				\
 $(LIGHTNINGD_OPENING_OBJS): $(LIGHTNINGD_HEADERS)
 
 openingd/gen_opening_wire.h: $(WIRE_GEN) openingd/opening_wire.csv
-	$(WIRE_GEN) --header $@ opening_wire_type < openingd/opening_wire.csv > $@
+	$(WIRE_GEN) --page header $@ opening_wire_type < openingd/opening_wire.csv > $@
 
 openingd/gen_opening_wire.c: $(WIRE_GEN) openingd/opening_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} opening_wire_type < openingd/opening_wire.csv > $@
+	$(WIRE_GEN) --page impl ${@:.c=.h} opening_wire_type < openingd/opening_wire.csv > $@
 
 LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o) $(LIGHTNINGD_OPENING_GEN_SRC:.c=.o)
 
