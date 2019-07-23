@@ -200,7 +200,7 @@ bool wallet_update_output_status(struct wallet *w,
 		sqlite3_bind_int(stmt, 3, outnum);
 	}
 	db_exec_prepared(w->db, stmt);
-	return sqlite3_changes(w->db->sql) > 0;
+	return db_changes(w->db) > 0;
 }
 
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
@@ -546,7 +546,7 @@ static void wallet_shachain_init(struct wallet *wallet,
 	sqlite3_bind_int64(stmt, 1, chain->chain.min_index);
 	db_exec_prepared(wallet->db, stmt);
 
-	chain->id = sqlite3_last_insert_rowid(wallet->db->sql);
+	chain->id = db_last_insert_id(wallet->db);
 }
 
 /* TODO(cdecker) Stolen from shachain, move to some appropriate location */
@@ -1067,7 +1067,7 @@ static void wallet_channel_config_insert(struct wallet *w,
 
 	stmt = db_prepare(w->db, "INSERT INTO channel_configs DEFAULT VALUES;");
 	db_exec_prepared(w->db, stmt);
-	cc->id = sqlite3_last_insert_rowid(w->db->sql);
+	cc->id = db_last_insert_id(w->db);
 }
 
 static void wallet_channel_config_save(struct wallet *w,
@@ -1293,7 +1293,7 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 				  type_to_string(tmpctx, struct wireaddr_internal, &chan->peer->addr),
 				  -1, SQLITE_TRANSIENT);
 		db_exec_prepared(w->db, stmt);
-		chan->peer->dbid = sqlite3_last_insert_rowid(w->db->sql);
+		chan->peer->dbid = db_last_insert_id(w->db);
 	}
 
 	/* Insert a stub, that we update, unifies INSERT and UPDATE paths */
@@ -1507,7 +1507,7 @@ void wallet_htlc_save_in(struct wallet *wallet,
 	sqlite3_bind_timeabs(stmt, 11, in->received_time);
 
 	db_exec_prepared(wallet->db, stmt);
-	in->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
+	in->dbid = db_last_insert_id(wallet->db);
 }
 
 void wallet_htlc_save_out(struct wallet *wallet,
@@ -1557,7 +1557,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
 
 	db_exec_prepared(wallet->db, stmt);
 
-	out->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
+	out->dbid = db_last_insert_id(wallet->db);
 }
 
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
@@ -2513,7 +2513,7 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 
 		db_exec_prepared(w->db, stmt);
 
-		if (sqlite3_changes(w->db->sql) == 0) {
+		if (db_changes(w->db) == 0) {
 			return NULL;
 		}
 
