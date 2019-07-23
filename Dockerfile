@@ -11,6 +11,7 @@ RUN apk add --no-cache \
      python \
      python-dev \
      python3 \
+     python3-mako \
      sqlite-dev \
      wget \
      git \
