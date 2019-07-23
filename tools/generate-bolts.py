@@ -18,6 +18,7 @@
 #   subtypedata,<subtypename>,<fieldname>,<typename>,[<count>]
 
 from argparse import ArgumentParser, REMAINDER
+from collections import OrderedDict
 import copy
 import fileinput
 from mako.template import Template
@@ -98,7 +99,7 @@ class Field(object):
 
 class FieldSet(object):
     def __init__(self):
-        self.fields = {}
+        self.fields = OrderedDict()
         self.optional_fields = False
         self.len_fields = {}
 
