@@ -305,7 +305,7 @@ bool invoices_create(struct invoices *invoices,
 
 	db_exec_prepared(invoices->db, stmt);
 
-	pinvoice->id = sqlite3_last_insert_rowid(invoices->db->sql);
+	pinvoice->id = db_last_insert_id(invoices->db);
 
 	/* Install expiration trigger. */
 	if (!invoices->expiration_timer ||
@@ -392,7 +392,7 @@ bool invoices_delete(struct invoices *invoices,
 	sqlite3_bind_int64(stmt, 1, invoice.id);
 	db_exec_prepared(invoices->db, stmt);
 
-	if (sqlite3_changes(invoices->db->sql) != 1)
+	if (db_changes(invoices->db) != 1)
 		return false;
 
 	/* Tell all the waiters about the fact that it was deleted. */

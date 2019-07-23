@@ -23,6 +23,13 @@ struct migration {
 	void (*func)(struct lightningd *ld, struct db *db);
 };
 
+struct db {
+	char *filename;
+	const char *in_transaction;
+	sqlite3 *sql;
+	const char **changes;
+};
+
 void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
@@ -683,6 +690,21 @@ static void db_prepare_for_changes(struct db *db)
 {
 	assert(!db->changes);
 	db->changes = tal_arr(db, const char *, 0);
+}
+
+bool db_in_transaction(struct db *db)
+{
+	return db->in_transaction;
+}
+
+u64 db_last_insert_id(struct db *db)
+{
+	return sqlite3_last_insert_rowid(db->sql);
+}
+
+size_t db_changes(struct db *db)
+{
+	return sqlite3_changes(db->sql);
 }
 
 void db_begin_transaction_(struct db *db, const char *location)

@@ -18,12 +18,7 @@ struct lightningd;
 struct log;
 struct node_id;
 
-struct db {
-	char *filename;
-	const char *in_transaction;
-	sqlite3 *sql;
-	const char **changes;
-};
+struct db;
 
 /**
  * Macro to annotate a named SQL query.
@@ -78,6 +73,16 @@ sqlite3_stmt *db_select_(const char *location, struct db *db, const char *query)
 #define db_begin_transaction(db) \
 	db_begin_transaction_((db), __FILE__ ":" stringify(__LINE__))
 void db_begin_transaction_(struct db *db, const char *location);
+
+bool db_in_transaction(struct db *db);
+
+// FIXME(cdecker) Need to maybe add a pointer to the db_stmt we are referring to
+// FIXME(cdecker) Comment
+u64 db_last_insert_id(struct db *db);
+
+// FIXME(cdecker) Need to maybe add a pointer to the db_stmt we are referring to
+// FIXME(cdecker) Comment
+size_t db_changes(struct db *db);
 
 /**
  * db_commit_transaction - Commit a running transaction
