@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
 - plugins: a new notification type `invoice_payment` (sent when an invoice is paid) has been added
 - plugins: a new 'channel_opened' notification type is added, which is emitted when a peer succesfully funds a channel to us
+- rpc: a new rpc command is added, `plugin`. It allows one to manage plugins without restarting `lightningd`.
+- plugins: a new boolean field is added to the `init`'s `configuration`, `startup`. It allows a plugin to know if it has been started on `lightningd` startup.
+- plugins: a new boolean field can be added to a plugin manifest, `dynamic`. It allows a plugin to tell if it can be started or stopped "on-the-fly".
 
 ### Deprecated
 
