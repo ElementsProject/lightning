@@ -238,12 +238,15 @@ class Type(FieldSet):
 
     def __init__(self, name):
         FieldSet.__init__(self)
-        self.name = name
+        self.name, self.is_enum = self.parse_name(name)
         self.depends_on = {}
-        # FIXME: internal msgs can be enums
-        self.is_enum = False
         self.type_comments = []
         self.tlv = False
+
+    def parse_name(self, name):
+        if name.startswith('e:'):
+            return name[2:], True
+        return name, False
 
     def add_data_field(self, field_name, type_obj, count=1,
                        is_extension=[], comments=[], optional=False):
