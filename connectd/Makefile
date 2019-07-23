@@ -80,16 +80,16 @@ connectd-all: lightningd/lightning_connectd
 lightningd/lightning_connectd: $(LIGHTNINGD_CONNECT_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 
 connectd/gen_connect_wire.h: $(WIRE_GEN) connectd/connect_wire.csv
-	$(WIRE_GEN) --header $@ connect_wire_type < connectd/connect_wire.csv > $@
+	$(WIRE_GEN) --page header $@ connect_wire_type < connectd/connect_wire.csv > $@
 
 connectd/gen_connect_wire.c: $(WIRE_GEN) connectd/connect_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} connect_wire_type < connectd/connect_wire.csv > $@
+	$(WIRE_GEN) --page impl ${@:.c=.h} connect_wire_type < connectd/connect_wire.csv > $@
 
 connectd/gen_connect_gossip_wire.h: $(WIRE_GEN) connectd/connect_gossip_wire.csv
-	$(WIRE_GEN) --header $@ connect_gossip_wire_type < connectd/connect_gossip_wire.csv > $@
+	$(WIRE_GEN) --page header $@ connect_gossip_wire_type < connectd/connect_gossip_wire.csv > $@
 
 connectd/gen_connect_gossip_wire.c: $(WIRE_GEN) connectd/connect_gossip_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} connect_gossip_wire_type < connectd/connect_gossip_wire.csv > $@
+	$(WIRE_GEN) --page impl ${@:.c=.h} connect_gossip_wire_type < connectd/connect_gossip_wire.csv > $@
 
 check-source: $(LIGHTNINGD_CONNECT_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
 check-source-bolt: $(LIGHTNINGD_CONNECT_SRC:%=bolt-check/%) $(LIGHTNINGD_CONNECT_HEADERS:%=bolt-check/%)

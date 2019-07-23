@@ -103,10 +103,10 @@ channeld/gen_full_channel_error_names.h: channeld/full_channel_error.h ccan/ccan
 $(LIGHTNINGD_CHANNEL_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_GOSSIP_CONTROL_HEADERS)
 
 channeld/gen_channel_wire.h: $(WIRE_GEN) channeld/channel_wire.csv
-	$(WIRE_GEN) --header $@ channel_wire_type < channeld/channel_wire.csv > $@
+	$(WIRE_GEN) --page header $@ channel_wire_type < channeld/channel_wire.csv > $@
 
 channeld/gen_channel_wire.c: $(WIRE_GEN) channeld/channel_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} channel_wire_type < channeld/channel_wire.csv > $@
+	$(WIRE_GEN) --page impl ${@:.c=.h} channel_wire_type < channeld/channel_wire.csv > $@
 
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 

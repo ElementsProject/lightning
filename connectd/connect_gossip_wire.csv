@@ -2,22 +2,22 @@
 #include <common/wireaddr.h>
 
 # Communication between gossipd and connectd.
-gossip_new_peer,4000
-gossip_new_peer,,id,struct node_id
+msgtype,gossip_new_peer,4000
+msgdata,gossip_new_peer,id,node_id,
 # Did we negotiate LOCAL_GOSSIP_QUERIES?
-gossip_new_peer,,gossip_queries_feature,bool
+msgdata,gossip_new_peer,gossip_queries_feature,bool,
 # Did they offer LOCAL_INITIAL_ROUTING_SYNC?
-gossip_new_peer,,initial_routing_sync,bool
+msgdata,gossip_new_peer,initial_routing_sync,bool,
 
 # if success: + gossip fd and gossip_store fd
-gossip_new_peer_reply,4100
-gossip_new_peer_reply,,success,bool
-gossip_new_peer_reply,,gs,?struct gossip_state
+msgtype,gossip_new_peer_reply,4100
+msgdata,gossip_new_peer_reply,success,bool,
+msgdata,gossip_new_peer_reply,gs,?gossip_state,
 
 # Connectd asks gossipd for any known addresses for that node.
-gossip_get_addrs,4001
-gossip_get_addrs,,id,struct node_id
+msgtype,gossip_get_addrs,4001
+msgdata,gossip_get_addrs,id,node_id,
 
-gossip_get_addrs_reply,4101
-gossip_get_addrs_reply,,num,u16
-gossip_get_addrs_reply,,addrs,num*struct wireaddr
+msgtype,gossip_get_addrs_reply,4101
+msgdata,gossip_get_addrs_reply,num,u16,
+msgdata,gossip_get_addrs_reply,addrs,wireaddr,num

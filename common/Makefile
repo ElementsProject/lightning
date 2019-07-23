@@ -80,16 +80,16 @@ common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-e
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
 common/gen_status_wire.h: $(WIRE_GEN) common/status_wire.csv
-	$(WIRE_GEN) --header $@ status < common/status_wire.csv > $@
+	$(WIRE_GEN) --page header $@ status < common/status_wire.csv > $@
 
 common/gen_status_wire.c: $(WIRE_GEN) common/status_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} status < common/status_wire.csv > $@
+	$(WIRE_GEN) --page impl ${@:.c=.h} status < common/status_wire.csv > $@
 
 common/gen_peer_status_wire.h: $(WIRE_GEN) common/peer_status_wire.csv
-	$(WIRE_GEN) --header $@ peer_status < common/peer_status_wire.csv > $@
+	$(WIRE_GEN) --page header $@ peer_status < common/peer_status_wire.csv > $@
 
 common/gen_peer_status_wire.c: $(WIRE_GEN) common/peer_status_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} peer_status < common/peer_status_wire.csv > $@
+	$(WIRE_GEN) --page impl ${@:.c=.h} peer_status < common/peer_status_wire.csv > $@
 
 check-makefile: check-common-makefile
 

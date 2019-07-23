@@ -2,41 +2,41 @@
 #include <common/htlc_wire.h>
 #include <common/per_peer_state.h>
 # Begin!  (passes peer fd, gossipd-client fd)
-closing_init,2001
-closing_init,,pps,struct per_peer_state
-closing_init,,funding_txid,struct bitcoin_txid
-closing_init,,funding_txout,u16
-closing_init,,funding_satoshi,struct amount_sat
-closing_init,,local_fundingkey,struct pubkey
-closing_init,,remote_fundingkey,struct pubkey
-closing_init,,funder,enum side
-closing_init,,local_sat,struct amount_sat
-closing_init,,remote_sat,struct amount_sat
-closing_init,,our_dust_limit,struct amount_sat
-closing_init,,min_fee_satoshi,struct amount_sat
-closing_init,,fee_limit_satoshi,struct amount_sat
-closing_init,,initial_fee_satoshi,struct amount_sat
-closing_init,,local_scriptpubkey_len,u16
-closing_init,,local_scriptpubkey,local_scriptpubkey_len*u8
-closing_init,,remote_scriptpubkey_len,u16
-closing_init,,remote_scriptpubkey,remote_scriptpubkey_len*u8
-closing_init,,reconnected,bool
-closing_init,,next_index_local,u64
-closing_init,,next_index_remote,u64
-closing_init,,revocations_received,u64
-closing_init,,channel_reestablish_len,u16
-closing_init,,channel_reestablish,channel_reestablish_len*u8
-closing_init,,final_scriptpubkey_len,u16
-closing_init,,final_scriptpubkey,final_scriptpubkey_len*u8
-closing_init,,last_remote_secret,struct secret
+msgtype,closing_init,2001
+msgdata,closing_init,pps,per_peer_state,
+msgdata,closing_init,funding_txid,bitcoin_txid,
+msgdata,closing_init,funding_txout,u16,
+msgdata,closing_init,funding_satoshi,amount_sat,
+msgdata,closing_init,local_fundingkey,pubkey,
+msgdata,closing_init,remote_fundingkey,pubkey,
+msgdata,closing_init,funder,e:side,
+msgdata,closing_init,local_sat,amount_sat,
+msgdata,closing_init,remote_sat,amount_sat,
+msgdata,closing_init,our_dust_limit,amount_sat,
+msgdata,closing_init,min_fee_satoshi,amount_sat,
+msgdata,closing_init,fee_limit_satoshi,amount_sat,
+msgdata,closing_init,initial_fee_satoshi,amount_sat,
+msgdata,closing_init,local_scriptpubkey_len,u16,
+msgdata,closing_init,local_scriptpubkey,u8,local_scriptpubkey_len
+msgdata,closing_init,remote_scriptpubkey_len,u16,
+msgdata,closing_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
+msgdata,closing_init,reconnected,bool,
+msgdata,closing_init,next_index_local,u64,
+msgdata,closing_init,next_index_remote,u64,
+msgdata,closing_init,revocations_received,u64,
+msgdata,closing_init,channel_reestablish_len,u16,
+msgdata,closing_init,channel_reestablish,u8,channel_reestablish_len
+msgdata,closing_init,final_scriptpubkey_len,u16,
+msgdata,closing_init,final_scriptpubkey,u8,final_scriptpubkey_len
+msgdata,closing_init,last_remote_secret,secret,
 
 # We received an offer, save signature.
-closing_received_signature,2002
-closing_received_signature,,signature,struct bitcoin_signature
-closing_received_signature,,tx,struct bitcoin_tx
+msgtype,closing_received_signature,2002
+msgdata,closing_received_signature,signature,bitcoin_signature,
+msgdata,closing_received_signature,tx,bitcoin_tx,
 
-closing_received_signature_reply,2102
-closing_received_signature_reply,,closing_txid,struct bitcoin_txid
+msgtype,closing_received_signature_reply,2102
+msgdata,closing_received_signature_reply,closing_txid,bitcoin_txid,
 
 # Negotiations complete, we're exiting.
-closing_complete,2004
+msgtype,closing_complete,2004

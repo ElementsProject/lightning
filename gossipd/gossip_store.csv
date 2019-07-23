@@ -3,9 +3,9 @@
 # 256/257/258 or gossipd_local_add_channel (3503)
 
 # This always follows the channel_announce.
-gossip_store_channel_amount,4101
-gossip_store_channel_amount,,satoshis,struct amount_sat
+msgtype,gossip_store_channel_amount,4101
+msgdata,gossip_store_channel_amount,satoshis,amount_sat,
 
-gossip_store_private_update,4102
-gossip_store_private_update,,len,u16
-gossip_store_private_update,,update,len*u8
+msgtype,gossip_store_private_update,4102
+msgdata,gossip_store_private_update,len,u16,
+msgdata,gossip_store_private_update,update,u8,len

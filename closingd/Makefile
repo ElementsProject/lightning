@@ -80,10 +80,10 @@ CLOSINGD_COMMON_OBJS :=				\
 	hsmd/gen_hsm_wire.o
 
 closingd/gen_closing_wire.h: $(WIRE_GEN) closingd/closing_wire.csv
-	$(WIRE_GEN) --header $@ closing_wire_type < closingd/closing_wire.csv > $@
+	$(WIRE_GEN) --page header $@ closing_wire_type < closingd/closing_wire.csv > $@
 
 closingd/gen_closing_wire.c: $(WIRE_GEN) closingd/closing_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} closing_wire_type < closingd/closing_wire.csv > $@
+	$(WIRE_GEN) --page impl ${@:.c=.h} closing_wire_type < closingd/closing_wire.csv > $@
 
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o) $(LIGHTNINGD_CLOSING_GEN_SRC:.c=.o)
 
