@@ -123,7 +123,7 @@ ${static}void fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.needs_c
 
 	% for f in subtype.fields.values():
 	    % for c in f.field_comments:
-	/* ${c} */
+	/*${c} */
 	    % endfor
 <%
     fieldname = '{}->{}'.format(subtype.name,f.name)
@@ -204,7 +204,7 @@ static const struct tlv_record_type tlvs_${tlv.name}[] = {
 
 /* WIRE: ${msg.name.upper()} */
     % for c in msg.msg_comments:
-/* ${c} */
+/*${c} */
     % endfor
 u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values()])})
 {
@@ -217,7 +217,7 @@ u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.f
 	towire_u16(&p, ${msg.enum_name()});
 	% for f in msg.fields.values():
 	    % for c in f.field_comments:
-	/* ${c} */
+	/*${c} */
 	    % endfor
 	% if f.is_array() or f.is_varlen():
 	    % if f.type_obj.has_array_helper():
@@ -268,7 +268,7 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}
 	    varsized = f.type_obj.is_varsize()
 	%> \
 	    % for c in f.field_comments:
-	/* ${c} */
+	/*${c} */
 	    % endfor
 	% if f.is_varlen():
 	// 2nd case ${f.name}
