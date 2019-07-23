@@ -50,6 +50,15 @@ class Field(object):
         self.is_optional = optional
         self.field_comments = field_comments
 
+    def __deepcopy__(self, memo):
+        deepcopy_method = self.__deepcopy__
+        self.__deepcopy__ = None
+        field = copy.deepcopy(self, memo)
+        self.__deepcopy__ = deepcopy_method
+
+        field.type_obj = self.type_obj
+        return field
+
     def add_count(self, count):
         self.count = int(count)
 

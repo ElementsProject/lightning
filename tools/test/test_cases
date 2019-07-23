@@ -40,6 +40,8 @@ msgdata,test_msg,test_sbt_varsize_var_assign,subtype_var_assign,
 msgdata,test_msg,test_sbt_var_len,subtype_var_len,
 msgdata,test_msg,test_sbt_varlen_varsize,subtype_varlen_varsize,
 msgdata,test_msg,test_sbt_arrays,subtype_arrays,
+# test extension fields
+msgdata,test_msg,extension_1,test_features,,option_short_id
 
 msgtype,test_tlv1,2
 msgdata,test_tlv1,test_struct,test_short_id,
