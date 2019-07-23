@@ -87,8 +87,7 @@ class Field(object):
         return self.len_field
 
     def needs_context(self):
-        """ A field needs a context if its type needs context
-            or if it's varsized """
+        """ A field needs a context if it's varsized """
         return self.is_varlen() or self.type_obj.needs_context()
 
     def arg_desc_to(self):
@@ -286,7 +285,7 @@ class Type(FieldSet):
         return self.name in self.truncated_typedefs
 
     def needs_context(self):
-        return self.is_varsize() or any([field.needs_context() for field in self.fields.values()])
+        return self.is_varsize()
 
     def is_assignable(self):
         """ Generally typedef's and enums """
