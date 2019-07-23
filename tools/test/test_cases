@@ -31,6 +31,8 @@ msgdata,test_msg,test_enum,e:test_enum,
 msgdata,test_msg,test_struct,test_short_id,
 # test var-size struct
 msgdata,test_msg,test_varsize_struct,test_features,
+# test optional assignable
+msgdata,test_msg,test_optional_assignable,?u32,
 # test optional struct
 msgdata,test_msg,test_optional_struct,?test_short_id,
 # test optional var-size struct

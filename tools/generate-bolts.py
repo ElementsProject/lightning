@@ -75,9 +75,6 @@ class Field(object):
     def is_varlen(self):
         return not self.count
 
-    def is_optional(self):
-        return self.is_optional
-
     def is_extension(self):
         return bool(self.extension_names)
 
@@ -97,7 +94,10 @@ class Field(object):
         if self.is_array():
             return ', const {} {}[{}]'.format(type_name, self.name, self.count)
         if self.type_obj.is_assignable() and not self.is_varlen():
-            return ', {} {}'.format(type_name, self.name)
+            name = self.name
+            if self.is_optional:
+                name = '*' + name
+            return ', {} {}'.format(type_name, name)
         if self.is_varlen() and self.type_obj.is_varsize():
             return ', const {} **{}'.format(type_name, self.name)
         return ', const {} *{}'.format(type_name, self.name)
@@ -145,7 +145,7 @@ class FieldSet(object):
         return bool(self.len_fields)
 
     def needs_context(self):
-        return any([field.needs_context() for field in self.fields.values()])
+        return any([field.needs_context() or field.is_optional for field in self.fields.values()])
 
 
 class Type(FieldSet):

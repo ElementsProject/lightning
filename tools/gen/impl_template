@@ -303,7 +303,7 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}
 		% if not varsized:
 		*${f.name} = tal(ctx, ${typename});
 		% endif
-		${fromwire_phrase(f, type_, varsized)}\
+		${'*' if f.type_obj.is_assignable() else ''}${fromwire_phrase(f, type_, varsized)}\
 	}
 	    % endif ## End optional
 	% endif
