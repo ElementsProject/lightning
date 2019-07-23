@@ -38,4 +38,7 @@ tools/headerversions
 contrib/pylightning/build/
 contrib/pylightning/dist/
 contrib/pylightning/pylightning.egg-info/
+contrib/pyln-*/build/
+contrib/pyln-*/dist/
+contrib/pyln-*/pyln_*.egg-info/
 devtools/create-gossipstore
