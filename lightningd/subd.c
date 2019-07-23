@@ -555,7 +555,7 @@ static void destroy_subd(struct subd *sd)
 		sd->channel = NULL;
 
 		/* We can be freed both inside msg handling, or spontaneously. */
-		outer_transaction = db->in_transaction;
+		outer_transaction = db_in_transaction(db);
 		if (!outer_transaction)
 			db_begin_transaction(db);
 		if (sd->errcb)
