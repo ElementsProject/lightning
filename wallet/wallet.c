@@ -14,6 +14,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <string.h>
+#include <wallet/db_common.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0

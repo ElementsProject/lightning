@@ -9,6 +9,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/plugin_hook.h>
+#include <wallet/db_common.h>
 
 #define DB_FILE "lightningd.sqlite3"
 #define NSEC_IN_SEC 1000000000
