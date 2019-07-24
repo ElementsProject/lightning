@@ -70,7 +70,7 @@ struct ${tlv.struct_name()} *${tlv.struct_name()}_new(const tal_t *ctx);
     % endfor
 void towire_${subtype.name}(u8 **p, const ${subtype.type_name()} *${subtype.name});
 % if subtype.is_varsize():
-${static}${subtype.type_name()} *
+${subtype.type_name()} *
 fromwire_${subtype.name}(const tal_t *ctx, const u8 **cursor, size_t *plen);
 % else:
 void fromwire_${subtype.name}(const u8 **cursor, size_t *plen, ${subtype.type_name()} *${subtype.name});
