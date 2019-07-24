@@ -134,13 +134,11 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 {
 	/* These are expected. */
 	if (strstr(msg, "txn-mempool-conflict")
-	    || strstr(msg, "transaction already in block chain"))
+	    || strstr(msg, "transaction already in block chain")
+	    || exitstatus)
 		log_debug(bitcoind->log,
 			  "Expected error broadcasting tx %s: %s",
 			  txs->txs[txs->cursor], msg);
-	else if (exitstatus)
-		log_unusual(bitcoind->log, "Broadcasting tx %s: %i %s",
-			    txs->txs[txs->cursor], exitstatus, msg);
 
 	txs->cursor++;
 	if (txs->cursor == tal_count(txs->txs)) {
