@@ -26,7 +26,7 @@ msgdata,test_msg,test_varsize_struct_varlen,test_features,len_varsize_struct
 # assignable
 msgdata,test_msg,test_assignable,u16,
 # enum
-msgdata,test_msg,test_enum,e:test_enum,
+msgdata,test_msg,test_enum,enum test_enum,
 # test struct
 msgdata,test_msg,test_struct,test_short_id,
 # test var-size struct

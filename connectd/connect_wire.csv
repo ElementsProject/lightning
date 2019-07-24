@@ -7,7 +7,7 @@ msgtype,connectctl_init,2000
 msgdata,connectctl_init,id,node_id,
 msgdata,connectctl_init,num_wireaddrs,u16,
 msgdata,connectctl_init,wireaddrs,wireaddr_internal,num_wireaddrs
-msgdata,connectctl_init,listen_announce,e:addr_listen_announce,num_wireaddrs
+msgdata,connectctl_init,listen_announce,enum addr_listen_announce,num_wireaddrs
 msgdata,connectctl_init,tor_proxyaddr,?wireaddr,
 msgdata,connectctl_init,use_tor_proxy_always,bool,
 msgdata,connectctl_init,dev_allow_localhost,bool,

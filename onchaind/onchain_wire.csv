@@ -22,7 +22,7 @@ msgdata,onchain_init,remote_scriptpubkey_len,u16,
 msgdata,onchain_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
 msgdata,onchain_init,ourwallet_pubkey,pubkey,
 # We need these two for commit number obscurer
-msgdata,onchain_init,funder,e:side,
+msgdata,onchain_init,funder,enum side,
 msgdata,onchain_init,local_basepoints,basepoints,
 msgdata,onchain_init,remote_basepoints,basepoints,
 msgdata,onchain_init,tx,bitcoin_tx,
@@ -49,7 +49,7 @@ msgtype,onchain_init_reply,5101
 # onchaind->master: Send out a tx.
 msgtype,onchain_broadcast_tx,5003
 msgdata,onchain_broadcast_tx,tx,bitcoin_tx,
-msgdata,onchain_broadcast_tx,type,e:wallet_tx_type,
+msgdata,onchain_broadcast_tx,type,enum wallet_tx_type,
 
 # master->onchaind: Notifier that an output has been spent by input_num of tx.
 msgtype,onchain_spent,5004
@@ -106,4 +106,4 @@ msgdata,onchain_dev_memleak_reply,leak,bool,
 # transactions.
 msgtype,onchain_transaction_annotate,5034
 msgdata,onchain_transaction_annotate,txid,bitcoin_txid,
-msgdata,onchain_transaction_annotate,type,e:wallet_tx_type,
+msgdata,onchain_transaction_annotate,type,enum wallet_tx_type,
