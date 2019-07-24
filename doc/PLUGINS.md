@@ -614,6 +614,20 @@ When plugin fails to get version, it's response like this:
 
  - The `errorcode` is code of rpcerror that the plugin meets.
 
+## Notification_in
+
+Notification_in here refers the notification that are generated
+by plugins and need be sent to `lightningd`.
+`lightningd` won't reply for notification_in.
+Plugin don't need to subscribe notification_in types in the
+response to `getmanifest`. And notification_in isn't essential for
+`lightningd`. So plugin can decide if notification_in will be sent
+to `lightningd`.
+
+A notification_in must have correct json format corresponding to the
+topic it matches. And it must be sent after the reponse to `init`
+method.
+
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
