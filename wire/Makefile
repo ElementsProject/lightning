@@ -39,7 +39,7 @@ extract-bolt-csv: bolt-precheck
 	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md >> wire/extracted_onion_wire_csv
 
 # Explicit command to add diff of BOLT CSV's to an experimental_csv file
-extract-experimental-bolt-csv:
+extract-experimental-bolt-csv: bolt-precheck
 	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/extracted_peer_wire_csv - >>wire/extracted_peer_experimental_csv | if [ $$? -lt 0 ];then exit 1;fi
 	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/extracted_onion_wire_csv - >>wire/extracted_onion_experimental_csv | if [ $$? -lt 0 ];then exit 1;fi
 
