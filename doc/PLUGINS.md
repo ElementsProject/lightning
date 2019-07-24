@@ -517,6 +517,42 @@ processed before the HTLC was forwarded, failed, or resolved, then the plugin
 may see the same HTLC again during startup. It is therefore paramount that the
 plugin is idempotent if it talks to an external system.
 
+## Requests
+
+Request here refers the optional `plugin_request` which can be subscribe.
+Request can supply some important external information to `lightningd`, or
+take the place of `lightningd` to complete some tasks and supply the proper
+result to `lightningd`.
+It should be subscribed carefully, and the plugin who subscribs this request
+need to be confirmed that the plugin can reply the request stable and
+continuous, or interrupt response will cause `lightningd` to fail(crash).
+Only one plugin may register for any request topic at any point in time.
+`lightningd` will send `request` after `request_init` method.
+
+Requests are different with `init`, `request_init` or `getmanifest`method:
+
+ - The reply to `init`, `request_init`, `getmanifest` will not affect the
+   `lightningd` running. If the reply fails or meets timeout, the corresponding
+   plugin will fail, but `lightningd` will still running normally.
+ - The response to requests is very important to `lightningd`. Error or
+   timeout of the reply will cause `lightningd` to fail(crash).
+
+Requests and hooks sound very similar, however there are a few
+key difference:
+
+ - Hooks are synchronous, i.e., `lightningd` will send the hooks
+   and wait for the plugin to tell them what to do next. Requests
+   on the other hand are asynchronous, but it still have the timeout
+   limit for the reply.
+ - Reply to hooks is more like the simple command, and it decide what
+   operations `lightningd` executes. But the goal of requests is to
+   take the place of `lightningd` to get external information or to 
+   execute some external commands from `lightningd` and then return
+   `lightningd` with the result it need, like to get the newest block
+   through bitcoin client and return the block information to `lightningd`
+   or to execute send transaction with bitcoin client and return the
+   result.
+
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
