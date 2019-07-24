@@ -11,7 +11,8 @@ export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export TIMEOUT=180
 export PYTEST_PAR=2
 # If we're not in developer mode, tests spend a lot of time waiting for gossip!
-if [ "$DEVELOPER" = 0 ]; then
+# But if we're under valgrind, we can run out of memory!
+if [ "$DEVELOPER" = 0 ] && [ "$VALGRIND" = 0 ]; then
     PYTEST_PAR=4
 fi
 
