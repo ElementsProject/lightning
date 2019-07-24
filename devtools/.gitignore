@@ -3,3 +3,5 @@ decodemsg
 onion
 dump-gossipstore
 gossipwith
+mkcommit
+mkfunding
