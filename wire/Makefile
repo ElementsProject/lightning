@@ -64,6 +64,9 @@ wire/gen_onion_wire_csv: wire/extracted_onion_wire_csv
 	@cp $< $@
 endif
 
+# We (may) need to rebuild these if config changes
+wire/gen_peer_wire_csv wire/gen_onion_wire_csv: config.vars
+
 wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS)
 	$(BOLT_GEN) -s --page header $@ wire_type < $< > $@
 
