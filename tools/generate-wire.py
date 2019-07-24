@@ -239,8 +239,8 @@ class Type(FieldSet):
         self.tlv = False
 
     def parse_name(self, name):
-        if name.startswith('e:'):
-            return name[2:], True
+        if name.startswith('enum '):
+            return name[5:], True
         return name, False
 
     def add_data_field(self, field_name, type_obj, count=1,
