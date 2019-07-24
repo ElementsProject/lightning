@@ -95,17 +95,17 @@ static struct bolt_file *get_bolt_files(const char *dir)
 	return bolts;
 }
 
-static char *find_bolt_ref(char **p, size_t *len)
+static char *find_bolt_ref(const char *prefix, char **p, size_t *len)
 {
 	for (;;) {
 		char *bolt, *end;
 		size_t preflen;
 
 		/* BOLT #X: */
-		*p = strstr(*p, "BOLT");
+		*p = strstr(*p, prefix);
 		if (!*p)
 			return NULL;
-		*p += 4;
+		*p += strlen(prefix);
 		while (cisspace(**p))
 			(*p)++;
 		if (**p != '#')
@@ -259,6 +259,7 @@ int main(int argc, char *argv[])
 
 	struct bolt_file *bolts;
 	int i;
+	char *prefix = "BOLT";
 
 	err_set_progname(argv[0]);
 
@@ -268,6 +269,8 @@ int main(int argc, char *argv[])
 			   "Print this message.");
 	opt_register_noarg("--verbose", opt_set_bool, &verbose,
 			   "Print out files as we find them");
+	opt_register_arg("--prefix", opt_set_charp, opt_show_charp, &prefix,
+			 "Only check these markers");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc < 2)
@@ -285,7 +288,7 @@ int main(int argc, char *argv[])
 			printf("Checking %s...\n", argv[i]);
 
 		p = f;
-		while ((bolt = find_bolt_ref(&p, &len)) != NULL) {
+		while ((bolt = find_bolt_ref(prefix, &p, &len)) != NULL) {
 			char *pattern = code_to_regex(p, len, true);
 			struct bolt_file *b = find_bolt(bolt, bolts);
 			if (!b)
