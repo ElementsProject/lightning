@@ -28,7 +28,7 @@ if [ ! -f dependencies/bin/bitcoind ]; then
 fi
 
 pyenv global 3.7.1
-pip3 install --user --quiet mako
+pip3 install --user --quiet -r requirements.txt
 pip3 install --user --quiet -r tests/requirements.txt
 pip3 install --quiet \
      pytest-test-groups==1.0.3

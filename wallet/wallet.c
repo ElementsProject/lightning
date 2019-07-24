@@ -14,6 +14,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <string.h>
+#include <wallet/db_common.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0
@@ -21,6 +22,9 @@
 /* How many blocks must a UTXO entry be buried under to be considered old enough
  * to prune? */
 #define UTXO_PRUNE_DEPTH 144
+
+/* Provide a way for DB backends to register themselves */
+AUTODATA_TYPE(db_backends, struct db_config);
 
 static void outpointfilters_init(struct wallet *w)
 {

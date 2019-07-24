@@ -240,6 +240,20 @@ int main(void)
 	return 0;
 }
 /*END*/
+var=HAVE_SQLITE3
+desc=sqlite3
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=-lsqlite3
+code=
+#include <sqlite3.h>
+#include <stdio.h>
+
+int main(void)
+{
+	printf("%p\n", sqlite3_prepare_v2);
+	return 0;
+}
+/*END*/
 var=HAVE_GCC
 desc=compiler is GCC
 style=OUTSIDE_MAIN
