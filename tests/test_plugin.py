@@ -507,3 +507,11 @@ def test_channel_opened_notification(node_factory):
     l2.daemon.wait_for_log(r"A channel was opened to us by {}, "
                            "with an amount of {}*"
                            .format(l1.info["id"], amount))
+
+
+def test_getclientversion_plugin_request(node_factory):
+    plugin_path = 'tests/plugins/check_bitcoind_version.py'
+    l1 = node_factory.get_node(options={'plugin': plugin_path})
+
+    assert l1.daemon.is_in_log('plugin-check_bitcoind_version.py Receive getclientversion request: getclientversion')
+    assert l1.daemon.is_in_log('getclientversion request: Vaild client! *')
