@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lightningd: add support for `signet` networks using the `--network=signet` or `--signet` startup option
 - JSON API: `listfunds` now returns also `funding_output` for `channels`
 - Plugin: Add new type `request` to make `lightningd` request registrable and subscribed by plugins.
+- Plugin: Add new plugin method `request_init` to initial methods for `request` type.
 
 ### Changed
 

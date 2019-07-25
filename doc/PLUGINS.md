@@ -132,6 +132,31 @@ arbitrary and will currently be discarded by `lightningd`. JSON-RPC
 commands were chosen over notifications in order not to force plugins
 to implement notifications which are not that well supported.
 
+### The `request_init` method
+
+The `request_init` method is only used for `request` type. Only the plugin
+that subscribes any `request` must handle `request_init`, and all the plugins
+still need handle `init`.
+
+The `request_int` will be sent to plugins before network setups, and after 
+lightning daemons initial. So the plugin can help `lightningd` to execute
+commands or get external information when network initials.
+
+```json
+{
+	"requests": [
+		"getclientversion"
+  ],
+	"configuration": {
+		 "lightning-dir": "/home/user/.lightning",
+		 "rpc-file": "lightning-rpc"
+	}
+}
+```
+
+The plugin must respond to `request_init` calls, however the response can
+be arbitrary and will currently be discarded by `lightningd`.
+
 ## JSON-RPC passthrough
 
 Plugins may register their own JSON-RPC methods that are exposed
