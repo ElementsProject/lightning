@@ -659,6 +659,10 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	channel_watch_funding(ld, channel);
 
+	/* Tell plugins about the success */
+	notify_channel_opened(ld, &channel->peer->id, &channel->funding,
+			   &channel->funding_txid, &channel->remote_funding_locked);
+
 	/* On to normal operation! */
 	peer_start_channeld(channel, pps, funding_signed, false);
 
