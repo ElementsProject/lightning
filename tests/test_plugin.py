@@ -494,3 +494,16 @@ def test_invoice_payment_notification(node_factory):
     l2.daemon.wait_for_log(r"Received invoice_payment event for label {},"
                            " preimage {}, and amount of {}msat"
                            .format(label, preimage, msats))
+
+
+def test_channel_opened_notification(node_factory):
+    """
+    Test the 'channel_opened' notification sent at channel funding success.
+    """
+    opts = [{}, {"plugin": "tests/plugins/misc_notifications.py"}]
+    amount = 10**6
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, fundamount=amount,
+                                     opts=opts)
+    l2.daemon.wait_for_log(r"A channel was opened to us by {}, "
+                           "with an amount of {}*"
+                           .format(l1.info["id"], amount))
