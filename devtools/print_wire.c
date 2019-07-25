@@ -198,7 +198,7 @@ void printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
 			printf("}\n");
 			*plen -= length;
 		} else
-			printf("**TYPE #%ld UNKNOWN for TLV %s**\n", type, fieldname);
+			printf("**TYPE #%"PRIu64" UNKNOWN for TLV %s**\n", type, fieldname);
 	}
 	return;
 
