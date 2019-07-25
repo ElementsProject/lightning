@@ -2305,13 +2305,12 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    size_t max_hops)
 {
 	struct chan **route;
-	struct amount_msat total_amount;
-	unsigned int total_delay;
 	struct amount_msat fee;
 	struct route_hop *hops;
 	struct node *n;
 	struct exclusion_memento *exes;
 	struct siphash_seed base_seed;
+	char *err;
 
 	base_seed.u.u64[0] = base_seed.u.u64[1] = seed;
 
@@ -2332,39 +2331,74 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 		return NULL;
 	}
 
-	/* Fees, delays need to be calculated backwards along route. */
-	hops = tal_arr(ctx, struct route_hop, tal_count(route));
-	total_amount = msat;
-	total_delay = final_cltv;
-
-	/* Start at destination node. */
-	n = get_node(rstate, destination);
-	for (int i = tal_count(route) - 1; i >= 0; i--) {
-		const struct half_chan *c;
-
-		int idx = half_chan_to(n, route[i]);
-		c = &route[i]->half[idx];
-		hops[i].channel_id = route[i]->scid;
-		hops[i].nodeid = n->id;
-		hops[i].amount = total_amount;
-		hops[i].delay = total_delay;
-		hops[i].direction = idx;
-
-		/* Since we calculated this route, it should not overflow! */
-		if (!amount_msat_add_fee(&total_amount,
-					 c->base_fee, c->proportional_fee)) {
-			status_broken("Route overflow step %i: %s + %u/%u!?",
-				      i, type_to_string(tmpctx, struct amount_msat,
-							&total_amount),
-				      c->base_fee, c->proportional_fee);
-			return tal_free(hops);
-		}
-		total_delay += c->delay;
-		n = other_node(n, route[i]);
+	/* Generate the route.  */
+	err = generate_route_hops(ctx,
+				  &hops, &n,
+				  route, get_node(rstate, destination),
+				  msat, final_cltv);
+	if (err) {
+		status_broken("%s", err);
+		return NULL;
 	}
 	assert(node_id_eq(&n->id, source ? source : &rstate->local_id));
 
 	return hops;
+}
+
+char *generate_route_hops(const tal_t *ctx,
+			  /* outputs.  */
+			  struct route_hop **hops,
+			  struct node **source,
+			  /* inputs.  */
+			  struct chan **chans,
+			  struct node *destination,
+			  struct amount_msat final_msat,
+			  u32 final_cltv)
+{
+	struct amount_msat total_amount;
+	u32 total_delay;
+	struct node *n;
+
+	*hops = tal_arr(ctx, struct route_hop, tal_count(chans));
+	total_amount = final_msat;
+	total_delay = final_cltv;
+
+	/* Start at destination node. */
+	n = destination;
+	for (int i = tal_count(chans) - 1; i >= 0; --i) {
+		const struct half_chan *c;
+
+		int idx = half_chan_to(n, chans[i]);
+		c = &chans[i]->half[idx];
+		(*hops)[i].channel_id = chans[i]->scid;
+		(*hops)[i].nodeid = n->id;
+		(*hops)[i].amount = total_amount;
+		(*hops)[i].delay = total_delay;
+		(*hops)[i].direction = idx;
+
+		/* Since we calculated this route, it should not overflow! */
+		if (!amount_msat_add_fee(&total_amount,
+					 c->base_fee, c->proportional_fee)) {
+			/* Clear outputs.  */
+			*hops = tal_free(*hops);
+			*source = NULL;
+			/* Return error message.  */
+			return tal_fmt(ctx,
+				       "Route overflow step %i: %s + %u/%u!?",
+				       i, type_to_string(tmpctx, struct amount_msat,
+							 &total_amount),
+				       c->base_fee, c->proportional_fee);
+		}
+
+		/* FIXME: Handle overflow of total delay. */
+		total_delay += c->delay;
+		n = other_node(n, chans[i]);
+	}
+	/* Update. */
+	*source = n;
+
+	/* Succeeded.  */
+	return NULL;
 }
 
 void routing_failure(struct routing_state *rstate,

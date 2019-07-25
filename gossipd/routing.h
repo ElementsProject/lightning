@@ -459,4 +459,33 @@ exclude_channels(struct routing_state *rstate,
  */
 void restore_excluded_channels(struct exclusion_memento *memento);
 
+/* Generate a tal_arr of route_hops from an array of
+ * chans and the destination node.
+ * Returns an error string if an error occurred, NULL if
+ * no error.
+ *
+ * @ctx - parent to tal the error string or hops array from.
+ * @hops - output; where to put the generated hops array.
+ * NULLed if errored.
+ * @source - output; the source we ended up in while traversing
+ * the channels array.
+ * NULLed if errored.
+ * @chans - a tal_arr of channels along the route, from source
+ * to destination.
+ * @destination - the destination to come from.
+ * @final_msat - the amount that needs to reach the destination.
+ * @final_cltv - the timelock that needst to reach the
+ * destination.
+ */
+char *generate_route_hops(const tal_t *ctx,
+			  /* outputs.  */
+			  struct route_hop **hops,
+			  struct node **source,
+			  /* inputs.  */
+			  struct chan **chans,
+			  struct node *destination,
+			  struct amount_msat final_msat,
+			  u32 final_cltv);
+
+
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
