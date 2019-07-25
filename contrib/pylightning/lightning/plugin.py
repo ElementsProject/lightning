@@ -117,10 +117,12 @@ class Plugin(object):
             monkey_patch(self, stdout=True, stderr=True)
 
         self.add_method("getmanifest", self._getmanifest, background=False)
+        self.add_method("request_init", self._request_init, background=False)
         self.rpc_filename = None
         self.lightning_dir = None
         self.rpc = None
         self.child_init = None
+        self.request_child_init = None
 
         self.write_lock = RLock()
 
@@ -317,6 +319,16 @@ class Plugin(object):
             return f
         return decorator
 
+    def request_init(self, *args, **kwargs):
+        """Decorator to add a function called after plugin initialization
+        """
+        def decorator(f):
+            if self.request_child_init is not None:
+                raise ValueError('The @plugin.request_init decorator should only be used once')
+            self.request_child_init = f
+            return f
+        return decorator
+
     @staticmethod
     def _coerce_arguments(func, ba):
         args = OrderedDict()
@@ -485,7 +497,7 @@ class Plugin(object):
         requests = []
         for method in self.methods.values():
             # Skip the builtin ones, they don't get reported
-            if method.name in ['getmanifest', 'init']:
+            if method.name in ['getmanifest', 'init', 'request_init']:
                 continue
 
             if method.mtype == MethodType.HOOK:
@@ -549,6 +561,17 @@ class Plugin(object):
         # Dispatch the plugin's init handler if any
         if self.child_init:
             return self._exec_func(self.child_init, request)
+        return None
+
+    def _request_init(self, requests, configuration, request):
+        self.rpc_filename = configuration['rpc-file']
+        self.lightning_dir = configuration['lightning-dir']
+        path = os.path.join(self.lightning_dir, self.rpc_filename)
+        self.rpc = LightningRpc(path)
+
+        # Dispatch the plugin's init handler if any
+        if self.request_child_init:
+            return self._exec_func(self.request_child_init, request)
         return None
 
 
