@@ -14,11 +14,6 @@
 #define DB_FILE "lightningd.sqlite3"
 #define NSEC_IN_SEC 1000000000
 
-/* For testing, we want to catch fatal messages. */
-#ifndef db_fatal
-#define db_fatal fatal
-#endif
-
 struct migration {
 	const char *sql;
 	void (*func)(struct lightningd *ld, struct db *db);
