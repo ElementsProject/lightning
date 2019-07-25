@@ -3,6 +3,11 @@
 #include "config.h"
 #include <ccan/autodata/autodata.h>
 #include <ccan/short_types/short_types.h>
+/* For testing, we want to catch fatal messages. */
+#ifndef db_fatal
+#define db_fatal fatal
+#endif
+
 
 struct db_query {
 	const char *name;
