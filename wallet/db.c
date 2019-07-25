@@ -873,8 +873,12 @@ static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
 
 	while (current < available) {
 		current++;
-		if (dbmigrations[current].sql)
-			db_exec(__func__, db, "%s", dbmigrations[current].sql);
+		if (dbmigrations[current].sql) {
+			struct db_stmt *stmt =
+			    db_prepare_v2(db, dbmigrations[current].sql);
+			db_exec_prepared_v2(stmt);
+			db_stmt_free(stmt);
+		}
 		if (dbmigrations[current].func)
 			dbmigrations[current].func(ld, db);
 	}
@@ -1265,10 +1269,14 @@ void sqlite3_bind_amount_sat(sqlite3_stmt *stmt, int col,
 /* Will apply the current config fee settings to all channels */
 void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
 {
-	db_exec(__func__, db,
-			"UPDATE channels SET feerate_base = %u, feerate_ppm = %u;",
-			ld->config.fee_base,
-			ld->config.fee_per_satoshi);
+	struct db_stmt *stmt = db_prepare_v2(
+	    db, SQL("UPDATE channels SET feerate_base = ?, feerate_ppm = ?;"));
+
+	db_bind_int(stmt, 0, ld->config.fee_base);
+	db_bind_int(stmt, 1, ld->config.fee_per_satoshi);
+
+	db_exec_prepared_v2(stmt);
+	db_stmt_free(stmt);
 }
 
 void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t)
