@@ -8,7 +8,7 @@ void towire_test_enum(u8 **pptr, const enum test_enum test_enum)
 
 enum test_enum fromwire_test_enum(const u8 **cursor, size_t *max)
 {
-	printf("fromwire_test_enum at %ld\n", *max);
+	printf("fromwire_test_enum at %zu\n", *max);
 	return TEST_ONE;
 }
 
