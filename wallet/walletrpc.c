@@ -657,6 +657,8 @@ static struct command_result *json_listfunds(struct command *cmd,
 						   "amount_msat");
 			json_add_txid(response, "funding_txid",
 				      &c->funding_txid);
+			json_add_num(response, "funding_output",
+				      c->funding_outnum);
 			json_object_end(response);
 		}
 	}
