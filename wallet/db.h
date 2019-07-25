@@ -18,7 +18,7 @@
 struct lightningd;
 struct log;
 struct node_id;
-
+struct db_stmt;
 struct db;
 
 /**
@@ -240,5 +240,20 @@ void sqlite3_bind_amount_sat(sqlite3_stmt *stmt, int col,
 /* Helpers to read and write absolute times from and to the database. */
 void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t);
 struct timeabs sqlite3_column_timeabs(sqlite3_stmt *stmt, int col);
+
+
+void db_bind_null(struct db_stmt *stmt, int pos);
+void db_bind_int(struct db_stmt *stmt, int pos, int val);
+void db_bind_u64(struct db_stmt *stmt, int pos, u64 val);
+void db_bind_blob(struct db_stmt *stmt, int pos, u8 *val, size_t len);
+void db_bind_text(struct db_stmt *stmt, int pos, const char *val);
+bool db_exec_prepared_v2(struct db_stmt *stmt);
+
+void db_stmt_free(struct db_stmt *stmt);
+
+struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
+			       const char *query_id);
+#define db_prepare_v2(db,query) \
+	db_prepare_v2_(__FILE__ ":" stringify(__LINE__), db, query)
 
 #endif /* LIGHTNING_WALLET_DB_H */

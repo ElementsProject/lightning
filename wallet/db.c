@@ -554,6 +554,45 @@ sqlite3_stmt *db_select_prepare_(const char *location, struct db *db, const char
 	return stmt;
 }
 
+struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
+			       const char *query_id)
+{
+	struct db_stmt *stmt = tal(db, struct db_stmt);
+	stmt->query = NULL;
+
+	/* Normalize query_id paths, because unit tests are compiled with this
+	 * prefix. */
+	if (strncmp(query_id, "./", 2) == 0)
+		query_id += 2;
+
+	/* Look up the query by its ID */
+	for (size_t i = 0; i < db->config->num_queries; i++) {
+		if (streq(query_id, db->config->queries[i].query)) {
+			stmt->query = &db->config->queries[i];
+			break;
+		}
+	}
+	if (stmt->query == NULL)
+		db_fatal("Could not resolve query %s", query_id);
+
+	/* Allocate the slots for placeholders/bindings, zeroed since that
+	 * sets the type to DB_BINDING_UNINITIALIZED for later checks. */
+	stmt->bindings = tal_arrz(stmt, struct db_binding, stmt->query->placeholders);
+	stmt->location = location;
+	stmt->error = NULL;
+	stmt->db = db;
+	return stmt;
+}
+
+void db_stmt_free(struct db_stmt *stmt)
+{
+	stmt->db->config->stmt_free_fn(stmt);
+}
+
+#define db_prepare_v2(db,query) \
+	db_prepare_v2_(__FILE__ ":" stringify(__LINE__), db, query)
+
+
 bool db_select_step_(const char *location, struct db *db, struct sqlite3_stmt *stmt)
 {
 	int ret;
@@ -1246,4 +1285,61 @@ struct timeabs sqlite3_column_timeabs(sqlite3_stmt *stmt, int col)
 	t.ts.tv_nsec = timestamp % NSEC_IN_SEC;
 	return t;
 
+}
+
+void db_bind_null(struct db_stmt *stmt, int pos)
+{
+	assert(pos < tal_count(stmt->bindings));
+	stmt->bindings[pos].type = DB_BINDING_NULL;
+}
+
+void db_bind_int(struct db_stmt *stmt, int pos, int val)
+{
+	assert(pos < tal_count(stmt->bindings));
+	stmt->bindings[pos].type = DB_BINDING_INT;
+	stmt->bindings[pos].v.i = val;
+}
+
+void db_bind_u64(struct db_stmt *stmt, int pos, u64 val)
+{
+	assert(pos < tal_count(stmt->bindings));
+	stmt->bindings[pos].type = DB_BINDING_UINT64;
+	stmt->bindings[pos].v.u64 = val;
+}
+
+void db_bind_blob(struct db_stmt *stmt, int pos, u8 *val, size_t len)
+{
+	assert(pos < tal_count(stmt->bindings));
+	stmt->bindings[pos].type = DB_BINDING_BLOB;
+	stmt->bindings[pos].v.blob = val;
+	stmt->bindings[pos].len = len;
+}
+
+void db_bind_text(struct db_stmt *stmt, int pos, const char *val)
+{
+	assert(pos < tal_count(stmt->bindings));
+	stmt->bindings[pos].type = DB_BINDING_TEXT;
+	stmt->bindings[pos].v.text = val;
+	stmt->bindings[pos].len = strlen(val);
+}
+
+bool db_exec_prepared_v2(struct db_stmt *stmt)
+{
+	const char *expanded_sql;
+	bool ret = stmt->db->config->exec_fn(stmt);
+	if (stmt->db->config->expand_fn != NULL && ret &&
+	    !stmt->query->readonly) {
+		expanded_sql = stmt->db->config->expand_fn(stmt);
+		tal_arr_expand(&stmt->db->changes,
+			       tal_strdup(stmt->db->changes, expanded_sql));
+	}
+
+	/* The driver itself doesn't call `fatal` since we want to override it
+	 * for testing. Instead we check here that the error message is set if
+	 * we report an error. */
+	if (!ret) {
+		assert(stmt->error);
+		db_fatal("Error executing statement: %s", stmt->error);
+	}
+	return ret;
 }
