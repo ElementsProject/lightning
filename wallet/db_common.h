@@ -4,6 +4,7 @@
 #include <ccan/autodata/autodata.h>
 #include <ccan/short_types/short_types.h>
 #include <sqlite3.h>
+#include <stdbool.h>
 
 /* For testing, we want to catch fatal messages. */
 #ifndef db_fatal
@@ -33,13 +34,11 @@ struct db_query {
 
 	/* How many placeholders are in the query (and how many will we have
 	   to allocate when instantiating this query)? */
-	   size_t placeholders;
-};
+	size_t placeholders;
 
-struct db_config {
-	const char *name;
-	struct db_query *queries;
-	size_t num_queries;
+	/* Is this a read-only query? If it is there's no need to tell plugins
+	 * about it. */
+	bool readonly;
 };
 
 enum db_binding_type {
@@ -63,6 +62,9 @@ struct db_binding {
 };
 
 struct db_stmt {
+	/* Database we are querying */
+	struct db *db;
+
 	/* Which SQL statement are we trying to execute? */
 	struct db_query *query;
 
@@ -71,6 +73,42 @@ struct db_stmt {
 
 	/* Where are we calling this statement from? */
 	const char *location;
+
+	const char *error;
+
+	/* Pointer to DB-specific statement. */
+	void *inner_stmt;
+};
+
+struct db_config {
+	const char *name;
+	struct db_query *queries;
+	size_t num_queries;
+
+	/* Function used to get a string representation of the executed query
+	 * for the `db_write` plugin hook. */
+	const char *(*expand_fn)(struct db_stmt *stmt);
+
+	/* Function used to execute a statement that doesn't result in a
+	 * response. */
+	bool (*exec_fn)(struct db_stmt *stmt);
+
+	/* Function to execute a query that will result in a response. */
+	bool (*query_fn)(struct db_stmt *stmt);
+
+	/* Function used to step forwards through query results. Returns
+	 * `false` if there are no more rows to return. */
+	bool (*step_fn)(struct db_stmt *stmt);
+
+	bool (*begin_tx_fn)(struct db *db);
+	bool (*commit_tx_fn)(struct db *db);
+
+	/* The free function must make sure that any associated state stored
+	 * in `stmt->inner_stmt` is freed correctly, setting the pointer to
+	 * NULL after cleaning up. It will ultmately be called by the
+	 * destructor of `struct db_stmt`, before clearing the db_stmt
+	 * itself. */
+	void (*stmt_free_fn)(struct db_stmt *db_stmt);
 };
 
 /* Provide a way for DB backends to register themselves */
