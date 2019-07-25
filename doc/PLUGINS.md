@@ -200,6 +200,23 @@ corresponding payloads are listed below.
 
 ### Notification Types
 
+#### `channel_opened`
+
+A notification for topic `channel_opened` is sent if a peer successfully funded a channel
+with us. It contains the peer id, the funding amount (in millisatoshis), the funding
+transaction id, and a boolean indicating if the funding transaction has been included
+into a block.
+```
+{
+	"channel_opened": {
+		"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+		"funding_satoshis": "100000000msat",
+		"funding_txid": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
+		"funding_locked": false
+	}
+}
+```
+
 #### `connect`
 
 A notification for topic `connect` is sent every time a new connection
@@ -237,7 +254,6 @@ A notification for topic `invoice_payment` is sent every time an invoie is paid.
 }
 ```
 
-
 #### `warning`
 
 A notification for topic `warning` is sent every time a new `BROKEN`
@@ -265,6 +281,7 @@ forms:
 `plugin-<plugin_name>:`, `<daemon_name>(<daemon_pid>):`, `jsonrpc:`,
 `jcon fd <error_fd_to_jsonrpc>:`, `plugin-manager`;
 4. `log` is the context of the original log entry.
+
 
 ## Hooks
 
