@@ -102,7 +102,7 @@ static enum watch_result onchain_tx_watched(struct lightningd *ld,
 
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
-		channel_set_owner(channel, NULL, false);
+		channel_set_owner(channel, NULL);
 
 		/* We will most likely be freed, so this is a noop */
 		return KEEP_WATCHING;
@@ -421,7 +421,7 @@ static void onchain_error(struct channel *channel,
 	/* FIXME: re-launch? */
 	log_broken(channel->log, "%s", desc);
 	channel_set_billboard(channel, true, desc);
-	channel_set_owner(channel, NULL, false);
+	channel_set_owner(channel, NULL);
 }
 
 /* With a reorg, this can get called multiple times; each time we'll kill
@@ -457,8 +457,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 						    onchain_error,
 						    channel_set_billboard,
 						    take(&hsmfd),
-						    NULL),
-			  false);
+						    NULL));
 
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon onchain: %s",

@@ -312,8 +312,7 @@ void peer_start_channeld(struct channel *channel,
 					   take(&pps->peer_fd),
 					   take(&pps->gossip_fd),
 					   take(&pps->gossip_store_fd),
-					   take(&hsmfd), NULL),
-			  false);
+					   take(&hsmfd), NULL));
 
 	if (!channel->owner) {
 		log_unusual(channel->log, "Could not subdaemon channel: %s",
