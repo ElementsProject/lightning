@@ -46,14 +46,16 @@ towire_${f.type_obj.name}(${ptr}, ${f.name});
 towire_${f.type_obj.name}(${ptr}, ${'' if f.type_obj.is_assignable() else '&'}${fieldname});
 % endif
 </%def>
-## Subtype and TLV-msg fromwire_
+## Subtype and TLV-msg fromwire
 <%def name="fromwire_subtype_field(fieldname, f, ctx)">\
 <%
     type_ = f.type_obj.name
     typename = f.type_obj.type_name()
+    if f.type_obj.is_varsize():
+	typename += ' *'
 %>\
 % if f.is_varlen():
-${'*' if f.type_obj.is_varsize() else ''}${fieldname} = ${f.len_field} ? tal_arr(${ctx}, ${typename}, ${f.len_field}) : NULL;
+${fieldname} = ${f.len_field} ? tal_arr(${ctx}, ${typename}, ${f.len_field}) : NULL;
 % endif
 % if f.is_array() or f.is_varlen():
     % if f.type_obj.has_array_helper():
