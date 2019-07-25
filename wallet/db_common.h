@@ -3,11 +3,29 @@
 #include "config.h"
 #include <ccan/autodata/autodata.h>
 #include <ccan/short_types/short_types.h>
+#include <sqlite3.h>
+
 /* For testing, we want to catch fatal messages. */
 #ifndef db_fatal
 #define db_fatal fatal
 #endif
 
+struct db {
+	char *filename;
+	const char *in_transaction;
+	sqlite3 *sql;
+
+	/* DB-specific context */
+	void *conn;
+
+	/* The configuration, including translated queries for the current
+	 * instance. */
+	const struct db_config *config;
+
+	const char **changes;
+
+	char *error;
+};
 
 struct db_query {
 	const char *name;
