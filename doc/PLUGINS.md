@@ -578,6 +578,42 @@ key difference:
    or to execute send transaction with bitcoin client and return the
    result.
 
+### Request Types
+
+#### `getclientversion`
+
+This hook is called when `lightningd` want to know which kind bitcoin client
+is running and its version:
+
+```json
+{
+	"getclientversion"
+}
+```
+
+The reply must be like this when plugin gets the version of bitcoin client
+successfully:
+
+```json
+{
+	"client": "bitcoind",
+	"version": 1700
+}
+```
+
+ - The `client` now is only `"bitcoind"`, and the version is the numeric version
+   of bitcoin client.
+
+When plugin fails to get version, it's response like this:
+
+```json
+{
+	"errorcode": -8
+}
+```
+
+ - The `errorcode` is code of rpcerror that the plugin meets.
+
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
