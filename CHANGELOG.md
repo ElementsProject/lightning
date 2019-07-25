@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
 - plugins: a new notification type `invoice_payment` (sent when an invoice is paid) has been added
+- plugins: a new 'channel_opened' notification type is added, which is emitted when a peer succesfully funds a channel to us
 
 ### Deprecated
 
