@@ -48,6 +48,9 @@ struct plugin {
 
 	/* An array of subscribed topics */
 	char **subscriptions;
+
+	/* An array of request topics */
+	const char **plugin_requests;
 };
 
 /**
@@ -116,6 +119,11 @@ void plugin_register(struct plugins *plugins, const char* path TAKES);
  * @param arg: The basename or fullname of the executable for this plugin
  */
 bool plugin_remove(struct plugins *plugins, const char *name);
+
+/**
+ * Ask plugins initial `plugin_request` method.
+ */
+void plugins_requests_config(struct plugins *plugins);
 
 /**
  * Send the configure message to all plugins.

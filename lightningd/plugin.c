@@ -790,11 +790,19 @@ static bool plugin_requests_add(struct plugin *plugin, const char *buffer,
 			     const jsmntok_t *resulttok)
 {
 	const jsmntok_t *requeststok = json_get_member(buffer, resulttok, "requests");
-	if (!requeststok)
+	if (!requeststok) {
+		plugin->plugin_requests = NULL;
 		return true;
+	}
+
+	plugin->plugin_requests = tal_arr(plugin, const char *, 0);
+	if (requeststok->type != JSMN_ARRAY) {
+		plugin_kill(plugin, "\"result.requests\" is not an array");
+		return false;
+	}
 
 	for (int i = 0; i < requeststok->size; i++) {
-		char *name = json_strdup(NULL, plugin->buffer,
+		const char *name = json_strdup(plugin, plugin->buffer,
 					 json_get_arr(requeststok, i));
 		if (!plugin_request_register(plugin, name)) {
 			plugin_kill(plugin,
@@ -805,7 +813,7 @@ static bool plugin_requests_add(struct plugin *plugin, const char *buffer,
 			tal_free(name);
 			return false;
 		}
-		tal_free(name);
+		tal_arr_expand(&plugin->plugin_requests, name);
 	}
 	return true;
 }
@@ -996,6 +1004,49 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 
 	if (plugins->pending_manifests > 0)
 		io_loop_with_timers(plugins->ld);
+}
+
+/* The plugin request need to initial before `setup_topology()` */
+static void plugin_request_config_cb(const char *buffer,
+				     const jsmntok_t *toks,
+				     const jsmntok_t *idtok,
+				     struct plugin *plugin)
+{
+	/* Nothing to be done here, this is just a report */
+}
+
+static void plugin_request_config(struct plugin *plugin)
+{
+	struct jsonrpc_request *req;
+	struct lightningd *ld = plugin->plugins->ld;
+
+	if (!plugin->plugin_requests)
+		return;
+
+	req = jsonrpc_request_start(plugin, "request_init", plugin->log,
+				    plugin_request_config_cb, plugin);
+
+	json_array_start(req->stream, "requests");
+	for(size_t i = 0; i < tal_count(plugin->plugin_requests); i++)
+		json_add_string(req->stream, NULL, plugin->plugin_requests[i]);
+
+	json_array_end(req->stream);
+
+	json_object_start(req->stream, "configuration");
+	json_add_string(req->stream, "lightning-dir", ld->config_dir);
+	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
+	json_object_end(req->stream);
+
+	jsonrpc_request_end(req);
+	plugin_method_send(plugin, req);
+}
+
+void plugins_requests_config(struct plugins *plugins)
+{
+	struct plugin *p;
+	list_for_each(&plugins->plugins, p, list) {
+		plugin_request_config(p);
+	}
 }
 
 static void plugin_config_cb(const char *buffer,

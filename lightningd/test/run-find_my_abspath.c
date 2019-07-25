@@ -140,6 +140,9 @@ void per_peer_state_set_fds_arr(struct per_peer_state *pps UNNEEDED, const int *
 /* Generated stub for plugins_config */
 void plugins_config(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_config called!\n"); abort(); }
+/* Generated stub for plugins_requests_config */
+void plugins_requests_config(struct plugins *plugins UNNEEDED)
+{ fprintf(stderr, "plugins_requests_config called!\n"); abort(); }
 /* Generated stub for plugins_init */
 void plugins_init(struct plugins *plugins UNNEEDED, const char *dev_plugin_debug UNNEEDED)
 { fprintf(stderr, "plugins_init called!\n"); abort(); }

@@ -750,6 +750,17 @@ int main(int argc, char *argv[])
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);
 
+	/*~ Now create the PID file: this errors out if there's already a
+	 * daemon running, so we call before trying to create an RPC socket. */
+	pid_fd = pidfile_create(ld);
+
+	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
+	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
+	jsonrpc_listen(ld->jsonrpc, ld);
+
+	/* Now plugins can reply `request`. */
+	plugins_requests_config(ld->plugins);
+
 	/*~ Initialize block topology.  This does its own io_loop to
 	 * talk to bitcoind, so does its own db transactions. */
 	setup_topology(ld->topology, ld->timers,
@@ -761,14 +772,6 @@ int main(int argc, char *argv[])
 	db_begin_transaction(ld->wallet->db);
 	load_channels_from_wallet(ld);
 	db_commit_transaction(ld->wallet->db);
-
-	/*~ Now create the PID file: this errors out if there's already a
-	 * daemon running, so we call before trying to create an RPC socket. */
-	pid_fd = pidfile_create(ld);
-
-	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
-	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
-	jsonrpc_listen(ld->jsonrpc, ld);
 
 	/*~ Now that the rpc path exists, we can start the plugins and they
 	 * can start talking to us. */
