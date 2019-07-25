@@ -28,6 +28,14 @@ struct db {
 	char *filename;
 	const char *in_transaction;
 	sqlite3 *sql;
+
+	/* DB-specific context */
+	void *conn;
+
+	/* The configuration, including translated queries for the current
+	 * instance. */
+	const struct db_config *config;
+
 	const char **changes;
 };
 
@@ -759,6 +767,9 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	int err;
 	struct db *db;
 	sqlite3 *sql;
+	size_t num_configs;
+	struct db_config **configs = autodata_get(db_backends, &num_configs);
+	const char *driver_name = "sqlite3";
 
 	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
 	err = sqlite3_open_v2(filename, &sql, flags, NULL);
@@ -771,6 +782,20 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db = tal(ctx, struct db);
 	db->filename = tal_strdup(db, filename);
 	db->sql = sql;
+
+	for (size_t i=0; i<num_configs; i++)
+		if (streq(driver_name, configs[i]->name)) {
+			db->config = configs[i];
+			break;
+		}
+
+	if (!db->config)
+		db_fatal("Unable to find DB driver for %s", driver_name);
+
+	// FIXME(cdecker) Once we parse DB connection strings this needs to be
+	// instantiated correctly.
+	db->conn = sql;
+
 	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
 	db->changes = NULL;

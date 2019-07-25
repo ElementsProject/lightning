@@ -17,6 +17,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/utils.o				\
 	common/wireaddr.o			\
 	common/version.o			\
+	wallet/db_sqlite3.o			\
 	wire/towire.o				\
 	wire/fromwire.o
 
