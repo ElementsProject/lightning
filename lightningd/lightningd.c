@@ -659,10 +659,6 @@ int main(int argc, char *argv[])
 	if (!ld->daemon_dir)
 		errx(1, "Could not find daemons");
 
-	/*~ The ccan/opt code requires registration then parsing; we
-	 *  mimic this API here, even though they're on separate lines.*/
-	register_opts(ld);
-
 	/*~ Handle early options, but don't move to --lightning-dir
 	 *  just yet. Plugins may add new options, which is why we are
 	 *  splitting between early args (including --plugin

@@ -147,9 +147,6 @@ void plugins_init(struct plugins *plugins UNNEEDED, const char *dev_plugin_debug
 struct plugins *plugins_new(const tal_t *ctx UNNEEDED, struct log_book *log_book UNNEEDED,
 			    struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "plugins_new called!\n"); abort(); }
-/* Generated stub for register_opts */
-void register_opts(struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "register_opts called!\n"); abort(); }
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }
