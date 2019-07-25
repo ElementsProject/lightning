@@ -40,6 +40,7 @@
 #include <wire/wire.h>
 
 bool deprecated_apis = true;
+static bool opt_table_alloced = false;
 
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
@@ -51,7 +52,6 @@ static void *tal_reallocfn(void *ptr, size_t size)
 {
 	if (!ptr) {
 		/* realloc(NULL) call is to allocate opt_table */
-		static bool opt_table_alloced = false;
 		if (!opt_table_alloced) {
 			opt_table_alloced = true;
 			return notleak(opt_allocfn(size));
@@ -322,10 +322,6 @@ static char *opt_clear_plugins(struct lightningd *ld)
 
 static void config_register_opts(struct lightningd *ld)
 {
-	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
-		&ld->config_filename,
-		"Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
-
 	/* Register plugins as an early args, so we can initialize them and have
 	 * them register more command line options */
 	opt_register_early_arg("--plugin", opt_add_plugin, NULL, ld,
@@ -832,10 +828,42 @@ static char *opt_lightningd_usage(struct lightningd *ld)
 	return NULL;
 }
 
-void register_opts(struct lightningd *ld)
+static char *opt_ignore_talstr(const char *arg, char **p)
 {
-	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
+	return NULL;
+}
 
+/* Just enough parsing to find config file. */
+static void handle_minimal_config_opts(struct lightningd *ld,
+				       int argc, char *argv[])
+{
+	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
+			       &ld->config_filename,
+			       "Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
+
+	ld->config_dir = default_configdir(ld);
+	opt_register_early_arg("--lightning-dir=<dir>",
+			       opt_set_talstr, opt_show_charp,
+			       &ld->config_dir,
+			       "Set working directory. All other files are relative to this");
+
+	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
+
+	/* Now, reset and ignore those options from now on. */
+	opt_free_table();
+	opt_table_alloced = false;
+
+	opt_register_early_arg("--conf=<file>", opt_ignore_talstr, NULL,
+			       &ld->config_filename,
+			       "Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
+	opt_register_early_arg("--lightning-dir=<dir>",
+			       opt_ignore_talstr, opt_show_charp,
+			       &ld->config_dir,
+			       "Set working directory. All other files are relative to this");
+}
+
+static void register_opts(struct lightningd *ld)
+{
 	ld->rpc_filename = default_rpcfile(ld);
 	opt_register_arg("--rpc-file", opt_set_talstr, opt_show_charp,
 			 &ld->rpc_filename,
@@ -941,21 +969,27 @@ void setup_color_and_alias(struct lightningd *ld)
 
 void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 {
+	/*~ These functions make ccan/opt use tal for allocations */
+	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
+
+	/*~ Handle --conf and --lightning-dir super-early. */
+	handle_minimal_config_opts(ld, argc, argv);
+
+	/*~ The ccan/opt code requires registration then parsing; we
+	 *  mimic this API here, even though they're on separate lines.*/
+	register_opts(ld);
+
 	/* Load defaults. The actual values loaded here will be overwritten
 	 * later by opt_parse_from_config. */
 	setup_default_config(ld);
 
-	ld->config_dir = default_configdir(ld);
-	opt_register_early_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
-			       &ld->config_dir,
-			       "Set working directory. All other files are relative to this");
+	/* Now look inside config file, but only handle the early
+	 * options (testnet, plugins etc), others may be added on-demand */
+	opt_parse_from_config(ld, true);
 
-	/* Get any configdir/testnet options first. */
+	/* Early cmdline options now override config file options. */
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
-	/* Now look for config file, but only handle the early
-	 * options, others may be added on-demand */
-	opt_parse_from_config(ld, true);
 }
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])
@@ -977,6 +1011,7 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 			      ld->config_dir, strerror(errno));
 	}
 
+	/* Now parse cmdline, which overrides config. */
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
@@ -1081,7 +1116,8 @@ static void add_config(struct lightningd *ld,
 			} else
 				answer = buf;
 		} else if (opt->cb_arg == (void *)opt_set_talstr
-			   || opt->cb_arg == (void *)opt_set_charp) {
+			   || opt->cb_arg == (void *)opt_set_charp
+			   || opt->cb_arg == (void *)opt_ignore_talstr) {
 			const char *arg = *(char **)opt->u.carg;
 			if (arg)
 				answer = tal_fmt(name0, "%s", arg);
