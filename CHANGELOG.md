@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Lightningd: add support for `signet` networks using the `--network=signet` or `--signet` startup option
+
 ### Changed
 
 - build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
