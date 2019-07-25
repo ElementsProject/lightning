@@ -392,6 +392,8 @@ void channel_errmsg(struct channel *channel,
 		    const char *desc,
 		    const u8 *err_for_them)
 {
+	notify_disconnect(channel->peer->ld, &channel->peer->id);
+
 	/* No per_peer_state means a subd crash or disconnection. */
 	if (!pps) {
 		channel_fail_transient(channel, "%s: %s",
@@ -404,8 +406,6 @@ void channel_errmsg(struct channel *channel,
 		channel->error = tal_dup_arr(channel, u8,
 					     err_for_them,
 					     tal_count(err_for_them), 0);
-
-	notify_disconnect(channel->peer->ld, &channel->peer->id);
 
 	/* BOLT #1:
 	 *

@@ -22,6 +22,7 @@ changes.
 ### Fixed
 
 - Plugin: `pay` no longer crashes on timeout.
+- Plugin: `disconnect` notifier now called if remote side disconnects.
 
 ### Security
 
