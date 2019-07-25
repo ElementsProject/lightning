@@ -55,6 +55,8 @@ number and output index of the channel funding transaction).
 
 - 'funding_txid' - funding transaction id.
 
+- 'funding_output' - the index of the output in the funding transaction.
+
 AUTHOR
 ------
 Felix <fixone@gmail.com> is mainly responsible.
