@@ -836,6 +836,10 @@ void register_opts(struct lightningd *ld)
 {
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
+	ld->rpc_filename = default_rpcfile(ld);
+	opt_register_arg("--rpc-file", opt_set_talstr, opt_show_charp,
+			 &ld->rpc_filename,
+			 "Set JSON-RPC socket (or /dev/tty)");
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
 	opt_register_early_noarg("--test-daemons-only",
@@ -878,7 +882,6 @@ void register_opts(struct lightningd *ld)
 	opt_register_logging(ld);
 	opt_register_version();
 
-	configdir_register_opts(ld, &ld->config_dir, &ld->rpc_filename);
 	config_register_opts(ld);
 #if DEVELOPER
 	dev_register_opts(ld);
@@ -941,6 +944,11 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	/* Load defaults. The actual values loaded here will be overwritten
 	 * later by opt_parse_from_config. */
 	setup_default_config(ld);
+
+	ld->config_dir = default_configdir(ld);
+	opt_register_early_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
+			       &ld->config_dir,
+			       "Set working directory. All other files are relative to this");
 
 	/* Get any configdir/testnet options first. */
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);

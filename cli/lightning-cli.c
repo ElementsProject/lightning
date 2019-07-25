@@ -392,12 +392,13 @@ int main(int argc, char *argv[])
 	int fd, i;
 	size_t off;
 	const char *method;
-	char *cmd, *resp, *idstr, *rpc_filename;
+	char *cmd, *resp, *idstr;
 	struct sockaddr_un addr;
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
-	char *lightning_dir;
 	const tal_t *ctx = tal(NULL, char);
+	char *lightning_dir = default_configdir(ctx);
+	char *rpc_filename = default_rpcfile(ctx);
 	jsmn_parser parser;
 	int parserr;
 	enum format format = DEFAULT_FORMAT;
@@ -409,7 +410,14 @@ int main(int argc, char *argv[])
 	jsmn_init(&parser);
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
-	configdir_register_opts(ctx, &lightning_dir, &rpc_filename);
+
+	opt_register_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
+			 &lightning_dir,
+			 "Set working directory. All other files are relative to this");
+
+	opt_register_arg("--rpc-file", opt_set_talstr, opt_show_charp,
+			 &rpc_filename,
+			 "Set JSON-RPC socket (or /dev/tty)");
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");
