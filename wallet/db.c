@@ -19,21 +19,6 @@ struct migration {
 	void (*func)(struct lightningd *ld, struct db *db);
 };
 
-struct db {
-	char *filename;
-	const char *in_transaction;
-	sqlite3 *sql;
-
-	/* DB-specific context */
-	void *conn;
-
-	/* The configuration, including translated queries for the current
-	 * instance. */
-	const struct db_config *config;
-
-	const char **changes;
-};
-
 void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
