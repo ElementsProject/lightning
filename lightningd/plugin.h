@@ -110,7 +110,7 @@ void plugins_notify(struct plugins *plugins,
 /**
  * Send a jsonrpc_request to the specified plugin
  */
-void plugin_request_send(struct plugin *plugin,
+void plugin_method_send(struct plugin *plugin,
 			 struct jsonrpc_request *req TAKES);
 
 /**

@@ -82,7 +82,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		ph_req->db = ld->wallet->db;
 		hook->serialize_payload(payload, req->stream);
 		jsonrpc_request_end(req);
-		plugin_request_send(hook->plugin, req);
+		plugin_method_send(hook->plugin, req);
 	} else {
 		/* If no plugin has registered for this hook, just
 		 * call the callback with a NULL result. Saves us the
@@ -151,7 +151,7 @@ void plugin_hook_db_sync(struct db *db, const char **changes, const char *final)
 	json_array_end(req->stream);
 	jsonrpc_request_end(req);
 
-	plugin_request_send(hook->plugin, req);
+	plugin_method_send(hook->plugin, req);
 
 	/* We can be called on way out of an io_loop, which is already breaking.
 	 * That will make this immediately return; save the break value and call

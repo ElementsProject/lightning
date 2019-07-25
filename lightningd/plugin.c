@@ -665,7 +665,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	snprintf(id, ARRAY_SIZE(id), "%"PRIu64, req->id);
 
 	json_stream_forward_change_id(req->stream, buffer, toks, idtok, id);
-	plugin_request_send(plugin, req);
+	plugin_method_send(plugin, req);
 	req->stream = NULL;
 
 	return command_still_pending(cmd);
@@ -1001,7 +1001,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		req = jsonrpc_request_start(p, "getmanifest", p->log,
 					    plugin_manifest_cb, p);
 		jsonrpc_request_end(req);
-		plugin_request_send(p, req);
+		plugin_method_send(p, req);
 
 		plugins->pending_manifests++;
 		/* Don't timeout if they're running a debugger. */
@@ -1058,7 +1058,7 @@ static void plugin_config(struct plugin *plugin)
 	json_object_end(req->stream);
 
 	jsonrpc_request_end(req);
-	plugin_request_send(plugin, req);
+	plugin_method_send(plugin, req);
 }
 
 void plugins_config(struct plugins *plugins)
@@ -1108,7 +1108,7 @@ void plugins_notify(struct plugins *plugins,
 		tal_free(n);
 }
 
-void plugin_request_send(struct plugin *plugin,
+void plugin_method_send(struct plugin *plugin,
 			 struct jsonrpc_request *req TAKES)
 {
 	/* Add to map so we can find it later when routing the response */
