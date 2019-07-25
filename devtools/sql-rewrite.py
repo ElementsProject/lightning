@@ -28,7 +28,8 @@ struct db_query db_${f}_queries[] = {
     {
          .name = "${elem['name']}",
          .query = "${elem['query']}",
-         .placeholders = ${elem['placeholders']}
+         .placeholders = ${elem['placeholders']},
+         .readonly = ${elem['readonly']},
     },
 % endfor
 };
