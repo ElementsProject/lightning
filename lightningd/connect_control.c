@@ -278,7 +278,7 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 	if (uc)
 		kill_uncommitted_channel(uc, "Reconnected");
 	else if (c)
-		channel_fail_transient(c, "Reconnected");
+		channel_fail_reconnect(c, "Reconnected");
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
