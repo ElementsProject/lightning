@@ -390,6 +390,7 @@ void channel_errmsg(struct channel *channel,
 		    struct per_peer_state *pps,
 		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
+		    bool soft_error,
 		    const u8 *err_for_them)
 {
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
@@ -406,6 +407,15 @@ void channel_errmsg(struct channel *channel,
 		channel->error = tal_dup_arr(channel, u8,
 					     err_for_them,
 					     tal_count(err_for_them), 0);
+
+	/* Other implementations chose to ignore errors early on.  Not
+	 * surprisingly, they now spew out spurious errors frequently,
+	 * and we would close the channel on them. */
+	if (soft_error) {
+		channel_fail_reconnect_later(channel, "%s: (ignoring) %s",
+					     channel->owner->name, desc);
+		return;
+	}
 
 	/* BOLT #1:
 	 *

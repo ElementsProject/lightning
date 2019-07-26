@@ -712,6 +712,7 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   struct per_peer_state *pps,
 				   const struct channel_id *channel_id UNUSED,
 				   const char *desc,
+				   bool soft_error UNUSED,
 				   const u8 *err_for_them UNUSED)
 {
 	/* Close fds, if any. */

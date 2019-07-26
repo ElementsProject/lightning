@@ -60,7 +60,6 @@ static void json_add_invoice(struct json_stream *response,
 					    "amount_received_msat");
 		json_add_u64(response, "paid_at", inv->paid_timestamp);
 	}
-
 	if (inv->description)
 		json_add_string(response, "description", inv->description);
 
