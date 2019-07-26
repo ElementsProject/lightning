@@ -369,7 +369,7 @@ static size_t read_nofail(int fd, void *buf, size_t len)
 
 /* We rely on the fact that lightningd terminates all JSON RPC responses with
  * "\n\n", so we can stream even if we can't parse. */
-static void oom_dump(int fd, char *resp, size_t resp_len, size_t off)
+static void oom_dump(int fd, char *resp, size_t off)
 {
 	warnx("Out of memory: sending raw output");
 
@@ -378,11 +378,19 @@ static void oom_dump(int fd, char *resp, size_t resp_len, size_t off)
 		/* Keep last char, to avoid splitting \n\n */
 		write_all(STDOUT_FILENO, resp, off-1);
 		resp[0] = resp[off-1];
-		off = 1 + read_nofail(fd, resp + 1, resp_len - 1);
+		off = 1 + read_nofail(fd, resp + 1, tal_bytelen(resp) - 1);
 	} while (resp[off-2] != '\n' || resp[off-1] != '\n');
 	write_all(STDOUT_FILENO, resp, off-1);
 	/* We assume giant answer means "success" */
 	exit(0);
+}
+
+/* We want to return failure if tal_resize fails */
+static void tal_error(const char *msg)
+{
+	if (streq(msg, "Reallocation failure"))
+		return;
+	abort();
 }
 
 int main(int argc, char *argv[])
@@ -404,11 +412,11 @@ int main(int argc, char *argv[])
 	enum format format = DEFAULT_FORMAT;
 	enum input input = DEFAULT_INPUT;
 	char *command = NULL;
-	size_t resp_len, num_toks;
 
 	err_set_progname(argv[0]);
 	jsmn_init(&parser);
 
+	tal_set_backend(NULL, NULL, NULL, tal_error);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
 	opt_register_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
@@ -522,17 +530,15 @@ int main(int argc, char *argv[])
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing command");
 
 	/* Start with 1000 characters, 100 tokens. */
-	resp_len = 1000;
-	resp = malloc(resp_len);
-	num_toks = 100;
-	toks = malloc(sizeof(jsmntok_t) * num_toks);
+	resp = tal_arr(ctx, char, 1000);
+	toks = tal_arr(ctx, jsmntok_t, 100);
 
 	off = 0;
 	parserr = 0;
 	while (parserr <= 0) {
 		/* Read more if parser says, or we have 0 tokens. */
 		if (parserr == 0 || parserr == JSMN_ERROR_PART) {
-			ssize_t i = read(fd, resp + off, resp_len - 1 - off);
+			ssize_t i = read(fd, resp + off, tal_bytelen(resp) - 1 - off);
 			if (i == 0)
 				errx(ERROR_TALKING_TO_LIGHTNINGD,
 				     "reading response: socket closed");
@@ -545,7 +551,7 @@ int main(int argc, char *argv[])
 		}
 
 		/* (Continue) parsing */
-		parserr = jsmn_parse(&parser, resp, off, toks, num_toks);
+		parserr = jsmn_parse(&parser, resp, off, toks, tal_count(toks));
 
 		switch (parserr) {
 		case JSMN_ERROR_INVAL:
@@ -553,23 +559,15 @@ int main(int argc, char *argv[])
 			     "Malformed response '%s'", resp);
 		case JSMN_ERROR_NOMEM: {
 			/* Need more tokens, double it */
-			jsmntok_t *newtoks = realloc(toks,
-						     sizeof(jsmntok_t)
-						     * num_toks * 2);
-			if (!newtoks)
-				oom_dump(fd, resp, resp_len, off);
-			toks = newtoks;
-			num_toks *= 2;
+			if (!tal_resize(&toks, tal_count(toks) * 2))
+				oom_dump(fd, resp, off);
 			break;
 		}
 		case JSMN_ERROR_PART:
 			/* Need more data: make room if necessary */
-			if (off == resp_len - 1) {
-				char *newresp = realloc(resp, resp_len * 2);
-				if (!newresp)
-					oom_dump(fd, resp, resp_len, off);
-				resp = newresp;
-				resp_len *= 2;
+			if (off == tal_bytelen(resp) - 1) {
+				if (!tal_resize(&resp, tal_count(resp) * 2))
+					oom_dump(fd, resp, off);
 			}
 			break;
 		}
@@ -612,8 +610,6 @@ int main(int argc, char *argv[])
 		tal_free(rpc_filename);
 		tal_free(ctx);
 		opt_free_table();
-		free(resp);
-		free(toks);
 		return 0;
 	}
 
@@ -628,7 +624,5 @@ int main(int argc, char *argv[])
 	tal_free(rpc_filename);
 	tal_free(ctx);
 	opt_free_table();
-	free(resp);
-	free(toks);
 	return 1;
 }
