@@ -881,10 +881,6 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 
 		char *output = grab_fd(cmd, from);
 
-		errstr = check_blockchain_from_bitcoincli(tmpctx, bitcoind, output, cmd);
-		if(errstr)
-			fatal("%s", errstr);
-
 		while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
 		if (ret != child)
 			fatal("Waiting for %s: %s", cmd[0], strerror(errno));
@@ -892,8 +888,14 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 			fatal("Death of %s: signal %i",
 			      cmd[0], WTERMSIG(status));
 
-		if (WEXITSTATUS(status) == 0)
+		if (WEXITSTATUS(status) == 0) {
+			/* If succeeded, so check answer it gave. */
+			errstr = check_blockchain_from_bitcoincli(tmpctx, bitcoind, output, cmd);
+			if (errstr)
+				fatal("%s", errstr);
+
 			break;
+		}
 
 		/* bitcoin/src/rpc/protocol.h:
 		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
