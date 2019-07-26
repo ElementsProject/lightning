@@ -152,7 +152,8 @@ same_category:
 			   buffer);
 }
 
-static void human_help(char *buffer, const jsmntok_t *result, bool has_command) {
+static void human_help(char *buffer, const jsmntok_t *result)
+{
 	unsigned int i;
 	/* `curr` is used as a temporary token */
 	const jsmntok_t *curr;
@@ -182,8 +183,7 @@ static void human_help(char *buffer, const jsmntok_t *result, bool has_command) 
 		category = json_get_member(buffer, help[i], "category");
 		if (category && !json_tok_streq(buffer, category, prev_cat)) {
 			prev_cat = json_strdup(help, buffer, category);
-			if (!has_command)
-				printf("=== %s ===\n\n", prev_cat);
+			printf("=== %s ===\n\n", prev_cat);
 		}
 
 		command = json_get_member(buffer, help[i], "command");
@@ -195,8 +195,7 @@ static void human_help(char *buffer, const jsmntok_t *result, bool has_command) 
 	}
 	tal_free(help);
 
-	if (!has_command)
-		printf("---\nrun `lightning-cli help <command>` for more information on a specific command\n");
+	printf("---\nrun `lightning-cli help <command>` for more information on a specific command\n");
 }
 
 enum format {
@@ -587,7 +586,7 @@ int main(int argc, char *argv[])
 		// if we have specific help command
 		if (format == HUMAN)
 			if (streq(method, "help") && command == NULL)
-				human_help(resp, result, false);
+				human_help(resp, result);
 			else
 				human_readable(resp, result, '\n');
 		else if (format == RAW)
