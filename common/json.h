@@ -75,10 +75,11 @@ void json_tok_print(const char *buffer, const jsmntok_t *params);
 jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok);
 
 /*
- * Remove @num json values from a json array or object. @tok points
- * to the first value to remove.  The array will be resized.
+ * Remove @num json values from a json array or object @obj. @tok points
+ * to the first value to remove.  The array @tokens will be resized.
  */
-void json_tok_remove(jsmntok_t **tokens, jsmntok_t *tok, size_t num);
+void json_tok_remove(jsmntok_t **tokens,
+		     jsmntok_t *obj_or_array, const jsmntok_t *tok, size_t num);
 
 /* Guide is a string with . for members, [] around indexes. */
 const jsmntok_t *json_delve(const char *buffer,

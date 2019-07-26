@@ -292,24 +292,37 @@ jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok)
 	return tal_dup_arr(ctx, jsmntok_t, tok, json_next(tok) - tok, 0);
 }
 
-void json_tok_remove(jsmntok_t **tokens, jsmntok_t *tok, size_t num)
+void json_tok_remove(jsmntok_t **tokens,
+		     jsmntok_t *obj_or_array, const jsmntok_t *tok, size_t num)
 {
-	assert(*tokens);
-	assert((*tokens)->type == JSMN_ARRAY || (*tokens)->type == JSMN_OBJECT);
 	const jsmntok_t *src = tok;
 	const jsmntok_t *end = json_next(*tokens);
-	jsmntok_t *dest = tok;
+	jsmntok_t *dest = *tokens + (tok - *tokens);
 	int remove_count;
+
+	assert(*tokens);
+	assert(obj_or_array->type == JSMN_ARRAY
+	       || obj_or_array->type == JSMN_OBJECT);
+	/* obj_or_array must be inside tokens, and tok must be inside
+	 * obj_or_array */
+	assert(obj_or_array >= *tokens
+	       && obj_or_array < *tokens + tal_count(*tokens));
+	assert(tok >= obj_or_array
+	       && tok < *tokens + tal_count(*tokens));
 
 	for (int i = 0; i < num; i++)
 		src = json_next(src);
+
+	/* Don't give us a num which goes over end of obj_or_array. */
+	assert(src <= json_next(obj_or_array));
 
 	remove_count = src - tok;
 
 	memmove(dest, src, sizeof(jsmntok_t) * (end - src));
 
+	/* Subtract first: this ptr may move after tal_resize! */
+	obj_or_array->size -= num;
 	tal_resize(tokens, tal_count(*tokens) - remove_count);
-	(*tokens)->size -= num;
 }
 
 const jsmntok_t *json_delve(const char *buffer,
