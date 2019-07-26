@@ -201,6 +201,7 @@ static void human_help(char *buffer, const jsmntok_t *result)
 enum format {
 	JSON,
 	HUMAN,
+	HELPLIST,
 	DEFAULT_FORMAT,
 	RAW
 };
@@ -392,6 +393,25 @@ static void tal_error(const char *msg)
 	abort();
 }
 
+static enum format delete_format_hint(const char *resp,
+				      jsmntok_t **toks,
+				      jsmntok_t *result)
+{
+	const jsmntok_t *hint;
+	enum format format = JSON;
+
+	hint = json_get_member(resp, result, "format-hint");
+	if (!hint)
+		return format;
+
+	if (json_tok_streq(resp, hint, "simple"))
+		format = HUMAN;
+
+	/* Don't let hint appear in the output! */
+	json_tok_remove(toks, result, hint, 1);
+	return format;
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -453,16 +473,9 @@ int main(int argc, char *argv[])
 		method = "help";
 	}
 
-	if (format == DEFAULT_FORMAT) {
-		if (streq(method, "help"))
-			format = HUMAN;
-		else
-			format = JSON;
-	}
-
 	/* Launch a manpage if we have a help command with an argument. We do
 	 * not need to have lightningd running in this case. */
-	if (streq(method, "help") && format == HUMAN && argc >= 3) {
+	if (streq(method, "help") && format == DEFAULT_FORMAT && argc >= 3) {
 		command = argv[2];
 		char *page = tal_fmt(ctx, "lightning-%s", command);
 
@@ -591,19 +604,35 @@ int main(int argc, char *argv[])
 		     json_tok_full_len(id), json_tok_full(resp, id));
 
 	if (!error || json_tok_is_null(resp, error)) {
-		// if we have specific help command
-		if (format == HUMAN)
+		if (format == DEFAULT_FORMAT) {
+			/* This works best when we order it. */
 			if (streq(method, "help") && command == NULL)
-				human_help(resp, result);
+				format = HELPLIST;
 			else
-				human_readable(resp, result, '\n');
-		else if (format == RAW)
+				/* Use offset of result to get non-const ptr */
+				format = delete_format_hint(resp, &toks,
+							    /* const-washing */
+							    toks + (result - toks));
+		}
+
+		switch (format) {
+		case HELPLIST:
+			human_help(resp, result);
+			break;
+		case HUMAN:
+			human_readable(resp, result, '\n');
+			break;
+		case JSON:
+			print_json(resp, result, "");
+			printf("\n");
+			break;
+		case RAW:
 			printf("%.*s\n",
 			       json_tok_full_len(result),
 			       json_tok_full(resp, result));
-		else {
-			print_json(resp, result, "");
-			printf("\n");
+			break;
+		default:
+			abort();
 		}
 		tal_free(lightning_dir);
 		tal_free(rpc_filename);

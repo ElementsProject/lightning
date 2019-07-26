@@ -172,6 +172,10 @@ the JSON-RPC call `id`, which is internally remapped to a unique
 integer instead, in order to avoid collisions. When passing the result
 back the `id` field is restored to its original value.
 
+Note that if your `result` for an RPC call includes `"format-hint":
+"simple"`, then `lightning-cli` will default to printing your output
+in "human-readable" flat form.
+
 ## Event notifications
 
 Event notifications allow a plugin to subscribe to events in
