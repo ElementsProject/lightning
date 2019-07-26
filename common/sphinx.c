@@ -464,6 +464,7 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	pos += padding_size;
 
 	memcpy(dest + pos, hop->hmac, HMAC_SIZE);
+	assert(pos + HMAC_SIZE == hop_size);
 	return true;
 }
 
