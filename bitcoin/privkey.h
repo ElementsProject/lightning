@@ -4,6 +4,8 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 
+#define PRIVKEY_LEN 32
+
 /* General 256-bit secret, which must be private.  Used in various places. */
 struct secret {
 	u8 data[32];

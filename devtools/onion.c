@@ -18,8 +18,6 @@
 #include <unistd.h>
 
 #define ASSOC_DATA_SIZE 32
-#define PUBKEY_LEN 33
-#define PRIVKEY_LEN 32
 
 static void do_generate(int argc, char **argv,
 			const u8 assocdata[ASSOC_DATA_SIZE])
@@ -27,7 +25,7 @@ static void do_generate(int argc, char **argv,
 	const tal_t *ctx = talz(NULL, tal_t);
 	int num_hops = argc - 2;
 	struct pubkey *path = tal_arr(ctx, struct pubkey, num_hops);
-	u8 rawpubkey[PUBKEY_LEN], rawprivkey[PRIVKEY_LEN];
+	u8 rawprivkey[PRIVKEY_LEN];
 	struct secret session_key;
 	struct secret *shared_secrets;
 	struct sphinx_path *sp;
@@ -40,7 +38,7 @@ static void do_generate(int argc, char **argv,
 
 	for (int i = 0; i < num_hops; i++) {
 		size_t klen = strcspn(argv[1 + i], "/");
-		if (klen == 2 * PRIVKEY_LEN) {
+		if (hex_data_size(klen) == PRIVKEY_LEN) {
 			if (!hex_decode(argv[1 + i], klen, rawprivkey, PRIVKEY_LEN))
 				errx(1, "Invalid private key hex '%s'",
 				     argv[1 + i]);
@@ -49,25 +47,16 @@ static void do_generate(int argc, char **argv,
 						       &path[i].pubkey,
 						       rawprivkey) != 1)
 				errx(1, "Could not decode pubkey");
-		} else if (klen == 2 * PUBKEY_LEN) {
-			if (!hex_decode(argv[1 + i], 2 * PUBKEY_LEN, rawpubkey,
-					PUBKEY_LEN)) {
+		} else if (hex_data_size(klen) == PUBKEY_CMPR_LEN) {
+			if (!pubkey_from_hexstr(argv[i + 1], klen, &path[i]))
 				errx(1, "Invalid public key hex '%s'",
 				     argv[1 + i]);
-			}
-
-			if (secp256k1_ec_pubkey_parse(secp256k1_ctx,
-						      &path[i].pubkey,
-						      rawpubkey, PUBKEY_LEN) != 1)
-				errx(1, "Could not decode pubkey");
 		} else {
-			fprintf(stderr,
-				"Provided key is neither a pubkey nor a "
-				"privkey: %s\n",
-				argv[1 + i]);
+			errx(1,
+			     "Provided key is neither a pubkey nor a privkey: "
+			     "%s\n",
+			     argv[1 + i]);
 		}
-		fprintf(stderr, "Node %d pubkey %s\n", i,
-			secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
 
 		memset(&hops_data[i], 0, sizeof(hops_data[i]));
 		if (argv[1 + i][klen] != '\0') {
