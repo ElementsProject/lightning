@@ -6,6 +6,9 @@
 /* Helper for options which are tal() strings. */
 char *opt_set_talstr(const char *arg, char **p);
 
+/* Helper for options which are tal() strings and a path. */
+char *opt_set_path_talstr(const char *arg, char **p);
+
 /* The default configuration dir: ~/.lightning */
 char *default_configdir(const tal_t *ctx);
 

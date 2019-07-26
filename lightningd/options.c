@@ -298,6 +298,8 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 {
+	if (arg[0] != '/')
+		arg = path_join(tmpctx, path_cwd(tmpctx), arg);
 	plugin_register(ld->plugins, arg);
 	return NULL;
 }
@@ -311,6 +313,8 @@ static char *opt_disable_plugin(const char *arg, struct lightningd *ld)
 
 static char *opt_add_plugin_dir(const char *arg, struct lightningd *ld)
 {
+	if (arg[0] != '/')
+		arg = path_join(tmpctx, path_cwd(tmpctx), arg);
 	return add_plugin_dir(ld->plugins, arg, false);
 }
 
@@ -814,7 +818,7 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_arg("--bitcoin-cli", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->cli,
-			 "bitcoin-cli pathname");
+			 "bitcoin-cli absolute pathname");
 	opt_register_arg("--bitcoin-rpcuser", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcuser,
 			 "bitcoind RPC username");
@@ -833,7 +837,7 @@ static void register_opts(struct lightningd *ld)
 			 "how long to keep trying to contact bitcoind "
 			 "before fatally exiting");
 
-	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
+	opt_register_arg("--pid-file=<file>", opt_set_path_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");
 
