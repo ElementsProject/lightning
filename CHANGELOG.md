@@ -27,6 +27,7 @@ changes.
 
 - Plugin: `pay` no longer crashes on timeout.
 - Plugin: `disconnect` notifier now called if remote side disconnects.
+- channeld: ignore, and simply try reconnecting if lnd sends "sync error".
 
 ### Security
 
