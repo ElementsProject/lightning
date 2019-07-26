@@ -42,7 +42,7 @@ void peer_failed(struct per_peer_state *pps,
 
 	/* Tell master the error so it can re-xmit. */
 	msg = towire_status_peer_error(NULL, channel_id,
-				       desc, pps,
+				       desc, false, pps,
 				       err);
 	peer_billboard(true, desc);
 	tal_free(desc);
@@ -59,7 +59,7 @@ void peer_failed_received_errmsg(struct per_peer_state *pps,
 
 	if (!channel_id)
 		channel_id = &all_channels;
-	msg = towire_status_peer_error(NULL, channel_id, desc, pps, NULL);
+	msg = towire_status_peer_error(NULL, channel_id, desc, false, pps, NULL);
 	peer_billboard(true, "Received error from peer: %s", desc);
 	peer_fatal_continue(take(msg), pps);
 }

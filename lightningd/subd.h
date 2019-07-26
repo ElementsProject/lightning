@@ -46,6 +46,7 @@ struct subd {
 		      struct per_peer_state *pps,
 		      const struct channel_id *channel_id,
 		      const char *desc,
+		      bool soft_error,
 		      const u8 *err_for_them);
 
 	/* Callback to display information for listpeers RPC */
@@ -120,6 +121,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					     struct per_peer_state *pps,
 					     const struct channel_id *channel_id,
 					     const char *desc,
+					     bool soft_error,
 					     const u8 *err_for_them),
 			       void (*billboardcb)(void *channel, bool perm,
 						   const char *happenings),
@@ -133,7 +135,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					       (channel),		\
 					       struct per_peer_state *,	\
 					       const struct channel_id *, \
-					       const char *, const u8 *), \
+					       const char *, bool, const u8 *), \
 			  typesafe_cb_postargs(void, void *, (billboardcb), \
 					       (channel), bool,		\
 					       const char *),		\

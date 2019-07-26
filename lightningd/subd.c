@@ -370,9 +370,10 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[3])
 	char *desc;
 	struct per_peer_state *pps;
 	u8 *err_for_them;
+	bool soft_error;
 
 	if (!fromwire_status_peer_error(msg, msg,
-					&channel_id, &desc,
+					&channel_id, &desc, &soft_error,
 					&pps, &err_for_them))
 		return false;
 
@@ -380,7 +381,7 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[3])
 
 	/* Don't free sd; we may be about to free channel. */
 	sd->channel = NULL;
-	sd->errcb(channel, pps, &channel_id, desc, err_for_them);
+	sd->errcb(channel, pps, &channel_id, desc, soft_error, err_for_them);
 	return true;
 }
 
@@ -561,7 +562,7 @@ static void destroy_subd(struct subd *sd)
 			sd->errcb(channel, NULL, NULL,
 				  tal_fmt(sd, "Owning subdaemon %s died (%i)",
 					  sd->name, status),
-				  NULL);
+				  false, NULL);
 		if (!outer_transaction)
 			db_commit_transaction(db);
 	}
@@ -611,6 +612,7 @@ static struct subd *new_subd(struct lightningd *ld,
 					   struct per_peer_state *pps,
 					   const struct channel_id *channel_id,
 					   const char *desc,
+					   bool soft_error,
 					   const u8 *err_for_them),
 			     void (*billboardcb)(void *channel,
 						 bool perm,
@@ -701,6 +703,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					     struct per_peer_state *pps,
 					     const struct channel_id *channel_id,
 					     const char *desc,
+					     bool soft_error,
 					     const u8 *err_for_them),
 			       void (*billboardcb)(void *channel, bool perm,
 						   const char *happenings),
