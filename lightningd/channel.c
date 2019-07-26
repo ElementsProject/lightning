@@ -420,17 +420,12 @@ void channel_set_billboard(struct channel *channel, bool perm, const char *str)
 	}
 }
 
-void channel_fail_transient(struct channel *channel, const char *fmt, ...)
+static void err_and_reconnect(struct channel *channel,
+			      const char *why,
+			      u32 seconds_before_reconnect)
 {
-	va_list ap;
-	const char *why;
-
-	va_start(ap, fmt);
-	why = tal_vfmt(channel, fmt, ap);
-	va_end(ap);
 	log_info(channel->log, "Peer transient failure in %s: %s",
 		 channel_state_name(channel), why);
-	tal_free(why);
 
 #if DEVELOPER
 	if (dev_disconnect_permanent(channel->peer->ld)) {
@@ -441,7 +436,24 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 
 	channel_set_owner(channel, NULL);
 
-	/* Reconnect after 1 second: prevents some spurious reconnects
-	 * during tests. */
-	delay_then_reconnect(channel, 1, &channel->peer->addr);
+	delay_then_reconnect(channel, seconds_before_reconnect,
+			     &channel->peer->addr);
+}
+
+void channel_fail_reconnect_later(struct channel *channel, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	err_and_reconnect(channel, tal_vfmt(tmpctx, fmt, ap), 60);
+	va_end(ap);
+}
+
+void channel_fail_reconnect(struct channel *channel, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	err_and_reconnect(channel, tal_vfmt(tmpctx, fmt, ap), 1);
+	va_end(ap);
 }

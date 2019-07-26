@@ -396,7 +396,7 @@ void channel_errmsg(struct channel *channel,
 
 	/* No per_peer_state means a subd crash or disconnection. */
 	if (!pps) {
-		channel_fail_transient(channel, "%s: %s",
+		channel_fail_reconnect(channel, "%s: %s",
 				       channel->owner->name, desc);
 		return;
 	}
@@ -1022,10 +1022,10 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		} else if (!short_channel_id_eq(channel->scid, &scid)) {
 			/* This normally restarts channeld, initialized with updated scid
 			 * and also adds it (at least our halve_chan) to rtable. */
-			channel_fail_transient(channel,
-					        "short_channel_id changed to %s (was %s)",
-					        short_channel_id_to_str(tmpctx, &scid),
-					        short_channel_id_to_str(tmpctx, channel->scid));
+			channel_fail_reconnect(channel,
+					       "short_channel_id changed to %s (was %s)",
+					       short_channel_id_to_str(tmpctx, &scid),
+					       short_channel_id_to_str(tmpctx, channel->scid));
 
 			*channel->scid = scid;
 			wallet_channel_save(ld->wallet, channel);
@@ -1373,7 +1373,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 	channel = peer_active_channel(peer);
 	if (channel) {
 		if (*force) {
-			channel_fail_transient(channel,
+			channel_fail_reconnect(channel,
 					       "disconnect command force=true");
 			return command_success(cmd, json_stream_success(cmd));
 		}
