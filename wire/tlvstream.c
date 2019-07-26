@@ -143,6 +143,9 @@ void towire_tlvs(u8 **pptr,
 		 size_t num_types,
 		 const void *record)
 {
+	if (!record)
+		return;
+
 	for (size_t i = 0; i < num_types; i++) {
 		u8 *val;
 		if (i != 0)
