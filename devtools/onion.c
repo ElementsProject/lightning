@@ -40,7 +40,6 @@ static void do_generate(int argc, char **argv,
 
 	for (int i = 0; i < num_hops; i++) {
 		size_t klen = strcspn(argv[1 + i], "/");
-		assert(klen == 2 * PUBKEY_LEN || klen == 2 * PRIVKEY_LEN);
 		if (klen == 2 * PRIVKEY_LEN) {
 			if (!hex_decode(argv[1 + i], klen, rawprivkey, PRIVKEY_LEN))
 				errx(1, "Invalid private key hex '%s'",
