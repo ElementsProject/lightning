@@ -457,6 +457,9 @@ static const struct config testnet_config = {
 	/* We offer to pay 5 times 2-block fee */
 	.commitment_fee_percent = 500,
 
+	/* Testnet blockspace is free. */
+	.max_concurrent_htlcs = 483,
+
 	/* Be aggressive on testnet. */
 	.cltv_expiry_delta = 6,
 	.cltv_final = 10,
@@ -512,6 +515,9 @@ static const struct config mainnet_config = {
 
 	/* We offer to pay 5 times 2-block fee */
 	.commitment_fee_percent = 500,
+
+	/* While up to 483 htlcs are possible we do 30 by default (as eclair does) to save blockspace */
+	.max_concurrent_htlcs = 30,
 
 	/* BOLT #2:
 	 *
@@ -569,7 +575,15 @@ static void check_config(struct lightningd *ld)
 		fatal("Commitment fee invalid min-max %u-%u",
 		      ld->config.commitment_fee_min_percent,
 		      ld->config.commitment_fee_max_percent);
-
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *   - `max_accepted_htlcs` is greater than 483.
+	 */
+	if (ld->config.max_concurrent_htlcs < 1 || ld->config.max_concurrent_htlcs > 483)
+		fatal("--max-concurrent-htlcs value must be between 1 and 483 it is: %u",
+		      ld->config.max_concurrent_htlcs);
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
 
@@ -928,6 +942,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-per-satoshi", opt_set_u32, opt_show_u32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
+	opt_register_arg("--max-concurrent-htlcs", opt_set_u32, opt_show_u32,
+			 &ld->config.max_concurrent_htlcs,
+			 "Number of HTLCs one channel can handle concurrently. Should be between 1 and 483");
 	opt_register_arg("--min-capacity-sat", opt_set_u64, opt_show_u64,
 			 &ld->config.min_capacity_sat,
 			 "Minimum capacity in satoshis for accepting channels");

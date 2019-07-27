@@ -835,13 +835,7 @@ static void channel_config(struct lightningd *ld,
 	 */
 	 ours->to_self_delay = ld->config.locktime_blocks;
 
-	 /* BOLT #2:
-	  *
-	  * The receiving node MUST fail the channel if:
-	  *...
-	  *   - `max_accepted_htlcs` is greater than 483.
-	  */
-	 ours->max_accepted_htlcs = 483;
+	 ours->max_accepted_htlcs = ld->config.max_concurrent_htlcs;
 
 	 /* This is filled in by lightning_openingd, for consistency. */
 	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
