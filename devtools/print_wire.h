@@ -10,6 +10,13 @@ struct tlv_print_record_type {
 	void (*print)(const char *tlv_name, const u8 **cursor, size_t *plen);
 };
 
+typedef u64 bigsize;
+#define printwire_bigsize printwire_u64
+
+/* FIXME: Some versions of spec using 'varint' for bigsize' */
+typedef bigsize varint;
+#define printwire_varint printwire_bigsize
+
 void printwire_u8(const char *fieldname, const u8 *v);
 void printwire_u16(const char *fieldname, const u16 *v);
 void printwire_u32(const char *fieldname, const u32 *v);
