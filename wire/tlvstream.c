@@ -24,7 +24,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		   size_t num_types,
 		   void *record)
 {
-	u64 prev_type;
+	u64 prev_type = 0;
 	bool first = true;
 
 	/* BOLT-EXPERIMENTAL #1:

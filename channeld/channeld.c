@@ -169,7 +169,9 @@ static void start_commit_timer(struct peer *peer);
 
 static void billboard_update(const struct peer *peer)
 {
-	const char *funding_status, *announce_status, *shutdown_status;
+	const char *funding_status = "(undefined)";
+	const char *announce_status = "(undefined)";
+	const char *shutdown_status = "(undefined)";
 
 	if (peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
 		funding_status = "Funding transaction locked.";
