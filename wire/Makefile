@@ -71,13 +71,13 @@ wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS)
 	$(BOLT_GEN) -s --page header $@ wire_type < $< > $@
 
 wire/gen_peer_wire.c: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS)
-	$(BOLT_GEN) --page impl ${@:.c=.h} wire_type < $< > $@
+	$(BOLT_GEN) -s --page impl ${@:.c=.h} wire_type < $< > $@
 
 wire/gen_onion_wire.h: wire/gen_onion_wire_csv $(WIRE_BOLT_DEPS)
 	$(BOLT_GEN) -s --page header $@ onion_type < $< > $@
 
 wire/gen_onion_wire.c: wire/gen_onion_wire_csv $(WIRE_BOLT_DEPS)
-	$(BOLT_GEN) --page impl ${@:.c=.h} onion_type < $< > $@
+	$(BOLT_GEN) -s --page impl ${@:.c=.h} onion_type < $< > $@
 
 check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS_NOGEN:%=check-hdr-include-order/%)
 

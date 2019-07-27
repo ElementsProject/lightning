@@ -91,7 +91,10 @@ ${truncate_check(nested)} \
 ## Definitions for 'subtypes'
 % for subtype in subtypes:
 
-static void printwire_${subtype.name}(const char *fieldname, const u8 **cursor, size_t *plen)
+<%
+    static = '' if options.expose_subtypes else 'static '
+%>\
+${static}void printwire_${subtype.name}(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	${print_fieldset(subtype.fields.values(), True, 'cursor', 'plen')}
 }
