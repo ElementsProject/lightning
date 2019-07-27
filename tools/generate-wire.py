@@ -160,6 +160,8 @@ class Type(FieldSet):
         'bool',
         'amount_sat',
         'amount_msat',
+        'bigsize',
+        'varint'
     ]
 
     typedefs = [
@@ -172,6 +174,8 @@ class Type(FieldSet):
         'secp256k1_ecdsa_recoverable_signature',
         'wirestring',
         'double',
+        'bigsize',
+        'varint',
     ]
 
     truncated_typedefs = [

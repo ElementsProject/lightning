@@ -31,6 +31,12 @@ struct siphash_seed;
 
 /* Makes generate-wire.py work */
 typedef char wirestring;
+typedef u64 bigsize;
+
+/* FIXME: Some versions of spec using 'varint' for bigsize' */
+typedef bigsize varint;
+#define fromwire_varint fromwire_bigsize
+#define towire_varint towire_bigsize
 
 void derive_channel_id(struct channel_id *channel_id,
 		       const struct bitcoin_txid *txid, u16 txout);
