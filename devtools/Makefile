@@ -27,16 +27,16 @@ DEVTOOLS_COMMON_OBJS :=				\
 devtools-all: $(DEVTOOLS)
 
 devtools/gen_print_wire.h: $(DEVTOOL_BOLT_DEPS) wire/gen_peer_wire_csv
-	$(BOLT_GEN) -P --page header $@ wire_type < wire/gen_peer_wire_csv > $@
+	$(BOLT_GEN) -P -s --page header $@ wire_type < wire/gen_peer_wire_csv > $@
 
 devtools/gen_print_wire.c: $(DEVTOOL_BOLT_DEPS) wire/gen_peer_wire_csv
-	$(BOLT_GEN) -P --page impl ${@:.c=.h} wire_type < wire/gen_peer_wire_csv > $@
+	$(BOLT_GEN) -P -s --page impl ${@:.c=.h} wire_type < wire/gen_peer_wire_csv > $@
 
 devtools/gen_print_onion_wire.h: $(DEVTOOL_BOLT_DEPS) wire/gen_onion_wire_csv
-	$(BOLT_GEN) -P --page header $@ onion_type < wire/gen_onion_wire_csv > $@
+	$(BOLT_GEN) -P -s --page header $@ onion_type < wire/gen_onion_wire_csv > $@
 
 devtools/gen_print_onion_wire.c: $(DEVTOOL_BOLT_DEPS) wire/gen_onion_wire_csv
-	$(BOLT_GEN) -P --page impl ${@:.c=.h} onion_type < wire/gen_onion_wire_csv > $@
+	$(BOLT_GEN) -P -s --page impl ${@:.c=.h} onion_type < wire/gen_onion_wire_csv > $@
 
 devtools/bolt11-cli: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o devtools/bolt11-cli.o
 
