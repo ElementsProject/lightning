@@ -23,6 +23,8 @@ struct chainparams {
 	const int rpc_port;
 	const char *cli;
 	const char *cli_args;
+	/* The min numeric version of cli supported */
+	const u64 cli_min_supported_version;
 	const struct amount_sat dust_limit;
 	const struct amount_sat max_funding;
 	const struct amount_msat max_payment;
