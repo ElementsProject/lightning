@@ -42,6 +42,9 @@ struct config {
 	u32 fee_base;
 	u32 fee_per_satoshi;
 
+	/* htlcs per channel */
+	u32 max_concurrent_htlcs;
+
 	/* How long between changing commit and sending COMMIT message. */
 	u32 commit_time_ms;
 
