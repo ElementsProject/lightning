@@ -399,6 +399,11 @@ struct command_result *param_bool(struct command *cmd UNNEEDED, const char *name
 				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				  bool **b UNNEEDED)
 { fprintf(stderr, "param_bool called!\n"); abort(); }
+/* Generated stub for param_timestamp */
+struct command_result *param_timestamp(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				  struct timeabs **t UNNEEDED)
+{ fprintf(stderr, "param_timestamp called!\n"); abort(); }
 /* Generated stub for param_loglevel */
 struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const char *name UNNEEDED,

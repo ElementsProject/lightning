@@ -2728,24 +2728,36 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	return total;
 }
 
+#define FORWARDED_PAYMENTS_STMT_BASE \
+			  "  f.state" \
+			  ", in_msatoshi" \
+			  ", out_msatoshi" \
+			  ", hin.payment_hash as payment_hash" \
+			  ", in_channel_scid" \
+			  ", out_channel_scid" \
+			  ", f.received_time" \
+			  ", f.resolved_time" \
+			  ", f.failcode " \
+			  "FROM forwarded_payments f " \
+			  "LEFT JOIN channel_htlcs hin ON (f.in_htlc_id == hin.id)"
+
 const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
-						       const tal_t *ctx)
+						       const tal_t *ctx,
+						       struct timeabs *start_time,
+						       struct timeabs *end_time)
 {
 	struct forwarding *results = tal_arr(ctx, struct forwarding, 0);
 	size_t count = 0;
 	sqlite3_stmt *stmt;
-	stmt = db_select_prepare(w->db,
-			  "  f.state"
-			  ", in_msatoshi"
-			  ", out_msatoshi"
-			  ", hin.payment_hash as payment_hash"
-			  ", in_channel_scid"
-			  ", out_channel_scid"
-			  ", f.received_time"
-			  ", f.resolved_time"
-			  ", f.failcode "
-			  "FROM forwarded_payments f "
-			  "LEFT JOIN channel_htlcs hin ON (f.in_htlc_id == hin.id)");
+	if (start_time == NULL && end_time == NULL) {
+		stmt = db_select_prepare(w->db, FORWARDED_PAYMENTS_STMT_BASE);
+	} else {
+		stmt = db_select_prepare(w->db,
+			  FORWARDED_PAYMENTS_STMT_BASE
+			  " WHERE f.received_time >= ? AND f.received_time <= ?");
+		sqlite3_bind_timeabs(stmt, 1, *start_time);
+		sqlite3_bind_timeabs(stmt, 2, (end_time != NULL ? *end_time : time_now()));
+	}
 
 	for (count=0; db_select_step(w->db, stmt); count++) {
 		tal_resize(&results, count+1);

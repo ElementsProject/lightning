@@ -187,3 +187,16 @@ struct command_result *param_sat(struct command *cmd, const char *name,
 			    name, tok->end - tok->start, buffer + tok->start);
 }
 
+struct command_result *param_timestamp(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 struct timeabs **t)
+{
+	*t = tal(cmd, struct timeabs);
+	if (json_to_timeabs(buffer, tok, *t))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				"'%s' should be an UNIX timestamp, not '%.*s'",
+				name, tok->end - tok->start, buffer + tok->start);
+}
+

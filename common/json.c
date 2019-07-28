@@ -128,6 +128,17 @@ bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b)
 	return false;
 }
 
+bool json_to_timeabs(const char *buffer, const jsmntok_t *tok, struct timeabs *t)
+{
+	uint64_t u64;
+
+	if (!json_to_u64(buffer, tok, &u64))
+		return false;
+	*t = timeval_to_timeabs(timerel_to_timeval(time_from_sec(u64)));
+
+	return true;
+}
+
 u8 *json_tok_bin_from_hex(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
 	u8 *result;

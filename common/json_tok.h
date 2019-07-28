@@ -3,6 +3,7 @@
 #define LIGHTNING_COMMON_JSON_TOK_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/time/time.h>
 #include <common/json.h>
 
 struct amount_msat;
@@ -73,6 +74,11 @@ struct command_result *param_msat(struct command *cmd, const char *name,
 struct command_result *param_sat(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 struct amount_sat **sat);
+
+/* Extract UNIX timestamp from this string */
+struct command_result *param_timestamp(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 struct timeabs **t);
 
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that

@@ -1115,7 +1115,9 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w);
  * Retrieve a list of all forwarded_payments
  */
 const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
-						       const tal_t *ctx);
+						       const tal_t *ctx,
+						       struct timeabs* start_time,
+						       struct timeabs* end_time);
 
 /**
  * Load remote_ann_node_sig and remote_ann_bitcoin_sig

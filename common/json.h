@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <ccan/tal/tal.h>
+#include <ccan/time/time.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -44,6 +45,9 @@ bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num);
 
 /* Extract boolean from this */
 bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b);
+
+/* Extract timestamp from this */
+bool json_to_timeabs(const char *buffer, const jsmntok_t *tok, struct timeabs *t);
 
 /* Is this a number? [0..9]+ */
 bool json_tok_is_num(const char *buffer, const jsmntok_t *tok);

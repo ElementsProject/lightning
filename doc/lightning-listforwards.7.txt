@@ -8,11 +8,15 @@ lightning-listforwards - Command showing all htlcs and their information.
 
 SYNOPSIS
 --------
-*listforwards* 
+*listforwards* ['start_time'] ['end_time']
 
 DESCRIPTION
 -----------
 The *listforwards* RPC command displays all htlcs that have been attempted to be forwarded by the c-lightning node.
+
+Optional 'start_time' (defaults to 0) and 'end_time' (defaults to now)
+parameters can be used to return only htlcs with 'received_time' between
+'start_time' and 'end_time', format is UNIX timestamp.
 
 RETURN VALUE
 ------------

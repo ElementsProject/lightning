@@ -2107,10 +2107,14 @@ static const struct json_command dev_ignore_htlcs = {
 AUTODATA(json_command, &dev_ignore_htlcs);
 #endif /* DEVELOPER */
 
-static void listforwardings_add_forwardings(struct json_stream *response, struct wallet *wallet)
+static void listforwardings_add_forwardings(struct json_stream *response,
+				struct wallet *wallet,
+				struct timeabs *start_time,
+				struct timeabs *end_time)
 {
 	const struct forwarding *forwardings;
-	forwardings = wallet_forwarded_payments_get(wallet, tmpctx);
+	forwardings = wallet_forwarded_payments_get(wallet, tmpctx,
+						start_time, end_time);
 
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {
@@ -2161,13 +2165,19 @@ static struct command_result *json_listforwards(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
+	struct timeabs *start_time;
+	struct timeabs *end_time;
 	struct json_stream *response;
 
-	if (!param(cmd, buffer, params, NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt("start_time", param_timestamp, &start_time),
+		   p_opt("end_time", param_timestamp, &end_time),
+		   NULL))
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-	listforwardings_add_forwardings(response, cmd->ld->wallet);
+	listforwardings_add_forwardings(response, cmd->ld->wallet,
+					start_time, end_time);
 
 	return command_success(cmd, response);
 }

@@ -2,12 +2,12 @@
 .\"     Title: lightning-listforwards
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 07/15/2019
+.\"      Date: 07/27/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-LISTFORWA" "7" "07/15/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-LISTFORWA" "7" "07/27/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,10 +31,12 @@
 lightning-listforwards \- Command showing all htlcs and their information\&.
 .SH "SYNOPSIS"
 .sp
-\fBlistforwards\fR
+\fBlistforwards\fR [\fIstart_time\fR] [\fIend_time\fR]
 .SH "DESCRIPTION"
 .sp
 The \fBlistforwards\fR RPC command displays all htlcs that have been attempted to be forwarded by the c\-lightning node\&.
+.sp
+Optional \fIstart_time\fR (defaults to 0) and \fIend_time\fR (defaults to now) parameters can be used to return only htlcs with \fIreceived_time\fR between \fIstart_time\fR and \fIend_time\fR, format is UNIX timestamp\&.
 .SH "RETURN VALUE"
 .sp
 On success one array will be returned: \fIforwards\fR with htlcs that have been processed
