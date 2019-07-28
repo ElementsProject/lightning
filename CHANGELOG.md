@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rpc: a new rpc command is added, `plugin`. It allows one to manage plugins without restarting `lightningd`.
 - plugins: a new boolean field is added to the `init`'s `configuration`, `startup`. It allows a plugin to know if it has been started on `lightningd` startup.
 - plugins: a new boolean field can be added to a plugin manifest, `dynamic`. It allows a plugin to tell if it can be started or stopped "on-the-fly".
+- lightningd: check bitcoind version when setup topology and confirm the version not older than v0.15.0.
 
 ### Deprecated
 
