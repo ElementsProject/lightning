@@ -46,10 +46,14 @@ void print${options.enum_name}_message(const u8 *msg)
 	printwire_tlvs(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen}, print_tlvs_${f.type_obj.tlv.name}, ARRAY_SIZE(print_tlvs_${f.type_obj.tlv.name}));
     % elif f.is_array() or f.is_varlen():
 	% if f.type_obj.has_array_helper():
-	printwire_${f.type_obj.name}_array(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen}, ${f.size()});
+	printwire_${f.type_obj.name}_array(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen}, ${f.size('*' + plen)});
 	% else:
 	printf("[");
+            % if f.is_implicit_len():
+	for (size_t i = 0; i < *${plen}; i++) {
+	    % else:
 	for (size_t i = 0; i < ${f.size()}; i++) {
+	    % endif
 	    % if f.type_obj.is_subtype():
 		printf("{\n");
 		printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen});
