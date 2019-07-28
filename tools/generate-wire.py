@@ -45,6 +45,7 @@ class Field(object):
         self.count = 1
         self.len_field_of = None
         self.len_field = None
+        self.implicit_len = False
 
         self.extension_names = extensions
         self.is_optional = optional
@@ -69,19 +70,30 @@ class Field(object):
         # the len-field caches our name
         len_field.len_field_of = self.name
 
+    def add_implicit_len(self):
+        self.count = False
+        self.implicit_len = True
+
     def is_array(self):
         return self.count > 1
 
     def is_varlen(self):
         return not self.count
 
+    def is_implicit_len(self):
+        return self.implicit_len
+
     def is_extension(self):
         return bool(self.extension_names)
 
-    def size(self):
+    def size(self, implicit_expression=None):
         if self.count:
             return self.count
-        return self.len_field
+        if self.len_field:
+            return self.len_field
+        assert self.is_implicit_len()
+        assert implicit_expression
+        return implicit_expression
 
     def needs_context(self):
         """ A field needs a context if it's varsized """
@@ -122,17 +134,27 @@ class FieldSet(object):
         self.len_fields = {}
 
     def add_data_field(self, field_name, type_obj, count=1,
-                       extensions=[], comments=[], optional=False):
+                       extensions=[], comments=[], optional=False,
+                       implicit_len_ok=False):
         field = Field(field_name, type_obj, extensions=extensions,
                       field_comments=comments, optional=optional)
         if bool(count):
             try:
                 field.add_count(int(count))
             except ValueError:
-                len_field = self.find_data_field(count)
-                field.add_len_field(len_field)
-                self.len_fields[len_field.name] = len_field
+                if count in self.fields:
+                    len_field = self.find_data_field(count)
+                    field.add_len_field(len_field)
+                    self.len_fields[len_field.name] = len_field
+                else:
+                    # '...' means "rest of TLV"
+                    assert implicit_len_ok
+                    assert count == '...'
+                    field.add_implicit_len()
 
+        # You can't have any fields after an implicit-length field.
+        if len(self.fields) != 0:
+            assert not self.fields[next(reversed(self.fields))].is_implicit_len()
         self.fields[field_name] = field
 
     def find_data_field(self, field_name):
@@ -537,7 +559,7 @@ def main(options, args=None, output=sys.stdout, lines=None):
                     count = tokens[5]
 
                 msg.add_data_field(tokens[3], type_obj, count, comments=list(comment_set),
-                                   optional=optional)
+                                   optional=optional, implicit_len_ok=True)
                 comment_set = []
             elif token_type == 'msgtype':
                 master.add_message(tokens[1:], comments=list(comment_set))
