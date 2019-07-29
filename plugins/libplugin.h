@@ -16,6 +16,11 @@ struct plugin_conn;
 
 extern bool deprecated_apis;
 
+enum plugin_restartability {
+	PLUGIN_STATIC,
+	PLUGIN_RESTARTABLE
+};
+
 /* Create an array of these, one for each command you support. */
 struct plugin_command {
 	const char *name;
@@ -148,6 +153,7 @@ char *charp_option(const char *arg, char **p);
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					void (*init)(struct plugin_conn *rpc),
+					const enum plugin_restartability restartability,
 					const struct plugin_command *commands,
 					size_t num_commands, ...);
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_H */

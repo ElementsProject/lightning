@@ -90,7 +90,7 @@ static const struct plugin_command commands[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, commands, ARRAY_SIZE(commands),
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
 		    plugin_option("autocleaninvoice-cycle",
 				  "string",
 				  "Perform cleanup of expired invoices every"
