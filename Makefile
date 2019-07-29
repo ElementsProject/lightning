@@ -367,7 +367,7 @@ coverage: coverage/coverage.info
 # We make libwallycore.la a dependency, so that it gets built normally, without ncc.
 # Ncc can't handle the libwally source code (yet).
 ncc: external/libwally-core/src/libwallycore.la
-	make CC="ncc -ncgcc -ncld -ncfabs" AR=nccar LD=nccld
+	$(MAKE) CC="ncc -ncgcc -ncld -ncfabs" AR=nccar LD=nccld
 
 # Ignore test/ directories.
 TAGS: FORCE
