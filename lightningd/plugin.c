@@ -66,7 +66,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	list_add_tail(&plugins->plugins, &p->list);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
-	p->configured = false;
+	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
 	p->subscriptions = NULL;
@@ -930,7 +930,7 @@ void plugins_start(struct plugins *plugins, const char *dev_plugin_debug)
 	struct jsonrpc_request *req;
 
 	list_for_each(&plugins->plugins, p, list) {
-		if (p->configured)
+		if (p->plugin_state != UNCONFIGURED)
 			continue;
 
 		bool debug;
@@ -996,7 +996,7 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	plugin->configured = true;
+	plugin->plugin_state = CONFIGURED;
 }
 
 /* FIXME(cdecker) This just builds a string for the request because
@@ -1037,8 +1037,10 @@ void plugins_config(struct plugins *plugins)
 {
 	struct plugin *p;
 	list_for_each(&plugins->plugins, p, list) {
-		if (!p->configured)
+		if (p->plugin_state == UNCONFIGURED) {
+			p->plugin_state = CONFIGURING;
 			plugin_config(p);
+		}
 	}
 }
 
