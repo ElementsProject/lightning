@@ -6,7 +6,7 @@ plugin = Plugin()
 
 
 @plugin.hook("htlc_accepted")
-def on_htlc_accepted(onion, htlc, plugin):
+def on_htlc_accepted(onion, htlc, plugin, **kwargs):
     return {"result": "resolve", "payment_key": "00" * 32}
 
 

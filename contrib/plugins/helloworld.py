@@ -25,12 +25,12 @@ def init(options, configuration, plugin):
 
 
 @plugin.subscribe("connect")
-def on_connect(plugin, id, address):
+def on_connect(plugin, id, address, **kwargs):
     plugin.log("Received connect event for peer {}".format(id))
 
 
 @plugin.subscribe("disconnect")
-def on_disconnect(plugin, id):
+def on_disconnect(plugin, id, **kwargs):
     plugin.log("Received disconnect event for peer {}".format(id))
 
 
@@ -43,7 +43,7 @@ def on_payment(plugin, invoice_payment):
 
 
 @plugin.hook("htlc_accepted")
-def on_htlc_accepted(onion, htlc, plugin):
+def on_htlc_accepted(onion, htlc, plugin, **kwargs):
     plugin.log('on_htlc_accepted called')
     time.sleep(20)
     return {'result': 'continue'}

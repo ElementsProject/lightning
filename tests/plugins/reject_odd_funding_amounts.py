@@ -10,7 +10,7 @@ plugin = Plugin()
 
 
 @plugin.hook('openchannel')
-def on_openchannel(openchannel, plugin):
+def on_openchannel(openchannel, plugin, **kwargs):
     print("{} VARS".format(len(openchannel.keys())))
     for k in sorted(openchannel.keys()):
         print("{}={}".format(k, openchannel[k]))

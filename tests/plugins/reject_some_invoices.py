@@ -10,7 +10,7 @@ plugin = Plugin()
 
 
 @plugin.hook('invoice_payment')
-def on_payment(payment, plugin):
+def on_payment(payment, plugin, **kwargs):
     print("label={}".format(payment['label']))
     print("msat={}".format(payment['msat']))
     print("preimage={}".format(payment['preimage']))

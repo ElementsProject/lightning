@@ -24,7 +24,7 @@ def init(configuration, options, plugin):
 
 
 @plugin.hook('db_write')
-def db_write(plugin, writes):
+def db_write(plugin, writes, **kwargs):
     if not plugin.initted:
         plugin.log("deferring {} commands".format(len(writes)))
         plugin.sqlite_pre_init_cmds += writes

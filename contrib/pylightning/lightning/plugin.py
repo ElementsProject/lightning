@@ -183,6 +183,19 @@ class Plugin(object):
             raise ValueError(
                 "Topic {} already has a handler".format(topic)
             )
+
+        # Make sure the hook callback has a **kwargs argument so that it
+        # doesn't break if we add more arguments to the call later on. Issue a
+        # warning if it does not.
+        s = inspect.signature(func)
+        kinds = [p.kind for p in s.parameters.values()]
+        if inspect.Parameter.VAR_KEYWORD not in kinds:
+            self.log(
+                "Notification handler {} for hook {} does not have a variable "
+                "keyword argument. It is strongly suggested to add `**kwargs` "
+                "as last parameter to hook and notification handlers.".format(
+                    func.__name__, topic), level="warn")
+
         self.subscriptions[topic] = func
 
     def subscribe(self, topic):
@@ -251,6 +264,19 @@ class Plugin(object):
             raise ValueError(
                 "Method {} was already registered".format(name, self.methods[name])
             )
+
+        # Make sure the hook callback has a **kwargs argument so that it
+        # doesn't break if we add more arguments to the call later on. Issue a
+        # warning if it does not.
+        s = inspect.signature(func)
+        kinds = [p.kind for p in s.parameters.values()]
+        if inspect.Parameter.VAR_KEYWORD not in kinds:
+            self.log(
+                "Hook handler {} for hook {} does not have a variable keyword "
+                "argument. It is strongly suggested to add `**kwargs` as last "
+                "parameter to hook and notification handlers.".format(
+                    func.__name__, name), level="warn")
+
         method = Method(name, func, MethodType.HOOK)
         method.background = background
         self.methods[name] = method
