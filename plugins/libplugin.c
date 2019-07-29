@@ -513,21 +513,24 @@ static struct command_result *handle_init(struct command *init_cmd,
 					  const char *buf,
 					  const jsmntok_t *params,
 					  const struct plugin_option *opts,
-					  void (*init)(struct plugin_conn *))
+					  void (*init)(struct plugin_conn *,
+						       const char *buf, const jsmntok_t *))
 {
-	const jsmntok_t *rpctok, *dirtok, *opttok, *t;
+	const jsmntok_t *configtok, *rpctok, *dirtok, *opttok, *t;
 	struct sockaddr_un addr;
 	size_t i;
 	char *dir;
 	struct json_out *param_obj;
 
+	configtok = json_delve(buf, params, ".configuration");
+
 	/* Move into lightning directory: other files are relative */
-	dirtok = json_delve(buf, params, ".configuration.lightning-dir");
+	dirtok = json_delve(buf, configtok, ".lightning-dir");
 	dir = json_strdup(tmpctx, buf, dirtok);
 	if (chdir(dir) != 0)
 		plugin_err("chdir to %s: %s", dir, strerror(errno));
 
-	rpctok = json_delve(buf, params, ".configuration.rpc-file");
+	rpctok = json_delve(buf, configtok, ".rpc-file");
 	rpc_conn.fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (rpctok->end - rpctok->start + 1 > sizeof(addr.sun_path))
 		plugin_err("rpc filename '%.*s' too long",
@@ -547,7 +550,7 @@ static struct command_result *handle_init(struct command *init_cmd,
 					  take(param_obj),
 					  &rpc_conn,
 					  ".allow-deprecated-apis"),
-				"true");
+				  "true");
 	opttok = json_get_member(buf, params, "options");
 	json_for_each_obj(i, t, opttok) {
 		char *opt = json_strdup(NULL, buf, t);
@@ -566,7 +569,7 @@ static struct command_result *handle_init(struct command *init_cmd,
 	}
 
 	if (init)
-		init(&rpc_conn);
+		init(&rpc_conn, buf, configtok);
 
 	return command_success_str(init_cmd, NULL);
 }
@@ -700,7 +703,8 @@ void plugin_log(enum log_level l, const char *fmt, ...)
 }
 
 void plugin_main(char *argv[],
-		 void (*init)(struct plugin_conn *rpc),
+		 void (*init)(struct plugin_conn *rpc,
+						     const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
 		 const struct plugin_command *commands,
 		 size_t num_commands, ...)
