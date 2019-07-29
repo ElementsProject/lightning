@@ -135,7 +135,7 @@ OS version: FreeBSD 11.1-RELEASE or above
 Get dependencies:
 
     # pkg install -y \
-      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3 libsodium
+      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3 libsodium py36-mako bash
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:

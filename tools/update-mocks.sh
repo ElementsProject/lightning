@@ -18,7 +18,7 @@ if [ -n "$START" ]; then
     head -n "$START" "${BASE}.old" > "$FILE"
     tail -n +"$END" "${BASE}.old" >> "$FILE"
     # Try to make binary.
-    if ! make "${FILE/%.c/}" 2> "${BASE}.err" >/dev/null; then
+    if ! $MAKE "${FILE/%.c/}" 2> "${BASE}.err" >/dev/null; then
 	tools/mockup.sh < "${BASE}.err" >> "${BASE}.stubs"
 	# If there are no link errors, maybe compile fail for other reason?
 	if ! grep -F -q 'Generated stub for' "${BASE}.stubs"; then

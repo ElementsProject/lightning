@@ -31,7 +31,7 @@ tools/test/gen_test.h:
 
 tools/test/gen_test.c:
 	$(BOLT_GEN) --page impl ${@:.c=.h} test_type < tools/test/test_cases > $@
-	@tools/update-mocks.sh "$@"
+	@MAKE=$(MAKE) tools/update-mocks.sh "$@"
 
 tools/test/gen_print.h: wire/gen_onion_wire.h
 	$(BOLT_GEN) -P --page header $@ test_type < tools/test/test_cases > $@

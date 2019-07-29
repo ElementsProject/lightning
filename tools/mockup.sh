@@ -20,7 +20,8 @@ for SYMBOL; do
     # has notleak_ as a declaration, and then an inline).
     WHERE=$(grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" ./*/*.h | head -n1)
     if [ x"$WHERE" != x ]; then
-	STUB='\n{ fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }'
+	STUB='\
+{ fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }'
     else
 	echo "/* Could not find declaration for $SYMBOL */"
 	continue
