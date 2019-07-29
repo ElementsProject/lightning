@@ -69,6 +69,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->configured = false;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
+	p->subscriptions = NULL;
 	p->signal_startup = false;
 
 	p->log = new_log(p, plugins->log_book, "plugin-%s",
