@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/04/2019
+.\"      Date: 08/09/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "08/04/2019" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "08/09/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -255,6 +255,11 @@ Limits on what onchain fee range we\(cqll allow when a node opens a channel with
 \fIestimatesmartfee 2\fR\&. If they\(cqre outside this range, we abort their opening attempt\&. Note that
 \fBcommit\-fee\-max\fR
 can (should!) be greater than 100\&.
+.RE
+.PP
+\fBmax\-concurrent\-htlcs\fR=\fIINTEGER\fR
+.RS 4
+Number of HTLCs one channel can handle concurrently in each direction\&. Should be between 1 and 483 (default 30)\&.
 .RE
 .PP
 \fBcltv\-delta\fR=\fIBLOCKS\fR
