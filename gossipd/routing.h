@@ -487,5 +487,23 @@ char *generate_route_hops(const tal_t *ctx,
 			  struct amount_msat final_msat,
 			  u32 final_cltv);
 
+/* Determine if the given half_chan is routable */
+static inline bool
+hc_is_routable(struct routing_state *rstate,
+	       const struct chan *chan, int idx)
+{
+	return is_halfchan_enabled(&chan->half[idx])
+		&& !is_chan_local_disabled(rstate, chan);
+}
+/* Check that we can fit through this channel's indicated
+ * maximum_ and minimum_msat requirements.
+ */
+static inline bool
+hc_can_carry(const struct half_chan *hc,
+	     struct amount_msat requiredcap)
+{
+	return amount_msat_greater_eq(hc->htlc_maximum, requiredcap) &&
+		amount_msat_less_eq(hc->htlc_minimum, requiredcap);
+}
 
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
