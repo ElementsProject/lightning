@@ -1271,7 +1271,8 @@ static struct command_result *json_listpays(struct command *cmd,
 			   take(json_out_obj(NULL, "bolt11", b11str)));
 }
 
-static void init(struct plugin_conn *rpc)
+static void init(struct plugin_conn *rpc,
+		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	const char *field;
 

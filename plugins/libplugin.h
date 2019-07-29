@@ -152,7 +152,8 @@ char *charp_option(const char *arg, char **p);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
-					void (*init)(struct plugin_conn *rpc),
+					void (*init)(struct plugin_conn *rpc,
+						     const char *buf, const jsmntok_t *),
 					const enum plugin_restartability restartability,
 					const struct plugin_command *commands,
 					size_t num_commands, ...);
