@@ -328,7 +328,9 @@ Lightning Plugins
 lightningd(8) supports plugins, which offer additional configuration
 options and JSON-RPC methods, depending on the plugin.  Some are
 supplied by default (usually located in
-*libexec/c-lightning/plugins/*), but you can add your own, too.
+*libexec/c-lightning/plugins/*).  If a *plugins* directory exists
+under 'lightning-dir' that is searched for plugins along with
+any immediate subdirectories).  You can specify additional paths too:
 
 *plugin*='PATH'::
     Specify a plugin to run as part of c-lightning. This can be specified

@@ -909,6 +909,9 @@ void plugins_add_default_dir(struct plugins *plugins, const char *default_dir)
 	DIR *d = opendir(default_dir);
 	if (d) {
 		struct dirent *di;
+
+		/* Add this directory itself, and recurse down once. */
+		add_plugin_dir(plugins, default_dir, true);
 		while ((di = readdir(d)) != NULL) {
 			if (streq(di->d_name, ".") || streq(di->d_name, ".."))
 				continue;
