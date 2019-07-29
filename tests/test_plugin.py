@@ -90,6 +90,20 @@ def test_plugin_dir(node_factory):
     node_factory.get_node(options={'plugin-dir': plugin_dir, 'greeting': 'Mars'})
 
 
+@pytest.mark.xfail(strict=True)
+def test_plugin_slowinit(node_factory):
+    """Tests the 'plugin' RPC command when init is slow"""
+    n = node_factory.get_node()
+
+    n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
+    n.daemon.wait_for_log("slow_init.py initializing")
+
+    # It's not actually configured yet, see what happens;
+    # make sure 'rescan' and 'list' controls dont crash
+    n.rpc.plugin_rescan()
+    n.rpc.plugin_list()
+
+
 def test_plugin_command(node_factory):
     """Tests the 'plugin' RPC command"""
     n = node_factory.get_node()
