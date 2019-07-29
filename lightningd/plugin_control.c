@@ -107,7 +107,8 @@ static struct command_result *json_plugin_control(struct command *cmd,
 	list_for_each(&cmd->ld->plugins->plugins, p, list) {
 		json_object_start(response, NULL);
 		json_add_string(response, "name", p->cmd);
-		json_add_bool(response, "active", p->configured);
+		json_add_bool(response, "active",
+			      p->plugin_state == CONFIGURED);
 		json_object_end(response);
 	}
 	json_array_end(response);

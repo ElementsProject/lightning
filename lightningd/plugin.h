@@ -8,6 +8,12 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 
+enum plugin_state {
+	UNCONFIGURED,
+	CONFIGURING,
+	CONFIGURED
+};
+
 /**
  * A plugin, exposed as a stub so we can pass it as an argument.
  */
@@ -20,7 +26,9 @@ struct plugin {
 	bool stop;
 	struct plugins *plugins;
 	const char **plugin_path;
-	bool configured;
+
+	enum plugin_state plugin_state;
+
 	/* If this plugin can be restarted without restarting lightningd */
 	bool dynamic;
 	bool signal_startup;
