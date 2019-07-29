@@ -504,8 +504,7 @@ class Plugin(object):
     def _init(self, options, configuration, request):
         self.rpc_filename = configuration['rpc-file']
         self.lightning_dir = configuration['lightning-dir']
-        path = os.path.join(self.lightning_dir, self.rpc_filename)
-        self.rpc = LightningRpc(path)
+        self.rpc = LightningRpc(os.path.abspath(self.rpc_filename))
         self.startup = configuration['startup']
         for name, value in options.items():
             self.options[name]['value'] = value
