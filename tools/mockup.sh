@@ -20,6 +20,8 @@ for SYMBOL; do
     # has notleak_ as a declaration, and then an inline).
     WHERE=$(grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" ./*/*.h | head -n1)
     if [ x"$WHERE" != x ]; then
+	# \n on RHS is a GNU extension, and we want to work on FreeBSD
+	# shellcheck disable=SC1004
 	STUB='\
 { fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }'
     else
