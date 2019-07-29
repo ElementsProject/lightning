@@ -473,7 +473,8 @@ static struct command_result *
 handle_getmanifest(struct command *getmanifest_cmd,
 		   const struct plugin_command *commands,
 		   size_t num_commands,
-		   const struct plugin_option *opts)
+		   const struct plugin_option *opts,
+		   const enum plugin_restartability restartability)
 {
 	struct json_out *params = json_out_new(tmpctx);
 
@@ -501,6 +502,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_out_end(params, '}');
 	}
 	json_out_end(params, ']');
+	json_out_addstr(params, "dynamic", restartability == PLUGIN_RESTARTABLE ? "true" : "false");
 	json_out_end(params, '}');
 	json_out_finished(params);
 
@@ -699,6 +701,7 @@ void plugin_log(enum log_level l, const char *fmt, ...)
 
 void plugin_main(char *argv[],
 		 void (*init)(struct plugin_conn *rpc),
+		 const enum plugin_restartability restartability,
 		 const struct plugin_command *commands,
 		 size_t num_commands, ...)
 {
@@ -749,7 +752,7 @@ void plugin_main(char *argv[],
 		plugin_err("Expected getmanifest not %s", cmd->methodname);
 
 	membuf_consume(&request_conn.mb, reqlen);
-	handle_getmanifest(cmd, commands, num_commands, opts);
+	handle_getmanifest(cmd, commands, num_commands, opts, restartability);
 
 	cmd = read_json_request(tmpctx, &request_conn, &rpc_conn,
 				&params, &reqlen);
