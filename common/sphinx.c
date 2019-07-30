@@ -470,7 +470,8 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 
 static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 {
-	size_t hop_size, raw_size, vsize;
+	size_t hop_size, vsize;
+	varint_t raw_size;
 #if !EXPERIMENTAL_FEATURES
 	if (src[0] != 0x00) {
 		step->type = SPHINX_INVALID_PAYLOAD;
@@ -586,7 +587,8 @@ struct route_step *process_onionpacket(
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 stream[NUM_STREAM_BYTES];
 	u8 paddedheader[2*ROUTING_INFO_SIZE];
-	size_t shift_size, vsize;
+	size_t vsize;
+	varint_t shift_size;
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
