@@ -2501,6 +2501,7 @@ int main(int argc, char *argv[])
 	bool *tell_if_missing, *tell_immediately;
 	u32 tx_blockheight;
 	struct pubkey *possible_remote_per_commitment_point;
+	struct bitcoin_blkid chain_hash;
 
 	subdaemon_setup(argc, argv);
 
@@ -2511,6 +2512,7 @@ int main(int argc, char *argv[])
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_onchain_init(tmpctx, msg,
 				   &shachain,
+				   &chain_hash,
 				   &funding,
 				   &old_remote_per_commit_point,
 				   &remote_per_commit_point,
