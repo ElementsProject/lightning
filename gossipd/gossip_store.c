@@ -66,15 +66,15 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 	hdr.crc = cpu_to_be32(crc32c(timestamp, msg, msglen));
 	hdr.timestamp = cpu_to_be32(timestamp);
 
-	if (len)
-		*len += sizeof(hdr) + msglen;
-
-	/* Use writev so it will appear in store atomically */
+	/* Use pwritev so it will appear in store atomically */
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof(hdr);
 	iov[1].iov_base = (void *)msg;
 	iov[1].iov_len = msglen;
-	return writev(fd, iov, ARRAY_SIZE(iov)) == sizeof(hdr) + msglen;
+	if (pwritev(fd, iov, ARRAY_SIZE(iov), *len) != sizeof(hdr) + msglen)
+		return false;
+	*len += sizeof(hdr) + msglen;
+	return true;
 }
 
 /* Read gossip store entries, copy non-deleted ones.  This code is written
@@ -166,7 +166,7 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 	gs->count = gs->deleted = 0;
 	gs->writable = true;
 	gossip_store_compact_offline();
-	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
+	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_CREAT, 0600);
 	if (gs->fd < 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Opening gossip_store store: %s",
@@ -202,7 +202,8 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 }
 
 /* Returns bytes transferred, or 0 on error */
-static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
+static size_t transfer_store_msg(int from_fd, size_t from_off,
+				 int to_fd, size_t to_off,
 				 int *type)
 {
 	struct gossip_hdr hdr;
@@ -237,7 +238,8 @@ static size_t transfer_store_msg(int from_fd, size_t from_off, int to_fd,
 		return 0;
 	}
 
-	if (write(to_fd, msg, msglen + sizeof(hdr)) != msglen + sizeof(hdr)) {
+	if (pwrite(to_fd, msg, msglen + sizeof(hdr), to_off)
+	    != msglen + sizeof(hdr)) {
 		status_broken("Failed writing to gossip store: %s",
 			      strerror(errno));
 		return 0;
@@ -356,7 +358,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 		}
 
 		count++;
-		wlen = transfer_store_msg(gs->fd, off, fd, &msgtype);
+		wlen = transfer_store_msg(gs->fd, off, fd, len, &msgtype);
 		if (wlen == 0)
 			goto unlink_disable;
 
@@ -477,7 +479,6 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
 static u32 delete_by_index(struct gossip_store *gs, u32 index, int type)
 {
 	beint32_t belen;
-	int flags;
 
 	/* Should never get here during loading! */
 	assert(gs->writable);
@@ -494,22 +495,10 @@ static u32 delete_by_index(struct gossip_store *gs, u32 index, int type)
 
 	assert((be32_to_cpu(belen) & GOSSIP_STORE_LEN_DELETED_BIT) == 0);
 	belen |= cpu_to_be32(GOSSIP_STORE_LEN_DELETED_BIT);
-	/* From man pwrite(2):
-	 *
-	 * BUGS
-	 *  POSIX requires that opening a file with the O_APPEND flag  should
-	 *  have no  effect  on the location at which pwrite() writes data.
-	 *  However, on Linux, if a file is opened with O_APPEND, pwrite()
-	 *  appends data to  the end of the file, regardless of the value of
-	 *  offset.
-	 */
-	flags = fcntl(gs->fd, F_GETFL);
-	fcntl(gs->fd, F_SETFL, flags & ~O_APPEND);
 	if (pwrite(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing len to delete @%u: %s",
 			      index, strerror(errno));
-	fcntl(gs->fd, F_SETFL, flags);
 	gs->deleted++;
 
 	return index + sizeof(struct gossip_hdr)
@@ -730,8 +719,7 @@ corrupt:
 	/* FIXME: Debug partial truncate case. */
 	rename(GOSSIP_STORE_FILENAME, GOSSIP_STORE_FILENAME ".corrupt");
 	close(gs->fd);
-	gs->fd = open(GOSSIP_STORE_FILENAME,
-		      O_RDWR|O_APPEND|O_TRUNC|O_CREAT, 0600);
+	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_TRUNC|O_CREAT, 0600);
 	if (gs->fd < 0 || !write_all(gs->fd, &gs->version, sizeof(gs->version)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating new store file: %s", strerror(errno));
