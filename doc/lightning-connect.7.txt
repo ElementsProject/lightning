@@ -22,7 +22,7 @@ In this case, the 'host' and 'port' parameters must be omitted.
 
 'host' is the peer's hostname or IP address.
 
-If not specified, the 'port' defaults to 9375.
+If not specified, the 'port' defaults to 9735.
 
 If 'host' is not specified, the
 connection will be attempted to an IP belonging to 

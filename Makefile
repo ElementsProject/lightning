@@ -385,8 +385,9 @@ gen_version.h: FORCE
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
 # We force make to relink this every time, to detect version changes.
+# Do it atomically, otherwise parallel builds can get upset!
 tools/headerversions: FORCE tools/headerversions.o $(CCAN_OBJS)
-	@$(LINK.o) tools/headerversions.o $(CCAN_OBJS) $(LOADLIBES) $(LDLIBS) -o $@
+	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.o) tools/headerversions.o $(CCAN_OBJS) $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
 
 # That forces this rule to be run every time, too.
 gen_header_versions.h: tools/headerversions
@@ -451,7 +452,7 @@ clean: wire-clean
 	find . -name '*.nccout' -delete
 
 update-mocks/%: %
-	@tools/update-mocks.sh "$*"
+	@MAKE=$(MAKE) tools/update-mocks.sh "$*"
 
 unittest/%: %
 	$(VG) $(VG_TEST_ARGS) $* > /dev/null
