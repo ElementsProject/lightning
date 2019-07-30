@@ -257,6 +257,38 @@ static const struct json_command listnodes_command = {
 };
 AUTODATA(json_command, &listnodes_command);
 
+static
+struct command_result *param_exclude_array(struct command *cmd, const char *name,
+					   const char *buffer, const jsmntok_t *tok,
+					   struct short_channel_id_dir **excluded)
+{
+	struct command_result *result;
+	const jsmntok_t *excludetok;
+	const jsmntok_t *t;
+	size_t i;
+
+	result = param_array(cmd, name, buffer, tok, &excludetok);
+	if (result)
+		return result;
+
+	*excluded = tal_arr(cmd, struct short_channel_id_dir,
+			    excludetok->size);
+
+	json_for_each_arr(i, t, excludetok) {
+		if (!short_channel_id_dir_from_str(buffer + t->start,
+						   t->end - t->start,
+						   &(*excluded)[i],
+						   deprecated_apis)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%.*s is not a valid "
+					    "short_channel_id/direction",
+					    t->end - t->start,
+					    buffer + t->start);
+		}
+	}
+	return NULL;
+}
+
 static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, const int *fds UNUSED,
 				struct command *cmd)
 {
@@ -284,7 +316,6 @@ static struct command_result *json_getroute(struct command *cmd,
 	struct lightningd *ld = cmd->ld;
 	struct node_id *destination;
 	struct node_id *source;
-	const jsmntok_t *excludetok;
 	struct amount_msat *msat;
 	unsigned *cltv;
 	double *riskfactor;
@@ -305,7 +336,7 @@ static struct command_result *json_getroute(struct command *cmd,
 		   p_opt_def("cltv", param_number, &cltv, 9),
 		   p_opt("fromid", param_node_id, &source),
 		   p_opt_def("fuzzpercent", param_percent, &fuzz, 5.0),
-		   p_opt("exclude", param_array, &excludetok),
+		   p_opt("exclude", param_exclude_array, &excluded),
 		   p_opt_def("maxhops", param_number, &max_hops,
 			     ROUTING_MAX_HOPS),
 		   NULL))
@@ -313,29 +344,6 @@ static struct command_result *json_getroute(struct command *cmd,
 
 	/* Convert from percentage */
 	*fuzz = *fuzz / 100.0;
-
-	if (excludetok) {
-		const jsmntok_t *t;
-		size_t i;
-
-		excluded = tal_arr(cmd, struct short_channel_id_dir,
-				   excludetok->size);
-
-		json_for_each_arr(i, t, excludetok) {
-			if (!short_channel_id_dir_from_str(buffer + t->start,
-							   t->end - t->start,
-							   &excluded[i],
-							   deprecated_apis)) {
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "%.*s is not a valid"
-						    " short_channel_id/direction",
-						    t->end - t->start,
-						    buffer + t->start);
-			}
-		}
-	} else {
-		excluded = NULL;
-	}
 
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
 						 *msat,
