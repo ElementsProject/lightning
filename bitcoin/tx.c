@@ -14,13 +14,6 @@
 
 #define SEGREGATED_WITNESS_FLAG 0x1
 
-static u8 bitcoin_asset[] =
-    {
-	0x01, 0x5c, 0xe7, 0xb9, 0x63, 0xd3, 0x7f, 0x8f, 0x2d, 0x51, 0xca,
-	0xfb, 0xba, 0x92, 0x8a, 0xaa, 0x9e, 0x22, 0x0b, 0x8b, 0xbc, 0x66,
-	0x05, 0x71, 0x49, 0x9c, 0x03, 0x62, 0x8a, 0x38, 0x51, 0xb8, 0xce,
-    };
-
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 			  struct amount_sat amount)
 {
@@ -28,9 +21,11 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 	struct wally_tx_output *output;
 	int ret;
 	u64 satoshis = amount.satoshis; /* Raw: low-level helper */
+	const struct chainparams *chainparams = tx->chainparams;
 	assert(i < tx->wtx->outputs_allocation_len);
 
 	assert(tx->wtx != NULL);
+	assert(chainparams);
 
 	if (is_elements) {
 		u8 value[9];
@@ -38,9 +33,8 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 							       sizeof(value));
 		assert(ret == WALLY_OK);
 		ret = wally_tx_elements_output_init_alloc(
-		    script, tal_bytelen(script), bitcoin_asset,
-		    sizeof(bitcoin_asset), value, sizeof(value), NULL, 0, NULL,
-		    0, NULL, 0, &output);
+		    script, tal_bytelen(script), chainparams->fee_asset_tag, 33,
+		    value, sizeof(value), NULL, 0, NULL, 0, NULL, 0, &output);
 		assert(ret == WALLY_OK);
 		/* Cheat a bit by also setting the numeric satoshi value,
 		 * otherwise we end up converting a number of times */
@@ -212,19 +206,24 @@ struct amount_sat bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
 	struct amount_sat amount;
 	struct wally_tx_output *output;
 	u64 satoshis;
+	const u8 *fee_asset_tag;
+	assert(tx->chainparams);
 	assert(outnum < tx->wtx->num_outputs);
 	output = &tx->wtx->outputs[outnum];
+	fee_asset_tag = tx->chainparams->fee_asset_tag;
 
-	if (is_elements && !memeq(output->asset, output->asset_len,
-				  bitcoin_asset, sizeof(bitcoin_asset))) {
-		/* If this is an asset based tx, and we don't know the asset
-		 * type, i.e., it's not bitcoin, return a 0 amount */
-		satoshis = 0;
-	} else if (is_elements) {
-		be64 raw;
-		memcpy(&raw, output->value + 1, sizeof(raw));
-		satoshis = be64_to_cpu(raw);
-	}else {
+	if (fee_asset_tag) {
+		if (memeq(fee_asset_tag, 33, output->asset, output->asset_len)) {
+			be64 raw;
+			memcpy(&raw, output->value + 1, sizeof(raw));
+			satoshis = be64_to_cpu(raw);
+		} else {
+			/* If this is an asset based tx, and we don't know the
+			 * asset type, i.e., it's not bitcoin, return a 0
+			 * amount */
+			satoshis = 0;
+		}
+	} else {
 		satoshis = tx->wtx->outputs[outnum].satoshi;
 	}
 

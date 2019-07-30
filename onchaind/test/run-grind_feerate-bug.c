@@ -207,7 +207,7 @@ static void signature_from_hex(const char *hex, struct bitcoin_signature *sig)
 /* We don't have enough info to make this from first principles, but we have
  * an example tx, so just mangle that. */
 struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
-				   const struct chainparams *chainparams UNNEEDED,
+				   const struct chainparams *chainparams,
 				   const struct bitcoin_txid *commit_txid UNNEEDED,
 				   unsigned int commit_output_number UNNEEDED,
 				   struct amount_msat htlc_msatoshi,
@@ -225,6 +225,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 
 	in_amount = amount_msat_to_sat_round_down(htlc_msatoshi);
 	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &in_amount);
+	tx->chainparams = chainparams;
 
 	tx->wtx->locktime = cltv_expiry;
 	return tx;
