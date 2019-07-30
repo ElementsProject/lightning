@@ -203,6 +203,7 @@ int main(int argc, char *argv[])
 	setup_tmpctx();
 	tx = bitcoin_tx_from_hex(tmpctx, "0200000001e1ebca08cf1c301ac563580a1126d5c8fcb0e5e2043230b852c726553caf1e1d0000000000000000000160ae0a000000000022002082e03c5a9cb79c82cd5a0572dc175290bc044609aabe9cc852d61927436041796d000000",
 				 strlen("0200000001e1ebca08cf1c301ac563580a1126d5c8fcb0e5e2043230b852c726553caf1e1d0000000000000000000160ae0a000000000022002082e03c5a9cb79c82cd5a0572dc175290bc044609aabe9cc852d61927436041796d000000"));
+	tx->chainparams = chainparams_for_network("regtest");
 	tx->input_amounts[0] = tal(tx, struct amount_sat);
 	*tx->input_amounts[0] = AMOUNT_SAT(700000);
 	tx->chainparams = chainparams_for_network("bitcoin");
