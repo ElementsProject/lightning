@@ -69,7 +69,8 @@ int main(void)
 	struct bitcoin_block *b;
 
 	setup_locale();
-	b = bitcoin_block_from_hex(NULL, block, strlen(block));
+	b = bitcoin_block_from_hex(NULL, chainparams_for_network("bitcoin"),
+				   block, strlen(block));
 
 	assert(b);
 	assert(b->hdr.version == CPU_TO_LE32(0x6592a000));

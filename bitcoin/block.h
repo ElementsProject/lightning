@@ -8,6 +8,8 @@
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 
+struct chainparams;
+
 struct bitcoin_blkid {
 	struct sha256_double shad;
 };
@@ -29,8 +31,9 @@ struct bitcoin_block {
 	struct bitcoin_tx **tx;
 };
 
-struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
-					     const char *hex, size_t hexlen);
+struct bitcoin_block *
+bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
+		       const char *hex, size_t hexlen);
 
 /* Parse hex string to get blockid (reversed, a-la bitcoind). */
 bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
