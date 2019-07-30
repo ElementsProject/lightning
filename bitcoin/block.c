@@ -5,8 +5,9 @@
 #include <common/type_to_string.h>
 
 /* Encoding is <blockhdr> <varint-num-txs> <tx>... */
-struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
-					     const char *hex, size_t hexlen)
+struct bitcoin_block *
+bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
+		       const char *hex, size_t hexlen)
 {
 	struct bitcoin_block *b;
 	u8 *linear_tx;
@@ -28,8 +29,10 @@ struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
 	pull(&p, &len, &b->hdr, sizeof(b->hdr));
 	num = pull_varint(&p, &len);
 	b->tx = tal_arr(b, struct bitcoin_tx *, num);
-	for (i = 0; i < num; i++)
+	for (i = 0; i < num; i++) {
 		b->tx[i] = pull_bitcoin_tx(b->tx, &p, &len);
+		b->tx[i]->chainparams = chainparams;
+	}
 
 	/* We should end up not overrunning, nor have extra */
 	if (!p || len)

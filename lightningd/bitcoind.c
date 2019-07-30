@@ -469,7 +469,8 @@ static bool process_rawblock(struct bitcoin_cli *bcli)
 		   struct bitcoin_block *blk,
 		   void *arg) = bcli->cb;
 
-	blk = bitcoin_block_from_hex(bcli, bcli->output, bcli->output_bytes);
+	blk = bitcoin_block_from_hex(bcli, bcli->bitcoind->chainparams,
+				     bcli->output, bcli->output_bytes);
 	if (!blk)
 		fatal("%s: bad block '%.*s'?",
 		      bcli_args(tmpctx, bcli),
