@@ -200,7 +200,9 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	}
 
 #pragma GCC diagnostic push
+#if !defined(__has_warning) || __has_warning("-Wmaybe-uninitialized")
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 	(*utx)->tx = withdraw_tx(*utx, (*utx)->wtx->utxos,
 				 (*utx)->destination, (*utx)->wtx->amount,
 				 changekey, (*utx)->wtx->change,

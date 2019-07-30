@@ -777,7 +777,9 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 		log_debug(channel->log,
 			  "Failing incoming HTLC as instructed by plugin hook");
 #pragma GCC diagnostic push
+#if !defined(__has_warning) || __has_warning("-Wmaybe-uninitialized")
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 		fail_in_htlc(hin, failure_code, NULL, NULL);
 #pragma GCC diagnostic pop
 		break;

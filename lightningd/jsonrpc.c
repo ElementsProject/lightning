@@ -1078,7 +1078,9 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 
 	if (parsed) {
 #pragma GCC diagnostic push
+#if !defined(__has_warning) || __has_warning("-Wmaybe-uninitialized")
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 		if (right_network)
 			return ADDRESS_PARSE_SUCCESS;
 		else

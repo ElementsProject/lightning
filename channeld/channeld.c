@@ -209,7 +209,9 @@ static void billboard_update(const struct peer *peer)
 						  " Shutdown messages exchanged.");
 	}
 #pragma GCC diagnostic push
+#if !defined(__has_warning) || __has_warning("-Wmaybe-uninitialized")
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 	peer_billboard(false, "%s%s%s", funding_status,
 		       announce_status, shutdown_status);
 #pragma GCC diagnostic pop

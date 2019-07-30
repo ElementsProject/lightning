@@ -79,7 +79,9 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
 #pragma GCC diagnostic push
+#if !defined(__has_warning) || __has_warning("-Wmaybe-uninitialized")
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 		if (!first && type <= prev_type) {
 			if (type == prev_type)
 				SUPERVERBOSE("duplicate tlv type");
