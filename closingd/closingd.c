@@ -31,6 +31,7 @@
 #define HSM_FD 6
 
 static struct bitcoin_tx *close_tx(const tal_t *ctx,
+				   const struct chainparams *chainparams,
 				   struct per_peer_state *pps,
 				   const struct channel_id *channel_id,
 				   u8 *scriptpubkey[NUM_SIDES],
@@ -63,6 +64,7 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 
 	/* FIXME: We need to allow this! */
 	tx = create_close_tx(ctx,
+			     chainparams,
 			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_txid,
 			     funding_txout,
@@ -210,6 +212,7 @@ static void do_reconnect(struct per_peer_state *pps,
 }
 
 static void send_offer(struct per_peer_state *pps,
+		       const struct chainparams *chainparams,
 		       const struct channel_id *channel_id,
 		       const struct pubkey funding_pubkey[NUM_SIDES],
 		       u8 *scriptpubkey[NUM_SIDES],
@@ -231,7 +234,7 @@ static void send_offer(struct per_peer_state *pps,
 	 *     transaction, as specified in [BOLT
 	 *     #3](03-transactions.md#closing-transaction).
 	 */
-	tx = close_tx(tmpctx, pps, channel_id,
+	tx = close_tx(tmpctx, chainparams, pps, channel_id,
 		      scriptpubkey,
 		      funding_txid,
 		      funding_txout,
@@ -286,6 +289,7 @@ static void tell_master_their_offer(const struct bitcoin_signature *their_sig,
 /* Returns fee they offered. */
 static struct amount_sat
 receive_offer(struct per_peer_state *pps,
+	      const struct chainparams *chainparams,
 	      const struct channel_id *channel_id,
 	      const struct pubkey funding_pubkey[NUM_SIDES],
 	      const u8 *funding_wscript,
@@ -340,7 +344,7 @@ receive_offer(struct per_peer_state *pps,
 	 *   specified in [BOLT #3](03-transactions.md#closing-transaction):
 	 *     - MUST fail the connection.
 	 */
-	tx = close_tx(tmpctx, pps, channel_id,
+	tx = close_tx(tmpctx, chainparams, pps, channel_id,
 		      scriptpubkey,
 		      funding_txid,
 		      funding_txout,
@@ -369,7 +373,7 @@ receive_offer(struct per_peer_state *pps,
 		 *    `dust_limit_satoshis`.
 		 *   - MAY eliminate its own output.
 		 */
-		trimmed = close_tx(tmpctx, pps, channel_id,
+		trimmed = close_tx(tmpctx, chainparams, pps, channel_id,
 				   scriptpubkey,
 				   funding_txid,
 				   funding_txout,
@@ -551,6 +555,7 @@ int main(int argc, char *argv[])
 	u8 *channel_reestablish;
 	struct secret last_remote_per_commit_secret;
 	struct bitcoin_blkid chain_hash;
+	const struct chainparams *chainparams;
 
 	subdaemon_setup(argc, argv);
 
@@ -583,6 +588,7 @@ int main(int argc, char *argv[])
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(pps, 3, 4, 5);
+	chainparams = chainparams_by_chainhash(&chain_hash);
 
 	status_trace("out = %s/%s",
 		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
@@ -624,7 +630,7 @@ int main(int argc, char *argv[])
 	whose_turn = funder;
 	for (size_t i = 0; i < 2; i++, whose_turn = !whose_turn) {
 		if (whose_turn == LOCAL) {
-			send_offer(pps,
+			send_offer(pps, chainparams,
 				   &channel_id, funding_pubkey,
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding, out, funder,
@@ -642,7 +648,7 @@ int main(int argc, char *argv[])
 							      struct amount_sat,
 							      &offer[LOCAL]));
 			offer[REMOTE]
-				= receive_offer(pps,
+				= receive_offer(pps, chainparams,
 						&channel_id, funding_pubkey,
 						funding_wscript,
 						scriptpubkey, &funding_txid,
@@ -671,7 +677,7 @@ int main(int argc, char *argv[])
 						    &channel_id,
 						    &feerange, offer[REMOTE],
 						    min_fee_to_accept);
-			send_offer(pps, &channel_id,
+			send_offer(pps, chainparams, &channel_id,
 				   funding_pubkey,
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding, out, funder,
@@ -684,7 +690,7 @@ int main(int argc, char *argv[])
 				       " theirs was %"PRIu64" satoshi,",
 				       offer[LOCAL], offer[REMOTE]);
 			offer[REMOTE]
-				= receive_offer(pps, &channel_id,
+				= receive_offer(pps, chainparams, &channel_id,
 						funding_pubkey,
 						funding_wscript,
 						scriptpubkey, &funding_txid,

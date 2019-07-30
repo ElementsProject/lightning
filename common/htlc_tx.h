@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_HTLC_TX_H
 #define LIGHTNING_COMMON_HTLC_TX_H
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <common/amount.h>
 #include <common/htlc.h>
 
@@ -38,6 +39,7 @@ static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw)
 /* Create HTLC-success tx to spend a received HTLC commitment tx
  * output; doesn't fill in input witness. */
 struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
+				   const struct chainparams *chainparams,
 				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
 				   struct amount_msat htlc_msatoshi,
@@ -58,6 +60,7 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 /* Create HTLC-timeout tx to spend an offered HTLC commitment tx
  * output; doesn't fill in input witness. */
 struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
+				   const struct chainparams *chainparams,
 				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
 				   struct amount_msat htlc_msatoshi,

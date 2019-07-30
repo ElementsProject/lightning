@@ -979,10 +979,9 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 	const u8 *msg;
 	secp256k1_ecdsa_signature *htlc_sigs;
 
-	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &peer->remote_per_commit,
-			  commit_index,
-			  REMOTE);
+	txs = channel_txs(tmpctx, peer->channel->chainparams, &htlc_map,
+			  &wscripts, peer->channel, &peer->remote_per_commit,
+			  commit_index, REMOTE);
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
@@ -1398,9 +1397,10 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	/* SIGHASH_ALL is implied. */
 	commit_sig.sighash_type = SIGHASH_ALL;
 
-	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &peer->next_local_per_commit,
-			  peer->next_index[LOCAL], LOCAL);
+	txs =
+	    channel_txs(tmpctx, peer->channel->chainparams, &htlc_map,
+			&wscripts, peer->channel, &peer->next_local_per_commit,
+			peer->next_index[LOCAL], LOCAL);
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].htlc,
 			       &peer->next_local_per_commit, &remote_htlckey))

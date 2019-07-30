@@ -76,6 +76,7 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 }
 
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
+			     const struct chainparams *chainparams,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     struct amount_sat funding,
@@ -146,7 +147,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 #endif
 
 	/* Worst-case sizing: both to-local and to-remote outputs. */
-	tx = bitcoin_tx(ctx, 1, untrimmed + 2);
+	tx = bitcoin_tx(ctx, chainparams, 1, untrimmed + 2);
 
 	/* We keep track of which outputs have which HTLCs */
 	*htlcmap = tal_arr(tx, const struct htlc *, tx->wtx->outputs_allocation_len);

@@ -1069,7 +1069,7 @@ static u8 *funder_channel(struct state *state,
 	 * it; lightningd will recreate it (and have the HSM sign it) when
 	 * we've completed opening negotiation.
 	 */
-	funding = funding_tx(state, &state->funding_txout,
+	funding = funding_tx(state, state->chainparams, &state->funding_txout,
 			     cast_const2(const struct utxo **, utxos),
 			     state->funding,
 			     &state->our_funding_pubkey,

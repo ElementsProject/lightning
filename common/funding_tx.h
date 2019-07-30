@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_FUNDING_TX_H
 #define LIGHTNING_COMMON_FUNDING_TX_H
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
@@ -14,6 +15,7 @@ struct utxo;
 /**
  * funding_tx: create a P2WSH funding transaction for a channel.
  * @ctx: context to tal from.
+ * @chainparams: (in) the params for the resulting transaction.
  * @outnum: (out) txout (0 or 1) which is the funding output.
  * @utxomap: (in/out) tal_arr of UTXO pointers to spend (permuted to match)
  * @funding: (in) satoshis to output.
@@ -33,6 +35,7 @@ struct utxo;
  * a special case because of the P2SH inputs.
  */
 struct bitcoin_tx *funding_tx(const tal_t *ctx,
+			      const struct chainparams *chainparams,
 			      u16 *outnum,
 			      const struct utxo **utxomap,
 			      struct amount_sat funding,

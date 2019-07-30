@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
 	const struct utxo **utxomap;
 	struct bitcoin_signature sig;
 	struct bitcoin_txid txid;
+	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
 	setup_locale();
 
@@ -106,7 +107,7 @@ int main(int argc, char *argv[])
 	utxomap[0] = &input;
 
 	/* No change output, so we don't need a bip32 base. */
-	tx = funding_tx(NULL, &outnum, utxomap, funding_amount,
+	tx = funding_tx(NULL, chainparams, &outnum, utxomap, funding_amount,
 			&funding_localkey, &funding_remotekey,
 			AMOUNT_SAT(0), NULL, NULL);
 

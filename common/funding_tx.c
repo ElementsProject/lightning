@@ -12,6 +12,7 @@
 #endif
 
 struct bitcoin_tx *funding_tx(const tal_t *ctx,
+			      const struct chainparams *chainparams,
 			      u16 *outnum,
 			      const struct utxo **utxomap,
 			      struct amount_sat funding,
@@ -25,7 +26,7 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	bool has_change = !amount_sat_eq(change, AMOUNT_SAT(0));
 
-	tx = tx_spending_utxos(ctx, utxomap, bip32_base, has_change);
+	tx = tx_spending_utxos(ctx, chainparams, utxomap, bip32_base, has_change);
 
 
 	wscript = bitcoin_redeem_2of2(tx, local_fundingkey, remote_fundingkey);
