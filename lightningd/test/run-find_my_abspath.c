@@ -18,6 +18,12 @@ char *add_plugin_dir(struct plugins *plugins UNNEEDED, const char *dir UNNEEDED,
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
+/* Generated stub for bigsize_get */
+size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNNEEDED)
+{ fprintf(stderr, "bigsize_get called!\n"); abort(); }
+/* Generated stub for bigsize_put */
+size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
+{ fprintf(stderr, "bigsize_put called!\n"); abort(); }
 /* Generated stub for channel_notify_new_block */
 void channel_notify_new_block(struct lightningd *ld UNNEEDED,
 			      u32 block_height UNNEEDED)

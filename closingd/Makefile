@@ -44,6 +44,7 @@ $(LIGHTNINGD_CLOSING_OBJS): $(LIGHTNINGD_HEADERS)
 CLOSINGD_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/base32.o				\
+	common/bigsize.o			\
 	common/bip32.o				\
 	common/close_tx.o			\
 	common/crypto_state.o			\

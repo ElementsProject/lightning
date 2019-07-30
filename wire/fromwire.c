@@ -163,37 +163,18 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 	return ret;
 }
 
-u64 fromwire_bigsize(const u8 **cursor, size_t *max)
+bigsize_t fromwire_bigsize(const u8 **cursor, size_t *max)
 {
-	u8 flag = fromwire_u8(cursor, max);
-	u64 ret;
+	bigsize_t v;
+	size_t len = bigsize_get(*cursor, *max, &v);
 
-	switch(flag) {
-	case 0xff:
-		ret = fromwire_u64(cursor, max);
-		if ((ret >> 32) == 0) {
-			SUPERVERBOSE("not minimal encoded");
-			fromwire_fail(cursor, max);
-		}
-		break;
-	case 0xfe:
-		ret = fromwire_u32(cursor, max);
-		if ((ret >> 16) == 0) {
-			SUPERVERBOSE("not minimal encoded");
-			fromwire_fail(cursor, max);
-		}
-		break;
-	case 0xfd:
-		ret = fromwire_u16(cursor, max);
-		if (ret < 0xfd) {
-			SUPERVERBOSE("not minimal encoded");
-			fromwire_fail(cursor, max);
-		}
-		break;
-	default:
-		ret = flag;
+	if (len == 0) {
+		fromwire_fail(cursor, max);
+		return 0;
 	}
-	return ret;
+	assert(len <= *max);
+	fromwire(cursor, max, NULL, len);
+	return v;
 }
 
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)

@@ -1,9 +1,13 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/hex/hex.h>
 #include <common/utils.h>
+#include <stdio.h>
 #include <wally_core.h>
 
+#include <common/bigsize.c>
+
 static const char *reason;
+#undef SUPERVERBOSE
 #define SUPERVERBOSE(r) do { reason = (r); } while(0)
 
 #include <wire/tlvstream.c>
