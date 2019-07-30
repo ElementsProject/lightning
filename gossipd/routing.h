@@ -506,4 +506,20 @@ hc_can_carry(const struct half_chan *hc,
 		amount_msat_less_eq(hc->htlc_minimum, requiredcap);
 }
 
+/**
+ * smoothen_route - Remove any loops from a route (a tal_arr of
+ * pointers to chan, starting at the source node).
+ * This functions is relevant when routes are concatenated, where
+ * each sub-part of the route was derived separately from other
+ * parts of the route, possibly passing through a node multiple
+ * times.
+ *
+ * @source - the starting node of the route.
+ * @route - the route to modify in place.
+ * @destination - the last node in the route, output.
+ */
+void smoothen_route(struct node *source,
+		    struct chan ***route,
+		    struct node **destination);
+
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */

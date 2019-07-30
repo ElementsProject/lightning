@@ -17,6 +17,7 @@
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
+#include <string.h>
 #include <wire/gen_peer_wire.h>
 
 #ifndef SUPERVERBOSE
@@ -2710,4 +2711,49 @@ void restore_excluded_channels(struct exclusion_memento *memento)
 
 	/* Destroy the memento. */
 	tal_free(memento);
+}
+
+void smoothen_route(struct node *source,
+		    struct chan ***route_input,
+		    struct node **destination)
+{
+	int i, j;
+	int len, orig_len;
+	struct node *n;
+	struct node *o;
+	struct chan **route;
+
+	assert(route_input);
+	assert(*route_input);
+
+	route = *route_input;
+	orig_len = len = tal_count(route);
+
+	for (n = source, i = 0;
+	     i < len;
+	     n = other_node(n, route[i]), ++i) {
+		o = n;
+		j = i;
+		while (j < len) {
+			o = other_node(o, route[j]);
+			++j;
+
+			if (n == o) {
+				/* Delete the intervening.  */
+				memmove(&route[i], &route[j],
+					(len - j) * sizeof(struct chan *));
+				len -= j - i;
+				j = i;
+			}
+
+		}
+	}
+
+	/* Do resize after the loop.  */
+	if (orig_len != len) {
+		bool res = tal_resize(route_input, len);
+		assert(res);
+	}
+
+	*destination = n;
 }
