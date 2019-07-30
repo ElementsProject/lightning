@@ -522,6 +522,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					 tal_hex(fc->cmd, resp)));
 		goto cleanup;
 	}
+	remote_commit->chainparams = get_chainparams(openingd->ld);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	log_debug(ld->log,
@@ -629,6 +630,8 @@ static void opening_fundee_finished(struct subd *openingd,
 		uncommitted_channel_disconnect(uc, "bad OPENING_FUNDEE_REPLY");
 		goto failed;
 	}
+
+	remote_commit->chainparams = get_chainparams(openingd->ld);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	/* openingd should never accept them funding channel in this case. */

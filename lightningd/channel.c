@@ -226,6 +226,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->msat_to_us_min = msat_to_us_min;
 	channel->msat_to_us_max = msat_to_us_max;
 	channel->last_tx = tal_steal(channel, last_tx);
+	channel->last_tx->chainparams = get_chainparams(peer->ld);
 	channel->last_tx_type = TX_UNKNOWN;
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
@@ -328,6 +329,7 @@ void channel_set_last_tx(struct channel *channel,
 			 const struct bitcoin_signature *sig,
 			 enum wallet_tx_type txtypes)
 {
+	assert(tx->chainparams);
 	channel->last_sig = *sig;
 	tal_free(channel->last_tx);
 	channel->last_tx = tal_steal(channel, tx);

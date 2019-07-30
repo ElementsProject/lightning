@@ -1468,6 +1468,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 				    tal_hex(channel, msg));
 		return;
 	}
+	tx->chainparams = get_chainparams(ld);
 
 	log_debug(channel->log,
 		  "got commitsig %"PRIu64

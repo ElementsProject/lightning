@@ -187,6 +187,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
 		return;
 	}
+	tx->chainparams = get_chainparams(channel->peer->ld);
 
 	bitcoin_txid(tx, &txid);
 	wallet_transaction_add(w, tx, 0, 0);

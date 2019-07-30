@@ -1374,9 +1374,10 @@ static void wait_for_resolved(const struct chainparams *chainparams,
 		if (fromwire_onchain_depth(msg, &txid, &depth))
 			tx_new_depth(outs, &txid, depth);
 		else if (fromwire_onchain_spent(msg, msg, &tx, &input_num,
-						&tx_blockheight))
+						&tx_blockheight)) {
+			tx->chainparams = chainparams;
 			output_spent(chainparams, &outs, tx, input_num, tx_blockheight);
-		else if (fromwire_onchain_known_preimage(msg, &preimage))
+		} else if (fromwire_onchain_known_preimage(msg, &preimage))
 			handle_preimage(chainparams, outs, &preimage);
 		else if (!handle_dev_memleak(outs, msg))
 			master_badmsg(-1, msg);
