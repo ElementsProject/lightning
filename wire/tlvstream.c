@@ -78,6 +78,8 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		 *  - if decoded `type`s are not monotonically-increasing:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 		if (!first && type <= prev_type) {
 			if (type == prev_type)
 				SUPERVERBOSE("duplicate tlv type");
@@ -85,6 +87,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 				SUPERVERBOSE("invalid ordering");
 			goto fail;
 		}
+#pragma GCC diagnostic pop
 
 		/* BOLT-EXPERIMENTAL #1:
 		 * - if `type` is known:

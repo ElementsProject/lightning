@@ -321,8 +321,11 @@ fail_take_to:
 			goto fail;
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 	if (ret)
 		ret[len] = '\0';
+#pragma GCC diagnostic pop
 
 out:
 	if (taken(linkname))
