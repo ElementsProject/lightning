@@ -38,6 +38,7 @@ struct chainparams {
 	/* Version codes for BIP32 extended keys in libwally-core*/
 	const struct bip32_key_version bip32_key_version;
 	const bool is_elements;
+	const u8 *fee_asset_tag;
 };
 
 /**
