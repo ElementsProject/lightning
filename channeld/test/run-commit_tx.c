@@ -222,7 +222,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			continue;
 
 		if (htlc_owner(htlc) == LOCAL) {
-			htlc_tx[i] = htlc_timeout_tx(htlc_tx, &txid, i,
+			htlc_tx[i] = htlc_timeout_tx(htlc_tx, tx->chainparams,
+						     &txid, i,
 						     htlc->amount,
 						     htlc->expiry.locktime,
 						     to_self_delay,
@@ -234,7 +235,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								&htlc->rhash,
 								remote_revocation_key);
 		} else {
-			htlc_tx[i] = htlc_success_tx(htlc_tx, &txid, i,
+			htlc_tx[i] = htlc_success_tx(htlc_tx, tx->chainparams,
+						     &txid, i,
 						     htlc->amount,
 						     to_self_delay,
 						     feerate_per_kw,
@@ -457,6 +459,7 @@ int main(void)
 	u64 commitment_number, cn_obscurer;
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
+	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -712,7 +715,8 @@ int main(void)
 	keyset.other_htlc_key = remote_htlckey;
 
 	print_superverbose = true;
-	tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
+	tx = commit_tx(tmpctx, chainparams,
+		       &funding_txid, funding_output_index,
 		       funding_amount,
 		       LOCAL, to_self_delay,
 		       &keyset,
@@ -723,7 +727,8 @@ int main(void)
 		       NULL, &htlc_map, commitment_number ^ cn_obscurer,
 		       LOCAL);
 	print_superverbose = false;
-	tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
+	tx2 = commit_tx(tmpctx, chainparams,
+			&funding_txid, funding_output_index,
 			funding_amount,
 			REMOTE, to_self_delay,
 			&keyset,
@@ -766,7 +771,8 @@ int main(void)
 	       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw);
 
 	print_superverbose = true;
-	tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
+	tx = commit_tx(tmpctx, chainparams,
+		       &funding_txid, funding_output_index,
 		       funding_amount,
 		       LOCAL, to_self_delay,
 		       &keyset,
@@ -777,7 +783,8 @@ int main(void)
 		       htlcs, &htlc_map, commitment_number ^ cn_obscurer,
 		       LOCAL);
 	print_superverbose = false;
-	tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
+	tx2 = commit_tx(tmpctx, chainparams,
+			&funding_txid, funding_output_index,
 			funding_amount,
 			REMOTE, to_self_delay,
 			&keyset,
@@ -808,7 +815,8 @@ int main(void)
 
 		feerate_per_kw = increase(feerate_per_kw);
 		print_superverbose = false;
-		newtx = commit_tx(tmpctx, &funding_txid, funding_output_index,
+		newtx = commit_tx(tmpctx, chainparams,
+				  &funding_txid, funding_output_index,
 				  funding_amount,
 				  LOCAL, to_self_delay,
 				  &keyset,
@@ -820,7 +828,8 @@ int main(void)
 				  commitment_number ^ cn_obscurer,
 				  LOCAL);
 		/* This is what it would look like for peer generating it! */
-		tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
+		tx2 = commit_tx(tmpctx, chainparams,
+				&funding_txid, funding_output_index,
 				funding_amount,
 				REMOTE, to_self_delay,
 				&keyset,
@@ -851,7 +860,8 @@ int main(void)
 		       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw-1);
 		/* Recalc with verbosity on */
 		print_superverbose = true;
-		tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
+		tx = commit_tx(tmpctx, chainparams,
+			       &funding_txid, funding_output_index,
 			       funding_amount,
 			       LOCAL, to_self_delay,
 			       &keyset,
@@ -887,7 +897,8 @@ int main(void)
 		       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw);
 		/* Recalc with verbosity on */
 		print_superverbose = true;
-		newtx = commit_tx(tmpctx, &funding_txid, funding_output_index,
+		newtx = commit_tx(tmpctx, chainparams,
+				  &funding_txid, funding_output_index,
 				  funding_amount,
 				  LOCAL, to_self_delay,
 				  &keyset,
@@ -945,7 +956,8 @@ int main(void)
 		       "to_remote_msat: %"PRIu64"\n"
 		       "local_feerate_per_kw: %u\n",
 		       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw);
-		tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
+		tx = commit_tx(tmpctx, chainparams,
+			       &funding_txid, funding_output_index,
 			       funding_amount,
 			       LOCAL, to_self_delay,
 			       &keyset,

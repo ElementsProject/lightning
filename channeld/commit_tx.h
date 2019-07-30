@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_CHANNELD_COMMIT_TX_H
 #define LIGHTNING_CHANNELD_COMMIT_TX_H
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <bitcoin/pubkey.h>
 #include <channeld/channeld_htlc.h>
 #include <common/htlc.h>
@@ -43,6 +44,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * transaction, so we carefully use the terms "self" and "other" here.
  */
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
+			     const struct chainparams *chainparams,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     struct amount_sat funding,

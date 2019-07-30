@@ -49,6 +49,7 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 }
 
 struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
+				     const struct chainparams *chainparams,
 				     const struct utxo **utxos,
 				     const struct ext_key *bip32_base,
 				     bool add_change_output)
@@ -56,7 +57,7 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 	struct pubkey key;
 	u8 *script;
 	size_t outcount = add_change_output ? 2 : 1;
-	struct bitcoin_tx *tx = bitcoin_tx(ctx, tal_count(utxos), outcount);
+	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, tal_count(utxos), outcount);
 
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (utxos[i]->is_p2sh && bip32_base) {

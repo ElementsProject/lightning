@@ -23,6 +23,9 @@ struct bitcoin_tx {
 	 * unknown) */
 	struct amount_sat **input_amounts;
 	struct wally_tx *wtx;
+
+	/* Keep a reference to the ruleset we have to abide by */
+	const struct chainparams *chainparams;
 };
 
 struct bitcoin_tx_output {
@@ -52,8 +55,9 @@ size_t measure_tx_weight(const struct bitcoin_tx *tx);
 
 /* Allocate a tx: you just need to fill in inputs and outputs (they're
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
-struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
-			      varint_t output_count);
+struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
+			      const struct chainparams *chainparams,
+			      varint_t input_count, varint_t output_count);
 
 /* This takes a raw bitcoin tx in hex. */
 struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,

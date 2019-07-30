@@ -5,6 +5,7 @@
 #include <assert.h>
 
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,
+				   const struct chainparams *chainparams,
 				   const u8 *our_script,
 				   const u8 *their_script,
 				   const struct bitcoin_txid *anchor_txid,
@@ -33,7 +34,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	 * * txin count: 1
 	 */
 	/* Now create close tx: one input, two outputs. */
-	tx = bitcoin_tx(ctx, 1, 2);
+	tx = bitcoin_tx(ctx, chainparams, 1, 2);
 
 	/* Our input spends the anchor tx output. */
 	bitcoin_tx_add_input(tx, anchor_txid, anchor_index,

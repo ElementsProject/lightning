@@ -276,10 +276,12 @@ static void bitcoin_tx_destroy(struct bitcoin_tx *tx)
 	wally_tx_free(tx->wtx);
 }
 
-struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
-			      varint_t output_count)
+struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
+			      const struct chainparams *chainparams,
+			      varint_t input_count, varint_t output_count)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+
 	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,
 			    &tx->wtx);
 	tal_add_destructor(tx, bitcoin_tx_destroy);
@@ -287,6 +289,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 	tx->input_amounts = tal_arrz(tx, struct amount_sat*, input_count);
 	tx->wtx->locktime = 0;
 	tx->wtx->version = 2;
+	tx->chainparams = chainparams;
 	return tx;
 }
 
@@ -305,6 +308,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	/* We don't know the input amounts yet, so set them all to NULL */
 	tx->input_amounts =
 	    tal_arrz(tx, struct amount_sat *, tx->wtx->inputs_allocation_len);
+	tx->chainparams = NULL;
 
 	*cursor += wsize;
 	*max -= wsize;

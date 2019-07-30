@@ -93,7 +93,8 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				       &channel->funding_pubkey[side],
 				       &channel->funding_pubkey[!side]);
 
-	return initial_commit_tx(ctx, &channel->funding_txid,
+	return initial_commit_tx(ctx, channel->chainparams,
+				 &channel->funding_txid,
 				 channel->funding_txout,
 				 channel->funding,
 				 channel->funder,

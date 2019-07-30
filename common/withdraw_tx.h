@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_WITHDRAW_TX_H
 #define LIGHTNING_COMMON_WITHDRAW_TX_H
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
@@ -16,6 +17,7 @@ struct utxo;
  * withdraw_tx - Create a p2pkh withdrawal transaction
  *
  * @ctx: context to tal from.
+ * @chainparams: (in) the params for the created transaction.
  * @utxos: (in/out) tal_arr of UTXO pointers to spend (permuted to match)
  * @destination: (in) tal_arr of u8, scriptPubKey to send to.
  * @amount: (in) satoshis to send to the destination
@@ -25,6 +27,7 @@ struct utxo;
  * @change_outnum: (out) set to output index of change output or -1 if none, unless NULL.
  */
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
+			       const struct chainparams *chainparams,
 			       const struct utxo **utxos,
 			       const u8 *destination,
 			       struct amount_sat withdraw_amount,

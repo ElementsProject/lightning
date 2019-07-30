@@ -47,6 +47,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 /**
  * channel_txs: Get the current commitment and htlc txs for the channel.
  * @ctx: tal context to allocate return value from.
+ * @chainparams: Parameters for the generated transactions.
  * @channel: The channel to evaluate
  * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx).
  * @wscripts: Pointer to array of wscript for each tx returned (alloced off @ctx)
@@ -59,6 +60,7 @@ struct channel *new_full_channel(const tal_t *ctx,
  * fills in @htlc_map, or NULL on key derivation failure.
  */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
+				const struct chainparams *chainparams,
 				const struct htlc ***htlcmap,
 				const u8 ***wscripts,
 				const struct channel *channel,

@@ -102,6 +102,9 @@ struct client {
 
 	/* What is this client allowed to ask for? */
 	u64 capabilities;
+
+	/* Params to apply to all transactions for this client */
+	const struct chainparams *chainparams;
 };
 
 /*~ We keep a map of nonzero dbid -> clients, mainly for leak detection.
@@ -206,6 +209,7 @@ static void destroy_client(struct client *c)
 }
 
 static struct client *new_client(const tal_t *ctx,
+				 const struct chainparams *chainparams,
 				 const struct node_id *id,
 				 u64 dbid,
 				 const u64 capabilities,
@@ -227,6 +231,8 @@ static struct client *new_client(const tal_t *ctx,
 	c->dbid = dbid;
 
 	c->capabilities = capabilities;
+	c->chainparams = chainparams;
+
 	/*~ This is the core of ccan/io: the connection creation calls a
 	 * callback which returns the initial plan to execute: in our case,
 	 * read a message.*/
@@ -593,6 +599,10 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	dev_force_channel_secrets = secrets;
 	dev_force_channel_secrets_shaseed = shaseed;
 #endif
+
+	/* Once we have read the init message we know which params the master
+	 * will use */
+	c->chainparams = chainparams_by_chainhash(&chain_hash);
 	maybe_create_new_hsm();
 	load_hsm();
 
@@ -1339,7 +1349,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 			      strerror(errno));
 
 	status_trace("new_client: %"PRIu64, dbid);
-	new_client(c, &id, dbid, capabilities, fds[0]);
+	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
 
 	/*~ We stash this in a global, because we need to get both the fd and
 	 * the client pointer to the callback.  The other way would be to
@@ -1471,7 +1481,7 @@ static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
 	} else
 		changekey = NULL;
 
-	tx = funding_tx(tmpctx, &outnum,
+	tx = funding_tx(tmpctx, c->chainparams, &outnum,
 			/*~ For simplicity, our generated code is not const
 			 * correct.  The C rules around const and
 			 * pointer-to-pointer are a bit weird, so we use
@@ -1508,9 +1518,9 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Failed to get key %u", change_keyindex);
 
-	tx = withdraw_tx(tmpctx, cast_const2(const struct utxo **, utxos),
-			 scriptpubkey, satoshi_out,
-			 &changekey, change_out, NULL, NULL);
+	tx = withdraw_tx(tmpctx, c->chainparams,
+			 cast_const2(const struct utxo **, utxos), scriptpubkey,
+			 satoshi_out, &changekey, change_out, NULL, NULL);
 
 	sign_all_inputs(tx, utxos);
 
@@ -1854,7 +1864,7 @@ int main(int argc, char *argv[])
 	status_setup_async(status_conn);
 	uintmap_init(&clients);
 
-	master = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP,
+	master = new_client(NULL, NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP,
 			    REQ_FD);
 
 	/* First client == lightningd. */
