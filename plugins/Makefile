@@ -21,6 +21,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
+	common/bigsize.o			\
 	common/bolt11.o				\
 	common/daemon.o				\
 	common/hash_u5.o			\

@@ -87,20 +87,13 @@ void towire_bool(u8 **pptr, bool v)
 	towire(pptr, &val, sizeof(val));
 }
 
-void towire_bigsize(u8 **pptr, const u64 val)
+void towire_bigsize(u8 **pptr, const bigsize_t val)
 {
-	if (val < 0xfd) {
-		towire_u8(pptr, val);
-	} else if (val <= 0xffff) {
-		towire_u8(pptr, 0xfd);
-		towire_u16(pptr, val);
-	} else if (val <= 0xffffffff) {
-		towire_u8(pptr, 0xfe);
-		towire_u32(pptr, val);
-	} else {
-		towire_u8(pptr, 0xff);
-		towire_u64(pptr, val);
-	}
+	u8 buf[BIGSIZE_MAX_LEN];
+	size_t len;
+
+	len = bigsize_put(buf, val);
+	towire(pptr, buf, len);
 }
 
 void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
