@@ -1076,12 +1076,21 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 
 	tal_free(addrz);
 
+#pragma GCC diagnostic push
+#if defined(__has_warning) /* Clang */
+#if __has_warning("-Wmaybe-uninitialized")
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#else /* GCC */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 	if (parsed) {
 		if (right_network)
 			return ADDRESS_PARSE_SUCCESS;
 		else
 			return ADDRESS_PARSE_WRONG_NETWORK;
 	}
+#pragma GCC diagnostic pop
 
 	return ADDRESS_PARSE_UNRECOGNIZED;
 }

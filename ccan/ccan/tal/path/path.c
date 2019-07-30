@@ -321,8 +321,17 @@ fail_take_to:
 			goto fail;
 	}
 
+#pragma GCC diagnostic push
+#if defined(__has_warning) /* Clang */
+#if __has_warning("-Wmaybe-uninitialized")
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#else /* GCC */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 	if (ret)
 		ret[len] = '\0';
+#pragma GCC diagnostic pop
 
 out:
 	if (taken(linkname))

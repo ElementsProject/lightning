@@ -776,7 +776,16 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	case htlc_accepted_fail:
 		log_debug(channel->log,
 			  "Failing incoming HTLC as instructed by plugin hook");
+#pragma GCC diagnostic push
+#if defined(__has_warning) /* Clang */
+#if __has_warning("-Wmaybe-uninitialized")
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#else /* GCC */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 		fail_in_htlc(hin, failure_code, NULL, NULL);
+#pragma GCC diagnostic pop
 		break;
 	case htlc_accepted_resolve:
 		fulfill_htlc(hin, &payment_preimage);

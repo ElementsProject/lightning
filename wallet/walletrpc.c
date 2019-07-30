@@ -199,12 +199,21 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 			return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
 	}
 
+#pragma GCC diagnostic push
+#if defined(__has_warning) /* Clang */
+#if __has_warning("-Wmaybe-uninitialized")
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#else /* GCC */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 	(*utx)->tx = withdraw_tx(*utx, (*utx)->wtx->utxos,
 				 (*utx)->destination, (*utx)->wtx->amount,
 				 changekey, (*utx)->wtx->change,
 				 cmd->ld->wallet->bip32_base,
 				 &(*utx)->change_outnum);
 	bitcoin_txid((*utx)->tx, &(*utx)->txid);
+#pragma GCC diagnostic pop
 
 	return NULL;
 }

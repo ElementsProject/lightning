@@ -152,7 +152,16 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 		e = channel_add_htlc(channel, sender, i, msatoshi, 500+i, &hash,
 				     dummy_routing, NULL, NULL);
 		assert(e == CHANNEL_ERR_ADD_OK);
+#pragma GCC diagnostic push
+#if defined(__has_warning) /* Clang */
+#if __has_warning("-Wmaybe-uninitialized")
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#else /* GCC */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 		htlcs[i] = channel_get_htlc(channel, sender, i);
+#pragma GCC diagnostic pop
 	}
 	tal_free(dummy_routing);
 
