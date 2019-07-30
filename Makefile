@@ -451,7 +451,7 @@ clean: wire-clean
 	find . -name '*.nccout' -delete
 
 update-mocks/%: %
-	@tools/update-mocks.sh "$*"
+	@MAKE=$(MAKE) tools/update-mocks.sh "$*"
 
 unittest/%: %
 	$(VG) $(VG_TEST_ARGS) $* > /dev/null
