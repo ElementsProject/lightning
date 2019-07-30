@@ -1,5 +1,9 @@
 #include <common/bigsize.h>
 
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
+
 size_t bigsize_len(bigsize_t v)
 {
 	if (v < 0xfd) {
@@ -45,28 +49,48 @@ size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN], bigsize_t v)
 
 size_t bigsize_get(const u8 *p, size_t max, bigsize_t *val)
 {
-	if (max < 1)
+	if (max < 1) {
+		SUPERVERBOSE("EOF");
 		return 0;
+	}
 
 	switch (*p) {
 	case 0xfd:
-		if (max < 3)
+		if (max < 3) {
+			SUPERVERBOSE("unexpected EOF");
 			return 0;
+		}
 		*val = ((u64)p[1] << 8) + p[2];
+		if (*val < 0xfd) {
+			SUPERVERBOSE("decoded varint is not canonical");
+			return 0;
+		}
 		return 3;
 	case 0xfe:
-		if (max < 5)
+		if (max < 5) {
+			SUPERVERBOSE("unexpected EOF");
 			return 0;
+		}
 		*val = ((u64)p[1] << 24) + ((u64)p[2] << 16)
 			+ ((u64)p[3] << 8) + p[4];
+		if ((*val >> 16) == 0) {
+			SUPERVERBOSE("decoded varint is not canonical");
+			return 0;
+		}
 		return 5;
 	case 0xff:
-		if (max < 9)
+		if (max < 9) {
+			SUPERVERBOSE("unexpected EOF");
 			return 0;
+		}
 		*val = ((u64)p[1] << 56) + ((u64)p[2] << 48)
 			+ ((u64)p[3] << 40) + ((u64)p[4] << 32)
 			+ ((u64)p[5] << 24) + ((u64)p[6] << 16)
 			+ ((u64)p[7] << 8) + p[8];
+		if ((*val >> 32) == 0) {
+			SUPERVERBOSE("decoded varint is not canonical");
+			return 0;
+		}
 		return 9;
 	default:
 		*val = *p;
