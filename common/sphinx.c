@@ -1,7 +1,5 @@
 #include <assert.h>
 
-#include <bitcoin/varint.h>
-
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -96,7 +94,7 @@ static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 
 	/* There is no point really in trying to serialize something that is
 	 * larger than the maximum length we can fit into the payload region
-	 * anyway. 3 here is the maximum varint size that we allow. */
+	 * anyway. 3 here is the maximum bigsize size that we allow. */
 	assert(size < ROUTING_INFO_SIZE - 3 - HMAC_SIZE);
 
 	/* Backwards compatibility: realm 0 is the legacy hop_data format and
@@ -112,7 +110,7 @@ static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 	else
 		vsize = 3;
 
-	/* The hop must accomodate the hop_payload, as well as the varint
+	/* The hop must accomodate the hop_payload, as well as the bigsize
 	 * describing the length and HMAC. */
 	return vsize + size + HMAC_SIZE;
 }
@@ -471,7 +469,7 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 {
 	size_t hop_size, vsize;
-	varint_t raw_size;
+	bigsize_t raw_size;
 #if !EXPERIMENTAL_FEATURES
 	if (src[0] != 0x00) {
 		step->type = SPHINX_INVALID_PAYLOAD;
@@ -588,7 +586,7 @@ struct route_step *process_onionpacket(
 	u8 stream[NUM_STREAM_BYTES];
 	u8 paddedheader[2*ROUTING_INFO_SIZE];
 	size_t vsize;
-	varint_t shift_size;
+	bigsize_t shift_size;
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
