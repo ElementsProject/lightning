@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lightningd: add support for `signet` networks using the `--network=signet` or `--signet` startup option
 - JSON API: `listfunds` now returns also `funding_output` for `channels`
 - plugins: plugins can now suggest `lightning-cli` default to -H for responses.
+- Plugin: new notification `forward_event` offered/settled/failed/local_failed.
 
 ### Changed
 
