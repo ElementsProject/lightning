@@ -825,6 +825,8 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 					     &funding))
 		return bad_req(conn, c, msg_in);
 
+	tx->chainparams = c->chainparams;
+
 	/* Basic sanity checks. */
 	if (tx->wtx->num_inputs != 1)
 		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
@@ -883,6 +885,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 						    &remote_funding_pubkey,
 						    &funding))
 		bad_req(conn, c, msg_in);
+	tx->chainparams = c->chainparams;
 
 	/* Basic sanity checks. */
 	if (tx->wtx->num_inputs != 1)
@@ -929,7 +932,7 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 					      &tx, &wscript, &amount,
 					      &remote_per_commit_point))
 		return bad_req(conn, c, msg_in);
-
+	tx->chainparams = c->chainparams;
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
 
@@ -1004,7 +1007,7 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 						     &tx, &wscript,
 						     &input_sat))
 		return bad_req(conn, c, msg_in);
-
+	tx->chainparams = c->chainparams;
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	/*~ ccan/crypto/shachain how we efficiently derive 2^48 ordered
@@ -1059,6 +1062,7 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 						 &input_sat))
 		return bad_req(conn, c, msg_in);
 
+	tx->chainparams = c->chainparams;
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
@@ -1097,6 +1101,7 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 					     &tx, &wscript,
 					     &input_sat))
 		return bad_req(conn, c, msg_in);
+	tx->chainparams = c->chainparams;
 
 	if (!pubkey_from_secret(&revocation_secret, &point))
 		return bad_req_fmt(conn, c, msg_in, "Failed deriving pubkey");
@@ -1143,6 +1148,7 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 					     &input_sat))
 		return bad_req(conn, c, msg_in);
 
+	tx->chainparams = c->chainparams;
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	if (!derive_shaseed(&channel_seed, &shaseed))
@@ -1277,6 +1283,7 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 					       &funding))
 		return bad_req(conn, c, msg_in);
 
+	tx->chainparams = c->chainparams;
 	/* FIXME: We should know dust level, decent fee range and
 	 * balances, and final_keyindex, and thus be able to check tx
 	 * outputs! */

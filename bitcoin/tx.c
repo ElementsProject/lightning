@@ -281,6 +281,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 			      varint_t input_count, varint_t output_count)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+	assert(chainparams);
 
 	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,
 			    &tx->wtx);
