@@ -18,6 +18,8 @@
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
+#include <lightningd/channel_state.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -580,6 +582,41 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
+static void json_add_channel_state(struct json_stream *response,
+			       const char *fieldname,
+			       const enum channel_state state)
+{
+	json_add_member(response, fieldname, true, "%s", channel_state_str(state));
+}
+
+static void json_add_channel_meta_data(struct json_stream *response, const struct channel *c, const struct peer *p)
+{
+	json_object_start(response, NULL);
+	json_add_node_id(response, "peer_id", &p->id);
+	if (c->state != CHANNELD_NORMAL || !c->connected){
+		json_add_channel_state(response, "state",c->state);
+		json_add_bool(response, "connected", false);
+	}
+
+	if (c->scid)
+		json_add_short_channel_id(response,
+					  "short_channel_id",
+					  c->scid);
+
+	json_add_amount_sat_compat(response,
+				   amount_msat_to_sat_round_down(c->our_msat),
+				   "channel_sat",
+				   "our_amount_msat");
+	json_add_amount_sat_compat(response, c->funding,
+				   "channel_total_sat",
+				   "amount_msat");
+	json_add_txid(response, "funding_txid",
+		      &c->funding_txid);
+	json_add_num(response, "funding_output",
+		     c->funding_outnum);
+	json_object_end(response);
+}
+
 static struct command_result *json_listfunds(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
@@ -641,25 +678,20 @@ static struct command_result *json_listfunds(struct command *cmd,
 	list_for_each(&cmd->ld->peers, p, list) {
 		struct channel *c;
 		list_for_each(&p->channels, c, list) {
-			json_object_start(response, NULL);
-			json_add_node_id(response, "peer_id", &p->id);
-			if (c->scid)
-				json_add_short_channel_id(response,
-							  "short_channel_id",
-							  c->scid);
+ 			if (c->state != CHANNELD_NORMAL || !c->connected)
+				continue;
+			json_add_channel_meta_data(response, c, p);
+		}
+	}
+	json_array_end(response);
 
-			json_add_amount_sat_compat(response,
-						   amount_msat_to_sat_round_down(c->our_msat),
-						   "channel_sat",
-						   "our_amount_msat");
-			json_add_amount_sat_compat(response, c->funding,
-						   "channel_total_sat",
-						   "amount_msat");
-			json_add_txid(response, "funding_txid",
-				      &c->funding_txid);
-			json_add_num(response, "funding_output",
-				      c->funding_outnum);
-			json_object_end(response);
+	json_array_start(response, "non operational channels");
+	list_for_each(&cmd->ld->peers, p, list) {
+		struct channel *c;
+		list_for_each(&p->channels, c, list) {
+ 			if (c->state == CHANNELD_NORMAL && c->connected)
+				continue;
+			json_add_channel_meta_data(response, c, p);
 		}
 	}
 	json_array_end(response);
