@@ -5,6 +5,7 @@ Flask==1.0.2
 cheroot==6.5.4
 ephemeral-port-reserve==1.1.0
 flaky==3.5.3
+mako==1.0.14
 pytest-benchmark==3.2.2
 pytest-forked==1.0.1
 pytest-xdist==1.26.0
