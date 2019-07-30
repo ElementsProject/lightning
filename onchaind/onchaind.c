@@ -2662,6 +2662,7 @@ int main(int argc, char *argv[])
 	}
 
 	tx->chainparams = chainparams_by_chainhash(&chain_hash);
+	is_elements = tx->chainparams->is_elements;
 
 	status_debug("feerate_per_kw = %u", feerate_per_kw);
 	bitcoin_txid(tx, &txid);
