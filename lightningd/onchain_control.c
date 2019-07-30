@@ -438,6 +438,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	struct pubkey final_key;
 	int hsmfd;
 	u32 feerate;
+	const struct chainparams *chainparams;
 
 	channel_fail_permanent(channel, "Funding transaction spent");
 
@@ -507,8 +508,11 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 			feerate = feerate_floor();
 	}
 
+	chainparams = get_chainparams(channel->peer->ld);
+
 	msg = towire_onchain_init(channel,
 				  &channel->their_shachain.chain,
+				  &chainparams->genesis_blockhash,
 				  channel->funding,
 				  &channel->channel_info.old_remote_per_commit,
 				  &channel->channel_info.remote_per_commit,
