@@ -12,6 +12,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 #include <common/amount.h>
+#include <common/bigsize.h>
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
 
@@ -31,7 +32,7 @@ struct siphash_seed;
 
 /* Makes generate-wire.py work */
 typedef char wirestring;
-typedef u64 bigsize;
+typedef bigsize_t bigsize;
 
 /* FIXME: Some versions of spec using 'varint' for bigsize' */
 typedef bigsize varint;
