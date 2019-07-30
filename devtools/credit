@@ -30,7 +30,7 @@ while read LINE; do
     if [ $(grep -ci -- "$NAME\|$EMAIL" /tmp/prev-authors.$$) = 0 ]; then
 	NOTES="$NOTES""NEW COMMITTER "
     fi
-    if ! grep -q -- "$NAME" /tmp/namers.$$; then
+    if ! grep -qi -- "$NAME" /tmp/namers.$$; then
 	if [ -z "$NAMER" ]; then
 	    NAMER="$NAME"
 	    NOTES="$NOTES""*NEXT NAMER* "
