@@ -486,7 +486,7 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 		hop_size = FRAME_SIZE;
 		step->type = SPHINX_V0_PAYLOAD;
 	} else {
-		vsize = varint_get(src, 3, &raw_size);
+		vsize = bigsize_get(src, 3, &raw_size);
 		hop_size = raw_size + vsize + HMAC_SIZE;
 		step->type = SPHINX_TLV_PAYLOAD;
 	}
