@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (argc < 1 + 7 + 3*2 + 6*2)
-		errx(1, "Usage: mkcommit [-v] <commitnum> <funding-txid> <funding-txout> <funding-amount> <feerate-per-kw> <local-msat> <fee-payer> <localconfig> <remoteconfig> <remote-reserve> <localsecrets> <remotesecrets> [<htlc>...]\n"
+		errx(1, "Usage: mkcommit [-v] <commitnum> <funding-txid> <funding-txout> <funding-amount> <feerate-per-kw> <local-msat> <fee-payer> <localconfig> <remoteconfig> <localsecrets> <remotesecrets> [<htlc>...]\n"
 		     "Where <config> are:\n"
 		     "   <to-self-delay>\n"
 		     "   <dustlimit>\n"
