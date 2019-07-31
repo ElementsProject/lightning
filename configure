@@ -34,12 +34,12 @@ default_coptflags()
 default_cwarnflags()
 {
     F=$BASE_WARNFLAGS
-    # Clang doesn't like -Wno-error=maybe-uninitialized, but doesn't seem
+    # Clang doesn't like -Wno-maybe-uninitialized, but doesn't seem
     # to give spurious warnings, either.
     if [ "$2" = 1 ]; then
 	# With old gccs, or optimization != -O3, we need to suppress some warnings.
 	if [ -n "${1##*-O3*}" ] || [ "$3" != "1" ]; then
-	    F="$F -Wno-error=maybe-uninitialized"
+	    F="$F -Wno-maybe-uninitialized"
 	fi
     fi
     echo "$F"
