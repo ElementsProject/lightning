@@ -90,6 +90,8 @@ int main(int argc, char *argv[])
 
 	/* nVersion, input count, output count, nLocktime */
 	weight = 4 * (4 + 1 + 1 + 4);
+	/* Add segwit fields: marker + flag */
+	weight += 1 + 1;
 	/* Single output: Satoshis, script length, p2wsh. */
 	weight += 4 * (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
 	/* Single input: txid, index, scriptlen, nSequence */
