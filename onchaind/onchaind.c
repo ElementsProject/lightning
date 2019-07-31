@@ -2634,6 +2634,7 @@ int main(int argc, char *argv[])
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_onchain_init(tmpctx, msg,
 				   &shachain,
+				   &is_elements,
 				   &chain_hash,
 				   &funding,
 				   &old_remote_per_commit_point,
@@ -2662,7 +2663,6 @@ int main(int argc, char *argv[])
 	}
 
 	tx->chainparams = chainparams_by_chainhash(&chain_hash);
-	is_elements = tx->chainparams->is_elements;
 
 	status_debug("feerate_per_kw = %u", feerate_per_kw);
 	bitcoin_txid(tx, &txid);
