@@ -754,11 +754,9 @@ static struct command_result *json_sendpay(struct command *cmd,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
-	const jsmntok_t *routetok;
-	const jsmntok_t *t;
-	size_t i;
 	struct sha256 *rhash;
 	struct route_hop *route;
+	size_t routelen;
 	struct amount_msat *msat;
 	const char *b11str, *label;
 	struct command_result *res;
@@ -766,7 +764,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	/* If by array, or 'check' command, use 'label' as param name */
 	if (!params || params->type == JSMN_ARRAY) {
 		if (!param(cmd, buffer, params,
-			   p_req("route", param_array, &routetok),
+			   p_req("route", param_route, &route),
 			   p_req("payment_hash", param_sha256, &rhash),
 			   p_opt("label", param_escaped_string, &label),
 			   p_opt("msatoshi", param_msat, &msat),
@@ -779,7 +777,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		/* If by keyword, treat description and label as
 		 * separate parameters. */
 		if (!param(cmd, buffer, params,
-			   p_req("route", param_array, &routetok),
+			   p_req("route", param_route, &route),
 			   p_req("payment_hash", param_sha256, &rhash),
 			   p_opt("label", param_escaped_string, &label),
 			   p_opt("description", param_escaped_string,
@@ -800,56 +798,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		}
 	}
 
-	if (routetok->size == 0)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");
-
-	route = tal_arr(cmd, struct route_hop, routetok->size);
-	json_for_each_arr(i, t, routetok) {
-		struct amount_msat *msat, *amount_msat;
-		struct node_id *id;
-		struct short_channel_id *channel;
-		unsigned *delay, *direction;
-
-		if (!param(cmd, buffer, t,
-			   /* Only *one* of these is required */
-			   p_opt("msatoshi", param_msat, &msat),
-			   p_opt("amount_msat", param_msat, &amount_msat),
-			   /* These three actually required */
-			   p_opt("id", param_node_id, &id),
-			   p_opt("delay", param_number, &delay),
-			   p_opt("channel", param_short_channel_id, &channel),
-			   p_opt("direction", param_number, &direction),
-			   NULL))
-			return command_param_failed();
-
-		if (!msat && !amount_msat)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "route[%zi]: must have msatoshi"
-					    " or amount_msat", i);
-		if (!id || !channel || !delay)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "route[%zi]: must have id, channel"
-					    " and delay", i);
-		if (msat && amount_msat && !amount_msat_eq(*msat, *amount_msat))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "route[%zi]: msatoshi %s != amount_msat %s",
-					    i,
-					    type_to_string(tmpctx,
-							   struct amount_msat,
-							   msat),
-					    type_to_string(tmpctx,
-							   struct amount_msat,
-							   amount_msat));
-		if (!msat)
-			msat = amount_msat;
-
-		route[i].amount = *msat;
-		route[i].nodeid = *id;
-		route[i].delay = *delay;
-		route[i].channel_id = *channel;
-		/* FIXME: Actually ignored by sending code! */
-		route[i].direction = direction ? *direction : 0;
-	}
+	routelen = tal_count(route);
 
 	/* The given msatoshi is the actual payment that the payee is
 	 * requesting. The final hop amount is what we actually give, which can
@@ -857,7 +806,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 
 	/* if not: msatoshi <= finalhop.amount <= 2 * msatoshi, fail. */
 	if (msat) {
-		struct amount_msat limit = route[routetok->size-1].amount;
+		struct amount_msat limit = route[routelen-1].amount;
 
 		if (amount_msat_less(*msat, limit))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -867,7 +816,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 							   msat),
 					    type_to_string(tmpctx,
 							   struct amount_msat,
-							   &route[routetok->size-1].amount));
+							   &route[routelen-1].amount));
 		limit.millisatoshis *= 2; /* Raw: sanity check */
 		if (amount_msat_greater(*msat, limit))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -877,11 +826,11 @@ static struct command_result *json_sendpay(struct command *cmd,
 							   msat),
 					    type_to_string(tmpctx,
 							   struct amount_msat,
-							   &route[routetok->size-1].amount));
+							   &route[routelen-1].amount));
 	}
 
 	res = send_payment(cmd->ld, cmd, rhash, route,
-			   msat ? *msat : route[routetok->size-1].amount,
+			   msat ? *msat : route[routelen-1].amount,
 			   label, b11str);
 	if (res)
 		return res;

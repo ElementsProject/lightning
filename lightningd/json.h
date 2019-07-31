@@ -96,6 +96,11 @@ struct command_result *param_feerate(struct command *cmd, const char *name,
 				     const char *buffer, const jsmntok_t *tok,
 				     u32 **feerate);
 
+/* Extract a route. */
+struct command_result *param_route(struct command *cmd, const char *name,
+				   const char *buffer, const jsmntok_t *tok,
+				   struct route_hop **route);
+
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,

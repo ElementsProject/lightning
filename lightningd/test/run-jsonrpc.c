@@ -74,6 +74,11 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
 { fprintf(stderr, "param called!\n"); abort(); }
+/* Generated stub for param_array */
+struct command_result *param_array(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				   const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				   const jsmntok_t **arr UNNEEDED)
+{ fprintf(stderr, "param_array called!\n"); abort(); }
 /* Generated stub for param_feerate_estimate */
 struct command_result *param_feerate_estimate(struct command *cmd UNNEEDED,
 					      u32 **feerate_per_kw UNNEEDED,
@@ -84,6 +89,11 @@ struct command_result *param_ignore(struct command *cmd UNNEEDED, const char *na
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    const void *unused UNNEEDED)
 { fprintf(stderr, "param_ignore called!\n"); abort(); }
+/* Generated stub for param_msat */
+struct command_result *param_msat(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				  struct amount_msat **msat UNNEEDED)
+{ fprintf(stderr, "param_msat called!\n"); abort(); }
 /* Generated stub for param_number */
 struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
