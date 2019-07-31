@@ -289,6 +289,9 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	/* version, input count, output count, locktime */
 	weight = (4 + 1 + 1 + 4) * 4;
 
+	/* Add segwit fields: marker + flag */
+	weight += 1 + 1;
+
 	/* The main output: amount, len, scriptpubkey */
 	weight += (8 + 1 + outscriptlen) * 4;
 

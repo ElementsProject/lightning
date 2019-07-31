@@ -184,7 +184,8 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 
 	/* The transaction has `tal_count(tx.utxos)` inputs and one output */
 	/* (version + in count + out count + locktime)  (index + value + script length) */
-	weight = 4 * (4 + 1 + 1 + 4) + 4 * (8 + 1 + out_len);
+	/* + segwit marker + flag */
+	weight = 4 * (4 + 1 + 1 + 4) + 4 * (8 + 1 + out_len) + 1 + 1;
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (!*utxos[i]->blockheight || *utxos[i]->blockheight > maxheight) {
 			tal_arr_remove(&utxos, i);
