@@ -1,20 +1,11 @@
 language: c
-dist: xenial
-sudo: false
+dist: bionic
 
 notifications:
   email: false
 
-addons:
-  apt:
-    packages:
-      - python3-pip
-      - libsqlite3-dev
-      - shellcheck
-      - cppcheck
-      - valgrind
-      - libomp-dev
-      - gcc-4.8
+before_install:
+  sudo apt-get install -y libsqlite3-dev cppcheck valgrind gcc-4.8
 
 env:
   - ARCH=64 SOURCE_CHECK_ONLY=true COPTFLAGS="-O3"
