@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
 	struct bitcoin_signature sig;
 	struct bitcoin_txid txid;
 	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
+	u8 **witnesses;
 
 	setup_locale();
 
@@ -116,17 +117,20 @@ int main(int argc, char *argv[])
 	sign_tx_input(tx, 0, NULL, p2wpkh_scriptcode(NULL, &inputkey),
 		      &input_privkey, &inputkey,
 		      SIGHASH_ALL, &sig);
+	witnesses = bitcoin_witness_p2wpkh(NULL, &sig, &inputkey);
+	bitcoin_tx_input_set_witness(tx, 0, witnesses);
 
 	printf("# funding sig: %s\n", sig_as_hex(&sig));
+	printf("# funding witnesses: [\n");
+	for (size_t i = 0; i < tal_count(witnesses); i++)
+		printf("\t%s\n", tal_hex(NULL, witnesses[i]));
+	printf("# ]\n");
  	printf("# funding amount: %s\n",
 	       type_to_string(NULL, struct amount_sat, &funding_amount));
 
 	bitcoin_txid(tx, &txid);
  	printf("# funding txid: %s\n",
 	       type_to_string(NULL, struct bitcoin_txid, &txid));
-
-	bitcoin_tx_input_set_witness(
-		    tx, 0, bitcoin_witness_p2wpkh(NULL, &sig, &inputkey));
 
 	printf("tx: %s\n", tal_hex(NULL, linearize_tx(NULL, tx)));
 
