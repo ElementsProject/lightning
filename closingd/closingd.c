@@ -550,6 +550,7 @@ int main(int argc, char *argv[])
 	enum side whose_turn;
 	u8 *channel_reestablish;
 	struct secret last_remote_per_commit_secret;
+	struct bitcoin_blkid chain_hash;
 
 	subdaemon_setup(argc, argv);
 
@@ -557,6 +558,7 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_closing_init(ctx, msg,
+				   &chain_hash,
 				   &pps,
 				   &funding_txid, &funding_txout,
 				   &funding,
