@@ -15,6 +15,9 @@ typedef unsigned long bitmap_word;
 #define BITMAP_NWORDS(_n)	\
 	(((_n) + BITMAP_WORD_BITS - 1) / BITMAP_WORD_BITS)
 
+#define BITMAP_WORD_0		(0)
+#define BITMAP_WORD_1		((bitmap_word)-1UL)
+
 /*
  * We wrap each word in a structure for type checking.
  */

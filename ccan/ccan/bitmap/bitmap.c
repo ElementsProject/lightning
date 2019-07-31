@@ -13,8 +13,8 @@ void bitmap_zero_range(bitmap *bitmap, unsigned long n, unsigned long m)
 {
 	unsigned long an = BIT_ALIGN_UP(n);
 	unsigned long am = BIT_ALIGN_DOWN(m);
-	bitmap_word headmask = -1ULL >> (n % BITMAP_WORD_BITS);
-	bitmap_word tailmask = ~(-1ULL >> (m % BITMAP_WORD_BITS));
+	bitmap_word headmask = BITMAP_WORD_1 >> (n % BITMAP_WORD_BITS);
+	bitmap_word tailmask = ~(BITMAP_WORD_1 >> (m % BITMAP_WORD_BITS));
 
 	assert(m >= n);
 
@@ -38,8 +38,8 @@ void bitmap_fill_range(bitmap *bitmap, unsigned long n, unsigned long m)
 {
 	unsigned long an = BIT_ALIGN_UP(n);
 	unsigned long am = BIT_ALIGN_DOWN(m);
-	bitmap_word headmask = -1ULL >> (n % BITMAP_WORD_BITS);
-	bitmap_word tailmask = ~(-1ULL >> (m % BITMAP_WORD_BITS));
+	bitmap_word headmask = BITMAP_WORD_1 >> (n % BITMAP_WORD_BITS);
+	bitmap_word tailmask = ~(BITMAP_WORD_1 >> (m % BITMAP_WORD_BITS));
 
 	assert(m >= n);
 
@@ -65,7 +65,7 @@ static int bitmap_clz(bitmap_word w)
 	return __builtin_clzl(w);
 #else
 	int lz = 0;
-	bitmap_word mask = 1UL << (BITMAP_WORD_BITS - 1);
+	bitmap_word mask = (bitmap_word)1 << (BITMAP_WORD_BITS - 1);
 
 	while (!(w & mask)) {
 		lz++;
@@ -81,8 +81,8 @@ unsigned long bitmap_ffs(const bitmap *bitmap,
 {
 	unsigned long an = BIT_ALIGN_UP(n);
 	unsigned long am = BIT_ALIGN_DOWN(m);
-	bitmap_word headmask = -1ULL >> (n % BITMAP_WORD_BITS);
-	bitmap_word tailmask = ~(-1ULL >> (m % BITMAP_WORD_BITS));
+	bitmap_word headmask = BITMAP_WORD_1 >> (n % BITMAP_WORD_BITS);
+	bitmap_word tailmask = ~(BITMAP_WORD_1 >> (m % BITMAP_WORD_BITS));
 
 	assert(m >= n);
 
