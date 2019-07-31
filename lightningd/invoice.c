@@ -532,12 +532,12 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 
 		if (any_offline)
 			json_add_string(response, "warning_offline",
-					"No peers with sufficient"
-					" incoming capacity are connected");
+					"No channel with a peer that is currently connected"
+					" has sufficient incoming capacity");
 		else
 			json_add_string(response, "warning_capacity",
-					"No channels have sufficient"
-					" incoming capacity");
+					"No channel with a peer that is not a dead end,"
+					" has sufficient incoming capacity");
 	}
 
 	was_pending(command_success(info->cmd, response));

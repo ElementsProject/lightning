@@ -61,6 +61,12 @@ logic, which will use unpublished channels only if there are no
 published channels.  If 'true' unpublished channels are always
 considered as a route hint candidate; if 'false', never.
 
+The route hint is selected from the set of incoming channels of which:
+peer's balance minus their reserves is at least 'msatoshi', state is normal, the
+peer is connected and not a dead end (i.e. has at least one other public
+channel). The selection uses some randomness to prevent probing, but favors
+channels that become more balanced after the payment.
+
 RETURN VALUE
 ------------
 
@@ -83,8 +89,9 @@ One of the following warnings may occur (on success):
 
 * 'warning_offline' if no channel with a currently
   connected peer has the incoming capacity to pay this invoice
-* 'warning_capacity' if there is no channel at all with sufficient
-  incoming capacity to pay this invoice.
+* 'warning_capacity' if there is no channel that has both sufficient incoming
+  capacity and has a peer that is publicly connected (i.e. not a dead end)
+
 
 AUTHOR
 ------

@@ -2,12 +2,12 @@
 .\"     Title: lightning-invoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/10/2019
+.\"      Date: 07/31/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-INVOICE" "7" "04/10/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-INVOICE" "7" "07/31/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -49,6 +49,8 @@ The \fIfallbacks\fR array is one or more fallback addresses to include in the in
 The \fIpreimage\fR is a 64\-digit hex string to be used as payment preimage for the created invoice\&. By default, if unspecified, lightningd will generate a secure pseudorandom preimage seeded from an appropriate entropy source on your system\&. \fBIMPORTANT\fR: if you specify the \fIpreimage\fR, you are responsible, to ensure appropriate care for generating using a secure pseudorandom generator seeded with sufficient entropy, and keeping the preimage secret\&. This parameter is an advanced feature intended for use with cutting\-edge cryptographic protocols and should not be used unless explicitly needed\&.
 .sp
 If specified, \fIexposeprivatechannels\fR overrides the default route hint logic, which will use unpublished channels only if there are no published channels\&. If \fItrue\fR unpublished channels are always considered as a route hint candidate; if \fIfalse\fR, never\&.
+.sp
+The route hint is selected from the set of incoming channels of which: peer\(cqs balance minus their reserves is at least \fImsatoshi\fR, state is normal, the peer is connected and not a dead end (i\&.e\&. has at least one other public channel)\&. The selection uses some randomness to prevent probing, but favors channels that become more balanced after the payment\&.
 .SH "RETURN VALUE"
 .sp
 On success, a hash is returned as \fIpayment_hash\fR to be given to the payer, and the \fIexpiry_time\fR as a UNIX timestamp\&. It also returns a BOLT11 invoice as \fIbolt11\fR to be given to the payer\&.
@@ -117,7 +119,7 @@ if no channel with a currently connected peer has the incoming capacity to pay t
 .IP \(bu 2.3
 .\}
 \fIwarning_capacity\fR
-if there is no channel at all with sufficient incoming capacity to pay this invoice\&.
+if there is no channel that has both sufficient incoming capacity and a peer that is publicly connected (i\&.e\&. not a dead end)
 .RE
 .SH "AUTHOR"
 .sp
