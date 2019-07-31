@@ -1303,13 +1303,11 @@ static const struct json_command close_command = {
 };
 AUTODATA(json_command, &close_command);
 
-static void activate_peer(struct peer *peer)
+static void activate_peer(struct peer *peer, u32 delay)
 {
 	u8 *msg;
 	struct channel *channel;
 	struct lightningd *ld = peer->ld;
-	/* Avoid thundering herd: after first five, delay by 1 second. */
-	int delay = -5;
 
 	/* We can only have one active channel: make sure connectd
 	 * knows to try reconnecting. */
@@ -1330,7 +1328,6 @@ static void activate_peer(struct peer *peer)
 			channel_set_billboard(channel, false,
 					      "Attempting to reconnect");
 		}
-		delay++;
 	}
 
 	list_for_each(&peer->channels, channel, list) {
@@ -1342,9 +1339,13 @@ static void activate_peer(struct peer *peer)
 void activate_peers(struct lightningd *ld)
 {
 	struct peer *p;
+	/* Avoid thundering herd: after first five, delay by 1 second. */
+	int delay = -5;
 
-	list_for_each(&ld->peers, p, list)
-		activate_peer(p);
+	list_for_each(&ld->peers, p, list) {
+		activate_peer(p, delay > 0 ? delay : 0);
+		delay++;
+	}
 }
 
 /* Pull peers, channels and HTLCs from db, and wire them up. */
