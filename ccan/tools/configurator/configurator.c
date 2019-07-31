@@ -431,7 +431,7 @@ static const struct test base_tests[] = {
 	  "	return i + 1;\n"
 	  "}" },
 	{ "HAVE_OPENMP", "#pragma omp and -fopenmp support",
-	  "INSIDE_MAIN", NULL, NULL,
+	  "INSIDE_MAIN|EXECUTE|MAY_NOT_COMPILE", NULL, NULL,
 	  "int i;\n"
 	  "#pragma omp parallel for\n"
 	  "for(i = 0; i < 0; i++) {};\n"
