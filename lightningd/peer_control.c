@@ -1308,15 +1308,29 @@ static void activate_peer(struct peer *peer)
 	u8 *msg;
 	struct channel *channel;
 	struct lightningd *ld = peer->ld;
+	/* Avoid thundering herd: after first five, delay by 1 second. */
+	int delay = -5;
 
 	/* We can only have one active channel: make sure connectd
 	 * knows to try reconnecting. */
 	channel = peer_active_channel(peer);
 	if (channel && ld->reconnect) {
-		msg = towire_connectctl_connect_to_peer(NULL, &peer->id, 0,
-							&peer->addr);
-		subd_send_msg(ld->connectd, take(msg));
-		channel_set_billboard(channel, false, "Attempting to reconnect");
+		if (delay > 0) {
+			channel_set_billboard(channel, false,
+					      tal_fmt(tmpctx,
+						      "Will attempt reconnect "
+						      "in %u seconds",
+						      delay));
+			delay_then_reconnect(channel, delay, &peer->addr);
+		} else {
+			msg = towire_connectctl_connect_to_peer(NULL,
+								&peer->id, 0,
+								&peer->addr);
+			subd_send_msg(ld->connectd, take(msg));
+			channel_set_billboard(channel, false,
+					      "Attempting to reconnect");
+		}
+		delay++;
 	}
 
 	list_for_each(&peer->channels, channel, list) {
