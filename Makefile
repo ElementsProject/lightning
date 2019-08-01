@@ -15,7 +15,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-BOLTVERSION := 950b2f5481c2a4b57ef1102e2374543e81c4aa88
+BOLTVERSION := aa33af0c4d7ae0180c04ef98e61af49c1f876a36
 
 -include config.vars
 
