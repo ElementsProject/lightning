@@ -1989,7 +1989,7 @@ void htlcs_reconnect(struct lightningd *ld,
 	struct htlc_in *hin;
 	struct htlc_out *hout;
 	struct htlc_in_map unprocessed;
-	enum onion_type failcode;
+	enum onion_type failcode COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
 
 	/* Any HTLCs which happened to be incoming and weren't forwarded before
 	 * we shutdown/crashed: fail them now.
