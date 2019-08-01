@@ -67,11 +67,14 @@ endif
 # We (may) need to rebuild these if config changes
 wire/gen_peer_wire_csv wire/gen_onion_wire_csv: config.vars
 
+# tlvs_n1 and n2 are used for test vectors, thus not referenced: expose them
+# for testing and to prevent compile error about them being unused.
+# This will be easier if test vectors are moved to separate files.
 wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS)
-	$(BOLT_GEN) -s --page header $@ wire_type < $< > $@
+	$(BOLT_GEN) -s --expose-tlv-type=n1 --expose-tlv-type=n2 --page header $@ wire_type < $< > $@
 
 wire/gen_peer_wire.c: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS)
-	$(BOLT_GEN) -s --page impl ${@:.c=.h} wire_type < $< > $@
+	$(BOLT_GEN) -s --expose-tlv-type=n1 --expose-tlv-type=n2 --page impl ${@:.c=.h} wire_type < $< > $@
 
 wire/gen_onion_wire.h: wire/gen_onion_wire_csv $(WIRE_BOLT_DEPS)
 	$(BOLT_GEN) -s --page header $@ onion_type < $< > $@
