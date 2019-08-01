@@ -1303,7 +1303,7 @@ static const struct json_command close_command = {
 };
 AUTODATA(json_command, &close_command);
 
-static void activate_peer(struct peer *peer)
+static void activate_peer(struct peer *peer, u32 delay)
 {
 	u8 *msg;
 	struct channel *channel;
@@ -1313,10 +1313,21 @@ static void activate_peer(struct peer *peer)
 	 * knows to try reconnecting. */
 	channel = peer_active_channel(peer);
 	if (channel && ld->reconnect) {
-		msg = towire_connectctl_connect_to_peer(NULL, &peer->id, 0,
-							&peer->addr);
-		subd_send_msg(ld->connectd, take(msg));
-		channel_set_billboard(channel, false, "Attempting to reconnect");
+		if (delay > 0) {
+			channel_set_billboard(channel, false,
+					      tal_fmt(tmpctx,
+						      "Will attempt reconnect "
+						      "in %u seconds",
+						      delay));
+			delay_then_reconnect(channel, delay, &peer->addr);
+		} else {
+			msg = towire_connectctl_connect_to_peer(NULL,
+								&peer->id, 0,
+								&peer->addr);
+			subd_send_msg(ld->connectd, take(msg));
+			channel_set_billboard(channel, false,
+					      "Attempting to reconnect");
+		}
 	}
 
 	list_for_each(&peer->channels, channel, list) {
@@ -1328,9 +1339,13 @@ static void activate_peer(struct peer *peer)
 void activate_peers(struct lightningd *ld)
 {
 	struct peer *p;
+	/* Avoid thundering herd: after first five, delay by 1 second. */
+	int delay = -5;
 
-	list_for_each(&ld->peers, p, list)
-		activate_peer(p);
+	list_for_each(&ld->peers, p, list) {
+		activate_peer(p, delay > 0 ? delay : 0);
+		delay++;
+	}
 }
 
 /* Pull peers, channels and HTLCs from db, and wire them up. */
