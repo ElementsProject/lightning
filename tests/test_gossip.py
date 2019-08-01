@@ -1130,6 +1130,52 @@ def test_getroute_exclude(node_factory, bitcoind):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, chan_l2l4])
 
 
+@unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
+def test_permuteroute(node_factory, bitcoind):
+    """Test permuteroute"""
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
+
+    # Initial route
+    route = l1.rpc.getroute(l4.info['id'], 1, 1)['route']
+
+    chan_l1l2 = route[0]['channel']
+
+    # Not sure what l3 and l4 id relationships are; just exclude both directions.
+    chan_l3l4_0 = route[2]['channel'] + '/0'
+    chan_l3l4_1 = route[2]['channel'] + '/1'
+
+    # Create a direct l2->l4 route.
+    l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    scid = l2.fund_channel(l4, 1000000, wait_for_active=False)
+    bitcoind.generate_block(5)
+
+    # We don't wait above, because we care about it hitting l1.
+    l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                             .format(scid),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scid)])
+
+    # l4 is > l2
+    chan_l2l4 = scid + '/0'
+
+    # Simulate a failure at l3->l4.
+    route2 = l1.rpc.permuteroute(route, 2, exclude=[chan_l3l4_0, chan_l3l4_1])['route']
+    # This should be the path l1->l2->l4
+    assert len(route2) == 2
+    assert route2[0]['channel'] == chan_l1l2
+    assert route2[1]['channel'] == scid
+
+    # Simulate a failure at l2->l4 for the route2, but with
+    # l3->l4 path still valid.
+    route3 = l1.rpc.permuteroute(route, 1, exclude=[chan_l2l4])['route']
+    # This should be same as original path l1->l2->l3->l4
+    assert route == route3
+
+    # Simulate impossible case.
+    with pytest.raises(RpcError):
+        l1.rpc.permuteroute(route, 2, exclude=[chan_l3l4_0, chan_l3l4_1, chan_l2l4])['route']
+
+
 @unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
 def test_gossip_store_local_channels(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=False)

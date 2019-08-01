@@ -566,6 +566,24 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("getroute", payload)
 
+    def permuteroute(self, route, erring_index, exclude=[], fromid=None, maxhops=20):
+        """
+        Modify an existing failing {route}, with a known failing
+        channel after the {erring_index} hop.
+        {exclude} is an optional array of scid/direction to exclude.
+        If specified the route starts from {fromid} otherwise use
+        this node as source.
+        Limit the number of hops in the route to {maxhops}.
+        """
+        payload = {
+            "route": route,
+            "erring_index": erring_index,
+            "exclude": exclude,
+            "fromid": fromid,
+            "maxhops": maxhops
+        }
+        return self.call("permuteroute", payload)
+
     def help(self, command=None):
         """
         Show available commands, or just {command} if supplied.
