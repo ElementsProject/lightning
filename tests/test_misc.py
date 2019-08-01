@@ -659,6 +659,7 @@ def test_cli(node_factory):
     assert only_one(j['invoices'])['label'] == 'l"[]{}'
 
 
+@pytest.mark.xfail(strict=True)
 def test_daemon_option(node_factory):
     """
     Make sure --daemon at least vaguely works!
@@ -682,6 +683,10 @@ def test_daemon_option(node_factory):
     subprocess.run(['cli/lightning-cli',
                     '--lightning-dir={}'.format(l1.daemon.lightning_dir),
                     'stop'], check=True)
+
+    # It should not complain that subdaemons aren't children.
+    with open('{}/log-daemon'.format(l1.daemon.lightning_dir), 'r') as f:
+        assert 'No child process' not in f.read()
 
 
 @flaky
