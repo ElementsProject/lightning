@@ -538,12 +538,14 @@ static void complete_daemonize(struct lightningd *ld)
  * file-lock a pidfile.  This not only prevents accidentally running multiple
  * daemons on the same database at once, but lets nosy sysadmins see what pid
  * the currently-running daemon is supposed to be. */
-static int pidfile_create(const struct lightningd *ld)
+static void pidfile_create(const struct lightningd *ld)
 {
 	int pid_fd;
+	char *pid;
 
-	/* Create PID file */
-	pid_fd = open(ld->pidfile, O_WRONLY|O_CREAT, 0640);
+	/* Create PID file: relative to .config dir unless absolute. */
+	pid_fd = open(path_join(tmpctx, ld->config_dir, ld->pidfile),
+		      O_WRONLY|O_CREAT, 0640);
 	if (pid_fd < 0)
 		err(1, "Failed to open PID file");
 
@@ -554,15 +556,6 @@ static int pidfile_create(const struct lightningd *ld)
 
 	/*~ As closing the file will remove the lock, we need to keep it open;
 	 * the OS will close it implicitly when we exit for any reason. */
-	return pid_fd;
-}
-
-/*~ Writing the pid into the lockfile provides a useful clue to users as to
- * what created it; however, we can't do that until we've got a stable process
- * id, and if --daemon is specified, that's quite late. */
-static void pidfile_write(const struct lightningd *ld, int pid_fd)
-{
-	char *pid;
 
 	/*~ Note that tal_fmt() is what asprintf() dreams of being. */
 	pid = tal_fmt(tmpctx, "%d\n", getpid());
@@ -635,7 +628,7 @@ int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
 	u32 min_blockheight, max_blockheight;
-	int connectd_gossipd_fd, pid_fd;
+	int connectd_gossipd_fd;
 	int stop_fd;
 	struct timers *timers;
 	const char *stop_response;
@@ -675,8 +668,13 @@ int main(int argc, char *argv[])
 	/*~ Handle early options, but don't move to --lightning-dir
 	 *  just yet. Plugins may add new options, which is why we are
 	 *  splitting between early args (including --plugin
-	 *  registration) and non-early opts. */
+	 *  registration) and non-early opts.  This also forks if they
+	 *  say --daemonize. */
 	handle_early_opts(ld, argc, argv);
+
+	/*~ Now create the PID file: this errors out if there's already a
+	 * daemon running, so we call before doing almost anything else. */
+	pidfile_create(ld);
 
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
@@ -775,10 +773,6 @@ int main(int argc, char *argv[])
 	load_channels_from_wallet(ld);
 	db_commit_transaction(ld->wallet->db);
 
-	/*~ Now create the PID file: this errors out if there's already a
-	 * daemon running, so we call before trying to create an RPC socket. */
-	pid_fd = pidfile_create(ld);
-
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
 	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
 	jsonrpc_listen(ld->jsonrpc, ld);
@@ -786,14 +780,6 @@ int main(int argc, char *argv[])
 	/*~ Now that the rpc path exists, we can start the plugins and they
 	 * can start talking to us. */
 	plugins_config(ld->plugins);
-
-	/*~ Setting this (global) activates the crash log: we don't usually need
-	 * a backtrace if we fail during startup.  We do this before daemonize,
-	 * in case that runs into trouble. */
-	crashlog = ld->log;
-
-	/*~ We have to do this after daemonize, since that changes our pid! */
-	pidfile_write(ld, pid_fd);
 
 	/*~ Activate connect daemon.  Needs to be after the initialization of
 	 * chaintopology, otherwise peers may connect and ask for
@@ -839,6 +825,10 @@ int main(int argc, char *argv[])
 	 * But we're all initialized, so detach and have parent exit now. */
 	if (ld->daemon_parent_fd != -1)
 		complete_daemonize(ld);
+
+	/*~ Setting this (global) activates the crash log: we don't usually need
+	 * a backtrace if we fail during startup. */
+	crashlog = ld->log;
 
 	/*~ The root of every backtrace (almost).  This is our main event
 	 *  loop. */
