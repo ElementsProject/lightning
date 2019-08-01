@@ -13,6 +13,7 @@
 #include <ccan/structeq/structeq.h>
 #include <common/amount.h>
 #include <common/bigsize.h>
+#include <common/node_id.h>
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
 
@@ -25,7 +26,6 @@ STRUCTEQ_DEF(channel_id, 0, id);
 struct bitcoin_blkid;
 struct bitcoin_signature;
 struct bitcoin_txid;
-struct node_id;
 struct preimage;
 struct ripemd160;
 struct siphash_seed;
