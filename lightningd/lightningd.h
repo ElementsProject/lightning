@@ -76,8 +76,9 @@ struct lightningd {
 	/* The directory to find all the subdaemons. */
 	const char *daemon_dir;
 
-	/* Are we told to run in the background. */
-	bool daemon;
+	/* If we told to run in the background, this is our parent fd, otherwise
+	 * -1. */
+	int daemon_parent_fd;
 
 	int pid_fd;
 

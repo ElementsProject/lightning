@@ -36,6 +36,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <wire/wire.h>
 
@@ -721,6 +722,41 @@ static char *opt_lightningd_usage(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_start_daemon(struct lightningd *ld)
+{
+	int fds[2];
+	int exitcode, pid;
+
+	/* Already a daemon?  OK. */
+	if (ld->daemon_parent_fd != -1)
+		return NULL;
+
+	if (pipe(fds) != 0)
+		err(1, "Creating pipe to talk to --daemon");
+
+	pid = fork();
+	if (pid == -1)
+		err(1, "Fork failed for --daemon");
+
+	if (pid == 0) {
+		/* Child returns, continues as normal. */
+		close(fds[0]);
+		ld->daemon_parent_fd = fds[1];
+		return NULL;
+	}
+
+	/* OK, we are the parent.  We exit with status told to us by
+	 * child. */
+	close(fds[1]);
+	if (read(fds[0], &exitcode, sizeof(exitcode)) == sizeof(exitcode))
+		_exit(exitcode);
+	/* It died before writing exitcode (presumably 0), so we grab it */
+	waitpid(pid, &exitcode, 0);
+	if (WIFEXITED(exitcode))
+		_exit(WEXITSTATUS(exitcode));
+	errx(1, "Died with signal %u", WTERMSIG(exitcode));
+}
+
 static char *opt_ignore_talstr(const char *arg, char **p)
 {
 	return NULL;
@@ -809,6 +845,10 @@ static void register_opts(struct lightningd *ld)
 			       opt_set_bool_arg, opt_show_bool,
 			       &ld->use_proxy_always, "Use the proxy always");
 
+	/* This immediately makes is a daemon. */
+	opt_register_early_noarg("--daemon", opt_start_daemon, ld,
+				 "Run in the background, suppress stdout/stderr");
+
 	opt_register_arg("--rpc-file", opt_set_talstr, opt_show_charp,
 			 &ld->rpc_filename,
 			 "Set JSON-RPC socket (or /dev/tty)");
@@ -847,8 +887,6 @@ static void register_opts(struct lightningd *ld)
 			 &ld->pidfile,
 			 "Specify pid file");
 
-	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
-			 "Run in the background, suppress stdout/stderr");
 	opt_register_arg("--ignore-fee-limits", opt_set_bool_arg, opt_show_bool,
 			 &ld->config.ignore_fee_limits,
 			 "(DANGEROUS) allow peer to set any feerate");
@@ -1099,6 +1137,10 @@ static void add_config(struct lightningd *ld,
 			answer = tal_fmt(name0, "%s",
 					 (!ld->reconnect && !ld->listen)
 					 ? "true" : "false");
+		} else if (opt->cb == (void *)opt_start_daemon) {
+			answer = tal_fmt(name0, "%s",
+					 ld->daemon_parent_fd == -1
+					 ? "false" : "true");
 		} else {
 			/* Insert more decodes here! */
 			assert(!"A noarg option was added but was not handled");
