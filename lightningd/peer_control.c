@@ -1223,8 +1223,7 @@ static struct command_result *json_close(struct command *cmd,
 {
 	const jsmntok_t *idtok;
 	struct peer *peer;
-	/* FIXME: gcc 7.3.0 thinks this might not be initialized. */
-	struct channel *channel = NULL;
+	struct channel *channel COMPILER_WANTS_INIT("gcc 7.3.0 fails, 8.3 OK");
 	unsigned int *timeout;
 	bool *force;
 
