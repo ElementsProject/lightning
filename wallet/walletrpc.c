@@ -198,7 +198,8 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, changekey,
 				  (*utx)->wtx->change_key_index))
 			return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
-	}
+	} else
+		changekey = NULL;
 
 	(*utx)->tx = withdraw_tx(*utx, get_chainparams(cmd->ld), (*utx)->wtx->utxos,
 				 (*utx)->destination, (*utx)->wtx->amount,
