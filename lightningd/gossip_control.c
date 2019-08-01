@@ -107,6 +107,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_INIT:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
+	case WIRE_GOSSIP_PERMUTEROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_GET_CHANNEL_PEER:
@@ -125,6 +126,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
+	case WIRE_GOSSIP_PERMUTEROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
@@ -367,6 +369,75 @@ static const struct json_command getroute_command = {
 	"Set the {maxhops} the route can take (default 20)."
 };
 AUTODATA(json_command, &getroute_command);
+
+static void json_permuteroute_reply(struct subd *gossip UNUSED,
+				    const u8 *reply, const int *fds UNUSED,
+				    struct command *cmd)
+{
+	struct json_stream *response;
+	struct route_hop *hops;
+
+	fromwire_gossip_permuteroute_reply(reply, reply, &hops);
+
+	if (tal_count(hops) == 0) {
+		was_pending(command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+					 "Could not find a route"));
+		return;
+	}
+
+	response = json_stream_success(cmd);
+	json_add_route(response, "route", hops, tal_count(hops));
+	was_pending(command_success(cmd, response));
+}
+
+static struct command_result *json_permuteroute(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
+{
+	struct route_hop *route;
+	unsigned int *erring_index;
+	struct short_channel_id_dir *excluded;
+	struct node_id *source;
+	unsigned int *max_hops;
+
+	if (!param(cmd, buffer, params,
+		   p_req("route", param_route, &route),
+		   p_req("erring_index", param_number, &erring_index),
+		   p_opt("exclude", param_exclude_array, &excluded),
+		   p_opt("fromid", param_node_id, &source),
+		   p_opt_def("maxhops", param_number, &max_hops,
+			     ROUTING_MAX_HOPS),
+		   NULL))
+		return command_param_failed();
+
+	/* FIXME: if erring_index >= tal_count(route) we can error
+	 * at this point.
+	 */
+
+	u8 *req = towire_gossip_permuteroute_request(cmd, route,
+						     (u32) *erring_index,
+						     excluded, source,
+						     (u32) *max_hops);
+	subd_req(cmd->ld->gossip, cmd->ld->gossip, req, -1, 0,
+		 json_permuteroute_reply, cmd);
+
+	return command_still_pending(cmd);
+}
+
+static const struct json_command permuteroute_command = {
+	"permuteroute",
+	"channels",
+	json_permuteroute,
+	"Modify a {route} that failed at the hop indexed by {erring_index}, "
+	"returning a modified route to the same destination. "
+	"{exclude} an array of short-channel-id/direction (e.g. [ '564334x877x1/0', '564195x1292x0/1' ]) "
+	"from consideration. "
+	"If specified the route starts from {fromid} otherwise the route "
+	"starts at this node. "
+	"Set the {maxhops} the route can take (default 20)."
+};
+AUTODATA(json_command, &permuteroute_command);
 
 static void json_add_halfchan(struct json_stream *response,
 			      const struct gossip_getchannels_entry *e,

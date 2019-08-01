@@ -144,7 +144,8 @@ SEE ALSO
 --------
 lightning-listpays(7), lightning-decodepay(7),
 lightning-listinvoice(7), lightning-delinvoice(7),
-lightning-getroute(7), lightning-invoice(7).
+lightning-getroute(7), lightning-permuteroute(7),
+lightning-invoice(7).
 
 RESOURCES
 ---------

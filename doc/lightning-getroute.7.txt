@@ -137,7 +137,7 @@ Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
 
 SEE ALSO
 --------
-lightning-pay(7), lightning-sendpay(7).
+lightning-pay(7), lightning-sendpay(7), lightning-permuteroute(7).
 
 RESOURCES
 ---------

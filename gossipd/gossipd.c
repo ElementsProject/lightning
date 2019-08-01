@@ -52,6 +52,7 @@
 #include <gossipd/broadcast.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <gossipd/permuteroute.h>
 #include <gossipd/routing.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
@@ -2185,6 +2186,43 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+/*~ lightningd can ask to modify a known-failing route to an
+ * alternate route that might work.  */
+static struct io_plan *permuteroute_req(struct io_conn *conn, struct daemon *daemon,
+					const u8 *msg)
+{
+	struct route_hop *hops;
+	u32 permute_after;
+	struct short_channel_id_dir *excluded;
+	struct node_id *source;
+	u32 max_hops;
+
+	struct route_hop *out_hops;
+	u8 *out;
+
+	if (!fromwire_gossip_permuteroute_request(msg, msg,
+						  &hops, &permute_after,
+						  &excluded, &source,
+						  &max_hops))
+		master_badmsg(WIRE_GOSSIP_PERMUTEROUTE_REQUEST, msg);
+
+	status_trace("Trying to permute a %u-hop route from %s "
+		     "after a failure at %u.",
+		     (unsigned int)tal_count(hops),
+		     source
+		     ? type_to_string(tmpctx, struct node_id, source) : "(me)",
+		     (unsigned int)permute_after);
+
+	/* permuteroute.c does all the hard work; can return NULL.  */
+	out_hops = permute_route(tmpctx, daemon->rstate, hops,
+				 permute_after, source, excluded,
+				 max_hops);
+
+	out = towire_gossip_permuteroute_reply(NULL, out_hops);
+	daemon_conn_send(daemon->master, take(out));
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
 /*~ When someone asks lightningd to `listchannels`, gossipd does the work:
  * marshalling the channel information for all channels into an array of
  * gossip_getchannels_entry, which lightningd converts to JSON.  Each channel
@@ -2951,6 +2989,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 		return getroute_req(conn, daemon, msg);
 
+	case WIRE_GOSSIP_PERMUTEROUTE_REQUEST:
+		return permuteroute_req(conn, daemon, msg);
+
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 		return getchannels_req(conn, daemon, msg);
 
@@ -3007,6 +3048,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
+	case WIRE_GOSSIP_PERMUTEROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:

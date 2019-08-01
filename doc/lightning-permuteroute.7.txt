@@ -1,0 +1,62 @@
+LIGHTNING-PERMUTEROUTE(7)
+=========================
+:doctype: manpage
+
+NAME
+----
+lightning-permuteroute - Command for changing a failing payment route (low-level).
+
+SYNOPSIS
+--------
+*permuteroute* 'route' 'erring_index' ['exclude'] ['fromid'] ['maxhops']
+
+DESCRIPTION
+-----------
+The *permuteroute* RPC command attempts to quickly find an alternative,
+"good enough" route for the payment, given a 'route' that is known to
+have failed.
+The 'route' is the same format returned by lightning-getroute(7) and
+accepted by lightning-sendpay(7).
+
+'erring_index' is the point at which the payment failed, and should
+be the 'erring_index' returned by lightning-sendpay(7) for channel-level
+failures or 'erring_index' minus 1 for node-level failures.
+
+'exclude' is a JSON array of short-channel-id/direction (e.g.
+[ "564334x877x1/0", "564195x1292x0/1" ]) which should be excluded from
+consideration for routing.
+The default is not to exclude any channels.
+
+'fromid' is the node to start the route from: default is this node.
+
+'maxhops' is the maximum number of channels to return; default is 20.
+
+The *permuteroute* command is intended for a quick-and-dirty attempt
+to create an alternative route.
+In particular, it is unlikely to get the best route.
+If the command fails or returns a route which costs too high, you
+should fall back on the slower lightning-getroute(7).
+
+RETURN VALUE
+------------
+
+On success, a "route" array is returned.
+Each array element contains 'id' (the node being routed through),
+'msatoshi' (the millisatoshis sent),
+'amount_msat' (the same, with 'msat' appended),
+and 'delay' (the number of blocks to timeout at this node).
+
+On failure, returns an error with code 205 (route not found).
+You should fall back to lightning-getroute(7) if so.
+
+AUTHOR
+------
+ZmnSCPxj <ZmnSCPxj@protonmail.com> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-pay(7), lightning-sendpay(7), lightning-getroute(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

@@ -29,6 +29,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listsendpays.7 \
 	doc/lightning-newaddr.7 \
 	doc/lightning-pay.7 \
+	doc/lightning-permuteroute.7 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-setchannelfee.7 \
 	doc/lightning-txprepare.7 \

@@ -42,6 +42,22 @@ msgtype,gossip_getroute_reply,3106
 msgdata,gossip_getroute_reply,num_hops,u16,
 msgdata,gossip_getroute_reply,hops,route_hop,num_hops
 
+# Pass JSON-RPC permuteroute call through.
+# Master -> gossipd
+msgtype,gossip_permuteroute_request,3035
+msgdata,gossip_permuteroute_request,num_hops,u16,
+msgdata,gossip_permuteroute_request,hops,route_hop,num_hops
+msgdata,gossip_permuteroute_request,permute_after,u32,
+msgdata,gossip_permuteroute_request,num_excluded,u16,
+msgdata,gossip_permuteroute_request,excluded,short_channel_id_dir,num_excluded
+msgdata,gossip_permuteroute_request,source,?node_id,
+msgdata,gossip_permuteroute_request,max_hops,u32,
+
+# gossipd -> Master
+msgtype,gossip_permuteroute_reply,3135
+msgdata,gossip_permuteroute_reply,num_hops,u16,
+msgdata,gossip_permuteroute_reply,hops,route_hop,num_hops
+
 msgtype,gossip_getchannels_request,3007
 msgdata,gossip_getchannels_request,short_channel_id,?short_channel_id,
 msgdata,gossip_getchannels_request,source,?node_id,
