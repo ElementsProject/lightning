@@ -24,8 +24,8 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		   size_t num_types,
 		   void *record)
 {
-	u64 prev_type;
-	bool first = true;
+	/* prev_type points to prev_type_store after first iter. */
+	u64 prev_type_store, *prev_type = NULL;
 
 	/* BOLT-EXPERIMENTAL #1:
 	 *
@@ -78,8 +78,8 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		 *  - if decoded `type`s are not monotonically-increasing:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
-		if (!first && type <= prev_type) {
-			if (type == prev_type)
+		if (prev_type && type <= *prev_type) {
+			if (type == *prev_type)
 				SUPERVERBOSE("duplicate tlv type");
 			else
 				SUPERVERBOSE("invalid ordering");
@@ -127,8 +127,8 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 				goto fail;
 			}
 		}
-		first = false;
-		prev_type = type;
+		prev_type = &prev_type_store;
+		*prev_type = type;
 	}
 	return true;
 
