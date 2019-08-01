@@ -70,7 +70,6 @@ CCAN_OBJS :=					\
 	ccan-crypto-sha256.o			\
 	ccan-crypto-shachain.o			\
 	ccan-crypto-siphash24.o			\
-	ccan-daemonize.o			\
 	ccan-err.o				\
 	ccan-fdpass.o				\
 	ccan-htable.o				\
@@ -132,7 +131,6 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/crypto/sha256/sha256.h		\
 	$(CCANDIR)/ccan/crypto/shachain/shachain.h	\
 	$(CCANDIR)/ccan/crypto/siphash24/siphash24.h	\
-	$(CCANDIR)/ccan/daemonize/daemonize.h		\
 	$(CCANDIR)/ccan/endian/endian.h			\
 	$(CCANDIR)/ccan/err/err.h			\
 	$(CCANDIR)/ccan/fdpass/fdpass.h			\
@@ -616,8 +614,6 @@ ccan-opt-helpers.o: $(CCANDIR)/ccan/opt/helpers.c
 ccan-opt-parse.o: $(CCANDIR)/ccan/opt/parse.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-opt-usage.o: $(CCANDIR)/ccan/opt/usage.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-ccan-daemonize.o: $(CCANDIR)/ccan/daemonize/daemonize.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-err.o: $(CCANDIR)/ccan/err/err.c
 	$(CC) $(CFLAGS) -c -o $@ $<

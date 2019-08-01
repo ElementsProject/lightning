@@ -659,7 +659,6 @@ def test_cli(node_factory):
     assert only_one(j['invoices'])['label'] == 'l"[]{}'
 
 
-@pytest.mark.xfail(strict=True)
 def test_daemon_option(node_factory):
     """
     Make sure --daemon at least vaguely works!

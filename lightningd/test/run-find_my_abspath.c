@@ -51,18 +51,12 @@ void db_assert_no_outstanding_statements(void)
 /* Generated stub for db_begin_transaction_ */
 void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
 { fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
-/* Generated stub for db_close_for_fork */
-void db_close_for_fork(struct db *db UNNEEDED)
-{ fprintf(stderr, "db_close_for_fork called!\n"); abort(); }
 /* Generated stub for db_commit_transaction */
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
 /* Generated stub for db_get_intvar */
 s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNNEEDED)
 { fprintf(stderr, "db_get_intvar called!\n"); abort(); }
-/* Generated stub for db_reopen_after_fork */
-void db_reopen_after_fork(struct db *db UNNEEDED)
-{ fprintf(stderr, "db_reopen_after_fork called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
