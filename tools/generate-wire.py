@@ -628,6 +628,7 @@ if __name__ == "__main__":
     parser.add_argument("-P", "--print_wire", help="generate wire printing source files",
                         action="store_true", default=False)
     parser.add_argument("--page", choices=['header', 'impl'], help="page to print")
+    parser.add_argument('--expose-tlv-type', action='append', default=[])
     parser.add_argument('header_filename', help='The filename of the header')
     parser.add_argument('enum_name', help='The name of the enum to produce')
     parser.add_argument("files", help='Files to read in (or stdin)', nargs=REMAINDER)

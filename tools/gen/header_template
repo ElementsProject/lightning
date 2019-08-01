@@ -61,6 +61,12 @@ struct ${tlv.struct_name()} {
 
 % for tlv in tlvs.values():
 struct ${tlv.struct_name()} *${tlv.struct_name()}_new(const tal_t *ctx);
+
+% if tlv.name in options.expose_tlv_type:
+#define TLVS_${tlv.name.upper()}_ARRAY_SIZE ${len(tlv.messages)}
+extern const struct tlv_record_type tlvs_${tlv.name}[];
+
+% endif
 % endfor
 % if options.expose_subtypes and bool(subtypes):
 % for subtype in subtypes:
@@ -87,4 +93,5 @@ u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.f
 bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}const void *p${''.join([f.arg_desc_from() for f in msg.fields.values()])});
 
 % endfor
+
 #endif /* LIGHTNING_${idem} */
