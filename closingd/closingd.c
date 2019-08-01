@@ -156,9 +156,9 @@ static void do_reconnect(struct per_peer_state *pps,
 	 *         message before sending any other messages for that channel.
 	 *
 	 * The sending node:
-	 *   - MUST set `next_local_commitment_number` to the commitment number
+	 *   - MUST set `next_commitment_number` to the commitment number
 	 *     of the next `commitment_signed` it expects to receive.
-	 *   - MUST set `next_remote_revocation_number` to the commitment number
+	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
 	 */
 

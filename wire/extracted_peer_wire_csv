@@ -106,8 +106,8 @@ msgdata,update_fee,channel_id,channel_id,
 msgdata,update_fee,feerate_per_kw,u32,
 msgtype,channel_reestablish,136
 msgdata,channel_reestablish,channel_id,channel_id,
-msgdata,channel_reestablish,next_local_commitment_number,u64,
-msgdata,channel_reestablish,next_remote_revocation_number,u64,
+msgdata,channel_reestablish,next_commitment_number,u64,
+msgdata,channel_reestablish,next_revocation_number,u64,
 msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32,option_data_loss_protect
 msgdata,channel_reestablish,my_current_per_commitment_point,point,,option_data_loss_protect
 msgtype,announcement_signatures,259
