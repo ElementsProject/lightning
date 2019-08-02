@@ -2092,7 +2092,7 @@ static void check_current_dataloss_fields(struct peer *peer,
 		return;
 
 	/* BOLT #2:
-	 *    - if `next_remote_revocation_number` equals 0:
+	 *    - if `next_revocation_number` equals 0:
 	 *      - MUST set `your_last_per_commitment_secret` to all zeroes
 	 */
 
@@ -2225,7 +2225,7 @@ static void peer_reconnect(struct peer *peer,
 	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
 	 *   - if it supports `option_data_loss_protect`:
-	 *     - if `next_remote_revocation_number` equals 0:
+	 *     - if `next_revocation_number` equals 0:
 	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
 	 *     - otherwise:
 	 *       - MUST set `your_last_per_commitment_secret` to the last
