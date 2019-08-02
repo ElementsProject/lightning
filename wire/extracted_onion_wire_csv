@@ -1,4 +1,10 @@
 #include <wire/onion_defs.h>
+tlvtype,tlv_payload,amt_to_forward,2
+tlvdata,tlv_payload,amt_to_forward,amt_to_forward,tu64,
+tlvtype,tlv_payload,outgoing_cltv_value,4
+tlvdata,tlv_payload,outgoing_cltv_value,outgoing_cltv_value,tu32,
+tlvtype,tlv_payload,short_channel_id,6
+tlvdata,tlv_payload,short_channel_id,short_channel_id,short_channel_id,
 msgtype,invalid_realm,PERM|1
 msgtype,temporary_node_failure,NODE|2
 msgtype,permanent_node_failure,PERM|NODE|2

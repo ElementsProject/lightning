@@ -49,28 +49,12 @@ struct sphinx_path;
 
 /* BOLT #4:
  *
- * The `hops_data` field is a structure that holds obfuscations of the
- * next hop's address, transfer information, and its associated HMAC. It is
- * 1300 bytes (`20x65`) long and has the following structure:
+ * ## Legacy `hop_data` payload format
  *
- * 1. type: `hops_data`
- * 2. data:
- *    * [`byte`:`realm`]
- *    * [`32*byte`:`per_hop`]
- *    * [`32*byte`:`HMAC`]
- *    * ...
- *    * `filler`
+ * The `hop_data` format is identified by a single `0x00`-byte length,
+ * for backward compatibility.  It's payload is defined as:
  *
- * Where, the `realm`, `per_hop` (with contents dependent on `realm`), and `HMAC`
- * are repeated for each hop; and where, `filler` consists of obfuscated,
- * deterministically-generated padding, as detailed in
- * [Filler Generation](#filler-generation).  Additionally, `hops_data` is
- * incrementally obfuscated at each hop.
- *
- * The `realm` byte determines the format of the `per_hop` field; currently, only
- * `realm` 0 is defined, for which the `per_hop` format follows:
- *
- * 1. type: `per_hop` (for `realm` 0)
+ * 1. type: `hop_data` (for `realm` 0)
  * 2. data:
  *    * [`short_channel_id`:`short_channel_id`]
  *    * [`u64`:`amt_to_forward`]
