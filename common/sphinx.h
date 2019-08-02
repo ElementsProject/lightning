@@ -52,7 +52,7 @@ struct sphinx_path;
  * ## Legacy `hop_data` payload format
  *
  * The `hop_data` format is identified by a single `0x00`-byte length,
- * for backward compatibility.  It's payload is defined as:
+ * for backward compatibility.  Its payload is defined as:
  *
  * 1. type: `hop_data` (for `realm` 0)
  * 2. data:
