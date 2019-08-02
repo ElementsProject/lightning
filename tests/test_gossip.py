@@ -1057,6 +1057,31 @@ def test_gossip_notices_close(node_factory, bitcoind):
     assert(l1.rpc.listnodes()['nodes'] == [])
 
 
+@pytest.mark.xfail(strict=True)
+def test_getroute_exclude_duplicate(node_factory):
+    """Test that accidentally duplicating the same channel in
+    the exclude list will not have permanent effects.
+    """
+
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    # Starting route
+    route = l1.rpc.getroute(l2.info['id'], 1, 1)['route']
+    # l1 id is > l2 id, so 1 means l1->l2
+    chan_l1l2 = route[0]['channel'] + '/1'
+
+    # This should fail to find a route as the only viable channel
+    # is excluded, and worse, is excluded twice.
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l2.info['id'], 1, 1, exclude=[chan_l1l2, chan_l1l2])
+
+    # This should still succeed since nothing is excluded anymore
+    # and in particular should return the exact same route as
+    # earlier.
+    route2 = l1.rpc.getroute(l2.info['id'], 1, 1)['route']
+    assert route == route2
+
+
 @unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
 def test_getroute_exclude(node_factory, bitcoind):
     """Test getroute's exclude argument"""
