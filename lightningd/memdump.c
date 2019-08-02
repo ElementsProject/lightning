@@ -32,15 +32,17 @@ static void json_add_ptr(struct json_stream *response, const char *name,
 	json_add_string(response, name, ptrstr);
 }
 
-static void add_memdump(struct json_stream *response,
+static size_t add_memdump(struct json_stream *response,
 			const char *name, const tal_t *root,
 			struct command *cmd)
 {
 	const tal_t *i;
+	size_t cumulative_size = 0;
 
 	json_array_start(response, name);
 	for (i = tal_first(root); i; i = tal_next(i)) {
 		const char *name = tal_name(i);
+		size_t size = tal_bytelen(i);
 
 		/* Don't try to dump this command! */
 		if (i == cmd || i == cmd->jcon)
@@ -53,14 +55,18 @@ static void add_memdump(struct json_stream *response,
 		json_object_start(response, NULL);
 		json_add_ptr(response, "parent", tal_parent(i));
 		json_add_ptr(response, "value", i);
+		json_add_u64(response, "size", size);
 		if (name)
 			json_add_string(response, "label", name);
 
 		if (tal_first(i))
-			add_memdump(response, "children", i, cmd);
+			size += add_memdump(response, "children", i, cmd);
+		json_add_u64(response, "cumulative_size", size);
 		json_object_end(response);
+		cumulative_size += size;
 	}
 	json_array_end(response);
+	return cumulative_size;
 }
 
 static struct command_result *json_memdump(struct command *cmd,
