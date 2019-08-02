@@ -110,6 +110,9 @@ struct peer {
 	u64 commit_timer_attempts;
 	u32 commit_msec;
 
+	/* How long to delay before broadcasting announcement? */
+	u32 announce_delay;
+
 	/* Are we expecting a pong? */
 	bool expecting_pong;
 
@@ -500,7 +503,10 @@ static void channel_announcement_negotiate(struct peer *peer)
 			        &peer->announcement_node_sigs[REMOTE],
 			        &peer->announcement_bitcoin_sigs[REMOTE])));
 
-		announce_channel(peer);
+		/* Give other nodes time to notice new block. */
+		notleak(new_reltimer(&peer->timers, peer,
+				     time_from_sec(peer->announce_delay),
+				     announce_channel, peer));
 	}
 }
 
@@ -2904,7 +2910,8 @@ static void init_channel(struct peer *peer)
 				   &peer->localfeatures,
 				   &peer->remote_upfront_shutdown_script,
 				   &remote_ann_node_sig,
-				   &remote_ann_bitcoin_sig)) {
+				   &remote_ann_bitcoin_sig,
+				   &peer->announce_delay)) {
 					   master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
