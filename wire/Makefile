@@ -70,17 +70,18 @@ wire/gen_peer_wire_csv wire/gen_onion_wire_csv: config.vars
 # tlvs_n1 and n2 are used for test vectors, thus not referenced: expose them
 # for testing and to prevent compile error about them being unused.
 # This will be easier if test vectors are moved to separate files.
-wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS)
+wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS) wire/Makefile
 	$(BOLT_GEN) -s --expose-tlv-type=n1 --expose-tlv-type=n2 --page header $@ wire_type < $< > $@
 
-wire/gen_peer_wire.c: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS)
+wire/gen_peer_wire.c: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS) wire/Makefile
 	$(BOLT_GEN) -s --expose-tlv-type=n1 --expose-tlv-type=n2 --page impl ${@:.c=.h} wire_type < $< > $@
 
-wire/gen_onion_wire.h: wire/gen_onion_wire_csv $(WIRE_BOLT_DEPS)
-	$(BOLT_GEN) -s --page header $@ onion_type < $< > $@
+# The tlv_payload isn't parsed in a fromwire, so we need to expose it.
+wire/gen_onion_wire.h: wire/gen_onion_wire_csv $(WIRE_BOLT_DEPS) wire/Makefile
+	$(BOLT_GEN) -s --expose-tlv-type=tlv_payload --page header $@ onion_type < $< > $@
 
-wire/gen_onion_wire.c: wire/gen_onion_wire_csv $(WIRE_BOLT_DEPS)
-	$(BOLT_GEN) -s --page impl ${@:.c=.h} onion_type < $< > $@
+wire/gen_onion_wire.c: wire/gen_onion_wire_csv $(WIRE_BOLT_DEPS) wire/Makefile
+	$(BOLT_GEN) -s --expose-tlv-type=tlv_payload --page impl ${@:.c=.h} onion_type < $< > $@
 
 check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS_NOGEN:%=check-hdr-include-order/%)
 
