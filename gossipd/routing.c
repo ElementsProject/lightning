@@ -2334,7 +2334,16 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			   fuzz, &base_seed, max_hops, &fee);
 
 	/* Now restore the capacity. */
-	for (size_t i = 0; i < tal_count(excluded); i++) {
+	/* Restoring is done in reverse order, in order to properly
+	 * handle the case where a channel is indicated twice in
+	 * our input.
+	 * Entries in `saved_capacity` of that channel beyond the
+	 * first entry will be 0, only the first entry of that
+	 * channel will be the correct capacity.
+	 * By restoring in reverse order we ensure we can restore
+	 * the correct capacity.
+	 */
+	for (ssize_t i = tal_count(excluded) - 1; i >= 0; i--) {
 		struct chan *chan = get_channel(rstate, &excluded[i].scid);
 		if (!chan)
 			continue;

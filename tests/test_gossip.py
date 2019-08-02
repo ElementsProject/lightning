@@ -1057,7 +1057,6 @@ def test_gossip_notices_close(node_factory, bitcoind):
     assert(l1.rpc.listnodes()['nodes'] == [])
 
 
-@pytest.mark.xfail(strict=True)
 def test_getroute_exclude_duplicate(node_factory):
     """Test that accidentally duplicating the same channel in
     the exclude list will not have permanent effects.
