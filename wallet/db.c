@@ -599,6 +599,41 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 #define db_prepare_v2(db,query) \
 	db_prepare_v2_(__FILE__ ":" stringify(__LINE__), db, query)
 
+bool db_step(struct db_stmt *stmt)
+{
+	assert(stmt->executed);
+	return stmt->db->config->step_fn(stmt);
+}
+
+u64 db_column_u64(struct db_stmt *stmt, int col)
+{
+	return stmt->db->config->column_u64_fn(stmt, col);
+}
+
+int db_column_int(struct db_stmt *stmt, int col)
+{
+	return stmt->db->config->column_int_fn(stmt, col);
+}
+
+size_t db_column_bytes(struct db_stmt *stmt, int col)
+{
+	return stmt->db->config->column_bytes_fn(stmt, col);
+}
+
+int db_column_is_null(struct db_stmt *stmt, int col)
+{
+	return stmt->db->config->column_is_null_fn(stmt, col);
+}
+
+const void *db_column_blob(struct db_stmt *stmt, int col)
+{
+	return stmt->db->config->column_blob_fn(stmt, col);
+}
+
+const unsigned char *db_column_text(struct db_stmt *stmt, int col)
+{
+	return stmt->db->config->column_blob_fn(stmt, col);
+}
 
 bool db_select_step_(const char *location, struct db *db, struct sqlite3_stmt *stmt)
 {
@@ -1357,5 +1392,16 @@ bool db_exec_prepared_v2(struct db_stmt *stmt)
 		assert(stmt->error);
 		db_fatal("Error executing statement: %s", stmt->error);
 	}
+	return ret;
+}
+
+bool db_query_prepared(struct db_stmt *stmt)
+{
+	/* Make sure we don't accidentally execute a modifying query using a
+	 * read-only path. */
+	bool ret;
+	assert(stmt->query->readonly);
+	ret = stmt->db->config->query_fn(stmt);
+	stmt->executed = true;
 	return ret;
 }
