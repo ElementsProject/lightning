@@ -257,6 +257,7 @@ int db_column_is_null(struct db_stmt *stmt, int col);
 const void* db_column_blob(struct db_stmt *stmt, int col);
 const unsigned char *db_column_text(struct db_stmt *stmt, int col);
 bool db_query_prepared(struct db_stmt *stmt);
+size_t db_count_changes(struct db_stmt *stmt);
 
 struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 			       const char *query_id);
