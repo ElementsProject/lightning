@@ -747,6 +747,9 @@ static void handle_minimal_config_opts(struct lightningd *ld,
 			       &ld->config_dir,
 			       "Set working directory. All other files are relative to this");
 
+	/* Handle --version (and exit) here too: don't create lightning-dir for this */
+	opt_register_version();
+
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
 	/* Now, reset and ignore those options from now on. */
