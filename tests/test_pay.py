@@ -6,6 +6,7 @@ from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE,
 
 import copy
 import concurrent.futures
+import os
 import pytest
 import random
 import re
@@ -1378,7 +1379,7 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
 
     # TODO Remove our reliance on HTLCs failing on startup and the need for
     #      this plugin
-    l4.daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
+    l4.daemon.opts['plugin'] = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')
 
     # Restarting tail node will stop it ignoring HTLCs (it will actually
     # fail them immediately).
@@ -2052,7 +2053,7 @@ def test_channel_spendable(node_factory, bitcoind):
     """Test that spendable_msat is accurate"""
     sats = 10**6
     l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
-                                     opts={'plugin': 'tests/plugins/hold_invoice.py', 'holdtime': str(TIMEOUT / 2)})
+                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': str(TIMEOUT / 2)})
 
     payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
 
@@ -2105,7 +2106,7 @@ def test_channel_spendable_large(node_factory, bitcoind):
     # This is almost the max allowable spend.
     sats = 4294967
     l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
-                                     opts={'plugin': 'tests/plugins/hold_invoice.py', 'holdtime': str(TIMEOUT / 2)})
+                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': str(TIMEOUT / 2)})
 
     payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
 

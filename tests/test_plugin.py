@@ -19,7 +19,7 @@ def test_option_passthrough(node_factory):
 
     First attempts without the plugin and then with the plugin.
     """
-    plugin_path = 'contrib/plugins/helloworld.py'
+    plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
 
     help_out = subprocess.check_output([
         'lightningd/lightningd',
@@ -43,7 +43,7 @@ def test_option_passthrough(node_factory):
 def test_millisatoshi_passthrough(node_factory):
     """ Ensure that Millisatoshi arguments and return work.
     """
-    plugin_path = 'tests/plugins/millisatoshis.py'
+    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/millisatoshis.py')
     n = node_factory.get_node(options={'plugin': plugin_path, 'log-level': 'io'})
 
     # By keyword
@@ -64,7 +64,7 @@ def test_rpc_passthrough(node_factory):
     then try to call it.
 
     """
-    plugin_path = 'contrib/plugins/helloworld.py'
+    plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
     n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
 
     # Make sure that the 'hello' command that the helloworld.py plugin
@@ -87,7 +87,7 @@ def test_rpc_passthrough(node_factory):
 
 def test_plugin_dir(node_factory):
     """--plugin-dir works"""
-    plugin_dir = 'contrib/plugins'
+    plugin_dir = os.path.join(os.getcwd(), 'contrib/plugins')
     node_factory.get_node(options={'plugin-dir': plugin_dir, 'greeting': 'Mars'})
 
 
@@ -154,7 +154,7 @@ def test_plugin_command(node_factory):
 
 def test_plugin_disable(node_factory):
     """--disable-plugin works"""
-    plugin_dir = 'contrib/plugins'
+    plugin_dir = os.path.join(os.getcwd(), 'contrib/plugins')
     # We need plugin-dir before disable-plugin!
     n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
                                                    ('disable-plugin',
@@ -179,7 +179,7 @@ def test_plugin_hook(node_factory, executor):
     complete the payment.
 
     """
-    l1, l2 = node_factory.line_graph(2, opts={'plugin': 'contrib/plugins/helloworld.py'})
+    l1, l2 = node_factory.line_graph(2, opts={'plugin': os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')})
     start_time = time.time()
     f = executor.submit(l1.pay, l2, 100000)
     l2.daemon.wait_for_log(r'on_htlc_accepted called')
@@ -194,7 +194,7 @@ def test_plugin_hook(node_factory, executor):
 def test_plugin_connect_notifications(node_factory):
     """ test 'connect' and 'disconnect' notifications
     """
-    l1, l2 = node_factory.get_nodes(2, opts={'plugin': 'contrib/plugins/helloworld.py'})
+    l1, l2 = node_factory.get_nodes(2, opts={'plugin': os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')})
 
     l1.connect(l2)
     l1.daemon.wait_for_log(r'Received connect event')
@@ -207,8 +207,8 @@ def test_plugin_connect_notifications(node_factory):
 
 def test_failing_plugins():
     fail_plugins = [
-        'contrib/plugins/fail/failtimeout.py',
-        'contrib/plugins/fail/doesnotexist.py',
+        os.path.join(os.getcwd(), 'contrib/plugins/fail/failtimeout.py'),
+        os.path.join(os.getcwd(), 'contrib/plugins/fail/doesnotexist.py'),
     ]
 
     for p in fail_plugins:
@@ -240,7 +240,7 @@ def test_plugin_connected_hook(node_factory):
 
     l1 is configured to accept connections from l2, but not from l3.
     """
-    opts = [{'plugin': 'tests/plugins/reject.py'}, {}, {}]
+    opts = [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/reject.py')}, {}, {}]
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     l1.rpc.reject(l3.info['id'])
 
@@ -269,7 +269,7 @@ def test_async_rpcmethod(node_factory, executor):
     It works in conjunction with the `asynctest` plugin which stashes
     requests and then resolves all of them on the fifth call.
     """
-    l1 = node_factory.get_node(options={'plugin': 'tests/plugins/asynctest.py'})
+    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/asynctest.py')})
 
     results = []
     for i in range(10):
@@ -290,7 +290,7 @@ def test_async_rpcmethod(node_factory, executor):
 def test_db_hook(node_factory, executor):
     """This tests the db hook."""
     dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
-    l1 = node_factory.get_node(options={'plugin': 'tests/plugins/dblog.py',
+    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
                                         'dblog-file': dbfile})
 
     # It should see the db being created, and sometime later actually get
@@ -313,7 +313,7 @@ def test_db_hook(node_factory, executor):
 
 
 def test_utf8_passthrough(node_factory, executor):
-    l1 = node_factory.get_node(options={'plugin': 'tests/plugins/utf8.py',
+    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/utf8.py'),
                                         'log-level': 'io'})
 
     # This works because Python unmangles.
@@ -333,7 +333,7 @@ def test_utf8_passthrough(node_factory, executor):
 def test_invoice_payment_hook(node_factory):
     """ l1 uses the reject-payment plugin to reject invoices with odd preimages.
     """
-    opts = [{}, {'plugin': 'tests/plugins/reject_some_invoices.py'}]
+    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/reject_some_invoices.py')}]
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     # This one works
@@ -360,7 +360,7 @@ def test_invoice_payment_hook(node_factory):
 def test_invoice_payment_hook_hold(node_factory):
     """ l1 uses the hold_invoice plugin to delay invoice payment.
     """
-    opts = [{}, {'plugin': 'tests/plugins/hold_invoice.py', 'holdtime': TIMEOUT / 2}]
+    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': TIMEOUT / 2}]
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     inv1 = l2.rpc.invoice(123000, 'label', 'description', preimage='1' * 64)
@@ -370,7 +370,7 @@ def test_invoice_payment_hook_hold(node_factory):
 def test_openchannel_hook(node_factory, bitcoind):
     """ l2 uses the reject_odd_funding_amounts plugin to reject some openings.
     """
-    opts = [{}, {'plugin': 'tests/plugins/reject_odd_funding_amounts.py'}]
+    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/reject_odd_funding_amounts.py')}]
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
 
     # Get some funds.
@@ -418,7 +418,7 @@ def test_htlc_accepted_hook_fail(node_factory):
     """
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {},
-        {'plugin': 'tests/plugins/fail_htlcs.py'},
+        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')},
         {}
     ], wait_for_announce=True)
 
@@ -449,7 +449,7 @@ def test_htlc_accepted_hook_resolve(node_factory):
     """
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {},
-        {'plugin': 'tests/plugins/shortcircuit.py'},
+        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/shortcircuit.py')},
         {}
     ], wait_for_announce=True)
 
@@ -466,7 +466,8 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     """
     l1, l2 = node_factory.line_graph(2, opts=[
         {'may_reconnect': True},
-        {'may_reconnect': True, 'plugin': 'tests/plugins/hold_htlcs.py'}
+        {'may_reconnect': True,
+         'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')}
     ])
 
     i1 = l2.rpc.invoice(msatoshi=1000, label="direct", description="desc")['bolt11']
@@ -483,7 +484,8 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {'may_reconnect': True},
-        {'may_reconnect': True, 'plugin': 'tests/plugins/hold_htlcs.py'},
+        {'may_reconnect': True,
+         'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')},
         {'may_reconnect': True},
     ], wait_for_announce=True)
 
@@ -512,7 +514,7 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
 def test_warning_notification(node_factory):
     """ test 'warning' notifications
     """
-    l1 = node_factory.get_node(options={'plugin': 'tests/plugins/pretend_badlog.py'}, allow_broken_log=True)
+    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/pretend_badlog.py')}, allow_broken_log=True)
 
     # 1. test 'warn' level
     event = "Test warning notification(for unusual event)"
@@ -544,7 +546,7 @@ def test_invoice_payment_notification(node_factory):
     """
     Test the 'invoice_payment' notification
     """
-    opts = [{}, {"plugin": "contrib/plugins/helloworld.py"}]
+    opts = [{}, {"plugin": os.path.join(os.getcwd(), "contrib/plugins/helloworld.py")}]
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     msats = 12345
@@ -562,7 +564,7 @@ def test_channel_opened_notification(node_factory):
     """
     Test the 'channel_opened' notification sent at channel funding success.
     """
-    opts = [{}, {"plugin": "tests/plugins/misc_notifications.py"}]
+    opts = [{}, {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}]
     amount = 10**6
     l1, l2 = node_factory.line_graph(2, fundchannel=True, fundamount=amount,
                                      opts=opts)
@@ -580,7 +582,7 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
 
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {},
-        {'plugin': 'tests/plugins/forward_payment_status.py'},
+        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/forward_payment_status.py')},
         {}
     ], wait_for_announce=True)
     l4 = node_factory.get_node()
