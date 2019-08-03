@@ -554,8 +554,15 @@ sqlite3_stmt *db_select_prepare_(const char *location, struct db *db, const char
 	return stmt;
 }
 
+static void db_stmt_free(struct db_stmt *stmt)
+{
+	if (stmt->inner_stmt)
+		stmt->db->config->stmt_free_fn(stmt);
+	assert(stmt->inner_stmt == NULL);
+}
+
 struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
-			       const char *query_id)
+				     const char *query_id)
 {
 	struct db_stmt *stmt = tal(db, struct db_stmt);
 	stmt->query = NULL;
@@ -581,12 +588,11 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 	stmt->location = location;
 	stmt->error = NULL;
 	stmt->db = db;
-	return stmt;
-}
+	stmt->inner_stmt = NULL;
 
-void db_stmt_free(struct db_stmt *stmt)
-{
-	stmt->db->config->stmt_free_fn(stmt);
+	tal_add_destructor(stmt, db_stmt_free);
+
+	return stmt;
 }
 
 #define db_prepare_v2(db,query) \
@@ -877,7 +883,7 @@ static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
 			struct db_stmt *stmt =
 			    db_prepare_v2(db, dbmigrations[current].sql);
 			db_exec_prepared_v2(stmt);
-			db_stmt_free(stmt);
+			tal_free(stmt);
 		}
 		if (dbmigrations[current].func)
 			dbmigrations[current].func(ld, db);
@@ -1276,7 +1282,7 @@ void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
 	db_bind_int(stmt, 1, ld->config.fee_per_satoshi);
 
 	db_exec_prepared_v2(stmt);
-	db_stmt_free(stmt);
+	tal_free(stmt);
 }
 
 void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t)
