@@ -122,6 +122,8 @@ struct db_config {
 	const void *(*column_blob_fn)(struct db_stmt *stmt, int col);
 	const unsigned char *(*column_text_fn)(struct db_stmt *stmt, int col);
 	s64 (*column_int_fn)(struct db_stmt *stmt, int col);
+
+	size_t (*count_changes_fn)(struct db_stmt *stmt);
 };
 
 /* Provide a way for DB backends to register themselves */

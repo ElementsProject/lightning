@@ -635,6 +635,11 @@ const unsigned char *db_column_text(struct db_stmt *stmt, int col)
 	return stmt->db->config->column_blob_fn(stmt, col);
 }
 
+size_t db_count_changes(struct db_stmt *stmt)
+{
+	return stmt->db->config->count_changes_fn(stmt);
+}
+
 bool db_select_step_(const char *location, struct db *db, struct sqlite3_stmt *stmt)
 {
 	int ret;
