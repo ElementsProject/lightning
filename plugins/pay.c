@@ -494,6 +494,46 @@ static bool maybe_exclude(struct pay_command *pc,
 	return true;
 }
 
+/* Extract total fee and delay of the given route.  */
+static void extract_route_cost(const char *buf,
+			       const jsmntok_t *routetok,
+			       struct amount_msat amount,
+			       const char *method,
+			       struct amount_msat *fee_out,
+			       double *feepercent_out,
+			       u32 *delay_out)
+{
+	const jsmntok_t *t = routetok;
+	struct amount_msat fee;
+	double feepercent;
+	unsigned int delay;
+
+	if (!json_to_msat(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
+		plugin_err("%s with invalid msatoshi? %.*s",
+			   method,
+			   t->end - t->start, buf);
+	if (!amount_msat_sub(&fee, fee, amount))
+		plugin_err("%s, final amount %s less than paid %s",
+			   method,
+			   type_to_string(tmpctx, struct amount_msat, &fee),
+			   type_to_string(tmpctx, struct amount_msat, &amount));
+
+	if (!json_to_number(buf, json_delve(buf, t, "[0].delay"), &delay))
+		plugin_err("%s with invalid delay? %.*s",
+			   method,
+			   t->end - t->start, buf);
+
+	/* Casting u64 to double will lose some precision. The loss of precision
+	 * in feepercent will be like 3.0000..(some dots)..1 % - 3.0 %.
+	 * That loss will not be representable in double. So, it's Okay to
+	 * cast u64 to double for feepercent calculation. */
+	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) amount.millisatoshis); /* Raw: fee double manipulation */
+
+	*fee_out = fee;
+	*feepercent_out = feepercent;
+	*delay_out = (u32) delay;
+}
+
 static struct command_result *getroute_done(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *result,
@@ -523,23 +563,8 @@ static struct command_result *getroute_done(struct command *cmd,
 	} else
 		attempt->route = json_strdup(pc->ps->attempts, buf, t);
 
-	if (!json_to_msat(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
-		plugin_err("getroute with invalid msatoshi? %.*s",
-			   result->end - result->start, buf);
-	if (!amount_msat_sub(&fee, fee, pc->msat))
-		plugin_err("final amount %s less than paid %s",
-			   type_to_string(tmpctx, struct amount_msat, &fee),
-			   type_to_string(tmpctx, struct amount_msat, &pc->msat));
-
-	if (!json_to_number(buf, json_delve(buf, t, "[0].delay"), &delay))
-		plugin_err("getroute with invalid delay? %.*s",
-			   result->end - result->start, buf);
-
-	/* Casting u64 to double will lose some precision. The loss of precision
-	 * in feepercent will be like 3.0000..(some dots)..1 % - 3.0 %.
-	 * That loss will not be representable in double. So, it's Okay to
-	 * cast u64 to double for feepercent calculation. */
-	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) pc->msat.millisatoshis); /* Raw: fee double manipulation */
+	extract_route_cost(buf, t, pc->msat, "getroute",
+			   &fee, &feepercent, &delay);
 
 	if (amount_msat_greater(fee, pc->exemptfee)
 	    && feepercent > pc->maxfeepercent) {
