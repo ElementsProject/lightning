@@ -593,6 +593,7 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 	stmt->location = location;
 	stmt->error = NULL;
 	stmt->db = db;
+	stmt->executed = false;
 	stmt->inner_stmt = NULL;
 
 	tal_add_destructor(stmt, db_stmt_free);
@@ -1346,6 +1347,7 @@ bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
 	const char *expanded_sql;
 	bool ret = stmt->db->config->exec_fn(stmt);
+	stmt->executed = true;
 	if (stmt->db->config->expand_fn != NULL && ret &&
 	    !stmt->query->readonly) {
 		expanded_sql = stmt->db->config->expand_fn(stmt);
