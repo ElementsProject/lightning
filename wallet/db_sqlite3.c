@@ -167,6 +167,12 @@ static void db_sqlite3_stmt_free(struct db_stmt *stmt)
 	stmt->inner_stmt = NULL;
 }
 
+static size_t db_sqlite3_count_changes(struct db_stmt *stmt)
+{
+	sqlite3 *s = stmt->db->conn;
+	return sqlite3_changes(s);
+}
+
 struct db_config db_sqlite3_config = {
 	.name = "sqlite3",
 	.queries = db_sqlite3_queries,
@@ -185,6 +191,8 @@ struct db_config db_sqlite3_config = {
 	.column_bytes_fn = &db_sqlite3_column_bytes,
 	.column_blob_fn = &db_sqlite3_column_blob,
 	.column_text_fn = &db_sqlite3_column_text,
+
+	.count_changes_fn = &db_sqlite3_count_changes,
 };
 
 AUTODATA(db_backends, &db_sqlite3_config);
