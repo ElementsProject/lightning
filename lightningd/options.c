@@ -726,12 +726,19 @@ static char *opt_ignore_talstr(const char *arg, char **p)
 	return NULL;
 }
 
+static char *opt_set_conf(const char *arg, struct lightningd *ld)
+{
+	/* This is a pass-through if arg is absolute */
+	ld->config_filename = path_join(ld, path_cwd(tmpctx), arg);
+	return NULL;
+}
+
 /* Just enough parsing to find config file. */
 static void handle_minimal_config_opts(struct lightningd *ld,
 				       int argc, char *argv[])
 {
-	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
-			       &ld->config_filename,
+	opt_register_early_arg("--conf=<file>", opt_set_conf, NULL,
+			       ld,
 			       "Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
 
 	ld->config_dir = default_configdir(ld);
@@ -975,6 +982,19 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	/*~ Handle --conf and --lightning-dir super-early. */
 	handle_minimal_config_opts(ld, argc, argv);
 
+	/*~ Move into config dir: this eases path manipulation and also
+	 * gives plugins a good place to store their stuff. */
+	if (chdir(ld->config_dir) != 0) {
+		log_unusual(ld->log, "Creating configuration directory %s",
+			    ld->config_dir);
+		if (mkdir(ld->config_dir, 0700) != 0)
+			fatal("Could not make directory %s: %s",
+			      ld->config_dir, strerror(errno));
+		if (chdir(ld->config_dir) != 0)
+			fatal("Could not change directory %s: %s",
+			      ld->config_dir, strerror(errno));
+	}
+
 	/*~ The ccan/opt code requires registration then parsing; we
 	 *  mimic this API here, even though they're on separate lines.*/
 	register_opts(ld);
@@ -989,7 +1009,6 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Early cmdline options now override config file options. */
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
-
 }
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])
@@ -998,18 +1017,6 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	 * options, early ones have been parsed in
 	 * handle_early_opts */
 	opt_parse_from_config(ld, false);
-
-	/* Move to config dir, to save ourselves the hassle of path manip. */
-	if (chdir(ld->config_dir) != 0) {
-		log_unusual(ld->log, "Creating configuration directory %s",
-			    ld->config_dir);
-		if (mkdir(ld->config_dir, 0700) != 0)
-			fatal("Could not make directory %s: %s",
-			      ld->config_dir, strerror(errno));
-		if (chdir(ld->config_dir) != 0)
-			fatal("Could not change directory %s: %s",
-			      ld->config_dir, strerror(errno));
-	}
 
 	/* Now parse cmdline, which overrides config. */
 	opt_parse(&argc, argv, opt_log_stderr_exit);

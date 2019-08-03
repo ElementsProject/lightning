@@ -27,13 +27,16 @@ executable (e.g. use `chmod a+x plugin_name`)
 During startup of `lightningd` you can use the `--plugin=` option to
 register one or more plugins that should be started. In case you wish
 to start several plugins you have to use the `--plugin=` argument
-once for each plugin. An example call might look like:
+once for each plugin (or `--plugin-dir` or place them in the default
+plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and 
+`~/.lightningd/plugins`). An example call might look like:
 
 ```
 lightningd --plugin=/path/to/plugin1 --plugin=path/to/plugin2
 ```
 
-`lightningd` will write JSON-RPC requests to the plugin's `stdin` and
+`lightningd` run your plugins from the `--lightning-dir`, then
+will write JSON-RPC requests to the plugin's `stdin` and
 will read replies from its `stdout`. To initialize the plugin two RPC
 methods are required:
 
