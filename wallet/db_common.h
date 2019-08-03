@@ -111,6 +111,17 @@ struct db_config {
 	 * destructor of `struct db_stmt`, before clearing the db_stmt
 	 * itself. */
 	void (*stmt_free_fn)(struct db_stmt *db_stmt);
+
+	/* Column access in a row. Only covers the primitives, others need to
+	 * use these internally to translate (hence the non-allocating
+	 * column_{text,blob}_fn since most other types want in place
+	 * assignment. */
+	bool (*column_is_null_fn)(struct db_stmt *stmt, int col);
+	u64 (*column_u64_fn)(struct db_stmt *stmt, int col);
+	size_t (*column_bytes_fn)(struct db_stmt *stmt, int col);
+	const void *(*column_blob_fn)(struct db_stmt *stmt, int col);
+	const unsigned char *(*column_text_fn)(struct db_stmt *stmt, int col);
+	s64 (*column_int_fn)(struct db_stmt *stmt, int col);
 };
 
 /* Provide a way for DB backends to register themselves */

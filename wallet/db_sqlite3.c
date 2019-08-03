@@ -124,6 +124,42 @@ static bool db_sqlite3_commit_tx(struct db *db)
 	return true;
 }
 
+static bool db_sqlite3_column_is_null(struct db_stmt *stmt, int col)
+{
+	sqlite3_stmt *s = (sqlite3_stmt*)stmt->inner_stmt;
+	return sqlite3_column_type(s, col) == SQLITE_NULL;
+}
+
+static u64 db_sqlite3_column_u64(struct db_stmt *stmt, int col)
+{
+	sqlite3_stmt *s = (sqlite3_stmt*)stmt->inner_stmt;
+	return sqlite3_column_int64(s, col);
+}
+
+static s64 db_sqlite3_column_int(struct db_stmt *stmt, int col)
+{
+	sqlite3_stmt *s = (sqlite3_stmt*)stmt->inner_stmt;
+	return sqlite3_column_int(s, col);
+}
+
+static size_t db_sqlite3_column_bytes(struct db_stmt *stmt, int col)
+{
+	sqlite3_stmt *s = (sqlite3_stmt*)stmt->inner_stmt;
+	return sqlite3_column_bytes(s, col);
+}
+
+static const void *db_sqlite3_column_blob(struct db_stmt *stmt, int col)
+{
+	sqlite3_stmt *s = (sqlite3_stmt*)stmt->inner_stmt;
+	return sqlite3_column_blob(s, col);
+}
+
+static const unsigned char *db_sqlite3_column_text(struct db_stmt *stmt, int col)
+{
+	sqlite3_stmt *s = (sqlite3_stmt*)stmt->inner_stmt;
+	return sqlite3_column_text(s, col);
+}
+
 static void db_sqlite3_stmt_free(struct db_stmt *stmt)
 {
 	if (stmt->inner_stmt)
@@ -142,6 +178,13 @@ struct db_config db_sqlite3_config = {
 	.begin_tx_fn = &db_sqlite3_begin_tx,
 	.commit_tx_fn = &db_sqlite3_commit_tx,
 	.stmt_free_fn = &db_sqlite3_stmt_free,
+
+	.column_is_null_fn = &db_sqlite3_column_is_null,
+	.column_u64_fn = &db_sqlite3_column_u64,
+	.column_int_fn = &db_sqlite3_column_int,
+	.column_bytes_fn = &db_sqlite3_column_bytes,
+	.column_blob_fn = &db_sqlite3_column_blob,
+	.column_text_fn = &db_sqlite3_column_text,
 };
 
 AUTODATA(db_backends, &db_sqlite3_config);
