@@ -249,7 +249,6 @@ void db_bind_blob(struct db_stmt *stmt, int pos, u8 *val, size_t len);
 void db_bind_text(struct db_stmt *stmt, int pos, const char *val);
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES);
 
-void db_stmt_free(struct db_stmt *stmt);
 
 struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 			       const char *query_id);
