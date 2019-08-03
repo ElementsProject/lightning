@@ -128,7 +128,7 @@ static void db_sqlite3_stmt_free(struct db_stmt *stmt)
 {
 	if (stmt->inner_stmt)
 		sqlite3_finalize(stmt->inner_stmt);
-	tal_free(stmt);
+	stmt->inner_stmt = NULL;
 }
 
 struct db_config db_sqlite3_config = {
