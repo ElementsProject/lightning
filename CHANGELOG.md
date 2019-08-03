@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
 
+- plugins: using startup-relative paths for `plugin` and `plugin-dir`: they're now relative to `lightning-dir`.
+
 ### Removed
 
 ### Fixed

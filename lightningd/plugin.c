@@ -63,9 +63,26 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	}
 
 	p = tal(plugins, struct plugin);
-	list_add_tail(&plugins->plugins, &p->list);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+
+	/* Fix up old-style relative paths */
+	if (deprecated_apis
+	    && !path_is_abs(p->cmd)
+	    && access(p->cmd, X_OK) != 0) {
+		char *oldpath = path_join(tmpctx,
+					  plugins->ld->original_directory,
+					  p->cmd);
+		if (access(oldpath, X_OK) == 0) {
+			log_unusual(plugins->log, "DEPRECATED WARNING:"
+				    " plugin is now relative to"
+				    " lightning-dir, please change to"
+				    " plugin=%s",
+				    oldpath);
+			tal_free(p->cmd);
+			p->cmd = tal_steal(p, oldpath);
+		}
+	}
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
@@ -76,6 +93,8 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 			 path_basename(tmpctx, p->cmd));
 	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
+
+	list_add_tail(&plugins->plugins, &p->list);
 	tal_add_destructor(p, destroy_plugin);
 }
 
@@ -877,10 +896,24 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 	struct dirent *di;
 	DIR *d = opendir(dir);
 	if (!d) {
-		if (nonexist_ok && errno == ENOENT)
-			return NULL;
-		return tal_fmt(NULL, "Failed to open plugin-dir %s: %s",
-			       dir, strerror(errno));
+		if (deprecated_apis && !path_is_abs(dir)) {
+			dir = path_join(tmpctx,
+					plugins->ld->original_directory, dir);
+			d = opendir(dir);
+			if (d) {
+				log_unusual(plugins->log, "DEPRECATED WARNING:"
+					    " plugin-dir is now relative to"
+					    " lightning-dir, please change to"
+					    " plugin-dir=%s",
+					    dir);
+			}
+		}
+		if (!d) {
+			if (!nonexist_ok && errno == ENOENT)
+				return NULL;
+			return tal_fmt(NULL, "Failed to open plugin-dir %s: %s",
+				       dir, strerror(errno));
+		}
 	}
 
 	while ((di = readdir(d)) != NULL) {

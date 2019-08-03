@@ -651,3 +651,22 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash14, 'status': 'failed', 'dbforward': stats['forwards'][1]})
     assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash15, 'status': 'offered', 'dbforward': stats['forwards'][2]})
     assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash15, 'status': 'local_failed', 'dbforward': stats['forwards'][2]})
+
+
+def test_plugin_deprecated_relpath(node_factory):
+    """Test that we can use old-style relative plugin paths with deprecated-apis"""
+    l1 = node_factory.get_node(options={'plugin-dir': 'contrib/plugins',
+                                        'plugin': 'tests/plugins/millisatoshis.py',
+                                        'allow-deprecated-apis': True})
+
+    plugins = l1.rpc.plugin_list()['plugins']
+    assert ('helloworld.py', True) in [(os.path.basename(p['name']), p['active']) for p in plugins]
+    assert ('millisatoshis.py', True) in [(os.path.basename(p['name']), p['active']) for p in plugins]
+
+    assert l1.daemon.is_in_log('DEPRECATED WARNING.*plugin-dir={}'
+                               .format(os.path.join(os.getcwd(),
+                                                    'contrib/plugins')))
+
+    assert l1.daemon.is_in_log('DEPRECATED WARNING.*plugin={}'
+                               .format(os.path.join(os.getcwd(),
+                                                    'tests/plugins/millisatoshis.py')))
