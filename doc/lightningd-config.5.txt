@@ -15,7 +15,7 @@ DESCRIPTION
 
 When lightningd(8) starts up, it reads a configuration file.  By
 default that is 'config' in the *.lightning* subdirectory of the home
-directory (if it exists), but that can be changes by the
+directory (if it exists), but that can be changed by the
 '--lightning-dir' or '--conf' options on the lightningd(8) command
 line.
 
@@ -104,8 +104,8 @@ Lightning daemon options
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 *lightning-dir*='DIR'::
-    Sets the working directory. All files (except '--conf' on the command
-    line) are relative to this.
+    Sets the working directory. All files (except '--conf' and '--lightning-dir'
+    on the command line) are relative to this.
 
 *pid-file*='PATH'::
     Specify pid file to write to.
