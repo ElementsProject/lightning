@@ -20,7 +20,7 @@ def hello(plugin, name="world"):
 
 
 @plugin.init()
-def init(options, configuration, plugin):
+def init(options, configuration, plugin, **kwargs):
     plugin.log("Plugin helloworld.py initialized")
 
 
@@ -35,7 +35,7 @@ def on_disconnect(plugin, id, **kwargs):
 
 
 @plugin.subscribe("invoice_payment")
-def on_payment(plugin, invoice_payment):
+def on_payment(plugin, invoice_payment, **kwargs):
     plugin.log("Received invoice_payment event for label {}, preimage {},"
                " and amount of {}".format(invoice_payment.get("label"),
                                           invoice_payment.get("preimage"),
