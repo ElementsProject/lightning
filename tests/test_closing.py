@@ -3,7 +3,7 @@ from flaky import flaky
 from lightning import RpcError
 from utils import only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND, SLOW_MACHINE
 
-
+import os
 import queue
 import pytest
 import re
@@ -1131,8 +1131,8 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     # In fact, they'll fail them with WIRE_TEMPORARY_NODE_FAILURE.
     # TODO Remove our reliance on HTLCs failing on startup and the need for
     #      this plugin
-    nodes[0].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
-    nodes[-1].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
+    nodes[0].daemon.opts['plugin'] = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')
+    nodes[-1].daemon.opts['plugin'] = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')
     nodes[0].restart()
     nodes[-1].restart()
 
@@ -1223,8 +1223,8 @@ def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     # In fact, they'll fail them with WIRE_TEMPORARY_NODE_FAILURE.
     # TODO Remove our reliance on HTLCs failing on startup and the need for
     #      this plugin
-    nodes[0].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
-    nodes[-1].daemon.opts['plugin'] = 'tests/plugins/fail_htlcs.py'
+    nodes[0].daemon.opts['plugin'] = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')
+    nodes[-1].daemon.opts['plugin'] = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')
     nodes[0].restart()
     nodes[-1].restart()
 
