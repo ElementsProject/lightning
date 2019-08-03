@@ -78,6 +78,8 @@ struct db_stmt {
 
 	/* Pointer to DB-specific statement. */
 	void *inner_stmt;
+
+	bool executed;
 };
 
 struct db_config {
