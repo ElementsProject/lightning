@@ -28,6 +28,8 @@ struct pay_attempt {
 	const char **excludes;
 	/* Route we got (NULL == route lookup fail). */
 	const char *route;
+	/* Did we actually try to use getroute? */
+	bool getroute;
 	/* Did we actually try to send a payment? */
 	bool sendpay;
 	/* The failure result (NULL on success) */
@@ -184,6 +186,15 @@ static void json_out_add_u64(struct json_out *jout,
 			     u64 val)
 {
 	json_out_add(jout, fieldname, false, "%"PRIu64, val);
+}
+
+/* Helper to add a bool. */
+static void json_out_add_bool(struct json_out *jout,
+			      const char *fieldname,
+			      bool val)
+{
+	json_out_add(jout, fieldname, false, "%s",
+		     val ? "true" : "false");
 }
 
 static struct command_result *start_pay_attempt(struct command *cmd,
@@ -576,6 +587,26 @@ static void extract_route_cost(const char *buf,
 	*delay_out = (u32) delay;
 }
 
+static struct command_result *perform_sendpay(struct command *cmd,
+					      struct pay_command *pc)
+{
+	struct pay_attempt *attempt = current_attempt(pc);
+	struct json_out *params;
+
+	attempt->sendpay = true;
+	params = json_out_new(NULL);
+	json_out_start(params, NULL, '{');
+	json_out_add_raw(params, "route", attempt->route);
+	json_out_add(params, "payment_hash", true, "%s", pc->payment_hash);
+	json_out_add(params, "bolt11", true, "%s", pc->ps->bolt11);
+	if (pc->label)
+		json_out_add(params, "label", true, "%s", pc->label);
+	json_out_end(params, '}');
+
+	return send_outreq(cmd, "sendpay", sendpay_done, sendpay_error, pc,
+			   take(params));
+}
+
 static struct command_result *getroute_done(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *result,
@@ -586,7 +617,6 @@ static struct command_result *getroute_done(struct command *cmd,
 	struct amount_msat fee;
 	u32 delay;
 	double feepercent;
-	struct json_out *params;
 
 	if (!t)
 		plugin_err("getroute gave no 'route'? '%.*s'",
@@ -670,19 +700,7 @@ static struct command_result *getroute_done(struct command *cmd,
 		return next_routehint(cmd, pc);
 	}
 
-	attempt->sendpay = true;
-	params = json_out_new(NULL);
-	json_out_start(params, NULL, '{');
-	json_out_add_raw(params, "route", attempt->route);
-	json_out_add(params, "payment_hash", true, "%s", pc->payment_hash);
-	json_out_add(params, "bolt11", true, "%s", pc->ps->bolt11);
-	if (pc->label)
-		json_out_add(params, "label", true, "%s", pc->label);
-	json_out_end(params, '}');
-
-	return send_outreq(cmd, "sendpay", sendpay_done, sendpay_error, pc,
-			   take(params));
-
+	return perform_sendpay(cmd, pc);
 }
 
 static struct command_result *getroute_error(struct command *cmd,
@@ -718,35 +736,15 @@ static const char **dup_excludes(const tal_t *ctx, const char **excludes)
 }
 
 static struct command_result *
-start_pay_attempt_core(struct command *cmd,
-		       struct pay_command *pc,
-		       bool after_sendpay,
-		       unsigned int failure_code,
-		       unsigned int erring_index,
-		       const char *fmt,
-		       va_list ap)
+perform_getroute(struct command *cmd,
+		 struct pay_command *pc)
 {
+	struct pay_attempt *attempt = current_attempt(pc);
 	struct amount_msat msat;
 	const char *dest;
 	size_t max_hops = ROUTING_MAX_HOPS;
 	u32 cltv;
-	struct pay_attempt *attempt;
-	size_t n;
 	struct json_out *params;
-
-	n = tal_count(pc->ps->attempts);
-	tal_resize(&pc->ps->attempts, n+1);
-	attempt = &pc->ps->attempts[n];
-
-	attempt->start = time_now();
-	/* Mark it unfinished */
-	attempt->end.ts.tv_sec = -1;
-	attempt->excludes = dup_excludes(pc->ps, pc->excludes);
-	attempt->route = NULL;
-	attempt->failure = NULL;
-	attempt->result = NULL;
-	attempt->sendpay = false;
-	attempt->why = tal_vfmt(pc->ps, fmt, ap);
 
 	/* routehint set below. */
 
@@ -795,8 +793,40 @@ start_pay_attempt_core(struct command *cmd,
 	}
 	json_out_end(params, '}');
 
+	attempt->getroute = true;
+
 	return send_outreq(cmd, "getroute", getroute_done, getroute_error, pc,
 			   take(params));
+}
+
+static struct command_result *
+start_pay_attempt_core(struct command *cmd,
+		       struct pay_command *pc,
+		       bool after_sendpay,
+		       unsigned int failure_code,
+		       unsigned int erring_index,
+		       const char *fmt,
+		       va_list ap)
+{
+	struct pay_attempt *attempt;
+	size_t n;
+
+	n = tal_count(pc->ps->attempts);
+	tal_resize(&pc->ps->attempts, n+1);
+	attempt = &pc->ps->attempts[n];
+
+	attempt->start = time_now();
+	/* Mark it unfinished */
+	attempt->end.ts.tv_sec = -1;
+	attempt->excludes = dup_excludes(pc->ps, pc->excludes);
+	attempt->route = NULL;
+	attempt->failure = NULL;
+	attempt->result = NULL;
+	attempt->getroute = false;
+	attempt->sendpay = false;
+	attempt->why = tal_vfmt(pc->ps, fmt, ap);
+
+	return perform_getroute(cmd, pc);
 }
 
 static struct command_result *
@@ -1228,6 +1258,9 @@ static void add_attempt(struct json_out *ret,
 
 	if (attempt->result)
 		json_out_add_raw(ret, "success", attempt->result);
+
+	json_out_add_bool(ret, "sendpay_used", attempt->sendpay);
+	json_out_add_bool(ret, "getroute_used", attempt->getroute);
 
 	json_out_end(ret, '}');
 }
