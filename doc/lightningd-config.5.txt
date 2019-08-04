@@ -118,7 +118,7 @@ Lightning daemon options
     multiple daemons.
 
 *log-file*='PATH'::
-    Log to this file instead of stdout.  Sending lightningd(1) SIGHUP will cause
+    Log to this file instead of stdout.  Sending lightningd(8) SIGHUP will cause
     it to reopen this file (useful for log rotation).
 
 *rpc-file*='PATH'::
@@ -151,14 +151,14 @@ Lightning node customization options
     through.  Note that millisatoshis are a very, very small unit!
     Changing this value will only affect new channels and not existing ones.
     If you want to change fees for existing channels, use the RPC call
-    lightningd-setchannelfee(7).
+    lightning-setchannelfee(7).
 
 *fee-per-satoshi*='MILLIONTHS'::
     Default: 10 (0.001%).  This is the proportional fee to charge for every
     payment which passes through.  As percentages are too coarse, it's in
     millionths, so 10000 is 1%, 1000 is 0.1%.  Changing this value will only
     affect new channels and not existing ones.  If you want to change fees for
-    existing channels, use the RPC call lightningd-setchannelfee(7).
+    existing channels, use the RPC call lightning-setchannelfee(7).
 
 *min-capacity-sat*='SATOSHI'::
     Default: 10000.  This value defines the minimal effective channel capacity
@@ -366,7 +366,8 @@ of actually implementing these options.
 
 SEE ALSO
 --------
-lightning-listconfigs(7) lightningd-setchannelfee(7)
+lightning-listconfigs(7) lightning-setchannelfee(7)
+lightningd(8)
 
 RESOURCES
 ---------
