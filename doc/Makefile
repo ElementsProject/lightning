@@ -5,6 +5,7 @@ doc-wrongdir:
 	$(MAKE) -C .. doc-all
 
 MANPAGES := doc/lightning-cli.1 \
+	doc/lightningd.8 \
 	doc/lightningd-config.5 \
 	doc/lightning-autocleaninvoice.7 \
 	doc/lightning-check.7 \

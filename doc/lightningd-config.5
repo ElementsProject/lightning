@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/02/2019
+.\"      Date: 08/04/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "08/02/2019" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "08/04/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -164,7 +164,7 @@ Prefix for log lines: this can be customized if you want to merge logs with mult
 .PP
 \fBlog\-file\fR=\fIPATH\fR
 .RS 4
-Log to this file instead of stdout\&. Sending lightningd(1) SIGHUP will cause it to reopen this file (useful for log rotation)\&.
+Log to this file instead of stdout\&. Sending lightningd(8) SIGHUP will cause it to reopen this file (useful for log rotation)\&.
 .RE
 .PP
 \fBrpc\-file\fR=\fIPATH\fR
@@ -201,12 +201,12 @@ Up to 32 UTF\-8 characters to tag your node\&. Completely silly, since anyone ca
 .PP
 \fBfee\-base\fR=\fIMILLISATOSHI\fR
 .RS 4
-Default: 1000\&. The base fee to charge for every payment which passes through\&. Note that millisatoshis are a very, very small unit! Changing this value will only affect new channels and not existing ones\&. If you want to change fees for existing channels, use the RPC call lightningd\-setchannelfee(7)\&.
+Default: 1000\&. The base fee to charge for every payment which passes through\&. Note that millisatoshis are a very, very small unit! Changing this value will only affect new channels and not existing ones\&. If you want to change fees for existing channels, use the RPC call lightning\-setchannelfee(7)\&.
 .RE
 .PP
 \fBfee\-per\-satoshi\fR=\fIMILLIONTHS\fR
 .RS 4
-Default: 10 (0\&.001%)\&. This is the proportional fee to charge for every payment which passes through\&. As percentages are too coarse, it\(cqs in millionths, so 10000 is 1%, 1000 is 0\&.1%\&. Changing this value will only affect new channels and not existing ones\&. If you want to change fees for existing channels, use the RPC call lightningd\-setchannelfee(7)\&.
+Default: 10 (0\&.001%)\&. This is the proportional fee to charge for every payment which passes through\&. As percentages are too coarse, it\(cqs in millionths, so 10000 is 1%, 1000 is 0\&.1%\&. Changing this value will only affect new channels and not existing ones\&. If you want to change fees for existing channels, use the RPC call lightning\-setchannelfee(7)\&.
 .RE
 .PP
 \fBmin\-capacity\-sat\fR=\fISATOSHI\fR
@@ -505,7 +505,7 @@ You should report bugs on our github issues page, and maybe submit a fix to gain
 Rusty Russell <rusty@rustcorp\&.com\&.au> wrote this man page, and much of the configuration language, but many others did the hard work of actually implementing these options\&.
 .SH "SEE ALSO"
 .sp
-lightning\-listconfigs(7) lightningd\-setchannelfee(7)
+lightning\-listconfigs(7) lightning\-setchannelfee(7) lightningd(8)
 .SH "RESOURCES"
 .sp
 Main web site: https://github\&.com/ElementsProject/lightning
