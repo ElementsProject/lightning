@@ -230,3 +230,8 @@ struct io_plan *json_stream_output_(struct json_stream *js,
 	js->len_read = 0;
 	return json_stream_output_write(conn, js);
 }
+
+const char *json_stream_contents(struct json_stream *js, size_t *len)
+{
+	return json_out_contents(js->jout, len);
+}

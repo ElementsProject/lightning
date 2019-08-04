@@ -41,6 +41,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
 	p->ld = ld;
+	p->in_rpcmethods = new_internal_rpcmethod_calls(p, p->ld);
 	return p;
 }
 
@@ -578,9 +579,12 @@ static void plugin_rpcmethod_cb(const char *buffer,
 				const jsmntok_t *idtok,
 				struct command *cmd)
 {
-	struct json_stream *response;
-
-	response = json_stream_raw_for_cmd(cmd);
+	if (cmd->in_jcon) {
+		/* We don't care about 'id', so don't change it here. */
+		internal_command_complete(cmd, buffer, toks);
+		return;
+	}
+	struct json_stream *response =  json_stream_raw_for_cmd(cmd);
 	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id);
 	command_raw_complete(cmd, response);
 }
@@ -636,7 +640,7 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 				 const char *buffer,
 				 const jsmntok_t *meth)
 {
-	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok, *usagetok;
+	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok, *usagetok, *internaltok;
 	struct json_command *cmd;
 	const char *usage;
 
@@ -645,6 +649,7 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 	desctok = json_get_member(buffer, meth, "description");
 	longdesctok = json_get_member(buffer, meth, "long_description");
 	usagetok = json_get_member(buffer, meth, "usage");
+	internaltok = json_get_member(buffer, meth, "internal");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
 		plugin_kill(plugin,
@@ -697,6 +702,12 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 
 	cmd->deprecated = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
+
+	if (internaltok)
+		json_to_bool(buffer, internaltok, &cmd->internal);
+	else
+		cmd->internal = false;
+
 	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
 		log_broken(plugin->log,
 			   "Could not register method \"%s\", a method with "
@@ -704,6 +715,17 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 			   cmd->name);
 		return false;
 	}
+
+	if (cmd->internal) {
+		if (!internal_command_register(cmd)) {
+			log_broken(plugin->log,
+				   "Could not register internal rpcmethod '%s'."
+				   " Is this name correct?",
+				   cmd->name);
+			return false;
+		}
+	}
+
 	tal_arr_expand(&plugin->methods, cmd->name);
 	return true;
 }
@@ -815,8 +837,10 @@ static void plugin_manifest_cb(const char *buffer,
 	/* Check if all plugins have replied to getmanifest, and break
 	 * if they have and this is the startup init */
 	plugin->plugins->pending_manifests--;
-	if (plugin->plugins->startup && plugin->plugins->pending_manifests == 0)
+	if (plugin->plugins->startup && plugin->plugins->pending_manifests == 0) {
+		internal_rpcmethod_registered(plugin->plugins->in_rpcmethods);
 		io_break(plugin->plugins);
+	}
 
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok || resulttok->type != JSMN_OBJECT) {
@@ -1072,6 +1096,7 @@ void plugins_config(struct plugins *plugins)
 			plugin_config(p);
 		}
 	}
+	initial_internal_repcmethod_calls(plugins->in_rpcmethods);
 }
 
 void json_add_opt_plugins(struct json_stream *response,

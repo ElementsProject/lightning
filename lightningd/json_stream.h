@@ -132,4 +132,6 @@ struct io_plan *json_stream_output_(struct json_stream *js,
 
 void json_stream_flush(struct json_stream *js);
 
+const char *json_stream_contents(struct json_stream *js, size_t *len);
+
 #endif /* LIGHTNING_LIGHTNINGD_JSON_STREAM_H */

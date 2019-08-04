@@ -44,11 +44,14 @@
 #include <lightningd/log.h>
 #include <lightningd/memdump.h>
 #include <lightningd/options.h>
+#include <lightningd/plugin.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
+
+#define UNINITIAL_INTERNAL_RPCMETHOD_ID 0xFFFFFFFFFFFFFFFFULL
 
 /* Dummy structure. */
 struct command_result {
@@ -96,6 +99,49 @@ struct json_connection {
 	 * Since multiple streams could start returning data at once, we
 	 * always service these in order, freeing once empty. */
 	struct json_stream **js_arr;
+};
+
+/* The manager of internal rpcmethod calls. The plugin manager(`struct plugins`)
+ * will have this field. */
+struct internal_rpcmethod_calls {
+	struct lightningd *ld;
+	/* The number of internal rpcmethod inprocess. */
+	size_t num_internal_rpcmethod;
+	/* Set as True after all rpcmethods of plugins are rigistered. */
+	bool registered;
+	/* The `id` field for json. */
+	u64 next_internal_rpcmethod_id;
+};
+
+/* This represents a internal JSON RPC connection.
+ * This internal connection plays the role like `json_connection`,
+ * but there is no io_conn, no partial read and no writer, in addition
+ * it has only one command.
+ * We'll use this struct to pass buffer and corresponding tokens to
+ * `parse_request` interface.
+ * The commands only for internal call will include `internal_json_connection`,
+ * and they won't have `json_connection`. */
+struct internal_json_connection {
+	/* 'call' can tell all global info. */
+	struct internal_rpcmethod_calls *call;
+
+	/* Logging for this json connection. */
+	struct log *log;
+
+	/* The buffer (required to interpret tokens). */
+	char *buffer;
+
+	/* Internal state: */
+	/* How much is already filled. */
+	size_t used;
+
+	/* Our commands */
+	struct command *cmd;
+
+	/* When plugin returns response, this callback function will
+	 * resolve the `result` freld. */
+	void (*response_cb)(void *arg, bool retry, char *output, size_t output_bytes);
+	void *response_cb_arg;
 };
 
 /**
@@ -188,6 +234,7 @@ static struct command_result *json_stop(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
+	assert(cmd->jcon);
 	/* This can't have closed yet! */
 	cmd->ld->stop_conn = cmd->jcon->conn;
 	log_unusual(cmd->ld->log, "JSON-RPC shutdown");
@@ -424,12 +471,14 @@ static const struct json_command *find_cmd(const struct jsonrpc *rpc,
 /* This can be called directly on shutdown, even with unfinished cmd */
 static void destroy_command(struct command *cmd)
 {
-	if (!cmd->jcon) {
+	if (!cmd->jcon && !cmd->in_jcon) {
 		log_debug(cmd->ld->log,
 			    "Command returned result after jcon close");
 		return;
-	}
-	list_del_from(&cmd->jcon->commands, &cmd->list);
+	} else if (cmd->jcon)
+		list_del_from(&cmd->jcon->commands, &cmd->list);
+	else
+		cmd->in_jcon->cmd = NULL;
 }
 
 struct command_result *command_raw_complete(struct command *cmd,
@@ -581,46 +630,64 @@ struct json_stream *json_stream_fail(struct command *cmd,
 }
 
 /* We return struct command_result so command_fail return value has a natural
- * sink; we don't actually use the result. */
+ * sink; we don't actually use the result.
+ * For internal command call, `jcon` will be NULL, and `in_jcon` not NULL. */
 static struct command_result *
-parse_request(struct json_connection *jcon, const jsmntok_t tok[])
+parse_request(struct json_connection *jcon, struct internal_json_connection *in_jcon,
+	      const jsmntok_t tok[])
 {
+	char *buffer;
+	struct lightningd *ld;
 	const jsmntok_t *method, *id, *params;
 	struct command *c;
 	struct command_result *res;
 
-	if (tok[0].type != JSMN_OBJECT) {
-		json_command_malformed(jcon, "null",
-				       "Expected {} for json command");
-		return NULL;
+	if (jcon) {
+		if (tok[0].type != JSMN_OBJECT) {
+			json_command_malformed(jcon, "null",
+					       "Expected {} for json command");
+			return NULL;
+		}
+		buffer = jcon->buffer;
+		ld = jcon->ld;
+	} else {
+		buffer = in_jcon->buffer;
+		ld = in_jcon->call->ld;
 	}
 
-	method = json_get_member(jcon->buffer, tok, "method");
-	params = json_get_member(jcon->buffer, tok, "params");
-	id = json_get_member(jcon->buffer, tok, "id");
+	method = json_get_member(buffer, tok, "method");
+	params = json_get_member(buffer, tok, "params");
+	id = json_get_member(buffer, tok, "id");
 
-	if (!id) {
-		json_command_malformed(jcon, "null", "No id");
-		return NULL;
+	if (jcon) {
+		if (!id) {
+			json_command_malformed(jcon, "null", "No id");
+			return NULL;
+		}
+		if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
+			json_command_malformed(jcon, "null",
+					       "Expected string/primitive for id");
+			return NULL;
+		}
 	}
-	if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
-		json_command_malformed(jcon, "null",
-				       "Expected string/primitive for id");
-		return NULL;
-	}
-
 	/* Allocate the command off of the `jsonrpc` object and not
 	 * the connection since the command may outlive `conn`. */
-	c = tal(jcon->ld->jsonrpc, struct command);
+	c = tal(ld->jsonrpc, struct command);
 	c->jcon = jcon;
-	c->ld = jcon->ld;
+	c->in_jcon = in_jcon;
+	c->ld = ld;
 	c->pending = false;
 	c->json_stream = NULL;
 	c->id = tal_strndup(c,
-			    json_tok_full(jcon->buffer, id),
+			    json_tok_full(buffer, id),
 			    json_tok_full_len(id));
 	c->mode = CMD_NORMAL;
-	list_add_tail(&jcon->commands, &c->list);
+
+	if (jcon) {
+		list_add_tail(&jcon->commands, &c->list);
+	} else
+		in_jcon->cmd = c;
+
 	tal_add_destructor(c, destroy_command);
 
 	if (!method || !params) {
@@ -633,22 +700,27 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    "Expected string for method");
 	}
 
-	c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
+	c->json_cmd = find_cmd(ld->jsonrpc, buffer, method);
 	if (!c->json_cmd) {
 		return command_fail(
 		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
-		    method->end - method->start, jcon->buffer + method->start);
+		    method->end - method->start, buffer + method->start);
 	}
 	if (c->json_cmd->deprecated && !deprecated_apis) {
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 				    "Command '%.*s' is deprecated",
 				    method->end - method->start,
-				    jcon->buffer + method->start);
+				    buffer + method->start);
 	}
 
-	db_begin_transaction(jcon->ld->wallet->db);
-	res = c->json_cmd->dispatch(c, jcon->buffer, tok, params);
-	db_commit_transaction(jcon->ld->wallet->db);
+	/* Especially for internal call, if we set a timer, and the timer loop
+	 * of `lightningd` will make the timer callback in db transaction. */
+	if (!db_already_in_transaction(ld->wallet->db)) {
+		db_begin_transaction(ld->wallet->db);
+		res = c->json_cmd->dispatch(c, buffer, tok, params);
+		db_commit_transaction(ld->wallet->db);
+	} else
+		res = c->json_cmd->dispatch(c, buffer, tok, params);
 
 	assert(res == &param_failed
 	       || res == &complete
@@ -659,8 +731,12 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	 * If they completed it, it's freed already. */
 	if (res == &pending)
 		assert(c->pending);
-	list_for_each(&jcon->commands, c, list)
-		assert(c->pending);
+
+	if (jcon) {
+		list_for_each(&jcon->commands, c, list)
+			assert(c->pending);
+	}
+
 	return res;
 }
 
@@ -745,7 +821,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 		goto read_more;
 	}
 
-	parse_request(jcon, toks);
+	parse_request(jcon, NULL, toks);
 
 	/* Remove first {}. */
 	memmove(jcon->buffer, jcon->buffer + toks[0].end,
@@ -1209,3 +1285,237 @@ void jsonrpc_remove_memleak(struct htable *memtable,
 	memleak_remove_strmap(memtable, &jsonrpc->usagemap);
 }
 #endif /* DEVELOPER */
+
+static struct json_internal_command *json_internal_command_by_name(const char *name)
+{
+	static struct json_internal_command **json_internal_command = NULL;
+	static size_t num_internal;
+	if (!json_internal_command)
+		json_internal_command = autodata_get(json_internal_command, &num_internal);
+
+	for (size_t i=0; i<num_internal; i++)
+		if (streq(json_internal_command[i]->name, name))
+			return json_internal_command[i];
+	return NULL;
+}
+
+/* `lightningd` designates topics, and plugins supply rpcmethod under given topic. */
+bool internal_command_register(struct json_command *cmd)
+{
+	struct json_internal_command *inter_cmd = json_internal_command_by_name(cmd->name);
+	if (inter_cmd) {
+		inter_cmd->cmd = cmd;
+		return true;
+	}
+	return false;
+}
+
+/* During `registered` is false or `next_internal_rpcmethod_id` is
+ * UNINITIAL_INTERNAL_RPCMETHOD_ID, all rpcmethod internal must wait
+ * until these two field changes. */
+struct internal_rpcmethod_calls *
+new_internal_rpcmethod_calls(const tal_t *ctx, struct lightningd *ld)
+{
+	struct internal_rpcmethod_calls *call = tal(ctx,
+						    struct internal_rpcmethod_calls);
+	call->ld = ld;
+	call->registered = false;
+	call->num_internal_rpcmethod = 0;
+	call->next_internal_rpcmethod_id = UNINITIAL_INTERNAL_RPCMETHOD_ID;
+
+	return call;
+}
+
+void internal_rpcmethod_registered(struct internal_rpcmethod_calls *call)
+{
+	call->registered = true;
+}
+
+void initial_internal_repcmethod_calls(struct internal_rpcmethod_calls *call)
+{
+	call->next_internal_rpcmethod_id = 0;
+}
+
+/* internal_jcon and cmd have separate lifetimes: we detach their only one
+ * cmd on either destruction */
+static void destroy_internal_jcon(struct internal_json_connection *in_jcon)
+{
+	if (in_jcon->cmd) {
+		log_debug(in_jcon->log,
+			  "Abandoning command %s",
+			  in_jcon->cmd->json_cmd->name);
+		in_jcon->cmd->jcon = NULL;
+	}
+
+	in_jcon->call->num_internal_rpcmethod--;
+
+	/* Make sure this happens last! */
+	tal_free(in_jcon->log);
+}
+
+static struct internal_json_connection *
+new_internal_json_connection(struct internal_rpcmethod_calls *call)
+{
+	struct internal_json_connection *in_jcon;
+
+	in_jcon = tal(call, struct internal_json_connection);
+	in_jcon->call = call;
+	in_jcon->used = 0;
+	in_jcon->buffer = NULL;
+	in_jcon->cmd = NULL;
+
+	call->num_internal_rpcmethod++;
+
+	in_jcon->log = new_log(in_jcon->call->ld->log_book,
+			       in_jcon->call->ld->log_book,
+			       "%sinternal_jcon:",
+			       log_prefix(in_jcon->call->ld->log));
+	in_jcon->response_cb = NULL;
+	in_jcon->response_cb_arg = NULL;
+	tal_add_destructor(in_jcon, destroy_internal_jcon);
+
+	return in_jcon;
+}
+
+static struct json_stream *
+json_internal_command(struct internal_json_connection *jcon,
+		      struct json_internal_command *inter,
+		      u64 id, void *payload)
+{
+	struct json_stream *stream = new_json_stream(jcon, NULL, jcon->log);
+	json_object_start(stream, NULL);
+	json_add_string(stream, "jsonrpc", "2.0");
+	json_add_u64(stream, "id", id);
+	json_add_string(stream, "method", inter->name);
+	json_object_start(stream, "params");
+
+	inter->serialize_payload(payload, stream);
+
+	json_object_end(stream); /* closes '.params' */
+	json_object_end(stream); /* closes '.' */
+	/* Here we don't care about '\n\n', because plugin part will append
+	 * when it changes id. */
+	return stream;
+}
+
+/* The internal call interface will warp this function.
+ * Here we will generate a `internal_json_connection` with the command json
+ * data, and pass it to `parse_request`.
+ */
+bool json_command_internal_call_(struct lightningd *ld, const char *name,
+				void *payload,
+				void (*response_cb)(void *arg, bool retry,
+						    char *output,
+						    size_t output_bytes),
+				void *response_cb_arg,
+				char **err)
+{
+	bool valid;
+
+	*err = NULL;
+	struct json_internal_command *inter = json_internal_command_by_name(name);
+	if (!inter) {
+		*err = tal_fmt(response_cb_arg, "Unregistered internal command '%s'?",
+			       inter->name);
+		log_unusual(ld->log, "%s", *err);
+		return false;
+	}
+
+	struct internal_rpcmethod_calls *call = ld->plugins->in_rpcmethods;;
+	if (!call->registered) {
+		log_debug(ld->log, "Internal command call: wait for checking if plugins"
+			  " supply internal rpcmethod.");
+		response_cb(response_cb_arg, true, NULL, 0);
+		return true;
+	}
+
+	/* No plugin supplies internal rpcmethod under this topic. */
+	if (!inter->cmd) {
+		log_debug(ld->log, "No '%s' rpcmethod registered",
+			  inter->name);
+		return false;
+	}
+
+	if (call->next_internal_rpcmethod_id == UNINITIAL_INTERNAL_RPCMETHOD_ID) {
+		log_debug(ld->log, "Internal command call: wait for rpc initial.");
+		response_cb(response_cb_arg, true, NULL, 0);
+		return true;
+	}
+
+	struct internal_json_connection *in_jcon = new_internal_json_connection(call);
+	in_jcon->response_cb = response_cb;
+	in_jcon->response_cb_arg = response_cb_arg;
+
+	/* `parse_request()` asks for `buffer` and `toks`,
+	 * so we need transform `json_stream` to `buffer` and `toks`.
+	 * This json_stream is only used to help us generate json data `buffer`,
+	 * and we parse this buffer to get `toks`.
+	 */
+	struct json_stream *stream = json_internal_command(in_jcon, inter,
+							   call->next_internal_rpcmethod_id++,
+							   payload);
+	const char *buffer = json_stream_contents(stream, &in_jcon->used);
+	if (!buffer) {
+		*err = tal_fmt(response_cb_arg,
+			       "Error in serialize process of internal command '%s'.",
+			       inter->name);
+		log_unusual(in_jcon->log, "%s", *err);
+		return false;
+	}
+
+	in_jcon->buffer = tal_strndup(in_jcon, buffer, in_jcon->used);
+	log_io(in_jcon->log, LOG_IO_IN, "", in_jcon->buffer,
+	       in_jcon->used);
+
+	jsmntok_t *toks = json_parse_input(in_jcon->buffer, in_jcon->buffer,
+					   in_jcon->used, &valid);
+
+	/* For command internal call, we shouldn't meet partial 'read' case. */
+	if (!toks || !valid) {
+		*err = tal_fmt(response_cb_arg,
+			      "Uninvalid json format for internal command '%s'.",
+			      inter->name);
+		log_unusual(in_jcon->log, "%s", *err);
+		return false;
+	}
+
+	parse_request(NULL, in_jcon, toks);
+
+	in_jcon->buffer = tal_free(in_jcon->buffer);
+	tal_steal(tmpctx, stream);
+	return true;
+}
+
+void internal_command_complete(struct command *cmd, const char *buffer,
+			       const jsmntok_t *toks)
+{
+	struct internal_json_connection *in_jcon = cmd->in_jcon;
+	const jsmntok_t *resulttok = json_get_member(buffer, toks, "result");
+
+	if (!resulttok) {
+		log_unusual(in_jcon->log,
+			    "Internal rpcmethod(%s): error response(%.*s)",
+			    cmd->json_cmd->name, toks->end - toks->start,
+			    buffer + toks->start);
+		in_jcon->response_cb(in_jcon->response_cb_arg,
+				     false, NULL, 0);
+		goto done;
+	}
+
+	/* The `buffer` is belongs to plugin and may have other content.
+	 * So here we let `callback` just resolves `result` field. */
+	char *output = tal_strndup(cmd, buffer + resulttok->start,
+				   resulttok->end - resulttok->start);
+	/* Here we don't put response_cb in db transaction, and let response_cb
+	 * decide when and where to ask for db transaction. For example,
+	 * bitcoin-cli part prefer put their `process` part in db transaction. */
+	in_jcon->response_cb(in_jcon->response_cb_arg, false,
+			     output, resulttok->end - resulttok->start);
+done:
+	/* `response_cb` is the end of this internal call. So free every thing. */
+	tal_free(cmd);
+	tal_free(in_jcon);
+}
+
+/* Dummy one. Will be removed when we have a 'real' one in this file. */
+REGISTER_JSON_INTERNAL_COMMAND(hello, NULL, void *);

@@ -73,6 +73,8 @@ struct plugins {
 	struct log_book *log_book;
 
 	struct lightningd *ld;
+
+	struct internal_rpcmethod_calls *in_rpcmethods;
 };
 
 /* The value of a plugin option, which can have different types.
