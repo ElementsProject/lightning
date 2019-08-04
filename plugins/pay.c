@@ -189,6 +189,15 @@ static void json_out_add_u64(struct json_out *jout,
 static struct command_result *start_pay_attempt(struct command *cmd,
 						struct pay_command *pc,
 						const char *fmt, ...);
+/* Variant of start_pay_attempt, intended to be used
+ * when a sendpay fails.
+ */
+static struct command_result *
+start_pay_attempt_after_sendpay(struct command *cmd,
+				struct pay_command *pc,
+				unsigned int failure_code,
+				unsigned int erring_index,
+				const char *fmt, ...);
 
 /* Is this (erring) channel within the routehint itself? */
 static bool channel_in_routehint(const struct route_info *routehint,
@@ -295,7 +304,10 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 						struct pay_command *pc)
 {
 	const jsmntok_t *codetok, *scidtok, *dirtok;
+	const jsmntok_t *failcodetok, *errdextok;
 	int code;
+	unsigned int failure_code;
+	unsigned int erring_index;
 
 	attempt_failed_tok(pc, "waitsendpay", buf, error);
 
@@ -331,14 +343,44 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 		return next_routehint(cmd, pc);
 
 	/* Otherwise, add erring channel to exclusion list. */
+	/* FIXME: If failure_code has NODE bit set, we should add
+	 * the erring *node* instead.  */
 	tal_arr_expand(&pc->excludes,
 		       tal_fmt(pc->excludes, "%.*s/%c",
 			       scidtok->end - scidtok->start,
 			       buf + scidtok->start,
 			       buf[dirtok->start]));
+
+	/* Extract failure_code and erring_index.
+	 *
+	 * failure_code is the BOLT 4 failure code, and can be used
+	 * to decide how to perform the next payment attempt.
+	 *
+	 * erring_index is the number of channels that successfully
+	 * sent the payment without failing.
+	 */
+	failcodetok = json_delve(buf, error, ".data.failcode");
+	if (!failcodetok)
+		plugin_err("waitsendpay error no failcode '%.*s'",
+			   error->end - error->start, buf + error->start);
+	if (!json_to_number(buf, failcodetok, &failure_code))
+		plugin_err("waitsendpay error invalid failcode '%.*s'",
+			   failcodetok->end - failcodetok->start,
+			   buf + failcodetok->start);
+	errdextok = json_delve(buf, error, ".data.erring_index");
+	if (!errdextok)
+		plugin_err("waitsendpay error no erring_index '%.*s'",
+			   error->end - error->start, buf + error->start);
+	if (!json_to_number(buf, errdextok, &erring_index))
+		plugin_err("waitsendpay error invalid erring_index '%.*s'",
+			   errdextok->end - errdextok->start,
+			   buf + errdextok->start);
+
 	/* Try again. */
-	return start_pay_attempt(cmd, pc, "Excluded channel %s",
-				 pc->excludes[tal_count(pc->excludes)-1]);
+	return start_pay_attempt_after_sendpay(cmd, pc,
+					       failure_code, erring_index,
+					       "Excluded channel %s",
+					       pc->excludes[tal_count(pc->excludes)-1]);
 }
 
 static struct command_result *waitsendpay_done(struct command *cmd,
@@ -675,16 +717,20 @@ static const char **dup_excludes(const tal_t *ctx, const char **excludes)
 	return ret;
 }
 
-static struct command_result *start_pay_attempt(struct command *cmd,
-						struct pay_command *pc,
-						const char *fmt, ...)
+static struct command_result *
+start_pay_attempt_core(struct command *cmd,
+		       struct pay_command *pc,
+		       bool after_sendpay,
+		       unsigned int failure_code,
+		       unsigned int erring_index,
+		       const char *fmt,
+		       va_list ap)
 {
 	struct amount_msat msat;
 	const char *dest;
 	size_t max_hops = ROUTING_MAX_HOPS;
 	u32 cltv;
 	struct pay_attempt *attempt;
-	va_list ap;
 	size_t n;
 	struct json_out *params;
 
@@ -692,7 +738,6 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	tal_resize(&pc->ps->attempts, n+1);
 	attempt = &pc->ps->attempts[n];
 
-	va_start(ap, fmt);
 	attempt->start = time_now();
 	/* Mark it unfinished */
 	attempt->end.ts.tv_sec = -1;
@@ -702,7 +747,6 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	attempt->result = NULL;
 	attempt->sendpay = false;
 	attempt->why = tal_vfmt(pc->ps, fmt, ap);
-	va_end(ap);
 
 	/* routehint set below. */
 
@@ -754,6 +798,40 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	return send_outreq(cmd, "getroute", getroute_done, getroute_error, pc,
 			   take(params));
 }
+
+static struct command_result *
+start_pay_attempt(struct command *cmd,
+		  struct pay_command *pc,
+		  const char *fmt, ...)
+{
+	va_list ap;
+	struct command_result *res;
+
+	va_start(ap, fmt);
+	res = start_pay_attempt_core(cmd, pc, false, 0, 0, fmt, ap);
+	va_end(ap);
+
+	return res;
+}
+static struct command_result *
+start_pay_attempt_after_sendpay(struct command *cmd,
+				struct pay_command *pc,
+				unsigned int failure_code,
+				unsigned int erring_index,
+				const char *fmt, ...)
+{
+	va_list ap;
+	struct command_result *res;
+
+	va_start(ap, fmt);
+	res = start_pay_attempt_core(cmd, pc,
+				     true, failure_code, erring_index,
+				     fmt, ap);
+	va_end(ap);
+
+	return res;
+}
+
 
 /* BOLT #7:
  *
