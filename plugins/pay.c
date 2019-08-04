@@ -11,6 +11,7 @@
 #include <gossipd/gossip_constants.h>
 #include <plugins/libplugin.h>
 #include <stdio.h>
+#include <wire/onion_defs.h>
 
 /* Public key of this node. */
 static struct node_id my_id;
@@ -30,6 +31,8 @@ struct pay_attempt {
 	const char *route;
 	/* Did we actually try to use getroute? */
 	bool getroute;
+	/* Did we actually try to use permuteroute? */
+	bool permuteroute;
 	/* Did we actually try to send a payment? */
 	bool sendpay;
 	/* The failure result (NULL on success) */
@@ -746,8 +749,6 @@ perform_getroute(struct command *cmd,
 	u32 cltv;
 	struct json_out *params;
 
-	/* routehint set below. */
-
 	/* If we have a routehint, try that first; we need to do extra
 	 * checks that it meets our criteria though. */
 	if (pc->current_routehint) {
@@ -799,6 +800,114 @@ perform_getroute(struct command *cmd,
 			   take(params));
 }
 
+static struct command_result *permuteroute_error(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *error,
+						 struct pay_command *pc)
+{
+	attempt_failed_tok(pc, "permuteroute", buf, error);
+
+	/* Fall back to using getroute again.  */
+	return start_pay_attempt(cmd, pc,
+				 "permuteroute could not find route, "
+				 "use getroute instead");
+}
+
+static struct command_result *permuteroute_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct pay_command *pc)
+{
+	struct pay_attempt *attempt = current_attempt(pc);
+	const jsmntok_t *t = json_get_member(buf, result, "route");
+	struct amount_msat fee;
+	u32 delay;
+	double feepercent;
+
+	if (!t)
+		plugin_err("permuteroute gave no 'route'? '%.*s'",
+			   result->end - result->start, buf);
+
+	extract_route_cost(buf, t, pc->msat, "permuteroute",
+			   &fee, &feepercent, &delay);
+
+	/* `permuteroute` is a naive heuristic that ignores channel
+	 * costs.
+	 * So it is very likely that the returned route will violate
+	 * our maximum fee and delay.
+	 * When that happens, we start a new pay attempt, which will
+	 * default to using `getroute` (since we only use `permuteroute`
+	 * if we start a new pay attempt on the back of a failed
+	 * `sendpay`.
+	 */
+
+	if (amount_msat_greater(fee, pc->exemptfee)
+	    && feepercent > pc->maxfeepercent) {
+		struct json_out *failed;
+		char *feemsg;
+
+		feemsg = tal_fmt(pc, "permuteroute wanted fee of %s",
+				 type_to_string(tmpctx, struct amount_msat,
+						&fee));
+		failed = failed_start(pc);
+		json_out_addstr(failed, "message", feemsg);
+		failed_end(failed);
+
+		return start_pay_attempt(cmd, pc,
+					 "permuteroute fee too high, use getroute instead");
+	}
+	if (delay > pc->maxdelay) {
+		struct json_out *failed;
+		char *feemsg;
+
+		feemsg = tal_fmt(pc, "permuteroute wanted delay of %u blocks", delay);
+		failed = failed_start(pc);
+		json_out_addstr(failed, "message", feemsg);
+		failed_end(failed);
+
+		return start_pay_attempt(cmd, pc,
+					 "permuteroute delay too high, use getroute instead");
+	}
+
+	attempt->route = json_strdup(pc->ps->attempts, buf, t);
+
+	return perform_sendpay(cmd, pc);
+}
+
+static struct command_result *
+perform_permuteroute(struct command *cmd,
+		     struct pay_command *pc,
+		     unsigned int erring_index)
+{
+	struct pay_attempt *attempt = current_attempt(pc);
+	struct pay_attempt *previous_attempt;
+	struct json_out *params;
+
+	/* This should be our 2nd or further attempt.  */
+	assert(tal_count(pc->ps->attempts) > 1);
+
+	previous_attempt = attempt - 1;
+	/* Previous attempt should have had a route.  */
+	assert(previous_attempt->route);
+
+	attempt->permuteroute = true;
+	params = json_out_new(NULL);
+	json_out_start(params, NULL, '{');
+	json_out_add_raw(params, "route", previous_attempt->route);
+	json_out_add_u64(params, "erring_index", (u64) erring_index);
+	if (tal_count(pc->excludes) != 0) {
+		json_out_start(params, "exclude", '[');
+		for (size_t i = 0; i < tal_count(pc->excludes); i++)
+			json_out_addstr(params, NULL, pc->excludes[i]);
+		json_out_end(params, ']');
+	}
+	json_out_end(params, '}');
+
+	return send_outreq(cmd, "permuteroute",
+			   &permuteroute_done, &permuteroute_error, pc,
+			   take(params));
+}
+
 static struct command_result *
 start_pay_attempt_core(struct command *cmd,
 		       struct pay_command *pc,
@@ -824,7 +933,31 @@ start_pay_attempt_core(struct command *cmd,
 	attempt->result = NULL;
 	attempt->getroute = false;
 	attempt->sendpay = false;
+	attempt->permuteroute = false;
 	attempt->why = tal_vfmt(pc->ps, fmt, ap);
+	attempt->routehint = NULL;
+
+	/* If this is after a sendpay attempt, and this is
+	 * now the second or further attempt, and the
+	 * previous attempt had a route, use permuteroute
+	 * instead of getroute.
+	 */
+	if (after_sendpay && tal_count(pc->ps->attempts) > 1
+	    && (attempt - 1)->route != NULL) {
+		/* For NODE-level failures, don't use permuteroute*/
+		if (!(NODE & failure_code))
+			return perform_permuteroute(cmd, pc, erring_index);
+		/* FIXME: For NODE-level failures, decrement
+		 * erring_index.
+		 * If erring_index was 0 for a NODE-level error,
+		 * this means our own local node has a problem
+		 * and we should stop all payment attempts.
+		 *
+		 * Note that we need to support excluding nodes
+		 * first before we can properly handle NODE-level
+		 * errors.
+		 */
+	}
 
 	return perform_getroute(cmd, pc);
 }
@@ -1261,6 +1394,7 @@ static void add_attempt(struct json_out *ret,
 
 	json_out_add_bool(ret, "sendpay_used", attempt->sendpay);
 	json_out_add_bool(ret, "getroute_used", attempt->getroute);
+	json_out_add_bool(ret, "permuteroute_used", attempt->permuteroute);
 
 	json_out_end(ret, '}');
 }
