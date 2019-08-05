@@ -12,6 +12,7 @@
 #include <common/channel_config.h>
 #include <common/utxo.h>
 #include <common/wallet.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
@@ -1024,6 +1025,11 @@ void wallet_block_remove(struct wallet *w, struct block *b);
 void wallet_blocks_rollback(struct wallet *w, u32 height);
 
 /**
+ * Return whether we have a block for the given height.
+ */
+bool wallet_have_block(struct wallet *w, u32 blockheight);
+
+/**
  * Mark an outpoint as spent, both in the owned as well as the UTXO set
  *
  * Given the outpoint (txid, outnum), and the blockheight, mark the
@@ -1158,5 +1164,12 @@ void free_unreleased_txs(struct wallet *w);
  * @return A tal_arr of wallet transactions
  */
 struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx);
+
+/**
+ * Add a filteredblock to the blocks and utxoset tables.
+ *
+ * This can be used to backfill the blocks and still unspent UTXOs that were before our wallet birth height.
+ */
+void wallet_filteredblock_add(struct wallet *w, struct filteredblock *fb);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */

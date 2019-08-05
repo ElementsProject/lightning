@@ -8,7 +8,6 @@
 #include <common/memleak.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
-#include <lightningd/bitcoind.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
@@ -2410,6 +2409,53 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 	db_exec_prepared(w->db, stmt);
 
 	outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
+}
+
+void wallet_filteredblock_add(struct wallet *w, struct filteredblock *fb)
+{
+	if (wallet_have_block(w, fb->height))
+		return;
+	sqlite3_stmt *stmt = db_prepare(w->db, "INSERT OR IGNORE INTO blocks "
+					       "(height, hash, prev_hash) "
+					       "VALUES (?, ?, ?);");
+	sqlite3_bind_int(stmt, 1, fb->height);
+	sqlite3_bind_sha256_double(stmt, 2, &fb->id.shad);
+	sqlite3_bind_sha256_double(stmt, 3, &fb->prev_hash.shad);
+	db_exec_prepared(w->db, stmt);
+
+	for (size_t i = 0; i < tal_count(fb->outpoints); i++) {
+		struct filteredblock_outpoint *o = fb->outpoints[i];
+		stmt = db_prepare(w->db, "INSERT INTO utxoset ("
+					 " txid,"
+					 " outnum,"
+					 " blockheight,"
+					 " spendheight,"
+					 " txindex,"
+					 " scriptpubkey,"
+					 " satoshis"
+					 ") VALUES(?, ?, ?, ?, ?, ?, ?);");
+		sqlite3_bind_sha256_double(stmt, 1, &o->txid.shad);
+		sqlite3_bind_int(stmt, 2, o->outnum);
+		sqlite3_bind_int(stmt, 3, fb->height);
+		sqlite3_bind_null(stmt, 4);
+		sqlite3_bind_int(stmt, 5, o->txindex);
+		sqlite3_bind_blob(stmt, 6, o->scriptPubKey,
+				  tal_count(o->scriptPubKey), SQLITE_TRANSIENT);
+		sqlite3_bind_amount_sat(stmt, 7, o->satoshis);
+		db_exec_prepared(w->db, stmt);
+
+		outpointfilter_add(w->utxoset_outpoints, &o->txid, o->outnum);
+	}
+}
+
+bool wallet_have_block(struct wallet *w, u32 blockheight)
+{
+	bool result;
+	sqlite3_stmt *stmt = db_select_prepare(w->db, "height FROM blocks WHERE height = ?");
+	sqlite3_bind_int(stmt, 1, blockheight);
+	result = sqlite3_step(stmt) == SQLITE_ROW;
+	db_stmt_done(stmt);
+	return result;
 }
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
