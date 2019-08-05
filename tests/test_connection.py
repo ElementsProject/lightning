@@ -2,7 +2,7 @@ from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
-from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT
+from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT, SLOW_MACHINE
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
 import binascii
@@ -856,7 +856,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
-    if VALGRIND:
+    if VALGRIND or SLOW_MACHINE:
         num = 5
     else:
         num = 100
