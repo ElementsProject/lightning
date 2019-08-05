@@ -367,6 +367,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 
 		/* This helper routine polls both the peer and gossipd. */
 		msg = peer_or_gossip_sync_read(ctx, state->pps, &from_gossipd);
+
 		/* Use standard helper for gossip msgs (forwards, if it's an
 		 * error, exits). */
 		if (from_gossipd) {
@@ -379,6 +380,15 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			wire_sync_write(state->pps->gossip_fd, take(msg));
 			continue;
 		}
+
+		/* BOLT #1:
+		 *
+		 * A receiving node:
+		 *   - upon receiving a message of _odd_, unknown type:
+		 *     - MUST ignore the received message.
+		 */
+		if (is_unknown_msg_discardable(msg))
+			continue;
 
 		/* Might be a timestamp filter request: handle. */
 		if (handle_timestamp_filter(state->pps, msg))
@@ -1521,45 +1531,13 @@ static u8 *handle_peer_in(struct state *state)
 	enum wire_type t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
-	switch (t) {
-	case WIRE_OPEN_CHANNEL:
+	if (t == WIRE_OPEN_CHANNEL)
 		return fundee_channel(state, msg);
 
-	/* These are handled by handle_peer_gossip_or_error. */
-	case WIRE_PING:
-	case WIRE_PONG:
-	case WIRE_CHANNEL_ANNOUNCEMENT:
-	case WIRE_NODE_ANNOUNCEMENT:
-	case WIRE_CHANNEL_UPDATE:
-	case WIRE_QUERY_SHORT_CHANNEL_IDS:
-	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
-	case WIRE_QUERY_CHANNEL_RANGE:
-	case WIRE_REPLY_CHANNEL_RANGE:
-	case WIRE_GOSSIP_TIMESTAMP_FILTER:
-	case WIRE_ERROR:
-	case WIRE_CHANNEL_REESTABLISH:
-	/* These are all protocol violations at this stage. */
-	case WIRE_INIT:
-	case WIRE_ACCEPT_CHANNEL:
-	case WIRE_FUNDING_CREATED:
-	case WIRE_FUNDING_SIGNED:
-	case WIRE_FUNDING_LOCKED:
-	case WIRE_SHUTDOWN:
-	case WIRE_CLOSING_SIGNED:
-	case WIRE_UPDATE_ADD_HTLC:
-	case WIRE_UPDATE_FULFILL_HTLC:
-	case WIRE_UPDATE_FAIL_HTLC:
-	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
-	case WIRE_COMMITMENT_SIGNED:
-	case WIRE_REVOKE_AND_ACK:
-	case WIRE_UPDATE_FEE:
-	case WIRE_ANNOUNCEMENT_SIGNATURES:
-		/* Standard cases */
-		if (handle_peer_gossip_or_error(state->pps,
-						&state->channel_id, msg))
-			return NULL;
-		break;
-	}
+	/* Handles standard cases, and legal unknown ones. */
+	if (handle_peer_gossip_or_error(state->pps,
+					&state->channel_id, msg))
+		return NULL;
 
 	sync_crypto_write(state->pps,
 			  take(towire_errorfmt(NULL,
