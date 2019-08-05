@@ -87,7 +87,6 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
 	p->subscriptions = NULL;
-	p->signal_startup = false;
 
 	p->log = new_log(p, plugins->log_book, "plugin-%s",
 			 path_basename(tmpctx, p->cmd));
@@ -829,10 +828,8 @@ static void plugin_manifest_cb(const char *buffer,
 	}
 
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
-	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin)) {
-		plugin->signal_startup = true;
+	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin))
 		plugin->dynamic = dynamic_plugin;
-	}
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
