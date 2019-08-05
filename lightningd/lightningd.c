@@ -672,10 +672,6 @@ int main(int argc, char *argv[])
 	 *  say --daemonize. */
 	handle_early_opts(ld, argc, argv);
 
-	/*~ Now create the PID file: this errors out if there's already a
-	 * daemon running, so we call before doing almost anything else. */
-	pidfile_create(ld);
-
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
 	 *  options registration). */
@@ -683,6 +679,10 @@ int main(int argc, char *argv[])
 
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);
+
+	/*~ Now create the PID file: this errors out if there's already a
+	 * daemon running, so we call before doing almost anything else. */
+	pidfile_create(ld);
 
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);
