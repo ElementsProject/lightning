@@ -20,22 +20,22 @@ def hello(plugin, name="world"):
 
 
 @plugin.init()
-def init(options, configuration, plugin):
+def init(options, configuration, plugin, **kwargs):
     plugin.log("Plugin helloworld.py initialized")
 
 
 @plugin.subscribe("connect")
-def on_connect(plugin, id, address):
+def on_connect(plugin, id, address, **kwargs):
     plugin.log("Received connect event for peer {}".format(id))
 
 
 @plugin.subscribe("disconnect")
-def on_disconnect(plugin, id):
+def on_disconnect(plugin, id, **kwargs):
     plugin.log("Received disconnect event for peer {}".format(id))
 
 
 @plugin.subscribe("invoice_payment")
-def on_payment(plugin, invoice_payment):
+def on_payment(plugin, invoice_payment, **kwargs):
     plugin.log("Received invoice_payment event for label {}, preimage {},"
                " and amount of {}".format(invoice_payment.get("label"),
                                           invoice_payment.get("preimage"),
@@ -43,7 +43,7 @@ def on_payment(plugin, invoice_payment):
 
 
 @plugin.hook("htlc_accepted")
-def on_htlc_accepted(onion, htlc, plugin):
+def on_htlc_accepted(onion, htlc, plugin, **kwargs):
     plugin.log('on_htlc_accepted called')
     time.sleep(20)
     return {'result': 'continue'}

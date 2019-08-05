@@ -9,7 +9,7 @@ plugin = Plugin()
 
 
 @plugin.hook('invoice_payment')
-def on_payment(payment, plugin):
+def on_payment(payment, plugin, **kwargs):
     time.sleep(float(plugin.get_option('holdtime')))
     return {}
 
