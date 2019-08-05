@@ -14,7 +14,7 @@ import time
 import unittest
 
 
-def test_option_passthrough(node_factory):
+def test_option_passthrough(node_factory, directory):
     """ Ensure that registering options works.
 
     First attempts without the plugin and then with the plugin.
@@ -23,12 +23,14 @@ def test_option_passthrough(node_factory):
 
     help_out = subprocess.check_output([
         'lightningd/lightningd',
+        '--lightning-dir={}'.format(directory),
         '--help'
     ]).decode('utf-8')
     assert('--greeting' not in help_out)
 
     help_out = subprocess.check_output([
         'lightningd/lightningd',
+        '--lightning-dir={}'.format(directory),
         '--plugin={}'.format(plugin_path),
         '--help'
     ]).decode('utf-8')
@@ -205,7 +207,7 @@ def test_plugin_connect_notifications(node_factory):
     l2.daemon.wait_for_log(r'Received disconnect event')
 
 
-def test_failing_plugins():
+def test_failing_plugins(directory):
     fail_plugins = [
         os.path.join(os.getcwd(), 'contrib/plugins/fail/failtimeout.py'),
         os.path.join(os.getcwd(), 'contrib/plugins/fail/doesnotexist.py'),
@@ -215,6 +217,7 @@ def test_failing_plugins():
         with pytest.raises(subprocess.CalledProcessError):
             subprocess.check_output([
                 'lightningd/lightningd',
+                '--lightning-dir={}'.format(directory),
                 '--plugin={}'.format(p),
                 '--help',
             ])
