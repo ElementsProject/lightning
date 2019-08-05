@@ -223,34 +223,6 @@ static const struct json_command stop_command = {
 AUTODATA(json_command, &stop_command);
 
 #if DEVELOPER
-static struct command_result *json_rhash(struct command *cmd,
-					 const char *buffer,
-					 const jsmntok_t *obj UNUSED,
-					 const jsmntok_t *params)
-{
-	struct json_stream *response;
-	struct sha256 *secret;
-
-	if (!param(cmd, buffer, params,
-		   p_req("secret", param_sha256, &secret),
-		   NULL))
-		return command_param_failed();
-
-	/* Hash in place. */
-	sha256(secret, secret, sizeof(*secret));
-	response = json_stream_success(cmd);
-	json_add_hex(response, "rhash", secret, sizeof(*secret));
-	return command_success(cmd, response);
-}
-
-static const struct json_command dev_rhash_command = {
-	"dev-rhash",
-	"developer",
-	json_rhash,
-	"Show SHA256 of {secret}"
-};
-AUTODATA(json_command, &dev_rhash_command);
-
 struct slowcmd {
 	struct command *cmd;
 	unsigned *msec;
