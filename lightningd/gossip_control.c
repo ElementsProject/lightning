@@ -59,6 +59,34 @@ static void got_txout(struct bitcoind *bitcoind,
 	tal_free(scid);
 }
 
+static void got_filteredblock(struct bitcoind *bitcoind,
+		      struct filteredblock *fb,
+		      void *arg)
+{
+	struct short_channel_id *scid = (struct short_channel_id *)arg;
+	struct filteredblock_outpoint *fbo = NULL, *o;
+	struct bitcoin_tx_output txo;
+
+	wallet_filteredblock_add(bitcoind->ld->wallet, fb);
+
+	u32 outnum = short_channel_id_outnum(scid);
+	u32 txindex = short_channel_id_txnum(scid);
+	for (size_t i=0; i<tal_count(fb->outpoints); i++) {
+		o = fb->outpoints[i];
+		if (o->txindex == txindex && o->outnum == outnum) {
+			fbo = o;
+			break;
+		}
+	}
+
+	if (fbo) {
+		txo.amount = fbo->satoshis;
+		txo.script = (u8 *)fbo->scriptPubKey;
+		got_txout(bitcoind, &txo, scid);
+	} else
+		got_txout(bitcoind, NULL, scid);
+}
+
 static void get_txout(struct subd *gossip, const u8 *msg)
 {
 	struct short_channel_id *scid = tal(gossip, struct short_channel_id);
@@ -80,21 +108,16 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 			      towire_gossip_get_txout_reply(
 				  scid, scid, op->sat, op->scriptpubkey));
 		tal_free(scid);
-	} else if (blockheight >= topo->min_blockheight &&
-		   blockheight <= topo->max_blockheight) {
-		/* We should have known about this outpoint since it is included
-		 * in the range in the DB. The fact that we don't means that
-		 * this is either a spent outpoint or an invalid one. Return a
+	} else if (wallet_have_block(gossip->ld->wallet, blockheight)) {
+		/* We should have known about this outpoint since its header
+		 * is in the DB. The fact that we don't means that this is
+		 * either a spent outpoint or an invalid one. Return a
 		 * failure. */
 		subd_send_msg(gossip, take(towire_gossip_get_txout_reply(
 						   NULL, scid, AMOUNT_SAT(0), NULL)));
 		tal_free(scid);
 	} else {
-		bitcoind_getoutput(topo->bitcoind,
-				   short_channel_id_blocknum(scid),
-				   short_channel_id_txnum(scid),
-				   short_channel_id_outnum(scid),
-				   got_txout, scid);
+		bitcoind_getfilteredblock(topo->bitcoind, short_channel_id_blocknum(scid), got_filteredblock, scid);
 	}
 }
 
