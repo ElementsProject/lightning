@@ -366,7 +366,10 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         Crash lightningd by calling fatal()
         """
-        return self.call("dev-crash")
+        payload = {
+            "subcommand": "crash"
+        }
+        return self.call("dev", payload)
 
     def dev_fail(self, peer_id):
         """
@@ -427,9 +430,10 @@ class LightningRpc(UnixDomainSocketRpc):
         Show SHA256 of {secret}
         """
         payload = {
+            "subcommand": "rhash",
             "secret": secret
         }
-        return self.call("dev-rhash", payload)
+        return self.call("dev", payload)
 
     def dev_sign_last_tx(self, peer_id):
         """
@@ -439,6 +443,16 @@ class LightningRpc(UnixDomainSocketRpc):
             "id": peer_id
         }
         return self.call("dev-sign-last-tx", payload)
+
+    def dev_slowcmd(self, msec=None):
+        """
+        Torture test for slow commands, optional {msec}
+        """
+        payload = {
+            "subcommand": "slowcmd",
+            "msec": msec
+        }
+        return self.call("dev", payload)
 
     def disconnect(self, peer_id, force=False):
         """
