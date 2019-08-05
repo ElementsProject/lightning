@@ -549,9 +549,8 @@ void opt_register_logging(struct lightningd *ld)
 	opt_register_early_arg("--log-prefix", arg_log_prefix, show_log_prefix,
 			       ld->log,
 			       "log prefix");
-	/* We want this opened later, once we have moved to lightning dir */
-	opt_register_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
-			 "log to file instead of stdout");
+	opt_register_early_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
+			       "log to file instead of stdout");
 }
 
 void log_backtrace_print(const char *fmt, ...)
