@@ -296,7 +296,13 @@ static const struct json_command dev_command = {
 	"dev",
 	"developer",
 	json_dev,
-	"Developer command test multiplexer"
+	"Developer command test multiplexer",
+	.verbose = "dev rhash {secret}\n"
+	"	Show SHA256 of {secret}\n"
+	"dev crash\n"
+	"	Crash lightningd by calling fatal()\n"
+	"dev slowcmd {msec}\n"
+	"	Torture test for slow commands, optional {msec}\n"
 };
 AUTODATA(json_command, &dev_command);
 #endif /* DEVELOPER */
