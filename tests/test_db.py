@@ -2,9 +2,6 @@ from fixtures import *  # noqa: F401,F403
 from utils import wait_for
 
 
-import pytest
-
-
 def test_db_dangling_peer_fix(node_factory):
     # This was taken from test_fail_unconfirmed() node.
     l1 = node_factory.get_node(dbfile='dangling-peer.sqlite3.xz')
@@ -21,7 +18,6 @@ def test_db_dangling_peer_fix(node_factory):
     l2.fund_channel(l1, 200000, wait_for_active=True)
 
 
-@pytest.mark.xfail(strict=True)
 def test_block_backfill(node_factory, bitcoind):
     """Test whether we backfill data from the blockchain correctly.
 
