@@ -116,12 +116,15 @@ struct node {
 	} chans;
 
 	/* Temporary data for routefinding. */
-	struct {
-		/* Total to get to here from target. */
-		struct amount_msat total;
-		/* Total risk premium of this route. */
-		struct amount_msat risk;
-	} dijkstra;
+	union {
+		/* For `getroute` Dijkstra algo.  16 bytes.  */
+		struct {
+			/* Total to get to here from target. */
+			struct amount_msat total;
+			/* Total risk premium of this route. */
+			struct amount_msat risk;
+		} dijkstra;
+	} s;
 };
 
 const struct node_id *node_map_keyof_node(const struct node *n);

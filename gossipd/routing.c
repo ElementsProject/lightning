@@ -638,11 +638,11 @@ static bool is_unvisited(const struct node *node,
 	struct amount_msat cost;
 
 	/* If it's infinite, definitely unvisited */
-	if (amount_msat_eq(node->dijkstra.total, INFINITE))
+	if (amount_msat_eq(node->s.dijkstra.total, INFINITE))
 		return true;
 
 	/* Shouldn't happen! */
-	if (!costfn(&cost, node->dijkstra.total, node->dijkstra.risk))
+	if (!costfn(&cost, node->s.dijkstra.total, node->s.dijkstra.risk))
 		return false;
 
 	arr = unvisited_get(unvisited, cost);
@@ -679,12 +679,12 @@ static void adjust_unvisited(struct node *node,
 	struct node **arr;
 
 	/* If it was in unvisited map, remove it. */
-	if (!amount_msat_eq(node->dijkstra.total, INFINITE))
+	if (!amount_msat_eq(node->s.dijkstra.total, INFINITE))
 		unvisited_del_node(unvisited, cost_before, node);
 
 	/* Update node */
-	node->dijkstra.total = total;
-	node->dijkstra.risk = risk;
+	node->s.dijkstra.total = total;
+	node->s.dijkstra.risk = risk;
 
 	SUPERVERBOSE("%s now cost %s",
 		     type_to_string(tmpctx, struct node_id, &node->id),
@@ -723,7 +723,7 @@ static void remove_unvisited(struct node *node, struct unvisited *unvisited,
 	struct amount_msat cost;
 
 	/* Shouldn't happen! */
-	if (!costfn(&cost, node->dijkstra.total, node->dijkstra.risk))
+	if (!costfn(&cost, node->s.dijkstra.total, node->s.dijkstra.risk))
 		return;
 
 	unvisited_del_node(unvisited, cost, node);
@@ -754,9 +754,9 @@ static void update_unvisited_neighbors(struct routing_state *rstate,
 			     type_to_string(tmpctx, struct node_id,
 					    &peer->id),
 			     type_to_string(tmpctx, struct amount_msat,
-					    &peer->dijkstra.total),
+					    &peer->s.dijkstra.total),
 			     type_to_string(tmpctx, struct amount_msat,
-					    &peer->dijkstra.risk));
+					    &peer->s.dijkstra.risk));
 
 		if (!hc_is_routable(rstate, chan, idx)) {
 			SUPERVERBOSE("... not routable");
@@ -771,7 +771,7 @@ static void update_unvisited_neighbors(struct routing_state *rstate,
 		/* We're looking at channels *backwards*, so peer == me
 		 * is the right test here for whether we don't charge fees. */
 		if (!can_reach(&chan->half[idx], &chan->scid, peer == me,
-			       cur->dijkstra.total, cur->dijkstra.risk,
+			       cur->s.dijkstra.total, cur->s.dijkstra.risk,
 			       riskfactor, riskbias, fuzz, base_seed,
 			       &total, &risk)) {
 			SUPERVERBOSE("... can't reach");
@@ -780,7 +780,7 @@ static void update_unvisited_neighbors(struct routing_state *rstate,
 
 		/* This effectively adds it to the map if it was infinite */
 		if (costs_less(total, risk, &cost_after,
-			       peer->dijkstra.total, peer->dijkstra.risk,
+			       peer->s.dijkstra.total, peer->s.dijkstra.risk,
 			       &cost_before,
 			       costfn)) {
 			SUPERVERBOSE("...%s can reach %s"
@@ -855,12 +855,12 @@ static struct chan **build_route(const tal_t *ctx,
 	SUPERVERBOSE("Building route from %s (%s) -> %s (%s)",
 		     type_to_string(tmpctx, struct node_id, &from->id),
 		     type_to_string(tmpctx, struct amount_msat,
-				    &from->dijkstra.total),
+				    &from->s.dijkstra.total),
 		     type_to_string(tmpctx, struct node_id, &to->id),
 		     type_to_string(tmpctx, struct amount_msat,
-				    &to->dijkstra.total));
+				    &to->s.dijkstra.total));
 	/* Never reached? */
-	if (amount_msat_eq(from->dijkstra.total, INFINITE))
+	if (amount_msat_eq(from->s.dijkstra.total, INFINITE))
 		return NULL;
 
 	/* Walk to find which neighbors we used */
@@ -880,9 +880,9 @@ static struct chan **build_route(const tal_t *ctx,
 				     type_to_string(tmpctx, struct node_id,
 						    &peer->id),
 				     type_to_string(tmpctx, struct amount_msat,
-						    &peer->dijkstra.total),
+						    &peer->s.dijkstra.total),
 				     type_to_string(tmpctx, struct amount_msat,
-						    &peer->dijkstra.risk));
+						    &peer->s.dijkstra.risk));
 
 			/* If traversing this wasn't possible, ignore */
 			if (!hc_is_routable(rstate, chan, !half_chan_to(i, chan))) {
@@ -890,7 +890,7 @@ static struct chan **build_route(const tal_t *ctx,
 			}
 
 			if (!can_reach(hc, &chan->scid, i == me,
-				       peer->dijkstra.total, peer->dijkstra.risk,
+				       peer->s.dijkstra.total, peer->s.dijkstra.risk,
 				       riskfactor,
 				       riskbias,
 				       fuzz, base_seed,
@@ -899,8 +899,8 @@ static struct chan **build_route(const tal_t *ctx,
 
 			/* If this was the path we took, we're done (if there are
 			 * two identical ones, it doesn't matter which) */
-			if (amount_msat_eq(total, i->dijkstra.total)
-			    && amount_msat_eq(risk, i->dijkstra.risk))
+			if (amount_msat_eq(total, i->s.dijkstra.total)
+			    && amount_msat_eq(risk, i->s.dijkstra.risk))
 				break;
 		}
 
@@ -915,14 +915,14 @@ static struct chan **build_route(const tal_t *ctx,
 
 	/* We don't charge ourselves fees, so skip first hop */
 	if (!amount_msat_sub(fee,
-			     other_node(from, route[0])->dijkstra.total,
-			     to->dijkstra.total)) {
+			     other_node(from, route[0])->s.dijkstra.total,
+			     to->s.dijkstra.total)) {
 		status_broken("Could not subtract %s - %s for fee",
 			      type_to_string(tmpctx, struct amount_msat,
 					     &other_node(from, route[0])
-					     ->dijkstra.total),
+					     ->s.dijkstra.total),
 			      type_to_string(tmpctx, struct amount_msat,
-					     &to->dijkstra.total));
+					     &to->s.dijkstra.total));
 		return tal_free(route);
 	}
 
@@ -951,17 +951,17 @@ static struct unvisited *dijkstra_prepare(const tal_t *ctx,
 	     n = node_map_next(rstate->nodes, &it)) {
 		if (n == src)
 			continue;
-		n->dijkstra.total = INFINITE;
-		n->dijkstra.risk = INFINITE;
+		n->s.dijkstra.total = INFINITE;
+		n->s.dijkstra.risk = INFINITE;
 	}
 
 	/* Mark start cost: place in unvisited map. */
-	src->dijkstra.total = msat;
-	src->dijkstra.risk = AMOUNT_MSAT(0);
+	src->s.dijkstra.total = msat;
+	src->s.dijkstra.risk = AMOUNT_MSAT(0);
 	arr = tal_arr(unvisited, struct node *, 1);
 	arr[0] = src;
 	/* Adding 0 can never fail */
-	if (!costfn(&cost, src->dijkstra.total, src->dijkstra.risk))
+	if (!costfn(&cost, src->s.dijkstra.total, src->s.dijkstra.risk))
 		abort();
 	unvisited_add(unvisited, cost, arr);
 
@@ -1000,7 +1000,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* We traverse backwards, so dst has largest total */
 	if (!amount_msat_sub(&long_cost,
-			     dst->dijkstra.total, src->dijkstra.total))
+			     dst->s.dijkstra.total, src->s.dijkstra.total))
 		goto bad_total;
 	tal_free(long_route);
 
@@ -1028,7 +1028,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 				  fuzz, base_seed, fee);
 	assert(short_route);
 	if (!amount_msat_sub(&short_cost,
-			     dst->dijkstra.total, src->dijkstra.total))
+			     dst->s.dijkstra.total, src->s.dijkstra.total))
 		goto bad_total;
 
 	/* Still too long?  Oh well. */
@@ -1095,9 +1095,9 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 bad_total:
 	status_broken("dst total %s < src total %s?",
 		      type_to_string(tmpctx, struct amount_msat,
-				     &dst->dijkstra.total),
+				     &dst->s.dijkstra.total),
 		      type_to_string(tmpctx, struct amount_msat,
-				     &src->dijkstra.total));
+				     &src->s.dijkstra.total));
 out:
 	tal_free(short_route);
 	return NULL;
