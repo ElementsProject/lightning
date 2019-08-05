@@ -67,6 +67,23 @@ struct bitcoind {
 	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
 };
 
+/* A single outpoint in a filtered block */
+struct filteredblock_outpoint {
+	struct bitcoin_txid txid;
+	u32 outnum;
+	u32 txindex;
+	const u8 *scriptPubKey;
+	struct amount_sat satoshis;
+};
+
+/* A struct representing a block with most of the parts filtered out. */
+struct filteredblock {
+	struct bitcoin_blkid id;
+	u32 height;
+	struct bitcoin_blkid prev_hash;
+	struct filteredblock_outpoint **outpoints;
+};
+
 struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,
 			      struct log *log);
@@ -131,6 +148,20 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 						   struct bitcoind *,	\
 						   const struct bitcoin_blkid *), \
 			       (arg))
+
+void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
+				void (*cb)(struct bitcoind *bitcoind,
+					   struct filteredblock *fb,
+					   void *arg),
+				void *arg);
+#define bitcoind_getfilteredblock(bitcoind_, height, cb, arg)		\
+	bitcoind_getfilteredblock_((bitcoind_),				\
+				   (height),				\
+				   typesafe_cb_preargs(void, void *,	\
+						       (cb), (arg),	\
+						       struct bitcoind *, \
+						       const struct filteredblock *), \
+				   (arg))
 
 void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 			   const struct bitcoin_blkid *blockid,
