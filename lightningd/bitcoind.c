@@ -2,6 +2,7 @@
 #include "bitcoin/base58.h"
 #include "bitcoin/block.h"
 #include "bitcoin/feerate.h"
+#include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
 #include "bitcoind.h"
 #include "lightningd.h"
@@ -782,6 +783,124 @@ void bitcoind_gettxout(struct bitcoind *bitcoind,
 			  take(type_to_string(NULL, struct bitcoin_txid, txid)),
 			  take(tal_fmt(NULL, "%u", outnum)),
 			  NULL);
+}
+
+/* Context for the getfilteredblock call. Wraps the actual arguments while we
+ * process the various steps. */
+struct filteredblock_call {
+	void (*cb)(struct bitcoind *bitcoind, struct filteredblock *fb,
+		   void *arg);
+	void *arg;
+
+	struct filteredblock *result;
+	struct filteredblock_outpoint **outpoints;
+	size_t current_outpoint;
+	struct timeabs start_time;
+};
+
+static void
+process_getfilteredblock_step3(struct bitcoind *bitcoind,
+			       const struct bitcoin_tx_output *output,
+			       void *arg)
+{
+	struct filteredblock_call *call = (struct filteredblock_call *)arg;
+	struct filteredblock_outpoint *o = call->outpoints[call->current_outpoint];
+
+	/* If this output is unspent, add it to the filteredblock result. */
+	if (output)
+		tal_arr_expand(&call->result->outpoints, tal_steal(call->result, o));
+
+	call->current_outpoint++;
+	if (call->current_outpoint < tal_count(call->outpoints)) {
+		o = call->outpoints[call->current_outpoint];
+		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
+				  process_getfilteredblock_step3, call);
+	} else {
+		/* If there were no more outpoints to check, we call the callback. */
+		call->cb(bitcoind, call->result, call->arg);
+		tal_free(call);
+	}
+}
+
+static void process_getfilteredblock_step2(struct bitcoind *bitcoind,
+					   struct bitcoin_block *block,
+					   struct filteredblock_call *call)
+{
+	struct filteredblock_outpoint *o;
+	struct bitcoin_tx *tx;
+	call->result->prev_hash = block->hdr.prev_hash;
+
+	/* Allocate an array containing all the potentially interesting
+	 * outpoints. We will later copy the ones we're interested in into the
+	 * call->result if they are unspent. */
+
+	call->outpoints = tal_arr(call, struct filteredblock_outpoint *, 0);
+	for (size_t i = 0; i < tal_count(block->tx); i++) {
+		tx = block->tx[i];
+		for (size_t j = 0; j < tx->wtx->num_outputs; j++) {
+			const u8 *script = bitcoin_tx_output_get_script(NULL, tx, j);
+			if (is_p2wsh(script, NULL)) {
+				/* This is an interesting output, remember it. */
+				o = tal(call->outpoints, struct filteredblock_outpoint);
+				bitcoin_txid(tx, &o->txid);
+				o->satoshis = bitcoin_tx_output_get_amount(tx, j);
+				o->txindex = i;
+				o->outnum = j;
+				o->scriptPubKey = tal_steal(o, script);
+				tal_arr_expand(&call->outpoints, o);
+			} else {
+				tal_free(script);
+			}
+		}
+	}
+
+	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
+	call->current_outpoint = 0;
+	if (tal_count(call->outpoints) == 0) {
+		/* If there were no outpoints to check, we can short-circuit
+		 * and just call the callback. */
+		call->cb(bitcoind, call->result, call->arg);
+		tal_free(call);
+	} else {
+
+		/* Otherwise we start iterating through call->outpoints and
+		 * store the one's that are unspent in
+		 * call->result->outpoints. */
+		o = call->outpoints[call->current_outpoint];
+		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
+				  process_getfilteredblock_step3, call);
+	}
+}
+
+static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
+					   const struct bitcoin_blkid *blkid,
+					   struct filteredblock_call *call)
+{
+	/* So we have the first piece of the puzzle, the block hash */
+	call->result->id = *blkid;
+
+	/* Now get the raw block to get all outpoints that were created in
+	 * this block. */
+	bitcoind_getrawblock(bitcoind, blkid, process_getfilteredblock_step2, call);
+}
+
+void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
+				void (*cb)(struct bitcoind *bitcoind,
+					   struct filteredblock *fb,
+					   void *arg),
+				void *arg)
+{
+	/* Stash the call context for when we need to call the callback after
+	 * all the bitcoind calls we need to perform. */
+	struct filteredblock_call *call = tal(bitcoind, struct filteredblock_call);
+	call->cb = cb;
+	call->arg = arg;
+	call->result = tal(call, struct filteredblock);
+	assert(call->cb != NULL);
+	call->start_time = time_now();
+	call->result->height = height;
+
+	bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
 }
 
 static bool extract_numeric_version(struct bitcoin_cli *bcli,
