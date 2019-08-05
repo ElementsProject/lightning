@@ -154,6 +154,15 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 	bool all_channels;
 	struct channel_id actual;
 
+	/* BOLT #1:
+	 *
+	 * A receiving node:
+	 *   - upon receiving a message of _odd_, unknown type:
+	 *     - MUST ignore the received message.
+	 */
+	if (is_unknown_msg_discardable(msg))
+		goto handled;
+
 	if (handle_timestamp_filter(pps, msg))
 		return true;
 	else if (is_msg_for_gossipd(msg)) {
