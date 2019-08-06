@@ -376,8 +376,13 @@ void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEE
 void notify_disconnect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED)
 { fprintf(stderr, "notify_disconnect called!\n"); abort(); }
 /* Generated stub for notify_forward_event */
-void notify_forward_event(struct lightningd *ld UNNEEDED, const struct htlc_in *in UNNEEDED, const struct htlc_out *out UNNEEDED, enum forward_status state UNNEEDED, enum onion_type failcode UNNEEDED, struct timeabs *resolved_time UNNEEDED)
-{ fprintf(stderr, "notify_disconnect called!\n"); abort(); }
+void notify_forward_event(struct lightningd *ld UNNEEDED,
+			  const struct htlc_in *in UNNEEDED,
+			  const struct htlc_out *out UNNEEDED,
+			  enum forward_status state UNNEEDED,
+			  enum onion_type failcode UNNEEDED,
+			  struct timeabs *resolved_time UNNEEDED)
+{ fprintf(stderr, "notify_forward_event called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,
