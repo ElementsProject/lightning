@@ -852,8 +852,6 @@ static void process_getfilteredblock_step2(struct bitcoind *bitcoind,
 		}
 	}
 
-	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
-	call->current_outpoint = 0;
 	if (tal_count(call->outpoints) == 0) {
 		/* If there were no outpoints to check, we can short-circuit
 		 * and just call the callback. */
@@ -897,6 +895,8 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 	assert(call->cb != NULL);
 	call->start_time = time_now();
 	call->result->height = height;
+	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
+	call->current_outpoint = 0;
 
 	bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
 }
