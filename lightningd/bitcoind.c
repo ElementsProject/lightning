@@ -555,8 +555,6 @@ static bool process_gettxout(struct bitcoin_cli *bcli)
 	/* As of at least v0.15.1.0, bitcoind returns "success" but an empty
 	   string on a spent gettxout */
 	if (*bcli->exitstatus != 0 || bcli->output_bytes == 0) {
-		log_debug(bcli->bitcoind->log, "%s: not unspent output?",
-			  bcli_args(tmpctx, bcli));
 		cb(bcli->bitcoind, NULL, bcli->cb_arg);
 		return true;
 	}
