@@ -124,6 +124,12 @@ struct node {
 			/* Total risk premium of this route. */
 			struct amount_msat risk;
 		} dijkstra;
+		/* For `permuteroute` breadth-first algo.  10 bytes.  */
+		struct {
+			struct chan *prev_chan;
+			bool visited;
+			u8 depth;
+		} permuteroute;
 	} s;
 };
 

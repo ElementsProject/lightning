@@ -12,11 +12,6 @@
  * entire graph with a tweaked cost function until it finds
  * a route that fits.
  *
- * As the speed of `permuteroute` is due solely to restricting
- * the graph we scan, we just use a depth-first iterative
- * algorithm until we reach any node after the point at which
- * the payment fails.
- *
  * Arguably a Djikstra with limited hops would be better, but
  * simplicity wins for this case as we can avoid heap
  * allocations and keep data in hot stack memory.
@@ -96,41 +91,12 @@ permute_route_results_init(struct permute_route_results *results,
 	results->return_index = -1;
 }
 
-/*~ Represents the currently-scanning set.
- *
- * This is a singly-linked list, allocated off the stack, with
- * recursive calls allowing multiple instances of the structure.
- *
- * This will contain enough information to recover a route
- * if we have reached a goal node.
- */
-struct permute_route_scan {
-	const struct permute_route_scan *prev;
-	unsigned int depth;
-	struct node *node;
-	struct chan *next;
-};
-/* Determine if the given node is already in the currently-scanning
- * set.
- */
-static inline bool
-permute_route_scanning_duplicate(const struct permute_route_scan *scan,
-				 struct node *n)
-{
-	for (; scan; scan = scan->prev)
-		if (scan->node == n)
-			return true;
-	return false;
-}
-
 /* Determine if we have reached any of the goals.  */
 static bool
 permute_route_reached_goal(struct permute_route_results *results,
-			   const struct permute_route_scan *scan,
 			   struct node *n)
 {
-	/* No subroute yet.  */
-	if (!scan)
+	if (n->s.permuteroute.depth == 0)
 		return false;
 
 	for (int i = results->permute_after;
@@ -143,18 +109,22 @@ permute_route_reached_goal(struct permute_route_results *results,
 				    "%u hops from pivot.",
 				    type_to_string(tmpctx, struct node_id,
 						   &n->id),
-				    i, scan->depth);
+				    i, (int) n->s.permuteroute.depth);
 
 			/* Update results.  */
 			results->return_node = n;
 			results->return_index = i;
-			results->subroute_len = scan->depth;
-			for (int i = scan->depth - 1; i >= 0; --i) {
-				assert(scan);
-				results->subroute[i] = scan->next;
-				scan = scan->prev;
+			results->subroute_len = n->s.permuteroute.depth;
+			for (int i = results->subroute_len - 1;
+			     i >= 0;
+			     --i) {
+				struct chan *c;
+				assert(n->s.permuteroute.visited);
+				c = n->s.permuteroute.prev_chan;
+				results->subroute[i] = c;
+				n = other_node(n, c);
 			}
-			assert(!scan);
+			assert(n->s.permuteroute.depth == 0);
 
 			return true;
 		}
@@ -163,55 +133,100 @@ permute_route_reached_goal(struct permute_route_results *results,
 	return false;
 }
 
-/* Recursive depth-first search.
- *
- * Most C ABIs indicate the first few arguments as passed
- * over registers.
- * Thus recursive functions should keep data common
- * throughout the recursion in the first few arguments.
- */
+/* Clears the s.permuteroute scratch space. */
+static void
+permute_clear_scratch(struct routing_state *rstate)
+{
+	struct node *n;
+	struct node_map_iter it;
+	for (n = node_map_first(rstate->nodes, &it);
+	     n;
+	     n = node_map_next(rstate->nodes, &it))
+		n->s.permuteroute.visited = false;
+}
+
+#define PERMUTEROUTE_QUEUE_SIZE 128
+struct permuteroute_queue {
+	struct node *queue[PERMUTEROUTE_QUEUE_SIZE];
+	int head;
+	int tail;
+};
+static inline void
+permuteroute_queue_init(struct permuteroute_queue *queue)
+{
+	queue->head = 0;
+	queue->tail = 0;
+}
+static inline bool
+permuteroute_queue_is_empty(const struct permuteroute_queue *queue)
+{
+	return queue->head == queue->tail;
+}
+static inline bool
+permuteroute_queue_is_full(const struct permuteroute_queue *queue)
+{
+	return queue->head == ((queue->tail + PERMUTEROUTE_QUEUE_SIZE) % (2 * PERMUTEROUTE_QUEUE_SIZE));
+}
+static inline void
+permuteroute_queue_push(struct permuteroute_queue *queue,
+			struct node *node)
+{
+	assert(!permuteroute_queue_is_full(queue));
+	queue->queue[queue->head % PERMUTEROUTE_QUEUE_SIZE] = node;
+	queue->head = (queue->head + 1) % (2 * PERMUTEROUTE_QUEUE_SIZE);
+}
+static inline struct node *
+permuteroute_queue_pop(struct permuteroute_queue *queue)
+{
+	struct node *node;
+	assert(!permuteroute_queue_is_empty(queue));
+	node = queue->queue[queue->tail % PERMUTEROUTE_QUEUE_SIZE];
+	queue->tail = (queue->tail + 1) % (2 * PERMUTEROUTE_QUEUE_SIZE);
+	return node;
+}
+
+/* Breadth-first search.  */
 static bool
 permute_route_search(struct permute_route_results *results,
-		     const struct permute_route_scan *scan,
-		     struct node *node)
+		     struct node *pivot)
 {
+	struct permuteroute_queue queue;
+	struct amount_msat amount = results->amount;
+	struct routing_state *rstate = results->rstate;
+
 	assert(results);
-	assert(node);
+	assert(pivot);
 
-	/* If we reached a node we already reached before, give up.  */
-	if (permute_route_scanning_duplicate(scan, node))
-		return false;
-	/* If we reached a goal node, succeed now.  */
-	if (permute_route_reached_goal(results, scan, node))
-		return true;
-	/* If depth is reached, give up now.  */
-	if (scan && scan->depth == PERMUTE_ROUTE_DISTANCE)
-		return false;
+	permute_clear_scratch(results->rstate);
+	permuteroute_queue_init(&queue);
 
-	/* Allocate our own scan structure and iterate over our
-	 * channels.
-	 */
-	{
-		struct permute_route_scan myscan;
+	/* Prime the queue.  */
+	pivot->s.permuteroute.visited = true;
+	pivot->s.permuteroute.depth = 0;
+	pivot->s.permuteroute.prev_chan = NULL;
+	permuteroute_queue_push(&queue, pivot);
+
+	while (!permuteroute_queue_is_empty(&queue)) {
+		struct node *node;
 		struct chan_map_iter it;
 		struct chan *c;
+		u8 currdepth;
 
-		struct routing_state *rstate = results->rstate;
-		struct amount_msat amount = results->amount;
+		node = permuteroute_queue_pop(&queue);
+		assert(node);
+		assert(node->s.permuteroute.visited);
 
-		/* Make a scan node.  */
-		myscan.prev = scan;
-		myscan.depth = scan ? (scan->depth + 1) : 1;
-		myscan.node = node;
+		/* If already at max depth, do not scan further links.  */
+		currdepth = node->s.permuteroute.depth;
+		if (currdepth == PERMUTE_ROUTE_DISTANCE)
+			continue;
 
-		/* Go through our channels.  */
 		for (c = first_chan(node, &it);
 		     c;
 		     c = next_chan(node, &it)) {
 			int idx = (c->nodes[1] == node);
 			struct half_chan *hc = half_chan_from(node, c);
-
-			bool found;
+			struct node *other;
 
 			/* If not enabled, skip.  */
 			if (!hc_is_routable(rstate, c, idx))
@@ -222,12 +237,31 @@ permute_route_search(struct permute_route_results *results,
 			if (!hc_can_carry(hc, amount))
 				continue;
 
-			/* Recurse.  */
-			myscan.next = c;
-			found = permute_route_search(results, &myscan,
-						     other_node(node, c));
-			if (found)
+			/* If node is already visited, skip.  */
+			other = other_node(node, c);
+			if (other->s.permuteroute.visited)
+				continue;
+
+			/* Mark as visited.  */
+			other->s.permuteroute.visited = true;
+			other->s.permuteroute.depth = currdepth + 1;
+			other->s.permuteroute.prev_chan = c;
+
+			/* If goal node, finished!
+			 * Need to do this after we have marked this
+			 * other node as visited so that if we *are*
+			 * at a goal node, we can build the path
+			 * now.
+			 */
+			if (permute_route_reached_goal(results, other))
 				return true;
+
+			/* Push to queue.  */
+			permuteroute_queue_push(&queue, other);
+
+			/* If queue full, stop adding.  */
+			if (permuteroute_queue_is_full(&queue))
+				break;
 		}
 	}
 
@@ -272,7 +306,7 @@ permute_and_build_route(const tal_t *ctx,
 				    */
 				   current_route[0].amount);
 
-	found = permute_route_search(&results, NULL, pivot);
+	found = permute_route_search(&results, pivot);
 	if (!found)
 		return NULL;
 
