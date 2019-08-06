@@ -665,11 +665,11 @@ int main(int argc, char *argv[])
 	if (!ld->daemon_dir)
 		errx(1, "Could not find daemons");
 
-	/*~ Handle early options, but don't move to --lightning-dir
-	 *  just yet. Plugins may add new options, which is why we are
-	 *  splitting between early args (including --plugin
-	 *  registration) and non-early opts.  This also forks if they
-	 *  say --daemonize. */
+	/*~ Handle early options; this moves us into --lightning-dir.
+	 * Plugins may add new options, which is why we are splitting
+	 * between early args (including --plugin registration) and
+	 * non-early opts.  This also forks if they say
+	 * --daemonize. */
 	handle_early_opts(ld, argc, argv);
 
 	/*~ Now create the PID file: this errors out if there's already a
@@ -681,7 +681,7 @@ int main(int argc, char *argv[])
 	 *  options registration). */
 	plugins_init(ld->plugins, ld->dev_debug_subprocess);
 
-	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
+	/*~ Handle options and config. */
 	handle_opts(ld, argc, argv);
 
 	/*~ Make sure we can reach the subdaemons, and versions match. */
