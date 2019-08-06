@@ -65,6 +65,8 @@ struct bitcoind {
 
 	/* Passthrough parameters for bitcoin-cli */
 	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
+
+	struct list_head pending_getfilteredblock;
 };
 
 /* A single outpoint in a filtered block */

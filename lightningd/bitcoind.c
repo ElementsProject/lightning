@@ -786,6 +786,7 @@ void bitcoind_gettxout(struct bitcoind *bitcoind,
 /* Context for the getfilteredblock call. Wraps the actual arguments while we
  * process the various steps. */
 struct filteredblock_call {
+	struct list_node list;
 	void (*cb)(struct bitcoind *bitcoind, struct filteredblock *fb,
 		   void *arg);
 	void *arg;
@@ -795,6 +796,11 @@ struct filteredblock_call {
 	size_t current_outpoint;
 	struct timeabs start_time;
 };
+
+/* Declaration for recursion in process_getfilteredblock_step1 */
+static void
+process_getfiltered_block_final(struct bitcoind *bitcoind,
+				const struct filteredblock_call *call);
 
 static void
 process_getfilteredblock_step3(struct bitcoind *bitcoind,
@@ -815,8 +821,7 @@ process_getfilteredblock_step3(struct bitcoind *bitcoind,
 				  process_getfilteredblock_step3, call);
 	} else {
 		/* If there were no more outpoints to check, we call the callback. */
-		call->cb(bitcoind, call->result, call->arg);
-		tal_free(call);
+		process_getfiltered_block_final(bitcoind, call);
 	}
 }
 
@@ -855,8 +860,7 @@ static void process_getfilteredblock_step2(struct bitcoind *bitcoind,
 	if (tal_count(call->outpoints) == 0) {
 		/* If there were no outpoints to check, we can short-circuit
 		 * and just call the callback. */
-		call->cb(bitcoind, call->result, call->arg);
-		tal_free(call);
+		process_getfiltered_block_final(bitcoind, call);
 	} else {
 
 		/* Otherwise we start iterating through call->outpoints and
@@ -880,6 +884,34 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 	bitcoind_getrawblock(bitcoind, blkid, process_getfilteredblock_step2, call);
 }
 
+/* Takes a call, dispatches it to all queued requests that match the same
+ * height, and then kicks off the next call. */
+static void
+process_getfiltered_block_final(struct bitcoind *bitcoind,
+				const struct filteredblock_call *call)
+{
+	struct filteredblock_call *c, *next;
+	u32 height = call->result->height;
+	/* Need to steal so we don't accidentally free it while iterating through the list below. */
+	struct filteredblock *fb = tal_steal(NULL, call->result);
+	list_for_each_safe(&bitcoind->pending_getfilteredblock, c, next, list) {
+		if (c->result->height == height) {
+			c->cb(bitcoind, fb, c->arg);
+			list_del(&c->list);
+			tal_free(c);
+		}
+	}
+	tal_free(fb);
+
+	/* Nothing to free here, since `*call` was already deleted during the
+	 * iteration above. It was also removed from the list, so no need to
+	 * pop here. */
+	if (!list_empty(&bitcoind->pending_getfilteredblock)) {
+		c = list_top(&bitcoind->pending_getfilteredblock, struct filteredblock_call, list);
+		bitcoind_getblockhash(bitcoind, c->result->height, process_getfilteredblock_step1, c);
+	}
+}
+
 void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 				void (*cb)(struct bitcoind *bitcoind,
 					   struct filteredblock *fb,
@@ -889,6 +921,8 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 	/* Stash the call context for when we need to call the callback after
 	 * all the bitcoind calls we need to perform. */
 	struct filteredblock_call *call = tal(bitcoind, struct filteredblock_call);
+	/* If this is the first request, we should start processing it. */
+	bool start = list_empty(&bitcoind->pending_getfilteredblock);
 	call->cb = cb;
 	call->arg = arg;
 	call->result = tal(call, struct filteredblock);
@@ -898,7 +932,9 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
 	call->current_outpoint = 0;
 
-	bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
+	list_add_tail(&bitcoind->pending_getfilteredblock, &call->list);
+	if (start)
+		bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
 }
 
 static bool extract_numeric_version(struct bitcoin_cli *bcli,
@@ -1112,6 +1148,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 		bitcoind->num_requests[i] = 0;
 		list_head_init(&bitcoind->pending[i]);
 	}
+	list_head_init(&bitcoind->pending_getfilteredblock);
 	bitcoind->shutdown = false;
 	bitcoind->error_count = 0;
 	bitcoind->retry_timeout = 60;
