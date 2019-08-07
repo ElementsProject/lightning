@@ -45,12 +45,11 @@ def test_block_backfill(node_factory, bitcoind):
     # Get some funds to l1
     addr = l1.rpc.newaddr()['bech32']
     bitcoind.rpc.sendtoaddress(addr, 1)
-    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
     bitcoind.generate_block(1)
-    l1.daemon.wait_for_log(r'Owning')
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
     # Now send the needle we will go looking for later:
-    bitcoind.rpc.sendtoaddress('bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm', 1)
+    bitcoind.rpc.sendtoaddress('bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm', 0.00031337)
     l1.rpc.fundchannel(l2.info['id'], 10**6, announce=True)
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 2)
 
@@ -66,6 +65,15 @@ def test_block_backfill(node_factory, bitcoind):
 
     l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
 
+    # Make sure we have backfilled the block
     wait_for(lambda: len(l3.rpc.listnodes()['nodes']) == 2)
     heights = [r['height'] for r in l3.db_query("SELECT height FROM blocks")]
     assert(103 in heights)
+
+    # Make sure we also have the needle we added to the haystack above
+    assert(31337 in [r['satoshis'] for r in l3.db_query("SELECT satoshis FROM utxoset")])
+
+    # Now close the channel and make sure `l3` cleans up correctly:
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 0)
