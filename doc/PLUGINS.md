@@ -41,10 +41,10 @@ will read replies from its `stdout`. To initialize the plugin two RPC
 methods are required:
 
  - `getmanifest` asks the plugin for command line options and JSON-RPC
-   commands that should be passed through.  Note that can be run before
+   commands that should be passed through.  This can be run before
    `lightningd` checks that it is the sole user of the `lightning-dir`
    directory (for `--help`) so your plugin should not touch files at this
-   point).
+   point.
  - `init` is called after the command line options have been
    parsed and passes them through with the real values (if specified). This is also
    the signal that `lightningd`'s JSON-RPC over Unix Socket is now up
