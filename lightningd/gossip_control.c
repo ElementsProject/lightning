@@ -82,7 +82,7 @@ static void got_filteredblock(struct bitcoind *bitcoind,
 	}
 
 	if (fbo) {
-		txo.amount = fbo->satoshis;
+		txo.amount = fbo->amount;
 		txo.script = (u8 *)fbo->scriptPubKey;
 		got_txout(bitcoind, &txo, scid);
 	} else

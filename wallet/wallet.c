@@ -2441,7 +2441,7 @@ void wallet_filteredblock_add(struct wallet *w, struct filteredblock *fb)
 		sqlite3_bind_int(stmt, 5, o->txindex);
 		sqlite3_bind_blob(stmt, 6, o->scriptPubKey,
 				  tal_count(o->scriptPubKey), SQLITE_TRANSIENT);
-		sqlite3_bind_amount_sat(stmt, 7, o->satoshis);
+		sqlite3_bind_amount_sat(stmt, 7, o->amount);
 		db_exec_prepared(w->db, stmt);
 
 		outpointfilter_add(w->utxoset_outpoints, &o->txid, o->outnum);

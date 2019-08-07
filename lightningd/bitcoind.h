@@ -75,7 +75,7 @@ struct filteredblock_outpoint {
 	u32 outnum;
 	u32 txindex;
 	const u8 *scriptPubKey;
-	struct amount_sat satoshis;
+	struct amount_sat amount;
 };
 
 /* A struct representing a block with most of the parts filtered out. */
