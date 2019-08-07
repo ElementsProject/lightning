@@ -13,7 +13,7 @@ import unittest
 
 @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
 def test_closing(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
     chan = l1.get_channel_scid(l2)
 
     l1.pay(l2, 200000000)
@@ -98,7 +98,7 @@ def test_closing(node_factory, bitcoind):
 
 
 def test_closing_while_disconnected(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'allow-deprecated-apis': True})
     chan = l1.get_channel_scid(l2)
 
     l1.pay(l2, 200000000)
@@ -147,7 +147,7 @@ def test_closing_id(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs dev-rescan-outputs")
 def test_closing_torture(node_factory, executor, bitcoind):
-    l1, l2 = node_factory.get_nodes(2)
+    l1, l2 = node_factory.get_nodes(2, opts={'allow-deprecated-apis': True})
     amount = 10**6
 
     # Before the fix was applied, 15 would often pass.
@@ -197,7 +197,7 @@ def test_closing_torture(node_factory, executor, bitcoind):
 
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 def test_closing_different_fees(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
 
     # Default feerate = 15000/7500/1000
     # It will start at the second number, accepting anything above the first.
@@ -215,7 +215,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     peers = []
     for feerate in feerates:
         for amount in amounts:
-            p = node_factory.get_node(feerates=feerate)
+            p = node_factory.get_node(feerates=feerate, options={'allow-deprecated-apis': True})
             p.feerate = feerate
             p.amount = amount
             l1.rpc.connect(p.info['id'], 'localhost', p.port)
@@ -265,7 +265,7 @@ def test_closing_negotiation_reconnect(node_factory, bitcoind):
     disconnects = ['-WIRE_CLOSING_SIGNED',
                    '@WIRE_CLOSING_SIGNED',
                    '+WIRE_CLOSING_SIGNED']
-    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
+    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True, options={'allow-deprecated-apis': True})
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
