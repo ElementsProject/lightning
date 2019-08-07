@@ -421,10 +421,10 @@ static void htlc_offer_timeout(struct channel *channel)
 		return;
 
 	log_unusual(channel->owner->log,
-		    "Adding HTLC too slow: killing channel");
+		    "Adding HTLC too slow: killing connection");
 	tal_free(channel->owner);
 	channel_set_billboard(channel, false,
-			      "Adding HTLC timed out: killed channel");
+			      "Adding HTLC timed out: killed connection");
 }
 
 enum onion_type send_htlc_out(struct channel *out,
