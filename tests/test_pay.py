@@ -1165,7 +1165,7 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
 
     l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'allow-deprecated-apis': True})
     l3 = node_factory.get_node()
     l4 = node_factory.get_node(disconnect=disconnects)
     l5 = node_factory.get_node()
@@ -1824,7 +1824,7 @@ def test_setchannelfee_state(node_factory, bitcoind):
 
     l0 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
     l1 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM, 'allow-deprecated-apis': True})
 
     # connection and funding
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)

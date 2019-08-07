@@ -577,7 +577,8 @@ def test_shutdown_reconnect(node_factory):
                    '@WIRE_SHUTDOWN',
                    '+WIRE_SHUTDOWN']
     l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               options={'allow-deprecated-apis': True})
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -637,7 +638,7 @@ def test_reconnect_remote_sends_no_sigs(node_factory):
 
 
 def test_shutdown_awaiting_lockin(node_factory, bitcoind):
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
     l2 = node_factory.get_node(options={'funding-confirms': 3})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1128,7 +1129,7 @@ def test_channel_reenable(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_update_fee(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=True)
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, opts={'allow-deprecated-apis': True})
     chanid = l1.get_channel_scid(l2)
 
     # Make l1 send out feechange.
@@ -1312,7 +1313,7 @@ def test_forget_channel(node_factory):
 
 
 def test_peerinfo(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True, 'allow-deprecated-apis': True})
     lfeatures = 'aa'
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
