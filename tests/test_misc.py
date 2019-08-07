@@ -936,7 +936,7 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'channeld.*:\[IN\] 0013')
     assert not l2.daemon.is_in_log(r'channeld.*:\[OUT\] 0084')
     # L2 killed the channel with l3 because it was too slow.
-    l2.daemon.wait_for_log('channeld-{}.*Adding HTLC too slow: killing channel'.format(l3.info['id']))
+    l2.daemon.wait_for_log('channeld-{}.*Adding HTLC too slow: killing connection'.format(l3.info['id']))
 
 
 def test_ipv4_and_ipv6(node_factory):
