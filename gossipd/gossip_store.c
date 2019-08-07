@@ -544,8 +544,13 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			      offset, gs->len, strerror(errno));
 	}
 
-	/* FIXME: We should skip over these deleted entries! */
-	msglen = be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT;
+	if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossip_store: get delete entry offset %"PRIu64
+			      "/%"PRIu64"",
+			      offset, gs->len);
+
+	msglen = be32_to_cpu(hdr.len);
 	checksum = be32_to_cpu(hdr.crc);
 	msg = tal_arr(ctx, u8, msglen);
 	if (pread(gs->fd, msg, msglen, offset + sizeof(hdr)) != msglen)
