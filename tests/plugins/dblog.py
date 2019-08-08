@@ -16,9 +16,18 @@ def init(configuration, options, plugin):
     plugin.conn = sqlite3.connect(plugin.get_option('dblog-file'),
                                   isolation_level=None)
     plugin.log("replaying pre-init data:")
+    plugin.conn.execute("PRAGMA foreign_keys = ON;")
+
+    print(plugin.sqlite_pre_init_cmds)
+
+    plugin.conn.execute("BEGIN TRANSACTION;")
+
     for c in plugin.sqlite_pre_init_cmds:
         plugin.conn.execute(c)
         plugin.log("{}".format(c))
+
+    plugin.conn.execute("COMMIT;")
+
     plugin.initted = True
     plugin.log("initialized {}".format(configuration))
 
@@ -29,9 +38,15 @@ def db_write(plugin, writes, **kwargs):
         plugin.log("deferring {} commands".format(len(writes)))
         plugin.sqlite_pre_init_cmds += writes
     else:
+        print(writes)
+        plugin.conn.execute("BEGIN TRANSACTION;")
+
         for c in writes:
             plugin.conn.execute(c)
             plugin.log("{}".format(c))
+
+        plugin.conn.execute("COMMIT;")
+
     return True
 
 
