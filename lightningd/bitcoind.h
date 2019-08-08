@@ -153,7 +153,7 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 
 void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 				void (*cb)(struct bitcoind *bitcoind,
-					   struct filteredblock *fb,
+					   const struct filteredblock *fb,
 					   void *arg),
 				void *arg);
 #define bitcoind_getfilteredblock(bitcoind_, height, cb, arg)		\

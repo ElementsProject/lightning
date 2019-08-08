@@ -60,10 +60,9 @@ static void got_txout(struct bitcoind *bitcoind,
 }
 
 static void got_filteredblock(struct bitcoind *bitcoind,
-		      struct filteredblock *fb,
-		      void *arg)
+		      const struct filteredblock *fb,
+		      struct short_channel_id *scid)
 {
-	struct short_channel_id *scid = (struct short_channel_id *)arg;
 	struct filteredblock_outpoint *fbo = NULL, *o;
 	struct bitcoin_tx_output txo;
 

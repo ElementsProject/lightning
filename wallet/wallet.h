@@ -1170,6 +1170,6 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
  *
  * This can be used to backfill the blocks and still unspent UTXOs that were before our wallet birth height.
  */
-void wallet_filteredblock_add(struct wallet *w, struct filteredblock *fb);
+void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */
