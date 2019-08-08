@@ -1138,6 +1138,9 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	/* Make sure we have our references correct */
 	CHECK(transaction_wrap(w->db,
 			       db_exec(__func__, w->db, "INSERT INTO channels (id) VALUES (1);")));
+	db_begin_transaction(w->db);
+	db_commit_transaction(w->db);
+
 	chan->dbid = 1;
 	chan->peer = peer;
 
