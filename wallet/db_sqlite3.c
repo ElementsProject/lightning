@@ -28,6 +28,16 @@ static const char *db_sqlite3_fmt_error(struct db_stmt *stmt)
 		       sqlite3_errmsg(stmt->db->conn));
 }
 
+static bool db_sqlite3_setup(struct db *db)
+{
+	sqlite3_stmt *stmt;
+	int err;
+	sqlite3_prepare_v2(db->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
+	err = sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+	return err == SQLITE_DONE;
+}
+
 static bool db_sqlite3_query(struct db_stmt *stmt)
 {
 	sqlite3_stmt *s;
@@ -173,6 +183,11 @@ static size_t db_sqlite3_count_changes(struct db_stmt *stmt)
 	return sqlite3_changes(s);
 }
 
+static void db_sqlite3_close(struct db *db)
+{
+	sqlite3_close(db->sql);
+}
+
 struct db_config db_sqlite3_config = {
 	.name = "sqlite3",
 	.queries = db_sqlite3_queries,
@@ -193,6 +208,8 @@ struct db_config db_sqlite3_config = {
 	.column_text_fn = &db_sqlite3_column_text,
 
 	.count_changes_fn = &db_sqlite3_count_changes,
+	.setup_fn = &db_sqlite3_setup,
+	.teardown_fn = &db_sqlite3_close,
 };
 
 AUTODATA(db_backends, &db_sqlite3_config);
