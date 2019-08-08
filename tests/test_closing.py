@@ -13,7 +13,7 @@ import unittest
 
 @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
 def test_closing(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
+    l1, l2 = node_factory.line_graph(2)
     chan = l1.get_channel_scid(l2)
 
     l1.pay(l2, 200000000)
@@ -38,9 +38,7 @@ def test_closing(node_factory, bitcoind):
         # check for the substring
         assert 'CHANNELD_NORMAL:Funding transaction locked.' in billboard[0]
 
-    # This should return with an error, then close.
-    with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
-        l1.rpc.close(chan, False, 0)
+    l1.rpc.close(chan)
 
     l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
     l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
@@ -97,19 +95,20 @@ def test_closing(node_factory, bitcoind):
     assert l2.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
 
 
-def test_closing_while_disconnected(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'allow-deprecated-apis': True})
+def test_closing_while_disconnected(node_factory, bitcoind, executor):
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
     chan = l1.get_channel_scid(l2)
 
     l1.pay(l2, 200000000)
     l2.stop()
 
     # The close should still be triggered afterwards.
-    with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
-        l1.rpc.close(chan, False, 0)
+    fut = executor.submit(l1.rpc.close, chan, 0)
     l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
 
     l2.start()
+    fut.result(TIMEOUT)
+
     l1.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
     l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
 
@@ -147,7 +146,7 @@ def test_closing_id(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs dev-rescan-outputs")
 def test_closing_torture(node_factory, executor, bitcoind):
-    l1, l2 = node_factory.get_nodes(2, opts={'allow-deprecated-apis': True})
+    l1, l2 = node_factory.get_nodes(2)
     amount = 10**6
 
     # Before the fix was applied, 15 would often pass.
@@ -181,8 +180,8 @@ def test_closing_torture(node_factory, executor, bitcoind):
         l2.wait_channel_active(scid)
 
         # Start closers: can take a long time under valgrind!
-        c1 = executor.submit(l1.rpc.close, l2.info['id'], False, 60)
-        c2 = executor.submit(l2.rpc.close, l1.info['id'], False, 60)
+        c1 = executor.submit(l1.rpc.close, l2.info['id'])
+        c2 = executor.submit(l2.rpc.close, l1.info['id'])
         # Wait for close to finish
         c1.result(TIMEOUT)
         c2.result(TIMEOUT)
@@ -197,7 +196,7 @@ def test_closing_torture(node_factory, executor, bitcoind):
 
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 def test_closing_different_fees(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    l1 = node_factory.get_node()
 
     # Default feerate = 15000/7500/1000
     # It will start at the second number, accepting anything above the first.
@@ -215,7 +214,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     peers = []
     for feerate in feerates:
         for amount in amounts:
-            p = node_factory.get_node(feerates=feerate, options={'allow-deprecated-apis': True})
+            p = node_factory.get_node(feerates=feerate)
             p.feerate = feerate
             p.amount = amount
             l1.rpc.connect(p.info['id'], 'localhost', p.port)
@@ -235,13 +234,8 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
         if p.amount != 0:
             l1.pay(p, 100000000)
 
-    # Now close all channels
-    # All closes occur in parallel, and on Travis,
-    # ALL those lightningd are running on a single core,
-    # so increase the timeout so that this test will pass
-    # when valgrind is enabled.
-    # (close timeout defaults to 30 as of this writing)
-    closes = [executor.submit(l1.rpc.close, p.channel, False, 90) for p in peers]
+    # Now close all channels (not unilaterally!)
+    closes = [executor.submit(l1.rpc.close, p.channel, 0) for p in peers]
 
     for c in closes:
         c.result(90)
@@ -265,7 +259,7 @@ def test_closing_negotiation_reconnect(node_factory, bitcoind):
     disconnects = ['-WIRE_CLOSING_SIGNED',
                    '@WIRE_CLOSING_SIGNED',
                    '+WIRE_CLOSING_SIGNED']
-    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True, options={'allow-deprecated-apis': True})
+    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -274,9 +268,7 @@ def test_closing_negotiation_reconnect(node_factory, bitcoind):
 
     assert bitcoind.rpc.getmempoolinfo()['size'] == 0
 
-    # This should return with an error, then close.
-    with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
-        l1.rpc.close(chan, False, 0)
+    l1.rpc.close(chan)
 
     l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
     l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
