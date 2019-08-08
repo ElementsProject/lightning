@@ -1094,25 +1094,53 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 		bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
 }
 
+struct getclientversion_payload {
+	/* No parameter. */
+};
+
+static void getclientversion_serialize(struct getclientversion_payload *payload,
+				       struct json_stream *stream)
+{
+	return;
+}
+
+REGISTER_JSON_INTERNAL_COMMAND(getclientversion,
+			       getclientversion_serialize,
+			       struct getclientversion_payload *);
+
 static bool extract_numeric_version(struct bitcoin_cli *bcli,
 			    const char *output, size_t output_bytes,
 			    u64 *version)
 {
 	const jsmntok_t *tokens, *versiontok;
 	bool valid;
+	char *log_args = bcli->internal_rpcmethod_payload ?
+			 cast_const(char *, bcli->process_name) :
+			 bcli_args(tmpctx, bcli);
 
 	tokens = json_parse_input(output, output, output_bytes, &valid);
 	if (!tokens)
-		fatal("%s: %s response",
-		      bcli_args(tmpctx, bcli),
-		      valid ? "partial" : "invalid");
+		fatal("%s: %s response(%.*s)",
+		      log_args,
+		      valid ? "partial" : "invalid",
+		      (int)bcli->output_bytes,
+		      bcli->output);
 
 	if (tokens[0].type != JSMN_OBJECT) {
 		log_unusual(bcli->bitcoind->log,
 			    "%s: gave non-object (%.*s)?",
-			    bcli_args(tmpctx, bcli),
+			    log_args,
 			    (int)output_bytes, output);
 		return false;
+	}
+
+	if (bcli->internal_rpcmethod_payload) {
+		const jsmntok_t *clienttok = json_get_member(output, tokens, "client");
+		if (!clienttok || !json_tok_streq(output, clienttok, "bitcoind"))
+			fatal("%s: now we only support 'bitcoind'(response: %.*s)",
+			      log_args,
+			      (int)bcli->output_bytes,
+			      bcli->output);
 	}
 
 	versiontok = json_get_member(output, tokens, "version");
@@ -1141,16 +1169,21 @@ static bool process_getclientversion(struct bitcoin_cli *bcli)
 		      " supported minimum version: %"PRIu64"",
 		      version, min_version);
 
+	log_info(bcli->bitcoind->log, "bitcoind version: %"PRIu64"", version);
+
 	return true;
 }
 
 void bitcoind_getclientversion(struct bitcoind *bitcoind)
 {
+	struct getclientversion_payload *payload = tal(tmpctx,
+						       struct getclientversion_payload);
+
 	/* `getnetworkinfo` was added in v0.14.0. The older version would
 	 * return non-zero exitstatus. */
 	start_bitcoin_cli(bitcoind, NULL, process_getclientversion, false,
 			  BITCOIND_HIGH_PRIO, "getclientversion",
-			  NULL, NULL, NULL,
+			  payload, NULL, NULL,
 			  "getnetworkinfo", NULL);
 }
 
