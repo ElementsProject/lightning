@@ -784,30 +784,29 @@ size_t db_changes(struct db *db)
 
 void db_begin_transaction_(struct db *db, const char *location)
 {
+	bool ok;
 	if (db->in_transaction)
 		db_fatal("Already in transaction from %s", db->in_transaction);
 
 	db_prepare_for_changes(db);
-	db_do_exec(location, db, "BEGIN TRANSACTION;");
+	ok = db->config->begin_tx_fn(db);
+	if (!ok)
+		db_fatal("Failed to start DB transaction: %s", db->error);
+
 	db->in_transaction = location;
 }
 
 void db_commit_transaction(struct db *db)
 {
-	int err;
-	char *errmsg;
-	const char *cmd = "COMMIT;";
-
+	bool ok;
 	assert(db->in_transaction);
 	db_assert_no_outstanding_statements();
+	ok = db->config->commit_tx_fn(db);
 
-	/* We expect at least the BEGIN TRANSACTION */
-	db_report_changes(db, cmd, 1);
+	if (!ok)
+		db_fatal("Failed to commit DB transaction: %s", db->error);
 
-	err = sqlite3_exec(db->sql, cmd, NULL, NULL, &errmsg);
-	if (err != SQLITE_OK)
-		db_fatal("%s:%s:%s:%s", __func__, sqlite3_errstr(err), cmd, errmsg);
-
+	db_report_changes(db, NULL, 0);
 	db->in_transaction = NULL;
 }
 
