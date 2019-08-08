@@ -658,6 +658,20 @@ def test_cli(node_factory):
     j = json.loads(out)
     assert only_one(j['invoices'])['label'] == 'l"[]{}'
 
+    # For those using shell scripts (you know who you are Rene), make sure we're maintaining whitespace
+    lines = [l for l in out.splitlines() if '"bolt11"' not in l and '"payment_hash"' not in l and '"expires_at"' not in l]
+    assert lines == ['{',
+                     '   "invoices": [',
+                     '      {',
+                     r'         "label": "l\"[]{}",',
+                     '         "msatoshi": 123000,',
+                     '         "amount_msat": "123000msat",',
+                     '         "status": "unpaid",',
+                     r'         "description": "d\"[]{}",',
+                     '      }',
+                     '   ]',
+                     '}']
+
 
 def test_daemon_option(node_factory):
     """

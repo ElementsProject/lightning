@@ -337,7 +337,7 @@ static void print_json(const char *str, const jsmntok_t *tok, const char *indent
 			else
 				printf(",\n%s", next_indent);
 			print_json(str, t, next_indent);
-			printf(" : ");
+			printf(": ");
 			print_json(str, t + 1, next_indent);
 			first = false;
 		}
