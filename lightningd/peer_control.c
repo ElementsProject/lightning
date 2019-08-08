@@ -320,7 +320,7 @@ static void
 register_close_command(struct lightningd *ld,
 		       struct command *cmd,
 		       struct channel *channel,
-		       unsigned int timeout,
+		       unsigned int *timeout,
 		       bool force)
 {
 	struct close_command *cc;
@@ -335,8 +335,11 @@ register_close_command(struct lightningd *ld,
 	tal_add_destructor2(channel,
 			    &destroy_close_command_on_channel_destroy,
 			    cc);
-	new_reltimer(ld->timers, cc, time_from_sec(timeout),
-		     &close_command_timeout, cc);
+	log_debug(ld->log, "close_command: force = %u, timeout = %i",
+		  force, timeout ? *timeout : -1);
+	if (timeout)
+		new_reltimer(ld->timers, cc, time_from_sec(*timeout),
+			     &close_command_timeout, cc);
 }
 
 static bool invalid_last_tx(const struct bitcoin_tx *tx)
@@ -1225,14 +1228,83 @@ static struct command_result *json_close(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel COMPILER_WANTS_INIT("gcc 7.3.0 fails, 8.3 OK");
 	unsigned int *timeout;
-	bool *force;
+	bool force = true;
+	bool do_timeout;
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_tok, &idtok),
-		   p_opt_def("force", param_bool, &force, false),
-		   p_opt_def("timeout", param_number, &timeout, 30),
-		   NULL))
-		return command_param_failed();
+	/* For generating help, give new-style. */
+	if (!params || !deprecated_apis) {
+		if (!param(cmd, buffer, params,
+			   p_req("id", param_tok, &idtok),
+			   p_opt_def("unilateraltimeout", param_number,
+				     &timeout, 48 * 3600),
+			   NULL))
+			return command_param_failed();
+		do_timeout = (*timeout != 0);
+	} else if (params->type == JSMN_ARRAY) {
+		const jsmntok_t *tok;
+
+		/* Could be new or old style; get as tok. */
+		if (!param(cmd, buffer, params,
+			   p_req("id", param_tok, &idtok),
+			   p_opt("unilateraltimeout_or_force", param_tok, &tok),
+			   p_opt("timeout", param_number, &timeout),
+			   NULL))
+			return command_param_failed();
+
+		if (tok) {
+			/* old-style force bool? */
+			if (json_to_bool(buffer, tok, &force)) {
+				/* Old default timeout */
+				if (!timeout) {
+					timeout = tal(cmd, unsigned int);
+					*timeout = 30;
+				}
+			/* New-style timeout */
+			} else {
+				timeout = tal(cmd, unsigned int);
+				if (!json_to_number(buffer, tok, timeout)) {
+					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+							    "Expected unilerataltimeout to be a number");
+				}
+			}
+		}
+
+		/* If they didn't specify timeout, it's the (new) default */
+		if (!timeout) {
+			timeout = tal(cmd, unsigned int);
+			*timeout = 48 * 3600;
+		}
+		do_timeout = true;
+	} else {
+		unsigned int *old_timeout;
+		bool *old_force;
+
+		/* Named parameters are easy to distinguish */
+		if (!param(cmd, buffer, params,
+			   p_req("id", param_tok, &idtok),
+			   p_opt_def("unilateraltimeout", param_number,
+				     &timeout, 48 * 3600),
+			   p_opt("force", param_bool, &old_force),
+			   p_opt("timeout", param_number, &old_timeout),
+			   NULL))
+			return command_param_failed();
+		/* Old style. */
+		if (old_timeout) {
+			*timeout = *old_timeout;
+		}
+		if (old_force) {
+			/* Use old default */
+			if (!old_timeout)
+				*timeout = 30;
+			force = *old_force;
+		}
+
+		/* New style: do_timeout unless it's 0 */
+		if (!old_timeout && !old_force)
+			do_timeout = (*timeout != 0);
+		else
+			do_timeout = true;
+	}
 
 	peer = peer_from_json(cmd->ld, buffer, idtok);
 	if (peer)
@@ -1283,7 +1355,8 @@ static struct command_result *json_close(struct command *cmd,
 	}
 
 	/* Register this command for later handling. */
-	register_close_command(cmd->ld, cmd, channel, *timeout, *force);
+	register_close_command(cmd->ld, cmd, channel,
+			       do_timeout ? timeout : NULL, force);
 
 	/* Wait until close drops down to chain. */
 	return command_still_pending(cmd);
