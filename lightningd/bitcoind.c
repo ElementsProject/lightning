@@ -787,7 +787,7 @@ void bitcoind_gettxout(struct bitcoind *bitcoind,
  * process the various steps. */
 struct filteredblock_call {
 	struct list_node list;
-	void (*cb)(struct bitcoind *bitcoind, struct filteredblock *fb,
+	void (*cb)(struct bitcoind *bitcoind, const struct filteredblock *fb,
 		   void *arg);
 	void *arg;
 
@@ -914,7 +914,7 @@ process_getfiltered_block_final(struct bitcoind *bitcoind,
 
 void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 				void (*cb)(struct bitcoind *bitcoind,
-					   struct filteredblock *fb,
+					   const struct filteredblock *fb,
 					   void *arg),
 				void *arg)
 {

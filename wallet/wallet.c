@@ -2411,7 +2411,7 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 	outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
 }
 
-void wallet_filteredblock_add(struct wallet *w, struct filteredblock *fb)
+void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
 {
 	if (wallet_have_block(w, fb->height))
 		return;
