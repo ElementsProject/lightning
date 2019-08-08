@@ -2,12 +2,12 @@
 .\"     Title: lightning-close
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/30/2018
+.\"      Date: 08/08/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-CLOSE" "7" "04/30/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-CLOSE" "7" "08/08/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,29 +31,32 @@
 lightning-close \- Command for closing channels with direct peers
 .SH "SYNOPSIS"
 .sp
-\fBclose\fR \fIid\fR [\fIforce\fR] [\fItimeout\fR]
+\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBclose\fR RPC command attempts to close the channel cooperatively with the peer\&. If the given \fIid\fR is a peer ID (66 hex digits as a string), then it applies to the active channel of the direct peer corresponding to the given peer ID\&. If the given \fIid\fR is a channel ID (64 hex digits as a string, or the short channel ID \fIblockheight:txindex:outindex\fR form), then it applies to that channel\&.
+The \fBclose\fR RPC command attempts to close the channel cooperatively with the peer, or unilaterally after \fIunilateraltimeout\fR\&.
 .sp
-The \fBclose\fR command will time out and return with an error when the number of seconds specified in \fItimeout\fR is reached\&. If unspecified, it times out in 30 seconds\&.
+If the given \fIid\fR is a peer ID (66 hex digits as a string), then it applies to the active channel of the direct peer corresponding to the given peer ID\&. If the given \fIid\fR is a channel ID (64 hex digits as a string, or the short channel ID \fIblockheight:txindex:outindex\fR form), then it applies to that channel\&.
 .sp
-The \fIforce\fR argument, if the JSON value \fItrue\fR, will cause the channel to be unilaterally closed when the timeout is reached\&. If so, timeout will not cause an error, but instead cause the channel to be failed and put onchain unilaterally\&. Unilateral closes will lead to your funds getting locked according to the \fIto_self_delay\fR parameter of the peer\&.
+If \fIunilateraltimeout\fR is not zero, the \fBclose\fR command will unilaterally close the channel when that number of seconds is reached\&. If \fIunilateraltimeout\fR is zero, then the \fBclose\fR command will wait indefinitely until the peer is online and can negotiate a mutual close\&. The default is 2 days (172800 seconds)\&.
 .sp
-Normally the peer needs to be live and connected in order to negotiate a mutual close\&. Forcing a unilateral close can be used if you suspect you can no longer contact the peer\&.
+The peer needs to be live and connected in order to negotiate a mutual close\&. The default of unilaterally closing after 48 hours is usually a reasonable indication that you can no longer contact the peer\&.
+.SH "NOTES"
+.sp
+Prior to 0\&.7\&.2, \fBclose\fR took two parameters: \fIforce\fR and \fItimeout\fR\&. \fItimeout\fR was the number of seconds before \fIforce\fR took effect (default, 30), and \fIforce\fR determined whether the result was a unilateral close or an RPC error (default)\&. Even after the timeout, the channel would be closed if the peer reconnected\&.
 .SH "RETURN VALUE"
 .sp
 On success, an object with fields \fItx\fR and \fItxid\fR containing the closing transaction are returned\&. It will also have a field \fItype\fR which is either the JSON string \fImutual\fR or the JSON string \fIunilateral\fR\&. A \fImutual\fR close means that we could negotiate a close with the peer, while a \fIunilateral\fR close means that the \fIforce\fR flag was set and we had to close the channel without waiting for the counterparty\&.
 .sp
-A unilateral close may still occur with \fIforce\fR set to \fIfalse\fR if the peer did not behave correctly during the close negotiation\&.
+A unilateral close may still occur at any time if the peer did not behave correctly during the close negotiation\&.
 .sp
 Unilateral closes will return your funds after a delay\&. The delay will vary based on the peer \fIto_self_delay\fR setting, not your own setting\&.
-.sp
-On failure, if \fBclose\fR failed due to timing out with \fIforce\fR argument \fIfalse\fR, the channel will still eventually close once we have contacted the peer\&.
 .SH "AUTHOR"
 .sp
 ZmnSCPxj <ZmnSCPxj@protonmail\&.com> is mainly responsible\&.
 .SH "SEE ALSO"
+.sp
+lightning\-disconnect(7), lightning\-fundchannel(7)
 .SH "RESOURCES"
 .sp
 Main web site: https://github\&.com/ElementsProject/lightning

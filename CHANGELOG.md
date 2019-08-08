@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- JSON API: `close` optional arguments have changed: it now defaults to unilateral close after 48 hours.
 - build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
 - plugins: if the config directory has a `plugins` subdirectory, those are loaded.
 - plugins: a new notification type `invoice_payment` (sent when an invoice is paid) has been added

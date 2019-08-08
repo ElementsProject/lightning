@@ -325,6 +325,9 @@ char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const 
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
+/* Generated stub for json_to_bool */
+bool json_to_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *b UNNEEDED)
+{ fprintf(stderr, "json_to_bool called!\n"); abort(); }
 /* Generated stub for json_tok_bin_from_hex */
 u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }

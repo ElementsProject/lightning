@@ -3,6 +3,7 @@ import json
 import logging
 from math import floor, log10
 import socket
+import warnings
 
 __version__ = "0.0.7.3"
 
@@ -309,16 +310,43 @@ class LightningRpc(UnixDomainSocketRpc):
         payload.update({k: v for k, v in kwargs.items()})
         return self.call("check", payload)
 
-    def close(self, peer_id, force=None, timeout=None):
-        """
-        Close the channel with peer {id}, forcing a unilateral
-        close if {force} is True, and timing out with {timeout}
-        seconds.
-        """
+    def _deprecated_close(self, peer_id, force=None, timeout=None):
+        warnings.warn("close now takes unilateraltimeout arg: expect removal"
+                      " in early 2020",
+                      DeprecationWarning)
         payload = {
             "id": peer_id,
             "force": force,
             "timeout": timeout
+        }
+        return self.call("close", payload)
+
+    def close(self, peer_id, *args, **kwargs):
+        """
+        Close the channel with peer {id}, forcing a unilateral
+        close after {unilateraltimeout} seconds if non-zero.
+
+        Deprecated usage has {force} and {timeout} args.
+        """
+        unilateraltimeout = None
+
+        if 'force' in kwargs or 'timeout' in kwargs:
+            return self._deprecated_close(peer_id, *args, **kwargs)
+
+        # Single arg is ambigious.
+        if len(args) == 1:
+            if isinstance(args[0], bool):
+                return self._deprecated_close(peer_id, *args, **kwargs)
+            unilateraltimeout = args[0]
+        elif len(args) > 1:
+            return self._deprecated_close(peer_id, *args, **kwargs)
+
+        if 'unilateraltimeout' in kwargs:
+            unilateraltimeout = kwargs['unilateraltimeout']
+
+        payload = {
+            "id": peer_id,
+            "unilateraltimeout": unilateraltimeout
         }
         return self.call("close", payload)
 
