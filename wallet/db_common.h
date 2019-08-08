@@ -124,6 +124,9 @@ struct db_config {
 	s64 (*column_int_fn)(struct db_stmt *stmt, int col);
 
 	size_t (*count_changes_fn)(struct db_stmt *stmt);
+
+	bool (*setup_fn)(struct db *db);
+	bool (*teardown_fn)(struct db *db);
 };
 
 /* Provide a way for DB backends to register themselves */

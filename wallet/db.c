@@ -821,8 +821,15 @@ static void setup_open_db(struct db *db)
 	assert(!db->in_transaction);
 
 	db_prepare_for_changes(db);
-	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
+	if (db->config->setup_fn)
+		db->config->setup_fn(db);
 	db_report_changes(db, NULL, 0);
+}
+
+void db_close(struct db *db)
+{
+	if (db->config->teardown_fn)
+		db->config->teardown_fn(db);
 }
 
 /**

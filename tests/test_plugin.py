@@ -299,10 +299,9 @@ def test_db_hook(node_factory, executor):
     # It should see the db being created, and sometime later actually get
     # initted.
     # This precedes startup, so needle already past
-    assert l1.daemon.is_in_log('plugin-dblog.py deferring 1 commands')
+    assert l1.daemon.is_in_log(r'plugin-dblog.py deferring \d+ commands')
     l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_log('plugin-dblog.py replaying pre-init data:')
-    l1.daemon.wait_for_log('plugin-dblog.py PRAGMA foreign_keys = ON;')
     l1.daemon.wait_for_log('plugin-dblog.py CREATE TABLE version \\(version INTEGER\\)')
     l1.daemon.wait_for_log('plugin-dblog.py initialized')
 
