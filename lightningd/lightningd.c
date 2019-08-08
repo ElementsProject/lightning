@@ -668,8 +668,7 @@ int main(int argc, char *argv[])
 	/*~ Handle early options; this moves us into --lightning-dir.
 	 * Plugins may add new options, which is why we are splitting
 	 * between early args (including --plugin registration) and
-	 * non-early opts.  This also forks if they say
-	 * --daemonize. */
+	 * non-early opts.  This also forks if they say --daemon. */
 	handle_early_opts(ld, argc, argv);
 
 	/*~ Now create the PID file: this errors out if there's already a
