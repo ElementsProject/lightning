@@ -242,6 +242,8 @@ void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t);
 struct timeabs sqlite3_column_timeabs(sqlite3_stmt *stmt, int col);
 
 
+void db_close(struct db *db);
+
 void db_bind_null(struct db_stmt *stmt, int pos);
 void db_bind_int(struct db_stmt *stmt, int pos, int val);
 void db_bind_u64(struct db_stmt *stmt, int pos, u64 val);
