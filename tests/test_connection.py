@@ -577,8 +577,7 @@ def test_shutdown_reconnect(node_factory):
                    '@WIRE_SHUTDOWN',
                    '+WIRE_SHUTDOWN']
     l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True,
-                               options={'allow-deprecated-apis': True})
+                               may_reconnect=True)
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -587,9 +586,8 @@ def test_shutdown_reconnect(node_factory):
 
     assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
-    # This should return with an error, then close.
-    with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
-        l1.rpc.close(chan, False, 0)
+    # This should wait until we're closed.
+    l1.rpc.close(chan)
 
     l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
     l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
@@ -638,7 +636,7 @@ def test_reconnect_remote_sends_no_sigs(node_factory):
 
 
 def test_shutdown_awaiting_lockin(node_factory, bitcoind):
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    l1 = node_factory.get_node()
     l2 = node_factory.get_node(options={'funding-confirms': 3})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -649,9 +647,7 @@ def test_shutdown_awaiting_lockin(node_factory, bitcoind):
     l1.daemon.wait_for_log('sendrawtx exit 0')
     bitcoind.generate_block(1)
 
-    # This should return with an error, then close.
-    with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
-        l1.rpc.close(chanid, False, 0)
+    l1.rpc.close(chanid)
 
     l1.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
     l2.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
@@ -1129,7 +1125,7 @@ def test_channel_reenable(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_update_fee(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=True, opts={'allow-deprecated-apis': True})
+    l1, l2 = node_factory.line_graph(2, fundchannel=True)
     chanid = l1.get_channel_scid(l2)
 
     # Make l1 send out feechange.
@@ -1146,8 +1142,7 @@ def test_update_fee(node_factory, bitcoind):
     l2.pay(l1, 100000000)
 
     # Now shutdown cleanly.
-    with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
-        l1.rpc.close(chanid, False, 0)
+    l1.rpc.close(chanid)
 
     l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
     l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
@@ -1313,7 +1308,7 @@ def test_forget_channel(node_factory):
 
 
 def test_peerinfo(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True, 'allow-deprecated-apis': True})
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
     lfeatures = 'aa'
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
@@ -1346,8 +1341,7 @@ def test_peerinfo(node_factory, bitcoind):
     assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == lfeatures
 
     # Close the channel to forget the peer
-    with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
-        l1.rpc.close(chan, False, 0)
+    l1.rpc.close(chan)
 
     wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
