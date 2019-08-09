@@ -1425,8 +1425,8 @@ void load_channels_from_wallet(struct lightningd *ld)
 {
 	struct peer *peer;
 
-	/* Load peers from database */
-	if (!wallet_channels_load_active(ld->wallet))
+	/* Load channels from database */
+	if (!wallet_init_channels(ld->wallet))
 		fatal("Could not load channels from the database");
 
 	/* This is a poor-man's db join :( */

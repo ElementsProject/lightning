@@ -847,14 +847,28 @@ static const char *channel_fields =
     /*41*/ "last_sent_commit, "
     /*42*/ "feerate_base, feerate_ppm, remote_upfront_shutdown_script";
 
-bool wallet_channels_load_active(struct wallet *w)
+static void set_max_channel_dbid(struct wallet *w)
+{
+	sqlite3_stmt *stmt;
+	int result;
+
+	stmt = db_select(w->db, "id FROM channels ORDER BY id DESC LIMIT 1;");
+	w->max_channel_dbid = 0;
+
+	result = sqlite3_step(stmt);
+	if (result == SQLITE_ROW)
+		w->max_channel_dbid = sqlite3_column_int64(stmt, 0);
+
+	db_stmt_done(stmt);
+}
+
+static bool wallet_channels_load_active(struct wallet *w)
 {
 	bool ok = true;
 	sqlite3_stmt *stmt;
 
-	/* We load all channels */
+	/* We load all non-closed channels */
 	stmt = db_select(w->db, "%s FROM channels WHERE state < %d;", channel_fields, CLOSED);
-	w->max_channel_dbid = 0;
 
 	int count = 0;
 	while (db_select_step(w->db, stmt)) {
@@ -864,13 +878,20 @@ bool wallet_channels_load_active(struct wallet *w)
 			db_stmt_done(stmt);
 			break;
 		}
-		if (c->dbid > w->max_channel_dbid)
-			w->max_channel_dbid = c->dbid;
 		count++;
 	}
 	log_debug(w->log, "Loaded %d channels from DB", count);
+
 	return ok;
 }
+
+bool wallet_init_channels(struct wallet *w)
+{
+	/* We set the max channel database id separately */
+	set_max_channel_dbid(w);
+	return wallet_channels_load_active(w);
+}
+
 
 static
 void wallet_channel_stats_incr_x(struct wallet *w,

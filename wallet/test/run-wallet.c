@@ -937,7 +937,7 @@ static struct channel *wallet_channel_load(struct wallet *w, const u64 dbid)
 	struct channel *channel;
 
 	/* We expect only one peer, but reuse same code */
-	if (!wallet_channels_load_active(w))
+	if (!wallet_init_channels(w))
 		return NULL;
 	peer = list_top(&w->ld->peers, struct peer, list);
 	CHECK(peer);

@@ -1,5 +1,5 @@
 from fixtures import *  # noqa: F401,F403
-from utils import wait_for
+from utils import wait_for, sync_blockheight
 
 
 def test_db_dangling_peer_fix(node_factory):
@@ -77,3 +77,37 @@ def test_block_backfill(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 0)
+
+
+# Test that the max-channel-id is set correctly between
+# restarts (with forgotten channel)
+def test_max_channel_id(node_factory, bitcoind):
+    # Create a channel between two peers.
+    # Close the channel and have 100 blocks happen (forget channel)
+    # Restart node, create channel again. Should succeed.
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, wait_for_announce=True)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Now shutdown cleanly.
+    l1.rpc.close(l2.info['id'], 0)
+
+    l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+    l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+    # And should put closing into mempool.
+    l1.wait_for_channel_onchain(l2.info['id'])
+    l2.wait_for_channel_onchain(l1.info['id'])
+
+    bitcoind.generate_block(101)
+    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
+    wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
+
+    # Stop l2, and restart
+    l2.stop()
+    l2.start()
+
+    # Reconnect
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Fundchannel again, should succeed.
+    l1.rpc.fundchannel(l2.info['id'], 10**5)

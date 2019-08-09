@@ -477,9 +477,9 @@ void wallet_channel_close(struct wallet *w UNNEEDED, u64 wallet_id UNNEEDED)
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
-/* Generated stub for wallet_channels_load_active */
-bool wallet_channels_load_active(struct wallet *w UNNEEDED)
-{ fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
+/* Generated stub for wallet_init_channels */
+bool wallet_init_channels(struct wallet *w UNNEEDED)
+{ fprintf(stderr, "wallet_init_channels called!\n"); abort(); }
 /* Generated stub for wallet_channel_stats_load */
 void wallet_channel_stats_load(struct wallet *w UNNEEDED, u64 cdbid UNNEEDED, struct channel_stats *stats UNNEEDED)
 { fprintf(stderr, "wallet_channel_stats_load called!\n"); abort(); }
