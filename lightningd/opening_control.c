@@ -99,7 +99,7 @@ static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 	u8 *msg = towire_connectctl_peer_disconnected(tmpctx, &uc->peer->id);
 	log_info(uc->log, "%s", desc);
 	subd_send_msg(uc->peer->ld->connectd, msg);
-	if (uc->fc)
+	if (uc->fc && uc->fc->cmd)
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 	notify_disconnect(uc->peer->ld, &uc->peer->id);
 }
