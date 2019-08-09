@@ -156,6 +156,7 @@ struct peer {
 
 	/* Are there outstanding responses for queries on short_channel_ids? */
 	const struct short_channel_id *scid_queries;
+	const bigsize_t *scid_query_flags;
 	size_t scid_query_idx;
 
 	/* Are there outstanding node_announcements from scid_queries? */
@@ -721,6 +722,8 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 	struct bitcoin_blkid chain;
 	u8 *encoded;
 	struct short_channel_id *scids;
+	bigsize_t *flags;
+
 #if EXPERIMENTAL_FEATURES
 	struct tlv_query_short_channel_ids_tlvs *tlvs
 		= tlv_query_short_channel_ids_tlvs_new(tmpctx);
@@ -731,12 +734,22 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 				       "Bad query_short_channel_ids w/tlvs %s",
 				       tal_hex(tmpctx, msg));
 	}
+	if (tlvs->query_flags) {
+		flags = decode_scid_query_flags(tmpctx, tlvs->query_flags);
+		if (!flags) {
+			return towire_errorfmt(peer, NULL,
+					       "Bad query_short_channel_ids query_flags %s",
+					       tal_hex(tmpctx, msg));
+		}
+	} else
+		flags = NULL;
 #else
 	if (!fromwire_query_short_channel_ids(tmpctx, msg, &chain, &encoded)) {
 		return towire_errorfmt(peer, NULL,
 				       "Bad query_short_channel_ids %s",
 				       tal_hex(tmpctx, msg));
 	}
+	flags = NULL;
 #endif
 
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
@@ -765,6 +778,27 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 				       tal_hex(tmpctx, encoded));
 	}
 
+	/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+	 *
+	 * The receiver:
+	 *...
+	 *  - if the incoming message includes `query_short_channel_ids_tlvs`:
+	 *    - if `encoded_query_flags` does not decode to exactly one flag per
+	 *      `short_channel_id`:
+	 *      - MAY fail the connection.
+	 */
+	if (!flags) {
+		/* Pretend they asked for everything. */
+		flags = tal_arr(tmpctx, bigsize_t, tal_count(scids));
+		memset(flags, 0xFF, tal_bytelen(flags));
+	} else {
+		if (tal_count(flags) != tal_count(scids)) {
+			return towire_errorfmt(peer, NULL,
+					       "Bad query_short_channel_ids flags count %zu scids %zu",
+					       tal_count(flags), tal_count(scids));
+		}
+	}
+
 	/* BOLT #7:
 	 *
 	 * - MUST respond to each known `short_channel_id` with a `channel_announcement`
@@ -773,6 +807,7 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 	 *      these.
 	 */
 	peer->scid_queries = tal_steal(peer, scids);
+	peer->scid_query_flags = tal_steal(peer, flags);
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = tal_arr(peer, struct node_id, 0);
 
@@ -1262,15 +1297,45 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		if (!chan || !is_chan_public(chan))
 			continue;
 
-		queue_peer_from_store(peer, &chan->bcast);
-		if (is_halfchan_defined(&chan->half[0]))
+		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+		 * - if bit 0 of `query_flag` is set:
+		 *   - MUST reply with a `channel_announcement`
+		 */
+		if (peer->scid_query_flags[i] & SCID_QF_ANNOUNCE)
+			queue_peer_from_store(peer, &chan->bcast);
+
+		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+		 * - if bit 1 of `query_flag` is set and it has received a
+		 *   `channel_update` from `node_id_1`:
+		 *   - MUST reply with the latest `channel_update` for
+		 *   `node_id_1`
+		 * - if bit 2 of `query_flag` is set and it has received a
+		 *   `channel_update` from `node_id_2`:
+		 *   - MUST reply with the latest `channel_update` for
+		 *   `node_id_2` */
+		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE1)
+		    && is_halfchan_defined(&chan->half[0]))
 			queue_peer_from_store(peer, &chan->half[0].bcast);
-		if (is_halfchan_defined(&chan->half[1]))
+		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE2)
+		    && is_halfchan_defined(&chan->half[1]))
 			queue_peer_from_store(peer, &chan->half[1].bcast);
 
-		/* Record node ids for later transmission of node_announcement */
-		tal_arr_expand(&peer->scid_query_nodes, chan->nodes[0]->id);
-		tal_arr_expand(&peer->scid_query_nodes, chan->nodes[1]->id);
+		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+		 * - if bit 3 of `query_flag` is set and it has received
+		 *   a `node_announcement` from `node_id_1`:
+		 *   - MUST reply with the latest `node_announcement` for
+		 *   `node_id_1`
+		 * - if bit 4 of `query_flag` is set and it has received a
+		 *    `node_announcement` from `node_id_2`:
+		 *   - MUST reply with the latest `node_announcement` for
+		 *   `node_id_2` */
+		/* Save node ids for later transmission of node_announcement */
+		if (peer->scid_query_flags[i] & SCID_QF_NODE1)
+			tal_arr_expand(&peer->scid_query_nodes,
+				       chan->nodes[0]->id);
+		if (peer->scid_query_flags[i] & SCID_QF_NODE2)
+			tal_arr_expand(&peer->scid_query_nodes,
+				       chan->nodes[1]->id);
 		sent = true;
 	}
 
@@ -1325,6 +1390,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 
 		/* We're done!  Clean up so we simply pass-through next time. */
 		peer->scid_queries = tal_free(peer->scid_queries);
+		peer->scid_query_flags = tal_free(peer->scid_query_flags);
 		peer->scid_query_idx = 0;
 		peer->scid_query_nodes = tal_free(peer->scid_query_nodes);
 		peer->scid_query_nodes_idx = 0;
