@@ -87,12 +87,22 @@ start_ln() {
 	test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
 		bitcoind -daemon -regtest -txindex
 
+	# Wait for it to start.
+	while ! bt-cli ping 2> /dev/null; do sleep 1; done
+
+	# Kick it out of initialblockdownload if necessary
+	if bt-cli getblockchaininfo | grep -q 'initialblockdownload.*true'; then
+		bt-cli generatetoaddress 1 "$(bt-cli getnewaddress)" > /dev/null
+	fi
+
 	# Start the lightning nodes
 	test -f /tmp/l1-regtest/lightningd-regtest.pid || \
 		"$LIGHTNINGD" --lightning-dir=/tmp/l1-regtest
 	test  -f /tmp/l2-regtest/lightningd-regtest.pid || \
 		"$LIGHTNINGD" --lightning-dir=/tmp/l2-regtest
 
+	# Give a hint.
+	echo "Commands: l1-cli, l2-cli, bt-cli, stop_ln, cleanup_ln"
 }
 
 stop_ln() {
