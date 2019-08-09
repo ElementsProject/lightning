@@ -77,7 +77,7 @@
 
 /* In developer mode we provide hooks for whitebox testing */
 #if DEVELOPER
-static u32 max_scids_encode_bytes = -1U;
+static u32 max_encoding_bytes = -1U;
 static bool suppress_gossip = false;
 #endif
 
@@ -261,16 +261,14 @@ static void queue_peer_from_store(struct peer *peer,
  * simple compression scheme: the first byte indicates the encoding, the
  * rest contains the data.
  */
-static u8 *encode_short_channel_ids_start(const tal_t *ctx)
+static u8 *encoding_start(const tal_t *ctx)
 {
-	u8 *encoded = tal_arr(ctx, u8, 0);
-	towire_u8(&encoded, SHORTIDS_ZLIB);
-	return encoded;
+	return tal_arr(ctx, u8, 0);
 }
 
 /* Marshal a single short_channel_id */
-static void encode_add_short_channel_id(u8 **encoded,
-					const struct short_channel_id *scid)
+static void encoding_add_short_channel_id(u8 **encoded,
+					  const struct short_channel_id *scid)
 {
 	towire_short_channel_id(encoded, scid);
 }
@@ -281,7 +279,7 @@ static void encode_add_short_channel_id(u8 **encoded,
  * more complex and use separate streams.  The upside is that it's between
  * 2 and 5 times smaller (assuming optimal Rice encoding + gzip).  We can add
  * that later. */
-static u8 *zencode_scids(const tal_t *ctx, const u8 *scids, size_t len)
+static u8 *zencode(const tal_t *ctx, const u8 *scids, size_t len)
 {
 	u8 *z;
 	int err;
@@ -291,47 +289,70 @@ static u8 *zencode_scids(const tal_t *ctx, const u8 *scids, size_t len)
 	z = tal_arr(ctx, u8, len);
 	err = compress2(z, &compressed_len, scids, len, Z_BEST_COMPRESSION);
 	if (err == Z_OK) {
-		status_trace("short_ids compressed %zu into %lu",
+		status_trace("compressed %zu into %lu",
 			     len, compressed_len);
 		tal_resize(&z, compressed_len);
 		return z;
 	}
-	status_trace("short_ids compress %zu returned %i:"
+	status_trace("compress %zu returned %i:"
 		     " not compresssing", len, err);
 	return NULL;
 }
 
-/* Once we've assembled */
-static bool encode_short_channel_ids_end(u8 **encoded, size_t max_bytes)
+/* Try compressing *encoded: fails if result would be longer.
+ * @off is offset to place result in *encoded.
+ */
+static bool encoding_end_zlib(u8 **encoded, size_t off)
 {
 	u8 *z;
+	size_t len = tal_count(*encoded);
 
-	/* First byte says what encoding we want. */
-	switch ((enum scid_encode_types)(*encoded)[0]) {
-	case SHORTIDS_ZLIB:
-		/* compress */
-		z = zencode_scids(tmpctx, *encoded + 1, tal_count(*encoded) - 1);
-		if (z) {
-			/* If successful, copy over and trimp */
-			tal_resize(encoded, 1 + tal_count(z));
-			memcpy((*encoded) + 1, z, tal_count(z));
-			goto check_length;
-		}
-		/* Otherwise, change first byte to 'uncompressed' */
-		(*encoded)[0] = SHORTIDS_UNCOMPRESSED;
-		/* Fall thru */
-	case SHORTIDS_UNCOMPRESSED:
-		goto check_length;
+	z = zencode(tmpctx, *encoded, len);
+	if (!z)
+		return false;
+
+	/* Successful: copy over and trim */
+	tal_resize(encoded, off + tal_count(z));
+	memcpy(*encoded + off, z, tal_count(z));
+	return true;
+}
+
+static void encoding_end_no_compress(u8 **encoded, size_t off)
+{
+	size_t len = tal_count(*encoded);
+
+	tal_resize(encoded, off + len);
+	memmove(*encoded + off, *encoded, len);
+}
+
+/* Once we've assembled it, try compressing.
+ * Prepends encoding type to @encoding. */
+static bool encoding_end_prepend_type(u8 **encoded, size_t max_bytes)
+{
+	if (encoding_end_zlib(encoded, 1))
+		**encoded = SHORTIDS_ZLIB;
+	else {
+		encoding_end_no_compress(encoded, 1);
+		**encoded = SHORTIDS_UNCOMPRESSED;
 	}
 
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "Unknown short_ids encoding %u", (*encoded)[0]);
-
-check_length:
 #if DEVELOPER
-	if (tal_count(*encoded) > max_scids_encode_bytes)
+	if (tal_count(*encoded) > max_encoding_bytes)
 		return false;
 #endif
+	return tal_count(*encoded) <= max_bytes;
+}
+
+/* Try compressing, leaving type external */
+static UNNEEDED bool encoding_end_external_type(u8 **encoded, u8 *type, size_t max_bytes)
+{
+	if (encoding_end_zlib(encoded, 0))
+		*type = SHORTIDS_ZLIB;
+	else {
+		encoding_end_no_compress(encoded, 0);
+		*type = SHORTIDS_UNCOMPRESSED;
+	}
+
 	return tal_count(*encoded) <= max_bytes;
 }
 
@@ -609,11 +630,11 @@ static bool query_short_channel_ids(struct daemon *daemon,
 	if (peer->scid_query_outstanding)
 		return false;
 
-	encoded = encode_short_channel_ids_start(tmpctx);
+	encoded = encoding_start(tmpctx);
 	for (size_t i = 0; i < tal_count(scids); i++)
-		encode_add_short_channel_id(&encoded, &scids[i]);
+		encoding_add_short_channel_id(&encoded, &scids[i]);
 
-	if (!encode_short_channel_ids_end(&encoded, max_encoded_bytes)) {
+	if (!encoding_end_prepend_type(&encoded, max_encoded_bytes)) {
 		status_broken("query_short_channel_ids: %zu is too many",
 			      tal_count(scids));
 		return false;
@@ -892,7 +913,7 @@ static bool queue_channel_ranges(struct peer *peer,
 				 u32 tail_blocks)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
-	u8 *encoded = encode_short_channel_ids_start(tmpctx);
+	u8 *encoded_scids = encoding_start(tmpctx);
 	struct short_channel_id scid;
 	bool scid_ok;
 
@@ -930,14 +951,14 @@ static bool queue_channel_ranges(struct peer *peer,
 		if (blocknum >= first_blocknum + number_of_blocks)
 			break;
 
-		encode_add_short_channel_id(&encoded, &scid);
+		encoding_add_short_channel_id(&encoded_scids, &scid);
 	}
 
 	/* If we can encode that, fine: send it */
-	if (encode_short_channel_ids_end(&encoded, max_encoded_bytes)) {
+	if (encoding_end_prepend_type(&encoded_scids, max_encoded_bytes)) {
 		reply_channel_range(peer, first_blocknum,
 				    number_of_blocks + tail_blocks,
-				    encoded);
+				    encoded_scids);
 		return true;
 	}
 
@@ -2790,10 +2811,10 @@ static struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
 						     const u8 *msg)
 {
 	if (!fromwire_gossip_dev_set_max_scids_encode_size(msg,
-							   &max_scids_encode_bytes))
+							   &max_encoding_bytes))
 		master_badmsg(WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
 
-	status_trace("Set max_scids_encode_bytes to %u", max_scids_encode_bytes);
+	status_trace("Set max_scids_encode_bytes to %u", max_encoding_bytes);
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
