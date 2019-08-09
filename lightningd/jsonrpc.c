@@ -445,7 +445,10 @@ static struct command_result *json_help(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_array_start(response, "help");
 	for (size_t i = 0; i < tal_count(commands); i++) {
-		if (!one_cmd || one_cmd == commands[i])
+		/* Don't expose internal command in `help`
+		 * except user specified this command.
+		 */
+		if ((!one_cmd && !commands[i]->internal) || one_cmd == commands[i])
 			json_add_help_command(cmd, response, commands[i]);
 	}
 	json_array_end(response);
