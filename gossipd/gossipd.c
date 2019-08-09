@@ -618,8 +618,13 @@ static bool query_short_channel_ids(struct daemon *daemon,
 		return false;
 	}
 
+#if EXPERIMENTAL_FEATURES
+	msg = towire_query_short_channel_ids(NULL, &daemon->chain_hash,
+					     encoded, NULL);
+#else
 	msg = towire_query_short_channel_ids(NULL, &daemon->chain_hash,
 					     encoded);
+#endif
 	queue_peer_msg(peer, take(msg));
 	peer->scid_query_outstanding = true;
 	peer->scid_query_was_internal = internal;
@@ -716,12 +721,23 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 	struct bitcoin_blkid chain;
 	u8 *encoded;
 	struct short_channel_id *scids;
+#if EXPERIMENTAL_FEATURES
+	struct tlv_query_short_channel_ids_tlvs *tlvs
+		= tlv_query_short_channel_ids_tlvs_new(tmpctx);
 
+	if (!fromwire_query_short_channel_ids(tmpctx, msg, &chain, &encoded,
+					      tlvs)) {
+		return towire_errorfmt(peer, NULL,
+				       "Bad query_short_channel_ids w/tlvs %s",
+				       tal_hex(tmpctx, msg));
+	}
+#else
 	if (!fromwire_query_short_channel_ids(tmpctx, msg, &chain, &encoded)) {
 		return towire_errorfmt(peer, NULL,
 				       "Bad query_short_channel_ids %s",
 				       tal_hex(tmpctx, msg));
 	}
+#endif
 
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
 		status_trace("%s sent query_short_channel_ids chainhash %s",
@@ -812,11 +828,19 @@ static void reply_channel_range(struct peer *peer,
 	 *   - otherwise:
 	 *     - SHOULD set `complete` to 1.
 	 */
+#if EXPERIMENTAL_FEATURES
+	u8 *msg = towire_reply_channel_range(NULL,
+					     &peer->daemon->chain_hash,
+					     first_blocknum,
+					     number_of_blocks,
+					     1, encoded, NULL);
+#else
 	u8 *msg = towire_reply_channel_range(NULL,
 					     &peer->daemon->chain_hash,
 					     first_blocknum,
 					     number_of_blocks,
 					     1, encoded);
+#endif
 	queue_peer_msg(peer, take(msg));
 }
 
@@ -911,12 +935,25 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	u32 first_blocknum, number_of_blocks, tail_blocks;
 	struct short_channel_id last_scid;
 
+#if EXPERIMENTAL_FEATURES
+	struct tlv_query_channel_range_tlvs *tlvs
+		= tlv_query_channel_range_tlvs_new(msg);
+
+	if (!fromwire_query_channel_range(msg, &chain_hash,
+					  &first_blocknum, &number_of_blocks,
+					  tlvs)) {
+		return towire_errorfmt(peer, NULL,
+				       "Bad query_channel_range w/tlvs %s",
+				       tal_hex(tmpctx, msg));
+	}
+#else
 	if (!fromwire_query_channel_range(msg, &chain_hash,
 					  &first_blocknum, &number_of_blocks)) {
 		return towire_errorfmt(peer, NULL,
 				       "Bad query_channel_range %s",
 				       tal_hex(tmpctx, msg));
 	}
+#endif
 
 	/* FIXME: if they ask for the wrong chain, we should not ignore it,
 	 * but give an empty response with the `complete` flag unset? */
@@ -966,6 +1003,17 @@ static const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	size_t n;
 	unsigned long b;
 
+#if EXPERIMENTAL_FEATURES
+	struct tlv_reply_channel_range_tlvs *tlvs
+		= tlv_reply_channel_range_tlvs_new(tmpctx);
+	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
+					  &number_of_blocks, &complete,
+					  &encoded, tlvs)) {
+		return towire_errorfmt(peer, NULL,
+				       "Bad reply_channel_range w/tlvs %s",
+				       tal_hex(tmpctx, msg));
+	}
+#else
 	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
 					  &number_of_blocks, &complete,
 					  &encoded)) {
@@ -973,6 +1021,7 @@ static const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 				       "Bad reply_channel_range %s",
 				       tal_hex(tmpctx, msg));
 	}
+#endif
 
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
 		return towire_errorfmt(peer, NULL,
@@ -2639,8 +2688,15 @@ static struct io_plan *query_channel_range(struct io_conn *conn,
 
 	status_debug("sending query_channel_range for blocks %u+%u",
 		     first_blocknum, number_of_blocks);
+
+#if EXPERIMENTAL_FEATURES
+	msg = towire_query_channel_range(NULL, &daemon->chain_hash,
+					 first_blocknum, number_of_blocks,
+					 NULL);
+#else
 	msg = towire_query_channel_range(NULL, &daemon->chain_hash,
 					 first_blocknum, number_of_blocks);
+#endif
 	queue_peer_msg(peer, take(msg));
 	peer->range_first_blocknum = first_blocknum;
 	peer->range_end_blocknum = first_blocknum + number_of_blocks;
