@@ -31,16 +31,32 @@
 ##  $ cleanup_ln # stops and cleans up aliases
 ##
 
-if [ -z "$PATH_TO_LIGHTNING" ]
-then
-	echo "\$PATH_TO_LIGHTNING not set"
-	return
+# Do the Right Thing if we're currently in top of srcdir.
+if [ -z "$PATH_TO_LIGHTNING" ] && [ -x cli/lightning-cli ] && [ -x lightningd/lightningd ]; then
+	PATH_TO_LIGHTNING=$(pwd)
 fi
 
-if [ -z "$PATH_TO_BITCOIN" ]
-then
-	echo "\$PATH_TO_BITCOIN not set"
-	return
+if [ -z "$PATH_TO_LIGHTNING" ]; then
+	# Already installed maybe?  Prints
+	type lightning-cli || return
+	type lightningd || return
+	LCLI=lightning-cli
+	LIGHTNINGD=lightningd
+else
+	LCLI="$PATH_TO_LIGHTNING"/cli/lightning-cli
+	LIGHTNINGD="$PATH_TO_LIGHTNING"/lightningd/lightningd
+	# This mirrors "type" output above.
+	echo lightning-cli is "$LCLI"
+	echo lightningd is "$LIGHTNINGD"
+fi
+
+if [ -z "$PATH_TO_BITCOIN" ]; then
+	if [ -d "$HOME/.bitcoin" ]; then
+		PATH_TO_BITCOIN="$HOME/.bitcoin"
+	else
+		echo "\$PATH_TO_BITCOIN not set to a .bitcoin dir?" >&2
+		return
+	fi
 fi
 
 mkdir -p /tmp/l1-regtest /tmp/l2-regtest
@@ -62,8 +78,8 @@ log-file=/tmp/l2-regtest/log
 addr=localhost:9090
 EOF
 
-alias l1-cli='$PATH_TO_LIGHTNING/cli/lightning-cli --lightning-dir=/tmp/l1-regtest'
-alias l2-cli='$PATH_TO_LIGHTNING/cli/lightning-cli --lightning-dir=/tmp/l2-regtest'
+alias l1-cli='$LCLI --lightning-dir=/tmp/l1-regtest'
+alias l2-cli='$LCLI --lightning-dir=/tmp/l2-regtest'
 alias bt-cli='bitcoin-cli -regtest'
 
 start_ln() {
@@ -73,9 +89,9 @@ start_ln() {
 
 	# Start the lightning nodes
 	test -f /tmp/l1-regtest/lightningd-regtest.pid || \
-		"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l1-regtest
+		"$LIGHTNINGD" --lightning-dir=/tmp/l1-regtest
 	test  -f /tmp/l2-regtest/lightningd-regtest.pid || \
-		"$PATH_TO_LIGHTNING/lightningd/lightningd" --lightning-dir=/tmp/l2-regtest
+		"$LIGHTNINGD" --lightning-dir=/tmp/l2-regtest
 
 }
 
