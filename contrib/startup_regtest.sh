@@ -69,7 +69,7 @@ alias bt-cli='bitcoin-cli -regtest'
 start_ln() {
 	# Start bitcoind in the background
 	test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
-		bitcoind -daemon -regtest
+		bitcoind -daemon -regtest -txindex
 
 	# Start the lightning nodes
 	test -f /tmp/l1-regtest/lightningd-regtest.pid || \
