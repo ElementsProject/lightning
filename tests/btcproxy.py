@@ -40,9 +40,13 @@ class BitcoinRpcProxy(object):
 
         # If we have set a mock for this method reply with that instead of
         # forwarding the request.
-        if method in self.mocks and type(method) == dict:
+        if method in self.mocks and type(self.mocks[method]) == dict:
+            ret = {}
+            ret['id'] = r['id']
+            ret['error'] = None
+            ret['result'] = self.mocks[method]
             self.mock_counts[method] += 1
-            return self.mocks[method]
+            return ret
         elif method in self.mocks and callable(self.mocks[method]):
             self.mock_counts[method] += 1
             return self.mocks[method](r)
