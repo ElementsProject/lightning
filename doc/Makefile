@@ -43,8 +43,8 @@ MANPAGES := doc/lightning-cli.1 \
 
 doc-all: $(MANPAGES)
 
-$(MANPAGES): doc/%: doc/%.txt
-	@if $(CHANGED_FROM_GIT); then echo a2x --format=manpage $<; a2x --format=manpage $<; else touch $@; fi
+$(MANPAGES): doc/%: doc/%.md
+	@if $(CHANGED_FROM_GIT); then echo mrkd $<; mrkd $<; else touch $@; fi
 
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
