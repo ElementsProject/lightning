@@ -23,7 +23,7 @@
  msgtype,reply_channel_range,264,gossip_queries
  msgdata,reply_channel_range,chain_hash,chain_hash,
  msgdata,reply_channel_range,first_blocknum,u32,
-@@ -168,6 +189,20 @@
+@@ -168,6 +189,19 @@
  msgdata,reply_channel_range,complete,byte,
  msgdata,reply_channel_range,len,u16,
  msgdata,reply_channel_range,encoded_short_ids,byte,len
@@ -33,8 +33,7 @@
 +tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,byte,
 +tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoded_timestamps,byte,...
 +tlvtype,reply_channel_range_tlvs,checksums_tlv,3
-+tlvdata,reply_channel_range_tlvs,checksums_tlv,encoding_type,byte,
-+tlvdata,reply_channel_range_tlvs,checksums_tlv,encoded_checksums,byte,...
++tlvdata,reply_channel_range_tlvs,checksums_tlv,checksums,channel_update_checksums,...
 +subtype,channel_update_timestamps
 +subtypedata,channel_update_timestamps,timestamp_node_id_1,u32,
 +subtypedata,channel_update_timestamps,timestamp_node_id_2,u32,

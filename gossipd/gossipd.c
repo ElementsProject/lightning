@@ -91,8 +91,7 @@ struct tlv_reply_channel_range_tlvs_timestamps_tlv {
 };
 
 struct tlv_reply_channel_range_tlvs_checksums_tlv {
-        u8 encoding_type;
-        u8 *encoded_checksums;
+        struct channel_update_checksums *checksums;
 };
 
 struct channel_update_timestamps {
@@ -103,12 +102,6 @@ struct channel_update_checksums {
         u32 checksum_node_id_1;
         u32 checksum_node_id_2;
 };
-
-static void towire_channel_update_checksums(u8 **p,
-					    const struct channel_update_checksums *channel_update_checksums)
-{
-	abort();
-}
 
 static void towire_channel_update_timestamps(u8 **p,
 					     const struct channel_update_timestamps *channel_update_timestamps)
@@ -314,13 +307,6 @@ static void encoding_add_timestamps(u8 **encoded,
 				    const struct channel_update_timestamps *ts)
 {
 	towire_channel_update_timestamps(encoded, ts);
-}
-
-/* Marshal a single channel_update_checksums */
-static void encoding_add_checksums(u8 **encoded,
-				   const struct channel_update_checksums *csums)
-{
-	towire_channel_update_checksums(encoded, csums);
 }
 
 /* Marshal a single query flag (we don't query, so not currently used) */
@@ -1074,7 +1060,8 @@ static bool queue_channel_ranges(struct peer *peer,
 	if (query_option_flags & QUERY_ADD_CHECKSUMS) {
 		csums = tal(tmpctx,
 			    struct tlv_reply_channel_range_tlvs_checksums_tlv);
-		csums->encoded_checksums = encoding_start(csums);
+		csums->checksums
+			= tal_arr(csums, struct channel_update_checksums, 0);
 	} else
 		csums = NULL;
 
@@ -1113,7 +1100,7 @@ static bool queue_channel_ranges(struct peer *peer,
 					   &cs.checksum_node_id_2);
 
 		if (csums)
-			encoding_add_checksums(&csums->encoded_checksums, &cs);
+			tal_arr_expand(&csums->checksums, cs);
 		if (tstamps)
 			encoding_add_timestamps(&tstamps->encoded_timestamps,
 						&ts);
@@ -1124,12 +1111,7 @@ static bool queue_channel_ranges(struct peer *peer,
 	/* If either of these can't fit in max_encoded_bytes by itself,
 	 * it's over. */
 	if (csums) {
-		if (!encoding_end_external_type(&csums->encoded_checksums,
-						&csums->encoding_type,
-						max_encoded_bytes))
-			goto wont_fit;
-		/* 1 byte for encoding_type, too */
-		extension_bytes += 1 + tlv_len(csums->encoded_checksums);
+		extension_bytes += tlv_len(csums->checksums);
 	}
 
 	if (tstamps) {
