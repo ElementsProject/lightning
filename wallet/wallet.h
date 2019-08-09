@@ -471,14 +471,15 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 				struct channel_config *cc);
 
 /**
- * wlalet_channels_load_active -- Load persisted active channels into the peers
+ * wallet_init_channels -- Loads active channels into peers
+ *    and inits the dbid counter for next channel.
  *
- * @w: wallet to load from
+ *    @w: wallet to load from
  *
  * Be sure to call this only once on startup since it'll append peers
  * loaded from the database to the list without checking.
  */
-bool wallet_channels_load_active(struct wallet *w);
+bool wallet_init_channels(struct wallet *w);
 
 /**
  * wallet_channel_stats_incr_* - Increase channel statistics.
