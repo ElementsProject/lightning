@@ -1,0 +1,117 @@
+lightning-listchannels
+
+7
+
+lightning-listchannels
+
+Command to query active lightning channels in the entire network.
+
+**listchannels** \[*short\_channel\_id*\] \[*source*\]
+
+DESCRIPTION
+===========
+
+The **listchannels** RPC command returns data on channels that are known
+to the node. Because channels may be bidirectional, up to 2 objects will
+be returned for each channel (one for each direction).
+
+If *short\_channel\_id* is supplied, then only known channels with a
+matching *short\_channel\_id* are returned.
+
+If *source* is supplied, then only channels leading from that node id
+are returned.
+
+If neither is supplied, data on all lightning channels known to this
+node, are returned. These can be local channels or public channels
+broadcast on the gossip network.
+
+RETURN VALUE
+============
+
+On success, an object with a "channels" key is returned containing a
+list of 0 or more objects.
+
+Each object in the list contains the following data:
+
+-   *source* : The node providing entry to the channel, specifying the
+    fees charged for using the channel in that direction.
+
+-   *destination* : The node providing the exit point for the channel.
+
+-   *short\_channel\_id* : The channel identifier.
+
+-   *public* : Boolean value, is publicly available. Non-local channels
+    will only ever have this value set to true. Local channels are
+    side-loaded by this node, rather than obtained through the gossip
+    network, and so may have this value set to false.
+
+-   *satoshis* : Funds available in the channel.
+
+-   *amount\_sat* : Same as above, but ending in *sat*.
+
+-   *message\_flags* : Bitfield showing the presence of optional fields
+    in the *channel\_update* message (BOLT \#7).
+
+-   *channel\_flags* : Bitfields indicating the direction of the channel
+    and signaling various options concerning the channel. (BOLT \#7).
+
+-   *active* : Boolean value, is available for routing. This is linked
+    to the channel flags data, where if the second bit is set, signals a
+    channels temporary unavailability (due to loss of connectivity) OR
+    permanent unavailability where the channel has been closed but not
+    settlement on-chain.
+
+-   *last\_update* : Unix timestamp (seconds) showing when the last
+    channel\_update message was received.
+
+-   *base\_fee\_millisatoshi* : The base fee (in millisatoshi) charged
+    for the HTLC (BOLT \#2).
+
+-   *fee\_per\_millionth* : The amount (in millionths of a satoshi)
+    charged per transferred satoshi (BOLT \#2).
+
+-   *delay* : The number of blocks delay required to wait for on-chain
+    settlement when unilaterally closing the channel (BOLT \#2).
+
+-   *htlc\_minimum\_msat* : The minimum payment which can be send
+    through this channel.
+
+-   *htlc\_maximum\_msat* : The maximum payment which can be send
+    through this channel.
+
+If *short\_channel\_id* or *source* is supplied and no matching channels
+are found, a "channels" object with an empty list is returned.
+
+ERRORS
+======
+
+If *short\_channel\_id* is not a valid short\_channel\_id, an error
+message will be returned:
+
+    { "code" : -32602,
+      "message" : "'short_channel_id' should be a short channel id, not '...'" }
+
+Similarly if *source* is not a valid pubkey.
+
+AUTHOR
+======
+
+Michael Hawkins &lt;<michael.hawkins@protonmail.com>&gt;.
+
+SEE ALSO
+========
+
+lightning-fundchannel(7), lightning-listnodes(7)
+
+RESOURCES
+=========
+
+Main web site: <https://github.com/ElementsProject/lightning>
+
+Lightning RFC site
+
+-   BOLT \#2:
+    <https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md>
+
+-   BOLT \#7:
+    <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
