@@ -327,9 +327,13 @@ static u8 *zencode(const tal_t *ctx, const u8 *scids, size_t len)
 	int err;
 	unsigned long compressed_len = len;
 
+#ifdef ZLIB_EVEN_IF_EXPANDS
+	/* Needed for test vectors */
+	compressed_len = 128 * 1024;
+#endif
 	/* Prefer to fail if zlib makes it larger */
-	z = tal_arr(ctx, u8, len);
-	err = compress2(z, &compressed_len, scids, len, Z_BEST_COMPRESSION);
+	z = tal_arr(ctx, u8, compressed_len);
+	err = compress2(z, &compressed_len, scids, len, Z_DEFAULT_COMPRESSION);
 	if (err == Z_OK) {
 		status_trace("compressed %zu into %lu",
 			     len, compressed_len);
