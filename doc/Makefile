@@ -41,7 +41,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-waitsendpay.7 \
 	doc/lightning-withdraw.7 
 
-doc-all: $(MANPAGES)
+doc-all: $(MANPAGES) doc/index.rst
 
 $(MANPAGES): doc/%: doc/%.txt
 	@if $(CHANGED_FROM_GIT); then echo a2x --format=manpage $<; a2x --format=manpage $<; else touch $@; fi
@@ -81,6 +81,18 @@ check: check-manpages
 check-manpages: cli/lightning-cli lightningd/lightningd
 	@tools/check-manpage.sh cli/lightning-cli doc/lightning-cli.1.txt
 	@tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.txt
+
+$(MANPAGES:=.md): %.md: %.xml
+	pandoc -f docbook -t markdown_strict $< -o $@
+
+$(MANPAGES:=.xml): %.xml: %.txt
+	asciidoc -b docbook $<
+
+.INTERMEDIATE: $(MANPAGES:=.xml)
+
+# Each man page should be mentioned.
+doc/index.rst: $(MANPAGES:=.md)
+	(grep -v '^   doc/lightning.*\.[0-9]\.md$$' $@; for m in $(MANPAGES:=.md); do echo "   $$m"; done) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
 
 doc-maintainer-clean:
 	$(RM) doc/deployable-lightning.pdf

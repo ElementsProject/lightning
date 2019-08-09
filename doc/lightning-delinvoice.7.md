@@ -1,0 +1,41 @@
+lightning-delinvoice
+
+7
+
+lightning-delinvoice
+
+Command for removing an invoice.
+
+**delinvoice** *label* *status*
+
+DESCRIPTION
+===========
+
+The **delinvoice** RPC command removes an invoice with *status* as given
+in **listinvoices**.
+
+The caller should be particularly aware of the error case caused by the
+*status* changing just before this command is invoked!
+
+RETURN VALUE
+============
+
+On success, an invoice description will be returned as per
+lightning-listinvoice(7).
+
+AUTHOR
+======
+
+Rusty Russell &lt;<rusty@rustcorp.com.au>&gt; is mainly responsible.
+
+SEE ALSO
+========
+
+lightning-listinvoice(7), lightning-waitinvoice(7),
+lightning-invoice(7), lightning-delexpiredinvoice(7),
+lightning-autocleaninvoice(7)
+
+RESOURCES
+=========
+
+Main web site: <https://github.com/ElementsProject/lightning>
