@@ -1,5 +1,3 @@
-#include <bitcoin/chainparams.h>
-#include <ccan/array_size/array_size.h>
 /*~ Welcome to the gossip daemon: keeper of maps!
  *
  * This is the last "global" daemon; it has three purposes.
@@ -12,11 +10,14 @@
  * The gossip protocol itself is fairly simple, but has some twists which
  * add complexity to this daemon.
  */
+#include <bitcoin/chainparams.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/bitmap/bitmap.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
+#include <ccan/crc32c/crc32c.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
@@ -79,6 +80,41 @@
 #if DEVELOPER
 static u32 max_encoding_bytes = -1U;
 static bool suppress_gossip = false;
+#endif
+
+#if EXPERIMENTAL_FEATURES == 0
+/* We want these definitions for convenience, even if we never encode/decode
+ * them when not EXPERIMENTAL_FEATURES */
+struct tlv_reply_channel_range_tlvs_timestamps_tlv {
+        u8 encoding_type;
+        u8 *encoded_timestamps;
+};
+
+struct tlv_reply_channel_range_tlvs_checksums_tlv {
+        u8 encoding_type;
+        u8 *encoded_checksums;
+};
+
+struct channel_update_timestamps {
+        u32 timestamp_node_id_1;
+        u32 timestamp_node_id_2;
+};
+struct channel_update_checksums {
+        u32 checksum_node_id_1;
+        u32 checksum_node_id_2;
+};
+
+static void towire_channel_update_checksums(u8 **p,
+					    const struct channel_update_checksums *channel_update_checksums)
+{
+	abort();
+}
+
+static void towire_channel_update_timestamps(u8 **p,
+					     const struct channel_update_timestamps *channel_update_timestamps)
+{
+	abort();
+}
 #endif
 
 /*~ The core daemon structure: */
@@ -271,6 +307,26 @@ static void encoding_add_short_channel_id(u8 **encoded,
 					  const struct short_channel_id *scid)
 {
 	towire_short_channel_id(encoded, scid);
+}
+
+/* Marshal a single channel_update_timestamps */
+static void encoding_add_timestamps(u8 **encoded,
+				    const struct channel_update_timestamps *ts)
+{
+	towire_channel_update_timestamps(encoded, ts);
+}
+
+/* Marshal a single channel_update_checksums */
+static void encoding_add_checksums(u8 **encoded,
+				   const struct channel_update_checksums *csums)
+{
+	towire_channel_update_checksums(encoded, csums);
+}
+
+/* Marshal a single query flag (we don't query, so not currently used) */
+static UNNEEDED void encoding_add_query_flag(u8 **encoded, bigsize_t flag)
+{
+	towire_bigsize(encoded, flag);
 }
 
 /* Greg Maxwell asked me privately about using zlib for communicating a set,
@@ -867,7 +923,9 @@ void update_peers_broadcast_index(struct list_head *peers, u32 offset)
  * a given range of blocks; each one indicates the range of blocks it covers. */
 static void reply_channel_range(struct peer *peer,
 				u32 first_blocknum, u32 number_of_blocks,
-				const u8 *encoded)
+				const u8 *encoded_scids,
+				struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps,
+				struct tlv_reply_channel_range_tlvs_checksums_tlv *checksums)
 {
 	/* BOLT #7:
 	 *
@@ -885,19 +943,90 @@ static void reply_channel_range(struct peer *peer,
 	 *     - SHOULD set `complete` to 1.
 	 */
 #if EXPERIMENTAL_FEATURES
+ 	struct tlv_reply_channel_range_tlvs *tlvs
+ 		= tlv_reply_channel_range_tlvs_new(tmpctx);
+	tlvs->timestamps_tlv = timestamps;
+	tlvs->checksums_tlv = checksums;
+
 	u8 *msg = towire_reply_channel_range(NULL,
 					     &peer->daemon->chain_hash,
 					     first_blocknum,
 					     number_of_blocks,
-					     1, encoded, NULL);
+					     1, encoded_scids, tlvs);
 #else
 	u8 *msg = towire_reply_channel_range(NULL,
 					     &peer->daemon->chain_hash,
 					     first_blocknum,
 					     number_of_blocks,
-					     1, encoded);
+					     1, encoded_scids);
 #endif
 	queue_peer_msg(peer, take(msg));
+}
+
+/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+ *
+ * `query_option_flags` is a bitfield represented as a minimally-encoded varint.
+ * Bits have the following meaning:
+ *
+ * | Bit Position  | Meaning                 |
+ * | ------------- | ----------------------- |
+ * | 0             | Sender wants timestamps |
+ * | 1             | Sender wants checksums  |
+ */
+enum query_option_flags {
+	QUERY_ADD_TIMESTAMPS = 0x1,
+	QUERY_ADD_CHECKSUMS = 0x2,
+};
+
+/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+ *
+ * The checksum of a `channel_update` is the CRC32C checksum as specified in
+ * [RFC3720](https://tools.ietf.org/html/rfc3720#appendix-B.4) of this
+ * `channel_update` without its `signature` and `timestamp` fields.
+ */
+static u32 crc32_of_update(const u8 *channel_update)
+{
+	u32 sum;
+
+	/* BOLT #7:
+	 *
+	 * 1. type: 258 (`channel_update`)
+	 * 2. data:
+	 *    * [`signature`:`signature`]
+	 *    * [`chain_hash`:`chain_hash`]
+	 *    * [`short_channel_id`:`short_channel_id`]
+	 *    * [`u32`:`timestamp`]
+	 *...
+	 */
+	/* We already checked it's valid before accepting */
+	assert(tal_count(channel_update) > 64 + 32 + 8 + 4);
+	sum = crc32c(0, channel_update + 64, 32 + 8);
+	sum = crc32c(sum, channel_update + 64 + 32 + 8 + 4,
+		     tal_count(channel_update) - (64 + 32 + 8 + 4));
+	return sum;
+}
+
+static void get_checksum_and_timestamp(struct routing_state *rstate,
+				       const struct chan *chan,
+				       int direction,
+				       u32 *tstamp, u32 *csum)
+{
+	const struct half_chan *hc = &chan->half[direction];
+
+	if (!is_chan_public(chan) || !is_halfchan_defined(hc)) {
+		*tstamp = *csum = 0;
+	} else {
+		const u8 *update = gossip_store_get(tmpctx, rstate->gs,
+						    hc->bcast.index);
+		*tstamp = hc->bcast.timestamp;
+		*csum = crc32_of_update(update);
+	}
+}
+
+/* FIXME: This assumes that the tlv type encodes into 1 byte! */
+static size_t tlv_len(const tal_t *msg)
+{
+	return 1 + bigsize_len(tal_count(msg)) + tal_count(msg);
 }
 
 /*~ When we need to send an array of channels, it might go over our 64k packet
@@ -910,10 +1039,13 @@ static void reply_channel_range(struct peer *peer,
  */
 static bool queue_channel_ranges(struct peer *peer,
 				 u32 first_blocknum, u32 number_of_blocks,
-				 u32 tail_blocks)
+				 u32 tail_blocks,
+				 enum query_option_flags query_option_flags)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
 	u8 *encoded_scids = encoding_start(tmpctx);
+	struct tlv_reply_channel_range_tlvs_timestamps_tlv *tstamps;
+	struct tlv_reply_channel_range_tlvs_checksums_tlv *csums;
 	struct short_channel_id scid;
 	bool scid_ok;
 
@@ -930,6 +1062,21 @@ static bool queue_channel_ranges(struct peer *peer,
 	 */
 	const size_t reply_overhead = 32 + 4 + 4 + 1 + 2;
 	const size_t max_encoded_bytes = 65535 - 2 - reply_overhead;
+	size_t extension_bytes;
+
+	if (query_option_flags & QUERY_ADD_TIMESTAMPS) {
+		tstamps = tal(tmpctx,
+			      struct tlv_reply_channel_range_tlvs_timestamps_tlv);
+		tstamps->encoded_timestamps = encoding_start(tstamps);
+	} else
+		tstamps = NULL;
+
+	if (query_option_flags & QUERY_ADD_CHECKSUMS) {
+		csums = tal(tmpctx,
+			    struct tlv_reply_channel_range_tlvs_checksums_tlv);
+		csums->encoded_checksums = encoding_start(csums);
+	} else
+		csums = NULL;
 
 	/* Avoid underflow: we don't use block 0 anyway */
 	if (first_blocknum == 0)
@@ -945,23 +1092,67 @@ static bool queue_channel_ranges(struct peer *peer,
 	 * works because each short_channel_id is basically a 64-bit unsigned
 	 * integer.
 	 *
-	 * First we iteraate and gather all the short channel ids. */
+	 * First we iterate and gather all the short channel ids. */
 	while (uintmap_after(&rstate->chanmap, &scid.u64)) {
+		struct chan *chan;
+		struct channel_update_timestamps ts;
+		struct channel_update_checksums cs;
 		u32 blocknum = short_channel_id_blocknum(&scid);
 		if (blocknum >= first_blocknum + number_of_blocks)
 			break;
 
 		encoding_add_short_channel_id(&encoded_scids, &scid);
+
+		/* FIXME: Store csum in header. */
+		chan = get_channel(rstate, &scid);
+		get_checksum_and_timestamp(rstate, chan, 0,
+					   &ts.timestamp_node_id_1,
+					   &cs.checksum_node_id_1);
+		get_checksum_and_timestamp(rstate, chan, 1,
+					   &ts.timestamp_node_id_2,
+					   &cs.checksum_node_id_2);
+
+		if (csums)
+			encoding_add_checksums(&csums->encoded_checksums, &cs);
+		if (tstamps)
+			encoding_add_timestamps(&tstamps->encoded_timestamps,
+						&ts);
+	}
+
+	extension_bytes = 0;
+
+	/* If either of these can't fit in max_encoded_bytes by itself,
+	 * it's over. */
+	if (csums) {
+		if (!encoding_end_external_type(&csums->encoded_checksums,
+						&csums->encoding_type,
+						max_encoded_bytes))
+			goto wont_fit;
+		/* 1 byte for encoding_type, too */
+		extension_bytes += 1 + tlv_len(csums->encoded_checksums);
+	}
+
+	if (tstamps) {
+		if (!encoding_end_external_type(&tstamps->encoded_timestamps,
+						&tstamps->encoding_type,
+						max_encoded_bytes))
+			goto wont_fit;
+		/* 1 byte for encoding_type, too */
+		extension_bytes += 1 + tlv_len(tstamps->encoded_timestamps);
 	}
 
 	/* If we can encode that, fine: send it */
-	if (encoding_end_prepend_type(&encoded_scids, max_encoded_bytes)) {
+	if (extension_bytes <= max_encoded_bytes
+	    && encoding_end_prepend_type(&encoded_scids,
+					 max_encoded_bytes - extension_bytes)) {
 		reply_channel_range(peer, first_blocknum,
 				    number_of_blocks + tail_blocks,
-				    encoded_scids);
+				    encoded_scids,
+				    tstamps, csums);
 		return true;
 	}
 
+wont_fit:
 	/* It wouldn't all fit: divide in half */
 	/* We assume we can always send one block! */
 	if (number_of_blocks <= 1) {
@@ -976,10 +1167,11 @@ static bool queue_channel_ranges(struct peer *peer,
 		     first_blocknum + number_of_blocks / 2,
 		     number_of_blocks - number_of_blocks / 2,
 		     tail_blocks);
-	return queue_channel_ranges(peer, first_blocknum, number_of_blocks / 2, 0)
+	return queue_channel_ranges(peer, first_blocknum, number_of_blocks / 2,
+				    0, query_option_flags)
 		&& queue_channel_ranges(peer, first_blocknum + number_of_blocks / 2,
 					number_of_blocks - number_of_blocks / 2,
-					tail_blocks);
+					tail_blocks, query_option_flags);
 }
 
 /*~ The peer can ask for all channels is a series of blocks.  We reply with one
@@ -990,6 +1182,7 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	struct bitcoin_blkid chain_hash;
 	u32 first_blocknum, number_of_blocks, tail_blocks;
 	struct short_channel_id last_scid;
+	enum query_option_flags query_option_flags;
 
 #if EXPERIMENTAL_FEATURES
 	struct tlv_query_channel_range_tlvs *tlvs
@@ -1002,6 +1195,10 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 				       "Bad query_channel_range w/tlvs %s",
 				       tal_hex(tmpctx, msg));
 	}
+	if (tlvs->query_option)
+		query_option_flags = tlvs->query_option->query_option_flags;
+	else
+		query_option_flags = 0;
 #else
 	if (!fromwire_query_channel_range(msg, &chain_hash,
 					  &first_blocknum, &number_of_blocks)) {
@@ -1009,6 +1206,7 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 				       "Bad query_channel_range %s",
 				       tal_hex(tmpctx, msg));
 	}
+	query_option_flags = 0;
 #endif
 
 	/* FIXME: if they ask for the wrong chain, we should not ignore it,
@@ -1039,7 +1237,7 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 		tail_blocks = 0;
 
 	if (!queue_channel_ranges(peer, first_blocknum, number_of_blocks,
-				  tail_blocks))
+				  tail_blocks, query_option_flags))
 		return towire_errorfmt(peer, NULL,
 				       "Invalid query_channel_range %u+%u",
 				       first_blocknum, number_of_blocks + tail_blocks);
