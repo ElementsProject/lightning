@@ -1553,6 +1553,11 @@ static struct command_result *json_getinfo(struct command *cmd,
 				wallet_total_forward_fees(cmd->ld->wallet),
 				"msatoshi_fees_collected",
 				"fees_collected_msat");
+
+    if (!cmd->ld->topology->bitcoind->synced)
+	    json_add_string(response, "warning_bitcoind_sync",
+			    "Bitcoind is not up-to-date with network.");
+
     return command_success(cmd, response);
 }
 

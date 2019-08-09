@@ -997,6 +997,103 @@ void bitcoind_getclientversion(struct bitcoind *bitcoind)
 			  "getnetworkinfo", NULL);
 }
 
+/* Mutual recursion */
+static bool process_getblockchaininfo(struct bitcoin_cli *bcli);
+
+static void retry_getblockchaininfo(struct bitcoind *bitcoind)
+{
+	assert(!bitcoind->synced);
+	start_bitcoin_cli(bitcoind, NULL,
+			  process_getblockchaininfo,
+			  false, BITCOIND_LOW_PRIO, NULL, NULL,
+			  "getblockchaininfo", NULL);
+}
+
+/* Given JSON object from getblockchaininfo, are we synced?  Poll if not. */
+static void is_bitcoind_synced_yet(struct bitcoind *bitcoind,
+				   const char *output, size_t output_len,
+				   const jsmntok_t *obj,
+				   bool initial)
+{
+	const jsmntok_t *t;
+	unsigned int headers, blocks;
+	bool ibd;
+
+	t = json_get_member(output, obj, "headers");
+	if (!t || !json_to_number(output, t, &headers))
+		fatal("Invalid 'headers' field in getblockchaininfo '%.*s'",
+		      (int)output_len, output);
+
+	t = json_get_member(output, obj, "blocks");
+	if (!t || !json_to_number(output, t, &blocks))
+		fatal("Invalid 'blocks' field in getblockchaininfo '%.*s'",
+		      (int)output_len, output);
+
+	t = json_get_member(output, obj, "initialblockdownload");
+	if (!t || !json_to_bool(output, t, &ibd))
+		fatal("Invalid 'initialblockdownload' field in getblockchaininfo '%.*s'",
+		      (int)output_len, output);
+
+	if (ibd) {
+		if (initial)
+			log_unusual(bitcoind->log,
+				    "Waiting for initial block download"
+				    " (this can take a while!)");
+		else
+			log_debug(bitcoind->log,
+				  "Still waiting for initial block download");
+	} else if (headers != blocks) {
+		if (initial)
+			log_unusual(bitcoind->log,
+				    "Waiting for bitcoind to catch up"
+				    " (%u blocks of %u)",
+				    blocks, headers);
+		else
+			log_debug(bitcoind->log,
+				  "Waiting for bitcoind to catch up"
+				  " (%u blocks of %u)",
+				  blocks, headers);
+	} else {
+		if (!initial)
+			log_info(bitcoind->log, "Bitcoind now synced.");
+		bitcoind->synced = true;
+		return;
+	}
+
+	bitcoind->synced = false;
+	notleak(new_reltimer(bitcoind->ld->timers, bitcoind,
+			     /* Be 4x more aggressive in this case. */
+			     time_divide(time_from_sec(bitcoind->ld->topology
+						       ->poll_seconds), 4),
+			     retry_getblockchaininfo, bitcoind));
+}
+
+static bool process_getblockchaininfo(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *tokens;
+	bool valid;
+
+	tokens = json_parse_input(bcli, bcli->output, bcli->output_bytes,
+				  &valid);
+	if (!tokens)
+		fatal("%s: %s response (%.*s)",
+		      bcli_args(tmpctx, bcli),
+		      valid ? "partial" : "invalid",
+		      (int)bcli->output_bytes, bcli->output);
+
+	if (tokens[0].type != JSMN_OBJECT) {
+		log_unusual(bcli->bitcoind->log,
+			    "%s: gave non-object (%.*s)?",
+			    bcli_args(tmpctx, bcli),
+			    (int)bcli->output_bytes, bcli->output);
+		return false;
+	}
+
+	is_bitcoind_synced_yet(bcli->bitcoind, bcli->output, bcli->output_bytes,
+			       tokens, false);
+	return true;
+}
+
 static void destroy_bitcoind(struct bitcoind *bitcoind)
 {
 	/* Suppresses the callbacks from bcli_finished as we free conns. */
@@ -1073,6 +1170,7 @@ static char* check_blockchain_from_bitcoincli(const tal_t *ctx,
 			       " Should be: %s",
 			       bitcoind->chainparams->bip70_name);
 
+	is_bitcoind_synced_yet(bitcoind, output, output_bytes, tokens, true);
 	return NULL;
 }
 

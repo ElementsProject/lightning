@@ -112,6 +112,27 @@ def test_bitcoin_failure(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1])
 
 
+def test_bitcoin_ibd(node_factory, bitcoind):
+    """Test that we recognize bitcoin in initial download mode"""
+    info = bitcoind.rpc.getblockchaininfo()
+    info['initialblockdownload'] = True
+
+    l1 = node_factory.get_node(start=False)
+    l1.daemon.rpcproxy.mock_rpc('getblockchaininfo', info)
+
+    l1.start()
+
+    # This happens before the Starting message start() waits for.
+    assert l1.daemon.is_in_log('Waiting for initial block download')
+    assert 'warning_bitcoind_sync' in l1.rpc.getinfo()
+
+    # "Finish" IDB.
+    l1.daemon.rpcproxy.mock_rpc('getblockchaininfo', None)
+
+    l1.daemon.wait_for_log('Bitcoind now synced')
+    assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
+
+
 def test_ping(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
