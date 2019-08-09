@@ -43,6 +43,9 @@ struct bitcoind {
 	/* Main lightningd structure */
 	struct lightningd *ld;
 
+	/* Is bitcoind synced?  If not, we retry. */
+	bool synced;
+
 	/* How many high/low prio requests are we running (it's ratelimited) */
 	size_t num_requests[BITCOIND_NUM_PRIO];
 
