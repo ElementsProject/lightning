@@ -631,6 +631,13 @@ static void db_prepare_for_changes(struct db *db)
 	db->changes = tal_arr(db, const char *, 0);
 }
 
+bool db_already_in_transaction(struct db *db)
+{
+	if (db->in_transaction)
+		return true;
+	return false;
+}
+
 void db_begin_transaction_(struct db *db, const char *location)
 {
 	if (db->in_transaction)

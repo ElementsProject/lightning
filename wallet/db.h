@@ -50,6 +50,13 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	db_select_(__FILE__ ":" stringify(__LINE__), db, __VA_ARGS__)
 
 /**
+ * db_already_in_transaction - Check if the DB is already in transaction
+ *
+ * If DB is already in transaction, return true.
+ */
+bool db_already_in_transaction(struct db *db);
+
+/**
  * db_begin_transaction - Begin a transaction
  *
  * Begin a new DB transaction.  fatal() on database error.
