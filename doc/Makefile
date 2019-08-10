@@ -79,8 +79,8 @@ clean: doc-clean
 check: check-manpages
 
 check-manpages: cli/lightning-cli lightningd/lightningd
-	@tools/check-manpage.sh cli/lightning-cli doc/lightning-cli.1.txt
-	@tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.txt
+	@tools/check-manpage.sh cli/lightning-cli doc/lightning-cli.1.md
+	@tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.md
 
 doc-maintainer-clean:
 	$(RM) doc/deployable-lightning.pdf
