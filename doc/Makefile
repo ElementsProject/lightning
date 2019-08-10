@@ -41,7 +41,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-waitsendpay.7 \
 	doc/lightning-withdraw.7 
 
-doc-all: $(MANPAGES)
+doc-all: $(MANPAGES) doc/index.rst
 
 $(MANPAGES): doc/%: doc/%.md
 	@if $(CHANGED_FROM_GIT); then echo mrkd $<; mrkd $<; else touch $@; fi
@@ -89,3 +89,7 @@ doc-maintainer-clean:
 doc-clean:
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
+doc/index.rst:
+	(grep -v '^   lightning.*\.[0-9]\.md$$' $@; for m in $$(cd doc && ls lightning*.[0-9].md); do echo "   $$m"; done) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
+
+.PHONY: doc/index.rst
