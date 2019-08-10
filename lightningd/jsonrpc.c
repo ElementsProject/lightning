@@ -950,7 +950,7 @@ void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 		err(1, "Binding rpc socket to '%s'", rpc_filename);
 	umask(old_umask);
 
-	if (listen(fd, 1) != 0)
+	if (listen(fd, 128) != 0)
 		err(1, "Listening on '%s'", rpc_filename);
 	jsonrpc->rpc_listener = io_new_listener(
 		ld->rpc_filename, fd, incoming_jcon_connected, ld);
