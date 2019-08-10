@@ -472,3 +472,9 @@ void json_add_secret(struct json_stream *response, const char *fieldname,
 {
 	json_add_hex(response, fieldname, secret, sizeof(struct secret));
 }
+
+void json_add_sha256(struct json_stream *result, const char *fieldname,
+		     const struct sha256 *hash)
+{
+	json_add_hex(result, fieldname, hash, sizeof(*hash));
+}
