@@ -2851,8 +2851,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		}
 
 		if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
-			cur->payment_hash = tal(ctx, struct sha256_double);
-			sqlite3_column_sha256_double(stmt, 3, cur->payment_hash);
+			cur->payment_hash = tal(ctx, struct sha256);
+			sqlite3_column_sha256(stmt, 3, cur->payment_hash);
 		} else {
 			cur->payment_hash = NULL;
 		}

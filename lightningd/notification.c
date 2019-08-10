@@ -120,8 +120,7 @@ void notify_forward_event(struct lightningd *ld,
 		cur->msat_out = AMOUNT_MSAT(0);
 		cur->fee = AMOUNT_MSAT(0);
 	}
-	cur->payment_hash = tal(cur, struct sha256_double);
-	cur->payment_hash->sha = in->payment_hash;
+	cur->payment_hash = tal_dup(cur, struct sha256, &in->payment_hash);
 	cur->status = state;
 	cur->failcode = failcode;
 	cur->received_time = in->received_time;
