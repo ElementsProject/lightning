@@ -62,6 +62,7 @@ The following error codes may occur:
 * 302. The output amount is too small, and would be considered dust.
 * 303. Broadcasting of the funding transaction failed, the internal call to
        bitcoin-cli returned with an error.
+* 304. We're still syncing with the bitcoin network.  Retry later.
 
 Failure may also occur if *lightningd* and the peer cannot agree on channel
 parameters (funding limits, channel reserves, fees, etc.).

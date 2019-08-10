@@ -47,6 +47,8 @@ changes.
 - channeld: ignore, and simply try reconnecting if lnd sends "sync error".
 - Protocol: we now correctly ignore unknown odd messages.
 - wallet: We will now backfill blocks below our wallet start height on demand when we require them to verify gossip messages. This fixes an issue where we would not remove channels on spend that were opened below that start height because we weren't tracking the funding output.
+- Detect when we're still syncing with bitcoin network: don't send or receive
+  HTLCs or allow `fundchannel`.
 
 ### Security
 

@@ -40,6 +40,7 @@
 #define FUND_CANNOT_AFFORD              301
 #define FUND_OUTPUT_IS_DUST             302
 #define FUNDING_BROADCAST_FAIL          303
+#define FUNDING_STILL_SYNCING_BITCOIN   304
 
 /* Errors from `invoice` command */
 #define INVOICE_LABEL_ALREADY_EXISTS	900
