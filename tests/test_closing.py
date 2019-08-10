@@ -1519,6 +1519,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind):
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
     bitcoind.generate_block(1)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
+    wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
 
     # Works when l2 closes channel, too.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1533,6 +1534,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind):
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
     bitcoind.generate_block(1)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
+    wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
 
     # Figure out what address it will try to use.
     keyidx = int(l1.db_query("SELECT val FROM vars WHERE name='bip32_max_index';")[0]['val'])
