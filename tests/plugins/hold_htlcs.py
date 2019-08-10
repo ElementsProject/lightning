@@ -34,4 +34,9 @@ def on_htlc_accepted(htlc, onion, plugin, **kwargs):
     return {'result': 'continue'}
 
 
+@plugin.init()
+def init(options, configuration, plugin):
+    plugin.log("hold_htlcs.py initializing")
+
+
 plugin.run()
