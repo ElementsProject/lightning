@@ -1,176 +1,81 @@
-'\" t
-.\"     Title: lightning-listforwards
-.\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/15/2019
-.\"    Manual: \ \&
-.\"    Source: \ \&
-.\"  Language: English
-.\"
-.TH "LIGHTNING\-LISTFORWA" "7" "08/15/2019" "\ \&" "\ \&"
-.\" -----------------------------------------------------------------
-.\" * Define some portability stuff
-.\" -----------------------------------------------------------------
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.\" http://bugs.debian.org/507673
-.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.ie \n(.g .ds Aq \(aq
-.el       .ds Aq '
-.\" -----------------------------------------------------------------
-.\" * set default formatting
-.\" -----------------------------------------------------------------
-.\" disable hyphenation
-.nh
-.\" disable justification (adjust text to left margin only)
-.ad l
-.\" -----------------------------------------------------------------
-.\" * MAIN CONTENT STARTS HERE *
-.\" -----------------------------------------------------------------
-.SH "NAME"
-lightning-listforwards \- Command showing all htlcs and their information\&.
-.SH "SYNOPSIS"
-.sp
+.TH "LIGHTNING-LISTFORWARDS" "7" "" "" "lightning-listforwards"
+.SH NAME
+
+
+lightning-listforwards - Command showing all htlcs and their
+information\.
+
+.SH SYNOPSIS
+
 \fBlistforwards\fR
-.SH "DESCRIPTION"
-.sp
-The \fBlistforwards\fR RPC command displays all htlcs that have been attempted to be forwarded by the c\-lightning node\&.
-.SH "RETURN VALUE"
-.sp
-On success one array will be returned: \fIforwards\fR with htlcs that have been processed
-.sp
+
+.SH DESCRIPTION
+
+The \fBlistforwards\fR RPC command displays all htlcs that have been
+attempted to be forwarded by the c-lightning node\.
+
+.SH RETURN VALUE
+
+On success one array will be returned: \fIforwards\fR with htlcs that have
+been processed
+
+
 Each entry in \fIforwards\fR will include:
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIin_channel\fR
-\- the short_channel_id of the channel that recieved the incoming htlc\&.
+
+.RS
+.IP \[bu]
+\fIin_channel\fR: the short_channel_id of the channel that recieved the incoming htlc\.
+.IP \[bu]
+\fIin_msatoshi\fR, \fIin_msat\fR - amount of msatoshis that are forwarded to this node\.
+.IP \[bu]
+\fIstatus\fR: status can be either \fIoffered\fR if the routing process is still ongoing,
+\fIsettled\fR if the routing process is completed or \fIfailed\fR if the routing process could not be completed\.
+.IP \[bu]
+\fIreceived_time\fR: timestamp when incoming htlc was received\.
+
 .RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIin_msatoshi\fR,
-\fIin_msat\fR
-\- amount of msatoshis that are forwarded to this node\&.
+
+The following additional fields are usually present, but will not be for some
+variants of status \fIlocal_failed\fR (if it failed before we determined these):
+
+.RS
+.IP \[bu]
+\fIout_channel\fR: the short_channel_id of to which the outgoing htlc is supposed to be forwarded\.
+.IP \[bu]
+\fIfee\fR, \fIfee_msat\fR: fee offered for forwarding the htlc in msatoshi\.
+.IP \[bu]
+\fIout_msatoshi\fR, \fIout_msat\fR - amount of msatoshis to be forwarded\.
+
 .RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIstatus\fR
-\- status can be either
-\fIoffered\fR
-if the routing process is still ongoing,
-\fIsettled\fR
-if the routing process is completed,
-\fIfailed\fR
-if the routing process could not be completed, or
-\fIlocal_failed\fR
-if the node failed the forward itself\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIreceived_time\fR
-\- timestamp when incoming htlc was received\&.
-.RE
-.sp
-The following additional fields are usually present, but will not be for some variants of status \fIlocal_failed\fR (if it failed before we determined these):
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIfee\fR,
-\fIfee_msat\fR
-\- fee offered for forwarding the htlc in msatoshi\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIout_channel\fR
-\- the short_channel_id of to which the outgoing htlc is supposed to be forwarded\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIout_msatoshi\fR,
-\fIout_msat\fR
-\- amount of msatoshis to be forwarded\&.
-.RE
-.sp
+
 The following fields may be offered, but for old forgotten HTLCs they will be omitted:
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIpayment_hash\fR
-\- the payment_hash belonging to the HTLC\&.
+
+.RS
+.IP \[bu]
+\fIpayment_hash\fR - the payment_hash belonging to the HTLC\.
+
 .RE
-.sp
-If the status is not \fIoffered\fR, the following additional fields are present:
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\fIresolved_time\fR
-\- timestamp when htlc was resolved (settled or failed)\&.
+
+If the status is not 'offered', the following additional fields are present:
+
+.RS
+.IP \[bu]
+\fIresolved_time\fR - timestamp when htlc was resolved (settled or failed)\.
+
 .RE
-.SH "AUTHOR"
-.sp
-Rene Pickhardt <r\&.pickhardt@gmail\&.com> is mainly responsible\&.
-.SH "SEE ALSO"
-.sp
-lightning\-getinfo(7)
-.SH "RESOURCES"
-.sp
-Main web site: https://github\&.com/ElementsProject/lightning
+.SH AUTHOR
+
+Rene Pickhardt \fBNone\fR (\fI<r.pickhardt@gmail.com\fR)> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-getinfo\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+
+.HL
+
+Last updated 2019-07-23 00:53:16 CEST
+

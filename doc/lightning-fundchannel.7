@@ -1,130 +1,97 @@
-'\" t
-.\"     Title: lightning-fundchannel
-.\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/07/2019
-.\"    Manual: \ \&
-.\"    Source: \ \&
-.\"  Language: English
-.\"
-.TH "LIGHTNING\-FUNDCHANN" "7" "08/07/2019" "\ \&" "\ \&"
-.\" -----------------------------------------------------------------
-.\" * Define some portability stuff
-.\" -----------------------------------------------------------------
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.\" http://bugs.debian.org/507673
-.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.ie \n(.g .ds Aq \(aq
-.el       .ds Aq '
-.\" -----------------------------------------------------------------
-.\" * set default formatting
-.\" -----------------------------------------------------------------
-.\" disable hyphenation
-.nh
-.\" disable justification (adjust text to left margin only)
-.ad l
-.\" -----------------------------------------------------------------
-.\" * MAIN CONTENT STARTS HERE *
-.\" -----------------------------------------------------------------
-.SH "NAME"
-lightning-fundchannel \- Command for establishing a lightning channel\&.
-.SH "SYNOPSIS"
-.sp
-\fBfundchannel\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR \fIannounce\fR] [\fIminconf\fR] [\fIutxos\fR]
-.SH "DESCRIPTION"
-.sp
-The \fBfundchannel\fR RPC command opens a payment channel with a peer by committing a funding transaction to the blockchain as defined in BOLT #2\&. \fBfundchannel\fR by itself does not attempt to open a connection\&. A connection must first be established using \fBconnect\fR\&. Once the transaction is confirmed, normal channel operations may begin\&. Readiness is indicated by \fBlistpeers\fR reporting a \fIstate\fR of CHANNELD_NORMAL for the channel\&.
-.sp
-\fIid\fR is the peer id obtained from \fBconnect\fR\&.
-.sp
-\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds (or 16777215 satoshi if more is available)\&. Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in \fIsat\fR, a whole number ending in \fI000msat\fR, or a number with 1 to 8 decimal places ending in \fIbtc\fR\&. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi\&.
-.sp
-\fIfeerate\fR is an optional feerate used for the opening transaction and as initial feerate for commitment and HTLC transactions\&. It can be one of the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR (next 100 blocks or so) to use lightningd\(cqs internal estimates: \fInormal\fR is the default\&.
-.sp
-\fIannounce\fR is an optional flag that triggers whether to announce this channel or not\&. Defaults to true\&. An unannounced channel is considered private\&.
-.sp
-Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means the number is interpreted as satoshi\-per\-kilosipa (weight), and \fIperkb\fR means it is interpreted bitcoind\-style as satoshi\-per\-kilobyte\&. Omitting the suffix is equivalent to \fIperkb\fR\&.
-.sp
-\fIminconf\fR specifies the minimum number of confirmations that used outputs should have\&. Default is 1\&.
-.sp
-\fIutxos\fR specifies the utxos to be used to fund the channel, as an array of "txid:vout"\&.
-.SH "RETURN VALUE"
-.sp
-On success, the \fItx\fR and \fItxid\fR of the transaction is returned, as well as the \fIchannel_id\fR of the newly created channel\&. On failure, an error is reported and the channel is not funded\&.
-.sp
+.TH "LIGHTNING-FUNDCHANNEL" "7" "" "" "lightning-fundchannel"
+.SH NAME
+
+
+lightning-fundchannel - Command for establishing a lightning channel\.
+
+.SH SYNOPSIS
+
+\fBfundchannel\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR \fIannounce\fR] [\fIminconf\fR]
+[\fIutxos\fR]
+
+.SH DESCRIPTION
+
+The \fBfundchannel\fR RPC command opens a payment channel with a peer by
+committing a funding transaction to the blockchain as defined in BOLT
+#2\. \fBfundchannel\fR by itself does not attempt to open a connection\. A
+connection must first be established using \fBconnect\fR\. Once the
+transaction is confirmed, normal channel operations may begin\. Readiness
+is indicated by \fBlistpeers\fR reporting a \fIstate\fR of CHANNELD_NORMAL
+for the channel\.
+
+
+\fIid\fR is the peer id obtained from \fBconnect\fR\.
+
+
+\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to
+fund the channel\. The string \fIall\fR can be used to specify all available
+funds (or 16777215 satoshi if more is available)\. Otherwise, it is in
+satoshi precision; it can be a whole number, a whole number ending in
+\fIsat\fR, a whole number ending in \fI000msat\fR, or a number with 1 to 8
+decimal places ending in \fIbtc\fR\. The value cannot be less than the dust
+limit, currently set to 546, nor more than 16777215 satoshi\.
+
+
+\fIfeerate\fR is an optional feerate used for the opening transaction and as
+initial feerate for commitment and HTLC transactions\. It can be one of
+the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or
+so) or \fIslow\fR (next 100 blocks or so) to use lightningd’s internal
+estimates: \fInormal\fR is the default\.
+
+
+\fIannounce\fR is an optional flag that triggers whether to announce this
+channel or not\. Defaults to \fBtrue\fR\. An unannounced channel is considered
+private\.
+
+
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte\. Omitting
+the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have\. Default is 1\.
+
+
+\fIutxos\fR specifies the utxos to be used to fund the channel, as an array
+of "txid:vout"\.
+
+.SH RETURN VALUE
+
+On success, the \fItx\fR and \fItxid\fR of the transaction is returned, as well
+as the \fIchannel_id\fR of the newly created channel\. On failure, an error
+is reported and the channel is not funded\.
+
+
 The following error codes may occur:
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\-1\&. Catchall nonspecific error\&.
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+300: The maximum allowed funding amount is exceeded\.
+.IP \[bu]
+301: There are not enough funds in the internal wallet (including fees) to create the transaction\.
+.IP \[bu]
+302: The output amount is too small, and would be considered dust\.
+.IP \[bu]
+303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error\.
+
 .RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-300\&. The maximum allowed funding amount is exceeded\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-301\&. There are not enough funds in the internal wallet (including fees) to create the transaction\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-302\&. The output amount is too small, and would be considered dust\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-303\&. Broadcasting of the funding transaction failed, the internal call to bitcoin\-cli returned with an error\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-304\&. We\(cqre still syncing with the bitcoin network\&. Retry later\&.
-.RE
-.sp
-Failure may also occur if \fBlightningd\fR and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc\&.)\&.
-.SH "SEE ALSO"
-.sp
-lightning\-connect(7), lightning\-listfunds(), lightning\-listpeers(7)
-.SH "RESOURCES"
-.sp
-Main web site: https://github\&.com/ElementsProject/lightning
+
+Failure may also occur if \fBlightningd\fR and the peer cannot agree on
+channel parameters (funding limits, channel reserves, fees, etc\.)\.
+
+.SH SEE ALSO
+
+\fBlightning-connect\fR(7), lightning-listfunds(), \fBlightning-listpeers\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+
+.HL
+
+Last updated 2019-06-12 11:16:20 CEST
+
