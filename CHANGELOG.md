@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - plugins: plugins can now suggest `lightning-cli` default to -H for responses.
 - Plugin: new notification `forward_event` offered/settled/failed/local_failed.
 - contrib: new `bootstrap-node.sh` to connect to random mainnet nodes.
+- Protocol: `--enable-experimental-features` adds gossip query extensions
+  aka https://github.com/lightningnetwork/lightning-rfc/pull/557
 
 ### Changed
 
