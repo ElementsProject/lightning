@@ -534,12 +534,19 @@ class LightningNode(object):
         c.close()
         db.close()
 
-    def start(self):
+    def is_synced_with_bitcoin(self, info=None):
+        if info is None:
+            info = self.rpc.getinfo()
+        return 'warning_bitcoind_sync' not in info and 'warning_lightningd_sync' not in info
+
+    def start(self, wait_for_bitcoind_sync=True):
         self.daemon.start()
         # Cache `getinfo`, we'll be using it a lot
         self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
         self.port = self.info['binding'][0]['port']
+        if wait_for_bitcoind_sync and not self.is_synced_with_bitcoin(self.info):
+            wait_for(lambda: self.is_synced_with_bitcoin())
 
     def stop(self, timeout=10):
         """ Attempt to do a clean shutdown, but kill if it hangs
@@ -779,6 +786,7 @@ class NodeFactory(object):
             'random_hsm',
             'log_all_io',
             'feerates',
+            'wait_for_bitcoind_sync',
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
@@ -821,7 +829,8 @@ class NodeFactory(object):
     def get_node(self, disconnect=None, options=None, may_fail=False,
                  may_reconnect=False, random_hsm=False,
                  feerates=(15000, 7500, 3750), start=True, log_all_io=False,
-                 dbfile=None, node_id=None, allow_broken_log=False):
+                 dbfile=None, node_id=None, allow_broken_log=False,
+                 wait_for_bitcoind_sync=True):
         if not node_id:
             node_id = self.get_node_id()
 
@@ -887,7 +896,7 @@ class NodeFactory(object):
 
         if start:
             try:
-                node.start()
+                node.start(wait_for_bitcoind_sync)
             except Exception:
                 node.daemon.stop()
                 raise
