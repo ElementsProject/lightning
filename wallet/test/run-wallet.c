@@ -527,6 +527,13 @@ void subd_req_(const tal_t *ctx UNNEEDED,
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
+/* Generated stub for topology_add_sync_waiter_ */
+void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
+			       struct chain_topology *topo UNNEEDED,
+			       void (*cb)(struct chain_topology *topo UNNEEDED,
+					  void *arg) UNNEEDED,
+			       void *arg UNNEEDED)
+{ fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
 /* Generated stub for towire_channel_dev_memleak */
 u8 *towire_channel_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_dev_memleak called!\n"); abort(); }

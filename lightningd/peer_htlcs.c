@@ -1442,6 +1442,18 @@ static bool peer_sending_revocation(struct channel *channel,
 	return true;
 }
 
+struct deferred_commitsig {
+	struct channel *channel;
+	const u8 *msg;
+};
+
+static void retry_deferred_commitsig(struct chain_topology *topo,
+				     struct deferred_commitsig *d)
+{
+	peer_got_commitsig(d->channel, d->msg);
+	tal_free(d);
+}
+
 /* This also implies we're sending revocation */
 void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
@@ -1457,6 +1469,24 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	struct bitcoin_tx *tx;
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
+
+	/* If we're not synced with bitcoin network, we can't accept
+	 * any HTLCs.  We stall at this point, in the hope that it
+	 * won't take long! */
+	if (!topology_synced(ld->topology)) {
+		struct deferred_commitsig *d;
+
+		log_unusual(channel->log,
+			    "Deferring incoming commit until we sync");
+
+		/* If subdaemon dies, we want to forget this. */
+		d = tal(channel->owner, struct deferred_commitsig);
+		d->channel = channel;
+		d->msg = tal_dup_arr(d, u8, msg, tal_count(msg), 0);
+		topology_add_sync_waiter(d, ld->topology,
+					 retry_deferred_commitsig, d);
+		return;
+	}
 
 	if (!fromwire_channel_got_commitsig(msg, msg,
 					    &commitnum,
