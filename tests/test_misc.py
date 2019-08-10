@@ -122,7 +122,7 @@ def test_bitcoin_ibd(node_factory, bitcoind):
     l1 = node_factory.get_node(start=False)
     l1.daemon.rpcproxy.mock_rpc('getblockchaininfo', info)
 
-    l1.start()
+    l1.start(wait_for_bitcoind_sync=False)
 
     # This happens before the Starting message start() waits for.
     assert l1.daemon.is_in_log('Waiting for initial block download')
@@ -153,7 +153,7 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
         }
 
     # Start it, establish channel, get extra funds.
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'wait_for_bitcoind_sync': False})
     # Extra funds, for second channel attempt.
     bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 1.0)
     # Balance l1<->l2 channel
@@ -173,7 +173,7 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     slow_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
     l1.daemon.rpcproxy.mock_rpc('getblock', mock_getblock)
 
-    l1.start()
+    l1.start(wait_for_bitcoind_sync=False)
 
     # It will warn about being out-of-sync.
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
