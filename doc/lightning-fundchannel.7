@@ -2,12 +2,12 @@
 .\"     Title: lightning-fundchannel
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 05/24/2019
+.\"      Date: 08/07/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-FUNDCHANN" "7" "06/07/2019" "\ \&" "\ \&"
+.TH "LIGHTNING\-FUNDCHANN" "7" "08/07/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -108,6 +108,17 @@ The following error codes may occur:
 .IP \(bu 2.3
 .\}
 303\&. Broadcasting of the funding transaction failed, the internal call to bitcoin\-cli returned with an error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+304\&. We\(cqre still syncing with the bitcoin network\&. Retry later\&.
 .RE
 .sp
 Failure may also occur if \fBlightningd\fR and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc\&.)\&.

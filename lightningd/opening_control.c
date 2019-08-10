@@ -1279,6 +1279,11 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 				    "Feerate below feerate floor");
 	}
 
+	if (!topology_synced(cmd->ld->topology)) {
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
+	}
+
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
 		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
@@ -1369,6 +1374,11 @@ static struct command_result *json_fund_channel(struct command *cmd,
 	if (*feerate_per_kw < feerate_floor()) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Feerate below feerate floor");
+	}
+
+	if (!topology_synced(cmd->ld->topology)) {
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
 	}
 
 	peer = peer_by_id(cmd->ld, id);

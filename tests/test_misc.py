@@ -152,16 +152,22 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
             "id": r['id']
         }
 
-    # Start it, establish channel.
+    # Start it, establish channel, get extra funds.
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
-    # Balance channel.
+    # Extra funds, for second channel attempt.
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 1.0)
+    # Balance l1<->l2 channel
     l1.pay(l2, 10**9 // 2)
+
     l1.stop()
+
+    # Start extra node.
+    l3 = node_factory.get_node()
 
     # Now make sure it's behind.
     bitcoind.generate_block(2)
-    # Make sure l2 is synced
-    sync_blockheight(bitcoind, [l2])
+    # Make sure l2/l3 are synced
+    sync_blockheight(bitcoind, [l2, l3])
 
     # Make it slow grabbing the final block.
     slow_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
@@ -176,6 +182,11 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     # Payments will fail.  FIXME: More informative msg?
     with pytest.raises(RpcError, match=r'TEMPORARY_CHANNEL_FAILURE'):
         l1.pay(l2, 1000)
+
+    # Can't fund a new channel, either.
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    with pytest.raises(RpcError, match=r'304'):
+        l1.rpc.fundchannel(l3.info['id'], 'all')
 
     # This will work, but will be delayed until synced.
     fut = executor.submit(l2.pay, l1, 1000)
