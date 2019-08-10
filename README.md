@@ -2,6 +2,17 @@
 
 c-lightning is a lighweight, highly customizable and [standard compliant][std] implementation of the Lightning Network protocol.
 
+* [Getting Started](#getting-started)
+    * [Installation](#installation)
+    * [Starting lightningd](#starting-lightningd)
+    * [Using the JSON-RPC Interface](#using-the-json-rpc-interface)
+    * [Care And Feeding Of Your New Lightning Node](#care-and-feeding-of-your-new-lightning-node)
+    * [Opening A Channel](#opening-a-channel)
+	* [Sending and Receiving Payments](#sending-and-receiving-payments)
+	* [Configuration File](#configuration-file)
+* [Further Information](#further-information)
+    * [Pruning](#pruning)
+	* [Developers](#developers)
 
 ## Project Status
 
@@ -11,7 +22,7 @@ c-lightning is a lighweight, highly customizable and [standard compliant][std] i
 [![Documentation Status](https://readthedocs.org/projects/lightning/badge/?version=docs)][docs]
 
 This implementation has been in production use on the Bitcoin mainnet since early 2018, with the launch of the [Blockstream Store][blockstream-store-blog].
-We recommend getting started by experimenting on `testnet`, but the implementation is considered stable and can be safely used on mainnet.
+We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
 Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net][irc1], [#c-lightning @ freenode.net][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2].
@@ -28,9 +39,7 @@ There are 4 supported installation options:
  - Installation from the [Ubuntu PPA][ppa]
  - Installation of a pre-compiled binary from the [release page][releases] on Github
  - Using one of the [provided docker images][dockerhub] on the Docker Hub
- - Compiling the source code yourself (suggested mainly for developers or if you need one of the still [unreleased features][changelog-unreleased])
-
-Please refer to the [PPA release page][ppa] and the [installation documentation](doc/INSTALL.md) for detailed instructions.
+ - Compiling the source code yourself as described in the [installation documentation](doc/INSTALL.md).
 
 For the impatient here's the gist of it for Ubuntu:
 
@@ -43,13 +52,21 @@ sudo apt-get install bitcoind lightningd
 
 ### Starting `lightningd`
 
-In order to start `lightningd` you will need to have a local `bitcoind` node running (in this case we start `testnet`):
+If you want to experiment with `lightningd`, there's a script to set
+up a `bitcoind` regtest test network of two local lightning nodes,
+which provides a convenient `start_ln` helper:
+
+```bash
+. contrib/startup_regtest.sh
+```
+
+To test with real bitcoin,  you will need to have a local `bitcoind` node running:
 
 ```bash
 bitcoind -daemon -testnet
 ```
 
-Wait until `bitcoind` has synchronized with the testnet network.
+Wait until `bitcoind` has synchronized with the network.
 
 Make sure that you do not have `walletbroadcast=0` in your `~/.bitcoin/bitcoin.conf`, or you may run into trouble.
 Notice that running `lightningd` against a pruned node may cause some issues if not managed carefully, see [below](#pruning) for more information.
@@ -57,33 +74,47 @@ Notice that running `lightningd` against a pruned node may cause some issues if 
 You can start `lightningd` with the following command:
 
 ```bash
-lightningd --network=testnet --log-level=debug
+lightningd --network=bitcoin --log-level=debug
 ```
 
-Please refer to `lightningd --help` for all other command line options.
+This creates a `.lightning/` subdirectory in your home directory: see `man -l doc/lightningd.8`.
 
-### JSON-RPC Interface
+### Using The JSON-RPC Interface
 
-c-lightning exposes a [JSON-RPC 2.0][jsonrpcspec] interface over a Unix Domain socket located in its home directory (default: `$HOME/.lightning`).
-The Unix Domain Socket has the advantage of not being exposed over the network by default, allowing users to add their own authentication and authorization mechanism, while still providing a fully functional RPC interface out of the box.
+c-lightning exposes a [JSON-RPC 2.0][jsonrpcspec] interface over a Unix Domain socket; the `lightning-cli` tool can be used to access it, or there is a [python client library](contrib/pylightning).
 
-You can use `lightning-cli help` to print a table of the available RPC methods that can be called.
-The JSON-RPC interface is also documented in the following manual pages:
+You can use `lightning-cli help` to print a table of RPC methods; `lightning-cli help <command>`
+will offer specific information on that command.
 
-* [invoice](doc/lightning-invoice.7.txt)
-* [listinvoices](doc/lightning-listinvoices.7.txt)
-* [waitinvoice](doc/lightning-waitinvoice.7.txt)
-* [waitanyinvoice](doc/lightning-waitanyinvoice.7.txt)
-* [delinvoice](doc/lightning-delinvoice.7.txt)
-* [getroute](doc/lightning-getroute.7.txt)
-* [sendpay](doc/lightning-sendpay.7.txt)
-* [pay](doc/lightning-pay.7.txt)
-* [listpays](doc/lightning-listpays.7.txt)
-* [decodepay](doc/lightning-decodepay.7.txt)
+Useful commands:
 
-For simple access to the JSON-RPC interface you can use the `lightning-cli` tool, or the [python API client](contrib/pylightning).
+* [newaddr](doc/lightning-newaddr.7.txt): get a bitcoin address to deposit funds into your lightning node.
+* [listfunds](doc/lightning-listfunds.7.txt): see where your funds are.
+* [connect](doc/lightning-connect.7.txt): connect to another lightning node.
+* [fundchannel](doc/lightning-fundchannel.7.txt): create a channel to another connected node.
+* [invoice](doc/lightning-invoice.7.txt): create an invoice to get paid by another node.
+* [pay](doc/lightning-pay.7.txt): pay someone else's invoice.
+* [plugin](doc/lightning-plugin.7.txt): commands to control extensions.
 
-### Opening a channel on the Bitcoin testnet
+### Care And Feeding Of Your New Lightning Node
+
+Once you've started for the first time, there's a script called
+`contrib/bootstrap-node.sh` which will connect you to other nodes on
+the lightning network.
+
+There are also numerous plugins available for c-lightning which add
+capabilities: in particular there's a collection at:
+
+	https://github.com/lightningd/plugins
+
+Including [helpme][helpme-github] which guides you through setting up
+your first channels and customizing your node.
+
+You can also chat to other users at [#c-lightning @ freenode.net][irc2];
+we are always happy to help you get started!
+
+
+### Opening A Channel
 
 First you need to transfer some funds to `lightningd` so that it can
 open a channel:
@@ -93,7 +124,7 @@ open a channel:
 lightning-cli newaddr
 
 # Returns a transaction id <txid>
-bitcoin-cli -testnet sendtoaddress <address> <amount_in_bitcoins>
+bitcoin-cli sendtoaddress <address> <amount_in_bitcoins>
 ```
 
 `lightningd` will register the funds once the transaction is confirmed.
@@ -126,7 +157,7 @@ a channel.
 The funding transaction needs 3 confirmation in order for the channel to be usable, and 6 to be announced for others to use.
 You can check the status of the channel using `lightning-cli listpeers`, which after 3 confirmations (1 on testnet) should say that `state` is `CHANNELD_NORMAL`; after 6 confirmations you can use `lightning-cli listchannels` to verify that the `public` field is now `true`.
 
-### Sending and receiving payments
+### Sending and Receiving Payments
 
 Payments in Lightning are invoice based.
 The recipient creates an invoice with the expected `<amount>` in
@@ -155,22 +186,8 @@ interfaces) for more sophisticated use.
 `lightningd` can be configured either by passing options via the command line, or via a configuration file.
 Command line options will always override the values in the configuration file.
 
-To use a configuration file, create a file named `config` within your lightning directory.
-By default this will be `$HOME/.lightning/config`.
-
-Configuration options are set using a key=value pair on each line of the file, for example:
-
-```ini
-alias=SLEEPYDRAGON
-rgb=008000
-network=testnet
-```
-
-For a full list of possible lightningd configuration options, run:
-
-```bash
-lightningd --help
-```
+To use a configuration file, create a file named `config` within your lightning directory
+(eg. `~/.lightning/config`).  See `man -l doc/lightningd-config.5`.
 
 ## Further information
 
@@ -184,8 +201,9 @@ In order to avoid this situation you should be monitoring the gap between c-ligh
 If the two blockheights drift apart it might be necessary to intervene.
 
 ### Developers
-Developers wishing to contribute should start with the developer guide [here](doc/HACKING.md).
 
+Developers wishing to contribute should start with the developer guide [here](doc/HACKING.md).
+You should also configure with `--enable-developer` to get additional checks and options.
 
 [blockstream-store-blog]: https://blockstream.com/2018/01/16/en-lightning-charge/
 [std]: https://github.com/lightningnetwork/lightning-rfc
@@ -204,4 +222,4 @@ Developers wishing to contribute should start with the developer guide [here](do
 [releases]: https://github.com/ElementsProject/lightning/releases
 [dockerhub]: https://hub.docker.com/r/elementsproject/lightningd/
 [jsonrpcspec]: https://www.jsonrpc.org/specification
-[changelog-unreleased]: https://github.com/ElementsProject/lightning/blob/master/CHANGELOG.md#unreleased
+[helpme-github]: https://github.com/lightningd/plugins/tree/master/helpme
