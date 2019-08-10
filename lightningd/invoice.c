@@ -49,7 +49,7 @@ static void json_add_invoice(struct json_stream *response,
 {
 	json_add_escaped_string(response, "label", inv->label);
 	json_add_string(response, "bolt11", inv->bolt11);
-	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
+	json_add_sha256(response, "payment_hash", &inv->rhash);
 	if (inv->msat)
 		json_add_amount_msat_compat(response, *inv->msat,
 					    "msatoshi", "amount_msat");
@@ -514,8 +514,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	details = wallet_invoice_details(info, wallet, invoice);
 
 	response = json_stream_success(info->cmd);
-	json_add_hex(response, "payment_hash", &details->rhash,
-		     sizeof(details->rhash));
+	json_add_sha256(response, "payment_hash", &details->rhash);
 	json_add_u64(response, "expires_at", details->expiry_time);
 	json_add_string(response, "bolt11", details->bolt11);
 
@@ -1083,9 +1082,8 @@ static struct command_result *json_decodepay(struct command *cmd,
                 json_add_escaped_string(response, "description", take(esc));
 	}
         if (b11->description_hash)
-                json_add_hex(response, "description_hash",
-                             b11->description_hash,
-                             sizeof(*b11->description_hash));
+                json_add_sha256(response, "description_hash",
+                                b11->description_hash);
 	json_add_num(response, "min_final_cltv_expiry",
 		     b11->min_final_cltv_expiry);
         if (tal_count(b11->fallbacks)) {
@@ -1145,8 +1143,7 @@ static struct command_result *json_decodepay(struct command *cmd,
                 json_array_end(response);
         }
 
-	json_add_hex(response, "payment_hash",
-                     &b11->payment_hash, sizeof(b11->payment_hash));
+	json_add_sha256(response, "payment_hash", &b11->payment_hash);
 
 	json_add_string(response, "signature",
                         type_to_string(cmd, secp256k1_ecdsa_signature,

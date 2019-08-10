@@ -287,7 +287,7 @@ static struct command_result *json_dev(struct command *cmd UNUSED,
 		/* Hash in place. */
 		sha256(secret, secret, sizeof(*secret));
 		response = json_stream_success(cmd);
-		json_add_hex(response, "rhash", secret, sizeof(*secret));
+		json_add_sha256(response, "rhash", secret);
 		return command_success(cmd, response);
 	}
 }

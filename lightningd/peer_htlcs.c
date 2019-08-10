@@ -734,7 +734,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_add_amount_msat_only(s, "amount", hin->msat);
 	json_add_u32(s, "cltv_expiry", expiry);
 	json_add_s32(s, "cltv_expiry_relative", expiry - blockheight);
-	json_add_hex(s, "payment_hash", hin->payment_hash.u.u8, sizeof(hin->payment_hash));
+	json_add_sha256(s, "payment_hash", &hin->payment_hash);
 	json_object_end(s);
 }
 
@@ -2151,9 +2151,7 @@ void json_format_forwarding_object(struct json_stream *response,
 
 	/* See 6d333f16cc0f3aac7097269bf0985b5fa06d59b4: we may have deleted HTLC. */
 	if (cur->payment_hash)
-		json_add_hex(response, "payment_hash",
-					    cur->payment_hash,
-					    sizeof(*cur->payment_hash));
+		json_add_sha256(response, "payment_hash", cur->payment_hash);
 	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 
 	/* This can be unknown if we failed before channel lookup */
