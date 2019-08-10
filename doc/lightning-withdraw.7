@@ -1,98 +1,85 @@
-'\" t
-.\"     Title: lightning-withdraw
-.\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 06/05/2019
-.\"    Manual: \ \&
-.\"    Source: \ \&
-.\"  Language: English
-.\"
-.TH "LIGHTNING\-WITHDRAW" "7" "06/05/2019" "\ \&" "\ \&"
-.\" -----------------------------------------------------------------
-.\" * Define some portability stuff
-.\" -----------------------------------------------------------------
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.\" http://bugs.debian.org/507673
-.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.ie \n(.g .ds Aq \(aq
-.el       .ds Aq '
-.\" -----------------------------------------------------------------
-.\" * set default formatting
-.\" -----------------------------------------------------------------
-.\" disable hyphenation
-.nh
-.\" disable justification (adjust text to left margin only)
-.ad l
-.\" -----------------------------------------------------------------
-.\" * MAIN CONTENT STARTS HERE *
-.\" -----------------------------------------------------------------
-.SH "NAME"
-lightning-withdraw \- Command for withdrawing funds from the internal wallet\&.
-.SH "SYNOPSIS"
-.sp
+.TH "LIGHTNING-WITHDRAW" "7" "" "" "lightning-withdraw"
+.SH NAME
+
+
+lightning-withdraw - Command for withdrawing funds from the internal
+wallet\.
+
+.SH SYNOPSIS
+
 \fBwithdraw\fR \fIdestination\fR \fIsatoshi\fR [\fIfeerate\fR] [\fIminconf\fR]
-.SH "DESCRIPTION"
-.sp
-The \fBwithdraw\fR RPC command sends funds from c\-lightning\(cqs internal wallet to the address specified in \fIdestination\fR\&.
-.sp
-The address can be of any Bitcoin accepted type, including bech32\&.
-.sp
-\fIsatoshi\fR is the amount to be withdrawn from the internal wallet (expressed, as name suggests, in satoshi)\&. The string \fIall\fR can be used to specify withdrawal of all available funds\&. Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in \fIsat\fR, a whole number ending in \fI000msat\fR, or a number with 1 to 8 decimal places ending in \fIbtc\fR\&.
-.sp
-\fIfeerate\fR is an optional feerate to use\&. It can be one of the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR (next 100 blocks or so) to use lightningd\(cqs internal estimates: \fInormal\fR is the default\&.
-.sp
-Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means the number is interpreted as satoshi\-per\-kilosipa (weight), and \fIperkb\fR means it is interpreted bitcoind\-style as satoshi\-per\-kilobyte\&. Omitting the suffix is equivalent to \fIperkb\fR\&.
-.sp
-\fIminconf\fR specifies the minimum number of confirmations that used outputs should have\&. Default is 1\&.
-.SH "RETURN VALUE"
-.sp
-On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\&.
-.sp
-\fItx\fR represents the raw bitcoin, fully signed, transaction and \fItxid\fR represent the bitcoin transaction id\&.
-.sp
-On failure, an error is reported and the withdrawal transaction is not created\&.
-.sp
+
+.SH DESCRIPTION
+
+The \fBwithdraw\fR RPC command sends funds from c-lightning’s internal
+wallet to the address specified in \fIdestination\fR\.
+
+
+The address can be of any Bitcoin accepted type, including bech32\.
+
+
+\fIsatoshi\fR is the amount to be withdrawn from the internal wallet
+(expressed, as name suggests, in satoshi)\. The string \fIall\fR can be used
+to specify withdrawal of all available funds\. Otherwise, it is in
+satoshi precision; it can be a whole number, a whole number ending in
+\fIsat\fR, a whole number ending in \fI000msat\fR, or a number with 1 to 8
+decimal places ending in \fIbtc\fR\.
+
+
+\fIfeerate\fR is an optional feerate to use\. It can be one of the strings
+\fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR
+(next 100 blocks or so) to use lightningd’s internal estimates: \fInormal\fR
+is the default\.
+
+
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte\. Omitting
+the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have\. Default is 1\.
+
+.SH RETURN VALUE
+
+On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\.
+
+
+\fItx\fR represents the raw bitcoin, fully signed, transaction and \fItxid\fR
+represent the bitcoin transaction id\.
+
+
+On failure, an error is reported and the withdrawal transaction is not
+created\.
+
+
 The following error codes may occur:
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\-1\&. Catchall nonspecific error\&.
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+301: There are not enough funds in the internal wallet (including
+fees) to create the transaction\.
+.IP \[bu]
+302: The dust limit is not met\.
+
 .RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-301\&. There are not enough funds in the internal wallet (including fees) to create the transaction\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-302\&. The dust limit is not met\&.
-.RE
-.SH "AUTHOR"
-.sp
-Felix <fixone@gmail\&.com> is mainly responsible\&.
-.SH "SEE ALSO"
-.sp
-lightning\-listfunds(7), lightning\-fundchannel(7), lightning\-newaddr(7), lightning\-txprepare(7)\&.
-.SH "RESOURCES"
-.sp
-Main web site: https://github\&.com/ElementsProject/lightning
+.SH AUTHOR
+
+Felix \fBNone\fR (\fI<fixone@gmail.com\fR)> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-listfunds\fR(7), \fBlightning-fundchannel\fR(7), \fBlightning-newaddr\fR(7),
+\fBlightning-txprepare\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+
+.HL
+
+Last updated 2019-06-08 16:03:59 CEST
+

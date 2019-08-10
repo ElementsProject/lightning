@@ -1,111 +1,79 @@
-'\" t
-.\"     Title: lightning-listsendpays
-.\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/23/2019
-.\"    Manual: \ \&
-.\"    Source: \ \&
-.\"  Language: English
-.\"
-.TH "LIGHTNING\-LISTSENDP" "7" "02/23/2019" "\ \&" "\ \&"
-.\" -----------------------------------------------------------------
-.\" * Define some portability stuff
-.\" -----------------------------------------------------------------
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.\" http://bugs.debian.org/507673
-.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.ie \n(.g .ds Aq \(aq
-.el       .ds Aq '
-.\" -----------------------------------------------------------------
-.\" * set default formatting
-.\" -----------------------------------------------------------------
-.\" disable hyphenation
-.nh
-.\" disable justification (adjust text to left margin only)
-.ad l
-.\" -----------------------------------------------------------------
-.\" * MAIN CONTENT STARTS HERE *
-.\" -----------------------------------------------------------------
-.SH "NAME"
-lightning-listsendpays \- Low\-level command for querying sendpay status
-.SH "SYNOPSIS"
-.sp
+.TH "LIGHTNING-LISTSENDPAYS" "7" "" "" "lightning-listsendpays"
+.SH NAME
+
+
+lightning-listsendpays - Low-level command for querying sendpay status
+
+.SH SYNOPSIS
+
 \fBlistsendpays\fR [\fIbolt11\fR] [\fIpayment_hash\fR]
-.SH "DESCRIPTION"
-.sp
-The \fBlistsendpays\fR RPC command gets the status of all \fIsendpay\fR commands (which is also used by the \fIpay\fR command), or with \fIbolt11\fR or \fIpayment_hash\fR limits results to that specific payment\&. You cannot specify both\&.
-.sp
-Note that in future there may be more than one concurrent \fIsendpay\fR command per \fIpay\fR, so this command should be used with caution\&.
-.SH "RETURN VALUE"
-.sp
-On success, an array of objects is returned\&. Each object contains:
-.PP
-\fIid\fR
-.RS 4
+
+.SH DESCRIPTION
+
+The \fBlistsendpays\fR RPC command gets the status of all \fIsendpay\fR
+commands (which is also used by the \fIpay\fR command), or with \fIbolt11\fR or
+\fIpayment_hash\fR limits results to that specific payment\. You cannot
+specify both\.
+
+
+Note that in future there may be more than one concurrent \fIsendpay\fR
+command per \fIpay\fR, so this command should be used with caution\.
+
+.SH RETURN VALUE
+
+On success, an array of objects is returned\. Each object contains:
+
+
+ \fIid\fR
 unique internal value assigned at creation
-.RE
-.PP
-\fIpayment_hash\fR
-.RS 4
-the hash of the
-\fIpayment_preimage\fR
-which will prove payment\&.
-.RE
-.PP
-\fIdestination\fR
-.RS 4
-the final destination of the payment\&.
-.RE
-.PP
-\fIamount_msat\fR
-.RS 4
-the amount the destination received, in "NNNmsat" format\&.
-.RE
-.PP
-\fIcreated_at\fR
-.RS 4
-the UNIX timestamp showing when this payment was initiated\&.
-.RE
-.PP
-\fIstatus\fR
-.RS 4
-one of
-\fIcomplete\fR,
-\fIfailed\fR
-or
-\fIpending\fR\&.
-.RE
-.PP
-\fIpayment_preimage\fR
-.RS 4
-(if
-\fIstatus\fR
-is
-\fIcomplete\fR) proves payment was received\&.
-.RE
-.PP
-\fIlabel\fR
-.RS 4
-optional
-\fIlabel\fR, if provided to
-\fIsendpay\fR\&.
-.RE
-.PP
-\fIbolt11\fR
-.RS 4
-the
-\fIbolt11\fR
-argument given to
-\fIpay\fR
-(may be missing for pre\-0\&.7 payments)\&.
-.RE
-.SH "AUTHOR"
-.sp
-Christian Decker <decker\&.christian@gmail\&.com> is mainly responsible\&.
-.SH "SEE ALSO"
-.sp
-lightning\-listpays(7), lightning\-sendpay(7), lightning\-listinvoice(7)\&.
-.SH "RESOURCES"
-.sp
-Main web site: https://github\&.com/ElementsProject/lightning
+
+
+ \fIpayment_hash\fR
+the hash of the \fIpayment_preimage\fR which will prove payment\.
+
+
+ \fIdestination\fR
+the final destination of the payment\.
+
+
+ \fIamount_msat\fR
+the amount the destination received, in "NNNmsat" format\.
+
+
+ \fIcreated_at\fR
+the UNIX timestamp showing when this payment was initiated\.
+
+
+ \fIstatus\fR
+one of \fIcomplete\fR, \fIfailed\fR or \fIpending\fR\.
+
+
+ \fIpayment_preimage\fR
+(if \fIstatus\fR is \fIcomplete\fR) proves payment was received\.
+
+
+ \fIlabel\fR
+optional \fIlabel\fR, if provided to \fIsendpay\fR\.
+
+
+ \fIbolt11\fR
+the \fIbolt11\fR argument given to \fIpay\fR (may be missing for pre-0\.7
+payments)\.
+
+.SH AUTHOR
+
+Christian Decker \fBNone\fR (\fI<decker.christian@gmail.com\fR)> is mainly
+responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-listpays\fR(7), \fBlightning-sendpay\fR(7), \fBlightning-listinvoice\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+
+.HL
+
+Last updated 2019-04-30 17:12:10 CEST
+

@@ -1,76 +1,73 @@
-'\" t
-.\"     Title: lightning-connect
-.\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 07/30/2019
-.\"    Manual: \ \&
-.\"    Source: \ \&
-.\"  Language: English
-.\"
-.TH "LIGHTNING\-CONNECT" "7" "07/30/2019" "\ \&" "\ \&"
-.\" -----------------------------------------------------------------
-.\" * Define some portability stuff
-.\" -----------------------------------------------------------------
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.\" http://bugs.debian.org/507673
-.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.ie \n(.g .ds Aq \(aq
-.el       .ds Aq '
-.\" -----------------------------------------------------------------
-.\" * set default formatting
-.\" -----------------------------------------------------------------
-.\" disable hyphenation
-.nh
-.\" disable justification (adjust text to left margin only)
-.ad l
-.\" -----------------------------------------------------------------
-.\" * MAIN CONTENT STARTS HERE *
-.\" -----------------------------------------------------------------
-.SH "NAME"
-lightning-connect \- Command for connecting to another lightning node\&.
-.SH "SYNOPSIS"
-.sp
+.TH "LIGHTNING-CONNECT" "7" "" "" "lightning-connect"
+.SH NAME
+
+
+lightning-connect - Command for connecting to another lightning node\.
+
+.SH SYNOPSIS
+
 \fBconnect\fR \fIid\fR [\fIhost\fR \fIport\fR]
-.SH "DESCRIPTION"
-.sp
-The \fBconnect\fR RPC command establishes a new connection with another node in the Lightning Network\&.
-.sp
-\fIid\fR represents the target node\(cqs public key\&. As a convenience, \fIid\fR may be of the form \fIid@host\fR or \fIid@host:port\fR\&. In this case, the \fIhost\fR and \fIport\fR parameters must be omitted\&.
-.sp
-\fIhost\fR is the peer\(cqs hostname or IP address\&.
-.sp
-If not specified, the \fIport\fR defaults to 9735\&.
-.sp
-If \fIhost\fR is not specified, the connection will be attempted to an IP belonging to \fIid\fR obtained through gossip with other already connected peers\&.
-.sp
-If \fIhost\fR begins with a \fI/\fR it is interpreted as a local path, and the connection will be made to that local socket (see \fBbind\-addr\fR in lightningd\-config(5))\&.
-.sp
-Connecting to a node is just the first step in opening a channel with another node\&. Once the peer is connected a channel can be opened with lightning\-fundchannel(7)\&.
-.SH "RETURN VALUE"
-.sp
-On success the peer \fIid\fR is returned\&.
-.sp
+
+.SH DESCRIPTION
+
+The \fBconnect\fR RPC command establishes a new connection with another
+node in the Lightning Network\.
+
+
+\fIid\fR represents the target node’s public key\. As a convenience, \fIid\fR may
+be of the form \fIid@host\fR or \fIid@host:port\fR\. In this case, the \fIhost\fR and
+\fIport\fR parameters must be omitted\.
+
+
+\fIhost\fR is the peer’s hostname or IP address\.
+
+
+If not specified, the \fIport\fR defaults to 9735\.
+
+
+If \fIhost\fR is not specified, the connection will be attempted to an IP
+belonging to \fIid\fR obtained through gossip with other already connected
+peers\.
+
+
+If \fIhost\fR begins with a \fI/\fR it is interpreted as a local path, and the
+connection will be made to that local socket (see \fBbind-addr\fR in
+\fBlightningd-config\fR(5))\.
+
+
+Connecting to a node is just the first step in opening a channel with
+another node\. Once the peer is connected a channel can be opened with
+\fBlightning-fundchannel\fR(7)\.
+
+.SH RETURN VALUE
+
+On success the peer \fIid\fR is returned\.
+
+
 The following error codes may occur:
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-\-1\&. Catchall nonspecific error\&. This may occur if the host is not valid or there are problems communicating with the peer\&.
-\fBconnect\fR
-will make up to 10 attempts to connect to the peer before giving up\&.
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\. This may occur if the host is not
+valid or there are problems communicating with the peer\. \fBconnect\fR
+will make up to 10 attempts to connect to the peer before giving up\.
+
 .RE
-.SH "AUTHOR"
-.sp
-Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&. Felix <fixone@gmail\&.com> is the original author of this manpage\&.
-.SH "SEE ALSO"
-.sp
-lightning\-fundchannel(7), lightning\-listpeers(7), lightning\-listchannels(7), lightning\-disconnect(7)
-.SH "RESOURCES"
-.sp
-Main web site: https://github\&.com/ElementsProject/lightning
+.SH AUTHOR
+
+Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
+Felix \fBNone\fR (\fI<fixone@gmail.com\fR)> is the original author of this manpage\.
+
+.SH SEE ALSO
+
+\fBlightning-fundchannel\fR(7), \fBlightning-listpeers\fR(7),
+\fBlightning-listchannels\fR(7), \fBlightning-disconnect\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+
+.HL
+
+Last updated 2019-08-01 14:59:36 CEST
+
