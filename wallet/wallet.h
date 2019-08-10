@@ -190,7 +190,7 @@ static inline const char* forward_status_name(enum forward_status status)
 struct forwarding {
 	struct short_channel_id channel_in, channel_out;
 	struct amount_msat msat_in, msat_out, fee;
-	struct sha256_double *payment_hash;
+	struct sha256 *payment_hash;
 	enum forward_status status;
 	enum onion_type failcode;
 	struct timeabs received_time;
