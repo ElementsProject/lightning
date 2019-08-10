@@ -29,7 +29,7 @@ fi
 
 pyenv global 3.7.1
 pip3 install --user --quiet mako
-pip3 install --user --quiet -r tests/requirements.txt
+pip3 install --user --quiet -r tests/requirements.txt -r doc/requirements.txt
 pip3 install --quiet \
      pytest-test-groups==1.0.3
 
