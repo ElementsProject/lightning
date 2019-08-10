@@ -466,6 +466,7 @@ def test_htlc_accepted_hook_resolve(node_factory):
     assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
 
 
+@pytest.mark.xfail(strict=True)
 def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
     """
@@ -479,12 +480,19 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1 = executor.submit(l1.rpc.pay, i1)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+    needle = l2.daemon.logsearch_start
     l2.restart()
 
+    # Now it should try again, *after* initializing.
+    # This may be before "Server started with public key" swallowed by restart()
+    l2.daemon.logsearch_start = needle + 1
+    l2.daemon.wait_for_log(r'hold_htlcs.py initializing')
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
     f1.result()
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
+@pytest.mark.xfail(strict=True)
 def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
     """
@@ -500,7 +508,14 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
 
+    needle = l2.daemon.logsearch_start
     l2.restart()
+
+    # Now it should try again, *after* initializing.
+    # This may be before "Server started with public key" swallowed by restart()
+    l2.daemon.logsearch_start = needle + 1
+    l2.daemon.wait_for_log(r'hold_htlcs.py initializing')
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
 
     # Grab the file where the plugin wrote the onion and read it in for some
     # additional checks
