@@ -449,6 +449,12 @@ enum onion_type send_htlc_out(struct channel *out,
 		return WIRE_TEMPORARY_CHANNEL_FAILURE;
 	}
 
+	if (!topology_synced(out->peer->ld->topology)) {
+		log_info(out->log, "Attempt to send HTLC but still syncing"
+			 " with bitcoin network");
+		return WIRE_TEMPORARY_CHANNEL_FAILURE;
+	}
+
 	/* Make peer's daemon own it, catch if it dies. */
 	hout = new_htlc_out(out->owner, out, amount, cltv,
 			    payment_hash, onion_routing_packet, in == NULL, in);

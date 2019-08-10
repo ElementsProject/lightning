@@ -152,10 +152,8 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
             "id": r['id']
         }
 
-    # Start it once, make sure it gets a second block (thus writes into db)
-    l1 = node_factory.get_node()
-    bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [l1])
+    # Start it, establish channel.
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
     l1.stop()
 
     # Now make sure it's behind.
@@ -171,9 +169,14 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
     assert 'warning_lightningd_sync' in l1.rpc.getinfo()
 
+    # Payments will fail.  FIXME: More informative msg?
+    with pytest.raises(RpcError, match=r'TEMPORARY_CHANNEL_FAILURE'):
+        l1.pay(l2, 1000)
+
     # Release the mock, and it will recover.
     mock_release.set()
     wait_for(lambda: 'warning_lightningd_sync' not in l1.rpc.getinfo())
+    l1.pay(l2, 1000)
 
 
 def test_ping(node_factory):
