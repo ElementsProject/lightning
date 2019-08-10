@@ -632,6 +632,7 @@ int main(int argc, char *argv[])
 	int stop_fd;
 	struct timers *timers;
 	const char *stop_response;
+	struct htlc_in_map *unprocessed_htlcs;
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
@@ -769,7 +770,7 @@ int main(int argc, char *argv[])
 	 *  topology is initialized since some decisions rely on being able to
 	 *  know the blockheight. */
 	db_begin_transaction(ld->wallet->db);
-	load_channels_from_wallet(ld);
+	unprocessed_htlcs = load_channels_from_wallet(ld);
 	db_commit_transaction(ld->wallet->db);
 
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
@@ -779,6 +780,11 @@ int main(int argc, char *argv[])
 	/*~ Now that the rpc path exists, we can start the plugins and they
 	 * can start talking to us. */
 	plugins_config(ld->plugins);
+
+	/*~ Process any HTLCs we were in the middle of when we exited, now
+	 * that plugins (who might want to know via htlc_accepted hook) are
+	 * active. */
+	htlcs_resubmit(ld, unprocessed_htlcs);
 
 	/*~ Activate connect daemon.  Needs to be after the initialization of
 	 * chaintopology, otherwise peers may connect and ask for

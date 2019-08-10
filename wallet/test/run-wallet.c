@@ -1195,7 +1195,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 		  "Failed loading HTLCs");
 	db_commit_transaction(w->db);
 
-	htlcs_reconnect(w->ld, htlcs_in, htlcs_out);
+	htlcs_resubmit(w->ld, htlcs_reconnect(w->ld, htlcs_in, htlcs_out));
 	CHECK(!wallet_err);
 
 	hin = htlc_in_map_get(htlcs_in, &in.key);

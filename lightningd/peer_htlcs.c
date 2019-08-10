@@ -2018,17 +2018,18 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
  * For each outgoing HTLC find the incoming HTLC that triggered it. If
  * we are the origin of the transfer then we cannot resolve the
  * incoming HTLC in which case we just leave it `NULL`.
+ *
+ * Returns a map of any htlcs we need to retry.
  */
-void htlcs_reconnect(struct lightningd *ld,
-		     struct htlc_in_map *htlcs_in,
-		     struct htlc_out_map *htlcs_out)
+struct htlc_in_map *htlcs_reconnect(struct lightningd *ld,
+				    struct htlc_in_map *htlcs_in,
+				    struct htlc_out_map *htlcs_out)
 {
 	struct htlc_in_map_iter ini;
 	struct htlc_out_map_iter outi;
 	struct htlc_in *hin;
 	struct htlc_out *hout;
-	struct htlc_in_map unprocessed;
-	enum onion_type failcode COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
+	struct htlc_in_map *unprocessed = tal(NULL, struct htlc_in_map);
 
 	/* Any HTLCs which happened to be incoming and weren't forwarded before
 	 * we shutdown/crashed: fail them now.
@@ -2036,11 +2037,11 @@ void htlcs_reconnect(struct lightningd *ld,
 	 * Note that since we do local processing synchronously, so this never
 	 * captures local payments.  But if it did, it would be a tiny corner
 	 * case. */
-	htlc_in_map_init(&unprocessed);
+	htlc_in_map_init(unprocessed);
 	for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
 	     hin = htlc_in_map_next(htlcs_in, &ini)) {
 		if (hin->hstate == RCVD_ADD_ACK_REVOCATION)
-			htlc_in_map_add(&unprocessed, hin);
+			htlc_in_map_add(unprocessed, hin);
 	}
 
 	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
@@ -2081,12 +2082,22 @@ void htlcs_reconnect(struct lightningd *ld,
 #endif
 
 		if (hout->in)
-			htlc_in_map_del(&unprocessed, hout->in);
+			htlc_in_map_del(unprocessed, hout->in);
 	}
 
+	return unprocessed;
+}
+
+void htlcs_resubmit(struct lightningd *ld, struct htlc_in_map *unprocessed)
+{
+	struct htlc_in *hin;
+	struct htlc_in_map_iter ini;
+	enum onion_type failcode COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
+
 	/* Now fail any which were stuck. */
-	for (hin = htlc_in_map_first(&unprocessed, &ini); hin;
-	     hin = htlc_in_map_next(&unprocessed, &ini)) {
+	for (hin = htlc_in_map_first(unprocessed, &ini);
+	     hin;
+	     hin = htlc_in_map_next(unprocessed, &ini)) {
 		log_unusual(hin->key.channel->log,
 			    "Replaying old unprocessed HTLC #%"PRIu64,
 			    hin->key.id);
@@ -2102,9 +2113,9 @@ void htlcs_reconnect(struct lightningd *ld,
 	}
 
 	/* Don't leak memory! */
-	htlc_in_map_clear(&unprocessed);
+	htlc_in_map_clear(unprocessed);
+	tal_free(unprocessed);
 }
-
 
 #if DEVELOPER
 static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
