@@ -96,6 +96,9 @@ void hsm_init(struct lightningd *ld UNNEEDED)
 /* Generated stub for htlcs_notify_new_block */
 void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "htlcs_notify_new_block called!\n"); abort(); }
+/* Generated stub for htlcs_resubmit */
+void htlcs_resubmit(struct lightningd *ld UNNEEDED, struct htlc_in_map *unprocessed UNNEEDED)
+{ fprintf(stderr, "htlcs_resubmit called!\n"); abort(); }
 /* Generated stub for jsonrpc_listen */
 void jsonrpc_listen(struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "jsonrpc_listen called!\n"); abort(); }
@@ -103,7 +106,7 @@ void jsonrpc_listen(struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED
 void jsonrpc_setup(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "jsonrpc_setup called!\n"); abort(); }
 /* Generated stub for load_channels_from_wallet */
-void load_channels_from_wallet(struct lightningd *ld UNNEEDED)
+struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "load_channels_from_wallet called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, bool call_notifier UNNEEDED, const char *fmt UNNEEDED, ...)

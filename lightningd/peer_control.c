@@ -1419,7 +1419,7 @@ void activate_peers(struct lightningd *ld)
 }
 
 /* Pull peers, channels and HTLCs from db, and wire them up. */
-void load_channels_from_wallet(struct lightningd *ld)
+struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 {
 	struct peer *peer;
 
@@ -1442,7 +1442,7 @@ void load_channels_from_wallet(struct lightningd *ld)
 	}
 
 	/* Now connect HTLC pointers together */
-	htlcs_reconnect(ld, &ld->htlcs_in, &ld->htlcs_out);
+	return htlcs_reconnect(ld, &ld->htlcs_in, &ld->htlcs_out);
 }
 
 static struct command_result *json_disconnect(struct command *cmd,

@@ -126,9 +126,9 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     enum side side UNNEEDED)
 { fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
 /* Generated stub for htlcs_reconnect */
-void htlcs_reconnect(struct lightningd *ld UNNEEDED,
-		     struct htlc_in_map *htlcs_in UNNEEDED,
-		     struct htlc_out_map *htlcs_out UNNEEDED)
+struct htlc_in_map *htlcs_reconnect(struct lightningd *ld UNNEEDED,
+				    struct htlc_in_map *htlcs_in UNNEEDED,
+				    struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "htlcs_reconnect called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,

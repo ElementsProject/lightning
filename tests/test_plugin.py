@@ -466,7 +466,6 @@ def test_htlc_accepted_hook_resolve(node_factory):
     assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
 
 
-@pytest.mark.xfail(strict=True)
 def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
     """
@@ -492,7 +491,6 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
-@pytest.mark.xfail(strict=True)
 def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
     """
