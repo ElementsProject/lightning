@@ -559,6 +559,31 @@ static void next_updatefee_timer(struct chain_topology *topo)
 			     start_fee_estimate, topo));
 }
 
+struct sync_waiter {
+	/* Linked from chain_topology->sync_waiters */
+	struct list_node list;
+	void (*cb)(struct chain_topology *topo, void *arg);
+	void *arg;
+};
+
+static void destroy_sync_waiter(struct sync_waiter *waiter)
+{
+	list_del(&waiter->list);
+}
+
+void topology_add_sync_waiter_(const tal_t *ctx,
+			       struct chain_topology *topo,
+			       void (*cb)(struct chain_topology *topo,
+					  void *arg),
+			       void *arg)
+{
+	struct sync_waiter *w = tal(ctx, struct sync_waiter);
+	w->cb = cb;
+	w->arg = arg;
+	list_add_tail(topo->sync_waiters, &w->list);
+	tal_add_destructor(w, destroy_sync_waiter);
+}
+
 /* Once we're run out of new blocks to add, call this. */
 static void updates_complete(struct chain_topology *topo)
 {
@@ -577,6 +602,23 @@ static void updates_complete(struct chain_topology *topo)
 			      "last_processed_block", topo->tip->height);
 
 		topo->prev_tip = topo->tip;
+	}
+
+	/* If bitcoind is synced, we're now synced. */
+	if (topo->bitcoind->synced && !topology_synced(topo)) {
+		struct sync_waiter *w;
+		struct list_head *list = topo->sync_waiters;
+
+		/* Mark topology_synced() before callbacks. */
+		topo->sync_waiters = NULL;
+
+		while ((w = list_pop(list, struct sync_waiter, list))) {
+			/* In case it doesn't free itself. */
+			tal_del_destructor(w, destroy_sync_waiter);
+			tal_steal(list, w);
+			w->cb(topo, w->arg);
+		}
+		tal_free(list);
 	}
 
 	/* Try again soon. */
@@ -911,6 +953,8 @@ void setup_topology(struct chain_topology *topo,
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
+	topo->sync_waiters = tal(topo, struct list_head);
+	list_head_init(topo->sync_waiters);
 
 	topo->min_blockheight = min_blockheight;
 	topo->max_blockheight = max_blockheight;

@@ -1,7 +1,9 @@
+from bitcoin.rpc import RawProxy
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
-from utils import DEVELOPER, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc
+from threading import Event
+from utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc
 from ephemeral_port_reserve import reserve
 
 import json
@@ -131,6 +133,47 @@ def test_bitcoin_ibd(node_factory, bitcoind):
 
     l1.daemon.wait_for_log('Bitcoind now synced')
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
+
+
+def test_lightningd_still_loading(node_factory, bitcoind, executor):
+    """Test that we recognize we haven't got all blocks from bitcoind"""
+
+    mock_release = Event()
+
+    # This is slow enough that we're going to notice.
+    def mock_getblock(r):
+        conf_file = os.path.join(bitcoind.bitcoin_dir, 'bitcoin.conf')
+        brpc = RawProxy(btc_conf_file=conf_file)
+        if r['params'][0] == slow_blockid:
+            mock_release.wait(TIMEOUT)
+        return {
+            "result": brpc._call(r['method'], *r['params']),
+            "error": None,
+            "id": r['id']
+        }
+
+    # Start it once, make sure it gets a second block (thus writes into db)
+    l1 = node_factory.get_node()
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    l1.stop()
+
+    # Now make sure it's behind.
+    bitcoind.generate_block(2)
+
+    # Make it slow grabbing the final block.
+    slow_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+    l1.daemon.rpcproxy.mock_rpc('getblock', mock_getblock)
+
+    l1.start()
+
+    # It will warn about being out-of-sync.
+    assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
+    assert 'warning_lightningd_sync' in l1.rpc.getinfo()
+
+    # Release the mock, and it will recover.
+    mock_release.set()
+    wait_for(lambda: 'warning_lightningd_sync' not in l1.rpc.getinfo())
 
 
 def test_ping(node_factory):

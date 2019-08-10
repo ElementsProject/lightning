@@ -1484,6 +1484,9 @@ static struct command_result *json_getinfo(struct command *cmd,
     if (!cmd->ld->topology->bitcoind->synced)
 	    json_add_string(response, "warning_bitcoind_sync",
 			    "Bitcoind is not up-to-date with network.");
+    else if (!topology_synced(cmd->ld->topology))
+	    json_add_string(response, "warning_lightningd_sync",
+			    "Still loading latest blocks from bitcoind.");
 
     return command_success(cmd, response);
 }
