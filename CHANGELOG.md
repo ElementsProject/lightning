@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - lightningd: check bitcoind version when setup topology and confirm the version not older than v0.15.0.
 - Protocol: space out reconnections on startup if we have more than 5 peers.
 - JSON API: `listforwards` includes the 'payment_hash' field.
-- Plugin: now always plugins run from the `lightning-dir` for easy local storage.
+- Plugin: now plugins always run from the `lightning-dir` for easy local storage.
 
 ### Deprecated
 
