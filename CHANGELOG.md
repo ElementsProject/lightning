@@ -4,39 +4,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.2-rc1] 
 
 ### Added
 
-- Lightningd: add support for `signet` networks using the `--network=signet` or `--signet` startup option
-- JSON API: `listfunds` now returns also `funding_output` for `channels`
-- plugins: plugins can now suggest `lightning-cli` default to -H for responses.
-- Plugin: new notification `forward_event` offered/settled/failed/local_failed.
-- contrib: new `bootstrap-node.sh` to connect to random mainnet nodes.
+- JSON API: a new command `plugin` allows one to manage plugins without restarting `lightningd`.
+- Plugin: a new boolean field can be added to a plugin manifest, `dynamic`. It allows a plugin to tell if it can be started or stopped "on-the-fly".
+- Plugin: a new boolean field is added to the `init`'s `configuration`, `startup`. It allows a plugin to know if it has been started on `lightningd` startup.
+- Plugin: new notifications `invoice_payment`, `forward_event` and `channel_opened`.
 - Protocol: `--enable-experimental-features` adds gossip query extensions
   aka https://github.com/lightningnetwork/lightning-rfc/pull/557
+- contrib: new `bootstrap-node.sh` to connect to random mainnet nodes.
+- JSON API: `listfunds` now returns also `funding_output` for `channels`
+- Plugin: plugins can now suggest `lightning-cli` default to -H for responses.
+- Lightningd: add support for `signet` networks using the `--network=signet` or `--signet` startup option
 
 ### Changed
 
+- Build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
 - JSON API: `close` optional arguments have changed: it now defaults to unilateral close after 48 hours.
-- build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
-- plugins: if the config directory has a `plugins` subdirectory, those are loaded.
-- plugins: a new notification type `invoice_payment` (sent when an invoice is paid) has been added
-- plugins: a new 'channel_opened' notification type is added, which is emitted when a peer succesfully funds a channel to us
-- rpc: a new rpc command is added, `plugin`. It allows one to manage plugins without restarting `lightningd`.
-- plugins: a new boolean field is added to the `init`'s `configuration`, `startup`. It allows a plugin to know if it has been started on `lightningd` startup.
-- plugins: a new boolean field can be added to a plugin manifest, `dynamic`. It allows a plugin to tell if it can be started or stopped "on-the-fly".
+- Plugin: if the config directory has a `plugins` subdirectory, those are loaded.
 - lightningd: check bitcoind version when setup topology and confirm the version not older than v0.15.0.
-- startup: space out reconnections on startup if we have more than 5 peers.
+- Protocol: space out reconnections on startup if we have more than 5 peers.
 - JSON API: `listforwards` includes the 'payment_hash' field.
-- plugins: now always run from the `lightning-dir` for easy local storage.
+- Plugin: now always plugins run from the `lightning-dir` for easy local storage.
 
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
 
-- plugins: using startup-relative paths for `plugin` and `plugin-dir`: they're now relative to `lightning-dir`.
+- Plugin: using startup-relative paths for `plugin` and `plugin-dir`: they're now relative to `lightning-dir`.
 
 ### Removed
 
@@ -428,7 +426,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[Unreleased]: https://github.com/ElementsProject/lightning/compare/v0.7.1...HEAD
+[0.7.2-rc1]: https://github.com/ElementsProject/lightning/compare/v0.7.1...HEAD
 [0.7.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.1
 [0.7.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.0
 [0.6.3]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.3
