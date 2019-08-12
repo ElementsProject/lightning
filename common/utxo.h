@@ -50,6 +50,7 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 				     const struct chainparams *chainparams,
 				     const struct utxo **utxos,
 				     const struct ext_key *bip32_base,
-				     bool add_change_output);
+				     bool add_change_output,
+				     size_t num_output);
 
 #endif /* LIGHTNING_COMMON_UTXO_H */

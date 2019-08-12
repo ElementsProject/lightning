@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <bitcoin/script.h>
 #include <common/key_derive.h>
 #include <common/utils.h>
@@ -52,11 +53,14 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 				     const struct chainparams *chainparams,
 				     const struct utxo **utxos,
 				     const struct ext_key *bip32_base,
-				     bool add_change_output)
+				     bool add_change_output,
+				     size_t num_output)
 {
 	struct pubkey key;
 	u8 *script;
-	size_t outcount = add_change_output ? 2 : 1;
+
+	assert(num_output);
+	size_t outcount = add_change_output ? 1 + num_output : num_output;
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, tal_count(utxos), outcount);
 
 	for (size_t i = 0; i < tal_count(utxos); i++) {
