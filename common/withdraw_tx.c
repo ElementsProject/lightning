@@ -11,8 +11,7 @@
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct chainparams *chainparams,
 			       const struct utxo **utxos,
-			       const u8 *destination,
-			       struct amount_sat withdraw_amount,
+			       struct bitcoin_tx_output **outputs,
 			       const struct pubkey *changekey,
 			       struct amount_sat change,
 			       const struct ext_key *bip32_base,
@@ -21,9 +20,10 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 
 	tx = tx_spending_utxos(ctx, chainparams, utxos, bip32_base,
-			       !amount_sat_eq(change, AMOUNT_SAT(0)));
+			       !amount_sat_eq(change, AMOUNT_SAT(0)),
+			       tal_count(outputs));
 
-	bitcoin_tx_add_output(tx, destination, withdraw_amount);
+	bitcoin_tx_add_multi_outputs(tx, outputs);
 
 	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
 		const void *map[2];
