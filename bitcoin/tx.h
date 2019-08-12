@@ -74,9 +74,13 @@ bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 /* Internal de-linearization functions. */
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
-
+/* Add one output to tx. */
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 			  struct amount_sat amount);
+
+/* Add mutiple output to tx. */
+int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
+				 struct bitcoin_tx_output **outputs);
 
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,

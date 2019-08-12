@@ -30,6 +30,16 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 	return i;
 }
 
+int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
+				 struct bitcoin_tx_output **outputs)
+{
+	for (size_t j = 0; j < tal_count(outputs); j++)
+		bitcoin_tx_add_output(tx, outputs[j]->script,
+				      outputs[j]->amount);
+
+	return tx->wtx->num_outputs;
+}
+
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 struct amount_sat amount, u8 *script)
