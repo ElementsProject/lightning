@@ -78,7 +78,9 @@ static bool test_empty_db_migrate(struct lightningd *ld)
 
 static bool test_primitives(void)
 {
+	struct db_stmt *stmt;
 	struct db *db = create_test_db();
+	db_err = NULL;
 	db_begin_transaction(db);
 	CHECK(db->in_transaction);
 	db_commit_transaction(db);
@@ -87,10 +89,12 @@ static bool test_primitives(void)
 	db_commit_transaction(db);
 
 	db_begin_transaction(db);
-	db_exec(__func__, db, "SELECT name FROM sqlite_master WHERE type='table';");
+	stmt = db_prepare_v2(db, SQL("SELECT name FROM sqlite_master WHERE type='table';"));
+	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 
-	db_exec(__func__, db, "not a valid SQL statement");
+	stmt = db_prepare_v2(db, SQL("not a valid SQL statement"));
+	CHECK_MSG(!db_exec_prepared_v2(stmt), "db_exec_prepared must fail");
 	CHECK_MSG(db_err, "Failing SQL command");
 	db_err = tal_free(db_err);
 	db_commit_transaction(db);

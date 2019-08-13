@@ -1126,6 +1126,7 @@ static bool test_channel_config_crud(struct lightningd *ld, const tal_t *ctx)
 
 static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 {
+	struct db_stmt *stmt;
 	struct htlc_in in, *hin;
 	struct htlc_out out, *hout;
 	struct preimage payment_key;
@@ -1136,9 +1137,11 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	struct htlc_out_map *htlcs_out = tal(ctx, struct htlc_out_map);
 
 	/* Make sure we have our references correct */
-	CHECK(transaction_wrap(w->db,
-			       db_exec(__func__, w->db, "INSERT INTO channels (id) VALUES (1);")));
 	db_begin_transaction(w->db);
+	char *query = SQL("INSERT INTO channels (id) VALUES (1);");
+	stmt = db_prepare_v2(w->db, query);
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
 	db_commit_transaction(w->db);
 
 	chan->dbid = 1;
