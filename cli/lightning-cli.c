@@ -412,6 +412,32 @@ static enum format delete_format_hint(const char *resp,
 	return format;
 }
 
+static enum format choose_format(const char *resp,
+				 jsmntok_t **toks,
+				 const char *method,
+				 const char *command,
+				 enum format format)
+{
+	/* If they specify a format, that's what we use. */
+	if (format != DEFAULT_FORMAT)
+		return format;
+
+	/* This works best when we order it. */
+	if (streq(method, "help") && command == NULL)
+		format = HELPLIST;
+	else {
+		const jsmntok_t *result = json_get_member(resp, *toks, "result");
+		if (result)
+			/* Use offset of result to get non-const ptr */
+			format = delete_format_hint(resp, toks,
+						    /* const-washing */
+						    *toks + (result - *toks));
+		else
+			format = JSON;
+	}
+	return format;
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -589,6 +615,8 @@ int main(int argc, char *argv[])
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
 		     "Non-object response '%s'", resp);
 
+	/* This can rellocate toks, so call before getting pointers to tokens */
+	format = choose_format(resp, &toks, method, command, format);
 	result = json_get_member(resp, toks, "result");
 	error = json_get_member(resp, toks, "error");
 	if (!error && !result)
@@ -604,17 +632,6 @@ int main(int argc, char *argv[])
 		     json_tok_full_len(id), json_tok_full(resp, id));
 
 	if (!error || json_tok_is_null(resp, error)) {
-		if (format == DEFAULT_FORMAT) {
-			/* This works best when we order it. */
-			if (streq(method, "help") && command == NULL)
-				format = HELPLIST;
-			else
-				/* Use offset of result to get non-const ptr */
-				format = delete_format_hint(resp, &toks,
-							    /* const-washing */
-							    toks + (result - toks));
-		}
-
 		switch (format) {
 		case HELPLIST:
 			human_help(resp, result);
