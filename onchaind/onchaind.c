@@ -169,8 +169,15 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	 *    1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
 	 *    down).
 	 */
-	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX)))
-		return grind_htlc_tx_fee(&fee, tx, remotesig, wscript, 663);
+	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
+		struct amount_sat grindfee;
+		if (grind_htlc_tx_fee(&grindfee, tx, remotesig, wscript, 663)) {
+			/* Cache this for next time */
+			fee = grindfee;
+			return true;
+		}
+		return false;
+	}
 
 	if (!amount_sat_sub(&amount, amount, fee))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

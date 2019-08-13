@@ -85,6 +85,10 @@ bool shachain_get_secret(const struct shachain *shachain UNNEEDED,
 			 u64 commit_num UNNEEDED,
 			 struct secret *preimage UNNEEDED)
 { fprintf(stderr, "shachain_get_secret called!\n"); abort(); }
+/* Generated stub for status_failed */
+void status_failed(enum status_failreason code UNNEEDED,
+		   const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "status_failed called!\n"); abort(); }
 /* Generated stub for status_setup_sync */
 void status_setup_sync(int fd UNNEEDED)
 { fprintf(stderr, "status_setup_sync called!\n"); abort(); }
@@ -226,16 +230,6 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 
 	tx->wtx->locktime = cltv_expiry;
 	return tx;
-}
-
-void status_failed(enum status_failreason code UNNEEDED,
-		   const char *fmt, ...)
-{
-	/* FIXME! */
-	fprintf(stderr, "XFAIL: %s!\n", fmt);
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
-	exit(0);
 }
 
 int main(void)
