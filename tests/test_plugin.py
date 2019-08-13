@@ -411,6 +411,7 @@ def test_openchannel_hook(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100001)
 
 
+@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_fail(node_factory):
     """Send payments from l1 to l2, but l2 just declines everything.
 
@@ -447,6 +448,7 @@ def test_htlc_accepted_hook_fail(node_factory):
     assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
 
 
+@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_resolve(node_factory):
     """l3 creates an invoice, l2 knows the preimage and will shortcircuit.
     """
@@ -482,6 +484,7 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1.result()
 
 
+@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
     """
