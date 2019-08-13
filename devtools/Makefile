@@ -75,4 +75,4 @@ check-source: $(DEVTOOLS_SRC:%=check-src-include-order/%) $(DEVTOOLS_TOOLS_SRC:%
 clean: devtools-clean
 
 devtools-clean:
-	$(RM) $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS) devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/gen_print_wire.[c,h,o]
+	$(RM) $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS) devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/gen_print_wire.[c,h,o] devtools/gen_print_onion_wire.[c,h,o]
