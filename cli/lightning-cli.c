@@ -408,7 +408,7 @@ static enum format delete_format_hint(const char *resp,
 		format = HUMAN;
 
 	/* Don't let hint appear in the output! */
-	json_tok_remove(toks, result, hint, 1);
+	json_tok_remove(toks, result, hint-1, 1);
 	return format;
 }
 
