@@ -122,6 +122,7 @@ def test_invoice_preimage(node_factory):
         l2.rpc.invoice(123456, 'inv2', '?', preimage=invoice_preimage)
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
     """
