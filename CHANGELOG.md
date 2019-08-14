@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.2-rc1] 
+## [0.7.2-rc2]
 
 ### Added
 
@@ -48,6 +48,7 @@ changes.
 - wallet: We will now backfill blocks below our wallet start height on demand when we require them to verify gossip messages. This fixes an issue where we would not remove channels on spend that were opened below that start height because we weren't tracking the funding output.
 - Detect when we're still syncing with bitcoin network: don't send or receive
   HTLCs or allow `fundchannel`.
+- Rare onchaind error where we don't recover our own unilateral close with multiple same-preimage HTLCs fixed.
 
 ### Security
 
@@ -427,7 +428,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[0.7.2-rc1]: https://github.com/ElementsProject/lightning/compare/v0.7.1...HEAD
+[0.7.2-rc2]: https://github.com/ElementsProject/lightning/compare/v0.7.1...HEAD
 [0.7.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.1
 [0.7.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.0
 [0.6.3]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.3
