@@ -749,8 +749,16 @@ void subd_req_(const tal_t *ctx,
 	add_req(ctx, sd, type, num_fds_in, replycb, replycb_data);
 }
 
+/* SIGALRM terminates by default: we just want it to interrupt waitpid(),
+ * which is implied by "handling" it. */
+static void discard_alarm(int sig UNNEEDED)
+{
+}
+
 struct subd *subd_shutdown(struct subd *sd, unsigned int seconds)
 {
+	struct sigaction sa, old;
+
 	log_debug(sd->log, "Shutting down");
 
 	tal_del_destructor(sd, destroy_subd);
@@ -759,19 +767,24 @@ struct subd *subd_shutdown(struct subd *sd, unsigned int seconds)
 	tal_steal(sd->ld, sd);
 	sd->conn = tal_free(sd->conn);
 
-	/* Wait for a while. */
-	while (seconds) {
-		if (waitpid(sd->pid, NULL, WNOHANG) > 0) {
-			return (struct subd*) tal_free(sd);
-		}
-		sleep(1);
-		seconds--;
+	/* Set up alarm to wake us up if child doesn't exit. */
+	sa.sa_handler = discard_alarm;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sigaction(SIGALRM, &sa, &old);
+	alarm(seconds);
+
+	if (waitpid(sd->pid, NULL, 0) > 0) {
+		alarm(0);
+		sigaction(SIGALRM, &old, NULL);
+		return tal_free(sd);
 	}
 
+	sigaction(SIGALRM, &old, NULL);
 	/* Didn't die?  This will kill it harder */
 	sd->must_not_exit = false;
 	destroy_subd(sd);
-	return (struct subd*) tal_free(sd);
+	return tal_free(sd);
 }
 
 void subd_release_channel(struct subd *owner, void *channel)
