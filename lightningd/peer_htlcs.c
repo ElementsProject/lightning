@@ -2148,9 +2148,11 @@ void json_format_forwarding_object(struct json_stream *response,
 {
 	json_object_start(response, fieldname);
 
-	json_add_hex(response, "payment_hash",
-				    cur->payment_hash,
-				    sizeof(*cur->payment_hash));
+	/* See 6d333f16cc0f3aac7097269bf0985b5fa06d59b4 */
+	if (cur->payment_hash)
+		json_add_hex(response, "payment_hash",
+					    cur->payment_hash,
+					    sizeof(*cur->payment_hash));
 	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 	json_add_short_channel_id(response, "out_channel", &cur->channel_out);
 	json_add_amount_msat_compat(response,
