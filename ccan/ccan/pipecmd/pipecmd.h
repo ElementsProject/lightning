@@ -20,7 +20,8 @@
  * If @errfd == @outfd (and non-NULL) they will be shared.
  * If @infd, @outfd or @errfd is &pipecmd_preserve, it is unchanged.
  *
- * The return value is the pid of the child, or -1.
+ * The return value is the pid of the child, or -1.  All other file-descriptors
+ * are closed in the child.
  */
 pid_t pipecmd(int *infd, int *outfd, int *errfd, const char *cmd, ...);
 

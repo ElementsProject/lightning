@@ -137,6 +137,13 @@ pid_t pipecmdarr(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 				goto child_errno_fail;
 			close(errfromchild[1]);
 		}
+
+		/* Make (fairly!) sure all other fds are closed. */
+		int max = sysconf(_SC_OPEN_MAX);
+		for (int i = 3; i < max; i++)
+			if (i != execfail[1])
+				close(i);
+
 		execvp(arr[0], arr);
 
 	child_errno_fail:

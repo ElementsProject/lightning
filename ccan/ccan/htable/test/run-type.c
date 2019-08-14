@@ -65,7 +65,7 @@ static void find_vals(const struct htable_obj *ht,
 			return;
 		}
 	}
-	pass("Found %u numbers in hash", i);
+	ok1(htable_obj_count(ht) == i);
 }
 
 static void del_vals(struct htable_obj *ht,
@@ -116,12 +116,13 @@ int main(void)
 	void *p;
 	struct htable_obj_iter iter;
 
-	plan_tests(29);
+	plan_tests(32);
 	for (i = 0; i < NUM_VALS; i++)
 		val[i].key = i;
 	dne = i;
 
 	htable_obj_init(&ht);
+	ok1(htable_obj_count(&ht) == 0);
 	ok1(ht_max(&ht.raw) == 0);
 	ok1(ht.raw.bits == 0);
 
@@ -205,6 +206,8 @@ int main(void)
 	}
 
 	htable_obj_clear(&ht);
+	ok1(htable_obj_count(&ht) == 0);
 	htable_obj_clear(&ht2);
+	ok1(htable_obj_count(&ht2) == 0);
 	return exit_status();
 }
