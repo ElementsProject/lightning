@@ -10,6 +10,7 @@
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/timeout.h>
+#include <common/version.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/io_loop_with_timers.h>
@@ -1012,6 +1013,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 				path_join(tmpctx, plugins->ld->config_dir, "plugins"));
 
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
+	setenv("LIGHTNINGD_VERSION", version(), 1);
 	/* Spawn the plugin processes before entering the io_loop */
 	plugins_start(plugins, dev_plugin_debug);
 
