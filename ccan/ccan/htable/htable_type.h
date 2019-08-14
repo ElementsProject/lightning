@@ -25,6 +25,9 @@
  *	void <name>_clear(struct <name> *);
  *	bool <name>_copy(struct <name> *dst, const struct <name> *src);
  *
+ * Count entries:
+ *	size_t <name>_count(const struct <name> *ht);
+ *
  * Add function only fails if we run out of memory:
  *	bool <name>_add(struct <name> *ht, const <type> *e);
  *
@@ -68,6 +71,10 @@
 						      size_t s)		\
 	{								\
 		return htable_init_sized(&ht->raw, name##_hash, NULL, s); \
+	}								\
+	static inline UNNEEDED size_t name##_count(const struct name *ht) \
+	{								\
+		return htable_count(&ht->raw);				\
 	}								\
 	static inline UNNEEDED void name##_clear(struct name *ht)	\
 	{								\

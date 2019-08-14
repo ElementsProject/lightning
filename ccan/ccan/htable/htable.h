@@ -76,6 +76,15 @@ bool htable_init_sized(struct htable *ht,
 		       void *priv, size_t size);
 
 /**
+ * htable_count - count number of entries in a hash table.
+ * @ht: the hash table
+ */
+static inline size_t htable_count(const struct htable *ht)
+{
+	return ht->elems;
+}
+
+/**
  * htable_clear - empty a hash table.
  * @ht: the hash table to clear
  *

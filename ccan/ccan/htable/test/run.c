@@ -67,7 +67,7 @@ static void find_vals(struct htable *ht,
 			return;
 		}
 	}
-	pass("Found %llu numbers in hash", (long long)i);
+	ok1(htable_count(ht) == i);
 }
 
 static void del_vals(struct htable *ht,
@@ -105,12 +105,13 @@ int main(void)
 	void *p;
 	struct htable_iter iter;
 
-	plan_tests(36);
+	plan_tests(38);
 	for (i = 0; i < NUM_VALS; i++)
 		val[i] = i;
 	dne = i;
 
 	htable_init(&ht, hash, NULL);
+	ok1(htable_count(&ht) == 0);
 	ok1(ht_max(&ht) == 0);
 	ok1(ht.bits == 0);
 
@@ -207,6 +208,8 @@ int main(void)
 	ok1(htable_init_sized(&ht, hash, NULL, 1025));
 	ok1(ht_max(&ht) >= 1025);
 	htable_clear(&ht);
-	
+
+	ok1(htable_count(&ht) == 0);
+
 	return exit_status();
 }
