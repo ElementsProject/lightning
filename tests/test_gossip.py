@@ -1309,6 +1309,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
         assert bytearray(f.read()) == bytearray.fromhex("07")
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
