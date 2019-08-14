@@ -131,6 +131,7 @@ def test_bad_opening(node_factory):
     l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
 
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_opening_tiny_channel(node_factory):
     # Test custom min-capacity-sat parameters
     #
