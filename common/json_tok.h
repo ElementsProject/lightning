@@ -74,6 +74,12 @@ struct command_result *param_sat(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 struct amount_sat **sat);
 
+/* Extract satoshi amount from this string. */
+/* If the string is "all", set amonut as AMOUNT_SAT(-1ULL). */
+struct command_result *param_sat_or_all(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t *tok,
+					struct amount_sat **sat);
+
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that
  * want to unmarshal @tok themselves.

@@ -60,6 +60,16 @@ bool json_to_sat(const char *buffer, const jsmntok_t *tok,
 	return parse_amount_sat(sat, buffer + tok->start, tok->end - tok->start);
 }
 
+bool json_to_sat_or_all(const char *buffer, const jsmntok_t *tok,
+			struct amount_sat *sat)
+{
+	if (json_tok_streq(buffer, tok, "all")) {
+		*sat = AMOUNT_SAT(-1ULL);
+		return true;
+	}
+	return json_to_sat(buffer, tok, sat);
+}
+
 bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
 			      struct short_channel_id *scid,
 			      bool may_be_deprecated_form)

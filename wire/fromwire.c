@@ -378,3 +378,14 @@ void fromwire_bip32_key_version(const u8** cursor, size_t *max,
 	version->bip32_pubkey_version = fromwire_u32(cursor, max);
 	version->bip32_privkey_version = fromwire_u32(cursor, max);
 }
+
+struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
+						     const u8 **cursor, size_t *max)
+{
+	struct bitcoin_tx_output *output = tal(ctx, struct bitcoin_tx_output);
+	output->amount = fromwire_amount_sat(cursor, max);
+	u16 script_len = fromwire_u16(cursor, max);
+	output->script = tal_arr(output, u8, script_len);
+	fromwire_u8_array(cursor, max, output->script, script_len);
+	return output;
+}

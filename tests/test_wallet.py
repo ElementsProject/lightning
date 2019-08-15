@@ -200,8 +200,7 @@ def test_txprepare(node_factory, bitcoind):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
-    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                            Millisatoshi(amount * 3 * 1000))
+    prep = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': Millisatoshi(amount * 3 * 1000)}])
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
     # 4 inputs, 2 outputs.
@@ -224,8 +223,7 @@ def test_txprepare(node_factory, bitcoind):
     assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
 
     # Now prepare one with no change.
-    prep2 = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                             'all')
+    prep2 = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': 'all'}])
     decode = bitcoind.rpc.decoderawtransaction(prep2['unsigned_tx'])
     assert decode['txid'] == prep2['txid']
     # 6 inputs, 1 outputs.
@@ -243,8 +241,7 @@ def test_txprepare(node_factory, bitcoind):
     assert discard['txid'] == prep['txid']
     assert discard['unsigned_tx'] == prep['unsigned_tx']
 
-    prep3 = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                             'all')
+    prep3 = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': 'all'}])
     decode = bitcoind.rpc.decoderawtransaction(prep3['unsigned_tx'])
     assert decode['txid'] == prep3['txid']
     # 4 inputs, 1 outputs.
@@ -264,8 +261,7 @@ def test_txprepare(node_factory, bitcoind):
     # Discard everything, we should now spend all inputs.
     l1.rpc.txdiscard(prep2['txid'])
     l1.rpc.txdiscard(prep3['txid'])
-    prep4 = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                             'all')
+    prep4 = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': 'all'}])
     decode = bitcoind.rpc.decoderawtransaction(prep4['unsigned_tx'])
     assert decode['txid'] == prep4['txid']
     # 10 inputs, 1 outputs.
@@ -292,8 +288,7 @@ def test_txsend(node_factory, bitcoind):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
-    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                            Millisatoshi(amount * 3 * 1000))
+    prep = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': Millisatoshi(amount * 3 * 1000)}])
     out = l1.rpc.txsend(prep['txid'])
 
     # Cannot discard after send!
@@ -336,8 +331,7 @@ def test_txprepare_restart(node_factory, bitcoind):
     bitcoind.generate_block(1)
     wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 10)
 
-    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                            'all')
+    prep = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': 'all'}])
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
     # All 10 inputs
@@ -352,8 +346,7 @@ def test_txprepare_restart(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'not an unreleased txid'):
         l1.rpc.txdiscard(prep['txid'])
 
-    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                            'all')
+    prep = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': 'all'}])
 
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
@@ -370,8 +363,7 @@ def test_txprepare_restart(node_factory, bitcoind):
     for i in decode['vin']:
         assert l1.daemon.is_in_log('wallet: reserved output {}/{} reset to available'.format(i['txid'], i['vout']))
 
-    prep = l1.rpc.txprepare('bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg',
-                            'all')
+    prep = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': 'all'}])
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
     # All 10 inputs

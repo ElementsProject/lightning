@@ -58,8 +58,8 @@ struct unreleased_tx {
 	struct list_node list;
 	/* All the utxos. */
 	struct wallet_tx *wtx;
-	/* Scriptpubkey this pays to. */
-	const u8 *destination;
+	/* Outputs(scriptpubkey and satoshi) this pays to. */
+	struct bitcoin_tx_output **outputs;
 	/* The tx itself (unsigned initially) */
 	struct bitcoin_tx *tx;
 	struct bitcoin_txid txid;

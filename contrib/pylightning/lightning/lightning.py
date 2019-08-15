@@ -875,18 +875,18 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("withdraw", payload)
 
-    def txprepare(self, destination, satoshi, feerate=None, minconf=None):
+    def txprepare(self, outputs, feerate=None, minconf=None):
         """
-        Prepare a bitcoin transaction which sends to {destination} address
-        {satoshi} (or "all") amount via Bitcoin transaction. Only select outputs
-        with {minconf} confirmations.
+        Prepare a bitcoin transaction which sends to [outputs].
+        The format of output is like [{address1: amount1},
+        {address2: amount2}], or [{address: "all"}]).
+        Only select outputs with {minconf} confirmations.
 
         Outputs will be reserved until you call txdiscard or txsend, or
         lightningd restarts.
         """
         payload = {
-            "destination": destination,
-            "satoshi": satoshi,
+            "outputs": outputs,
             "feerate": feerate,
             "minconf": minconf,
         }

@@ -32,6 +32,11 @@ bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
 bool json_to_sat(const char *buffer, const jsmntok_t *tok,
 		 struct amount_sat *sat);
 
+/* Extract a satoshis amount from this */
+/* If the string is "all", set amonut as AMOUNT_SAT(-1ULL). */
+bool json_to_sat_or_all(const char *buffer, const jsmntok_t *tok,
+			struct amount_sat *sat);
+
 /* Extract a millisatoshis amount from this */
 bool json_to_msat(const char *buffer, const jsmntok_t *tok,
 		  struct amount_msat *msat);
