@@ -1335,7 +1335,7 @@ void db_bind_u64(struct db_stmt *stmt, int pos, u64 val)
 	stmt->bindings[pos].v.u64 = val;
 }
 
-void db_bind_blob(struct db_stmt *stmt, int pos, u8 *val, size_t len)
+void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len)
 {
 	assert(pos < tal_count(stmt->bindings));
 	stmt->bindings[pos].type = DB_BINDING_BLOB;
@@ -1349,6 +1349,178 @@ void db_bind_text(struct db_stmt *stmt, int pos, const char *val)
 	stmt->bindings[pos].type = DB_BINDING_TEXT;
 	stmt->bindings[pos].v.text = val;
 	stmt->bindings[pos].len = strlen(val);
+}
+
+void db_bind_preimage(struct db_stmt *stmt, int pos, const struct preimage *p)
+{
+	db_bind_blob(stmt, pos, p->r, sizeof(struct preimage));
+}
+
+void db_bind_sha256(struct db_stmt *stmt, int pos, const struct sha256 *s)
+{
+	db_bind_blob(stmt, pos, s->u.u8, sizeof(struct sha256));
+}
+
+void db_bind_sha256d(struct db_stmt *stmt, int pos, const struct sha256_double *s)
+{
+	db_bind_sha256(stmt, pos, &s->sha);
+}
+
+void db_bind_secret(struct db_stmt *stmt, int pos, const struct secret *s)
+{
+	assert(sizeof(s->data) == 32);
+	db_bind_blob(stmt, pos, s->data, sizeof(s->data));
+}
+
+void db_bind_secret_arr(struct db_stmt *stmt, int col, const struct secret *s)
+{
+	size_t num = tal_count(s), elsize = sizeof(s->data);
+	u8 *ser = tal_arr(stmt, u8, num * elsize);
+
+	for (size_t i = 0; i < num; ++i)
+		memcpy(ser + i * elsize, &s[i], elsize);
+
+	db_bind_blob(stmt, col, ser, tal_count(ser));
+}
+
+void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t)
+{
+	db_bind_sha256d(stmt, pos, &t->shad);
+}
+
+void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *id)
+{
+	db_bind_blob(stmt, pos, id->k, sizeof(id->k));
+}
+
+void db_bind_node_id_arr(struct db_stmt *stmt, int col,
+			 const struct node_id *ids)
+{
+	/* Copy into contiguous array: ARM will add padding to struct node_id! */
+	size_t n = tal_count(ids);
+	u8 *arr = tal_arr(stmt, u8, n * sizeof(ids[0].k));
+
+	for (size_t i = 0; i < n; ++i) {
+		assert(node_id_valid(&ids[i]));
+		memcpy(arr + sizeof(ids[i].k) * i,
+		       ids[i].k,
+		       sizeof(ids[i].k));
+	}
+	db_bind_blob(stmt, col, arr, tal_count(arr));
+}
+
+void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *pk)
+{
+	u8 *der = tal_arr(stmt, u8, PUBKEY_CMPR_LEN);
+	pubkey_to_der(der, pk);
+	db_bind_blob(stmt, pos, der, PUBKEY_CMPR_LEN);
+}
+
+void db_bind_short_channel_id(struct db_stmt *stmt, int col,
+			      const struct short_channel_id *id)
+{
+	char *ser = short_channel_id_to_str(stmt, id);
+	db_bind_text(stmt, col, ser);
+}
+
+void db_bind_short_channel_id_arr(struct db_stmt *stmt, int col,
+				  const struct short_channel_id *id)
+{
+	u8 *ser = tal_arr(stmt, u8, 0);
+	size_t num = tal_count(id);
+
+	for (size_t i = 0; i < num; ++i)
+		towire_short_channel_id(&ser, &id[i]);
+
+	db_bind_blob(stmt, col, ser, tal_count(ser));
+}
+
+void db_bind_signature(struct db_stmt *stmt, int col,
+		       const secp256k1_ecdsa_signature *sig)
+{
+	u8 *buf = tal_arr(stmt, u8, 64);
+	int ret = secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx,
+							      buf, sig);
+	assert(ret == 1);
+	db_bind_blob(stmt, col, buf, 64);
+}
+
+void db_bind_timeabs(struct db_stmt *stmt, int col, struct timeabs t)
+{
+	u64 timestamp =  t.ts.tv_nsec + (((u64) t.ts.tv_sec) * ((u64) NSEC_IN_SEC));
+	db_bind_u64(stmt, col, timestamp);
+}
+
+void db_bind_tx(struct db_stmt *stmt, int col, const struct bitcoin_tx *tx)
+{
+	u8 *ser = linearize_tx(stmt, tx);
+	assert(ser);
+	db_bind_blob(stmt, col, ser, tal_count(ser));
+}
+
+void db_bind_amount_msat(struct db_stmt *stmt, int pos,
+			 const struct amount_msat *msat)
+{
+	db_bind_u64(stmt, pos, msat->millisatoshis); /* Raw: low level function */
+}
+
+void db_bind_amount_sat(struct db_stmt *stmt, int pos,
+			 const struct amount_sat *sat)
+{
+	db_bind_u64(stmt, pos, sat->satoshis); /* Raw: low level function */
+}
+
+void db_bind_json_escape(struct db_stmt *stmt, int pos,
+			 const struct json_escape *esc)
+{
+	db_bind_text(stmt, pos, esc->s);
+}
+
+void db_column_preimage(struct db_stmt *stmt, int col,
+			struct preimage *preimage)
+{
+	const u8 *raw;
+	size_t size = sizeof(struct preimage);
+	assert(db_column_bytes(stmt, col) == size);
+	raw = db_column_blob(stmt, col);
+	memcpy(preimage, raw, size);
+}
+
+void db_column_amount_msat(struct db_stmt *stmt, int col,
+			   struct amount_msat *msat)
+{
+	msat->millisatoshis = db_column_u64(stmt, col); /* Raw: low level function */
+}
+
+void db_column_amount_sat(struct db_stmt *stmt, int col, struct amount_sat *sat)
+{
+	sat->satoshis = db_column_u64(stmt, col); /* Raw: low level function */
+}
+
+struct json_escape *db_column_json_escape(const tal_t *ctx,
+					  struct db_stmt *stmt, int col)
+{
+	return json_escape_string_(ctx, db_column_blob(stmt, col),
+				   db_column_bytes(stmt, col));
+}
+
+void db_column_sha256(struct db_stmt *stmt, int col, struct sha256 *sha)
+{
+	const u8 *raw;
+	size_t size = sizeof(struct sha256);
+	assert(db_column_bytes(stmt, col) == size);
+	raw = db_column_blob(stmt, col);
+	memcpy(sha, raw, size);
+}
+
+void db_column_sha256d(struct db_stmt *stmt, int col,
+		       struct sha256_double *shad)
+{
+	const u8 *raw;
+	size_t size = sizeof(struct sha256_double);
+	assert(db_column_bytes(stmt, col) == size);
+	raw = db_column_blob(stmt, col);
+	memcpy(shad, raw, size);
 }
 
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)

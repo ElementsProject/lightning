@@ -247,9 +247,32 @@ void db_close(struct db *db);
 void db_bind_null(struct db_stmt *stmt, int pos);
 void db_bind_int(struct db_stmt *stmt, int pos, int val);
 void db_bind_u64(struct db_stmt *stmt, int pos, u64 val);
-void db_bind_blob(struct db_stmt *stmt, int pos, u8 *val, size_t len);
+void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len);
 void db_bind_text(struct db_stmt *stmt, int pos, const char *val);
-bool db_exec_prepared_v2(struct db_stmt *stmt TAKES);
+void db_bind_preimage(struct db_stmt *stmt, int pos, const struct preimage *p);
+void db_bind_sha256(struct db_stmt *stmt, int pos, const struct sha256 *s);
+void db_bind_sha256d(struct db_stmt *stmt, int pos, const struct sha256_double *s);
+void db_bind_secret(struct db_stmt *stmt, int pos, const struct secret *s);
+void db_bind_secret_arr(struct db_stmt *stmt, int col, const struct secret *s);
+void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t);
+void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *ni);
+void db_bind_node_id_arr(struct db_stmt *stmt, int col,
+			 const struct node_id *ids);
+void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *p);
+void db_bind_short_channel_id(struct db_stmt *stmt, int col,
+			      const struct short_channel_id *id);
+void db_bind_short_channel_id_arr(struct db_stmt *stmt, int col,
+				  const struct short_channel_id *id);
+void db_bind_signature(struct db_stmt *stmt, int col,
+		       const secp256k1_ecdsa_signature *sig);
+void db_bind_timeabs(struct db_stmt *stmt, int col, struct timeabs t);
+void db_bind_tx(struct db_stmt *stmt, int col, const struct bitcoin_tx *tx);
+void db_bind_amount_msat(struct db_stmt *stmt, int pos,
+			 const struct amount_msat *msat);
+void db_bind_amount_sat(struct db_stmt *stmt, int pos,
+			const struct amount_sat *sat);
+void db_bind_json_escape(struct db_stmt *stmt, int pos,
+			 const struct json_escape *esc);
 
 bool db_step(struct db_stmt *stmt);
 u64 db_column_u64(struct db_stmt *stmt, int col);
@@ -258,6 +281,8 @@ size_t db_column_bytes(struct db_stmt *stmt, int col);
 int db_column_is_null(struct db_stmt *stmt, int col);
 const void* db_column_blob(struct db_stmt *stmt, int col);
 const unsigned char *db_column_text(struct db_stmt *stmt, int col);
+
+bool db_exec_prepared_v2(struct db_stmt *stmt TAKES);
 bool db_query_prepared(struct db_stmt *stmt);
 size_t db_count_changes(struct db_stmt *stmt);
 
