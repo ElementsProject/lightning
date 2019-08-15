@@ -247,8 +247,17 @@ void db_close(struct db *db);
 void db_bind_null(struct db_stmt *stmt, int pos);
 void db_bind_int(struct db_stmt *stmt, int pos, int val);
 void db_bind_u64(struct db_stmt *stmt, int pos, u64 val);
-void db_bind_blob(struct db_stmt *stmt, int pos, u8 *val, size_t len);
+void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len);
 void db_bind_text(struct db_stmt *stmt, int pos, const char *val);
+void db_bind_preimage(struct db_stmt *stmt, int pos, const struct preimage *p);
+void db_bind_sha256(struct db_stmt *stmt, int pos, const struct sha256 *s);
+void db_bind_amount_msat(struct db_stmt *stmt, int pos,
+			 const struct amount_msat *msat);
+void db_bind_amount_sat(struct db_stmt *stmt, int pos,
+			const struct amount_sat *sat);
+void db_bind_json_escape(struct db_stmt *stmt, int pos,
+			 const struct json_escape *esc);
+
 bool db_exec_prepared_v2(struct db_stmt *stmt);
 
 bool db_step(struct db_stmt *stmt);

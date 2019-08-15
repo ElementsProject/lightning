@@ -1330,7 +1330,7 @@ void db_bind_u64(struct db_stmt *stmt, int pos, u64 val)
 	stmt->bindings[pos].v.u64 = val;
 }
 
-void db_bind_blob(struct db_stmt *stmt, int pos, u8 *val, size_t len)
+void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len)
 {
 	assert(pos < tal_count(stmt->bindings));
 	stmt->bindings[pos].type = DB_BINDING_BLOB;
@@ -1344,6 +1344,34 @@ void db_bind_text(struct db_stmt *stmt, int pos, const char *val)
 	stmt->bindings[pos].type = DB_BINDING_TEXT;
 	stmt->bindings[pos].v.text = val;
 	stmt->bindings[pos].len = strlen(val);
+}
+
+void db_bind_preimage(struct db_stmt *stmt, int pos, const struct preimage *p)
+{
+	db_bind_blob(stmt, pos, p->r, sizeof(struct preimage));
+}
+
+void db_bind_sha256(struct db_stmt *stmt, int pos, const struct sha256 *s)
+{
+	db_bind_blob(stmt, pos, s->u.u8, sizeof(struct sha256));
+}
+
+void db_bind_amount_msat(struct db_stmt *stmt, int pos,
+			 const struct amount_msat *msat)
+{
+	db_bind_u64(stmt, pos, msat->millisatoshis);
+}
+
+void db_bind_amount_sat(struct db_stmt *stmt, int pos,
+			 const struct amount_sat *sat)
+{
+	db_bind_u64(stmt, pos, sat->satoshis);
+}
+
+void db_bind_json_escape(struct db_stmt *stmt, int pos,
+			 const struct json_escape *esc)
+{
+	db_bind_text(stmt, pos, esc->s);
 }
 
 bool db_exec_prepared_v2(struct db_stmt *stmt)
