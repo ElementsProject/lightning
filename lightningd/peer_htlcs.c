@@ -19,6 +19,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/options.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -2148,22 +2149,30 @@ void json_format_forwarding_object(struct json_stream *response,
 {
 	json_object_start(response, fieldname);
 
-	/* See 6d333f16cc0f3aac7097269bf0985b5fa06d59b4 */
+	/* See 6d333f16cc0f3aac7097269bf0985b5fa06d59b4: we may have deleted HTLC. */
 	if (cur->payment_hash)
 		json_add_hex(response, "payment_hash",
 					    cur->payment_hash,
 					    sizeof(*cur->payment_hash));
 	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
-	json_add_short_channel_id(response, "out_channel", &cur->channel_out);
+
+	/* This can be unknown if we failed before channel lookup */
+	if (cur->channel_out.u64 != 0 || deprecated_apis)
+		json_add_short_channel_id(response, "out_channel",
+					  &cur->channel_out);
 	json_add_amount_msat_compat(response,
 				    cur->msat_in,
 				    "in_msatoshi", "in_msat");
-	json_add_amount_msat_compat(response,
-				    cur->msat_out,
-				    "out_msatoshi",  "out_msat");
-	json_add_amount_msat_compat(response,
-				    cur->fee,
-				    "fee", "fee_msat");
+
+	/* These can be unset (aka zero) if we failed before channel lookup */
+	if (cur->channel_out.u64 != 0 || deprecated_apis) {
+		json_add_amount_msat_compat(response,
+					    cur->msat_out,
+					    "out_msatoshi",  "out_msat");
+		json_add_amount_msat_compat(response,
+					    cur->fee,
+					    "fee", "fee_msat");
+	}
 	json_add_string(response, "status", forward_status_name(cur->status));
 
 	if(cur->failcode != 0) {

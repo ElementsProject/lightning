@@ -35,6 +35,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
 
 - Plugin: using startup-relative paths for `plugin` and `plugin-dir`: they're now relative to `lightning-dir`.
+- JSON API: `listforwards` removed dummy (zero) fields for `out_msat`, `fee_msat`, `in_channel` and `out_channel` if unknown (i.e. deleted from db, or `status` is `local-failed`.
 
 ### Removed
 
