@@ -31,13 +31,6 @@
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
-struct withdrawal {
-	struct command *cmd;
-	struct wallet_tx *wtx;
-	u8 *destination;
-	const char *hextx;
-};
-
 /**
  * wallet_withdrawal_broadcast - The tx has been broadcast (or it failed)
  *
