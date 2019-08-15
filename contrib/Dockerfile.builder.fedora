@@ -13,6 +13,7 @@ RUN dnf update -y && \
 		libsq3-devel \
 		python2-devel \
 		python3-devel \
+		python3-mako \
 		python3-pip \
 		python3-setuptools \
 		redhat-lsb \
