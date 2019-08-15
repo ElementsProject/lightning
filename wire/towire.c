@@ -249,3 +249,10 @@ void towire_bip32_key_version(u8 **pptr, const struct bip32_key_version *version
 	towire_u32(pptr, version->bip32_pubkey_version);
 	towire_u32(pptr, version->bip32_privkey_version);
 }
+
+void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
+{
+	towire_amount_sat(pptr, output->amount);
+	towire_u16(pptr, tal_count(output->script));
+	towire_u8_array(pptr, output->script, tal_count(output->script));
+}

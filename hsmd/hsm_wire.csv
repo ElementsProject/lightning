@@ -69,8 +69,8 @@ msgtype,hsm_sign_withdrawal,7
 msgdata,hsm_sign_withdrawal,satoshi_out,amount_sat,
 msgdata,hsm_sign_withdrawal,change_out,amount_sat,
 msgdata,hsm_sign_withdrawal,change_keyindex,u32,
-msgdata,hsm_sign_withdrawal,scriptpubkey_len,u16,
-msgdata,hsm_sign_withdrawal,scriptpubkey,u8,scriptpubkey_len
+msgdata,hsm_sign_withdrawal,num_outputs,u16,
+msgdata,hsm_sign_withdrawal,outputs,bitcoin_tx_output,num_outputs
 msgdata,hsm_sign_withdrawal,num_inputs,u16,
 msgdata,hsm_sign_withdrawal,inputs,utxo,num_inputs
 

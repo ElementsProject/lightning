@@ -183,7 +183,19 @@ struct command_result *param_sat(struct command *cmd, const char *name,
 		return NULL;
 
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a satoshi amount, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+			    "%s should be a satoshi amount, not '%.*s'",
+			    name ? name : "amount field",
+			    tok->end - tok->start, buffer + tok->start);
 }
 
+struct command_result *param_sat_or_all(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t *tok,
+					struct amount_sat **sat)
+{
+	if (json_tok_streq(buffer, tok, "all")) {
+		*sat = tal(cmd, struct amount_sat);
+		**sat = AMOUNT_SAT(-1ULL);
+		return NULL;
+	}
+	return param_sat(cmd, name, buffer, tok, sat);
+}

@@ -1514,24 +1514,17 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	struct utxo **utxos;
 	struct bitcoin_tx *tx;
 	struct pubkey changekey;
-	u8 *scriptpubkey;
 	struct bitcoin_tx_output **outputs;
 
-	outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, 0);
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in, &satoshi_out,
 					  &change_out, &change_keyindex,
-					  &scriptpubkey, &utxos))
+					  &outputs, &utxos))
 		return bad_req(conn, c, msg_in);
 
 	if (!bip32_pubkey(&secretstuff.bip32, &changekey, change_keyindex))
 		return bad_req_fmt(conn, c, msg_in,
 				   "Failed to get key %u", change_keyindex);
 
-	struct bitcoin_tx_output *output = tal(outputs,
-					       struct bitcoin_tx_output);
-	output->script = tal_steal(output, scriptpubkey);
-	output->amount = satoshi_out;
-	tal_arr_expand(&outputs, output);
 	tx = withdraw_tx(tmpctx, c->chainparams,
 			 cast_const2(const struct utxo **, utxos), outputs,
 			 &changekey, change_out, NULL, NULL);
