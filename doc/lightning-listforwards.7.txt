@@ -22,17 +22,26 @@ Each entry in 'forwards' will include:
 
 - 'in_channel' - the short_channel_id of the channel that recieved the incoming htlc.
 
-- 'out_channel' - the short_channel_id of to which the outgoing htlc is supposed to be forwarded.
-
 - 'in_msatoshi', 'in_msat' - amount of msatoshis that are forwarded to this node.
 
-- 'out_msatoshi', 'out_msat' - amount of msatoshis to be forwarded.
+- 'status' - status can be either 'offered' if the routing process is still ongoing, 'settled' if the routing process is completed, 'failed' if the routing process could not be completed, or 'local_failed' if the node failed the forward itself.
+
+- 'received_time' - timestamp when incoming htlc was received.
+
+The following additional fields are usually present, but will not be for some
+variants of status 'local_failed' (if it failed before we determined these):
 
 - 'fee', 'fee_msat' - fee offered for forwarding the htlc in msatoshi.
 
-- 'status' - status can be either 'offered' if the routing process is still ongoing, 'settled' if the routing process is completed or 'failed' if the routing process could not be completed.
+- 'out_channel' - the short_channel_id of to which the outgoing htlc is supposed to be forwarded.
 
-- 'received_time' - timestamp when incoming htlc was received.
+- 'out_msatoshi', 'out_msat' - amount of msatoshis to be forwarded.
+
+The following fields may be offered, but for old forgotten HTLCs they will be omitted:
+
+- 'payment_hash' - the payment_hash belonging to the HTLC.
+
+If the status is not 'offered', the following additional fields are present:
 
 - 'resolved_time' - timestamp when htlc was resolved (settled or failed).
 
