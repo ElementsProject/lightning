@@ -1374,6 +1374,53 @@ void db_bind_json_escape(struct db_stmt *stmt, int pos,
 	db_bind_text(stmt, pos, esc->s);
 }
 
+void db_column_preimage(struct db_stmt *stmt, int col,
+			struct preimage *preimage)
+{
+	const u8 *raw;
+	size_t size = sizeof(struct preimage);
+	assert(db_column_bytes(stmt, col) == size);
+	raw = db_column_blob(stmt, col);
+	memcpy(preimage, raw, size);
+}
+
+void db_column_amount_msat(struct db_stmt *stmt, int col,
+			   struct amount_msat *msat)
+{
+	msat->millisatoshis = db_column_u64(stmt, col); /* Raw: low level function */
+}
+
+void db_column_amount_sat(struct db_stmt *stmt, int col, struct amount_sat *sat)
+{
+	sat->satoshis = db_column_u64(stmt, col); /* Raw: low level function */
+}
+
+struct json_escape *db_column_json_escape(const tal_t *ctx,
+					  struct db_stmt *stmt, int col)
+{
+	return json_escape_string_(ctx, db_column_blob(stmt, col),
+				   db_column_bytes(stmt, col));
+}
+
+void db_column_sha256(struct db_stmt *stmt, int col, struct sha256 *sha)
+{
+	const u8 *raw;
+	size_t size = sizeof(struct sha256);
+	assert(db_column_bytes(stmt, col) == size);
+	raw = db_column_blob(stmt, col);
+	memcpy(sha, raw, size);
+}
+
+void db_column_sha256d(struct db_stmt *stmt, int col,
+		       struct sha256_double *shad)
+{
+	const u8 *raw;
+	size_t size = sizeof(struct sha256_double);
+	assert(db_column_bytes(stmt, col) == size);
+	raw = db_column_blob(stmt, col);
+	memcpy(shad, raw, size);
+}
+
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
 	const char *expanded_sql;

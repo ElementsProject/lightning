@@ -242,8 +242,6 @@ void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t);
 struct timeabs sqlite3_column_timeabs(sqlite3_stmt *stmt, int col);
 
 
-void db_close(struct db *db);
-
 void db_bind_null(struct db_stmt *stmt, int pos);
 void db_bind_int(struct db_stmt *stmt, int pos, int val);
 void db_bind_u64(struct db_stmt *stmt, int pos, u64 val);
@@ -258,8 +256,6 @@ void db_bind_amount_sat(struct db_stmt *stmt, int pos,
 void db_bind_json_escape(struct db_stmt *stmt, int pos,
 			 const struct json_escape *esc);
 
-bool db_exec_prepared_v2(struct db_stmt *stmt);
-
 bool db_step(struct db_stmt *stmt);
 u64 db_column_u64(struct db_stmt *stmt, int col);
 int db_column_int(struct db_stmt *stmt, int col);
@@ -267,9 +263,17 @@ size_t db_column_bytes(struct db_stmt *stmt, int col);
 int db_column_is_null(struct db_stmt *stmt, int col);
 const void* db_column_blob(struct db_stmt *stmt, int col);
 const unsigned char *db_column_text(struct db_stmt *stmt, int col);
+void db_column_preimage(struct db_stmt *stmt, int col, struct preimage *preimage);
+void db_column_amount_msat(struct db_stmt *stmt, int col, struct amount_msat *msat);
+void db_column_amount_sat(struct db_stmt *stmt, int col, struct amount_sat *sat);
+struct json_escape *db_column_json_escape(const tal_t *ctx, struct db_stmt *stmt, int col);
+void db_column_sha256(struct db_stmt *stmt, int col, struct sha256 *sha);
+void db_column_sha256d(struct db_stmt *stmt, int col, struct sha256_double *shad);
+
+void db_close(struct db *db);
+bool db_exec_prepared_v2(struct db_stmt *stmt);
 bool db_query_prepared(struct db_stmt *stmt);
 size_t db_count_changes(struct db_stmt *stmt);
-
 struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 			       const char *query_id);
 #define db_prepare_v2(db,query) \
