@@ -1,54 +1,13 @@
 #!/usr/bin/env python3
 
-from clang import cindex
 from mako.template import Template
+
+import sys
 
 
 class Sqlite3Rewriter(object):
     def rewrite(self, query):
         return query
-
-
-queries = []
-counter = 0
-
-
-# Depending on whether the header is included or not we might see the SQL call
-# as one of the types below
-call_types = [
-    cindex.CursorKind.MACRO_INSTANTIATION,
-    cindex.CursorKind.CALL_EXPR
-]
-
-
-def extract_queries(filename):
-    counter = 0
-
-    def extract(node):
-        global counter
-        tokens = [t for t in node.get_tokens()]
-        name = "{}:{}:{}".format(filename, node.extent.end.line, counter)
-        literals = [t.spelling for t in tokens if t.kind == cindex.TokenKind.LITERAL]
-        query = "".join([l[1:-1] for l in literals])
-        counter += 1
-        return {
-            "name": name,
-            "query": query,
-            "placeholders": query.count("?"),
-        }
-
-    def extract_all(node):
-        queries = []
-        if node.kind in call_types and node.spelling == "SQL":
-            queries.append(extract(node))
-
-        for c in node.get_children():
-            queries.extend(extract_all(c))
-        return queries
-
-    index = cindex.Index.create()
-    tu = index.parse(filename, options=cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
-    return extract_all(tu.cursor)
 
 
 rewriters = {
@@ -81,20 +40,56 @@ struct db_query db_${f}_queries[] = {
 #endif /* LIGHTNINGD_WALLET_GEN_DB_${f.upper()} */
 """)
 
-files = [
-    'wallet/db.c',
-    'wallet/wallet.c',
-    'wallet/test/run-db.c',
-    'wallet/test/run-wallet.c',
-]
+
+def extract_queries(pofile):
+    # Given a po-file, extract all queries and their associated names, and
+    # return them as a list.
+
+    def chunk(pofile):
+        # Chunk a given file into chunks separated by an empty line
+        with open(pofile, 'r') as f:
+            chunk = []
+            for line in f:
+                line = line.strip()
+                if line.strip() == "":
+                    yield chunk
+                    chunk = []
+                else:
+                    chunk.append(line.strip())
+            if chunk != []:
+                yield chunk
+
+    queries = []
+    for c in chunk(pofile):
+        name = c[0][3:]
+        # Strip header and surrounding quotes
+        query = c[1][7:][:-1]
+
+        queries.append({
+            'name': name,
+            'query': query,
+            'placeholders': query.count('?'),
+        })
+    return queries
+
 
 if __name__ == "__main__":
-    f = 'sqlite3'
-    queries = []
-    for ff in files:
-        queries.extend(extract_queries(ff))
+    if len(sys.argv) != 3:
+        print("Usage:\n\t{} <statements.po-file> <output-dialect>".format(sys.argv[0]))
+        sys.exit(1)
 
-    rewriter = rewriters[f]
+    dialect = sys.argv[2]
+
+    if dialect not in rewriters:
+        print("Unknown dialect {}. The following are available: {}".format(
+            dialect,
+            ", ".join(rewriters.keys())
+        ))
+        sys.exit(1)
+
+    rewriter = rewriters[dialect]
+
+    queries = extract_queries(sys.argv[1])
     queries = rewriter.rewrite(queries)
 
-    print(template.render(f=f, queries=queries))
+    print(template.render(f=dialect, queries=queries))

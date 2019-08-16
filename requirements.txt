@@ -1,3 +1,2 @@
-clang==6.0.0.2
 sqlparse==0.3.0
 mako==1.0.14
