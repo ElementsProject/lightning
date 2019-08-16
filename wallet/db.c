@@ -1393,6 +1393,10 @@ bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 		assert(stmt->error);
 		db_fatal("Error executing statement: %s", stmt->error);
 	}
+
+	if (taken(stmt))
+	    tal_free(stmt);
+
 	return ret;
 }
 
