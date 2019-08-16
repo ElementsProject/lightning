@@ -69,6 +69,7 @@ def extract_queries(pofile):
             'name': name,
             'query': query,
             'placeholders': query.count('?'),
+            'readonly': "true" if query.upper().startswith("SELECT") else "false",
         })
     return queries
 
