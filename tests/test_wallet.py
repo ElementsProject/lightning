@@ -281,6 +281,36 @@ def test_txprepare(node_factory, bitcoind):
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert decode['vout'][0]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
 
+    # Discard prep4 and get all funds again
+    l1.rpc.txdiscard(prep4['txid'])
+    with pytest.raises(RpcError, match=r'this destination wants all satoshi. The count of outputs can\'t be more than 1'):
+        prep5 = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': Millisatoshi(amount * 3 * 1000)},
+                                  {'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080': 'all'}])
+    prep5 = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': Millisatoshi(amount * 3 * 500 + 100000)},
+                              {'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080': Millisatoshi(amount * 3 * 500 - 100000)}])
+    decode = bitcoind.rpc.decoderawtransaction(prep5['unsigned_tx'])
+    assert decode['txid'] == prep5['txid']
+    # 4 inputs, 3 outputs(include change).
+    assert len(decode['vin']) == 4
+    assert len(decode['vout']) == 3
+
+    # One output will be correct.
+    for i in range(3):
+        if decode['vout'][i - 1]['value'] == Decimal('0.01500100'):
+            outnum1 = i - 1
+        elif decode['vout'][i - 1]['value'] == Decimal('0.01499900'):
+            outnum2 = i - 1
+        else:
+            changenum = i - 1
+
+    assert decode['vout'][outnum1]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert decode['vout'][outnum1]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
+
+    assert decode['vout'][outnum2]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert decode['vout'][outnum2]['scriptPubKey']['addresses'] == ['bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080']
+
+    assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+
 
 def test_txsend(node_factory, bitcoind):
     amount = 1000000
