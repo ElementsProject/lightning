@@ -990,7 +990,7 @@ static const char *segwit_addr_net_decode(int *witness_version,
 }
 
 enum address_parse_result
-json_tok_address_scriptpubkey(const tal_t *cxt,
+json_tok_address_scriptpubkey(const tal_t *ctx,
 			      const struct chainparams *chainparams,
 			      const char *buffer,
 			      const jsmntok_t *tok, const u8 **scriptpubkey)
@@ -1016,11 +1016,11 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 
 	if (parsed) {
 		if (addr_version == chainparams->p2pkh_version) {
-			*scriptpubkey = scriptpubkey_p2pkh(cxt, &destination);
+			*scriptpubkey = scriptpubkey_p2pkh(ctx, &destination);
 			return ADDRESS_PARSE_SUCCESS;
 		} else if (addr_version == chainparams->p2sh_version) {
 			*scriptpubkey =
-			    scriptpubkey_p2sh_hash(cxt, &destination.addr);
+			    scriptpubkey_p2sh_hash(ctx, &destination.addr);
 			return ADDRESS_PARSE_SUCCESS;
 		} else {
 			return ADDRESS_PARSE_WRONG_NETWORK;
@@ -1029,7 +1029,7 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	}
 
 	/* Generate null-terminated address. */
-	addrz = tal_dup_arr(cxt, char, buffer + tok->start, tok->end - tok->start, 1);
+	addrz = tal_dup_arr(ctx, char, buffer + tok->start, tok->end - tok->start, 1);
 	addrz[tok->end - tok->start] = '\0';
 
 	bip173 = segwit_addr_net_decode(&witness_version, witness_program,
@@ -1044,7 +1044,7 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 		/* Insert other witness versions here. */
 
 		if (witness_ok) {
-			*scriptpubkey = scriptpubkey_witness_raw(cxt, witness_version,
+			*scriptpubkey = scriptpubkey_witness_raw(ctx, witness_version,
 								 witness_program, witness_program_len);
 			parsed = true;
 			right_network = streq(bip173, chainparams->bip173_name);
