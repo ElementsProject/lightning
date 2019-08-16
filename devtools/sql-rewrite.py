@@ -63,8 +63,14 @@ def extract_queries(pofile):
     queries = []
     for c in chunk(pofile):
         name = c[0][3:]
+
+        # Skip other comments
+        i = 1
+        while c[i][0] == '#':
+            i += 1
+
         # Strip header and surrounding quotes
-        query = c[1][7:][:-1]
+        query = c[i][7:][:-1]
 
         queries.append({
             'name': name,
