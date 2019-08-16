@@ -247,9 +247,7 @@ endif
 
 check-units:
 
-check: check-units
-	$(MAKE) installcheck
-	$(MAKE) pytest
+check: check-units installcheck pytest
 
 pytest: $(ALL_PROGRAMS)
 ifeq ($(PYTEST),)
