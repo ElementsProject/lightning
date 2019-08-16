@@ -1374,7 +1374,7 @@ void db_bind_json_escape(struct db_stmt *stmt, int pos,
 	db_bind_text(stmt, pos, esc->s);
 }
 
-bool db_exec_prepared_v2(struct db_stmt *stmt)
+bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
 	const char *expanded_sql;
 	bool ret = stmt->db->config->exec_fn(stmt);
