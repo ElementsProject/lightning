@@ -1486,6 +1486,110 @@ void db_column_preimage(struct db_stmt *stmt, int col,
 	memcpy(preimage, raw, size);
 }
 
+void db_column_node_id(struct db_stmt *stmt, int col, struct node_id *dest)
+{
+	assert(db_column_bytes(stmt, col) == sizeof(dest->k));
+	memcpy(dest->k, db_column_blob(stmt, col), sizeof(dest->k));
+	assert(node_id_valid(dest));
+}
+
+struct node_id *db_column_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
+				      int col)
+{
+	struct node_id *ret;
+	size_t n = db_column_bytes(stmt, col) / sizeof(ret->k);
+	const u8 *arr = db_column_blob(stmt, col);
+	assert(n * sizeof(ret->k) == (size_t)db_column_bytes(stmt, col));
+	ret = tal_arr(ctx, struct node_id, n);
+
+	for (size_t i = 0; i < n; i++) {
+		memcpy(ret[i].k, arr + i * sizeof(ret[i].k), sizeof(ret[i].k));
+		if (!node_id_valid(&ret[i]))
+			return tal_free(ret);
+	}
+
+	return ret;
+}
+
+void db_column_pubkey(struct db_stmt *stmt, int pos, struct pubkey *dest)
+{
+	bool ok;
+	assert(db_column_bytes(stmt, pos) == PUBKEY_CMPR_LEN);
+	ok = pubkey_from_der(db_column_blob(stmt, pos), PUBKEY_CMPR_LEN, dest);
+	assert(ok);
+}
+
+bool db_column_short_channel_id(struct db_stmt *stmt, int col,
+				struct short_channel_id *dest)
+{
+	const char *source = db_column_blob(stmt, col);
+	size_t sourcelen = db_column_bytes(stmt, col);
+	return short_channel_id_from_str(source, sourcelen, dest, true);
+}
+
+struct short_channel_id *
+db_column_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, int col)
+{
+	const u8 *ser;
+	size_t len;
+	struct short_channel_id *ret;
+
+	ser = db_column_blob(stmt, col);
+	len = db_column_bytes(stmt, col);
+	ret = tal_arr(ctx, struct short_channel_id, 0);
+
+	while (len != 0) {
+		struct short_channel_id scid;
+		fromwire_short_channel_id(&ser, &len, &scid);
+		tal_arr_expand(&ret, scid);
+	}
+
+	return ret;
+}
+
+bool db_column_signature(struct db_stmt *stmt, int col,
+			 secp256k1_ecdsa_signature *sig)
+{
+	assert(db_column_bytes(stmt, col) == 64);
+	return secp256k1_ecdsa_signature_parse_compact(
+		   secp256k1_ctx, sig, db_column_blob(stmt, col)) == 1;
+}
+
+struct timeabs db_column_timeabs(struct db_stmt *stmt, int col)
+{
+	struct timeabs t;
+	u64 timestamp = db_column_u64(stmt, col);
+	t.ts.tv_sec = timestamp / NSEC_IN_SEC;
+	t.ts.tv_nsec = timestamp % NSEC_IN_SEC;
+	return t;
+
+}
+
+struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
+{
+	const u8 *src = db_column_blob(stmt, col);
+	size_t len = db_column_bytes(stmt, col);
+	return pull_bitcoin_tx(ctx, &src, &len);
+}
+
+void *db_column_arr_(const tal_t *ctx, struct db_stmt *stmt, int col,
+			  size_t bytes, const char *label, const char *caller)
+{
+	size_t sourcelen = db_column_bytes(stmt, col);
+	void *p;
+
+	if (db_column_is_null(stmt, col))
+		return NULL;
+
+	if (sourcelen % bytes != 0)
+		db_fatal("%s: column size %zu not a multiple of %s (%zu)",
+			 caller, sourcelen, label, bytes);
+
+	p = tal_arr_label(ctx, char, sourcelen, label);
+	memcpy(p, db_column_blob(stmt, col), sourcelen);
+	return p;
+}
+
 void db_column_amount_msat(struct db_stmt *stmt, int col,
 			   struct amount_msat *msat)
 {
@@ -1521,6 +1625,25 @@ void db_column_sha256d(struct db_stmt *stmt, int col,
 	assert(db_column_bytes(stmt, col) == size);
 	raw = db_column_blob(stmt, col);
 	memcpy(shad, raw, size);
+}
+
+void db_column_secret(struct db_stmt *stmt, int col, struct secret *s)
+{
+	const u8 *raw;
+	assert(db_column_bytes(stmt, col) == sizeof(struct secret));
+	raw = db_column_blob(stmt, col);
+	memcpy(s, raw, sizeof(struct secret));
+}
+
+struct secret *db_column_secret_arr(const tal_t *ctx, struct db_stmt *stmt,
+				    int col)
+{
+	return db_column_arr(ctx, stmt, col, struct secret);
+}
+
+void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t)
+{
+	db_column_sha256d(stmt, pos, &t->shad);
 }
 
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
