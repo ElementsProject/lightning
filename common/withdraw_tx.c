@@ -4,6 +4,7 @@
 #include <bitcoin/script.h>
 #include <ccan/ptrint/ptrint.h>
 #include <common/permute_tx.h>
+#include <common/utils.h>
 #include <common/utxo.h>
 #include <string.h>
 #include <wally_bip32.h>
@@ -29,7 +30,7 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 		const void *map[2];
 		map[0] = int2ptr(0);
 		map[1] = int2ptr(1);
-		bitcoin_tx_add_output(tx, scriptpubkey_p2wpkh(tx, changekey),
+		bitcoin_tx_add_output(tx, scriptpubkey_p2wpkh(tmpctx, changekey),
 				      change);
 		permute_outputs(tx, NULL, map);
 		if (change_outnum)
