@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT
+from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT, VALGRIND
 
 
 import copy
@@ -1120,7 +1120,7 @@ def test_forward_stats(node_factory, bitcoind):
     assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not DEVELOPER or (VALGRIND and SLOW_MACHINE), "Gossip too slow without DEVELOPER, and too stressful if VALGRIND on slow machines")
 def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     """Check that we track forwarded payments correctly.
 
