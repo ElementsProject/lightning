@@ -456,7 +456,7 @@ invoices_iterator_deref(const tal_t *ctx, struct invoices *invoices UNUSED,
 			const struct invoice_iterator *it)
 {
 	assert(it->p);
-	return wallet_stmt2invoice_details(ctx, (sqlite3_stmt*) it->p);
+	return wallet_stmt2invoice_details(ctx, (struct db_stmt*) it->p);
 }
 
 static s64 get_next_pay_index(struct db *db)
