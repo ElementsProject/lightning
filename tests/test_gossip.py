@@ -1319,7 +1319,6 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1446 bytes'))
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
     """bitcoind lags and we might get an announcement for a block we don't have.
 

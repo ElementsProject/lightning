@@ -795,6 +795,7 @@ struct filteredblock_call {
 	struct filteredblock_outpoint **outpoints;
 	size_t current_outpoint;
 	struct timeabs start_time;
+	u32 height;
 };
 
 /* Declaration for recursion in process_getfilteredblock_step1 */
@@ -831,6 +832,12 @@ static void process_getfilteredblock_step2(struct bitcoind *bitcoind,
 {
 	struct filteredblock_outpoint *o;
 	struct bitcoin_tx *tx;
+
+	/* If for some reason we couldn't get the block, just report a
+	 * failure. */
+	if (block == NULL)
+		return process_getfiltered_block_final(bitcoind, call);
+
 	call->result->prev_hash = block->hdr.prev_hash;
 
 	/* Allocate an array containing all the potentially interesting
@@ -876,7 +883,16 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 					   const struct bitcoin_blkid *blkid,
 					   struct filteredblock_call *call)
 {
+	/* If we were unable to fetch the block hash (bitcoind doesn't know
+	 * about a block at that height), we can short-circuit and just call
+	 * the callback. */
+	if (!blkid)
+		return process_getfiltered_block_final(bitcoind, call);
+
 	/* So we have the first piece of the puzzle, the block hash */
+	call->result = tal(call, struct filteredblock);
+	call->result->height = call->height;
+	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
 	call->result->id = *blkid;
 
 	/* Now get the raw block to get all outpoints that were created in
@@ -891,11 +907,15 @@ process_getfiltered_block_final(struct bitcoind *bitcoind,
 				const struct filteredblock_call *call)
 {
 	struct filteredblock_call *c, *next;
-	u32 height = call->result->height;
+	u32 height = call->height;
+
+	if (call->result == NULL)
+		goto next;
+
 	/* Need to steal so we don't accidentally free it while iterating through the list below. */
 	struct filteredblock *fb = tal_steal(NULL, call->result);
 	list_for_each_safe(&bitcoind->pending_getfilteredblock, c, next, list) {
-		if (c->result->height == height) {
+		if (c->height == height) {
 			c->cb(bitcoind, fb, c->arg);
 			list_del(&c->list);
 			tal_free(c);
@@ -903,12 +923,13 @@ process_getfiltered_block_final(struct bitcoind *bitcoind,
 	}
 	tal_free(fb);
 
+next:
 	/* Nothing to free here, since `*call` was already deleted during the
 	 * iteration above. It was also removed from the list, so no need to
 	 * pop here. */
 	if (!list_empty(&bitcoind->pending_getfilteredblock)) {
 		c = list_top(&bitcoind->pending_getfilteredblock, struct filteredblock_call, list);
-		bitcoind_getblockhash(bitcoind, c->result->height, process_getfilteredblock_step1, c);
+		bitcoind_getblockhash(bitcoind, c->height, process_getfilteredblock_step1, c);
 	}
 }
 
@@ -925,11 +946,10 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 	bool start = list_empty(&bitcoind->pending_getfilteredblock);
 	call->cb = cb;
 	call->arg = arg;
-	call->result = tal(call, struct filteredblock);
+	call->height = height;
 	assert(call->cb != NULL);
 	call->start_time = time_now();
-	call->result->height = height;
-	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
+	call->result = NULL;
 	call->current_outpoint = 0;
 
 	list_add_tail(&bitcoind->pending_getfilteredblock, &call->list);
