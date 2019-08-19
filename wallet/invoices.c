@@ -85,38 +85,38 @@ trigger_invoice_waiter_expire_or_delete(struct invoices *invoices,
 }
 
 static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
-							   sqlite3_stmt *stmt)
+							   struct db_stmt *stmt)
 {
 	struct invoice_details *dtl = tal(ctx, struct invoice_details);
-	dtl->state = sqlite3_column_int(stmt, 0);
+	dtl->state = db_column_int(stmt, 0);
 
-	sqlite3_column_preimage(stmt, 1, &dtl->r);
+	db_column_preimage(stmt, 1, &dtl->r);
 
-	sqlite3_column_sha256(stmt, 2, &dtl->rhash);
+	db_column_sha256(stmt, 2, &dtl->rhash);
 
-	dtl->label = sqlite3_column_json_escape(dtl, stmt, 3);
+	dtl->label = db_column_json_escape(dtl, stmt, 3);
 
-	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
+	if (!db_column_is_null(stmt, 4)) {
 		dtl->msat = tal(dtl, struct amount_msat);
-		*dtl->msat = sqlite3_column_amount_msat(stmt, 4);
+		db_column_amount_msat(stmt, 4, dtl->msat);
 	} else {
 		dtl->msat = NULL;
 	}
 
-	dtl->expiry_time = sqlite3_column_int64(stmt, 5);
+	dtl->expiry_time = db_column_u64(stmt, 5);
 
 	if (dtl->state == PAID) {
-		dtl->pay_index = sqlite3_column_int64(stmt, 6);
-		dtl->received = sqlite3_column_amount_msat(stmt, 7);
-		dtl->paid_timestamp = sqlite3_column_int64(stmt, 8);
+		dtl->pay_index = db_column_u64(stmt, 6);
+		db_column_amount_msat(stmt, 7, &dtl->received);
+		dtl->paid_timestamp = db_column_u64(stmt, 8);
 	}
 
-	dtl->bolt11 = tal_strndup(dtl, sqlite3_column_blob(stmt, 9),
-				  sqlite3_column_bytes(stmt, 9));
+	dtl->bolt11 = tal_strndup(dtl, db_column_blob(stmt, 9),
+				  db_column_bytes(stmt, 9));
 
-	if (sqlite3_column_type(stmt, 10) != SQLITE_NULL)
+	if (!db_column_is_null(stmt, 10))
 		dtl->description = tal_strdup(
-		    dtl, (const char *)sqlite3_column_text(stmt, 10));
+		    dtl, (const char *)db_column_text(stmt, 10));
 	else
 		dtl->description = NULL;
 
@@ -352,18 +352,22 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 			    struct invoice *pinvoice,
 			    const struct sha256 *rhash)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 
-	stmt = db_select_prepare(invoices->db, SQL("SELECT id"
-						   "  FROM invoices"
-						   " WHERE payment_hash = ?;"));
-	sqlite3_bind_blob(stmt, 1, rhash, sizeof(*rhash), SQLITE_TRANSIENT);
-	if (!db_select_step(invoices->db, stmt))
+	stmt = db_prepare_v2(invoices->db, SQL("SELECT id"
+					       "  FROM invoices"
+					       " WHERE payment_hash = ?;"));
+	db_bind_sha256(stmt, 0, rhash);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		tal_free(stmt);
 		return false;
-
-	pinvoice->id = sqlite3_column_int64(stmt, 0);
-	db_stmt_done(stmt);
-	return true;
+	} else {
+		pinvoice->id = db_column_u64(stmt, 0);
+		tal_free(stmt);
+		return true;
+	}
 }
 
 bool invoices_find_unpaid(struct invoices *invoices,
