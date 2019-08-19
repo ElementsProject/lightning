@@ -30,7 +30,7 @@ tools/test/gen_test.h: $(TOOLS_WIRE_DEPS)
 tools/test/gen_test.c.tmp.c: $(TOOLS_WIRE_DEPS)
 	$(BOLT_GEN) --page impl tools/test/gen_test.h test_type < tools/test/test_cases > $@
 
-tools/test/gen_test.c: tools/test/gen_test.c.tmp.c $(EXTERNAL_HEADERS)
+tools/test/gen_test.c: tools/test/gen_test.c.tmp.c $(EXTERNAL_HEADERS) tools/test/gen_test.h
 	@MAKE=$(MAKE) tools/update-mocks.sh "$<" && mv "$<" "$@"
 
 tools/test/gen_print.h: wire/gen_onion_wire.h $(TOOLS_WIRE_DEPS)
