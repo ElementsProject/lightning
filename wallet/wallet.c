@@ -68,7 +68,7 @@ struct wallet *wallet_new(struct lightningd *ld,
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 
 	stmt = db_select_prepare(w->db,
 				 "SELECT * from outputs WHERE prev_out_tx=? AND prev_out_index=?");
@@ -81,55 +81,54 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		return false;
 	}
 
-	stmt = db_prepare(w->db,
-			  "INSERT INTO outputs ("
-			  "  prev_out_tx"
-			  ", prev_out_index"
-			  ", value"
-			  ", type"
-			  ", status"
-			  ", keyindex"
-			  ", channel_id"
-			  ", peer_id"
-			  ", commitment_point"
-			  ", confirmation_height"
-			  ", spend_height"
-			  ", scriptpubkey"
-			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
-	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
-	sqlite3_bind_int(stmt, 2, utxo->outnum);
-	sqlite3_bind_amount_sat(stmt, 3, utxo->amount);
-	sqlite3_bind_int(stmt, 4, wallet_output_type_in_db(type));
-	sqlite3_bind_int(stmt, 5, output_state_available);
-	sqlite3_bind_int(stmt, 6, utxo->keyindex);
+	stmt = db_prepare_v2(
+	    w->db, SQL("INSERT INTO outputs ("
+		       "  prev_out_tx"
+		       ", prev_out_index"
+		       ", value"
+		       ", type"
+		       ", status"
+		       ", keyindex"
+		       ", channel_id"
+		       ", peer_id"
+		       ", commitment_point"
+		       ", confirmation_height"
+		       ", spend_height"
+		       ", scriptpubkey"
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+	db_bind_txid(stmt, 0, &utxo->txid);
+	db_bind_int(stmt, 1, utxo->outnum);
+	db_bind_amount_sat(stmt, 2, &utxo->amount);
+	db_bind_int(stmt, 3, wallet_output_type_in_db(type));
+	db_bind_int(stmt, 4, output_state_available);
+	db_bind_int(stmt, 5, utxo->keyindex);
 	if (utxo->close_info) {
-		sqlite3_bind_int64(stmt, 7, utxo->close_info->channel_id);
-		sqlite3_bind_node_id(stmt, 8, &utxo->close_info->peer_id);
-		sqlite3_bind_pubkey(stmt, 9, &utxo->close_info->commitment_point);
+		db_bind_u64(stmt, 6, utxo->close_info->channel_id);
+		db_bind_node_id(stmt, 7, &utxo->close_info->peer_id);
+		db_bind_pubkey(stmt, 8, &utxo->close_info->commitment_point);
 	} else {
-		sqlite3_bind_null(stmt, 7);
-		sqlite3_bind_null(stmt, 8);
-		sqlite3_bind_null(stmt, 9);
+		db_bind_null(stmt, 6);
+		db_bind_null(stmt, 7);
+		db_bind_null(stmt, 8);
 	}
 
 	if (utxo->blockheight) {
-		sqlite3_bind_int(stmt, 10, *utxo->blockheight);
+		db_bind_int(stmt, 9, *utxo->blockheight);
 	} else
-		sqlite3_bind_null(stmt, 10);
+		db_bind_null(stmt, 9);
 
 	if (utxo->spendheight)
-		sqlite3_bind_int(stmt, 11, *utxo->spendheight);
+		db_bind_int(stmt, 10, *utxo->spendheight);
 	else
-		sqlite3_bind_null(stmt, 11);
+		db_bind_null(stmt, 10);
 
 	if (utxo->scriptPubkey)
-		sqlite3_bind_blob(stmt, 12, utxo->scriptPubkey,
-				  tal_bytelen(utxo->scriptPubkey),
-				  SQLITE_TRANSIENT);
+		db_bind_blob(stmt, 11, utxo->scriptPubkey,
+				  tal_bytelen(utxo->scriptPubkey));
 	else
-		sqlite3_bind_null(stmt, 12);
+		db_bind_null(stmt, 11);
 
-	db_exec_prepared(w->db, stmt);
+	db_exec_prepared_v2(take(stmt));
 	return true;
 }
 
