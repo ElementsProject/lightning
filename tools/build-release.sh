@@ -13,7 +13,8 @@ if [ x"$1" = x"--inside-docker" ]; then
     exit 0
 fi
 
-ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu-16.04-amd64 bin-Ubuntu-16.04-i386 zipfile sign"
+# bin-Ubuntu-16.04-amd64 was superceded by the reproducible built 18.04 version.
+ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu-16.04-i386 zipfile"
 
 FORCE_VERSION=
 FORCE_UNCLEAN=false
