@@ -66,6 +66,11 @@ static void got_filteredblock(struct bitcoind *bitcoind,
 	struct filteredblock_outpoint *fbo = NULL, *o;
 	struct bitcoin_tx_output txo;
 
+	/* If we failed to the filtered block we report the failure to
+	 * got_txout. */
+	if (fb == NULL)
+		return got_txout(bitcoind, NULL, scid);
+
 	/* Only fill in blocks that we are not going to scan later. */
 	if (bitcoind->ld->topology->max_blockheight > fb->height)
 		wallet_filteredblock_add(bitcoind->ld->wallet, fb);
