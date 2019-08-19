@@ -553,29 +553,29 @@ void invoices_waitany(const tal_t *ctx,
 		      void (*cb)(const struct invoice *, void*),
 		      void *cbarg)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 	struct invoice invoice;
 
 	/* Look for an already-paid invoice. */
-	stmt = db_select_prepare(invoices->db,
-				 SQL("SELECT id"
-				     "  FROM invoices"
-				     " WHERE pay_index NOT NULL"
-				     "   AND pay_index > ?"
-				     " ORDER BY pay_index ASC LIMIT 1;"));
-	sqlite3_bind_int64(stmt, 1, lastpay_index);
+	stmt = db_prepare_v2(invoices->db,
+			     SQL("SELECT id"
+				 "  FROM invoices"
+				 " WHERE pay_index NOT NULL"
+				 "   AND pay_index > ?"
+				 " ORDER BY pay_index ASC LIMIT 1;"));
+	db_bind_u64(stmt, 0, lastpay_index);
+	db_query_prepared(stmt);
 
-	if (db_select_step(invoices->db, stmt)) {
-		invoice.id = sqlite3_column_int64(stmt, 0);
-		db_stmt_done(stmt);
+	if (db_step(stmt)) {
+		invoice.id = db_column_u64(stmt, 0);
 
 		cb(&invoice, cbarg);
-		return;
-	}
-
-	/* None found. */
-	add_invoice_waiter(ctx, &invoices->waiters,
+	}else {
+		/* None found. */
+		add_invoice_waiter(ctx, &invoices->waiters,
 			   true, 0, cb, cbarg);
+	}
+	tal_free(stmt);
 }
 
 
