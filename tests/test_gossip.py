@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
-from utils import wait_for, TIMEOUT, only_one
+from utils import wait_for, TIMEOUT, only_one, sync_blockheight
 
 import json
 import logging
@@ -1317,3 +1317,63 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
 
     wait_for(lambda: l2.daemon.is_in_log('gossip_store_compact_offline: 9 deleted, 9 copied'))
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1446 bytes'))
+
+
+@pytest.mark.xfail(strict=True)
+def test_gossip_announce_invalid_block(node_factory, bitcoind):
+    """bitcoind lags and we might get an announcement for a block we don't have.
+
+    """
+    # Need to slow down the poll interval so the announcement preceeds the
+    # blockchain catchup, otherwise we won't call `getfilteredblock`.
+    opts = {}
+    if DEVELOPER:
+        opts['dev-bitcoind-poll'] = TIMEOUT // 2
+
+    l1 = node_factory.get_node(options=opts)
+    bitcoind.generate_block(1)
+    assert bitcoind.rpc.getblockchaininfo()['blocks'] == 102
+
+    # Test gossip for an unknown block.
+    subprocess.run(['devtools/gossipwith',
+                    '--max-messages=0',
+                    '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                    # short_channel_id=103x1x1
+                    '01008d9f3d16dbdd985c099b74a3c9a74ccefd52a6d2bd597a553ce9a4c7fac3bfaa7f93031932617d38384cc79533730c9ce875b02643893cacaf51f503b5745fc3aef7261784ce6b50bff6fc947466508b7357d20a7c2929cc5ec3ae649994308527b2cbe1da66038e3bfa4825b074237708b455a4137bdb541cf2a7e6395a288aba15c23511baaae722fdb515910e2b42581f9c98a1f840a9f71897b4ad6f9e2d59e1ebeaf334cf29617633d35bcf6e0056ca0be60d7c002337bbb089b1ab52397f734bcdb2e418db43d1f192195b56e60eefbf82acf043d6068a682e064db23848b4badb20d05594726ec5b59267f4397b093747c23059b397b0c5620c4ab37a000006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f0000670000010001022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d029053521d6ea7a52cdd55f733d0fb2d077c0373b0053b5b810d927244061b757302d6063d022691b2490ab454dee73a57c6ff5d308352b461ece69f3c284f2c2412'],
+                   check=True, timeout=TIMEOUT)
+
+    # Make sure it's OK once it's caught up.
+    sync_blockheight(bitcoind, [l1])
+    
+
+@pytest.mark.xfail(strict=True)
+def test_gossip_announce_unknown_block(node_factory, bitcoind):
+    """Don't backfill the future!
+
+    If we get a channel_announcement that is for a block height that is above
+    our sync height we should not store the filteredblock in the blocks table,
+    otherwise we end up with a duplicate when we finally catch up with the
+    blockchain.
+
+    """
+    # Need to slow down the poll interval so the announcement preceeds the
+    # blockchain catchup, otherwise we won't call `getfilteredblock`.
+    opts = {}
+    if DEVELOPER:
+        opts['dev-bitcoind-poll'] = TIMEOUT // 2
+
+    l1 = node_factory.get_node(options=opts)
+
+    bitcoind.generate_block(2)
+    assert bitcoind.rpc.getblockchaininfo()['blocks'] == 103
+
+    # Test gossip for unknown block.
+    subprocess.run(['devtools/gossipwith',
+                    '--max-messages=0',
+                    '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                    # short_channel_id=103x1x1
+                    '01008d9f3d16dbdd985c099b74a3c9a74ccefd52a6d2bd597a553ce9a4c7fac3bfaa7f93031932617d38384cc79533730c9ce875b02643893cacaf51f503b5745fc3aef7261784ce6b50bff6fc947466508b7357d20a7c2929cc5ec3ae649994308527b2cbe1da66038e3bfa4825b074237708b455a4137bdb541cf2a7e6395a288aba15c23511baaae722fdb515910e2b42581f9c98a1f840a9f71897b4ad6f9e2d59e1ebeaf334cf29617633d35bcf6e0056ca0be60d7c002337bbb089b1ab52397f734bcdb2e418db43d1f192195b56e60eefbf82acf043d6068a682e064db23848b4badb20d05594726ec5b59267f4397b093747c23059b397b0c5620c4ab37a000006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f0000670000010001022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d029053521d6ea7a52cdd55f733d0fb2d077c0373b0053b5b810d927244061b757302d6063d022691b2490ab454dee73a57c6ff5d308352b461ece69f3c284f2c2412'],
+                   check=True, timeout=TIMEOUT)
+
+    # Make sure it's OK once it's caught up.
+    sync_blockheight(bitcoind, [l1])
