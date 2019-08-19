@@ -12,7 +12,6 @@
 #include <lightningd/invoice.h>
 #include <lightningd/log.h>
 #include <sodium/randombytes.h>
-#include <sqlite3.h>
 #include <string.h>
 
 struct invoice_waiter {
@@ -279,9 +278,6 @@ bool invoices_create(struct invoices *invoices,
 	expiry_time = now + expiry;
 
 	/* Save to database. */
-	/* Need to use the lower level API of sqlite3 to bind
-	 * label. Otherwise we'd need to implement sanitization of
-	 * that string for sql injections... */
 	stmt = db_prepare_v2(
 	    invoices->db,
 	    SQL("INSERT INTO invoices"
@@ -374,19 +370,23 @@ bool invoices_find_unpaid(struct invoices *invoices,
 			  struct invoice *pinvoice,
 			  const struct sha256 *rhash)
 {
-	sqlite3_stmt *stmt;
-	stmt = db_select_prepare(invoices->db, SQL("SELECT id"
-						   "  FROM invoices"
-						   " WHERE payment_hash = ?"
-						   "   AND state = ?;"));
-	sqlite3_bind_blob(stmt, 1, rhash, sizeof(*rhash), SQLITE_TRANSIENT);
-	sqlite3_bind_int(stmt, 2, UNPAID);
-	if (!db_select_step(invoices->db, stmt))
-		return false;
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(invoices->db, SQL("SELECT id"
+					       "  FROM invoices"
+					       " WHERE payment_hash = ?"
+					       "   AND state = ?;"));
+	db_bind_sha256(stmt, 0, rhash);
+	db_bind_int(stmt, 1, UNPAID);
+	db_query_prepared(stmt);
 
-	pinvoice->id = sqlite3_column_int64(stmt, 0);
-	db_stmt_done(stmt);
-	return true;
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return false;
+	} else  {
+		pinvoice->id = db_column_u64(stmt, 0);
+		tal_free(stmt);
+		return true;
+	}
 }
 
 bool invoices_delete(struct invoices *invoices, struct invoice invoice)
@@ -451,6 +451,7 @@ bool invoices_iterate(struct invoices *invoices,
 	if (db_step(stmt))
 		return true;
 
+	tal_free(stmt);
 	it->p = NULL;
 	return false;
 }
@@ -476,17 +477,19 @@ static s64 get_next_pay_index(struct db *db)
 
 static enum invoice_status invoice_get_status(struct invoices *invoices, struct invoice invoice)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 	enum invoice_status state;
 	bool res;
 
-	stmt = db_select_prepare(
+	stmt = db_prepare_v2(
 	    invoices->db, SQL("SELECT state FROM invoices WHERE id = ?;"));
-	sqlite3_bind_int64(stmt, 1, invoice.id);
-	res = db_select_step(invoices->db, stmt);
+	db_bind_u64(stmt, 0, invoice.id);
+	db_query_prepared(stmt);
+
+	res = db_step(stmt);
 	assert(res);
-	state = sqlite3_column_int(stmt, 0);
-	db_stmt_done(stmt);
+	state = db_column_int(stmt, 0);
+	tal_free(stmt);
 	return state;
 }
 
