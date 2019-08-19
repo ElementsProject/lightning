@@ -603,29 +603,30 @@ const struct invoice_details *invoices_get_details(const tal_t *ctx,
 						   struct invoices *invoices,
 						   struct invoice invoice)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 	bool res;
 	struct invoice_details *details;
 
-	stmt = db_select_prepare(invoices->db, SQL("SELECT"
-						   "  state"
-						   ", payment_key"
-						   ", payment_hash"
-						   ", label"
-						   ", msatoshi"
-						   ", expiry_time"
-						   ", pay_index"
-						   ", msatoshi_received"
-						   ", paid_timestamp"
-						   ", bolt11"
-						   ", description"
-						   " FROM invoices"
-						   " WHERE id = ?;"));
-	sqlite3_bind_int64(stmt, 1, invoice.id);
-	res = db_select_step(invoices->db, stmt);
+	stmt = db_prepare_v2(invoices->db, SQL("SELECT"
+					       "  state"
+					       ", payment_key"
+					       ", payment_hash"
+					       ", label"
+					       ", msatoshi"
+					       ", expiry_time"
+					       ", pay_index"
+					       ", msatoshi_received"
+					       ", paid_timestamp"
+					       ", bolt11"
+					       ", description"
+					       " FROM invoices"
+					       " WHERE id = ?;"));
+	db_bind_u64(stmt, 0, invoice.id);
+	db_query_prepared(stmt);
+	res = db_step(stmt);
 	assert(res);
 
 	details = wallet_stmt2invoice_details(ctx, stmt);
-	db_stmt_done(stmt);
+	tal_free(stmt);
 	return details;
 }
