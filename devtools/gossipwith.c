@@ -155,7 +155,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		args++;
 	}
 
-	for (;;) {
+	while (max_messages != 0 || pollfd[0].fd != -1) {
 		beint16_t belen;
 		u8 *msg;
 
@@ -175,17 +175,16 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		} else if (pollfd[1].revents & POLLIN) {
 			msg = sync_crypto_read(NULL, pps);
 			if (!msg)
-				break;
+				err(1, "Reading msg");
 			belen = cpu_to_be16(tal_bytelen(msg));
 			if (!write_all(STDOUT_FILENO, &belen, sizeof(belen))
 			    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
 				err(1, "Writing out msg");
 			tal_free(msg);
-			if (--max_messages == 0)
-				exit(0);
+			--max_messages;
 		}
 	}
-	err(1, "Reading msg");
+	exit(0);
 }
 
 static char *opt_set_secret(const char *arg, struct secret *s)
