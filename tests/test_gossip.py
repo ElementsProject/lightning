@@ -1344,9 +1344,8 @@ def test_gossip_announce_invalid_block(node_factory, bitcoind):
 
     # Make sure it's OK once it's caught up.
     sync_blockheight(bitcoind, [l1])
-    
 
-@pytest.mark.xfail(strict=True)
+
 def test_gossip_announce_unknown_block(node_factory, bitcoind):
     """Don't backfill the future!
 
