@@ -422,27 +422,29 @@ void invoices_delete_expired(struct invoices *invoices,
 bool invoices_iterate(struct invoices *invoices,
 		      struct invoice_iterator *it)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 
 	if (!it->p) {
-		stmt = db_select_prepare(invoices->db, SQL("SELECT"
-							   "  state"
-							   ", payment_key"
-							   ", payment_hash"
-							   ", label"
-							   ", msatoshi"
-							   ", expiry_time"
-							   ", pay_index"
-							   ", msatoshi_received"
-							   ", paid_timestamp"
-							   ", bolt11"
-							   ", description"
-							   " FROM invoices;"));
+		stmt = db_prepare_v2(invoices->db, SQL("SELECT"
+						       "  state"
+						       ", payment_key"
+						       ", payment_hash"
+						       ", label"
+						       ", msatoshi"
+						       ", expiry_time"
+						       ", pay_index"
+						       ", msatoshi_received"
+						       ", paid_timestamp"
+						       ", bolt11"
+						       ", description"
+						       " FROM invoices;"));
+		db_query_prepared(stmt);
 		it->p = stmt;
 	} else
 		stmt = it->p;
 
-	if (db_select_step(invoices->db, stmt))
+
+	if (db_step(stmt))
 		return true;
 
 	it->p = NULL;
