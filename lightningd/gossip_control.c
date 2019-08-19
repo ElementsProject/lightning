@@ -67,7 +67,7 @@ static void got_filteredblock(struct bitcoind *bitcoind,
 	struct bitcoin_tx_output txo;
 
 	/* Only fill in blocks that we are not going to scan later. */
-	if (bitcoind->ld->topology->min_blockheight > fb->height)
+	if (bitcoind->ld->topology->max_blockheight > fb->height)
 		wallet_filteredblock_add(bitcoind->ld->wallet, fb);
 
 	u32 outnum = short_channel_id_outnum(scid);
