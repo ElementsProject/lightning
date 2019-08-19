@@ -331,17 +331,20 @@ bool invoices_find_by_label(struct invoices *invoices,
 			    struct invoice *pinvoice,
 			    const struct json_escape *label)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(invoices->db, SQL("SELECT id"
+					       "  FROM invoices"
+					       " WHERE label = ?;"));
+	db_bind_json_escape(stmt, 0, label);
+	db_query_prepared(stmt);
 
-	stmt = db_select_prepare(invoices->db, SQL("SELECT id"
-						   "  FROM invoices"
-						   " WHERE label = ?;"));
-	sqlite3_bind_json_escape(stmt, 1, label);
-	if (!db_select_step(invoices->db, stmt))
+	if (!db_step(stmt)) {
+		tal_free(stmt);
 		return false;
+	}
 
-	pinvoice->id = sqlite3_column_int64(stmt, 0);
-	db_stmt_done(stmt);
+	pinvoice->id = db_column_u64(stmt, 0);
+	tal_free(stmt);
 	return true;
 }
 
