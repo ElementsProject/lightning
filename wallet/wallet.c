@@ -207,9 +207,9 @@ bool wallet_update_output_status(struct wallet *w,
 		stmt = db_prepare_v2(w->db,
 				     SQL("UPDATE outputs SET status=? WHERE "
 					 "prev_out_tx=? AND prev_out_index=?"));
-		db_bind_int(stmt, 1, output_status_in_db(newstatus));
-		db_bind_txid(stmt, 2, txid);
-		db_bind_int(stmt, 3, outnum);
+		db_bind_int(stmt, 0, output_status_in_db(newstatus));
+		db_bind_txid(stmt, 1, txid);
+		db_bind_int(stmt, 2, outnum);
 	}
 	db_exec_prepared_v2(stmt);
 	changes = db_count_changes(stmt);
