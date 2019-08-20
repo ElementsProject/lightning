@@ -300,7 +300,7 @@ struct wallet_transaction {
 };
 
 /**
- * wallet_new - Constructor for a new sqlite3 based wallet
+ * wallet_new - Constructor for a new DB based wallet
  *
  * This is guaranteed to either return a valid wallet, or abort with
  * `fatal` if it cannot be initialized.
