@@ -1406,6 +1406,21 @@ void db_column_preimage(struct db_stmt *stmt, int col,
 	memcpy(preimage, raw, size);
 }
 
+void db_column_node_id(struct db_stmt *stmt, int col, struct node_id *dest)
+{
+	assert(db_column_bytes(stmt, col) == sizeof(dest->k));
+	memcpy(dest->k, db_column_blob(stmt, col), sizeof(dest->k));
+	assert(node_id_valid(dest));
+}
+
+void db_column_pubkey(struct db_stmt *stmt, int pos, struct pubkey *dest)
+{
+	bool ok;
+	assert(db_column_bytes(stmt, pos) == PUBKEY_CMPR_LEN);
+	ok = pubkey_from_der(db_column_blob(stmt, pos), PUBKEY_CMPR_LEN, dest);
+	assert(ok);
+}
+
 void db_column_amount_msat(struct db_stmt *stmt, int col,
 			   struct amount_msat *msat)
 {
@@ -1441,6 +1456,11 @@ void db_column_sha256d(struct db_stmt *stmt, int col,
 	assert(db_column_bytes(stmt, col) == size);
 	raw = db_column_blob(stmt, col);
 	memcpy(shad, raw, size);
+}
+
+void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t)
+{
+	db_column_sha256d(stmt, pos, &t->shad);
 }
 
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
