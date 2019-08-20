@@ -216,6 +216,8 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 		level = LOG_INFORM;
 	else if (json_tok_streq(plugin->buffer, leveltok, "debug"))
 		level = LOG_DBG;
+	else if (json_tok_streq(plugin->buffer, leveltok, "trace"))
+		level = LOG_TRACE;
 	else if (json_tok_streq(plugin->buffer, leveltok, "warn"))
 		level = LOG_UNUSUAL;
 	else if (json_tok_streq(plugin->buffer, leveltok, "error"))

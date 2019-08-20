@@ -124,7 +124,7 @@ void status_vfmt(enum log_level level, const char *fmt, va_list ap)
 
 	/* We only suppress async debug msgs.  IO messages are even spammier
 	 * but they only occur when explicitly asked for */
-	if (level == LOG_DBG && status_conn) {
+	if ((level == LOG_DBG || level == LOG_TRACE) && status_conn) {
 		size_t qlen = daemon_conn_queue_length(status_conn);
 
 		/* Once suppressing, we keep suppressing until we're empty */

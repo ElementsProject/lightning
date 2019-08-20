@@ -367,6 +367,7 @@ static void log_one_line(unsigned int skipped,
 		prefix,
 		level == LOG_IO_IN ? "IO_IN"
 		: level == LOG_IO_OUT ? "IO_OUT"
+		: level == LOG_TRACE ? "TRACE"
 		: level == LOG_DBG ? "DEBUG"
 		: level == LOG_INFORM ? "INFO"
 		: level == LOG_UNUSUAL ? "UNUSUAL"
@@ -396,6 +397,7 @@ static struct {
 	enum log_level level;
 } log_levels[] = {
 	{ "IO", LOG_IO_OUT },
+	{ "TRACE", LOG_TRACE },
 	{ "DEBUG", LOG_DBG },
 	{ "INFO", LOG_INFORM },
 	{ "UNUSUAL", LOG_UNUSUAL },
@@ -662,6 +664,7 @@ static void log_to_json(unsigned int skipped,
 			: level == LOG_UNUSUAL ? "UNUSUAL"
 			: level == LOG_INFORM ? "INFO"
 			: level == LOG_DBG ? "DEBUG"
+			: level == LOG_TRACE ? "TRACE"
 			: level == LOG_IO_IN ? "IO_IN"
 			: level == LOG_IO_OUT ? "IO_OUT"
 			: "UNKNOWN");
@@ -698,6 +701,8 @@ struct command_result *param_loglevel(struct command *cmd,
 	*level = tal(cmd, enum log_level);
 	if (json_tok_streq(buffer, tok, "io"))
 		**level = LOG_IO_OUT;
+	else if (json_tok_streq(buffer, tok, "trace"))
+		**level = LOG_TRACE;
 	else if (json_tok_streq(buffer, tok, "debug"))
 		**level = LOG_DBG;
 	else if (json_tok_streq(buffer, tok, "info"))
@@ -706,7 +711,7 @@ struct command_result *param_loglevel(struct command *cmd,
 		**level = LOG_UNUSUAL;
 	else {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' should be 'io', 'debug', 'info', or "
+				    "'%s' should be 'io', 'trace', 'debug', 'info', or "
 				    "'unusual', not '%.*s'",
 				    name,
 				    json_tok_full_len(tok),
