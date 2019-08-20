@@ -123,6 +123,7 @@ struct db_config {
 	const unsigned char *(*column_text_fn)(struct db_stmt *stmt, int col);
 	s64 (*column_int_fn)(struct db_stmt *stmt, int col);
 
+	u64 (*last_insert_id_fn)(struct db_stmt *stmt);
 	size_t (*count_changes_fn)(struct db_stmt *stmt);
 
 	bool (*setup_fn)(struct db *db);
