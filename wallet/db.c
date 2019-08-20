@@ -1356,6 +1356,28 @@ void db_bind_sha256(struct db_stmt *stmt, int pos, const struct sha256 *s)
 	db_bind_blob(stmt, pos, s->u.u8, sizeof(struct sha256));
 }
 
+void db_bind_sha256d(struct db_stmt *stmt, int pos, const struct sha256_double *s)
+{
+	db_bind_sha256(stmt, pos, &s->sha);
+}
+
+void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t)
+{
+	db_bind_sha256d(stmt, pos, &t->shad);
+}
+
+void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *id)
+{
+	db_bind_blob(stmt, pos, id->k, sizeof(id->k));
+}
+
+void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *pk)
+{
+	u8 der[PUBKEY_CMPR_LEN];
+	pubkey_to_der(der, pk);
+	db_bind_blob(stmt, pos, der, sizeof(der));
+}
+
 void db_bind_amount_msat(struct db_stmt *stmt, int pos,
 			 const struct amount_msat *msat)
 {
