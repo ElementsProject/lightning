@@ -313,6 +313,7 @@ void db_close(struct db *db);
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES);
 bool db_query_prepared(struct db_stmt *stmt);
 size_t db_count_changes(struct db_stmt *stmt);
+u64 db_last_insert_id_v2(struct db_stmt *stmt);
 struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 			       const char *query_id);
 #define db_prepare_v2(db,query) \
