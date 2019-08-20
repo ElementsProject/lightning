@@ -1372,6 +1372,12 @@ void db_bind_sha256d(struct db_stmt *stmt, int pos, const struct sha256_double *
 	db_bind_sha256(stmt, pos, &s->sha);
 }
 
+void db_bind_secret(struct db_stmt *stmt, int pos, const struct secret *s)
+{
+	assert(sizeof(s->data) == 32);
+	db_bind_blob(stmt, pos, s->data, sizeof(s->data));
+}
+
 void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t)
 {
 	db_bind_sha256d(stmt, pos, &t->shad);
