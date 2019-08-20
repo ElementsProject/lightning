@@ -640,6 +640,17 @@ size_t db_count_changes(struct db_stmt *stmt)
 	return stmt->db->config->count_changes_fn(stmt);
 }
 
+u64 db_last_insert_id_v2(struct db_stmt *stmt TAKES)
+{
+	u64 id;
+	id = stmt->db->config->last_insert_id_fn(stmt);
+
+	if (taken(stmt))
+		tal_free(stmt);
+
+	return id;
+}
+
 bool db_select_step_(const char *location, struct db *db, struct sqlite3_stmt *stmt)
 {
 	int ret;

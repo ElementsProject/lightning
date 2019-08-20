@@ -182,6 +182,12 @@ static size_t db_sqlite3_count_changes(struct db_stmt *stmt)
 	return sqlite3_changes(s);
 }
 
+static u64 db_sqlite3_last_insert_id(struct db_stmt *stmt)
+{
+	sqlite3 *s = stmt->db->conn;
+	return sqlite3_last_insert_rowid(s);
+}
+
 struct db_config db_sqlite3_config = {
 	.name = "sqlite3",
 	.queries = db_sqlite3_queries,
@@ -201,6 +207,7 @@ struct db_config db_sqlite3_config = {
 	.column_blob_fn = &db_sqlite3_column_blob,
 	.column_text_fn = &db_sqlite3_column_text,
 
+	.last_insert_id_fn = &db_sqlite3_last_insert_id,
 	.count_changes_fn = &db_sqlite3_count_changes,
 	.setup_fn = &db_sqlite3_setup,
 	.teardown_fn = NULL,
