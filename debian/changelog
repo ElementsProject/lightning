@@ -1,3 +1,32 @@
+lightningd (0.7.2-1) stable; urgency=low
+  * JSON API: a new command `plugin` allows one to manage plugins without restarting `lightningd`.
+  * Plugin: a new boolean field can be added to a plugin manifest, `dynamic`. It allows a plugin to tell if it can be started or stopped "on-the-fly".
+  * Plugin: a new boolean field is added to the `init`'s `configuration`, `startup`. It allows a plugin to know if it has been started on `lightningd` startup.
+  * Plugin: new notifications `invoice_payment`, `forward_event` and `channel_opened`.
+  * Protocol: `--enable-experimental-features` adds gossip query extensions aka https://github.com/lightningnetwork/lightning-rfc/pull/557
+  * contrib: new `bootstrap-node.sh` to connect to random mainnet nodes.
+  * JSON API: `listfunds` now returns also `funding_output` for `channels`
+  * Plugin: plugins can now suggest `lightning-cli` default to -H for responses.
+  * Lightningd: add support for `signet` networks using the `--network=signet` or `--signet` startup option
+  * Build: now requires `python3-mako` to be installed, i.e. `sudo apt-get install python3-mako`
+  * JSON API: `close` optional arguments have changed: it now defaults to unilateral close after 48 hours.
+  * Plugin: if the config directory has a `plugins` subdirectory, those are loaded.
+  * lightningd: check bitcoind version when setup topology and confirm the version not older than v0.15.0.
+  * Protocol: space out reconnections on startup if we have more than 5 peers.
+  * JSON API: `listforwards` includes the 'payment_hash' field.
+  * Plugin: now plugins always run from the `lightning-dir` for easy local storage.
+  * Plugin: using startup-relative paths for `plugin` and `plugin-dir`: they're now relative to `lightning-dir`.
+  * JSON API: `listforwards` removed dummy (zero) fields for `out_msat`, `fee_msat`, `in_channel` and `out_channel` if unknown (i.e. deleted from db, or `status` is `local-failed`.
+  * Plugin: `pay` no longer crashes on timeout.
+  * Plugin: `disconnect` notifier now called if remote side disconnects.
+  * channeld: ignore, and simply try reconnecting if lnd sends "sync error".
+  * Protocol: we now correctly ignore unknown odd messages.
+  * wallet: We will now backfill blocks below our wallet start height on demand when we require them to verify gossip messages. This fixes an issue where we would not remove channels on spend that were opened below that start height because we weren't tracking the funding output.
+  * Fix: Detect when we're still syncing with bitcoin network: don't send or receive HTLCs or allow `fundchannel`.
+  * Fix:  Rare onchaind error where we don't recover our own unilateral close with multiple same-preimage HTLCs fixed.
+
+ -- Christian Decker <decker.christian@gmail.com>  Tue, 20 Aug 2019 18:00:00 +0100
+
 lightningd (0.7.1-1) stable; urgency=low
 
   * Protocol: we now enforce option_upfront_shutdown_script if a peer negotiates it.
