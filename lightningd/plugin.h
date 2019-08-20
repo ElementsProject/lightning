@@ -29,7 +29,8 @@ struct plugin {
 
 	enum plugin_state plugin_state;
 
-	/* If this plugin can be restarted without restarting lightningd */
+	/* If this plugin can be restarted without restarting lightningd and don't
+	 * wait for their initialization */
 	bool dynamic;
 	bool signal_startup;
 
@@ -50,7 +51,8 @@ struct plugin {
 	const char **methods;
 
 	/* Timer to add a timeout to some plugin RPC calls. Used to
-	 * guarantee that `getmanifest` doesn't block indefinitely. */
+	 * guarantee that `getmanifest` and some `init` (for non-dynamic plugins)
+	 * doesn't block indefinitely */
 	const struct oneshot *timeout_timer;
 
 	/* An array of subscribed topics */
@@ -65,6 +67,7 @@ struct plugin {
 struct plugins {
 	struct list_head plugins;
 	size_t pending_manifests;
+	size_t pending_sync_configs;
 	bool startup;
 
 	/* Currently pending requests by their request ID */

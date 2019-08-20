@@ -31,6 +31,7 @@
  * willing to wait. Plugins shouldn't do any initialization in the
  * `getmanifest` call anyway, that's what `init `is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
+#define PLUGIN_SYNC_INIT_TIMEOUT 10
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 			    struct lightningd *ld)
@@ -801,6 +802,12 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 	fatal("Can't recover from plugin failure, terminating.");
 }
 
+static void plugin_sync_init_timeout(struct plugin *plugin)
+{
+	log_broken(plugin->log, "The non-dynamic plugin failed to respond to \"init\" in time, terminating.");
+	fatal("Can't recover from plugin failure, terminating.");
+}
+
 /**
  * Callback for the plugin_manifest request.
  */
@@ -1027,6 +1034,14 @@ static void plugin_config_cb(const char *buffer,
 			     struct plugin *plugin)
 {
 	plugin->plugin_state = CONFIGURED;
+	/*FIXME: test for startup=True here also ? */
+	if (!plugin->dynamic) {
+		plugin->plugins->pending_sync_configs--;
+		tal_free(plugin->timeout_timer);
+		/* When all non-dynamic plugins are initialized, continue start-up */
+		if (plugin->plugins->pending_sync_configs == 0)
+			io_break(plugin->plugins);
+	}
 }
 
 /* FIXME(cdecker) This just builds a string for the request because
@@ -1061,10 +1076,22 @@ static void plugin_config(struct plugin *plugin)
 
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
+
+	/* Wait for static plugin's `init` response during startup, so they can do
+	 * their thing or abort at an early stage */
+	if (!plugin->dynamic && plugin->plugins->startup) {
+		plugin->plugins->pending_sync_configs++;
+		/* FIXME assert plugin->timeout_timer == NULL here ? */
+		plugin->timeout_timer = new_reltimer(plugin->plugins->ld->timers,
+			      plugin, time_from_sec(PLUGIN_SYNC_INIT_TIMEOUT),
+			      plugin_sync_init_timeout, plugin);
+	}
 }
 
 void plugins_config(struct plugins *plugins)
 {
+	plugins->pending_sync_configs = 0;
+
 	struct plugin *p;
 	list_for_each(&plugins->plugins, p, list) {
 		if (p->plugin_state == UNCONFIGURED) {
@@ -1072,6 +1099,10 @@ void plugins_config(struct plugins *plugins)
 			plugin_config(p);
 		}
 	}
+
+	/* At start-up, wait for non-dynamic plugins to initialize */
+	if (plugins->pending_sync_configs > 0)
+		io_loop_with_timers(plugins->ld);
 }
 
 void json_add_opt_plugins(struct json_stream *response,
