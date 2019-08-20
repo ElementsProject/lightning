@@ -1475,6 +1475,14 @@ void db_column_sha256d(struct db_stmt *stmt, int col,
 	memcpy(shad, raw, size);
 }
 
+void db_column_secret(struct db_stmt *stmt, int col, struct secret *s)
+{
+	const u8 *raw;
+	assert(db_column_bytes(stmt, col) == sizeof(struct secret));
+	raw = db_column_blob(stmt, col);
+	memcpy(s, raw, sizeof(struct secret));
+}
+
 void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t)
 {
 	db_column_sha256d(stmt, pos, &t->shad);

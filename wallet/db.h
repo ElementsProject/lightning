@@ -274,6 +274,7 @@ void db_column_amount_sat(struct db_stmt *stmt, int col, struct amount_sat *sat)
 struct json_escape *db_column_json_escape(const tal_t *ctx, struct db_stmt *stmt, int col);
 void db_column_sha256(struct db_stmt *stmt, int col, struct sha256 *sha);
 void db_column_sha256d(struct db_stmt *stmt, int col, struct sha256_double *shad);
+void db_column_secret(struct db_stmt *stmt, int col, struct secret *s);
 void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t);
 void db_column_node_id(struct db_stmt *stmt, int pos, struct node_id *ni);
 void db_column_pubkey(struct db_stmt *stmt, int pos, struct pubkey *p);
