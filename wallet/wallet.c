@@ -28,7 +28,7 @@ AUTODATA_TYPE(db_backends, struct db_config);
 
 static void outpointfilters_init(struct wallet *w)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_any);
 	struct bitcoin_txid txid;
 	u32 outnum;
@@ -40,13 +40,17 @@ static void outpointfilters_init(struct wallet *w)
 	tal_free(utxos);
 
 	w->utxoset_outpoints = outpointfilter_new(w);
-	stmt = db_select_prepare(w->db, "SELECT txid, outnum FROM utxoset WHERE spendheight is NULL");
+	stmt = db_prepare_v2(
+	    w->db,
+	    SQL("SELECT txid, outnum FROM utxoset WHERE spendheight is NULL"));
+	db_query_prepared(stmt);
 
-	while (db_select_step(w->db, stmt)) {
-		sqlite3_column_sha256_double(stmt, 0, &txid.shad);
-		outnum = sqlite3_column_int(stmt, 1);
+	while (db_step(stmt)) {
+		db_column_sha256d(stmt, 0, &txid.shad);
+		outnum = db_column_int(stmt, 1);
 		outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
 	}
+	tal_free(stmt);
 }
 
 struct wallet *wallet_new(struct lightningd *ld,
@@ -71,20 +75,23 @@ struct wallet *wallet_new(struct lightningd *ld,
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
+	struct sqlite3_stmt *stmt2;
 
-	stmt = db_select_prepare(w->db,
-				 "SELECT * from outputs WHERE prev_out_tx=? AND prev_out_index=?");
-	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
-	sqlite3_bind_int(stmt, 2, utxo->outnum);
+	stmt = db_prepare_v2(w->db, SQL("SELECT * from outputs WHERE "
+					"prev_out_tx=? AND prev_out_index=?"));
+	db_bind_txid(stmt, 0, &utxo->txid);
+	db_bind_int(stmt, 1, utxo->outnum);
+	db_query_prepared(stmt);
 
 	/* If we get a result, that means a clash. */
-	if (db_select_step(w->db, stmt)) {
-		db_stmt_done(stmt);
+	if (db_step(stmt)) {
+		tal_free(stmt);
 		return false;
 	}
+	tal_free(stmt);
 
-	stmt = db_prepare(w->db,
+	stmt2 = db_prepare(w->db,
 			  "INSERT INTO outputs ("
 			  "  prev_out_tx"
 			  ", prev_out_index"
@@ -99,40 +106,40 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 			  ", spend_height"
 			  ", scriptpubkey"
 			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
-	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
-	sqlite3_bind_int(stmt, 2, utxo->outnum);
-	sqlite3_bind_amount_sat(stmt, 3, utxo->amount);
-	sqlite3_bind_int(stmt, 4, wallet_output_type_in_db(type));
-	sqlite3_bind_int(stmt, 5, output_state_available);
-	sqlite3_bind_int(stmt, 6, utxo->keyindex);
+	sqlite3_bind_blob(stmt2, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
+	sqlite3_bind_int(stmt2, 2, utxo->outnum);
+	sqlite3_bind_amount_sat(stmt2, 3, utxo->amount);
+	sqlite3_bind_int(stmt2, 4, wallet_output_type_in_db(type));
+	sqlite3_bind_int(stmt2, 5, output_state_available);
+	sqlite3_bind_int(stmt2, 6, utxo->keyindex);
 	if (utxo->close_info) {
-		sqlite3_bind_int64(stmt, 7, utxo->close_info->channel_id);
-		sqlite3_bind_node_id(stmt, 8, &utxo->close_info->peer_id);
-		sqlite3_bind_pubkey(stmt, 9, &utxo->close_info->commitment_point);
+		sqlite3_bind_int64(stmt2, 7, utxo->close_info->channel_id);
+		sqlite3_bind_node_id(stmt2, 8, &utxo->close_info->peer_id);
+		sqlite3_bind_pubkey(stmt2, 9, &utxo->close_info->commitment_point);
 	} else {
-		sqlite3_bind_null(stmt, 7);
-		sqlite3_bind_null(stmt, 8);
-		sqlite3_bind_null(stmt, 9);
+		sqlite3_bind_null(stmt2, 7);
+		sqlite3_bind_null(stmt2, 8);
+		sqlite3_bind_null(stmt2, 9);
 	}
 
 	if (utxo->blockheight) {
-		sqlite3_bind_int(stmt, 10, *utxo->blockheight);
+		sqlite3_bind_int(stmt2, 10, *utxo->blockheight);
 	} else
-		sqlite3_bind_null(stmt, 10);
+		sqlite3_bind_null(stmt2, 10);
 
 	if (utxo->spendheight)
-		sqlite3_bind_int(stmt, 11, *utxo->spendheight);
+		sqlite3_bind_int(stmt2, 11, *utxo->spendheight);
 	else
-		sqlite3_bind_null(stmt, 11);
+		sqlite3_bind_null(stmt2, 11);
 
 	if (utxo->scriptPubkey)
-		sqlite3_bind_blob(stmt, 12, utxo->scriptPubkey,
+		sqlite3_bind_blob(stmt2, 12, utxo->scriptPubkey,
 				  tal_bytelen(utxo->scriptPubkey),
 				  SQLITE_TRANSIENT);
 	else
-		sqlite3_bind_null(stmt, 12);
+		sqlite3_bind_null(stmt2, 12);
 
-	db_exec_prepared(w->db, stmt);
+	db_exec_prepared(w->db, stmt2);
 	return true;
 }
 
