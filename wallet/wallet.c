@@ -144,21 +144,21 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 /**
  * wallet_stmt2output - Extract data from stmt and fill an UTXO
  */
-static struct utxo *wallet_stmt2output(const tal_t *ctx, sqlite3_stmt *stmt)
+static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
 	u32 *blockheight, *spendheight;
-	sqlite3_column_sha256_double(stmt, 0, &utxo->txid.shad);
-	utxo->outnum = sqlite3_column_int(stmt, 1);
-	utxo->amount = sqlite3_column_amount_sat(stmt, 2);
-	utxo->is_p2sh = sqlite3_column_int(stmt, 3) == p2sh_wpkh;
-	utxo->status = sqlite3_column_int(stmt, 4);
-	utxo->keyindex = sqlite3_column_int(stmt, 5);
-	if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
+	db_column_txid(stmt, 0, &utxo->txid);
+	utxo->outnum = db_column_int(stmt, 1);
+	db_column_amount_sat(stmt, 2, &utxo->amount);
+	utxo->is_p2sh = db_column_int(stmt, 3) == p2sh_wpkh;
+	utxo->status = db_column_int(stmt, 4);
+	utxo->keyindex = db_column_int(stmt, 5);
+	if (!db_column_is_null(stmt, 6)) {
 		utxo->close_info = tal(utxo, struct unilateral_close_info);
-		utxo->close_info->channel_id = sqlite3_column_int64(stmt, 6);
-		sqlite3_column_node_id(stmt, 7, &utxo->close_info->peer_id);
-		sqlite3_column_pubkey(stmt, 8, &utxo->close_info->commitment_point);
+		utxo->close_info->channel_id = db_column_u64(stmt, 6);
+		db_column_node_id(stmt, 7, &utxo->close_info->peer_id);
+		db_column_pubkey(stmt, 8, &utxo->close_info->commitment_point);
 	} else {
 		utxo->close_info = NULL;
 	}
@@ -167,22 +167,22 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, sqlite3_stmt *stmt)
 	utxo->spendheight = NULL;
 	utxo->scriptPubkey = NULL;
 
-	if (sqlite3_column_type(stmt, 9) != SQLITE_NULL) {
+	if (!db_column_is_null(stmt, 9)) {
 		blockheight = tal(utxo, u32);
-		*blockheight = sqlite3_column_int(stmt, 9);
+		*blockheight = db_column_int(stmt, 9);
 		utxo->blockheight = blockheight;
 	}
 
-	if (sqlite3_column_type(stmt, 10) != SQLITE_NULL) {
+	if (!db_column_is_null(stmt, 10)) {
 		spendheight = tal(utxo, u32);
-		*spendheight = sqlite3_column_int(stmt, 10);
+		*spendheight = db_column_int(stmt, 10);
 		utxo->spendheight = spendheight;
 	}
 
-	if (sqlite3_column_type(stmt, 11) != SQLITE_NULL) {
+	if (!db_column_is_null(stmt, 11)) {
 		utxo->scriptPubkey =
-		    tal_dup_arr(utxo, u8, sqlite3_column_blob(stmt, 11),
-				sqlite3_column_bytes(stmt, 11), 0);
+		    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
+				db_column_bytes(stmt, 11), 0);
 	}
 
 	return utxo;
@@ -193,103 +193,112 @@ bool wallet_update_output_status(struct wallet *w,
 				 const u32 outnum, enum output_status oldstatus,
 				 enum output_status newstatus)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
+	size_t changes;
 	if (oldstatus != output_state_any) {
-		stmt = db_prepare(
-			w->db, "UPDATE outputs SET status=? WHERE status=? AND prev_out_tx=? AND prev_out_index=?");
-		sqlite3_bind_int(stmt, 1, output_status_in_db(newstatus));
-		sqlite3_bind_int(stmt, 2, output_status_in_db(oldstatus));
-		sqlite3_bind_blob(stmt, 3, txid, sizeof(*txid), SQLITE_TRANSIENT);
-		sqlite3_bind_int(stmt, 4, outnum);
+		stmt = db_prepare_v2(
+		    w->db, SQL("UPDATE outputs SET status=? WHERE status=? AND "
+			       "prev_out_tx=? AND prev_out_index=?"));
+		db_bind_int(stmt, 0, output_status_in_db(newstatus));
+		db_bind_int(stmt, 1, output_status_in_db(oldstatus));
+		db_bind_txid(stmt, 2, txid);
+		db_bind_int(stmt, 3, outnum);
 	} else {
-		stmt = db_prepare(
-			w->db, "UPDATE outputs SET status=? WHERE prev_out_tx=? AND prev_out_index=?");
-		sqlite3_bind_int(stmt, 1, output_status_in_db(newstatus));
-		sqlite3_bind_blob(stmt, 2, txid, sizeof(*txid), SQLITE_TRANSIENT);
-		sqlite3_bind_int(stmt, 3, outnum);
+		stmt = db_prepare_v2(w->db,
+				     SQL("UPDATE outputs SET status=? WHERE "
+					 "prev_out_tx=? AND prev_out_index=?"));
+		db_bind_int(stmt, 1, output_status_in_db(newstatus));
+		db_bind_txid(stmt, 2, txid);
+		db_bind_int(stmt, 3, outnum);
 	}
-	db_exec_prepared(w->db, stmt);
-	return db_changes(w->db) > 0;
+	db_exec_prepared_v2(stmt);
+	changes = db_count_changes(stmt);
+	tal_free(stmt);
+	return changes > 0;
 }
 
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
 {
 	struct utxo **results;
 	int i;
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 
-	if (state == output_state_any)
-		stmt = db_select_prepare(w->db,
-					 "SELECT"
-					 "  prev_out_tx"
-					 ", prev_out_index"
-					 ", value"
-					 ", type"
-					 ", status"
-					 ", keyindex"
-					 ", channel_id"
-					 ", peer_id"
-					 ", commitment_point"
-					 ", confirmation_height"
-					 ", spend_height"
-					 ", scriptpubkey "
-					 "FROM outputs");
-	else {
-		stmt = db_select_prepare(w->db,
-					 "SELECT"
-					 "  prev_out_tx"
-					 ", prev_out_index"
-					 ", value"
-					 ", type"
-					 ", status"
-					 ", keyindex"
-					 ", channel_id"
-					 ", peer_id"
-					 ", commitment_point"
-					 ", confirmation_height"
-					 ", spend_height"
-					 ", scriptpubkey "
-					 "FROM outputs "
-					 "WHERE status=?1");
-		sqlite3_bind_int(stmt, 1, output_status_in_db(state));
+	if (state == output_state_any) {
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						"FROM outputs"));
+	} else {
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						"FROM outputs "
+						"WHERE status= ? "));
+		db_bind_int(stmt, 0, output_status_in_db(state));
 	}
+	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct utxo*, 0);
-	for (i=0; db_select_step(w->db, stmt); i++) {
+	for (i=0; db_step(stmt); i++) {
 		struct utxo *u = wallet_stmt2output(results, stmt);
 		tal_arr_expand(&results, u);
 	}
+	tal_free(stmt);
 
 	return results;
 }
 
-struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx, struct wallet *w)
+struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
+						     struct wallet *w)
 {
+	struct db_stmt *stmt;
 	struct utxo **results;
 	int i;
 
-	sqlite3_stmt *stmt = db_select_prepare(w->db,
-					       "SELECT"
-					       "  prev_out_tx"
-					       ", prev_out_index"
-					       ", value"
-					       ", type"
-					       ", status"
-					       ", keyindex"
-					       ", channel_id"
-					       ", peer_id"
-					       ", commitment_point"
-					       ", confirmation_height"
-					       ", spend_height"
-					       ", scriptpubkey"
-					       " FROM outputs"
-					       " WHERE channel_id IS NOT NULL AND confirmation_height IS NULL");
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey"
+					" FROM outputs"
+					" WHERE channel_id IS NOT NULL AND "
+					"confirmation_height IS NULL"));
+	db_query_prepared(stmt);
 
-       	results = tal_arr(ctx, struct utxo*, 0);
-	for (i=0; db_select_step(w->db, stmt); i++) {
+	results = tal_arr(ctx, struct utxo *, 0);
+	for (i = 0; db_step(stmt); i++) {
 		struct utxo *u = wallet_stmt2output(results, stmt);
 		tal_arr_expand(&results, u);
 	}
+	tal_free(stmt);
 
 	return results;
 }
@@ -545,17 +554,20 @@ s64 wallet_get_newindex(struct lightningd *ld)
 static void wallet_shachain_init(struct wallet *wallet,
 				 struct wallet_shachain *chain)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 
 	assert(chain->id == 0);
 
 	/* Create shachain */
 	shachain_init(&chain->chain);
-	stmt = db_prepare(wallet->db, "INSERT INTO shachains (min_index, num_valid) VALUES (?, 0);");
-	sqlite3_bind_int64(stmt, 1, chain->chain.min_index);
-	db_exec_prepared(wallet->db, stmt);
+	stmt = db_prepare_v2(
+	    wallet->db,
+	    SQL("INSERT INTO shachains (min_index, num_valid) VALUES (?, 0);"));
+	db_bind_u64(stmt, 0, chain->chain.min_index);
+	db_exec_prepared_v2(stmt);
 
-	chain->id = db_last_insert_id(wallet->db);
+	chain->id = db_last_insert_id_v2(stmt);
+	tal_free(stmt);
 }
 
 /* TODO(cdecker) Stolen from shachain, move to some appropriate location */
@@ -579,7 +591,7 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 			      uint64_t index,
 			      const struct secret *hash)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 	u32 pos = count_trailing_zeroes(index);
 	struct sha256 s;
 
@@ -591,20 +603,22 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 		return false;
 	}
 
-	stmt = db_prepare(wallet->db, "UPDATE shachains SET num_valid=?, min_index=? WHERE id=?");
-	sqlite3_bind_int(stmt, 1, chain->chain.num_valid);
-	sqlite3_bind_int64(stmt, 2, index);
-	sqlite3_bind_int64(stmt, 3, chain->id);
-	db_exec_prepared(wallet->db, stmt);
+	stmt = db_prepare_v2(
+	    wallet->db,
+	    SQL("UPDATE shachains SET num_valid=?, min_index=? WHERE id=?"));
+	db_bind_int(stmt, 0, chain->chain.num_valid);
+	db_bind_u64(stmt, 1, index);
+	db_bind_u64(stmt, 2, chain->id);
+	db_exec_prepared_v2(take(stmt));
 
-	stmt = db_prepare(
-		wallet->db,
-		"REPLACE INTO shachain_known (shachain_id, pos, idx, hash) VALUES (?, ?, ?, ?);");
-	sqlite3_bind_int64(stmt, 1, chain->id);
-	sqlite3_bind_int(stmt, 2, pos);
-	sqlite3_bind_int64(stmt, 3, index);
-	sqlite3_bind_blob(stmt, 4, hash, sizeof(*hash), SQLITE_TRANSIENT);
-	db_exec_prepared(wallet->db, stmt);
+	stmt = db_prepare_v2(wallet->db,
+			     SQL("REPLACE INTO shachain_known (shachain_id, "
+				 "pos, idx, hash) VALUES (?, ?, ?, ?);"));
+	db_bind_u64(stmt, 0, chain->id);
+	db_bind_int(stmt, 1, pos);
+	db_bind_u64(stmt, 2, index);
+	db_bind_secret(stmt, 3, hash);
+	db_exec_prepared_v2(take(stmt));
 
 	return true;
 }
@@ -612,30 +626,39 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 bool wallet_shachain_load(struct wallet *wallet, u64 id,
 			  struct wallet_shachain *chain)
 {
-	sqlite3_stmt *stmt;
+	struct db_stmt *stmt;
 	chain->id = id;
 	shachain_init(&chain->chain);
 
 	/* Load shachain metadata */
-	stmt = db_select_prepare(wallet->db, "SELECT min_index, num_valid FROM shachains WHERE id=?");
-	sqlite3_bind_int64(stmt, 1, id);
+	stmt = db_prepare_v2(
+	    wallet->db,
+	    SQL("SELECT min_index, num_valid FROM shachains WHERE id=?"));
+	db_bind_u64(stmt, 0, id);
+	db_query_prepared(stmt);
 
-	if (!db_select_step(wallet->db, stmt))
+	if (!db_step(stmt)) {
+		tal_free(stmt);
 		return false;
+	}
 
-	chain->chain.min_index = sqlite3_column_int64(stmt, 0);
-	chain->chain.num_valid = sqlite3_column_int64(stmt, 1);
-	db_stmt_done(stmt);
+	chain->chain.min_index = db_column_u64(stmt, 0);
+	chain->chain.num_valid = db_column_u64(stmt, 1);
+	tal_free(stmt);
 
 	/* Load shachain known entries */
-	stmt = db_select_prepare(wallet->db, "SELECT idx, hash, pos FROM shachain_known WHERE shachain_id=?");
-	sqlite3_bind_int64(stmt, 1, id);
+	stmt = db_prepare_v2(wallet->db,
+			     SQL("SELECT idx, hash, pos FROM shachain_known "
+				 "WHERE shachain_id=?"));
+	db_bind_u64(stmt, 0, id);
+	db_query_prepared(stmt);
 
-	while (db_select_step(wallet->db, stmt)) {
-		int pos = sqlite3_column_int(stmt, 2);
-		chain->chain.known[pos].index = sqlite3_column_int64(stmt, 0);
-		memcpy(&chain->chain.known[pos].hash, sqlite3_column_blob(stmt, 1), sqlite3_column_bytes(stmt, 1));
+	while (db_step(stmt)) {
+		int pos = db_column_int(stmt, 2);
+		chain->chain.known[pos].index = db_column_u64(stmt, 0);
+		db_column_sha256(stmt, 1, &chain->chain.known[pos].hash);
 	}
+	tal_free(stmt);
 	return true;
 }
 
