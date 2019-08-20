@@ -39,9 +39,8 @@ void status_io(enum log_level iodir, const char *who,
 	status_fmt(LOG_UNUSUAL, __VA_ARGS__)
 #define status_broken( ...)			\
 	status_fmt(LOG_BROKEN, __VA_ARGS__)
-
-/* FIXME: Transition */
-#define status_trace(...) status_debug(__VA_ARGS__)
+#define status_trace( ...)			\
+	status_fmt(LOG_TRACE, __VA_ARGS__)
 
 /* Send a failure status code with printf-style msg, and exit. */
 void status_failed(enum status_failreason code,

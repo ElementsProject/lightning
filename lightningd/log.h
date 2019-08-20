@@ -61,6 +61,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
 /* With different entry points */
 struct log *new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...) PRINTF_FMT(3,4);
 
+#define log_trace(log, ...) log_((log), LOG_TRACE, false, __VA_ARGS__)
 #define log_debug(log, ...) log_((log), LOG_DBG, false, __VA_ARGS__)
 #define log_info(log, ...) log_((log), LOG_INFORM, false, __VA_ARGS__)
 #define log_unusual(log, ...) log_((log), LOG_UNUSUAL, true, __VA_ARGS__)

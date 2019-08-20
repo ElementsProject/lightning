@@ -665,7 +665,8 @@ static void plugin_logv(enum log_level l, const char *fmt, va_list ap)
 
 	json_out_start(jout, "params", '{');
 	json_out_addstr(jout, "level",
-			l == LOG_DBG ? "debug"
+			l == LOG_TRACE ? "trace"
+			: l == LOG_DBG ? "debug"
 			: l == LOG_INFORM ? "info"
 			: l == LOG_UNUSUAL ? "warn"
 			: "error");
