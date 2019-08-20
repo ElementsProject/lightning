@@ -1398,13 +1398,13 @@ void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *pk)
 void db_bind_amount_msat(struct db_stmt *stmt, int pos,
 			 const struct amount_msat *msat)
 {
-	db_bind_u64(stmt, pos, msat->millisatoshis);
+	db_bind_u64(stmt, pos, msat->millisatoshis); /* Raw: low level function */
 }
 
 void db_bind_amount_sat(struct db_stmt *stmt, int pos,
 			 const struct amount_sat *sat)
 {
-	db_bind_u64(stmt, pos, sat->satoshis);
+	db_bind_u64(stmt, pos, sat->satoshis); /* Raw: low level function */
 }
 
 void db_bind_json_escape(struct db_stmt *stmt, int pos,
