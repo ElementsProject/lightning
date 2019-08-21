@@ -27,7 +27,13 @@ will not encompass the correct channel value\.
 commitment transactions\.
 
 
-\fIannounce\fR whether or not to annouce this channel\.
+\fIannounce\fR whether or not to announce this channel\.
+
+Note that the funding transaction MUST NOT be broadcast until after
+channel establishment has been successfully completed by running
+\fBfundchannel_complete\fR, as the commitment transactions for this channel
+are not secured until the complete command succeeds. Broadcasting
+transaction before that can lead to unrecoverable loss of funds\.
 
 .SH RETURN VALUE
 
@@ -52,4 +58,3 @@ Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
 .HL
 
 Last updated 2019-06-12 11:16:20 CEST
-

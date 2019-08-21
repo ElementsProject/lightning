@@ -23,7 +23,13 @@ will not encompass the correct channel value.
 *feerate* is an optional field. Sets the feerate for subsequent
 commitment transactions.
 
-*announce* whether or not to annouce this channel.
+*announce* whether or not to announce this channel.
+
+Note that the funding transaction MUST NOT be broadcast until after
+channel establishment has been successfully completed by running
+`fundchannel_complete`, as the commitment transactions for this channel
+are not secured until the complete command succeeds. Broadcasting
+transaction before that can lead to unrecoverable loss of funds.
 
 RETURN VALUE
 ------------

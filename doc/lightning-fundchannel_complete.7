@@ -12,10 +12,10 @@ establishment
 .SH DESCRIPTION
 
 \fBfundchannel_complete\fR is a lower level RPC command\. It allows a user to
-complete an initiated channel establishment with a connected peer
+complete an initiated channel establishment with a connected peer\.
 
 
-\fIid\fR is the node id of the remote peer
+\fIid\fR is the node id of the remote peer\.
 
 
 \fItxid\fR is the hex string of the funding transaction id\.
@@ -24,10 +24,11 @@ complete an initiated channel establishment with a connected peer
 \fItxout\fR is the integer outpoint of the funding output for this channel\.
 
 
-Note that the funding transaction should not be broadcast until after
+Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed, as the commitment
 transactions for this channel are not secured until this command
-succesfully completes\.
+successfully completes\. Broadcasting transaction before can lead to
+unrecoverable loss of funds\.
 
 .SH RETURN VALUE
 
@@ -53,4 +54,3 @@ Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
 .HL
 
 Last updated 2019-06-12 11:16:20 CEST
-
