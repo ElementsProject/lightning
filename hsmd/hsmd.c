@@ -1457,7 +1457,7 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 
 		/* The witness is [sig] [key] */
 		bitcoin_tx_input_set_witness(
-		    tx, i, bitcoin_witness_p2wpkh(tx, &sig, &inkey));
+			tx, i, take(bitcoin_witness_p2wpkh(tx, &sig, &inkey)));
 	}
 }
 

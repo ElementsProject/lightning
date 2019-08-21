@@ -224,7 +224,7 @@ static void sign_last_tx(struct channel *channel)
 				 &sig, &channel->channel_info.remote_fundingkey,
 				 &channel->local_funding_pubkey);
 
-	bitcoin_tx_input_set_witness(channel->last_tx, 0, witness);
+	bitcoin_tx_input_set_witness(channel->last_tx, 0, take(witness));
 }
 
 static void remove_sig(struct bitcoin_tx *signed_tx)

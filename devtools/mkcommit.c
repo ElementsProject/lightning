@@ -396,7 +396,7 @@ int main(int argc, char *argv[])
 	witness =
 		bitcoin_witness_2of2(NULL, &local_sig, &remote_sig,
 				     &funding_localkey, &funding_remotekey);
-	bitcoin_tx_input_set_witness(local_txs[0], 0, witness);
+	bitcoin_tx_input_set_witness(local_txs[0], 0, take(witness));
 
 	printf("# signed local commitment: %s\n",
 	       tal_hex(NULL, linearize_tx(NULL, local_txs[0])));
