@@ -13,7 +13,12 @@ TOOL_GEN_OBJS := $(TOOL_GEN_SRC:.c=.o)
 TOOL_GEN_HEADER := tools/test/gen_test.h tools/test/gen_print.h
 TOOL_TEST_SRC := $(wildcard tools/test/run-*.c)
 TOOL_TEST_OBJS := $(TOOL_TEST_SRC:.c=.o)
+# Don't require update-mocks hack unless developer mode.
+ifeq ($(DEVELOPER),1)
 TOOL_TEST_PROGRAMS := $(TOOL_TEST_OBJS:.o=)
+else
+TOOL_TEST_PROGRAMS :=
+endif
 
 TOOL_TEST_COMMON_OBJS :=		\
 	common/utils.o
@@ -40,7 +45,6 @@ tools/test/gen_print.h: wire/gen_onion_wire.h $(TOOLS_WIRE_DEPS)
 tools/test/gen_print.c: $(TOOLS_WIRE_DEPS)
 	echo '#include "gen_test.h"' > $@
 	$(BOLT_GEN) -P --page impl ${@:.c=.h} test_type < tools/test/test_cases >> $@
-
 
 ALL_TEST_PROGRAMS += $(TOOL_TEST_PROGRAMS)
 
