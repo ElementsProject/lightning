@@ -92,10 +92,12 @@ static bool test_primitives(void)
 	stmt = db_prepare_v2(db, SQL("SELECT name FROM sqlite_master WHERE type='table';"));
 	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
 	CHECK_MSG(!db_err, "Simple correct SQL command");
+	tal_free(stmt);
 
 	stmt = db_prepare_v2(db, SQL("not a valid SQL statement"));
 	CHECK_MSG(!db_exec_prepared_v2(stmt), "db_exec_prepared must fail");
 	CHECK_MSG(db_err, "Failing SQL command");
+	tal_free(stmt);
 	db_err = tal_free(db_err);
 	db_commit_transaction(db);
 	CHECK(!db->in_transaction);
