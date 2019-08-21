@@ -289,10 +289,6 @@ bolt-precheck:
 
 check-source-bolt: $(ALL_TEST_PROGRAMS:%=bolt-check/%.c)
 
-tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS) common/utils.o
-
-tools/check-bolt.o: $(CCAN_HEADERS)
-
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
 
@@ -373,11 +369,6 @@ gen_version.h: FORCE
 	@(echo "#define VERSION \"$(VERSION)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
-# We force make to relink this every time, to detect version changes.
-# Do it atomically, otherwise parallel builds can get upset!
-tools/headerversions: FORCE tools/headerversions.o $(CCAN_OBJS)
-	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.o) tools/headerversions.o $(CCAN_OBJS) $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
-
 # That forces this rule to be run every time, too.
 gen_header_versions.h: tools/headerversions
 	@tools/headerversions $@
@@ -429,14 +420,12 @@ maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
 
-clean: wire-clean
+clean:
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
 	$(RM) $(ALL_PROGRAMS) $(ALL_PROGRAMS:=.o)
 	$(RM) $(ALL_TEST_PROGRAMS) $(ALL_TEST_PROGRAMS:=.o)
 	$(RM) gen_*.h ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
-	$(RM) check-bolt tools/check-bolt tools/*.o
-	$(RM) tools/headerversions
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
