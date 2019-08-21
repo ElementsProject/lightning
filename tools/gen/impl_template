@@ -203,7 +203,7 @@ static void fromwire_${msg.struct_name()}(const u8 **cursor, size_t *plen, void 
 <% static = '' if tlv.name in options.expose_tlv_type else 'static '
 %>\
 ${static}const struct tlv_record_type tlvs_${tlv.name}[] = {
-    % for msg in tlv.messages.values():
+    % for msg in tlv.ordered_msgs():
 	{ ${msg.number}, towire_${msg.struct_name()}, fromwire_${msg.struct_name()} },
     % endfor
 };

@@ -377,6 +377,9 @@ class Tlv(object):
     def find_message(self, name):
         return self.messages[name]
 
+    def ordered_msgs(self):
+        return sorted(self.messages.values(), key=lambda item: int(item.number))
+
 
 class Master(object):
     types = {}
