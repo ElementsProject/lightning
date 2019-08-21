@@ -68,6 +68,22 @@ default_pytest()
     done
 }
 
+require()
+{
+    name="$1"
+    resolution="$2"
+    shift 2
+
+    echo -n "checking for $name... "
+    if "$@" 2>/dev/null; then
+	echo 'found'
+	return
+    fi
+    echo 'not found'
+    echo "$resolution" >&2
+    exit 1
+}
+
 default_valgrind_setting()
 {
     # Valgrind must accept all these options (might exit with error 7 though
@@ -208,6 +224,9 @@ if [ "$ASAN" = "1" ]; then
 	exit 1
     fi
 fi
+
+# Doesn't set a var, but makes sure it exists
+require 'python3-mako' "You need the mako module for python3: see doc/INSTALL.md" python3 -c 'import mako'
 
 rm -f $CONFIG_VAR_FILE.$$
 $CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS <<EOF
