@@ -271,13 +271,6 @@ check-hdr-include-order/%: %
 check-makefile:
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
-# Check if they've installed 'mako' dependency, useful for
-# keeping your build from clobbering itself
-check-bolt-dependency:
-	@python3 -c "import mako"
-
-BOLT_DEPS += check-bolt-dependency
-
 # Experimental quotes quote the exact version.
 ifeq ($(EXPERIMENTAL_FEATURES),1)
 CHECK_BOLT_PREFIX=--prefix="BOLT-$(BOLTVERSION)"
