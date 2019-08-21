@@ -143,7 +143,7 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 		if (!amount_sat_sub(&out, *tx->input_amounts[0], *fee))
 			break;
 
-		bitcoin_tx_output_set_amount(tx, 0, &out);
+		bitcoin_tx_output_set_amount(tx, 0, out);
 		if (!check_tx_sig(tx, 0, NULL, wscript,
 				  &keyset->other_htlc_key, remotesig))
 			continue;
@@ -185,7 +185,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 			      type_to_string(tmpctx, struct amount_sat, &fee),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
 
-	bitcoin_tx_output_set_amount(tx, 0, &amount);
+	bitcoin_tx_output_set_amount(tx, 0, amount);
 	return check_tx_sig(tx, 0, NULL, wscript,
 			    &keyset->other_htlc_key, remotesig);
 }
@@ -223,7 +223,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 			      "Cannot deduct htlc-success fee %s from tx %s",
 			      type_to_string(tmpctx, struct amount_sat, &fee),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
-	bitcoin_tx_output_set_amount(tx, 0, &amt);
+	bitcoin_tx_output_set_amount(tx, 0, amt);
 
 
 	if (check_tx_sig(tx, 0, NULL, wscript,
@@ -317,10 +317,10 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	tx = bitcoin_tx(ctx, out->chainparams, 1, 1);
 	tx->wtx->locktime = locktime;
 	bitcoin_tx_add_input(tx, &out->txid, out->outnum, to_self_delay,
-			     &out->sat, NULL);
+			     out->sat, NULL);
 
 	bitcoin_tx_add_output(
-	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), &out->sat);
+	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), out->sat);
 
 	/* Worst-case sig is 73 bytes */
 	weight = measure_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
@@ -355,7 +355,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 			      type_to_string(tmpctx, struct amount_sat,
 					     &amt));
 	}
-	bitcoin_tx_output_set_amount(tx, 0, &amt);
+	bitcoin_tx_output_set_amount(tx, 0, amt);
 
 	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg(NULL, tx, wscript))))
 		status_failed(STATUS_FAIL_HSM_IO, "Writing sign request to hsm");

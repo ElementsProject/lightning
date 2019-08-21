@@ -69,7 +69,7 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 
 		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
 				     BITCOIN_TX_DEFAULT_SEQUENCE,
-		 		     &utxos[i]->amount, script);
+		 		     utxos[i]->amount, script);
 	}
 
 	return tx;

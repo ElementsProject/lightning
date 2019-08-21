@@ -76,11 +76,11 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
 
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
-			  struct amount_sat *amount);
+			  struct amount_sat amount);
 
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
-			 const struct amount_sat *amount, u8 *script);
+			 struct amount_sat amount, u8 *script);
 
 
 /**
@@ -91,7 +91,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
  * existing output.
  */
 void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
-				  struct amount_sat *amount);
+				  struct amount_sat amount);
 
 /**
  * Helper to get the script of a script's output as a tal_arr

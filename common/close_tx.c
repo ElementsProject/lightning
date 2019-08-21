@@ -38,13 +38,13 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 
 	/* Our input spends the anchor tx output. */
 	bitcoin_tx_add_input(tx, anchor_txid, anchor_index,
-			     BITCOIN_TX_DEFAULT_SEQUENCE, &funding, NULL);
+			     BITCOIN_TX_DEFAULT_SEQUENCE, funding, NULL);
 
 	if (amount_sat_greater_eq(to_us, dust_limit)) {
 		script =
 		    tal_dup_arr(tx, u8, our_script, tal_count(our_script), 0);
 		/* One output is to us. */
-		bitcoin_tx_add_output(tx, script, &to_us);
+		bitcoin_tx_add_output(tx, script, to_us);
 		num_outputs++;
 	}
 
@@ -52,7 +52,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 		script = tal_dup_arr(tx, u8, their_script,
 				     tal_count(their_script), 0);
 		/* Other output is to them. */
-		bitcoin_tx_add_output(tx, script, &to_them);
+		bitcoin_tx_add_output(tx, script, to_them);
 		num_outputs++;
 	}
 
