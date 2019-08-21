@@ -2677,13 +2677,13 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 		struct node_map_iter it;
 		size_t i = 0;
 		node_arr = tal_arr(tmpctx, struct gossip_getnodes_entry,
-				   daemon->rstate->nodes->raw.elems);
+				   node_map_count(daemon->rstate->nodes));
 		n = node_map_first(daemon->rstate->nodes, &it);
 		while (n != NULL) {
 			add_node_entry(node_arr, daemon, n, &node_arr[i++]);
 			n = node_map_next(daemon->rstate->nodes, &it);
 		}
-		assert(i == daemon->rstate->nodes->raw.elems);
+		assert(i == node_map_count(daemon->rstate->nodes));
 	}
 
 	/* FIXME: towire wants array of pointers. */
