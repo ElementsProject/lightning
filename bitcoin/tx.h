@@ -116,7 +116,7 @@ struct amount_sat bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
  * itself, we need a way to attach a witness to an existing input.
  */
 void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
-				  u8 **witness);
+				  u8 **witness TAKES);
 
 /**
  * Set the input script on the given input.

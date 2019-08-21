@@ -368,7 +368,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	witness = bitcoin_witness_sig_and_element(tx, &sig, elem,
 						  elemsize, wscript);
-	bitcoin_tx_input_set_witness(tx, 0, witness);
+	bitcoin_tx_input_set_witness(tx, 0, take(witness));
 	return tx;
 }
 
@@ -1277,7 +1277,7 @@ static void handle_preimage(const struct chainparams *chainparams,
 			witness = bitcoin_witness_htlc_success_tx(
 			    tx, &sig, outs[i]->remote_htlc_sig, preimage,
 			    outs[i]->wscript);
-			bitcoin_tx_input_set_witness(tx, 0, witness);
+			bitcoin_tx_input_set_witness(tx, 0, take(witness));
 			propose_resolution(outs[i], tx, 0, OUR_HTLC_SUCCESS_TX);
 		} else {
 			enum tx_type tx_type = THEIR_HTLC_FULFILL_TO_US;
@@ -1530,7 +1530,7 @@ static size_t resolve_our_htlc_ourcommit(const struct chainparams *chainparams,
 						  out->remote_htlc_sig,
 						  htlc_scripts[matches[i]]);
 
-	bitcoin_tx_input_set_witness(tx, 0, witness);
+	bitcoin_tx_input_set_witness(tx, 0, take(witness));
 
 	/* Steals tx onto out */
 	propose_resolution_at_block(out, tx, htlcs[matches[i]].cltv_expiry,

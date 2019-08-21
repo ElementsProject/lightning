@@ -117,7 +117,8 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 	wally_tx_set_input_witness(tx->wtx, innum, stack);
 	if (stack)
 		wally_tx_witness_stack_free(stack);
-	tal_free(witness);
+	if (taken(witness))
+	    tal_free(witness);
 }
 
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
