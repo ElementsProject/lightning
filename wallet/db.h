@@ -280,7 +280,7 @@ void db_column_node_id(struct db_stmt *stmt, int pos, struct node_id *ni);
 void db_column_pubkey(struct db_stmt *stmt, int pos, struct pubkey *p);
 
 void db_close(struct db *db);
-bool db_exec_prepared_v2(struct db_stmt *stmt);
+bool db_exec_prepared_v2(struct db_stmt *stmt TAKES);
 bool db_query_prepared(struct db_stmt *stmt);
 size_t db_count_changes(struct db_stmt *stmt);
 u64 db_last_insert_id_v2(struct db_stmt *stmt);
