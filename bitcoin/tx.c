@@ -15,14 +15,14 @@
 #define SEGREGATED_WITNESS_FLAG 0x1
 
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
-			  struct amount_sat *amount)
+			  struct amount_sat amount)
 {
 	size_t i = tx->wtx->num_outputs;
 	struct wally_tx_output *output;
 	assert(i < tx->wtx->outputs_allocation_len);
 
 	assert(tx->wtx != NULL);
-	wally_tx_output_init_alloc(amount->satoshis /* Raw: low-level helper */,
+	wally_tx_output_init_alloc(amount.satoshis /* Raw: low-level helper */,
 				   script, tal_bytelen(script), &output);
 	wally_tx_add_output(tx->wtx, output);
 	wally_tx_output_free(output);
@@ -32,7 +32,7 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
-			 const struct amount_sat *amount, u8 *script)
+			 struct amount_sat amount, u8 *script)
 {
 	size_t i = tx->wtx->num_inputs;
 	struct wally_tx_input *input;
@@ -48,7 +48,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 
 	/* Now store the input amount if we know it, so we can sign later */
 	tx->input_amounts[i] = tal_free(tx->input_amounts[i]);
-	tx->input_amounts[i] = tal_dup(tx, struct amount_sat, amount);
+	tx->input_amounts[i] = tal_dup(tx, struct amount_sat, &amount);
 
 	return i;
 }
@@ -74,10 +74,10 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 }
 
 void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
-				  struct amount_sat *amount)
+				  struct amount_sat amount)
 {
 	assert(outnum < tx->wtx->num_outputs);
-	tx->wtx->outputs[outnum].satoshi = amount->satoshis; /* Raw: low-level helper */
+	tx->wtx->outputs[outnum].satoshi = amount.satoshis; /* Raw: low-level helper */
 }
 
 const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,

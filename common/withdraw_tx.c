@@ -23,14 +23,14 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 	tx = tx_spending_utxos(ctx, chainparams, utxos, bip32_base,
 			       !amount_sat_eq(change, AMOUNT_SAT(0)));
 
-	bitcoin_tx_add_output(tx, destination, &withdraw_amount);
+	bitcoin_tx_add_output(tx, destination, withdraw_amount);
 
 	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
 		const void *map[2];
 		map[0] = int2ptr(0);
 		map[1] = int2ptr(1);
 		bitcoin_tx_add_output(tx, scriptpubkey_p2wpkh(tx, changekey),
-				      &change);
+				      change);
 		permute_outputs(tx, NULL, map);
 		if (change_outnum)
 			*change_outnum = ptr2int(map[1]);
