@@ -34,6 +34,7 @@ static bool db_sqlite3_setup(struct db *db)
 	int err;
 	sqlite3_prepare_v2(db->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
 	err = sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
 	return err == SQLITE_DONE;
 }
 
