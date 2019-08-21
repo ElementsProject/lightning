@@ -320,8 +320,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	} else {
 		if (!chan_map_del(&node->chans.map, chan))
 			abort();
-		/* FIXME: Expose this in ccan/htable */
-		num_chans = node->chans.map.raw.elems;
+		num_chans = chan_map_count(&node->chans.map);
 	}
 
 	/* Last channel?  Simply delete node (and associated announce) */
