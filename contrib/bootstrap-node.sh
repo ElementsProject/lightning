@@ -4,6 +4,7 @@
 set -e
 
 # If lightning-cli not in their path, assume it's in subdir.
+# shellcheck disable=SC2039
 if type lightning-cli >/dev/null 2>&1; then
     LCLI=lightning-cli
 elif [ -x cli/lightning-cli ]; then
