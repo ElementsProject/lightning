@@ -38,7 +38,9 @@ fi
 
 if [ -z "$PATH_TO_LIGHTNING" ]; then
 	# Already installed maybe?  Prints
+	# shellcheck disable=SC2039
 	type lightning-cli || return
+	# shellcheck disable=SC2039
 	type lightningd || return
 	LCLI=lightning-cli
 	LIGHTNINGD=lightningd
