@@ -12,18 +12,19 @@ DESCRIPTION
 -----------
 
 `fundchannel_complete` is a lower level RPC command. It allows a user to
-complete an initiated channel establishment with a connected peer
+complete an initiated channel establishment with a connected peer.
 
-*id* is the node id of the remote peer
+*id* is the node id of the remote peer.
 
 *txid* is the hex string of the funding transaction id.
 
 *txout* is the integer outpoint of the funding output for this channel.
 
-Note that the funding transaction should not be broadcast until after
+Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed, as the commitment
 transactions for this channel are not secured until this command
-succesfully completes.
+successfully completes. Broadcasting transaction before can lead to
+unrecoverable loss of funds.
 
 RETURN VALUE
 ------------
