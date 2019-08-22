@@ -78,7 +78,8 @@ maintainer-clean: doc-maintainer-clean
 clean: doc-clean
 check: check-manpages
 
-check-manpages: cli/lightning-cli lightningd/lightningd
+# This needs plugins, too.
+check-manpages: all-programs
 	@tools/check-manpage.sh cli/lightning-cli doc/lightning-cli.1.md
 	@tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.md
 
