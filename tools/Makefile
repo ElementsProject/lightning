@@ -8,7 +8,9 @@ tools/headerversions: FORCE tools/headerversions.o $(CCAN_OBJS)
 tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS) common/utils.o
 tools/check-bolt.o: $(CCAN_HEADERS)
 
-clean:
+clean: tools-clean
+
+tools-clean:
 	$(RM) tools/check-bolt tools/*.o
 	$(RM) tools/headerversions
 
