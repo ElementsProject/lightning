@@ -144,54 +144,67 @@ def test_closing_id(node_factory):
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
 
-@unittest.skipIf(not DEVELOPER, "needs dev-rescan-outputs")
 def test_closing_torture(node_factory, executor, bitcoind):
-    l1, l2 = node_factory.get_nodes(2)
+    # We set up N-to-N fully-connected mesh, then try
+    # closing them all at once.
     amount = 10**6
 
-    # Before the fix was applied, 15 would often pass.
-    # However, increasing the number of tries would
-    # take longer in VALGRIND mode, triggering a CI
-    # failure since the test does not print any
-    # output.
-    # On my laptop, VALGRIND is about 4x slower than native, hence
-    # the approximations below:
-
-    iterations = 50
+    num_nodes = 10  # => 55 channels (36 seconds on my laptop)
     if VALGRIND:
-        iterations //= 4
+        num_nodes -= 4  # => 21 (135 seconds)
     if SLOW_MACHINE:
-        iterations //= 2
+        num_nodes -= 1  # => 45/15 (37/95 seconds)
 
-    for i in range(iterations):
-        # Reduce probability that spurious sendrawtx error will occur
-        l1.rpc.dev_rescan_outputs()
+    nodes = node_factory.get_nodes(num_nodes)
 
-        # Create a channel.
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        l1.fund_channel(l2, amount)
-        scid = l1.get_channel_scid(l2)
+    # Make sure bitcoind has plenty of utxos
+    bitcoind.generate_block(num_nodes)
 
-        # Get it confirmed.
-        l1.bitcoin.generate_block(6)
+    # Give them all plenty of UTXOs, make sure they see them
+    for i in range(len(nodes)):
+        for j in range(i + 1, len(nodes)):
+            addr = nodes[i].rpc.newaddr()['bech32']
+            bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, nodes)
 
-        # Wait for it to go to CHANNELD_NORMAL
-        l1.wait_channel_active(scid)
-        l2.wait_channel_active(scid)
+    txs = []
+    for i in range(len(nodes)):
+        for j in range(i + 1, len(nodes)):
+            nodes[i].rpc.connect(nodes[j].info['id'], 'localhost', nodes[j].port)
+            txs.append(nodes[i].rpc.fundchannel(nodes[j].info['id'], amount)['txid'])
 
-        # Start closers: can take a long time under valgrind!
-        c1 = executor.submit(l1.rpc.close, l2.info['id'])
-        c2 = executor.submit(l2.rpc.close, l1.info['id'])
-        # Wait for close to finish
-        c1.result(TIMEOUT)
-        c2.result(TIMEOUT)
+    # Make sure they're all in, then lock them in.
+    bitcoind.generate_block(1, wait_for_mempool=txs)
 
-        wait_for(lambda: len(bitcoind.rpc.getrawmempool(False)) == 1)
+    # Wait for them all to be CHANNELD_NORMAL
+    for n in nodes:
+        wait_for(lambda: all(p['channels'][0]['state'] == 'CHANNELD_NORMAL' for p in n.rpc.listpeers()['peers']))
 
-        # Get close confirmed
-        l1.bitcoin.generate_block(100)
-        wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
-        wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    # Start closers: can take a long time under valgrind!
+    futures = []
+    for i in range(len(nodes)):
+        for j in range(i + 1, len(nodes)):
+            futures.append(executor.submit(nodes[i].rpc.close, nodes[j].info['id']))
+            futures.append(executor.submit(nodes[j].rpc.close, nodes[i].info['id']))
+
+    # Wait for close to finish
+    close_txs = set()
+    for f in futures:
+        # If one side completes closing, we'll get an error here 'Peer has no active channel'
+        try:
+            close_txs.add(f.result(TIMEOUT)['txid'])
+        except RpcError as err:
+            assert err.error['message'] == 'Peer has no active channel'
+
+    # Should have one close for each open.
+    assert len(close_txs) == len(txs)
+    # Get closes confirmed
+    bitcoind.generate_block(100, wait_for_mempool=list(close_txs))
+
+    # And make sure they hangup.
+    for n in nodes:
+        wait_for(lambda: n.rpc.listpeers()['peers'] == [])
 
 
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
