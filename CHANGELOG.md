@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - bolt11: support for parsing feature bits (field `9`).
 
 - Protocol: we now retransmit `funding_locked` upon reconnection while closing if there was no update
+- Plugin: new notifications `sendpay_success` and `sendpay_failure`.
+
 ### Changed
 
 - JSON API: `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
