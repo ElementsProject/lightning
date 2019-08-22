@@ -549,7 +549,7 @@ uninstall:
 	  rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
 	done
 
-installcheck:
+installcheck: all-programs
 	@rm -rf testinstall || true
 	$(MAKE) DESTDIR=$$(pwd)/testinstall install
 	testinstall$(bindir)/lightningd --test-daemons-only --lightning-dir=testinstall
