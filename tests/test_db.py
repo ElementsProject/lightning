@@ -74,8 +74,8 @@ def test_block_backfill(node_factory, bitcoind):
     assert(31337 in [r['satoshis'] for r in l3.db_query("SELECT satoshis FROM utxoset")])
 
     # Now close the channel and make sure `l3` cleans up correctly:
-    l1.rpc.close(l2.info['id'])
-    bitcoind.generate_block(1)
+    txid = l1.rpc.close(l2.info['id'])['txid']
+    bitcoind.generate_block(1, wait_for_mempool=txid)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 0)
 
 
