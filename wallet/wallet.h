@@ -1067,6 +1067,16 @@ void wallet_transaction_annotate(struct wallet *w,
 				 enum wallet_tx_type type, u64 channel_id);
 
 /**
+ * Get the type of a transaction we are watching by its
+ * txid.
+ *
+ * Returns false if the transaction was not stored in DB.
+ * Returns true if the transaction exists and sets the `type` parameter.
+ */
+bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
+			     enum wallet_tx_type *type);
+
+/**
  * Get the confirmation height of a transaction we are watching by its
  * txid. Returns 0 if the transaction was not part of any block.
  */

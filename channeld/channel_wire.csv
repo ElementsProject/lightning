@@ -198,3 +198,10 @@ msgdata,channel_specific_feerates,feerate_ppm,u32,
 msgtype,channel_got_announcement,1017
 msgdata,channel_got_announcement,remote_ann_node_sig,secp256k1_ecdsa_signature,
 msgdata,channel_got_announcement,remote_ann_bitcoin_sig,secp256k1_ecdsa_signature,
+
+# Ask channeld to send a error message. Used in forgetting channel case.
+msgtype,channel_send_error,1008
+msgdata,channel_send_error,reason,wirestring,
+
+# Tell master channeld has sent the error message.
+msgtype,channel_send_error_reply,1108
