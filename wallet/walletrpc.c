@@ -397,6 +397,10 @@ static struct command_result *json_txsend(struct command *cmd,
 	/* We're the owning cmd now. */
 	utx->wtx->cmd = cmd;
 
+	wallet_transaction_add(cmd->ld->wallet, utx->tx, 0, 0);
+	wallet_transaction_annotate(cmd->ld->wallet, &utx->txid,
+				    TX_UNKNOWN, 0);
+
 	return broadcast_and_wait(cmd, utx);
 }
 
