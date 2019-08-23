@@ -458,16 +458,14 @@ static struct command_result *json_withdraw(struct command *cmd,
 {
 	struct unreleased_tx *utx;
 	struct command_result *res;
-	struct bitcoin_txid txid;
 
 	res = json_prepare_tx(cmd, buffer, params, &utx, true);
 	if (res)
 		return res;
 
 	/* Store the transaction in the DB and annotate it as a withdrawal */
-	bitcoin_txid(utx->tx, &txid);
 	wallet_transaction_add(cmd->ld->wallet, utx->tx, 0, 0);
-	wallet_transaction_annotate(cmd->ld->wallet, &txid,
+	wallet_transaction_annotate(cmd->ld->wallet, &utx->txid,
 				    TX_WALLET_WITHDRAWAL, 0);
 
 	return broadcast_and_wait(cmd, utx);
