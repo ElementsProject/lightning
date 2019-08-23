@@ -2796,6 +2796,20 @@ static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 	start_commit_timer(peer);
 }
 
+static void handle_send_error(struct peer *peer, const u8 *msg)
+{
+	char *reason;
+	if (!fromwire_channel_send_error(msg, msg, &reason))
+		master_badmsg(WIRE_CHANNEL_SEND_ERROR, msg);
+	status_debug("Send error reason: %s", reason);
+	sync_crypto_write(peer->pps,
+			  take(towire_errorfmt(NULL, &peer->channel_id,
+					       "%s", reason)));
+
+	wire_sync_write(MASTER_FD,
+			take(towire_channel_send_error_reply(NULL)));
+}
+
 #if DEVELOPER
 static void handle_dev_reenable_commit(struct peer *peer)
 {
@@ -2849,6 +2863,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SEND_SHUTDOWN:
 		handle_shutdown_cmd(peer, msg);
 		return;
+	case WIRE_CHANNEL_SEND_ERROR:
+		handle_send_error(peer, msg);
+		return;
 #if DEVELOPER
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
 		handle_dev_reenable_commit(peer);
@@ -2875,6 +2892,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
+	case WIRE_CHANNEL_SEND_ERROR_REPLY:
 		break;
 	}
 	master_badmsg(-1, msg);

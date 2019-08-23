@@ -3,10 +3,13 @@
 #include <ccan/cast/cast.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/features.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/per_peer_state.h>
 #include <common/timeout.h>
 #include <common/utils.h>
+#include <common/wallet_tx.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <gossipd/gossip_constants.h>
@@ -15,6 +18,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
@@ -230,6 +234,33 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
+static void handle_error_channel(struct channel *channel,
+				 const u8 *msg)
+{
+	struct command **forgets = tal_steal(tmpctx, channel->forgets);
+	channel->forgets = tal_arr(channel, struct command *, 0);
+
+	if (!fromwire_channel_send_error_reply(msg)) {
+		channel_internal_error(channel, "bad send_error_reply: %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* Forget the channel. */
+	delete_channel(channel);
+
+	for (size_t i = 0; i < tal_count(forgets); i++) {
+		assert(!forgets[i]->json_stream);
+
+		struct json_stream *response;
+		response = json_stream_success(forgets[i]);
+		json_add_string(response, "cancelled", "Channel open canceled by RPC(after fundchannel_complete)");
+		was_pending(command_success(forgets[i], response));
+	}
+
+	tal_free(forgets);
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -262,6 +293,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 		channel_fail_fallen_behind(sd->channel, msg);
 		break;
+	case WIRE_CHANNEL_SEND_ERROR_REPLY:
+		handle_error_channel(sd->channel, msg);
+		break;
 
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
@@ -281,6 +315,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
+	case WIRE_CHANNEL_SEND_ERROR:
 		break;
 	}
 
@@ -577,4 +612,110 @@ void channel_notify_new_block(struct lightningd *ld,
 	}
 
 	tal_free(to_forget);
+}
+
+static void process_check_funding_broadcast(struct bitcoind *bitcoind UNUSED,
+					    const struct bitcoin_tx_output *txout,
+					    void *arg)
+{
+	struct channel *cancel = arg;
+
+	if (txout != NULL) {
+		for (size_t i = 0; i < tal_count(cancel->forgets); i++)
+			was_pending(command_fail(cancel->forgets[i], LIGHTNINGD,
+				    "The funding transaction has been broadcast, "
+				    "please consider `close` or `dev-fail`! "));
+		tal_free(cancel->forgets);
+		cancel->forgets = tal_arr(cancel, struct command *, 0);
+		return;
+	}
+
+	const char *error_reason = "Cancel channel by our RPC "
+				   "command before funding "
+				   "transaction broadcast.";
+	/* Set error so we don't try to reconnect. */
+	cancel->error = towire_errorfmt(cancel, NULL, "%s", error_reason);
+
+	subd_send_msg(cancel->owner,
+		      take(towire_channel_send_error(NULL, error_reason)));
+}
+
+struct command_result *cancel_channel_before_broadcast(struct command *cmd,
+						       const char *buffer,
+						       struct peer *peer,
+						       const jsmntok_t *cidtok)
+{
+	struct channel *cancel_channel, *channel;
+
+	cancel_channel = NULL;
+	if (!cidtok) {
+		list_for_each(&peer->channels, channel, list) {
+			if (cancel_channel) {
+				return command_fail(cmd, LIGHTNINGD,
+						    "Multiple channels:"
+						    " please specify channel_id");
+			}
+			cancel_channel = channel;
+		}
+		if (!cancel_channel)
+			return command_fail(cmd, LIGHTNINGD,
+					    "No channels matching that peer_id");
+	} else {
+		struct channel_id channel_cid;
+		struct channel_id cid;
+		if (!json_tok_channel_id(buffer, cidtok, &cid))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid channel_id parameter.");
+
+		list_for_each(&peer->channels, channel, list) {
+			if (!channel)
+				return command_fail(cmd, LIGHTNINGD,
+						    "No channels matching "
+						    "that peer_id");
+			derive_channel_id(&channel_cid,
+					  &channel->funding_txid,
+					  channel->funding_outnum);
+			if (channel_id_eq(&channel_cid, &cid)) {
+				cancel_channel = channel;
+				break;
+			}
+		}
+		if (!cancel_channel)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Channel ID not found: '%.*s'",
+					    cidtok->end - cidtok->start,
+					    buffer + cidtok->start);
+	}
+
+	/* Check if we broadcast the transaction. (We store the transaction type into DB
+	 * before broadcast). */
+	enum wallet_tx_type type;
+	if(wallet_transaction_type(cmd->ld->wallet,
+				   &cancel_channel->funding_txid,
+				   &type))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Has the funding transaction been broadcast? "
+				    "Please use `close` or `dev-fail` instead.");
+
+	if (channel_has_htlc_out(cancel_channel) ||
+	    channel_has_htlc_in(cancel_channel)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "This channel has HTLCs attached and it is "
+				    "not safe to cancel. Has the funding transaction "
+				    "been broadcast? Please use `close` or `dev-fail` "
+				    "instead.");
+	}
+
+	tal_arr_expand(&cancel_channel->forgets, cmd);
+
+	/* Check if the transaction is onchain. */
+	/* Note: The above check and this check can't completely ensure that
+	 * the funding transaction isn't broadcast. We can't know if the funding
+	 * is broadcast by external wallet and the transaction hasn't been onchain. */
+	bitcoind_gettxout(cmd->ld->topology->bitcoind,
+			  &cancel_channel->funding_txid,
+			  cancel_channel->funding_outnum,
+			  process_check_funding_broadcast,
+			  cancel_channel);
+	return command_still_pending(cmd);
 }

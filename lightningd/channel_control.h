@@ -23,4 +23,11 @@ bool channel_tell_depth(struct lightningd *ld,
 void channel_notify_new_block(struct lightningd *ld,
 			      u32 block_height);
 
+/* Cancel the channel after `fundchannel_complete` succeeds
+ * but before funding broadcasts. */
+struct command_result *cancel_channel_before_broadcast(struct command *cmd,
+						       const char *buffer,
+						       struct peer *peer,
+						       const jsmntok_t *cidtok);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */
