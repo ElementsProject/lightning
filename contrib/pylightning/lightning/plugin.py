@@ -111,6 +111,9 @@ class Plugin(object):
         if not stdin:
             self.stdin = sys.stdin
 
+        self.lightning_version = None
+        if os.getenv('LIGHTNINGD_VERSION'):
+            self.lightning_version = os.getenv('LIGHTNINGD_VERSION')
         if os.getenv('LIGHTNINGD_PLUGIN') and autopatch:
             monkey_patch(self, stdout=True, stderr=True)
 
