@@ -120,6 +120,9 @@ struct channel {
 
 	/* Was this negotiated with `option_static_remotekey? */
 	bool option_static_remotekey;
+
+	/* Any commands trying to forget us. */
+	struct command **forgets;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
