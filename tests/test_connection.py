@@ -1,4 +1,5 @@
 from collections import namedtuple
+from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
@@ -875,7 +876,38 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
     l1.rpc.fundchannel_cancel(l2.info['id'])
     # Should be able to 'restart' after canceling
-    l1.rpc.fundchannel_start(l2.info['id'], amount)
+    amount2 = 1000000
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount2)['funding_address']
+
+    addr = l1.rpc.newaddr()['bech32']
+    l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    # Create the funding transaction
+    prep = l1.rpc.txprepare([{funding_addr: amount2}])
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+
+    # One output will be correct.
+    if decode['vout'][0]['value'] == Decimal('0.01000000'):
+        txout = 0
+    elif decode['vout'][1]['value'] == Decimal('0.01000000'):
+        txout = 1
+    else:
+        assert False
+
+    # Be sure fundchannel_complete is successful
+    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
+    # Canceld channel after fundchannel_complete
+    assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
+    l1.rpc.txsend(prep['txid'])
+    with pytest.raises(RpcError, match=r'.* been broadcast.*'):
+        l1.rpc.fundchannel_cancel(l2.info['id'])
+    l1.rpc.close(l2.info['id'])
 
 
 def test_funding_cancel_race(node_factory, bitcoind, executor):
