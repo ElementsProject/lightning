@@ -29,8 +29,14 @@ struct plugin {
 
 	enum plugin_state plugin_state;
 
-	/* If this plugin can be restarted without restarting lightningd and don't
-	 * wait for their initialization */
+	/* dynamic=True: plugin can be stopped/started via RPC at runtime and it
+	 * expects lightningd to be up-and-running during init.
+	 *
+	 * dynamic=False: when lightningd starts up, it will wait for the plugin's
+	 * init-result and will shutdown when that is an error. A static plugin
+	 * cannot be stopped but *can* be started via RPC. It should check the
+	 * `startup` field in its init call, which may return an error to kill the
+	 * plugin. Static plugins shouldn't make RPC calls during init. */
 	bool dynamic;
 	bool signal_startup;
 

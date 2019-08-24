@@ -804,7 +804,7 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 
 static void plugin_sync_init_timeout(struct plugin *plugin)
 {
-	log_broken(plugin->log, "The non-dynamic plugin failed to respond to \"init\" in time, terminating.");
+	log_broken(plugin->log, "The static plugin failed to respond to \"init\" in time, terminating.");
 	fatal("Can't recover from plugin failure, terminating.");
 }
 
@@ -1031,15 +1031,46 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	plugin->plugin_state = CONFIGURED;
-	/*FIXME: test for startup=True here also ? */
-	if (!plugin->dynamic) {
+	const jsmntok_t *errortok;
+
+	/* An init-error from a static plugin during lightningd startup will crash
+	 * lightningd. An init-error outside startup will kill the (static or
+	 * dynamic) plugin only. */
+	errortok = json_get_member(buffer, toks, "error");
+	if (errortok && errortok->type != JSMN_STRING) {
+		if (!plugin->dynamic && plugin->plugins->startup)
+			fatal("init-error of static plugin at ld startup '%s':"
+				  " \"error\" result is not an object: %.*s", plugin->cmd,
+						    toks[0].end - toks[0].start,
+						    buffer + toks[0].start);
+
+		/* Any plugin that doesn't want to be started via RPC at run-time, can
+		 * return an init-error, so it is killed cleanly. */
+		plugin_kill(plugin,
+			    "\"error\" result is not an object: %.*s",
+			    toks[0].end - toks[0].start,
+			    buffer + toks[0].start);
+	}
+
+	/* TODO: add error code + message
+	 * TODO: check json `id` */
+	if (!plugin->dynamic  && plugin->plugins->startup) {
+		if (errortok)
+			fatal("init-error of static plugin at ld startup '%s'", plugin->cmd);
 		plugin->plugins->pending_sync_configs--;
 		tal_free(plugin->timeout_timer);
-		/* When all non-dynamic plugins are initialized, continue start-up */
+
+		/* When all static plugins are initialized, break the io_loop in
+		 * plugins_config, which also unsets plugins->startup */
 		if (plugin->plugins->pending_sync_configs == 0)
 			io_break(plugin->plugins);
 	}
+
+	if (errortok) {
+		plugin_kill(plugin, "error initializing plugin");
+		return;
+	}
+	plugin->plugin_state = CONFIGURED;
 }
 
 /* FIXME(cdecker) This just builds a string for the request because
