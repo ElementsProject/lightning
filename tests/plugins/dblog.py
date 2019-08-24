@@ -20,7 +20,7 @@ def init(configuration, options, plugin):
         plugin.conn.execute(c)
         plugin.log("{}".format(c))
     plugin.initted = True
-    plugin.log("initialized")
+    plugin.log("initialized {}".format(configuration))
 
 
 @plugin.hook('db_write')
