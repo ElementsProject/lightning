@@ -98,7 +98,7 @@ def test_plugin_slowinit(node_factory):
     n = node_factory.get_node()
 
     n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
-    n.daemon.wait_for_log("slow_init.py initializing")
+    n.daemon.wait_for_log("slow_init.py initializing.* 'startup': False")
 
     # It's not actually configured yet, see what happens;
     # make sure 'rescan' and 'list' controls dont crash
@@ -304,7 +304,7 @@ def test_db_hook(node_factory, executor):
     l1.daemon.wait_for_log('plugin-dblog.py replaying pre-init data:')
     l1.daemon.wait_for_log('plugin-dblog.py PRAGMA foreign_keys = ON;')
     l1.daemon.wait_for_log('plugin-dblog.py CREATE TABLE version \\(version INTEGER\\)')
-    l1.daemon.wait_for_log('plugin-dblog.py initialized')
+    l1.daemon.wait_for_log("plugin-dblog.py initialized.* 'startup': True")
 
     l1.stop()
 
