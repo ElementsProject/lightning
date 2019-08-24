@@ -1024,8 +1024,6 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 
 	if (plugins->pending_manifests > 0)
 		io_loop_with_timers(plugins->ld);
-	// There won't be io_loop anymore to wait for plugins
-	plugins->startup = false;
 }
 
 static void plugin_config_cb(const char *buffer,
@@ -1100,9 +1098,12 @@ void plugins_config(struct plugins *plugins)
 		}
 	}
 
-	/* At start-up, wait for non-dynamic plugins to initialize */
+	/* Wait here for any static plugins to initialize, which implies startup.*/
 	if (plugins->pending_sync_configs > 0)
 		io_loop_with_timers(plugins->ld);
+
+	/* Close the startup window (if any) */
+	plugins->startup = false;
 }
 
 void json_add_opt_plugins(struct json_stream *response,
