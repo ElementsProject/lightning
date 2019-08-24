@@ -14,8 +14,12 @@ plugin = Plugin(dynamic=False)
 def init(configuration, options, plugin):
     plugin.log("init startup={}".format(configuration['startup']))
 
+    # we don't like to be started at run-time
+    if not configuration['startup']:
+        raise Exception
 
-@plugin.method('world')
+
+@plugin.method('static_2')
 def reject(plugin):
     """Mark a given node_id as reject for future connections.
     """

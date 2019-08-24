@@ -108,50 +108,53 @@ def test_plugin_slowinit(node_factory):
 
 def test_plugin_command(node_factory):
     """Tests the 'plugin' RPC command"""
-    n = node_factory.get_node()
+    opts = {"plugin": os.path.join(os.getcwd(), "tests/plugins/static.py")}
+    l1 = node_factory.get_node(options=opts)
+
+    # Test that we cannot stop a plugin with 'dynamic' set to False in
+    # getmanifest
+    with pytest.raises(RpcError, match=r"plugin cannot be managed when lightningd is up"):
+        l1.rpc.plugin_stop(plugin="static.py")
+
+    # A static plugin started via RPC that returns an init-error is killed
+    l1.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/static_2.py"))
+    l1.daemon.wait_for_log(r"plugin-static_2.py Killing plugin: error initializing plugin")
 
     # Make sure that the 'hello' command from the helloworld.py plugin
     # is not available.
-    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    cmd = [hlp for hlp in l1.rpc.help()["help"] if "hello" in hlp["command"]]
     assert(len(cmd) == 0)
 
     # Add the 'contrib/plugins' test dir
     time.sleep(2)
-    n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
-    n.daemon.wait_for_log(r"Plugin helloworld.py initialized")
+    l1.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
+    l1.daemon.wait_for_log(r"Plugin helloworld.py initialized")
     # Make sure that the 'hello' command from the helloworld.py plugin
     # is now available.
-    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    cmd = [hlp for hlp in l1.rpc.help()["help"] if "hello" in hlp["command"]]
     assert(len(cmd) == 1)
 
     # Make sure 'rescan' and 'list' controls dont crash
-    n.rpc.plugin_rescan()
-    n.rpc.plugin_list()
+    l1.rpc.plugin_rescan()
+    l1.rpc.plugin_list()
     time.sleep(1)
 
     # Make sure the plugin behaves normally after stop and restart
-    n.rpc.plugin_stop(plugin="helloworld.py")
-    n.daemon.wait_for_log(r"Killing plugin: helloworld.py")
+    l1.rpc.plugin_stop(plugin="helloworld.py")
+    l1.daemon.wait_for_log(r"Killing plugin: helloworld.py")
     time.sleep(1)
-    n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "contrib/plugins/helloworld.py"))
-    n.daemon.wait_for_log(r"Plugin helloworld.py initialized")
-    assert("Hello world" == n.rpc.call(method="hello"))
+    l1.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "contrib/plugins/helloworld.py"))
+    l1.daemon.wait_for_log(r"Plugin helloworld.py initialized")
+    assert("Hello world" == l1.rpc.call(method="hello"))
 
     # Now stop the helloworld plugin
-    n.rpc.plugin_stop(plugin="helloworld.py")
-    n.daemon.wait_for_log(r"Killing plugin: helloworld.py")
+    l1.rpc.plugin_stop(plugin="helloworld.py")
+    l1.daemon.wait_for_log(r"Killing plugin: helloworld.py")
     time.sleep(1)
     # Make sure that the 'hello' command from the helloworld.py plugin
     # is not available anymore.
-    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    cmd = [hlp for hlp in l1.rpc.help()["help"] if "hello" in hlp["command"]]
     assert(len(cmd) == 0)
-
-    # Test that we cannot stop a plugin with 'dynamic' set to False in
-    # getmanifest
-    n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/static.py"))
-    n.daemon.wait_for_log(r"Static plugin initialized.")
-    with pytest.raises(RpcError, match=r"plugin cannot be managed when lightningd is up"):
-        n.rpc.plugin_stop(plugin="static.py")
 
 
 def test_plugin_disable(node_factory):
