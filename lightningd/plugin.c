@@ -837,6 +837,8 @@ static void plugin_manifest_cb(const char *buffer,
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
 	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin))
 		plugin->dynamic = dynamic_plugin;
+	else
+		plugin->dynamic = false;
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
