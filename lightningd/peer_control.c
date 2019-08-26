@@ -441,9 +441,18 @@ void channel_errmsg(struct channel *channel,
 	 *    - MUST fail the channel referred to by the error message,
 	 *      if that channel is with the sending node.
 	 */
-	channel_fail_permanent(channel, "%s: %s ERROR %s",
-			       channel->owner->name,
-			       err_for_them ? "sent" : "received", desc);
+
+	/* We should immediately forget the channel if we receive error during
+	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
+	if (!err_for_them && channel->funder == REMOTE
+	    && channel->state == CHANNELD_AWAITING_LOCKIN)
+		channel_fail_forget(channel, "%s: %s ERROR %s",
+				    channel->owner->name,
+				    err_for_them ? "sent" : "received", desc);
+	else
+		channel_fail_permanent(channel, "%s: %s ERROR %s",
+				       channel->owner->name,
+				       err_for_them ? "sent" : "received", desc);
 }
 
 struct peer_connected_hook_payload {
