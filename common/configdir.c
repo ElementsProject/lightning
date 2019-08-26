@@ -16,7 +16,7 @@ char *default_configdir(const tal_t *ctx)
 	char *path;
 	const char *env = getenv("HOME");
 	if (!env)
-		return ".";
+		return tal_strdup(ctx, ".");
 
 	path = path_join(ctx, env, ".lightning");
 	return path;
