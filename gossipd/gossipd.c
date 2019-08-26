@@ -1576,7 +1576,9 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 	peer->scid_query_nodes_idx = i;
 
 	/* All finished? */
-	if (peer->scid_queries && peer->scid_query_nodes_idx == num) {
+	if (peer->scid_queries
+	    && peer->scid_query_idx == tal_count(peer->scid_queries)
+	    && peer->scid_query_nodes_idx == num) {
 		/* BOLT #7:
 		 *
 		 * - MUST follow these responses with
