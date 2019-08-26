@@ -187,6 +187,9 @@ PRINTF_FMT(2,3) void channel_fail_reconnect_later(struct channel *channel,
 
 /* Channel has failed, give up on it. */
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...);
+/* Forget the channel. This is only used for the case when we "receive" error
+ * during CHANNELD_AWAITING_LOCKIN if we are "fundee". */
+void channel_fail_forget(struct channel *channel, const char *fmt, ...);
 /* Permanent error, but due to internal problems, not peer. */
 void channel_internal_error(struct channel *channel, const char *fmt, ...);
 

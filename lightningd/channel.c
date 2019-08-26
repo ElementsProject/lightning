@@ -362,7 +362,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	struct channel_id cid;
 
 	va_start(ap, fmt);
-	why = tal_vfmt(channel, fmt, ap);
+	why = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
 	log_unusual(channel->log, "Peer permanent failure in %s: %s",
@@ -383,6 +383,33 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	if (channel_active(channel))
 		channel_set_state(channel, channel->state, AWAITING_UNILATERAL);
 
+	tal_free(why);
+}
+
+void channel_fail_forget(struct channel *channel, const char *fmt, ...)
+{
+	va_list ap;
+	char *why;
+	struct channel_id cid;
+
+	assert(channel->funder == REMOTE &&
+	       channel->state == CHANNELD_AWAITING_LOCKIN);
+	va_start(ap, fmt);
+	why = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	log_unusual(channel->log, "Peer permanent failure in %s: %s, "
+		    "forget channel",
+		    channel_state_name(channel), why);
+
+	if (!channel->error) {
+		derive_channel_id(&cid,
+				  &channel->funding_txid,
+				  channel->funding_outnum);
+		channel->error = towire_errorfmt(channel, &cid, "%s", why);
+	}
+
+	delete_channel(channel);
 	tal_free(why);
 }
 
