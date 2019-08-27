@@ -239,14 +239,6 @@ void json_add_amount_sat_compat(struct json_stream *result UNNEEDED,
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
-/* Generated stub for json_add_hex */
-void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_add_hex called!\n"); abort(); }
-/* Generated stub for json_add_sha256 */
-void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		     const struct sha256 *hash UNNEEDED)
-{ fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
 /* Generated stub for json_add_hex_talarr */
 void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 			 const char *fieldname UNNEEDED,
@@ -274,6 +266,10 @@ void json_add_secret(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,
 		     const struct secret *secret UNNEEDED)
 { fprintf(stderr, "json_add_secret called!\n"); abort(); }
+/* Generated stub for json_add_sha256 */
+void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		     const struct sha256 *hash UNNEEDED)
+{ fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,

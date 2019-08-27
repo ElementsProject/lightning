@@ -166,10 +166,6 @@ void json_add_escaped_string(struct json_stream *result UNNEEDED,
 void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "json_add_hex called!\n"); abort(); }
-/* Generated stub for json_add_sha256 */
-void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		     const struct sha256 *hash UNNEEDED)
-{ fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
 /* Generated stub for json_add_hex_talarr */
 void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 			 const char *fieldname UNNEEDED,
@@ -188,6 +184,10 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_sha256 */
+void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		     const struct sha256 *hash UNNEEDED)
+{ fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
@@ -481,9 +481,6 @@ void wallet_channel_close(struct wallet *w UNNEEDED, u64 wallet_id UNNEEDED)
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
-/* Generated stub for wallet_init_channels */
-bool wallet_init_channels(struct wallet *w UNNEEDED)
-{ fprintf(stderr, "wallet_init_channels called!\n"); abort(); }
 /* Generated stub for wallet_channel_stats_load */
 void wallet_channel_stats_load(struct wallet *w UNNEEDED, u64 cdbid UNNEEDED, struct channel_stats *stats UNNEEDED)
 { fprintf(stderr, "wallet_channel_stats_load called!\n"); abort(); }
@@ -498,6 +495,9 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
 				   struct htlc_in_map *htlcs_in UNNEEDED,
 				   struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "wallet_htlcs_load_for_channel called!\n"); abort(); }
+/* Generated stub for wallet_init_channels */
+bool wallet_init_channels(struct wallet *w UNNEEDED)
+{ fprintf(stderr, "wallet_init_channels called!\n"); abort(); }
 /* Generated stub for wallet_invoice_create */
 bool wallet_invoice_create(struct wallet *wallet UNNEEDED,
 			   struct invoice *pinvoice UNNEEDED,
