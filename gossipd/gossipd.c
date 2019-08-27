@@ -1507,8 +1507,10 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		 * - if bit 0 of `query_flag` is set:
 		 *   - MUST reply with a `channel_announcement`
 		 */
-		if (peer->scid_query_flags[i] & SCID_QF_ANNOUNCE)
+		if (peer->scid_query_flags[i] & SCID_QF_ANNOUNCE) {
 			queue_peer_from_store(peer, &chan->bcast);
+			sent = true;
+		}
 
 		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
 		 * - if bit 1 of `query_flag` is set and it has received a
@@ -1520,11 +1522,15 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		 *   - MUST reply with the latest `channel_update` for
 		 *   `node_id_2` */
 		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE1)
-		    && is_halfchan_defined(&chan->half[0]))
+		    && is_halfchan_defined(&chan->half[0])) {
 			queue_peer_from_store(peer, &chan->half[0].bcast);
+			sent = true;
+		}
 		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE2)
-		    && is_halfchan_defined(&chan->half[1]))
+		    && is_halfchan_defined(&chan->half[1])) {
 			queue_peer_from_store(peer, &chan->half[1].bcast);
+			sent = true;
+		}
 
 		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
 		 * - if bit 3 of `query_flag` is set and it has received
@@ -1542,7 +1548,6 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		if (peer->scid_query_flags[i] & SCID_QF_NODE2)
 			tal_arr_expand(&peer->scid_query_nodes,
 				       chan->nodes[1]->id);
-		sent = true;
 	}
 
 	/* Just finished channels?  Remove duplicate nodes. */
