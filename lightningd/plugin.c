@@ -32,6 +32,8 @@
  * willing to wait. Plugins shouldn't do any initialization in the
  * `getmanifest` call anyway, that's what `init `is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
+/* Timeout for the init response of early_config plugins */
+#define PLUGIN_CONFIG_TIMEOUT 10
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 			    struct lightningd *ld)
@@ -796,6 +798,12 @@ static bool plugin_hooks_add(struct plugin *plugin, const char *buffer,
 	return true;
 }
 
+static void plugin_early_conf_timeout(struct plugin *plugin)
+{
+	log_broken(plugin->log, "The early_conf plugin failed to respond to \"init\" in time, terminating.");
+	fatal("Can't recover from plugin failure, terminating.");
+}
+
 static void plugin_manifest_timeout(struct plugin *plugin)
 {
 	log_broken(plugin->log, "The plugin failed to respond to \"getmanifest\" in time, terminating.");
@@ -810,8 +818,8 @@ static void plugin_manifest_cb(const char *buffer,
 			       const jsmntok_t *idtok,
 			       struct plugin *plugin)
 {
-	const jsmntok_t *resulttok, *dynamictok;
-	bool dynamic_plugin;
+	const jsmntok_t *resulttok, *dynamictok, *earlyconftok;
+	bool dynamic_plugin, earlyconf_plugin;
 
 	/* Check if all plugins have replied to getmanifest, and break
 	 * if they have and this is the startup init */
@@ -831,6 +839,12 @@ static void plugin_manifest_cb(const char *buffer,
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
 	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin))
 		plugin->dynamic = dynamic_plugin;
+
+	earlyconftok = json_get_member(buffer, resulttok, "early_conf");
+	if (earlyconftok && json_to_bool(buffer, earlyconftok, &earlyconf_plugin))
+		plugin->early_config = earlyconf_plugin;
+	else
+		plugin->early_config = false;
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
@@ -1027,6 +1041,15 @@ static void plugin_config_cb(const char *buffer,
 			     struct plugin *plugin)
 {
 	plugin->plugin_state = CONFIGURED;
+
+	if (plugin->plugins->startup && plugin->early_config) {
+		plugin->plugins->pending_early_configs--;
+		tal_free(plugin->timeout_timer);
+		/* This will break the io_loop in plugins_early_config */
+		if (plugin->plugins->pending_early_configs == 0)
+			io_break(plugin->plugins);
+	}
+
 }
 
 /* FIXME(cdecker) This just builds a string for the request because
@@ -1061,6 +1084,31 @@ static void plugin_config(struct plugin *plugin)
 
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
+
+	/* Wait for early_config plugin's `init` response during startup, so they
+	 * can do their thing or abort at an early stage */
+	if (plugin->plugins->startup && plugin->early_config) {
+		plugin->plugins->pending_early_configs++;
+		/* FIXME assert plugin->timeout_timer == NULL here ? */
+		plugin->timeout_timer = new_reltimer(plugin->plugins->ld->timers,
+				plugin, time_from_sec(PLUGIN_CONFIG_TIMEOUT),
+				plugin_early_conf_timeout, plugin);
+	}
+}
+
+void plugins_early_config(struct plugins *plugins)
+{
+	struct plugin *p;
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->early_config && p->plugin_state == UNCONFIGURED) {
+			p->plugin_state = CONFIGURING;
+			plugin_config(p);
+		}
+	}
+	/* At start-up, wait for early_config plugins to initialize */
+	if (plugins->pending_early_configs > 0)
+		io_loop_with_timers(plugins->ld);
+
 }
 
 void plugins_config(struct plugins *plugins)

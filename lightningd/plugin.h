@@ -32,6 +32,8 @@ struct plugin {
 	/* If this plugin can be restarted without restarting lightningd */
 	bool dynamic;
 	bool signal_startup;
+	/* Plugin initializes early, blocking lightningd, but is very restricted */
+	bool early_config;
 
 	/* Stuff we read */
 	char *buffer;
@@ -65,6 +67,7 @@ struct plugin {
 struct plugins {
 	struct list_head plugins;
 	size_t pending_manifests;
+	size_t pending_early_configs;
 	bool startup;
 
 	/* Currently pending requests by their request ID */
@@ -159,6 +162,14 @@ void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...);
  * incoming JSON-RPC calls and messages.
  */
 void plugins_config(struct plugins *plugins);
+
+/**
+ * Sync'ed version of above, only for some very *limited* plugins that have set
+ * `early_config` in their getmanifest response to indicate they want to be
+ * initialized early.
+ */
+void plugins_early_config(struct plugins *plugins);
+
 /**
  * Add the plugin option and their respective options to listconfigs.
  *
