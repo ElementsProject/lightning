@@ -843,8 +843,9 @@ def test_funding_reorg_private(node_factory, bitcoind):
     """Change funding tx height after lockin, between node restart.
     """
     # Rescan to detect reorg at restart and may_reconnect so channeld
-    # will restart
-    opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True}
+    # will restart.  Reorg can cause bad gossip msg.
+    opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True,
+            'allow_bad_gossip': True}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
@@ -870,9 +871,8 @@ def test_funding_reorg_private(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('106x1x0')['channels']] == [False, False])
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('108x1x0')['channels']] == [True, True])
 
-    l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
-    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
-    bitcoind.generate_block(1)
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1, True)
     l1.daemon.wait_for_log(r'Deleting channel')
     l2.daemon.wait_for_log(r'Deleting channel')
 
@@ -881,8 +881,8 @@ def test_funding_reorg_private(node_factory, bitcoind):
 def test_funding_reorg_remote_lags(node_factory, bitcoind):
     """Nodes may disagree about short_channel_id before channel announcement
     """
-    # may_reconnect so channeld will restart
-    opts = {'funding-confirms': 1, 'may_reconnect': True}
+    # may_reconnect so channeld will restart; bad gossip can happen due to reorg
+    opts = {'funding-confirms': 1, 'may_reconnect': True, 'allow_bad_gossip': True}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
@@ -916,7 +916,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
         'CHANNELD_NORMAL:Funding transaction locked. Channel announced.'])
 
-    l1.rpc.close(l2.info['id'])                     # to ignore `Bad gossip order` error in killall
+    l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
     l1.daemon.wait_for_log(r'Deleting channel')
     l2.daemon.wait_for_log(r'Deleting channel')

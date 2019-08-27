@@ -135,7 +135,7 @@ def node_factory(request, directory, test_name, bitcoind, executor):
         err_count += checkReconnect(node)
     check_errors(request, err_count, "{} nodes had unexpected reconnections")
 
-    for node in nf.nodes:
+    for node in [n for n in nf.nodes if not n.allow_bad_gossip]:
         err_count += checkBadGossip(node)
     check_errors(request, err_count, "{} nodes had bad gossip messages")
 
