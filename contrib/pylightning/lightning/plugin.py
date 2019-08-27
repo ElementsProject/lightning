@@ -99,7 +99,7 @@ class Plugin(object):
 
     """
 
-    def __init__(self, stdout=None, stdin=None, autopatch=True, dynamic=True):
+    def __init__(self, stdout=None, stdin=None, autopatch=True, dynamic=True, early_conf=False):
         self.methods = {'init': Method('init', self._init, MethodType.RPCMETHOD)}
         self.options = {}
 
@@ -121,8 +121,9 @@ class Plugin(object):
         self.rpc_filename = None
         self.lightning_dir = None
         self.rpc = None
-        self.startup = True
+        self.startup = None
         self.dynamic = dynamic
+        self.early_conf = early_conf
         self.child_init = None
 
         self.write_lock = RLock()
@@ -527,7 +528,8 @@ class Plugin(object):
             'rpcmethods': methods,
             'subscriptions': list(self.subscriptions.keys()),
             'hooks': hooks,
-            'dynamic': self.dynamic
+            'dynamic': self.dynamic,
+            'early_conf': self.early_conf
         }
 
     def _init(self, options, configuration, request):
