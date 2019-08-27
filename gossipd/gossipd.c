@@ -988,11 +988,12 @@ static u32 crc32_of_update(const u8 *channel_update)
 	 *    * [`u32`:`timestamp`]
 	 *...
 	 */
+	/* Note: 2 bytes for `type` field */
 	/* We already checked it's valid before accepting */
-	assert(tal_count(channel_update) > 64 + 32 + 8 + 4);
-	sum = crc32c(0, channel_update + 64, 32 + 8);
-	sum = crc32c(sum, channel_update + 64 + 32 + 8 + 4,
-		     tal_count(channel_update) - (64 + 32 + 8 + 4));
+	assert(tal_count(channel_update) > 2 + 64 + 32 + 8 + 4);
+	sum = crc32c(0, channel_update + 2 + 64, 32 + 8);
+	sum = crc32c(sum, channel_update + 2 + 64 + 32 + 8 + 4,
+		     tal_count(channel_update) - (64 + 2 + 32 + 8 + 4));
 	return sum;
 }
 
