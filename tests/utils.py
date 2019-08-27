@@ -454,7 +454,7 @@ class LightningD(TailableProc):
 
 
 class LightningNode(object):
-    def __init__(self, daemon, rpc, btc, executor, may_fail=False, may_reconnect=False, allow_broken_log=False):
+    def __init__(self, daemon, rpc, btc, executor, may_fail=False, may_reconnect=False, allow_broken_log=False, allow_bad_gossip=False):
         self.rpc = rpc
         self.daemon = daemon
         self.bitcoin = btc
@@ -462,6 +462,7 @@ class LightningNode(object):
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
         self.allow_broken_log = allow_broken_log
+        self.allow_bad_gossip = allow_bad_gossip
 
     def connect(self, remote_node):
             self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
@@ -787,6 +788,7 @@ class NodeFactory(object):
             'log_all_io',
             'feerates',
             'wait_for_bitcoind_sync',
+            'allow_bad_gossip'
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
@@ -830,7 +832,7 @@ class NodeFactory(object):
                  may_reconnect=False, random_hsm=False,
                  feerates=(15000, 7500, 3750), start=True, log_all_io=False,
                  dbfile=None, node_id=None, allow_broken_log=False,
-                 wait_for_bitcoind_sync=True):
+                 wait_for_bitcoind_sync=True, allow_bad_gossip=False):
         if not node_id:
             node_id = self.get_node_id()
 
@@ -873,7 +875,8 @@ class NodeFactory(object):
         rpc = LightningRpc(socket_path, self.executor)
 
         node = LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail,
-                             may_reconnect=may_reconnect, allow_broken_log=allow_broken_log)
+                             may_reconnect=may_reconnect, allow_broken_log=allow_broken_log,
+                             allow_bad_gossip=allow_bad_gossip)
 
         # Regtest estimatefee are unusable, so override.
         node.set_feerates(feerates, False)
