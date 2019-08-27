@@ -1021,6 +1021,7 @@ void plugins_start(struct plugins *plugins, const char *dev_plugin_debug)
 void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 {
 	plugins->pending_manifests = 0;
+	plugins->pending_early_configs = 0;
 	uintmap_init(&plugins->pending_requests);
 
 	plugins_add_default_dir(plugins,
@@ -1040,16 +1041,45 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	plugin->plugin_state = CONFIGURED;
+	const jsmntok_t *errortok;
+	/* An init-error during startup from an `early_conf` plugin will crash
+	 * lightningd, outside startup it will kill the plugin (any type). */
+	errortok = json_get_member(buffer, toks, "error");
+	/* FIXME: shouldn't this be a JSMN_OBJECT ? */
+	if (errortok && errortok->type != JSMN_STRING) {
+		/* FIXME: should `static` plugins be treated same way?*/
+		if (plugin->plugins->startup && plugin->early_config)
+			fatal("init error at early config of plugin '%s':"
+				  " \"error\" result is not an object: %.*s", plugin->cmd,
+						    toks[0].end - toks[0].start,
+						    buffer + toks[0].start);
 
+		/* Plugins that don't like to be started at run-time, can return an
+		 * init error ... and be killed cleanly */
+		plugin_kill(plugin,
+			    "\"error\" result is not an object: %.*s",
+			    toks[0].end - toks[0].start,
+			    buffer + toks[0].start);
+	}
+
+	/* TODO: add error code + message
+	 * TODO: check json `id` */
 	if (plugin->plugins->startup && plugin->early_config) {
+		if (errortok)
+			fatal("init error at early config of plugin '%s'", plugin->cmd);
 		plugin->plugins->pending_early_configs--;
 		tal_free(plugin->timeout_timer);
+
 		/* This will break the io_loop in plugins_early_config */
 		if (plugin->plugins->pending_early_configs == 0)
 			io_break(plugin->plugins);
 	}
 
+	if (errortok) {
+		plugin_kill(plugin, "error initializing plugin");
+		return;
+	}
+	plugin->plugin_state = CONFIGURED;
 }
 
 /* FIXME(cdecker) This just builds a string for the request because
