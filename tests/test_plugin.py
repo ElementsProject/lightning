@@ -649,14 +649,34 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l2])
 
-    stats = l2.rpc.listforwards()
+    stats = l2.rpc.listforwards()['forwards']
+    assert len(stats) == 3
+    plugin_stats = l2.rpc.call('listforwards_plugin')['forwards']
+    assert len(plugin_stats) == 6
 
-    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash13, 'status': 'offered', 'dbforward': stats['forwards'][0]})
-    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash13, 'status': 'settled', 'dbforward': stats['forwards'][0]})
-    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash14, 'status': 'offered', 'dbforward': stats['forwards'][1]})
-    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash14, 'status': 'failed', 'dbforward': stats['forwards'][1]})
-    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash15, 'status': 'offered', 'dbforward': stats['forwards'][2]})
-    assert l2.rpc.call('recordcheck', {'payment_hash': payment_hash15, 'status': 'local_failed', 'dbforward': stats['forwards'][2]})
+    # use stats to build what we expect went to plugin.
+    expect = stats[0].copy()
+    # First event won't have conclusion.
+    del expect['resolved_time']
+    expect['status'] = 'offered'
+    assert plugin_stats[0] == expect
+    expect = stats[0].copy()
+    assert plugin_stats[1] == expect
+
+    expect = stats[1].copy()
+    del expect['resolved_time']
+    expect['status'] = 'offered'
+    assert plugin_stats[2] == expect
+    expect = stats[1].copy()
+    assert plugin_stats[3] == expect
+
+    expect = stats[2].copy()
+    del expect['failcode']
+    del expect['failreason']
+    expect['status'] = 'offered'
+    assert plugin_stats[4] == expect
+    expect = stats[2].copy()
+    assert plugin_stats[5] == expect
 
 
 def test_plugin_deprecated_relpath(node_factory):
