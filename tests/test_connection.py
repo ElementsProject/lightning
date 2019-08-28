@@ -2,7 +2,7 @@ from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
-from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT, SLOW_MACHINE
+from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT, SLOW_MACHINE, EXPERIMENTAL_FEATURES
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
 import binascii
@@ -1317,6 +1317,8 @@ def test_forget_channel(node_factory):
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
     lfeatures = 'aa'
+    if EXPERIMENTAL_FEATURES:
+        lfeatures = '08aa'
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
@@ -1566,15 +1568,18 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2 = node_factory.get_node(may_reconnect=True, log_all_io=True,
                                feerates=(7500, 7500, 7500), allow_broken_log=True)
 
+    if EXPERIMENTAL_FEATURES:
+        # lflen == 2, features 1, 3, 5, 7 and 11 (0x08aa).
+        lf = "0002" + "08aa"
+    else:
+        # lflen == 1, features 1, 3, 5 and 7 (0xaa).
+        lf = "0001" + "aa"
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
     l1.daemon.wait_for_log(r"\[OUT\] 0010"
                            # gflen == 0
                            "0000"
-                           # lflen == 1
-                           "0001"
-                           # Local features 1, 3, 5 and 7 (0xaa).
-                           "aa")
+                           + lf)
 
     l1.fund_channel(l2, 10**6)
     l2.stop()
