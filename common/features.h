@@ -36,4 +36,13 @@ bool global_feature_negotiated(const u8 *gfeatures, size_t f);
 #define LOCAL_UPFRONT_SHUTDOWN_SCRIPT		4
 #define LOCAL_GOSSIP_QUERIES			6
 
+/* BOLT #9:
+ *
+ * ## Assigned `globalfeatures` flags
+ *...
+ * | Bits | Name              | ...
+ * | 8/9  | `var_onion_optin` | ...
+ */
+#define GLOBAL_VAR_ONION			8
+
 #endif /* LIGHTNING_COMMON_FEATURES_H */
