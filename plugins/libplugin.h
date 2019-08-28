@@ -62,6 +62,11 @@ command_done_err(struct command *cmd,
 		 const char *errmsg,
 		 const struct json_out *data);
 
+/* Send a raw error response. Useful for forwarding a previous
+ * error after cleanup */
+struct command_result *command_err_raw(struct command *cmd,
+				       const char *json_str);
+
 /* This command is finished, here's the result object; @cmd cannot be NULL. */
 struct command_result *WARN_UNUSED_RESULT
 command_success(struct command *cmd, const struct json_out *result);
