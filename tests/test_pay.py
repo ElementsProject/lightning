@@ -2190,3 +2190,25 @@ def test_channel_drainage(node_factory, bitcoind):
     route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
     l2.rpc.sendpay(route, payment_hash)
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
+
+
+def test_error_returns_blockheight(node_factory, bitcoind):
+    """Test that incorrect_or_unknown_payment_details returns block height"""
+    l1, l2 = node_factory.line_graph(2)
+
+    l1.rpc.sendpay([{'msatoshi': 100,
+                     'id': l2.info['id'],
+                     'delay': 10,
+                     'channel': l1.get_channel_scid(l2)}],
+                   '00' * 32)
+
+    with pytest.raises(RpcError, match=r"INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_index': 1") as err:
+        l1.rpc.waitsendpay('00' * 32, TIMEOUT)
+
+    # BOLT #4:
+    # 1. type: PERM|15 (`incorrect_or_unknown_payment_details`)
+    # 2. data:
+    #    * [`u64`:`htlc_msat`]
+    #    * [`u32`:`height`]
+    assert (err.value.error['data']['raw_message']
+            == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
