@@ -4,6 +4,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <common/json.h>
+#include <common/node_id.h>
 
 struct amount_msat;
 struct amount_sat;
@@ -79,6 +80,14 @@ struct command_result *param_sat(struct command *cmd, const char *name,
 struct command_result *param_sat_or_all(struct command *cmd, const char *name,
 					const char *buffer, const jsmntok_t *tok,
 					struct amount_sat **sat);
+
+
+/* Extract node_id from this string. Makes sure *id is valid. */
+struct command_result *param_node_id(struct command *cmd,
+				     const char *name,
+				     const char *buffer,
+				     const jsmntok_t *tok,
+				     struct node_id **id);
 
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that
