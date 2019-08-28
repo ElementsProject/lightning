@@ -1353,8 +1353,8 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 		db_bind_text(stmt, 1,
 			     type_to_string(tmpctx, struct wireaddr_internal,
 					    &chan->peer->addr));
-		db_exec_prepared_v2(take(stmt));
-		chan->peer->dbid = db_last_insert_id(w->db);
+		db_exec_prepared_v2(stmt);
+		chan->peer->dbid = db_last_insert_id_v2(take(stmt));
 	}
 
 	/* Insert a stub, that we update, unifies INSERT and UPDATE paths */
@@ -1567,8 +1567,8 @@ void wallet_htlc_save_in(struct wallet *wallet,
 
 	db_bind_timeabs(stmt, 10, in->received_time);
 
-	db_exec_prepared_v2(take(stmt));
-	in->dbid = db_last_insert_id(wallet->db);
+	db_exec_prepared_v2(stmt);
+	in->dbid = db_last_insert_id_v2(take(stmt));
 }
 
 void wallet_htlc_save_out(struct wallet *wallet,

@@ -304,8 +304,7 @@ bool invoices_create(struct invoices *invoices,
 
 	db_exec_prepared_v2(stmt);
 
-	pinvoice->id = db_last_insert_id(invoices->db);
-	tal_free(stmt);
+	pinvoice->id = db_last_insert_id_v2(take(stmt));
 
 	/* Install expiration trigger. */
 	if (!invoices->expiration_timer ||
