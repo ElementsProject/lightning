@@ -48,6 +48,7 @@ msgdata,channel_init,fulfilled_sides,enum side,num_fulfilled
 msgdata,channel_init,num_failed,u16,
 msgdata,channel_init,failed,failed_htlc,num_failed
 msgdata,channel_init,failed_sides,enum side,num_failed
+msgdata,channel_init,failheight,u32,
 msgdata,channel_init,local_funding_locked,bool,
 msgdata,channel_init,remote_funding_locked,bool,
 msgdata,channel_init,funding_short_id,short_channel_id,
@@ -97,6 +98,7 @@ msgdata,channel_fulfill_htlc,fulfilled_htlc,fulfilled_htlc,
 # Main daemon says HTLC failed
 msgtype,channel_fail_htlc,1006
 msgdata,channel_fail_htlc,failed_htlc,failed_htlc,
+msgdata,channel_fail_htlc,failheight,u32,
 
 # When we receive funding_locked.
 msgtype,channel_got_funding_locked,1019

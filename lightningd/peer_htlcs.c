@@ -124,7 +124,8 @@ static void fail_in_htlc(struct htlc_in *hin,
 	else
 		failed_htlc.scid = NULL;
 	subd_send_msg(hin->key.channel->owner,
-		      take(towire_channel_fail_htlc(NULL, &failed_htlc)));
+		      take(towire_channel_fail_htlc(NULL, &failed_htlc,
+						    get_block_height(hin->key.channel->owner->ld->topology))));
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
