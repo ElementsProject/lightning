@@ -1630,7 +1630,8 @@ static u8 *handle_master_in(struct state *state)
 		msg = funder_channel_start(state, channel_flags);
 
 		/* We want to keep openingd alive, since we're not done yet */
-		wire_sync_write(REQ_FD, take(msg));
+		if (msg)
+			wire_sync_write(REQ_FD, take(msg));
 		return NULL;
 	case WIRE_OPENING_FUNDER_COMPLETE:
 		if (!fromwire_opening_funder_complete(msg,
