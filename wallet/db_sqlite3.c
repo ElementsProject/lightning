@@ -7,20 +7,14 @@
 
 #if HAVE_SQLITE3
 
-static const char *db_sqlite3_expand(struct db_stmt *stmt)
+#if !HAVE_SQLITE3_EXPANDED_SQL
+/* Prior to sqlite3 v3.14, we have to use tracing to dump statements */
+static void trace_sqlite3(void *stmtv, const char *stmt)
 {
-#if HAVE_SQLITE3_EXPANDED_SQL
-	sqlite3_stmt *s = (sqlite3_stmt*)stmt->inner_stmt;
-	const char *sql;
-	char *expanded_sql;
-	expanded_sql = sqlite3_expanded_sql(s);
-	sql = tal_strdup(stmt, expanded_sql);
-	sqlite3_free(expanded_sql);
-	return sql;
-#else
-	return NULL;
-#endif
+	struct db_stmt = (struct db_stmt*)stmtv;
+	db_changes_add(stmt, stmt);
 }
+#endif
 
 static const char *db_sqlite3_fmt_error(struct db_stmt *stmt)
 {
@@ -89,6 +83,12 @@ static bool db_sqlite3_query(struct db_stmt *stmt)
 static bool db_sqlite3_exec(struct db_stmt *stmt)
 {
 	int err;
+#if !HAVE_SQLITE3_EXPANDED_SQL
+	/* Register the tracing function if we don't have an explicit way of
+	 * expanding the statement. */
+	sqlite3_trace(db->sql, trace_sqlite3, stmt);
+#endif
+
 	if (!db_sqlite3_query(stmt)) {
 		/* If the prepare step caused an error we hand it up. */
 		return false;
@@ -100,6 +100,18 @@ static bool db_sqlite3_exec(struct db_stmt *stmt)
 		stmt->error = db_sqlite3_fmt_error(stmt);
 		return false;
 	}
+
+#if HAVE_SQLITE3_EXPANDED_SQL
+	/* Manually expand and call the callback */
+	char *expanded_sql;
+	expanded_sql = sqlite3_expanded_sql(stmt->inner_stmt);
+	db_changes_add(stmt, expanded_sql);
+	sqlite3_free(expanded_sql);
+#else
+	/* Unregister the trace callback to avoid it accessing the potentially
+	 * stale pointer to stmt */
+	sqlite3_trace(db->sql, NULL, NULL);
+#endif
 
 	return true;
 }
@@ -198,7 +210,6 @@ struct db_config db_sqlite3_config = {
 	.name = "sqlite3",
 	.queries = db_sqlite3_queries,
 	.num_queries = DB_SQLITE3_QUERY_COUNT,
-	.expand_fn = &db_sqlite3_expand,
 	.exec_fn = &db_sqlite3_exec,
 	.query_fn = &db_sqlite3_query,
 	.step_fn = &db_sqlite3_step,

@@ -470,22 +470,6 @@ static void db_assert_no_outstanding_statements(struct db *db)
 }
 #endif
 
-#if !HAVE_SQLITE3_EXPANDED_SQL
-/* Prior to sqlite3 v3.14, we have to use tracing to dump statements */
-static void trace_sqlite3(void *dbv, const char *stmt)
-{
-	struct db *db = dbv;
-
-	/* We get a "COMMIT;" after we've sent our changes. */
-	if (!db->changes) {
-		assert(streq(stmt, "COMMIT;"));
-		return;
-	}
-
-	tal_arr_expand(&db->changes, tal_strdup(db->changes, stmt));
-}
-#endif
-
 void db_stmt_done(sqlite3_stmt *stmt)
 {
 	sqlite3_finalize(stmt);
@@ -651,13 +635,6 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 	if (sqlite3_step(stmt) !=  SQLITE_DONE)
 		db_fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
 
-#if HAVE_SQLITE3_EXPANDED_SQL
-	char *expanded_sql;
-	expanded_sql = sqlite3_expanded_sql(stmt);
-	tal_arr_expand(&db->changes,
-		       tal_strdup(db->changes, expanded_sql));
-	sqlite3_free(expanded_sql);
-#endif
 	db_stmt_done(stmt);
 }
 
@@ -740,10 +717,6 @@ void db_commit_transaction(struct db *db)
 
 static void setup_open_db(struct db *db)
 {
-#if !HAVE_SQLITE3_EXPANDED_SQL
-	sqlite3_trace(db->sql, trace_sqlite3, db);
-#endif
-
 	/* This must be outside a transaction, so catch it */
 	assert(!db->in_transaction);
 
@@ -1619,17 +1592,9 @@ void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t)
 
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
-	const char *expanded_sql;
 	bool ret = stmt->db->config->exec_fn(stmt);
 	stmt->executed = true;
 	list_del_from(&stmt->db->pending_statements, &stmt->list);
-
-	if (stmt->db->config->expand_fn != NULL && ret &&
-	    !stmt->query->readonly) {
-		expanded_sql = stmt->db->config->expand_fn(stmt);
-		tal_arr_expand(&stmt->db->changes,
-			       tal_strdup(stmt->db->changes, expanded_sql));
-	}
 
 	/* The driver itself doesn't call `fatal` since we want to override it
 	 * for testing. Instead we check here that the error message is set if
@@ -1655,4 +1620,20 @@ bool db_query_prepared(struct db_stmt *stmt)
 	stmt->executed = true;
 	list_del_from(&stmt->db->pending_statements, &stmt->list);
 	return ret;
+}
+
+void db_changes_add(struct db_stmt *stmt, const char * expanded)
+{
+	struct db *db = stmt->db;
+
+	if (stmt->query->readonly) {
+		return;
+	}
+	/* We get a "COMMIT;" after we've sent our changes. */
+	if (!db->changes) {
+		assert(streq(expanded, "COMMIT;"));
+		return;
+	}
+
+	tal_arr_expand(&db->changes, tal_strdup(db->changes, expanded));
 }
