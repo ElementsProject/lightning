@@ -420,9 +420,8 @@ static void init(struct plugin_conn *rpc,
 }
 
 
-// id, satoshi, feerate, announce, minconf, utxos
 static const struct plugin_command commands[] = { {
-		"fc",
+		"fundchannel",
 		"channels",
 		"Fund channel with {id} using {satoshi} (or 'all'), at optional {feerate}. "
 		"Only use outputs that have {minconf} confirmations.",
