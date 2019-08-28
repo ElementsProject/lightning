@@ -137,6 +137,26 @@ def test_withdraw(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Cannot afford transaction'):
         l1.rpc.withdraw(waddr, 'all')
 
+    # Add some funds to withdraw
+    for i in range(10):
+        l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
+
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
+
+    # Try passing in a utxo set
+    utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]][:4]
+
+    withdrawal = l1.rpc.withdraw(waddr, 2 * amount, utxos=utxos)
+    decode = bitcoind.rpc.decoderawtransaction(withdrawal['tx'])
+    assert decode['txid'] == withdrawal['txid']
+
+    # Check that correct utxos are included
+    assert len(decode['vin']) == 4
+    vins = ["{}:{}".format(v['txid'], v['vout']) for v in decode['vin']]
+    for utxo in utxos:
+        assert utxo in vins
+
 
 def test_minconf_withdraw(node_factory, bitcoind):
     """Issue 2518: ensure that ridiculous confirmation levels don't overflow
@@ -280,9 +300,31 @@ def test_txprepare(node_factory, bitcoind):
     assert decode['vout'][0]['value'] > Decimal(amount * 10) / 10**8 - Decimal(0.0003)
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert decode['vout'][0]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
+    l1.rpc.txdiscard(prep4['txid'])
+
+    # Try passing in a utxo set
+    utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]][:4]
+
+    prep5 = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg':
+                             Millisatoshi(amount * 3.5 * 1000)}], utxos=utxos)
+
+    decode = bitcoind.rpc.decoderawtransaction(prep5['unsigned_tx'])
+    assert decode['txid'] == prep5['txid']
+
+    # Check that correct utxos are included
+    assert len(decode['vin']) == 4
+    vins = ["{}:{}".format(v['txid'], v['vout']) for v in decode['vin']]
+    for utxo in utxos:
+        assert utxo in vins
+
+    # We should have a change output, so this is exact
+    assert len(decode['vout']) == 2
+    assert decode['vout'][1]['value'] == Decimal(amount * 3.5) / 10**8
+    assert decode['vout'][1]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert decode['vout'][1]['scriptPubKey']['addresses'] == ['bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg']
 
     # Discard prep4 and get all funds again
-    l1.rpc.txdiscard(prep4['txid'])
+    l1.rpc.txdiscard(prep5['txid'])
     with pytest.raises(RpcError, match=r'this destination wants all satoshi. The count of outputs can\'t be more than 1'):
         prep5 = l1.rpc.txprepare([{'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg': Millisatoshi(amount * 3 * 1000)},
                                   {'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080': 'all'}])

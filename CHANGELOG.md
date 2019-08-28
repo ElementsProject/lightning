@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - JSON API: `listfunds` now lists a blockheight for confirmed transactions
-- JSON API: `fundchannel_start` result now includes field `scriptpubkey`
+- JSON API: `fundchannel_start` now includes field `scriptpubkey`
+- JSON API: `txprepare` and `withdraw` now accept an optional parameter `utxos`, a list of utxos to include in the prepared transaction
 
 - bolt11: support for parsing feature bits (field `9`).
 

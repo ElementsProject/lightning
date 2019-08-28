@@ -201,7 +201,7 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 		if (!amount_sat_add(&total_amount, total_amount, utxos[i]->amount))
 			fatal("Overflow when computing input amount");
 	}
-	tx->utxos = utxos;
+	tx->utxos = tal_steal(tx, utxos);
 
 	if (!tx->all_funds && amount_sat_less(tx->amount, total_amount)
 			&& !amount_sat_sub(&tx->change, total_amount, tx->amount))
