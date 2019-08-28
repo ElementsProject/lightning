@@ -25,6 +25,8 @@ struct routing_failure {
 	struct node_id erring_node;
 	struct short_channel_id erring_channel;
 	int channel_dir;
+	/* If remote sent us a message, this is it. */
+	const u8 *msg;
 };
 
 /* sendpay command */
@@ -126,7 +128,8 @@ json_add_routefail_info(struct json_stream *js,
 			enum onion_type failcode,
 			const struct node_id *erring_node,
 			const struct short_channel_id *erring_channel,
-			int channel_dir)
+			int channel_dir,
+			const u8 *msg)
 {
 	const char *failcodename = onion_type_name(failcode);
 
@@ -138,6 +141,8 @@ json_add_routefail_info(struct json_stream *js,
 	json_add_node_id(js, "erring_node", erring_node);
 	json_add_short_channel_id(js, "erring_channel", erring_channel);
 	json_add_num(js, "erring_direction", channel_dir);
+	if (msg)
+		json_add_hex_talarr(js, "raw_message", msg);
 }
 
 /* onionreply used if pay_errcode == PAY_UNPARSEABLE_ONION */
@@ -168,7 +173,8 @@ sendpay_fail(struct command *cmd,
 				fail->failcode,
 				&fail->erring_node,
 				&fail->erring_channel,
-				fail->channel_dir);
+				fail->channel_dir,
+				fail->msg);
 	json_object_end(data);
 	return command_failed(cmd, data);
 }
@@ -254,6 +260,7 @@ immediate_routing_failure(const tal_t *ctx,
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = *channel0;
 	routing_failure->channel_dir = node_id_idx(&ld->id, dstid);
+	routing_failure->msg = NULL;
 
 	return routing_failure;
 }
@@ -277,6 +284,7 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure->erring_channel = payment->route_channels[0];
 	routing_failure->channel_dir = node_id_idx(&ld->id,
 						   &payment->route_nodes[0]);
+	routing_failure->msg = NULL;
 
 	log_debug(hout->key.channel->log, "local_routing_failure: %u (%s)",
 		  hout->failcode, onion_type_name(hout->failcode));
@@ -368,6 +376,8 @@ remote_routing_failure(const tal_t *ctx,
 	routing_failure->erring_node = *erring_node;
 	routing_failure->erring_channel = *erring_channel;
 	routing_failure->channel_dir = dir;
+	routing_failure->msg = tal_dup_arr(routing_failure, u8, failure->msg,
+					   tal_count(failure->msg), 0);
 
 	return routing_failure;
 }
@@ -466,6 +476,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				 hout->key.id,
 				 reply->origin_index,
 				 failcode, onion_type_name(failcode));
+			log_debug(hout->key.channel->log, "failmsg: %s",
+				  tal_hex(tmpctx, reply->msg));
 			fail = remote_routing_failure(tmpctx, ld,
 						      payment, reply,
 						      hout->key.channel->log,
@@ -559,6 +571,8 @@ static struct command_result *wait_payment(struct lightningd *ld,
 			fail->erring_node = *failnode;
 			fail->erring_channel = *failchannel;
 			fail->channel_dir = faildirection;
+			/* FIXME: We don't store this! */
+			fail->msg = NULL;
 			return sendpay_fail(cmd,
 					    faildestperm
 					    ? PAY_DESTINATION_PERM_FAIL
@@ -673,7 +687,8 @@ send_payment(struct lightningd *ld,
 
 		json_add_routefail_info(data, 0, WIRE_UNKNOWN_NEXT_PEER,
 					&ld->id, &route[0].channel_id,
-					node_id_idx(&ld->id, &route[0].nodeid));
+					node_id_idx(&ld->id, &route[0].nodeid),
+					NULL);
 		json_object_end(data);
 		return command_failed(cmd, data);
 	}
