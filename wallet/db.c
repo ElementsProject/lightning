@@ -651,7 +651,9 @@ sqlite3_stmt *db_select_(const char *location, struct db *db, const char *query)
 static void destroy_db(struct db *db)
 {
 	db_assert_no_outstanding_statements(db);
-	sqlite3_close(db->sql);
+
+	if (db->config->teardown_fn)
+		db->config->teardown_fn(db);
 }
 
 /* We expect min changes (ie. BEGIN TRANSACTION): report if more.
