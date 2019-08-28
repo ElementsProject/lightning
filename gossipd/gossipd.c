@@ -360,6 +360,8 @@ static bool encoding_end_zlib(u8 **encoded, size_t off)
 	/* Successful: copy over and trim */
 	tal_resize(encoded, off + tal_count(z));
 	memcpy(*encoded + off, z, tal_count(z));
+
+	tal_free(z);
 	return true;
 }
 
