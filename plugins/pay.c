@@ -3,7 +3,6 @@
 #include <ccan/intmap/intmap.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/bolt11.h>
 #include <common/pseudorand.h>

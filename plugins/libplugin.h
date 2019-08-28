@@ -3,6 +3,7 @@
 #define LIGHTNING_PLUGINS_LIBPLUGIN_H
 #include "config.h"
 
+#include <ccan/time/time.h>
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
