@@ -35,6 +35,8 @@ bool global_feature_negotiated(const u8 *gfeatures, size_t f);
 #define LOCAL_INITIAL_ROUTING_SYNC		2
 #define LOCAL_UPFRONT_SHUTDOWN_SCRIPT		4
 #define LOCAL_GOSSIP_QUERIES			6
+/* FIXME: Get bolt reference! */
+#define LOCAL_EXTENDED_GOSSIP_QUERIES		10
 
 /* BOLT #9:
  *
