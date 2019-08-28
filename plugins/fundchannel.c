@@ -211,6 +211,27 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 			   take(ret));
 }
 
+static struct command_result *cancel_start(struct command *cmd,
+				           const char *buf,
+					   const jsmntok_t *error,
+					   struct funding_req *fr)
+{
+	struct json_out *ret;
+
+	/* We stash the error so we can return it after we've cleaned up */
+	fr->error = json_strdup(fr, buf, error);
+
+	ret = json_out_new(NULL);
+	json_out_start(ret, NULL, '{');
+	json_out_addstr(ret, "id", type_to_string(tmpctx, struct node_id, fr->id));
+	json_out_end(ret, '}');
+
+	return send_outreq(cmd, "fundchannel_cancel",
+			   send_prior, send_prior,
+			   cast_const(struct funding_req *, fr),
+			   take(ret));
+}
+
 static struct command_result *fundchannel_start_done(struct command *cmd,
 						     const char *buf,
 						     const jsmntok_t *result,
@@ -244,7 +265,7 @@ static struct command_result *fundchannel_start_done(struct command *cmd,
 	json_out_end(ret, '}');
 
 	return send_outreq(cmd, "txprepare",
-			   tx_prepare_done, forward_error,
+			   tx_prepare_done, cancel_start,
 	   		   cast_const(struct funding_req *, fr),
 			   take(ret));
 }
