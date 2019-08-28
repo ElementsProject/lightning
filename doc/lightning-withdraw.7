@@ -1,9 +1,9 @@
 .TH "LIGHTNING-WITHDRAW" "7" "" "" "lightning-withdraw"
 .SH NAME
-lightning-withdraw - Command for withdrawing funds from the internal wallet
+
 .SH SYNOPSIS
 
-\fBwithdraw\fR \fIdestination\fR \fIsatoshi\fR [\fIfeerate\fR] [\fIminconf\fR]
+\fBwithdraw\fR \fIdestination\fR \fIsatoshi\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
 
 .SH DESCRIPTION
 
@@ -37,6 +37,10 @@ the suffix is equivalent to \fIperkb\fR\.
 \fIminconf\fR specifies the minimum number of confirmations that used
 outputs should have\. Default is 1\.
 
+
+\fIutxos\fR specifies the utxos to be used to be withdrawn from, as an array
+of "txid:vout"\. These must be drawn from the node's available UTXO set\.
+
 .SH RETURN VALUE
 
 On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\.
@@ -52,6 +56,7 @@ created\.
 
 The following error codes may occur:
 
+.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -60,9 +65,10 @@ fees) to create the transaction\.
 .IP \[bu]
 302: The dust limit is not met\.
 
+.RE
 .SH AUTHOR
 
-Felix \fI<fixone@gmail.com\fR> is mainly responsible\.
+Felix \fBNone\fR (\fI<fixone@gmail.com\fR)> is mainly responsible\.
 
 .SH SEE ALSO
 
@@ -71,5 +77,5 @@ Felix \fI<fixone@gmail.com\fR> is mainly responsible\.
 
 .SH RESOURCES
 
-Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
 

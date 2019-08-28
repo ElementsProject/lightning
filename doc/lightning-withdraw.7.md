@@ -4,7 +4,7 @@ lightning-withdraw -- Command for withdrawing funds from the internal wallet
 SYNOPSIS
 --------
 
-**withdraw** *destination* *satoshi* \[*feerate*\] \[*minconf*\]
+**withdraw** *destination* *satoshi* \[*feerate*\] \[*minconf*\] \[*utxos*\]
 
 DESCRIPTION
 -----------
@@ -33,6 +33,9 @@ the suffix is equivalent to *perkb*.
 
 *minconf* specifies the minimum number of confirmations that used
 outputs should have. Default is 1.
+
+*utxos* specifies the utxos to be used to be withdrawn from, as an array
+of "txid:vout". These must be drawn from the node's available UTXO set.
 
 RETURN VALUE
 ------------
