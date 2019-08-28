@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - JSON API: `listfunds` now lists a blockheight for confirmed transactions
+- JSON API: `fundchannel_start` result now includes field `scriptpubkey`
 
 - bolt11: support for parsing feature bits (field `9`).
 
