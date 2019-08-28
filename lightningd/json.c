@@ -77,23 +77,6 @@ void json_add_txid(struct json_stream *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
-struct command_result *param_node_id(struct command *cmd,
-				     const char *name,
-				     const char *buffer,
-				     const jsmntok_t *tok,
-				     struct node_id **id)
-{
-	*id = tal(cmd, struct node_id);
-	if (json_to_node_id(buffer, tok, *id))
-		return NULL;
-
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a node id, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
-}
-
-
 struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct pubkey **pubkey)
