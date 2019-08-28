@@ -572,11 +572,7 @@ static void pidfile_create(const struct lightningd *ld)
  * extra sanity checks, and it's also a good point to free the tmpctx. */
 static int io_poll_lightningd(struct pollfd *fds, nfds_t nfds, int timeout)
 {
-	/*~ In particular, we should *not* have left a database transaction
-	 * open! */
-	db_assert_no_outstanding_statements();
-
-	/* The other checks and freeing tmpctx are common to all daemons. */
+	/* These checks and freeing tmpctx are common to all daemons. */
 	return daemon_poll(fds, nfds, timeout);
 }
 

@@ -456,59 +456,16 @@ static struct migration dbmigrations[] = {
 
 /* Leak tracking. */
 #if DEVELOPER
-/* We need a global here, since caller has no context.  Yuck! */
-static struct list_head db_statements = LIST_HEAD_INIT(db_statements);
-
-struct db_statement {
-	struct list_node list;
-	sqlite3_stmt *stmt;
-	const char *origin;
-};
-
-static struct db_statement *find_statement(sqlite3_stmt *stmt)
+static void db_assert_no_outstanding_statements(struct db *db)
 {
-	struct db_statement *i;
+	struct db_stmt *stmt;
 
-	list_for_each(&db_statements, i, list) {
-		if (i->stmt == stmt)
-			return i;
-	}
-	return NULL;
-}
-
-void db_assert_no_outstanding_statements(void)
-{
-	struct db_statement *dbstat;
-
-	dbstat = list_top(&db_statements, struct db_statement, list);
-	if (dbstat)
-		db_fatal("Unfinalized statement %s", dbstat->origin);
-}
-
-static void dev_statement_start(sqlite3_stmt *stmt, const char *origin)
-{
-	struct db_statement *dbstat = tal(NULL, struct db_statement);
-	dbstat->stmt = stmt;
-	dbstat->origin = origin;
-	list_add(&db_statements, &dbstat->list);
-}
-
-static void dev_statement_end(sqlite3_stmt *stmt)
-{
-	struct db_statement *dbstat = find_statement(stmt);
-	list_del_from(&db_statements, &dbstat->list);
-	tal_free(dbstat);
+	stmt = list_top(&db->pending_statements, struct db_stmt, list);
+	if (stmt)
+		db_fatal("Unfinalized statement %s", stmt->location);
 }
 #else
-static void dev_statement_start(sqlite3_stmt *stmt, const char *origin)
-{
-}
-
-static void dev_statement_end(sqlite3_stmt *stmt)
-{
-}
-
-void db_assert_no_outstanding_statements(void)
+static void db_assert_no_outstanding_statements(struct db *db)
 {
 }
 #endif
@@ -531,7 +488,6 @@ static void trace_sqlite3(void *dbv, const char *stmt)
 
 void db_stmt_done(sqlite3_stmt *stmt)
 {
-	dev_statement_end(stmt);
 	sqlite3_finalize(stmt);
 }
 
@@ -550,7 +506,6 @@ sqlite3_stmt *db_select_prepare_(const char *location, struct db *db, const char
 	if (err != SQLITE_OK)
 		db_fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
 
-	dev_statement_start(stmt, location);
 	return stmt;
 }
 
@@ -572,6 +527,10 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 	 * prefix. */
 	if (strncmp(query_id, "./", 2) == 0)
 		query_id += 2;
+
+	if (!db->in_transaction)
+		db_fatal("Attempting to prepare a db_stmt outside of a "
+			 "transaction: %s", location);
 
 	/* Look up the query by its ID */
 	for (size_t i = 0; i < db->config->num_queries; i++) {
@@ -597,6 +556,8 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 	stmt->inner_stmt = NULL;
 
 	tal_add_destructor(stmt, db_stmt_free);
+
+	list_add(&db->pending_statements, &stmt->list);
 
 	return stmt;
 }
@@ -680,7 +641,6 @@ sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query
 	if (err != SQLITE_OK)
 		db_fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
 
-	dev_statement_start(stmt, location);
 	return stmt;
 }
 
@@ -713,7 +673,7 @@ sqlite3_stmt *db_select_(const char *location, struct db *db, const char *query)
 
 static void destroy_db(struct db *db)
 {
-	db_assert_no_outstanding_statements();
+	db_assert_no_outstanding_statements(db);
 	sqlite3_close(db->sql);
 }
 
@@ -768,7 +728,7 @@ void db_commit_transaction(struct db *db)
 {
 	bool ok;
 	assert(db->in_transaction);
-	db_assert_no_outstanding_statements();
+	db_assert_no_outstanding_statements(db);
 	ok = db->config->commit_tx_fn(db);
 
 	if (!ok)
@@ -822,7 +782,7 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db = tal(ctx, struct db);
 	db->filename = tal_strdup(db, filename);
 	db->sql = sql;
-
+	list_head_init(&db->pending_statements);
 	for (size_t i=0; i<num_configs; i++)
 		if (streq(driver_name, configs[i]->name)) {
 			db->config = configs[i];
@@ -1662,6 +1622,8 @@ bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 	const char *expanded_sql;
 	bool ret = stmt->db->config->exec_fn(stmt);
 	stmt->executed = true;
+	list_del_from(&stmt->db->pending_statements, &stmt->list);
+
 	if (stmt->db->config->expand_fn != NULL && ret &&
 	    !stmt->query->readonly) {
 		expanded_sql = stmt->db->config->expand_fn(stmt);
@@ -1691,5 +1653,6 @@ bool db_query_prepared(struct db_stmt *stmt)
 	assert(stmt->query->readonly);
 	ret = stmt->db->config->query_fn(stmt);
 	stmt->executed = true;
+	list_del_from(&stmt->db->pending_statements, &stmt->list);
 	return ret;
 }
