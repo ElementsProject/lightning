@@ -263,6 +263,13 @@ struct command_result *command_done_err(struct command *cmd,
 	return end_cmd(cmd);
 }
 
+struct command_result *command_err_raw(struct command *cmd,
+				       const char *json_str)
+{
+	return command_done_raw(cmd, "error",
+				json_str, strlen(json_str));
+}
+
 struct command_result *timer_complete(void)
 {
 	assert(in_timer > 0);
