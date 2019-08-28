@@ -173,9 +173,6 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
 /* Wrapper around sqlite3_finalize(), for tracking statements. */
 void db_stmt_done(sqlite3_stmt *stmt);
 
-/* Call when you know there should be no outstanding db statements. */
-void db_assert_no_outstanding_statements(void);
-
 #define sqlite3_column_arr(ctx, stmt, col, type)			\
 	((type *)sqlite3_column_arr_((ctx), (stmt), (col),		\
 				     sizeof(type), TAL_LABEL(type, "[]"), \

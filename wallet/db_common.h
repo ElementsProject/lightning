@@ -2,6 +2,7 @@
 #define LIGHTNING_WALLET_DB_COMMON_H
 #include "config.h"
 #include <ccan/autodata/autodata.h>
+#include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <sqlite3.h>
 #include <stdbool.h>
@@ -25,6 +26,8 @@ struct db {
 
 	const char **changes;
 
+	/* List of statements that have been created but not executed yet. */
+	struct list_head pending_statements;
 	char *error;
 };
 
@@ -62,6 +65,9 @@ struct db_binding {
 };
 
 struct db_stmt {
+	/* Our entry in the list of pending statements. */
+	struct list_node list;
+
 	/* Database we are querying */
 	struct db *db;
 
