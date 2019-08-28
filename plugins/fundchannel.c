@@ -14,10 +14,10 @@ struct funding_req {
 	struct amount_sat *funding;
 	struct node_id *id;
 	const char *feerate_str;
+	const char *utxo_str;
 
 	bool *announce_channel;
 	u32 *minconf;
-	// todo: utxos
 
 	/* The prepared tx id */
 	struct bitcoin_txid tx_id;
@@ -163,6 +163,7 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 	const struct bitcoin_tx *tx;
 	const char *hex;
 	u32 outnum;
+	bool outnum_found;
 
 	txid_tok = json_get_member(buf, result, "txid");
 	if (!txid_tok)
@@ -182,9 +183,15 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 		const u8 *output_script = bitcoin_tx_output_get_script(fr, tx, i);
 		if (scripteq(output_script, fr->out_script)) {
 			outnum = i;
+			outnum_found = true;
 			break;
 		}
 	}
+	if (!outnum_found)
+		plugin_err("txprepare doesn't include our funding output. "
+			   "tx: %s, output: %s",
+			   type_to_string(tmpctx, struct bitcoin_tx, tx),
+			   tal_hex(tmpctx, fr->out_script));
 
 	hex = json_strdup(tmpctx, buf, txid_tok);
 	if (!bitcoin_txid_from_hex(hex, strlen(hex), &fr->tx_id))
@@ -228,8 +235,12 @@ static struct command_result *fundchannel_start_done(struct command *cmd,
 			     json_tok_full(buf, addr_tok), json_tok_full_len(addr_tok));
 	json_out_addstr(ret, "satoshi", type_to_string(ret, struct amount_sat,
 							fr->funding));
-	json_out_addstr(ret, "feerate", fr->feerate_str);
-	json_out_add(ret, "minconf", false, "%u", *fr->minconf);
+	if (fr->feerate_str)
+		json_out_addstr(ret, "feerate", fr->feerate_str);
+	if (fr->minconf)
+		json_out_add(ret, "minconf", false, "%u", *fr->minconf);
+	if (fr->utxo_str)
+		json_out_add_raw_len(ret, "utxos", fr->utxo_str, strlen(fr->utxo_str));
 	json_out_end(ret, '}');
 
 	return send_outreq(cmd, "txprepare",
@@ -245,13 +256,13 @@ static struct command_result *json_fundchannel(struct command *cmd,
 	struct funding_req *rq = tal(cmd, struct funding_req);
 	struct json_out *ret = json_out_new(NULL);
 
-	// TODO: add utxos
 	if (!param(cmd, buf, params,
 		   p_req("id", param_node_id, &rq->id),
 		   p_req("satoshi", param_sat, &rq->funding),
 		   p_opt("feerate", param_string, &rq->feerate_str),
 		   p_opt_def("announce", param_bool, &rq->announce_channel, true),
 		   p_opt_def("minconf", param_number, &rq->minconf, 1),
+		   p_opt("utxos", param_string, &rq->utxo_str),
 		   NULL))
 		return NULL;
 
