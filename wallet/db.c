@@ -1,7 +1,6 @@
 #include "db.h"
 
 #include <ccan/array_size/array_size.h>
-#include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/str/str.h>
 #include <common/node_id.h>
 #include <common/version.h>
@@ -470,29 +469,6 @@ static void db_assert_no_outstanding_statements(struct db *db)
 }
 #endif
 
-void db_stmt_done(sqlite3_stmt *stmt)
-{
-	sqlite3_finalize(stmt);
-}
-
-sqlite3_stmt *db_select_prepare_(const char *location, struct db *db, const char *query)
-{
-	int err;
-	sqlite3_stmt *stmt;
-
-	/* Since these queries will be treated as read-only they need to start
-	 * with "SELECT" and have no side-effects. */
-	assert(strncmp(query, "SELECT", 6) == 0);
-	assert(db->in_transaction);
-
-	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
-
-	if (err != SQLITE_OK)
-		db_fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
-
-	return stmt;
-}
-
 static void db_stmt_free(struct db_stmt *stmt)
 {
 	if (stmt->inner_stmt)
@@ -601,53 +577,6 @@ u64 db_last_insert_id_v2(struct db_stmt *stmt TAKES)
 	return id;
 }
 
-bool db_select_step_(const char *location, struct db *db, struct sqlite3_stmt *stmt)
-{
-	int ret;
-
-	ret = sqlite3_step(stmt);
-	if (ret == SQLITE_ROW)
-		return true;
-	if (ret != SQLITE_DONE)
-		db_fatal("%s: %s", location, sqlite3_errmsg(db->sql));
-	db_stmt_done(stmt);
-	return false;
-}
-sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query)
-{
-	int err;
-	sqlite3_stmt *stmt;
-
-	assert(db->in_transaction);
-
-	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
-
-	if (err != SQLITE_OK)
-		db_fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
-
-	return stmt;
-}
-
-void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
-{
-	assert(db->in_transaction);
-
-	if (sqlite3_step(stmt) !=  SQLITE_DONE)
-		db_fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
-
-	db_stmt_done(stmt);
-}
-
-sqlite3_stmt *db_select_(const char *location, struct db *db, const char *query)
-{
-	sqlite3_stmt *stmt;
-
-	assert(db->in_transaction);
-
-	stmt = db_select_prepare(db, query);
-	return stmt;
-}
-
 static void destroy_db(struct db *db)
 {
 	db_assert_no_outstanding_statements(db);
@@ -677,16 +606,6 @@ static void db_prepare_for_changes(struct db *db)
 bool db_in_transaction(struct db *db)
 {
 	return db->in_transaction;
-}
-
-u64 db_last_insert_id(struct db *db)
-{
-	return sqlite3_last_insert_rowid(db->sql);
-}
-
-size_t db_changes(struct db *db)
-{
-	return sqlite3_changes(db->sql);
 }
 
 void db_begin_transaction_(struct db *db, const char *location)
@@ -726,12 +645,6 @@ static void setup_open_db(struct db *db)
 	if (db->config->setup_fn)
 		db->config->setup_fn(db);
 	db_report_changes(db, NULL, 0);
-}
-
-void db_close(struct db *db)
-{
-	if (db->config->teardown_fn)
-		db->config->teardown_fn(db);
 }
 
 /**
@@ -906,332 +819,6 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 	tal_free(v);
 }
 
-void *sqlite3_column_arr_(const tal_t *ctx, sqlite3_stmt *stmt, int col,
-			  size_t bytes, const char *label, const char *caller)
-{
-	size_t sourcelen = sqlite3_column_bytes(stmt, col);
-	void *p;
-
-	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
-		return NULL;
-
-	if (sourcelen % bytes != 0)
-		db_fatal("%s: column size %zu not a multiple of %s (%zu)",
-			 caller, sourcelen, label, bytes);
-
-	p = tal_arr_label(ctx, char, sourcelen, label);
-	memcpy(p, sqlite3_column_blob(stmt, col), sourcelen);
-	return p;
-}
-
-bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
-				   const struct short_channel_id *id)
-{
-	char *ser = short_channel_id_to_str(id, id);
-	int err = sqlite3_bind_blob(stmt, col, ser, strlen(ser), SQLITE_TRANSIENT);
-	tal_free(ser);
-	return err == SQLITE_OK;
-}
-
-bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
-				     struct short_channel_id *dest)
-{
-	const char *source = sqlite3_column_blob(stmt, col);
-	size_t sourcelen = sqlite3_column_bytes(stmt, col);
-	return short_channel_id_from_str(source, sourcelen, dest, true);
-}
-bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
-					 const struct short_channel_id *id)
-{
-	u8 *ser;
-	size_t num;
-	size_t i;
-
-	/* Handle nulls early. */
-	if (!id) {
-		int err = sqlite3_bind_null(stmt, col);
-		return err == SQLITE_OK;
-	}
-
-	ser = tal_arr(NULL, u8, 0);
-	num = tal_count(id);
-
-	for (i = 0; i < num; ++i)
-		towire_short_channel_id(&ser, &id[i]);
-
-	int err = sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
-
-	tal_free(ser);
-	return err == SQLITE_OK;
-}
-struct short_channel_id *
-sqlite3_column_short_channel_id_array(const tal_t *ctx,
-				      sqlite3_stmt *stmt, int col)
-{
-	const u8 *ser;
-	size_t len;
-	struct short_channel_id *ret;
-
-	/* Handle nulls early. */
-	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
-		return NULL;
-
-	ser = sqlite3_column_blob(stmt, col);
-	len = sqlite3_column_bytes(stmt, col);
-	ret = tal_arr(ctx, struct short_channel_id, 0);
-
-	while (len != 0) {
-		struct short_channel_id scid;
-		fromwire_short_channel_id(&ser, &len, &scid);
-		tal_arr_expand(&ret, scid);
-	}
-
-	return ret;
-}
-
-bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx)
-{
-	u8 *ser = linearize_tx(NULL, tx);
-	int err = sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
-	tal_free(ser);
-	return err == SQLITE_OK;
-}
-
-struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx, sqlite3_stmt *stmt,
-				     int col)
-{
-	const u8 *src = sqlite3_column_blob(stmt, col);
-	size_t len = sqlite3_column_bytes(stmt, col);
-	return pull_bitcoin_tx(ctx, &src, &len);
-}
-bool sqlite3_bind_signature(sqlite3_stmt *stmt, int col,
-			    const secp256k1_ecdsa_signature *sig)
-{
-	bool ok;
-	u8 buf[64];
-	ok = secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, buf,
-							 sig) == 1;
-	int err = sqlite3_bind_blob(stmt, col, buf, sizeof(buf), SQLITE_TRANSIENT);
-	return ok && err == SQLITE_OK;
-}
-
-bool sqlite3_column_signature(sqlite3_stmt *stmt, int col,
-			      secp256k1_ecdsa_signature *sig)
-{
-	assert(sqlite3_column_bytes(stmt, col) == 64);
-	return secp256k1_ecdsa_signature_parse_compact(
-		   secp256k1_ctx, sig, sqlite3_column_blob(stmt, col)) == 1;
-}
-
-bool sqlite3_column_pubkey(sqlite3_stmt *stmt, int col,  struct pubkey *dest)
-{
-	assert(sqlite3_column_bytes(stmt, col) == PUBKEY_CMPR_LEN);
-	return pubkey_from_der(sqlite3_column_blob(stmt, col), PUBKEY_CMPR_LEN, dest);
-}
-
-bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk)
-{
-	u8 der[PUBKEY_CMPR_LEN];
-	pubkey_to_der(der, pk);
-	int err = sqlite3_bind_blob(stmt, col, der, sizeof(der), SQLITE_TRANSIENT);
-	return err == SQLITE_OK;
-}
-
-bool sqlite3_column_node_id(sqlite3_stmt *stmt, int col, struct node_id *dest)
-{
-	assert(sqlite3_column_bytes(stmt, col) == sizeof(dest->k));
-	memcpy(dest->k, sqlite3_column_blob(stmt, col), sizeof(dest->k));
-	return node_id_valid(dest);
-}
-
-bool sqlite3_bind_node_id(sqlite3_stmt *stmt, int col, const struct node_id *id)
-{
-	assert(node_id_valid(id));
-	int err = sqlite3_bind_blob(stmt, col, id->k, sizeof(id->k), SQLITE_TRANSIENT);
-	return err == SQLITE_OK;
-}
-
-bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
-			       const struct pubkey *pks)
-{
-	size_t n;
-	size_t i;
-	u8 *ders;
-
-	if (!pks) {
-		int err = sqlite3_bind_null(stmt, col);
-		return err == SQLITE_OK;
-	}
-
-	n = tal_count(pks);
-	ders = tal_arr(NULL, u8, n * PUBKEY_CMPR_LEN);
-
-	for (i = 0; i < n; ++i)
-		pubkey_to_der(&ders[i * PUBKEY_CMPR_LEN], &pks[i]);
-	int err = sqlite3_bind_blob(stmt, col, ders, tal_count(ders), SQLITE_TRANSIENT);
-
-	tal_free(ders);
-	return err == SQLITE_OK;
-}
-struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
-					   sqlite3_stmt *stmt, int col)
-{
-	size_t i;
-	size_t n;
-	struct pubkey *ret;
-	const u8 *ders;
-
-	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
-		return NULL;
-
-	n = sqlite3_column_bytes(stmt, col) / PUBKEY_CMPR_LEN;
-	assert(n * PUBKEY_CMPR_LEN == (size_t)sqlite3_column_bytes(stmt, col));
-	ret = tal_arr(ctx, struct pubkey, n);
-	ders = sqlite3_column_blob(stmt, col);
-
-	for (i = 0; i < n; ++i) {
-		if (!pubkey_from_der(&ders[i * PUBKEY_CMPR_LEN], PUBKEY_CMPR_LEN, &ret[i]))
-			return tal_free(ret);
-	}
-
-	return ret;
-}
-
-bool sqlite3_bind_node_id_array(sqlite3_stmt *stmt, int col,
-				const struct node_id *ids)
-{
-	size_t n;
-	u8 *arr;
-
-	if (!ids) {
-		int err = sqlite3_bind_null(stmt, col);
-		return err == SQLITE_OK;
-	}
-
-	/* Copy into contiguous array: ARM will add padding to struct node_id! */
-	n = tal_count(ids);
-	arr = tal_arr(NULL, u8, n * sizeof(ids[0].k));
-	for (size_t i = 0; i < n; ++i) {
-		assert(node_id_valid(&ids[i]));
-		memcpy(arr + sizeof(ids[i].k) * i,
-		       ids[i].k,
-		       sizeof(ids[i].k));
-	}
-	int err = sqlite3_bind_blob(stmt, col, arr, tal_count(arr), SQLITE_TRANSIENT);
-
-	tal_free(arr);
-	return err == SQLITE_OK;
-}
-
-struct node_id *sqlite3_column_node_id_array(const tal_t *ctx,
-					     sqlite3_stmt *stmt, int col)
-{
-	size_t n;
-	struct node_id *ret;
-	const u8 *arr;
-
-	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
-		return NULL;
-
-	n = sqlite3_column_bytes(stmt, col) / sizeof(ret->k);
-	assert(n * sizeof(ret->k) == (size_t)sqlite3_column_bytes(stmt, col));
-	ret = tal_arr(ctx, struct node_id, n);
-	arr = sqlite3_column_blob(stmt, col);
-
-	for (size_t i = 0; i < n; i++) {
-		memcpy(ret[i].k, arr + i * sizeof(ret[i].k), sizeof(ret[i].k));
-		if (!node_id_valid(&ret[i]))
-			return tal_free(ret);
-	}
-
-	return ret;
-}
-
-bool sqlite3_column_preimage(sqlite3_stmt *stmt, int col,  struct preimage *dest)
-{
-	assert(sqlite3_column_bytes(stmt, col) == sizeof(struct preimage));
-	return memcpy(dest, sqlite3_column_blob(stmt, col), sizeof(struct preimage));
-}
-
-bool sqlite3_bind_preimage(sqlite3_stmt *stmt, int col, const struct preimage *p)
-{
-	int err = sqlite3_bind_blob(stmt, col, p, sizeof(struct preimage), SQLITE_TRANSIENT);
-	return err == SQLITE_OK;
-}
-
-bool sqlite3_column_sha256(sqlite3_stmt *stmt, int col,  struct sha256 *dest)
-{
-	assert(sqlite3_column_bytes(stmt, col) == sizeof(struct sha256));
-	return memcpy(dest, sqlite3_column_blob(stmt, col), sizeof(struct sha256));
-}
-
-bool sqlite3_bind_sha256(sqlite3_stmt *stmt, int col, const struct sha256 *p)
-{
-	int err = sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256), SQLITE_TRANSIENT);
-	return err == SQLITE_OK;
-}
-
-bool sqlite3_column_sha256_double(sqlite3_stmt *stmt, int col,  struct sha256_double *dest)
-{
-	assert(sqlite3_column_bytes(stmt, col) == sizeof(struct sha256_double));
-	return memcpy(dest, sqlite3_column_blob(stmt, col), sizeof(struct sha256_double));
-}
-
-struct secret *sqlite3_column_secrets(const tal_t *ctx,
-				      sqlite3_stmt *stmt, int col)
-{
-	return sqlite3_column_arr(ctx, stmt, col, struct secret);
-}
-
-bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p)
-{
-	int err = sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256_double), SQLITE_TRANSIENT);
-	return err == SQLITE_OK;
-}
-
-struct json_escape *sqlite3_column_json_escape(const tal_t *ctx,
-					       sqlite3_stmt *stmt, int col)
-{
-	return json_escape_string_(ctx,
-				   sqlite3_column_blob(stmt, col),
-				   sqlite3_column_bytes(stmt, col));
-}
-
-bool sqlite3_bind_json_escape(sqlite3_stmt *stmt, int col,
-			      const struct json_escape *esc)
-{
-	int err = sqlite3_bind_text(stmt, col, esc->s, strlen(esc->s), SQLITE_TRANSIENT);
-	return err == SQLITE_OK;
-}
-
-struct amount_msat sqlite3_column_amount_msat(sqlite3_stmt *stmt, int col)
-{
-	struct amount_msat msat;
-
-	msat.millisatoshis = sqlite3_column_int64(stmt, col); /* Raw: low level function */
-	return msat;
-}
-
-struct amount_sat sqlite3_column_amount_sat(sqlite3_stmt *stmt, int col)
-{
-	struct amount_sat sat;
-
-	sat.satoshis = sqlite3_column_int64(stmt, col); /* Raw: low level function */
-	return sat;
-}
-
-void sqlite3_bind_amount_msat(sqlite3_stmt *stmt, int col,
-			      struct amount_msat msat)
-{
-	sqlite3_bind_int64(stmt, col, msat.millisatoshis); /* Raw: low level function */
-}
-
-void sqlite3_bind_amount_sat(sqlite3_stmt *stmt, int col,
-			     struct amount_sat sat)
-{
-	sqlite3_bind_int64(stmt, col, sat.satoshis); /* Raw: low level function */
-}
-
 /* Will apply the current config fee settings to all channels */
 void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
 {
@@ -1243,22 +830,6 @@ void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
 
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
-}
-
-void sqlite3_bind_timeabs(sqlite3_stmt *stmt, int col, struct timeabs t)
-{
-	u64 timestamp =  t.ts.tv_nsec + (((u64) t.ts.tv_sec) * ((u64) NSEC_IN_SEC));
-	sqlite3_bind_int64(stmt, col, timestamp);
-}
-
-struct timeabs sqlite3_column_timeabs(sqlite3_stmt *stmt, int col)
-{
-	struct timeabs t;
-	u64 timestamp = sqlite3_column_int64(stmt, col);
-	t.ts.tv_sec = timestamp / NSEC_IN_SEC;
-	t.ts.tv_nsec = timestamp % NSEC_IN_SEC;
-	return t;
-
 }
 
 void db_bind_null(struct db_stmt *stmt, int pos)
