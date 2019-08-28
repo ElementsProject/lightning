@@ -1133,7 +1133,8 @@ bool channel_force_htlcs(struct channel *channel,
 			 const struct fulfilled_htlc *fulfilled,
 			 const enum side *fulfilled_sides,
 			 const struct failed_htlc **failed,
-			 const enum side *failed_sides)
+			 const enum side *failed_sides,
+			 u32 failheight)
 {
 	size_t i;
 	struct htlc *htlc;
@@ -1259,6 +1260,10 @@ bool channel_force_htlcs(struct channel *channel,
 			return false;
 		}
 		htlc->failcode = failed[i]->failcode;
+		/* We assume they all failed at the same height, which is
+		 * not necessarily true in case of restart.  But it's only
+		 * a hint. */
+		htlc->failblock = failheight;
 		if (failed[i]->failreason)
 			htlc->fail = tal_dup_arr(htlc, u8,
 						 failed[i]->failreason,

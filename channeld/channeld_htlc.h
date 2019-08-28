@@ -40,6 +40,8 @@ struct htlc {
 	enum onion_type failcode;
 	/* If failcode & UPDATE, this is channel which failed. Otherwise NULL. */
 	const struct short_channel_id *failed_scid;
+	/* Block height it failed at */
+	u32 failblock;
 };
 
 static inline bool htlc_has(const struct htlc *h, int flag)

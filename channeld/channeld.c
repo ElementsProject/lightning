@@ -883,7 +883,8 @@ static u8 *make_failmsg(const tal_t *ctx,
 			const struct htlc *htlc,
 			enum onion_type failcode,
 			const struct short_channel_id *scid,
-			const struct sha256 *sha256)
+			const struct sha256 *sha256,
+			u32 failheight)
 {
 	u8 *msg, *channel_update = NULL;
 	u32 cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
@@ -940,10 +941,12 @@ static u8 *make_failmsg(const tal_t *ctx,
 		msg = towire_expiry_too_far(ctx);
 		goto done;
 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+		assert(failheight);
 		msg = towire_incorrect_or_unknown_payment_details(
 		    ctx, htlc->amount);
 		goto done;
 	case WIRE_FINAL_EXPIRY_TOO_SOON:
+		assert(failheight);
 		msg = towire_final_expiry_too_soon(ctx);
 		goto done;
 	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
@@ -1915,7 +1918,8 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 			/* Local failure, make a message. */
 			u8 *failmsg = make_failmsg(tmpctx, peer, h, h->failcode,
 						   h->failed_scid,
-						   &h->next_onion_sha);
+						   &h->next_onion_sha,
+						   h->failblock);
 			onion = create_onionreply(tmpctx, h->shared_secret,
 						  failmsg);
 		} else /* Remote failure, just forward. */
@@ -2695,8 +2699,9 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	struct failed_htlc *failed_htlc;
 	enum channel_remove_err e;
 	struct htlc *h;
+	u32 failheight;
 
-	if (!fromwire_channel_fail_htlc(inmsg, inmsg, &failed_htlc))
+	if (!fromwire_channel_fail_htlc(inmsg, inmsg, &failed_htlc, &failheight))
 		master_badmsg(WIRE_CHANNEL_FAIL_HTLC, inmsg);
 
 	e = channel_fail_htlc(peer->channel, REMOTE, failed_htlc->id, &h);
@@ -2705,6 +2710,7 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 		h->failcode = failed_htlc->failcode;
 		h->fail = tal_steal(h, failed_htlc->failreason);
 		h->failed_scid = tal_steal(h, failed_htlc->scid);
+		h->failblock = failheight;
 		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
@@ -2855,7 +2861,7 @@ static void init_channel(struct peer *peer)
 	u8 *funding_signed;
 	const u8 *msg;
 	u32 feerate_per_kw[NUM_SIDES];
-	u32 minimum_depth;
+	u32 minimum_depth, failheight;
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
@@ -2901,6 +2907,7 @@ static void init_channel(struct peer *peer)
 				   &fulfilled_sides,
 				   &failed,
 				   &failed_sides,
+				   &failheight,
 				   &peer->funding_locked[LOCAL],
 				   &peer->funding_locked[REMOTE],
 				   &peer->short_channel_ids[LOCAL],
@@ -2978,7 +2985,7 @@ static void init_channel(struct peer *peer)
 				 fulfilled, fulfilled_sides,
 				 cast_const2(const struct failed_htlc **,
 					     failed),
-				 failed_sides))
+				 failed_sides, failheight))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not restore HTLCs");
 

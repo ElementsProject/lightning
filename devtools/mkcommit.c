@@ -357,7 +357,8 @@ int main(int argc, char *argv[])
 				   &funding_localkey, &funding_remotekey,
 				   fee_payer);
 
-	if (!channel_force_htlcs(channel, htlcs, hstates, NULL, NULL, NULL, NULL))
+	if (!channel_force_htlcs(channel, htlcs, hstates, NULL, NULL, NULL, NULL,
+				 0))
 		errx(1, "Cannot add HTLCs");
 
 	u8 *funding_wscript = bitcoin_redeem_2of2(NULL,
