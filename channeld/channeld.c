@@ -943,11 +943,7 @@ static u8 *make_failmsg(const tal_t *ctx,
 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 		assert(failheight);
 		msg = towire_incorrect_or_unknown_payment_details(
-		    ctx, htlc->amount);
-		goto done;
-	case WIRE_FINAL_EXPIRY_TOO_SOON:
-		assert(failheight);
-		msg = towire_final_expiry_too_soon(ctx);
+			ctx, htlc->amount, failheight);
 		goto done;
 	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
 		msg = towire_final_incorrect_cltv_expiry(ctx, cltv_expiry);

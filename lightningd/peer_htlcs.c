@@ -319,8 +319,7 @@ static void handle_localpay(struct htlc_in *hin,
 			  cltv_expiry,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
-		/* FIXME! */
-		failcode = WIRE_FINAL_EXPIRY_TOO_SOON;
+		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 		goto fail;
 	}
 

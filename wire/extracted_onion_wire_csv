@@ -38,7 +38,7 @@ msgdata,expiry_too_soon,len,u16,
 msgdata,expiry_too_soon,channel_update,byte,len
 msgtype,incorrect_or_unknown_payment_details,PERM|15
 msgdata,incorrect_or_unknown_payment_details,htlc_msat,u64,
-msgtype,final_expiry_too_soon,17
+msgdata,incorrect_or_unknown_payment_details,height,u32,
 msgtype,final_incorrect_cltv_expiry,18
 msgdata,final_incorrect_cltv_expiry,cltv_expiry,u32,
 msgtype,final_incorrect_htlc_amount,19
