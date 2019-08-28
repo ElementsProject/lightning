@@ -18,8 +18,16 @@ bool feature_offered(const u8 *features, size_t f);
 bool local_feature_negotiated(const u8 *lfeatures, size_t f);
 bool global_feature_negotiated(const u8 *gfeatures, size_t f);
 
-#define COMPULSORY_FEATURE(x)	(x)
-#define OPTIONAL_FEATURE(x)	((x)+1)
+/* BOLT #9:
+ *
+ * Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
+ * an _even_ bit). They are generally assigned in pairs so that features
+ * can be introduced as optional (_odd_ bits) and later upgraded to be compulsory
+ * (_even_ bits), which will be refused by outdated nodes:
+ * see [BOLT #1: The `init` Message](01-messaging.md#the-init-message).
+ */
+#define COMPULSORY_FEATURE(x)	((x) & 0xFFFFFFFE)
+#define OPTIONAL_FEATURE(x)	((x) | 1)
 
 /* BOLT #9:
  *
@@ -35,8 +43,12 @@ bool global_feature_negotiated(const u8 *gfeatures, size_t f);
 #define LOCAL_INITIAL_ROUTING_SYNC		2
 #define LOCAL_UPFRONT_SHUTDOWN_SCRIPT		4
 #define LOCAL_GOSSIP_QUERIES			6
-/* FIXME: Get bolt reference! */
-#define LOCAL_EXTENDED_GOSSIP_QUERIES		10
+
+/* BOLT-927c96daab2338b716708a57cd75c84a2d169e0e #9:
+ * | Bits  | Name                            |...
+ * | 10/11 | `gossip_queries_ex`             |...
+ */
+#define LOCAL_GOSSIP_QUERIES_EX			10
 
 /* BOLT #9:
  *
