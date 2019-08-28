@@ -343,8 +343,10 @@ static void funding_started_success(struct funding_channel *fc,
 	out = encode_scriptpubkey_to_addr(cmd,
 				          get_chainparams(cmd->ld)->bip173_name,
 					  scriptPubkey);
-	if (out)
+	if (out) {
 		json_add_string(response, "funding_address", out);
+		json_add_hex_talarr(response, "scriptpubkey", scriptPubkey);
+	}
 
 	/* Clear this so cancel doesn't think it's still in progress */
 	fc->cmd = NULL;

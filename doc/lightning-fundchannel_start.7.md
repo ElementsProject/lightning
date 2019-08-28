@@ -32,7 +32,7 @@ transaction before that can lead to unrecoverable loss of funds.
 RETURN VALUE
 ------------
 
-On success, returns the *funding\_address* for the channel.
+On success, returns the *funding\_address* and the *scriptpubkey* for the channel funding output.
 
 On failure, returns an error.
 
