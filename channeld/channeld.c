@@ -2231,6 +2231,11 @@ static void peer_reconnect(struct peer *peer,
 	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
 	 *   - if it supports `option_data_loss_protect`:
+	 *       - MUST set `my_current_per_commitment_point` to its commitment
+	 *         point for the last signed commitment it received from its
+	 *         channel peer (i.e. the commitment_point corresponding to the
+	 *         commitment transaction the sender would use to unilaterally
+	 *         close).
 	 *     - if `next_revocation_number` equals 0:
 	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
 	 *     - otherwise:

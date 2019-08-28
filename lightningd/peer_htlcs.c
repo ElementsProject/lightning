@@ -309,7 +309,7 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 *   - if the `cltv_expiry` value is unreasonably near the present:
 	 *     - MUST fail the HTLC.
-	 *     - MUST return a `final_expiry_too_soon` error.
+	 *     - MUST return an `incorrect_or_unknown_payment_details` error.
 	 */
 	if (get_block_height(ld->topology) + ld->config.cltv_final
 	    > cltv_expiry) {
@@ -318,6 +318,7 @@ static void handle_localpay(struct htlc_in *hin,
 			  cltv_expiry,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
+		/* FIXME! */
 		failcode = WIRE_FINAL_EXPIRY_TOO_SOON;
 		goto fail;
 	}
