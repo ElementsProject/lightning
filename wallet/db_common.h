@@ -93,10 +93,6 @@ struct db_config {
 	struct db_query *queries;
 	size_t num_queries;
 
-	/* Function used to get a string representation of the executed query
-	 * for the `db_write` plugin hook. */
-	const char *(*expand_fn)(struct db_stmt *stmt);
-
 	/* Function used to execute a statement that doesn't result in a
 	 * response. */
 	bool (*exec_fn)(struct db_stmt *stmt);
@@ -138,5 +134,15 @@ struct db_config {
 
 /* Provide a way for DB backends to register themselves */
 AUTODATA_TYPE(db_backends, struct db_config);
+
+/**
+ * Report a statement that changes the wallet
+ *
+ * Allows the DB driver to report an expanded statement during
+ * execution. Changes are queued up and reported to the `db_write` plugin hook
+ * upon committing.
+ */
+void db_changes_add(struct db_stmt *db_stmt, const char * expanded);
+
 
 #endif /* LIGHTNING_WALLET_DB_COMMON_H */
