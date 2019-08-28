@@ -4,12 +4,12 @@
 #include <wire/peer_wire.h>
 
 static const u32 our_localfeatures[] = {
-	LOCAL_DATA_LOSS_PROTECT,
-	LOCAL_INITIAL_ROUTING_SYNC,
-	LOCAL_UPFRONT_SHUTDOWN_SCRIPT,
-	LOCAL_GOSSIP_QUERIES,
+	OPTIONAL_FEATURE(LOCAL_DATA_LOSS_PROTECT),
+	OPTIONAL_FEATURE(LOCAL_INITIAL_ROUTING_SYNC),
+	OPTIONAL_FEATURE(LOCAL_UPFRONT_SHUTDOWN_SCRIPT),
+	OPTIONAL_FEATURE(LOCAL_GOSSIP_QUERIES),
 #if EXPERIMENTAL_FEATURES
-	LOCAL_EXTENDED_GOSSIP_QUERIES
+	OPTIONAL_FEATURE(LOCAL_GOSSIP_QUERIES_EX)
 #endif
 };
 
@@ -40,13 +40,12 @@ static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
 	return features[tal_count(features) - 1 - byte] & (1 << (bit % 8));
 }
 
-/* We don't insist on anything, it's all optional. */
 static u8 *mkfeatures(const tal_t *ctx, const u32 *arr, size_t n)
 {
 	u8 *f = tal_arr(ctx, u8, 0);
 
 	for (size_t i = 0; i < n; i++)
-		set_bit(&f, OPTIONAL_FEATURE(arr[i]));
+		set_bit(&f, arr[i]);
 	return f;
 }
 
@@ -74,9 +73,7 @@ static bool feature_set(const u8 *features, size_t bit)
 
 bool feature_offered(const u8 *features, size_t f)
 {
-	assert(f % 2 == 0);
-
-	return feature_set(features, f)
+	return feature_set(features, COMPULSORY_FEATURE(f))
 		|| feature_set(features, OPTIONAL_FEATURE(f));
 }
 
@@ -85,7 +82,8 @@ static bool feature_supported(int feature_bit,
 			      size_t num_supported)
 {
 	for (size_t i = 0; i < num_supported; i++) {
-		if (supported[i] == feature_bit)
+		if (OPTIONAL_FEATURE(supported[i])
+		    == OPTIONAL_FEATURE(feature_bit))
 			return true;
 	}
 	return false;
