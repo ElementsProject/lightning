@@ -43,21 +43,6 @@ msgdata,opening_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 msgtype,opening_got_offer_reply,6105
 msgdata,opening_got_offer_reply,rejection,?wirestring,
 
-#include <common/bip32.h>
-#include <common/htlc_wire.h>
-# Master->openingd: please fund a channel.
-msgtype,opening_funder,6001
-msgdata,opening_funder,funding_satoshis,amount_sat,
-msgdata,opening_funder,push_msat,amount_msat,
-msgdata,opening_funder,feerate_per_kw,u32,
-msgdata,opening_funder,change_satoshis,amount_sat,
-msgdata,opening_funder,change_keyindex,u32,
-msgdata,opening_funder,channel_flags,u8,
-#include <common/utxo.h>
-msgdata,opening_funder,num_inputs,u16,
-msgdata,opening_funder,inputs,utxo,num_inputs
-msgdata,opening_funder,bip32,ext_key,
-
 # Openingd->master: we've successfully offered channel.
 # This gives their sig, means we can broadcast tx: we're done.
 msgtype,opening_funder_reply,6101
