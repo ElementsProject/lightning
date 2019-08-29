@@ -5,6 +5,7 @@ CWD=$(pwd)
 export SLOW_MACHINE=1
 export CC=${COMPILER:-gcc}
 export DEVELOPER=${DEVELOPER:-1}
+export EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
 export SOURCE_CHECK_ONLY=${SOURCE_CHECK_ONLY:-"false"}
 export COMPAT=${COMPAT:-1}
 export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
