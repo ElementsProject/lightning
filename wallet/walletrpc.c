@@ -629,9 +629,10 @@ static struct command_result *json_listfunds(struct command *cmd,
 
 		if (utxos[i]->spendheight)
 			json_add_string(response, "status", "spent");
-		else if (utxos[i]->blockheight)
+		else if (utxos[i]->blockheight) {
 			json_add_string(response, "status", "confirmed");
-		else
+			json_add_num(response, "blockheight", *utxos[i]->blockheight);
+		} else
 			json_add_string(response, "status", "unconfirmed");
 
 		json_object_end(response);

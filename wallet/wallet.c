@@ -310,7 +310,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 
 		/* If we require confirmations check that we have a
 		 * confirmation height and that it is below the required
-		 * maxheight (current_height - minconf */
+		 * maxheight (current_height - minconf) */
 		if (maxheight != 0 &&
 		    (!u->blockheight || *u->blockheight > maxheight))
 			continue;
