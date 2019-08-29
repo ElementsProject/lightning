@@ -22,7 +22,6 @@ You will need several development libraries:
 
 For actually doing development and running the tests, you will also need:
 * pip3: to install python-bitcoinlib
-* asciidoc: for formatting the man pages (if you change them)
 * valgrind: for extra debugging checks
 
 You will also need a version of bitcoind with segregated witness and `estimatesmartfee` economical node, such as the 0.16 or above.
@@ -50,8 +49,8 @@ as well:
 
 For development or running tests, get additional dependencies:
 
-    sudo apt-get install -y asciidoc valgrind python3-pip
-    sudo pip3 install -r tests/requirements.txt
+    sudo apt-get install -y valgrind python3-pip
+    sudo pip3 install -r tests/requirements.txt -r doc/requirements.txt
 
 Clone lightning:
 
@@ -83,7 +82,6 @@ $ sudo dnf update -y && \
                 'C Development Tools and Libraries' \
                 'Development Tools' && \
         sudo dnf install -y \
-                asciidoc \
                 clang \
                 git \
                 gmp-devel \
@@ -136,7 +134,7 @@ OS version: FreeBSD 11.1-RELEASE or above
 Get dependencies:
 
     # pkg install -y \
-      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3 libsodium py36-mako bash
+      autoconf automake git gmp gmake libtool python python3 sqlite3 libsodium py36-mako bash
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -172,7 +170,7 @@ Use nix-shell launch a shell with a full clightning dev environment:
 ```
 $ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
 autogen automake libsodium 'python3.withPackages (p: [p.bitcoinlib])' \
-valgrind asciidoc --run make
+valgrind --run make
 ```
 
 To Build on macOS
