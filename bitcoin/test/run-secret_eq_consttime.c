@@ -66,26 +66,18 @@ static struct timerel nonconst_time_test(struct secret *s1,
 	return time_between(end, start);
 }
 
+static struct secret *s1, *s2;
+
 /* Returns true if test result is expected: we consider 5% "same". */
 static bool secret_time_test(struct timerel (*test)(struct secret *s1,
 						    struct secret *s2,
 						    size_t off),
 			     bool should_be_const)
 {
-	struct secret *s1, *s2;
 	struct timerel firstbyte_time, lastbyte_time, diff;
-	/* Give up rest of our timeslice: useful if under load! */
-	struct timespec ts = { 0, 100000000 };
 
-	s1 = calloc(RUNS, sizeof(*s1));
-	s2 = calloc(RUNS, sizeof(*s2));
-
-	nanosleep(&ts, NULL);
 	firstbyte_time = test(s1, s2, 0);
 	lastbyte_time = test(s1, s2, sizeof(s1->data)-1);
-
-	free(s1);
-	free(s2);
 
 	if (verbose)
 		printf("First byte %u psec vs last byte %u psec\n",
@@ -106,10 +98,13 @@ static bool secret_time_test(struct timerel (*test)(struct secret *s1,
 	return time_less(time_multiply(diff, 20), firstbyte_time) == should_be_const;
 }
 
+#define ITERATIONS 1000
+
 int main(void)
 {
 	const char *v;
-	int success, i;
+	int const_success, nonconst_success = ITERATIONS, i;
+	double load;
 	setup_locale();
 
 	/* no point running this under valgrind. */
@@ -117,27 +112,40 @@ int main(void)
 	if (v && atoi(v) == 1)
 		exit(0);
 
-	/* I've never seen this fail more than 80% of the time, even
-	 * when loaded */
-	success = 0;
-	for (i = 0; i < 100; i++)
-		success += secret_time_test(const_time_test, true);
+	s1 = calloc(RUNS, sizeof(*s1));
+	s2 = calloc(RUNS, sizeof(*s2));
 
-	printf("=> Within 5%% %u/%u times\n", success, i);
-	if (success < i/5)
-		errx(1, "Only const time %u/%u?", success, i);
+	/* When not loaded, this should pass over 50% of the time. */
+	const_success = 0;
+	for (i = 0; i < ITERATIONS; i++)
+		const_success += secret_time_test(const_time_test, true);
+
+	printf("=> Within 5%% %u/%u times\n", const_success, i);
 
 	/* This fails without -O2 or above, at least here (x86 Ubuntu gcc 7.3) */
 	if (strstr(COPTFLAGS, "-O2") || strstr(COPTFLAGS, "-O3")) {
 		/* Should show measurable differences at least 1/2 the time. */
-		success = 0;
-		for (i = 0; i < 10; i++)
-			success += secret_time_test(nonconst_time_test, false);
+		nonconst_success = 0;
+		for (i = 0; i < 1000; i++)
+			nonconst_success
+				+= secret_time_test(nonconst_time_test, false);
 
-		printf("=> More than 5%% slower %u/%u times\n", success, i);
-		if (success < i/2)
-			errx(1, "memcmp seemed const time %u/%u?", success, i);
+		printf("=> More than 5%% slower %u/%u times\n",
+		       nonconst_success, i);
 	}
+
+	/* Now, check loadavg: if we weren't alone, that could explain results */
+	getloadavg(&load, 1);
+	if (load > 1.0)
+		errx(0, "Load %.2f: too high, ignoring", load);
+
+	if (const_success < ITERATIONS / 2)
+		errx(1, "Only const time %u/%u?", const_success, i);
+
+	if (nonconst_success < ITERATIONS / 2)
+		errx(1, "memcmp seemed const time %u/%u?", nonconst_success, i);
+	free(s1);
+	free(s2);
 
 	return 0;
 }
