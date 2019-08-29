@@ -88,13 +88,13 @@ will offer specific information on that command.
 
 Useful commands:
 
-* [newaddr](doc/lightning-newaddr.7.txt): get a bitcoin address to deposit funds into your lightning node.
-* [listfunds](doc/lightning-listfunds.7.txt): see where your funds are.
-* [connect](doc/lightning-connect.7.txt): connect to another lightning node.
-* [fundchannel](doc/lightning-fundchannel.7.txt): create a channel to another connected node.
-* [invoice](doc/lightning-invoice.7.txt): create an invoice to get paid by another node.
-* [pay](doc/lightning-pay.7.txt): pay someone else's invoice.
-* [plugin](doc/lightning-plugin.7.txt): commands to control extensions.
+* [newaddr](doc/lightning-newaddr.7.md): get a bitcoin address to deposit funds into your lightning node.
+* [listfunds](doc/lightning-listfunds.7.md): see where your funds are.
+* [connect](doc/lightning-connect.7.md): connect to another lightning node.
+* [fundchannel](doc/lightning-fundchannel.7.md): create a channel to another connected node.
+* [invoice](doc/lightning-invoice.7.md): create an invoice to get paid by another node.
+* [pay](doc/lightning-pay.7.md): pay someone else's invoice.
+* [plugin](doc/lightning-plugin.7.md): commands to control extensions.
 
 ### Care And Feeding Of Your New Lightning Node
 
