@@ -13,6 +13,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/derive_basepoints.h>
+#include <common/features.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -723,6 +724,14 @@ static char *test_subdaemons_and_exit(struct lightningd *ld)
 	return NULL;
 }
 
+static char *list_features_and_exit(struct lightningd *ld)
+{
+	const char **features = list_supported_features(ld);
+	for (size_t i = 0; i < tal_count(features); i++)
+		printf("%s\n", features[i]);
+	exit(0);
+}
+
 static char *opt_lightningd_usage(struct lightningd *ld)
 {
 	/* Reload config so that --help has the correct network defaults
@@ -783,7 +792,8 @@ static char *opt_set_conf(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-/* Just enough parsing to find config file. */
+/* Just enough parsing to find config file, and other maintenance options
+ * which don't want us to create the lightning dir */
 static void handle_minimal_config_opts(struct lightningd *ld,
 				       int argc, char *argv[])
 {
@@ -796,6 +806,9 @@ static void handle_minimal_config_opts(struct lightningd *ld,
 			       opt_set_talstr, opt_show_charp,
 			       &ld->config_dir,
 			       "Set working directory. All other files are relative to this");
+	opt_register_early_noarg("--list-features-only",
+				 list_features_and_exit,
+				 ld, opt_hidden);
 
 	/* Handle --version (and exit) here too: don't create lightning-dir for this */
 	opt_register_version();
@@ -1133,7 +1146,9 @@ static void add_config(struct lightningd *ld,
 	const char *answer = NULL;
 
 	if (opt->type & OPT_NOARG) {
-		if (opt->cb == (void *)opt_usage_and_exit
+		if (opt->desc == opt_hidden) {
+			/* Ignore hidden options (deprecated) */
+		} else if (opt->cb == (void *)opt_usage_and_exit
 		    || opt->cb == (void *)version_and_exit
 		    /* These two show up as --network= */
 		    || opt->cb == (void *)opt_set_testnet

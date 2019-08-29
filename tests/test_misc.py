@@ -3,7 +3,7 @@ from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
 from threading import Event
-from utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc
+from utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc, EXPERIMENTAL_FEATURES
 from ephemeral_port_reserve import reserve
 
 import json
@@ -1435,3 +1435,15 @@ def test_dev_demux(node_factory):
 
     with pytest.raises(RpcError):
         l1.rpc.call('dev', {'subcommand': 'crash'})
+
+
+def test_list_features_only(node_factory):
+    features = subprocess.check_output(['lightningd/lightningd',
+                                        '--list-features-only']).decode('utf-8').splitlines()
+    expected = ['option_data_loss_protect/odd',
+                'option_initial_routing_sync/odd',
+                'option_upfront_shutdown_script/odd',
+                'option_gossip_queries/odd']
+    if EXPERIMENTAL_FEATURES:
+        expected.append('option_gossip_queries_ex/odd')
+    assert features == expected
