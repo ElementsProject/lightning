@@ -8,7 +8,6 @@ WORKDIR /build
 
 RUN apt-get -qq update && \
     apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
-	asciidoc \
 	autoconf \
 	automake \
 	clang \
