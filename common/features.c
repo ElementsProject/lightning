@@ -1,6 +1,7 @@
 #include "features.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
+#include <common/utils.h>
 #include <wire/peer_wire.h>
 
 static const u32 our_localfeatures[] = {
@@ -149,4 +150,31 @@ bool global_feature_negotiated(const u8 *gfeatures, size_t f)
 		return false;
 	return feature_supported(f, our_globalfeatures,
 				 ARRAY_SIZE(our_globalfeatures));
+}
+
+static const char *feature_name(const tal_t *ctx, size_t f)
+{
+	static const char *fnames[] = {
+		"option_data_loss_protect",
+		"option_initial_routing_sync",
+		"option_upfront_shutdown_script",
+		"option_gossip_queries",
+		"option_var_onion_optin",
+		"option_gossip_queries_ex" };
+
+	assert(f / 2 < ARRAY_SIZE(fnames));
+	return tal_fmt(ctx, "%s/%s",
+		       fnames[f / 2], (f & 1) ? "odd" : "even");
+}
+
+const char **list_supported_features(const tal_t *ctx)
+{
+	const char **list = tal_arr(ctx, const char *, 0);
+
+	/* The local/global number spaces are to be distinct, so this works */
+	for (size_t i = 0; i < ARRAY_SIZE(our_localfeatures); i++)
+		tal_arr_expand(&list, feature_name(list, our_localfeatures[i]));
+	for (size_t i = 0; i < ARRAY_SIZE(our_globalfeatures); i++)
+		tal_arr_expand(&list, feature_name(list, our_globalfeatures[i]));
+	return list;
 }

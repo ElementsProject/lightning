@@ -18,6 +18,9 @@ bool feature_offered(const u8 *features, size_t f);
 bool local_feature_negotiated(const u8 *lfeatures, size_t f);
 bool global_feature_negotiated(const u8 *gfeatures, size_t f);
 
+/* Return a list of what features we advertize. */
+const char **list_supported_features(const tal_t *ctx);
+
 /* BOLT #9:
  *
  * Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
