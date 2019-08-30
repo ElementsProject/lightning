@@ -229,7 +229,9 @@ class UnixDomainSocketRpc(object):
         sock.close()
 
         self.logger.debug("Received response for %s call: %r", method, resp)
-        if "error" in resp:
+        if not isinstance(resp, dict):
+            raise ValueError("Malformed response, response is not a dictionary %s." % resp)
+        elif "error" in resp:
             raise RpcError(method, payload, resp['error'])
         elif "result" not in resp:
             raise ValueError("Malformed response, \"result\" missing.")
