@@ -462,7 +462,9 @@ class LightningD(TailableProc):
 
 
 class LightningNode(object):
-    def __init__(self, daemon, rpc, btc, executor, may_fail=False, may_reconnect=False, allow_broken_log=False, allow_bad_gossip=False):
+    def __init__(self, daemon, rpc, btc, executor, may_fail=False,
+                 may_reconnect=False, allow_broken_log=False,
+                 allow_bad_gossip=False, db=None):
         self.rpc = rpc
         self.daemon = daemon
         self.bitcoin = btc
@@ -471,6 +473,7 @@ class LightningNode(object):
         self.may_reconnect = may_reconnect
         self.allow_broken_log = allow_broken_log
         self.allow_bad_gossip = allow_bad_gossip
+        self.db = db
 
     def connect(self, remote_node):
         self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
@@ -510,28 +513,8 @@ class LightningNode(object):
     def getactivechannels(self):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
 
-    def db_query(self, query, use_copy=True):
-        orig = os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3")
-        if use_copy:
-            copy = os.path.join(self.daemon.lightning_dir, "lightningd-copy.sqlite3")
-            shutil.copyfile(orig, copy)
-            db = sqlite3.connect(copy)
-        else:
-            db = sqlite3.connect(orig)
-
-        db.row_factory = sqlite3.Row
-        c = db.cursor()
-        c.execute(query)
-        rows = c.fetchall()
-
-        result = []
-        for row in rows:
-            result.append(dict(zip(row.keys(), row)))
-
-        db.commit()
-        c.close()
-        db.close()
-        return result
+    def db_query(self, query):
+        return self.db.query(query)
 
     # Assumes node is stopped!
     def db_manip(self, query):
@@ -771,7 +754,7 @@ class LightningNode(object):
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
-    def __init__(self, testname, bitcoind, executor, directory):
+    def __init__(self, testname, bitcoind, executor, directory, db_provider):
         self.testname = testname
         self.next_id = 1
         self.nodes = []
@@ -779,6 +762,7 @@ class NodeFactory(object):
         self.bitcoind = bitcoind
         self.directory = directory
         self.lock = threading.Lock()
+        self.db_provider = db_provider
 
     def split_options(self, opts):
         """Split node options from cli options
@@ -880,11 +864,17 @@ class NodeFactory(object):
         if options is not None:
             daemon.opts.update(options)
 
+        # Get the DB backend DSN we should be using for this test and this node.
+        db = self.db_provider.get_db(lightning_dir, self.testname, node_id)
+        dsn = db.get_dsn()
+        if dsn is not None:
+            daemon.opts['wallet'] = dsn
+
         rpc = LightningRpc(socket_path, self.executor)
 
         node = LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail,
                              may_reconnect=may_reconnect, allow_broken_log=allow_broken_log,
-                             allow_bad_gossip=allow_bad_gossip)
+                             allow_bad_gossip=allow_bad_gossip, db=db)
 
         # Regtest estimatefee are unusable, so override.
         node.set_feerates(feerates, False)

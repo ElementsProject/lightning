@@ -1,4 +1,5 @@
 from concurrent import futures
+from db import SqliteDbProvider, PostgresDbProvider
 from utils import NodeFactory, BitcoinD
 
 import logging
@@ -149,12 +150,13 @@ def teardown_checks(request):
 
 
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, teardown_checks):
+def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks):
     nf = NodeFactory(
         test_name,
         bitcoind,
         executor,
         directory=directory,
+        db_provider=db_provider,
     )
 
     yield nf
@@ -273,6 +275,21 @@ def checkMemleak(node):
     if node.daemon.is_in_log('MEMLEAK:'):
         return 1
     return 0
+
+
+# Mapping from TEST_DB_PROVIDER env variable to class to be used
+providers = {
+    'sqlite3': SqliteDbProvider,
+    'postgres': PostgresDbProvider,
+}
+
+
+@pytest.fixture(scope="session")
+def db_provider(test_base_dir):
+    provider = providers[os.getenv('TEST_DB_PROVIDER', 'sqlite3')](test_base_dir)
+    provider.start()
+    yield provider
+    provider.stop()
 
 
 @pytest.fixture
