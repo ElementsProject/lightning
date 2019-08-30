@@ -201,6 +201,11 @@ else
 LDLIBS = -L/usr/local/lib -lm -lgmp -lsqlite3 -lz $(COVFLAGS)
 endif
 
+# If we have the postgres client library we need to link against it as well
+ifeq ($(HAVE_POSTGRES),1)
+LDLIBS += -lpq
+endif
+
 default: all-programs all-test-programs
 
 ccan/config.h: config.vars configure ccan/tools/configurator/configurator.c
