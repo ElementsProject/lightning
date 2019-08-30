@@ -1,6 +1,5 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
@@ -10,10 +9,16 @@
 #include <lightningd/json.h>
 #include <plugins/libplugin.h>
 
+const char *placeholder_funding_addr = "bcrt1qh9vpp7pylppexnaqg2kdp0kt55sg0qf7yc8d4m4ug26uhx47z3jqvgnzrj";
+const char *placeholder_script = "0020b95810f824f843934fa042acd0becba52087813e260edaeebc42b5cb9abe1464";
+
+/* FIXME: dynamically query */
+const struct amount_sat max_funding = AMOUNT_SAT_INIT((1 << 24) - 1);
+
 struct funding_req {
-	struct amount_sat *funding;
 	struct node_id *id;
 	const char *feerate_str;
+	const char *funding_str;
 	const char *utxo_str;
 
 	bool *announce_channel;
@@ -21,8 +26,10 @@ struct funding_req {
 
 	/* The prepared tx id */
 	struct bitcoin_txid tx_id;
+
 	const char *chanstr;
 	const u8 *out_script;
+	const char *funding_addr;
 
  	/* Failing result (NULL on success) */
 	/* Raw JSON from RPC output */
@@ -95,8 +102,7 @@ static struct command_result *tx_abort(struct command *cmd,
 	 * this call, as we don't really care if it succeeds or not */
 	return send_outreq(cmd, "txdiscard",
 			   send_prior, send_prior,
-	   		   cast_const(struct funding_req *, fr),
-			   take(ret));
+			   fr, take(ret));
 }
 
 /* We're basically done, we just need to format the output to match
@@ -133,7 +139,7 @@ static struct command_result *send_tx(struct command *cmd,
 	/* For sanity's sake, let's check that it's secured */
 	tok = json_get_member(buf, result, "commitments_secured");
 	if (!json_to_bool(buf, tok, &commitments_secured) || !commitments_secured)
-		// TODO: better failure path? this should never fail though.
+		/* TODO: better failure path? this should never fail though. */
 		plugin_err("Commitment not secured.");
 
 	/* Stash the channel_id so we can return it when finalized */
@@ -148,8 +154,7 @@ static struct command_result *send_tx(struct command *cmd,
 
 	return send_outreq(cmd, "txsend",
 			   finish, tx_abort,
-	   		   cast_const(struct funding_req *, fr),
-			   take(ret));
+			   fr, take(ret));
 }
 
 static struct command_result *tx_prepare_done(struct command *cmd,
@@ -179,6 +184,7 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 		plugin_err("Unable to parse tx %s", hex);
 
 	/* Find the txout */
+	outnum_found = false;
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *output_script = bitcoin_tx_output_get_script(fr, tx, i);
 		if (scripteq(output_script, fr->out_script)) {
@@ -199,7 +205,7 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 
 	ret = json_out_new(NULL);
 	json_out_start(ret, NULL, '{');
-	json_out_addstr(ret, "id", type_to_string(tmpctx, struct node_id, fr->id));
+	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
 	/* Note that hex is reused from above */
 	json_out_addstr(ret, "txid", hex);
 	json_out_add(ret, "txout", false, "%u", outnum);
@@ -207,8 +213,7 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 
 	return send_outreq(cmd, "fundchannel_complete",
 			   send_tx, tx_abort,
-	   		   cast_const(struct funding_req *, fr),
-			   take(ret));
+			   fr, take(ret));
 }
 
 static struct command_result *cancel_start(struct command *cmd,
@@ -223,39 +228,29 @@ static struct command_result *cancel_start(struct command *cmd,
 
 	ret = json_out_new(NULL);
 	json_out_start(ret, NULL, '{');
-	json_out_addstr(ret, "id", type_to_string(tmpctx, struct node_id, fr->id));
+	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
 	json_out_end(ret, '}');
 
 	return send_outreq(cmd, "fundchannel_cancel",
 			   send_prior, send_prior,
-			   cast_const(struct funding_req *, fr),
-			   take(ret));
+			   fr, take(ret));
 }
 
-static struct command_result *fundchannel_start_done(struct command *cmd,
-						     const char *buf,
-						     const jsmntok_t *result,
-						     struct funding_req *fr)
+static struct json_out *txprepare(struct command *cmd,
+				  struct funding_req *fr,
+				  const char *destination)
 {
-	const jsmntok_t *addr_tok, *script_tok;
 	struct json_out *ret;
-
-	addr_tok = json_get_member(buf, result, "funding_address");
-	script_tok = json_get_member(buf, result, "scriptpubkey");
-
-	if (!addr_tok || !script_tok)
-		plugin_err("Fundchannel start didn't return a funding_address or scriptpubkey? '%.*s'",
-			   result->end - result->start, buf);
-
-	/* Save the outscript so we can fund the outnum later */
-	fr->out_script = json_tok_bin_from_hex(fr, buf, script_tok);
-
 	ret = json_out_new(NULL);
 	json_out_start(ret, NULL, '{');
-	json_out_add_raw_len(ret, "destination",
-			     json_tok_full(buf, addr_tok), json_tok_full_len(addr_tok));
-	json_out_addstr(ret, "satoshi", type_to_string(ret, struct amount_sat,
-							fr->funding));
+
+	/* Add the 'outputs' */
+	json_out_start(ret, "outputs", '[');
+	json_out_start(ret, NULL, '{');
+	json_out_addstr(ret, destination, fr->funding_str);
+	json_out_end(ret, '}');
+	json_out_end(ret, ']');
+
 	if (fr->feerate_str)
 		json_out_addstr(ret, "feerate", fr->feerate_str);
 	if (fr->minconf)
@@ -264,49 +259,141 @@ static struct command_result *fundchannel_start_done(struct command *cmd,
 		json_out_add_raw_len(ret, "utxos", fr->utxo_str, strlen(fr->utxo_str));
 	json_out_end(ret, '}');
 
+	return ret;
+}
+
+static struct command_result *prepare_actual(struct command *cmd,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     struct funding_req *fr)
+{
+	struct json_out *ret;
+
+	ret = txprepare(cmd, fr, fr->funding_addr);
+
 	return send_outreq(cmd, "txprepare",
 			   tx_prepare_done, cancel_start,
-	   		   cast_const(struct funding_req *, fr),
-			   take(ret));
+			   fr, take(ret));
+}
+
+static struct command_result *fundchannel_start_done(struct command *cmd,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     struct funding_req *fr)
+{
+	struct json_out *ret;
+
+	/* Save the outscript so we can fund the outnum later */
+	fr->out_script = json_tok_bin_from_hex(fr, buf,
+			json_get_member(buf, result, "scriptpubkey"));
+
+	/* Save the funding address, we'll need it later */
+	fr->funding_addr = json_strdup(cmd, buf,
+				       json_get_member(buf, result, "funding_address"));
+
+	/* Now that we're ready to go, cancel the reserved tx */
+	ret = json_out_new(NULL);
+	json_out_start(ret, NULL,  '{');
+	json_out_addstr(ret, "txid",
+			type_to_string(tmpctx, struct bitcoin_txid, &fr->tx_id));
+	json_out_end(ret, '}');
+
+	return send_outreq(cmd, "txdiscard",
+			   prepare_actual, cancel_start,
+			   fr, take(ret));
+}
+
+static struct command_result *fundchannel_start(struct command *cmd,
+						struct funding_req *fr)
+{
+	struct json_out *ret = json_out_new(NULL);
+
+	json_out_start(ret, NULL, '{');
+	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
+	json_out_addstr(ret, "satoshi", fr->funding_str);
+
+	if (fr->feerate_str)
+		json_out_addstr(ret, "feerate", fr->feerate_str);
+	if (fr->announce_channel)
+		json_out_addbool(ret, "announce", *fr->announce_channel);
+
+	json_out_end(ret, '}');
+	json_out_finished(ret);
+
+	/* FIXME: as a nice feature, we should check that the peer
+	 * you want to connect to is connected first. if not, we should
+	 * connect and then call fundchannel start!  */
+	return send_outreq(cmd, "fundchannel_start",
+			   fundchannel_start_done, tx_abort,
+			   fr, take(ret));
+}
+
+static struct command_result *tx_prepare_dryrun(struct command *cmd,
+					        const char *buf,
+						const jsmntok_t *result,
+						struct funding_req *fr)
+{
+	const struct bitcoin_tx *tx;
+	const char *hex;
+	struct amount_sat funding;
+	bool funding_found;
+	u8 *placeholder = tal_hexdata(tmpctx, placeholder_script, strlen(placeholder_script));
+
+	/* Stash the 'reserved' txid to unreserve later */
+	hex = json_strdup(tmpctx, buf, json_get_member(buf, result, "txid"));
+	if (!bitcoin_txid_from_hex(hex, strlen(hex), &fr->tx_id))
+		plugin_err("Unable to parse reserved txid %s", hex);
+
+
+	hex = json_strdup(tmpctx, buf, json_get_member(buf, result, "unsigned_tx"));
+	tx = bitcoin_tx_from_hex(fr, hex, strlen(hex));
+
+	/* Find the funding amount */
+	funding_found = false;
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+		const u8 *output_script = bitcoin_tx_output_get_script(tmpctx, tx, i);
+		if (scripteq(output_script, placeholder)) {
+			funding = bitcoin_tx_output_get_amount(tx, i);
+			funding_found = true;
+			break;
+		}
+	}
+
+	if (!funding_found)
+		plugin_err("Error creating placebo funding tx, funding_out not found. %s", hex);
+
+	/* Update funding to actual amount */
+	if (amount_sat_greater(funding, max_funding))
+		funding = max_funding;
+
+	fr->funding_str = type_to_string(fr, struct amount_sat, &funding);
+	return fundchannel_start(cmd, fr);
 }
 
 static struct command_result *json_fundchannel(struct command *cmd,
 					       const char *buf,
 					       const jsmntok_t *params)
 {
-	struct funding_req *rq = tal(cmd, struct funding_req);
-	struct json_out *ret = json_out_new(NULL);
+	struct funding_req *fr = tal(cmd, struct funding_req);
+	struct json_out *ret;
 
 	if (!param(cmd, buf, params,
-		   p_req("id", param_node_id, &rq->id),
-		   p_req("satoshi", param_sat, &rq->funding),
-		   p_opt("feerate", param_string, &rq->feerate_str),
-		   p_opt_def("announce", param_bool, &rq->announce_channel, true),
-		   p_opt_def("minconf", param_number, &rq->minconf, 1),
-		   p_opt("utxos", param_string, &rq->utxo_str),
+		   p_req("id", param_node_id, &fr->id),
+		   p_req("satoshi", param_string, &fr->funding_str),
+		   p_opt("feerate", param_string, &fr->feerate_str),
+		   p_opt_def("announce", param_bool, &fr->announce_channel, true),
+		   p_opt_def("minconf", param_number, &fr->minconf, 1),
+		   p_opt("utxos", param_string, &fr->utxo_str),
 		   NULL))
 		return NULL;
 
+	/* First we do a 'dry-run' of txprepare, so we can get
+	 * an accurate idea of the funding amount */
+	ret = txprepare(cmd, fr, placeholder_funding_addr);
 
-	json_out_start(ret, NULL, '{');
-	json_out_addstr(ret, "id", type_to_string(tmpctx, struct node_id, rq->id));
-	json_out_addstr(ret, "satoshi", type_to_string(tmpctx,
-				 		       struct amount_sat, rq->funding));
-	if (rq->feerate_str)
-		json_out_addstr(ret, "feerate", rq->feerate_str);
-	if (rq->announce_channel)
-		json_out_addbool(ret, "announce", *rq->announce_channel);
-
-	json_out_end(ret, '}');
-	json_out_finished(ret);
-
-	// FIXME: as a nice feature, we should check that the peer
-	// you want to connect to is connected first. if not, we should
-	// connect and then call fundchannel start!
-	return send_outreq(cmd, "fundchannel_start",
-			   fundchannel_start_done, forward_error,
-	   		   cast_const(struct funding_req *, rq),
-			   take(ret));
+	return send_outreq(cmd, "txprepare",
+			   tx_prepare_dryrun, forward_error,
+			   fr, take(ret));
 
 }
 
