@@ -969,12 +969,11 @@ def test_reserve_enforcement(node_factory, executor):
     l2.stop()
 
     # They should both aim for 1%.
-    reserves = l2.db_query('SELECT channel_reserve_satoshis FROM channel_configs')
+    reserves = l2.db.query('SELECT channel_reserve_satoshis FROM channel_configs')
     assert reserves == [{'channel_reserve_satoshis': 10**6 // 100}] * 2
 
     # Edit db to reduce reserve to 0 so it will try to violate it.
-    l2.db_query('UPDATE channel_configs SET channel_reserve_satoshis=0',
-                use_copy=False)
+    l2.db.execute('UPDATE channel_configs SET channel_reserve_satoshis=0')
 
     l2.start()
     wait_for(lambda: only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
