@@ -789,7 +789,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info");
 
 	/* Now select them */
-	utxos = wallet_select_coins(w, w, AMOUNT_SAT(2), 0, 21,
+	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(2), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
 	CHECK(utxos && tal_count(utxos) == 2);
@@ -837,7 +837,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info no commitment_point");
 
 	/* Now select it */
-	utxos = wallet_select_coins(w, w, AMOUNT_SAT(5), 0, 21,
+	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(5), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
 	CHECK(utxos && tal_count(utxos) == 2);

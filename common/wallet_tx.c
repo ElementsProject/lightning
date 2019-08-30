@@ -152,7 +152,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	}
 
 	tx->utxos = wallet_select_coins(tx, tx->cmd->ld->wallet,
-					tx->amount,
+					true, tx->amount,
 					fee_rate_per_kw, out_len,
 					maxheight,
 					&fee_estimate, &tx->change);
