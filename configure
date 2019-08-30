@@ -273,6 +273,20 @@ int main(void)
 	return 0;
 }
 /*END*/
+var=HAVE_POSTGRES
+desc=postgres
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=-lpq
+code=
+#include <postgresql/libpq-fe.h>
+#include <stdio.h>
+
+int main(void)
+{
+	printf("libpq version %d\n", PQlibVersion());
+	return 0;
+}
+/*END*/
 var=HAVE_GCC
 desc=compiler is GCC
 style=OUTSIDE_MAIN
