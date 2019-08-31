@@ -1,6 +1,5 @@
-LIGHTNING-WAITSENDPAY(7) Manual Page
-====================================
-lightning-waitsendpay - Command for sending a payment via a route.
+lightning-waitsendpay -- Command for sending a payment via a route
+==================================================================
 
 SYNOPSIS
 --------
@@ -83,7 +82,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-05-22 16:46:09 CEST

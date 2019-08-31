@@ -1,7 +1,5 @@
-LIGHTNING-NEWADDR(7) Manual Page
-================================
-lightning-newaddr - Command for generating a new address to be used by
-c-lightning.
+lightning-newaddr -- Command for generating a new address to be used by c-lightning
+===================================================================================
 
 SYNOPSIS
 --------
@@ -52,7 +50,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-30 17:34:18 CEST

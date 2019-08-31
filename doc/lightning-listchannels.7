@@ -1,10 +1,6 @@
 .TH "LIGHTNING-LISTCHANNELS" "7" "" "" "lightning-listchannels"
 .SH NAME
-
-
-lightning-listchannels - Command to query active lightning channels in
-the entire network\.
-
+lightning-listchannels - Command to query active lightning channels in the entire network
 .SH SYNOPSIS
 
 \fBlistchannels\fR [\fIshort_channel_id\fR] [\fIsource\fR]
@@ -36,7 +32,6 @@ list of 0 or more objects\.
 
 Each object in the list contains the following data:
 
-.RS
 .IP \[bu]
 \fIsource\fR : The node providing entry to the channel, specifying the
 fees charged for using the channel in that direction\.
@@ -84,7 +79,6 @@ through this channel\.
 \fIhtlc_maximum_msat\fR : The maximum payment which can be send
 through this channel\.
 
-.RE
 
 If \fIshort_channel_id\fR or \fIsource\fR is supplied and no matching channels
 are found, a "channels" object with an empty list is returned\.
@@ -108,7 +102,7 @@ Similarly if \fIsource\fR is not a valid pubkey\.
 
 .SH AUTHOR
 
-Michael Hawkins \fBNone\fR (\fI<michael.hawkins@protonmail.com\fR)>\.
+Michael Hawkins \fI<michael.hawkins@protonmail.com\fR>\.
 
 .SH SEE ALSO
 
@@ -116,26 +110,24 @@ Michael Hawkins \fBNone\fR (\fI<michael.hawkins@protonmail.com\fR)>\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
 
 Lightning RFC site
 
-.RS
 .IP \[bu]
 
 BOLT #2:
-\fBNone\fR (\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md\fR)
+\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md\fR
 
 
 .IP \[bu]
 
 BOLT #7:
-\fBNone\fR (\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md\fR)
+\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md\fR
 
 
 
-.RE
 .HL
 
 Last updated 2019-06-12 11:16:20 CEST

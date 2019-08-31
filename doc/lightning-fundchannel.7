@@ -1,9 +1,6 @@
 .TH "LIGHTNING-FUNDCHANNEL" "7" "" "" "lightning-fundchannel"
 .SH NAME
-
-
-lightning-fundchannel - Command for establishing a lightning channel\.
-
+lightning-fundchannel - Command for establishing a lightning channel
 .SH SYNOPSIS
 
 \fBfundchannel\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR \fIannounce\fR] [\fIminconf\fR]
@@ -66,7 +63,6 @@ is reported and the channel is not funded\.
 
 The following error codes may occur:
 
-.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -78,7 +74,6 @@ The following error codes may occur:
 .IP \[bu]
 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error\.
 
-.RE
 
 Failure may also occur if \fBlightningd\fR and the peer cannot agree on
 channel parameters (funding limits, channel reserves, fees, etc\.)\.
@@ -89,9 +84,5 @@ channel parameters (funding limits, channel reserves, fees, etc\.)\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
-
-.HL
-
-Last updated 2019-06-12 11:16:20 CEST
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 

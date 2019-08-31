@@ -1,6 +1,5 @@
-LIGHTNING-CLI(1) Manual Page
-============================
-lightning-cli - Control lightning daemon
+lightning-cli -- Control lightning daemon
+=========================================
 
 SYNOPSIS
 --------
@@ -91,7 +90,3 @@ COPYING
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-30 17:39:53 CEST

@@ -1,6 +1,5 @@
-LIGHTNING-LISTINVOICES(7) Manual Page
-=====================================
-lightning-listinvoices - Command for querying invoice status
+lightning-listinvoices -- Command for querying invoice status
+=============================================================
 
 SYNOPSIS
 --------
@@ -42,7 +41,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-30 17:12:10 CEST

@@ -1,25 +1,19 @@
 .TH "LIGHTNINGD" "8" "" "" "lightningd"
 .SH NAME
-
-
 lightningd - Daemon for running a Lightning Network node
+.SH SYNOPSIS
+.nf
+.RS
+lightningd [--conf=<config-file>] [OPTIONS]…
+.RE
 
-
-SYNOPSIS
-
-
-lightningd [--conf=&lt;config-file&gt;] [\fIOPTIONS\fR]…
-
-
-DESCRIPTION
-
+.fi
+.SH DESCRIPTION
 
 \fBlightningd\fR starts the C-Lightning daemon, which implements a
 standards-compliant Lightning Network node\.
 
-
-CONFIGURATION OPTIONS
-
+.SH CONFIGURATION OPTIONS
 
  \fB--conf\fR=\fIFILE\fR
 Specify configuration file\. If not an absolute path, will be relative
@@ -30,21 +24,17 @@ from the lightning-dir location\. Defaults to \fIconfig\fR\.
 Set the directory for the C-Lightning daemon\. Defaults to
 \fI$HOME/\.lightning\fR\.
 
-
-MORE OPTIONS
-
+.SH MORE OPTIONS
 
 Command line options are mirrored as configuration options in the
 configuration file, so \fIfoo\fR in the configuration file simply becomes
-\fI--foo\fR on the command line, and \fIfoo=bar\fR becomes \fI--foo=bar\fR\.
+\fB--foo\fR on the command line, and \fBfoo=bar\fR becomes \fB--foo=bar\fR\.
 
 
 See \fBlightningd-config\fR(5) for a comprehensive list of all available
 options\.
 
-
-LOGGING AND COMMANDING C-LIGHTNING
-
+.SH LOGGING AND COMMANDING C-LIGHTNING
 .nf
 .RS
 By default, C-Lightning will log to the standard output.
@@ -183,7 +173,7 @@ $ dig lseed.bitcoinstats.com A
 
 This will give 25 IPv4 addresses, you can select any one of those\. You
 will also need to learn the corresponding public key, which you can
-determine by searching the IP addrss on \fBNone\fR (\fIhttps://1ml.com/\fR) \. The public
+determine by searching the IP addrss on \fIhttps://1ml.com/\fR \. The public
 key is a long hex string, like so:
 \fI024772ee4fa461febcef09d5869e1238f932861f57be7a6633048514e3f56644a1\fR\.
 (this example public key is not used as of this writing)
@@ -243,43 +233,30 @@ $ lightning-cli pay $INVOICE
 .RE
 
 .fi
-
-BUGS
-
+.SH BUGS
 
 You should report bugs on our github issues page, and maybe submit a fix
 to gain our eternal gratitude!
 
+.SH AUTHOR
 
-AUTHOR
-
-
-ZmnSCPxj &lt;\fBNone\fR (\fIZmnSCPxj@protonmail.com\fR)&gt; wrote the initial version of
+ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> wrote the initial version of
 this man page, but many others did the hard work of actually
 implementing a standards-compliant Lightning Network node
 implementation\.
 
-
-SEE ALSO
-
+.SH SEE ALSO
 
 \fBlightning-listconfigs\fR(7), \fBlightning-config\fR(5), \fBlightning-cli\fR(1),
 \fBlightning-newaddr\fR(7), \fBlightning-listfunds\fR(7), \fBlightning-connect\fR(7),
 \fBlightning-fundchannel\fR(7), \fBlightning-listpeers\fR(7), \fBlightning-pay\fR(7)
 
+.SH RESOURCES
 
-RESOURCES
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
-
-
-COPYING
-
+.SH COPYING
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
-
-
-Last updated 2019-08-09 11:11:48 CEST
 

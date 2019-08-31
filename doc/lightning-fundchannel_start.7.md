@@ -1,7 +1,5 @@
-LIGHTNING-FUNDCHANNEL\_START(7) Manual Page
-===========================================
-lightning-fundchannel\_start - Command for initiating channel
-establishment for a lightning channel
+lightning-fundchannel\_start -- Command for initiating channel establishment for a lightning channel
+====================================================================================================
 
 SYNOPSIS
 --------
@@ -53,7 +51,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-06-12 11:16:20 CEST

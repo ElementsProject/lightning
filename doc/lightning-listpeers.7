@@ -1,10 +1,6 @@
 .TH "LIGHTNING-LISTPEERS" "7" "" "" "lightning-listpeers"
 .SH NAME
-
-
-lightning-listpeers - Command for returning data on connected lightning
-nodes\.
-
+lightning-listpeers - Command returning data on connected lightning nodes
 .SH SYNOPSIS
 
 \fBlistpeers\fR [\fIid\fR] [\fIlevel\fR]
@@ -51,7 +47,6 @@ of 0 or more objects\.
 
 Each object in the list contains the following data:
 
-.RS
 .IP \[bu]
 \fIid\fR : The unique id of the peer
 .IP \[bu]
@@ -68,7 +63,6 @@ Each object in the list contains the following data:
 \fIlog\fR : Only present if \fIlevel\fR is set\. List logs related to the
 peer at the specified \fIlevel\fR
 
-.RE
 
 If \fIid\fR is supplied and no matching nodes are found, a "peers" object
 with an empty list is returned\.
@@ -98,7 +92,7 @@ If \fIlevel\fR is not a valid log level, an error message will be returned:
 .fi
 .SH AUTHOR
 
-Michael Hawkins \fBNone\fR (\fI<michael.hawkins@protonmail.com\fR)>\.
+Michael Hawkins \fI<michael.hawkins@protonmail.com\fR>\.
 
 .SH SEE ALSO
 
@@ -106,11 +100,7 @@ Michael Hawkins \fBNone\fR (\fI<michael.hawkins@protonmail.com\fR)>\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR) Lightning
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR Lightning
 RFC site (BOLT #9):
-\fBNone\fR (\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md\fR)
-
-.HL
-
-Last updated 2019-04-30 17:12:10 CEST
+\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md\fR
 

@@ -1,9 +1,6 @@
 .TH "LIGHTNING-WAITSENDPAY" "7" "" "" "lightning-waitsendpay"
 .SH NAME
-
-
-lightning-waitsendpay - Command for sending a payment via a route\.
-
+lightning-waitsendpay - Command for sending a payment via a route
 .SH SYNOPSIS
 
 \fBwaitsendpay\fR \fIpayment_hash\fR [\fItimeout\fR]
@@ -46,7 +43,6 @@ route\.
 
 The following error codes may occur:
 
-.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -69,11 +65,9 @@ nothing to wait for\.
 stored\. This should only occur when querying failed payments on very
 old databases\.
 
-.RE
 
 A routing failure object has the fields below:
 
-.RS
 .IP \[bu]
 \fIerring_index\fR: The index of the node along the route that reported
 the error\. 0 for the local node, 1 for the first hop, and so on\.
@@ -92,10 +86,9 @@ error (or the final channel if the destination raised the error)\.
 \fIfailcodename\fR: The human-readable name corresponding to \fIfailcode\fR,
 if known\.
 
-.RE
 .SH AUTHOR
 
-ZmnSCPxj \fBNone\fR (\fI<ZmnSCPxj@protonmail.com\fR)> is mainly responsible\.
+ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
@@ -103,7 +96,7 @@ ZmnSCPxj \fBNone\fR (\fI<ZmnSCPxj@protonmail.com\fR)> is mainly responsible\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
 .HL
 

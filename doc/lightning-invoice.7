@@ -1,9 +1,6 @@
 .TH "LIGHTNING-INVOICE" "7" "" "" "lightning-invoice"
 .SH NAME
-
-
-lightning-invoice - Command for accepting payments\.
-
+lightning-invoice - Command for accepting payments
 .SH SYNOPSIS
 
 \fBinvoice\fR \fImsatoshi\fR \fIlabel\fR \fIdescription\fR [\fIexpiry\fR]
@@ -87,7 +84,6 @@ not\.
 
 The following error codes may occur:
 
-.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -95,11 +91,9 @@ The following error codes may occur:
 .IP \[bu]
 901: An invoice with the given \fIpreimage\fR already exists\.
 
-.RE
 
 One of the following warnings may occur (on success):
 
-.RS
 .IP \[bu]
 \fIwarning_offline\fR if no channel with a currently connected peer has
   the incoming capacity to pay this invoice
@@ -108,10 +102,9 @@ One of the following warnings may occur (on success):
   incoming capacity and has a peer that is publicly connected (i\.e\.
   not a dead end)
 
-.RE
 .SH AUTHOR
 
-Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
@@ -120,9 +113,5 @@ Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
-
-.HL
-
-Last updated 2019-08-02 18:18:10 CEST
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 

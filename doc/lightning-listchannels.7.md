@@ -1,7 +1,5 @@
-LIGHTNING-LISTCHANNELS(7) Manual Page
-=====================================
-lightning-listchannels - Command to query active lightning channels in
-the entire network.
+lightning-listchannels -- Command to query active lightning channels in the entire network
+==========================================================================================
 
 SYNOPSIS
 --------
@@ -100,7 +98,3 @@ Lightning RFC site
 
 -   BOLT \#7:
     <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
-
-------------------------------------------------------------------------
-
-Last updated 2019-06-12 11:16:20 CEST

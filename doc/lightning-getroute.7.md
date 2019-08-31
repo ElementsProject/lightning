@@ -1,6 +1,5 @@
-LIGHTNING-GETROUTE(7) Manual Page
-=================================
-lightning-getroute - Command for routing a payment (low-level).
+lightning-getroute -- Command for routing a payment (low-level)
+===============================================================
 
 SYNOPSIS
 --------
@@ -300,7 +299,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-08-01 14:59:36 CEST

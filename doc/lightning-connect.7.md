@@ -1,6 +1,5 @@
-LIGHTNING-CONNECT(7) Manual Page
-================================
-lightning-connect - Command for connecting to another lightning node.
+lightning-connect -- Command for connecting to another lightning node
+=====================================================================
 
 SYNOPSIS
 --------
@@ -59,7 +58,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-08-01 14:59:36 CEST

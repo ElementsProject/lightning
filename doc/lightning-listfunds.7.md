@@ -1,7 +1,5 @@
-LIGHTNING-LISTFUNDS(7) Manual Page
-==================================
-lightning-listfunds - Command showing all funds currently managed by the
-c-lightning node.
+lightning-listfunds -- Command showing all funds currently managed by the c-lightning node
+==========================================================================================
 
 SYNOPSIS
 --------
@@ -62,7 +60,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-07-28 16:25:20 CEST
