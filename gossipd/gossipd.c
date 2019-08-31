@@ -2488,7 +2488,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct route_hop *hops;
 	double fuzz;
-	struct short_channel_id_dir *excluded;
+	struct exclude_entry **excluded;
 
 	/* To choose between variations, we need to know how much we're
 	 * sending (eliminates too-small channels, and also effects the fees

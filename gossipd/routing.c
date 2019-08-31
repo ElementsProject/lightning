@@ -2336,7 +2336,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    struct amount_msat msat, double riskfactor,
 			    u32 final_cltv,
 			    double fuzz, u64 seed,
-			    const struct short_channel_id_dir *excluded,
+			    struct exclude_entry **excluded,
 			    size_t max_hops)
 {
 	struct chan **route;
@@ -2346,22 +2346,49 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	struct route_hop *hops;
 	struct node *n;
 	struct amount_msat *saved_capacity;
+	struct short_channel_id_dir *excluded_chan;
 	struct siphash_seed base_seed;
 
-	saved_capacity = tal_arr(tmpctx, struct amount_msat, tal_count(excluded));
+	saved_capacity = tal_arr(tmpctx, struct amount_msat, 0);
+	excluded_chan = tal_arr(tmpctx, struct short_channel_id_dir, 0);
 
 	base_seed.u.u64[0] = base_seed.u.u64[1] = seed;
 
 	if (amount_msat_eq(msat, AMOUNT_MSAT(0)))
 		return NULL;
 
-	/* Temporarily set excluded channels' capacity to zero. */
+	/* Temporarily set the capacity of the excluded channels and the incoming channels
+	 * of excluded nodes to zero. */
 	for (size_t i = 0; i < tal_count(excluded); i++) {
-		struct chan *chan = get_channel(rstate, &excluded[i].scid);
-		if (!chan)
-			continue;
-		saved_capacity[i] = chan->half[excluded[i].dir].htlc_maximum;
-		chan->half[excluded[i].dir].htlc_maximum = AMOUNT_MSAT(0);
+		if (excluded[i]->type == EXCLUDE_CHANNEL) {
+			struct short_channel_id_dir *chan_id = &excluded[i]->u.chan_id;
+			struct chan *chan = get_channel(rstate, &chan_id->scid);
+			if (!chan)
+				continue;
+			tal_arr_expand(&saved_capacity, chan->half[chan_id->dir].htlc_maximum);
+			tal_arr_expand(&excluded_chan, *chan_id);
+			chan->half[chan_id->dir].htlc_maximum = AMOUNT_MSAT(0);
+		} else {
+			assert(excluded[i]->type == EXCLUDE_NODE);
+
+			struct node *node = get_node(rstate, &excluded[i]->u.node_id);
+			if (!node)
+				continue;
+
+			struct chan_map_iter i;
+			struct chan *chan;
+			for (chan = first_chan(node, &i); chan; chan = next_chan(node, &i)) {
+				int dir = half_chan_to(node, chan);
+				tal_arr_expand(&saved_capacity, chan->half[dir].htlc_maximum);
+
+				struct short_channel_id_dir id;
+				id.scid = chan->scid;
+				id.dir = dir;
+				tal_arr_expand(&excluded_chan, id);
+
+				chan->half[dir].htlc_maximum = AMOUNT_MSAT(0);
+			}
+		}
 	}
 
 	route = find_route(ctx, rstate, source, destination, msat,
@@ -2378,11 +2405,11 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	 * By restoring in reverse order we ensure we can restore
 	 * the correct capacity.
 	 */
-	for (ssize_t i = tal_count(excluded) - 1; i >= 0; i--) {
-		struct chan *chan = get_channel(rstate, &excluded[i].scid);
+	for (ssize_t i = tal_count(excluded_chan) - 1; i >= 0; i--) {
+		struct chan *chan = get_channel(rstate, &excluded_chan[i].scid);
 		if (!chan)
 			continue;
-		chan->half[excluded[i].dir].htlc_maximum = saved_capacity[i];
+		chan->half[excluded_chan[i].dir].htlc_maximum = saved_capacity[i];
 	}
 
 	if (!route) {

@@ -313,7 +313,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	struct amount_msat *msat;
 	unsigned *cltv;
 	double *riskfactor;
-	struct short_channel_id_dir *excluded;
+	const struct exclude_entry **excluded;
 	u32 *max_hops;
 
 	/* Higher fuzz means that some high-fee paths can be discounted
@@ -343,19 +343,31 @@ static struct command_result *json_getroute(struct command *cmd,
 		const jsmntok_t *t;
 		size_t i;
 
-		excluded = tal_arr(cmd, struct short_channel_id_dir,
-				   excludetok->size);
+		excluded = tal_arr(cmd, const struct exclude_entry *, 0);
 
 		json_for_each_arr(i, t, excludetok) {
+			struct exclude_entry *entry = tal(excluded, struct exclude_entry);
+			struct short_channel_id_dir *chan_id = tal(tmpctx, struct short_channel_id_dir);
 			if (!short_channel_id_dir_from_str(buffer + t->start,
 							   t->end - t->start,
-							   &excluded[i])) {
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "%.*s is not a valid"
-						    " short_channel_id/direction",
-						    t->end - t->start,
-						    buffer + t->start);
+							   chan_id)) {
+				struct node_id *node_id = tal(tmpctx, struct node_id);
+
+				if (!json_to_node_id(buffer, t, node_id))
+					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+							    "%.*s is not a valid"
+							    " short_channel_id/node_id",
+							    t->end - t->start,
+							    buffer + t->start);
+
+				entry->type = EXCLUDE_NODE;
+				entry->u.node_id = *node_id;
+			} else {
+				entry->type = EXCLUDE_CHANNEL;
+				entry->u.chan_id = *chan_id;
 			}
+
+			tal_arr_expand(&excluded, entry);
 		}
 	} else {
 		excluded = NULL;
@@ -379,7 +391,7 @@ static const struct json_command getroute_command = {
 	"If specified search from {fromid} otherwise use this node as source. "
 	"Randomize the route with up to {fuzzpercent} (default 5.0). "
 	"{exclude} an array of short-channel-id/direction (e.g. [ '564334x877x1/0', '564195x1292x0/1' ]) "
-	"from consideration. "
+	"or node-id from consideration. "
 	"Set the {maxhops} the route can take (default 20)."
 };
 AUTODATA(json_command, &getroute_command);

@@ -39,7 +39,7 @@ msgdata,gossip_getroute_request,riskfactor_by_million,u64,
 msgdata,gossip_getroute_request,final_cltv,u32,
 msgdata,gossip_getroute_request,fuzz,double,
 msgdata,gossip_getroute_request,num_excluded,u16,
-msgdata,gossip_getroute_request,excluded,short_channel_id_dir,num_excluded
+msgdata,gossip_getroute_request,excluded,exclude_entry,num_excluded
 msgdata,gossip_getroute_request,max_hops,u32,
 
 msgtype,gossip_getroute_reply,3106
