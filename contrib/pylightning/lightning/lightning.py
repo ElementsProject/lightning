@@ -596,8 +596,8 @@ class LightningRpc(UnixDomainSocketRpc):
         {cltv} (default 9). If specified search from {fromid} otherwise use
         this node as source. Randomize the route with up to {fuzzpercent}
         (0.0 -> 100.0, default 5.0). {exclude} is an optional array of
-        scid/direction to exclude. Limit the number of hops in the route to
-        {maxhops}.
+        scid/direction or node-id to exclude. Limit the number of hops in the
+        route to {maxhops}.
         """
         payload = {
             "id": node_id,
