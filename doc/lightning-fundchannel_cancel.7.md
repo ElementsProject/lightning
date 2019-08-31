@@ -1,7 +1,5 @@
-LIGHTNING-FUNDCHANNEL\_CANCEL(7) Manual Page
-============================================
-lightning-fundchannel\_cancel - Command for completing channel
-establishment
+lightning-fundchannel\_cancel -- Command for completing channel establishment
+=============================================================================
 
 SYNOPSIS
 --------
@@ -39,7 +37,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-06-12 11:16:20 CEST

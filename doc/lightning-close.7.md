@@ -1,6 +1,5 @@
-LIGHTNING-CLOSE(7) Manual Page
-==============================
-lightning-close - Command for closing channels with direct peers
+lightning-close -- Command for closing channels with direct peers
+=================================================================
 
 SYNOPSIS
 --------
@@ -68,7 +67,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-08-09 11:12:04 CEST

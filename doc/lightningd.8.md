@@ -1,17 +1,20 @@
-LIGHTNINGD(8) Manual Page
-=========================
-lightningd - Daemon for running a Lightning Network node
+lightningd -- Daemon for running a Lightning Network node
+=========================================================
 
 SYNOPSIS
-
-lightningd \[--conf=&lt;config-file&gt;\] \[*OPTIONS*\]…
+--------
+```bash
+lightningd [--conf=<config-file>] [OPTIONS]…
+```
 
 DESCRIPTION
+-----------
 
 **lightningd** starts the C-Lightning daemon, which implements a
 standards-compliant Lightning Network node.
 
 CONFIGURATION OPTIONS
+---------------------
 
  **--conf**=*FILE*
 Specify configuration file. If not an absolute path, will be relative
@@ -22,15 +25,17 @@ Set the directory for the C-Lightning daemon. Defaults to
 *$HOME/.lightning*.
 
 MORE OPTIONS
+------------
 
 Command line options are mirrored as configuration options in the
 configuration file, so *foo* in the configuration file simply becomes
-*--foo* on the command line, and *foo=bar* becomes *--foo=bar*.
+**--foo** on the command line, and **foo=bar** becomes **--foo=bar**.
 
 See lightningd-config(5) for a comprehensive list of all available
 options.
 
 LOGGING AND COMMANDING C-LIGHTNING
+----------------------------------
 
     By default, C-Lightning will log to the standard output.
     To log to a specific file, use '--log-file=PATH'.
@@ -147,31 +152,33 @@ merchant, and use lightning-pay(7) to pay it:
     $ lightning-cli pay $INVOICE
 
 BUGS
+----
 
 You should report bugs on our github issues page, and maybe submit a fix
 to gain our eternal gratitude!
 
 AUTHOR
+------
 
-ZmnSCPxj &lt;<ZmnSCPxj@protonmail.com>&gt; wrote the initial version of
+ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of
 this man page, but many others did the hard work of actually
 implementing a standards-compliant Lightning Network node
 implementation.
 
 SEE ALSO
+--------
 
 lightning-listconfigs(7), lightning-config(5), lightning-cli(1),
 lightning-newaddr(7), lightning-listfunds(7), lightning-connect(7),
 lightning-fundchannel(7), lightning-listpeers(7), lightning-pay(7)
 
 RESOURCES
+---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
 COPYING
+-------
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
-
-
-Last updated 2019-08-09 11:11:48 CEST

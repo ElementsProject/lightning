@@ -1,6 +1,5 @@
-LIGHTNING-TXSEND(7) Manual Page
-===============================
-lightning-txsend - Command to sign and send transaction from txprepare
+lightning-txsend -- Command to sign and send transaction from txprepare
+=======================================================================
 
 SYNOPSIS
 --------
@@ -41,7 +40,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-06-08 16:03:59 CEST

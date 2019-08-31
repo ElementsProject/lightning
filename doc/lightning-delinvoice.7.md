@@ -1,6 +1,5 @@
-LIGHTNING-DELINVOICE(7) Manual Page
-===================================
-lightning-delinvoice - Command for removing an invoice.
+lightning-delinvoice -- Command for removing an invoice
+=======================================================
 
 SYNOPSIS
 --------
@@ -38,7 +37,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-07 14:23:17 CEST

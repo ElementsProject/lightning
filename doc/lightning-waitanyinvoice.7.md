@@ -1,6 +1,5 @@
-LIGHTNING-WAITANYINVOICE(7) Manual Page
-=======================================
-lightning-waitanyinvoice - Command for waiting for payments.
+lightning-waitanyinvoice -- Command for waiting for payments
+============================================================
 
 SYNOPSIS
 --------
@@ -44,7 +43,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-07 14:23:17 CEST

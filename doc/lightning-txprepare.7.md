@@ -1,7 +1,5 @@
-LIGHTNING-TXPREPARE(7) Manual Page
-==================================
-lightning-txprepare - Command to prepare to withdraw funds from the
-internal wallet.
+lightning-txprepare -- Command to prepare to withdraw funds from the internal wallet
+====================================================================================
 
 SYNOPSIS
 --------
@@ -51,7 +49,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-06-08 16:03:59 CEST

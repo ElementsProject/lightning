@@ -1,6 +1,5 @@
-LIGHTNING-FUNDCHANNEL(7) Manual Page
-====================================
-lightning-fundchannel - Command for establishing a lightning channel.
+lightning-fundchannel -- Command for establishing a lightning channel
+=====================================================================
 
 SYNOPSIS
 --------
@@ -76,7 +75,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-06-12 11:16:20 CEST

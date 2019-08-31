@@ -1,6 +1,5 @@
-LIGHTNING-LISTSENDPAYS(7) Manual Page
-=====================================
-lightning-listsendpays - Low-level command for querying sendpay status
+lightning-listsendpays -- Low-level command for querying sendpay status
+=======================================================================
 
 SYNOPSIS
 --------
@@ -66,7 +65,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-30 17:12:10 CEST

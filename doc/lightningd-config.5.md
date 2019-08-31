@@ -1,6 +1,5 @@
-LIGHTNINGD-CONFIG(5) Manual Page
-================================
-lightningd-config - Lightning daemon configuration file
+lightningd-config -- Lightning daemon configuration file
+========================================================
 
 SYNOPSIS
 --------
@@ -371,6 +370,3 @@ COPYING
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
-
-
-Last updated 2019-08-09 11:12:04 CEST

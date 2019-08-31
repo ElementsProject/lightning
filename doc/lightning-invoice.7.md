@@ -1,6 +1,5 @@
-LIGHTNING-INVOICE(7) Manual Page
-================================
-lightning-invoice - Command for accepting payments.
+lightning-invoice -- Command for accepting payments
+===================================================
 
 SYNOPSIS
 --------
@@ -103,7 +102,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-08-02 18:18:10 CEST

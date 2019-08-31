@@ -1,9 +1,6 @@
 .TH "LIGHTNING-DECODEPAY" "7" "" "" "lightning-decodepay"
 .SH NAME
-
-
 lightning-decodepay - Command for decoding a bolt11 string (low-level)
-
 .SH SYNOPSIS
 
 \fBdecodepay\fR \fIbolt11\fR [\fIdescription\fR]
@@ -18,7 +15,6 @@ specified by the BOLT 11 specification\.
 On success, an object is returned with the following fields, as
 specified by BOLT11:
 
-.RS
 .IP \[bu]
 \fIcurrency\fR: the BIP173 name for the currency\.
 .IP \[bu]
@@ -35,11 +31,9 @@ specified by BOLT11:
 \fIdescription\fR: the description of the purpose of the purchase (see
 below)
 
-.RE
 
 The following fields are optional:
 
-.RS
 .IP \[bu]
 \fImsatoshi\fR: the number of millisatoshi requested (if any)\.
 .IP \[bu]
@@ -56,7 +50,6 @@ each containing \fIpubkey\fR, \fIshort_channel_id\fR, \fIfee_base_msat\fR,
 \fIextra\fR: an array of objects representing unknown fields, each with
 one-character \fItag\fR and a \fIdata\fR bech32 string\.
 
-.RE
 
 Technically, the \fIdescription\fR field is optional if a
 \fIdescription_hash\fR field is given, but in this case \fBdecodepay\fR will
@@ -65,7 +58,7 @@ the \fIdescription_hash\fR\. In practice, these are currently unused\.
 
 .SH AUTHOR
 
-Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
@@ -77,9 +70,5 @@ Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
-
-.HL
-
-Last updated 2019-04-30 17:12:10 CEST
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 

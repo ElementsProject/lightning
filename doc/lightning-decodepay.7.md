@@ -1,6 +1,5 @@
-LIGHTNING-DECODEPAY(7) Manual Page
-==================================
-lightning-decodepay - Command for decoding a bolt11 string (low-level)
+lightning-decodepay -- Command for decoding a bolt11 string (low-level)
+=======================================================================
 
 SYNOPSIS
 --------
@@ -61,7 +60,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-30 17:12:10 CEST

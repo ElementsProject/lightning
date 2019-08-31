@@ -1,10 +1,6 @@
 .TH "LIGHTNING-FUNDCHANNEL_START" "7" "" "" "lightning-fundchannel_start"
 .SH NAME
-
-
-lightning-fundchannel_start - Command for initiating channel
-establishment for a lightning channel
-
+lightning-fundchannel_start - Command for initiating channel establishment for a lightning channel
 .SH SYNOPSIS
 
 \fBfundchannel_start\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR \fIannounce\fR]
@@ -29,10 +25,11 @@ commitment transactions\.
 
 \fIannounce\fR whether or not to announce this channel\.
 
+
 Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed by running
 \fBfundchannel_complete\fR, as the commitment transactions for this channel
-are not secured until the complete command succeeds. Broadcasting
+are not secured until the complete command succeeds\. Broadcasting
 transaction before that can lead to unrecoverable loss of funds\.
 
 .SH RETURN VALUE
@@ -44,7 +41,7 @@ On failure, returns an error\.
 
 .SH AUTHOR
 
-Lisa Neigut \fBNone\fR (\fI<niftynei@gmail.com\fR)> is mainly responsible\.
+Lisa Neigut \fI<niftynei@gmail.com\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
@@ -53,8 +50,9 @@ lightning-fundchannel_\fBcomplete\fR(7), lightning-fundchannel_\fBcancel\fR(7)
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
 .HL
 
 Last updated 2019-06-12 11:16:20 CEST
+

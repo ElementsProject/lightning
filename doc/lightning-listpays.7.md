@@ -1,6 +1,5 @@
-LIGHTNING-LISTPAYS(7) Manual Page
-=================================
-lightning-listpays - Command for querying payment status
+lightning-listpays -- Command for querying payment status
+=========================================================
 
 SYNOPSIS
 --------
@@ -61,7 +60,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-04-30 17:12:10 CEST

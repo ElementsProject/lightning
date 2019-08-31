@@ -1,7 +1,5 @@
-LIGHTNING-WITHDRAW(7) Manual Page
-=================================
-lightning-withdraw - Command for withdrawing funds from the internal
-wallet.
+lightning-withdraw -- Command for withdrawing funds from the internal wallet
+============================================================================
 
 SYNOPSIS
 --------
@@ -68,7 +66,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-------------------------------------------------------------------------
-
-Last updated 2019-06-08 16:03:59 CEST

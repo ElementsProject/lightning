@@ -1,9 +1,6 @@
 .TH "LIGHTNING-SENDPAY" "7" "" "" "lightning-sendpay"
 .SH NAME
-
-
-lightning-sendpay - Low-level command for sending a payment via a route\.
-
+lightning-sendpay - Low-level command for sending a payment via a route
 .SH SYNOPSIS
 
 \fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIlabel\fR] [\fImsatoshi\fR]
@@ -68,7 +65,6 @@ retried\.
 
 The following error codes may occur:
 
-.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -85,11 +81,9 @@ will be routing failure object\.
 204: Failure along route; retry a different route\. The \fIdata\fR field
 of the error will be routing failure object\.
 
-.RE
 
 A routing failure object has the fields below:
 
-.RS
 .IP \[bu]
 \fIerring_index\fR\. The index of the node along the route that reported
 the error\. 0 for the local node, 1 for the first hop, and so on\.
@@ -107,10 +101,9 @@ received from the remote node\. Only present if error is from the
 remote node and the \fIfailcode\fR has the UPDATE bit set, as per BOLT
 #4\.
 
-.RE
 .SH AUTHOR
 
-Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
@@ -120,7 +113,7 @@ Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
 .HL
 
