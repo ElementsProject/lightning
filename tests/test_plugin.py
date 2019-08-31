@@ -146,12 +146,16 @@ def test_plugin_command(node_factory):
     cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
     assert(len(cmd) == 0)
 
+    # Test that a static plugin is killed when started via RPC
+    n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/static.py"))
+    n.daemon.wait_for_log(r"plugin-static.py Killing plugin: because plugin config dynamic=True")
+    assert not n.daemon.is_in_log(r"Static plugin initialized.", start=0)
+
     # Test that we cannot stop a plugin with 'dynamic' set to False in
     # getmanifest
-    n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/static.py"))
-    n.daemon.wait_for_log(r"Static plugin initialized.")
+    n2 = node_factory.get_node(options={"plugin": os.path.join(os.getcwd(), "tests/plugins/static.py")})
     with pytest.raises(RpcError, match=r"plugin cannot be managed when lightningd is up"):
-        n.rpc.plugin_stop(plugin="static.py")
+        n2.rpc.plugin_stop(plugin="static.py")
 
 
 def test_plugin_disable(node_factory):

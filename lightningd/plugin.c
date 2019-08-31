@@ -33,7 +33,7 @@
  * `getmanifest` call anyway, that's what `init `is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
 /* Timeout for the init response of early_config plugins */
-#define PLUGIN_CONFIG_TIMEOUT 10
+#define PLUGIN_CONFIG_TIMEOUT 60
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 			    struct lightningd *ld)
@@ -839,6 +839,8 @@ static void plugin_manifest_cb(const char *buffer,
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
 	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin))
 		plugin->dynamic = dynamic_plugin;
+	else
+		plugin->dynamic = true;
 
 	earlyconftok = json_get_member(buffer, resulttok, "early_conf");
 	if (earlyconftok && json_to_bool(buffer, earlyconftok, &earlyconf_plugin))
@@ -846,13 +848,19 @@ static void plugin_manifest_cb(const char *buffer,
 	else
 		plugin->early_config = false;
 
-	if (!plugin_opts_add(plugin, buffer, resulttok) ||
-	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
-	    !plugin_subscriptions_add(plugin, buffer, resulttok) ||
-	    !plugin_hooks_add(plugin, buffer, resulttok))
-		plugin_kill(
-		    plugin,
-		    "Failed to register options, methods, hooks, or subscriptions.");
+	/* A previously unloaded plugin can indicate us it doesn't want to be
+	 * started-via-RPC, then kill it and don't registers hooks etc.*/
+	if (!plugin->plugins->startup
+			&& (!plugin->dynamic || plugin->early_config)) {
+		plugin_kill(plugin, "because plugin config%s%s",
+				     !plugin->dynamic ? " dynamic=True" : "",
+				     plugin->early_config ? " early_conf=True" : "");
+	} else if (!plugin_opts_add(plugin, buffer, resulttok) ||
+			   !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
+			   !plugin_subscriptions_add(plugin, buffer, resulttok) ||
+			   !plugin_hooks_add(plugin, buffer, resulttok))
+		plugin_kill( plugin,
+			"Failed to register options, methods, hooks, or subscriptions.");
 
 	/* If all plugins have replied to getmanifest and this is not
 	 * the startup init, configure them */
