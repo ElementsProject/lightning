@@ -268,6 +268,19 @@ struct route_hop {
 	u32 delay;
 };
 
+enum exclude_entry_type {
+	EXCLUDE_CHANNEL = 1,
+	EXCLUDE_NODE = 2
+};
+
+struct exclude_entry {
+	enum exclude_entry_type type;
+	union {
+		struct short_channel_id_dir chan_id;
+		struct node_id node_id;
+	} u;
+};
+
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
