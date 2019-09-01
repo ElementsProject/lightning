@@ -88,10 +88,10 @@ struct client {
 	 * it has the complete thing; this is it. */
 	u8 *msg_in;
 
-	/* ~Useful for logging, but also used to derive the per-channel seed. */
+	/*~ Useful for logging, but also used to derive the per-channel seed. */
 	struct node_id id;
 
-	/* ~This is a unique value handed to us from lightningd, used for
+	/*~ This is a unique value handed to us from lightningd, used for
 	 * per-channel seed generation (a single id may have multiple channels
 	 * over time).
 	 *
@@ -128,7 +128,7 @@ static bool is_lightningd(const struct client *client)
 	return client == dbid_zero_clients[0];
 }
 
-/*~ FIXME: This is used by debug.c.  Doesn't apply to us, but lets us link. */
+/* FIXME: This is used by debug.c.  Doesn't apply to us, but lets us link. */
 extern void dev_disconnect_init(int fd);
 void dev_disconnect_init(int fd UNUSED) { }
 
@@ -283,7 +283,7 @@ static struct io_plan *req_reply(struct io_conn *conn,
 	 * Internally, the ccan/io subsystem gathers all the file descriptors,
 	 * figures out which want to write and read, asks the OS which ones
 	 * are available, and for those file descriptors, tries to do the
-	 * reads/writes we've asked it.	 It handles retry in the case where a
+	 * reads/writes we've asked it.  It handles retry in the case where a
 	 * read or write is done partially.
 	 *
 	 * Since the OS does buffering internally (on my system, over 100k
@@ -490,7 +490,7 @@ static void bitcoin_key(struct privkey *privkey, struct pubkey *pubkey,
 }
 
 /*~ We store our root secret in a "hsm_secret" file (like all of c-lightning,
- * we run in the user's .lightningd directory). */
+ * we run in the user's .lightning directory). */
 static void maybe_create_new_hsm(void)
 {
 	/*~ Note that this is opened for write-only, even though the permissions
@@ -659,7 +659,7 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	 *
 	 * Note that 'check-source' will actually find and check this quote
 	 * against the spec (if available); whitespace is ignored and
-	 * ... means some content is skipped, but it works remarkably well to
+	 * "..." means some content is skipped, but it works remarkably well to
 	 * track spec changes. */
 
 	/* BOLT #7:
@@ -769,7 +769,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	return req_reply(conn, c, take(towire_hsm_cupdate_sig_reply(NULL, cu)));
 }
 
-/*~ This gets the basepoints for a channel; it's not privite information really
+/*~ This gets the basepoints for a channel; it's not private information really
  * (we tell the peer this to establish a channel, as it sets up the keys used
  * for each transaction).
  *
@@ -848,7 +848,7 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	 * output it's spending), so in our 'bitcoin_tx' structure it's a
 	 * pointer, as we don't always know it (and zero is a valid amount, so
 	 * NULL is better to mean 'unknown' and has the nice property that
-	 * you'll crash if you assume it's there and you're wrong. */
+	 * you'll crash if you assume it's there and you're wrong.) */
 	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
@@ -1041,7 +1041,7 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 				    tx, &privkey, wscript, input_sat);
 }
 
-/*~ This is used when the a commitment transaction is onchain, and has an HTLC
+/*~ This is used when a commitment transaction is onchain, and has an HTLC
  * output paying to us (because we have the preimage); this signs that
  * transaction, which lightningd will broadcast to collect the funds. */
 static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
@@ -1125,7 +1125,7 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 				    tx, &privkey, wscript, input_sat);
 }
 
-/*~ This is used when the a commitment transaction is onchain, and has an HTLC
+/*~ This is used when a commitment transaction is onchain, and has an HTLC
  * output paying to them, which has timed out; this signs that transaction,
  * which lightningd will broadcast to collect the funds. */
 static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
@@ -1334,7 +1334,7 @@ static struct io_plan *send_pending_client_fd(struct io_conn *conn,
 	return io_send_fd(conn, fd, true, client_read_next, master);
 }
 
-/*~ This is used by by the master to create a new client connection (which
+/*~ This is used by the master to create a new client connection (which
  * becomes the HSM_FD for the subdaemon after forking). */
 static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 					 struct client *c,
@@ -1503,7 +1503,7 @@ static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
 	return req_reply(conn, c, take(towire_hsm_sign_funding_reply(NULL, tx)));
 }
 
-/*~ lightningd asks us to sign a withdrawal; same as above but we in theory
+/*~ lightningd asks us to sign a withdrawal; same as above but in theory
  * we can do more to check the previous case is valid. */
 static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 						 struct client *c,
@@ -1571,7 +1571,7 @@ static struct io_plan *handle_sign_invoice(struct io_conn *conn,
 
 	/* FIXME: Check invoice! */
 
-	/* tal_dup_arr() does what you'd expect: allocate an array by copying
+	/*~ tal_dup_arr() does what you'd expect: allocate an array by copying
 	 * another; the cast is needed because the hrp is a 'char' array, not
 	 * a 'u8' (unsigned char) as it's the "human readable" part.
 	 *
@@ -1588,7 +1588,7 @@ static struct io_plan *handle_sign_invoice(struct io_conn *conn,
 	node_key(&node_pkey, NULL);
 	/*~ By no small coincidence, this libsecp routine uses the exact
 	 * recovery signature format mandated by BOLT 11. */
-        if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, &rsig,
+	if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, &rsig,
                                               (const u8 *)&sha,
                                               node_pkey.secret.data,
                                               NULL, NULL)) {
@@ -1723,8 +1723,8 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_DEV_MEMLEAK:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
-	/*~ These are messages sent by the HSM so we should never receive them.
-	 * FIXME: Since we autogenerate these, we should really generate separate
+	/*~ These are messages sent by the HSM so we should never receive them. */
+	/* FIXME: Since we autogenerate these, we should really generate separate
 	 * enums for replies to avoid this kind of clutter! */
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
@@ -1880,7 +1880,7 @@ int main(int argc, char *argv[])
 	/* When conn closes, everything is freed. */
 	io_set_finish(master->conn, master_gone, master);
 
-	/*~ The two NULL args a list of timers, and the timer which expired:
+	/*~ The two NULL args are a list of timers, and the timer which expired:
 	 * we don't have any timers. */
 	io_loop(NULL, NULL);
 

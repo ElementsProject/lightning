@@ -171,7 +171,7 @@ static void do_reconnect(struct per_peer_state *pps,
 					 &my_current_per_commitment_point);
 	sync_crypto_write(pps, take(msg));
 
-	/* They might have already send reestablish, which triggered us */
+	/* They might have already sent reestablish, which triggered us */
 	if (!channel_reestablish) {
 		do {
 			tal_free(channel_reestablish);
@@ -719,7 +719,7 @@ int main(int argc, char *argv[])
 		status_unusual("Closing and draining peerfd gave error: %s",
 			       strerror(errno));
 	/* Sending the below will kill us! */
-	wire_sync_write(REQ_FD,	take(towire_closing_complete(NULL)));
+	wire_sync_write(REQ_FD, take(towire_closing_complete(NULL)));
 	tal_free(ctx);
 	daemon_shutdown();
 

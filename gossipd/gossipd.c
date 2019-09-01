@@ -449,7 +449,7 @@ static void setup_gossip_range(struct peer *peer)
 	queue_peer_msg(peer, take(msg));
 }
 
-/* Create a node_announcement with the given signature. It may be NULL in the
+/*~ Create a node_announcement with the given signature. It may be NULL in the
  * case we need to create a provisional announcement for the HSM to sign.
  * This is called twice: once with the dummy signature to get it signed and a
  * second time to build the full packet with the signature. The timestamp is
@@ -507,7 +507,7 @@ static void send_node_announcement(struct daemon *daemon)
 	if (!fromwire_hsm_node_announcement_sig_reply(msg, &sig))
 		status_failed(STATUS_FAIL_MASTER_IO, "HSM returned an invalid node_announcement sig");
 
-	/* We got the signature for out provisional node_announcement back
+	/* We got the signature for our provisional node_announcement back
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
 	nannounce = create_node_announcement(NULL, daemon, &sig, timestamp);
@@ -772,8 +772,8 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 		return err;
 	}
 
-	/*~ As a nasty compromise in the spec, we only forward channel_announce
-	 * once we have a channel_update; the channel isn't *usable* for
+	/*~ As a nasty compromise in the spec, we only forward `channel_announce`
+	 * once we have a `channel_update`; the channel isn't *usable* for
 	 * routing until you have both anyway.  For this reason, we might have
 	 * just sent out our own channel_announce, so we check if it's time to
 	 * send a node_announcement too. */
@@ -1787,7 +1787,7 @@ static bool local_direction(struct daemon *daemon,
 	return false;
 }
 
-/*~ This is when channeld asks us for a channel_update for a local channel.
+/*~ This is when channeld asks us for a `channel_update` for a local channel.
  * It does that to fill in the error field when lightningd fails an HTLC and
  * sets the UPDATE bit in the error type.  lightningd is too important to
  * fetch this itself, so channeld does it (channeld has to talk to us for
@@ -3413,6 +3413,6 @@ int main(int argc, char *argv[])
 /*~ Note that the actual routing stuff is in routing.c; you might want to
  * check that out later.
  *
- * But that's the last of the global daemons.   We now move on to the first of
+ * But that's the last of the global daemons.  We now move on to the first of
  * the per-peer daemons: openingd/openingd.c.
  */
