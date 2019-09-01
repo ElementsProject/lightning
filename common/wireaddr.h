@@ -86,7 +86,7 @@ char *fmt_wireaddr_without_port(const tal_t *ctx, const struct wireaddr *a);
 
 /* If no_dns is non-NULL, we will set it to true and return false if
  * we wanted to do a DNS lookup. */
-bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
+bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 			    const u16 port, bool *no_dns,
 			    struct sockaddr *broken_reply,
 			    const char **err_msg);

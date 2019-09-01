@@ -289,17 +289,18 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 	return true;
 }
 
-bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
+bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 			    const u16 port, bool *no_dns,
 			    struct sockaddr *broken_reply,
 			    const char **err_msg)
 {
 	struct sockaddr_in6 *sa6;
 	struct sockaddr_in *sa4;
-	struct addrinfo *addrinfo;
+	struct addrinfo *addrinfo, *addrinfos;
 	struct addrinfo hints;
 	int gai_err;
 	bool res = false;
+	struct wireaddr *addr;
 
 	if (no_dns)
 		*no_dns = false;
@@ -309,18 +310,18 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 		u8 *dec = b32_decode(tmpctx, hostname,
 				     strlen(hostname) - strlen(".onion"));
 		if (tal_count(dec) == TOR_V2_ADDRLEN)
-			addr->type = ADDR_TYPE_TOR_V2;
+			addrs[0]->type = ADDR_TYPE_TOR_V2;
 		else if (tal_count(dec) == TOR_V3_ADDRLEN)
- 			addr->type = ADDR_TYPE_TOR_V3;
+			addrs[0]->type = ADDR_TYPE_TOR_V3;
 		else {
 			if (err_msg)
 				*err_msg = "Invalid Tor address";
 			return false;
 		}
 
-		addr->addrlen = tal_count(dec);
-		addr->port = port;
-		memcpy(&addr->addr, dec, tal_count(dec));
+		addrs[0]->addrlen = tal_count(dec);
+		addrs[0]->port = port;
+		memcpy(&addrs[0]->addr, dec, tal_count(dec));
 		return true;
 	}
 
@@ -338,32 +339,35 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 	hints.ai_protocol = 0;
 	hints.ai_flags = AI_ADDRCONFIG;
 	gai_err = getaddrinfo(hostname, tal_fmt(tmpctx, "%d", port),
-			      &hints, &addrinfo);
+			      &hints, &addrinfos);
 	if (gai_err != 0) {
 		if (err_msg)
 			*err_msg = gai_strerror(gai_err);
 		return false;
 	}
 
-	if (broken_reply != NULL && memeq(addrinfo->ai_addr, addrinfo->ai_addrlen, broken_reply, tal_count(broken_reply))) {
+	if (broken_reply != NULL && memeq(addrinfos->ai_addr, addrinfos->ai_addrlen, broken_reply, tal_count(broken_reply))) {
 		res = false;
 		goto cleanup;
 	}
 
-	/* Use only the first found address */
-	if (addrinfo->ai_family == AF_INET) {
-		sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
-		wireaddr_from_ipv4(addr, &sa4->sin_addr, port);
-		res = true;
-	} else if (addrinfo->ai_family == AF_INET6) {
-		sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
-		wireaddr_from_ipv6(addr, &sa6->sin6_addr, port);
-		res = true;
+	for (addrinfo = addrinfos; addrinfo; addrinfo = addrinfo->ai_next) {
+		addr = tal(addrs, struct wireaddr);
+		if (addrinfo->ai_family == AF_INET) {
+			sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
+			wireaddr_from_ipv4(addr, &sa4->sin_addr, port);
+			res = true;
+		} else if (addrinfo->ai_family == AF_INET6) {
+			sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
+			wireaddr_from_ipv6(addr, &sa6->sin6_addr, port);
+			res = true;
+		}
+		tal_arr_expand(&addrs, addr);
 	}
 
 cleanup:
 	/* Clean up */
-	freeaddrinfo(addrinfo);
+	freeaddrinfo(addrinfos);
 	return res;
 }
 
@@ -401,7 +405,7 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 
 	/* Resolve with getaddrinfo */
 	if (!res)
-		res = wireaddr_from_hostname(addr, ip, port, no_dns, NULL, err_msg);
+		res = wireaddr_from_hostname(&addr, ip, port, no_dns, NULL, err_msg);
 
 finish:
 	if (!res && err_msg && !*err_msg)
