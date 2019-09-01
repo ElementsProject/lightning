@@ -1058,8 +1058,8 @@ def test_gossip_notices_close(node_factory, bitcoind):
 
 
 def test_getroute_exclude_duplicate(node_factory):
-    """Test that accidentally duplicating the same channel in
-    the exclude list will not have permanent effects.
+    """Test that accidentally duplicating the same channel or same node
+    in the exclude list will not have permanent effects.
     """
 
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
@@ -1080,6 +1080,17 @@ def test_getroute_exclude_duplicate(node_factory):
     route2 = l1.rpc.getroute(l2.info['id'], 1, 1)['route']
     assert route == route2
 
+    # This should also fail to find a route as the only viable channel
+    # is excluded, and worse, is excluded twice.
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l2.info['id'], 1, 1, exclude=[l2.info['id'], l2.info['id']])
+
+    # This should still succeed since nothing is excluded anymore
+    # and in particular should return the exact same route as
+    # earlier.
+    route3 = l1.rpc.getroute(l2.info['id'], 1, 1)['route']
+    assert route == route3
+
 
 @unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
 def test_getroute_exclude(node_factory, bitcoind):
@@ -1096,6 +1107,10 @@ def test_getroute_exclude(node_factory, bitcoind):
     # This should not
     with pytest.raises(RpcError):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l1l2])
+
+    # This should also not
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l2.info['id']])
 
     # Blocking the wrong way should be fine.
     l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l1])
@@ -1125,9 +1140,47 @@ def test_getroute_exclude(node_factory, bitcoind):
     # This works
     l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l4])
 
+    # This works
+    l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l3.info['id']])
+
     # This doesn't
     with pytest.raises(RpcError):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, chan_l2l4])
+
+    # This doesn't
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l3.info['id'], chan_l2l4])
+
+    l5 = node_factory.get_node()
+    l1.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    scid15 = l1.fund_channel(l5, 1000000, wait_for_active=False)
+    l5.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    scid54 = l5.fund_channel(l4, 1000000, wait_for_active=False)
+    bitcoind.generate_block(5)
+
+    # We don't wait above, because we care about it hitting l1.
+    l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                             .format(scid15),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scid15),
+                             r'update for channel {}/0 now ACTIVE'
+                             .format(scid54),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scid54)])
+
+    # This works now
+    l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l3.info['id'], chan_l2l4])
+
+    # This works now
+    l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l3.info['id'], l5.info['id']])
+
+    # This doesn't work
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l3.info['id'], l5.info['id'], chan_l2l4])
+
+    # This doesn't work
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, l5.info['id'], chan_l2l4])
 
 
 @unittest.skipIf(not DEVELOPER, "need dev-compact-gossip-store")
