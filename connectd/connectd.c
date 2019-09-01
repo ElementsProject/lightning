@@ -297,7 +297,7 @@ static bool get_gossipfds(struct daemon *daemon,
 	gossip_queries_feature
 		= local_feature_negotiated(localfeatures, LOCAL_GOSSIP_QUERIES);
 
-	/*~ `initial_routing_sync is supported by every node, since it was in
+	/*~ `initial_routing_sync` is supported by every node, since it was in
 	 * the initial lightning specification: it means the peer wants the
 	 * backlog of existing gossip. */
 	initial_routing_sync
@@ -318,7 +318,7 @@ static bool get_gossipfds(struct daemon *daemon,
 			      "Failed parsing msg gossipctl: %s",
 			      tal_hex(tmpctx, msg));
 
-	/* Gossipd might run out of file descriptors, so it tell us, and we
+	/* Gossipd might run out of file descriptors, so it tells us, and we
 	 * give up on connecting this peer. */
 	if (!success) {
 		status_broken("Gossipd did not give us an fd: losing peer %s",
@@ -404,10 +404,10 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	 * the peer set.  When someone calls `io_wake()` on that address, it
 	 * will call retry_peer_connected above. */
 	return io_wait(conn, node_set_get(&daemon->peers, id),
-		       /*~ The notleak() wrapper is a DEVELOPER-mode hack so
-			* that our memory leak detection doesn't consider 'pr'
-			* (which is not referenced from our code) to be a
-			* memory leak. */
+			/*~ The notleak() wrapper is a DEVELOPER-mode hack so
+			 * that our memory leak detection doesn't consider 'pr'
+			 * (which is not referenced from our code) to be a
+			 * memory leak. */
 		       retry_peer_connected, notleak(pr));
 }
 
@@ -454,7 +454,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
-	 * we have connected, and give the the peer and gossip fds. */
+	 * we have connected, and give the peer and gossip fds. */
 	daemon_conn_send(daemon->master, take(msg));
 	/* io_conn_fd() extracts the fd from ccan/io's io_conn */
 	daemon_conn_send_fd(daemon->master, io_conn_fd(conn));
@@ -1385,7 +1385,7 @@ static void try_connect_peer(struct daemon *daemon,
 	list_add_tail(&daemon->connecting, &connect->list);
 	tal_add_destructor(connect, destroy_connecting);
 
-	/* Now we kick it off by trying connect->addrs[connect->addrnum] */
+	/* Now we kick it off by recursively trying connect->addrs[connect->addrnum] */
 	try_connect_one_addr(connect);
 }
 

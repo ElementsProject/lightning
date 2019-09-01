@@ -141,7 +141,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->peers);
 
 	/*~ These are hash tables of incoming and outgoing HTLCs (contracts),
-	 * defined as `struct htlc_in` and `struct htlc_out`in htlc_end.h.
+	 * defined as `struct htlc_in` and `struct htlc_out` in htlc_end.h.
 	 * The hash tables are declared there using the very ugly
 	 * HTABLE_DEFINE_TYPE macro.  The key is the channel the HTLC is in
 	 * and the 64-bit htlc-id which is unique for that channel and
@@ -220,10 +220,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->original_directory = path_cwd(ld);
 
 	/*~ We run a number of plugins (subprocesses that we talk JSON-RPC with)
-	 *alongside this process. This allows us to have an easy way for users
-	 *to add their own tools without having to modify the c-lightning source
-	 *code. Here we initialize the context that will keep track and control
-	 *the plugins.
+	 * alongside this process. This allows us to have an easy way for users
+	 * to add their own tools without having to modify the c-lightning source
+	 * code. Here we initialize the context that will keep track and control
+	 * the plugins.
 	 */
 	ld->plugins = plugins_new(ld, ld->log_book, ld);
 	ld->plugins->startup = true;
