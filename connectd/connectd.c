@@ -1264,22 +1264,26 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 			   const struct node_id *id,
 			   struct sockaddr *broken_reply)
 {
-	struct wireaddr_internal a;
-	const char *addr;
+	struct wireaddr **new_addrs;
+	const char *hostname;
 
-	addr = seedname(tmpctx, id);
-	status_trace("Resolving %s", addr);
+	new_addrs = tal_arr(tmpctx, struct wireaddr *, 0);
+	hostname = seedname(tmpctx, id);
+	status_trace("Resolving %s", hostname);
 
-	a.itype = ADDR_INTERNAL_WIREADDR;
-	/* FIXME: wireaddr_from_hostname should return multiple addresses. */
-	if (!wireaddr_from_hostname(&a.u.wireaddr, addr, DEFAULT_PORT, NULL,
+	if (!wireaddr_from_hostname(new_addrs, hostname, DEFAULT_PORT, NULL,
 				    broken_reply, NULL)) {
-		status_trace("Could not resolve %s", addr);
+		status_trace("Could not resolve %s", hostname);
 	} else {
-		status_trace("Resolved %s to %s", addr,
-			     type_to_string(tmpctx, struct wireaddr,
-					    &a.u.wireaddr));
-		tal_arr_expand(addrs, a);
+		for (size_t i = 0; i < tal_count(new_addrs); i++) {
+			struct wireaddr_internal a;
+			a.itype = ADDR_INTERNAL_WIREADDR;
+			a.u.wireaddr = *new_addrs[i];
+			status_trace("Resolved %s to %s", hostname,
+				     type_to_string(tmpctx, struct wireaddr,
+						    &a.u.wireaddr));
+			tal_arr_expand(addrs, a);
+		}
 	}
 }
 
