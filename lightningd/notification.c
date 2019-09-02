@@ -5,7 +5,6 @@
 #include <lightningd/peer_htlcs.h>
 
 const char *notification_topics[] = {
-	"disconnect",
 	"warning",
 	"invoice_payment",
 	"channel_opened",
@@ -63,11 +62,23 @@ void notify_connect(struct lightningd *ld, struct node_id *nodeid,
 	plugins_notify(ld->plugins, take(n));
 }
 
+static void disconnect_notification_serialize(struct json_stream *stream,
+					      struct node_id *nodeid)
+{
+	json_add_node_id(stream, "id", nodeid);
+}
+
+REGISTER_NOTIFICATION(disconnect,
+		      disconnect_notification_serialize);
+
 void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
 {
-	struct jsonrpc_notification *n =
-	    jsonrpc_notification_start(NULL, "disconnect");
-	json_add_node_id(n->stream, "id", nodeid);
+	void (*serialize)(struct json_stream *,
+			  struct node_id *) = disconnect_notification_gen.serialize;
+
+	struct jsonrpc_notification *n
+		= jsonrpc_notification_start(NULL, disconnect_notification_gen.topic);
+	serialize(n->stream, nodeid);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
