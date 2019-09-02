@@ -5,7 +5,6 @@
 #include <lightningd/peer_htlcs.h>
 
 const char *notification_topics[] = {
-	"channel_opened",
 	"forward_event"
 };
 
@@ -149,18 +148,36 @@ void notify_invoice_payment(struct lightningd *ld, struct amount_msat amount,
 	plugins_notify(ld->plugins, take(n));
 }
 
+static void channel_opened_notification_serialize(struct json_stream *stream,
+						  struct node_id *node_id,
+						  struct amount_sat *funding_sat,
+						  struct bitcoin_txid *funding_txid,
+						  bool *funding_locked)
+{
+	json_object_start(stream, "channel_opened");
+	json_add_node_id(stream, "id", node_id);
+	json_add_amount_sat_only(stream, "amount", *funding_sat);
+	json_add_txid(stream, "funding_txid", funding_txid);
+	json_add_bool(stream, "funding_locked", funding_locked);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(channel_opened,
+		      channel_opened_notification_serialize)
+
 void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
 			   bool *funding_locked)
 {
-	struct jsonrpc_notification *n =
-	    jsonrpc_notification_start(NULL, "channel_opened");
-	json_object_start(n->stream, "channel_opened");
-	json_add_node_id(n->stream, "id", node_id);
-	json_add_amount_sat_only(n->stream, "amount", *funding_sat);
-	json_add_txid(n->stream, "funding_txid", funding_txid);
-	json_add_bool(n->stream, "funding_locked", funding_locked);
-	json_object_end(n->stream);
+	void (*serialize)(struct json_stream *,
+			  struct node_id *,
+			  struct amount_sat *,
+			  struct bitcoin_txid *,
+			  bool *) = channel_opened_notification_gen.serialize;
+
+	struct jsonrpc_notification *n
+		= jsonrpc_notification_start(NULL, channel_opened_notification_gen.topic);
+	serialize(n->stream, node_id, funding_sat, funding_txid, funding_locked);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
