@@ -228,6 +228,8 @@ struct lightningd {
 	const char *original_directory;
 
 	struct plugins *plugins;
+
+	char *wallet_dsn;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

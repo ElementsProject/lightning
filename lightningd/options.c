@@ -808,6 +808,11 @@ static void handle_minimal_config_opts(struct lightningd *ld,
 			       opt_ignore_talstr, opt_show_charp,
 			       &ld->config_dir,
 			       "Set working directory. All other files are relative to this");
+
+	ld->wallet_dsn = tal_fmt(ld, "sqlite3://%s/lightningd.sqlite3", ld->config_dir);
+	opt_register_early_arg("--wallet", opt_set_talstr, NULL,
+			       &ld->wallet_dsn,
+			       "Location of the wallet database.");
 }
 
 static void register_opts(struct lightningd *ld)

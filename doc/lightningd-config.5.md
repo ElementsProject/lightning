@@ -128,6 +128,11 @@ is a relative path, it is relative to the starting directory, not
 readable (we allow missing files in the default case). Using this inside
 a configuration file is meaningless.
 
+ **wallet**=*DSN*
+Identify the location of the wallet. This is a fully qualified data source
+name, including a scheme such as `sqlite3` or `postgres` followed by the
+connection parameters.
+
 ### Lightning node customization options
 
  **alias**=*RRGGBB*
