@@ -172,7 +172,7 @@ class UnixDomainSocketRpc(object):
         self.next_id = 0
 
     def _writeobj(self, sock, obj):
-        s = json.dumps(obj, cls=self.encoder_cls)
+        s = json.dumps(obj, ensure_ascii=False, cls=self.encoder_cls)
         sock.sendall(bytearray(s, 'UTF-8'))
 
     def _readobj(self, sock, buff=b''):
