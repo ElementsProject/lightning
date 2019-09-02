@@ -2000,7 +2000,6 @@ def test_new_node_is_mainnet(node_factory):
     assert os.path.isfile(os.path.join(basedir, "lightningd-bitcoin.pid"))
 
 
-@pytest.mark.xfail(strict=True)
 def test_unicode_rpc(node_factory):
     node = node_factory.get_node()
     desc = "Some candy 🍬 and a nice glass of milk 🥛."
