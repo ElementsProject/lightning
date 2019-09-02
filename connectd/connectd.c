@@ -1243,14 +1243,17 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 }
 
 /*~ This is where we'd put a BOLT #10 reference, but it doesn't exist :( */
-static const char *seedname(const tal_t *ctx, const struct node_id *id)
+static const char **seednames(const tal_t *ctx, const struct node_id *id)
 {
 	char bech32[100];
 	u5 *data = tal_arr(ctx, u5, 0);
+	const char **seednames = tal_arr(ctx, const char *, 0);
 
 	bech32_push_bits(&data, id->k, ARRAY_SIZE(id->k)*8);
 	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
-	return tal_fmt(ctx, "%s.lseed.bitcoinstats.com", bech32);
+	/* This is cdecker's seed */
+	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.bitcoinstats.com", bech32));
+	return seednames;
 }
 
 /*~ As a last resort, we do a DNS lookup to the lightning DNS seed to
@@ -1265,24 +1268,26 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 			   struct sockaddr *broken_reply)
 {
 	struct wireaddr **new_addrs;
-	const char *hostname;
+	const char **hostnames;
 
 	new_addrs = tal_arr(tmpctx, struct wireaddr *, 0);
-	hostname = seedname(tmpctx, id);
-	status_trace("Resolving %s", hostname);
+	hostnames = seednames(tmpctx, id);
 
-	if (!wireaddr_from_hostname(new_addrs, hostname, DEFAULT_PORT, NULL,
-				    broken_reply, NULL)) {
-		status_trace("Could not resolve %s", hostname);
-	} else {
-		for (size_t i = 0; i < tal_count(new_addrs); i++) {
-			struct wireaddr_internal a;
-			a.itype = ADDR_INTERNAL_WIREADDR;
-			a.u.wireaddr = *new_addrs[i];
-			status_trace("Resolved %s to %s", hostname,
-				     type_to_string(tmpctx, struct wireaddr,
-						    &a.u.wireaddr));
-			tal_arr_expand(addrs, a);
+	for (size_t i = 0; i < tal_count(hostnames); i++) {
+		status_trace("Resolving %s", hostnames[i]);
+		if (!wireaddr_from_hostname(new_addrs, hostnames[i], DEFAULT_PORT, NULL,
+				    	broken_reply, NULL)) {
+			status_trace("Could not resolve %s", hostnames[i]);
+		} else {
+			for (size_t i = 0; i < tal_count(new_addrs); i++) {
+				struct wireaddr_internal a;
+				a.itype = ADDR_INTERNAL_WIREADDR;
+				a.u.wireaddr = *new_addrs[i];
+				status_trace("Resolved %s to %s", hostnames[i],
+				     	type_to_string(tmpctx, struct wireaddr,
+						    	&a.u.wireaddr));
+				tal_arr_expand(addrs, a);
+			}
 		}
 	}
 }
@@ -1354,10 +1359,13 @@ static void try_connect_peer(struct daemon *daemon,
 			/* You're allowed to use names with proxies; in fact it's
 			 * a good idea. */
 			struct wireaddr_internal unresolved;
-			wireaddr_from_unresolved(&unresolved,
-						 seedname(tmpctx, id),
-						 DEFAULT_PORT);
-			tal_arr_expand(&addrs, unresolved);
+			const char **hostnames = seednames(tmpctx, id);
+			for (size_t i = 0; i < tal_count(hostnames); i++) {
+				wireaddr_from_unresolved(&unresolved,
+				                         hostnames[i],
+				                         DEFAULT_PORT);
+				tal_arr_expand(&addrs, unresolved);
+			}
 		} else if (daemon->use_dns) {
 			add_seed_addrs(&addrs, id,
 				       daemon->broken_resolver_response);
