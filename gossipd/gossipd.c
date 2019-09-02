@@ -1196,13 +1196,21 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	query_option_flags = 0;
 #endif
 
-	/* FIXME: if they ask for the wrong chain, we should not ignore it,
-	 * but give an empty response with the `complete` flag unset? */
+	/* If they ask for the wrong chain, we give an empty response
+	 * with the `complete` flag unset */
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain_hash)) {
 		status_trace("%s sent query_channel_range chainhash %s",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
+#if EXPERIMENTAL_FEATURES
+		u8 *end = towire_reply_channel_range(NULL, &chain_hash, first_blocknum,
+		                                     number_of_blocks, false, NULL, NULL);
+#else
+		u8 *end = towire_reply_channel_range(NULL, &chain_hash, first_blocknum,
+		                                     number_of_blocks, false, NULL);
+#endif
+		queue_peer_msg(peer, take(end));
 		return NULL;
 	}
 
