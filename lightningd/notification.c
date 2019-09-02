@@ -5,7 +5,6 @@
 #include <lightningd/peer_htlcs.h>
 
 const char *notification_topics[] = {
-	"warning",
 	"invoice_payment",
 	"channel_opened",
 	"forward_event"
@@ -85,25 +84,37 @@ void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
 
 /*'warning' is based on LOG_UNUSUAL/LOG_BROKEN level log
  *(in plugin module, they're 'warn'/'error' level). */
-void notify_warning(struct lightningd *ld, struct log_entry *l)
+static void warning_notification_serialize(struct json_stream *stream,
+					   struct log_entry *l)
 {
-	struct jsonrpc_notification *n =
-	    jsonrpc_notification_start(NULL, "warning");
-	json_object_start(n->stream, "warning");
+	json_object_start(stream, "warning");
 	/* Choose "BROKEN"/"UNUSUAL" to keep consistent with the habit
 	 * of plugin. But this may confuses the users who want to 'getlog'
 	 * with the level indicated by notifications. It is the duty of a
 	 * plugin to eliminate this misunderstanding.
 	 */
-	json_add_string(n->stream, "level",
+	json_add_string(stream, "level",
 			l->level == LOG_BROKEN ? "error"
 			: "warn");
 	/* unsuaul/broken event is rare, plugin pay more attentions on
 	 * the absolute time, like when channels failed. */
-	json_add_time(n->stream, "time", l->time.ts);
-	json_add_string(n->stream, "source", l->prefix);
-	json_add_string(n->stream, "log", l->log);
-	json_object_end(n->stream); /* .warning */
+	json_add_time(stream, "time", l->time.ts);
+	json_add_string(stream, "source", l->prefix);
+	json_add_string(stream, "log", l->log);
+	json_object_end(stream); /* .warning */
+}
+
+REGISTER_NOTIFICATION(warning,
+		      warning_notification_serialize);
+
+void notify_warning(struct lightningd *ld, struct log_entry *l)
+{
+	void (*serialize)(struct json_stream *,
+			  struct log_entry *) = warning_notification_gen.serialize;
+
+	struct jsonrpc_notification *n
+		= jsonrpc_notification_start(NULL, warning_notification_gen.topic);
+	serialize(n->stream, l);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
