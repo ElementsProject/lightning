@@ -10,8 +10,12 @@ class Sqlite3Rewriter(object):
         return query
 
 
+class PostgresRewriter(Sqlite3Rewriter):
+    pass
+
 rewriters = {
     "sqlite3": Sqlite3Rewriter(),
+    "postgres": PostgresRewriter(),
 }
 
 template = Template("""#ifndef LIGHTNINGD_WALLET_GEN_DB_${f.upper()}
