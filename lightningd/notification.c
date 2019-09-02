@@ -4,10 +4,6 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_htlcs.h>
 
-const char *notification_topics[] = {
-	"forward_event"
-};
-
 static struct notification *find_notification_by_topic(const char* topic)
 {
 	static struct notification **notilist = NULL;
@@ -27,10 +23,6 @@ bool notifications_have_topic(const char *topic)
 	if (noti)
 		return true;
 
-	/* TODO: Remove this block after making all notifications registered. */
-	for (size_t i=0; i<ARRAY_SIZE(notification_topics); i++)
-		if (streq(topic, notification_topics[i]))
-			return true;
 	return false;
 }
 
@@ -182,15 +174,13 @@ void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 	plugins_notify(ld->plugins, take(n));
 }
 
-void notify_forward_event(struct lightningd *ld,
-			  const struct htlc_in *in,
-			  const struct htlc_out *out,
-			  enum forward_status state,
-			  enum onion_type failcode,
-			  struct timeabs *resolved_time)
+static void forward_event_notification_serialize(struct json_stream *stream,
+						 const struct htlc_in *in,
+						 const struct htlc_out *out,
+						 enum forward_status state,
+						 enum onion_type failcode,
+						 struct timeabs *resolved_time)
 {
-	struct jsonrpc_notification *n =
-		jsonrpc_notification_start(NULL, "forward_event");
 	/* Here is more neat to initial a forwarding structure than
 	 * to pass in a bunch of parameters directly*/
 	struct forwarding *cur = tal(tmpctx, struct forwarding);
@@ -211,8 +201,29 @@ void notify_forward_event(struct lightningd *ld,
 	cur->received_time = in->received_time;
 	cur->resolved_time = tal_steal(cur, resolved_time);
 
-	json_format_forwarding_object(n->stream, "forward_event", cur);
+	json_format_forwarding_object(stream, "forward_event", cur);
+}
 
+REGISTER_NOTIFICATION(forward_event,
+		      forward_event_notification_serialize);
+
+void notify_forward_event(struct lightningd *ld,
+			  const struct htlc_in *in,
+			  const struct htlc_out *out,
+			  enum forward_status state,
+			  enum onion_type failcode,
+			  struct timeabs *resolved_time)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct htlc_in *,
+			  const struct htlc_out *,
+			  enum forward_status,
+			  enum onion_type,
+			  struct timeabs *) = forward_event_notification_gen.serialize;
+
+	struct jsonrpc_notification *n
+		= jsonrpc_notification_start(NULL, forward_event_notification_gen.topic);
+	serialize(n->stream, in, out, state, failcode, resolved_time);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
