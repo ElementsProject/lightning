@@ -23,12 +23,12 @@ int main(void)
 
 	bits = tal_arr(tmpctx, u8, 0);
 	for (size_t i = 0; i < 100; i += 3)
-		set_bit(&bits, i);
+		set_feature_bit(&bits, i);
 	for (size_t i = 0; i < 100; i++)
 		assert(test_bit(bits, i / 8, i % 8) == ((i % 3) == 0));
 
 	for (size_t i = 0; i < 100; i++)
-		assert(feature_set(bits, i) == ((i % 3) == 0));
+		assert(feature_is_set(bits, i) == ((i % 3) == 0));
 
 	/* Simple test: single byte */
 	bits = tal_arr(tmpctx, u8, 1);
@@ -75,18 +75,18 @@ int main(void)
 	/* We can add random odd features, no problem. */
 	for (size_t i = 1; i < 16; i += 2) {
 		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
-		set_bit(&bits, i);
+		set_feature_bit(&bits, i);
 		assert(features_supported(gf, bits));
 
 		bits = tal_dup_arr(tmpctx, u8, gf, tal_count(gf), 0);
-		set_bit(&bits, i);
+		set_feature_bit(&bits, i);
 		assert(features_supported(bits, lf));
 	}
 
 	/* We can't add random even features. */
 	for (size_t i = 0; i < 16; i += 2) {
 		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
-		set_bit(&bits, i);
+		set_feature_bit(&bits, i);
 
 		/* Special case for missing compulsory feature */
 		if (i == 2) {
@@ -98,7 +98,7 @@ int main(void)
 		}
 
 		bits = tal_dup_arr(tmpctx, u8, gf, tal_count(gf), 0);
-		set_bit(&bits, i);
+		set_feature_bit(&bits, i);
 		assert(features_supported(bits, lf)
 		       == feature_supported(i, our_globalfeatures,
 					    ARRAY_SIZE(our_globalfeatures)));
