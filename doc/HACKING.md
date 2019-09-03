@@ -213,6 +213,11 @@ There are three kinds of tests:
   `DEBUG_SUBD=<subdaemon>` and `TIMEOUT=<seconds>` can be useful for debugging
   subdaemons on individual tests.
 
+* **pylightning tests** - will check contrib pylightning for codestyle and run
+  the tests in `contrib/pylightning/tests` afterwards:
+
+  `make check-python`.
+
 Our Travis CI instance (see `.travis.yml`) runs all these for each
 pull request.
 
