@@ -157,6 +157,9 @@ class Millisatoshi:
     def __mod__(self, other):
         return Millisatoshi(int(self) % other)
 
+    def __radd__(self, other):
+        return Millisatoshi(int(self) + int(other))
+
 
 class UnixDomainSocketRpc(object):
     def __init__(self, socket_path, executor=None, logger=logging, encoder_cls=json.JSONEncoder, decoder=json.JSONDecoder()):
