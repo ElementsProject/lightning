@@ -49,14 +49,16 @@ void plugin_hook_db_sync(struct db *db UNNEEDED, const char **changes UNNEEDED, 
 static struct db *create_test_db(void)
 {
 	struct db *db;
-	char filename[] = "/tmp/ldb-XXXXXX";
+	char *dsn, filename[] = "/tmp/ldb-XXXXXX";
 
 	int fd = mkstemp(filename);
 	if (fd == -1)
 		return NULL;
 	close(fd);
 
-	db = db_open(NULL, filename);
+	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
+	db = db_open(NULL, dsn);
+	tal_free(dsn);
 	return db;
 }
 

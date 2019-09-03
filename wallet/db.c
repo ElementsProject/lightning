@@ -10,7 +10,6 @@
 #include <lightningd/plugin_hook.h>
 #include <wallet/db_common.h>
 
-#define DB_FILE "lightningd.sqlite3"
 #define NSEC_IN_SEC 1000000000
 
 struct migration {
@@ -645,17 +644,6 @@ void db_commit_transaction(struct db *db)
 	db->in_transaction = NULL;
 }
 
-static void setup_open_db(struct db *db)
-{
-	/* This must be outside a transaction, so catch it */
-	assert(!db->in_transaction);
-
-	db_prepare_for_changes(db);
-	if (db->config->setup_fn)
-		db->config->setup_fn(db);
-	db_report_changes(db, NULL, 0);
-}
-
 static struct db_config *db_config_find(const char *driver_name)
 {
 	size_t num_configs;
@@ -671,38 +659,28 @@ static struct db_config *db_config_find(const char *driver_name)
  */
 static struct db *db_open(const tal_t *ctx, char *filename)
 {
-	int err;
 	struct db *db;
-	sqlite3 *sql;
 	const char *driver_name = "sqlite3";
-
-	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
-	err = sqlite3_open_v2(filename, &sql, flags, NULL);
-
-	if (err != SQLITE_OK) {
-		db_fatal("failed to open database %s: %s", filename,
-			 sqlite3_errstr(err));
-	}
 
 	db = tal(ctx, struct db);
 	db->filename = tal_strdup(db, filename);
-	db->sql = sql;
-	db->config = NULL;
 	list_head_init(&db->pending_statements);
 
 	db->config = db_config_find(driver_name);
 	if (!db->config)
 		db_fatal("Unable to find DB driver for %s", driver_name);
 
-	// FIXME(cdecker) Once we parse DB connection strings this needs to be
-	// instantiated correctly.
-	db->conn = sql;
-
 	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
 	db->changes = NULL;
 
-	setup_open_db(db);
+	/* This must be outside a transaction, so catch it */
+	assert(!db->in_transaction);
+
+	db_prepare_for_changes(db);
+	if (db->config->setup_fn)
+		db->config->setup_fn(db);
+	db_report_changes(db, NULL, 0);
 
 	return db;
 }
@@ -787,8 +765,7 @@ static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
 
 struct db *db_setup(const tal_t *ctx, struct lightningd *ld, struct log *log)
 {
-	struct db *db = db_open(ctx, DB_FILE);
-
+	struct db *db = db_open(ctx, ld->wallet_dsn);
 	db_migrate(ld, db, log);
 	return db;
 }
