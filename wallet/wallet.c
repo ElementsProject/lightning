@@ -1372,6 +1372,11 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			tal_free(utxo);
 			continue;
 		}
+
+		/* This is an unconfirmed change output, we should track it */
+		if (!is_p2sh && !blockheight)
+			txfilter_add_scriptpubkey(w->ld->owned_txfilter, script);
+
 		outpointfilter_add(w->owned_outpoints, &utxo->txid, utxo->outnum);
 
 		if (!amount_sat_add(total, *total, utxo->amount))

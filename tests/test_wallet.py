@@ -8,7 +8,6 @@ import pytest
 import time
 
 
-@pytest.mark.xfail
 def test_withdraw(node_factory, bitcoind):
     amount = 1000000
     # Don't get any funds from previous runs.
