@@ -2,12 +2,13 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import only_one, wait_for
+from utils import only_one, wait_for, sync_blockheight
 
 import pytest
 import time
 
 
+@pytest.mark.xfail
 def test_withdraw(node_factory, bitcoind):
     amount = 1000000
     # Don't get any funds from previous runs.
@@ -43,6 +44,13 @@ def test_withdraw(node_factory, bitcoind):
     withdrawal = [u for u in unspent if u['txid'] == out['txid']]
 
     assert(withdrawal[0]['amount'] == Decimal('0.02'))
+
+    l1.bitcoin.generate_block(1)
+    sync_blockheight(l1.bitcoin, [l1])
+
+    # Check that there are no unconfirmed outputs (change should be confirmed)
+    for o in l1.rpc.listfunds()['outputs']:
+        assert o['status'] == 'confirmed'
 
     # Now make sure two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
