@@ -20,6 +20,7 @@ struct funding_req {
 	const char *feerate_str;
 	const char *funding_str;
 	const char *utxo_str;
+	bool funding_all;
 
 	bool *announce_channel;
 	u32 *minconf;
@@ -363,7 +364,7 @@ static struct command_result *tx_prepare_dryrun(struct command *cmd,
 		plugin_err("Error creating placebo funding tx, funding_out not found. %s", hex);
 
 	/* Update funding to actual amount */
-	if (amount_sat_greater(funding, max_funding))
+	if (fr->funding_all && amount_sat_greater(funding, max_funding))
 		funding = max_funding;
 
 	fr->funding_str = type_to_string(fr, struct amount_sat, &funding);
@@ -386,6 +387,8 @@ static struct command_result *json_fundchannel(struct command *cmd,
 		   p_opt("utxos", param_string, &fr->utxo_str),
 		   NULL))
 		return NULL;
+
+	fr->funding_all = streq(fr->funding_str, "all");
 
 	/* First we do a 'dry-run' of txprepare, so we can get
 	 * an accurate idea of the funding amount */
