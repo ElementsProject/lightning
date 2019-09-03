@@ -851,6 +851,8 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l2 = node_factory.get_node()
 
     amount = 2**24
+    l1.fundwallet(amount + 10000000)
+
     # Fail to open (too large)
     with pytest.raises(RpcError, match=r'Amount exceeded 16777215'):
         l1.rpc.fundchannel_start(l2.info['id'], amount)
