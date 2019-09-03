@@ -15,7 +15,6 @@
 struct db {
 	char *filename;
 	const char *in_transaction;
-	sqlite3 *sql;
 
 	/* DB-specific context */
 	void *conn;

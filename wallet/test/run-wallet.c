@@ -727,14 +727,16 @@ static void cleanup_test_wallet(struct wallet *w, char *filename)
 
 static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx)
 {
-	char *filename = tal_fmt(ctx, "/tmp/ldb-XXXXXX");
+	char *dsn, *filename = tal_fmt(ctx, "/tmp/ldb-XXXXXX");
 	int fd = mkstemp(filename);
 	struct wallet *w = tal(ctx, struct wallet);
 	static unsigned char badseed[BIP32_ENTROPY_LEN_128];
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");
 	close(fd);
 
-	w->db = db_open(w, filename);
+	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
+	w->db = db_open(w, dsn);
+	tal_free(dsn);
 	tal_add_destructor2(w, cleanup_test_wallet, filename);
 
 	list_head_init(&w->unstored_payments);

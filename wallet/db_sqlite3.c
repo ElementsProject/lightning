@@ -24,8 +24,25 @@ static const char *db_sqlite3_fmt_error(struct db_stmt *stmt)
 
 static bool db_sqlite3_setup(struct db *db)
 {
+	char *filename;
 	sqlite3_stmt *stmt;
-	int err;
+	sqlite3 *sql;
+	int err, flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+
+	if (!strstarts(db->filename, "sqlite3://") || strlen(db->filename) < 10)
+		db_fatal("Could not parse the wallet DSN: %s", db->filename);
+
+	/* Strip the scheme from the dsn. */
+	filename = db->filename + strlen("sqlite3://");
+
+	err = sqlite3_open_v2(filename, &sql, flags, NULL);
+
+	if (err != SQLITE_OK) {
+		db_fatal("failed to open database %s: %s", filename,
+			 sqlite3_errstr(err));
+	}
+	db->conn = sql;
+
 	sqlite3_prepare_v2(db->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
 	err = sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
@@ -197,7 +214,8 @@ static size_t db_sqlite3_count_changes(struct db_stmt *stmt)
 
 static void db_sqlite3_close(struct db *db)
 {
-	sqlite3_close(db->sql);
+	sqlite3_close(db->conn);
+	db->conn = NULL;
 }
 
 static u64 db_sqlite3_last_insert_id(struct db_stmt *stmt)
