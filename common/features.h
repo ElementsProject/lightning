@@ -21,6 +21,10 @@ bool global_feature_negotiated(const u8 *gfeatures, size_t f);
 /* Return a list of what features we advertize. */
 const char **list_supported_features(const tal_t *ctx);
 
+/* Low-level helpers to deal with big-endian bitfields. */
+bool feature_is_set(const u8 *features, size_t bit);
+void set_feature_bit(u8 **ptr, u32 bit);
+
 /* BOLT #9:
  *
  * Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
