@@ -967,6 +967,7 @@ class NodeFactory(object):
     def killall(self, expected_successes):
         """Returns true if every node we expected to succeed actually succeeded"""
         unexpected_fail = False
+        err_msgs = []
         for i in range(len(self.nodes)):
             leaks = None
             # leak detection upsets VALGRIND by reading uninitialized mem.
@@ -985,9 +986,10 @@ class NodeFactory(object):
                     unexpected_fail = True
 
             if leaks is not None and len(leaks) != 0:
-                raise Exception("Node {} has memory leaks: {}".format(
+                unexpected_fail = True
+                err_msgs.append("Node {} has memory leaks: {}".format(
                     self.nodes[i].daemon.lightning_dir,
                     json.dumps(leaks, sort_keys=True, indent=4)
                 ))
 
-        return not unexpected_fail
+        return not unexpected_fail, err_msgs

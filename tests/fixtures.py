@@ -109,7 +109,7 @@ def node_factory(request, directory, test_name, bitcoind, executor):
     nf = NodeFactory(test_name, bitcoind, executor, directory=directory)
     yield nf
     err_count = 0
-    ok = nf.killall([not n.may_fail for n in nf.nodes])
+    ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
 
     def check_errors(request, err_count, msg):
         """Just a simple helper to format a message, set flags on request and then raise
@@ -147,7 +147,7 @@ def node_factory(request, directory, test_name, bitcoind, executor):
     for node in nf.nodes:
         err_count += checkMemleak(node)
     if err_count:
-        raise ValueError("{} nodes had memleak messages".format(err_count))
+        raise ValueError("{} nodes had memleak messages \n{}".format(err_count, '\n'.join(errs)))
 
     for node in [n for n in nf.nodes if not n.allow_broken_log]:
         err_count += checkBroken(node)
@@ -155,7 +155,7 @@ def node_factory(request, directory, test_name, bitcoind, executor):
 
     if not ok:
         request.node.has_errors = True
-        raise Exception("At least one lightning exited with unexpected non-zero return code")
+        raise Exception("At least one lightning node exited with unexpected non-zero return code\n Recorded errors: {}".format('\n'.join(errs)))
 
 
 def getValgrindErrors(node):
