@@ -127,10 +127,6 @@ def node_factory(request, directory, test_name, bitcoind, executor):
         err_count += printCrashLog(node)
     check_errors(request, err_count, "{} nodes had crash.log files")
 
-    for node in [n for n in nf.nodes if not n.allow_broken_log]:
-        err_count += checkBroken(node)
-    check_errors(request, err_count, "{} nodes had BROKEN messages")
-
     for node in nf.nodes:
         err_count += checkReconnect(node)
     check_errors(request, err_count, "{} nodes had unexpected reconnections")
@@ -152,6 +148,10 @@ def node_factory(request, directory, test_name, bitcoind, executor):
         err_count += checkMemleak(node)
     if err_count:
         raise ValueError("{} nodes had memleak messages".format(err_count))
+
+    for node in [n for n in nf.nodes if not n.allow_broken_log]:
+        err_count += checkBroken(node)
+    check_errors(request, err_count, "{} nodes had BROKEN messages")
 
     if not ok:
         request.node.has_errors = True
