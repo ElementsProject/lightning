@@ -828,30 +828,6 @@ static u8 *funder_channel_complete(struct state *state)
 	 * succeed because we checked it earlier */
 	assert(amount_sat_sub_msat(&local_msat, state->funding, state->push_msat));
 
-	state->channel = new_initial_channel(state,
-					     &state->chainparams->genesis_blockhash,
-					     &state->funding_txid,
-					     state->funding_txout,
-					     state->minimum_depth,
-					     state->funding,
-					     local_msat,
-					     state->feerate_per_kw,
-					     &state->localconf,
-					     &state->remoteconf,
-					     &state->our_points,
-					     &state->their_points,
-					     &state->our_funding_pubkey,
-					     &state->their_funding_pubkey,
-					     /* Funder is local */
-					     LOCAL);
-	/* We were supposed to do enough checks above, but just in case,
-	 * new_initial_channel will fail to create absurd channels */
-	if (!state->channel)
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "could not create channel with given config");
-
-
 	if (!funder_finalize_channel_setup(state, local_msat, &sig, &tx))
 		return NULL;
 
