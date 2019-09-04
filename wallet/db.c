@@ -647,6 +647,16 @@ static void setup_open_db(struct db *db)
 	db_report_changes(db, NULL, 0);
 }
 
+static struct db_config *db_config_find(const char *driver_name)
+{
+	size_t num_configs;
+	struct db_config **configs = autodata_get(db_backends, &num_configs);
+	for (size_t i=0; i<num_configs; i++)
+		if (streq(driver_name, configs[i]->name))
+			return configs[i];
+	return NULL;
+}
+
 /**
  * db_open - Open or create a sqlite3 database
  */
@@ -655,8 +665,6 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	int err;
 	struct db *db;
 	sqlite3 *sql;
-	size_t num_configs;
-	struct db_config **configs = autodata_get(db_backends, &num_configs);
 	const char *driver_name = "sqlite3";
 
 	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
@@ -670,13 +678,10 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db = tal(ctx, struct db);
 	db->filename = tal_strdup(db, filename);
 	db->sql = sql;
+	db->config = NULL;
 	list_head_init(&db->pending_statements);
-	for (size_t i=0; i<num_configs; i++)
-		if (streq(driver_name, configs[i]->name)) {
-			db->config = configs[i];
-			break;
-		}
 
+	db->config = db_config_find(driver_name);
 	if (!db->config)
 		db_fatal("Unable to find DB driver for %s", driver_name);
 
