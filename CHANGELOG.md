@@ -20,6 +20,8 @@ changes.
 
 ### Fixed
 
+- Relative `--lightning_dir` is now working again.
+
 ### Security
 
 ## [0.7.2.1] - 2019-08-19: "Nakamoto's Pre-approval by US Congress"
