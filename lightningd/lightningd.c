@@ -543,9 +543,8 @@ static void pidfile_create(const struct lightningd *ld)
 	int pid_fd;
 	char *pid;
 
-	/* Create PID file: relative to .config dir unless absolute. */
-	pid_fd = open(path_join(tmpctx, ld->config_dir, ld->pidfile),
-		      O_WRONLY|O_CREAT, 0640);
+	/* Create PID file: relative to .config dir. */
+	pid_fd = open(ld->pidfile, O_WRONLY|O_CREAT, 0640);
 	if (pid_fd < 0)
 		err(1, "Failed to open PID file");
 
