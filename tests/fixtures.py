@@ -111,47 +111,49 @@ def node_factory(request, directory, test_name, bitcoind, executor):
     err_count = 0
     ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
 
-    def check_errors(request, err_count, msg):
+    def check_errors(request, err_count, msg, errs):
         """Just a simple helper to format a message, set flags on request and then raise
         """
         if err_count:
             request.node.has_errors = True
-            raise ValueError(msg.format(err_count))
+            fmt_msg = msg.format(err_count)
+            if errs:
+                fmt_msg = fmt_msg + "\n" + '\n'.join(errs)
+
+            raise ValueError(fmt_msg)
 
     if VALGRIND:
         for node in nf.nodes:
             err_count += printValgrindErrors(node)
-        check_errors(request, err_count, "{} nodes reported valgrind errors")
+        check_errors(request, err_count, "{} nodes reported valgrind errors", errs)
 
     for node in nf.nodes:
         err_count += printCrashLog(node)
-    check_errors(request, err_count, "{} nodes had crash.log files")
+    check_errors(request, err_count, "{} nodes had crash.log files", errs)
 
     for node in nf.nodes:
         err_count += checkReconnect(node)
-    check_errors(request, err_count, "{} nodes had unexpected reconnections")
+    check_errors(request, err_count, "{} nodes had unexpected reconnections", errs)
 
     for node in [n for n in nf.nodes if not n.allow_bad_gossip]:
         err_count += checkBadGossip(node)
-    check_errors(request, err_count, "{} nodes had bad gossip messages")
+    check_errors(request, err_count, "{} nodes had bad gossip messages", errs)
 
     for node in nf.nodes:
         err_count += checkBadReestablish(node)
-    check_errors(request, err_count, "{} nodes had bad reestablish")
+    check_errors(request, err_count, "{} nodes had bad reestablish", errs)
 
     for node in nf.nodes:
         err_count += checkBadHSMRequest(node)
-    if err_count:
-        raise ValueError("{} nodes had bad hsm requests".format(err_count))
+    check_errors(request, err_count, "{} nodes had bad hsm requests", errs)
 
     for node in nf.nodes:
         err_count += checkMemleak(node)
-    if err_count:
-        raise ValueError("{} nodes had memleak messages \n{}".format(err_count, '\n'.join(errs)))
+    check_errors(request, err_count, "{} nodes had memleak messages", errs)
 
     for node in [n for n in nf.nodes if not n.allow_broken_log]:
         err_count += checkBroken(node)
-    check_errors(request, err_count, "{} nodes had BROKEN messages")
+    check_errors(request, err_count, "{} nodes had BROKEN messages", errs)
 
     if not ok:
         request.node.has_errors = True
