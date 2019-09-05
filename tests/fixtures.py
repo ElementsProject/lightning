@@ -72,7 +72,7 @@ def test_name(request):
 
 
 @pytest.fixture
-def bitcoind(directory):
+def bitcoind(directory, teardown_checks):
     bitcoind = BitcoinD(bitcoin_dir=directory)
     try:
         bitcoind.start()
@@ -104,60 +104,98 @@ def bitcoind(directory):
     bitcoind.proc.wait()
 
 
+class TeardownErrors(object):
+    def __init__(self):
+        self.errors = []
+        self.node_errors = []
+
+    def add_error(self, msg):
+        self.errors.append(msg)
+
+    def add_node_error(self, node, msg):
+        self.node_errors.append((node.daemon.prefix, msg))
+
+    def __str__(self):
+        node_errors = [" - {}: {}".format(*e) for e in self.node_errors]
+        errors = [" - {}".format(e) for e in self.errors]
+
+        errors = ["\nNode errors:"] + node_errors + ["Global errors:"] + errors
+        return "\n".join(errors)
+
+    def has_errors(self):
+        return len(self.errors) > 0 or len(self.node_errors) > 0
+
+
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor):
-    nf = NodeFactory(test_name, bitcoind, executor, directory=directory)
+def teardown_checks(request):
+    """A simple fixture to collect errors during teardown.
+
+    We need to collect the errors and raise them as the very last step in the
+    fixture tree, otherwise some fixtures may not be cleaned up
+    correctly. Require this fixture in all other fixtures that need to either
+    cleanup before reporting an error or want to add an error that is to be
+    reported.
+
+    """
+    errors = TeardownErrors()
+    yield errors
+
+    if errors.has_errors():
+        # Format a nice list of everything that went wrong and raise an exception
+        request.node.has_errors = True
+        raise ValueError(str(errors))
+
+@pytest.fixture
+def node_factory(request, directory, test_name, bitcoind, executor, teardown_checks):
+    nf = NodeFactory(
+        test_name,
+        bitcoind,
+        executor,
+        directory=directory,
+    )
+
     yield nf
     err_count = 0
     ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
 
-    def check_errors(request, err_count, msg, errs):
-        """Just a simple helper to format a message, set flags on request and then raise
-        """
-        if err_count:
-            request.node.has_errors = True
-            fmt_msg = msg.format(err_count)
-            if errs:
-                fmt_msg = fmt_msg + "\n" + '\n'.join(errs)
-
-            raise ValueError(fmt_msg)
+    for e in errs:
+        teardown_checks.add_error(e)
 
     if VALGRIND:
         for node in nf.nodes:
-            err_count += printValgrindErrors(node)
-        check_errors(request, err_count, "{} nodes reported valgrind errors", errs)
+            if printValgrindErrors(node):
+                teardown_checks.add_node_error(node, "reported valgrind errors")
 
     for node in nf.nodes:
-        err_count += printCrashLog(node)
-    check_errors(request, err_count, "{} nodes had crash.log files", errs)
-
-    for node in nf.nodes:
-        err_count += checkReconnect(node)
-    check_errors(request, err_count, "{} nodes had unexpected reconnections", errs)
-
-    for node in [n for n in nf.nodes if not n.allow_bad_gossip]:
-        err_count += checkBadGossip(node)
-    check_errors(request, err_count, "{} nodes had bad gossip messages", errs)
-
-    for node in nf.nodes:
-        err_count += checkBadReestablish(node)
-    check_errors(request, err_count, "{} nodes had bad reestablish", errs)
-
-    for node in nf.nodes:
-        err_count += checkBadHSMRequest(node)
-    check_errors(request, err_count, "{} nodes had bad hsm requests", errs)
-
-    for node in nf.nodes:
-        err_count += checkMemleak(node)
-    check_errors(request, err_count, "{} nodes had memleak messages", errs)
+        if printCrashLog(node):
+            teardown_checks.add_node_error(node, "had crash.log files")
 
     for node in [n for n in nf.nodes if not n.allow_broken_log]:
-        err_count += checkBroken(node)
-    check_errors(request, err_count, "{} nodes had BROKEN messages", errs)
+        if checkBroken(node):
+            teardown_checks.add_node_error(node, "had BROKEN messages")
+
+    for node in nf.nodes:
+        if checkReconnect(node):
+            teardown_checks.add_node_error(node, "had unexpected reconnections")
+
+    for node in [n for n in nf.nodes if not n.allow_bad_gossip]:
+        if checkBadGossip(node):
+            teardown_checks.add_node_error(node, "had bad gossip messages")
+
+    for node in nf.nodes:
+        if checkBadReestablish(node):
+            teardown_checks.add_node_error(node,"had bad reestablish")
+
+    for node in nf.nodes:
+        if checkBadHSMRequest(node):
+            teardown_checks.add_node_error(node, "had bad hsm requests")
+
+    for node in nf.nodes:
+        if checkMemleak(node):
+            teardown_checks.add_node_error(node, "had memleak messages")
 
     if not ok:
-        request.node.has_errors = True
-        raise Exception("At least one lightning node exited with unexpected non-zero return code\n Recorded errors: {}".format('\n'.join(errs)))
+        teardown_checks.add_error("At least one lightning exited with unexpected non-zero return code")
 
 
 def getValgrindErrors(node):
