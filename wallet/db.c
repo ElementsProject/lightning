@@ -55,6 +55,13 @@ static struct migration dbmigrations[] = {
 	 ", PRIMARY KEY (shachain_id, pos)"
 	 ");"),
      NULL},
+    {SQL("CREATE TABLE peers ("
+	 "  id INTEGER"
+	 ", node_id BLOB UNIQUE" /* pubkey */
+	 ", address TEXT"
+	 ", PRIMARY KEY (id)"
+	 ");"),
+     NULL},
     {SQL("CREATE TABLE channels ("
 	 "  id INTEGER," /* chan->id */
 	 "  peer_id INTEGER REFERENCES peers(id) ON DELETE CASCADE,"
@@ -95,13 +102,6 @@ static struct migration dbmigrations[] = {
 	 "  closing_fee_received INTEGER,"
 	 "  closing_sig_received BLOB,"
 	 "  PRIMARY KEY (id)"
-	 ");"),
-     NULL},
-    {SQL("CREATE TABLE peers ("
-	 "  id INTEGER"
-	 ", node_id BLOB UNIQUE" /* pubkey */
-	 ", address TEXT"
-	 ", PRIMARY KEY (id)"
 	 ");"),
      NULL},
     {SQL("CREATE TABLE channel_configs ("
