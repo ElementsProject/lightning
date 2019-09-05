@@ -11,6 +11,7 @@
 #include <common/amount.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#include <common/features.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <inttypes.h>
@@ -116,7 +117,14 @@ int main(int argc, char *argv[])
 		printf("description_hash: %s\n",
 		       tal_hexstr(ctx, b11->description_hash,
 				  sizeof(*b11->description_hash)));
-
+	if (tal_bytelen(b11->features)) {
+		printf("features:");
+		for (size_t i = 0; i < tal_bytelen(b11->features) * CHAR_BIT; i++) {
+			if (feature_is_set(b11->features, i))
+				printf(" %zu", i);
+		}
+		printf("\n");
+	}
 	for (i = 0; i < tal_count(b11->fallbacks); i++) {
                 struct bitcoin_address pkh;
                 struct ripemd160 sh;

@@ -2,6 +2,7 @@
 #include "../bech32.c"
 #include "../bech32_util.c"
 #include "../bolt11.c"
+#include "../features.c"
 #include "../node_id.c"
 #include "../hash_u5.c"
 #include <ccan/err/err.h>
@@ -99,6 +100,8 @@ static void test_b11(const char *b11str,
 	else
 		assert(streq(b11->description, expect_b11->description));
 
+	assert(memeq(b11->features, tal_bytelen(b11->features),
+		     expect_b11->features, tal_bytelen(expect_b11->features)));
 	assert(b11->expiry == expect_b11->expiry);
 	assert(b11->min_final_cltv_expiry == expect_b11->min_final_cltv_expiry);
 
@@ -141,6 +144,7 @@ int main(void)
 	struct amount_msat msatoshi;
 	const char *badstr;
         struct bolt11_field *extra;
+	char *fail;
 
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
@@ -262,7 +266,6 @@ int main(void)
 	badstr = "lnbc20mpvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqscc6gd6ql3jrc5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf4sefvf9sygkshp5zfem29trqq2yxxz7";
 
 	for (size_t i = 0; i <= strlen(badstr); i++) {
-		char *fail;
 		if (bolt11_decode(tmpctx, tal_strndup(tmpctx, badstr, i),
 				  NULL, &fail))
 			abort();
@@ -308,6 +311,54 @@ int main(void)
 	list_add(&b11->extra_fields, &extra->list);
 
 	test_b11("lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g4a3hx0v945csrmpm7yxyaamgt2xu7mu4xyt3vp7045n4k4czxf9kj0vw0m8dr5t3pjxuek04rtgyy8uzss5eet5gcyekd6m7u0mzv5sp7mdsag", b11, NULL);
+
+	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	 *
+	 * > ### Please send $30 for coffee beans to the same peer, which supports features 1 and 9
+	 * > lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9qzsze992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq73t7cl
+	 *
+	 * Breakdown:
+	 *
+	 * * `lnbc`: prefix, Lightning on Bitcoin mainnet
+	 * * `25m`: amount (25 milli-bitcoin)
+	 * * `1`: Bech32 separator
+	 * * `pvjluez`: timestamp (1496314658)
+	 * * `p`: payment hash...
+	 * * `d`: short description
+	 *   * `q5`: `data_length` (`q` = 0, `5` = 20; 0 * 32 + 20 == 20)
+	 *   * `vdhkven9v5sxyetpdees`: 'coffee beans'
+	 * * `9`: features
+	 *   * `qz`: `data_length` (`q` = 0, `z` = 2; 0 * 32 + 2 == 2)
+	 *   * `sz`: b1000000010
+	 * * `e992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq`: signature
+	 * * `73t7cl`: Bech32 checksum
+	 */
+	msatoshi = AMOUNT_MSAT(25 * (1000ULL * 100000000) / 1000);
+	b11 = new_bolt11(tmpctx, &msatoshi);
+	b11->chain = chainparams_for_network("bitcoin");
+	b11->timestamp = 1496314658;
+	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
+			strlen("0001020304050607080900010203040506070809000102030405060708090102"),
+			&b11->payment_hash, sizeof(b11->payment_hash)))
+		abort();
+	b11->receiver_id = node;
+	b11->description = "coffee beans";
+	set_feature_bit(&b11->features, 1);
+	set_feature_bit(&b11->features, 9);
+
+	test_b11("lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9qzsze992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq73t7cl", b11, NULL);
+
+	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	 *
+	 * > # Same, but using invalid unknown feature 100
+	 * > lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4pqqqqqqqqqqqqqqqqqqszk3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sphzfxz7
+	 */
+	/* This one can be encoded, but not decoded */
+	set_feature_bit(&b11->features, 100);
+	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
+	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4pqqqqqqqqqqqqqqqqqqszk3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sphzfxz7"));
+	assert(!bolt11_decode(tmpctx, badstr, NULL, &fail));
+	assert(streq(fail, "9: unknown feature bit 100"));
 
 	/* FIXME: Test the others! */
 	wally_cleanup(0);

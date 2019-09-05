@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - JSON API: `listfunds` now lists a blockheight for confirmed transactions
 
+- bolt11: support for parsing feature bits (field `9`).
+
 ### Changed
 
 - JSON API: `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
