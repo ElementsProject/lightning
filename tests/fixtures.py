@@ -161,38 +161,19 @@ def node_factory(request, directory, test_name, bitcoind, executor, teardown_che
     for e in errs:
         teardown_checks.add_error(e)
 
-    if VALGRIND:
-        for node in nf.nodes:
-            if printValgrindErrors(node):
-                teardown_checks.add_node_error(node, "reported valgrind errors")
+    def map_node_error(nodes, f, msg):
+        for n in nodes:
+            if n and f(n):
+                teardown_checks.add_node_error(n, msg)
 
-    for node in nf.nodes:
-        if printCrashLog(node):
-            teardown_checks.add_node_error(node, "had crash.log files")
-
-    for node in [n for n in nf.nodes if not n.allow_broken_log]:
-        if checkBroken(node):
-            teardown_checks.add_node_error(node, "had BROKEN messages")
-
-    for node in nf.nodes:
-        if checkReconnect(node):
-            teardown_checks.add_node_error(node, "had unexpected reconnections")
-
-    for node in [n for n in nf.nodes if not n.allow_bad_gossip]:
-        if checkBadGossip(node):
-            teardown_checks.add_node_error(node, "had bad gossip messages")
-
-    for node in nf.nodes:
-        if checkBadReestablish(node):
-            teardown_checks.add_node_error(node,"had bad reestablish")
-
-    for node in nf.nodes:
-        if checkBadHSMRequest(node):
-            teardown_checks.add_node_error(node, "had bad hsm requests")
-
-    for node in nf.nodes:
-        if checkMemleak(node):
-            teardown_checks.add_node_error(node, "had memleak messages")
+    map_node_error(nf.nodes, printValgrindErrors, "reported valgrind errors")
+    map_node_error(nf.nodes, printCrashLog, "had crash.log files")
+    map_node_error(nf.nodes, lambda n: not n.allow_broken_log and n.daemon.is_in_log(r'\*\*BROKEN\*\*'), "had BROKEN messages")
+    map_node_error(nf.nodes, checkReconnect, "had unexpected reconnections")
+    map_node_error(nf.nodes, checkBadGossip, "had bad gossip messages")
+    map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('Bad reestablish'), "had bad reestablish")
+    map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('bad hsm request'), "had bad hsm requests")
+    map_node_error(nf.nodes, checkMemleak, "had memleak messages")
 
     if not ok:
         teardown_checks.add_error("At least one lightning exited with unexpected non-zero return code")
@@ -249,6 +230,8 @@ def checkReconnect(node):
 
 
 def checkBadGossip(node):
+    if node.allow_bad_gossip:
+        return 0
     # We can get bad gossip order from inside error msgs.
     if node.daemon.is_in_log('Bad gossip order from (?!error)'):
         # This can happen if a node sees a node_announce after a channel
@@ -264,6 +247,8 @@ def checkBadGossip(node):
 
 
 def checkBroken(node):
+    if node.allow_broken_log:
+        return 0
     # We can get bad gossip order from inside error msgs.
     if node.daemon.is_in_log(r'\*\*BROKEN\*\*'):
         return 1
@@ -289,7 +274,7 @@ def checkMemleak(node):
 
 
 @pytest.fixture
-def executor():
+def executor(teardown_checks):
     ex = futures.ThreadPoolExecutor(max_workers=20)
     yield ex
     ex.shutdown(wait=False)
