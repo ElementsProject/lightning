@@ -77,7 +77,7 @@ def extract_queries(pofile):
         query = c[i][7:][:-1]
 
         queries.append({
-            'name': name,
+            'name': query,
             'query': query,
             'placeholders': query.count('?'),
             'readonly': "true" if query.upper().startswith("SELECT") else "false",
