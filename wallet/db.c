@@ -502,7 +502,7 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 
 	/* Look up the query by its ID */
 	for (size_t i = 0; i < db->config->num_queries; i++) {
-		if (streq(query_id, db->config->queries[i].query)) {
+		if (streq(query_id, db->config->queries[i].name)) {
 			stmt->query = &db->config->queries[i];
 			break;
 		}

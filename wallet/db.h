@@ -40,7 +40,7 @@ struct db;
  * devtools/sql-rewrite.py needs to change as well, since they need to
  * generate identical names to work correctly.
  */
-#define SQL(x) NAMED_SQL( __FILE__ ":" stringify(__LINE__) ":" stringify(__COUNTER__), x)
+#define SQL(x) NAMED_SQL( __FILE__ ":" stringify(__COUNTER__), x)
 
 
 /**
