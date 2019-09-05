@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Build: Now requires [`gettext`](https://www.gnu.org/software/gettext/)
 - JSON API: `fundchannel_cancel` is extended to work before funding broadcast.
 - JSON API: The parameter `exclude` of `getroute` now also support node-id.
+- JSON-API: `pay` can exclude error nodes if the failcode of `sendpay` has the NODE bit set
 
 ### Deprecated
 
