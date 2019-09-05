@@ -426,10 +426,16 @@ def test_htlc_accepted_hook_fail(node_factory):
     ], wait_for_announce=True)
 
     # This must fail
-    inv = l2.rpc.invoice(1000, "lbl", "desc")['bolt11']
+    phash = l2.rpc.invoice(1000, "lbl", "desc")['payment_hash']
+    route = l1.rpc.getroute(l2.info['id'], 1000, 1)['route']
+
+    # Here shouldn't use `pay` command because l2 rejects with WIRE_TEMPORARY_NODE_FAILURE,
+    # then it will be excluded when l1 try another pay attempt.
+    # Note if the destination is excluded, the route result is undefined.
+    l1.rpc.sendpay(route, phash)
     with pytest.raises(RpcError) as excinfo:
-        l1.rpc.pay(inv)
-    assert excinfo.value.error['data']['failcode'] == 16399
+        l1.rpc.waitsendpay(phash)
+    assert excinfo.value.error['data']['failcode'] == 0x2002
     assert excinfo.value.error['data']['erring_index'] == 1
 
     # And the invoice must still be unpaid
@@ -439,7 +445,7 @@ def test_htlc_accepted_hook_fail(node_factory):
     # Now try with forwarded HTLCs: l2 should still fail them
     # This must fail
     inv = l3.rpc.invoice(1000, "lbl", "desc")['bolt11']
-    with pytest.raises(RpcError) as excinfo:
+    with pytest.raises(RpcError):
         l1.rpc.pay(inv)
 
     # And the invoice must still be unpaid
