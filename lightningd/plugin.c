@@ -33,6 +33,14 @@
  * `getmanifest` call anyway, that's what `init `is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
 
+#if DEVELOPER
+static void memleak_help_pending_requests(struct htable *memtable,
+					  struct plugins *plugins)
+{
+	memleak_remove_uintmap(memtable, &plugins->pending_requests);
+}
+#endif /* DEVELOPER */
+
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 			    struct lightningd *ld)
 {
@@ -42,6 +50,9 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
 	p->ld = ld;
+	uintmap_init(&p->pending_requests);
+	memleak_add_helper(p, memleak_help_pending_requests);
+
 	return p;
 }
 
@@ -1007,8 +1018,6 @@ void plugins_start(struct plugins *plugins, const char *dev_plugin_debug)
 void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 {
 	plugins->pending_manifests = 0;
-	uintmap_init(&plugins->pending_requests);
-
 	plugins_add_default_dir(plugins,
 				path_join(tmpctx, plugins->ld->config_dir, "plugins"));
 
