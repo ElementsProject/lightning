@@ -121,6 +121,72 @@ def test_pay_limits(node_factory):
     assert status[0]['strategy'] == "Initial attempt"
 
 
+def test_pay_exclude_node(node_factory, bitcoind):
+    """Test excluding the node if there's the NODE-level error in the failure_code
+    """
+    # FIXME: Remove our reliance on HTLCs failing on startup and the need for
+    #        this plugin
+    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')}, {}]
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    amount = 10**8
+
+    inv = l3.rpc.invoice(amount, "test1", 'description')['bolt11']
+    with pytest.raises(RpcError):
+        l1.rpc.pay(inv)
+
+    # It should have retried (once without routehint, too)
+    status = l1.rpc.call('paystatus', {'bolt11': inv})['pay'][0]['attempts']
+
+    # Excludes channel, then ignores routehint which includes that, then
+    # it excludes other channel.
+    assert len(status) == 2
+    assert status[0]['strategy'] == "Initial attempt"
+    assert status[0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
+    assert status[1]['strategy'].startswith("Excluded node {}".format(l2.info['id']))
+    assert 'failure' in status[1]
+
+    # l1->l4->l5->l3 is the longer route. This makes sure this route won't be
+    # tried for the first pay attempt.
+    l4 = node_factory.get_node()
+    l5 = node_factory.get_node()
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l4.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    l5.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    scid14 = l1.fund_channel(l4, 10**6, wait_for_active=False)
+    scid45 = l4.fund_channel(l5, 10**6, wait_for_active=False)
+    scid53 = l5.fund_channel(l3, 10**6, wait_for_active=False)
+    bitcoind.generate_block(5)
+
+    l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                             .format(scid14),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scid14),
+                             r'update for channel {}/0 now ACTIVE'
+                             .format(scid45),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scid45),
+                             r'update for channel {}/0 now ACTIVE'
+                             .format(scid53),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scid53)])
+
+    inv = l3.rpc.invoice(amount, "test2", 'description')['bolt11']
+
+    # This `pay` will work
+    l1.rpc.pay(inv)
+
+    # It should have retried (once without routehint, too)
+    status = l1.rpc.call('paystatus', {'bolt11': inv})['pay'][0]['attempts']
+
+    # Excludes channel, then ignores routehint which includes that, then
+    # it excludes other channel.
+    assert len(status) == 2
+    assert status[0]['strategy'] == "Initial attempt"
+    assert status[0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
+    assert status[1]['strategy'].startswith("Excluded node {}".format(l2.info['id']))
+    assert 'success' in status[1]
+
+
 def test_pay0(node_factory):
     """Test paying 0 amount
     """
