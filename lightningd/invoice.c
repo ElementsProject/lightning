@@ -1086,6 +1086,8 @@ static struct command_result *json_decodepay(struct command *cmd,
                                 b11->description_hash);
 	json_add_num(response, "min_final_cltv_expiry",
 		     b11->min_final_cltv_expiry);
+	if (b11->features)
+		json_add_hex_talarr(response, "features", b11->features);
         if (tal_count(b11->fallbacks)) {
 		json_array_start(response, "fallbacks");
 		for (size_t i = 0; i < tal_count(b11->fallbacks); i++)

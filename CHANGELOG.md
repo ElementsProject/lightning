@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- bolt11: support for parsing feature bits (field `9`).
+
 ### Changed
 
 ### Deprecated

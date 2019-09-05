@@ -9,6 +9,7 @@
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/bolt11.h>
+#include <common/features.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_wire.h>
@@ -431,6 +432,59 @@ static char *decode_r(struct bolt11 *b11,
         return NULL;
 }
 
+static void shift_bitmap_down(u8 *bitmap, size_t bits)
+{
+	u8 prev = 0;
+	assert(bits < CHAR_BIT);
+
+	for (size_t i = 0; i < tal_bytelen(bitmap); i++) {
+		/* Save top bits for next one */
+		u8 v = bitmap[i];
+		bitmap[i] = (prev | (v >> bits));
+		prev = (v << (8 - bits));
+	}
+	assert(prev == 0);
+}
+
+/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+ *
+ * `9` (5): `data_length` variable. One or more bytes containing features
+ *  supported or required for receiving this payment.
+ *  See [Feature Bits](#feature-bits).
+ */
+static char *decode_9(struct bolt11 *b11,
+                      struct hash_u5 *hu5,
+                      u5 **data, size_t *data_len,
+                      size_t data_length)
+{
+        size_t flen = (data_length * 5 + 7) / 8;
+
+        b11->features = tal_arr(b11, u8, flen);
+        pull_bits_certain(hu5, data, data_len, b11->features,
+			  data_length * 5, true);
+
+	/* pull_bits pads with zero bits: we need to remove them. */
+	shift_bitmap_down(b11->features,
+			  flen * 8 - data_length * 5);
+
+	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	 *
+	 * - if the `9` field contains unknown _odd_ bits that are non-zero:
+	 *   - MUST ignore the bit.
+	 * - if the `9` field contains unknown _even_ bits that are non-zero:
+	 *   - MUST fail.
+	 */
+	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	 * The field is big-endian.  The least-significant bit is numbered 0,
+	 * which is _even_, and the next most significant bit is numbered 1,
+	 * which is _odd_. */
+	for (size_t i = 0; i < data_length * 5; i += 2)
+		if (feature_is_set(b11->features, i))
+			return tal_fmt(b11, "9: unknown feature bit %zu", i);
+
+	return NULL;
+}
+
 struct bolt11 *new_bolt11(const tal_t *ctx,
 			  const struct amount_msat *msat TAKES)
 {
@@ -443,6 +497,7 @@ struct bolt11 *new_bolt11(const tal_t *ctx,
         b11->routes = NULL;
         b11->msat = NULL;
         b11->expiry = DEFAULT_X;
+	b11->features = tal_arr(b11, u8, 0);
         b11->min_final_cltv_expiry = DEFAULT_C;
 
         if (msat)
@@ -634,6 +689,10 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                         problem = decode_r(b11, &hu5, &data, &data_len,
                                            data_length);
                         break;
+		case '9':
+			problem = decode_9(b11, &hu5, &data, &data_len,
+					   data_length);
+			break;
                 default:
                         unknown_field(b11, &hu5, &data, &data_len,
                                       bech32_charset[type], data_length);
@@ -732,11 +791,16 @@ static void push_varlen_uint(u5 **data, u64 val, size_t nbits)
  * 1. `data_length` (10 bits, big-endian)
  * 1. `data` (`data_length` x 5 bits)
  */
-static void push_field(u5 **data, char type, const void *src, size_t nbits)
+static void push_field_type_and_len(u5 **data, char type, size_t nbits)
 {
         assert(bech32_charset_rev[(unsigned char)type] >= 0);
         push_varlen_uint(data, bech32_charset_rev[(unsigned char)type], 5);
         push_varlen_uint(data, (nbits + 4) / 5, 10);
+}
+
+static void push_field(u5 **data, char type, const void *src, size_t nbits)
+{
+	push_field_type_and_len(data, type, nbits);
         bech32_push_bits(data, src, nbits);
 }
 
@@ -849,6 +913,31 @@ static void encode_r(u5 **data, const struct route_info *r)
         tal_free(rinfo);
 }
 
+static void maybe_encode_9(u5 **data, const u8 *features)
+{
+	u5 *f5 = tal_arr(NULL, u5, 0);
+
+	for (size_t i = 0; i < tal_count(features) * CHAR_BIT; i++) {
+		if (!feature_is_set(features, i))
+			continue;
+		/* We expand it out so it makes a BE 5-bit/btye bitfield */
+		set_feature_bit(&f5, (i / 5) * 8 + (i % 5));
+	}
+
+	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	 *
+	 * - if `9` contains non-zero bits:
+	 *   - SHOULD use the minimum `data_length` possible.
+	 * - otherwise:
+	 *   - MUST omit the `9` field altogether.
+	 */
+	if (tal_count(f5) != 0) {
+		push_field_type_and_len(data, '9', tal_count(f5) * 5);
+                tal_expand(data, f5, tal_count(f5));
+	}
+	tal_free(f5);
+}
+
 static bool encode_extra(u5 **data, const struct bolt11_field *extra)
 {
         size_t len;
@@ -951,6 +1040,8 @@ char *bolt11_encode_(const tal_t *ctx,
 
         for (size_t i = 0; i < tal_count(b11->routes); i++)
                 encode_r(&data, b11->routes[i]);
+
+	maybe_encode_9(&data, b11->features);
 
         list_for_each(&b11->extra_fields, extra, list)
                 if (!encode_extra(&data, extra))

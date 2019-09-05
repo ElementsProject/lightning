@@ -24,6 +24,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/bigsize.o			\
 	common/bolt11.o				\
 	common/daemon.o				\
+	common/features.o			\
 	common/hash_u5.o			\
 	common/json.o				\
 	common/json_helpers.o			\

@@ -15,6 +15,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bolt11.o				\
 	common/crypto_state.o			\
 	common/decode_short_channel_ids.o	\
+	common/features.o			\
 	common/hash_u5.o			\
 	common/node_id.o			\
 	common/per_peer_state.o			\

@@ -792,6 +792,56 @@ def test_decodepay(node_factory):
     assert b11['fallbacks'][0]['type'] == 'P2WSH'
     assert b11['fallbacks'][0]['addr'] == 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3'
 
+    # > ### Please send $30 for coffee beans to the same peer, which supports features 1 and 9
+    # > lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9qzsze992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq73t7cl
+    #
+    # Breakdown:
+    #
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
+    # * `25m`: amount (25 milli-bitcoin)
+    # * `1`: Bech32 separator
+    # * `pvjluez`: timestamp (1496314658)
+    # * `p`: payment hash...
+    # * `d`: short description
+    #   * `q5`: `data_length` (`q` = 0, `5` = 20; 0 * 32 + 20 == 20)
+    #   * `vdhkven9v5sxyetpdees`: 'coffee beans'
+    # * `9`: features
+    #   * `qz`: `data_length` (`q` = 0, `z` = 2; 0 * 32 + 2 == 2)
+    #   * `sz`: b1000000010
+    # * `e992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq`: signature
+    # * `73t7cl`: Bech32 checksum
+    b11 = l1.rpc.decodepay('lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9qzsze992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq73t7cl')
+    assert b11['currency'] == 'bc'
+    assert b11['msatoshi'] == 25 * 10**11 // 1000
+    assert b11['amount_msat'] == Millisatoshi(25 * 10**11 // 1000)
+    assert b11['created_at'] == 1496314658
+    assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
+    assert b11['description'] == 'coffee beans'
+    assert b11['expiry'] == 3600
+    assert b11['payee'] == '03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad'
+    assert b11['features'] == '0202'
+
+    # > # Same, but using invalid unknown feature 100
+    # > lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4pqqqqqqqqqqqqqqqqqqszk3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sphzfxz7
+    #
+    # Breakdown:
+    #
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
+    # * `25m`: amount (25 milli-bitcoin)
+    # * `1`: Bech32 separator
+    # * `pvjluez`: timestamp (1496314658)
+    # * `p`: payment hash...
+    # * `d`: short description
+    #   * `q5`: `data_length` (`q` = 0, `5` = 20; 0 * 32 + 20 == 20)
+    #   * `vdhkven9v5sxyetpdees`: 'coffee beans'
+    # * `9`: features
+    #   * `q4`: `data_length` (`q` = 0, `4` = 21; 0 * 32 + 21 == 21)
+    #   * `pqqqqqqqqqqqqqqqqqqsz`: b00001...(90 zeroes)...1000000010
+    # * `k3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sp`: signature
+    # * `hzfxz7`: Bech32 checksum
+    with pytest.raises(RpcError, match='unknown feature.*100'):
+        l1.rpc.decodepay('lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4pqqqqqqqqqqqqqqqqqqszk3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sphzfxz7')
+
     with pytest.raises(RpcError):
         l1.rpc.decodepay('1111111')
 
