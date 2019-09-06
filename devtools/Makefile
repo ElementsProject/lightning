@@ -16,10 +16,12 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/crypto_state.o			\
 	common/decode_short_channel_ids.o	\
 	common/features.o			\
+	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
 	common/memleak.o			\
 	common/node_id.o			\
 	common/per_peer_state.o			\
+	common/pseudorand.o			\
 	common/json.o				\
 	common/json_helpers.o			\
 	common/type_to_string.o			\

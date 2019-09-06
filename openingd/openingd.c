@@ -21,6 +21,7 @@
 #include <common/features.h>
 #include <common/funding_tx.h>
 #include <common/gen_peer_status_wire.h>
+#include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/initial_channel.h>
 #include <common/key_derive.h>
@@ -377,6 +378,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 
 		/* Some messages go straight to gossipd. */
 		if (is_msg_for_gossipd(msg)) {
+			gossip_rcvd_filter_add(state->pps->grf, msg);
 			wire_sync_write(state->pps->gossip_fd, take(msg));
 			continue;
 		}

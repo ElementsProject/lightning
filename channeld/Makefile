@@ -48,6 +48,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/features.o			\
 	common/gen_status_wire.o		\
 	common/gen_peer_status_wire.o		\
+	common/gossip_rcvd_filter.o		\
 	common/gossip_store.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\

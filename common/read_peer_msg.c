@@ -1,5 +1,6 @@
 #include <ccan/fdpass/fdpass.h>
 #include <common/crypto_sync.h>
+#include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/peer_failed.h>
 #include <common/per_peer_state.h>
@@ -166,6 +167,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 	if (handle_timestamp_filter(pps, msg))
 		return true;
 	else if (is_msg_for_gossipd(msg)) {
+		gossip_rcvd_filter_add(pps->grf, msg);
 		wire_sync_write(pps->gossip_fd, msg);
 		/* wire_sync_write takes, so don't take again. */
 		return true;

@@ -31,6 +31,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/funding_tx.o			\
 	common/gen_peer_status_wire.o		\
 	common/gen_status_wire.o		\
+	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
