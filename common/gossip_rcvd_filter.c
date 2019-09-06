@@ -73,9 +73,13 @@ void gossip_rcvd_filter_add(struct gossip_rcvd_filter *f, const u8 *msg)
 	u64 key;
 
 	/* We don't attach destructor here directly to tag; would be neat,
-	 * but it's also an extra allocation */
-	if (extract_msg_key(msg, &key))
+	 * but it's also an extra allocation. */
+	if (extract_msg_key(msg, &key)) {
 		htable_add(f->cur, key, tal_dup(f->cur, u64, &key));
+		/* Don't let it fill up forever though. */
+		if (htable_count(f->cur) > 10000)
+			gossip_rcvd_filter_age(f);
+	}
 }
 
 /* htable is fast, but it's also horribly manual. */
