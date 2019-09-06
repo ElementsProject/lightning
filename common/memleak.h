@@ -3,7 +3,10 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/tal/tal.h>
+#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <inttypes.h>
+
+struct htable;
 
 #if HAVE_TYPEOF
 #define memleak_typeof(var) typeof(var)
@@ -19,7 +22,21 @@
 
 void *notleak_(const void *ptr, bool plus_children);
 
-struct htable;
+/* Mark a helper to be called to scan this structure for mem references */
+/* For update-mock: memleak_add_helper_ mock empty */
+void memleak_add_helper_(const tal_t *p, void (*cb)(struct htable *memtable,
+						    const tal_t *));
+
+#if DEVELOPER
+#define memleak_add_helper(p, cb)					\
+	memleak_add_helper_((p),					\
+			    typesafe_cb_preargs(void, const tal_t *,	\
+						(cb), (p),		\
+						struct htable *))
+#else
+/* Don't refer to cb at all if !DEVELOPER */
+#define memleak_add_helper(p, cb)
+#endif
 
 /* Initialize memleak detection */
 void memleak_init(void);

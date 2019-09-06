@@ -396,9 +396,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg,
 			      u64 index);
 
-void memleak_remove_routing_tables(struct htable *memtable,
-				   const struct routing_state *rstate);
-
 /**
  * Get the local time.
  *

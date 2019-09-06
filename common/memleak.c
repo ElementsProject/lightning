@@ -11,6 +11,10 @@
 static const void **notleaks;
 static bool *notleak_children;
 
+struct memleak_helper {
+	void (*cb)(struct htable *memtable, const tal_t *);
+};
+
 static size_t find_notleak(const tal_t *ptr)
 {
 	size_t i, nleaks = tal_count(notleaks);
@@ -82,6 +86,10 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			if (streq(name, "backtrace"))
 				continue;
 
+			/* Don't add our own memleak_helpers */
+			if (strends(name, "struct memleak_helper"))
+				continue;
+
 			/* Don't add tal_link objects */
 			if (strends(name, "struct link")
 			    || strends(name, "struct linkable"))
@@ -101,20 +109,6 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 		htable_add(memtable, hash_ptr(i, NULL), i);
 		children_into_htable(exclude1, exclude2, memtable, i);
 	}
-}
-
-struct htable *memleak_enter_allocations(const tal_t *ctx,
-					 const void *exclude1,
-					 const void *exclude2)
-{
-	struct htable *memtable = tal(ctx, struct htable);
-	htable_init(memtable, hash_ptr, NULL);
-
-	/* First, add all pointers off NULL to table. */
-	children_into_htable(exclude1, exclude2, memtable, NULL);
-
-	tal_add_destructor(memtable, htable_clear);
-	return memtable;
 }
 
 static void scan_for_pointers(struct htable *memtable,
@@ -254,6 +248,47 @@ static void add_backtrace_notifiers(const tal_t *root)
 
 	for (tal_t *i = tal_first(root); i; i = tal_next(i))
 		add_backtrace_notifiers(i);
+}
+
+void memleak_add_helper_(const tal_t *p,
+			 void (*cb)(struct htable *memtable, const tal_t *))
+{
+	struct memleak_helper *mh = tal(p, struct memleak_helper);
+	mh->cb = cb;
+}
+
+
+static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
+{
+	const tal_t *i;
+
+	for (i = tal_first(p); i; i = tal_next(i)) {
+		const char *name = tal_name(i);
+
+		if (name && strends(name, "struct memleak_helper")) {
+			const struct memleak_helper *mh = i;
+			mh->cb(memtable, p);
+		} else {
+			call_memleak_helpers(memtable, i);
+		}
+	}
+}
+
+struct htable *memleak_enter_allocations(const tal_t *ctx,
+					 const void *exclude1,
+					 const void *exclude2)
+{
+	struct htable *memtable = tal(ctx, struct htable);
+	htable_init(memtable, hash_ptr, NULL);
+
+	/* First, add all pointers off NULL to table. */
+	children_into_htable(exclude1, exclude2, memtable, NULL);
+
+	/* Iterate and call helpers to eliminate hard-to-get references. */
+	call_memleak_helpers(memtable, NULL);
+
+	tal_add_destructor(memtable, htable_clear);
+	return memtable;
 }
 
 void memleak_init(void)

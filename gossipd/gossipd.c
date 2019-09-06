@@ -3034,7 +3034,6 @@ static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
 
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_remove_referenced(memtable, daemon);
-	memleak_remove_routing_tables(memtable, daemon->rstate);
 
 	found_leak = dump_memleak(memtable);
 	daemon_conn_send(daemon->master,

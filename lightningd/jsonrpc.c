@@ -877,6 +877,14 @@ static void destroy_jsonrpc(struct jsonrpc *jsonrpc)
 	strmap_clear(&jsonrpc->usagemap);
 }
 
+#if DEVELOPER
+static void memleak_help_jsonrpc(struct htable *memtable,
+				 struct jsonrpc *jsonrpc)
+{
+	memleak_remove_strmap(memtable, &jsonrpc->usagemap);
+}
+#endif /* DEVELOPER */
+
 void jsonrpc_setup(struct lightningd *ld)
 {
 	struct json_command **commands = get_cmdlist();
@@ -893,6 +901,7 @@ void jsonrpc_setup(struct lightningd *ld)
 	}
 	ld->jsonrpc->rpc_listener = NULL;
 	tal_add_destructor(ld->jsonrpc, destroy_jsonrpc);
+	memleak_add_helper(ld->jsonrpc, memleak_help_jsonrpc);
 }
 
 bool command_usage_only(const struct command *cmd)
@@ -1201,11 +1210,3 @@ static const struct json_command check_command = {
 };
 
 AUTODATA(json_command, &check_command);
-
-#if DEVELOPER
-void jsonrpc_remove_memleak(struct htable *memtable,
-			    const struct jsonrpc *jsonrpc)
-{
-	memleak_remove_strmap(memtable, &jsonrpc->usagemap);
-}
-#endif /* DEVELOPER */

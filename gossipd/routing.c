@@ -165,6 +165,26 @@ static void destroy_routing_state(struct routing_state *rstate)
 		free_chan(rstate, chan);
 }
 
+#if DEVELOPER
+static void memleak_help_routing_tables(struct htable *memtable,
+					struct routing_state *rstate)
+{
+	struct node *n;
+	struct node_map_iter nit;
+
+	memleak_remove_htable(memtable, &rstate->nodes->raw);
+	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
+	memleak_remove_htable(memtable, &rstate->pending_cannouncements.raw);
+
+	for (n = node_map_first(rstate->nodes, &nit);
+	     n;
+	     n = node_map_next(rstate->nodes, &nit)) {
+		if (node_uses_chan_map(n))
+			memleak_remove_htable(memtable, &n->chans.map.raw);
+	}
+}
+#endif /* DEVELOPER */
+
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
@@ -199,6 +219,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 		rstate->gossip_time = NULL;
 #endif
 	tal_add_destructor(rstate, destroy_routing_state);
+	memleak_add_helper(rstate, memleak_help_routing_tables);
 
 	return rstate;
 }
@@ -2528,26 +2549,6 @@ void route_prune(struct routing_state *rstate)
 		free_chan(rstate, pruned[i]);
 	}
 }
-
-#if DEVELOPER
-void memleak_remove_routing_tables(struct htable *memtable,
-				   const struct routing_state *rstate)
-{
-	struct node *n;
-	struct node_map_iter nit;
-
-	memleak_remove_htable(memtable, &rstate->nodes->raw);
-	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
-	memleak_remove_htable(memtable, &rstate->pending_cannouncements.raw);
-
-	for (n = node_map_first(rstate->nodes, &nit);
-	     n;
-	     n = node_map_next(rstate->nodes, &nit)) {
-		if (node_uses_chan_map(n))
-			memleak_remove_htable(memtable, &n->chans.map.raw);
-	}
-}
-#endif /* DEVELOPER */
 
 bool handle_local_add_channel(struct routing_state *rstate,
 			      const u8 *msg, u64 index)
