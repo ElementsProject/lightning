@@ -133,6 +133,7 @@ static bool test_vars(struct lightningd *ld)
 int main(void)
 {
 	setup_locale();
+	setup_tmpctx();
 
 	bool ok = true;
 	/* Dummy for migration hooks */
@@ -144,5 +145,6 @@ int main(void)
 	ok &= test_primitives();
 
 	tal_free(ld);
+	tal_free(tmpctx);
 	return !ok;
 }
