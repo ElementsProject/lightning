@@ -1057,6 +1057,23 @@ def test_gossip_notices_close(node_factory, bitcoind):
     assert(l1.rpc.listnodes()['nodes'] == [])
 
 
+def test_getroute_limit_scan_nodes(node_factory):
+    """Test the `maxscannodes` parameter of `getroute` can work
+    """
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # Scan 0 node.
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l3.info['id'], 1, 1, maxscannodes=0)
+
+    # Scan 1 node(just l2).
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l3.info['id'], 1, 1, maxscannodes=1)
+
+    # Scan 2 nodes(l2 and l3).
+    l1.rpc.getroute(l3.info['id'], 1, 1, maxscannodes=2)
+
+
 def test_getroute_exclude_duplicate(node_factory):
     """Test that accidentally duplicating the same channel or same node
     in the exclude list will not have permanent effects.
