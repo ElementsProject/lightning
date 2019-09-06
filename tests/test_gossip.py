@@ -506,11 +506,6 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
     # 0x0100 = channel_announcement, which goes to l2 before l3 dies.
     l2.daemon.wait_for_log(r'\[IN\] 0100')
 
-    # l3 actually disconnects from l4 *and* l2!  That means we never see
-    # the (delayed) channel_update from l4.
-    wait_for(lambda: not l3.rpc.listpeers(l4.info['id'])['peers'][0]['connected'])
-    l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
-
     # But it never goes to l1, as there's no channel_update.
     time.sleep(2)
     assert not l1.daemon.is_in_log(r'\[IN\] 0100')
