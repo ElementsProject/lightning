@@ -18,7 +18,7 @@ struct migration {
 	void (*func)(struct lightningd *ld, struct db *db);
 };
 
-void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
+static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -451,6 +451,12 @@ static struct migration dbmigrations[] = {
      * in the list view anyway, e.g., show all close and htlc transactions
      * as a single bundle. */
     {SQL("ALTER TABLE transactions ADD channel_id INTEGER;"), NULL},
+    /* Convert pre-Adelaide short_channel_ids */
+    {SQL("UPDATE channels"
+	 " SET short_channel_id = REPLACE(short_channel_id, ':', 'x')"
+	 " WHERE short_channel_id IS NOT NULL;"), NULL },
+    {SQL("UPDATE payments SET failchannel = REPLACE(failchannel, ':', 'x')"
+	 " WHERE failchannel IS NOT NULL;"), NULL },
 };
 
 /* Leak tracking. */
@@ -825,7 +831,7 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 }
 
 /* Will apply the current config fee settings to all channels */
-void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
+static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
 {
 	struct db_stmt *stmt = db_prepare_v2(
 	    db, SQL("UPDATE channels SET feerate_base = ?, feerate_ppm = ?;"));
