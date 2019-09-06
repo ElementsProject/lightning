@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ccan/fdpass/fdpass.h>
+#include <common/gossip_rcvd_filter.h>
 #include <common/per_peer_state.h>
 #include <unistd.h>
 #include <wire/wire.h>
@@ -22,6 +23,7 @@ struct per_peer_state *new_per_peer_state(const tal_t *ctx,
 	pps->cs = *cs;
 	pps->gs = NULL;
 	pps->peer_fd = pps->gossip_fd = pps->gossip_store_fd = -1;
+	pps->grf = new_gossip_rcvd_filter(pps);
 	tal_add_destructor(pps, destroy_per_peer_state);
 	return pps;
 }
@@ -70,6 +72,7 @@ void towire_per_peer_state(u8 **pptr, const struct per_peer_state *pps)
 	towire_bool(pptr, pps->gs != NULL);
 	if (pps->gs)
 		towire_gossip_state(pptr, pps->gs);
+	/* We don't pass the gossip_rcvd_filter: it's merely an optimization */
 }
 
 void per_peer_state_fdpass_send(int fd, const struct per_peer_state *pps)
@@ -138,4 +141,5 @@ void per_peer_state_reset_gossip_timer(struct per_peer_state *pps)
 	t = time_from_msec(pps->dev_gossip_broadcast_msec);
 #endif
 	pps->gs->next_gossip = timemono_add(time_mono(), t);
+	gossip_rcvd_filter_age(pps->grf);
 }

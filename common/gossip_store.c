@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ccan/crc32c/crc32c.h>
 #include <common/features.h>
+#include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
@@ -121,6 +122,12 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 				      (s64)lseek(pps->gossip_store_fd,
 						 0, SEEK_CUR) - msglen,
 				      tal_hex(tmpctx, msg));
+
+		/* Don't send back gossip they sent to us! */
+		if (gossip_rcvd_filter_del(pps->grf, msg)) {
+			msg = tal_free(msg);
+			continue;
+		}
 
 		/* Ignore gossipd internal messages. */
 		type = fromwire_peektype(msg);

@@ -978,8 +978,13 @@ def test_node_reannounce(node_factory, bitcoind):
     nannouncement = l2.daemon.wait_for_log(r'{}.*\[IN\] 0101.*{}'.format(l1.info['id'], l1.info['id'])).split('[IN] ')[1]
     wait_for(lambda: only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'] == 'SENIORBEAM')
 
-    # Restart should re-xmit exact same update on reconnect.
-    l1.restart()
+    # Restart should re-xmit exact same update on reconnect, but make sure
+    # l2 doesn't send it first!
+    l1.stop()
+    l2.stop()
+    os.remove(os.path.join(l2.daemon.lightning_dir, 'gossip_store'))
+    l2.start()
+    l1.start()
 
     # l1 should retransmit it exactly the same (no timestamp change!)
     l2.daemon.wait_for_log(r'{}.*\[IN\] {}'.format(l1.info['id'], nannouncement))
@@ -1377,7 +1382,6 @@ def test_gossip_announce_unknown_block(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_gossip_no_backtalk(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)

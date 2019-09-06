@@ -20,6 +20,8 @@ struct per_peer_state {
 	struct crypto_state cs;
 	/* NULL if it's not initialized yet */
 	struct gossip_state *gs;
+	/* Cache of msgs we have received, to avoid re-xmitting from store */
+	struct gossip_rcvd_filter *grf;
 #if DEVELOPER
 	/* Normally 60000, but adjustable for dev mode */
 	u32 dev_gossip_broadcast_msec;
