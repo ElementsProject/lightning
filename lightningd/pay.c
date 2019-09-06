@@ -101,11 +101,8 @@ json_add_payment_fields(struct json_stream *response,
 		json_add_hex(response, "payment_preimage",
 			     t->payment_preimage,
 			     sizeof(*t->payment_preimage));
-	if (t->label) {
-		if (deprecated_apis)
-			json_add_string(response, "description", t->label);
+	if (t->label)
 		json_add_string(response, "label", t->label);
-	}
 	if (t->bolt11)
 		json_add_string(response, "bolt11", t->bolt11);
 }
@@ -778,42 +775,14 @@ static struct command_result *json_sendpay(struct command *cmd,
 	const char *b11str, *label;
 	struct command_result *res;
 
-	/* If by array, or 'check' command, use 'label' as param name */
-	if (!params || params->type == JSMN_ARRAY) {
-		if (!param(cmd, buffer, params,
-			   p_req("route", param_array, &routetok),
-			   p_req("payment_hash", param_sha256, &rhash),
-			   p_opt("label", param_escaped_string, &label),
-			   p_opt("msatoshi", param_msat, &msat),
-			   p_opt("bolt11", param_string, &b11str),
-			   NULL))
-			return command_param_failed();
-	} else {
-		const char *description_deprecated;
-
-		/* If by keyword, treat description and label as
-		 * separate parameters. */
-		if (!param(cmd, buffer, params,
-			   p_req("route", param_array, &routetok),
-			   p_req("payment_hash", param_sha256, &rhash),
-			   p_opt("label", param_escaped_string, &label),
-			   p_opt("description", param_escaped_string,
-				 &description_deprecated),
-			   p_opt("msatoshi", param_msat, &msat),
-			   p_opt("bolt11", param_string, &b11str),
-			   NULL))
-			return command_param_failed();
-
-		if (description_deprecated) {
-			if (!deprecated_apis)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Deprecated parameter description, use label");
-			if (label)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Cannot specify both description and label");
-			label = description_deprecated;
-		}
-	}
+	if (!param(cmd, buffer, params,
+		   p_req("route", param_array, &routetok),
+		   p_req("payment_hash", param_sha256, &rhash),
+		   p_opt("label", param_escaped_string, &label),
+		   p_opt("msatoshi", param_msat, &msat),
+		   p_opt("bolt11", param_string, &b11str),
+		   NULL))
+		return command_param_failed();
 
 	if (routetok->size == 0)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");

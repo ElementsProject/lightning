@@ -955,7 +955,7 @@ static struct command_result *json_pay(struct command *cmd,
 {
 	struct amount_msat *msat;
 	struct bolt11 *b11;
-	const char *b11str, *description_deprecated;
+	const char *b11str;
 	char *fail;
 	double *riskfactor;
 	unsigned int *retryfor;
@@ -964,54 +964,20 @@ static struct command_result *json_pay(struct command *cmd,
 	unsigned int *maxdelay;
 	struct amount_msat *exemptfee;
 
-	/* If params is array, label takes place of description.  For
-	 * keywords, its a separate parameter. */
-	if (!params || params->type == JSMN_ARRAY) {
-		if (!param(cmd, buf, params,
-			   p_req("bolt11", param_string, &b11str),
-			   p_opt("msatoshi", param_msat, &msat),
-			   p_opt("label", param_string, &pc->label),
-			   p_opt_def("riskfactor", param_double, &riskfactor, 10),
-			   p_opt_def("maxfeepercent", param_percent, &maxfeepercent, 0.5),
-			   p_opt_def("retry_for", param_number, &retryfor, 60),
-			   p_opt_def("maxdelay", param_number, &maxdelay,
-				     maxdelay_default),
-			   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
-			   NULL))
-			return NULL;
-
-		/* This works because bolt11_decode ignores unneeded descriptions */
-		if (deprecated_apis)
-			description_deprecated = pc->label;
-		else
-			description_deprecated = NULL;
-	} else {
-		/* If by keyword, treat description and label as
-		 * separate parameters. */
-		if (!param(cmd, buf, params,
-			   p_req("bolt11", param_string, &b11str),
-			   p_opt("msatoshi", param_msat, &msat),
-			   p_opt("description", param_string,
-				 &description_deprecated),
-			   p_opt_def("riskfactor", param_double, &riskfactor, 10),
-			   p_opt_def("maxfeepercent", param_percent, &maxfeepercent, 0.5),
-			   p_opt_def("retry_for", param_number, &retryfor, 60),
-			   p_opt_def("maxdelay", param_number, &maxdelay,
-				     maxdelay_default),
-			   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
-			   p_opt("label", param_string, &pc->label),
-			   NULL))
+	if (!param(cmd, buf, params,
+		   p_req("bolt11", param_string, &b11str),
+		   p_opt("msatoshi", param_msat, &msat),
+		   p_opt("label", param_string, &pc->label),
+		   p_opt_def("riskfactor", param_double, &riskfactor, 10),
+		   p_opt_def("maxfeepercent", param_percent, &maxfeepercent, 0.5),
+		   p_opt_def("retry_for", param_number, &retryfor, 60),
+		   p_opt_def("maxdelay", param_number, &maxdelay,
+			     maxdelay_default),
+		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
+		   NULL))
 		return NULL;
 
-		if (description_deprecated && !deprecated_apis)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Deprecated parameter description, use label");
-		if (description_deprecated && pc->label)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Cannot specify both description and label");
-	}
-
-	b11 = bolt11_decode(cmd, b11str, description_deprecated, &fail);
+	b11 = bolt11_decode(cmd, b11str, NULL, &fail);
 	if (!b11) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11: %s", fail);
