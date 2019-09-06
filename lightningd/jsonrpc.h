@@ -211,12 +211,4 @@ void jsonrpc_request_end(struct jsonrpc_request *request);
 
 AUTODATA_TYPE(json_command, struct json_command);
 
-#if DEVELOPER
-struct htable;
-struct jsonrpc;
-
-void jsonrpc_remove_memleak(struct htable *memtable,
-			    const struct jsonrpc *jsonrpc);
-#endif /* DEVELOPER */
-
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */

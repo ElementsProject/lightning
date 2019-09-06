@@ -15,6 +15,7 @@
 #include <common/htlc_wire.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>
+#include <common/memleak.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
@@ -22,6 +23,14 @@
 #include <string.h>
   /* Needs to be at end, since it doesn't include its own hdrs */
   #include "gen_full_channel_error_names.h"
+
+#if DEVELOPER
+static void memleak_help_htlcmap(struct htable *memtable,
+				 struct htlc_map *htlcs)
+{
+	memleak_remove_htable(memtable, &htlcs->raw);
+}
+#endif /* DEVELOPER */
 
 struct channel *new_full_channel(const tal_t *ctx,
 				 const struct bitcoin_blkid *chain_hash,
@@ -59,6 +68,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 		channel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
 		channel->htlcs = tal(channel, struct htlc_map);
 		htlc_map_init(channel->htlcs);
+		memleak_add_helper(channel->htlcs, memleak_help_htlcmap);
 		tal_add_destructor(channel->htlcs, htlc_map_clear);
 	}
 	return channel;

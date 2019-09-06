@@ -197,10 +197,6 @@ struct htable *memleak_enter_allocations(const tal_t *ctx UNNEEDED,
 /* Generated stub for memleak_remove_referenced */
 void memleak_remove_referenced(struct htable *memtable UNNEEDED, const void *root UNNEEDED)
 { fprintf(stderr, "memleak_remove_referenced called!\n"); abort(); }
-/* Generated stub for memleak_remove_routing_tables */
-void memleak_remove_routing_tables(struct htable *memtable UNNEEDED,
-				   const struct routing_state *rstate UNNEEDED)
-{ fprintf(stderr, "memleak_remove_routing_tables called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,

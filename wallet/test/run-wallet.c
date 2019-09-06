@@ -541,7 +541,7 @@ u8 *towire_channel_dev_memleak(const tal_t *ctx UNNEEDED)
 u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_dev_reenable_commit called!\n"); abort(); }
 /* Generated stub for towire_channel_fail_htlc */
-u8 *towire_channel_fail_htlc(const tal_t *ctx UNNEEDED, const struct failed_htlc *failed_htlc UNNEEDED, u32 failheight UNUSED)
+u8 *towire_channel_fail_htlc(const tal_t *ctx UNNEEDED, const struct failed_htlc *failed_htlc UNNEEDED, u32 failheight UNNEEDED)
 { fprintf(stderr, "towire_channel_fail_htlc called!\n"); abort(); }
 /* Generated stub for towire_channel_fulfill_htlc */
 u8 *towire_channel_fulfill_htlc(const tal_t *ctx UNNEEDED, const struct fulfilled_htlc *fulfilled_htlc UNNEEDED)

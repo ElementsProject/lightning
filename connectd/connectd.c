@@ -1446,7 +1446,6 @@ static struct io_plan *dev_connect_memleak(struct io_conn *conn,
 
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_remove_referenced(memtable, daemon);
-	memleak_remove_htable(memtable, &daemon->peers.raw);
 
 	found_leak = dump_memleak(memtable);
 	daemon_conn_send(daemon->master,
@@ -1533,6 +1532,15 @@ static void master_gone(struct daemon_conn *master UNUSED)
 	exit(2);
 }
 
+/*~ This is a hook used by the memleak code (if DEVELOPER=1): it can't see
+ * pointers inside hash tables, so we give it a hint here. */
+#if DEVELOPER
+static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
+{
+	memleak_remove_htable(memtable, &daemon->peers.raw);
+}
+#endif /* DEVELOPER */
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -1545,6 +1553,7 @@ int main(int argc, char *argv[])
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);
 	node_set_init(&daemon->peers);
+	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
