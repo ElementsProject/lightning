@@ -20,6 +20,7 @@ COMMON_SRC_NOGEN :=				\
 	common/dev_disconnect.c			\
 	common/features.c			\
 	common/funding_tx.c			\
+	common/gossip_rcvd_filter.c		\
 	common/gossip_store.c			\
 	common/hash_u5.c			\
 	common/htlc_state.c			\
