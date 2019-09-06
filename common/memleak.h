@@ -17,7 +17,6 @@
 /* Mark a pointer and all its tal children as not being leaked. */
 #define notleak_with_children(p) ((memleak_typeof(p))notleak_((p), true))
 
-#if DEVELOPER
 void *notleak_(const void *ptr, bool plus_children);
 
 struct htable;
@@ -52,12 +51,5 @@ void memleak_scan_region(struct htable *memtable,
 
 /* Get (and remove) a leak from memtable, or NULL */
 const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
-
-#else /* ... !DEVELOPER */
-static inline void *notleak_(const void *ptr, bool plus_children UNNEEDED)
-{
-	return cast_const(void *, ptr);
-}
-#endif /* !DEVELOPER */
 
 #endif /* LIGHTNING_COMMON_MEMLEAK_H */

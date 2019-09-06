@@ -270,4 +270,9 @@ void memleak_cleanup(void)
 {
 	notleaks = tal_free(notleaks);
 }
-#endif /* DEVELOPER */
+#else /* !DEVELOPER */
+void *notleak_(const void *ptr, bool plus_children UNNEEDED)
+{
+	return cast_const(void *, ptr);
+}
+#endif /* !DEVELOPER */
