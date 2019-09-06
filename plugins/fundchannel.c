@@ -1,7 +1,9 @@
+#include <bitcoin/chainparams.c>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
+#include <common/addr.h>
 #include <common/amount.h>
 #include <common/json_tok.h>
 #include <common/type_to_string.h>
@@ -9,8 +11,8 @@
 #include <lightningd/json.h>
 #include <plugins/libplugin.h>
 
-const char *placeholder_funding_addr = "bcrt1qh9vpp7pylppexnaqg2kdp0kt55sg0qf7yc8d4m4ug26uhx47z3jqvgnzrj";
 const char *placeholder_script = "0020b95810f824f843934fa042acd0becba52087813e260edaeebc42b5cb9abe1464";
+const char *placeholder_funding_addr;
 
 /* FIXME: dynamically query */
 const struct amount_sat max_funding = AMOUNT_SAT_INIT((1 << 24) - 1);
@@ -403,7 +405,19 @@ static struct command_result *json_fundchannel(struct command *cmd,
 static void init(struct plugin_conn *rpc,
 		 const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	/* This method left intentionally blank. */
+	/* Figure out what the 'placeholder' addr is */
+	const char *network_name;
+	const struct chainparams *chainparams;
+	u8 *placeholder = tal_hexdata(tmpctx, placeholder_script, strlen(placeholder_script));
+
+	network_name = rpc_delve(tmpctx, "listconfigs",
+				 take(json_out_obj(NULL, "config",
+						   "network")),
+			         rpc, ".network");
+	chainparams = chainparams_for_network(network_name);
+	placeholder_funding_addr = encode_scriptpubkey_to_addr(NULL,
+							       chainparams->bip173_name,
+							       placeholder);
 }
 
 
