@@ -61,6 +61,7 @@ Build lightning:
 
     ./configure
     make
+    sudo make install
 
 Running lightning:
 
