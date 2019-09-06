@@ -590,7 +590,7 @@ class LightningRpc(UnixDomainSocketRpc):
         res = self.call("listpeers", payload)
         return res.get("peers") and res["peers"][0] or None
 
-    def getroute(self, node_id, msatoshi, riskfactor, cltv=9, fromid=None, fuzzpercent=None, exclude=[], maxhops=20):
+    def getroute(self, node_id, msatoshi, riskfactor, cltv=9, fromid=None, fuzzpercent=None, exclude=[], maxhops=20, maxscannodes=None):
         """
         Show route to {id} for {msatoshi}, using {riskfactor} and optional
         {cltv} (default 9). If specified search from {fromid} otherwise use
@@ -607,7 +607,8 @@ class LightningRpc(UnixDomainSocketRpc):
             "fromid": fromid,
             "fuzzpercent": fuzzpercent,
             "exclude": exclude,
-            "maxhops": maxhops
+            "maxhops": maxhops,
+            "maxscannodes": maxscannodes
         }
         return self.call("getroute", payload)
 

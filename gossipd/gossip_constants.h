@@ -13,6 +13,9 @@
  */
 #define ROUTING_MAX_HOPS 20
 
+/* The limitation on how many nodes getroute will scan. */
+#define ROUTING_MAX_SCAN_NODES UINT32_MAX
+
 /* BOLT #7:
  *
  * The `flags` bitfield...individual bits:

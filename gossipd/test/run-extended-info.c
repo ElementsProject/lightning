@@ -110,7 +110,7 @@ bool fromwire_gossip_get_incoming_channels(const tal_t *ctx UNNEEDED, const void
 bool fromwire_gossip_getnodes_request(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id **id UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_getnodes_request called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_getroute_request */
-bool fromwire_gossip_getroute_request(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id **source UNNEEDED, struct node_id *destination UNNEEDED, struct amount_msat *msatoshi UNNEEDED, u64 *riskfactor_by_million UNNEEDED, u32 *final_cltv UNNEEDED, double *fuzz UNNEEDED, struct exclude_entry ***excluded UNNEEDED, u32 *max_hops UNNEEDED)
+bool fromwire_gossip_getroute_request(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id **source UNNEEDED, struct node_id *destination UNNEEDED, struct amount_msat *msatoshi UNNEEDED, u64 *riskfactor_by_million UNNEEDED, u32 *final_cltv UNNEEDED, double *fuzz UNNEEDED, struct exclude_entry ***excluded UNNEEDED, u32 *max_hops UNNEEDED, u32 *max_nodes UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_getroute_request called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_get_txout_reply */
 bool fromwire_gossip_get_txout_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct amount_sat *satoshis UNNEEDED, u8 **outscript UNNEEDED)
@@ -164,7 +164,8 @@ struct route_hop *get_route(const tal_t *ctx UNNEEDED, struct routing_state *rst
 			    double fuzz UNNEEDED,
 			    u64 seed UNNEEDED,
 			    struct exclude_entry **excluded UNNEEDED,
-			    size_t max_hops UNNEEDED)
+			    size_t max_hops UNNEEDED,
+			    size_t max_nodes UNNEEDED)
 { fprintf(stderr, "get_route called!\n"); abort(); }
 /* Generated stub for gossip_peerd_wire_type_name */
 const char *gossip_peerd_wire_type_name(int e UNNEEDED)

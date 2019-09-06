@@ -41,6 +41,7 @@ msgdata,gossip_getroute_request,fuzz,double,
 msgdata,gossip_getroute_request,num_excluded,u16,
 msgdata,gossip_getroute_request,excluded,exclude_entry,num_excluded
 msgdata,gossip_getroute_request,max_hops,u32,
+msgdata,gossip_getroute_request,max_nodes,u32,
 
 msgtype,gossip_getroute_reply,3106
 msgdata,gossip_getroute_reply,num_hops,u16,

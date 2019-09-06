@@ -152,7 +152,7 @@ int main(void)
 
 		route = find_route(tmpctx, rstate, &ids[0], &ids[NUM_NODES-1],
 				   AMOUNT_MSAT(1000), 0, 0.0, NULL,
-				   i, &fee);
+				   i, ROUTING_MAX_SCAN_NODES, &fee);
 		assert(route);
 		assert(tal_count(route) == i);
 		if (i != ROUTING_MAX_HOPS)

@@ -2484,7 +2484,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	struct amount_msat msat;
 	u32 final_cltv;
 	u64 riskfactor_by_million;
-	u32 max_hops;
+	u32 max_hops, max_nodes;
 	u8 *out;
 	struct route_hop *hops;
 	double fuzz;
@@ -2506,7 +2506,8 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 					      &msat, &riskfactor_by_million,
 					      &final_cltv, &fuzz,
 					      &excluded,
-					      &max_hops))
+					      &max_hops,
+					      &max_nodes))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
 	status_debug("Trying to find a route from %s to %s for %s",
@@ -2518,7 +2519,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, source, &destination,
 			 msat, riskfactor_by_million / 1000000.0, final_cltv,
-			 fuzz, pseudorand_u64(), excluded, max_hops);
+			 fuzz, pseudorand_u64(), excluded, max_hops, max_nodes);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
 	daemon_conn_send(daemon->master, take(out));

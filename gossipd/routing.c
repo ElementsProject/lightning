@@ -877,16 +877,32 @@ static void dijkstra(struct routing_state *rstate,
 		     u64 riskbias,
 		     double fuzz, const struct siphash_seed *base_seed,
 		     struct unvisited *unvisited,
+		     size_t *max_nodes,
 		     costfn_t *costfn)
 {
 	struct node *cur;
+	size_t nodes_limit = *max_nodes;
 
+	if (!(*max_nodes))
+		return;
+
+	/* Include the source node. */
+	(*max_nodes)++;
 	while ((cur = first_unvisited(unvisited)) != NULL) {
 		update_unvisited_neighbors(rstate, cur, me,
 					   riskfactor, riskbias,
 					   fuzz, base_seed, unvisited, costfn);
+
 		remove_unvisited(cur, unvisited, costfn);
-		if (cur == dst)
+
+		if (cur == dst) {
+			status_debug("dijkstra: scan %zu nodes",
+				     nodes_limit + 1 - *max_nodes);
+			return;
+		}
+
+		/* Exclude the source node. */
+		if (!(--(*max_nodes)))
 			return;
 	}
 }
@@ -1043,6 +1059,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 		   const struct node *me,
 		   struct amount_msat msat,
 		   size_t max_hops,
+		   size_t max_nodes,
 		   double fuzz, const struct siphash_seed *base_seed,
 		   struct chan **long_route,
 		   struct amount_msat *fee)
@@ -1052,6 +1069,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 	struct amount_msat long_cost, short_cost, cost_diff;
 	u64 min_bias, max_bias;
 	double riskfactor;
+	size_t max_limit = max_nodes;
 
 	/* We traverse backwards, so dst has largest total */
 	if (!amount_msat_sub(&long_cost,
@@ -1075,9 +1093,12 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 		     type_to_string(tmpctx, struct node_id, &dst->id),
 		     type_to_string(tmpctx, struct node_id, &src->id));
 	dijkstra(rstate, dst, NULL, riskfactor, 1, fuzz, base_seed,
-		 unvisited, shortest_cost_function);
+		 unvisited, &max_limit, shortest_cost_function);
 	dijkstra_cleanup(unvisited);
 
+	/* Before find_shorter_route, we already find the route under
+	 * the max_scan_nodes limitation. */
+	assert(max_limit);
 	/* This must succeed, since we found a route before */
 	short_route = build_route(ctx, rstate, dst, src, me, riskfactor, 1,
 				  fuzz, base_seed, fee);
@@ -1118,13 +1139,15 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 		struct chan **route;
 		struct amount_msat this_fee;
 		u64 riskbias = (min_bias + max_bias) / 2;
+		size_t bin_limit = max_nodes;
 
 		unvisited = dijkstra_prepare(tmpctx, rstate, src, msat,
 					     normal_cost_function);
 		dijkstra(rstate, dst, me, riskfactor, riskbias, fuzz, base_seed,
-			 unvisited, normal_cost_function);
+			 unvisited, &bin_limit, normal_cost_function);
 		dijkstra_cleanup(unvisited);
 
+		assert(bin_limit);
 		route = build_route(ctx, rstate, dst, src, me,
 				    riskfactor, riskbias,
 				    fuzz, base_seed, &this_fee);
@@ -1166,12 +1189,14 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
 	   size_t max_hops,
+	   size_t max_nodes,
 	   struct amount_msat *fee)
 {
 	struct node *src, *dst;
 	const struct node *me;
 	struct unvisited *unvisited;
 	struct chan **route;
+	size_t max_limit = max_nodes;
 
 	/* Note: we map backwards, since we know the amount of satoshi we want
 	 * at the end, and need to derive how much we need to send. */
@@ -1202,8 +1227,19 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	unvisited = dijkstra_prepare(tmpctx, rstate, src, msat,
 				     normal_cost_function);
 	dijkstra(rstate, dst, me, riskfactor, 1, fuzz, base_seed,
-		 unvisited, normal_cost_function);
+		 unvisited, &max_limit, normal_cost_function);
 	dijkstra_cleanup(unvisited);
+
+	if (!max_limit) {
+		if (max_nodes == ROUTING_MAX_SCAN_NODES)
+			status_unusual("find_route: cannot find route with "
+				       "the max scan nodes limitation");
+		else
+			status_info("find_route: cannot find route with the "
+				    "nodes limitation (%zu)",
+				    max_nodes);
+		return NULL;
+	}
 
 	route = build_route(ctx, rstate, dst, src, me, riskfactor, 1,
 			    fuzz, base_seed, fee);
@@ -1212,7 +1248,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* This is the far more unlikely case */
 	return find_shorter_route(ctx, rstate, src, dst, me, msat,
-				  max_hops, fuzz, base_seed, route, fee);
+				  max_hops, max_nodes, fuzz, base_seed,
+				  route, fee);
 }
 
 /* Checks that key is valid, and signed this hash */
@@ -2337,7 +2374,8 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    u32 final_cltv,
 			    double fuzz, u64 seed,
 			    struct exclude_entry **excluded,
-			    size_t max_hops)
+			    size_t max_hops,
+			    size_t max_nodes)
 {
 	struct chan **route;
 	struct amount_msat total_amount;
@@ -2393,7 +2431,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 
 	route = find_route(ctx, rstate, source, destination, msat,
 			   riskfactor / BLOCKS_PER_YEAR / 100,
-			   fuzz, &base_seed, max_hops, &fee);
+			   fuzz, &base_seed, max_hops, max_nodes, &fee);
 
 	/* Now restore the capacity. */
 	/* Restoring is done in reverse order, in order to properly

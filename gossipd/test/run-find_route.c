@@ -183,7 +183,7 @@ int main(void)
 	add_connection(rstate, &a, &b, 1, 1, 1);
 
 	route = find_route(tmpctx, rstate, &a, &b, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
-			   ROUTING_MAX_HOPS, &fee);
+			   ROUTING_MAX_HOPS, ROUTING_MAX_SCAN_NODES, &fee);
 	assert(route);
 	assert(tal_count(route) == 1);
 	assert(amount_msat_eq(fee, AMOUNT_MSAT(0)));
@@ -199,7 +199,7 @@ int main(void)
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
 	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
-			   ROUTING_MAX_HOPS, &fee);
+			   ROUTING_MAX_HOPS, ROUTING_MAX_SCAN_NODES, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(amount_msat_eq(fee, AMOUNT_MSAT(1)));
@@ -215,7 +215,7 @@ int main(void)
 
 	/* Will go via D for small amounts. */
 	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
-			   ROUTING_MAX_HOPS, &fee);
+			   ROUTING_MAX_HOPS, ROUTING_MAX_SCAN_NODES, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));
@@ -224,7 +224,7 @@ int main(void)
 
 	/* Will go via B for large amounts. */
 	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(3000000), riskfactor, 0.0, NULL,
-			   ROUTING_MAX_HOPS, &fee);
+			   ROUTING_MAX_HOPS, ROUTING_MAX_SCAN_NODES, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
@@ -234,7 +234,7 @@ int main(void)
 	/* Make B->C inactive, force it back via D */
 	get_connection(rstate, &b, &c)->channel_flags |= ROUTING_FLAGS_DISABLED;
 	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(3000000), riskfactor, 0.0, NULL,
-			   ROUTING_MAX_HOPS, &fee);
+			   ROUTING_MAX_HOPS, ROUTING_MAX_SCAN_NODES, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));

@@ -314,7 +314,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	unsigned *cltv;
 	double *riskfactor;
 	const struct exclude_entry **excluded;
-	u32 *max_hops;
+	u32 *max_hops, *max_nodes;
 
 	/* Higher fuzz means that some high-fee paths can be discounted
 	 * for an even larger value, increasing the scope for route
@@ -333,6 +333,8 @@ static struct command_result *json_getroute(struct command *cmd,
 		   p_opt("exclude", param_array, &excludetok),
 		   p_opt_def("maxhops", param_number, &max_hops,
 			     ROUTING_MAX_HOPS),
+		   p_opt_def("maxscannodes", param_number, &max_nodes,
+			     ROUTING_MAX_SCAN_NODES),
 		   NULL))
 		return command_param_failed();
 
@@ -378,7 +380,8 @@ static struct command_result *json_getroute(struct command *cmd,
 						 *riskfactor * 1000000.0,
 						 *cltv, fuzz,
 						 excluded,
-						 *max_hops);
+						 *max_hops,
+						 *max_nodes);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	return command_still_pending(cmd);
 }

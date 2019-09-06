@@ -222,6 +222,7 @@ int main(int argc, char *argv[])
 				   riskfactor,
 				   0.75, &base_seed,
 				   ROUTING_MAX_HOPS,
+				   ROUTING_MAX_SCAN_NODES,
 				   &fee);
 		num_hops = tal_count(route);
 		assert(num_hops < ARRAY_SIZE(route_lengths));
