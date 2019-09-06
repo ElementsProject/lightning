@@ -37,8 +37,7 @@ bool mk_short_channel_id(struct short_channel_id *scid,
 }
 
 bool short_channel_id_from_str(const char *str, size_t strlen,
-			       struct short_channel_id *dst,
-			       bool may_be_deprecated_form)
+			       struct short_channel_id *dst)
 {
 	u32 blocknum, txnum;
 	u16 outnum;
@@ -48,15 +47,7 @@ bool short_channel_id_from_str(const char *str, size_t strlen,
 	memcpy(buf, str, strlen);
 	buf[strlen] = 0;
 
-#ifdef COMPAT_V062
-	/* Pre-adelaide format vs. post-adelaide format */
-	if (may_be_deprecated_form && strchr(buf, ':'))
-		matches = sscanf(buf, "%u:%u:%hu", &blocknum, &txnum, &outnum);
-	else
-		matches = sscanf(buf, "%ux%ux%hu", &blocknum, &txnum, &outnum);
-#else
 	matches = sscanf(buf, "%ux%ux%hu", &blocknum, &txnum, &outnum);
-#endif
 	return matches == 3
 		&& mk_short_channel_id(dst, blocknum, txnum, outnum);
 }
@@ -70,14 +61,12 @@ char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *s
 }
 
 bool short_channel_id_dir_from_str(const char *str, size_t strlen,
-				   struct short_channel_id_dir *scidd,
-				   bool may_be_deprecated_form)
+				   struct short_channel_id_dir *scidd)
 {
 	const char *slash = memchr(str, '/', strlen);
 	if (!slash || slash + 2 != str + strlen)
 		return false;
-	if (!short_channel_id_from_str(str, slash - str, &scidd->scid,
-				       may_be_deprecated_form))
+	if (!short_channel_id_from_str(str, slash - str, &scidd->scid))
 		return false;
 	if (slash[1] == '0')
 		scidd->dir = 0;

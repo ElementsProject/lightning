@@ -1052,7 +1052,7 @@ bool db_column_short_channel_id(struct db_stmt *stmt, int col,
 {
 	const char *source = db_column_blob(stmt, col);
 	size_t sourcelen = db_column_bytes(stmt, col);
-	return short_channel_id_from_str(source, sourcelen, dest, true);
+	return short_channel_id_from_str(source, sourcelen, dest);
 }
 
 struct short_channel_id *

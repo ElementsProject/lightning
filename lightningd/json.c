@@ -140,8 +140,7 @@ struct command_result *param_short_channel_id(struct command *cmd,
 					      struct short_channel_id **scid)
 {
 	*scid = tal(cmd, struct short_channel_id);
-	if (json_to_short_channel_id(buffer, tok, *scid,
-				     deprecated_apis))
+	if (json_to_short_channel_id(buffer, tok, *scid))
 		return NULL;
 
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

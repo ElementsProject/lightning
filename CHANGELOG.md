@@ -22,6 +22,8 @@ changes.
 
 ### Removed
 
+- JSON API: `short_channel_id` parameters in JSON commands with `:` separators (deprecated since 0.7.0).
+
 ### Fixed
 
 - Relative `--lightning_dir` is now working again.
