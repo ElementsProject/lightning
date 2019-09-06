@@ -1,5 +1,7 @@
 from fixtures import *  # noqa: F401,F403
-from utils import wait_for, sync_blockheight
+from utils import wait_for, sync_blockheight, COMPAT
+
+import unittest
 
 
 def test_db_dangling_peer_fix(node_factory):
@@ -111,3 +113,13 @@ def test_max_channel_id(node_factory, bitcoind):
 
     # Fundchannel again, should succeed.
     l1.rpc.fundchannel(l2.info['id'], 10**5)
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
+def test_scid_upgrade(node_factory):
+
+    # Created through the power of sed "s/X'\([0-9]*\)78\([0-9]*\)78\([0-9]*\)'/X'\13A\23A\3'/"
+    l1 = node_factory.get_node(dbfile='oldstyle-scids.sqlite3.xz')
+
+    assert l1.db_query('SELECT short_channel_id from channels;') == [{'short_channel_id': '103x1x1'}]
+    assert l1.db_query('SELECT failchannel from payments;') == [{'failchannel': '103x1x1'}]
