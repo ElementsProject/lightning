@@ -25,6 +25,7 @@ changes.
 - JSON API: `short_channel_id` parameters in JSON commands with `:` separators (deprecated since 0.7.0).
 - JSON API: `description` parameters in `pay` and `sendpay` (deprecated since 0.7.0).
 - JSON API: `description` output field in `waitsendpay` and `sendpay` (deprecated since 0.7.0).
+- JSON API: `listpayments` (deprecated since 0.7.0).
 
 ### Fixed
 
