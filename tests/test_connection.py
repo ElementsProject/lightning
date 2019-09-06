@@ -1022,6 +1022,11 @@ def test_funding_external_wallet(node_factory, bitcoind):
 
     l1.daemon.wait_for_log(r'Funding tx {} depth 1 of 1'.format(txid))
 
+    # Check that tx is broadcast by a third party can be catched.
+    # Only when the transaction (broadcast by a third pary) is onchain, we can catch it.
+    with pytest.raises(RpcError, match=r'.* been broadcast.*'):
+        l1.rpc.fundchannel_cancel(l2.info['id'])
+
     for node in [l1, l2]:
         node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
         channel = node.rpc.listpeers()['peers'][0]['channels'][0]
