@@ -357,8 +357,7 @@ bool json_to_preimage(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED
 { fprintf(stderr, "json_to_preimage called!\n"); abort(); }
 /* Generated stub for json_to_short_channel_id */
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			      struct short_channel_id *scid UNNEEDED,
-			      bool may_be_deprecated_form UNNEEDED)
+			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,

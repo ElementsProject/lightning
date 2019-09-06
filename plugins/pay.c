@@ -196,7 +196,7 @@ static bool channel_in_routehint(const struct route_info *routehint,
 {
 	struct short_channel_id scid;
 
-	if (!short_channel_id_from_str(scidstr, scidlen, &scid, false))
+	if (!short_channel_id_from_str(scidstr, scidlen, &scid))
 		plugin_err("bad erring_channel '%.*s'",
 			   (int)scidlen, scidstr);
 

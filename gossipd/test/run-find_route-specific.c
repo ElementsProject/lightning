@@ -76,8 +76,7 @@ get_or_make_connection(struct routing_state *rstate,
 	struct chan *chan;
 	const int idx = node_id_idx(from_id, to_id);
 
-	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid,
-				       false))
+	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid))
 		abort();
 	chan = get_channel(rstate, &scid);
 	if (!chan)
