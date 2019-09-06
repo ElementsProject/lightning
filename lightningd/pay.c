@@ -969,15 +969,6 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	return command_success(cmd, response);
 }
 
-static const struct json_command listpayments_command = {
-	"listpayments",
-	"payment",
-	json_listsendpays,
-	"Show outgoing payments",
-	true /* deprecated, use new name */
-};
-AUTODATA(json_command, &listpayments_command);
-
 static const struct json_command listsendpays_command = {
 	"listsendpays",
 	"payment",
