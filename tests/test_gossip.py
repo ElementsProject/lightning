@@ -1375,3 +1375,22 @@ def test_gossip_announce_unknown_block(node_factory, bitcoind):
 
     # Make sure it's OK once it's caught up.
     sync_blockheight(bitcoind, [l1])
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+def test_gossip_no_backtalk(node_factory):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    # This connects, gets gossip, but should *not* play it back.
+    l3 = node_factory.get_node(log_all_io=True)
+
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # Will get channel_announce, then two channel_update and two node_announcement
+    l3.daemon.wait_for_logs([r'\[IN\] 0100',
+                             r'\[IN\] 0102', r'\[IN\] 0102',
+                             r'\[IN\] 0101', r'\[IN\] 0101'])
+
+    # With DEVELOPER, this is long enough for gossip flush.
+    time.sleep(2)
+    assert not l3.daemon.is_in_log(r'\[OUT\] 0100')
