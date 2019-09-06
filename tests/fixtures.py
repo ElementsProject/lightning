@@ -29,7 +29,9 @@ __attempts = {}
 
 @pytest.fixture(scope="session")
 def test_base_dir():
-    directory = tempfile.mkdtemp(prefix='ltests-')
+    d = os.getenv("TEST_DIR", "/tmp")
+
+    directory = tempfile.mkdtemp(prefix='ltests-', dir=d)
     print("Running tests in {}".format(directory))
 
     yield directory
