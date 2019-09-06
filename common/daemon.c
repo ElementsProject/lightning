@@ -157,9 +157,6 @@ void daemon_setup(const char *argv0,
 
 void daemon_shutdown(void)
 {
-#if DEVELOPER
-	memleak_cleanup();
-#endif
 	tal_free(tmpctx);
 	wally_cleanup(0);
 }

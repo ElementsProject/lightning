@@ -41,9 +41,6 @@ void memleak_add_helper_(const tal_t *p, void (*cb)(struct htable *memtable,
 /* Initialize memleak detection */
 void memleak_init(void);
 
-/* Free memleak detection. */
-void memleak_cleanup(void);
-
 /* Allocate a htable with all the memory we've allocated. */
 struct htable *memleak_enter_allocations(const tal_t *ctx,
 					 const void *exclude1,
