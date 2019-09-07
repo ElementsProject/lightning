@@ -1670,7 +1670,7 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	struct channel_id channel_id;
 	u64 id;
 	enum channel_remove_err e;
-	struct sha256 sha256_of_onion;
+	struct sha256 sha256_of_onion, our_sha256_of_onion;
 	u16 failure_code;
 	struct htlc *htlc;
 
@@ -1696,6 +1696,18 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 			    failure_code);
 	}
 
+	/* BOLT #2:
+	 *
+	 *   - if the `sha256_of_onion` in `update_fail_malformed_htlc`
+	 *     doesn't match the onion it sent:
+	 *    - MAY retry or choose an alternate error response.
+	 */
+	htlc = channel_get_htlc(peer->channel, LOCAL, id);
+	sha256(&our_sha256_of_onion, htlc->routing, tal_count(htlc->routing));
+	if (!sha256_eq(&sha256_of_onion, &our_sha256_of_onion))
+		status_unusual("update_fail_malformed_htlc for bad onion"
+		               " for htlc with id %"PRIu64".", id);
+
 	/* We only handle these cases in make_failmsg, so convert any
 	 * (future?) unknown one. */
 	if (failure_code != WIRE_INVALID_ONION_VERSION
@@ -1710,14 +1722,6 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		/* FIXME: Do this! */
-		/* BOLT #2:
-		 *
-		 *   - if the `sha256_of_onion` in `update_fail_malformed_htlc`
-		 *     doesn't match the onion it sent:
-		 *    - MAY retry or choose an alternate error response.
-		 */
-
 		/* This is the only case where we set failcode for a non-local
 		 * failure; in a way, it is, since we have to report it. */
 		htlc->failcode = failure_code;
