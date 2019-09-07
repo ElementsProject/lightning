@@ -85,6 +85,8 @@ struct db_stmt {
 	void *inner_stmt;
 
 	bool executed;
+
+	int row;
 };
 
 struct db_config {
