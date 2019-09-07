@@ -65,7 +65,7 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE TABLE channels ("
 	 "  id INTEGER," /* chan->id */
 	 "  peer_id INTEGER REFERENCES peers(id) ON DELETE CASCADE,"
-	 "  short_channel_id BLOB,"
+	 "  short_channel_id TEXT,"
 	 "  channel_config_local INTEGER,"
 	 "  channel_config_remote INTEGER,"
 	 "  state INTEGER,"
@@ -159,7 +159,7 @@ static struct migration dbmigrations[] = {
 	 ");"),
      NULL},
     /* Add expiry field to invoices (effectively infinite). */
-    {SQL("ALTER TABLE invoices ADD expiry_time INTEGER;"), NULL},
+    {SQL("ALTER TABLE invoices ADD expiry_time BIGINT;"), NULL},
     {SQL("UPDATE invoices SET expiry_time=9223372036854775807;"), NULL},
     /* Add pay_index field to paid invoices (initially, same order as id). */
     {SQL("ALTER TABLE invoices ADD pay_index INTEGER;"), NULL},
@@ -168,7 +168,7 @@ static struct migration dbmigrations[] = {
     {SQL("UPDATE invoices SET pay_index=id WHERE state=1;"),
      NULL}, /* only paid invoice */
     /* Create next_pay_index variable (highest pay_index). */
-    {SQL("INSERT OR REPLACE INTO vars(name, val)"
+    {SQL("INSERT INTO vars(name, val)"
 	 "  VALUES('next_pay_index', "
 	 "    COALESCE((SELECT MAX(pay_index) FROM invoices WHERE state=1), 0) "
 	 "+ 1"
@@ -178,8 +178,7 @@ static struct migration dbmigrations[] = {
      * This fails for channels still awaiting lockin, but that only applies to
      * pre-release software, so it's forgivable. */
     {SQL("ALTER TABLE channels ADD first_blocknum INTEGER;"), NULL},
-    {SQL("UPDATE channels SET first_blocknum=CAST(short_channel_id AS INTEGER) "
-	 "WHERE short_channel_id IS NOT NULL;"),
+    {SQL("UPDATE channels SET first_blocknum=1 WHERE short_channel_id IS NOT NULL;"),
      NULL},
     {SQL("ALTER TABLE outputs ADD COLUMN channel_id INTEGER;"), NULL},
     {SQL("ALTER TABLE outputs ADD COLUMN peer_id BLOB;"), NULL},
@@ -215,7 +214,7 @@ static struct migration dbmigrations[] = {
      * invoices to current time. */
     {SQL("ALTER TABLE invoices ADD paid_timestamp INTEGER;"), NULL},
     {SQL("UPDATE invoices"
-	 "   SET paid_timestamp = strftime('%s', 'now')"
+	 "   SET paid_timestamp = CURRENT_TIMESTAMP()"
 	 " WHERE state = 1;"),
      NULL},
     /* We need to keep the route node pubkeys and short channel ids to
@@ -296,7 +295,7 @@ static struct migration dbmigrations[] = {
      NULL}, /* erring_index */
     {SQL("ALTER TABLE payments ADD failcode INTEGER;"), NULL}, /* failcode */
     {SQL("ALTER TABLE payments ADD failnode BLOB;"), NULL},    /* erring_node */
-    {SQL("ALTER TABLE payments ADD failchannel BLOB;"),
+    {SQL("ALTER TABLE payments ADD failchannel TEXT;"),
      NULL}, /* erring_channel */
     {SQL("ALTER TABLE payments ADD failupdate BLOB;"),
      NULL}, /* channel_update - can be NULL*/
@@ -331,7 +330,7 @@ static struct migration dbmigrations[] = {
     /* Delete dangling utxoset entries due to Issue #1280  */
     {SQL("DELETE FROM utxoset WHERE blockheight IN ("
 	 "  SELECT DISTINCT(blockheight)"
-	 "  FROM utxoset LEFT OUTER JOIN blocks on (blockheight == "
+	 "  FROM utxoset LEFT OUTER JOIN blocks on (blockheight = "
 	 "blocks.height) "
 	 "  WHERE blocks.hash IS NULL"
 	 ");"),
@@ -393,8 +392,9 @@ static struct migration dbmigrations[] = {
     /* Now make sure we have the lower bound block with the first_blocknum
      * height. This may introduce a block with NULL height if we didn't have any
      * blocks, remove that in the next. */
-    {SQL("INSERT OR IGNORE INTO blocks (height) VALUES ((SELECT "
-	 "MIN(first_blocknum) FROM channels));"),
+    {SQL("INSERT INTO blocks (height) VALUES ((SELECT "
+	 "MIN(first_blocknum) FROM channels)) "
+	 "ON CONFLICT(height) DO NOTHING;"),
      NULL},
     {SQL("DELETE FROM blocks WHERE height IS NULL;"), NULL},
     /* -- End of  PR #1398 -- */
@@ -746,7 +746,7 @@ static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
 
 	/* Finally update the version number in the version table */
 	stmt = db_prepare_v2(db, SQL("UPDATE version SET version=?;"));
-	db_bind_u64(stmt, 0, available);
+	db_bind_int(stmt, 0, available);
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
 
@@ -754,7 +754,7 @@ static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
 	if (current != orig) {
 		stmt = db_prepare_v2(
 		    db, SQL("INSERT INTO db_upgrades VALUES (?, ?);"));
-		db_bind_u64(stmt, 0, orig);
+		db_bind_int(stmt, 0, orig);
 		db_bind_text(stmt, 1, version());
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
