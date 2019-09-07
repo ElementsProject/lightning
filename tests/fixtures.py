@@ -147,6 +147,7 @@ def teardown_checks(request):
         request.node.has_errors = True
         raise ValueError(str(errors))
 
+
 @pytest.fixture
 def node_factory(request, directory, test_name, bitcoind, executor, teardown_checks):
     nf = NodeFactory(
@@ -157,7 +158,6 @@ def node_factory(request, directory, test_name, bitcoind, executor, teardown_che
     )
 
     yield nf
-    err_count = 0
     ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
 
     for e in errs:
