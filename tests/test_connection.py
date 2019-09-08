@@ -391,6 +391,33 @@ def test_reconnect_gossiping(node_factory):
     l2.daemon.wait_for_log('processing now old peer gone')
 
 
+@unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
+def test_reconnect_no_update(node_factory, executor):
+    """
+    This tests if the `funding_locked` is sent if we receive a
+    `channel_reestablish` message with `next_commitment_number` == 1 and
+    our `next_commitment_number` == 1.
+    """
+    disconnects = ["@WIRE_FUNDING_LOCKED", "@WIRE_SHUTDOWN"]
+    # Allow bad gossip because it might receive WIRE_CHANNEL_UPDATE before
+    # announcement before of the disconnection
+    l1 = node_factory.get_node(may_reconnect=True, allow_bad_gossip=True)
+    l2 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
+
+    # For channeld reconnection
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    fundchannel_exec = executor.submit(l1.fund_channel, l2, 10**6, False)
+    l1.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
+    l1.stop()
+
+    # For closingd reconnection
+    scid = fundchannel_exec.result()
+    l1.daemon.start()
+    executor.submit(l1.rpc.close, scid, 0)
+    l2.daemon.wait_for_log(r"closingd.* Retransmitting funding_locked for channel")
+    l1.daemon.wait_for_log(r"CLOSINGD_COMPLETE")
+
+
 def test_connect_stresstest(node_factory, executor):
     # This test is unreliable, but it's better than nothing.
     l1 = node_factory.get_node(may_reconnect=True)
