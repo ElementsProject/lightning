@@ -674,8 +674,7 @@ static void unknown_spend(struct tracked_output *out,
 	out->resolved->depth = 0;
 	out->resolved->tx_type = UNKNOWN_TXTYPE;
 
-	/* FIXME: we need a louder warning! */
-	status_trace("Unknown spend of %s/%s by %s",
+	status_broken("Unknown spend of %s/%s by %s",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     type_to_string(tmpctx, struct bitcoin_tx, tx));
@@ -1231,8 +1230,7 @@ static void handle_preimage(const struct chainparams *chainparams,
 
 		/* Too late? */
 		if (outs[i]->resolved) {
-			/* FIXME: We need a better warning method! */
-			status_trace("WARNING: HTLC already resolved by %s"
+			status_broken("HTLC already resolved by %s"
 				     " when we found preimage",
 				     tx_type_name(outs[i]->resolved->tx_type));
 			return;
