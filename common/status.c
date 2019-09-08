@@ -44,7 +44,7 @@ static void report_logging_io(const char *why)
 {
 	if (logging_io != was_logging_io) {
 		was_logging_io = logging_io;
-		status_trace("%s: IO LOGGING %s",
+		status_debug("%s: IO LOGGING %s",
 			     why, logging_io ? "ENABLED" : "DISABLED");
 	}
 }

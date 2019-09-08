@@ -64,7 +64,7 @@ static int dump_syminfo(void *data UNUSED, uintptr_t pc UNUSED,
 	if (!filename || !function)
 		return 0;
 
-	status_trace("    %s:%u (%s)", filename, lineno, function);
+	status_debug("    %s:%u (%s)", filename, lineno, function);
 	return 0;
 }
 
@@ -74,7 +74,7 @@ static void dump_leak_backtrace(const uintptr_t *bt)
 		return;
 
 	/* First one serves as counter. */
-	status_trace("  backtrace:");
+	status_debug("  backtrace:");
 	for (size_t i = 1; i < bt[0]; i++) {
 		backtrace_pcinfo(backtrace_state,
 				 bt[i], dump_syminfo,

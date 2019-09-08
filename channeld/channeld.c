@@ -344,7 +344,7 @@ static void send_announcement_signatures(struct peer *peer)
 	const u8 *msg, *ca, *req;
 	struct pubkey mykey;
 
-	status_trace("Exchanging announcement signatures.");
+	status_debug("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
 	req = towire_hsm_cannouncement_sig_req(tmpctx, ca);
 
@@ -677,7 +677,7 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "update_fee from non-funder?");
 
-	status_trace("update_fee %u, range %u-%u",
+	status_debug("update_fee %u, range %u-%u",
 		     feerate, peer->feerate_min, peer->feerate_max);
 
 	/* BOLT #2:
@@ -706,7 +706,7 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 			    "update_fee %u unaffordable",
 			    feerate);
 
-	status_trace("peer updated fee to %u", feerate);
+	status_debug("peer updated fee to %u", feerate);
 }
 
 static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
@@ -787,14 +787,14 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 {
 	u8 *reply;
 
-	status_trace("Sending master %u", fromwire_peektype(msg));
+	status_debug("Sending master %u", fromwire_peektype(msg));
 
 	if (!wire_sync_write(MASTER_FD, msg))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not set sync write to master: %s",
 			      strerror(errno));
 
-	status_trace("... , awaiting %u", replytype);
+	status_debug("... , awaiting %u", replytype);
 
 	for (;;) {
 		int type;
@@ -806,11 +806,11 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 				      strerror(errno));
 		type = fromwire_peektype(reply);
 		if (type == replytype) {
-			status_trace("Got it!");
+			status_debug("Got it!");
 			break;
 		}
 
-		status_trace("Nope, got %u instead", type);
+		status_debug("Nope, got %u instead", type);
 		msg_enqueue(peer->from_master, take(reply));
 	}
 
@@ -824,10 +824,10 @@ static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
 	/* We can forward gossip packets while waiting for our reply. */
 	u8 *reply;
 
-	status_trace("Sending gossipd %u", fromwire_peektype(msg));
+	status_debug("Sending gossipd %u", fromwire_peektype(msg));
 
 	wire_sync_write(peer->pps->gossip_fd, msg);
-	status_trace("... , awaiting %u", replytype);
+	status_debug("... , awaiting %u", replytype);
 
 	for (;;) {
 		int type;
@@ -840,7 +840,7 @@ static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
 
 		type = fromwire_peektype(reply);
 		if (type == replytype) {
-			status_trace("Got it!");
+			status_debug("Got it!");
 			break;
 		}
 
@@ -998,7 +998,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 			      "Reading sign_remote_commitment_tx reply: %s",
 			      tal_hex(tmpctx, msg));
 
-	status_trace("Creating commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
+	status_debug("Creating commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
 		     commit_index,
 		     type_to_string(tmpctx, struct bitcoin_signature,
 				    commit_sig),
@@ -1037,7 +1037,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 				      tal_hex(tmpctx, msg));
 
 		htlc_sigs[i] = sig.s;
-		status_trace("Creating HTLC signature %s for tx %s wscript %s key %s",
+		status_debug("Creating HTLC signature %s for tx %s wscript %s key %s",
 			     type_to_string(tmpctx, struct bitcoin_signature,
 					    &sig),
 			     type_to_string(tmpctx, struct bitcoin_tx, txs[1+i]),
@@ -1096,7 +1096,7 @@ static void send_commit(struct peer *peer)
 		peer->commit_timer_attempts++;
 		/* Only report this in extreme cases */
 		if (peer->commit_timer_attempts % 100 == 0)
-			status_trace("Can't send commit:"
+			status_debug("Can't send commit:"
 				     " waiting for revoke_and_ack with %"
 				     PRIu64" attempts",
 				     peer->commit_timer_attempts);
@@ -1112,7 +1112,7 @@ static void send_commit(struct peer *peer)
 	 *	- MUST NOT send any `update` message after a `shutdown`.
 	 */
 	if (peer->shutdown_sent[LOCAL] && !num_channel_htlcs(peer->channel)) {
-		status_trace("Can't send commit: final shutdown phase");
+		status_debug("Can't send commit: final shutdown phase");
 
 		peer->commit_timer = NULL;
 		return;
@@ -1160,7 +1160,7 @@ static void send_commit(struct peer *peer)
 	 */
 	changed_htlcs = tal_arr(tmpctx, const struct htlc *, 0);
 	if (!channel_sending_commit(peer->channel, &changed_htlcs)) {
-		status_trace("Can't send commit: nothing to send");
+		status_debug("Can't send commit: nothing to send");
 
 		/* Covers the case where we've just been told to shutdown. */
 		maybe_send_shutdown(peer);
@@ -1172,7 +1172,7 @@ static void send_commit(struct peer *peer)
 	htlc_sigs = calc_commitsigs(tmpctx, peer, peer->next_index[REMOTE],
 				    &commit_sig);
 
-	status_trace("Telling master we're about to commit...");
+	status_debug("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
 	msg = sending_commitsig_msg(NULL, peer->next_index[REMOTE],
 				    channel_feerate(peer->channel, REMOTE),
@@ -1183,7 +1183,7 @@ static void send_commit(struct peer *peer)
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNEL_SENDING_COMMITSIG_REPLY);
 
-	status_trace("Sending commit_sig with %zu htlc sigs",
+	status_debug("Sending commit_sig with %zu htlc sigs",
 		     tal_count(htlc_sigs));
 
 	peer->next_index[REMOTE]++;
@@ -1265,7 +1265,7 @@ static void send_revocation(struct peer *peer)
 
 	/* If this queues more changes on the other end, send commit. */
 	if (channel_sending_revoke_and_ack(peer->channel)) {
-		status_trace("revoke_and_ack made pending: commit timer");
+		status_debug("revoke_and_ack made pending: commit timer");
 		start_commit_timer(peer);
 	}
 
@@ -1375,7 +1375,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 		 *   - MUST NOT send a `commitment_signed` message that does not
 		 *     include any updates.
 		 */
-		status_trace("Oh hi LND! Empty commitment at #%"PRIu64,
+		status_debug("Oh hi LND! Empty commitment at #%"PRIu64,
 			     peer->next_index[LOCAL]);
 		if (peer->last_empty_commitment == peer->next_index[LOCAL] - 1)
 			peer_failed(peer->pps,
@@ -1386,7 +1386,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 
 	/* We were supposed to check this was affordable as we go. */
 	if (peer->channel->funder == REMOTE) {
-		status_trace("Feerates are %u/%u",
+		status_debug("Feerates are %u/%u",
 			     peer->channel->view[LOCAL].feerate_per_kw,
 			     peer->channel->view[REMOTE].feerate_per_kw);
 		assert(can_funder_afford_feerate(peer->channel,
@@ -1411,7 +1411,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			       &peer->next_local_per_commit, &remote_htlckey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving remote_htlckey");
-	status_trace("Derived key %s from basepoint %s, point %s",
+	status_debug("Derived key %s from basepoint %s, point %s",
 		     type_to_string(tmpctx, struct pubkey, &remote_htlckey),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->channel->basepoints[REMOTE].htlc),
@@ -1480,7 +1480,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 						   &remote_htlckey));
 	}
 
-	status_trace("Received commit_sig with %zu htlc sigs",
+	status_debug("Received commit_sig with %zu htlc sigs",
 		     tal_count(htlc_sigs));
 
 	/* Tell master daemon, then wait for ack. */
@@ -1506,7 +1506,7 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 		struct changed_htlc c;
 		const struct htlc *htlc = changed_htlcs[i];
 
-		status_trace("HTLC %"PRIu64"[%s] => %s",
+		status_debug("HTLC %"PRIu64"[%s] => %s",
 			     htlc->id, side_to_str(htlc_owner(htlc)),
 			     htlc_state_name(htlc->state));
 
@@ -1568,9 +1568,9 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	/* We start timer even if this returns false: we might have delayed
 	 * commit because we were waiting for this! */
 	if (channel_rcvd_revoke_and_ack(peer->channel, &changed_htlcs))
-		status_trace("Commits outstanding after recv revoke_and_ack");
+		status_debug("Commits outstanding after recv revoke_and_ack");
 	else
-		status_trace("No commits outstanding after recv revoke_and_ack");
+		status_debug("No commits outstanding after recv revoke_and_ack");
 
 	/* Tell master about things this locks in, wait for response */
 	msg = got_revoke_msg(NULL, peer->revocations_received++,
@@ -1582,7 +1582,7 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 
 	peer->old_remote_per_commit = peer->remote_per_commit;
 	peer->remote_per_commit = next_per_commit;
-	status_trace("revoke_and_ack %s: remote_per_commit = %s, old_remote_per_commit = %s",
+	status_debug("revoke_and_ack %s: remote_per_commit = %s, old_remote_per_commit = %s",
 		     side_to_str(peer->channel->funder),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit),
@@ -1948,7 +1948,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	secp256k1_ecdsa_signature *htlc_sigs;
 	u8 *msg;
 
-	status_trace("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u",
+	status_debug("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u",
 		     channel_feerate(peer->channel, LOCAL),
 		     channel_feerate(peer->channel, REMOTE));
 
@@ -2106,7 +2106,7 @@ static void check_current_dataloss_fields(struct peer *peer,
 	 *      - MUST set `your_last_per_commitment_secret` to all zeroes
 	 */
 
-	status_trace("next_revocation_number = %"PRIu64,
+	status_debug("next_revocation_number = %"PRIu64,
 		     next_revocation_number);
 	if (next_revocation_number == 0)
 		memset(&old_commit_secret, 0, sizeof(old_commit_secret));
@@ -2130,7 +2130,7 @@ static void check_current_dataloss_fields(struct peer *peer,
 			    type_to_string(tmpctx, struct secret,
 					   &old_commit_secret));
 
-	status_trace("Reestablish, comparing commitments. Remote's next local commitment number"
+	status_debug("Reestablish, comparing commitments. Remote's next local commitment number"
 			" is %"PRIu64". Our next remote is %"PRIu64" with %"PRIu64
 			" revocations received",
 			next_commitment_number,
@@ -2173,7 +2173,7 @@ static void check_current_dataloss_fields(struct peer *peer,
 		}
 	}
 
-	status_trace("option_data_loss_protect: fields are correct");
+	status_debug("option_data_loss_protect: fields are correct");
 }
 
 /* Older LND sometimes sends funding_locked before reestablish! */
@@ -2187,7 +2187,7 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 	if (tal_count(*shit_lnd_says) > 10)
 		return false;
 
-	status_trace("Stashing early %s msg!",
+	status_debug("Stashing early %s msg!",
 		     wire_type_name(fromwire_peektype(msg)));
 
 	tal_arr_expand(shit_lnd_says, tal_steal(*shit_lnd_says, msg));
@@ -2298,7 +2298,7 @@ static void peer_reconnect(struct peer *peer,
 		}
 	}
 
-	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
+	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
 		     next_commitment_number,
 		     next_revocation_number);
 
@@ -2513,7 +2513,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 
 		if (!peer->funding_locked[LOCAL]) {
 
-			status_trace("funding_locked: sending commit index %"PRIu64": %s",
+			status_debug("funding_locked: sending commit index %"PRIu64": %s",
 						peer->next_index[LOCAL],
 						type_to_string(tmpctx, struct pubkey,
 					&peer->next_local_per_commit));
@@ -2560,7 +2560,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
 			     onion_routing_packet, NULL, &htlc_fee);
-	status_trace("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
+	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,
 		     type_to_string(tmpctx, struct amount_msat, &amount),
 		     cltv_expiry,
@@ -2744,7 +2744,7 @@ static void handle_dev_reenable_commit(struct peer *peer)
 {
 	dev_suppress_commit = false;
 	start_commit_timer(peer);
-	status_trace("dev_reenable_commit");
+	status_debug("dev_reenable_commit");
 	wire_sync_write(MASTER_FD,
 			take(towire_channel_dev_reenable_commit_reply(NULL)));
 }
@@ -2930,7 +2930,7 @@ static void init_channel(struct peer *peer)
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);
 
-	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
+	status_debug("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64
 		     " revocations_received = %"PRIu64
@@ -3105,7 +3105,7 @@ int main(int argc, char *argv[])
 		/* For simplicity, we process one event at a time. */
 		msg = msg_dequeue(peer->from_master);
 		if (msg) {
-			status_trace("Now dealing with deferred %s",
+			status_debug("Now dealing with deferred %s",
 				     channel_wire_type_name(
 					     fromwire_peektype(msg)));
 			req_in(peer, msg);

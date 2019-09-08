@@ -335,12 +335,12 @@ static u8 *zencode(const tal_t *ctx, const u8 *scids, size_t len)
 	z = tal_arr(ctx, u8, compressed_len);
 	err = compress2(z, &compressed_len, scids, len, Z_DEFAULT_COMPRESSION);
 	if (err == Z_OK) {
-		status_trace("compressed %zu into %lu",
+		status_debug("compressed %zu into %lu",
 			     len, compressed_len);
 		tal_resize(&z, compressed_len);
 		return z;
 	}
-	status_trace("compress %zu returned %i:"
+	status_debug("compress %zu returned %i:"
 		     " not compresssing", len, err);
 	return NULL;
 }
@@ -434,7 +434,7 @@ static void setup_gossip_range(struct peer *peer)
 		return;
 	}
 
-	status_trace("Setting peer %s to gossip level %s",
+	status_debug("Setting peer %s to gossip level %s",
 		     type_to_string(tmpctx, struct node_id, &peer->id),
 		     peer->gossip_level == GOSSIP_HIGH ? "HIGH"
 		     : peer->gossip_level == GOSSIP_MEDIUM ? "MEDIUM"
@@ -697,7 +697,7 @@ static bool query_short_channel_ids(struct daemon *daemon,
 	peer->scid_query_outstanding = true;
 	peer->scid_query_was_internal = internal;
 
-	status_trace("%s: sending query for %zu scids",
+	status_debug("%s: sending query for %zu scids",
 		     type_to_string(tmpctx, struct node_id, &peer->id),
 		     tal_count(scids));
 	return true;
@@ -820,7 +820,7 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 #endif
 
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
-		status_trace("%s sent query_short_channel_ids chainhash %s",
+		status_debug("%s sent query_short_channel_ids chainhash %s",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid, &chain));
 		return NULL;
@@ -1199,7 +1199,7 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	/* If they ask for the wrong chain, we give an empty response
 	 * with the `complete` flag unset */
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain_hash)) {
-		status_trace("%s sent query_channel_range chainhash %s",
+		status_debug("%s sent query_channel_range chainhash %s",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
@@ -1848,7 +1848,7 @@ static bool handle_get_update(struct peer *peer, const u8 *msg)
 		update = gossip_store_get(tmpctx, rstate->gs,
 					  chan->half[direction].bcast.index);
 out:
-	status_trace("peer %s schanid %s: %s update",
+	status_debug("peer %s schanid %s: %s update",
 		     type_to_string(tmpctx, struct node_id, &peer->id),
 		     type_to_string(tmpctx, struct short_channel_id, &scid),
 		     update ? "got" : "no");
@@ -1908,7 +1908,7 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 	/* Can theoretically happen if channel just closed. */
 	chan = get_channel(peer->daemon->rstate, &scid);
 	if (!chan) {
-		status_trace("peer %s local_channel_update for unknown %s",
+		status_debug("peer %s local_channel_update for unknown %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      type_to_string(tmpctx, struct short_channel_id,
 					     &scid));
@@ -2259,7 +2259,7 @@ static void gossip_send_keepalive_update(struct daemon *daemon,
 					 const struct chan *chan,
 					 const struct half_chan *hc)
 {
-	status_trace("Sending keepalive channel_update for %s",
+	status_debug("Sending keepalive channel_update for %s",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &chan->scid));
 
@@ -2505,7 +2505,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 					      &max_hops))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
-	status_trace("Trying to find a route from %s to %s for %s",
+	status_debug("Trying to find a route from %s to %s for %s",
 		     source
 		     ? type_to_string(tmpctx, struct node_id, source) : "(me)",
 		     type_to_string(tmpctx, struct node_id, &destination),
@@ -2742,7 +2742,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
 
 	queue_peer_msg(peer, take(ping));
-	status_trace("sending ping expecting %sresponse",
+	status_debug("sending ping expecting %sresponse",
 		     num_pong_bytes >= 65532 ? "no " : "");
 
 	/* BOLT #1:
@@ -2813,10 +2813,10 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	if (!fromwire_gossip_get_incoming_channels(tmpctx, msg, &exposeprivate))
 		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
 
-	status_trace("exposeprivate = %s",
+	status_debug("exposeprivate = %s",
 		     exposeprivate ? (*exposeprivate ? "TRUE" : "FALSE") : "NULL");
-	status_trace("msg = %s", tal_hex(tmpctx, msg));
-	status_trace("always_expose = %u, never_expose = %u",
+	status_debug("msg = %s", tal_hex(tmpctx, msg));
+	status_debug("always_expose = %u, never_expose = %u",
 		     always_expose(exposeprivate), never_expose(exposeprivate));
 
 	has_public = always_expose(exposeprivate);
@@ -3014,7 +3014,7 @@ static struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
 							   &max_encoding_bytes))
 		master_badmsg(WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
 
-	status_trace("Set max_scids_encode_bytes to %u", max_encoding_bytes);
+	status_debug("Set max_scids_encode_bytes to %u", max_encoding_bytes);
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -3077,13 +3077,13 @@ static struct io_plan *get_channel_peer(struct io_conn *conn,
 
 	chan = get_channel(daemon->rstate, &scid);
 	if (!chan) {
-		status_trace("Failed to resolve channel %s",
+		status_debug("Failed to resolve channel %s",
 			     type_to_string(tmpctx, struct short_channel_id, &scid));
 		key = NULL;
 	} else if (local_direction(daemon, chan, &direction)) {
 		key = &chan->nodes[!direction]->id;
 	} else {
-		status_trace("Resolved channel %s was not local",
+		status_debug("Resolved channel %s was not local",
 			     type_to_string(tmpctx, struct short_channel_id,
 					    &scid));
 		key = NULL;
@@ -3237,7 +3237,7 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 
 	chan = get_channel(rstate, &scid);
 	if (chan) {
-		status_trace(
+		status_debug(
 		    "Deleting channel %s due to the funding outpoint being "
 		    "spent",
 		    type_to_string(msg, struct short_channel_id, &scid));

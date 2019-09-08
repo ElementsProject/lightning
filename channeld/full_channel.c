@@ -118,7 +118,7 @@ static void dump_htlc(const struct htlc *htlc, const char *prefix)
 	else
 		remote_state = htlc->state - 10;
 
-	status_trace("%s: HTLC %s %"PRIu64" = %s/%s %s",
+	status_debug("%s: HTLC %s %"PRIu64" = %s/%s %s",
 		     prefix,
 		     htlc_owner(htlc) == LOCAL ? "LOCAL" : "REMOTE",
 		     htlc->id,
@@ -322,13 +322,13 @@ static bool get_room_above_reserve(const struct channel *channel,
 
 	/* Can happen if amount completely exceeds capacity */
 	if (!ok) {
-		status_trace("Failed to add %zu remove %zu htlcs",
+		status_debug("Failed to add %zu remove %zu htlcs",
 			     tal_count(adding), tal_count(removing));
 		return false;
 	}
 
 	if (!amount_msat_sub_sat(balance, *balance, reserve)) {
-		status_trace("%s cannot afford htlc: would make balance %s"
+		status_debug("%s cannot afford htlc: would make balance %s"
 			     " below reserve %s",
 			     side_to_str(side),
 			     type_to_string(tmpctx, struct amount_msat,
@@ -532,7 +532,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 		if (channel->funder == sender) {
 			if (amount_msat_less_sat(balance, fee)) {
-				status_trace("Cannot afford fee %s with %s above reserve",
+				status_debug("Cannot afford fee %s with %s above reserve",
 					     type_to_string(tmpctx, struct amount_sat,
 							    &fee),
 					     type_to_string(tmpctx, struct amount_msat,
@@ -561,7 +561,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			if (htlc_fee && amount_sat_greater(fee, *htlc_fee))
 				*htlc_fee = fee;
 			if (amount_msat_less_sat(balance, fee)) {
-				status_trace("Funder could not afford own fee %s with %s above reserve",
+				status_debug("Funder could not afford own fee %s with %s above reserve",
 					     type_to_string(tmpctx,
 							    struct amount_sat,
 							    &fee),
@@ -579,7 +579,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			if (htlc_fee && amount_sat_greater(fee, *htlc_fee))
 				*htlc_fee = fee;
 			if (amount_msat_less_sat(balance, fee)) {
-				status_trace("Funder could not afford peer's fee %s with %s above reserve",
+				status_debug("Funder could not afford peer's fee %s with %s above reserve",
 					     type_to_string(tmpctx,
 							    struct amount_sat,
 							    &fee),
@@ -753,7 +753,7 @@ static void htlc_incstate(struct channel *channel,
 	int preflags, postflags;
 	const int committed_f = HTLC_FLAG(sidechanged, HTLC_F_COMMITTED);
 
-	status_trace("htlc %"PRIu64": %s->%s", htlc->id,
+	status_debug("htlc %"PRIu64": %s->%s", htlc->id,
 		     htlc_state_name(htlc->state),
 		     htlc_state_name(htlc->state+1));
 
@@ -767,7 +767,7 @@ static void htlc_incstate(struct channel *channel,
 
 	/* If we've added or removed, adjust balances. */
 	if (!(preflags & committed_f) && (postflags & committed_f)) {
-		status_trace("htlc added %s: local %s remote %s",
+		status_debug("htlc added %s: local %s remote %s",
 			     side_to_str(sidechanged),
 			     type_to_string(tmpctx, struct amount_msat,
 					    &channel->view[sidechanged].owed[LOCAL]),
@@ -789,13 +789,13 @@ static void htlc_incstate(struct channel *channel,
 				      htlc->id,
 				      type_to_string(tmpctx, struct amount_msat,
 						     &htlc->amount));
-		status_trace("-> local %s remote %s",
+		status_debug("-> local %s remote %s",
 			     type_to_string(tmpctx, struct amount_msat,
 					    &channel->view[sidechanged].owed[LOCAL]),
 			     type_to_string(tmpctx, struct amount_msat,
 					    &channel->view[sidechanged].owed[REMOTE]));
 	} else if ((preflags & committed_f) && !(postflags & committed_f)) {
-		status_trace("htlc added %s: local %s remote %s",
+		status_debug("htlc added %s: local %s remote %s",
 			     side_to_str(sidechanged),
 			     type_to_string(tmpctx, struct amount_msat,
 					    &channel->view[sidechanged].owed[LOCAL]),
@@ -817,7 +817,7 @@ static void htlc_incstate(struct channel *channel,
 				      htlc->id,
 				      type_to_string(tmpctx, struct amount_msat,
 						     &htlc->amount));
-		status_trace("-> local %s remote %s",
+		status_debug("-> local %s remote %s",
 			     type_to_string(tmpctx, struct amount_msat,
 					    &channel->view[sidechanged].owed[LOCAL]),
 			     type_to_string(tmpctx, struct amount_msat,
@@ -923,7 +923,7 @@ bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 			      type_to_string(tmpctx, struct amount_sat,
 					     &channel->config[!channel->funder].channel_reserve));
 
-	status_trace("We need %s at feerate %u for %zu untrimmed htlcs: we have %s/%s",
+	status_debug("We need %s at feerate %u for %zu untrimmed htlcs: we have %s/%s",
 		     type_to_string(tmpctx, struct amount_sat, &needed),
 		     feerate_per_kw, untrimmed,
 		     type_to_string(tmpctx, struct amount_msat,
@@ -939,7 +939,7 @@ bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 	if (!can_funder_afford_feerate(channel, feerate_per_kw))
 		return false;
 
-	status_trace("Setting %s feerate to %u",
+	status_debug("Setting %s feerate to %u",
 		     side_to_str(!channel->funder), feerate_per_kw);
 
 	channel->view[!channel->funder].feerate_per_kw = feerate_per_kw;
@@ -959,7 +959,7 @@ bool channel_sending_commit(struct channel *channel,
 					   SENT_REMOVE_REVOCATION,
 					   SENT_ADD_REVOCATION,
 					   SENT_REMOVE_HTLC };
-	status_trace("Trying commit");
+	status_debug("Trying commit");
 
 	if (!channel->changes_pending[REMOTE]) {
 		assert(change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
@@ -983,7 +983,7 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 					   SENT_ADD_ACK_COMMIT,
 					   SENT_REMOVE_COMMIT };
 
-	status_trace("Received revoke_and_ack");
+	status_debug("Received revoke_and_ack");
 	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
 			      htlcs, "rcvd_revoke_and_ack");
 
@@ -995,7 +995,7 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 	if (channel->funder == LOCAL &&
 	    (channel->view[LOCAL].feerate_per_kw
 	     != channel->view[REMOTE].feerate_per_kw)) {
-		status_trace("Applying feerate %u to LOCAL",
+		status_debug("Applying feerate %u to LOCAL",
 			     channel->view[REMOTE].feerate_per_kw);
 		channel->view[LOCAL].feerate_per_kw
 			= channel->view[REMOTE].feerate_per_kw;
@@ -1013,7 +1013,7 @@ bool channel_rcvd_commit(struct channel *channel, const struct htlc ***htlcs)
 					   RCVD_ADD_HTLC,
 					   RCVD_REMOVE_REVOCATION };
 
-	status_trace("Received commit");
+	status_debug("Received commit");
 	if (!channel->changes_pending[LOCAL]) {
 		assert(change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
 				    htlcs, "testing rcvd_commit") == 0);
@@ -1034,7 +1034,7 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 					   RCVD_REMOVE_COMMIT,
 					   RCVD_ADD_COMMIT,
 					   RCVD_REMOVE_ACK_COMMIT };
-	status_trace("Sending revoke_and_ack");
+	status_debug("Sending revoke_and_ack");
 	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states), NULL,
 			      "sending_revoke_and_ack");
 
@@ -1046,7 +1046,7 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	if (channel->funder == REMOTE
 	    && (channel->view[LOCAL].feerate_per_kw
 		!= channel->view[REMOTE].feerate_per_kw)) {
-		status_trace("Applying feerate %u to REMOTE",
+		status_debug("Applying feerate %u to REMOTE",
 			     channel->view[LOCAL].feerate_per_kw);
 		channel->view[REMOTE].feerate_per_kw
 			= channel->view[LOCAL].feerate_per_kw;
@@ -1151,19 +1151,19 @@ bool channel_force_htlcs(struct channel *channel,
 	struct htlc_map_iter it;
 
 	if (tal_count(hstates) != tal_count(htlcs)) {
-		status_trace("#hstates %zu != #htlcs %zu",
+		status_debug("#hstates %zu != #htlcs %zu",
 			     tal_count(hstates), tal_count(htlcs));
 		return false;
 	}
 
 	if (tal_count(fulfilled) != tal_count(fulfilled_sides)) {
-		status_trace("#fulfilled sides %zu != #fulfilled %zu",
+		status_debug("#fulfilled sides %zu != #fulfilled %zu",
 			     tal_count(fulfilled_sides), tal_count(fulfilled));
 		return false;
 	}
 
 	if (tal_count(failed) != tal_count(failed_sides)) {
-		status_trace("#failed sides %zu != #failed %zu",
+		status_debug("#failed sides %zu != #failed %zu",
 			     tal_count(failed_sides), tal_count(failed));
 		return false;
 	}
@@ -1171,7 +1171,7 @@ bool channel_force_htlcs(struct channel *channel,
 		enum channel_add_err e;
 		struct htlc *htlc;
 
-		status_trace("Restoring HTLC %zu/%zu:"
+		status_debug("Restoring HTLC %zu/%zu:"
 			     " id=%"PRIu64" amount=%s cltv=%u"
 			     " payment_hash=%s",
 			     i, tal_count(htlcs),
@@ -1188,7 +1188,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     &htlcs[i].payment_hash,
 			     htlcs[i].onion_routing_packet, &htlc, false, NULL);
 		if (e != CHANNEL_ERR_ADD_OK) {
-			status_trace("%s HTLC %"PRIu64" failed error %u",
+			status_debug("%s HTLC %"PRIu64" failed error %u",
 				     htlc_state_owner(hstates[i]) == LOCAL
 				     ? "out" : "in", htlcs[i].id, e);
 			return false;
@@ -1200,31 +1200,31 @@ bool channel_force_htlcs(struct channel *channel,
 						     fulfilled_sides[i],
 						     fulfilled[i].id);
 		if (!htlc) {
-			status_trace("Fulfill %s HTLC %"PRIu64" not found",
+			status_debug("Fulfill %s HTLC %"PRIu64" not found",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
 				     fulfilled[i].id);
 			return false;
 		}
 		if (htlc->r) {
-			status_trace("Fulfill %s HTLC %"PRIu64" already fulfilled",
+			status_debug("Fulfill %s HTLC %"PRIu64" already fulfilled",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
 				     fulfilled[i].id);
 			return false;
 		}
 		if (htlc->fail) {
-			status_trace("Fulfill %s HTLC %"PRIu64" already failed",
+			status_debug("Fulfill %s HTLC %"PRIu64" already failed",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
 				     fulfilled[i].id);
 			return false;
 		}
 		if (htlc->failcode) {
-			status_trace("Fulfill %s HTLC %"PRIu64" already fail %u",
+			status_debug("Fulfill %s HTLC %"PRIu64" already fail %u",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
 				     fulfilled[i].id, htlc->failcode);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
-			status_trace("Fulfill %s HTLC %"PRIu64" state %s",
+			status_debug("Fulfill %s HTLC %"PRIu64" state %s",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
 				     fulfilled[i].id,
 				     htlc_state_name(htlc->state));
@@ -1239,31 +1239,31 @@ bool channel_force_htlcs(struct channel *channel,
 		htlc = channel_get_htlc(channel, failed_sides[i],
 					failed[i]->id);
 		if (!htlc) {
-			status_trace("Fail %s HTLC %"PRIu64" not found",
+			status_debug("Fail %s HTLC %"PRIu64" not found",
 				     failed_sides[i] == LOCAL ? "out" : "in",
 				     failed[i]->id);
 			return false;
 		}
 		if (htlc->r) {
-			status_trace("Fail %s HTLC %"PRIu64" already fulfilled",
+			status_debug("Fail %s HTLC %"PRIu64" already fulfilled",
 				     failed_sides[i] == LOCAL ? "out" : "in",
 				     failed[i]->id);
 			return false;
 		}
 		if (htlc->fail) {
-			status_trace("Fail %s HTLC %"PRIu64" already failed",
+			status_debug("Fail %s HTLC %"PRIu64" already failed",
 				     failed_sides[i] == LOCAL ? "out" : "in",
 				     failed[i]->id);
 			return false;
 		}
 		if (htlc->failcode) {
-			status_trace("Fail %s HTLC %"PRIu64" already fail %u",
+			status_debug("Fail %s HTLC %"PRIu64" already fail %u",
 				     failed_sides[i] == LOCAL ? "out" : "in",
 				     failed[i]->id, htlc->failcode);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
-			status_trace("Fail %s HTLC %"PRIu64" state %s",
+			status_debug("Fail %s HTLC %"PRIu64" state %s",
 				     failed_sides[i] == LOCAL ? "out" : "in",
 				     fulfilled[i].id,
 				     htlc_state_name(htlc->state));

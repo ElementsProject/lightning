@@ -103,19 +103,19 @@ u8 *sync_crypto_read(const tal_t *ctx, struct per_peer_state *pps)
 	u16 len;
 
 	if (!read_all(pps->peer_fd, hdr, sizeof(hdr))) {
-		status_trace("Failed reading header: %s", strerror(errno));
+		status_debug("Failed reading header: %s", strerror(errno));
 		peer_failed_connection_lost();
 	}
 
 	if (!cryptomsg_decrypt_header(&pps->cs, hdr, &len)) {
-		status_trace("Failed hdr decrypt with rn=%"PRIu64,
+		status_debug("Failed hdr decrypt with rn=%"PRIu64,
 			     pps->cs.rn-1);
 		peer_failed_connection_lost();
 	}
 
 	enc = tal_arr(ctx, u8, len + 16);
 	if (!read_all(pps->peer_fd, enc, tal_count(enc))) {
-		status_trace("Failed reading body: %s", strerror(errno));
+		status_debug("Failed reading body: %s", strerror(errno));
 		peer_failed_connection_lost();
 	}
 

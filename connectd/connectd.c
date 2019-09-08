@@ -353,7 +353,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	struct io_plan *plan;
 
 	/*~ As you can see, we've had issues with this code before :( */
-	status_trace("peer %s: processing now old peer gone",
+	status_debug("peer %s: processing now old peer gone",
 		     type_to_string(tmpctx, struct node_id, &pr->id));
 
 	/*~ Usually the pattern is to return this directly, but we have to free
@@ -378,7 +378,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	u8 *msg;
 	struct peer_reconnected *pr;
 
-	status_trace("peer %s: reconnect",
+	status_debug("peer %s: reconnect",
 		     type_to_string(tmpctx, struct node_id, id));
 
 	/* Tell master to kill it: will send peer_disconnect */
@@ -484,7 +484,7 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 {
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
-	status_trace("Connect IN from %s",
+	status_debug("Connect IN from %s",
 		     type_to_string(tmpctx, struct node_id, &id));
 	return peer_exchange_initmsg(conn, daemon, cs, &id, addr);
 }
@@ -499,7 +499,7 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 
 	/* The cast here is a weird Berkeley sockets API feature... */
 	if (getpeername(io_conn_fd(conn), (struct sockaddr *)&s, &len) != 0) {
-		status_trace("Failed to get peername for incoming conn: %s",
+		status_debug("Failed to get peername for incoming conn: %s",
 			     strerror(errno));
 		return io_close(conn);
 	}
@@ -545,7 +545,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 
 	node_id_from_pubkey(&id, key);
 	connect->connstate = "Exchanging init messages";
-	status_trace("Connect OUT to %s",
+	status_debug("Connect OUT to %s",
 		     type_to_string(tmpctx, struct node_id, &id));
 	return peer_exchange_initmsg(conn, connect->daemon, cs, &id, addr);
 }
@@ -563,7 +563,7 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 	}
 
 	/* FIXME: Timeout */
-	status_trace("Connected out for %s",
+	status_debug("Connected out for %s",
 		     type_to_string(tmpctx, struct node_id, &connect->id));
 
 	connect->connstate = "Cryptographic handshake";
@@ -604,7 +604,7 @@ static void PRINTF_FMT(5,6)
 					       addrhint);
 	daemon_conn_send(daemon->master, take(msg));
 
-	status_trace("Failed connected out for %s: %s",
+	status_debug("Failed connected out for %s: %s",
 		     type_to_string(tmpctx, struct node_id, id),
 		     err);
 }
@@ -840,7 +840,7 @@ static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Failed to create %u socket: %s",
 				      domain, strerror(errno));
-		status_trace("Failed to create %u socket: %s",
+		status_debug("Failed to create %u socket: %s",
 			     domain, strerror(errno));
 		return -1;
 	}
@@ -856,7 +856,7 @@ static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Failed to bind on %u socket: %s",
 				      domain, strerror(errno));
-		status_trace("Failed to create %u socket: %s",
+		status_debug("Failed to create %u socket: %s",
 			     domain, strerror(errno));
 		goto fail;
 	}
@@ -887,7 +887,7 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		/* We might fail if IPv6 bound to port first */
 		fd = make_listen_fd(AF_INET, &addr, sizeof(addr), mayfail);
 		if (fd >= 0) {
-			status_trace("Created IPv4 listener on port %u",
+			status_debug("Created IPv4 listener on port %u",
 				     wireaddr->port);
 			add_listen_fd(daemon, fd, mayfail);
 			return true;
@@ -897,7 +897,7 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		wireaddr_to_ipv6(wireaddr, &addr6);
 		fd = make_listen_fd(AF_INET6, &addr6, sizeof(addr6), mayfail);
 		if (fd >= 0) {
-			status_trace("Created IPv6 listener on port %u",
+			status_debug("Created IPv6 listener on port %u",
 				     wireaddr->port);
 			add_listen_fd(daemon, fd, mayfail);
 			return true;
@@ -1041,7 +1041,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			unlink(wa.u.sockname);
 			fd = make_listen_fd(AF_UNIX, &addrun, sizeof(addrun),
 					    false);
-			status_trace("Created socket listener on file %s",
+			status_debug("Created socket listener on file %s",
 				     addrun.sun_path);
 			add_listen_fd(daemon, fd, false);
 			/* We don't announce socket names, though we allow
@@ -1172,7 +1172,7 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	/* Resolve Tor proxy address if any: we need an addrinfo to connect()
 	 * to. */
 	if (proxyaddr) {
-		status_trace("Proxy address: %s",
+		status_debug("Proxy address: %s",
 			     fmt_wireaddr(tmpctx, proxyaddr));
 		daemon->proxyaddr = wireaddr_to_addrinfo(daemon, proxyaddr);
 		tal_free(proxyaddr);
@@ -1180,7 +1180,7 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		daemon->proxyaddr = NULL;
 
 	if (broken_resolver(daemon)) {
-		status_trace("Broken DNS resolver detected, will check for "
+		status_debug("Broken DNS resolver detected, will check for "
 			     "dummy replies");
 	}
 
@@ -1274,16 +1274,16 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 	hostnames = seednames(tmpctx, id);
 
 	for (size_t i = 0; i < tal_count(hostnames); i++) {
-		status_trace("Resolving %s", hostnames[i]);
+		status_debug("Resolving %s", hostnames[i]);
 		if (!wireaddr_from_hostname(new_addrs, hostnames[i], DEFAULT_PORT, NULL,
 				    	broken_reply, NULL)) {
-			status_trace("Could not resolve %s", hostnames[i]);
+			status_debug("Could not resolve %s", hostnames[i]);
 		} else {
 			for (size_t i = 0; i < tal_count(new_addrs); i++) {
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
 				a.u.wireaddr = *new_addrs[i];
-				status_trace("Resolved %s to %s", hostnames[i],
+				status_debug("Resolved %s to %s", hostnames[i],
 				     	type_to_string(tmpctx, struct wireaddr,
 						    	&a.u.wireaddr));
 				tal_arr_expand(addrs, a);

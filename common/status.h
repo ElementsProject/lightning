@@ -40,9 +40,6 @@ void status_io(enum log_level iodir, const char *who,
 #define status_broken( ...)			\
 	status_fmt(LOG_BROKEN, __VA_ARGS__)
 
-/* FIXME: Transition */
-#define status_trace(...) status_debug(__VA_ARGS__)
-
 /* Send a failure status code with printf-style msg, and exit. */
 void status_failed(enum status_failreason code,
 		   const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;

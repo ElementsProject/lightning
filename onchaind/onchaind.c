@@ -148,7 +148,7 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 				  &keyset->other_htlc_key, remotesig))
 			continue;
 
-		status_trace("grind feerate_per_kw for %"PRIu64" = %"PRIu64,
+		status_debug("grind feerate_per_kw for %"PRIu64" = %"PRIu64,
 			     weight, i);
 		return true;
 	}
@@ -422,7 +422,7 @@ new_tracked_output(const struct chainparams *chainparams,
 {
 	struct tracked_output *out = tal(*outs, struct tracked_output);
 
-	status_trace("Tracking output %u of %s: %s/%s",
+	status_debug("Tracking output %u of %s: %s/%s",
 		     outnum,
 		     type_to_string(tmpctx, struct bitcoin_txid, txid),
 		     tx_type_name(tx_type),
@@ -457,7 +457,7 @@ new_tracked_output(const struct chainparams *chainparams,
 
 static void ignore_output(struct tracked_output *out)
 {
-	status_trace("Ignoring output %u of %s: %s/%s",
+	status_debug("Ignoring output %u of %s: %s/%s",
 		     out->outnum,
 		     type_to_string(tmpctx, struct bitcoin_txid, &out->txid),
 		     tx_type_name(out->tx_type),
@@ -512,7 +512,7 @@ static void proposal_meets_depth(struct tracked_output *out)
 		return;
 	}
 
-	status_trace("Broadcasting %s (%s) to resolve %s/%s",
+	status_debug("Broadcasting %s (%s) to resolve %s/%s",
 		     tx_type_name(out->proposal->tx_type),
 		     type_to_string(tmpctx, struct bitcoin_tx, out->proposal->tx),
 		     tx_type_name(out->tx_type),
@@ -536,7 +536,7 @@ static void propose_resolution(struct tracked_output *out,
 			       unsigned int depth_required,
 			       enum tx_type tx_type)
 {
-	status_trace("Propose handling %s/%s by %s (%s) after %u blocks",
+	status_debug("Propose handling %s/%s by %s (%s) after %u blocks",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(tx_type),
@@ -637,7 +637,7 @@ static bool resolved_by_proposal(struct tracked_output *out,
 
 	out->resolved = tal(out, struct resolution);
 	bitcoin_txid(tx, &out->resolved->txid);
-	status_trace("Resolved %s/%s by our proposal %s (%s)",
+	status_debug("Resolved %s/%s by our proposal %s (%s)",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(out->proposal->tx_type),
@@ -659,7 +659,7 @@ static void resolved_by_other(struct tracked_output *out,
 	out->resolved->depth = 0;
 	out->resolved->tx_type = tx_type;
 
-	status_trace("Resolved %s/%s by %s (%s)",
+	status_debug("Resolved %s/%s by %s (%s)",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(tx_type),
@@ -901,7 +901,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 					     &out->htlc.ripemd));
 
 	/* Tell master we found a preimage. */
-	status_trace("%s/%s gave us preimage %s",
+	status_debug("%s/%s gave us preimage %s",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     type_to_string(tmpctx, struct preimage, &preimage));
@@ -1097,7 +1097,7 @@ static void output_spent(const struct chainparams *chainparams,
 
 	bitcoin_tx_input_get_txid(tx, input_num, &txid);
 	/* Not interesting to us, so unwatch the tx and all its outputs */
-	status_trace("Notified about tx %s output %u spend, but we don't care",
+	status_debug("Notified about tx %s output %u spend, but we don't care",
 		     type_to_string(tmpctx, struct bitcoin_txid, &txid),
 		     tx->wtx->inputs[input_num].index);
 
@@ -1108,7 +1108,7 @@ static void update_resolution_depth(struct tracked_output *out, u32 depth)
 {
 	bool reached_reasonable_depth;
 
-	status_trace("%s/%s->%s depth %u",
+	status_debug("%s/%s->%s depth %u",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(out->resolved->tx_type),
@@ -1131,7 +1131,7 @@ static void update_resolution_depth(struct tracked_output *out, u32 depth)
 	     || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US)
 	    && reached_reasonable_depth) {
 		u8 *msg;
-		status_trace("%s/%s reached reasonable depth %u",
+		status_debug("%s/%s reached reasonable depth %u",
 			     tx_type_name(out->tx_type),
 			     output_type_name(out->output_type),
 			     depth);
@@ -1150,7 +1150,7 @@ static void tx_new_depth(struct tracked_output **outs,
 	if (bitcoin_txid_eq(&outs[0]->resolved->txid, txid)
 	    && depth >= reasonable_depth
 	    && missing_htlc_msgs) {
-		status_trace("Sending %zu missing htlc messages",
+		status_debug("Sending %zu missing htlc messages",
 			     tal_count(missing_htlc_msgs));
 		for (i = 0; i < tal_count(missing_htlc_msgs); i++)
 			wire_sync_write(REQ_FD, missing_htlc_msgs[i]);
@@ -1373,7 +1373,7 @@ static void wait_for_resolved(const struct chainparams *chainparams,
 		u32 input_num, depth, tx_blockheight;
 		struct preimage preimage;
 
-		status_trace("Got new message %s",
+		status_debug("Got new message %s",
 			     onchain_wire_type_name(fromwire_peektype(msg)));
 
 		if (fromwire_onchain_depth(msg, &txid, &depth))
@@ -1727,7 +1727,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
 
-	status_trace("Deconstructing unilateral tx: %"PRIu64
+	status_debug("Deconstructing unilateral tx: %"PRIu64
 		     " using keyset: "
 		     " self_revocation_key: %s"
 		     " self_delayed_payment_key: %s"
@@ -1760,15 +1760,15 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, LOCAL);
 
-	status_trace("Script to-me: %u: %s (%s)",
+	status_debug("Script to-me: %u: %s (%s)",
 		     to_self_delay[LOCAL],
 		     tal_hex(tmpctx, script[LOCAL]),
 		     tal_hex(tmpctx, local_wscript));
-	status_trace("Script to-them: %s",
+	status_debug("Script to-them: %s",
 		     tal_hex(tmpctx, script[REMOTE]));
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
-		status_trace("Output %zu: %s", i,
+		status_debug("Output %zu: %s", i,
 			     tal_hex(tmpctx, bitcoin_tx_output_get_script(
 						 tmpctx, tx, i)));
 	}
@@ -2013,7 +2013,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			      type_to_string(tmpctx, struct secret,
 					     remote_per_commitment_secret));
 
-	status_trace("Deriving keyset %"PRIu64
+	status_debug("Deriving keyset %"PRIu64
 		     ": per_commit_point=%s"
 		     " self_payment_basepoint=%s"
 		     " other_payment_basepoint=%s"
@@ -2046,7 +2046,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
 
-	status_trace("Deconstructing revoked unilateral tx: %"PRIu64
+	status_debug("Deconstructing revoked unilateral tx: %"PRIu64
 		     " using keyset: "
 		     " self_revocation_key: %s"
 		     " self_delayed_payment_key: %s"
@@ -2079,15 +2079,15 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
 
-	status_trace("Script to-them: %u: %s (%s)",
+	status_debug("Script to-them: %u: %s (%s)",
 		     to_self_delay[REMOTE],
 		     tal_hex(tmpctx, script[REMOTE]),
 		     tal_hex(tmpctx, remote_wscript));
-	status_trace("Script to-me: %s",
+	status_debug("Script to-me: %s",
 		     tal_hex(tmpctx, script[LOCAL]));
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
-		status_trace("Output %zu: %s", i,
+		status_debug("Output %zu: %s", i,
 			     tal_hex(tmpctx, bitcoin_tx_output_get_script(
 						 tmpctx, tx, i)));
 	}
@@ -2234,7 +2234,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	 */
 	resolved_by_other(outs[0], txid, THEIR_UNILATERAL);
 
-	status_trace("Deriving keyset %"PRIu64
+	status_debug("Deriving keyset %"PRIu64
 		     ": per_commit_point=%s"
 		     " self_payment_basepoint=%s"
 		     " other_payment_basepoint=%s"
@@ -2267,7 +2267,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
 
-	status_trace("Deconstructing unilateral tx: %"PRIu64
+	status_debug("Deconstructing unilateral tx: %"PRIu64
 		     " using keyset: "
 		     " self_revocation_key: %s"
 		     " self_delayed_payment_key: %s"
@@ -2300,15 +2300,15 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
 
-	status_trace("Script to-them: %u: %s (%s)",
+	status_debug("Script to-them: %u: %s (%s)",
 		     to_self_delay[REMOTE],
 		     tal_hex(tmpctx, script[REMOTE]),
 		     tal_hex(tmpctx, remote_wscript));
-	status_trace("Script to-me: %s",
+	status_debug("Script to-me: %s",
 		     tal_hex(tmpctx, script[LOCAL]));
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
-		status_trace("Output %zu: %s", i,
+		status_debug("Output %zu: %s", i,
 			     tal_hex(tmpctx, bitcoin_tx_output_get_script(
 						 tmpctx, tx, i)));
 	}
@@ -2573,7 +2573,7 @@ int main(int argc, char *argv[])
 
 	tx->chainparams = chainparams_by_chainhash(&chain_hash);
 
-	status_trace("feerate_per_kw = %u", feerate_per_kw);
+	status_debug("feerate_per_kw = %u", feerate_per_kw);
 	bitcoin_txid(tx, &txid);
 	/* We need to keep tx around, but there's only one: not really a leak */
 	tal_steal(ctx, notleak(tx));
@@ -2603,10 +2603,10 @@ int main(int argc, char *argv[])
 			   funding,
 			   FUNDING_OUTPUT, NULL, NULL, NULL);
 
-	status_trace("Remote per-commit point: %s",
+	status_debug("Remote per-commit point: %s",
 		     type_to_string(tmpctx, struct pubkey,
 				    &remote_per_commit_point));
-	status_trace("Old remote per-commit point: %s",
+	status_debug("Old remote per-commit point: %s",
 		     type_to_string(tmpctx, struct pubkey,
 				    &old_remote_per_commit_point));
 
@@ -2635,7 +2635,7 @@ int main(int argc, char *argv[])
 						  &basepoints[LOCAL].payment,
 						  &basepoints[REMOTE].payment);
 
-		status_trace("commitnum = %"PRIu64
+		status_debug("commitnum = %"PRIu64
 			     ", revocations_received = %"PRIu64,
 			     commit_num, revocations_received(&shachain));
 
@@ -2672,7 +2672,7 @@ int main(int argc, char *argv[])
 		 * local node is required to handle both.
 		 */
 		} else if (commit_num == revocations_received(&shachain)) {
-			status_trace("Their unilateral tx, old commit point");
+			status_debug("Their unilateral tx, old commit point");
 			handle_their_unilateral(tx, tx_blockheight,
 						&txid,
 						&old_remote_per_commit_point,
@@ -2682,7 +2682,7 @@ int main(int argc, char *argv[])
 						tell_immediately,
 						outs);
 		} else if (commit_num == revocations_received(&shachain) + 1) {
-			status_trace("Their unilateral tx, new commit point");
+			status_debug("Their unilateral tx, new commit point");
 			handle_their_unilateral(tx, tx_blockheight,
 						&txid,
 						&remote_per_commit_point,

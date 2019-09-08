@@ -321,7 +321,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 	if (gs->disable_compaction)
 		return false;
 
-	status_trace(
+	status_debug(
 	    "Compacting gossip_store with %zu entries, %zu of which are stale",
 	    gs->count, gs->deleted);
 
@@ -419,7 +419,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 			      " %s",
 			      strerror(errno));
 
-	status_trace(
+	status_debug(
 	    "Compaction completed: dropped %zu messages, new count %zu, len %"PRIu64,
 	    deleted, count, len);
 	gs->count = count;
@@ -435,7 +435,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 unlink_disable:
 	unlink(GOSSIP_STORE_TEMP_FILENAME);
 disable:
-	status_trace("Encountered an error while compacting, disabling "
+	status_debug("Encountered an error while compacting, disabling "
 		     "future compactions.");
 	gs->disable_compaction = true;
 	return false;
@@ -734,9 +734,9 @@ corrupt:
 	contents_ok = false;
 out:
 	gs->writable = true;
-	status_trace("total store load time: %"PRIu64" msec",
+	status_debug("total store load time: %"PRIu64" msec",
 		     time_to_msec(time_between(time_now(), start)));
-	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store (%zu deleted) in %"PRIu64" bytes",
+	status_debug("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store (%zu deleted) in %"PRIu64" bytes",
 		     stats[0], stats[1], stats[2], stats[3], gs->deleted,
 		     gs->len);
 

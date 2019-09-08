@@ -80,7 +80,7 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 		err(1, "lseek failure");
 	}
 
-	status_trace("dev_disconnect: %s%s", dev_disconnect_line,
+	status_debug("dev_disconnect: %s%s", dev_disconnect_line,
 		     dev_disconnect_nocommit ? "-nocommit" : "");
 	if (dev_disconnect_nocommit)
 		dev_suppress_commit = true;

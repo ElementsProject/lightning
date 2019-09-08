@@ -1355,7 +1355,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s",
 			      strerror(errno));
 
-	status_trace("new_client: %"PRIu64, dbid);
+	status_debug("new_client: %"PRIu64, dbid);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
 
 	/*~ We stash this in a global, because we need to get both the fd and

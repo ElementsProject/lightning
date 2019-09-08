@@ -63,7 +63,7 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 	 */
 	hkdf_two_keys(&new_ck, &new_k, ck, k);
 #ifdef SUPERVERBOSE
-	status_trace("# 0x%s, 0x%s = HKDF(0x%s, 0x%s)",
+	status_debug("# 0x%s, 0x%s = HKDF(0x%s, 0x%s)",
 		     tal_hexstr(trc, &new_ck, sizeof(new_ck)),
 		     tal_hexstr(trc, &new_k, sizeof(new_k)),
 		     tal_hexstr(trc, ck, sizeof(*ck)),
@@ -204,7 +204,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	assert(ret == 0);
 	assert(clen == sizeof(l) + 16);
 #ifdef SUPERVERBOSE
-	status_trace("# encrypt l: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
+	status_debug("# encrypt l: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
 		     tal_hexstr(trc, &l, sizeof(l)),
 		     tal_hexstr(trc, npub, sizeof(npub)),
 		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),
@@ -229,7 +229,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	assert(ret == 0);
 	assert(clen == mlen + 16);
 #ifdef SUPERVERBOSE
-	status_trace("# encrypt m: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
+	status_debug("# encrypt m: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
 		     tal_hexstr(trc, msg, mlen),
 		     tal_hexstr(trc, npub, sizeof(npub)),
 		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),

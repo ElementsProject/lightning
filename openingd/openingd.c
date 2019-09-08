@@ -435,7 +435,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		 * probably be best with another daemon to de-multiplex them;
 		 * this could be connectd itself, in fact. */
 		if (is_wrong_channel(msg, &state->channel_id, &actual)) {
-			status_trace("Rejecting %s for unknown channel_id %s",
+			status_debug("Rejecting %s for unknown channel_id %s",
 				     wire_type_name(fromwire_peektype(msg)),
 				     type_to_string(tmpctx, struct channel_id,
 						    &actual));
@@ -708,7 +708,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 
 	/* You can tell this has been a problem before, since there's a debug
 	 * message here: */
-	status_trace("signature %s on tx %s using key %s",
+	status_debug("signature %s on tx %s using key %s",
 		     type_to_string(tmpctx, struct bitcoin_signature, sig),
 		     type_to_string(tmpctx, struct bitcoin_tx, *tx),
 		     type_to_string(tmpctx, struct pubkey,
@@ -1746,7 +1746,7 @@ int main(int argc, char *argv[])
 	assert(none == NULL);
 
 	/*~ Turns out this is useful for testing, to make sure we're ready. */
-	status_trace("Handed peer, entering loop");
+	status_debug("Handed peer, entering loop");
 
 	/*~ We manually run a little poll() loop here.  With only three fds */
 	pollfd[0].fd = REQ_FD;
@@ -1790,7 +1790,7 @@ int main(int argc, char *argv[])
 	 * read yet, it will simply be read by the next daemon. */
 	wire_sync_write(REQ_FD, msg);
 	per_peer_state_fdpass_send(REQ_FD, state->pps);
-	status_trace("Sent %s with fds",
+	status_debug("Sent %s with fds",
 		     opening_wire_type_name(fromwire_peektype(msg)));
 
 	/* This frees the entire tal tree. */

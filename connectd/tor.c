@@ -47,7 +47,7 @@ static struct io_plan *connect_finish2(struct io_conn *conn,
 	status_io(LOG_IO_IN, "proxy",
 		  connect->buffer + SIZE_OF_RESPONSE + SIZE_OF_IPV4_RESPONSE,
 		  SIZE_OF_IPV6_RESPONSE - SIZE_OF_IPV4_RESPONSE);
-	status_trace("Now try LN connect out for host %s", connect->host);
+	status_debug("Now try LN connect out for host %s", connect->host);
 	return connection_out(conn, connect->connect);
 }
 
@@ -68,17 +68,17 @@ static struct io_plan *connect_finish(struct io_conn *conn,
 				       &connect_finish2, connect);
 
 		} else if ( connect->buffer[3] == SOCKS_TYP_IPV4) {
-			status_trace("Now try LN connect out for host %s",
+			status_debug("Now try LN connect out for host %s",
 				     connect->host);
 			return connection_out(conn, connect->connect);
 		} else {
-			status_trace
+			status_debug
 			    ("Tor connect out for host %s error invalid type return ",
 			     connect->host);
 			return io_close(conn);
 		}
 	} else {
-		status_trace("Tor connect out for host %s error: %x ",
+		status_debug("Tor connect out for host %s error: %x ",
 			     connect->host, connect->buffer[1]);
 		return io_close(conn);
 	}
@@ -103,7 +103,7 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 	status_io(LOG_IO_IN, "proxy", connect->buffer, 2);
 
 	if (connect->buffer[1] == SOCKS_ERROR) {
-		status_trace("Connected out for %s error", connect->host);
+		status_debug("Connected out for %s error", connect->host);
 		return io_close(conn);
 	}
 	/* make the V5 request */

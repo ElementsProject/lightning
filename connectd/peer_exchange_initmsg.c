@@ -51,7 +51,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		return read_init(conn, peer);
 
 	if (!fromwire_init(peer, msg, &globalfeatures, &localfeatures)) {
-		status_trace("peer %s bad fromwire_init '%s', closing",
+		status_debug("peer %s bad fromwire_init '%s', closing",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
 			     tal_hex(tmpctx, msg));
 		return io_close(conn);

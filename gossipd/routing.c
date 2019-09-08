@@ -411,7 +411,7 @@ static void init_half_chan(struct routing_state *rstate,
 static void bad_gossip_order(const u8 *msg, const char *source,
 			     const char *details)
 {
-	status_trace("Bad gossip order from %s: %s before announcement %s",
+	status_debug("Bad gossip order from %s: %s before announcement %s",
 		     source, wire_type_name(fromwire_peektype(msg)),
 		     details);
 }
@@ -1592,7 +1592,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 *   or not.
 	 */
 	if (!features_supported(features, NULL)) {
-		status_trace("Ignoring channel announcement, unsupported features %s.",
+		status_debug("Ignoring channel announcement, unsupported features %s.",
 			     tal_hex(pending, features));
 		goto ignored;
 	}
@@ -1605,7 +1605,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 */
 	if (!bitcoin_blkid_eq(&chain_hash,
 			      &rstate->chainparams->genesis_blockhash)) {
-		status_trace(
+		status_debug(
 		    "Received channel_announcement %s for unknown chain %s",
 		    type_to_string(pending, struct short_channel_id,
 				   &pending->short_channel_id),
@@ -1635,7 +1635,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		goto malformed;
 	}
 
-	status_trace("Received channel_announcement for channel %s",
+	status_debug("Received channel_announcement for channel %s",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &pending->short_channel_id));
 
@@ -1676,7 +1676,7 @@ static void process_pending_channel_update(struct routing_state *rstate,
 	/* FIXME: We don't remember who sent us updates, so can't error them */
 	err = handle_channel_update(rstate, cupdate, "pending update", NULL);
 	if (err) {
-		status_trace("Pending channel_update for %s: %s",
+		status_debug("Pending channel_update for %s: %s",
 			     type_to_string(tmpctx, struct short_channel_id, scid),
 			     sanitize_error(tmpctx, err, NULL));
 		tal_free(err);
@@ -1703,7 +1703,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	 *    - MUST ignore the message.
 	 */
 	if (tal_count(outscript) == 0) {
-		status_trace("channel_announcement: no unspent txout %s",
+		status_debug("channel_announcement: no unspent txout %s",
 			     type_to_string(pending, struct short_channel_id,
 					    scid));
 		tal_free(pending);
@@ -1726,7 +1726,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 						   &pending->bitcoin_key_2));
 
 	if (!scripteq(s, outscript)) {
-		status_trace("channel_announcement: txout %s expectes %s, got %s",
+		status_debug("channel_announcement: txout %s expectes %s, got %s",
 			     type_to_string(pending, struct short_channel_id,
 					    scid),
 			     tal_hex(tmpctx, s), tal_hex(tmpctx, outscript));
@@ -1760,7 +1760,7 @@ static void update_pending(struct pending_cannouncement *pending,
 
 	if (pending->update_timestamps[direction] < timestamp) {
 		if (pending->updates[direction]) {
-			status_trace("Replacing existing update");
+			status_debug("Replacing existing update");
 			tal_free(pending->updates[direction]);
 		}
 		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_count(update), 0);
@@ -2035,7 +2035,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	 */
 	if (!bitcoin_blkid_eq(&chain_hash,
 			      &rstate->chainparams->genesis_blockhash)) {
-		status_trace("Received channel_update for unknown chain %s",
+		status_debug("Received channel_update for unknown chain %s",
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
 		return NULL;
@@ -2050,7 +2050,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	/* If we have an unvalidated channel, just queue on that */
 	pending = find_pending_cannouncement(rstate, &short_channel_id);
 	if (pending) {
-		status_trace("Updated pending announce with update %s/%u",
+		status_debug("Updated pending announce with update %s/%u",
 			     type_to_string(tmpctx,
 					    struct short_channel_id,
 					    &short_channel_id),
@@ -2087,7 +2087,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return err;
 	}
 
-	status_trace("Received channel_update for channel %s/%d now %s (from %s)",
+	status_debug("Received channel_update for channel %s/%d now %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     channel_flags & 0x01,
@@ -2122,7 +2122,7 @@ struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 				/* Parsing address failed */
 				return tal_free(wireaddrs);
 			/* Unknown type, stop there. */
-			status_trace("read_addresses: unknown address type %u",
+			status_debug("read_addresses: unknown address type %u",
 				     cursor[0]);
 			break;
 		}
@@ -2158,7 +2158,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 	/* Only log this if *not* loading from store. */
 	if (!index)
-		status_trace("Received node_announcement for node %s",
+		status_debug("Received node_announcement for node %s",
 			     type_to_string(tmpctx, struct node_id, &node_id));
 
 	node = get_node(rstate, &node_id);
@@ -2263,7 +2263,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	 *    - SHOULD NOT connect to the node.
 	 */
 	if (!features_supported(features, NULL)) {
-		status_trace("Ignoring node announcement for node %s, unsupported features %s.",
+		status_debug("Ignoring node announcement for node %s, unsupported features %s.",
 			     type_to_string(tmpctx, struct node_id, &node_id),
 			     tal_hex(tmpctx, features));
 		return NULL;
@@ -2418,7 +2418,7 @@ void routing_failure(struct routing_state *rstate,
 {
 	struct chan **pruned = tal_arr(tmpctx, struct chan *, 0);
 
-	status_trace("Received routing failure 0x%04x (%s), "
+	status_debug("Received routing failure 0x%04x (%s), "
 		     "erring node %s, "
 		     "channel %s/%u",
 		     (int) failcode, onion_type_name(failcode),
@@ -2458,7 +2458,7 @@ void routing_failure(struct routing_state *rstate,
 			struct chan_map_iter i;
 			struct chan *c;
 
-			status_trace("Deleting node %s",
+			status_debug("Deleting node %s",
 				     type_to_string(tmpctx,
 						    struct node_id,
 						    &node->id));
@@ -2484,7 +2484,7 @@ void routing_failure(struct routing_state *rstate,
 					   erring_node_id))
 				return;
 
-			status_trace("Deleting channel %s",
+			status_debug("Deleting channel %s",
 				     type_to_string(tmpctx,
 						    struct short_channel_id,
 						    scid));
@@ -2519,7 +2519,7 @@ void route_prune(struct routing_state *rstate)
 		     || chan->half[0].bcast.timestamp < highwater)
 		    && (!is_halfchan_defined(&chan->half[1])
 			|| chan->half[1].bcast.timestamp < highwater)) {
-			status_trace(
+			status_debug(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(tmpctx, struct short_channel_id,
 					   &chan->scid),
@@ -2567,11 +2567,11 @@ bool handle_local_add_channel(struct routing_state *rstate,
 
 	/* Can happen on channeld restart. */
 	if (get_channel(rstate, &scid)) {
-		status_trace("Attempted to local_add_channel a known channel");
+		status_debug("Attempted to local_add_channel a known channel");
 		return true;
 	}
 
-	status_trace("local_add_channel %s",
+	status_debug("local_add_channel %s",
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */

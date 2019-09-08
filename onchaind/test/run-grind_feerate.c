@@ -2,8 +2,8 @@
 #include <ccan/time/time.h>
 #include <common/status.h>
 
-#undef status_trace
-#define status_trace(...)
+#undef status_debug
+#define status_debug(...)
 
 #define main unused_main
 int main(int argc, char *argv[]);
