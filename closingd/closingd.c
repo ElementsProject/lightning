@@ -57,7 +57,7 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 			    type_to_string(tmpctx, struct amount_sat,
 					   &out[REMOTE]));
 
-	status_trace("Making close tx at = %s/%s fee %s",
+	status_debug("Making close tx at = %s/%s fee %s",
 		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
 		     type_to_string(tmpctx, struct amount_sat, &out[REMOTE]),
 		     type_to_string(tmpctx, struct amount_sat, &fee));
@@ -202,7 +202,7 @@ static void do_reconnect(struct per_peer_state *pps,
 			    wire_type_name(fromwire_peektype(channel_reestablish)),
 			    tal_hex(tmpctx, channel_reestablish));
 	}
-	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
+	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
 		     next_local_commitment_number,
 		     next_remote_revocation_number);
 
@@ -283,7 +283,7 @@ static void send_offer(struct per_peer_state *pps,
 			      "Bad hsm_sign_mutual_close_tx reply %s",
 			      tal_hex(tmpctx, msg));
 
-	status_trace("sending fee offer %s",
+	status_debug("sending fee offer %s",
 		     type_to_string(tmpctx, struct amount_sat, &fee_to_offer));
 
 	assert(our_sig.sighash_type == SIGHASH_ALL);
@@ -420,12 +420,12 @@ receive_offer(struct per_peer_state *pps,
 		tx = trimmed;
 	}
 
-	status_trace("Received fee offer %s",
+	status_debug("Received fee offer %s",
 		     type_to_string(tmpctx, struct amount_sat, &received_fee));
 
 	/* Master sorts out what is best offer, we just tell it any above min */
 	if (amount_sat_greater_eq(received_fee, min_fee_to_accept)) {
-		status_trace("...offer is reasonable");
+		status_debug("...offer is reasonable");
 		tell_master_their_offer(&their_sig, tx, closing_txid);
 	}
 
@@ -456,7 +456,7 @@ static void init_feerange(struct feerange *feerange,
 	else
 		feerange->higher_side = REMOTE;
 
-	status_trace("Feerange init %s-%s, %s higher",
+	status_debug("Feerange init %s-%s, %s higher",
 		     type_to_string(tmpctx, struct amount_sat, &feerange->min),
 		     type_to_string(tmpctx, struct amount_sat, &feerange->max),
 		     feerange->higher_side == LOCAL ? "local" : "remote");
@@ -477,7 +477,7 @@ static void adjust_feerange(struct feerange *feerange,
 	else
 		ok = amount_sat_add(&feerange->min, offer, AMOUNT_SAT(1));
 
-	status_trace("Feerange %s update %s: now %s-%s",
+	status_debug("Feerange %s update %s: now %s-%s",
 		     side == LOCAL ? "local" : "remote",
 		     type_to_string(tmpctx, struct amount_sat, &offer),
 		     type_to_string(tmpctx, struct amount_sat, &feerange->min),
@@ -612,12 +612,12 @@ int main(int argc, char *argv[])
 	per_peer_state_set_fds(pps, 3, 4, 5);
 	chainparams = chainparams_by_chainhash(&chain_hash);
 
-	status_trace("out = %s/%s",
+	status_debug("out = %s/%s",
 		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
 		     type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
-	status_trace("dustlimit = %s",
+	status_debug("dustlimit = %s",
 		     type_to_string(tmpctx, struct amount_sat, &our_dust_limit));
-	status_trace("fee = %s",
+	status_debug("fee = %s",
 		     type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]));
 	derive_channel_id(&channel_id, &funding_txid, funding_txout);
 

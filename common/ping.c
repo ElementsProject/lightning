@@ -82,7 +82,7 @@ const char *got_pong(const u8 *pong, size_t *num_pings_outstanding)
 		if (ignored[i] < ' ' || ignored[i] == 127)
 			break;
 	}
-	status_trace("Got pong %zu bytes (%.*s...)",
+	status_debug("Got pong %zu bytes (%.*s...)",
 		     tal_count(ignored), i, (char *)ignored);
 
 	(*num_pings_outstanding)--;

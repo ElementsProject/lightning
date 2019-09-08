@@ -193,9 +193,9 @@ int main(void)
 	node_id_from_privkey(&tmp, &c);
 	new_node(rstate, &c);
 
-	status_trace("A = %s", type_to_string(tmpctx, struct node_id, &a));
-	status_trace("B = %s", type_to_string(tmpctx, struct node_id, &b));
-	status_trace("C = %s", type_to_string(tmpctx, struct node_id, &c));
+	status_debug("A = %s", type_to_string(tmpctx, struct node_id, &a));
+	status_debug("B = %s", type_to_string(tmpctx, struct node_id, &b));
+	status_debug("C = %s", type_to_string(tmpctx, struct node_id, &c));
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
 	route = find_route(tmpctx, rstate, &a, &c, AMOUNT_MSAT(1000), riskfactor, 0.0, NULL,
@@ -208,7 +208,7 @@ int main(void)
 	memset(&tmp, 'd', sizeof(tmp));
 	node_id_from_privkey(&tmp, &d);
 	new_node(rstate, &d);
-	status_trace("D = %s", type_to_string(tmpctx, struct node_id, &d));
+	status_debug("D = %s", type_to_string(tmpctx, struct node_id, &d));
 
 	add_connection(rstate, &a, &d, 0, 2, 1);
 	add_connection(rstate, &d, &c, 0, 2, 1);

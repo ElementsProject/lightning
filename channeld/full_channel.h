@@ -254,7 +254,7 @@ bool channel_force_htlcs(struct channel *channel,
  * @channel: the channel
  * @prefix: the prefix to prepend to each line.
  *
- * Uses status_trace() on every HTLC.
+ * Uses status_debug() on every HTLC.
  */
 void dump_htlcs(const struct channel *channel, const char *prefix);
 

@@ -204,20 +204,20 @@ static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
 {
     int fd = socket(af, SOCK_DGRAM, 0);
     if (fd < 0) {
-        status_trace("Failed to create %u socket: %s",
+        status_debug("Failed to create %u socket: %s",
 		     af, strerror(errno));
         return false;
     }
 
     if (connect(fd, saddr, saddrlen) != 0) {
-        status_trace("Failed to connect %u socket: %s",
+        status_debug("Failed to connect %u socket: %s",
 		     af, strerror(errno));
         close(fd);
         return false;
     }
 
     if (getsockname(fd, saddr, &saddrlen) != 0) {
-        status_trace("Failed to get %u socket name: %s",
+        status_debug("Failed to get %u socket name: %s",
 		     af, strerror(errno));
         close(fd);
         return false;
