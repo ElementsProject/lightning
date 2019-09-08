@@ -2315,6 +2315,8 @@ static void peer_reconnect(struct peer *peer,
 	    && next_commitment_number == 1) {
 		u8 *msg;
 
+		status_debug("Retransmitting funding_locked for channel %s",
+		             type_to_string(tmpctx, struct channel_id, &peer->channel_id));
 		/* Contains per commit point #1, for first post-opening commit */
 		msg = towire_funding_locked(NULL,
 					    &peer->channel_id,
