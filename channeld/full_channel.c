@@ -667,7 +667,7 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	 *    - MUST fail the channel.
 	 */
 	if (!htlc_has(htlc, HTLC_FLAG(!htlc_owner(htlc), HTLC_F_COMMITTED))) {
-		status_trace("channel_fulfill_htlc: %"PRIu64" in state %s",
+		status_unusual("channel_fulfill_htlc: %"PRIu64" in state %s",
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_UNCOMMITTED;
 	}
@@ -688,7 +688,7 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	else if (htlc->state == RCVD_ADD_ACK_REVOCATION)
 		htlc->state = SENT_REMOVE_HTLC;
 	else {
-		status_trace("channel_fulfill_htlc: %"PRIu64" in state %s",
+		status_unusual("channel_fulfill_htlc: %"PRIu64" in state %s",
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
@@ -721,7 +721,7 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 	 *     - MUST fail the channel.
 	 */
 	if (!htlc_has(htlc, HTLC_FLAG(!htlc_owner(htlc), HTLC_F_COMMITTED))) {
-		status_trace("channel_fail_htlc: %"PRIu64" in state %s",
+		status_unusual("channel_fail_htlc: %"PRIu64" in state %s",
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_UNCOMMITTED;
 	}
@@ -733,7 +733,7 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 	else if (htlc->state == RCVD_ADD_ACK_REVOCATION)
 		htlc->state = SENT_REMOVE_HTLC;
 	else {
-		status_trace("channel_fail_htlc: %"PRIu64" in state %s",
+		status_unusual("channel_fail_htlc: %"PRIu64" in state %s",
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
