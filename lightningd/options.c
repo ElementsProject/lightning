@@ -638,7 +638,8 @@ static void config_log_stderr_exit(const char *fmt, ...)
 
 /**
  * We turn the config file into cmdline arguments. @early tells us
- * whether to parse early options only, or the non-early options.
+ * whether to parse early options only (and ignore any unknown ones),
+ * or the non-early options.
  */
 static void opt_parse_from_config(struct lightningd *ld, bool early)
 {
@@ -661,8 +662,6 @@ static void opt_parse_from_config(struct lightningd *ld, bool early)
 		if ((errno != ENOENT) || (ld->config_filename != NULL))
 			fatal("Opening and reading %s: %s",
 			      filename, strerror(errno));
-		/* Now we can set up defaults, since no config file. */
-		setup_default_config(ld);
 		return;
 	}
 
@@ -698,12 +697,7 @@ static void opt_parse_from_config(struct lightningd *ld, bool early)
 						config_log_stderr_exit);
 			}
 		}
-
-		/* Now we can set up defaults, depending on whether testnet or
-		 * not */
-		setup_default_config(ld);
 	} else {
-
 		for (i = 0; i < tal_count(all_args); i++) {
 			if (all_args[i] != NULL) {
 				config_parse_line_number = i + 1;
@@ -788,6 +782,7 @@ static char *opt_ignore_talstr(const char *arg, char **p)
 static char *opt_set_conf(const char *arg, struct lightningd *ld)
 {
 	/* This is a pass-through if arg is absolute */
+	tal_free(ld->config_filename);
 	ld->config_filename = path_join(ld, path_cwd(tmpctx), arg);
 	return NULL;
 }
@@ -797,15 +792,18 @@ static char *opt_set_conf(const char *arg, struct lightningd *ld)
 static void handle_minimal_config_opts(struct lightningd *ld,
 				       int argc, char *argv[])
 {
+	/* First, they could specify a config, which specifies a lightning dir */
 	opt_register_early_arg("--conf=<file>", opt_set_conf, NULL,
 			       ld,
-			       "Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
+			       "Specify configuration file (default: <lightning-dir>/config)");
 
-	ld->config_dir = default_configdir(ld);
+	ld->config_dir = NULL;
 	opt_register_early_arg("--lightning-dir=<dir>",
-			       opt_set_talstr, opt_show_charp,
+			       opt_set_talstr, NULL,
 			       &ld->config_dir,
 			       "Set working directory. All other files are relative to this");
+
+	/* List features immediately, before doing anything interesting */
 	opt_register_early_noarg("--list-features-only",
 				 list_features_and_exit,
 				 ld, opt_hidden);
@@ -815,13 +813,21 @@ static void handle_minimal_config_opts(struct lightningd *ld,
 
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
+	/* Corner case: if they specified a config filename, and didn't set
+	 * set lightning-dir, read config file to get it! */
+	if (ld->config_filename && !ld->config_dir)
+		opt_parse_from_config(ld, true);
+
+	if (!ld->config_dir)
+		ld->config_dir = default_configdir(ld);
+
 	/* Now, reset and ignore those options from now on. */
 	opt_free_table();
 	opt_table_alloced = false;
 
 	opt_register_early_arg("--conf=<file>", opt_ignore_talstr, NULL,
 			       &ld->config_filename,
-			       "Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
+			       "Specify configuration file (default: <lightning-dir>/config)");
 	opt_register_early_arg("--lightning-dir=<dir>",
 			       opt_ignore_talstr, opt_show_charp,
 			       &ld->config_dir,
@@ -1070,16 +1076,15 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	 *  mimic this API here, even though they're on separate lines.*/
 	register_opts(ld);
 
-	/* Load defaults. The actual values loaded here will be overwritten
-	 * later by opt_parse_from_config. */
-	setup_default_config(ld);
-
 	/* Now look inside config file, but only handle the early
 	 * options (testnet, plugins etc), others may be added on-demand */
 	opt_parse_from_config(ld, true);
 
 	/* Early cmdline options now override config file options. */
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
+
+	/* Now we know what network we're on, initialize defaults. */
+	setup_default_config(ld);
 }
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])
