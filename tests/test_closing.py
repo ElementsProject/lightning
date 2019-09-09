@@ -362,32 +362,32 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
 
 def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
     rate = 29006  # closing fee negotiation starts at 21000
-    funder = node_factory.get_node(feerates=(rate, rate, rate, rate))
+    opener = node_factory.get_node(feerates=(rate, rate, rate, rate))
 
     rate = 27625  # closing fee negotiation starts at 20000
-    fundee = node_factory.get_node(feerates=(rate, rate, rate, rate))
+    peer = node_factory.get_node(feerates=(rate, rate, rate, rate))
 
-    funder_id = funder.info['id']
-    fundee_id = fundee.info['id']
+    opener_id = opener.info['id']
+    peer_id = peer.info['id']
 
     fund_amount = 10**6
 
-    funder.rpc.connect(fundee_id, 'localhost', fundee.port)
-    funder.fund_channel(fundee, fund_amount)
+    opener.rpc.connect(peer_id, 'localhost', peer.port)
+    opener.fund_channel(peer, fund_amount)
 
     assert bitcoind.rpc.getmempoolinfo()['size'] == 0
 
-    if opts['close_initiated_by'] == 'funder':
-        funder.rpc.close(peer_id=fundee_id, fee_negotiation_step=opts['fee_negotiation_step'])
+    if opts['close_initiated_by'] == 'opener':
+        opener.rpc.close(peer_id=peer_id, fee_negotiation_step=opts['fee_negotiation_step'])
     else:
-        assert opts['close_initiated_by'] == 'fundee'
-        fundee.rpc.close(peer_id=funder_id, fee_negotiation_step=opts['fee_negotiation_step'])
+        assert opts['close_initiated_by'] == 'peer'
+        peer.rpc.close(peer_id=opener_id, fee_negotiation_step=opts['fee_negotiation_step'])
 
     # Get the proclaimed closing fee from the two nodes' statuses
 
     status_agreed_regex = re.compile("agreed on a closing fee of ([0-9]+) satoshi")
 
-    # [fee_from_funder_status, fee_from_fundee_status]
+    # [fee_from_opener_status, fee_from_peer_status]
     fees_from_status = [None, None]
 
     def get_fee_from_status(node, peer_id, i):
@@ -399,8 +399,8 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
         fees_from_status[i] = int(m.group(1))
         return True
 
-    wait_for(lambda: get_fee_from_status(funder, fundee_id, 0))
-    wait_for(lambda: get_fee_from_status(fundee, funder_id, 1))
+    wait_for(lambda: get_fee_from_status(opener, peer_id, 0))
+    wait_for(lambda: get_fee_from_status(peer, opener_id, 1))
 
     assert opts['expected_close_fee'] == fees_from_status[0]
     assert opts['expected_close_fee'] == fees_from_status[1]
@@ -429,11 +429,11 @@ def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
     opts = {}
     opts['fee_negotiation_step'] = '30%'
 
-    opts['close_initiated_by'] = 'funder'
+    opts['close_initiated_by'] = 'opener'
     opts['expected_close_fee'] = 20537 if not chainparams['elements'] else 33870
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
-    opts['close_initiated_by'] = 'fundee'
+    opts['close_initiated_by'] = 'peer'
     opts['expected_close_fee'] = 20233 if not chainparams['elements'] else 33366
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
@@ -443,11 +443,11 @@ def test_closing_negotiation_step_50pct(node_factory, bitcoind, chainparams):
     opts = {}
     opts['fee_negotiation_step'] = '50%'
 
-    opts['close_initiated_by'] = 'funder'
+    opts['close_initiated_by'] = 'opener'
     opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 33533
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
-    opts['close_initiated_by'] = 'fundee'
+    opts['close_initiated_by'] = 'peer'
     opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 33533
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
@@ -457,16 +457,16 @@ def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     opts = {}
     opts['fee_negotiation_step'] = '100%'
 
-    opts['close_initiated_by'] = 'funder'
+    opts['close_initiated_by'] = 'opener'
     opts['expected_close_fee'] = 20001 if not chainparams['elements'] else 32985
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     # The close fee of 20499 looks strange in this case - one would expect
     # to have a number close to 21000. This is because
-    # * the range is initially set to [20000 (fundee), 21000 (funder)]
-    # * the funder is always first to propose, he uses 50% step, so he proposes 20500
-    # * the range is narrowed to [20001, 20499] and the fundee proposes 20499
-    opts['close_initiated_by'] = 'fundee'
+    # * the range is initially set to [20000 (peer), 21000 (opener)]
+    # * the opener is always first to propose, he uses 50% step, so he proposes 20500
+    # * the range is narrowed to [20001, 20499] and the peer proposes 20499
+    opts['close_initiated_by'] = 'peer'
     opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 33808
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
@@ -476,11 +476,11 @@ def test_closing_negotiation_step_1sat(node_factory, bitcoind, chainparams):
     opts = {}
     opts['fee_negotiation_step'] = '1'
 
-    opts['close_initiated_by'] = 'funder'
+    opts['close_initiated_by'] = 'opener'
     opts['expected_close_fee'] = 20989 if not chainparams['elements'] else 34621
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
-    opts['close_initiated_by'] = 'fundee'
+    opts['close_initiated_by'] = 'peer'
     opts['expected_close_fee'] = 20010 if not chainparams['elements'] else 32995
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
@@ -490,11 +490,11 @@ def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     opts = {}
     opts['fee_negotiation_step'] = '700'
 
-    opts['close_initiated_by'] = 'funder'
+    opts['close_initiated_by'] = 'opener'
     opts['expected_close_fee'] = 20151 if not chainparams['elements'] else 33459
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
-    opts['close_initiated_by'] = 'fundee'
+    opts['close_initiated_by'] = 'peer'
     opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 33746
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
@@ -686,7 +686,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_onchain_first_commit(node_factory, bitcoind):
-    """Onchain handling where funder immediately drops to chain"""
+    """Onchain handling where opener immediately drops to chain"""
 
     # HTLC 1->2, 1 fails just after funding.
     disconnects = ['+WIRE_FUNDING_LOCKED', 'permfail']

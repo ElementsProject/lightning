@@ -424,7 +424,7 @@ void channel_errmsg(struct channel *channel,
 
 	/* We should immediately forget the channel if we receive error during
 	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
-	if (!err_for_them && channel->funder == REMOTE
+	if (!err_for_them && channel->opener == REMOTE
 	    && channel->state == CHANNELD_AWAITING_LOCKIN)
 		channel_fail_forget(channel, "%s: %s ERROR %s",
 				    channel->owner->name,
@@ -453,7 +453,7 @@ static void json_add_htlcs(struct lightningd *ld,
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
 	u32 local_feerate = get_feerate(channel->channel_info.fee_states,
-					channel->funder, LOCAL);
+					channel->opener, LOCAL);
 
 	/* FIXME: Add more fields. */
 	json_array_start(response, "htlcs");
@@ -526,7 +526,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	size_t num_untrimmed_htlcs = 0;
 	u32 feerate = get_feerate(channel->channel_info.fee_states,
-				  channel->funder, side);
+				  channel->opener, side);
 	struct amount_sat dust_limit;
 	if (side == LOCAL)
 		dust_limit = channel->our_config.dust_limit;
@@ -656,7 +656,7 @@ static void json_add_channel(struct lightningd *ld,
 	// FIXME @conscott : Modify this when dual-funded channels
 	// are implemented
 	json_object_start(response, "funding_allocation_msat");
-	if (channel->funder == LOCAL) {
+	if (channel->opener == LOCAL) {
 		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id), 0);
 		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
 			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
@@ -668,7 +668,7 @@ static void json_add_channel(struct lightningd *ld,
 	json_object_end(response);
 
 	json_object_start(response, "funding_msat");
-	if (channel->funder == LOCAL) {
+	if (channel->opener == LOCAL) {
 		json_add_sat_only(response,
 				  node_id_to_hexstr(tmpctx, &p->id),
 				  AMOUNT_SAT(0));
@@ -735,8 +735,8 @@ static void json_add_channel(struct lightningd *ld,
 	/* Take away any currently-offered HTLCs. */
 	subtract_offered_htlcs(channel, &spendable);
 
-	/* If we're funder, subtract txfees we'll need to spend this */
-	if (channel->funder == LOCAL) {
+	/* If we're opener, subtract txfees we'll need to spend this */
+	if (channel->opener == LOCAL) {
 		if (!amount_msat_sub_sat(&spendable, spendable,
 					 commit_txfee(channel, spendable,
 						      LOCAL)))
@@ -767,8 +767,8 @@ static void json_add_channel(struct lightningd *ld,
 	/* Take away any currently-offered HTLCs. */
 	subtract_received_htlcs(channel, &receivable);
 
-	/* If they're funder, subtract txfees they'll need to spend this */
-	if (channel->funder == REMOTE) {
+	/* If they're opener, subtract txfees they'll need to spend this */
+	if (channel->opener == REMOTE) {
 		if (!amount_msat_sub_sat(&receivable, receivable,
 					 commit_txfee(channel,
 						      receivable, REMOTE)))

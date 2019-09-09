@@ -145,7 +145,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
 			    enum channel_state state,
-			    enum side funder,
+			    enum side opener,
 			    /* NULL or stolen */
 			    struct log *log,
 			    const char *transient_billboard TAKES,
@@ -204,7 +204,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		shachain_init(&channel->their_shachain.chain);
 	}
 	channel->state = state;
-	channel->funder = funder;
+	channel->opener = opener;
 	channel->owner = NULL;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_strdup(channel, transient_billboard);
@@ -427,7 +427,7 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 	char *why;
 	struct channel_id cid;
 
-	assert(channel->funder == REMOTE &&
+	assert(channel->opener == REMOTE &&
 	       channel->state == CHANNELD_AWAITING_LOCKIN);
 	va_start(ap, fmt);
 	why = tal_vfmt(tmpctx, fmt, ap);

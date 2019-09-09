@@ -1039,8 +1039,8 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK(pubkey_eq(&ci1->remote_per_commit, &ci2->remote_per_commit));
 	CHECK(pubkey_eq(&ci1->old_remote_per_commit, &ci2->old_remote_per_commit));
 	CHECK(ci1->their_config.id != 0 && ci1->their_config.id == ci2->their_config.id);
-	CHECK(fee_states_valid(ci1->fee_states, c1->funder));
-	CHECK(fee_states_valid(ci2->fee_states, c2->funder));
+	CHECK(fee_states_valid(ci1->fee_states, c1->opener));
+	CHECK(fee_states_valid(ci2->fee_states, c2->opener));
 	for (enum htlc_state i = 0; i < ARRAY_SIZE(ci1->fee_states->feerate);
 	     i++) {
 		if (ci1->fee_states->feerate[i] == NULL) {
@@ -1125,7 +1125,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	node_id_from_pubkey(&id, &pk);
 	feerate = 31337;
-	ci->fee_states = new_fee_states(w, c1.funder, &feerate);
+	ci->fee_states = new_fee_states(w, c1.opener, &feerate);
 	mempat(scriptpubkey, tal_count(scriptpubkey));
 	c1.first_blocknum = 1;
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,

@@ -817,7 +817,7 @@ fail:
 
 static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
 							 const u64 id,
-							 enum side funder)
+							 enum side opener)
 {
 	struct fee_states *fee_states;
 	struct db_stmt *stmt;
@@ -827,7 +827,7 @@ static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
 	db_query_prepared(stmt);
 
 	/* Start with blank slate. */
-	fee_states = new_fee_states(w, funder, NULL);
+	fee_states = new_fee_states(w, opener, NULL);
 	while (db_step(stmt)) {
 		enum htlc_state hstate = db_column_int(stmt, 0);
 		u32 feerate = db_column_int(stmt, 1);
@@ -843,7 +843,7 @@ static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
 	}
 	tal_free(stmt);
 
-	if (fee_states && !fee_states_valid(fee_states, funder)) {
+	if (fee_states && !fee_states_valid(fee_states, opener)) {
 		log_broken(w->log,
 			   "invalid channel_feerates for id %"PRIu64, id);
 		fee_states = tal_free(fee_states);
@@ -1359,7 +1359,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	else
 		db_bind_null(stmt, 1);
 	db_bind_int(stmt, 2, chan->state);
-	db_bind_int(stmt, 3, chan->funder);
+	db_bind_int(stmt, 3, chan->opener);
 	db_bind_int(stmt, 4, chan->channel_flags);
 	db_bind_int(stmt, 5, chan->minimum_depth);
 

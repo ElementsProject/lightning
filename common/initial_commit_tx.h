@@ -76,7 +76,7 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
  * initial_commit_tx: create (unsigned) commitment tx to spend the funding tx output
  * @ctx: context to allocate transaction and @htlc_map from.
  * @funding_txid, @funding_out, @funding: funding outpoint.
- * @funder: is the LOCAL or REMOTE paying the fee?
+ * @opener: is the LOCAL or REMOTE paying the fee?
  * @keyset: keys derived for this commit tx.
  * @feerate_per_kw: feerate to use
  * @dust_limit: dust limit below which to trim outputs.
@@ -95,7 +95,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     struct amount_sat funding,
-				     enum side funder,
+				     enum side opener,
 				     u16 to_self_delay,
 				     const struct keyset *keyset,
 				     u32 feerate_per_kw,
@@ -107,8 +107,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     enum side side,
 				     char** err_reason);
 
-/* try_subtract_fee - take away this fee from the funder (and return true), or all if insufficient (and return false). */
-bool try_subtract_fee(enum side funder, enum side side,
+/* try_subtract_fee - take away this fee from the opener (and return true), or all if insufficient (and return false). */
+bool try_subtract_fee(enum side opener, enum side side,
 		      struct amount_sat base_fee,
 		      struct amount_msat *self,
 		      struct amount_msat *other);

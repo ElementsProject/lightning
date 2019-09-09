@@ -133,7 +133,7 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
-		enum side funder UNNEEDED,
+		enum side opener UNNEEDED,
 		enum side side UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
 /* Generated stub for htlc_is_trimmed */

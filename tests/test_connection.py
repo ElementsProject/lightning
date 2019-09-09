@@ -161,11 +161,11 @@ def test_opening_tiny_channel(node_factory):
     dustlimit = 546
     reserves = 2 * dustlimit
     min_commit_tx_fees = 5430
-    min_for_funder = min_commit_tx_fees + dustlimit + 1
+    min_for_opener = min_commit_tx_fees + dustlimit + 1
 
     l1_min_capacity = 1000            # 1k old default, too small but used at l1 to allow small incoming channels
     l2_min_capacity = reserves        # just enough to get past capacity filter
-    l3_min_capacity = min_for_funder  # the absolute technical minimum
+    l3_min_capacity = min_for_opener  # the absolute technical minimum
     l4_min_capacity = 10000           # the current default
     l5_min_capacity = 20000           # a server with more than default minimum
 
@@ -184,7 +184,7 @@ def test_opening_tiny_channel(node_factory):
     with pytest.raises(RpcError, match=r'channel_reserve_satoshis .*sat and .*sat too large for funding .*sat'):
         l1.fund_channel(l2, l2_min_capacity - 1)
     # Open a channel with exactly the minimal amount for the fundee,
-    # This will raise an exception at l1, as the funder cannot afford fees for initial_commit_tx.
+    # This will raise an exception at l1, as the opener cannot afford fees for initial_commit_tx.
     # Note: The old default of 1k sat is below the technical minimum when accounting for dust reserves and fees
     # This is why this must fail, for this reason the default will be raised to 10k sat.
     with pytest.raises(RpcError, match=r'Funder cannot afford fee on initial commitment transaction'):
@@ -247,8 +247,8 @@ def test_disconnect(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_disconnect_funder(node_factory):
-    # Now error on funder side duringchannel open.
+def test_disconnect_opener(node_factory):
+    # Now error on opener side during channel open.
     disconnects = ['-WIRE_OPEN_CHANNEL',
                    '@WIRE_OPEN_CHANNEL',
                    '+WIRE_OPEN_CHANNEL',
@@ -303,7 +303,7 @@ def test_disconnect_fundee(node_factory):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_disconnect_half_signed(node_factory):
     # Now, these are the corner cases.  Fundee sends funding_signed,
-    # but funder doesn't receive it.
+    # but opener doesn't receive it.
     disconnects = ['@WIRE_FUNDING_SIGNED']
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
@@ -314,7 +314,7 @@ def test_disconnect_half_signed(node_factory):
     with pytest.raises(RpcError):
         l1.rpc.fundchannel(l2.info['id'], 20000)
 
-    # Fundee remembers, funder doesn't.
+    # Peer remembers, opener doesn't.
     assert l1.rpc.getpeer(l2.info['id']) is None
     assert l2.rpc.getpeer(l1.info['id'])['id'] == l1.info['id']
 
@@ -348,7 +348,7 @@ def test_reconnect_signed(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_reconnect_openingd(node_factory):
-    # Openingd thinks we're still opening; funder reconnects..
+    # Openingd thinks we're still opening; opener reconnects..
     disconnects = ['0WIRE_ACCEPT_CHANNEL']
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
@@ -1649,13 +1649,13 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     # could time out before lightningd processes all the
     # blocks.
     blocks = 200
-    # funder
+    # opener
     l1 = node_factory.get_node()
-    # fundee
+    # peer
     l2 = node_factory.get_node(options={"dev-max-funding-unconfirmed-blocks": blocks})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    # Give funder some funds.
+    # Give opener some funds.
     l1.fundwallet(10**7)
     # Let blocks settle.
     time.sleep(1)
@@ -1663,11 +1663,11 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     def mock_sendrawtransaction(r):
         return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
 
-    # Prevent funder from broadcasting funding tx (any tx really).
+    # Prevent opener from broadcasting funding tx (any tx really).
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
 
     # Fund the channel.
-    # The process will complete, but funder will be unable
+    # The process will complete, but opener will be unable
     # to broadcast and confirm funding tx.
     with pytest.raises(RpcError, match=r'sendrawtransaction disabled'):
         l1.rpc.fundchannel(l2.info['id'], 10**6)
@@ -1764,7 +1764,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
-def test_funder_feerate_reconnect(node_factory, bitcoind):
+def test_opener_feerate_reconnect(node_factory, bitcoind):
     # l1 updates fees, then reconnect so l2 retransmits commitment_signed.
     disconnects = ['-WIRE_COMMITMENT_SIGNED*3']
     l1 = node_factory.get_node(may_reconnect=True,
@@ -1788,7 +1788,7 @@ def test_funder_feerate_reconnect(node_factory, bitcoind):
     l1.pay(l2, 200000000)
 
 
-def test_funder_simple_reconnect(node_factory, bitcoind):
+def test_opener_simple_reconnect(node_factory, bitcoind):
     """Sanity check that reconnection works with completely unused channels"""
     # Set fees even so it doesn't send any commitments.
     l1 = node_factory.get_node(may_reconnect=True,
@@ -2127,7 +2127,7 @@ def test_change_chaining(node_factory, bitcoind):
 def test_feerate_spam(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
 
-    # We constrain the value the funder has at its disposal so we get the
+    # We constrain the value the opener has at its disposal so we get the
     # REMOTE feerate we are looking for below. This may be fragile and depends
     # on the transactions we generate.
     slack = 45000000 if not chainparams['elements'] else 68000000

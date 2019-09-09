@@ -669,10 +669,10 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	 *  - if the sender is not responsible for paying the Bitcoin fee:
 	 *    - MUST fail the channel.
 	 */
-	if (peer->channel->funder != REMOTE)
+	if (peer->channel->opener != REMOTE)
 		peer_failed(peer->pps,
 			    &peer->channel_id,
-			    "update_fee from non-funder?");
+			    "update_fee from non-opener?");
 
 	status_debug("update_fee %u, range %u-%u",
 		     feerate, peer->feerate_min, peer->feerate_max);
@@ -975,7 +975,7 @@ static void send_commit(struct peer *peer)
 	}
 
 	/* If we wanted to update fees, do it now. */
-	if (peer->channel->funder == LOCAL) {
+	if (peer->channel->opener == LOCAL) {
 		u32 feerate, max = approx_max_feerate(peer->channel);
 
 		feerate = peer->desired_feerate;
@@ -1240,11 +1240,11 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	}
 
 	/* We were supposed to check this was affordable as we go. */
-	if (peer->channel->funder == REMOTE) {
+	if (peer->channel->opener == REMOTE) {
 		status_debug("Feerates are %u/%u",
 			     channel_feerate(peer->channel, LOCAL),
 			     channel_feerate(peer->channel, REMOTE));
-		assert(can_funder_afford_feerate(peer->channel,
+		assert(can_opener_afford_feerate(peer->channel,
 						 channel_feerate(peer->channel,
 								 LOCAL)));
 	}
@@ -1432,7 +1432,7 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	peer->old_remote_per_commit = peer->remote_per_commit;
 	peer->remote_per_commit = next_per_commit;
 	status_debug("revoke_and_ack %s: remote_per_commit = %s, old_remote_per_commit = %s",
-		     side_to_str(peer->channel->funder),
+		     side_to_str(peer->channel->opener),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit),
 		     type_to_string(tmpctx, struct pubkey,
@@ -2107,7 +2107,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	}
 
 	/* Make sure they have the correct fee. */
-	if (peer->channel->funder == LOCAL) {
+	if (peer->channel->opener == LOCAL) {
 		msg = towire_update_fee(NULL, &peer->channel_id,
 					channel_feerate(peer->channel, REMOTE));
 		sync_crypto_write(peer->pps, take(msg));
@@ -2812,7 +2812,7 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 	 *    sufficient (by a significant margin) for timely processing of the
 	 *     commitment transaction.
 	 */
-	if (peer->channel->funder == LOCAL) {
+	if (peer->channel->opener == LOCAL) {
 		peer->desired_feerate = feerate;
 		/* Don't do this for the first feerate, wait until something else
 		 * happens.  LND seems to get upset in some cases otherwise:
@@ -3067,7 +3067,7 @@ static void init_channel(struct peer *peer)
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct channel_config conf[NUM_SIDES];
 	struct bitcoin_txid funding_txid;
-	enum side funder;
+	enum side opener;
 	struct existing_htlc **htlcs;
 	bool reconnected;
 	u8 *funding_signed;
@@ -3102,7 +3102,7 @@ static void init_channel(struct peer *peer)
 				   &points[REMOTE],
 				   &peer->remote_per_commit,
 				   &peer->old_remote_per_commit,
-				   &funder,
+				   &opener,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,
 				   &local_msat,
@@ -3148,7 +3148,7 @@ static void init_channel(struct peer *peer)
 		     " next_idx_remote = %"PRIu64
 		     " revocations_received = %"PRIu64
 		     " feerates %s range %u-%u",
-		     side_to_str(funder),
+		     side_to_str(opener),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit),
 		     type_to_string(tmpctx, struct pubkey,
@@ -3197,7 +3197,7 @@ static void init_channel(struct peer *peer)
 					 &funding_pubkey[LOCAL],
 					 &funding_pubkey[REMOTE],
 					 option_static_remotekey,
-					 funder);
+					 opener);
 
 	if (!channel_force_htlcs(peer->channel,
 			 cast_const2(const struct existing_htlc **, htlcs)))
@@ -3211,7 +3211,7 @@ static void init_channel(struct peer *peer)
 					      &peer->node_ids[REMOTE]);
 
 	/* Default desired feerate is the feerate we set for them last. */
-	if (peer->channel->funder == LOCAL)
+	if (peer->channel->opener == LOCAL)
 		peer->desired_feerate = channel_feerate(peer->channel, REMOTE);
 
 	/* from now we need keep watch over WIRE_CHANNEL_FUNDING_DEPTH */

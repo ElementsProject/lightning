@@ -938,7 +938,7 @@ int main(void)
 		tx = newtx;
 	} while (tx->wtx->num_outputs > 1);
 
-	/* Now make sure we cover case where funder can't afford the fee;
+	/* Now make sure we cover case where opener can't afford the fee;
 	 * its output cannot go negative! */
 	for (;;) {
 		struct amount_sat base_fee
@@ -959,7 +959,7 @@ int main(void)
 		assert(feerate_per_kw == 9651936);
 
 		printf("\n"
-		       "name: commitment tx with fee greater than funder amount\n"
+		       "name: commitment tx with fee greater than opener amount\n"
 		       "to_local_msat: %"PRIu64"\n"
 		       "to_remote_msat: %"PRIu64"\n"
 		       "local_feerate_per_kw: %u\n",
