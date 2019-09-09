@@ -18,12 +18,6 @@ struct ripemd160;
 struct bitcoin_tx;
 struct bitcoin_block;
 
-enum bitcoind_mode {
-	BITCOIND_MAINNET = 1,
-	BITCOIND_TESTNET,
-	BITCOIND_REGTEST
-};
-
 enum bitcoind_prio {
 	BITCOIND_LOW_PRIO,
 	BITCOIND_HIGH_PRIO
