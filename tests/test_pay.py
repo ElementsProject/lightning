@@ -1566,22 +1566,22 @@ def test_pay_variants(node_factory):
 def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     """Make sure pay command retries properly. """
 
-    def exhaust_channel(funder, fundee, scid, already_spent=0):
+    def exhaust_channel(opener, peer, scid, already_spent=0):
         """Spend all available capacity (10^6 - 1%) of channel
         """
-        peer = funder.rpc.listpeers(fundee.info['id'])['peers'][0]
-        chan = peer['channels'][0]
+        peer_node = opener.rpc.listpeers(peer.info['id'])['peers'][0]
+        chan = peer_node['channels'][0]
         maxpay = chan['spendable_msatoshi']
         lbl = ''.join(random.choice(string.ascii_letters) for _ in range(20))
-        inv = fundee.rpc.invoice(maxpay, lbl, "exhaust_channel")
+        inv = peer.rpc.invoice(maxpay, lbl, "exhaust_channel")
         routestep = {
             'msatoshi': maxpay,
-            'id': fundee.info['id'],
+            'id': peer.info['id'],
             'delay': 10,
             'channel': scid
         }
-        funder.rpc.sendpay([routestep], inv['payment_hash'])
-        funder.rpc.waitsendpay(inv['payment_hash'])
+        opener.rpc.sendpay([routestep], inv['payment_hash'])
+        opener.rpc.waitsendpay(inv['payment_hash'])
 
     # We connect every node to l5; in a line and individually.
     # Keep fixed fees so we can easily calculate exhaustion
@@ -2344,7 +2344,7 @@ def test_channel_spendable_receivable_capped(node_factory, bitcoind):
 
 
 def test_lockup_drain(node_factory, bitcoind):
-    """Try to get channel into a state where funder can't afford fees on additional HTLC, so fundee can't add HTLC"""
+    """Try to get channel into a state where opener can't afford fees on additional HTLC, so peer can't add HTLC"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
 
     # l1 sends all the money to l2 until even 1 msat can't get through.

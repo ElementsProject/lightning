@@ -217,7 +217,7 @@ void peer_start_closingd(struct channel *channel,
 	 *    [BOLT #3](03-transactions.md#fee-calculation).
 	 */
 	final_commit_feerate = get_feerate(channel->channel_info.fee_states,
-					   channel->funder, LOCAL);
+					   channel->opener, LOCAL);
 	feelimit = commit_tx_base_fee(final_commit_feerate, 0);
 
 	/* Pick some value above slow feerate (or min possible if unknown) */
@@ -283,7 +283,7 @@ void peer_start_closingd(struct channel *channel,
 				      channel->funding,
 				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey,
-				      channel->funder,
+				      channel->opener,
 				      amount_msat_to_sat_round_down(channel->our_msat),
 				      amount_msat_to_sat_round_down(their_msat),
 				      channel->our_config.dust_limit,

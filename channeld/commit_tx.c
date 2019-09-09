@@ -85,7 +85,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     struct amount_sat funding,
-			     enum side funder,
+			     enum side opener,
 			     u16 to_self_delay,
 			     const struct keyset *keyset,
 			     u32 feerate_per_kw,
@@ -131,7 +131,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
-	try_subtract_fee(funder, side, base_fee, &self_pay, &other_pay);
+	try_subtract_fee(opener, side, base_fee, &self_pay, &other_pay);
 
 #ifdef PRINT_ACTUAL_FEE
 	{

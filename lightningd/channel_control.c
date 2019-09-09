@@ -481,7 +481,7 @@ void peer_start_channeld(struct channel *channel,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,
 				      &channel->channel_info.old_remote_per_commit,
-				      channel->funder,
+				      channel->opener,
 				      channel->feerate_base,
 				      channel->feerate_ppm,
 				      channel->our_msat,
@@ -523,7 +523,7 @@ void peer_start_channeld(struct channel *channel,
 	subd_send_msg(channel->owner, take(initmsg));
 
 	/* On restart, feerate might not be what we expect: adjust now. */
-	if (channel->funder == LOCAL)
+	if (channel->opener == LOCAL)
 		try_update_feerates(ld, channel);
 }
 
@@ -583,7 +583,7 @@ is_fundee_should_forget(struct lightningd *ld,
 	 */
 
 	/* Only applies if we are fundee. */
-	if (channel->funder == LOCAL)
+	if (channel->opener == LOCAL)
 		return false;
 
 	/* Does not apply if we already saw the funding tx. */
@@ -746,7 +746,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 					    buffer + cidtok->start);
 	}
 
-	if (cancel_channel->funder == REMOTE)
+	if (cancel_channel->opener == REMOTE)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Cannot cancel channel that was "
 				    "initiated by peer");

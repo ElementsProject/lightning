@@ -64,7 +64,7 @@ struct uncommitted_channel {
 
 	/* These are *not* filled in by new_uncommitted_channel: */
 
-	/* Minimum funding depth (if funder == REMOTE). */
+	/* Minimum funding depth (if opener == REMOTE). */
 	u32 minimum_depth;
 
 	/* Our channel config. */

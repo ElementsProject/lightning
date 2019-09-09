@@ -30,22 +30,22 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 	return be64_to_cpu(obscurer);
 }
 
-bool try_subtract_fee(enum side funder, enum side side,
+bool try_subtract_fee(enum side opener, enum side side,
 		      struct amount_sat base_fee,
 		      struct amount_msat *self,
 		      struct amount_msat *other)
 {
-	struct amount_msat *funder_amount;
+	struct amount_msat *opener_amount;
 
-	if (funder == side)
-		funder_amount = self;
+	if (opener == side)
+		opener_amount = self;
 	else
-		funder_amount = other;
+		opener_amount = other;
 
-	if (amount_msat_sub_sat(funder_amount, *funder_amount, base_fee))
+	if (amount_msat_sub_sat(opener_amount, *opener_amount, base_fee))
 		return true;
 
-	*funder_amount = AMOUNT_MSAT(0);
+	*opener_amount = AMOUNT_MSAT(0);
 	return false;
 }
 
@@ -62,7 +62,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     struct amount_sat funding,
-				     enum side funder,
+				     enum side opener,
 				     u16 to_self_delay,
 				     const struct keyset *keyset,
 				     u32 feerate_per_kw,
@@ -104,7 +104,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
-	if (!try_subtract_fee(funder, side, base_fee, &self_pay, &other_pay)) {
+	if (!try_subtract_fee(opener, side, base_fee, &self_pay, &other_pay)) {
 		/* BOLT #2:
 		 *
 		 * The receiving node MUST fail the channel if:

@@ -314,7 +314,7 @@ static void update_feerate(struct channel *channel, u32 feerate)
 
 	ret = channel_update_feerate(channel, feerate);
 	assert(ret);
-	if (channel->funder == LOCAL) {
+	if (channel->opener == LOCAL) {
 		ret = channel_sending_commit(channel, NULL);
 		assert(ret);
 		ret = channel_rcvd_revoke_and_ack(channel, NULL);

@@ -51,7 +51,7 @@ struct config {
 	/* How long between changing commit and sending COMMIT message. */
 	u32 commit_time_ms;
 
-	/* Do we let the funder set any fee rate they want */
+	/* Do we let the opener set any fee rate they want */
 	bool ignore_fee_limits;
 
 	/* Number of blocks to rescan from the current head, or absolute
