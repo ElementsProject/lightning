@@ -751,3 +751,22 @@ def test_sendpay_notifications(node_factory, bitcoind):
 
     assert results['sendpay_success'][0] == response1
     assert results['sendpay_failure'][0] == err.value.error
+
+
+def test_rpc_command_hook(node_factory):
+    """Test the `sensitive_command` hook"""
+    plugin = os.path.join(os.getcwd(), "tests/plugins/rpc_command.py")
+    l1 = node_factory.get_node(options={"plugin": plugin})
+
+    # Usage of "sendpay" has been restricted by the plugin
+    with pytest.raises(RpcError, match=r"You cannot do this"):
+        l1.rpc.call("sendpay")
+
+    # The plugin replaces a call made for the "invoice" command
+    invoice = l1.rpc.invoice(10**6, "test_side", "test_input")
+    decoded = l1.rpc.decodepay(invoice["bolt11"])
+    assert decoded["description"] == "A plugin modified this description"
+
+    # The plugin sends a custom response to "listfunds"
+    funds = l1.rpc.listfunds()
+    assert funds[0] == "Custom result"
