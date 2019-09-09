@@ -38,10 +38,10 @@ extract-bolt-csv: bolt-precheck
 	@echo '#include <wire/onion_defs.h>' > wire/extracted_onion_wire_csv
 	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md >> wire/extracted_onion_wire_csv
 
-# Explicit command to add diff of BOLT CSV's to an experimental_csv file
+# Explicit command to add patchfile for BOLT CSV's
 extract-experimental-bolt-csv: bolt-precheck
-	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/extracted_peer_wire_csv - >>wire/extracted_peer_experimental_csv | if [ $$? -lt 0 ];then exit 1;fi
-	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/extracted_onion_wire_csv - >>wire/extracted_onion_experimental_csv | if [ $$? -lt 0 ];then exit 1;fi
+	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/extracted_peer_wire_csv - >wire/extracted_peer_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
+	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/extracted_onion_wire_csv - > wire/extracted_onion_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
 
 wire/extracted_peer_experimental_csv:
 	@touch $@
@@ -50,11 +50,14 @@ wire/extracted_onion_experimental_csv:
 	@touch $@
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
-wire/gen_peer_wire_csv: wire/extracted_peer_experimental_csv wire/extracted_peer_wire_csv
-	@patch --silent -o $@ wire/extracted_peer_wire_csv $<
+EXPERIMENTAL_PEER_PATCHES := $(wildcard wire/extracted_peer_experimental_*)
+EXPERIMENTAL_ONION_PATCHES := $(wildcard wire/extracted_onion_experimental_*)
 
-wire/gen_onion_wire_csv: wire/extracted_onion_experimental_csv wire/extracted_onion_wire_csv
-	@patch --silent -o $@ wire/extracted_onion_wire_csv $<
+wire/gen_peer_wire_csv: wire/extracted_peer_wire_csv $(EXPERIMENTAL_PEER_PATCHES)
+	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_PEER_PATCHES); do patch --silent $@.$$$$ $$exp; done; mv $@.$$$$ $@
+
+wire/gen_onion_wire_csv: wire/extracted_onion_wire_csv $(EXPERIMENTAL_ONION_PATCHES)
+	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_ONION_PATCHES); do patch --silent $@.$$$$ $$exp; done; mv $@.$$$$ $@
 
 else # /* EXPERIMENTAL_FEATURES */
 wire/gen_peer_wire_csv: wire/extracted_peer_wire_csv
