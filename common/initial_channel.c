@@ -23,7 +23,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct pubkey *local_funding_pubkey,
 				    const struct pubkey *remote_funding_pubkey,
 				    bool option_static_remotekey,
-				    enum side funder)
+				    enum side opener)
 {
 	struct channel *channel = tal(ctx, struct channel);
 	struct amount_msat remote_msatoshi;
@@ -36,7 +36,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				 channel->funding, local_msatoshi))
 		return tal_free(channel);
 
-	channel->funder = funder;
+	channel->opener = opener;
 	channel->config[LOCAL] = *local;
 	channel->config[REMOTE] = *remote;
 	channel->funding_pubkey[LOCAL] = *local_funding_pubkey;
@@ -60,8 +60,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->basepoints[REMOTE] = *remote_basepoints;
 
 	channel->commitment_number_obscurer
-		= commit_number_obscurer(&channel->basepoints[funder].payment,
-					 &channel->basepoints[!funder].payment);
+		= commit_number_obscurer(&channel->basepoints[opener].payment,
+					 &channel->basepoints[!opener].payment);
 	channel->chainparams = chainparams_by_chainhash(chain_hash);
 	if (channel->chainparams == NULL)
 		return tal_free(channel);
@@ -100,7 +100,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 &channel->funding_txid,
 				 channel->funding_txout,
 				 channel->funding,
-				 channel->funder,
+				 channel->opener,
 				 /* They specify our to_self_delay and v.v. */
 				 channel->config[!side].to_self_delay,
 				 &keyset,
@@ -130,12 +130,12 @@ static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
 static char *fmt_channel(const tal_t *ctx, const struct channel *channel)
 {
 	return tal_fmt(ctx, "{ funding=%s,"
-		       " funder=%s,"
+		       " opener=%s,"
 		       " local=%s,"
 		       " remote=%s }",
 		       type_to_string(tmpctx, struct amount_sat,
 				      &channel->funding),
-		       side_to_str(channel->funder),
+		       side_to_str(channel->opener),
 		       fmt_channel_view(ctx, &channel->view[LOCAL]),
 		       fmt_channel_view(ctx, &channel->view[REMOTE]));
 }

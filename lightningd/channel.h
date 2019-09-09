@@ -34,7 +34,7 @@ struct channel {
  	enum channel_state state;
 
 	/* Which side offered channel? */
-	enum side funder;
+	enum side opener;
 
 	/* Is there a single subdaemon responsible for us? */
 	struct subd *owner;
@@ -129,7 +129,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
 			    enum channel_state state,
-			    enum side funder,
+			    enum side opener,
 			    /* NULL or stolen */
 			    struct log *log,
 			    const char *transient_billboard TAKES,

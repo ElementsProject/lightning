@@ -699,7 +699,7 @@ static void unknown_spend(struct tracked_output *out,
 }
 
 static u64 unmask_commit_number(const struct bitcoin_tx *tx,
-				enum side funder,
+				enum side opener,
 				const struct pubkey *local_payment_basepoint,
 				const struct pubkey *remote_payment_basepoint)
 {
@@ -712,7 +712,7 @@ static u64 unmask_commit_number(const struct bitcoin_tx *tx,
 	 *
 	 * The 48-bit commitment number is obscured by `XOR` with the lower 48 bits of...
 	 */
-	obscurer = commit_number_obscurer(keys[funder], keys[!funder]);
+	obscurer = commit_number_obscurer(keys[opener], keys[!opener]);
 
 	/* BOLT #3:
 	 *
@@ -2658,7 +2658,7 @@ int main(int argc, char *argv[])
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
 	struct pubkey remote_per_commit_point, old_remote_per_commit_point;
-	enum side funder;
+	enum side opener;
 	struct basepoints basepoints[NUM_SIDES];
 	struct shachain shachain;
 	struct bitcoin_tx *tx;
@@ -2694,7 +2694,7 @@ int main(int argc, char *argv[])
 				   &scriptpubkey[LOCAL],
 				   &scriptpubkey[REMOTE],
 				   &our_wallet_pubkey,
-				   &funder,
+				   &opener,
 				   &basepoints[LOCAL],
 				   &basepoints[REMOTE],
 				   &tx,
@@ -2769,7 +2769,7 @@ int main(int argc, char *argv[])
 		 *    *latest commitment transaction*.
 		 */
 		struct secret revocation_preimage;
-		commit_num = unmask_commit_number(tx, funder,
+		commit_num = unmask_commit_number(tx, opener,
 						  &basepoints[LOCAL].payment,
 						  &basepoints[REMOTE].payment);
 

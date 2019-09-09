@@ -1546,7 +1546,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		}
 	}
 
-	/* Update both feerates: if we're funder, REMOTE should already be
+	/* Update both feerates: if we're opener, REMOTE should already be
 	 * that feerate, if we're not, we're about to ACK anyway. */
 	channel->channel_info.feerate_per_kw[LOCAL]
 		= channel->channel_info.feerate_per_kw[REMOTE]
@@ -1658,7 +1658,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* Update feerate: if we are funder, their revoke_and_ack has set
+	/* Update feerate: if we are opener, their revoke_and_ack has set
 	 * this for local feerate. */
 	channel->channel_info.feerate_per_kw[LOCAL] = feerate;
 
