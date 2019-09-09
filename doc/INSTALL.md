@@ -37,7 +37,7 @@ Get dependencies:
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev \
       libsqlite3-dev python python3 python3-mako net-tools zlib1g-dev libsodium-dev \
-      git
+      git gettext
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -84,6 +84,7 @@ $ sudo dnf update -y && \
                 'Development Tools' && \
         sudo dnf install -y \
                 clang \
+                gettext \
                 git \
                 gmp-devel \
                 libsq3-devel \
@@ -135,7 +136,7 @@ OS version: FreeBSD 11.1-RELEASE or above
 Get dependencies:
 
     # pkg install -y \
-      autoconf automake git gmp gmake libtool python python3 sqlite3 libsodium py36-mako bash
+      autoconf automake gettext git gmp gmake libtool python python3 sqlite3 libsodium py36-mako bash
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:

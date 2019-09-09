@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - JSON API: `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
+- Build: Now requires [`gettext`](https://www.gnu.org/software/gettext/)
 
 ### Deprecated
 
