@@ -1676,7 +1676,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 						&fee_states,
 						&changed_htlcs,
 						&commit_sig, &htlc_sigs)
-	    || !fee_states_valid(fee_states, channel->funder)) {
+	    || !fee_states_valid(fee_states, channel->opener)) {
 		channel_internal_error(channel, "bad channel_sending_commitsig %s",
 				       tal_hex(channel, msg));
 		return;
@@ -1716,7 +1716,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	channel->channel_info.fee_states = tal_steal(channel, fee_states);
 	adjust_channel_feerate_bounds(channel,
 				      get_feerate(fee_states,
-						  channel->funder,
+						  channel->opener,
 						  REMOTE));
 
 	if (!peer_save_commitsig_sent(channel, commitnum))
@@ -1871,7 +1871,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 					    &failed,
 					    &changed,
 					    &tx)
-	    || !fee_states_valid(fee_states, channel->funder)) {
+	    || !fee_states_valid(fee_states, channel->opener)) {
 		channel_internal_error(channel,
 				    "bad fromwire_channel_got_commitsig %s",
 				    tal_hex(channel, msg));
@@ -1901,7 +1901,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	log_debug(channel->log,
 		  "got commitsig %"PRIu64
 		  ": feerate %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
-		  commitnum, get_feerate(fee_states, channel->funder, LOCAL),
+		  commitnum, get_feerate(fee_states, channel->opener, LOCAL),
 		  tal_count(added), tal_count(fulfilled),
 		  tal_count(failed), tal_count(changed));
 
@@ -1934,7 +1934,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	channel->channel_info.fee_states = tal_steal(channel, fee_states);
 	adjust_channel_feerate_bounds(channel,
 				      get_feerate(fee_states,
-						  channel->funder,
+						  channel->opener,
 						  LOCAL));
 
 	/* Since we're about to send revoke, bump state again. */
@@ -1982,7 +1982,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 					 &next_per_commitment_point,
 					 &fee_states,
 					 &changed)
-	    || !fee_states_valid(fee_states, channel->funder)) {
+	    || !fee_states_valid(fee_states, channel->opener)) {
 		channel_internal_error(channel, "bad fromwire_channel_got_revoke %s",
 				    tal_hex(channel, msg));
 		return;

@@ -27,7 +27,7 @@ msgdata,onchain_init,remote_scriptpubkey_len,u16,
 msgdata,onchain_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
 msgdata,onchain_init,ourwallet_pubkey,pubkey,
 # We need these two for commit number obscurer
-msgdata,onchain_init,funder,enum side,
+msgdata,onchain_init,opener,enum side,
 msgdata,onchain_init,local_basepoints,basepoints,
 msgdata,onchain_init,remote_basepoints,basepoints,
 msgdata,onchain_init,tx,bitcoin_tx,

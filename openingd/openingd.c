@@ -129,8 +129,8 @@ static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
 }
 
 /*~ If we can't agree on parameters, we fail to open the channel.  If we're
- * the funder, we need to tell lightningd, otherwise it never really notices. */
-static void negotiation_aborted(struct state *state, bool am_funder,
+ * the opener, we need to tell lightningd, otherwise it never really notices. */
+static void negotiation_aborted(struct state *state, bool am_opener,
 				const char *why)
 {
 	status_debug("aborted opening negotiation: %s", why);
@@ -143,7 +143,7 @@ static void negotiation_aborted(struct state *state, bool am_funder,
 	peer_billboard(true, why);
 
 	/* If necessary, tell master that funding failed. */
-	if (am_funder) {
+	if (am_opener) {
 		u8 *msg = towire_opening_funder_failed(NULL, why);
 		wire_sync_write(REQ_FD, take(msg));
 	}
@@ -161,7 +161,7 @@ static void negotiation_aborted(struct state *state, bool am_funder,
 }
 
 /*~ For negotiation failures: we tell them the parameter we didn't like. */
-static void negotiation_failed(struct state *state, bool am_funder,
+static void negotiation_failed(struct state *state, bool am_opener,
 			       const char *fmt, ...)
 {
 	va_list ap;
@@ -176,7 +176,7 @@ static void negotiation_failed(struct state *state, bool am_funder,
 			      "You gave bad parameters: %s", errmsg);
 	sync_crypto_write(state->pps, take(msg));
 
-	negotiation_aborted(state, am_funder, errmsg);
+	negotiation_aborted(state, am_opener, errmsg);
 }
 
 /*~ This is the key function that checks that their configuration is reasonable:
@@ -184,7 +184,7 @@ static void negotiation_failed(struct state *state, bool am_funder,
  * they've accepted our open. */
 static bool check_config_bounds(struct state *state,
 				const struct channel_config *remoteconf,
-				bool am_funder)
+				bool am_opener)
 {
 	struct amount_sat capacity;
 	struct amount_sat reserve;
@@ -196,7 +196,7 @@ static bool check_config_bounds(struct state *state,
 	 *  - `to_self_delay` is unreasonably large.
 	 */
 	if (remoteconf->to_self_delay > state->max_to_self_delay) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "to_self_delay %u larger than %u",
 				   remoteconf->to_self_delay,
 				   state->max_to_self_delay);
@@ -219,7 +219,7 @@ static bool check_config_bounds(struct state *state,
 	if (!amount_sat_add(&reserve,
 			    remoteconf->channel_reserve,
 			    state->localconf.channel_reserve)) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "channel_reserve_satoshis %s"
 				   " too large",
 				   type_to_string(tmpctx, struct amount_sat,
@@ -229,7 +229,7 @@ static bool check_config_bounds(struct state *state,
 
 	/* If reserves are larger than total sat, we fail. */
 	if (!amount_sat_sub(&capacity, state->funding, reserve)) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "channel_reserve_satoshis %s"
 				   " and %s too large for funding %s",
 				   type_to_string(tmpctx, struct amount_sat,
@@ -250,7 +250,7 @@ static bool check_config_bounds(struct state *state,
 	/* If the minimum htlc is greater than the capacity, the channel is
 	 * useless. */
 	if (amount_msat_greater_sat(remoteconf->htlc_minimum, capacity)) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "htlc_minimum_msat %s"
 				   " too large for funding %s"
 				   " capacity_msat %s",
@@ -267,7 +267,7 @@ static bool check_config_bounds(struct state *state,
 	 * set by lightningd, don't bother opening it. */
 	if (amount_msat_greater_sat(state->min_effective_htlc_capacity,
 				    capacity)) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "channel capacity with funding %s,"
 				   " reserves %s/%s,"
 				   " max_htlc_value_in_flight_msat is %s,"
@@ -289,7 +289,7 @@ static bool check_config_bounds(struct state *state,
 
 	/* We don't worry about how many HTLCs they accept, as long as > 0! */
 	if (remoteconf->max_accepted_htlcs == 0) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "max_accepted_htlcs %u invalid",
 				   remoteconf->max_accepted_htlcs);
 		return false;
@@ -302,7 +302,7 @@ static bool check_config_bounds(struct state *state,
 	 *  - `max_accepted_htlcs` is greater than 483.
 	 */
 	if (remoteconf->max_accepted_htlcs > 483) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "max_accepted_htlcs %u too large",
 				   remoteconf->max_accepted_htlcs);
 		return false;
@@ -316,7 +316,7 @@ static bool check_config_bounds(struct state *state,
 	 */
 	if (amount_sat_greater(remoteconf->dust_limit,
 			       remoteconf->channel_reserve)) {
-		negotiation_failed(state, am_funder,
+		negotiation_failed(state, am_opener,
 				   "dust_limit_satoshis %s"
 				   " too large for channel_reserve_satoshis %s",
 				   type_to_string(tmpctx, struct amount_sat,
@@ -367,7 +367,7 @@ static void temporary_channel_id(struct channel_id *channel_id)
 /*~ Handle random messages we might get during opening negotiation, (eg. gossip)
  * returning the first non-handled one, or NULL if we aborted negotiation. */
 static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
-				 bool am_funder)
+				 bool am_opener)
 {
 	/* This is an event loop of its own.  That's generally considered poor
 	 * form, but we use it in a very limited way. */
@@ -429,7 +429,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			}
 			/* Close connection on all_channels error. */
 			if (all_channels) {
-				if (am_funder) {
+				if (am_opener) {
 					msg = towire_opening_funder_failed(NULL,
 									   err);
 					wire_sync_write(REQ_FD, take(msg));
@@ -437,7 +437,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 				peer_failed_received_errmsg(state->pps, err,
 							    NULL, false);
 			}
-			negotiation_aborted(state, am_funder,
+			negotiation_aborted(state, am_opener,
 					    tal_fmt(tmpctx, "They sent error %s",
 						    err));
 			/* Return NULL so caller knows to stop negotiating. */
@@ -1065,7 +1065,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
-	/* These checks are the same whether we're funder or fundee... */
+	/* These checks are the same whether we're opener or accepter... */
 	if (!check_config_bounds(state, &state->remoteconf, false))
 		return NULL;
 

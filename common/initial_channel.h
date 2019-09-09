@@ -39,7 +39,7 @@ struct channel {
 	u32 minimum_depth;
 
 	/* Who is paying fees. */
-	enum side funder;
+	enum side opener;
 
 	/* Limits and settings on this channel. */
 	struct channel_config config[NUM_SIDES];
@@ -78,7 +78,7 @@ struct channel {
  * @remote_basepoints: remote basepoints.
  * @local_fundingkey: local funding key
  * @remote_fundingkey: remote funding key
- * @funder: which side initiated it.
+ * @opener: which side initiated it.
  *
  * Returns channel, or NULL if malformed.
  */
@@ -96,7 +96,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct pubkey *local_funding_pubkey,
 				    const struct pubkey *remote_funding_pubkey,
 				    bool option_static_remotekey,
-				    enum side funder);
+				    enum side opener);
 
 
 /**

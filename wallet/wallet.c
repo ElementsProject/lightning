@@ -1359,7 +1359,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	else
 		db_bind_null(stmt, 1);
 	db_bind_int(stmt, 2, chan->state);
-	db_bind_int(stmt, 3, chan->funder);
+	db_bind_int(stmt, 3, chan->opener);
 	db_bind_int(stmt, 4, chan->channel_flags);
 	db_bind_int(stmt, 5, chan->minimum_depth);
 
