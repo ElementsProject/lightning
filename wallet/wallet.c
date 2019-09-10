@@ -111,7 +111,10 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	if (utxo->close_info) {
 		db_bind_u64(stmt, 6, utxo->close_info->channel_id);
 		db_bind_node_id(stmt, 7, &utxo->close_info->peer_id);
-		db_bind_pubkey(stmt, 8, &utxo->close_info->commitment_point);
+		if (utxo->close_info->commitment_point)
+			db_bind_pubkey(stmt, 8, utxo->close_info->commitment_point);
+		else
+			db_bind_null(stmt, 8);
 	} else {
 		db_bind_null(stmt, 6);
 		db_bind_null(stmt, 7);
@@ -155,7 +158,13 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 		utxo->close_info = tal(utxo, struct unilateral_close_info);
 		utxo->close_info->channel_id = db_column_u64(stmt, 6);
 		db_column_node_id(stmt, 7, &utxo->close_info->peer_id);
-		db_column_pubkey(stmt, 8, &utxo->close_info->commitment_point);
+		if (!db_column_is_null(stmt, 8)) {
+			utxo->close_info->commitment_point
+				= tal(utxo->close_info, struct pubkey);
+			db_column_pubkey(stmt, 8,
+					 utxo->close_info->commitment_point);
+		} else
+			utxo->close_info->commitment_point = NULL;
 	} else {
 		utxo->close_info = NULL;
 	}

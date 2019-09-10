@@ -784,7 +784,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info = tal(w, struct unilateral_close_info);
 	u.close_info->channel_id = 42;
 	u.close_info->peer_id = id;
-	u.close_info->commitment_point = pk;
+	u.close_info->commitment_point = &pk;
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info");
 
@@ -796,7 +796,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 
 	u = *utxos[1];
 	CHECK(u.close_info->channel_id == 42 &&
-	      pubkey_eq(&u.close_info->commitment_point, &pk) &&
+	      pubkey_eq(u.close_info->commitment_point, &pk) &&
 	      node_id_eq(&u.close_info->peer_id, &id));
 	/* Now un-reserve them for the tests below */
 	tal_free(utxos);
@@ -825,6 +825,29 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 					      output_state_any,
 					      output_state_spent),
 		  "could not change output state ignoring oldstate");
+
+	/* Attempt to save an UTXO with close_info set, no commitment_point */
+	memset(&u.txid, 2, sizeof(u.txid));
+	u.amount = AMOUNT_SAT(5);
+	u.close_info = tal(w, struct unilateral_close_info);
+	u.close_info->channel_id = 42;
+	u.close_info->peer_id = id;
+	u.close_info->commitment_point = NULL;
+	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
+		  "wallet_add_utxo with close_info no commitment_point");
+
+	/* Now select it */
+	utxos = wallet_select_coins(w, w, AMOUNT_SAT(5), 0, 21,
+				    0 /* no confirmations required */,
+				    &fee_estimate, &change_satoshis);
+	CHECK(utxos && tal_count(utxos) == 2);
+
+	u = *utxos[1];
+	CHECK(u.close_info->channel_id == 42 &&
+	      u.close_info->commitment_point == NULL &&
+	      node_id_eq(&u.close_info->peer_id, &id));
+	/* Now un-reserve them */
+	tal_free(utxos);
 
 	db_commit_transaction(w->db);
 	return true;
