@@ -457,6 +457,9 @@ static struct migration dbmigrations[] = {
 	 " WHERE short_channel_id IS NOT NULL;"), NULL },
     {SQL("UPDATE payments SET failchannel = REPLACE(failchannel, ':', 'x')"
 	 " WHERE failchannel IS NOT NULL;"), NULL },
+    /* option_static_remotekey is nailed at creation time. */
+    {SQL("ALTER TABLE channels ADD COLUMN option_static_remotekey"
+	 " DEFAULT FALSE;"), NULL },
 };
 
 /* Leak tracking. */

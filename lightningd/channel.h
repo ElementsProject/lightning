@@ -117,6 +117,9 @@ struct channel {
 
 	/* If they used option_upfront_shutdown_script. */
 	const u8 *remote_upfront_shutdown_script;
+
+	/* Was this negotiated with `option_static_remotekey? */
+	bool option_static_remotekey;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -165,7 +168,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 feerate_base,
 			    u32 feerate_ppm,
 			    /* NULL or stolen */
-			    const u8 *remote_upfront_shutdown_script);
+			    const u8 *remote_upfront_shutdown_script,
+			    bool option_static_remotekey);
 
 void delete_channel(struct channel *channel);
 
