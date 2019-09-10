@@ -2483,7 +2483,7 @@ bool wallet_network_check(struct wallet *w,
 {
 	struct bitcoin_blkid chainhash;
 	struct db_stmt *stmt = db_prepare_v2(
-	    w->db, SQL("SELECT val FROM vars WHERE name='genesis_hash'"));
+	    w->db, SQL("SELECT blobval FROM vars WHERE name='genesis_hash'"));
 	db_query_prepared(stmt);
 
 	if (db_step(stmt)) {
@@ -2507,7 +2507,7 @@ bool wallet_network_check(struct wallet *w,
 		tal_free(stmt);
 		/* Still a pristine wallet, claim it for the chain
 		 * that we are running */
-		stmt = db_prepare_v2(w->db, SQL("INSERT INTO vars (name, val) "
+		stmt = db_prepare_v2(w->db, SQL("INSERT INTO vars (name, blobval) "
 						"VALUES ('genesis_hash', ?);"));
 		db_bind_sha256d(stmt, 0, &chainparams->genesis_blockhash.shad);
 		db_exec_prepared_v2(take(stmt));

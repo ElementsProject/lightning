@@ -1550,7 +1550,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind):
     wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
 
     # Figure out what address it will try to use.
-    keyidx = int(l1.db_query("SELECT val FROM vars WHERE name='bip32_max_index';")[0]['val'])
+    keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip32_max_index';")[0]['intval'])
 
     # Expect 1 for change address, 1 for the channel final address,
     # which are discarded as the 'scratch' tx that the fundchannel
