@@ -22,6 +22,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct basepoints *remote_basepoints,
 				    const struct pubkey *local_funding_pubkey,
 				    const struct pubkey *remote_funding_pubkey,
+				    bool option_static_remotekey,
 				    enum side funder)
 {
 	struct channel *channel = tal(ctx, struct channel);
@@ -65,6 +66,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	if (channel->chainparams == NULL)
 		return tal_free(channel);
 
+	channel->option_static_remotekey = option_static_remotekey;
 	return channel;
 }
 

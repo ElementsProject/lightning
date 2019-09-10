@@ -67,6 +67,9 @@ static u32 reasonable_depth;
 /* The messages to send at that depth. */
 static u8 **missing_htlc_msgs;
 
+/* Does option_static_remotekey apply to this commitment tx? */
+bool option_static_remotekey;
+
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
 	/* This can be NULL if our proposal is to simply ignore it after depth */
@@ -2567,7 +2570,8 @@ int main(int argc, char *argv[])
 				   &num_htlcs,
 				   &min_possible_feerate,
 				   &max_possible_feerate,
-				   &possible_remote_per_commitment_point)) {
+				   &possible_remote_per_commitment_point,
+				   &option_static_remotekey)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 

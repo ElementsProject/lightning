@@ -10,6 +10,7 @@
  */
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/opt/opt.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
 #include <channeld/full_channel.h>
@@ -20,6 +21,7 @@
 #include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <common/version.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -247,6 +249,7 @@ int main(int argc, char *argv[])
 	const struct htlc **htlcmap;
 	struct privkey local_htlc_privkey, remote_htlc_privkey;
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
+	bool option_static_remotekey = false;
 	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
 	setup_locale();
@@ -254,30 +257,36 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
 
-	if (argv[1] && streq(argv[1], "-v")) {
-		verbose = true;
-		argv++;
-		argc--;
-	}
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "<commitnum> <funding-txid> <funding-txout> <funding-amount> <feerate-per-kw> <local-msat> <fee-payer> <localconfig> <remoteconfig> <localsecrets> <remotesecrets> [<htlc>...]\n"
+			   "Where <config> are:\n"
+			   "   <to-self-delay>\n"
+			   "   <dustlimit>\n"
+			   "   <reserve-sat>\n"
+			   "Where <secrets> are:\n"
+			   "   <funding-privkey>\n"
+			   "   <shachain-seed>\n"
+			   "   <revocation-base-secret>\n"
+			   "   <payment-base-secret>\n"
+			   "   <delayed-payment-base-secret>\n"
+			   "   <htlc-base-secret>\n"
+			   "Where <htlc>s are:\n"
+			   "   <offer-side>\n"
+			   "   <payment-preimage>\n"
+			   "   <amount-msat>\n"
+			   "   <cltv-expiry>\n",
+			   "Show this message");
+	opt_register_noarg("-v|--verbose", opt_set_bool, &verbose,
+			   "Increase verbosity");
+	opt_register_noarg("--option-static-remotekey", opt_set_bool,
+			   &option_static_remotekey,
+			   "Use option_static_remotekey generation rules");
+	opt_register_version();
+
+	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	if (argc < 1 + 7 + 3*2 + 6*2)
-		errx(1, "Usage: mkcommit [-v] <commitnum> <funding-txid> <funding-txout> <funding-amount> <feerate-per-kw> <local-msat> <fee-payer> <localconfig> <remoteconfig> <localsecrets> <remotesecrets> [<htlc>...]\n"
-		     "Where <config> are:\n"
-		     "   <to-self-delay>\n"
-		     "   <dustlimit>\n"
-		     "   <reserve-sat>\n"
-		     "Where <secrets> are:\n"
-		     "   <funding-privkey>\n"
-		     "   <shachain-seed>\n"
-		     "   <revocation-base-secret>\n"
-		     "   <payment-base-secret>\n"
-		     "   <delayed-payment-base-secret>\n"
-		     "   <htlc-base-secret>\n"
-		     "Where <htlc>s are:\n"
-		     "   <offer-side>\n"
-		     "   <payment-preimage>\n"
-		     "   <amount-msat>\n"
-		     "   <cltv-expiry>\n");
+		opt_usage_exit_fail("Too few arguments");
 
 	argnum = 1;
 	commitnum = atol(argv[argnum++]);
@@ -312,8 +321,11 @@ int main(int argc, char *argv[])
 		errx(1, "Can't afford local_msat");
 
 	printf("## HTLCs\n");
-	while (argnum < argc)
+	while (argnum < argc) {
+		if (argnum + 4 > argc)
+			opt_usage_exit_fail("Too few arguments for htlc");
 		argnum += parse_htlc(argv + argnum, &htlcs, &hstates, &preimages);
+	}
 	printf("\n");
 
 	if (!pubkey_from_privkey(&local.funding_privkey, &funding_localkey)
@@ -355,6 +367,7 @@ int main(int argc, char *argv[])
 				   &localconfig, &remoteconfig,
 				   &localbase, &remotebase,
 				   &funding_localkey, &funding_remotekey,
+				   option_static_remotekey,
 				   fee_payer);
 
 	if (!channel_force_htlcs(channel, htlcs, hstates, NULL, NULL, NULL, NULL,

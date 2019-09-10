@@ -1,6 +1,7 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/features.h>
 #include <common/memleak.h>
 #include <common/per_peer_state.h>
 #include <common/timeout.h>
@@ -431,7 +432,10 @@ void peer_start_channeld(struct channel *channel,
 				      remote_ann_bitcoin_sig,
 				      /* Delay announce by 60 seconds after
 				       * seeing block (adjustable if dev) */
-				      ld->topology->poll_seconds * 2);
+				      ld->topology->poll_seconds * 2,
+				      /* Set at channel open, even if not
+				       * negotiated now! */
+				      channel->option_static_remotekey);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
