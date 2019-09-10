@@ -13,9 +13,7 @@
 
 const char *placeholder_script = "0020b95810f824f843934fa042acd0becba52087813e260edaeebc42b5cb9abe1464";
 const char *placeholder_funding_addr;
-
-/* FIXME: dynamically query */
-const struct amount_sat max_funding = AMOUNT_SAT_INIT((1 << 24) - 1);
+const struct amount_sat *max_funding;
 
 struct funding_req {
 	struct node_id *id;
@@ -366,8 +364,8 @@ static struct command_result *tx_prepare_dryrun(struct command *cmd,
 		plugin_err("Error creating placebo funding tx, funding_out not found. %s", hex);
 
 	/* Update funding to actual amount */
-	if (fr->funding_all && amount_sat_greater(funding, max_funding))
-		funding = max_funding;
+	if (fr->funding_all && amount_sat_greater(funding, *max_funding))
+		funding = *max_funding;
 
 	fr->funding_str = type_to_string(fr, struct amount_sat, &funding);
 	return fundchannel_start(cmd, fr);
@@ -418,6 +416,7 @@ static void init(struct plugin_conn *rpc,
 	placeholder_funding_addr = encode_scriptpubkey_to_addr(NULL,
 							       chainparams->bip173_name,
 							       placeholder);
+	max_funding = &chainparams->max_funding;
 }
 
 
