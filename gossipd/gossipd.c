@@ -478,11 +478,86 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 	return announcement;
 }
 
+/* Helper to get non-signature, non-timestamp parts of (valid!) channel_update */
+static void get_cupdate_parts(const u8 *channel_update,
+			      const u8 *parts[2],
+			      size_t sizes[2])
+{
+	/* BOLT #7:
+	 *
+	 * 1. type: 258 (`channel_update`)
+	 * 2. data:
+	 *    * [`signature`:`signature`]
+	 *    * [`chain_hash`:`chain_hash`]
+	 *    * [`short_channel_id`:`short_channel_id`]
+	 *    * [`u32`:`timestamp`]
+	 *...
+	 */
+	/* Note: 2 bytes for `type` field */
+	/* We already checked it's valid before accepting */
+	assert(tal_count(channel_update) > 2 + 64 + 32 + 8 + 4);
+	parts[0] = channel_update + 2 + 64;
+	sizes[0] = 32 + 8;
+	parts[1] = channel_update + 2 + 64 + 32 + 8 + 4;
+	sizes[1] = tal_count(channel_update) - (64 + 2 + 32 + 8 + 4);
+}
+
+/* Get non-signature, non-timestamp parts of (valid!) node_announcement */
+static void get_nannounce_parts(const u8 *node_announcement,
+				const u8 *parts[2],
+				size_t sizes[2])
+{
+	size_t len;
+	const u8 *flen;
+
+	/* BOLT #7:
+	 *
+	 * 1. type: 257 (`node_announcement`)
+	 * 2. data:
+	 *    * [`signature`:`signature`]
+	 *    * [`u16`:`flen`]
+	 *    * [`flen*byte`:`features`]
+	 *    * [`u32`:`timestamp`]
+	 *...
+	 */
+	/* Note: 2 bytes for `type` field */
+	/* We already checked it's valid before accepting */
+	assert(tal_count(node_announcement) > 2 + 64);
+	parts[0] = node_announcement + 2 + 64;
+
+	/* Read flen to get size */
+	flen = parts[0];
+	len = tal_count(node_announcement) - (2 + 64);
+	sizes[0] = 2 + fromwire_u16(&flen, &len);
+	assert(flen != NULL && len >= 4);
+
+	parts[1] = node_announcement + 2 + 64 + sizes[0] + 4;
+	sizes[1] = tal_count(node_announcement) - (2 + 64 + sizes[0] + 4);
+}
+
+/*~ Is this node_announcement different from prev (not sigs and timestamps)? */
+static bool nannounce_different(struct gossip_store *gs,
+				const struct node *node,
+				const u8 *nannounce)
+{
+	const u8 *oparts[2], *nparts[2];
+	size_t osizes[2], nsizes[2];
+	const u8 *orig;
+
+	/* Get last one we have. */
+	orig = gossip_store_get(tmpctx, gs, node->bcast.index);
+	get_nannounce_parts(orig, oparts, osizes);
+	get_nannounce_parts(nannounce, nparts, nsizes);
+
+	return !memeq(oparts[0], osizes[0], nparts[0], nsizes[0])
+		|| !memeq(oparts[1], osizes[1], nparts[1], nsizes[1]);
+}
+
 /*~ This routine created a `node_announcement` for our node, and hands it to
  * the routing.c code like any other `node_announcement`.  Such announcements
  * are only accepted if there is an announced channel associated with that node
  * (to prevent spam), so we only call this once we've announced a channel. */
-static void send_node_announcement(struct daemon *daemon)
+static void update_own_node_announcement(struct daemon *daemon)
 {
 	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
@@ -498,8 +573,14 @@ static void send_node_announcement(struct daemon *daemon)
 	if (self && self->bcast.index && timestamp <= self->bcast.timestamp)
 		timestamp = self->bcast.timestamp + 1;
 
-	/* Get an unsigned one. */
+	/* Make unsigned announcement. */
 	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
+
+	/* If it's the same as the previous, nothing to do. */
+	if (self && self->bcast.index) {
+		if (!nannounce_different(daemon->rstate->gs, self, nannounce))
+			return;
+	}
 
 	/* Ask hsmd to sign it (synchronous) */
 	if (!wire_sync_write(HSM_FD, take(towire_hsm_node_announcement_sig_req(NULL, nannounce))))
@@ -590,44 +671,6 @@ static bool get_node_announcement_by_id(const tal_t *ctx,
 				     features, wireaddrs);
 }
 
-
-/* Return true if the only change would be the timestamp. */
-static bool node_announcement_redundant(struct daemon *daemon)
-{
-	u8 rgb_color[3];
-	u8 alias[32];
-	u8 *features;
-	struct wireaddr *wireaddrs;
-
-	if (!get_node_announcement_by_id(tmpctx, daemon, &daemon->id,
-					 rgb_color, alias, &features,
-					 &wireaddrs))
-		return false;
-
-	if (tal_count(wireaddrs) != tal_count(daemon->announcable))
-		return false;
-
-	for (size_t i = 0; i < tal_count(wireaddrs); i++)
-		if (!wireaddr_eq(&wireaddrs[i], &daemon->announcable[i]))
-			return false;
-
-	BUILD_ASSERT(ARRAY_SIZE(daemon->alias) == ARRAY_SIZE(alias));
-	if (!memeq(daemon->alias, ARRAY_SIZE(daemon->alias),
-		   alias, ARRAY_SIZE(alias)))
-		return false;
-
-	BUILD_ASSERT(ARRAY_SIZE(daemon->rgb) == ARRAY_SIZE(rgb_color));
-	if (!memeq(daemon->rgb, ARRAY_SIZE(daemon->rgb),
-		   rgb_color, ARRAY_SIZE(rgb_color)))
-		return false;
-
-	if (!memeq(daemon->globalfeatures, tal_count(daemon->globalfeatures),
-		   features, tal_count(features)))
-		return false;
-
-	return true;
-}
-
 /* Should we announce our own node?  Called at strategic places. */
 static void maybe_send_own_node_announce(struct daemon *daemon)
 {
@@ -638,10 +681,7 @@ static void maybe_send_own_node_announce(struct daemon *daemon)
 	if (!daemon->rstate->local_channel_announced)
 		return;
 
-	if (node_announcement_redundant(daemon))
-		return;
-
-	send_node_announcement(daemon);
+	update_own_node_announcement(daemon);
 	daemon->rstate->local_channel_announced = false;
 }
 
@@ -979,23 +1019,14 @@ enum query_option_flags {
 static u32 crc32_of_update(const u8 *channel_update)
 {
 	u32 sum;
+	const u8 *parts[2];
+	size_t sizes[ARRAY_SIZE(parts)];
 
-	/* BOLT #7:
-	 *
-	 * 1. type: 258 (`channel_update`)
-	 * 2. data:
-	 *    * [`signature`:`signature`]
-	 *    * [`chain_hash`:`chain_hash`]
-	 *    * [`short_channel_id`:`short_channel_id`]
-	 *    * [`u32`:`timestamp`]
-	 *...
-	 */
-	/* Note: 2 bytes for `type` field */
-	/* We already checked it's valid before accepting */
-	assert(tal_count(channel_update) > 2 + 64 + 32 + 8 + 4);
-	sum = crc32c(0, channel_update + 2 + 64, 32 + 8);
-	sum = crc32c(sum, channel_update + 2 + 64 + 32 + 8 + 4,
-		     tal_count(channel_update) - (64 + 2 + 32 + 8 + 4));
+	get_cupdate_parts(channel_update, parts, sizes);
+
+	sum = 0;
+	for (size_t i = 0; i < ARRAY_SIZE(parts); i++)
+		sum = crc32c(sum, parts[i], sizes[i]);
 	return sum;
 }
 
