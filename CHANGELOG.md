@@ -34,6 +34,7 @@ changes.
 ### Fixed
 
 - Relative `--lightning_dir` is now working again.
+- Build: MacOS now builds again (missing pwritev).
 
 ### Security
 
