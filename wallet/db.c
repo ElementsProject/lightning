@@ -644,13 +644,26 @@ void db_commit_transaction(struct db *db)
 	db->in_transaction = NULL;
 }
 
-static struct db_config *db_config_find(const char *driver_name)
+static struct db_config *db_config_find(const char *dsn)
 {
 	size_t num_configs;
 	struct db_config **configs = autodata_get(db_backends, &num_configs);
-	for (size_t i=0; i<num_configs; i++)
-		if (streq(driver_name, configs[i]->name))
+	const char *sep, *driver_name;
+	sep = strstr(dsn, "://");
+
+	if (!sep)
+		db_fatal("%s doesn't look like a valid data-source name (missing \"://\" separator.", dsn);
+
+	driver_name = tal_strndup(tmpctx, dsn, sep - dsn);
+
+	for (size_t i=0; i<num_configs; i++) {
+		if (streq(driver_name, configs[i]->name)) {
+			tal_free(driver_name);
 			return configs[i];
+		}
+	}
+
+	tal_free(driver_name);
 	return NULL;
 }
 
@@ -660,15 +673,16 @@ static struct db_config *db_config_find(const char *driver_name)
 static struct db *db_open(const tal_t *ctx, char *filename)
 {
 	struct db *db;
-	const char *driver_name = "sqlite3";
 
 	db = tal(ctx, struct db);
 	db->filename = tal_strdup(db, filename);
 	list_head_init(&db->pending_statements);
+	if (!strstr(db->filename, "://"))
+		db_fatal("Could not extract driver name from \"%s\"", db->filename);
 
-	db->config = db_config_find(driver_name);
+	db->config = db_config_find(db->filename);
 	if (!db->config)
-		db_fatal("Unable to find DB driver for %s", driver_name);
+		db_fatal("Unable to find DB driver for %s", db->filename);
 
 	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
@@ -678,8 +692,8 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	assert(!db->in_transaction);
 
 	db_prepare_for_changes(db);
-	if (db->config->setup_fn)
-		db->config->setup_fn(db);
+	if (db->config->setup_fn && !db->config->setup_fn(db))
+		fatal("Error calling DB setup: %s", db->error);
 	db_report_changes(db, NULL, 0);
 
 	return db;
