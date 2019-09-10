@@ -2013,7 +2013,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			       peer->revocations_received);
 }
 
-/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #2:
+/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #2:
  *
  * A receiving node:
  *  - if `option_static_remotekey` applies to the commitment transaction:
@@ -2076,7 +2076,7 @@ static void check_future_dataloss_fields(struct peer *peer,
 	peer_failed(peer->pps, &peer->channel_id, "Awaiting unilateral close");
 }
 
-/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #2:
+/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #2:
  *
  * A receiving node:
  *  - if `option_static_remotekey` applies to the commitment transaction:
@@ -2238,7 +2238,7 @@ static void peer_reconnect(struct peer *peer,
 	get_per_commitment_point(peer->next_index[LOCAL] - 1,
 				 &my_current_per_commitment_point, NULL);
 
-	/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #2:
+	/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #2:
 	 *
 	 *   - upon reconnection:
 	 *     - if a channel is in an error state:
@@ -2254,12 +2254,17 @@ static void peer_reconnect(struct peer *peer,
 	 *     of the next `commitment_signed` it expects to receive.
 	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
-	 *   - if it supports `option_data_loss_protect` or `option_static_remotekey`:
-	 *       - MUST set `my_current_per_commitment_point` to its commitment
-	 *         point for the last signed commitment it received from its
-	 *         channel peer (i.e. the commitment_point corresponding to the
-	 *         commitment transaction the sender would use to unilaterally
-	 *         close).
+	 *   - if `option_static_remotekey` applies to the commitment transaction:
+	 *     - MUST set `my_current_per_commitment_point` to a valid point.
+	 *   - otherwise, if it supports `option_data_loss_protect`:
+	 *     - MUST set `my_current_per_commitment_point` to its commitment
+	 *       point for the last signed commitment it received from its
+	 *       channel peer (i.e. the commitment_point corresponding to the
+	 *       commitment transaction the sender would use to unilaterally
+	 *       close).
+	 *   - if `option_static_remotekey` applies to the commitment
+	 *      transaction, or the sending node supports
+	 *      `option_data_loss_protect`:
 	 *     - if `next_revocation_number` equals 0:
 	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
 	 *     - otherwise:
@@ -2272,7 +2277,9 @@ static void peer_reconnect(struct peer *peer,
 			(NULL, &peer->channel_id,
 			 peer->next_index[LOCAL],
 			 peer->revocations_received,
-			 last_remote_per_commit_secret);
+			 last_remote_per_commit_secret,
+			 /* Can send any (valid) point here */
+			 &peer->remote_per_commit);
 	} else
 #endif /* EXPERIMENTAL_FEATURES */
 	if (dataloss_protect) {
@@ -2304,11 +2311,13 @@ static void peer_reconnect(struct peer *peer,
 
 #if EXPERIMENTAL_FEATURES
 	if (peer->channel->option_static_remotekey) {
+		struct pubkey ignore;
 		if (!fromwire_channel_reestablish_option_static_remotekey(msg,
 					&channel_id,
 					&next_commitment_number,
 					&next_revocation_number,
-					&last_local_per_commitment_secret)) {
+					&last_local_per_commitment_secret,
+					&ignore)) {
 			peer_failed(peer->pps,
 				    &peer->channel_id,
 				    "bad reestablish static_remotekey msg: %s %s",

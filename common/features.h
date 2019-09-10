@@ -25,7 +25,7 @@ const char **list_supported_features(const tal_t *ctx);
 bool feature_is_set(const u8 *features, size_t bit);
 void set_feature_bit(u8 **ptr, u32 bit);
 
-/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #9:
+/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #9:
  *
  * Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
  * an _even_ bit). They are generally assigned in pairs so that features
@@ -36,7 +36,7 @@ void set_feature_bit(u8 **ptr, u32 bit);
 #define COMPULSORY_FEATURE(x)	((x) & 0xFFFFFFFE)
 #define OPTIONAL_FEATURE(x)	((x) | 1)
 
-/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #9:
+/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #9:
  *
  * ## Assigned `localfeatures` flags
  *...
@@ -45,13 +45,13 @@ void set_feature_bit(u8 **ptr, u32 bit);
  * | 3    | `initial_routing_sync`           |...
  * | 4/5  | `option_upfront_shutdown_script` |...
  * | 6/7  | `gossip_queries`                 |...
- * | 48/49| `option_static_remotekey`        |...
+ * | 12/13| `option_static_remotekey`        |...
  */
 #define LOCAL_DATA_LOSS_PROTECT			0
 #define LOCAL_INITIAL_ROUTING_SYNC		2
 #define LOCAL_UPFRONT_SHUTDOWN_SCRIPT		4
 #define LOCAL_GOSSIP_QUERIES			6
-#define LOCAL_STATIC_REMOTEKEY			48
+#define LOCAL_STATIC_REMOTEKEY			12
 
 /* BOLT-927c96daab2338b716708a57cd75c84a2d169e0e #9:
  * | Bits  | Name                            |...

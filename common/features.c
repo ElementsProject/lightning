@@ -161,7 +161,8 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_upfront_shutdown_script",
 		"option_gossip_queries",
 		"option_var_onion_optin",
-		"option_gossip_queries_ex" };
+		"option_gossip_queries_ex",
+		"option_static_remotekey" };
 
 	assert(f / 2 < ARRAY_SIZE(fnames));
 	return tal_fmt(ctx, "%s/%s",
