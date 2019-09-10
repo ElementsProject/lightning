@@ -459,6 +459,10 @@ static struct migration dbmigrations[] = {
     /* option_static_remotekey is nailed at creation time. */
     {SQL("ALTER TABLE channels ADD COLUMN option_static_remotekey"
 	 " DEFAULT FALSE;"), NULL },
+    {SQL("ALTER TABLE vars ADD COLUMN intval INTEGER"), NULL},
+    {SQL("ALTER TABLE vars ADD COLUMN blobval BLOB"), NULL},
+    {SQL("UPDATE vars SET intval = CAST(val AS INTEGER) WHERE name IN (\"bip32_max_index\", \"last_processed_block\", \"next_pay_index\")"), NULL},
+    {SQL("UPDATE vars SET blobval = CAST(val AS BLOB) WHERE name = 'genesis_hash'"), NULL},
 };
 
 /* Leak tracking. */
@@ -798,13 +802,13 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 {
 	s64 res = defval;
 	struct db_stmt *stmt = db_prepare_v2(
-	    db, SQL("SELECT val FROM vars WHERE name= ? LIMIT 1"));
+	    db, SQL("SELECT intval FROM vars WHERE name= ? LIMIT 1"));
 	db_bind_text(stmt, 0, varname);
 	if (!db_query_prepared(stmt))
 		goto done;
 
 	if (db_step(stmt))
-		res = atol((const char*)db_column_text(stmt, 0));
+		res = db_column_int(stmt, 0);
 
 done:
 	tal_free(stmt);
@@ -813,10 +817,9 @@ done:
 
 void db_set_intvar(struct db *db, char *varname, s64 val)
 {
-	char *v = tal_fmt(NULL, "%"PRIi64, val);
 	size_t changes;
-	struct db_stmt *stmt = db_prepare_v2(db, SQL("UPDATE vars SET val=? WHERE name=?;"));
-	db_bind_text(stmt, 0, v);
+	struct db_stmt *stmt = db_prepare_v2(db, SQL("UPDATE vars SET intval=? WHERE name=?;"));
+	db_bind_int(stmt, 0, val);
 	db_bind_text(stmt, 1, varname);
 	if (!db_exec_prepared_v2(stmt))
 		db_fatal("Error executing update: %s", stmt->error);
@@ -824,14 +827,13 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 	tal_free(stmt);
 
 	if (changes == 0) {
-		stmt = db_prepare_v2(db, SQL("INSERT INTO vars (name, val) VALUES (?, ?);"));
+		stmt = db_prepare_v2(db, SQL("INSERT INTO vars (name, intval) VALUES (?, ?);"));
 		db_bind_text(stmt, 0, varname);
-		db_bind_text(stmt, 1, v);
+		db_bind_int(stmt, 1, val);
 		if (!db_exec_prepared_v2(stmt))
 			db_fatal("Error executing insert: %s", stmt->error);
 		tal_free(stmt);
 	}
-	tal_free(v);
 }
 
 /* Will apply the current config fee settings to all channels */
