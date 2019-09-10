@@ -2,16 +2,69 @@
 
 from mako.template import Template
 
+import re
 import sys
 
 
-class Sqlite3Rewriter(object):
-    def rewrite(self, query):
+DEBUG = False
+
+
+def eprint(*args, **kwargs):
+    if not DEBUG:
+        return
+    print(*args, **kwargs, file=sys.stderr)
+
+
+class Rewriter(object):
+
+    def rewrite_types(self, query, mapping):
+        for old, new in mapping.items():
+            query = re.sub(old, new, query)
         return query
 
+    def rewrite_single(self, query):
+        return query
 
-class PostgresRewriter(Sqlite3Rewriter):
-    pass
+    def rewrite(self, queries):
+        for i, q in enumerate(queries):
+            org = q['query']
+            queries[i]['query'] = self.rewrite_single(org)
+            eprint("Rewritten statement\n\tfrom {}\n\t  to {}".format(org, q['query']))
+        return queries
+
+
+class Sqlite3Rewriter(Rewriter):
+    def rewrite_single(self, query):
+        typemapping = {
+            r'BIGINT': 'INTEGER',
+            r'BIGINTEGER': 'INTEGER',
+            r'BIGSERIAL': 'INTEGER',
+            r'CURRENT_TIMESTAMP\(\)': "strftime('%s', 'now')",
+            r'INSERT INTO[ \t]+(.*)[ \t]+ON CONFLICT.*DO NOTHING;': 'INSERT OR IGNORE INTO \\1;',
+        }
+        return self.rewrite_types(query, typemapping)
+
+
+class PostgresRewriter(Rewriter):
+    def rewrite_single(self, q):
+        # Let's start by replacing any eventual '?' placeholders
+        q2 = ""
+        count = 1
+        for c in q:
+            if c == '?':
+                c = "${}".format(count)
+                count += 1
+            q2 += c
+        query = q2
+
+        typemapping = {
+            r'BLOB': 'BYTEA',
+            r'CURRENT_TIMESTAMP\(\)': "EXTRACT(epoch FROM now())",
+        }
+
+        query = self.rewrite_types(query, typemapping)
+        return query
+
 
 rewriters = {
     "sqlite3": Sqlite3Rewriter(),
@@ -66,7 +119,6 @@ def extract_queries(pofile):
 
     queries = []
     for c in chunk(pofile):
-        name = c[0][3:]
 
         # Skip other comments
         i = 1
