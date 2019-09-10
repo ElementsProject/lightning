@@ -1386,7 +1386,7 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
 
 	if (!derive_simple_privkey(&secrets.payment_basepoint_secret,
-				   &basepoints.payment, &info->commitment_point,
+				   &basepoints.payment, info->commitment_point,
 				   dst)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving unilateral_close_privkey");

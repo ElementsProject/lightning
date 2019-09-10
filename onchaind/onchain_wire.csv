@@ -91,7 +91,7 @@ msgtype,onchain_all_irrevocably_resolved,5011
 msgtype,onchain_add_utxo,5012
 msgdata,onchain_add_utxo,prev_out_tx,bitcoin_txid,
 msgdata,onchain_add_utxo,prev_out_index,u32,
-msgdata,onchain_add_utxo,per_commit_point,pubkey,
+msgdata,onchain_add_utxo,per_commit_point,?pubkey,
 msgdata,onchain_add_utxo,value,amount_sat,
 msgdata,onchain_add_utxo,blockheight,u32,
 msgdata,onchain_add_utxo,len,u16,
