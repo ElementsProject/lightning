@@ -430,6 +430,7 @@ clean:
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
 
+update-mocks: $(ALL_GEN_HEADERS)
 update-mocks/%: %
 	@MAKE=$(MAKE) tools/update-mocks.sh "$*"
 
