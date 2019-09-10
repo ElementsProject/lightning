@@ -1,6 +1,6 @@
-#include "../towire.c"
 #include "../fromwire.c"
 #include "../peer_wire.c"
+#include "../towire.c"
 
 #include <assert.h>
 #include <stdio.h>
@@ -80,6 +80,21 @@ static void set_node_id(struct node_id *id)
 #define eq_var(p1, p2, field)			\
 	(tal_count((p1)->field) == tal_count((p2)->field) \
 	 && (tal_count((p1)->field) == 0 || memcmp((p1)->field, (p2)->field, tal_bytelen((p1)->field)) == 0))
+
+#define eq_struct_set(p1, p2, field, type)						\
+	do {										\
+		ok &= (!(p1) && !(p2)) || ((p1) && (p2));				\
+		ok &= (!(p1)->field && !(p2)->field) || ((p1)->field && (p2)->field);	\
+		if (ok && (p1) && (p1)->field)						\
+			for (size_t i = 0; i < tal_count((p1)->field); i++) {		\
+				struct type *_a, *_b;					\
+				_a = a->field[i];					\
+				_b = b->field[i];					\
+				 ok &= (_a && _b) || (!_a && !_b);			\
+				 if (ok && _a)						\
+					 ok &= (type##_eq(_a, _b));			\
+			}								\
+	} while (0)									\
 
 /* Convenience structs for everyone! */
 struct msg_error {
@@ -234,6 +249,67 @@ struct msg_update_add_htlc {
 struct msg_update_fee {
 	struct channel_id channel_id;
 	u32 feerate_per_kw;
+};
+
+/* Open Channel 2 */
+struct msg_open_channel2 {
+	struct bitcoin_blkid chain_hash;
+	struct channel_id temporary_channel_id;
+	struct amount_sat funding_satoshis;
+	struct amount_msat push_msat;
+	struct amount_sat dust_limit_satoshis;
+	struct amount_msat max_htlc_value_in_flight_msat;
+	struct amount_msat htlc_minimum_msat;
+	u32 feerate_per_kw;
+	u32 feerate_per_kw_funding;
+	u16 to_self_delay;
+	u16 max_accepted_htlcs;
+	struct pubkey funding_pubkey;
+	struct pubkey revocation_basepoint;
+	struct pubkey payment_basepoint;
+	struct pubkey delayed_payment_basepoint;
+	struct pubkey htlc_basepoint;
+	struct pubkey first_per_commitment_point;
+	u8 channel_flags;
+	struct tlv_opening_tlvs *tlv;
+};
+struct msg_accept_channel2 {
+	struct channel_id temporary_channel_id;
+	struct amount_sat funding_satoshis;
+	struct amount_sat dust_limit_satoshis;
+	struct amount_msat max_htlc_value_in_flight_msat;
+	struct amount_msat htlc_minimum_msat;
+	u32 minimum_depth;
+	u16 to_self_delay;
+	u16 max_accepted_htlcs;
+	struct pubkey funding_pubkey;
+	struct pubkey revocation_basepoint;
+	struct pubkey payment_basepoint;
+	struct pubkey delayed_payment_basepoint;
+	struct pubkey htlc_basepoint;
+	struct pubkey first_per_commitment_point;
+	struct tlv_accept_tlvs *tlv;
+};
+struct msg_funding_compose {
+	struct channel_id temporary_channel_id;
+	struct input_info **input_infos;
+	struct output_info **output_infos;
+};
+struct msg_accepter_sigs {
+	struct channel_id channel_id;
+	secp256k1_ecdsa_signature commitment_signature;
+	struct witness_stack **witness_stacks;
+};
+struct msg_init_rbf {
+	struct channel_id channel_id;
+	struct amount_sat funding_satoshis;
+	u32 feerate_per_kw;
+	u32 feerate_per_kw_funding;
+	struct input_info **input_infos;
+	struct output_info **output_infos;
+};
+struct msg_ack_rbf {
+	struct channel_id channel_id;
 };
 
 static void *towire_struct_channel_announcement(const tal_t *ctx,
@@ -773,6 +849,294 @@ static struct msg_init *fromwire_struct_init(const tal_t *ctx, const void *p)
 	return s;
 }
 
+#if EXPERIMENTAL_FEATURES
+static void *towire_struct_open_channel2(const tal_t *ctx,
+						const struct msg_open_channel2 *s)
+{
+	return towire_open_channel2(ctx,
+				   &s->chain_hash,
+				   &s->temporary_channel_id,
+				   s->funding_satoshis,
+				   s->push_msat,
+				   s->dust_limit_satoshis,
+				   s->max_htlc_value_in_flight_msat,
+				   s->htlc_minimum_msat,
+				   s->feerate_per_kw,
+				   s->feerate_per_kw_funding,
+				   s->to_self_delay,
+				   s->max_accepted_htlcs,
+				   &s->funding_pubkey,
+				   &s->revocation_basepoint,
+				   &s->payment_basepoint,
+				   &s->delayed_payment_basepoint,
+				   &s->htlc_basepoint,
+				   &s->first_per_commitment_point,
+				   s->channel_flags,
+				   s->tlv);
+}
+
+static struct msg_open_channel2 *fromwire_struct_open_channel2(const tal_t *ctx, const void *p)
+{
+	struct msg_open_channel2 *s = tal(ctx, struct msg_open_channel2);
+	s->tlv = tlv_opening_tlvs_new(ctx);
+
+	if (fromwire_open_channel2(p, &s->chain_hash,
+				  &s->temporary_channel_id,
+				  &s->funding_satoshis,
+				  &s->push_msat,
+				  &s->dust_limit_satoshis,
+				  &s->max_htlc_value_in_flight_msat,
+				  &s->htlc_minimum_msat,
+				  &s->feerate_per_kw,
+				  &s->feerate_per_kw_funding,
+				  &s->to_self_delay,
+				  &s->max_accepted_htlcs,
+				  &s->funding_pubkey,
+				  &s->revocation_basepoint,
+				  &s->payment_basepoint,
+				  &s->delayed_payment_basepoint,
+				  &s->htlc_basepoint,
+				  &s->first_per_commitment_point,
+				  &s->channel_flags,
+				  s->tlv))
+		return s;
+	return tal_free(s);
+}
+static void *towire_struct_accept_channel2(const tal_t *ctx,
+					   const struct msg_accept_channel2 *s)
+{
+	return towire_accept_channel2(ctx,
+				     &s->temporary_channel_id,
+				     s->funding_satoshis,
+				     s->dust_limit_satoshis,
+				     s->max_htlc_value_in_flight_msat,
+				     s->htlc_minimum_msat,
+				     s->minimum_depth,
+				     s->to_self_delay,
+				     s->max_accepted_htlcs,
+				     &s->funding_pubkey,
+				     &s->revocation_basepoint,
+				     &s->payment_basepoint,
+				     &s->htlc_basepoint,
+				     &s->delayed_payment_basepoint,
+				     &s->first_per_commitment_point,
+				     s->tlv);
+}
+
+static struct msg_accept_channel2 *fromwire_struct_accept_channel2(const tal_t *ctx, const void *p)
+{
+	struct msg_accept_channel2 *s = tal(ctx, struct msg_accept_channel2);
+	s->tlv = tlv_accept_tlvs_new(ctx);
+
+	if (fromwire_accept_channel2(p, &s->temporary_channel_id,
+				     &s->funding_satoshis,
+				     &s->dust_limit_satoshis,
+				     &s->max_htlc_value_in_flight_msat,
+				     &s->htlc_minimum_msat,
+				     &s->minimum_depth,
+				     &s->to_self_delay,
+				     &s->max_accepted_htlcs,
+				     &s->funding_pubkey,
+				     &s->revocation_basepoint,
+				     &s->payment_basepoint,
+				     &s->htlc_basepoint,
+				     &s->delayed_payment_basepoint,
+				     &s->first_per_commitment_point,
+				     s->tlv))
+		return s;
+	return tal_free(s);
+}
+static void *towire_struct_funding_compose(const tal_t *ctx,
+				           struct msg_funding_compose *s)
+{
+	return towire_funding_compose(ctx,
+		&s->temporary_channel_id,
+		(const struct input_info **)s->input_infos,
+		(const struct output_info **)s->output_infos);
+}
+static struct msg_funding_compose *fromwire_struct_funding_compose(const tal_t *ctx, const void *p)
+{
+	struct msg_funding_compose *s = tal(ctx, struct msg_funding_compose);
+
+	if (fromwire_funding_compose(ctx, p,
+				&s->temporary_channel_id,
+				&s->input_infos,
+				&s->output_infos))
+		return s;
+	return tal_free(s);
+}
+static void *towire_struct_accepter_sigs(const tal_t *ctx,
+					   struct msg_accepter_sigs *s)
+{
+	return towire_accepter_sigs(ctx,
+			&s->channel_id,
+			&s->commitment_signature,
+			(const struct witness_stack **)s->witness_stacks);
+}
+static struct msg_accepter_sigs *fromwire_struct_accepter_sigs(const tal_t *ctx, const void *p)
+{
+	struct msg_accepter_sigs *s = tal(ctx, struct msg_accepter_sigs);
+
+	if (fromwire_accepter_sigs(ctx, p,
+				   &s->channel_id,
+				   &s->commitment_signature,
+				   &s->witness_stacks)) {
+		return s;
+	}
+	return tal_free(s);
+}
+
+static void *towire_struct_init_rbf(const tal_t *ctx,
+				    struct msg_init_rbf *s)
+{
+	return towire_init_rbf(ctx,
+			&s->channel_id,
+			s->funding_satoshis,
+			s->feerate_per_kw,
+			s->feerate_per_kw_funding,
+			(const struct input_info **)s->input_infos,
+			(const struct output_info **)s->output_infos);
+}
+static struct msg_init_rbf *fromwire_struct_init_rbf(const tal_t *ctx, const void *p)
+{
+	struct msg_init_rbf *s = tal(ctx, struct msg_init_rbf);
+
+	if (fromwire_init_rbf(ctx, p,
+			&s->channel_id,
+			&s->funding_satoshis,
+			&s->feerate_per_kw,
+			&s->feerate_per_kw_funding,
+			&s->input_infos,
+			&s->output_infos))
+		return s;
+	return tal_free(s);
+}
+static void *towire_struct_ack_rbf(const tal_t *ctx, const struct msg_ack_rbf *s)
+{
+	return towire_ack_rbf(ctx, &s->channel_id);
+}
+static struct msg_ack_rbf *fromwire_struct_ack_rbf(const tal_t *ctx, const void *p)
+{
+	struct msg_ack_rbf *s = tal(ctx, struct msg_ack_rbf);
+
+	if (fromwire_ack_rbf(p, &s->channel_id))
+		return s;
+	return tal_free(s);
+}
+
+static bool open_option_upfront_shutdown_script_eq(const struct tlv_opening_tlvs_option_upfront_shutdown_script *a,
+					           const struct tlv_opening_tlvs_option_upfront_shutdown_script *b)
+{
+	return (!a && !b)
+		|| (a && b && eq_var(a, b, shutdown_scriptpubkey));
+}
+
+static bool accept_option_upfront_shutdown_script_eq(const struct tlv_accept_tlvs_option_upfront_shutdown_script *a,
+					             const struct tlv_accept_tlvs_option_upfront_shutdown_script *b)
+{
+	return (!a && !b)
+		|| (a && b && eq_var(a, b, shutdown_scriptpubkey));
+}
+
+static bool input_info_eq(struct input_info *a,
+			  struct input_info *b)
+{
+	return eq_with(a, b, prevtx_vout)
+		&& eq_var(a, b, prevtx_scriptpubkey)
+		&& eq_field(a, b, max_witness_len)
+		&& eq_var(a, b, script);
+}
+
+static bool output_info_eq(struct output_info *a,
+                           struct output_info *b)
+{
+       return eq_with(a, b, output_satoshis)
+               && eq_var(a, b, script);
+}
+
+static bool witness_element_eq(struct witness_element *a,
+			       struct witness_element *b)
+{
+	return ((!a && !b) || (a && b))
+		&& eq_var(a, b, witness);
+}
+
+static bool witness_stack_eq(struct witness_stack *a,
+			     struct witness_stack *b)
+{
+	bool ok = true;
+	eq_struct_set(a, b, witness_element, witness_element);
+	return ok;
+}
+
+
+static bool opening_tlv_eq(const struct tlv_opening_tlvs *a,
+			   const struct tlv_opening_tlvs *b)
+{
+	return (!a && !b) ||
+		(a && b &&
+		 open_option_upfront_shutdown_script_eq(a->option_upfront_shutdown_script,
+						   b->option_upfront_shutdown_script));
+}
+
+static bool accept_tlv_eq(const struct tlv_accept_tlvs *a,
+		          const struct tlv_accept_tlvs *b)
+{
+	return (!a && !b) ||
+		(a && b &&
+		 accept_option_upfront_shutdown_script_eq(a->option_upfront_shutdown_script,
+						   b->option_upfront_shutdown_script));
+}
+
+static bool open_channel2_eq(const struct msg_open_channel2 *a,
+			     const struct msg_open_channel2 *b)
+{
+	return eq_with(a, b, max_accepted_htlcs)
+		&& eq_between(a, b, funding_pubkey, channel_flags)
+		&& opening_tlv_eq(a->tlv, b->tlv);
+}
+
+static bool accept_channel2_eq(const struct msg_accept_channel2 *a,
+			       const struct msg_accept_channel2 *b)
+{
+	return eq_with(a, b, max_accepted_htlcs)
+		&& eq_between(a, b, funding_pubkey, first_per_commitment_point)
+		&& accept_tlv_eq(a->tlv, b->tlv);
+}
+
+static bool funding_compose_eq(const struct msg_funding_compose *a,
+			       const struct msg_funding_compose *b)
+{
+	bool ok = true;
+	eq_struct_set(a, b, input_infos, input_info);
+	eq_struct_set(a, b, output_infos, output_info);
+	return ok && eq_upto(a, b, input_infos);
+}
+
+static bool accepter_sigs_eq(const struct msg_accepter_sigs *a,
+			     const struct msg_accepter_sigs *b)
+{
+	bool ok = true;
+	eq_struct_set(a, b, witness_stacks, witness_stack);
+	return ok && eq_upto(a, b, witness_stacks);
+}
+
+static bool init_rbf_eq(const struct msg_init_rbf *a,
+			const struct msg_init_rbf *b)
+{
+	bool ok = true;
+	eq_struct_set(a, b, input_infos, input_info);
+	eq_struct_set(a, b, output_infos, output_info);
+	return ok && eq_upto(a, b, input_infos);
+}
+
+static bool ack_rbf_eq(const struct msg_ack_rbf *a,
+		       const struct msg_ack_rbf *b)
+{
+	return memcmp(a, b, sizeof(*a)) == 0;
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 				    const struct msg_channel_announcement *b)
 {
@@ -955,6 +1319,19 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 			assert(!b || !type##_eq(a, b));		\
 	}
 
+#if EXPERIMENTAL_FEATURES
+/* Test failure due to duplicate TLV message */
+static void test_open_channel2_tlv_message_duplicate(const tal_t *ctx, u8 *msg)
+{
+	size_t len = tal_count(msg);
+	u8 *duplicate = tal_arr(ctx, u8, 10);
+	memcpy(duplicate, msg + (len - 10), 10);
+	towire(&msg, duplicate, 10);
+	msg[len - 11] = 20; /* duplicate the size variable */
+	assert(fromwire_struct_open_channel2(ctx, msg) == NULL);
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 #define test_corruption(a, b, type) \
 	test_bitflip_and_short(a, b, type, true)
 
@@ -986,6 +1363,17 @@ int main(void)
 	struct msg_accept_channel ac, *ac2;
 	struct msg_update_add_htlc uah, *uah2;
 	struct msg_node_announcement na, *na2;
+
+#if EXPERIMENTAL_FEATURES
+	/* v2 channel establishment */
+	struct msg_open_channel2 ocv2, *ocv22;
+	struct msg_accept_channel2 acv2, *acv22;
+	struct msg_funding_compose fcom, *fcom2;
+	struct msg_accepter_sigs acs, *acs2;
+	struct msg_init_rbf irbf, *irbf2;
+	struct msg_ack_rbf arbf, *arbf2;
+#endif /* EXPERIMENTAL_FEATURES */
+
 	void *ctx = tal(NULL, char);
 	size_t i;
 	u8 *msg;
@@ -1177,6 +1565,124 @@ int main(void)
 	assert(node_announcement_eq(&na, na2));
 	test_corruption(&na, na2, node_announcement);
 
+#if EXPERIMENTAL_FEATURES
+	/* Channel Establishment v2 */
+	memset(&ocv2, 2, sizeof(ocv2));
+	set_pubkey(&ocv2.funding_pubkey);
+	set_pubkey(&ocv2.revocation_basepoint);
+	set_pubkey(&ocv2.payment_basepoint);
+	set_pubkey(&ocv2.delayed_payment_basepoint);
+	set_pubkey(&ocv2.htlc_basepoint);
+	set_pubkey(&ocv2.first_per_commitment_point);
+
+	ocv2.tlv = tal(ctx, struct tlv_opening_tlvs);
+	ocv2.tlv->option_upfront_shutdown_script = tal(ctx, struct tlv_opening_tlvs_option_upfront_shutdown_script);
+	ocv2.tlv->option_upfront_shutdown_script->shutdown_scriptpubkey = tal_arr(ctx, u8, 2);
+	memset(ocv2.tlv->option_upfront_shutdown_script->shutdown_scriptpubkey, 2, 2);
+
+	msg = towire_struct_open_channel2(ctx, &ocv2);
+	ocv22 = fromwire_struct_open_channel2(ctx, msg);
+	assert(open_channel2_eq(&ocv2, ocv22));
+	test_corruption_tlv(&ocv2, ocv22, open_channel2);
+	test_open_channel2_tlv_message_duplicate(ctx, msg);
+
+	memset(&acv2, 2, sizeof(acv2));
+	set_pubkey(&acv2.funding_pubkey);
+	set_pubkey(&acv2.revocation_basepoint);
+	set_pubkey(&acv2.payment_basepoint);
+	set_pubkey(&acv2.delayed_payment_basepoint);
+	set_pubkey(&acv2.htlc_basepoint);
+	set_pubkey(&acv2.first_per_commitment_point);
+
+	acv2.tlv = tal(ctx, struct tlv_accept_tlvs);
+	acv2.tlv->option_upfront_shutdown_script = tal(ctx, struct tlv_accept_tlvs_option_upfront_shutdown_script);
+	acv2.tlv->option_upfront_shutdown_script->shutdown_scriptpubkey = tal_arr(ctx, u8, 2);
+	memset(acv2.tlv->option_upfront_shutdown_script->shutdown_scriptpubkey, 2, 2);
+
+	msg = towire_struct_accept_channel2(ctx, &acv2);
+	acv22 = fromwire_struct_accept_channel2(ctx, msg);
+	assert(accept_channel2_eq(&acv2, acv22));
+	test_corruption_tlv(&acv2, acv22, accept_channel2);
+
+	memset(&fcom, 2, sizeof(fcom));
+	fcom.input_infos = tal_arr(ctx, struct input_info *, 2);
+	memset(fcom.input_infos, 2, sizeof(struct input_info *) * 2);
+	for (i = 0; i < 2; i++) {
+		fcom.input_infos[i] = tal(ctx, struct input_info);
+		memset(fcom.input_infos[i], 2, sizeof(struct input_info));
+		fcom.input_infos[i]->prevtx_scriptpubkey = tal_arr(ctx, u8, 2);
+		memset(fcom.input_infos[i]->prevtx_scriptpubkey, 2, 2);
+		fcom.input_infos[i]->script = tal_arr(ctx, u8, 2);
+		memset(fcom.input_infos[i]->script, 2, 2);
+	}
+	fcom.output_infos = tal_arr(ctx, struct output_info *, 2);
+	memset(fcom.output_infos, 2, sizeof(struct output_info *)*2);
+	for (i = 0; i < 2; i++) {
+		fcom.output_infos[i] = tal(ctx, struct output_info);
+		memset(fcom.output_infos[i], 2, sizeof(struct output_info));
+		fcom.output_infos[i]->script = tal_arr(ctx, u8, 2);
+		memset(fcom.output_infos[i]->script, 2, 2);
+	}
+
+	msg = towire_struct_funding_compose(ctx, &fcom);
+	fcom2 = fromwire_struct_funding_compose(ctx, msg);
+	assert(funding_compose_eq(&fcom, fcom2));
+	test_corruption(&fcom, fcom2, funding_compose);
+
+	memset(&acs, 2, sizeof(acs));
+	acs.witness_stacks = tal_arr(ctx, struct witness_stack *, 2);
+	memset(acs.witness_stacks, 2, sizeof(struct witness_stack *) * 2);
+	for (i = 0; i < 2; i++) {
+		acs.witness_stacks[i] = tal(ctx, struct witness_stack);
+		memset(acs.witness_stacks[i], 2, sizeof(struct witness_stack));
+		acs.witness_stacks[i]->witness_element = tal_arr(ctx, struct witness_element *, 2);
+		memset(acs.witness_stacks[i]->witness_element, 2, sizeof(struct witness_element *) * 2);
+		for (size_t j = 0; j < 2; j++) {
+			acs.witness_stacks[i]->witness_element[j] = tal(ctx, struct witness_element);
+			memset(acs.witness_stacks[i]->witness_element[j], 2, sizeof(struct witness_element));
+			acs.witness_stacks[i]->witness_element[j]->witness = tal_arr(ctx, u8, 2);
+			memset(acs.witness_stacks[i]->witness_element[j]->witness, 2, 2);
+		}
+	}
+
+	msg = towire_struct_accepter_sigs(ctx, &acs);
+	acs2 = fromwire_struct_accepter_sigs(ctx, msg);
+	assert(accepter_sigs_eq(&acs, acs2));
+	test_corruption(&acs, acs2, accepter_sigs);
+
+	memset(&irbf, 2, sizeof(irbf));
+	irbf.input_infos = tal_arr(ctx, struct input_info *, 2);
+	memset(irbf.input_infos, 2, sizeof(struct input_info *) * 2);
+	for (i = 0; i < 2; i++) {
+		irbf.input_infos[i] = tal(ctx, struct input_info);
+		memset(irbf.input_infos[i], 2, sizeof(struct input_info));
+		irbf.input_infos[i]->prevtx_scriptpubkey = tal_arr(ctx, u8, 2);
+		memset(irbf.input_infos[i]->prevtx_scriptpubkey, 2, 2);
+		irbf.input_infos[i]->script = tal_arr(ctx, u8, 2);
+		memset(irbf.input_infos[i]->script, 2, 2);
+	}
+	irbf.output_infos = tal_arr(ctx, struct output_info *, 2);
+	memset(irbf.output_infos, 2, sizeof(struct output_info *)*2);
+	for (i = 0; i < 2; i++) {
+		irbf.output_infos[i] = tal(ctx, struct output_info);
+		memset(irbf.output_infos[i], 2, sizeof(struct output_info));
+		irbf.output_infos[i]->script = tal_arr(ctx, u8, 2);
+		memset(irbf.output_infos[i]->script, 2, 2);
+	}
+
+	msg = towire_struct_init_rbf(ctx, &irbf);
+	irbf2 = fromwire_struct_init_rbf(ctx, msg);
+	assert(init_rbf_eq(&irbf, irbf2));
+	test_corruption(&irbf, irbf2, init_rbf);
+
+	memset(&arbf, 2, sizeof(arbf));
+
+	msg = towire_struct_ack_rbf(ctx, &arbf);
+	arbf2 = fromwire_struct_ack_rbf(ctx, msg);
+	assert(ack_rbf_eq(&arbf, arbf2));
+	test_corruption(&arbf, arbf2, ack_rbf);
+
+#endif /* EXPERIMENTAL_FEATURES */
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);
 	tal_free(ctx);

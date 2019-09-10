@@ -1967,6 +1967,14 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_CLOSING_SIGNED:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_OPEN_CHANNEL2:
+	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_FUNDING_COMPOSE:
+	case WIRE_ACCEPTER_SIGS:
+	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+#endif /* EXPERIMENTAL_FEATURES */
 		break;
 
 	/* These are all swallowed by handle_peer_gossip_or_error */

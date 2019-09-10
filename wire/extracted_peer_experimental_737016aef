@@ -1,0 +1,92 @@
+--- wire/extracted_peer_wire_csv	2019-08-21 13:30:32.219341098 -0500
++++ -	2019-09-11 17:38:34.177415676 -0500
+@@ -77,6 +77,89 @@
+ msgtype,funding_locked,36
+ msgdata,funding_locked,channel_id,channel_id,
+ msgdata,funding_locked,next_per_commitment_point,point,
++msgtype,open_channel2,56
++msgdata,open_channel2,chain_hash,chain_hash,
++msgdata,open_channel2,temporary_channel_id,byte,32
++msgdata,open_channel2,funding_satoshis,u64,
++msgdata,open_channel2,push_msat,u64,
++msgdata,open_channel2,dust_limit_satoshis,u64,
++msgdata,open_channel2,max_htlc_value_in_flight_msat,u64,
++msgdata,open_channel2,htlc_minimum_msat,u64,
++msgdata,open_channel2,feerate_per_kw,u32,
++msgdata,open_channel2,feerate_per_kw_funding,u32,
++msgdata,open_channel2,to_self_delay,u16,
++msgdata,open_channel2,max_accepted_htlcs,u16,
++msgdata,open_channel2,funding_pubkey,point,
++msgdata,open_channel2,revocation_basepoint,point,
++msgdata,open_channel2,payment_basepoint,point,
++msgdata,open_channel2,delayed_payment_basepoint,point,
++msgdata,open_channel2,htlc_basepoint,point,
++msgdata,open_channel2,first_per_commitment_point,point,
++msgdata,open_channel2,channel_flags,byte,
++msgdata,open_channel2,opening_tlv,opening_tlvs,
++tlvtype,opening_tlvs,option_upfront_shutdown_script,1
++tlvdata,opening_tlvs,option_upfront_shutdown_script,shutdown_len,u16,
++tlvdata,opening_tlvs,option_upfront_shutdown_script,shutdown_scriptpubkey,byte,shutdown_len
++msgtype,accept_channel2,57
++msgdata,accept_channel2,temporary_channel_id,byte,32
++msgdata,accept_channel2,funding_satoshis,u64,
++msgdata,accept_channel2,dust_limit_satoshis,u64,
++msgdata,accept_channel2,max_htlc_value_in_flight_msat,u64,
++msgdata,accept_channel2,htlc_minimum_msat,u64,
++msgdata,accept_channel2,minimum_depth,u32,
++msgdata,accept_channel2,to_self_delay,u16,
++msgdata,accept_channel2,max_accepted_htlcs,u16,
++msgdata,accept_channel2,funding_pubkey,point,
++msgdata,accept_channel2,revocation_basepoint,point,
++msgdata,accept_channel2,payment_basepoint,point,
++msgdata,accept_channel2,delayed_payment_basepoint,point,
++msgdata,accept_channel2,htlc_basepoint,point,
++msgdata,accept_channel2,first_per_commitment_point,point,
++msgdata,accept_channel2,accept_tlv,accept_tlvs,
++tlvtype,accept_tlvs,option_upfront_shutdown_script,1
++tlvdata,accept_tlvs,option_upfront_shutdown_script,shutdown_len,u16,
++tlvdata,accept_tlvs,option_upfront_shutdown_script,shutdown_scriptpubkey,byte,shutdown_len
++msgtype,funding_compose,58
++msgdata,funding_compose,temporary_channel_id,byte,32
++msgdata,funding_compose,num_inputs,u16,
++msgdata,funding_compose,input_info,input_info,num_inputs
++msgdata,funding_compose,num_outputs,u16,
++msgdata,funding_compose,output_info,output_info,num_outputs
++subtype,input_info
++subtypedata,input_info,input_satoshis,u64,
++subtypedata,input_info,prevtx_txid,sha256,
++subtypedata,input_info,prevtx_vout,u32,
++subtypedata,input_info,prevtx_scriptpubkey_len,u16,
++subtypedata,input_info,prevtx_scriptpubkey,byte,prevtx_scriptpubkey_len
++subtypedata,input_info,max_witness_len,u16,
++subtypedata,input_info,scriptlen,u16,
++subtypedata,input_info,script,byte,scriptlen
++subtype,output_info
++subtypedata,output_info,output_satoshis,u64,
++subtypedata,output_info,scriptlen,u16,
++subtypedata,output_info,script,byte,scriptlen
++msgtype,accepter_sigs,60
++msgdata,accepter_sigs,channel_id,channel_id,
++msgdata,accepter_sigs,commitment_signature,signature,
++msgdata,accepter_sigs,num_witnesses,u16,
++msgdata,accepter_sigs,witness_stack,witness_stack,num_witnesses
++subtype,witness_stack
++subtypedata,witness_stack,num_input_witness,u16,
++subtypedata,witness_stack,witness_element,witness_element,num_input_witness
++subtype,witness_element
++subtypedata,witness_element,len,u16,
++subtypedata,witness_element,witness,byte,len
++msgtype,init_rbf,62
++msgdata,init_rbf,channel_id,channel_id,
++msgdata,init_rbf,funding_satoshis,u64,
++msgdata,init_rbf,feerate_per_kw,u32,
++msgdata,init_rbf,feerate_per_kw_funding,u32,
++msgdata,init_rbf,num_additional_inputs,u16,
++msgdata,init_rbf,input_info,input_info,num_additional_inputs
++msgdata,init_rbf,num_outputs,u16,
++msgdata,init_rbf,output_info,output_info,num_outputs
++msgtype,ack_rbf,63
++msgdata,ack_rbf,channel_id,channel_id,
+ msgtype,shutdown,38
+ msgdata,shutdown,channel_id,channel_id,
+ msgdata,shutdown,len,u16,

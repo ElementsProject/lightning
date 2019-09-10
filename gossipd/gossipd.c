@@ -490,7 +490,13 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_ONION_MESSAGE:
-#endif
+	case WIRE_OPEN_CHANNEL2:
+	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_FUNDING_COMPOSE:
+	case WIRE_ACCEPTER_SIGS:
+	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+#endif /* EXPERIMENTAL_FEATURES */
 		status_broken("peer %s: relayed unexpected msg of type %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      wire_type_name(fromwire_peektype(msg)));
