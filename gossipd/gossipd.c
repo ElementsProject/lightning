@@ -1814,7 +1814,7 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 	return io_close(conn);
 }
 
-/*~ This is our twice-weekly timer callback for refreshing our channels.  This
+/*~ This is our 13-day timer callback for refreshing our channels.  This
  * was added to the spec because people abandoned their channels without
  * closing them. */
 static void gossip_send_keepalive_update(struct daemon *daemon,
@@ -1843,9 +1843,15 @@ static void gossip_send_keepalive_update(struct daemon *daemon,
 static void gossip_refresh_network(struct daemon *daemon)
 {
 	u64 now = gossip_time_now(daemon->rstate).ts.tv_sec;
-	/* Anything below this highwater mark could be pruned if not refreshed */
-	s64 highwater = now - daemon->rstate->prune_timeout / 2;
+	s64 highwater;
 	struct node *n;
+
+	/* For DEVELOPER testing, this can be set really short; otherwise, we
+	 * set it to 1 day before deadline. */
+	if (daemon->rstate->prune_timeout < 24*3600)
+		highwater = now - daemon->rstate->prune_timeout / 2;
+	else
+		highwater = now - (daemon->rstate->prune_timeout - 24*3600);
 
 	/* Schedule next run now (prune_timeout is 2 weeks) */
 	notleak(new_reltimer(&daemon->timers, daemon,
