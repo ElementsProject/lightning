@@ -35,6 +35,7 @@ msgdata,onchain_init,num_htlcs,u64,
 msgdata,onchain_init,min_possible_feerate,u32,
 msgdata,onchain_init,max_possible_feerate,u32,
 msgdata,onchain_init,possible_remote_per_commit_point,?pubkey,
+msgdata,onchain_init,option_static_remotekey,bool,
 
 #include <onchaind/onchain_wire.h>
 # This is all the HTLCs: one per message

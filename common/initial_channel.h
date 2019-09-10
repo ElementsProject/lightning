@@ -64,6 +64,9 @@ struct channel {
 
 	/* Chain params to check against */
 	const struct chainparams *chainparams;
+
+	/* Is this using option_static_remotekey? */
+	bool option_static_remotekey;
 };
 
 /**
@@ -101,6 +104,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct basepoints *remote_basepoints,
 				    const struct pubkey *local_funding_pubkey,
 				    const struct pubkey *remote_funding_pubkey,
+				    bool option_static_remotekey,
 				    enum side funder);
 
 

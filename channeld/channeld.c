@@ -2866,6 +2866,7 @@ static void init_channel(struct peer *peer)
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
+	bool option_static_remotekey;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2924,7 +2925,8 @@ static void init_channel(struct peer *peer)
 				   &peer->remote_upfront_shutdown_script,
 				   &remote_ann_node_sig,
 				   &remote_ann_bitcoin_sig,
-				   &peer->announce_delay)) {
+				   &peer->announce_delay,
+				   &option_static_remotekey)) {
 					   master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
@@ -2980,6 +2982,7 @@ static void init_channel(struct peer *peer)
 					 &points[LOCAL], &points[REMOTE],
 					 &funding_pubkey[LOCAL],
 					 &funding_pubkey[REMOTE],
+					 option_static_remotekey,
 					 funder);
 
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,

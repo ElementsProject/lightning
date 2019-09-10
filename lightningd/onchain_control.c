@@ -543,7 +543,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  tal_count(stubs),
 				  channel->min_possible_feerate,
 				  channel->max_possible_feerate,
-				  channel->future_per_commitment_point);
+				  channel->future_per_commitment_point,
+				  channel->option_static_remotekey);
 	subd_send_msg(channel->owner, take(msg));
 
 	/* FIXME: Don't queue all at once, use an empty cb... */

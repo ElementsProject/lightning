@@ -105,6 +105,7 @@ struct state {
 
 	/* Which chain we're on, so we can check/set `chain_hash` fields */
 	const struct chainparams *chainparams;
+	bool option_static_remotekey;
 };
 
 static const u8 *dev_upfront_shutdown_script(const tal_t *ctx)
@@ -660,6 +661,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
+					     state->option_static_remotekey,
 					     /* Funder is local */
 					     LOCAL);
 	/* We were supposed to do enough checks above, but just in case,
@@ -1378,6 +1380,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &state->our_points, &theirs,
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
+					     state->option_static_remotekey,
 					     REMOTE);
 	/* We don't expect this to fail, but it does do some additional
 	 * internal sanity checks. */
@@ -1703,6 +1706,7 @@ int main(int argc, char *argv[])
 				   &state->minimum_depth,
 				   &state->min_feerate, &state->max_feerate,
 				   &state->localfeatures,
+				   &state->option_static_remotekey,
 				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 

@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/channel_config.h>
+#include <common/features.h>
 #include <common/funding_tx.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
@@ -168,6 +169,7 @@ wallet_commit_channel(struct lightningd *ld,
 	struct channel *channel;
 	struct amount_msat our_msat;
 	s64 final_key_idx;
+	bool option_static_remotekey;
 
 	/* Get a key to use for closing outputs from this tx */
 	final_key_idx = wallet_get_newindex(ld);
@@ -195,6 +197,27 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
+
+	/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #2:
+	 * 1. type: 35 (`funding_signed`)
+	 * 2. data:
+	 *     * [`channel_id`:`channel_id`]
+	 *     * [`signature`:`signature`]
+	 *
+	 * #### Requirements
+	 *
+	 * Both peers:
+	 *   - if `option_static_remotekey` was negotiated:
+	 *     - `option_static_remotekey` applies to all commitment
+	 *       transactions
+	 *   - otherwise:
+	 *     - `option_static_remotekey` does not apply to any commitment
+	 *        transactions
+	 */
+	/* i.e. We set it now for the channel permanently. */
+	option_static_remotekey
+		= local_feature_negotiated(uc->peer->localfeatures,
+					   LOCAL_STATIC_REMOTEKEY);
 
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
@@ -238,7 +261,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.fee_base,
 			      ld->config.fee_per_satoshi,
 			      remote_upfront_shutdown_script,
-			      false);
+			      option_static_remotekey);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -1106,6 +1129,8 @@ void peer_start_openingd(struct peer *peer,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
 				  peer->localfeatures,
+				  local_feature_negotiated(peer->localfeatures,
+							   LOCAL_STATIC_REMOTEKEY),
 				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
 }
