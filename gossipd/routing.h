@@ -36,6 +36,9 @@ struct half_chan {
 	 * optional fields.  */
 	u8 message_flags;
 
+	/* Token bucket */
+	u8 tokens;
+
 	/* Minimum and maximum number of msatoshi in an HTLC */
 	struct amount_msat htlc_minimum, htlc_maximum;
 };
@@ -108,6 +111,9 @@ struct node {
 
 	/* Timestamp and index into store file */
 	struct broadcastable bcast;
+
+	/* Token bucket */
+	u8 tokens;
 
 	/* Channels connecting us to other nodes */
 	union {

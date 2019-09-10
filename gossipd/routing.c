@@ -36,6 +36,31 @@ struct pending_node_announce {
 	u32 index;
 };
 
+/* We consider a reasonable gossip rate to be 1 per day, with burst of
+ * 4 per day.  So we use a granularity of one hour. */
+#define TOKENS_PER_MSG 24
+#define TOKEN_MAX (24 * 4)
+
+static bool ratelimit(const struct routing_state *rstate,
+		      u8 *tokens, u32 prev_timestamp)
+{
+	u64 now = gossip_time_now(rstate).ts.tv_sec;
+	u64 num_tokens;
+
+	/* First, top up tokens, avoiding overflow. */
+	num_tokens = *tokens + (prev_timestamp - now) / 3600;
+	if (num_tokens > TOKEN_MAX)
+		num_tokens = TOKEN_MAX;
+	*tokens = num_tokens;
+
+	/* Now, if we can afford it, pass this message. */
+	if (*tokens >= TOKENS_PER_MSG) {
+		*tokens -= TOKENS_PER_MSG;
+		return true;
+	}
+	return false;
+}
+
 static const struct node_id *
 pending_node_announce_keyof(const struct pending_node_announce *a)
 {
@@ -274,6 +299,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	memset(n->chans.arr, 0, sizeof(n->chans.arr));
 	broadcastable_init(&n->bcast);
+	n->tokens = TOKEN_MAX;
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor2(n, destroy_node, rstate);
 
@@ -407,6 +433,7 @@ static void init_half_chan(struct routing_state *rstate,
 	// TODO: wireup message_flags
 	c->message_flags = 0;
 	broadcastable_init(&c->bcast);
+	c->tokens = TOKEN_MAX;
 }
 
 static void bad_gossip_order(const u8 *msg, const char *source,
@@ -1895,11 +1922,24 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < hc->bcast.timestamp + rstate->prune_timeout / 2
 		    && !cupdate_different(rstate->gs, hc, update)) {
-			status_debug("Ignoring redundant update for %s/%u",
+			status_debug("Ignoring redundant update for %s/%u"
+				     " (last %u, now %u)",
 				     type_to_string(tmpctx,
 						    struct short_channel_id,
 						    &short_channel_id),
-				     direction);
+				     direction, hc->bcast.timestamp, timestamp);
+			/* Ignoring != failing */
+			return true;
+		}
+
+		/* Make sure it's not spamming us. */
+		if (!ratelimit(rstate, &hc->tokens, hc->bcast.timestamp)) {
+			status_debug("Ignoring spammy update for %s/%u"
+				     " (last %u, now %u)",
+				     type_to_string(tmpctx,
+						    struct short_channel_id,
+						    &short_channel_id),
+				     direction, hc->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
@@ -2225,10 +2265,24 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < node->bcast.timestamp + rstate->prune_timeout / 2
 		    && !nannounce_different(rstate->gs, node, msg)) {
-			status_debug("Ignoring redundant nannounce for %s",
+			status_debug("Ignoring redundant nannounce for %s"
+				     " (last %u, now %u)",
 				     type_to_string(tmpctx,
 						    struct node_id,
-						    &node_id));
+						    &node_id),
+				     node->bcast.timestamp, timestamp);
+			/* Ignoring != failing */
+			return true;
+		}
+
+		/* Make sure it's not spamming us. */
+		if (!ratelimit(rstate, &node->tokens, node->bcast.timestamp)) {
+			status_debug("Ignoring spammy nannounce for %s"
+				     " (last %u, now %u)",
+				     type_to_string(tmpctx,
+						    struct node_id,
+						    &node_id),
+				     node->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
