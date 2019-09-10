@@ -91,9 +91,6 @@ bool fromwire_gossip_dev_suppress(const void *p UNNEEDED)
 /* Generated stub for fromwire_gossipd_get_update */
 bool fromwire_gossipd_get_update(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_get_update called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_local_channel_update */
-bool fromwire_gossipd_local_channel_update(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, bool *disable UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_local_channel_update called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_get_addrs */
 bool fromwire_gossip_get_addrs(const void *p UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_addrs called!\n"); abort(); }
@@ -139,18 +136,17 @@ bool fromwire_gossip_query_scids(const tal_t *ctx UNNEEDED, const void *p UNNEED
 /* Generated stub for fromwire_gossip_send_timestamp_filter */
 bool fromwire_gossip_send_timestamp_filter(const void *p UNNEEDED, struct node_id *id UNNEEDED, u32 *first_timestamp UNNEEDED, u32 *timestamp_range UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_send_timestamp_filter called!\n"); abort(); }
-/* Generated stub for fromwire_hsm_cupdate_sig_reply */
-bool fromwire_hsm_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
-{ fprintf(stderr, "fromwire_hsm_cupdate_sig_reply called!\n"); abort(); }
-/* Generated stub for fromwire_hsm_node_announcement_sig_reply */
-bool fromwire_hsm_node_announcement_sig_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED)
-{ fprintf(stderr, "fromwire_hsm_node_announcement_sig_reply called!\n"); abort(); }
 /* Generated stub for fromwire_incorrect_cltv_expiry */
 bool fromwire_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *cltv_expiry UNNEEDED, u8 **channel_update UNNEEDED)
 { fprintf(stderr, "fromwire_incorrect_cltv_expiry called!\n"); abort(); }
 /* Generated stub for fromwire_temporary_channel_failure */
 bool fromwire_temporary_channel_failure(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **channel_update UNNEEDED)
 { fprintf(stderr, "fromwire_temporary_channel_failure called!\n"); abort(); }
+/* Generated stub for get_cupdate_parts */
+void get_cupdate_parts(const u8 *channel_update UNNEEDED,
+		       const u8 *parts[2] UNNEEDED,
+		       size_t sizes[2])
+{ fprintf(stderr, "get_cupdate_parts called!\n"); abort(); }
 /* Generated stub for get_node */
 struct node *get_node(struct routing_state *rstate UNNEEDED,
 		      const struct node_id *id UNNEEDED)
@@ -203,6 +199,11 @@ u8 *handle_channel_update(struct routing_state *rstate UNNEEDED, const u8 *updat
 bool handle_local_add_channel(struct routing_state *rstate UNNEEDED, const u8 *msg UNNEEDED,
 			      u64 index UNNEEDED)
 { fprintf(stderr, "handle_local_add_channel called!\n"); abort(); }
+/* Generated stub for handle_local_channel_update */
+bool handle_local_channel_update(struct daemon *daemon UNNEEDED,
+				 const struct node_id *src UNNEEDED,
+				 const u8 *msg UNNEEDED)
+{ fprintf(stderr, "handle_local_channel_update called!\n"); abort(); }
 /* Generated stub for handle_node_announcement */
 u8 *handle_node_announcement(struct routing_state *rstate UNNEEDED, const u8 *node UNNEEDED)
 { fprintf(stderr, "handle_node_announcement called!\n"); abort(); }
@@ -218,6 +219,9 @@ u8 *make_ping(const tal_t *ctx UNNEEDED, u16 num_pong_bytes UNNEEDED, u16 padlen
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
+/* Generated stub for maybe_send_own_node_announce */
+void maybe_send_own_node_announce(struct daemon *daemon UNNEEDED)
+{ fprintf(stderr, "maybe_send_own_node_announce called!\n"); abort(); }
 /* Generated stub for memleak_enter_allocations */
 struct htable *memleak_enter_allocations(const tal_t *ctx UNNEEDED,
 					 const void *exclude1 UNNEEDED,
@@ -249,6 +253,11 @@ void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)
 /* Generated stub for read_addresses */
 struct wireaddr *read_addresses(const tal_t *ctx UNNEEDED, const u8 *ser UNNEEDED)
 { fprintf(stderr, "read_addresses called!\n"); abort(); }
+/* Generated stub for refresh_local_channel */
+void refresh_local_channel(struct daemon *daemon UNNEEDED,
+			   const struct chan *chan UNNEEDED, int direction UNNEEDED,
+			   bool even_if_identical UNNEEDED)
+{ fprintf(stderr, "refresh_local_channel called!\n"); abort(); }
 /* Generated stub for remove_channel_from_store */
 void remove_channel_from_store(struct routing_state *rstate UNNEEDED,
 			       struct chan *chan UNNEEDED)
@@ -327,21 +336,6 @@ u8 *towire_gossip_query_channel_range_reply(const tal_t *ctx UNNEEDED, u32 final
 /* Generated stub for towire_gossip_scids_reply */
 u8 *towire_gossip_scids_reply(const tal_t *ctx UNNEEDED, bool ok UNNEEDED, bool complete UNNEEDED)
 { fprintf(stderr, "towire_gossip_scids_reply called!\n"); abort(); }
-/* Generated stub for towire_hsm_cupdate_sig_req */
-u8 *towire_hsm_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
-{ fprintf(stderr, "towire_hsm_cupdate_sig_req called!\n"); abort(); }
-/* Generated stub for towire_hsm_node_announcement_sig_req */
-u8 *towire_hsm_node_announcement_sig_req(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED)
-{ fprintf(stderr, "towire_hsm_node_announcement_sig_req called!\n"); abort(); }
-/* Generated stub for towire_wireaddr */
-void towire_wireaddr(u8 **pptr UNNEEDED, const struct wireaddr *addr UNNEEDED)
-{ fprintf(stderr, "towire_wireaddr called!\n"); abort(); }
-/* Generated stub for wire_sync_read */
-u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
-{ fprintf(stderr, "wire_sync_read called!\n"); abort(); }
-/* Generated stub for wire_sync_write */
-bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
-{ fprintf(stderr, "wire_sync_write called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 #if DEVELOPER
