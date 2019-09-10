@@ -39,7 +39,14 @@ with open('config.vars') as configfile:
 
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 EXPERIMENTAL_FEATURES = os.getenv("EXPERIMENTAL_FEATURES", config['EXPERIMENTAL_FEATURES']) == "1"
-TIMEOUT = int(os.getenv("TIMEOUT", "60"))
+
+# Gossip can be slow without DEVELOPER.
+if DEVELOPER:
+    DEFAULT_TIMEOUT = 60
+else:
+    DEFAULT_TIMEOUT = 180
+
+TIMEOUT = int(os.getenv("TIMEOUT", str(DEFAULT_TIMEOUT)))
 VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
 SLOW_MACHINE = os.getenv("SLOW_MACHINE", "0") == "1"
 COMPAT = os.getenv("COMPAT", config['COMPAT']) == "1"
