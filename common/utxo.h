@@ -39,6 +39,9 @@ struct utxo {
 	/* NULL if not spent yet, otherwise, the block the spending transaction is in */
 	const u32 *spendheight;
 
+	/* NULL if not shared, otherwise, the block the transaction was shared at */
+	const u32 *sharedheight;
+
 	/* The scriptPubkey if it is known */
 	u8 *scriptPubkey;
 

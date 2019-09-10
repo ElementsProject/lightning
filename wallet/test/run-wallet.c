@@ -787,6 +787,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	struct node_id id;
 	struct amount_sat fee_estimate, change_satoshis;
 	const struct utxo **utxos;
+	u32 height = 10;
 	CHECK(w);
 
 	memset(&u, 0, sizeof(u));
@@ -851,6 +852,39 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 					      output_state_spent),
 		  "could not change output state ignoring oldstate");
 
+	/* Check for 'shared' state changes */
+	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+				    0 /* no confirmations required */,
+				    &fee_estimate, &change_satoshis);
+	CHECK(utxos && tal_count(utxos) == 1);
+	u = *utxos[0];
+
+	/* Mark as shared */
+	CHECK_MSG(wallet_mark_output_shared(w, &u.txid, u.outnum,
+					    height),
+		  "could not mark output as shared");
+
+	/* Now un-reserve them */
+	tal_free(utxos);
+
+	/* Now should be unable to select 1 sat amount */
+	CHECK_MSG(!wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+				       0 /* no confirmations required */,
+				       &fee_estimate, &change_satoshis),
+	          "too many utxos available");
+
+	/* Get shared utxos */
+	utxos = (const struct utxo **)wallet_get_utxos(w, w, output_state_shared);
+	CHECK(utxos && tal_count(utxos) == 1);
+
+	/* Check that shared height is set */
+	CHECK(*utxos[0]->sharedheight == height);
+
+	/* check that we can mark as spent */
+	wallet_confirm_utxos(w, utxos);
+
+	tal_free(utxos);
+
 	/* Attempt to save an UTXO with close_info set, no commitment_point */
 	memset(&u.txid, 2, sizeof(u.txid));
 	u.amount = AMOUNT_SAT(5);
@@ -865,9 +899,9 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(5), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
-	CHECK(utxos && tal_count(utxos) == 2);
+	CHECK(utxos && tal_count(utxos) == 1);
 
-	u = *utxos[1];
+	u = *utxos[0];
 	CHECK(u.close_info->channel_id == 42 &&
 	      u.close_info->commitment_point == NULL &&
 	      node_id_eq(&u.close_info->peer_id, &id));

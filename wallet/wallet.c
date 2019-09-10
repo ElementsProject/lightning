@@ -106,7 +106,9 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	db_bind_int(stmt, 1, utxo->outnum);
 	db_bind_amount_sat(stmt, 2, &utxo->amount);
 	db_bind_int(stmt, 3, wallet_output_type_in_db(type));
+
 	db_bind_int(stmt, 4, output_state_available);
+
 	db_bind_int(stmt, 5, utxo->keyindex);
 	if (utxo->close_info) {
 		db_bind_u64(stmt, 6, utxo->close_info->channel_id);
@@ -147,7 +149,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
-	u32 *blockheight, *spendheight;
+	u32 *blockheight, *spendheight, *sharedheight;
 	db_column_txid(stmt, 0, &utxo->txid);
 	utxo->outnum = db_column_int(stmt, 1);
 	db_column_amount_sat(stmt, 2, &utxo->amount);
@@ -173,6 +175,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	utxo->spendheight = NULL;
 	utxo->scriptPubkey = NULL;
 	utxo->scriptSig = NULL;
+	utxo->sharedheight = NULL;
 
 	if (!db_column_is_null(stmt, 9)) {
 		blockheight = tal(utxo, u32);
@@ -190,6 +193,11 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 		utxo->scriptPubkey =
 		    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
 				db_column_bytes(stmt, 11), 0);
+	}
+	if (!db_column_is_null(stmt, 12)) {
+		sharedheight = tal(utxo, u32);
+		*sharedheight = db_column_int(stmt, 12);
+		utxo->sharedheight = sharedheight;
 	}
 
 	return utxo;
@@ -224,6 +232,28 @@ bool wallet_update_output_status(struct wallet *w,
 	return changes > 0;
 }
 
+bool wallet_mark_output_shared(struct wallet *w,
+			       const struct bitcoin_txid *txid,
+			       const u32 outnum,
+			       const u32 current_height)
+{
+	struct db_stmt *stmt;
+	size_t changes;
+
+	if (!wallet_update_output_status(w, txid, outnum,
+					 output_state_reserved,
+					 output_state_shared))
+		return false;
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("UPDATE outputs SET shared_at_height = ?"));
+	db_bind_int(stmt, 0, current_height);
+	db_exec_prepared_v2(stmt);
+	changes = db_count_changes(stmt);
+	tal_free(stmt);
+	return changes > 0;
+}
+
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
 {
 	struct utxo **results;
@@ -243,8 +273,9 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", commitment_point"
 						", confirmation_height"
 						", spend_height"
-						", scriptpubkey "
-						"FROM outputs"));
+						", scriptpubkey"
+						", shared_at_height"
+						" FROM outputs"));
 	} else {
 		stmt = db_prepare_v2(w->db, SQL("SELECT"
 						"  prev_out_tx"
@@ -258,9 +289,10 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", commitment_point"
 						", confirmation_height"
 						", spend_height"
-						", scriptpubkey "
-						"FROM outputs "
-						"WHERE status= ? "));
+						", scriptpubkey"
+						", shared_at_height"
+						" FROM outputs"
+						" WHERE status= ?"));
 		db_bind_int(stmt, 0, output_status_in_db(state));
 	}
 	db_query_prepared(stmt);
@@ -273,6 +305,31 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	tal_free(stmt);
 
 	return results;
+}
+
+static bool assert_utxo_status(struct wallet *w,
+			       const struct bitcoin_txid *txid,
+			       const u32 outnum,
+			       const enum output_status state)
+{
+	struct db_stmt *stmt;
+	bool res;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(*) FROM outputs "
+					"WHERE status=? AND prev_out_tx=? "
+					"AND prev_out_index=?"));
+	db_bind_int(stmt, 0, output_status_in_db(state));
+	db_bind_txid(stmt, 1, txid);
+	db_bind_int(stmt, 2, outnum);
+
+	db_query_prepared(stmt);
+	if (db_step(stmt)) {
+		res = db_column_u64(stmt, 0) > 0;
+	} else
+		res = false;
+
+	tal_free(stmt);
+	return res;
 }
 
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
@@ -295,8 +352,9 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey"
+					", shared_at_height"
 					" FROM outputs"
-					" WHERE channel_id IS NOT NULL AND "
+					" WHERE peer_id IS NOT NULL AND "
 					"confirmation_height IS NULL"));
 	db_query_prepared(stmt);
 
@@ -312,13 +370,18 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 
 /**
  * unreserve_utxo - Mark a reserved UTXO as available again
+ *
+ * If utxo has been shared, leave as is.
  */
 static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
 {
 	if (!wallet_update_output_status(w, &unres->txid, unres->outnum,
 					 output_state_reserved,
 					 output_state_available)) {
-		fatal("Unable to unreserve output");
+		/* Check that it's not in 'shared' state */
+		if (!assert_utxo_status(w, &unres->txid, unres->outnum,
+					output_state_shared))
+			fatal("Unable to unreserve output");
 	}
 }
 
@@ -337,7 +400,10 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (!wallet_update_output_status(
 			w, &utxos[i]->txid, utxos[i]->outnum,
-			output_state_reserved, output_state_spent)) {
+			output_state_reserved, output_state_spent) &&
+		     !wallet_update_output_status(
+			w, &utxos[i]->txid, utxos[i]->outnum,
+			output_state_shared, output_state_spent)) {
 			fatal("Unable to mark output as spent");
 		}
 	}

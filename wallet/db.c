@@ -478,6 +478,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD shutdown_scriptpubkey_local BLOB;"),
 	 NULL},
     {SQL("ALTER TABLE channels ADD COLUMN our_funding_satoshi INTEGER;"), NULL},
+    {SQL("ALTER TABLE outputs ADD shared_at_height INTEGER;"), NULL},
 };
 
 /* Leak tracking. */

@@ -76,6 +76,9 @@ enum output_status {
 	output_state_available= 0,
 	output_state_reserved = 1,
 	output_state_spent = 2,
+	/* Output has been included in a signed funding tx that we've shared
+	 * with a peer; not yet sent to mempool (spent). Eligible for burning */
+	output_state_shared = 3,
 	/* Special status used to express that we don't care in
 	 * queries */
 	output_state_any = 255
@@ -92,6 +95,9 @@ static inline enum output_status output_status_in_db(enum output_status s)
 		return s;
 	case output_state_spent:
 		BUILD_ASSERT(output_state_spent == 2);
+		return s;
+	case output_state_shared:
+		BUILD_ASSERT(output_state_shared == 3);
 		return s;
 	/* This one doesn't go into db */
 	case output_state_any:
@@ -352,6 +358,19 @@ bool wallet_update_output_status(struct wallet *w,
 				 const u32 outnum, enum output_status oldstatus,
 				 enum output_status newstatus);
 
+/**
+ * wallet_mark_output_shared - Mark a output as shared
+ * Update the output state to shared and update the
+ * sharedheight to the given blockheight.
+ * output must currently be in `reserved` state.
+ *
+ * @txid - txid of output to update
+ * @outnum - outnum of output to update
+ * @current_height - current blockeheight */
+bool wallet_mark_output_shared(struct wallet *w,
+			       const struct bitcoin_txid *txid,
+			       const u32 outnum,
+			       const u32 current_height);
 /**
  * wallet_get_utxos - Retrieve all utxos matching a given state
  *
