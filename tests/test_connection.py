@@ -1345,7 +1345,7 @@ def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
     lfeatures = 'aa'
     if EXPERIMENTAL_FEATURES:
-        lfeatures = '08aa'
+        lfeatures = '020000000008aa'
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
@@ -1596,16 +1596,18 @@ def test_dataloss_protection(node_factory, bitcoind):
                                feerates=(7500, 7500, 7500), allow_broken_log=True)
 
     if EXPERIMENTAL_FEATURES:
-        # lflen == 2, features 1, 3, 5, 7 and 11 (0x08aa).
-        lf = "0002" + "08aa"
+        # features 1, 3, 5, 7, 11 and 49 (0x020000000008aa).
+        lf = "020000000008aa"
     else:
-        # lflen == 1, features 1, 3, 5 and 7 (0xaa).
-        lf = "0001" + "aa"
+        # features 1, 3, 5 and 7 (0xaa).
+        lf = "aa"
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
     l1.daemon.wait_for_log(r"\[OUT\] 0010"
                            # gflen == 0
                            "0000"
+                           # lflen
+                           + format(len(lf) // 2, '04x')
                            + lf)
 
     l1.fund_channel(l2, 10**6)
