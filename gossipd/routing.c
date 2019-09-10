@@ -2094,10 +2094,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		     channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
 		     source);
 
-	if (!routing_add_channel_update(rstate, serialized, 0))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed adding channel_update");
-
+	routing_add_channel_update(rstate, take(serialized), 0);
 	return NULL;
 }
 
