@@ -365,6 +365,22 @@ bool wallet_update_output_status(struct wallet *w,
 				 enum output_status newstatus);
 
 /**
+ * wallet_output_reservation_update - Add an expiration for a utxo reservation
+ * Update a reserved output's reserved_at and reserved_for in the database.
+ * Will be returned to available upon expiration.
+ *
+ * Output must currently be in `reserved` state. Passing in 0 for *either*
+ * current-height or reserved-for will set both fields to NULL, effectively
+ * ending the 'expiring' reservation.
+ *
+ * @utxo - output to update
+ * @current_height - current blockeheight
+ * @reserve_for - number of blocks to hold reservation */
+bool wallet_output_reservation_update(struct wallet *w,
+				      struct utxo *utxo,
+				      const u32 current_height,
+				      const u32 reserved_for);
+/**
  * wallet_get_utxos - Retrieve all utxos matching a given state
  *
  * Returns a `tal_arr` of `utxo` structs. Double indirection in order

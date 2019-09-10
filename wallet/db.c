@@ -599,6 +599,8 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_htlcs ADD localfailmsg BLOB;"), NULL},
     {SQL("UPDATE channel_htlcs SET localfailmsg=decode('2002', 'hex') WHERE malformed_onion != 0 AND direction = 1;"), NULL},
     {SQL("ALTER TABLE channels ADD our_funding_satoshi INTEGER DEFAULT 0;"), migrate_our_funding},
+    {SQL("ALTER TABLE outputs ADD reserved_at INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE outputs ADD reserved_for INTEGER DEFAULT NULL;"), NULL},
 };
 
 /* Leak tracking. */

@@ -39,6 +39,14 @@ struct utxo {
 	/* NULL if not spent yet, otherwise, the block the spending transaction is in */
 	const u32 *spendheight;
 
+	/* NULL if not a timed reservation; otherwise, the block height
+	 * the utxo was reserved at */
+	const u32 *reserved_at;
+
+	/* NULL if not a timed reservation; otherwise, the number of
+	 * blocks the utxo is reserved for */
+	const u32 *reserved_for;
+
 	/* The scriptPubkey if it is known */
 	u8 *scriptPubkey;
 
