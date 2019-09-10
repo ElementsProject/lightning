@@ -1618,7 +1618,12 @@ def test_dataloss_protection(node_factory, bitcoind):
     orig_db = open(dbpath, "rb").read()
     l2.start()
 
-    # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
+    if EXPERIMENTAL_FEATURES:
+        # No my_current_per_commitment_point with option_static_remotekey
+        my_current_per_commitment_point_regex = ""
+    else:
+        my_current_per_commitment_point_regex = "0[23][0-9a-f]{64}"
+    # l1 should have sent WIRE_CHANNEL_REESTABLISH with extra fields.
     l1.daemon.wait_for_log(r"\[OUT\] 0088"
                            # channel_id
                            "[0-9a-f]{64}"
@@ -1630,8 +1635,9 @@ def test_dataloss_protection(node_factory, bitcoind):
                            # trigger a fee-update and commit, hence this may not
                            # be zero)
                            "[0-9a-f]{64}"
-                           # my_current_per_commitment_point
-                           "0[23][0-9a-f]{64}")
+                           # my_current_per_commitment_point (maybe)
+                           + my_current_per_commitment_point_regex + "'$")
+
     # After an htlc, we should get different results (two more commits)
     l1.pay(l2, 200000000)
 
@@ -1642,7 +1648,7 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     l2.restart()
 
-    # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
+    # l1 should have sent WIRE_CHANNEL_REESTABLISH with extra fields.
     l1.daemon.wait_for_log(r"\[OUT\] 0088"
                            # channel_id
                            "[0-9a-f]{64}"
@@ -1652,8 +1658,8 @@ def test_dataloss_protection(node_factory, bitcoind):
                            "000000000000000[1-9]"
                            # your_last_per_commitment_secret
                            "[0-9a-f]{64}"
-                           # my_current_per_commitment_point
-                           "0[23][0-9a-f]{64}")
+                           # my_current_per_commitment_point (maybe)
+                           + my_current_per_commitment_point_regex + "'$")
 
     # Now, move l2 back in time.
     l2.stop()
