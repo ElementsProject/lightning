@@ -26,9 +26,9 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE TABLE version (version INTEGER)"), NULL},
     {SQL("INSERT INTO version VALUES (1)"), NULL},
     {SQL("CREATE TABLE outputs ("
-	 "  prev_out_tx CHAR(64)"
+	 "  prev_out_tx BLOB"
 	 ", prev_out_index INTEGER"
-	 ", value INTEGER"
+	 ", value BIGINT"
 	 ", type INTEGER"
 	 ", status INTEGER"
 	 ", keyindex INTEGER"
@@ -77,10 +77,10 @@ static struct migration dbmigrations[] = {
 	 "  next_htlc_id INTEGER, "
 	 "  funding_tx_id BLOB,"
 	 "  funding_tx_outnum INTEGER,"
-	 "  funding_satoshi INTEGER,"
+	 "  funding_satoshi BIGINT,"
 	 "  funding_locked_remote INTEGER,"
-	 "  push_msatoshi INTEGER,"
-	 "  msatoshi_local INTEGER," /* our_msatoshi */
+	 "  push_msatoshi BIGINT,"
+	 "  msatoshi_local BIGINT," /* our_msatoshi */
 	 /* START channel_info */
 	 "  fundingkey_remote BLOB,"
 	 "  revocation_basepoint_remote BLOB,"
@@ -106,10 +106,10 @@ static struct migration dbmigrations[] = {
      NULL},
     {SQL("CREATE TABLE channel_configs ("
 	 "  id INTEGER,"
-	 "  dust_limit_satoshis INTEGER,"
-	 "  max_htlc_value_in_flight_msat INTEGER,"
-	 "  channel_reserve_satoshis INTEGER,"
-	 "  htlc_minimum_msat INTEGER,"
+	 "  dust_limit_satoshis BIGINT,"
+	 "  max_htlc_value_in_flight_msat BIGINT,"
+	 "  channel_reserve_satoshis BIGINT,"
+	 "  htlc_minimum_msat BIGINT,"
 	 "  to_self_delay INTEGER,"
 	 "  max_accepted_htlcs INTEGER,"
 	 "  PRIMARY KEY (id)"
@@ -121,7 +121,7 @@ static struct migration dbmigrations[] = {
 	 "  channel_htlc_id INTEGER,"
 	 "  direction INTEGER,"
 	 "  origin_htlc INTEGER,"
-	 "  msatoshi INTEGER,"
+	 "  msatoshi BIGINT,"
 	 "  cltv_expiry INTEGER,"
 	 "  payment_hash BLOB,"
 	 "  payment_key BLOB,"
@@ -137,7 +137,7 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE TABLE invoices ("
 	 "  id INTEGER,"
 	 "  state INTEGER,"
-	 "  msatoshi INTEGER,"
+	 "  msatoshi BIGINT,"
 	 "  payment_hash BLOB,"
 	 "  payment_key BLOB,"
 	 "  label TEXT,"
@@ -153,7 +153,7 @@ static struct migration dbmigrations[] = {
 	 "  payment_hash BLOB,"
 	 "  direction INTEGER,"
 	 "  destination BLOB,"
-	 "  msatoshi INTEGER,"
+	 "  msatoshi BIGINT,"
 	 "  PRIMARY KEY (id),"
 	 "  UNIQUE (payment_hash)"
 	 ");"),
@@ -183,7 +183,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE outputs ADD COLUMN channel_id INTEGER;"), NULL},
     {SQL("ALTER TABLE outputs ADD COLUMN peer_id BLOB;"), NULL},
     {SQL("ALTER TABLE outputs ADD COLUMN commitment_point BLOB;"), NULL},
-    {SQL("ALTER TABLE invoices ADD COLUMN msatoshi_received INTEGER;"), NULL},
+    {SQL("ALTER TABLE invoices ADD COLUMN msatoshi_received BIGINT;"), NULL},
     /* Normally impossible, so at least we'll know if databases are ancient. */
     {SQL("UPDATE invoices SET msatoshi_received=0 WHERE state=1;"), NULL},
     {SQL("ALTER TABLE channels ADD COLUMN last_was_revoke INTEGER;"), NULL},
@@ -197,7 +197,7 @@ static struct migration dbmigrations[] = {
 	 "  status INTEGER,"
 	 "  payment_hash BLOB,"
 	 "  destination BLOB,"
-	 "  msatoshi INTEGER,"
+	 "  msatoshi BIGINT,"
 	 "  PRIMARY KEY (id),"
 	 "  UNIQUE (payment_hash)"
 	 ");"),
@@ -310,12 +310,12 @@ static struct migration dbmigrations[] = {
     /* -- Routing statistics -- */
     {SQL("ALTER TABLE channels ADD in_payments_offered INTEGER;"), NULL},
     {SQL("ALTER TABLE channels ADD in_payments_fulfilled INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD in_msatoshi_offered INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD in_msatoshi_fulfilled INTEGER;"), NULL},
+    {SQL("ALTER TABLE channels ADD in_msatoshi_offered BIGINT;"), NULL},
+    {SQL("ALTER TABLE channels ADD in_msatoshi_fulfilled BIGINT;"), NULL},
     {SQL("ALTER TABLE channels ADD out_payments_offered INTEGER;"), NULL},
     {SQL("ALTER TABLE channels ADD out_payments_fulfilled INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD out_msatoshi_offered INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD out_msatoshi_fulfilled INTEGER;"), NULL},
+    {SQL("ALTER TABLE channels ADD out_msatoshi_offered BIGINT;"), NULL},
+    {SQL("ALTER TABLE channels ADD out_msatoshi_fulfilled BIGINT;"), NULL},
     {SQL("UPDATE channels"
 	 "   SET  in_payments_offered = 0,  in_payments_fulfilled = 0"
 	 "     ,  in_msatoshi_offered = 0,  in_msatoshi_fulfilled = 0"
@@ -325,7 +325,7 @@ static struct migration dbmigrations[] = {
      NULL},
     /* -- Routing statistics ends --*/
     /* Record the msatoshi actually sent in a payment. */
-    {SQL("ALTER TABLE payments ADD msatoshi_sent INTEGER;"), NULL},
+    {SQL("ALTER TABLE payments ADD msatoshi_sent BIGINT;"), NULL},
     {SQL("UPDATE payments SET msatoshi_sent = msatoshi;"), NULL},
     /* Delete dangling utxoset entries due to Issue #1280  */
     {SQL("DELETE FROM utxoset WHERE blockheight IN ("
@@ -344,8 +344,8 @@ static struct migration dbmigrations[] = {
 	 "max_possible_feerate=250000;"),
      NULL},
     /* -- Min and max msatoshi_to_us -- */
-    {SQL("ALTER TABLE channels ADD msatoshi_to_us_min INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD msatoshi_to_us_max INTEGER;"), NULL},
+    {SQL("ALTER TABLE channels ADD msatoshi_to_us_min BIGINT;"), NULL},
+    {SQL("ALTER TABLE channels ADD msatoshi_to_us_max BIGINT;"), NULL},
     {SQL("UPDATE channels"
 	 "   SET msatoshi_to_us_min = msatoshi_local"
 	 "     , msatoshi_to_us_max = msatoshi_local"
@@ -414,8 +414,8 @@ static struct migration dbmigrations[] = {
 	 ", out_htlc_id INTEGER REFERENCES channel_htlcs(id) ON DELETE SET NULL"
 	 ", in_channel_scid INTEGER"
 	 ", out_channel_scid INTEGER"
-	 ", in_msatoshi INTEGER"
-	 ", out_msatoshi INTEGER"
+	 ", in_msatoshi BIGINT"
+	 ", out_msatoshi BIGINT"
 	 ", state INTEGER"
 	 ", UNIQUE(in_htlc_id, out_htlc_id)"
 	 ");"),
@@ -457,11 +457,11 @@ static struct migration dbmigrations[] = {
     {SQL("UPDATE payments SET failchannel = REPLACE(failchannel, ':', 'x')"
 	 " WHERE failchannel IS NOT NULL;"), NULL },
     /* option_static_remotekey is nailed at creation time. */
-    {SQL("ALTER TABLE channels ADD COLUMN option_static_remotekey"
+    {SQL("ALTER TABLE channels ADD COLUMN option_static_remotekey BOOLEAN"
 	 " DEFAULT FALSE;"), NULL },
     {SQL("ALTER TABLE vars ADD COLUMN intval INTEGER"), NULL},
     {SQL("ALTER TABLE vars ADD COLUMN blobval BLOB"), NULL},
-    {SQL("UPDATE vars SET intval = CAST(val AS INTEGER) WHERE name IN (\"bip32_max_index\", \"last_processed_block\", \"next_pay_index\")"), NULL},
+    {SQL("UPDATE vars SET intval = CAST(val AS INTEGER) WHERE name IN ('bip32_max_index', 'last_processed_block', 'next_pay_index')"), NULL},
     {SQL("UPDATE vars SET blobval = CAST(val AS BLOB) WHERE name = 'genesis_hash'"), NULL},
 };
 
