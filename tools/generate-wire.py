@@ -577,6 +577,11 @@ def main(options, args=None, output=sys.stdout, lines=None):
                     raise ValueError('Unknown message type {}. {}:{}'.format(tokens[1], ln, line))
                 type_obj, collapse, optional = master.add_type(tokens[3], tokens[2], tokens[1])
 
+                if collapse:
+                    count = 1
+                else:
+                    count = tokens[4]
+
                 # if this is an 'extension' field*, we want to add a new 'message' type
                 # in the future, extensions will be handled as TLV's
                 #
@@ -585,18 +590,24 @@ def main(options, args=None, output=sys.stdout, lines=None):
                 #   differently. for the sake of clarity here, for bolt-wire messages,
                 #   we'll refer to 'optional' message fields as 'extensions')
                 #
-                if bool(tokens[5:]):  # is an extension field
+                if tokens[5:] == []:
+                    msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
+                                       optional=optional)
+                else:  # is one or more extension fields
                     if optional:
                         raise ValueError("Extension fields cannot be optional. {}:{}"
                                          .format(ln, line))
-                    extension_name = "{}_{}".format(tokens[1], tokens[5])
                     orig_msg = msg
-                    msg = master.find_message(extension_name)
-                    if not msg:
-                        msg = copy.deepcopy(orig_msg)
-                        msg.enumname = msg.name
-                        msg.name = extension_name
-                        master.add_extension_msg(msg.name, msg)
+                    for extension in tokens[5:]:
+                        extension_name = "{}_{}".format(tokens[1], extension)
+                        msg = master.find_message(extension_name)
+                        if not msg:
+                            msg = copy.deepcopy(orig_msg)
+                            msg.enumname = msg.name
+                            msg.name = extension_name
+                            master.add_extension_msg(msg.name, msg)
+                        msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set), optional=optional)
+
                     # If this is a print_wire page, add the extension fields to the
                     # original message, so we can print them if present.
                     if options.print_wire:
@@ -604,14 +615,6 @@ def main(options, args=None, output=sys.stdout, lines=None):
                                                 extensions=tokens[5:],
                                                 comments=list(comment_set),
                                                 optional=optional)
-
-                if collapse:
-                    count = 1
-                else:
-                    count = tokens[4]
-
-                msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
-                                   optional=optional)
 
                 comment_set = []
             elif token_type.startswith('#include'):
