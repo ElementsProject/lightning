@@ -77,7 +77,7 @@ bool fromwire_expiry_too_soon(const tal_t *ctx UNNEEDED, const void *p UNNEEDED,
 bool fromwire_fee_insufficient(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct amount_msat *htlc_msat UNNEEDED, u8 **channel_update UNNEEDED)
 { fprintf(stderr, "fromwire_fee_insufficient called!\n"); abort(); }
 /* Generated stub for fromwire_gossipctl_init */
-bool fromwire_gossipctl_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct node_id *id UNNEEDED, u8 **globalfeatures UNNEEDED, u8 rgb[3] UNNEEDED, u8 alias[32] UNNEEDED, u32 *update_channel_interval UNNEEDED, struct wireaddr **announcable UNNEEDED, u32 **dev_gossip_time UNNEEDED)
+bool fromwire_gossipctl_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct node_id *id UNNEEDED, u8 **globalfeatures UNNEEDED, u8 rgb[3] UNNEEDED, u8 alias[32] UNNEEDED, u32 *update_channel_interval UNNEEDED, u32 *gossip_min_interval UNNEEDED, struct wireaddr **announcable UNNEEDED, u32 **dev_gossip_time UNNEEDED)
 { fprintf(stderr, "fromwire_gossipctl_init called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_dev_set_max_scids_encode_size */
 bool fromwire_gossip_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
@@ -336,9 +336,6 @@ u8 *towire_hsm_node_announcement_sig_req(const tal_t *ctx UNNEEDED, const u8 *an
 /* Generated stub for towire_wireaddr */
 void towire_wireaddr(u8 **pptr UNNEEDED, const struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "towire_wireaddr called!\n"); abort(); }
-/* Generated stub for wireaddr_eq */
-bool wireaddr_eq(const struct wireaddr *a UNNEEDED, const struct wireaddr *b UNNEEDED)
-{ fprintf(stderr, "wireaddr_eq called!\n"); abort(); }
 /* Generated stub for wire_sync_read */
 u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 { fprintf(stderr, "wire_sync_read called!\n"); abort(); }

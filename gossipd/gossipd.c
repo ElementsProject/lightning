@@ -133,6 +133,9 @@ struct daemon {
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 
+	/* Minimum interval for generating updated gossip */
+	u32 gossip_min_interval;
+
 	/* Global features to list in node_announcement. */
 	u8 *globalfeatures;
 
@@ -2465,6 +2468,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				     /* 1 week in seconds
 				      * (unless --dev-channel-update-interval) */
 				     &update_channel_interval,
+				     /* 5 minutes, or
+				      * --dev-broadcast-interval * 5 seconds */
+				     &daemon->gossip_min_interval,
 				     &daemon->announcable,
 				     &dev_gossip_time)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
