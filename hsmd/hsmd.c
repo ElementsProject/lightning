@@ -1385,9 +1385,20 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 	get_channel_seed(&info->peer_id, info->channel_id, &channel_seed);
 	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
 
-	if (!derive_simple_privkey(&secrets.payment_basepoint_secret,
-				   &basepoints.payment, info->commitment_point,
-				   dst)) {
+	/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #3:
+	 *
+	 * If `option_static_remotekey` is negotiated the `remotepubkey`
+	 * is simply the remote node's `payment_basepoint`, otherwise it is
+	 * calculated as above using the remote node's `payment_basepoint`.
+	 */
+	/* In our UTXO representation, this is indicated by a NULL
+	 * commitment_point. */
+	if (!info->commitment_point)
+		dst->secret = secrets.payment_basepoint_secret;
+	else if (!derive_simple_privkey(&secrets.payment_basepoint_secret,
+					&basepoints.payment,
+					info->commitment_point,
+					dst)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving unilateral_close_privkey");
 	}
