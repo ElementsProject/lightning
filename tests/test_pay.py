@@ -1729,6 +1729,7 @@ def test_pay_direct(node_factory, bitcoind):
         assert l1l2msat == l1l2msatreference
 
 
+@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-broadcast-interval")
 def test_setchannelfee_usage(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2061,6 +2062,7 @@ def test_setchannelfee_restart(node_factory, bitcoind):
     assert result['msatoshi_sent'] == 5002020
 
 
+@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-broadcast-interval")
 def test_setchannelfee_all(node_factory, bitcoind):
     # TEST SETUP
     #
