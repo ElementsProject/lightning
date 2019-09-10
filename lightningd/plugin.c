@@ -901,10 +901,12 @@ static const char *plugin_fullpath(const tal_t *ctx, const char *dir,
 	return fullname;
 }
 
-char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
+char *add_plugin_dir(struct plugins *plugins, const char *dir, bool error_ok)
 {
 	struct dirent *di;
 	DIR *d = opendir(dir);
+	struct plugin *p;
+
 	if (!d) {
 		if (deprecated_apis && !path_is_abs(dir)) {
 			dir = path_join(tmpctx,
@@ -919,7 +921,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 			}
 		}
 		if (!d) {
-			if (!nonexist_ok && errno == ENOENT)
+			if (!error_ok && errno == ENOENT)
 				return NULL;
 			return tal_fmt(NULL, "Failed to open plugin-dir %s: %s",
 				       dir, strerror(errno));
@@ -931,9 +933,13 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 
 		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
 			continue;
-		fullpath = plugin_fullpath(NULL, dir, di->d_name);
-		if (fullpath)
-			plugin_register(plugins, take(fullpath));
+		fullpath = plugin_fullpath(tmpctx, dir, di->d_name);
+		if (fullpath) {
+			p = plugin_register(plugins, fullpath);
+			if (!p && !error_ok)
+				return tal_fmt(NULL, "Failed to register %s: %s",
+				               fullpath, strerror(errno));
+		}
 	}
 	closedir(d);
 	return NULL;
