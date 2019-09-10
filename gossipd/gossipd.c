@@ -458,16 +458,16 @@ static void setup_gossip_range(struct peer *peer)
  * handed in rather than using time_now() internally, since that could change
  * between the dummy creation and the call with a signature. */
 static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
-				    secp256k1_ecdsa_signature *sig,
+				    const secp256k1_ecdsa_signature *sig,
 				    u32 timestamp)
 {
 	u8 *addresses = tal_arr(tmpctx, u8, 0);
 	u8 *announcement;
 	size_t i;
-	if (!sig) {
-		sig = tal(tmpctx, secp256k1_ecdsa_signature);
-		memset(sig, 0, sizeof(*sig));
-	}
+
+	if (!sig)
+		sig = talz(tmpctx, secp256k1_ecdsa_signature);
+
 	for (i = 0; i < tal_count(daemon->announcable); i++)
 		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
