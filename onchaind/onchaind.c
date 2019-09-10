@@ -1726,6 +1726,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	if (!derive_keyset(&local_per_commitment_point,
 			   &basepoints[LOCAL],
 			   &basepoints[REMOTE],
+			   option_static_remotekey,
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -1969,6 +1970,31 @@ static void steal_htlc(struct tracked_output *out)
 	propose_resolution(out, tx, 0, tx_type);
 }
 
+/* Tell wallet that we have discovered a UTXO from a to-remote output,
+ * which it can spend with a little additional info we give here. */
+static void tell_wallet_to_remote(const struct bitcoin_tx *tx,
+				  unsigned int outnum,
+				  const struct bitcoin_txid *txid,
+				  u32 tx_blockheight,
+				  const u8 *scriptpubkey,
+				  const struct pubkey *per_commit_point,
+				  bool option_static_remotekey)
+{
+	struct amount_sat amt = bitcoin_tx_output_get_amount(tx, outnum);
+
+	/* A NULL per_commit_point is how we indicate the pubkey doesn't need
+	 * changing. */
+	if (option_static_remotekey)
+		per_commit_point = NULL;
+
+	wire_sync_write(REQ_FD,
+			take(towire_onchain_add_utxo(NULL, txid, outnum,
+						     per_commit_point,
+						     amt,
+						     tx_blockheight,
+						     scriptpubkey)));
+}
+
 /* BOLT #5:
  *
  * If any node tries to cheat by broadcasting an outdated commitment
@@ -2045,6 +2071,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	if (!derive_keyset(remote_per_commitment_point,
 			   &basepoints[REMOTE],
 			   &basepoints[LOCAL],
+			   option_static_remotekey,
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -2056,7 +2083,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     " self_payment_key: %s"
 		     " other_payment_key: %s"
 		     " self_htlc_key: %s"
-		     " other_htlc_key: %s",
+		     " other_htlc_key: %s"
+		     " (option_static_remotekey = %i)",
 		     commit_num,
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_revocation_key),
@@ -2069,7 +2097,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_htlc_key),
 		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->other_htlc_key));
+				    &keyset->other_htlc_key),
+		     option_static_remotekey);
 
 	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
 
@@ -2119,14 +2148,11 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
 
-			/* Tell the master that it will want to add
-			 * this UTXO to its outputs */
-			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
-						    tmpctx, txid, i,
-						    remote_per_commitment_point,
-						    amt,
-						    tx_blockheight,
-						    script[LOCAL]));
+			tell_wallet_to_remote(tx, i, txid,
+					      tx_blockheight,
+					      script[LOCAL],
+					      remote_per_commitment_point,
+					      option_static_remotekey);
 			script[LOCAL] = NULL;
 			continue;
 		}
@@ -2266,6 +2292,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	if (!derive_keyset(remote_per_commitment_point,
 			   &basepoints[REMOTE],
 			   &basepoints[LOCAL],
+			   option_static_remotekey,
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -2339,14 +2366,11 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
 
-			/* Tell the master that it will want to add
-			 * this UTXO to its outputs */
-			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
-						    tmpctx, txid, i,
-						    remote_per_commitment_point,
-						    amt,
-						    tx_blockheight,
-						    script[LOCAL]));
+			tell_wallet_to_remote(tx, i, txid,
+					      tx_blockheight,
+					      script[LOCAL],
+					      remote_per_commitment_point,
+					      option_static_remotekey);
 			script[LOCAL] = NULL;
 			continue;
 		}
@@ -2433,7 +2457,6 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 				      const bool *tell_if_missing,
 				      struct tracked_output **outs)
 {
-	struct keyset *ks;
 	int to_us_output = -1;
 	u8 *local_script;
 
@@ -2441,20 +2464,40 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 
 	resolved_by_other(outs[0], txid, UNKNOWN_UNILATERAL);
 
-	if (!possible_remote_per_commitment_point)
+	/* If they don't give us a per-commitment point and we rotate keys,
+	 * we're out of luck. */
+	if (!possible_remote_per_commitment_point
+	    && !option_static_remotekey)
 		goto search_done;
 
-	keyset = ks = tal(tx, struct keyset);
-	if (!derive_keyset(possible_remote_per_commitment_point,
-			   &basepoints[REMOTE],
-			   &basepoints[LOCAL],
-			   ks))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving keyset for possible_remote_per_commitment_point %s",
-			      type_to_string(tmpctx, struct pubkey,
-					     possible_remote_per_commitment_point));
+	if (!option_static_remotekey) {
+		struct keyset *ks = tal(tmpctx, struct keyset);
+		if (!derive_keyset(possible_remote_per_commitment_point,
+				   &basepoints[REMOTE],
+				   &basepoints[LOCAL],
+				   option_static_remotekey,
+				   ks))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Deriving keyset for possible_remote_per_commitment_point %s",
+				      type_to_string(tmpctx, struct pubkey,
+						     possible_remote_per_commitment_point));
 
-	local_script = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
+		local_script = scriptpubkey_p2wpkh(tmpctx,
+						   &ks->other_payment_key);
+	} else {
+		/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #3:
+		 *
+		 * ### `remotepubkey` Derivation
+		 *
+		 * If `option_static_remotekey` is negotiated the
+		 * `remotepubkey` is simply the remote node's
+		 * `payment_basepoint`, otherwise it is calculated as above
+		 * using the remote node's `payment_basepoint`.
+		 */
+		local_script = scriptpubkey_p2wpkh(tmpctx,
+						   &basepoints[LOCAL].payment);
+	}
+
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		struct tracked_output *out;
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
@@ -2477,14 +2520,11 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
 
-			/* Tell the master that it will want to add
-			 * this UTXO to its outputs */
-			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
-						    tmpctx, txid, i,
-						    possible_remote_per_commitment_point,
-						    amt,
-						    tx_blockheight,
-						    local_script));
+			tell_wallet_to_remote(tx, i, txid,
+					      tx_blockheight,
+					      local_script,
+					      possible_remote_per_commitment_point,
+					      option_static_remotekey);
 			local_script = NULL;
 			to_us_output = i;
 		}

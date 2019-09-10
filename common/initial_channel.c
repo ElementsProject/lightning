@@ -86,7 +86,8 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
 			   &channel->basepoints[!side],
-			   &keyset)){
+			   channel->option_static_remotekey,
+			   &keyset)) {
 		*err_reason = "Cannot derive keyset";
 		return NULL;
 	}

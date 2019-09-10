@@ -22,6 +22,7 @@ void daemon_shutdown(void)
 bool derive_keyset(const struct pubkey *per_commitment_point UNNEEDED,
 		   const struct basepoints *self UNNEEDED,
 		   const struct basepoints *other UNNEEDED,
+		   bool option_static_remotekey UNNEEDED,
 		   struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "derive_keyset called!\n"); abort(); }
 /* Generated stub for dump_memleak */

@@ -273,6 +273,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
 			   &channel->basepoints[!side],
+			   channel->option_static_remotekey,
 			   &keyset))
 		return NULL;
 
