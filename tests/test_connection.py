@@ -1345,7 +1345,7 @@ def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
     lfeatures = 'aa'
     if EXPERIMENTAL_FEATURES:
-        lfeatures = '020000000008aa'
+        lfeatures = '28aa'
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
@@ -1596,8 +1596,8 @@ def test_dataloss_protection(node_factory, bitcoind):
                                feerates=(7500, 7500, 7500), allow_broken_log=True)
 
     if EXPERIMENTAL_FEATURES:
-        # features 1, 3, 5, 7, 11 and 49 (0x020000000008aa).
-        lf = "020000000008aa"
+        # features 1, 3, 5, 7, 11 and 13 (0x28aa).
+        lf = "28aa"
     else:
         # features 1, 3, 5 and 7 (0xaa).
         lf = "aa"
@@ -1618,11 +1618,6 @@ def test_dataloss_protection(node_factory, bitcoind):
     orig_db = open(dbpath, "rb").read()
     l2.start()
 
-    if EXPERIMENTAL_FEATURES:
-        # No my_current_per_commitment_point with option_static_remotekey
-        my_current_per_commitment_point_regex = ""
-    else:
-        my_current_per_commitment_point_regex = "0[23][0-9a-f]{64}"
     # l1 should have sent WIRE_CHANNEL_REESTABLISH with extra fields.
     l1.daemon.wait_for_log(r"\[OUT\] 0088"
                            # channel_id
@@ -1635,8 +1630,8 @@ def test_dataloss_protection(node_factory, bitcoind):
                            # trigger a fee-update and commit, hence this may not
                            # be zero)
                            "[0-9a-f]{64}"
-                           # my_current_per_commitment_point (maybe)
-                           + my_current_per_commitment_point_regex + "'$")
+                           # my_current_per_commitment_point
+                           "0[23][0-9a-f]{64}'$")
 
     # After an htlc, we should get different results (two more commits)
     l1.pay(l2, 200000000)
@@ -1658,8 +1653,8 @@ def test_dataloss_protection(node_factory, bitcoind):
                            "000000000000000[1-9]"
                            # your_last_per_commitment_secret
                            "[0-9a-f]{64}"
-                           # my_current_per_commitment_point (maybe)
-                           + my_current_per_commitment_point_regex + "'$")
+                           # my_current_per_commitment_point
+                           "0[23][0-9a-f]{64}'$")
 
     # Now, move l2 back in time.
     l2.stop()

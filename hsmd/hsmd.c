@@ -1385,7 +1385,7 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 	get_channel_seed(&info->peer_id, info->channel_id, &channel_seed);
 	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
 
-	/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #3:
+	/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #3:
 	 *
 	 * If `option_static_remotekey` is negotiated the `remotepubkey`
 	 * is simply the remote node's `payment_basepoint`, otherwise it is

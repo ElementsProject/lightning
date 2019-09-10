@@ -1445,5 +1445,6 @@ def test_list_features_only(node_factory):
                 'option_upfront_shutdown_script/odd',
                 'option_gossip_queries/odd']
     if EXPERIMENTAL_FEATURES:
-        expected.append('option_gossip_queries_ex/odd')
+        expected += ['option_gossip_queries_ex/odd',
+                     'option_static_remotekey/odd']
     assert features == expected

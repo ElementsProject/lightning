@@ -2485,7 +2485,7 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 		local_script = scriptpubkey_p2wpkh(tmpctx,
 						   &ks->other_payment_key);
 	} else {
-		/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #3:
+		/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #3:
 		 *
 		 * ### `remotepubkey` Derivation
 		 *
