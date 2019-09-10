@@ -697,13 +697,23 @@ static int db_get_version(struct db *db)
 {
 	int res = -1;
 	struct db_stmt *stmt = db_prepare_v2(db, SQL("SELECT version FROM version LIMIT 1"));
+
+	/*
+	 * Tentatively execute a query, but allow failures. Some databases
+	 * like postgres will terminate the DB transaction if there is an
+	 * error during the execution of a query, e.g., trying to access a
+	 * table that doesn't exist yet, so we need to terminate and restart
+	 * the DB transaction.
+	 */
 	if (!db_query_prepared(stmt)) {
+		db_commit_transaction(stmt->db);
+		db_begin_transaction(stmt->db);
 		tal_free(stmt);
 		return res;
 	}
 
 	if (db_step(stmt))
-		res = db_column_u64(stmt, 0);
+		res = db_column_int(stmt, 0);
 
 	tal_free(stmt);
 	return res;
