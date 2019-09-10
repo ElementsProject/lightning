@@ -403,15 +403,16 @@ static UNNEEDED bool encoding_end_external_type(u8 **encoded, u8 *type, size_t m
 }
 
 /*~ We have different levels of gossipiness, depending on our needs. */
-static u32 gossip_start(enum gossip_level gossip_level)
+static u32 gossip_start(const struct routing_state *rstate,
+			enum gossip_level gossip_level)
 {
 	switch (gossip_level) {
 	case GOSSIP_HIGH:
 		return 0;
 	case GOSSIP_MEDIUM:
-		return time_now().ts.tv_sec - 24 * 3600;
+		return gossip_time_now(rstate).ts.tv_sec - 24 * 3600;
 	case GOSSIP_LOW:
-		return time_now().ts.tv_sec;
+		return gossip_time_now(rstate).ts.tv_sec;
 	case GOSSIP_NONE:
 		return UINT32_MAX;
 	}
@@ -444,7 +445,8 @@ static void setup_gossip_range(struct peer *peer)
 	/*~ We need to ask for something to start the gossip flowing. */
 	msg = towire_gossip_timestamp_filter(peer,
 					     &peer->daemon->chain_hash,
-					     gossip_start(peer->gossip_level),
+					     gossip_start(peer->daemon->rstate,
+							  peer->gossip_level),
 					     UINT32_MAX);
 	queue_peer_msg(peer, take(msg));
 }
@@ -482,7 +484,7 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
  * (to prevent spam), so we only call this once we've announced a channel. */
 static void send_node_announcement(struct daemon *daemon)
 {
-	u32 timestamp = time_now().ts.tv_sec;
+	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
 	u8 *msg, *nannounce, *err;
 	struct node *self = get_node(daemon->rstate, &daemon->id);
@@ -1634,7 +1636,7 @@ static void update_local_channel(struct daemon *daemon,
 {
 	secp256k1_ecdsa_signature dummy_sig;
 	u8 *update, *msg;
-	u32 timestamp = time_now().ts.tv_sec;
+	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
 	u8 message_flags, channel_flags;
 
 	/* So valgrind doesn't complain */
@@ -2279,7 +2281,7 @@ static void gossip_send_keepalive_update(struct daemon *daemon,
  */
 static void gossip_refresh_network(struct daemon *daemon)
 {
-	u64 now = time_now().ts.tv_sec;
+	u64 now = gossip_time_now(daemon->rstate).ts.tv_sec;
 	/* Anything below this highwater mark could be pruned if not refreshed */
 	s64 highwater = now - daemon->rstate->prune_timeout / 2;
 	struct node *n;

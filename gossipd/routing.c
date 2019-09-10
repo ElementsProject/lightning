@@ -1481,7 +1481,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	uc = tal(rstate, struct unupdated_channel);
 	uc->channel_announce = tal_dup_arr(uc, u8, msg, tal_count(msg), 0);
-	uc->added = time_now();
+	uc->added = gossip_time_now(rstate);
 	uc->index = index;
 	uc->sat = sat;
 	uc->scid = scid;
