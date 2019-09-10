@@ -9,7 +9,6 @@ export EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
 export SOURCE_CHECK_ONLY=${SOURCE_CHECK_ONLY:-"false"}
 export COMPAT=${COMPAT:-1}
 export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
-export TIMEOUT=180
 export PYTEST_PAR=2
 export PYTHONPATH=$PWD/contrib/pylightning:$PYTHONPATH
 # If we're not in developer mode, tests spend a lot of time waiting for gossip!

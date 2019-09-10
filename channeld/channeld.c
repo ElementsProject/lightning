@@ -2013,10 +2013,15 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			       peer->revocations_received);
 }
 
-/* BOLT #2:
+/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #2:
  *
  * A receiving node:
- *  - if it supports `option_data_loss_protect`, AND the
+ *  - if `option_static_remotekey` applies to the commitment transaction:
+ *    - if `next_revocation_number` is greater than expected above, AND
+ *    `your_last_per_commitment_secret` is correct for that
+ *    `next_revocation_number` minus 1:
+ *...
+ *  - otherwise, if it supports `option_data_loss_protect`, AND the
  * `option_data_loss_protect` fields are present:
  *    - if `next_revocation_number` is greater than expected above,
  *      AND `your_last_per_commitment_secret` is correct for that
@@ -2025,6 +2030,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 static void check_future_dataloss_fields(struct peer *peer,
 			u64 next_revocation_number,
 			const struct secret *last_local_per_commit_secret,
+			/* This is NULL if option_static_remotekey */
 			const struct pubkey *remote_current_per_commitment_point)
 {
 	const u8 *msg;
@@ -2070,10 +2076,14 @@ static void check_future_dataloss_fields(struct peer *peer,
 	peer_failed(peer->pps, &peer->channel_id, "Awaiting unilateral close");
 }
 
-/* BOLT #2:
+/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #2:
  *
  * A receiving node:
- *  - if it supports `option_data_loss_protect`, AND the
+ *  - if `option_static_remotekey` applies to the commitment transaction:
+ * ...
+ *  - if `your_last_per_commitment_secret` does not match the expected values:
+ *     - SHOULD fail the channel.
+ *  - otherwise, if it supports `option_data_loss_protect`, AND the
  * `option_data_loss_protect` fields are present:
  *...
  *    - otherwise (`your_last_per_commitment_secret` or
@@ -2084,6 +2094,7 @@ static void check_current_dataloss_fields(struct peer *peer,
 			u64 next_revocation_number,
 			u64 next_commitment_number,
 			const struct secret *last_local_per_commit_secret,
+			/* NULL if option_static_remotekey */
 			const struct pubkey *remote_current_per_commitment_point)
 {
 	struct secret old_commit_secret;
@@ -2129,6 +2140,11 @@ static void check_current_dataloss_fields(struct peer *peer,
 					   last_local_per_commit_secret),
 			    type_to_string(tmpctx, struct secret,
 					   &old_commit_secret));
+
+	if (!remote_current_per_commitment_point) {
+		status_debug("option_static_remotekey: fields are correct");
+		return;
+	}
 
 	status_debug("Reestablish, comparing commitments. Remote's next local commitment number"
 			" is %"PRIu64". Our next remote is %"PRIu64" with %"PRIu64
@@ -2207,18 +2223,22 @@ static void peer_reconnect(struct peer *peer,
 	struct pubkey my_current_per_commitment_point,
 		remote_current_per_commitment_point;
 	struct secret last_local_per_commitment_secret;
-	bool dataloss_protect;
+	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 
 	dataloss_protect = local_feature_negotiated(peer->localfeatures,
 						    LOCAL_DATA_LOSS_PROTECT);
+
+	/* Both these options give us extra fields to check. */
+	check_extra_fields
+		= dataloss_protect || peer->channel->option_static_remotekey;
 
 	/* Our current per-commitment point is the commitment point in the last
 	 * received signed commitment */
 	get_per_commitment_point(peer->next_index[LOCAL] - 1,
 				 &my_current_per_commitment_point, NULL);
 
-	/* BOLT #2:
+	/* BOLT-930a9b44076a8f25a8626b31b3d5a55c0888308c #2:
 	 *
 	 *   - upon reconnection:
 	 *     - if a channel is in an error state:
@@ -2234,7 +2254,7 @@ static void peer_reconnect(struct peer *peer,
 	 *     of the next `commitment_signed` it expects to receive.
 	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
-	 *   - if it supports `option_data_loss_protect`:
+	 *   - if it supports `option_data_loss_protect` or `option_static_remotekey`:
 	 *       - MUST set `my_current_per_commitment_point` to its commitment
 	 *         point for the last signed commitment it received from its
 	 *         channel peer (i.e. the commitment_point corresponding to the
@@ -2246,6 +2266,15 @@ static void peer_reconnect(struct peer *peer,
 	 *       - MUST set `your_last_per_commitment_secret` to the last
 	 *         `per_commitment_secret` it received
 	 */
+#if EXPERIMENTAL_FEATURES
+	if (peer->channel->option_static_remotekey) {
+		msg = towire_channel_reestablish_option_static_remotekey
+			(NULL, &peer->channel_id,
+			 peer->next_index[LOCAL],
+			 peer->revocations_received,
+			 last_remote_per_commit_secret);
+	} else
+#endif /* EXPERIMENTAL_FEATURES */
 	if (dataloss_protect) {
 		msg = towire_channel_reestablish_option_data_loss_protect
 			(NULL, &peer->channel_id,
@@ -2273,6 +2302,21 @@ static void peer_reconnect(struct peer *peer,
 	} while (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg)
 		 || capture_premature_msg(&premature_msgs, msg));
 
+#if EXPERIMENTAL_FEATURES
+	if (peer->channel->option_static_remotekey) {
+		if (!fromwire_channel_reestablish_option_static_remotekey(msg,
+					&channel_id,
+					&next_commitment_number,
+					&next_revocation_number,
+					&last_local_per_commitment_secret)) {
+			peer_failed(peer->pps,
+				    &peer->channel_id,
+				    "bad reestablish static_remotekey msg: %s %s",
+				    wire_type_name(fromwire_peektype(msg)),
+				    tal_hex(msg, msg));
+		}
+	} else
+#endif /* EXPERIMENTAL_FEATURES */
 	if (dataloss_protect) {
 		if (!fromwire_channel_reestablish_option_data_loss_protect(msg,
 					&channel_id,
@@ -2361,9 +2405,10 @@ static void peer_reconnect(struct peer *peer,
 			    next_revocation_number,
 			    peer->next_index[LOCAL]);
 	} else if (next_revocation_number > peer->next_index[LOCAL] - 1) {
-		if (!dataloss_protect)
-			/* They don't support option_data_loss_protect, we
-			 * fail it due to unexpected number */
+		if (!check_extra_fields)
+			/* They don't support option_data_loss_protect or
+			 * option_static_remotekey, we fail it due to
+			 * unexpected number */
 			peer_failed(peer->pps,
 				    &peer->channel_id,
 				    "bad reestablish revocation_number: %"PRIu64
@@ -2376,6 +2421,7 @@ static void peer_reconnect(struct peer *peer,
 		check_future_dataloss_fields(peer,
 					     next_revocation_number,
 					     &last_local_per_commitment_secret,
+					     peer->channel->option_static_remotekey ? NULL :
 					     &remote_current_per_commitment_point);
  	} else
  		retransmit_revoke_and_ack = false;
@@ -2418,12 +2464,14 @@ static void peer_reconnect(struct peer *peer,
 		retransmit_commitment_signed = false;
 
 	/* After we checked basic sanity, we check dataloss fields if any */
-	if (dataloss_protect)
+	if (check_extra_fields)
 		check_current_dataloss_fields(peer,
 					      next_revocation_number,
 					      next_commitment_number,
 					      &last_local_per_commitment_secret,
-					      &remote_current_per_commitment_point);
+					      peer->channel->option_static_remotekey
+					      ? NULL
+					      : &remote_current_per_commitment_point);
 
 	/* We have to re-send in the same order we sent originally:
 	 * revoke_and_ack (usually) alters our next commitment. */
@@ -2946,6 +2994,10 @@ static void init_channel(struct peer *peer)
 		     peer->revocations_received,
 		     feerate_per_kw[LOCAL], feerate_per_kw[REMOTE],
 		     peer->feerate_min, peer->feerate_max);
+
+#if EXPERIMENTAL_FEATURES
+	status_debug("option_static_remotekey = %u", option_static_remotekey);
+#endif
 
 	if(remote_ann_node_sig && remote_ann_bitcoin_sig) {
 		peer->announcement_node_sigs[REMOTE] = *remote_ann_node_sig;
