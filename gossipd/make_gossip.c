@@ -147,6 +147,12 @@ static void update_own_node_announcement(struct daemon *daemon)
 	/* Discard existing timer. */
 	daemon->node_announce_timer = tal_free(daemon->node_announce_timer);
 
+	/* If we ever use set-based propagation, ensuring the toggle the lower
+	 * bit in consecutive timestamps makes it more robust. */
+	if (self && self->bcast.index
+	    && (timestamp & 1) == (self->bcast.timestamp & 1))
+		timestamp++;
+
 	/* Make unsigned announcement. */
 	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
 
@@ -284,6 +290,16 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	 */
 	message_flags = 0 | ROUTING_OPT_HTLC_MAX_MSAT;
 
+	/* Convenience variable. */
+	hc = &chan->half[lc->direction];
+
+	/* If we ever use set-based propagation, ensuring the toggle
+	 * the lower bit in consecutive timestamps makes it more
+	 * robust. */
+	if (is_halfchan_defined(hc)
+	    && (timestamp & 1) == (hc->bcast.timestamp & 1))
+		timestamp++;
+
 	/* We create an update with a dummy signature, and hand to hsmd to get
 	 * it signed. */
 	update = towire_channel_update_option_channel_htlc_max(tmpctx, &dummy_sig,
@@ -297,7 +313,6 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 				       lc->fee_proportional_millionths,
 				       lc->htlc_maximum);
 
-	hc = &chan->half[lc->direction];
 	if (is_halfchan_defined(hc)) {
 		/* Suppress duplicates. */
 		if (!lc->even_if_identical
