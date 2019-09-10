@@ -55,6 +55,38 @@ static void gossip_store_destroy(struct gossip_store *gs)
 	close(gs->fd);
 }
 
+#if HAVE_PWRITEV
+static ssize_t gossip_pwritev(int fd, const struct iovec *iov, int iovcnt,
+			      off_t offset)
+{
+	return pwritev(fd, iov, iovcnt, offset);
+}
+#else /* Hello MacOS! */
+static ssize_t gossip_pwritev(int fd, const struct iovec *iov, int iovcnt,
+			      off_t offset)
+{
+	u8 *buf;
+	size_t len;
+	ssize_t ret;
+
+	/* Make a temporary linear buffer to fall back to pwrite() */
+	len = 0;
+	for (size_t i = 0; i < iovcnt; i++)
+		len += iov[i].iov_len;
+
+	buf = tal_arr(NULL, u8, len);
+	len = 0;
+	for (size_t i = 0; i < iovcnt; i++) {
+		memcpy(buf + len, iov[i].iov_base, iov[i].iov_len);
+		len += iov[i].iov_len;
+	}
+
+	ret = pwrite(fd, buf, len, offset);
+	tal_free(buf);
+	return ret;
+}
+#endif /* !HAVE_PWRITEV */
+
 static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 {
 	struct gossip_hdr hdr;
@@ -71,7 +103,7 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 	iov[0].iov_len = sizeof(hdr);
 	iov[1].iov_base = (void *)msg;
 	iov[1].iov_len = msglen;
-	if (pwritev(fd, iov, ARRAY_SIZE(iov), *len) != sizeof(hdr) + msglen)
+	if (gossip_pwritev(fd, iov, ARRAY_SIZE(iov), *len) != sizeof(hdr) + msglen)
 		return false;
 	*len += sizeof(hdr) + msglen;
 	return true;
