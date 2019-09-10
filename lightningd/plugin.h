@@ -181,7 +181,7 @@ void *plugin_exclusive_loop(struct plugin *plugin);
  * Add a directory to the plugin path to automatically load plugins.
  */
 char *add_plugin_dir(struct plugins *plugins, const char *dir,
-		     bool nonexist_ok);
+		     bool error_ok);
 
 /**
  * Clear all plugins registered so far.
