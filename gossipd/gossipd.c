@@ -3055,6 +3055,22 @@ static struct io_plan *dev_compact_store(struct io_conn *conn,
 								    done)));
 	return daemon_conn_read_next(conn, daemon->master);
 }
+
+static struct io_plan *dev_gossip_set_time(struct io_conn *conn,
+					   struct daemon *daemon,
+					   const u8 *msg)
+{
+	u32 time;
+
+	if (!fromwire_gossip_dev_set_time(msg, &time))
+		master_badmsg(WIRE_GOSSIP_DEV_SET_TIME, msg);
+	if (!daemon->rstate->gossip_time)
+		daemon->rstate->gossip_time = tal(daemon->rstate, struct timeabs);
+	daemon->rstate->gossip_time->ts.tv_sec = time;
+	daemon->rstate->gossip_time->ts.tv_nsec = 0;
+
+	return daemon_conn_read_next(conn, daemon->master);
+}
 #endif /* DEVELOPER */
 
 /*~ lightningd: so, tell me about this channel, so we can forward to it. */
@@ -3329,6 +3345,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return dev_gossip_memleak(conn, daemon, msg);
 	case WIRE_GOSSIP_DEV_COMPACT_STORE:
 		return dev_compact_store(conn, daemon, msg);
+	case WIRE_GOSSIP_DEV_SET_TIME:
+		return dev_gossip_set_time(conn, daemon, msg);
 #else
 	case WIRE_GOSSIP_QUERY_SCIDS:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
@@ -3337,6 +3355,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_DEV_SUPPRESS:
 	case WIRE_GOSSIP_DEV_MEMLEAK:
 	case WIRE_GOSSIP_DEV_COMPACT_STORE:
+	case WIRE_GOSSIP_DEV_SET_TIME:
 		break;
 #endif /* !DEVELOPER */
 

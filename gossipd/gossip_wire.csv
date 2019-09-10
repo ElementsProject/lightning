@@ -15,6 +15,10 @@ msgdata,gossipctl_init,num_announcable,u16,
 msgdata,gossipctl_init,announcable,wireaddr,num_announcable
 msgdata,gossipctl_init,dev_gossip_time,?u32,
 
+# In developer mode, we can mess with time.
+msgtype,gossip_dev_set_time,3001
+msgdata,gossip_dev_set_time,dev_gossip_time,u32,
+
 # Pass JSON-RPC getnodes call through
 msgtype,gossip_getnodes_request,3005
 msgdata,gossip_getnodes_request,id,?node_id,
