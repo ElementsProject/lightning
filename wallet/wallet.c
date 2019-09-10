@@ -2829,8 +2829,10 @@ void wallet_transaction_annotate(struct wallet *w,
 		fatal("Attempting to annotate a transaction we don't have: %s",
 		      type_to_string(tmpctx, struct bitcoin_txid, txid));
 
-	type |= db_column_int(stmt, 0);
-	if (channel_id == 0)
+	if (!db_column_is_null(stmt, 0))
+		type |= db_column_int(stmt, 0);
+
+	if (channel_id == 0 && !db_column_is_null(stmt, 1))
 		channel_id = db_column_u64(stmt, 1);
 
 	tal_free(stmt);
@@ -3085,7 +3087,7 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	bool res;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					" SUM(in_msatoshi - out_msatoshi) "
+					" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
 					"FROM forwarded_payments "
 					"WHERE state = ?;"));
 	db_bind_int(stmt, 0, wallet_forward_status_in_db(FORWARD_SETTLED));
