@@ -9,6 +9,8 @@ WIRE_TEST_PROGRAMS := $(WIRE_TEST_OBJS:.o=)
 WIRE_TEST_COMMON_OBJS :=		\
 	common/utils.o
 
+wire/test/run-peer-wire: common/bigsize.o
+
 update-mocks: $(WIRE_TEST_SRC:%=update-mocks/%)
 
 $(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(BITCOIN_OBJS)

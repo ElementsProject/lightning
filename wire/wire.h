@@ -8,6 +8,7 @@
 #include <bitcoin/shadouble.h>
 #include <bitcoin/short_channel_id.h>
 #include <bitcoin/signature.h>
+#include <bitcoin/tx.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
