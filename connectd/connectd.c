@@ -1267,22 +1267,22 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 			   const struct node_id *id,
 			   struct sockaddr *broken_reply)
 {
-	struct wireaddr **new_addrs;
+	struct wireaddr *new_addrs;
 	const char **hostnames;
 
-	new_addrs = tal_arr(tmpctx, struct wireaddr *, 0);
+	new_addrs = tal_arr(tmpctx, struct wireaddr, 0);
 	hostnames = seednames(tmpctx, id);
 
 	for (size_t i = 0; i < tal_count(hostnames); i++) {
 		status_debug("Resolving %s", hostnames[i]);
-		if (!wireaddr_from_hostname(new_addrs, hostnames[i], DEFAULT_PORT, NULL,
+		if (!wireaddr_from_hostname(&new_addrs, hostnames[i], DEFAULT_PORT, NULL,
 				    	broken_reply, NULL)) {
 			status_debug("Could not resolve %s", hostnames[i]);
 		} else {
 			for (size_t i = 0; i < tal_count(new_addrs); i++) {
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
-				a.u.wireaddr = *new_addrs[i];
+				a.u.wireaddr = new_addrs[i];
 				status_debug("Resolved %s to %s", hostnames[i],
 				     	type_to_string(tmpctx, struct wireaddr,
 						    	&a.u.wireaddr));
@@ -1368,7 +1368,7 @@ static void try_connect_peer(struct daemon *daemon,
 			}
 		} else if (daemon->use_dns) {
 			add_seed_addrs(&addrs, id,
-				       daemon->broken_resolver_response);
+			               daemon->broken_resolver_response);
 		}
 	}
 
