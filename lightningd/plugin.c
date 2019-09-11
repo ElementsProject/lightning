@@ -50,6 +50,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
 	p->ld = ld;
+	p->startup = true;
 	uintmap_init(&p->pending_requests);
 	memleak_add_helper(p, memleak_help_pending_requests);
 
@@ -849,18 +850,13 @@ static void plugin_manifest_cb(const char *buffer,
 			       struct plugin *plugin)
 {
 	/* Check if all plugins have replied to getmanifest, and break
-	 * if they have and this is the startup init */
+	 * if they have */
 	plugin->plugins->pending_manifests--;
-	if (plugin->plugins->startup && plugin->plugins->pending_manifests == 0)
+	if (plugin->plugins->pending_manifests == 0)
 		io_break(plugin->plugins);
 
 	if (!plugin_parse_getmanifest_response(buffer, toks, idtok, plugin))
 		plugin_kill(plugin, "%s: Bad response to getmanifest.", plugin->cmd);
-
-	/* If all plugins have replied to getmanifest and this is not
-	 * the startup init, configure them */
-	if (!plugin->plugins->startup && plugin->plugins->pending_manifests == 0)
-		plugins_config(plugin->plugins);
 
 	/* Reset timer, it'd kill us otherwise. */
 	tal_free(plugin->timeout_timer);
@@ -976,17 +972,21 @@ void plugins_add_default_dir(struct plugins *plugins, const char *default_dir)
 	}
 }
 
-void plugins_start(struct plugins *plugins, const char *dev_plugin_debug)
+void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 {
 	struct plugin *p;
 	char **cmd;
 	int stdin, stdout;
 	struct jsonrpc_request *req;
 
-	list_for_each(&plugins->plugins, p, list) {
-		if (p->plugin_state != UNCONFIGURED)
-			continue;
+	plugins->pending_manifests = 0;
+	plugins_add_default_dir(plugins,
+				path_join(tmpctx, plugins->ld->config_dir, "plugins"));
 
+	setenv("LIGHTNINGD_PLUGIN", "1", 1);
+	setenv("LIGHTNINGD_VERSION", version(), 1);
+	/* Spawn the plugin processes before entering the io_loop */
+	list_for_each(&plugins->plugins, p, list) {
 		bool debug;
 
 		debug = dev_plugin_debug && strends(p->cmd, dev_plugin_debug);
@@ -1025,18 +1025,6 @@ void plugins_start(struct plugins *plugins, const char *dev_plugin_debug)
 		}
 		tal_free(cmd);
 	}
-}
-
-void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
-{
-	plugins->pending_manifests = 0;
-	plugins_add_default_dir(plugins,
-				path_join(tmpctx, plugins->ld->config_dir, "plugins"));
-
-	setenv("LIGHTNINGD_PLUGIN", "1", 1);
-	setenv("LIGHTNINGD_VERSION", version(), 1);
-	/* Spawn the plugin processes before entering the io_loop */
-	plugins_start(plugins, dev_plugin_debug);
 
 	if (plugins->pending_manifests > 0)
 		io_loop_with_timers(plugins->ld);
@@ -1095,10 +1083,8 @@ void plugins_config(struct plugins *plugins)
 {
 	struct plugin *p;
 	list_for_each(&plugins->plugins, p, list) {
-		if (p->plugin_state == UNCONFIGURED) {
-			p->plugin_state = CONFIGURING;
+		if (p->plugin_state == UNCONFIGURED)
 			plugin_config(p);
-		}
 	}
 
 	plugins->startup = false;

@@ -10,7 +10,6 @@
 
 enum plugin_state {
 	UNCONFIGURED,
-	CONFIGURING,
 	CONFIGURED
 };
 
@@ -31,7 +30,6 @@ struct plugin {
 
 	/* If this plugin can be restarted without restarting lightningd */
 	bool dynamic;
-	bool signal_startup;
 
 	/* Stuff we read */
 	char *buffer;
@@ -108,8 +106,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
  * contains as a plugin dir.
  */
 void plugins_add_default_dir(struct plugins *plugins, const char *default_dir);
-
-void plugins_start(struct plugins *plugins, const char *dev_plugin_debug);
 
 /**
  * Initialize the registered plugins.
