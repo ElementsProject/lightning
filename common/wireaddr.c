@@ -300,7 +300,6 @@ bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 	struct addrinfo hints;
 	int gai_err;
 	bool res = false;
-	struct wireaddr *addr;
 
 	if (no_dns)
 		*no_dns = false;
@@ -352,17 +351,17 @@ bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 	}
 
 	for (addrinfo = addrinfos; addrinfo; addrinfo = addrinfo->ai_next) {
-		addr = tal(addrs, struct wireaddr);
+		struct wireaddr addr;
 		if (addrinfo->ai_family == AF_INET) {
 			sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
-			wireaddr_from_ipv4(addr, &sa4->sin_addr, port);
+			wireaddr_from_ipv4(&addr, &sa4->sin_addr, port);
 			res = true;
 		} else if (addrinfo->ai_family == AF_INET6) {
 			sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
-			wireaddr_from_ipv6(addr, &sa6->sin6_addr, port);
+			wireaddr_from_ipv6(&addr, &sa6->sin6_addr, port);
 			res = true;
 		}
-		tal_arr_expand(&addrs, addr);
+		tal_arr_expand(addrs, addr);
 	}
 
 cleanup:
