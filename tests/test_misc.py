@@ -156,6 +156,9 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'wait_for_bitcoind_sync': False})
     # Extra funds, for second channel attempt.
     bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 1.0)
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l1])
+
     # Balance l1<->l2 channel
     l1.pay(l2, 10**9 // 2)
 
