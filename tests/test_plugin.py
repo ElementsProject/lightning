@@ -290,6 +290,7 @@ def test_async_rpcmethod(node_factory, executor):
     assert [r.result() for r in results] == [42] * len(results)
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Only sqlite3 implements the db_write_hook currently")
 def test_db_hook(node_factory, executor):
     """This tests the db hook."""
     dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
