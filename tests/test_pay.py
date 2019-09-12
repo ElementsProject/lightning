@@ -1824,9 +1824,13 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fund_channel(l2, 1000000)
 
+    def channel_get_fees(scid):
+        return l1.db.query(
+            'SELECT feerate_base, feerate_ppm FROM channels '
+            'WHERE short_channel_id=\'{}\';'.format(scid))
+
     # get short channel id
     scid = l1.get_channel_scid(l2)
-    scid_hex = scid.encode('utf-8').hex()
 
     # feerates should be init with global config
     db_fees = l1.db_query('SELECT feerate_base, feerate_ppm FROM channels;')
@@ -1845,9 +1849,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     assert(result['channels'][0]['short_channel_id'] == scid)
 
     # check if custom values made it into the database
-    db_fees = l1.db_query(
-        'SELECT feerate_base, feerate_ppm FROM channels '
-        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == 1337)
     assert(db_fees[0]['feerate_ppm'] == 137)
 
@@ -1878,9 +1880,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     result = l1.rpc.setchannelfee(scid, 0, 0)
     assert(result['base'] == 0)
     assert(result['ppm'] == 0)
-    db_fees = l1.db_query(
-        'SELECT feerate_base, feerate_ppm FROM channels '
-        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == 0)
     assert(db_fees[0]['feerate_ppm'] == 0)
 
@@ -1889,9 +1889,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     assert(result['base'] == DEF_BASE)
     assert(result['ppm'] == DEF_PPM)
     # check default values in DB
-    db_fees = l1.db_query(
-        'SELECT feerate_base, feerate_ppm FROM channels '
-        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == DEF_BASE)
     assert(db_fees[0]['feerate_ppm'] == DEF_PPM)
 
@@ -1902,9 +1900,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     assert(len(result['channels']) == 1)
     assert(result['channels'][0]['peer_id'] == l2.info['id'])
     assert(result['channels'][0]['short_channel_id'] == scid)
-    db_fees = l1.db_query(
-        'SELECT feerate_base, feerate_ppm FROM channels '
-        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == 42)
     assert(db_fees[0]['feerate_ppm'] == 43)
 
@@ -1917,9 +1913,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     # check if 'base' unit can be modified to satoshi
     result = l1.rpc.setchannelfee(scid, '1sat')
     assert(result['base'] == 1000)
-    db_fees = l1.db_query(
-        'SELECT feerate_base, feerate_ppm FROM channels '
-        'WHERE hex(short_channel_id)="' + scid_hex + '";')
+    db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == 1000)
 
     # check if 'ppm' values greater than u32_max fail
