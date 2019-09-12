@@ -180,7 +180,23 @@ To Build on macOS
 
 Assuming you have Xcode and Homebrew installed. Install dependencies:
 
-    $ brew install autoconf automake libtool python3 gmp gnu-sed
+    $ brew install autoconf automake libtool python3 gmp gnu-sed gettext
+    $ ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
+    $ export PATH="/usr/local/opt:$PATH"
+
+If you need SQLite (or get a SQLite mismatch build error):
+
+    $ brew install sqlite
+    $ export LDFLAGS="-L/usr/local/opt/sqlite/lib"
+    $ export CPPFLAGS="-I/usr/local/opt/sqlite/include"
+
+If you need Python 3.x for mako (or get a mako build error):
+
+    $ brew install pyenv
+    $ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
+    $ source ~/.bash_profile
+    $ pyenv install 3.7.4
+    $ pip install --upgrade pip
 
 If you don't have bitcoind installed locally you'll need to install that
 as well:
@@ -196,6 +212,11 @@ Clone lightning:
 
     $ git clone https://github.com/ElementsProject/lightning.git
     $ cd lightning
+
+Configure Python 3.x & get mako:
+
+    $ pyenv local 3.7.4
+    $ pip install mako
 
 Build lightning:
 
