@@ -508,11 +508,9 @@ out:
 static void destroy_subd(struct subd *sd)
 {
 	int status;
-	bool fail_if_subd_fails = false;
+	bool fail_if_subd_fails;
 
-#if DEVELOPER
-	fail_if_subd_fails = sd->ld->dev_subdaemon_fail;
-#endif
+	fail_if_subd_fails = IFDEV(sd->ld->dev_subdaemon_fail, false);
 
 	switch (waitpid(sd->pid, &status, WNOHANG)) {
 	case 0:

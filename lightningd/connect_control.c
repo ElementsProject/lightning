@@ -339,11 +339,6 @@ int connectd_init(struct lightningd *ld)
 	int hsmfd;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
-	bool allow_localhost = false;
-#if DEVELOPER
-	if (ld->dev_allow_localhost)
-		allow_localhost = true;
-#endif
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		fatal("Could not socketpair for connectd<->gossipd");
@@ -370,7 +365,7 @@ int connectd_init(struct lightningd *ld)
 	    wireaddrs,
 	    listen_announce,
 	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
-	    allow_localhost, ld->config.use_dns,
+	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
 	    ld->tor_service_password ? ld->tor_service_password : "");
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
