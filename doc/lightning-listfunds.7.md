@@ -45,6 +45,9 @@ Each entry in *channels* will include:
 -   *funding\_txid* - funding transaction id.
 -   *funding\_output* - the index of the output in the funding
     transaction.
+-   *connected* - whether the channel peer is connected.
+-   *state* - the channel state, in particular *CHANNELD_NORMAL* means the
+    channel can be used normally.
 
 AUTHOR
 ------
