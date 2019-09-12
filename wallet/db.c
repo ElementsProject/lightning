@@ -483,6 +483,9 @@ static void db_assert_no_outstanding_statements(struct db *db)
 
 static void db_stmt_free(struct db_stmt *stmt)
 {
+	if (!stmt->executed)
+		fatal("Freeing an un-executed statement from %s: %s",
+		      stmt->location, stmt->query->query);
 	if (stmt->inner_stmt)
 		stmt->db->config->stmt_free_fn(stmt);
 	assert(stmt->inner_stmt == NULL);
@@ -575,12 +578,14 @@ const unsigned char *db_column_text(struct db_stmt *stmt, int col)
 
 size_t db_count_changes(struct db_stmt *stmt)
 {
+	assert(stmt->executed);
 	return stmt->db->config->count_changes_fn(stmt);
 }
 
 u64 db_last_insert_id_v2(struct db_stmt *stmt TAKES)
 {
 	u64 id;
+	assert(stmt->executed);
 	id = stmt->db->config->last_insert_id_fn(stmt);
 
 	if (taken(stmt))
