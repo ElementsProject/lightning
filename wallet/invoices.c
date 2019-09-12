@@ -568,7 +568,7 @@ void invoices_waitany(const tal_t *ctx,
 	stmt = db_prepare_v2(invoices->db,
 			     SQL("SELECT id"
 				 "  FROM invoices"
-				 " WHERE pay_index NOT NULL"
+				 " WHERE pay_index IS NOT NULL"
 				 "   AND pay_index > ?"
 				 " ORDER BY pay_index ASC LIMIT 1;"));
 	db_bind_u64(stmt, 0, lastpay_index);
