@@ -180,6 +180,9 @@ bool gossip_store_load(struct routing_state *rstate UNNEEDED, struct gossip_stor
 /* Generated stub for gossip_store_readonly_fd */
 int gossip_store_readonly_fd(struct gossip_store *gs UNNEEDED)
 { fprintf(stderr, "gossip_store_readonly_fd called!\n"); abort(); }
+/* Generated stub for gossip_time_now */
+struct timeabs gossip_time_now(const struct routing_state *rstate UNNEEDED)
+{ fprintf(stderr, "gossip_time_now called!\n"); abort(); }
 /* Generated stub for got_pong */
 const char *got_pong(const u8 *pong UNNEEDED, size_t *num_pings_outstanding UNNEEDED)
 { fprintf(stderr, "got_pong called!\n"); abort(); }

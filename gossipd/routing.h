@@ -273,7 +273,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct node_id *local_id,
 					u32 prune_timeout,
 					struct list_head *peers,
-					const u32 *dev_gossip_time);
+					const u32 *dev_gossip_time TAKES);
 
 /**
  * Add a new bidirectional channel from id1 to id2 with the given

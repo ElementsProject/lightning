@@ -711,7 +711,7 @@ bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		goto corrupt;
 
 	/* If last timestamp is within 24 hours, say we're OK. */
-	contents_ok = (last_timestamp >= time_now().ts.tv_sec - 24*3600);
+	contents_ok = (last_timestamp >= gossip_time_now(rstate).ts.tv_sec - 24*3600);
 	goto out;
 
 badmsg:
