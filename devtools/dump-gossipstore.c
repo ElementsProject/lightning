@@ -1,5 +1,6 @@
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
+#include <ccan/opt/opt.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
@@ -19,11 +20,19 @@ int main(int argc, char *argv[])
 	u8 version;
 	struct gossip_hdr hdr;
 	size_t off;
+	bool print_deleted = false;
 
 	setup_locale();
+	opt_register_noarg("--print-deleted", opt_set_bool, &print_deleted,
+			   "Print deleted entries too");
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "[<gossip_store>]"
+			   "Dump all gossip messages in the store",
+			   "Print this message.");
 
+	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc > 2)
-		errx(1, "Need the filename of a gossip store, or stdin");
+		opt_usage_and_exit("Too many arguments");
 
 	if (argc == 2) {
 		fd = open(argv[1], O_RDONLY);
@@ -46,7 +55,9 @@ int main(int argc, char *argv[])
 		struct amount_sat sat;
 		u32 msglen = be32_to_cpu(hdr.len);
 		u8 *msg, *inner;
-		bool deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
+		bool deleted;
+
+		deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
 
 		msglen &= ~GOSSIP_STORE_LEN_DELETED_BIT;
 		msg = tal_arr(NULL, u8, msglen);
@@ -57,33 +68,37 @@ int main(int argc, char *argv[])
 		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			warnx("Checksum verification failed");
 
-		if (deleted) {
-			printf("%zu: DELETED\n", off);
-		} else if (fromwire_gossip_store_channel_amount(msg, &sat)) {
-			printf("%zu: channel_amount: %s\n", off,
+		printf("%zu: %s", off, deleted ? "DELETED " : "");
+		if (deleted && !print_deleted) {
+			printf("\n");
+			continue;
+		}
+
+		if (fromwire_gossip_store_channel_amount(msg, &sat)) {
+			printf("channel_amount: %s\n",
 			       type_to_string(tmpctx, struct amount_sat, &sat));
 		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_ANNOUNCEMENT) {
-			printf("%zu: t=%u channel_announcement: %s\n",
-			       off, be32_to_cpu(hdr.timestamp),
+			printf("t=%u channel_announcement: %s\n",
+			       be32_to_cpu(hdr.timestamp),
 			       tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_UPDATE) {
-			printf("%zu: t=%u channel_update: %s\n",
-			       off, be32_to_cpu(hdr.timestamp),
+			printf("t=%u channel_update: %s\n",
+			       be32_to_cpu(hdr.timestamp),
 			       tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_NODE_ANNOUNCEMENT) {
-			printf("%zu: t=%u node_announcement: %s\n",
-			       off, be32_to_cpu(hdr.timestamp),
+			printf("t=%u node_announcement: %s\n",
+			       be32_to_cpu(hdr.timestamp),
 			       tal_hex(msg, msg));
 		} else if (fromwire_peektype(msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL) {
-			printf("%zu: local_add_channel: %s\n",
-			       off, tal_hex(msg, msg));
+			printf("local_add_channel: %s\n",
+			       tal_hex(msg, msg));
 		} else if (fromwire_gossip_store_private_update(msg, msg,
 								&inner)) {
-			printf("%zu: private channel_update: %s\n",
-			       off, tal_hex(msg, inner));
+			printf("private channel_update: %s\n",
+			       tal_hex(msg, inner));
 		} else {
-			warnx("%zu: Unknown message %u",
-			      off, fromwire_peektype(msg));
+			warnx("Unknown message %u",
+			      fromwire_peektype(msg));
 		}
 		off += sizeof(hdr) + msglen;
 		tal_free(msg);
