@@ -151,6 +151,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
 	case WIRE_GOSSIP_DEV_MEMLEAK:
 	case WIRE_GOSSIP_DEV_COMPACT_STORE:
+	case WIRE_GOSSIP_DEV_SET_TIME:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
@@ -762,4 +763,31 @@ static const struct json_command dev_compact_gossip_store = {
 	"Ask gossipd to rewrite the gossip store."
 };
 AUTODATA(json_command, &dev_compact_gossip_store);
+
+static struct command_result *json_dev_gossip_set_time(struct command *cmd,
+						       const char *buffer,
+						       const jsmntok_t *obj UNNEEDED,
+						       const jsmntok_t *params)
+{
+	u8 *msg;
+	u32 *time;
+
+	if (!param(cmd, buffer, params,
+		   p_req("time", param_number, &time),
+		   NULL))
+		return command_param_failed();
+
+	msg = towire_gossip_dev_set_time(NULL, *time);
+	subd_send_msg(cmd->ld->gossip, take(msg));
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command dev_gossip_set_time = {
+	"dev-gossip-set-time",
+	"developer",
+	json_dev_gossip_set_time,
+	"Ask gossipd to update the current time."
+};
+AUTODATA(json_command, &dev_gossip_set_time);
 #endif /* DEVELOPER */
