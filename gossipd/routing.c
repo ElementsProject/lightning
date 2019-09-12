@@ -190,7 +190,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct node_id *local_id,
 					u32 prune_timeout,
 					struct list_head *peers,
-					const u32 *dev_gossip_time)
+					const u32 *dev_gossip_time TAKES)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = new_node_map(rstate);
@@ -220,6 +220,9 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 #endif
 	tal_add_destructor(rstate, destroy_routing_state);
 	memleak_add_helper(rstate, memleak_help_routing_tables);
+
+	if (taken(dev_gossip_time))
+		tal_free(dev_gossip_time);
 
 	return rstate;
 }
@@ -1481,7 +1484,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	uc = tal(rstate, struct unupdated_channel);
 	uc->channel_announce = tal_dup_arr(uc, u8, msg, tal_count(msg), 0);
-	uc->added = time_now();
+	uc->added = gossip_time_now(rstate);
 	uc->index = index;
 	uc->sat = sat;
 	uc->scid = scid;
