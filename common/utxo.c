@@ -79,7 +79,7 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 	struct pubkey key;
 	u8 *script;
 
-	assert(num_output);
+	assert(num_output || add_change_output);
 	size_t outcount = add_change_output ? 1 + num_output : num_output;
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, tal_count(utxos), outcount);
 
