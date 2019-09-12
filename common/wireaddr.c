@@ -360,7 +360,9 @@ bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 			sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
 			wireaddr_from_ipv6(&addr, &sa6->sin6_addr, port);
 			res = true;
-		}
+		} else
+			/* Ignore any other address types. */
+			continue;
 		tal_arr_expand(addrs, addr);
 	}
 
