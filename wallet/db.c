@@ -41,40 +41,40 @@ static struct migration dbmigrations[] = {
 	 ");"),
      NULL},
     {SQL("CREATE TABLE shachains ("
-	 "  id INTEGER"
-	 ", min_index INTEGER"
-	 ", num_valid INTEGER"
+	 "  id BIGSERIAL"
+	 ", min_index BIGINT"
+	 ", num_valid BIGINT"
 	 ", PRIMARY KEY (id)"
 	 ");"),
      NULL},
     {SQL("CREATE TABLE shachain_known ("
-	 "  shachain_id INTEGER REFERENCES shachains(id) ON DELETE CASCADE"
+	 "  shachain_id BIGINT REFERENCES shachains(id) ON DELETE CASCADE"
 	 ", pos INTEGER"
-	 ", idx INTEGER"
+	 ", idx BIGINT"
 	 ", hash BLOB"
 	 ", PRIMARY KEY (shachain_id, pos)"
 	 ");"),
      NULL},
     {SQL("CREATE TABLE peers ("
-	 "  id INTEGER"
+	 "  id BIGSERIAL"
 	 ", node_id BLOB UNIQUE" /* pubkey */
 	 ", address TEXT"
 	 ", PRIMARY KEY (id)"
 	 ");"),
      NULL},
     {SQL("CREATE TABLE channels ("
-	 "  id INTEGER," /* chan->id */
-	 "  peer_id INTEGER REFERENCES peers(id) ON DELETE CASCADE,"
+	 "  id BIGSERIAL," /* chan->id */
+	 "  peer_id BIGINT REFERENCES peers(id) ON DELETE CASCADE,"
 	 "  short_channel_id TEXT,"
-	 "  channel_config_local INTEGER,"
-	 "  channel_config_remote INTEGER,"
+	 "  channel_config_local BIGINT,"
+	 "  channel_config_remote BIGINT,"
 	 "  state INTEGER,"
 	 "  funder INTEGER,"
 	 "  channel_flags INTEGER,"
 	 "  minimum_depth INTEGER,"
-	 "  next_index_local INTEGER,"
-	 "  next_index_remote INTEGER,"
-	 "  next_htlc_id INTEGER, "
+	 "  next_index_local BIGINT,"
+	 "  next_index_remote BIGINT,"
+	 "  next_htlc_id BIGINT,"
 	 "  funding_tx_id BLOB,"
 	 "  funding_tx_outnum INTEGER,"
 	 "  funding_satoshi BIGINT,"
@@ -92,10 +92,10 @@ static struct migration dbmigrations[] = {
 	 "  local_feerate_per_kw INTEGER,"
 	 "  remote_feerate_per_kw INTEGER,"
 	 /* END channel_info */
-	 "  shachain_remote_id INTEGER,"
+	 "  shachain_remote_id BIGINT,"
 	 "  shutdown_scriptpubkey_remote BLOB,"
-	 "  shutdown_keyidx_local INTEGER,"
-	 "  last_sent_commit_state INTEGER,"
+	 "  shutdown_keyidx_local BIGINT,"
+	 "  last_sent_commit_state BIGINT,"
 	 "  last_sent_commit_id INTEGER,"
 	 "  last_tx BLOB,"
 	 "  last_sig BLOB,"
@@ -105,7 +105,7 @@ static struct migration dbmigrations[] = {
 	 ");"),
      NULL},
     {SQL("CREATE TABLE channel_configs ("
-	 "  id INTEGER,"
+	 "  id BIGSERIAL,"
 	 "  dust_limit_satoshis BIGINT,"
 	 "  max_htlc_value_in_flight_msat BIGINT,"
 	 "  channel_reserve_satoshis BIGINT,"
@@ -116,11 +116,11 @@ static struct migration dbmigrations[] = {
 	 ");"),
      NULL},
     {SQL("CREATE TABLE channel_htlcs ("
-	 "  id INTEGER,"
-	 "  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,"
-	 "  channel_htlc_id INTEGER,"
+	 "  id BIGSERIAL,"
+	 "  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,"
+	 "  channel_htlc_id BIGINT,"
 	 "  direction INTEGER,"
-	 "  origin_htlc INTEGER,"
+	 "  origin_htlc BIGINT,"
 	 "  msatoshi BIGINT,"
 	 "  cltv_expiry INTEGER,"
 	 "  payment_hash BLOB,"
@@ -135,7 +135,7 @@ static struct migration dbmigrations[] = {
 	 ");"),
      NULL},
     {SQL("CREATE TABLE invoices ("
-	 "  id INTEGER,"
+	 "  id BIGSERIAL,"
 	 "  state INTEGER,"
 	 "  msatoshi BIGINT,"
 	 "  payment_hash BLOB,"
@@ -147,7 +147,7 @@ static struct migration dbmigrations[] = {
 	 ");"),
      NULL},
     {SQL("CREATE TABLE payments ("
-	 "  id INTEGER,"
+	 "  id BIGSERIAL,"
 	 "  timestamp INTEGER,"
 	 "  status INTEGER,"
 	 "  payment_hash BLOB,"
@@ -162,7 +162,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE invoices ADD expiry_time BIGINT;"), NULL},
     {SQL("UPDATE invoices SET expiry_time=9223372036854775807;"), NULL},
     /* Add pay_index field to paid invoices (initially, same order as id). */
-    {SQL("ALTER TABLE invoices ADD pay_index INTEGER;"), NULL},
+    {SQL("ALTER TABLE invoices ADD pay_index BIGINT;"), NULL},
     {SQL("CREATE UNIQUE INDEX invoices_pay_index ON invoices(pay_index);"),
      NULL},
     {SQL("UPDATE invoices SET pay_index=id WHERE state=1;"),
@@ -177,10 +177,10 @@ static struct migration dbmigrations[] = {
     /* Create first_block field; initialize from channel id if any.
      * This fails for channels still awaiting lockin, but that only applies to
      * pre-release software, so it's forgivable. */
-    {SQL("ALTER TABLE channels ADD first_blocknum INTEGER;"), NULL},
+    {SQL("ALTER TABLE channels ADD first_blocknum BIGINT;"), NULL},
     {SQL("UPDATE channels SET first_blocknum=1 WHERE short_channel_id IS NOT NULL;"),
      NULL},
-    {SQL("ALTER TABLE outputs ADD COLUMN channel_id INTEGER;"), NULL},
+    {SQL("ALTER TABLE outputs ADD COLUMN channel_id BIGINT;"), NULL},
     {SQL("ALTER TABLE outputs ADD COLUMN peer_id BLOB;"), NULL},
     {SQL("ALTER TABLE outputs ADD COLUMN commitment_point BLOB;"), NULL},
     {SQL("ALTER TABLE invoices ADD COLUMN msatoshi_received BIGINT;"), NULL},
@@ -192,7 +192,7 @@ static struct migration dbmigrations[] = {
      * rename & copy, which works because there are no triggers etc. */
     {SQL("ALTER TABLE payments RENAME TO temp_payments;"), NULL},
     {SQL("CREATE TABLE payments ("
-	 "  id INTEGER,"
+	 "  id BIGSERIAL,"
 	 "  timestamp INTEGER,"
 	 "  status INTEGER,"
 	 "  payment_hash BLOB,"
@@ -212,7 +212,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE payments ADD COLUMN path_secrets BLOB;"), NULL},
     /* Create time-of-payment of invoice, default already-paid
      * invoices to current time. */
-    {SQL("ALTER TABLE invoices ADD paid_timestamp INTEGER;"), NULL},
+    {SQL("ALTER TABLE invoices ADD paid_timestamp BIGINT;"), NULL},
     {SQL("UPDATE invoices"
 	 "   SET paid_timestamp = CURRENT_TIMESTAMP()"
 	 " WHERE state = 1;"),
@@ -222,7 +222,7 @@ static struct migration dbmigrations[] = {
      * because we cannot safely save them as blobs due to byteorder
      * concerns. */
     {SQL("ALTER TABLE payments ADD COLUMN route_nodes BLOB;"), NULL},
-    {SQL("ALTER TABLE payments ADD COLUMN route_channels TEXT;"), NULL},
+    {SQL("ALTER TABLE payments ADD COLUMN route_channels BLOB;"), NULL},
     {SQL("CREATE TABLE htlc_sigs (channelid INTEGER REFERENCES channels(id) ON "
 	 "DELETE CASCADE, signature BLOB);"),
      NULL},
@@ -308,14 +308,14 @@ static struct migration dbmigrations[] = {
 	 " WHERE status <> 0;"),
      NULL}, /* PAYMENT_PENDING */
     /* -- Routing statistics -- */
-    {SQL("ALTER TABLE channels ADD in_payments_offered INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD in_payments_fulfilled INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD in_msatoshi_offered BIGINT;"), NULL},
-    {SQL("ALTER TABLE channels ADD in_msatoshi_fulfilled BIGINT;"), NULL},
-    {SQL("ALTER TABLE channels ADD out_payments_offered INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD out_payments_fulfilled INTEGER;"), NULL},
-    {SQL("ALTER TABLE channels ADD out_msatoshi_offered BIGINT;"), NULL},
-    {SQL("ALTER TABLE channels ADD out_msatoshi_fulfilled BIGINT;"), NULL},
+    {SQL("ALTER TABLE channels ADD in_payments_offered INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD in_payments_fulfilled INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD in_msatoshi_offered BIGINT DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD in_msatoshi_fulfilled BIGINT DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD out_payments_offered INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD out_payments_fulfilled INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD out_msatoshi_offered BIGINT DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD out_msatoshi_fulfilled BIGINT DEFAULT 0;"), NULL},
     {SQL("UPDATE channels"
 	 "   SET  in_payments_offered = 0,  in_payments_fulfilled = 0"
 	 "     ,  in_msatoshi_offered = 0,  in_msatoshi_fulfilled = 0"
@@ -372,8 +372,8 @@ static struct migration dbmigrations[] = {
     /* -- Detailed payment faiure ends -- */
     {SQL("CREATE TABLE channeltxs ("
 	 /* The id serves as insertion order and short ID */
-	 "  id INTEGER"
-	 ", channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE"
+	 "  id BIGSERIAL"
+	 ", channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE"
 	 ", type INTEGER"
 	 ", transaction_id BLOB REFERENCES transactions(id) ON DELETE CASCADE"
 	 /* The input_num is only used by the txo_watch, 0 if txwatch */
@@ -410,10 +410,10 @@ static struct migration dbmigrations[] = {
      * deleted when the HTLC entries or the channel entries are
      * deleted to avoid unexpected drops in statistics. */
     {SQL("CREATE TABLE forwarded_payments ("
-	 "  in_htlc_id INTEGER REFERENCES channel_htlcs(id) ON DELETE SET NULL"
-	 ", out_htlc_id INTEGER REFERENCES channel_htlcs(id) ON DELETE SET NULL"
-	 ", in_channel_scid INTEGER"
-	 ", out_channel_scid INTEGER"
+	 "  in_htlc_id BIGINT REFERENCES channel_htlcs(id) ON DELETE SET NULL"
+	 ", out_htlc_id BIGINT REFERENCES channel_htlcs(id) ON DELETE SET NULL"
+	 ", in_channel_scid BIGINT"
+	 ", out_channel_scid BIGINT"
 	 ", in_msatoshi BIGINT"
 	 ", out_msatoshi BIGINT"
 	 ", state INTEGER"
@@ -433,9 +433,9 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD feerate_base INTEGER;"), NULL},
     {SQL("ALTER TABLE channels ADD feerate_ppm INTEGER;"), NULL},
     {NULL, migrate_pr2342_feerate_per_channel},
-    {SQL("ALTER TABLE channel_htlcs ADD received_time INTEGER"), NULL},
-    {SQL("ALTER TABLE forwarded_payments ADD received_time INTEGER"), NULL},
-    {SQL("ALTER TABLE forwarded_payments ADD resolved_time INTEGER"), NULL},
+    {SQL("ALTER TABLE channel_htlcs ADD received_time BIGINT"), NULL},
+    {SQL("ALTER TABLE forwarded_payments ADD received_time BIGINT"), NULL},
+    {SQL("ALTER TABLE forwarded_payments ADD resolved_time BIGINT"), NULL},
     {SQL("ALTER TABLE channels ADD remote_upfront_shutdown_script BLOB;"),
      NULL},
     /* PR #2524: Add failcode into forward_payment */
@@ -444,12 +444,12 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD remote_ann_node_sig BLOB;"), NULL},
     {SQL("ALTER TABLE channels ADD remote_ann_bitcoin_sig BLOB;"), NULL},
     /* Additional information for transaction tracking and listing */
-    {SQL("ALTER TABLE transactions ADD type INTEGER;"), NULL},
+    {SQL("ALTER TABLE transactions ADD type BIGINT;"), NULL},
     /* Not a foreign key on purpose since we still delete channels from
      * the DB which would remove this. It is mainly used to group payments
      * in the list view anyway, e.g., show all close and htlc transactions
      * as a single bundle. */
-    {SQL("ALTER TABLE transactions ADD channel_id INTEGER;"), NULL},
+    {SQL("ALTER TABLE transactions ADD channel_id BIGINT;"), NULL},
     /* Convert pre-Adelaide short_channel_ids */
     {SQL("UPDATE channels"
 	 " SET short_channel_id = REPLACE(short_channel_id, ':', 'x')"
@@ -457,8 +457,8 @@ static struct migration dbmigrations[] = {
     {SQL("UPDATE payments SET failchannel = REPLACE(failchannel, ':', 'x')"
 	 " WHERE failchannel IS NOT NULL;"), NULL },
     /* option_static_remotekey is nailed at creation time. */
-    {SQL("ALTER TABLE channels ADD COLUMN option_static_remotekey BOOLEAN"
-	 " DEFAULT FALSE;"), NULL },
+    {SQL("ALTER TABLE channels ADD COLUMN option_static_remotekey INTEGER"
+	 " DEFAULT 0;"), NULL },
     {SQL("ALTER TABLE vars ADD COLUMN intval INTEGER"), NULL},
     {SQL("ALTER TABLE vars ADD COLUMN blobval BLOB"), NULL},
     {SQL("UPDATE vars SET intval = CAST(val AS INTEGER) WHERE name IN ('bip32_max_index', 'last_processed_block', 'next_pay_index')"), NULL},
