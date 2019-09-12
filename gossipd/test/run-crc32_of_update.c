@@ -59,6 +59,9 @@ bool fromwire_gossipctl_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, 
 /* Generated stub for fromwire_gossip_dev_set_max_scids_encode_size */
 bool fromwire_gossip_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_dev_set_max_scids_encode_size called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_dev_set_time */
+bool fromwire_gossip_dev_set_time(const void *p UNNEEDED, u32 *dev_gossip_time UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_dev_set_time called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_dev_suppress */
 bool fromwire_gossip_dev_suppress(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_dev_suppress called!\n"); abort(); }
