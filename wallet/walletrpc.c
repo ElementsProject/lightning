@@ -771,6 +771,11 @@ static struct command_result *json_listfunds(struct command *cmd,
 		list_for_each(&p->channels, c, list) {
 			json_object_start(response, NULL);
 			json_add_node_id(response, "peer_id", &p->id);
+			/* Mirrors logic in listpeers */
+			json_add_bool(response, "connected",
+				      channel_active(c) && c->connected);
+			json_add_string(response, "state",
+					channel_state_name(c));
 			if (c->scid)
 				json_add_short_channel_id(response,
 							  "short_channel_id",
