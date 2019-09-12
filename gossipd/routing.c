@@ -384,6 +384,14 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	}
 }
 
+#if DEVELOPER
+/* We make sure that free_chan is called on this chan! */
+static void destroy_chan_check(struct chan *chan)
+{
+	assert(chan->scid.u64 == (u64)chan);
+}
+#endif
+
 /* We used to make this a tal_add_destructor2, but that costs 40 bytes per
  * chan, and we only ever explicitly free it anyway. */
 void free_chan(struct routing_state *rstate, struct chan *chan)
@@ -395,6 +403,10 @@ void free_chan(struct routing_state *rstate, struct chan *chan)
 
 	/* Remove from local_disabled_map if it's there. */
 	chan_map_del(&rstate->local_disabled_map, chan);
+
+#if DEVELOPER
+	chan->scid.u64 = (u64)chan;
+#endif
 	tal_free(chan);
 }
 
@@ -429,6 +441,9 @@ struct chan *new_chan(struct routing_state *rstate,
 	int n1idx = node_id_idx(id1, id2);
 	struct node *n1, *n2;
 
+#if DEVELOPER
+	tal_add_destructor(chan, destroy_chan_check);
+#endif
 	/* We should never add a channel twice */
 	assert(!uintmap_get(&rstate->chanmap, scid->u64));
 
