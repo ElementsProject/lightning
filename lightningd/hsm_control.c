@@ -98,15 +98,10 @@ void hsm_init(struct lightningd *ld)
 	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
 							 &ld->topology->bitcoind->chainparams->bip32_key_version,
 							 &chainhash,
-#if DEVELOPER
-							 ld->dev_force_privkey,
-							 ld->dev_force_bip32_seed,
-							 ld->dev_force_channel_secrets,
-							 ld->dev_force_channel_secrets_shaseed
-#else
-							 NULL, NULL, NULL, NULL
-#endif
-				     )))
+							 IFDEV(ld->dev_force_privkey, NULL),
+							 IFDEV(ld->dev_force_bip32_seed, NULL),
+							 IFDEV(ld->dev_force_channel_secrets, NULL),
+							 IFDEV(ld->dev_force_channel_secrets_shaseed, NULL))))
 		err(1, "Writing init msg to hsm");
 
 	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);
