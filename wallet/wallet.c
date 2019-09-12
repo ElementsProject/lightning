@@ -22,6 +22,7 @@
 /* How many blocks must a UTXO entry be buried under to be considered old enough
  * to prune? */
 #define UTXO_PRUNE_DEPTH 144
+#define UTXO_BURN_DEPTH 132
 
 static void outpointfilters_init(struct wallet *w)
 {
@@ -304,6 +305,43 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	}
 	tal_free(stmt);
 
+	return results;
+}
+
+const struct utxo **wallet_get_burnable_utxos(const tal_t *ctx, struct wallet *w,
+					u32 current_height)
+{
+	const struct utxo **results;
+	int i;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey"
+					", shared_at_height"
+					" FROM outputs WHERE status=?"
+				 	" AND shared_at_height <= ?;"));
+	db_bind_int(stmt, 0, output_status_in_db(output_state_shared));
+	db_bind_int(stmt, 1, current_height - UTXO_BURN_DEPTH);
+	db_query_prepared(stmt);
+
+	results = tal_arr(ctx, const struct utxo*, 0);
+	for (i=0; db_step(stmt); i++) {
+		struct utxo *u = wallet_stmt2output(results, stmt);
+		tal_arr_expand(&results, u);
+	}
+
+	tal_free(stmt);
 	return results;
 }
 

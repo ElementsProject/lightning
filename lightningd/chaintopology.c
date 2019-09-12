@@ -24,6 +24,9 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/io_loop_with_timers.h>
+#include <wallet/burn_unit.h>
+
+#define UTXO_BURN_INTERVAL 24
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
@@ -684,6 +687,10 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 
 	block_map_add(&topo->block_map, b);
 	topo->max_blockheight = b->height;
+
+	/* Every BURN_INTERVAL, we check for burnable utxos */
+	if (topo->max_blockheight % UTXO_BURN_INTERVAL == 0)
+		burn_transactions(topo->ld->wallet, topo->max_blockheight);
 }
 
 static struct block *new_block(struct chain_topology *topo,

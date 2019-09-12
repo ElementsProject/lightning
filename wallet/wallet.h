@@ -390,6 +390,15 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 						     struct wallet *w);
 
+/**
+ * wallet_get_burnable_utxos - Retrieve any shared utxos with shared_at_height
+ * less than or equal to current_height - UTXO_BURN_HEIGHT
+ *
+ * Returns a `tal_arr` of `utxo` structs.
+ */
+const struct utxo **wallet_get_burnable_utxos(const tal_t *ctx, struct wallet *w,
+					      u32 current_height);
+
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					bool with_change,
 					struct amount_sat value,

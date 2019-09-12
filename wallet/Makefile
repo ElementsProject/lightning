@@ -5,6 +5,7 @@ wallet-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
 WALLET_LIB_SRC :=		\
+	wallet/burn_unit.c	\
 	wallet/db.c		\
 	wallet/invoices.c	\
 	wallet/txfilter.c	\
