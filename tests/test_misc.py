@@ -61,6 +61,7 @@ def test_names(node_factory):
                                   .format(key, alias, color))
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This migration is based on a sqlite3 snapshot")
 def test_db_upgrade(node_factory):
     l1 = node_factory.get_node()
     l1.stop()

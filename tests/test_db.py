@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from utils import wait_for, sync_blockheight, COMPAT
 
+import os
 import unittest
 
 
@@ -116,6 +117,7 @@ def test_max_channel_id(node_factory, bitcoind):
 
 
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 def test_scid_upgrade(node_factory):
 
     # Created through the power of sed "s/X'\([0-9]*\)78\([0-9]*\)78\([0-9]*\)'/X'\13A\23A\3'/"
