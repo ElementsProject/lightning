@@ -63,7 +63,7 @@ which provides a convenient `start_ln` helper:
 To test with real bitcoin,  you will need to have a local `bitcoind` node running:
 
 ```bash
-bitcoind -daemon -testnet
+bitcoind -daemon
 ```
 
 Wait until `bitcoind` has synchronized with the network.
