@@ -308,19 +308,21 @@ bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 	if (strends(hostname, ".onion")) {
 		u8 *dec = b32_decode(tmpctx, hostname,
 				     strlen(hostname) - strlen(".onion"));
+		if (tal_count(*addrs) == 0)
+			tal_resize(addrs, 1);
 		if (tal_count(dec) == TOR_V2_ADDRLEN)
-			addrs[0]->type = ADDR_TYPE_TOR_V2;
+			(*addrs)[0].type = ADDR_TYPE_TOR_V2;
 		else if (tal_count(dec) == TOR_V3_ADDRLEN)
-			addrs[0]->type = ADDR_TYPE_TOR_V3;
+			(*addrs)[0].type = ADDR_TYPE_TOR_V3;
 		else {
 			if (err_msg)
 				*err_msg = "Invalid Tor address";
 			return false;
 		}
 
-		addrs[0]->addrlen = tal_count(dec);
-		addrs[0]->port = port;
-		memcpy(&addrs[0]->addr, dec, tal_count(dec));
+		(*addrs)[0].addrlen = tal_count(dec);
+		(*addrs)[0].port = port;
+		memcpy((*addrs)[0].addr, dec, tal_count(dec));
 		return true;
 	}
 
