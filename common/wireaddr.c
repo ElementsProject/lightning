@@ -405,8 +405,12 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 	}
 
 	/* Resolve with getaddrinfo */
-	if (!res)
-		res = wireaddr_from_hostname(&addr, ip, port, no_dns, NULL, err_msg);
+	if (!res) {
+		struct wireaddr *addresses = tal_arr(NULL, struct wireaddr, 0);
+		res = wireaddr_from_hostname(&addresses, ip, port, no_dns, NULL, err_msg);
+		*addr = addresses[0];
+		tal_free(addresses);
+	}
 
 finish:
 	if (!res && err_msg && !*err_msg)
