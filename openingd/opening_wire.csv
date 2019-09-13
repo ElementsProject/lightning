@@ -88,10 +88,11 @@ msgdata,opening_funder_start_reply,upfront_shutdown_negotiated,bool,
 
 # master->openingd: complete channel establishment for a funding
 # tx that will be paid for by an external wallet
-# response to this is a normal `opening_funder_reply` ??
+# response is `opening_funder_reply`
 msgtype,opening_funder_complete,6012
 msgdata,opening_funder_complete,funding_txid,bitcoin_txid,
 msgdata,opening_funder_complete,funding_txout,u16,
+msgdata,opening_funder_complete,tx,?bitcoin_tx,
 
 #master->openingd: cancel channel establishment for a funding
 msgtype,opening_funder_cancel,6013

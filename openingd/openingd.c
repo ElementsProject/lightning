@@ -1009,9 +1009,9 @@ fail:
 	return false;
 }
 
-static u8 *funder_channel_complete(struct state *state)
+static u8 *funder_channel_complete(struct state *state,
+				   struct bitcoin_tx *tx)
 {
-	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
 	struct amount_msat local_msat;
 
@@ -1572,6 +1572,7 @@ static u8 *handle_master_in(struct state *state)
 	enum opening_wire_type t = fromwire_peektype(msg);
 	u8 channel_flags;
 	struct bitcoin_txid funding_txid;
+	struct bitcoin_tx *tx;
 	u16 funding_txout;
 
 	switch (t) {
@@ -1590,13 +1591,14 @@ static u8 *handle_master_in(struct state *state)
 			wire_sync_write(REQ_FD, take(msg));
 		return NULL;
 	case WIRE_OPENING_FUNDER_COMPLETE:
-		if (!fromwire_opening_funder_complete(msg,
+		if (!fromwire_opening_funder_complete(tmpctx, msg,
 						      &funding_txid,
-						      &funding_txout))
+						      &funding_txout,
+						      &tx))
 			master_badmsg(WIRE_OPENING_FUNDER_COMPLETE, msg);
 		state->funding_txid = funding_txid;
 		state->funding_txout = funding_txout;
-		return funder_channel_complete(state);
+		return funder_channel_complete(state, tx);
 	case WIRE_OPENING_FUNDER_CANCEL:
 		/* We're aborting this, simple */
 		if (!fromwire_opening_funder_cancel(msg))

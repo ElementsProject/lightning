@@ -1033,6 +1033,7 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 	struct channel *channel;
 	u32 *funding_txout_num;
 	u16 funding_txout;
+	struct bitcoin_tx *tx;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
@@ -1066,11 +1067,32 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 	if (peer->uncommitted_channel->fc->cmd)
 		return command_fail(cmd, LIGHTNINGD, "Channel funding in progress.");
 
+	/* We need to know the inputs/outputsfor v2 of fundchannel.
+	 * Ideally, we'd get the PSBT for the tx passed in to fundchannel_complete,
+	 * which would include all of the input/output information.
+	 * Requires txprepare to return the PSBT of the tx, not just the txid
+	 * Until this is patched, we can only do v2 self-funded tx's.
+	 *
+	 * FIXME: use PSBT for fundchannel_complete */
+	if (peer->uncommitted_channel->fc->is_v2) {
+		struct unreleased_tx *utx;
+		utx = find_unreleased_tx(peer->ld->wallet, funding_txid);
+
+		if (!utx)
+			return command_fail(cmd, LIGHTNINGD, "Unknown tx %s:%d. "
+					    "Cannot fund a v2 channel with external tx.",
+					    type_to_string(tmpctx, struct bitcoin_txid, funding_txid),
+					    funding_txout);
+		tx = utx->tx;
+	} else
+		tx = NULL;
+
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
 	msg = towire_opening_funder_complete(NULL,
-					     funding_txid,
-					     funding_txout);
+					     funding_txid, funding_txout,
+					     tx);
+
 	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
 	return command_still_pending(cmd);
 }
