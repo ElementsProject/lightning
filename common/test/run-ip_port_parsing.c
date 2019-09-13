@@ -40,6 +40,7 @@ int main(void)
 	setup_locale();
 
 	struct wireaddr addr;
+	struct wireaddr *addresses = tal_arr(NULL, struct wireaddr, 0);
 	char *ip;
 	u16 port;
 
@@ -104,7 +105,7 @@ int main(void)
 	assert(parse_wireaddr("[::ffff:127.0.0.1]:49150", &addr, 1, false, NULL));
 	assert(addr.port == 49150);
 
-  assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion:49150", &addr, 1, false, NULL));
+	assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion:49150", &addr, 1, false, NULL));
 	assert(addr.port == 49150);
 
 	assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion", &addr, 1, false, NULL));
@@ -115,6 +116,11 @@ int main(void)
 
 	assert(parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, false, NULL));
 	assert(addr.port == 1);
+
+	assert(wireaddr_from_hostname(&addresses, "odpzvneidqdf5hdq.onion", 1, NULL, NULL, NULL));
+	assert(! wireaddr_from_hostname(&addresses, "aaa.onion", 1, NULL, NULL, NULL));
+	tal_free(addresses);
+
 	tal_free(tmpctx);
 	return 0;
 }
