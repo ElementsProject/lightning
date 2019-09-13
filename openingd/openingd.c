@@ -106,6 +106,11 @@ struct state {
 	/* Which chain we're on, so we can check/set `chain_hash` fields */
 	const struct chainparams *chainparams;
 	bool option_static_remotekey;
+
+	/* Things for v2 */
+	bool use_v2;
+	struct amount_sat accepter_funding;
+	u32 feerate_per_kw_funding;
 };
 
 static const u8 *dev_upfront_shutdown_script(const tal_t *ctx)
@@ -479,13 +484,16 @@ static bool setup_channel_funder(struct state *state)
 		return false;
 	}
 
+	if (!state->use_v2)
+		state->accepter_funding = AMOUNT_SAT(0);
+
 	return true;
 }
 
 /* We start the 'fund a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
 static u8 *funder_channel_start(struct state *state,
-				 u8 channel_flags)
+				u8 channel_flags)
 {
 	u8 *msg;
 	u8 *funding_output_script;
@@ -1350,7 +1358,8 @@ static u8 *handle_master_in(struct state *state)
 		if (!fromwire_opening_funder_start(msg, &state->funding,
 						   &state->push_msat,
 						   &state->feerate_per_kw,
-						   &channel_flags))
+						   &channel_flags,
+						   &state->use_v2))
 			master_badmsg(WIRE_OPENING_FUNDER_START, msg);
 		msg = funder_channel_start(state, channel_flags);
 
