@@ -78,6 +78,7 @@ msgdata,opening_funder_start,len_upfront,u16,
 msgdata,opening_funder_start,upfront_shutdown_script,u8,len_upfront
 msgdata,opening_funder_start,feerate_per_kw,u32,
 msgdata,opening_funder_start,channel_flags,u8,
+msgdata,opening_funder_start,use_v2,bool,
 
 # openingd->master: send back output script for 2-of-2 funding output
 msgtype,opening_funder_start_reply,6102
