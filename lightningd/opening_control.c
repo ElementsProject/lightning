@@ -96,6 +96,9 @@ struct funding_channel {
 
 	/* Any commands trying to cancel us. */
 	struct command **cancels;
+
+	/* Whether or not to use channel open v2 */
+	bool is_v2;
 };
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
@@ -1123,7 +1126,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	struct node_id *id;
 	struct peer *peer;
 	struct channel *channel;
-	bool *announce_channel, use_v2;
+	bool *announce_channel;
 	u32 *feerate_per_kw;
 
 	u8 *msg = NULL;
@@ -1224,9 +1227,9 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 
 #if EXPERIMENTAL_FEATURES
 	// FIXME: use features to flag on
-	use_v2 = true;
+	fc->is_v2 = true;
 #else
-	use_v2 = false;
+	fc->is_v2 = false;
 #endif
 
 	msg = towire_opening_funder_start(NULL,
@@ -1235,7 +1238,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 					  fc->our_upfront_shutdown_script,
 					  *feerate_per_kw,
 					  fc->channel_flags,
-					  use_v2);
+					  fc->is_v2);
 
 	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
 	return command_still_pending(cmd);
