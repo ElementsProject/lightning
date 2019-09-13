@@ -1082,12 +1082,30 @@ static bool open_channel2_eq(const struct msg_open_channel2 *a,
 		&& opening_tlv_eq(a->tlv, b->tlv);
 }
 
+static bool open_channel2_truncation_check(const struct msg_open_channel2 *a)
+{
+	if (a) {
+		struct tlv_opening_tlvs *tlv = tlv_opening_tlvs_new(a);
+		return memcmp(a->tlv, tlv, sizeof(*a->tlv)) == 0;
+	}
+	return !a;
+}
+
 static bool accept_channel2_eq(const struct msg_accept_channel2 *a,
 			       const struct msg_accept_channel2 *b)
 {
 	return eq_with(a, b, max_accepted_htlcs)
 		&& eq_between(a, b, funding_pubkey, first_per_commitment_point)
 		&& accept_tlv_eq(a->tlv, b->tlv);
+}
+
+static bool accept_channel2_truncation_check(const struct msg_accept_channel2 *a)
+{
+	if (a) {
+		struct tlv_accept_tlvs *tlv = tlv_accept_tlvs_new(a);
+		return memcmp(a->tlv, tlv, sizeof(*a->tlv)) == 0;
+	}
+	return !a;
 }
 
 static bool funding_compose_eq(const struct msg_funding_compose *a,
@@ -1099,12 +1117,22 @@ static bool funding_compose_eq(const struct msg_funding_compose *a,
 	return ok && eq_upto(a, b, input_infos);
 }
 
+static bool funding_compose_truncation_check(const struct msg_funding_compose *a)
+{
+	return !a;
+}
+
 static bool accepter_sigs_eq(const struct msg_accepter_sigs *a,
 			     const struct msg_accepter_sigs *b)
 {
 	bool ok = true;
 	eq_struct_set(a, b, witness_stacks, witness_stack);
 	return ok && eq_upto(a, b, witness_stacks);
+}
+
+static bool accepter_sigs_truncation_check(const struct msg_accepter_sigs *a)
+{
+	return !a;
 }
 
 static bool init_rbf_eq(const struct msg_init_rbf *a,
@@ -1116,10 +1144,20 @@ static bool init_rbf_eq(const struct msg_init_rbf *a,
 	return ok && eq_upto(a, b, input_infos);
 }
 
+static bool init_rbf_truncation_check(const struct msg_init_rbf *a)
+{
+	return !a;
+}
+
 static bool ack_rbf_eq(const struct msg_ack_rbf *a,
 		       const struct msg_ack_rbf *b)
 {
 	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static bool ack_rbf_truncation_check(const struct msg_ack_rbf *a)
+{
+	return !a;
 }
 #endif /* EXPERIMENTAL_FEATURES */
 
@@ -1136,10 +1174,20 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 		&& eq_between(a, b, bitcoin_key_1, bitcoin_key_2);
 }
 
+static bool channel_announcement_truncation_check(const struct msg_channel_announcement *a)
+{
+	return !a;
+}
+
 static bool funding_locked_eq(const struct msg_funding_locked *a,
 			      const struct msg_funding_locked *b)
 {
 	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static bool funding_locked_truncation_check(const struct msg_funding_locked *a)
+{
+	return !a;
 }
 
 static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
@@ -1149,11 +1197,21 @@ static bool announcement_signatures_eq(const struct msg_announcement_signatures 
 		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
 }
 
+static bool announcement_signatures_truncation_check(const struct msg_announcement_signatures *a)
+{
+	return !a;
+}
+
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 				const struct msg_update_fail_htlc *b)
 {
 	return eq_with(a, b, id)
 		&& eq_var(a, b, reason);
+}
+
+static bool update_fail_htlc_truncation_check(const struct msg_update_fail_htlc *a)
+{
+	return !a;
 }
 
 static bool commitment_signed_eq(const struct msg_commitment_signed *a,
@@ -1163,10 +1221,20 @@ static bool commitment_signed_eq(const struct msg_commitment_signed *a,
 		&& eq_var(a, b, htlc_signature);
 }
 
+static bool commitment_signed_truncation_check(const struct msg_commitment_signed *a)
+{
+	return !a;
+}
+
 static bool funding_signed_eq(const struct msg_funding_signed *a,
 			      const struct msg_funding_signed *b)
 {
 	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static bool funding_signed_truncation_check(const struct msg_funding_signed *a)
+{
+	return !a;
 }
 
 static bool closing_signed_eq(const struct msg_closing_signed *a,
@@ -1175,10 +1243,19 @@ static bool closing_signed_eq(const struct msg_closing_signed *a,
 	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
+static bool closing_signed_truncation_check(const struct msg_closing_signed *a)
+{
+	return !a;
+}
 static bool update_fulfill_htlc_eq(const struct msg_update_fulfill_htlc *a,
 				   const struct msg_update_fulfill_htlc *b)
 {
 	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static bool update_fulfill_htlc_truncation_check(const struct msg_update_fulfill_htlc *a)
+{
+	return !a;
 }
 
 static bool error_eq(const struct msg_error *a,
@@ -1188,6 +1265,11 @@ static bool error_eq(const struct msg_error *a,
 		&& eq_var(a, b, data);
 }
 
+static bool error_truncation_check(const struct msg_error *a)
+{
+	return !a;
+}
+
 static bool init_eq(const struct msg_init *a,
 		    const struct msg_init *b)
 {
@@ -1195,10 +1277,20 @@ static bool init_eq(const struct msg_init *a,
 		&& eq_var(a, b, localfeatures);
 }
 
+static bool init_truncation_check(const struct msg_init *a)
+{
+	return !a;
+}
+
 static bool update_fee_eq(const struct msg_update_fee *a,
 			  const struct msg_update_fee *b)
 {
 	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static bool update_fee_truncation_check(const struct msg_update_fee *a)
+{
+	return !a;
 }
 
 static bool shutdown_eq(const struct msg_shutdown *a,
@@ -1208,6 +1300,11 @@ static bool shutdown_eq(const struct msg_shutdown *a,
 		&& eq_var(a, b, scriptpubkey);
 }
 
+static bool shutdown_truncation_check(const struct msg_shutdown *a)
+{
+	return !a;
+}
+
 static bool funding_created_eq(const struct msg_funding_created *a,
 			       const struct msg_funding_created *b)
 {
@@ -1215,10 +1312,20 @@ static bool funding_created_eq(const struct msg_funding_created *a,
 		&& eq_field(a, b, signature);
 }
 
+static bool funding_created_truncation_check(const struct msg_funding_created *a)
+{
+	return !a;
+}
+
 static bool revoke_and_ack_eq(const struct msg_revoke_and_ack *a,
 			      const struct msg_revoke_and_ack *b)
 {
 	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static bool revoke_and_ack_truncation_check(const struct msg_revoke_and_ack *a)
+{
+	return !a;
 }
 
 static bool open_channel_eq(const struct msg_open_channel *a,
@@ -1228,11 +1335,21 @@ static bool open_channel_eq(const struct msg_open_channel *a,
 		&& eq_between(a, b, funding_pubkey, channel_flags);
 }
 
+static bool open_channel_truncation_check(const struct msg_open_channel *a)
+{
+	return !a;
+}
+
 static bool channel_update_eq(const struct msg_channel_update *a,
 			      const struct msg_channel_update *b)
 {
 	return eq_upto(a, b, short_channel_id) &&
 		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
+}
+
+static bool channel_update_truncation_check(const struct msg_channel_update *a)
+{
+	return !a;
 }
 
 static bool channel_update_opt_htlc_max_eq(const struct msg_channel_update_opt_htlc_max *a,
@@ -1242,6 +1359,11 @@ static bool channel_update_opt_htlc_max_eq(const struct msg_channel_update_opt_h
 		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
 }
 
+static bool channel_update_opt_htlc_max_truncation_check(const struct msg_channel_update_opt_htlc_max *a)
+{
+	return !a;
+}
+
 static bool accept_channel_eq(const struct msg_accept_channel *a,
 			      const struct msg_accept_channel *b)
 {
@@ -1249,10 +1371,20 @@ static bool accept_channel_eq(const struct msg_accept_channel *a,
 		&& eq_between(a, b, funding_pubkey, first_per_commitment_point);
 }
 
+static bool accept_channel_truncation_check(const struct msg_accept_channel *a)
+{
+	return !a;
+}
+
 static bool update_add_htlc_eq(const struct msg_update_add_htlc *a,
 			       const struct msg_update_add_htlc *b)
 {
 	return eq_with(a, b, onion_routing_packet);
+}
+
+static bool update_add_htlc_truncation_check(const struct msg_update_add_htlc *a)
+{
+	return !a;
 }
 
 static bool node_announcement_eq(const struct msg_node_announcement *a,
@@ -1265,6 +1397,11 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 		&& eq_var(a, b, addresses);
 }
 
+static bool node_announcement_truncation_check(const struct msg_node_announcement *a)
+{
+	return !a;
+}
+
 /* Try flipping each bit, try running short. */
 #define test_corruption(a, b, type)				\
 	for (i = 0; i < tal_count(msg) * 8; i++) {		\
@@ -1273,6 +1410,11 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 		assert(!b || !type##_eq(a, b));			\
 		msg[i / 8] ^= (1 << (i%8));			\
 	}							\
+	for (i = 0; i < tal_count(msg); i++) {			\
+		u8 *trunc = tal_dup_arr(ctx, u8, msg, i, 0);	\
+		b = fromwire_struct_##type(ctx, trunc);		\
+		assert(type##_truncation_check(b));		\
+	}
 
 #if EXPERIMENTAL_FEATURES
 /* Test failure due to duplicate TLV message */
