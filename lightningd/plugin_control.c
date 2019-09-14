@@ -164,6 +164,38 @@ plugin_dynamic_start(struct command *cmd, const char *plugin_path)
 }
 
 /**
+ * Called when trying to start a plugin directory through RPC, it registers
+ * all contained plugins recursively and then starts them.
+ */
+static struct command_result *
+plugin_dynamic_startdir(struct command *cmd, const char *dir_path)
+{
+	const char *err;
+	struct plugin *p;
+	/* If the directory is empty */
+	bool found;
+
+	err = add_plugin_dir(cmd->ld->plugins, dir_path, false);
+	if (err)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "%s", err);
+
+	found = false;
+	list_for_each(&cmd->ld->plugins->plugins, p, list) {
+		if (p->plugin_state == UNCONFIGURED) {
+			found = true;
+			struct dynamic_plugin *dp = tal(cmd, struct dynamic_plugin);
+			dp->plugin = p;
+			dp->cmd = cmd;
+			plugin_start(dp);
+		}
+	}
+	if (!found)
+		plugin_dynamic_list_plugins(cmd);
+
+	return command_still_pending(cmd);
+}
+
+/**
  * A plugin command which permits to control plugins without restarting
  * lightningd. It takes a subcommand, and an optional subcommand parameter.
  */
@@ -233,7 +265,7 @@ static struct command_result *json_plugin_control(struct command *cmd,
 			return command_param_failed();
 
 		if (access(dir_path, F_OK) == 0)
-			add_plugin_dir(cmd->ld->plugins, dir_path, true);
+			return plugin_dynamic_startdir(cmd, dir_path);
 		else
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						   "Could not open %s", dir_path);
