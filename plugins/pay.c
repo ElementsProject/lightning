@@ -451,22 +451,31 @@ static struct command_result *sendpay_error(struct command *cmd,
 
 static const jsmntok_t *find_worst_channel(const char *buf,
 					   const jsmntok_t *route,
-					   const char *fieldname,
-					   u64 final)
+					   const char *fieldname)
 {
-	u64 prev = final, worstval = 0;
-	const jsmntok_t *worst = NULL, *t;
+	u64 prev, worstval = 0;
+	const jsmntok_t *worst = NULL, *t, *t_prev = NULL;
 	size_t i;
 
 	json_for_each_arr(i, t, route) {
 		u64 val;
 
 		json_to_u64(buf, json_get_member(buf, t, fieldname), &val);
-		if (worst == NULL || val - prev > worstval) {
-			worst = t;
-			worstval = val - prev;
+
+		/* For the first hop, now we can't know if it's the worst.
+		 * Just store the info and continue. */
+		if (!i) {
+			prev = val;
+			t_prev = t;
+			continue;
+		}
+
+		if (worst == NULL || prev - val > worstval) {
+			worst = t_prev;
+			worstval = prev - val;
 		}
 		prev = val;
+		t_prev = t;
 	}
 
 	return worst;
@@ -562,7 +571,7 @@ static struct command_result *getroute_done(struct command *cmd,
 
 		/* Try excluding most fee-charging channel (unless it's in
 		 * routeboost). */
-		charger = find_worst_channel(buf, t, "msatoshi", pc->msat.millisatoshis); /* Raw: shared function needs u64 */
+		charger = find_worst_channel(buf, t, "msatoshi");
 		if (maybe_exclude(pc, buf, charger)) {
 			return start_pay_attempt(cmd, pc,
 						 "Excluded expensive channel %s",
@@ -589,7 +598,7 @@ static struct command_result *getroute_done(struct command *cmd,
 		else
 			tal_free(failed);
 
-		delayer = find_worst_channel(buf, t, "delay", pc->final_cltv);
+		delayer = find_worst_channel(buf, t, "delay");
 
 		/* Try excluding most delaying channel (unless it's in
 		 * routeboost). */
