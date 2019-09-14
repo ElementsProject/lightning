@@ -61,11 +61,18 @@ void status_setup_sync(int fd)
 #endif
 }
 
+static void destroy_daemon_conn(struct daemon_conn *dc UNUSED)
+{
+	status_conn = NULL;
+}
+
 void status_setup_async(struct daemon_conn *master)
 {
 	assert(status_fd == -1);
 	assert(!status_conn);
 	status_conn = master;
+
+	tal_add_destructor(master, destroy_daemon_conn);
 
 	setup_logging_sighandler();
 #if DEVELOPER
