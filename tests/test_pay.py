@@ -94,25 +94,29 @@ def test_pay_limits(node_factory):
 
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
 
-    # It should have retried (once without routehint, too)
+    # It should have retried two more times (one without routehint and one with routehint)
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][0]['attempts']
 
     # Excludes channel, then ignores routehint which includes that, then
     # it excludes other channel.
-    assert len(status) == 2
+    assert len(status) == 3
     assert status[0]['strategy'] == "Initial attempt"
+    # Exclude the channel l1->l2
     assert status[1]['strategy'].startswith("Excluded expensive channel ")
+    # With the routehint
+    assert status[2]['strategy'].startswith("Trying route hint")
 
     # Delay too high.
     with pytest.raises(RpcError, match=r'Route wanted delay of .* blocks') as err:
         l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxdelay': 0})
 
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
-    # Should also have retried.
+    # Should also have retried two more times.
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][1]['attempts']
-    assert len(status) == 2
+    assert len(status) == 3
     assert status[0]['strategy'] == "Initial attempt"
     assert status[1]['strategy'].startswith("Excluded delaying channel ")
+    assert status[2]['strategy'].startswith("Trying route hint")
 
     # This works, because fee is less than exemptfee.
     l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
