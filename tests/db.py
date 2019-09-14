@@ -1,9 +1,11 @@
 from ephemeral_port_reserve import reserve
+from glob import glob
 
 import logging
 import os
 import psycopg2
 import random
+import re
 import shutil
 import signal
 import sqlite3
@@ -112,14 +114,40 @@ class PostgresDbProvider(object):
         self.proc = None
         print("Starting PostgresDbProvider")
 
+    def locate_path(self):
+        prefix = '/usr/lib/postgresql/*'
+        matches = glob(prefix)
+
+        candidates = {}
+        for m in matches:
+            g = re.search(r'([0-9]+[\.0-9]*)', m)
+            if not g:
+                continue
+            candidates[float(g.group(1))] = m
+
+        if len(candidates) == 0:
+            raise ValueError("Could not find `postgres` and `initdb` binaries in {}. Is postgresql installed?".format(prefix))
+
+        # Now iterate in reverse order through matches
+        for k, v in sorted(candidates.items())[::-1]:
+            initdb = os.path.join(v, 'bin', 'initdb')
+            postgres = os.path.join(v, 'bin', 'postgres')
+            if os.path.isfile(initdb) and os.path.isfile(postgres):
+                logging.info("Found `postgres` and `initdb` in {}".format(os.path.join(v, 'bin')))
+                return initdb, postgres
+
+        raise ValueError("Could not find `postgres` and `initdb` in any of the possible paths: {}".format(candidates.values()))
+
     def start(self):
         passfile = os.path.join(self.directory, "pgpass.txt")
         self.pgdir = os.path.join(self.directory, 'pgsql')
         # Need to write a tiny file containing the password so `initdb` can pick it up
         with open(passfile, 'w') as f:
             f.write('cltest\n')
+
+        initdb, postgres = self.locate_path()
         subprocess.check_call([
-            '/usr/lib/postgresql/10/bin/initdb',
+            initdb,
             '--pwfile={}'.format(passfile),
             '--pgdata={}'.format(self.pgdir),
             '--auth=trust',
@@ -127,7 +155,7 @@ class PostgresDbProvider(object):
         ])
         self.port = reserve()
         self.proc = subprocess.Popen([
-            '/usr/lib/postgresql/10/bin/postgres',
+            postgres,
             '-k', '/tmp/',  # So we don't use /var/lib/...
             '-D', self.pgdir,
             '-p', str(self.port),
