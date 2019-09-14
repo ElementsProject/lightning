@@ -1,15 +1,5 @@
-#include <ccan/pipecmd/pipecmd.h>
-#include <ccan/tal/path/path.h>
-#include <common/json_command.h>
-#include <common/jsonrpc_errors.h>
-#include <common/param.h>
-#include <common/timeout.h>
-#include <dirent.h>
-#include <errno.h>
-#include <lightningd/io_loop_with_timers.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
-#include <unistd.h>
 
 /* A dummy structure used to give multiple arguments to callbacks. */
 struct dynamic_plugin {
