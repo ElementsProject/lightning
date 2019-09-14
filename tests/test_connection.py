@@ -1583,8 +1583,9 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel(l2.info['id'], 10**6, 'slow')
 
-    # Can withdraw (use urgent feerate).
-    l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'urgent')
+    # Can withdraw (use urgent feerate). `minconf` may be needed depending on
+    # the previous `fundchannel` selecting all confirmed outputs.
+    l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'urgent', minconf=0)
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
