@@ -224,6 +224,35 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 }
 
 /**
+ * Look for additions in the default plugin directory.
+ */
+static struct command_result *
+plugin_dynamic_rescan_plugins(struct command *cmd)
+{
+	bool found;
+	struct plugin *p;
+
+	/* This will not fail on "already registered" error. */
+	plugins_add_default_dir(cmd->ld->plugins,
+	                        path_join(tmpctx, cmd->ld->config_dir, "plugins"));
+
+	found = false;
+	list_for_each(&cmd->ld->plugins->plugins, p, list) {
+		if (p->plugin_state == UNCONFIGURED) {
+			struct dynamic_plugin *dp = tal(cmd, struct dynamic_plugin);
+			dp->plugin = p;
+			dp->cmd = cmd;
+			plugin_start(dp);
+			found = true;
+		}
+	}
+
+	if (!found)
+		return plugin_dynamic_list_plugins(cmd);
+	return command_still_pending(cmd);
+}
+
+/**
  * A plugin command which permits to control plugins without restarting
  * lightningd. It takes a subcommand, and an optional subcommand parameter.
  */
@@ -234,12 +263,10 @@ static struct command_result *json_plugin_control(struct command *cmd,
 {
 	const char *subcmd;
 	subcmd = param_subcommand(cmd, buffer, params,
-				  "start", "stop", "startdir", "rescan", "list", NULL);
+	                          "start", "stop", "startdir",
+	                          "rescan", "list", NULL);
 	if (!subcmd)
 		return command_param_failed();
-
-	struct plugin *p;
-	struct json_stream *response;
 
 	if (streq(subcmd, "stop")) {
 		const char *plugin_name;
@@ -286,28 +313,18 @@ static struct command_result *json_plugin_control(struct command *cmd,
 			   NULL))
 			return command_param_failed();
 
-		plugins_add_default_dir(cmd->ld->plugins,
-				path_join(tmpctx, cmd->ld->config_dir, "plugins"));
+		return plugin_dynamic_rescan_plugins(cmd);
 	} else if (streq(subcmd, "list")) {
 		if (!param(cmd, buffer, params,
 			   p_req("subcommand", param_ignore, cmd),
 			   NULL))
 			return command_param_failed();
-		/* Don't do anything as we return the plugin list anyway */
+
+		return plugin_dynamic_list_plugins(cmd);
 	}
 
-	response = json_stream_success(cmd);
-	json_array_start(response, "plugins");
-	list_for_each(&cmd->ld->plugins->plugins, p, list) {
-		json_object_start(response, NULL);
-		json_add_string(response, "name", p->cmd);
-		json_add_bool(response, "active",
-			      p->plugin_state == CONFIGURED);
-		json_object_end(response);
-	}
-	json_array_end(response);
-
-	return command_success(cmd, response);
+	/* subcmd must be one of the above: param_subcommand checked it! */
+	abort();
 }
 
 static const struct json_command plugin_control_command = {
