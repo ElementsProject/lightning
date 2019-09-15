@@ -159,6 +159,20 @@ void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...);
  * incoming JSON-RPC calls and messages.
  */
 void plugins_config(struct plugins *plugins);
+
+/**
+ * Read and treat (populate options, methods, ...) the `getmanifest` response.
+ */
+bool plugin_parse_getmanifest_response(const char *buffer,
+                                       const jsmntok_t *toks,
+                                       const jsmntok_t *idtok,
+                                       struct plugin *plugin);
+
+/**
+ * This populates the jsonrpc request with the plugin/lightningd specifications
+ */
+void plugin_populate_init_request(struct plugin *p, struct jsonrpc_request *req);
+
 /**
  * Add the plugin option and their respective options to listconfigs.
  *

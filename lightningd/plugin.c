@@ -814,31 +814,18 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 	fatal("Can't recover from plugin failure, terminating.");
 }
 
-/**
- * Callback for the plugin_manifest request.
- */
-static void plugin_manifest_cb(const char *buffer,
-			       const jsmntok_t *toks,
-			       const jsmntok_t *idtok,
-			       struct plugin *plugin)
+
+bool plugin_parse_getmanifest_response(const char *buffer,
+                                       const jsmntok_t *toks,
+                                       const jsmntok_t *idtok,
+                                       struct plugin *plugin)
 {
 	const jsmntok_t *resulttok, *dynamictok;
 	bool dynamic_plugin;
 
-	/* Check if all plugins have replied to getmanifest, and break
-	 * if they have and this is the startup init */
-	plugin->plugins->pending_manifests--;
-	if (plugin->plugins->startup && plugin->plugins->pending_manifests == 0)
-		io_break(plugin->plugins);
-
 	resulttok = json_get_member(buffer, toks, "result");
-	if (!resulttok || resulttok->type != JSMN_OBJECT) {
-		plugin_kill(plugin,
-			    "\"getmanifest\" result is not an object: %.*s",
-			    toks[0].end - toks[0].start,
-			    buffer + toks[0].start);
-		return;
-	}
+	if (!resulttok || resulttok->type != JSMN_OBJECT)
+		return false;
 
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
 	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin))
@@ -848,9 +835,27 @@ static void plugin_manifest_cb(const char *buffer,
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
 	    !plugin_subscriptions_add(plugin, buffer, resulttok) ||
 	    !plugin_hooks_add(plugin, buffer, resulttok))
-		plugin_kill(
-		    plugin,
-		    "Failed to register options, methods, hooks, or subscriptions.");
+		return false;
+
+	return true;
+}
+
+/**
+ * Callback for the plugin_manifest request.
+ */
+static void plugin_manifest_cb(const char *buffer,
+			       const jsmntok_t *toks,
+			       const jsmntok_t *idtok,
+			       struct plugin *plugin)
+{
+	/* Check if all plugins have replied to getmanifest, and break
+	 * if they have and this is the startup init */
+	plugin->plugins->pending_manifests--;
+	if (plugin->plugins->startup && plugin->plugins->pending_manifests == 0)
+		io_break(plugin->plugins);
+
+	if (!plugin_parse_getmanifest_response(buffer, toks, idtok, plugin))
+		plugin_kill(plugin, "%s: Bad response to getmanifest.", plugin->cmd);
 
 	/* If all plugins have replied to getmanifest and this is not
 	 * the startup init, configure them */
@@ -1045,17 +1050,12 @@ static void plugin_config_cb(const char *buffer,
 	plugin->plugin_state = CONFIGURED;
 }
 
-/* FIXME(cdecker) This just builds a string for the request because
- * the json_stream is tightly bound to the command interface. It
- * should probably be generalized and fixed up. */
-static void plugin_config(struct plugin *plugin)
+void
+plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 {
-	struct plugin_opt *opt;
 	const char *name;
-	struct jsonrpc_request *req;
+	struct plugin_opt *opt;
 	struct lightningd *ld = plugin->plugins->ld;
-	req = jsonrpc_request_start(plugin, "init", plugin->log,
-				    plugin_config_cb, plugin);
 
 	/* Add .params.options */
 	json_object_start(req->stream, "options");
@@ -1074,7 +1074,19 @@ static void plugin_config(struct plugin *plugin)
 	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
 	json_add_bool(req->stream, "startup", plugin->plugins->startup);
 	json_object_end(req->stream);
+}
 
+/* FIXME(cdecker) This just builds a string for the request because
+ * the json_stream is tightly bound to the command interface. It
+ * should probably be generalized and fixed up. */
+static void
+plugin_config(struct plugin *plugin)
+{
+	struct jsonrpc_request *req;
+
+	req = jsonrpc_request_start(plugin, "init", plugin->log,
+	                            plugin_config_cb, plugin);
+	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
 }
