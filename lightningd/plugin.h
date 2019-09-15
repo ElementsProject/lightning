@@ -84,6 +84,7 @@ struct plugins {
 	struct log_book *log_book;
 
 	struct lightningd *ld;
+	const char *default_dir;
 };
 
 /* The value of a plugin option, which can have different types.
@@ -115,10 +116,9 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 			    struct lightningd *ld);
 
 /**
- * Search for `default_dir`, and if it exists add every directory it
- * contains as a plugin dir.
+ * Recursively add all plugins from the default plugins directory.
  */
-void plugins_add_default_dir(struct plugins *plugins, const char *default_dir);
+void plugins_add_default_dir(struct plugins *plugins);
 
 /**
  * Initialize the registered plugins.
