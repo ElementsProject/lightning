@@ -61,7 +61,7 @@ static void destroy_plugin(struct plugin *p)
 	list_del(&p->list);
 }
 
-void plugin_register(struct plugins *plugins, const char* path TAKES)
+struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 {
 	struct plugin *p, *p_temp;
 
@@ -70,7 +70,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 		if (streq(path, p_temp->cmd)) {
 			if (taken(path))
 				tal_free(path);
-			return;
+			return NULL;
 		}
 	}
 
@@ -107,6 +107,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 
 	list_add_tail(&plugins->plugins, &p->list);
 	tal_add_destructor(p, destroy_plugin);
+	return p;
 }
 
 bool plugin_paths_match(const char *cmd, const char *name)
@@ -435,8 +436,8 @@ static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 		tal_free(plugin);
 }
 
-static struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
-					      struct plugin *plugin)
+struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
+                                       struct plugin *plugin)
 {
 	/* We write to their stdin */
 	/* We don't have anything queued yet, wait for notification */
@@ -445,8 +446,8 @@ static struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
 	return io_wait(plugin->stdin_conn, plugin, plugin_write_json, plugin);
 }
 
-static struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
-					       struct plugin *plugin)
+struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
+                                        struct plugin *plugin)
 {
 	/* We read from their stdout */
 	plugin->stdout_conn = conn;
