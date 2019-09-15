@@ -223,8 +223,7 @@ plugin_dynamic_rescan_plugins(struct command *cmd)
 	struct plugin *p;
 
 	/* This will not fail on "already registered" error. */
-	plugins_add_default_dir(cmd->ld->plugins,
-	                        path_join(tmpctx, cmd->ld->config_dir, "plugins"));
+	plugins_add_default_dir(cmd->ld->plugins);
 
 	found = false;
 	list_for_each(&cmd->ld->plugins->plugins, p, list) {

@@ -943,18 +943,19 @@ void clear_plugins(struct plugins *plugins)
 		tal_free(p);
 }
 
-void plugins_add_default_dir(struct plugins *plugins, const char *default_dir)
+void plugins_add_default_dir(struct plugins *plugins)
 {
-	DIR *d = opendir(default_dir);
+	DIR *d = opendir(plugins->default_dir);
 	if (d) {
 		struct dirent *di;
 
 		/* Add this directory itself, and recurse down once. */
-		add_plugin_dir(plugins, default_dir, true);
+		add_plugin_dir(plugins, plugins->default_dir, true);
 		while ((di = readdir(d)) != NULL) {
 			if (streq(di->d_name, ".") || streq(di->d_name, ".."))
 				continue;
-			add_plugin_dir(plugins, path_join(tmpctx, default_dir, di->d_name), true);
+			add_plugin_dir(plugins, path_join(tmpctx, plugins->default_dir,
+			                                  di->d_name), true);
 		}
 		closedir(d);
 	}
@@ -968,8 +969,8 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 	struct jsonrpc_request *req;
 
 	plugins->pending_manifests = 0;
-	plugins_add_default_dir(plugins,
-				path_join(tmpctx, plugins->ld->config_dir, "plugins"));
+	plugins->default_dir = path_join(plugins, plugins->ld->config_dir, "plugins");
+	plugins_add_default_dir(plugins);
 
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
