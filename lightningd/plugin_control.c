@@ -195,6 +195,34 @@ plugin_dynamic_startdir(struct command *cmd, const char *dir_path)
 	return command_still_pending(cmd);
 }
 
+static struct command_result *
+plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
+{
+	struct plugin *p;
+	struct json_stream *response;
+
+	list_for_each(&cmd->ld->plugins->plugins, p, list) {
+		if (plugin_paths_match(p->cmd, plugin_name)) {
+			if (!p->dynamic)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				                    "%s cannot be managed when "
+				                    "lightningd is up",
+				                    plugin_name);
+			plugin_hook_unregister_all(p);
+			plugin_kill(p, "%s stopped by lightningd via RPC", plugin_name);
+			tal_free(p);
+			response = json_stream_success(cmd);
+			json_add_string(response, "",
+			                take(tal_fmt(NULL, "Successfully stopped %s.",
+			                             plugin_name)));
+			return command_success(cmd, response);
+		}
+	}
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+	                    "Could not find plugin %s", plugin_name);
+}
+
 /**
  * A plugin command which permits to control plugins without restarting
  * lightningd. It takes a subcommand, and an optional subcommand parameter.
@@ -215,7 +243,6 @@ static struct command_result *json_plugin_control(struct command *cmd,
 
 	if (streq(subcmd, "stop")) {
 		const char *plugin_name;
-		bool plugin_found;
 
 		if (!param(cmd, buffer, params,
 			   p_req("subcommand", param_ignore, cmd),
@@ -223,23 +250,7 @@ static struct command_result *json_plugin_control(struct command *cmd,
 			   NULL))
 			return command_param_failed();
 
-		plugin_found = false;
-		list_for_each(&cmd->ld->plugins->plugins, p, list) {
-			if (plugin_paths_match(p->cmd, plugin_name)) {
-				if (!p->dynamic)
-					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							    "%s plugin cannot be managed when lightningd is up",
-							    plugin_name);
-				plugin_found = true;
-				plugin_hook_unregister_all(p);
-				plugin_kill(p, "%s stopped by lightningd via RPC",
-						plugin_name);
-				break;
-			}
-		}
-		if (!plugin_found)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					   "Could not find plugin %s", plugin_name);
+		return plugin_dynamic_stop(cmd, plugin_name);
 	} else if (streq(subcmd, "start")) {
 		const char *plugin_path;
 
