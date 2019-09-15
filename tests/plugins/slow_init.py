@@ -8,7 +8,7 @@ plugin = Plugin()
 @plugin.init()
 def init(options, configuration, plugin):
     plugin.log("slow_init.py initializing {}".format(configuration))
-    time.sleep(1)
+    time.sleep(2)
 
 
 plugin.run()
