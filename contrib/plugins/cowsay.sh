@@ -24,6 +24,9 @@ echo '{"jsonrpc":"2.0","id":'"$id"',"result":{"dynamic":true,"options":[],"rpcme
 # Eg. {"jsonrpc":"2.0","id":5,"method":"init","params":{"options":{},"configuration":{"lightning-dir":"/home/rusty/.lightning","rpc-file":"lightning-rpc","startup":false}}}\n\n
 read -r JSON
 read -r _
+id=$(echo "$JSON" | sed 's/.*"id" *: *\([0-9]*\),.*/\1/')
+
+echo '{"jsonrpc":"2.0","id":'"$id"',"result":{}}'
 
 # eg. { "jsonrpc" : "2.0", "method" : "cowsay", "id" : 6, "params" :[ "hello"] }
 while read -r JSON; do
