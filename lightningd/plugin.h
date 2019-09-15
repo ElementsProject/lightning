@@ -130,7 +130,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug);
  * @param plugins: Plugin context
  * @param path: The path of the executable for this plugin
  */
-void plugin_register(struct plugins *plugins, const char* path TAKES);
+struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES);
 
 /**
  * Returns true if the provided name matches a plugin command
@@ -203,6 +203,14 @@ void plugin_request_send(struct plugin *plugin,
  */
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt);
 
+/**
+ * Helpers to initialize a connection to a plugin; we read from their
+ * stdout, and write to their stdin.
+ */
+struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
+                                       struct plugin *plugin);
+struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
+                                        struct plugin *plugin);
 
 /**
  * Needed for I/O logging for plugin messages.
