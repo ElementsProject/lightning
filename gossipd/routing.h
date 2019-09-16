@@ -66,6 +66,9 @@ struct local_chan {
 
 	/* We soft-disable local channels when a peer disconnects */
 	bool local_disabled;
+
+	/* Timer if we're deferring an update. */
+	struct oneshot *channel_update_timer;
 };
 
 /* Use this instead of tal_free(chan)! */

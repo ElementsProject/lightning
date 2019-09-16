@@ -457,6 +457,7 @@ static struct local_chan *new_local_chan(struct routing_state *rstate,
 	local_chan->chan = chan;
 	local_chan->direction = direction;
 	local_chan->local_disabled = false;
+	local_chan->channel_update_timer = NULL;
 
 	local_chan_map_add(&rstate->local_chan_map, local_chan);
 	tal_add_destructor2(local_chan, destroy_local_chan, rstate);

@@ -510,6 +510,24 @@ static void get_cupdate_parts(const u8 *channel_update,
 	sizes[1] = tal_count(channel_update) - (64 + 2 + 32 + 8 + 4);
 }
 
+/*~ Is this channel_update different from prev (not sigs and timestamps)? */
+static bool cupdate_different(struct gossip_store *gs,
+			      const struct half_chan *hc,
+			      const u8 *cupdate)
+{
+	const u8 *oparts[2], *nparts[2];
+	size_t osizes[2], nsizes[2];
+	const u8 *orig;
+
+	/* Get last one we have. */
+	orig = gossip_store_get(tmpctx, gs, hc->bcast.index);
+	get_cupdate_parts(orig, oparts, osizes);
+	get_cupdate_parts(cupdate, nparts, nsizes);
+
+	return !memeq(oparts[0], osizes[0], nparts[0], nsizes[0])
+		|| !memeq(oparts[1], osizes[1], nparts[1], nsizes[1]);
+}
+
 /* Get non-signature, non-timestamp parts of (valid!) node_announcement */
 static void get_nannounce_parts(const u8 *node_announcement,
 				const u8 *parts[2],
@@ -1684,39 +1702,46 @@ static void dump_gossip(struct peer *peer)
 	maybe_create_next_scid_reply(peer);
 }
 
+/*~ Our timer callbacks take a single argument, so we marshall everything
+ * we need into this structure: */
+struct local_cupdate {
+	struct daemon *daemon;
+	struct local_chan *local_chan;
+
+	bool disable;
+	bool even_if_identical;
+
+	u16 cltv_expiry_delta;
+	struct amount_msat htlc_minimum, htlc_maximum;
+	u32 fee_base_msat, fee_proportional_millionths;
+};
+
 /*~ This generates a `channel_update` message for one of our channels.  We do
  * this here, rather than in `channeld` because we (may) need to do it
- * ourselves anyway if channeld dies, or when we refresh it once a week. */
-static void update_local_channel(struct daemon *daemon,
-				 const struct chan *chan,
-				 int direction,
-				 bool disable,
-				 u16 cltv_expiry_delta,
-				 struct amount_msat htlc_minimum,
-				 u32 fee_base_msat,
-				 u32 fee_proportional_millionths,
-				 struct amount_msat htlc_maximum,
-				 const char *caller)
+ * ourselves anyway if channeld dies, or when we refresh it once a week,
+ * and so we can avoid creating redundant ones. */
+static void update_local_channel(struct local_cupdate *lc /* frees! */)
 {
+	struct daemon *daemon = lc->daemon;
 	secp256k1_ecdsa_signature dummy_sig;
 	u8 *update, *msg;
-	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
+	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec, next;
 	u8 message_flags, channel_flags;
+	struct chan *chan = lc->local_chan->chan;
+	struct half_chan *hc;
+	const int direction = lc->local_chan->direction;
+
+	/* Discard existing timer. */
+	lc->local_chan->channel_update_timer
+		= tal_free(lc->local_chan->channel_update_timer);
 
 	/* So valgrind doesn't complain */
 	memset(&dummy_sig, 0, sizeof(dummy_sig));
 
-	/* BOLT #7:
-	 *
-	 * The origin node:
-	 *...
-	 *   - MUST set `timestamp` to greater than 0, AND to greater than any
-	 *     previously-sent `channel_update` for this `short_channel_id`.
-	 *     - SHOULD base `timestamp` on a UNIX timestamp.
-	 */
-	if (is_halfchan_defined(&chan->half[direction])
-	    && timestamp == chan->half[direction].bcast.timestamp)
-		timestamp++;
+	/* Create an unsigned channel_update: we backdate enables, so
+	 * we can always send a disable in an emergency. */
+	if (!lc->disable)
+		timestamp -= daemon->gossip_min_interval;
 
 	/* BOLT #7:
 	 *
@@ -1731,7 +1756,7 @@ static void update_local_channel(struct daemon *daemon,
 	 * | 1             | `disable`   | Disable the channel.             |
 	 */
 	channel_flags = direction;
-	if (disable)
+	if (lc->disable)
 		channel_flags |= ROUTING_FLAGS_DISABLED;
 
 	/* BOLT #7:
@@ -1752,11 +1777,41 @@ static void update_local_channel(struct daemon *daemon,
 				       &chan->scid,
 				       timestamp,
 				       message_flags, channel_flags,
-				       cltv_expiry_delta,
-				       htlc_minimum,
-				       fee_base_msat,
-				       fee_proportional_millionths,
-				       htlc_maximum);
+				       lc->cltv_expiry_delta,
+				       lc->htlc_minimum,
+				       lc->fee_base_msat,
+				       lc->fee_proportional_millionths,
+				       lc->htlc_maximum);
+
+	hc = &chan->half[direction];
+	if (is_halfchan_defined(hc)) {
+		/* Suppress duplicates. */
+		if (!lc->even_if_identical
+		    && !cupdate_different(daemon->rstate->gs, hc, update)) {
+			tal_free(lc);
+			return;
+		}
+
+		/* Is it too soon to send another update? */
+		next = hc->bcast.timestamp + daemon->gossip_min_interval;
+
+		if (timestamp < next) {
+			status_debug("channel_update %s/%u: delaying %u secs",
+				     type_to_string(tmpctx,
+						    struct short_channel_id,
+						    &chan->scid),
+				     direction,
+				     next - timestamp);
+			lc->local_chan->channel_update_timer
+				= new_reltimer(&daemon->timers, lc,
+					       time_from_sec(next - timestamp),
+					       update_local_channel,
+					       lc);
+			/* If local chan vanishes, so does update, and timer. */
+			notleak(tal_steal(lc->local_chan, lc));
+			return;
+		}
+	}
 
 	/* Note that we treat the hsmd as synchronous.  This is simple (no
 	 * callback hell)!, but may need to change to async if we ever want
@@ -1793,50 +1848,50 @@ static void update_local_channel(struct daemon *daemon,
 
 	/* We feed it into routing.c like any other channel_update; it may
 	 * discard it (eg. non-public channel), but it should not complain
-	 * about it being invalid! */
-	msg = handle_channel_update(daemon->rstate, take(update), caller, NULL);
+	 * about it being invalid! __func__ is a magic C constant which
+	 * expands to this function name. */
+	msg = handle_channel_update(daemon->rstate, take(update), __func__,
+				    NULL);
 	if (msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s: rejected local channel update %s: %s",
-			      caller,
+			      __func__,
 			      /* Normally we must not touch something taken()
 			       * but we're in deep trouble anyway, and
 			       * handle_channel_update only tal_steals onto
 			       * tmpctx, so it's actually OK. */
 			      tal_hex(tmpctx, update),
 			      tal_hex(tmpctx, msg));
+	tal_free(lc);
 }
 
-/*~ We generate local channel updates lazily; most of the time we simply
- * toggle the `local_disabled` flag so we don't use it to route.  We never
- * change anything else after startup (yet!) */
-static void maybe_update_local_channel(struct daemon *daemon,
-				       struct chan *chan, int direction)
+/*~ This is a refresh of a local channel: sends an update if one is needed. */
+static void refresh_local_channel(struct daemon *daemon,
+				  struct local_chan *local_chan,
+				  bool even_if_identical)
 {
-	const struct half_chan *hc = &chan->half[direction];
-	bool local_disabled;
+	const struct half_chan *hc;
+	struct local_cupdate *lc;
+
+	hc = &local_chan->chan->half[local_chan->direction];
 
 	/* Don't generate a channel_update for an uninitialized channel. */
 	if (!is_halfchan_defined(hc))
 		return;
 
-	/* Nothing to update? */
-	local_disabled = is_chan_local_disabled(daemon->rstate, chan);
-	/*~ Note the inversions here on both sides, which is cheap conversion to
-	 * boolean for the RHS! */
-	if (!local_disabled == !(hc->channel_flags & ROUTING_FLAGS_DISABLED))
-		return;
+	lc = tal(NULL, struct local_cupdate);
+	lc->daemon = daemon;
+	lc->local_chan = local_chan;
+	lc->even_if_identical = even_if_identical;
+	lc->disable = (hc->channel_flags & ROUTING_FLAGS_DISABLED)
+		|| local_chan->local_disabled;
+	lc->cltv_expiry_delta = hc->delay;
+	lc->htlc_minimum = hc->htlc_minimum;
+	lc->htlc_maximum = hc->htlc_maximum;
+	lc->fee_base_msat = hc->base_fee;
+	lc->fee_proportional_millionths = hc->proportional_fee;
 
-	update_local_channel(daemon, chan, direction,
-			     local_disabled,
-			     hc->delay,
-			     hc->htlc_minimum,
-			     hc->base_fee,
-			     hc->proportional_fee,
-			     hc->htlc_maximum,
-			     /* Note this magic C macro which expands to the
-			      * function name, for debug messages */
-			     __func__);
+	update_local_channel(lc);
 }
 
 /*~ This is when channeld asks us for a channel_update for a local channel.
@@ -1873,7 +1928,7 @@ static bool handle_get_update(struct peer *peer, const u8 *msg)
 	chan = local_chan->chan;
 
 	/* Since we're going to send it out, make sure it's up-to-date. */
-	maybe_update_local_channel(peer->daemon, chan, local_chan->direction);
+	refresh_local_channel(peer->daemon, local_chan, false);
 
  	/* It's possible this is zero, if we've never sent a channel_update
 	 * for that channel. */
@@ -1893,92 +1948,49 @@ out:
 	return true;
 }
 
-/*~ Return true if the channel information has changed.  This can only
-* currently happen if the user restarts with different fee options, but we
-* don't assume that. */
-static bool halfchan_new_info(const struct half_chan *hc,
-			      u16 cltv_delta, struct amount_msat htlc_minimum,
-			      u32 fee_base_msat, u32 fee_proportional_millionths,
-			      struct amount_msat htlc_maximum)
-{
-	if (!is_halfchan_defined(hc))
-		return true;
-
-	return hc->delay != cltv_delta
-		|| !amount_msat_eq(hc->htlc_minimum, htlc_minimum)
-		|| hc->base_fee != fee_base_msat
-		|| hc->proportional_fee != fee_proportional_millionths
-		|| !amount_msat_eq(hc->htlc_maximum, htlc_maximum);
-}
-
 /*~ channeld asks us to update the local channel. */
 static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 {
-	struct local_chan *local_chan;
-	struct chan *chan;
 	struct short_channel_id scid;
-	bool disable;
-	u16 cltv_expiry_delta;
-	struct amount_msat htlc_minimum, htlc_maximum;
-	u32 fee_base_msat;
-	u32 fee_proportional_millionths;
+	struct local_cupdate *lc = tal(tmpctx, struct local_cupdate);
+
+	lc->daemon = peer->daemon;
+	lc->even_if_identical = false;
 
 	/* FIXME: We should get scid from lightningd when setting up the
 	 * connection, so no per-peer daemon can mess with channels other than
 	 * its own! */
 	if (!fromwire_gossipd_local_channel_update(msg,
 						   &scid,
-						   &disable,
-						   &cltv_expiry_delta,
-						   &htlc_minimum,
-						   &fee_base_msat,
-						   &fee_proportional_millionths,
-						   &htlc_maximum)) {
+						   &lc->disable,
+						   &lc->cltv_expiry_delta,
+						   &lc->htlc_minimum,
+						   &lc->fee_base_msat,
+						   &lc->fee_proportional_millionths,
+						   &lc->htlc_maximum)) {
 		status_broken("peer %s bad local_channel_update %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      tal_hex(tmpctx, msg));
 		return false;
 	}
 
-	local_chan = local_chan_map_get(&peer->daemon->rstate->local_chan_map,
-					&scid);
+	lc->local_chan = local_chan_map_get(&peer->daemon->rstate->local_chan_map,
+					    &scid);
 	/* Can theoretically happen if channel just closed. */
-	if (!local_chan) {
+	if (!lc->local_chan) {
 		status_debug("peer %s local_channel_update for unknown %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      type_to_string(tmpctx, struct short_channel_id,
 					     &scid));
 		return true;
 	}
-	chan = local_chan->chan;
 
-	/* We could change configuration on restart; update immediately.
-	 * Or, if we're *enabling* an announced-disabled channel.
-	 * Or, if it's an unannounced channel (only sending to peer). */
-	if (halfchan_new_info(&chan->half[local_chan->direction],
-			      cltv_expiry_delta, htlc_minimum,
-			      fee_base_msat, fee_proportional_millionths,
-			      htlc_maximum)
-	    || ((chan->half[local_chan->direction].channel_flags & ROUTING_FLAGS_DISABLED)
-		&& !disable)
-	    || !is_chan_public(chan)) {
-		update_local_channel(peer->daemon, chan, local_chan->direction,
-				     disable,
-				     cltv_expiry_delta,
-				     htlc_minimum,
-				     fee_base_msat,
-				     fee_proportional_millionths,
-				     htlc_maximum,
-				     __func__);
-	}
+	/* Remove soft local_disabled flag, if they're marking it enabled. */
+	if (!lc->disable)
+		local_enable_chan(peer->daemon->rstate, lc->local_chan->chan);
 
-	/* Normal case: just toggle local_disabled, and generate broadcast in
-	 * maybe_update_local_channel when/if someone asks about it. */
-	if (disable)
-		local_disable_chan(peer->daemon->rstate, chan);
-	else
-		local_enable_chan(peer->daemon->rstate, chan);
-
+	/* Apply the update they told us */
+	update_local_channel(tal_steal(NULL, lc));
 	return true;
 }
 
@@ -2284,24 +2296,16 @@ static struct io_plan *connectd_req(struct io_conn *conn,
  * was added to the spec because people abandoned their channels without
  * closing them. */
 static void gossip_send_keepalive_update(struct daemon *daemon,
-					 const struct chan *chan,
-					 const struct half_chan *hc)
+					 struct local_chan *local_chan)
 {
-	status_debug("Sending keepalive channel_update for %s",
+	status_debug("Sending keepalive channel_update for %s/%u",
 		     type_to_string(tmpctx, struct short_channel_id,
-				    &chan->scid));
+				    &local_chan->chan->scid),
+		     local_chan->direction);
 
 	/* As a side-effect, this will create an update which matches the
 	 * local_disabled state */
-	update_local_channel(daemon, chan,
-			     hc->channel_flags & ROUTING_FLAGS_DIRECTION,
-			     is_chan_local_disabled(daemon->rstate, chan),
-			     hc->delay,
-			     hc->htlc_minimum,
-			     hc->base_fee,
-			     hc->proportional_fee,
-			     hc->htlc_maximum,
-			     __func__);
+	refresh_local_channel(daemon, local_chan, true);
 }
 
 
@@ -2334,7 +2338,11 @@ static void gossip_refresh_network(struct daemon *daemon)
 		struct chan *c;
 
 		for (c = first_chan(n, &i); c; c = next_chan(n, &i)) {
-			struct half_chan *hc = half_chan_from(n, c);
+			struct local_chan *local_chan;
+			struct half_chan *hc;
+
+			local_chan = is_local_chan(daemon->rstate, c);
+			hc = &c->half[local_chan->direction];
 
 			if (!is_halfchan_defined(hc)) {
 				/* Connection is not announced yet, so don't even
@@ -2352,7 +2360,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 				continue;
 			}
 
-			gossip_send_keepalive_update(daemon, c, hc);
+			gossip_send_keepalive_update(daemon, local_chan);
 		}
 	}
 
