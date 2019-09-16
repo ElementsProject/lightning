@@ -196,6 +196,8 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    get_offered_globalfeatures(tmpctx),
 	    ld->rgb,
 	    ld->alias, ld->config.channel_update_interval,
+	    /* gossip_min_interval: 5x the broadcast interval */
+	    ld->config.broadcast_interval_msec / 200,
 	    ld->announcable,
 	    IFDEV(ld->dev_gossip_time ? &ld->dev_gossip_time: NULL, NULL));
 	subd_send_msg(ld->gossip, msg);
