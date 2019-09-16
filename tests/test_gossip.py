@@ -967,6 +967,8 @@ def test_node_reannounce(node_factory, bitcoind):
 
     l1.stop()
     l1.daemon.opts['alias'] = 'SENIORBEAM'
+    # It won't update within 5 seconds, so sleep.
+    time.sleep(5)
     l1.start()
 
     # Wait for l1 to send us its own node_announcement.
@@ -983,6 +985,9 @@ def test_node_reannounce(node_factory, bitcoind):
 
     # l1 should retransmit it exactly the same (no timestamp change!)
     l2.daemon.wait_for_log(r'{}.*\[IN\] {}'.format(l1.info['id'], nannouncement))
+
+    # Won't have queued up another one, either.
+    assert not l1.daemon.is_in_log('node_announcement: delaying')
 
 
 def test_gossipwith(node_factory):
