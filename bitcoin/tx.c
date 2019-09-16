@@ -127,11 +127,11 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 struct amount_sat amount, u8 *script)
 {
-	size_t i = tx->wtx->num_inputs;
 	struct wally_tx_input *input;
-	assert(i < tx->wtx->inputs_allocation_len);
+	size_t i;
 
 	assert(tx->wtx != NULL);
+	i = tx->wtx->num_inputs;
 	wally_tx_input_init_alloc(txid->shad.sha.u.u8,
 				  sizeof(struct bitcoin_txid), outnum, sequence,
 				  script, tal_bytelen(script),
@@ -141,6 +141,9 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	wally_tx_input_free(input);
 
 	/* Now store the input amount if we know it, so we can sign later */
+	if (tal_count(tx->input_amounts) < tx->wtx->num_inputs)
+		tal_resize(&tx->input_amounts, tx->wtx->num_inputs);
+
 	tx->input_amounts[i] = tal_free(tx->input_amounts[i]);
 	tx->input_amounts[i] = tal_dup(tx, struct amount_sat, &amount);
 
