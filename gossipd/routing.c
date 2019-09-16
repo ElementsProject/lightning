@@ -163,6 +163,10 @@ static void destroy_routing_state(struct routing_state *rstate)
 	     chan;
 	     chan = uintmap_after(&rstate->chanmap, &idx))
 		free_chan(rstate, chan);
+
+	/* Free up our htables */
+	pending_cannouncement_map_clear(&rstate->pending_cannouncements);
+	local_chan_map_clear(&rstate->local_chan_map);
 }
 
 #if DEVELOPER
@@ -175,6 +179,7 @@ static void memleak_help_routing_tables(struct htable *memtable,
 	memleak_remove_htable(memtable, &rstate->nodes->raw);
 	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
 	memleak_remove_htable(memtable, &rstate->pending_cannouncements.raw);
+	memleak_remove_htable(memtable, &rstate->local_chan_map.raw);
 
 	for (n = node_map_first(rstate->nodes, &nit);
 	     n;
@@ -204,7 +209,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 
 	uintmap_init(&rstate->chanmap);
 	uintmap_init(&rstate->unupdated_chanmap);
-	chan_map_init(&rstate->local_disabled_map);
+	local_chan_map_init(&rstate->local_chan_map);
 	uintmap_init(&rstate->txout_failures);
 
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
@@ -388,7 +393,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 /* We make sure that free_chan is called on this chan! */
 static void destroy_chan_check(struct chan *chan)
 {
-	assert(chan->scid.u64 == (u64)chan);
+	assert(chan->sat.satoshis == (u64)chan); /* Raw: dev-hack */
 }
 #endif
 
@@ -401,11 +406,8 @@ void free_chan(struct routing_state *rstate, struct chan *chan)
 
 	uintmap_del(&rstate->chanmap, chan->scid.u64);
 
-	/* Remove from local_disabled_map if it's there. */
-	chan_map_del(&rstate->local_disabled_map, chan);
-
 #if DEVELOPER
-	chan->scid.u64 = (u64)chan;
+	chan->sat.satoshis = (u64)chan; /* Raw: dev-hack */
 #endif
 	tal_free(chan);
 }
@@ -429,6 +431,36 @@ static void bad_gossip_order(const u8 *msg, const char *source,
 	status_debug("Bad gossip order from %s: %s before announcement %s",
 		     source, wire_type_name(fromwire_peektype(msg)),
 		     details);
+}
+
+static void destroy_local_chan(struct local_chan *local_chan,
+			       struct routing_state *rstate)
+{
+	if (!local_chan_map_del(&rstate->local_chan_map, local_chan))
+		abort();
+}
+
+static struct local_chan *new_local_chan(struct routing_state *rstate,
+					 struct chan *chan)
+{
+	int direction;
+	struct local_chan *local_chan;
+
+	if (node_id_eq(&chan->nodes[0]->id, &rstate->local_id))
+		direction = 0;
+	else if (node_id_eq(&chan->nodes[1]->id, &rstate->local_id))
+		direction = 1;
+	else
+		return NULL;
+
+	local_chan = tal(chan, struct local_chan);
+	local_chan->chan = chan;
+	local_chan->direction = direction;
+	local_chan->local_disabled = false;
+
+	local_chan_map_add(&rstate->local_chan_map, local_chan);
+	tal_add_destructor2(local_chan, destroy_local_chan, rstate);
+	return local_chan;
 }
 
 struct chan *new_chan(struct routing_state *rstate,
@@ -471,6 +503,9 @@ struct chan *new_chan(struct routing_state *rstate,
 	init_half_chan(rstate, chan, !n1idx);
 
 	uintmap_add(&rstate->chanmap, scid->u64, chan);
+
+	/* Initialize shadow structure if it's local */
+	new_local_chan(rstate, chan);
 	return chan;
 }
 
@@ -2678,9 +2713,6 @@ void remove_all_gossip(struct routing_state *rstate)
 	/* Now free all the channels. */
 	while ((c = uintmap_first(&rstate->chanmap, &index)) != NULL) {
 		uintmap_del(&rstate->chanmap, index);
-
-		/* Remove from local_disabled_map if it's there. */
-		chan_map_del(&rstate->local_disabled_map, c);
 		tal_free(c);
 	}
 
