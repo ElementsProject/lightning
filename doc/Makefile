@@ -91,6 +91,6 @@ doc-clean:
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 doc/index.rst:
-	(grep -v '^   lightning.*\.[0-9]\.md>$$' $@; for m in $$(cd doc && ls lightning*.[0-9].md | sort); do echo "   $$(echo $$m | sed 's/.[0-9].md//') <$$m>"; done) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
+	(grep -v '^   lightning.*\.[0-9]\.md>$$' $@; for m in $$(cd doc && echo "$$(ls lightningd*.[0-9].md | sort)\n$$(ls lightning-*.[0-9].md | sort)"); do echo "   $$(echo $$m | sed 's/.[0-9].md//') <$$m>"; done) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
 
 .PHONY: doc/index.rst
