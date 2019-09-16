@@ -1556,6 +1556,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-force-bip32-seed")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Addresses are network specific")
 def test_dev_force_bip32_seed(node_factory):
     l1 = node_factory.get_node(options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
     # First is m/0/0/1 ..
