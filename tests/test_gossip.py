@@ -51,13 +51,6 @@ def test_gossip_pruning(node_factory, bitcoind):
     ])
 
     # Now kill l3, so that l2 and l1 can prune it from their view after 10 seconds
-
-    # FIXME: This sleep() masks a real bug: that channeld sends a
-    # channel_update message (to disable the channel) with same
-    # timestamp as the last keepalive, and thus is ignored.  The minimal
-    # fix is to backdate the keepalives 1 second, but maybe we should
-    # simply have gossipd generate all updates?
-    time.sleep(1)
     l3.stop()
 
     l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2))

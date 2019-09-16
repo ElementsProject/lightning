@@ -16,6 +16,7 @@
 #include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <gossipd/make_gossip.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 
@@ -1931,17 +1932,31 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* Discard older updates */
 	hc = &chan->half[direction];
 
-	/* If we're loading from store, duplicate entries are a bug. */
-	if (is_halfchan_defined(hc) && index != 0) {
-		status_broken("gossip_store channel_update %u replaces %u!",
-			      index, hc->bcast.index);
-		return false;
-	}
+	if (is_halfchan_defined(hc)) {
+		/* If we're loading from store, duplicate entries are a bug. */
+		if (index != 0) {
+			status_broken("gossip_store channel_update %u replaces %u!",
+				      index, hc->bcast.index);
+			return false;
+		}
 
-	if (is_halfchan_defined(hc) && timestamp <= hc->bcast.timestamp) {
-		SUPERVERBOSE("Ignoring outdated update.");
-		/* Ignoring != failing */
-		return true;
+		if (timestamp <= hc->bcast.timestamp) {
+			SUPERVERBOSE("Ignoring outdated update.");
+			/* Ignoring != failing */
+			return true;
+		}
+
+		/* Allow redundant updates once every 7 days */
+		if (timestamp < hc->bcast.timestamp + rstate->prune_timeout / 2
+		    && !cupdate_different(rstate->gs, hc, update)) {
+			status_debug("Ignoring redundant update for %s/%u",
+				     type_to_string(tmpctx,
+						    struct short_channel_id,
+						    &short_channel_id),
+				     direction);
+			/* Ignoring != failing */
+			return true;
+		}
 	}
 
 	/* FIXME: https://github.com/lightningnetwork/lightning-rfc/pull/512
@@ -2248,15 +2263,29 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		return true;
 	}
 
-	if (node->bcast.index && index != 0) {
-		status_broken("gossip_store node_announcement %u replaces %u!",
-			      index, node->bcast.index);
-		return false;
-	}
-	if (node->bcast.index && node->bcast.timestamp >= timestamp) {
-		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
-		/* OK unless we're loading from store */
-		return index == 0;
+	if (node->bcast.index) {
+		if (index != 0) {
+			status_broken("gossip_store node_announcement %u replaces %u!",
+				      index, node->bcast.index);
+			return false;
+		}
+
+		if (node->bcast.timestamp >= timestamp) {
+			SUPERVERBOSE("Ignoring node announcement, it's outdated.");
+			/* OK unless we're loading from store */
+			return index == 0;
+		}
+
+		/* Allow redundant updates once every 7 days */
+		if (timestamp < node->bcast.timestamp + rstate->prune_timeout / 2
+		    && !nannounce_different(rstate->gs, node, msg)) {
+			status_debug("Ignoring redundant nannounce for %s",
+				     type_to_string(tmpctx,
+						    struct node_id,
+						    &node_id));
+			/* Ignoring != failing */
+			return true;
+		}
 	}
 
 	/* Harmless if it was never added */
