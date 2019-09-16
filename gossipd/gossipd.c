@@ -151,6 +151,9 @@ struct daemon {
 
 	/* Channels we've heard about, but don't know. */
 	struct short_channel_id *unknown_scids;
+
+	/* Timer until we can send a new node_announcement */
+	struct oneshot *node_announce_timer;
 };
 
 /*~ How gossipy do we ask a peer to be? */
@@ -569,22 +572,39 @@ static void update_own_node_announcement(struct daemon *daemon)
 	u8 *msg, *nannounce, *err;
 	struct node *self = get_node(daemon->rstate, &daemon->id);
 
-	/* BOLT #7:
-	 *
-	 * The origin node:
-	 *   - MUST set `timestamp` to be greater than that of any previous
-	 *   `node_announcement` it has previously created.
-	 */
-	if (self && self->bcast.index && timestamp <= self->bcast.timestamp)
-		timestamp = self->bcast.timestamp + 1;
+	/* Discard existing timer. */
+	daemon->node_announce_timer = tal_free(daemon->node_announce_timer);
 
 	/* Make unsigned announcement. */
 	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
 
 	/* If it's the same as the previous, nothing to do. */
 	if (self && self->bcast.index) {
+		u32 next;
+
 		if (!nannounce_different(daemon->rstate->gs, self, nannounce))
 			return;
+
+		/* BOLT #7:
+		 *
+		 * The origin node:
+		 *   - MUST set `timestamp` to be greater than that of any
+		 *    previous `node_announcement` it has previously created.
+		 */
+		/* We do better: never send them within more than 5 minutes. */
+		next = self->bcast.timestamp + daemon->gossip_min_interval;
+
+		if (timestamp < next) {
+			status_debug("node_announcement: delaying %u secs",
+				     next - timestamp);
+			daemon->node_announce_timer
+				= new_reltimer(&daemon->timers,
+					       daemon,
+					       time_from_sec(next - timestamp),
+					       update_own_node_announcement,
+					       daemon);
+			return;
+		}
 	}
 
 	/* Ask hsmd to sign it (synchronous) */
@@ -3447,6 +3467,7 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->peers);
 	daemon->unknown_scids = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->gossip_missing = NULL;
+	daemon->node_announce_timer = NULL;
 
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
