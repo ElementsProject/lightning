@@ -145,7 +145,8 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     subprocess.run(['kill', '-USR1', l1.subd_pid('connectd')])
     subprocess.run(['kill', '-USR1', l2.subd_pid('connectd')])
 
-    before_anything = int(time.time() - 1.0)
+    # Updates get backdated 300 seconds.
+    before_anything = int(time.time() - 301.0)
 
     # Make a public channel.
     chan12 = l1.fund_channel(l2, 10**5)
@@ -1267,13 +1268,20 @@ def setup_gossip_store_test(node_factory, bitcoind):
     l2.rpc.setchannelfee(l1.info['id'], 20, 1000)
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid12)['channels']] == [20, 20])
 
-    # Active records in store now looks like:
+    # Records in store now looks (something) like:
+    #    DELETED: local-add-channel (scid23)
+    #    DELETED: private channel_update (scid23/0)
+    #    DELETED: private channel_update (scid23/1)
     #  channel_announcement (scid23)
     #  channel_amount
+    #    DELETED: channel_update (scid23/0)
+    #    DELETED: channel_update (scid23/1)
     #  node_announcement
     #  node_announcement
     #  channel_update (scid23)
     #  local_add_channel (scid12)
+    #    DELETED: private channel_update (scid12/0)
+    #    DELETED: private channel_update (scid12/1)
     #  channel_update (scid23)
     #  private_channel_update (scid12)
     #  private_channel_update (scid12)
@@ -1294,6 +1302,7 @@ def test_gossip_store_compact_noappend(node_factory, bitcoind):
     assert not l2.daemon.is_in_log('gossip_store:.*truncate')
 
 
+@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-broadcast-interval")
 def test_gossip_store_load_complex(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
@@ -1373,7 +1382,7 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
 
     l2.restart()
 
-    wait_for(lambda: l2.daemon.is_in_log('gossip_store_compact_offline: 9 deleted, 9 copied'))
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store_compact_offline: [5-8] deleted, 9 copied'))
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1446 bytes'))
 
 
