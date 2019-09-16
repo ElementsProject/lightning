@@ -1839,21 +1839,7 @@ static void maybe_update_local_channel(struct daemon *daemon,
 			     __func__);
 }
 
-/*~ This helper figures out which direction of the channel is from-us; if
- * neither, it returns false.  This meets Linus' rule "Always return the error",
- * without doing some horrible 0/1/-1 return. */
-static bool local_direction(struct daemon *daemon,
-			    const struct chan *chan,
-			    int *direction)
-{
-	for (*direction = 0; *direction < 2; (*direction)++) {
-		if (node_id_eq(&chan->nodes[*direction]->id, &daemon->id))
-			return true;
-	}
-	return false;
-}
-
-/*~ This is when channeld asks us for a `channel_update` for a local channel.
+/*~ This is when channeld asks us for a channel_update for a local channel.
  * It does that to fill in the error field when lightningd fails an HTLC and
  * sets the UPDATE bit in the error type.  lightningd is too important to
  * fetch this itself, so channeld does it (channeld has to talk to us for
@@ -1861,10 +1847,10 @@ static bool local_direction(struct daemon *daemon,
 static bool handle_get_update(struct peer *peer, const u8 *msg)
 {
 	struct short_channel_id scid;
+	struct local_chan *local_chan;
 	struct chan *chan;
 	const u8 *update;
 	struct routing_state *rstate = peer->daemon->rstate;
-	int direction;
 
 	if (!fromwire_gossipd_get_update(msg, &scid)) {
 		status_broken("peer %s sent bad gossip_get_update %s",
@@ -1874,8 +1860,8 @@ static bool handle_get_update(struct peer *peer, const u8 *msg)
 	}
 
 	/* It's possible that the channel has just closed (though v. unlikely) */
-	chan = get_channel(rstate, &scid);
-	if (!chan) {
+	local_chan = local_chan_map_get(&rstate->local_chan_map, &scid);
+	if (!local_chan) {
 		status_unusual("peer %s scid %s: unknown channel",
 			       type_to_string(tmpctx, struct node_id, &peer->id),
 			       type_to_string(tmpctx, struct short_channel_id,
@@ -1884,27 +1870,18 @@ static bool handle_get_update(struct peer *peer, const u8 *msg)
 		goto out;
 	}
 
-	/* We want the update that comes from our end. */
-	if (!local_direction(peer->daemon, chan, &direction)) {
-		status_unusual("peer %s scid %s: not our channel?",
-			       type_to_string(tmpctx, struct node_id, &peer->id),
-			       type_to_string(tmpctx,
-					      struct short_channel_id,
-					      &scid));
-		update = NULL;
-		goto out;
-	}
+	chan = local_chan->chan;
 
 	/* Since we're going to send it out, make sure it's up-to-date. */
-	maybe_update_local_channel(peer->daemon, chan, direction);
+	maybe_update_local_channel(peer->daemon, chan, local_chan->direction);
 
  	/* It's possible this is zero, if we've never sent a channel_update
 	 * for that channel. */
-	if (!is_halfchan_defined(&chan->half[direction]))
+	if (!is_halfchan_defined(&chan->half[local_chan->direction]))
 		update = NULL;
 	else
 		update = gossip_store_get(tmpctx, rstate->gs,
-					  chan->half[direction].bcast.index);
+					  chan->half[local_chan->direction].bcast.index);
 out:
 	status_debug("peer %s schanid %s: %s update",
 		     type_to_string(tmpctx, struct node_id, &peer->id),
@@ -1937,6 +1914,7 @@ static bool halfchan_new_info(const struct half_chan *hc,
 /*~ channeld asks us to update the local channel. */
 static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 {
+	struct local_chan *local_chan;
 	struct chan *chan;
 	struct short_channel_id scid;
 	bool disable;
@@ -1944,7 +1922,6 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 	struct amount_msat htlc_minimum, htlc_maximum;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
-	int direction;
 
 	/* FIXME: We should get scid from lightningd when setting up the
 	 * connection, so no per-peer daemon can mess with channels other than
@@ -1963,36 +1940,29 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 		return false;
 	}
 
+	local_chan = local_chan_map_get(&peer->daemon->rstate->local_chan_map,
+					&scid);
 	/* Can theoretically happen if channel just closed. */
-	chan = get_channel(peer->daemon->rstate, &scid);
-	if (!chan) {
+	if (!local_chan) {
 		status_debug("peer %s local_channel_update for unknown %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      type_to_string(tmpctx, struct short_channel_id,
 					     &scid));
 		return true;
 	}
-
-	/* You shouldn't be asking for a non-local channel though. */
-	if (!local_direction(peer->daemon, chan, &direction)) {
-		status_broken("peer %s bad local_channel_update for non-local %s",
-			      type_to_string(tmpctx, struct node_id, &peer->id),
-			      type_to_string(tmpctx, struct short_channel_id,
-					     &scid));
-		return false;
-	}
+	chan = local_chan->chan;
 
 	/* We could change configuration on restart; update immediately.
 	 * Or, if we're *enabling* an announced-disabled channel.
 	 * Or, if it's an unannounced channel (only sending to peer). */
-	if (halfchan_new_info(&chan->half[direction],
+	if (halfchan_new_info(&chan->half[local_chan->direction],
 			      cltv_expiry_delta, htlc_minimum,
 			      fee_base_msat, fee_proportional_millionths,
 			      htlc_maximum)
-	    || ((chan->half[direction].channel_flags & ROUTING_FLAGS_DISABLED)
+	    || ((chan->half[local_chan->direction].channel_flags & ROUTING_FLAGS_DISABLED)
 		&& !disable)
 	    || !is_chan_public(chan)) {
-		update_local_channel(peer->daemon, chan, direction,
+		update_local_channel(peer->daemon, chan, local_chan->direction,
 				     disable,
 				     cltv_expiry_delta,
 				     htlc_minimum,
@@ -3145,25 +3115,19 @@ static struct io_plan *get_channel_peer(struct io_conn *conn,
 					struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct chan *chan;
+	struct local_chan *local_chan;
 	const struct node_id *key;
-	int direction;
 
 	if (!fromwire_gossip_get_channel_peer(msg, &scid))
 		master_badmsg(WIRE_GOSSIP_GET_CHANNEL_PEER, msg);
 
-	chan = get_channel(daemon->rstate, &scid);
-	if (!chan) {
-		status_debug("Failed to resolve channel %s",
+	local_chan = local_chan_map_get(&daemon->rstate->local_chan_map, &scid);
+	if (!local_chan) {
+		status_debug("Failed to resolve local channel %s",
 			     type_to_string(tmpctx, struct short_channel_id, &scid));
 		key = NULL;
-	} else if (local_direction(daemon, chan, &direction)) {
-		key = &chan->nodes[!direction]->id;
 	} else {
-		status_debug("Resolved channel %s was not local",
-			     type_to_string(tmpctx, struct short_channel_id,
-					    &scid));
-		key = NULL;
+		key = &local_chan->chan->nodes[!local_chan->direction]->id;
 	}
 	daemon_conn_send(daemon->master,
 			 take(towire_gossip_get_channel_peer_reply(NULL, key)));
