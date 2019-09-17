@@ -143,8 +143,10 @@ void fromwire_bip32_key_version(const u8 **cursor, size_t *max,
 				struct bip32_key_version *version);
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
 						     const u8 **cursor, size_t *max);
-
 void fromwire_chainparams(const u8 **cursor, size_t *max,
 			  const struct chainparams **chainparams);
 
+void towire_bitcoin_tx_input(u8 **pptr, const struct bitcoin_tx_input *input);
+struct bitcoin_tx_input *fromwire_bitcoin_tx_input(const tal_t *ctx,
+						   const u8 **cursor, size_t *max);
 #endif /* LIGHTNING_WIRE_WIRE_H */

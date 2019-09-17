@@ -13,8 +13,10 @@
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct chainparams *chainparams,
 			       const struct utxo **utxos,
+			       struct bitcoin_tx_input **inputs,
 			       struct bitcoin_tx_output **outputs,
-			       const struct ext_key *bip32_base)
+			       const struct ext_key *bip32_base,
+			       const void **input_map)
 {
 	struct bitcoin_tx *tx;
 	struct pubkey key;
@@ -41,11 +43,19 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 		 		     utxos[i]->amount, script);
 	}
 
+	/* Add 3rd party inputs */
+	for (i = 0; i < tal_count(inputs); i++) {
+		bitcoin_tx_add_input(tx, &inputs[i]->txid,
+				     inputs[i]->index, inputs[i]->sequence_number,
+				     inputs[i]->amount, inputs[i]->script);
+	}
+
 	bitcoin_tx_add_multi_outputs(tx, outputs);
 	permute_outputs(tx, NULL, (const void **)outputs);
 
-	permute_inputs(tx, (const void **)utxos);
+	permute_inputs(tx, input_map);
 	elements_tx_add_fee_output(tx);
+
 	assert(bitcoin_tx_check(tx));
 	return tx;
 }

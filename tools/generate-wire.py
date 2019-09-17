@@ -221,6 +221,7 @@ class Type(FieldSet):
         'per_peer_state',
         'bitcoin_tx_output',
         'exclude_entry',
+        'bitcoin_tx_input',
     ]
 
     # Some BOLT types are re-typed based on their field name
