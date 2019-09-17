@@ -126,6 +126,47 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/* Extract an output. Format: {destination: amount} */
+static struct command_result *extract_output(const tal_t *ctx,
+					     struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *t,
+					     struct bitcoin_tx_output **output)
+{
+
+	struct amount_sat *amount;
+	const u8 *destination;
+	enum address_parse_result res;
+
+	if (t->type != JSMN_OBJECT)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "The output format must be "
+				    "{destination: amount}");;
+
+	res = json_to_address_scriptpubkey(cmd,
+					   chainparams,
+					   buffer, &t[1],
+					   &destination);
+
+	if (res == ADDRESS_PARSE_UNRECOGNIZED)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not parse destination address");
+	else if (res == ADDRESS_PARSE_WRONG_NETWORK)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Destination address is not on network %s",
+				    chainparams->network_name);
+
+	amount = tal(tmpctx, struct amount_sat);
+	if (!json_to_sat_or_all(buffer, &t[2], amount))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%.*s' is a invalid satoshi amount",
+				    t[2].end - t[2].start, buffer + t[2].start);
+
+	*output = new_tx_output(ctx, *amount, destination);
+	return NULL;
+}
+
+
 /* Common code for withdraw and txprepare.
  *
  * Returns NULL on success, and fills in wtx, output and
@@ -329,44 +370,21 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	(*utx)->wtx->all_funds = false;
 	(*utx)->wtx->amount = AMOUNT_SAT(0);
 	json_for_each_arr(i, t, outputstok) {
-		struct amount_sat *amount;
-		const u8 *destination;
-		enum address_parse_result res;
+		struct bitcoin_tx_output *output;
 
-		/* output format: {destination: amount} */
-		if (t->type != JSMN_OBJECT)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "The output format must be "
-					    "{destination: amount}");
+		result = extract_output(outputs, cmd, buffer, t, &output);
+		if (result)
+			return result;
 
-		res = json_to_address_scriptpubkey(cmd,
-						   chainparams,
-						   buffer, &t[1],
-						   &destination);
-		if (res == ADDRESS_PARSE_UNRECOGNIZED)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Could not parse destination address");
-		else if (res == ADDRESS_PARSE_WRONG_NETWORK)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Destination address is not on network %s",
-					    chainparams->network_name);
-
-		amount = tal(tmpctx, struct amount_sat);
-		if (!json_to_sat_or_all(buffer, &t[2], amount))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "'%.*s' is a invalid satoshi amount",
-					    t[2].end - t[2].start, buffer + t[2].start);
-
-		outputs[i] = new_tx_output(outputs, *amount,
-					   cast_const(u8 *, destination));
-		out_len += tal_count(destination);
+		outputs[i] = output;
+		out_len += tal_count(output->script);
 
 		/* In fact, the maximum amount of bitcoin satoshi is 2.1e15.
 		 * It can't be equal to/bigger than 2^64.
 		 * On the hand, the maximum amount of litoshi is 8.4e15,
 		 * which also can't overflow. */
 		/* This means this destination need "all" satoshi we have. */
-		if (amount_sat_eq(*amount, AMOUNT_SAT(-1ULL))) {
+		if (amount_sat_eq(output->amount, AMOUNT_SAT(-1ULL))) {
 			if (outputstok->size > 1)
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "outputs[%zi]: this destination wants"
@@ -374,11 +392,11 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 						    " can't be more than 1. ", i);
 			(*utx)->wtx->all_funds = true;
 			/* `AMOUNT_SAT(-1ULL)` is the max permissible for `wallet_select_all`. */
-			(*utx)->wtx->amount = *amount;
+			(*utx)->wtx->amount = output->amount;
 			break;
 		}
 
-		if (!amount_sat_add(&(*utx)->wtx->amount, (*utx)->wtx->amount, *amount))
+		if (!amount_sat_add(&(*utx)->wtx->amount, (*utx)->wtx->amount, output->amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "outputs: The sum of first %zi outputs"
 					    " overflow. ", i);
