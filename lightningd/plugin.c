@@ -1049,6 +1049,9 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	json_add_string(req->stream, "lightning-dir", ld->config_dir);
 	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
 	json_add_bool(req->stream, "startup", plugin->plugins->startup);
+	json_add_string(
+	    req->stream, "network",
+	    plugin->plugins->ld->topology->bitcoind->chainparams->network_name);
 	json_object_end(req->stream);
 }
 
