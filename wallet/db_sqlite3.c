@@ -11,8 +11,8 @@
 /* Prior to sqlite3 v3.14, we have to use tracing to dump statements */
 static void trace_sqlite3(void *stmtv, const char *stmt)
 {
-	struct db_stmt = (struct db_stmt*)stmtv;
-	db_changes_add(stmt, stmt);
+	struct db_stmt *s = (struct db_stmt*)stmtv;
+	db_changes_add(s, stmt);
 }
 #endif
 
@@ -86,7 +86,7 @@ static bool db_sqlite3_exec(struct db_stmt *stmt)
 #if !HAVE_SQLITE3_EXPANDED_SQL
 	/* Register the tracing function if we don't have an explicit way of
 	 * expanding the statement. */
-	sqlite3_trace(db->sql, trace_sqlite3, stmt);
+	sqlite3_trace(stmt->db->conn, trace_sqlite3, stmt);
 #endif
 
 	if (!db_sqlite3_query(stmt)) {
@@ -110,7 +110,7 @@ static bool db_sqlite3_exec(struct db_stmt *stmt)
 #else
 	/* Unregister the trace callback to avoid it accessing the potentially
 	 * stale pointer to stmt */
-	sqlite3_trace(db->sql, NULL, NULL);
+	sqlite3_trace(stmt->db->conn, NULL, NULL);
 #endif
 
 	return true;
