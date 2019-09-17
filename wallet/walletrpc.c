@@ -85,9 +85,6 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
-					     utx->wtx->amount,
-					     utx->wtx->change,
-					     utx->wtx->change_key_index,
 					     cast_const2(const struct bitcoin_tx_output **,
 							 utx->outputs),
 					     utx->wtx->utxos,
@@ -311,10 +308,8 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	 * Support only one output. */
 	if (destination) {
 		outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, 1);
-		outputs[0] = tal(outputs, struct bitcoin_tx_output);
-		outputs[0]->script = tal_steal(outputs[0],
-					       cast_const(u8 *, destination));
-		outputs[0]->amount = (*utx)->wtx->amount;
+		outputs[0] = new_tx_output(outputs, (*utx)->wtx->amount,
+					   destination);
 		out_len = tal_count(outputs[0]->script);
 
 		goto create_tx;
@@ -356,11 +351,9 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 					    "'%.*s' is a invalid satoshi amount",
 					    t[2].end - t[2].start, buffer + t[2].start);
 
+		outputs[i] = new_tx_output(outputs, *amount,
+					   cast_const(u8 *, destination));
 		out_len += tal_count(destination);
-		outputs[i] = tal(outputs, struct bitcoin_tx_output);
-		outputs[i]->amount = *amount;
-		outputs[i]->script = tal_steal(outputs[i],
-					       cast_const(u8 *, destination));
 
 		/* In fact, the maximum amount of bitcoin satoshi is 2.1e15.
 		 * It can't be equal to/bigger than 2^64.
@@ -386,8 +379,6 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	}
 
 create_tx:
-	(*utx)->outputs = tal_steal(*utx, outputs);
-
 	if (chosen_utxos)
 		result = wtx_from_utxos((*utx)->wtx, *feerate_per_kw,
 					out_len, maxheight,
@@ -404,19 +395,27 @@ create_tx:
 	if ((*utx)->wtx->all_funds)
 		outputs[0]->amount = (*utx)->wtx->amount;
 
+	/* Add the change as the last output */
 	if (!amount_sat_eq((*utx)->wtx->change, AMOUNT_SAT(0))) {
+		struct bitcoin_tx_output *change_output;
+
 		changekey = tal(tmpctx, struct pubkey);
 		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, changekey,
 				  (*utx)->wtx->change_key_index))
 			return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
-	} else
-		changekey = NULL;
+
+		change_output = new_tx_output(outputs, (*utx)->wtx->change,
+					      scriptpubkey_p2wpkh(tmpctx, changekey));
+		tal_arr_expand(outputs, *change_output);
+	}
+
+	(*utx)->outputs = tal_steal(*utx, outputs);
 	(*utx)->tx = withdraw_tx(*utx, chainparams,
-				 (*utx)->wtx->utxos, (*utx)->outputs,
-				 changekey, (*utx)->wtx->change,
+				 (*utx)->wtx->utxos,
+				 (*utx)->outputs,
 				 cmd->ld->wallet->bip32_base,
-				 &(*utx)->change_outnum,
 				 locktime);
+
 	bitcoin_txid((*utx)->tx, &(*utx)->txid);
 
 	return NULL;

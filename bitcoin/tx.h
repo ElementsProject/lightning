@@ -50,6 +50,9 @@ struct bitcoin_tx_input {
 	u8 **witness;
 };
 
+struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
+					struct amount_sat amount,
+					const u8 *script);
 
 /* SHA256^2 the tx: simpler than sha256_tx */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);

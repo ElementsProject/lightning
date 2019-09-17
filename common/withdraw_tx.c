@@ -3,6 +3,7 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <ccan/ptrint/ptrint.h>
+#include <common/key_derive.h>
 #include <common/permute_tx.h>
 #include <common/utils.h>
 #include <common/utxo.h>
@@ -13,44 +14,37 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct chainparams *chainparams,
 			       const struct utxo **utxos,
 			       struct bitcoin_tx_output **outputs,
-			       const struct pubkey *changekey,
-			       struct amount_sat change,
 			       const struct ext_key *bip32_base,
-			       int *change_outnum, u32 nlocktime)
+			       u32 nlocktime)
 {
 	struct bitcoin_tx *tx;
-	int output_count;
+	struct pubkey key;
+	u8 *script;
+	size_t i;
 
-	tx = tx_spending_utxos(ctx, chainparams, utxos, bip32_base,
-			       !amount_sat_eq(change, AMOUNT_SAT(0)),
-			       tal_count(outputs), nlocktime,
-			       BITCOIN_TX_DEFAULT_SEQUENCE - 1);
+	assert(tal_count(utxos) > 0 && tal_count(outputs) > 0);
 
-	output_count = bitcoin_tx_add_multi_outputs(tx, outputs);
-	assert(output_count == tal_count(outputs));
+	tx = bitcoin_tx(ctx, chainparams,
+			tal_count(utxos),
+			tal_count(outputs),
+			nlocktime);
 
-	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
-		/* Add one to the output_count, for the change */
-		output_count++;
+	/* Add our utxo's */
+	for (i = 0; i < tal_count(utxos); i++) {
+		if (utxos[i]->is_p2sh && bip32_base) {
+			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
+			script = bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
+		} else {
+			script = NULL;
+		}
 
-		const void *map[output_count];
-		for (size_t i = 0; i < output_count; i++)
-			map[i] = int2ptr(i);
+		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
+				     BITCOIN_TX_DEFAULT_SEQUENCE - 1,
+		 		     utxos[i]->amount, script);
+	}
 
-		bitcoin_tx_add_output(tx, scriptpubkey_p2wpkh(tmpctx, changekey),
-				      change);
-
-		assert(tx->wtx->num_outputs == output_count);
-		permute_outputs(tx, NULL, map);
-
-		/* The change is the last output added, so the last position
-		 * in the map */
-		if (change_outnum)
-			*change_outnum = ptr2int(map[output_count - 1]);
-
-	} else if (change_outnum)
-		*change_outnum = -1;
-
+	bitcoin_tx_add_multi_outputs(tx, outputs);
+	permute_outputs(tx, NULL, (const void **)outputs);
 	permute_inputs(tx, (const void **)utxos);
 
 	bitcoin_tx_finalize(tx);

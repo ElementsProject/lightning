@@ -66,8 +66,6 @@ struct unreleased_tx {
 	/* The tx itself (unsigned initially) */
 	struct bitcoin_tx *tx;
 	struct bitcoin_txid txid;
-	/* Index of change output, or -1 if none. */
-	int change_outnum;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet
