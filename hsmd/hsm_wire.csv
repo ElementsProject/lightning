@@ -67,10 +67,12 @@ msgdata,hsm_node_announcement_sig_reply,signature,secp256k1_ecdsa_signature,
 
 # Sign a withdrawal request
 msgtype,hsm_sign_withdrawal,7
+msgdata,hsm_sign_withdrawal,num_inputs,u16,
+msgdata,hsm_sign_withdrawal,inputs,bitcoin_tx_input,num_inputs
 msgdata,hsm_sign_withdrawal,num_outputs,u16,
 msgdata,hsm_sign_withdrawal,outputs,bitcoin_tx_output,num_outputs
-msgdata,hsm_sign_withdrawal,num_inputs,u16,
-msgdata,hsm_sign_withdrawal,inputs,utxo,num_inputs
+msgdata,hsm_sign_withdrawal,num_utxos,u16,
+msgdata,hsm_sign_withdrawal,utxos,utxo,num_utxos
 msgdata,hsm_sign_withdrawal,nlocktime,u32,
 
 msgtype,hsm_sign_withdrawal_reply,107

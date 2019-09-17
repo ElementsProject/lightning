@@ -168,4 +168,7 @@ fromwire_onionmsg_path(const tal_t *ctx, const u8 **cursor, size_t *plen)
 	return NULL;
 }
 #endif /* EXPERIMENTAL_FEATURES */
+void towire_bitcoin_tx_input(u8 **pptr, const struct bitcoin_tx_input *input);
+struct bitcoin_tx_input *fromwire_bitcoin_tx_input(const tal_t *ctx,
+						   const u8 **cursor, size_t *max);
 #endif /* LIGHTNING_WIRE_WIRE_H */

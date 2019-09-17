@@ -63,6 +63,8 @@ struct unreleased_tx {
 	struct wallet_tx *wtx;
 	/* Outputs(scriptpubkey and satoshi) this pays to. */
 	struct bitcoin_tx_output **outputs;
+	/* Non-utxo inputs for this tx (i.e. not our wallet) */
+	struct bitcoin_tx_input **inputs;
 	/* The tx itself (unsigned initially) */
 	struct bitcoin_tx *tx;
 	struct bitcoin_txid txid;

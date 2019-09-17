@@ -273,3 +273,22 @@ void towire_chainparams(u8 **cursor, const struct chainparams *chainparams)
 {
 	towire_bitcoin_blkid(cursor, &chainparams->genesis_blockhash);
 }
+
+void towire_bitcoin_tx_input(u8 **pptr, const struct bitcoin_tx_input *input)
+{
+	u16 script_len = tal_count(input->script);
+	u16 witness_len;
+
+	towire_bitcoin_txid(pptr, &input->txid);
+	towire_u32(pptr, input->index);
+	towire_u16(pptr, script_len);
+	towire_u8_array(pptr, input->script, script_len);
+	towire_u32(pptr, input->sequence_number);
+	towire_u16(pptr, tal_count(input->witness));
+	for (size_t i = 0; i < tal_count(input->witness); i++) {
+		witness_len = tal_count(input->witness[i]);
+		towire_u16(pptr, witness_len);
+		towire_u8_array(pptr, input->witness[i], witness_len);
+	}
+	towire_amount_sat(pptr, input->amount);
+}

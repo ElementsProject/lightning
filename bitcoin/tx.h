@@ -46,8 +46,11 @@ struct bitcoin_tx_input {
 	u8 *script;
 	u32 sequence_number;
 
-	/* Only if BIP141 used. */
+	/* If BIP141 used, or is external input */
 	u8 **witness;
+
+	/* Needed for external inputs */
+	struct amount_sat amount;
 };
 
 struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,

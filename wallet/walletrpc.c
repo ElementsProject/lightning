@@ -82,9 +82,15 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 	struct bitcoin_tx *signed_tx;
 	struct bitcoin_txid signed_txid;
 
+	/* Build input set */
+	if (!utx->inputs)
+	    utx->inputs = tal_arr(utx, struct bitcoin_tx_input *, 0);
+
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
+					     cast_const2(const struct bitcoin_tx_input **,
+							 utx->inputs),
 					     cast_const2(const struct bitcoin_tx_output **,
 							 utx->outputs),
 					     utx->wtx->utxos,
@@ -412,9 +418,11 @@ create_tx:
 	(*utx)->outputs = tal_steal(*utx, outputs);
 	(*utx)->tx = withdraw_tx(*utx, chainparams,
 				 (*utx)->wtx->utxos,
+				 (*utx)->inputs,
 				 (*utx)->outputs,
 				 cmd->ld->wallet->bip32_base,
-				 locktime);
+				 locktime,
+				 NULL);
 
 	bitcoin_txid((*utx)->tx, &(*utx)->txid);
 

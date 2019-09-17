@@ -20,15 +20,19 @@ struct utxo;
  * @ctx: context to tal from.
  * @chainparams: (in) the params for the created transaction.
  * @utxos: (in/out) tal_arr of UTXO pointers to spend (permuted to match)
+ * @inputs: (in) tal_arr of inputs for this transaction, in addition to utxos.
  * @outputs: (in) tal_arr of bitcoin_tx_output, scriptPubKeys with amount to send to.
  * @bip32_base: (in) bip32 base for key derivation, or NULL.
  * @nlocktime: (in) the value to set as the transaction's nLockTime.
+ * @input_map: (out) index of sorted inputs
  */
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct chainparams *chainparams,
 			       const struct utxo **utxos,
+			       struct bitcoin_tx_input **inputs,
 			       struct bitcoin_tx_output **outputs,
 			       const struct ext_key *bip32_base,
-			       u32 nlocktime);
+			       u32 nlocktime,
+			       const void **input_map);
 
 #endif /* LIGHTNING_COMMON_WITHDRAW_TX_H */

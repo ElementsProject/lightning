@@ -403,9 +403,11 @@ void fromwire_bip32_key_version(const u8** cursor, size_t *max,
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
 						     const u8 **cursor, size_t *max)
 {
+	u16 script_len;
+
 	struct bitcoin_tx_output *output = tal(ctx, struct bitcoin_tx_output);
 	output->amount = fromwire_amount_sat(cursor, max);
-	u16 script_len = fromwire_u16(cursor, max);
+	script_len = fromwire_u16(cursor, max);
 	output->script = fromwire_tal_arrn(output, cursor, max, script_len);
 	if (!*cursor)
 		return tal_free(output);
@@ -428,4 +430,31 @@ void fromwire_chainparams(const u8 **cursor, size_t *max,
 	struct bitcoin_blkid genesis;
 	fromwire_bitcoin_blkid(cursor, max, &genesis);
 	*chainparams = chainparams_by_chainhash(&genesis);
+}
+
+struct bitcoin_tx_input *fromwire_bitcoin_tx_input(const tal_t *ctx,
+						   const u8 **cursor, size_t *max)
+{
+	u16 script_len;
+	u16 witness_count;
+	u16 witness_len;
+
+	struct bitcoin_tx_input *input = tal(ctx, struct bitcoin_tx_input);
+
+	fromwire_bitcoin_txid(cursor, max, &input->txid);
+	input->index = fromwire_u32(cursor, max);
+	script_len = fromwire_u16(cursor, max);
+	input->script = script_len ? tal_arr(input, u8, script_len) : NULL;
+	fromwire_u8_array(cursor, max, input->script, script_len);
+	input->sequence_number = fromwire_u32(cursor, max);
+
+	witness_count = fromwire_u16(cursor, max);
+	input->witness = witness_count ? tal_arr(input, u8 *, witness_count) : NULL;
+	for (size_t i = 0; i < witness_count; i++) {
+		witness_len = fromwire_u16(cursor, max);
+		input->witness[i] = witness_len ? tal_arr(input->witness, u8, witness_len) : NULL;
+		fromwire_u8_array(cursor, max, input->witness[i], witness_len);
+	}
+	input->amount = fromwire_amount_sat(cursor, max);
+	return input;
 }

@@ -1605,6 +1605,42 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 	}
 }
 
+/* For dual-funded transactions, we don't sign every input. Instead,
+ * we find the inputs that correspond with the utxos we have and sign
+ * only those
+ * */
+static void sign_our_inputs(struct bitcoin_tx *tx, struct utxo **utxos,
+			    const void **map, size_t map_len)
+{
+	size_t i, j;
+	int input_index;
+
+	assert(tx->wtx->num_inputs >= tal_count(utxos));
+	assert(tal_count(utxos) <= map_len);
+
+	/* We add utxos to the tx first, and then any other
+	 * inputs. Thus, we can iterate through the map from zero upward
+	 * to find the correct utxo placement to sign */
+	for (i = 0; i < tal_count(utxos); i++) {
+		struct pubkey inkey;
+		struct bitcoin_signature sig;
+
+		input_index = -1;
+		for (j = 0; j < map_len; j++) {
+			if (ptr2int(map[j]) == i) {
+				input_index = j;
+				break;
+			}
+		}
+
+		if (input_index < 0)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Unable to find index for input %zu", i);
+
+		sign_input(tx, utxos[i], &inkey, &sig, input_index);
+	}
+}
+
 /*~ lightningd asks us to sign the transaction to fund a channel; it feeds us
  * the set of inputs and the local and remote pubkeys, and we sign it. */
 static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
@@ -1655,18 +1691,53 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 {
 	struct utxo **utxos;
 	struct bitcoin_tx *tx;
+	struct bitcoin_tx_input **inputs;
 	struct bitcoin_tx_output **outputs;
 	u32 nlocktime;
 
+	size_t input_count, i, j;
+
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in,
-					  &outputs, &utxos, &nlocktime))
+					  &inputs, &outputs,
+					  &utxos, &nlocktime))
 		return bad_req(conn, c, msg_in);
+
+	input_count = tal_count(utxos) + tal_count(inputs);
+	const void *map[input_count];
+	for (i = 0; i < input_count; i++)
+		map[i] = int2ptr(i);
 
 	tx = withdraw_tx(tmpctx, c->chainparams,
 			 cast_const2(const struct utxo **, utxos),
-			 outputs, NULL, nlocktime);
+			 inputs, outputs, NULL,
+			 nlocktime,
+			 (const void **)&map);
 
-	sign_all_inputs(tx, utxos);
+	/* Put our signatures on the transaction */
+	sign_our_inputs(tx, utxos, (const void **)&map, input_count);
+
+	/* Add any 3rd party signatures */
+	for (i = 0; i < tal_count(inputs); i++) {
+		if (inputs[i]->witness) {
+			size_t offset = tal_count(utxos) + i;
+			int input_index = -1;
+
+			/* Find the index */
+			for (j = 0; j < input_count; j++) {
+				if (ptr2int(map[j]) == offset) {
+					input_index = j;
+					break;
+				}
+			}
+
+			if (input_index < 0)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Unable to find index for input %zu", i);
+
+			bitcoin_tx_input_set_witness(tx, input_index,
+						     inputs[i]->witness);
+		}
+	}
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));

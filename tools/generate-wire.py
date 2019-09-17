@@ -229,6 +229,7 @@ class Type(FieldSet):
         'feature_set',
         'onionmsg_path',
         'route_hop',
+        'bitcoin_tx_input',
     ]
 
     # Some BOLT types are re-typed based on their field name
