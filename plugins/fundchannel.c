@@ -8,7 +8,6 @@
 #include <common/json_tok.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
-#include <lightningd/json.h>
 #include <plugins/libplugin.h>
 
 const char *placeholder_script = "0020b95810f824f843934fa042acd0becba52087813e260edaeebc42b5cb9abe1464";
