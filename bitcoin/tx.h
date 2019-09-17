@@ -35,6 +35,10 @@ struct bitcoin_tx_output {
 	u8 *script;
 };
 
+struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
+					struct amount_sat amount,
+					const u8 *script);
+
 /* SHA256^2 the tx in legacy format. */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
 void wally_txid(const struct wally_tx *wtx, struct bitcoin_txid *txid);
