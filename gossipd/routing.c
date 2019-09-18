@@ -195,6 +195,21 @@ static void destroy_routing_state(struct routing_state *rstate)
 	local_chan_map_clear(&rstate->local_chan_map);
 }
 
+/* We don't check this when loading from the gossip_store: that would break
+ * our canned tests, and usually old gossip is better than no gossip */
+static bool timestamp_reasonable(struct routing_state *rstate, u32 timestamp)
+{
+	u64 now = gossip_time_now(rstate).ts.tv_sec;
+
+	/* More than one day ahead? */
+	if (timestamp > now + 24*60*60)
+		return false;
+	/* More than 2 weeks behind? */
+	if (timestamp < now - rstate->prune_timeout)
+		return false;
+	return true;
+}
+
 #if DEVELOPER
 static void memleak_help_routing_tables(struct htable *memtable,
 					struct routing_state *rstate)
@@ -1949,6 +1964,17 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		}
 	}
 
+	/* Check timestamp is sane (unless from store). */
+	if (!index && !timestamp_reasonable(rstate, timestamp)) {
+		status_debug("Ignoring update timestamp %u for %s/%u",
+			     timestamp,
+			     type_to_string(tmpctx,
+					    struct short_channel_id,
+					    &short_channel_id),
+			     direction);
+		return false;
+	}
+
 	/* OK, we're going to accept this, so create chan if doesn't exist */
 	if (uc) {
 		assert(!chan);
@@ -2266,6 +2292,14 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	if (!index)
 		status_debug("Received node_announcement for node %s",
 			     type_to_string(tmpctx, struct node_id, &node_id));
+
+	/* Check timestamp is sane (unless from gossip_store). */
+	if (!index && !timestamp_reasonable(rstate, timestamp)) {
+		status_debug("Ignoring node_announcement timestamp %u for %s",
+			     timestamp,
+			     type_to_string(tmpctx, struct node_id, &node_id));
+		return false;
+	}
 
 	node = get_node(rstate, &node_id);
 
