@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H
 #define LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H
+#include <common/utils.h>
 
 /* BOLT #4:
  *
@@ -39,5 +40,41 @@
  *   has been sent AND the funding transaction has at least six confirmations.
  */
 #define ANNOUNCE_MIN_DEPTH 6
+
+/* Gossip timing constants.  These can be overridden in --enable-developer
+ * configurations with --dev-fast-gossip, otherwise the argument is ignored */
+#define DEV_FAST_GOSSIP(dev_fast_gossip_flag, fast, normal)	\
+	IFDEV((dev_fast_gossip_flag) ? (fast) : (normal), (normal))
+
+/* How close we can generate gossip msgs (5 minutes) */
+#define GOSSIP_MIN_INTERVAL(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 5, 300)
+
+/* BOLT #7:
+ *
+ * - SHOULD flush outgoing gossip messages once every 60 seconds,
+ *   independently of the arrival times of the messages.
+ */
+#define GOSSIP_FLUSH_INTERVAL(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 1, 60)
+
+/* BOLT #7:
+ *
+ * A node:
+ *   - if a channel's latest `channel_update`s `timestamp` is older than two weeks
+ *   (1209600 seconds):
+ *     - MAY prune the channel.
+ *     - MAY ignore the channel.
+ */
+#define GOSSIP_PRUNE_INTERVAL(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 90, 1209600)
+
+/* How long after seeing lockin until we announce the channel. */
+#define GOSSIP_ANNOUNCE_DELAY(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 1, 60)
+
+/* How long before deadline should we send refresh update? 1 day normally */
+#define GOSSIP_BEFORE_DEADLINE(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 30, 24*60*60)
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H */

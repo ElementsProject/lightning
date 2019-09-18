@@ -33,9 +33,6 @@ struct daemon {
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 
-	/* Minimum interval for generating updated gossip */
-	u32 gossip_min_interval;
-
 	/* Global features to list in node_announcement. */
 	u8 *globalfeatures;
 

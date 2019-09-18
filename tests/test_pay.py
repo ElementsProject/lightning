@@ -916,7 +916,7 @@ def test_decodepay(node_factory):
         l1.rpc.decodepay('1111111')
 
 
-@unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
+@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_forward(node_factory, bitcoind):
     # Connect 1 -> 2 -> 3.
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=True)
@@ -975,7 +975,7 @@ def test_forward(node_factory, bitcoind):
     l1.rpc.waitsendpay(rhash)
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "needs --dev-fast-gossip")
 def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # FIXME: Check BOLT quotes here too
     # BOLT #7:
@@ -1111,7 +1111,7 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
         assert c[1]['source'] == c[0]['destination']
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "too slow without --dev-fast-gossip")
 def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     """Test that we are allowed extra locktime delta, and fees"""
 
@@ -1799,7 +1799,7 @@ def test_pay_direct(node_factory, bitcoind):
         assert l1l2msat == l1l2msatreference
 
 
-@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-fast-gossip")
 def test_setchannelfee_usage(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2132,7 +2132,7 @@ def test_setchannelfee_restart(node_factory, bitcoind):
     assert result['msatoshi_sent'] == 5002020
 
 
-@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-fast-gossip")
 def test_setchannelfee_all(node_factory, bitcoind):
     # TEST SETUP
     #

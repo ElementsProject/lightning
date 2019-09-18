@@ -1433,7 +1433,8 @@ int main(int argc, char *argv[])
 				   &state->min_feerate, &state->max_feerate,
 				   &state->localfeatures,
 				   &state->option_static_remotekey,
-				   &inner))
+				   &inner,
+				   &dev_fast_gossip))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
 	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */

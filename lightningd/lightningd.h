@@ -48,12 +48,6 @@ struct config {
 	/* How long between changing commit and sending COMMIT message. */
 	u32 commit_time_ms;
 
-	/* How often to broadcast gossip (msec) */
-	u32 broadcast_interval_msec;
-
-	/* Channel update interval */
-	u32 channel_update_interval;
-
 	/* Do we let the funder set any fee rate they want */
 	bool ignore_fee_limits;
 
@@ -206,6 +200,9 @@ struct lightningd {
 
 	/* Timestamp to use for gossipd, iff non-zero */
 	u32 dev_gossip_time;
+
+	/* Speedup gossip propagation, for testing. */
+	bool dev_fast_gossip;
 
 	/* Things we've marked as not leaking. */
 	const void **notleaks;

@@ -205,7 +205,7 @@ static bool timestamp_reasonable(struct routing_state *rstate, u32 timestamp)
 	if (timestamp > now + 24*60*60)
 		return false;
 	/* More than 2 weeks behind? */
-	if (timestamp < now - rstate->prune_timeout)
+	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip))
 		return false;
 	return true;
 }
@@ -234,16 +234,15 @@ static void memleak_help_routing_tables(struct htable *memtable,
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
-					u32 prune_timeout,
 					struct list_head *peers,
-					const u32 *dev_gossip_time TAKES)
+					const u32 *dev_gossip_time TAKES,
+					bool dev_fast_gossip)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = new_node_map(rstate);
 	rstate->gs = gossip_store_new(rstate, peers);
 	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
-	rstate->prune_timeout = prune_timeout;
 	rstate->local_channel_announced = false;
 
 	pending_cannouncement_map_init(&rstate->pending_cannouncements);
@@ -263,6 +262,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 		rstate->gossip_time->ts.tv_nsec = 0;
 	} else
 		rstate->gossip_time = NULL;
+	rstate->dev_fast_gossip = dev_fast_gossip;
 #endif
 	tal_add_destructor(rstate, destroy_routing_state);
 	memleak_add_helper(rstate, memleak_help_routing_tables);
@@ -2000,7 +2000,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		}
 
 		/* Allow redundant updates once every 7 days */
-		if (timestamp < hc->bcast.timestamp + rstate->prune_timeout / 2
+		if (timestamp < hc->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip) / 2
 		    && !cupdate_different(rstate->gs, hc, update)) {
 			status_debug("Ignoring redundant update for %s/%u"
 				     " (last %u, now %u)",
@@ -2351,7 +2351,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		}
 
 		/* Allow redundant updates once every 7 days */
-		if (timestamp < node->bcast.timestamp + rstate->prune_timeout / 2
+		if (timestamp < node->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip) / 2
 		    && !nannounce_different(rstate->gs, node, msg)) {
 			status_debug("Ignoring redundant nannounce for %s"
 				     " (last %u, now %u)",
@@ -2698,7 +2698,7 @@ void route_prune(struct routing_state *rstate)
 {
 	u64 now = gossip_time_now(rstate).ts.tv_sec;
 	/* Anything below this highwater mark ought to be pruned */
-	const s64 highwater = now - rstate->prune_timeout;
+	const s64 highwater = now - GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip);
 	struct chan **pruned = tal_arr(tmpctx, struct chan *, 0);
 	u64 idx;
 

@@ -605,7 +605,8 @@ int main(int argc, char *argv[])
 				   &revocations_received,
 				   &channel_reestablish,
 				   &final_scriptpubkey,
-				   &last_remote_per_commit_secret))
+				   &last_remote_per_commit_secret,
+				   &dev_fast_gossip))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */

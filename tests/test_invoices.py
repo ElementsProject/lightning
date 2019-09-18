@@ -330,7 +330,7 @@ def test_invoice_expiry(node_factory, executor):
     assert expiry >= start + 7 * 24 * 3600 and expiry <= end + 7 * 24 * 3600
 
 
-@unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
+@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_waitinvoice(node_factory, executor):
     """Test waiting for one invoice will not return if another invoice is paid.
     """
@@ -366,7 +366,7 @@ def test_waitinvoice(node_factory, executor):
     assert not f3.done()
 
 
-@unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
+@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_waitanyinvoice(node_factory, executor):
     """Test various variants of waiting for the next invoice to complete.
     """

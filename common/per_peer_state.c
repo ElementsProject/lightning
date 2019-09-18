@@ -2,8 +2,11 @@
 #include <ccan/fdpass/fdpass.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/per_peer_state.h>
+#include <gossipd/gossip_constants.h>
 #include <unistd.h>
 #include <wire/wire.h>
+
+bool dev_fast_gossip = false;
 
 static void destroy_per_peer_state(struct per_peer_state *pps)
 {
@@ -66,9 +69,6 @@ void fromwire_gossip_state(const u8 **cursor, size_t *max,
 void towire_per_peer_state(u8 **pptr, const struct per_peer_state *pps)
 {
 	towire_crypto_state(pptr, &pps->cs);
-#if DEVELOPER
-	towire_u32(pptr, pps->dev_gossip_broadcast_msec);
-#endif
 	towire_bool(pptr, pps->gs != NULL);
 	if (pps->gs)
 		towire_gossip_state(pptr, pps->gs);
@@ -93,9 +93,6 @@ struct per_peer_state *fromwire_per_peer_state(const tal_t *ctx,
 
 	fromwire_crypto_state(cursor, max, &cs);
 	pps = new_per_peer_state(ctx, &cs);
-#if DEVELOPER
-	pps->dev_gossip_broadcast_msec = fromwire_u32(cursor, max);
-#endif
 	if (fromwire_bool(cursor, max)) {
 		pps->gs = tal(pps, struct gossip_state);
 		fromwire_gossip_state(cursor, max, pps->gs);
@@ -135,11 +132,8 @@ bool time_to_next_gossip(const struct per_peer_state *pps,
  */
 void per_peer_state_reset_gossip_timer(struct per_peer_state *pps)
 {
-	struct timerel t = time_from_sec(60);
+	struct timerel t = time_from_sec(GOSSIP_FLUSH_INTERVAL(dev_fast_gossip));
 
-#if DEVELOPER
-	t = time_from_msec(pps->dev_gossip_broadcast_msec);
-#endif
 	pps->gs->next_gossip = timemono_add(time_mono(), t);
 	gossip_rcvd_filter_age(pps->grf);
 }

@@ -250,7 +250,7 @@ def test_ping(node_factory):
                                .format(l2.info['version']))
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
     """

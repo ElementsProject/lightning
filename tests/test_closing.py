@@ -29,7 +29,7 @@ def test_closing(node_factory, bitcoind):
 
     # Only wait for the channels to activate with DEVELOPER=1,
     # otherwise it's going to take too long because of the missing
-    # --dev-broadcast-interval
+    # --dev-fast-gossip
     if DEVELOPER:
         wait_for(lambda: len(l1.getactivechannels()) == 2)
         wait_for(lambda: len(l2.getactivechannels()) == 2)

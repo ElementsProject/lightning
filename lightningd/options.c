@@ -398,9 +398,6 @@ static void dev_register_opts(struct lightningd *ld)
 			   "Disable automatic reconnect-attempts by this node, but accept incoming");
 	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
 			   &ld->dev_subdaemon_fail, opt_hidden);
-	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
-			 opt_show_uintval, &ld->config.broadcast_interval_msec,
-			 "Time between gossip broadcasts in milliseconds");
 	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
 			 NULL, ld, "File containing disconnection points");
 	opt_register_noarg("--dev-allow-localhost", opt_set_bool,
@@ -417,10 +414,9 @@ static void dev_register_opts(struct lightningd *ld)
 			 "fee fluctuations, large values may result in large "
 			 "fees.");
 
-	opt_register_arg(
-	    "--dev-channel-update-interval=<s>", opt_set_u32, opt_show_u32,
-	    &ld->config.channel_update_interval,
-	    "Time in seconds between channel updates for our own channels.");
+	opt_register_noarg("--dev-fast-gossip", opt_set_bool,
+			   &ld->dev_fast_gossip,
+			   "Make gossip broadcast 1 second, pruning 14 seconds");
 
 	opt_register_arg("--dev-gossip-time", opt_set_u32, opt_show_u32,
 			 &ld->dev_gossip_time,
@@ -472,16 +468,6 @@ static const struct config testnet_config = {
 	.fee_base = 1,
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
-
-	/* BOLT #7:
-	 *
-	 *   - SHOULD flush outgoing gossip messages once every 60
-	 *     seconds, independently of the arrival times of the messages.
-	 */
-	.broadcast_interval_msec = 60000,
-
-	/* Send a keepalive update at least every week, prune every twice that */
-	.channel_update_interval = 1209600/2,
 
 	/* Testnet sucks */
 	.ignore_fee_limits = true,
@@ -541,16 +527,6 @@ static const struct config mainnet_config = {
 	.fee_base = 1000,
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
-
-	/* BOLT #7:
-	 *
-	 *   - SHOULD flush outgoing gossip messages once every 60
-	 *     seconds, independently of the arrival times of the messages.
-	 */
-	.broadcast_interval_msec = 60000,
-
-	/* Send a keepalive update at least every week, prune every twice that */
-	.channel_update_interval = 1209600/2,
 
 	/* Mainnet should have more stable fees */
 	.ignore_fee_limits = false,

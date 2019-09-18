@@ -937,12 +937,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
-#if DEVELOPER
-	/* Override broaedcast interval from our config */
-	hook_payload->pps->dev_gossip_broadcast_msec
-		= ld->config.broadcast_interval_msec;
-#endif
-
 	per_peer_state_set_fds(hook_payload->pps,
 			       peer_fd, gossip_fd, gossip_store_fd);
 

@@ -263,9 +263,6 @@ struct routing_state {
 	/* Our own ID so we can identify local channels */
 	struct node_id local_id;
 
-	/* How old does a channel have to be before we prune it? */
-	u32 prune_timeout;
-
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
 
@@ -286,6 +283,9 @@ struct routing_state {
 #if DEVELOPER
 	/* Override local time for gossip messages */
 	struct timeabs *gossip_time;
+
+	/* Speed up gossip. */
+	bool dev_fast_gossip;
 #endif
 };
 
@@ -320,9 +320,9 @@ struct exclude_entry {
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
-					u32 prune_timeout,
 					struct list_head *peers,
-					const u32 *dev_gossip_time TAKES);
+					const u32 *dev_gossip_time TAKES,
+					bool dev_fast_gossip);
 
 /**
  * Add a new bidirectional channel from id1 to id2 with the given
