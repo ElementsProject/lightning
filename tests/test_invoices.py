@@ -1,4 +1,5 @@
 from fixtures import *  # noqa: F401,F403
+from fixtures import TEST_NETWORK
 from lightning import RpcError
 from utils import only_one, DEVELOPER, wait_for, wait_channel_quiescent
 
@@ -123,6 +124,7 @@ def test_invoice_preimage(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Amounts too low, dominated by fees in elements")
 def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
     """

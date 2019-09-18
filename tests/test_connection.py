@@ -134,6 +134,7 @@ def test_bad_opening(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 def test_opening_tiny_channel(node_factory):
     # Test custom min-capacity-sat parameters
     #
@@ -1959,11 +1960,12 @@ def test_change_chaining(node_factory, bitcoind):
     l1.rpc.fundchannel(l3.info['id'], 10**7, minconf=0)
 
 
-def test_feerate_spam(node_factory):
+def test_feerate_spam(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
 
+    slack = 25000000 if not chainparams['elements'] else 35000000
     # Pay almost everything to l2.
-    l1.pay(l2, 10**9 - 25000000)
+    l1.pay(l2, 10**9 - slack)
 
     # It will send this once (may have happened before line_graph's wait)
     wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 15000'))

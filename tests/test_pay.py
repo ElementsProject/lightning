@@ -1,4 +1,5 @@
 from fixtures import *  # noqa: F401,F403
+from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
 from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT, VALGRIND
@@ -560,6 +561,7 @@ def test_sendpay(node_factory):
     assert payments[0]['payment_preimage'] == preimage3
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The reserve computation is bitcoin specific")
 def test_sendpay_cant_afford(node_factory):
     l1, l2 = node_factory.line_graph(2, fundamount=10**6)
 
@@ -2251,6 +2253,7 @@ def test_channel_spendable_capped(node_factory, bitcoind):
     assert l1.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat'] == Millisatoshi(0xFFFFFFFF)
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'The numbers below are bitcoin specific')
 def test_channel_drainage(node_factory, bitcoind):
     """Test channel drainage.
 
