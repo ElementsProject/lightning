@@ -1,5 +1,6 @@
 from collections import Counter
 from fixtures import *  # noqa: F401,F403
+from fixtures import TEST_NETWORK
 from lightning import RpcError
 from utils import wait_for, TIMEOUT, only_one, sync_blockheight
 
@@ -1508,6 +1509,7 @@ def test_gossip_no_backtalk(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "Needs --dev-gossip")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Channel announcement contains genesis hash, receiving node discards on mismatch")
 def test_gossip_ratelimit(node_factory):
     # These make the channel exist, but we use our own gossip.
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
