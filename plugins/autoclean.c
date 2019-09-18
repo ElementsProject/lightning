@@ -46,7 +46,7 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 		   p_opt_def("cycle_seconds", param_u64, &cycle, 3600),
 		   p_opt_def("expired_by", param_u64, &exby, 86400),
 		   NULL))
-		return NULL;
+		return command_param_failed();
 
 	cycle_seconds = *cycle;
 	expired_by = *exby;
