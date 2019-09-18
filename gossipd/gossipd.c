@@ -52,8 +52,8 @@
 #include <gossipd/broadcast.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossip_generation.h>
 #include <gossipd/gossipd.h>
-#include <gossipd/make_gossip.h>
 #include <gossipd/routing.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
@@ -1454,7 +1454,7 @@ static void dump_gossip(struct peer *peer)
  * sets the UPDATE bit in the error type.  lightningd is too important to
  * fetch this itself, so channeld does it (channeld has to talk to us for
  * other things anyway, so why not?). */
-static bool handle_get_update(struct peer *peer, const u8 *msg)
+static bool handle_get_local_channel_update(struct peer *peer, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct local_chan *local_chan;
@@ -1572,7 +1572,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	/* Must be a gossip_peerd_wire_type asking us to do something. */
 	switch ((enum gossip_peerd_wire_type)fromwire_peektype(msg)) {
 	case WIRE_GOSSIPD_GET_UPDATE:
-		ok = handle_get_update(peer, msg);
+		ok = handle_get_local_channel_update(peer, msg);
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
 		ok = handle_local_add_channel(peer->daemon->rstate, msg, 0);

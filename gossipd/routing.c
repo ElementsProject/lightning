@@ -16,7 +16,7 @@
 #include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <gossipd/make_gossip.h>
+#include <gossipd/gossip_generation.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 
@@ -485,8 +485,8 @@ static void destroy_local_chan(struct local_chan *local_chan,
 		abort();
 }
 
-static struct local_chan *new_local_chan(struct routing_state *rstate,
-					 struct chan *chan)
+static void maybe_add_local_chan(struct routing_state *rstate,
+				 struct chan *chan)
 {
 	int direction;
 	struct local_chan *local_chan;
@@ -496,7 +496,7 @@ static struct local_chan *new_local_chan(struct routing_state *rstate,
 	else if (node_id_eq(&chan->nodes[1]->id, &rstate->local_id))
 		direction = 1;
 	else
-		return NULL;
+		return;
 
 	local_chan = tal(chan, struct local_chan);
 	local_chan->chan = chan;
@@ -506,7 +506,6 @@ static struct local_chan *new_local_chan(struct routing_state *rstate,
 
 	local_chan_map_add(&rstate->local_chan_map, local_chan);
 	tal_add_destructor2(local_chan, destroy_local_chan, rstate);
-	return local_chan;
 }
 
 struct chan *new_chan(struct routing_state *rstate,
@@ -551,7 +550,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	uintmap_add(&rstate->chanmap, scid->u64, chan);
 
 	/* Initialize shadow structure if it's local */
-	new_local_chan(rstate, chan);
+	maybe_add_local_chan(rstate, chan);
 	return chan;
 }
 

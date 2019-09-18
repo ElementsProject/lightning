@@ -1,7 +1,7 @@
 int unused_main(int argc, char *argv[]);
 #define main unused_main
 #include "../gossipd.c"
-#include "../make_gossip.c"
+#include "../gossip_generation.c"
 #undef main
 #include <stdio.h>
 
