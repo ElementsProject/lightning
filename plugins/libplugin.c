@@ -636,7 +636,7 @@ static void setup_command_usage(const struct plugin_command *commands,
 
 		usage_cmd->methodname = commands[i].name;
 		res = commands[i].handle(usage_cmd, NULL, NULL);
-		assert(res == NULL);
+		assert(res == &complete);
 		assert(strmap_get(&usagemap, commands[i].name));
 	}
 }

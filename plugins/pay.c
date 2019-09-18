@@ -1018,7 +1018,7 @@ static struct command_result *json_pay(struct command *cmd,
 			     maxdelay_default),
 		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
 		   NULL))
-		return NULL;
+		return command_param_failed();
 
 	b11 = bolt11_decode(cmd, b11str, NULL, &fail);
 	if (!b11) {
@@ -1149,7 +1149,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 	if (!param(cmd, buf, params,
 		   p_opt("bolt11", param_string, &b11str),
 		   NULL))
-		return NULL;
+		return command_param_failed();
 
 	ret = json_out_new(NULL);
 	json_out_start(ret, NULL, '{');
@@ -1271,7 +1271,7 @@ static struct command_result *json_listpays(struct command *cmd,
 	if (!param(cmd, buf, params,
 		   p_opt("bolt11", param_string, &b11str),
 		   NULL))
-		return NULL;
+		return command_param_failed();
 
 	return send_outreq(cmd, "listsendpays",
 			   listsendpays_done, forward_error,
