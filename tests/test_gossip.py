@@ -18,12 +18,11 @@ with open('config.vars') as configfile:
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-broadcast-interval, --dev-channelupdate-interval")
+@unittest.skipIf(not DEVELOPER, "needs --dev-fast-gossip for fast pruning")
 def test_gossip_pruning(node_factory, bitcoind):
     """ Create channel and see it being updated in time before pruning
     """
-    opts = {'dev-channel-update-interval': 5}
-    l1, l2, l3 = node_factory.get_nodes(3, opts)
+    l1, l2, l3 = node_factory.get_nodes(3)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -38,10 +37,10 @@ def test_gossip_pruning(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 4)
     wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 4)
 
-    # All of them should send a keepalive message
+    # All of them should send a keepalive message (after ~60 seconds)
     l1.daemon.wait_for_logs([
         'Sending keepalive channel_update for {}'.format(scid1),
-    ])
+    ], timeout=90)
     l2.daemon.wait_for_logs([
         'Sending keepalive channel_update for {}'.format(scid1),
         'Sending keepalive channel_update for {}'.format(scid2),
@@ -50,19 +49,21 @@ def test_gossip_pruning(node_factory, bitcoind):
         'Sending keepalive channel_update for {}'.format(scid2),
     ])
 
-    # Now kill l3, so that l2 and l1 can prune it from their view after 10 seconds
-    l3.stop()
+    # Now kill l2, so that l1 and l3 will prune from their view after 90 seconds
+    l2.stop()
 
-    l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2))
-    l2.daemon.wait_for_log("Pruning channel {} from network view".format(scid2))
+    # We check every 90/4 seconds, and takes 90 seconds since last update.
+    l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2),
+                           timeout=120)
+    l3.daemon.wait_for_log("Pruning channel {} from network view".format(scid1))
 
     assert scid2 not in [c['short_channel_id'] for c in l1.rpc.listchannels()['channels']]
-    assert scid2 not in [c['short_channel_id'] for c in l2.rpc.listchannels()['channels']]
+    assert scid1 not in [c['short_channel_id'] for c in l3.rpc.listchannels()['channels']]
     assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.listnodes()['nodes']]
-    assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.listnodes()['nodes']]
+    assert l1.info['id'] not in [n['nodeid'] for n in l3.rpc.listnodes()['nodes']]
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-broadcast-interval, --dev-no-reconnect")
+@unittest.skipIf(not DEVELOPER, "needs --dev-fast-gossip, --dev-no-reconnect")
 def test_gossip_disable_channels(node_factory, bitcoind):
     """Simple test to check that channels get disabled correctly on disconnect and
     reenabled upon reconnecting
@@ -319,7 +320,7 @@ def test_gossip_jsonrpc(node_factory):
     assert [c['public'] for c in l2.rpc.listchannels()['channels']] == [True, True]
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_gossip_badsig(node_factory):
     """Make sure node announcement signatures are ok.
 
@@ -510,7 +511,7 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_routing_gossip(node_factory, bitcoind):
     nodes = node_factory.get_nodes(5)
 
@@ -1295,7 +1296,7 @@ def test_gossip_store_compact_noappend(node_factory, bitcoind):
     assert not l2.daemon.is_in_log('gossip_store:.*truncate')
 
 
-@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-fast-gossip")
 def test_gossip_store_load_complex(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 

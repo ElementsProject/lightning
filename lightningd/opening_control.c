@@ -949,7 +949,8 @@ void peer_start_openingd(struct peer *peer,
 				  peer->localfeatures,
 				  local_feature_negotiated(peer->localfeatures,
 							   LOCAL_STATIC_REMOTEKEY),
-				  send_msg);
+				  send_msg,
+				  IFDEV(peer->ld->dev_fast_gossip, false));
 	subd_send_msg(uc->openingd, take(msg));
 }
 

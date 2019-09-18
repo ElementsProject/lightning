@@ -24,6 +24,7 @@ msgdata,opening_init,option_static_remotekey,bool,
 # Optional msg to send.
 msgdata,opening_init,len,u16,
 msgdata,opening_init,msg,u8,len
+msgdata,opening_init,dev_fast_gossip,bool,
 
 # Openingd->master: they offered channel, should we continue?
 msgtype,opening_got_offer,6005

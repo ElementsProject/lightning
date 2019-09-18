@@ -170,7 +170,8 @@ static void update_own_node_announcement(struct daemon *daemon)
 		 *    previous `node_announcement` it has previously created.
 		 */
 		/* We do better: never send them within more than 5 minutes. */
-		next = self->bcast.timestamp + daemon->gossip_min_interval;
+		next = self->bcast.timestamp
+			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
 
 		if (timestamp < next) {
 			status_debug("node_announcement: delaying %u secs",
@@ -260,7 +261,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	/* Create an unsigned channel_update: we backdate enables, so
 	 * we can always send a disable in an emergency. */
 	if (!lc->disable)
-		timestamp -= daemon->gossip_min_interval;
+		timestamp -= GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
 
 	/* BOLT #7:
 	 *
@@ -321,7 +322,8 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 		}
 
 		/* Is it too soon to send another update? */
-		next = hc->bcast.timestamp + daemon->gossip_min_interval;
+		next = hc->bcast.timestamp
+			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
 
 		if (timestamp < next) {
 			status_debug("channel_update %s/%u: delaying %u secs",

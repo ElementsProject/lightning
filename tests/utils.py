@@ -420,7 +420,7 @@ class LightningD(TailableProc):
             with open(os.path.join(lightning_dir, 'hsm_secret'), 'wb') as f:
                 f.write(seed)
         if DEVELOPER:
-            self.opts['dev-broadcast-interval'] = 1000
+            self.opts['dev-fast-gossip'] = None
             self.opts['dev-bitcoind-poll'] = 1
         self.prefix = 'lightningd-%d' % (node_id)
 

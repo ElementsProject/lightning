@@ -478,12 +478,10 @@ void peer_start_channeld(struct channel *channel,
 				      channel->remote_upfront_shutdown_script,
 				      remote_ann_node_sig,
 				      remote_ann_bitcoin_sig,
-				      /* Delay announce by 60 seconds after
-				       * seeing block (adjustable if dev) */
-				      ld->topology->poll_seconds * 2,
 				      /* Set at channel open, even if not
 				       * negotiated now! */
-				      channel->option_static_remotekey);
+				      channel->option_static_remotekey,
+				      IFDEV(ld->dev_fast_gossip, false));
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

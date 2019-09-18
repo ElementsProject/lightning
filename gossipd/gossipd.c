@@ -1832,16 +1832,13 @@ static void gossip_refresh_network(struct daemon *daemon)
 	s64 highwater;
 	struct node *n;
 
-	/* For DEVELOPER testing, this can be set really short; otherwise, we
-	 * set it to 1 day before deadline. */
-	if (daemon->rstate->prune_timeout < 24*3600)
-		highwater = now - daemon->rstate->prune_timeout / 2;
-	else
-		highwater = now - (daemon->rstate->prune_timeout - 24*3600);
+	/* Send out 1 day before deadline */
+	highwater = now - (GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip)
+			   - GOSSIP_BEFORE_DEADLINE(daemon->rstate->dev_fast_gossip));
 
-	/* Schedule next run now (prune_timeout is 2 weeks) */
+	/* Schedule next run now */
 	notleak(new_reltimer(&daemon->timers, daemon,
-			     time_from_sec(daemon->rstate->prune_timeout/4),
+			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip)/4),
 			     gossip_refresh_network, daemon));
 
 	/* Find myself in the network */
@@ -1980,32 +1977,25 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				   struct daemon *daemon,
 				   const u8 *msg)
 {
-	u32 update_channel_interval;
 	u32 *dev_gossip_time;
+	bool dev_fast_gossip;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     &daemon->chain_hash,
 				     &daemon->id, &daemon->globalfeatures,
 				     daemon->rgb,
 				     daemon->alias,
-				     /* 1 week in seconds
-				      * (unless --dev-channel-update-interval) */
-				     &update_channel_interval,
-				     /* 5 minutes, or
-				      * --dev-broadcast-interval * 5 seconds */
-				     &daemon->gossip_min_interval,
 				     &daemon->announcable,
-				     &dev_gossip_time)) {
+				     &dev_gossip_time, &dev_fast_gossip)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 
-	/* Prune time (usually 2 weeks) is twice update time */
 	daemon->rstate = new_routing_state(daemon,
 					   chainparams_by_chainhash(&daemon->chain_hash),
 					   &daemon->id,
-					   update_channel_interval * 2,
 					   &daemon->peers,
-					   take(dev_gossip_time));
+					   take(dev_gossip_time),
+					   dev_fast_gossip);
 
 	/* Load stored gossip messages */
 	if (!gossip_store_load(daemon->rstate, daemon->rstate->gs))
@@ -2018,9 +2008,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	 * or addresses might have changed!) */
 	maybe_send_own_node_announce(daemon);
 
-	/* Start the weekly refresh timer. */
+	/* Start the twice- weekly refresh timer. */
 	notleak(new_reltimer(&daemon->timers, daemon,
-			     time_from_sec(daemon->rstate->prune_timeout/4),
+			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip) / 4),
 			     gossip_refresh_network, daemon));
 
 	return daemon_conn_read_next(conn, daemon->master);

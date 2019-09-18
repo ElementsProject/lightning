@@ -1176,7 +1176,7 @@ def test_private_channel(node_factory):
     assert not only_one(only_one(l4.rpc.listpeers(l3.info['id'])['peers'])['channels'])['private']
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_channel_reenable(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, fundchannel=True, wait_for_announce=True)
 

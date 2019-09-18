@@ -439,10 +439,6 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
 	pps = new_per_peer_state(tmpctx, cs);
-#if DEVELOPER
-	/* Overridden by lightningd, but initialize to keep valgrind happy */
-	pps->dev_gossip_broadcast_msec = 0;
-#endif
 
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
 	if (!get_gossipfds(daemon, id, localfeatures, pps))
