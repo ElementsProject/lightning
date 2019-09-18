@@ -77,4 +77,8 @@
 #define GOSSIP_BEFORE_DEADLINE(dev_fast_gossip_flag) \
 	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 30, 24*60*60)
 
+/* How many seconds per token?  Normally 1 hour. */
+#define GOSSIP_TOKEN_TIME(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 1, 3600)
+
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H */
