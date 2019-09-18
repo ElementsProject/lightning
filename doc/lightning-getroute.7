@@ -4,7 +4,7 @@ lightning-getroute - Command for routing a payment (low-level)
 .SH SYNOPSIS
 
 \fBgetroute\fR \fIid\fR \fImsatoshi\fR \fIriskfactor\fR [\fIcltv\fR] [\fIfromid\fR]
-[\fIfuzzpercent\fR] [\fIexclude\fR] [\fImaxhops\fR]
+[\fIfuzzpercent\fR] [\fIexclude\fR] [\fImaxhops\fR] [\fImaxscannodes\fR]
 
 .SH DESCRIPTION
 
@@ -52,6 +52,10 @@ is undefined\.
 
 
 \fImaxhops\fR is the maximum number of channels to return; default is 20\.
+
+\fImaxscannodes\fR sets an upper bound the number of nodes examined in route
+traversal, to limit time spend\. The default is no limit\. It excludes the
+source node\.
 
 .SH RISKFACTOR EFFECT ON ROUTING
 

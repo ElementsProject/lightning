@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **getroute** *id* *msatoshi* *riskfactor* \[*cltv*\] \[*fromid*\]
-\[*fuzzpercent*\] \[*exclude*\] \[*maxhops*\]
+\[*fuzzpercent*\] \[*exclude*\] \[*maxhops*\] \[*maxscannodes*\]
 
 DESCRIPTION
 -----------
@@ -46,6 +46,10 @@ or nodes. Note if the source or destination is excluded, the command result
 is undefined.
 
 *maxhops* is the maximum number of channels to return; default is 20.
+
+*maxscannodes* sets an upper bound the number of nodes examined in route
+traversal, to limit time spend. The default is no limit. It excludes the
+source node.
 
 RISKFACTOR EFFECT ON ROUTING
 ----------------------------
