@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_GOSSIPD_MAKE_GOSSIP_H
-#define LIGHTNING_GOSSIPD_MAKE_GOSSIP_H
+#ifndef LIGHTNING_GOSSIPD_GOSSIP_GENERATION_H
+#define LIGHTNING_GOSSIPD_GOSSIP_GENERATION_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <stdbool.h>
@@ -44,4 +44,4 @@ bool handle_local_channel_update(struct daemon *daemon,
 				 const struct node_id *src,
 				 const u8 *msg);
 
-#endif /* LIGHTNING_GOSSIPD_MAKE_GOSSIP_H */
+#endif /* LIGHTNING_GOSSIPD_GOSSIP_GENERATION_H */

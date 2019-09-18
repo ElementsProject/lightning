@@ -1,4 +1,5 @@
-/* Routines to make our own gossip messages */
+/* Routines to make our own gossip messages.  Not as in "we're the gossip
+ * generation, man!" */
 #include <ccan/mem/mem.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -6,9 +7,9 @@
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
+#include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossipd.h>
-#include <gossipd/make_gossip.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>
