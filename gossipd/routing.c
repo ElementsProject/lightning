@@ -41,14 +41,16 @@ struct pending_node_announce {
 #define TOKENS_PER_MSG 24
 #define TOKEN_MAX (24 * 4)
 
-static bool ratelimit(u8 *tokens, u32 prev_timestamp, u32 new_timestamp)
+static bool ratelimit(const struct routing_state *rstate,
+		      u8 *tokens, u32 prev_timestamp, u32 new_timestamp)
 {
 	u64 num_tokens;
 
 	assert(new_timestamp >= prev_timestamp);
 
 	/* First, top up tokens, avoiding overflow. */
-	num_tokens = *tokens + (new_timestamp - prev_timestamp) / 3600;
+	num_tokens = *tokens + ((new_timestamp - prev_timestamp)
+				/ GOSSIP_TOKEN_TIME(rstate->dev_fast_gossip));
 	if (num_tokens > TOKEN_MAX)
 		num_tokens = TOKEN_MAX;
 	*tokens = num_tokens;
@@ -2013,7 +2015,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		}
 
 		/* Make sure it's not spamming us. */
-		if (!ratelimit(&hc->tokens, hc->bcast.timestamp, timestamp)) {
+		if (!ratelimit(rstate,
+			       &hc->tokens, hc->bcast.timestamp, timestamp)) {
 			status_debug("Ignoring spammy update for %s/%u"
 				     " (last %u, now %u)",
 				     type_to_string(tmpctx,
@@ -2364,7 +2367,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		}
 
 		/* Make sure it's not spamming us. */
-		if (!ratelimit(&node->tokens, node->bcast.timestamp, timestamp)) {
+		if (!ratelimit(rstate,
+			       &node->tokens, node->bcast.timestamp, timestamp)) {
 			status_debug("Ignoring spammy nannounce for %s"
 				     " (last %u, now %u)",
 				     type_to_string(tmpctx,
