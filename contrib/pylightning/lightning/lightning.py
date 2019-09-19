@@ -499,15 +499,11 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("feerates", payload)
 
-    def fundchannel(self, node_id, satoshi, feerate=None, announce=True, minconf=None, utxos=None):
-        """
-        Fund channel with {id} using {satoshi} satoshis with feerate
-        of {feerate} (uses default feerate if unset).
-        If {announce} is False, don't send channel announcements.
-        Only select outputs with {minconf} confirmations.
-        If {utxos} is specified (as a list of 'txid:vout' strings),
-        fund a channel from these specifics utxos.
-        """
+    def _deprecated_fundchannel(self, node_id, satoshi, feerate=None, announce=True, minconf=None, utxos=None):
+        warnings.warn("fundchannel: the 'satoshi' field is renamed 'amount' : expect removal"
+                      " in Mid-2020",
+                      DeprecationWarning)
+
         payload = {
             "id": node_id,
             "satoshi": satoshi,
@@ -517,6 +513,32 @@ class LightningRpc(UnixDomainSocketRpc):
             "utxos": utxos
         }
         return self.call("fundchannel", payload)
+
+    def fundchannel(self, node_id, *args, **kwargs):
+        """
+        Fund channel with {id} using {amount} satoshis with feerate
+        of {feerate} (uses default feerate if unset).
+        If {announce} is False, don't send channel announcements.
+        Only select outputs with {minconf} confirmations.
+        If {utxos} is specified (as a list of 'txid:vout' strings),
+        fund a channel from these specifics utxos.
+        """
+
+        if 'satoshi' in kwargs:
+            return self._deprecated_fundchannel(node_id, *args, **kwargs)
+
+        def _fundchannel(node_id, amount, feerate=None, announce=True, minconf=None, utxos=None):
+            payload = {
+                "id": node_id,
+                "amount": amount,
+                "feerate": feerate,
+                "announce": announce,
+                "minconf": minconf,
+                "utxos": utxos
+            }
+            return self.call("fundchannel", payload)
+
+        return _fundchannel(node_id, *args, **kwargs)
 
     def fundchannel_start(self, node_id, satoshi, feerate=None, announce=True):
         """

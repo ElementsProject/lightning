@@ -381,6 +381,27 @@ static struct command_result *tx_prepare_dryrun(struct command *cmd,
 	return fundchannel_start(cmd, fr);
 }
 
+/* We will use 'id' and 'amount' to build a output: {id: amount}.
+ * For array type, if we miss 'amount', next parameter will be
+ * mistaken for 'amount'.
+ * Note the check for 'output' in 'txprepare' is behind of the checks
+ * for other parameter, so doing a simply check for 'amount' here can
+ * help us locate error correctly.
+ */
+static struct command_result *param_string_check_sat(struct command *cmd, const char *name,
+						     const char * buffer, const jsmntok_t *tok,
+						     const char **str)
+{
+	struct command_result *res;
+	struct amount_sat *amount;
+
+	res = param_sat_or_all(cmd, name, buffer, tok, &amount);
+	if (res)
+		return res;
+
+	return param_string(cmd, name, buffer, tok, str);
+}
+
 static struct command_result *json_fundchannel(struct command *cmd,
 					       const char *buf,
 					       const jsmntok_t *params)
@@ -388,15 +409,38 @@ static struct command_result *json_fundchannel(struct command *cmd,
 	struct funding_req *fr = tal(cmd, struct funding_req);
 	struct json_out *ret;
 
-	if (!param(cmd, buf, params,
-		   p_req("id", param_node_id, &fr->id),
-		   p_req("satoshi", param_string, &fr->funding_str),
-		   p_opt("feerate", param_string, &fr->feerate_str),
-		   p_opt_def("announce", param_bool, &fr->announce_channel, true),
-		   p_opt_def("minconf", param_number, &fr->minconf, 1),
-		   p_opt("utxos", param_string, &fr->utxo_str),
-		   NULL))
-		return command_param_failed();
+	/* For generating help, give new-style. */
+	if (!params || !deprecated_apis || params->type == JSMN_ARRAY) {
+		if (!param(cmd, buf, params,
+			   p_req("id", param_node_id, &fr->id),
+			   p_req("amount", param_string_check_sat, &fr->funding_str),
+			   p_opt("feerate", param_string, &fr->feerate_str),
+			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
+			   p_opt_def("minconf", param_number, &fr->minconf, 1),
+			   p_opt("utxos", param_string, &fr->utxo_str),
+			   NULL))
+			return command_param_failed();
+	} else {
+		const char *satoshi_str;
+		if (!param(cmd, buf, params,
+			   p_req("id", param_node_id, &fr->id),
+			   p_opt("amount", param_string, &fr->funding_str),
+			   p_opt("satoshi", param_string, &satoshi_str),
+			   p_opt("feerate", param_string, &fr->feerate_str),
+			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
+			   p_opt_def("minconf", param_number, &fr->minconf, 1),
+			   p_opt("utxos", param_string, &fr->utxo_str),
+			   NULL))
+			return command_param_failed();
+
+		if (!fr->funding_str) {
+			if (satoshi_str)
+				fr->funding_str = satoshi_str;
+			else
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Need set 'amount' field");
+		}
+	}
 
 	fr->funding_all = streq(fr->funding_str, "all");
 
