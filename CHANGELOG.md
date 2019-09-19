@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
+- JSON-API: `fundchannel` now uses `amount` as the parameter name to replace `satoshi`
+- JSON-API: `fundchannel_start` now uses `amount` as the parameter name to replace `satoshi`
 
 ### Removed
 
