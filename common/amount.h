@@ -70,6 +70,9 @@ WARN_UNUSED_RESULT bool amount_sat_sub(struct amount_sat *val,
 WARN_UNUSED_RESULT bool amount_msat_sub_sat(struct amount_msat *val,
 					    struct amount_msat a,
 					    struct amount_sat b);
+WARN_UNUSED_RESULT bool amount_msat_add_sat(struct amount_msat *val,
+					    struct amount_msat a,
+					    struct amount_sat b);
 WARN_UNUSED_RESULT bool amount_sat_sub_msat(struct amount_msat *val,
 					    struct amount_sat a,
 					    struct amount_msat b);
