@@ -312,7 +312,11 @@ static struct command_result *fundchannel_start(struct command *cmd,
 
 	json_out_start(ret, NULL, '{');
 	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
-	json_out_addstr(ret, "satoshi", fr->funding_str);
+
+	if (deprecated_apis)
+		json_out_addstr(ret, "satoshi", fr->funding_str);
+	else
+		json_out_addstr(ret, "amount", fr->funding_str);
 
 	if (fr->feerate_str)
 		json_out_addstr(ret, "feerate", fr->feerate_str);
