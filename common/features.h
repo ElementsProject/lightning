@@ -54,6 +54,14 @@ void set_feature_bit(u8 **ptr, u32 bit);
 #define LOCAL_GOSSIP_QUERIES			6
 #define LOCAL_GOSSIP_QUERIES_EX			10
 
+/*BOLT-1a9a018f5e2fa7239ae25f333c0be1f294f6c5e9
+ *
+ * | Bits    | Name                            |...
+ * | 28/29   | `option_dual_fund`              |...
+ */
+/* FIXME: update the RFC to match */
+#define LOCAL_FUNDCHANNEL_V2			14
+
 /* BOLT #9:
  * | Bits  | Name                            |...
  * | 12/13| `option_static_remotekey`        |...

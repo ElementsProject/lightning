@@ -1430,8 +1430,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	fc->uc = peer->uncommitted_channel;
 
 #if EXPERIMENTAL_FEATURES
-	// FIXME: use features to flag on
-	fc->is_v2 = true;
+	fc->is_v2 = feature_offered(peer->localfeatures, LOCAL_FUNDCHANNEL_V2);
 #else
 	fc->is_v2 = false;
 #endif

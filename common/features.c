@@ -10,6 +10,9 @@ static const u32 our_localfeatures[] = {
 	OPTIONAL_FEATURE(LOCAL_GOSSIP_QUERIES),
 	OPTIONAL_FEATURE(LOCAL_GOSSIP_QUERIES_EX),
 	OPTIONAL_FEATURE(LOCAL_STATIC_REMOTEKEY),
+#if EXPERIMENTAL_FEATURES
+	OPTIONAL_FEATURE(LOCAL_FUNDCHANNEL_V2),
+#endif
 };
 
 static const u32 our_globalfeatures[] = {
@@ -171,7 +174,11 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_gossip_queries",
 		"option_var_onion_optin",
 		"option_gossip_queries_ex",
-		"option_static_remotekey" };
+		"option_static_remotekey",
+#if EXPERIMENTAL_FEATURES
+		"option_dual_fund",
+#endif
+	};
 
 	assert(f / 2 < ARRAY_SIZE(fnames));
 	return tal_fmt(ctx, "%s/%s",

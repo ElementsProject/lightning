@@ -5,7 +5,7 @@ from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
 from threading import Event
-from utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc
+from utils import EXPERIMENTAL_FEATURES, DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc
 from ephemeral_port_reserve import reserve
 
 import json
@@ -1632,6 +1632,8 @@ def test_list_features_only(node_factory):
                 'option_gossip_queries/odd',
                 'option_gossip_queries_ex/odd',
                 'option_static_remotekey/odd']
+    if EXPERIMENTAL_FEATURES:
+        expected += ['option_dual_fund/odd']
     assert features == expected
 
 
