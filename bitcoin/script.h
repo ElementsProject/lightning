@@ -135,6 +135,9 @@ bool is_p2wsh(const u8 *script, struct sha256 *addr);
 /* Is this (version 0) pay to witness pubkey hash? (extract addr if not NULL) */
 bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr);
 
+/* Is this one of the four above script types? */
+bool is_known_scripttype(const u8 *script);
+
 /* Are these two scripts equal? */
 bool scripteq(const u8 *s1, const u8 *s2);
 
