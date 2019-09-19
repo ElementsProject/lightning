@@ -3,7 +3,7 @@
 lightning-fundchannel - Command for establishing a lightning channel
 .SH SYNOPSIS
 
-\fBfundchannel\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR \fIannounce\fR] [\fIminconf\fR]
+\fBfundchannel\fR \fIid\fR \fIamount\fR [\fIfeerate\fR \fIannounce\fR] [\fIminconf\fR]
 [\fIutxos\fR]
 
 .SH DESCRIPTION
@@ -20,7 +20,7 @@ for the channel\.
 \fIid\fR is the peer id obtained from \fBconnect\fR\.
 
 
-\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to
+\fIamount\fR is the amount in satoshis taken from the internal wallet to
 fund the channel\. The string \fIall\fR can be used to specify all available
 funds (or 16777215 satoshi if more is available)\. Otherwise, it is in
 satoshi precision; it can be a whole number, a whole number ending in
