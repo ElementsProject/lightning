@@ -9,6 +9,9 @@
 
 #define VARINT_MAX_LEN 9
 
+/* Calculate bytes used (up to 9) */
+size_t varint_size(varint_t v);
+
 /* Returns bytes used (up to 9) */
 size_t varint_put(u8 buf[VARINT_MAX_LEN], varint_t v);
 
