@@ -1010,7 +1010,8 @@ fail:
 }
 
 static u8 *funder_channel_complete(struct state *state,
-				   struct bitcoin_tx *tx)
+				   struct bitcoin_tx *tx,
+				   struct utxo **utxos)
 {
 	struct bitcoin_signature sig;
 	struct amount_msat local_msat;
@@ -1573,6 +1574,7 @@ static u8 *handle_master_in(struct state *state)
 	u8 channel_flags;
 	struct bitcoin_txid funding_txid;
 	struct bitcoin_tx *tx;
+	struct utxo **utxos;
 	u16 funding_txout;
 
 	switch (t) {
@@ -1594,11 +1596,12 @@ static u8 *handle_master_in(struct state *state)
 		if (!fromwire_opening_funder_complete(tmpctx, msg,
 						      &funding_txid,
 						      &funding_txout,
+						      &utxos,
 						      &tx))
 			master_badmsg(WIRE_OPENING_FUNDER_COMPLETE, msg);
 		state->funding_txid = funding_txid;
 		state->funding_txout = funding_txout;
-		return funder_channel_complete(state, tx);
+		return funder_channel_complete(state, tx, utxos);
 	case WIRE_OPENING_FUNDER_CANCEL:
 		/* We're aborting this, simple */
 		if (!fromwire_opening_funder_cancel(msg))

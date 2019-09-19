@@ -92,6 +92,9 @@ msgdata,opening_funder_start_reply,upfront_shutdown_negotiated,bool,
 msgtype,opening_funder_complete,6012
 msgdata,opening_funder_complete,funding_txid,bitcoin_txid,
 msgdata,opening_funder_complete,funding_txout,u16,
+msgdata,opening_funder_complete,num_ins,u16,
+#include <common/utxo.h>
+msgdata,opening_funder_complete,utxos,utxo,num_ins
 msgdata,opening_funder_complete,tx,?bitcoin_tx,
 
 #master->openingd: cancel channel establishment for a funding

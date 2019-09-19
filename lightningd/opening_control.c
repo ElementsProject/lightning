@@ -99,6 +99,7 @@ struct funding_channel {
 
 	/* Whether or not to use channel open v2 */
 	bool is_v2;
+	struct unreleased_tx *utx;
 };
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
@@ -925,7 +926,6 @@ static unsigned int openingd_msg(struct subd *openingd,
 		}
 		opening_funder_failed(openingd, msg, uc);
 		return 0;
-
 	case WIRE_OPENING_FUNDEE:
 		if (tal_count(fds) != 3)
 			return 3;
@@ -1051,6 +1051,7 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 	u32 *funding_txout_num;
 	u16 funding_txout;
 	struct bitcoin_tx *tx;
+	const struct utxo **utxos;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
@@ -1101,14 +1102,19 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 					    type_to_string(tmpctx, struct bitcoin_txid, funding_txid),
 					    funding_txout);
 		tx = utx->tx;
-	} else
+		utxos = utx->wtx->utxos;
+		peer->uncommitted_channel->fc->utx = utx;
+	} else {
 		tx = NULL;
+		utxos = tal_arr(tmpctx, const struct utxo *, 0);
+		peer->uncommitted_channel->fc->utx = NULL;
+	}
 
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
 	msg = towire_opening_funder_complete(NULL,
 					     funding_txid, funding_txout,
-					     tx);
+					     utxos, tx);
 
 	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
 	return command_still_pending(cmd);
