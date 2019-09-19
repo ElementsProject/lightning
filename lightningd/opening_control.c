@@ -163,8 +163,10 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct bitcoin_signature *remote_commit_sig,
 		      const struct bitcoin_txid *funding_txid,
 		      u16 funding_outnum,
-		      struct amount_sat funding,
+		      struct amount_sat total_funding,
+		      struct amount_sat local_funding,
 		      struct amount_msat push,
+		      enum side opener,
 		      u8 channel_flags,
 		      struct channel_info *channel_info,
 		      u32 feerate,
@@ -182,17 +184,28 @@ wallet_commit_channel(struct lightningd *ld,
 		return NULL;
 	}
 
-	if (uc->fc) {
-		if (!amount_sat_sub_msat(&our_msat, funding, push)) {
+	if (opener == LOCAL) {
+		if (!amount_sat_sub_msat(&our_msat, local_funding, push)) {
 			log_broken(uc->log, "push %s exceeds funding %s",
 				   type_to_string(tmpctx, struct amount_msat,
 						  &push),
 				   type_to_string(tmpctx, struct amount_sat,
-						  &funding));
+						  &local_funding));
 			return NULL;
 		}
-	} else
-		our_msat = push;
+	} else {
+		if (!amount_msat_add_sat(&our_msat, push, local_funding)) {
+			log_broken(uc->log, "push %s exceeds funding %s",
+				   type_to_string(tmpctx, struct amount_msat,
+						  &push),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &local_funding));
+			return NULL;
+		}
+	}
+
+	/* Check that we're still in bounds */
+	assert(amount_msat_less_eq_sat(our_msat, total_funding));
 
 	/* Feerates begin identical. */
 	channel_info->feerate_per_kw[LOCAL]
@@ -226,7 +239,7 @@ wallet_commit_channel(struct lightningd *ld,
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
 			      CHANNELD_AWAITING_LOCKIN,
-			      uc->fc ? LOCAL : REMOTE,
+			      opener,
 			      uc->log,
 			      take(uc->transient_billboard),
 			      channel_flags,
@@ -235,7 +248,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      1, 1, 0,
 			      funding_txid,
 			      funding_outnum,
-			      funding,
+			      total_funding,
 			      push,
 			      false, /* !remote_funding_locked */
 			      NULL, /* no scid yet */
@@ -401,7 +414,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&funding_txid,
 					funding_txout,
 					fc->funding,
+					fc->funding,
 					fc->push,
+					LOCAL,
 					fc->channel_flags,
 					&channel_info,
 					feerate,
@@ -496,7 +511,9 @@ static void opening_fundee_finished(struct subd *openingd,
 					&funding_txid,
 					funding_outnum,
 					funding,
+					AMOUNT_SAT(0),
 					push,
+					REMOTE,
 					channel_flags,
 					&channel_info,
 					feerate,
