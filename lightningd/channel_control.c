@@ -630,11 +630,31 @@ static struct channel *find_channel_by_id(const struct peer *peer,
 	return NULL;
 }
 
-static void process_check_funding_broadcast(struct bitcoind *bitcoind UNUSED,
+/* Since this could vanish while we're checking with bitcoind, we need to save
+ * the details and re-lookup.
+ *
+ * channel_id *should* be unique, but it can be set by the counterparty, so
+ * we cannot rely on that! */
+struct channel_to_cancel {
+	struct node_id peer;
+	struct channel_id cid;
+};
+
+static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 					    const struct bitcoin_tx_output *txout,
 					    void *arg)
 {
-	struct channel *cancel = arg;
+	struct channel_to_cancel *cc = arg;
+	struct peer *peer;
+	struct channel *cancel;
+
+	/* Peer could have errored out while we were waiting */
+	peer = peer_by_id(bitcoind->ld, &cc->peer);
+	if (!peer)
+		return;
+	cancel = find_channel_by_id(peer, &cc->cid);
+	if (!cancel)
+		return;
 
 	if (txout != NULL) {
 		for (size_t i = 0; i < tal_count(cancel->forgets); i++)
@@ -662,7 +682,9 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 						       const jsmntok_t *cidtok)
 {
 	struct channel *cancel_channel;
+	struct channel_to_cancel *cc = tal(cmd, struct channel_to_cancel);
 
+	cc->peer = peer->id;
 	if (!cidtok) {
 		struct channel *channel;
 
@@ -678,13 +700,15 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 		if (!cancel_channel)
 			return command_fail(cmd, LIGHTNINGD,
 					    "No channels matching that peer_id");
+		derive_channel_id(&cc->cid,
+				  &cancel_channel->funding_txid,
+				  cancel_channel->funding_outnum);
 	} else {
-		struct channel_id cid;
-		if (!json_tok_channel_id(buffer, cidtok, &cid))
+		if (!json_tok_channel_id(buffer, cidtok, &cc->cid))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid channel_id parameter.");
 
-		cancel_channel = find_channel_by_id(peer, &cid);
+		cancel_channel = find_channel_by_id(peer, &cc->cid);
 		if (!cancel_channel)
 			return command_fail(cmd, LIGHTNINGD,
 					    "Channel ID not found: '%.*s'",
@@ -721,6 +745,6 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 			  &cancel_channel->funding_txid,
 			  cancel_channel->funding_outnum,
 			  process_check_funding_broadcast,
-			  cancel_channel);
+			  notleak(cc));
 	return command_still_pending(cmd);
 }
