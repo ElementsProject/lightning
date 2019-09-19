@@ -614,6 +614,22 @@ void channel_notify_new_block(struct lightningd *ld,
 	tal_free(to_forget);
 }
 
+static struct channel *find_channel_by_id(const struct peer *peer,
+					  const struct channel_id *cid)
+{
+	struct channel *c;
+
+	list_for_each(&peer->channels, c, list) {
+		struct channel_id this_cid;
+
+		derive_channel_id(&this_cid,
+				  &c->funding_txid, c->funding_outnum);
+		if (channel_id_eq(&this_cid, cid))
+			return c;
+	}
+	return NULL;
+}
+
 static void process_check_funding_broadcast(struct bitcoind *bitcoind UNUSED,
 					    const struct bitcoin_tx_output *txout,
 					    void *arg)
@@ -645,10 +661,12 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 						       struct peer *peer,
 						       const jsmntok_t *cidtok)
 {
-	struct channel *cancel_channel, *channel;
+	struct channel *cancel_channel;
 
-	cancel_channel = NULL;
 	if (!cidtok) {
+		struct channel *channel;
+
+		cancel_channel = NULL;
 		list_for_each(&peer->channels, channel, list) {
 			if (cancel_channel) {
 				return command_fail(cmd, LIGHTNINGD,
@@ -661,27 +679,14 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 			return command_fail(cmd, LIGHTNINGD,
 					    "No channels matching that peer_id");
 	} else {
-		struct channel_id channel_cid;
 		struct channel_id cid;
 		if (!json_tok_channel_id(buffer, cidtok, &cid))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid channel_id parameter.");
 
-		list_for_each(&peer->channels, channel, list) {
-			if (!channel)
-				return command_fail(cmd, LIGHTNINGD,
-						    "No channels matching "
-						    "that peer_id");
-			derive_channel_id(&channel_cid,
-					  &channel->funding_txid,
-					  channel->funding_outnum);
-			if (channel_id_eq(&channel_cid, &cid)) {
-				cancel_channel = channel;
-				break;
-			}
-		}
+		cancel_channel = find_channel_by_id(peer, &cid);
 		if (!cancel_channel)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, LIGHTNINGD,
 					    "Channel ID not found: '%.*s'",
 					    cidtok->end - cidtok->start,
 					    buffer + cidtok->start);
