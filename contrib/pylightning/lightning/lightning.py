@@ -540,16 +540,11 @@ class LightningRpc(UnixDomainSocketRpc):
 
         return _fundchannel(node_id, *args, **kwargs)
 
-    def fundchannel_start(self, node_id, satoshi, feerate=None, announce=True):
-        """
-        Start channel funding with {id} for {satoshi} satoshis
-        with feerate of {feerate} (uses default feerate if unset).
-        If {announce} is False, don't send channel announcements.
-        Returns a Bech32 {funding_address} for an external wallet
-        to create a funding transaction for. Requires a call to
-        'fundchannel_complete' to complete channel establishment
-        with peer.
-        """
+    def _deprecated_fundchannel_start(self, node_id, satoshi, feerate=None, announce=True):
+        warnings.warn("fundchannel_start: the 'satoshi' field is renamed 'amount' : expect removal"
+                      " in Mid-2020",
+                      DeprecationWarning)
+
         payload = {
             "id": node_id,
             "satoshi": satoshi,
@@ -557,6 +552,31 @@ class LightningRpc(UnixDomainSocketRpc):
             "announce": announce,
         }
         return self.call("fundchannel_start", payload)
+
+    def fundchannel_start(self, node_id, *args, **kwargs):
+        """
+        Start channel funding with {id} for {amount} satoshis
+        with feerate of {feerate} (uses default feerate if unset).
+        If {announce} is False, don't send channel announcements.
+        Returns a Bech32 {funding_address} for an external wallet
+        to create a funding transaction for. Requires a call to
+        'fundchannel_complete' to complete channel establishment
+        with peer.
+        """
+
+        if 'satoshi' in kwargs:
+            return self._deprecated_fundchannel_start(node_id, *args, **kwargs)
+
+        def _fundchannel_start(node_id, amount, feerate=None, announce=True):
+            payload = {
+                "id": node_id,
+                "amount": amount,
+                "feerate": feerate,
+                "announce": announce
+            }
+            return self.call("fundchannel_start", payload)
+
+        return _fundchannel_start(node_id, *args, **kwargs)
 
     def fundchannel_cancel(self, node_id):
         """
