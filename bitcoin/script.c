@@ -436,6 +436,12 @@ bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr)
 	return true;
 }
 
+bool is_known_scripttype(const u8 *script)
+{
+	return is_p2wpkh(script, NULL) || is_p2wsh(script, NULL)
+		|| is_p2sh(script, NULL) || is_p2pkh(script, NULL);
+}
+
 u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
 				     const struct bitcoin_signature *sig,
 				     const void *elem, size_t elemsize,
