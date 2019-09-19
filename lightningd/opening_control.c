@@ -1493,8 +1493,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 			= tal_steal(fc, fc->our_upfront_shutdown_script);
 
 #if EXPERIMENTAL_FEATURES
-	// FIXME: use features to flag on
-	fc->is_v2 = true;
+	fc->is_v2 = feature_offered(peer->their_features, OPT_FUNDCHANNEL_V2);
 #else
 	fc->is_v2 = false;
 #endif

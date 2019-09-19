@@ -71,6 +71,10 @@ static const struct feature_style feature_styles[] = {
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL} },
 #endif
+	{ OPT_FUNDCHANNEL_V2,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL} },
 };
 
 static enum feature_copy_style feature_copy_style(u32 f, enum feature_place p)
@@ -274,6 +278,9 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_static_remotekey",
 		"option_payment_secret",
 		"option_basic_mpp",
+#if EXPERIMENTAL_FEATURES
+		"option_dual_fund",
+#endif
 	};
 
 	if (f / 2 >= ARRAY_SIZE(fnames))
