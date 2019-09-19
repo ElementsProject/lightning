@@ -630,14 +630,14 @@ static u8 *funder_channel_start(struct state *state,
 }
 
 static bool funder_finalize_channel_setup(struct state *state,
-			struct amount_msat local_msat,
-			struct bitcoin_signature *sig,
-			struct bitcoin_tx **tx)
+					  struct amount_msat local_msat,
+					  struct bitcoin_signature *sig,
+					  struct bitcoin_tx **tx)
 {
 	u8 *msg;
 	struct channel_id id_in;
 	const u8 *wscript;
-	char* err_reason;
+	char *err_reason;
 
 	/*~ Now we can initialize the `struct channel`.  This represents
 	 * the current channel state and is how we can generate the current
@@ -662,7 +662,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     state->option_static_remotekey,
-					     /* Funder is local */
+					     /* Opener is local */
 					     LOCAL);
 	/* We were supposed to do enough checks above, but just in case,
 	 * new_initial_channel will fail to create absurd channels */
