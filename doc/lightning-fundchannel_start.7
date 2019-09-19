@@ -3,7 +3,7 @@
 lightning-fundchannel_start - Command for initiating channel establishment for a lightning channel
 .SH SYNOPSIS
 
-\fBfundchannel_start\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR \fIannounce\fR]
+\fBfundchannel_start\fR \fIid\fR \fIamount\fR [\fIfeerate\fR \fIannounce\fR]
 
 .SH DESCRIPTION
 
@@ -14,7 +14,7 @@ initiate channel establishment with a connected peer\.
 \fIid\fR is the node id of the remote peer\.
 
 
-\fIsatoshi\fR is the satoshi value that the channel will be funded at\. This
+\fIamount\fR is the satoshi value that the channel will be funded at\. This
 value MUST be accurate, otherwise the negotiated commitment transactions
 will not encompass the correct channel value\.
 
