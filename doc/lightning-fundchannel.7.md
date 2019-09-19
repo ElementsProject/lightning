@@ -4,7 +4,7 @@ lightning-fundchannel -- Command for establishing a lightning channel
 SYNOPSIS
 --------
 
-**fundchannel** *id* *satoshi* \[*feerate* *announce*\] \[*minconf*\]
+**fundchannel** *id* *amount* \[*feerate* *announce*\] \[*minconf*\]
 \[*utxos*\]
 
 DESCRIPTION
@@ -20,7 +20,7 @@ for the channel.
 
 *id* is the peer id obtained from **connect**.
 
-*satoshi* is the amount in satoshis taken from the internal wallet to
+*amount* is the amount in satoshis taken from the internal wallet to
 fund the channel. The string *all* can be used to specify all available
 funds (or 16777215 satoshi if more is available). Otherwise, it is in
 satoshi precision; it can be a whole number, a whole number ending in
