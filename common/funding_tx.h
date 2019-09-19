@@ -5,6 +5,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <wire/gen_peer_wire.h>
 
 struct bitcoin_tx;
 struct ext_key;
@@ -44,4 +45,38 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
 			      struct amount_sat change,
 			      const struct pubkey *changekey,
 			      const struct ext_key *bip32_base);
+
+#if EXPERIMENTAL_FEATURES
+/**
+ * funding_tx: create a P2WSH funding transaction for a channel.
+ * @ctx: context to tal from.
+ * @chainparams: (in) the params for the resulting transaction.
+ * @outnum: (out) txout which is the funding output.
+ * @feerate_kw_funding: (in) feerate for the funding transaction
+ * @total_funding: (out) total funding amount for this transaction
+ * @opener_funding: (in/out) funding amount contributed by opener
+ * @accepter_funding: (in) funding amount contributed by accepter
+ * @opener_inputs: (in) inputs from the opener
+ * @accepter_inputs: (in) inputs from the accepter
+ * @opener_outputs: (in) outputs for the opener
+ * @accepter_outputs: (in) outputs for the accepter
+ * @local_fundingkey: (in) local key for 2of2 funding output.
+ * @remote_fundingkey: (in) remote key for 2of2 funding output.
+ * @input_map: (out) ordering of inputs, after being sorted.
+ */
+struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
+	                                   const struct chainparams *chainparams,
+				           u16 *outnum,
+					   u32 feerate_kw_funding,
+				           struct amount_sat *opener_funding,
+					   struct amount_sat accepter_funding,
+				           struct input_info **opener_inputs,
+				           struct input_info **accepter_inputs,
+					   struct output_info **opener_outputs,
+					   struct output_info **accepter_outputs,
+				           const struct pubkey *local_fundingkey,
+				           const struct pubkey *remote_fundingkey,
+					   struct amount_sat *total_funding,
+					   const void **input_map);
+#endif /* EXPERIMENTAL_FEATURES */
 #endif /* LIGHTNING_COMMON_FUNDING_TX_H */
