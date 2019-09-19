@@ -132,6 +132,32 @@ msgdata,opening_fundee,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,opening_fundee,remote_shutdown_len,u16,
 msgdata,opening_fundee,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
 
+# openingd->master: accepter's signatures etc
+# for a dual-funded channel open
+msgtype,opening_dual_funding_signed,6204
+msgdata,opening_dual_funding_signed,pps,per_peer_state,
+msgdata,opening_dual_funding_signed,first_commit,bitcoin_tx,
+msgdata,opening_dual_funding_signed,first_commit_sig,bitcoin_signature,
+msgdata,opening_dual_funding_signed,funding_tx,bitcoin_tx,
+msgdata,opening_dual_funding_signed,funding_tx_out,u16,
+msgdata,opening_dual_funding_signed,num_witnesses,u16,
+msgdata,opening_dual_funding_signed,remote_witnesses,bitcoin_tx_input,num_witnesses
+msgdata,opening_dual_funding_signed,num_inputs,u32,
+msgdata,opening_dual_funding_signed,input_map,u32,num_inputs
+msgdata,opening_dual_funding_signed,local_funding,amount_sat,
+msgdata,opening_dual_funding_signed,their_config,channel_config,
+msgdata,opening_dual_funding_signed,revocation_basepoint,pubkey,
+msgdata,opening_dual_funding_signed,payment_basepoint,pubkey,
+msgdata,opening_dual_funding_signed,htlc_basepoint,pubkey,
+msgdata,opening_dual_funding_signed,delayed_payment_basepoint,pubkey,
+msgdata,opening_dual_funding_signed,their_per_commit_point,pubkey,
+msgdata,opening_dual_funding_signed,remote_fundingkey,pubkey,
+msgdata,opening_dual_funding_signed,feerate_per_kw,u32,
+msgdata,opening_dual_funding_signed,feerate_per_kw_funding,u32,
+msgdata,opening_dual_funding_signed,local_reserve,amount_sat,
+msgdata,opening_dual_funding_signed,shutdown_len,u16,
+msgdata,opening_dual_funding_signed,shutdown_scriptpubkey,u8,shutdown_len
+
 # master -> openingd: do you have a memleak?
 msgtype,opening_dev_memleak,6033
 

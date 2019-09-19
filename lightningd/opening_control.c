@@ -372,6 +372,212 @@ failed:
 	tal_free(fc->uc);
 }
 
+#if EXPERIMENTAL_FEATURES
+static bool update_unreleased_tx(struct unreleased_tx *utx,
+				 struct bitcoin_tx *tx,
+				 u32 *input_map,
+				 struct witness_stack **witnesses)
+{
+	size_t i, j, num_other_ins, num_utxo;
+
+	num_utxo = tal_count(utx->wtx->utxos);
+	num_other_ins = tx->wtx->num_inputs - num_utxo;
+	assert(num_other_ins == tal_count(witnesses));
+
+	utx->inputs = tal_free(utx->inputs);
+	utx->inputs = tal_arr(utx, struct bitcoin_tx_input *, num_other_ins);
+	for (i = 0; i < num_other_ins; i++) {
+		struct wally_tx_input wi;
+		struct bitcoin_tx_input *in;
+		size_t index = -1;
+
+		in = tal(utx->inputs, struct bitcoin_tx_input);
+		/* The input map is 'inverted', in that the
+		 * original index is the value,  the index is its
+		 * current index. We know the original
+		 * and need to find the current, so we iterate
+		 * until we find the original -- its index is
+		 * the current `index` */
+		for (j = 0; j < tx->wtx->num_inputs; j++) {
+			if (input_map[j] == i + num_utxo) {
+				index = j;
+				break;
+			}
+		}
+
+		if (index == -1)
+			return false;
+
+		wi = tx->wtx->inputs[index];
+
+		bitcoin_tx_input_get_txid(tx, index, &in->txid);
+		in->index = wi.index;
+		in->sequence_number = wi.sequence;
+
+		/* Amount is unknown here */
+		in->amount = AMOUNT_SAT(0);
+
+		/* Copy over input's scriptpubkey */
+		if (wi.script_len) {
+			in->script = tal_arr(in, u8, wi.script_len);
+			memcpy(in->script, wi.script, wi.script_len);
+		} else
+			in->script = NULL;
+
+		in->witness = tal_arr(in, u8 *,
+				      tal_count(witnesses[i]->witness_element));
+		for (j = 0; j < tal_count(witnesses[i]->witness_element); j++) {
+			in->witness[j] =
+				tal_dup_arr(in->witness,
+					    u8,
+					    witnesses[i]->witness_element[j]->witness,
+					    tal_count(witnesses[i]->witness_element[j]->witness),
+					    0);
+		}
+
+		utx->inputs[i] = in;
+	}
+
+	utx->outputs = tal_free(utx->outputs);
+	utx->outputs = tal_arr(utx, struct bitcoin_tx_output *, tx->wtx->num_outputs);
+	for (i = 0; i < tx->wtx->num_outputs; i++) {
+		struct wally_tx_output out;
+		struct amount_sat amount;
+		u8 *script;
+
+		out = tx->wtx->outputs[i];
+
+		amount.satoshis = out.satoshi; /* Raw: type conversion */
+
+		/* Copy over output's script */
+		script = tal_arr(utx->outputs, u8, out.script_len);
+		memcpy(script, out.script, out.script_len);
+
+		utx->outputs[i] = new_tx_output(utx->outputs,
+						amount, script);
+	}
+
+	/* Update transaction fields on utx */
+	utx->tx = tal_free(utx->tx);
+	utx->tx = tal_steal(utx, tx);
+	bitcoin_txid(tx, &utx->txid);
+
+	return true;
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
+static void opening_opener_sigs_received(struct subd *openingd, const u8 *resp,
+					 const int *fds,
+					 struct uncommitted_channel *uc)
+{
+#if EXPERIMENTAL_FEATURES
+	struct channel_info channel_info;
+	struct bitcoin_txid funding_txid;
+	u16 funding_txout;
+	struct bitcoin_signature remote_commit_sig;
+	struct bitcoin_tx *remote_commit, *funding_tx;
+	u32 feerate, feerate_funding;
+	struct amount_sat local_funding, total_funding;
+	struct channel *channel;
+	struct lightningd *ld = openingd->ld;
+	u8 *remote_upfront_shutdown_script;
+	struct per_peer_state *pps;
+	struct bitcoin_tx_input **remote_ins;
+	struct funding_channel *fc = uc->fc;
+	struct unreleased_tx *utx = fc->utx;
+	u32 *input_map;
+	struct witness_stack **witnesses = NULL;
+
+	/* This is a new channel_info.their_config so set its ID to 0 */
+	channel_info.their_config.id = 0;
+
+	if (!fromwire_opening_dual_funding_signed(resp, resp,
+						  &pps,
+						  &remote_commit,
+						  &remote_commit_sig,
+						  &funding_tx,
+						  &funding_txout,
+						  &remote_ins,
+						  &input_map,
+						  &local_funding,
+						  &channel_info.their_config,
+						  &channel_info.theirbase.revocation,
+						  &channel_info.theirbase.payment,
+						  &channel_info.theirbase.htlc,
+						  &channel_info.theirbase.delayed_payment,
+						  &channel_info.remote_per_commit,
+						  &channel_info.remote_fundingkey,
+						  &feerate,
+						  &feerate_funding,
+						  &uc->our_config.channel_reserve,
+						  &remote_upfront_shutdown_script)) {
+		log_broken(fc->uc->log,
+			   "bad OPENING_DUAL_FUNDING_SIGNED %s",
+			   tal_hex(resp, resp));
+		was_pending(command_fail(fc->cmd, LIGHTNINGD,
+					 "bad OPENING_DUAL_FUNDING_SIGNED %s",
+					 tal_hex(fc->cmd, resp)));
+		goto cleanup;
+	}
+
+	// FIXME: remove chainparams?
+	remote_commit->chainparams = chainparams;
+	per_peer_state_set_fds_arr(pps, fds);
+
+	/* openingd should never accept their funding channel in this case. */
+	if (peer_active_channel(uc->peer)) {
+		log_broken(uc->log, "openingd accepted peer funding channel");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, "already have active channel");
+		goto cleanup;
+	}
+
+	/* Update the funding tx that we have for this */
+	if (!update_unreleased_tx(utx, funding_tx, input_map, witnesses)) {
+		log_broken(uc->log, "Unable to update unreleased tx");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, "internal error in creating updated tx");
+		goto cleanup;
+	}
+
+
+	/* Pull out the funding amount */
+	total_funding.satoshis  /* Raw: type conversion */
+		= utx->tx->wtx->outputs[funding_txout].satoshi;  /* Raw: type conversion */
+	bitcoin_txid(funding_tx, &funding_txid);
+
+	/* Consumes uc */
+	channel = wallet_commit_channel(ld, uc,
+					remote_commit,
+					&remote_commit_sig,
+					&funding_txid,
+					funding_txout,
+					total_funding,
+					local_funding,
+					fc->push,
+					LOCAL,
+					fc->channel_flags,
+					&channel_info,
+					feerate,
+					fc->our_upfront_shutdown_script,
+					remote_upfront_shutdown_script);
+
+	/* Watch for funding confirms */
+	channel_watch_funding(ld, channel);
+
+	/* Needed for the success statement */
+	derive_channel_id(&fc->cid, &channel->funding_txid, funding_txout);
+
+	funding_success(channel);
+	peer_start_channeld(channel, pps, NULL, false);
+
+cleanup:
+	subd_release_channel(openingd, uc);
+	uc->openingd = NULL;
+	tal_free(uc);
+#else
+	fatal("Requires EXPERIMENTAL_FEATURES");
+#endif /* EXPERIMENTAL_FEATURES */
+}
+
 static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
@@ -907,6 +1113,17 @@ static unsigned int openingd_msg(struct subd *openingd,
 		if (tal_count(fds) != 3)
 			return 3;
 		opening_funder_finished(openingd, msg, fds, uc->fc);
+		return 0;
+	case WIRE_OPENING_DUAL_FUNDING_SIGNED:
+		if (!uc->fc) {
+			log_broken(openingd->log, "Unexpected DUAL_FUNDING_SIGNED %s",
+				   tal_hex(tmpctx, msg));
+			tal_free(openingd);
+			return 0;
+		}
+		if (tal_count(fds) != 3)
+			return 3;
+		opening_opener_sigs_received(openingd, msg, fds, uc);
 		return 0;
 	case WIRE_OPENING_FUNDER_START_REPLY:
 		if (!uc->fc) {

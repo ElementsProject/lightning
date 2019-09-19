@@ -16,6 +16,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/mem/mem.h>
+#include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
@@ -42,6 +43,7 @@
 #include <gossipd/gen_gossip_peerd_wire.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
+#include <openingd/channel_establishment.h>
 #include <openingd/gen_opening_wire.h>
 #include <poll.h>
 #include <secp256k1.h>
@@ -818,6 +820,457 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 							 OPT_UPFRONT_SHUTDOWN_SCRIPT));
 }
 
+#if EXPERIMENTAL_FEATURES
+static void check_channel_id(struct state *state,
+		             struct channel_id *id_in,
+			     struct channel_id *original_channel_id)
+{
+	/* BOLT #2:
+	 *
+	 * The `temporary_channel_id` MUST be the same as the
+	 * `temporary_channel_id` in the `open_channel` message.
+	 */
+	if (!channel_id_eq(id_in, original_channel_id))
+		peer_failed(state->pps, id_in,
+			    "channel establishment: ids don't match: expected %s got %s",
+			    type_to_string(tmpctx, struct channel_id, original_channel_id),
+			    type_to_string(tmpctx, struct channel_id, id_in));
+}
+
+/* Derives the needed inputs / outputs from a bitcoin tx */
+static void derive_input_output_info(const tal_t *ctx,
+				     struct bitcoin_tx *tx,
+				     struct utxo **utxos,
+				     bool exclude_funding_output,
+				     struct input_info ***inputs,
+				     struct output_info ***outputs)
+{
+	size_t i;
+
+	*inputs = tal_arr(ctx, struct input_info *, tal_count(utxos));
+	for (i = 0; i < tal_count(utxos); i++) {
+		struct input_info *in;
+		in = tal(*inputs, struct input_info);
+
+		in->input_satoshis = utxos[i]->amount;
+		in->prevtx_txid = utxos[i]->txid;
+		in->prevtx_vout = utxos[i]->outnum;
+		in->prevtx_scriptpubkey = tal_dup_arr(in, u8, utxos[i]->scriptPubkey,
+						      tal_bytelen(utxos[i]->scriptPubkey), 0);
+
+		/* All our inputs are sig + key (P2WPKH or P2SH-P2WPKH) */
+		in->max_witness_len = 1 + 1 + 73 + 1 + 33;
+
+		/*
+		 *	FIXME: add BOLT reference when merged.
+		 *	`input_info`.`script` is the scriptPubkey data for the input.
+		 *	NB: for native SegWit inputs (P2WPKH and P2WSH) inputs, the `script` field
+		 *	will be empty.
+		 */
+		if (utxos[i]->is_p2sh) {
+			in->script = tal_arr(in, u8, tx->wtx->inputs[i].script_len);
+			memcpy(in->script, tx->wtx->inputs[i].script,
+			       tx->wtx->inputs[i].script_len);
+		} else
+			in->script = NULL;
+
+		(*inputs)[i] = in;
+	}
+
+	*outputs = tal_arr(ctx, struct output_info *, 0);
+	for (i = 0; i < tx->wtx->num_outputs; i++) {
+		struct output_info *out;
+		struct wally_tx_output wo;
+
+		wo = tx->wtx->outputs[i];
+
+		/* This is a hack that excludes P2WSH outputs
+		 * which for us, now are exclusively funding outputs */
+		if (exclude_funding_output && wo.script_len == 34)
+			continue;
+
+		out = tal(*outputs, struct output_info);
+		out->output_satoshis.satoshis = wo.satoshi; /* Raw: type conversion */
+		out->script = tal_arr(out, u8, wo.script_len);
+		memcpy(out->script, wo.script, wo.script_len);
+
+		tal_arr_expand(outputs, out);
+	}
+}
+
+static bool check_remote_inputs(struct input_info **remote_inputs,
+				struct amount_sat *input_funding)
+{
+	size_t i = 0;
+
+	// FIXME: we should check that they don't also
+	// turn in the funding output
+	// and maybe check that none of their outputs
+	// are duplicates??
+	*input_funding = AMOUNT_SAT(0);
+	for (i = 0; i < tal_count(remote_inputs); i++) {
+
+		if (!amount_sat_add(input_funding, *input_funding, remote_inputs[i]->input_satoshis))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Overflow in remote input amount %s + %s",
+			               type_to_string(tmpctx, struct amount_sat,
+					              &remote_inputs[i]->input_satoshis),
+			               type_to_string(tmpctx, struct amount_sat,
+					              input_funding));
+		/** TODO: add BOLT reference when merged
+		 * - MUST ensure each `input_info` refers to a non-malleable (segwit) UTXO. */
+		/* P2SH wrapped inputs send the redeemscript, which we can check */
+		if (remote_inputs[i]->script) {
+			if (!is_p2wpkh(remote_inputs[i]->script, NULL)
+					&& !is_p2wsh(remote_inputs[i]->script, NULL))
+				return false;
+		} else if (!is_p2wpkh(remote_inputs[i]->prevtx_scriptpubkey, NULL)
+				&& !is_p2wsh(remote_inputs[i]->prevtx_scriptpubkey, NULL))
+			return false;
+
+	}
+	return true;
+}
+
+
+/* Check that the tx info your peer sent you is kosher */
+static bool check_remote_input_outputs(struct state *state,
+				       enum role remote_role,
+				       struct input_info **remote_inputs,
+				       struct output_info **remote_outputs,
+				       struct amount_sat stated_funding_sats)
+{
+	size_t i = 0;
+	struct amount_sat funding, other_outputs, funding_tx_sats;
+	bool has_change_address;
+
+	/**
+	 *  BOLT-737016aef544011f385a9e081f85eca34eb61ab6
+	 *  - if is the `opener`:
+	 *   - MUST NOT send zero inputs (`num_inputs` cannot be zero).
+	 */
+	if (remote_role == OPENER) {
+		if (!tal_count(remote_inputs))
+			peer_failed(state->pps,
+				    &state->channel_id,
+				    "Opener sent no funding inputs");
+	} else {
+		/**
+		 * BOLT-737016aef544011f385a9e081f85eca34eb61ab6
+		 * - if is the `accepter`:
+		 *   - consider the `contribution count` the total of their `num_inputs` plus
+		 *    `num_outputs'
+		 *     - MUST NOT send a `funding_compose` message where the `contribution count`
+		 *       exceeds the limit of 4.
+		 */
+		if (tal_count(remote_inputs) + tal_count(remote_outputs) > REMOTE_CONTRIB_LIMIT)
+			peer_failed(state->pps,
+				    &state->channel_id,
+				    "Too many remote contributions. "
+				    "Received %ld inputs, %ld outputs; "
+				    "max allowed is %d",
+				    tal_count(remote_inputs),
+				    tal_count(remote_outputs),
+				    REMOTE_CONTRIB_LIMIT);
+	}
+
+	if (!check_remote_inputs(remote_inputs, &funding))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Peer sent malleable (non-Segwit) input.");
+
+	other_outputs = AMOUNT_SAT(0);
+	has_change_address = false;
+	for (i = 0; i < tal_count(remote_outputs); i++) {
+		if (amount_sat_eq(AMOUNT_SAT(0), remote_outputs[i]->output_satoshis)) {
+			if (has_change_address)
+				peer_failed(state->pps,
+					    &state->channel_id,
+					    "Peer sent more than one change outputs.");
+
+			has_change_address = true;
+		}
+		if (!amount_sat_add(&other_outputs, other_outputs, remote_outputs[i]->output_satoshis))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Overflow in remote outher_outputs satoshis %s + %s",
+			               type_to_string(tmpctx, struct amount_sat,
+						      &other_outputs),
+			               type_to_string(tmpctx, struct amount_sat,
+				                      &remote_outputs[i]->output_satoshis));
+
+		/* TODO: add BOLT reference when merged
+		 * - MUST ensure the `output_info`.`script` is a standard script
+		 */
+		if (!is_known_scripttype(remote_outputs[i]->script))
+			peer_failed(state->pps,
+				    &state->channel_id,
+				    "Peer sent non-standard output script.");
+
+	}
+
+	/** TODO: add BOLT reference when merged
+	* The receiving node:
+	* - if the total `input_info`.`satoshis` is less than the total `output_info`.`satoshis`
+	*   - MUST fail the channel.
+	*/
+	if (!amount_sat_sub(&funding_tx_sats, funding, other_outputs))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Total remote input satoshi less than output satoshis. change:%s inputs:%s",
+			    type_to_string(tmpctx, struct amount_sat,
+					   &other_outputs),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &funding));
+
+	if (!amount_sat_greater_eq(funding_tx_sats, stated_funding_sats))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Input amounts won't afford "
+			    "funding amount (desired: %s, provided: %s).",
+			    type_to_string(tmpctx, struct amount_sat,
+					   &stated_funding_sats),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &funding_tx_sats));
+
+	return true;
+}
+#endif
+
+static u8 *funder_finalize_channel_setup2(struct state *state,
+					  struct utxo **utxos,
+					  struct bitcoin_signature *sig,
+					  struct bitcoin_tx **tx)
+{
+#if EXPERIMENTAL_FEATURES
+	u8 *msg;
+	struct channel_id id_in;
+	const u8 *wscript;
+	char *err_reason;
+	struct input_info **local_ins, **remote_ins;
+	struct output_info **local_outs, **remote_outs;
+	struct bitcoin_tx_input **remotetx_ins;
+	struct amount_sat total_funding;
+	struct bitcoin_signature their_sig, our_sig;
+	struct amount_msat local_funding_msat;
+
+	size_t i, input_count;
+	struct bitcoin_tx *funding_tx, *remote_commit, *local_commit;
+	struct witness_stack **remote_witnesses;
+
+	/* Derive components, omitting the funding output */
+	local_ins = tal_arr(tmpctx, struct input_info *, 0);
+	local_outs = tal_arr(tmpctx, struct output_info *, 0);
+	derive_input_output_info(tmpctx, *tx, utxos, true,
+				 &local_ins, &local_outs);
+
+	/* Send them to the peer */
+	msg = towire_funding_compose(tmpctx, &state->channel_id,
+				     cast_const2(const struct input_info **, local_ins),
+				     cast_const2(const struct output_info **, local_outs));
+
+	sync_crypto_write(state->pps, take(msg));
+
+	peer_billboard(false,
+		       "Opening channel: funding_compose sent, "
+		       "waiting for funding_compose reply");
+
+	msg = opening_negotiate_msg(tmpctx, state, false);
+	if (!msg)
+		return NULL;
+
+	/* The next message is "funding_compose", which tells us the funding
+	 * inputs and outputs they've selected. */
+	if (!fromwire_funding_compose(state, msg, &id_in,
+				      &remote_ins,
+				      &remote_outs))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Parsing received funding_compose %s", tal_hex(msg, msg));
+
+	if (!check_remote_input_outputs(state, ACCEPTER,
+					remote_ins, remote_outs,
+					state->accepter_funding))
+		return NULL;
+
+	/* FIXME: send their inputs master to verify via bitcoind */
+
+	input_count = tal_count(local_ins) + tal_count(remote_ins);
+	const void *map[input_count];
+	for (i = 0; i < input_count; i++)
+		map[i] = int2ptr(i);
+
+	/* Build the funding transaction */
+	funding_tx = dual_funding_funding_tx(state, chainparams,
+					     &state->funding_txout,
+					     state->feerate_per_kw_funding,
+					     &state->opener_funding,
+					     state->accepter_funding,
+					     local_ins, remote_ins,
+					     local_outs, remote_outs,
+					     &state->our_funding_pubkey,
+					     &state->their_funding_pubkey,
+					     &total_funding,
+					     (const void **)&map);
+
+	if (!funding_tx)
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Unable to afford funding transaction");
+
+	bitcoin_txid(funding_tx, &state->funding_txid);
+
+	/* Move our push_msat over to the other peer */
+	if (!amount_sat_sub_msat(&local_funding_msat, state->opener_funding, state->push_msat))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Unable to afford funding transaction, pushed to much");
+
+	state->channel = new_initial_channel(state,
+					     &state->funding_txid,
+					     state->funding_txout,
+					     state->minimum_depth,
+					     total_funding,
+					     local_funding_msat,
+					     take(new_fee_states(NULL, LOCAL,
+								 &state->feerate_per_kw)),
+					     &state->localconf,
+					     &state->remoteconf,
+					     &state->our_points,
+					     &state->their_points,
+					     &state->our_funding_pubkey,
+					     &state->their_funding_pubkey,
+					     state->option_static_remotekey,
+					     LOCAL);
+
+	/* We don't expect this to fail, but it does do some additional
+	 * internal sanity checks. */
+	if (!state->channel)
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "We could not create channel with given config");
+
+	/* We switch over to using the funding_tx derived channel_id */
+	derive_channel_id(&state->channel_id,
+			  &state->funding_txid, state->funding_txout);
+
+	/* We need to send them the signatures for their commitment tx */
+	remote_commit = initial_channel_tx(state, &wscript, state->channel,
+					   &state->first_per_commitment_point[REMOTE],
+					   REMOTE, &err_reason);
+
+	if (!remote_commit)
+		negotiation_failed(state, true,
+				   "Could not meet fees and reserve: %s", err_reason);
+
+	msg = towire_hsm_sign_remote_commitment_tx(NULL,
+						   remote_commit,
+						   &state->channel->funding_pubkey[REMOTE],
+						   state->channel->funding,
+						   (const struct witscript **) remote_commit->output_witscripts,
+						   &state->first_per_commitment_point[REMOTE],
+						   state->channel->option_static_remotekey);
+
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_sign_tx_reply(msg, &our_sig))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
+			      tal_hex(tmpctx, msg));
+
+	peer_billboard(false, "Opening channel: sending commitment_signed");
+
+	/* Now we send it */
+	msg = towire_commitment_signed(tmpctx, &state->channel_id,
+				       &our_sig.s, NULL);
+
+	sync_crypto_write(state->pps, take(msg));
+	msg = opening_negotiate_msg(tmpctx, state, true);
+	if (!msg)
+		return NULL;
+
+	their_sig.sighash_type = SIGHASH_ALL;
+	if (!fromwire_accepter_sigs(state, msg, &id_in,
+				    &their_sig.s,
+				    (struct witness_stack ***)&remote_witnesses))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Bad accepter_sigs in %s", tal_hex(msg, msg));
+
+	peer_billboard(false,
+		       "Opening channel: accepter_sigs received");
+
+	/* Check that they're using the right channel_id */
+	check_channel_id(state, &id_in, &state->channel_id);
+
+	/* Check that they sent the right count of witnesses */
+	if (tal_count(remote_witnesses) != tal_count(remote_ins))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Received %zu witnesses for %zu inputs",
+			    tal_count(remote_witnesses),
+			    tal_count(remote_ins));
+
+	/* We create *our* initial commitment transaction, and check the
+	 * signature they sent against that. */
+	local_commit = initial_channel_tx(state, &wscript, state->channel,
+					  &state->first_per_commitment_point[LOCAL],
+					  LOCAL, &err_reason);
+	if (!local_commit)
+		negotiation_failed(state, false,
+				   "Did not meet fees and reserve: %s", err_reason);
+
+	if (!check_tx_sig(local_commit, 0, NULL, wscript, &state->their_funding_pubkey, &their_sig))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Bad signature %s on tx %s using key %s",
+			    type_to_string(tmpctx, struct bitcoin_signature,
+					   &their_sig),
+			    type_to_string(tmpctx, struct bitcoin_tx, local_commit),
+			    type_to_string(tmpctx, struct pubkey,
+					   &state->their_funding_pubkey));
+
+	peer_billboard(false,
+		       "Opening channel: accepter sigs are acceptable, moving to sign tx");
+
+	u32 i_map[input_count];
+	for (size_t i = 0; i < input_count; i++) {
+		i_map[i] = ptr2int(map[i]);
+	}
+
+	/* Convert witnesses to something more palatable for
+	 * how our generated wires work */
+	/* FIXME: remove post EXPERIMENTAL_FEATURE, since witness_stack will be wireable */
+	remotetx_ins = tal_arr(tmpctx, struct bitcoin_tx_input *, tal_count(remote_witnesses));
+	for (i = 0; i < tal_count(remote_witnesses); i++) {
+		remotetx_ins[i] = tal(remotetx_ins, struct bitcoin_tx_input);
+	}
+
+	return towire_opening_dual_funding_signed(state,
+						 state->pps,
+						 local_commit,
+						 &their_sig,
+						 funding_tx,
+					         state->funding_txout,
+						 cast_const2(
+							 const struct bitcoin_tx_input **,
+							 remotetx_ins),
+						 i_map,
+						 state->opener_funding,
+						 &state->remoteconf,
+					         &state->their_points.revocation,
+					         &state->their_points.payment,
+					         &state->their_points.htlc,
+					         &state->their_points.delayed_payment,
+					         &state->first_per_commitment_point[REMOTE],
+					         &state->their_funding_pubkey,
+						 state->feerate_per_kw,
+						 state->feerate_per_kw_funding,
+					         state->localconf.channel_reserve,
+					         state->upfront_shutdown_script[REMOTE]);
+#else
+	return NULL;
+#endif /* EXPERIMENTAL_FEATURES */
+}
+
 static bool funder_finalize_channel_setup(struct state *state,
 					  struct amount_msat local_msat,
 					  struct bitcoin_signature *sig,
@@ -1030,6 +1483,9 @@ static u8 *funder_channel_complete(struct state *state,
 					     &state->push_msat),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &state->opener_funding));
+
+	if (state->use_v2)
+		return funder_finalize_channel_setup2(state, utxos, &sig, &tx);
 
 	if (!funder_finalize_channel_setup(state, local_msat, &sig, &tx))
 		return NULL;
@@ -1619,6 +2075,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENING_DEV_MEMLEAK_REPLY:
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER_REPLY:
+	case WIRE_OPENING_DUAL_FUNDING_SIGNED:
 	case WIRE_OPENING_FUNDER_START_REPLY:
 	case WIRE_OPENING_FUNDEE:
 	case WIRE_OPENING_FUNDER_FAILED:
