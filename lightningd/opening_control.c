@@ -308,6 +308,11 @@ static void funding_success(struct channel *channel)
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &fc->cid));
 	json_add_bool(response, "commitments_secured", true);
+	if (fc->utx) {
+		json_add_txid(response, "txid", &fc->utx->txid);
+		/* FIXME: use PSBT for this */
+		json_add_tx(response, "tx_with_remotesigs", fc->utx->tx);
+	}
 	was_pending(command_success(cmd, response));
 }
 
