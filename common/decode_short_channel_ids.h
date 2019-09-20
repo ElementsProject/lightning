@@ -41,9 +41,7 @@ enum scid_query_flag {
 	SCID_QF_NODE2 = 0x10,
 };
 
-#if EXPERIMENTAL_FEATURES
 bigsize_t *decode_scid_query_flags(const tal_t *ctx,
 				   const struct tlv_query_short_channel_ids_tlvs_query_flags *qf);
-#endif /* EXPERIMENTAL_FEATURES */
 
 #endif /* LIGHTNING_COMMON_DECODE_SHORT_CHANNEL_IDS_H */

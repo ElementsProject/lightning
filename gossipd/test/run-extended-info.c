@@ -1,12 +1,5 @@
 #include "config.h"
 
-#if EXPERIMENTAL_FEATURES == 0
-/* Can't run without EXPERIMENTAL_FEATURES */
-int main(void)
-{
-	return 0;
-}
-#else
 #define main gossipd_main
 int gossipd_main(int argc, char *argv[]);
 
@@ -783,4 +776,3 @@ int main(void)
 	tal_free(toks);
 	return 0;
 }
-#endif /* EXPERIMENTAL_FEATURES */

@@ -1382,7 +1382,7 @@ def test_forget_channel(node_factory):
 
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
-    lfeatures = 'aa'
+    lfeatures = '08aa'
     if EXPERIMENTAL_FEATURES:
         lfeatures = '28aa'
     # Gossiping but no node announcement yet
@@ -1638,8 +1638,8 @@ def test_dataloss_protection(node_factory, bitcoind):
         # features 1, 3, 5, 7, 11 and 13 (0x28aa).
         lf = "28aa"
     else:
-        # features 1, 3, 5 and 7 (0xaa).
-        lf = "aa"
+        # features 1, 3, 5, 7 and 11 (0x08aa).
+        lf = "08aa"
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
     l1.daemon.wait_for_log(r"\[OUT\] 0010"
