@@ -957,6 +957,10 @@ static u8 *make_failmsg(const tal_t *ctx,
 	case WIRE_INVALID_ONION_KEY:
 		msg = towire_invalid_onion_key(ctx, sha256);
 		goto done;
+	case WIRE_INVALID_ONION_PAYLOAD:
+		/* FIXME: wire this into tlv parser somehow. */
+		msg = towire_invalid_onion_payload(ctx, 0, 0);
+		goto done;
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Asked to create failmsg %u (%s)",
