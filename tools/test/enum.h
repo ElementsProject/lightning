@@ -3,6 +3,8 @@
 #include <ccan/short_types/short_types.h>
 #include <stdlib.h>
 
+#define TEST_IFDEF 0
+
 enum test_enum {
 	TEST_ONE,
 	TEST_TWO,

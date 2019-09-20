@@ -47,6 +47,10 @@ msgdata,test_msg,test_sbt_arrays,subtype_arrays,
 msgdata,test_msg,extension_1,test_features,,option_short_id
 msgdata,test_msg,extension_2,test_short_id,,option_one,option_two
 
+msgtype,test_ifdef,100
+#ifdef TEST_IFDEF
+msgdata,test_ifdef,is_def,u32,
+
 msgtype,test_tlv1,2
 msgdata,test_tlv1,test_struct,test_short_id,
 msgdata,test_tlv1,tlv,test_n1,

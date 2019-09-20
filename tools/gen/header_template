@@ -85,12 +85,18 @@ void fromwire_${subtype.name}(const u8 **cursor, size_t *plen, ${subtype.type_na
 % endfor
 % endif
 % for msg in messages:
+    % if msg.if_token:
+#if ${msg.if_token}
+    % endif
 /* WIRE: ${msg.name.upper()} */
     % for c in msg.msg_comments:
 /* ${c} */
     % endfor
 u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.fields.values()])});
 bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}const void *p${''.join([f.arg_desc_from() for f in msg.fields.values()])});
+    % if msg.if_token:
+#endif /* ${msg.if_token} */
+    % endif
 
 % endfor
 

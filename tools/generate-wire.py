@@ -356,6 +356,7 @@ class Message(FieldSet):
         self.struct_prefix = struct_prefix
         self.enumname = None
         self.msg_comments = comments
+        self.if_token = None
 
     def has_option(self):
         return self.option is not None
@@ -368,6 +369,9 @@ class Message(FieldSet):
         if self.struct_prefix:
             return self.struct_prefix + "_" + self.name
         return self.name
+
+    def add_if(self, if_token):
+        self.if_token = if_token
 
 
 class Tlv(object):
@@ -518,6 +522,7 @@ def main(options, args=None, output=sys.stdout, lines=None):
     genline = next_line(args, lines)
 
     comment_set = []
+    token_name = None
 
     # Create a new 'master' that serves as the coordinator for the file generation
     master = Master()
@@ -530,7 +535,11 @@ def main(options, args=None, output=sys.stdout, lines=None):
             if not bool(line):
                 master.add_comments(comment_set)
                 comment_set = []
+                token_name = None
                 continue
+
+            if len(tokens) > 2:
+                token_name = tokens[1]
 
             if token_type == 'subtype':
                 subtype, _, _ = master.add_type(tokens[1])
@@ -632,6 +641,11 @@ def main(options, args=None, output=sys.stdout, lines=None):
                 comment_set = []
             elif token_type.startswith('#include'):
                 master.add_include(token_type)
+            elif token_type.startswith('#if'):
+                msg = master.find_message(token_name)
+                if (msg):
+                    if_token = token_type[token_type.index(' ') + 1:]
+                    msg.add_if(if_token)
             elif token_type.startswith('#'):
                 comment_set.append(token_type[1:])
             else:
