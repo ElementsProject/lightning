@@ -210,6 +210,9 @@ ${static}const struct tlv_record_type tlvs_${tlv.name}[] = {
 % endfor ##  END TLV's
 % for msg in messages: ## START Wire Messages
 
+    % if msg.if_token:
+#if ${msg.if_token}
+    % endif
 /* WIRE: ${msg.name.upper()} */
     % for c in msg.msg_comments:
 /*${c} */
@@ -322,4 +325,7 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}
 	% endfor
 	return cursor != NULL;
 }
+    % if msg.if_token:
+#endif /* ${msg.if_token} */
+    % endif
 % endfor ## END Wire Messages
