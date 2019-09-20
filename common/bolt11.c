@@ -446,9 +446,9 @@ static void shift_bitmap_down(u8 *bitmap, size_t bits)
 	assert(prev == 0);
 }
 
-/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+/* BOLT #11:
  *
- * `9` (5): `data_length` variable. One or more bytes containing features
+ * `9` (5): `data_length` variable. One or more 5-bit values containing features
  *  supported or required for receiving this payment.
  *  See [Feature Bits](#feature-bits).
  */
@@ -467,14 +467,14 @@ static char *decode_9(struct bolt11 *b11,
 	shift_bitmap_down(b11->features,
 			  flen * 8 - data_length * 5);
 
-	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	/* BOLT #11:
 	 *
 	 * - if the `9` field contains unknown _odd_ bits that are non-zero:
 	 *   - MUST ignore the bit.
 	 * - if the `9` field contains unknown _even_ bits that are non-zero:
-	 *   - MUST fail.
+	 *   - MUST fail the payment.
 	 */
-	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	/* BOLT #11:
 	 * The field is big-endian.  The least-significant bit is numbered 0,
 	 * which is _even_, and the next most significant bit is numbered 1,
 	 * which is _odd_. */
@@ -806,7 +806,11 @@ static void push_field(u5 **data, char type, const void *src, size_t nbits)
 
 /* BOLT #11:
  *
- * SHOULD use the minimum `data_length` possible for `x` and `c` fields.
+ * - if `x` is included:
+ *   - SHOULD use the minimum `data_length` possible.
+ *...
+ *  - if `c` is included:
+ *   - SHOULD use the minimum `data_length` possible.
  */
 static void push_varlen_field(u5 **data, char type, u64 val)
 {
@@ -924,7 +928,7 @@ static void maybe_encode_9(u5 **data, const u8 *features)
 		set_feature_bit(&f5, (i / 5) * 8 + (i % 5));
 	}
 
-	/* BOLT-a76d61dc9893eec75b2e9c4a361354c356c46894 #11:
+	/* BOLT #11:
 	 *
 	 * - if `9` contains non-zero bits:
 	 *   - SHOULD use the minimum `data_length` possible.
