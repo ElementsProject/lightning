@@ -601,6 +601,8 @@ def main(options, args=None, output=sys.stdout, lines=None):
 
                 if collapse:
                     count = 1
+                elif len(tokens) < 5:
+                    raise ValueError('problem with parsing {}:{}'.format(ln, line))
                 else:
                     count = tokens[4]
 
