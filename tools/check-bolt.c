@@ -170,6 +170,8 @@ static char *code_to_regex(const char *code, size_t len, bool escape)
 		case '^':
 		case '[':
 		case ']':
+		case '{':
+		case '}':
 		case '(':
 		case ')':
 		case '+':
