@@ -345,10 +345,10 @@ struct command_result *param_msat(struct command *cmd UNNEEDED, const char *name
 { fprintf(stderr, "param_msat called!\n"); abort(); }
 /* Generated stub for param_node_id */
 struct command_result *param_node_id(struct command *cmd UNNEEDED,
-					       const char *name UNNEEDED,
-					       const char *buffer UNNEEDED,
-					       const jsmntok_t *tok UNNEEDED,
-					       struct node_id **id UNNEEDED)
+				     const char *name UNNEEDED,
+				     const char *buffer UNNEEDED,
+				     const jsmntok_t *tok UNNEEDED,
+				     struct node_id **id UNNEEDED)
 { fprintf(stderr, "param_node_id called!\n"); abort(); }
 /* Generated stub for param_number */
 struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
