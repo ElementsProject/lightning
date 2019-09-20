@@ -27,7 +27,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 	/* prev_type points to prev_type_store after first iter. */
 	u64 prev_type_store, *prev_type = NULL;
 
-	/* BOLT-EXPERIMENTAL #1:
+	/* BOLT #1:
 	 *
 	 * The receiving node:
 	 *  - if zero bytes remain before parsing a `type`:
@@ -37,7 +37,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		u64 type, length;
 		const struct tlv_record_type *rtype;
 
-		/* BOLT-EXPERIMENTAL #1:
+		/* BOLT #1:
 		 *
 		 * A `varint` is a variable-length, unsigned integer encoding
 		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
@@ -45,7 +45,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		 */
 		type = fromwire_bigsize(cursor, max);
 
-		/* BOLT-EXPERIMENTAL #1:
+		/* BOLT #1:
 		 *  - if a `type` or `length` is not minimally encoded:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
@@ -55,7 +55,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 		}
 		length = fromwire_bigsize(cursor, max);
 
-		/* BOLT-EXPERIMENTAL #1:
+		/* BOLT #1:
 		 *  - if a `type` or `length` is not minimally encoded:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
@@ -64,7 +64,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 			goto fail;
 		}
 
-		/* BOLT-EXPERIMENTAL #1:
+		/* BOLT #1:
 		 *  - if `length` exceeds the number of bytes remaining in the
 		 *    message:
 		 *    - MUST fail to parse the `tlv_stream`.
@@ -74,7 +74,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 			goto fail;
 		}
 
-		/* BOLT-EXPERIMENTAL #1:
+		/* BOLT #1:
 		 *  - if decoded `type`s are not monotonically-increasing:
 		 *    - MUST fail to parse the `tlv_stream`.
 		 */
@@ -86,7 +86,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 			goto fail;
 		}
 
-		/* BOLT-EXPERIMENTAL #1:
+		/* BOLT #1:
 		 * - if `type` is known:
 		 *   - MUST decode the next `length` bytes using the known
 		 *     encoding for `type`.
@@ -100,7 +100,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 			if (!*cursor)
 				goto fail;
 
-			/* BOLT-EXPERIMENTAL #1:
+			/* BOLT #1:
 			 *  - if `length` is not exactly equal to that required
 			 *    for the known encoding for `type`:
 			 *    - MUST fail to parse the `tlv_stream`.
@@ -113,7 +113,7 @@ bool fromwire_tlvs(const u8 **cursor, size_t *max,
 			/* We've read bytes in ->fromwire, so update max */
 			*max -= length;
 		} else {
-			/* BOLT-EXPERIMENTAL #1:
+			/* BOLT #1:
 			 * - otherwise, if `type` is unknown:
 			 *   - if `type` is even:
 			 *     - MUST fail to parse the `tlv_stream`.
@@ -154,7 +154,7 @@ void towire_tlvs(u8 **pptr,
 		if (!val)
 			continue;
 
-		/* BOLT-EXPERIMENTAL #1:
+		/* BOLT #1:
 		 *
 		 * The sending node:
 		 ...

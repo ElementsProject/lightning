@@ -91,7 +91,7 @@ static struct invalid_stream invalid_streams_either[] = {
 	{ "ff0100000000000002 00", "unknown even type." },
 };
 
-/* BOLT-EXPERIMENTAL #1:
+/* BOLT #1:
  *
  * The following TLV streams in namespace `n1` should trigger a decoding
 failure:
@@ -180,7 +180,7 @@ static struct invalid_stream invalid_streams_n1[] = {
 	{ "00 00", "unknown even field for `n1`s namespace." },
 };
 
-/* BOLT-EXPERIMENTAL #1:
+/* BOLT #1:
 ### TLV Stream Decoding Failure
 
 Any appending of an invalid stream to a valid stream should trigger
@@ -193,16 +193,16 @@ In addition, the following TLV streams in namespace `n1` should
 trigger a decoding failure:
 
 1. Invalid stream: 0x02 08 0000000000000226 01 01 2a
-2. Reason: valid tlv records but invalid ordering
+2. Reason: valid TLV records but invalid ordering
 
 1. Invalid stream: 0x02 08 0000000000000231 02 08 0000000000000451
-2. Reason: duplicate tlv type
+2. Reason: duplicate TLV type
 
 1. Invalid stream: 0x1f 00 0f 01 2a
-2. Reason: valid (ignored) tlv records but invalid ordering
+2. Reason: valid (ignored) TLV records but invalid ordering
 
 1. Invalid stream: 0x1f 00 1f 01 2a
-2. Reason: duplicate tlv type (ignored)
+2. Reason: duplicate TLV type (ignored)
  */
 static struct invalid_stream invalid_streams_n1_combo[] = {
 	{ "02 08 0000000000000226 01 01 2a", "valid tlv records but invalid ordering" },
@@ -211,18 +211,18 @@ static struct invalid_stream invalid_streams_n1_combo[] = {
 	{ "1f 00 1f 01 2a", "duplicate tlv type (ignored)" }
 };
 
-/* BOLT-EXPERIMENTAL #1:
+/* BOLT #1:
 The following TLV stream in namespace `n2` should trigger a decoding
 failure:
 
 1. Invalid stream: 0xffffffffffffffffff 00 00 00
-2. Reason: valid tlv records but invalid ordering
+2. Reason: valid TLV records but invalid ordering
 */
 static struct invalid_stream invalid_streams_n2_combo[] = {
-	{ "ffffffffffffffffff 00 00 00", "valid tlv records but invalid ordering" },
+	{ "ffffffffffffffffff 00 00 00", "valid TLV records but invalid ordering" },
 };
 
-/* BOLT-EXPERIMENTAL #1:
+/* BOLT #1:
  *
 ### TLV Decoding Successes
 
@@ -534,7 +534,7 @@ int main(void)
 		assert(memeq(p2, tal_count(p2), orig_p, tal_count(orig_p)));
 	}
 
-	/* BOLT-EXPERIMENTAL #1:
+	/* BOLT #1:
 	 *
 	 * Any appending of an invalid stream to a valid stream should trigger
 	 * a decoding failure.
@@ -596,7 +596,7 @@ int main(void)
 		}
 	}
 
-	/* BOLT-EXPERIMENTAL #1:
+	/* BOLT #1:
 	 *
 	 * Any appending of a higher-numbered valid stream to a lower-numbered
 	 * valid stream should not trigger a decoding failure.
