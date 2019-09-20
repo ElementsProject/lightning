@@ -634,6 +634,15 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 				       tal_hex(tmpctx, msg));
 	}
 	if (tlvs->query_flags) {
+		/* BOLT #7:
+		 *
+		 * The receiver:
+		 *...
+		 *  - if the incoming message includes
+		 *    `query_short_channel_ids_tlvs`:
+		 *    - if `encoding_type` is not a known encoding type:
+		 *      - MAY fail the connection
+		 */
 		flags = decode_scid_query_flags(tmpctx, tlvs->query_flags);
 		if (!flags) {
 			return towire_errorfmt(peer, NULL,
@@ -677,11 +686,10 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 				       tal_hex(tmpctx, encoded));
 	}
 
-	/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+	/* BOLT #7:
 	 *
 	 * The receiver:
 	 *...
-	 *  - if the incoming message includes `query_short_channel_ids_tlvs`:
 	 *    - if `encoded_query_flags` does not decode to exactly one flag per
 	 *      `short_channel_id`:
 	 *      - MAY fail the connection.
@@ -700,8 +708,8 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 
 	/* BOLT #7:
 	 *
-	 * - MUST respond to each known `short_channel_id` with a `channel_announcement`
-	 *   and the latest `channel_update` for each end
+	 * - MUST respond to each known `short_channel_id`:
+	 *...
 	 *    - SHOULD NOT wait for the next outgoing gossip flush to send
 	 *      these.
 	 */
@@ -785,7 +793,7 @@ static void reply_channel_range(struct peer *peer,
 	queue_peer_msg(peer, take(msg));
 }
 
-/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+/* BOLT #7:
  *
  * `query_option_flags` is a bitfield represented as a minimally-encoded varint.
  * Bits have the following meaning:
@@ -800,7 +808,7 @@ enum query_option_flags {
 	QUERY_ADD_CHECKSUMS = 0x2,
 };
 
-/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+/* BOLT #7:
  *
  * The checksum of a `channel_update` is the CRC32C checksum as specified in
  * [RFC3720](https://tools.ietf.org/html/rfc3720#appendix-B.4) of this
@@ -1286,10 +1294,6 @@ static void uniquify_node_ids(struct node_id **ids)
 	size_t dst, src;
 
 	/* BOLT #7:
-	 *
-	 * - MUST follow with any `node_announcement`s for each
-	 *   `channel_announcement`
-	 *
 	 *   - SHOULD avoid sending duplicate `node_announcements` in
 	 *     response to a single `query_short_channel_ids`.
 	 */
@@ -1320,10 +1324,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 
 	/* BOLT #7:
 	 *
-	 *   - MUST respond to each known `short_channel_id` with a
-	 *     `channel_announcement` and the latest `channel_update` for each end
-	 *     - SHOULD NOT wait for the next outgoing gossip flush
-	 *       to send these.
+	 *   - MUST respond to each known `short_channel_id`:
 	 */
 	/* Search for next short_channel_id we know about. */
 	num = tal_count(peer->scid_queries);
@@ -1334,7 +1335,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 		if (!chan || !is_chan_public(chan))
 			continue;
 
-		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+		/* BOLT #7:
 		 * - if bit 0 of `query_flag` is set:
 		 *   - MUST reply with a `channel_announcement`
 		 */
@@ -1343,7 +1344,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 			sent = true;
 		}
 
-		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+		/* BOLT #7:
 		 * - if bit 1 of `query_flag` is set and it has received a
 		 *   `channel_update` from `node_id_1`:
 		 *   - MUST reply with the latest `channel_update` for
@@ -1363,7 +1364,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 			sent = true;
 		}
 
-		/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+		/* BOLT #7:
 		 * - if bit 3 of `query_flag` is set and it has received
 		 *   a `node_announcement` from `node_id_1`:
 		 *   - MUST reply with the latest `node_announcement` for
@@ -1390,10 +1391,20 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 
 	/* BOLT #7:
 	 *
-	 *  - MUST follow with any `node_announcement`s for each
-	 *   `channel_announcement`
-	 *    - SHOULD avoid sending duplicate `node_announcements` in response
-	 *     to a single `query_short_channel_ids`.
+	 *    - if the incoming message does not include `encoded_query_flags`:
+	 *      ...
+	 *      - MUST follow with any `node_announcement`s for each
+	 *      `channel_announcement`
+	 *    - otherwise:
+	 *      ...
+	 *      - if bit 3 of `query_flag` is set and it has received a
+	 *        `node_announcement` from `node_id_1`:
+	 *        - MUST reply with the latest `node_announcement` for
+	 *          `node_id_1`
+	 *      - if bit 4 of `query_flag` is set and it has received a
+	 *        `node_announcement` from `node_id_2`:
+	 *        - MUST reply with the latest `node_announcement` for
+	 *          `node_id_2`
 	 */
 	/* If we haven't sent anything above, we look for the next
 	 * node_announcement to send. */
