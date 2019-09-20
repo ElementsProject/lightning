@@ -363,6 +363,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	/* BOLT #7:
 	 *
 	 * The origin node:
+	 *...
 	 *  - MAY create a `channel_update` to communicate the channel parameters to the
 	 *    channel peer, even though the channel has not yet been announced (i.e. the
 	 *    `announce_channel` bit was not set).
