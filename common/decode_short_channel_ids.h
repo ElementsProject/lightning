@@ -20,7 +20,7 @@ enum scid_encode_types {
 
 struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded);
 
-/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+/* BOLT #7:
  *
  * `encoded_query_flags` is an array of bitfields, one varint per bitfield,
  * one bitfield for each `short_channel_id`. Bits have the following meaning:

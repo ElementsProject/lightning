@@ -71,7 +71,7 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx,
 	size_t max = tal_count(encoded);
 	bigsize_t *flags;
 
-	/* BOLT-61a1365a45cc8b463ddbbe3429d350f8eac787dd #7:
+	/* BOLT #7:
 	 *
 	 * The receiver:
 	 *...
