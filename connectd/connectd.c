@@ -1270,27 +1270,24 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 			   struct sockaddr *broken_reply)
 {
 	struct wireaddr *new_addrs;
-	const char **hostnames;
-
-	new_addrs = tal_arr(tmpctx, struct wireaddr, 0);
-	hostnames = seednames(tmpctx, id);
+	const char **hostnames = seednames(tmpctx, id);
 
 	for (size_t i = 0; i < tal_count(hostnames); i++) {
 		status_debug("Resolving %s", hostnames[i]);
-		if (!wireaddr_from_hostname(&new_addrs, hostnames[i], DEFAULT_PORT, NULL,
-				    	broken_reply, NULL)) {
-			status_debug("Could not resolve %s", hostnames[i]);
-		} else {
+		new_addrs = wireaddr_from_hostname(tmpctx, hostnames[i], DEFAULT_PORT,
+		                                   NULL, broken_reply, NULL);
+		if (new_addrs) {
 			for (size_t i = 0; i < tal_count(new_addrs); i++) {
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
 				a.u.wireaddr = new_addrs[i];
 				status_debug("Resolved %s to %s", hostnames[i],
-				     	type_to_string(tmpctx, struct wireaddr,
-						    	&a.u.wireaddr));
+				             type_to_string(tmpctx, struct wireaddr,
+				                            &a.u.wireaddr));
 				tal_arr_expand(addrs, a);
 			}
-		}
+		} else
+			status_debug("Could not resolve %s", hostnames[i]);
 	}
 }
 
