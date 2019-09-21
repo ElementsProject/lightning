@@ -289,18 +289,21 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 	return true;
 }
 
-bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
-			    const u16 port, bool *no_dns,
-			    struct sockaddr *broken_reply,
-			    const char **err_msg)
+struct wireaddr *
+wireaddr_from_hostname(const tal_t *ctx,
+                       const char *hostname,
+                       const u16 port, bool *no_dns,
+                       struct sockaddr *broken_reply,
+                       const char **err_msg)
 {
+	struct wireaddr *addrs;
 	struct sockaddr_in6 *sa6;
 	struct sockaddr_in *sa4;
 	struct addrinfo *addrinfo, *addrinfos;
 	struct addrinfo hints;
 	int gai_err;
-	bool res = false;
 
+	addrs = tal_arr(ctx, struct wireaddr, 0);
 	if (no_dns)
 		*no_dns = false;
 
@@ -308,22 +311,21 @@ bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 	if (strends(hostname, ".onion")) {
 		u8 *dec = b32_decode(tmpctx, hostname,
 				     strlen(hostname) - strlen(".onion"));
-		if (tal_count(*addrs) == 0)
-			tal_resize(addrs, 1);
-		if (tal_count(dec) == TOR_V2_ADDRLEN)
-			(*addrs)[0].type = ADDR_TYPE_TOR_V2;
-		else if (tal_count(dec) == TOR_V3_ADDRLEN)
-			(*addrs)[0].type = ADDR_TYPE_TOR_V3;
-		else {
+		tal_resize(&addrs, 1);
+		if (tal_count(dec) == TOR_V2_ADDRLEN) {
+			addrs[0].type = ADDR_TYPE_TOR_V2;
+		} else if (tal_count(dec) == TOR_V3_ADDRLEN) {
+			addrs[0].type = ADDR_TYPE_TOR_V3;
+		} else {
 			if (err_msg)
 				*err_msg = "Invalid Tor address";
-			return false;
+			return tal_free(addrs);
 		}
 
-		(*addrs)[0].addrlen = tal_count(dec);
-		(*addrs)[0].port = port;
-		memcpy((*addrs)[0].addr, dec, tal_count(dec));
-		return true;
+		addrs[0].addrlen = tal_count(dec);
+		addrs[0].port = port;
+		memcpy(addrs[0].addr, dec, tal_count(dec));
+		return addrs;
 	}
 
 	/* Tell them we wanted DNS and fail. */
@@ -331,7 +333,7 @@ bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 		if (err_msg)
 			*err_msg = "Needed DNS, but lookups suppressed";
 		*no_dns = true;
-		return false;
+		return tal_free(addrs);
 	}
 
 	memset(&hints, 0, sizeof(hints));
@@ -344,34 +346,32 @@ bool wireaddr_from_hostname(struct wireaddr **addrs, const char *hostname,
 	if (gai_err != 0) {
 		if (err_msg)
 			*err_msg = gai_strerror(gai_err);
-		return false;
+		return tal_free(addrs);
 	}
 
-	if (broken_reply != NULL && memeq(addrinfos->ai_addr, addrinfos->ai_addrlen, broken_reply, tal_count(broken_reply))) {
-		res = false;
+	if (broken_reply != NULL && memeq(addrinfos->ai_addr, addrinfos->ai_addrlen, broken_reply, tal_count(broken_reply)))
 		goto cleanup;
-	}
 
 	for (addrinfo = addrinfos; addrinfo; addrinfo = addrinfo->ai_next) {
 		struct wireaddr addr;
 		if (addrinfo->ai_family == AF_INET) {
 			sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
 			wireaddr_from_ipv4(&addr, &sa4->sin_addr, port);
-			res = true;
 		} else if (addrinfo->ai_family == AF_INET6) {
 			sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
 			wireaddr_from_ipv6(&addr, &sa6->sin6_addr, port);
-			res = true;
 		} else
 			/* Ignore any other address types. */
 			continue;
-		tal_arr_expand(addrs, addr);
+		tal_arr_expand(&addrs, addr);
 	}
 
 cleanup:
 	/* Clean up */
 	freeaddrinfo(addrinfos);
-	return res;
+	if (tal_count(addrs))
+		return addrs;
+	return tal_free(addrs);
 }
 
 bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
@@ -408,10 +408,13 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 
 	/* Resolve with getaddrinfo */
 	if (!res) {
-		struct wireaddr *addresses = tal_arr(NULL, struct wireaddr, 0);
-		res = wireaddr_from_hostname(&addresses, ip, port, no_dns, NULL, err_msg);
-		*addr = addresses[0];
-		tal_free(addresses);
+		struct wireaddr *addresses = wireaddr_from_hostname(NULL, ip, port,
+		                                                    no_dns, NULL, err_msg);
+		if (addresses) {
+			*addr = addresses[0];
+			tal_free(addresses);
+			res = true;
+		}
 	}
 
 finish:
