@@ -28,7 +28,7 @@ During startup of `lightningd` you can use the `--plugin=` option to
 register one or more plugins that should be started. In case you wish
 to start several plugins you have to use the `--plugin=` argument
 once for each plugin (or `--plugin-dir` or place them in the default
-plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and 
+plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and
 `~/.lightningd/plugins`). An example call might look like:
 
 ```
@@ -63,36 +63,36 @@ this example:
 
 ```json
 {
-	"options": [
-		{
-			"name": "greeting",
-			"type": "string",
-			"default": "World",
-			"description": "What name should I call you?"
-		}
-	],
-	"rpcmethods": [
-		{
-			"name": "hello",
-			"usage": "[name]",
-			"description": "Returns a personalized greeting for {greeting} (set via options)."
-		},
-		{
-			"name": "gettime",
-			"usage": "",
-			"description": "Returns the current time in {timezone}",
-			"long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
-		}
-	],
-	"subscriptions": [
-		"connect",
-		"disconnect"
-	],
-	"hooks": [
-		"openchannel",
-		"htlc_accepted"
-	],
-	"dynamic": true
+  "options": [
+    {
+      "name": "greeting",
+      "type": "string",
+      "default": "World",
+      "description": "What name should I call you?"
+    }
+  ],
+  "rpcmethods": [
+    {
+      "name": "hello",
+      "usage": "[name]",
+      "description": "Returns a personalized greeting for {greeting} (set via options)."
+    },
+    {
+      "name": "gettime",
+      "usage": "",
+      "description": "Returns the current time in {timezone}",
+      "long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
+    }
+  ],
+  "subscriptions": [
+    "connect",
+    "disconnect"
+  ],
+  "hooks": [
+    "openchannel",
+    "htlc_accepted"
+  ],
+  "dynamic": true
 }
 ```
 
@@ -128,14 +128,14 @@ simple JSON object containing the options:
 
 ```json
 {
-	"options": {
-		"greeting": "World"
-	},
-	"configuration": {
-		 "lightning-dir": "/home/user/.lightning",
-		 "rpc-file": "lightning-rpc",
-		 "startup": true
-	}
+  "options": {
+    "greeting": "World"
+  },
+  "configuration": {
+    "lightning-dir": "/home/user/.lightning",
+    "rpc-file": "lightning-rpc",
+    "startup": true
+  }
 }
 ```
 
@@ -165,21 +165,21 @@ For example the above `getmanifest` result will register two methods,
 called `hello` and `gettime`:
 
 ```json
-    ...
-	"rpcmethods": [
-		{
-			"name": "hello",
-			"usage": "[name]",
-			"description": "Returns a personalized greeting for {greeting} (set via options)."
-		},
-		{
-			"name": "gettime",
-			"description": "Returns the current time in {timezone}",
-			"usage": "",
-			"long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
-		}
-	],
-	...
+  ...
+  "rpcmethods": [
+    {
+      "name": "hello",
+      "usage": "[name]",
+      "description": "Returns a personalized greeting for {greeting} (set via options)."
+    },
+    {
+      "name": "gettime",
+      "description": "Returns the current time in {timezone}",
+      "usage": "",
+      "long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
+    }
+  ],
+  ...
 ```
 
 The RPC call will be passed through unmodified, with the exception of
@@ -225,14 +225,15 @@ A notification for topic `channel_opened` is sent if a peer successfully funded 
 with us. It contains the peer id, the funding amount (in millisatoshis), the funding
 transaction id, and a boolean indicating if the funding transaction has been included
 into a block.
-```
+
+```json
 {
-	"channel_opened": {
-		"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-		"funding_satoshis": "100000000msat",
-		"funding_txid": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-		"funding_locked": false
-	}
+  "channel_opened": {
+    "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+    "funding_satoshis": "100000000msat",
+    "funding_txid": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
+    "funding_locked": false
+  }
 }
 ```
 
@@ -243,8 +244,8 @@ to a peer is established.
 
 ```json
 {
-	"id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
-	"address": "1.2.3.4"
+  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
+  "address": "1.2.3.4"
 }
 ```
 
@@ -255,7 +256,7 @@ to a peer was lost.
 
 ```json
 {
-	"id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
 }
 ```
 
@@ -265,11 +266,11 @@ A notification for topic `invoice_payment` is sent every time an invoie is paid.
 
 ```json
 {
-	"invoice_payment": {
-		"label": "unique-label-for-invoice",
-		"preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-		"msat": "10000msat"
-	}
+  "invoice_payment": {
+    "label": "unique-label-for-invoice",
+    "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+    "msat": "10000msat"
+  }
 }
 ```
 
@@ -282,11 +283,11 @@ message resolving failed...
 
 ```json
 {
-	"warning": {
-	"level": "warn",
-	"time": "1559743608.565342521",
-	"source": "lightningd(17652): 0821f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c chan #7854:",
-	"log": "Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent ERROR bad reestablish dataloss msg"
+  "warning": {
+    "level": "warn",
+    "time": "1559743608.565342521",
+    "source": "lightningd(17652): 0821f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c chan #7854:",
+    "log": "Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent ERROR bad reestablish dataloss msg"
   }
 }
 ```
@@ -295,7 +296,7 @@ message resolving failed...
 extremely bad is out of control, and it may lead to crash;
 2. `time` is the second since epoch;
 3. `source` means where the event happened, it may have the following
-forms:  
+forms:
 `<node_id> chan #<db_id_of_channel>:`,`lightningd(<lightningd_pid>):`,
 `plugin-<plugin_name>:`, `<daemon_name>(<daemon_pid>):`, `jsonrpc:`,
 `jcon fd <error_fd_to_jsonrpc>:`, `plugin-manager`;
@@ -310,18 +311,18 @@ of a forward payment is set. The json format is same as the API
 ```json
 {
   "forward_event": {
-  "payment_hash": "f5a6a059a25d1e329d9b094aeeec8c2191ca037d3f5b0662e21ae850debe8ea2",
-  "in_channel": "103x2x1",
-  "out_channel": "103x1x1",
-  "in_msatoshi": 100001001,
-  "in_msat": "100001001msat",
-  "out_msatoshi": 100000000,
-  "out_msat": "100000000msat",
-  "fee": 1001,
-  "fee_msat": "1001msat",
-  "status": "settled",
-  "received_time": 1560696342.368,
-  "resolved_time": 1560696342.556
+    "payment_hash": "f5a6a059a25d1e329d9b094aeeec8c2191ca037d3f5b0662e21ae850debe8ea2",
+    "in_channel": "103x2x1",
+    "out_channel": "103x1x1",
+    "in_msatoshi": 100001001,
+    "in_msat": "100001001msat",
+    "out_msatoshi": 100000000,
+    "out_msat": "100000000msat",
+    "fee": 1001,
+    "fee_msat": "1001msat",
+    "status": "settled",
+    "received_time": 1560696342.368,
+    "resolved_time": 1560696342.556
   }
 }
 ```
@@ -330,22 +331,22 @@ or
 ```json
 {
   "forward_event": {
-  "payment_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-  "in_channel": "103x2x1",
-  "out_channel": "110x1x0",
-  "in_msatoshi": 100001001,
-  "in_msat": "100001001msat",
-  "out_msatoshi": 100000000,
-  "out_msat": "100000000msat",
-  "fee": 1001,
-  "fee_msat": "1001msat",
-  "status": "local_failed",
-  "failcode": 16392,
-  "failreason": "WIRE_PERMANENT_CHANNEL_FAILURE",
-  "received_time": 1560696343.052
+    "payment_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "in_channel": "103x2x1",
+    "out_channel": "110x1x0",
+    "in_msatoshi": 100001001,
+    "in_msat": "100001001msat",
+    "out_msatoshi": 100000000,
+    "out_msat": "100000000msat",
+    "fee": 1001,
+    "fee_msat": "1001msat",
+    "status": "local_failed",
+    "failcode": 16392,
+    "failreason": "WIRE_PERMANENT_CHANNEL_FAILURE",
+    "received_time": 1560696343.052
   }
 }
-                  
+
 ```
  - The status includes `offered`, `settled`, `failed` and `local_failed`,
    and they are all string type in json.
@@ -367,7 +368,7 @@ or
        as 0;
        - Note: In fact, for this case we may be not sure if this incoming
          htlc represents a pay to us or a payment we need to forward.
-         We just simply treat all incoming failed to resolve as 
+         We just simply treat all incoming failed to resolve as
          `local_failed`.
      - Only in `local_failed` case, json includes `failcode` and
        `failreason` fields;
@@ -392,17 +393,17 @@ command `sendpay`/`waitsendpay` when these cammand succeeds.
 
 ```json
 {
-	"sendpay_success": {
-  "id": 1,
-  "payment_hash": "5c85bf402b87d4860f4a728e2e58a2418bda92cd7aea0ce494f11670cfbfb206",
-  "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-  "msatoshi": 100000000,
-  "amount_msat": "100000000msat",
-  "msatoshi_sent": 100001001,
-  "amount_sent_msat": "100001001msat",
-  "created_at": 1561390572,
-  "status": "complete",
-  "payment_preimage": "9540d98095fd7f37687ebb7759e733934234d4f934e34433d4998a37de3733ee"
+  "sendpay_success": {
+    "id": 1,
+    "payment_hash": "5c85bf402b87d4860f4a728e2e58a2418bda92cd7aea0ce494f11670cfbfb206",
+    "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+    "msatoshi": 100000000,
+    "amount_msat": "100000000msat",
+    "msatoshi_sent": 100001001,
+    "amount_sent_msat": "100001001msat",
+    "created_at": 1561390572,
+    "status": "complete",
+    "payment_preimage": "9540d98095fd7f37687ebb7759e733934234d4f934e34433d4998a37de3733ee"
   }
 }
 ```
@@ -420,24 +421,24 @@ command `sendpay`/`waitsendpay` when this cammand fails.
 ```json
 {
   "sendpay_failure": {
-  "code": 204,
-  "message": "failed: WIRE_UNKNOWN_NEXT_PEER (reply from remote)",
-  "data": {
-    "id": 2,
-    "payment_hash": "9036e3bdbd2515f1e653cb9f22f8e4c49b73aa2c36e937c926f43e33b8db8851",
-    "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-    "msatoshi": 100000000,
-    "amount_msat": "100000000msat",
-    "msatoshi_sent": 100001001,
-    "amount_sent_msat": "100001001msat",
-    "created_at": 1561395134,
-    "status": "failed",
-    "erring_index": 1,
-    "failcode": 16394,
-    "failcodename": "WIRE_UNKNOWN_NEXT_PEER",
-    "erring_node": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-    "erring_channel": "103x2x1",
-    "erring_direction": 0
+    "code": 204,
+    "message": "failed: WIRE_UNKNOWN_NEXT_PEER (reply from remote)",
+    "data": {
+      "id": 2,
+      "payment_hash": "9036e3bdbd2515f1e653cb9f22f8e4c49b73aa2c36e937c926f43e33b8db8851",
+      "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+      "msatoshi": 100000000,
+      "amount_msat": "100000000msat",
+      "msatoshi_sent": 100001001,
+      "amount_sent_msat": "100001001msat",
+      "created_at": 1561395134,
+      "status": "failed",
+      "erring_index": 1,
+      "failcode": 16394,
+      "failcodename": "WIRE_UNKNOWN_NEXT_PEER",
+      "erring_node": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+      "erring_channel": "103x2x1",
+      "erring_direction": 0
     }
   }
 }
@@ -482,10 +483,10 @@ the cryptographic handshake. The parameters have the following structure if ther
 ```json
 {
   "peer": {
-	"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-	"addr": "34.239.230.56:9735",
-	"globalfeatures": "",
-	"localfeatures": ""
+    "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+    "addr": "34.239.230.56:9735",
+    "globalfeatures": "",
+    "localfeatures": ""
   }
 }
 ```
@@ -516,7 +517,9 @@ It is currently extremely restricted:
 
 ```json
 {
-  "writes": [ "PRAGMA foreign_keys = ON" ]
+  "writes": [
+    "PRAGMA foreign_keys = ON"
+  ]
 }
 ```
 
@@ -530,9 +533,9 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
 ```json
 {
   "payment": {
-	"label": "unique-label-for-invoice",
-	"preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-	"msat": "10000msat"
+    "label": "unique-label-for-invoice",
+    "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+    "msat": "10000msat"
   }
 }
 ```
@@ -552,17 +555,17 @@ and it has passed basic sanity checks:
 ```json
 {
   "openchannel": {
-	"id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-	"funding_satoshis": "100000000msat",
-	"push_msat": "0msat",
-	"dust_limit_satoshis": "546000msat",
-	"max_htlc_value_in_flight_msat": "18446744073709551615msat",
-	"channel_reserve_satoshis": "1000000msat",
-	"htlc_minimum_msat": "0msat",
-	"feerate_per_kw": 7500,
-	"to_self_delay": 5,
-	"max_accepted_htlcs": 483,
-	"channel_flags": 1
+    "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+    "funding_satoshis": "100000000msat",
+    "push_msat": "0msat",
+    "dust_limit_satoshis": "546000msat",
+    "max_htlc_value_in_flight_msat": "18446744073709551615msat",
+    "channel_reserve_satoshis": "1000000msat",
+    "htlc_minimum_msat": "0msat",
+    "feerate_per_kw": 7500,
+    "to_self_delay": 5,
+    "max_accepted_htlcs": 483,
+    "channel_flags": 1
   }
 }
 ```
