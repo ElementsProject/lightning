@@ -944,6 +944,8 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->poll_seconds = 30;
 	topo->feerate_uninitialized = true;
 	topo->root = NULL;
+	topo->sync_waiters = tal(topo, struct list_head);
+	list_head_init(topo->sync_waiters);
 	return topo;
 }
 
@@ -953,8 +955,6 @@ void setup_topology(struct chain_topology *topo,
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
-	topo->sync_waiters = tal(topo, struct list_head);
-	list_head_init(topo->sync_waiters);
 
 	topo->min_blockheight = min_blockheight;
 	topo->max_blockheight = max_blockheight;
