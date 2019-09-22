@@ -1454,13 +1454,12 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		    "Processing deferred node_announcement for node %s",
 		    type_to_string(pna, struct node_id, nodeid));
 
-		/* Should not error, since we processed it before */
+		/* Can fail it timestamp is now too old */
 		if (!routing_add_node_announcement(rstate,
 						   pna->node_announcement,
 						   pna->index))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "pending node_announcement %s malformed?",
-				      tal_hex(tmpctx, pna->node_announcement));
+			status_unusual("pending node_announcement %s too old?",
+				       tal_hex(tmpctx, pna->node_announcement));
 		/* Never send this again. */
 		pna->node_announcement = tal_free(pna->node_announcement);
 	}
@@ -1836,13 +1835,15 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	pending_cannouncement_map_del(&rstate->pending_cannouncements, pending);
 	tal_del_destructor2(pending, destroy_pending_cannouncement, rstate);
 
+	/* Can fail if channel_announcement too old */
 	if (!routing_add_channel_announcement(rstate, pending->announce, sat, 0))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not add channel_announcement");
-
-	/* Did we have an update waiting?  If so, apply now. */
-	process_pending_channel_update(rstate, scid, pending->updates[0]);
-	process_pending_channel_update(rstate, scid, pending->updates[1]);
+		status_unusual("Could not add channel_announcement %s: too old?",
+			       tal_hex(tmpctx, pending->announce));
+	else {
+		/* Did we have an update waiting?  If so, apply now. */
+		process_pending_channel_update(rstate, scid, pending->updates[0]);
+		process_pending_channel_update(rstate, scid, pending->updates[1]);
+	}
 
 	tal_free(pending);
 	return true;
