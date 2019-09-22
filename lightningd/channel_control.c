@@ -376,9 +376,9 @@ void peer_start_channeld(struct channel *channel,
 
 	if (channel->scid) {
 		scid = *channel->scid;
-		/* Subtle: depth=1 at funding height. */
-		reached_announce_depth = get_block_height(ld->topology) + 1 >=
-				       short_channel_id_blocknum(&scid) + ANNOUNCE_MIN_DEPTH;
+		reached_announce_depth
+			= is_scid_depth_announceable(&scid,
+						     get_block_height(ld->topology));
 		log_debug(channel->log, "Already have funding locked in%s",
 			  reached_announce_depth
 			  ? " (and ready to announce)" : "");

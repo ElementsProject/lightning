@@ -4,6 +4,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
+#include <common/gossip_constants.h>
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -45,6 +46,16 @@ static inline u32 short_channel_id_txnum(const struct short_channel_id *scid)
 static inline u16 short_channel_id_outnum(const struct short_channel_id *scid)
 {
 	return scid->u64 & 0xFFFF;
+}
+
+/* Subtly, at block N, depth is 1, hence the -1 here. eg. 103x1x0 is announceable
+ * when height is 108. */
+static inline bool
+is_scid_depth_announceable(const struct short_channel_id *scid,
+			  unsigned int height)
+{
+	return short_channel_id_blocknum(scid) + ANNOUNCE_MIN_DEPTH - 1
+		<= height;
 }
 
 /* Returns false if blocknum, txnum or outnum require too many bits */
