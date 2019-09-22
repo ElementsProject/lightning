@@ -7,9 +7,9 @@
 #include <ccan/intmap/intmap.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
+#include <common/gossip_constants.h>
 #include <common/node_id.h>
 #include <gossipd/broadcast.h>
-#include <gossipd/gossip_constants.h>
 #include <gossipd/gossip_store.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire.h>

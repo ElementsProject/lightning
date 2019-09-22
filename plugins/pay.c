@@ -5,9 +5,9 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/bolt11.h>
+#include <common/gossip_constants.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
-#include <gossipd/gossip_constants.h>
 #include <plugins/libplugin.h>
 #include <stdio.h>
 #include <wire/onion_defs.h>

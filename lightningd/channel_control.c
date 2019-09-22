@@ -3,6 +3,7 @@
 #include <ccan/cast/cast.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/features.h>
+#include <common/gossip_constants.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -12,7 +13,6 @@
 #include <common/wallet_tx.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <gossipd/gossip_constants.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
