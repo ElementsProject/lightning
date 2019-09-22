@@ -81,6 +81,9 @@ struct log_book *get_log_book(const struct log *log UNNEEDED)
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED, int connectd_fd UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
+/* Generated stub for gossip_notify_new_block */
+void gossip_notify_new_block(struct lightningd *ld UNNEEDED, u32 blockheight UNNEEDED)
+{ fprintf(stderr, "gossip_notify_new_block called!\n"); abort(); }
 /* Generated stub for handle_early_opts */
 void handle_early_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
 { fprintf(stderr, "handle_early_opts called!\n"); abort(); }

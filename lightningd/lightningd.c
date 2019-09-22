@@ -586,6 +586,7 @@ void notify_new_block(struct lightningd *ld, u32 block_height)
 	/* Inform our subcomponents individually. */
 	htlcs_notify_new_block(ld, block_height);
 	channel_notify_new_block(ld, block_height);
+	gossip_notify_new_block(ld, block_height);
 }
 
 static void on_sigint(int _ UNUSED)

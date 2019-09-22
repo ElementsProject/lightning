@@ -2344,6 +2344,15 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+static struct io_plan *new_blockheight(struct io_conn *conn,
+				       struct daemon *daemon,
+				       const u8 *msg)
+{
+	if (!fromwire_gossip_new_blockheight(msg, &daemon->current_blockheight))
+		master_badmsg(WIRE_GOSSIP_NEW_BLOCKHEIGHT, msg);
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
 #if DEVELOPER
 static struct io_plan *query_scids_req(struct io_conn *conn,
 				       struct daemon *daemon,
@@ -2801,6 +2810,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS:
 		return get_incoming_channels(conn, daemon, msg);
 
+	case WIRE_GOSSIP_NEW_BLOCKHEIGHT:
+		return new_blockheight(conn, daemon, msg);
+
 #if DEVELOPER
 	case WIRE_GOSSIP_QUERY_SCIDS:
 		return query_scids_req(conn, daemon, msg);
@@ -2875,6 +2887,7 @@ int main(int argc, char *argv[])
 	daemon->unknown_scids = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->gossip_missing = NULL;
 	daemon->node_announce_timer = NULL;
+	daemon->current_blockheight = 0; /* i.e. unknown */
 
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
