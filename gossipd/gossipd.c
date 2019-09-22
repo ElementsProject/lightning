@@ -1653,8 +1653,9 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	/* Free peer if conn closed (destroy_peer closes conn if peer freed) */
 	tal_steal(peer->dc, peer);
 
-	/* This sends the initial timestamp filter. */
-	setup_gossip_range(peer);
+	/* This sends the initial timestamp filter (wait until we're synced!). */
+	if (daemon->current_blockheight)
+		setup_gossip_range(peer);
 
 	/* BOLT #7:
 	 *
@@ -2360,6 +2361,8 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 				       struct daemon *daemon,
 				       const u8 *msg)
 {
+	bool was_unknown = (daemon->current_blockheight == 0);
+
 	if (!fromwire_gossip_new_blockheight(msg, &daemon->current_blockheight))
 		master_badmsg(WIRE_GOSSIP_NEW_BLOCKHEIGHT, msg);
 
@@ -2378,6 +2381,14 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 
 		tal_arr_remove(&daemon->deferred_txouts, i);
 		i--;
+	}
+
+	/* Do we need to start gossip filtering now? */
+	if (was_unknown) {
+		struct peer *peer;
+
+		list_for_each(&daemon->peers, peer, list)
+			setup_gossip_range(peer);
 	}
 
 	return daemon_conn_read_next(conn, daemon->master);
