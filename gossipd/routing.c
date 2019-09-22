@@ -1746,6 +1746,20 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		goto malformed;
 	}
 
+	/* Don't add an infinite number of pending announcements.  If we're
+	 * catching up with the bitcoin chain, though, they can definitely
+	 * pile up. */
+	if (pending_cannouncement_map_count(&rstate->pending_cannouncements)
+	    > 100000) {
+		static bool warned = false;
+		if (!warned) {
+			status_unusual("Flooded by channel_announcements:"
+				       " ignoring some");
+			warned = true;
+		}
+		goto ignored;
+	}
+
 	status_debug("Received channel_announcement for channel %s",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &pending->short_channel_id));
