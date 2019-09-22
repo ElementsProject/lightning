@@ -18,6 +18,9 @@ struct daemon {
 	/* Peers we are gossiping to: id is unique */
 	struct list_head peers;
 
+	/* Current blockheight: 0 means we're not up-to-date. */
+	u32 current_blockheight;
+
 	/* Connection to lightningd. */
 	struct daemon_conn *master;
 

@@ -164,3 +164,7 @@ msgdata,gossip_get_incoming_channels,private_too,?bool,
 msgtype,gossip_get_incoming_channels_reply,3125
 msgdata,gossip_get_incoming_channels_reply,num,u16,
 msgdata,gossip_get_incoming_channels_reply,route_info,route_info,num
+
+# master -> gossipd: blockheight increased.
+msgtype,gossip_new_blockheight,3026
+msgdata,gossip_new_blockheight,blockheight,u32,

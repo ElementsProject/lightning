@@ -108,6 +108,9 @@ bool fromwire_gossip_get_txout_reply(const tal_t *ctx UNNEEDED, const void *p UN
 /* Generated stub for fromwire_gossip_local_channel_close */
 bool fromwire_gossip_local_channel_close(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_local_channel_close called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_new_blockheight */
+bool fromwire_gossip_new_blockheight(const void *p UNNEEDED, u32 *blockheight UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_new_blockheight called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_new_peer */
 bool fromwire_gossip_new_peer(const void *p UNNEEDED, struct node_id *id UNNEEDED, bool *gossip_queries_feature UNNEEDED, bool *initial_routing_sync UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_new_peer called!\n"); abort(); }

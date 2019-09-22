@@ -152,6 +152,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_DEV_MEMLEAK:
 	case WIRE_GOSSIP_DEV_COMPACT_STORE:
 	case WIRE_GOSSIP_DEV_SET_TIME:
+	case WIRE_GOSSIP_NEW_BLOCKHEIGHT:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
@@ -175,6 +176,22 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	return 0;
 }
 
+void gossip_notify_new_block(struct lightningd *ld, u32 blockheight)
+{
+	/* Only notify gossipd once we're synced. */
+	if (!topology_synced(ld->topology))
+		return;
+
+	subd_send_msg(ld->gossip,
+		      take(towire_gossip_new_blockheight(NULL, blockheight)));
+}
+
+static void gossip_topology_synced(struct chain_topology *topo, void *unused)
+{
+	/* Now we start telling gossipd about blocks. */
+	gossip_notify_new_block(topo->ld, get_block_height(topo));
+}
+
 /* Create the `gossipd` subdaemon and send the initialization
  * message */
 void gossip_init(struct lightningd *ld, int connectd_fd)
@@ -189,6 +206,10 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 				     take(&hsmfd), take(&connectd_fd), NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
+
+	/* We haven't started topology yet, so tell us when we're synced. */
+	topology_add_sync_waiter(ld->gossip, ld->topology,
+				 gossip_topology_synced, NULL);
 
 	msg = towire_gossipctl_init(
 	    tmpctx,
