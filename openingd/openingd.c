@@ -1497,6 +1497,12 @@ int main(int argc, char *argv[])
 			t = time_to_msec(trel);
 		else
 			t = -1;
+
+		/*~ If we get a signal which aborts the poll() call, valgrind
+		 * complains about revents being uninitialized.  I'm not sure
+		 * that's correct, but it's easy to be sure. */
+		pollfd[0].revents = pollfd[1].revents = pollfd[2].revents = 0;
+
 		poll(pollfd, ARRAY_SIZE(pollfd), t);
 		/* Subtle: handle_master_in can do its own poll loop, so
 		 * don't try to service more than one fd per loop. */
