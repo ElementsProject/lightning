@@ -1444,7 +1444,6 @@ def test_list_features_only(node_factory):
     features = subprocess.check_output(['lightningd/lightningd',
                                         '--list-features-only']).decode('utf-8').splitlines()
     expected = ['option_data_loss_protect/odd',
-                'option_initial_routing_sync/odd',
                 'option_upfront_shutdown_script/odd',
                 'option_gossip_queries/odd',
                 'option_gossip_queries_ex/odd']
