@@ -346,6 +346,7 @@ struct chan *new_chan(struct routing_state *rstate,
  */
 u8 *handle_channel_announcement(struct routing_state *rstate,
 				const u8 *announce TAKES,
+				u32 current_blockheight,
 				const struct short_channel_id **scid);
 
 /**

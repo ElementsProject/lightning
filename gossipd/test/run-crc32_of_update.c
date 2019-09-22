@@ -177,6 +177,7 @@ const char *got_pong(const u8 *pong UNNEEDED, size_t *num_pings_outstanding UNNE
 /* Generated stub for handle_channel_announcement */
 u8 *handle_channel_announcement(struct routing_state *rstate UNNEEDED,
 				const u8 *announce TAKES UNNEEDED,
+				u32 current_blockheight UNNEEDED,
 				const struct short_channel_id **scid UNNEEDED)
 { fprintf(stderr, "handle_channel_announcement called!\n"); abort(); }
 /* Generated stub for handle_channel_update */
