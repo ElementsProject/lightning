@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <ccan/fdpass/fdpass.h>
+#include <common/gossip_constants.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/per_peer_state.h>
-#include <gossipd/gossip_constants.h>
 #include <unistd.h>
 #include <wire/wire.h>
 

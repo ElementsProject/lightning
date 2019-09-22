@@ -7,7 +7,7 @@ gossipd-wrongdir:
 default: gossipd-all
 
 # lightningd uses this:
-LIGHTNINGD_GOSSIP_CONTROL_HEADERS := gossipd/gen_gossip_wire.h gossipd/gossip_constants.h
+LIGHTNINGD_GOSSIP_CONTROL_HEADERS := gossipd/gen_gossip_wire.h
 LIGHTNINGD_GOSSIP_CONTROL_SRC := gossipd/gen_gossip_wire.c
 LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 

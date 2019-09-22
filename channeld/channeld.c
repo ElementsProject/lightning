@@ -29,6 +29,7 @@
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
+#include <common/gossip_constants.h>
 #include <common/gossip_store.h>
 #include <common/htlc_tx.h>
 #include <common/key_derive.h>
@@ -49,7 +50,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
-#include <gossipd/gossip_constants.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <secp256k1.h>

@@ -1,22 +1,18 @@
-#ifndef LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H
-#define LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H
+#ifndef LIGHTNING_COMMON_GOSSIP_CONSTANTS_H
+#define LIGHTNING_COMMON_GOSSIP_CONSTANTS_H
+#include "config.h"
 #include <common/utils.h>
 
 /* BOLT #4:
  *
- * - Length: the maximum route length is limited to 20 hops.
- *...
- * 1. type: `onion_packet`
- * 2. data:
- *    * [`byte`:`version`]
- *    * [`point`:`public_key`]
- *    * [`1300*byte`:`hops_data`]
+ * - a 1300-byte `hop_payloads` consisting of multiple, variable length,
+ *   `hop_payload` payloads or up to 20 fixed sized legacy `hop_data` payloads.
  */
 #define ROUTING_MAX_HOPS 20
 
 /* BOLT #7:
  *
- * The `flags` bitfield...individual bits:
+ * The `channel_flags` bitfield...individual bits:
  *...
  * | 0             | `direction` | Direction this update refers to. |
  * | 1             | `disable`   | Disable the channel.             |
@@ -29,7 +25,7 @@
  * The `message_flags` bitfield is used to indicate the presence of optional
  * fields in the `channel_update` message:
  * | Bit Position  | Name                      | Field                |
- * | ------------- | ------------------------- | -------------------- |
+ * | ------------- | ------------------------- | ----------------...- |
  * | 0             | `option_channel_htlc_max` | `htlc_maximum_msat`  |
  */
 #define ROUTING_OPT_HTLC_MAX_MSAT (1 << 0)
@@ -37,7 +33,8 @@
 /* BOLT #7:
  *
  * - MUST NOT send `announcement_signatures` messages until `funding_locked`
- *   has been sent AND the funding transaction has at least six confirmations.
+ *   has been sent and received AND the funding transaction has at least six
+ *   confirmations.
  */
 #define ANNOUNCE_MIN_DEPTH 6
 
@@ -81,4 +78,4 @@
 #define GOSSIP_TOKEN_TIME(dev_fast_gossip_flag) \
 	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 1, 3600)
 
-#endif /* LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H */
+#endif /* LIGHTNING_COMMON_GOSSIP_CONSTANTS_H */

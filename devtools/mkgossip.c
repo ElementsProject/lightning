@@ -15,8 +15,8 @@
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
+#include <common/gossip_constants.h>
 #include <common/utils.h>
-#include <gossipd/gossip_constants.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 #include <stdio.h>
