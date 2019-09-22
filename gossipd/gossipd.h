@@ -54,6 +54,9 @@ struct daemon {
 
 	/* Timer until we can send a new node_announcement */
 	struct oneshot *node_announce_timer;
+
+	/* Channels we have an announce for, but aren't deep enough. */
+	struct short_channel_id *deferred_txouts;
 };
 
 /* Search for a peer. */

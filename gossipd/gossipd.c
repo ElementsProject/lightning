@@ -547,12 +547,24 @@ static const u8 *handle_channel_announcement_msg(struct peer *peer,
 	/* If it's OK, tells us the short_channel_id to lookup; it notes
 	 * if this is the unknown channel the peer was looking for (in
 	 * which case, it frees and NULLs that ptr) */
-	err = handle_channel_announcement(peer->daemon->rstate, msg, &scid);
+	err = handle_channel_announcement(peer->daemon->rstate, msg,
+					  peer->daemon->current_blockheight,
+					  &scid);
 	if (err)
 		return err;
-	else if (scid)
-		daemon_conn_send(peer->daemon->master,
-				 take(towire_gossip_get_txout(NULL, scid)));
+	else if (scid) {
+		/* We give them some grace period, in case we don't know about
+		 * block yet. */
+		if (peer->daemon->current_blockheight == 0
+		    || !is_scid_depth_announceable(scid,
+						   peer->daemon->current_blockheight)) {
+			tal_arr_expand(&peer->daemon->deferred_txouts, *scid);
+		} else {
+			daemon_conn_send(peer->daemon->master,
+					 take(towire_gossip_get_txout(NULL,
+								      scid)));
+		}
+	}
 	return NULL;
 }
 
@@ -2350,6 +2362,24 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 {
 	if (!fromwire_gossip_new_blockheight(msg, &daemon->current_blockheight))
 		master_badmsg(WIRE_GOSSIP_NEW_BLOCKHEIGHT, msg);
+
+	/* Check if we can now send any deferred queries. */
+	for (size_t i = 0; i < tal_count(daemon->deferred_txouts); i++) {
+		const struct short_channel_id *scid
+			= &daemon->deferred_txouts[i];
+
+		if (!is_scid_depth_announceable(scid,
+						daemon->current_blockheight))
+			continue;
+
+		/* short_channel_id is deep enough, now ask about it. */
+		daemon_conn_send(daemon->master,
+				 take(towire_gossip_get_txout(NULL, scid)));
+
+		tal_arr_remove(&daemon->deferred_txouts, i);
+		i--;
+	}
+
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -2885,6 +2915,7 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
 	daemon->unknown_scids = tal_arr(daemon, struct short_channel_id, 0);
+	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->gossip_missing = NULL;
 	daemon->node_announce_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */

@@ -1602,6 +1602,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 u8 *handle_channel_announcement(struct routing_state *rstate,
 				const u8 *announce TAKES,
+				u32 current_blockheight,
 				const struct short_channel_id **scid)
 {
 	struct pending_cannouncement *pending;
@@ -1634,6 +1635,19 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 				      "Malformed channel_announcement %s",
 				      tal_hex(pending, pending->announce));
 		goto malformed;
+	}
+
+	/* If we know the blockheight, and it's in the future, reject
+	 * out-of-hand.  Remember, it should be 6 deep before they tell us
+	 * anyway. */
+	if (current_blockheight != 0
+	    && short_channel_id_blocknum(&pending->short_channel_id) > current_blockheight) {
+		status_debug("Ignoring future channel_announcment for %s"
+			     " (current block %u)",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &pending->short_channel_id),
+			     current_blockheight);
+		goto ignored;
 	}
 
 	/* If a prior txout lookup failed there is little point it trying
