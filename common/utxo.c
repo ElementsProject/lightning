@@ -24,21 +24,21 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 		if (utxo->close_info->commitment_point)
 			towire_pubkey(pptr, utxo->close_info->commitment_point);
 	}
+
+	towire_u16(pptr, tal_count(utxo->scriptPubkey));
+	towire_u8_array(pptr, utxo->scriptPubkey, tal_count(utxo->scriptPubkey));
 }
 
 struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
+	u16 script_len;
 
 	fromwire_bitcoin_txid(ptr, max, &utxo->txid);
 	utxo->outnum = fromwire_u32(ptr, max);
 	utxo->amount = fromwire_amount_sat(ptr, max);
 	utxo->keyindex = fromwire_u32(ptr, max);
 	utxo->is_p2sh = fromwire_bool(ptr, max);
-
-	/* No need to tell hsmd about the scriptPubkey, it has all the info to
-	 * derive it from the rest. */
-	utxo->scriptPubkey = NULL;
 
 	if (fromwire_bool(ptr, max)) {
 		utxo->close_info = tal(utxo, struct unilateral_close_info);
@@ -54,6 +54,9 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	} else {
 		utxo->close_info = NULL;
 	}
+
+	script_len = fromwire_u16(ptr, max);
+	fromwire_u8_array(ptr, max, utxo->scriptPubkey, script_len);
 	return utxo;
 }
 
