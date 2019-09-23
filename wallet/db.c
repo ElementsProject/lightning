@@ -573,7 +573,7 @@ const void *db_column_blob(struct db_stmt *stmt, int col)
 
 const unsigned char *db_column_text(struct db_stmt *stmt, int col)
 {
-	return stmt->db->config->column_blob_fn(stmt, col);
+	return stmt->db->config->column_text_fn(stmt, col);
 }
 
 size_t db_count_changes(struct db_stmt *stmt)
