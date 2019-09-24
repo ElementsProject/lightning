@@ -886,7 +886,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
     # Create the funding transaction
-    prep = l1.rpc.txprepare([{funding_addr: amount2}])
+    prep = l1.rpc.txprepare([{funding_addr: amount2}], txtype="funding")
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
 

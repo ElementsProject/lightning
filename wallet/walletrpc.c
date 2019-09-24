@@ -146,6 +146,32 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/* Now we only support using `txprepare` for "withdrawal",
+ * "funding" and "unknown". */
+static struct command_result *param_txtype(struct command *cmd,
+					   const char *name,
+					   const char *buffer,
+					   const jsmntok_t *tok,
+					   enum wallet_tx_type **txtype)
+{
+	*txtype = tal(cmd, enum wallet_tx_type);
+	if (json_tok_streq(buffer, tok, "unknown"))
+		**txtype = TX_UNKNOWN;
+	else if (json_tok_streq(buffer, tok, "withdrawal"))
+		**txtype = TX_WALLET_WITHDRAWAL;
+	else if (json_tok_streq(buffer, tok, "funding"))
+		**txtype = TX_CHANNEL_FUNDING;
+	else {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be 'unknown', 'withdrawal', or "
+				    "'funding', not '%.*s'",
+				    name,
+				    json_tok_full_len(tok),
+				    json_tok_full(buffer, tok));
+	}
+	return NULL;
+}
+
 /* Common code for withdraw and txprepare.
  *
  * Returns NULL on success, and fills in wtx, output and
@@ -166,6 +192,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	const u8 *destination = NULL;
 	size_t out_len, i;
 	const struct utxo **chosen_utxos;
+	enum wallet_tx_type *txtype = NULL;
 
 	*utx = tal(cmd, struct unreleased_tx);
 	(*utx)->wtx = tal(*utx, struct wallet_tx);
@@ -179,6 +206,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 			   p_opt("feerate", param_feerate, &feerate_per_kw),
 			   p_opt_def("minconf", param_number, &minconf, 1),
 			   p_opt("utxos", param_utxos, &chosen_utxos),
+			   p_opt_def("txtype", param_txtype, &txtype, TX_UNKNOWN),
 			   NULL)) {
 
 			/* For generating help, give new-style. */
@@ -193,6 +221,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 				   p_req("satoshi", param_wtx, (*utx)->wtx),
 				   p_opt("feerate", param_feerate, &feerate_per_kw),
 				   p_opt_def("minconf", param_number, &minconf, 1),
+				   p_opt_def("txtype", param_txtype, &txtype, TX_UNKNOWN),
 				   NULL))
 				/* If the parameters mixed the new style and the old style,
 				 * fail it. */
@@ -209,6 +238,8 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 			   p_opt("utxos", param_utxos, &chosen_utxos),
 			   NULL))
 		return command_param_failed();
+
+		(*utx)->txtype = TX_WALLET_WITHDRAWAL;
 	}
 
 	if (!feerate_per_kw) {
@@ -219,6 +250,10 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	}
 
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
+
+	/* txtyep is not NULL only when `for_withdraw` is false. */
+	if (txtype)
+		(*utx)->txtype = *txtype;
 
 	/* *withdraw* command or old *txprepare* command.
 	 * Support only one output. */
@@ -409,7 +444,7 @@ static struct command_result *json_txsend(struct command *cmd,
 
 	wallet_transaction_add(cmd->ld->wallet, utx->tx, 0, 0);
 	wallet_transaction_annotate(cmd->ld->wallet, &utx->txid,
-				    TX_UNKNOWN, 0);
+				    utx->txtype, 0);
 
 	return broadcast_and_wait(cmd, utx);
 }

@@ -880,7 +880,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
         return self.call("withdraw", payload)
 
-    def txprepare(self, outputs, feerate=None, minconf=None, utxos=None):
+    def txprepare(self, outputs, feerate=None, minconf=None, utxos=None, txtype=None):
         """
         Prepare a bitcoin transaction which sends to [outputs].
         The format of output is like [{address1: amount1},
@@ -895,6 +895,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "feerate": feerate,
             "minconf": minconf,
             "utxos": utxos,
+            "txtype": txtype,
         }
         return self.call("txprepare", payload)
 
