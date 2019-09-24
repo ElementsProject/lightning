@@ -249,7 +249,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 		if (t->type != JSMN_OBJECT)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "The output format must be "
-					    "{destination: amount}");;
+					    "{destination: amount}");
 
 		res = json_tok_address_scriptpubkey(cmd,
 						    get_chainparams(cmd->ld),
