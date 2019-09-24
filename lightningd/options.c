@@ -149,16 +149,6 @@ static char *opt_add_addr_withtype(const char *arg,
 
 }
 
-static char *opt_add_addr(const char *arg, struct lightningd *ld)
-{
-	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE, true);
-}
-
-static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
-{
-	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN, true);
-}
-
 static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 {
 	const struct wireaddr *wn;
@@ -191,6 +181,46 @@ static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 			       type_to_string(tmpctx, struct wireaddr, wi));
 	}
 	return NULL;
+}
+
+static char *opt_add_addr(const char *arg, struct lightningd *ld)
+{
+	struct wireaddr_internal addr;
+
+	/* handle in case you used the addr option with an .onion */
+	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true, NULL)) {
+		if (addr.itype == ADDR_INTERNAL_WIREADDR && (
+			addr.u.wireaddr.type == ADDR_TYPE_TOR_V2 ||
+			addr.u.wireaddr.type == ADDR_TYPE_TOR_V3)) {
+				log_unusual(ld->log, "You used `--addr=%s` option with an .onion address, please use"
+							" `--announce-addr` ! You are lucky in this node live some wizards and"
+							" fairies, we have done this for you and announce, Be as hidden as wished",
+							arg);
+				return opt_add_announce_addr(arg, ld);
+		}
+	}
+	/* the intended call */
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE, true);
+}
+
+static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
+{
+	struct wireaddr_internal addr;
+
+	/* handle in case you used the bind option with an .onion */
+	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true, NULL)) {
+		if (addr.itype == ADDR_INTERNAL_WIREADDR && (
+			addr.u.wireaddr.type == ADDR_TYPE_TOR_V2 ||
+			addr.u.wireaddr.type == ADDR_TYPE_TOR_V3)) {
+				log_unusual(ld->log, "You used `--bind-addr=%s` option with an .onion address,"
+							" You are lucky in this node live some wizards and"
+							" fairies, we have done this for you and don't announce, Be as hidden as wished",
+							arg);
+				return NULL;
+		}
+	}
+	/* the intended call */
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN, true);
 }
 
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
