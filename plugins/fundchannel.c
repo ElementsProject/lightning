@@ -257,6 +257,7 @@ static struct json_out *txprepare(struct command *cmd,
 		json_out_add(ret, "minconf", false, "%u", *fr->minconf);
 	if (fr->utxo_str)
 		json_out_add_raw_len(ret, "utxos", fr->utxo_str, strlen(fr->utxo_str));
+	json_out_addstr(ret, "txtype", "funding");
 	json_out_end(ret, '}');
 
 	return ret;
