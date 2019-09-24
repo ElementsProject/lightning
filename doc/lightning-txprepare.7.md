@@ -4,7 +4,7 @@ lightning-txprepare -- Command to prepare to withdraw funds from the internal wa
 SYNOPSIS
 --------
 
-**txprepare** *outputs* \[*feerate*\] \[*minconf*\] \[*utxos*\]
+**txprepare** *outputs* \[*feerate*\] \[*minconf*\] \[*utxos*\] \[*txtype*\]
 
 DESCRIPTION
 -----------
@@ -35,6 +35,10 @@ is provided by **txsend**.
 
 *utxos* specifies the utxos to be used to fund the transaction, as an array
 of "txid:vout". These must be drawn from the node's available UTXO set.
+
+*txtype* is a string and specifies what the use of this transaction is. It can
+be "withdrawal", "funding" or "unknown". If no value is provided the default of
+"unknown" is used.
 
 RETURN VALUE
 ------------

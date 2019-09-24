@@ -3,7 +3,7 @@
 
 .SH SYNOPSIS
 
-\fBtxprepare\fR \fIoutputs\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
+\fBtxprepare\fR \fIoutputs\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR] [\fItxtype\fR]
 
 .SH DESCRIPTION
 
@@ -38,6 +38,11 @@ is provided by \fBtxsend\fR\.
 
 \fIutxos\fR specifies the utxos to be used to fund the transaction, as an array
 of "txid:vout"\. These must be drawn from the node's available UTXO set\.
+
+
+\fItxtype\fR is a string and specifies what the use of this transaction is\. It can
+be "withdrawal", "funding" or "unknown"\. If no value is provided the default of
+"unknown" is used\.
 
 .SH RETURN VALUE
 
