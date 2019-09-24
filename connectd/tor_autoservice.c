@@ -100,6 +100,7 @@ static struct wireaddr *make_onion(const tal_t *ctx,
 		if (!parse_wireaddr(name, onion, DEFAULT_PORT, false, NULL))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tor gave bad onion name '%s'", name);
+		status_info("New autotor service onion address: \"%s:%d\"", name, DEFAULT_PORT);
 		discard_remaining_response(rbuf);
 		return onion;
 	}
