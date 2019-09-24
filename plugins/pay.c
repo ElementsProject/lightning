@@ -178,6 +178,14 @@ static void attempt_failed_tok(struct pay_command *pc, const char *method,
 	failed_end(failed);
 }
 
+/* Helper to add a u32. */
+static void json_out_add_u32(struct json_out *jout,
+			     const char *fieldname,
+			     u32 val)
+{
+	json_out_add(jout, fieldname, false, "%"PRIu32, val);
+}
+
 /* Helper to add a u64. */
 static void json_out_add_u64(struct json_out *jout,
 			     const char *fieldname,
@@ -708,7 +716,7 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 {
 	struct amount_msat msat;
 	const char *dest;
-	size_t max_hops = ROUTING_MAX_HOPS;
+	u32 max_hops = ROUTING_MAX_HOPS;
 	u32 cltv;
 	struct pay_attempt *attempt;
 	va_list ap;
@@ -767,8 +775,8 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	json_out_addstr(params, "id", dest);
 	json_out_addstr(params, "msatoshi",
 			type_to_string(tmpctx, struct amount_msat, &msat));
-	json_out_add_u64(params, "cltv", cltv);
-	json_out_add_u64(params, "maxhops", max_hops);
+	json_out_add_u32(params, "cltv", cltv);
+	json_out_add_u32(params, "maxhops", max_hops);
 	json_out_add(params, "riskfactor", false, "%f", pc->riskfactor);
 	if (tal_count(pc->excludes) != 0) {
 		json_out_start(params, "exclude", '[');
