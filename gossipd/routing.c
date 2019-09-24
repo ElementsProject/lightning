@@ -1042,7 +1042,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 		   struct node *src, struct node *dst,
 		   const struct node *me,
 		   struct amount_msat msat,
-		   size_t max_hops,
+		   u32 max_hops,
 		   double fuzz, const struct siphash_seed *base_seed,
 		   struct chan **long_route,
 		   struct amount_msat *fee)
@@ -1165,7 +1165,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	   struct amount_msat msat,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
-	   size_t max_hops,
+	   u32 max_hops,
 	   struct amount_msat *fee)
 {
 	struct node *src, *dst;
@@ -2337,7 +2337,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    u32 final_cltv,
 			    double fuzz, u64 seed,
 			    struct exclude_entry **excluded,
-			    size_t max_hops)
+			    u32 max_hops)
 {
 	struct chan **route;
 	struct amount_msat total_amount;

@@ -349,7 +349,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    double fuzz,
 			    u64 seed,
 			    struct exclude_entry **excluded,
-			    size_t max_hops);
+			    u32 max_hops);
 /* Disable channel(s) based on the given routing failure. */
 void routing_failure(struct routing_state *rstate,
 		     const struct node_id *erring_node,
