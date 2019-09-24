@@ -73,17 +73,42 @@ static void discard_remaining_response(struct rbuf *rbuf)
 
 static struct wireaddr *make_onion(const tal_t *ctx,
 				   struct rbuf *rbuf,
-				   const struct wireaddr *local)
+				   const struct wireaddr *local,
+				   bool use_v3_autotor)
 {
 	char *line;
 	struct wireaddr *onion;
 
-//V3 tor after 3.3.3.aplha FIXME: TODO SAIBATO
-//sprintf((char *)reach->buffer,"ADD_ONION NEW:ED25519-V3 Port=9735,127.0.0.1:9735\r\n");
-	tor_send_cmd(rbuf,
+/* Now that V3 is out of Beta default to V3 autoservice onions if version is above 0.4
+*/
+	tor_send_cmd(rbuf, "PROTOCOLINFO 1");
+
+	while ((line = tor_response_line(rbuf)) != NULL) {
+
+		if (!strstarts(line, "VERSION Tor="))
+			continue;
+
+		if (use_v3_autotor)
+			if(strstr(line, "\"0.0") ||
+				strstr(line, "\"0.1") ||
+				strstr(line, "\"0.2") ||
+				strstr(line, "\"0.3")) {
+						use_v3_autotor = false;
+						status_unusual("Autotor: fallback to try a V2 onion service, your Tor version is smaller than 0.4.x.x");
+			}
+	};
+
+	if (!use_v3_autotor) {
+		tor_send_cmd(rbuf,
 		     tal_fmt(tmpctx, "ADD_ONION NEW:RSA1024 Port=%d,%s Flags=DiscardPK,Detach",
 			     /* FIXME: We *could* allow user to set Tor port */
 			     DEFAULT_PORT, fmt_wireaddr(tmpctx, local)));
+	} else {
+		tor_send_cmd(rbuf,
+		     tal_fmt(tmpctx, "ADD_ONION NEW:ED25519-V3 Port=%d,%s Flags=DiscardPK,Detach",
+			     /* FIXME: We *could* allow user to set Tor port */
+			     DEFAULT_PORT, fmt_wireaddr(tmpctx, local)));
+	}
 
 	while ((line = tor_response_line(rbuf)) != NULL) {
 		const char *name;
@@ -210,6 +235,7 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 	struct addrinfo *ai_tor;
 	struct rbuf rbuf;
 	char *buffer;
+	bool use_v3_autotor;
 
 	laddr = find_local_address(bindings);
 	ai_tor = wireaddr_to_addrinfo(tmpctx, tor_serviceaddr);
@@ -224,8 +250,10 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
 	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
 
+	use_v3_autotor = true;
+
 	negotiate_auth(&rbuf, tor_password);
-	onion = make_onion(ctx, &rbuf, laddr);
+	onion = make_onion(ctx, &rbuf, laddr, use_v3_autotor);
 
 	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */
 	//because when we run with Detach flag as we now do every start of LN creates a new addr while the old
