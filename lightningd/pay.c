@@ -804,17 +804,43 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct sha256 *rhash;
 	struct route_hop *route;
 	struct amount_msat *msat;
-	const char *b11str, *label;
+	const char *b11str, *label = NULL;
 	struct command_result *res;
 
-	if (!param(cmd, buffer, params,
-		   p_req("route", param_array, &routetok),
-		   p_req("payment_hash", param_sha256, &rhash),
-		   p_opt("label", param_escaped_string, &label),
-		   p_opt("msatoshi", param_msat, &msat),
-		   p_opt("bolt11", param_string, &b11str),
-		   NULL))
-		return command_param_failed();
+	/* For generating help, give new-style. */
+	if (!params || !deprecated_apis) {
+		if (!param(cmd, buffer, params,
+			   p_req("route", param_array, &routetok),
+			   p_req("payment_hash", param_sha256, &rhash),
+			   p_opt("label", param_escaped_string, &label),
+			   p_opt("msatoshi", param_msat, &msat),
+			   p_opt("bolt11", param_string, &b11str),
+			   NULL))
+			return command_param_failed();
+	} else if (params->type == JSMN_ARRAY) {
+		if (!param(cmd, buffer, params,
+			   p_req("route", param_array, &routetok),
+			   p_req("payment_hash", param_sha256, &rhash),
+			   p_opt("label_or_description", param_escaped_string, &label),
+			   p_opt("msatoshi", param_msat, &msat),
+			   p_opt("bolt11", param_string, &b11str),
+			   NULL))
+			return command_param_failed();
+	} else {
+		const char *desc = NULL;
+		if (!param(cmd, buffer, params,
+			   p_req("route", param_array, &routetok),
+			   p_req("payment_hash", param_sha256, &rhash),
+			   p_opt("label", param_escaped_string, &label),
+			   p_opt("description", param_escaped_string, &desc),
+			   p_opt("msatoshi", param_msat, &msat),
+			   p_opt("bolt11", param_string, &b11str),
+			   NULL))
+			return command_param_failed();
+
+		if (!label && desc)
+			label = desc;
+	}
 
 	if (routetok->size == 0)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");
