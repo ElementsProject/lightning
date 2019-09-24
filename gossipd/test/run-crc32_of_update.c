@@ -146,7 +146,7 @@ struct route_hop *get_route(const tal_t *ctx UNNEEDED, struct routing_state *rst
 			    double fuzz UNNEEDED,
 			    u64 seed UNNEEDED,
 			    struct exclude_entry **excluded UNNEEDED,
-			    size_t max_hops UNNEEDED)
+			    u32 max_hops UNNEEDED)
 { fprintf(stderr, "get_route called!\n"); abort(); }
 /* Generated stub for gossip_peerd_wire_type_name */
 const char *gossip_peerd_wire_type_name(int e UNNEEDED)

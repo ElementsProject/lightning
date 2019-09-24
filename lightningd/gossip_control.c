@@ -312,7 +312,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	struct node_id *source;
 	const jsmntok_t *excludetok;
 	struct amount_msat *msat;
-	unsigned *cltv;
+	u32 *cltv;
 	double *riskfactor;
 	const struct exclude_entry **excluded;
 	u32 *max_hops;
