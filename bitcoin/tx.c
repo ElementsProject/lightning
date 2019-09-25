@@ -192,8 +192,12 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 	u8 *res;
 	assert(outnum < tx->wtx->num_outputs);
 	output = &tx->wtx->outputs[outnum];
-	if (output->features & WALLY_TX_IS_COINBASE)
+
+	if (output->script == NULL) {
+		/* This can happen for coinbase transactions and pegin
+		 * transactions */
 		return NULL;
+	}
 
 	res = tal_arr(ctx, u8, output->script_len);
 	memcpy(res, output->script, output->script_len);
