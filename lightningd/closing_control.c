@@ -273,7 +273,7 @@ void peer_start_closingd(struct channel *channel,
 		return;
 	}
 	initmsg = towire_closing_init(tmpctx,
-				      &get_chainparams(ld)->genesis_blockhash,
+				      chainparams,
 				      pps,
 				      &channel->funding_txid,
 				      channel->funding_outnum,

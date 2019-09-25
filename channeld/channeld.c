@@ -2944,7 +2944,7 @@ static void init_channel(struct peer *peer)
 
 	msg = wire_sync_read(tmpctx, MASTER_FD);
 	if (!fromwire_channel_init(peer, msg,
-				   &peer->chain_hash,
+				   &chainparams,
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &minimum_depth,
@@ -3002,7 +3002,9 @@ static void init_channel(struct peer *peer)
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);
 
-	is_elements = chainparams_by_chainhash(&peer->chain_hash)->is_elements;
+	is_elements = chainparams->is_elements;
+	peer->chain_hash = chainparams->genesis_blockhash;
+
 	status_debug("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64

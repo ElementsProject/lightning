@@ -2628,7 +2628,6 @@ int main(int argc, char *argv[])
 	bool *tell_if_missing, *tell_immediately;
 	u32 tx_blockheight;
 	struct pubkey *possible_remote_per_commitment_point;
-	struct bitcoin_blkid chain_hash;
 
 	subdaemon_setup(argc, argv);
 
@@ -2639,8 +2638,7 @@ int main(int argc, char *argv[])
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_onchain_init(tmpctx, msg,
 				   &shachain,
-				   &is_elements,
-				   &chain_hash,
+				   &chainparams,
 				   &funding,
 				   &old_remote_per_commit_point,
 				   &remote_per_commit_point,
@@ -2667,7 +2665,7 @@ int main(int argc, char *argv[])
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 
-	tx->chainparams = chainparams_by_chainhash(&chain_hash);
+	tx->chainparams = chainparams;
 
 	status_debug("feerate_per_kw = %u", feerate_per_kw);
 	bitcoin_txid(tx, &txid);

@@ -4,7 +4,7 @@
 
 # Initialize the gossip daemon.
 msgtype,gossipctl_init,3000
-msgdata,gossipctl_init,chain_hash,bitcoin_blkid,
+msgdata,gossipctl_init,chainparams,chainparams,
 msgdata,gossipctl_init,id,node_id,
 msgdata,gossipctl_init,gflen,u16,
 msgdata,gossipctl_init,globalfeatures,u8,gflen

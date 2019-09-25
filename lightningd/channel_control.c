@@ -421,7 +421,7 @@ void peer_start_channeld(struct channel *channel,
 	}
 
 	initmsg = towire_channel_init(tmpctx,
-				      &get_chainparams(ld)->genesis_blockhash,
+				      chainparams,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding,

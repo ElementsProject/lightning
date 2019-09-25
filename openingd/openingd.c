@@ -1410,7 +1410,6 @@ int main(int argc, char *argv[])
 	u8 *msg, *inner;
 	struct pollfd pollfd[3];
 	struct state *state = tal(NULL, struct state);
-	struct bitcoin_blkid chain_hash;
 	struct secret *none;
 
 	subdaemon_setup(argc, argv);
@@ -1422,7 +1421,7 @@ int main(int argc, char *argv[])
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_init(state, msg,
-				   &chain_hash,
+				   &chainparams,
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity,
@@ -1451,7 +1450,7 @@ int main(int argc, char *argv[])
 	/*~ Even though I only care about bitcoin, there's still testnet and
 	 * regtest modes, so we have a general "parameters for this chain"
 	 * function. */
-	state->chainparams = chainparams_by_chainhash(&chain_hash);
+	state->chainparams = chainparams;
 	is_elements = state->chainparams->is_elements;
 
 	/*~ Initially we're not associated with a channel, but

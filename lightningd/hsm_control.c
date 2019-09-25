@@ -80,8 +80,6 @@ void hsm_init(struct lightningd *ld)
 {
 	u8 *msg;
 	int fds[2];
-	struct bitcoin_blkid chainhash;
-	chainhash = get_chainparams(ld)->genesis_blockhash;
 
 	/* We actually send requests synchronously: only status is async. */
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
@@ -97,7 +95,7 @@ void hsm_init(struct lightningd *ld)
 	ld->hsm_fd = fds[0];
 	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
 							 &ld->topology->bitcoind->chainparams->bip32_key_version,
-							 &chainhash,
+							 chainparams,
 							 IFDEV(ld->dev_force_privkey, NULL),
 							 IFDEV(ld->dev_force_bip32_seed, NULL),
 							 IFDEV(ld->dev_force_channel_secrets, NULL),

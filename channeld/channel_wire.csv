@@ -5,7 +5,7 @@
 
 # Begin!  (passes gossipd-client fd)
 msgtype,channel_init,1000
-msgdata,channel_init,chain_hash,bitcoin_blkid,
+msgdata,channel_init,chainparams,chainparams,
 msgdata,channel_init,funding_txid,bitcoin_txid,
 msgdata,channel_init,funding_txout,u16,
 msgdata,channel_init,funding_satoshi,amount_sat,

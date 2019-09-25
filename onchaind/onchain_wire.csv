@@ -7,8 +7,7 @@ msgtype,onchain_init,5001
 msgdata,onchain_init,shachain,shachain,
 # This needs to be set explicitly since the same message also contains a
 # transaction that we need to parse correctly.
-msgdata,onchain_init,is_elements,bool,
-msgdata,onchain_init,chain_hash,bitcoin_blkid,
+msgdata,onchain_init,chainparams,chainparams,
 msgdata,onchain_init,funding_amount_satoshi,amount_sat,
 # Remote per commit point for committed tx.
 msgdata,onchain_init,old_remote_per_commitment_point,pubkey,
