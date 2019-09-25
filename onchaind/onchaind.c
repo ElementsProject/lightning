@@ -727,7 +727,7 @@ static bool is_mutual_close(const struct bitcoin_tx *tx,
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		/* To be paranoid, we only let each one match once. */
-		if (is_elements && tal_bytelen(script) == 0) {
+		if (is_elements && (script == NULL || tal_bytelen(script) == 0)) {
 			/* This is a fee output, ignore please */
 			continue;
 		} else if (scripteq(script, local_scriptpubkey)
@@ -1650,7 +1650,7 @@ static const size_t *match_htlc_output(const tal_t *ctx,
 	const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, outnum);
 
 	/* Must be a p2wsh output */
-	if (!is_p2wsh(script, NULL))
+	if (script == NULL || !is_p2wsh(script, NULL))
 		return matches;
 
 	for (size_t i = 0; i < tal_count(htlc_scripts); i++) {
@@ -1783,9 +1783,11 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		     tal_hex(tmpctx, script[REMOTE]));
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
+		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, i);
+		if (script == NULL)
+			continue;
 		status_debug("Output %zu: %s", i,
-			     tal_hex(tmpctx, bitcoin_tx_output_get_script(
-						 tmpctx, tx, i)));
+			     tal_hex(tmpctx, script));
 	}
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
@@ -1795,7 +1797,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (is_elements && tal_bytelen(oscript) == 0) {
+		if (is_elements && (oscript == NULL || tal_bytelen(oscript) == 0)) {
 			status_debug("OUTPUT %zu is a fee output", i);
 			/* An empty script simply means that that this is a
 			 * fee output. */
@@ -2142,9 +2144,10 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     tal_hex(tmpctx, script[LOCAL]));
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
-		status_debug("Output %zu: %s", i,
-			     tal_hex(tmpctx, bitcoin_tx_output_get_script(
-						 tmpctx, tx, i)));
+		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, i);
+		if (script == NULL)
+			continue;
+		status_debug("Output %zu: %s", i, tal_hex(tmpctx, script));
 	}
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
@@ -2154,7 +2157,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (is_elements && tal_bytelen(oscript) == 0) {
+		if (is_elements && (oscript == NULL || tal_bytelen(oscript) == 0)) {
 			/* An empty script simply means that that this is a
 			 * fee output. */
 			out = new_tracked_output(tx->chainparams,
@@ -2374,9 +2377,10 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     tal_hex(tmpctx, script[LOCAL]));
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
-		status_debug("Output %zu: %s", i,
-			     tal_hex(tmpctx, bitcoin_tx_output_get_script(
-						 tmpctx, tx, i)));
+		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, i);
+		if (script == NULL)
+			continue;
+		status_debug("Output %zu: %s", i, tal_hex(tmpctx, script));
 	}
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
@@ -2386,7 +2390,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (is_elements && tal_bytelen(oscript) == 0) {
+		if (is_elements && (oscript == NULL || tal_bytelen(oscript) == 0)) {
 			/* An empty script simply means that that this is a
 			 * fee output. */
 			out = new_tracked_output(tx->chainparams,
@@ -2550,7 +2554,7 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (local_script
+		if (oscript != NULL && local_script
 		    && scripteq(oscript, local_script)) {
 			/* BOLT #5:
 			 *
