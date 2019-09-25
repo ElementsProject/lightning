@@ -937,7 +937,7 @@ void peer_start_openingd(struct peer *peer,
 	uc->minimum_depth = peer->ld->config.anchor_confirms;
 
 	msg = towire_opening_init(NULL,
-				  &get_chainparams(peer->ld)->genesis_blockhash,
+				  chainparams,
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity,

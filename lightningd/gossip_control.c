@@ -208,7 +208,8 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 
 	msg = towire_gossipctl_init(
 	    tmpctx,
-	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
+	    chainparams,
+	    &ld->id,
 	    get_offered_globalfeatures(tmpctx),
 	    ld->rgb,
 	    ld->alias,

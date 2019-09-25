@@ -241,7 +241,10 @@ static char *opt_set_network(const char *arg, struct lightningd *ld)
 {
 	assert(arg != NULL);
 
-	ld->topology->bitcoind->chainparams = chainparams_for_network(arg);
+	/* Set the global chainparams instance */
+	chainparams = chainparams_for_network(arg);
+
+	ld->topology->bitcoind->chainparams = chainparams;
 	if (!ld->topology->bitcoind->chainparams)
 		return tal_fmt(NULL, "Unknown network name '%s'", arg);
 	is_elements = ld->topology->bitcoind->chainparams->is_elements;

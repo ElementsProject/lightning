@@ -387,7 +387,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 	/* If we are constructing an elements transaction we need to
 	 * explicitly add the fee as an extra output. So allocate one more
 	 * than the outputs we need internally. */
-	if (is_elements)
+	if (chainparams->is_elements)
 		output_count += 1;
 
 	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,

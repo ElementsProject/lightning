@@ -580,7 +580,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct secret *seed;
 	struct secrets *secrets;
 	struct sha256 *shaseed;
-	struct bitcoin_blkid chain_hash;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -589,7 +588,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * definitions in hsm_client_wire.csv.  The format of those files is
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
-	if (!fromwire_hsm_init(NULL, msg_in, &bip32_key_version, &chain_hash,
+	if (!fromwire_hsm_init(NULL, msg_in, &bip32_key_version, &chainparams,
 			       &privkey, &seed, &secrets, &shaseed))
 		return bad_req(conn, c, msg_in);
 
@@ -602,9 +601,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 
 	/* Once we have read the init message we know which params the master
 	 * will use */
-	c->chainparams = chainparams_by_chainhash(&chain_hash);
-	is_elements = c->chainparams->is_elements;
-
+	c->chainparams = chainparams;
 	maybe_create_new_hsm();
 	load_hsm();
 

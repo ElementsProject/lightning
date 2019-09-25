@@ -924,7 +924,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	bool dev_fast_gossip, dev_fast_gossip_prune;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
-				     &daemon->chain_hash,
+				     &chainparams,
 				     &daemon->id, &daemon->globalfeatures,
 				     daemon->rgb,
 				     daemon->alias,
@@ -935,6 +935,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 
+	daemon->chain_hash = chainparams->genesis_blockhash;
 	daemon->rstate = new_routing_state(daemon,
 					   chainparams_by_chainhash(&daemon->chain_hash),
 					   &daemon->id,

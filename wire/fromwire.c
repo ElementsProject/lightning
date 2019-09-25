@@ -19,6 +19,8 @@
 #define SUPERVERBOSE(...)
 #endif
 
+extern const struct chainparams *chainparams;
+
 /* Sets *cursor to NULL and returns NULL when extraction fails. */
 const void *fromwire_fail(const u8 **cursor, size_t *max)
 {
@@ -388,4 +390,13 @@ struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
 	output->script = tal_arr(output, u8, script_len);
 	fromwire_u8_array(cursor, max, output->script, script_len);
 	return output;
+}
+
+void fromwire_chainparams(const u8 **cursor, size_t *max,
+			  const struct chainparams **chainparams)
+{
+	struct bitcoin_blkid genesis;
+	fromwire_bitcoin_blkid(cursor, max, &genesis);
+	*chainparams = chainparams_by_chainhash(&genesis);
+	is_elements = (*chainparams)->is_elements;
 }

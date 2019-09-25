@@ -9,7 +9,7 @@ msgdata,hsmstatus_client_bad_request,msg,u8,len
 # Start the HSM.
 msgtype,hsm_init,11
 msgdata,hsm_init,bip32_key_version,bip32_key_version,
-msgdata,hsm_init,chain_hash,bitcoin_blkid,
+msgdata,hsm_init,chainparams,chainparams,
 msgdata,hsm_init,dev_force_privkey,?privkey,
 msgdata,hsm_init,dev_force_bip32_seed,?secret,
 msgdata,hsm_init,dev_force_channel_secrets,?secrets,
