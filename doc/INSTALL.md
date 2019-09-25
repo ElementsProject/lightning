@@ -54,7 +54,7 @@ Clone lightning:
     
 For development or running tests, get additional dependencies:
 
-    sudo apt-get install -y valgrind python3-pip
+    sudo apt-get install -y valgrind python3-pip python-dev libpq-dev
     sudo pip3 install -r tests/requirements.txt -r doc/requirements.txt
 
 Build lightning:
