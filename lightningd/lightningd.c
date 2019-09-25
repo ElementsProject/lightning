@@ -76,6 +76,7 @@
 #include <lightningd/options.h>
 #include <onchaind/onchain_wire.h>
 #include <signal.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -629,6 +630,11 @@ int main(int argc, char *argv[])
 	struct timers *timers;
 	const char *stop_response;
 	struct htlc_in_map *unprocessed_htlcs;
+	struct rlimit nofile = {1024, 1024};
+
+	/*~ Make sure that we limit ourselves to something reasonable. Modesty
+	 *  is a virtue. */
+	setrlimit(RLIMIT_NOFILE, &nofile);
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
