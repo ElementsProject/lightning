@@ -485,6 +485,8 @@ static const struct config testnet_config = {
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
+
+	.use_v3_autotor = true,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -544,6 +546,8 @@ static const struct config mainnet_config = {
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
+
+	.use_v3_autotor = true,
 };
 
 static void check_config(struct lightningd *ld)
@@ -975,6 +979,9 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 			   "Disable DNS lookups of peers");
+
+	opt_register_noarg("--enable-autotor-v2-mode", opt_set_invbool, &ld->config.use_v3_autotor,
+			   "Try to get a v2 onion address from the Tor service call, default is v3");
 
 	opt_register_logging(ld);
 	opt_register_version();

@@ -23,4 +23,5 @@ const struct config test_config = {
 	.max_fee_multiplier = 10,
 	.use_dns = true,
 	.min_capacity_sat = 10000,
+	.use_v3_autotor = true,
 };

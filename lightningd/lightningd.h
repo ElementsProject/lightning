@@ -67,6 +67,10 @@ struct config {
 
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;
+
+	/* Allow to define the default behavior of tot services calls*/
+	bool use_v3_autotor;
+
 };
 
 struct lightningd {

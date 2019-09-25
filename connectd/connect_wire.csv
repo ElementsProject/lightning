@@ -13,6 +13,7 @@ msgdata,connectctl_init,use_tor_proxy_always,bool,
 msgdata,connectctl_init,dev_allow_localhost,bool,
 msgdata,connectctl_init,use_dns,bool,
 msgdata,connectctl_init,tor_password,wirestring,
+msgdata,connectctl_init,use_v3_autotor,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectctl_init_reply,2100
