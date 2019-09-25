@@ -31,7 +31,7 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	pull(&p, &len, &b->hdr.merkle_hash, sizeof(b->hdr.merkle_hash));
 	b->hdr.timestamp = pull_le32(&p, &len);
 
-	if (is_elements) {
+	if (is_elements(chainparams)) {
 		b->elements_hdr = tal(b, struct elements_block_hdr);
 		b->elements_hdr->block_height = pull_le32(&p, &len);
 
@@ -76,7 +76,7 @@ void bitcoin_block_blkid(const struct bitcoin_block *b,
 	sha256_update(&shactx, &b->hdr.merkle_hash, sizeof(b->hdr.merkle_hash));
 	sha256_le32(&shactx, b->hdr.timestamp);
 
-	if (is_elements) {
+        if (is_elements(chainparams)) {
 		size_t clen = tal_bytelen(b->elements_hdr->proof.challenge);
 		sha256_le32(&shactx, b->elements_hdr->block_height);
 

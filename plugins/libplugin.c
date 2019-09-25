@@ -543,7 +543,6 @@ static struct command_result *handle_init(struct command *init_cmd,
 	nettok = json_delve(buf, configtok, ".network");
 	network = json_strdup(tmpctx, buf, nettok);
 	chainparams = chainparams_for_network(network);
-	is_elements = chainparams->is_elements;
 
 	rpctok = json_delve(buf, configtok, ".rpc-file");
 	rpc_conn.fd = socket(AF_UNIX, SOCK_STREAM, 0);

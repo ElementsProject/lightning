@@ -727,7 +727,8 @@ static bool is_mutual_close(const struct bitcoin_tx *tx,
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		/* To be paranoid, we only let each one match once. */
-		if (is_elements && (script == NULL || tal_bytelen(script) == 0)) {
+		if (chainparams->is_elements &&
+		    (script == NULL || tal_bytelen(script) == 0)) {
 			/* This is a fee output, ignore please */
 			continue;
 		} else if (scripteq(script, local_scriptpubkey)
@@ -1797,7 +1798,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (is_elements && (oscript == NULL || tal_bytelen(oscript) == 0)) {
+		if (chainparams->is_elements &&
+		    (oscript == NULL || tal_bytelen(oscript) == 0)) {
 			status_debug("OUTPUT %zu is a fee output", i);
 			/* An empty script simply means that that this is a
 			 * fee output. */
@@ -2157,7 +2159,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (is_elements && (oscript == NULL || tal_bytelen(oscript) == 0)) {
+		if (chainparams->is_elements &&
+		    (oscript == NULL || tal_bytelen(oscript) == 0)) {
 			/* An empty script simply means that that this is a
 			 * fee output. */
 			out = new_tracked_output(tx->chainparams,
@@ -2390,7 +2393,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
 		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
 
-		if (is_elements && (oscript == NULL || tal_bytelen(oscript) == 0)) {
+		if (chainparams->is_elements &&
+		    (oscript == NULL || tal_bytelen(oscript) == 0)) {
 			/* An empty script simply means that that this is a
 			 * fee output. */
 			out = new_tracked_output(tx->chainparams,

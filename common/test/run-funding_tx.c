@@ -110,11 +110,11 @@ int main(void)
 	struct bitcoin_signature sig;
 	struct bitcoin_address addr;
 	struct amount_sat tmpamt;
-	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
+	chainparams = chainparams_for_network("bitcoin");
 
 	/* BOLT #3:
 	 *

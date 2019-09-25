@@ -3001,8 +3001,6 @@ static void init_channel(struct peer *peer)
 	}
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);
-
-	is_elements = chainparams->is_elements;
 	peer->chain_hash = chainparams->genesis_blockhash;
 
 	status_debug("init %s: remote_per_commit = %s, old_remote_per_commit = %s"

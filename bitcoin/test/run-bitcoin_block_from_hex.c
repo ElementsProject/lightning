@@ -69,7 +69,8 @@ int main(void)
 	struct bitcoin_block *b;
 
 	setup_locale();
-	b = bitcoin_block_from_hex(NULL, chainparams_for_network("bitcoin"),
+	chainparams = chainparams_for_network("bitcoin");
+	b = bitcoin_block_from_hex(NULL, chainparams,
 				   block, strlen(block));
 
 	assert(b);

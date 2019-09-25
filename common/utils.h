@@ -10,10 +10,11 @@
 
 extern secp256k1_context *secp256k1_ctx;
 
-/* FIXME: Instead of using this as a global, we might want to pass it as
- * context whenever we need it. The global var is just lazy... */
-extern bool is_elements;
 extern const struct chainparams *chainparams;
+
+/* Simple accessor function for our own dependencies to use, in order to avoid
+ * circular dependencies (should only be used in `bitcoin/y`). */
+bool is_elements(const struct chainparams *chainparams);
 
 /* Allocate and fill in a hex-encoded string of this data. */
 char *tal_hexstr(const tal_t *ctx, const void *data, size_t len);

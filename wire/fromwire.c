@@ -398,5 +398,4 @@ void fromwire_chainparams(const u8 **cursor, size_t *max,
 	struct bitcoin_blkid genesis;
 	fromwire_bitcoin_blkid(cursor, max, &genesis);
 	*chainparams = chainparams_by_chainhash(&genesis);
-	is_elements = (*chainparams)->is_elements;
 }
