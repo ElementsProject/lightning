@@ -2,13 +2,18 @@
 
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
+#include <channeld/gen_channel_wire.h>
 #include <common/key_derive.h>
 #include <common/wallet_tx.h>
+#include <common/wire_error.h>
 #include <common/withdraw_tx.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/peer_control.h>
+#include <lightningd/subd.h>
 #include <wallet/burn_unit.h>
 #include <wire/wire_sync.h>
 
@@ -16,6 +21,7 @@ struct sweep_tx {
 	struct wallet *w;
 	struct wallet_tx *wtx;
 	struct bitcoin_tx *tx;
+	const struct channel **chans;
 };
 
 static void burn_tx_broadcast(struct bitcoind *bitcoind UNUSED,
@@ -24,6 +30,8 @@ static void burn_tx_broadcast(struct bitcoind *bitcoind UNUSED,
 {
 	struct amount_sat to_us;
 	struct bitcoin_txid txid;
+	char *err_reason;
+	size_t i;
 
 	if (exitstatus != 0) {
 		log_unusual(stx->w->log,
@@ -48,8 +56,36 @@ static void burn_tx_broadcast(struct bitcoind *bitcoind UNUSED,
 	/* Extract the change output and add it to the DB */
 	wallet_extract_owned_outputs(stx->w, stx->tx, NULL, &to_us);
 
-	// FIXME: cancel the channels. how do we find
-	// associated canais?
+	err_reason = "Hold on UTXOs expired";
+	/* Notify channels of cancellation */
+	for (i = 0; i < tal_count(stx->chans); i++) {
+		struct channel *channel;
+		struct peer *peer;
+
+		peer = stx->chans[i]->peer;
+		channel = peer_active_channel(peer);
+		if (!channel) {
+			log_unusual(stx->w->log,
+				    "Burned peer %s has no active channel",
+				    type_to_string(stx, struct node_id, &peer->id));
+			continue;
+		}
+		if (channel->dbid != stx->chans[i]->dbid) {
+			log_unusual(stx->w->log,
+				    "Burned channel's peer (%s) has different channel active"
+				    " Burned channel_id %ld, active channel_id %ld",
+				    type_to_string(stx, struct node_id, &peer->id),
+				    channel->dbid, stx->chans[i]->dbid);
+			continue;
+		}
+
+		/* Set error so we don't try to reconnect. */
+		channel->error = towire_errorfmt(channel, NULL, "%s", err_reason);
+
+		subd_send_msg(channel->owner,
+			      take(towire_channel_send_error(NULL, err_reason)));
+	}
+
 	tal_free(stx);
 	return;
 
@@ -81,6 +117,7 @@ void burn_transactions(struct wallet *w, u32 tip_height)
 
 	feerate_per_kw = try_get_feerate(w->ld->topology, FEERATE_NORMAL);
 
+	stx->chans = wallet_get_channel_burnlist(stx, w, tip_height);
 	wtx->utxos = wallet_get_burnable_utxos(stx, w, tip_height);
 
 	if (!tal_count(wtx->utxos)) {
