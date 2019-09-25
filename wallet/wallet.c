@@ -151,13 +151,15 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
 	u32 *blockheight, *spendheight, *sharedheight;
+
 	db_column_txid(stmt, 0, &utxo->txid);
 	utxo->outnum = db_column_int(stmt, 1);
 	db_column_amount_sat(stmt, 2, &utxo->amount);
 	utxo->is_p2sh = db_column_int(stmt, 3) == p2sh_wpkh;
 	utxo->status = db_column_int(stmt, 4);
 	utxo->keyindex = db_column_int(stmt, 5);
-	if (!db_column_is_null(stmt, 6)) {
+
+	if (!db_column_is_null(stmt, 7)) {
 		utxo->close_info = tal(utxo, struct unilateral_close_info);
 		utxo->close_info->channel_id = db_column_u64(stmt, 6);
 		db_column_node_id(stmt, 7, &utxo->close_info->peer_id);
@@ -236,7 +238,8 @@ bool wallet_update_output_status(struct wallet *w,
 bool wallet_mark_output_shared(struct wallet *w,
 			       const struct bitcoin_txid *txid,
 			       const u32 outnum,
-			       const u32 current_height)
+			       const u32 current_height,
+			       const u64 channel_id)
 {
 	struct db_stmt *stmt;
 	size_t changes;
@@ -247,8 +250,14 @@ bool wallet_mark_output_shared(struct wallet *w,
 		return false;
 
 	stmt = db_prepare_v2(w->db,
-			     SQL("UPDATE outputs SET shared_at_height = ?"));
+			     SQL("UPDATE outputs SET shared_at_height=?"
+				 ", channel_id=?"
+				 " WHERE prev_out_tx=? AND prev_out_index=?"));
 	db_bind_int(stmt, 0, current_height);
+	db_bind_int(stmt, 1, channel_id);
+	db_bind_txid(stmt, 2, txid);
+	db_bind_int(stmt, 3, outnum);
+
 	db_exec_prepared_v2(stmt);
 	changes = db_count_changes(stmt);
 	tal_free(stmt);
@@ -312,7 +321,7 @@ const struct utxo **wallet_get_burnable_utxos(const tal_t *ctx, struct wallet *w
 					u32 current_height)
 {
 	const struct utxo **results;
-	int i;
+	size_t i;
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
@@ -1250,6 +1259,84 @@ static bool wallet_channels_load_active(struct wallet *w)
 	log_debug(w->log, "Loaded %d channels from DB", count);
 	tal_free(stmt);
 	return ok;
+}
+
+const struct channel **wallet_get_channel_burnlist(const tal_t *ctx, struct wallet *w,
+						    u32 current_height)
+{
+	const struct channel **results;
+	struct db_stmt *stmt;
+
+	/* Find all the channels that are ready to burn */
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  c.id"
+					", c.peer_id"
+					", c.short_channel_id"
+					", c.channel_config_local"
+					", c.channel_config_remote"
+					", c.state"
+					", c.funder"
+					", c.channel_flags"
+					", c.minimum_depth"
+					", c.next_index_local"
+					", c.next_index_remote"
+					", c.next_htlc_id"
+					", c.funding_tx_id"
+					", c.funding_tx_outnum"
+					", c.funding_satoshi"
+					", c.our_funding_satoshi"
+					", c.funding_locked_remote"
+					", c.push_msatoshi"
+					", c.msatoshi_local"
+					", c.fundingkey_remote"
+					", c.revocation_basepoint_remote"
+					", c.payment_basepoint_remote"
+					", c.htlc_basepoint_remote"
+					", c.delayed_payment_basepoint_remote"
+					", c.per_commit_remote"
+					", c.old_per_commit_remote"
+					", c.local_feerate_per_kw"
+					", c.remote_feerate_per_kw"
+					", c.shachain_remote_id"
+					", c.shutdown_scriptpubkey_remote"
+					", c.shutdown_keyidx_local"
+					", c.last_sent_commit_state"
+					", c.last_sent_commit_id"
+					", c.last_tx"
+					", c.last_sig"
+					", c.last_was_revoke"
+					", c.first_blocknum"
+					", c.min_possible_feerate"
+					", c.max_possible_feerate"
+					", c.msatoshi_to_us_min"
+					", c.msatoshi_to_us_max"
+					", c.future_per_commitment_point"
+					", c.last_sent_commit"
+					", c.feerate_base"
+					", c.feerate_ppm"
+					", c.remote_upfront_shutdown_script"
+					", c.option_static_remotekey"
+					" FROM channels c"
+					" LEFT OUTER JOIN outputs o ON o.channel_id = c.id"
+					" WHERE o.shared_at_height <= ?"
+					" AND o.status = ?"
+					" GROUP BY c.id;"));
+
+	db_bind_int(stmt, 0, current_height - UTXO_BURN_DEPTH);
+	db_bind_int(stmt, 1, output_status_in_db(output_state_shared));
+	if (!db_query_prepared(stmt))
+		fatal("%s", stmt->error);
+
+	results = tal_arr(ctx, const struct channel *, 0);
+	while (db_step(stmt)) {
+		struct channel *c = wallet_stmt2channel(w, stmt);
+		if (!c) {
+			break;
+		}
+		tal_arr_expand(&results, c);
+	}
+	tal_free(stmt);
+	return results;
 }
 
 bool wallet_init_channels(struct wallet *w)

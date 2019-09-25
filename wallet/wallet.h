@@ -366,11 +366,13 @@ bool wallet_update_output_status(struct wallet *w,
  *
  * @txid - txid of output to update
  * @outnum - outnum of output to update
- * @current_height - current blockeheight */
+ * @current_height - current blockeheight
+ * @channel_id - id of the channel it's been shared on */
 bool wallet_mark_output_shared(struct wallet *w,
 			       const struct bitcoin_txid *txid,
 			       const u32 outnum,
-			       const u32 current_height);
+			       const u32 current_height,
+			       const u64 channel_id);
 /**
  * wallet_get_utxos - Retrieve all utxos matching a given state
  *
@@ -389,6 +391,16 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
  */
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 						     struct wallet *w);
+
+/**
+ * wallet_get_channel_burnlist - Get list of channels whose utxos will be burned
+ *
+ * @ctx - context for allocating the channels
+ * @w - wallet to fetch utxo records from
+ * @tip_height - height to use for determining channel burn eligibility
+ */
+const struct channel **wallet_get_channel_burnlist(const tal_t *ctx, struct wallet *w,
+						    u32 tip_height);
 
 /**
  * wallet_get_burnable_utxos - Retrieve any shared utxos with shared_at_height

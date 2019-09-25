@@ -861,7 +861,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 
 	/* Mark as shared */
 	CHECK_MSG(wallet_mark_output_shared(w, &u.txid, u.outnum,
-					    height),
+					    height, 1),
 		  "could not mark output as shared");
 
 	/* Now un-reserve them */
