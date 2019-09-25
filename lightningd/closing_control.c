@@ -31,7 +31,7 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 		scriptlen = tal_bytelen(oscript);
 		tal_free(oscript);
 
-		if (is_elements && scriptlen == 0)
+		if (chainparams->is_elements && scriptlen == 0)
 			continue;
 
 		if (!amount_sat_sub(&fee, fee, amt))

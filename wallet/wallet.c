@@ -372,7 +372,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 		weight += (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN) * 4;
 
 	/* A couple of things need to change for elements: */
-	if (is_elements) {
+	if (chainparams->is_elements) {
                 /* Each transaction has surjection and rangeproof (both empty
 		 * for us as long as we use unblinded L-BTC transactions). */
 		weight += 2 * 4;
@@ -425,7 +425,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 		input_weight += 1 + (1 + 73 + 1 + 33);
 
 		/* Elements inputs have 6 bytes of blank proofs attached. */
-		if (is_elements)
+		if (chainparams->is_elements)
 			input_weight += 6;
 
 		weight += input_weight;

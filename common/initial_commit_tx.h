@@ -43,7 +43,7 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
 	 */
 	weight += 172 * num_untrimmed_htlcs;
 
-	if (is_elements) {
+	if (chainparams->is_elements) {
 		/* Each transaction has surjection and rangeproof (both empty
 		 * for us as long as we use unblinded L-BTC transactions). */
 		weight += 2 * 4;

@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -6,9 +7,13 @@
 
 secp256k1_context *secp256k1_ctx;
 const tal_t *tmpctx;
-bool is_elements = false;
 
 const struct chainparams *chainparams;
+
+bool is_elements(const struct chainparams *chainparams)
+{
+	return chainparams->is_elements;
+}
 
 char *tal_hexstr(const tal_t *ctx, const void *data, size_t len)
 {

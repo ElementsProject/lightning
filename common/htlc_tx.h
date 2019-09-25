@@ -22,7 +22,7 @@ struct ripemd160;
 static inline size_t elements_add_overhead(size_t weight, size_t incount,
 					   size_t outcount)
 {
-	if (is_elements) {
+	if (chainparams->is_elements) {
 		/* Each transaction has surjection and rangeproof (both empty
 		 * for us as long as we use unblinded L-BTC transactions). */
 		weight += 2 * 4;

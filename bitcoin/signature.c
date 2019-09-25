@@ -98,7 +98,7 @@ static void bitcoin_tx_hash_for_sig(const struct bitcoin_tx *tx, unsigned int in
 	u64 satoshis = tx->input_amounts[in]->satoshis /* Raw: sig-helper */;
 	int flags = WALLY_TX_FLAG_USE_WITNESS;
 
-	if (is_elements) {
+	if (is_elements(chainparams)) {
 		ret = wally_tx_confidential_value_from_satoshi(satoshis, value, sizeof(value));
 		assert(ret == WALLY_OK);
 		ret = wally_tx_get_elements_signature_hash(

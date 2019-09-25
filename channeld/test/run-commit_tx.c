@@ -465,11 +465,11 @@ int main(void)
 	u64 commitment_number, cn_obscurer;
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
-	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
+	chainparams = chainparams_for_network("bitcoin");
 
 	htlcs = setup_htlcs(tmpctx);
 	inv_htlcs = invert_htlcs(htlcs);

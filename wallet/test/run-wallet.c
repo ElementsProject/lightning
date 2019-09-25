@@ -1298,6 +1298,7 @@ static bool test_wallet_payment_status_enum(void)
 int main(void)
 {
 	setup_locale();
+	chainparams = chainparams_for_network("bitcoin");
 
 	bool ok = true;
 	struct lightningd *ld;
