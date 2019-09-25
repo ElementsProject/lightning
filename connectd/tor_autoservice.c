@@ -227,7 +227,8 @@ find_local_address(const struct wireaddr_internal *bindings)
 struct wireaddr *tor_autoservice(const tal_t *ctx,
 				 const struct wireaddr *tor_serviceaddr,
 				 const char *tor_password,
-				 const struct wireaddr_internal *bindings)
+				 const struct wireaddr_internal *bindings,
+				 const bool use_v3_autotor)
 {
 	int fd;
 	const struct wireaddr *laddr;
@@ -235,7 +236,6 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 	struct addrinfo *ai_tor;
 	struct rbuf rbuf;
 	char *buffer;
-	bool use_v3_autotor;
 
 	laddr = find_local_address(bindings);
 	ai_tor = wireaddr_to_addrinfo(tmpctx, tor_serviceaddr);
@@ -249,8 +249,6 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
 	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
-
-	use_v3_autotor = true;
 
 	negotiate_auth(&rbuf, tor_password);
 	onion = make_onion(ctx, &rbuf, laddr, use_v3_autotor);

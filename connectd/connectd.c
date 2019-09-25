@@ -148,6 +148,9 @@ struct daemon {
 
 	/* File descriptors to listen on once we're activated. */
 	struct listen_fd *listen_fds;
+
+	/* Allow to define the default behavior of tot services calls*/
+	bool use_v3_autotor;
 };
 
 /* Peers we're trying to reach: we iterate through addrs until we succeed
@@ -1114,14 +1117,16 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				tor_autoservice(tmpctx,
 						&proposed_wireaddr[i].u.torservice,
 						tor_password,
-						binding);
+						binding,
+						daemon->use_v3_autotor);
 			continue;
 		};
 		add_announcable(announcable,
 				tor_autoservice(tmpctx,
 						&proposed_wireaddr[i].u.torservice,
 						tor_password,
-						binding));
+						binding,
+						daemon->use_v3_autotor));
 	}
 
 	/* Sort and uniquify. */
@@ -1153,7 +1158,8 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		&proposed_listen_announce,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
-		&tor_password)) {
+		&tor_password,
+		&daemon->use_v3_autotor)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);

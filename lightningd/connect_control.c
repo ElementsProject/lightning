@@ -366,7 +366,8 @@ int connectd_init(struct lightningd *ld)
 	    listen_announce,
 	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
 	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
-	    ld->tor_service_password ? ld->tor_service_password : "");
+	    ld->tor_service_password ? ld->tor_service_password : "",
+	    ld->config.use_v3_autotor);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
