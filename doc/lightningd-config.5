@@ -374,10 +374,11 @@ Always use the \fBproxy\fR, even to connect to normal IP addresses (you
 can still connect to Unix domain sockets manually)\. This also disables
 all DNS lookups, to avoid leaking information\.
 
-
  \fBdisable-dns\fR
 Disable the DNS bootstrapping mechanism to find a node by its node ID\.
 
+ \fBenable-autotor-v2-mode\fR
+Try to get a v2 onion address from the Tor service call, default is v3\.
 
  \fBtor-service-password\fR=\fIPASSWORD\fR
 Set a Tor control password, which may be needed for \fIautotor:\fR to
