@@ -1043,6 +1043,14 @@ static struct command_result *json_pay(struct command *cmd,
 				    "Invalid bolt11: %s", fail);
 	}
 
+	if (!b11->chain) {
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for an unknown network");
+	}
+
+	if (b11->chain != chainparams) {
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for another network %s", b11->chain->network_name);
+	}
+
 	if (time_now().ts.tv_sec > b11->timestamp + b11->expiry) {
 		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
 	}
