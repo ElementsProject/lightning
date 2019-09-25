@@ -47,15 +47,15 @@ as well:
     sudo apt-get update
     sudo apt-get install -y bitcoind
 
-For development or running tests, get additional dependencies:
-
-    sudo apt-get install -y valgrind python3-pip
-    sudo pip3 install -r tests/requirements.txt -r doc/requirements.txt
-
 Clone lightning:
 
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
+    
+For development or running tests, get additional dependencies:
+
+    sudo apt-get install -y valgrind python3-pip
+    sudo pip3 install -r tests/requirements.txt -r doc/requirements.txt
 
 Build lightning:
 
