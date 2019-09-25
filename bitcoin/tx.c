@@ -62,7 +62,7 @@ int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
 	return tx->wtx->num_outputs;
 }
 
-static bool bitcoin_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum)
+static bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum)
 {
 	assert(outnum < tx->wtx->num_outputs);
 	return is_elements && tx->wtx->outputs[outnum].script_len == 0;
@@ -79,7 +79,7 @@ static u64 bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
 		fee += tx->input_amounts[i]->satoshis; /* Raw: fee computation */
 
 	for (size_t i=0; i<tx->wtx->num_outputs; i++) {
-		if (bitcoin_tx_output_is_fee(tx, i))
+		if (elements_tx_output_is_fee(tx, i))
 			continue;
 
 		if (!is_elements) {
@@ -95,7 +95,7 @@ static u64 bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
 	return fee;
 }
 
-int bitcoin_tx_add_fee_output(struct bitcoin_tx *tx)
+int elements_tx_add_fee_output(struct bitcoin_tx *tx)
 {
 	struct amount_sat fee;
 	int pos = -1;
@@ -108,7 +108,7 @@ int bitcoin_tx_add_fee_output(struct bitcoin_tx *tx)
 
 	/* Try to find any existing fee output */
 	for (int i=0; i<tx->wtx->num_outputs; i++) {
-		if (bitcoin_tx_output_is_fee(tx, i)) {
+		if (elements_tx_output_is_fee(tx, i)) {
 			assert(pos == -1);
 			pos = i;
 		}

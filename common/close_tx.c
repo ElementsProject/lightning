@@ -61,7 +61,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 		return tal_free(tx);
 
 	permute_outputs(tx, NULL, NULL);
-	bitcoin_tx_add_fee_output(tx);
+	elements_tx_add_fee_output(tx);
 
 	assert(bitcoin_tx_check(tx));
 	return tx;
