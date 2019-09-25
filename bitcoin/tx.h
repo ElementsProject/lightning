@@ -158,6 +158,6 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx);
  * Returns the position of the fee output, or -1 in the case of non-elements
  * transactions.
  */
-int bitcoin_tx_add_fee_output(struct bitcoin_tx *tx);
+int elements_tx_add_fee_output(struct bitcoin_tx *tx);
 
 #endif /* LIGHTNING_BITCOIN_TX_H */

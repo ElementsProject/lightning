@@ -49,7 +49,7 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
 
 	permute_inputs(tx, (const void **)utxomap);
 
-	bitcoin_tx_add_fee_output(tx);
+	elements_tx_add_fee_output(tx);
 	assert(bitcoin_tx_check(tx));
 	return tx;
 }
