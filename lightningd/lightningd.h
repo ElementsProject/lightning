@@ -203,6 +203,7 @@ struct lightningd {
 
 	/* Speedup gossip propagation, for testing. */
 	bool dev_fast_gossip;
+	bool dev_fast_gossip_prune;
 
 	/* Things we've marked as not leaking. */
 	const void **notleaks;

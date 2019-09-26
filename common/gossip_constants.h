@@ -63,16 +63,16 @@
  *     - MAY prune the channel.
  *     - MAY ignore the channel.
  */
-#define GOSSIP_PRUNE_INTERVAL(dev_fast_gossip_flag) \
-	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 90, 1209600)
+#define GOSSIP_PRUNE_INTERVAL(dev_fast_gossip_prune_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_prune_flag, 60, 1209600)
 
 /* How long after seeing lockin until we announce the channel. */
 #define GOSSIP_ANNOUNCE_DELAY(dev_fast_gossip_flag) \
 	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 1, 60)
 
 /* How long before deadline should we send refresh update? 1 day normally */
-#define GOSSIP_BEFORE_DEADLINE(dev_fast_gossip_flag) \
-	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 30, 24*60*60)
+#define GOSSIP_BEFORE_DEADLINE(dev_fast_gossip_prune_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_prune_flag, 30, 24*60*60)
 
 /* How many seconds per token?  Normally 1 hour. */
 #define GOSSIP_TOKEN_TIME(dev_fast_gossip_flag) \

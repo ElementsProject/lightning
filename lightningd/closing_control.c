@@ -289,12 +289,7 @@ void peer_start_closingd(struct channel *channel,
 				      p2wpkh_for_keyidx(tmpctx, ld,
 							channel->final_key_idx),
 				      &last_remote_per_commit_secret,
-#if DEVELOPER
-				      ld->dev_fast_gossip
-#else
-				      false
-#endif
-		);
+				      IFDEV(ld->dev_fast_gossip, false));
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */
