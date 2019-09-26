@@ -217,4 +217,8 @@ struct command_result *param_bitcoin_address(struct command *cmd,
 					     const jsmntok_t *tok,
 					     const u8 **scriptpubkey);
 
+/* Add any json token */
+void json_add_tok(struct json_stream *result, const char *fieldname,
+                  const jsmntok_t *tok, const char *buffer);
+
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */
