@@ -72,39 +72,35 @@ static bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum)
 /**
  * Compute how much fee we are actually sending with this transaction.
  */
-static u64 bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
+static struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
 {
-	u64 fee = 0, satoshi;
+	struct amount_sat fee = AMOUNT_SAT(0), value;
+	bool ok;
 
-	for (size_t i=0; i<tal_count(tx->input_amounts); i++)
-		fee += tx->input_amounts[i]->satoshis; /* Raw: fee computation */
+	for (size_t i = 0; i < tal_count(tx->input_amounts); i++) {
+		value.satoshis = tx->input_amounts[i]->satoshis; /* Raw: fee computation */
+		ok = amount_sat_add(&fee, fee, value);
+		assert(ok);
+	}
 
-	for (size_t i=0; i<tx->wtx->num_outputs; i++) {
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		if (elements_tx_output_is_fee(tx, i))
 			continue;
 
-		if (!chainparams->is_elements) {
-			fee -= tx->wtx->outputs[i].satoshi; /* Raw: low-level helper */
-		} else {
-			beint64_t tmp;
-			memcpy(&tmp, &tx->wtx->outputs[i].value[1] , sizeof(tmp));
-			satoshi = be64_to_cpu(tmp);
-			fee -= satoshi;
-		}
+		value = bitcoin_tx_output_get_amount(tx, i);
+		ok = amount_sat_sub(&fee, fee, value);
+		assert(ok);
 	}
-
 	return fee;
 }
 
 int elements_tx_add_fee_output(struct bitcoin_tx *tx)
 {
-	struct amount_sat fee;
+	struct amount_sat fee = bitcoin_tx_compute_fee(tx);
 	int pos = -1;
-	u64 rawsats = bitcoin_tx_compute_fee(tx); /* Raw: pedantic much? */
-	fee.satoshis = rawsats; /* Raw: need amounts later */
 
 	/* If we aren't using elements, we don't add explicit fee outputs */
-	if (!chainparams->is_elements || rawsats == 0)
+	if (!chainparams->is_elements || amount_sat_eq(fee, AMOUNT_SAT(0)))
 		return -1;
 
 	/* Try to find any existing fee output */
