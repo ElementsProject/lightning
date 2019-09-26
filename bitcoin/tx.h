@@ -110,8 +110,8 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx
 /**
  * Helper to just get an amount_sat for the output amount.
  */
-struct amount_sat bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
-					       int outnum);
+struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
+						 int outnum);
 
 /**
  * Set the input witness.

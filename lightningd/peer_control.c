@@ -967,13 +967,16 @@ static bool check_funding_tx(const struct bitcoin_tx *tx,
 			     const struct channel *channel)
 {
 	u8 *wscript;
+	struct amount_asset asset =
+	    bitcoin_tx_output_get_amount(tx, channel->funding_outnum);
+
+	if (!amount_asset_is_main(&asset))
+		return false;
 
 	if (channel->funding_outnum >= tx->wtx->num_outputs)
 		return false;
 
-	if (!amount_sat_eq(bitcoin_tx_output_get_amount(tx,
-							channel->funding_outnum),
-			   channel->funding))
+	if (!amount_sat_eq(amount_asset_to_sat(&asset), channel->funding))
 		return false;
 
 	wscript = bitcoin_redeem_2of2(tmpctx,

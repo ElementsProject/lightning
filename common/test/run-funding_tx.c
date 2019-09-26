@@ -110,6 +110,7 @@ int main(void)
 	struct bitcoin_signature sig;
 	struct bitcoin_address addr;
 	struct amount_sat tmpamt;
+	struct amount_asset asset;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -184,7 +185,9 @@ int main(void)
 	printf("# fee: %s\n",
 	       type_to_string(tmpctx, struct amount_sat, &fee));
 
-	tmpamt = bitcoin_tx_output_get_amount(funding, !funding_outnum);
+	asset = bitcoin_tx_output_get_amount(funding, !funding_outnum);
+	assert(amount_asset_is_main(&asset));
+	tmpamt = amount_asset_to_sat(&asset);
 	printf("change: %s\n",
 	       type_to_string(tmpctx, struct amount_sat,
 			      &tmpamt));

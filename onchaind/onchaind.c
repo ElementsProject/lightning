@@ -3,6 +3,7 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/amount.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_tx.h>
 #include <common/initial_commit_tx.h>
@@ -163,10 +164,13 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 				 const struct bitcoin_signature *remotesig,
 				 const u8 *wscript)
 {
-	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
-	struct amount_sat amount = bitcoin_tx_output_get_amount(tx, 0);
+	static struct amount_sat amount, fee = AMOUNT_SAT_INIT(UINT64_MAX);
+	struct amount_asset asset = bitcoin_tx_output_get_amount(tx, 0);
 	size_t weight = elements_add_overhead(663, tx->wtx->num_inputs,
 					      tx->wtx->num_outputs);
+
+	assert(amount_asset_is_main(&asset));
+	amount = amount_asset_to_sat(&asset);
 
 	/* BOLT #3:
 	 *
@@ -202,6 +206,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 				 const u8 *wscript)
 {
 	static struct amount_sat amt, fee = AMOUNT_SAT_INIT(UINT64_MAX);
+	struct amount_asset asset;
 	size_t weight = elements_add_overhead(703, tx->wtx->num_inputs,
 					      tx->wtx->num_outputs);
 	/* BOLT #3:
@@ -225,7 +230,10 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 		return;
 	}
 
-	amt = bitcoin_tx_output_get_amount(tx, 0);
+	asset = bitcoin_tx_output_get_amount(tx, 0);
+	assert(amount_asset_is_main(&asset));
+	amt = amount_asset_to_sat(&asset);
+
 	if (!amount_sat_sub(&amt, amt, fee))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot deduct htlc-success fee %s from tx %s",
@@ -934,6 +942,7 @@ static void resolve_htlc_tx(const struct chainparams *chainparams,
 	struct tracked_output *out;
 	struct bitcoin_tx *tx;
 	struct amount_sat amt;
+	struct amount_asset asset;
 	enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
 	u8 *wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[LOCAL],
 					      &keyset->self_revocation_key,
@@ -949,7 +958,9 @@ static void resolve_htlc_tx(const struct chainparams *chainparams,
 	 *         `to_self_delay` field) before spending that HTLC-timeout
 	 *         output.
 	 */
-	amt = bitcoin_tx_output_get_amount(htlc_tx, 0);
+	asset = bitcoin_tx_output_get_amount(htlc_tx, 0);
+	assert(amount_asset_is_main(&asset));
+	amt = amount_asset_to_sat(&asset);
 	out = new_tracked_output(chainparams, outs, htlc_txid, tx_blockheight,
 				 (*outs)[out_index]->resolved->tx_type,
 				 0, amt,
@@ -1796,7 +1807,11 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		const size_t *matches;
 		size_t which_htlc;
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
-		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_asset asset = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_sat amt;
+
+		assert(amount_asset_is_main(&asset));
+		amt = amount_asset_to_sat(&asset);
 
 		if (chainparams->is_elements &&
 		    (oscript == NULL || tal_bytelen(oscript) == 0)) {
@@ -2007,7 +2022,11 @@ static void tell_wallet_to_remote(const struct bitcoin_tx *tx,
 				  const struct pubkey *per_commit_point,
 				  bool option_static_remotekey)
 {
-	struct amount_sat amt = bitcoin_tx_output_get_amount(tx, outnum);
+	struct amount_asset asset = bitcoin_tx_output_get_amount(tx, outnum);
+	struct amount_sat amt;
+
+	assert(amount_asset_is_main(&asset));
+	amt = amount_asset_to_sat(&asset);
 
 	/* A NULL per_commit_point is how we indicate the pubkey doesn't need
 	 * changing. */
@@ -2157,7 +2176,10 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		const size_t *matches;
 		size_t which_htlc;
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
-		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_asset asset = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_sat amt;
+		assert(amount_asset_is_main(&asset));
+		amt = amount_asset_to_sat(&asset);
 
 		if (chainparams->is_elements &&
 		    (oscript == NULL || tal_bytelen(oscript) == 0)) {
@@ -2391,7 +2413,10 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		const size_t *matches;
 		size_t which_htlc;
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
-		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_asset asset = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_sat amt;
+		assert(amount_asset_is_main(&asset));
+		amt = amount_asset_to_sat(&asset);
 
 		if (chainparams->is_elements &&
 		    (oscript == NULL || tal_bytelen(oscript) == 0)) {
@@ -2556,7 +2581,10 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		struct tracked_output *out;
 		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
-		struct amount_sat amt = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_asset asset = bitcoin_tx_output_get_amount(tx, i);
+		struct amount_sat amt;
+		assert(amount_asset_is_main(&asset));
+		amt = amount_asset_to_sat(&asset);
 
 		if (oscript != NULL && local_script
 		    && scripteq(oscript, local_script)) {

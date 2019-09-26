@@ -489,10 +489,13 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	if (!feerate) {
 		/* We have at least one data point: the last tx's feerate. */
 		struct amount_sat fee = channel->funding;
-		for (size_t i = 0; i < channel->last_tx->wtx->num_outputs; i++)
-			if (!amount_sat_sub(&fee, fee,
-					    bitcoin_tx_output_get_amount(
-						channel->last_tx, i))) {
+		for (size_t i = 0; i < channel->last_tx->wtx->num_outputs; i++) {
+			struct amount_asset asset =
+			    bitcoin_tx_output_get_amount(channel->last_tx, i);
+			struct amount_sat amt;
+			assert(amount_asset_is_main(&asset));
+			amt = amount_asset_to_sat(&asset);
+			if (!amount_sat_sub(&fee, fee, amt)) {
 				log_broken(channel->log, "Could not get fee"
 					   " funding %s tx %s",
 					   type_to_string(tmpctx,
@@ -503,6 +506,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 							  channel->last_tx));
 				return KEEP_WATCHING;
 			}
+		}
 
 		feerate = fee.satoshis / bitcoin_tx_weight(tx); /* Raw: reverse feerate extraction */
 		if (feerate < feerate_floor())
