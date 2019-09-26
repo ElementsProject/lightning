@@ -53,7 +53,7 @@ void set_feature_bit(u8 **ptr, u32 bit);
 #define LOCAL_GOSSIP_QUERIES			6
 #define LOCAL_GOSSIP_QUERIES_EX			10
 
-/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #9:
+/* BOLT #9:
  * | Bits  | Name                            |...
  * | 12/13| `option_static_remotekey`        |...
  */

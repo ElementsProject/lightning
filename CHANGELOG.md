@@ -258,6 +258,7 @@ This release named by @molxyz and [@ctrlbreak](https://twitter.com/ctrlbreak).
 - JSON API: `listpeers`'s `channels` now includes a `private` flag to indicate if channel is announced or not.
 - JSON API: `invoice` route hints may now include private channels if you have no public ones, unless new option `exposeprivatechannels` is false.
 - Plugins: experimental plugin support for `lightningd`, including option passthrough and JSON-RPC passthrough.
+- Protocol: we now support features `option_static_remotekey` and `gossip_queries_ex` for peers.
 
 ### Changed
 
