@@ -1520,6 +1520,10 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		u32 index;
 		bool is_p2sh;
 		const u8 *script;
+		struct amount_asset asset = bitcoin_tx_output_get_amount(tx, output);
+
+		if (!amount_asset_is_main(&asset))
+			continue;
 
 		script = bitcoin_tx_output_get_script(tmpctx, tx, output);
 		if (!script)
@@ -1531,7 +1535,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo = tal(w, struct utxo);
 		utxo->keyindex = index;
 		utxo->is_p2sh = is_p2sh;
-		utxo->amount = bitcoin_tx_output_get_amount(tx, output);
+		utxo->amount = amount_asset_to_sat(&asset);
 		utxo->status = output_state_available;
 		bitcoin_txid(tx, &utxo->txid);
 		utxo->outnum = output;

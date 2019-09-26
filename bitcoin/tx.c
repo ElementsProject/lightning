@@ -75,6 +75,7 @@ static bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum)
 static struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
 {
 	struct amount_sat fee = AMOUNT_SAT(0), value;
+	struct amount_asset asset;
 	bool ok;
 
 	for (size_t i = 0; i < tal_count(tx->input_amounts); i++) {
@@ -84,10 +85,12 @@ static struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
 	}
 
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
-		if (elements_tx_output_is_fee(tx, i))
+		asset = bitcoin_tx_output_get_amount(tx, i);
+		if (elements_tx_output_is_fee(tx, i) ||
+		    !amount_asset_is_main(&asset))
 			continue;
 
-		value = bitcoin_tx_output_get_amount(tx, i);
+		value = amount_asset_to_sat(&asset);
 		ok = amount_sat_sub(&fee, fee, value);
 		assert(ok);
 	}
@@ -201,34 +204,31 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 	return res;
 }
 
-struct amount_sat bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
-					       int outnum)
+struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
+						 int outnum)
 {
-	struct amount_sat amount;
+	struct amount_asset amount;
 	struct wally_tx_output *output;
-	u64 satoshis;
-	const u8 *fee_asset_tag;
+	be64 raw;
+
 	assert(tx->chainparams);
 	assert(outnum < tx->wtx->num_outputs);
 	output = &tx->wtx->outputs[outnum];
-	fee_asset_tag = tx->chainparams->fee_asset_tag;
 
-	if (fee_asset_tag) {
-		if (memeq(fee_asset_tag, 33, output->asset, output->asset_len)) {
-			be64 raw;
-			memcpy(&raw, output->value + 1, sizeof(raw));
-			satoshis = be64_to_cpu(raw);
-		} else {
-			/* If this is an asset based tx, and we don't know the
-			 * asset type, i.e., it's not bitcoin, return a 0
-			 * amount */
-			satoshis = 0;
-		}
+	if (chainparams->is_elements) {
+		/* We currently only support v1 asset tags */
+		assert(output->asset_len == sizeof(amount.asset) &&
+		       output->asset[0] == 0x01);
+		memcpy(&amount.asset, output->asset, sizeof(amount.asset));
+		memcpy(&raw, output->value + 1, sizeof(raw));
+		amount.value = be64_to_cpu(raw);
+
 	} else {
-		satoshis = tx->wtx->outputs[outnum].satoshi;
+		/* Do not assign amount.asset, we should never touch it in
+		 * non-elements scenarios. */
+		amount.value = tx->wtx->outputs[outnum].satoshi;
 	}
 
-	amount.satoshis = satoshis; /* Raw: helper */
 	return amount;
 }
 

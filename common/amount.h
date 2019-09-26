@@ -22,6 +22,11 @@ struct amount_msat {
 	u64 millisatoshis;
 };
 
+struct amount_asset {
+	u64 value;
+	u8 asset[33]; /* 1 version byte + 32 byte asset_tag */
+};
+
 /* For constants only: others must be built from primitives! */
 #if HAVE_BUILTIN_CONSTANT_P
 #define AMOUNT_MUST_BE_CONST(c) BUILD_ASSERT_OR_ZERO(IS_COMPILE_CONSTANT(c))
@@ -97,6 +102,13 @@ bool amount_msat_greater_eq_sat(struct amount_msat msat, struct amount_sat sat);
 bool amount_msat_less_sat(struct amount_msat msat, struct amount_sat sat);
 /* Is msat <= sat? */
 bool amount_msat_less_eq_sat(struct amount_msat msat, struct amount_sat sat);
+
+/* Check whether this asset is actually the main / fee-paying asset of the
+ * current chain. */
+bool amount_asset_is_main(struct amount_asset *asset);
+
+/* Convert from a generic asset to the fee-paying asset if possible. */
+struct amount_sat amount_asset_to_sat(struct amount_asset *asset);
 
 /* Returns true if msat fits in a u32 value. */
 WARN_UNUSED_RESULT bool amount_msat_to_u32(struct amount_msat msat,

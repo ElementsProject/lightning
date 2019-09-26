@@ -658,12 +658,12 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 				continue;
 
 			const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, j);
-			struct amount_sat amt = bitcoin_tx_output_get_amount(tx, j);
+			struct amount_asset amt = bitcoin_tx_output_get_amount(tx, j);
 
-			if (is_p2wsh(script, NULL)) {
+			if (amount_asset_is_main(&amt) && is_p2wsh(script, NULL)) {
 				wallet_utxoset_add(topo->ld->wallet, tx, j,
 						   b->height, i, script,
-						   amt);
+						   amount_asset_to_sat(&amt));
 			}
 		}
 	}

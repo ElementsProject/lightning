@@ -22,7 +22,8 @@
 static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 				     const struct bitcoin_tx *tx)
 {
-	struct amount_sat amt, fee = sat_in;
+	struct amount_asset amt;
+	struct amount_sat fee = sat_in;
 	const u8 *oscript;
 	size_t scriptlen;
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
@@ -34,7 +35,12 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 		if (chainparams->is_elements && scriptlen == 0)
 			continue;
 
-		if (!amount_sat_sub(&fee, fee, amt))
+		/* Ignore outputs that are not denominated in our main
+		 * currency. */
+		if (!amount_asset_is_main(&amt))
+			continue;
+
+		if (!amount_sat_sub(&fee, fee, amount_asset_to_sat(&amt)))
 			fatal("Tx spends more than input %s? %s",
 			      type_to_string(tmpctx, struct amount_sat, &sat_in),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));

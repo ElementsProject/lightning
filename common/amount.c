@@ -1,9 +1,11 @@
 #include <assert.h>
+#include <bitcoin/chainparams.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/overflows.h>
 #include <common/type_to_string.h>
+#include <common/utils.h>
 #include <inttypes.h>
 
 bool amount_sat_to_msat(struct amount_msat *msat,
@@ -426,4 +428,24 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw, size_t weight)
 	fee.satoshis = (u64)fee_per_kw * weight / 1000;
 
 	return fee;
+}
+
+bool amount_asset_is_main(struct amount_asset *amount)
+{
+	/* If we're not on elements, there is only one asset. */
+	if (!chainparams->is_elements)
+		return true;
+
+	/* If we are on elements we better check against the chainparams. */
+	return memeq(amount->asset, sizeof(amount->asset),
+		     chainparams->fee_asset_tag, sizeof(amount->asset));
+}
+
+/* Convert from a generic asset to the fee-paying asset if possible. */
+struct amount_sat amount_asset_to_sat(struct amount_asset *amount)
+{
+	struct amount_sat sats;
+	assert(amount_asset_is_main(amount));
+	sats.satoshis = amount->value; /* Raw: low-level conversion */
+	return sats;
 }

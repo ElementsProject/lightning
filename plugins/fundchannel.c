@@ -340,6 +340,7 @@ static struct command_result *tx_prepare_dryrun(struct command *cmd,
 	struct amount_sat funding;
 	bool funding_found;
 	u8 *placeholder = tal_hexdata(tmpctx, placeholder_script, strlen(placeholder_script));
+	struct amount_asset asset;
 
 	/* Stash the 'reserved' txid to unreserve later */
 	hex = json_strdup(tmpctx, buf, json_get_member(buf, result, "txid"));
@@ -355,8 +356,15 @@ static struct command_result *tx_prepare_dryrun(struct command *cmd,
 	funding_found = false;
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *output_script = bitcoin_tx_output_get_script(tmpctx, tx, i);
+		asset = bitcoin_tx_output_get_amount(tx, i);
+
+		/* We do not support funding a channel with anything but the
+		 * main asset, for now. */
+		if (!amount_asset_is_main(&asset))
+			continue;
+
 		if (scripteq(output_script, placeholder)) {
-			funding = bitcoin_tx_output_get_amount(tx, i);
+			funding = amount_asset_to_sat(&asset);
 			funding_found = true;
 			break;
 		}
