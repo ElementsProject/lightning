@@ -598,3 +598,46 @@ struct command_result *param_bitcoin_address(struct command *cmd,
 	}
 	abort();
 }
+
+void json_add_tok(struct json_stream *result, const char *fieldname,
+                  const jsmntok_t *tok, const char *buffer)
+{
+	int i = 0;
+	const jsmntok_t *t;
+
+	switch (tok->type) {
+	case JSMN_PRIMITIVE:
+		if (json_tok_is_num(buffer, tok)) {
+			json_to_int(buffer, tok, &i);
+			json_add_num(result, fieldname, i);
+		}
+		return;
+
+	case JSMN_STRING:
+		if (json_tok_streq(buffer, tok, "true"))
+			json_add_bool(result, fieldname, true);
+		else if (json_tok_streq(buffer, tok, "false"))
+			json_add_bool(result, fieldname, false);
+		else
+			json_add_string(result, fieldname, json_strdup(tmpctx, buffer, tok));
+		return;
+
+	case JSMN_ARRAY:
+		json_array_start(result, fieldname);
+		json_for_each_arr(i, t, tok)
+			json_add_tok(result, NULL, t, buffer);
+		json_array_end(result);
+		return;
+
+	case JSMN_OBJECT:
+		json_object_start(result, fieldname);
+		json_for_each_obj(i, t, tok)
+			json_add_tok(result, json_strdup(tmpctx, buffer, t), t+1, buffer);
+		json_object_end(result);
+		return;
+
+	case JSMN_UNDEFINED:
+		break;
+	}
+	abort();
+}
