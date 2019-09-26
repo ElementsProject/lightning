@@ -286,6 +286,9 @@ struct routing_state {
 
 	/* Speed up gossip. */
 	bool dev_fast_gossip;
+
+	/* Speed up pruning. */
+	bool dev_fast_gossip_prune;
 #endif
 };
 
@@ -322,7 +325,8 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct node_id *local_id,
 					struct list_head *peers,
 					const u32 *dev_gossip_time TAKES,
-					bool dev_fast_gossip);
+					bool dev_fast_gossip,
+					bool dev_fast_gossip_prune);
 
 /**
  * Add a new bidirectional channel from id1 to id2 with the given

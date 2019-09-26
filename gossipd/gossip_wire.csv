@@ -14,6 +14,7 @@ msgdata,gossipctl_init,num_announcable,u16,
 msgdata,gossipctl_init,announcable,wireaddr,num_announcable
 msgdata,gossipctl_init,dev_gossip_time,?u32,
 msgdata,gossipctl_init,dev_fast_gossip,bool,
+msgdata,gossipctl_init,dev_fast_gossip_prune,bool,
 
 # In developer mode, we can mess with time.
 msgtype,gossip_dev_set_time,3001

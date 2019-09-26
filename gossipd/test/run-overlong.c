@@ -105,7 +105,7 @@ int main(void)
 		node_id_from_privkey(&tmp, &ids[i]);
 	}
 	/* We are node 0 */
-	rstate = new_routing_state(tmpctx, NULL, &ids[0], 0, NULL, NULL);
+	rstate = new_routing_state(tmpctx, NULL, &ids[0], 0, NULL, false, false);
 
 	for (size_t i = 0; i < NUM_NODES; i++) {
 		struct chan *chan;

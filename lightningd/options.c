@@ -416,7 +416,10 @@ static void dev_register_opts(struct lightningd *ld)
 
 	opt_register_noarg("--dev-fast-gossip", opt_set_bool,
 			   &ld->dev_fast_gossip,
-			   "Make gossip broadcast 1 second, pruning 14 seconds");
+			   "Make gossip broadcast 1 second, etc");
+	opt_register_noarg("--dev-fast-gossip-prune", opt_set_bool,
+			   &ld->dev_fast_gossip_prune,
+			   "Make gossip pruning 30 seconds");
 
 	opt_register_arg("--dev-gossip-time", opt_set_u32, opt_show_u32,
 			 &ld->dev_gossip_time,

@@ -776,11 +776,11 @@ static void gossip_refresh_network(struct daemon *daemon)
 
 	/* Send out 1 day before deadline */
 	highwater = now - (GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip)
-			   - GOSSIP_BEFORE_DEADLINE(daemon->rstate->dev_fast_gossip));
+			   - GOSSIP_BEFORE_DEADLINE(daemon->rstate->dev_fast_gossip_prune));
 
 	/* Schedule next run now */
 	notleak(new_reltimer(&daemon->timers, daemon,
-			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip)/4),
+			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune)/4),
 			     gossip_refresh_network, daemon));
 
 	/* Find myself in the network */
@@ -920,7 +920,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				   const u8 *msg)
 {
 	u32 *dev_gossip_time;
-	bool dev_fast_gossip;
+	bool dev_fast_gossip, dev_fast_gossip_prune;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     &daemon->chain_hash,
@@ -928,7 +928,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				     daemon->rgb,
 				     daemon->alias,
 				     &daemon->announcable,
-				     &dev_gossip_time, &dev_fast_gossip)) {
+				     &dev_gossip_time,
+				     &dev_fast_gossip,
+				     &dev_fast_gossip_prune)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 
@@ -937,7 +939,8 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   &daemon->id,
 					   &daemon->peers,
 					   take(dev_gossip_time),
-					   dev_fast_gossip);
+					   dev_fast_gossip,
+					   dev_fast_gossip_prune);
 
 	/* Load stored gossip messages */
 	if (!gossip_store_load(daemon->rstate, daemon->rstate->gs))
@@ -952,7 +955,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 
 	/* Start the twice- weekly refresh timer. */
 	notleak(new_reltimer(&daemon->timers, daemon,
-			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip) / 4),
+			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune) / 4),
 			     gossip_refresh_network, daemon));
 
 	return daemon_conn_read_next(conn, daemon->master);

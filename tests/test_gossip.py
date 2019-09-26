@@ -18,11 +18,11 @@ with open('config.vars') as configfile:
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-fast-gossip for fast pruning")
+@unittest.skipIf(not DEVELOPER, "needs --dev-fast-gossip-prune")
 def test_gossip_pruning(node_factory, bitcoind):
     """ Create channel and see it being updated in time before pruning
     """
-    l1, l2, l3 = node_factory.get_nodes(3)
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'dev-fast-gossip-prune': None})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -37,10 +37,10 @@ def test_gossip_pruning(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 4)
     wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 4)
 
-    # All of them should send a keepalive message (after ~60 seconds)
+    # All of them should send a keepalive message (after 30 seconds)
     l1.daemon.wait_for_logs([
         'Sending keepalive channel_update for {}'.format(scid1),
-    ], timeout=90)
+    ], timeout=50)
     l2.daemon.wait_for_logs([
         'Sending keepalive channel_update for {}'.format(scid1),
         'Sending keepalive channel_update for {}'.format(scid2),
@@ -49,12 +49,12 @@ def test_gossip_pruning(node_factory, bitcoind):
         'Sending keepalive channel_update for {}'.format(scid2),
     ])
 
-    # Now kill l2, so that l1 and l3 will prune from their view after 90 seconds
+    # Now kill l2, so that l1 and l3 will prune from their view after 60 seconds
     l2.stop()
 
-    # We check every 90/4 seconds, and takes 90 seconds since last update.
+    # We check every 60/4 seconds, and takes 60 seconds since last update.
     l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2),
-                           timeout=120)
+                           timeout=80)
     l3.daemon.wait_for_log("Pruning channel {} from network view".format(scid1))
 
     assert scid2 not in [c['short_channel_id'] for c in l1.rpc.listchannels()['channels']]
