@@ -252,7 +252,6 @@ static void plugin_response_handle(struct plugin *plugin,
 	/* We expect the request->cb to copy if needed */
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
 
-	uintmap_del(&plugin->plugins->pending_requests, id);
 	tal_free(request);
 }
 
@@ -1118,12 +1117,20 @@ void plugins_notify(struct plugins *plugins,
 		tal_free(n);
 }
 
+static void destroy_request(struct jsonrpc_request *req,
+                            struct plugin *plugin)
+{
+	uintmap_del(&plugin->plugins->pending_requests, req->id);
+}
+
 void plugin_request_send(struct plugin *plugin,
 			 struct jsonrpc_request *req TAKES)
 {
 	/* Add to map so we can find it later when routing the response */
 	tal_steal(plugin, req);
 	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
+	/* Add destructor in case plugin dies. */
+	tal_add_destructor2(req, destroy_request, plugin);
 	plugin_send(plugin, req->stream);
 	/* plugin_send steals the stream, so remove the dangling
 	 * pointer here */
