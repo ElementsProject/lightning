@@ -391,9 +391,6 @@ void peer_start_channeld(struct channel *channel,
 	num_revocations = revocations_received(&channel->their_shachain.chain);
 
 	/* BOLT #2:
-	 *
- 	 *   - if it supports `option_data_loss_protect`:
-	 *...
 	 *     - if `next_revocation_number` equals 0:
 	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
 	 *     - otherwise:

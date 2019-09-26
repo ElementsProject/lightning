@@ -8,7 +8,7 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 		   bool option_static_remotekey,
 		   struct keyset *keyset)
 {
-        /* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #3:
+        /* BOLT #3:
 	 *
 	 * ### `localpubkey`, `local_htlcpubkey`, `remote_htlcpubkey`, `local_delayedpubkey`, and `remote_delayedpubkey` Derivation
 	 *
@@ -27,7 +27,7 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 			       &keyset->self_payment_key))
 		return false;
 
-	/* BOLT-531c8d7d9b01ab610b8a73a0deba1b9e9c83e1ed #3:
+	/* BOLT #3:
 	 *
 	 * ### `remotepubkey` Derivation
 	 *
