@@ -18,7 +18,11 @@ then
     BLOCK=$(echo "$1" | cut -d: -f1)
     TXNUM=$(echo "$1" | cut -d: -f2)
 fi
-TXNUM=$(echo "$1" | cut -d: -f2)
+
+if [ "$BLOCK" == "$1" -a "$TXNUM" == "$1" ]
+then
+    echo The provided shortchannelid is invalid. Valid examples: 532046x1702x0 or 532046:1702:0
+    exit -1
+fi
 
 bitcoin-cli getblock "$(bitcoin-cli getblockhash "$BLOCK")" true | grep '^    "' | head -n "$((TXNUM + 1))" | tail -n 1 | tr -dc '0-9a-f\n'
-
