@@ -74,6 +74,15 @@ void memleak_remove_intmap_(struct htable *memtable UNNEEDED, const struct intma
 { fprintf(stderr, "memleak_remove_intmap_ called!\n"); abort(); }
 #endif
 
+/* NOOP for new_reltimer_ */
+struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
+			      const tal_t *ctx UNNEEDED,
+			      struct timerel expire UNNEEDED,
+			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
+{
+	return NULL;
+}
+
 static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
 {
 	struct pubkey k;
@@ -181,7 +190,7 @@ int main(void)
 
 	memset(&tmp, 'a', sizeof(tmp));
 	node_id_from_privkey(&tmp, &a);
-	rstate = new_routing_state(tmpctx, NULL, &a, 0, NULL, false, false);
+	rstate = new_routing_state(tmpctx, NULL, &a, NULL, NULL, NULL, false, false);
 
 	new_node(rstate, &a);
 

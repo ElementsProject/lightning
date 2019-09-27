@@ -10,6 +10,7 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
+#include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
@@ -234,10 +235,48 @@ static void memleak_help_routing_tables(struct htable *memtable,
 }
 #endif /* DEVELOPER */
 
+/* Once an hour, or at 10000 entries, we expire old ones */
+static void txout_failure_age(struct routing_state *rstate)
+{
+	uintmap_clear(&rstate->txout_failures_old);
+	rstate->txout_failures_old = rstate->txout_failures;
+	uintmap_init(&rstate->txout_failures);
+	rstate->num_txout_failures = 0;
+
+	rstate->txout_failure_timer = new_reltimer(rstate->timers,
+						   rstate, time_from_sec(3600),
+						   txout_failure_age, rstate);
+}
+
+static void add_to_txout_failures(struct routing_state *rstate,
+				  const struct short_channel_id *scid)
+{
+	if (uintmap_add(&rstate->txout_failures, scid->u64, true)
+	    && ++rstate->num_txout_failures == 10000) {
+		tal_free(rstate->txout_failure_timer);
+		txout_failure_age(rstate);
+	}
+}
+
+static bool in_txout_failures(struct routing_state *rstate,
+			      const struct short_channel_id *scid)
+{
+	if (uintmap_get(&rstate->txout_failures, scid->u64))
+		return true;
+
+	/* If we were going to expire it, we no longer are. */
+	if (uintmap_get(&rstate->txout_failures_old, scid->u64)) {
+		add_to_txout_failures(rstate, scid);
+		return true;
+	}
+	return false;
+}
+
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct chainparams *chainparams,
 					const struct node_id *local_id,
 					struct list_head *peers,
+					struct timers *timers,
 					const u32 *dev_gossip_time TAKES,
 					bool dev_fast_gossip,
 					bool dev_fast_gossip_prune)
@@ -245,6 +284,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = new_node_map(rstate);
 	rstate->gs = gossip_store_new(rstate, peers);
+	rstate->timers = timers;
 	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
 	rstate->local_channel_announced = false;
@@ -254,8 +294,10 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	uintmap_init(&rstate->chanmap);
 	uintmap_init(&rstate->unupdated_chanmap);
 	local_chan_map_init(&rstate->local_chan_map);
+	rstate->num_txout_failures = 0;
 	uintmap_init(&rstate->txout_failures);
-
+	uintmap_init(&rstate->txout_failures_old);
+	txout_failure_age(rstate);
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
 
@@ -1835,7 +1877,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 			     type_to_string(pending, struct short_channel_id,
 					    scid));
 		tal_free(pending);
-		uintmap_add(&rstate->txout_failures, scid->u64, true);
+		add_to_txout_failures(rstate, scid);
 		return false;
 	}
 
@@ -2213,7 +2255,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	/* If we dropped the matching announcement for this channel due to the
 	 * txout query failing, don't report failure, it's just too noisy on
 	 * mainnet */
-	if (uintmap_get(&rstate->txout_failures, short_channel_id.u64))
+	if (in_txout_failures(rstate, &short_channel_id))
 		return NULL;
 
 	/* If we have an unvalidated channel, just queue on that */

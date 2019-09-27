@@ -938,6 +938,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   chainparams_by_chainhash(&daemon->chain_hash),
 					   &daemon->id,
 					   &daemon->peers,
+					   &daemon->timers,
 					   take(dev_gossip_time),
 					   dev_fast_gossip,
 					   dev_fast_gossip_prune);
