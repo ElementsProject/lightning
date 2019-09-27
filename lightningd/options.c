@@ -44,6 +44,11 @@
 bool deprecated_apis = true;
 static bool opt_table_alloced = false;
 
+/* Declare opt_add_addr here, because we we call opt_add_addr
+ * and opt_announce_addr vice versa
+*/
+static char *opt_add_addr(const char *arg, struct lightningd *ld);
+
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
 {
@@ -153,7 +158,13 @@ static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 {
 	const struct wireaddr *wn;
 	size_t n = tal_count(ld->proposed_wireaddr);
-	char *err = opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE, false);
+	char *err;
+
+	/* Check for autotor and reroute the call to --addr  */
+	if (strstarts(arg, "autotor:"))
+		return opt_add_addr(arg, ld);
+
+	err = opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE, false);
 	if (err)
 		return err;
 
