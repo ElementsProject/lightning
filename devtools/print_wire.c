@@ -1,6 +1,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/utf8/utf8.h>
-#include <common/decode_short_channel_ids.h>
+#include <common/decode_array.h>
 #include <common/type_to_string.h>
 #include <devtools/print_wire.h>
 #include <errno.h>
@@ -114,10 +114,10 @@ static void printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 	scids = decode_short_ids(tmpctx, arr);
 	if (scids) {
 		switch (arr[0]) {
-		case SHORTIDS_UNCOMPRESSED:
+		case ARR_UNCOMPRESSED:
 			printf(" (UNCOMPRESSED)");
 			break;
-		case SHORTIDS_ZLIB:
+		case ARR_ZLIB:
 			printf(" (ZLIB)");
 			break;
 		default:
@@ -129,8 +129,8 @@ static void printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 	} else {
 		/* If it was unknown, that's different from corrupt */
 		if (len == 0
-		    || arr[0] == SHORTIDS_UNCOMPRESSED
-		    || arr[0] == SHORTIDS_ZLIB) {
+		    || arr[0] == ARR_UNCOMPRESSED
+		    || arr[0] == ARR_ZLIB) {
 			printf(" **CORRUPT**");
 			return;
 		} else {

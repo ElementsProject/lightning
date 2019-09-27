@@ -1,5 +1,5 @@
 #include <ccan/cast/cast.h>
-#include <common/decode_short_channel_ids.h>
+#include <common/decode_array.h>
 #include <common/utils.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire.h>
@@ -27,7 +27,7 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 {
 	struct short_channel_id *scids;
 	size_t max = tal_count(encoded);
-	enum scid_encode_types type;
+	enum arr_encode_types type;
 
 	/* BOLT #7:
 	 *
@@ -41,13 +41,13 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 	 */
 	type = fromwire_u8(&encoded, &max);
 	switch (type) {
-	case SHORTIDS_ZLIB:
+	case ARR_ZLIB:
 		encoded = unzlib(tmpctx, encoded, max);
 		if (!encoded)
 			return NULL;
 		max = tal_count(encoded);
 		/* fall thru */
-	case SHORTIDS_UNCOMPRESSED:
+	case ARR_UNCOMPRESSED:
 		scids = tal_arr(ctx, struct short_channel_id, 0);
 		while (max) {
 			struct short_channel_id scid;
@@ -82,13 +82,13 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx,
 	 *      - MAY fail the connection.
 	 */
 	switch (qf->encoding_type) {
-	case SHORTIDS_ZLIB:
+	case ARR_ZLIB:
 		encoded = unzlib(tmpctx, encoded, max);
 		if (!encoded)
 			return NULL;
 		max = tal_count(encoded);
 		/* fall thru */
-	case SHORTIDS_UNCOMPRESSED:
+	case ARR_UNCOMPRESSED:
 		flags = tal_arr(ctx, bigsize_t, 0);
 		while (max)
 			tal_arr_expand(&flags,

@@ -4,7 +4,7 @@
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/tal/tal.h>
 #include <common/daemon_conn.h>
-#include <common/decode_short_channel_ids.h>
+#include <common/decode_array.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
@@ -116,10 +116,10 @@ static void encoding_end_no_compress(u8 **encoded, size_t off)
 static bool encoding_end_prepend_type(u8 **encoded, size_t max_bytes)
 {
 	if (encoding_end_zlib(encoded, 1))
-		**encoded = SHORTIDS_ZLIB;
+		**encoded = ARR_ZLIB;
 	else {
 		encoding_end_no_compress(encoded, 1);
-		**encoded = SHORTIDS_UNCOMPRESSED;
+		**encoded = ARR_UNCOMPRESSED;
 	}
 
 #if DEVELOPER
@@ -133,10 +133,10 @@ static bool encoding_end_prepend_type(u8 **encoded, size_t max_bytes)
 static UNNEEDED bool encoding_end_external_type(u8 **encoded, u8 *type, size_t max_bytes)
 {
 	if (encoding_end_zlib(encoded, 0))
-		*type = SHORTIDS_ZLIB;
+		*type = ARR_ZLIB;
 	else {
 		encoding_end_no_compress(encoded, 0);
-		*type = SHORTIDS_UNCOMPRESSED;
+		*type = ARR_UNCOMPRESSED;
 	}
 
 	return tal_count(*encoded) <= max_bytes;

@@ -14,7 +14,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bigsize.o			\
 	common/bolt11.o				\
 	common/crypto_state.o			\
-	common/decode_short_channel_ids.o	\
+	common/decode_array.o			\
 	common/features.o			\
 	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\

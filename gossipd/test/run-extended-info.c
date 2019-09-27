@@ -297,11 +297,11 @@ static u8 *get_scid_array(const tal_t *ctx,
 	}
 	if (json_tok_streq(test_vector, encoding, "UNCOMPRESSED")) {
 		encoding_end_no_compress(&encoded, 1);
-		encoded[0] = SHORTIDS_UNCOMPRESSED;
+		encoded[0] = ARR_UNCOMPRESSED;
 	} else {
 		assert(json_tok_streq(test_vector, encoding, "COMPRESSED_ZLIB"));
 		assert(encoding_end_zlib(&encoded, 1));
-		encoded[0] = SHORTIDS_ZLIB;
+		encoded[0] = ARR_ZLIB;
 	}
 
 	return encoded;
@@ -380,13 +380,13 @@ static u8 *test_reply_channel_range(const char *test_vector, const jsmntok_t *ob
 		if (json_tok_streq(test_vector, encodingtok, "UNCOMPRESSED")) {
 			encoding_end_no_compress(&tlvs->timestamps_tlv->encoded_timestamps,
 						 0);
-			tlvs->timestamps_tlv->encoding_type = SHORTIDS_UNCOMPRESSED;
+			tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
 		} else {
 			assert(json_tok_streq(test_vector, encodingtok,
 					      "COMPRESSED_ZLIB"));
 			assert(encoding_end_zlib(&tlvs->timestamps_tlv->encoded_timestamps,
 						 0));
-			tlvs->timestamps_tlv->encoding_type = SHORTIDS_ZLIB;
+			tlvs->timestamps_tlv->encoding_type = ARR_ZLIB;
 		}
 	}
 
@@ -443,11 +443,11 @@ get_query_flags_array(const tal_t *ctx,
 	}
 	if (json_tok_streq(test_vector, encoding, "UNCOMPRESSED")) {
 		encoding_end_no_compress(&tlv->encoded_query_flags, 0);
-		tlv->encoding_type = SHORTIDS_UNCOMPRESSED;
+		tlv->encoding_type = ARR_UNCOMPRESSED;
 	} else {
 		assert(json_tok_streq(test_vector, encoding, "COMPRESSED_ZLIB"));
 		assert(encoding_end_zlib(&tlv->encoded_query_flags, 0));
-		tlv->encoding_type = SHORTIDS_ZLIB;
+		tlv->encoding_type = ARR_ZLIB;
 	}
 
 	return tlv;

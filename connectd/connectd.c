@@ -28,7 +28,7 @@
 #include <common/bech32_util.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
-#include <common/decode_short_channel_ids.h>
+#include <common/decode_array.h>
 #include <common/features.h>
 #include <common/memleak.h>
 #include <common/ping.h>

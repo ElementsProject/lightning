@@ -15,7 +15,7 @@ COMMON_SRC_NOGEN :=				\
 	common/cryptomsg.c			\
 	common/daemon.c				\
 	common/daemon_conn.c			\
-	common/decode_short_channel_ids.c	\
+	common/decode_array.c			\
 	common/derive_basepoints.c		\
 	common/dev_disconnect.c			\
 	common/features.c			\
