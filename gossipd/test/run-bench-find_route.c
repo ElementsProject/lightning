@@ -87,6 +87,15 @@ void memleak_remove_intmap_(struct htable *memtable UNNEEDED, const struct intma
 { fprintf(stderr, "memleak_remove_intmap_ called!\n"); abort(); }
 #endif
 
+/* NOOP for new_reltimer_ */
+struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
+			      const tal_t *ctx UNNEEDED,
+			      struct timerel expire UNNEEDED,
+			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
+{
+	return NULL;
+}
+
 /* Updates existing route if required. */
 static void add_connection(struct routing_state *rstate,
 			   const struct node_id *nodes,
@@ -191,7 +200,8 @@ int main(int argc, char *argv[])
 	setup_tmpctx();
 
 	me = nodeid(0);
-	rstate = new_routing_state(tmpctx, NULL, &me, 0, NULL, false, false);
+	rstate = new_routing_state(tmpctx, NULL, &me, NULL, NULL, NULL,
+				   false, false);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
 
