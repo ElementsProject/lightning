@@ -1,7 +1,7 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
-#include <common/decode_short_channel_ids.h>
+#include <common/decode_array.h>
 #include <common/utils.h>
 #include <devtools/gen_print_onion_wire.h>
 #include <devtools/gen_print_wire.h>

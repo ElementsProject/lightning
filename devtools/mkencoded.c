@@ -2,7 +2,7 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
-#include <common/decode_short_channel_ids.h>
+#include <common/decode_array.h>
 #include <common/utils.h>
 #include <stdio.h>
 #include <wire/wire.h>
@@ -41,9 +41,9 @@ int main(int argc, char *argv[])
 	if (!hex_decode(argv[1], strlen(argv[1]), &encoding, sizeof(encoding)))
 		errx(1, "Expected single hex byte not %s", argv[1]);
 
-	if (encoding == SHORTIDS_UNCOMPRESSED)
+	if (encoding == ARR_UNCOMPRESSED)
 		printf("%02x%s\n", encoding, tal_hex(NULL, data));
-	else if (encoding == SHORTIDS_ZLIB) {
+	else if (encoding == ARR_ZLIB) {
 		/* https://www.zlib.net/zlib_tech.html:
 		 *   the only expansion is an overhead of five bytes per 16 KB
 		 *   block (about 0.03%), plus a one-time overhead of six bytes

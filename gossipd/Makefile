@@ -49,7 +49,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
-	common/decode_short_channel_ids.o	\
+	common/decode_array.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/features.o			\
