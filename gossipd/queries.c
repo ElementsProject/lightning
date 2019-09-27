@@ -485,10 +485,13 @@ static bool queue_channel_ranges(struct peer *peer,
 		if (blocknum >= first_blocknum + number_of_blocks)
 			break;
 
-		encoding_add_short_channel_id(&encoded_scids, &scid);
-
 		/* FIXME: Store csum in header. */
 		chan = get_channel(rstate, &scid);
+		if (!is_chan_public(chan))
+			continue;
+
+		encoding_add_short_channel_id(&encoded_scids, &scid);
+
 		get_checksum_and_timestamp(rstate, chan, 0,
 					   &ts.timestamp_node_id_1,
 					   &cs.checksum_node_id_1);
