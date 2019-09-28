@@ -12,4 +12,10 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 				 const struct wireaddr_internal *bindings,
 				 const bool use_v3_autotor);
 
+struct wireaddr *tor_fixed_service(const tal_t *ctx,
+				 const struct wireaddr *tor_serviceaddr,
+				 const char *tor_password,
+				 const struct wireaddr_internal *bindings,
+				 const char *blob);
+
 #endif /* LIGHTNING_CONNECTD_TOR_AUTOSERVICE_H */

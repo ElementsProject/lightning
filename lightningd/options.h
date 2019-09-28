@@ -14,6 +14,10 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[]);
 /* Derive default color and alias from the pubkey. */
 void setup_color_and_alias(struct lightningd *ld);
 
+/* generate the nodes Tor address */
+void setup_default_tor(struct lightningd *ld);
+
+
 /* Global to allow deprecated options. */
 extern bool deprecated_apis;
 #endif /* LIGHTNING_LIGHTNINGD_OPTIONS_H */

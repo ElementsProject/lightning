@@ -11,6 +11,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/base64.h>
 #include <common/configdir.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
@@ -20,6 +21,7 @@
 #include <common/param.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
+#include <connectd/tor_autoservice.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -328,6 +330,23 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_add_service_addr(const char *arg, struct lightningd *ld)
+{
+	bool needed_dns = false;
+	tal_free(ld->serviceaddr);
+
+	/* We use a tal_arr here, so we can marshal it to gossipd */
+	ld->serviceaddr = tal_arr(ld, struct wireaddr, 1);
+
+	if (!parse_wireaddr(arg, ld->serviceaddr, 9051,
+			    &needed_dns,
+			    NULL)) {
+		return tal_fmt(NULL, "Unable to parse Tor service address '%s' %s",
+			       arg, needed_dns ? " (needed dns)" : "");
+	}
+	return NULL;
+}
+
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 {
 	plugin_register(ld->plugins, arg);
@@ -517,7 +536,9 @@ static const struct config testnet_config = {
 	.min_capacity_sat = 10000,
 
 	.use_v3_autotor = true,
-};
+
+	.gen_default_static_tor = false,
+	};
 
 /* aka. "Dude, where's my coins?" */
 static const struct config mainnet_config = {
@@ -578,8 +599,10 @@ static const struct config mainnet_config = {
 	.min_capacity_sat = 10000,
 
 	.use_v3_autotor = true,
-};
 
+	.gen_default_static_tor = false,
+};
+/* Allow to define the default behavior of tot services calls*/
 static void check_config(struct lightningd *ld)
 {
 	/* We do this by ensuring it's less than the minimum we would accept. */
@@ -1003,15 +1026,23 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
+	opt_register_arg("--tor-service", opt_add_service_addr, NULL,
+			ld,"Set a Tor service IP address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
+	opt_register_arg("--tor-addr-secret", opt_set_talstr, NULL,
+			 &ld->tor_blob,
+			 "Set up a static Tor hidden service from a given blob");
 
 	opt_register_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 			   "Disable DNS lookups of peers");
 
-	opt_register_noarg("--enable-autotor-v2-mode", opt_set_invbool, &ld->config.use_v3_autotor,
+	opt_register_noarg("--enable-autotor-v2-mode", opt_set_bool, &ld->config.use_v3_autotor,
 			   "Try to get a v2 onion address from the Tor service call, default is v3");
+
+	opt_register_noarg("--generate-static-tor-v3-onion", opt_set_bool,
+			 &ld->config.gen_default_static_tor, "Generate a v3 onion address from your node id and alias");
 
 	opt_register_logging(ld);
 	opt_register_version();
@@ -1229,8 +1260,12 @@ static void add_config(struct lightningd *ld,
 			   || opt->cb_arg == (void *)opt_set_charp
 			   || opt->cb_arg == (void *)opt_ignore_talstr) {
 			const char *arg = *(char **)opt->u.carg;
-			if (arg)
-				answer = tal_fmt(name0, "%s", arg);
+			if (arg) {
+				if (strstr(name, "secret")) 
+					answer = tal_fmt(name0, "*****");
+				else
+					answer = tal_fmt(name0, "%s", arg);
+				}	
 		} else if (opt->cb_arg == (void *)opt_set_rgb) {
 			if (ld->rgb)
 				answer = tal_hexstr(name0, ld->rgb, 3);
@@ -1259,6 +1294,9 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
 			if (ld->proxyaddr)
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
+		} else if (opt->cb_arg == (void *)opt_add_service_addr) {
+			if (ld->serviceaddr)
+				answer = fmt_wireaddr(name0, ld->serviceaddr);
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
 			json_add_opt_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_add_plugin_dir

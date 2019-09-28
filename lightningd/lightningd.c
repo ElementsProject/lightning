@@ -205,9 +205,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->config_filename = NULL;
 	ld->pidfile = NULL;
 	ld->proxyaddr = NULL;
+	ld->serviceaddr = NULL;
 	ld->use_proxy_always = false;
 	ld->pure_tor_setup = false;
 	ld->tor_service_password = NULL;
+	ld->tor_blob = NULL;
 	ld->max_funding_unconfirmed = 2016;
 
 	/*~ In the next step we will initialize the plugins. This will
@@ -714,7 +716,6 @@ int main(int argc, char *argv[])
 	/*~ Our default color and alias are derived from our node id, so we
 	 * can only set those now (if not set by config options). */
 	setup_color_and_alias(ld);
-
 	/*~ Set up connect daemon: this manages receiving and making
 	 * TCP connections.  It needs to talk to the gossip daemon
 	 * which knows (via node_announcement messages) the public

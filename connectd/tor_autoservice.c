@@ -7,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
+#include <common/base64.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
@@ -20,6 +21,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <wire/wire.h>
+
 
 #define MAX_TOR_COOKIE_LEN 32
 #define MAX_TOR_SERVICE_READBUFFER_LEN 255
@@ -79,8 +81,8 @@ static struct wireaddr *make_onion(const tal_t *ctx,
 	char *line;
 	struct wireaddr *onion;
 
-/* Now that V3 is out of Beta default to V3 autoservice onions if version is above 0.4
-*/
+	/* Now that V3 is out of Beta default to V3 autoservice onions if version is above 0.4
+	*/
 	tor_send_cmd(rbuf, "PROTOCOLINFO 1");
 
 	while ((line = tor_response_line(rbuf)) != NULL) {
@@ -132,6 +134,49 @@ static struct wireaddr *make_onion(const tal_t *ctx,
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Tor didn't give us a ServiceID");
 }
+#define sodium_base64_VARIANT_ORIGINAL            1
+
+
+
+
+static struct wireaddr *make_fixed_onion(const tal_t *ctx,
+				   struct rbuf *rbuf,
+				   const struct wireaddr *local, const char *blob, u16 port)
+{
+	char *line;
+	struct wireaddr *onion;
+	char *blob64;
+
+	blob64 = b64_encode(tmpctx,(char *) blob, 64);
+
+	tor_send_cmd(rbuf,
+			   tal_fmt(tmpctx, "ADD_ONION ED25519-V3:%s Port=%d,%s Flags=DiscardPK",
+					blob64, port, fmt_wireaddr(tmpctx, local)));
+
+	while ((line = tor_response_line(rbuf)) != NULL) {
+		const char *name;
+
+		if (!strstarts(line, "ServiceID="))
+			continue;
+		line += strlen("ServiceID=");
+		/* Strip the trailing CR */
+		if (strchr(line, '\r'))
+			*strchr(line, '\r') = '\0';
+
+		name = tal_fmt(tmpctx, "%s.onion", line);
+		onion = tal(ctx, struct wireaddr);
+		if (!parse_wireaddr(name, onion, DEFAULT_PORT, false, NULL))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Tor gave bad onion name '%s'", name);
+		printf("New autotor service onion address: \"%s:%d\"", name, DEFAULT_PORT);
+		discard_remaining_response(rbuf);
+		return onion;
+	}
+	return NULL;
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Tor didn't give us a ServiceID");
+}
+
 
 /* https://gitweb.torproject.org/torspec.git/tree/control-spec.txt:
  *
@@ -194,6 +239,9 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 					     tal_hexstr(tmpctx,
 							contents,
 							tal_count(contents)-1)));
+			//DEBUG status_info("coo:  %s",tal_hexstr(tmpctx,
+			//				contents,
+			//				tal_count(contents)-1));
 			discard_remaining_response(rbuf);
 			return;
 		}
@@ -254,6 +302,45 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 	negotiate_auth(&rbuf, tor_password);
 	onion = make_onion(ctx, &rbuf, laddr, use_v3_autotor);
 
+	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */
+	//because when we run with Detach flag as we now do every start of LN creates a new addr while the old
+	//stays valid until reboot this might not be desired so we can also drop Detach and use the
+	//read_partial to keep it open until LN drops
+	//FIXME: SAIBATO we might not want to close this conn
+	close(fd);
+
+	return onion;
+}
+
+struct wireaddr *tor_fixed_service(const tal_t *ctx,
+				 const struct wireaddr *tor_serviceaddr,
+				 const char *tor_password,
+				 const struct wireaddr_internal *bindings,
+				 const char *blob)
+{
+	int fd;
+	const struct wireaddr *laddr;
+	struct wireaddr *onion;
+	struct addrinfo *ai_tor;
+	struct rbuf rbuf;
+	char *buffer;
+
+	laddr = find_local_address(bindings);
+	ai_tor = wireaddr_to_addrinfo(tmpctx, tor_serviceaddr);
+
+	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);
+	if (fd < 0)
+		err(1, "Creating stream socket for Tor");
+
+	if (connect(fd, ai_tor->ai_addr, ai_tor->ai_addrlen) != 0)
+		err(1, "Connecting stream socket to Tor service");
+
+	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
+	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
+
+	negotiate_auth(&rbuf, "");
+
+	onion = make_fixed_onion(ctx, &rbuf, laddr, blob, DEFAULT_PORT);
 	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */
 	//because when we run with Detach flag as we now do every start of LN creates a new addr while the old
 	//stays valid until reboot this might not be desired so we can also drop Detach and use the

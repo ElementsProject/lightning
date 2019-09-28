@@ -2,6 +2,7 @@ COMMON_SRC_NOGEN :=				\
 	common/addr.c				\
 	common/amount.c				\
 	common/base32.c				\
+	common/base64.c				\
 	common/bech32.c				\
 	common/bech32_util.c			\
 	common/bigsize.c			\

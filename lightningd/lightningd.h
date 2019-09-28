@@ -68,9 +68,11 @@ struct config {
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;
 
-	/* Allow to define the default behavior of tot services calls*/
+	/* Allow to define the default behavior of tor services calls*/
 	bool use_v3_autotor;
 
+	/* Generate default ln node tor address*/
+	bool gen_default_static_tor;
 };
 
 struct lightningd {
@@ -225,8 +227,10 @@ struct lightningd {
 
 	/* tor support */
 	struct wireaddr *proxyaddr;
+	struct wireaddr *serviceaddr;
 	bool use_proxy_always;
 	char *tor_service_password;
+	char *tor_blob;
 	bool pure_tor_setup;
 
 	/* Original directory for deprecated plugin-relative-to-cwd */
