@@ -1244,7 +1244,14 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
-/*~ This is where we'd put a BOLT #10 reference, but it doesn't exist :( */
+/* BOLT #10:
+ *
+ * The DNS seed:
+ *   ...
+ *   - upon receiving a _node_ query:
+ *     - MUST select the record matching the `node_id`, if any, AND return all
+ *       addresses associated with that node.
+ */
 static const char **seednames(const tal_t *ctx, const struct node_id *id)
 {
 	char bech32[100];
