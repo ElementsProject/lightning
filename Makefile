@@ -95,6 +95,7 @@ CCAN_OBJS :=					\
 	ccan-rbuf.o				\
 	ccan-read_write_all.o			\
 	ccan-str-base32.o			\
+	ccan-str-base64.o			\
 	ccan-str-hex.o				\
 	ccan-str.o				\
 	ccan-strmap.o				\
@@ -161,6 +162,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/read_write_all/read_write_all.h	\
 	$(CCANDIR)/ccan/short_types/short_types.h	\
 	$(CCANDIR)/ccan/str/base32/base32.h		\
+	$(CCANDIR)/ccan/str/base64/base64.h		\
 	$(CCANDIR)/ccan/str/hex/hex.h			\
 	$(CCANDIR)/ccan/str/str.h			\
 	$(CCANDIR)/ccan/str/str_debug.h			\
@@ -665,6 +667,8 @@ ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
 ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-str-base64.o: $(CCANDIR)/ccan/str/base64/base64.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
 	$(CC) $(CFLAGS) -c -o $@ $<
