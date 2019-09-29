@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and has `connected` and `state` fields for channels, like `listpeers`.
 - JSON API: `fundchannel_start` now includes field `scriptpubkey`
 - JSON API: `txprepare` and `withdraw` now accept an optional parameter `utxos`, a list of utxos to include in the prepared transaction
+- JSON_API: `close` now accepts an optional parameter `destination`, to which the to-local output will be sent.
 
 - bolt11: support for parsing feature bits (field `9`).
 
