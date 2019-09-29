@@ -569,7 +569,7 @@ int main(int argc, char *argv[])
 	struct amount_sat min_fee_to_accept, commitment_fee, offer[NUM_SIDES];
 	struct feerange feerange;
 	enum side funder;
-	u8 *scriptpubkey[NUM_SIDES], *funding_wscript, *final_scriptpubkey;
+	u8 *scriptpubkey[NUM_SIDES], *funding_wscript;
 	struct channel_id channel_id;
 	bool reconnected;
 	u64 next_index[NUM_SIDES], revocations_received;
@@ -602,7 +602,6 @@ int main(int argc, char *argv[])
 				   &next_index[REMOTE],
 				   &revocations_received,
 				   &channel_reestablish,
-				   &final_scriptpubkey,
 				   &last_remote_per_commit_secret,
 				   &dev_fast_gossip))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
@@ -626,11 +625,8 @@ int main(int argc, char *argv[])
 	if (reconnected)
 		do_reconnect(pps, &channel_id,
 			     next_index, revocations_received,
-			     channel_reestablish, final_scriptpubkey,
+			     channel_reestablish, scriptpubkey[LOCAL],
 			     &last_remote_per_commit_secret);
-
-	/* We don't need this any more */
-	tal_free(final_scriptpubkey);
 
 	peer_billboard(true, "Negotiating closing fee between %s"
 		       " and %s satoshi (ideal %s)",
