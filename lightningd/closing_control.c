@@ -182,7 +182,7 @@ void peer_start_closingd(struct channel *channel,
 	struct secret last_remote_per_commit_secret;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!channel->remote_shutdown_scriptpubkey) {
+	if (!channel->shutdown_scriptpubkey[REMOTE]) {
 		channel_internal_error(channel,
 				       "Can't start closing: no remote info");
 		return;
@@ -293,7 +293,7 @@ void peer_start_closingd(struct channel *channel,
 				      minfee, feelimit, startfee,
 				      p2wpkh_for_keyidx(tmpctx, ld,
 							channel->final_key_idx),
-				      channel->remote_shutdown_scriptpubkey,
+				      channel->shutdown_scriptpubkey[REMOTE],
 				      reconnected,
 				      channel->next_index[LOCAL],
 				      channel->next_index[REMOTE],

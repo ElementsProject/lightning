@@ -247,7 +247,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      remote_commit_sig,
 			      NULL, /* No HTLC sigs yet */
 			      channel_info,
-			      NULL, /* No remote_shutdown_scriptpubkey yet */
+			      NULL, /* No shutdown_scriptpubkey[REMOTE] yet */
+			      NULL, /* No shutdown_scriptpubkey[LOCAL] yet. Generate the default one. */
 			      final_key_idx, false,
 			      NULL, /* No commit sent yet */
 			      /* If we're fundee, could be a little before this
