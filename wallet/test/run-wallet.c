@@ -925,11 +925,11 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK((c1->scid == NULL && c2->scid == NULL)
 	      || short_channel_id_eq(c1->scid, c2->scid));
 	CHECK(amount_msat_eq(c1->our_msat, c2->our_msat));
-	CHECK((c1->remote_shutdown_scriptpubkey == NULL && c2->remote_shutdown_scriptpubkey == NULL) || memeq(
-		      c1->remote_shutdown_scriptpubkey,
-		      tal_count(c1->remote_shutdown_scriptpubkey),
-		      c2->remote_shutdown_scriptpubkey,
-		      tal_count(c2->remote_shutdown_scriptpubkey)));
+	CHECK((c1->shutdown_scriptpubkey[REMOTE] == NULL && c2->shutdown_scriptpubkey[REMOTE] == NULL) || memeq(
+		      c1->shutdown_scriptpubkey[REMOTE],
+		      tal_count(c1->shutdown_scriptpubkey[REMOTE]),
+		      c2->shutdown_scriptpubkey[REMOTE],
+		      tal_count(c2->shutdown_scriptpubkey[REMOTE])));
 	CHECK(memeq(
 		      &c1->funding_txid,
 		      sizeof(struct sha256_double),
@@ -959,10 +959,10 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 		    &c2->last_sig, sizeof(c2->last_sig)));
 
 	CHECK(c1->final_key_idx == c2->final_key_idx);
-	CHECK(memeq(c1->remote_shutdown_scriptpubkey,
-		    tal_count(c1->remote_shutdown_scriptpubkey),
-		    c2->remote_shutdown_scriptpubkey,
-		    tal_count(c2->remote_shutdown_scriptpubkey)));
+	CHECK(memeq(c1->shutdown_scriptpubkey[REMOTE],
+		    tal_count(c1->shutdown_scriptpubkey[REMOTE]),
+		    c2->shutdown_scriptpubkey[REMOTE],
+		    tal_count(c2->shutdown_scriptpubkey[REMOTE])));
 
 	CHECK(c1->last_was_revoke == c2->last_was_revoke);
 
@@ -1091,8 +1091,8 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(c1.peer->dbid == 1);
 	CHECK(c1.their_shachain.id == 1);
 
-	/* Variant 4: update and add remote_shutdown_scriptpubkey */
-	c1.remote_shutdown_scriptpubkey = scriptpubkey;
+	/* Variant 4: update and add shutdown_scriptpubkey[REMOTE] */
+	c1.shutdown_scriptpubkey[REMOTE] = scriptpubkey;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));

@@ -170,6 +170,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey,
+			    u8 *local_shutdown_scriptpubkey,
 			    u64 final_key_idx,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
@@ -238,9 +239,16 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
 	channel->channel_info = *channel_info;
-	channel->remote_shutdown_scriptpubkey
+	channel->shutdown_scriptpubkey[REMOTE]
 		= tal_steal(channel, remote_shutdown_scriptpubkey);
 	channel->final_key_idx = final_key_idx;
+	if (local_shutdown_scriptpubkey)
+		channel->shutdown_scriptpubkey[LOCAL]
+			= tal_steal(channel, local_shutdown_scriptpubkey);
+	else
+		channel->shutdown_scriptpubkey[LOCAL]
+			= p2wpkh_for_keyidx(channel, channel->peer->ld,
+					    channel->final_key_idx);
 	channel->last_was_revoke = last_was_revoke;
 	channel->last_sent_commit = tal_steal(channel, last_sent_commit);
 	channel->first_blocknum = first_blocknum;

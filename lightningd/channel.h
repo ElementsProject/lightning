@@ -90,7 +90,7 @@ struct channel {
 	struct pubkey local_funding_pubkey;
 
 	/* Their scriptpubkey if they sent shutdown. */
-	u8 *remote_shutdown_scriptpubkey;
+	u8 *shutdown_scriptpubkey[NUM_SIDES];
 	/* Address for any final outputs */
 	u64 final_key_idx;
 
@@ -157,6 +157,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey,
+			    u8 *local_shutdown_scriptpubkey,
 			    u64 final_key_idx,
 			    bool last_was_revoke,
 			    /* NULL or stolen */

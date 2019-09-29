@@ -154,8 +154,8 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	}
 
 	/* FIXME: Add to spec that we must allow repeated shutdown! */
-	tal_free(channel->remote_shutdown_scriptpubkey);
-	channel->remote_shutdown_scriptpubkey = scriptpubkey;
+	tal_free(channel->shutdown_scriptpubkey[REMOTE]);
+	channel->shutdown_scriptpubkey[REMOTE] = scriptpubkey;
 
 	/* BOLT #2:
 	 *
@@ -464,9 +464,8 @@ void peer_start_channeld(struct channel *channel,
 				      &scid,
 				      reconnected,
 				      channel->state == CHANNELD_SHUTTING_DOWN,
-				      channel->remote_shutdown_scriptpubkey != NULL,
-				      p2wpkh_for_keyidx(tmpctx, ld,
-							channel->final_key_idx),
+				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
+				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->channel_flags,
 				      funding_signed,
 				      reached_announce_depth,

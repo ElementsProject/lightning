@@ -475,6 +475,8 @@ static struct migration dbmigrations[] = {
 	 ", channel BIGINT REFERENCES channels(id)"
 	 ", UNIQUE(txid, idx)"
 	 ");"), NULL},
+    {SQL("ALTER TABLE channels ADD shutdown_scriptpubkey_local BLOB;"),
+	 NULL},
 };
 
 /* Leak tracking. */
