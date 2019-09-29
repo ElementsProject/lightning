@@ -463,6 +463,18 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE vars ADD COLUMN blobval BLOB"), NULL},
     {SQL("UPDATE vars SET intval = CAST(val AS INTEGER) WHERE name IN ('bip32_max_index', 'last_processed_block', 'next_pay_index')"), NULL},
     {SQL("UPDATE vars SET blobval = CAST(val AS BLOB) WHERE name = 'genesis_hash'"), NULL},
+    {SQL("CREATE TABLE transaction_annotations ("
+	 /* Not making this a reference since we usually filter the TX by
+	  * walking its inputs and outputs, and only afterwards storing it in
+	  * the DB. Having a reference here would point into the void until we
+	  * add the matching TX. */
+	 "  txid BLOB"
+	 ", idx INTEGER" /* 0 when location is the tx, the index of the output or input otherwise */
+	 ", location INTEGER" /* The transaction itself, the output at idx, or the input at idx */
+	 ", type INTEGER"
+	 ", channel BIGINT REFERENCES channels(id)"
+	 ", UNIQUE(txid, idx)"
+	 ");"), NULL},
 };
 
 /* Leak tracking. */
