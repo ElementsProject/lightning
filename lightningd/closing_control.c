@@ -299,8 +299,6 @@ void peer_start_closingd(struct channel *channel,
 				      channel->next_index[REMOTE],
 				      num_revocations,
 				      channel_reestablish,
-				      p2wpkh_for_keyidx(tmpctx, ld,
-							channel->final_key_idx),
 				      &last_remote_per_commit_secret,
 				      IFDEV(ld->dev_fast_gossip, false));
 

@@ -27,8 +27,6 @@ msgdata,closing_init,next_index_remote,u64,
 msgdata,closing_init,revocations_received,u64,
 msgdata,closing_init,channel_reestablish_len,u16,
 msgdata,closing_init,channel_reestablish,u8,channel_reestablish_len
-msgdata,closing_init,final_scriptpubkey_len,u16,
-msgdata,closing_init,final_scriptpubkey,u8,final_scriptpubkey_len
 msgdata,closing_init,last_remote_secret,secret,
 msgdata,closing_init,dev_fast_gossip,bool,
 
