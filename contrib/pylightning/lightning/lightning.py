@@ -342,6 +342,9 @@ class LightningRpc(UnixDomainSocketRpc):
         if len(args) >= 1:
             if isinstance(args[0], bool):
                 return self._deprecated_close(peer_id, *args, **kwargs)
+            if len(args) == 2:
+                if args[0] is None and isinstance(args[1], int):
+                    return self._deprecated_close(peer_id, *args, **kwargs)
 
         def _close(peer_id, unilateraltimeout=None, destination=None):
             payload = {
