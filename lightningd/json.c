@@ -572,3 +572,29 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 
 	return ADDRESS_PARSE_UNRECOGNIZED;
 }
+
+struct command_result *param_bitcoin_address(struct command *cmd,
+					     const char *name,
+					     const char *buffer,
+					     const jsmntok_t *tok,
+					     const u8 **scriptpubkey)
+{
+	/* Parse address. */
+	switch (json_to_address_scriptpubkey(cmd,
+					     get_chainparams(cmd->ld),
+					     buffer, tok,
+					     scriptpubkey)) {
+	case ADDRESS_PARSE_UNRECOGNIZED:
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not parse destination address, "
+				    "%s should be a valid address",
+				    name ? name : "address field");
+	case ADDRESS_PARSE_WRONG_NETWORK:
+		return command_fail(cmd, LIGHTNINGD,
+				    "Destination address is not on network %s",
+				    get_chainparams(cmd->ld)->network_name);
+	case ADDRESS_PARSE_SUCCESS:
+		return NULL;
+	}
+	abort();
+}
