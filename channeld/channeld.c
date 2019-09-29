@@ -2783,8 +2783,15 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 
 static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 {
-	if (!fromwire_channel_send_shutdown(inmsg))
+	u8 *local_shutdown_script;
+
+	if (!fromwire_channel_send_shutdown(peer, inmsg, &local_shutdown_script))
 		master_badmsg(WIRE_CHANNEL_SEND_SHUTDOWN, inmsg);
+
+	/* FIXME: When we support local upfront_shutdown_script, local_shutdown_script
+	 * must equal to the local upfront_shutdown_script. */
+	tal_free(peer->final_scriptpubkey);
+	peer->final_scriptpubkey = local_shutdown_script;
 
 	/* We can't send this until commit (if any) is done, so start timer. */
 	peer->send_shutdown = true;

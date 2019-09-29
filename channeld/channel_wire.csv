@@ -159,6 +159,8 @@ msgtype,channel_got_revoke_reply,1122
 
 # Tell peer to shut down channel.
 msgtype,channel_send_shutdown,1023
+msgdata,channel_send_shutdown,shutdown_len,u16,
+msgdata,channel_send_shutdown,shutdown_scriptpubkey,u8,shutdown_len
 
 # Peer told us that channel is shutting down
 msgtype,channel_got_shutdown,1024

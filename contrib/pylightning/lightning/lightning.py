@@ -329,31 +329,29 @@ class LightningRpc(UnixDomainSocketRpc):
     def close(self, peer_id, *args, **kwargs):
         """
         Close the channel with peer {id}, forcing a unilateral
-        close after {unilateraltimeout} seconds if non-zero.
+        close after {unilateraltimeout} seconds if non-zero, and
+        the to-local output will be sent to {destination}.
 
         Deprecated usage has {force} and {timeout} args.
         """
-        unilateraltimeout = None
 
         if 'force' in kwargs or 'timeout' in kwargs:
             return self._deprecated_close(peer_id, *args, **kwargs)
 
         # Single arg is ambigious.
-        if len(args) == 1:
+        if len(args) >= 1:
             if isinstance(args[0], bool):
                 return self._deprecated_close(peer_id, *args, **kwargs)
-            unilateraltimeout = args[0]
-        elif len(args) > 1:
-            return self._deprecated_close(peer_id, *args, **kwargs)
 
-        if 'unilateraltimeout' in kwargs:
-            unilateraltimeout = kwargs['unilateraltimeout']
+        def _close(peer_id, unilateraltimeout=None, destination=None):
+            payload = {
+                "id": peer_id,
+                "unilateraltimeout": unilateraltimeout,
+                "destination": destination
+            }
+            return self.call("close", payload)
 
-        payload = {
-            "id": peer_id,
-            "unilateraltimeout": unilateraltimeout
-        }
-        return self.call("close", payload)
+        return _close(peer_id, *args, **kwargs)
 
     def connect(self, peer_id, host=None, port=None):
         """
