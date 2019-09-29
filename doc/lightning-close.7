@@ -3,12 +3,13 @@
 lightning-close - Command for closing channels with direct peers
 .SH SYNOPSIS
 
-\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR]
+\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR]
 
 .SH DESCRIPTION
 
 The \fBclose\fR RPC command attempts to close the channel cooperatively
-with the peer, or unilaterally after \fIunilateraltimeout\fR\.
+with the peer, or unilaterally after \fIunilateraltimeout\fR, and the
+to-local output will be sent to the address specified in \fIdestination\fR\.
 
 
 If the given \fIid\fR is a peer ID (66 hex digits as a string), then it
@@ -23,6 +24,10 @@ unilaterally close the channel when that number of seconds is reached\.
 If \fIunilateraltimeout\fR is zero, then the \fBclose\fR command will wait
 indefinitely until the peer is online and can negotiate a mutual close\.
 The default is 2 days (172800 seconds)\.
+
+
+The \fIdestination\fR can be of any Bitcoin accepted type, including bech32\.
+If it isn't specified, the default is a c-lightning wallet address\.
 
 
 The peer needs to be live and connected in order to negotiate a mutual
