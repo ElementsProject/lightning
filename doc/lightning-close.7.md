@@ -4,13 +4,14 @@ lightning-close -- Command for closing channels with direct peers
 SYNOPSIS
 --------
 
-**close** *id* \[*unilateraltimeout*\]
+**close** *id* \[*unilateraltimeout*\] \[*destination*\]
 
 DESCRIPTION
 -----------
 
 The **close** RPC command attempts to close the channel cooperatively
-with the peer, or unilaterally after *unilateraltimeout*.
+with the peer, or unilaterally after *unilateraltimeout*, and the
+to-local output will be sent to the address specified in *destination*.
 
 If the given *id* is a peer ID (66 hex digits as a string), then it
 applies to the active channel of the direct peer corresponding to the
@@ -23,6 +24,9 @@ unilaterally close the channel when that number of seconds is reached.
 If *unilateraltimeout* is zero, then the **close** command will wait
 indefinitely until the peer is online and can negotiate a mutual close.
 The default is 2 days (172800 seconds).
+
+The *destination* can be of any Bitcoin accepted type, including bech32.
+If it isn't specified, the default is a c-lightning wallet address.
 
 The peer needs to be live and connected in order to negotiate a mutual
 close. The default of unilaterally closing after 48 hours is usually a
