@@ -502,14 +502,14 @@ static void opening_fundee_finished(struct subd *openingd,
 	}
 
 	log_debug(channel->log, "Watching funding tx %s",
-		     type_to_string(reply, struct bitcoin_txid,
-				    &channel->funding_txid));
+		  type_to_string(reply, struct bitcoin_txid,
+				 &channel->funding_txid));
 
 	channel_watch_funding(ld, channel);
 
 	/* Tell plugins about the success */
 	notify_channel_opened(ld, &channel->peer->id, &channel->funding,
-			   &channel->funding_txid, &channel->remote_funding_locked);
+			      &channel->funding_txid, &channel->remote_funding_locked);
 
 	/* On to normal operation! */
 	peer_start_channeld(channel, pps, funding_signed, false);
