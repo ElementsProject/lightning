@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `txprepare` includes a parameter `zero_out_change`, which if true leaves the change value as zero. Useful for designating change output for dual-funded transactions. Defaults to false.
 - JSON API: `fundchannel_start` now includes `open_channel_version`, a string which indicates
 the protocol version used to open the channel.
+- Plugin: `openchannel` hook includes fields for v2 channel establishment
 
 - bolt11: support for parsing feature bits (field `9`).
 
