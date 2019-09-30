@@ -1,3 +1,4 @@
+from collections import Counter
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
 from utils import wait_for, TIMEOUT, only_one, sync_blockheight
@@ -132,15 +133,11 @@ def test_announce_address(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_gossip_timestamp_filter(node_factory, bitcoind):
-    # Need full IO logging so we can see gossip (from gossipd and channeld)
-    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=False)
+    # Updates get backdated 5 seconds with --dev-fast-gossip.
+    backdate = 5
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
 
-    # Full IO logging for connectds
-    subprocess.run(['kill', '-USR1', l1.subd_pid('connectd')])
-    subprocess.run(['kill', '-USR1', l2.subd_pid('connectd')])
-
-    # Updates get backdated 300 seconds.
-    before_anything = int(time.time() - 301.0)
+    before_anything = int(time.time())
 
     # Make a public channel.
     chan12 = l1.fund_channel(l2, 10**5)
@@ -148,10 +145,9 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
 
     l3.wait_for_channel_updates([chan12])
     after_12 = int(time.time())
-    # Full IO logging for l1's channeld
-    subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
 
     # Make another one, different timestamp.
+    time.sleep(1)
     chan23 = l2.fund_channel(l3, 10**5)
     bitcoind.generate_block(5)
 
@@ -161,55 +157,48 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     # Make sure l1 has received all the gossip.
     wait_for(lambda: ['alias' in node for node in l1.rpc.listnodes()['nodes']] == [True, True, True])
 
-    # l1 sets broad timestamp, will receive info about both channels again.
-    l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
-                                     first=0,
-                                     range=0xFFFFFFFF)
-    before_sendfilter = l1.daemon.logsearch_start
+    msgs = l1.query_gossip('gossip_timestamp_filter',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           '0', '0xFFFFFFFF')
 
     # 0x0100 = channel_announcement
     # 0x0102 = channel_update
     # 0x0101 = node_announcement
     # The order of node_announcements relative to others is undefined.
-    l1.daemon.wait_for_logs([r'\[IN\] 0102',
-                             r'\[IN\] 0102',
-                             r'\[IN\] 0100',
-                             r'\[IN\] 0100',
-                             r'\[IN\] 0102',
-                             r'\[IN\] 0102',
-                             r'\[IN\] 0101',
-                             r'\[IN\] 0101',
-                             r'\[IN\] 0101'])
+    types = Counter([m[0:4] for m in msgs])
+    assert types == Counter(['0100'] * 2 + ['0102'] * 4 + ['0101'] * 3)
 
     # Now timestamp which doesn't overlap (gives nothing).
-    before_sendfilter = l1.daemon.logsearch_start
-    l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
-                                     first=0,
-                                     range=before_anything)
-    time.sleep(1)
-    assert not l1.daemon.is_in_log(r'\[IN\] 0100', before_sendfilter)
+    msgs = l1.query_gossip('gossip_timestamp_filter',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           '0', before_anything - backdate)
+    assert msgs == []
 
     # Now choose range which will only give first update.
-    l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
-                                     first=before_anything,
-                                     range=after_12 - before_anything + 1)
+    msgs = l1.query_gossip('gossip_timestamp_filter',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           before_anything - backdate,
+                           after_12 - before_anything + 1)
+
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log(r'\[IN\] 0100')
     # 0x0102 = channel_update
     # (Node announcement may have any timestamp)
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    types = Counter([m[0:4] for m in msgs])
+    assert types['0100'] == 1
+    assert types['0102'] == 2
 
     # Now choose range which will only give second update.
-    l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
-                                     first=after_12,
-                                     range=after_23 - after_12 + 1)
+    msgs = l1.query_gossip('gossip_timestamp_filter',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           after_12 - backdate,
+                           after_23 - after_12 + 1)
+
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log(r'\[IN\] 0100')
     # 0x0102 = channel_update
     # (Node announcement may have any timestamp)
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    types = Counter([m[0:4] for m in msgs])
+    assert types['0100'] == 1
+    assert types['0102'] == 2
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-allow-localhost")
@@ -752,6 +741,8 @@ def test_report_routing_failure(node_factory, bitcoind):
     channels = []
     for src, dst in [(l1, l2), (l2, l3), (l3, l4), (l4, l1), (l4, l2)]:
         src.rpc.connect(dst.info['id'], 'localhost', dst.port)
+        print("src={}, dst={}".format(src.daemon.lightning_dir,
+                                      dst.daemon.lightning_dir))
         channels.append(src.fund_channel(dst, 10**6))
     bitcoind.generate_block(5)
 
