@@ -319,6 +319,13 @@ struct command_result *param_bool(struct command *cmd UNNEEDED, const char *name
 				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				  bool **b UNNEEDED)
 { fprintf(stderr, "param_bool called!\n"); abort(); }
+/* Generated stub for param_channel_id */
+struct command_result *param_channel_id(struct command *cmd UNNEEDED,
+					const char *name UNNEEDED,
+					const char *buffer UNNEEDED,
+					const jsmntok_t *tok UNNEEDED,
+					struct channel_id **cid UNNEEDED)
+{ fprintf(stderr, "param_channel_id called!\n"); abort(); }
 /* Generated stub for param_escaped_string */
 struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
 					    const char *name UNNEEDED,
