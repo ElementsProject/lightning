@@ -21,6 +21,14 @@ enum wallet_tx_type {
        TX_CHANNEL_CHEAT = 1024,
 };
 
+/* What part of a transaction are we annotating? The entire transaction, an
+ * input or an output. */
+enum wallet_tx_annotation_type {
+	TX_ANNOTATION = 0,
+	OUTPUT_ANNOTATION = 1,
+	INPUT_ANNOTATION = 2,
+};
+
 enum wallet_tx_type fromwire_wallet_tx_type(const u8 **cursor, size_t *max);
 void towire_wallet_tx_type(u8 **pptr, const enum wallet_tx_type type);
 
