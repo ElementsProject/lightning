@@ -92,8 +92,6 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 						     tx, &b->height, &owned);
 			wallet_transaction_add(topo->ld->wallet, tx, b->height,
 					       i);
-			wallet_transaction_annotate(topo->ld->wallet, &txid,
-						    TX_WALLET_DEPOSIT, 0);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */

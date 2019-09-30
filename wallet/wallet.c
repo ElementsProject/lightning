@@ -1577,6 +1577,8 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			      type_to_string(tmpctx, struct amount_sat, total),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &utxo->amount));
+
+		wallet_annotate_txout(w, &utxo->txid, output, TX_WALLET_DEPOSIT, 0);
 		tal_free(utxo);
 		num_utxos++;
 	}
