@@ -70,37 +70,6 @@ msgdata,gossip_ping_reply,sent,bool,
 # 0 == no pong expected
 msgdata,gossip_ping_reply,totlen,u16,
 
-# Test of query_short_channel_ids.  Master->gossipd
-msgtype,gossip_query_scids,3031
-msgdata,gossip_query_scids,id,node_id,
-msgdata,gossip_query_scids,num_ids,u16,
-msgdata,gossip_query_scids,ids,short_channel_id,num_ids
-
-# Gossipd -> master
-msgtype,gossip_scids_reply,3131
-msgdata,gossip_scids_reply,ok,bool,
-msgdata,gossip_scids_reply,complete,bool,
-
-# Test gossip timestamp filtering.
-msgtype,gossip_send_timestamp_filter,3028
-msgdata,gossip_send_timestamp_filter,id,node_id,
-msgdata,gossip_send_timestamp_filter,first_timestamp,u32,
-msgdata,gossip_send_timestamp_filter,timestamp_range,u32,
-
-# Test of query_channel_range.  Master->gossipd
-msgtype,gossip_query_channel_range,3029
-msgdata,gossip_query_channel_range,id,node_id,
-msgdata,gossip_query_channel_range,first_blocknum,u32,
-msgdata,gossip_query_channel_range,number_of_blocks,u32,
-
-# Gossipd -> master
-msgtype,gossip_query_channel_range_reply,3129
-msgdata,gossip_query_channel_range_reply,final_first_block,u32,
-msgdata,gossip_query_channel_range_reply,final_num_blocks,u32,
-msgdata,gossip_query_channel_range_reply,final_complete,bool,
-msgdata,gossip_query_channel_range_reply,num,u16,
-msgdata,gossip_query_channel_range_reply,scids,short_channel_id,num
-
 # Set artificial maximum reply_channel_range size.  Master->gossipd
 msgtype,gossip_dev_set_max_scids_encode_size,3030
 msgdata,gossip_dev_set_max_scids_encode_size,max,u32,

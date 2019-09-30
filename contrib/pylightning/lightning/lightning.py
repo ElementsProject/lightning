@@ -433,16 +433,6 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("dev-memleak")
 
-    def dev_query_scids(self, id, scids):
-        """
-        Ask peer for a particular set of scids
-        """
-        payload = {
-            "id": id,
-            "scids": scids
-        }
-        return self.call("dev-query-scids", payload)
-
     def dev_reenable_commit(self, peer_id):
         """
         Re-enable the commit timer on peer {id}
