@@ -2944,7 +2944,7 @@ static void init_channel(struct peer *peer)
 	enum side *failed_sides;
 	struct added_htlc *htlcs;
 	bool reconnected;
-	u8 *funding_signed;
+	u8 *sigs_msg;
 	const u8 *msg;
 	u32 feerate_per_kw[NUM_SIDES];
 	u32 minimum_depth, failheight;
@@ -3004,7 +3004,7 @@ static void init_channel(struct peer *peer)
 				   &peer->shutdown_sent[REMOTE],
 				   &peer->final_scriptpubkey,
 				   &peer->channel_flags,
-				   &funding_signed,
+				   &sigs_msg,
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
 				   &peer->localfeatures,
@@ -3111,9 +3111,9 @@ static void init_channel(struct peer *peer)
 	if (reconnected)
 		peer_reconnect(peer, &last_remote_per_commit_secret);
 
-	/* If we have a funding_signed message, send that immediately */
-	if (funding_signed)
-		sync_crypto_write(peer->pps, take(funding_signed));
+	/* If we have a final sigs message, send that immediately */
+	if (sigs_msg)
+		sync_crypto_write(peer->pps, take(sigs_msg));
 
 	/* Reenable channel */
 	channel_announcement_negotiate(peer);
