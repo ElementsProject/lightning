@@ -1005,8 +1005,13 @@ openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	struct uncommitted_channel *uc = payload->openingd->channel;
 	json_object_start(stream, "openchannel");
 	json_add_node_id(stream, "id", &uc->peer->id);
-	json_add_amount_sat_only(stream, "funding_satoshis",
-				 payload->opener_satoshis);
+	json_add_string(stream, "version", payload->is_v2 ? "2" : "1");
+	if (payload->is_v2)
+		json_add_amount_sat_only(stream, "opener_satoshis",
+					 payload->opener_satoshis);
+	else
+		json_add_amount_sat_only(stream, "funding_satoshis",
+					 payload->opener_satoshis);
 	json_add_amount_msat_only(stream, "push_msat", payload->push_msat);
 	json_add_amount_sat_only(stream, "dust_limit_satoshis",
 				 payload->dust_limit_satoshis);
@@ -1016,7 +1021,13 @@ openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 				 payload->channel_reserve_satoshis);
 	json_add_amount_msat_only(stream, "htlc_minimum_msat",
 				  payload->htlc_minimum_msat);
+	if (payload->is_v2)
+		json_add_amount_sat_only(stream, "available_funds",
+					 payload->available_funds);
 	json_add_num(stream, "feerate_per_kw", payload->feerate_per_kw);
+	if (payload->is_v2)
+		json_add_num(stream, "feerate_per_kw_funding",
+			     payload->feerate_per_kw_funding);
 	json_add_num(stream, "to_self_delay", payload->to_self_delay);
 	json_add_num(stream, "max_accepted_htlcs", payload->max_accepted_htlcs);
 	json_add_num(stream, "channel_flags", payload->channel_flags);
