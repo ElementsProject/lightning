@@ -101,9 +101,9 @@ struct peer {
 	struct node_id *scid_query_nodes;
 	size_t scid_query_nodes_idx;
 
-	/* Do we have an scid_query outstanding?  Was it internal? */
+	/* Do we have an scid_query outstanding?  What to call when it's done? */
 	bool scid_query_outstanding;
-	bool scid_query_was_internal;
+	void (*scid_query_cb)(struct peer *peer, bool complete);
 
 	/* How many pongs are we expecting? */
 	size_t num_pings_outstanding;
