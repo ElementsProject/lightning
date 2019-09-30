@@ -104,6 +104,7 @@ static struct command_result *send_tx(struct command *cmd,
 	struct out_req *req;
 	const jsmntok_t *tok;
 	bool commitments_secured;
+	char *txid;
 
 	/* For sanity's sake, let's check that it's secured */
 	tok = json_get_member(buf, result, "commitments_secured");
@@ -111,9 +112,17 @@ static struct command_result *send_tx(struct command *cmd,
 		/* TODO: better failure path? this should never fail though. */
 		plugin_err(cmd->plugin, "Commitment not secured.");
 
+	/* The txid might be updated, since the peer might have added
+	 * inputs, also */
+	tok = json_get_member(buf, result, "txid");
+	if (tok) {
+		txid = json_strdup(cmd, buf, tok);
+		if (!bitcoin_txid_from_hex(txid, strlen(txid), &fr->tx_id))
+			plugin_err(cmd->plugin, "Unable to parse reserved txid %s", txid);
+	}
+
 	/* Stash the channel_id so we can return it when finalized */
-	tok = json_get_member(buf, result, "channel_id");
-	fr->chanstr = json_strdup(fr, buf, tok);
+	fr->chanstr = json_strdup(fr, buf, json_get_member(buf, result, "channel_id"));
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "txsend",
 				    finish, tx_abort, fr);
@@ -246,6 +255,10 @@ static struct command_result *fundchannel_start_done(struct command *cmd,
 	/* Save the funding address, we'll need it later */
 	fr->funding_addr = json_strdup(cmd, buf,
 				       json_get_member(buf, result, "funding_address"));
+
+	/* Is this a v2 request? */
+	fr->is_v2 = json_tok_streq(buf,
+				   json_get_member(buf, result, "open_channel_version"), "2");
 
 	/* Now that we're ready to go, cancel the reserved tx */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "txdiscard",
