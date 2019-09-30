@@ -53,7 +53,6 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
  * @chainparams: (in) the params for the resulting transaction.
  * @outnum: (out) txout which is the funding output.
  * @feerate_kw_funding: (in) feerate for the funding transaction
- * @total_funding: (out) total funding amount for this transaction
  * @opener_funding: (in/out) funding amount contributed by opener
  * @accepter_funding: (in) funding amount contributed by accepter
  * @opener_inputs: (in) inputs from the opener
@@ -62,6 +61,8 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
  * @accepter_outputs: (in) outputs for the accepter
  * @local_fundingkey: (in) local key for 2of2 funding output.
  * @remote_fundingkey: (in) remote key for 2of2 funding output.
+ * @total_funding: (out) total funding amount for this transaction
+ * @opener_change: (out) change amount for opener
  * @input_map: (out) ordering of inputs, after being sorted.
  */
 struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
@@ -77,6 +78,7 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 				           const struct pubkey *local_fundingkey,
 				           const struct pubkey *remote_fundingkey,
 					   struct amount_sat *total_funding,
+					   struct amount_sat *opener_change,
 					   const void **input_map);
 #endif /* EXPERIMENTAL_FEATURES */
 #endif /* LIGHTNING_COMMON_FUNDING_TX_H */

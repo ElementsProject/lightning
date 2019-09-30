@@ -1048,19 +1048,16 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 	char *err_reason;
 	struct input_info **local_ins, **remote_ins;
 	struct output_info **local_outs, **remote_outs;
-	struct bitcoin_tx_input **remotetx_ins;
-	struct amount_sat total_funding;
+	struct amount_sat total_funding, opener_change;
 	struct bitcoin_signature their_sig, our_sig;
 	struct amount_msat local_funding_msat;
 
 	size_t i, input_count;
 	struct bitcoin_tx *funding_tx, *remote_commit, *local_commit;
-	struct witness_stack **remote_witnesses;
+	const struct witness_stack **remote_witnesses;
 
 	/* Derive components, omitting the funding output */
-	local_ins = tal_arr(tmpctx, struct input_info *, 0);
-	local_outs = tal_arr(tmpctx, struct output_info *, 0);
-	derive_input_output_info(tmpctx, *tx, utxos, true,
+	derive_input_output_info(state, *tx, utxos, true,
 				 &local_ins, &local_outs);
 
 	/* Send them to the peer */
@@ -1110,6 +1107,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     &total_funding,
+					     &opener_change,
 					     (const void **)&map);
 
 	if (!funding_tx)
@@ -1230,43 +1228,35 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 					   &state->their_funding_pubkey));
 
 	peer_billboard(false,
-		       "Opening channel: accepter sigs are acceptable, moving to sign tx");
+		       "Opening channel: accepter sigs are acceptable, moving to sign tx %s",
+		       type_to_string(state, struct bitcoin_tx, funding_tx));
 
-	u32 i_map[input_count];
+	u32 *i_map = tal_arr(state, u32, input_count);
 	for (size_t i = 0; i < input_count; i++) {
 		i_map[i] = ptr2int(map[i]);
 	}
 
-	/* Convert witnesses to something more palatable for
-	 * how our generated wires work */
-	/* FIXME: remove post EXPERIMENTAL_FEATURE, since witness_stack will be wireable */
-	remotetx_ins = tal_arr(tmpctx, struct bitcoin_tx_input *, tal_count(remote_witnesses));
-	for (i = 0; i < tal_count(remote_witnesses); i++) {
-		remotetx_ins[i] = tal(remotetx_ins, struct bitcoin_tx_input);
-	}
-
 	return towire_opening_dual_funding_signed(state,
-						 state->pps,
-						 local_commit,
-						 &their_sig,
-						 funding_tx,
-					         state->funding_txout,
-						 cast_const2(
-							 const struct bitcoin_tx_input **,
-							 remotetx_ins),
-						 i_map,
-						 state->opener_funding,
-						 &state->remoteconf,
-					         &state->their_points.revocation,
-					         &state->their_points.payment,
-					         &state->their_points.htlc,
-					         &state->their_points.delayed_payment,
-					         &state->first_per_commitment_point[REMOTE],
-					         &state->their_funding_pubkey,
-						 state->feerate_per_kw,
-						 state->feerate_per_kw_funding,
-					         state->localconf.channel_reserve,
-					         state->upfront_shutdown_script[REMOTE]);
+						  state->pps,
+						  local_commit,
+						  &their_sig,
+						  funding_tx,
+					          state->funding_txout,
+						  opener_change,
+						  remote_witnesses,
+						  i_map,
+						  state->opener_funding,
+						  &state->remoteconf,
+					          &state->their_points.revocation,
+					          &state->their_points.payment,
+					          &state->their_points.htlc,
+					          &state->their_points.delayed_payment,
+					          &state->first_per_commitment_point[REMOTE],
+					          &state->their_funding_pubkey,
+						  state->feerate_per_kw,
+						  state->feerate_per_kw_funding,
+					          state->localconf.channel_reserve,
+					          state->upfront_shutdown_script[REMOTE]);
 #else
 	return NULL;
 #endif /* EXPERIMENTAL_FEATURES */
@@ -1907,6 +1897,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     &state->funding_txid,
 				     state->funding_txout,
 				     state->opener_funding,
+				     AMOUNT_SAT(0),
 				     state->push_msat,
 				     channel_flags,
 				     state->feerate_per_kw,
