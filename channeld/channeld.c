@@ -2951,7 +2951,7 @@ static void init_channel(struct peer *peer)
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
-	bool option_static_remotekey;
+	bool option_static_remotekey, local_funded;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2973,6 +2973,7 @@ static void init_channel(struct peer *peer)
 				   &peer->remote_per_commit,
 				   &peer->old_remote_per_commit,
 				   &opener,
+				   &local_funded,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,
 				   &local_msat,
@@ -3071,6 +3072,7 @@ static void init_channel(struct peer *peer)
 					 &funding_pubkey[LOCAL],
 					 &funding_pubkey[REMOTE],
 					 option_static_remotekey,
+					 local_funded,
 					 opener);
 
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,

@@ -1096,6 +1096,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     state->option_static_remotekey,
+					     true,
 					     LOCAL);
 
 	/* We don't expect this to fail, but it does do some additional
@@ -1257,7 +1258,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     state->option_static_remotekey,
-					     /* Opener is local */
+					     true,
 					     LOCAL);
 	/* We were supposed to do enough checks above, but just in case,
 	 * new_initial_channel will fail to create absurd channels */
@@ -1725,6 +1726,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
 					     state->option_static_remotekey,
+					     false,
 					     REMOTE);
 	/* We don't expect this to fail, but it does do some additional
 	 * internal sanity checks. */

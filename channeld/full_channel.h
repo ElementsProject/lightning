@@ -25,6 +25,7 @@
  * @local_fundingkey: local funding key
  * @remote_fundingkey: remote funding key
  * @option_static_remotekey: use `option_static_remotekey`.
+ * @local_funded: true if local has inputs in funding tx
  * @opener: which side initiated it.
  *
  * Returns state, or NULL if malformed.
@@ -44,6 +45,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *local_funding_pubkey,
 				 const struct pubkey *remote_funding_pubkey,
 				 bool option_static_remotekey,
+				 bool local_funded,
 				 enum side opener);
 
 /**
