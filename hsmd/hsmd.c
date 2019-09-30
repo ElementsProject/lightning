@@ -1641,6 +1641,112 @@ static void sign_our_inputs(struct bitcoin_tx *tx, struct utxo **utxos,
 	}
 }
 
+#if EXPERIMENTAL_FEATURES
+static struct io_plan *handle_sign_dual_funding_tx(struct io_conn *conn,
+						   struct client *c,
+						   const u8 *msg_in)
+{
+	size_t i = 0, j;
+	struct bitcoin_tx *tx;
+	u32 feerate_kw_funding, offset;
+	struct pubkey local_pubkey, remote_pubkey;
+	struct amount_sat opener_funding, accepter_funding;
+	struct input_info **opener_inputs, **accepter_inputs;
+	struct output_info **opener_outputs, **accepter_outputs;
+	struct utxo **our_utxos;
+	struct amount_sat total_funding, opener_change;
+	enum side opener;
+	struct witness_stack **stacks;
+
+	if (!fromwire_hsm_dual_funding_sigs(tmpctx,
+					    msg_in,
+					    &our_utxos,
+					    &feerate_kw_funding,
+					    &opener_funding,
+					    &accepter_funding,
+					    &opener_inputs,
+					    &accepter_inputs,
+					    &opener_outputs,
+					    &accepter_outputs,
+					    &local_pubkey,
+					    &remote_pubkey,
+					    &opener))
+
+		return bad_req(conn, c, msg_in);
+
+	size_t input_count = tal_count(opener_inputs) +
+		tal_count(accepter_inputs);
+
+	const void *map[input_count];
+	for (i = 0; i < input_count; i++)
+		map[i] = int2ptr(i);
+
+	tx = dual_funding_funding_tx(tmpctx,
+				     c->chainparams,
+				     NULL,
+				     feerate_kw_funding,
+				     &opener_funding,
+				     accepter_funding,
+				     opener_inputs, accepter_inputs,
+				     opener_outputs, accepter_outputs,
+				     &local_pubkey,
+				     &remote_pubkey,
+				     &total_funding,
+				     &opener_change,
+				     (const void **)&map);
+
+	if (!tx)
+		return bad_req_fmt(conn, c, msg_in,
+				   "Unable to create valid funding tx.");
+
+	/* For the input_map, the opener_inputs are added before the accepter's */
+	offset = opener == LOCAL ? 0 : tal_count(opener_inputs);
+
+	stacks = tal_arr(tmpctx, struct witness_stack *, tal_count(our_utxos));
+	for (i = 0; i < tal_count(our_utxos); i++) {
+		struct bitcoin_signature sig;
+		struct pubkey inkey;
+		size_t input_index = -1;
+		struct witness_stack *stack;
+		u8 **witnesses;
+
+		stack = tal(stacks, struct witness_stack);
+		for (j = 0; j < input_count; j++) {
+			if (ptr2int(map[j]) == i + offset) {
+				input_index = j;
+				break;
+			}
+		}
+
+		if (input_index == -1)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Unable to find index for input");
+
+		sign_input(tx, our_utxos[i], &inkey, &sig, input_index);
+		witnesses =
+			bitcoin_witness_p2wpkh(tmpctx, &sig, &inkey);
+
+		stack->witness_element =
+			tal_arr(stack, struct witness_element *, tal_count(witnesses));
+
+		for (j = 0; j < tal_count(witnesses); j++) {
+			stack->witness_element[j] =
+				tal(stack->witness_element, struct witness_element);
+			stack->witness_element[j]->witness =
+				tal_steal(stack->witness_element[j], witnesses[j]);
+		}
+
+		stacks[i] = stack;
+		tal_free(witnesses);
+	}
+
+	return req_reply(conn, c, take(
+				towire_hsm_dual_funding_sigs_reply(tmpctx,
+					cast_const2(const struct witness_stack **, stacks),
+					cast_const(const struct bitcoin_tx *, tx))));
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 /*~ lightningd asks us to sign the transaction to fund a channel; it feeds us
  * the set of inputs and the local and remote pubkeys, and we sign it. */
 static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
@@ -1963,6 +2069,13 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
 		return (client->capabilities & HSM_CAP_SIGN_CLOSING_TX) != 0;
 
+	case WIRE_HSM_DUAL_FUNDING_SIGS:
+#if EXPERIMENTAL_FEATURES
+		return (client->capabilities & HSM_CAP_SIGN_ACCEPTER_FUNDING_TX) != 0;
+#else
+		return false;
+#endif /* EXPERIMENTAL_FEATURES */
+
 	case WIRE_HSM_INIT:
 	case WIRE_HSM_CLIENT_HSMFD:
 	case WIRE_HSM_SIGN_FUNDING:
@@ -1982,6 +2095,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
 	case WIRE_HSM_SIGN_FUNDING_REPLY:
+	case WIRE_HSM_DUAL_FUNDING_SIGS_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
@@ -2035,6 +2149,12 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_SIGN_FUNDING:
 		return handle_sign_funding_tx(conn, c, c->msg_in);
 
+	case WIRE_HSM_DUAL_FUNDING_SIGS:
+#if EXPERIMENTAL_FEATURES
+		return handle_sign_dual_funding_tx(conn, c, c->msg_in);
+#else
+		return NULL;
+#endif /* EXPERIMENTAL_FEATURES */
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
 		return handle_sign_node_announcement(conn, c, c->msg_in);
 
@@ -2087,6 +2207,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
 	case WIRE_HSM_SIGN_FUNDING_REPLY:
+	case WIRE_HSM_DUAL_FUNDING_SIGS_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:

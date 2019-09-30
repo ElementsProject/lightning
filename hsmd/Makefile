@@ -22,10 +22,12 @@ HSMD_COMMON_OBJS :=				\
 	common/funding_tx.o			\
 	common/gen_status_wire.o		\
 	common/hash_u5.o			\
+	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
+	common/onionreply.o			\
 	common/permute_tx.o			\
 	common/status.o				\
 	common/status_wire.o			\
