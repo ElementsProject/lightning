@@ -175,6 +175,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	utxo->blockheight = NULL;
 	utxo->spendheight = NULL;
 	utxo->scriptPubkey = NULL;
+	utxo->scriptSig = NULL;
 
 	if (!db_column_is_null(stmt, 9)) {
 		blockheight = tal(utxo, u32);
@@ -535,6 +536,22 @@ const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 		return tal_free(utxo);
 
 	return utxo;
+}
+
+u8 *derive_redeem_scriptsig(const tal_t *ctx, struct wallet *w, u32 keyindex)
+{
+	struct ext_key ext;
+	struct pubkey key;
+
+	if (bip32_key_from_parent(w->bip32_base, keyindex,
+				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+		fatal("Unable to derive pubkey");
+	}
+
+	if (!pubkey_from_der(ext.pub_key, PUBKEY_CMPR_LEN, &key))
+		fatal("Unble to derive pubkey from DER");
+
+	return bitcoin_scriptsig_p2sh_p2wpkh(ctx, &key);
 }
 
 bool wallet_can_spend(struct wallet *w, const u8 *script,

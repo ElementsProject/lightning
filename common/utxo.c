@@ -16,6 +16,11 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 	towire_u32(pptr, utxo->keyindex);
 	towire_bool(pptr, utxo->is_p2sh);
 
+	towire_u16(pptr, tal_count(utxo->scriptPubkey));
+	towire_u8_array(pptr, utxo->scriptPubkey, tal_count(utxo->scriptPubkey));
+	towire_u16(pptr, tal_count(utxo->scriptSig));
+	towire_u8_array(pptr, utxo->scriptSig, tal_count(utxo->scriptSig));
+
 	towire_bool(pptr, is_unilateral_close);
 	if (is_unilateral_close) {
 		towire_u64(pptr, utxo->close_info->channel_id);
@@ -24,21 +29,27 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 		if (utxo->close_info->commitment_point)
 			towire_pubkey(pptr, utxo->close_info->commitment_point);
 	}
-
-	towire_u16(pptr, tal_count(utxo->scriptPubkey));
-	towire_u8_array(pptr, utxo->scriptPubkey, tal_count(utxo->scriptPubkey));
 }
 
 struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
 	u16 script_len;
+	u16 scriptsig_len;
 
 	fromwire_bitcoin_txid(ptr, max, &utxo->txid);
 	utxo->outnum = fromwire_u32(ptr, max);
 	utxo->amount = fromwire_amount_sat(ptr, max);
 	utxo->keyindex = fromwire_u32(ptr, max);
 	utxo->is_p2sh = fromwire_bool(ptr, max);
+
+	script_len = fromwire_u16(ptr, max);
+	utxo->scriptPubkey = tal_arr(utxo, u8, script_len);
+	fromwire_u8_array(ptr, max, utxo->scriptPubkey, script_len);
+
+	scriptsig_len = fromwire_u16(ptr, max);
+	utxo->scriptSig = tal_arr(utxo, u8, scriptsig_len);
+	fromwire_u8_array(ptr, max, utxo->scriptSig, scriptsig_len);
 
 	if (fromwire_bool(ptr, max)) {
 		utxo->close_info = tal(utxo, struct unilateral_close_info);
@@ -55,8 +66,6 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 		utxo->close_info = NULL;
 	}
 
-	script_len = fromwire_u16(ptr, max);
-	fromwire_u8_array(ptr, max, utxo->scriptPubkey, script_len);
 	return utxo;
 }
 
