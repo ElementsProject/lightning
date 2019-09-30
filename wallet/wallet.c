@@ -2862,6 +2862,39 @@ void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
 	}
 }
 
+static void wallet_annotation_add(struct wallet *w, const struct bitcoin_txid *txid, int num,
+				  enum wallet_tx_annotation_type annotation_type, enum wallet_tx_type type, u64 channel)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(
+		w->db,SQL("INSERT INTO transaction_annotations "
+			  "(txid, idx, location, type, channel) "
+			  "VALUES (?, ?, ?, ?, ?) ON CONFLICT(txid,idx) DO NOTHING;"));
+
+	db_bind_txid(stmt, 0, txid);
+	db_bind_int(stmt, 1, num);
+	db_bind_int(stmt, 2, annotation_type);
+	db_bind_int(stmt, 3, type);
+	if (channel != 0)
+		db_bind_u64(stmt, 4, channel);
+	else
+		db_bind_null(stmt, 4);
+	db_exec_prepared_v2(take(stmt));
+}
+
+void wallet_annotate_txout(struct wallet *w, const struct bitcoin_txid *txid,
+			   int outnum, enum wallet_tx_type type, u64 channel)
+{
+	wallet_annotation_add(w, txid, outnum, OUTPUT_ANNOTATION, type, channel);
+}
+
+void wallet_annotate_txin(struct wallet *w, const struct bitcoin_txid *txid,
+			  int innum, enum wallet_tx_type type, u64 channel)
+{
+	wallet_annotation_add(w, txid, innum, INPUT_ANNOTATION, type, channel);
+}
+
 void wallet_transaction_annotate(struct wallet *w,
 				 const struct bitcoin_txid *txid, enum wallet_tx_type type,
 				 u64 channel_id)

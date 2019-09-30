@@ -1055,6 +1055,12 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
 			    const u32 blockheight, const u32 txindex);
 
+void wallet_annotate_txout(struct wallet *w, const struct bitcoin_txid *txid,
+			   int outnum, enum wallet_tx_type type, u64 channel);
+
+void wallet_annotate_txin(struct wallet *w, const struct bitcoin_txid *txid,
+			  int innum, enum wallet_tx_type type, u64 channel);
+
 /**
  * Annotate a transaction in the DB with its type and channel referemce.
  *
