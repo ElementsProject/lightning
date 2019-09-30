@@ -368,6 +368,7 @@ failed:
 static bool update_unreleased_tx(struct unreleased_tx *utx,
 				 struct bitcoin_tx *tx,
 				 u32 *input_map,
+				 struct amount_sat opener_change,
 				 struct witness_stack **witnesses)
 {
 	size_t i, j, num_other_ins, num_utxo;
@@ -453,6 +454,7 @@ static bool update_unreleased_tx(struct unreleased_tx *utx,
 	utx->tx = tal_free(utx->tx);
 	utx->tx = tal_steal(utx, tx);
 	bitcoin_txid(tx, &utx->txid);
+	utx->wtx->change = opener_change;
 
 	return true;
 }
@@ -469,12 +471,12 @@ static void opening_opener_finished(struct subd *openingd, const u8 *resp,
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit, *funding_tx;
 	u32 feerate, feerate_funding;
-	struct amount_sat local_funding, total_funding;
+	struct amount_sat local_funding, total_funding, opener_change;
 	struct channel *channel;
 	struct lightningd *ld = openingd->ld;
 	u8 *remote_upfront_shutdown_script;
 	struct per_peer_state *pps;
-	struct bitcoin_tx_input **remote_ins;
+	struct witness_stack **remote_witnesses;
 	struct funding_channel *fc = uc->fc;
 	struct unreleased_tx *utx = fc->utx;
 	u32 *input_map;
@@ -489,7 +491,8 @@ static void opening_opener_finished(struct subd *openingd, const u8 *resp,
 						  &remote_commit_sig,
 						  &funding_tx,
 						  &funding_txout,
-						  &remote_ins,
+						  &opener_change,
+						  &remote_witnesses,
 						  &input_map,
 						  &local_funding,
 						  &channel_info.their_config,
@@ -523,7 +526,7 @@ static void opening_opener_finished(struct subd *openingd, const u8 *resp,
 	}
 
 	/* Update the funding tx that we have for this */
-	if (!update_unreleased_tx(utx, funding_tx, input_map, witnesses)) {
+	if (!update_unreleased_tx(utx, funding_tx, input_map, opener_change, witnesses)) {
 		log_broken(uc->log, "Unable to update unreleased tx");
 		uncommitted_channel_disconnect(uc, "internal error in creating updated tx");
 		goto cleanup;
@@ -693,6 +696,7 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &funding_txid,
 					   &funding_outnum,
 					   &funding,
+					   &AMOUNT_SAT(0),
 					   &push,
 					   &channel_flags,
 					   &feerate,

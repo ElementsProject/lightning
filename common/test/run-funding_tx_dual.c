@@ -729,7 +729,7 @@ int main(void)
 	setup_tmpctx();
 
 	u16 outnum;
-	struct amount_sat total_funding;
+	struct amount_sat total_funding, opener_change;
 
 	for (size_t i = 0; i < num_tests; i++) {
 		struct test_case test = test_cases[i](tmpctx);
@@ -754,7 +754,8 @@ int main(void)
 						  test.accepter_outputs,
 						  &local_funding_pubkey,
 						  &remote_funding_pubkey,
-						  &total_funding, NULL);
+						  &total_funding,
+						  &opener_change, NULL);
 
 		if (!test.expected_tx && !funding)
 			continue;
