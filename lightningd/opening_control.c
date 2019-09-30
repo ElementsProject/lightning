@@ -174,6 +174,7 @@ wallet_commit_channel(struct lightningd *ld,
 {
 	struct channel *channel;
 	struct amount_msat our_msat;
+	struct amount_sat local_funding;
 	s64 final_key_idx;
 	bool option_static_remotekey;
 
@@ -193,8 +194,11 @@ wallet_commit_channel(struct lightningd *ld,
 						  &funding));
 			return NULL;
 		}
-	} else
+		local_funding = funding;
+	} else {
 		our_msat = push;
+		local_funding = AMOUNT_SAT(0);
+	}
 
 	channel_info->fee_states = new_fee_states(uc, uc->fc ? LOCAL : REMOTE,
 						  &feerate);
@@ -238,6 +242,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      funding_outnum,
 			      funding,
 			      push,
+			      local_funding,
 			      false, /* !remote_funding_locked */
 			      NULL, /* no scid yet */
 			      /* The three arguments below are msatoshi_to_us,
