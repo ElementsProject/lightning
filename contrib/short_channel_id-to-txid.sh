@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/bash
 
 set -e
 
@@ -6,7 +6,7 @@ if [ "$#" != 1 ]
 then
     echo Usage: "$0" "shortchannelid (e.g. 532046x1702x0 or 532046:1702:0)" >&2
     echo Uses bitcoin-cli to extract the actual txid >&2
-    exit -1
+    exit 1
 fi
 
 # Try to segment using both x and : as delimiters (compatibility with the old shortchannelid standard)
@@ -21,8 +21,8 @@ fi
 
 if [ "$BLOCK" == "$1" -a "$TXNUM" == "$1" ]
 then
-    echo The provided shortchannelid is invalid. Valid examples: 532046x1702x0 or 532046:1702:0
-    exit -1
+    echo The provided shortchannelid is invalid. Valid examples: 532046x1702x0 or 532046:1702:0 >&2
+    exit 1
 fi
 
 bitcoin-cli getblock "$(bitcoin-cli getblockhash "$BLOCK")" true | grep '^    "' | head -n "$((TXNUM + 1))" | tail -n 1 | tr -dc '0-9a-f\n'
