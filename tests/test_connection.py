@@ -4,7 +4,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
-from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT, SLOW_MACHINE
+from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT, SLOW_MACHINE, COMPAT
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
 import binascii
@@ -699,6 +699,55 @@ def test_shutdown_awaiting_lockin(node_factory, bitcoind):
     bitcoind.generate_block(100)
     wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
     wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT=1")
+def test_deprecated_fundchannel(node_factory, bitcoind):
+    """Test the deprecated old-style:
+       fundchannel {id} {satoshi} {feerate} {announce} {minconf} {utxos}
+    """
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+
+    # FIXME: Use 'check' command after libplugin(C language) supports 'check' mode for command
+    nodes = node_factory.get_nodes(8)
+    amount = int(0.0005 * 10**8)
+
+    for n in nodes:
+        l1.rpc.connect(n.info['id'], 'localhost', n.port)
+
+    # Get 8 utxos
+    for i in range(8):
+        l1.fundwallet(10**8)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) == 8)
+    utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]]
+
+    # No 'amount' nor 'satoshi'(array type)
+    with pytest.raises(RpcError, match=r'missing required parameter: amount'):
+        l1.rpc.call('fundchannel', [nodes[0].info['id']])
+
+    with pytest.raises(RpcError, match=r'.* should be a satoshi amount, not .*'):
+        l1.rpc.call('fundchannel', [nodes[0].info['id'], 'slow'])
+
+    # Array type
+    l1.rpc.call('fundchannel', [nodes[0].info['id'], amount, '2000perkw', False, 1, [utxos[0]]])
+    l1.rpc.call('fundchannel', [nodes[1].info['id'], amount, '2000perkw', False, None, [utxos[1]]])
+    l1.rpc.call('fundchannel', [nodes[2].info['id'], amount, '2000perkw', None, None, [utxos[2]]])
+    l1.rpc.call('fundchannel', [nodes[3].info['id'], amount, '2000perkw', True, 1])
+
+    # No 'amount' nor 'satoshi'(object type)
+    with pytest.raises(RpcError, match=r'Need set \'amount\' field'):
+        l1.rpc.call('fundchannel', {'id': nodes[4].info['id'], 'feerate': '2000perkw'})
+
+    # Old style(object type)
+    l1.rpc.call('fundchannel', {'id': nodes[4].info['id'], 'satoshi': 'all', 'feerate': 'slow',
+                                'announce': True, 'minconf': 1, 'utxos': [utxos[4]]})
+    l1.rpc.call('fundchannel', {'id': nodes[5].info['id'], 'satoshi': 'all', 'feerate': 'slow', 'minconf': 1})
+    l1.rpc.call('fundchannel', {'id': nodes[6].info['id'], 'satoshi': 'all', 'feerate': 'slow'})
+    l1.rpc.call('fundchannel', {'id': nodes[7].info['id'], 'satoshi': 'all'})
 
 
 def test_funding_change(node_factory, bitcoind):
