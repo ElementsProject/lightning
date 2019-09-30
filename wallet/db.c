@@ -20,6 +20,8 @@ struct migration {
 
 static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
 
+static void migrate_our_funding(struct lightningd *ld, struct db *db);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -596,6 +598,7 @@ static struct migration dbmigrations[] = {
      * Turn anything in transition into a WIRE_TEMPORARY_NODE_FAILURE. */
     {SQL("ALTER TABLE channel_htlcs ADD localfailmsg BLOB;"), NULL},
     {SQL("UPDATE channel_htlcs SET localfailmsg=decode('2002', 'hex') WHERE malformed_onion != 0 AND direction = 1;"), NULL},
+    {SQL("ALTER TABLE channels ADD our_funding_satoshi INTEGER DEFAULT 0;"), migrate_our_funding},
 };
 
 /* Leak tracking. */
@@ -1070,6 +1073,51 @@ static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db 
 
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
+}
+
+/* We've added a column `our_funding_satoshis`, since channels can now
+ * have funding for either channel participant. We need to 'backfill' this
+ * data, however. We can do this using the fact that our_funding_satoshi
+ * is the same as the funding_satoshi for every channel where we are
+ * the `funder`
+ */
+static void migrate_our_funding(struct lightningd *ld, struct db *db)
+{
+	struct db_stmt *query_stmt, *update_stmt;
+	struct amount_sat funding_sat;
+	u64 channel_dbid;
+
+	/* Fetch out the id and funding_satoshis */
+	query_stmt = db_prepare_v2(db, SQL("SELECT id, funding_satoshi"
+					   " FROM channels"
+					   " WHERE funder = ?"));
+	db_bind_int(query_stmt, 0, LOCAL);
+	db_query_prepared(query_stmt);
+	if (query_stmt->error)
+		db_fatal("Error migrating funding %s", query_stmt->error);
+
+	while (db_step(query_stmt)) {
+		/* Statement to update record */
+		update_stmt = db_prepare_v2(db, SQL("UPDATE channels"
+						    " SET our_funding_satoshi = ?"
+						    " WHERE id = ?;"));
+
+		channel_dbid = db_column_u64(query_stmt, 0);
+		db_column_amount_sat(query_stmt, 1, &funding_sat);
+
+		db_bind_amount_sat(update_stmt, 0, &funding_sat);
+		db_bind_u64(update_stmt, 1, channel_dbid);
+
+		db_exec_prepared_v2(update_stmt);
+
+		if (update_stmt->error)
+			db_fatal("Error migrating funding for channel %"PRIu64" %s",
+				 channel_dbid, update_stmt->error);
+
+		tal_free(update_stmt);
+	}
+
+	tal_free(query_stmt);
 }
 
 void db_bind_null(struct db_stmt *stmt, int pos)
