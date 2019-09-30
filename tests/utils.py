@@ -8,12 +8,14 @@ from lightning import LightningRpc
 import json
 import logging
 import lzma
+import math
 import os
 import random
 import re
 import shutil
 import sqlite3
 import string
+import struct
 import subprocess
 import threading
 import time
@@ -749,6 +751,29 @@ class LightningNode(object):
         txid = self.bitcoin.rpc.decoderawtransaction(rawtx, True)['txid']
 
         wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
+
+    def query_gossip(self, querytype, *args):
+        """Generate a gossip query, feed it into this node and get responses
+        in hex"""
+        query = subprocess.run(['devtools/mkquery',
+                                querytype] + [str(a) for a in args],
+                               check=True,
+                               timeout=TIMEOUT,
+                               stdout=subprocess.PIPE).stdout.strip()
+        out = subprocess.run(['devtools/gossipwith',
+                              '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) * 1000)),
+                              '{}@localhost:{}'.format(self.info['id'],
+                                                       self.port),
+                              query],
+                             check=True,
+                             timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
+
+        msgs = []
+        while len(out):
+            length = struct.unpack('>H', out[0:2])[0]
+            msgs.append(out[2:2 + length].hex())
+            out = out[2 + length:]
+        return msgs
 
 
 class NodeFactory(object):
