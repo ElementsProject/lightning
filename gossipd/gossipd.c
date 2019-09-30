@@ -1394,48 +1394,6 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 }
 
 #if DEVELOPER
-/* BOLT #7:
- *
- * ### The `gossip_timestamp_filter` Message
- *...
- * This message allows a node to constrain future gossip messages to
- * a specific range.  A node which wants any gossip messages would have
- * to send this, otherwise `gossip_queries` negotiation means no gossip
- * messages would be received.
- *
- * Note that this filter replaces any previous one, so it can be used
- * multiple times to change the gossip from a peer. */
-/* This is the entry point for dev_send_timestamp_filter testing. */
-static struct io_plan *send_timestamp_filter(struct io_conn *conn,
-					     struct daemon *daemon,
-					     const u8 *msg)
-{
-	struct node_id id;
-	u32 first, range;
-	struct peer *peer;
-
-	if (!fromwire_gossip_send_timestamp_filter(msg, &id, &first, &range))
-		master_badmsg(WIRE_GOSSIP_SEND_TIMESTAMP_FILTER, msg);
-
-	peer = find_peer(daemon, &id);
-	if (!peer) {
-		status_broken("send_timestamp_filter: unknown peer %s",
-			      type_to_string(tmpctx, struct node_id, &id));
-		goto out;
-	}
-
-	if (!peer->gossip_queries_feature) {
-		status_broken("send_timestamp_filter: no gossip_query support in peer %s",
-			      type_to_string(tmpctx, struct node_id, &id));
-		goto out;
-	}
-
-	msg = towire_gossip_timestamp_filter(NULL, &daemon->chain_hash,
-					     first, range);
-	queue_peer_msg(peer, take(msg));
-out:
-	return daemon_conn_read_next(conn, daemon->master);
-}
 /* Another testing hack */
 static struct io_plan *dev_gossip_suppress(struct io_conn *conn,
 					   struct daemon *daemon,
@@ -1749,15 +1707,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return new_blockheight(conn, daemon, msg);
 
 #if DEVELOPER
-	case WIRE_GOSSIP_QUERY_SCIDS:
-		return query_scids_req(conn, daemon, msg);
-
-	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
-		return send_timestamp_filter(conn, daemon, msg);
-
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
-		return dev_query_channel_range(conn, daemon, msg);
-
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		return dev_set_max_scids_encode_size(conn, daemon, msg);
 	case WIRE_GOSSIP_DEV_SUPPRESS:
@@ -1769,9 +1718,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_DEV_SET_TIME:
 		return dev_gossip_set_time(conn, daemon, msg);
 #else
-	case WIRE_GOSSIP_QUERY_SCIDS:
-	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIP_DEV_SUPPRESS:
 	case WIRE_GOSSIP_DEV_MEMLEAK:
@@ -1785,8 +1731,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
-	case WIRE_GOSSIP_SCIDS_REPLY:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_GET_TXOUT:

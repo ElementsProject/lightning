@@ -142,9 +142,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 	case WIRE_GOSSIP_OUTPOINT_SPENT:
 	case WIRE_GOSSIP_PAYMENT_FAILURE:
-	case WIRE_GOSSIP_QUERY_SCIDS:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
-	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS:
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIP_DEV_SUPPRESS:
@@ -157,8 +154,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
-	case WIRE_GOSSIP_SCIDS_REPLY:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_DEV_MEMLEAK_REPLY:
@@ -535,173 +530,6 @@ static const struct json_command listchannels_command = {
 AUTODATA(json_command, &listchannels_command);
 
 #if DEVELOPER
-static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
-			     const int *fds UNUSED, struct command *cmd)
-{
-	bool ok, complete;
-	struct json_stream *response;
-
-	if (!fromwire_gossip_scids_reply(reply, &ok, &complete)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Gossip gave bad gossip_scids_reply"));
-		return;
-	}
-
-	if (!ok) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Gossip refused to query peer"));
-		return;
-	}
-
-	response = json_stream_success(cmd);
-	json_add_bool(response, "complete", complete);
-	was_pending(command_success(cmd, response));
-}
-
-static struct command_result *json_dev_query_scids(struct command *cmd,
-						   const char *buffer,
-						   const jsmntok_t *obj UNNEEDED,
-						   const jsmntok_t *params)
-{
-	u8 *msg;
-	const jsmntok_t *scidstok;
-	const jsmntok_t *t;
-	struct node_id *id;
-	struct short_channel_id *scids;
-	size_t i;
-
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("scids", param_array, &scidstok),
-		   NULL))
-		return command_param_failed();
-
-	scids = tal_arr(cmd, struct short_channel_id, scidstok->size);
-	json_for_each_arr(i, t, scidstok) {
-		if (!json_to_short_channel_id(buffer, t, &scids[i])) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "scid %zu '%.*s' is not an scid",
-					    i, json_tok_full_len(t),
-					    json_tok_full(buffer, t));
-		}
-	}
-
-	/* Tell gossipd, since this is a gossip query. */
-	msg = towire_gossip_query_scids(cmd, id, scids);
-	subd_req(cmd->ld->gossip, cmd->ld->gossip,
-		 take(msg), -1, 0, json_scids_reply, cmd);
-	return command_still_pending(cmd);
-}
-
-static const struct json_command dev_query_scids_command = {
-	"dev-query-scids",
-	"developer",
-	json_dev_query_scids,
-	"Query peer {id} for [scids]"
-};
-AUTODATA(json_command, &dev_query_scids_command);
-
-static struct command_result *
-json_dev_send_timestamp_filter(struct command *cmd,
-			       const char *buffer,
-			       const jsmntok_t *obj UNNEEDED,
-			       const jsmntok_t *params)
-{
-	u8 *msg;
-	struct node_id *id;
-	u32 *first, *range;
-
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("first", param_number, &first),
-		   p_req("range", param_number, &range),
-		   NULL))
-		return command_param_failed();
-
-	log_debug(cmd->ld->log, "Setting timestamp range %u+%u", *first, *range);
-	/* Tell gossipd, since this is a gossip query. */
-	msg = towire_gossip_send_timestamp_filter(NULL, id, *first, *range);
-	subd_send_msg(cmd->ld->gossip, take(msg));
-
-	return command_success(cmd, json_stream_success(cmd));
-}
-
-static const struct json_command dev_send_timestamp_filter = {
-	"dev-send-timestamp-filter",
-	"developer",
-	json_dev_send_timestamp_filter,
-	"Send peer {id} the timestamp filter {first} {range}"
-};
-AUTODATA(json_command, &dev_send_timestamp_filter);
-
-static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply,
-				     const int *fds UNUSED, struct command *cmd)
-{
-	struct json_stream *response;
-	u32 final_first_block, final_num_blocks;
-	bool final_complete;
-	struct short_channel_id *scids;
-
-	if (!fromwire_gossip_query_channel_range_reply(tmpctx, reply,
-						       &final_first_block,
-						       &final_num_blocks,
-						       &final_complete,
-						       &scids)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Gossip gave bad gossip_query_channel_range_reply"));
-		return;
-	}
-
-	if (final_num_blocks == 0 && final_num_blocks == 0 && !final_complete) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Gossip refused to query peer"));
-		return;
-	}
-
-	response = json_stream_success(cmd);
-	/* As this is a dev interface, we don't bother saving and
-	 * returning all the replies, just the final one. */
-	json_add_num(response, "final_first_block", final_first_block);
-	json_add_num(response, "final_num_blocks", final_num_blocks);
-	json_add_bool(response, "final_complete", final_complete);
-	json_array_start(response, "short_channel_ids");
-	for (size_t i = 0; i < tal_count(scids); i++)
-		json_add_short_channel_id(response, NULL, &scids[i]);
-	json_array_end(response);
-	was_pending(command_success(cmd, response));
-}
-
-static struct command_result *json_dev_query_channel_range(struct command *cmd,
-					 const char *buffer,
-					 const jsmntok_t *obj UNNEEDED,
-					 const jsmntok_t *params)
-{
-	u8 *msg;
-	struct node_id *id;
-	u32 *first, *num;
-
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("first", param_number, &first),
-		   p_req("num", param_number, &num),
-		   NULL))
-		return command_param_failed();
-
-	/* Tell gossipd, since this is a gossip query. */
-	msg = towire_gossip_query_channel_range(cmd, id, *first, *num);
-	subd_req(cmd->ld->gossip, cmd->ld->gossip,
-		 take(msg), -1, 0, json_channel_range_reply, cmd);
-	return command_still_pending(cmd);
-}
-
-static const struct json_command dev_query_channel_range_command = {
-	"dev-query-channel-range",
-	"developer",
-	json_dev_query_channel_range,
-	"Query peer {id} for short_channel_ids for {first} block + {num} blocks"
-};
-AUTODATA(json_command, &dev_query_channel_range_command);
-
 static struct command_result *
 json_dev_set_max_scids_encode_size(struct command *cmd,
 				   const char *buffer,

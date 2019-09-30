@@ -10,9 +10,6 @@ int unused_main(int argc, char *argv[]);
 struct io_plan *daemon_conn_read_next(struct io_conn *conn UNNEEDED,
 				      struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_read_next called!\n"); abort(); }
-/* Generated stub for daemon_conn_send */
-void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
 /* Generated stub for daemon_conn_wake */
 void daemon_conn_wake(struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_wake called!\n"); abort(); }
@@ -32,12 +29,6 @@ bool fromwire_gossip_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *
 /* Generated stub for fromwire_gossipd_local_channel_update */
 bool fromwire_gossipd_local_channel_update(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, bool *disable UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_channel_update called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_query_channel_range */
-bool fromwire_gossip_query_channel_range(const void *p UNNEEDED, struct node_id *id UNNEEDED, u32 *first_blocknum UNNEEDED, u32 *number_of_blocks UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_query_channel_range called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_query_scids */
-bool fromwire_gossip_query_scids(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct short_channel_id **ids UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_query_scids called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_cupdate_sig_reply */
 bool fromwire_hsm_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_cupdate_sig_reply called!\n"); abort(); }
@@ -96,12 +87,6 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_gossip_query_channel_range_reply */
-u8 *towire_gossip_query_channel_range_reply(const tal_t *ctx UNNEEDED, u32 final_first_block UNNEEDED, u32 final_num_blocks UNNEEDED, bool final_complete UNNEEDED, const struct short_channel_id *scids UNNEEDED)
-{ fprintf(stderr, "towire_gossip_query_channel_range_reply called!\n"); abort(); }
-/* Generated stub for towire_gossip_scids_reply */
-u8 *towire_gossip_scids_reply(const tal_t *ctx UNNEEDED, bool ok UNNEEDED, bool complete UNNEEDED)
-{ fprintf(stderr, "towire_gossip_scids_reply called!\n"); abort(); }
 /* Generated stub for towire_hsm_cupdate_sig_req */
 u8 *towire_hsm_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
 { fprintf(stderr, "towire_hsm_cupdate_sig_req called!\n"); abort(); }
