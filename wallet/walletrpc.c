@@ -181,6 +181,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	u32 *feerate_per_kw = NULL;
 	struct command_result *result;
 	u32 *minconf, maxheight;
+	bool *zero_out_change;
 	struct pubkey *changekey;
 	struct bitcoin_tx_output **outputs;
 	const jsmntok_t *outputstok = NULL, *t;
@@ -203,6 +204,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 				   p_opt("feerate", param_feerate, &feerate_per_kw),
 				   p_opt_def("minconf", param_number, &minconf, 1),
 				   p_opt("utxos", param_utxos, &chosen_utxos),
+				   p_opt_def("zero_out_change", param_bool, &zero_out_change, false),
 				   NULL))
 				return command_param_failed();
 		} else if (params->type == JSMN_ARRAY) {
@@ -214,6 +216,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 				   p_opt("feerate_or_sat", param_tok, &secondtok),
 				   p_opt("minconf_or_feerate", param_tok, &thirdtok),
 				   p_opt("utxos_or_minconf", param_tok, &fourthtok),
+				   p_opt_def("zero_out_change", param_bool, &zero_out_change, false),
 				   NULL))
 				return command_param_failed();
 
@@ -298,6 +301,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 				   p_opt("feerate", param_feerate, &feerate_per_kw),
 				   p_opt_def("minconf", param_number, &minconf, 1),
 				   p_opt("utxos", param_utxos, &chosen_utxos),
+				   p_opt_def("zero_out_change", param_bool, &zero_out_change, false),
 				   NULL))
 				/* If the parameters mixed the new style and the old style,
 				 * fail it. */
@@ -315,6 +319,9 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 			}
 		}
 	} else {
+		/* not an option for withdraws, set to false */
+		zero_out_change = tal(cmd, bool);
+		*zero_out_change = false;
 		/* *withdraw* command still use 'destination' and 'satoshi' as parameters. */
 		if (!param(cmd, buffer, params,
 			   p_req("destination", param_bitcoin_address,
@@ -422,17 +429,24 @@ create_tx:
 	/* Add the change as the last output */
 	if (!amount_sat_eq((*utx)->wtx->change, AMOUNT_SAT(0))) {
 		struct bitcoin_tx_output *change_output;
+		struct amount_sat change;
 
 		changekey = tal(tmpctx, struct pubkey);
 		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, changekey,
 				  (*utx)->wtx->change_key_index))
 			return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
 
-		change_output = new_tx_output(outputs, (*utx)->wtx->change,
+
+		if (*zero_out_change)
+			change = AMOUNT_SAT(0);
+		else
+			change = (*utx)->wtx->change;
+		change_output = new_tx_output(outputs, change,
 					      scriptpubkey_p2wpkh(tmpctx, changekey));
-		tal_arr_expand(outputs, *change_output);
+		tal_arr_expand(&outputs, change_output);
 	}
 
+	(*utx)->inputs = NULL;
 	(*utx)->outputs = tal_steal(*utx, outputs);
 	(*utx)->tx = withdraw_tx(*utx, chainparams,
 				 (*utx)->wtx->utxos,

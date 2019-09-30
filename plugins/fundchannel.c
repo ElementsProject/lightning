@@ -42,6 +42,9 @@ struct funding_req {
  	/* Failing result (NULL on success) */
 	/* Raw JSON from RPC output */
 	const char *error;
+
+	/* Are we using v2 protocol ? */
+	bool is_v2;
 };
 
 static struct command_result *send_prior(struct command *cmd,
@@ -210,6 +213,8 @@ static void txprepare(struct json_stream *js,
 		json_add_u32(js, "minconf", *fr->minconf);
 	if (fr->utxo_str)
 		json_add_jsonstr(js, "utxos", fr->utxo_str);
+	if (fr->is_v2)
+		json_add_bool(js, "zero_out_change", true);
 }
 
 static struct command_result *prepare_actual(struct command *cmd,
@@ -408,6 +413,8 @@ static struct command_result *json_fundchannel(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	/* Set to false at start, will update when we know more */
+	fr->is_v2 = false;
 	fr->funding_all = streq(fr->funding_str, "all");
 
 	return connect_to_peer(cmd, fr);
