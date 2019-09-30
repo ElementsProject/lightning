@@ -1210,7 +1210,8 @@ void peer_start_openingd(struct peer *peer,
 
 	hsmfd = hsm_get_client_fd(peer->ld, &uc->peer->id, uc->dbid,
 				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX);
+				  | HSM_CAP_SIGN_REMOTE_TX
+				  | HSM_CAP_SIGN_ACCEPTER_FUNDING_TX);
 
 	uc->openingd = new_channel_subd(peer->ld,
 					"lightning_openingd",
