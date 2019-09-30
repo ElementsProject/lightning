@@ -41,6 +41,9 @@ struct channel {
 	/* Who is paying fees. */
 	enum side opener;
 
+	/* True if we have inputs in the funding tx */
+	bool local_funded;
+
 	/* Limits and settings on this channel. */
 	struct channel_config config[NUM_SIDES];
 
@@ -78,6 +81,8 @@ struct channel {
  * @remote_basepoints: remote basepoints.
  * @local_fundingkey: local funding key
  * @remote_fundingkey: remote funding key
+ * @option_static_remotekey: whether to use static remotekeys or not
+ * @local_funded: true if we put funds into the funding tx
  * @opener: which side initiated it.
  *
  * Returns channel, or NULL if malformed.
@@ -96,6 +101,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct pubkey *local_funding_pubkey,
 				    const struct pubkey *remote_funding_pubkey,
 				    bool option_static_remotekey,
+				    bool local_funded,
 				    enum side opener);
 
 

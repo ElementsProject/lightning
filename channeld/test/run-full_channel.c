@@ -477,7 +477,7 @@ int main(void)
 				    &localbase, &remotebase,
 				    &local_funding_pubkey,
 				    &remote_funding_pubkey,
-				    false, LOCAL);
+				    false, true, LOCAL);
 	rchannel = new_full_channel(tmpctx,
 				    &funding_txid, funding_output_index, 0,
 				    funding_amount, to_remote,
@@ -488,7 +488,7 @@ int main(void)
 				    &remotebase, &localbase,
 				    &remote_funding_pubkey,
 				    &local_funding_pubkey,
-				    false, REMOTE);
+				    false, false, REMOTE);
 
 	/* BOLT #3:
 	 *

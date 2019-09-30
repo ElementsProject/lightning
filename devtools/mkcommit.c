@@ -387,6 +387,7 @@ int main(int argc, char *argv[])
 				   &localbase, &remotebase,
 				   &funding_localkey, &funding_remotekey,
 				   option_static_remotekey,
+				   fee_payer == LOCAL,
 				   fee_payer);
 
 	if (!channel_force_htlcs(channel,

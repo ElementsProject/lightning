@@ -24,6 +24,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct pubkey *local_funding_pubkey,
 				    const struct pubkey *remote_funding_pubkey,
 				    bool option_static_remotekey,
+				    bool local_funded,
 				    enum side opener)
 {
 	struct channel *channel = tal(ctx, struct channel);
@@ -32,6 +33,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->funding_txid = *funding_txid;
 	channel->funding_txout = funding_txout;
 	channel->funding = funding;
+	channel->local_funded = local_funded;
 	channel->minimum_depth = minimum_depth;
 	if (!amount_sat_sub_msat(&remote_msatoshi,
 				 channel->funding, local_msatoshi))

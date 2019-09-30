@@ -101,6 +101,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *local_funding_pubkey,
 				 const struct pubkey *remote_funding_pubkey,
 				 bool option_static_remotekey,
+				 bool local_funded,
 				 enum side opener)
 {
 	struct channel *channel = new_initial_channel(ctx,
@@ -116,6 +117,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 						      local_funding_pubkey,
 						      remote_funding_pubkey,
 						      option_static_remotekey,
+						      local_funded,
 						      opener);
 
 	if (channel) {
