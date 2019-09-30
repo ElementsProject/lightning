@@ -344,6 +344,8 @@ static void funding_started_success(struct funding_channel *fc,
 		json_add_hex_talarr(response, "scriptpubkey", scriptPubkey);
 	}
 
+	json_add_string(response, "open_channel_version", fc->is_v2 ? "2" : "1");
+
 	/* Clear this so cancel doesn't think it's still in progress */
 	fc->cmd = NULL;
 	was_pending(command_success(cmd, response));

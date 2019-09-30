@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `txprepare` and `withdraw` now accept an optional parameter `utxos`, a list of utxos to include in the prepared transaction
 - JSON_API: `close` now accepts an optional parameter `destination`, to which the to-local output will be sent.
 - JSON API: `txprepare` includes a parameter `zero_out_change`, which if true leaves the change value as zero. Useful for designating change output for dual-funded transactions. Defaults to false.
+- JSON API: `fundchannel_start` now includes `open_channel_version`, a string which indicates
+the protocol version used to open the channel.
 
 - bolt11: support for parsing feature bits (field `9`).
 
