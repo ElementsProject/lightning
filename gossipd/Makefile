@@ -55,6 +55,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/features.o			\
 	common/gen_status_wire.o		\
 	common/gossip_rcvd_filter.o		\
+	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
