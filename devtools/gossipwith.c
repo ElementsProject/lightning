@@ -20,6 +20,7 @@
 #define io_close simple_close
 static bool stream_stdin = false;
 static bool no_init = false;
+static int timeout_after = -1;
 
 static struct io_plan *simple_write(struct io_conn *conn,
 				    const void *data, size_t len,
@@ -159,7 +160,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		beint16_t belen;
 		u8 *msg;
 
-		poll(pollfd, ARRAY_SIZE(pollfd), -1);
+		if (poll(pollfd, ARRAY_SIZE(pollfd), timeout_after) == 0)
+			return 0;
 
 		/* We always to stdin first if we can */
 		if (pollfd[0].revents & POLLIN) {
@@ -227,6 +229,9 @@ int main(int argc, char *argv[])
 	opt_register_arg("--privkey", opt_set_secret, opt_show_secret,
 			 &notsosecret,
 			 "Secret key to use for our identity");
+	opt_register_arg("--timeout-after", opt_set_intval, opt_show_intval,
+			 &timeout_after,
+			 "Exit (success) this many msec after no msgs rcvd");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
