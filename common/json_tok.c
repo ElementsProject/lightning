@@ -214,3 +214,17 @@ struct command_result *param_node_id(struct command *cmd, const char *name,
 			    name, json_tok_full_len(tok),
 			    json_tok_full(buffer, tok));
 }
+
+struct command_result *param_channel_id(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t *tok,
+					struct channel_id **cid)
+{
+	*cid = tal(cmd, struct channel_id);
+	if (json_to_channel_id(buffer, tok, *cid))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a channel id, not '%.*s'",
+			    name, json_tok_full_len(tok),
+			    json_tok_full(buffer, tok));
+}

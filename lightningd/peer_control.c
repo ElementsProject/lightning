@@ -2106,6 +2106,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel;
 	struct short_channel_id *scid;
+	struct channel_id *find_cid, cid;
 	struct dev_forget_channel_cmd *forget = tal(cmd, struct dev_forget_channel_cmd);
 	forget->cmd = cmd;
 
@@ -2113,6 +2114,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &peerid),
 		   p_opt("short_channel_id", param_short_channel_id, &scid),
+		   p_opt("channel_id", param_channel_id, &find_cid),
 		   p_opt_def("force", param_bool, &force, false),
 		   NULL))
 		return command_param_failed();
@@ -2126,6 +2128,14 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 
 	forget->channel = NULL;
 	list_for_each(&peer->channels, channel, list) {
+		/* Check for channel id first */
+		if (find_cid) {
+			derive_channel_id(&cid, &channel->funding_txid,
+					  channel->funding_outnum);
+
+			if (!channel_id_eq(find_cid, &cid))
+				continue;
+		}
 		if (scid) {
 			if (!channel->scid)
 				continue;

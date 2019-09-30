@@ -1,5 +1,6 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
+#include <ccan/ccan/str/hex/hex.h>
 #include <common/amount.h>
 #include <common/json_helpers.h>
 #include <common/node_id.h>
@@ -82,6 +83,13 @@ bool json_to_txid(const char *buffer, const jsmntok_t *tok,
 {
 	return bitcoin_txid_from_hex(buffer + tok->start,
 				     tok->end - tok->start, txid);
+}
+
+bool json_to_channel_id(const char *buffer, const jsmntok_t *tok,
+			struct channel_id *cid)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  cid, sizeof(*cid));
 }
 
 bool split_tok(const char *buffer, const jsmntok_t *tok,
