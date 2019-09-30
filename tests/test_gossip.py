@@ -754,23 +754,25 @@ def test_report_routing_failure(node_factory, bitcoind):
     l1.rpc.pay(inv)
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not DEVELOPER, "needs fast gossip")
 def test_query_short_channel_id(node_factory, bitcoind):
-    l1 = node_factory.get_node(options={'log-level': 'io'})
-    l2 = node_factory.get_node()
-    l3 = node_factory.get_node()
+    l1, l2, l3 = node_factory.get_nodes(3)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
-    # Need full IO logging so we can see gossip (from openingd and channeld)
-    l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-    subprocess.run(['kill', '-USR1', l1.subd_pid('openingd')])
-
     # Empty result tests.
-    reply = l1.rpc.dev_query_scids(l2.info['id'], ['1x1x1', '2x2x2'])
-    # 0x0105 = query_short_channel_ids
-    l1.daemon.wait_for_log(r'\[OUT\] 0105.*0000000100000100010000020000020002')
-    assert reply['complete']
+    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', '1x1x1', '2x2x2'],
+                             check=True,
+                             timeout=TIMEOUT,
+                             stdout=subprocess.PIPE).stdout.strip().decode()
+
+    msgs = l1.query_gossip('query_short_channel_ids',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           encoded)
+    # Should just get the WIRE_REPLY_SHORT_CHANNEL_IDS_END = 262
+    # (with chainhash and completeflag = 1)
+    assert len(msgs) == 1
+    assert msgs[0] == '010606226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f01'
 
     # Make channels public.
     scid12 = l1.fund_channel(l2, 10**5)
@@ -779,39 +781,52 @@ def test_query_short_channel_id(node_factory, bitcoind):
 
     # It will know about everything.
     l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l3.info['id']))
-    subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
 
     # This query should get channel announcements, channel updates, and node announcements.
-    reply = l1.rpc.dev_query_scids(l2.info['id'], [scid23])
-    # 0x0105 = query_short_channel_ids
-    l1.daemon.wait_for_log(r'\[OUT\] 0105')
-    assert reply['complete']
+    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid23],
+                             check=True,
+                             timeout=TIMEOUT,
+                             stdout=subprocess.PIPE).stdout.strip().decode()
+    msgs = l1.query_gossip('query_short_channel_ids',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           encoded)
 
+    assert len(msgs) == 6
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log(r'\[IN\] 0100')
+    assert msgs[0].startswith('0100')
     # 0x0102 = channel_update
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    assert msgs[1].startswith('0102')
+    assert msgs[2].startswith('0102')
     # 0x0101 = node_announcement
-    l1.daemon.wait_for_log(r'\[IN\] 0101')
-    l1.daemon.wait_for_log(r'\[IN\] 0101')
+    assert msgs[3].startswith('0101')
+    assert msgs[4].startswith('0101')
+    assert msgs[5] == '010606226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f01'
 
-    reply = l1.rpc.dev_query_scids(l2.info['id'], [scid12, scid23])
-    assert reply['complete']
+    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
+                             check=True,
+                             timeout=TIMEOUT,
+                             stdout=subprocess.PIPE).stdout.strip().decode()
+    msgs = l1.query_gossip('query_short_channel_ids',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           encoded)
+
     # Technically, this order could be different, but this matches code.
+    assert len(msgs) == 10
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log(r'\[IN\] 0100')
+    assert msgs[0].startswith('0100')
     # 0x0102 = channel_update
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    assert msgs[1].startswith('0102')
+    assert msgs[2].startswith('0102')
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log(r'\[IN\] 0100')
+    assert msgs[3].startswith('0100')
     # 0x0102 = channel_update
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
-    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    assert msgs[4].startswith('0102')
+    assert msgs[5].startswith('0102')
     # 0x0101 = node_announcement
-    l1.daemon.wait_for_log(r'\[IN\] 0101')
-    l1.daemon.wait_for_log(r'\[IN\] 0101')
+    assert msgs[6].startswith('0101')
+    assert msgs[7].startswith('0101')
+    assert msgs[8].startswith('0101')
+    assert msgs[9] == '010606226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f01'
 
 
 def test_gossip_addresses(node_factory, bitcoind):
