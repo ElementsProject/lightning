@@ -60,6 +60,10 @@ struct channel {
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
 	struct amount_sat funding;
+
+	/* Our original funds, in funding amount */
+	struct amount_sat our_funds;
+
 	struct amount_msat push;
 	bool remote_funding_locked;
 	/* Channel if locked locally. */
@@ -149,6 +153,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u16 funding_outnum,
 			    struct amount_sat funding,
 			    struct amount_msat push,
+			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid STEALS,

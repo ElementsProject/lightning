@@ -159,6 +159,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u16 funding_outnum,
 			    struct amount_sat funding,
 			    struct amount_msat push,
+			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
@@ -227,6 +228,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->funding_outnum = funding_outnum;
 	channel->funding = funding;
 	channel->push = push;
+	channel->our_funds = our_funds;
 	channel->remote_funding_locked = remote_funding_locked;
 	channel->scid = tal_steal(channel, scid);
 	channel->our_msat = our_msat;
