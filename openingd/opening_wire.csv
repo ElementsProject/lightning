@@ -31,6 +31,7 @@ msgdata,opening_init,dev_fast_gossip,bool,
 
 # Openingd->master: they offered channel, should we continue?
 msgtype,opening_got_offer,6005
+msgdata,opening_got_offer,is_v2,bool,
 msgdata,opening_got_offer,funding_satoshis,amount_sat,
 msgdata,opening_got_offer,push_msat,amount_msat,
 msgdata,opening_got_offer,dust_limit_satoshis,amount_sat,
@@ -38,6 +39,7 @@ msgdata,opening_got_offer,max_htlc_value_in_flight_msat,amount_msat,
 msgdata,opening_got_offer,channel_reserve_satoshis,amount_sat,
 msgdata,opening_got_offer,htlc_minimum_msat,amount_msat,
 msgdata,opening_got_offer,feerate_per_kw,u32,
+msgdata,opening_got_offer,feerate_per_kw_funding,u32,
 msgdata,opening_got_offer,to_self_delay,u16,
 msgdata,opening_got_offer,max_accepted_htlcs,u16,
 msgdata,opening_got_offer,channel_flags,u8,

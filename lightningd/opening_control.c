@@ -943,12 +943,15 @@ static void channel_config(struct lightningd *ld,
 struct openchannel_hook_payload {
 	struct subd *openingd;
 	struct amount_sat funding_satoshis;
+	/* Is this a v2 openchannel call? */
+	bool is_v2;
 	struct amount_msat push_msat;
 	struct amount_sat dust_limit_satoshis;
 	struct amount_msat max_htlc_value_in_flight_msat;
 	struct amount_sat channel_reserve_satoshis;
 	struct amount_msat htlc_minimum_msat;
 	u32 feerate_per_kw;
+	u32 feerate_per_kw_funding;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
 	u8 channel_flags;
@@ -1085,6 +1088,7 @@ static void opening_got_offer(struct subd *openingd,
 	payload = tal(openingd, struct openchannel_hook_payload);
 	payload->openingd = openingd;
 	if (!fromwire_opening_got_offer(payload, msg,
+					&payload->is_v2,
 					&payload->funding_satoshis,
 					&payload->push_msat,
 					&payload->dust_limit_satoshis,
@@ -1092,6 +1096,7 @@ static void opening_got_offer(struct subd *openingd,
 					&payload->channel_reserve_satoshis,
 					&payload->htlc_minimum_msat,
 					&payload->feerate_per_kw,
+					&payload->feerate_per_kw_funding,
 					&payload->to_self_delay,
 					&payload->max_accepted_htlcs,
 					&payload->channel_flags,
