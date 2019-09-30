@@ -1,4 +1,4 @@
-#include <ccan/base64/base64.h>
+#include <ccan/str/base64/base64.h>
 #include <common/base64.h>
 
 char *b64_encode(const tal_t *ctx, char *data, size_t len)

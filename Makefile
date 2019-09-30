@@ -63,7 +63,6 @@ CCAN_OBJS :=					\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
-	ccan-base64.o				\
 	ccan-crc32c.o				\
 	ccan-crypto-hmac.o			\
 	ccan-crypto-hkdf.o			\
@@ -96,6 +95,7 @@ CCAN_OBJS :=					\
 	ccan-rbuf.o				\
 	ccan-read_write_all.o			\
 	ccan-str-base32.o			\
+	ccan-str-base64.o			\
 	ccan-str-hex.o				\
 	ccan-str.o				\
 	ccan-strmap.o				\
@@ -118,7 +118,6 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/bitmap/bitmap.h			\
 	$(CCANDIR)/ccan/bitops/bitops.h			\
 	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
-	$(CCANDIR)/ccan/base64/base64.h				\
 	$(CCANDIR)/ccan/build_assert/build_assert.h	\
 	$(CCANDIR)/ccan/cast/cast.h			\
 	$(CCANDIR)/ccan/cdump/cdump.h			\
@@ -163,6 +162,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/read_write_all/read_write_all.h	\
 	$(CCANDIR)/ccan/short_types/short_types.h	\
 	$(CCANDIR)/ccan/str/base32/base32.h		\
+	$(CCANDIR)/ccan/str/base64/base64.h				\
 	$(CCANDIR)/ccan/str/hex/hex.h			\
 	$(CCANDIR)/ccan/str/str.h			\
 	$(CCANDIR)/ccan/str/str_debug.h			\

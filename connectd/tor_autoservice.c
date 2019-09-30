@@ -134,10 +134,6 @@ static struct wireaddr *make_onion(const tal_t *ctx,
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Tor didn't give us a ServiceID");
 }
-#define sodium_base64_VARIANT_ORIGINAL            1
-
-
-
 
 static struct wireaddr *make_fixed_onion(const tal_t *ctx,
 				   struct rbuf *rbuf,
@@ -168,7 +164,7 @@ static struct wireaddr *make_fixed_onion(const tal_t *ctx,
 		if (!parse_wireaddr(name, onion, DEFAULT_PORT, false, NULL))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tor gave bad onion name '%s'", name);
-		printf("New autotor service onion address: \"%s:%d\"", name, DEFAULT_PORT);
+		status_info("Static Tor service onion address: \"%s:%d,%s\"", name, DEFAULT_PORT ,fmt_wireaddr(tmpctx, local));
 		discard_remaining_response(rbuf);
 		return onion;
 	}
@@ -239,7 +235,7 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 					     tal_hexstr(tmpctx,
 							contents,
 							tal_count(contents)-1)));
-			//DEBUG status_info("coo:  %s",tal_hexstr(tmpctx,
+			//status_info("coo:  %s",tal_hexstr(tmpctx,
 			//				contents,
 			//				tal_count(contents)-1));
 			discard_remaining_response(rbuf);
@@ -315,8 +311,9 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 struct wireaddr *tor_fixed_service(const tal_t *ctx,
 				 const struct wireaddr *tor_serviceaddr,
 				 const char *tor_password,
-				 const struct wireaddr_internal *bindings,
-				 const char *blob)
+				 const char *blob,
+				 const struct wireaddr *bind,
+				 const u8 index)
 {
 	int fd;
 	const struct wireaddr *laddr;
@@ -325,7 +322,7 @@ struct wireaddr *tor_fixed_service(const tal_t *ctx,
 	struct rbuf rbuf;
 	char *buffer;
 
-	laddr = find_local_address(bindings);
+	laddr = bind;
 	ai_tor = wireaddr_to_addrinfo(tmpctx, tor_serviceaddr);
 
 	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);
@@ -338,7 +335,7 @@ struct wireaddr *tor_fixed_service(const tal_t *ctx,
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
 	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
 
-	negotiate_auth(&rbuf, "");
+	negotiate_auth(&rbuf, tor_password);
 
 	onion = make_fixed_onion(ctx, &rbuf, laddr, blob, DEFAULT_PORT);
 	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */

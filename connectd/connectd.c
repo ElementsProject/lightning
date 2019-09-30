@@ -151,6 +151,9 @@ struct daemon {
 
 	/* Allow to define the default behavior of tot services calls*/
 	bool use_v3_autotor;
+
+	/* The secret blob */
+	char *blob;
 };
 
 /* Peers we're trying to reach: we iterate through addrs until we succeed
@@ -996,7 +999,9 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 						    announce or both */
 						 const enum addr_listen_announce *proposed_listen_announce,
 						 const char *tor_password,
-						 struct wireaddr **announcable)
+						 struct wireaddr **announcable,
+						 const char *blob,
+						 const struct wireaddr *serviceaddr)
 {
 	struct sockaddr_un addrun;
 	int fd;
@@ -1010,6 +1015,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	 * addresses will be discarded then if we have multiple. */
 	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
 		struct wireaddr_internal wa = proposed_wireaddr[i];
+
+
 
 		/* We want announce-only addresses. */
 		if (proposed_listen_announce[i] & ADDR_LISTEN)
@@ -1026,7 +1033,6 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
 		struct wireaddr_internal wa = proposed_wireaddr[i];
 		bool announce = (proposed_listen_announce[i] & ADDR_ANNOUNCE);
-
 		if (!(proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
 
@@ -1110,7 +1116,6 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
 		if (!(proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
-
 		if (proposed_wireaddr[i].itype != ADDR_INTERNAL_AUTOTOR)
 			continue;
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
@@ -1129,6 +1134,24 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 						daemon->use_v3_autotor));
 	}
 
+	if ( blob/* TODO and annouce */) {
+		for (size_t i = 0; i < tal_count(binding); i++) {
+			if (binding[i].itype != ADDR_INTERNAL_WIREADDR)
+				continue;
+			if (binding[i].u.wireaddr.type == ADDR_TYPE_IPV4 ||
+				 binding[i].u.wireaddr.type == ADDR_TYPE_IPV6) {
+					add_announcable(announcable, tor_fixed_service(tmpctx,
+						serviceaddr,
+						tor_password,
+						blob,
+						&binding[i].u.wireaddr,
+						0));
+					break;
+			} else continue;
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				"No local address found to tell Tor to connect to");
+		}
+	}
 	/* Sort and uniquify. */
 	finalize_announcable(announcable);
 
@@ -1149,6 +1172,8 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announcable;
 	char *tor_password;
+	char *tor_static_blob;
+	struct wireaddr *serviceaddr;
 
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectctl_init(
@@ -1159,7 +1184,10 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password,
-		&daemon->use_v3_autotor)) {
+		&daemon->use_v3_autotor,
+		&tor_static_blob,
+		&serviceaddr
+		)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
@@ -1191,12 +1219,15 @@ static struct io_plan *connect_init(struct io_conn *conn,
 				  proposed_wireaddr,
 				  proposed_listen_announce,
 				  tor_password,
-				  &announcable);
+				  &announcable,
+				  tor_static_blob,
+				  serviceaddr);
 
 	/* Free up old allocations */
 	tal_free(proposed_wireaddr);
 	tal_free(proposed_listen_announce);
 	tal_free(tor_password);
+	tal_free(tor_static_blob);
 
 	/* Tell it we're ready, handing it the addresses we have. */
 	daemon_conn_send(daemon->master,

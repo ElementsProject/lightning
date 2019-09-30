@@ -330,7 +330,7 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_add_service_addr(const char *arg, struct lightningd *ld)
+static char *opt_add_serviceaddr(const char *arg, struct lightningd *ld)
 {
 	bool needed_dns = false;
 	tal_free(ld->serviceaddr);
@@ -1026,7 +1026,7 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
-	opt_register_arg("--tor-service", opt_add_service_addr, NULL,
+	opt_register_arg("--tor-service-api", opt_add_serviceaddr, NULL,
 			ld,"Set a Tor service IP address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
 			 &ld->tor_service_password,
@@ -1038,7 +1038,7 @@ static void register_opts(struct lightningd *ld)
 	opt_register_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 			   "Disable DNS lookups of peers");
 
-	opt_register_noarg("--enable-autotor-v2-mode", opt_set_bool, &ld->config.use_v3_autotor,
+	opt_register_noarg("--enable-autotor-v2-mode", opt_set_invbool, &ld->config.use_v3_autotor,
 			   "Try to get a v2 onion address from the Tor service call, default is v3");
 
 	opt_register_noarg("--generate-static-tor-v3-onion", opt_set_bool,
@@ -1261,11 +1261,11 @@ static void add_config(struct lightningd *ld,
 			   || opt->cb_arg == (void *)opt_ignore_talstr) {
 			const char *arg = *(char **)opt->u.carg;
 			if (arg) {
-				if (strstr(name, "secret")) 
+				if (strstr(name, "secret"))
 					answer = tal_fmt(name0, "*****");
 				else
 					answer = tal_fmt(name0, "%s", arg);
-				}	
+				}
 		} else if (opt->cb_arg == (void *)opt_set_rgb) {
 			if (ld->rgb)
 				answer = tal_hexstr(name0, ld->rgb, 3);
@@ -1294,7 +1294,7 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
 			if (ld->proxyaddr)
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
-		} else if (opt->cb_arg == (void *)opt_add_service_addr) {
+		} else if (opt->cb_arg == (void *)opt_add_serviceaddr) {
 			if (ld->serviceaddr)
 				answer = fmt_wireaddr(name0, ld->serviceaddr);
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
