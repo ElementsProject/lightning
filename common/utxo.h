@@ -41,6 +41,9 @@ struct utxo {
 
 	/* The scriptPubkey if it is known */
 	u8 *scriptPubkey;
+
+	/* scriptSig. Only for P2SH outputs */
+	u8 *scriptSig;
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
