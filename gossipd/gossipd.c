@@ -631,6 +631,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->scid_query_nodes_idx = 0;
 	peer->scid_query_outstanding = false;
 	peer->query_channel_blocks = NULL;
+	peer->query_channel_range_cb = NULL;
 	peer->num_pings_outstanding = 0;
 	peer->gossip_level = peer_gossip_level(daemon,
 					       peer->gossip_queries_feature);
@@ -1755,7 +1756,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return send_timestamp_filter(conn, daemon, msg);
 
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
-		return query_channel_range(conn, daemon, msg);
+		return dev_query_channel_range(conn, daemon, msg);
 
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		return dev_set_max_scids_encode_size(conn, daemon, msg);

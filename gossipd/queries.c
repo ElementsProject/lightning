@@ -728,17 +728,15 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	if (peer->range_blocks_remaining)
 		return NULL;
 
-	/* All done, send reply to lightningd: that's currently the only thing
-	 * which triggers this (for testing).  Eventually we might start probing
-	 * for gossip information on our own. */
-	msg = towire_gossip_query_channel_range_reply(NULL,
-						      first_blocknum,
-						      number_of_blocks,
-						      complete,
-						      peer->query_channel_scids);
-	daemon_conn_send(peer->daemon->master, take(msg));
+	peer->query_channel_range_cb(peer,
+				     first_blocknum,
+				     number_of_blocks,
+				     peer->query_channel_scids,
+				     complete);
+
 	peer->query_channel_scids = tal_free(peer->query_channel_scids);
 	peer->query_channel_blocks = tal_free(peer->query_channel_blocks);
+	peer->query_channel_range_cb = NULL;
 	return NULL;
 }
 
@@ -960,6 +958,45 @@ void maybe_send_query_responses(struct peer *peer)
 	}
 }
 
+bool query_channel_range(struct daemon *daemon,
+			 struct peer *peer,
+			 u32 first_blocknum, u32 number_of_blocks,
+			 void (*cb)(struct peer *peer,
+				    u32 first_blocknum, u32 number_of_blocks,
+				    const struct short_channel_id *scids,
+				    bool complete))
+{
+	u8 *msg;
+
+	assert(peer->gossip_queries_feature);
+	assert(!peer->query_channel_blocks);
+	assert(!peer->query_channel_range_cb);
+
+	/* Check for overflow on 32-bit machines! */
+	if (BITMAP_NWORDS(number_of_blocks) < number_of_blocks / BITMAP_WORD_BITS) {
+		status_broken("query_channel_range: huge number_of_blocks (%u) not supported",
+			      number_of_blocks);
+		return false;
+	}
+
+	status_debug("sending query_channel_range for blocks %u+%u",
+		     first_blocknum, number_of_blocks);
+
+	msg = towire_query_channel_range(NULL, &daemon->chain_hash,
+					 first_blocknum, number_of_blocks,
+					 NULL);
+	queue_peer_msg(peer, take(msg));
+	peer->range_first_blocknum = first_blocknum;
+	peer->range_end_blocknum = first_blocknum + number_of_blocks;
+	peer->range_blocks_remaining = number_of_blocks;
+	peer->query_channel_blocks = tal_arrz(peer, bitmap,
+					      BITMAP_NWORDS(number_of_blocks));
+	peer->query_channel_scids = tal_arr(peer, struct short_channel_id, 0);
+	peer->query_channel_range_cb = cb;
+
+	return true;
+}
+
 #if DEVELOPER
 struct io_plan *query_scids_req(struct io_conn *conn,
 				struct daemon *daemon,
@@ -986,11 +1023,23 @@ struct io_plan *query_scids_req(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
-/* FIXME: One day this will be called internally; for now it's just for
- * testing with dev_query_channel_range. */
-struct io_plan *query_channel_range(struct io_conn *conn,
-				    struct daemon *daemon,
-				    const u8 *msg)
+static void tell_master_scid_range(struct peer *peer,
+				   u32 first_blocknum, u32 number_of_blocks,
+				   const struct short_channel_id *scids,
+				   bool complete)
+{
+	/* All done, send reply to lightningd. */
+	u8 *msg = towire_gossip_query_channel_range_reply(NULL,
+							  first_blocknum,
+							  number_of_blocks,
+							  complete,
+							  scids);
+	daemon_conn_send(peer->daemon->master, take(msg));
+}
+
+struct io_plan *dev_query_channel_range(struct io_conn *conn,
+					struct daemon *daemon,
+					const u8 *msg)
 {
 	struct node_id id;
 	u32 first_blocknum, number_of_blocks;
@@ -1018,26 +1067,10 @@ struct io_plan *query_channel_range(struct io_conn *conn,
 		goto fail;
 	}
 
-	/* Check for overflow on 32-bit machines! */
-	if (BITMAP_NWORDS(number_of_blocks) < number_of_blocks / BITMAP_WORD_BITS) {
-		status_broken("query_channel_range: huge number_of_blocks (%u) not supported",
-			number_of_blocks);
+	if (!query_channel_range(daemon, peer,
+				 first_blocknum, number_of_blocks,
+				 tell_master_scid_range))
 		goto fail;
-	}
-
-	status_debug("sending query_channel_range for blocks %u+%u",
-		     first_blocknum, number_of_blocks);
-
-	msg = towire_query_channel_range(NULL, &daemon->chain_hash,
-					 first_blocknum, number_of_blocks,
-					 NULL);
-	queue_peer_msg(peer, take(msg));
-	peer->range_first_blocknum = first_blocknum;
-	peer->range_end_blocknum = first_blocknum + number_of_blocks;
-	peer->range_blocks_remaining = number_of_blocks;
-	peer->query_channel_blocks = tal_arrz(peer, bitmap,
-					      BITMAP_NWORDS(number_of_blocks));
-	peer->query_channel_scids = tal_arr(peer, struct short_channel_id, 0);
 
 out:
 	return daemon_conn_read_next(conn, daemon->master);

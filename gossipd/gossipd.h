@@ -114,6 +114,10 @@ struct peer {
 	u32 range_first_blocknum, range_end_blocknum;
 	u32 range_blocks_remaining;
 	struct short_channel_id *query_channel_scids;
+	void (*query_channel_range_cb)(struct peer *peer,
+				       u32 first_blocknum, u32 number_of_blocks,
+				       const struct short_channel_id *scids,
+				       bool complete);
 
 	/* Are we asking this peer to give us lot of gossip? */
 	enum gossip_level gossip_level;
