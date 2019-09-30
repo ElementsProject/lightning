@@ -31,6 +31,7 @@
 #include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <openingd/channel_establishment.h>
 #include <openingd/gen_opening_wire.h>
 #include <wire/gen_common_wire.h>
 #include <wire/wire.h>
@@ -55,6 +56,10 @@ struct uncommitted_channel {
 
 	/* If we offered channel, this contains information, otherwise NULL */
 	struct funding_channel *fc;
+
+	/* If this is dual funded and we're the accepter,
+	 * this contains information, otherwise NULL */
+	struct peer_funding *pf;
 
 	/* Our basepoints for the channel. */
 	struct basepoints local_basepoints;
@@ -99,7 +104,17 @@ struct funding_channel {
 
 	/* Whether or not to use channel open v2 */
 	bool is_v2;
+
+	/* Transaction we're building for a v2 channel open */
 	struct unreleased_tx *utx;
+};
+
+struct peer_funding {
+	struct utxo **utxos;
+	struct amount_sat accepter_funding;
+
+	/* Channel, subsequent owner of us */
+	struct uncommitted_channel *uc;
 };
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
@@ -950,6 +965,7 @@ struct openchannel_hook_payload {
 	struct amount_msat max_htlc_value_in_flight_msat;
 	struct amount_sat channel_reserve_satoshis;
 	struct amount_msat htlc_minimum_msat;
+	struct amount_sat available_funds;
 	u32 feerate_per_kw;
 	u32 feerate_per_kw_funding;
 	u16 to_self_delay;
@@ -1106,6 +1122,18 @@ static void opening_got_offer(struct subd *openingd,
 		tal_free(openingd);
 		return;
 	}
+
+	if (payload->is_v2) {
+		uc->pf = tal(uc, struct peer_funding);
+		/* Calculate the max we can contribute to this channel */
+		/* We use one less than the contribution count limit
+		 * to leave room for a change output */
+		wallet_compute_max(openingd->ld->wallet,
+				   /* Leave space for change */
+				   REMOTE_CONTRIB_LIMIT - 1,
+				   &payload->available_funds);
+	} else
+		uc->pf = NULL;
 
 	tal_add_destructor2(openingd, openchannel_payload_remove_openingd, payload);
 	plugin_hook_call_openchannel(openingd->ld, payload);
