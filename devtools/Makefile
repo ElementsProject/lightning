@@ -1,6 +1,6 @@
 DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/gen_print_onion_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels devtools/mkquery
 DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c)
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
@@ -77,6 +77,8 @@ devtools/mkgossip: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fro
 devtools/mkencoded: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o devtools/mkencoded.o
 
 devtools/checkchannels: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) common/configdir.o wire/fromwire.o wire/towire.o wire/tlvstream.o devtools/checkchannels.o
+
+devtools/mkquery: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o devtools/mkquery.o
 
 # Make sure these depend on everything.
 ALL_PROGRAMS += $(DEVTOOLS)
