@@ -538,6 +538,63 @@ const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 	return utxo;
 }
 
+/* Select highest value, confirmed, UTXOs. Optionally limit number to return */
+static struct utxo **sorted_confirmed_utxos(const tal_t *ctx, struct wallet *w,
+					    const enum output_status state)
+{
+	struct utxo **results;
+	int i;
+	struct db_stmt *stmt;
+
+	if (state == output_state_any)
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						" FROM outputs"
+						" WHERE confirmation_height IS NOT NULL"
+						" ORDER BY value DESC"));
+	else {
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						" FROM outputs"
+						" WHERE status = ?"
+						" AND confirmation_height IS NOT NULL"
+						" ORDER BY value DESC"));
+		db_bind_int(stmt, 0, output_status_in_db(state));
+	}
+	db_query_prepared(stmt);
+
+	results = tal_arr(ctx, struct utxo *, 0);
+	for (i = 0; db_step(stmt); i++) {
+		struct utxo *u = wallet_stmt2output(results, stmt);
+		tal_arr_expand(&results, u);
+	}
+	tal_free(stmt);
+
+	return results;
+}
+
 u8 *derive_redeem_scriptsig(const tal_t *ctx, struct wallet *w, u32 keyindex)
 {
 	struct ext_key ext;
@@ -552,6 +609,26 @@ u8 *derive_redeem_scriptsig(const tal_t *ctx, struct wallet *w, u32 keyindex)
 		fatal("Unble to derive pubkey from DER");
 
 	return bitcoin_scriptsig_p2sh_p2wpkh(ctx, &key);
+}
+
+void wallet_compute_max(struct wallet *w, u32 max_utxos, struct amount_sat *sat)
+{
+	size_t i = 0;
+	struct utxo **available;
+
+	available = sorted_confirmed_utxos(NULL, w, output_state_available);
+
+	*sat = AMOUNT_SAT(0);
+	for (i = 0; i < tal_count(available) && i < max_utxos; i++) {
+		if (!amount_sat_add(sat, *sat, available[i]->amount))
+			fatal("Overflow in sum of available satoshis %zu/%zu %s + %s",
+			      i, tal_count(available),
+			      type_to_string(tmpctx, struct amount_sat,
+					     sat),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &available[i]->amount));
+	}
+	tal_free(available);
 }
 
 bool wallet_can_spend(struct wallet *w, const u8 *script,

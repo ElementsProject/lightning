@@ -407,6 +407,17 @@ const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
  */
 u8 *derive_redeem_scriptsig(const tal_t *ctx, struct wallet *w, u32 keyindex);
 
+/* wallet_compute_max - Compute the maxiumum amount of available sats in our largest
+ * {max_utxos} utxos
+ *
+ * Note that only calculates using the set of utxos that are currently available.
+ *
+ * @w - wallet, available utxos
+ * @max_utxos - limit to number of utxos to sum, ranked by largest
+ * @sat - (out) sum of {max_utxos} amounts
+ * */
+void wallet_compute_max(struct wallet *w, u32 max_utxos, struct amount_sat *sat);
+
 /**
  * wallet_select_specific - Select utxos given an array of txids and an array of outputs index
  *
