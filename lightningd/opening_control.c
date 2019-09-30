@@ -1,6 +1,7 @@
 #include "bitcoin/feerate.h"
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/channel_config.h>
@@ -8,6 +9,7 @@
 #include <common/fee_states.h>
 #include <common/funding_tx.h>
 #include <common/json_command.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
 #include <common/param.h>
@@ -696,20 +698,23 @@ static void opening_fundee_finished(struct subd *openingd,
 				    const int *fds,
 				    struct uncommitted_channel *uc)
 {
-	u8 *funding_signed;
+	u8 *final_peer_msg;
 	struct channel_info channel_info;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 	struct lightningd *ld = openingd->ld;
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
-	struct amount_sat funding;
+	struct amount_sat opener_funding;
+	struct amount_sat accepter_funding;
+	struct amount_sat total_funding;
 	struct amount_msat push;
 	u32 feerate;
 	u8 channel_flags;
 	struct channel *channel;
 	u8 *remote_upfront_shutdown_script, *local_upfront_shutdown_script;
 	struct per_peer_state *pps;
+	struct utxo **utxos;
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 
@@ -729,12 +734,12 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &channel_info.remote_fundingkey,
 					   &funding_txid,
 					   &funding_outnum,
-					   &funding,
-					   &AMOUNT_SAT(0),
+					   &opener_funding,
+					   &accepter_funding,
 					   &push,
 					   &channel_flags,
 					   &feerate,
-					   &funding_signed,
+					   &final_peer_msg,
 				           &uc->our_config.channel_reserve,
 					   &local_upfront_shutdown_script,
 				           &remote_upfront_shutdown_script)) {
@@ -756,14 +761,23 @@ static void opening_fundee_finished(struct subd *openingd,
 		goto failed;
 	}
 
+	if (!amount_sat_add(&total_funding, opener_funding, accepter_funding))
+		abort();
+
+	if (uc->pf)
+		/* We steal here, because otherwise gets eaten below */
+		utxos = tal_steal(tmpctx, uc->pf->utxos);
+	else
+		utxos = NULL;
+
 	/* Consumes uc */
 	channel = wallet_commit_channel(ld, uc,
 					remote_commit,
 					&remote_commit_sig,
 					&funding_txid,
 					funding_outnum,
-					funding,
-					AMOUNT_SAT(0),
+					total_funding,
+					accepter_funding,
 					push,
 					REMOTE,
 					channel_flags,
@@ -774,12 +788,17 @@ static void opening_fundee_finished(struct subd *openingd,
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       "Commit channel failed");
-		goto failed;
+		goto failed_later;
 	}
 
 	log_debug(channel->log, "Watching funding tx %s",
 		  type_to_string(reply, struct bitcoin_txid,
 				 &channel->funding_txid));
+
+	if (utxos) {
+		// TODO: mark utxos as shared
+		tal_free(utxos);
+	}
 
 	channel_watch_funding(ld, channel);
 
@@ -788,13 +807,16 @@ static void opening_fundee_finished(struct subd *openingd,
 			      &channel->funding_txid, &channel->remote_funding_locked);
 
 	/* On to normal operation! */
-	peer_start_channeld(channel, pps, funding_signed, false);
+	peer_start_channeld(channel, pps, final_peer_msg, false);
 
 	subd_release_channel(openingd, uc);
 	uc->openingd = NULL;
 	tal_free(uc);
 	return;
 
+failed_later:
+	if (utxos)
+		tal_free(utxos);
 failed:
 	close(fds[0]);
 	close(fds[1]);
@@ -959,9 +981,9 @@ static void channel_config(struct lightningd *ld,
 
 struct openchannel_hook_payload {
 	struct subd *openingd;
-	struct amount_sat funding_satoshis;
 	/* Is this a v2 openchannel call? */
 	bool is_v2;
+	struct amount_sat opener_satoshis;
 	struct amount_msat push_msat;
 	struct amount_sat dust_limit_satoshis;
 	struct amount_msat max_htlc_value_in_flight_msat;
@@ -984,7 +1006,7 @@ openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	json_object_start(stream, "openchannel");
 	json_add_node_id(stream, "id", &uc->peer->id);
 	json_add_amount_sat_only(stream, "funding_satoshis",
-				 payload->funding_satoshis);
+				 payload->opener_satoshis);
 	json_add_amount_msat_only(stream, "push_msat", payload->push_msat);
 	json_add_amount_sat_only(stream, "dust_limit_satoshis",
 				 payload->dust_limit_satoshis);
@@ -1013,12 +1035,17 @@ static void openchannel_payload_remove_openingd(struct subd *openingd,
 }
 
 static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
-			    const char *buffer,
-			    const jsmntok_t *toks)
+				const char *buffer,
+				const jsmntok_t *toks)
 {
 	struct subd *openingd = payload->openingd;
 	const u8 *our_upfront_shutdown_script;
+	struct uncommitted_channel *uc = openingd->channel;
+	struct peer_funding *pf = uc->pf;
 	const char *errmsg = NULL;
+	struct amount_sat change;
+	struct bitcoin_tx_output **outputs;
+	bool has_change;
 
 	/* We want to free this, whatever happens. */
 	tal_steal(tmpctx, payload);
@@ -1076,12 +1103,115 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
 			} else
 				our_upfront_shutdown_script = NULL;
 		}
-	} else
+
+		if (payload->is_v2 && !errmsg) {
+			const jsmntok_t *funding_sats = json_get_member(buffer,
+								        toks,
+								        "funding_sats");
+			if (funding_sats)
+				json_to_sat(buffer, funding_sats, &pf->accepter_funding);
+			else
+				pf->accepter_funding = AMOUNT_SAT(0);
+		}
+	} else {
 		our_upfront_shutdown_script = NULL;
+		if (pf)
+			pf->accepter_funding = AMOUNT_SAT(0);
+	}
+
+	if (!payload->is_v2 || errmsg) {
+		subd_send_msg(openingd,
+			      take(towire_opening_got_offer_reply(NULL, errmsg,
+								  our_upfront_shutdown_script)));
+		return;
+	}
+
+	/* Find utxos for funding this */
+	if (amount_sat_greater(pf->accepter_funding, AMOUNT_SAT(0))) {
+		/* Print a warning if we're trying to fund a channel with more
+		 * than we said that we'd be allowed to */
+		if (amount_sat_greater(pf->accepter_funding, payload->available_funds))
+			log_info(openingd->log,
+				 "Attempting to fund channel for %s when max was set to %s",
+				 type_to_string(
+					 tmpctx, struct amount_sat, &pf->accepter_funding),
+				 type_to_string(
+					 tmpctx, struct amount_sat, &payload->available_funds));
+
+		struct amount_sat fee_estimate UNUSED;
+		pf->utxos = (struct utxo **)wallet_select_coins(pf, openingd->ld->wallet,
+								true, pf->accepter_funding,
+								0, 0,
+								UINT32_MAX, /* minconf 1 */
+								&fee_estimate, &change);
+
+		/* Verify that we're still under the max remote that is allowed */
+		if (tal_count(pf->utxos) > REMOTE_CONTRIB_LIMIT) {
+			log_info(openingd->log,
+				 "Too many utxos selected (%zu), only %"PRIu16" allowed",
+				 tal_count(pf->utxos), REMOTE_CONTRIB_LIMIT - 1);
+			pf->utxos = tal_free(pf->utxos);
+			change = AMOUNT_SAT(0);
+		}
+	} else {
+		change = AMOUNT_SAT(0);
+		pf->utxos = NULL;
+	}
+
+	/* Either no utxos were found, or we weren't funding it anyway */
+	if (!pf->utxos) {
+		if (amount_sat_greater(pf->accepter_funding, AMOUNT_SAT(0)))
+			/* FIXME: send notification to the plugin that
+			 *        we weren't able to fund this channel as they
+			 *        requested; utxo set has changed since hook was called */
+			log_unusual(openingd->log,
+				    "Unable to fund channel with %s; utxos unavailable",
+				    type_to_string(tmpctx, struct amount_sat,
+					           &pf->accepter_funding));
+
+		pf->accepter_funding = AMOUNT_SAT(0);
+		change = AMOUNT_SAT(0);
+	}
+
+	has_change = amount_sat_greater(change, AMOUNT_SAT(0));
+	outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, has_change ? 1 : 0);
+	if (has_change) {
+		struct bitcoin_tx_output *output;
+		struct pubkey *changekey;
+		s64 change_keyindex;
+
+		output = tal(outputs, struct bitcoin_tx_output);
+		output->amount = change;
+
+		change_keyindex = wallet_get_newindex(openingd->ld);
+		changekey = tal(tmpctx, struct pubkey);
+		if (!bip32_pubkey(openingd->ld->wallet->bip32_base,
+				  changekey, change_keyindex)) {
+			fatal("Error deriving change key %lu", change_keyindex);
+		}
+		output->script = scriptpubkey_p2wpkh(output, changekey);
+		outputs[0] = output;
+	}
+
+	/* We need to supply the scriptSig to our peer, for P2SH wrapped inputs */
+	for (size_t i = 0; i < tal_count(pf->utxos); i++) {
+		if (pf->utxos[i]->is_p2sh)
+			pf->utxos[i]->scriptSig =
+				derive_redeem_scriptsig(pf->utxos[i],
+						        openingd->ld->wallet,
+						        pf->utxos[i]->keyindex);
+		else
+			pf->utxos[i]->scriptSig = NULL;
+
+	}
 
 	subd_send_msg(openingd,
-		      take(towire_opening_got_offer_reply(NULL, errmsg,
-							  our_upfront_shutdown_script)));
+		      take(towire_opening_got_offer_reply_fund(
+				      NULL, pf->accepter_funding,
+				      cast_const2(const struct utxo **, pf->utxos),
+				      cast_const2(const struct bitcoin_tx_output **,
+					          outputs),
+				      our_upfront_shutdown_script)));
 }
 
 REGISTER_SINGLE_PLUGIN_HOOK(openchannel,
@@ -1107,7 +1237,7 @@ static void opening_got_offer(struct subd *openingd,
 	payload->openingd = openingd;
 	if (!fromwire_opening_got_offer(payload, msg,
 					&payload->is_v2,
-					&payload->funding_satoshis,
+					&payload->opener_satoshis,
 					&payload->push_msat,
 					&payload->dust_limit_satoshis,
 					&payload->max_htlc_value_in_flight_msat,
@@ -1204,6 +1334,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	case WIRE_OPENING_FUNDER_COMPLETE:
 	case WIRE_OPENING_FUNDER_CANCEL:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
+	case WIRE_OPENING_GOT_OFFER_REPLY_FUND:
 	case WIRE_OPENING_DEV_MEMLEAK:
 	/* Replies never get here */
 	case WIRE_OPENING_DEV_MEMLEAK_REPLY:
