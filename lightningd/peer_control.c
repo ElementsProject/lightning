@@ -613,6 +613,7 @@ static void json_add_channel(struct lightningd *ld,
 	struct channel_id cid;
 	struct channel_stats channel_stats;
 	struct amount_msat spendable, receivable, funding_msat, their_msat;
+	struct amount_sat remote_funds;
 	struct peer *p = channel->peer;
 
 	json_object_start(response, key);
@@ -653,36 +654,23 @@ static void json_add_channel(struct lightningd *ld,
 	    response, "private",
 	    !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
 
-	// FIXME @conscott : Modify this when dual-funded channels
-	// are implemented
+	/* Calculate remote peer's funding contribution */
+	assert(amount_sat_sub(&remote_funds,
+			      channel->funding, channel->our_funds));
+	/* Add funding amounts, raw msat */
 	json_object_start(response, "funding_allocation_msat");
-	if (channel->opener == LOCAL) {
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id), 0);
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
-			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
-	} else {
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id), 0);
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
-			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
-	}
+	json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
+			remote_funds.satoshis * 1000); /* Raw: raw JSON field */
+	json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
+		     channel->our_funds.satoshis * 1000); /* Raw: raw JSON field */
 	json_object_end(response);
 
+	/* Add funding amounts, 'msat' style */
 	json_object_start(response, "funding_msat");
-	if (channel->opener == LOCAL) {
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &p->id),
-				  AMOUNT_SAT(0));
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &ld->id),
-				  channel->funding);
-	} else {
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &ld->id),
-				  AMOUNT_SAT(0));
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &p->id),
-				  channel->funding);
-	}
+	json_add_sat_only(response, node_id_to_hexstr(tmpctx, &p->id),
+			  remote_funds);
+	json_add_sat_only(response, node_id_to_hexstr(tmpctx, &ld->id),
+			  channel->our_funds);
 	json_object_end(response);
 
 	if (!amount_sat_to_msat(&funding_msat, channel->funding)) {
