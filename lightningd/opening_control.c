@@ -698,6 +698,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	u8 *remote_upfront_shutdown_script;
 	struct per_peer_state *pps;
 	struct utxo **utxos;
+	size_t i;
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 
@@ -769,14 +770,24 @@ static void opening_fundee_finished(struct subd *openingd,
 		goto failed;
 	}
 
+	if (utxos) {
+		for (i = 0; i < tal_count(utxos); i++) {
+			if (!wallet_mark_output_shared(ld->wallet, &utxos[i]->txid,
+						       utxos[i]->outnum,
+						       ld->topology->tip->height,
+						       channel->dbid)) {
+				//TODO: this is a committed channel now
+				uncommitted_channel_disconnect(uc, "Commit channel failed");
+				goto failed;
+			}
+		}
+
+		utxos = tal_free(utxos);
+	}
+
 	log_debug(channel->log, "Watching funding tx %s",
 		  type_to_string(reply, struct bitcoin_txid,
 				 &channel->funding_txid));
-
-	if (utxos) {
-		// TODO: mark utxos as shared
-		tal_free(utxos);
-	}
 
 	channel_watch_funding(ld, channel);
 
@@ -797,7 +808,8 @@ failed:
 	close(fds[1]);
 	close(fds[3]);
 	tal_free(uc);
-	tal_free(utxos);
+	if (utxos)
+		tal_free(utxos);
 }
 
 static void opening_funder_failed(struct subd *openingd, const u8 *msg,
