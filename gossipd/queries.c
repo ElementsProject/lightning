@@ -255,18 +255,25 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	} else
 		flags = NULL;
 
+	/* BOLT #7
+	 *
+	 * The receiver:
+	 * ...
+	 *   - if does not maintain up-to-date channel information for `chain_hash`:
+	 *     - MUST set `complete` to 0.
+	 */
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
 		status_debug("%s sent query_short_channel_ids chainhash %s",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid, &chain));
-		return NULL;
+		return towire_reply_short_channel_ids_end(peer, &chain, 0);
 	}
 
 	/* BOLT #7:
 	 *
 	 * - if it has not sent `reply_short_channel_ids_end` to a
 	 *   previously received `query_short_channel_ids` from this
-         *   sender:
+	 *   sender:
 	 *    - MAY fail the connection.
 	 */
 	if (peer->scid_queries || peer->scid_query_nodes) {
