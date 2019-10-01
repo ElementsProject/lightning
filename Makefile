@@ -668,7 +668,7 @@ ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-ccan-base64.o: $(CCANDIR)/ccan/base64/base64.c
+ccan-str-base64.o: $(CCANDIR)/ccan/str/base64/base64.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
 	$(CC) $(CFLAGS) -c -o $@ $<

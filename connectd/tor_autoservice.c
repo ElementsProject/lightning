@@ -188,7 +188,7 @@ static struct wireaddr *make_fixed_onion(const tal_t *ctx,
 		if (!parse_wireaddr(name, onion, DEFAULT_PORT, false, NULL))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tor gave bad onion name '%s'", name);
-		status_info("Static Tor service onion address: \"%s:%d,%s\" %s", name, DEFAULT_PORT ,fmt_wireaddr(tmpctx, local));
+		status_info("Static Tor service onion address: \"%s:%d,%s\"", name, DEFAULT_PORT ,fmt_wireaddr(tmpctx, local));
 		discard_remaining_response(rbuf);
 		return onion;
 	}

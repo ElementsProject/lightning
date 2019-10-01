@@ -1140,8 +1140,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				continue;
 			if (binding[i].u.wireaddr.type == ADDR_TYPE_IPV4 ||
 				 binding[i].u.wireaddr.type == ADDR_TYPE_IPV6) {
-				const struct wireaddr *wa = 
-					tor_fixed_service(tmpctx,
+				const struct wireaddr *wa =
+					 tor_fixed_service(tmpctx,
 						serviceaddr,
 						tor_password,
 						blob,
