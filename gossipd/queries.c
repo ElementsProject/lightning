@@ -334,7 +334,7 @@ static void reply_channel_range(struct peer *peer,
 	 *     knows in blocks `first_blocknum` to `first_blocknum` plus
 	 *     `number_of_blocks` minus one.
 	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
-         *     whose results could fit in `encoded_short_ids`
+	 *     whose results could fit in `encoded_short_ids`
 	 *   - if does not maintain up-to-date channel information for
 	 *     `chain_hash`:
 	 *     - MUST set `complete` to 0.
@@ -556,7 +556,7 @@ wont_fit:
 					tail_blocks, query_option_flags);
 }
 
-/*~ The peer can ask for all channels is a series of blocks.  We reply with one
+/*~ The peer can ask for all channels in a series of blocks.  We reply with one
  * or more messages containing the short_channel_ids. */
 const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 {
@@ -580,8 +580,13 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	else
 		query_option_flags = 0;
 
-	/* If they ask for the wrong chain, we give an empty response
-	 * with the `complete` flag unset */
+	/* BOLT #7
+	 *
+	 * The receiver of `query_channel_range`:
+	 * ...
+	 *   - if does not maintain up-to-date channel information for `chain_hash`:
+	 *     - MUST set `complete` to 0.
+	 */
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain_hash)) {
 		status_debug("%s sent query_channel_range chainhash %s",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
