@@ -47,6 +47,27 @@ static void tor_send_cmd(struct rbuf *rbuf, const char *cmd)
 			      "Writing CRLF to Tor socket");
 }
 
+static char *tor_response_line_wfail(struct rbuf *rbuf)
+{
+	char *line;
+
+	while ((line = rbuf_read_str(rbuf, '\n')) != NULL) {
+		status_io(LOG_IO_IN, "torcontrol", line, strlen(line));
+
+		/* Weird response */
+		if (!strstarts(line, "250") && !strstarts(line, "550"))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Tor returned '%s'", line);
+
+		/* Last line */
+		if (strstarts(line, "250 ") || strstarts(line, "550 "))
+			break;
+
+		return line + 4;
+	}
+	return line + 4;
+}
+
 static char *tor_response_line(struct rbuf *rbuf)
 {
 	char *line;
@@ -67,6 +88,7 @@ static char *tor_response_line(struct rbuf *rbuf)
 	}
 	return NULL;
 }
+
 
 static void discard_remaining_response(struct rbuf *rbuf)
 {
@@ -146,11 +168,13 @@ static struct wireaddr *make_fixed_onion(const tal_t *ctx,
 	blob64 = b64_encode(tmpctx,(char *) blob, 64);
 
 	tor_send_cmd(rbuf,
-			   tal_fmt(tmpctx, "ADD_ONION ED25519-V3:%s Port=%d,%s Flags=DiscardPK,Detach",
+			  tal_fmt(tmpctx, "ADD_ONION ED25519-V3:%s Port=%d,%s Flags=DiscardPK,Detach",
 					blob64, port, fmt_wireaddr(tmpctx, local)));
 
-	while ((line = tor_response_line(rbuf)) != NULL) {
+	while ((line = tor_response_line_wfail(rbuf)) != NULL) {
 		const char *name;
+		if (line && strstarts(line, "Onion address collision"))
+			return NULL;
 
 		if (!strstarts(line, "ServiceID="))
 			continue;
@@ -164,7 +188,7 @@ static struct wireaddr *make_fixed_onion(const tal_t *ctx,
 		if (!parse_wireaddr(name, onion, DEFAULT_PORT, false, NULL))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tor gave bad onion name '%s'", name);
-		status_info("Static Tor service onion address: \"%s:%d,%s\"", name, DEFAULT_PORT ,fmt_wireaddr(tmpctx, local));
+		status_info("Static Tor service onion address: \"%s:%d,%s\" %s", name, DEFAULT_PORT ,fmt_wireaddr(tmpctx, local));
 		discard_remaining_response(rbuf);
 		return onion;
 	}
@@ -172,7 +196,6 @@ static struct wireaddr *make_fixed_onion(const tal_t *ctx,
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Tor didn't give us a ServiceID");
 }
-
 
 /* https://gitweb.torproject.org/torspec.git/tree/control-spec.txt:
  *
@@ -336,6 +359,7 @@ struct wireaddr *tor_fixed_service(const tal_t *ctx,
 	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
 
 	negotiate_auth(&rbuf, tor_password);
+	onion = NULL;
 
 	onion = make_fixed_onion(ctx, &rbuf, laddr, blob, DEFAULT_PORT);
 	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */

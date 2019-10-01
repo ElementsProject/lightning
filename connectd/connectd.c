@@ -1134,19 +1134,21 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 						daemon->use_v3_autotor));
 	}
 
-	if ( blob/* TODO and annouce */) {
+	if ((tal_count(blob) > 0) && serviceaddr) {
 		for (size_t i = 0; i < tal_count(binding); i++) {
 			if (binding[i].itype != ADDR_INTERNAL_WIREADDR)
 				continue;
 			if (binding[i].u.wireaddr.type == ADDR_TYPE_IPV4 ||
 				 binding[i].u.wireaddr.type == ADDR_TYPE_IPV6) {
-					add_announcable(announcable, tor_fixed_service(tmpctx,
+				const struct wireaddr *wa = 
+					tor_fixed_service(tmpctx,
 						serviceaddr,
 						tor_password,
 						blob,
 						&binding[i].u.wireaddr,
-						0));
-					break;
+						0);
+				if (wa) add_announcable(announcable, wa);
+				break;
 			} else continue;
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				"No local address found to tell Tor to connect to");
