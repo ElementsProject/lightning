@@ -857,10 +857,6 @@ static bool check_remote_inputs(struct input_info **remote_inputs,
 {
 	size_t i = 0;
 
-	// FIXME: we should check that they don't also
-	// turn in the funding output
-	// and maybe check that none of their outputs
-	// are duplicates??
 	*input_funding = AMOUNT_SAT(0);
 	for (i = 0; i < tal_count(remote_inputs); i++) {
 
@@ -875,8 +871,9 @@ static bool check_remote_inputs(struct input_info **remote_inputs,
 		 * - MUST ensure each `input_info` refers to a non-malleable (segwit) UTXO. */
 		/* P2SH wrapped inputs send the redeemscript, which we can check */
 		if (remote_inputs[i]->script) {
-			if (!is_p2wpkh(remote_inputs[i]->script, NULL)
-					&& !is_p2wsh(remote_inputs[i]->script, NULL))
+			if (!is_p2sh_p2wpkh_redeemscript(remote_inputs[i]->script)
+					&& !is_p2sh_p2wsh_redeemscript(
+						remote_inputs[i]->script))
 				return false;
 		} else if (!is_p2wpkh(remote_inputs[i]->prevtx_scriptpubkey, NULL)
 				&& !is_p2wsh(remote_inputs[i]->prevtx_scriptpubkey, NULL))
@@ -933,6 +930,9 @@ static bool check_remote_input_outputs(struct state *state,
 			    &state->channel_id,
 			    "Peer sent malleable (non-Segwit) input.");
 
+	// FIXME: we should check that they don't also
+	// submit the funding output
+	// and check that none of their outputs are duplicates
 	other_outputs = AMOUNT_SAT(0);
 	has_change_address = false;
 	for (i = 0; i < tal_count(remote_outputs); i++) {
