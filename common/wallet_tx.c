@@ -104,13 +104,14 @@ struct command_result *param_utxos(struct command *cmd,
 }
 
 static struct command_result *check_amount(const struct wallet_tx *wtx,
+					   const struct chainparams *chainparams,
 					   struct amount_sat amount)
 {
 	if (tal_count(wtx->utxos) == 0) {
 		return command_fail(wtx->cmd, FUND_CANNOT_AFFORD,
 				    "Cannot afford transaction");
 	}
-	if (amount_sat_less(amount, get_chainparams(wtx->cmd->ld)->dust_limit)) {
+	if (amount_sat_less(amount, chainparams->dust_limit)) {
 		return command_fail(wtx->cmd, FUND_OUTPUT_IS_DUST,
 				    "Output %s would be dust",
 				    type_to_string(tmpctx, struct amount_sat,
@@ -134,7 +135,9 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 					      maxheight,
 					      &amount,
 					      &fee_estimate);
-		res = check_amount(tx, amount);
+		res = check_amount(tx,
+				   get_chainparams(tx->cmd->ld),
+				   amount);
 		if (res)
 			return res;
 
@@ -166,7 +169,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 
 	}
 
-	res = check_amount(tx, tx->amount);
+	res = check_amount(tx, get_chainparams(tx->cmd->ld), tx->amount);
 	if (res)
 		return res;
 
@@ -180,10 +183,11 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 }
 
 struct command_result *wtx_from_utxos(struct wallet_tx *tx,
-					u32 fee_rate_per_kw,
-					size_t out_len,
-					u32 maxheight,
-					const struct utxo **utxos)
+				      const struct chainparams *chainparams,
+				      u32 fee_rate_per_kw,
+				      size_t out_len,
+				      u32 maxheight,
+				      const struct utxo **utxos)
 {
 	size_t weight;
 	struct amount_sat total_amount, fee_estimate;
@@ -217,7 +221,7 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 			&& !amount_sat_sub(&tx->change, total_amount, tx->amount))
 		fatal("Overflow when computing change");
 
-	if (amount_sat_greater_eq(tx->change, get_chainparams(tx->cmd->ld)->dust_limit)) {
+	if (amount_sat_greater_eq(tx->change, chainparams->dust_limit)) {
 		/* Add the change output's weight */
 		weight += (8 + 1 + out_len) * 4;
 	}
@@ -247,5 +251,5 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 		}
 	}
 
-	return check_amount(tx, tx->amount);
+	return check_amount(tx, chainparams, tx->amount);
 }

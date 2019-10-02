@@ -389,7 +389,9 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 
 create_tx:
 	if (chosen_utxos)
-		result = wtx_from_utxos((*utx)->wtx, *feerate_per_kw,
+		result = wtx_from_utxos((*utx)->wtx,
+					get_chainparams(cmd->ld),
+					*feerate_per_kw,
 					out_len, maxheight,
 					chosen_utxos);
 	else
