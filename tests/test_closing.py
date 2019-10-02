@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky
 from lightning import RpcError
-from utils import only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND, SLOW_MACHINE
+from utils import only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND, SLOW_MACHINE, COMPAT
 
 import os
 import queue
@@ -359,6 +359,39 @@ def test_closing_specified_destination(node_factory, bitcoind):
         # Check the another address is addr
         assert addr == bitcoind.rpc.gettxout(closetxid[idindex[n]], output_num1)['scriptPubKey']['addresses'][0]
         assert 1 == bitcoind.rpc.gettxout(closetxid[idindex[n]], output_num1)['confirmations']
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT=1")
+def test_deprecated_closing_compat(node_factory, bitcoind):
+    """ The old-style close command is:
+        close {id} {force} {timeout}
+    """
+    l1, l2 = node_factory.get_nodes(2, opts=[{'allow-deprecated-apis': True}, {}])
+    addr = 'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg'
+    nodeid = l2.info['id']
+
+    l1.rpc.check(command_to_check='close', id=nodeid)
+    # New-style
+    l1.rpc.check(command_to_check='close', id=nodeid, unilateraltimeout=10, destination=addr)
+    l1.rpc.check(command_to_check='close', id=nodeid, unilateraltimeout=0)
+    l1.rpc.check(command_to_check='close', id=nodeid, destination=addr)
+    # Old-style
+    l1.rpc.check(command_to_check='close', id=nodeid, force=False)
+    l1.rpc.check(command_to_check='close', id=nodeid, force=False, timeout=10)
+    l1.rpc.check(command_to_check='close', id=nodeid, timeout=10)
+
+    l1.rpc.call('check', ['close', nodeid])
+    # Array(new-style)
+    l1.rpc.call('check', ['close', nodeid, 10])
+    l1.rpc.call('check', ['close', nodeid, 0, addr])
+    l1.rpc.call('check', ['close', nodeid, None, addr])
+    # Array(old-style)
+    l1.rpc.call('check', ['close', nodeid, True, 10])
+    l1.rpc.call('check', ['close', nodeid, False])
+    l1.rpc.call('check', ['close', nodeid, None, 10])
+    # Not new-style nor old-style
+    with pytest.raises(RpcError, match=r'Expected unilerataltimeout to be a number'):
+        l1.rpc.call('check', ['close', nodeid, "Given enough eyeballs, all bugs are shallow."])
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
