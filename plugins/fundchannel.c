@@ -122,7 +122,7 @@ static struct command_result *finish(struct command *cmd,
 	json_out_addstr(out, "channel_id", fr->chanstr);
 	json_out_end(out, '}');
 
-	return command_success(cmd, out);
+	return command_success_plugin(cmd, out);
 }
 
 /* We're ready to broadcast the transaction */

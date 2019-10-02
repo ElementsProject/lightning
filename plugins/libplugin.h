@@ -69,7 +69,7 @@ struct command_result *command_err_raw(struct command *cmd,
 
 /* This command is finished, here's the result object; @cmd cannot be NULL. */
 struct command_result *WARN_UNUSED_RESULT
-command_success(struct command *cmd, const struct json_out *result);
+command_success_plugin(struct command *cmd, const struct json_out *result);
 
 /* Simple version where we just want to send a string, or NULL means an empty
  * result object.  @cmd cannot be NULL. */

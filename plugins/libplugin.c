@@ -219,7 +219,7 @@ command_done_raw(struct command *cmd,
 }
 
 struct command_result *WARN_UNUSED_RESULT
-command_success(struct command *cmd, const struct json_out *result)
+command_success_plugin(struct command *cmd, const struct json_out *result)
 {
 	struct json_out *jout = start_json_rpc(cmd, cmd->id);
 
@@ -513,7 +513,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	json_out_end(params, '}');
 	json_out_finished(params);
 
-	return command_success(getmanifest_cmd, params);
+	return command_success_plugin(getmanifest_cmd, params);
 }
 
 static struct command_result *handle_init(struct command *init_cmd,

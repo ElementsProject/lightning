@@ -1205,7 +1205,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 	json_out_end(ret, ']');
 	json_out_end(ret, '}');
 
-	return command_success(cmd, ret);
+	return command_success_plugin(cmd, ret);
 }
 
 static bool attempt_ongoing(const char *buf, const jsmntok_t *b11)
@@ -1275,7 +1275,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	}
 	json_out_end(ret, ']');
 	json_out_end(ret, '}');
-	return command_success(cmd, ret);
+	return command_success_plugin(cmd, ret);
 }
 
 static struct command_result *json_listpays(struct command *cmd,

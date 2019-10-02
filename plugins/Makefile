@@ -1,6 +1,9 @@
 PLUGIN_PAY_SRC := plugins/pay.c
 PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 
+PLUGIN_GEN_TORONION_SRC := plugins/gen_toronion.c
+PLUGIN_GEN_TORONION_OBJS := $(PLUGIN_GEN_TORONION_SRC:.c=.o)
+
 PLUGIN_AUTOCLEAN_SRC := plugins/autoclean.c
 PLUGIN_AUTOCLEAN_OBJS := $(PLUGIN_AUTOCLEAN_SRC:.c=.o)
 
@@ -21,6 +24,7 @@ PLUGIN_COMMON_OBJS :=				\
 	bitcoin/tx.o				\
 	bitcoin/varint.o			\
 	common/amount.o				\
+	common/base64.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
@@ -43,21 +47,23 @@ PLUGIN_COMMON_OBJS :=				\
 
 plugins/pay: bitcoin/chainparams.o $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
+plugins/gen_toronion: bitcoin/chainparams.o common/utils.o common/addr.o common/base32.o common/wireaddr.o $(PLUGIN_GEN_TORONION_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
+
 plugins/autoclean: bitcoin/chainparams.o $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
 plugins/fundchannel: common/addr.o $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
-$(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_LIB_OBJS): $(PLUGIN_LIB_HEADER)
+$(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_GEN_TORONION_OBJS) $(PLUGIN_LIB_OBJS): $(PLUGIN_LIB_HEADER)
 
 # Make sure these depend on everything.
-ALL_PROGRAMS += plugins/pay plugins/autoclean plugins/fundchannel
-ALL_OBJS += $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_LIB_OBJS)
+ALL_PROGRAMS += plugins/pay plugins/autoclean plugins/fundchannel plugins/gen_toronion
+ALL_OBJS += $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_GEN_TORONION_OBJS) $(PLUGIN_LIB_OBJS)
 
-check-source: $(PLUGIN_PAY_SRC:%=check-src-include-order/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-src-include-order/%) $(PLUGIN_FUNDCHANNEL_SRC:%=check-src-include-order/%)
-check-source-bolt: $(PLUGIN_PAY_SRC:%=bolt-check/%) $(PLUGIN_AUTOCLEAN_SRC:%=bolt-check/%) $(PLUGIN_FUNDCHANNEL_SRC:%=bolt-check/%)
-check-whitespace: $(PLUGIN_PAY_SRC:%=check-whitespace/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-whitespace/%) $(PLUGIN_FUNDCHANNEL_SRC:%=check-whitespace/%)
+check-source: $(PLUGIN_PAY_SRC:%=check-src-include-order/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-src-include-order/%) $(PLUGIN_FUNDCHANNEL_SRC:%=check-src-include-order/%) $(PLUGIN_GEN_TORONION_SRC:%=check-src-include-order/%)
+check-source-bolt: $(PLUGIN_PAY_SRC:%=bolt-check/%) $(PLUGIN_AUTOCLEAN_SRC:%=bolt-check/%) $(PLUGIN_FUNDCHANNEL_SRC:%=bolt-check/%) $(PLUGIN_GEN_TORONION_SRC:%=bolt-check/%)
+check-whitespace: $(PLUGIN_PAY_SRC:%=check-whitespace/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-whitespace/%) $(PLUGIN_FUNDCHANNEL_SRC:%=check-whitespace/%) $(PLUGIN_GEN_TORONION_SRC:%=check-whitespace/%)
 
 clean: plugin-clean
 
 plugin-clean:
-	$(RM) $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_LIB_OBJS)
+	$(RM) $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_GEN_TORONION_OBJS) $(PLUGIN_LIB_OBJS)
