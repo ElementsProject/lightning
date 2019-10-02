@@ -11,13 +11,11 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/base64.h>
 #include <common/bolt11.h>
 #include <common/gossip_constants.h>
 #include <common/pseudorand.h>
-#include <common/type_to_string.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
@@ -210,7 +208,7 @@ static struct command_result *json_gen_toronion(struct command *cmd,
 	struct json_out *ret;
 	const char *tor_password = "";
 	int fd;
-	const struct wireaddr *laddr;
+	const struct wireaddr *laddr = NULL;
 	struct wireaddr service;
 	struct addrinfo *ai_tor;
 	struct rbuf rbuf;
