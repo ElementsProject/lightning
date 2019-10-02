@@ -905,6 +905,14 @@ struct {
     {0, NULL}
 };
 
+static const char *txtype_to_string(enum wallet_tx_type t)
+{
+	for (size_t i=0; wallet_tx_type_display_names[i].name != NULL; i++)
+		if (t == wallet_tx_type_display_names[i].t)
+			return wallet_tx_type_display_names[i].name;
+	return NULL;
+}
+
 static void json_add_txtypes(struct json_stream *result, const char *fieldname, enum wallet_tx_type value)
 {
 	json_array_start(result, fieldname);
@@ -913,6 +921,92 @@ static void json_add_txtypes(struct json_stream *result, const char *fieldname, 
 			json_add_string(result, NULL, wallet_tx_type_display_names[i].name);
 	}
 	json_array_end(result);
+}
+
+static void json_transaction_details(struct json_stream *response,
+				     const struct wallet_transaction *tx)
+{
+	struct wally_tx *wtx = tx->tx->wtx;
+
+		json_object_start(response, NULL);
+		json_add_txid(response, "hash", &tx->id);
+		json_add_hex_talarr(response, "rawtx", tx->rawtx);
+		json_add_u64(response, "blockheight", tx->blockheight);
+		json_add_num(response, "txindex", tx->txindex);
+
+		if (tx->annotation.type != 0)
+			json_add_txtypes(response, "type", tx->annotation.type);
+		else
+			json_add_null(response, "type");
+
+		if (tx->annotation.channel.u64 != 0)
+			json_add_short_channel_id(response, "channel", &tx->annotation.channel);
+		else
+			json_add_null(response, "channel");
+
+		json_add_u32(response, "locktime", wtx->locktime);
+		json_add_u32(response, "version", wtx->version);
+
+		json_array_start(response, "inputs");
+		for (size_t i=0; i<wtx->num_inputs; i++) {
+			struct wally_tx_input *in = &wtx->inputs[i];
+			struct tx_annotation *ann = &tx->output_annotations[i];
+			const char *txtype = txtype_to_string(ann->type);
+			json_object_start(response, NULL);
+			json_add_hex(response, "txid", in->txhash, sizeof(in->txhash));
+			json_add_u32(response, "index", in->index);
+			json_add_u32(response, "sequence", in->sequence);
+
+			if (txtype != NULL)
+				json_add_string(response, "type", txtype);
+			else
+				json_add_null(response, "type");
+			if (ann->channel.u64 != 0)
+				json_add_short_channel_id(response, "channel", &ann->channel);
+			else
+				json_add_null(response, "channel");
+
+
+			json_object_end(response);
+		}
+		json_array_end(response);
+
+		json_array_start(response, "outputs");
+		for (size_t i=0; i<wtx->num_outputs; i++) {
+			struct wally_tx_output *out = &wtx->outputs[i];
+			struct tx_annotation *ann = &tx->output_annotations[i];
+			const char *txtype = txtype_to_string(ann->type);
+			struct amount_asset amt = bitcoin_tx_output_get_amount(tx->tx, i);
+			struct amount_sat sat;
+
+			/* TODO We should eventually handle non-bitcoin assets as well. */
+			if (amount_asset_is_main(&amt))
+				sat = amount_asset_to_sat(&amt);
+			else
+				sat = AMOUNT_SAT(0);
+
+			json_object_start(response, NULL);
+
+			json_add_u32(response, "index", i);
+			json_add_amount_sat_only(response, "satoshis", sat);
+
+			if (txtype != NULL)
+				json_add_string(response, "type", txtype);
+			else
+				json_add_null(response, "type");
+
+			if (ann->channel.u64 != 0)
+				json_add_short_channel_id(response, "channel", &ann->channel);
+			else
+				json_add_null(response, "channel");
+
+			json_add_hex(response, "scriptPubKey", out->script, out->script_len);
+
+			json_object_end(response);
+		}
+		json_array_end(response);
+
+		json_object_end(response);
 }
 
 static struct command_result *json_listtransactions(struct command *cmd,
@@ -930,14 +1024,9 @@ static struct command_result *json_listtransactions(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "transactions");
-	for (size_t i=0; i<tal_count(txs); i++) {
-		json_object_start(response, NULL);
-		json_add_txid(response, "hash", &txs[i].id);
-		json_add_hex_talarr(response, "rawtx", txs[i].rawtx);
-		json_add_u64(response, "blockheight", txs[i].blockheight);
-		json_add_num(response, "txindex", txs[i].txindex);
-		json_object_end(response);
-	}
+	for (size_t i=0; i<tal_count(txs); i++)
+		json_transaction_details(response, &txs[i]);
+
 	json_array_end(response);
 	return command_success(cmd, response);
 }
