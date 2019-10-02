@@ -11,6 +11,7 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <signal.h>
+#include <sodium.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -145,6 +146,12 @@ void daemon_setup(const char *argv0,
 	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
 		memleak_init();
 #endif
+
+	/* We rely on libsodium for some of the crypto stuff, so we'd better
+	 * not start if it cannot do its job correctly. */
+	if (sodium_init() == -1)
+		errx(1, "Could not initialize libsodium. Maybe not enough entropy"
+		         " available ?");
 
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);
