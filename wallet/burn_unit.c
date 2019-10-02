@@ -47,6 +47,13 @@ static void burn_tx_broadcast(struct bitcoind *bitcoind UNUSED,
 	bitcoin_txid(stx->tx, &txid);
 	wallet_transaction_add(stx->w, stx->tx, 0, 0);
 
+	log_info(stx->w->log, "%ld channel%s, %ld utxo%s burned in tx %s.",
+		 tal_count(stx->chans),
+		 tal_count(stx->chans) != 1 ? "s" : "",
+		 tal_count(stx->wtx->utxos),
+		 tal_count(stx->wtx->utxos) != 1 ? "s" : "",
+		 type_to_string(stx, struct bitcoin_txid, &txid));
+
 	/* Should we use a different type here? */
 	wallet_transaction_annotate(stx->w, &txid, TX_CHANNEL_SWEEP, 0);
 
