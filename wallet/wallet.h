@@ -219,6 +219,11 @@ enum wallet_payment_status {
 	PAYMENT_FAILED = 2
 };
 
+struct tx_annotation {
+	enum wallet_tx_type type;
+	struct short_channel_id channel;
+};
+
 static inline enum wallet_payment_status wallet_payment_status_in_db(enum wallet_payment_status w)
 {
 	switch (w) {
@@ -295,8 +300,17 @@ struct wallet_transaction {
 	u32 blockheight;
 	u32 txindex;
 	u8 *rawtx;
-	enum wallet_tx_type type;
-	u64 channel_id;
+
+	/* Fully parsed transaction */
+	const struct bitcoin_tx *tx;
+
+	struct tx_annotation annotation;
+
+	/* tal_arr containing the annotation types, if any, for the respective
+	 * inputs and outputs. 0 if there are no annotations for the
+	 * element. */
+	struct tx_annotation *input_annotations;
+	struct tx_annotation *output_annotations;
 };
 
 /**
@@ -1179,7 +1193,7 @@ void free_unreleased_txs(struct wallet *w);
  *
  * @param ctx: allocation context for the returned list
  * @param wallet: Wallet to load from.
- * @return A tal_arr of wallet transactions
+ * @return A tal_arr of wallet annotated transactions
  */
 struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx);
 
