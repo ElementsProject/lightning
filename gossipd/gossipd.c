@@ -561,6 +561,12 @@ static enum gossip_level peer_gossip_level(const struct daemon *daemon,
 	if (!gossip_queries_feature)
 		return GOSSIP_HIGH;
 
+#if DEVELOPER
+	/* Don't ask new peers for new gossip is dev-suppress-gossip has been set*/
+	if (suppress_gossip)
+	    return GOSSIP_NONE;
+#endif
+
 	/* Figure out how many we have at each level. */
 	memset(gossip_levels, 0, sizeof(gossip_levels));
 	list_for_each(&daemon->peers, peer, list)
