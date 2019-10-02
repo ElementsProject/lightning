@@ -234,17 +234,10 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
-static void handle_error_channel(struct channel *channel,
-				 const u8 *msg)
+static void forget_channel(struct channel *channel)
 {
 	struct command **forgets = tal_steal(tmpctx, channel->forgets);
 	channel->forgets = tal_arr(channel, struct command *, 0);
-
-	if (!fromwire_channel_send_error_reply(msg)) {
-		channel_internal_error(channel, "bad send_error_reply: %s",
-				       tal_hex(tmpctx, msg));
-		return;
-	}
 
 	/* Forget the channel. */
 	delete_channel(channel);
@@ -260,6 +253,19 @@ static void handle_error_channel(struct channel *channel,
 
 	tal_free(forgets);
 }
+
+static void handle_error_channel(struct channel *channel,
+				 const u8 *msg)
+{
+	if (!fromwire_channel_send_error_reply(msg)) {
+		channel_internal_error(channel, "bad send_error_reply: %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	forget_channel(channel);
+}
+
 
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
@@ -642,6 +648,9 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 	struct channel_to_cancel *cc = arg;
 	struct peer *peer;
 	struct channel *cancel;
+	const char *error_reason = "Cancel channel by our RPC "
+				   "command before funding "
+				   "transaction broadcast.";
 
 	/* Peer could have errored out while we were waiting */
 	peer = peer_by_id(bitcoind->ld, &cc->peer);
@@ -661,14 +670,16 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 		return;
 	}
 
-	const char *error_reason = "Cancel channel by our RPC "
-				   "command before funding "
-				   "transaction broadcast.";
 	/* Set error so we don't try to reconnect. */
 	cancel->error = towire_errorfmt(cancel, NULL, "%s", error_reason);
 
-	subd_send_msg(cancel->owner,
-		      take(towire_channel_send_error(NULL, error_reason)));
+	/* If the peer is not currently connected, this will be null */
+	if (cancel->owner)
+		subd_send_msg(cancel->owner,
+			      take(towire_channel_send_error(NULL, error_reason)));
+	else
+		forget_channel(cancel);
+
 }
 
 struct command_result *cancel_channel_before_broadcast(struct command *cmd,
