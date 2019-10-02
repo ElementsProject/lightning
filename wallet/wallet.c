@@ -3410,24 +3410,88 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 {
 	struct db_stmt *stmt;
 	size_t count;
-	struct wallet_transaction *cur, *txs = tal_arr(ctx, struct wallet_transaction, 0);
+	struct wallet_transaction *cur = NULL, *txs = tal_arr(ctx, struct wallet_transaction, 0);
+	struct bitcoin_txid last;
+
+	/* Make sure we can check for changing txids */
+	memset(&last, 0, sizeof(last));
 
 	stmt = db_prepare_v2(
 	    w->db,
-	    SQL("SELECT id, id, rawtx, blockheight, txindex, type, channel_id "
-		"FROM transactions"));
+	    SQL("SELECT"
+		"  t.id"
+		", t.rawtx"
+		", t.blockheight"
+		", t.txindex"
+		", t.type as txtype"
+		", c2.short_channel_id as txchan"
+		", a.location"
+		", a.idx as ann_idx"
+		", a.type as annotation_type"
+		", c.short_channel_id"
+		" FROM"
+		"  transactions t LEFT JOIN"
+		"  transaction_annotations a ON (a.txid = t.id) LEFT JOIN"
+		"  channels c ON (a.channel = c.id) LEFT JOIN"
+		"  channels c2 ON (t.channel_id = c2.id) "
+		"ORDER BY blockheight, txindex ASC"));
 	db_query_prepared(stmt);
 
 	for (count = 0; db_step(stmt); count++) {
-		tal_resize(&txs, count + 1);
-		cur = &txs[count];
-		db_column_txid(stmt, 1, &cur->id);
-		cur->rawtx = tal_dup_arr(txs, u8, db_column_blob(stmt, 2),
-					 db_column_bytes(stmt, 2), 0);
-		cur->blockheight = db_column_int(stmt, 3);
-		cur->txindex = db_column_int(stmt, 4);
-		cur->type = db_column_int(stmt, 5);
-		cur->channel_id = db_column_int(stmt, 6);
+		struct bitcoin_txid curtxid;
+		db_column_txid(stmt, 0, &curtxid);
+
+		/* If this is a new entry, allocate it in the array and set
+		 * the common fields (all fields from the transactions
+		 * table. */
+		if (!bitcoin_txid_eq(&last, &curtxid)) {
+			last = curtxid;
+			tal_resize(&txs, count + 1);
+			cur = &txs[count];
+			db_column_txid(stmt, 0, &cur->id);
+			cur->tx = db_column_tx(txs, stmt, 1);
+			cur->rawtx = tal_dup_arr(txs, u8, db_column_blob(stmt, 1),
+						 db_column_bytes(stmt, 1), 0);
+			cur->blockheight = db_column_int(stmt, 2);
+			cur->txindex = db_column_int(stmt, 3);
+			if (!db_column_is_null(stmt, 4))
+				cur->annotation.type = db_column_u64(stmt, 4);
+			else
+				cur->annotation.type = 0;
+			if (!db_column_is_null(stmt, 5))
+				db_column_short_channel_id(stmt, 5, &cur->annotation.channel);
+			else
+				cur->annotation.channel.u64 = 0;
+
+			cur->output_annotations = tal_arrz(txs, struct tx_annotation, cur->tx->wtx->num_outputs);
+			cur->input_annotations = tal_arrz(txs, struct tx_annotation, cur->tx->wtx->num_inputs);
+		}
+
+		/* This should always be set by the above if-statement,
+		 * otherwise we have a txid of all 0x00 bytes... */
+		assert(cur != NULL);
+
+		/* Check if we have any annotations. If there are none the
+		 * fields are all set to null */
+		if (!db_column_is_null(stmt, 6)) {
+			enum wallet_tx_annotation_type loc = db_column_int(stmt, 6);
+			int idx = db_column_int(stmt, 7);
+			struct tx_annotation *ann;
+
+			/* Select annotation from array to fill in. */
+			if (loc == OUTPUT_ANNOTATION)
+				ann = &cur->output_annotations[idx];
+			else if (loc == INPUT_ANNOTATION)
+				ann = &cur->input_annotations[idx];
+			else
+				fatal("Transaction annotations are only available for inputs and outputs. Value %d", loc);
+
+			ann->type = db_column_int(stmt, 8);
+			if (!db_column_is_null(stmt, 9))
+				db_column_short_channel_id(stmt, 9, &ann->channel);
+			else
+				ann->channel.u64 = 0;
+		}
 	}
 	tal_free(stmt);
 	return txs;
