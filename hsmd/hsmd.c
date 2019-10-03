@@ -45,7 +45,7 @@
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <secp256k1_ecdh.h>
-#include <sodium/randombytes.h>
+#include <sodium.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -489,9 +489,55 @@ static void bitcoin_key(struct privkey *privkey, struct pubkey *pubkey,
 			      "BIP32 pubkey %u create failed", index);
 }
 
+/*~ This encrypts the content of the secretstuff and stores it in hsm_secret,
+ * this is called instead of create_hsm() if `lightningd` is started with
+ * --encrypted-hsm.
+ */
+static void create_encrypted_hsm(int fd, const struct secret *encryption_key)
+{
+	crypto_secretstream_xchacha20poly1305_state crypto_state;
+	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
+	/* The cipher size is static with xchacha20poly1305 */
+	u8 cipher[sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES];
+
+	crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, header,
+	                                                encryption_key->data);
+	crypto_secretstream_xchacha20poly1305_push(&crypto_state, cipher,
+	                                           NULL,
+	                                           secretstuff.hsm_secret.data,
+	                                           sizeof(secretstuff.hsm_secret.data),
+	                                           /* Additional data and tag */
+	                                           NULL, 0, 0);
+	if (!write_all(fd, header, sizeof(header))) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "Writing header of encrypted secret: %s", strerror(errno));
+	}
+	if (!write_all(fd, cipher, sizeof(cipher))) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "Writing encrypted secret: %s", strerror(errno));
+	}
+}
+
+static void create_hsm(int fd)
+{
+	/*~ ccan/read_write_all has a more convenient return than write() where
+	 * we'd have to check the return value == the length we gave: write()
+	 * can return short on normal files if we run out of disk space. */
+	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
+		/* ccan/noerr contains useful routines like this, which don't
+		 * clobber errno, so we can use it in our error report. */
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "writing: %s", strerror(errno));
+	}
+}
+
 /*~ We store our root secret in a "hsm_secret" file (like all of c-lightning,
  * we run in the user's .lightning directory). */
-static void maybe_create_new_hsm(void)
+static void maybe_create_new_hsm(const struct secret *encryption_key,
+                                 bool random_hsm)
 {
 	/*~ Note that this is opened for write-only, even though the permissions
 	 * are set to read-only.  That's perfectly valid! */
@@ -501,22 +547,20 @@ static void maybe_create_new_hsm(void)
 		if (errno == EEXIST)
 			return;
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "creating: %s", strerror(errno));
+		              "creating: %s", strerror(errno));
 	}
 
 	/*~ This is libsodium's cryptographic randomness routine: we assume
 	 * it's doing a good job. */
-	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
-	/*~ ccan/read_write_all has a more convenient return than write() where
-	 * we'd have to check the return value == the length we gave: write()
-	 * can return short on normal files if we run out of disk space. */
-	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
-		/* ccan/noerr contains useful routines like this, which don't
-		 * clobber errno, so we can use it in our error report. */
-		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "writing: %s", strerror(errno));
-	}
+	if (random_hsm)
+		randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
+
+	/*~ If an encryption_key was provided, store an encrypted seed. */
+	if (encryption_key)
+		create_encrypted_hsm(fd, encryption_key);
+	/*~ Otherwise store the seed in clear.. */
+	else
+		create_hsm(fd);
 	/*~ fsync (mostly!) ensures that the file has reached the disk. */
 	if (fsync(fd) != 0) {
 		unlink_noerr("hsm_secret");
@@ -554,15 +598,67 @@ static void maybe_create_new_hsm(void)
 /*~ We always load the HSM file, even if we just created it above.  This
  * both unifies the code paths, and provides a nice sanity check that the
  * file contents are as they will be for future invocations. */
-static void load_hsm(void)
+static void load_hsm(const struct secret *encryption_key)
 {
+	struct stat st;
 	int fd = open("hsm_secret", O_RDONLY);
 	if (fd < 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "opening: %s", strerror(errno));
-	if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
+	if (stat("hsm_secret", &st) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "reading: %s", strerror(errno));
+		              "stating: %s", strerror(errno));
+
+	/* If the seed is stored in clear. */
+	if (st.st_size <= 32) {
+		if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			              "reading: %s", strerror(errno));
+		/* If an encryption key was passed with a not yet encrypted hsm_secret,
+		 * remove the old one and create an encrypted one. */
+		if (encryption_key) {
+			if (close(fd) != 0)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				              "closing: %s", strerror(errno));
+			if (remove("hsm_secret") != 0)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				              "removing clear hsm_secret: %s", strerror(errno));
+			maybe_create_new_hsm(encryption_key, false);
+			fd = open("hsm_secret", O_RDONLY);
+			if (fd < 0)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				              "opening: %s", strerror(errno));
+		}
+	}
+	/*~ If an encryption key was passed and the `hsm_secret` is stored
+	 * encrypted, recover the seed from the cipher. */
+	if (encryption_key && st.st_size > 32) {
+		crypto_secretstream_xchacha20poly1305_state crypto_state;
+		u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
+		/* The cipher size is static with xchacha20poly1305 */
+		u8 cipher[sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES];
+
+		if (!read_all(fd, &header, crypto_secretstream_xchacha20poly1305_HEADERBYTES))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			              "Reading xchacha20 header: %s", strerror(errno));
+		if (!read_all(fd, cipher, sizeof(cipher)))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			              "Reading encrypted secret: %s", strerror(errno));
+		if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, header,
+		                                                    encryption_key->data) != 0)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			              "Initializing the crypto state: %s", strerror(errno));
+		if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state,
+		                                               secretstuff.hsm_secret.data,
+		                                               NULL, 0, cipher, sizeof(cipher),
+		                                               NULL, 0) != 0) {
+			/* Exit but don't throw a backtrace when the user made a mistake in typing
+			 * its password. Instead exit and `lightningd` will be able to give
+			 * an error message. */
+			exit(1);
+		}
+	}
+	/* else { handled in hsm_control } */
 	close(fd);
 
 	populate_secretstuff();
@@ -593,6 +689,15 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	                       &hsm_encryption_key, &privkey, &seed, &secrets, &shaseed))
 		return bad_req(conn, c, msg_in);
 
+	/*~ The memory is actually copied in towire(), so lock the `hsm_secret`
+	 * encryption key (new) memory again here. */
+	if (hsm_encryption_key && sodium_mlock(hsm_encryption_key,
+	                                       sizeof(hsm_encryption_key)) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "Could not lock memory for hsm_secret encryption key.");
+	/*~ Don't swap this. */
+	sodium_mlock(secretstuff.hsm_secret.data, sizeof(secretstuff.hsm_secret.data));
+
 #if DEVELOPER
 	dev_force_privkey = privkey;
 	dev_force_bip32_seed = seed;
@@ -603,8 +708,15 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	/* Once we have read the init message we know which params the master
 	 * will use */
 	c->chainparams = chainparams;
-	maybe_create_new_hsm();
-	load_hsm();
+	maybe_create_new_hsm(hsm_encryption_key, true);
+	load_hsm(hsm_encryption_key);
+
+	/*~ We don't need the hsm_secret encryption key anymore.
+	 * Note that sodium_munlock() also zeroes the memory. */
+	if (hsm_encryption_key) {
+		sodium_munlock(hsm_encryption_key, sizeof(*hsm_encryption_key));
+		tal_free(hsm_encryption_key);
+	}
 
 	/*~ We tell lightning our node id and (public) bip32 seed. */
 	node_key(NULL, &key);

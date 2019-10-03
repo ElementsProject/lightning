@@ -106,6 +106,9 @@ void hsm_init(struct lightningd *ld)
 	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
 	if (!fromwire_hsm_init_reply(msg,
-				     &ld->id, ld->wallet->bip32_base))
+				     &ld->id, ld->wallet->bip32_base)) {
+		if (ld->config.keypass)
+			errx(1, "Wrong password for encrypted hsm_secret.");
 		errx(1, "HSM did not give init reply");
+	}
 }
