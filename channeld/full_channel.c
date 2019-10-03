@@ -440,10 +440,13 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	/* BOLT #2:
 	 *
+	 * A sending node:
+	 *...
 	 * - for channels with `chain_hash` identifying the Bitcoin blockchain:
 	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
 	 */
-	if (amount_msat_greater(htlc->amount, channel->chainparams->max_payment)) {
+	if (sender == LOCAL
+	    && amount_msat_greater(htlc->amount, channel->chainparams->max_payment)) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 
