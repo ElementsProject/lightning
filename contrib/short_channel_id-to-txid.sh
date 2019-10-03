@@ -13,13 +13,13 @@ fi
 BLOCK=$(echo "$1" | cut -dx -f1)
 TXNUM=$(echo "$1" | cut -dx -f2)
 
-if [ "$BLOCK" == "$1" -a "$TXNUM" == "$1" ]
+if [ "$BLOCK" = "$1" ] && [ "$TXNUM" = "$1" ]
 then
     BLOCK=$(echo "$1" | cut -d: -f1)
     TXNUM=$(echo "$1" | cut -d: -f2)
 fi
 
-if [ "$BLOCK" == "$1" -a "$TXNUM" == "$1" ]
+if [ "$BLOCK" = "$1" ] && [ "$TXNUM" = "$1" ]
 then
     echo The provided shortchannelid is invalid. Valid examples: 532046x1702x0 or 532046:1702:0 >&2
     exit 1
