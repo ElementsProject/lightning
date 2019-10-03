@@ -133,6 +133,11 @@ Identify the location of the wallet. This is a fully qualified data source
 name, including a scheme such as `sqlite3` or `postgres` followed by the
 connection parameters.
 
+ **encrypted-hsm**
+If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
+Note that once you encrypt the `hsm_secret` this option will be mandatory for
+`lightningd` to start.
+
 ### Lightning node customization options
 
  **alias**=*RRGGBB*
