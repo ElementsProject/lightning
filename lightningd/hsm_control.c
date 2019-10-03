@@ -16,6 +16,7 @@
 #include <lightningd/log_status.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
@@ -91,6 +92,16 @@ void hsm_init(struct lightningd *ld)
 				  take(&fds[1]), NULL);
 	if (!ld->hsm)
 		err(1, "Could not subd hsm");
+
+	/* If hsm_secret is encrypted and the --encrypted-hsm startup option is
+	 * not passed, don't let hsmd use the first 32 bytes of the cypher as the
+	 * actual secret. */
+	if (!ld->config.keypass) {
+		struct stat st;
+		if (stat("hsm_secret", &st) == 0 && st.st_size > 32)
+			errx(1, "hsm_secret is encrypted, you need to pass the "
+			        "--encrypted-hsm startup option.");
+	}
 
 	ld->hsm_fd = fds[0];
 	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
