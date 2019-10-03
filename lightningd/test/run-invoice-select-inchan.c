@@ -474,6 +474,10 @@ void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *scrip
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
+/* Generated stub for wallet_annotate_txout */
+void wallet_annotate_txout(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED,
+			   int outnum UNNEEDED, enum wallet_tx_type type UNNEEDED, u64 channel UNNEEDED)
+{ fprintf(stderr, "wallet_annotate_txout called!\n"); abort(); }
 /* Generated stub for wallet_channel_close */
 void wallet_channel_close(struct wallet *w UNNEEDED, u64 wallet_id UNNEEDED)
 { fprintf(stderr, "wallet_channel_close called!\n"); abort(); }
