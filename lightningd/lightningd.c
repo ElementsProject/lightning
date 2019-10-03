@@ -234,6 +234,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ This is set when a JSON RPC command comes in to shut us down. */
 	ld->stop_conn = NULL;
 
+	/*~ This is used to signal that `hsm_secret` is encrypted, and will
+	 * be set to `true` if the `--encrypted` option is passed at startup.
+	 */
+	ld->encrypted_hsm = false;
+
 	return ld;
 }
 

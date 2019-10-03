@@ -71,6 +71,8 @@ struct config {
 	/* Allow to define the default behavior of tot services calls*/
 	bool use_v3_autotor;
 
+	/* This is the key we use to encrypt `hsm_secret`. */
+	struct secret *keypass;
 };
 
 struct lightningd {
@@ -235,6 +237,8 @@ struct lightningd {
 	struct plugins *plugins;
 
 	char *wallet_dsn;
+
+	bool encrypted_hsm;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

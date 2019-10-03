@@ -155,6 +155,12 @@ Identify the location of the wallet\. This is a fully qualified data source
 name, including a scheme such as \fBsqlite3\fR or \fBpostgres\fR followed by the
 connection parameters\.
 
+
+ \fBencrypted-hsm\fR
+If set, you will be prompted to enter a password used to encrypt the \fBhsm_secret\fR\.
+Note that once you encrypt the \fBhsm_secret\fR this option will be mandatory for
+\fBlightningd\fR to start\.
+
 .SH Lightning node customization options
 
  \fBalias\fR=\fIRRGGBB\fR
@@ -374,11 +380,14 @@ Always use the \fBproxy\fR, even to connect to normal IP addresses (you
 can still connect to Unix domain sockets manually)\. This also disables
 all DNS lookups, to avoid leaking information\.
 
+
  \fBdisable-dns\fR
 Disable the DNS bootstrapping mechanism to find a node by its node ID\.
 
+
  \fBenable-autotor-v2-mode\fR
 Try to get a v2 onion address from the Tor service call, default is v3\.
+
 
  \fBtor-service-password\fR=\fIPASSWORD\fR
 Set a Tor control password, which may be needed for \fIautotor:\fR to

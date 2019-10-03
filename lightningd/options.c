@@ -32,12 +32,14 @@
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <lightningd/subd.h>
+#include <sodium.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <unistd.h>
 #include <wire/wire.h>
 
@@ -363,6 +365,58 @@ static char *opt_add_plugin_dir(const char *arg, struct lightningd *ld)
 static char *opt_clear_plugins(struct lightningd *ld)
 {
 	clear_plugins(ld->plugins);
+	return NULL;
+}
+
+/* Prompt the user to enter a password, from which will be derived the key used
+ * for `hsm_secret` encryption.
+ * The algorithm used to derive the key is Argon2(id), to which libsodium
+ * defaults. However argon2id-specific constants are used in case someone runs it
+ * with a libsodium version which default constants differs (typically <1.0.9).
+ */
+static char *opt_set_hsm_password(struct lightningd *ld)
+{
+	struct termios current_term, temp_term;
+	char *passwd = NULL;
+	size_t passwd_size = 0;
+	u8 salt[11] = "c-lightning";
+	ld->encrypted_hsm = true;
+
+	ld->config.keypass = tal(NULL, struct secret);
+	/* Don't swap the encryption key ! */
+	if (sodium_mlock(ld->config.keypass->data,
+	                 sizeof(ld->config.keypass->data)) != 0)
+		return "Could not lock hsm_secret encryption key memory.";
+
+	/* Get the password from stdin, but don't echo it. */
+	if (tcgetattr(fileno(stdin), &current_term) != 0)
+		return "Could not get current terminal options.";
+	temp_term = current_term;
+	temp_term.c_lflag &= ~ECHO;
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0)
+		return "Could not disable password echoing.";
+	printf("Enter hsm_secret password : ");
+	if (getline(&passwd, &passwd_size, stdin) < 0)
+		return "Could not read password from stdin.";
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
+		return "Could not restore terminal options.";
+	printf("\n");
+
+	/* Derive the key from the password. */
+	if (strlen(passwd) < crypto_pwhash_argon2id_PASSWD_MIN)
+		return "Password too short to be able to derive a key from it.";
+	if (strlen(passwd) > crypto_pwhash_argon2id_PASSWD_MAX)
+		return "Password too long to be able to derive a key from it.";
+	if (crypto_pwhash(ld->config.keypass->data, sizeof(ld->config.keypass->data),
+	                  passwd, strlen(passwd), salt,
+	                  /* INTERACTIVE needs 64 MiB of RAM, MODERATE needs 256,
+	                   * and SENSITIVE needs 1024. */
+	                  crypto_pwhash_argon2id_OPSLIMIT_MODERATE,
+	                  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
+	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
+		return "Could not derive a key from the password.";
+	free(passwd);
+
 	return NULL;
 }
 
@@ -1029,6 +1083,10 @@ static void register_opts(struct lightningd *ld)
 	opt_register_noarg("--enable-autotor-v2-mode", opt_set_invbool, &ld->config.use_v3_autotor,
 			   "Try to get a v2 onion address from the Tor service call, default is v3");
 
+	opt_register_noarg("--encrypted-hsm", opt_set_hsm_password, ld,
+	                   "Set the password to encrypt hsm_secret with. If no password is passed through command line, "
+	                   "you will be prompted to enter it.");
+
 	opt_register_logging(ld);
 	opt_register_version();
 
@@ -1215,6 +1273,8 @@ static void add_config(struct lightningd *ld,
 			answer = tal_fmt(name0, "%s",
 					 ld->daemon_parent_fd == -1
 					 ? "false" : "true");
+		} else if (opt->cb == (void *)opt_set_hsm_password) {
+			json_add_bool(response, "encrypted-hsm", ld->encrypted_hsm);
 		} else {
 			/* Insert more decodes here! */
 			assert(!"A noarg option was added but was not handled");
