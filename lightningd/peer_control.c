@@ -1018,8 +1018,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	if ((min_depth_reached && !channel->scid) || (depth && channel->scid)) {
 		struct txlocator *loc;
 
-		wallet_transaction_annotate(ld->wallet, txid,
-					    TX_CHANNEL_FUNDING, channel->dbid);
+		wallet_annotate_txout(ld->wallet, txid, channel->funding_outnum,
+				      TX_CHANNEL_FUNDING, channel->dbid);
 		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 		if (!mk_short_channel_id(&scid,
 					 loc->blkheight, loc->index,
