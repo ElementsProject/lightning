@@ -526,6 +526,13 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
+	if (amount_msat_greater(amt_to_forward,
+				get_chainparams(ld)->max_payment)) {
+		/* ENOWUMBO! */
+		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
+		goto fail;
+	}
+
 	/* BOLT #2:
 	 *
 	 * An offering node:

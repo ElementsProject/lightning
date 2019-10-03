@@ -2642,11 +2642,11 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "Duplicate HTLC %"PRIu64, peer->htlc_id);
 
-	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED:
-		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
-		failmsg = tal_fmt(inmsg, "Maximum value exceeded");
+		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
+		failmsg = tal_fmt(inmsg, "Mini mode: maximum value exceeded");
 		goto failed;
+	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
 		failmsg = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, &htlc_fee));
