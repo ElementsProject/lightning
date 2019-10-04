@@ -2946,7 +2946,11 @@ bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
 		return false;
 	}
 
-	*type = db_column_u64(stmt, 0);
+	if (!db_column_is_null(stmt, 0))
+		*type = db_column_u64(stmt, 0);
+	else
+		*type = 0;
+
 	tal_free(stmt);
 	return true;
 }
