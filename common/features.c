@@ -54,6 +54,18 @@ u8 *get_offered_globalfeatures(const tal_t *ctx)
 			  our_globalfeatures, ARRAY_SIZE(our_globalfeatures));
 }
 
+/* We currently advertize everything in node_announcement, except
+ * initial_routing_sync which the spec says not to (and we don't set
+ * any more anyway).
+ *
+ * FIXME: Add bolt ref when finalized!
+ */
+u8 *get_offered_nodefeatures(const tal_t *ctx)
+{
+	return mkfeatures(ctx,
+			  our_localfeatures, ARRAY_SIZE(our_localfeatures));
+}
+
 u8 *get_offered_localfeatures(const tal_t *ctx)
 {
 	return mkfeatures(ctx,

@@ -35,7 +35,7 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
 	announcement =
-	    towire_node_announcement(ctx, sig, daemon->globalfeatures, timestamp,
+	    towire_node_announcement(ctx, sig, daemon->nodefeatures, timestamp,
 				     &daemon->id, daemon->rgb, daemon->alias,
 				     addresses);
 	return announcement;

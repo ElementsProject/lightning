@@ -210,7 +210,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    tmpctx,
 	    chainparams,
 	    &ld->id,
-	    get_offered_globalfeatures(tmpctx),
+	    get_offered_nodefeatures(tmpctx),
 	    ld->rgb,
 	    ld->alias,
 	    ld->announcable,

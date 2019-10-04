@@ -1403,8 +1403,8 @@ def test_peerinfo(node_factory, bitcoind):
     nodes2 = l2.rpc.listnodes(l2.info['id'])['nodes']
     peer1 = l1.rpc.getpeer(l2.info['id'])
     peer2 = l2.rpc.getpeer(l1.info['id'])
-    assert only_one(nodes1)['globalfeatures'] == peer1['globalfeatures']
-    assert only_one(nodes2)['globalfeatures'] == peer2['globalfeatures']
+    assert only_one(nodes1)['globalfeatures'] == peer1['localfeatures']
+    assert only_one(nodes2)['globalfeatures'] == peer2['localfeatures']
 
     assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == lfeatures
     assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == lfeatures
