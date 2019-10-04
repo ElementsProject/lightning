@@ -10,6 +10,7 @@ bool features_supported(const u8 *globalfeatures, const u8 *localfeatures);
 /* For sending our features: tal_count() returns length. */
 u8 *get_offered_globalfeatures(const tal_t *ctx);
 u8 *get_offered_localfeatures(const tal_t *ctx);
+u8 *get_offered_nodefeatures(const tal_t *ctx);
 
 /* Is this feature bit requested? (Either compulsory or optional) */
 bool feature_offered(const u8 *features, size_t f);

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin: new notifications `sendpay_success` and `sendpay_failure`.
 - Protocol: we now offer `option_gossip_queries_ex` for finegrained gossip control.
 - Protocol: no longer ask for `initial_routing_sync` (only affects ancient peers).
+- Protocol: nodes now announce features in `node_announcement` broadcasts.
 
 ### Changed
 
