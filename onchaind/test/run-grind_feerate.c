@@ -153,6 +153,12 @@ u8 *towire_onchain_add_utxo(const tal_t *ctx UNNEEDED, const struct bitcoin_txid
 /* Generated stub for towire_onchain_all_irrevocably_resolved */
 u8 *towire_onchain_all_irrevocably_resolved(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchain_all_irrevocably_resolved called!\n"); abort(); }
+/* Generated stub for towire_onchain_annotate_txin */
+u8 *towire_onchain_annotate_txin(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED, u32 innum UNNEEDED, enum wallet_tx_type type UNNEEDED)
+{ fprintf(stderr, "towire_onchain_annotate_txin called!\n"); abort(); }
+/* Generated stub for towire_onchain_annotate_txout */
+u8 *towire_onchain_annotate_txout(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED, u32 outnum UNNEEDED, enum wallet_tx_type type UNNEEDED)
+{ fprintf(stderr, "towire_onchain_annotate_txout called!\n"); abort(); }
 /* Generated stub for towire_onchain_broadcast_tx */
 u8 *towire_onchain_broadcast_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, enum wallet_tx_type type UNNEEDED)
 { fprintf(stderr, "towire_onchain_broadcast_tx called!\n"); abort(); }
@@ -171,9 +177,6 @@ u8 *towire_onchain_init_reply(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_onchain_missing_htlc_output */
 u8 *towire_onchain_missing_htlc_output(const tal_t *ctx UNNEEDED, const struct htlc_stub *htlc UNNEEDED)
 { fprintf(stderr, "towire_onchain_missing_htlc_output called!\n"); abort(); }
-/* Generated stub for towire_onchain_transaction_annotate */
-u8 *towire_onchain_transaction_annotate(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED, enum wallet_tx_type type UNNEEDED)
-{ fprintf(stderr, "towire_onchain_transaction_annotate called!\n"); abort(); }
 /* Generated stub for towire_onchain_unwatch_tx */
 u8 *towire_onchain_unwatch_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "towire_onchain_unwatch_tx called!\n"); abort(); }
