@@ -3,7 +3,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import only_one, wait_for, sync_blockheight
+from utils import only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES
 
 import pytest
 import time
@@ -448,3 +448,65 @@ def test_txprepare_restart(node_factory, bitcoind, chainparams):
     assert decode['txid'] == prep['txid']
     # All 10 inputs
     assert len(decode['vin']) == 10
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Fee outputs throw off our output matching logic")
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Tests annotations which are compiled only with experimental features")
+def test_transaction_annotations(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.get_nodes(3)
+    l1.fundwallet(10**6)
+
+    # We should now have a transaction that gave us the funds in the
+    # transactions table...
+    outputs = l1.rpc.listfunds()['outputs']
+    assert(len(outputs) == 1 and outputs[0]['status'] == 'confirmed')
+    out = outputs[0]
+    idx = out['output']
+    assert(idx in [0, 1] and out['value'] == 10**6)
+
+    # ... and it should have an annotation on the output reading 'deposit'
+    txs = l1.rpc.listtransactions()['transactions']
+    assert(len(txs) == 1)
+    tx = txs[0]
+    output = tx['outputs'][idx]
+    assert(output['type'] == 'deposit' and output['satoshis'] == '1000000000msat')
+
+    # ... and all other output should be change, and have no annotations
+    types = set([o['type'] for i, o in enumerate(tx['outputs']) if i != idx])
+    assert(set([None]) == types)
+
+    ##########################################################################
+    # Let's now open a channel. The opener should get the funding transaction
+    # annotated as channel open and deposit.
+    l1.connect(l2)
+    fundingtx = l1.rpc.fundchannel(l2.info['id'], 10**5)
+
+    # We should have one output available, and it should be unconfirmed
+    outputs = l1.rpc.listfunds()['outputs']
+    assert(len(outputs) == 1 and outputs[0]['status'] == 'unconfirmed')
+
+    # It should also match the funding txid:
+    assert(outputs[0]['txid'] == fundingtx['txid'])
+
+    # Confirm the channel and check that the output changed to confirmed
+    bitcoind.generate_block(3)
+    sync_blockheight(bitcoind, [l1, l2])
+    outputs = l1.rpc.listfunds()['outputs']
+    assert(len(outputs) == 1 and outputs[0]['status'] == 'confirmed')
+
+    # We should have 2 transactions, the second one should be the funding tx
+    # (we are ordering by blockheight and txindex, so that order should be ok)
+    txs = l1.rpc.listtransactions()['transactions']
+    assert(len(txs) == 2 and txs[1]['hash'] == fundingtx['txid'])
+
+    # Check the annotated types
+    types = [o['type'] for o in txs[1]['outputs']]
+    changeidx = 0 if types[0] == 'deposit' else 1
+    fundidx = 1 - changeidx
+    assert(types[changeidx] == 'deposit' and types[fundidx] == 'channel_funding')
+
+    # And check the channel annotation on the funding output
+    peers = l1.rpc.listpeers()['peers']
+    assert(len(peers) == 1 and len(peers[0]['channels']) == 1)
+    scid = peers[0]['channels'][0]['short_channel_id']
+    assert(txs[1]['outputs'][fundidx]['channel'] == scid)
