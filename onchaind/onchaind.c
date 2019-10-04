@@ -1010,12 +1010,20 @@ static void steal_htlc_tx(struct tracked_output *out)
 	propose_resolution(out, tx, 0, tx_type);
 }
 
-static void onchain_transaction_annotate(const struct bitcoin_txid *txid,
-					 enum wallet_tx_type type)
+static void onchain_annotate_txout(const struct bitcoin_txid *txid, u32 outnum,
+				   enum wallet_tx_type type)
 {
-	u8 *msg = towire_onchain_transaction_annotate(tmpctx, txid, type);
-	wire_sync_write(REQ_FD, take(msg));
+	wire_sync_write(REQ_FD, take(towire_onchain_annotate_txout(
+				    tmpctx, txid, outnum, type)));
 }
+
+static void onchain_annotate_txin(const struct bitcoin_txid *txid, u32 innum,
+				  enum wallet_tx_type type)
+{
+	wire_sync_write(REQ_FD, take(towire_onchain_annotate_txin(
+				    tmpctx, txid, innum, type)));
+}
+
 /* An output has been spent: see if it resolves something we care about. */
 static void output_spent(const struct chainparams *chainparams,
 			 struct tracked_output ***outs,
@@ -1062,8 +1070,8 @@ static void output_spent(const struct chainparams *chainparams,
 			} else {
 				/* We ignore this timeout tx, since we should
 				 * resolve by ignoring once we reach depth. */
-				onchain_transaction_annotate(
-				    &spendertxid,
+				onchain_annotate_txout(
+				    &spendertxid, out->outnum,
 				    TX_CHANNEL_HTLC_TIMEOUT | TX_THEIRS);
 			}
 			break;
@@ -1097,8 +1105,8 @@ static void output_spent(const struct chainparams *chainparams,
 				 *    output is considered *irrevocably resolved*
 				 */
 				ignore_output(out);
-				onchain_transaction_annotate(
-				    &spendertxid,
+				onchain_annotate_txout(
+				    &spendertxid, out->outnum,
 				    TX_CHANNEL_HTLC_SUCCESS | TX_THEIRS);
 			}
 			break;
@@ -1434,7 +1442,10 @@ static void handle_mutual_close(const struct chainparams *chainparams,
 				struct tracked_output **outs)
 {
 	init_reply("Tracking mutual close transaction");
-	onchain_transaction_annotate(txid, TX_CHANNEL_CLOSE);
+
+	/* Annotate the first input as close. We can currently only have a
+	 * single input for these. */
+	onchain_annotate_txin(txid, 0, TX_CHANNEL_CLOSE);
 
 	/* BOLT #5:
 	 *
@@ -1732,7 +1743,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking our own unilateral close");
-	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL);
+	onchain_annotate_txin(txid, 0, TX_CHANNEL_UNILATERAL);
 
 	/* BOLT #5:
 	 *
@@ -1898,7 +1909,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		matches = match_htlc_output(tmpctx, tx, i, htlc_scripts);
 		/* FIXME: limp along when this happens! */
 		if (tal_count(matches) == 0) {
-			onchain_transaction_annotate(txid, TX_CHANNEL_PENALTY | TX_THEIRS);
+			onchain_annotate_txout(txid, i, TX_CHANNEL_PENALTY | TX_THEIRS);
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
@@ -2065,7 +2076,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking their illegal close: taking all funds");
-	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL | TX_CHANNEL_CHEAT | TX_THEIRS);
+	onchain_annotate_txin(
+	    txid, 0, TX_CHANNEL_UNILATERAL | TX_CHANNEL_CHEAT | TX_THEIRS);
 
 	/* BOLT #5:
 	 *
@@ -2308,7 +2320,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking their unilateral close");
-	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL | TX_THEIRS);
+	onchain_annotate_txin(txid, 0, TX_CHANNEL_UNILATERAL | TX_THEIRS);
 
 	/* HSM can't derive this. */
 	remote_per_commitment_point = this_remote_per_commitment_point;
@@ -2540,7 +2552,7 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 	int to_us_output = -1;
 	u8 *local_script;
 
-	onchain_transaction_annotate(txid, TX_CHANNEL_UNILATERAL | TX_THEIRS);
+	onchain_annotate_txin(txid, 0, TX_CHANNEL_UNILATERAL | TX_THEIRS);
 
 	resolved_by_other(outs[0], txid, UNKNOWN_UNILATERAL);
 

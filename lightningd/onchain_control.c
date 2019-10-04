@@ -306,15 +306,29 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
 }
 
-static void onchain_transaction_annotate(struct channel *channel, const u8 *msg)
+static void onchain_annotate_txout(struct channel *channel, const u8 *msg)
 {
 	struct bitcoin_txid txid;
 	enum wallet_tx_type type;
-	if (!fromwire_onchain_transaction_annotate(msg, &txid, &type))
-		fatal("onchaind gave invalid onchain_transaction_annotate "
+	u32 outnum;
+	if (!fromwire_onchain_annotate_txout(msg, &txid, &outnum, &type))
+		fatal("onchaind gave invalid onchain_annotate_txout "
 		      "message: %s",
 		      tal_hex(msg, msg));
-	wallet_transaction_annotate(channel->peer->ld->wallet, &txid, type,
+	wallet_annotate_txout(channel->peer->ld->wallet, &txid, outnum, type,
+			      channel->dbid);
+}
+
+static void onchain_annotate_txin(struct channel *channel, const u8 *msg)
+{
+	struct bitcoin_txid txid;
+	enum wallet_tx_type type;
+	u32 innum;
+	if (!fromwire_onchain_annotate_txin(msg, &txid, &innum, &type))
+		fatal("onchaind gave invalid onchain_annotate_txin "
+		      "message: %s",
+		      tal_hex(msg, msg));
+	wallet_annotate_txin(channel->peer->ld->wallet, &txid, innum, type,
 				    channel->dbid);
 }
 
@@ -355,8 +369,12 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 		onchain_add_utxo(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_TRANSACTION_ANNOTATE:
-		onchain_transaction_annotate(sd->channel, msg);
+	case WIRE_ONCHAIN_ANNOTATE_TXIN:
+		onchain_annotate_txin(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIN_ANNOTATE_TXOUT:
+		onchain_annotate_txout(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */

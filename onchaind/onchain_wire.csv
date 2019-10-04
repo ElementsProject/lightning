@@ -108,6 +108,13 @@ msgdata,onchain_dev_memleak_reply,leak,bool,
 # Tell the main daemon what we've been watching, mainly used for transactions
 # that we tracked automatically but only onchaind knows how to classify their
 # transactions.
-msgtype,onchain_transaction_annotate,5034
-msgdata,onchain_transaction_annotate,txid,bitcoin_txid,
-msgdata,onchain_transaction_annotate,type,enum wallet_tx_type,
+msgtype,onchain_annotate_txout,5035
+msgdata,onchain_annotate_txout,txid,bitcoin_txid,
+msgdata,onchain_annotate_txout,outnum,u32,
+msgdata,onchain_annotate_txout,type,enum wallet_tx_type,
+
+msgtype,onchain_annotate_txin,5036
+msgdata,onchain_annotate_txin,txid,bitcoin_txid,
+msgdata,onchain_annotate_txin,innum,u32,
+msgdata,onchain_annotate_txin,type,enum wallet_tx_type,
+
