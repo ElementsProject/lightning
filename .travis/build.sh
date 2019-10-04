@@ -38,6 +38,12 @@ echo -en 'travis_fold:start:script.1\\r'
 cat config.vars
 echo -en 'travis_fold:end:script.1\\r'
 
+cat > pytest.ini << EOF
+[pytest]
+addopts=-p no:logging --color=no --force-flaky
+EOF
+
+
 if [ "$SOURCE_CHECK_ONLY" == "false" ]; then
     echo -en 'travis_fold:start:script.2\\r'
     make -j3 > /dev/null
