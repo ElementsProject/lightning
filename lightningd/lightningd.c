@@ -665,6 +665,10 @@ int main(int argc, char *argv[])
 	 * variables. */
 	ld = new_lightningd(NULL);
 
+	/*~ The global chainparams is needed to init subdaemons, and defaults
+	 * to testnet. */
+	chainparams = chainparams_for_network("testnet");
+
 	/* Figure out where our daemons are first. */
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
 	if (!ld->daemon_dir)
