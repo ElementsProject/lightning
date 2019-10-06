@@ -891,7 +891,19 @@ class LightningRpc(UnixDomainSocketRpc):
 
         return self.call("withdraw", payload)
 
-    def txprepare(self, outputs, feerate=None, minconf=None, utxos=None):
+    def _deprecated_txprepare(self, destination, satoshi, feerate=None, minconf=None):
+        warnings.warn("txprepare now takes output arg: expect removal"
+                      " in Mid-2020",
+                      DeprecationWarning)
+        payload = {
+            "destination": destination,
+            "satoshi": satoshi,
+            "feerate": feerate,
+            "minconf": minconf,
+        }
+        return self.call("txprepare", payload)
+
+    def txprepare(self, *args, **kwargs):
         """
         Prepare a bitcoin transaction which sends to [outputs].
         The format of output is like [{address1: amount1},
@@ -901,13 +913,22 @@ class LightningRpc(UnixDomainSocketRpc):
         Outputs will be reserved until you call txdiscard or txsend, or
         lightningd restarts.
         """
-        payload = {
-            "outputs": outputs,
-            "feerate": feerate,
-            "minconf": minconf,
-            "utxos": utxos,
-        }
-        return self.call("txprepare", payload)
+        if 'destination' in kwargs or 'satoshi' in kwargs:
+            return self._deprecated_txprepare(*args, **kwargs)
+
+        if not isinstance(args[0], list):
+            return self._deprecated_txprepare(*args, **kwargs)
+
+        def _txprepare(outputs, feerate=None, minconf=None, utxos=None):
+            payload = {
+                "outputs": outputs,
+                "feerate": feerate,
+                "minconf": minconf,
+                "utxos": utxos,
+            }
+            return self.call("txprepare", payload)
+
+        return _txprepare(*args, **kwargs)
 
     def txdiscard(self, txid):
         """
