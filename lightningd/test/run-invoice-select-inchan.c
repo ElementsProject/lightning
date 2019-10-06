@@ -233,12 +233,12 @@ struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
-/* Generated stub for json_tok_address_scriptpubkey */
-enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx UNNEEDED,
+/* Generated stub for json_to_address_scriptpubkey */
+enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED,
 			     const struct chainparams *chainparams UNNEEDED,
 			     const char *buffer UNNEEDED,
 			     const jsmntok_t *tok UNNEEDED, const u8 **scriptpubkey UNNEEDED)
-{ fprintf(stderr, "json_tok_address_scriptpubkey called!\n"); abort(); }
+{ fprintf(stderr, "json_to_address_scriptpubkey called!\n"); abort(); }
 /* Generated stub for json_tok_channel_id */
 bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			 struct channel_id *cid UNNEEDED)

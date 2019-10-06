@@ -999,10 +999,10 @@ static const char *segwit_addr_net_decode(int *witness_version,
 }
 
 enum address_parse_result
-json_tok_address_scriptpubkey(const tal_t *ctx,
-			      const struct chainparams *chainparams,
-			      const char *buffer,
-			      const jsmntok_t *tok, const u8 **scriptpubkey)
+json_to_address_scriptpubkey(const tal_t *ctx,
+			     const struct chainparams *chainparams,
+			     const char *buffer,
+			     const jsmntok_t *tok, const u8 **scriptpubkey)
 {
 	struct bitcoin_address destination;
 	int witness_version;
