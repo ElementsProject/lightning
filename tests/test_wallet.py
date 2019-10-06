@@ -3,7 +3,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES
+from utils import only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES, COMPAT
 
 import pytest
 import time
@@ -214,6 +214,50 @@ def test_addfunds_from_block(node_factory, bitcoind):
     # The address we detect must match what was paid to.
     output = only_one(l1.rpc.listfunds()['outputs'])
     assert output['address'] == addr
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT=1")
+def test_deprecated_txprepare(node_factory, bitcoind):
+    """Test the deprecated old-style:
+       txprepare {destination} {satoshi} {feerate} {minconf}
+    """
+    amount = 10**4
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    addr = l1.rpc.newaddr()['bech32']
+
+    for i in range(7):
+        l1.fundwallet(10**8)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 7)
+
+    # Array type
+    with pytest.raises(RpcError, match=r'.* should be an amount in satoshis or all, not .*'):
+        l1.rpc.call('txprepare', [addr, 'slow'])
+
+    with pytest.raises(RpcError, match=r'Need set \'satoshi\' field.'):
+        l1.rpc.call('txprepare', [addr])
+
+    with pytest.raises(RpcError, match=r'Could not parse destination address.*'):
+        l1.rpc.call('txprepare', [Millisatoshi(amount * 100), 'slow', 1])
+
+    l1.rpc.call('txprepare', [addr, Millisatoshi(amount * 100), 'slow', 1])
+    l1.rpc.call('txprepare', [addr, Millisatoshi(amount * 100), 'normal'])
+    l1.rpc.call('txprepare', [addr, Millisatoshi(amount * 100), None, 1])
+    l1.rpc.call('txprepare', [addr, Millisatoshi(amount * 100)])
+
+    # Object type
+    with pytest.raises(RpcError, match=r'Need set \'outputs\' field.'):
+        l1.rpc.call('txprepare', {'destination': addr, 'feerate': 'slow'})
+
+    with pytest.raises(RpcError, match=r'Need set \'outputs\' field.'):
+        l1.rpc.call('txprepare', {'satoshi': Millisatoshi(amount * 100), 'feerate': '10perkw', 'minconf': 2})
+
+    l1.rpc.call('txprepare', {'destination': addr, 'satoshi': Millisatoshi(amount * 100), 'feerate': '2000perkw', 'minconf': 1})
+    l1.rpc.call('txprepare', {'destination': addr, 'satoshi': Millisatoshi(amount * 100), 'feerate': '2000perkw'})
+    l1.rpc.call('txprepare', {'destination': addr, 'satoshi': Millisatoshi(amount * 100)})
 
 
 def test_txprepare(node_factory, bitcoind, chainparams):
