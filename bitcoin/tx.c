@@ -42,6 +42,7 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 	} else {
 		ret = wally_tx_output_init_alloc(satoshis, script,
 						 tal_bytelen(script), &output);
+		assert(ret == WALLY_OK);
 	}
 	ret = wally_tx_add_output(tx->wtx, output);
 	assert(ret == WALLY_OK);
