@@ -80,10 +80,10 @@ static struct command_result *param_bitcoin_address(struct command *cmd,
 						    const u8 **scriptpubkey)
 {
 	/* Parse address. */
-	switch (json_tok_address_scriptpubkey(cmd,
-					      get_chainparams(cmd->ld),
-					      buffer, tok,
-					      scriptpubkey)) {
+	switch (json_to_address_scriptpubkey(cmd,
+					     get_chainparams(cmd->ld),
+					     buffer, tok,
+					     scriptpubkey)) {
 	case ADDRESS_PARSE_UNRECOGNIZED:
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not parse destination address, "
@@ -345,10 +345,10 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 					    "The output format must be "
 					    "{destination: amount}");
 
-		res = json_tok_address_scriptpubkey(cmd,
-						    get_chainparams(cmd->ld),
-						    buffer, &t[1],
-						    &destination);
+		res = json_to_address_scriptpubkey(cmd,
+						   get_chainparams(cmd->ld),
+						   buffer, &t[1],
+						   &destination);
 		if (res == ADDRESS_PARSE_UNRECOGNIZED)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Could not parse destination address");

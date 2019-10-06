@@ -300,10 +300,10 @@ static struct command_result *parse_fallback(struct command *cmd,
 	enum address_parse_result fallback_parse;
 
 	fallback_parse
-		= json_tok_address_scriptpubkey(cmd,
-						get_chainparams(cmd->ld),
-						buffer, fallback,
-						fallback_script);
+		= json_to_address_scriptpubkey(cmd,
+					       get_chainparams(cmd->ld),
+					       buffer, fallback,
+					       fallback_script);
 	if (fallback_parse == ADDRESS_PARSE_UNRECOGNIZED) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Fallback address not valid");
