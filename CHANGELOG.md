@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Protocol: no longer ask for `initial_routing_sync` (only affects ancient peers).
 - Protocol: nodes now announce features in `node_announcement` broadcasts.
 
+- Wallet: we now support the encryption of the BIP32 master seed (a.k.a. `hsm_secret`).
+
 ### Changed
 
 - JSON API: `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
