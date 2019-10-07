@@ -129,11 +129,15 @@ class TailableProc(object):
         # pass it to the log matcher and not print it to stdout).
         self.log_filter = lambda line: False
 
-    def start(self):
+    def start(self, stdin=None, stdout=None, stderr=None):
         """Start the underlying process and start monitoring it.
         """
         logging.debug("Starting '%s'", " ".join(self.cmd_line))
-        self.proc = subprocess.Popen(self.cmd_line, stdout=subprocess.PIPE, env=self.env)
+        self.proc = subprocess.Popen(self.cmd_line,
+                                     stdin=stdin,
+                                     stdout=stdout if stdout else subprocess.PIPE,
+                                     stderr=stderr,
+                                     env=self.env)
         self.thread = threading.Thread(target=self.tail)
         self.thread.daemon = True
         self.thread.start()
@@ -186,6 +190,8 @@ class TailableProc(object):
                 self.logs_cond.notifyAll()
         self.running = False
         self.proc.stdout.close()
+        if self.proc.stderr:
+            self.proc.stderr.close()
 
     def is_in_log(self, regex, start=0):
         """Look for `regex` in the logs."""
@@ -496,10 +502,12 @@ class LightningD(TailableProc):
 
         return self.cmd_prefix + [self.executable] + opts
 
-    def start(self):
+    def start(self, stdin=None, stdout=None, stderr=None,
+              wait_for_initialized=True):
         self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
-        TailableProc.start(self)
-        self.wait_for_log("Server started with public key")
+        TailableProc.start(self, stdin, stdout, stderr)
+        if wait_for_initialized:
+            self.wait_for_log("Server started with public key")
         logging.info("LightningD started")
 
     def wait(self, timeout=10):
