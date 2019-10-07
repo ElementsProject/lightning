@@ -702,6 +702,46 @@ def test_shutdown_awaiting_lockin(node_factory, bitcoind):
 
 
 @unittest.skipIf(not COMPAT, "needs COMPAT=1")
+def test_deprecated_fundchannel_start(node_factory, bitcoind):
+    """Test the deprecated old-style:
+       fundchannel {id} {satoshi} {feerate} {announce}
+    """
+    l1, l2 = node_factory.get_nodes(2, opts=[{'allow-deprecated-apis': True}, {}])
+    nodeid = l2.info['id']
+
+    # New style(object type)
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, amount=10**6, feerate='2000perkw', announce=True)
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, amount=10**6, announce=True)
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, amount=10**6, feerate='2000perkw')
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, amount=10**6)
+
+    # Array type
+    l1.rpc.call('check', ['fundchannel_start', nodeid, 10**6, '2000perkw', True])
+    l1.rpc.call('check', ['fundchannel_start', nodeid, 10**6, None, True])
+    l1.rpc.call('check', ['fundchannel_start', nodeid, 10**6, 'slow'])
+    l1.rpc.call('check', ['fundchannel_start', nodeid, 10**6])
+
+    # No 'amount' nor 'satoshi'(array type)
+    with pytest.raises(RpcError, match=r'missing required parameter: amount'):
+        l1.rpc.call('check', ['fundchannel_start', nodeid])
+    with pytest.raises(RpcError, match=r'.*should be a satoshi amount, not.*'):
+        l1.rpc.call('check', ['fundchannel_start', nodeid, '2000perkw'])
+
+    # Old style(object type)
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, satoshi=10**6, feerate='2000perkw', announce=False)
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, satoshi=10**6, feerate='slow')
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, satoshi=10**6, announce=True)
+    l1.rpc.check(command_to_check='fundchannel_start', id=nodeid, satoshi=10**6)
+
+    # For json object type when allow deprecated api, 'check' command can't find
+    # the error if we don't set 'amount' nor 'satoshi'.
+    l1.rpc.connect(nodeid, 'localhost', l2.port)
+    # No 'amount' nor 'satoshi'(object type)
+    with pytest.raises(RpcError, match=r'Need set \'amount\' field'):
+        l1.rpc.call('fundchannel_start', {'id': nodeid, 'feerate': '2000perkw'})
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT=1")
 def test_deprecated_fundchannel(node_factory, bitcoind):
     """Test the deprecated old-style:
        fundchannel {id} {satoshi} {feerate} {announce} {minconf} {utxos}
