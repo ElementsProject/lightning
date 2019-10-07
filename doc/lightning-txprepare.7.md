@@ -29,12 +29,25 @@ all available funds. Otherwise, it is in amount precision; it can be a whole
 number, a whole number ending in *sat*, a whole number ending in *000msat*,
 or a number with 1 to 8 decimal places ending in *btc*.
 
-**txprepare** is similar to the first part of a **withdraw** command, but
-supports multiple outputs and uses *outputs* as parameter. The second part
-is provided by **txsend**.
+*feerate* is an optional feerate to use. It can be one of the strings
+*urgent* (aim for next block), *normal* (next 4 blocks or so) or *slow*
+(next 100 blocks or so) to use lightningd’s internal estimates: *normal*
+is the default.
+
+Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
+the number is interpreted as satoshi-per-kilosipa (weight), and *perkb*
+means it is interpreted bitcoind-style as satoshi-per-kilobyte. Omitting
+the suffix is equivalent to *perkb*.
+
+*minconf* specifies the minimum number of confirmations that used
+outputs should have. Default is 1.
 
 *utxos* specifies the utxos to be used to fund the transaction, as an array
 of "txid:vout". These must be drawn from the node's available UTXO set.
+
+**txprepare** is similar to the first part of a **withdraw** command, but
+supports multiple outputs and uses *outputs* as parameter. The second part
+is provided by **txsend**.
 
 RETURN VALUE
 ------------

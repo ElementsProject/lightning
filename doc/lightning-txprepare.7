@@ -31,13 +31,30 @@ number, a whole number ending in \fIsat\fR, a whole number ending in \fI000msat\
 or a number with 1 to 8 decimal places ending in \fIbtc\fR\.
 
 
-\fBtxprepare\fR is similar to the first part of a \fBwithdraw\fR command, but
-supports multiple outputs and uses \fIoutputs\fR as parameter\. The second part
-is provided by \fBtxsend\fR\.
+\fIfeerate\fR is an optional feerate to use\. It can be one of the strings
+\fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR
+(next 100 blocks or so) to use lightningd’s internal estimates: \fInormal\fR
+is the default\.
+
+
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte\. Omitting
+the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have\. Default is 1\.
 
 
 \fIutxos\fR specifies the utxos to be used to fund the transaction, as an array
 of "txid:vout"\. These must be drawn from the node's available UTXO set\.
+
+
+\fBtxprepare\fR is similar to the first part of a \fBwithdraw\fR command, but
+supports multiple outputs and uses \fIoutputs\fR as parameter\. The second part
+is provided by \fBtxsend\fR\.
+
 
 .SH RETURN VALUE
 
