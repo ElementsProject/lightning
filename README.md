@@ -77,7 +77,7 @@ You can start `lightningd` with the following command:
 lightningd --network=bitcoin --log-level=debug
 ```
 
-This creates a `.lightning/` subdirectory in your home directory: see `man -l doc/lightningd.8`.
+This creates a `.lightning/` subdirectory in your home directory: see `man -l doc/lightningd.8` (or https://lightning.readthedocs.io/) for more runtime options.
 
 ### Using The JSON-RPC Interface
 
@@ -101,6 +101,8 @@ Useful commands:
 Once you've started for the first time, there's a script called
 `contrib/bootstrap-node.sh` which will connect you to other nodes on
 the lightning network.
+
+You can encrypt the BIP32 root seed (what is stored in `hsm_secret`) by passing the `--encrypted-hsm` startup argument. You can start `lightningd` with `--encrypted-hsm` on an already existing `lightning-dir` (with a not encrypted `hsm_secret`). If you pass that option, you __will not__ be able to start `lightningd` (with the same wallet) again without the password, so please beware with your password management. Also beware of not feeling too safe with an encrypted `hsm_secret`: unlike for `bitcoind` where the wallet encryption can restrict the usage of some RPC command, `lightningd` always need to access keys from the wallet which is thus __not locked__ (yet), even with an encrypted BIP32 master seed.
 
 There are also numerous plugins available for c-lightning which add
 capabilities: in particular there's a collection at:
