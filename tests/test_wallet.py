@@ -472,8 +472,16 @@ def test_transaction_annotations(node_factory, bitcoind):
     assert(output['type'] == 'deposit' and output['satoshis'] == '1000000000msat')
 
     # ... and all other output should be change, and have no annotations
-    types = set([o['type'] for i, o in enumerate(tx['outputs']) if i != idx])
-    assert(set([None]) == types)
+    types = []
+    for i, o in enumerate(tx['outputs']):
+        if i == idx:
+            continue
+        if 'type' in o:
+            types.append(o['type'])
+        else:
+            types.append(None)
+
+    assert(set([None]) == set(types))
 
     ##########################################################################
     # Let's now open a channel. The opener should get the funding transaction
