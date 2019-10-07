@@ -907,7 +907,7 @@ struct {
 #if EXPERIMENTAL_FEATURES
 static const char *txtype_to_string(enum wallet_tx_type t)
 {
-	for (size_t i=0; wallet_tx_type_display_names[i].name != NULL; i++)
+	for (size_t i = 0; wallet_tx_type_display_names[i].name != NULL; i++)
 		if (t == wallet_tx_type_display_names[i].t)
 			return wallet_tx_type_display_names[i].name;
 	return NULL;
@@ -916,7 +916,7 @@ static const char *txtype_to_string(enum wallet_tx_type t)
 static void json_add_txtypes(struct json_stream *result, const char *fieldname, enum wallet_tx_type value)
 {
 	json_array_start(result, fieldname);
-	for (size_t i=0; wallet_tx_type_display_names[i].name != NULL; i++) {
+	for (size_t i = 0; wallet_tx_type_display_names[i].name != NULL; i++) {
 		if (value & wallet_tx_type_display_names[i].t)
 			json_add_string(result, NULL, wallet_tx_type_display_names[i].name);
 	}
@@ -936,19 +936,15 @@ static void json_transaction_details(struct json_stream *response,
 #if EXPERIMENTAL_FEATURES
 		if (tx->annotation.type != 0)
 			json_add_txtypes(response, "type", tx->annotation.type);
-		else
-			json_add_null(response, "type");
 
 		if (tx->annotation.channel.u64 != 0)
 			json_add_short_channel_id(response, "channel", &tx->annotation.channel);
-		else
-			json_add_null(response, "channel");
 #endif
 		json_add_u32(response, "locktime", wtx->locktime);
 		json_add_u32(response, "version", wtx->version);
 
 		json_array_start(response, "inputs");
-		for (size_t i=0; i<wtx->num_inputs; i++) {
+		for (size_t i = 0; i < wtx->num_inputs; i++) {
 			struct wally_tx_input *in = &wtx->inputs[i];
 			json_object_start(response, NULL);
 			json_add_hex(response, "txid", in->txhash, sizeof(in->txhash));
@@ -959,12 +955,8 @@ static void json_transaction_details(struct json_stream *response,
 			const char *txtype = txtype_to_string(ann->type);
 			if (txtype != NULL)
 				json_add_string(response, "type", txtype);
-			else
-				json_add_null(response, "type");
 			if (ann->channel.u64 != 0)
 				json_add_short_channel_id(response, "channel", &ann->channel);
-			else
-				json_add_null(response, "channel");
 #endif
 
 			json_object_end(response);
@@ -972,7 +964,7 @@ static void json_transaction_details(struct json_stream *response,
 		json_array_end(response);
 
 		json_array_start(response, "outputs");
-		for (size_t i=0; i<wtx->num_outputs; i++) {
+		for (size_t i = 0; i < wtx->num_outputs; i++) {
 			struct wally_tx_output *out = &wtx->outputs[i];
 			struct amount_asset amt = bitcoin_tx_output_get_amount(tx->tx, i);
 			struct amount_sat sat;
@@ -993,13 +985,9 @@ static void json_transaction_details(struct json_stream *response,
 			const char *txtype = txtype_to_string(ann->type);
 			if (txtype != NULL)
 				json_add_string(response, "type", txtype);
-			else
-				json_add_null(response, "type");
 
 			if (ann->channel.u64 != 0)
 				json_add_short_channel_id(response, "channel", &ann->channel);
-			else
-				json_add_null(response, "channel");
 #endif
 			json_add_hex(response, "scriptPubKey", out->script, out->script_len);
 
@@ -1025,7 +1013,7 @@ static struct command_result *json_listtransactions(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "transactions");
-	for (size_t i=0; i<tal_count(txs); i++)
+	for (size_t i = 0; i < tal_count(txs); i++)
 		json_transaction_details(response, &txs[i]);
 
 	json_array_end(response);
