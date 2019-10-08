@@ -816,8 +816,14 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   dev_fast_gossip,
 					   dev_fast_gossip_prune);
 
-	/* Load stored gossip messages */
+	/* Load stored gossip messages, get last modified time of file */
 	timestamp = gossip_store_load(daemon->rstate, daemon->rstate->gs);
+
+	/* If last_timestamp was > modified time of file, reduce it.
+	 * Usually it's capped to "now", but in the reload case it needs to
+	 * be the gossip_store mtime. */
+	if (daemon->rstate->last_timestamp > timestamp)
+		daemon->rstate->last_timestamp = timestamp;
 
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
@@ -832,7 +838,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 			     gossip_refresh_network, daemon));
 
 	/* Fire up the seeker! */
-	daemon->seeker = new_seeker(daemon, timestamp);
+	daemon->seeker = new_seeker(daemon);
 
 	return daemon_conn_read_next(conn, daemon->master);
 }
