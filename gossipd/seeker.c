@@ -21,6 +21,12 @@ enum seeker_state {
 	/* Still streaming gossip from single peer. */
 	STARTING_UP_FIRSTPEER,
 
+	/* Probing scids: need peer to check startup really finished. */
+	PROBING_SCIDS_NEED_PEER,
+
+	/* Probing: checking our startup really is finished. */
+	PROBING_SCIDS,
+
 	/* Normal running. */
 	NORMAL,
 };
@@ -36,6 +42,9 @@ struct seeker {
 
 	/* Channels we've heard about, but don't know. */
 	struct short_channel_id *unknown_scids;
+
+	/* Range of scid blocks we've probed. */
+	size_t scid_probe_start, scid_probe_end;
 
 	/* Timestamp of gossip store (or 0). */
 	u32 last_gossip_timestamp;
@@ -153,8 +162,118 @@ static bool peer_has_gossip_queries(const struct peer *peer)
 	return peer->gossip_queries_feature;
 }
 
+static bool peer_can_take_range_query(const struct peer *peer)
+{
+	return peer->gossip_queries_feature
+		&& !peer->query_channel_blocks;
+}
+
+static void seek_any_unknown_scids(struct seeker *seeker)
+{
+	/* FIXME: implement! */
+}
+
+/* Returns true and sets first_blocknum and number_of_blocks if
+ * there's more to find. */
+static bool next_block_range(struct seeker *seeker,
+			     u32 prev_num_blocks,
+			     u32 *first_blocknum, u32 *number_of_blocks)
+{
+	const u32 current_height = seeker->daemon->current_blockheight;
+
+	/* We always try to get twice as many as last time. */
+	*number_of_blocks = prev_num_blocks * 2;
+
+	if (seeker->scid_probe_start > 0) {
+		/* Enlarge probe to cover prior blocks, but twice as many. */
+		if (*number_of_blocks > seeker->scid_probe_start) {
+			*number_of_blocks = seeker->scid_probe_start;
+			*first_blocknum = 0;
+		} else {
+			*first_blocknum
+				= seeker->scid_probe_start - *number_of_blocks;
+		}
+		seeker->scid_probe_start = *first_blocknum;
+		return true;
+	}
+
+	/* We allow 6 new blocks since we started; they should be empty anyway */
+	if (seeker->scid_probe_end + 6 < current_height) {
+		if (seeker->scid_probe_end + *number_of_blocks > current_height)
+			*number_of_blocks
+				= current_height - seeker->scid_probe_end;
+		*first_blocknum = seeker->scid_probe_end + 1;
+		seeker->scid_probe_end = *first_blocknum + *number_of_blocks - 1;
+		return true;
+	}
+
+	/* No more to find. */
+	return false;
+}
+
+static void process_scid_probe(struct peer *peer,
+			       u32 first_blocknum, u32 number_of_blocks,
+			       const struct short_channel_id *scids,
+			       bool complete)
+{
+	struct seeker *seeker = peer->daemon->seeker;
+	bool new_unknown_scids = false;
+
+	assert(seeker->random_peer_softref == peer);
+	clear_softref(seeker, &seeker->random_peer_softref);
+
+	for (size_t i = 0; i < tal_count(scids); i++) {
+		struct chan *c = get_channel(seeker->daemon->rstate, &scids[i]);
+		if (c)
+			continue;
+
+		new_unknown_scids |= add_unknown_scid(seeker, &scids[i]);
+	}
+
+	/* No new unknown scids, or no more to ask?  We give some wiggle
+	 * room in case blocks came in since we started. */
+	if (new_unknown_scids
+	    && next_block_range(seeker, number_of_blocks,
+				&first_blocknum, &number_of_blocks)) {
+		/* This must return a peer, since we have the current peer! */
+		peer = random_peer(seeker->daemon, peer_can_take_range_query);
+		assert(peer);
+		selected_peer(seeker, peer);
+
+		query_channel_range(seeker->daemon, peer,
+				    first_blocknum, number_of_blocks,
+				    process_scid_probe);
+		return;
+	}
+
+	/* Probe finished. */
+	seeker->state = NORMAL;
+	seek_any_unknown_scids(seeker);
+	return;
+}
+
+/* Pick a peer, ask it for a few scids, to check. */
+static void peer_gossip_probe_scids(struct seeker *seeker)
+{
+	struct peer *peer;
+
+	peer = random_peer(seeker->daemon, peer_can_take_range_query);
+	if (!peer)
+		return;
+	selected_peer(seeker, peer);
+
+	/* This calls process_scid_probe when we get the reply. */
+	query_channel_range(seeker->daemon, peer,
+			    seeker->scid_probe_start,
+			    seeker->scid_probe_end - seeker->scid_probe_start + 1,
+			    process_scid_probe);
+	seeker->state = PROBING_SCIDS;
+}
+
 static void check_firstpeer(struct seeker *seeker)
 {
+	struct chan *c;
+	u64 index;
 	struct peer *peer = seeker->random_peer_softref, *p;
 
 	/* It might have died, pick another. */
@@ -177,15 +296,39 @@ static void check_firstpeer(struct seeker *seeker)
 	if (peer_made_progress(seeker))
 		return;
 
-	/* Begin normal gossip regime */
+	/* Other peers can gossip now. */
 	status_debug("seeker: startup peer finished");
 	clear_softref(seeker, &seeker->random_peer_softref);
-	seeker->state = NORMAL;
 	list_for_each(&seeker->daemon->peers, p, list) {
 		if (p == peer)
 			continue;
 
 		normal_gossip_start(seeker, p);
+	}
+
+	/* We always look up 6 prior to last we have */
+	c = uintmap_last(&seeker->daemon->rstate->chanmap, &index);
+	if (c && short_channel_id_blocknum(&c->scid) > 6) {
+		seeker->scid_probe_start = short_channel_id_blocknum(&c->scid) - 6;
+	} else {
+		seeker->scid_probe_start = 0;
+	}
+	seeker->scid_probe_end = seeker->daemon->current_blockheight;
+	seeker->state = PROBING_SCIDS_NEED_PEER;
+	peer_gossip_probe_scids(seeker);
+}
+
+static void check_scid_probing(struct seeker *seeker)
+{
+	/* FIXME: Time them out of they don't respond to gossip */
+	struct peer *peer = seeker->random_peer_softref;
+
+	/* It might have died, pick another. */
+	if (!peer) {
+		status_debug("seeker: scid probing peer died, re-choosing");
+		seeker->state = PROBING_SCIDS_NEED_PEER;
+		peer_gossip_probe_scids(seeker);
+		return;
 	}
 }
 
@@ -198,8 +341,14 @@ static void seeker_check(struct seeker *seeker)
 	case STARTING_UP_FIRSTPEER:
 		check_firstpeer(seeker);
 		break;
+	case PROBING_SCIDS_NEED_PEER:
+		peer_gossip_probe_scids(seeker);
+		break;
+	case PROBING_SCIDS:
+		check_scid_probing(seeker);
+		break;
 	case NORMAL:
-		/* FIXME: Check! */
+		seek_any_unknown_scids(seeker);
 		break;
 	}
 
@@ -221,6 +370,12 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 	case STARTING_UP_FIRSTPEER:
 		/* Waiting for seeker_check to release us */
 		return;
+
+	/* In these states, we set up peers to stream gossip normally */
+	case PROBING_SCIDS_NEED_PEER:
+		peer_gossip_probe_scids(seeker);
+		/* fall thru */
+	case PROBING_SCIDS:
 	case NORMAL:
 		normal_gossip_start(seeker, peer);
 		return;
