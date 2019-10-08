@@ -202,7 +202,7 @@ static void update_own_node_announcement(struct daemon *daemon)
 
 	/* This injects it into the routing code in routing.c; it should not
 	 * reject it! */
-	err = handle_node_announcement(daemon->rstate, take(nannounce));
+	err = handle_node_announcement(daemon->rstate, take(nannounce), NULL);
 	if (err)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected own node announcement: %s",
@@ -383,7 +383,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	 * about it being invalid! __func__ is a magic C constant which
 	 * expands to this function name. */
 	msg = handle_channel_update(daemon->rstate, take(update), __func__,
-				    NULL);
+				    NULL, NULL);
 	if (msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s: rejected local channel update %s: %s",

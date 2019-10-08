@@ -89,6 +89,9 @@ struct peer {
 	/* The ID of the peer (always unique) */
 	struct node_id id;
 
+	/* How much contribution have we made to gossip? */
+	size_t gossip_counter;
+
 	/* The two features gossip cares about (so far) */
 	bool gossip_queries_feature, initial_routing_sync_feature;
 
@@ -128,6 +131,9 @@ struct peer {
 
 /* Search for a peer. */
 struct peer *find_peer(struct daemon *daemon, const struct node_id *id);
+
+/* This peer (may be NULL) gave is valid gossip. */
+void peer_supplied_good_gossip(struct peer *peer);
 
 /* Queue a gossip message for the peer: the subdaemon on the other end simply
  * forwards it to the peer. */

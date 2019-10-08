@@ -133,6 +133,13 @@ struct peer *find_peer(struct daemon *daemon, const struct node_id *id)
 	return NULL;
 }
 
+/* Increment a peer's gossip_counter, if peer not NULL */
+void peer_supplied_good_gossip(struct peer *peer)
+{
+	if (peer)
+		peer->gossip_counter++;
+}
+
 /* Queue a gossip message for the peer: the subdaemon on the other end simply
  * forwards it to the peer. */
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
@@ -290,7 +297,7 @@ static const u8 *handle_channel_announcement_msg(struct peer *peer,
 	 * which case, it frees and NULLs that ptr) */
 	err = handle_channel_announcement(peer->daemon->rstate, msg,
 					  peer->daemon->current_blockheight,
-					  &scid);
+					  &scid, peer);
 	if (err)
 		return err;
 	else if (scid) {
@@ -317,7 +324,7 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 
 	unknown_scid.u64 = 0;
 	err = handle_channel_update(peer->daemon->rstate, msg, "subdaemon",
-				    &unknown_scid);
+				    peer, &unknown_scid);
 	if (err) {
 		if (unknown_scid.u64 != 0)
 			query_unknown_channel(peer->daemon, peer, &unknown_scid);
@@ -462,7 +469,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		err = handle_channel_update_msg(peer, msg);
 		goto handled_relay;
 	case WIRE_NODE_ANNOUNCEMENT:
-		err = handle_node_announcement(peer->daemon->rstate, msg);
+		err = handle_node_announcement(peer->daemon->rstate, msg, peer);
 		goto handled_relay;
 	case WIRE_QUERY_CHANNEL_RANGE:
 		err = handle_query_channel_range(peer, msg);
@@ -631,6 +638,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 
 	/* Populate the rest of the peer info. */
 	peer->daemon = daemon;
+	peer->gossip_counter = 0;
 	peer->scid_queries = NULL;
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = NULL;
@@ -1525,7 +1533,8 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	}
 
 	/* Outscript is NULL if it's not an unspent output */
-	if (handle_pending_cannouncement(daemon->rstate, &scid, sat, outscript)
+	if (handle_pending_cannouncement(daemon, daemon->rstate,
+					 &scid, sat, outscript)
 	    && was_unknown) {
 		/* It was real: we're missing gossip. */
 		gossip_missing(daemon);
