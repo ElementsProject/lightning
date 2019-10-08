@@ -1196,12 +1196,6 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	if (!fromwire_gossip_get_incoming_channels(tmpctx, msg, &exposeprivate))
 		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
 
-	status_debug("exposeprivate = %s",
-		     exposeprivate ? (*exposeprivate ? "TRUE" : "FALSE") : "NULL");
-	status_debug("msg = %s", tal_hex(tmpctx, msg));
-	status_debug("always_expose = %u, never_expose = %u",
-		     always_expose(exposeprivate), never_expose(exposeprivate));
-
 	has_public = always_expose(exposeprivate);
 
 	node = get_node(daemon->rstate, &daemon->rstate->local_id);
