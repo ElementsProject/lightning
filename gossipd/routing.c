@@ -45,19 +45,24 @@ struct pending_node_announce {
 #define TOKENS_PER_MSG 24
 #define TOKEN_MAX (24 * 4)
 
-static bool ratelimit(const struct routing_state *rstate,
-		      u8 *tokens, u32 prev_timestamp, u32 new_timestamp)
+static u8 update_tokens(const struct routing_state *rstate,
+			u8 tokens, u32 prev_timestamp, u32 new_timestamp)
 {
-	u64 num_tokens;
+	u64 num_tokens = tokens;
 
 	assert(new_timestamp >= prev_timestamp);
 
-	/* First, top up tokens, avoiding overflow. */
-	num_tokens = *tokens + ((new_timestamp - prev_timestamp)
-				/ GOSSIP_TOKEN_TIME(rstate->dev_fast_gossip));
+	num_tokens += ((new_timestamp - prev_timestamp)
+		       / GOSSIP_TOKEN_TIME(rstate->dev_fast_gossip));
 	if (num_tokens > TOKEN_MAX)
 		num_tokens = TOKEN_MAX;
-	*tokens = num_tokens;
+	return num_tokens;
+}
+
+static bool ratelimit(const struct routing_state *rstate,
+		      u8 *tokens, u32 prev_timestamp, u32 new_timestamp)
+{
+	*tokens = update_tokens(rstate, *tokens, prev_timestamp, new_timestamp);
 
 	/* Now, if we can afford it, pass this message. */
 	if (*tokens >= TOKENS_PER_MSG) {
@@ -2189,6 +2194,14 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		tal_free(uc);
 	}
 	return true;
+}
+
+bool would_ratelimit_cupdate(struct routing_state *rstate,
+			     const struct half_chan *hc,
+			     u32 timestamp)
+{
+	return update_tokens(rstate, hc->tokens, hc->bcast.timestamp, timestamp)
+		>= TOKENS_PER_MSG;
 }
 
 static const struct node_id *get_channel_owner(struct routing_state *rstate,

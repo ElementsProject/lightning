@@ -528,15 +528,19 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 }
 
 /* They have update with this timestamp: do we want it? */
-static bool want_update(u32 timestamp, const struct half_chan *hc)
+static bool want_update(struct seeker *seeker,
+			u32 timestamp, const struct half_chan *hc)
 {
 	if (!is_halfchan_defined(hc))
 		return timestamp != 0;
 
-	return timestamp > hc->bcast.timestamp;
+	if (timestamp <= hc->bcast.timestamp)
+		return false;
+
+	return !would_ratelimit_cupdate(seeker->daemon->rstate, hc, timestamp);
 }
 
-/* They gave us timestamps.  Do we need updated versions? */
+/* They gave us timestamps.  Do we want updated versions? */
 static void check_timestamps(struct seeker *seeker,
 			     struct chan *c,
 			     const struct channel_update_timestamps *ts)
@@ -552,9 +556,9 @@ static void check_timestamps(struct seeker *seeker,
 	 *    for `node_id_2`, or 0 if there was no `channel_update` from that
 	 *    node.
 	 */
-	if (want_update(ts->timestamp_node_id_1, &c->half[0]))
+	if (want_update(seeker, ts->timestamp_node_id_1, &c->half[0]))
 		query_flag |= SCID_QF_UPDATE1;
-	if (want_update(ts->timestamp_node_id_2, &c->half[1]))
+	if (want_update(seeker, ts->timestamp_node_id_2, &c->half[1]))
 		query_flag |= SCID_QF_UPDATE2;
 
 	if (!query_flag)

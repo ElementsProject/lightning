@@ -483,6 +483,11 @@ static inline struct local_chan *is_local_chan(struct routing_state *rstate,
 	return local_chan_map_get(&rstate->local_chan_map, &chan->scid);
 }
 
+/* Would we ratelimit a channel_update with this timestamp? */
+bool would_ratelimit_cupdate(struct routing_state *rstate,
+			     const struct half_chan *hc,
+			     u32 timestamp);
+
 /* Because we can have millions of channels, and we only want a local_disable
  * flag on ones connected to us, we keep a separate hashtable for that flag.
  */
