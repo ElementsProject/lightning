@@ -22,4 +22,8 @@ bool remove_unknown_scid(struct seeker *seeker,
 bool add_unknown_scid(struct seeker *seeker,
 		      const struct short_channel_id *scid,
 		      struct peer *peer);
+
+/* A testing hack */
+extern bool dev_suppress_gossip;
+
 #endif /* LIGHTNING_GOSSIPD_SEEKER_H */

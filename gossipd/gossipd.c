@@ -67,11 +67,6 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
-/* In developer mode we provide hooks for whitebox testing */
-#if DEVELOPER
-static bool suppress_gossip = false;
-#endif
-
 /*~ A channel consists of a `struct half_chan` for each direction, each of
  * which has a `flags` word from the `channel_update`; bit 1 is
  * ROUTING_FLAGS_DISABLED in the `channel_update`.  But we also keep a local
@@ -1289,7 +1284,7 @@ static struct io_plan *dev_gossip_suppress(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIP_DEV_SUPPRESS, msg);
 
 	status_unusual("Suppressing all gossip");
-	suppress_gossip = true;
+	dev_suppress_gossip = true;
 	return daemon_conn_read_next(conn, daemon->master);
 }
 

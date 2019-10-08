@@ -39,6 +39,10 @@ enum seeker_state {
 	ASKING_FOR_STALE_SCIDS,
 };
 
+#if DEVELOPER
+bool dev_suppress_gossip;
+#endif
+
 /* Passthrough helper for HTABLE_DEFINE_TYPE */
 static const struct short_channel_id *scid_pass(const struct short_channel_id *s)
 {
@@ -241,6 +245,11 @@ static void enable_gossip_stream(struct seeker *seeker, struct peer *peer)
 	const u32 polltime = GOSSIP_SEEKER_INTERVAL(seeker) * 10;
 	u32 start = seeker->daemon->rstate->last_timestamp;
 	u8 *msg;
+
+#if DEVELOPER
+	if (dev_suppress_gossip)
+		return;
+#endif
 
 	if (start > polltime)
 		start -= polltime;
@@ -870,6 +879,11 @@ static bool seek_any_unknown_nodes(struct seeker *seeker)
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
 {
+#if DEVELOPER
+	if (dev_suppress_gossip)
+		return;
+#endif
+
 	switch (seeker->state) {
 	case STARTING_UP:
 		check_firstpeer(seeker);
@@ -905,6 +919,11 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 	/* Can't do anything useful with these peers. */
 	if (!peer->gossip_queries_feature)
 		return;
+
+#if DEVELOPER
+	if (dev_suppress_gossip)
+		return;
+#endif
 
 	switch (seeker->state) {
 	case STARTING_UP:
