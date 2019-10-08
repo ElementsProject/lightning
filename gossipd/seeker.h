@@ -6,19 +6,17 @@ struct daemon;
 struct peer;
 struct short_channel_id;
 
-struct seeker *new_seeker(struct daemon *daemon);
-
-void gossip_missing(struct daemon *daemon, struct seeker *seeker);
+struct seeker *new_seeker(struct daemon *daemon, u32 timestamp);
 
 void query_unknown_channel(struct daemon *daemon,
 			   struct peer *peer,
 			   const struct short_channel_id *id);
 
+void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer);
+
+void gossip_missing(struct daemon *daemon, struct seeker *seeker);
 bool remove_unknown_scid(struct seeker *seeker,
 			 const struct short_channel_id *scid);
 bool add_unknown_scid(struct seeker *seeker,
 		      const struct short_channel_id *scid);
-
-bool seeker_gossip(const struct seeker *seeker);
-
 #endif /* LIGHTNING_GOSSIPD_SEEKER_H */

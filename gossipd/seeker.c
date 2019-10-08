@@ -7,88 +7,231 @@
 #include <common/type_to_string.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/queries.h>
+#include <gossipd/routing.h>
 #include <gossipd/seeker.h>
+#include <wire/gen_peer_wire.h>
+
+#define GOSSIP_SEEKER_INTERVAL(seeker) \
+	DEV_FAST_GOSSIP((seeker)->daemon->rstate->dev_fast_gossip, 5, 60)
+
+enum seeker_state {
+	/* First initialized, no peers. */
+	STARTING_UP_NEED_PEER,
+
+	/* Still streaming gossip from single peer. */
+	STARTING_UP_FIRSTPEER,
+
+	/* Normal running. */
+	NORMAL,
+};
 
 /* Gossip we're seeking at the moment. */
 struct seeker {
-	/* Do we think we're missing gossip?  Contains timer to re-check */
-	struct oneshot *gossip_missing;
+	struct daemon *daemon;
+
+	enum seeker_state state;
+
+	/* Timer which checks on progress every minute */
+	struct oneshot *check_timer;
 
 	/* Channels we've heard about, but don't know. */
 	struct short_channel_id *unknown_scids;
+
+	/* Timestamp of gossip store (or 0). */
+	u32 last_gossip_timestamp;
+
+	/* During startup, we ask a single peer for gossip. */
+	struct peer *random_peer_softref;
+
+	/* This checks progress of our random peer during startup */
+	size_t prev_gossip_count;
 };
 
-struct seeker *new_seeker(struct daemon *daemon)
+/* Mutual recursion */
+static void seeker_check(struct seeker *seeker);
+
+static void begin_check_timer(struct seeker *seeker)
+{
+	const u32 polltime = GOSSIP_SEEKER_INTERVAL(seeker);
+
+	seeker->check_timer = new_reltimer(&seeker->daemon->timers,
+					   seeker,
+					   time_from_sec(polltime),
+					   seeker_check, seeker);
+}
+
+struct seeker *new_seeker(struct daemon *daemon, u32 timestamp)
 {
 	struct seeker *seeker = tal(daemon, struct seeker);
-	seeker->gossip_missing = NULL;
-	seeker->unknown_scids = tal_arr(seeker, struct short_channel_id, 0);
 
+	seeker->daemon = daemon;
+	seeker->unknown_scids = tal_arr(seeker, struct short_channel_id, 0);
+	seeker->last_gossip_timestamp = timestamp;
+	seeker->state = STARTING_UP_NEED_PEER;
+	begin_check_timer(seeker);
 	return seeker;
 }
 
-
-/*~ This is a timer, which goes off 10 minutes after the last time we noticed
- * that gossip was missing. */
-static void gossip_not_missing(struct daemon *daemon)
+/* Set this peer as our random peer; return false if NULL. */
+static bool selected_peer(struct seeker *seeker, struct peer *peer)
 {
-	struct seeker *seeker = daemon->seeker;
+	if (!peer)
+		return false;
 
-	/* Corner case: no peers, try again! */
-	if (list_empty(&daemon->peers))
-		gossip_missing(daemon, daemon->seeker);
-	else {
-		struct peer *peer;
+	set_softref(seeker, &seeker->random_peer_softref, peer);
 
-		seeker->gossip_missing = tal_free(seeker->gossip_missing);
-		status_info("We seem to be caught up on gossip messages");
-		/* Free any lagging/stale unknown scids. */
-		seeker->unknown_scids = tal_free(seeker->unknown_scids);
+	/* Give it some grace in case we immediately hit timer */
+	seeker->prev_gossip_count
+		= peer->gossip_counter - GOSSIP_SEEKER_INTERVAL(seeker);
+	return true;
+}
 
-		/* Reset peers we marked as HIGH */
-		list_for_each(&daemon->peers, peer, list) {
-			if (peer->gossip_level != GOSSIP_HIGH)
-				continue;
-			if (!peer->gossip_queries_feature)
-				continue;
-			peer->gossip_level = peer_gossip_level(daemon, true);
-			setup_gossip_range(peer);
+static bool peer_made_progress(struct seeker *seeker)
+{
+	const struct peer *peer = seeker->random_peer_softref;
+
+	/* Has it made progress (at least one valid update per second)?  If
+	 * not, we assume it's finished, and if it hasn't, we'll end up
+	 * querying backwards in next steps. */
+	if (peer->gossip_counter
+	    >= seeker->prev_gossip_count + GOSSIP_SEEKER_INTERVAL(seeker)) {
+		seeker->prev_gossip_count = peer->gossip_counter;
+		return true;
+	}
+
+	return false;
+}
+
+static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
+{
+	u32 start;
+	u8 *msg;
+
+	/* FIXME: gets the last minute of gossip, works around our current
+	 * lack of discovery if we're missing gossip. */
+	if (peer->gossip_enabled)
+		start = time_now().ts.tv_sec - 60;
+	else
+		start = UINT32_MAX;
+
+	status_debug("seeker: starting %s from %s",
+		     peer->gossip_enabled ? "gossip" : "disabled gossip",
+		     type_to_string(tmpctx, struct node_id, &peer->id));
+
+	/* This is allowed even if they don't understand it (odd) */
+	msg = towire_gossip_timestamp_filter(NULL,
+					     &seeker->daemon->chain_hash,
+					     start,
+					     UINT32_MAX);
+	queue_peer_msg(peer, take(msg));
+}
+
+/* We have selected this peer to stream us startup gossip */
+static void peer_gossip_startup(struct seeker *seeker, struct peer *peer)
+{
+	const u32 polltime = GOSSIP_SEEKER_INTERVAL(seeker);
+	u8 *msg;
+	u32 start;
+
+	if (seeker->last_gossip_timestamp < polltime)
+		start = 0;
+	else
+		start = seeker->last_gossip_timestamp - polltime;
+
+	selected_peer(seeker, peer);
+
+	status_debug("seeker: startup gossip from t=%u from %s",
+		     start, type_to_string(tmpctx, struct node_id, &peer->id));
+	msg = towire_gossip_timestamp_filter(NULL,
+					     &peer->daemon->chain_hash,
+					     start, UINT32_MAX);
+	queue_peer_msg(peer, take(msg));
+}
+
+static bool peer_has_gossip_queries(const struct peer *peer)
+{
+	return peer->gossip_queries_feature;
+}
+
+static void check_firstpeer(struct seeker *seeker)
+{
+	struct peer *peer = seeker->random_peer_softref, *p;
+
+	/* It might have died, pick another. */
+	if (!peer) {
+		status_debug("seeker: startup peer died, re-choosing");
+		peer = random_peer(seeker->daemon, peer_has_gossip_queries);
+		/* No peer?  Wait for a new one to join. */
+		if (!peer) {
+			status_debug("seeker: no peers, waiting");
+			seeker->state = STARTING_UP_NEED_PEER;
+			return;
 		}
+
+		peer_gossip_startup(seeker, peer);
+		return;
+	}
+
+	/* If no progress, we assume it's finished, and if it hasn't,
+	 * we'll end up querying backwards in next steps. */
+	if (peer_made_progress(seeker))
+		return;
+
+	/* Begin normal gossip regime */
+	status_debug("seeker: startup peer finished");
+	clear_softref(seeker, &seeker->random_peer_softref);
+	seeker->state = NORMAL;
+	list_for_each(&seeker->daemon->peers, p, list) {
+		if (p == peer)
+			continue;
+
+		normal_gossip_start(seeker, p);
 	}
 }
 
-static bool peer_is_not_gossip_high(const struct peer *peer)
+/* Periodic timer to see how our gossip is going. */
+static void seeker_check(struct seeker *seeker)
 {
-	return peer->gossip_level != GOSSIP_HIGH;
+	switch (seeker->state) {
+	case STARTING_UP_NEED_PEER:
+		break;
+	case STARTING_UP_FIRSTPEER:
+		check_firstpeer(seeker);
+		break;
+	case NORMAL:
+		/* FIXME: Check! */
+		break;
+	}
+
+	begin_check_timer(seeker);
+}
+
+/* We get this when we have a new peer. */
+void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
+{
+	/* Can't do anything useful with these peers. */
+	if (!peer->gossip_queries_feature)
+		return;
+
+	switch (seeker->state) {
+	case STARTING_UP_NEED_PEER:
+		peer_gossip_startup(seeker, peer);
+		seeker->state = STARTING_UP_FIRSTPEER;
+		return;
+	case STARTING_UP_FIRSTPEER:
+		/* Waiting for seeker_check to release us */
+		return;
+	case NORMAL:
+		normal_gossip_start(seeker, peer);
+		return;
+	}
+	abort();
 }
 
 /* We've found gossip is missing. */
 void gossip_missing(struct daemon *daemon, struct seeker *seeker)
 {
-	if (!seeker->gossip_missing) {
-		status_info("We seem to be missing gossip messages");
-		/* FIXME: we could use query_channel_range. */
-		/* Make some peers gossip harder. */
-		for (size_t i = 0; i < 3; i++) {
-			struct peer *peer = random_peer(daemon,
-							peer_is_not_gossip_high);
-
-			if (!peer)
-				break;
-
-			status_info("%s: gossip harder!",
-				    type_to_string(tmpctx, struct node_id,
-						   &peer->id));
-			peer->gossip_level = GOSSIP_HIGH;
-			setup_gossip_range(peer);
-		}
-	}
-
-	tal_free(seeker->gossip_missing);
-	/* Check again in 10 minutes. */
-	seeker->gossip_missing = new_reltimer(&daemon->timers, daemon,
-					       time_from_sec(600),
-					       gossip_not_missing, daemon);
+	/* FIXME */
 }
 
 bool remove_unknown_scid(struct seeker *seeker,
@@ -101,11 +244,6 @@ bool remove_unknown_scid(struct seeker *seeker,
 		}
 	}
 	return false;
-}
-
-bool seeker_gossip(const struct seeker *seeker)
-{
-	return seeker->gossip_missing != NULL;
 }
 
 bool add_unknown_scid(struct seeker *seeker,

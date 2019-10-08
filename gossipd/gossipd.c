@@ -72,13 +72,6 @@
 static bool suppress_gossip = false;
 #endif
 
-/* What are our targets for each gossip level? (including levels above).
- *
- * If we're missing gossip: 3 high.
- * Otherwise, 2 medium, and 8 low.  Rest no limit..
- */
-static const size_t gossip_level_targets[] = { 3, 2, 8, SIZE_MAX };
-
 /*~ A channel consists of a `struct half_chan` for each direction, each of
  * which has a `flags` word from the `channel_update`; bit 1 is
  * ROUTING_FLAGS_DISABLED in the `channel_update`.  But we also keep a local
@@ -154,55 +147,6 @@ void queue_peer_from_store(struct peer *peer,
 {
 	struct gossip_store *gs = peer->daemon->rstate->gs;
 	queue_peer_msg(peer, take(gossip_store_get(NULL, gs, bcast->index)));
-}
-
-/*~ We have different levels of gossipiness, depending on our needs. */
-static u32 gossip_start(const struct routing_state *rstate,
-			enum gossip_level gossip_level)
-{
-	switch (gossip_level) {
-	case GOSSIP_HIGH:
-		return 0;
-	case GOSSIP_MEDIUM:
-		return gossip_time_now(rstate).ts.tv_sec - 24 * 3600;
-	case GOSSIP_LOW:
-		return gossip_time_now(rstate).ts.tv_sec;
-	case GOSSIP_NONE:
-		return UINT32_MAX;
-	}
-	abort();
-}
-
-/* BOLT #7:
- *
- * A node:
- *   - if the `gossip_queries` feature is negotiated:
- * 	- MUST NOT relay any gossip messages unless explicitly requested.
- */
-void setup_gossip_range(struct peer *peer)
-{
-	u8 *msg;
-
-	/*~ Without the `gossip_queries` feature, gossip flows automatically. */
-	if (!peer->gossip_queries_feature) {
-		/* This peer is gossipy whether we want it or not! */
-		return;
-	}
-
-	status_debug("Setting peer %s to gossip level %s",
-		     type_to_string(tmpctx, struct node_id, &peer->id),
-		     peer->gossip_level == GOSSIP_HIGH ? "HIGH"
-		     : peer->gossip_level == GOSSIP_MEDIUM ? "MEDIUM"
-		     : peer->gossip_level == GOSSIP_LOW ? "LOW"
-		     : peer->gossip_level == GOSSIP_NONE ? "NONE"
-		     : "INVALID");
-	/*~ We need to ask for something to start the gossip flowing. */
-	msg = towire_gossip_timestamp_filter(peer,
-					     &peer->daemon->chain_hash,
-					     gossip_start(peer->daemon->rstate,
-							  peer->gossip_level),
-					     UINT32_MAX);
-	queue_peer_msg(peer, take(msg));
 }
 
 /*~ We don't actually keep node_announcements in memory; we keep them in
@@ -557,39 +501,22 @@ done:
 	return daemon_conn_read_next(conn, peer->dc);
 }
 
-/* What gossip level do we set for this to meet our target? */
-enum gossip_level peer_gossip_level(const struct daemon *daemon,
-				    bool gossip_queries_feature)
+/* If we have many peers, we don't ask them all to gossip. */
+static bool peer_should_gossip(const struct daemon *daemon)
 {
 	struct peer *peer;
-	size_t gossip_levels[ARRAY_SIZE(gossip_level_targets)];
-	enum gossip_level glevel;
-
-	/* Old peers always give us a flood. */
-	if (!gossip_queries_feature)
-		return GOSSIP_HIGH;
+	size_t n_gossipers = 0;
 
 #if DEVELOPER
 	/* Don't ask new peers for new gossip is dev-suppress-gossip has been set*/
 	if (suppress_gossip)
-	    return GOSSIP_NONE;
+		return false;
 #endif
 
-	/* Figure out how many we have at each level. */
-	memset(gossip_levels, 0, sizeof(gossip_levels));
 	list_for_each(&daemon->peers, peer, list)
-		gossip_levels[peer->gossip_level]++;
+		n_gossipers += peer->gossip_enabled;
 
-	/* If we're missing gossip, try to fill GOSSIP_HIGH */
-	if (seeker_gossip(daemon->seeker))
-		glevel = GOSSIP_HIGH;
-	else
-		glevel = GOSSIP_MEDIUM;
-
-	while (gossip_levels[glevel] >= gossip_level_targets[glevel])
-		glevel++;
-
-	return glevel;
+	return n_gossipers < 8;
 }
 
 /*~ This is where connectd tells us about a new peer, and we hand back an fd for
@@ -648,8 +575,9 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->query_channel_blocks = NULL;
 	peer->query_channel_range_cb = NULL;
 	peer->num_pings_outstanding = 0;
-	peer->gossip_level = peer_gossip_level(daemon,
-					       peer->gossip_queries_feature);
+	/* We can't disable gossip if it doesn't support queries! */
+	peer->gossip_enabled = peer_should_gossip(daemon)
+		|| !peer->gossip_queries_feature;
 
 	/* We keep a list so we can find peer by id */
 	list_add_tail(&peer->daemon->peers, &peer->list);
@@ -665,7 +593,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 
 	/* This sends the initial timestamp filter (wait until we're synced!). */
 	if (daemon->current_blockheight)
-		setup_gossip_range(peer);
+		seeker_setup_peer_gossip(daemon->seeker, peer);
 
 	/* BOLT #7:
 	 *
@@ -911,9 +839,6 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 
 	/* Load stored gossip messages */
 	timestamp = gossip_store_load(daemon->rstate, daemon->rstate->gs);
-	/* If gossip_store less than 24 hours old, say we're OK. */
-	if (timestamp < gossip_time_now(daemon->rstate).ts.tv_sec - 24*3600)
-		gossip_missing(daemon, daemon->seeker);
 
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
@@ -926,6 +851,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	notleak(new_reltimer(&daemon->timers, daemon,
 			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune) / 4),
 			     gossip_refresh_network, daemon));
+
+	/* Fire up the seeker! */
+	daemon->seeker = new_seeker(daemon, timestamp);
 
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -1354,7 +1282,7 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 		struct peer *peer;
 
 		list_for_each(&daemon->peers, peer, list)
-			setup_gossip_range(peer);
+			seeker_setup_peer_gossip(daemon->seeker, peer);
 	}
 
 	return daemon_conn_read_next(conn, daemon->master);
@@ -1724,7 +1652,6 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
-	daemon->seeker = new_seeker(daemon);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->node_announce_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
