@@ -1382,21 +1382,17 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	struct short_channel_id scid;
 	u8 *outscript;
 	struct amount_sat sat;
-	bool was_unknown;
+	bool good;
 
 	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &sat, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
-	/* Were we looking specifically for this? */
-	was_unknown = remove_unknown_scid(daemon->seeker, &scid);
-
 	/* Outscript is NULL if it's not an unspent output */
-	if (handle_pending_cannouncement(daemon, daemon->rstate,
-					 &scid, sat, outscript)
-	    && was_unknown) {
-		/* It was real: we're missing gossip. */
-		gossip_missing(daemon, daemon->seeker);
-	}
+	good = handle_pending_cannouncement(daemon, daemon->rstate,
+					    &scid, sat, outscript);
+
+	/* If we looking specifically for this, we no longer are. */
+	remove_unknown_scid(daemon->seeker, &scid, good);
 
 	/* Anywhere we might have announced a channel, we check if it's time to
 	 * announce ourselves (ie. if we just announced our own first channel) */
