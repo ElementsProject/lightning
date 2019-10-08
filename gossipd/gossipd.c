@@ -846,24 +846,34 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		local_disable_chan(daemon->rstate, c);
 }
 
-/* Mutual recursion, so we pre-declare this. */
-static void gossip_not_missing(struct daemon *daemon);
-
-/* Pick a random peer which is not already GOSSIP_HIGH. */
-static struct peer *random_peer_to_gossip(struct daemon *daemon)
+static struct peer *random_peer(struct daemon *daemon,
+				bool (*check_peer)(const struct peer *peer))
 {
 	u64 target = UINT64_MAX;
 	struct peer *best = NULL, *i;
 
 	/* Reservoir sampling */
 	list_for_each(&daemon->peers, i, list) {
-		u64 r = pseudorand_u64();
-		if (i->gossip_level != GOSSIP_HIGH && r <= target) {
+		u64 r;
+
+		if (!check_peer(i))
+			continue;
+
+		r = pseudorand_u64();
+		if (r <= target) {
 			best = i;
 			target = r;
 		}
 	}
 	return best;
+}
+
+/* Mutual recursion, so we pre-declare this. */
+static void gossip_not_missing(struct daemon *daemon);
+
+static bool peer_is_not_gossip_high(const struct peer *peer)
+{
+	return peer->gossip_level != GOSSIP_HIGH;
 }
 
 /*~ We've found gossip is missing. */
@@ -874,7 +884,8 @@ static void gossip_missing(struct daemon *daemon)
 		/* FIXME: we could use query_channel_range. */
 		/* Make some peers gossip harder. */
 		for (size_t i = 0; i < gossip_level_targets[GOSSIP_HIGH]; i++) {
-			struct peer *peer = random_peer_to_gossip(daemon);
+			struct peer *peer = random_peer(daemon,
+							peer_is_not_gossip_high);
 
 			if (!peer)
 				break;
