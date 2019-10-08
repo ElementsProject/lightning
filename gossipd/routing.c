@@ -1517,7 +1517,7 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		if (!routing_add_node_announcement(rstate,
 						   pna->node_announcement,
 						   pna->index,
-						   pna->peer_softref))
+						   pna->peer_softref, NULL))
 			status_unusual("pending node_announcement %s too old?",
 				       tal_hex(tmpctx, pna->node_announcement));
 		/* Never send this again. */
@@ -2390,7 +2390,8 @@ struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
-				   struct peer *peer)
+				   struct peer *peer,
+				   bool *was_unknown)
 {
 	struct node *node;
 	secp256k1_ecdsa_signature signature;
@@ -2399,6 +2400,9 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	u8 rgb_color[3];
 	u8 alias[32];
 	u8 *features, *addresses;
+
+	if (was_unknown)
+		*was_unknown = false;
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(msg))
@@ -2442,6 +2446,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		pna = pending_node_map_get(rstate->pending_node_map,
 					   &node_id);
 		if (!pna) {
+			if (was_unknown)
+				*was_unknown = true;
 			bad_gossip_order(msg, peer,
 					 type_to_string(tmpctx, struct node_id,
 							&node_id));
@@ -2525,7 +2531,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 }
 
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
-			     struct peer *peer)
+			     struct peer *peer, bool *was_unknown)
 {
 	u8 *serialized;
 	struct sha256_double hash;
@@ -2537,6 +2543,9 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
 	size_t len = tal_count(node_ann);
+
+	if (was_unknown)
+		*was_unknown = false;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized,
@@ -2613,7 +2622,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	}
 
 	/* May still fail, if we don't know the node. */
-	routing_add_node_announcement(rstate, serialized, 0, peer);
+	routing_add_node_announcement(rstate, serialized, 0, peer, was_unknown);
 	return NULL;
 }
 

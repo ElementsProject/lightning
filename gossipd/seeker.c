@@ -96,6 +96,10 @@ struct seeker {
 	u8 *nannounce_query_flags;
 	size_t nannounce_offset;
 
+	/* Are there any node_ids we didn't know?  Implies we're
+	 * missing channels. */
+	bool unknown_nodes;
+
 	/* Peers we've asked to stream us gossip */
 	struct peer *gossiper_softref[3];
 
@@ -148,6 +152,7 @@ struct seeker *new_seeker(struct daemon *daemon)
 	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++)
 		seeker->gossiper_softref[i] = NULL;
 	seeker->preferred_peer_softref = NULL;
+	seeker->unknown_nodes = false;
 	set_state(seeker, STARTING_UP);
 	begin_check_timer(seeker);
 	memleak_add_helper(seeker, memleak_help_seeker);
@@ -186,7 +191,12 @@ static struct peer *random_seeker(struct seeker *seeker,
 {
 	struct peer *peer = seeker->preferred_peer_softref;
 
-	if (peer && check_peer(peer)) {
+	/* 80% chance of immediately choosing a peer who reported the missing
+	 * stuff: they presumably can tell us more about it.  We don't
+	 * *always* choose it because it could be simply spamming us with
+	 * invalid announcements to get chosen, and we don't handle that case
+	 * well yet. */
+	if (peer && check_peer(peer) && pseudorand(5) != 0) {
 		clear_softref(seeker, &seeker->random_peer_softref);
 		return peer;
 	}
@@ -409,6 +419,7 @@ static bool seek_any_stale_scids(struct seeker *seeker)
 	return true;
 }
 
+/* We can't ask for channels by node_id, so probe at random */
 /* Returns true and sets first_blocknum and number_of_blocks if
  * there's more to find. */
 static bool next_block_range(struct seeker *seeker,
@@ -846,6 +857,16 @@ set_gossiper:
 	enable_gossip_stream(seeker, peer);
 }
 
+static bool seek_any_unknown_nodes(struct seeker *seeker)
+{
+	if (!seeker->unknown_nodes)
+		return false;
+
+	seeker->unknown_nodes = false;
+	probe_many_random_scids(seeker);
+	return true;
+}
+
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
 {
@@ -867,8 +888,9 @@ static void seeker_check(struct seeker *seeker)
 		break;
 	case NORMAL:
 		maybe_rotate_gossipers(seeker);
-		if (!seek_any_unknown_scids(seeker))
-			seek_any_stale_scids(seeker);
+		if (!seek_any_unknown_scids(seeker)
+		    && !seek_any_stale_scids(seeker))
+			seek_any_unknown_nodes(seeker);
 		break;
 	}
 
@@ -952,4 +974,11 @@ void query_unknown_channel(struct daemon *daemon,
 	/* Too many, or duplicate? */
 	if (!add_unknown_scid(daemon->seeker, id, peer))
 		return;
+}
+
+/* This peer told us about an unknown node.  Start probing it. */
+void query_unknown_node(struct seeker *seeker, struct peer *peer)
+{
+	seeker->unknown_nodes = true;
+	set_preferred_peer(seeker, peer);
 }
