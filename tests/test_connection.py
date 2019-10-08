@@ -1888,7 +1888,7 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
-def test_restart_many_payments(node_factory):
+def test_restart_many_payments(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
 
     # On my laptop, these take 74 seconds and 44 seconds (with restart commented out)
@@ -1911,31 +1911,20 @@ def test_restart_many_payments(node_factory):
         n.rpc.connect(l1.info['id'], 'localhost', l1.port)
         outchans.append(l1.fund_channel(n, 10**6, False))
 
+    # Make sure they're all announced.
+    bitcoind.generate_block(5)
+
+    # We wait for each node to see each dir active, and its own
+    # channel CHANNELD_NORMAL
+    logs = ([r'update for channel {}/0 now ACTIVE'.format(scid)
+             for scid in inchans + outchans]
+            + [r'update for channel {}/1 now ACTIVE'.format(scid)
+               for scid in inchans + outchans]
+            + ['to CHANNELD_NORMAL'])
+
     # Now do all the waiting at once: if !DEVELOPER, this can be *very* slow!
-    l1_logs = []
-    for i in range(len(innodes)):
-        scid = inchans[i]
-        l1_logs += [r'update for channel {}/0 now ACTIVE'.format(scid),
-                    r'update for channel {}/1 now ACTIVE'.format(scid),
-                    'to CHANNELD_NORMAL']
-        innodes[i].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
-                                         .format(scid),
-                                         r'update for channel {}/1 now ACTIVE'
-                                         .format(scid),
-                                         'to CHANNELD_NORMAL'])
-
-    for i in range(len(outnodes)):
-        scid = outchans[i]
-        l1_logs += [r'update for channel {}/0 now ACTIVE'.format(scid),
-                    r'update for channel {}/1 now ACTIVE'.format(scid),
-                    'to CHANNELD_NORMAL']
-        outnodes[i].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
-                                          .format(scid),
-                                          r'update for channel {}/1 now ACTIVE'
-                                          .format(scid),
-                                          'to CHANNELD_NORMAL'])
-
-    l1.daemon.wait_for_logs(l1_logs)
+    for n in innodes + outnodes:
+        n.daemon.wait_for_logs(logs)
 
     # Manually create routes, get invoices
     Payment = namedtuple('Payment', ['innode', 'route', 'payment_hash'])
