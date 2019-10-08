@@ -47,6 +47,9 @@ const u8 *gossip_store_get(const tal_t *ctx UNNEEDED,
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
+/* Generated stub for process_scids */
+void process_scids(struct daemon *daemon UNNEEDED, const struct short_channel_id *scids UNNEEDED)
+{ fprintf(stderr, "process_scids called!\n"); abort(); }
 /* Generated stub for queue_peer_from_store */
 void queue_peer_from_store(struct peer *peer UNNEEDED,
 			   const struct broadcastable *bcast UNNEEDED)

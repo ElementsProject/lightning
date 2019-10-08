@@ -64,18 +64,6 @@ struct daemon {
 	struct seeker *seeker;
 };
 
-/*~ How gossipy do we ask a peer to be? */
-enum gossip_level {
-	/* Give us everything since epoch */
-	GOSSIP_HIGH,
-	/* Give us everything from 24 hours ago. */
-	GOSSIP_MEDIUM,
-	/* Give us everything from now. */
-	GOSSIP_LOW,
-	/* Give us nothing. */
-	GOSSIP_NONE,
-};
-
 /* This represents each peer we're gossiping with */
 struct peer {
 	/* daemon->peers */
@@ -120,8 +108,8 @@ struct peer {
 				       const struct short_channel_id *scids,
 				       bool complete);
 
-	/* Are we asking this peer to give us lot of gossip? */
-	enum gossip_level gossip_level;
+	/* Are we asking this peer to give us gossip? */
+	bool gossip_enabled;
 
 	/* The daemon_conn used to queue messages to/from the peer. */
 	struct daemon_conn *dc;
@@ -137,10 +125,6 @@ void peer_supplied_good_gossip(struct peer *peer);
 struct peer *random_peer(struct daemon *daemon,
 			 bool (*check_peer)(const struct peer *peer));
 
-/* Extract gossip level for this peer */
-enum gossip_level peer_gossip_level(const struct daemon *daemon,
-				    bool gossip_queries_feature);
-
 /* Queue a gossip message for the peer: the subdaemon on the other end simply
  * forwards it to the peer. */
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
@@ -152,5 +136,8 @@ void queue_peer_from_store(struct peer *peer,
 
 /* Reset gossip range for this peer. */
 void setup_gossip_range(struct peer *peer);
+
+/* A peer has given us these short channel ids: see if we need to catch up */
+void process_scids(struct daemon *daemon, const struct short_channel_id *scids);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */
