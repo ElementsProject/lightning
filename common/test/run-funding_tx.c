@@ -184,6 +184,8 @@ int main(void)
 
 	utxomap = tal_arr(tmpctx, const struct utxo *, 1);
 	utxomap[0] = &utxo;
+
+	change = AMOUNT_SAT(0);
 	if (!amount_sat_sub(&change, utxo.amount, funding_sat)
 	    || !amount_sat_sub(&change, change, fee))
 		abort();
