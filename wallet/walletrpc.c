@@ -71,6 +71,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 					 "Error broadcasting transaction: %s. Unsent tx discarded",
 					 output));
 	}
+	tal_free(utx);
 }
 
 /* Signs the tx, broadcasts it: broadcast calls wallet_withdrawal_broadcast */
