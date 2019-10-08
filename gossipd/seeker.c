@@ -503,6 +503,7 @@ static void process_scid_probe(struct peer *peer,
 
 		query_channel_range(seeker->daemon, peer,
 				    first_blocknum, number_of_blocks,
+				    QUERY_ADD_TIMESTAMPS,
 				    process_scid_probe);
 		return;
 	}
@@ -537,6 +538,7 @@ static void peer_gossip_probe_scids(struct seeker *seeker)
 	query_channel_range(seeker->daemon, peer,
 			    seeker->scid_probe_start,
 			    seeker->scid_probe_end - seeker->scid_probe_start + 1,
+			    QUERY_ADD_TIMESTAMPS,
 			    process_scid_probe);
 	set_state(seeker, PROBING_SCIDS);
 }

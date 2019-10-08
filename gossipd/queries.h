@@ -18,11 +18,27 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg);
 /* This called when the peer is idle. */
 void maybe_send_query_responses(struct peer *peer);
 
+/* BOLT #7:
+ *
+ * `query_option_flags` is a bitfield represented as a minimally-encoded varint.
+ * Bits have the following meaning:
+ *
+ * | Bit Position  | Meaning                 |
+ * | ------------- | ----------------------- |
+ * | 0             | Sender wants timestamps |
+ * | 1             | Sender wants checksums  |
+ */
+enum query_option_flags {
+	QUERY_ADD_TIMESTAMPS = 0x1,
+	QUERY_ADD_CHECKSUMS = 0x2,
+};
+
 /* Ask this peer for a range of scids.  Must support it, and not already
  * have a query pending. */
 bool query_channel_range(struct daemon *daemon,
 			 struct peer *peer,
 			 u32 first_blocknum, u32 number_of_blocks,
+			 enum query_option_flags qflags,
 			 void (*cb)(struct peer *peer,
 				    u32 first_blocknum, u32 number_of_blocks,
 				    const struct short_channel_id *scids,
