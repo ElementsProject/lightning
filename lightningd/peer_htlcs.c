@@ -1392,7 +1392,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 
 	/* FIXME: Our wire generator can't handle optional elems in arrays,
 	 * so we translate all-zero-shared-secret to NULL. */
-	if (memeqzero(shared_secret, sizeof(shared_secret)))
+	if (memeqzero(shared_secret, sizeof(*shared_secret)))
 		shared_secret = NULL;
 
 	/* This stays around even if we fail it immediately: it *is*
