@@ -2,6 +2,7 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/tal.h>
+#include <common/memleak.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
@@ -31,6 +32,15 @@ enum seeker_state {
 	NORMAL,
 };
 
+/* Passthrough helper for HTABLE_DEFINE_TYPE */
+static const struct short_channel_id *scid_pass(const struct short_channel_id *s)
+{
+	return s;
+}
+
+HTABLE_DEFINE_TYPE(struct short_channel_id,
+		   scid_pass, hash_scid, short_channel_id_eq, scid_map);
+
 /* Gossip we're seeking at the moment. */
 struct seeker {
 	struct daemon *daemon;
@@ -41,7 +51,7 @@ struct seeker {
 	struct oneshot *check_timer;
 
 	/* Channels we've heard about, but don't know. */
-	struct short_channel_id *unknown_scids;
+	struct scid_map unknown_scids;
 
 	/* Range of scid blocks we've probed. */
 	size_t scid_probe_start, scid_probe_end;
@@ -69,15 +79,24 @@ static void begin_check_timer(struct seeker *seeker)
 					   seeker_check, seeker);
 }
 
+#if DEVELOPER
+static void memleak_help_seeker(struct htable *memtable,
+				struct seeker *seeker)
+{
+	memleak_remove_htable(memtable, &seeker->unknown_scids.raw);
+}
+#endif /* DEVELOPER */
+
 struct seeker *new_seeker(struct daemon *daemon, u32 timestamp)
 {
 	struct seeker *seeker = tal(daemon, struct seeker);
 
 	seeker->daemon = daemon;
-	seeker->unknown_scids = tal_arr(seeker, struct short_channel_id, 0);
+	scid_map_init(&seeker->unknown_scids);
 	seeker->last_gossip_timestamp = timestamp;
 	seeker->state = STARTING_UP_NEED_PEER;
 	begin_check_timer(seeker);
+	memleak_add_helper(seeker, memleak_help_seeker);
 	return seeker;
 }
 
@@ -133,6 +152,29 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
 					     start,
 					     UINT32_MAX);
 	queue_peer_msg(peer, take(msg));
+}
+
+/* Turn unknown_scids map into a flat array. */
+static struct short_channel_id *unknown_scids_arr(const tal_t *ctx,
+						  const struct seeker *seeker)
+{
+	const struct scid_map *map = &seeker->unknown_scids;
+	struct short_channel_id *scids, *s;
+	size_t i, max;
+	struct scid_map_iter it;
+
+	/* Marshal into an array: we can fit 8000 comfortably. */
+	if (scid_map_count(map) < 8000)
+		max = scid_map_count(map);
+	else
+		max = 8000;
+
+	scids = tal_arr(ctx, struct short_channel_id, max);
+	i = 0;
+	for (s = scid_map_first(map, &it); i < max; s = scid_map_next(map, &it))
+		scids[i++] = *s;
+	assert(i == tal_count(scids));
+	return scids;
 }
 
 /* We have selected this peer to stream us startup gossip */
@@ -383,20 +425,17 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 	abort();
 }
 
-/* We've found gossip is missing. */
-void gossip_missing(struct daemon *daemon, struct seeker *seeker)
-{
-	/* FIXME */
-}
-
 bool remove_unknown_scid(struct seeker *seeker,
-			 const struct short_channel_id *scid)
+			 const struct short_channel_id *scid,
+			 bool found /*FIXME: use this info!*/)
 {
-	for (size_t i = 0; i < tal_count(seeker->unknown_scids); i++) {
-		if (short_channel_id_eq(&seeker->unknown_scids[i], scid)) {
-			tal_arr_remove(&seeker->unknown_scids, i);
-			return true;
-		}
+	struct short_channel_id *unknown;
+
+	unknown = scid_map_get(&seeker->unknown_scids, scid);
+	if (unknown) {
+		scid_map_del(&seeker->unknown_scids, unknown);
+		tal_free(unknown);
+		return true;
 	}
 	return false;
 }
@@ -404,16 +443,12 @@ bool remove_unknown_scid(struct seeker *seeker,
 bool add_unknown_scid(struct seeker *seeker,
 		      const struct short_channel_id *scid)
 {
-	/* Don't go overboard if we're already asking for a lot. */
-	if (tal_count(seeker->unknown_scids) > 1000)
+	/* Check we're not already getting this one. */
+	if (scid_map_get(&seeker->unknown_scids, scid))
 		return false;
 
-	/* Check we're not already getting this one. */
-	for (size_t i = 0; i < tal_count(seeker->unknown_scids); i++)
-		if (short_channel_id_eq(&seeker->unknown_scids[i], scid))
-			return false;
-
-	tal_arr_expand(&seeker->unknown_scids, *scid);
+	scid_map_add(&seeker->unknown_scids,
+		     tal_dup(seeker, struct short_channel_id, scid));
 	return true;
 }
 
@@ -428,6 +463,7 @@ void query_unknown_channel(struct daemon *daemon,
 		return;
 
 	/* This is best effort: if peer is busy, we'll try next time. */
-	query_short_channel_ids(daemon, peer, daemon->seeker->unknown_scids,
+	query_short_channel_ids(daemon, peer,
+				unknown_scids_arr(tmpctx, daemon->seeker),
 				NULL);
 }
