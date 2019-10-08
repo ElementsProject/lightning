@@ -53,6 +53,25 @@ static const struct short_channel_id *scid_pass(const struct short_channel_id *s
 HTABLE_DEFINE_TYPE(struct short_channel_id,
 		   scid_pass, hash_scid, short_channel_id_eq, scid_map);
 
+/* A channel we have old timestamp(s) for */
+struct stale_scid {
+	struct short_channel_id scid;
+	u8 query_flag;
+};
+
+static const struct short_channel_id *stale_scid_key(const struct stale_scid *s)
+{
+	return &s->scid;
+}
+
+static bool stale_scid_eq_key(const struct stale_scid *s,
+			      const struct short_channel_id *scid)
+{
+	return short_channel_id_eq(&s->scid, scid);
+}
+HTABLE_DEFINE_TYPE(struct stale_scid,
+		   stale_scid_key, hash_scid, stale_scid_eq_key, stale_scid_map);
+
 /* Gossip we're seeking at the moment. */
 struct seeker {
 	struct daemon *daemon;
@@ -64,6 +83,9 @@ struct seeker {
 
 	/* Channels we've heard about, but don't know. */
 	struct scid_map unknown_scids;
+
+	/* Channels we've heard about newer timestamps for. */
+	struct stale_scid_map stale_scids;
 
 	/* Range of scid blocks we've probed. */
 	size_t scid_probe_start, scid_probe_end;
@@ -106,6 +128,7 @@ static void memleak_help_seeker(struct htable *memtable,
 				struct seeker *seeker)
 {
 	memleak_remove_htable(memtable, &seeker->unknown_scids.raw);
+	memleak_remove_htable(memtable, &seeker->stale_scids.raw);
 }
 #endif /* DEVELOPER */
 
@@ -125,6 +148,7 @@ struct seeker *new_seeker(struct daemon *daemon, u32 timestamp)
 
 	seeker->daemon = daemon;
 	scid_map_init(&seeker->unknown_scids);
+	stale_scid_map_init(&seeker->stale_scids);
 	seeker->last_gossip_timestamp = timestamp;
 	set_state(seeker, STARTING_UP_NEED_PEER);
 	begin_check_timer(seeker);
@@ -469,6 +493,51 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 			      tal_count(seeker->nannounce_scids));
 }
 
+/* They have update with this timestamp: do we want it? */
+static bool want_update(u32 timestamp, const struct half_chan *hc)
+{
+	if (!is_halfchan_defined(hc))
+		return timestamp != 0;
+
+	return timestamp > hc->bcast.timestamp;
+}
+
+/* They gave us timestamps.  Do we need updated versions? */
+static void check_timestamps(struct seeker *seeker,
+			     struct chan *c,
+			     const struct channel_update_timestamps *ts)
+{
+	struct stale_scid *stale;
+	u8 query_flag = 0;
+
+	/* BOLT #7:
+	 * * `timestamp_node_id_1` is the timestamp of the `channel_update`
+	 *    for `node_id_1`, or 0 if there was no `channel_update` from that
+	 *    node.
+	 * * `timestamp_node_id_2` is the timestamp of the `channel_update`
+	 *    for `node_id_2`, or 0 if there was no `channel_update` from that
+	 *    node.
+	 */
+	if (want_update(ts->timestamp_node_id_1, &c->half[0]))
+		query_flag |= SCID_QF_UPDATE1;
+	if (want_update(ts->timestamp_node_id_2, &c->half[1]))
+		query_flag |= SCID_QF_UPDATE2;
+
+	if (!query_flag)
+		return;
+
+	/* Add in flags if we're already getting it. */
+	stale = stale_scid_map_get(&seeker->stale_scids, &c->scid);
+	if (stale)
+		stale->query_flag |= query_flag;
+	else {
+		stale = tal(seeker, struct stale_scid);
+		stale->scid = c->scid;
+		stale->query_flag = query_flag;
+		stale_scid_map_add(&seeker->stale_scids, stale);
+	}
+}
+
 static void process_scid_probe(struct peer *peer,
 			       u32 first_blocknum, u32 number_of_blocks,
 			       const struct short_channel_id *scids,
@@ -486,8 +555,11 @@ static void process_scid_probe(struct peer *peer,
 
 	for (size_t i = 0; i < tal_count(scids); i++) {
 		struct chan *c = get_channel(seeker->daemon->rstate, &scids[i]);
-		if (c)
+		if (c) {
+			if (ts)
+				check_timestamps(seeker, c, ts+i);
 			continue;
+		}
 
 		new_unknown_scids |= add_unknown_scid(seeker, &scids[i]);
 	}
