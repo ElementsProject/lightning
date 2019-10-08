@@ -74,13 +74,9 @@ static u8 *zencode(const tal_t *ctx, const u8 *scids, size_t len)
 	z = tal_arr(ctx, u8, compressed_len);
 	err = compress2(z, &compressed_len, scids, len, Z_DEFAULT_COMPRESSION);
 	if (err == Z_OK) {
-		status_debug("compressed %zu into %lu",
-			     len, compressed_len);
 		tal_resize(&z, compressed_len);
 		return z;
 	}
-	status_debug("compress %zu returned %i:"
-		     " not compresssing", len, err);
 	return NULL;
 }
 
