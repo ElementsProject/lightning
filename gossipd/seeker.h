@@ -6,7 +6,7 @@ struct daemon;
 struct peer;
 struct short_channel_id;
 
-struct seeker *new_seeker(struct daemon *daemon, u32 timestamp);
+struct seeker *new_seeker(struct daemon *daemon);
 
 void query_unknown_channel(struct daemon *daemon,
 			   struct peer *peer,

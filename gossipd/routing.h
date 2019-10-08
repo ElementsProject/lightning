@@ -292,6 +292,9 @@ struct routing_state {
         /* A map of local channels by short_channel_ids */
 	struct local_chan_map local_chan_map;
 
+	/* Highest timestamp of gossip we accepted (before now) */
+	u32 last_timestamp;
+
 #if DEVELOPER
 	/* Override local time for gossip messages */
 	struct timeabs *gossip_time;

@@ -85,9 +85,6 @@ struct seeker {
 	/* Range of scid blocks we've probed. */
 	size_t scid_probe_start, scid_probe_end;
 
-	/* Timestamp of gossip store (or 0). */
-	u32 last_gossip_timestamp;
-
 	/* During startup, we ask a single peer for gossip. */
 	struct peer *random_peer_softref;
 
@@ -136,14 +133,13 @@ static void set_state_(struct seeker *seeker, enum seeker_state state,
 	seeker->state = state;
 }
 
-struct seeker *new_seeker(struct daemon *daemon, u32 timestamp)
+struct seeker *new_seeker(struct daemon *daemon)
 {
 	struct seeker *seeker = tal(daemon, struct seeker);
 
 	seeker->daemon = daemon;
 	scid_map_init(&seeker->unknown_scids);
 	stale_scid_map_init(&seeker->stale_scids);
-	seeker->last_gossip_timestamp = timestamp;
 	seeker->random_peer_softref = NULL;
 	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++)
 		seeker->gossiper_softref[i] = NULL;
@@ -202,12 +198,15 @@ static void disable_gossip_stream(struct seeker *seeker, struct peer *peer)
 
 static void enable_gossip_stream(struct seeker *seeker, struct peer *peer)
 {
-	u32 start;
+	/* We seek some way back, to take into account propagation time */
+	const u32 polltime = GOSSIP_SEEKER_INTERVAL(seeker) * 10;
+	u32 start = seeker->daemon->rstate->last_timestamp;
 	u8 *msg;
 
-	/* FIXME: gets the last minute of gossip, works around our current
-	 * lack of discovery if we're missing gossip. */
-	start = time_now().ts.tv_sec - 60;
+	if (start > polltime)
+		start -= polltime;
+	else
+		start = 0;
 
 	status_debug("seeker: starting gossip from %s",
 		     type_to_string(tmpctx, struct node_id, &peer->id));
@@ -265,23 +264,8 @@ static struct short_channel_id *unknown_scids_arr(const tal_t *ctx,
 /* We have selected this peer to stream us startup gossip */
 static void peer_gossip_startup(struct seeker *seeker, struct peer *peer)
 {
-	const u32 polltime = GOSSIP_SEEKER_INTERVAL(seeker);
-	u8 *msg;
-	u32 start;
-
-	if (seeker->last_gossip_timestamp < polltime)
-		start = 0;
-	else
-		start = seeker->last_gossip_timestamp - polltime;
-
 	selected_peer(seeker, peer);
-
-	status_debug("seeker: startup gossip from t=%u from %s",
-		     start, type_to_string(tmpctx, struct node_id, &peer->id));
-	msg = towire_gossip_timestamp_filter(NULL,
-					     &peer->daemon->chain_hash,
-					     start, UINT32_MAX);
-	queue_peer_msg(peer, take(msg));
+	normal_gossip_start(seeker, peer);
 }
 
 static bool peer_has_gossip_queries(const struct peer *peer)

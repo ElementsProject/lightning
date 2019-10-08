@@ -298,6 +298,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
 	rstate->local_channel_announced = false;
+	rstate->last_timestamp = 0;
 
 	pending_cannouncement_map_init(&rstate->pending_cannouncements);
 
@@ -2183,6 +2184,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			= gossip_store_add(rstate->gs, update,
 					   hc->bcast.timestamp,
 					   NULL);
+		if (hc->bcast.timestamp > rstate->last_timestamp
+		    && hc->bcast.timestamp < time_now().ts.tv_sec)
+			rstate->last_timestamp = hc->bcast.timestamp;
+
 		peer_supplied_good_gossip(peer, 1);
 	}
 
@@ -2504,6 +2509,10 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			    WIRE_NODE_ANNOUNCEMENT);
 
 	node->bcast.timestamp = timestamp;
+	if (node->bcast.timestamp > rstate->last_timestamp
+	    && node->bcast.timestamp < time_now().ts.tv_sec)
+		rstate->last_timestamp = node->bcast.timestamp;
+
 	if (index)
 		node->bcast.index = index;
 	else {
