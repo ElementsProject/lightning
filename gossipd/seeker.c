@@ -472,6 +472,7 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 static void process_scid_probe(struct peer *peer,
 			       u32 first_blocknum, u32 number_of_blocks,
 			       const struct short_channel_id *scids,
+			       const struct channel_update_timestamps *ts,
 			       bool complete)
 {
 	struct seeker *seeker = peer->daemon->seeker;

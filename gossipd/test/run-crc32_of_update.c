@@ -13,6 +13,10 @@ struct io_plan *daemon_conn_read_next(struct io_conn *conn UNNEEDED,
 /* Generated stub for daemon_conn_wake */
 void daemon_conn_wake(struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_wake called!\n"); abort(); }
+/* Generated stub for decode_channel_update_timestamps */
+struct channel_update_timestamps *decode_channel_update_timestamps(const tal_t *ctx UNNEEDED,
+				 const struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv UNNEEDED)
+{ fprintf(stderr, "decode_channel_update_timestamps called!\n"); abort(); }
 /* Generated stub for decode_scid_query_flags */
 bigsize_t *decode_scid_query_flags(const tal_t *ctx UNNEEDED,
 				   const struct tlv_query_short_channel_ids_tlvs_query_flags *qf UNNEEDED)

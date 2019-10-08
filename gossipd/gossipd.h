@@ -15,6 +15,7 @@
 #define CONNECTD_FD 4
 
 struct chan;
+struct channel_update_timestamps;
 struct broadcastable;
 struct seeker;
 
@@ -103,9 +104,11 @@ struct peer {
 	u32 range_first_blocknum, range_end_blocknum;
 	u32 range_blocks_remaining;
 	struct short_channel_id *query_channel_scids;
+	struct channel_update_timestamps *query_channel_timestamps;
 	void (*query_channel_range_cb)(struct peer *peer,
 				       u32 first_blocknum, u32 number_of_blocks,
 				       const struct short_channel_id *scids,
+				       const struct channel_update_timestamps *,
 				       bool complete);
 
 	/* Are we asking this peer to give us gossip? */
