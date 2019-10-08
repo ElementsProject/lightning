@@ -111,9 +111,6 @@ struct peer {
 				       const struct channel_update_timestamps *,
 				       bool complete);
 
-	/* Are we asking this peer to give us gossip? */
-	bool gossip_enabled;
-
 	/* The daemon_conn used to queue messages to/from the peer. */
 	struct daemon_conn *dc;
 };
