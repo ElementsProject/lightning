@@ -938,8 +938,8 @@ def test_funding_by_utxos(node_factory, bitcoind):
 
 
 def test_funding_external_wallet_corners(node_factory, bitcoind):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
 
     amount = 2**24
     l1.fundwallet(amount + 10000000)
@@ -991,13 +991,43 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
     # Be sure fundchannel_complete is successful
     assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
-    # Canceld channel after fundchannel_complete
+
+    # Peer should not be allowed to cancel channel
+    with pytest.raises(RpcError, match=r'Cannot cancel channel that was initiated by peer'):
+        l2.rpc.fundchannel_cancel(l1.info['id'])
+
+    l2.rpc.stop()
+    wait_for(lambda: not only_one(l1.rpc.listpeers()['peers'])['connected'])
+
+    # Initiator can cancel after fundchannel_complete, while peer is offline
     assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
+    assert len(l1.rpc.listpeers()['peers']) == 0
+
+    # Try again
+    l2.start()
+    # Node 2 still has channel
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+
+    # On reconnect, channel gets destroyed
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log('Rejecting WIRE_CHANNEL_REESTABLISH for unknown channel_id')
+    l2.daemon.wait_for_log('No burnable utxos found, deleting channel')
+    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
-    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
-    l1.rpc.txsend(prep['txid'])
+    l1.rpc.fundchannel_start(l2.info['id'], amount2)['funding_address']
+    complete = l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)
+    assert complete['commitments_secured']
+
+    # API is different for v2 of channel open
+    if 'txid' in complete:
+        txid = complete['txid']
+    else:
+        txid = prep['txid']
+
+    l1.rpc.txsend(txid)
     with pytest.raises(RpcError, match=r'.* been broadcast.*'):
         l1.rpc.fundchannel_cancel(l2.info['id'])
     l1.rpc.close(l2.info['id'])
