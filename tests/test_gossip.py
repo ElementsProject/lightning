@@ -6,6 +6,7 @@ from utils import wait_for, TIMEOUT, only_one, sync_blockheight
 
 import json
 import logging
+import math
 import os
 import pytest
 import struct
@@ -160,7 +161,8 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
 
     msgs = l1.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           '0', '0xFFFFFFFF')
+                           '0', '0xFFFFFFFF',
+                           filters=['0109'])
 
     # 0x0100 = channel_announcement
     # 0x0102 = channel_update
@@ -172,14 +174,16 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     # Now timestamp which doesn't overlap (gives nothing).
     msgs = l1.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           '0', before_anything - backdate)
+                           '0', before_anything - backdate,
+                           filters=['0109'])
     assert msgs == []
 
     # Now choose range which will only give first update.
     msgs = l1.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
                            before_anything - backdate,
-                           after_12 - before_anything + 1)
+                           after_12 - before_anything + 1,
+                           filters=['0109'])
 
     # 0x0100 = channel_announcement
     # 0x0102 = channel_update
@@ -192,7 +196,8 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     msgs = l1.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
                            after_12 - backdate,
-                           after_23 - after_12 + 1)
+                           after_23 - after_12 + 1,
+                           filters=['0109'])
 
     # 0x0100 = channel_announcement
     # 0x0102 = channel_update
@@ -570,7 +575,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Asks l2 for all channels, gets both.
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           0, 1000000)
+                           0, 1000000,
+                           filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
                              check=True,
                              timeout=TIMEOUT,
@@ -588,7 +594,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Does not include scid12
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           0, block12)
+                           0, block12,
+                           filters=['0109'])
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
@@ -601,7 +608,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Does include scid12
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           0, block12 + 1)
+                           0, block12 + 1,
+                           filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12],
                              check=True,
                              timeout=TIMEOUT,
@@ -619,7 +627,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Doesn't include scid23
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           0, block23)
+                           0, block23,
+                           filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12],
                              check=True,
                              timeout=TIMEOUT,
@@ -637,7 +646,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Does include scid23
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           block12, block23 - block12 + 1)
+                           block12, block23 - block12 + 1,
+                           filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
                              check=True,
                              timeout=TIMEOUT,
@@ -655,7 +665,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Only includes scid23
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           block23, 1)
+                           block23, 1,
+                           filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid23],
                              check=True,
                              timeout=TIMEOUT,
@@ -673,7 +684,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Past both
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           block23 + 1, 1000000)
+                           block23 + 1, 1000000,
+                           filters=['0109'])
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
@@ -689,7 +701,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           0, 1000000)
+                           0, 1000000,
+                           filters=['0109'])
     # It should definitely have split
     l2.daemon.wait_for_log('queue_channel_ranges full: splitting')
     # Turns out it sends: 0+53, 53+26, 79+13, 92+7, 99+3, 102+2, 104+1, 105+999895
@@ -715,7 +728,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # Test overflow case doesn't split forever; should still only get 8 for this
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           1, 429496000)
+                           1, 429496000,
+                           filters=['0109'])
     assert len(msgs) == 8
 
     # This should actually be large enough for zlib to kick in!
@@ -730,7 +744,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     msgs = l2.query_gossip('query_channel_range',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           0, 65535)
+                           0, 65535,
+                           filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '01', scid12, scid23, scid34],
                              check=True,
                              timeout=TIMEOUT,
@@ -814,7 +829,9 @@ def test_query_short_channel_id(node_factory, bitcoind):
 
     msgs = l1.query_gossip('query_short_channel_ids',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           encoded)
+                           encoded,
+                           filters=['0109'])
+
     # Should just get the WIRE_REPLY_SHORT_CHANNEL_IDS_END = 262
     # (with chainhash and completeflag = 1)
     assert len(msgs) == 1
@@ -835,7 +852,8 @@ def test_query_short_channel_id(node_factory, bitcoind):
                              stdout=subprocess.PIPE).stdout.strip().decode()
     msgs = l1.query_gossip('query_short_channel_ids',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           encoded)
+                           encoded,
+                           filters=['0109'])
 
     assert len(msgs) == 6
     # 0x0100 = channel_announcement
@@ -854,7 +872,8 @@ def test_query_short_channel_id(node_factory, bitcoind):
                              stdout=subprocess.PIPE).stdout.strip().decode()
     msgs = l1.query_gossip('query_short_channel_ids',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
-                           encoded)
+                           encoded,
+                           filters=['0109'])
 
     # Technically, this order could be different, but this matches code.
     assert len(msgs) == 10
@@ -1023,21 +1042,30 @@ def test_node_reannounce(node_factory, bitcoind):
     time.sleep(5)
     l1.start()
 
-    # Wait for l1 to send us its own node_announcement.
-    nannouncement = l2.daemon.wait_for_log(r'{}.*\[IN\] 0101.*{}'.format(l1.info['id'], l1.info['id'])).split('[IN] ')[1]
     wait_for(lambda: only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'] == 'SENIORBEAM')
 
-    # Restart should re-xmit exact same update on reconnect, but make sure
-    # l2 doesn't send it first!
-    l1.stop()
-    l2.stop()
-    os.remove(os.path.join(l2.daemon.lightning_dir, 'gossip_store'))
-    l2.start()
-    l1.start()
+    # Get node_announcements.
+    msgs = l1.query_gossip('gossip_timestamp_filter',
+                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           '0', '0xFFFFFFFF',
+                           # Filter out gossip_timestamp_filter,
+                           # channel_announcement and channel_updates.
+                           filters=['0109', '0102', '0100'])
 
-    # l1 should retransmit it exactly the same (no timestamp change!)
-    l2.daemon.wait_for_log(r'{}.*\[IN\] {}'.format(l1.info['id'], nannouncement))
+    assert len(msgs) == 2
+    assert (bytes("SENIORBEAM", encoding="utf8").hex() in msgs[0]
+            or bytes("SENIORBEAM", encoding="utf8").hex() in msgs[1])
 
+    # Restart should re-xmit exact same update on reconnect!
+    l1.restart()
+
+    msgs2 = l1.query_gossip('gossip_timestamp_filter',
+                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                            '0', '0xFFFFFFFF',
+                            # Filter out gossip_timestamp_filter,
+                            # channel_announcement and channel_updates.
+                            filters=['0109', '0102', '0100'])
+    assert msgs == msgs2
     # Won't have queued up another one, either.
     assert not l1.daemon.is_in_log('node_announcement: delaying')
 
@@ -1047,7 +1075,7 @@ def test_gossipwith(node_factory):
 
     out = subprocess.run(['devtools/gossipwith',
                           '--initial-sync',
-                          '--max-messages=5',
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) * 1000)),
                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                          check=True,
                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
@@ -1055,10 +1083,11 @@ def test_gossipwith(node_factory):
     num_msgs = 0
     while len(out):
         l, t = struct.unpack('>HH', out[0:4])
-        # channel_announcement node_announcement or channel_update
-        assert t == 256 or t == 257 or t == 258
+        # channel_announcement node_announcement, channel_update or timestamp_filter
+        assert t == 256 or t == 257 or t == 258 or t == 265
         out = out[2 + l:]
-        num_msgs += 1
+        if t != 265:
+            num_msgs += 1
 
     # one channel announcement, two channel_updates, two node announcements.
     assert num_msgs == 5
