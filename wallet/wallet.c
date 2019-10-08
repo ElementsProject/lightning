@@ -317,6 +317,50 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	return results;
 }
 
+const struct utxo **wallet_get_burnable_utxos_for_channel(const tal_t *ctx,
+							  struct wallet *w,
+							  struct channel *c)
+{
+	const struct utxo **results;
+	size_t i;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey"
+					", shared_at_height"
+					" FROM outputs WHERE status=?"
+					" AND channel_id = ?;"));
+	db_bind_int(stmt, 0, output_status_in_db(output_state_shared));
+	db_bind_int(stmt, 1, c->dbid);
+	if (!db_query_prepared(stmt))
+		fatal("%s", stmt->error);
+
+	results = tal_arr(ctx, const struct utxo*, 0);
+	for (i=0; db_step(stmt); i++) {
+		struct utxo *u = wallet_stmt2output(results, stmt);
+		tal_arr_expand(&results, u);
+	}
+	tal_free(stmt);
+
+	if (tal_count(results) == 0) {
+		tal_free(results);
+		return NULL;
+	}
+
+	return results;
+}
+
 const struct utxo **wallet_get_burnable_utxos(const tal_t *ctx, struct wallet *w,
 					u32 current_height)
 {

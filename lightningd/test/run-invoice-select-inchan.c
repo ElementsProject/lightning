@@ -499,6 +499,11 @@ void wallet_channeltxs_add(struct wallet *w UNNEEDED, struct channel *chan UNNEE
 			    const int type UNNEEDED, const struct bitcoin_txid *txid UNNEEDED,
 			   const u32 input_num UNNEEDED, const u32 blockheight UNNEEDED)
 { fprintf(stderr, "wallet_channeltxs_add called!\n"); abort(); }
+/* Generated stub for wallet_get_burnable_utxos_for_channel */
+const struct utxo **wallet_get_burnable_utxos_for_channel(const tal_t *ctx UNNEEDED,
+							  struct wallet *w UNNEEDED,
+							  struct channel *c UNNEEDED)
+{ fprintf(stderr, "wallet_get_burnable_utxos_for_channel called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_for_channel */
 bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
 				   struct channel *chan UNNEEDED,

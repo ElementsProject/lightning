@@ -403,6 +403,14 @@ const struct channel **wallet_get_channel_burnlist(const tal_t *ctx, struct wall
 						    u32 tip_height);
 
 /**
+ * wallet_get_burnable_utxos_for_channel - Get shared utxos for a channel
+ *
+ * Returns NULL if no utxos have been shared for this channel.
+ */
+const struct utxo **wallet_get_burnable_utxos_for_channel(const tal_t *ctx,
+							  struct wallet *w,
+							  struct channel *c);
+/**
  * wallet_get_burnable_utxos - Retrieve any shared utxos with shared_at_height
  * less than or equal to current_height - UTXO_BURN_HEIGHT
  *
