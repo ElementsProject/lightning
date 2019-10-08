@@ -809,7 +809,7 @@ class LightningNode(object):
 
         wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
 
-    def query_gossip(self, querytype, *args):
+    def query_gossip(self, querytype, *args, filters=[]):
         """Generate a gossip query, feed it into this node and get responses
         in hex"""
         query = subprocess.run(['devtools/mkquery',
@@ -825,10 +825,18 @@ class LightningNode(object):
                              check=True,
                              timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
 
+        def passes_filters(hmsg, filters):
+            for f in filters:
+                if hmsg.startswith(f):
+                    return False
+            return True
+
         msgs = []
         while len(out):
             length = struct.unpack('>H', out[0:2])[0]
-            msgs.append(out[2:2 + length].hex())
+            hmsg = out[2:2 + length].hex()
+            if passes_filters(hmsg, filters):
+                msgs.append(out[2:2 + length].hex())
             out = out[2 + length:]
         return msgs
 
