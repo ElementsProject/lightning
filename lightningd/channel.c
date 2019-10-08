@@ -18,6 +18,7 @@
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <wallet/burn_unit.h>
 #include <wire/wire_sync.h>
 
 static bool connects_to_peer(struct subd *owner)
@@ -408,6 +409,8 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 	va_list ap;
 	char *why;
 	struct channel_id cid;
+	const struct utxo **utxos;
+	struct wallet *w;
 
 	assert(channel->opener == REMOTE &&
 	       channel->state == CHANNELD_AWAITING_LOCKIN);
@@ -424,6 +427,15 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 				  &channel->funding_txid,
 				  channel->funding_outnum);
 		channel->error = towire_errorfmt(channel, &cid, "%s", why);
+	}
+
+	w = channel->peer->ld->wallet;
+	utxos = wallet_get_burnable_utxos_for_channel(channel, w, channel);
+	if (utxos) {
+		burn_channel_utxos(w, utxos);
+	} else {
+		log_info(channel->log, "No burnable utxos found, deleting channel");
+		tal_free(utxos);
 	}
 
 	delete_channel(channel);

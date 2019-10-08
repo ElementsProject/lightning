@@ -40,6 +40,10 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 				 int exitstatus UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
+/* Generated stub for burn_channel_utxos */
+void burn_channel_utxos(struct wallet *w UNNEEDED,
+			const struct utxo **utxos UNNEEDED)
+{ fprintf(stderr, "burn_channel_utxos called!\n"); abort(); }
 /* Generated stub for channel_tell_depth */
 bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 				 struct channel *channel UNNEEDED,
