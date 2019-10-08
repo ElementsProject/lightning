@@ -392,9 +392,11 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 			  struct peer *peer,
 			  struct short_channel_id *unknown_scid);
 
-/* Returns NULL if all OK, otherwise an error for the peer which sent. */
+/* Returns NULL if all OK, otherwise an error for the peer which sent.
+ * If was_unknown is not NULL, sets it to true if that was the reason for
+ * the error: the node was unknown to us. */
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node,
-			     struct peer *peer);
+			     struct peer *peer, bool *was_unknown);
 
 /* Get a node: use this instead of node_map_get() */
 struct node *get_node(struct routing_state *rstate,
@@ -460,7 +462,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
-				   struct peer *peer);
+				   struct peer *peer,
+				   bool *was_unknown);
 
 
 /**

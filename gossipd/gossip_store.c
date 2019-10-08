@@ -721,7 +721,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		case WIRE_NODE_ANNOUNCEMENT:
 			if (!routing_add_node_announcement(rstate,
 							   take(msg), gs->len,
-							   NULL)) {
+							   NULL, NULL)) {
 				bad = "Bad node_announcement";
 				goto badmsg;
 			}

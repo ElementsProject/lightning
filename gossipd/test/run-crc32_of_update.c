@@ -58,7 +58,7 @@ u8 *handle_channel_update(struct routing_state *rstate UNNEEDED, const u8 *updat
 { fprintf(stderr, "handle_channel_update called!\n"); abort(); }
 /* Generated stub for handle_node_announcement */
 u8 *handle_node_announcement(struct routing_state *rstate UNNEEDED, const u8 *node UNNEEDED,
-			     struct peer *peer UNNEEDED)
+			     struct peer *peer UNNEEDED, bool *was_unknown UNNEEDED)
 { fprintf(stderr, "handle_node_announcement called!\n"); abort(); }
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)

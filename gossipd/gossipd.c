@@ -395,6 +395,18 @@ out:
 	return true;
 }
 
+static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
+{
+	bool was_unknown = false;
+	u8 *err;
+
+	err = handle_node_announcement(peer->daemon->rstate, msg, peer,
+				       &was_unknown);
+	if (was_unknown)
+		query_unknown_node(peer->daemon->seeker, peer);
+	return err;
+}
+
 /*~ This is where the per-peer daemons send us messages.  It's either forwarded
  * gossip, or a request for information.  We deliberately use non-overlapping
  * message types so we can distinguish them. */
@@ -414,7 +426,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		err = handle_channel_update_msg(peer, msg);
 		goto handled_relay;
 	case WIRE_NODE_ANNOUNCEMENT:
-		err = handle_node_announcement(peer->daemon->rstate, msg, peer);
+		err = handle_node_announce(peer, msg);
 		goto handled_relay;
 	case WIRE_QUERY_CHANNEL_RANGE:
 		err = handle_query_channel_range(peer, msg);
