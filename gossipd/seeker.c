@@ -42,6 +42,9 @@ enum seeker_state {
 
 	/* Asking a peer for unknown scids. */
 	ASKING_FOR_UNKNOWN_SCIDS,
+
+	/* Asking a peer for stale scids. */
+	ASKING_FOR_STALE_SCIDS,
 };
 
 /* Passthrough helper for HTABLE_DEFINE_TYPE */
@@ -283,19 +286,20 @@ static void scid_query_done(struct peer *peer, bool complete)
 	probe_random_scids(seeker, false);
 }
 
-static void seek_any_unknown_scids(struct seeker *seeker)
+/* Returns true if there were scids to seek. */
+static bool seek_any_unknown_scids(struct seeker *seeker)
 {
 	struct peer *peer;
 	struct short_channel_id *scids;
 
 	/* Nothing we need to know about? */
 	if (scid_map_count(&seeker->unknown_scids) == 0)
-		return;
+		return false;
 
 	/* No peers can answer?  Try again later. */
 	peer = random_peer(seeker->daemon, peer_can_take_scid_query);
 	if (!peer)
-		return;
+		return false;
 
 	set_state(seeker, ASKING_FOR_UNKNOWN_SCIDS);
 	selected_peer(seeker, peer);
@@ -306,6 +310,66 @@ static void seek_any_unknown_scids(struct seeker *seeker)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "seeker: quering %zu scids is too many?",
 			      tal_count(scids));
+	return true;
+}
+
+/* Turns stale_scid_map into two arrays, and removes from map */
+static struct short_channel_id *stale_scids_remove(const tal_t *ctx,
+						   struct seeker *seeker,
+						   u8 **query_flags)
+{
+	struct stale_scid_map *map = &seeker->stale_scids;
+	struct short_channel_id *scids;
+	const struct stale_scid *s;
+	size_t i, max;
+	struct stale_scid_map_iter it;
+
+	/* Marshal into an array: we can fit 7000 comfortably (8 byte scid, 1 byte flag). */
+	if (stale_scid_map_count(map) < 7000)
+		max = stale_scid_map_count(map);
+	else
+		max = 7000;
+
+	scids = tal_arr(ctx, struct short_channel_id, max);
+	*query_flags = tal_arr(ctx, u8, max);
+
+	for (i = 0, s = stale_scid_map_first(map, &it); i < max; i++) {
+		scids[i] = s->scid;
+		(*query_flags)[i] = s->query_flag;
+		stale_scid_map_del(map, s);
+		tal_free(s);
+	}
+	assert(i == tal_count(scids));
+	return scids;
+}
+
+static bool seek_any_stale_scids(struct seeker *seeker)
+{
+	struct peer *peer;
+	struct short_channel_id *scids;
+	u8 *query_flags;
+
+	/* Nothing we need to know about? */
+	if (stale_scid_map_count(&seeker->stale_scids) == 0)
+		return false;
+
+	/* No peers can answer?  Try again later. */
+	peer = random_peer(seeker->daemon, peer_can_take_scid_query);
+	if (!peer)
+		return false;
+
+	set_state(seeker, ASKING_FOR_STALE_SCIDS);
+	selected_peer(seeker, peer);
+
+	/* This is best-effort, so this consumes them as well. */
+	scids = stale_scids_remove(tmpctx, seeker, &query_flags);
+
+	if (!query_short_channel_ids(seeker->daemon, peer, scids, query_flags,
+				     scid_query_done))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "seeker: quering %zu scids is too many?",
+			      tal_count(scids));
+	return true;
 }
 
 static void check_unknown_scid_query(struct seeker *seeker)
@@ -727,6 +791,25 @@ static void check_nannounce_probing(struct seeker *seeker)
 	peer_gossip_probe_nannounces(seeker);
 }
 
+static void check_stale_scid_query(struct seeker *seeker)
+{
+	struct peer *peer = seeker->random_peer_softref;
+
+	/* Did peer die? */
+	if (!peer) {
+		probe_random_scids(seeker, true);
+		return;
+	}
+
+	if (!peer_made_progress(seeker)) {
+		status_unusual("Bad gossip: peer %s has only moved gossip %zu->%zu for scid stale probe, hanging up on it",
+			       type_to_string(tmpctx, struct node_id, &peer->id),
+			       seeker->prev_gossip_count, peer->gossip_counter);
+		tal_free(peer);
+
+		probe_random_scids(seeker, true);
+	}
+}
 
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
@@ -746,6 +829,9 @@ static void seeker_check(struct seeker *seeker)
 	case ASKING_FOR_UNKNOWN_SCIDS:
 		check_unknown_scid_query(seeker);
 		break;
+	case ASKING_FOR_STALE_SCIDS:
+		check_stale_scid_query(seeker);
+		break;
 	case PROBING_NANNOUNCES_NEED_PEER:
 		peer_gossip_probe_nannounces(seeker);
 		break;
@@ -753,7 +839,8 @@ static void seeker_check(struct seeker *seeker)
 		check_nannounce_probing(seeker);
 		break;
 	case NORMAL:
-		seek_any_unknown_scids(seeker);
+		if (!seek_any_unknown_scids(seeker))
+			seek_any_stale_scids(seeker);
 		break;
 	}
 
@@ -789,6 +876,7 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 	case PROBING_NANNOUNCES:
 	case NORMAL:
 	case ASKING_FOR_UNKNOWN_SCIDS:
+	case ASKING_FOR_STALE_SCIDS:
 		normal_gossip_start(seeker, peer);
 		return;
 	}
