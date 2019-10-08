@@ -4,6 +4,8 @@
 #include <common/dev_disconnect.h>
 #include <common/status.h>
 #include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -96,6 +98,15 @@ void dev_sabotage_fd(int fd)
 
 	/* Close one. */
 	close(fds[0]);
+
+#if defined(TCP_NODELAY)
+	/* On Linux, at least, this flushes. */
+	int opt = TCP_NODELAY;
+	int val = 1;
+	setsockopt(fd, IPPROTO_TCP, opt, &val, sizeof(val));
+#else
+#error No TCP_NODELAY?
+#endif
 	/* Move other over to the fd we want to sabotage. */
 	dup2(fds[1], fd);
 	close(fds[1]);
