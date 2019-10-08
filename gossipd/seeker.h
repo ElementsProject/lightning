@@ -18,5 +18,6 @@ bool remove_unknown_scid(struct seeker *seeker,
 			 const struct short_channel_id *scid,
 			 bool found);
 bool add_unknown_scid(struct seeker *seeker,
-		      const struct short_channel_id *scid);
+		      const struct short_channel_id *scid,
+		      struct peer *peer);
 #endif /* LIGHTNING_GOSSIPD_SEEKER_H */
