@@ -939,6 +939,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 {
 	u32 *dev_gossip_time;
 	bool dev_fast_gossip, dev_fast_gossip_prune;
+	u32 timestamp;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     &chainparams,
@@ -964,7 +965,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 					   dev_fast_gossip_prune);
 
 	/* Load stored gossip messages */
-	if (!gossip_store_load(daemon->rstate, daemon->rstate->gs))
+	timestamp = gossip_store_load(daemon->rstate, daemon->rstate->gs);
+	/* If gossip_store less than 24 hours old, say we're OK. */
+	if (timestamp < gossip_time_now(daemon->rstate).ts.tv_sec - 24*3600)
 		gossip_missing(daemon);
 
 	/* Now disable all local channels, they can't be connected yet. */
