@@ -16,6 +16,7 @@
 
 struct chan;
 struct broadcastable;
+struct seeker;
 
 /*~ The core daemon structure: */
 struct daemon {
@@ -53,17 +54,14 @@ struct daemon {
 	/* What addresses we can actually announce. */
 	struct wireaddr *announcable;
 
-	/* Do we think we're missing gossip?  Contains timer to re-check */
-	struct oneshot *gossip_missing;
-
-	/* Channels we've heard about, but don't know. */
-	struct short_channel_id *unknown_scids;
-
 	/* Timer until we can send a new node_announcement */
 	struct oneshot *node_announce_timer;
 
 	/* Channels we have an announce for, but aren't deep enough. */
 	struct short_channel_id *deferred_txouts;
+
+	/* What, if any, gossip we're seeker from peers. */
+	struct seeker *seeker;
 };
 
 /*~ How gossipy do we ask a peer to be? */
@@ -135,6 +133,14 @@ struct peer *find_peer(struct daemon *daemon, const struct node_id *id);
 /* This peer (may be NULL) gave is valid gossip. */
 void peer_supplied_good_gossip(struct peer *peer);
 
+/* Pick a random peer which passes check_peer */
+struct peer *random_peer(struct daemon *daemon,
+			 bool (*check_peer)(const struct peer *peer));
+
+/* Extract gossip level for this peer */
+enum gossip_level peer_gossip_level(const struct daemon *daemon,
+				    bool gossip_queries_feature);
+
 /* Queue a gossip message for the peer: the subdaemon on the other end simply
  * forwards it to the peer. */
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
@@ -143,5 +149,8 @@ void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
  * other end simply forwards it to the peer. */
 void queue_peer_from_store(struct peer *peer,
 			   const struct broadcastable *bcast);
+
+/* Reset gossip range for this peer. */
+void setup_gossip_range(struct peer *peer);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */
