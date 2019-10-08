@@ -727,6 +727,11 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 					    buffer + cidtok->start);
 	}
 
+	if (cancel_channel->opener == REMOTE)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Cannot cancel channel that was "
+				    "initiated by peer");
+
 	/* Check if we broadcast the transaction. (We store the transaction type into DB
 	 * before broadcast). */
 	enum wallet_tx_type type;
