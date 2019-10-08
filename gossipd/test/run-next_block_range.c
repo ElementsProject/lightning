@@ -38,6 +38,10 @@ void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
 struct peer *random_peer(struct daemon *daemon UNNEEDED,
 			 bool (*check_peer)(const struct peer *peer))
 { fprintf(stderr, "random_peer called!\n"); abort(); }
+/* Generated stub for status_failed */
+void status_failed(enum status_failreason code UNNEEDED,
+		   const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "status_failed called!\n"); abort(); }
 /* Generated stub for status_fmt */
 void status_fmt(enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 
