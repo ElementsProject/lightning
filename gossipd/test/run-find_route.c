@@ -41,6 +41,9 @@ bool nannounce_different(struct gossip_store *gs UNNEEDED,
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
 { fprintf(stderr, "onion_type_name called!\n"); abort(); }
+/* Generated stub for peer_supplied_good_gossip */
+void peer_supplied_good_gossip(struct peer *peer UNNEEDED)
+{ fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)

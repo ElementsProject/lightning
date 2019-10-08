@@ -18,6 +18,7 @@
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/gossip_generation.h>
+#include <gossipd/gossipd.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 
@@ -35,6 +36,8 @@ struct pending_node_announce {
 	u8 *node_announcement;
 	u32 timestamp;
 	u32 index;
+	/* Automagically turns to NULL if peer freed */
+	struct peer *peer_softref;
 };
 
 /* We consider a reasonable gossip rate to be 1 per day, with burst of
@@ -95,6 +98,8 @@ struct unupdated_channel {
 	u32 index;
 	/* Channel capacity */
 	struct amount_sat sat;
+	/* Automagically turns to NULL of peer freed */
+	struct peer *peer_softref;
 };
 
 static struct unupdated_channel *
@@ -1481,6 +1486,7 @@ static void catch_node_announcement(const tal_t *ctx,
 		pna->timestamp = 0;
 		pna->index = 0;
 		pna->refcount = 0;
+		pna->peer_softref = NULL;
 		pending_node_map_add(rstate->pending_node_map, pna);
 	}
 	pna->refcount++;
@@ -1502,7 +1508,8 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		/* Can fail it timestamp is now too old */
 		if (!routing_add_node_announcement(rstate,
 						   pna->node_announcement,
-						   pna->index))
+						   pna->index,
+						   pna->peer_softref))
 			status_unusual("pending node_announcement %s too old?",
 				       tal_hex(tmpctx, pna->node_announcement));
 		/* Never send this again. */
@@ -1563,7 +1570,8 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES,
 				      struct amount_sat sat,
-				      u32 index)
+				      u32 index,
+				      struct peer *peer)
 {
 	struct chan *chan;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
@@ -1629,6 +1637,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	uc->scid = scid;
 	uc->id[0] = node_id_1;
 	uc->id[1] = node_id_2;
+	set_softref(uc, &uc->peer_softref, peer);
 	uintmap_add(&rstate->unupdated_chanmap, scid.u64, uc);
 	tal_add_destructor2(uc, destroy_unupdated_channel, rstate);
 
@@ -1638,9 +1647,11 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	/* If we had private updates, they'll immediately create the channel. */
 	if (private_updates[0])
-		routing_add_channel_update(rstate, take(private_updates[0]), 0);
+		routing_add_channel_update(rstate, take(private_updates[0]), 0,
+					   peer);
 	if (private_updates[1])
-		routing_add_channel_update(rstate, take(private_updates[1]), 0);
+		routing_add_channel_update(rstate, take(private_updates[1]), 0,
+					   peer);
 
 	return true;
 }
@@ -1648,7 +1659,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 u8 *handle_channel_announcement(struct routing_state *rstate,
 				const u8 *announce TAKES,
 				u32 current_blockheight,
-				const struct short_channel_id **scid)
+				const struct short_channel_id **scid,
+				struct peer *peer)
 {
 	struct pending_cannouncement *pending;
 	struct bitcoin_blkid chain_hash;
@@ -1658,8 +1670,10 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	struct chan *chan;
 
 	pending = tal(rstate, struct pending_cannouncement);
+	set_softref(pending, &pending->peer_softref, peer);
 	pending->updates[0] = NULL;
 	pending->updates[1] = NULL;
+	pending->update_peer_softref[0] = pending->update_peer_softref[1] = NULL;
 	pending->announce = tal_dup_arr(pending, u8,
 					announce, tal_count(announce), 0);
 	pending->update_timestamps[0] = pending->update_timestamps[1] = 0;
@@ -1834,9 +1848,11 @@ ignored:
 	return NULL;
 }
 
-static void process_pending_channel_update(struct routing_state *rstate,
+static void process_pending_channel_update(struct daemon *daemon,
+					   struct routing_state *rstate,
 					   const struct short_channel_id *scid,
-					   const u8 *cupdate)
+					   const u8 *cupdate,
+					   struct peer *peer)
 {
 	u8 *err;
 
@@ -1844,7 +1860,8 @@ static void process_pending_channel_update(struct routing_state *rstate,
 		return;
 
 	/* FIXME: We don't remember who sent us updates, so can't error them */
-	err = handle_channel_update(rstate, cupdate, "pending update", NULL);
+	err = handle_channel_update(rstate, cupdate, "pending update", peer,
+				    NULL);
 	if (err) {
 		status_debug("Pending channel_update for %s: %s",
 			     type_to_string(tmpctx, struct short_channel_id, scid),
@@ -1853,7 +1870,8 @@ static void process_pending_channel_update(struct routing_state *rstate,
 	}
 }
 
-bool handle_pending_cannouncement(struct routing_state *rstate,
+bool handle_pending_cannouncement(struct daemon *daemon,
+				  struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  struct amount_sat sat,
 				  const u8 *outscript)
@@ -1909,13 +1927,16 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	tal_del_destructor2(pending, destroy_pending_cannouncement, rstate);
 
 	/* Can fail if channel_announcement too old */
-	if (!routing_add_channel_announcement(rstate, pending->announce, sat, 0))
+	if (!routing_add_channel_announcement(rstate, pending->announce, sat, 0,
+					      pending->peer_softref))
 		status_unusual("Could not add channel_announcement %s: too old?",
 			       tal_hex(tmpctx, pending->announce));
 	else {
 		/* Did we have an update waiting?  If so, apply now. */
-		process_pending_channel_update(rstate, scid, pending->updates[0]);
-		process_pending_channel_update(rstate, scid, pending->updates[1]);
+		process_pending_channel_update(daemon, rstate, scid, pending->updates[0],
+					       pending->update_peer_softref[0]);
+		process_pending_channel_update(daemon, rstate, scid, pending->updates[1],
+					       pending->update_peer_softref[1]);
 	}
 
 	tal_free(pending);
@@ -1970,7 +1991,8 @@ static void set_connection_values(struct chan *chan,
 
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
-				u32 index)
+				u32 index,
+				struct peer *peer)
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -2147,11 +2169,13 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* If we're loading from store, this means we don't re-add to store. */
 	if (index)
 		hc->bcast.index = index;
-	else
+	else {
 		hc->bcast.index
 			= gossip_store_add(rstate->gs, update,
 					   hc->bcast.timestamp,
 					   NULL);
+		peer_supplied_good_gossip(peer);
+	}
 
 	if (uc) {
 		/* If we were waiting for these nodes to appear (or gain a
@@ -2204,6 +2228,7 @@ void remove_channel_from_store(struct routing_state *rstate,
 
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 			  const char *source,
+			  struct peer *peer,
 			  struct short_channel_id *unknown_scid)
 {
 	u8 *serialized;
@@ -2305,7 +2330,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		     channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
 		     source);
 
-	routing_add_channel_update(rstate, take(serialized), 0);
+	routing_add_channel_update(rstate, take(serialized), 0, peer);
 	return NULL;
 }
 
@@ -2342,7 +2367,8 @@ struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 
 bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
-				   u32 index)
+				   u32 index,
+				   struct peer *peer)
 {
 	struct node *node;
 	secp256k1_ecdsa_signature signature;
@@ -2407,9 +2433,11 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		pna->timestamp = timestamp;
 		pna->index = index;
 		tal_free(pna->node_announcement);
+		clear_softref(pna, &pna->peer_softref);
 		pna->node_announcement = tal_dup_arr(pna, u8, msg,
 						     tal_count(msg),
 						     0);
+		set_softref(pna, &pna->peer_softref, peer);
 		return true;
 	}
 
@@ -2461,14 +2489,17 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	node->bcast.timestamp = timestamp;
 	if (index)
 		node->bcast.index = index;
-	else
+	else {
 		node->bcast.index
 			= gossip_store_add(rstate->gs, msg,
 					   node->bcast.timestamp, NULL);
+		peer_supplied_good_gossip(peer);
+	}
 	return true;
 }
 
-u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
+u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
+			     struct peer *peer)
 {
 	u8 *serialized;
 	struct sha256_double hash;
@@ -2556,7 +2587,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	}
 
 	/* May still fail, if we don't know the node. */
-	routing_add_node_announcement(rstate, serialized, 0);
+	routing_add_node_announcement(rstate, serialized, 0, peer);
 	return NULL;
 }
 
@@ -2701,7 +2732,7 @@ void routing_failure(struct routing_state *rstate,
 	/* lightningd will only extract this if UPDATE is set. */
 	if (channel_update) {
 		u8 *err = handle_channel_update(rstate, channel_update, "error",
-						NULL);
+						NULL, NULL);
 		if (err) {
 			status_unusual("routing_failure: "
 				       "bad channel_update %s",

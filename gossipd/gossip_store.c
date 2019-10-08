@@ -686,7 +686,8 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			if (!routing_add_channel_announcement(rstate,
 							      take(chan_ann),
 							      satoshis,
-							      chan_ann_off)) {
+							      chan_ann_off,
+							      NULL)) {
 				bad = "Bad channel_announcement";
 				goto badmsg;
 			}
@@ -710,7 +711,8 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			/* fall thru */
 		case WIRE_CHANNEL_UPDATE:
 			if (!routing_add_channel_update(rstate,
-							take(msg), gs->len)) {
+							take(msg), gs->len,
+							NULL)) {
 				bad = "Bad channel_update";
 				goto badmsg;
 			}
@@ -718,7 +720,8 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			break;
 		case WIRE_NODE_ANNOUNCEMENT:
 			if (!routing_add_node_announcement(rstate,
-							   take(msg), gs->len)) {
+							   take(msg), gs->len,
+							   NULL)) {
 				bad = "Bad node_announcement";
 				goto badmsg;
 			}
