@@ -49,7 +49,7 @@ static void encoding_add_timestamps(u8 **encoded,
 }
 
 /* Marshal a single query flag (we don't query, so not currently used) */
-static UNNEEDED void encoding_add_query_flag(u8 **encoded, bigsize_t flag)
+static void encoding_add_query_flag(u8 **encoded, bigsize_t flag)
 {
 	towire_bigsize(encoded, flag);
 }
@@ -131,7 +131,7 @@ static bool encoding_end_prepend_type(u8 **encoded, size_t max_bytes)
 }
 
 /* Try compressing, leaving type external */
-static UNNEEDED bool encoding_end_external_type(u8 **encoded, u8 *type, size_t max_bytes)
+static bool encoding_end_external_type(u8 **encoded, u8 *type, size_t max_bytes)
 {
 	if (encoding_end_zlib(encoded, 0))
 		*type = ARR_ZLIB;
@@ -147,10 +147,11 @@ static UNNEEDED bool encoding_end_external_type(u8 **encoded, u8 *type, size_t m
 bool query_short_channel_ids(struct daemon *daemon,
 			     struct peer *peer,
 			     const struct short_channel_id *scids,
+			     const u8 *query_flags,
 			     void (*cb)(struct peer *peer, bool complete))
 {
 	u8 *encoded, *msg;
-
+	struct tlv_query_short_channel_ids_tlvs *tlvs;
 	/* BOLT #7:
 	 *
 	 * 1. type: 261 (`query_short_channel_ids`) (`gossip_queries`)
@@ -160,11 +161,20 @@ bool query_short_channel_ids(struct daemon *daemon,
 	 *     * [`len*byte`:`encoded_short_ids`]
 	 */
 	const size_t reply_overhead = 32 + 2;
-	const size_t max_encoded_bytes = 65535 - 2 - reply_overhead;
+	size_t max_encoded_bytes = 65535 - 2 - reply_overhead;
 
 	/* Can't query if they don't have gossip_queries_feature */
 	if (!peer->gossip_queries_feature)
 		return false;
+
+	/* BOLT #7:
+	 *   - MAY include an optional `query_flags`. If so:
+	 *    - MUST set `encoding_type`, as for `encoded_short_ids`.
+	 *    - Each query flag is a minimally-encoded varint.
+	 *    - MUST encode one query flag per `short_channel_id`.
+	 */
+	if (query_flags)
+		assert(tal_count(query_flags) == tal_count(scids));
 
 	/* BOLT #7:
 	 *
@@ -186,8 +196,30 @@ bool query_short_channel_ids(struct daemon *daemon,
 		return false;
 	}
 
+	if (query_flags) {
+		struct tlv_query_short_channel_ids_tlvs_query_flags *tlvq;
+		tlvs = tlv_query_short_channel_ids_tlvs_new(tmpctx);
+		tlvq = tlvs->query_flags = tal(tlvs,
+			   struct tlv_query_short_channel_ids_tlvs_query_flags);
+ 		tlvq->encoded_query_flags = encoding_start(tlvq);
+		for (size_t i = 0; i < tal_count(query_flags); i++)
+			encoding_add_query_flag(&tlvq->encoded_query_flags,
+						query_flags[i]);
+
+		max_encoded_bytes -= tal_bytelen(encoded);
+		if (!encoding_end_external_type(&tlvq->encoded_query_flags,
+						&tlvq->encoding_type,
+						max_encoded_bytes)) {
+			status_broken("query_short_channel_ids:"
+				      " %zu query_flags is too many",
+				      tal_count(query_flags));
+			return false;
+		}
+	} else
+		tlvs = NULL;
+
 	msg = towire_query_short_channel_ids(NULL, &daemon->chain_hash,
-					     encoded, NULL);
+					     encoded, tlvs);
 	queue_peer_msg(peer, take(msg));
 	peer->scid_query_outstanding = true;
 	peer->scid_query_cb = cb;

@@ -3,6 +3,7 @@
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
+#include <common/decode_array.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
@@ -78,6 +79,7 @@ struct seeker {
 
 	/* Array of scids for node announcements. */
 	struct short_channel_id *nannounce_scids;
+	u8 *nannounce_query_flags;
 	size_t nannounce_offset;
 };
 
@@ -275,7 +277,7 @@ static void seek_any_unknown_scids(struct seeker *seeker)
 	selected_peer(seeker, peer);
 
 	scids = unknown_scids_arr(tmpctx, seeker);
-	if (!query_short_channel_ids(seeker->daemon, peer, scids,
+	if (!query_short_channel_ids(seeker->daemon, peer, scids, NULL,
 				     scid_query_done))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "seeker: quering %zu scids is too many?",
@@ -340,36 +342,52 @@ static bool next_block_range(struct seeker *seeker,
 	return false;
 }
 
-static struct short_channel_id *get_unannounced_nodes(const tal_t *ctx,
-						      struct routing_state *rstate,
-						      size_t off,
-						      size_t max)
+static bool get_unannounced_nodes(const tal_t *ctx,
+				  struct routing_state *rstate,
+				  size_t off,
+				  size_t max,
+				  struct short_channel_id **scids,
+				  u8 **query_flags)
 {
-	struct short_channel_id *scids;
 	struct node_map_iter it;
 	size_t i = 0, num = 0;
 	struct node *n;
 
 	/* Pick an example short_channel_id at random to query.  As a
 	 * side-effect this gets the node */
-	scids = tal_arr(ctx, struct short_channel_id, max);
+	*scids = tal_arr(ctx, struct short_channel_id, max);
+	*query_flags = tal_arr(ctx, u8, max);
 
 	for (n = node_map_first(rstate->nodes, &it);
 	     n && num < max;
 	     n = node_map_next(rstate->nodes, &it)) {
-		struct chan_map_iter cit;
 		if (n->bcast.index)
 			continue;
 
 		if (i >= off) {
-			scids[num] = first_chan(n, &cit)->scid;
+			struct chan_map_iter cit;
+			struct chan *c = first_chan(n, &cit);
+
+			(*scids)[num] = c->scid;
+			if (c->nodes[0] == n)
+				(*query_flags)[num] = SCID_QF_NODE1;
+			else
+				(*query_flags)[num] = SCID_QF_NODE2;
 			num++;
 		}
 		i++;
 	}
-	if (num < max)
-		tal_resize(&scids, num);
-	return scids;
+
+	if (num == 0) {
+		*scids = tal_free(*scids);
+		*query_flags = tal_free(*query_flags);
+		return false;
+	}
+	if (num < max) {
+		tal_resize(scids, num);
+		tal_resize(query_flags, i - off);
+	}
+	return true;
 }
 
 /* Mutual recursion */
@@ -391,8 +409,11 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 		/* Could have closed since we asked. */
 		if (!c)
 			continue;
-		/* We wouldn't have asked if it has both node_announcements */
-		if (c->nodes[0]->bcast.index && c->nodes[1]->bcast.index)
+		if ((seeker->nannounce_query_flags[i] & SCID_QF_NODE1)
+		    && c->nodes[0]->bcast.index)
+			new_nannounce++;
+		if ((seeker->nannounce_query_flags[i] & SCID_QF_NODE2)
+		    && c->nodes[1]->bcast.index)
 			new_nannounce++;
 	}
 
@@ -400,6 +421,7 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 		     new_nannounce, num_scids);
 
 	seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
+	seeker->nannounce_query_flags = tal_free(seeker->nannounce_query_flags);
 	seeker->nannounce_offset += num_scids;
 
 	if (!new_nannounce) {
@@ -410,16 +432,15 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 	/* Double every time.  We may skip a few, of course, since map
 	 * is changing. */
 	num_scids *= 2;
-	if (num_scids > 8000)
-		num_scids = 8000;
+	/* Don't try to create a query larger than 64k */
+	if (num_scids > 7000)
+		num_scids = 7000;
 
-	seeker->nannounce_scids
-		= get_unannounced_nodes(seeker, seeker->daemon->rstate,
-					seeker->nannounce_offset, num_scids);
-
-	/* Nothing unknown at all?  Great, we're done */
-	if (tal_count(seeker->nannounce_scids) == 0) {
-		seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
+	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate,
+				   seeker->nannounce_offset, num_scids,
+				   &seeker->nannounce_scids,
+				   &seeker->nannounce_query_flags)) {
+		/* Nothing unknown at all?  Great, we're done */
 		set_state(seeker, NORMAL);
 		return;
 	}
@@ -438,16 +459,10 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 		return;
 	selected_peer(seeker, peer);
 
-	/* Nothing unknown at all?  Great, we're done */
-	if (tal_count(seeker->nannounce_scids) == 0) {
-		seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
-		set_state(seeker, NORMAL);
-		return;
-	}
-
 	set_state(seeker, PROBING_NANNOUNCES);
 	if (!query_short_channel_ids(seeker->daemon, peer,
 				     seeker->nannounce_scids,
+				     seeker->nannounce_query_flags,
 				     nodeannounce_query_done))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "seeker: quering %zu scids is too many?",
@@ -493,13 +508,19 @@ static void process_scid_probe(struct peer *peer,
 	}
 
 	/* Channel probe finished, try asking for 32 unannounced nodes. */
-	seeker->nannounce_offset = 0;
-	seeker->nannounce_scids
-		= get_unannounced_nodes(seeker, seeker->daemon->rstate, 0, 32);
-
 	set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
+	seeker->nannounce_offset = 0;
+
+	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate,
+				   seeker->nannounce_offset, 32,
+				   &seeker->nannounce_scids,
+				   &seeker->nannounce_query_flags)) {
+		/* No unknown nodes.  Great! */
+		set_state(seeker, NORMAL);
+		return;
+	}
+
 	peer_gossip_probe_nannounces(seeker);
-	return;
 }
 
 /* Pick a peer, ask it for a few scids, to check. */

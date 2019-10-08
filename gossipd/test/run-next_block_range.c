@@ -32,6 +32,7 @@ bool query_channel_range(struct daemon *daemon UNNEEDED,
 bool query_short_channel_ids(struct daemon *daemon UNNEEDED,
 			     struct peer *peer UNNEEDED,
 			     const struct short_channel_id *scids UNNEEDED,
+			     const u8 *query_flags UNNEEDED,
 			     void (*cb)(struct peer *peer UNNEEDED, bool complete))
 { fprintf(stderr, "query_short_channel_ids called!\n"); abort(); }
 /* Generated stub for queue_peer_msg */
