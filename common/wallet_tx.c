@@ -182,12 +182,13 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	return NULL;
 }
 
-struct command_result *wtx_from_utxos(struct wallet_tx *tx,
-				      const struct chainparams *chainparams,
-				      u32 fee_rate_per_kw,
-				      size_t out_len,
-				      u32 maxheight,
-				      const struct utxo **utxos)
+u32 build_wtx_from_utxos(const tal_t *ctx,
+			 struct wallet_tx *tx,
+			 const struct chainparams *chainparams,
+			 u32 fee_rate_per_kw,
+			 size_t out_len, u32 maxheight,
+			 const struct utxo **utxos,
+			 char **error_msg)
 {
 	size_t weight;
 	struct amount_sat total_amount, fee_estimate;
@@ -230,26 +231,58 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 
 	if (tx->all_funds || amount_sat_eq(tx->change, AMOUNT_SAT(0))) {
 		tx->amount = total_amount;
-		if (!amount_sat_sub(&tx->amount, tx->amount, fee_estimate))
-			return command_fail(tx->cmd, FUND_CANNOT_AFFORD,
-								"Cannot afford transaction with %s sats of fees",
-								type_to_string(tmpctx, struct amount_sat,
-									&fee_estimate));
+		if (!amount_sat_sub(&tx->amount, tx->amount, fee_estimate)) {
+			*error_msg = tal_fmt(ctx, "Cannot afford transaction with %s sats of fees",
+					    type_to_string(tmpctx, struct amount_sat,
+							   &fee_estimate));
+			return FUND_CANNOT_AFFORD;
+		}
 	} else {
 		if (!amount_sat_sub(&tx->change, tx->change, fee_estimate)) {
 			/* Try again without a change output */
 			weight -= (8 + 1 + out_len) * 4;
 			fee_estimate = amount_tx_fee(fee_rate_per_kw, weight);
-			if (!amount_sat_sub(&tx->change, tx->change, fee_estimate))
-				return command_fail(tx->cmd, FUND_CANNOT_AFFORD,
-						    "Cannot afford transaction with %s sats of fees",
+			if (!amount_sat_sub(&tx->change, tx->change, fee_estimate)) {
+				*error_msg = tal_fmt(ctx, "Cannot afford transaction with %s sats of fees",
 						    type_to_string(tmpctx, struct amount_sat,
 								   &fee_estimate));
+				return FUND_CANNOT_AFFORD;
+			}
 			tx->change = AMOUNT_SAT(0);
 		} else {
 			tx->change_key_index = wallet_get_newindex(tx->cmd->ld);
 		}
 	}
 
-	return check_amount(tx, chainparams, tx->amount);
+	if (tal_count(tx->utxos) == 0) {
+		*error_msg = "Cannot afford transaction";
+		return FUND_CANNOT_AFFORD;
+	}
+	if (amount_sat_less(tx->amount, chainparams->dust_limit)) {
+		*error_msg = tal_fmt(ctx, "Output %s would be dust",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &tx->amount));
+		return FUND_OUTPUT_IS_DUST;
+	}
+
+	return 0;
+}
+
+struct command_result *wtx_from_utxos(struct wallet_tx *tx,
+				      const struct chainparams *chainparams,
+				      u32 feerate_per_kw,
+				      size_t out_len,
+				      u32 maxheight,
+				      const struct utxo **utxos)
+{
+	u32 err_code;
+	char *err_msg;
+
+	err_code = build_wtx_from_utxos(tx->cmd, tx, chainparams,
+				  feerate_per_kw, out_len, maxheight,
+				  utxos, &err_msg);
+	if (err_code)
+		return command_fail(tx->cmd, err_code, "%s", err_msg);
+
+	return NULL;
 }

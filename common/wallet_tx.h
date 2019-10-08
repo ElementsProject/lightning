@@ -37,6 +37,13 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 					u32 fee_rate_per_kw,
 					size_t out_len,
 					u32 maxheight);
+u32 build_wtx_from_utxos(const tal_t *ctx,
+			 struct wallet_tx *tx,
+			 const struct chainparams *chainparams,
+			 u32 fee_rate_per_kw,
+			 size_t out_len, u32 maxheight,
+			 const struct utxo **utxos,
+			 char **error_msg);
 
 struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 				      const struct chainparams *chainparams,
