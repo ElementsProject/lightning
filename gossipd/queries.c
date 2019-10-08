@@ -375,21 +375,6 @@ static void reply_channel_range(struct peer *peer,
 
 /* BOLT #7:
  *
- * `query_option_flags` is a bitfield represented as a minimally-encoded varint.
- * Bits have the following meaning:
- *
- * | Bit Position  | Meaning                 |
- * | ------------- | ----------------------- |
- * | 0             | Sender wants timestamps |
- * | 1             | Sender wants checksums  |
- */
-enum query_option_flags {
-	QUERY_ADD_TIMESTAMPS = 0x1,
-	QUERY_ADD_CHECKSUMS = 0x2,
-};
-
-/* BOLT #7:
- *
  * The checksum of a `channel_update` is the CRC32C checksum as specified in
  * [RFC3720](https://tools.ietf.org/html/rfc3720#appendix-B.4) of this
  * `channel_update` without its `signature` and `timestamp` fields.
@@ -994,13 +979,16 @@ void maybe_send_query_responses(struct peer *peer)
 bool query_channel_range(struct daemon *daemon,
 			 struct peer *peer,
 			 u32 first_blocknum, u32 number_of_blocks,
+			 enum query_option_flags qflags,
 			 void (*cb)(struct peer *peer,
 				    u32 first_blocknum, u32 number_of_blocks,
 				    const struct short_channel_id *scids,
 				    bool complete))
 {
 	u8 *msg;
+	struct tlv_query_channel_range_tlvs *tlvs;
 
+	assert((qflags & ~(QUERY_ADD_TIMESTAMPS|QUERY_ADD_CHECKSUMS)) == 0);
 	assert(peer->gossip_queries_feature);
 	assert(!peer->query_channel_blocks);
 	assert(!peer->query_channel_range_cb);
@@ -1012,12 +1000,19 @@ bool query_channel_range(struct daemon *daemon,
 		return false;
 	}
 
+	if (qflags) {
+		tlvs = tlv_query_channel_range_tlvs_new(tmpctx);
+		tlvs->query_option
+			= tal(tlvs, struct tlv_query_channel_range_tlvs_query_option);
+		tlvs->query_option->query_option_flags = qflags;
+	} else
+		tlvs = NULL;
 	status_debug("sending query_channel_range for blocks %u+%u",
 		     first_blocknum, number_of_blocks);
 
 	msg = towire_query_channel_range(NULL, &daemon->chain_hash,
 					 first_blocknum, number_of_blocks,
-					 NULL);
+					 tlvs);
 	queue_peer_msg(peer, take(msg));
 	peer->range_first_blocknum = first_blocknum;
 	peer->range_end_blocknum = first_blocknum + number_of_blocks;
