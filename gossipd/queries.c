@@ -727,6 +727,10 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	tal_resize(&peer->query_channel_scids, n + tal_count(scids));
 	memcpy(peer->query_channel_scids + n, scids, tal_bytelen(scids));
 
+	/* Credit peer for answering gossip, so seeker doesn't get upset:
+	 * since scids are only 8 bytes, use a discount over normal gossip. */
+	peer_supplied_good_gossip(peer, tal_count(scids) / 20);
+
 	/* Add timestamps (if any), or zeroes */
 	if (tlvs->timestamps_tlv) {
 		ts = decode_channel_update_timestamps(tlvs,
