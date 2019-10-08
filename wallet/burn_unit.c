@@ -89,8 +89,11 @@ static void burn_tx_broadcast(struct bitcoind *bitcoind UNUSED,
 		/* Set error so we don't try to reconnect. */
 		channel->error = towire_errorfmt(channel, NULL, "%s", err_reason);
 
-		subd_send_msg(channel->owner,
-			      take(towire_channel_send_error(NULL, err_reason)));
+		if (channel->owner)
+			subd_send_msg(channel->owner,
+				      take(towire_channel_send_error(NULL, err_reason)));
+		else
+			delete_channel(channel);
 	}
 
 	tal_free(stx);
