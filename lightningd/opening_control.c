@@ -386,6 +386,7 @@ failed:
 #if EXPERIMENTAL_FEATURES
 static bool update_unreleased_tx(struct unreleased_tx *utx,
 				 struct bitcoin_tx *tx,
+				 struct amount_sat *input_amts,
 				 u32 *input_map,
 				 struct amount_sat opener_change,
 				 struct witness_stack **witnesses)
@@ -425,9 +426,7 @@ static bool update_unreleased_tx(struct unreleased_tx *utx,
 		bitcoin_tx_input_get_txid(tx, index, &in->txid);
 		in->index = wi.index;
 		in->sequence_number = wi.sequence;
-
-		/* Amount is unknown here */
-		in->amount = AMOUNT_SAT(0);
+		in->amount = input_amts[index];
 
 		/* Copy over input's scriptpubkey */
 		if (wi.script_len) {
@@ -499,7 +498,7 @@ static void opening_opener_finished(struct subd *openingd, const u8 *resp,
 	struct funding_channel *fc = uc->fc;
 	struct unreleased_tx *utx = fc->utx;
 	u32 *input_map;
-	struct witness_stack **witnesses = NULL;
+	struct amount_sat *input_amts;
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -512,6 +511,7 @@ static void opening_opener_finished(struct subd *openingd, const u8 *resp,
 						  &funding_txout,
 						  &opener_change,
 						  &remote_witnesses,
+						  &input_amts,
 						  &input_map,
 						  &local_funding,
 						  &channel_info.their_config,
@@ -545,7 +545,8 @@ static void opening_opener_finished(struct subd *openingd, const u8 *resp,
 	}
 
 	/* Update the funding tx that we have for this */
-	if (!update_unreleased_tx(utx, funding_tx, input_map, opener_change, witnesses)) {
+	if (!update_unreleased_tx(utx, funding_tx, input_amts,
+				  input_map, opener_change, remote_witnesses)) {
 		log_broken(uc->log, "Unable to update unreleased tx");
 		uncommitted_channel_disconnect(uc, "internal error in creating updated tx");
 		goto cleanup;
