@@ -24,9 +24,9 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
  * @param rstate The routing state to load init.
  * @param gs  The `gossip_store` to read from
  *
- * Returns true if the store seems fully populated.
+ * Returns the last-modified time of the store, or 0 if it was created new.
  */
-bool gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
+u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 
 /**
  * Add a private channel_update message to the gossip_store
