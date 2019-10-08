@@ -586,12 +586,12 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 {
 	struct peer *peer;
 
+	set_state(seeker, PROBING_NANNOUNCES);
 	peer = random_seeker(seeker, peer_can_take_scid_query);
 	if (!peer)
 		return;
 	selected_peer(seeker, peer);
 
-	set_state(seeker, PROBING_NANNOUNCES);
 	if (!query_short_channel_ids(seeker->daemon, peer,
 				     seeker->nannounce_scids,
 				     seeker->nannounce_query_flags,
@@ -696,7 +696,6 @@ static void process_scid_probe(struct peer *peer,
 	}
 
 	/* Channel probe finished, try asking for 32 unannounced nodes. */
-	set_state(seeker, PROBING_NANNOUNCES);
 	seeker->nannounce_offset = 0;
 
 	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate,
@@ -716,6 +715,7 @@ static void peer_gossip_probe_scids(struct seeker *seeker)
 {
 	struct peer *peer;
 
+	set_state(seeker, PROBING_SCIDS);
 	peer = random_seeker(seeker, peer_can_take_range_query);
 	if (!peer)
 		return;
@@ -727,7 +727,6 @@ static void peer_gossip_probe_scids(struct seeker *seeker)
 			    seeker->scid_probe_end - seeker->scid_probe_start + 1,
 			    QUERY_ADD_TIMESTAMPS,
 			    process_scid_probe);
-	set_state(seeker, PROBING_SCIDS);
 }
 
 static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
@@ -743,7 +742,6 @@ static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
 			= seeker->scid_probe_start + num_blocks - 1;
 	}
 
-	set_state(seeker, PROBING_SCIDS);
 	seeker->nannounce_scids = NULL;
 	seeker->nannounce_offset = 0;
 	peer_gossip_probe_scids(seeker);
@@ -802,7 +800,6 @@ static void check_firstpeer(struct seeker *seeker)
 		seeker->scid_probe_start = 0;
 	}
 	seeker->scid_probe_end = seeker->daemon->current_blockheight;
-	set_state(seeker, PROBING_SCIDS);
 	peer_gossip_probe_scids(seeker);
 }
 
