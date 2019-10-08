@@ -83,6 +83,8 @@ EOF
 alias l1-cli='$LCLI --lightning-dir=/tmp/l1-regtest'
 alias l2-cli='$LCLI --lightning-dir=/tmp/l2-regtest'
 alias bt-cli='bitcoin-cli -regtest'
+alias l1-log='less /tmp/l1-regtest/log'
+alias l2-log='less /tmp/l2-regtest/log'
 
 start_ln() {
 	# Start bitcoind in the background
