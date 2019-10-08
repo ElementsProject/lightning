@@ -161,6 +161,7 @@ msgdata,opening_dual_funding_signed,opener_change,amount_sat,
 msgdata,opening_dual_funding_signed,num_witnesses,u16,
 msgdata,opening_dual_funding_signed,remote_witnesses,witness_stack,num_witnesses
 msgdata,opening_dual_funding_signed,num_inputs,u32,
+msgdata,opening_dual_funding_signed,input_amts,amount_sat,num_inputs
 msgdata,opening_dual_funding_signed,input_map,u32,num_inputs
 msgdata,opening_dual_funding_signed,local_funding,amount_sat,
 msgdata,opening_dual_funding_signed,their_config,channel_config,

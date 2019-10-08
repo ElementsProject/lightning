@@ -1555,9 +1555,14 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 		       "Opening channel: commitment sigs are acceptable, moving to sign tx %s",
 		       type_to_string(state, struct bitcoin_tx, funding_tx));
 
+	struct amount_sat *input_amts = tal_arr(state, struct amount_sat, input_count);
 	u32 *i_map = tal_arr(state, u32, input_count);
 	for (size_t i = 0; i < input_count; i++) {
 		i_map[i] = ptr2int(map[i]);
+		if (funding_tx->input_amounts[i])
+			input_amts[i] = *funding_tx->input_amounts[i];
+		else
+			input_amts[i] = AMOUNT_SAT(0);
 	}
 
 	/*
@@ -1603,6 +1608,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 						  opener_change,
 						  cast_const2(const struct witness_stack **,
 							      remote_witnesses),
+						  input_amts,
 						  i_map,
 						  state->opener_funding,
 						  &state->remoteconf,
