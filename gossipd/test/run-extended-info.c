@@ -51,6 +51,9 @@ const u8 *gossip_store_get(const tal_t *ctx UNNEEDED,
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
+/* Generated stub for peer_supplied_good_gossip */
+void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
+{ fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
 /* Generated stub for queue_peer_from_store */
 void queue_peer_from_store(struct peer *peer UNNEEDED,
 			   const struct broadcastable *bcast UNNEEDED)

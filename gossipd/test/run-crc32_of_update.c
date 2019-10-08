@@ -72,6 +72,9 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 /* Generated stub for notleak_ */
 void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
+/* Generated stub for peer_supplied_good_gossip */
+void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
+{ fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
 /* Generated stub for queue_peer_from_store */
 void queue_peer_from_store(struct peer *peer UNNEEDED,
 			   const struct broadcastable *bcast UNNEEDED)

@@ -2178,7 +2178,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			= gossip_store_add(rstate->gs, update,
 					   hc->bcast.timestamp,
 					   NULL);
-		peer_supplied_good_gossip(peer);
+		peer_supplied_good_gossip(peer, 1);
 	}
 
 	if (uc) {
@@ -2497,7 +2497,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		node->bcast.index
 			= gossip_store_add(rstate->gs, msg,
 					   node->bcast.timestamp, NULL);
-		peer_supplied_good_gossip(peer);
+		peer_supplied_good_gossip(peer, 1);
 	}
 	return true;
 }

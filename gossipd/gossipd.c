@@ -127,11 +127,11 @@ struct peer *find_peer(struct daemon *daemon, const struct node_id *id)
 	return NULL;
 }
 
-/* Increment a peer's gossip_counter, if peer not NULL */
-void peer_supplied_good_gossip(struct peer *peer)
+/* Increase a peer's gossip_counter, if peer not NULL */
+void peer_supplied_good_gossip(struct peer *peer, size_t amount)
 {
 	if (peer)
-		peer->gossip_counter++;
+		peer->gossip_counter += amount;
 }
 
 /* Queue a gossip message for the peer: the subdaemon on the other end simply

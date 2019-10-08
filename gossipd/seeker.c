@@ -19,20 +19,11 @@
 	DEV_FAST_GOSSIP((seeker)->daemon->rstate->dev_fast_gossip, 5, 60)
 
 enum seeker_state {
-	/* First initialized, no peers. */
-	STARTING_UP_NEED_PEER,
-
 	/* Still streaming gossip from single peer. */
-	STARTING_UP_FIRSTPEER,
-
-	/* Probing scids: need peer to check startup really finished. */
-	PROBING_SCIDS_NEED_PEER,
+	STARTING_UP,
 
 	/* Probing: checking our startup really is finished. */
 	PROBING_SCIDS,
-
-	/* Probing: need peer to check that we have node_announcements. */
-	PROBING_NANNOUNCES_NEED_PEER,
 
 	/* Probing: check that we have node_announcements. */
 	PROBING_NANNOUNCES,
@@ -110,11 +101,7 @@ struct seeker {
 
 /* Mutual recursion */
 static void seeker_check(struct seeker *seeker);
-
-/* If we think we might be missing something, call with true.  If we
- * think we're caught up, call with false. */
-static void probe_random_scids(struct seeker *seeker,
-			       bool suspect_something_wrong);
+static void probe_some_random_scids(struct seeker *seeker);
 
 static void begin_check_timer(struct seeker *seeker)
 {
@@ -153,7 +140,8 @@ struct seeker *new_seeker(struct daemon *daemon, u32 timestamp)
 	scid_map_init(&seeker->unknown_scids);
 	stale_scid_map_init(&seeker->stale_scids);
 	seeker->last_gossip_timestamp = timestamp;
-	set_state(seeker, STARTING_UP_NEED_PEER);
+	seeker->random_peer_softref = NULL;
+	set_state(seeker, STARTING_UP);
 	begin_check_timer(seeker);
 	memleak_add_helper(seeker, memleak_help_seeker);
 	return seeker;
@@ -283,7 +271,7 @@ static void scid_query_done(struct peer *peer, bool complete)
 
 	/* Peer completed!  OK, start random scid probe in case we're
 	 * still missing gossip. */
-	probe_random_scids(seeker, false);
+	probe_some_random_scids(seeker);
 }
 
 /* Returns true if there were scids to seek. */
@@ -370,26 +358,6 @@ static bool seek_any_stale_scids(struct seeker *seeker)
 			      "seeker: quering %zu scids is too many?",
 			      tal_count(scids));
 	return true;
-}
-
-static void check_unknown_scid_query(struct seeker *seeker)
-{
-	struct peer *peer = seeker->random_peer_softref;
-
-	/* Did peer die? */
-	if (!peer) {
-		probe_random_scids(seeker, true);
-		return;
-	}
-
-	if (!peer_made_progress(seeker)) {
-		status_unusual("Bad gossip: peer %s has only moved gossip %zu->%zu for scid probe, hanging up on it",
-			       type_to_string(tmpctx, struct node_id, &peer->id),
-			       seeker->prev_gossip_count, peer->gossip_counter);
-		tal_free(peer);
-
-		probe_random_scids(seeker, true);
-	}
 }
 
 /* Returns true and sets first_blocknum and number_of_blocks if
@@ -533,7 +501,6 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 		return;
 	}
 
-	set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
 	peer_gossip_probe_nannounces(seeker);
 }
 
@@ -646,7 +613,7 @@ static void process_scid_probe(struct peer *peer,
 	}
 
 	/* Channel probe finished, try asking for 32 unannounced nodes. */
-	set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
+	set_state(seeker, PROBING_NANNOUNCES);
 	seeker->nannounce_offset = 0;
 
 	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate,
@@ -680,13 +647,8 @@ static void peer_gossip_probe_scids(struct seeker *seeker)
 	set_state(seeker, PROBING_SCIDS);
 }
 
-static void probe_random_scids(struct seeker *seeker,
-			       bool suspect_something_wrong)
+static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
 {
-	/* We usually get a channel per block, so this covers a fair
-	   bit of ground */
-	size_t num_blocks = suspect_something_wrong ? 1008 : 64;
-
 	if (seeker->daemon->current_blockheight < num_blocks) {
 		seeker->scid_probe_start = 0;
 		seeker->scid_probe_end = seeker->daemon->current_blockheight;
@@ -698,10 +660,21 @@ static void probe_random_scids(struct seeker *seeker,
 			= seeker->scid_probe_start + num_blocks - 1;
 	}
 
-	set_state(seeker, PROBING_SCIDS_NEED_PEER);
+	set_state(seeker, PROBING_SCIDS);
 	seeker->nannounce_scids = NULL;
 	seeker->nannounce_offset = 0;
 	peer_gossip_probe_scids(seeker);
+}
+
+/* We usually get a channel per block, so these cover a fair bit of ground */
+static void probe_some_random_scids(struct seeker *seeker)
+{
+	return probe_random_scids(seeker, 64);
+}
+
+static void probe_many_random_scids(struct seeker *seeker)
+{
+	return probe_random_scids(seeker, 1008);
 }
 
 static void check_firstpeer(struct seeker *seeker)
@@ -712,12 +685,10 @@ static void check_firstpeer(struct seeker *seeker)
 
 	/* It might have died, pick another. */
 	if (!peer) {
-		status_debug("seeker: startup peer died, re-choosing");
 		peer = random_peer(seeker->daemon, peer_has_gossip_queries);
 		/* No peer?  Wait for a new one to join. */
 		if (!peer) {
 			status_debug("seeker: no peers, waiting");
-			set_state(seeker, STARTING_UP_NEED_PEER);
 			return;
 		}
 
@@ -748,33 +719,18 @@ static void check_firstpeer(struct seeker *seeker)
 		seeker->scid_probe_start = 0;
 	}
 	seeker->scid_probe_end = seeker->daemon->current_blockheight;
-	set_state(seeker, PROBING_SCIDS_NEED_PEER);
+	set_state(seeker, PROBING_SCIDS);
 	peer_gossip_probe_scids(seeker);
 }
 
-static void check_scid_probing(struct seeker *seeker)
-{
-	/* FIXME: Time them out of they don't respond to gossip */
-	struct peer *peer = seeker->random_peer_softref;
-
-	/* It might have died, pick another. */
-	if (!peer) {
-		status_debug("seeker: scid probing peer died, re-choosing");
-		set_state(seeker, PROBING_SCIDS_NEED_PEER);
-		peer_gossip_probe_scids(seeker);
-		return;
-	}
-}
-
-static void check_nannounce_probing(struct seeker *seeker)
+static void check_probe(struct seeker *seeker,
+			void (*restart)(struct seeker *seeker))
 {
 	struct peer *peer = seeker->random_peer_softref;
 
 	/* It might have died, pick another. */
 	if (!peer) {
-		status_debug("seeker: nannounce probing peer died, re-choosing");
-		set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
-		peer_gossip_probe_nannounces(seeker);
+		restart(seeker);
 		return;
 	}
 
@@ -782,61 +738,31 @@ static void check_nannounce_probing(struct seeker *seeker)
 	if (peer_made_progress(seeker))
 		return;
 
-	status_unusual("Peer %s has only moved gossip %zu->%zu for nannounce probe, hanging up on it",
-		       type_to_string(tmpctx, struct node_id, &peer->id),
-		       seeker->prev_gossip_count, peer->gossip_counter);
+	status_debug("Peer %s has only moved gossip %zu->%zu for probe, hanging up on it",
+		     type_to_string(tmpctx, struct node_id, &peer->id),
+		     seeker->prev_gossip_count, peer->gossip_counter);
 	tal_free(peer);
-
-	set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
-	peer_gossip_probe_nannounces(seeker);
-}
-
-static void check_stale_scid_query(struct seeker *seeker)
-{
-	struct peer *peer = seeker->random_peer_softref;
-
-	/* Did peer die? */
-	if (!peer) {
-		probe_random_scids(seeker, true);
-		return;
-	}
-
-	if (!peer_made_progress(seeker)) {
-		status_unusual("Bad gossip: peer %s has only moved gossip %zu->%zu for scid stale probe, hanging up on it",
-			       type_to_string(tmpctx, struct node_id, &peer->id),
-			       seeker->prev_gossip_count, peer->gossip_counter);
-		tal_free(peer);
-
-		probe_random_scids(seeker, true);
-	}
+	restart(seeker);
 }
 
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
 {
 	switch (seeker->state) {
-	case STARTING_UP_NEED_PEER:
-		break;
-	case STARTING_UP_FIRSTPEER:
+	case STARTING_UP:
 		check_firstpeer(seeker);
 		break;
-	case PROBING_SCIDS_NEED_PEER:
-		peer_gossip_probe_scids(seeker);
-		break;
 	case PROBING_SCIDS:
-		check_scid_probing(seeker);
+		check_probe(seeker, peer_gossip_probe_scids);
 		break;
 	case ASKING_FOR_UNKNOWN_SCIDS:
-		check_unknown_scid_query(seeker);
+		check_probe(seeker, probe_many_random_scids);
 		break;
 	case ASKING_FOR_STALE_SCIDS:
-		check_stale_scid_query(seeker);
-		break;
-	case PROBING_NANNOUNCES_NEED_PEER:
-		peer_gossip_probe_nannounces(seeker);
+		check_probe(seeker, probe_some_random_scids);
 		break;
 	case PROBING_NANNOUNCES:
-		check_nannounce_probing(seeker);
+		check_probe(seeker, peer_gossip_probe_nannounces);
 		break;
 	case NORMAL:
 		if (!seek_any_unknown_scids(seeker))
@@ -850,37 +776,39 @@ static void seeker_check(struct seeker *seeker)
 /* We get this when we have a new peer. */
 void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 {
+	bool have_probing_peer = seeker->random_peer_softref != NULL;
+
 	/* Can't do anything useful with these peers. */
 	if (!peer->gossip_queries_feature)
 		return;
 
 	switch (seeker->state) {
-	case STARTING_UP_NEED_PEER:
-		peer_gossip_startup(seeker, peer);
-		set_state(seeker, STARTING_UP_FIRSTPEER);
-		return;
-	case STARTING_UP_FIRSTPEER:
+	case STARTING_UP:
+		if (!have_probing_peer)
+			peer_gossip_startup(seeker, peer);
 		/* Waiting for seeker_check to release us */
 		return;
 
 	/* In these states, we set up peers to stream gossip normally */
-	case PROBING_SCIDS_NEED_PEER:
-		peer_gossip_probe_scids(seeker);
-		normal_gossip_start(seeker, peer);
-		return;
-	case PROBING_NANNOUNCES_NEED_PEER:
-		peer_gossip_probe_nannounces(seeker);
-		normal_gossip_start(seeker, peer);
-		return;
 	case PROBING_SCIDS:
+		if (!have_probing_peer)
+			peer_gossip_probe_scids(seeker);
+		goto start_them_gossiping;
+
 	case PROBING_NANNOUNCES:
+		if (!have_probing_peer)
+			peer_gossip_probe_nannounces(seeker);
+		goto start_them_gossiping;
+
 	case NORMAL:
 	case ASKING_FOR_UNKNOWN_SCIDS:
 	case ASKING_FOR_STALE_SCIDS:
-		normal_gossip_start(seeker, peer);
-		return;
+		goto start_them_gossiping;
 	}
 	abort();
+
+start_them_gossiping:
+	normal_gossip_start(seeker, peer);
 }
 
 bool remove_unknown_scid(struct seeker *seeker,
