@@ -6,6 +6,7 @@
 #include <common/bigsize.h>
 
 struct tlv_query_short_channel_ids_tlvs_query_flags;
+struct tlv_reply_channel_range_tlvs_timestamps_tlv;
 
 /* BOLT #7:
  *
@@ -43,5 +44,8 @@ enum scid_query_flag {
 
 bigsize_t *decode_scid_query_flags(const tal_t *ctx,
 				   const struct tlv_query_short_channel_ids_tlvs_query_flags *qf);
+
+struct channel_update_timestamps *decode_channel_update_timestamps(const tal_t *ctx,
+				 const struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv);
 
 #endif /* LIGHTNING_COMMON_DECODE_ARRAY_H */

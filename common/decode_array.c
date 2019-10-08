@@ -103,3 +103,38 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx,
 	}
 	return NULL;
 }
+
+struct channel_update_timestamps *
+decode_channel_update_timestamps(const tal_t *ctx,
+				 const struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv)
+{
+	/* Note that our parser will set this to NULL if there are no elements */
+	u8 *encoded = timestamps_tlv->encoded_timestamps;
+	size_t max = tal_count(encoded);
+	struct channel_update_timestamps *ts;
+
+	/* FIXME: BOLT #7 should have a requirements like it does for
+	 * query_short_channel_ids_tlvs! */
+	switch (timestamps_tlv->encoding_type) {
+	case ARR_ZLIB:
+		encoded = unzlib(tmpctx, encoded, max);
+		if (!encoded)
+			return NULL;
+		max = tal_count(encoded);
+		/* fall thru */
+	case ARR_UNCOMPRESSED:
+		ts = tal_arr(ctx, struct channel_update_timestamps, 0);
+		while (max) {
+			struct channel_update_timestamps t;
+			fromwire_channel_update_timestamps
+				(cast_const2(const u8 **, &encoded),
+				 &max, &t);
+			/* Sets this to NULL if it fails */
+			if (!encoded)
+				return tal_free(ts);
+			tal_arr_expand(&ts, t);
+		}
+		return ts;
+	}
+	return NULL;
+}
