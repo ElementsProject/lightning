@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 		printf("%zu: %s", off, deleted ? "DELETED " : "");
 		if (deleted && !print_deleted) {
 			printf("\n");
-			continue;
+			goto end;
 		}
 
 		if (fromwire_gossip_store_channel_amount(msg, &sat)) {
@@ -100,6 +100,7 @@ int main(int argc, char *argv[])
 			warnx("Unknown message %u",
 			      fromwire_peektype(msg));
 		}
+	end:
 		off += sizeof(hdr) + msglen;
 		tal_free(msg);
 	}
