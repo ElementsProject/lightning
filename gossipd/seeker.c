@@ -286,11 +286,11 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
 		disable_gossip_stream(seeker, peer);
 }
 
-/* Turn unknown_scids map into a flat array. */
-static struct short_channel_id *unknown_scids_arr(const tal_t *ctx,
-						  const struct seeker *seeker)
+/* Turn unknown_scids map into a flat array, removes from map. */
+static struct short_channel_id *unknown_scids_remove(const tal_t *ctx,
+						     struct seeker *seeker)
 {
-	const struct scid_map *map = &seeker->unknown_scids;
+	struct scid_map *map = &seeker->unknown_scids;
 	struct short_channel_id *scids, *s;
 	size_t i, max;
 	struct scid_map_iter it;
@@ -302,9 +302,11 @@ static struct short_channel_id *unknown_scids_arr(const tal_t *ctx,
 		max = 8000;
 
 	scids = tal_arr(ctx, struct short_channel_id, max);
-	i = 0;
-	for (s = scid_map_first(map, &it); i < max; s = scid_map_next(map, &it))
-		scids[i++] = *s;
+	for (i = 0, s = scid_map_first(map, &it); i < max; i++) {
+		scids[i] = *s;
+		scid_map_del(map, s);
+		tal_free(s);
+	}
 	assert(i == tal_count(scids));
 	return scids;
 }
@@ -360,7 +362,7 @@ static bool seek_any_unknown_scids(struct seeker *seeker)
 	set_state(seeker, ASKING_FOR_UNKNOWN_SCIDS);
 	selected_peer(seeker, peer);
 
-	scids = unknown_scids_arr(tmpctx, seeker);
+	scids = unknown_scids_remove(tmpctx, seeker);
 	if (!query_short_channel_ids(seeker->daemon, peer, scids, NULL,
 				     scid_query_done))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
