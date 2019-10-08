@@ -51,6 +51,7 @@
 #include <gossipd/gossipd.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
+#include <gossipd/seeker.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
 #include <netdb.h>
@@ -178,7 +179,7 @@ static u32 gossip_start(const struct routing_state *rstate,
  *   - if the `gossip_queries` feature is negotiated:
  * 	- MUST NOT relay any gossip messages unless explicitly requested.
  */
-static void setup_gossip_range(struct peer *peer)
+void setup_gossip_range(struct peer *peer)
 {
 	u8 *msg;
 
@@ -557,8 +558,8 @@ done:
 }
 
 /* What gossip level do we set for this to meet our target? */
-static enum gossip_level peer_gossip_level(const struct daemon *daemon,
-					   bool gossip_queries_feature)
+enum gossip_level peer_gossip_level(const struct daemon *daemon,
+				    bool gossip_queries_feature)
 {
 	struct peer *peer;
 	size_t gossip_levels[ARRAY_SIZE(gossip_level_targets)];
@@ -580,7 +581,7 @@ static enum gossip_level peer_gossip_level(const struct daemon *daemon,
 		gossip_levels[peer->gossip_level]++;
 
 	/* If we're missing gossip, try to fill GOSSIP_HIGH */
-	if (daemon->gossip_missing != NULL)
+	if (seeker_gossip(daemon->seeker))
 		glevel = GOSSIP_HIGH;
 	else
 		glevel = GOSSIP_MEDIUM;
@@ -854,8 +855,8 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		local_disable_chan(daemon->rstate, c);
 }
 
-static struct peer *random_peer(struct daemon *daemon,
-				bool (*check_peer)(const struct peer *peer))
+struct peer *random_peer(struct daemon *daemon,
+			 bool (*check_peer)(const struct peer *peer))
 {
 	u64 target = UINT64_MAX;
 	struct peer *best = NULL, *i;
@@ -874,70 +875,6 @@ static struct peer *random_peer(struct daemon *daemon,
 		}
 	}
 	return best;
-}
-
-/* Mutual recursion, so we pre-declare this. */
-static void gossip_not_missing(struct daemon *daemon);
-
-static bool peer_is_not_gossip_high(const struct peer *peer)
-{
-	return peer->gossip_level != GOSSIP_HIGH;
-}
-
-/*~ We've found gossip is missing. */
-static void gossip_missing(struct daemon *daemon)
-{
-	if (!daemon->gossip_missing) {
-		status_info("We seem to be missing gossip messages");
-		/* FIXME: we could use query_channel_range. */
-		/* Make some peers gossip harder. */
-		for (size_t i = 0; i < gossip_level_targets[GOSSIP_HIGH]; i++) {
-			struct peer *peer = random_peer(daemon,
-							peer_is_not_gossip_high);
-
-			if (!peer)
-				break;
-
-			status_info("%s: gossip harder!",
-				    type_to_string(tmpctx, struct node_id,
-						   &peer->id));
-			peer->gossip_level = GOSSIP_HIGH;
-			setup_gossip_range(peer);
-		}
-	}
-
-	tal_free(daemon->gossip_missing);
-	/* Check again in 10 minutes. */
-	daemon->gossip_missing = new_reltimer(&daemon->timers, daemon,
-					      time_from_sec(600),
-					      gossip_not_missing, daemon);
-}
-
-/*~ This is a timer, which goes off 10 minutes after the last time we noticed
- * that gossip was missing. */
-static void gossip_not_missing(struct daemon *daemon)
-{
-	/* Corner case: no peers, try again! */
-	if (list_empty(&daemon->peers))
-		gossip_missing(daemon);
-	else {
-		struct peer *peer;
-
-		daemon->gossip_missing = tal_free(daemon->gossip_missing);
-		status_info("We seem to be caught up on gossip messages");
-		/* Free any lagging/stale unknown scids. */
-		daemon->unknown_scids = tal_free(daemon->unknown_scids);
-
-		/* Reset peers we marked as HIGH */
-		list_for_each(&daemon->peers, peer, list) {
-			if (peer->gossip_level != GOSSIP_HIGH)
-				continue;
-			if (!peer->gossip_queries_feature)
-				continue;
-			peer->gossip_level = peer_gossip_level(daemon, true);
-			setup_gossip_range(peer);
-		}
-	}
 }
 
 /*~ Parse init message from lightningd: starts the daemon properly. */
@@ -976,7 +913,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	timestamp = gossip_store_load(daemon->rstate, daemon->rstate->gs);
 	/* If gossip_store less than 24 hours old, say we're OK. */
 	if (timestamp < gossip_time_now(daemon->rstate).ts.tv_sec - 24*3600)
-		gossip_missing(daemon);
+		gossip_missing(daemon, daemon->seeker);
 
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
@@ -1523,21 +1460,14 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
 	/* Were we looking specifically for this? */
-	was_unknown = false;
-	for (size_t i = 0; i < tal_count(daemon->unknown_scids); i++) {
-		if (short_channel_id_eq(&daemon->unknown_scids[i], &scid)) {
-			was_unknown = true;
-			tal_arr_remove(&daemon->unknown_scids, i);
-			break;
-		}
-	}
+	was_unknown = remove_unknown_scid(daemon->seeker, &scid);
 
 	/* Outscript is NULL if it's not an unspent output */
 	if (handle_pending_cannouncement(daemon, daemon->rstate,
 					 &scid, sat, outscript)
 	    && was_unknown) {
 		/* It was real: we're missing gossip. */
-		gossip_missing(daemon);
+		gossip_missing(daemon, daemon->seeker);
 	}
 
 	/* Anywhere we might have announced a channel, we check if it's time to
@@ -1794,9 +1724,8 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
-	daemon->unknown_scids = tal_arr(daemon, struct short_channel_id, 0);
+	daemon->seeker = new_seeker(daemon);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
-	daemon->gossip_missing = NULL;
 	daemon->node_announce_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
 

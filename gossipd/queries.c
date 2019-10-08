@@ -13,6 +13,7 @@
 #include <gossipd/gossipd.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
+#include <gossipd/seeker.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire.h>
 #include <zlib.h>
@@ -143,10 +144,10 @@ static UNNEEDED bool encoding_end_external_type(u8 **encoded, u8 *type, size_t m
 }
 
 /* Query this peer for these short-channel-ids. */
-static bool query_short_channel_ids(struct daemon *daemon,
-				    struct peer *peer,
-				    const struct short_channel_id *scids,
-				    void (*cb)(struct peer *peer, bool complete))
+bool query_short_channel_ids(struct daemon *daemon,
+			     struct peer *peer,
+			     const struct short_channel_id *scids,
+			     void (*cb)(struct peer *peer, bool complete))
 {
 	u8 *encoded, *msg;
 
@@ -195,27 +196,6 @@ static bool query_short_channel_ids(struct daemon *daemon,
 		     type_to_string(tmpctx, struct node_id, &peer->id),
 		     tal_count(scids));
 	return true;
-}
-
-/* This peer told us about an update to an unknown channel.  Ask it for a
- * channel_announcement. */
-void query_unknown_channel(struct daemon *daemon,
-			   struct peer *peer,
-			   const struct short_channel_id *id)
-{
-	/* Don't go overboard if we're already asking for a lot. */
-	if (tal_count(daemon->unknown_scids) > 1000)
-		return;
-
-	/* Check we're not already getting this one. */
-	for (size_t i = 0; i < tal_count(daemon->unknown_scids); i++)
-		if (short_channel_id_eq(&daemon->unknown_scids[i], id))
-			return;
-
-	tal_arr_expand(&daemon->unknown_scids, *id);
-
-	/* This is best effort: if peer is busy, we'll try next time. */
-	query_short_channel_ids(daemon, peer, daemon->unknown_scids, NULL);
 }
 
 /* The peer can ask about an array of short channel ids: we don't assemble the

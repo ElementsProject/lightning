@@ -15,10 +15,6 @@ const u8 *handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg);
 const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg);
 const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg);
 
-void query_unknown_channel(struct daemon *daemon,
-			   struct peer *peer,
-			   const struct short_channel_id *id);
-
 /* This called when the peer is idle. */
 void maybe_send_query_responses(struct peer *peer);
 
@@ -31,6 +27,12 @@ bool query_channel_range(struct daemon *daemon,
 				    u32 first_blocknum, u32 number_of_blocks,
 				    const struct short_channel_id *scids,
 				    bool complete));
+
+/* Ask this peer for info about an array of scids */
+bool query_short_channel_ids(struct daemon *daemon,
+			     struct peer *peer,
+			     const struct short_channel_id *scids,
+			     void (*cb)(struct peer *peer, bool complete));
 
 #if DEVELOPER
 struct io_plan *query_scids_req(struct io_conn *conn,

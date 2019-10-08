@@ -19,7 +19,8 @@ LIGHTNINGD_GOSSIP_HEADERS_WSRC := gossipd/gen_gossip_wire.h \
 	gossipd/gossip_store.h				\
 	gossipd/queries.h				\
 	gossipd/gossip_generation.h			\
-	gossipd/routing.h
+	gossipd/routing.h				\
+	gossipd/seeker.h
 LIGHTNINGD_GOSSIP_HEADERS := $(LIGHTNINGD_GOSSIP_HEADERS_WSRC) gossipd/broadcast.h
 LIGHTNINGD_GOSSIP_SRC := $(LIGHTNINGD_GOSSIP_HEADERS_WSRC:.h=.c)
 LIGHTNINGD_GOSSIP_OBJS := $(LIGHTNINGD_GOSSIP_SRC:.c=.o)
