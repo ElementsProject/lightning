@@ -382,8 +382,10 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	 * discard it (eg. non-public channel), but it should not complain
 	 * about it being invalid! __func__ is a magic C constant which
 	 * expands to this function name. */
-	msg = handle_channel_update(daemon->rstate, take(update), __func__,
-				    NULL, NULL);
+	msg = handle_channel_update(daemon->rstate, take(update),
+				    find_peer(daemon,
+					      &chan->nodes[!direction]->id),
+				    NULL);
 	if (msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s: rejected local channel update %s: %s",

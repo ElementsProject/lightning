@@ -323,8 +323,8 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	u8 *err;
 
 	unknown_scid.u64 = 0;
-	err = handle_channel_update(peer->daemon->rstate, msg, "subdaemon",
-				    peer, &unknown_scid);
+	err = handle_channel_update(peer->daemon->rstate, msg, peer,
+				    &unknown_scid);
 	if (err) {
 		if (unknown_scid.u64 != 0)
 			query_unknown_channel(peer->daemon, peer, &unknown_scid);
