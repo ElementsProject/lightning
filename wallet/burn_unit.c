@@ -101,55 +101,35 @@ static void burn_tx_broadcast(struct bitcoind *bitcoind UNUSED,
 
 }
 
-void burn_transactions(struct wallet *w, u32 tip_height)
+static void burn_utxos(struct wallet *w, struct sweep_tx *stx, u32 tip_height)
 {
-	struct bitcoin_tx *signed_tx;
-	struct bitcoin_txid txid, signed_txid;
+	struct wallet_tx *wtx;
+	struct pubkey *changekey;
 	struct bitcoin_tx_output **outputs, *change_output;
 	struct bitcoin_tx_input **inputs;
-	struct pubkey *changekey;
-	struct sweep_tx *stx;
-	struct wallet_tx *wtx;
+	struct bitcoin_tx *signed_tx;
+	struct bitcoin_txid txid, signed_txid;
+	bool feerate_unknown;
 	u32 feerate_per_kw;
 
-	stx = tal(NULL, struct sweep_tx);
-	wtx = tal(stx, struct wallet_tx);
-	stx->wtx = wtx;
-	stx->w = w;
-
-	/* There are no '3rd party' inputs */
-	inputs = tal_arr(stx, struct bitcoin_tx_input *, 0);
-
+	wtx = stx->wtx;
 	wtx_init(NULL, wtx, AMOUNT_SAT(-1ULL));
 	wtx->all_funds = true;
 
-	outputs = tal_arr(wtx, struct bitcoin_tx_output *, 0);
+	feerate_per_kw = try_get_feerate(w->ld->topology, FEERATE_URGENT);
+	if (!feerate_per_kw)
+		feerate_per_kw = feerate_min(w->ld, &feerate_unknown);
 
-	feerate_per_kw = try_get_feerate(w->ld->topology, FEERATE_NORMAL);
-
-	stx->chans = wallet_get_channel_burnlist(stx, w, tip_height);
-	wtx->utxos = wallet_get_burnable_utxos(stx, w, tip_height);
-
-	if (!tal_count(wtx->utxos)) {
-		log_info(w->ld->log, "No burnable outputs found at "
-			 "blockheight %d", tip_height);
-		tal_free(stx);
-		return;
-	} else
-		log_info(w->ld->log, "Found %ld burnable output%s at "
-			 "blockheight %d. Initiating spend.",
-			 tal_count(wtx->utxos),
-			 tal_count(wtx->utxos) > 1 ? "s" : "",
-			 tip_height);
-
-       if (wtx_from_utxos(wtx, get_chainparams(w->ld),
-			  feerate_per_kw, 0, tip_height, wtx->utxos)) {
-               log_broken(w->ld->log, "Unable to create tx for burnable utxos."
-		          " Aborting burn at attempt at height %d", tip_height);
-	       return;
-       }
+        if (wtx_from_utxos(wtx, get_chainparams(w->ld),
+			   feerate_per_kw, 0, tip_height, wtx->utxos)) {
+                log_broken(w->ld->log, "Unable to create tx for burnable utxos."
+		           " Aborting burn at attempt at height %d", tip_height);
+	        tal_free(stx);
+	        return;
+        }
 
 	/* Add 'change' output for total value */
+	outputs = tal_arr(wtx, struct bitcoin_tx_output *, 0);
 	assert(amount_sat_eq(wtx->change, AMOUNT_SAT(0)));
 	changekey = tal(wtx, struct pubkey);
 	if (!bip32_pubkey(w->bip32_base, changekey, wtx->change_key_index))
@@ -162,6 +142,9 @@ void burn_transactions(struct wallet *w, u32 tip_height)
 	stx->tx = withdraw_tx(wtx, get_chainparams(w->ld),
 			      wtx->utxos, NULL, outputs,
 			      w->bip32_base, NULL);
+
+	/* There are no '3rd party' inputs */
+	inputs = tal_arr(stx, struct bitcoin_tx_input *, 0);
 
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
@@ -202,4 +185,48 @@ void burn_transactions(struct wallet *w, u32 tip_height)
 	bitcoind_sendrawtx(w->ld->topology->bitcoind,
 			   tal_hex(tmpctx, linearize_tx(tmpctx, stx->tx)),
 			   burn_tx_broadcast, stx);
+}
+
+void burn_channel_utxos(struct wallet *w, const struct utxo **utxos)
+{
+	struct sweep_tx *stx;
+
+	stx = tal(NULL, struct sweep_tx);
+	stx->w = w;
+	stx->wtx = tal(stx, struct wallet_tx);
+	stx->wtx->utxos = tal_steal(stx->wtx, utxos);
+	stx->chans = NULL;
+
+	burn_utxos(w, stx, w->ld->topology->tip->height);
+}
+
+void burn_transactions(struct wallet *w, u32 tip_height)
+{
+	struct sweep_tx *stx;
+	struct wallet_tx *wtx;
+
+	stx = tal(NULL, struct sweep_tx);
+	wtx = tal(stx, struct wallet_tx);
+	stx->wtx = wtx;
+	stx->w = w;
+
+	stx->chans = wallet_get_channel_burnlist(stx, w, tip_height);
+	wtx->utxos = wallet_get_burnable_utxos(wtx, w, tip_height);
+
+	if (!tal_count(wtx->utxos)) {
+		log_info(w->ld->log, "No burnable outputs found at "
+			 "blockheight %d", tip_height);
+		tal_free(stx);
+		return;
+	} else
+		log_info(w->ld->log, "Found %ld burnable output%s at "
+			 "blockheight %d. Initiating spend.",
+			 tal_count(wtx->utxos),
+			 tal_count(wtx->utxos) > 1 ? "s" : "",
+			 tip_height);
+
+	/* We should get both utxos and channels back, or nothing */
+	assert((tal_count(wtx->utxos) > 0) == (tal_count(stx->chans) > 0));
+
+	burn_utxos(w, stx, tip_height);
 }
