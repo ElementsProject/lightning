@@ -455,7 +455,10 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 	struct routing_state *rstate = seeker->daemon->rstate;
 	size_t new_nannounce = 0, num_scids;
 
-	assert(seeker->random_peer_softref == peer);
+	/* We might have given up on them, then they replied. */
+	if (seeker->random_peer_softref != peer)
+		return;
+
 	clear_softref(seeker, &seeker->random_peer_softref);
 
 	num_scids = tal_count(seeker->nannounce_scids);
@@ -578,10 +581,10 @@ static void process_scid_probe(struct peer *peer,
 	struct seeker *seeker = peer->daemon->seeker;
 	bool new_unknown_scids = false;
 
+	/* We might have given up on them, then they replied. */
 	if (seeker->random_peer_softref != peer)
-		status_debug("softref = %p, peer = %p",
-			     seeker->random_peer_softref, peer);
-	assert(seeker->random_peer_softref == peer);
+		return;
+
 	clear_softref(seeker, &seeker->random_peer_softref);
 
 	for (size_t i = 0; i < tal_count(scids); i++) {
@@ -738,10 +741,10 @@ static void check_probe(struct seeker *seeker,
 	if (peer_made_progress(seeker))
 		return;
 
-	status_debug("Peer %s has only moved gossip %zu->%zu for probe, hanging up on it",
+	status_debug("Peer %s has only moved gossip %zu->%zu for probe, giving up on it",
 		     type_to_string(tmpctx, struct node_id, &peer->id),
 		     seeker->prev_gossip_count, peer->gossip_counter);
-	tal_free(peer);
+	clear_softref(seeker, &seeker->random_peer_softref);
 	restart(seeker);
 }
 
