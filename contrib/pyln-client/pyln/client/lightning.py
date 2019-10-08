@@ -1077,12 +1077,13 @@ class LightningRpc(UnixDomainSocketRpc):
         if len(args) and not isinstance(args[0], list):
             return self._deprecated_txprepare(*args, **kwargs)
 
-        def _txprepare(outputs, feerate=None, minconf=None, utxos=None):
+        def _txprepare(outputs, feerate=None, minconf=None, utxos=None, zero_out_change=None):
             payload = {
                 "outputs": outputs,
                 "feerate": feerate,
                 "minconf": minconf,
                 "utxos": utxos,
+                "zero_out_change": zero_out_change,
             }
             return self.call("txprepare", payload)
 
