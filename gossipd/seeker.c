@@ -1,6 +1,7 @@
 /* This contains the code which actively seeks out gossip from peers */
 #include <bitcoin/short_channel_id.h>
 #include <ccan/list/list.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
@@ -28,6 +29,12 @@ enum seeker_state {
 
 	/* Probing: checking our startup really is finished. */
 	PROBING_SCIDS,
+
+	/* Probing: need peer to check that we have node_announcements. */
+	PROBING_NANNOUNCES_NEED_PEER,
+
+	/* Probing: check that we have node_announcements. */
+	PROBING_NANNOUNCES,
 
 	/* Normal running. */
 	NORMAL,
@@ -68,6 +75,10 @@ struct seeker {
 
 	/* This checks progress of our random peer */
 	size_t prev_gossip_count;
+
+	/* Array of scids for node announcements. */
+	struct short_channel_id *nannounce_scids;
+	size_t nannounce_offset;
 };
 
 /* Mutual recursion */
@@ -329,6 +340,120 @@ static bool next_block_range(struct seeker *seeker,
 	return false;
 }
 
+static struct short_channel_id *get_unannounced_nodes(const tal_t *ctx,
+						      struct routing_state *rstate,
+						      size_t off,
+						      size_t max)
+{
+	struct short_channel_id *scids;
+	struct node_map_iter it;
+	size_t i = 0, num = 0;
+	struct node *n;
+
+	/* Pick an example short_channel_id at random to query.  As a
+	 * side-effect this gets the node */
+	scids = tal_arr(ctx, struct short_channel_id, max);
+
+	for (n = node_map_first(rstate->nodes, &it);
+	     n && num < max;
+	     n = node_map_next(rstate->nodes, &it)) {
+		struct chan_map_iter cit;
+		if (n->bcast.index)
+			continue;
+
+		if (i >= off) {
+			scids[num] = first_chan(n, &cit)->scid;
+			num++;
+		}
+		i++;
+	}
+	if (num < max)
+		tal_resize(&scids, num);
+	return scids;
+}
+
+/* Mutual recursion */
+static void peer_gossip_probe_nannounces(struct seeker *seeker);
+
+static void nodeannounce_query_done(struct peer *peer, bool complete)
+{
+	struct seeker *seeker = peer->daemon->seeker;
+	struct routing_state *rstate = seeker->daemon->rstate;
+	size_t new_nannounce = 0, num_scids;
+
+	assert(seeker->random_peer_softref == peer);
+	clear_softref(seeker, &seeker->random_peer_softref);
+
+	num_scids = tal_count(seeker->nannounce_scids);
+	for (size_t i = 0; i < num_scids; i++) {
+		struct chan *c = get_channel(rstate,
+					     &seeker->nannounce_scids[i]);
+		/* Could have closed since we asked. */
+		if (!c)
+			continue;
+		/* We wouldn't have asked if it has both node_announcements */
+		if (c->nodes[0]->bcast.index && c->nodes[1]->bcast.index)
+			new_nannounce++;
+	}
+
+	status_debug("seeker: found %zu new node_announcements in %zu scids",
+		     new_nannounce, num_scids);
+
+	seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
+	seeker->nannounce_offset += num_scids;
+
+	if (!new_nannounce) {
+		set_state(seeker, NORMAL);
+		return;
+	}
+
+	/* Double every time.  We may skip a few, of course, since map
+	 * is changing. */
+	num_scids *= 2;
+	if (num_scids > 8000)
+		num_scids = 8000;
+
+	seeker->nannounce_scids
+		= get_unannounced_nodes(seeker, seeker->daemon->rstate,
+					seeker->nannounce_offset, num_scids);
+
+	/* Nothing unknown at all?  Great, we're done */
+	if (tal_count(seeker->nannounce_scids) == 0) {
+		seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
+		set_state(seeker, NORMAL);
+		return;
+	}
+
+	set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
+	peer_gossip_probe_nannounces(seeker);
+}
+
+/* Pick a peer, ask it for a few node announcements, to check. */
+static void peer_gossip_probe_nannounces(struct seeker *seeker)
+{
+	struct peer *peer;
+
+	peer = random_peer(seeker->daemon, peer_can_take_scid_query);
+	if (!peer)
+		return;
+	selected_peer(seeker, peer);
+
+	/* Nothing unknown at all?  Great, we're done */
+	if (tal_count(seeker->nannounce_scids) == 0) {
+		seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
+		set_state(seeker, NORMAL);
+		return;
+	}
+
+	set_state(seeker, PROBING_NANNOUNCES);
+	if (!query_short_channel_ids(seeker->daemon, peer,
+				     seeker->nannounce_scids,
+				     nodeannounce_query_done))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "seeker: quering %zu scids is too many?",
+			      tal_count(seeker->nannounce_scids));
+}
+
 static void process_scid_probe(struct peer *peer,
 			       u32 first_blocknum, u32 number_of_blocks,
 			       const struct short_channel_id *scids,
@@ -367,8 +492,13 @@ static void process_scid_probe(struct peer *peer,
 		return;
 	}
 
-	/* Probe finished.  We'll check for any unknown scids next timer. */
-	set_state(seeker, NORMAL);
+	/* Channel probe finished, try asking for 32 unannounced nodes. */
+	seeker->nannounce_offset = 0;
+	seeker->nannounce_scids
+		= get_unannounced_nodes(seeker, seeker->daemon->rstate, 0, 32);
+
+	set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
+	peer_gossip_probe_nannounces(seeker);
 	return;
 }
 
@@ -409,6 +539,8 @@ static void probe_random_scids(struct seeker *seeker,
 	}
 
 	set_state(seeker, PROBING_SCIDS_NEED_PEER);
+	seeker->nannounce_scids = NULL;
+	seeker->nannounce_offset = 0;
 	peer_gossip_probe_scids(seeker);
 }
 
@@ -474,6 +606,32 @@ static void check_scid_probing(struct seeker *seeker)
 	}
 }
 
+static void check_nannounce_probing(struct seeker *seeker)
+{
+	struct peer *peer = seeker->random_peer_softref;
+
+	/* It might have died, pick another. */
+	if (!peer) {
+		status_debug("seeker: nannounce probing peer died, re-choosing");
+		set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
+		peer_gossip_probe_nannounces(seeker);
+		return;
+	}
+
+	/* Is peer making progress with responses? */
+	if (peer_made_progress(seeker))
+		return;
+
+	status_unusual("Peer %s has only moved gossip %zu->%zu for nannounce probe, hanging up on it",
+		       type_to_string(tmpctx, struct node_id, &peer->id),
+		       seeker->prev_gossip_count, peer->gossip_counter);
+	tal_free(peer);
+
+	set_state(seeker, PROBING_NANNOUNCES_NEED_PEER);
+	peer_gossip_probe_nannounces(seeker);
+}
+
+
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
 {
@@ -491,6 +649,12 @@ static void seeker_check(struct seeker *seeker)
 		break;
 	case ASKING_FOR_UNKNOWN_SCIDS:
 		check_unknown_scid_query(seeker);
+		break;
+	case PROBING_NANNOUNCES_NEED_PEER:
+		peer_gossip_probe_nannounces(seeker);
+		break;
+	case PROBING_NANNOUNCES:
+		check_nannounce_probing(seeker);
 		break;
 	case NORMAL:
 		seek_any_unknown_scids(seeker);
@@ -519,8 +683,14 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 	/* In these states, we set up peers to stream gossip normally */
 	case PROBING_SCIDS_NEED_PEER:
 		peer_gossip_probe_scids(seeker);
-		/* fall thru */
+		normal_gossip_start(seeker, peer);
+		return;
+	case PROBING_NANNOUNCES_NEED_PEER:
+		peer_gossip_probe_nannounces(seeker);
+		normal_gossip_start(seeker, peer);
+		return;
 	case PROBING_SCIDS:
+	case PROBING_NANNOUNCES:
 	case NORMAL:
 	case ASKING_FOR_UNKNOWN_SCIDS:
 		normal_gossip_start(seeker, peer);
