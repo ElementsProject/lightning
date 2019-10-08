@@ -1787,6 +1787,7 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	struct bitcoin_tx_input **inputs;
 	struct bitcoin_tx_output **outputs;
 	size_t input_count, i, j;
+	struct amount_sat input_sat, output_sat;
 	int input_index;
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in,
@@ -1799,10 +1800,48 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	for (i = 0; i < input_count; i++)
 		map[i] = int2ptr(i);
 
+	/* Do some 'light' transaction verification */
+	output_sat = AMOUNT_SAT(0);
+	for (i = 0; i < tal_count(outputs); i++) {
+		if (amount_sat_eq(outputs[i]->amount, AMOUNT_SAT(0)))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Transaction has zero value output");
+		if (!amount_sat_add(&output_sat, output_sat, outputs[i]->amount))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Overflow adding output values");
+	}
+
+	input_sat = AMOUNT_SAT(0);
+	for (i = 0; i < tal_count(inputs); i++) {
+		if (!amount_sat_add(&input_sat, input_sat, inputs[i]->amount))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Overflow adding input values");
+	}
+
+	for (i = 0; i < tal_count(utxos); i++) {
+		if (!amount_sat_add(&input_sat, input_sat, utxos[i]->amount))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Overflow adding utxo values");
+	}
+
+	if (!amount_sat_sub(&input_sat, input_sat, output_sat))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Not enough inputs to cover outputs. %s < %s",
+				      type_to_string(tmpctx, struct amount_sat, &input_sat),
+				      type_to_string(tmpctx, struct amount_sat, &output_sat));
+
+	/* Let's say 100k sats in miners fees is to many */
+	if (amount_sat_greater(input_sat, AMOUNT_SAT(100000)))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Fees deemed exorbitant: %s",
+				      type_to_string(tmpctx, struct amount_sat,
+						     &input_sat));
+
 	tx = withdraw_tx(tmpctx, c->chainparams,
 			 cast_const2(const struct utxo **, utxos),
 			 inputs, outputs, NULL,
 			 (const void **)&map);
+
 
 	/* Put our signatures on the transaction */
 	sign_our_inputs(tx, utxos, (const void **)&map, input_count);
