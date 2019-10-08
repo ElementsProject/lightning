@@ -28,10 +28,11 @@ bool query_channel_range(struct daemon *daemon,
 				    const struct short_channel_id *scids,
 				    bool complete));
 
-/* Ask this peer for info about an array of scids */
+/* Ask this peer for info about an array of scids, with optional query_flags */
 bool query_short_channel_ids(struct daemon *daemon,
 			     struct peer *peer,
 			     const struct short_channel_id *scids,
+			     const u8 *query_flags,
 			     void (*cb)(struct peer *peer, bool complete));
 
 #if DEVELOPER
