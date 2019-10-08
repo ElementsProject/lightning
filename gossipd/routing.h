@@ -386,7 +386,6 @@ struct chan *next_chan(const struct node *node, struct chan_map_iter *i);
  * If the error is that the channel is unknown, fills in *unknown_scid
  * (if not NULL). */
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
-			  const char *source,
 			  struct peer *peer,
 			  struct short_channel_id *unknown_scid);
 

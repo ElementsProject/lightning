@@ -520,11 +520,13 @@ static void init_half_chan(struct routing_state *rstate,
 	c->tokens = TOKEN_MAX;
 }
 
-static void bad_gossip_order(const u8 *msg, const char *source,
+static void bad_gossip_order(const u8 *msg,
+			     const struct peer *peer,
 			     const char *details)
 {
 	status_debug("Bad gossip order from %s: %s before announcement %s",
-		     source, wire_type_name(fromwire_peektype(msg)),
+		     peer ? type_to_string(tmpctx, struct node_id, &peer->id)
+		     : "unknown", wire_type_name(fromwire_peektype(msg)),
 		     details);
 }
 
@@ -1859,12 +1861,14 @@ static void process_pending_channel_update(struct daemon *daemon,
 	if (!cupdate)
 		return;
 
-	/* FIXME: We don't remember who sent us updates, so can't error them */
-	err = handle_channel_update(rstate, cupdate, "pending update", peer,
-				    NULL);
+	err = handle_channel_update(rstate, cupdate, peer, NULL);
 	if (err) {
-		status_debug("Pending channel_update for %s: %s",
+		/* FIXME: We could send this error back to peer if != NULL */
+		status_debug("Pending channel_update for %s from %s: %s",
 			     type_to_string(tmpctx, struct short_channel_id, scid),
+			     peer
+			     ? type_to_string(tmpctx, struct node_id, &peer->id)
+			     : "unknown",
 			     sanitize_error(tmpctx, err, NULL));
 		tal_free(err);
 	}
@@ -2227,7 +2231,6 @@ void remove_channel_from_store(struct routing_state *rstate,
 }
 
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
-			  const char *source,
 			  struct peer *peer,
 			  struct short_channel_id *unknown_scid)
 {
@@ -2300,7 +2303,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		if (unknown_scid)
 			*unknown_scid = short_channel_id;
 		bad_gossip_order(serialized,
-				 source,
+				 peer,
 				 tal_fmt(tmpctx, "%s/%u",
 					 type_to_string(tmpctx,
 							struct short_channel_id,
@@ -2328,7 +2331,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 				    &short_channel_id),
 		     channel_flags & 0x01,
 		     channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
-		     source);
+		     peer ? type_to_string(tmpctx, struct node_id, &peer->id)
+		     : "unknown");
 
 	routing_add_channel_update(rstate, take(serialized), 0, peer);
 	return NULL;
@@ -2420,7 +2424,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		pna = pending_node_map_get(rstate->pending_node_map,
 					   &node_id);
 		if (!pna) {
-			bad_gossip_order(msg, "node_announcement",
+			bad_gossip_order(msg, peer,
 					 type_to_string(tmpctx, struct node_id,
 							&node_id));
 			return false;
@@ -2731,7 +2735,7 @@ void routing_failure(struct routing_state *rstate,
 
 	/* lightningd will only extract this if UPDATE is set. */
 	if (channel_update) {
-		u8 *err = handle_channel_update(rstate, channel_update, "error",
+		u8 *err = handle_channel_update(rstate, channel_update,
 						NULL, NULL);
 		if (err) {
 			status_unusual("routing_failure: "
