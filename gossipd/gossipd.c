@@ -501,24 +501,6 @@ done:
 	return daemon_conn_read_next(conn, peer->dc);
 }
 
-/* If we have many peers, we don't ask them all to gossip. */
-static bool peer_should_gossip(const struct daemon *daemon)
-{
-	struct peer *peer;
-	size_t n_gossipers = 0;
-
-#if DEVELOPER
-	/* Don't ask new peers for new gossip is dev-suppress-gossip has been set*/
-	if (suppress_gossip)
-		return false;
-#endif
-
-	list_for_each(&daemon->peers, peer, list)
-		n_gossipers += peer->gossip_enabled;
-
-	return n_gossipers < 8;
-}
-
 /*~ This is where connectd tells us about a new peer, and we hand back an fd for
  * it to send us messages via peer_msg_in above */
 static struct io_plan *connectd_new_peer(struct io_conn *conn,
@@ -575,9 +557,6 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->query_channel_blocks = NULL;
 	peer->query_channel_range_cb = NULL;
 	peer->num_pings_outstanding = 0;
-	/* We can't disable gossip if it doesn't support queries! */
-	peer->gossip_enabled = peer_should_gossip(daemon)
-		|| !peer->gossip_queries_feature;
 
 	/* We keep a list so we can find peer by id */
 	list_add_tail(&peer->daemon->peers, &peer->list);

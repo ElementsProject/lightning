@@ -1,5 +1,6 @@
 /* This contains the code which actively seeks out gossip from peers */
 #include <bitcoin/short_channel_id.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
@@ -97,6 +98,9 @@ struct seeker {
 	struct short_channel_id *nannounce_scids;
 	u8 *nannounce_query_flags;
 	size_t nannounce_offset;
+
+	/* Peers we've asked to stream us gossip */
+	struct peer *gossiper_softref[3];
 };
 
 /* Mutual recursion */
@@ -141,6 +145,8 @@ struct seeker *new_seeker(struct daemon *daemon, u32 timestamp)
 	stale_scid_map_init(&seeker->stale_scids);
 	seeker->last_gossip_timestamp = timestamp;
 	seeker->random_peer_softref = NULL;
+	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++)
+		seeker->gossiper_softref[i] = NULL;
 	set_state(seeker, STARTING_UP);
 	begin_check_timer(seeker);
 	memleak_add_helper(seeker, memleak_help_seeker);
@@ -179,20 +185,31 @@ static bool peer_made_progress(struct seeker *seeker)
 	return false;
 }
 
-static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
+static void disable_gossip_stream(struct seeker *seeker, struct peer *peer)
+{
+	u8 *msg;
+
+	status_debug("seeker: disabling gossip from %s",
+		     type_to_string(tmpctx, struct node_id, &peer->id));
+
+	/* This is allowed even if they don't understand it (odd) */
+	msg = towire_gossip_timestamp_filter(NULL,
+					     &seeker->daemon->chain_hash,
+					     UINT32_MAX,
+					     UINT32_MAX);
+	queue_peer_msg(peer, take(msg));
+}
+
+static void enable_gossip_stream(struct seeker *seeker, struct peer *peer)
 {
 	u32 start;
 	u8 *msg;
 
 	/* FIXME: gets the last minute of gossip, works around our current
 	 * lack of discovery if we're missing gossip. */
-	if (peer->gossip_enabled)
-		start = time_now().ts.tv_sec - 60;
-	else
-		start = UINT32_MAX;
+	start = time_now().ts.tv_sec - 60;
 
-	status_debug("seeker: starting %s from %s",
-		     peer->gossip_enabled ? "gossip" : "disabled gossip",
+	status_debug("seeker: starting gossip from %s",
 		     type_to_string(tmpctx, struct node_id, &peer->id));
 
 	/* This is allowed even if they don't understand it (odd) */
@@ -201,6 +218,25 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
 					     start,
 					     UINT32_MAX);
 	queue_peer_msg(peer, take(msg));
+}
+
+static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
+{
+	bool enable_stream = false;
+
+	/* Make this one of our streaming gossipers if we aren't full */
+	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
+		if (seeker->gossiper_softref[i] == NULL) {
+			set_softref(seeker, &seeker->gossiper_softref[i], peer);
+			enable_stream = true;
+			break;
+		}
+	}
+
+	if (enable_stream)
+		enable_gossip_stream(seeker, peer);
+	else
+		disable_gossip_stream(seeker, peer);
 }
 
 /* Turn unknown_scids map into a flat array. */
@@ -752,6 +788,46 @@ static void check_probe(struct seeker *seeker,
 	restart(seeker);
 }
 
+static bool peer_is_not_gossipper(const struct peer *peer)
+{
+	const struct seeker *seeker = peer->daemon->seeker;
+
+	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
+		if (seeker->gossiper_softref[i] == peer)
+			return false;
+	}
+	return true;
+}
+
+/* FIXME: We should look at gossip performance and replace the underperforming
+ * peers in preference. */
+static void maybe_rotate_gossipers(struct seeker *seeker)
+{
+	struct peer *peer;
+	size_t i;
+
+	/* If all peers are gossiping, we're done */
+	peer = random_peer(seeker->daemon, peer_is_not_gossipper);
+	if (!peer)
+		return;
+
+	/* If we have a slot free, or ~ 1 per hour */
+	for (i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
+		if (!seeker->gossiper_softref[i])
+			goto set_gossiper;
+		if (pseudorand(ARRAY_SIZE(seeker->gossiper_softref) * 60) == 0)
+			goto clear_and_set_gossiper;
+	}
+	return;
+
+clear_and_set_gossiper:
+	disable_gossip_stream(seeker, seeker->gossiper_softref[i]);
+	clear_softref(seeker, &seeker->gossiper_softref[i]);
+set_gossiper:
+	set_softref(seeker, &seeker->gossiper_softref[i], peer);
+	enable_gossip_stream(seeker, peer);
+}
+
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
 {
@@ -772,6 +848,7 @@ static void seeker_check(struct seeker *seeker)
 		check_probe(seeker, peer_gossip_probe_nannounces);
 		break;
 	case NORMAL:
+		maybe_rotate_gossipers(seeker);
 		if (!seek_any_unknown_scids(seeker))
 			seek_any_stale_scids(seeker);
 		break;
