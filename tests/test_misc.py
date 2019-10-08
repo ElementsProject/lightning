@@ -1633,3 +1633,16 @@ def test_list_features_only(node_factory):
                 'option_gossip_queries_ex/odd',
                 'option_static_remotekey/odd']
     assert features == expected
+
+
+def test_relative_config_dir(node_factory):
+    l1 = node_factory.get_node(start=False)
+    initial_dir = os.getcwd()
+    lndir = l1.daemon.opts.get("lightning-dir")[:-1]
+    *root_dir, l1.daemon.opts["lightning-dir"] = lndir.split('/')
+    os.chdir('/'.join(root_dir))
+    l1.daemon.executable = os.path.join(initial_dir, l1.daemon.executable)
+    l1.start()
+    assert os.path.isabs(l1.rpc.listconfigs()["lightning-dir"])
+    l1.stop()
+    os.chdir(initial_dir)
