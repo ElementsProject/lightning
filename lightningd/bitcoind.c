@@ -1051,9 +1051,21 @@ static void is_bitcoind_synced_yet(struct bitcoind *bitcoind,
 		      (int)output_len, output);
 
 	t = json_get_member(output, obj, "initialblockdownload");
-	if (!t || !json_to_bool(output, t, &ibd))
-		fatal("Invalid 'initialblockdownload' field in getblockchaininfo '%.*s'",
-		      (int)output_len, output);
+	if (!t) {
+		/* 'spruned' doesn't set this field. Log it as unusual for compat. */
+		log_unusual(bitcoind->log, "'getblockchaininfo' doesn't have "
+			    "'initialblockdownload' field. Must wait for the "
+			    "completion of 'initial block download'");
+		/* For this case, we can't know if IBD finished.
+		 * Set false not to block the everything.
+		 * The check 'headers != blocks', to a certain extent,
+		 * can help us find the problem. */
+		ibd = false;
+	} else {
+		if (!json_to_bool(output, t, &ibd))
+			fatal("Invalid 'initialblockdownload' field in getblockchaininfo '%.*s'",
+			      (int)output_len, output);
+	}
 
 	if (ibd) {
 		if (initial)
