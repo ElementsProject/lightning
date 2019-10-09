@@ -891,9 +891,10 @@ static bool check_remote_input_outputs(struct state *state,
 				       struct output_info **remote_outputs,
 				       struct amount_sat stated_funding_sats)
 {
-	size_t i = 0;
 	struct amount_sat funding, other_outputs, funding_tx_sats;
 	bool has_change_address;
+	size_t i = 0;
+	u8 *msg, *err_msg;
 
 	/**
 	 *  BOLT-737016aef544011f385a9e081f85eca34eb61ab6
@@ -901,10 +902,17 @@ static bool check_remote_input_outputs(struct state *state,
 	 *   - MUST NOT send zero inputs (`num_inputs` cannot be zero).
 	 */
 	if (remote_role == OPENER) {
-		if (!tal_count(remote_inputs))
+		if (!tal_count(remote_inputs)) {
 			peer_failed(state->pps,
 				    &state->channel_id,
 				    "Opener sent no funding inputs");
+		}
+		/* TODO: bolt reference for max allowed */
+		if (tal_count(remote_inputs) > 128) {
+			peer_failed(state->pps, &state->channel_id,
+				    "%zu surpassed maximum input limit: 128",
+				    tal_count(remote_inputs));
+		}
 	} else {
 		/**
 		 * BOLT-737016aef544011f385a9e081f85eca34eb61ab6
@@ -944,7 +952,8 @@ static bool check_remote_input_outputs(struct state *state,
 
 			has_change_address = true;
 		}
-		if (!amount_sat_add(&other_outputs, other_outputs, remote_outputs[i]->output_satoshis))
+		if (!amount_sat_add(&other_outputs, other_outputs,
+				    remote_outputs[i]->output_satoshis))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Overflow in remote outher_outputs satoshis %s + %s",
 			               type_to_string(tmpctx, struct amount_sat,
@@ -970,7 +979,8 @@ static bool check_remote_input_outputs(struct state *state,
 	if (!amount_sat_sub(&funding_tx_sats, funding, other_outputs))
 		peer_failed(state->pps,
 			    &state->channel_id,
-			    "Total remote input satoshi less than output satoshis. change:%s inputs:%s",
+			    "Total remote input satoshi less than output satoshis. "
+			    "change:%s inputs:%s",
 			    type_to_string(tmpctx, struct amount_sat,
 					   &other_outputs),
 			    type_to_string(tmpctx, struct amount_sat,
@@ -985,6 +995,23 @@ static bool check_remote_input_outputs(struct state *state,
 					   &stated_funding_sats),
 			    type_to_string(tmpctx, struct amount_sat,
 					   &funding_tx_sats));
+
+	/* If there's no inputs, there's nothing to check */
+	if (!tal_count(remote_inputs))
+		return true;
+
+	/* Send their inputs master to verify via bitcoind */
+	msg = towire_opening_check_inputs(NULL,
+					  cast_const2(const struct input_info **,
+						      remote_inputs));
+
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+	if (!fromwire_opening_check_inputs_reply(tmpctx, msg, &err_msg))
+		master_badmsg(WIRE_OPENING_CHECK_INPUTS_REPLY, msg);
+
+	if (err_msg)
+		peer_failed(state->pps, &state->channel_id, "%s", err_msg);
 
 	return true;
 }
@@ -1042,8 +1069,6 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 					remote_ins, remote_outs,
 					state->accepter_funding))
 		return NULL;
-
-	/* FIXME: send their inputs master to verify via bitcoind */
 
 	input_count = tal_count(local_ins) + tal_count(remote_ins);
 	const void *map[input_count];
@@ -1634,8 +1659,6 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 
 	if (!fundee_check_primitives(state, chain_hash))
 		return NULL;
-
-	// we do all the reserve checks after we've gotten their amounts
 
 	/* Check with lightningd that we can accept this?  In particular,
 	 * if we have an existing channel, we don't support it. */
@@ -2428,6 +2451,8 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENING_GOT_OFFER:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_GOT_OFFER_REPLY_FUND:
+	case WIRE_OPENING_CHECK_INPUTS:
+	case WIRE_OPENING_CHECK_INPUTS_REPLY:
 		break;
 	}
 
