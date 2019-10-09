@@ -982,10 +982,10 @@ static bool check_remote_input_outputs(struct state *state,
 				       struct output_info **remote_outputs,
 				       struct amount_sat stated_funding_sats)
 {
-	size_t i = 0;
 	struct amount_sat funding, other_outputs, funding_tx_sats;
 	bool has_change_address;
-	u8 *wscript;
+	size_t i = 0;
+	u8 *msg, *err_msg, *wscript;
 
 	if (remote_role == OPENER) {
 		/**
@@ -998,7 +998,9 @@ static bool check_remote_input_outputs(struct state *state,
 		if (tal_count(remote_inputs) > REMOTE_OPENER_INPUT_LIMIT)
 			peer_failed(state->pps,
 				    &state->channel_id,
-				    "Opener sent no funding inputs");
+				    "%zu surpassed maximum input limit %u",
+				    tal_count(remote_inputs),
+				    REMOTE_OPENER_INPUT_LIMIT);
 	} else {
 		/**
 		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
@@ -1112,6 +1114,23 @@ static bool check_remote_input_outputs(struct state *state,
 					   &stated_funding_sats),
 			    type_to_string(tmpctx, struct amount_sat,
 					   &funding_tx_sats));
+
+	/* If there's no inputs, there's nothing to check */
+	if (!tal_count(remote_inputs))
+		return true;
+
+	/* Send their inputs master to verify via bitcoind */
+	msg = towire_opening_check_inputs(NULL,
+					  cast_const2(const struct input_info **,
+						      remote_inputs));
+
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+	if (!fromwire_opening_check_inputs_reply(tmpctx, msg, &err_msg))
+		master_badmsg(WIRE_OPENING_CHECK_INPUTS_REPLY, msg);
+
+	if (err_msg)
+		peer_failed(state->pps, &state->channel_id, "%s", err_msg);
 
 	return true;
 }
@@ -1387,8 +1406,6 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 					remote_outs,
 					state->accepter_funding))
 		return NULL;
-
-	/* FIXME: send their inputs master to verify via bitcoind */
 
 	input_count = tal_count(local_ins) + tal_count(remote_ins);
 	const void *map[input_count];
@@ -2032,8 +2049,6 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 
 	if (!fundee_check_primitives(state, chain_hash))
 		return NULL;
-
-	// we do all the reserve checks after we've gotten their amounts
 
 	/* Check with lightningd that we can accept this?  In particular,
 	 * if we have an existing channel, we don't support it. */
@@ -2865,6 +2880,8 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENING_GOT_OFFER:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_GOT_OFFER_REPLY_FUND:
+	case WIRE_OPENING_CHECK_INPUTS:
+	case WIRE_OPENING_CHECK_INPUTS_REPLY:
 		break;
 	}
 

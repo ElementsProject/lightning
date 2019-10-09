@@ -2,6 +2,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/channel_config.h>
@@ -20,6 +21,7 @@
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_wire.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
@@ -715,6 +717,95 @@ cleanup:
 	tal_free(fc->uc);
 }
 
+#if EXPERIMENTAL_FEATURES
+struct input_set {
+	u16 last_index;
+	struct input_info **inputs;
+	struct subd *openingd;
+};
+
+static void output_lookup_cb(struct bitcoind *bitcoind,
+			     const struct bitcoin_tx_output *output,
+			     void *arg)
+
+{
+	char *err_msg;
+	struct input_info *in;
+	struct input_set *set = (struct input_set *)arg;
+
+	log_debug(bitcoind->log, "checking inputs; last index is %d, count is %ld",
+		  set->last_index, tal_count(set->inputs));
+	in = set->inputs[set->last_index];
+
+	if (output) {
+		/* Check that output's scriptpubkey matches */
+		if (!memeq(in->prevtx_scriptpubkey, tal_count(in->prevtx_scriptpubkey),
+			   output->script, tal_count(output->script))) {
+			err_msg = tal_fmt(tmpctx, "Output %s:%d found; scripts not equal. "
+					  "Peer provided %s; found onchain %s",
+					  type_to_string(tmpctx, struct bitcoin_txid,
+							 &in->prevtx_txid),
+					  in->prevtx_vout,
+					  tal_hex(tmpctx, in->prevtx_scriptpubkey),
+					  tal_hex(tmpctx, output->script));
+		/* Check that output's amount matches */
+		} else if (!amount_sat_eq(in->sats, output->amount)) {
+			err_msg = tal_fmt(tmpctx, "Output %s:%d found; amounts not equal. "
+					  "Peer provided %s; found onchain %s",
+					  type_to_string(tmpctx, struct bitcoin_txid,
+							 &in->prevtx_txid),
+					  in->prevtx_vout,
+					  type_to_string(tmpctx, struct amount_sat,
+							 &in->sats),
+					  type_to_string(tmpctx, struct amount_sat,
+							 &output->amount));
+		} else
+			err_msg = NULL;
+	} else
+		err_msg = tal_fmt(tmpctx, "Output %s:%d not found",
+				  type_to_string(tmpctx, struct bitcoin_txid,
+						 &in->prevtx_txid),
+				  in->prevtx_vout);
+
+	set->last_index++;
+	if (err_msg || set->last_index == tal_count(set->inputs)) {
+		subd_send_msg(set->openingd,
+			      take(towire_opening_check_inputs_reply(
+					      NULL, (const u8 *)err_msg)));
+		tal_free(set);
+		return;
+	}
+
+	/* There's still more to go, let's go! */
+	in = set->inputs[set->last_index];
+	bitcoind_getutxout(bitcoind, &in->prevtx_txid,
+			  in->prevtx_vout,
+			  output_lookup_cb, set);
+}
+
+static void verify_inputs(struct subd *openingd,
+			 const u8 *msg,
+			 struct uncommitted_channel *uc)
+{
+	struct input_set *set;
+
+	set = tal(NULL, struct input_set);
+	if (!fromwire_opening_check_inputs(set, msg,
+					   &set->inputs))
+		fatal("bad OPENING_FUNDEE_REPLY %s", tal_hex(msg, msg));
+
+	assert(tal_count(set->inputs) > 0);
+
+	set->openingd = openingd;
+	set->last_index = 0;
+	bitcoind_getutxout(openingd->ld->topology->bitcoind,
+			  &set->inputs[0]->prevtx_txid,
+			  set->inputs[0]->prevtx_vout,
+			  output_lookup_cb,
+			  (void *)notleak(set));
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 static void opening_fundee_finished(struct subd *openingd,
 				    const u8 *reply,
 				    const int *fds,
@@ -1360,6 +1451,12 @@ static unsigned int openingd_msg(struct subd *openingd,
 		opening_got_offer(openingd, msg, uc);
 		return 0;
 
+	case WIRE_OPENING_CHECK_INPUTS:
+#if EXPERIMENTAL_FEATURES
+		verify_inputs(openingd, msg, uc);
+#endif /* EXPERIMENTAL_FEATURES */
+		return 0;
+
 	/* We send these! */
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER_START:
@@ -1367,6 +1464,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	case WIRE_OPENING_FUNDER_CANCEL:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
 	case WIRE_OPENING_GOT_OFFER_REPLY_FUND:
+	case WIRE_OPENING_CHECK_INPUTS_REPLY:
 	case WIRE_OPENING_DEV_MEMLEAK:
 	/* Replies never get here */
 	case WIRE_OPENING_DEV_MEMLEAK_REPLY:

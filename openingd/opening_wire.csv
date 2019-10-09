@@ -176,6 +176,18 @@ msgdata,opening_dual_funding_signed,local_reserve,amount_sat,
 msgdata,opening_dual_funding_signed,shutdown_len,u16,
 msgdata,opening_dual_funding_signed,shutdown_scriptpubkey,u8,shutdown_len
 
+# openingd -> master: are these inputs valid?
+msgtype,opening_check_inputs,6312
+#if EXPERIMENTAL_FEATURES
+msgdata,opening_check_inputs,num_inputs,u32,
+msgdata,opening_check_inputs,inputs,input_info,num_inputs
+
+# master -> openingd: input check result.
+#                     Empty error means ok
+msgtype,opening_check_inputs_reply,6314
+msgdata,opening_check_inputs_reply,len,u16,
+msgdata,opening_check_inputs_reply,err_msg,u8,len
+
 # master -> openingd: do you have a memleak?
 msgtype,opening_dev_memleak,6033
 
