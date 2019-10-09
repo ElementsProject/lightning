@@ -34,7 +34,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 					  struct peer *peer)
 {
 	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
-	u8 *globalfeatures, *localfeatures;
+	u8 *globalfeatures, *features;
 
 	if (!msg)
 		return io_close(conn);
@@ -50,11 +50,18 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	if (unlikely(is_unknown_msg_discardable(msg)))
 		return read_init(conn, peer);
 
-	if (!fromwire_init(peer, msg, &globalfeatures, &localfeatures)) {
+	if (!fromwire_init(tmpctx, msg, &globalfeatures, &features)) {
 		status_debug("peer %s bad fromwire_init '%s', closing",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
 			     tal_hex(tmpctx, msg));
 		return io_close(conn);
+	}
+
+	/* The globalfeatures field is now unused, but there was a
+	 * window where it was: combine the two. */
+	for (size_t i = 0; i < tal_bytelen(globalfeatures) * 8; i++) {
+		if (feature_is_set(globalfeatures, i))
+			set_feature_bit(&features, i);
 	}
 
 	/* BOLT #1:
@@ -66,16 +73,12 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 *  - upon receiving unknown _even_ feature bits that are non-zero:
 	 *    - MUST fail the connection.
 	 */
-	if (!features_supported(globalfeatures, localfeatures)) {
-		const u8 *our_globalfeatures = get_offered_globalfeatures(msg);
-		const u8 *our_localfeatures = get_offered_localfeatures(msg);
-		msg = towire_errorfmt(NULL, NULL, "Unsupported features %s/%s:"
-				      " we only offer globalfeatures %s"
-				      " and localfeatures %s",
-				      tal_hex(msg, globalfeatures),
-				      tal_hex(msg, localfeatures),
-				      tal_hex(msg, our_globalfeatures),
-				      tal_hex(msg, our_localfeatures));
+	if (!features_supported(features)) {
+		const u8 *our_features = get_offered_features(msg);
+		msg = towire_errorfmt(NULL, NULL, "Unsupported features %s:"
+				      " we only offer features %s",
+				      tal_hex(msg, features),
+				      tal_hex(msg, our_features));
 		msg = cryptomsg_encrypt_msg(NULL, &peer->cs, take(msg));
 		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 	}
@@ -84,8 +87,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 * be disconnected if it's a reconnect. */
 	return peer_connected(conn, peer->daemon, &peer->id,
 			      &peer->addr, &peer->cs,
-			      take(globalfeatures),
-			      take(localfeatures));
+			      take(features));
 }
 
 static struct io_plan *peer_init_hdr_received(struct io_conn *conn,
@@ -147,9 +149,25 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 *   - MUST send `init` as the first Lightning message for any
 	 *     connection.
 	 */
+	/* Initially, there were two sets of feature bits: global and local.
+	 * Local affected peer nodes only, global affected everyone.  Both were
+	 * sent in the `init` message, but node_announcement only advertized
+	 * globals.
+	 *
+	 * But we didn't have any globals for a long time, and it turned out
+	 * that people wanted us to broadcast local features so they could do
+	 * peer selection.  We agreed that the number spaces should be distinct,
+	 * but debate still rages on how to handle them.
+	 *
+	 * Meanwhile, we finally added a global bit to the spec, so now it
+	 * matters.  And LND v0.8 decided to make option_static_remotekey a
+	 * GLOBAL bit, not a local bit, so we need to send that as a global
+	 * bit here.  Thus, we send our full, combo, bitset as both global
+	 * and local bits. */
 	peer->msg = towire_init(NULL,
-				get_offered_globalfeatures(tmpctx),
-				get_offered_localfeatures(tmpctx));
+				/* Features so nice, we send it twice! */
+				get_offered_features(tmpctx),
+				get_offered_features(tmpctx));
 	status_peer_io(LOG_IO_OUT, peer->msg);
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
 

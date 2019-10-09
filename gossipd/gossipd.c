@@ -1151,7 +1151,7 @@ static void add_node_entry(const tal_t *ctx,
 	e->nodeid = n->id;
 	if (get_node_announcement(ctx, daemon, n,
 				  e->color, e->alias,
-				  &e->globalfeatures,
+				  &e->features,
 				  &e->addresses)) {
 		e->last_timestamp = n->bcast.timestamp;
 	} else {

@@ -4,15 +4,12 @@
 #include <common/utils.h>
 #include <wire/peer_wire.h>
 
-static const u32 our_localfeatures[] = {
-	OPTIONAL_FEATURE(LOCAL_DATA_LOSS_PROTECT),
-	OPTIONAL_FEATURE(LOCAL_UPFRONT_SHUTDOWN_SCRIPT),
-	OPTIONAL_FEATURE(LOCAL_GOSSIP_QUERIES),
-	OPTIONAL_FEATURE(LOCAL_GOSSIP_QUERIES_EX),
-	OPTIONAL_FEATURE(LOCAL_STATIC_REMOTEKEY),
-};
-
-static const u32 our_globalfeatures[] = {
+static const u32 our_features[] = {
+	OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
+	OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
+	OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
+	OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
+	OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
 };
 
 /* BOLT #1:
@@ -48,12 +45,6 @@ static u8 *mkfeatures(const tal_t *ctx, const u32 *arr, size_t n)
 	return f;
 }
 
-u8 *get_offered_globalfeatures(const tal_t *ctx)
-{
-	return mkfeatures(ctx,
-			  our_globalfeatures, ARRAY_SIZE(our_globalfeatures));
-}
-
 /* We currently advertize everything in node_announcement, except
  * initial_routing_sync which the spec says not to (and we don't set
  * any more anyway).
@@ -63,13 +54,13 @@ u8 *get_offered_globalfeatures(const tal_t *ctx)
 u8 *get_offered_nodefeatures(const tal_t *ctx)
 {
 	return mkfeatures(ctx,
-			  our_localfeatures, ARRAY_SIZE(our_localfeatures));
+			  our_features, ARRAY_SIZE(our_features));
 }
 
-u8 *get_offered_localfeatures(const tal_t *ctx)
+u8 *get_offered_features(const tal_t *ctx)
 {
 	return mkfeatures(ctx,
-			  our_localfeatures, ARRAY_SIZE(our_localfeatures));
+			  our_features, ARRAY_SIZE(our_features));
 }
 
 bool feature_is_set(const u8 *features, size_t bit)
@@ -98,6 +89,13 @@ static bool feature_supported(int feature_bit,
 			return true;
 	}
 	return false;
+}
+
+bool feature_negotiated(const u8 *lfeatures, size_t f)
+{
+	if (!feature_offered(lfeatures, f))
+		return false;
+	return feature_supported(f, our_features, ARRAY_SIZE(our_features));
 }
 
 /**
@@ -130,36 +128,17 @@ static bool all_supported_features(const u8 *bitmap,
 	return true;
 }
 
-bool features_supported(const u8 *globalfeatures, const u8 *localfeatures)
+bool features_supported(const u8 *features)
 {
 	/* BIT 2 would logically be "compulsory initial_routing_sync", but
 	 * that does not exist, so we special case it. */
-	if (feature_is_set(localfeatures,
-			   COMPULSORY_FEATURE(LOCAL_INITIAL_ROUTING_SYNC)))
+	if (feature_is_set(features,
+			   COMPULSORY_FEATURE(OPT_INITIAL_ROUTING_SYNC)))
 		return false;
 
-	return all_supported_features(globalfeatures,
-				      our_globalfeatures,
-				      ARRAY_SIZE(our_globalfeatures))
-		&& all_supported_features(localfeatures,
-					  our_localfeatures,
-					  ARRAY_SIZE(our_localfeatures));
-}
-
-bool local_feature_negotiated(const u8 *lfeatures, size_t f)
-{
-	if (!feature_offered(lfeatures, f))
-		return false;
-	return feature_supported(f, our_localfeatures,
-				 ARRAY_SIZE(our_localfeatures));
-}
-
-bool global_feature_negotiated(const u8 *gfeatures, size_t f)
-{
-	if (!feature_offered(gfeatures, f))
-		return false;
-	return feature_supported(f, our_globalfeatures,
-				 ARRAY_SIZE(our_globalfeatures));
+	return all_supported_features(features,
+				      our_features,
+				      ARRAY_SIZE(our_features));
 }
 
 static const char *feature_name(const tal_t *ctx, size_t f)
@@ -182,10 +161,8 @@ const char **list_supported_features(const tal_t *ctx)
 {
 	const char **list = tal_arr(ctx, const char *, 0);
 
-	/* The local/global number spaces are to be distinct, so this works */
-	for (size_t i = 0; i < ARRAY_SIZE(our_localfeatures); i++)
-		tal_arr_expand(&list, feature_name(list, our_localfeatures[i]));
-	for (size_t i = 0; i < ARRAY_SIZE(our_globalfeatures); i++)
-		tal_arr_expand(&list, feature_name(list, our_globalfeatures[i]));
+	for (size_t i = 0; i < ARRAY_SIZE(our_features); i++)
+		tal_arr_expand(&list, feature_name(list, our_features[i]));
+
 	return list;
 }

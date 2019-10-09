@@ -33,7 +33,7 @@ const void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 
 int main(void)
 {
-	u8 *bits, *lf, *gf;
+	u8 *bits, *lf;
 
 	setup_locale();
 	wally_init(0);
@@ -84,22 +84,17 @@ int main(void)
 
 	/* We always support no features. */
 	memset(bits, 0, tal_count(bits));
-	assert(features_supported(bits, bits));
+	assert(features_supported(bits));
 
 	/* We must support our own features. */
-	lf = get_offered_globalfeatures(tmpctx);
-	gf = get_offered_globalfeatures(tmpctx);
-	assert(features_supported(gf, lf));
+	lf = get_offered_features(tmpctx);
+	assert(features_supported(lf));
 
 	/* We can add random odd features, no problem. */
 	for (size_t i = 1; i < 16; i += 2) {
 		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
 		set_feature_bit(&bits, i);
-		assert(features_supported(gf, bits));
-
-		bits = tal_dup_arr(tmpctx, u8, gf, tal_count(gf), 0);
-		set_feature_bit(&bits, i);
-		assert(features_supported(bits, lf));
+		assert(features_supported(bits));
 	}
 
 	/* We can't add random even features. */
@@ -109,18 +104,12 @@ int main(void)
 
 		/* Special case for missing compulsory feature */
 		if (i == 2) {
-			assert(!features_supported(gf, bits));
+			assert(!features_supported(bits));
 		} else {
-			assert(features_supported(gf, bits)
-			       == feature_supported(i, our_localfeatures,
-						    ARRAY_SIZE(our_localfeatures)));
+			assert(features_supported(bits)
+			       == feature_supported(i, our_features,
+						    ARRAY_SIZE(our_features)));
 		}
-
-		bits = tal_dup_arr(tmpctx, u8, gf, tal_count(gf), 0);
-		set_feature_bit(&bits, i);
-		assert(features_supported(bits, lf)
-		       == feature_supported(i, our_globalfeatures,
-					    ARRAY_SIZE(our_globalfeatures)));
 	}
 
 	wally_cleanup(0);

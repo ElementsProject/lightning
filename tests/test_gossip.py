@@ -1015,7 +1015,7 @@ def test_node_reannounce(node_factory, bitcoind):
     lfeatures = '28a2'
 
     # Make sure it gets features correct.
-    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['globalfeatures'] == lfeatures
+    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == lfeatures
 
     l1.stop()
     l1.daemon.opts['alias'] = 'SENIORBEAM'

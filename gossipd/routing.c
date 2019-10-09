@@ -1747,7 +1747,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 *   `features` _bit_, regardless of if it has parsed the announcement
 	 *   or not.
 	 */
-	if (!features_supported(features, NULL)) {
+	if (!features_supported(features)) {
 		status_debug("Ignoring channel announcement, unsupported features %s.",
 			     tal_hex(pending, features));
 		goto ignored;
@@ -2507,7 +2507,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	 *    - MAY discard the message altogether.
 	 *    - SHOULD NOT connect to the node.
 	 */
-	if (!features_supported(features, NULL)) {
+	if (!features_supported(features)) {
 		status_debug("Ignoring node announcement for node %s, unsupported features %s.",
 			     type_to_string(tmpctx, struct node_id, &node_id),
 			     tal_hex(tmpctx, features));

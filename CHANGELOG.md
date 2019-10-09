@@ -39,6 +39,8 @@ changes.
 - JSON-API: `fundchannel` now uses `amount` as the parameter name to replace `satoshi`
 - JSON-API: `fundchannel_start` now uses `amount` as the parameter name to replace `satoshi`
 
+- JSON API: `listpeers` and `listnodes` fields `localfeatures` and `globalfeatures` (now just `features`).
+
 ### Removed
 
 - JSON API: `short_channel_id` parameters in JSON commands with `:` separators (deprecated since 0.7.0).
