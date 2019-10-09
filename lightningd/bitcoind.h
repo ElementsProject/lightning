@@ -191,12 +191,19 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 						const struct bitcoin_tx_output*), \
 			    (arg))
 
-void bitcoind_gettxout(struct bitcoind *bitcoind,
+void bitcoind_gettxout_(struct bitcoind *bitcoind,
 		       const struct bitcoin_txid *txid, const u32 outnum,
 		       void (*cb)(struct bitcoind *bitcoind,
 				  const struct bitcoin_tx_output *txout,
 				  void *arg),
 		       void *arg);
+#define bitcoind_gettxout(bitcoind_, txid, outnum, cb, arg)		\
+	bitcoind_gettxout_((bitcoind_), (txid), (outnum),		\
+			   typesafe_cb_preargs(void, void *, 		\
+					       (cb), (arg),		\
+					       struct bitcoind *,	\
+					       const struct bitcoin_tx_output *), \
+			   (arg))
 
 void bitcoind_getclientversion(struct bitcoind *bitcoind);
 

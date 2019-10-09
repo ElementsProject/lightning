@@ -669,7 +669,7 @@ static bool process_getblock(struct bitcoin_cli *bcli)
 
 	go->cb = cb;
 	/* Now get the raw tx output. */
-	bitcoind_gettxout(bcli->bitcoind, &txid, go->outnum, process_get_output, go);
+	bitcoind_gettxout_(bcli->bitcoind, &txid, go->outnum, process_get_output, go);
 	return true;
 }
 
@@ -768,7 +768,7 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			  "getblockhash", str, NULL);
 }
 
-void bitcoind_gettxout(struct bitcoind *bitcoind,
+void bitcoind_gettxout_(struct bitcoind *bitcoind,
 		       const struct bitcoin_txid *txid, const u32 outnum,
 		       void (*cb)(struct bitcoind *bitcoind,
 				  const struct bitcoin_tx_output *txout,
@@ -818,8 +818,8 @@ process_getfilteredblock_step3(struct bitcoind *bitcoind,
 	call->current_outpoint++;
 	if (call->current_outpoint < tal_count(call->outpoints)) {
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
-				  process_getfilteredblock_step3, call);
+		bitcoind_gettxout_(bitcoind, &o->txid, o->outnum,
+				   process_getfilteredblock_step3, call);
 	} else {
 		/* If there were no more outpoints to check, we call the callback. */
 		process_getfiltered_block_final(bitcoind, call);
@@ -875,8 +875,8 @@ static void process_getfilteredblock_step2(struct bitcoind *bitcoind,
 		 * store the one's that are unspent in
 		 * call->result->outpoints. */
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
-				  process_getfilteredblock_step3, call);
+		bitcoind_gettxout_(bitcoind, &o->txid, o->outnum,
+				   process_getfilteredblock_step3, call);
 	}
 }
 

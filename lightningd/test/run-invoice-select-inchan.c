@@ -12,14 +12,14 @@ size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNN
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
-/* Generated stub for bitcoind_gettxout */
-void bitcoind_gettxout(struct bitcoind *bitcoind UNNEEDED,
+/* Generated stub for bitcoind_gettxout_ */
+void bitcoind_gettxout_(struct bitcoind *bitcoind UNNEEDED,
 		       const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED,
 		       void (*cb)(struct bitcoind *bitcoind UNNEEDED,
 				  const struct bitcoin_tx_output *txout UNNEEDED,
 				  void *arg) UNNEEDED,
 		       void *arg UNNEEDED)
-{ fprintf(stderr, "bitcoind_gettxout called!\n"); abort(); }
+{ fprintf(stderr, "bitcoind_gettxout_ called!\n"); abort(); }
 /* Generated stub for bolt11_decode */
 struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
 			     const char *description UNNEEDED, char **fail UNNEEDED)
