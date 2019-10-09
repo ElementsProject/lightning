@@ -737,7 +737,7 @@ static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
 	} else {
 		seeker->scid_probe_start
 			= pseudorand(seeker->daemon->current_blockheight
-				     + num_blocks);
+				     - num_blocks);
 		seeker->scid_probe_end
 			= seeker->scid_probe_start + num_blocks - 1;
 	}
