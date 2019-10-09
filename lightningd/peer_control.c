@@ -1557,10 +1557,8 @@ static const struct json_command close_command = {
 	json_close,
 	"Close the channel with {id} "
 	"(either peer ID, channel ID, or short channel ID). "
-	"If {force} (default false) is true, force a unilateral close "
-	"after {timeout} seconds (default 30), "
-	"otherwise just schedule a mutual close later and fail after "
-	"timing out."
+	"Force a unilateral close after {unilateraltimeout} seconds (default 48h). "
+	"If {destination} address is provided, will be used as output address."
 };
 AUTODATA(json_command, &close_command);
 
