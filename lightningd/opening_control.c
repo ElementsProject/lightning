@@ -1441,6 +1441,7 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 	} else {
 		tx = NULL;
 		utxos = tal_arr(tmpctx, const struct utxo *, 0);
+		peer->uncommitted_channel->fc->utx = NULL;
 	}
 
 	/* Set the cmd to this new cmd */
