@@ -8,6 +8,7 @@ import os
 import pytest
 import unittest
 
+
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
 def test_two_sided_open(node_factory, bitcoind):
     # We need a plugin to get l2 to contribute funds
@@ -199,7 +200,7 @@ def test_accepter_burns(node_factory, bitcoind):
         return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
 
     # Have two nodes attempt to connect with l3
-    for node in [l1,l2]:
+    for node in [l1, l2]:
         # Prevent funder from broadcasting funding tx (any tx really).
         node.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
         node.rpc.connect(l3.info['id'], 'localhost', l3.port)

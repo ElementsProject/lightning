@@ -8,7 +8,7 @@
    they've requested.
 """
 
-from lightning import Plugin, RpcError, Millisatoshi
+from lightning import Plugin, Millisatoshi
 
 plugin = Plugin()
 
@@ -22,9 +22,9 @@ def on_openchannel(openchannel, plugin, **kwargs):
     # We send back our maximum available funds
     if their_funds.to_satoshi() % 2 == 1:
         our_funds = Millisatoshi(openchannel['available_funds'])
-        return {'result': 'continue', 'funding_sats': our_funds }
+        return {'result': 'continue', 'funding_sats': our_funds}
     else:
-        return {'result': 'continue', 'funding_sats': their_funds }
+        return {'result': 'continue', 'funding_sats': their_funds}
 
 
 plugin.run()
