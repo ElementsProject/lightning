@@ -231,6 +231,63 @@ none_left:
 	return NULL;
 }
 
+void *intmap_before_(const struct intmap *map, intmap_index_t *indexp)
+{
+	const struct intmap *n, *prev = NULL;
+	intmap_index_t index = (*indexp) - 1;
+
+	/* Special case of overflow */
+	if (index == (intmap_index_t)-1ULL)
+		goto none_left;
+
+	/* Special case of empty map */
+	if (intmap_empty_(map))
+		goto none_left;
+
+	/* Follow down, until prefix differs. */
+	n = map;
+	while (!n->v) {
+		int crit = critbit(n);
+		u8 direction;
+		intmap_index_t prefix, idx;
+
+		idx = (index >> crit);
+		direction = idx & 1;
+
+		/* Leave critbit in place: we can't shift by 64 anyway */
+		idx |= 1;
+		prefix = n->u.n->prefix_and_critbit >> crit;
+
+		/* If this entire tree is less than index, take last */
+		if (idx > prefix)
+			return intmap_last_(n, indexp);
+		/* If this entire tree is greater than index, we're past it. */
+		else if (idx < prefix)
+			goto try_lesser_tree;
+
+		/* Remember lesser tree for backtracking */
+		if (direction)
+			prev = n;
+		n = &n->u.n->child[direction];
+	}
+
+	/* Found a predecessor? */
+	if (n->u.i <= index) {
+		errno = 0;
+		*indexp = n->u.i;
+		return n->v;
+	}
+
+try_lesser_tree:
+	/* If we ever took a lesser branch, go back to lesser branch */
+	if (prev)
+		return intmap_last_(&prev->u.n->child[0], indexp);
+
+none_left:
+	errno = ENOENT;
+	return NULL;
+}
+
 void *intmap_last_(const struct intmap *map, intmap_index_t *indexp)
 {
 	const struct intmap *n;

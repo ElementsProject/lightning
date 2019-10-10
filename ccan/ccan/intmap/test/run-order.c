@@ -39,6 +39,19 @@ static bool check_umap(const umap *map)
 	if (!last)
 		return false;
 
+	prev = INT_MAX;
+	for (v = uintmap_last(map, &i); v; v = uintmap_before(map, &i)) {
+		if ((int64_t)i >= prev)
+			return false;
+		if (*v != i)
+			return false;
+		prev = i;
+		last = (uintmap_first(map, &last_idx) == v);
+	}
+
+	if (!last)
+		return false;
+
 	prev = -1;
 	return uintmap_iterate(map, uint_iterate_check, &prev);
 }
@@ -71,6 +84,18 @@ static bool check_smap(const smap *map)
 		prev = i;
 	}
 
+	if (!last)
+		return false;
+
+	prev = 0x80000001ULL;
+	for (v = sintmap_last(map, &i); v; v = sintmap_before(map, &i)) {
+		if (i >= prev)
+			return false;
+		if (*v != i)
+			return false;
+		prev = i;
+		last = (sintmap_first(map, &last_idx) == v);
+	}
 	if (!last)
 		return false;
 

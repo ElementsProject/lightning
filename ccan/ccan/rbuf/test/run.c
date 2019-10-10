@@ -28,7 +28,7 @@ int main(void)
 	/* Grab ourselves for comparison. */
 	len = read(fd, buf, sizeof(buf));
 	buf[len] = '\0';
-	lseek(fd, SEEK_SET, 0);
+	lseek(fd, 0, SEEK_SET);
 
 	for (i = 0, p = buf; *p; i++) {
 		lines[i] = p;
@@ -62,7 +62,7 @@ int main(void)
 	free(rbuf_cleanup(&in));
 
 	/* Another way of reading the entire (text) file. */
-	lseek(fd, SEEK_SET, 0);
+	lseek(fd, 0, SEEK_SET);
 	rbuf_init(&in, fd, NULL, 0, test_realloc);
 	p = rbuf_read_str(&in, 0);
 	ok1(p);
