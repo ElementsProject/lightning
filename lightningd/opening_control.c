@@ -1045,7 +1045,6 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload,
 
 	tal_del_destructor2(openingd, openchannel_payload_remove_openingd, payload);
 
-	pf->accepter_funding = AMOUNT_SAT(0);
 	/* If we had a hook, check what it says */
 	if (buffer) {
 		const jsmntok_t *t = json_get_member(buffer, toks, "result");
@@ -1075,6 +1074,8 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload,
 								        "funding_sats");
 			if (funding_sats)
 				json_to_sat(buffer, funding_sats, &pf->accepter_funding);
+			else
+				pf->accepter_funding = AMOUNT_SAT(0);
 		}
 	}
 
