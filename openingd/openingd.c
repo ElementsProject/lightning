@@ -526,6 +526,7 @@ static bool check_reserves(struct state *state)
 static bool setup_channel_funder(struct state *state)
 {
 	if (!state->use_v2)
+		state->accepter_funding = AMOUNT_SAT(0);
 	/*~ For symmetry, we calculate our own reserve even though lightningd
 	 * could do it for the we-are-funding case. */
 		set_reserve(state);
@@ -549,9 +550,6 @@ static bool setup_channel_funder(struct state *state)
 					     &state->opener_funding));
 		return false;
 	}
-
-	if (!state->use_v2)
-		state->accepter_funding = AMOUNT_SAT(0);
 
 	return true;
 }
