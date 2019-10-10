@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Protocol: we now offer `option_gossip_queries_ex` for finegrained gossip control.
 - Protocol: no longer ask for `initial_routing_sync` (only affects ancient peers).
 - Protocol: nodes now announce features in `node_announcement` broadcasts.
+- Protocol: we now fail the connection when receiving an empty response to a gossip query with `complete` flag to `0`
 
 - Wallet: we now support the encryption of the BIP32 master seed (a.k.a. `hsm_secret`).
 
