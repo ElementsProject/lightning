@@ -902,8 +902,12 @@ static void seeker_check(struct seeker *seeker)
 {
 #if DEVELOPER
 	if (dev_suppress_gossip)
-		return;
+		goto out;
 #endif
+
+	/* We don't do anything until we're synced. */
+	if (seeker->daemon->current_blockheight == 0)
+		goto out;
 
 	switch (seeker->state) {
 	case STARTING_UP:
@@ -929,6 +933,7 @@ static void seeker_check(struct seeker *seeker)
 		break;
 	}
 
+out:
 	begin_check_timer(seeker);
 }
 
@@ -943,6 +948,9 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 	if (dev_suppress_gossip)
 		return;
 #endif
+	/* Don't start gossiping until we're synced. */
+	if (seeker->daemon->current_blockheight == 0)
+		return;
 
 	switch (seeker->state) {
 	case STARTING_UP:
