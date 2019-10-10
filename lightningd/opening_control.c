@@ -1223,7 +1223,8 @@ static void opening_got_offer(struct subd *openingd,
 				   /* Leave space for change */
 				   REMOTE_CONTRIB_LIMIT - 1,
 				   &payload->available_funds);
-	}
+	} else
+		uc->pf = NULL;
 
 	tal_add_destructor2(openingd, openchannel_payload_remove_openingd, payload);
 	plugin_hook_call_openchannel(openingd->ld, payload, payload);
