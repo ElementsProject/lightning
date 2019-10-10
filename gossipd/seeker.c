@@ -935,8 +935,6 @@ static void seeker_check(struct seeker *seeker)
 /* We get this when we have a new peer. */
 void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 {
-	bool have_probing_peer = seeker->random_peer_softref != NULL;
-
 	/* Can't do anything useful with these peers. */
 	if (!peer->gossip_queries_feature)
 		return;
@@ -948,31 +946,21 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 
 	switch (seeker->state) {
 	case STARTING_UP:
-		if (!have_probing_peer)
+		if (seeker->random_peer_softref == NULL)
 			peer_gossip_startup(seeker, peer);
 		/* Waiting for seeker_check to release us */
 		return;
 
 	/* In these states, we set up peers to stream gossip normally */
 	case PROBING_SCIDS:
-		if (!have_probing_peer)
-			peer_gossip_probe_scids(seeker);
-		goto start_them_gossiping;
-
 	case PROBING_NANNOUNCES:
-		if (!have_probing_peer)
-			peer_gossip_probe_nannounces(seeker);
-		goto start_them_gossiping;
-
 	case NORMAL:
 	case ASKING_FOR_UNKNOWN_SCIDS:
 	case ASKING_FOR_STALE_SCIDS:
-		goto start_them_gossiping;
+		normal_gossip_start(seeker, peer);
+		return;
 	}
 	abort();
-
-start_them_gossiping:
-	normal_gossip_start(seeker, peer);
 }
 
 bool remove_unknown_scid(struct seeker *seeker,
