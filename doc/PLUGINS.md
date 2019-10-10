@@ -694,13 +694,17 @@ and it has passed basic sanity checks:
 {
   "openchannel": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-    "funding_satoshis": "100000000msat",
+    "version": "2", // v2+
+    "opening_satoshis": "100000000msat", // v2+
+    "funding_satoshis": "100000000msat", // v1
     "push_msat": "0msat",
     "dust_limit_satoshis": "546000msat",
     "max_htlc_value_in_flight_msat": "18446744073709551615msat",
     "channel_reserve_satoshis": "1000000msat",
     "htlc_minimum_msat": "0msat",
+    "available_funds": "201000msat", // v2+
     "feerate_per_kw": 7500,
+    "feerate_per_kw_funding": 7500, // v2+
     "to_self_delay": 5,
     "max_accepted_htlcs": 483,
     "channel_flags": 1
@@ -730,6 +734,18 @@ e.g.
 
 Note that `close_to` must be a valid address for the current chain; an invalid address will cause the node to exit with an error.
 
+
+If this is a version "2" openchannel, then it allows for dual-funding.
+A plugin can choose to dual-fund a channel by replying with a `continue`
+message that contains a `funding_sats` field e.g.:
+
+```json
+{
+    "result": "continue",
+    "funding_sats": "100000sat"
+    ...
+}
+```
 
 ### `htlc_accepted`
 
