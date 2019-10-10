@@ -13,7 +13,7 @@ void activate_peers(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "activate_peers called!\n"); abort(); }
 /* Generated stub for add_plugin_dir */
 char *add_plugin_dir(struct plugins *plugins UNNEEDED, const char *dir UNNEEDED,
-		     bool nonexist_ok UNNEEDED)
+		     bool error_ok UNNEEDED)
 { fprintf(stderr, "add_plugin_dir called!\n"); abort(); }
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)

@@ -183,8 +183,17 @@ bool query_short_channel_ids(struct daemon *daemon,
 		return false;
 
 	encoded = encoding_start(tmpctx);
-	for (size_t i = 0; i < tal_count(scids); i++)
+	for (size_t i = 0; i < tal_count(scids); i++) {
+		/* BOLT #7:
+		 *
+		 * Encoding types:
+		 * * `0`: uncompressed array of `short_channel_id` types, in
+		 *   ascending order.
+		 * * `1`: array of `short_channel_id` types, in ascending order
+		 */
+		assert(i == 0 || scids[i].u64 > scids[i-1].u64);
 		encoding_add_short_channel_id(&encoded, &scids[i]);
+	}
 
 	if (!encoding_end_prepend_type(&encoded, max_encoded_bytes)) {
 		status_broken("query_short_channel_ids: %zu is too many",

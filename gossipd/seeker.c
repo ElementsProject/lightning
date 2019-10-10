@@ -5,7 +5,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
 #include <common/decode_array.h>
-#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/timeout.h>
@@ -43,34 +42,6 @@ enum seeker_state {
 bool dev_suppress_gossip;
 #endif
 
-/* Passthrough helper for HTABLE_DEFINE_TYPE */
-static const struct short_channel_id *scid_pass(const struct short_channel_id *s)
-{
-	return s;
-}
-
-HTABLE_DEFINE_TYPE(struct short_channel_id,
-		   scid_pass, hash_scid, short_channel_id_eq, scid_map);
-
-/* A channel we have old timestamp(s) for */
-struct stale_scid {
-	struct short_channel_id scid;
-	u8 query_flag;
-};
-
-static const struct short_channel_id *stale_scid_key(const struct stale_scid *s)
-{
-	return &s->scid;
-}
-
-static bool stale_scid_eq_key(const struct stale_scid *s,
-			      const struct short_channel_id *scid)
-{
-	return short_channel_id_eq(&s->scid, scid);
-}
-HTABLE_DEFINE_TYPE(struct stale_scid,
-		   stale_scid_key, hash_scid, stale_scid_eq_key, stale_scid_map);
-
 /* Gossip we're seeking at the moment. */
 struct seeker {
 	struct daemon *daemon;
@@ -80,11 +51,12 @@ struct seeker {
 	/* Timer which checks on progress every minute */
 	struct oneshot *check_timer;
 
-	/* Channels we've heard about, but don't know. */
-	struct scid_map unknown_scids;
+	/* Channels we've heard about, but don't know (by scid). */
+	UINTMAP(bool) unknown_scids;
 
-	/* Channels we've heard about newer timestamps for. */
-	struct stale_scid_map stale_scids;
+	/* Channels we've heard about newer timestamps for (by scid).  u8 is
+	 * query_flags. */
+	UINTMAP(u8 *) stale_scids;
 
 	/* Range of scid blocks we've probed. */
 	size_t scid_probe_start, scid_probe_end;
@@ -98,7 +70,7 @@ struct seeker {
 	/* Array of scids for node announcements. */
 	struct short_channel_id *nannounce_scids;
 	u8 *nannounce_query_flags;
-	size_t nannounce_offset;
+	u64 nannounce_offset;
 
 	/* Are there any node_ids we didn't know?  Implies we're
 	 * missing channels. */
@@ -125,15 +97,6 @@ static void begin_check_timer(struct seeker *seeker)
 					   time_from_sec(polltime),
 					   seeker_check, seeker);
 }
-
-#if DEVELOPER
-static void memleak_help_seeker(struct htable *memtable,
-				struct seeker *seeker)
-{
-	memleak_remove_htable(memtable, &seeker->unknown_scids.raw);
-	memleak_remove_htable(memtable, &seeker->stale_scids.raw);
-}
-#endif /* DEVELOPER */
 
 /* Set this peer as our random peer; return false if NULL. */
 static bool selected_peer(struct seeker *seeker, struct peer *peer)
@@ -174,8 +137,8 @@ struct seeker *new_seeker(struct daemon *daemon)
 	struct seeker *seeker = tal(daemon, struct seeker);
 
 	seeker->daemon = daemon;
-	scid_map_init(&seeker->unknown_scids);
-	stale_scid_map_init(&seeker->stale_scids);
+	uintmap_init(&seeker->unknown_scids);
+	uintmap_init(&seeker->stale_scids);
 	seeker->random_peer_softref = NULL;
 	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++)
 		seeker->gossiper_softref[i] = NULL;
@@ -183,7 +146,6 @@ struct seeker *new_seeker(struct daemon *daemon)
 	seeker->unknown_nodes = false;
 	set_state(seeker, STARTING_UP, NULL, "New seeker");
 	begin_check_timer(seeker);
-	memleak_add_helper(seeker, memleak_help_seeker);
 	return seeker;
 }
 
@@ -298,24 +260,20 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
 static struct short_channel_id *unknown_scids_remove(const tal_t *ctx,
 						     struct seeker *seeker)
 {
-	struct scid_map *map = &seeker->unknown_scids;
-	struct short_channel_id *scids, *s;
-	size_t i, max;
-	struct scid_map_iter it;
-
+	struct short_channel_id *scids;
 	/* Marshal into an array: we can fit 8000 comfortably. */
-	if (scid_map_count(map) < 8000)
-		max = scid_map_count(map);
-	else
-		max = 8000;
+	size_t i, max = 8000;
+	u64 scid;
 
 	scids = tal_arr(ctx, struct short_channel_id, max);
-	for (i = 0, s = scid_map_first(map, &it); i < max; i++) {
-		scids[i] = *s;
-		scid_map_del(map, s);
-		tal_free(s);
+	i = 0;
+	while (uintmap_first(&seeker->unknown_scids, &scid)) {
+		scids[i].u64 = scid;
+		(void)uintmap_del(&seeker->unknown_scids, scid);
+		if (++i == max)
+			break;
 	}
-	assert(i == tal_count(scids));
+	tal_resize(&scids, i);
 	return scids;
 }
 
@@ -361,7 +319,7 @@ static bool seek_any_unknown_scids(struct seeker *seeker)
 	struct short_channel_id *scids;
 
 	/* Nothing we need to know about? */
-	if (scid_map_count(&seeker->unknown_scids) == 0)
+	if (uintmap_empty(&seeker->unknown_scids))
 		return false;
 
 	/* No peers can answer?  Try again later. */
@@ -385,28 +343,24 @@ static struct short_channel_id *stale_scids_remove(const tal_t *ctx,
 						   struct seeker *seeker,
 						   u8 **query_flags)
 {
-	struct stale_scid_map *map = &seeker->stale_scids;
 	struct short_channel_id *scids;
-	const struct stale_scid *s;
-	size_t i, max;
-	struct stale_scid_map_iter it;
-
-	/* Marshal into an array: we can fit 7000 comfortably (8 byte scid, 1 byte flag). */
-	if (stale_scid_map_count(map) < 7000)
-		max = stale_scid_map_count(map);
-	else
-		max = 7000;
+	const u8 *qf;
+	/* We can fit 7000 comfortably (8 byte scid, 1 byte flag). */
+	size_t i, max = 7000;
+	u64 scid;
 
 	scids = tal_arr(ctx, struct short_channel_id, max);
 	*query_flags = tal_arr(ctx, u8, max);
 
-	for (i = 0, s = stale_scid_map_first(map, &it); i < max; i++) {
-		scids[i] = s->scid;
-		(*query_flags)[i] = s->query_flag;
-		stale_scid_map_del(map, s);
-		tal_free(s);
+	i = 0;
+	while ((qf = uintmap_first(&seeker->stale_scids, &scid)) != NULL) {
+		scids[i].u64 = scid;
+		(*query_flags)[i] = *qf;
+		uintmap_del(&seeker->stale_scids, scid);
+		tal_free(qf);
 	}
-	assert(i == tal_count(scids));
+	tal_resize(&scids, i);
+	tal_resize(query_flags, i);
 	return scids;
 }
 
@@ -417,7 +371,7 @@ static bool seek_any_stale_scids(struct seeker *seeker)
 	u8 *query_flags;
 
 	/* Nothing we need to know about? */
-	if (stale_scid_map_count(&seeker->stale_scids) == 0)
+	if (uintmap_empty(&seeker->stale_scids))
 		return false;
 
 	/* No peers can answer?  Try again later. */
@@ -479,38 +433,42 @@ static bool next_block_range(struct seeker *seeker,
 /* We can't ask for channels by node_id, so probe at random */
 static bool get_unannounced_nodes(const tal_t *ctx,
 				  struct routing_state *rstate,
-				  size_t off,
 				  size_t max,
+				  u64 *offset,
 				  struct short_channel_id **scids,
 				  u8 **query_flags)
 {
-	struct node_map_iter it;
-	size_t i = 0, num = 0;
-	struct node *n;
+	size_t num = 0;
 
 	/* Pick an example short_channel_id at random to query.  As a
-	 * side-effect this gets the node */
+	 * side-effect this gets the node. */
 	*scids = tal_arr(ctx, struct short_channel_id, max);
 	*query_flags = tal_arr(ctx, u8, max);
 
-	for (n = node_map_first(rstate->nodes, &it);
-	     n && num < max;
-	     n = node_map_next(rstate->nodes, &it)) {
-		if (n->bcast.index)
+	/* We need to query short_channel_id in order, though (spec
+	 * says it), so we walk those rather than walking nodes.  We go
+	 * backwards, as those are the ones we are most likely to be missing,
+	 * and also it changes most over time. */
+	for (struct chan *c = uintmap_before(&rstate->chanmap, offset);
+	     c;
+	     c = uintmap_before(&rstate->chanmap, offset)) {
+		u8 qflags = 0;
+
+		/* Local-only?  Don't ask. */
+		if (!is_chan_public(c))
 			continue;
 
-		if (i >= off) {
-			struct chan_map_iter cit;
-			struct chan *c = first_chan(n, &cit);
-
-			(*scids)[num] = c->scid;
-			if (c->nodes[0] == n)
-				(*query_flags)[num] = SCID_QF_NODE1;
-			else
-				(*query_flags)[num] = SCID_QF_NODE2;
-			num++;
+		if (!c->nodes[0]->bcast.index)
+			qflags |= SCID_QF_NODE1;
+		if (!c->nodes[1]->bcast.index)
+			qflags |= SCID_QF_NODE2;
+		if (qflags) {
+			/* Since we're going backwards, place end first */
+			(*scids)[max - 1 - num] = c->scid;
+			(*query_flags)[max - 1 - num] = qflags;
+			if (++num == max)
+				break;
 		}
-		i++;
 	}
 
 	if (num == 0) {
@@ -518,10 +476,16 @@ static bool get_unannounced_nodes(const tal_t *ctx,
 		*query_flags = tal_free(*query_flags);
 		return false;
 	}
+
 	if (num < max) {
+		memmove(*scids, *scids + max - num,
+			num * sizeof(**scids));
+		memmove(*query_flags, *query_flags + max - num,
+			num * sizeof(**query_flags));
 		tal_resize(scids, num);
-		tal_resize(query_flags, i - off);
+		tal_resize(query_flags, num);
 	}
+
 	return true;
 }
 
@@ -563,7 +527,6 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 
 	seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
 	seeker->nannounce_query_flags = tal_free(seeker->nannounce_query_flags);
-	seeker->nannounce_offset += num_scids;
 
 	if (!new_nannounce) {
 		set_state(seeker, NORMAL, NULL,
@@ -581,8 +544,8 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 	if (num_scids > 7000)
 		num_scids = 7000;
 
-	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate,
-				   seeker->nannounce_offset, num_scids,
+	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate, num_scids,
+				   &seeker->nannounce_offset,
 				   &seeker->nannounce_scids,
 				   &seeker->nannounce_query_flags)) {
 		/* Nothing unknown at all?  Great, we're done */
@@ -633,7 +596,7 @@ static void check_timestamps(struct seeker *seeker,
 			     const struct channel_update_timestamps *ts,
 			     struct peer *peer)
 {
-	struct stale_scid *stale;
+	u8 *stale;
 	u8 query_flag = 0;
 
 	/* BOLT #7:
@@ -653,16 +616,13 @@ static void check_timestamps(struct seeker *seeker,
 		return;
 
 	/* Add in flags if we're already getting it. */
-	stale = stale_scid_map_get(&seeker->stale_scids, &c->scid);
-	if (stale)
-		stale->query_flag |= query_flag;
-	else {
-		stale = tal(seeker, struct stale_scid);
-		stale->scid = c->scid;
-		stale->query_flag = query_flag;
-		stale_scid_map_add(&seeker->stale_scids, stale);
+	stale = uintmap_get(&seeker->stale_scids, c->scid.u64);
+	if (!stale) {
+		stale = talz(seeker, u8);
+		uintmap_add(&seeker->stale_scids, c->scid.u64, stale);
 		set_preferred_peer(seeker, peer);
 	}
+	*stale |= query_flag;
 }
 
 static void process_scid_probe(struct peer *peer,
@@ -709,10 +669,9 @@ static void process_scid_probe(struct peer *peer,
 	}
 
 	/* Channel probe finished, try asking for 32 unannounced nodes. */
-	seeker->nannounce_offset = 0;
-
-	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate,
-				   seeker->nannounce_offset, 32,
+	seeker->nannounce_offset = UINT64_MAX;
+	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate, 32,
+				   &seeker->nannounce_offset,
 				   &seeker->nannounce_scids,
 				   &seeker->nannounce_query_flags)) {
 		/* No unknown nodes.  Great! */
@@ -757,7 +716,7 @@ static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
 	}
 
 	seeker->nannounce_scids = NULL;
-	seeker->nannounce_offset = 0;
+	seeker->nannounce_offset = UINT64_MAX;
 	peer_gossip_probe_scids(seeker);
 }
 
@@ -975,15 +934,7 @@ bool remove_unknown_scid(struct seeker *seeker,
 			 const struct short_channel_id *scid,
 			 bool found /*FIXME: use this info!*/)
 {
-	struct short_channel_id *unknown;
-
-	unknown = scid_map_get(&seeker->unknown_scids, scid);
-	if (unknown) {
-		scid_map_del(&seeker->unknown_scids, unknown);
-		tal_free(unknown);
-		return true;
-	}
-	return false;
+	return uintmap_del(&seeker->unknown_scids, scid->u64);
 }
 
 bool add_unknown_scid(struct seeker *seeker,
@@ -991,11 +942,8 @@ bool add_unknown_scid(struct seeker *seeker,
 		      struct peer *peer)
 {
 	/* Check we're not already getting this one. */
-	if (scid_map_get(&seeker->unknown_scids, scid))
+	if (!uintmap_add(&seeker->unknown_scids, scid->u64, true))
 		return false;
-
-	scid_map_add(&seeker->unknown_scids,
-		     tal_dup(seeker, struct short_channel_id, scid));
 
 	set_preferred_peer(seeker, peer);
 	return true;
