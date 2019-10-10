@@ -150,9 +150,12 @@ static struct command_result *send_tx(struct command *cmd,
 
 	/* The txid might be updated, since the peer might have added
 	 * inputs, also */
-	txid = json_strdup(cmd, buf, json_get_member(buf, result, "txid"));
-	if (!bitcoin_txid_from_hex(txid, strlen(txid), &fr->tx_id))
-		plugin_err("Unable to parse reserved txid %s", txid);
+	tok = json_get_member(buf, result, "txid");
+	if (tok) {
+		txid = json_strdup(cmd, buf, tok);
+		if (!bitcoin_txid_from_hex(txid, strlen(txid), &fr->tx_id))
+			plugin_err("Unable to parse reserved txid %s", txid);
+	}
 
 	/* Stash the channel_id so we can return it when finalized */
 	fr->chanstr = json_strdup(fr, buf, json_get_member(buf, result, "channel_id"));
