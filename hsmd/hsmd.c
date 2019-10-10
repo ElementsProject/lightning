@@ -1612,12 +1612,18 @@ static void sign_our_inputs(struct bitcoin_tx *tx, struct utxo **utxos,
 		struct pubkey inkey;
 		struct bitcoin_signature sig;
 
+		input_index = -1;
 		for (j = 0; j < map_len; j++) {
 			if (ptr2int(map[j]) == i) {
 				input_index = j;
 				break;
 			}
 		}
+
+		if (input_index < 0)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Unable to find index for input %zu", i);
+
 		sign_input(tx, utxos[i], &inkey, &sig, input_index);
 	}
 }
