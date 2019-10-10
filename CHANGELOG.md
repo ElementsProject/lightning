@@ -40,6 +40,7 @@ changes.
 - JSON-API: `fundchannel_start` now uses `amount` as the parameter name to replace `satoshi`
 
 - JSON API: `listpeers` and `listnodes` fields `localfeatures` and `globalfeatures` (now just `features`).
+- Plugin: `peer_connected` hook fields `localfeatures` and `globalfeatures` (now just `features`).
 
 ### Removed
 

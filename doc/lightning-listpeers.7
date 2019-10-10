@@ -47,6 +47,7 @@ of 0 or more objects\.
 
 Each object in the list contains the following data:
 
+.RS
 .IP \[bu]
 \fIid\fR : The unique id of the peer
 .IP \[bu]
@@ -54,15 +55,14 @@ Each object in the list contains the following data:
 .IP \[bu]
 \fInetaddr\fR : A list of network addresses the node is listening on
 .IP \[bu]
-\fIglobalfeatures\fR : Bit flags showing supported global features (BOLT #9)
-.IP \[bu]
-\fIlocalfeatures\fR : Bit flags showing supported local features (BOLT #9)
+\fIfeatures\fR : Bit flags showing supported features (BOLT #9)
 .IP \[bu]
 \fIchannels\fR : An list of channel id’s open on the peer
 .IP \[bu]
 \fIlog\fR : Only present if \fIlevel\fR is set\. List logs related to the
 peer at the specified \fIlevel\fR
 
+.RE
 
 If \fIid\fR is supplied and no matching nodes are found, a "peers" object
 with an empty list is returned\.
