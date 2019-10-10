@@ -135,14 +135,38 @@ static void memleak_help_seeker(struct htable *memtable,
 }
 #endif /* DEVELOPER */
 
-#define set_state(seeker, state) \
-	set_state_((seeker), (state), stringify(state))
-
-static void set_state_(struct seeker *seeker, enum seeker_state state,
-		       const char *statename)
+/* Set this peer as our random peer; return false if NULL. */
+static bool selected_peer(struct seeker *seeker, struct peer *peer)
 {
-	status_debug("seeker: state = %s", statename);
+	if (!peer)
+		return false;
+
+	set_softref(seeker, &seeker->random_peer_softref, peer);
+
+	/* Give it some grace in case we immediately hit timer */
+	seeker->prev_gossip_count
+		= peer->gossip_counter - GOSSIP_SEEKER_INTERVAL(seeker);
+	return true;
+}
+
+#define set_state(seeker, state, peer, ...)				\
+	set_state_((seeker), (state), (peer), stringify(state), __VA_ARGS__)
+
+static void PRINTF_FMT(5,6)
+	set_state_(struct seeker *seeker, enum seeker_state state,
+		   struct peer *peer,
+		   const char *statename, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	status_debug("seeker: state = %s %s%s %s",
+		     statename, peer ? "from " : "",
+		     peer ? type_to_string(tmpctx, struct node_id, &peer->id)
+		     : "",
+		     tal_vfmt(tmpctx, fmt, ap));
+	va_end(ap);
 	seeker->state = state;
+	selected_peer(seeker, peer);
 }
 
 struct seeker *new_seeker(struct daemon *daemon)
@@ -157,26 +181,10 @@ struct seeker *new_seeker(struct daemon *daemon)
 		seeker->gossiper_softref[i] = NULL;
 	seeker->preferred_peer_softref = NULL;
 	seeker->unknown_nodes = false;
-	set_state(seeker, STARTING_UP);
+	set_state(seeker, STARTING_UP, NULL, "New seeker");
 	begin_check_timer(seeker);
 	memleak_add_helper(seeker, memleak_help_seeker);
 	return seeker;
-}
-
-/* Set this peer as our random peer; return false if NULL. */
-static bool selected_peer(struct seeker *seeker, struct peer *peer)
-{
-	if (!peer)
-		return false;
-
-	set_softref(seeker, &seeker->random_peer_softref, peer);
-	status_debug("seeker: chose peer %s",
-		     type_to_string(tmpctx, struct node_id, &peer->id));
-
-	/* Give it some grace in case we immediately hit timer */
-	seeker->prev_gossip_count
-		= peer->gossip_counter - GOSSIP_SEEKER_INTERVAL(seeker);
-	return true;
 }
 
 static void set_preferred_peer(struct seeker *seeker, struct peer *peer)
@@ -314,6 +322,8 @@ static struct short_channel_id *unknown_scids_remove(const tal_t *ctx,
 /* We have selected this peer to stream us startup gossip */
 static void peer_gossip_startup(struct seeker *seeker, struct peer *peer)
 {
+	status_debug("seeker: startup peer is %s",
+		     type_to_string(tmpctx, struct node_id, &peer->id));
 	selected_peer(seeker, peer);
 	normal_gossip_start(seeker, peer);
 }
@@ -359,10 +369,9 @@ static bool seek_any_unknown_scids(struct seeker *seeker)
 	if (!peer)
 		return false;
 
-	set_state(seeker, ASKING_FOR_UNKNOWN_SCIDS);
-	selected_peer(seeker, peer);
-
 	scids = unknown_scids_remove(tmpctx, seeker);
+	set_state(seeker, ASKING_FOR_UNKNOWN_SCIDS, peer,
+		  "Asking for %zu scids", tal_count(scids));
 	if (!query_short_channel_ids(seeker->daemon, peer, scids, NULL,
 				     scid_query_done))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -416,11 +425,10 @@ static bool seek_any_stale_scids(struct seeker *seeker)
 	if (!peer)
 		return false;
 
-	set_state(seeker, ASKING_FOR_STALE_SCIDS);
-	selected_peer(seeker, peer);
-
 	/* This is best-effort, so this consumes them as well. */
 	scids = stale_scids_remove(tmpctx, seeker, &query_flags);
+	set_state(seeker, ASKING_FOR_STALE_SCIDS, peer,
+		  "Asking for %zu scids", tal_count(scids));
 
 	if (!query_short_channel_ids(seeker->daemon, peer, scids, query_flags,
 				     scid_query_done))
@@ -430,7 +438,6 @@ static bool seek_any_stale_scids(struct seeker *seeker)
 	return true;
 }
 
-/* We can't ask for channels by node_id, so probe at random */
 /* Returns true and sets first_blocknum and number_of_blocks if
  * there's more to find. */
 static bool next_block_range(struct seeker *seeker,
@@ -469,6 +476,7 @@ static bool next_block_range(struct seeker *seeker,
 	return false;
 }
 
+/* We can't ask for channels by node_id, so probe at random */
 static bool get_unannounced_nodes(const tal_t *ctx,
 				  struct routing_state *rstate,
 				  size_t off,
@@ -527,8 +535,11 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 	size_t new_nannounce = 0, num_scids;
 
 	/* We might have given up on them, then they replied. */
-	if (seeker->random_peer_softref != peer)
+	if (seeker->random_peer_softref != peer) {
+		status_debug("seeker: belated reply from %s: ignoring",
+			     type_to_string(tmpctx, struct node_id, &peer->id));
 		return;
+	}
 
 	clear_softref(seeker, &seeker->random_peer_softref);
 
@@ -555,7 +566,8 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 	seeker->nannounce_offset += num_scids;
 
 	if (!new_nannounce) {
-		set_state(seeker, NORMAL);
+		set_state(seeker, NORMAL, NULL,
+			  "No new node_announcements in %zu scids", num_scids);
 		return;
 	}
 
@@ -574,7 +586,7 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 				   &seeker->nannounce_scids,
 				   &seeker->nannounce_query_flags)) {
 		/* Nothing unknown at all?  Great, we're done */
-		set_state(seeker, NORMAL);
+		set_state(seeker, NORMAL, NULL, "No unannounced nodes");
 		return;
 	}
 
@@ -586,11 +598,12 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 {
 	struct peer *peer;
 
-	set_state(seeker, PROBING_NANNOUNCES);
 	peer = random_seeker(seeker, peer_can_take_scid_query);
+	set_state(seeker, PROBING_NANNOUNCES, peer,
+		  "Probing for %zu scids at offset %zu",
+		  tal_count(seeker->nannounce_scids), seeker->nannounce_offset);
 	if (!peer)
 		return;
-	selected_peer(seeker, peer);
 
 	if (!query_short_channel_ids(seeker->daemon, peer,
 				     seeker->nannounce_scids,
@@ -703,7 +716,7 @@ static void process_scid_probe(struct peer *peer,
 				   &seeker->nannounce_scids,
 				   &seeker->nannounce_query_flags)) {
 		/* No unknown nodes.  Great! */
-		set_state(seeker, NORMAL);
+		set_state(seeker, NORMAL, NULL, "No unannounced nodes");
 		return;
 	}
 
@@ -715,11 +728,12 @@ static void peer_gossip_probe_scids(struct seeker *seeker)
 {
 	struct peer *peer;
 
-	set_state(seeker, PROBING_SCIDS);
 	peer = random_seeker(seeker, peer_can_take_range_query);
+	set_state(seeker, PROBING_SCIDS, peer,
+		  "Seeking scids %zu - %zu",
+		  seeker->scid_probe_start, seeker->scid_probe_end);
 	if (!peer)
 		return;
-	selected_peer(seeker, peer);
 
 	/* This calls process_scid_probe when we get the reply. */
 	query_channel_range(seeker->daemon, peer,
@@ -850,10 +864,18 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 
 	/* If we have a slot free, or ~ 1 per hour */
 	for (i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
-		if (!seeker->gossiper_softref[i])
+		if (!seeker->gossiper_softref[i]) {
+			status_debug("seeker: filling slot %zu with %s",
+				     i, type_to_string(tmpctx, struct node_id,
+						       &peer->id));
 			goto set_gossiper;
-		if (pseudorand(ARRAY_SIZE(seeker->gossiper_softref) * 60) == 0)
+		}
+		if (pseudorand(ARRAY_SIZE(seeker->gossiper_softref) * 60) == 0) {
+			status_debug("seeker: replacing slot %zu with %s",
+				     i, type_to_string(tmpctx, struct node_id,
+						       &peer->id));
 			goto clear_and_set_gossiper;
+		}
 	}
 	return;
 
