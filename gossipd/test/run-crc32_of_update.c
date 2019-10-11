@@ -75,6 +75,9 @@ void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)
 /* Generated stub for peer_supplied_good_gossip */
 void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
+/* Generated stub for push_gossip */
+void push_gossip(struct daemon *daemon UNNEEDED, const u8 *msg TAKES UNNEEDED)
+{ fprintf(stderr, "push_gossip called!\n"); abort(); }
 /* Generated stub for queue_peer_from_store */
 void queue_peer_from_store(struct peer *peer UNNEEDED,
 			   const struct broadcastable *bcast UNNEEDED)

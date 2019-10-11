@@ -31,3 +31,8 @@ msgdata,gossipd_local_channel_update,htlc_maximum_msat,amount_msat,
 msgtype,gossipd_new_store_fd,3505
 # How much shorter the new store is, so you can offset streaming.
 msgdata,gossipd_new_store_fd,offset_shorter,u64,
+
+# Send this channel_announcement
+msgtype,gossipd_local_channel_announcement,3506
+msgdata,gossipd_local_channel_announcement,len,u16,
+msgdata,gossipd_local_channel_announcement,cannount,u8,len

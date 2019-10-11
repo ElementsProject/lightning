@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON-API: `pay` can exclude error nodes if the failcode of `sendpay` has the NODE bit set
 - JSON API: The `plugin` command now returns on error. A timeout of 20 seconds is added to `start` and `startdir` subcommands at the end of which the plugin is errored if it did not complete the handshake with `lightningd`.
 - JSON API: The `plugin` command does not allow to start static plugins after `lightningd` startup anymore.
+- Protocol: We now push our own gossip to all peers, independent of their filter.
 - Protocol: Now follows spec in responses to short channel id queries on unknown chainhashes; correspondingly, disconnects from peers that signal they do not maintain up-to-date information for the requested chain.
 
 ### Deprecated

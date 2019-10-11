@@ -441,7 +441,9 @@ static void announce_channel(struct peer *peer)
 
 	cannounce = create_channel_announcement(tmpctx, peer);
 
-	wire_sync_write(peer->pps->gossip_fd, cannounce);
+	wire_sync_write(peer->pps->gossip_fd,
+			take(towire_gossipd_local_channel_announcement(NULL,
+								       cannounce)));
 	send_channel_update(peer, 0);
 }
 

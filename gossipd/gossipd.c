@@ -402,6 +402,49 @@ static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 	return err;
 }
 
+/*~ Large peers often turn off gossip msgs (using timestamp_filter) from most
+ * of their peers, however if the gossip is about us, we should spray it to
+ * everyone whether they've set the filter or not, otherwise it might not
+ * propagate! */
+void push_gossip(struct daemon *daemon, const u8 *msg TAKES)
+{
+	struct peer *peer;
+
+	if (taken(msg))
+		tal_steal(tmpctx, msg);
+
+	list_for_each(&daemon->peers, peer, list)
+		queue_peer_msg(peer, msg);
+}
+
+static bool handle_local_channel_announcement(struct daemon *daemon,
+					      struct peer *peer,
+					      const u8 *msg)
+{
+	u8 *cannouncement;
+	const u8 *err;
+
+	if (!fromwire_gossipd_local_channel_announcement(msg, msg,
+							 &cannouncement)) {
+		status_broken("peer %s bad local_channel_announcement %s",
+			      type_to_string(tmpctx, struct node_id, &peer->id),
+			      tal_hex(tmpctx, msg));
+		return false;
+	}
+
+	err = handle_channel_announcement_msg(peer, cannouncement);
+	if (err) {
+		status_broken("peer %s invalid local_channel_announcement %s (%s)",
+			      type_to_string(tmpctx, struct node_id, &peer->id),
+			      tal_hex(tmpctx, msg),
+			      tal_hex(tmpctx, err));
+		return false;
+	}
+
+	push_gossip(daemon, take(cannouncement));
+	return true;
+}
+
 /*~ This is where the per-peer daemons send us messages.  It's either forwarded
  * gossip, or a request for information.  We deliberately use non-overlapping
  * message types so we can distinguish them. */
@@ -478,6 +521,9 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
 		ok = handle_local_channel_update(peer->daemon, &peer->id, msg);
+		goto handled_cmd;
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
+		ok = handle_local_channel_announcement(peer->daemon, peer, msg);
 		goto handled_cmd;
 
 	/* These are the ones we send, not them */
