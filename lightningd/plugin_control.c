@@ -125,7 +125,7 @@ static struct command_result *plugin_start(struct dynamic_plugin *dp)
 	/* Give the plugin 20 seconds to respond to `getmanifest`, so we don't hang
 	 * too long on the RPC caller. */
 	p->timeout_timer = new_reltimer(dp->cmd->ld->timers, dp,
-	                                time_from_sec(20),
+	                                time_from_sec((10)),
 	                                plugin_dynamic_timeout, dp);
 
 	/* Create two connections, one read-only on top of the plugin's stdin, and one
