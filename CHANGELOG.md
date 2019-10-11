@@ -4,44 +4,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.3rc1] T.B.D.
 
 ### Added
-- JSON API: `listfunds` now lists a blockheight for confirmed transactions,
-  and has `connected` and `state` fields for channels, like `listpeers`.
-- JSON API: `fundchannel_start` now includes field `scriptpubkey`
+
+- DB: lightningd now supports different SQL backends, instead of the default which is sqlite3. Adds a PostgresSQL driver
+- elements: Add support of Liquid-BTC on elements
+- JSON API: `close` now accepts an optional parameter `destination`, to which the to-local output will be sent.
 - JSON API: `txprepare` and `withdraw` now accept an optional parameter `utxos`, a list of utxos to include in the prepared transaction
-- JSON_API: `close` now accepts an optional parameter `destination`, to which the to-local output will be sent.
-
-- bolt11: support for parsing feature bits (field `9`).
-
-- Protocol: we now retransmit `funding_locked` upon reconnection while closing if there was no update
+- JSON API: `listfunds` now lists a blockheight for confirmed transactions, and has `connected` and `state` fields for channels, like `listpeers`.
+- JSON API: `fundchannel_start` now includes field `scriptpubkey`
+- JSON API: New method `listtransactions`
 - Plugin: new notifications `sendpay_success` and `sendpay_failure`.
-- Protocol: we now offer `option_gossip_queries_ex` for finegrained gossip control.
-- Protocol: no longer ask for `initial_routing_sync` (only affects ancient peers).
 - Protocol: nodes now announce features in `node_announcement` broadcasts.
-- Protocol: we now fail the connection when receiving an empty response to a gossip query with `complete` flag to `0`
-
+- Protocol: we now offer `option_gossip_queries_ex` for finegrained gossip control.
+- Protocol: we now retransmit `funding_locked` upon reconnection while closing if there was no update
+- Protocol: no longer ask for `initial_routing_sync` (only affects ancient peers).
+- bolt11: support for parsing feature bits (field `9`).
 - Wallet: we now support the encryption of the BIP32 master seed (a.k.a. `hsm_secret`).
+- pylightning: includes implementation of handshake protocol
 
 ### Changed
 
-- JSON API: `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
 - Build: Now requires [`gettext`](https://www.gnu.org/software/gettext/)
-- JSON API: `fundchannel_cancel` is extended to work before funding broadcast.
 - JSON API: The parameter `exclude` of `getroute` now also support node-id.
+- JSON API: `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
+- JSON API: `fundchannel_cancel` is extended to work before funding broadcast.
 - JSON-API: `pay` can exclude error nodes if the failcode of `sendpay` has the NODE bit set
-- JSON API: The `plugin` command now returns on error. A timeout of 20 seconds is added to `start` and `startdir`
-            subcommands at the end of which the plugin is errored if it did not complete the handshake with `lightningd`.
+- JSON API: The `plugin` command now returns on error. A timeout of 20 seconds is added to `start` and `startdir` subcommands at the end of which the plugin is errored if it did not complete the handshake with `lightningd`.
 - JSON API: The `plugin` command does not allow to start static plugins after `lightningd` startup anymore.
+- Protocol: Now follows spec in responses to short channel id queries on unknown chainhashes; correspondingly, disconnects from peers that signal they do not maintain up-to-date information for the requested chain.
 
 ### Deprecated
 
-Note: You should always set `allow-deprecated-apis=false` to test for
-changes.
-- JSON-API: `fundchannel` now uses `amount` as the parameter name to replace `satoshi`
-- JSON-API: `fundchannel_start` now uses `amount` as the parameter name to replace `satoshi`
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
+- JSON API: `fundchannel` now uses `amount` as the parameter name to replace `satoshi`
+- JSON API: `fundchannel_start` now uses `amount` as the parameter name to replace `satoshi`
 - JSON API: `listpeers` and `listnodes` fields `localfeatures` and `globalfeatures` (now just `features`).
 - Plugin: `peer_connected` hook fields `localfeatures` and `globalfeatures` (now just `features`).
 
@@ -58,6 +57,8 @@ changes.
 - Build: MacOS now builds again (missing pwritev).
 
 ### Security
+
+
 
 ## [0.7.2.1] - 2019-08-19: "Nakamoto's Pre-approval by US Congress"
 
