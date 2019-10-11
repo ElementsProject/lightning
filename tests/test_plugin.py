@@ -97,7 +97,8 @@ def test_plugin_slowinit(node_factory):
     """Tests that the 'plugin' RPC command times out if plugin doesnt respond"""
     n = node_factory.get_node()
 
-    n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
+    with pytest.raises(RpcError, match="Timed out while waiting for plugin response"):
+        n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
 
     # It's not actually configured yet, see what happens;
     # make sure 'rescan' and 'list' controls dont crash
