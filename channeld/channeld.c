@@ -70,7 +70,7 @@ struct peer {
 	u64 next_index[NUM_SIDES];
 
 	/* Features peer supports. */
-	u8 *localfeatures;
+	u8 *features;
 
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
@@ -2227,8 +2227,8 @@ static void peer_reconnect(struct peer *peer,
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 
-	dataloss_protect = local_feature_negotiated(peer->localfeatures,
-						    LOCAL_DATA_LOSS_PROTECT);
+	dataloss_protect = feature_negotiated(peer->features,
+					      OPT_DATA_LOSS_PROTECT);
 
 	/* Both these options give us extra fields to check. */
 	check_extra_fields
@@ -2998,7 +2998,7 @@ static void init_channel(struct peer *peer)
 				   &funding_signed,
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
-				   &peer->localfeatures,
+				   &peer->features,
 				   &peer->remote_upfront_shutdown_script,
 				   &remote_ann_node_sig,
 				   &remote_ann_bitcoin_sig,

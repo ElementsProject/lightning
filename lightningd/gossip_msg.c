@@ -21,8 +21,8 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	}
 
 	flen = fromwire_u16(pptr, max);
-	entry->globalfeatures = tal_arr(entry, u8, flen);
-	fromwire_u8_array(pptr, max, entry->globalfeatures, flen);
+	entry->features = tal_arr(entry, u8, flen);
+	fromwire_u8_array(pptr, max, entry->features, flen);
 
 	numaddresses = fromwire_u8(pptr, max);
 
@@ -49,9 +49,8 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 	if (entry->last_timestamp < 0)
 		return;
 
-	towire_u16(pptr, tal_count(entry->globalfeatures));
-	towire_u8_array(pptr, entry->globalfeatures,
-			tal_count(entry->globalfeatures));
+	towire_u16(pptr, tal_count(entry->features));
+	towire_u8_array(pptr, entry->features, tal_count(entry->features));
 	towire_u8(pptr, tal_count(entry->addresses));
 	for (size_t i = 0; i < tal_count(entry->addresses); i++) {
 		towire_wireaddr(pptr, &entry->addresses[i]);
@@ -170,30 +169,6 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 		towire_gossip_halfchannel_entry(pptr, entry->e[1]);
 	} else
 		towire_bool(pptr, false);
-}
-
-struct peer_features *
-fromwire_peer_features(const tal_t *ctx, const u8 **pptr, size_t *max)
-{
-	struct peer_features *pf = tal(ctx, struct peer_features);
-	size_t len;
-
-	len = fromwire_u16(pptr, max);
-	pf->localfeatures = tal_arr(pf, u8, len);
-	fromwire_u8_array(pptr, max, pf->localfeatures, len);
-
-	len = fromwire_u16(pptr, max);
-	pf->globalfeatures = tal_arr(pf, u8, len);
-	fromwire_u8_array(pptr, max, pf->globalfeatures, len);
-	return pf;
-}
-
-void towire_peer_features(u8 **pptr, const struct peer_features *pf)
-{
-	towire_u16(pptr, tal_count(pf->localfeatures));
-	towire_u8_array(pptr, pf->localfeatures, tal_count(pf->localfeatures));
-	towire_u16(pptr, tal_count(pf->globalfeatures));
-	towire_u8_array(pptr, pf->globalfeatures, tal_count(pf->globalfeatures));
 }
 
 struct exclude_entry *fromwire_exclude_entry(const tal_t *ctx,

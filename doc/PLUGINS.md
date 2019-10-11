@@ -485,8 +485,7 @@ the cryptographic handshake. The parameters have the following structure if ther
   "peer": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
     "addr": "34.239.230.56:9735",
-    "globalfeatures": "",
-    "localfeatures": ""
+    "features": ""
   }
 }
 ```

@@ -59,7 +59,7 @@ struct state {
 	struct per_peer_state *pps;
 
 	/* Features they offered */
-	u8 *localfeatures;
+	u8 *features;
 
 	/* Constraints on a channel they open. */
 	u32 minimum_depth;
@@ -549,8 +549,8 @@ static u8 *funder_channel_start(struct state *state,
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
 	 *    valid DER-encoded compressed secp256k1 pubkeys.
 	 */
-	if (local_feature_negotiated(state->localfeatures,
-				     LOCAL_UPFRONT_SHUTDOWN_SCRIPT)) {
+	if (feature_negotiated(state->features,
+			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {
 		if (!fromwire_accept_channel_option_upfront_shutdown_script(state,
 				     msg, &id_in,
 				     &state->remoteconf.dust_limit,
@@ -880,8 +880,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
 	 *     DER-encoded compressed secp256k1 pubkeys.
 	 */
-	if (local_feature_negotiated(state->localfeatures,
-				     LOCAL_UPFRONT_SHUTDOWN_SCRIPT)) {
+	if (feature_negotiated(state->features,
+			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {
 		if (!fromwire_open_channel_option_upfront_shutdown_script(state,
 			    open_channel_msg, &chain_hash,
 			    &state->channel_id,
@@ -1430,7 +1430,7 @@ int main(int argc, char *argv[])
 				   &state->our_funding_pubkey,
 				   &state->minimum_depth,
 				   &state->min_feerate, &state->max_feerate,
-				   &state->localfeatures,
+				   &state->features,
 				   &state->option_static_remotekey,
 				   &inner,
 				   &dev_fast_gossip))

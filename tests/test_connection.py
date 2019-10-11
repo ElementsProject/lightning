@@ -1478,7 +1478,7 @@ def test_peerinfo(node_factory, bitcoind):
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
-    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == lfeatures
+    assert l1.rpc.getpeer(l2.info['id'])['features'] == lfeatures
 
     # Fund a channel to force a node announcement
     chan = l1.fund_channel(l2, 10**6)
@@ -1487,23 +1487,23 @@ def test_peerinfo(node_factory, bitcoind):
     l1.daemon.wait_for_logs(['Received node_announcement for node ' + l2.info['id']])
     l2.daemon.wait_for_logs(['Received node_announcement for node ' + l1.info['id']])
 
-    # Should have announced the same global features as told to peer.
+    # Should have announced the same features as told to peer.
     nodes1 = l1.rpc.listnodes(l2.info['id'])['nodes']
     nodes2 = l2.rpc.listnodes(l2.info['id'])['nodes']
     peer1 = l1.rpc.getpeer(l2.info['id'])
     peer2 = l2.rpc.getpeer(l1.info['id'])
-    assert only_one(nodes1)['globalfeatures'] == peer1['localfeatures']
-    assert only_one(nodes2)['globalfeatures'] == peer2['localfeatures']
+    assert only_one(nodes1)['features'] == peer1['features']
+    assert only_one(nodes2)['features'] == peer2['features']
 
-    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == lfeatures
-    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == lfeatures
+    assert l1.rpc.getpeer(l2.info['id'])['features'] == lfeatures
+    assert l2.rpc.getpeer(l1.info['id'])['features'] == lfeatures
 
     # If it reconnects after db load, it should know features.
     l1.restart()
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
     wait_for(lambda: l2.rpc.getpeer(l1.info['id'])['connected'])
-    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == lfeatures
-    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == lfeatures
+    assert l1.rpc.getpeer(l2.info['id'])['features'] == lfeatures
+    assert l2.rpc.getpeer(l1.info['id'])['features'] == lfeatures
 
     # Close the channel to forget the peer
     l1.rpc.close(chan)
@@ -1731,8 +1731,9 @@ def test_dataloss_protection(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
     l1.daemon.wait_for_log(r"\[OUT\] 0010"
-                           # gflen == 0
-                           "0000"
+                           # gflen
+                           + format(len(lf) // 2, '04x')
+                           + lf
                            # lflen
                            + format(len(lf) // 2, '04x')
                            + lf)

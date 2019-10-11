@@ -283,13 +283,12 @@ static void connected_to_peer(struct daemon *daemon,
  * Every peer also has read-only access to the gossip_store, which is handed
  * out by gossipd too, and also a "gossip_state" indicating where we're up to.
  *
- * The 'localfeatures' is a field in the `init` message, indicating properties
- * when you're connected to it like we are: there are also 'globalfeatures'
- * which specify requirements to route a payment through a node.
+ * 'features' is a field in the `init` message, indicating properties of the
+ * node.
  */
 static bool get_gossipfds(struct daemon *daemon,
 			  const struct node_id *id,
-			  const u8 *localfeatures,
+			  const u8 *features,
 			  struct per_peer_state *pps)
 {
 	bool gossip_queries_feature, initial_routing_sync, success;
@@ -298,13 +297,13 @@ static bool get_gossipfds(struct daemon *daemon,
 	/*~ The way features generally work is that both sides need to offer it;
 	 * we always offer `gossip_queries`, but this check is explicit. */
 	gossip_queries_feature
-		= local_feature_negotiated(localfeatures, LOCAL_GOSSIP_QUERIES);
+		= feature_negotiated(features, OPT_GOSSIP_QUERIES);
 
 	/*~ `initial_routing_sync` is supported by every node, since it was in
 	 * the initial lightning specification: it means the peer wants the
 	 * backlog of existing gossip. */
 	initial_routing_sync
-		= feature_offered(localfeatures, LOCAL_INITIAL_ROUTING_SYNC);
+		= feature_offered(features, OPT_INITIAL_ROUTING_SYNC);
 
 	/*~ We do this communication sync, since gossipd is our friend and
 	 * it's easier.  If gossipd fails, we fail. */
@@ -343,8 +342,7 @@ struct peer_reconnected {
 	struct node_id id;
 	struct wireaddr_internal addr;
 	struct crypto_state cs;
-	const u8 *globalfeatures;
-	const u8 *localfeatures;
+	const u8 *features;
 };
 
 /*~ For simplicity, lightningd only ever deals with a single connection per
@@ -362,8 +360,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	/*~ Usually the pattern is to return this directly, but we have to free
 	 * our temporary structure. */
 	plan = peer_connected(conn, pr->daemon, &pr->id, &pr->addr, &pr->cs,
-			      take(pr->globalfeatures),
-			      take(pr->localfeatures));
+			      take(pr->features));
 	tal_free(pr);
 	return plan;
 }
@@ -375,8 +372,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 					const struct node_id *id,
 					const struct wireaddr_internal *addr,
 					const struct crypto_state *cs,
-					const u8 *globalfeatures TAKES,
-					const u8 *localfeatures TAKES)
+					const u8 *features TAKES)
 {
 	u8 *msg;
 	struct peer_reconnected *pr;
@@ -395,13 +391,9 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	pr->cs = *cs;
 	pr->addr = *addr;
 
-	/*~ Note that tal_dup_arr() will do handle the take() of
-	 * globalfeatures and localfeatures (turning it into a simply
-	 * tal_steal() in those cases). */
-	pr->globalfeatures
-		= tal_dup_arr(pr, u8, globalfeatures, tal_count(globalfeatures), 0);
-	pr->localfeatures
-		= tal_dup_arr(pr, u8, localfeatures, tal_count(localfeatures), 0);
+	/*~ Note that tal_dup_arr() will do handle the take() of features
+	 * (turning it into a simply tal_steal() in those cases). */
+	pr->features = tal_dup_arr(pr, u8, features, tal_count(features), 0);
 
 	/*~ ccan/io supports waiting on an address: in this case, the key in
 	 * the peer set.  When someone calls `io_wake()` on that address, it
@@ -421,35 +413,30 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr,
 			       const struct crypto_state *cs,
-			       const u8 *globalfeatures TAKES,
-			       const u8 *localfeatures TAKES)
+			       const u8 *features TAKES)
 {
 	u8 *msg;
 	struct per_peer_state *pps;
 
 	if (node_set_get(&daemon->peers, id))
-		return peer_reconnected(conn, daemon, id, addr, cs,
-					globalfeatures, localfeatures);
+		return peer_reconnected(conn, daemon, id, addr, cs, features);
 
 	/* We've successfully connected. */
 	connected_to_peer(daemon, conn, id);
 
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
-	if (taken(globalfeatures))
-		tal_steal(tmpctx, globalfeatures);
-	if (taken(localfeatures))
-		tal_steal(tmpctx, localfeatures);
+	if (taken(features))
+		tal_steal(tmpctx, features);
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
 	pps = new_per_peer_state(tmpctx, cs);
 
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	if (!get_gossipfds(daemon, id, localfeatures, pps))
+	if (!get_gossipfds(daemon, id, features, pps))
 		return io_close(conn);
 
 	/* Create message to tell master peer has connected. */
-	msg = towire_connect_peer_connected(NULL, id, addr, pps,
-					    globalfeatures, localfeatures);
+	msg = towire_connect_peer_connected(NULL, id, addr, pps, features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd

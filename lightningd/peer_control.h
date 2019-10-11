@@ -43,7 +43,7 @@ struct peer {
 	struct wireaddr_internal addr;
 
 	/* We keep a copy of their feature bits */
-	const u8 *localfeatures, *globalfeatures;
+	const u8 *features;
 
 	/* If we open a channel our direction will be this */
 	u8 direction;

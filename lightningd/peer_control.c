@@ -87,18 +87,11 @@ static void copy_to_parent_log(const char *prefix,
 		log_(parent_log, level, false, "%s %s", prefix, str);
 }
 
-static void peer_update_features(struct peer *peer,
-				 const u8 *globalfeatures TAKES,
-				 const u8 *localfeatures TAKES)
+static void peer_update_features(struct peer *peer, const u8 *features TAKES)
 {
-	tal_free(peer->globalfeatures);
-	tal_free(peer->localfeatures);
-	peer->globalfeatures = tal_dup_arr(peer, u8,
-					   globalfeatures,
-					   tal_count(globalfeatures), 0);
-	peer->localfeatures = tal_dup_arr(peer, u8,
-					  localfeatures,
-					  tal_count(localfeatures), 0);
+	tal_free(peer->features);
+	peer->features = tal_dup_arr(peer, u8,
+				     features, tal_count(features), 0);
 }
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
@@ -113,7 +106,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->id = *id;
 	peer->uncommitted_channel = NULL;
 	peer->addr = *addr;
-	peer->globalfeatures = peer->localfeatures = NULL;
+	peer->features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
 #if DEVELOPER
@@ -797,8 +790,11 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_add_string(
 	    stream, "addr",
 	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
-	json_add_hex_talarr(stream, "globalfeatures", p->globalfeatures);
-	json_add_hex_talarr(stream, "localfeatures", p->localfeatures);
+	if (deprecated_apis) {
+		json_add_hex_talarr(stream, "globalfeatures", NULL);
+		json_add_hex_talarr(stream, "localfeatures", p->features);
+	}
+	json_add_hex_talarr(stream, "features", p->features);
 	json_object_end(stream); /* .peer */
 }
 
@@ -926,7 +922,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd, int gossip_store_fd)
 {
 	struct node_id id;
-	u8 *globalfeatures, *localfeatures;
+	u8 *features;
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
 
@@ -935,7 +931,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	if (!fromwire_connect_peer_connected(hook_payload, msg,
 					     &id, &hook_payload->addr,
 					     &hook_payload->pps,
-					     &globalfeatures, &localfeatures))
+					     &features))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
@@ -954,7 +950,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
 
-	peer_update_features(peer, globalfeatures, localfeatures);
+	peer_update_features(peer, features);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
@@ -1119,10 +1115,12 @@ static void json_add_peer(struct lightningd *ld,
 					       struct wireaddr_internal,
 					       &p->addr));
 		json_array_end(response);
-		json_add_hex_talarr(response, "globalfeatures",
-				    p->globalfeatures);
-		json_add_hex_talarr(response, "localfeatures",
-				    p->localfeatures);
+		if (deprecated_apis) {
+			json_add_hex_talarr(response, "globalfeatures", NULL);
+			json_add_hex_talarr(response, "localfeatures",
+					    p->features);
+		}
+		json_add_hex_talarr(response, "features", p->features);
 	}
 
 	json_array_start(response, "channels");

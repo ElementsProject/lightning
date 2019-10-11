@@ -45,8 +45,7 @@ Each object in the list contains the following data:
 - *id* : The unique id of the peer
 - *connected* : A boolean value showing the connection status
 - *netaddr* : A list of network addresses the node is listening on
-- *globalfeatures* : Bit flags showing supported global features (BOLT \#9)
-- *localfeatures* : Bit flags showing supported local features (BOLT \#9)
+- *features* : Bit flags showing supported features (BOLT \#9)
 - *channels* : An list of channel id’s open on the peer
 - *log* : Only present if *level* is set. List logs related to the
 peer at the specified *level*

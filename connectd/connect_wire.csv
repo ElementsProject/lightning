@@ -52,10 +52,8 @@ msgtype,connect_peer_connected,2002
 msgdata,connect_peer_connected,id,node_id,
 msgdata,connect_peer_connected,addr,wireaddr_internal,
 msgdata,connect_peer_connected,pps,per_peer_state,
-msgdata,connect_peer_connected,gflen,u16,
-msgdata,connect_peer_connected,globalfeatures,u8,gflen
-msgdata,connect_peer_connected,lflen,u16,
-msgdata,connect_peer_connected,localfeatures,u8,lflen
+msgdata,connect_peer_connected,flen,u16,
+msgdata,connect_peer_connected,features,u8,flen
 
 # master -> connectd: peer has disconnected.
 msgtype,connectctl_peer_disconnected,2015
