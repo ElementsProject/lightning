@@ -47,6 +47,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 
 static void destroy_plugin(struct plugin *p)
 {
+	plugin_hook_unregister_all(p);
 	list_del(&p->list);
 }
 
