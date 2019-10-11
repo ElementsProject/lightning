@@ -202,12 +202,13 @@ static void update_own_node_announcement(struct daemon *daemon)
 
 	/* This injects it into the routing code in routing.c; it should not
 	 * reject it! */
-	err = handle_node_announcement(daemon->rstate, take(nannounce),
+	err = handle_node_announcement(daemon->rstate, nannounce,
 				       NULL, NULL);
 	if (err)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected own node announcement: %s",
 			      tal_hex(tmpctx, err));
+	push_gossip(daemon, take(nannounce));
 }
 
 /* Should we announce our own node?  Called at strategic places. */
@@ -355,7 +356,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	}
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(NULL, msg, &update)) {
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &update)) {
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));
@@ -383,7 +384,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	 * discard it (eg. non-public channel), but it should not complain
 	 * about it being invalid! __func__ is a magic C constant which
 	 * expands to this function name. */
-	msg = handle_channel_update(daemon->rstate, take(update),
+	msg = handle_channel_update(daemon->rstate, update,
 				    find_peer(daemon,
 					      &chan->nodes[!direction]->id),
 				    NULL);
@@ -397,6 +398,10 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 			       * tmpctx, so it's actually OK. */
 			      tal_hex(tmpctx, update),
 			      tal_hex(tmpctx, msg));
+
+	if (is_chan_public(chan))
+		push_gossip(daemon, take(update));
+
 	tal_free(lc);
 }
 

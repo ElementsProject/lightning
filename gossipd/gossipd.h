@@ -125,6 +125,9 @@ void peer_supplied_good_gossip(struct peer *peer, size_t amount);
 struct peer *random_peer(struct daemon *daemon,
 			 bool (*check_peer)(const struct peer *peer));
 
+/* Push this gossip out to all peers immediately. */
+void push_gossip(struct daemon *daemon, const u8 *msg TAKES);
+
 /* Queue a gossip message for the peer: the subdaemon on the other end simply
  * forwards it to the peer. */
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
