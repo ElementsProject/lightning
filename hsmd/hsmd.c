@@ -1765,6 +1765,48 @@ static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
 	return req_reply(conn, c, take(reply));
 }
 
+/*~ lightningd asks us to sign a message.  I tweeted the spec
+ * in https://twitter.com/rusty_twit/status/1182102005914800128:
+ *
+ * @roasbeef & @bitconner point out that #lnd algo is:
+ *    zbase32(SigRec(SHA256(SHA256("Lightning Signed Message:" + msg)))).
+ * zbase32 from https://philzimmermann.com/docs/human-oriented-base-32-encoding.txt
+ * and SigRec has first byte 31 + recovery id, followed by 64 byte sig.  #specinatweet
+ */
+static struct io_plan *handle_sign_message(struct io_conn *conn,
+					   struct client *c,
+					   const u8 *msg_in)
+{
+	u8 *msg;
+	struct sha256_ctx sctx = SHA256_INIT;
+	struct sha256_double shad;
+	secp256k1_ecdsa_recoverable_signature rsig;
+	struct privkey node_pkey;
+
+	if (!fromwire_hsm_sign_message(tmpctx, msg_in, &msg))
+		return bad_req(conn, c, msg_in);
+
+	/* Prefixing by a known string means we'll never be convinced
+	 * to sign some gossip message, etc. */
+	sha256_update(&sctx, "Lightning Signed Message:",
+		      strlen("Lightning Signed Message:"));
+	sha256_update(&sctx, msg, tal_count(msg));
+	sha256_double_done(&sctx, &shad);
+
+	node_key(&node_pkey, NULL);
+	/*~ By no small coincidence, this libsecp routine uses the exact
+	 * recovery signature format mandated by BOLT 11. */
+	if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, &rsig,
+                                              shad.sha.u.u8,
+                                              node_pkey.secret.data,
+                                              NULL, NULL)) {
+		return bad_req_fmt(conn, c, msg_in, "Failed to sign message");
+	}
+
+	return req_reply(conn, c,
+			 take(towire_hsm_sign_message_reply(NULL, &rsig)));
+}
+
 #if DEVELOPER
 static struct io_plan *handle_memleak(struct io_conn *conn,
 				      struct client *c,
@@ -1844,6 +1886,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_COMMITMENT_TX:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
 	case WIRE_HSM_DEV_MEMLEAK:
+	case WIRE_HSM_SIGN_MESSAGE:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -1865,6 +1908,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 	case WIRE_HSM_DEV_MEMLEAK_REPLY:
+	case WIRE_HSM_SIGN_MESSAGE_REPLY:
 		break;
 	}
 	return false;
@@ -1945,6 +1989,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
 		return handle_sign_mutual_close_tx(conn, c, c->msg_in);
 
+	case WIRE_HSM_SIGN_MESSAGE:
+		return handle_sign_message(conn, c, c->msg_in);
 #if DEVELOPER
 	case WIRE_HSM_DEV_MEMLEAK:
 		return handle_memleak(conn, c, c->msg_in);
@@ -1967,6 +2013,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 	case WIRE_HSM_DEV_MEMLEAK_REPLY:
+	case WIRE_HSM_SIGN_MESSAGE_REPLY:
 		break;
 	}
 

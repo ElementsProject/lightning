@@ -198,3 +198,11 @@ msgdata,hsm_check_future_secret,commitment_secret,secret,
 
 msgtype,hsm_check_future_secret_reply,122
 msgdata,hsm_check_future_secret_reply,correct,bool,
+
+# lightningd asks us to sign a string.
+msgtype,hsm_sign_message,23
+msgdata,hsm_sign_message,len,u16,
+msgdata,hsm_sign_message,msg,u8,len
+
+msgtype,hsm_sign_message_reply,123
+msgdata,hsm_sign_message_reply,sig,secp256k1_ecdsa_recoverable_signature,
