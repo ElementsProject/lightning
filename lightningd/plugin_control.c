@@ -34,9 +34,13 @@ static struct command_result *plugin_dynamic_list_plugins(struct command *cmd)
 static struct command_result *
 plugin_dynamic_error(struct dynamic_plugin *dp, const char *error)
 {
-	plugin_kill(dp->plugin, "%s: %s", dp->plugin->cmd, error);
+	if (dp->plugin)
+		plugin_kill(dp->plugin, "%s", error);
+	else
+		log_info(dp->cmd->ld->log, "%s", error);
 	return command_fail(dp->cmd, JSONRPC2_INVALID_PARAMS,
-	                    "%s: %s", dp->plugin->cmd, error);
+	                    "%s: %s", dp->plugin ? dp->plugin->cmd : "unknown plugin",
+	                    error);
 }
 
 static void plugin_dynamic_timeout(struct dynamic_plugin *dp)
