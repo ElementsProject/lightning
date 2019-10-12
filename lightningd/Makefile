@@ -96,7 +96,10 @@ LIGHTNINGD_SRC :=				\
 	lightningd/subd.c			\
 	lightningd/watch.c
 
-LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
+LIGHTNINGD_SRC_NOHDR :=				\
+	lightningd/signmessage.c
+
+LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
 
 # Make sure these depend on everything.
 ALL_OBJS += $(LIGHTNINGD_OBJS)
@@ -124,9 +127,9 @@ lightningd/gen_channel_state_names.h: lightningd/channel_state.h ccan/ccan/cdump
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%) $(LIGHTNINGD_SRC_NOHDR:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_HEADERS_NOGEN:%=check-hdr-include-order/%)
-check-source-bolt: $(LIGHTNINGD_SRC:%=bolt-check/%) $(LIGHTNINGD_HEADERS_NOGEN:%=bolt-check/%)
+check-source-bolt: $(LIGHTNINGD_SRC:%=bolt-check/%) $(LIGHTNINGD_SRC_NOHDR:%=bolt-check/%) $(LIGHTNINGD_HEADERS_NOGEN:%=bolt-check/%)
 
-check-whitespace: $(LIGHTNINGD_SRC:%=check-whitespace/%) $(LIGHTNINGD_HEADERS_NOGEN:%=check-whitespace/%)
+check-whitespace: $(LIGHTNINGD_SRC:%=check-whitespace/%) $(LIGHTNINGD_SRC_NOHDR:%=check-whitespace/%) $(LIGHTNINGD_HEADERS_NOGEN:%=check-whitespace/%)
 
 check-makefile: check-lightningd-makefile
 check-lightningd-makefile:
