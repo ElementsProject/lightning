@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `listfunds` now lists a blockheight for confirmed transactions, and has `connected` and `state` fields for channels, like `listpeers`.
 - JSON API: `fundchannel_start` now includes field `scriptpubkey`
 - JSON API: New method `listtransactions`
+- JSON API: `signmessage` will now create a signature from your node on a message.
 - Plugin: new notifications `sendpay_success` and `sendpay_failure`.
 - Protocol: nodes now announce features in `node_announcement` broadcasts.
 - Protocol: we now offer `option_gossip_queries_ex` for finegrained gossip control.
