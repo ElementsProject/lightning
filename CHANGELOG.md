@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: The `plugin` command now returns on error. A timeout of 20 seconds is added to `start` and `startdir` subcommands at the end of which the plugin is errored if it did not complete the handshake with `lightningd`.
 - JSON API: The `plugin` command does not allow to start static plugins after `lightningd` startup anymore.
 - Protocol: Now follows spec in responses to short channel id queries on unknown chainhashes; correspondingly, disconnects from peers that signal they do not maintain up-to-date information for the requested chain.
+- Tor: We default now with autotor to generate if possible temporary ED25519-V3 onions.  You can use new option `enable-autotor-v2-mode` to fallback to V2 RSA1024 mode.
 
 ### Deprecated
 
