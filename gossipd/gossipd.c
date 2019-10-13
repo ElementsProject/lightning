@@ -1080,7 +1080,7 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	}
 
 	/* FIXME: towire wants array of pointers. */
-	nodes = tal_arr(node_arr, const struct gossip_getnodes_entry *,
+	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *,
 			tal_count(node_arr));
 	for (size_t i = 0; i < tal_count(node_arr); i++)
 		nodes[i] = &node_arr[i];
