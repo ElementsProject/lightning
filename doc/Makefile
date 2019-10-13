@@ -9,6 +9,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightningd-config.5 \
 	doc/lightning-autocleaninvoice.7 \
 	doc/lightning-check.7 \
+	doc/lightning-checkmessage.7 \
 	doc/lightning-close.7 \
 	doc/lightning-connect.7 \
 	doc/lightning-decodepay.7 \
@@ -33,6 +34,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-plugin.7 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-setchannelfee.7 \
+	doc/lightning-signmessage.7 \
 	doc/lightning-txprepare.7 \
 	doc/lightning-txdiscard.7 \
 	doc/lightning-txsend.7 \
