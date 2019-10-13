@@ -31,6 +31,7 @@ c-lightning Documentation
    lightningd-config <lightningd-config.5.md>
    lightning-autocleaninvoice <lightning-autocleaninvoice.7.md>
    lightning-check <lightning-check.7.md>
+   lightning-checkmessage <lightning-checkmessage.7.md>
    lightning-cli <lightning-cli.1.md>
    lightning-close <lightning-close.7.md>
    lightning-connect <lightning-connect.7.md>
@@ -56,6 +57,7 @@ c-lightning Documentation
    lightning-plugin <lightning-plugin.7.md>
    lightning-sendpay <lightning-sendpay.7.md>
    lightning-setchannelfee <lightning-setchannelfee.7.md>
+   lightning-signmessage <lightning-signmessage.7.md>
    lightning-txdiscard <lightning-txdiscard.7.md>
    lightning-txprepare <lightning-txprepare.7.md>
    lightning-txsend <lightning-txsend.7.md>
