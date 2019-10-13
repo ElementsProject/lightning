@@ -1649,7 +1649,7 @@ def test_relative_config_dir(node_factory):
 
 
 def test_signmessage(node_factory):
-    l1 = node_factory.get_node()
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     corpus = [[None,
                "this is a test!",
@@ -1685,3 +1685,16 @@ def test_signmessage(node_factory):
 
         assert l1.rpc.call('checkmessage', [c[1], c[2], c[3]])['verified']
         assert not l1.rpc.call('checkmessage', [c[1] + "modified", c[2], c[3]])['verified']
+        checknokey = l1.rpc.call('checkmessage', [c[1], c[2]])
+        # Of course, we know our own pubkey
+        if c[3] == l1.info['id']:
+            assert checknokey['verified']
+        else:
+            assert not checknokey['verified']
+        assert checknokey['pubkey'] == c[3]
+
+    # l2 knows about l1, so it can validate it.
+    zm = l1.rpc.call('signmessage', ["message for you"])['zbase']
+    checknokey = l2.rpc.call('checkmessage', ["message for you", zm])
+    assert checknokey['pubkey'] == l1.info['id']
+    assert checknokey['verified']

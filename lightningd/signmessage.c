@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <hsmd/gen_hsm_wire.h>
+#include <lightningd/subd.h>
 #include <string.h>
 #include <wire/wire_sync.h>
 
@@ -120,6 +121,32 @@ static const struct json_command json_signmessage_cmd = {
 };
 AUTODATA(json_command, &json_signmessage_cmd);
 
+struct command_and_node {
+	struct command *cmd;
+	struct node_id id;
+};
+
+/* Gossipd tells us if it's a known node by returning details. */
+static void getnode_reply(struct subd *gossip UNUSED, const u8 *reply,
+			  const int *fds UNUSED,
+			  struct command_and_node *can)
+{
+	struct gossip_getnodes_entry **nodes;
+	struct json_stream *response;
+
+	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
+		log_broken(can->cmd->ld->log,
+			   "Malformed gossip_getnodes response %s",
+			   tal_hex(tmpctx, reply));
+		nodes = NULL;
+	}
+
+	response = json_stream_success(can->cmd);
+	json_add_node_id(response, "pubkey", &can->id);
+	json_add_bool(response, "verified", tal_count(nodes) > 0);
+	was_pending(command_success(can->cmd, response));
+}
+
 static struct command_result *json_checkmessage(struct command *cmd,
 						const char *buffer,
 						const jsmntok_t *obj UNNEEDED,
@@ -136,7 +163,7 @@ static struct command_result *json_checkmessage(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("message", param_string, &message),
 		   p_req("zbase", param_string, &zb),
-		   p_req("pubkey", param_pubkey, &pubkey),
+		   p_opt("pubkey", param_pubkey, &pubkey),
 		   NULL))
 		return command_param_failed();
 
@@ -162,13 +189,34 @@ static struct command_result *json_checkmessage(struct command *cmd,
 	sha256_update(&sctx, message, strlen(message));
 	sha256_double_done(&sctx, &shad);
 
-	response = json_stream_success(cmd);
 	if (!secp256k1_ecdsa_recover(secp256k1_ctx, &reckey.pubkey, &rsig,
 				     shad.sha.u.u8)) {
+		response = json_stream_success(cmd);
 		json_add_bool(response, "verified", false);
-	} else {
-		json_add_bool(response, "verified", pubkey_eq(pubkey, &reckey));
+		return command_success(cmd, response);
 	}
+
+	/* If they didn't specify pubkey, we only accept the signature if it's
+	 * in the graph (thus, they've signed something with it).  This idea
+	 * was stolen directly from lnd, thanks @roasbeef.
+	 *
+	 * FIXME: We could also look through known invoices: AFAICT you can't
+	 * make two (different) signed messages with the same recovered key
+	 * unless you know the secret key */
+	if (!pubkey) {
+		u8 *req;
+		struct command_and_node *can = tal(cmd, struct command_and_node);
+
+		node_id_from_pubkey(&can->id, &reckey);
+		can->cmd = cmd;
+		req = towire_gossip_getnodes_request(cmd, &can->id);
+		subd_req(cmd, cmd->ld->gossip, req, -1, 0, getnode_reply, can);
+		return command_still_pending(cmd);
+	}
+
+	response = json_stream_success(cmd);
+	json_add_pubkey(response, "pubkey", &reckey);
+	json_add_bool(response, "verified", pubkey_eq(pubkey, &reckey));
 	return command_success(cmd, response);
 }
 
