@@ -145,7 +145,7 @@ usage()
     usage_with_default "--enable/disable-valgrind" "(autodetect)"
     echo "    Valgrind binary to use for tests"
     usage_with_default "--enable/disable-static" "$STATIC" "enable" "disable"
-    echo "    Static link binary"
+    echo "    Static link sqlite3, gmp and zlib libraries"
     usage_with_default "--enable/disable-address-sanitizer" "$ASAN" "enable" "disable"
     echo "    Compile with address-sanitizer"
     exit 1
