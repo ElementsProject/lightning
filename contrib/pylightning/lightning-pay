@@ -2,12 +2,12 @@
 
 import argparse
 import os
+import pprint
 import sys
-import json
 from lightning import LightningRpc
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("bolt11_or_destination_id")
+parser.add_argument("bolt11_or_destination_id", required=True)
 parser.add_argument("amount_in_milli_satoshi", default=None, type=int, nargs="?")
 parser.add_argument("payment_hash", nargs="?")
 parser.add_argument("min_final_cltv_expiry", nargs="?")
@@ -31,7 +31,8 @@ use_bolt11 = args.bolt11_or_destination_id[:2] == "ln"
 
 if use_bolt11:
     bolt11 = ld.decodepay(args.bolt11_or_destination_id)
-    print("Bolt11 decoded:\n%s" % json.dumps(bolt11, indent=4))
+    print("Bolt11 decoded:")
+    pprint.pprint(bolt11)
     id_ = bolt11["payee"]
     payment_hash = bolt11["payment_hash"]
     if "msatoshi" in bolt11:
