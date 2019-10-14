@@ -97,9 +97,9 @@ struct command_result *param_utxos(struct command *cmd,
 							" 'txid:output_index'.");
 	if (tal_count(*utxos) == 0)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							"No matching utxo was found from the wallet."
+							"No matching utxo was found from the wallet. "
 							"You can get a list of the wallet utxos with"
-							" the `listfunds` RPC call.");
+							" the `listfunds` RPC call.");
 	return NULL;
 }
 
