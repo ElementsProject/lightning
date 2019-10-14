@@ -1,9 +1,9 @@
-from decimal import Decimal
 import json
 import logging
-from math import floor, log10
 import socket
 import warnings
+from decimal import Decimal
+from math import floor, log10
 
 __version__ = "0.0.7.4"
 
