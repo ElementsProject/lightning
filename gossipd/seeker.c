@@ -563,7 +563,7 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 
 	peer = random_seeker(seeker, peer_can_take_scid_query);
 	set_state(seeker, PROBING_NANNOUNCES, peer,
-		  "Probing for %zu scids at offset %zu",
+		  "Probing for %zu scids at offset %llu",
 		  tal_count(seeker->nannounce_scids), seeker->nannounce_offset);
 	if (!peer)
 		return;
