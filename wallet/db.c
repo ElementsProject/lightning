@@ -658,12 +658,12 @@ void db_commit_transaction(struct db *db)
 	bool ok;
 	assert(db->in_transaction);
 	db_assert_no_outstanding_statements(db);
+	db_report_changes(db, NULL, 0);
 	ok = db->config->commit_tx_fn(db);
 
 	if (!ok)
 		db_fatal("Failed to commit DB transaction: %s", db->error);
 
-	db_report_changes(db, NULL, 0);
 	db->in_transaction = NULL;
 }
 
