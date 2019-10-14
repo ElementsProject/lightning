@@ -1955,7 +1955,8 @@ bool handle_pending_cannouncement(struct daemon *daemon,
 
 static void update_pending(struct pending_cannouncement *pending,
 			   u32 timestamp, const u8 *update,
-			   const u8 direction)
+			   const u8 direction,
+			   struct peer *peer)
 {
 	SUPERVERBOSE("Deferring update for pending channel %s/%d",
 		     type_to_string(tmpctx, struct short_channel_id,
@@ -1968,6 +1969,9 @@ static void update_pending(struct pending_cannouncement *pending,
 		}
 		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_count(update), 0);
 		pending->update_timestamps[direction] = timestamp;
+		clear_softref(pending, &pending->update_peer_softref[direction]);
+		set_softref(pending, &pending->update_peer_softref[direction],
+			    peer);
 	}
 }
 
@@ -2312,7 +2316,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 					    struct short_channel_id,
 					    &short_channel_id),
 			     direction);
-		update_pending(pending, timestamp, serialized, direction);
+		update_pending(pending, timestamp, serialized, direction, peer);
 		return NULL;
 	}
 
