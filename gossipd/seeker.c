@@ -1,6 +1,7 @@
 /* This contains the code which actively seeks out gossip from peers */
 #include <bitcoin/short_channel_id.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
@@ -70,7 +71,6 @@ struct seeker {
 	/* Array of scids for node announcements. */
 	struct short_channel_id *nannounce_scids;
 	u8 *nannounce_query_flags;
-	u64 nannounce_offset;
 
 	/* Are there any node_ids we didn't know?  Implies we're
 	 * missing channels. */
@@ -430,62 +430,77 @@ static bool next_block_range(struct seeker *seeker,
 	return false;
 }
 
+static int cmp_scid(const struct short_channel_id *a,
+		    const struct short_channel_id *b,
+		    void *unused)
+{
+	if (a->u64 > b->u64)
+		return 1;
+	else if (a->u64 < b->u64)
+		return -1;
+	return 0;
+}
+
 /* We can't ask for channels by node_id, so probe at random */
 static bool get_unannounced_nodes(const tal_t *ctx,
 				  struct routing_state *rstate,
 				  size_t max,
-				  u64 *offset,
 				  struct short_channel_id **scids,
 				  u8 **query_flags)
 {
 	size_t num = 0;
+	u64 offset;
+	u64 threshold = pseudorand_u64();
 
 	/* Pick an example short_channel_id at random to query.  As a
 	 * side-effect this gets the node. */
 	*scids = tal_arr(ctx, struct short_channel_id, max);
-	*query_flags = tal_arr(ctx, u8, max);
 
-	/* We need to query short_channel_id in order, though (spec
-	 * says it), so we walk those rather than walking nodes.  We go
-	 * backwards, as those are the ones we are most likely to be missing,
-	 * and also it changes most over time. */
-	for (struct chan *c = uintmap_before(&rstate->chanmap, offset);
+	/* FIXME: This is inefficient!  Reuse next_block_range here! */
+	for (struct chan *c = uintmap_first(&rstate->chanmap, &offset);
 	     c;
-	     c = uintmap_before(&rstate->chanmap, offset)) {
-		u8 qflags = 0;
-
+	     c = uintmap_after(&rstate->chanmap, &offset)) {
 		/* Local-only?  Don't ask. */
 		if (!is_chan_public(c))
 			continue;
 
-		if (!c->nodes[0]->bcast.index)
-			qflags |= SCID_QF_NODE1;
-		if (!c->nodes[1]->bcast.index)
-			qflags |= SCID_QF_NODE2;
-		if (qflags) {
-			/* Since we're going backwards, place end first */
-			(*scids)[max - 1 - num] = c->scid;
-			(*query_flags)[max - 1 - num] = qflags;
-			if (++num == max)
-				break;
+		if (c->nodes[0]->bcast.index && c->nodes[1]->bcast.index)
+			continue;
+
+		if (num < max) {
+			(*scids)[num++] = c->scid;
+		} else {
+			/* Maybe replace one: approx. reservoir sampling */
+			u64 p = pseudorand_u64();
+			if (p > threshold) {
+				(*scids)[pseudorand(max)] = c->scid;
+				threshold = p;
+			}
 		}
 	}
 
 	if (num == 0) {
 		*scids = tal_free(*scids);
-		*query_flags = tal_free(*query_flags);
 		return false;
 	}
 
-	if (num < max) {
-		memmove(*scids, *scids + max - num,
-			num * sizeof(**scids));
-		memmove(*query_flags, *query_flags + max - num,
-			num * sizeof(**query_flags));
+	if (num < max)
 		tal_resize(scids, num);
-		tal_resize(query_flags, num);
-	}
 
+	/* Sort them into order. */
+	asort(*scids, num, cmp_scid, NULL);
+
+	/* Now get flags. */
+	*query_flags = tal_arr(ctx, u8, num);
+	for (size_t i = 0; i < tal_count(*scids); i++) {
+		struct chan *c = get_channel(rstate, &(*scids)[i]);
+
+		(*query_flags)[i] = 0;
+		if (!c->nodes[0]->bcast.index)
+			(*query_flags)[i] |= SCID_QF_NODE1;
+		if (!c->nodes[1]->bcast.index)
+			(*query_flags)[i] |= SCID_QF_NODE2;
+	}
 	return true;
 }
 
@@ -545,7 +560,6 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 		num_scids = 7000;
 
 	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate, num_scids,
-				   &seeker->nannounce_offset,
 				   &seeker->nannounce_scids,
 				   &seeker->nannounce_query_flags)) {
 		/* Nothing unknown at all?  Great, we're done */
@@ -563,8 +577,8 @@ static void peer_gossip_probe_nannounces(struct seeker *seeker)
 
 	peer = random_seeker(seeker, peer_can_take_scid_query);
 	set_state(seeker, PROBING_NANNOUNCES, peer,
-		  "Probing for %zu scids at offset %zu",
-		  tal_count(seeker->nannounce_scids), seeker->nannounce_offset);
+		  "Probing for %zu scids",
+		  tal_count(seeker->nannounce_scids));
 	if (!peer)
 		return;
 
@@ -668,10 +682,8 @@ static void process_scid_probe(struct peer *peer,
 		return;
 	}
 
-	/* Channel probe finished, try asking for 32 unannounced nodes. */
-	seeker->nannounce_offset = UINT64_MAX;
-	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate, 32,
-				   &seeker->nannounce_offset,
+	/* Channel probe finished, try asking for 128 unannounced nodes. */
+	if (!get_unannounced_nodes(seeker, seeker->daemon->rstate, 128,
 				   &seeker->nannounce_scids,
 				   &seeker->nannounce_query_flags)) {
 		/* No unknown nodes.  Great! */
@@ -716,7 +728,6 @@ static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
 	}
 
 	seeker->nannounce_scids = NULL;
-	seeker->nannounce_offset = UINT64_MAX;
 	peer_gossip_probe_scids(seeker);
 }
 
