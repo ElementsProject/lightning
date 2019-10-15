@@ -12,6 +12,7 @@
 #include <common/param.h>
 #include <common/sphinx.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
@@ -527,7 +528,7 @@ static void forward_htlc(struct htlc_in *hin,
 	}
 
 	if (amount_msat_greater(amt_to_forward,
-				get_chainparams(ld)->max_payment)) {
+				chainparams->max_payment)) {
 		/* ENOWUMBO! */
 		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
 		goto fail;
@@ -1549,7 +1550,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 				    tal_hex(channel, msg));
 		return;
 	}
-	tx->chainparams = get_chainparams(ld);
+	tx->chainparams = chainparams;
 
 	log_debug(channel->log,
 		  "got commitsig %"PRIu64

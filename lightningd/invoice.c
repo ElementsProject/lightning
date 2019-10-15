@@ -301,7 +301,7 @@ static struct command_result *parse_fallback(struct command *cmd,
 
 	fallback_parse
 		= json_to_address_scriptpubkey(cmd,
-					       get_chainparams(cmd->ld),
+					       chainparams,
 					       buffer, fallback,
 					       fallback_script);
 	if (fallback_parse == ADDRESS_PARSE_UNRECOGNIZED) {
@@ -310,7 +310,7 @@ static struct command_result *parse_fallback(struct command *cmd,
 	} else if (fallback_parse == ADDRESS_PARSE_WRONG_NETWORK) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Fallback address does not match our network %s",
-				    get_chainparams(cmd->ld)->network_name);
+				    chainparams->network_name);
 	}
 	return NULL;
 }
@@ -683,7 +683,6 @@ static struct command_result *json_invoice(struct command *cmd,
 	u64 *expiry;
 	struct sha256 rhash;
 	bool *exposeprivate;
-	const struct chainparams *chainparams;
 #if DEVELOPER
 	const jsmntok_t *routes;
 #endif
@@ -720,7 +719,6 @@ static struct command_result *json_invoice(struct command *cmd,
 				    strlen(desc_val));
 	}
 
-	chainparams = get_chainparams(cmd->ld);
 	if (msatoshi_val
 	    && amount_msat_greater(*msatoshi_val, chainparams->max_payment)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

@@ -746,7 +746,6 @@ static void have_new_block(struct bitcoind *bitcoind UNUSED,
 			   struct bitcoin_block *blk,
 			   struct chain_topology *topo)
 {
-	const struct chainparams *chainparams = get_chainparams(topo->ld);
 	/* Annotate all transactions with the chainparams */
 	for (size_t i=0; i<tal_count(blk->tx); i++)
 		blk->tx[i]->chainparams = chainparams;

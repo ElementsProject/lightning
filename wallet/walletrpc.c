@@ -11,6 +11,7 @@
 #include <common/key_derive.h>
 #include <common/param.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <common/utxo.h>
 #include <common/wallet_tx.h>
 #include <common/withdraw_tx.h>
@@ -320,7 +321,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 					    "{destination: amount}");
 
 		res = json_to_address_scriptpubkey(cmd,
-						   get_chainparams(cmd->ld),
+						   chainparams,
 						   buffer, &t[1],
 						   &destination);
 		if (res == ADDRESS_PARSE_UNRECOGNIZED)
@@ -329,7 +330,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 		else if (res == ADDRESS_PARSE_WRONG_NETWORK)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Destination address is not on network %s",
-					    get_chainparams(cmd->ld)->network_name);
+					    chainparams->network_name);
 
 		amount = tal(tmpctx, struct amount_sat);
 		if (!json_to_sat_or_all(buffer, &t[2], amount))
@@ -392,7 +393,7 @@ create_tx:
 			return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
 	} else
 		changekey = NULL;
-	(*utx)->tx = withdraw_tx(*utx, get_chainparams(cmd->ld),
+	(*utx)->tx = withdraw_tx(*utx, chainparams,
 				 (*utx)->wtx->utxos, (*utx)->outputs,
 				 changekey, (*utx)->wtx->change,
 				 cmd->ld->wallet->bip32_base,
@@ -586,10 +587,10 @@ encode_pubkey_to_addr(const tal_t *ctx,
 		sha256(&h, redeemscript, tal_count(redeemscript));
 		ripemd160(&h160, h.u.u8, sizeof(h));
 		out = p2sh_to_base58(ctx,
-				     get_chainparams(ld),
+				     chainparams,
 				     &h160);
 	} else {
-		hrp = get_chainparams(ld)->bip173_name;
+		hrp = chainparams->bip173_name;
 
 		/* out buffer is 73 + strlen(human readable part),
 		 * see common/bech32.h*/
@@ -814,7 +815,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 		        json_add_string(response, "address", out);
 		} else if (utxos[i]->scriptPubkey != NULL) {
 			out = encode_scriptpubkey_to_addr(
-			    cmd, get_chainparams(cmd->ld),
+			    cmd, chainparams,
 			    utxos[i]->scriptPubkey);
 			if (out)
 				json_add_string(response, "address", out);

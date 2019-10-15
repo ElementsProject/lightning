@@ -27,6 +27,7 @@
 #include <common/per_peer_state.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
@@ -623,7 +624,7 @@ static void json_add_channel(struct lightningd *ld,
 
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
 		char *addr = encode_scriptpubkey_to_addr(tmpctx,
-					get_chainparams(ld),
+					chainparams,
 					channel->shutdown_scriptpubkey[LOCAL]);
 		if (addr)
 			json_add_string(response, "close_to_addr", addr);
@@ -729,8 +730,8 @@ static void json_add_channel(struct lightningd *ld,
 		spendable = AMOUNT_MSAT(0);
 
 	/* We can't offer an HTLC over the max payment threshold either. */
-	if (amount_msat_greater(spendable, get_chainparams(ld)->max_payment))
-		spendable = get_chainparams(ld)->max_payment;
+	if (amount_msat_greater(spendable, chainparams->max_payment))
+		spendable = chainparams->max_payment;
 
 	json_add_amount_msat_compat(response, spendable,
 				    "spendable_msatoshi", "spendable_msat");
@@ -1271,7 +1272,7 @@ static struct command_result *param_tok_dest_or_timeout(
 		if (!json_to_number(buffer, tok, &timeout)) {
 			enum address_parse_result res;
 			res = json_to_address_scriptpubkey(cmd,
-							   get_chainparams(cmd->ld),
+							   chainparams,
 							   buffer, tok,
 							   &script);
 			if (res == ADDRESS_PARSE_UNRECOGNIZED)
@@ -1280,7 +1281,7 @@ static struct command_result *param_tok_dest_or_timeout(
 			else if (res == ADDRESS_PARSE_WRONG_NETWORK)
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "Destination address is not on network %s",
-						    get_chainparams(cmd->ld)->network_name);
+						    chainparams->network_name);
 		}
 		return NULL;
 	}
@@ -1355,7 +1356,7 @@ static struct command_result *json_close(struct command *cmd,
 				if (secondtok) {
 					enum address_parse_result res;
 					res = json_to_address_scriptpubkey(cmd,
-									   get_chainparams(cmd->ld),
+									   chainparams,
 									   buffer, secondtok,
 									   &close_to_script);
 					if (res == ADDRESS_PARSE_UNRECOGNIZED)
@@ -1364,7 +1365,7 @@ static struct command_result *json_close(struct command *cmd,
 					else if (res == ADDRESS_PARSE_WRONG_NETWORK)
 						return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 								    "Destination address is not on network %s",
-								    get_chainparams(cmd->ld)->network_name);
+								    chainparams->network_name);
 				}
 			}
 		} else if (secondtok) {
@@ -1378,7 +1379,7 @@ static struct command_result *json_close(struct command *cmd,
 				enum address_parse_result res;
 
 				res = json_to_address_scriptpubkey(cmd,
-								   get_chainparams(cmd->ld),
+								   chainparams,
 								   buffer, secondtok,
 								   &close_to_script);
 				if (res == ADDRESS_PARSE_UNRECOGNIZED)
@@ -1387,7 +1388,7 @@ static struct command_result *json_close(struct command *cmd,
 				else if (res == ADDRESS_PARSE_WRONG_NETWORK)
 					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 							    "Destination address is not on network %s",
-							    get_chainparams(cmd->ld)->network_name);
+							    chainparams->network_name);
 			}
 		} else
 			old_style = false;
@@ -1722,7 +1723,7 @@ static struct command_result *json_getinfo(struct command *cmd,
     }
     json_add_string(response, "version", version());
     json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
-    json_add_string(response, "network", get_chainparams(cmd->ld)->network_name);
+    json_add_string(response, "network", chainparams->network_name);
     json_add_amount_msat_compat(response,
 				wallet_total_forward_fees(cmd->ld->wallet),
 				"msatoshi_fees_collected",

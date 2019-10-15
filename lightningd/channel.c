@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
@@ -234,7 +235,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->msat_to_us_min = msat_to_us_min;
 	channel->msat_to_us_max = msat_to_us_max;
 	channel->last_tx = tal_steal(channel, last_tx);
-	channel->last_tx->chainparams = get_chainparams(peer->ld);
+	channel->last_tx->chainparams = chainparams;
 	channel->last_tx_type = TX_UNKNOWN;
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);

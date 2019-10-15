@@ -105,7 +105,7 @@ void hsm_init(struct lightningd *ld)
 
 	ld->hsm_fd = fds[0];
 	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
-							 &ld->topology->bitcoind->chainparams->bip32_key_version,
+							 &chainparams->bip32_key_version,
 							 chainparams,
 							 ld->config.keypass,
 							 IFDEV(ld->dev_force_privkey, NULL),

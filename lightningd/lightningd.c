@@ -475,17 +475,6 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	db_commit_transaction(ld->wallet->db);
 }
 
-/*~ Chainparams are the parameters for eg. testnet vs mainnet.  This wrapper
- * saves lots of struggles with our 80-column guideline! */
-const struct chainparams *get_chainparams(const struct lightningd *ld)
-{
-	/* "The lightningd is connected to the blockchain."
-	 * "The blockchain is connected to the bitcoind API."
-	 * "The bitcoind API is connected chain parameters."
-	 * -- Worst childhood song ever. */
-	return ld->topology->bitcoind->chainparams;
-}
-
 /*~ Our wallet logic needs to know what outputs we might be interested in.  We
  * use BIP32 (a.k.a. "HD wallet") to generate keys from a single seed, so we
  * keep the maximum-ever-used key index in the db, and add them all to the
@@ -665,6 +654,10 @@ int main(int argc, char *argv[])
 	 * backtraces when we crash (if supported on this platform). */
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
 
+	/*~ We use a global (in common/utils.h) for the chainparams.
+	 * We default to testnet for now. */
+	chainparams = chainparams_for_network("testnet");
+
 	/*~ There's always a battle between what a constructor like this
 	 * should do, and what should be added later by the caller.  In
 	 * general, because we use valgrind heavily for testing, we prefer not
@@ -672,10 +665,6 @@ int main(int argc, char *argv[])
 	 * valgrind will warn us if we make decisions based on uninitialized
 	 * variables. */
 	ld = new_lightningd(NULL);
-
-	/*~ The global chainparams is needed to init subdaemons, and defaults
-	 * to testnet. */
-	chainparams = chainparams_for_network("testnet");
 
 	/* Figure out where our daemons are first. */
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
@@ -753,7 +742,7 @@ int main(int argc, char *argv[])
 	/*~ Our default names, eg. for the database file, are not dependent on
 	 * the network.  Instead, the db knows what chain it belongs to, and we
 	 * simple barf here if it's wrong. */
-	if (!wallet_network_check(ld->wallet, get_chainparams(ld)))
+	if (!wallet_network_check(ld->wallet, chainparams))
 		errx(1, "Wallet network check failed.");
 
 	/*~ Initialize the transaction filter with our pubkeys. */

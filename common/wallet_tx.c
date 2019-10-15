@@ -3,6 +3,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
+#include <common/utils.h>
 #include <common/wallet_tx.h>
 #include <inttypes.h>
 #include <wallet/wallet.h>
@@ -117,7 +118,7 @@ static struct command_result *check_amount(const struct wallet_tx *wtx,
 				    "Cannot afford transaction");
 	}
 
-	if (amount_sat_less(amount, get_chainparams(wtx->cmd->ld)->dust_limit)) {
+	if (amount_sat_less(amount, chainparams->dust_limit)) {
 		return command_fail(wtx->cmd, FUND_OUTPUT_IS_DUST,
 				    "Output %s would be dust",
 				    type_to_string(tmpctx, struct amount_sat,
@@ -177,7 +178,7 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	if (res)
 		return res;
 
-	if (amount_sat_less(tx->change, get_chainparams(tx->cmd->ld)->dust_limit)) {
+	if (amount_sat_less(tx->change, chainparams->dust_limit)) {
 		tx->change = AMOUNT_SAT(0);
 		tx->change_key_index = 0;
 	} else {
@@ -224,7 +225,7 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 			&& !amount_sat_sub(&tx->change, total_amount, tx->amount))
 		fatal("Overflow when computing change");
 
-	if (amount_sat_greater_eq(tx->change, get_chainparams(tx->cmd->ld)->dust_limit)) {
+	if (amount_sat_greater_eq(tx->change, chainparams->dust_limit)) {
 		/* Add the change output's weight */
 		weight += (8 + 1 + out_len) * 4;
 	}
