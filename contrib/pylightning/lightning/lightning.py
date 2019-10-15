@@ -5,7 +5,7 @@ from math import floor, log10
 import socket
 import warnings
 
-__version__ = "0.0.7.3"
+__version__ = "0.0.7.4"
 
 
 class RpcError(ValueError):
