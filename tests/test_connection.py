@@ -1071,6 +1071,86 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
+def test_funding_close_upfront(node_factory, bitcoind):
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+
+    def _fundchannel(l1, l2, close_to):
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        assert(l1.rpc.listpeers()['peers'][0]['id'] == l2.info['id'])
+
+        amount = 2**24 - 1
+        resp = l1.rpc.fundchannel_start(l2.info['id'], amount, close_to=close_to)
+        address = resp['funding_address']
+
+        if close_to:
+            assert resp['close_to']
+        else:
+            assert 'close_to' not in resp
+
+        peer = l1.rpc.listpeers()['peers'][0]
+        # Peer should still be connected and in state waiting for funding_txid
+        assert peer['id'] == l2.info['id']
+        r = re.compile('Funding channel start: awaiting funding_txid with output to .*')
+        assert any(r.match(line) for line in peer['channels'][0]['status'])
+        assert 'OPENINGD' in peer['channels'][0]['state']
+
+        # 'Externally' fund the address from fundchannel_start
+        addr_scriptpubkey = bitcoind.rpc.getaddressinfo(address)['scriptPubKey']
+        txout = CMutableTxOut(amount, bytearray.fromhex(addr_scriptpubkey))
+        unfunded_tx = CMutableTransaction([], [txout])
+        hextx = binascii.hexlify(unfunded_tx.serialize()).decode('utf8')
+
+        funded_tx_obj = bitcoind.rpc.fundrawtransaction(hextx)
+        raw_funded_tx = funded_tx_obj['hex']
+        txid = bitcoind.rpc.decoderawtransaction(raw_funded_tx)['txid']
+        txout = 1 if funded_tx_obj['changepos'] == 0 else 0
+
+        assert l1.rpc.fundchannel_complete(l2.info['id'], txid, txout)['commitments_secured']
+
+        # Broadcast the transaction manually and confirm that channel locks in
+        signed_tx = bitcoind.rpc.signrawtransactionwithwallet(raw_funded_tx)['hex']
+        assert txid == bitcoind.rpc.decoderawtransaction(signed_tx)['txid']
+
+        bitcoind.rpc.sendrawtransaction(signed_tx)
+        bitcoind.generate_block(1)
+
+        for node in [l1, l2]:
+            node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
+            channel = node.rpc.listpeers()['peers'][0]['channels'][0]
+            assert amount * 1000 == channel['msatoshi_total']
+
+    # check that normal peer close works
+    _fundchannel(l1, l2, None)
+    assert l1.rpc.close(l2.info['id'])['type'] == 'mutual'
+
+    # check that you can provide a closing address upfront
+    addr = l1.rpc.newaddr()['bech32']
+    _fundchannel(l1, l2, addr)
+    resp = l1.rpc.close(l2.info['id'])
+    assert resp['type'] == 'mutual'
+    assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
+
+    # check that passing in the same addr to close works
+    _fundchannel(l1, l2, addr)
+    resp = l1.rpc.close(l2.info['id'], destination=addr)
+    assert resp['type'] == 'mutual'
+    assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
+
+    # check that remote peer closing works as expected
+    _fundchannel(l1, l2, addr)
+    resp = l2.rpc.close(l1.info['id'])
+    assert resp['type'] == 'mutual'
+    assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
+
+    # check that passing in a different addr to close causes an RPC error
+    addr2 = l1.rpc.newaddr()['bech32']
+    _fundchannel(l1, l2, addr)
+    with pytest.raises(RpcError, match=r'does not match previous shutdown script'):
+        l1.rpc.close(l2.info['id'], destination=addr2)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_funding_external_wallet(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
