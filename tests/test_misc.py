@@ -1653,7 +1653,7 @@ def test_signmessage(node_factory):
 
     corpus = [[None,
                "this is a test!",
-               l1.rpc.call('signmessage', ["this is a test!"])['zbase'],
+               l1.rpc.signmessage("this is a test!")['zbase'],
                l1.info['id']]]
 
     # Other contributions from LND users!
@@ -1683,9 +1683,9 @@ def test_signmessage(node_factory):
             subprocess.run(['devtools/lightning-checkmessage',
                             c[1] + "modified", c[2], c[3]], check=True)
 
-        assert l1.rpc.call('checkmessage', [c[1], c[2], c[3]])['verified']
-        assert not l1.rpc.call('checkmessage', [c[1] + "modified", c[2], c[3]])['verified']
-        checknokey = l1.rpc.call('checkmessage', [c[1], c[2]])
+        assert l1.rpc.checkmessage(c[1], c[2], c[3])['verified']
+        assert not l1.rpc.checkmessage(c[1] + "modified", c[2], c[3])['verified']
+        checknokey = l1.rpc.checkmessage(c[1], c[2])
         # Of course, we know our own pubkey
         if c[3] == l1.info['id']:
             assert checknokey['verified']
@@ -1694,7 +1694,7 @@ def test_signmessage(node_factory):
         assert checknokey['pubkey'] == c[3]
 
     # l2 knows about l1, so it can validate it.
-    zm = l1.rpc.call('signmessage', ["message for you"])['zbase']
-    checknokey = l2.rpc.call('checkmessage', ["message for you", zm])
+    zm = l1.rpc.signmessage(message="message for you")['zbase']
+    checknokey = l2.rpc.checkmessage(message="message for you", zbase=zm)
     assert checknokey['pubkey'] == l1.info['id']
     assert checknokey['verified']

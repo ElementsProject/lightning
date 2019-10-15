@@ -991,3 +991,24 @@ class LightningRpc(UnixDomainSocketRpc):
             "txid": txid
         }
         return self.call("txsend", payload)
+
+    def signmessage(self, message):
+        """
+        Sign a message with this node's secret key.
+        """
+        payload = {
+            "message": message
+        }
+        return self.call("signmessage", payload)
+
+    def checkmessage(self, message, zbase, pubkey=None):
+        """
+        Check if a message was signed (with a specific key).
+        Use returned field ['verified'] to get result.
+        """
+        payload = {
+            "message": message,
+            "zbase": zbase,
+            "pubkey": pubkey,
+        }
+        return self.call("checkmessage", payload)
