@@ -77,7 +77,7 @@ struct seeker {
 	bool unknown_nodes;
 
 	/* Peers we've asked to stream us gossip */
-	struct peer *gossiper_softref[3];
+	struct peer *gossiper_softref[5];
 
 	/* A peer that told us about unknown gossip. */
 	struct peer *preferred_peer_softref;
