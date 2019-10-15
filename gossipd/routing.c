@@ -1528,7 +1528,7 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 	 * accepted the public channel now.  But other pending announcements
 	 * may still hold a reference they use in
 	 * del_pending_node_announcement, so simply delete it from the map. */
-	pending_node_map_del(rstate->pending_node_map, pna);
+	pending_node_map_del(rstate->pending_node_map, notleak(pna));
 }
 
 static struct pending_cannouncement *
