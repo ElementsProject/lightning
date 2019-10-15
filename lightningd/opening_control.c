@@ -11,6 +11,7 @@
 #include <common/key_derive.h>
 #include <common/param.h>
 #include <common/per_peer_state.h>
+#include <common/utils.h>
 #include <common/wallet_tx.h>
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
@@ -301,7 +302,7 @@ static void funding_started_success(struct funding_channel *fc,
 
 	response = json_stream_success(cmd);
 	out = encode_scriptpubkey_to_addr(cmd,
-				          get_chainparams(cmd->ld),
+				          chainparams,
 					  scriptPubkey);
 	if (out) {
 		json_add_string(response, "funding_address", out);
@@ -395,7 +396,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					 tal_hex(fc->cmd, resp)));
 		goto cleanup;
 	}
-	remote_commit->chainparams = get_chainparams(openingd->ld);
+	remote_commit->chainparams = chainparams;
 	per_peer_state_set_fds_arr(pps, fds);
 
 	log_debug(ld->log,
@@ -488,7 +489,7 @@ static void opening_fundee_finished(struct subd *openingd,
 		goto failed;
 	}
 
-	remote_commit->chainparams = get_chainparams(openingd->ld);
+	remote_commit->chainparams = chainparams;
 	per_peer_state_set_fds_arr(pps, fds);
 
 	/* openingd should never accept them funding channel in this case. */
@@ -660,7 +661,7 @@ static void channel_config(struct lightningd *ld,
 				ld->config.min_capacity_sat))
 		fatal("amount_msat overflow for config.min_capacity_sat");
 	/* Substract 2 * dust_limit, so fundchannel with min value is possible */
-	if (!amount_sat_to_msat(&dust_limit, get_chainparams(ld)->dust_limit))
+	if (!amount_sat_to_msat(&dust_limit, chainparams->dust_limit))
 		fatal("amount_msat overflow for dustlimit");
 	if (!amount_msat_sub(min_effective_htlc_capacity,
 				*min_effective_htlc_capacity,
@@ -678,7 +679,7 @@ static void channel_config(struct lightningd *ld,
 	 *   - set `dust_limit_satoshis` to a sufficient value to allow
 	 *     commitment transactions to propagate through the Bitcoin network.
 	 */
-	ours->dust_limit = get_chainparams(ld)->dust_limit;
+	ours->dust_limit = chainparams->dust_limit;
 	ours->max_htlc_value_in_flight = AMOUNT_MSAT(UINT64_MAX);
 
 	/* Don't care */
@@ -1080,7 +1081,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	u8 *msg = NULL;
 	struct amount_sat max_funding_satoshi, *amount;
 
-	max_funding_satoshi = get_chainparams(cmd->ld)->max_funding;
+	max_funding_satoshi = chainparams->max_funding;
 	fc->cmd = cmd;
 	fc->cancels = tal_arr(fc, struct command *, 0);
 	fc->uc = NULL;

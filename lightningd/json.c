@@ -15,6 +15,7 @@
 #include <common/node_id.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
+#include <common/utils.h>
 #include <common/wallet_tx.h>
 #include <common/wireaddr.h>
 #include <gossipd/routing.h>
@@ -552,7 +553,7 @@ struct command_result *param_bitcoin_address(struct command *cmd,
 {
 	/* Parse address. */
 	switch (json_to_address_scriptpubkey(cmd,
-					     get_chainparams(cmd->ld),
+					     chainparams,
 					     buffer, tok,
 					     scriptpubkey)) {
 	case ADDRESS_PARSE_UNRECOGNIZED:
@@ -563,7 +564,7 @@ struct command_result *param_bitcoin_address(struct command *cmd,
 	case ADDRESS_PARSE_WRONG_NETWORK:
 		return command_fail(cmd, LIGHTNINGD,
 				    "Destination address is not on network %s",
-				    get_chainparams(cmd->ld)->network_name);
+				    chainparams->network_name);
 	case ADDRESS_PARSE_SUCCESS:
 		return NULL;
 	}

@@ -1,6 +1,7 @@
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <common/key_derive.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
@@ -187,7 +188,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
 		return;
 	}
-	tx->chainparams = get_chainparams(channel->peer->ld);
+	tx->chainparams = chainparams;
 
 	bitcoin_txid(tx, &txid);
 	wallet_transaction_add(w, tx, 0, 0);
@@ -457,7 +458,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	struct pubkey final_key;
 	int hsmfd;
 	u32 feerate;
-	const struct chainparams *chainparams;
 
 	channel_fail_permanent(channel, "Funding transaction spent");
 
@@ -530,8 +530,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
-
-	chainparams = get_chainparams(channel->peer->ld);
 
 	msg = towire_onchain_init(channel,
 				  &channel->their_shachain.chain,

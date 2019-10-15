@@ -1,4 +1,3 @@
-#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/json_escape/json_escape.h>
@@ -18,6 +17,7 @@
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>
@@ -256,9 +256,7 @@ static char *opt_set_network(const char *arg, struct lightningd *ld)
 
 	/* Set the global chainparams instance */
 	chainparams = chainparams_for_network(arg);
-
-	ld->topology->bitcoind->chainparams = chainparams;
-	if (!ld->topology->bitcoind->chainparams)
+	if (!chainparams)
 		return tal_fmt(NULL, "Unknown network name '%s'", arg);
 	return NULL;
 }
@@ -281,7 +279,7 @@ static char *opt_set_mainnet(struct lightningd *ld)
 static void opt_show_network(char buf[OPT_SHOW_LEN],
 			     const struct lightningd *ld)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%s", get_chainparams(ld)->network_name);
+	snprintf(buf, OPT_SHOW_LEN, "%s", chainparams->network_name);
 }
 
 static char *opt_set_rgb(const char *arg, struct lightningd *ld)
@@ -692,14 +690,14 @@ static void check_config(struct lightningd *ld)
 
 static void setup_default_config(struct lightningd *ld)
 {
-	if (get_chainparams(ld)->testnet)
+	if (chainparams->testnet)
 		ld->config = testnet_config;
 	else
 		ld->config = mainnet_config;
 
 	/* Set default PID file name to be per-network */
 	tal_free(ld->pidfile);
-	ld->pidfile = tal_fmt(ld, "lightningd-%s.pid", get_chainparams(ld)->network_name);
+	ld->pidfile = tal_fmt(ld, "lightningd-%s.pid", chainparams->network_name);
 }
 
 
@@ -830,8 +828,7 @@ static char *opt_lightningd_usage(struct lightningd *ld)
 	 * to display before it exits */
 	setup_default_config(ld);
 	char *extra = tal_fmt(NULL, "\nA bitcoin lightning daemon (default "
-			"values shown for network: %s).",
-	                get_chainparams(ld)->network_name);
+			"values shown for network: %s).", chainparams->network_name);
 	opt_usage_and_exit(extra);
 	tal_free(extra);
 	return NULL;

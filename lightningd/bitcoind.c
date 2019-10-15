@@ -42,9 +42,9 @@ static const char **gather_args(const struct bitcoind *bitcoind,
 	const char **args = tal_arr(ctx, const char *, 1);
 	const char *arg;
 
-	args[0] = bitcoind->cli ? bitcoind->cli : bitcoind->chainparams->cli;
-	if (bitcoind->chainparams->cli_args)
-		add_arg(&args, bitcoind->chainparams->cli_args);
+	args[0] = bitcoind->cli ? bitcoind->cli : chainparams->cli;
+	if (chainparams->cli_args)
+		add_arg(&args, chainparams->cli_args);
 
 	if (bitcoind->datadir)
 		add_arg(&args, tal_fmt(args, "-datadir=%s", bitcoind->datadir));
@@ -379,7 +379,7 @@ static bool process_estimatefee(struct bitcoin_cli *bcli)
 		 * with the minimal fee even if the estimate didn't
 		 * work out. This is less disruptive than erring out
 		 * all the time. */
-		if (get_chainparams(bcli->bitcoind->ld)->testnet)
+		if (chainparams->testnet)
 			efee->satoshi_per_kw[efee->i] = FEERATE_FLOOR;
 		else
 			efee->satoshi_per_kw[efee->i] = 0;
@@ -467,7 +467,7 @@ static bool process_rawblock(struct bitcoin_cli *bcli)
 		   struct bitcoin_block *blk,
 		   void *arg) = bcli->cb;
 
-	blk = bitcoin_block_from_hex(bcli, bcli->bitcoind->chainparams,
+	blk = bitcoin_block_from_hex(bcli, chainparams,
 				     bcli->output, bcli->output_bytes);
 	if (!blk)
 		fatal("%s: bad block '%.*s'?",
@@ -986,7 +986,7 @@ static bool extract_numeric_version(struct bitcoin_cli *bcli,
 static bool process_getclientversion(struct bitcoin_cli *bcli)
 {
 	u64 version;
-	u64 min_version = bcli->bitcoind->chainparams->cli_min_supported_version;
+	u64 min_version = chainparams->cli_min_supported_version;
 
 	if (!extract_numeric_version(bcli, bcli->output,
 				     bcli->output_bytes,
@@ -1178,10 +1178,10 @@ static char* check_blockchain_from_bitcoincli(const tal_t *ctx,
 			       (int)output_bytes, output);
 
 	if(!json_tok_streq(output, valuetok,
-			   bitcoind->chainparams->bip70_name))
+			   chainparams->bip70_name))
 		return tal_fmt(ctx, "Error blockchain for bitcoin-cli?"
 			       " Should be: %s",
-			       bitcoind->chainparams->bip70_name);
+			       chainparams->bip70_name);
 
 	is_bitcoind_synced_yet(bitcoind, output, output_bytes, tokens, true);
 	return NULL;
@@ -1249,8 +1249,6 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 {
 	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
 
-	/* Use testnet by default, change later if we want another network */
-	bitcoind->chainparams = chainparams_for_network("testnet");
 	bitcoind->cli = NULL;
 	bitcoind->datadir = NULL;
 	bitcoind->ld = ld;

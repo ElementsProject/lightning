@@ -46,9 +46,6 @@ struct bitcoind {
 	/* Pending requests (high and low prio). */
 	struct list_head pending[BITCOIND_NUM_PRIO];
 
-	/* What network are we on? */
-	const struct chainparams *chainparams;
-
 	/* If non-zero, time we first hit a bitcoind error. */
 	unsigned int error_count;
 	struct timemono first_error_time;

@@ -120,9 +120,6 @@ void fulfill_htlc(struct htlc_in *hin UNNEEDED, const struct preimage *preimage 
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
-/* Generated stub for get_chainparams */
-const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "get_chainparams called!\n"); abort(); }
 /* Generated stub for get_log_level */
 enum log_level get_log_level(struct log_book *lr UNNEEDED)
 { fprintf(stderr, "get_log_level called!\n"); abort(); }

@@ -251,8 +251,6 @@ struct lightningd {
  * Use only on carefully tested code! */
 extern bool tal_oom_ok;
 
-const struct chainparams *get_chainparams(const struct lightningd *ld);
-
 /* Check we can run subdaemons, and check their versions */
 void test_subdaemons(const struct lightningd *ld);
 
