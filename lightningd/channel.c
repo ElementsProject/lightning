@@ -170,7 +170,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey,
-			    u8 *local_shutdown_scriptpubkey,
+			    const u8 *local_shutdown_scriptpubkey,
 			    u64 final_key_idx,
 			    bool last_was_revoke,
 			    /* NULL or stolen */

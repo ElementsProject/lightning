@@ -1288,9 +1288,9 @@ static struct command_result *json_close(struct command *cmd,
 	unsigned int *timeout = NULL;
 	bool force = true;
 	bool do_timeout;
-	const u8 *local_shutdown_script = NULL;
+	const u8 *close_to_script = NULL;
 	unsigned int *old_timeout;
-	bool *old_force;
+	bool *old_force, close_script_set;
 
 	/* For generating help, give new-style. */
 	if (!params || !deprecated_apis) {
@@ -1299,7 +1299,7 @@ static struct command_result *json_close(struct command *cmd,
 			   p_opt_def("unilateraltimeout", param_number,
 				     &timeout, 48 * 3600),
 			   p_opt("destination", param_bitcoin_address,
-				 &local_shutdown_script),
+				 &close_to_script),
 			   NULL))
 			return command_param_failed();
 		do_timeout = (*timeout != 0);
@@ -1345,7 +1345,7 @@ static struct command_result *json_close(struct command *cmd,
 					res = json_to_address_scriptpubkey(cmd,
 									   get_chainparams(cmd->ld),
 									   buffer, secondtok,
-									   &local_shutdown_script);
+									   &close_to_script);
 					if (res == ADDRESS_PARSE_UNRECOGNIZED)
 						return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 								    "Could not parse destination address");
@@ -1368,7 +1368,7 @@ static struct command_result *json_close(struct command *cmd,
 				res = json_to_address_scriptpubkey(cmd,
 								   get_chainparams(cmd->ld),
 								   buffer, secondtok,
-								   &local_shutdown_script);
+								   &close_to_script);
 				if (res == ADDRESS_PARSE_UNRECOGNIZED)
 					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 							    "Could not parse destination address");
@@ -1397,14 +1397,14 @@ static struct command_result *json_close(struct command *cmd,
 			   p_opt_def("unilateraltimeout", param_number,
 				     &timeout, 48 * 3600),
 			   p_opt("destination", param_bitcoin_address,
-				 &local_shutdown_script),
+				 &close_to_script),
 			   p_opt("force", param_bool, &old_force),
 			   p_opt("timeout", param_number, &old_timeout),
 			   NULL))
 			return command_param_failed();
 
 		/* Old style has lower priority. */
-		if (!local_shutdown_script) {
+		if (!close_to_script) {
 			/* Old style. */
 			if (old_timeout) {
 				*timeout = *old_timeout;
@@ -1446,6 +1446,45 @@ static struct command_result *json_close(struct command *cmd,
 				    "Peer has no active channel");
 	}
 
+
+	/* If we've set a local shutdown script for this peer, and it's not the
+	 * default upfront script, try to close to a different channel.
+	 * Error is an operator error */
+	if (close_to_script && channel->shutdown_scriptpubkey[LOCAL]
+			&& !memeq(close_to_script,
+				  tal_count(close_to_script),
+				  channel->shutdown_scriptpubkey[LOCAL],
+				  tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
+		u8 *default_close_to = p2wpkh_for_keyidx(tmpctx, cmd->ld,
+							 channel->final_key_idx);
+		if (!memeq(default_close_to, tal_count(default_close_to),
+			   channel->shutdown_scriptpubkey[LOCAL],
+			   tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Destination address %s does not match "
+					    "previous shutdown script %s",
+					    tal_hex(tmpctx, channel->shutdown_scriptpubkey[LOCAL]),
+					    tal_hex(tmpctx, close_to_script));
+		} else {
+			channel->shutdown_scriptpubkey[LOCAL] =
+				tal_free(channel->shutdown_scriptpubkey[LOCAL]);
+			channel->shutdown_scriptpubkey[LOCAL] =
+				tal_steal(channel, close_to_script);
+			close_script_set = true;
+		}
+	} else if (close_to_script && !channel->shutdown_scriptpubkey[LOCAL]) {
+		channel->shutdown_scriptpubkey[LOCAL]
+			= tal_steal(channel, cast_const(u8 *, close_to_script));
+		close_script_set = true;
+	} else if (!channel->shutdown_scriptpubkey[LOCAL]) {
+		channel->shutdown_scriptpubkey[LOCAL]
+			= p2wpkh_for_keyidx(channel, cmd->ld, channel->final_key_idx);
+		/* We don't save the default to disk */
+		close_script_set = false;
+	} else
+		close_script_set = false;
+
+
 	/* Normal case.
 	 * We allow states shutting down and sigexchange; a previous
 	 * close command may have timed out, and this current command
@@ -1456,95 +1495,33 @@ static struct command_result *json_close(struct command *cmd,
 	 * state.
 	 * (if already shutting down or sigexchange, just keep
 	 * waiting) */
-	if (channel->state == CHANNELD_NORMAL || channel->state == CHANNELD_AWAITING_LOCKIN) {
-		/* Change the channel state first. */
-		channel_set_state(channel,
-				  channel->state, CHANNELD_SHUTTING_DOWN);
-
-		/* FIXME: When we support local upfront_shutdown_script, local_shutdown_script
-		 * must equal to the local upfront_shutdown_script. */
-		if (local_shutdown_script) {
-			tal_free(channel->shutdown_scriptpubkey[LOCAL]);
-			channel->shutdown_scriptpubkey[LOCAL]
-				= tal_steal(channel, cast_const(u8 *, local_shutdown_script));
-		}
-
-		if (channel->owner)
-			subd_send_msg(channel->owner,
-				      take(towire_channel_send_shutdown(NULL,
-					   channel->shutdown_scriptpubkey[LOCAL])));
-	} else if (channel->state == CHANNELD_SHUTTING_DOWN) {
-		/* FIXME: Add to spec that we must allow repeated shutdown! */
-		if (!local_shutdown_script)
-			local_shutdown_script = p2wpkh_for_keyidx(channel,
-								  cmd->ld,
-								  channel->final_key_idx);
-
-		bool change_script = !memeq(local_shutdown_script,
-					    tal_count(local_shutdown_script),
-					    channel->shutdown_scriptpubkey[LOCAL],
-					    tal_count(channel->shutdown_scriptpubkey[LOCAL]));
-
-		if (change_script) {
-			log_debug(channel->log, "Repeated close command: "
-				  "the new local scriptpubkey is %s, "
-				  "and the old local scriptpubkey is %s",
-				  local_shutdown_script,
-				  channel->shutdown_scriptpubkey[LOCAL]);
-			if (!channel->owner)
-				return command_fail(cmd, LIGHTNINGD,
-						    "The sub-daemon of channel is down(state %s), "
-						    "can't change to-local destination "
-						    "from %s to %s",
-						    channel_state_name(channel),
-						    channel->shutdown_scriptpubkey[LOCAL],
-						    local_shutdown_script);
-		}
-
-		tal_free(channel->shutdown_scriptpubkey[LOCAL]);
-		channel->shutdown_scriptpubkey[LOCAL]
-			= tal_steal(channel, cast_const(u8 *, local_shutdown_script));
-
-		if (channel->owner)
-			subd_send_msg(channel->owner,
-				      take(towire_channel_send_shutdown(NULL,
-					   channel->shutdown_scriptpubkey[LOCAL])));
-	} else if (channel->state == CLOSINGD_SIGEXCHANGE) {
-		u8 *default_script = p2wpkh_for_keyidx(tmpctx, cmd->ld,
-						       channel->final_key_idx);
-		bool is_default = memeq(default_script,
-					tal_count(default_script),
-					channel->shutdown_scriptpubkey[LOCAL],
-					tal_count(channel->shutdown_scriptpubkey[LOCAL]));
-
-		if (!local_shutdown_script) {
-			/* Means the user want to send to default address. */
-			local_shutdown_script = p2wpkh_for_keyidx(tmpctx, cmd->ld,
-								  channel->final_key_idx);
-		}
-
-		if (!memeq(local_shutdown_script,
-			   tal_count(local_shutdown_script),
-			   channel->shutdown_scriptpubkey[LOCAL],
-			   tal_count(channel->shutdown_scriptpubkey[LOCAL])))
-			return command_fail(cmd, LIGHTNINGD,
-					    "Channel has already been closing now (in state %s) "
-					    "with to-local destination %s",
-					    channel_state_name(channel),
-					    is_default ?
-					    tal_fmt(tmpctx, "(default) %s",
-						    channel->shutdown_scriptpubkey[LOCAL]) :
-					    (char *)channel->shutdown_scriptpubkey[LOCAL]);
-	} else
-		return command_fail(cmd, LIGHTNINGD, "Channel is in state %s",
-				    channel_state_name(channel));
+	switch (channel->state) {
+		case CHANNELD_NORMAL:
+		case CHANNELD_AWAITING_LOCKIN:
+			channel_set_state(channel,
+					  channel->state, CHANNELD_SHUTTING_DOWN);
+			/* fallthrough */
+		case CHANNELD_SHUTTING_DOWN:
+			if (channel->owner)
+				subd_send_msg(channel->owner,
+					      take(towire_channel_send_shutdown(NULL,
+						   channel->shutdown_scriptpubkey[LOCAL])));
+			break;
+		case CLOSINGD_SIGEXCHANGE:
+			break;
+		default:
+			return command_fail(cmd, LIGHTNINGD, "Channel is in state %s",
+					    channel_state_name(channel));
+	}
 
 	/* Register this command for later handling. */
 	register_close_command(cmd->ld, cmd, channel,
 			       do_timeout ? timeout : NULL, force);
 
-	/* We may set new `channel->shutdown_scriptpubkey[LOCAL]` field. Save it. */
-	wallet_channel_save(cmd->ld->wallet, channel);
+	/* If we set `channel->shutdown_scriptpubkey[LOCAL]`, save it. */
+	if (close_script_set)
+		wallet_channel_save(cmd->ld->wallet, channel);
+
 	/* Wait until close drops down to chain. */
 	return command_still_pending(cmd);
 }

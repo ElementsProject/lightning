@@ -4,7 +4,7 @@ lightning-fundchannel\_start -- Command for initiating channel establishment for
 SYNOPSIS
 --------
 
-**fundchannel\_start** *id* *amount* \[*feerate* *announce*\]
+**fundchannel\_start** *id* *amount* \[*feerate* *announce* *close_to*\]
 
 DESCRIPTION
 -----------
@@ -23,6 +23,10 @@ commitment transactions.
 
 *announce* whether or not to announce this channel.
 
+*close_to* is a Bitcoin address to which the channel funds should be sent to
+on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`.
+Returns `close_to` set to closing script iff is negotiated.
+
 Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed by running
 `fundchannel_complete`, as the commitment transactions for this channel
@@ -33,6 +37,8 @@ RETURN VALUE
 ------------
 
 On success, returns the *funding\_address* and the *scriptpubkey* for the channel funding output.
+If a `close_to` address was provided, will close to this address iff the `close_to` address is
+returned in the response. Otherwise, the peer does not support `option_upfront_shutdownscript`.
 
 On failure, returns an error.
 
