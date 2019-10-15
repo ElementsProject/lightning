@@ -1749,14 +1749,19 @@ def test_pay_direct(node_factory, bitcoind):
     """Check that we prefer the direct route.
     """
     # l2->l3 is really cheap by comparison.
+    # Cross-connections mean we can get bad gossip, due to timing
     l0, l1, l2, l3 = node_factory.get_nodes(4, opts=[{'fee-base': 1000,
-                                                      'cltv-delta': 14},
+                                                      'cltv-delta': 14,
+                                                      'allow_bad_gossip': True},
                                                      {'fee-base': 1000,
-                                                      'cltv-delta': 14},
+                                                      'cltv-delta': 14,
+                                                      'allow_bad_gossip': True},
                                                      {'fee-base': 0,
-                                                      'cltv-delta': 14},
+                                                      'cltv-delta': 14,
+                                                      'allow_bad_gossip': True},
                                                      {'fee-base': 1000,
-                                                      'cltv-delta': 14}])
+                                                      'cltv-delta': 14,
+                                                      'allow_bad_gossip': True}])
 
     # Direct channel l0->l1->l3
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
