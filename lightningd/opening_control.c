@@ -77,6 +77,7 @@ struct funding_channel {
 	struct amount_msat push;
 	struct amount_sat funding;
 	u8 channel_flags;
+	const u8 *our_upfront_shutdown_script;
 
 	/* Variables we need to compose fields in cmd's response */
 	const char *hextx;
@@ -165,6 +166,7 @@ wallet_commit_channel(struct lightningd *ld,
 		      u8 channel_flags,
 		      struct channel_info *channel_info,
 		      u32 feerate,
+		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script)
 {
 	struct channel *channel;
@@ -247,7 +249,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL, /* No HTLC sigs yet */
 			      channel_info,
 			      NULL, /* No shutdown_scriptpubkey[REMOTE] yet */
-			      NULL, /* No shutdown_scriptpubkey[LOCAL] yet. Generate the default one. */
+			      our_upfront_shutdown_script,
 			      final_key_idx, false,
 			      NULL, /* No commit sent yet */
 			      /* If we're fundee, could be a little before this
@@ -290,7 +292,8 @@ static void funding_success(struct channel *channel)
 }
 
 static void funding_started_success(struct funding_channel *fc,
-				    u8 *scriptPubkey)
+				    u8 *scriptPubkey,
+				    bool supports_shutdown)
 {
 	struct json_stream *response;
 	struct command *cmd = fc->cmd;
@@ -303,6 +306,8 @@ static void funding_started_success(struct funding_channel *fc,
 	if (out) {
 		json_add_string(response, "funding_address", out);
 		json_add_hex_talarr(response, "scriptpubkey", scriptPubkey);
+		if (fc->our_upfront_shutdown_script)
+			json_add_hex_talarr(response, "close_to", fc->our_upfront_shutdown_script);
 	}
 
 	/* Clear this so cancel doesn't think it's still in progress */
@@ -315,9 +320,11 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 					 struct funding_channel *fc)
 {
 	u8 *funding_scriptPubkey;
+	bool supports_shutdown_script;
 
 	if (!fromwire_opening_funder_start_reply(resp, resp,
-						 &funding_scriptPubkey)) {
+						 &funding_scriptPubkey,
+						 &supports_shutdown_script)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -327,7 +334,12 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 		goto failed;
 	}
 
-	funding_started_success(fc, funding_scriptPubkey);
+	/* If we're not using the upfront shutdown script, forget it */
+	if (!supports_shutdown_script)
+		fc->our_upfront_shutdown_script =
+			tal_free(fc->our_upfront_shutdown_script);
+
+	funding_started_success(fc, funding_scriptPubkey, supports_shutdown_script);
 
 	/* Mark that we're in-flight */
 	fc->inflight = true;
@@ -401,6 +413,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					fc->channel_flags,
 					&channel_info,
 					feerate,
+					fc->our_upfront_shutdown_script,
 					remote_upfront_shutdown_script);
 	if (!channel) {
 		was_pending(command_fail(fc->cmd, LIGHTNINGD,
@@ -496,6 +509,7 @@ static void opening_fundee_finished(struct subd *openingd,
 					channel_flags,
 					&channel_info,
 					feerate,
+					NULL,
 					remote_upfront_shutdown_script);
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, "Commit channel failed");
@@ -1078,6 +1092,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 			   p_req("amount", param_sat, &amount),
 			   p_opt("feerate", param_feerate, &feerate_per_kw),
 			   p_opt_def("announce", param_bool, &announce_channel, true),
+			   p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
 			   NULL))
 			return command_param_failed();
 	} else {
@@ -1101,6 +1116,9 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "Need set 'amount' field");
 		}
+
+		/* No upfront shutdown script option for deprecated API */
+		fc->our_upfront_shutdown_script = NULL;
 	}
 
 	if (amount_sat_greater(*amount, max_funding_satoshi))
@@ -1161,9 +1179,15 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
 
+	/* Needs to be stolen away from cmd */
+	if (fc->our_upfront_shutdown_script)
+		fc->our_upfront_shutdown_script
+			= tal_steal(fc, fc->our_upfront_shutdown_script);
+
 	msg = towire_opening_funder_start(NULL,
 					  *amount,
 					  fc->push,
+					  fc->our_upfront_shutdown_script,
 					  *feerate_per_kw,
 					  fc->channel_flags);
 

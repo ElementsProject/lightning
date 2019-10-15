@@ -108,7 +108,7 @@ struct state {
 	bool option_static_remotekey;
 };
 
-static const u8 *dev_upfront_shutdown_script(const tal_t *ctx)
+static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
 {
 #if DEVELOPER
 	/* This is a hack, for feature testing */
@@ -485,7 +485,8 @@ static bool setup_channel_funder(struct state *state)
 /* We start the 'fund a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
 static u8 *funder_channel_start(struct state *state,
-				 u8 channel_flags)
+				u8 *our_upfront_shutdown_script,
+				u8 channel_flags)
 {
 	u8 *msg;
 	u8 *funding_output_script;
@@ -504,8 +505,9 @@ static u8 *funder_channel_start(struct state *state,
 	 * - otherwise:
 	 *   - MAY include a`shutdown_scriptpubkey`.
 	 */
-	/* We don't use shutdown_scriptpubkey (at least for now), so leave it
-	 * NULL. */
+	if (!our_upfront_shutdown_script)
+		our_upfront_shutdown_script = dev_upfront_shutdown_script(tmpctx);
+
 	msg = towire_open_channel_option_upfront_shutdown_script(NULL,
 				  &state->chainparams->genesis_blockhash,
 				  &state->channel_id,
@@ -525,7 +527,7 @@ static u8 *funder_channel_start(struct state *state,
 				  &state->our_points.htlc,
 				  &state->first_per_commitment_point[LOCAL],
 				  channel_flags,
-				  dev_upfront_shutdown_script(tmpctx));
+				  our_upfront_shutdown_script);
 	sync_crypto_write(state->pps, take(msg));
 
 	/* This is usually a very transient state... */
@@ -626,7 +628,12 @@ static u8 *funder_channel_start(struct state *state,
 	peer_billboard(false,
 		       "Funding channel start: awaiting funding_txid with output to %s",
 		       tal_hex(tmpctx, funding_output_script));
-	return towire_opening_funder_start_reply(state, funding_output_script);
+
+	return towire_opening_funder_start_reply(state,
+						 funding_output_script,
+						 feature_negotiated(
+							 state->features,
+							 OPT_UPFRONT_SHUTDOWN_SCRIPT));
 }
 
 static bool funder_finalize_channel_setup(struct state *state,
@@ -1341,18 +1348,20 @@ static u8 *handle_master_in(struct state *state)
 {
 	u8 *msg = wire_sync_read(tmpctx, REQ_FD);
 	enum opening_wire_type t = fromwire_peektype(msg);
-	u8 channel_flags;
+	u8 channel_flags, *upfront_shutdown_script;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 
 	switch (t) {
 	case WIRE_OPENING_FUNDER_START:
-		if (!fromwire_opening_funder_start(msg, &state->funding,
+		if (!fromwire_opening_funder_start(tmpctx, msg, &state->funding,
 						   &state->push_msat,
+						   &upfront_shutdown_script,
 						   &state->feerate_per_kw,
 						   &channel_flags))
 			master_badmsg(WIRE_OPENING_FUNDER_START, msg);
-		msg = funder_channel_start(state, channel_flags);
+		msg = funder_channel_start(state, upfront_shutdown_script,
+					   channel_flags);
 
 		/* We want to keep openingd alive, since we're not done yet */
 		if (msg)

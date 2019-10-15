@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON API: `fundchannel_start` now includes field `scriptpubkey`
 - JSON API: New method `listtransactions`
 - JSON API: `signmessage` will now create a signature from your node on a message; `checkmessage` will verify it.
+- JSON API: `fundchannel_start` now accepts an optional parameter `close_to`, the address to which these channel funds should be sent to on close. Returns `using_close_to` if will use.
 - Plugin: new notifications `sendpay_success` and `sendpay_failure`.
 - Protocol: nodes now announce features in `node_announcement` broadcasts.
 - Protocol: we now offer `option_gossip_queries_ex` for finegrained gossip control.
