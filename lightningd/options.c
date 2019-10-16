@@ -398,6 +398,8 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	printf("Enter hsm_secret password : ");
 	if (getline(&passwd, &passwd_size, stdin) < 0)
 		return "Could not read password from stdin.";
+	if(passwd[strlen(passwd) - 1] == '\n')
+		passwd[strlen(passwd) - 1] = '\0';
 	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
 		return "Could not restore terminal options.";
 	printf("\n");
@@ -416,7 +418,6 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
 		return "Could not derive a key from the password.";
 	free(passwd);
-
 	return NULL;
 }
 
