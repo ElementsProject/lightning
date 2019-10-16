@@ -379,7 +379,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	struct termios current_term, temp_term;
 	char *passwd = NULL;
 	size_t passwd_size = 0;
-	u8 salt[11] = "c-lightning";
+	u8 salt[16] = "c-lightning\0\0\0\0\0";
 	ld->encrypted_hsm = true;
 
 	ld->config.keypass = tal(NULL, struct secret);
