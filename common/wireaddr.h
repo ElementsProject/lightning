@@ -121,7 +121,10 @@ struct wireaddr_internal {
 		/* ADDR_INTERNAL_ALLPROTO */
 		u16 port;
 		/* ADDR_INTERNAL_AUTOTOR */
-		struct wireaddr torservice;
+		struct torservice {
+			struct wireaddr torservice_address;
+			u16 port;
+		} torservice;
 		/* ADDR_INTERNAL_FORPROXY */
 		struct unresolved {
 			char name[256];

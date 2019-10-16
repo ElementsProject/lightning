@@ -277,7 +277,7 @@ void json_add_address_internal(struct json_stream *response,
 	case ADDR_INTERNAL_AUTOTOR:
 		json_object_start(response, fieldname);
 		json_add_string(response, "type", "Tor generated address");
-		json_add_address(response, "service", &addr->u.torservice);
+		json_add_address(response, "service", &addr->u.torservice.torservice_address);
 		json_object_end(response);
 		return;
 	case ADDR_INTERNAL_FORPROXY:

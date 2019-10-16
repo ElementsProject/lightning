@@ -1102,7 +1102,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			continue;
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
 				tor_autoservice(tmpctx,
-						&proposed_wireaddr[i].u.torservice,
+						&proposed_wireaddr[i],
 						tor_password,
 						binding,
 						daemon->use_v3_autotor);
@@ -1110,7 +1110,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		};
 		add_announcable(announcable,
 				tor_autoservice(tmpctx,
-						&proposed_wireaddr[i].u.torservice,
+						&proposed_wireaddr[i],
 						tor_password,
 						binding,
 						daemon->use_v3_autotor));
