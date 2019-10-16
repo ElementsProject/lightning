@@ -567,7 +567,7 @@ def test_transaction_annotations(node_factory, bitcoind):
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
-def test_hsm_secret_encryption(node_factory, executor):
+def test_hsm_secret_encryption(node_factory):
     l1 = node_factory.get_node()
     password = "reckful\n"
     # We need to simulate a terminal to use termios in `lightningd`.
@@ -588,7 +588,6 @@ def test_hsm_secret_encryption(node_factory, executor):
     l1.daemon.start(stdin=slave_fd, stderr=subprocess.STDOUT,
                     wait_for_initialized=False)
     time.sleep(3 if SLOW_MACHINE else 1)
-    os.write(master_fd, password[2:].encode("utf-8"))
     err = "hsm_secret is encrypted, you need to pass the --encrypted-hsm startup option."
     assert l1.daemon.is_in_log(err)
 
