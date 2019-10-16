@@ -605,3 +605,33 @@ def test_hsm_secret_encryption(node_factory):
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     assert id == l1.rpc.getinfo()["id"]
+
+
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_hsm_secret_rpc_decryption(node_factory):
+    l1 = node_factory.get_node()
+    password = "reckless\n"
+    # We need to simulate a terminal to use termios in `lightningd`.
+    master_fd, slave_fd = os.openpty()
+
+    # Encrypt the master seed
+    l1.rpc.stop()
+    l1.daemon.opts.update({"encrypted-hsm": None})
+    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
+    time.sleep(3 if SLOW_MACHINE else 1)
+    os.write(master_fd, password.encode("utf-8"))
+    l1.daemon.wait_for_log("Server started with public key")
+    id = l1.rpc.getinfo()["id"]
+    # Decrypt it via RPC...
+    decryption_res = l1.rpc.call("decrypthsm", {"password": password[:-1]})
+    assert "Succesfully decrypted hsm_secret," in decryption_res
+    l1.stop()
+
+    # ... Then test we can now start it without password
+    l1.daemon.opts.pop("encrypted-hsm")
+    l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
+    assert id == l1.rpc.getinfo()["id"]
+
+    # Test we cannot decrypt a non-encrypted hsm_secret
+    with pytest.raises(RpcError, match="hsm_secret is not encrypted"):
+        l1.rpc.call("decrypthsm", {"password": password[:-1]})
