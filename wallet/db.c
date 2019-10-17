@@ -565,6 +565,14 @@ u64 db_column_u64(struct db_stmt *stmt, int col)
 	return stmt->db->config->column_u64_fn(stmt, col);
 }
 
+int db_column_int_or_default(struct db_stmt *stmt, int col, int def)
+{
+	if (db_column_is_null(stmt, col))
+		return def;
+	else
+		return db_column_int(stmt, col);
+}
+
 int db_column_int(struct db_stmt *stmt, int col)
 {
 	return stmt->db->config->column_int_fn(stmt, col);
@@ -1141,6 +1149,16 @@ void *db_column_arr_(const tal_t *ctx, struct db_stmt *stmt, int col,
 	p = tal_arr_label(ctx, char, sourcelen, label);
 	memcpy(p, db_column_blob(stmt, col), sourcelen);
 	return p;
+}
+
+void db_column_amount_msat_or_default(struct db_stmt *stmt, int col,
+				      struct amount_msat *msat,
+				      struct amount_msat def)
+{
+	if (db_column_is_null(stmt, col))
+		*msat = def;
+	else
+		msat->millisatoshis = db_column_u64(stmt, col); /* Raw: low level function */
 }
 
 void db_column_amount_msat(struct db_stmt *stmt, int col,

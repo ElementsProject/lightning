@@ -159,6 +159,13 @@ struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
 void *db_column_arr_(const tal_t *ctx, struct db_stmt *stmt, int col,
 		     size_t bytes, const char *label, const char *caller);
 
+
+/* Some useful default variants */
+int db_column_int_or_default(struct db_stmt *stmt, int col, int def);
+void db_column_amount_msat_or_default(struct db_stmt *stmt, int col,
+				      struct amount_msat *msat,
+				      struct amount_msat def);
+
 /**
  * db_exec_prepared -- Execute a prepared statement
  *
