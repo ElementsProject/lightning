@@ -761,9 +761,7 @@ def test_deprecated_fundchannel(node_factory, bitcoind):
 
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
-
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) == 8)
-    utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]]
 
     # No 'amount' nor 'satoshi'(array type)
     with pytest.raises(RpcError, match=r'missing required parameter: amount'):
@@ -772,10 +770,18 @@ def test_deprecated_fundchannel(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'.* should be a satoshi amount, not .*'):
         l1.rpc.call('fundchannel', [nodes[0].info['id'], 'slow'])
 
+    def get_utxo(node):
+        """Get an unspent but confirmed output
+        """
+        outputs = node.rpc.listfunds()['outputs']
+        for o in outputs:
+            if o['status'] == 'confirmed':
+                return "{}:{}".format(o['txid'], o['output'])
+
     # Array type
-    l1.rpc.call('fundchannel', [nodes[0].info['id'], amount, '2000perkw', False, 1, [utxos[0]]])
-    l1.rpc.call('fundchannel', [nodes[1].info['id'], amount, '2000perkw', False, None, [utxos[1]]])
-    l1.rpc.call('fundchannel', [nodes[2].info['id'], amount, '2000perkw', None, None, [utxos[2]]])
+    l1.rpc.call('fundchannel', [nodes[0].info['id'], amount, '2000perkw', False, 1, [get_utxo(l1)]])
+    l1.rpc.call('fundchannel', [nodes[1].info['id'], amount, '2000perkw', False, None, [get_utxo(l1)]])
+    l1.rpc.call('fundchannel', [nodes[2].info['id'], amount, '2000perkw', None, None, [get_utxo(l1)]])
     l1.rpc.call('fundchannel', [nodes[3].info['id'], amount, '2000perkw', True, 1])
 
     # No 'amount' nor 'satoshi'(object type)
@@ -784,7 +790,7 @@ def test_deprecated_fundchannel(node_factory, bitcoind):
 
     # Old style(object type)
     l1.rpc.call('fundchannel', {'id': nodes[4].info['id'], 'satoshi': 'all', 'feerate': 'slow',
-                                'announce': True, 'minconf': 1, 'utxos': [utxos[4]]})
+                                'announce': True, 'minconf': 1, 'utxos': [get_utxo(l1)]})
     l1.rpc.call('fundchannel', {'id': nodes[5].info['id'], 'satoshi': 'all', 'feerate': 'slow', 'minconf': 1})
     l1.rpc.call('fundchannel', {'id': nodes[6].info['id'], 'satoshi': 'all', 'feerate': 'slow'})
     l1.rpc.call('fundchannel', {'id': nodes[7].info['id'], 'satoshi': 'all'})
