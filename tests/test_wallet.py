@@ -635,3 +635,42 @@ def test_hsm_secret_rpc_decryption(node_factory):
     # Test we cannot decrypt a non-encrypted hsm_secret
     with pytest.raises(RpcError, match="hsm_secret is not encrypted"):
         l1.rpc.call("decrypthsm", {"password": password[:-1]})
+
+
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_hsm_secret_rpc_encryption(node_factory):
+    l1 = node_factory.get_node()
+    password = "reckful"
+    id = l1.rpc.getinfo()["id"]
+    # We need to simulate a terminal to use termios in `lightningd`.
+    master_fd, slave_fd = os.openpty()
+
+    # Encrypt hsm_secret
+    l1.rpc.call("encrypthsm", {"password": password})
+    # Drive-by test we can decrypt an re-encrypt it
+    with pytest.raises(RpcError, match="Wrong password"):
+        l1.rpc.call("decrypthsm", {"password": "wrong pass"})
+    l1.rpc.call("decrypthsm", {"password": password})
+    l1.rpc.call("encrypthsm", {"password": password})
+
+    # Now we need to pass the encrypted-hsm startup option
+    l1.stop()
+    l1.daemon.start(stdin=slave_fd, stderr=subprocess.STDOUT,
+                    wait_for_initialized=False)
+    time.sleep(3 if SLOW_MACHINE else 1)
+    err = "hsm_secret is encrypted, you need to pass the --encrypted-hsm startup option."
+    assert l1.daemon.is_in_log(err)
+    l1.daemon.opts.update({"encrypted-hsm": None})
+    l1.daemon.start(stdin=slave_fd, stderr=subprocess.STDOUT,
+                    wait_for_initialized=False)
+    time.sleep(3 if SLOW_MACHINE else 1)
+    os.write(master_fd, "{}\n".format(password).encode("utf-8"))
+    l1.daemon.wait_for_log("Server started with public key")
+    assert l1.rpc.getinfo()["id"] == id
+
+    # But if we decrypt it then we can start normally
+    l1.rpc.call("decrypthsm", {"password": password})
+    l1.stop()
+    l1.daemon.opts.pop("encrypted-hsm")
+    l1.start()
+    assert l1.rpc.getinfo()["id"] == id
