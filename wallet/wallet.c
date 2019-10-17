@@ -1143,14 +1143,14 @@ void wallet_channel_stats_load(struct wallet *w,
 	/* This must succeed, since we know the channel exists */
 	assert(res);
 
-	stats->in_payments_offered = db_column_int(stmt, 0);
-	stats->in_payments_fulfilled = db_column_int(stmt, 1);
-	db_column_amount_msat(stmt, 2, &stats->in_msatoshi_offered);
-	db_column_amount_msat(stmt, 3, &stats->in_msatoshi_fulfilled);
-	stats->out_payments_offered = db_column_int(stmt, 4);
-	stats->out_payments_fulfilled = db_column_int(stmt, 5);
-	db_column_amount_msat(stmt, 6, &stats->out_msatoshi_offered);
-	db_column_amount_msat(stmt, 7, &stats->out_msatoshi_fulfilled);
+	stats->in_payments_offered = db_column_int_or_default(stmt, 0, 0);
+	stats->in_payments_fulfilled = db_column_int_or_default(stmt, 1, 0);
+	db_column_amount_msat_or_default(stmt, 2, &stats->in_msatoshi_offered, AMOUNT_MSAT(0));
+	db_column_amount_msat_or_default(stmt, 3, &stats->in_msatoshi_fulfilled, AMOUNT_MSAT(0));
+	stats->out_payments_offered = db_column_int_or_default(stmt, 4, 0);
+	stats->out_payments_fulfilled = db_column_int_or_default(stmt, 5, 0);
+	db_column_amount_msat_or_default(stmt, 6, &stats->out_msatoshi_offered, AMOUNT_MSAT(0));
+	db_column_amount_msat_or_default(stmt, 7, &stats->out_msatoshi_fulfilled, AMOUNT_MSAT(0));
 	tal_free(stmt);
 }
 
