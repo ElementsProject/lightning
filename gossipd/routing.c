@@ -2978,6 +2978,9 @@ void remove_all_gossip(struct routing_state *rstate)
 	/* Now free all the channels. */
 	while ((c = uintmap_first(&rstate->chanmap, &index)) != NULL) {
 		uintmap_del(&rstate->chanmap, index);
+#if DEVELOPER
+		c->sat.satoshis = (u64)c; /* Raw: dev-hack */
+#endif
 		tal_free(c);
 	}
 
