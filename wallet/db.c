@@ -562,6 +562,7 @@ bool db_step(struct db_stmt *stmt)
 
 u64 db_column_u64(struct db_stmt *stmt, int col)
 {
+	assert(!db_column_is_null(stmt, col));
 	return stmt->db->config->column_u64_fn(stmt, col);
 }
 
@@ -575,11 +576,13 @@ int db_column_int_or_default(struct db_stmt *stmt, int col, int def)
 
 int db_column_int(struct db_stmt *stmt, int col)
 {
+	assert(!db_column_is_null(stmt, col));
 	return stmt->db->config->column_int_fn(stmt, col);
 }
 
 size_t db_column_bytes(struct db_stmt *stmt, int col)
 {
+	assert(!db_column_is_null(stmt, col));
 	return stmt->db->config->column_bytes_fn(stmt, col);
 }
 
@@ -590,11 +593,13 @@ int db_column_is_null(struct db_stmt *stmt, int col)
 
 const void *db_column_blob(struct db_stmt *stmt, int col)
 {
+	assert(!db_column_is_null(stmt, col));
 	return stmt->db->config->column_blob_fn(stmt, col);
 }
 
 const unsigned char *db_column_text(struct db_stmt *stmt, int col)
 {
+	assert(!db_column_is_null(stmt, col));
 	return stmt->db->config->column_text_fn(stmt, col);
 }
 
@@ -1136,11 +1141,13 @@ struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
 void *db_column_arr_(const tal_t *ctx, struct db_stmt *stmt, int col,
 			  size_t bytes, const char *label, const char *caller)
 {
-	size_t sourcelen = db_column_bytes(stmt, col);
+	size_t sourcelen;
 	void *p;
 
 	if (db_column_is_null(stmt, col))
 		return NULL;
+
+	sourcelen = db_column_bytes(stmt, col);
 
 	if (sourcelen % bytes != 0)
 		db_fatal("%s: column size %zu not a multiple of %s (%zu)",

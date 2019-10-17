@@ -1790,7 +1790,7 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 	       sizeof(out->onion_routing_packet));
 
 	out->failuremsg = db_column_arr(out, stmt, 8, u8);
-	out->failcode = db_column_int(stmt, 9);
+	out->failcode = db_column_int_or_default(stmt, 9, 0);
 
 	if (!db_column_is_null(stmt, 10)) {
 		out->origin_htlc_id = db_column_u64(stmt, 10);
