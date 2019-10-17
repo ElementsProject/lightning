@@ -13,9 +13,11 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-close.7 \
 	doc/lightning-connect.7 \
 	doc/lightning-decodepay.7 \
+	doc/lightning-decrypthsm.7 \
 	doc/lightning-delexpiredinvoice.7 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-disconnect.7 \
+	doc/lightning-encrypthsm.7 \
 	doc/lightning-fundchannel.7 \
 	doc/lightning-fundchannel_start.7 \
 	doc/lightning-fundchannel_complete.7 \

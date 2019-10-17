@@ -1,0 +1,39 @@
+.TH "LIGHTNING-DECRYPTHSM" "7" "" "" "lightning-decrypthsm"
+.SH NAME
+lightning-encrypthsm - Decrypt your hsm_secret
+.SH SYNOPSIS
+
+\fBdecrypthsm\fR \fIpassword\fR
+
+.SH DESCRIPTION
+
+The \fBhsm_secret\fR file in your lightning-dir comports a seed from which is
+derived the HD wallet master key\. If you previously encrypted it using the
+\fB--encrypted-hsm\fR startup option or the \fBencrypthsm\fR RPC command, you can decrypt it
+by using the \fBdecrypthsm\fR RPC command with the same \fIpassword\fR used to encrypt it\.
+
+.SH RETURN VALUE
+
+An error can be returned in two main cases:
+
+.RS
+.IP \[bu]
+decryption failed, in which case the error description will give more details
+.IP \[bu]
+hsm_secret failure (either opening, creating, or writing), in which case the JSONRPC
+  error field will be populated with the errno\.
+
+.RE
+.SH AUTHOR
+
+Antoine Poinsot \fI<darosior@protonmail.com\fR>\.
+
+.SH SEE ALSO
+
+\fBlightning-encrypthsm\fR(7)
+\fBlightningd-config\fR(5)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
