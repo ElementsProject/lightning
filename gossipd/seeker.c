@@ -755,8 +755,6 @@ static void probe_many_random_scids(struct seeker *seeker)
 
 static void check_firstpeer(struct seeker *seeker)
 {
-	struct chan *c;
-	u64 index;
 	struct peer *peer = seeker->random_peer_softref, *p;
 
 	/* It might have died, pick another. */
@@ -787,14 +785,11 @@ static void check_firstpeer(struct seeker *seeker)
 		normal_gossip_start(seeker, p);
 	}
 
-	/* We always look up 6 prior to last we have */
-	c = uintmap_last(&seeker->daemon->rstate->chanmap, &index);
-	if (c && short_channel_id_blocknum(&c->scid) > 6) {
-		seeker->scid_probe_start = short_channel_id_blocknum(&c->scid) - 6;
-	} else {
-		seeker->scid_probe_start = 0;
-	}
+	/* Ask a random peer for all channels, in case we're missing */
+	seeker->scid_probe_start = chainparams->when_lightning_became_cool;
 	seeker->scid_probe_end = seeker->daemon->current_blockheight;
+	if (seeker->scid_probe_start > seeker->scid_probe_end)
+		seeker->scid_probe_start = 0;
 	peer_gossip_probe_scids(seeker);
 }
 
