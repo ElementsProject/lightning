@@ -35,6 +35,7 @@ RUN apt-get -qq update && \
 	shellcheck \
 	libxml2-utils \
 	wget \
+	gettext \
 	xsltproc \
 	zlib1g-dev && \
 	rm -rf /var/lib/apt/lists/*
