@@ -1271,10 +1271,10 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 		new_addrs = wireaddr_from_hostname(tmpctx, hostnames[i], DEFAULT_PORT,
 		                                   NULL, broken_reply, NULL);
 		if (new_addrs) {
-			for (size_t i = 0; i < tal_count(new_addrs); i++) {
+			for (size_t j = 0; j < tal_count(new_addrs); j++) {
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
-				a.u.wireaddr = new_addrs[i];
+				a.u.wireaddr = new_addrs[j];
 				status_debug("Resolved %s to %s", hostnames[i],
 				             type_to_string(tmpctx, struct wireaddr,
 				                            &a.u.wireaddr));
