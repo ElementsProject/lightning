@@ -159,10 +159,6 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 	if (wally_tx_get_length(tx->wtx, flags, &written) != WALLY_OK)
 		return false;
 
-	if (chainparams->is_elements) {
-		flags |= WALLY_TX_FLAG_USE_ELEMENTS;
-	}
-
 	newtx = tal_arr(tmpctx, u8, written);
 	if (wally_tx_to_bytes(tx->wtx, flags, newtx, written, &written) !=
 	    WALLY_OK)
@@ -319,10 +315,7 @@ static void push_tx(const struct bitcoin_tx *tx,
         if (bip144 && uses_witness(tx))
 		flag |= WALLY_TX_FLAG_USE_WITNESS;
 
-	if (chainparams->is_elements)
-		flag |= WALLY_TX_FLAG_USE_ELEMENTS;
-
-	res = wally_tx_get_length(tx->wtx, flag & WALLY_TX_FLAG_USE_WITNESS, &len);
+	res = wally_tx_get_length(tx->wtx, flag, &len);
 	assert(res == WALLY_OK);
 	serialized = tal_arr(tmpctx, u8, len);
 
