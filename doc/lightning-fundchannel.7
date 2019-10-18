@@ -36,15 +36,15 @@ so) or \fIslow\fR (next 100 blocks or so) to use lightningd’s internal
 estimates: \fInormal\fR is the default\.
 
 
-\fIannounce\fR is an optional flag that triggers whether to announce this
-channel or not\. Defaults to \fBtrue\fR\. An unannounced channel is considered
-private\.
-
-
 Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
 the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
 means it is interpreted bitcoind-style as satoshi-per-kilobyte\. Omitting
 the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIannounce\fR is an optional flag that triggers whether to announce this
+channel or not\. Defaults to \fBtrue\fR\. An unannounced channel is considered
+private\.
 
 
 \fIminconf\fR specifies the minimum number of confirmations that used
@@ -63,6 +63,7 @@ is reported and the channel is not funded\.
 
 The following error codes may occur:
 
+.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -74,6 +75,7 @@ The following error codes may occur:
 .IP \[bu]
 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error\.
 
+.RE
 
 Failure may also occur if \fBlightningd\fR and the peer cannot agree on
 channel parameters (funding limits, channel reserves, fees, etc\.)\.
