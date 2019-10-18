@@ -34,14 +34,14 @@ the strings *urgent* (aim for next block), *normal* (next 4 blocks or
 so) or *slow* (next 100 blocks or so) to use lightningd’s internal
 estimates: *normal* is the default.
 
-*announce* is an optional flag that triggers whether to announce this
-channel or not. Defaults to `true`. An unannounced channel is considered
-private.
-
 Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
 the number is interpreted as satoshi-per-kilosipa (weight), and *perkb*
 means it is interpreted bitcoind-style as satoshi-per-kilobyte. Omitting
 the suffix is equivalent to *perkb*.
+
+*announce* is an optional flag that triggers whether to announce this
+channel or not. Defaults to `true`. An unannounced channel is considered
+private.
 
 *minconf* specifies the minimum number of confirmations that used
 outputs should have. Default is 1.
