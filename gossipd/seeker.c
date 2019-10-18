@@ -717,13 +717,23 @@ static void peer_gossip_probe_scids(struct seeker *seeker)
 
 static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
 {
-	if (seeker->daemon->current_blockheight < num_blocks) {
+	u32 avail_blocks;
+
+	/* Ignore early blocks (unless we're before, which would be weird) */
+	if (seeker->daemon->current_blockheight
+	    < chainparams->when_lightning_became_cool)
+		avail_blocks = seeker->daemon->current_blockheight;
+	else
+		avail_blocks = seeker->daemon->current_blockheight
+			- chainparams->when_lightning_became_cool;
+
+	if (avail_blocks < num_blocks) {
 		seeker->scid_probe_start = 0;
 		seeker->scid_probe_end = seeker->daemon->current_blockheight;
 	} else {
 		seeker->scid_probe_start
-			= pseudorand(seeker->daemon->current_blockheight
-				     - num_blocks);
+			= chainparams->when_lightning_became_cool
+			+ pseudorand(avail_blocks - num_blocks);
 		seeker->scid_probe_end
 			= seeker->scid_probe_start + num_blocks - 1;
 	}
