@@ -745,12 +745,12 @@ static void probe_random_scids(struct seeker *seeker, size_t num_blocks)
 /* We usually get a channel per block, so these cover a fair bit of ground */
 static void probe_some_random_scids(struct seeker *seeker)
 {
-	return probe_random_scids(seeker, 64);
+	return probe_random_scids(seeker, 1024);
 }
 
 static void probe_many_random_scids(struct seeker *seeker)
 {
-	return probe_random_scids(seeker, 1008);
+	return probe_random_scids(seeker, 10000);
 }
 
 static void check_firstpeer(struct seeker *seeker)
