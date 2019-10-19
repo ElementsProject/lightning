@@ -605,3 +605,61 @@ def test_hsm_secret_encryption(node_factory):
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     assert id == l1.rpc.getinfo()["id"]
+
+
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_hsmtool_secret_decryption(node_factory):
+    l1 = node_factory.get_node()
+    password = "reckless\n"
+    hsm_path = os.path.join(l1.daemon.lightning_dir, "hsm_secret")
+    # We need to simulate a terminal to use termios in `lightningd`.
+    master_fd, slave_fd = os.openpty()
+
+    # Encrypt the master seed
+    l1.rpc.stop()
+    l1.daemon.opts.update({"encrypted-hsm": None})
+    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
+    time.sleep(3 if SLOW_MACHINE else 1)
+    os.write(master_fd, password.encode("utf-8"))
+    l1.daemon.wait_for_log("Server started with public key")
+    node_id = l1.rpc.getinfo()["id"]
+    l1.stop()
+
+    # We can't use a wrong password !
+    cmd_line = ["tools/hsmtool", "decrypt", hsm_path, "A wrong pass"]
+    assert subprocess.Popen(cmd_line).wait() != 0
+
+    # Decrypt it with hsmtool
+    cmd_line[3] = password[:-1]
+    assert subprocess.Popen(cmd_line).wait() == 0
+    # Then test we can now start it without password
+    l1.daemon.opts.pop("encrypted-hsm")
+    l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
+    assert node_id == l1.rpc.getinfo()["id"]
+    l1.stop()
+
+    # Test we can encrypt it offline
+    cmd_line[1] = "encrypt"
+    assert subprocess.Popen(cmd_line).wait() == 0
+    # Now we need to pass the encrypted-hsm startup option
+    l1.stop()
+    l1.daemon.start(stdin=slave_fd, stderr=subprocess.STDOUT,
+                    wait_for_initialized=False)
+    time.sleep(3 if SLOW_MACHINE else 1)
+    err = "hsm_secret is encrypted, you need to pass the --encrypted-hsm startup option."
+    assert l1.daemon.is_in_log(err)
+    l1.daemon.opts.update({"encrypted-hsm": None})
+    l1.daemon.start(stdin=slave_fd, stderr=subprocess.STDOUT,
+                    wait_for_initialized=False)
+    time.sleep(3 if SLOW_MACHINE else 1)
+    os.write(master_fd, password.encode("utf-8"))
+    l1.daemon.wait_for_log("Server started with public key")
+    assert node_id == l1.rpc.getinfo()["id"]
+    l1.stop()
+
+    # And finally test that we can also decrypt if encrypted with hsmtool
+    cmd_line[1] = "decrypt"
+    assert subprocess.Popen(cmd_line).wait() == 0
+    l1.daemon.opts.pop("encrypted-hsm")
+    l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
+    assert node_id == l1.rpc.getinfo()["id"]
