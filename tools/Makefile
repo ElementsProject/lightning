@@ -1,17 +1,26 @@
 #! /usr/bin/make
+TOOLS := tools/hsmtool tools/check-bolt
+TOOLS_SRC := $(TOOLS:=.c)
+TOOLS_OBJ := $(TOOLS_SRC:.c=.o)
+ALL_PROGRAMS += $(TOOLS)
+ALL_OBJS += $(TOOLS_OBJ)
+
+TOOLS_COMMON_OBJS = common/utils.o
 
 # We force make to relink this every time, to detect version changes.
 # Do it atomically, otherwise parallel builds can get upset!
 tools/headerversions: FORCE tools/headerversions.o $(CCAN_OBJS)
 	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.o) tools/headerversions.o $(CCAN_OBJS) $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
 
-tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS) common/utils.o
-tools/check-bolt.o: $(CCAN_HEADERS)
+tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS) $(TOOLS_COMMON_OBJS)
+
+tools/hsmtool: tools/hsmtool.o $(CCAN_OBJS) $(TOOLS_COMMON_OBJS) bitcoin/privkey.o
 
 clean: tools-clean
 
 tools-clean:
 	$(RM) tools/check-bolt tools/*.o
 	$(RM) tools/headerversions
+	$(RM) $(TOOLS_OBJ) $(TOOLS)
 
 include tools/test/Makefile
