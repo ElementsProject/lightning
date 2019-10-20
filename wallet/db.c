@@ -562,7 +562,10 @@ bool db_step(struct db_stmt *stmt)
 
 u64 db_column_u64(struct db_stmt *stmt, int col)
 {
-	assert(!db_column_is_null(stmt, col));
+	if (db_column_is_null(stmt, col)) {
+		log_broken(stmt->db->log, "Accessing a null column %d in query %s", col, stmt->query->query);
+		return 0;
+	}
 	return stmt->db->config->column_u64_fn(stmt, col);
 }
 
@@ -576,13 +579,19 @@ int db_column_int_or_default(struct db_stmt *stmt, int col, int def)
 
 int db_column_int(struct db_stmt *stmt, int col)
 {
-	assert(!db_column_is_null(stmt, col));
+	if (db_column_is_null(stmt, col)) {
+		log_broken(stmt->db->log, "Accessing a null column %d in query %s", col, stmt->query->query);
+		return 0;
+	}
 	return stmt->db->config->column_int_fn(stmt, col);
 }
 
 size_t db_column_bytes(struct db_stmt *stmt, int col)
 {
-	assert(!db_column_is_null(stmt, col));
+	if (db_column_is_null(stmt, col)) {
+		log_broken(stmt->db->log, "Accessing a null column %d in query %s", col, stmt->query->query);
+		return 0;
+	}
 	return stmt->db->config->column_bytes_fn(stmt, col);
 }
 
@@ -593,13 +602,19 @@ int db_column_is_null(struct db_stmt *stmt, int col)
 
 const void *db_column_blob(struct db_stmt *stmt, int col)
 {
-	assert(!db_column_is_null(stmt, col));
+	if (db_column_is_null(stmt, col)) {
+		log_broken(stmt->db->log, "Accessing a null column %d in query %s", col, stmt->query->query);
+		return NULL;
+	}
 	return stmt->db->config->column_blob_fn(stmt, col);
 }
 
 const unsigned char *db_column_text(struct db_stmt *stmt, int col)
 {
-	assert(!db_column_is_null(stmt, col));
+	if (db_column_is_null(stmt, col)) {
+		log_broken(stmt->db->log, "Accessing a null column %d in query %s", col, stmt->query->query);
+		return NULL;
+	}
 	return stmt->db->config->column_text_fn(stmt, col);
 }
 
