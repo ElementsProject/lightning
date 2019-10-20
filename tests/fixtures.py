@@ -186,6 +186,7 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
     map_node_error(nf.nodes, checkBadGossip, "had bad gossip messages")
     map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('Bad reestablish'), "had bad reestablish")
     map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('bad hsm request'), "had bad hsm requests")
+    map_node_error(nf.nodes, lambda n: n.daemon.is_in_log(r'Accessing a null column'), "Accessing a null column")
     map_node_error(nf.nodes, checkMemleak, "had memleak messages")
 
     if not ok:
