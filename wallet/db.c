@@ -477,6 +477,9 @@ static struct migration dbmigrations[] = {
 	 ");"), NULL},
     {SQL("ALTER TABLE channels ADD shutdown_scriptpubkey_local BLOB;"),
 	 NULL},
+    /* See https://github.com/ElementsProject/lightning/issues/3189 */
+    {SQL("UPDATE forwarded_payments SET received_time=0 WHERE received_time IS NULL;"),
+	 NULL},
 };
 
 /* Leak tracking. */
