@@ -682,10 +682,6 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 
 	scids = decode_short_ids(tmpctx, encoded);
 	if (!scids) {
-		if (complete == 0)
-			return towire_errorfmt(peer, NULL,
-			                       "No up to date infos about this network: %s",
-			                       tal_hex(tmpctx, msg));
 		return towire_errorfmt(peer, NULL,
 				       "Bad reply_channel_range encoding %s",
 				       tal_hex(tmpctx, encoded));
@@ -815,11 +811,6 @@ const u8 *handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg)
 				       "unexpected reply_short_channel_ids_end: %s",
 				       tal_hex(tmpctx, msg));
 	}
-
-	if (complete == 0)
-		return towire_errorfmt(peer, NULL,
-		                       "No up to date infos about this network: %s",
-		                       tal_hex(tmpctx, msg));
 
 	peer->scid_query_outstanding = false;
 	if (peer->scid_query_cb)
