@@ -5,7 +5,7 @@ notifications:
   email: false
 
 before_install:
-  sudo apt-get install -y libsqlite3-dev cppcheck valgrind gcc-4.8 gettext
+  sudo apt-get install -y libsqlite3-dev cppcheck valgrind gcc-4.8 gettext libc6-dev-armhf-cross libc6-dev-arm64-cross gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf qemu-user-static binfmt-support
 
 env:
   - ARCH=64 SOURCE_CHECK_ONLY=true COPTFLAGS="-O3"
@@ -33,6 +33,8 @@ env:
   - VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=10 TEST_GROUP_COUNT=12 SOURCE_CHECK_ONLY=false
   - VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=11 TEST_GROUP_COUNT=12 SOURCE_CHECK_ONLY=false
   - VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=12 TEST_GROUP_COUNT=12 SOURCE_CHECK_ONLY=false
+  - VALGRIND=0 ARCH=arm32v7 DEVELOPER=1 TARGET_HOST=arm-linux-gnueabihf
+  - VALGRIND=0 ARCH=arm64v8 DEVELOPER=1 TARGET_HOST=aarch64-linux-gnu
 cache:
   directories:
     - dependencies
