@@ -10,7 +10,7 @@ FROM debian:stretch-slim as downloader
 RUN set -ex \
 	&& apt-get update \
 	&& apt-get install -qq --no-install-recommends ca-certificates dirmngr wget \
-     qemu qemu-user-static qemu-user binfmt-support
+     qemu-user-static binfmt-support
 
 WORKDIR /opt
 
