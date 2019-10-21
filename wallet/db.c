@@ -772,7 +772,7 @@ static int db_get_version(struct db *db)
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
-static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
+static void db_migrate(struct lightningd *ld, struct db *db)
 {
 	/* Attempt to read the version from the database */
 	int current, orig, available;
@@ -784,12 +784,12 @@ static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
 	available = ARRAY_SIZE(dbmigrations) - 1;
 
 	if (current == -1)
-		log_info(log, "Creating database");
+		log_info(db->log, "Creating database");
 	else if (available < current)
 		db_fatal("Refusing to migrate down from version %u to %u",
 			 current, available);
 	else if (current != available)
-		log_info(log, "Updating database from version %u to %u",
+		log_info(db->log, "Updating database from version %u to %u",
 			 current, available);
 
 	while (current < available) {
@@ -826,7 +826,8 @@ static void db_migrate(struct lightningd *ld, struct db *db, struct log *log)
 struct db *db_setup(const tal_t *ctx, struct lightningd *ld, struct log *log)
 {
 	struct db *db = db_open(ctx, ld->wallet_dsn);
-	db_migrate(ld, db, log);
+	db->log = log;
+	db_migrate(ld, db);
 	return db;
 }
 
