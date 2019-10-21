@@ -493,7 +493,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 /* We make sure that free_chan is called on this chan! */
 static void destroy_chan_check(struct chan *chan)
 {
-	assert(chan->sat.satoshis == (u64)chan); /* Raw: dev-hack */
+	assert(chan->sat.satoshis == (unsigned long)chan); /* Raw: dev-hack */
 }
 #endif
 
@@ -507,7 +507,7 @@ void free_chan(struct routing_state *rstate, struct chan *chan)
 	uintmap_del(&rstate->chanmap, chan->scid.u64);
 
 #if DEVELOPER
-	chan->sat.satoshis = (u64)chan; /* Raw: dev-hack */
+	chan->sat.satoshis = (unsigned long)chan; /* Raw: dev-hack */
 #endif
 	tal_free(chan);
 }
@@ -2979,7 +2979,7 @@ void remove_all_gossip(struct routing_state *rstate)
 	while ((c = uintmap_first(&rstate->chanmap, &index)) != NULL) {
 		uintmap_del(&rstate->chanmap, index);
 #if DEVELOPER
-		c->sat.satoshis = (u64)c; /* Raw: dev-hack */
+		c->sat.satoshis = (unsigned long)c; /* Raw: dev-hack */
 #endif
 		tal_free(c);
 	}
