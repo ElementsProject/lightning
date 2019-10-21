@@ -28,6 +28,8 @@ struct db {
 	/* List of statements that have been created but not executed yet. */
 	struct list_head pending_statements;
 	char *error;
+
+	struct log *log;
 };
 
 struct db_query {

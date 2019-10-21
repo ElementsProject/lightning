@@ -69,7 +69,7 @@ static bool test_empty_db_migrate(struct lightningd *ld)
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
 	db_commit_transaction(db);
-	db_migrate(ld, db, NULL);
+	db_migrate(ld, db);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == ARRAY_SIZE(dbmigrations) - 1);
 	db_commit_transaction(db);
@@ -113,7 +113,7 @@ static bool test_vars(struct lightningd *ld)
 	struct db *db = create_test_db();
 	char *varname = "testvar";
 	CHECK(db);
-	db_migrate(ld, db, NULL);
+	db_migrate(ld, db);
 
 	db_begin_transaction(db);
 	/* Check default behavior */
