@@ -117,7 +117,6 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 		/* It's a raw gossip msg: this copies or takes() */
 		gossip = tal_dup_arr(tmpctx, u8, msg, tal_bytelen(msg), 0);
 
-	status_debug("Gossipd told us to send %s", tal_hex(tmpctx, gossip));
 	/* Gossipd can send us gossip messages, OR errors */
 	if (fromwire_peektype(gossip) == WIRE_ERROR) {
 		sync_crypto_write(pps, gossip);
