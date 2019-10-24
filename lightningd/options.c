@@ -719,6 +719,49 @@ static void config_log_stderr_exit(const char *fmt, ...)
 }
 
 /**
+ * Remove comments and white-spaces from the i-th line.
+ * But do not allow having # in bitcoin-rpcpassword.
+*/
+static void opt_clean_line_of_comments_and_spaces(char **lines, u16 i)
+{
+	bool ispassword = (strstr(lines[i], "bitcoin-rpcpassword") != NULL);
+
+	char *pos = strchr(lines[i], '#');
+	if (pos != NULL) {
+		/* There's a comment in this line. */
+
+		if (ispassword == true)
+			err(1, "error reading configuration file: using # in bitcoin-rpcpassword can be ambiguous and should be avoided");
+
+		u16 index = (u16)(pos - lines[i]);
+		/* Remove the comment. */
+		lines[i][index] = 0;
+	}
+
+	/* Remove trailing white-spaces. */
+	for (u16 j = strlen(lines[i]) - 1; j >= 0; --j) {
+		if (isspace(lines[i][j]) != 0) {
+		lines[i][j] = 0;
+		}
+		else
+			break;
+	}
+
+	/* Remove initial white-spaces. */
+	u16 k = 0;
+	for (u16 j = 0; j < strlen(lines[i]); ++j) {
+		if (isspace(lines[i][j]) != 0) {
+			++k;
+		}
+		else {
+			if (k > 0)
+					memmove(&lines[i][0], &lines[i][k], strlen(lines[i]) - k);
+			break;
+		}
+	}
+}
+
+/**
  * We turn the config file into cmdline arguments. @early tells us
  * whether to parse early options only (and ignore any unknown ones),
  * or the non-early options.
@@ -757,6 +800,8 @@ static void opt_parse_from_config(struct lightningd *ld, bool early)
 			all_args[i] = NULL;
 		}
 		else {
+			opt_clean_line_of_comments_and_spaces(lines, i);
+
 			/* Only valid forms are "foo" and "foo=bar" */
 			all_args[i] = tal_fmt(all_args, "--%s", lines[i]);
 		}
