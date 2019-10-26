@@ -263,7 +263,7 @@ ifeq ($(PYTEST),)
 	exit 1
 else
 # Explicitly hand DEVELOPER and VALGRIND so you can override on make cmd line.
-	PYTHONPATH=`pwd`/contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
+	PYTHONPATH=`pwd`/contrib/pyln-client:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
@@ -316,7 +316,7 @@ check-python:
 	@# W503: line break before binary operator
 	@flake8 --ignore=E501,E731,W503 --exclude=contrib/pylightning/lightning/__init__.py ${PYSRC}
 
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH $(PYTEST) contrib/pylightning/
+	PYTHONPATH=contrib/pyln-client:$$PYTHONPATH $(PYTEST) contrib/pyln-client/
 
 check-includes:
 	@tools/check-includes.sh

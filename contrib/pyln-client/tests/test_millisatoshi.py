@@ -1,4 +1,4 @@
-from lightning import Millisatoshi
+from pyln.client import Millisatoshi
 
 
 def test_sum_radd():
