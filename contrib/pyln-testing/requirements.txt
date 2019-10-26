@@ -1,0 +1,5 @@
+pytest==5.0.1
+Flask==1.1.1
+cheroot==6.5.5
+ephemeral-port-reserve==1.1.1
+python-bitcoinlib==0.10.1
