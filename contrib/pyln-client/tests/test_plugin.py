@@ -1,5 +1,5 @@
-from lightning import Plugin
-from lightning.plugin import Request, Millisatoshi
+from pyln.client import Plugin
+from pyln.client.plugin import Request, Millisatoshi
 import itertools
 import pytest
 

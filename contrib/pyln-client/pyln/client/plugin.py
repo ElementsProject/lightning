@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from enum import Enum
-from lightning import LightningRpc, Millisatoshi
+from .lightning import LightningRpc, Millisatoshi
 from threading import RLock
 
 import inspect
