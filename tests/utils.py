@@ -19,6 +19,7 @@ import struct
 import subprocess
 import threading
 import time
+import sys
 
 BITCOIND_CONFIG = {
     "regtest": 1,
@@ -36,22 +37,42 @@ LIGHTNINGD_CONFIG = OrderedDict({
     'disable-dns': None,
 })
 
-with open('config.vars') as configfile:
-    config = dict([(line.rstrip().split('=', 1)) for line in configfile])
 
-DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
-EXPERIMENTAL_FEATURES = os.getenv("EXPERIMENTAL_FEATURES", config['EXPERIMENTAL_FEATURES']) == "1"
+def env(name, default=None):
+    """Access to environment variables
 
-# Gossip can be slow without DEVELOPER.
-if DEVELOPER:
-    DEFAULT_TIMEOUT = 60
-else:
-    DEFAULT_TIMEOUT = 180
+    Allows access to environment variables, falling back to config.vars (part
+    of c-lightning's `./configure` output), and finally falling back to a
+    default value.
 
-TIMEOUT = int(os.getenv("TIMEOUT", str(DEFAULT_TIMEOUT)))
-VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
-SLOW_MACHINE = os.getenv("SLOW_MACHINE", "0") == "1"
-COMPAT = os.getenv("COMPAT", config['COMPAT']) == "1"
+    """
+    fname = 'config.vars'
+    if os.path.exists(fname):
+        lines = open(fname, 'r').readlines()
+        config = dict([(line.rstrip().split('=', 1)) for line in lines])
+    else:
+        config = {}
+
+    if name in os.environ:
+        return os.environ[name]
+    elif name in config:
+        return config[name]
+    else:
+        return default
+
+
+VALGRIND = env("VALGRIND") == "1"
+TEST_NETWORK = env("TEST_NETWORK", 'regtest')
+DEVELOPER = env("DEVELOPER", "1") == "1"
+TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
+SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
+COMPAT = env("COMPAT", "1") == "1"
+EXPERIMENTAL_FEATURES = os.getenv("EXPERIMENTAL_FEATURES", "0") == "1"
+TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
+
+
+if TEST_DEBUG:
+    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 
 def wait_for(success, timeout=TIMEOUT):
@@ -459,7 +480,7 @@ class LightningD(TailableProc):
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
-            'network': config.get('TEST_NETWORK', 'regtest'),
+            'network': env('TEST_NETWORK', 'regtest'),
             'ignore-fee-limits': 'false',
             'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
             'bitcoin-rpcpassword': BITCOIND_CONFIG['rpcpassword'],
