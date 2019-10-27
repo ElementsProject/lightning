@@ -4,6 +4,8 @@ from collections import OrderedDict
 from decimal import Decimal
 from ephemeral_port_reserve import reserve
 from lightning import LightningRpc
+from pyln.testing.utils import TEST_NETWORK, SLOW_MACHINE, TIMEOUT, VALGRIND, DEVELOPER  # noqa: F401
+from pyln.testing.utils import env
 
 import json
 import logging
@@ -19,7 +21,6 @@ import struct
 import subprocess
 import threading
 import time
-import sys
 
 BITCOIND_CONFIG = {
     "regtest": 1,
@@ -38,41 +39,8 @@ LIGHTNINGD_CONFIG = OrderedDict({
 })
 
 
-def env(name, default=None):
-    """Access to environment variables
-
-    Allows access to environment variables, falling back to config.vars (part
-    of c-lightning's `./configure` output), and finally falling back to a
-    default value.
-
-    """
-    fname = 'config.vars'
-    if os.path.exists(fname):
-        lines = open(fname, 'r').readlines()
-        config = dict([(line.rstrip().split('=', 1)) for line in lines])
-    else:
-        config = {}
-
-    if name in os.environ:
-        return os.environ[name]
-    elif name in config:
-        return config[name]
-    else:
-        return default
-
-
-VALGRIND = env("VALGRIND") == "1"
-TEST_NETWORK = env("TEST_NETWORK", 'regtest')
-DEVELOPER = env("DEVELOPER", "1") == "1"
-TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
-SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
+EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
-EXPERIMENTAL_FEATURES = os.getenv("EXPERIMENTAL_FEATURES", "0") == "1"
-TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
-
-
-if TEST_DEBUG:
-    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 
 def wait_for(success, timeout=TIMEOUT):
