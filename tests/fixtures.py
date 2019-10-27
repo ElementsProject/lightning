@@ -1,27 +1,14 @@
 from concurrent import futures
 from db import SqliteDbProvider, PostgresDbProvider
-from utils import NodeFactory, BitcoinD, ElementsD
+from utils import NodeFactory, BitcoinD, ElementsD, env
+from utils import DEVELOPER, TEST_NETWORK  # noqa: F401,F403
 
 import logging
 import os
 import pytest
 import re
 import shutil
-import sys
 import tempfile
-
-
-with open('config.vars') as configfile:
-    config = dict([(line.rstrip().split('=', 1)) for line in configfile])
-
-VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
-TEST_NETWORK = os.getenv("TEST_NETWORK", config['TEST_NETWORK'])
-DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
-TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
-
-
-if TEST_DEBUG:
-    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 
 # A dict in which we count how often a particular test has run so far. Used to
@@ -31,7 +18,7 @@ __attempts = {}
 
 @pytest.fixture(scope="session")
 def test_base_dir():
-    d = os.getenv("TEST_DIR", "/tmp")
+    d = env("TEST_DIR", "/tmp")
 
     directory = tempfile.mkdtemp(prefix='ltests-', dir=d)
     print("Running tests in {}".format(directory))
@@ -83,7 +70,7 @@ network_daemons = {
 
 @pytest.fixture
 def bitcoind(directory, teardown_checks):
-    chaind = network_daemons[config.get('TEST_NETWORK', 'regtest')]
+    chaind = network_daemons[env('TEST_NETWORK', 'regtest')]
     bitcoind = chaind(bitcoin_dir=directory)
 
     try:
@@ -332,4 +319,4 @@ def chainparams():
         }
     }
 
-    return chainparams[config['TEST_NETWORK']]
+    return chainparams[env('TEST_NETWORK', 'regtest')]
