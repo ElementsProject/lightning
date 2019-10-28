@@ -59,6 +59,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
+- Fixed bogus "Bad commit_sig signature" which caused channel closures when reconnecting after updating fees under simultaneous bidirectional traffic.
 - Relative `--lightning_dir` is now working again.
 - Build: MacOS now builds again (missing pwritev).
 

@@ -2148,7 +2148,6 @@ def test_feerate_spam(node_factory, chainparams):
         l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE', timeout=5)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "need dev-feerate")
 def test_feerate_stress(node_factory, executor):
     # Third node makes HTLC traffic less predictable.
