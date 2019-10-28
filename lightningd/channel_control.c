@@ -742,3 +742,51 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 			  notleak(cc));
 	return command_still_pending(cmd);
 }
+
+#if DEVELOPER
+static struct command_result *json_dev_feerate(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *obj UNNEEDED,
+					       const jsmntok_t *params)
+{
+	u32 *feerate;
+	struct node_id *id;
+	struct peer *peer;
+	struct json_stream *response;
+	struct channel *channel;
+	const u8 *msg;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("feerate", param_number, &feerate),
+		   NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer)
+		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+
+	channel = peer_active_channel(peer);
+	if (!channel || !channel->owner || channel->state != CHANNELD_NORMAL)
+		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
+
+	msg = towire_channel_feerates(NULL, *feerate,
+				      feerate_min(cmd->ld, NULL),
+				      feerate_max(cmd->ld, NULL));
+	subd_send_msg(channel->owner, take(msg));
+
+	response = json_stream_success(cmd);
+	json_add_node_id(response, "id", id);
+	json_add_u32(response, "feerate", *feerate);
+
+	return command_success(cmd, response);
+}
+
+static const struct json_command dev_feerate_command = {
+	"dev-feerate",
+	"developer",
+	json_dev_feerate,
+	"Set feerate for {id} to {feerate}"
+};
+AUTODATA(json_command, &dev_feerate_command);
+#endif /* DEVELOPER */
