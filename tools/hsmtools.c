@@ -4,7 +4,9 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/str.h>
+#include <common/bech32.h>
 #include <common/derive_basepoints.h>
+#include <common/key_derive.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -28,6 +30,8 @@ static void show_usage(void)
 	printf("	- decrypthsm <path/to/hsm_secret> <password>\n");
 	printf("	- encrypthsm <path/to/hsm_secret> <password>\n");
 	printf("	- dumpcommitments <node id> <channel dbid> <depth> "
+	       "<path/to/hsm_secret> [hsm_secret password]\n");
+	printf("	- guesscommitment <P2WPKH address> <node id> <depth> "
 	       "<path/to/hsm_secret> [hsm_secret password]\n");
 	exit(0);
 }
@@ -282,6 +286,119 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	return 0;
 }
 
+/* In case of an unilateral close from the remote side while we suffered a
+ * loss of data, this tries to recover the private key from the `to_remote`
+ * output.
+ * This basically iterates over every `dbid` to derive the channel_seed and
+ * then derives as many payment keys as indicated to compare to the pubkey
+ * hash specified in the witness programm.
+ *
+ * :param address: The bech32 address of the P2WPKH output
+ * :param node_id: The id of the node with which the channel was established
+ * :param depth: How many commitments to derive for each dbid (the basepoint
+ *               is checked by default).
+ * :param hsm_secret_path: The path to the hsm_secret
+ * :param passwd: The *optional* hsm_secret password
+ */
+static int guess_commitment(const char *address, struct node_id *node_id,
+                            u64 depth, char *hsm_secret_path, char *passwd)
+{
+	struct sha256 shaseed;
+	struct secret hsm_secret, channel_seed, basepoint_secret;
+	struct privkey payment_privkey;
+	struct pubkey per_commitment_point, basepoint, payment_pubkey;
+	struct ripemd160 pubkeyhash;
+	/* We only support P2WPKH, hence 20 */
+	u8 goal_pubkeyhash[20];
+	/* See common/bech32.h for buffer size */
+	char hrp[strlen(address) - 6];
+	int witver;
+	size_t witlen;
+
+	/* Get the hrp to accept addresses from any network */
+	if (bech32_decode(hrp, goal_pubkeyhash, &witlen, address, 90) != 1)
+		errx(ERROR_USAGE, "Could not get address' network");
+	if (segwit_addr_decode(&witver, goal_pubkeyhash, &witlen, hrp, address) != 1)
+		errx(ERROR_USAGE, "Wrong bech32 address");
+
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+	                                         | SECP256K1_CONTEXT_SIGN);
+
+	if (passwd)
+		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
+	else
+		get_hsm_secret(&hsm_secret, hsm_secret_path);
+
+	for (u64 dbid = 0; ; dbid++) {
+		get_channel_seed(&channel_seed, node_id, dbid, &hsm_secret);
+		if (!derive_payment_basepoint(&channel_seed,
+		                              &basepoint, &basepoint_secret))
+			errx(ERROR_KEYDERIV, "Could not derive basepoints for dbid %"PRIu64
+			                     " and channel seed %s.", dbid,
+			                     type_to_string(tmpctx,
+			                                    struct secret, &channel_seed));
+
+		/* If we specified option_static_remotekey, this is just the basepoint ! */
+		pubkey_to_hash160(&basepoint, &pubkeyhash);
+		if (memcmp(pubkeyhash.u.u8, goal_pubkeyhash, 20) == 0) {
+			printf("FOUND !\n");
+			printf("pubkey hash : %s\n",
+			       tal_hexstr(tmpctx, pubkeyhash.u.u8, 20));
+			printf("pubkey      : %s \n",
+			       type_to_string(tmpctx, struct pubkey, &basepoint));
+			printf("privkey     : %s \n",
+			       type_to_string(tmpctx, struct secret, &basepoint_secret));
+			return 0;
+		}
+
+		/* Otherwise derive payment keys up to <depth> to check */
+		if (!derive_shaseed(&channel_seed, &shaseed))
+			errx(ERROR_KEYDERIV, "Could not derive shaseed for dbid %"PRIu64
+			                     " and channel seed %s.", dbid,
+			                     type_to_string(tmpctx,
+			                                    struct secret, &channel_seed));
+		for (u64 i = 0; i < depth; i++) {
+			if (!per_commit_point(&shaseed, &per_commitment_point, i))
+				errx(ERROR_KEYDERIV, "Could not derive point #%"PRIu64" for"
+				                     " dbid %"PRIu64" and shaseed %s.", i, dbid,
+				                     type_to_string(tmpctx,
+				                                    struct sha256, &shaseed));
+			if (!derive_simple_privkey(&basepoint_secret, &basepoint,
+			                           &per_commitment_point, &payment_privkey))
+				errx(ERROR_KEYDERIV, "Could not derive payment privkey #%"PRIu64
+				                     " for dbid %"PRIu64", basepoint %s, and "
+				                     "commit point %s.", i, dbid,
+				                     type_to_string(tmpctx,
+				                                    struct pubkey, &basepoint),
+				                     type_to_string(tmpctx,
+				                                    struct pubkey, &per_commitment_point));
+			if (!pubkey_from_privkey(&payment_privkey, &payment_pubkey))
+				errx(ERROR_KEYDERIV, "Could not derive payment pubkey #%"PRIu64
+				                     " for dbid %"PRIu64" and privkey %s.", i,
+				                     dbid,
+				                     type_to_string(tmpctx,
+				                                    struct privkey, &payment_privkey));
+
+			pubkey_to_hash160(&payment_pubkey, &pubkeyhash);
+			if (memcmp(pubkeyhash.u.u8, goal_pubkeyhash, 20) == 0) {
+				printf("FOUND !\n");
+				printf("commit point #%"PRIu64": %s\n",
+				       i,
+				       type_to_string(tmpctx, struct pubkey, &per_commitment_point));
+				printf("pubkey hash : %s \n",
+				       tal_hexstr(tmpctx, pubkeyhash.u.u8, 20));
+				printf("pubkey      : %s \n",
+				       type_to_string(tmpctx, struct pubkey, &payment_pubkey));
+				printf("privkey     : %s \n",
+				       type_to_string(tmpctx, struct privkey, &payment_privkey));
+				return 0;
+			}
+		}
+	}
+
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *method;
@@ -314,6 +431,17 @@ int main(int argc, char *argv[])
 			errx(ERROR_USAGE, "Bad node id");
 		return dump_commitments_infos(&node_id, atol(argv[3]), atol(argv[4]),
 		                              argv[5], argv[6]);
+	}
+
+	if (streq(method, "guesscommitment")) {
+		/*   address    node_id    depth    hsm_secret  ?password? */
+		if (!(argv[2] && argv[3] && argv[4] && argv[5]))
+			show_usage();
+		struct node_id node_id;
+		if (!node_id_from_hexstr(argv[3], strlen(argv[3]), &node_id))
+			errx(ERROR_USAGE, "Bad node id");
+		return guess_commitment(argv[2], &node_id, atol(argv[4]),
+		                        argv[5], argv[6]);
 	}
 
 	show_usage();
