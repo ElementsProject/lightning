@@ -63,7 +63,7 @@ def env(name, default=None):
 
 VALGRIND = env("VALGRIND") == "1"
 TEST_NETWORK = env("TEST_NETWORK", 'regtest')
-DEVELOPER = env("DEVELOPER", "1") == "1"
+DEVELOPER = env("DEVELOPER", "0") == "1"
 TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
 SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
 TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
