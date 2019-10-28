@@ -540,18 +540,58 @@ class LightningD(TailableProc):
 
 
 class LightningNode(object):
-    def __init__(self, daemon, rpc, btc, executor, may_fail=False,
+    def __init__(self, node_id, lightning_dir, bitcoind, executor, may_fail=False,
                  may_reconnect=False, allow_broken_log=False,
-                 allow_bad_gossip=False, db=None):
-        self.rpc = rpc
-        self.daemon = daemon
-        self.bitcoin = btc
+                 allow_bad_gossip=False, db=None, port=None, disconnect=None, random_hsm=None, log_all_io=None, options=None, **kwargs):
+        self.bitcoin = bitcoind
         self.executor = executor
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
         self.allow_broken_log = allow_broken_log
         self.allow_bad_gossip = allow_bad_gossip
         self.db = db
+
+        socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
+        self.rpc = LightningRpc(socket_path, self.executor)
+
+        self.daemon = LightningD(
+            lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
+            port=port, random_hsm=random_hsm, node_id=node_id
+        )
+        # If we have a disconnect string, dump it to a file for daemon.
+        if disconnect:
+            self.daemon.disconnect_file = os.path.join(lightning_dir, "dev_disconnect")
+            with open(self.daemon.disconnect_file, "w") as f:
+                f.write("\n".join(disconnect))
+            self.daemon.opts["dev-disconnect"] = "dev_disconnect"
+        if log_all_io:
+            assert DEVELOPER
+            self.daemon.env["LIGHTNINGD_DEV_LOG_IO"] = "1"
+            self.daemon.opts["log-level"] = "io"
+        if DEVELOPER:
+            self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
+            self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
+            if os.getenv("DEBUG_SUBD"):
+                self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
+            if VALGRIND:
+                self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
+            if not may_reconnect:
+                self.daemon.opts["dev-no-reconnect"] = None
+
+        if options is not None:
+            self.daemon.opts.update(options)
+        dsn = db.get_dsn()
+        if dsn is not None:
+            self.daemon.opts['wallet'] = dsn
+        if VALGRIND:
+            self.daemon.cmd_prefix = [
+                'valgrind',
+                '-q',
+                '--trace-children=yes',
+                '--trace-children-skip=*python*,*bitcoin-cli*,*elements-cli*',
+                '--error-exitcode=7',
+                '--log-file={}/valgrind-errors.%p'.format(self.daemon.lightning_dir)
+            ]
 
     def connect(self, remote_node):
         self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
@@ -929,14 +969,11 @@ class NodeFactory(object):
 
         return [j.result() for j in jobs]
 
-    def get_node(self, disconnect=None, options=None, may_fail=False,
-                 may_reconnect=False, random_hsm=False,
-                 feerates=(15000, 7500, 3750), start=True, log_all_io=False,
-                 dbfile=None, node_id=None, allow_broken_log=False,
-                 wait_for_bitcoind_sync=True, allow_bad_gossip=False):
-        if not node_id:
-            node_id = self.get_node_id()
+    def get_node(self, node_id=None, options=None, dbfile=None,
+                 feerates=(15000, 7500, 3750), start=True,
+                 wait_for_bitcoind_sync=True, **kwargs):
 
+        node_id = self.get_node_id() if not node_id else node_id
         port = self.get_next_port()
 
         lightning_dir = os.path.join(
@@ -945,62 +982,21 @@ class NodeFactory(object):
         if os.path.exists(lightning_dir):
             shutil.rmtree(lightning_dir)
 
-        socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
-        daemon = LightningD(
-            lightning_dir, bitcoindproxy=self.bitcoind.get_proxy(),
-            port=port, random_hsm=random_hsm, node_id=node_id
-        )
-        # If we have a disconnect string, dump it to a file for daemon.
-        if disconnect:
-            daemon.disconnect_file = os.path.join(lightning_dir, "dev_disconnect")
-            with open(daemon.disconnect_file, "w") as f:
-                f.write("\n".join(disconnect))
-            daemon.opts["dev-disconnect"] = "dev_disconnect"
-        if log_all_io:
-            assert DEVELOPER
-            daemon.env["LIGHTNINGD_DEV_LOG_IO"] = "1"
-            daemon.opts["log-level"] = "io"
-        if DEVELOPER:
-            daemon.opts["dev-fail-on-subdaemon-fail"] = None
-            daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
-            if os.getenv("DEBUG_SUBD"):
-                daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
-            if VALGRIND:
-                daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
-            if not may_reconnect:
-                daemon.opts["dev-no-reconnect"] = None
-
-        if options is not None:
-            daemon.opts.update(options)
-
-        # Get the DB backend DSN we should be using for this test and this node.
+        # Get the DB backend DSN we should be using for this test and this
+        # node.
         db = self.db_provider.get_db(lightning_dir, self.testname, node_id)
-        dsn = db.get_dsn()
-        if dsn is not None:
-            daemon.opts['wallet'] = dsn
-
-        rpc = LightningRpc(socket_path, self.executor)
-
-        node = LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail,
-                             may_reconnect=may_reconnect, allow_broken_log=allow_broken_log,
-                             allow_bad_gossip=allow_bad_gossip, db=db)
+        node = LightningNode(
+            node_id, lightning_dir, self.bitcoind, self.executor, db=db,
+            port=port, options=options, **kwargs
+        )
 
         # Regtest estimatefee are unusable, so override.
         node.set_feerates(feerates, False)
 
         self.nodes.append(node)
-        if VALGRIND:
-            node.daemon.cmd_prefix = [
-                'valgrind',
-                '-q',
-                '--trace-children=yes',
-                '--trace-children-skip=*python*,*bitcoin-cli*,*elements-cli*',
-                '--error-exitcode=7',
-                '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
-            ]
-
         if dbfile:
-            out = open(os.path.join(node.daemon.lightning_dir, 'lightningd.sqlite3'), 'xb')
+            out = open(os.path.join(node.daemon.lightning_dir,
+                                    'lightningd.sqlite3'), 'xb')
             with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
                 out.write(f.read())
 
