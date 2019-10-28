@@ -1343,8 +1343,10 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 		channel->next_htlc_id += num_local_added;
 	}
 
-	/* Update their feerate. */
-	channel->channel_info.feerate_per_kw[REMOTE] = feerate;
+	/* Update remote feerate if we are funder. */
+	if (channel->funder == LOCAL)
+		channel->channel_info.feerate_per_kw[REMOTE] = feerate;
+
 	if (feerate > channel->max_possible_feerate)
 		channel->max_possible_feerate = feerate;
 	if (feerate < channel->min_possible_feerate)
@@ -1546,12 +1548,13 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		}
 	}
 
-	/* Update both feerates: if we're funder, REMOTE should already be
-	 * that feerate, if we're not, we're about to ACK anyway. */
-	channel->channel_info.feerate_per_kw[LOCAL]
-		= channel->channel_info.feerate_per_kw[REMOTE]
-		= feerate;
-
+	/* Update both feerates if we're not funder (for funder, receiving
+	 * commitment_signed doesn't alter fees). */
+	if (channel->funder == REMOTE) {
+		channel->channel_info.feerate_per_kw[LOCAL]
+			= channel->channel_info.feerate_per_kw[REMOTE]
+			= feerate;
+	}
 	if (feerate > channel->max_possible_feerate)
 		channel->max_possible_feerate = feerate;
 	if (feerate < channel->min_possible_feerate)
@@ -1658,9 +1661,10 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* Update feerate: if we are funder, their revoke_and_ack has set
+	/* Update feerate if we are funder, their revoke_and_ack has set
 	 * this for local feerate. */
-	channel->channel_info.feerate_per_kw[LOCAL] = feerate;
+	if (channel->funder == LOCAL)
+		channel->channel_info.feerate_per_kw[LOCAL] = feerate;
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(channel, &next_per_commitment_point);
