@@ -29,8 +29,11 @@ Here's a checklist for the release process.
 
 ### Releasing -rc1
 
-1. Merge the PR above.
-2. Tag it `git pull && git tag -s v<VERSION>rc1 && git push --tags`
+1. Merge the above PR.
+2. Tag it `git pull && git tag -s v<VERSION>rc1`. Note that you
+   should get a prompt to give this tag a 'message'. Make sure you fill this in.
+3. Confirm that the tag will show up for builds with `git describe`
+4. Push the tag to remote `git push --tags`.
 3. Update the /topic on #c-lightning on Freenode.
 4. Prepare draft release notes (see devtools/credit), and share with team for editing.
 5. Upgrade your personal nodes to the rc1, to help testing.
