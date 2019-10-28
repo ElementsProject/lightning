@@ -2146,3 +2146,54 @@ def test_feerate_spam(node_factory, chainparams):
     # But it won't do it again once it's at max.
     with pytest.raises(TimeoutError):
         l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE', timeout=5)
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "need dev-feerate")
+def test_feerate_stress(node_factory, executor):
+    # Third node makes HTLC traffic less predictable.
+    l1, l2, l3 = node_factory.line_graph(3, opts={'commit-time': 100,
+                                                  'may_reconnect': True})
+
+    l1.pay(l2, 10**9 // 2)
+    scid12 = l1.get_channel_scid(l2)
+    scid23 = l2.get_channel_scid(l3)
+
+    routel1l3 = [{'msatoshi': '10002msat', 'id': l2.info['id'], 'delay': 11, 'channel': scid12},
+                 {'msatoshi': '10000msat', 'id': l3.info['id'], 'delay': 5, 'channel': scid23}]
+    routel2l1 = [{'msatoshi': '10000msat', 'id': l1.info['id'], 'delay': 5, 'channel': scid12}]
+
+    rate = 1875
+    NUM_ATTEMPTS = 25
+    l1done = 0
+    l2done = 0
+    prev_log = 0
+    while l1done < NUM_ATTEMPTS and l2done < NUM_ATTEMPTS:
+        try:
+            r = random.randrange(6)
+            if r == 5:
+                l1.rpc.sendpay(routel1l3, "{:064x}".format(l1done))
+                l1done += 1
+            elif r == 4:
+                l2.rpc.sendpay(routel2l1, "{:064x}".format(l2done))
+                l2done += 1
+            elif r > 0:
+                l1.rpc.call('dev-feerate', [l2.info['id'], rate])
+                rate += 5
+            else:
+                l2.rpc.disconnect(l1.info['id'], True)
+                time.sleep(1)
+        except RpcError:
+            time.sleep(0.01)
+            assert not l1.daemon.is_in_log('Bad.*signature', start=prev_log)
+            prev_log = len(l1.daemon.logs)
+
+    # Make sure it's reconnected, and wait for last payment.
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
+    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
+        l1.rpc.waitsendpay("{:064x}".format(l1done - 1))
+    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
+        l2.rpc.waitsendpay("{:064x}".format(l2done - 1))
+    l1.rpc.call('dev-feerate', [l2.info['id'], rate - 5])
+    assert not l1.daemon.is_in_log('Bad.*signature')
+    assert not l2.daemon.is_in_log('Bad.*signature')
