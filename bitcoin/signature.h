@@ -47,7 +47,7 @@ struct bitcoin_signature {
 };
 
 /**
- * sign_hash - produce a raw secp256k1 signature.
+ * sign_hash - produce a raw secp256k1 signature (with low R value).
  * @p: secret key
  * @h: hash to sign.
  * @sig: signature to fill in and return.
