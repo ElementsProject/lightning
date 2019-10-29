@@ -14,6 +14,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/addr.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/htlc_trim.h>
@@ -619,6 +620,17 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &cid));
 	json_add_txid(response, "funding_txid", &channel->funding_txid);
+
+	if (channel->shutdown_scriptpubkey[LOCAL]) {
+		char *addr = encode_scriptpubkey_to_addr(tmpctx,
+					get_chainparams(ld),
+					channel->shutdown_scriptpubkey[LOCAL]);
+		if (addr)
+			json_add_string(response, "close_to_addr", addr);
+		json_add_hex_talarr(response, "close_to",
+				    channel->shutdown_scriptpubkey[LOCAL]);
+	}
+
 	json_add_bool(
 	    response, "private",
 	    !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
