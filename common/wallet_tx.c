@@ -107,9 +107,16 @@ static struct command_result *check_amount(const struct wallet_tx *wtx,
 					   struct amount_sat amount)
 {
 	if (tal_count(wtx->utxos) == 0) {
+		/* Since it's possible the lack of utxos is because we haven't finished
+		 * syncing yet, report a sync timing error first */
+		if (!topology_synced(wtx->cmd->ld->topology))
+			return command_fail(wtx->cmd, FUNDING_STILL_SYNCING_BITCOIN,
+					    "Still syncing with bitcoin network");
+
 		return command_fail(wtx->cmd, FUND_CANNOT_AFFORD,
 				    "Cannot afford transaction");
 	}
+
 	if (amount_sat_less(amount, get_chainparams(wtx->cmd->ld)->dust_limit)) {
 		return command_fail(wtx->cmd, FUND_OUTPUT_IS_DUST,
 				    "Output %s would be dust",
