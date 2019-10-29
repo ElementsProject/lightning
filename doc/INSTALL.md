@@ -93,7 +93,6 @@ $ sudo dnf update -y && \
                 python3-pip \
                 python3-setuptools \
                 net-tools \
-                net-tools \
                 valgrind \
                 wget \
                 zlib-devel \
