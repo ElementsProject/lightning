@@ -90,6 +90,11 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct node_id *id 
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
+/* Generated stub for encode_scriptpubkey_to_addr */
+char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
+				  const struct chainparams *chainparams UNNEEDED,
+                                  const u8 *scriptPubkey UNNEEDED)
+{ fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }

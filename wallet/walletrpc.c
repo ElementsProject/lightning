@@ -814,7 +814,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 		        json_add_string(response, "address", out);
 		} else if (utxos[i]->scriptPubkey != NULL) {
 			out = encode_scriptpubkey_to_addr(
-			    cmd, get_chainparams(cmd->ld)->bip173_name,
+			    cmd, get_chainparams(cmd->ld),
 			    utxos[i]->scriptPubkey);
 			if (out)
 				json_add_string(response, "address", out);
