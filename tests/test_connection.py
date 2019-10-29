@@ -1133,12 +1133,16 @@ def test_funding_close_upfront(node_factory, bitcoind):
     # check that you can provide a closing address upfront
     addr = l1.rpc.newaddr()['bech32']
     _fundchannel(l1, l2, addr)
+    # confirm that it appears in listpeers
+    assert addr == only_one(l1.rpc.listpeers()['peers'])['channels'][1]['close_to_addr']
     resp = l1.rpc.close(l2.info['id'])
     assert resp['type'] == 'mutual'
     assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
 
     # check that passing in the same addr to close works
+    addr = bitcoind.rpc.getnewaddress()
     _fundchannel(l1, l2, addr)
+    assert addr == only_one(l1.rpc.listpeers()['peers'])['channels'][2]['close_to_addr']
     resp = l1.rpc.close(l2.info['id'], destination=addr)
     assert resp['type'] == 'mutual'
     assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
