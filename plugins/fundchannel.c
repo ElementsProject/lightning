@@ -470,8 +470,7 @@ static void init(struct plugin_conn *rpc,
 						   "network")),
 			         rpc, ".network");
 	chainparams = chainparams_for_network(network_name);
-	placeholder_funding_addr = encode_scriptpubkey_to_addr(NULL,
-							       chainparams->bip173_name,
+	placeholder_funding_addr = encode_scriptpubkey_to_addr(NULL, chainparams,
 							       placeholder);
 }
 
