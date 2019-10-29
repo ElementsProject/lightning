@@ -106,7 +106,7 @@ start_ln() {
 		"$LIGHTNINGD" --lightning-dir=/tmp/l2-regtest
 
 	# Give a hint.
-	echo "Commands: l1-cli, l2-cli, bt-cli, stop_ln, cleanup_ln"
+	echo "Commands: l1-cli, l2-cli, l[1|2]-log, bt-cli, stop_ln, cleanup_ln"
 }
 
 stop_ln() {
@@ -126,6 +126,8 @@ cleanup_ln() {
 	unalias l1-cli
 	unalias l2-cli
 	unalias bt-cli
+	unalias l1-log
+	unalias l2-log
 	unset -f start_ln
 	unset -f stop_ln
 	unset -f cleanup_ln
