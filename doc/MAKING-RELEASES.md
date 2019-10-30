@@ -81,4 +81,5 @@ Here's a checklist for the release process.
 
 1. Add a new '[Unreleased]' section to the CHANGELOG.md with empty headers.
 2. Look through PRs which were delayed for release and merge them.
-3. Update this file with any missing or changed instructions.
+3. Close out the Milestone for the now-shipped release.
+4. Update this file with any missing or changed instructions.
