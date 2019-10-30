@@ -1,6 +1,6 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode
 
 import logging
 import os
@@ -65,6 +65,11 @@ network_daemons = {
     'regtest': BitcoinD,
     'liquid-regtest': ElementsD,
 }
+
+
+@pytest.fixture
+def node_cls():
+    return LightningNode
 
 
 @pytest.fixture
@@ -145,13 +150,14 @@ def teardown_checks(request):
 
 
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks):
+def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls):
     nf = NodeFactory(
         test_name,
         bitcoind,
         executor,
         directory=directory,
         db_provider=db_provider,
+        node_cls=node_cls
     )
 
     yield nf

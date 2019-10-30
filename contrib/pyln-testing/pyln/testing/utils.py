@@ -465,7 +465,7 @@ class ElementsD(BitcoinD):
 class LightningD(TailableProc):
     def __init__(self, lightning_dir, bitcoindproxy, port=9735, random_hsm=False, node_id=0):
         TailableProc.__init__(self, lightning_dir)
-        self.executable = 'lightningd/lightningd'
+        self.executable = 'lightningd'
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_prefix = []
@@ -903,7 +903,7 @@ class LightningNode(object):
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
-    def __init__(self, testname, bitcoind, executor, directory, db_provider):
+    def __init__(self, testname, bitcoind, executor, directory, db_provider, node_cls):
         self.testname = testname
         self.next_id = 1
         self.nodes = []
@@ -912,6 +912,7 @@ class NodeFactory(object):
         self.directory = directory
         self.lock = threading.Lock()
         self.db_provider = db_provider
+        self.node_cls = node_cls
 
     def split_options(self, opts):
         """Split node options from cli options
@@ -985,7 +986,7 @@ class NodeFactory(object):
         # Get the DB backend DSN we should be using for this test and this
         # node.
         db = self.db_provider.get_db(lightning_dir, self.testname, node_id)
-        node = LightningNode(
+        node = self.node_cls(
             node_id, lightning_dir, self.bitcoind, self.executor, db=db,
             port=port, options=options, **kwargs
         )
