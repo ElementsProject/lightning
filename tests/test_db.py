@@ -79,6 +79,10 @@ def test_block_backfill(node_factory, bitcoind, chainparams):
     # Make sure we also have the needle we added to the haystack above
     assert(31337 in [r['satoshis'] for r in l3.db_query("SELECT satoshis FROM utxoset")])
 
+    # Make sure that l3 doesn't ask for more gossip and get a reply about
+    # the closed channel (hence Bad gossip msgs in log).
+    l3.daemon.wait_for_log('seeker: state = NORMAL')
+
     # Now close the channel and make sure `l3` cleans up correctly:
     txid = l1.rpc.close(l2.info['id'])['txid']
     bitcoind.generate_block(1, wait_for_mempool=txid)
