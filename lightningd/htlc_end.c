@@ -58,8 +58,10 @@ void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hend)
 	htlc_out_map_add(map, hend);
 }
 
-static void *PRINTF_FMT(2,3)
-	corrupt(const char *abortstr, const char *fmt, ...)
+static void *corrupt(const char *abortstr, const char *fmt, ...)
+	PRINTF_FMT(2,3);
+
+static void *corrupt(const char *abortstr, const char *fmt, ...)
 {
 	if (abortstr) {
 		char *p;

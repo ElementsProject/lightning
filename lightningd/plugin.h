@@ -157,7 +157,7 @@ bool plugin_remove(struct plugins *plugins, const char *name);
 /**
  * Kill a plugin process, with an error message.
  */
-void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...);
+void plugin_kill(struct plugin *plugin, char *fmt, ...) PRINTF_FMT(2,3);
 
 /**
  * Send the configure message to all plugins.
