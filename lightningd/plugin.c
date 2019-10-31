@@ -135,7 +135,7 @@ bool plugin_remove(struct plugins *plugins, const char *name)
 	return removed;
 }
 
-void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
+void plugin_kill(struct plugin *plugin, char *fmt, ...)
 {
 	char *msg;
 	va_list ap;

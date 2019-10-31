@@ -115,10 +115,14 @@ static bool selected_peer(struct seeker *seeker, struct peer *peer)
 #define set_state(seeker, state, peer, ...)				\
 	set_state_((seeker), (state), (peer), stringify(state), __VA_ARGS__)
 
-static void PRINTF_FMT(5,6)
-	set_state_(struct seeker *seeker, enum seeker_state state,
-		   struct peer *peer,
-		   const char *statename, const char *fmt, ...)
+static void set_state_(struct seeker *seeker, enum seeker_state state,
+		       struct peer *peer,
+		       const char *statename, const char *fmt, ...)
+PRINTF_FMT(5,6);
+
+static void set_state_(struct seeker *seeker, enum seeker_state state,
+		       struct peer *peer,
+		       const char *statename, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);

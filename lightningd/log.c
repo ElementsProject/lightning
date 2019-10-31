@@ -140,7 +140,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
 }
 
 /* With different entry points */
-struct log *PRINTF_FMT(3,4)
+struct log *
 new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...)
 {
 	struct log *log = tal(ctx, struct log);

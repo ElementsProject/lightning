@@ -142,7 +142,7 @@ struct plugin_timer *plugin_timer(struct plugin_conn *rpc,
 				  struct command_result *(*cb)(void));
 
 /* Log something */
-void PRINTF_FMT(2, 3) plugin_log(enum log_level l, const char *fmt, ...);
+void plugin_log(enum log_level l, const char *fmt, ...) PRINTF_FMT(2, 3);
 
 /* Macro to define arguments */
 #define plugin_option(name, type, description, set, arg)			\

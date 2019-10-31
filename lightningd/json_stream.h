@@ -90,11 +90,10 @@ void json_stream_append(struct json_stream *js, const char *str, size_t len);
  * The resulting string from @fmt is escaped if quote is true:
  * see json_member_direct to avoid quoting.
  */
-PRINTF_FMT(4,5)
 void json_add_member(struct json_stream *js,
 		     const char *fieldname,
 		     bool quote,
-		     const char *fmt, ...);
+		     const char *fmt, ...) PRINTF_FMT(4,5);
 
 /**
  * json_member_direct - start a generic member.

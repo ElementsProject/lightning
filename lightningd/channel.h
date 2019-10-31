@@ -183,11 +183,11 @@ const char *channel_state_str(enum channel_state state);
 void channel_set_owner(struct channel *channel, struct subd *owner);
 
 /* Channel has failed, but can try again. */
-PRINTF_FMT(2,3) void channel_fail_reconnect(struct channel *channel,
-					      const char *fmt, ...);
+void channel_fail_reconnect(struct channel *channel,
+			    const char *fmt, ...) PRINTF_FMT(2,3);
 /* Channel has failed, but can try again after a minute. */
-PRINTF_FMT(2,3) void channel_fail_reconnect_later(struct channel *channel,
-						  const char *fmt,...);
+void channel_fail_reconnect_later(struct channel *channel,
+				  const char *fmt,...) PRINTF_FMT(2,3);
 
 /* Channel has failed, give up on it. */
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...);

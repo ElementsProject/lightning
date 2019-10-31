@@ -558,13 +558,25 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 				   handshake_out_success, connect);
 }
 
-/*~ When we've exhausted all addresses without success, we come here. */
-static void PRINTF_FMT(5,6)
-	connect_failed(struct daemon *daemon,
-		       const struct node_id *id,
-		       u32 seconds_waited,
-		       const struct wireaddr_internal *addrhint,
-		       const char *errfmt, ...)
+/*~ When we've exhausted all addresses without success, we come here.
+ *
+ * Note that gcc gets upset if we put the PRINTF_FMT at the end like this if
+ * it's an actual function definition, but etags gets confused and ignores the
+ * rest of the file if we put PRINTF_FMT at the front.  So we put it at the
+ * end, in a gratuitous declaration.
+ */
+static void connect_failed(struct daemon *daemon,
+			   const struct node_id *id,
+			   u32 seconds_waited,
+			   const struct wireaddr_internal *addrhint,
+			   const char *errfmt, ...)
+	PRINTF_FMT(5,6);
+
+static void connect_failed(struct daemon *daemon,
+			   const struct node_id *id,
+			   u32 seconds_waited,
+			   const struct wireaddr_internal *addrhint,
+			   const char *errfmt, ...)
 {
 	u8 *msg;
 	va_list ap;

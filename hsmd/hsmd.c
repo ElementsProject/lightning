@@ -142,11 +142,16 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c);
  * and closes the client connection.  This should never happen, of course, but
  * we definitely want to log if it does.
  */
-static PRINTF_FMT(4,5)
-	struct io_plan *bad_req_fmt(struct io_conn *conn,
-				    struct client *c,
-				    const u8 *msg_in,
-				    const char *fmt, ...)
+static struct io_plan *bad_req_fmt(struct io_conn *conn,
+				   struct client *c,
+				   const u8 *msg_in,
+				   const char *fmt, ...)
+	PRINTF_FMT(4,5);
+
+static struct io_plan *bad_req_fmt(struct io_conn *conn,
+				   struct client *c,
+				   const u8 *msg_in,
+				   const char *fmt, ...)
 {
 	va_list ap;
 	char *str;
