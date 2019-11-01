@@ -157,10 +157,6 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
 
     # Start it, establish channel, get extra funds.
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'wait_for_bitcoind_sync': False})
-    # Extra funds, for second channel attempt.
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 1.0)
-    bitcoind.generate_block(2)
-    sync_blockheight(bitcoind, [l1])
 
     # Balance l1<->l2 channel
     l1.pay(l2, 10**9 // 2)
@@ -189,10 +185,15 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     with pytest.raises(RpcError, match=r'TEMPORARY_CHANNEL_FAILURE'):
         l1.pay(l2, 1000)
 
-    # Can't fund a new channel, either.
+    # Can't fund a new channel.
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     with pytest.raises(RpcError, match=r'304'):
-        l1.rpc.fundchannel(l3.info['id'], 'all')
+        l1.rpc.fundchannel_start(l3.info['id'], '10000sat')
+
+    # Attempting to fund an extremely large transaction should fail
+    # with a 'unsynced' error
+    with pytest.raises(RpcError, match=r'304'):
+        l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: '200000000sat'}])
 
     # This will work, but will be delayed until synced.
     fut = executor.submit(l2.pay, l1, 1000)
@@ -203,6 +204,10 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     fut.result()
 
     assert 'warning_lightningd_sync' not in l1.rpc.getinfo()
+
+    # Now we get insufficient funds error
+    with pytest.raises(RpcError, match=r'301'):
+        l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: '200000000sat'}])
 
     # This will now work normally.
     l1.pay(l2, 1000)
