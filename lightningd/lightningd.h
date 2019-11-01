@@ -223,6 +223,8 @@ struct lightningd {
 	/* These are the forced channel secrets for the node. */
 	struct secrets *dev_force_channel_secrets;
 	struct sha256 *dev_force_channel_secrets_shaseed;
+
+	struct channel_id *dev_force_tmp_channel_id;
 #endif /* DEVELOPER */
 
 	/* tor support */

@@ -965,6 +965,7 @@ void peer_start_openingd(struct peer *peer,
 				  feature_negotiated(peer->features,
 						     OPT_STATIC_REMOTEKEY),
 				  send_msg,
+				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
 				  IFDEV(peer->ld->dev_fast_gossip, false));
 	subd_send_msg(uc->openingd, take(msg));
 }

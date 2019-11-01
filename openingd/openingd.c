@@ -15,6 +15,7 @@
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/cast/cast.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
@@ -53,6 +54,11 @@
 /* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
 #define REQ_FD STDIN_FILENO
 #define HSM_FD 6
+
+#if DEVELOPER
+/* If --dev-force-tmp-channel-id is set, it ends up here */
+static struct channel_id *dev_force_tmp_channel_id;
+#endif /* DEVELOPER */
 
 /* Global state structure.  This is only for the one specific peer and channel */
 struct state {
@@ -463,6 +469,11 @@ static bool setup_channel_funder(struct state *state)
 	 * until we know their funding_pubkey) */
 	temporary_channel_id(&state->channel_id);
 
+#if DEVELOPER
+	/* --dev-force-tmp-channel-id specified */
+	if (dev_force_tmp_channel_id)
+		state->channel_id = *dev_force_tmp_channel_id;
+#endif
 	/* BOLT #2:
 	 *
 	 * The sending node:
@@ -1420,6 +1431,7 @@ int main(int argc, char *argv[])
 	struct pollfd pollfd[3];
 	struct state *state = tal(NULL, struct state);
 	struct secret *none;
+	struct channel_id *force_tmp_channel_id;
 
 	subdaemon_setup(argc, argv);
 
@@ -1442,8 +1454,13 @@ int main(int argc, char *argv[])
 				   &state->features,
 				   &state->option_static_remotekey,
 				   &inner,
+				   &force_tmp_channel_id,
 				   &dev_fast_gossip))
 		master_badmsg(WIRE_OPENING_INIT, msg);
+
+#if DEVELOPER
+	dev_force_tmp_channel_id = force_tmp_channel_id;
+#endif
 
 	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(state->pps, 3, 4, 5);
