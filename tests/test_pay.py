@@ -16,12 +16,13 @@ import time
 import unittest
 
 
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_pay(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
     inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
     before = int(time.time())
-    details = l1.rpc.pay(inv)
+    details = l1.rpc.dev_pay(inv, use_shadow=False)
     after = int(time.time())
     preimage = details['payment_preimage']
     assert details['status'] == 'complete'
@@ -36,7 +37,7 @@ def test_pay(node_factory):
     assert invoice['status'] == 'paid' and invoice['paid_at'] >= before and invoice['paid_at'] <= after
 
     # Repeat payments are NOPs (if valid): we can hand null.
-    l1.rpc.pay(inv)
+    l1.rpc.dev_pay(inv, use_shadow=False)
     # This won't work: can't provide an amount (even if correct!)
     with pytest.raises(RpcError):
         l1.rpc.pay(inv, 123000)
@@ -54,7 +55,7 @@ def test_pay(node_factory):
         # Must provide an amount!
         with pytest.raises(RpcError):
             l1.rpc.pay(inv2)
-        l1.rpc.pay(inv2, random.randint(1000, 999999))
+        l1.rpc.dev_pay(inv2, random.randint(1000, 999999), use_shadow=False)
 
     # Should see 6 completed payments
     assert len(l1.rpc.listsendpays()['payments']) == 6
@@ -64,6 +65,7 @@ def test_pay(node_factory):
     assert len(payments) == 1 and payments[0]['payment_preimage'] == preimage
 
 
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_pay_amounts(node_factory):
     l1, l2 = node_factory.line_graph(2)
     inv = l2.rpc.invoice(Millisatoshi("123sat"), 'test_pay_amounts', 'description')['bolt11']
@@ -73,13 +75,14 @@ def test_pay_amounts(node_factory):
     assert isinstance(invoice['amount_msat'], Millisatoshi)
     assert invoice['amount_msat'] == Millisatoshi(123000)
 
-    l1.rpc.pay(inv)
+    l1.rpc.dev_pay(inv, use_shadow=False)
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
     assert isinstance(invoice['amount_received_msat'], Millisatoshi)
     assert invoice['amount_received_msat'] >= Millisatoshi(123000)
 
 
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_pay_limits(node_factory):
     """Test that we enforce fee max percentage and max delay"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -120,7 +123,8 @@ def test_pay_limits(node_factory):
     assert status[2]['strategy'].startswith("Trying route hint")
 
     # This works, because fee is less than exemptfee.
-    l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
+    l1.rpc.dev_pay(inv['bolt11'], msatoshi=100000, maxfeepercent=0.0001,
+                   exemptfee=2000, use_shadow=False)
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][2]['attempts']
     assert len(status) == 1
     assert status[0]['strategy'] == "Initial attempt"
@@ -287,22 +291,23 @@ def test_pay_get_error_with_update(node_factory):
     l1.daemon.wait_for_log(r'Received channel_update for channel {}/. now DISABLED'.format(chanid2))
 
 
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_pay_optional_args(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
     inv1 = l2.rpc.invoice(123000, 'test_pay', 'desc')['bolt11']
-    l1.rpc.pay(inv1, label='desc')
+    l1.rpc.dev_pay(inv1, label='desc', use_shadow=False)
     payment1 = l1.rpc.listsendpays(inv1)['payments']
     assert len(payment1) and payment1[0]['msatoshi'] == 123000
     assert payment1[0]['label'] == 'desc'
 
     inv2 = l2.rpc.invoice(321000, 'test_pay2', 'description')['bolt11']
-    l1.rpc.pay(inv2, riskfactor=5.0)
+    l1.rpc.dev_pay(inv2, riskfactor=5.0, use_shadow=False)
     payment2 = l1.rpc.listsendpays(inv2)['payments']
     assert len(payment2) == 1 and payment2[0]['msatoshi'] == 321000
 
     anyinv = l2.rpc.invoice('any', 'any_pay', 'desc')['bolt11']
-    l1.rpc.pay(anyinv, label='desc', msatoshi='500')
+    l1.rpc.dev_pay(anyinv, label='desc', msatoshi='500', use_shadow=False)
     payment3 = l1.rpc.listsendpays(anyinv)['payments']
     assert len(payment3) == 1 and payment3[0]['msatoshi'] == 500
     assert payment3[0]['label'] == 'desc'
@@ -311,7 +316,7 @@ def test_pay_optional_args(node_factory):
     assert len(l1.rpc.listsendpays()['payments']) == 3
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_payment_success_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -327,7 +332,7 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
 
     # Fire off a pay request, it'll get interrupted by a restart
-    executor.submit(l1.rpc.pay, inv1['bolt11'])
+    executor.submit(l1.rpc.dev_pay, inv1['bolt11'], use_shadow=False)
 
     l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
@@ -351,7 +356,8 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     l1.wait_channel_active(chanid)
 
     # A duplicate should succeed immediately (nop) and return correct preimage.
-    preimage = l1.rpc.pay(inv1['bolt11'])['payment_preimage']
+    preimage = l1.rpc.dev_pay(inv1['bolt11'],
+                              use_shadow=False)['payment_preimage']
     assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
 
 
@@ -1601,7 +1607,7 @@ def test_pay_retry(node_factory, bitcoind):
     fut = executor.submit(listpays_nofail, inv['bolt11'])
 
     # Pay l1->l5 should succeed via straight line (eventually)
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
 
     # This should be OK.
     fut.result()
@@ -1615,7 +1621,7 @@ def test_pay_retry(node_factory, bitcoind):
     # It will try l1->l2->l3->l4->l5, which fails.
     inv = l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11']
     with pytest.raises(RpcError, match=r'3 attempts'):
-        l1.rpc.pay(inv)
+        l1.rpc.dev_pay(inv, use_shadow=False)
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
@@ -1653,7 +1659,7 @@ def test_pay_routeboost(node_factory, bitcoind):
 
     # Now we should be able to pay it.
     start = time.time()
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
     end = time.time()
 
     # Status should show all the gory details.
@@ -1701,7 +1707,7 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'label': 'test_pay_routeboost2',
                                       'description': 'test_pay_routeboost2',
                                       'dev-routes': [routel3l4l5]})
-        l1.rpc.pay(inv['bolt11'])
+        l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
         status = l1.rpc.call('paystatus', [inv['bolt11']])
         assert len(only_one(status['pay'])['attempts']) == 2
         assert 'failure' in only_one(status['pay'])['attempts'][0]
@@ -1723,7 +1729,8 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'label': 'test_pay_routeboost5',
                                       'description': 'test_pay_routeboost5',
                                       'dev-routes': [routel3l4l5, routel3l5]})
-        l1.rpc.pay(inv['bolt11'], label="paying test_pay_routeboost5")
+        l1.rpc.dev_pay(inv['bolt11'], label="paying test_pay_routeboost5",
+                       use_shadow=False)
 
         status = l1.rpc.call('paystatus', [inv['bolt11']])
         assert only_one(status['pay'])['bolt11'] == inv['bolt11']
@@ -1798,7 +1805,7 @@ def test_pay_direct(node_factory, bitcoind):
     for i in range(8):
         inv = l3.rpc.invoice(20000000, 'pay{}'.format(i), 'desc')['bolt11']
 
-        l0.rpc.pay(inv)
+        l0.rpc.dev_pay(inv, use_shadow=False)
 
         # We should have gone the direct route, so
         # l1->l2 channel msatoshi_to_us should not
@@ -1965,7 +1972,7 @@ def test_setchannelfee_state(node_factory, bitcoind):
     bitcoind.generate_block(6)
     l0.wait_for_route(l2)
     inv = l2.rpc.invoice(100000, 'test_setchannelfee_state', 'desc')['bolt11']
-    result = l0.rpc.pay(inv)
+    result = l0.rpc.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 100042
 
@@ -2030,7 +2037,7 @@ def test_setchannelfee_routing(node_factory, bitcoind):
 
     # do and check actual payment
     inv = l3.rpc.invoice(4999999, 'test_setchannelfee_1', 'desc')['bolt11']
-    result = l1.rpc.pay(inv)
+    result = l1.rpc.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 5002020
 
@@ -2050,7 +2057,7 @@ def test_setchannelfee_routing(node_factory, bitcoind):
 
     # do and check actual payment
     inv = l3.rpc.invoice(4999999, 'test_setchannelfee_2', 'desc')['bolt11']
-    result = l1.rpc.pay(inv)
+    result = l1.rpc.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 5000049
 
@@ -2087,7 +2094,7 @@ def test_setchannelfee_zero(node_factory, bitcoind):
 
     # do and check actual payment
     inv = l3.rpc.invoice(4999999, 'test_setchannelfee_3', 'desc')['bolt11']
-    result = l1.rpc.pay(inv)
+    result = l1.rpc.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 4999999
 
@@ -2129,7 +2136,7 @@ def test_setchannelfee_restart(node_factory, bitcoind):
     # l1 can make payment to l3 with custom fees being applied
     # Note: BOLT #7 math works out to 2021 msat fees
     inv = l3.rpc.invoice(4999999, 'test_setchannelfee_1', 'desc')['bolt11']
-    result = l1.rpc.pay(inv)
+    result = l1.rpc.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 5002020
 

@@ -516,7 +516,7 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     ], wait_for_announce=True)
 
     i1 = l3.rpc.invoice(msatoshi=1000, label="direct", description="desc")['bolt11']
-    f1 = executor.submit(l1.rpc.pay, i1)
+    f1 = executor.submit(l1.rpc.dev_pay, i1, use_shadow=False)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
 
@@ -575,6 +575,7 @@ def test_warning_notification(node_factory):
     l1.daemon.wait_for_log('plugin-pretend_badlog.py log: Test warning notification\\(for broken event\\)')
 
 
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_invoice_payment_notification(node_factory):
     """
     Test the 'invoice_payment' notification
@@ -586,7 +587,7 @@ def test_invoice_payment_notification(node_factory):
     preimage = '1' * 64
     label = "a_descriptive_label"
     inv1 = l2.rpc.invoice(msats, label, 'description', preimage=preimage)
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.dev_pay(inv1['bolt11'], use_shadow=False)
 
     l2.daemon.wait_for_log(r"Received invoice_payment event for label {},"
                            " preimage {}, and amount of {}msat"
