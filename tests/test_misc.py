@@ -1998,3 +1998,15 @@ def test_new_node_is_mainnet(node_factory):
     assert not os.path.isfile(os.path.join(basedir, "hsm_secret"))
     assert not os.path.isfile(os.path.join(netdir, "lightningd-bitcoin.pid"))
     assert os.path.isfile(os.path.join(basedir, "lightningd-bitcoin.pid"))
+
+
+@pytest.mark.xfail(strict=True)
+def test_unicode_rpc(node_factory):
+    node = node_factory.get_node()
+    desc = "Some candy 🍬 and a nice glass of milk 🥛."
+
+    node.rpc.invoice(msatoshi=42, label=desc, description=desc)
+    invoices = node.rpc.listinvoices()['invoices']
+    assert(len(invoices) == 1)
+    assert(invoices[0]['description'] == desc)
+    assert(invoices[0]['label'] == desc)
