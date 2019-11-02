@@ -2343,3 +2343,28 @@ def test_error_returns_blockheight(node_factory, bitcoind):
     #    * [`u32`:`height`]
     assert (err.value.error['data']['raw_message']
             == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
+
+
+@flaky
+def test_shadow_routing(node_factory):
+    """
+    Test the value randomization through shadow routing
+
+    Since there is a very low (0.5**10) probability that it fails we mark it
+    as flaky.
+    """
+    # We need l3 for random walk
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    amount = 10000
+    total_amount = 0
+    n_payments = 10
+    for i in range(n_payments):
+        inv = l3.rpc.invoice(amount, "{}".format(i), "test")["bolt11"]
+        total_amount += l1.rpc.pay(inv)["amount_msat"]
+
+    assert total_amount.millisatoshis > n_payments * amount
+    # Test that the added amount isn't absurd
+    assert total_amount.millisatoshis < (n_payments * amount) * (1 + 0.01)
+
+    # FIXME: Test cltv delta too ?
