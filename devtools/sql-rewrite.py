@@ -12,7 +12,7 @@ DEBUG = False
 def eprint(*args, **kwargs):
     if not DEBUG:
         return
-    print(*args, **kwargs, file=sys.stderr)
+    print(*args, file=sys.stderr, **kwargs)
 
 
 class Rewriter(object):
