@@ -306,7 +306,7 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     assert len(l1.rpc.listfunds()['outputs']) == 3
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_htlc_out_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't time out HTLC"""
 
@@ -328,7 +328,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     inv = l2.rpc.invoice(amt, 'test_htlc_out_timeout', 'desc')['bolt11']
     assert only_one(l2.rpc.listinvoices('test_htlc_out_timeout')['invoices'])['status'] == 'unpaid'
 
-    executor.submit(l1.rpc.pay, inv)
+    executor.submit(l1.rpc.dev_pay, inv, use_shadow=False)
 
     # l1 will disconnect, and not reconnect.
     l1.daemon.wait_for_log('dev_disconnect: @WIRE_REVOKE_AND_ACK')
@@ -373,7 +373,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_htlc_in_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't accept fulfilled HTLC"""
 
@@ -395,7 +395,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
     assert only_one(l2.rpc.listinvoices('test_htlc_in_timeout')['invoices'])['status'] == 'unpaid'
 
-    executor.submit(l1.rpc.pay, inv)
+    executor.submit(l1.rpc.dev_pay, inv, use_shadow=False)
 
     # l1 will disconnect and not reconnect.
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
