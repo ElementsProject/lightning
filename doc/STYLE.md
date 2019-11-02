@@ -160,3 +160,40 @@ Try to make a single change at a time.  It's tempting to do "drive-by"
 fixes as you see other things, and a minimal amount is unavoidable, but
 you can end up shaving infinite yaks.  This is a good time to drop a 
 `/* FIXME: ...*/` comment and move on.
+
+## Github Workflows
+
+We have adopted a number of workflows to facilitate the development of
+c-lightning, and to make things more pleasant for contributors.
+
+### Changelog Entries in Commit Messages
+
+We are maintaining a chanelog in the top-level directory of this
+project. However since every pull request has a tendency to touch the file and
+therefore create merge-conflicts we decided to derive the changelog file from
+the pull requests that were added between releases. In order for a pull
+request to show up in the changelog at least one of its commits will have to
+have a line with one of the following prefixes:
+
+ - `Changelog-Added: ` if the pull request adds a new feature
+ - `Changelog-Changed: ` if a feature has been modified and might require
+   changes on the user side
+ - `Changelog-Deprecated: ` if a feature has been marked for deprecation, but
+   not yet removed
+ - `Changelog-Fixed: ` if a bug has been fixed
+ - `Changelog-Removed: ` if a (previously deprecated) feature has been removed
+ - `Changelog-Security: ` if a security issue has been addressed and the users
+   will need to upgrade in order to stay secure
+ 
+In case you think the pull request is small enough not to require a changelog
+entry please use `Changelog-None` in one of the commit messages to opt out.
+ 
+Under some circumstances a feature may be removed even without deprecation
+warning if it was not part of a released version yet, or the removal is
+urgent.
+
+In order to ensure that each pull request has the required `Changelog-*:` line
+for the changelog our trusty @bitcoin-bot will check logs whenever a pull
+request is created or updated and search for the required line. If there is no
+such line it'll mark the pull request as `pending` to call out the need for an
+entry.
