@@ -19,13 +19,16 @@ Here's a checklist for the release process.
 
 ### Preparing for -rc1
 
-1. Check that CHANGELOG.md is well formatted, ordered in areas,
+1. Check that `CHANGELOG.md` is well formatted, ordered in areas,
    covers all signficant changes, and sub-ordered approximately by user impact
    & coolness.
-2. Update the CHANGELOG.md with [Unreleased] changed to v<VERSION>-rc1. Note that
+2. Use `devtools/changelog.py` to collect the changelog entries from pull
+   request commit messages and merge them into the manually maintained
+   `CHANGELOG.md`.
+3. Update the CHANGELOG.md with [Unreleased] changed to v<VERSION>-rc1. Note that
    you should exactly copy the date and name format from a previous
    release, as the `build-release.sh` script relies on this.
-3. Create a PR with the above.
+4. Create a PR with the above.
 
 ### Releasing -rc1
 
