@@ -683,6 +683,71 @@ processed before the HTLC was forwarded, failed, or resolved, then the plugin
 may see the same HTLC again during startup. It is therefore paramount that the
 plugin is idempotent if it talks to an external system.
 
+
+#### `rpc_command`
+
+The `rpc_command` hook allows a plugin to take over any RPC command. It sends
+the received JSON-RPC request to the registered plugin,
+
+```json
+{
+    "rpc_command": {
+        "method": "method_name",
+        "params": {
+            "param_1": [],
+            "param_2": {},
+            "param_n": "",
+        }
+    }
+}
+```
+
+which can in turn:
+
+Let `lightningd` execute the command with
+
+```json
+{
+    "continue": true
+}
+```
+Replace the request made to `lightningd`:
+
+```json
+{
+    "replace": {
+        "method": "method_name",
+        "params": {
+            "param_1": [],
+            "param_2": {},
+            "param_n": "",
+        }
+    }
+}
+```
+
+Return a custom response to the request sender:
+
+```json
+{
+    "return": {
+        "result": {
+        }
+    }
+}
+```
+
+Return a custom error to the request sender:
+
+```json
+{
+    "return": {
+        "error": {
+        }
+    }
+}
+```
+
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
