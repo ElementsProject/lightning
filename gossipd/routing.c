@@ -485,6 +485,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 		node->bcast.index = gossip_store_add(rstate->gs,
 						     announce,
 						     node->bcast.timestamp,
+						     false,
 						     NULL);
 	}
 }
@@ -1562,6 +1563,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      u32 index)
 {
 	u8 *addendum = towire_gossip_store_channel_amount(tmpctx, chan->sat);
+	bool is_local = is_local_channel(rstate, chan);
 
 	chan->bcast.timestamp = timestamp;
 	/* 0, unless we're loading from store */
@@ -1571,8 +1573,9 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 		chan->bcast.index = gossip_store_add(rstate->gs,
 						     channel_announce,
 						     chan->bcast.timestamp,
+						     is_local,
 						     addendum);
-	rstate->local_channel_announced |= is_local_channel(rstate, chan);
+	rstate->local_channel_announced |= is_local;
 }
 
 bool routing_add_channel_announcement(struct routing_state *rstate,
@@ -2187,6 +2190,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		hc->bcast.index
 			= gossip_store_add(rstate->gs, update,
 					   hc->bcast.timestamp,
+					   is_local_channel(rstate, chan),
 					   NULL);
 		if (hc->bcast.timestamp > rstate->last_timestamp
 		    && hc->bcast.timestamp < time_now().ts.tv_sec)
@@ -2528,7 +2532,10 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	else {
 		node->bcast.index
 			= gossip_store_add(rstate->gs, msg,
-					   node->bcast.timestamp, NULL);
+					   node->bcast.timestamp,
+					   node_id_eq(&node_id,
+						      &rstate->local_id),
+					   NULL);
 		peer_supplied_good_gossip(peer, 1);
 	}
 	return true;
@@ -2919,7 +2926,7 @@ bool handle_local_add_channel(struct routing_state *rstate,
 	/* Create new (unannounced) channel */
 	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
 	if (!index)
-		index = gossip_store_add(rstate->gs, msg, 0, NULL);
+		index = gossip_store_add(rstate->gs, msg, 0, false, NULL);
 	chan->bcast.index = index;
 	return true;
 }
