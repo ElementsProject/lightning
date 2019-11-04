@@ -48,17 +48,17 @@ randomization.
 
 1: Route Randomization
 
-2: Shadow Route
-
 Route randomization means the payment algorithm does not always use the
 lowest-fee or shortest route. This prevents some highly-connected node
 from learning all of the user payments by reducing their fees below the
 network average.
 
-Shadow route means the payment algorithm will virtually extend the time
-delays along the route, making it appear to intermediate nodes that the
-route is longer than it actually is. This prevents intermediate nodes
-from reliably guessing their distance from the payee.
+2: Shadow Route
+
+Shadow route means the payment algorithm will virtually extend the route
+by adding delays and fees along it, making it appear to intermediate nodes
+that the route is longer than it actually is. This prevents intermediate
+nodes from reliably guessing their distance from the payee.
 
 Route randomization will never exceed *maxfeepercent* of the payment.
 Route randomization and shadow routing will not take routes that would

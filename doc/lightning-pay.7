@@ -51,19 +51,19 @@ randomization\.
 1: Route Randomization
 
 
-2: Shadow Route
-
-
 Route randomization means the payment algorithm does not always use the
 lowest-fee or shortest route\. This prevents some highly-connected node
 from learning all of the user payments by reducing their fees below the
 network average\.
 
 
-Shadow route means the payment algorithm will virtually extend the time
-delays along the route, making it appear to intermediate nodes that the
-route is longer than it actually is\. This prevents intermediate nodes
-from reliably guessing their distance from the payee\.
+2: Shadow Route
+
+
+Shadow route means the payment algorithm will virtually extend the route
+by adding delays and fees along it, making it appear to intermediate nodes
+that the route is longer than it actually is\. This prevents intermediate
+nodes from reliably guessing their distance from the payee\.
 
 
 Route randomization will never exceed \fImaxfeepercent\fR of the payment\.
@@ -84,6 +84,7 @@ You can monitor the progress and retries of a payment using the
 
 The following error codes may occur:
 
+.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -109,6 +110,7 @@ invoice expiration) as UNIX epoch time in seconds\.
 .IP \[bu]
 210: Payment timed out without a payment in progress\.
 
+.RE
 
 Error codes 202 and 204 will only get reported at \fBsendpay\fR; in
 \fBpay\fR we will keep retrying if we would have gotten those errors\.
@@ -116,6 +118,7 @@ Error codes 202 and 204 will only get reported at \fBsendpay\fR; in
 
 A routing failure object has the fields below:
 
+.RS
 .IP \[bu]
 \fIerring_index\fR: The index of the node along the route that reported
 the error\. 0 for the local node, 1 for the first hop, and so on\.
@@ -132,6 +135,7 @@ error, or \fI0:0:0\fR if the destination node raised the error\.
 received from the remote node\. Only present if error is from the
 remote node and the \fIfailcode\fR has the UPDATE bit set, as per BOLT #4\.
 
+.RE
 
 The \fIdata\fR field of errors will include statistics \fIgetroute_tries\fR and
 \fIsendpay_tries\fR\. It will also contain a \fIfailures\fR field with detailed
@@ -149,8 +153,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
-
-.HL
-
-Last updated 2019-08-01 14:59:36 CEST
 
