@@ -434,6 +434,28 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("dev-memleak")
 
+    def dev_pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
+                description=None, maxfeepercent=None, retry_for=None,
+                maxdelay=None, exemptfee=None, use_shadow=True):
+        """
+        A developer version of `pay`, with the possibility to deactivate
+        shadow routing (used for testing).
+        """
+        payload = {
+            "bolt11": bolt11,
+            "msatoshi": msatoshi,
+            "label": label,
+            "riskfactor": riskfactor,
+            "maxfeepercent": maxfeepercent,
+            "retry_for": retry_for,
+            "maxdelay": maxdelay,
+            "exemptfee": exemptfee,
+            "use_shadow": use_shadow,
+            # Deprecated.
+            "description": description,
+        }
+        return self.call("pay", payload)
+
     def dev_reenable_commit(self, peer_id):
         """
         Re-enable the commit timer on peer {id}
@@ -761,7 +783,9 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("newaddr", {"addresstype": addresstype})
 
-    def pay(self, bolt11, msatoshi=None, label=None, riskfactor=None, description=None):
+    def pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
+            description=None, maxfeepercent=None, retry_for=None,
+            maxdelay=None, exemptfee=None):
         """
         Send payment specified by {bolt11} with {msatoshi}
         (ignored if {bolt11} has an amount), optional {label}
@@ -772,6 +796,10 @@ class LightningRpc(UnixDomainSocketRpc):
             "msatoshi": msatoshi,
             "label": label,
             "riskfactor": riskfactor,
+            "maxfeepercent": maxfeepercent,
+            "retry_for": retry_for,
+            "maxdelay": maxdelay,
+            "exemptfee": exemptfee,
             # Deprecated.
             "description": description,
         }
