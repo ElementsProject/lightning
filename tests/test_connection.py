@@ -2196,3 +2196,35 @@ def test_feerate_stress(node_factory, executor):
     l1.rpc.call('dev-feerate', [l2.info['id'], rate - 5])
     assert not l1.daemon.is_in_log('Bad.*signature')
     assert not l2.daemon.is_in_log('Bad.*signature')
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "need dev_disconnect")
+def test_pay_disconnect_stress(node_factory, executor):
+    """Expose race in htlc restoration in channeld: 50% chance of failure"""
+    for i in range(5):
+        l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
+                                                  {'may_reconnect': True,
+                                                   'disconnect': ['=WIRE_UPDATE_ADD_HTLC',
+                                                                  '-WIRE_COMMITMENT_SIGNED']}])
+
+        scid12 = l1.get_channel_scid(l2)
+        routel2l1 = [{'msatoshi': '10000msat', 'id': l1.info['id'], 'delay': 5, 'channel': scid12}]
+
+        # Get invoice from l1 to pay.
+        payhash1 = l1.rpc.invoice(10000, "invoice", "invoice")['payment_hash']
+
+        # Start balancing payment.
+        fut = executor.submit(l1.pay, l2, 10**9 // 2)
+
+        # As soon as reverse payment is accepted, reconnect.
+        while True:
+            l2.rpc.sendpay(routel2l1, payhash1)
+            try:
+                # This will usually fail with Capacity exceeded
+                l2.rpc.waitsendpay(payhash1, timeout=TIMEOUT)
+                break
+            except RpcError:
+                pass
+
+        fut.result()
