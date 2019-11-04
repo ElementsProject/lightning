@@ -820,25 +820,32 @@ static struct command_result *add_shadow_route(struct command *cmd,
 	const jsmntok_t *chan, *best = NULL;
 	size_t i;
 	u64 sample = 0;
-	u32 cltv, best_cltv;
+	/* FIXME: Use route_info's cltv_expiry_delta member instead */
+	u32 cltv_fuzz;
+	struct route_info *route = tal_arr(NULL, struct route_info, 1);
 
 	json_for_each_arr(i, chan, channels) {
-		struct amount_sat sat;
-		u64 v;
+		u64 v = pseudorand(UINT64_MAX);
 
-		json_to_sat(buf, json_get_member(buf, chan, "satoshis"), &sat);
-		if (amount_msat_greater_sat(pc->msat, sat))
-			continue;
-
-		/* Don't use if total would exceed 1/4 of our time allowance. */
-		json_to_number(buf, json_get_member(buf, chan, "delay"), &cltv);
-		if ((pc->final_cltv + cltv) * 4 > pc->maxdelay)
-			continue;
-
-		v = pseudorand(UINT64_MAX);
 		if (!best || v > sample) {
+			struct amount_sat sat;
+
+			json_to_sat(buf, json_get_member(buf, chan, "satoshis"), &sat);
+			if (amount_msat_greater_sat(pc->msat, sat))
+				continue;
+
+			/* Don't use if total would exceed 1/4 of our time allowance. */
+			json_to_number(buf, json_get_member(buf, chan, "delay"),
+			               &cltv_fuzz);
+			if ((pc->final_cltv + cltv_fuzz) * 4 > pc->maxdelay)
+				continue;
+
+			json_to_number(buf, json_get_member(buf, chan, "base_fee_millisatoshi"),
+			               &route[0].fee_base_msat);
+			json_to_number(buf, json_get_member(buf, chan, "fee_per_millionth"),
+			               &route[0].fee_proportional_millionths);
+
 			best = chan;
-			best_cltv = cltv;
 			sample = v;
 		}
 	}
@@ -850,12 +857,18 @@ static struct command_result *add_shadow_route(struct command *cmd,
 		return start_pay_attempt(cmd, pc, "Initial attempt");
 	}
 
-	pc->final_cltv += best_cltv;
+	pc->final_cltv += cltv_fuzz;
 	pc->shadow_dest = json_strdup(pc, buf,
 				      json_get_member(buf, best, "destination"));
+	route_msatoshi(&pc->msat, pc->msat, route, 1);
 	tal_append_fmt(&pc->ps->shadow,
-		       "Added %u cltv delay for shadow to %s. ",
-		       best_cltv, pc->shadow_dest);
+		       "Added %u cltv delay, %u base fee, and %u ppm fee "
+		       "for shadow to %s.",
+		       cltv_fuzz, route[0].fee_base_msat,
+		       route[0].fee_proportional_millionths,
+		       pc->shadow_dest);
+	tal_free(route);
+
 	return shadow_route(cmd, pc);
 }
 
