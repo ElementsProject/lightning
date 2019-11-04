@@ -55,11 +55,12 @@ int main(int argc, char *argv[])
 		struct amount_sat sat;
 		u32 msglen = be32_to_cpu(hdr.len);
 		u8 *msg, *inner;
-		bool deleted;
+		bool deleted, push;
 
 		deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
+		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
 
-		msglen &= ~GOSSIP_STORE_LEN_DELETED_BIT;
+		msglen &= GOSSIP_STORE_LEN_MASK;
 		msg = tal_arr(NULL, u8, msglen);
 		if (read(fd, msg, msglen) != msglen)
 			errx(1, "%zu: Truncated file?", off);
@@ -68,7 +69,9 @@ int main(int argc, char *argv[])
 		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			warnx("Checksum verification failed");
 
-		printf("%zu: %s", off, deleted ? "DELETED " : "");
+		printf("%zu: %s%s", off,
+		       deleted ? "DELETED " : "",
+		       push ? "PUSH " : "");
 		if (deleted && !print_deleted) {
 			printf("\n");
 			goto end;

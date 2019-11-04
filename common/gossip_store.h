@@ -18,6 +18,15 @@ struct per_peer_state;
 #define GOSSIP_STORE_LEN_DELETED_BIT 0x80000000U
 
 /**
+ * Bit of length we use to mark an important record.
+ */
+#define GOSSIP_STORE_LEN_PUSH_BIT 0x40000000U
+
+/* Mask for extracting just the length part of len field */
+#define GOSSIP_STORE_LEN_MASK \
+	(~(GOSSIP_STORE_LEN_PUSH_BIT | GOSSIP_STORE_LEN_DELETED_BIT))
+
+/**
  * gossip_hdr -- On-disk format header.
  */
 struct gossip_hdr {
