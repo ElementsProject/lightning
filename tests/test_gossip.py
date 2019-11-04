@@ -137,7 +137,7 @@ def test_announce_address(node_factory, bitcoind):
 def test_gossip_timestamp_filter(node_factory, bitcoind):
     # Updates get backdated 5 seconds with --dev-fast-gossip.
     backdate = 5
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
+    l1, l2, l3, l4 = node_factory.line_graph(4, fundchannel=False)
 
     before_anything = int(time.time())
 
@@ -156,10 +156,10 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     l1.wait_for_channel_updates([chan23])
     after_23 = int(time.time())
 
-    # Make sure l1 has received all the gossip.
-    wait_for(lambda: ['alias' in node for node in l1.rpc.listnodes()['nodes']] == [True, True, True])
+    # Make sure l4 has received all the gossip.
+    wait_for(lambda: ['alias' in node for node in l4.rpc.listnodes()['nodes']] == [True, True, True])
 
-    msgs = l1.query_gossip('gossip_timestamp_filter',
+    msgs = l4.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
                            '0', '0xFFFFFFFF',
                            filters=['0109'])
@@ -172,14 +172,14 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     assert types == Counter(['0100'] * 2 + ['0102'] * 4 + ['0101'] * 3)
 
     # Now timestamp which doesn't overlap (gives nothing).
-    msgs = l1.query_gossip('gossip_timestamp_filter',
+    msgs = l4.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
                            '0', before_anything - backdate,
                            filters=['0109'])
     assert msgs == []
 
     # Now choose range which will only give first update.
-    msgs = l1.query_gossip('gossip_timestamp_filter',
+    msgs = l4.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
                            before_anything - backdate,
                            after_12 - before_anything + 1,
@@ -193,7 +193,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     assert types['0102'] == 2
 
     # Now choose range which will only give second update.
-    msgs = l1.query_gossip('gossip_timestamp_filter',
+    msgs = l4.query_gossip('gossip_timestamp_filter',
                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
                            after_12 - backdate,
                            after_23 - after_12 + 1,
