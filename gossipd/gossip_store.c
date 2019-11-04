@@ -91,7 +91,8 @@ static ssize_t gossip_pwritev(int fd, const struct iovec *iov, int iovcnt,
 }
 #endif /* !HAVE_PWRITEV */
 
-static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
+static bool append_msg(int fd, const u8 *msg, u32 timestamp,
+		       bool push, u64 *len)
 {
 	struct gossip_hdr hdr;
 	u32 msglen;
@@ -99,6 +100,8 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 
 	msglen = tal_count(msg);
 	hdr.len = cpu_to_be32(msglen);
+	if (push)
+		hdr.len |= CPU_TO_BE32(GOSSIP_STORE_LEN_PUSH_BIT);
 	hdr.crc = cpu_to_be32(crc32c(timestamp, msg, msglen));
 	hdr.timestamp = cpu_to_be32(timestamp);
 
@@ -490,7 +493,7 @@ disable:
 }
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp,
+		     u32 timestamp, bool push,
 		     const u8 *addendum)
 {
 	u64 off = gs->len;
@@ -498,12 +501,12 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len)) {
+	if (!append_msg(gs->fd, gossip_msg, timestamp, push, &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
 			      strerror(errno));
 		return 0;
 	}
-	if (addendum && !append_msg(gs->fd, addendum, 0, &gs->len)) {
+	if (addendum && !append_msg(gs->fd, addendum, 0, false, &gs->len)) {
 		status_broken("Failed writing addendum to gossip store: %s",
 			      strerror(errno));
 		return 0;
@@ -520,7 +523,7 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
 	/* A local update for an unannounced channel: not broadcastable, but
 	 * otherwise the same as a normal channel_update */
 	const u8 *pupdate = towire_gossip_store_private_update(tmpctx, update);
-	return gossip_store_add(gs, pupdate, 0, NULL);
+	return gossip_store_add(gs, pupdate, 0, false, NULL);
 }
 
 /* Returns index of following entry. */

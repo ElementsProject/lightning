@@ -402,21 +402,6 @@ static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 	return err;
 }
 
-/*~ Large peers often turn off gossip msgs (using timestamp_filter) from most
- * of their peers, however if the gossip is about us, we should spray it to
- * everyone whether they've set the filter or not, otherwise it might not
- * propagate! */
-void push_gossip(struct daemon *daemon, const u8 *msg TAKES)
-{
-	struct peer *peer;
-
-	if (taken(msg))
-		tal_steal(tmpctx, msg);
-
-	list_for_each(&daemon->peers, peer, list)
-		queue_peer_msg(peer, msg);
-}
-
 static bool handle_local_channel_announcement(struct daemon *daemon,
 					      struct peer *peer,
 					      const u8 *msg)
@@ -441,7 +426,6 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 		return false;
 	}
 
-	push_gossip(daemon, take(cannouncement));
 	return true;
 }
 

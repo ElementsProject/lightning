@@ -202,13 +202,12 @@ static void update_own_node_announcement(struct daemon *daemon)
 
 	/* This injects it into the routing code in routing.c; it should not
 	 * reject it! */
-	err = handle_node_announcement(daemon->rstate, nannounce,
+	err = handle_node_announcement(daemon->rstate, take(nannounce),
 				       NULL, NULL);
 	if (err)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected own node announcement: %s",
 			      tal_hex(tmpctx, err));
-	push_gossip(daemon, take(nannounce));
 }
 
 /* Should we announce our own node?  Called at strategic places. */
@@ -398,9 +397,6 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 			       * tmpctx, so it's actually OK. */
 			      tal_hex(tmpctx, update),
 			      tal_hex(tmpctx, msg));
-
-	if (is_chan_public(chan))
-		push_gossip(daemon, take(update));
 
 	tal_free(lc);
 }
