@@ -84,6 +84,7 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 	while (!msg) {
 		struct gossip_hdr hdr;
 		u32 msglen, checksum, timestamp;
+		bool push;
 		int type, r;
 
 		r = read(pps->gossip_store_fd, &hdr, sizeof(hdr));
@@ -99,12 +100,15 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT) {
 			/* Skip over it. */
 			lseek(pps->gossip_store_fd,
-			      be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT,
+			      be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_MASK,
 			      SEEK_CUR);
 			continue;
 		}
 
 		msglen = be32_to_cpu(hdr.len);
+		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
+		msglen &= GOSSIP_STORE_LEN_MASK;
+
 		checksum = be32_to_cpu(hdr.crc);
 		timestamp = be32_to_cpu(hdr.timestamp);
 		msg = tal_arr(ctx, u8, msglen);
@@ -135,7 +139,7 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 		    && type != WIRE_CHANNEL_UPDATE
 		    && type != WIRE_NODE_ANNOUNCEMENT)
 			msg = tal_free(msg);
-		else if (!timestamp_filter(pps, timestamp))
+		else if (!push && !timestamp_filter(pps, timestamp))
 			msg = tal_free(msg);
 	}
 

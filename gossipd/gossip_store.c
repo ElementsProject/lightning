@@ -157,7 +157,7 @@ static u32 gossip_store_compact_offline(void)
 		size_t msglen;
 		u8 *msg;
 
-		msglen = (be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT);
+		msglen = (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_MASK);
 		msg = tal_arr(NULL, u8, msglen);
 		if (!read_all(old_fd, msg, msglen)) {
 			status_broken("gossip_store_compact_offline: reading msg len %zu from store: %s",
@@ -271,6 +271,9 @@ static size_t transfer_store_msg(int from_fd, size_t from_off,
 			      from_off);
 		return 0;
 	}
+
+	/* Ignore any non-length bits (e.g. push) */
+	msglen &= GOSSIP_STORE_LEN_MASK;
 
 	/* FIXME: Reuse buffer? */
 	msg = tal_arr(tmpctx, u8, sizeof(hdr) + msglen);
@@ -395,7 +398,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 		u32 msglen, wlen;
 		int msgtype;
 
-		msglen = (be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT);
+		msglen = (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_MASK);
 		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT) {
 			off += sizeof(hdr) + msglen;
 			deleted++;
@@ -547,7 +550,7 @@ static u32 delete_by_index(struct gossip_store *gs, u32 index, int type)
 	gs->deleted++;
 
 	return index + sizeof(struct gossip_hdr)
-		+ (be32_to_cpu(belen) & ~GOSSIP_STORE_LEN_DELETED_BIT);
+		+ (be32_to_cpu(belen) & GOSSIP_STORE_LEN_MASK);
 }
 
 void gossip_store_delete(struct gossip_store *gs,
@@ -595,7 +598,7 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			      "/%"PRIu64"",
 			      offset, gs->len);
 
-	msglen = be32_to_cpu(hdr.len);
+	msglen = (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_MASK);
 	checksum = be32_to_cpu(hdr.crc);
 	msg = tal_arr(ctx, u8, msglen);
 	if (pread(gs->fd, msg, msglen, offset + sizeof(hdr)) != msglen)
@@ -651,7 +654,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 
 	gs->writable = false;
 	while (pread(gs->fd, &hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
-		msglen = be32_to_cpu(hdr.len) & ~GOSSIP_STORE_LEN_DELETED_BIT;
+		msglen = be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_MASK;
 		checksum = be32_to_cpu(hdr.crc);
 		msg = tal_arr(tmpctx, u8, msglen);
 
