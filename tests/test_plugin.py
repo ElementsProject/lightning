@@ -239,8 +239,11 @@ def test_pay_plugin(node_factory):
         l1.rpc.call('pay')
 
     # Make sure usage messages are present.
-    assert only_one(l1.rpc.help('pay')['help'])['command'] == 'pay bolt11 [msatoshi] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee]'
-    assert only_one(l1.rpc.help('paystatus')['help'])['command'] == 'paystatus [bolt11]'
+    msg = 'pay bolt11 [msatoshi] [label] [riskfactor] [maxfeepercent] '\
+          '[retry_for] [maxdelay] [exemptfee]'
+    if DEVELOPER:
+        msg += ' [use_shadow]'
+    assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
 
 
 def test_plugin_connected_hook(node_factory):
