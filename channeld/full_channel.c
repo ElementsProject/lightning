@@ -1164,6 +1164,40 @@ static bool adjust_balance(struct channel *channel, struct htlc *htlc)
 	return true;
 }
 
+static bool offset_balances(struct channel *channel)
+{
+	for (enum side view = LOCAL; view < NUM_SIDES; view++) {
+		for (enum side side = LOCAL; side < NUM_SIDES; side++) {
+			struct amount_msat *a = &channel->view[view].owed[side];
+			if (amount_msat_add(a, *a, AMOUNT_MSAT((u64)1 << 63)))
+				continue;
+
+			status_broken("Can't offset %s",
+				      type_to_string(tmpctx, struct amount_msat,
+						     a));
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool unoffset_balances(struct channel *channel)
+{
+	for (enum side view = LOCAL; view < NUM_SIDES; view++) {
+		for (enum side side = LOCAL; side < NUM_SIDES; side++) {
+			struct amount_msat *a = &channel->view[view].owed[side];
+			if (amount_msat_sub(a, *a, AMOUNT_MSAT((u64)1 << 63)))
+				continue;
+
+			status_broken("Can't unoffset %s",
+				      type_to_string(tmpctx, struct amount_msat,
+						     a));
+			return false;
+		}
+	}
+	return true;
+}
+
 bool channel_force_htlcs(struct channel *channel,
 			 const struct added_htlc *htlcs,
 			 const enum htlc_state *hstates,
@@ -1317,8 +1351,13 @@ bool channel_force_htlcs(struct channel *channel,
 			htlc->failed_scid = NULL;
 	}
 
-	/* Now adjust balances.  The balance never goes negative, because
-	 * we do them in id order. */
+	/* Add giant offset so we never go negative here. */
+	if (!offset_balances(channel))
+		return false;
+
+	/* You'd think, since we traverse HTLCs in ID order, this would never
+	 * go negative.  But this ignores the fact that HTLCs ids from each
+	 * side have no correlation with each other. */
 	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
 	     htlc = htlc_map_next(channel->htlcs, &it)) {
@@ -1326,7 +1365,7 @@ bool channel_force_htlcs(struct channel *channel,
 			return false;
 	}
 
-	return true;
+	return unoffset_balances(channel);
 }
 
 const char *channel_add_err_name(enum channel_add_err e)

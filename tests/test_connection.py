@@ -2198,7 +2198,6 @@ def test_feerate_stress(node_factory, executor):
     assert not l2.daemon.is_in_log('Bad.*signature')
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "need dev_disconnect")
 def test_pay_disconnect_stress(node_factory, executor):
     """Expose race in htlc restoration in channeld: 50% chance of failure"""
