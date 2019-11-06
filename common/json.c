@@ -90,6 +90,21 @@ bool json_to_number(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
+bool json_to_u16(const char *buffer, const jsmntok_t *tok,
+                 short unsigned int *num)
+{
+	uint64_t u64;
+
+	if (!json_to_u64(buffer, tok, &u64))
+		return false;
+	*num = u64;
+
+	/* Just in case it doesn't fit. */
+	if (*num != u64)
+		return false;
+	return true;
+}
+
 bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num)
 {
 	char *end;
