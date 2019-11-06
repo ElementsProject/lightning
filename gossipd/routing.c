@@ -1763,22 +1763,6 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	/* FIXME: Handle duplicates as per BOLT #7 */
 
 	/* BOLT #7:
-	 *
-	 *  - if `features` field contains _unknown even bits_:
-	 *    - MUST NOT parse the remainder of the message.
-	 *    - MAY discard the message altogether.
-	 *    - SHOULD NOT connect to the node.
-	 *  - MAY forward `node_announcement`s that contain an _unknown_
-	 *   `features` _bit_, regardless of if it has parsed the announcement
-	 *   or not.
-	 */
-	if (!features_supported(features)) {
-		status_debug("Ignoring channel announcement, unsupported features %s.",
-			     tal_hex(pending, features));
-		goto ignored;
-	}
-
-	/* BOLT #7:
 	 * The receiving node:
 	 *...
 	 *  - if the specified `chain_hash` is unknown to the receiver:
@@ -2573,22 +2557,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 					  "Malformed node_announcement %s",
 					  tal_hex(tmpctx, node_ann));
 		return err;
-	}
-
-	/* BOLT #7:
-	 *
-	 * The receiving node:
-	 *...
-	 *  - if `features` field contains _unknown even bits_:
-	 *    - MUST NOT parse the remainder of the message.
-	 *    - MAY discard the message altogether.
-	 *    - SHOULD NOT connect to the node.
-	 */
-	if (!features_supported(features)) {
-		status_debug("Ignoring node announcement for node %s, unsupported features %s.",
-			     type_to_string(tmpctx, struct node_id, &node_id),
-			     tal_hex(tmpctx, features));
-		return NULL;
 	}
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
