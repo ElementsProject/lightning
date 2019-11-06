@@ -37,32 +37,32 @@ static void do_generate(int argc, char **argv,
 	sp = sphinx_path_new_with_key(ctx, assocdata, &session_key);
 
 	for (int i = 0; i < num_hops; i++) {
-		size_t klen = strcspn(argv[1 + i], "/");
+		size_t klen = strcspn(argv[2 + i], "/");
 		if (hex_data_size(klen) == PRIVKEY_LEN) {
-			if (!hex_decode(argv[1 + i], klen, rawprivkey, PRIVKEY_LEN))
+			if (!hex_decode(argv[2 + i], klen, rawprivkey, PRIVKEY_LEN))
 				errx(1, "Invalid private key hex '%s'",
-				     argv[1 + i]);
+				     argv[2 + i]);
 
 			if (secp256k1_ec_pubkey_create(secp256k1_ctx,
 						       &path[i].pubkey,
 						       rawprivkey) != 1)
 				errx(1, "Could not decode pubkey");
 		} else if (hex_data_size(klen) == PUBKEY_CMPR_LEN) {
-			if (!pubkey_from_hexstr(argv[i + 1], klen, &path[i]))
+			if (!pubkey_from_hexstr(argv[2 + i], klen, &path[i]))
 				errx(1, "Invalid public key hex '%s'",
-				     argv[1 + i]);
+				     argv[2 + i]);
 		} else {
 			errx(1,
 			     "Provided key is neither a pubkey nor a privkey: "
 			     "%s\n",
-			     argv[1 + i]);
+			     argv[2 + i]);
 		}
 
 		memset(&hops_data[i], 0, sizeof(hops_data[i]));
-		if (argv[1 + i][klen] != '\0') {
+		if (argv[2 + i][klen] != '\0') {
 			/* FIXME: Generic realm support, not this hack! */
 			/* FIXME: Multi hop! */
-			const char *hopstr = argv[1 + i] + klen + 1;
+			const char *hopstr = argv[2 + i] + klen + 1;
 			size_t dsize = hex_data_size(strlen(hopstr));
 			be64 scid, msat;
 			be32 cltv;
