@@ -1094,8 +1094,10 @@ def test_gossipwith(node_factory):
 
 
 def test_gossip_notices_close(node_factory, bitcoind):
-    # We want IO logging so we can replay a channel_announce to l1.
-    l1 = node_factory.get_node(options={'log-level': 'io'})
+    # We want IO logging so we can replay a channel_announce to l1;
+    # We also *really* do feed it bad gossip!
+    l1 = node_factory.get_node(options={'log-level': 'io'},
+                               allow_bad_gossip=True)
     l2, l3 = node_factory.line_graph(2)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # FIXME: sending SIGUSR1 immediately may kill it before handler installed.
