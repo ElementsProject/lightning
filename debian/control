@@ -2,7 +2,7 @@ Source: lightningd
 Section: net
 Priority: optional
 Maintainer: Christian Decker <decker.christian@gmail.com>
-Build-Depends: debhelper (>=9),autotools-dev,build-essential,pkg-config,libsqlite3-dev,git,libtool,libgmp-dev,libsqlite3-dev,python,python3,net-tools,zlib1g-dev,python3-pip,autoconf,automake,python3-mako
+Build-Depends: debhelper (>=9),autotools-dev,build-essential,pkg-config,libsqlite3-dev,git,libtool,libgmp-dev,libsqlite3-dev,python,python3,net-tools,zlib1g-dev,python3-pip,autoconf,automake,python3-mako,gettext
 Depends: libsqlite3-0 bitcoind
 Standards-Version: 3.9.6
 Homepage: https://github.com/ElementsProject/lightning
