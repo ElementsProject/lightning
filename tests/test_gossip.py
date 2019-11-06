@@ -1123,17 +1123,13 @@ def test_gossip_notices_close(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
 
-    # FIXME: This is a hack: we should have a framework for canned conversations
-    # This doesn't naturally terminate, so we give it 5 seconds.
-    try:
-        subprocess.run(['devtools/gossipwith',
-                        '{}@localhost:{}'.format(l1.info['id'], l1.port),
-                        channel_announcement,
-                        channel_update,
-                        node_announcement],
-                       timeout=5, stdout=subprocess.PIPE)
-    except subprocess.TimeoutExpired:
-        pass
+    subprocess.run(['devtools/gossipwith',
+                    '--max-messages=0',
+                    '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                    channel_announcement,
+                    channel_update,
+                    node_announcement],
+                   timeout=TIMEOUT)
 
     # l1 should reject it.
     assert(l1.rpc.listchannels()['channels'] == [])
