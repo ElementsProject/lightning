@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
 			   "Stream complete gossip history at start");
 	opt_register_arg("--max-messages", opt_set_ulongval, opt_show_ulongval,
 			 &max_messages,
-			 "Terminate after reading this many messages (> 0)");
+			 "Terminate after reading this many messages");
 	opt_register_noarg("--stdin", opt_set_bool, &stream_stdin,
 			   "Stream gossip messages from stdin.");
 	opt_register_noarg("--no-init", opt_set_bool, &no_init,
