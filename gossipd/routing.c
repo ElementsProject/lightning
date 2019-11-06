@@ -1721,9 +1721,8 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	}
 
 	/* If a prior txout lookup failed there is little point it trying
-	 * again. Just drop the announcement and walk away whistling. Any non-0
-	 * result means this failed before. */
-	if (uintmap_get(&rstate->txout_failures, pending->short_channel_id.u64)) {
+	 * again. Just drop the announcement and walk away whistling. */
+	if (in_txout_failures(rstate, &pending->short_channel_id)) {
 		SUPERVERBOSE(
 		    "Ignoring channel_announcement of %s due to a prior txout "
 		    "query failure. The channel was likely closed on-chain.",
