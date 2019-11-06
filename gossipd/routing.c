@@ -258,8 +258,8 @@ static void txout_failure_age(struct routing_state *rstate)
 						   txout_failure_age, rstate);
 }
 
-static void add_to_txout_failures(struct routing_state *rstate,
-				  const struct short_channel_id *scid)
+void add_to_txout_failures(struct routing_state *rstate,
+			   const struct short_channel_id *scid)
 {
 	if (uintmap_add(&rstate->txout_failures, scid->u64, true)
 	    && ++rstate->num_txout_failures == 10000) {

@@ -529,4 +529,8 @@ void remove_channel_from_store(struct routing_state *rstate,
 const char *unfinalized_entries(const tal_t *ctx, struct routing_state *rstate);
 
 void remove_all_gossip(struct routing_state *rstate);
+
+/* This scid is dead to us. */
+void add_to_txout_failures(struct routing_state *rstate,
+			   const struct short_channel_id *scid);
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
