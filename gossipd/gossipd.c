@@ -1517,6 +1517,8 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 		    "Deleting channel %s due to the funding outpoint being "
 		    "spent",
 		    type_to_string(msg, struct short_channel_id, &scid));
+		/* Suppress any now-obsolete updates/announcements */
+		add_to_txout_failures(rstate, &scid);
 		remove_channel_from_store(rstate, chan);
 		/* Freeing is sufficient since everything else is allocated off
 		 * of the channel and this takes care of unregistering
