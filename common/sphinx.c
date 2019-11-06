@@ -511,6 +511,7 @@ struct onionpacket *create_onionpacket(
 			      sphinx_hop_size(&sp->hops[num_hops - 1]);
 	u8 filler[fillerSize];
 	struct keyset keys;
+	u8 padkey[KEY_LEN];
 	u8 nexthmac[HMAC_SIZE];
 	u8 stream[ROUTING_INFO_SIZE];
 	struct hop_params *params;
@@ -529,7 +530,16 @@ struct onionpacket *create_onionpacket(
 	}
 	packet->version = 0;
 	memset(nexthmac, 0, HMAC_SIZE);
-	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
+
+	/* BOLT-e116441ee836447ac3f24cdca62bac1e0f223d5f #4:
+	 *
+	 * The packet is initialized with 1366 _random_ bytes derived from a
+	 * CSPRNG.
+	 */
+	/* Note that this is just hop_payloads: the rest of the packet is
+	 * overwritten below or above anyway. */
+	generate_key(padkey, "pad", 3, sp->session_key->data);
+	generate_cipher_stream(stream, padkey, ROUTING_INFO_SIZE);
 
 	generate_header_padding(filler, sizeof(filler), sp, params);
 
