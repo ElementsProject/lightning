@@ -2201,7 +2201,11 @@ def test_feerate_stress(node_factory, executor):
 @unittest.skipIf(not DEVELOPER, "need dev_disconnect")
 def test_pay_disconnect_stress(node_factory, executor):
     """Expose race in htlc restoration in channeld: 50% chance of failure"""
-    for i in range(5):
+    if SLOW_MACHINE and VALGRIND:
+        NUM_RUNS = 2
+    else:
+        NUM_RUNS = 5
+    for i in range(NUM_RUNS):
         l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
                                                   {'may_reconnect': True,
                                                    'disconnect': ['=WIRE_UPDATE_ADD_HTLC',
