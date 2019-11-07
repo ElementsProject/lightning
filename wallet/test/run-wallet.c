@@ -1248,7 +1248,8 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wallet *w = create_test_wallet(ld, ctx);
 
 	mempat(t, sizeof(*t));
-	memset(&t->destination, 2, sizeof(t->destination));
+	t->destination = tal(t, struct node_id);
+	memset(t->destination, 2, sizeof(struct node_id));
 
 	t->id = 0;
 	t->msatoshi = AMOUNT_MSAT(100);
@@ -1263,7 +1264,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
-	CHECK(node_id_cmp(&t2->destination, &t->destination) == 0);
+	CHECK(node_id_cmp(t2->destination, t->destination) == 0);
 	CHECK(amount_msat_eq(t2->msatoshi, t->msatoshi));
 	CHECK(amount_msat_eq(t2->msatoshi_sent, t->msatoshi_sent));
 	CHECK(!t2->payment_preimage);
@@ -1276,7 +1277,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
-	CHECK(node_id_eq(&t2->destination, &t->destination));
+	CHECK(node_id_eq(t2->destination, t->destination));
 	CHECK(amount_msat_eq(t2->msatoshi, t->msatoshi));
 	CHECK(amount_msat_eq(t2->msatoshi_sent, t->msatoshi_sent));
 	CHECK(preimage_eq(t->payment_preimage, t2->payment_preimage));
