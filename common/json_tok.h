@@ -111,4 +111,14 @@ struct command_result *param_ignore(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    const void *unused);
 
+/* Extract a secret from this string */
+struct command_result *param_secret(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    struct secret **secret);
+
+/* Extract a binary value from the param and unhexlify it. */
+struct command_result *param_bin_from_hex(struct command *cmd, const char *name,
+					  const char *buffer, const jsmntok_t *tok,
+					  u8 **bin);
+
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */

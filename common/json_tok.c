@@ -228,3 +228,31 @@ struct command_result *param_channel_id(struct command *cmd, const char *name,
 			    name, json_tok_full_len(tok),
 			    json_tok_full(buffer, tok));
 }
+
+struct command_result *param_secret(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    struct secret **secret)
+{
+	*secret = tal(cmd, struct secret);
+	if (hex_decode(buffer + tok->start,
+		       tok->end - tok->start,
+		       *secret, sizeof(**secret)))
+		return NULL;
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a 32 byte hex value, not '%.*s'",
+			    name, tok->end - tok->start, buffer + tok->start);
+}
+
+struct command_result *param_bin_from_hex(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    u8 **bin)
+{
+	*bin = json_tok_bin_from_hex(cmd, buffer, tok);
+	if (bin != NULL)
+		return NULL;
+	else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be a hex value, not '%.*s'",
+				    name, tok->end - tok->start, buffer + tok->start);
+}
