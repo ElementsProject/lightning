@@ -842,23 +842,6 @@ static struct command_result *param_route_hop_style(struct command *cmd,
 			    json_tok_full(buffer, tok));
 }
 
-static struct command_result *param_secret(struct command *cmd,
-					   const char *name,
-					   const char *buffer,
-					   const jsmntok_t *tok,
-					   struct secret **secret)
-{
-	*secret = tal(cmd, struct secret);
-	if (hex_decode(buffer + tok->start,
-		       tok->end - tok->start,
-		       *secret, sizeof(**secret)))
-		return NULL;
-
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a 32 byte hex value, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
-}
-
 static struct command_result *json_sendpay(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
