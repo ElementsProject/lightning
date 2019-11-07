@@ -879,6 +879,98 @@ param_route_hop(struct command *cmd, const char *name, const char *buffer,
 	return NULL;
 }
 
+static struct command_result *json_sendonion(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	u8 *onion;
+	struct onionpacket *packet;
+	enum onion_type failcode;
+	struct htlc_out *hout;
+	struct route_hop *first_hop;
+	struct sha256 *payment_hash;
+	struct channel *channel;
+	struct lightningd *ld = cmd->ld;
+	struct wallet_payment *payment;
+	const char *label;
+
+	if (!params || !deprecated_apis) {
+		if (!param(cmd, buffer, params,
+			   p_req("onion", param_bin_from_hex, &onion),
+			   p_req("first_hop", param_route_hop, &first_hop),
+			   p_req("payment_hash", param_sha256, &payment_hash),
+			   p_opt("label", param_escaped_string, &label),
+			   NULL))
+			return command_param_failed();
+	}
+
+	packet = parse_onionpacket(cmd, onion, tal_bytelen(onion), &failcode);
+
+	if (!packet)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not parse the onion. Parsing failed "
+				    "with failcode=%d",
+				    failcode);
+
+	/* FIXME if the user specified a short_channel_id, but no peer nodeid,
+	 * we need to resolve that first. */
+
+	channel = active_channel_by_id(ld, &first_hop->nodeid, NULL);
+	if (!channel) {
+		struct json_stream *data
+			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,
+					   "No connection to first "
+					   "peer found");
+
+		json_add_routefail_info(data, 0, WIRE_UNKNOWN_NEXT_PEER,
+					&ld->id, &first_hop->channel_id,
+					node_id_idx(&ld->id, &first_hop->nodeid),
+					NULL);
+		json_object_end(data);
+		return command_failed(cmd, data);
+	}
+
+	hout = send_onion(cmd->ld, packet, first_hop, payment_hash, channel,
+			  &failcode);
+
+	payment = tal(hout, struct wallet_payment);
+	payment->id = 0;
+	payment->payment_hash = *payment_hash;
+		payment->status = PAYMENT_PENDING;
+	payment->msatoshi = first_hop->amount;
+	payment->msatoshi_sent = first_hop->amount;
+	payment->timestamp = time_now().ts.tv_sec;
+
+	/* These are not available for sendonion payments since the onion is
+	 * opaque and we can't extract them. Errors have to be handled
+	 * externally, since we can't decrypt them.*/
+	payment->destination = NULL;
+	payment->payment_preimage = NULL;
+	payment->path_secrets = NULL;
+	payment->route_nodes = NULL;
+	payment->route_channels = NULL;
+	payment->bolt11 = NULL;
+
+	if (label != NULL)
+		payment->label = tal_strdup(payment, label);
+	else
+		payment->label = NULL;
+
+	/* We write this into db when HTLC is actually sent. */
+	wallet_payment_setup(ld->wallet, payment);
+
+	add_sendpay_waiter(ld, cmd, payment_hash);
+	return command_still_pending(cmd);
+}
+static const struct json_command sendonion_command = {
+	"sendonion",
+	"payment",
+	json_sendonion,
+	"Send a payment with a pre-computed onion."
+};
+AUTODATA(json_command, &sendonion_command);
+
 /*-----------------------------------------------------------------------------
 JSON-RPC sendpay interface
 -----------------------------------------------------------------------------*/
