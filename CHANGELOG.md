@@ -529,3 +529,4 @@ There predate the BOLT specifications, and are only of vague historic interest:
 [0.3]: https://github.com/ElementsProject/lightning/releases/tag/v0.3-2016-05-26
 [0.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.2-2016-01-22
 [0.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.1-2015-08-08
+ 
