@@ -747,7 +747,7 @@ static void opt_parse_from_config(struct lightningd *ld, bool early)
 		return;
 	}
 
-	lines = tal_strsplit(contents, contents, "\r\n", STR_NO_EMPTY);
+	lines = tal_strsplit(contents, contents, "\r\n", STR_EMPTY_OK);
 
 	/* We have to keep all_args around, since opt will point into it */
 	all_args = notleak(tal_arr(ld, char *, tal_count(lines) - 1));
