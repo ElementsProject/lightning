@@ -251,7 +251,9 @@ struct wallet_payment {
 	u32 timestamp;
 	struct sha256 payment_hash;
 	enum wallet_payment_status status;
-	struct node_id destination;
+
+	/* The destination may not be known if we used `sendonion` */
+	struct node_id *destination;
 	struct amount_msat msatoshi;
 	struct amount_msat msatoshi_sent;
 	/* If and only if PAYMENT_COMPLETE */

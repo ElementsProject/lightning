@@ -2129,7 +2129,12 @@ void wallet_payment_store(struct wallet *wallet,
 
 	db_bind_int(stmt, 0, payment->status);
 	db_bind_sha256(stmt, 1, &payment->payment_hash);
-	db_bind_node_id(stmt, 2, &payment->destination);
+
+	if (payment->destination != NULL)
+		db_bind_node_id(stmt, 2, payment->destination);
+	else
+		db_bind_null(stmt, 2);
+
 	db_bind_amount_msat(stmt, 3, &payment->msatoshi);
 	db_bind_int(stmt, 4, payment->timestamp);
 
@@ -2189,7 +2194,13 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	payment->id = db_column_u64(stmt, 0);
 	payment->status = db_column_int(stmt, 1);
 
-	db_column_node_id(stmt, 2, &payment->destination);
+	if (!db_column_is_null(stmt, 2)) {
+		payment->destination = tal(payment, struct node_id);
+		db_column_node_id(stmt, 2, payment->destination);
+	} else {
+		payment->destination = NULL;
+	}
+
 	db_column_amount_msat(stmt, 3, &payment->msatoshi);
 	db_column_sha256(stmt, 4, &payment->payment_hash);
 

@@ -80,7 +80,9 @@ void json_add_payment_fields(struct json_stream *response,
 {
 	json_add_u64(response, "id", t->id);
 	json_add_sha256(response, "payment_hash", &t->payment_hash);
-	json_add_node_id(response, "destination", &t->destination);
+	if (t->destination != NULL)
+		json_add_node_id(response, "destination", t->destination);
+
 	json_add_amount_msat_compat(response, t->msatoshi,
 				    "msatoshi", "amount_msat");
 	json_add_amount_msat_compat(response, t->msatoshi_sent,
@@ -712,12 +714,14 @@ send_payment(struct lightningd *ld,
 								   struct amount_msat,
 								   &payment->msatoshi));
 			}
-			if (!node_id_eq(&payment->destination, &ids[n_hops-1])) {
+			if (payment->destination &&
+			    !node_id_eq(payment->destination,
+					&ids[n_hops - 1])) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
 						    "Already succeeded to %s",
 						    type_to_string(tmpctx,
 								   struct node_id,
-								   &payment->destination));
+								   payment->destination));
 			}
 			return sendpay_success(cmd, payment);
 		}
@@ -774,7 +778,7 @@ send_payment(struct lightningd *ld,
 	payment = tal(hout, struct wallet_payment);
 	payment->id = 0;
 	payment->payment_hash = *rhash;
-	payment->destination = ids[n_hops - 1];
+	payment->destination = tal_dup(payment, struct node_id, &ids[n_hops - 1]);
 	payment->status = PAYMENT_PENDING;
 	payment->msatoshi = msat;
 	payment->msatoshi_sent = route[0].amount;
