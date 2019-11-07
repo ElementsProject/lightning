@@ -630,6 +630,22 @@ static bool should_use_tlv(enum route_hop_style style)
 	abort();
 }
 
+static enum onion_type send_onion(struct lightningd *ld,
+				   const struct onionpacket *packet,
+				   const struct route_hop *first_hop,
+				   const struct sha256 *payment_hash,
+				   struct channel *channel,
+				   struct htlc_out **hout)
+{
+	const u8 *onion;
+	unsigned int base_expiry;
+	base_expiry = get_block_height(ld->topology) + 1;
+	onion = serialize_onionpacket(tmpctx, packet);
+	return send_htlc_out(channel, first_hop->amount,
+				  base_expiry + first_hop->delay,
+				  payment_hash, onion, NULL, hout);
+}
+
 /* Returns command_result if cmd was resolved, NULL if not yet called. */
 static struct command_result *
 send_payment(struct lightningd *ld,
@@ -641,8 +657,6 @@ send_payment(struct lightningd *ld,
 	     const char *b11str TAKES,
 	     const struct secret *payment_secret)
 {
-	const u8 *onion;
-	u8 sessionkey[32];
 	unsigned int base_expiry;
 	struct onionpacket *packet;
 	struct secret *path_secrets;
@@ -751,19 +765,12 @@ send_payment(struct lightningd *ld,
 		return command_failed(cmd, data);
 	}
 
-	randombytes_buf(&sessionkey, sizeof(sessionkey));
-
-	/* Onion will carry us from first peer onwards. */
 	packet = create_onionpacket(tmpctx, path, &path_secrets);
-	onion = serialize_onionpacket(tmpctx, packet);
-
+	failcode = send_onion(ld, packet, &route[0], rhash, channel, &hout);
 	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
 		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
 		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
 
-	failcode = send_htlc_out(channel, route[0].amount,
-				 base_expiry + route[0].delay,
-				 rhash, onion, NULL, &hout);
 	if (failcode) {
 		fail = immediate_routing_failure(cmd, ld,
 						 failcode,
