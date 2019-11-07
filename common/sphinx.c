@@ -542,11 +542,6 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	size_t padding_size;
 	int pos = 0;
 
-#if !EXPERIMENTAL_FEATURES
-	if (hop->type != SPHINX_V0_PAYLOAD)
-		return false;
-#endif
-
 	/* Backwards compatibility for the legacy hop_data format. */
 	if (hop->type == SPHINX_V0_PAYLOAD)
 		dest[pos++] = 0x00;
