@@ -31,10 +31,11 @@ static void do_generate(int argc, char **argv,
 	struct sphinx_path *sp;
 	struct hop_data hops_data[num_hops];
 
-	assocdata = tal_arr(ctx, u8, ASSOC_DATA_SIZE);
+	const u8* tmp_assocdata =tal_dup_arr(ctx, u8, assocdata,
+					  ASSOC_DATA_SIZE, 0);
 	memset(&session_key, 'A', sizeof(struct secret));
 
-	sp = sphinx_path_new_with_key(ctx, assocdata, &session_key);
+	sp = sphinx_path_new_with_key(ctx, tmp_assocdata, &session_key);
 
 	for (int i = 0; i < num_hops; i++) {
 		size_t klen = strcspn(argv[2 + i], "/");
@@ -141,20 +142,18 @@ static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE]
 	const tal_t *ctx = talz(NULL, tal_t);
 	u8 serialized[TOTAL_PACKET_SIZE];
 	struct route_step *step;
-	char hextemp[2 * sizeof(serialized)];
-	memset(hextemp, 0, sizeof(hextemp));
 
-	if (argc != 3)
-		opt_usage_exit_fail("Expect a privkey with --decode");
+	if (argc != 4)
+		opt_usage_exit_fail("Expect an filename and privkey with 'decode' method");
 
-	if (!read_all(STDIN_FILENO, hextemp, sizeof(hextemp)))
-		errx(1, "Reading in onion");
-
-	if (!hex_decode(hextemp, sizeof(hextemp), serialized, sizeof(serialized))) {
+	char *hextemp = grab_file(ctx, argv[2]);
+	if (!hex_decode(hextemp, strlen(hextemp), serialized, sizeof(serialized))) {
 		errx(1, "Invalid onion hex '%s'", hextemp);
 	}
 
-	step = decode_with_privkey(ctx, serialized, tal_strdup(ctx, argv[2]), assocdata);
+	const u8* tmp_assocdata =tal_dup_arr(ctx, u8, assocdata,
+					  ASSOC_DATA_SIZE, 0);
+	step = decode_with_privkey(ctx, serialized, tal_strdup(ctx, argv[3]), tmp_assocdata);
 
 	if (!step || !step->next)
 		errx(1, "Error processing message.");
@@ -304,11 +303,14 @@ int main(int argc, char **argv)
 			 assocdata,
 			 "Associated data (usu. payment_hash of payment)");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "\n\n\tdecode <onion>\n"
+			   "\n\n\tdecode <onion_file> <privkey>\n"
 			   "\tgenerate <pubkey1> <pubkey2> ...\n"
 			   "\tgenerate <pubkey1>[/hopdata] <pubkey2>[/hopdata]\n"
 			   "\tgenerate <privkey1>[/hopdata] <privkey2>[/hopdata]\n"
-			   "\truntest <test-filename>\n\n", "Show this message");
+			   "\truntest <test-filename>\n\n", "Show this message\n\n"
+			   "\texample:\n"
+			   "\t> onion generate 02c18e7ff9a319983e85094b8c957da5c1230ecb328c1f1c7e88029f1fec2046f8/00000000000000000000000000000f424000000138000000000000000000000000 --assoc-data 44ee26f01e54665937b892f6afbfdfb88df74bcca52d563f088668cf4490aacd > onion.dat\n"
+			   "\t> onion decode onion.dat 78302c8edb1b94e662464e99af721054b6ab9d577d3189f933abde57709c5cb8 --assoc-data 44ee26f01e54665937b892f6afbfdfb88df74bcca52d563f088668cf4490aacd\n");
 	opt_register_version();
 
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
