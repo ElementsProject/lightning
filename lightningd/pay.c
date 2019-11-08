@@ -829,6 +829,82 @@ send_payment(struct lightningd *ld,
 	return NULL;
 }
 
+UNNEEDED static struct command_result *
+param_route_hop(struct command *cmd, const char *name, const char *buffer,
+		const jsmntok_t *tok, struct route_hop **hop)
+{
+	const jsmntok_t *idtok, *channeltok, *directiontok, *amounttok, *delaytok;
+	struct route_hop *res;
+
+	res = tal(cmd, struct route_hop);
+	idtok = json_get_member(buffer, tok, "id");
+	channeltok = json_get_member(buffer, tok, "channel");
+	directiontok = json_get_member(buffer, tok, "direction");
+	amounttok = json_get_member(buffer, tok, "amount_msat");
+	delaytok = json_get_member(buffer, tok, "delay");
+
+	/* General verification that all fields that we need are present. */
+	if (!idtok && !channeltok)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Either 'id' or 'channel' is required for a route_hop");
+
+	if (channeltok && !directiontok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "When specifying a channel you must also "
+				    "specify the direction");
+
+	if (!amounttok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'amount_msat' is required");
+
+	if (!delaytok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'delay' is required");
+
+	/* Parsing of actual values including sanity check for all parsed
+	 * values. */
+	if (!idtok) {
+		memset(&res->nodeid, 0, sizeof(struct node_id));
+	} else if (!json_to_node_id(buffer, idtok, &res->nodeid)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be a node_id, not '%.*s'",
+				    name, tok->end - tok->start,
+				    buffer + tok->start);
+	}
+
+	if (!channeltok) {
+		memset(&res->channel_id, 0, sizeof(struct node_id));
+	} else if (!json_to_short_channel_id(buffer, channeltok, &res->channel_id)) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "'%s' should be a short_channel_id, not '%.*s'", name,
+		    tok->end - tok->start, buffer + tok->start);
+	}
+
+	if (directiontok && (!json_to_int(buffer, directiontok, &res->direction) ||
+			     res->direction > 1 || res->direction < 0))
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "'%s' should be an integer in [0,1], not '%.*s'", name,
+		    tok->end - tok->start, buffer + tok->start);
+
+	if (!json_to_msat(buffer, amounttok, &res->amount))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be a valid amount_msat, not '%.*s'",
+				    name, tok->end - tok->start,
+				    buffer + tok->start);
+
+	if (!json_to_number(buffer, delaytok, &res->delay) || res->delay < 1)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "'%s' should be a positive, non-zero, number, not '%.*s'",
+		    name, tok->end - tok->start, buffer + tok->start);
+
+	*hop = res;
+	return NULL;
+}
+
 /*-----------------------------------------------------------------------------
 JSON-RPC sendpay interface
 -----------------------------------------------------------------------------*/
