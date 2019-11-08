@@ -1,17 +1,18 @@
+from binascii import hexlify
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
 from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT, VALGRIND
 
-
-import copy
 import concurrent.futures
+import copy
 import os
 import pytest
 import random
 import re
 import string
+import struct
 import time
 import unittest
 
@@ -2402,3 +2403,47 @@ def test_createonion_rpc(node_factory):
     # The trailer is generated using the filler and can be ued as a
     # checksum. This trailer is from the test-vector in the specs.
     assert(res['onion'].endswith('be89e4701eb870f8ed64fafa446c78df3ea'))
+
+
+def test_sendonion_rpc(node_factory):
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
+    amt = 10**3
+    route = l1.rpc.getroute(l4.info['id'], 10**3, 10)['route']
+    inv = l4.rpc.invoice(amt, "lbl", "desc")
+
+    first_hop = route[0]
+    blockheight = l1.rpc.getinfo()['blockheight']
+
+    def serialize_payload(n):
+        block, tx, out = n['channel'].split('x')
+        payload = hexlify(struct.pack(
+            "!QQL",
+            int(block) << 40 | int(tx) << 16 | int(out),
+            int(n['amount_msat']),
+            blockheight + n['delay'])).decode('ASCII')
+        payload += "00" * 12
+        return payload
+
+    # Need to shift the parameters by one hop
+    hops = []
+    for h, n in zip(route[:-1], route[1:]):
+        # We tell the node h about the parameters to use for n (a.k.a. h + 1)
+        hops.append({
+            "type": "legacy",
+            "pubkey": h['id'],
+            "payload": serialize_payload(n)
+        })
+
+    # The last hop has a special payload:
+    hops.append({
+        "type": "legacy",
+        "pubkey": route[-1]['id'],
+        "payload": serialize_payload(route[-1])
+    })
+
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv['payment_hash'])
+
+    l1.rpc.sendonion(onion=onion['onion'], first_hop=first_hop,
+                     payment_hash=inv['payment_hash'])
+
+    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'])
