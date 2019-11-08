@@ -453,30 +453,25 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 					   &hout->payment_hash));
 		return;
 	}
-
-	/* FIXME: Prior to 299b280f7, we didn't put route_nodes and
-	 * route_channels in db.  If this happens, it's an old payment,
-	 * so we can simply mark it failed in db and return. */
-	if (!payment->route_channels) {
-		log_unusual(hout->key.channel->log,
-			    "No route_channels for htlc %s:"
-			    " was this an old database?",
-			    type_to_string(tmpctx, struct sha256,
-					   &hout->payment_hash));
-		wallet_payment_set_status(ld->wallet, &hout->payment_hash,
-					  PAYMENT_FAILED, NULL);
-		return;
-	}
 #else
 	assert(payment);
-	assert(payment->route_channels);
 #endif
+	assert((payment->path_secrets == NULL) == (payment->route_nodes == NULL));
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
 		fail = local_routing_failure(tmpctx, ld, hout, payment);
 		failmsg = localfail;
 		pay_errcode = PAY_TRY_OTHER_ROUTE;
+	} else if (payment->path_secrets == NULL) {
+		/* This was a payment initiated with `sendonion`, we therefore
+		 * don't have the path secrets and cannot decode the error
+		 * onion. Let's store it and hope whatever called `sendonion`
+		 * knows how to deal with these. */
+
+		pay_errcode = PAY_UNPARSEABLE_ONION;
+		fail = NULL;
+		failmsg = NULL;
 	} else {
 		/* Must be remote fail. */
 		assert(!hout->failcode);
