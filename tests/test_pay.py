@@ -2447,3 +2447,23 @@ def test_sendonion_rpc(node_factory):
                      payment_hash=inv['payment_hash'])
 
     l1.rpc.waitsendpay(payment_hash=inv['payment_hash'])
+    invs = l4.rpc.listinvoices(label="lbl")['invoices']
+    assert(len(invs) == 1 and invs[0]['status'] == 'paid')
+
+    pays = l1.rpc.listsendpays()['payments']
+    assert(len(pays) == 1 and pays[0]['status'] == 'complete' and
+           pays[0]['payment_hash'] == inv['payment_hash'])
+
+    # And now for a failing payment, using a payment_hash that doesn't match an
+    # invoice
+    payment_hash = "00"*32
+    onion = l1.rpc.createonion(hops=hops, assocdata=payment_hash)
+    l1.rpc.sendonion(onion=onion['onion'], first_hop=first_hop,
+                     payment_hash=payment_hash)
+
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay(payment_hash=payment_hash)
+
+    pays = l1.rpc.listsendpays(payment_hash=payment_hash)['payments']
+    assert(len(pays) == 1 and pays[0]['status'] == 'failed' and
+           pays[0]['payment_hash'] == payment_hash)

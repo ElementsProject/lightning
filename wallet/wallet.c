@@ -2220,6 +2220,10 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 		payment->route_nodes = db_column_node_id_arr(payment, stmt, 8);
 		payment->route_channels =
 		    db_column_short_channel_id_arr(payment, stmt, 9);
+	} else {
+		payment->path_secrets = NULL;
+		payment->route_nodes = NULL;
+		payment->route_channels = NULL;
 	}
 
 	db_column_amount_msat(stmt, 10, &payment->msatoshi_sent);
