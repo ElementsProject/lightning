@@ -672,6 +672,16 @@ static void check_config(struct lightningd *ld)
 
 	if (ld->use_proxy_always && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
+
+	if (ld->proxyaddr && (!ld->use_proxy_always || ld->config.use_dns)) {
+		if (tal_count(ld->proposed_wireaddr) != 0 && some_tor_addresses(ld->proposed_wireaddr)) {
+			log_unusual(ld->log, "WARNING: Your Tor setup use a hidden service address."
+						" --always-use-proxy=%s and --disable-dns %s"
+						" is not recommended, please set --always-use-proxy=true and use --disable-dns, we hope you know what you are doing!"
+						" c-lightning try to help you and detected that you have configured a possible dns leak of your"
+						" hidden service",ld->use_proxy_always?"true":"false", ld->config.use_dns?"not set":"set");
+		}
+	}
 }
 
 static void setup_default_config(struct lightningd *ld)

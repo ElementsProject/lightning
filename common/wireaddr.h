@@ -157,4 +157,6 @@ struct addrinfo *wireaddr_internal_to_addrinfo(const tal_t *ctx,
 
 bool all_tor_addresses(const struct wireaddr_internal *wireaddr);
 
+bool some_tor_addresses(const struct wireaddr_internal *wireaddr);
+
 #endif /* LIGHTNING_COMMON_WIREADDR_H */

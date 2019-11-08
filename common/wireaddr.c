@@ -606,3 +606,30 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 	}
 	return true;
 }
+
+bool some_tor_addresses(const struct wireaddr_internal *wireaddr)
+{
+	for (int i = 0; i < tal_count(wireaddr); i++) {
+		switch (wireaddr[i].itype) {
+		case ADDR_INTERNAL_SOCKNAME:
+			continue;
+		case ADDR_INTERNAL_FORPROXY:
+			continue;
+		case ADDR_INTERNAL_ALLPROTO:
+			continue;
+		case ADDR_INTERNAL_AUTOTOR:
+			return true;
+		case ADDR_INTERNAL_WIREADDR:
+			switch (wireaddr[i].u.wireaddr.type) {
+			case ADDR_TYPE_IPV4:
+			case ADDR_TYPE_IPV6:
+				continue;
+			case ADDR_TYPE_TOR_V2:
+			case ADDR_TYPE_TOR_V3:
+				return true;
+			}
+		}
+		abort();
+	}
+	return false;
+}
