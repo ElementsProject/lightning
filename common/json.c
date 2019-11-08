@@ -143,6 +143,14 @@ bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b)
 	return false;
 }
 
+bool json_to_secret(const char *buffer, const jsmntok_t *tok, struct secret *dest)
+{
+	size_t seclen = sizeof(struct secret), hexlen = tok->end - tok->start;
+	if (hexlen != 2 * seclen)
+		return false;
+	return hex_decode(buffer + tok->start, hexlen, dest->data, seclen);
+}
+
 u8 *json_tok_bin_from_hex(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
 	u8 *result;
