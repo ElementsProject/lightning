@@ -361,6 +361,25 @@ remote_routing_failure(const tal_t *ctx,
 	origin_index = failure->origin_index;
 
 	assert(route_nodes == NULL || origin_index < tal_count(route_nodes));
+
+	/* Either we have both channels and nodes, or neither */
+	assert((route_nodes == NULL) == (route_channels == NULL));
+
+	if (route_nodes == NULL) {
+		/* This means we have the `shared_secrets`, but cannot infer
+		 * the erring channel and node since we don't have them. This
+		 * can happen if the payment was initialized using `sendonion`
+		 * and the `shared_secrets` where specified. */
+		dir = 0;
+		erring_channel = NULL;
+		erring_node = NULL;
+
+		/* We don't know if there's another route, that'd depend in
+		 * where the failure occured and whether it was a node
+		 * failure. Let's assume it wasn't a terminal one, and have
+		 * the sendonion caller deal with the actual decision. */
+		*pay_errcode = PAY_TRY_OTHER_ROUTE;
+	} else if (origin_index == tal_count(route_nodes) - 1) {
 		/* If any channel is to blame, it's the last one. */
 		erring_channel = &route_channels[origin_index];
 		/* Single hop? */
