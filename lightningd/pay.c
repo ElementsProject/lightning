@@ -901,6 +901,9 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct lightningd *ld = cmd->ld;
 	struct wallet_payment *payment;
 	const char *label;
+	const jsmntok_t *secretstok, *cur;
+	struct secret *path_secrets;
+	size_t i;
 
 	if (!params || !deprecated_apis) {
 		if (!param(cmd, buffer, params,
@@ -908,6 +911,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 			   p_req("first_hop", param_route_hop, &first_hop),
 			   p_req("payment_hash", param_sha256, &payment_hash),
 			   p_opt("label", param_escaped_string, &label),
+			   p_opt("shared_secrets", param_array, &secretstok),
 			   NULL))
 			return command_param_failed();
 	}
@@ -919,6 +923,20 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    "Could not parse the onion. Parsing failed "
 				    "with failcode=%d",
 				    failcode);
+
+	if (secretstok) {
+		path_secrets = tal_arr(cmd, struct secret, secretstok->size);
+		json_for_each_arr(i, cur, secretstok) {
+			if (!json_to_secret(buffer, cur, &path_secrets[i]))
+				return command_fail(
+				    cmd, JSONRPC2_INVALID_PARAMS,
+				    "shared_secret[%zu] isn't a valid "
+				    "hex-encoded 32 byte secret",
+				    i);
+		}
+	} else {
+		path_secrets = NULL;
+	}
 
 	/* FIXME if the user specified a short_channel_id, but no peer nodeid,
 	 * we need to resolve that first. */
@@ -954,10 +972,10 @@ static struct command_result *json_sendonion(struct command *cmd,
 	 * externally, since we can't decrypt them.*/
 	payment->destination = NULL;
 	payment->payment_preimage = NULL;
-	payment->path_secrets = NULL;
 	payment->route_nodes = NULL;
 	payment->route_channels = NULL;
 	payment->bolt11 = NULL;
+	payment->path_secrets = tal_steal(payment, path_secrets);
 
 	if (label != NULL)
 		payment->label = tal_strdup(payment, label);
