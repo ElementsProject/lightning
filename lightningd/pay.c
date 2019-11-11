@@ -483,7 +483,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 #else
 	assert(payment);
 #endif
-	assert((payment->path_secrets == NULL) == (payment->route_nodes == NULL));
+	assert((payment->route_channels == NULL) == (payment->route_nodes == NULL));
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
