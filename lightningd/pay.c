@@ -345,10 +345,7 @@ remote_routing_failure(const tal_t *ctx,
 	route_channels = payment->route_channels;
 	origin_index = failure->origin_index;
 
-	assert(origin_index < tal_count(route_nodes));
-
-	/* Check if at destination. */
-	if (origin_index == tal_count(route_nodes) - 1) {
+	assert(route_nodes == NULL || origin_index < tal_count(route_nodes));
 		/* If any channel is to blame, it's the last one. */
 		erring_channel = &route_channels[origin_index];
 		/* Single hop? */
