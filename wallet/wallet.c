@@ -2138,15 +2138,16 @@ void wallet_payment_store(struct wallet *wallet,
 	db_bind_amount_msat(stmt, 3, &payment->msatoshi);
 	db_bind_int(stmt, 4, payment->timestamp);
 
-	if (payment->route_nodes) {
-		assert(payment->path_secrets);
-		assert(payment->route_nodes);
-		assert(payment->route_channels);
+	if (payment->path_secrets != NULL)
 		db_bind_secret_arr(stmt, 5, payment->path_secrets);
+	else
+		db_bind_null(stmt, 5);
+
+	assert((payment->route_channels == NULL) == (payment->route_nodes == NULL));
+	if (payment->route_nodes) {
 		db_bind_node_id_arr(stmt, 6, payment->route_nodes);
 		db_bind_short_channel_id_arr(stmt, 7, payment->route_channels);
 	} else {
-		db_bind_null(stmt, 5);
 		db_bind_null(stmt, 6);
 		db_bind_null(stmt, 7);
 	}
@@ -2211,17 +2212,20 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	} else
 		payment->payment_preimage = NULL;
 
-	/* Can be NULL for old db! */
-	if (!db_column_is_null(stmt, 7)) {
-		assert(!db_column_is_null(stmt, 8));
-		assert(!db_column_is_null(stmt, 9));
+	/* We either used `sendpay` or `sendonion` with the `shared_secrets`
+	 * argument. */
+	if (!db_column_is_null(stmt, 7))
 		payment->path_secrets = db_column_secret_arr(payment, stmt, 7);
+	else
+		payment->path_secrets = NULL;
 
+	/* Either none, or both are set */
+	assert(db_column_is_null(stmt, 8) == db_column_is_null(stmt, 9));
+	if (!db_column_is_null(stmt, 8)) {
 		payment->route_nodes = db_column_node_id_arr(payment, stmt, 8);
 		payment->route_channels =
 		    db_column_short_channel_id_arr(payment, stmt, 9);
 	} else {
-		payment->path_secrets = NULL;
 		payment->route_nodes = NULL;
 		payment->route_channels = NULL;
 	}
