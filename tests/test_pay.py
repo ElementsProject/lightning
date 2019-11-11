@@ -2543,3 +2543,21 @@ def test_sendonion_rpc(node_factory):
     pays = l1.rpc.listsendpays(payment_hash=payment_hash)['payments']
     assert(len(pays) == 1 and pays[0]['status'] == 'failed'
            and pays[0]['payment_hash'] == payment_hash)
+    assert('erroronion' in pays[0])
+
+    # Fail onion is msg + padding = 256 + 2*2 byte lengths + 32 byte HMAC
+    assert(len(pays[0]['erroronion']) == (256 + 32 + 2 + 2) * 2)
+
+    # Let's try that again, this time we give it the shared_secrets so it
+    # should be able to decode the error.
+    payment_hash = "01" * 32
+    onion = l1.rpc.createonion(hops=hops, assocdata=payment_hash)
+    l1.rpc.sendonion(onion=onion['onion'], first_hop=first_hop,
+                     payment_hash=payment_hash,
+                     shared_secrets=onion['shared_secrets'])
+
+    try:
+        l1.rpc.waitsendpay(payment_hash=payment_hash)
+    except RpcError as e:
+        assert(e.error['code'] == 202)
+        assert(e.error['message'] == "Malformed error reply")
