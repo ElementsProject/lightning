@@ -24,7 +24,7 @@
 struct routing_failure {
 	unsigned int erring_index;
 	enum onion_type failcode;
-	struct node_id erring_node;
+	const struct node_id *erring_node;
 	struct short_channel_id erring_channel;
 	int channel_dir;
 	/* If remote sent us a message, this is it. */
@@ -139,9 +139,11 @@ json_add_routefail_info(struct json_stream *js,
 	/* FIXME: Better way to detect this? */
 	if (!strstarts(failcodename, "INVALID "))
 		json_add_string(js, "failcodename", failcodename);
-	json_add_node_id(js, "erring_node", erring_node);
 	json_add_short_channel_id(js, "erring_channel", erring_channel);
 	json_add_num(js, "erring_direction", channel_dir);
+
+	if (erring_node != NULL)
+		json_add_node_id(js, "erring_node", erring_node);
 	if (msg)
 		json_add_hex_talarr(js, "raw_message", msg);
 }
@@ -161,7 +163,7 @@ void json_sendpay_fail_fields(struct json_stream *js,
 		json_add_routefail_info(js,
 					fail->erring_index,
 					fail->failcode,
-					&fail->erring_node,
+					fail->erring_node,
 					&fail->erring_channel,
 					fail->channel_dir,
 					fail->msg);
@@ -286,7 +288,8 @@ immediate_routing_failure(const tal_t *ctx,
 	routing_failure = tal(ctx, struct routing_failure);
 	routing_failure->erring_index = 0;
 	routing_failure->failcode = failcode;
-	routing_failure->erring_node = ld->id;
+	routing_failure->erring_node =
+	    tal_dup(routing_failure, struct node_id, &ld->id);
 	routing_failure->erring_channel = *channel0;
 	routing_failure->channel_dir = node_id_idx(&ld->id, dstid);
 	routing_failure->msg = NULL;
@@ -309,7 +312,8 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure = tal(ctx, struct routing_failure);
 	routing_failure->erring_index = 0;
 	routing_failure->failcode = hout->failcode;
-	routing_failure->erring_node = ld->id;
+	routing_failure->erring_node =
+	    tal_dup(routing_failure, struct node_id, &ld->id);
 	routing_failure->erring_channel = payment->route_channels[0];
 	routing_failure->channel_dir = node_id_idx(&ld->id,
 						   &payment->route_nodes[0]);
@@ -343,9 +347,8 @@ remote_routing_failure(const tal_t *ctx,
 	route_channels = payment->route_channels;
 	origin_index = failure->origin_index;
 
-	assert(origin_index < tal_count(route_nodes));
+	assert(route_nodes == NULL || origin_index < tal_count(route_nodes));
 
-	/* Check if at destination. */
 	if (origin_index == tal_count(route_nodes) - 1) {
 		/* If any channel is to blame, it's the last one. */
 		erring_channel = &route_channels[origin_index];
@@ -402,11 +405,17 @@ remote_routing_failure(const tal_t *ctx,
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
-	routing_failure->erring_node = *erring_node;
 	routing_failure->erring_channel = *erring_channel;
+	routing_failure->erring_node = tal_dup(routing_failure, struct node_id, erring_node);
 	routing_failure->channel_dir = dir;
 	routing_failure->msg = tal_dup_arr(routing_failure, u8, failure->msg,
 					   tal_count(failure->msg), 0);
+
+	if (erring_node != NULL)
+		routing_failure->erring_node =
+		    tal_dup(routing_failure, struct node_id, erring_node);
+	else
+		routing_failure->erring_node = NULL;
 
 	return routing_failure;
 }
@@ -519,7 +528,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    pay_errcode == PAY_DESTINATION_PERM_FAIL,
 				    fail ? fail->erring_index : -1,
 				    fail ? fail->failcode : 0,
-				    fail ? &fail->erring_node : NULL,
+				    fail ? fail->erring_node : NULL,
 				    fail ? &fail->erring_channel : NULL,
 				    NULL,
 				    failmsg,
@@ -594,7 +603,8 @@ static struct command_result *wait_payment(struct lightningd *ld,
 			fail = tal(tmpctx, struct routing_failure);
 			fail->erring_index = failindex;
 			fail->failcode = failcode;
-			fail->erring_node = *failnode;
+			fail->erring_node =
+			    tal_dup(fail, struct node_id, failnode);
 			fail->erring_channel = *failchannel;
 			fail->channel_dir = faildirection;
 			/* FIXME: We don't store this! */
