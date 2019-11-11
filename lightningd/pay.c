@@ -362,7 +362,24 @@ remote_routing_failure(const tal_t *ctx,
 
 	assert(route_nodes == NULL || origin_index < tal_count(route_nodes));
 
-	if (origin_index == tal_count(route_nodes) - 1) {
+	/* Either we have both channels and nodes, or neither */
+	assert((route_nodes == NULL) == (route_channels == NULL));
+
+	if (route_nodes == NULL) {
+		/* This means we have the `shared_secrets`, but cannot infer
+		 * the erring channel and node since we don't have them. This
+		 * can happen if the payment was initialized using `sendonion`
+		 * and the `shared_secrets` where specified. */
+		dir = 0;
+		erring_channel = NULL;
+		erring_node = NULL;
+
+		/* We don't know if there's another route, that'd depend on
+		 * where the failure occured and whether it was a node
+		 * failure. Let's assume it wasn't a terminal one, and have
+		 * the sendonion caller deal with the actual decision. */
+		*pay_errcode = PAY_TRY_OTHER_ROUTE;
+	} else if (origin_index == tal_count(route_nodes) - 1) {
 		/* If any channel is to blame, it's the last one. */
 		erring_channel = &route_channels[origin_index];
 		/* Single hop? */
@@ -484,7 +501,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 #else
 	assert(payment);
 #endif
-	assert((payment->path_secrets == NULL) == (payment->route_nodes == NULL));
+	assert((payment->route_channels == NULL) == (payment->route_nodes == NULL));
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
@@ -945,12 +962,16 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct lightningd *ld = cmd->ld;
 	struct wallet_payment *payment;
 	const char *label;
+	const jsmntok_t *secretstok, *cur;
+	struct secret *path_secrets;
+	size_t i;
 
 	if (!param(cmd, buffer, params,
 		   p_req("onion", param_bin_from_hex, &onion),
 		   p_req("first_hop", param_route_hop, &first_hop),
 		   p_req("payment_hash", param_sha256, &payment_hash),
 		   p_opt("label", param_escaped_string, &label),
+		   p_opt("shared_secrets", param_array, &secretstok),
 		   NULL))
 		return command_param_failed();
 
@@ -961,6 +982,20 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    "Could not parse the onion. Parsing failed "
 				    "with failcode=%d",
 				    failcode);
+
+	if (secretstok) {
+		path_secrets = tal_arr(cmd, struct secret, secretstok->size);
+		json_for_each_arr(i, cur, secretstok) {
+			if (!json_to_secret(buffer, cur, &path_secrets[i]))
+				return command_fail(
+				    cmd, JSONRPC2_INVALID_PARAMS,
+				    "shared_secret[%zu] isn't a valid "
+				    "hex-encoded 32 byte secret",
+				    i);
+		}
+	} else {
+		path_secrets = NULL;
+	}
 
 	/* FIXME if the user specified a short_channel_id, but no peer nodeid,
 	 * we need to resolve that first. */
@@ -996,10 +1031,10 @@ static struct command_result *json_sendonion(struct command *cmd,
 	 * externally, since we can't decrypt them.*/
 	payment->destination = NULL;
 	payment->payment_preimage = NULL;
-	payment->path_secrets = NULL;
 	payment->route_nodes = NULL;
 	payment->route_channels = NULL;
 	payment->bolt11 = NULL;
+	payment->path_secrets = tal_steal(payment, path_secrets);
 
 	if (label != NULL)
 		payment->label = tal_strdup(payment, label);
