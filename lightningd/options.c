@@ -329,6 +329,9 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 {
 	bool needed_dns = false;
 	tal_free(ld->proxyaddr);
+	/* we don't want dns by default with tor proxy so we disable this here if we should */
+	if (!ld->tor_proxy_only_tor)
+		ld->use_proxy_always = true;
 
 	/* We use a tal_arr here, so we can marshal it to gossipd */
 	ld->proxyaddr = tal_arr(ld, struct wireaddr, 1);
@@ -341,6 +344,24 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	}
 	return NULL;
 }
+
+static char *opt_add_ip_proxy_addr(const char *arg, struct lightningd *ld)
+{
+	bool needed_dns = false;
+	tal_free(ld->ipproxyaddr);
+
+	/* We use a tal_arr here, so we can marshal it to gossipd */
+	ld->ipproxyaddr = tal_arr(ld, struct wireaddr, 1);
+
+	if (!parse_wireaddr(arg, ld->ipproxyaddr, 9050,
+			    ld->use_proxy_always ? &needed_dns : NULL,
+			    NULL)) {
+		return tal_fmt(NULL, "Unable to parse ip proxy address '%s' %s",
+			       arg, needed_dns ? " (needed dns)" : "");
+	}
+	return NULL;
+}
+
 
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 {
@@ -684,8 +705,8 @@ static void check_config(struct lightningd *ld)
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
 
-	if (ld->use_proxy_always && !ld->proxyaddr)
-		fatal("--always-use-proxy needs --proxy");
+	if (ld->tor_proxy_only_tor && !ld->proxyaddr)
+		fatal("--tor_proxy_only_tor needs --proxy");
 }
 
 static void setup_default_config(struct lightningd *ld)
@@ -976,9 +997,14 @@ static void register_opts(struct lightningd *ld)
 			       "Enable deprecated options, JSONRPC commands, fields, etc.");
 
 	/* Early, as it suppresses DNS lookups from cmdline too. */
-	opt_register_early_arg("--always-use-proxy",
+	opt_register_early_noarg("--tor-proxy-only-tor",
+			       opt_set_bool, &ld->tor_proxy_only_tor,
+			        "Use the tor-proxy only for tor onion address");
+	if (deprecated_apis)
+	/* we  will use --proxy-tor-only-tor to disable default */
+		opt_register_early_arg("--always-use-proxy",
 			       opt_set_bool_arg, opt_show_bool,
-			       &ld->use_proxy_always, "Use the proxy always");
+			       &ld->use_proxy_always, "Use the proxy always ( is now the default and deprecated )");
 
 	/* This immediately makes is a daemon. */
 	opt_register_early_noarg("--daemon", opt_start_daemon, ld,
@@ -1084,9 +1110,12 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--autolisten", opt_set_bool_arg, opt_show_bool,
 			 &ld->autolisten,
 			 "If true, listen on default port and announce if it seems to be a public interface");
-
-	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
+	/* we register proxy before addr derivates since they might require DNS */
+	opt_register_early_arg("--proxy", opt_add_proxy_addr, NULL,
+			ld,"Set a the tor address and port");
+	opt_register_arg("--ip-proxy", opt_add_ip_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
+
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
@@ -1195,8 +1224,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	/* Now we know what network we're on, initialize defaults. */
 	setup_default_config(ld);
 
-	/* Finalize the logging subsystem now. */
-	logging_options_parsed(ld->log_book);
+	/* make sure that we set this early to enable DNS if set ! */
+	if (ld->tor_proxy_only_tor)
+		ld->use_proxy_always = false;
 }
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])
@@ -1352,6 +1382,9 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
 			if (ld->proxyaddr)
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
+		} else if (opt->cb_arg == (void *)opt_add_ip_proxy_addr) {
+			if (ld->ipproxyaddr)
+				answer = fmt_wireaddr(name0, ld->ipproxyaddr);
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
 			json_add_opt_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_log_level) {

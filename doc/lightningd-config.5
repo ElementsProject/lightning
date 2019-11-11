@@ -414,15 +414,26 @@ no \fIaddr\fR, \fIbind-addr\fR or \fIannounce-addr\fR options are specified\. Se
 this to \fIfalse\fR disables that\.
 
 
- \fBproxy\fR=\fIIPADDRESS[:PORT]\fR
-Set a socks proxy to use to connect to Tor nodes (or for all connections
-if \fBalways-use-proxy\fR is set)\.
+ \fBproxy\fR=\fIIPADDRESS\[:PORT\]\fR
+Set the Tor proxy to use to connect to Tor nodes (or for all connections
+if \fBtor-proxy-only-tor\fR is not set).
 
 
- \fBalways-use-proxy\fR=\fIBOOL\fR
-Always use the \fBproxy\fR, even to connect to normal IP addresses (you
-can still connect to Unix domain sockets manually)\. This also disables
-all DNS lookups, to avoid leaking information\.
+ \fBip-proxy\fR=\fIIPADDRESS\[:PORT\]\fR
+Set a socks5 proxy to use to connect to ip nodes (or for all ip connections
+if \fBtor-proxy-only-tor\fR is not set).
+
+
+ \fBalways-use-prox\fR=\fIBOOL\fR
+Always use the **proxy**, even to connect to normal IP addresses (you
+can still connect to Unix domain sockets manually). This also disables
+all DNS lookups, to avoid leaking information.
+
+
+ \fBtor-proxy-only-tor\fR
+Do not always use the \fBproxy\fR, and connect to normal IP addresses (you
+can still connect to Unix domain sockets manually). This also enables
+DNS lookups, and will leak information to the DNS system.
 
 
  \fBdisable-dns\fR

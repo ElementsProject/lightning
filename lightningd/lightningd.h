@@ -234,8 +234,11 @@ struct lightningd {
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool use_proxy_always;
+	bool tor_proxy_only_tor;
 	char *tor_service_password;
 	bool pure_tor_setup;
+
+	struct wireaddr *ipproxyaddr;
 
 	/* Original directory for deprecated plugin-relative-to-cwd */
 	const char *original_directory;

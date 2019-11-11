@@ -132,8 +132,11 @@ struct daemon {
 	 * but for simplicity we don't #if DEVELOPER-wrap it here. */
 	bool dev_allow_localhost;
 
-	/* We support use of a SOCKS5 proxy (e.g. Tor) */
+	/* We support use of Tor */
 	struct addrinfo *proxyaddr;
+
+	/* We support use of a SOCKS5 proxy */
+	struct addrinfo *ipproxyaddr;
 
 	/* They can tell us we must use proxy even for non-Tor addresses. */
 	bool use_proxy_always;
@@ -700,10 +703,45 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 			      connect);
 }
 
+/* This initializes a fresh io_conn by setting it to io_connect to the
+ * SOCKS proxy, as handled in tor.c. */
+static struct io_plan *conn_ipproxy_init(struct io_conn *conn,
+				       struct connecting *connect)
+{
+	const char *host = NULL;
+	u16 port;
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
+
+	switch (addr->itype) {
+	case ADDR_INTERNAL_FORPROXY:
+		host = addr->u.unresolved.name;
+		port = addr->u.unresolved.port;
+		break;
+	case ADDR_INTERNAL_WIREADDR:
+		host = fmt_wireaddr_without_port(tmpctx, &addr->u.wireaddr);
+		port = addr->u.wireaddr.port;
+		break;
+	case ADDR_INTERNAL_SOCKNAME:
+	case ADDR_INTERNAL_ALLPROTO:
+	case ADDR_INTERNAL_AUTOTOR:
+		break;
+	}
+
+	if (!host)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect to %u address", addr->itype);
+
+	io_set_finish(conn, destroy_io_conn, connect);
+	return io_tor_connect(conn, connect->daemon->ipproxyaddr, host, port,
+			      connect);
+}
+
+
 /*~ This is the routine which tries to connect. */
 static void try_connect_one_addr(struct connecting *connect)
 {
  	int fd, af;
+	bool use_ip_proxy = connect->daemon->ipproxyaddr && !connect->daemon->use_proxy_always;
 	bool use_proxy = connect->daemon->use_proxy_always;
 	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 
@@ -724,6 +762,7 @@ static void try_connect_one_addr(struct connecting *connect)
 		af = AF_LOCAL;
 		/* Local sockets don't use tor proxy */
 		use_proxy = false;
+		use_ip_proxy = false;
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -758,6 +797,16 @@ static void try_connect_one_addr(struct connecting *connect)
 			af = connect->daemon->proxyaddr->ai_family;
 	}
 
+	/* If we have to use proxy but we don't have one, we fail. */
+	if (use_ip_proxy) {
+		if (!connect->daemon->ipproxyaddr) {
+			status_debug("Need proxy");
+			af = -1;
+		} else
+			af = connect->daemon->ipproxyaddr->ai_family;
+	}
+
+
 	if (af == -1) {
 		fd = -1;
 		errno = EPROTONOSUPPORT;
@@ -780,9 +829,13 @@ static void try_connect_one_addr(struct connecting *connect)
 
 	/* This creates the new connection using our fd, with the initialization
 	 * function one of the above. */
-	if (use_proxy)
+	if (use_proxy || connect->daemon->use_proxy_always)
 		notleak(io_new_conn(connect, fd, conn_proxy_init, connect));
 	else
+	if (use_ip_proxy && !connect->daemon->use_proxy_always)
+		notleak(io_new_conn(connect, fd, conn_ipproxy_init, connect));
+	else
+	if (!use_proxy && !use_ip_proxy)
 		notleak(io_new_conn(connect, fd, conn_init, connect));
 }
 
@@ -1136,6 +1189,7 @@ static struct io_plan *connect_init(struct io_conn *conn,
 				    const u8 *msg)
 {
 	struct wireaddr *proxyaddr;
+	struct wireaddr *ipproxyaddr;
 	struct wireaddr_internal *binding;
 	struct wireaddr_internal *proposed_wireaddr;
 	enum addr_listen_announce *proposed_listen_announce;
@@ -1151,7 +1205,8 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password,
-		&daemon->use_v3_autotor)) {
+		&daemon->use_v3_autotor,
+		&ipproxyaddr)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
@@ -1166,12 +1221,22 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	/* Resolve Tor proxy address if any: we need an addrinfo to connect()
 	 * to. */
 	if (proxyaddr) {
-		status_debug("Proxy address: %s",
+		status_debug("Tor Proxy address: %s",
 			     fmt_wireaddr(tmpctx, proxyaddr));
 		daemon->proxyaddr = wireaddr_to_addrinfo(daemon, proxyaddr);
 		tal_free(proxyaddr);
 	} else
 		daemon->proxyaddr = NULL;
+	/* Resolve ip proxy address if any: we need an addrinfo to connect()
+	 * to. */
+	if (ipproxyaddr) {
+		status_debug("Ip proxy address: %s",
+			     fmt_wireaddr(tmpctx, ipproxyaddr));
+		daemon->ipproxyaddr = wireaddr_to_addrinfo(daemon, ipproxyaddr);
+		tal_free(ipproxyaddr);
+	} else
+		daemon->ipproxyaddr = NULL;
+
 
 	if (broken_resolver(daemon)) {
 		status_debug("Broken DNS resolver detected, will check for "

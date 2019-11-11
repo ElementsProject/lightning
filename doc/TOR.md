@@ -187,8 +187,12 @@ proxy.
 **You can always add this option, also in the other use cases, to add outgoing 
 Tor capabilities.**
 
-If you want to `connect` to nodes ONLY via the Tor proxy, you have to add the 
-`--always-use-proxy=true` option.
+If you want to `connect` to nodes ONLY via the Tor proxy, you have to add the
+`--always-use-proxy=true` option ( will be depredicated ).
+
+If you want to `connect` to nodes not ONLY via the Tor proxy, you have to add the
+`--tor-proxy-only-tor` option.
+
 
 You can announce your public IP address through the usual method:
 

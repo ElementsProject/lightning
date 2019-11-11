@@ -287,8 +287,8 @@ Set an IP address (v4 or v6) or automatic Tor address to listen on and
     first IPv4 or IPv6 address we bind to.
 
     This option can be used multiple times to add more addresses, and
-    its use disables autolisten.  If necessary, and 'always-use-proxy'
-    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
+    its use disables autolisten.  If necessary, and 'tor-proxy-only-tor'
+    is specified, a DNS lookup may be done to resolve 'IPADDRESS'
     or 'TORIPADDRESS'.
 
  **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH*
@@ -302,8 +302,8 @@ beginning with a */*.
     not specified, 9735 is used.
 
     This option can be used multiple times to add more addresses, and
-    its use disables autolisten.  If necessary, and 'always-use-proxy'
-    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
+    its use disables autolisten.  If necessary, and 'tor-proxy-only-tor'
+    is specified, a DNS lookup may be done to resolve 'IPADDRESS'.
 
  **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]*
 Set an IP (v4 or v6) address or Tor address to announce; a Tor address
@@ -318,7 +318,7 @@ is distinguished by ending in *.onion*. *PORT* defaults to 9735.
     more that one address of the same type (eg. two IPv4 or two IPv6
     addresses) so `lightningd` will refuse if you specify more than one.
 
-    If necessary, and 'always-use-proxy' is not specified, a DNS
+    If necessary, and 'tor-proxy-only-tor' is specified, a DNS
     lookup may be done to resolve 'IPADDRESS'.
 
  **offline**
@@ -332,13 +332,22 @@ no *addr*, *bind-addr* or *announce-addr* options are specified. Setting
 this to *false* disables that.
 
  **proxy**=*IPADDRESS\[:PORT\]*
-Set a socks proxy to use to connect to Tor nodes (or for all connections
-if **always-use-proxy** is set).
+Set the Tor proxy to use to connect to Tor nodes (or for all connections
+if **tor-proxy-only-tor** is not set).
+
+ **ip-proxy**=*IPADDRESS\[:PORT\]*
+Set a socks5 proxy to use to connect to ip nodes (or for all ip connections
+if **tor-proxy-only-tor** is not set).
 
  **always-use-proxy**=*BOOL*
 Always use the **proxy**, even to connect to normal IP addresses (you
 can still connect to Unix domain sockets manually). This also disables
 all DNS lookups, to avoid leaking information.
+
+ **tor-proxy-only-tor**
+Do not always use the **proxy**, and connect to normal IP addresses (you
+can still connect to Unix domain sockets manually). This also enables
+DNS lookups, and will leak information to the DNS system.
 
  **disable-dns**
 Disable the DNS bootstrapping mechanism to find a node by its node ID.
