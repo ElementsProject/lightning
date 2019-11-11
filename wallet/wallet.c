@@ -2443,11 +2443,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 		db_bind_null(stmt, 4);
 
 	if (failchannel) {
-		/* db_bind_short_channel_id requires the input
-		 * channel to be tal-allocated... */
-		struct short_channel_id *scid = tal(tmpctx, struct short_channel_id);
-		*scid = *failchannel;
-		db_bind_short_channel_id(stmt, 5, scid);
+		db_bind_short_channel_id(stmt, 5, failchannel);
 		db_bind_int(stmt, 8, faildirection);
 	} else {
 		db_bind_null(stmt, 5);
