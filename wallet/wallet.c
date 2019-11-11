@@ -2389,8 +2389,11 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 		*failupdate = tal_arr(ctx, u8, len);
 		memcpy(*failupdate, db_column_blob(stmt, 6), len);
 	}
-	*faildetail =
-	    tal_strndup(ctx, db_column_blob(stmt, 7), db_column_bytes(stmt, 7));
+	if (!db_column_is_null(stmt, 7))
+		*faildetail = tal_strndup(ctx, db_column_blob(stmt, 7),
+					  db_column_bytes(stmt, 7));
+	else
+		*faildetail = NULL;
 
 	tal_free(stmt);
 }
@@ -2452,7 +2455,11 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 	else
 		db_bind_null(stmt, 6);
 
-	db_bind_text(stmt, 7, faildetail);
+	if (faildetail != NULL)
+		db_bind_text(stmt, 7, faildetail);
+	else
+		db_bind_null(stmt, 7);
+
 	db_bind_sha256(stmt, 9, payment_hash);
 
 	db_exec_prepared_v2(take(stmt));
