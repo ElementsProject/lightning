@@ -2461,8 +2461,12 @@ def test_sendonion_rpc(node_factory):
     l1.rpc.sendonion(onion=onion['onion'], first_hop=first_hop,
                      payment_hash=payment_hash)
 
-    with pytest.raises(RpcError):
+    try:
         l1.rpc.waitsendpay(payment_hash=payment_hash)
+        raise ValueError()
+    except RpcError as e:
+        assert(e.error['code'] == 202)
+        assert(e.error['message'] == "Malformed error reply")
 
     pays = l1.rpc.listsendpays(payment_hash=payment_hash)['payments']
     assert(len(pays) == 1 and pays[0]['status'] == 'failed' and
