@@ -429,8 +429,6 @@ remote_routing_failure(const tal_t *ctx,
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
-	routing_failure->erring_channel = tal_dup(routing_failure, struct short_channel_id, erring_channel);
-	routing_failure->channel_dir = dir;
 	routing_failure->msg = tal_dup_arr(routing_failure, u8, failure->msg,
 					   tal_count(failure->msg), 0);
 
@@ -439,6 +437,15 @@ remote_routing_failure(const tal_t *ctx,
 		    tal_dup(routing_failure, struct node_id, erring_node);
 	else
 		routing_failure->erring_node = NULL;
+
+	if (erring_channel != NULL) {
+		routing_failure->erring_channel = tal_dup(
+		    routing_failure, struct short_channel_id, erring_channel);
+		routing_failure->channel_dir = dir;
+	} else {
+		routing_failure->erring_channel = NULL;
+		routing_failure->channel_dir = 0;
+	}
 
 	return routing_failure;
 }
