@@ -108,6 +108,10 @@ void json_add_payment_fields(struct json_stream *response,
 		json_add_string(response, "label", t->label);
 	if (t->bolt11)
 		json_add_string(response, "bolt11", t->bolt11);
+
+	if (t->failonion)
+		json_add_hex(response, "erroronion", t->failonion,
+			     tal_count(t->failonion));
 }
 
 static struct command_result *sendpay_success(struct command *cmd,

@@ -2471,6 +2471,11 @@ def test_sendonion_rpc(node_factory):
     pays = l1.rpc.listsendpays(payment_hash=payment_hash)['payments']
     assert(len(pays) == 1 and pays[0]['status'] == 'failed' and
            pays[0]['payment_hash'] == payment_hash)
+    assert('erroronion' in pays[0])
+
+    # Fail onion is msg + padding = 256 + 2*2 byte lengths + 32 byte HMAC
+    assert(len(pays[0]['erroronion']) == (256 + 32 + 2 + 2) * 2)
+
 
     # Let's try that again, this time we give it the shared_secrets so it
     # should be able to decode the error.
@@ -2485,3 +2490,7 @@ def test_sendonion_rpc(node_factory):
     except RpcError as e:
         assert(e.error['code'] == 204)
         assert(e.error['data']['raw_message'] == "400f00000000000003e80000006c")
+
+
+    from pprint import pprint
+    pprint(l1.rpc.listsendpays())

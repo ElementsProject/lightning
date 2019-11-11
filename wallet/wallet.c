@@ -2244,6 +2244,13 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	else
 		payment->bolt11 = NULL;
 
+	if (!db_column_is_null(stmt, 13))
+		payment->failonion =
+		    tal_dup_arr(payment, u8, db_column_blob(stmt, 13),
+				db_column_bytes(stmt, 13), 0);
+	else
+		payment->failonion = NULL;
+
 	return payment;
 }
 
@@ -2273,6 +2280,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 					     ", msatoshi_sent"
 					     ", description"
 					     ", bolt11"
+					     ", failonionreply"
 					     " FROM payments"
 					     " WHERE payment_hash = ?"));
 
@@ -2492,6 +2500,7 @@ wallet_payment_list(const tal_t *ctx,
 						  ", msatoshi_sent"
 						  ", description"
 						  ", bolt11"
+						  ", failonionreply"
 						  " FROM payments"
 						  " WHERE payment_hash = ?;"));
 		db_bind_sha256(stmt, 0, payment_hash);
@@ -2510,6 +2519,7 @@ wallet_payment_list(const tal_t *ctx,
 						     ", msatoshi_sent"
 						     ", description"
 						     ", bolt11"
+						     ", failonionreply"
 						     " FROM payments;"));
 	}
 	db_query_prepared(stmt);
