@@ -139,9 +139,11 @@ json_add_routefail_info(struct json_stream *js,
 	/* FIXME: Better way to detect this? */
 	if (!strstarts(failcodename, "INVALID "))
 		json_add_string(js, "failcodename", failcodename);
-	json_add_node_id(js, "erring_node", erring_node);
 	json_add_short_channel_id(js, "erring_channel", erring_channel);
 	json_add_num(js, "erring_direction", channel_dir);
+
+	if (erring_node != NULL)
+		json_add_node_id(js, "erring_node", erring_node);
 	if (msg)
 		json_add_hex_talarr(js, "raw_message", msg);
 }
