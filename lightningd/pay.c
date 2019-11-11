@@ -25,7 +25,7 @@ struct routing_failure {
 	unsigned int erring_index;
 	enum onion_type failcode;
 	const struct node_id *erring_node;
-	struct short_channel_id erring_channel;
+	const struct short_channel_id *erring_channel;
 	int channel_dir;
 	/* If remote sent us a message, this is it. */
 	const u8 *msg;
@@ -162,7 +162,7 @@ void json_sendpay_fail_fields(struct json_stream *js,
 					fail->erring_index,
 					fail->failcode,
 					fail->erring_node,
-					&fail->erring_channel,
+					fail->erring_channel,
 					fail->channel_dir,
 					fail->msg);
 }
@@ -288,7 +288,8 @@ immediate_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node =
 	    tal_dup(routing_failure, struct node_id, &ld->id);
-	routing_failure->erring_channel = *channel0;
+	routing_failure->erring_channel =
+	    tal_dup(routing_failure, struct short_channel_id, channel0);
 	routing_failure->channel_dir = node_id_idx(&ld->id, dstid);
 	routing_failure->msg = NULL;
 
@@ -312,9 +313,17 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = hout->failcode;
 	routing_failure->erring_node =
 	    tal_dup(routing_failure, struct node_id, &ld->id);
-	routing_failure->erring_channel = payment->route_channels[0];
-	routing_failure->channel_dir = node_id_idx(&ld->id,
-						   &payment->route_nodes[0]);
+
+	if (payment->route_nodes != NULL && payment->route_channels != NULL) {
+		routing_failure->erring_channel =
+		    tal_dup(routing_failure, struct short_channel_id,
+			    &payment->route_channels[0]);
+		routing_failure->channel_dir =
+		    node_id_idx(&ld->id, &payment->route_nodes[0]);
+	} else {
+		routing_failure->erring_channel = NULL;
+	}
+
 	routing_failure->msg = NULL;
 
 	log_debug(hout->key.channel->log, "local_routing_failure: %u (%s)",
@@ -404,8 +413,8 @@ remote_routing_failure(const tal_t *ctx,
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
-	routing_failure->erring_channel = *erring_channel;
 	routing_failure->erring_node = tal_dup(routing_failure, struct node_id, erring_node);
+	routing_failure->erring_channel = tal_dup(routing_failure, struct short_channel_id, erring_channel);
 	routing_failure->channel_dir = dir;
 	routing_failure->msg = tal_dup_arr(routing_failure, u8, failure->msg,
 					   tal_count(failure->msg), 0);
@@ -521,7 +530,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    fail ? fail->erring_index : -1,
 				    fail ? fail->failcode : 0,
 				    fail ? fail->erring_node : NULL,
-				    fail ? &fail->erring_channel : NULL,
+				    fail ? fail->erring_channel : NULL,
 				    NULL,
 				    failmsg,
 				    fail ? fail->channel_dir : 0);
@@ -597,7 +606,8 @@ static struct command_result *wait_payment(struct lightningd *ld,
 			fail->failcode = failcode;
 			fail->erring_node =
 			    tal_dup(fail, struct node_id, failnode);
-			fail->erring_channel = *failchannel;
+			fail->erring_channel =
+			    tal_dup(fail, struct short_channel_id, failchannel);
 			fail->channel_dir = faildirection;
 			/* FIXME: We don't store this! */
 			fail->msg = NULL;
