@@ -2559,5 +2559,5 @@ def test_sendonion_rpc(node_factory):
     try:
         l1.rpc.waitsendpay(payment_hash=payment_hash)
     except RpcError as e:
-        assert(e.error['code'] == 202)
-        assert(e.error['message'] == "Malformed error reply")
+        assert(e.error['code'] == 204)
+        assert(e.error['data']['raw_message'] == "400f00000000000003e80000006c")

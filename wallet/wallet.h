@@ -267,6 +267,9 @@ struct wallet_payment {
 
 	/* The label of the payment. Must support `tal_len` */
 	const char *label;
+
+	/* If we could not decode the fail onion, just add it here. */
+	const u8 *failonion;
 };
 
 struct outpoint {
