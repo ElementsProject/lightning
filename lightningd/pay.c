@@ -471,6 +471,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 		pay_errcode = PAY_UNPARSEABLE_ONION;
 		fail = NULL;
+		failmsg = NULL;
 	} else {
 		/* Must be remote fail. */
 		assert(!hout->failcode);
