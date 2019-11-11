@@ -108,6 +108,10 @@ void json_add_payment_fields(struct json_stream *response,
 		json_add_string(response, "label", t->label);
 	if (t->bolt11)
 		json_add_string(response, "bolt11", t->bolt11);
+
+	if (t->failonion)
+		json_add_hex(response, "erroronion", t->failonion,
+			     tal_count(t->failonion));
 }
 
 static struct command_result *sendpay_success(struct command *cmd,
@@ -855,6 +859,7 @@ send_payment(struct lightningd *ld,
 	payment->path_secrets = tal_steal(payment, path_secrets);
 	payment->route_nodes = tal_steal(payment, ids);
 	payment->route_channels = tal_steal(payment, channels);
+	payment->failonion = NULL;
 	if (label != NULL)
 		payment->label = tal_strdup(payment, label);
 	else
@@ -1034,6 +1039,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	payment->route_nodes = NULL;
 	payment->route_channels = NULL;
 	payment->bolt11 = NULL;
+	payment->failonion = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
 
 	if (label != NULL)
