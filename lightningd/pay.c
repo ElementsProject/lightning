@@ -407,6 +407,12 @@ remote_routing_failure(const tal_t *ctx,
 	routing_failure->msg = tal_dup_arr(routing_failure, u8, failure->msg,
 					   tal_count(failure->msg), 0);
 
+	if (erring_node != NULL)
+		routing_failure->erring_node =
+		    tal_dup(routing_failure, struct node_id, erring_node);
+	else
+		routing_failure->erring_node = NULL;
+
 	return routing_failure;
 }
 
