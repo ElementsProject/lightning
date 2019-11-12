@@ -250,9 +250,9 @@ int main(int argc, char *argv[])
 	struct privkey local_htlc_privkey, remote_htlc_privkey;
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
 	bool option_static_remotekey = false;
-	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
 	setup_locale();
+	chainparams = chainparams_for_network("bitcoin");
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
