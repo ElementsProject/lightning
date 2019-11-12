@@ -663,3 +663,18 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
     assert node_id == l1.rpc.getinfo()["id"]
+
+
+# this test does a 'listtransactions' on a yet unconfirmed channel
+def test_fundchannel_listtransaction(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10**6)
+
+    l1.connect(l2)
+    txid = l1.rpc.fundchannel(l2.info['id'], 10**5)['txid']
+
+    # next call warned about SQL Accessing a null column
+    # and crashed the daemon for accessing random memory or null
+    txs = l1.rpc.listtransactions()['transactions']
+    assert txs[0]['hash'] == txid
+    assert txs[0]['blockheight'] == 0
