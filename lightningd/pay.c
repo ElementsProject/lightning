@@ -1002,8 +1002,19 @@ static struct command_result *json_sendonion(struct command *cmd,
 		path_secrets = NULL;
 	}
 
-	/* FIXME if the user specified a short_channel_id, but no peer nodeid,
-	 * we need to resolve that first. */
+	/* Now, do we already have a payment? */
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);
+	if (payment) {
+		if (payment->status == PAYMENT_PENDING) {
+			log_debug(ld->log, "send_payment: previous still in progress");
+			return json_sendpay_in_progress(cmd, payment);
+		}
+		if (payment->status == PAYMENT_COMPLETE) {
+			log_debug(ld->log, "send_payment: previous succeeded");
+			return sendpay_success(cmd, payment);
+		}
+		log_debug(ld->log, "send_payment: found previous, retrying");
+	}
 
 	channel = active_channel_by_id(ld, &first_hop->nodeid, NULL);
 	if (!channel) {
@@ -1018,6 +1029,12 @@ static struct command_result *json_sendonion(struct command *cmd,
 					NULL);
 		json_object_end(data);
 		return command_failed(cmd, data);
+	}
+
+	/* Cleanup any prior payment. We're about to retry. */
+	if (payment) {
+		wallet_payment_delete(ld->wallet, payment_hash);
+		wallet_local_htlc_out_delete(ld->wallet, channel, payment_hash);
 	}
 
 	failcode = send_onion(cmd->ld, packet, first_hop, payment_hash, channel,
