@@ -147,7 +147,13 @@ static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE]
 		opt_usage_exit_fail("Expect an filename and privkey with 'decode' method");
 
 	char *hextemp = grab_file(ctx, argv[2]);
-	if (!hex_decode(hextemp, strlen(hextemp), serialized, sizeof(serialized))) {
+	size_t hexlen = strlen(hextemp);
+
+	// trim trailing whitespace
+	while (isspace(hextemp[hexlen-1]))
+		hexlen--;
+
+	if (!hex_decode(hextemp, hexlen, serialized, sizeof(serialized))) {
 		errx(1, "Invalid onion hex '%s'", hextemp);
 	}
 
