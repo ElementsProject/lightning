@@ -60,12 +60,14 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
 
 #if EXPERIMENTAL_FEATURES
 /* We leave out the change addresses if there's no change left after fees */
-static size_t calculate_input_weights(struct input_info **inputs,
-				      struct amount_sat *total)
+/* Returns true if calculated without error, false on overflow */
+static bool calculate_input_weights(struct input_info **inputs,
+				    struct amount_sat *total,
+				    size_t *weight)
 {
-	u32 input_weight;
 	u64 scriptlen;
-	size_t weight = 0, i = 0;
+	u32 input_weight;
+	size_t i;
 
 	*total = AMOUNT_SAT(0);
 	for (i = 0; i < tal_count(inputs); i++) {
@@ -81,12 +83,13 @@ static size_t calculate_input_weights(struct input_info **inputs,
 		}
 
 		input_weight += inputs[i]->max_witness_len;
-		weight += input_weight;
+		*weight += input_weight;
 
-		assert(amount_sat_add(total, *total, inputs[i]->input_satoshis));
+		if (!amount_sat_add(total, *total, inputs[i]->input_satoshis))
+			return false;
 	}
 
-	return weight;
+	return true;
 }
 
 static size_t calculate_output_weights(struct output_info **outputs)
@@ -102,32 +105,35 @@ static size_t calculate_output_weights(struct output_info **outputs)
 	return output_weights;
 }
 
-static size_t calculate_weight(struct input_info **opener_inputs,
-		               struct input_info **accepter_inputs,
-		               struct output_info **opener_outputs,
-		               struct output_info **accepter_outputs,
-			       struct amount_sat *opener_total,
-			       struct amount_sat *accepter_total)
+/* Returns true if calculated without error, false on overflow */
+static bool calculate_weight(struct input_info **opener_inputs,
+		             struct input_info **accepter_inputs,
+		             struct output_info **opener_outputs,
+		             struct output_info **accepter_outputs,
+			     struct amount_sat *opener_total,
+			     struct amount_sat *accepter_total,
+			     size_t *weight)
 
 {
-	size_t weight;
-
 	/* version, input count, output count, locktime */
-	weight = (4 + 1 + 1 + 4) * 4;
+	*weight = (4 + 1 + 1 + 4) * 4;
 
 	/* add segwit fields: marker + flag */
-	weight += 1 + 1;
+	*weight += 1 + 1;
 
-	weight += calculate_input_weights(opener_inputs, opener_total);
-	weight += calculate_input_weights(accepter_inputs, accepter_total);
+	if (!calculate_input_weights(opener_inputs, opener_total, weight))
+		return false;
+
+	if (!calculate_input_weights(accepter_inputs, accepter_total, weight))
+		return false;
 
 	/* channel funding output: amount, len, scriptpubkey */
-	weight += (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WSH_LEN) * 4;
+	*weight += (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WSH_LEN) * 4;
 
-	weight += calculate_output_weights(opener_outputs);
-	weight += calculate_output_weights(accepter_outputs);
+	*weight += calculate_output_weights(opener_outputs);
+	*weight += calculate_output_weights(accepter_outputs);
 
-	return weight;
+	return true;
 }
 
 static const struct output_info *find_change_output(struct output_info **outputs)
@@ -140,15 +146,16 @@ static const struct output_info *find_change_output(struct output_info **outputs
 	return NULL;
 }
 
-static struct amount_sat calculate_output_value(struct output_info **outputs)
+static bool calculate_output_value(struct output_info **outputs,
+				   struct amount_sat *total)
 {
 	size_t i = 0;
-	struct amount_sat total = AMOUNT_SAT(0);
 
 	for (i = 0; i < tal_count(outputs); i++) {
-		assert(amount_sat_add(&total, total, outputs[i]->output_satoshis));
+		if (!amount_sat_add(total, *total, outputs[i]->output_satoshis))
+			return false;
 	}
-	return total;
+	return true;
 }
 
 static void add_inputs(struct bitcoin_tx *tx, struct input_info **inputs)
@@ -200,7 +207,7 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 					   struct amount_sat *opener_change,
 					   const void **input_map)
 {
-	size_t weight;
+	size_t weight = 0;
 	struct amount_sat funding_tx_fee, opener_total_sat,
 			  accepter_total_sat, output_val;
 	struct bitcoin_tx *tx;
@@ -212,9 +219,12 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 	u8 *wscript;
 
 	/* First, we calculate the weight of the transaction, with change outputs */
-	weight = calculate_weight(opener_inputs, accepter_inputs,
-				  opener_outputs, accepter_outputs,
-				  &opener_total_sat, &accepter_total_sat);
+	if (!calculate_weight(opener_inputs, accepter_inputs,
+			      opener_outputs, accepter_outputs,
+			      &opener_total_sat, &accepter_total_sat,
+			      &weight))
+		return NULL;
+
 	funding_tx_fee = amount_tx_fee(feerate_kw_funding, weight);
 
 	if (!amount_sat_sub(opener_change, opener_total_sat, *opener_funding))
@@ -225,7 +235,9 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 	 * outputs, as they might be other funding transaction outputs. The
 	 * only 'flexible' / change output that's removable etc is indicated
 	 * by a zero value. */
-	output_val = calculate_output_value(opener_outputs);
+	output_val = AMOUNT_SAT(0);
+	if (!calculate_output_value(opener_outputs, &output_val))
+		return NULL;
 	if (!amount_sat_sub(opener_change, *opener_change, output_val))
 		return NULL;
 
