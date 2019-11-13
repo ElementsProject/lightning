@@ -247,8 +247,9 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 		if (!change_output) {
 			/* If there's no change output, we put the remainder into
 			 * the funding output. TODO: add to spec */
-			assert(amount_sat_add(opener_funding,
-					      *opener_funding, *opener_change));
+			if (!amount_sat_add(opener_funding, *opener_funding,
+					    *opener_change))
+				return NULL;
 			*opener_change = AMOUNT_SAT(0);
 		}
 
@@ -263,7 +264,8 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 
 		/* Any left over gets added to the funding output */
 		if (amount_sat_sub(opener_change, *opener_change, funding_tx_fee)) {
-			assert(amount_sat_add(opener_funding, *opener_funding, *opener_change));
+			if (!amount_sat_add(opener_funding, *opener_funding, *opener_change))
+				return NULL;
 			*opener_change = AMOUNT_SAT(0);
 			goto build_tx;
 		}
@@ -296,7 +298,8 @@ build_tx:
 		     tal_hex(wscript, wscript));
 
 	*total_funding = *opener_funding;
-	assert(amount_sat_add(total_funding, *total_funding, accepter_funding));
+	if (!amount_sat_add(total_funding, *total_funding, accepter_funding))
+		return NULL;
 
 	/* Last check, make sure our funding output is greater than
 	 * the dust limit */
