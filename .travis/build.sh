@@ -10,7 +10,7 @@ export SOURCE_CHECK_ONLY=${SOURCE_CHECK_ONLY:-"false"}
 export COMPAT=${COMPAT:-1}
 export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export PYTEST_PAR=2
-export PYTHONPATH=$PWD/contrib/pylightning:$PYTHONPATH
+
 # If we're not in developer mode, tests spend a lot of time waiting for gossip!
 # But if we're under valgrind, we can run out of memory!
 if [ "$DEVELOPER" = 0 ] && [ "$VALGRIND" = 0 ]; then
