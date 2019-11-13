@@ -101,7 +101,7 @@ static void do_generate(int argc, char **argv,
 			hops_data[i].outgoing_cltv = i;
 		}
 		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
-		sphinx_add_v0_hop(sp, &path[i], &hops_data[i].channel_id, hops_data[i].amt_forward, i);
+		sphinx_add_v0_hop(sp, &path[i], &hops_data[i].channel_id, hops_data[i].amt_forward, hops_data[i].outgoing_cltv);
 	}
 
 	struct onionpacket *res = create_onionpacket(ctx, sp, &shared_secrets);
