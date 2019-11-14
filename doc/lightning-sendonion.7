@@ -1,0 +1,107 @@
+.TH "LIGHTNING-SENDONION" "7" "" "" "lightning-sendonion"
+.SH NAME
+lightning-sendonion - Send a payment with a custom onion packet
+.SH SYNOPSIS
+
+\fBsendonion\fR \fIonion\fR \fIfirst_hop\fR \fIpayment_hash\fR [\fIlabel\fR] [\fIshared_secrets\fR]
+
+.SH DESCRIPTION
+
+The \fBsendonion\fR RPC command can be used to initiate a payment attempt with a
+custom onion packet\. The onion packet is used to deliver instructions for hops
+along the route on how to behave\. Normally these instructions are indications
+on where to forward a payment and what parameters to use, or contain details
+of the payment for the final hop\. However, it is possible to add arbitrary
+information for hops in the custom onion, allowing for custom extensions that
+are not directly supported by c-lightning\.
+
+
+The onion is specific to the route that is being used and the \fIpayment_hash\fR
+used to construct, and therefore cannot be reused for other payments or to
+attempt a separate route\. The custom onion can generally be created using the
+\fBdevtools/onion\fR CLI tool, or the \fBcreateonion\fR RPC command\.
+
+
+The \fIonion\fR parameter is a hex-encoded 1366 bytes long blob that was returned
+by either of the tools that can generate onions\. It contains the payloads
+destined for each hop and some metadata\. Please refer to \fBBOLT 04\fR (\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md\fR) for
+further details\.
+
+
+The \fIfirst_hop\fR parameter instructs c-lightning which peer to send the onion
+to\. It is a JSON dictionary that corresponds to the first element of the route
+array returned by \fIgetroute\fR\. The following is a minimal example telling
+c-lightning to use channel \fB103x1x1\fR to add an HTLC for 1002 millisatoshis and
+a delay of 21 blocks on top of the current blockheight:
+
+.nf
+.RS
+{
+  "channel": "103x1x1",
+  "direction": 1,
+  "amount_msat": "1002msat",
+  "delay": 21,
+}
+.RE
+
+.fi
+
+The \fIpayment_hash\fR parameter specifies the 32 byte hex-encoded hash to use as
+a challenge to the HTLC that we are sending\. It is specific to the onion and
+has to match the one the onion was created with\.
+
+
+The \fIlabel\fR parameter can be used to provide a human readable reference to
+retrieve the payment at a later time\.
+
+
+The \fIshared_secrets\fR parameter is a JSON list of 32 byte hex-encoded secrets
+that were used when creating the onion\. c-lightning can send a payment with a
+custom onion without the knowledge of these secrets, however it will not be
+able to parse an eventual error message since that is encrypted with the
+shared secrets used in the onion\. If \fIshared_secrets\fR is provided c-lightning
+will decrypt the error, act accordingly, e\.g\., add a \fBchannel_update\fR included
+in the error to its network view, and set the details in \fIlistsendpays\fR
+correctly\. If it is not provided c-lightning will store the encrypted onion,
+and expose it in \fIlistsendpays\fR allowing the caller to decrypt it
+externally\. The following is an example of a 3 hop onion:
+
+.nf
+.RS
+[
+    "298606954e9de3e9d938d18a74fed794c440e8eda82e52dc08600953c8acf9c4",
+    "2dc094de72adb03b90894192edf9f67919cb2691b37b1f7d4a2f4f31c108b087",
+    "a7b82b240dbd77a4ac8ea07709b1395d8c510c73c17b4b392bb1f0605d989c85"
+]
+.RE
+
+.fi
+
+If \fIshared_secrets\fR is not provided the c-lightning node does not know how
+long the route is, which channels or nodes are involved, and what an eventual
+error could have been\. It can therefore be used for oblivious payments\.
+
+.SH RETURN VALUE
+
+On success, an object similar to the output of \fBsendpay\fR will be
+returned\. This object will have a \fIstatus\fR field that is typically the string
+\fI"pending"\fR, but may be \fI"complete"\fR if the payment was already performed
+successfully\.
+
+
+If \fIshared_secrets\fR was provided and an error was returned by one of the
+intermediate nodes the error details are decrypted and presented
+here\. Otherwise the error code is 202 for an unparseable onion\.
+
+.SH AUTHOR
+
+Christian Decker \fI<decker.christian@gmail.com\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-createonion\fR(7), \fBlightning-sendpay\fR(7), \fBlightning-listsendpays\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

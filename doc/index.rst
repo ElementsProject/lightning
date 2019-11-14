@@ -35,6 +35,7 @@ c-lightning Documentation
    lightning-cli <lightning-cli.1.md>
    lightning-close <lightning-close.7.md>
    lightning-connect <lightning-connect.7.md>
+   lightning-createonion <lightning-createonion.7.md>
    lightning-decodepay <lightning-decodepay.7.md>
    lightning-delexpiredinvoice <lightning-delexpiredinvoice.7.md>
    lightning-delinvoice <lightning-delinvoice.7.md>
@@ -55,6 +56,7 @@ c-lightning Documentation
    lightning-newaddr <lightning-newaddr.7.md>
    lightning-pay <lightning-pay.7.md>
    lightning-plugin <lightning-plugin.7.md>
+   lightning-sendonion <lightning-sendonion.7.md>
    lightning-sendpay <lightning-sendpay.7.md>
    lightning-setchannelfee <lightning-setchannelfee.7.md>
    lightning-signmessage <lightning-signmessage.7.md>
