@@ -61,7 +61,7 @@ struct sphinx_path;
  *    * [`u32`:`outgoing_cltv_value`]
  *    * [`12*byte`:`padding`]
  */
-struct hop_data {
+struct hop_data_legacy {
 	u8 realm;
 	struct short_channel_id channel_id;
 	struct amount_msat amt_forward;
@@ -80,7 +80,7 @@ struct route_step {
 	struct onionpacket *next;
 	enum sphinx_payload_type type;
 	union {
-		struct hop_data v0;
+		struct hop_data_legacy v0;
 	} payload;
 	u8 *raw_payload;
 };

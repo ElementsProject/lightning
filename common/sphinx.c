@@ -426,7 +426,7 @@ static struct hop_params *generate_hop_params(
 	return params;
 }
 
-static void deserialize_hop_data(struct hop_data *data, const u8 *src)
+static void deserialize_hop_data(struct hop_data_legacy *data, const u8 *src)
 {
 	const u8 *cursor = src;
 	size_t max = FRAME_SIZE;

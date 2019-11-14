@@ -632,7 +632,6 @@ send_payment(struct lightningd *ld,
 	struct secret *path_secrets;
 	enum onion_type failcode;
 	size_t i, n_hops = tal_count(route);
-	struct hop_data *hop_data = tal_arr(tmpctx, struct hop_data, n_hops);
 	struct node_id *ids = tal_arr(tmpctx, struct node_id, n_hops);
 	struct wallet_payment *payment = NULL;
 	struct htlc_out *hout;
@@ -653,14 +652,10 @@ send_payment(struct lightningd *ld,
 	for (i = 0; i < n_hops; i++)
 		ids[i] = route[i].nodeid;
 
-	/* Copy hop_data[n] from route[n+1] (ie. where it goes next) */
+	/* Create sphinx path */
 	for (i = 0; i < n_hops - 1; i++) {
 		ret = pubkey_from_node_id(&pubkey, &ids[i]);
 		assert(ret);
-		hop_data[i].realm = 0;
-		hop_data[i].channel_id = route[i+1].channel_id;
-		hop_data[i].amt_forward = route[i+1].amount;
-		hop_data[i].outgoing_cltv = base_expiry + route[i+1].delay;
 		sphinx_add_v0_hop(path, &pubkey, &route[i + 1].channel_id,
 				  route[i + 1].amount,
 				  base_expiry + route[i + 1].delay);
