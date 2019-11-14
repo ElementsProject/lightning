@@ -27,35 +27,6 @@
 #include <wallet/wallet.h>
 #include <wire/wire.h>
 
-/* Output a route hop */
-static void
-json_add_route_hop(struct json_stream *r, char const *n,
-		   const struct route_hop *h)
-{
-	/* Imitate what getroute/sendpay use */
-	json_object_start(r, n);
-	json_add_node_id(r, "id", &h->nodeid);
-	json_add_short_channel_id(r, "channel",
-				  &h->channel_id);
-	json_add_num(r, "direction", h->direction);
-	json_add_amount_msat_compat(r, h->amount, "msatoshi", "amount_msat");
-	json_add_num(r, "delay", h->delay);
-	json_object_end(r);
-}
-
-/* Output a route */
-void
-json_add_route(struct json_stream *r, char const *n,
-	       const struct route_hop *hops, size_t hops_len)
-{
-	size_t i;
-	json_array_start(r, n);
-	for (i = 0; i < hops_len; ++i) {
-		json_add_route_hop(r, NULL, &hops[i]);
-	}
-	json_array_end(r);
-}
-
 void json_add_node_id(struct json_stream *response,
 		      const char *fieldname,
 		      const struct node_id *id)

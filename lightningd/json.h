@@ -26,17 +26,12 @@ struct json_escape;
 struct json_stream;
 struct pubkey;
 struct node_id;
-struct route_hop;
 struct sha256;
 struct short_channel_id;
 struct wallet_payment;
 struct wallet_tx;
 struct wireaddr;
 struct wireaddr_internal;
-
-/* Output a route array. */
-void json_add_route(struct json_stream *r, char const *n,
-		    const struct route_hop *hops, size_t hops_len);
 
 /* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
 void json_add_pubkey(struct json_stream *response,
