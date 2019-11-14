@@ -3453,12 +3453,11 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		db_column_txid(stmt, 0, &curtxid);
 
 		/* If this is a new entry, allocate it in the array and set
-		 * the common fields (all fields from the transactions
-		 * table. */
+		 * the common fields (all fields from the transactions table. */
 		if (!bitcoin_txid_eq(&last, &curtxid)) {
 			last = curtxid;
-			tal_resize(&txs, count + 1);
-			cur = &txs[count];
+			tal_resize(&txs, tal_count(txs) + 1);
+			cur = &txs[tal_count(txs) - 1];
 			db_column_txid(stmt, 0, &cur->id);
 			cur->tx = db_column_tx(txs, stmt, 1);
 			cur->rawtx = tal_dup_arr(txs, u8, db_column_blob(stmt, 1),
