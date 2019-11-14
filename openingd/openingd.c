@@ -898,25 +898,24 @@ static void derive_input_output_info(const tal_t *ctx,
 	}
 }
 
-static bool check_remote_inputs(struct input_info **remote_inputs,
+static bool check_remote_inputs(struct state *state,
+				struct input_info **remote_inputs,
 				struct amount_sat *input_funding)
 {
 	size_t i = 0;
 
-	// FIXME: we should check that they don't also
-	// turn in the funding output
-	// and maybe check that none of their outputs
-	// are duplicates??
+	// FIXME: we should check that they don't include the funding output
+	// and maybe check that none of their outputs are duplicates??
 	*input_funding = AMOUNT_SAT(0);
 	for (i = 0; i < tal_count(remote_inputs); i++) {
 
 		if (!amount_sat_add(input_funding, *input_funding, remote_inputs[i]->input_satoshis))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Overflow in remote input amount %s + %s",
-			               type_to_string(tmpctx, struct amount_sat,
-					              &remote_inputs[i]->input_satoshis),
-			               type_to_string(tmpctx, struct amount_sat,
-					              input_funding));
+			peer_failed(state->pps, &state->channel_id,
+				    "Overflow in remote input amounts %s + %s",
+				    type_to_string(tmpctx, struct amount_sat,
+					           &remote_inputs[i]->input_satoshis),
+			            type_to_string(tmpctx, struct amount_sat,
+					           input_funding));
 		/** TODO: add BOLT reference when merged
 		 * - MUST ensure each `input_info` refers to a non-malleable (segwit) UTXO. */
 		/* P2SH wrapped inputs send the redeemscript, which we can check */
@@ -974,7 +973,7 @@ static bool check_remote_input_outputs(struct state *state,
 				    REMOTE_CONTRIB_LIMIT);
 	}
 
-	if (!check_remote_inputs(remote_inputs, &funding))
+	if (!check_remote_inputs(state, remote_inputs, &funding))
 		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Peer sent malleable (non-Segwit) input.");
@@ -991,12 +990,12 @@ static bool check_remote_input_outputs(struct state *state,
 			has_change_address = true;
 		}
 		if (!amount_sat_add(&other_outputs, other_outputs, remote_outputs[i]->output_satoshis))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Overflow in remote outher_outputs satoshis %s + %s",
-			               type_to_string(tmpctx, struct amount_sat,
-						      &other_outputs),
-			               type_to_string(tmpctx, struct amount_sat,
-				                      &remote_outputs[i]->output_satoshis));
+			peer_failed(state->pps, &state->channel_id,
+				    "Overflow in remote output satoshi sum %s + %s",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &other_outputs),
+			            type_to_string(tmpctx, struct amount_sat,
+					           &remote_outputs[i]->output_satoshis));
 
 		/* TODO: add BOLT reference when merged
 		 * - MUST ensure the `output_info`.`script` is a standard script
