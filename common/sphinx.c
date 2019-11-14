@@ -149,6 +149,80 @@ void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 	sphinx_add_raw_hop(path, pubkey, 0, buf);
 }
 
+static void sphinx_add_tlv_hop(struct sphinx_path *path,
+			       const struct pubkey *pubkey,
+			       const struct tlv_tlv_payload *tlv)
+{
+	u8 *tlvs = tal_arr(path, u8, 0);
+	towire_tlvs(&tlvs, tlvs_tlv_payload, TLVS_TLV_PAYLOAD_ARRAY_SIZE, tlv);
+	sphinx_add_raw_hop(path, pubkey, tal_bytelen(tlvs), tlvs);
+}
+
+void sphinx_add_nonfinal_hop(struct sphinx_path *path,
+			     const struct pubkey *pubkey,
+			     bool use_tlv,
+			     const struct short_channel_id *scid,
+			     struct amount_msat forward,
+			     u32 outgoing_cltv)
+{
+	if (use_tlv) {
+		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
+		struct tlv_tlv_payload_amt_to_forward tlv_amt;
+		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
+		struct tlv_tlv_payload_short_channel_id tlv_scid;
+
+		/* BOLT #4:
+		 *
+		 * The writer:
+		 *  - MUST include `amt_to_forward` and `outgoing_cltv_value`
+		 *    for every node.
+		 *  - MUST include `short_channel_id` for every non-final node.
+		 */
+		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
+		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
+		tlv_scid.short_channel_id = *scid;
+		tlv->amt_to_forward = &tlv_amt;
+		tlv->outgoing_cltv_value = &tlv_cltv;
+		tlv->short_channel_id = &tlv_scid;
+
+		sphinx_add_tlv_hop(path, pubkey, tlv);
+	} else {
+		sphinx_add_v0_hop(path, pubkey, scid, forward, outgoing_cltv);
+	}
+}
+
+void sphinx_add_final_hop(struct sphinx_path *path,
+			  const struct pubkey *pubkey,
+			  bool use_tlv,
+			  struct amount_msat forward,
+			  u32 outgoing_cltv)
+{
+	if (use_tlv) {
+		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
+		struct tlv_tlv_payload_amt_to_forward tlv_amt;
+		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
+
+		/* BOLT #4:
+		 *
+		 * The writer:
+		 *  - MUST include `amt_to_forward` and `outgoing_cltv_value`
+		 *    for every node.
+		 *...
+		 *  - MUST NOT include `short_channel_id` for the final node.
+		 */
+		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
+		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
+		tlv->amt_to_forward = &tlv_amt;
+		tlv->outgoing_cltv_value = &tlv_cltv;
+
+		sphinx_add_tlv_hop(path, pubkey, tlv);
+	} else {
+		static struct short_channel_id all_zero_scid;
+		sphinx_add_v0_hop(path, pubkey, &all_zero_scid,
+				  forward, outgoing_cltv);
+	}
+}
+
 /* Small helper to append data to a buffer and update the position
  * into the buffer
  */
