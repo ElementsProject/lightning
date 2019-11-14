@@ -588,11 +588,10 @@ The payload of the hook call has the following format:
 {
   "onion": {
     "payload": "",
-    "per_hop_v0": {
-      "realm": "00",
-      "short_channel_id": "1x2x3",
-      "forward_amount": "42msat",
-      "outgoing_cltv_value": 500014
+    "type": "legacy",
+    "short_channel_id": "1x2x3",
+    "forward_amount": "42msat",
+    "outgoing_cltv_value": 500014
     }
   },
   "next_onion": "[1365bytes of serialized onion]",
@@ -606,21 +605,16 @@ The payload of the hook call has the following format:
 }
 ```
 
-The `per_hop_v0` will only be present if the per hop payload has format `0x00`
-as defined by the specification. If not present an object representing the
-type-length-vale (TLV) payload will be added (pending specification). For detailed information about each field please refer to [BOLT 04 of the specification][bolt4], the following is just a brief summary:
+For detailed information about each field please refer to [BOLT 04 of the specification][bolt4], the following is just a brief summary:
 
  - `onion.payload` contains the unparsed payload that was sent to us from the
    sender of the payment.
- - `onion.per_hop_v0`:
-   - `realm` will always be `00` since that value determines that we are using
-     the `per_hop_v0` format.
-   - `short_channel_id` determines the channel that the sender is hinting
-     should be used next (set to `0x0x0` if we are the recipient of the
-     payment).
-   - `forward_amount` is the amount we should be forwarding to the next hop,
+ - `onion.type` is `legacy` for realm 0 payments, `tlv` for realm > 1.
+ - `short_channel_id` determines the channel that the sender is hinting
+     should be used next.  Not present if we're the final destination.
+ - `forward_amount` is the amount we should be forwarding to the next hop,
      and should match the incoming funds in case we are the recipient.
-   - `outgoing_cltv_value` determines what the CLTV value for the HTLC that we
+ - `outgoing_cltv_value` determines what the CLTV value for the HTLC that we
      forward to the next hop should be.
  - `next_onion` is the fully processed onion that we should be sending to the
    next hop as part of the outgoing HTLC. Processed in this case means that we
