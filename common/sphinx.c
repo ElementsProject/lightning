@@ -826,10 +826,10 @@ bool route_step_decode_end(const struct route_step *rs,
 	case SPHINX_TLV_PAYLOAD:
 		if (!rs->payload.tlv->amt_to_forward)
 			return false;
-		amt_forward->millisatoshis /* Raw: tu64 -> millisatoshis */
-			= rs->payload.tlv->amt_to_forward->amt_to_forward;
 		if (!rs->payload.tlv->outgoing_cltv_value)
 			return false;
+		amt_forward->millisatoshis /* Raw: tu64 -> millisatoshis */
+			= rs->payload.tlv->amt_to_forward->amt_to_forward;
 		*outgoing_cltv = rs->payload.tlv->outgoing_cltv_value->outgoing_cltv_value;
 		return true;
 	case SPHINX_INVALID_PAYLOAD:
