@@ -99,6 +99,12 @@ void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 void towire_short_channel_id(u8 **pptr UNNEEDED,
 			     const struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "towire_short_channel_id called!\n"); abort(); }
+/* Generated stub for towire_tlvs */
+void towire_tlvs(u8 **pptr UNNEEDED,
+		 const struct tlv_record_type types[] UNNEEDED,
+		 size_t num_types UNNEEDED,
+		 const void *record UNNEEDED)
+{ fprintf(stderr, "towire_tlvs called!\n"); abort(); }
 /* Generated stub for towire_tu32 */
 void towire_tu32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
 { fprintf(stderr, "towire_tu32 called!\n"); abort(); }

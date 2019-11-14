@@ -615,6 +615,20 @@ static struct command_result *wait_payment(struct lightningd *ld,
 	abort();
 }
 
+static bool should_use_tlv(enum route_hop_style style)
+{
+	switch (style) {
+	case ROUTE_HOP_TLV:
+#if EXPERIMENTAL_FEATURES
+		return true;
+#endif
+		/* Otherwise fall thru */
+	case ROUTE_HOP_LEGACY:
+		return false;
+	}
+	abort();
+}
+
 /* Returns command_result if cmd was resolved, NULL if not yet called. */
 static struct command_result *
 send_payment(struct lightningd *ld,
@@ -639,13 +653,11 @@ send_payment(struct lightningd *ld,
 	struct routing_failure *fail;
 	struct channel *channel;
 	struct sphinx_path *path;
-	struct short_channel_id finalscid;
 	struct pubkey pubkey;
 	bool ret;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(ld->topology) + 1;
-	memset(&finalscid, 0, sizeof(struct short_channel_id));
 
 	path = sphinx_path_new(tmpctx, rhash->u.u8);
 	/* Extract IDs for each hop: create_onionpacket wants array. */
@@ -656,19 +668,23 @@ send_payment(struct lightningd *ld,
 	for (i = 0; i < n_hops - 1; i++) {
 		ret = pubkey_from_node_id(&pubkey, &ids[i]);
 		assert(ret);
-		sphinx_add_v0_hop(path, &pubkey, &route[i + 1].channel_id,
-				  route[i + 1].amount,
-				  base_expiry + route[i + 1].delay);
+
+		sphinx_add_nonfinal_hop(path, &pubkey,
+					should_use_tlv(route[i].style),
+					&route[i + 1].channel_id,
+					route[i + 1].amount,
+					base_expiry + route[i + 1].delay);
 	}
 
 	/* And finally set the final hop to the special values in
 	 * BOLT04 */
-	memset(&finalscid, 0, sizeof(struct short_channel_id));
 	ret = pubkey_from_node_id(&pubkey, &ids[i]);
 	assert(ret);
-	sphinx_add_v0_hop(path, &pubkey, &finalscid,
-			  route[i].amount,
-			  base_expiry + route[i].delay);
+
+	sphinx_add_final_hop(path, &pubkey,
+			     should_use_tlv(route[i].style),
+			     route[i].amount,
+			     base_expiry + route[i].delay);
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);

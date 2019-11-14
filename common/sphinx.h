@@ -232,6 +232,25 @@ void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 			enum sphinx_payload_type type, const u8 *payload);
 
 /**
+ * Add a non-final hop to the path.
+ */
+void sphinx_add_nonfinal_hop(struct sphinx_path *path,
+			     const struct pubkey *pubkey,
+			     bool use_tlv,
+			     const struct short_channel_id *scid,
+			     struct amount_msat forward,
+			     u32 outgoing_cltv);
+
+/**
+ * Add a final hop to the path.
+ */
+void sphinx_add_final_hop(struct sphinx_path *path,
+			  const struct pubkey *pubkey,
+			  bool use_tlv,
+			  struct amount_msat forward,
+			  u32 outgoing_cltv);
+
+/**
  * Helper to extract fields from ONION_END.
  */
 bool route_step_decode_end(const struct route_step *rs,
