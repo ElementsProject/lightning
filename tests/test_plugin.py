@@ -538,8 +538,8 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
         assert re.match(r'^020203e80401..0608................$', onion['payload'])
     else:
         assert onion['type'] == 'legacy'
-        assert re.match(r'^00006700000.000100000000000003e8000000..000000000000000000000000$', onion['payload'])
-        assert len(onion['payload']) == 64
+        assert re.match(r'^0000006700000.000100000000000003e8000000..000000000000000000000000$', onion['payload'])
+        assert len(onion['payload']) == 66
     assert len(onion['shared_secret']) == 64
     assert onion['forward_amount'] == '1000msat'
     assert len(onion['next_onion']) == 2 * (1300 + 32 + 33 + 1)
