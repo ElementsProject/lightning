@@ -380,6 +380,8 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	memset(n->chans.arr, 0, sizeof(n->chans.arr));
 	broadcastable_init(&n->bcast);
+	/* We don't know, so assume legacy. */
+	n->hop_style = ROUTE_HOP_LEGACY;
 	n->tokens = TOKEN_MAX;
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor2(n, destroy_node, rstate);
@@ -2510,6 +2512,12 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	    && node->bcast.timestamp < time_now().ts.tv_sec)
 		rstate->last_timestamp = node->bcast.timestamp;
 
+	if (feature_offered(features, OPT_VAR_ONION))
+		node->hop_style = ROUTE_HOP_TLV;
+	else
+		/* Reset it in case they no longer offer the feature */
+		node->hop_style = ROUTE_HOP_LEGACY;
+
 	if (index)
 		node->bcast.index = index;
 	else {
@@ -2707,6 +2715,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 		hops[i].amount = total_amount;
 		hops[i].delay = total_delay;
 		hops[i].direction = idx;
+		hops[i].style = n->hop_style;
 
 		/* Since we calculated this route, it should not overflow! */
 		if (!amount_msat_add_fee(&total_amount,

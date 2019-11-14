@@ -66,6 +66,7 @@ void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)
 	entry->direction = fromwire_u8(pptr, max);
 	entry->amount = fromwire_amount_msat(pptr, max);
 	entry->delay = fromwire_u32(pptr, max);
+	entry->style = fromwire_u8(pptr, max);
 }
 
 void towire_route_hop(u8 **pptr, const struct route_hop *entry)
@@ -75,6 +76,7 @@ void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 	towire_u8(pptr, entry->direction);
 	towire_amount_msat(pptr, entry->amount);
 	towire_u32(pptr, entry->delay);
+	towire_u8(pptr, entry->style);
 }
 
 void fromwire_route_info(const u8 **pptr, size_t *max, struct route_info *entry)
