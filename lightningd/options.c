@@ -548,6 +548,9 @@ static void dev_register_opts(struct lightningd *ld)
 			 "fundee.");
 	opt_register_arg("--dev-force-tmp-channel-id", opt_force_tmp_channel_id, NULL, ld,
 			 "Force the temporary channel id, instead of random");
+	opt_register_noarg("--dev-no-htlc-timeout", opt_set_bool,
+			   &ld->dev_no_htlc_timeout,
+			   "Don't kill channeld if HTLCs not confirmed within 30 seconds");
 }
 #endif /* DEVELOPER */
 
