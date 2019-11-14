@@ -134,9 +134,10 @@ void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 	assert(sphinx_path_payloads_size(path) <= ROUTING_INFO_SIZE);
 }
 
-void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-		       const struct short_channel_id *scid,
-		       struct amount_msat forward, u32 outgoing_cltv)
+static void sphinx_add_v0_hop(struct sphinx_path *path,
+			      const struct pubkey *pubkey,
+			      const struct short_channel_id *scid,
+			      struct amount_msat forward, u32 outgoing_cltv)
 {
 	const u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			      0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
