@@ -121,6 +121,13 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
  */
 const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
 
+/** bitcoin_tx_output_get_amount_sat - Helper to get transaction output's amount
+ *
+ * Internally we use a `wally_tx` to represent the transaction. The
+ * satoshi amount isn't a struct amount_sat, so we need a conversion
+ */
+void bitcoin_tx_output_get_amount_sat(struct bitcoin_tx *tx, int outnum,
+				      struct amount_sat *amount);
 /**
  * Helper to just get an amount_sat for the output amount.
  */

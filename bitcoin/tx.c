@@ -238,6 +238,12 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 	return res;
 }
 
+void bitcoin_tx_output_get_amount_sat(struct bitcoin_tx *tx, int outnum,
+				      struct amount_sat *amount)
+{
+	amount->satoshis = tx->wtx->outputs[outnum].satoshi;  /* Raw: type conversion */
+}
+
 /* FIXME(cdecker) Make the caller pass in a reference to amount_asset, and
  * return false if unintelligible/encrypted. (WARN UNUSED). */
 struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,

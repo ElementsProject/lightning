@@ -567,9 +567,7 @@ static void opening_opener_sigs_received(struct subd *openingd, const u8 *resp,
 	}
 
 
-	/* Pull out the funding amount */
-	total_funding.satoshis  /* Raw: type conversion */
-		= utx->tx->wtx->outputs[funding_txout].satoshi;  /* Raw: type conversion */
+	bitcoin_tx_output_get_amount_sat(utx->tx, funding_txout, &total_funding);
 	bitcoin_txid(funding_tx, &funding_txid);
 
 	/* Consumes uc */
