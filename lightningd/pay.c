@@ -788,6 +788,27 @@ send_payment(struct lightningd *ld,
 JSON-RPC sendpay interface
 -----------------------------------------------------------------------------*/
 
+static struct command_result *param_route_hop_style(struct command *cmd,
+						    const char *name,
+						    const char *buffer,
+						    const jsmntok_t *tok,
+						    enum route_hop_style **style)
+{
+	*style = tal(cmd, enum route_hop_style);
+	if (json_tok_streq(buffer, tok, "legacy")) {
+		**style = ROUTE_HOP_LEGACY;
+		return NULL;
+	} else if (json_tok_streq(buffer, tok, "tlv")) {
+		**style = ROUTE_HOP_TLV;
+		return NULL;
+	}
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a legacy or tlv, not '%.*s'",
+			    name, json_tok_full_len(tok),
+			    json_tok_full(buffer, tok));
+}
+
 static struct command_result *json_sendpay(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -846,6 +867,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		struct node_id *id;
 		struct short_channel_id *channel;
 		unsigned *delay, *direction;
+		enum route_hop_style *style;
 
 		if (!param(cmd, buffer, t,
 			   /* Only *one* of these is required */
@@ -856,6 +878,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 			   p_opt("delay", param_number, &delay),
 			   p_opt("channel", param_short_channel_id, &channel),
 			   p_opt("direction", param_number, &direction),
+			   p_opt_def("style", param_route_hop_style, &style,
+				     ROUTE_HOP_LEGACY),
 			   NULL))
 			return command_param_failed();
 
@@ -884,6 +908,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		route[i].nodeid = *id;
 		route[i].delay = *delay;
 		route[i].channel_id = *channel;
+		route[i].style = *style;
 		/* FIXME: Actually ignored by sending code! */
 		route[i].direction = direction ? *direction : 0;
 	}
