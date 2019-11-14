@@ -133,6 +133,11 @@ HTABLE_DEFINE_TYPE(struct local_chan,
 		   local_chan_map_scid, hash_scid, local_chan_eq_scid,
 		   local_chan_map);
 
+enum route_hop_style {
+	ROUTE_HOP_LEGACY = 1,
+	ROUTE_HOP_TLV = 2,
+};
+
 /* For a small number of channels (by far the most common) we use a simple
  * array, with empty buckets NULL.  For larger, we use a proper hash table,
  * with the extra allocation that implies. */
@@ -146,6 +151,9 @@ struct node {
 
 	/* Token bucket */
 	u8 tokens;
+
+	/* route_hop_style */
+	enum route_hop_style hop_style;
 
 	/* Channels connecting us to other nodes */
 	union {
@@ -320,6 +328,7 @@ struct route_hop {
 	struct node_id nodeid;
 	struct amount_msat amount;
 	u32 delay;
+	enum route_hop_style style;
 };
 
 enum exclude_entry_type {
