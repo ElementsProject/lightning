@@ -29,7 +29,6 @@ static void do_generate(int argc, char **argv,
 	struct secret session_key;
 	struct secret *shared_secrets;
 	struct sphinx_path *sp;
-	struct hop_data_legacy hops_data[num_hops];
 
 	const u8* tmp_assocdata =tal_dup_arr(ctx, u8, assocdata,
 					  ASSOC_DATA_SIZE, 0);
@@ -59,49 +58,31 @@ static void do_generate(int argc, char **argv,
 			     argv[2 + i]);
 		}
 
-		memset(&hops_data[i], 0, sizeof(hops_data[i]));
-		if (argv[2 + i][klen] != '\0') {
-			/* FIXME: Generic realm support, not this hack! */
-			/* FIXME: Multi hop! */
+		/* /<hex> -> raw hopdata. /tlv -> TLV encoding. */
+		if (argv[2 + i][klen] != '\0' && argv[2 + i][klen] != 't') {
 			const char *hopstr = argv[2 + i] + klen + 1;
-			size_t dsize = hex_data_size(strlen(hopstr));
-			be64 scid, msat;
-			be32 cltv;
-			u8 padding[12];
-			if (dsize != 33)
-				errx(1, "hopdata expected 33 bytes");
-			if (!hex_decode(hopstr, 2,
-					&hops_data[i].realm,
-					sizeof(hops_data[i].realm))
-			    || !hex_decode(hopstr + 2, 16,
-					   &scid, sizeof(scid))
-			    || !hex_decode(hopstr + 2 + 16, 16,
-					   &msat, sizeof(msat))
-			    || !hex_decode(hopstr + 2 + 16 + 16, 8,
-					   &cltv, sizeof(cltv))
-			    || !hex_decode(hopstr + 2 + 16 + 16 + 8, 24,
-					   padding, sizeof(padding)))
-				errx(1, "hopdata bad hex");
-			if (hops_data[i].realm != 0)
-				errx(1, "FIXME: Only realm 0 supported");
-			if (!memeqzero(padding, sizeof(padding)))
-				errx(1, "FIXME: Only zero padding supported");
-			/* Fix endian up */
-			hops_data[i].channel_id.u64
-				= be64_to_cpu(scid);
-			hops_data[i].amt_forward.millisatoshis /* Raw: test code */
-				= be64_to_cpu(msat);
-			hops_data[i].outgoing_cltv
-				= be32_to_cpu(cltv);
+			u8 *data = tal_hexdata(ctx, hopstr, strlen(hopstr));
+
+			if (!data)
+				errx(1, "bad hex after / in %s", argv[1 + i]);
+			sphinx_add_raw_hop(sp, &path[i], SPHINX_RAW_PAYLOAD,
+					   data);
 		} else {
-			hops_data[i].realm = i;
-			memset(&hops_data[i].channel_id, i,
-			       sizeof(hops_data[i].channel_id));
-			hops_data[i].amt_forward.millisatoshis = i; /* Raw: test code */
-			hops_data[i].outgoing_cltv = i;
+			struct short_channel_id scid;
+			struct amount_msat amt;
+			bool use_tlv = streq(argv[1 + i] + klen, "/tlv");
+
+			memset(&scid, i, sizeof(scid));
+			amt.millisatoshis = i; /* Raw: test code */
+			if (i == num_hops - 1)
+				sphinx_add_final_hop(sp, &path[i],
+						     use_tlv,
+						     amt, i);
+			else
+				sphinx_add_nonfinal_hop(sp, &path[i],
+							use_tlv,
+							&scid, amt, i);
 		}
-		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
-		sphinx_add_v0_hop(sp, &path[i], &hops_data[i].channel_id, hops_data[i].amt_forward, hops_data[i].outgoing_cltv);
 	}
 
 	struct onionpacket *res = create_onionpacket(ctx, sp, &shared_secrets);
@@ -311,8 +292,8 @@ int main(int argc, char **argv)
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n\n\tdecode <onion_file> <privkey>\n"
 			   "\tgenerate <pubkey1> <pubkey2> ...\n"
-			   "\tgenerate <pubkey1>[/hopdata] <pubkey2>[/hopdata]\n"
-			   "\tgenerate <privkey1>[/hopdata] <privkey2>[/hopdata]\n"
+			   "\tgenerate <pubkey1>[/hopdata|/tlv] <pubkey2>[/hopdata|/tlv]\n"
+			   "\tgenerate <privkey1>[/hopdata|/tlv] <privkey2>[/hopdata|/tlv]\n"
 			   "\truntest <test-filename>\n\n", "Show this message\n\n"
 			   "\texample:\n"
 			   "\t> onion generate 02c18e7ff9a319983e85094b8c957da5c1230ecb328c1f1c7e88029f1fec2046f8/00000000000000000000000000000f424000000138000000000000000000000000 --assoc-data 44ee26f01e54665937b892f6afbfdfb88df74bcca52d563f088668cf4490aacd > onion.dat\n"
