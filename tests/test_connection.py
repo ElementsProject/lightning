@@ -4,7 +4,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
-from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT, SLOW_MACHINE, COMPAT
+from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT, SLOW_MACHINE, COMPAT, expected_features
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
 import binascii
@@ -1564,7 +1564,7 @@ def test_forget_channel(node_factory):
 
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
-    lfeatures = '28a2'
+    lfeatures = expected_features()
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
@@ -1816,8 +1816,8 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2 = node_factory.get_node(may_reconnect=True, log_all_io=True,
                                feerates=(7500, 7500, 7500), allow_broken_log=True)
 
-    # features 1, 3, 7, 11 and 13 (0x28a2).
-    lf = "28a2"
+    lf = expected_features()
+
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
     l1.daemon.wait_for_log(r"\[OUT\] 0010"

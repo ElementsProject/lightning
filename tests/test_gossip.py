@@ -2,7 +2,7 @@ from collections import Counter
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from lightning import RpcError
-from utils import wait_for, TIMEOUT, only_one, sync_blockheight
+from utils import wait_for, TIMEOUT, only_one, sync_blockheight, expected_features
 
 import json
 import logging
@@ -1031,7 +1031,7 @@ def test_node_reannounce(node_factory, bitcoind):
     wait_for(lambda: 'alias' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('JUNIORBEAM')
 
-    lfeatures = '28a2'
+    lfeatures = expected_features()
 
     # Make sure it gets features correct.
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == lfeatures

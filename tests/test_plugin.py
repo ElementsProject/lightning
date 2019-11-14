@@ -2,7 +2,7 @@ from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for
+from utils import DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, EXPERIMENTAL_FEATURES
 
 import json
 import os
@@ -534,10 +534,14 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     logline = l2.daemon.wait_for_log(r'Onion written to')
     fname = re.search(r'Onion written to (.*\.json)', logline).group(1)
     onion = json.load(open(fname))
-    assert re.match(r'^00006700000.000100000000000003e8000000..000000000000000000000000$', onion['payload'])
-    assert len(onion['payload']) == 64
+    if EXPERIMENTAL_FEATURES:
+        assert onion['type'] == 'tlv'
+        assert re.match(r'^020203e80401..0608................$', onion['payload'])
+    else:
+        assert onion['type'] == 'legacy'
+        assert re.match(r'^00006700000.000100000000000003e8000000..000000000000000000000000$', onion['payload'])
+        assert len(onion['payload']) == 64
     assert len(onion['shared_secret']) == 64
-    assert onion['type'] == 'legacy'
     assert onion['forward_amount'] == '1000msat'
     assert len(onion['next_onion']) == 2 * (1300 + 32 + 33 + 1)
 
