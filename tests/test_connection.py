@@ -15,6 +15,7 @@ import re
 import shutil
 import time
 import unittest
+import socket
 
 
 def test_connect(node_factory):
@@ -2235,3 +2236,95 @@ def test_pay_disconnect_stress(node_factory, executor):
                 pass
 
         fut.result()
+
+
+def check_socket(ip_addr, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = sock.connect_ex((ip_addr, port))
+    sock.close()
+    return not result
+
+
+@unittest.skipIf(not DEVELOPER, "Needs a configured Tor service")
+def test_connect_over_tor(node_factory):
+    """simple test for new tor-proxy-only-tor option
+    """
+    # please define your values
+    torip = '127.0.0.1'
+    toripp = '127.0.0.1:9050'
+    toripps = 'autotor:127.0.0.1:9051'
+    torport = 9050
+    torserviceport = 9051
+
+    if check_socket(format(torip), torserviceport):
+        opts = {'proxy':
+                toripp,
+                'announce-addr':
+                toripps,
+                'tor-proxy-only-tor': None}
+    else:
+        return
+
+    if not check_socket(format(torip), torport):
+        return
+
+    # we test for connect tor onion over Tor and ip connect to localhost
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    time.sleep(10)
+    addr = l2.rpc.getinfo()['address']
+    assert len(addr) == 1
+    assert addr[0]['type'] == 'torv3'
+
+    l1.rpc.connect(l2.info['id'], addr[0]['address'], 9735)
+    time.sleep(10)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    assert l1.rpc.getpeer(l2.info['id'])['connected']
+    assert l1.rpc.getpeer(l3.info['id'])['connected']
+
+
+@unittest.skipIf(not DEVELOPER, "Needs a configured ip.proxy and Tor service")
+def test_connect_over_ip_proxy(node_factory):
+    """simple test for new tor-proxy-only-tor option
+    """
+    # please define your values
+    socksip = '127.0.0.1'
+    socksport = 1234
+    torip = '127.0.0.1'
+    torport = 9050
+    torserviceport = 9051
+    toripp = '127.0.0.1:9050'
+    toripps = 'autotor:127.0.0.1:9051'
+    ipsocks = '127.0.0.1:1234'
+
+    if check_socket(torip, torserviceport):
+        opts = {'ip-proxy':
+                ipsocks,
+                'proxy':
+                toripp,
+                'announce-addr':
+                toripps,
+                'tor-proxy-only-tor': None}
+    else:
+        return
+
+    if not check_socket(format(torip), torport):
+        return
+
+    if not check_socket(format(socksip), socksport):
+        return
+
+    # we test for connect tor onion over Tor and ip connect to localhost
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    time.sleep(10)
+    addr = l2.rpc.getinfo()['address']
+    assert len(addr) == 1
+    assert addr[0]['type'] == 'torv3'
+
+    l1.rpc.connect(l2.info['id'], addr[0]['address'], 9735)
+    time.sleep(10)
+    # and now connect over the ip-poxy that can handle localhost and exit to local hhmm...
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    assert l1.rpc.getpeer(l2.info['id'])['connected']
+    assert l1.rpc.getpeer(l3.info['id'])['connected']
