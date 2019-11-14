@@ -29,7 +29,7 @@ static void do_generate(int argc, char **argv,
 	struct secret session_key;
 	struct secret *shared_secrets;
 	struct sphinx_path *sp;
-	struct hop_data hops_data[num_hops];
+	struct hop_data_legacy hops_data[num_hops];
 
 	const u8* tmp_assocdata =tal_dup_arr(ctx, u8, assocdata,
 					  ASSOC_DATA_SIZE, 0);
