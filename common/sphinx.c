@@ -580,7 +580,7 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 	}
 
 	/* Copy common pieces over */
-	step->raw_payload = tal_dup_arr(step, u8, src + vsize, raw_size, 0);
+	step->raw_payload = tal_dup_arr(step, u8, src, raw_size + vsize, 0);
 	memcpy(step->next->mac, src + hop_size - HMAC_SIZE, HMAC_SIZE);
 
 	/* And now try to parse whatever the payload contains so we can use it
@@ -737,9 +737,6 @@ struct route_step *process_onionpacket(
 		if (shift_size >= ROUTING_INFO_SIZE)
 			return tal_free(step);
 	}
-
-	step->raw_payload = tal_dup_arr(step, u8, paddedheader + 1,
-					shift_size - 1 - HMAC_SIZE, 0);
 
 	/* Copy the hmac from the last HMAC_SIZE bytes */
         memcpy(&step->next->mac, paddedheader + shift_size - HMAC_SIZE, HMAC_SIZE);
