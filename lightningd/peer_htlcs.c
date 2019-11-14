@@ -463,7 +463,7 @@ enum onion_type send_htlc_out(struct channel *out,
 	tal_add_destructor(hout, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit (first) htlc. */
-	if (!out->htlc_timeout)
+	if (!out->htlc_timeout && !IFDEV(out->peer->ld->dev_no_htlc_timeout, 0))
 		out->htlc_timeout = new_reltimer(out->peer->ld->timers,
 						 out, time_from_sec(30),
 						 htlc_offer_timeout,
