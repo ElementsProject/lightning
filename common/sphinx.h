@@ -81,6 +81,7 @@ struct route_step {
 	enum sphinx_payload_type type;
 	union {
 		struct hop_data_legacy v0;
+		struct tlv_tlv_payload *tlv;
 	} payload;
 	u8 *raw_payload;
 };
@@ -230,4 +231,18 @@ void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 			enum sphinx_payload_type type, const u8 *payload);
 
+/**
+ * Helper to extract fields from ONION_END.
+ */
+bool route_step_decode_end(const struct route_step *rs,
+			   struct amount_msat *amt_forward,
+			   u32 *outgoing_cltv);
+
+/**
+ * Helper to extract fields from ONION_FORWARD.
+ */
+bool route_step_decode_forward(const struct route_step *rs,
+			       struct amount_msat *amt_forward,
+			       u32 *outgoing_cltv,
+			       struct short_channel_id *scid);
 #endif /* LIGHTNING_COMMON_SPHINX_H */
