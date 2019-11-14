@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT, VALGRIND
+from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT, VALGRIND, EXPERIMENTAL_FEATURES
 
 
 import copy
@@ -2344,6 +2344,71 @@ def test_error_returns_blockheight(node_factory, bitcoind):
     #    * [`u32`:`height`]
     assert (err.value.error['data']['raw_message']
             == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
+
+
+@unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
+def test_tlv_or_legacy(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')})
+
+    # Set up a channel from 1->2 first.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid12 = l1.fund_channel(l2, 1000000)
+
+    # Now set up 2->3.
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    scid23 = l2.fund_channel(l3, 1000000)
+
+    # We need to force l3 to provide route hint from l2 (it won't normally,
+    # since it sees l2 as a dead end).
+    inv = l3.rpc.call('invoice', {"msatoshi": 10000,
+                                  "label": "test_tlv1",
+                                  "description": "test_tlv1",
+                                  "dev-routes": [[{'id': l2.info['id'],
+                                                   'short_channel_id': scid23,
+                                                   'fee_base_msat': 1,
+                                                   'fee_proportional_millionths': 10,
+                                                   'cltv_expiry_delta': 6}]]})['bolt11']
+    l1.rpc.pay(inv)
+
+    # Since L1 hasn't seen broadcast, it doesn't know they're TLV.
+    l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+    l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+
+    # Turns out we only need 3 more blocks to announce l1->l2 channel.
+    bitcoind.generate_block(3)
+
+    # Make sure l1 knows about l2
+    wait_for(lambda: 'alias' in l1.rpc.listnodes(l2.info['id'])['nodes'][0])
+
+    # Make sure l3 knows about l1->l2, so it will add route hint now.
+    wait_for(lambda: len(l3.rpc.listchannels(scid12)['channels']) > 0)
+
+    # Now it should send TLV to l2, but not l3.
+    inv = l3.rpc.invoice(10000, "test_tlv2", "test_tlv2")['bolt11']
+
+    l1.rpc.pay(inv)
+    if EXPERIMENTAL_FEATURES:
+        l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
+    else:
+        l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+    l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+
+    # Now we finally announce l2->l3 channel, so l3 can announce tlv support.
+    bitcoind.generate_block(2)
+
+    wait_for(lambda: len(l1.rpc.listnodes(l3.info['id'])['nodes']) > 0)
+    wait_for(lambda: 'alias' in l1.rpc.listnodes(l3.info['id'])['nodes'][0])
+
+    inv = l3.rpc.invoice(10000, "test_tlv3", "test_tlv3")['bolt11']
+
+    l1.rpc.pay(inv)
+    if EXPERIMENTAL_FEATURES:
+        l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
+        l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
+    else:
+        l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+        l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
 
 
 @flaky
