@@ -328,6 +328,7 @@ build_tx:
 	/* Sort outputs */
 	permute_outputs(tx, NULL, o_map);
 
+	/* Set funding_output index for caller */
 	for (i = 0; i < output_count; i++) {
 		if (o_map[i] == int2ptr(0)) {
 			if (outnum)

@@ -616,7 +616,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		}
 
 		/* For now, we use the same feerate for funding + commitment tx */
-		/* FIXME: allow these to be done separately? */
+		/* FIXME: allow these to be set separately */
 		state->feerate_per_kw_funding = state->feerate_per_kw;
 		msg = towire_open_channel2(NULL,
 					   &chainparams->genesis_blockhash,
@@ -862,10 +862,11 @@ static void derive_input_output_info(const tal_t *ctx,
 		in->max_witness_len = 1 + 1 + 73 + 1 + 33;
 
 		/*
-		 *	FIXME: add BOLT reference when merged.
-		 *	`input_info`.`script` is the scriptPubkey data for the input.
-		 *	NB: for native SegWit inputs (P2WPKH and P2WSH) inputs, the `script` field
-		 *	will be empty.
+		 *	BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		 *	`input_info`.`script` is the scriptSig field for the input. Only applicable
+		 *	 for P2SH-wrapped inputs.
+		 *	 Native SegWit inputs (P2WPKH and P2WSH) inputs, will have
+		 *	 an empty `script` field
 		 */
 		if (utxos[i]->is_p2sh) {
 			in->script = tal_arr(in, u8, tx->wtx->inputs[i].script_len);
@@ -885,7 +886,7 @@ static void derive_input_output_info(const tal_t *ctx,
 		wo = tx->wtx->outputs[i];
 
 		/* This is a hack that excludes P2WSH outputs
-		 * which for us, now are exclusively funding outputs */
+		 * which for our implementation, are funding outputs */
 		if (exclude_funding_output && wo.script_len == 34)
 			continue;
 
@@ -904,8 +905,13 @@ static bool check_remote_inputs(struct state *state,
 {
 	size_t i = 0;
 
-	// FIXME: we should check that they don't include the funding output
-	// and maybe check that none of their outputs are duplicates??
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+	 * The sending node:
+	 * ...
+	 * - MUST NOT re-transmit inputs it has already received from the peer
+	 */
+	// FIXME(nifty): check this ^^^
 	*input_funding = AMOUNT_SAT(0);
 	for (i = 0; i < tal_count(remote_inputs); i++) {
 
@@ -916,8 +922,9 @@ static bool check_remote_inputs(struct state *state,
 					           &remote_inputs[i]->input_satoshis),
 			            type_to_string(tmpctx, struct amount_sat,
 					           input_funding));
-		/** TODO: add BOLT reference when merged
-		 * - MUST ensure each `input_info` refers to a non-malleable (segwit) UTXO. */
+
+		/** BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		 * - MUST ensure each `input_info` refers to a non-malleable (segwit) UTXO.  */
 		/* P2SH wrapped inputs send the redeemscript, which we can check */
 		if (remote_inputs[i]->script) {
 			if (!is_p2wpkh(remote_inputs[i]->script, NULL)
@@ -943,34 +950,50 @@ static bool check_remote_input_outputs(struct state *state,
 	struct amount_sat funding, other_outputs, funding_tx_sats;
 	bool has_change_address;
 
-	/**
-	 *  BOLT-737016aef544011f385a9e081f85eca34eb61ab6
-	 *  - if is the `opener`:
-	 *   - MUST NOT send zero inputs (`num_inputs` cannot be zero).
-	 */
 	if (remote_role == OPENER) {
+		/**
+		 *  BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		 *  - if is the `opener`:
+		 *    - MUST send at least one `funding_add_input` message
+    		 *    - MUST NOT send a total count of more than 64 inputs,
+		 *      across all `funding_add_input` messages.
+		 */
 		if (!tal_count(remote_inputs))
+			peer_failed(state->pps,
+				    &state->channel_id,
+				    "Opener sent no funding inputs");
+
+		if (tal_count(remote_inputs) > REMOTE_OPENER_INPUT_LIMIT)
 			peer_failed(state->pps,
 				    &state->channel_id,
 				    "Opener sent no funding inputs");
 	} else {
 		/**
-		 * BOLT-737016aef544011f385a9e081f85eca34eb61ab6
+		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
 		 * - if is the `accepter`:
-		 *   - consider the `contribution count` the total of their `num_inputs` plus
-		 *    `num_outputs'
-		 *     - MUST NOT send a `funding_compose` message where the `contribution count`
-		 *       exceeds the limit of 4.
+    		 *  - MUST NOT send a total count of more than 16 inputs, across
+		 *    all `funding_add_input` messages.
 		 */
-		if (tal_count(remote_inputs) + tal_count(remote_outputs) > REMOTE_CONTRIB_LIMIT)
+		if (tal_count(remote_inputs) > REMOTE_ACCEPTER_INPUT_LIMIT)
 			peer_failed(state->pps,
 				    &state->channel_id,
-				    "Too many remote contributions. "
-				    "Received %ld inputs, %ld outputs; "
-				    "max allowed is %d",
+				    "Too many inputs added. "
+				    "Received %ld inputs, max allowed is %d",
 				    tal_count(remote_inputs),
+				    REMOTE_ACCEPTER_INPUT_LIMIT);
+
+		/* BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		 * - if is the `accepter`:
+		 *   - MUST NOT send a total count of more than 8 outputs,
+		 *     across all `funding_add_output` messages.
+		 */
+		if (tal_count(remote_outputs) > REMOTE_OUTPUT_LIMIT)
+			peer_failed(state->pps,
+				    &state->channel_id,
+				    "Too many outputs added. "
+				    "Received %ld outputs, max allowed is %d",
 				    tal_count(remote_outputs),
-				    REMOTE_CONTRIB_LIMIT);
+				    REMOTE_OUTPUT_LIMIT);
 	}
 
 	if (!check_remote_inputs(state, remote_inputs, &funding))
@@ -981,13 +1004,21 @@ static bool check_remote_input_outputs(struct state *state,
 	other_outputs = AMOUNT_SAT(0);
 	has_change_address = false;
 	for (i = 0; i < tal_count(remote_outputs); i++) {
-		if (amount_sat_eq(AMOUNT_SAT(0), remote_outputs[i]->output_satoshis)) {
-			if (has_change_address)
-				peer_failed(state->pps,
-					    &state->channel_id,
-					    "Peer sent more than one change outputs.");
+		/*
+		* BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		* - if is the `opener`:
+		*   - MAY specify an output with value zero, which will be used
+		*     as the change address for any resulting funds after fees are deducted
+		*/
+		if (remote_role == OPENER) {
+			if (amount_sat_eq(AMOUNT_SAT(0), remote_outputs[i]->output_satoshis)) {
+				if (has_change_address)
+					peer_failed(state->pps,
+						    &state->channel_id,
+						    "Peer sent more than one change output.");
 
-			has_change_address = true;
+				has_change_address = true;
+			}
 		}
 		if (!amount_sat_add(&other_outputs, other_outputs, remote_outputs[i]->output_satoshis))
 			peer_failed(state->pps, &state->channel_id,
@@ -997,7 +1028,8 @@ static bool check_remote_input_outputs(struct state *state,
 			            type_to_string(tmpctx, struct amount_sat,
 					           &remote_outputs[i]->output_satoshis));
 
-		/* TODO: add BOLT reference when merged
+		/*
+		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
 		 * - MUST ensure the `output_info`.`script` is a standard script
 		 */
 		if (!is_known_scripttype(remote_outputs[i]->script))
@@ -1005,17 +1037,27 @@ static bool check_remote_input_outputs(struct state *state,
 				    &state->channel_id,
 				    "Peer sent non-standard output script.");
 
+		/*
+		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		 * - MUST NOT include the channel funding output.
+		*/
+		// FIXME(nifty): check this ^^^
+
 	}
 
-	/** TODO: add BOLT reference when merged
+	/**
+	* BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
 	* The receiving node:
-	* - if the total `input_info`.`satoshis` is less than the total `output_info`.`satoshis`
-	*   - MUST fail the channel.
+	*  - MUST fail the channel if:
+	*  ...
+	* - the total satoshis of the senders inputs is less than their outputs plus
+	*     the `funding_satoshis`, specified earlier
 	*/
 	if (!amount_sat_sub(&funding_tx_sats, funding, other_outputs))
 		peer_failed(state->pps,
 			    &state->channel_id,
-			    "Total remote input satoshi less than output satoshis. change:%s inputs:%s",
+			    "Total remote input satoshi less than output satoshis. "
+			    "change:%s inputs:%s",
 			    type_to_string(tmpctx, struct amount_sat,
 					   &other_outputs),
 			    type_to_string(tmpctx, struct amount_sat,
@@ -1597,10 +1639,10 @@ static void inputs_to_infos(const tal_t *ctx, struct utxo **utxos,
 		info->max_witness_len = 1 + 1 + 73 + 1 + 33;
 
 		/*
-		 *	BOLT-1a9a018f5e2fa7239ae25f333c0be1f294f6c5e9
-		 *	`input_info`.`script` is the scriptPubkey data for the input.
-		 *	NB: for native SegWit inputs (P2WPKH and P2WSH) inputs, the `script` field
-		 *	will be empty.
+		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		 *
+		 * `input_info`.`script` is the scriptSig field for the input. Only applicable
+		 *  for P2SH-wrapped inputs.
 		 */
 		if (tal_count(utxos[i]->scriptSig))
 			info->script = tal_dup_arr(info, u8, utxos[i]->scriptSig,
@@ -1939,11 +1981,12 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
 			      tal_hex(tmpctx, msg));
 
-	/* We generate our witnesses for the funding tx */
-	/* FIXME: update with BOLT ref when included
-	 * - MUST set `witness` to the serialized witness data for each of its
-	 *   inputs, in funding transaction order. FIXME: link to funding tx order
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+	 * - MUST set `witness` to the serialized witness data for the input
+	 *   corresponding to `prevtx_txid`:`prevtx_vout`
          */
+	/* We generate our witnesses for the funding tx */
 	msg = towire_hsm_dual_funding_sigs(tmpctx,
 					   cast_const2(const struct utxo **, utxos),
 					   state->feerate_per_kw_funding,

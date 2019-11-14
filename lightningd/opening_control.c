@@ -1155,10 +1155,10 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
 								&fee_estimate, &change);
 
 		/* Verify that we're still under the max remote that is allowed */
-		if (tal_count(pf->utxos) > REMOTE_CONTRIB_LIMIT) {
+		if (tal_count(pf->utxos) > REMOTE_ACCEPTER_INPUT_LIMIT) {
 			log_info(openingd->log,
 				 "Too many utxos selected (%zu), only %"PRIu16" allowed",
-				 tal_count(pf->utxos), REMOTE_CONTRIB_LIMIT - 1);
+				 tal_count(pf->utxos), REMOTE_ACCEPTER_INPUT_LIMIT);
 			pf->utxos = tal_free(pf->utxos);
 			change = AMOUNT_SAT(0);
 		}
@@ -1270,8 +1270,7 @@ static void opening_got_offer(struct subd *openingd,
 		/* We use one less than the contribution count limit
 		 * to leave room for a change output */
 		wallet_compute_max(openingd->ld->wallet,
-				   /* Leave space for change */
-				   REMOTE_CONTRIB_LIMIT - 1,
+				   REMOTE_ACCEPTER_INPUT_LIMIT,
 				   &payload->available_funds);
 	} else
 		uc->pf = NULL;
