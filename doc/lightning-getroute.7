@@ -113,8 +113,9 @@ factor for larger amounts, and is basically ignored for tiny ones\.
 
 On success, a "route" array is returned\. Each array element contains
 \fIid\fR (the node being routed through), \fImsatoshi\fR (the millisatoshis
-sent), \fIamount_msat\fR (the same, with \fImsat\fR appended), and \fIdelay\fR (the
-number of blocks to timeout at this node)\.
+sent), \fIamount_msat\fR (the same, with \fImsat\fR appended), \fIdelay\fR (the
+number of blocks to timeout at this node), and \fIstyle\fR (indicating
+the features which can be used for this hop)\.
 
 
 The final \fIid\fR will be the destination \fIid\fR given in the input\. The

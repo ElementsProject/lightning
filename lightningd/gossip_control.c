@@ -303,6 +303,21 @@ static const struct json_command listnodes_command = {
 };
 AUTODATA(json_command, &listnodes_command);
 
+static void json_add_route_hop_style(struct json_stream *response,
+				     const char *fieldname,
+				     enum route_hop_style style)
+{
+	switch (style) {
+	case ROUTE_HOP_LEGACY:
+		json_add_string(response, fieldname, "legacy");
+		return;
+	case ROUTE_HOP_TLV:
+		json_add_string(response, fieldname, "tlv");
+		return;
+	}
+	fatal("Unknown route_hop_style %u", style);
+}
+
 /* Output a route hop */
 static void json_add_route_hop(struct json_stream *r, char const *n,
 			       const struct route_hop *h)
@@ -315,6 +330,7 @@ static void json_add_route_hop(struct json_stream *r, char const *n,
 	json_add_num(r, "direction", h->direction);
 	json_add_amount_msat_compat(r, h->amount, "msatoshi", "amount_msat");
 	json_add_num(r, "delay", h->delay);
+	json_add_route_hop_style(r, "style", h->style);
 	json_object_end(r);
 }
 

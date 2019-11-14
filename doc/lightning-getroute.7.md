@@ -279,8 +279,9 @@ RETURN VALUE
 
 On success, a "route" array is returned. Each array element contains
 *id* (the node being routed through), *msatoshi* (the millisatoshis
-sent), *amount\_msat* (the same, with *msat* appended), and *delay* (the
-number of blocks to timeout at this node).
+sent), *amount\_msat* (the same, with *msat* appended), *delay* (the
+number of blocks to timeout at this node), and *style* (indicating
+the features which can be used for this hop).
 
 The final *id* will be the destination *id* given in the input. The
 difference between the first *msatoshi* minus the *msatoshi* given in
