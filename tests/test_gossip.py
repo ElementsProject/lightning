@@ -1066,7 +1066,7 @@ def test_gossipwith(node_factory):
 
     out = subprocess.run(['devtools/gossipwith',
                           '--initial-sync',
-                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) * 1000)),
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                          check=True,
                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout

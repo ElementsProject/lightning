@@ -164,7 +164,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		beint16_t belen;
 		u8 *msg;
 
-		if (poll(pollfd, ARRAY_SIZE(pollfd), timeout_after) == 0)
+		if (poll(pollfd, ARRAY_SIZE(pollfd),
+			 timeout_after < 0 ? -1 : timeout_after * 1000) == 0)
 			return 0;
 
 		/* We always to stdin first if we can */
@@ -235,7 +236,7 @@ int main(int argc, char *argv[])
 			 "Secret key to use for our identity");
 	opt_register_arg("--timeout-after", opt_set_intval, opt_show_intval,
 			 &timeout_after,
-			 "Exit (success) this many msec after no msgs rcvd");
+			 "Exit (success) this many seconds after no msgs rcvd");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
