@@ -276,7 +276,8 @@ precisely control where to bind and what to announce with the
 *bind-addr* and *announce-addr* options. These will **disable** the
 *autolisten* logic, so you must specifiy exactly what you want!
 
- **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:TORPORT\]*
+ **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]*
+
 Set an IP address (v4 or v6) or automatic Tor address to listen on and
 (maybe) announce as our node address.
 
@@ -292,6 +293,18 @@ Set an IP address (v4 or v6) or automatic Tor address to listen on and
     and this will be used to configure a Tor hidden service for port
     9735.  The Tor hidden service will be configured to point to the
     first IPv4 or IPv6 address we bind to.
+
+    If the argument begins with 'statictor:' then it is followed by the
+    IPv4 or IPv6 address of the Tor control port (default port 9051),
+    and this will be used to configure a static Tor hidden service for port
+    9735.  The Tor hidden service will be configured to point to the
+    first IPv4 or IPv6 address we bind to and is by default unique to
+    your nodes id. You can add the text '/torblob=BLOB' followed by up to
+    64 Bytes of text to generate from this text a v3 onion service
+    address text unique to the first 32 Byte of this text.
+    You can also use an postfix '/torport=TORPORT' to select the external
+    tor binding. The result is that over tor your node is accessible by a port
+    defined by you and possible different from your local node port assignment
 
     This option can be used multiple times to add more addresses, and
     its use disables autolisten.  If necessary, and 'always-use-proxy'
