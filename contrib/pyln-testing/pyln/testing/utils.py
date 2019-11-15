@@ -877,7 +877,7 @@ class LightningNode(object):
                                timeout=TIMEOUT,
                                stdout=subprocess.PIPE).stdout.strip()
         out = subprocess.run(['devtools/gossipwith',
-                              '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) * 1000)),
+                              '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
                               '{}@localhost:{}'.format(self.info['id'],
                                                        self.port),
                               query],
