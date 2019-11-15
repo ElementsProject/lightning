@@ -213,6 +213,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->tor_service_password = NULL;
 	ld->max_funding_unconfirmed = 2016;
 
+	/*~ This is initialized later, but the plugin loop examines this,
+	 * so set it to NULL explicitly now. */
+	ld->wallet = NULL;
+
 	/*~ In the next step we will initialize the plugins. This will
 	 *  also populate the JSON-RPC with passthrough methods, hence
 	 *  lightningd needs to have something to put those in. This
