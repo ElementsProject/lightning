@@ -69,6 +69,18 @@ static bool calculate_input_weights(struct input_info **inputs,
 	u32 input_weight;
 	size_t i;
 
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * The *expected weight* of a funding transaction is calculated as follows:
+	 * inputs: 40 bytes + var_int + `scriptlen`
+	 *   - previous_out_point: 36 bytes
+	 *      - hash: 32 bytes
+	 *      - index: 4 bytes
+	 *   - var_int: ? bytes (dependent on `scriptlen`)
+	 *   - script_sig: `scriptlen`
+	 *   - witness <----	Cost for "witness" data calculated separately.
+	 *   - sequence: 4 bytes
+	*/
 	*total = AMOUNT_SAT(0);
 	for (i = 0; i < tal_count(inputs); i++) {
 		/* prev_out hash + index + sequence */
@@ -96,6 +108,15 @@ static size_t calculate_output_weights(struct output_info **outputs)
 {
 	size_t i, output_weights = 0, scriptlen;
 
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * The *expected weight* of a funding transaction is calculated as follows:
+	 * ...
+	 * non_funding_outputs: 8 bytes + var_int + `scriptlen`
+	 *   - value: 8 bytes
+	 *   - var_int: ? bytes (dependent on `scriptlen`)
+	 *   - script_sig: `scriptlen`
+	*/
 	for (i = 0; i < tal_count(outputs); i++) {
 		scriptlen = tal_bytelen(outputs[i]->script);
 		/* amount field + script + scriptlen varint */
@@ -127,7 +148,15 @@ static bool calculate_weight(struct input_info **opener_inputs,
 	if (!calculate_input_weights(accepter_inputs, accepter_total, weight))
 		return false;
 
-	/* channel funding output: amount, len, scriptpubkey */
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * The *expected weight* of a funding transaction is calculated as follows:
+	 * ...
+	 * funding_output: 43 bytes
+	 *   - value: 8 bytes
+	 *   - var_int: 1 byte
+	 *   - script: 34 bytes
+	*/
 	*weight += (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WSH_LEN) * 4;
 
 	*weight += calculate_output_weights(opener_outputs);
@@ -208,7 +237,7 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 					   const void **input_map)
 {
 	size_t weight = 0;
-	struct amount_sat funding_tx_fee, opener_total_sat,
+	struct amount_sat est_tx_fee, opener_total_sat,
 			  accepter_total_sat, output_val;
 	struct bitcoin_tx *tx;
 	const struct output_info *change_output;
@@ -225,10 +254,17 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 			      &weight))
 		return NULL;
 
-	funding_tx_fee = amount_tx_fee(feerate_kw_funding, weight);
-
+	/* Does the opener provide enough sats to cover their funding */
 	if (!amount_sat_sub(opener_change, opener_total_sat, *opener_funding))
 		return NULL;
+
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * - MUST calculate the `est_tx_fee` as:
+	 *   1. Multiply (funding_transaction_weight + witness_weight) by `feerate_per_kw_funding`
+	 *   and divide by 1000 (rounding down).
+	 */
+	est_tx_fee = amount_tx_fee(feerate_kw_funding, weight);
 
 	/* Check that the remaining amount at least covers the other
 	 * indicated output values.  We have to cover these other
@@ -241,12 +277,31 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 	if (!amount_sat_sub(opener_change, *opener_change, output_val))
 		return NULL;
 
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * For channel establishment v2, fees are paid by the opener (the node that
+	 * sends the `open_channel` message). Change, if any, is paid to the
+	 * opener's change address, a zero value output in their output set.
+	 */
 	change_output = find_change_output(opener_outputs);
-	if (amount_sat_sub(opener_change, *opener_change, funding_tx_fee) &&
+
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * - MUST calculate the `est_tx_fee` as:
+	 *   ...
+	 *   2. Confirm that `change_satoshis` is greater than `dust_limit_satoshis`.
+	 */
+	if (amount_sat_sub(opener_change, *opener_change, est_tx_fee) &&
 			amount_sat_greater(*opener_change, chainparams->dust_limit)) {
 		if (!change_output) {
-			/* If there's no change output, we put the remainder into
-			 * the funding output. TODO: add to spec */
+			/*
+			 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+			 * - if no change address is provided or `change_satoshis` is less
+			 *   than or equal to the negotiated `dust_limit_satoshis`:
+			 *   ...
+			 *   2. As there is no change_output, any remaining `change_satoshis`
+			 *   will be added to the funding output, and credited to the opener's
+			 *   initial channel balance. */
 			if (!amount_sat_add(opener_funding, *opener_funding,
 					    *opener_change))
 				return NULL;
@@ -256,14 +311,23 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 		goto build_tx;
 	}
 
-	/* Try removing opener's change output to fit fees */
-	if (change_output) {
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * - if ... `change_satoshis` is less than or equal to the
+	 *   negotiated `dust_limit_satoshis`:
+	 *   - MUST calculate the `est_tx_fee` without the change output (if provided) as:
+	 */
+	 if (change_output) {
 		scriptlen = tal_count(change_output->script);
 		weight -= (8 + scriptlen + varint_size(scriptlen)) * 4;
-		funding_tx_fee = amount_tx_fee(feerate_kw_funding, weight);
+		est_tx_fee = amount_tx_fee(feerate_kw_funding, weight);
 
-		/* Any left over gets added to the funding output */
-		if (amount_sat_sub(opener_change, *opener_change, funding_tx_fee)) {
+		/*
+		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+		 *   2. As there is no change_output, any remaining `change_satoshis`
+		 *   will be added to the funding output, and credited to the opener's
+		 *   initial channel balance. */
+		if (amount_sat_sub(opener_change, *opener_change, est_tx_fee)) {
 			if (!amount_sat_add(opener_funding, *opener_funding, *opener_change))
 				return NULL;
 			*opener_change = AMOUNT_SAT(0);
@@ -271,7 +335,12 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 		}
 	}
 
-	if (!amount_sat_sub(opener_funding, opener_total_sat, funding_tx_fee) ||
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+	 * - if the resulting `change_satoshis` is less than zero:
+	 *   - sum(`funding_satoshis`) will be decreased by the difference.
+	 */
+	if (!amount_sat_sub(opener_funding, opener_total_sat, est_tx_fee) ||
 		!amount_sat_sub(opener_funding, *opener_funding, output_val))
 		return NULL;
 
@@ -283,10 +352,11 @@ build_tx:
 	output_count = tal_count(opener_outputs) +
 		tal_count(accepter_outputs) + 1;
 
-	/* If they had supplied a change output, but we removed it because
+	/* If they had supplied a change output, but we removed it because of fees,
 	 * remove it from the count */
 	if (change_output && amount_sat_eq(AMOUNT_SAT(0), *opener_change)) {
 		output_count -= 1;
+		/* There should at least be a funding output */
 		assert(output_count > 0);
 	}
 
@@ -294,18 +364,21 @@ build_tx:
 
 	/* Add the funding output */
 	wscript = bitcoin_redeem_2of2(tx, local_fundingkey, remote_fundingkey);
-	SUPERVERBOSE("# funding witness script = %s\n",
-		     tal_hex(wscript, wscript));
+	SUPERVERBOSE("# funding witness script = %s\n", tal_hex(wscript, wscript));
 
 	*total_funding = *opener_funding;
 	if (!amount_sat_add(total_funding, *total_funding, accepter_funding))
 		return NULL;
 
-	/* Last check, make sure our funding output is greater than
-	 * the dust limit */
+	/*
+	 * BOLT-82ccaed20022ddf3eb7927052429f6551e8dac45 #2
+	 *
+	 * - if the `funding_output` of the resulting transaction is less than
+	 *   the `dust_limit` ([BOLT #3: Calculating `est_tx_fee`](03-transactions.md#channel-establishment-v2-funding-transaction-fees)):
+	 *   - MUST fail the channel
+	 */
 	if (!amount_sat_greater(*total_funding, chainparams->dust_limit))
 		return NULL;
-
 
 	const void *o_map[output_count];
 	for (i = 0; i < output_count; i++)

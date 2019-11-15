@@ -98,8 +98,62 @@ static u8 *hex_to_u8(const tal_t *ctx, char *str)
 	return tal_hexdata(ctx, str, strlen(str));
 }
 
-/* Test case from the 03 Appendix F, in the RFC */
-/* FIXME: add bolt reference for this */
+/*
+ * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
+ * # Appendix F: Dual Funded Transaction Test Vectors
+ * ...
+ * Expected Opener's `funding_compose.input_info` (inputs 0+1 above):
+ * ```
+ * num_inputs: 2
+ * input_info:[
+ *   {
+ *     satoshis: 250000000,
+ *     prev_txid: 4303ca8ff10c6c345b9299672a66f111c5b81ae027cc5b0d4d39d09c66b032b9,
+ *     prev_vout: 0,
+ *     prev_scriptpubkey_len: 34,
+ *     prev_scriptpubkey: 0020fd89acf65485df89797d9ba7ba7a33624ac4452f00db08107f34257d33e5b946,
+ *     max_witness_len: 75,
+ *     scriptlen: 0,
+ *     script: null
+ *   },{
+ *     satoshis: 250000000,
+ *     prev_txid: 4303ca8ff10c6c345b9299672a66f111c5b81ae027cc5b0d4d39d09c66b032b9,
+ *     prev_vout: 1,
+ *     prev_scriptpubkey_len: 23,
+ *     prev_scriptpubkey: a9146a235d064786b49e7043e4a042d4cc429f7eb69487,
+ *     max_witness_len: 75,
+ *     scriptlen: 34,
+ *     script: 0020fd89acf65485df89797d9ba7ba7a33624ac4452f00db08107f34257d33e5b946
+ *   }
+ * ]
+ * ```
+ *
+ * Expected Accepter's `funding_compose.input_info` (inputs 2+3 above):
+ * ```
+ * num_inputs: 2
+ * input_info:[
+ *  {
+ *    satoshis: 250000000,
+ *    prev_txid: 4303ca8ff10c6c345b9299672a66f111c5b81ae027cc5b0d4d39d09c66b032b9,
+ *    prev_vout: 2,
+ *    prev_scriptpubkey_len: 22,
+ *    prev_scriptpubkey: 0014fbb4db9d85fba5e301f4399e3038928e44e37d32,
+ *    max_witness_len: 109,
+ *    scriptlen: 0,
+ *    script: null
+ *  },{
+ *    satoshis: 250000000,
+ *    prev_txid: 4303ca8ff10c6c345b9299672a66f111c5b81ae027cc5b0d4d39d09c66b032b9,
+ *    prev_vout: 3,
+ *    prev_scriptpubkey_len: 23,
+ *    prev_scriptpubkey: a9147ecd1b519326bc13b0ec716e469b58ed02b112a087,
+ *    max_witness_len: 109,
+ *    scriptlen: 22,
+ *    script: 0014fbb4db9d85fba5e301f4399e3038928e44e37d32
+ *  }
+ *]
+ *```
+*/
 static struct test_case test1(const tal_t *ctx)
 {
 	struct bitcoin_txid txid;
