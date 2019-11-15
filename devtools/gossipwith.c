@@ -311,6 +311,7 @@ int main(int argc, char *argv[])
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 	case ADDR_INTERNAL_AUTOTOR:
+	case ADDR_INTERNAL_STATICTOR:
 	case ADDR_INTERNAL_FORPROXY:
 		opt_usage_exit_fail("Don't support proxy use");
 

@@ -68,7 +68,7 @@ struct config {
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;
 
-	/* Allow to define the default behavior of tot services calls*/
+	/* Allow to define the default behavior of tor services calls*/
 	bool use_v3_autotor;
 
 	/* This is the key we use to encrypt `hsm_secret`. */

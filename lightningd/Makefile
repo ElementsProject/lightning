@@ -17,6 +17,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/addr.o				\
 	common/amount.o				\
 	common/base32.o				\
+	common/base64.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
