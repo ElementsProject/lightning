@@ -721,23 +721,34 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	if (end > peer->range_end_blocknum)
 		end = peer->range_end_blocknum;
 
-	/* We keep a bitmap of what blocks have been covered by replies: bit 0
-	 * represents block peer->range_first_blocknum */
-	b = bitmap_ffs(peer->query_channel_blocks,
-		       start - peer->range_first_blocknum,
-		       end - peer->range_first_blocknum);
-	if (b != end - peer->range_first_blocknum) {
-		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range %u+%u already have block %lu",
-				       first_blocknum, number_of_blocks,
-				       peer->range_first_blocknum + b);
-	}
+	/* LND mis-implemented the spec.  If they have multiple replies, set
+	 * each one to the *whole* range, with complete=0 except the last.
+	 * Try to accomodate that (pretend we make no progress until the
+	 * end)! */
+	if (first_blocknum == peer->range_first_blocknum
+	    && first_blocknum + number_of_blocks == peer->range_end_blocknum
+	    && !complete
+	    && tal_bytelen(msg) == 64046) {
+		status_debug("LND reply_channel_range detected: futzing");
+	} else {
+		/* We keep a bitmap of what blocks have been covered by replies: bit 0
+		 * represents block peer->range_first_blocknum */
+		b = bitmap_ffs(peer->query_channel_blocks,
+			       start - peer->range_first_blocknum,
+			       end - peer->range_first_blocknum);
+		if (b != end - peer->range_first_blocknum) {
+			return towire_errorfmt(peer, NULL,
+					       "reply_channel_range %u+%u already have block %lu",
+					       first_blocknum, number_of_blocks,
+					       peer->range_first_blocknum + b);
+		}
 
-	/* Mark that short_channel_ids for this block have been received */
-	bitmap_fill_range(peer->query_channel_blocks,
-			  start - peer->range_first_blocknum,
-			  end - peer->range_first_blocknum);
-	peer->range_blocks_remaining -= end - start;
+		/* Mark that short_channel_ids for this block have been received */
+		bitmap_fill_range(peer->query_channel_blocks,
+				  start - peer->range_first_blocknum,
+				  end - peer->range_first_blocknum);
+		peer->range_blocks_remaining -= end - start;
+	}
 
 	/* Add scids */
 	n = tal_count(peer->query_channel_scids);
