@@ -20,6 +20,7 @@
 #define io_close simple_close
 static bool stream_stdin = false;
 static bool no_init = false;
+static bool hex = false;
 static int timeout_after = -1;
 
 static struct io_plan *simple_write(struct io_conn *conn,
@@ -183,10 +184,14 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 			msg = sync_crypto_read(NULL, pps);
 			if (!msg)
 				err(1, "Reading msg");
-			belen = cpu_to_be16(tal_bytelen(msg));
-			if (!write_all(STDOUT_FILENO, &belen, sizeof(belen))
-			    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
-				err(1, "Writing out msg");
+			if (hex) {
+				printf("%s\n", tal_hex(msg, msg));
+			} else {
+				belen = cpu_to_be16(tal_bytelen(msg));
+				if (!write_all(STDOUT_FILENO, &belen, sizeof(belen))
+				    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
+					err(1, "Writing out msg");
+			}
 			tal_free(msg);
 			--max_messages;
 		}
@@ -237,6 +242,8 @@ int main(int argc, char *argv[])
 	opt_register_arg("--timeout-after", opt_set_intval, opt_show_intval,
 			 &timeout_after,
 			 "Exit (success) this many seconds after no msgs rcvd");
+	opt_register_noarg("--hex", opt_set_bool, &hex,
+			   "Print out messages in hex");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
