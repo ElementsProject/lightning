@@ -2414,14 +2414,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		status_debug("Received node_announcement for node %s",
 			     type_to_string(tmpctx, struct node_id, &node_id));
 
-	/* Check timestamp is sane (unless from gossip_store). */
-	if (!index && !timestamp_reasonable(rstate, timestamp)) {
-		status_debug("Ignoring node_announcement timestamp %u for %s",
-			     timestamp,
-			     type_to_string(tmpctx, struct node_id, &node_id));
-		return false;
-	}
-
 	node = get_node(rstate, &node_id);
 
 	if (node == NULL || !node_has_broadcastable_channels(node)) {
