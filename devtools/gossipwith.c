@@ -7,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
+#include <common/features.h>
 #include <common/peer_failed.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
@@ -22,6 +23,7 @@ static bool stream_stdin = false;
 static bool no_init = false;
 static bool hex = false;
 static int timeout_after = -1;
+static u8 *features;
 
 static struct io_plan *simple_write(struct io_conn *conn,
 				    const void *data, size_t len,
@@ -127,18 +129,15 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 {
 	u8 *msg;
 	struct per_peer_state *pps = new_per_peer_state(conn, orig_cs);
-	u8 *localfeatures;
 	struct pollfd pollfd[2];
 
 	pps->peer_fd = io_conn_fd(conn);
-	if (initial_sync) {
-		localfeatures = tal(conn, u8);
-		localfeatures[0] = (1 << 3);
-	} else
-		localfeatures = NULL;
+	if (initial_sync)
+		set_feature_bit(&features,
+				OPTIONAL_FEATURE(OPT_INITIAL_ROUTING_SYNC));
 
 	if (!no_init) {
-		msg = towire_init(NULL, NULL, localfeatures);
+		msg = towire_init(NULL, NULL, features);
 
 		sync_crypto_write(pps, take(msg));
 		/* Ignore their init message. */
@@ -211,6 +210,14 @@ static void opt_show_secret(char buf[OPT_SHOW_LEN], const struct secret *s)
 	hex_encode(s->data, sizeof(s->data), buf, OPT_SHOW_LEN);
 }
 
+static char *opt_set_features(const char *arg, u8 **features)
+{
+	*features = tal_hexdata(tal_parent(*features), arg, strlen(arg));
+	if (!*features)
+		return "features must be valid hex";
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_conn *conn = tal(NULL, struct io_conn);
@@ -226,6 +233,7 @@ int main(int argc, char *argv[])
 						 SECP256K1_CONTEXT_SIGN);
 
 	memset(&notsosecret, 0x42, sizeof(notsosecret));
+	features = tal_arr(conn, u8, 0);
 
 	opt_register_noarg("--initial-sync", opt_set_bool, &initial_sync,
 			   "Stream complete gossip history at start");
@@ -244,6 +252,8 @@ int main(int argc, char *argv[])
 			 "Exit (success) this many seconds after no msgs rcvd");
 	opt_register_noarg("--hex", opt_set_bool, &hex,
 			   "Print out messages in hex");
+	opt_register_arg("--features=<hex>", opt_set_features, NULL,
+			 &features, "Send these features in init");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
