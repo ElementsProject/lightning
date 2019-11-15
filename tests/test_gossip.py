@@ -13,6 +13,7 @@ import struct
 import subprocess
 import time
 import unittest
+import socket
 
 
 with open('config.vars') as configfile:
@@ -1575,3 +1576,68 @@ def test_gossip_ratelimit(node_factory):
                    check=True, timeout=TIMEOUT)
 
     wait_for(lambda: [c['fee_per_millionth'] for c in l3.rpc.listchannels()['channels']] == [1006])
+
+
+def check_socket(ip_addr, port):
+    result = True
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # let's also check for fatal and try it ;-)
+    try:
+        result = sock.connect_ex((ip_addr, port))
+        sock.close()
+    except Exception:
+        return False
+
+    return not result
+
+
+@unittest.skipIf(not DEVELOPER, "needs a running Tor service instance at port 9151 or 9051")
+def test_statictor_onions(node_factory):
+    """First basic tests ;-)
+
+    Assume that tor is configured and just test
+    if we see the right onion address for our blob
+    """
+    # please define your values
+    torip = '127.0.0.1'
+    toripps = '127.0.0.1:9051'
+    torport = 9050
+    torserviceport = 9051
+
+    if not check_socket(format(torip), torserviceport):
+        return
+
+    if not check_socket(format(torip), torport):
+        return
+
+    l1 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps)]})
+    l2 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps, '/torblob=11234567890123456789012345678901')]})
+
+    assert l1.daemon.is_in_log('127.0.0.1:'.format(l1.port))
+    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:9735,127.0.0.1:'.format(l2.port))
+
+
+@unittest.skipIf(not DEVELOPER, "needs a running Tor service instance at port 9151 or 9051")
+def test_torport_onions(node_factory):
+    """First basic tests for torport ;-)
+
+    Assume that tor is configured and just test
+    if we see the right onion address for our blob
+    """
+    # please define your values
+    torip = '127.0.0.1'
+    toripps = '127.0.0.1:9051'
+    torport = 9050
+    torserviceport = 9051
+
+    if not check_socket(format(torip), torserviceport):
+        return
+
+    if not check_socket(format(torip), torport):
+        return
+
+    l1 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps, '/torport=45321')]})
+    l2 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps, '/torport=45321:torblob=11234567890123456789012345678901')]})
+
+    assert l1.daemon.is_in_log('45321,127.0.0.1:'.format(l1.port))
+    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:45321,127.0.0.1:'.format(l2.port))
