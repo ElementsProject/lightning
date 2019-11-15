@@ -56,6 +56,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <secp256k1_ecdh.h>
+#include <sodium.h>
 #include <sodium/randombytes.h>
 #include <stdarg.h>
 #include <sys/socket.h>
@@ -149,7 +150,7 @@ struct daemon {
 	/* File descriptors to listen on once we're activated. */
 	struct listen_fd *listen_fds;
 
-	/* Allow to define the default behavior of tot services calls*/
+	/* Allow to define the default behavior of tor services calls*/
 	bool use_v3_autotor;
 };
 
@@ -652,6 +653,10 @@ static struct io_plan *conn_init(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't connect to autotor address");
 		break;
+	case ADDR_INTERNAL_STATICTOR:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect to statictor address");
+		break;
 	case ADDR_INTERNAL_FORPROXY:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't connect to forproxy address");
@@ -688,6 +693,7 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 	case ADDR_INTERNAL_SOCKNAME:
 	case ADDR_INTERNAL_ALLPROTO:
 	case ADDR_INTERNAL_AUTOTOR:
+	case ADDR_INTERNAL_STATICTOR:
 		break;
 	}
 
@@ -731,6 +737,9 @@ static void try_connect_one_addr(struct connecting *connect)
 	case ADDR_INTERNAL_AUTOTOR:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't connect AUTOTOR");
+	case ADDR_INTERNAL_STATICTOR:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect STATICTOR");
 	case ADDR_INTERNAL_FORPROXY:
 		use_proxy = true;
 		break;
@@ -993,6 +1002,10 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	struct sockaddr_un addrun;
 	int fd;
 	struct wireaddr_internal *binding;
+	const u8 *blob = NULL;
+	struct secret random;
+	struct pubkey pb;
+	struct wireaddr *toraddr;
 
 	/* Start with empty arrays, for tal_arr_expand() */
 	binding = tal_arr(ctx, struct wireaddr_internal, 0);
@@ -1018,7 +1031,6 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
 		struct wireaddr_internal wa = proposed_wireaddr[i];
 		bool announce = (proposed_listen_announce[i] & ADDR_ANNOUNCE);
-
 		if (!(proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
 
@@ -1040,6 +1052,9 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			add_binding(&binding, &wa);
 			continue;
 		case ADDR_INTERNAL_AUTOTOR:
+			/* We handle these after we have all bindings. */
+			continue;
+		case ADDR_INTERNAL_STATICTOR:
 			/* We handle these after we have all bindings. */
 			continue;
 		/* Special case meaning IPv6 and IPv4 */
@@ -1102,25 +1117,63 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
 		if (!(proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
-
 		if (proposed_wireaddr[i].itype != ADDR_INTERNAL_AUTOTOR)
 			continue;
+		toraddr = tor_autoservice(tmpctx,
+					  &proposed_wireaddr[i],
+					  tor_password,
+					  binding,
+					  daemon->use_v3_autotor);
+
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
-				tor_autoservice(tmpctx,
-						&proposed_wireaddr[i].u.torservice,
-						tor_password,
-						binding,
-						daemon->use_v3_autotor);
 			continue;
 		};
-		add_announcable(announcable,
-				tor_autoservice(tmpctx,
-						&proposed_wireaddr[i].u.torservice,
-						tor_password,
-						binding,
-						daemon->use_v3_autotor));
+		add_announcable(announcable, toraddr);
 	}
 
+	/* Now we have bindings, set up any Tor static addresses: we will point
+	 * it at the first bound IPv4 or IPv6 address we have. */
+	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
+		if (!(proposed_listen_announce[i] & ADDR_LISTEN))
+			continue;
+		if (proposed_wireaddr[i].itype != ADDR_INTERNAL_STATICTOR)
+			continue;
+		blob = proposed_wireaddr[i].u.torservice.blob;
+
+		if (tal_strreg(tmpctx, (char *)proposed_wireaddr[i].u.torservice.blob, STATIC_TOR_MAGIC_STRING)) {
+			if (pubkey_from_node_id(&pb, &daemon->id)) {
+				if (sodium_mlock(&random, sizeof(random)) != 0)
+						status_failed(STATUS_FAIL_INTERNAL_ERROR,
+									"Could not lock the random prf key memory.");
+				randombytes_buf((void * const)&random, 32);
+				/* generate static tor node address, take first 32 bytes from secret of node_id plus 32 random bytes from sodiom */
+				struct sha256 sha;
+				/* let's sha, that will clear ctx of hsm data */
+				sha256(&sha, hsm_do_ecdh(tmpctx, &pb), 32);
+				/* even if it's a secret pub derived, tor shall see only the single sha */
+				memcpy((void *)&blob[0], &sha, 32);
+				memcpy((void *)&blob[32], &random, 32);
+				/* clear our temp buffer, don't leak by extern libs core-dumps, our blob we/tal handle later */
+				sodium_munlock(&random, sizeof(random));
+
+			} else status_failed(STATUS_FAIL_INTERNAL_ERROR,
+							"Could not get the pub of our node id from hsm");
+		}
+
+		toraddr = tor_fixed_service(tmpctx,
+					    &proposed_wireaddr[i],
+					    tor_password,
+					    blob,
+					    find_local_address(binding),
+					    0);
+		/* get rid of blob data on our side of tor and add jitter */
+		randombytes_buf((void * const)proposed_wireaddr[i].u.torservice.blob, TOR_V3_BLOBLEN);
+
+		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
+				continue;
+		};
+		add_announcable(announcable, toraddr);
+	}
 	/* Sort and uniquify. */
 	finalize_announcable(announcable);
 
