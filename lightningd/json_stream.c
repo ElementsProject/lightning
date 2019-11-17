@@ -209,7 +209,7 @@ static struct io_plan *json_stream_output_write(struct io_conn *conn,
 
 	js->reader = conn;
 	if (js->log)
-		log_io(js->log, LOG_IO_OUT, "", p, js->len_read);
+		log_io(js->log, LOG_IO_OUT, NULL, "", p, js->len_read);
 	return io_write(conn,
 			p, js->len_read,
 			json_stream_output_write, js);

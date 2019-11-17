@@ -13,6 +13,7 @@
 struct command;
 struct json_stream;
 struct lightningd;
+struct node_id;
 struct timerel;
 
 struct log_entry {
@@ -20,6 +21,7 @@ struct log_entry {
 	struct timeabs time;
 	enum log_level level;
 	unsigned int skipped;
+	struct node_id *node_id;
 	const char *prefix;
 	char *log;
 	/* Iff LOG_IO */
@@ -31,6 +33,7 @@ struct log_book {
 	size_t max_mem;
 	void (*print)(const char *prefix,
 		      enum log_level level,
+		      const struct node_id *node_id,
 		      bool continued,
 		      const struct timeabs *time,
 		      const char *str,
@@ -50,6 +53,7 @@ struct log_book {
 
 struct log {
 	struct log_book *lr;
+	const struct node_id *default_node_id;
 	const char *prefix;
 };
 
@@ -59,20 +63,33 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
 			      enum log_level printlevel);
 
 /* With different entry points */
-struct log *new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...) PRINTF_FMT(3,4);
+struct log *new_log(const tal_t *ctx, struct log_book *record,
+		    const struct node_id *default_node_id,
+		    const char *fmt, ...) PRINTF_FMT(4,5);
 
-#define log_debug(log, ...) log_((log), LOG_DBG, false, __VA_ARGS__)
-#define log_info(log, ...) log_((log), LOG_INFORM, false, __VA_ARGS__)
-#define log_unusual(log, ...) log_((log), LOG_UNUSUAL, true, __VA_ARGS__)
-#define log_broken(log, ...) log_((log), LOG_BROKEN, true, __VA_ARGS__)
+#define log_debug(log, ...) log_((log), LOG_DBG, NULL, false, __VA_ARGS__)
+#define log_info(log, ...) log_((log), LOG_INFORM, NULL, false, __VA_ARGS__)
+#define log_unusual(log, ...) log_((log), LOG_UNUSUAL, NULL, true, __VA_ARGS__)
+#define log_broken(log, ...) log_((log), LOG_BROKEN, NULL, true, __VA_ARGS__)
 
-void log_io(struct log *log, enum log_level dir, const char *comment,
+#define log_peer_debug(log, nodeid, ...) log_((log), LOG_DBG, nodeid, false, __VA_ARGS__)
+#define log_peer_info(log, nodeid, ...) log_((log), LOG_INFORM, nodeid, false, __VA_ARGS__)
+#define log_peer_unusual(log, nodeid, ...) log_((log), LOG_UNUSUAL, nodeid, true, __VA_ARGS__)
+#define log_peer_broken(log, nodeid, ...) log_((log), LOG_BROKEN, nodeid, true, __VA_ARGS__)
+
+void log_io(struct log *log, enum log_level dir,
+	    const struct node_id *node_id,
+	    const char *comment,
 	    const void *data, size_t len);
 
-void log_(struct log *log, enum log_level level, bool call_notifier, const char *fmt, ...)
-	PRINTF_FMT(4,5);
+void log_(struct log *log, enum log_level level,
+	  const struct node_id *node_id,
+	  bool call_notifier,
+	  const char *fmt, ...)
+	PRINTF_FMT(5,6);
 void log_add(struct log *log, const char *fmt, ...) PRINTF_FMT(2,3);
-void logv(struct log *log, enum log_level level, bool call_notifier, const char *fmt, va_list ap);
+void logv(struct log *log, enum log_level level, const struct node_id *node_id,
+	  bool call_notifier, const char *fmt, va_list ap);
 void logv_add(struct log *log, const char *fmt, va_list ap);
 
 enum log_level get_log_level(struct log_book *lr);
@@ -86,6 +103,7 @@ struct log_book *get_log_book(const struct log *log);
 		       typesafe_cb_preargs(void, void *, (print), (arg),\
 					   const char *,		\
 					   enum log_level,		\
+					   const struct node_id *,	\
 					   bool,			\
 					   const struct timeabs *,	\
 					   const char *,		\
@@ -95,6 +113,7 @@ struct log_book *get_log_book(const struct log *log);
 void set_log_outfn_(struct log_book *lr,
 		    void (*print)(const char *prefix,
 				  enum log_level level,
+				  const struct node_id *node_id,
 				  bool continued,
 				  const struct timeabs *time,
 				  const char *str,
@@ -112,6 +131,7 @@ const struct timeabs *log_init_time(const struct log_book *lr);
 					   unsigned int,		\
 					   struct timerel,		\
 					   enum log_level,		\
+					   const struct node_id *,	\
 					   const char *,		\
 					   const char *,		\
 					   const u8 *), (arg))
@@ -120,6 +140,7 @@ void log_each_line_(const struct log_book *lr,
 		    void (*func)(unsigned int skipped,
 				 struct timerel time,
 				 enum log_level level,
+				 const struct node_id *node_id,
 				 const char *prefix,
 				 const char *log,
 				 const u8 *io,

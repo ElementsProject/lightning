@@ -261,14 +261,19 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for log_ */
-void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, bool call_notifier UNNEEDED, const char *fmt UNNEEDED, ...)
+void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
+	  const struct node_id *node_id UNNEEDED,
+	  bool call_notifier UNNEEDED,
+	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
 /* Generated stub for log_add */
 void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "log_add called!\n"); abort(); }
 /* Generated stub for log_io */
-void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
+void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED,
+	    const struct node_id *node_id UNNEEDED,
+	    const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
 /* Generated stub for new_bolt11 */
@@ -276,7 +281,9 @@ struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED,
 			  const struct amount_msat *msat TAKES UNNEEDED)
 { fprintf(stderr, "new_bolt11 called!\n"); abort(); }
 /* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
+		    const struct node_id *default_node_id UNNEEDED,
+		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
 /* Generated stub for new_log_book */
 struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED,
@@ -428,6 +435,7 @@ void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook 
 void set_log_outfn_(struct log_book *lr UNNEEDED,
 		    void (*print)(const char *prefix UNNEEDED,
 				  enum log_level level UNNEEDED,
+				  const struct node_id *node_id UNNEEDED,
 				  bool continued UNNEEDED,
 				  const struct timeabs *time UNNEEDED,
 				  const char *str UNNEEDED,

@@ -432,7 +432,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	switch ((enum status)type) {
 	case WIRE_STATUS_LOG:
 	case WIRE_STATUS_IO:
-		if (!log_status_msg(sd->log, sd->msg_in))
+		if (!log_status_msg(sd->log, sd->node_id, sd->msg_in))
 			goto malformed;
 		goto next;
 	case WIRE_STATUS_FAIL:
@@ -639,10 +639,11 @@ static struct subd *new_subd(struct lightningd *ld,
 	}
 	sd->ld = ld;
 	if (base_log) {
-		sd->log = new_log(sd, get_log_book(base_log), "%s-%s", name,
-				  log_prefix(base_log));
+		sd->log = new_log(sd, get_log_book(base_log), node_id,
+				  "%s-%s", name, log_prefix(base_log));
 	} else {
-		sd->log = new_log(sd, ld->log_book, "%s(%u):", name, sd->pid);
+		sd->log = new_log(sd, ld->log_book, node_id,
+				  "%s(%u):", name, sd->pid);
 	}
 
 	sd->name = name;
@@ -668,7 +669,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	sd->conn = io_new_conn(ld, msg_fd, msg_setup, sd);
 	tal_steal(sd->conn, sd);
 
-	log_debug(sd->log, "pid %u, msgfd %i", sd->pid, msg_fd);
+	log_peer_debug(sd->log, node_id, "pid %u, msgfd %i", sd->pid, msg_fd);
 
 	/* Clear any old transient message. */
 	if (billboardcb)

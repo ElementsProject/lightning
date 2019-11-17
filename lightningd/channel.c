@@ -209,14 +209,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 
 	if (!log) {
 		/* FIXME: update log prefix when we get scid */
-		/* FIXME: Use minimal unique pubkey prefix for logs! */
-		const char *idname = type_to_string(peer,
-						    struct node_id,
-						    &peer->id);
 		channel->log = new_log(channel,
-				       peer->log_book, "%s chan #%"PRIu64":",
-				       idname, dbid);
-		tal_free(idname);
+				       peer->log_book,
+				       &channel->peer->id,
+				       "chan #%"PRIu64":",
+				       dbid);
 	} else
 		channel->log = tal_steal(channel, log);
 	channel->channel_flags = channel_flags;

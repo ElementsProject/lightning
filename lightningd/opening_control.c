@@ -621,7 +621,6 @@ new_uncommitted_channel(struct peer *peer)
 {
 	struct lightningd *ld = peer->ld;
 	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
-	const char *idname;
 
 	uc->peer = peer;
 	assert(!peer->uncommitted_channel);
@@ -629,10 +628,8 @@ new_uncommitted_channel(struct peer *peer)
 	uc->transient_billboard = NULL;
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
 
-	idname = type_to_string(uc, struct node_id, &uc->peer->id);
-	uc->log = new_log(uc, uc->peer->log_book, "%s chan #%"PRIu64":",
-			  idname, uc->dbid);
-	tal_free(idname);
+	uc->log = new_log(uc, uc->peer->log_book, &uc->peer->id,
+			  "chan #%"PRIu64":", uc->dbid);
 
 	uc->fc = NULL;
 	uc->our_config.id = 0;

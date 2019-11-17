@@ -263,8 +263,7 @@ def test_plugin_connected_hook(node_factory):
     l1.daemon.wait_for_log(r"{} is in reject list".format(l3.info['id']))
 
     # FIXME: this error occurs *after* connection, so we connect then drop.
-    l3.daemon.wait_for_log(r"lightning_openingd-{} chan #1: peer_in WIRE_ERROR"
-                           .format(l1.info['id']))
+    l3.daemon.wait_for_log(r"lightning_openingd-chan #1: peer_in WIRE_ERROR")
     l3.daemon.wait_for_log(r"You are in reject list")
 
     def check_disconnect():

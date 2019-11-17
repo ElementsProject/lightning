@@ -373,7 +373,7 @@ def test_reconnect_openingd(node_factory):
     l1.bitcoin.generate_block(3)
 
     # Just to be sure, second openingd hand over to channeld. This log line is about channeld being started
-    l2.daemon.wait_for_log(r'lightning_channeld-[0-9a-f]{66} chan #[0-9]: pid [0-9]+, msgfd [0-9]+')
+    l2.daemon.wait_for_log(r'lightning_channeld-chan #[0-9]: pid [0-9]+, msgfd [0-9]+')
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
