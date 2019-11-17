@@ -34,12 +34,12 @@ static void *buf_resize(struct membuf *mb, void *buf, size_t len)
 
 static void tor_send_cmd(struct rbuf *rbuf, const char *cmd)
 {
-	status_io(LOG_IO_OUT, "torcontrol", cmd, strlen(cmd));
+	status_io(LOG_IO_OUT, NULL, "torcontrol", cmd, strlen(cmd));
 	if (!write_all(rbuf->fd, cmd, strlen(cmd)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Writing '%s' to Tor socket", cmd);
 
-	status_io(LOG_IO_OUT, "torcontrol", "\r\n", 2);
+	status_io(LOG_IO_OUT, NULL, "torcontrol", "\r\n", 2);
 	if (!write_all(rbuf->fd, "\r\n", 2))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Writing CRLF to Tor socket");
@@ -50,7 +50,7 @@ static char *tor_response_line(struct rbuf *rbuf)
 	char *line;
 
 	while ((line = rbuf_read_str(rbuf, '\n')) != NULL) {
-		status_io(LOG_IO_IN, "torcontrol", line, strlen(line));
+		status_io(LOG_IO_IN, NULL, "torcontrol", line, strlen(line));
 
 		/* Weird response */
 		if (!strstarts(line, "250"))

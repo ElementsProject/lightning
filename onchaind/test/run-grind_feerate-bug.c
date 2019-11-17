@@ -189,7 +189,9 @@ bool fromwire_hsm_sign_tx_reply(const void *p UNNEEDED, struct bitcoin_signature
 	return true;
 }
 
-void status_fmt(enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
+void status_fmt(enum log_level level UNNEEDED,
+		const struct node_id *node_id,
+		const char *fmt UNNEEDED, ...)
 {
 }
 

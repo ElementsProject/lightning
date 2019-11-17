@@ -49,11 +49,15 @@ static bool initial_sync = false;
 static unsigned long max_messages = -1UL;
 
 /* Empty stubs to make us compile */
-void status_peer_io(enum log_level iodir, const u8 *p)
+void status_peer_io(enum log_level iodir,
+		    const struct node_id *node_id,
+		    const u8 *p)
 {
 }
 
-void status_fmt(enum log_level level, const char *fmt, ...)
+void status_fmt(enum log_level level,
+		const struct node_id *node_id,
+		const char *fmt, ...)
 {
 }
 

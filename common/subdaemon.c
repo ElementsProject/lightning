@@ -16,7 +16,7 @@ static void status_backtrace_print(const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	status_vfmt(LOG_BROKEN, fmt, ap);
+	status_vfmt(LOG_BROKEN, NULL, fmt, ap);
 	va_end(ap);
 }
 

@@ -3,10 +3,12 @@
 
 msgtype,status_log,0xFFF0
 msgdata,status_log,level,enum log_level,
+msgdata,status_log,peer,?node_id,
 msgdata,status_log,entry,wirestring,
 
 msgtype,status_io,0xFFF1
 msgdata,status_io,iodir,enum log_level,
+msgdata,status_io,peer,?node_id,
 msgdata,status_io,who,wirestring,
 msgdata,status_io,len,u16,
 msgdata,status_io,data,u8,len

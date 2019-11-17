@@ -64,7 +64,9 @@ char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "sanitize_error called!\n"); abort(); }
 /* Generated stub for status_fmt */
-void status_fmt(enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
+void status_fmt(enum log_level level UNNEEDED,
+		const struct node_id *peer UNNEEDED,
+		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */

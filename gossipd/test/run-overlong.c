@@ -2,7 +2,9 @@
 #include "../gossip_store.c"
 #include <stdio.h>
 
-void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
+void status_fmt(enum log_level level UNUSED,
+		const struct node_id *node_id,
+		const char *fmt, ...)
 {
 	va_list ap;
 

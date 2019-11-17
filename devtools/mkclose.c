@@ -23,7 +23,9 @@
 
 static bool verbose = false;
 
-void status_fmt(enum log_level level, const char *fmt, ...)
+void status_fmt(enum log_level level,
+		const struct node_id *node_id,
+		const char *fmt, ...)
 {
 	if (verbose) {
 		va_list ap;
