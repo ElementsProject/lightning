@@ -923,7 +923,7 @@ void peer_start_openingd(struct peer *peer,
 
 	uc->openingd = new_channel_subd(peer->ld,
 					"lightning_openingd",
-					uc, uc->log,
+					uc, &peer->id, uc->log,
 					true, opening_wire_type_name,
 					openingd_msg,
 					opening_channel_errmsg,
