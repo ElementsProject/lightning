@@ -1075,7 +1075,7 @@ class NodeFactory(object):
             leaks = None
             # leak detection upsets VALGRIND by reading uninitialized mem.
             # If it's dead, we'll catch it below.
-            if not VALGRIND:
+            if not VALGRIND and DEVELOPER:
                 try:
                     # This also puts leaks in log.
                     leaks = self.nodes[i].rpc.dev_memleak()['leaks']
