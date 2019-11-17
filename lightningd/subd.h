@@ -34,6 +34,7 @@ struct subd {
 
 	/* For logging */
 	struct log *log;
+	const struct node_id *node_id;
 
 	/* Callback when non-reply message comes in (inside db transaction) */
 	unsigned (*msgcb)(struct subd *, const u8 *, const int *);
@@ -97,6 +98,7 @@ struct subd *new_global_subd(struct lightningd *ld,
  * @ld: global state
  * @name: basename of daemon
  * @channel: channel to associate.
+ * @node_id: node_id of peer, for logging.
  * @base_log: log to use (actually makes a copy so it has name in prefix)
  * @msgname: function to get name from messages
  * @msgcb: function to call (inside db transaction) when non-fatal message received (or NULL)
@@ -112,6 +114,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 struct subd *new_channel_subd_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
+			       const struct node_id *node_id,
 			       struct log *base_log,
 			       bool talks_to_peer,
 			       const char *(*msgname)(int msgtype),
@@ -127,9 +130,10 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 						   const char *happenings),
 			       ...);
 
-#define new_channel_subd(ld, name, channel, log, talks_to_peer, msgname, \
-			 msgcb, errcb, billboardcb, ...)		\
-	new_channel_subd_((ld), (name), (channel), (log), (talks_to_peer), \
+#define new_channel_subd(ld, name, channel, node_id, log, talks_to_peer, \
+			 msgname, msgcb, errcb, billboardcb, ...)	\
+	new_channel_subd_((ld), (name), (channel), (node_id), (log),	\
+			  (talks_to_peer),				\
 			  (msgname), (msgcb),				\
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel),		\

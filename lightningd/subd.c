@@ -601,6 +601,7 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 static struct subd *new_subd(struct lightningd *ld,
 			     const char *name,
 			     void *channel,
+			     const struct node_id *node_id,
 			     struct log *base_log,
 			     bool talks_to_peer,
 			     const char *(*msgname)(int msgtype),
@@ -658,6 +659,10 @@ static struct subd *new_subd(struct lightningd *ld,
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
 	sd->channel = channel;
+	if (node_id)
+		sd->node_id = tal_dup(sd, struct node_id, node_id);
+	else
+		sd->node_id = NULL;
 
 	/* conn actually owns daemon: we die when it does. */
 	sd->conn = io_new_conn(ld, msg_fd, msg_setup, sd);
@@ -682,7 +687,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, NULL, false, msgname, msgcb, NULL, NULL, &ap);
+	sd = new_subd(ld, name, NULL, NULL, NULL, false, msgname, msgcb, NULL, NULL, &ap);
 	va_end(ap);
 
 	sd->must_not_exit = true;
@@ -692,6 +697,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 struct subd *new_channel_subd_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
+			       const struct node_id *node_id,
 			       struct log *base_log,
 			       bool talks_to_peer,
 			       const char *(*msgname)(int msgtype),
@@ -711,8 +717,8 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, billboardcb);
-	sd = new_subd(ld, name, channel, base_log, talks_to_peer, msgname,
-		      msgcb, errcb, billboardcb, &ap);
+	sd = new_subd(ld, name, channel, node_id, base_log, talks_to_peer,
+		      msgname, msgcb, errcb, billboardcb, &ap);
 	va_end(ap);
 	return sd;
 }
