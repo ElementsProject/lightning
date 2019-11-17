@@ -44,7 +44,7 @@ struct connecting_socks {
 static struct io_plan *connect_finish2(struct io_conn *conn,
 				       struct connecting_socks *connect)
 {
-	status_io(LOG_IO_IN, "proxy",
+	status_io(LOG_IO_IN, NULL, "proxy",
 		  connect->buffer + SIZE_OF_RESPONSE + SIZE_OF_IPV4_RESPONSE,
 		  SIZE_OF_IPV6_RESPONSE - SIZE_OF_IPV4_RESPONSE);
 	status_debug("Now try LN connect out for host %s", connect->host);
@@ -54,7 +54,7 @@ static struct io_plan *connect_finish2(struct io_conn *conn,
 static struct io_plan *connect_finish(struct io_conn *conn,
 				      struct connecting_socks *connect)
 {
-	status_io(LOG_IO_IN, "proxy",
+	status_io(LOG_IO_IN, NULL, "proxy",
 		  connect->buffer, SIZE_OF_IPV4_RESPONSE + SIZE_OF_RESPONSE);
 
 	if ( connect->buffer[1] == '\0') {
@@ -100,7 +100,7 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 							    connecting_socks
 							    *connect)
 {
-	status_io(LOG_IO_IN, "proxy", connect->buffer, 2);
+	status_io(LOG_IO_IN, NULL, "proxy", connect->buffer, 2);
 
 	if (connect->buffer[1] == SOCKS_ERROR) {
 		status_debug("Connected out for %s error", connect->host);
@@ -118,7 +118,7 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 	memcpy(connect->buffer + SOCK_REQ_V5_LEN + strlen(connect->host),
 	       &(connect->port), sizeof connect->port);
 
-	status_io(LOG_IO_OUT, "proxy", connect->buffer,
+	status_io(LOG_IO_OUT, NULL, "proxy", connect->buffer,
 		  SOCK_REQ_V5_HEADER_LEN + connect->hlen);
 	return io_write(conn, connect->buffer,
 			SOCK_REQ_V5_HEADER_LEN + connect->hlen,
@@ -141,7 +141,7 @@ static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
 	connect->buffer[1] = 1;
 	connect->buffer[2] = SOCKS_NOAUTH;
 
-	status_io(LOG_IO_OUT, "proxy", connect->buffer, SOCK_REQ_METH_LEN);
+	status_io(LOG_IO_OUT, NULL, "proxy", connect->buffer, SOCK_REQ_METH_LEN);
 	return io_write(conn, connect->buffer, SOCK_REQ_METH_LEN,
 			&io_tor_connect_after_req_to_connect, connect);
 }

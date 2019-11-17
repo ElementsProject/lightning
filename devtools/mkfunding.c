@@ -21,7 +21,9 @@
 #include <common/utxo.h>
 #include <stdio.h>
 
-void status_fmt(enum log_level level, const char *fmt, ...)
+void status_fmt(enum log_level level,
+		const struct node_id *node_id,
+		const char *fmt, ...)
 {
 }
 

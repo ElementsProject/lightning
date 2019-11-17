@@ -22,7 +22,7 @@ void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 #endif
 	u8 *enc;
 
-	status_peer_io(LOG_IO_OUT, msg);
+	status_peer_io(LOG_IO_OUT, NULL, msg);
 	enc = cryptomsg_encrypt_msg(NULL, &pps->cs, msg);
 
 #if DEVELOPER
@@ -124,7 +124,7 @@ u8 *sync_crypto_read(const tal_t *ctx, struct per_peer_state *pps)
 	if (!dec)
 		peer_failed_connection_lost();
 	else
-		status_peer_io(LOG_IO_IN, dec);
+		status_peer_io(LOG_IO_IN, NULL, dec);
 
 	return dec;
 }
