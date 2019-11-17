@@ -357,7 +357,7 @@ def test_gossip_weirdalias(node_factory, bitcoind):
                                .format(normal_name))
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l2.daemon.wait_for_log('openingd-{} chan #1: Handed peer, entering loop'.format(l1.info['id']))
+    l2.daemon.wait_for_log('openingd-chan #1: Handed peer, entering loop')
     l2.fund_channel(l1, 10**6)
     bitcoind.generate_block(6)
 
@@ -486,8 +486,8 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
     # Turn on IO logging for openingd (make sure it's ready!)
     l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
     subprocess.run(['kill', '-USR1', l1.subd_pid('openingd')])
-    l2.daemon.wait_for_log('openingd-{}.*: Handed peer, entering loop'.format(l3.info['id']))
-    subprocess.run(['kill', '-USR1', l2.subd_pid('openingd-{}'.format(l3.info['id']))])
+    l2.daemon.wait_for_log(r'{}-.*lightning_openingd-chan #.: Handed peer, entering loop'.format(l3.info['id']))
+    subprocess.run(['kill', '-USR1', l2.subd_pid('openingd', l3.info['id'])])
 
     # Make an announced-but-not-updated channel.
     l3.fund_channel(l4, 10**5)

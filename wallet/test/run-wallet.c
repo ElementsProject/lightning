@@ -4,7 +4,7 @@ static void wallet_test_fatal(const char *fmt, ...);
 #define db_fatal wallet_test_fatal
 #include "test_utils.h"
 
-static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, bool call_notifier UNUSED, const char *fmt UNUSED, ...)
+static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const struct node_id *node_id UNUSED, bool call_notifier UNUSED, const char *fmt UNUSED, ...)
 {
 }
 #define log_ db_log_
@@ -376,7 +376,9 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "log_add called!\n"); abort(); }
 /* Generated stub for log_io */
-void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
+void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED,
+	    const struct node_id *node_id UNNEEDED,
+	    const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
 /* Generated stub for notify_connect */
@@ -703,7 +705,7 @@ enum log_level get_log_level(struct log_book *lr UNNEEDED)
 	return LOG_DBG;
 }
 
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const struct node_id *default_node_id UNNEEDED, const char *fmt UNNEEDED, ...)
 {
 	return NULL;
 }
@@ -717,6 +719,7 @@ struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNN
 void set_log_outfn_(struct log_book *lr UNNEEDED,
 		    void (*print)(const char *prefix UNNEEDED,
 				  enum log_level level UNNEEDED,
+				  const struct node_id *node_id UNNEEDED,
 				  bool continued UNNEEDED,
 				  const struct timeabs *time UNNEEDED,
 				  const char *str UNNEEDED,

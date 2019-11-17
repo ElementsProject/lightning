@@ -75,6 +75,7 @@ static void destroy_peer(struct peer *peer)
 /* We copy per-peer entries above --log-level into the main log. */
 static void copy_to_parent_log(const char *prefix,
 			       enum log_level level,
+			       const struct node_id *node_id,
 			       bool continued,
 			       const struct timeabs *time UNUSED,
 			       const char *str,
@@ -82,11 +83,11 @@ static void copy_to_parent_log(const char *prefix,
 			       struct log *parent_log)
 {
 	if (level == LOG_IO_IN || level == LOG_IO_OUT)
-		log_io(parent_log, level, prefix, io, io_len);
+		log_io(parent_log, level, node_id, prefix, io, io_len);
 	else if (continued)
 		log_add(parent_log, "%s ... %s", prefix, str);
 	else
-		log_(parent_log, level, false, "%s %s", prefix, str);
+		log_(parent_log, level, node_id, false, "%s %s", prefix, str);
 }
 
 static void peer_update_features(struct peer *peer, const u8 *features TAKES)

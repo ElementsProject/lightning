@@ -112,7 +112,10 @@ void jsonrpc_setup(struct lightningd *ld UNNEEDED)
 struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "load_channels_from_wallet called!\n"); abort(); }
 /* Generated stub for log_ */
-void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, bool call_notifier UNNEEDED, const char *fmt UNNEEDED, ...)
+void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
+	  const struct node_id *node_id UNNEEDED,
+	  bool call_notifier UNNEEDED,
+	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
 /* Generated stub for log_backtrace_exit */
@@ -125,10 +128,14 @@ void log_backtrace_print(const char *fmt UNNEEDED, ...)
 const char *log_prefix(const struct log *log UNNEEDED)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }
 /* Generated stub for log_status_msg */
-bool log_status_msg(struct log *log UNNEEDED, const u8 *msg UNNEEDED)
+bool log_status_msg(struct log *log UNNEEDED,
+ 		    const struct node_id *node_id UNNEEDED,
+		    const u8 *msg UNNEEDED)
 { fprintf(stderr, "log_status_msg called!\n"); abort(); }
 /* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
+		    const struct node_id *default_node_id UNNEEDED,
+		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
 /* Generated stub for new_log_book */
 struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED,

@@ -1205,7 +1205,7 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     timedout = False
     while not timedout:
         try:
-            l2.daemon.wait_for_log(r'channeld-{} chan #[0-9]*:\[IN\] '.format(l3.info['id']), timeout=30)
+            l2.daemon.wait_for_log(r'channeld-chan #[0-9]*:\[IN\] ', timeout=30)
         except TimeoutError:
             timedout = True
 
@@ -1231,7 +1231,7 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'channeld.*:\[IN\] 0013')
     assert not l2.daemon.is_in_log(r'channeld.*:\[OUT\] 0084')
     # L2 killed the channel with l3 because it was too slow.
-    l2.daemon.wait_for_log('channeld-{}.*Adding HTLC too slow: killing connection'.format(l3.info['id']))
+    l2.daemon.wait_for_log('{}-.*lightning_channeld-.*Adding HTLC too slow: killing connection'.format(l3.info['id']))
 
 
 def test_ipv4_and_ipv6(node_factory):

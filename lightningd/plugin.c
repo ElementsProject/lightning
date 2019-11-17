@@ -37,7 +37,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p = tal(ctx, struct plugins);
 	list_head_init(&p->plugins);
 	p->log_book = log_book;
-	p->log = new_log(p, log_book, "plugin-manager");
+	p->log = new_log(p, log_book, NULL, "plugin-manager");
 	p->ld = ld;
 	p->startup = true;
 	uintmap_init(&p->pending_requests);
@@ -91,7 +91,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->used = 0;
 	p->subscriptions = NULL;
 
-	p->log = new_log(p, plugins->log_book, "plugin-%s",
+	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s",
 			 path_basename(tmpctx, p->cmd));
 	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
@@ -194,7 +194,8 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 	}
 
 	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
-	log_(plugin->log, level, call_notifier, "%.*s", msgtok->end - msgtok->start,
+	/* FIXME: Let plugin specify node_id? */
+	log_(plugin->log, level, NULL, call_notifier, "%.*s", msgtok->end - msgtok->start,
 	     plugin->buffer + msgtok->start);
 }
 
@@ -357,7 +358,7 @@ static struct io_plan *plugin_read_json(struct io_conn *conn UNUSED,
 {
 	bool success;
 
-	log_io(plugin->log, LOG_IO_IN, "",
+	log_io(plugin->log, LOG_IO_IN, NULL, "",
 	       plugin->buffer + plugin->used, plugin->len_read);
 
 	plugin->used += plugin->len_read;

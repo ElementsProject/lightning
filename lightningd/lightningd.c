@@ -169,7 +169,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ Note the tal context arg (by convention, the first argument to any
 	 * allocation function): ld->log will be implicitly freed when ld
 	 * is. */
-	ld->log = new_log(ld, ld->log_book, "lightningd(%u):", (int)getpid());
+	ld->log = new_log(ld, ld->log_book, NULL,
+			  "lightningd(%u):", (int)getpid());
 	ld->logfile = NULL;
 
 	/*~ We explicitly set these to NULL: if they're still NULL after option

@@ -531,7 +531,7 @@ void json_stream_log_suppress_for_cmd(struct json_stream *js,
 {
 	const char *nm = cmd->json_cmd->name;
 	const char *s = tal_fmt(tmpctx, "Suppressing logging of %s command", nm);
-	log_io(cmd->jcon->log, LOG_IO_OUT, s, NULL, 0);
+	log_io(cmd->jcon->log, LOG_IO_OUT, NULL, s, NULL, 0);
 	json_stream_log_suppress(js, strdup(nm));
 
 }
@@ -828,7 +828,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 	bool valid;
 
 	if (jcon->len_read)
-		log_io(jcon->log, LOG_IO_IN, "",
+		log_io(jcon->log, LOG_IO_IN, NULL, "",
 		       jcon->buffer + jcon->used, jcon->len_read);
 
 	/* Resize larger if we're full. */
@@ -903,7 +903,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
-	jcon->log = new_log(ld->log_book, ld->log_book, "%sjcon fd %i:",
+	jcon->log = new_log(ld->log_book, ld->log_book, NULL, "%sjcon fd %i:",
 			    log_prefix(ld->log), io_conn_fd(conn));
 
 	tal_add_destructor(jcon, destroy_jcon);
@@ -1011,7 +1011,7 @@ void jsonrpc_setup(struct lightningd *ld)
 	ld->jsonrpc = tal(ld, struct jsonrpc);
 	strmap_init(&ld->jsonrpc->usagemap);
 	ld->jsonrpc->commands = tal_arr(ld->jsonrpc, struct json_command *, 0);
-	ld->jsonrpc->log = new_log(ld->jsonrpc, ld->log_book, "jsonrpc");
+	ld->jsonrpc->log = new_log(ld->jsonrpc, ld->log_book, NULL, "jsonrpc");
 	for (size_t i=0; i<num_cmdlist; i++) {
 		if (!jsonrpc_command_add_perm(ld, ld->jsonrpc, commands[i]))
 			fatal("Cannot add duplicate command %s",

@@ -43,11 +43,16 @@ bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		  struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "json_to_txid called!\n"); abort(); }
 /* Generated stub for log_ */
-void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, bool call_notifier UNNEEDED, const char *fmt UNNEEDED, ...)
+void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
+	  const struct node_id *node_id UNNEEDED,
+	  bool call_notifier UNNEEDED,
+	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
 /* Generated stub for log_io */
-void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
+void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED,
+	    const struct node_id *node_id UNNEEDED,
+	    const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
 /* Generated stub for log_prefix */
@@ -57,7 +62,9 @@ const char *log_prefix(const struct log *log UNNEEDED)
 void memleak_remove_strmap_(struct htable *memtable UNNEEDED, const struct strmap *m UNNEEDED)
 { fprintf(stderr, "memleak_remove_strmap_ called!\n"); abort(); }
 /* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
+		    const struct node_id *default_node_id UNNEEDED,
+		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
