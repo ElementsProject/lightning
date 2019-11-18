@@ -146,7 +146,7 @@ for any subsystem containing that string\.  Subsystems include:
 
 .RE
 
-The following subsystems exist for each channel, where N is an incrementing
+  The following subsystems exist for each channel, where N is an incrementing
 internal integer id assigned for the lifetime of the channel:
 
 .RS
@@ -159,29 +159,34 @@ internal integer id assigned for the lifetime of the channel:
 .IP \[bu]
 \fIonchaind-chan #N\fR: Each onchain close handling daemon
 .IP \[bu]
-
 \fIjson #FD\fR: Each JSONRPC connection, FD = file descriptor number
 
+.RE
 
-\fBlog-prefix\fR=\fIPREFIX\fR
+  So, \fBlog-level=debug:plugin\fR would set debug level logging on all
+plugins and the plugin manager\.  \fBlog-level=io:chan #55\fR would set
+IO logging on channel number 55 (or 550, for that matter)\.
+
+
+ \fBlog-prefix\fR=\fIPREFIX\fR
 Prefix for log lines: this can be customized if you want to merge logs
 with multiple daemons\.
 
 
-\fBlog-file\fR=\fIPATH\fR
+ \fBlog-file\fR=\fIPATH\fR
 Log to this file instead of stdout\. Sending \fBlightningd\fR(8) SIGHUP will
 cause it to reopen this file (useful for log rotation)\.
 
 
-\fBrpc-file\fR=\fIPATH\fR
+ \fBrpc-file\fR=\fIPATH\fR
 Set JSON-RPC socket (or /dev/tty), such as for \fBlightning-cli\fR(1)\.
 
 
-\fBdaemon\fR
+ \fBdaemon\fR
 Run in the background, suppress stdout and stderr\.
 
 
-\fBconf\fR=\fIPATH\fR
+ \fBconf\fR=\fIPATH\fR
 Sets configuration file (default: \fBlightning-dir\fR/\fIconfig\fR )\. If this
 is a relative path, it is relative to the starting directory, not
 \fBlightning-dir\fR (unlike other paths)\. \fIPATH\fR must exist and be
@@ -189,20 +194,17 @@ readable (we allow missing files in the default case)\. Using this inside
 a configuration file is meaningless\.
 
 
-\fBwallet\fR=\fIDSN\fR
+ \fBwallet\fR=\fIDSN\fR
 Identify the location of the wallet\. This is a fully qualified data source
 name, including a scheme such as \fBsqlite3\fR or \fBpostgres\fR followed by the
 connection parameters\.
 
 
-\fBencrypted-hsm\fR
+ \fBencrypted-hsm\fR
 If set, you will be prompted to enter a password used to encrypt the \fBhsm_secret\fR\.
 Note that once you encrypt the \fBhsm_secret\fR this option will be mandatory for
 \fBlightningd\fR to start\.
 
-
-
-.RE
 .SH Lightning node customization options
 
  \fBalias\fR=\fIRRGGBB\fR

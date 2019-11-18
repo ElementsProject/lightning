@@ -118,13 +118,19 @@ for any subsystem containing that string.  Subsystems include:
 * *gossipd*: The gossip daemon
 * *connectd*: The network connection daemon
 
-The following subsystems exist for each channel, where N is an incrementing
+
+  The following subsystems exist for each channel, where N is an incrementing
 internal integer id assigned for the lifetime of the channel:
 * *openingd-chan #N*: Each opening / idling daemon
 * *channeld-chan #N*: Each channel management daemon
 * *closingd-chan #N*: Each closing negotiation daemon
 * *onchaind-chan #N*: Each onchain close handling daemon
 * *json #FD*: Each JSONRPC connection, FD = file descriptor number
+
+
+  So, **log-level=debug:plugin** would set debug level logging on all
+plugins and the plugin manager.  **log-level=io:chan #55** would set
+IO logging on channel number 55 (or 550, for that matter).
 
  **log-prefix**=*PREFIX*
 Prefix for log lines: this can be customized if you want to merge logs
