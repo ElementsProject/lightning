@@ -29,13 +29,26 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/* What logging level to use if they didn't specify */
+#define DEFAULT_LOGLEVEL LOG_INFORM
+
 /* Once we're up and running, this is set up. */
 struct log *crashlog;
+
+struct print_filter {
+	struct list_node list;
+
+	const char *prefix;
+	enum log_level level;
+};
 
 struct log_book {
 	size_t mem_used;
 	size_t max_mem;
-	enum log_level print_level;
+	struct list_head print_filters;
+
+	/* Non-null once it's been initialized */
+	enum log_level *default_print_level;
 	struct timeabs init_time;
 	FILE *outf;
 
@@ -51,6 +64,9 @@ struct log {
 	struct log_book *lr;
 	const struct node_id *default_node_id;
 	const char *prefix;
+
+	/* Non-NULL once it's been initialized */
+	enum log_level *print_level;
 };
 
 static const char *level_prefix(enum log_level level)
@@ -145,8 +161,7 @@ static size_t prune_log(struct log_book *log)
 	return deleted;
 }
 
-struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
-			      enum log_level printlevel)
+struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 {
 	struct log_book *lr = tal_linkable(tal(NULL, struct log_book));
 
@@ -155,12 +170,25 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
 	lr->mem_used = 0;
 	lr->max_mem = max_mem;
 	lr->outf = stdout;
-	lr->print_level = printlevel;
+	lr->default_print_level = NULL;
+	list_head_init(&lr->print_filters);
 	lr->init_time = time_now();
 	lr->ld = ld;
 	list_head_init(&lr->log);
 
 	return lr;
+}
+
+static enum log_level filter_level(struct log_book *lr, const char *prefix)
+{
+	struct print_filter *i;
+
+	assert(lr->default_print_level != NULL);
+	list_for_each(&lr->print_filters, i, list) {
+		if (strstr(prefix, i->prefix))
+			return i->level;
+	}
+	return *lr->default_print_level;
 }
 
 /* With different entry points */
@@ -184,14 +212,28 @@ new_log(const tal_t *ctx, struct log_book *record,
 	else
 		log->default_node_id = NULL;
 
+	/* Initialized on first use */
+	log->print_level = NULL;
 	return log;
 }
-
 
 const char *log_prefix(const struct log *log)
 {
 	return log->prefix;
 }
+
+enum log_level log_print_level(struct log *log)
+{
+	if (!log->print_level) {
+		/* Not set globally yet?  Print BROKEN messages only */
+		if (!log->lr->default_print_level)
+			return LOG_BROKEN;
+		log->print_level = tal(log, enum log_level);
+		*log->print_level = filter_level(log->lr, log->prefix);
+	}
+	return *log->print_level;
+}
+
 static void add_entry(struct log *log, struct log_entry *l)
 {
 	log->lr->mem_used += mem_used(l);
@@ -225,10 +267,10 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 	return l;
 }
 
-static void maybe_print(const struct log *log, const struct log_entry *l,
+static void maybe_print(struct log *log, const struct log_entry *l,
 			size_t offset)
 {
-	if (l->level >= log->lr->print_level)
+	if (l->level >= log_print_level(log))
 		log_to_file(log->prefix, l->level, l->node_id, offset != 0,
 			    &l->time, l->log + offset,
 			    l->io, tal_bytelen(l->io), log->lr->outf);
@@ -272,7 +314,7 @@ void log_io(struct log *log, enum log_level dir,
 	assert(dir == LOG_IO_IN || dir == LOG_IO_OUT);
 
 	/* Print first, in case we need to truncate. */
-	if (l->level >= log->lr->print_level)
+	if (l->level >= log_print_level(log))
 		log_to_file(log->prefix, l->level, l->node_id, false,
 			    &l->time, str,
 			    data, len, log->lr->outf);
@@ -415,7 +457,7 @@ static void log_one_line(unsigned int skipped,
 	data->prefix = "\n";
 }
 
-static struct {
+static const struct level {
 	const char *name;
 	enum log_level level;
 } log_levels[] = {
@@ -426,30 +468,69 @@ static struct {
 	{ "BROKEN", LOG_BROKEN }
 };
 
-static char *arg_log_level(const char *arg, struct log *log)
+static const struct level *str_to_level(const char *str, size_t len)
 {
-	size_t i;
-
-	for (i = 0; i < ARRAY_SIZE(log_levels); i++) {
-		if (strcasecmp(arg, log_levels[i].name) == 0) {
-			log->lr->print_level = log_levels[i].level;
-			return NULL;
-		}
+	for (size_t i = 0; i < ARRAY_SIZE(log_levels); i++) {
+		if (strlen(log_levels[i].name) != len)
+			continue;
+		if (strncasecmp(str, log_levels[i].name, len) != 0)
+			continue;
+		return &log_levels[i];
 	}
-	return tal_fmt(NULL, "unknown log level");
+	return NULL;
+}
+
+static const char *level_to_str(enum log_level level)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(log_levels); i++) {
+		if (level == log_levels[i].level)
+			return log_levels[i].name;
+	}
+	return NULL;
+}
+
+char *opt_log_level(const char *arg, struct log *log)
+{
+	const struct level *level;
+	int len;
+
+	len = strcspn(arg, ":");
+	level = str_to_level(arg, len);
+	if (!level)
+		return tal_fmt(NULL, "unknown log level %.*s", len, arg);
+
+	if (arg[len]) {
+		struct print_filter *f = tal(log->lr, struct print_filter);
+		f->prefix = arg + len + 1;
+		f->level = level->level;
+		list_add_tail(&log->lr->print_filters, &f->list);
+	} else {
+		tal_free(log->lr->default_print_level);
+		log->lr->default_print_level = tal(log->lr, enum log_level);
+		*log->lr->default_print_level = level->level;
+	}
+	return NULL;
+}
+
+void json_add_opt_log_levels(struct json_stream *response, struct log *log)
+{
+	struct print_filter *i;
+
+	list_for_each(&log->lr->print_filters, i, list) {
+		json_add_member(response, "log-level", true, "%s:%s",
+				level_to_str(i->level), i->prefix);
+	}
 }
 
 static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 {
-	size_t i;
+	enum log_level l;
 
-	for (i = 0; i < ARRAY_SIZE(log_levels); i++) {
-		if (log->lr->print_level == log_levels[i].level) {
-			strncpy(buf, log_levels[i].name, OPT_SHOW_LEN-1);
-			return;
-		}
-	}
-	abort();
+	if (log->lr->default_print_level)
+		l = *log->lr->default_print_level;
+	else
+		l = DEFAULT_LOGLEVEL;
+	strncpy(buf, level_to_str(l), OPT_SHOW_LEN-1);
 }
 
 static char *arg_log_prefix(const char *arg, struct log *log)
@@ -516,7 +597,6 @@ static void setup_log_rotation(struct lightningd *ld)
 
 char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
-	const struct log_entry *i;
 	int size;
 
 	if (ld->logfile) {
@@ -535,10 +615,6 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 	if (size > 0)
 		fprintf(ld->log->lr->outf, "\n\n\n\n");
 
-	/* Catch up */
-	list_for_each(&ld->log->lr->log, i, list)
-		maybe_print(ld->log, i, 0);
-
 	log_debug(ld->log, "Opened log file %s", arg);
 	return NULL;
 }
@@ -546,13 +622,32 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 void opt_register_logging(struct lightningd *ld)
 {
 	opt_register_early_arg("--log-level",
-			       arg_log_level, show_log_level, ld->log,
-			       "log level (io, debug, info, unusual, broken)");
+			       opt_log_level, show_log_level, ld->log,
+			       "log level (io, debug, info, unusual, broken) [:prefix]");
 	opt_register_early_arg("--log-prefix", arg_log_prefix, show_log_prefix,
 			       ld->log,
 			       "log prefix");
 	opt_register_early_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
 			       "log to file instead of stdout");
+}
+
+void logging_options_parsed(struct log_book *lr)
+{
+	const struct log_entry *l;
+
+	/* If they didn't set an explicit level, set to info */
+	if (!lr->default_print_level) {
+		lr->default_print_level = tal(lr, enum log_level);
+		*lr->default_print_level = DEFAULT_LOGLEVEL;
+	}
+
+	/* Catch up, since before we were only printing BROKEN msgs */
+	list_for_each(&lr->log, l, list) {
+		if (l->level >= filter_level(lr, l->prefix))
+			log_to_file(l->prefix, l->level, l->node_id, false,
+				    &l->time, l->log,
+				    l->io, tal_bytelen(l->io), lr->outf);
+	}
 }
 
 void log_backtrace_print(const char *fmt, ...)
