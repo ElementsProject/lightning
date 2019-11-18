@@ -45,10 +45,8 @@ void log_(struct log *log, enum log_level level,
 	  bool call_notifier,
 	  const char *fmt, ...)
 	PRINTF_FMT(5,6);
-void log_add(struct log *log, const char *fmt, ...) PRINTF_FMT(2,3);
 void logv(struct log *log, enum log_level level, const struct node_id *node_id,
 	  bool call_notifier, const char *fmt, va_list ap);
-void logv_add(struct log *log, const char *fmt, va_list ap);
 
 const char *log_prefix(const struct log *log);
 enum log_level log_print_level(struct log *log);

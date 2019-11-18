@@ -229,8 +229,8 @@ void broadcast_tx(struct chain_topology *topo,
 	tal_free(rawtx);
 	tal_add_destructor2(channel, clear_otx_channel, otx);
 
-	log_add(topo->log, " (tx %s)",
-		type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
+	log_debug(topo->log, "Broadcasting txid %s",
+		  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
 
 	wallet_transaction_add(topo->ld->wallet, tx, 0, 0);
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
