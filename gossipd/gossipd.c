@@ -380,10 +380,9 @@ static bool handle_get_local_channel_update(struct peer *peer, const u8 *msg)
 		update = gossip_store_get(tmpctx, rstate->gs,
 					  chan->half[local_chan->direction].bcast.index);
 out:
-	status_debug("peer %s schanid %s: %s update",
-		     type_to_string(tmpctx, struct node_id, &peer->id),
-		     type_to_string(tmpctx, struct short_channel_id, &scid),
-		     update ? "got" : "no");
+	status_peer_debug(&peer->id, "schanid %s: %s update",
+			  type_to_string(tmpctx, struct short_channel_id, &scid),
+			  update ? "got" : "no");
 
 	msg = towire_gossipd_get_update_reply(NULL, update);
 	daemon_conn_send(peer->dc, take(msg));
@@ -501,7 +500,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		ok = handle_get_local_channel_update(peer, msg);
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
-		ok = handle_local_add_channel(peer->daemon->rstate, msg, 0);
+		ok = handle_local_add_channel(peer->daemon->rstate, peer,
+					      msg, 0);
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
 		ok = handle_local_channel_update(peer->daemon, &peer->id, msg);
@@ -517,10 +517,9 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	}
 
 	/* Anything else should not have been sent to us: close on it */
-	status_broken("peer %s: unexpected cmd of type %i %s",
-		      type_to_string(tmpctx, struct node_id, &peer->id),
-		      fromwire_peektype(msg),
-		      gossip_peerd_wire_type_name(fromwire_peektype(msg)));
+	status_peer_broken(&peer->id, "unexpected cmd of type %i %s",
+			   fromwire_peektype(msg),
+			   gossip_peerd_wire_type_name(fromwire_peektype(msg)));
 	return io_close(conn);
 
 	/* Commands should always be OK. */
@@ -1149,8 +1148,8 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
 
 	queue_peer_msg(peer, take(ping));
-	status_debug("sending ping expecting %sresponse",
-		     num_pong_bytes >= 65532 ? "no " : "");
+	status_peer_debug(&peer->id, "sending ping expecting %sresponse",
+			  num_pong_bytes >= 65532 ? "no " : "");
 
 	/* BOLT #1:
 	 *

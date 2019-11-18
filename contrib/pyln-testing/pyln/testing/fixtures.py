@@ -239,7 +239,7 @@ def checkBadGossip(node):
     if node.allow_bad_gossip:
         return 0
     # We can get bad gossip order from inside error msgs.
-    if node.daemon.is_in_log('Bad gossip order from (?!error)'):
+    if node.daemon.is_in_log('Bad gossip order:'):
         # This can happen if a node sees a node_announce after a channel
         # is deleted, however.
         if node.daemon.is_in_log('Deleting channel'):

@@ -533,10 +533,10 @@ static void bad_gossip_order(const u8 *msg,
 			     const struct peer *peer,
 			     const char *details)
 {
-	status_debug("Bad gossip order from %s: %s before announcement %s",
-		     peer ? type_to_string(tmpctx, struct node_id, &peer->id)
-		     : "unknown", wire_type_name(fromwire_peektype(msg)),
-		     details);
+	status_peer_debug(peer ? &peer->id : NULL,
+			  "Bad gossip order: %s before announcement %s",
+			  wire_type_name(fromwire_peektype(msg)),
+			  details);
 }
 
 static void destroy_local_chan(struct local_chan *local_chan,
@@ -1714,11 +1714,12 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 * anyway. */
 	if (current_blockheight != 0
 	    && short_channel_id_blocknum(&pending->short_channel_id) > current_blockheight) {
-		status_debug("Ignoring future channel_announcment for %s"
-			     " (current block %u)",
-			     type_to_string(tmpctx, struct short_channel_id,
-					    &pending->short_channel_id),
-			     current_blockheight);
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Ignoring future channel_announcment for %s"
+				  " (current block %u)",
+				  type_to_string(tmpctx, struct short_channel_id,
+						 &pending->short_channel_id),
+				  current_blockheight);
 		goto ignored;
 	}
 
@@ -1771,7 +1772,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 */
 	if (!bitcoin_blkid_eq(&chain_hash,
 			      &rstate->chainparams->genesis_blockhash)) {
-		status_debug(
+		status_peer_debug(peer ? &peer->id : NULL,
 		    "Received channel_announcement %s for unknown chain %s",
 		    type_to_string(pending, struct short_channel_id,
 				   &pending->short_channel_id),
@@ -1808,16 +1809,18 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	    > 100000) {
 		static bool warned = false;
 		if (!warned) {
-			status_unusual("Flooded by channel_announcements:"
-				       " ignoring some");
+			status_peer_unusual(peer ? &peer->id : NULL,
+					    "Flooded by channel_announcements:"
+					    " ignoring some");
 			warned = true;
 		}
 		goto ignored;
 	}
 
-	status_debug("Received channel_announcement for channel %s",
-		     type_to_string(tmpctx, struct short_channel_id,
-				    &pending->short_channel_id));
+	status_peer_debug(peer ? &peer->id : NULL,
+			  "Received channel_announcement for channel %s",
+			  type_to_string(tmpctx, struct short_channel_id,
+					 &pending->short_channel_id));
 
 	/* Add both endpoints to the pending_node_map so we can stash
 	 * node_announcements while we wait for the txout check */
@@ -1858,12 +1861,11 @@ static void process_pending_channel_update(struct daemon *daemon,
 	err = handle_channel_update(rstate, cupdate, peer, NULL);
 	if (err) {
 		/* FIXME: We could send this error back to peer if != NULL */
-		status_debug("Pending channel_update for %s from %s: %s",
-			     type_to_string(tmpctx, struct short_channel_id, scid),
-			     peer
-			     ? type_to_string(tmpctx, struct node_id, &peer->id)
-			     : "unknown",
-			     sanitize_error(tmpctx, err, NULL));
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Pending channel_update for %s: %s",
+				  type_to_string(tmpctx, struct short_channel_id,
+						 scid),
+				  sanitize_error(tmpctx, err, NULL));
 		tal_free(err);
 	}
 }
@@ -1876,10 +1878,13 @@ bool handle_pending_cannouncement(struct daemon *daemon,
 {
 	const u8 *s;
 	struct pending_cannouncement *pending;
+	const struct node_id *src;
 
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
 		return false;
+
+	src = pending->peer_softref ? &pending->peer_softref->id : NULL;
 
 	/* BOLT #7:
 	 *
@@ -1889,9 +1894,11 @@ bool handle_pending_cannouncement(struct daemon *daemon,
 	 *    - MUST ignore the message.
 	 */
 	if (tal_count(outscript) == 0) {
-		status_debug("channel_announcement: no unspent txout %s",
-			     type_to_string(pending, struct short_channel_id,
-					    scid));
+		status_peer_debug(src,
+				  "channel_announcement: no unspent txout %s",
+				  type_to_string(pending,
+						 struct short_channel_id,
+						 scid));
 		tal_free(pending);
 		add_to_txout_failures(rstate, scid);
 		return false;
@@ -1912,10 +1919,13 @@ bool handle_pending_cannouncement(struct daemon *daemon,
 						   &pending->bitcoin_key_2));
 
 	if (!scripteq(s, outscript)) {
-		status_debug("channel_announcement: txout %s expectes %s, got %s",
-			     type_to_string(pending, struct short_channel_id,
-					    scid),
-			     tal_hex(tmpctx, s), tal_hex(tmpctx, outscript));
+		status_peer_debug(src,
+				  "channel_announcement: txout %s expected %s, got %s",
+				  type_to_string(
+					  pending, struct short_channel_id,
+					  scid),
+				  tal_hex(tmpctx, s),
+				  tal_hex(tmpctx, outscript));
 		tal_free(pending);
 		return false;
 	}
@@ -1927,8 +1937,9 @@ bool handle_pending_cannouncement(struct daemon *daemon,
 	/* Can fail if channel_announcement too old */
 	if (!routing_add_channel_announcement(rstate, pending->announce, sat, 0,
 					      pending->peer_softref))
-		status_unusual("Could not add channel_announcement %s: too old?",
-			       tal_hex(tmpctx, pending->announce));
+		status_peer_unusual(src,
+				    "Could not add channel_announcement %s: too old?",
+				    tal_hex(tmpctx, pending->announce));
 	else {
 		/* Did we have an update waiting?  If so, apply now. */
 		process_pending_channel_update(daemon, rstate, scid, pending->updates[0],
@@ -1952,7 +1963,8 @@ static void update_pending(struct pending_cannouncement *pending,
 
 	if (pending->update_timestamps[direction] < timestamp) {
 		if (pending->updates[direction]) {
-			status_debug("Replacing existing update");
+			status_peer_debug(peer ? &peer->id : NULL,
+					  "Replacing existing update");
 			tal_free(pending->updates[direction]);
 		}
 		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_count(update), 0);
@@ -2056,21 +2068,23 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	} else {
 		/* If not indicated, set htlc_max_msat to channel capacity */
 		if (!amount_sat_to_msat(&htlc_maximum, sat)) {
-			status_broken("Channel capacity %s overflows!",
-				      type_to_string(tmpctx, struct amount_sat,
-						     &sat));
+			status_peer_broken(peer ? &peer->id : NULL,
+					   "Channel capacity %s overflows!",
+					   type_to_string(tmpctx, struct amount_sat,
+							  &sat));
 			return false;
 		}
 	}
 
 	/* Check timestamp is sane (unless from store). */
 	if (!index && !timestamp_reasonable(rstate, timestamp)) {
-		status_debug("Ignoring update timestamp %u for %s/%u",
-			     timestamp,
-			     type_to_string(tmpctx,
-					    struct short_channel_id,
-					    &short_channel_id),
-			     direction);
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Ignoring update timestamp %u for %s/%u",
+				  timestamp,
+				  type_to_string(tmpctx,
+						 struct short_channel_id,
+						 &short_channel_id),
+				  direction);
 		return false;
 	}
 
@@ -2101,12 +2115,14 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < hc->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 2
 		    && !cupdate_different(rstate->gs, hc, update)) {
-			status_debug("Ignoring redundant update for %s/%u"
-				     " (last %u, now %u)",
-				     type_to_string(tmpctx,
-						    struct short_channel_id,
-						    &short_channel_id),
-				     direction, hc->bcast.timestamp, timestamp);
+			status_peer_debug(peer ? &peer->id : NULL,
+					  "Ignoring redundant update for %s/%u"
+					  " (last %u, now %u)",
+					  type_to_string(tmpctx,
+							 struct short_channel_id,
+							 &short_channel_id),
+					  direction,
+					  hc->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
@@ -2114,12 +2130,14 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* Make sure it's not spamming us. */
 		if (!ratelimit(rstate,
 			       &hc->tokens, hc->bcast.timestamp, timestamp)) {
-			status_debug("Ignoring spammy update for %s/%u"
-				     " (last %u, now %u)",
-				     type_to_string(tmpctx,
-						    struct short_channel_id,
-						    &short_channel_id),
-				     direction, hc->bcast.timestamp, timestamp);
+			status_peer_debug(peer ? &peer->id : NULL,
+					  "Ignoring spammy update for %s/%u"
+					  " (last %u, now %u)",
+					  type_to_string(tmpctx,
+							 struct short_channel_id,
+							 &short_channel_id),
+					  direction,
+					  hc->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
@@ -2285,9 +2303,10 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	 */
 	if (!bitcoin_blkid_eq(&chain_hash,
 			      &rstate->chainparams->genesis_blockhash)) {
-		status_debug("Received channel_update for unknown chain %s",
-			     type_to_string(tmpctx, struct bitcoin_blkid,
-					    &chain_hash));
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Received channel_update for unknown chain %s",
+				  type_to_string(tmpctx, struct bitcoin_blkid,
+						 &chain_hash));
 		return NULL;
 	}
 
@@ -2300,11 +2319,12 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	/* If we have an unvalidated channel, just queue on that */
 	pending = find_pending_cannouncement(rstate, &short_channel_id);
 	if (pending) {
-		status_debug("Updated pending announce with update %s/%u",
-			     type_to_string(tmpctx,
-					    struct short_channel_id,
-					    &short_channel_id),
-			     direction);
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Updated pending announce with update %s/%u",
+				  type_to_string(tmpctx,
+						 struct short_channel_id,
+						 &short_channel_id),
+				  direction);
 		update_pending(pending, timestamp, serialized, direction, peer);
 		return NULL;
 	}
@@ -2337,13 +2357,12 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return err;
 	}
 
-	status_debug("Received channel_update for channel %s/%d now %s (from %s)",
-		     type_to_string(tmpctx, struct short_channel_id,
-				    &short_channel_id),
-		     channel_flags & 0x01,
-		     channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
-		     peer ? type_to_string(tmpctx, struct node_id, &peer->id)
-		     : "unknown");
+	status_peer_debug(peer ? &peer->id : NULL,
+			  "Received channel_update for channel %s/%d now %s",
+			  type_to_string(tmpctx, struct short_channel_id,
+					 &short_channel_id),
+			  channel_flags & 0x01,
+			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
 
 	routing_add_channel_update(rstate, take(serialized), 0, peer);
 	return NULL;
@@ -2411,8 +2430,10 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 	/* Only log this if *not* loading from store. */
 	if (!index)
-		status_debug("Received node_announcement for node %s",
-			     type_to_string(tmpctx, struct node_id, &node_id));
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Received node_announcement for node %s",
+				  type_to_string(tmpctx, struct node_id,
+						 &node_id));
 
 	node = get_node(rstate, &node_id);
 
@@ -2470,12 +2491,13 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < node->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 2
 		    && !nannounce_different(rstate->gs, node, msg)) {
-			status_debug("Ignoring redundant nannounce for %s"
-				     " (last %u, now %u)",
-				     type_to_string(tmpctx,
-						    struct node_id,
-						    &node_id),
-				     node->bcast.timestamp, timestamp);
+			status_peer_debug(peer ? &peer->id : NULL,
+					  "Ignoring redundant nannounce for %s"
+					  " (last %u, now %u)",
+					  type_to_string(tmpctx,
+							 struct node_id,
+							 &node_id),
+					  node->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
@@ -2483,12 +2505,13 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		/* Make sure it's not spamming us. */
 		if (!ratelimit(rstate,
 			       &node->tokens, node->bcast.timestamp, timestamp)) {
-			status_debug("Ignoring spammy nannounce for %s"
-				     " (last %u, now %u)",
-				     type_to_string(tmpctx,
-						    struct node_id,
-						    &node_id),
-				     node->bcast.timestamp, timestamp);
+			status_peer_debug(peer ? &peer->id : NULL,
+					  "Ignoring spammy nannounce for %s"
+					  " (last %u, now %u)",
+					  type_to_string(tmpctx,
+							 struct node_id,
+							 &node_id),
+					  node->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
@@ -2868,6 +2891,7 @@ void route_prune(struct routing_state *rstate)
 }
 
 bool handle_local_add_channel(struct routing_state *rstate,
+			      const struct peer *peer,
 			      const u8 *msg, u64 index)
 {
 	struct short_channel_id scid;
@@ -2877,19 +2901,22 @@ bool handle_local_add_channel(struct routing_state *rstate,
 
 	if (!fromwire_gossipd_local_add_channel(msg, &scid, &remote_node_id,
 						&sat)) {
-		status_broken("Unable to parse local_add_channel message: %s",
-			      tal_hex(msg, msg));
+		status_peer_broken(peer ? &peer->id : NULL,
+				  "Unable to parse local_add_channel message: %s",
+				   tal_hex(msg, msg));
 		return false;
 	}
 
 	/* Can happen on channeld restart. */
 	if (get_channel(rstate, &scid)) {
-		status_debug("Attempted to local_add_channel a known channel");
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Attempted to local_add_channel a known channel");
 		return true;
 	}
 
-	status_debug("local_add_channel %s",
-		     type_to_string(tmpctx, struct short_channel_id, &scid));
+	status_peer_debug(peer ? &peer->id : NULL,
+			  "local_add_channel %s",
+			  type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
 	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);

@@ -235,7 +235,7 @@ def test_disconnect(node_factory):
 
     # Should have 3 connect fails.
     for d in disconnects:
-        l1.daemon.wait_for_log('Failed connected out for {}'
+        l1.daemon.wait_for_log('{}-.*Failed connected out'
                                .format(l2.info['id']))
 
     # Should still only have one peer!

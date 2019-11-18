@@ -452,9 +452,8 @@ bool handle_local_channel_update(struct daemon *daemon,
 						   &lc->fee_base_msat,
 						   &lc->fee_proportional_millionths,
 						   &lc->htlc_maximum)) {
-		status_broken("peer %s bad local_channel_update %s",
-			      type_to_string(tmpctx, struct node_id, src),
-			      tal_hex(tmpctx, msg));
+		status_peer_broken(src, "bad local_channel_update %s",
+				   tal_hex(tmpctx, msg));
 		return false;
 	}
 
@@ -462,10 +461,9 @@ bool handle_local_channel_update(struct daemon *daemon,
 					    &scid);
 	/* Can theoretically happen if channel just closed. */
 	if (!lc->local_chan) {
-		status_debug("peer %s local_channel_update for unknown %s",
-			      type_to_string(tmpctx, struct node_id, src),
-			      type_to_string(tmpctx, struct short_channel_id,
-					     &scid));
+		status_peer_debug(src, "local_channel_update for unknown %s",
+				  type_to_string(tmpctx, struct short_channel_id,
+						 &scid));
 		return true;
 	}
 

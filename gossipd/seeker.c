@@ -126,11 +126,9 @@ static void set_state_(struct seeker *seeker, enum seeker_state state,
 {
 	va_list ap;
 	va_start(ap, fmt);
-	status_debug("seeker: state = %s %s%s %s",
-		     statename, peer ? "from " : "",
-		     peer ? type_to_string(tmpctx, struct node_id, &peer->id)
-		     : "",
-		     tal_vfmt(tmpctx, fmt, ap));
+	status_peer_debug(peer ? &peer->id : NULL,
+			  "seeker: state = %s %s",
+			  statename, tal_vfmt(tmpctx, fmt, ap));
 	va_end(ap);
 	seeker->state = state;
 	selected_peer(seeker, peer);
@@ -202,8 +200,7 @@ static void disable_gossip_stream(struct seeker *seeker, struct peer *peer)
 {
 	u8 *msg;
 
-	status_debug("seeker: disabling gossip from %s",
-		     type_to_string(tmpctx, struct node_id, &peer->id));
+	status_peer_debug(&peer->id, "seeker: disabling gossip");
 
 	/* This is allowed even if they don't understand it (odd) */
 	msg = towire_gossip_timestamp_filter(NULL,
@@ -230,8 +227,7 @@ static void enable_gossip_stream(struct seeker *seeker, struct peer *peer)
 	else
 		start = 0;
 
-	status_debug("seeker: starting gossip from %s",
-		     type_to_string(tmpctx, struct node_id, &peer->id));
+	status_peer_debug(&peer->id, "seeker: starting gossip");
 
 	/* This is allowed even if they don't understand it (odd) */
 	msg = towire_gossip_timestamp_filter(NULL,
@@ -284,8 +280,7 @@ static struct short_channel_id *unknown_scids_remove(const tal_t *ctx,
 /* We have selected this peer to stream us startup gossip */
 static void peer_gossip_startup(struct seeker *seeker, struct peer *peer)
 {
-	status_debug("seeker: startup peer is %s",
-		     type_to_string(tmpctx, struct node_id, &peer->id));
+	status_peer_debug(&peer->id, "seeker: chosen as startup peer");
 	selected_peer(seeker, peer);
 	normal_gossip_start(seeker, peer);
 }
@@ -520,8 +515,7 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 
 	/* We might have given up on them, then they replied. */
 	if (seeker->random_peer_softref != peer) {
-		status_debug("seeker: belated reply from %s: ignoring",
-			     type_to_string(tmpctx, struct node_id, &peer->id));
+		status_peer_debug(&peer->id, "seeker: belated reply: ignoring");
 		return;
 	}
 
@@ -542,8 +536,9 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 			new_nannounce++;
 	}
 
-	status_debug("seeker: found %zu new node_announcements in %zu scids",
-		     new_nannounce, num_scids);
+	status_peer_debug(&peer->id,
+			  "seeker: found %zu new node_announcements in %zu scids",
+			  new_nannounce, num_scids);
 
 	seeker->nannounce_scids = tal_free(seeker->nannounce_scids);
 	seeker->nannounce_query_flags = tal_free(seeker->nannounce_query_flags);
@@ -780,7 +775,7 @@ static void check_firstpeer(struct seeker *seeker)
 		return;
 
 	/* Other peers can gossip now. */
-	status_debug("seeker: startup peer finished");
+	status_peer_debug(&peer->id, "seeker: startup peer finished");
 	clear_softref(seeker, &seeker->random_peer_softref);
 	list_for_each(&seeker->daemon->peers, p, list) {
 		if (p == peer)
@@ -812,9 +807,9 @@ static void check_probe(struct seeker *seeker,
 	if (peer_made_progress(seeker))
 		return;
 
-	status_debug("Peer %s has only moved gossip %zu->%zu for probe, giving up on it",
-		     type_to_string(tmpctx, struct node_id, &peer->id),
-		     seeker->prev_gossip_count, peer->gossip_counter);
+	status_peer_debug(&peer->id,
+			  "has only moved gossip %zu->%zu for probe, giving up on it",
+			  seeker->prev_gossip_count, peer->gossip_counter);
 	clear_softref(seeker, &seeker->random_peer_softref);
 	restart(seeker);
 }
@@ -845,15 +840,14 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 	/* If we have a slot free, or ~ 1 per hour */
 	for (i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
 		if (!seeker->gossiper_softref[i]) {
-			status_debug("seeker: filling slot %zu with %s",
-				     i, type_to_string(tmpctx, struct node_id,
-						       &peer->id));
+			status_peer_debug(&peer->id, "seeker: filling slot %zu",
+					  i);
 			goto set_gossiper;
 		}
 		if (pseudorand(ARRAY_SIZE(seeker->gossiper_softref) * 60) == 0) {
-			status_debug("seeker: replacing slot %zu with %s",
-				     i, type_to_string(tmpctx, struct node_id,
-						       &peer->id));
+			status_peer_debug(&peer->id,
+					  "seeker: replacing slot %zu",
+					  i);
 			goto clear_and_set_gossiper;
 		}
 	}
