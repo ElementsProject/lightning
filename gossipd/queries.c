@@ -229,9 +229,8 @@ bool query_short_channel_ids(struct daemon *daemon,
 	peer->scid_query_outstanding = true;
 	peer->scid_query_cb = cb;
 
-	status_debug("%s: sending query for %zu scids",
-		     type_to_string(tmpctx, struct node_id, &peer->id),
-		     tal_count(scids));
+	status_peer_debug(&peer->id, "sending query for %zu scids",
+			  tal_count(scids));
 	return true;
 }
 
@@ -280,9 +279,9 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	 *     - MUST set `complete` to 0.
 	 */
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
-		status_debug("%s sent query_short_channel_ids chainhash %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     type_to_string(tmpctx, struct bitcoin_blkid, &chain));
+		status_peer_debug(&peer->id,
+				  "sent query_short_channel_ids chainhash %s",
+				  type_to_string(tmpctx, struct bitcoin_blkid, &chain));
 		return towire_reply_short_channel_ids_end(peer, &chain, 0);
 	}
 
@@ -597,10 +596,10 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	 *     - MUST set `complete` to 0.
 	 */
 	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain_hash)) {
-		status_debug("%s sent query_channel_range chainhash %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     type_to_string(tmpctx, struct bitcoin_blkid,
-					    &chain_hash));
+		status_peer_debug(&peer->id,
+				  "query_channel_range with chainhash %s",
+				  type_to_string(tmpctx, struct bitcoin_blkid,
+						 &chain_hash));
 		u8 *end = towire_reply_channel_range(NULL, &chain_hash, first_blocknum,
 		                                     number_of_blocks, false, NULL, NULL);
 		queue_peer_msg(peer, take(end));
@@ -687,12 +686,12 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 				       tal_hex(tmpctx, encoded));
 	}
 
-	status_debug("peer %s reply_channel_range %u+%u (of %u+%u) %zu scids",
-		     type_to_string(tmpctx, struct node_id, &peer->id),
-		     first_blocknum, number_of_blocks,
-		     peer->range_first_blocknum,
-		     peer->range_end_blocknum - peer->range_first_blocknum,
-		     tal_count(scids));
+	status_peer_debug(&peer->id,
+			  "reply_channel_range %u+%u (of %u+%u) %zu scids",
+			  first_blocknum, number_of_blocks,
+			  peer->range_first_blocknum,
+			  peer->range_end_blocknum - peer->range_first_blocknum,
+			  tal_count(scids));
 
 	/* BOLT #7:
 	 *
@@ -1030,8 +1029,9 @@ bool query_channel_range(struct daemon *daemon,
 		tlvs->query_option->query_option_flags = qflags;
 	} else
 		tlvs = NULL;
-	status_debug("sending query_channel_range for blocks %u+%u",
-		     first_blocknum, number_of_blocks);
+	status_peer_debug(&peer->id,
+			  "sending query_channel_range for blocks %u+%u",
+			  first_blocknum, number_of_blocks);
 
 	msg = towire_query_channel_range(NULL, &daemon->chain_hash,
 					 first_blocknum, number_of_blocks,

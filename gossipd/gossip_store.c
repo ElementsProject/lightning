@@ -734,7 +734,8 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			stats[2]++;
 			break;
 		case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
-			if (!handle_local_add_channel(rstate, msg, gs->len)) {
+			if (!handle_local_add_channel(rstate, NULL,
+						      msg, gs->len)) {
 				bad = "Bad local_add_channel";
 				goto badmsg;
 			}

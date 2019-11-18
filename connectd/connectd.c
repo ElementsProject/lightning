@@ -354,8 +354,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	struct io_plan *plan;
 
 	/*~ As you can see, we've had issues with this code before :( */
-	status_debug("peer %s: processing now old peer gone",
-		     type_to_string(tmpctx, struct node_id, &pr->id));
+	status_peer_debug(&pr->id, "processing now old peer gone");
 
 	/*~ Usually the pattern is to return this directly, but we have to free
 	 * our temporary structure. */
@@ -377,8 +376,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	u8 *msg;
 	struct peer_reconnected *pr;
 
-	status_debug("peer %s: reconnect",
-		     type_to_string(tmpctx, struct node_id, id));
+	status_peer_debug(id, "reconnect");
 
 	/* Tell master to kill it: will send peer_disconnect */
 	msg = towire_connect_reconnected(NULL, id);
@@ -470,8 +468,7 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 {
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
-	status_debug("Connect IN from %s",
-		     type_to_string(tmpctx, struct node_id, &id));
+	status_peer_debug(&id, "Connect IN");
 	return peer_exchange_initmsg(conn, daemon, cs, &id, addr);
 }
 
@@ -531,8 +528,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 
 	node_id_from_pubkey(&id, key);
 	connect->connstate = "Exchanging init messages";
-	status_debug("Connect OUT to %s",
-		     type_to_string(tmpctx, struct node_id, &id));
+	status_peer_debug(&id, "Connect OUT");
 	return peer_exchange_initmsg(conn, connect->daemon, cs, &id, addr);
 }
 
@@ -549,8 +545,7 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 	}
 
 	/* FIXME: Timeout */
-	status_debug("Connected out for %s",
-		     type_to_string(tmpctx, struct node_id, &connect->id));
+	status_peer_debug(&connect->id, "Connected out, starting crypto");
 
 	connect->connstate = "Cryptographic handshake";
 	return initiator_handshake(conn, &connect->daemon->mykey, &outkey,
@@ -602,9 +597,7 @@ static void connect_failed(struct daemon *daemon,
 					       addrhint);
 	daemon_conn_send(daemon->master, take(msg));
 
-	status_debug("Failed connected out for %s: %s",
-		     type_to_string(tmpctx, struct node_id, id),
-		     err);
+	status_peer_debug(id, "Failed connected out: %s", err);
 }
 
 /*~ This is the destructor for the (unsuccessful) connection.  We accumulate
@@ -1279,7 +1272,7 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 	const char **hostnames = seednames(tmpctx, id);
 
 	for (size_t i = 0; i < tal_count(hostnames); i++) {
-		status_debug("Resolving %s", hostnames[i]);
+		status_peer_debug(id, "Resolving %s", hostnames[i]);
 		new_addrs = wireaddr_from_hostname(tmpctx, hostnames[i], DEFAULT_PORT,
 		                                   NULL, broken_reply, NULL);
 		if (new_addrs) {
@@ -1287,13 +1280,13 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
 				a.u.wireaddr = new_addrs[j];
-				status_debug("Resolved %s to %s", hostnames[i],
-				             type_to_string(tmpctx, struct wireaddr,
-				                            &a.u.wireaddr));
+				status_peer_debug(id, "Resolved %s to %s", hostnames[i],
+						  type_to_string(tmpctx, struct wireaddr,
+								 &a.u.wireaddr));
 				tal_arr_expand(addrs, a);
 			}
 		} else
-			status_debug("Could not resolve %s", hostnames[i]);
+			status_peer_debug(id, "Could not resolve %s", hostnames[i]);
 	}
 }
 
