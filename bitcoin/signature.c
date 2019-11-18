@@ -34,19 +34,19 @@ static void dump_tx(const char *msg,
 {
 	size_t i, j;
 	warnx("%s tx version %u locktime %#x:",
-	      msg, tx->version, tx->lock_time);
-	for (i = 0; i < tal_count(tx->input); i++) {
+	      msg, tx->wtx->version, tx->wtx->locktime);
+	for (i = 0; i < tx->wtx->num_inputs; i++) {
 		warnx("input[%zu].txid = "SHA_FMT, i,
-		      SHA_VALS(tx->input[i].txid.sha.u.u8));
-		warnx("input[%zu].index = %u", i, tx->input[i].index);
+		      SHA_VALS(tx->wtx->inputs[i].txhash));
+		warnx("input[%zu].index = %u", i, tx->wtx->inputs[i].index);
 	}
-	for (i = 0; i < tal_count(tx->output); i++) {
+	for (i = 0; i < tx->wtx->num_outputs; i++) {
 		warnx("output[%zu].amount = %llu",
-		      i, (long long)tx->output[i].amount);
+		      i, (long long)tx->wtx->outputs[i].satoshi);
 		warnx("output[%zu].script = %zu",
-		      i, tal_count(tx->output[i].script));
-		for (j = 0; j < tal_count(tx->output[i].script); j++)
-			fprintf(stderr, "%02x", tx->output[i].script[j]);
+		      i, tx->wtx->outputs[i].script_len);
+		for (j = 0; j < tx->wtx->outputs[i].script_len; j++)
+			fprintf(stderr, "%02x", tx->wtx->outputs[i].script[j]);
 		fprintf(stderr, "\n");
 	}
 	warnx("input[%zu].script = %zu", inputnum, tal_count(script));
