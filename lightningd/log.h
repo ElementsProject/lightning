@@ -16,47 +16,6 @@ struct lightningd;
 struct node_id;
 struct timerel;
 
-struct log_entry {
-	struct list_node list;
-	struct timeabs time;
-	enum log_level level;
-	unsigned int skipped;
-	struct node_id *node_id;
-	const char *prefix;
-	char *log;
-	/* Iff LOG_IO */
-	const u8 *io;
-};
-
-struct log_book {
-	size_t mem_used;
-	size_t max_mem;
-	void (*print)(const char *prefix,
-		      enum log_level level,
-		      const struct node_id *node_id,
-		      bool continued,
-		      const struct timeabs *time,
-		      const char *str,
-		      const u8 *io, size_t io_len,
-		      void *arg);
-	void *print_arg;
-	enum log_level print_level;
-	struct timeabs init_time;
-
-	struct list_head log;
-	/* Although log_book will copy log entries to parent log_book
-	 * (the log_book belongs to lightningd), a pointer to lightningd
-	 *  is more directly because the notification needs ld->plugins.
-	 */
-	struct lightningd *ld;
-};
-
-struct log {
-	struct log_book *lr;
-	const struct node_id *default_node_id;
-	const char *prefix;
-};
-
 /* We can have a single log book, with multiple logs in it: it's freed
  * by the last struct log itself. */
 struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
@@ -93,8 +52,6 @@ void logv(struct log *log, enum log_level level, const struct node_id *node_id,
 void logv_add(struct log *log, const char *fmt, va_list ap);
 
 enum log_level get_log_level(struct log_book *lr);
-void set_log_level(struct log_book *lr, enum log_level level);
-void set_log_prefix(struct log *log, const char *prefix);
 const char *log_prefix(const struct log *log);
 struct log_book *get_log_book(const struct log *log);
 
@@ -168,5 +125,17 @@ struct command_result *param_loglevel(struct command *cmd,
 				      const char *buffer,
 				      const jsmntok_t *tok,
 				      enum log_level **level);
+
+struct log_entry {
+	struct list_node list;
+	struct timeabs time;
+	enum log_level level;
+	unsigned int skipped;
+	struct node_id *node_id;
+	const char *prefix;
+	char *log;
+	/* Iff LOG_IO */
+	const u8 *io;
+};
 
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */
