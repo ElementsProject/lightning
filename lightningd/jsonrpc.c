@@ -902,7 +902,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
-	jcon->log = new_log(ld->log_book, ld->log_book, NULL, "jsonrpc #%i",
+	jcon->log = new_log(ld->log_book, ld->log_book, NULL, "jsonrpc#%i",
 			    io_conn_fd(conn));
 
 	tal_add_destructor(jcon, destroy_jcon);
