@@ -51,59 +51,7 @@ void logv(struct log *log, enum log_level level, const struct node_id *node_id,
 	  bool call_notifier, const char *fmt, va_list ap);
 void logv_add(struct log *log, const char *fmt, va_list ap);
 
-enum log_level get_log_level(struct log_book *lr);
 const char *log_prefix(const struct log *log);
-struct log_book *get_log_book(const struct log *log);
-
-#define set_log_outfn(lr, print, arg)					\
-	set_log_outfn_((lr),						\
-		       typesafe_cb_preargs(void, void *, (print), (arg),\
-					   const char *,		\
-					   enum log_level,		\
-					   const struct node_id *,	\
-					   bool,			\
-					   const struct timeabs *,	\
-					   const char *,		\
-					   const u8 *, size_t), (arg))
-
-/* If level == LOG_IO_IN/LOG_IO_OUT, then io contains data */
-void set_log_outfn_(struct log_book *lr,
-		    void (*print)(const char *prefix,
-				  enum log_level level,
-				  const struct node_id *node_id,
-				  bool continued,
-				  const struct timeabs *time,
-				  const char *str,
-				  const u8 *io, size_t io_len,
-				  void *arg),
-		    void *arg);
-
-size_t log_max_mem(const struct log_book *lr);
-size_t log_used(const struct log_book *lr);
-const struct timeabs *log_init_time(const struct log_book *lr);
-
-#define log_each_line(lr, func, arg)					\
-	log_each_line_((lr),						\
-		       typesafe_cb_preargs(void, void *, (func), (arg),	\
-					   unsigned int,		\
-					   struct timerel,		\
-					   enum log_level,		\
-					   const struct node_id *,	\
-					   const char *,		\
-					   const char *,		\
-					   const u8 *), (arg))
-
-void log_each_line_(const struct log_book *lr,
-		    void (*func)(unsigned int skipped,
-				 struct timerel time,
-				 enum log_level level,
-				 const struct node_id *node_id,
-				 const char *prefix,
-				 const char *log,
-				 const u8 *io,
-				 void *arg),
-		    void *arg);
-
 
 void opt_register_logging(struct lightningd *ld);
 
@@ -118,7 +66,9 @@ void log_backtrace_exit(void);
 
 /* Adds an array showing log entries */
 void json_add_log(struct json_stream *result,
-		  const struct log_book *lr, enum log_level minlevel);
+		  const struct log_book *lr,
+		  const struct node_id *node_id,
+		  enum log_level minlevel);
 
 struct command_result *param_loglevel(struct command *cmd,
 				      const char *name,

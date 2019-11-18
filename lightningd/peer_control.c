@@ -72,24 +72,6 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
-/* We copy per-peer entries above --log-level into the main log. */
-static void copy_to_parent_log(const char *prefix,
-			       enum log_level level,
-			       const struct node_id *node_id,
-			       bool continued,
-			       const struct timeabs *time UNUSED,
-			       const char *str,
-			       const u8 *io, size_t io_len,
-			       struct log *parent_log)
-{
-	if (level == LOG_IO_IN || level == LOG_IO_OUT)
-		log_io(parent_log, level, node_id, prefix, io, io_len);
-	else if (continued)
-		log_add(parent_log, "%s ... %s", prefix, str);
-	else
-		log_(parent_log, level, node_id, false, "%s %s", prefix, str);
-}
-
 static void peer_update_features(struct peer *peer, const u8 *features TAKES)
 {
 	tal_free(peer->features);
@@ -116,9 +98,6 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->ignore_htlcs = false;
 #endif
 
-	/* Max 128k per peer. */
-	peer->log_book = new_log_book(peer->ld, 128*1024, get_log_level(ld->log_book));
-	set_log_outfn(peer->log_book, copy_to_parent_log, ld->log);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
 	return peer;
@@ -1145,7 +1124,7 @@ static void json_add_peer(struct lightningd *ld,
 	json_array_end(response);
 
 	if (ll)
-		json_add_log(response, p->log_book, *ll);
+		json_add_log(response, ld->log_book, &p->id, *ll);
 	json_object_end(response);
 }
 

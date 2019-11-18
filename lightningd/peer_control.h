@@ -36,9 +36,6 @@ struct peer {
 	/* Our (only) uncommitted channel, still opening. */
 	struct uncommitted_channel *uncommitted_channel;
 
-	/* History */
-	struct log_book *log_book;
-
 	/* Where we connected to, or it connected from. */
 	struct wireaddr_internal addr;
 

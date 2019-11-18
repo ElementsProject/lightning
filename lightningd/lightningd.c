@@ -161,11 +161,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 
-	/*~ We have a two-level log-book infrastructure: we define a 20MB log
+	/*~ We have a multi-entry log-book infrastructure: we define a 100MB log
 	 * book to hold all the entries (and trims as necessary), and multiple
 	 * log objects which each can write into it, each with a unique
 	 * prefix. */
-	ld->log_book = new_log_book(ld, 20*1024*1024, LOG_INFORM);
+	ld->log_book = new_log_book(ld, 100*1024*1024, LOG_INFORM);
 	/*~ Note the tal context arg (by convention, the first argument to any
 	 * allocation function): ld->log will be implicitly freed when ld
 	 * is. */

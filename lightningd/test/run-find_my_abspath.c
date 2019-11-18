@@ -75,9 +75,6 @@ bool fromwire_status_peer_billboard(const tal_t *ctx UNNEEDED, const void *p UNN
 /* Generated stub for fromwire_status_peer_error */
 bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, bool *soft_error UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **error_for_them UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_error called!\n"); abort(); }
-/* Generated stub for get_log_book */
-struct log_book *get_log_book(const struct log *log UNNEEDED)
-{ fprintf(stderr, "get_log_book called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED, int connectd_fd UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
