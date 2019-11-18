@@ -120,7 +120,6 @@ static const char *level_prefix(enum log_level level)
 static void log_to_file(const char *prefix,
 			enum log_level level,
 			const struct node_id *node_id,
-			bool continued,
 			const struct timeabs *time,
 			const char *str,
 			const u8 *io,
@@ -144,7 +143,7 @@ static void log_to_file(const char *prefix,
 				node_id_to_hexstr(tmpctx, node_id),
 				prefix, str, dir, hex);
 		tal_free(hex);
-	} else if (!continued) {
+	} else {
 		if (!node_id)
 			fprintf(logf, "%s %s %s: %s\n",
 				iso8601_s, level_prefix(level), prefix, str);
@@ -153,8 +152,6 @@ static void log_to_file(const char *prefix,
 				iso8601_s, level_prefix(level),
 				node_id_to_hexstr(tmpctx, node_id),
 				prefix, str);
-	} else {
-		fprintf(logf, "%s %s \t%s\n", iso8601_s, prefix, str);
 	}
 	fflush(logf);
 }
@@ -345,13 +342,12 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 	return l;
 }
 
-static void maybe_print(struct log *log, const struct log_entry *l,
-			size_t offset)
+static void maybe_print(struct log *log, const struct log_entry *l)
 {
 	if (l->level >= log_print_level(log))
 		log_to_file(log->prefix, l->level,
-			    l->nc ? &l->nc->node_id : NULL, offset != 0,
-			    &l->time, l->log + offset,
+			    l->nc ? &l->nc->node_id : NULL,
+			    &l->time, l->log,
 			    l->io, tal_bytelen(l->io), log->lr->outf);
 }
 
@@ -372,7 +368,7 @@ void logv(struct log *log, enum log_level level,
 		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
 			l->log[i] = '?';
 
-	maybe_print(log, l, 0);
+	maybe_print(log, l);
 
 	add_entry(log, l);
 
@@ -395,7 +391,7 @@ void log_io(struct log *log, enum log_level dir,
 	/* Print first, in case we need to truncate. */
 	if (l->level >= log_print_level(log))
 		log_to_file(log->prefix, l->level,
-			    l->nc ? &l->nc->node_id : NULL, false,
+			    l->nc ? &l->nc->node_id : NULL,
 			    &l->time, str,
 			    data, len, log->lr->outf);
 
@@ -412,27 +408,6 @@ void log_io(struct log *log, enum log_level dir,
 	errno = save_errno;
 }
 
-void logv_add(struct log *log, const char *fmt, va_list ap)
-{
-	struct log_entry *l = list_tail(&log->lr->log, struct log_entry, list);
-	size_t oldlen = strlen(l->log);
-
-	/* Remove from list, so it doesn't get pruned. */
-	log->lr->mem_used -= mem_used(l);
-	list_del_from(&log->lr->log, &l->list);
-
-	tal_append_vfmt(&l->log, fmt, ap);
-
-	/* Sanitize any non-printable characters, and replace with '?' */
-	for (size_t i=oldlen; i<strlen(l->log); i++)
-		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
-			l->log[i] = '?';
-
-	add_entry(log, l);
-
-	maybe_print(log, l, oldlen);
-}
-
 void log_(struct log *log, enum log_level level,
 	  const struct node_id *node_id,
 	  bool call_notifier,
@@ -442,15 +417,6 @@ void log_(struct log *log, enum log_level level,
 
 	va_start(ap, fmt);
 	logv(log, level, node_id, call_notifier, fmt, ap);
-	va_end(ap);
-}
-
-void log_add(struct log *log, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	logv_add(log, fmt, ap);
 	va_end(ap);
 }
 
@@ -726,7 +692,7 @@ void logging_options_parsed(struct log_book *lr)
 	list_for_each(&lr->log, l, list) {
 		if (l->level >= filter_level(lr, l->prefix))
 			log_to_file(l->prefix, l->level,
-				    l->nc ? &l->nc->node_id : NULL, false,
+				    l->nc ? &l->nc->node_id : NULL,
 				    &l->time, l->log,
 				    l->io, tal_bytelen(l->io), lr->outf);
 	}

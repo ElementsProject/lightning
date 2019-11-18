@@ -690,13 +690,12 @@ send_payment(struct lightningd *ld,
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);
 	if (payment) {
 		/* FIXME: We should really do something smarter here! */
-		log_debug(ld->log, "send_payment: found previous");
 		if (payment->status == PAYMENT_PENDING) {
-			log_add(ld->log, "Payment is still in progress");
+			log_debug(ld->log, "send_payment: previous still in progress");
 			return json_sendpay_in_progress(cmd, payment);
 		}
 		if (payment->status == PAYMENT_COMPLETE) {
-			log_add(ld->log, "... succeeded");
+			log_debug(ld->log, "send_payment: previous succeeded");
 			/* Must match successful payment parameters. */
 			if (!amount_msat_eq(payment->msatoshi, msat)) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
@@ -715,7 +714,7 @@ send_payment(struct lightningd *ld,
 			}
 			return sendpay_success(cmd, payment);
 		}
-		log_add(ld->log, "... retrying");
+		log_debug(ld->log, "send_payment: found previous, retrying");
 	}
 
 	channel = active_channel_by_id(ld, &ids[0], NULL);
