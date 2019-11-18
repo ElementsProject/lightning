@@ -15,8 +15,8 @@ directory (if it exists), but that can be changed by the
 *--lightning-dir* or *--conf* options on the lightningd(8) command line.
 
 Configuration file options are processed first, then command line
-options: later options override earlier ones except *addr* options which
-accumulate.
+options: later options override earlier ones except *addr* options 
+and *log-level* with subsystems, which accumulate.
 
 All these options are mirrored as commandline arguments to
 lightningd(8), so *--foo* becomes simply *foo* in the configuration
@@ -103,9 +103,28 @@ Sets the working directory. All files (except *--conf* and
  **pid-file**=*PATH*
 Specify pid file to write to.
 
- **log-level**=*LEVEL*
+ **log-level**=*LEVEL*\[:*SUBSYSTEM*\]
 What log level to print out: options are io, debug, info, unusual,
-broken.
+broken.  If *SUBSYSTEM* is supplied, this sets the logging level
+for any subsystem containing that string.  Subsystems include:
+
+* *lightningd*: The main lightning daemon
+* *database*: The database subsystem
+* *wallet*: The wallet subsystem
+* *gossipd*: The gossip daemon
+* *plugin-manager*: The plugin subsystem
+* *plugin-P*: Each plugin, P = plugin path without directory
+* *hsmd*: The secret-holding daemon
+* *gossipd*: The gossip daemon
+* *connectd*: The network connection daemon
+
+The following subsystems exist for each channel, where N is an incrementing
+internal integer id assigned for the lifetime of the channel:
+* *openingd-chan #N*: Each opening / idling daemon
+* *channeld-chan #N*: Each channel management daemon
+* *closingd-chan #N*: Each closing negotiation daemon
+* *onchaind-chan #N*: Each onchain close handling daemon
+* *json #FD*: Each JSONRPC connection, FD = file descriptor number
 
  **log-prefix**=*PREFIX*
 Prefix for log lines: this can be customized if you want to merge logs

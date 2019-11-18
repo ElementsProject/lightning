@@ -18,8 +18,7 @@ struct timerel;
 
 /* We can have a single log book, with multiple logs in it: it's freed
  * by the last struct log itself. */
-struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
-			      enum log_level printlevel);
+struct log_book *new_log_book(struct lightningd *ld, size_t max_mem);
 
 /* With different entry points */
 struct log *new_log(const tal_t *ctx, struct log_book *record,
@@ -52,6 +51,7 @@ void logv(struct log *log, enum log_level level, const struct node_id *node_id,
 void logv_add(struct log *log, const char *fmt, va_list ap);
 
 const char *log_prefix(const struct log *log);
+enum log_level log_print_level(struct log *log);
 
 void opt_register_logging(struct lightningd *ld);
 
@@ -88,4 +88,8 @@ struct log_entry {
 	const u8 *io;
 };
 
+/* For options.c's listconfig */
+char *opt_log_level(const char *arg, struct log *log);
+void json_add_opt_log_levels(struct json_stream *response, struct log *log);
+void logging_options_parsed(struct log_book *lr);
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */

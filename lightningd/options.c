@@ -1194,6 +1194,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Now we know what network we're on, initialize defaults. */
 	setup_default_config(ld);
+
+	/* Finalize the logging subsystem now. */
+	logging_options_parsed(ld->log_book);
 }
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])
@@ -1351,6 +1354,8 @@ static void add_config(struct lightningd *ld,
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
 			json_add_opt_plugins(response, ld->plugins);
+		} else if (opt->cb_arg == (void *)opt_log_level) {
+			json_add_opt_log_levels(response, ld->log);
 		} else if (opt->cb_arg == (void *)opt_add_plugin_dir
 			   || opt->cb_arg == (void *)opt_disable_plugin
 			   || opt->cb_arg == (void *)plugin_opt_set) {

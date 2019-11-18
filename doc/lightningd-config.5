@@ -14,8 +14,8 @@ directory (if it exists), but that can be changed by the
 
 
 Configuration file options are processed first, then command line
-options: later options override earlier ones except \fIaddr\fR options which
-accumulate\.
+options: later options override earlier ones except \fIaddr\fR options 
+and \fIlog-level\fR with subsystems, which accumulate\.
 
 
 All these options are mirrored as commandline arguments to
@@ -119,30 +119,69 @@ Sets the working directory\. All files (except \fI--conf\fR and
 Specify pid file to write to\.
 
 
- \fBlog-level\fR=\fILEVEL\fR
+ \fBlog-level\fR=\fILEVEL\fR[:\fISUBSYSTEM\fR]
 What log level to print out: options are io, debug, info, unusual,
-broken\.
+broken\.  If \fISUBSYSTEM\fR is supplied, this sets the logging level
+for any subsystem containing that string\.  Subsystems include:
+
+.RS
+.IP \[bu]
+\fIlightningd\fR: The main lightning daemon
+.IP \[bu]
+\fIdatabase\fR: The database subsystem
+.IP \[bu]
+\fIwallet\fR: The wallet subsystem
+.IP \[bu]
+\fIgossipd\fR: The gossip daemon
+.IP \[bu]
+\fIplugin-manager\fR: The plugin subsystem
+.IP \[bu]
+\fIplugin-P\fR: Each plugin, P = plugin path without directory
+.IP \[bu]
+\fIhsmd\fR: The secret-holding daemon
+.IP \[bu]
+\fIgossipd\fR: The gossip daemon
+.IP \[bu]
+\fIconnectd\fR: The network connection daemon
+
+.RE
+
+The following subsystems exist for each channel, where N is an incrementing
+internal integer id assigned for the lifetime of the channel:
+
+.RS
+.IP \[bu]
+\fIopeningd-chan #N\fR: Each opening / idling daemon
+.IP \[bu]
+\fIchanneld-chan #N\fR: Each channel management daemon
+.IP \[bu]
+\fIclosingd-chan #N\fR: Each closing negotiation daemon
+.IP \[bu]
+\fIonchaind-chan #N\fR: Each onchain close handling daemon
+.IP \[bu]
+
+\fIjson #FD\fR: Each JSONRPC connection, FD = file descriptor number
 
 
- \fBlog-prefix\fR=\fIPREFIX\fR
+\fBlog-prefix\fR=\fIPREFIX\fR
 Prefix for log lines: this can be customized if you want to merge logs
 with multiple daemons\.
 
 
- \fBlog-file\fR=\fIPATH\fR
+\fBlog-file\fR=\fIPATH\fR
 Log to this file instead of stdout\. Sending \fBlightningd\fR(8) SIGHUP will
 cause it to reopen this file (useful for log rotation)\.
 
 
- \fBrpc-file\fR=\fIPATH\fR
+\fBrpc-file\fR=\fIPATH\fR
 Set JSON-RPC socket (or /dev/tty), such as for \fBlightning-cli\fR(1)\.
 
 
- \fBdaemon\fR
+\fBdaemon\fR
 Run in the background, suppress stdout and stderr\.
 
 
- \fBconf\fR=\fIPATH\fR
+\fBconf\fR=\fIPATH\fR
 Sets configuration file (default: \fBlightning-dir\fR/\fIconfig\fR )\. If this
 is a relative path, it is relative to the starting directory, not
 \fBlightning-dir\fR (unlike other paths)\. \fIPATH\fR must exist and be
@@ -150,17 +189,20 @@ readable (we allow missing files in the default case)\. Using this inside
 a configuration file is meaningless\.
 
 
- \fBwallet\fR=\fIDSN\fR
+\fBwallet\fR=\fIDSN\fR
 Identify the location of the wallet\. This is a fully qualified data source
 name, including a scheme such as \fBsqlite3\fR or \fBpostgres\fR followed by the
 connection parameters\.
 
 
- \fBencrypted-hsm\fR
+\fBencrypted-hsm\fR
 If set, you will be prompted to enter a password used to encrypt the \fBhsm_secret\fR\.
 Note that once you encrypt the \fBhsm_secret\fR this option will be mandatory for
 \fBlightningd\fR to start\.
 
+
+
+.RE
 .SH Lightning node customization options
 
  \fBalias\fR=\fIRRGGBB\fR
