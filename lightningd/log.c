@@ -3,6 +3,7 @@
 #include <backtrace.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/htable/htable_type.h>
 #include <ccan/io/io.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -58,6 +59,8 @@ struct log_book {
 	 *  is more directly because the notification needs ld->plugins.
 	 */
 	struct lightningd *ld;
+	/* Cache of all node_ids, to avoid multiple copies. */
+	struct node_id_map *cache;
 };
 
 struct log {
@@ -68,6 +71,32 @@ struct log {
 	/* Non-NULL once it's been initialized */
 	enum log_level *print_level;
 };
+
+/* Avoids duplicate node_id entries. */
+struct node_id_cache {
+	size_t count;
+	struct node_id node_id;
+};
+
+static const struct node_id *node_cache_id(const struct node_id_cache *nc)
+{
+	return &nc->node_id;
+}
+
+static size_t node_id_hash(const struct node_id *id)
+{
+	return siphash24(siphash_seed(), id->k, sizeof(id->k));
+}
+
+static bool node_id_cache_eq(const struct node_id_cache *nc,
+			     const struct node_id *node_id)
+{
+	return node_id_eq(&nc->node_id, node_id);
+}
+
+HTABLE_DEFINE_TYPE(struct node_id_cache,
+		   node_cache_id, node_id_hash, node_id_cache_eq,
+		   node_id_map);
 
 static const char *level_prefix(enum log_level level)
 {
@@ -152,6 +181,8 @@ static size_t prune_log(struct log_book *log)
 
 		list_del_from(&log->log, &i->list);
 		log->mem_used -= mem_used(i);
+		if (i->nc && --i->nc->count == 0)
+			tal_free(i->nc);
 		tal_free(i);
 		skipped++;
 		deleted++;
@@ -174,6 +205,8 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	list_head_init(&lr->print_filters);
 	lr->init_time = time_now();
 	lr->ld = ld;
+	lr->cache = tal(lr, struct node_id_map);
+	node_id_map_init(lr->cache);
 	list_head_init(&lr->log);
 
 	return lr;
@@ -247,6 +280,11 @@ static void add_entry(struct log *log, struct log_entry *l)
 	}
 }
 
+static void destroy_node_id_cache(struct node_id_cache *nc, struct log_book *lr)
+{
+	node_id_map_del(lr->cache, nc);
+}
+
 static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 				       const struct node_id *node_id)
 {
@@ -259,10 +297,19 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 	l->io = NULL;
 	if (!node_id)
 		node_id = log->default_node_id;
-	if (node_id)
-		l->node_id = tal_dup(l, struct node_id, node_id);
-	else
-		l->node_id = NULL;
+	if (node_id) {
+		l->nc = node_id_map_get(log->lr->cache, node_id);
+		if (!l->nc) {
+			l->nc = tal(log->lr->cache, struct node_id_cache);
+			l->nc->count = 0;
+			l->nc->node_id = *node_id;
+			node_id_map_add(log->lr->cache, l->nc);
+			tal_add_destructor2(l->nc, destroy_node_id_cache,
+					    log->lr);
+		}
+		l->nc->count++;
+	} else
+		l->nc = NULL;
 
 	return l;
 }
@@ -271,7 +318,8 @@ static void maybe_print(struct log *log, const struct log_entry *l,
 			size_t offset)
 {
 	if (l->level >= log_print_level(log))
-		log_to_file(log->prefix, l->level, l->node_id, offset != 0,
+		log_to_file(log->prefix, l->level,
+			    l->nc ? &l->nc->node_id : NULL, offset != 0,
 			    &l->time, l->log + offset,
 			    l->io, tal_bytelen(l->io), log->lr->outf);
 }
@@ -315,7 +363,8 @@ void log_io(struct log *log, enum log_level dir,
 
 	/* Print first, in case we need to truncate. */
 	if (l->level >= log_print_level(log))
-		log_to_file(log->prefix, l->level, l->node_id, false,
+		log_to_file(log->prefix, l->level,
+			    l->nc ? &l->nc->node_id : NULL, false,
 			    &l->time, str,
 			    data, len, log->lr->outf);
 
@@ -400,7 +449,8 @@ static void log_each_line_(const struct log_book *lr,
 
 	list_for_each(&lr->log, i, list) {
 		func(i->skipped, time_between(i->time, lr->init_time),
-		     i->level, i->node_id, i->prefix, i->log, i->io, arg);
+		     i->level, i->nc ? &i->nc->node_id : NULL,
+		     i->prefix, i->log, i->io, arg);
 	}
 }
 
@@ -644,7 +694,8 @@ void logging_options_parsed(struct log_book *lr)
 	/* Catch up, since before we were only printing BROKEN msgs */
 	list_for_each(&lr->log, l, list) {
 		if (l->level >= filter_level(lr, l->prefix))
-			log_to_file(l->prefix, l->level, l->node_id, false,
+			log_to_file(l->prefix, l->level,
+				    l->nc ? &l->nc->node_id : NULL, false,
 				    &l->time, l->log,
 				    l->io, tal_bytelen(l->io), lr->outf);
 	}

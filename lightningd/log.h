@@ -81,7 +81,7 @@ struct log_entry {
 	struct timeabs time;
 	enum log_level level;
 	unsigned int skipped;
-	struct node_id *node_id;
+	struct node_id_cache *nc;
 	const char *prefix;
 	char *log;
 	/* Iff LOG_IO */
