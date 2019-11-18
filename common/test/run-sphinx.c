@@ -56,12 +56,6 @@ void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sh
 void fromwire_short_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			       struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_short_channel_id called!\n"); abort(); }
-/* Generated stub for fromwire_tlvs */
-bool fromwire_tlvs(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-		   const struct tlv_record_type types[] UNNEEDED,
-		   size_t num_types UNNEEDED,
-		   void *record UNNEEDED)
-{ fprintf(stderr, "fromwire_tlvs called!\n"); abort(); }
 /* Generated stub for fromwire_tu32 */
 u32 fromwire_tu32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_tu32 called!\n"); abort(); }

@@ -781,7 +781,11 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 
 	switch (result) {
 	case htlc_accepted_continue:
-		if (rs->nextcase == ONION_FORWARD) {
+		if (rs->type == SPHINX_TLV_PAYLOAD && !tlv_payload_is_valid(rs->payload.tlv)) {
+			log_debug(channel->log, "Failing HTLC because of an invalid TLV payload");
+			failure_code = WIRE_INVALID_ONION_PAYLOAD;
+			fail_in_htlc(hin, failure_code, NULL, request->short_channel_id);
+		}else if (rs->nextcase == ONION_FORWARD) {
 			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
 			gr->next_onion = serialize_onionpacket(gr, rs->next);
