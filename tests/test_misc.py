@@ -1221,9 +1221,9 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     assert status['attempts'][0]['failure']['data']['erring_channel'] == chanid2
 
     # L2 should send ping, but never receive pong so never send commitment.
-    l2.daemon.wait_for_log(r'channeld.*: \[OUT\] 0012')
-    assert not l2.daemon.is_in_log(r'channeld.*: \[IN\] 0013')
-    assert not l2.daemon.is_in_log(r'channeld.*: \[OUT\] 0084')
+    l2.daemon.wait_for_log(r'{}-.*channeld.*: \[OUT\] 0012'.format(l3.info['id']))
+    assert not l2.daemon.is_in_log(r'{}-.*channeld.*: \[IN\] 0013'.format(l3.info['id']))
+    assert not l2.daemon.is_in_log(r'{}-.*channeld.*: \[OUT\] 0084'.format(l3.info['id']))
     # L2 killed the channel with l3 because it was too slow.
     l2.daemon.wait_for_log('{}-.*channeld-.*Adding HTLC too slow: killing connection'.format(l3.info['id']))
 
