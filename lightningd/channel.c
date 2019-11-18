@@ -208,9 +208,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->billboard.transient = tal_strdup(channel, transient_billboard);
 
 	if (!log) {
-		/* FIXME: update log prefix when we get scid */
 		channel->log = new_log(channel,
-				       peer->log_book,
+				       peer->ld->log_book,
 				       &channel->peer->id,
 				       "chan #%"PRIu64":",
 				       dbid);

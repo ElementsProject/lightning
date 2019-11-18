@@ -639,7 +639,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	}
 	sd->ld = ld;
 	if (base_log) {
-		sd->log = new_log(sd, get_log_book(base_log), node_id,
+		sd->log = new_log(sd, ld->log_book, node_id,
 				  "%s-%s", name, log_prefix(base_log));
 	} else {
 		sd->log = new_log(sd, ld->log_book, node_id,

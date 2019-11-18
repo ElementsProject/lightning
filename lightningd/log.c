@@ -35,17 +35,9 @@ struct log *crashlog;
 struct log_book {
 	size_t mem_used;
 	size_t max_mem;
-	void (*print)(const char *prefix,
-		      enum log_level level,
-		      const struct node_id *node_id,
-		      bool continued,
-		      const struct timeabs *time,
-		      const char *str,
-		      const u8 *io, size_t io_len,
-		      void *arg);
-	void *print_arg;
 	enum log_level print_level;
 	struct timeabs init_time;
+	FILE *outf;
 
 	struct list_head log;
 	/* Although log_book will copy log entries to parent log_book
@@ -121,18 +113,6 @@ static void log_to_file(const char *prefix,
 	fflush(logf);
 }
 
-static void log_to_stdout(const char *prefix,
-			  enum log_level level,
-			  const struct node_id *node_id,
-			  bool continued,
-			  const struct timeabs *time,
-			  const char *str,
-			  const u8 *io, size_t io_len,
-			  void *unused UNUSED)
-{
-	log_to_file(prefix, level, node_id, continued, time, str, io, io_len, stdout);
-}
-
 static size_t mem_used(const struct log_entry *e)
 {
 	return sizeof(*e) + strlen(e->log) + 1 + tal_count(e->io);
@@ -174,7 +154,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem,
 	assert(max_mem > sizeof(struct log) * 2);
 	lr->mem_used = 0;
 	lr->max_mem = max_mem;
-	lr->print = log_to_stdout;
+	lr->outf = stdout;
 	lr->print_level = printlevel;
 	lr->init_time = time_now();
 	lr->ld = ld;
@@ -207,51 +187,11 @@ new_log(const tal_t *ctx, struct log_book *record,
 	return log;
 }
 
-struct log_book *get_log_book(const struct log *log)
-{
-	return log->lr;
-}
-
-enum log_level get_log_level(struct log_book *lr)
-{
-	return lr->print_level;
-}
-
-void set_log_outfn_(struct log_book *lr,
-		    void (*print)(const char *prefix,
-				  enum log_level level,
-				  const struct node_id *node,
-				  bool continued,
-				  const struct timeabs *time,
-				  const char *str,
-				  const u8 *io, size_t io_len,
-				  void *arg),
-		    void *arg)
-{
-	lr->print = print;
-	lr->print_arg = arg;
-}
 
 const char *log_prefix(const struct log *log)
 {
 	return log->prefix;
 }
-
-size_t log_max_mem(const struct log_book *lr)
-{
-	return lr->max_mem;
-}
-
-size_t log_used(const struct log_book *lr)
-{
-	return lr->mem_used;
-}
-
-const struct timeabs *log_init_time(const struct log_book *lr)
-{
-	return &lr->init_time;
-}
-
 static void add_entry(struct log *log, struct log_entry *l)
 {
 	log->lr->mem_used += mem_used(l);
@@ -289,9 +229,9 @@ static void maybe_print(const struct log *log, const struct log_entry *l,
 			size_t offset)
 {
 	if (l->level >= log->lr->print_level)
-		log->lr->print(log->prefix, l->level, l->node_id, offset != 0,
-			       &l->time, l->log + offset,
-			       l->io, tal_bytelen(l->io), log->lr->print_arg);
+		log_to_file(log->prefix, l->level, l->node_id, offset != 0,
+			    &l->time, l->log + offset,
+			    l->io, tal_bytelen(l->io), log->lr->outf);
 }
 
 void logv(struct log *log, enum log_level level,
@@ -333,9 +273,9 @@ void log_io(struct log *log, enum log_level dir,
 
 	/* Print first, in case we need to truncate. */
 	if (l->level >= log->lr->print_level)
-		log->lr->print(log->prefix, l->level, l->node_id, false,
-			       &l->time, str,
-			       data, len, log->lr->print_arg);
+		log_to_file(log->prefix, l->level, l->node_id, false,
+			    &l->time, str,
+			    data, len, log->lr->outf);
 
 	l->log = tal_strdup(l, str);
 
@@ -392,16 +332,27 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_end(ap);
 }
 
-void log_each_line_(const struct log_book *lr,
-		    void (*func)(unsigned int skipped,
-				 struct timerel time,
-				 enum log_level level,
-				 const struct node_id *node_id,
-				 const char *prefix,
-				 const char *log,
-				 const u8 *io,
-				 void *arg),
-		    void *arg)
+#define log_each_line(lr, func, arg)					\
+	log_each_line_((lr),						\
+		       typesafe_cb_preargs(void, void *, (func), (arg),	\
+					   unsigned int,		\
+					   struct timerel,		\
+					   enum log_level,		\
+					   const struct node_id *,	\
+					   const char *,		\
+					   const char *,		\
+					   const u8 *), (arg))
+
+static void log_each_line_(const struct log_book *lr,
+			   void (*func)(unsigned int skipped,
+					struct timerel time,
+					enum log_level level,
+					const struct node_id *node_id,
+					const char *prefix,
+					const char *log,
+					const u8 *io,
+					void *arg),
+			   void *arg)
 {
 	const struct log_entry *i;
 
@@ -528,15 +479,12 @@ static struct io_plan *setup_read(struct io_conn *conn, struct lightningd *ld);
 
 static struct io_plan *rotate_log(struct io_conn *conn, struct lightningd *ld)
 {
-	FILE *logf;
-
 	log_info(ld->log, "Ending log due to SIGHUP");
-	fclose(ld->log->lr->print_arg);
+	fclose(ld->log->lr->outf);
 
-	logf = fopen(ld->logfile, "a");
-	if (!logf)
+	ld->log->lr->outf = fopen(ld->logfile, "a");
+	if (!ld->log->lr->outf)
 		err(1, "failed to reopen log file %s", ld->logfile);
-	set_log_outfn(ld->log->lr, log_to_file, logf);
 
 	log_info(ld->log, "Started log due to SIGHUP");
 	return setup_read(conn, ld);
@@ -569,25 +517,23 @@ static void setup_log_rotation(struct lightningd *ld)
 char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
 	const struct log_entry *i;
-	FILE *logf;
 	int size;
 
 	if (ld->logfile) {
-		fclose(ld->log->lr->print_arg);
+		fclose(ld->log->lr->outf);
 		ld->logfile = tal_free(ld->logfile);
 	} else
 		setup_log_rotation(ld);
 
 	ld->logfile = tal_strdup(ld, arg);
-	logf = fopen(arg, "a");
-	if (!logf)
+	ld->log->lr->outf = fopen(arg, "a");
+	if (!ld->log->lr->outf)
 		return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
-	set_log_outfn(ld->log->lr, log_to_file, logf);
 
 	/* For convenience make a block of empty lines just like Bitcoin Core */
-	size = ftell(logf);
+	size = ftell(ld->log->lr->outf);
 	if (size > 0)
-		fprintf(logf, "\n\n\n\n");
+		fprintf(ld->log->lr->outf, "\n\n\n\n");
 
 	/* Catch up */
 	list_for_each(&ld->log->lr->log, i, list)
@@ -646,7 +592,6 @@ static void log_dump_to_file(int fd, const struct log_book *lr)
 	write_all(fd, "\n\n", strlen("\n\n"));
 }
 
-/* FIXME: Dump peer logs! */
 void log_backtrace_exit(void)
 {
 	int fd;
@@ -699,6 +644,8 @@ struct log_info {
 	enum log_level level;
 	struct json_stream *response;
 	unsigned int num_skipped;
+	/* If non-null, only show messages about this peer */
+	const struct node_id *node_id;
 };
 
 static void add_skipped(struct log_info *info)
@@ -722,6 +669,11 @@ static void log_to_json(unsigned int skipped,
 			struct log_info *info)
 {
 	info->num_skipped += skipped;
+
+	if (info->node_id) {
+		if (!node_id || !node_id_eq(node_id, info->node_id))
+			return;
+	}
 
 	if (level < info->level) {
 		info->num_skipped++;
@@ -751,13 +703,16 @@ static void log_to_json(unsigned int skipped,
 }
 
 void json_add_log(struct json_stream *response,
-		  const struct log_book *lr, enum log_level minlevel)
+		  const struct log_book *lr,
+		  const struct node_id *node_id,
+		  enum log_level minlevel)
 {
 	struct log_info info;
 
 	info.level = minlevel;
 	info.response = response;
 	info.num_skipped = 0;
+	info.node_id = node_id;
 
 	json_array_start(info.response, "log");
 	log_each_line(lr, log_to_json, &info);
@@ -808,10 +763,10 @@ static struct command_result *json_getlog(struct command *cmd,
 	response = json_stream_success(cmd);
 	/* Suppress logging for this stream, to not bloat io logs */
 	json_stream_log_suppress_for_cmd(response, cmd);
-	json_add_time(response, "created_at", log_init_time(lr)->ts);
-	json_add_num(response, "bytes_used", (unsigned int) log_used(lr));
-	json_add_num(response, "bytes_max", (unsigned int) log_max_mem(lr));
-	json_add_log(response, lr, *minlevel);
+	json_add_time(response, "created_at", lr->init_time.ts);
+	json_add_num(response, "bytes_used", (unsigned int)lr->mem_used);
+	json_add_num(response, "bytes_max", (unsigned int)lr->max_mem);
+	json_add_log(response, lr, NULL, *minlevel);
 	return command_success(cmd, response);
 }
 

@@ -120,9 +120,6 @@ void fulfill_htlc(struct htlc_in *hin UNNEEDED, const struct preimage *preimage 
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
-/* Generated stub for get_log_level */
-enum log_level get_log_level(struct log_book *lr UNNEEDED)
-{ fprintf(stderr, "get_log_level called!\n"); abort(); }
 /* Generated stub for htlc_is_trimmed */
 bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     struct amount_msat htlc_amount UNNEEDED,
@@ -178,7 +175,9 @@ void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 { fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
-		  const struct log_book *lr UNNEEDED, enum log_level minlevel UNNEEDED)
+		  const struct log_book *lr UNNEEDED,
+		  const struct node_id *node_id UNNEEDED,
+		  enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
 /* Generated stub for json_add_node_id */
 void json_add_node_id(struct json_stream *response UNNEEDED,
@@ -267,15 +266,6 @@ void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
-/* Generated stub for log_add */
-void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "log_add called!\n"); abort(); }
-/* Generated stub for log_io */
-void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED,
-	    const struct node_id *node_id UNNEEDED,
-	    const char *comment UNNEEDED,
-	    const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "log_io called!\n"); abort(); }
 /* Generated stub for new_bolt11 */
 struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED,
 			  const struct amount_msat *msat TAKES UNNEEDED)
@@ -285,10 +275,6 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 		    const struct node_id *default_node_id UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
-/* Generated stub for new_log_book */
-struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED,
-			      enum log_level printlevel UNNEEDED)
-{ fprintf(stderr, "new_log_book called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,
@@ -431,18 +417,6 @@ void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
 void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       void *payload UNNEEDED, void *cb_arg UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
-/* Generated stub for set_log_outfn_ */
-void set_log_outfn_(struct log_book *lr UNNEEDED,
-		    void (*print)(const char *prefix UNNEEDED,
-				  enum log_level level UNNEEDED,
-				  const struct node_id *node_id UNNEEDED,
-				  bool continued UNNEEDED,
-				  const struct timeabs *time UNNEEDED,
-				  const char *str UNNEEDED,
-				  const u8 *io UNNEEDED, size_t io_len UNNEEDED,
-				  void *arg) UNNEEDED,
-		    void *arg UNNEEDED)
-{ fprintf(stderr, "set_log_outfn_ called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
 void subd_release_channel(struct subd *owner UNNEEDED, void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }

@@ -249,7 +249,9 @@ void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 { fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
-		  const struct log_book *lr UNNEEDED, enum log_level minlevel UNNEEDED)
+		  const struct log_book *lr UNNEEDED,
+		  const struct node_id *node_id UNNEEDED,
+		  enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
 /* Generated stub for json_add_node_id */
 void json_add_node_id(struct json_stream *response UNNEEDED,
@@ -372,15 +374,6 @@ bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
-/* Generated stub for log_add */
-void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "log_add called!\n"); abort(); }
-/* Generated stub for log_io */
-void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED,
-	    const struct node_id *node_id UNNEEDED,
-	    const char *comment UNNEEDED,
-	    const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "log_io called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED,
 		    struct wireaddr_internal *addr UNNEEDED)
@@ -700,11 +693,6 @@ static void wallet_test_fatal(const char *fmt, ...)
 #define transaction_wrap(db, ...)					\
 	(db_begin_transaction(db), __VA_ARGS__, db_commit_transaction(db), wallet_err == NULL)
 
-enum log_level get_log_level(struct log_book *lr UNNEEDED)
-{
-	return LOG_DBG;
-}
-
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const struct node_id *default_node_id UNNEEDED, const char *fmt UNNEEDED, ...)
 {
 	return NULL;
@@ -714,25 +702,6 @@ struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNN
 			      enum log_level printlevel UNNEEDED)
 {
 	return NULL;
-}
-
-void set_log_outfn_(struct log_book *lr UNNEEDED,
-		    void (*print)(const char *prefix UNNEEDED,
-				  enum log_level level UNNEEDED,
-				  const struct node_id *node_id UNNEEDED,
-				  bool continued UNNEEDED,
-				  const struct timeabs *time UNNEEDED,
-				  const char *str UNNEEDED,
-				  const u8 *io UNNEEDED,
-				  size_t io_len UNNEEDED,
-				  void *arg) UNNEEDED,
-		    void *arg UNNEEDED)
-{
-}
-
-const char *log_prefix(const struct log *log UNNEEDED)
-{
-	return "";
 }
 
 void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES)
