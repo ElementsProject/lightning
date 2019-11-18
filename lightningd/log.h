@@ -75,7 +75,6 @@ struct command_result *param_loglevel(struct command *cmd,
 				      enum log_level **level);
 
 struct log_entry {
-	struct list_node list;
 	struct timeabs time;
 	enum log_level level;
 	unsigned int skipped;
