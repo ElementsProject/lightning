@@ -46,6 +46,7 @@ struct print_filter {
 struct log_book {
 	size_t mem_used;
 	size_t max_mem;
+	size_t num_entries;
 	struct list_head print_filters;
 
 	/* Non-null once it's been initialized */
@@ -163,17 +164,44 @@ static size_t mem_used(const struct log_entry *e)
 	return sizeof(*e) + strlen(e->log) + 1 + tal_count(e->io);
 }
 
+/* Threshold (of 1000) to delete */
+static u32 delete_threshold(enum log_level level)
+{
+	switch (level) {
+	/* Delete 90% of log_io */
+	case LOG_IO_OUT:
+	case LOG_IO_IN:
+		return 900;
+	/* 50% of LOG_DBG */
+	case LOG_DBG:
+		return 500;
+	/* 25% of LOG_INFORM */
+	case LOG_INFORM:
+		return 250;
+	/* 5% of LOG_UNUSUAL / LOG_BROKEN */
+	case LOG_UNUSUAL:
+	case LOG_BROKEN:
+		return 50;
+	}
+	abort();
+}
+
 static size_t prune_log(struct log_book *log)
 {
-	struct log_entry *i, *next, *tail;
-	size_t skipped = 0, deleted = 0;
+	struct log_entry *i, *next;
+	size_t skipped = 0, deleted = 0, count = 0, max;
 
-	/* Never delete the last one. */
-	tail = list_tail(&log->log, struct log_entry, list);
+	/* Never delete the last 10% (and definitely not last one!). */
+	max = log->num_entries * 9 / 10 - 1;
 
 	list_for_each_safe(&log->log, i, next, list) {
-		/* 50% chance of deleting IO_IN, 25% IO_OUT, 12.5% DEBUG... */
-		if (i == tail || !pseudorand(2 << i->level)) {
+		if (count++ == max) {
+			i->skipped += skipped;
+			skipped = 0;
+			break;
+		}
+
+		if (pseudorand(1000) > delete_threshold(i->level)) {
 			i->skipped += skipped;
 			skipped = 0;
 			continue;
@@ -181,10 +209,11 @@ static size_t prune_log(struct log_book *log)
 
 		list_del_from(&log->log, &i->list);
 		log->mem_used -= mem_used(i);
+		log->num_entries--;
+		skipped += 1 + i->skipped;
 		if (i->nc && --i->nc->count == 0)
 			tal_free(i->nc);
 		tal_free(i);
-		skipped++;
 		deleted++;
 	}
 
@@ -199,6 +228,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	/* Give a reasonable size for memory limit! */
 	assert(max_mem > sizeof(struct log) * 2);
 	lr->mem_used = 0;
+	lr->num_entries = 0;
 	lr->max_mem = max_mem;
 	lr->outf = stdout;
 	lr->default_print_level = NULL;
@@ -270,6 +300,7 @@ enum log_level log_print_level(struct log *log)
 static void add_entry(struct log *log, struct log_entry *l)
 {
 	log->lr->mem_used += mem_used(l);
+	log->lr->num_entries++;
 	list_add_tail(&log->lr->log, &l->list);
 
 	if (log->lr->mem_used > log->lr->max_mem) {
