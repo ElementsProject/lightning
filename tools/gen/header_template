@@ -66,6 +66,7 @@ struct ${tlv.struct_name()} {
 
 % for tlv in tlvs.values():
 struct ${tlv.struct_name()} *${tlv.struct_name()}_new(const tal_t *ctx);
+bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_name()} *record);
 
 % if tlv.name in options.expose_tlv_type:
 #define TLVS_${tlv.name.upper()}_ARRAY_SIZE ${len(tlv.messages)}
