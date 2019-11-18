@@ -3,10 +3,16 @@
 /* Original template can be found at tools/gen/impl_template */
 
 #include <${header_filename}>
+#include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <stdio.h>
+
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
+
 % for comment in top_comments:
 /*${comment} */
 % endfor
@@ -211,6 +217,93 @@ ${static}const struct tlv_record_type tlvs_${tlv.name}[] = {
 	{ ${msg.number}, towire_${msg.struct_name()}, fromwire_${msg.struct_name()} },
     % endfor
 };
+
+bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_name()} *record)
+{
+	size_t num_types = ${len(tlv.messages)};
+	const struct tlv_record_type *types = tlvs_${tlv.name};
+	while (*max > 0) {
+		struct tlv_field field;
+
+		/* BOLT #1:
+		 *
+		 * A `varint` is a variable-length, unsigned integer encoding
+		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
+		 * format
+		 */
+		field.numtype = fromwire_bigsize(cursor, max);
+
+		/* BOLT #1:
+		 *  - if a `type` or `length` is not minimally encoded:
+		 *    - MUST fail to parse the `tlv_stream`.
+		 */
+		if (!*cursor) {
+			SUPERVERBOSE("type");
+			goto fail;
+		}
+		field.length = fromwire_bigsize(cursor, max);
+
+		/* BOLT #1:
+		 *  - if a `type` or `length` is not minimally encoded:
+		 *    - MUST fail to parse the `tlv_stream`.
+		 */
+		if (!*cursor) {
+			SUPERVERBOSE("length");
+			goto fail;
+		}
+
+		/* BOLT #1:
+		 *  - if `length` exceeds the number of bytes remaining in the
+		 *    message:
+		 *    - MUST fail to parse the `tlv_stream`.
+		 */
+		if (field.length > *max) {
+			SUPERVERBOSE("value");
+			goto fail;
+		}
+		field.value = tal_dup_arr(record, u8, *cursor, field.length, 0);
+
+		/* BOLT #1:
+		 * - if `type` is known:
+		 *   - MUST decode the next `length` bytes using the known
+		 *     encoding for `type`.
+		 */
+		field.meta = NULL;
+		for (size_t i = 0; i < num_types; i++)
+		if (types[i].type == field.numtype)
+			field.meta = &types[i];
+
+		if (field.meta) {
+			/* Length of message can't exceed 16 bits anyway. */
+			size_t tlvlen = field.length;
+			field.meta->fromwire(cursor, &tlvlen, record);
+
+			if (!*cursor)
+				goto fail;
+
+			/* BOLT #1:
+			 *  - if `length` is not exactly equal to that required
+			 *    for the known encoding for `type`:
+			 *    - MUST fail to parse the `tlv_stream`.
+			 */
+			if (tlvlen != 0) {
+				SUPERVERBOSE("greater than encoding length");
+				goto fail;
+			}
+		} else {
+			/* We didn't read from *cursor through a fromwire, so
+			 * update manually. */
+			*cursor += field.length;
+		}
+		/* We've read bytes in ->fromwire, so update max */
+		*max -= field.length;
+		tal_arr_expand(&record->fields, field);
+	}
+	return true;
+fail:
+	fromwire_fail(cursor, max);
+	return false;
+}
 % endfor ##  END TLV's
 % for msg in messages: ## START Wire Messages
 
