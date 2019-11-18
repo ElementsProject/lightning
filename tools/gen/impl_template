@@ -157,7 +157,11 @@ fromwire_${type_}(${'ctx, ' if f.needs_context() else ''}&cursor, &plen, ${'*' i
 ${tlv.type_name()} *${tlv.struct_name()}_new(const tal_t *ctx)
 {
 	/* Initialize everything to NULL. (Quiet, C pedants!) */
-	return talz(ctx, struct ${tlv.struct_name()});
+	${tlv.type_name()} *inst = talz(ctx, struct ${tlv.struct_name()});
+
+	/* Initialized the fields to an empty array. */
+	inst->fields = tal_arr(inst, struct tlv_field, 0);
+	return inst;
 }
 
     % for msg in tlv.messages.values():

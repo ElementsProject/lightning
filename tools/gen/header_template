@@ -53,6 +53,11 @@ struct ${struct.struct_name()} {
 ## Structs for TLVs
 % for tlv in tlvs.values():
 struct ${tlv.struct_name()} {
+        /* Raw fields including unknown ones. */
+        struct tlv_field *fields;
+
+	/* TODO The following explicit fields could just point into the
+	 * tlv_field entries above to save on memory. */
     % for msg in tlv.messages.values():
         struct ${msg.struct_name()} *${msg.name};
     % endfor
