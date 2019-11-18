@@ -143,6 +143,8 @@ for any subsystem containing that string\.  Subsystems include:
 \fIgossipd\fR: The gossip daemon
 .IP \[bu]
 \fIconnectd\fR: The network connection daemon
+.IP \[bu]
+\fIjsonrpc#FD\fR: Each JSONRPC connection, FD = file descriptor number
 
 .RE
 
@@ -151,20 +153,18 @@ internal integer id assigned for the lifetime of the channel:
 
 .RS
 .IP \[bu]
-\fIopeningd-chan #N\fR: Each opening / idling daemon
+\fIopeningd-chan#N\fR: Each opening / idling daemon
 .IP \[bu]
-\fIchanneld-chan #N\fR: Each channel management daemon
+\fIchanneld-chan#N\fR: Each channel management daemon
 .IP \[bu]
-\fIclosingd-chan #N\fR: Each closing negotiation daemon
+\fIclosingd-chan#N\fR: Each closing negotiation daemon
 .IP \[bu]
-\fIonchaind-chan #N\fR: Each onchain close handling daemon
-.IP \[bu]
-\fIjson #FD\fR: Each JSONRPC connection, FD = file descriptor number
+\fIonchaind-chan#N\fR: Each onchain close handling daemon
 
 .RE
 
   So, \fBlog-level=debug:plugin\fR would set debug level logging on all
-plugins and the plugin manager\.  \fBlog-level=io:chan #55\fR would set
+plugins and the plugin manager\.  \fBlog-level=io:chan#55\fR would set
 IO logging on channel number 55 (or 550, for that matter)\.
 
 
