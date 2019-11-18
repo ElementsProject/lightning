@@ -32,6 +32,35 @@
 /* Once we're up and running, this is set up. */
 struct log *crashlog;
 
+struct log_book {
+	size_t mem_used;
+	size_t max_mem;
+	void (*print)(const char *prefix,
+		      enum log_level level,
+		      const struct node_id *node_id,
+		      bool continued,
+		      const struct timeabs *time,
+		      const char *str,
+		      const u8 *io, size_t io_len,
+		      void *arg);
+	void *print_arg;
+	enum log_level print_level;
+	struct timeabs init_time;
+
+	struct list_head log;
+	/* Although log_book will copy log entries to parent log_book
+	 * (the log_book belongs to lightningd), a pointer to lightningd
+	 *  is more directly because the notification needs ld->plugins.
+	 */
+	struct lightningd *ld;
+};
+
+struct log {
+	struct log_book *lr;
+	const struct node_id *default_node_id;
+	const char *prefix;
+};
+
 static const char *level_prefix(enum log_level level)
 {
 	switch (level) {
@@ -186,17 +215,6 @@ struct log_book *get_log_book(const struct log *log)
 enum log_level get_log_level(struct log_book *lr)
 {
 	return lr->print_level;
-}
-
-void set_log_level(struct log_book *lr, enum log_level level)
-{
-	lr->print_level = level;
-}
-
-void set_log_prefix(struct log *log, const char *prefix)
-{
-	/* log->lr owns this, since it keeps a pointer to it. */
-	log->prefix = tal_strdup(log->lr, prefix);
 }
 
 void set_log_outfn_(struct log_book *lr,
@@ -463,7 +481,7 @@ static char *arg_log_level(const char *arg, struct log *log)
 
 	for (i = 0; i < ARRAY_SIZE(log_levels); i++) {
 		if (strcasecmp(arg, log_levels[i].name) == 0) {
-			set_log_level(log->lr, log_levels[i].level);
+			log->lr->print_level = log_levels[i].level;
 			return NULL;
 		}
 	}
@@ -485,7 +503,8 @@ static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 
 static char *arg_log_prefix(const char *arg, struct log *log)
 {
-	set_log_prefix(log, arg);
+	/* log->lr owns this, since it keeps a pointer to it. */
+	log->prefix = tal_strdup(log->lr, arg);
 	return NULL;
 }
 
