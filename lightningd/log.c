@@ -54,7 +54,8 @@ struct log_book {
 	struct timeabs init_time;
 	FILE *outf;
 
-	struct list_head log;
+	struct log_entry *log;
+
 	/* Although log_book will copy log entries to parent log_book
 	 * (the log_book belongs to lightningd), a pointer to lightningd
 	 *  is more directly because the notification needs ld->plugins.
@@ -183,39 +184,59 @@ static u32 delete_threshold(enum log_level level)
 	abort();
 }
 
+/* Delete a log entry: returns how many now deleted */
+static size_t delete_entry(struct log_book *log, struct log_entry *i)
+{
+	log->mem_used -= mem_used(i);
+	log->num_entries--;
+	if (i->nc && --i->nc->count == 0)
+		tal_free(i->nc);
+	free(i->log);
+	tal_free(i->io);
+
+	return 1 + i->skipped;
+}
+
 static size_t prune_log(struct log_book *log)
 {
-	struct log_entry *i, *next;
-	size_t skipped = 0, deleted = 0, count = 0, max;
+	size_t skipped = 0, deleted = 0, count = 0, dst = 0, max, tail;
 
 	/* Never delete the last 10% (and definitely not last one!). */
-	max = log->num_entries * 9 / 10 - 1;
+	tail = log->num_entries / 10 + 1;
+	max = log->num_entries - tail;
 
-	list_for_each_safe(&log->log, i, next, list) {
-		if (count++ == max) {
-			i->skipped += skipped;
-			skipped = 0;
-			break;
-		}
+	for (count = 0; count < max; count++) {
+		struct log_entry *i = &log->log[count];
 
 		if (pseudorand(1000) > delete_threshold(i->level)) {
 			i->skipped += skipped;
 			skipped = 0;
+			/* Move down if necesary. */
+			log->log[dst++] = *i;
 			continue;
 		}
 
-		list_del_from(&log->log, &i->list);
-		log->mem_used -= mem_used(i);
-		log->num_entries--;
-		skipped += 1 + i->skipped;
-		if (i->nc && --i->nc->count == 0)
-			tal_free(i->nc);
-		tal_free(i);
+		skipped += delete_entry(log, i);
 		deleted++;
 	}
 
-	assert(!skipped);
+	/* Any skipped at tail go on the next entry */
+	log->log[count].skipped += skipped;
+
+	/* Move down the last 10% */
+	memmove(log->log + dst, log->log + count, tail * sizeof(*log->log));
 	return deleted;
+}
+
+static void destroy_log_book(struct log_book *log)
+{
+	size_t num = log->num_entries;
+
+	for (size_t i = 0; i < num; i++)
+		delete_entry(log, &log->log[i]);
+
+	assert(log->num_entries == 0);
+	assert(log->mem_used == 0);
 }
 
 struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
@@ -234,7 +255,8 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	lr->ld = ld;
 	lr->cache = tal(lr, struct node_id_map);
 	node_id_map_init(lr->cache);
-	list_head_init(&lr->log);
+	lr->log = tal_arr(lr, struct log_entry, 128);
+	tal_add_destructor(lr, destroy_log_book);
 
 	return lr;
 }
@@ -294,15 +316,18 @@ enum log_level log_print_level(struct log *log)
 	return *log->print_level;
 }
 
-static void add_entry(struct log *log, struct log_entry *l)
+
+/* This may move entry! */
+static void add_entry(struct log *log, struct log_entry **l)
 {
-	log->lr->mem_used += mem_used(l);
+	log->lr->mem_used += mem_used(*l);
 	log->lr->num_entries++;
-	list_add_tail(&log->lr->log, &l->list);
 
 	if (log->lr->mem_used > log->lr->max_mem) {
 		size_t old_mem = log->lr->mem_used, deleted;
 		deleted = prune_log(log->lr);
+		/* Will have moved, but will be last entry. */
+		*l = &log->lr->log[log->lr->num_entries-1];
 		log_debug(log, "Log pruned %zu entries (mem %zu -> %zu)",
 			  deleted, old_mem, log->lr->mem_used);
 	}
@@ -316,8 +341,12 @@ static void destroy_node_id_cache(struct node_id_cache *nc, struct log_book *lr)
 static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 				       const struct node_id *node_id)
 {
-	struct log_entry *l = tal(log->lr, struct log_entry);
+	struct log_entry *l;
 
+	if (log->lr->num_entries == tal_count(log->lr->log))
+		tal_resize(&log->lr->log, tal_count(log->lr->log) * 2);
+
+	l = &log->lr->log[log->lr->num_entries];
 	l->time = time_now();
 	l->level = level;
 	l->skipped = 0;
@@ -359,7 +388,10 @@ void logv(struct log *log, enum log_level level,
 	int save_errno = errno;
 	struct log_entry *l = new_log_entry(log, level, node_id);
 
-	l->log = tal_vfmt(l, fmt, ap);
+	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
+	 * with OOM, even though nobody does. */
+	if (vasprintf(&l->log, fmt, ap) == -1)
+		abort();
 
 	size_t log_len = strlen(l->log);
 
@@ -370,7 +402,7 @@ void logv(struct log *log, enum log_level level,
 
 	maybe_print(log, l);
 
-	add_entry(log, l);
+	add_entry(log, &l);
 
 	if (call_notifier)
 		notify_warning(log->lr->ld, l);
@@ -395,16 +427,22 @@ void log_io(struct log *log, enum log_level dir,
 			    &l->time, str,
 			    data, len, log->lr->outf);
 
-	l->log = tal_strdup(l, str);
+	/* Save a tal header, by using raw malloc. */
+	l->log = strdup(str);
+	if (taken(str))
+		tal_free(str);
 
 	/* Don't immediately fill buffer with giant IOs */
 	if (len > log->lr->max_mem / 64) {
 		l->skipped++;
 		len = log->lr->max_mem / 64;
 	}
-	l->io = tal_dup_arr(l, u8, data, len, 0);
 
-	add_entry(log, l);
+	/* FIXME: We could save 4 pointers by using a raw allow, but saving
+	 * the length. */
+	l->io = tal_dup_arr(log->lr, u8, data, len, 0);
+
+	add_entry(log, &l);
 	errno = save_errno;
 }
 
@@ -442,12 +480,12 @@ static void log_each_line_(const struct log_book *lr,
 					void *arg),
 			   void *arg)
 {
-	const struct log_entry *i;
+	for (size_t i = 0; i < lr->num_entries; i++) {
+		const struct log_entry *l = &lr->log[i];
 
-	list_for_each(&lr->log, i, list) {
-		func(i->skipped, time_between(i->time, lr->init_time),
-		     i->level, i->nc ? &i->nc->node_id : NULL,
-		     i->prefix, i->log, i->io, arg);
+		func(l->skipped, time_between(l->time, lr->init_time),
+		     l->level, l->nc ? &l->nc->node_id : NULL,
+		     l->prefix, l->log, l->io, arg);
 	}
 }
 
@@ -680,8 +718,6 @@ void opt_register_logging(struct lightningd *ld)
 
 void logging_options_parsed(struct log_book *lr)
 {
-	const struct log_entry *l;
-
 	/* If they didn't set an explicit level, set to info */
 	if (!lr->default_print_level) {
 		lr->default_print_level = tal(lr, enum log_level);
@@ -689,7 +725,9 @@ void logging_options_parsed(struct log_book *lr)
 	}
 
 	/* Catch up, since before we were only printing BROKEN msgs */
-	list_for_each(&lr->log, l, list) {
+	for (size_t i = 0; i < lr->num_entries; i++) {
+		const struct log_entry *l = &lr->log[i];
+
 		if (l->level >= filter_level(lr, l->prefix))
 			log_to_file(l->prefix, l->level,
 				    l->nc ? &l->nc->node_id : NULL,
@@ -712,14 +750,12 @@ void log_backtrace_print(const char *fmt, ...)
 
 static void log_dump_to_file(int fd, const struct log_book *lr)
 {
-	const struct log_entry *i;
 	char buf[100];
 	int len;
 	struct log_data data;
 	time_t start;
 
-	i = list_top(&lr->log, const struct log_entry, list);
-	if (!i) {
+	if (lr->num_entries == 0) {
 		write_all(fd, "0 bytes:\n\n", strlen("0 bytes:\n\n"));
 		return;
 	}

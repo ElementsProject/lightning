@@ -22,6 +22,7 @@ bool log_status_msg(struct log *log,
 			log_(log, level, node_id, call_notifier, "%s", entry);
 			return true;
 		}
+		/* FIXME: This would be far more efficient to copy to log in place, rather than doing the additional allocation in fromwire. */
 	} else if (fromwire_status_io(msg, msg, &level, &suggested_node_id,
 				      &who, &data)) {
 		if (level == LOG_IO_IN || level == LOG_IO_OUT) {
