@@ -52,10 +52,10 @@ int main(int argc, char *argv[])
 	const struct utxo **utxomap;
 	struct bitcoin_signature sig;
 	struct bitcoin_txid txid;
-	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 	u8 **witnesses;
 
 	setup_locale();
+	chainparams = chainparams_for_network("bitcoin");
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
