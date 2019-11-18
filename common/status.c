@@ -18,7 +18,7 @@
 static int status_fd = -1;
 static struct daemon_conn *status_conn;
 volatile bool logging_io = false;
-static bool was_logging_io = false;
+static bool was_logging_io;
 
 /* If we're more than this many msgs deep, don't add debug messages. */
 #define TRACE_QUEUE_LIMIT 20
@@ -32,6 +32,9 @@ static void got_sigusr1(int signal UNUSED)
 static void setup_logging_sighandler(void)
 {
 	struct sigaction act;
+
+	/* Could have been set to true by --log-io arg. */
+	was_logging_io = logging_io;
 
 	memset(&act, 0, sizeof(act));
 	act.sa_handler = got_sigusr1;
@@ -55,10 +58,6 @@ void status_setup_sync(int fd)
 	assert(!status_conn);
 	status_fd = fd;
 	setup_logging_sighandler();
-#if DEVELOPER
-	logging_io = (getenv("LIGHTNINGD_DEV_LOG_IO") != NULL);
-	report_logging_io("LIGHTNINGD_DEV_LOG_IO");
-#endif
 }
 
 static void destroy_daemon_conn(struct daemon_conn *dc UNUSED)
@@ -75,10 +74,6 @@ void status_setup_async(struct daemon_conn *master)
 	tal_add_destructor(master, destroy_daemon_conn);
 
 	setup_logging_sighandler();
-#if DEVELOPER
-	logging_io = (getenv("LIGHTNINGD_DEV_LOG_IO") != NULL);
-	report_logging_io("LIGHTNINGD_DEV_LOG_IO");
-#endif
 }
 
 void status_send(const u8 *msg TAKES)
