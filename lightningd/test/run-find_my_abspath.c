@@ -124,6 +124,9 @@ void log_backtrace_print(const char *fmt UNNEEDED, ...)
 /* Generated stub for log_prefix */
 const char *log_prefix(const struct log *log UNNEEDED)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }
+/* Generated stub for log_print_level */
+enum log_level log_print_level(struct log *log UNNEEDED)
+{ fprintf(stderr, "log_print_level called!\n"); abort(); }
 /* Generated stub for log_status_msg */
 bool log_status_msg(struct log *log UNNEEDED,
  		    const struct node_id *node_id UNNEEDED,

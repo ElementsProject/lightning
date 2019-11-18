@@ -542,7 +542,7 @@ class LightningD(TailableProc):
 class LightningNode(object):
     def __init__(self, node_id, lightning_dir, bitcoind, executor, may_fail=False,
                  may_reconnect=False, allow_broken_log=False,
-                 allow_bad_gossip=False, db=None, port=None, disconnect=None, random_hsm=None, log_all_io=None, options=None, **kwargs):
+                 allow_bad_gossip=False, db=None, port=None, disconnect=None, random_hsm=None, options=None, **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
         self.may_fail = may_fail
@@ -564,10 +564,6 @@ class LightningNode(object):
             with open(self.daemon.disconnect_file, "w") as f:
                 f.write("\n".join(disconnect))
             self.daemon.opts["dev-disconnect"] = "dev_disconnect"
-        if log_all_io:
-            assert DEVELOPER
-            self.daemon.env["LIGHTNINGD_DEV_LOG_IO"] = "1"
-            self.daemon.opts["log-level"] = "io"
         if DEVELOPER:
             self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
             self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
@@ -931,7 +927,6 @@ class NodeFactory(object):
             'allow_broken_log',
             'may_reconnect',
             'random_hsm',
-            'log_all_io',
             'feerates',
             'wait_for_bitcoind_sync',
             'allow_bad_gossip'

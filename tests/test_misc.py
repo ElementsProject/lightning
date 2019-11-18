@@ -658,9 +658,6 @@ def test_io_logging(node_factory, executor):
     pid2 = l2.subd_pid('channeld')
     l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
-    # Send it sigusr1: should turn on logging.
-    subprocess.run(['kill', '-USR1', pid1])
-
     fut = executor.submit(l1.pay, l2, 200000000)
 
     # WIRE_UPDATE_ADD_HTLC = 128 = 0x0080
@@ -1194,9 +1191,6 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     l1.fund_channel(l2, 10**6)
     chanid2 = l2.fund_channel(l3, 10**6)
 
-    subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
-    subprocess.run(['kill', '-USR1', l2.subd_pid('channeld')])
-
     # Make sure channels get announced.
     bitcoind.generate_block(5)
 
@@ -1453,11 +1447,11 @@ def test_check_command(node_factory):
     sock.close()
 
 
-@unittest.skipIf(not DEVELOPER, "need log_all_io")
+@unittest.skipIf(not DEVELOPER, "FIXME: without DEVELOPER=1 we timeout")
 def test_bad_onion(node_factory, bitcoind):
     """Test that we get a reasonable error from sendpay when an onion is bad"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
-                                             opts={'log_all_io': True})
+                                             opts={'log-level': 'io'})
 
     h = l4.rpc.invoice(123000, 'test_bad_onion', 'description')['payment_hash']
     route = l1.rpc.getroute(l4.info['id'], 123000, 1)['route']

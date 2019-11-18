@@ -137,7 +137,9 @@ static void close_taken_fds(va_list *ap)
 /* We use sockets, not pipes, because fds are bidir. */
 static int subd(const char *dir, const char *name,
 		const char *debug_subdaemon,
-		int *msgfd, int dev_disconnect_fd, va_list *ap)
+		int *msgfd, int dev_disconnect_fd,
+		bool io_logging,
+		va_list *ap)
 {
 	int childmsg[2], execfail[2];
 	pid_t childpid;
@@ -161,7 +163,7 @@ static int subd(const char *dir, const char *name,
 		int fdnum = 3, i, stdin_is_now = STDIN_FILENO;
 		long max;
 		size_t num_args;
-		char *args[] = { NULL, NULL, NULL, NULL };
+		char *args[] = { NULL, NULL, NULL, NULL, NULL };
 
 		close(childmsg[0]);
 		close(execfail[0]);
@@ -200,6 +202,8 @@ static int subd(const char *dir, const char *name,
 
 		num_args = 0;
 		args[num_args++] = path_join(NULL, dir, name);
+		if (io_logging)
+			args[num_args++] = "--log-io";
 #if DEVELOPER
 		if (dev_disconnect_fd != -1)
 			args[num_args++] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
@@ -622,8 +626,22 @@ static struct subd *new_subd(struct lightningd *ld,
 	int msg_fd;
 	const char *debug_subd = NULL;
 	int disconnect_fd = -1;
+	const char *shortname;
 
 	assert(name != NULL);
+
+	/* This part of the name is a bit redundant for logging */
+	if (strstarts(name, "lightning_"))
+		shortname = name + strlen("lightning_");
+	else
+		shortname = name;
+
+	if (base_log) {
+		sd->log = new_log(sd, ld->log_book, node_id,
+				  "%s-%s", shortname, log_prefix(base_log));
+	} else {
+		sd->log = new_log(sd, ld->log_book, node_id, "%s", shortname);
+	}
 
 #if DEVELOPER
 	debug_subd = ld->dev_debug_subprocess;
@@ -631,24 +649,19 @@ static struct subd *new_subd(struct lightningd *ld,
 #endif /* DEVELOPER */
 
 	sd->pid = subd(ld->daemon_dir, name, debug_subd,
-		       &msg_fd, disconnect_fd, ap);
+		       &msg_fd, disconnect_fd,
+		       /* We only turn on subdaemon io logging if we're going
+			* to print it: too stressful otherwise! */
+		       log_print_level(sd->log) < LOG_DBG,
+		       ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
 			    name, strerror(errno));
 		return tal_free(sd);
 	}
 	sd->ld = ld;
-	/* This part of the name is a bit redundant for logging */
-	if (strstarts(name, "lightning_"))
-		name += strlen("lightning_");
-	if (base_log) {
-		sd->log = new_log(sd, ld->log_book, node_id,
-				  "%s-%s", name, log_prefix(base_log));
-	} else {
-		sd->log = new_log(sd, ld->log_book, node_id, "%s", name);
-	}
 
-	sd->name = name;
+	sd->name = shortname;
 	sd->must_not_exit = false;
 	sd->talks_to_peer = talks_to_peer;
 	sd->msgname = msgname;
