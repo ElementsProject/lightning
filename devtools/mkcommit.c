@@ -340,6 +340,9 @@ int main(int argc, char *argv[])
 	if (!amount_sat_sub_msat(&remote_msat, funding_amount, local_msat))
 		errx(1, "Can't afford local_msat");
 
+	if (option_static_remotekey)
+		printf("Using option-static-remotekey\n");
+
 	printf("## HTLCs\n");
 	while (argnum < argc) {
 		if (argnum + 4 > argc)
