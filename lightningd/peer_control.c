@@ -1803,7 +1803,7 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 	channel->feerate_ppm = ppm;
 
 	/* tell channeld to make a send_channel_update */
-	if (channel->owner && streq(channel->owner->name, "lightning_channeld"))
+	if (channel->owner && streq(channel->owner->name, "channeld"))
 		subd_send_msg(channel->owner,
 				take(towire_channel_specific_feerates(NULL, base, ppm)));
 
@@ -2010,7 +2010,7 @@ static struct command_result *json_dev_reenable_commit(struct command *cmd,
 				    "Peer has no owner");
 	}
 
-	if (!streq(channel->owner->name, "lightning_channeld")) {
+	if (!streq(channel->owner->name, "channeld")) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer owned by %s", channel->owner->name);
 	}
@@ -2217,7 +2217,7 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 				continue;
 
 			/* Note: closingd does its own checking automatically */
-			if (streq(c->owner->name, "lightning_channeld")) {
+			if (streq(c->owner->name, "channeld")) {
 				subd_req(c, c->owner,
 					 take(towire_channel_dev_memleak(NULL)),
 					 -1, 0, channeld_memleak_req_done, cmd);
@@ -2226,7 +2226,7 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 						    cmd);
 				return;
 			}
-			if (streq(c->owner->name, "lightning_onchaind")) {
+			if (streq(c->owner->name, "onchaind")) {
 				subd_req(c, c->owner,
 					 take(towire_onchain_dev_memleak(NULL)),
 					 -1, 0, onchaind_memleak_req_done, cmd);

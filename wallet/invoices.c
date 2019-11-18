@@ -10,7 +10,6 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <lightningd/invoice.h>
-#include <lightningd/log.h>
 #include <sodium/randombytes.h>
 #include <string.h>
 
@@ -32,8 +31,6 @@ struct invoice_waiter {
 struct invoices {
 	/* The database connection to use. */
 	struct db *db;
-	/* The log to report to. */
-	struct log *log;
 	/* The timers object to use for expirations. */
 	struct timers *timers;
 	/* Waiters waiting for invoices to be paid, expired, or deleted. */
@@ -140,13 +137,11 @@ static void install_expiration_timer(struct invoices *invoices);
 
 struct invoices *invoices_new(const tal_t *ctx,
 			      struct db *db,
-			      struct log *log,
 			      struct timers *timers)
 {
 	struct invoices *invs = tal(ctx, struct invoices);
 
 	invs->db = db;
-	invs->log = log;
 	invs->timers = timers;
 
 	list_head_init(&invs->waiters);

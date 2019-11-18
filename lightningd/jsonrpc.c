@@ -105,7 +105,6 @@ struct json_connection {
 struct jsonrpc {
 	struct io_listener *rpc_listener;
 	struct json_command **commands;
-	struct log *log;
 
 	/* Map from json command names to usage strings: we don't put this inside
 	 * struct json_command as it's good practice to have those const. */
@@ -903,7 +902,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
-	jcon->log = new_log(ld->log_book, ld->log_book, NULL, "jcon fd %i:",
+	jcon->log = new_log(ld->log_book, ld->log_book, NULL, "jsonrpc #%i",
 			    io_conn_fd(conn));
 
 	tal_add_destructor(jcon, destroy_jcon);
@@ -1011,7 +1010,6 @@ void jsonrpc_setup(struct lightningd *ld)
 	ld->jsonrpc = tal(ld, struct jsonrpc);
 	strmap_init(&ld->jsonrpc->usagemap);
 	ld->jsonrpc->commands = tal_arr(ld->jsonrpc, struct json_command *, 0);
-	ld->jsonrpc->log = new_log(ld->jsonrpc, ld->log_book, NULL, "jsonrpc");
 	for (size_t i=0; i<num_cmdlist; i++) {
 		if (!jsonrpc_command_add_perm(ld, ld->jsonrpc, commands[i]))
 			fatal("Cannot add duplicate command %s",
@@ -1081,7 +1079,6 @@ void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 		err(1, "Listening on '%s'", rpc_filename);
 	jsonrpc->rpc_listener = io_new_listener(
 		ld->rpc_filename, fd, incoming_jcon_connected, ld);
-	log_debug(jsonrpc->log, "Listening on '%s'", ld->rpc_filename);
 }
 
 static struct command_result *param_command(struct command *cmd,

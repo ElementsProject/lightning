@@ -364,7 +364,7 @@ def test_reconnect_openingd(node_factory):
 
     # We should get a message about reconnecting.
     l2.daemon.wait_for_log('Killing openingd: Reconnected')
-    l2.daemon.wait_for_log('lightning_openingd.*Handed peer, entering loop')
+    l2.daemon.wait_for_log('openingd.*Handed peer, entering loop')
 
     # Should work fine.
     l1.rpc.fundchannel(l2.info['id'], 20000)
@@ -373,7 +373,7 @@ def test_reconnect_openingd(node_factory):
     l1.bitcoin.generate_block(3)
 
     # Just to be sure, second openingd hand over to channeld. This log line is about channeld being started
-    l2.daemon.wait_for_log(r'lightning_channeld-chan #[0-9]: pid [0-9]+, msgfd [0-9]+')
+    l2.daemon.wait_for_log(r'channeld-chan #[0-9]: pid [0-9]+, msgfd [0-9]+')
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -881,7 +881,7 @@ def test_funding_fail(node_factory, bitcoind):
 
     # Should still be connected.
     assert only_one(l1.rpc.listpeers()['peers'])['connected']
-    l2.daemon.wait_for_log('lightning_openingd-.*: Handed peer, entering loop')
+    l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
     assert only_one(l2.rpc.listpeers()['peers'])['connected']
 
     # This works.
@@ -1424,7 +1424,7 @@ def test_fee_limits(node_factory):
     l1.set_feerates((15, 15, 15), False)
     l1.start()
 
-    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 253 outside range 1875-75000')
+    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: channeld: received ERROR channel .*: update_fee 253 outside range 1875-75000')
     # Make sure the resolution of this one doesn't interfere with the next!
     # Note: may succeed, may fail with insufficient fee, depending on how
     # bitcoind feels!

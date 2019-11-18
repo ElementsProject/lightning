@@ -211,7 +211,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->log = new_log(channel,
 				       peer->ld->log_book,
 				       &channel->peer->id,
-				       "chan #%"PRIu64":",
+				       "chan #%"PRIu64,
 				       dbid);
 	} else
 		channel->log = tal_steal(channel, log);

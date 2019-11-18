@@ -263,7 +263,7 @@ def test_plugin_connected_hook(node_factory):
     l1.daemon.wait_for_log(r"{} is in reject list".format(l3.info['id']))
 
     # FIXME: this error occurs *after* connection, so we connect then drop.
-    l3.daemon.wait_for_log(r"lightning_openingd-chan #1: peer_in WIRE_ERROR")
+    l3.daemon.wait_for_log(r"openingd-chan #1: peer_in WIRE_ERROR")
     l3.daemon.wait_for_log(r"You are in reject list")
 
     def check_disconnect():
@@ -307,11 +307,11 @@ def test_db_hook(node_factory, executor):
     # It should see the db being created, and sometime later actually get
     # initted.
     # This precedes startup, so needle already past
-    assert l1.daemon.is_in_log(r'plugin-dblog.py deferring \d+ commands')
+    assert l1.daemon.is_in_log(r'plugin-dblog.py: deferring \d+ commands')
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log('plugin-dblog.py replaying pre-init data:')
-    l1.daemon.wait_for_log('plugin-dblog.py CREATE TABLE version \\(version INTEGER\\)')
-    l1.daemon.wait_for_log("plugin-dblog.py initialized.* 'startup': True")
+    l1.daemon.wait_for_log('plugin-dblog.py: replaying pre-init data:')
+    l1.daemon.wait_for_log('plugin-dblog.py: CREATE TABLE version \\(version INTEGER\\)')
+    l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
 
     l1.stop()
 
@@ -394,18 +394,18 @@ def test_openchannel_hook(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], 100000)
 
     # Make sure plugin got all the vars we expect
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py 11 VARS')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py channel_flags=1')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py channel_reserve_satoshis=1000000msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py dust_limit_satoshis=546000msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py feerate_per_kw=7500')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py funding_satoshis=100000000msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py htlc_minimum_msat=0msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py id={}'.format(l1.info['id']))
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py max_accepted_htlcs=483')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py max_htlc_value_in_flight_msat=18446744073709551615msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py push_msat=0msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py to_self_delay=5')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: 11 VARS')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: channel_flags=1')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: channel_reserve_satoshis=1000000msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: dust_limit_satoshis=546000msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: feerate_per_kw=7500')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: funding_satoshis=100000000msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: htlc_minimum_msat=0msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: id={}'.format(l1.info['id']))
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: max_accepted_htlcs=483')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: max_htlc_value_in_flight_msat=18446744073709551615msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: push_msat=0msat')
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: to_self_delay=5')
 
     # Close it.
     txid = l1.rpc.close(l2.info['id'])['txid']
@@ -557,25 +557,25 @@ def test_warning_notification(node_factory):
     l1.rpc.call('pretendbad', {'event': event, 'level': 'warn'})
 
     # ensure an unusual log_entry was produced by 'pretendunusual' method
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py Test warning notification\\(for unusual event\\)')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Test warning notification\\(for unusual event\\)')
 
     # now wait for notification
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py Received warning')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py level: warn')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py time: *')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py source: plugin-pretend_badlog.py')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py log: Test warning notification\\(for unusual event\\)')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Received warning')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: level: warn')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: time: *')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: source: plugin-pretend_badlog.py')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: log: Test warning notification\\(for unusual event\\)')
 
     # 2. test 'error' level, steps like above
     event = "Test warning notification(for broken event)"
     l1.rpc.call('pretendbad', {'event': event, 'level': 'error'})
-    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-pretend_badlog.py Test warning notification\(for broken event\)')
+    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-pretend_badlog.py: Test warning notification\(for broken event\)')
 
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py Received warning')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py level: error')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py time: *')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py source: plugin-pretend_badlog.py')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py log: Test warning notification\\(for broken event\\)')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Received warning')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: level: error')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: time: *')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: source: plugin-pretend_badlog.py')
+    l1.daemon.wait_for_log('plugin-pretend_badlog.py: log: Test warning notification\\(for broken event\\)')
 
 
 @unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
