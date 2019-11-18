@@ -735,10 +735,10 @@ class LightningNode(object):
     def subd_pid(self, subd, peerid=None):
         """Get the process id of the given subdaemon, eg channeld or gossipd"""
         if peerid:
-            ex = re.compile(r'{}-.*lightning_{}.*: pid ([0-9]*),'
+            ex = re.compile(r'{}-.*{}.*: pid ([0-9]*),'
                             .format(peerid, subd))
         else:
-            ex = re.compile('lightning_{}-.*: pid ([0-9]*),'.format(subd))
+            ex = re.compile('{}-.*: pid ([0-9]*),'.format(subd))
         # Make sure we get latest one if it's restarted!
         for l in reversed(self.daemon.logs):
             group = ex.search(l)
@@ -1028,7 +1028,7 @@ class NodeFactory(object):
         # getpeers.
         if not fundchannel:
             for src, dst in connections:
-                dst.daemon.wait_for_log(r'{}-.*lightning_openingd-chan #[0-9]*: Handed peer, entering loop'.format(src.info['id']))
+                dst.daemon.wait_for_log(r'{}-.*openingd-chan #[0-9]*: Handed peer, entering loop'.format(src.info['id']))
             return nodes
 
         # If we got here, we want to fund channels

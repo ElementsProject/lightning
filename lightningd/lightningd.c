@@ -169,8 +169,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ Note the tal context arg (by convention, the first argument to any
 	 * allocation function): ld->log will be implicitly freed when ld
 	 * is. */
-	ld->log = new_log(ld, ld->log_book, NULL,
-			  "lightningd(%u):", (int)getpid());
+	ld->log = new_log(ld, ld->log_book, NULL, "lightningd");
 	ld->logfile = NULL;
 
 	/*~ We explicitly set these to NULL: if they're still NULL after option
@@ -700,7 +699,7 @@ int main(int argc, char *argv[])
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
-	ld->wallet = wallet_new(ld, ld->log, ld->timers);
+	ld->wallet = wallet_new(ld, ld->timers);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);

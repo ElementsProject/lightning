@@ -486,7 +486,7 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
     # Turn on IO logging for openingd (make sure it's ready!)
     l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
     subprocess.run(['kill', '-USR1', l1.subd_pid('openingd')])
-    l2.daemon.wait_for_log(r'{}-.*lightning_openingd-chan #.: Handed peer, entering loop'.format(l3.info['id']))
+    l2.daemon.wait_for_log(r'{}-.*openingd-chan #.: Handed peer, entering loop'.format(l3.info['id']))
     subprocess.run(['kill', '-USR1', l2.subd_pid('openingd', l3.info['id'])])
 
     # Make an announced-but-not-updated channel.

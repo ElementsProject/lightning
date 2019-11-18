@@ -638,12 +638,14 @@ static struct subd *new_subd(struct lightningd *ld,
 		return tal_free(sd);
 	}
 	sd->ld = ld;
+	/* This part of the name is a bit redundant for logging */
+	if (strstarts(name, "lightning_"))
+		name += strlen("lightning_");
 	if (base_log) {
 		sd->log = new_log(sd, ld->log_book, node_id,
 				  "%s-%s", name, log_prefix(base_log));
 	} else {
-		sd->log = new_log(sd, ld->log_book, node_id,
-				  "%s(%u):", name, sd->pid);
+		sd->log = new_log(sd, ld->log_book, node_id, "%s", name);
 	}
 
 	sd->name = name;

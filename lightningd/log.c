@@ -90,20 +90,20 @@ static void log_to_file(const char *prefix,
 		const char *dir = level == LOG_IO_IN ? "[IN]" : "[OUT]";
 		char *hex = tal_hexstr(NULL, io, io_len);
 		if (!node_id)
-			fprintf(logf, "%s %s%s%s %s\n",
+			fprintf(logf, "%s %s: %s%s %s\n",
 				iso8601_s, prefix, str, dir, hex);
 		else
-			fprintf(logf, "%s %s-%s%s%s %s\n",
+			fprintf(logf, "%s %s-%s: %s%s %s\n",
 				iso8601_s,
 				node_id_to_hexstr(tmpctx, node_id),
 				prefix, str, dir, hex);
 		tal_free(hex);
 	} else if (!continued) {
 		if (!node_id)
-			fprintf(logf, "%s %s %s %s\n",
+			fprintf(logf, "%s %s %s: %s\n",
 				iso8601_s, level_prefix(level), prefix, str);
 		else
-			fprintf(logf, "%s %s %s-%s %s\n",
+			fprintf(logf, "%s %s %s-%s: %s\n",
 				iso8601_s, level_prefix(level),
 				node_id_to_hexstr(tmpctx, node_id),
 				prefix, str);

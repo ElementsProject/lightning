@@ -319,8 +319,7 @@ struct wallet_transaction {
  * This is guaranteed to either return a valid wallet, or abort with
  * `fatal` if it cannot be initialized.
  */
-struct wallet *wallet_new(struct lightningd *ld,
-			  struct log *log, struct timers *timers);
+struct wallet *wallet_new(struct lightningd *ld, struct timers *timers);
 
 /**
  * wallet_add_utxo - Register an UTXO which we (partially) own

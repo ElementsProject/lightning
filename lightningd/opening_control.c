@@ -629,7 +629,7 @@ new_uncommitted_channel(struct peer *peer)
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
 
 	uc->log = new_log(uc, ld->log_book, &uc->peer->id,
-			  "chan #%"PRIu64":", uc->dbid);
+			  "chan #%"PRIu64, uc->dbid);
 
 	uc->fc = NULL;
 	uc->our_config.id = 0;

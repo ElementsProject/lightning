@@ -664,9 +664,9 @@ def test_io_logging(node_factory, executor):
     fut = executor.submit(l1.pay, l2, 200000000)
 
     # WIRE_UPDATE_ADD_HTLC = 128 = 0x0080
-    l1.daemon.wait_for_log(r'channeld.*:\[OUT\] 0080')
+    l1.daemon.wait_for_log(r'channeld.*: \[OUT\] 0080')
     # WIRE_UPDATE_FULFILL_HTLC = 130 = 0x0082
-    l1.daemon.wait_for_log(r'channeld.*:\[IN\] 0082')
+    l1.daemon.wait_for_log(r'channeld.*: \[IN\] 0082')
     fut.result(10)
 
     # Send it sigusr1: should turn off logging.
@@ -674,9 +674,9 @@ def test_io_logging(node_factory, executor):
 
     l1.pay(l2, 200000000)
 
-    assert not l1.daemon.is_in_log(r'channeld.*:\[OUT\] 0080',
+    assert not l1.daemon.is_in_log(r'channeld.*: \[OUT\] 0080',
                                    start=l1.daemon.logsearch_start)
-    assert not l1.daemon.is_in_log(r'channeld.*:\[IN\] 0082',
+    assert not l1.daemon.is_in_log(r'channeld.*: \[IN\] 0082',
                                    start=l1.daemon.logsearch_start)
 
     # IO logs should not appear in peer logs.
@@ -1171,7 +1171,7 @@ def test_reserve_enforcement(node_factory, executor):
     # kill us for trying to violate reserve.
     executor.submit(l2.pay, l1, 1000000)
     l1.daemon.wait_for_log(
-        'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent '
+        'Peer permanent failure in CHANNELD_NORMAL: channeld: sent '
         'ERROR Bad peer_add_htlc: CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED'
     )
 
@@ -1205,7 +1205,7 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     timedout = False
     while not timedout:
         try:
-            l2.daemon.wait_for_log(r'channeld-chan #[0-9]*:\[IN\] ', timeout=30)
+            l2.daemon.wait_for_log(r'channeld-chan #[0-9]*: \[IN\] ', timeout=30)
         except TimeoutError:
             timedout = True
 
@@ -1227,11 +1227,11 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     assert status['attempts'][0]['failure']['data']['erring_channel'] == chanid2
 
     # L2 should send ping, but never receive pong so never send commitment.
-    l2.daemon.wait_for_log(r'channeld.*:\[OUT\] 0012')
-    assert not l2.daemon.is_in_log(r'channeld.*:\[IN\] 0013')
-    assert not l2.daemon.is_in_log(r'channeld.*:\[OUT\] 0084')
+    l2.daemon.wait_for_log(r'channeld.*: \[OUT\] 0012')
+    assert not l2.daemon.is_in_log(r'channeld.*: \[IN\] 0013')
+    assert not l2.daemon.is_in_log(r'channeld.*: \[OUT\] 0084')
     # L2 killed the channel with l3 because it was too slow.
-    l2.daemon.wait_for_log('{}-.*lightning_channeld-.*Adding HTLC too slow: killing connection'.format(l3.info['id']))
+    l2.daemon.wait_for_log('{}-.*channeld-.*Adding HTLC too slow: killing connection'.format(l3.info['id']))
 
 
 def test_ipv4_and_ipv6(node_factory):

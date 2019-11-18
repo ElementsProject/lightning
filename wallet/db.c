@@ -841,10 +841,10 @@ static void db_migrate(struct lightningd *ld, struct db *db)
 	db_commit_transaction(db);
 }
 
-struct db *db_setup(const tal_t *ctx, struct lightningd *ld, struct log *log)
+struct db *db_setup(const tal_t *ctx, struct lightningd *ld)
 {
 	struct db *db = db_open(ctx, ld->wallet_dsn);
-	db->log = log;
+	db->log = new_log(db, ld->log_book, NULL, "database");
 	db_migrate(ld, db);
 	return db;
 }
