@@ -591,9 +591,13 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 		const u8 *tlv = step->raw_payload;
 		size_t max = tal_bytelen(tlv);
 		step->payload.tlv = tlv_tlv_payload_new(step);
-		if (!fromwire_tlvs(&tlv, &max, tlvs_tlv_payload,
-				   TLVS_TLV_PAYLOAD_ARRAY_SIZE,
-				   step->payload.tlv)) {
+
+		/* The raw payload includes the length / realm prefix, Consume
+		 * the length off of the payload, so the decoding can strat
+		 * correctly. */
+		fromwire_varint(&tlv, &max);
+
+		if (!fromwire_tlv_payload(&tlv, &max, step->payload.tlv)) {
 			/* FIXME: record offset of violation for error! */
 			step->type = SPHINX_INVALID_PAYLOAD;
 			return;
