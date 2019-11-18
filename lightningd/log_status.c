@@ -16,6 +16,11 @@ bool log_status_msg(struct log *log,
 		 * set it */
 		if (!node_id)
 			node_id = suggested_node_id;
+		/* No per-peer daemon should claim a different peer! */
+		else if (suggested_node_id
+			 && !node_id_eq(node_id, suggested_node_id))
+			return false;
+
 		if (level != LOG_IO_IN && level != LOG_IO_OUT) {
 			call_notifier = (level == LOG_BROKEN ||
 			         level == LOG_UNUSUAL)? true : false;
