@@ -779,14 +779,35 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	enum htlc_accepted_result result;
 	enum onion_type failure_code;
 	u8 *channel_update;
+	bool valid;
 	result = htlc_accepted_hook_deserialize(buffer, toks, &payment_preimage, &failure_code, &channel_update);
+
+        /* BOLT #4:
+	 *
+	 * The writer:
+	 *  - MUST include `amt_to_forward` and `outgoing_cltv_value` for every node.
+	 *  - MUST include `short_channel_id` for every non-final node.
+	 *  - MUST NOT include `short_channel_id` for the final node.
+	 *
+	 * The reader:
+	 *  - MUST return an error if `amt_to_forward` or `outgoing_cltv_value` are not present.
+	 */
+	valid = rs->amt_to_forward != NULL && rs->outgoing_cltv != NULL &&
+		(rs->nextcase == ONION_END ||
+		 (rs->nextcase == ONION_FORWARD && rs->forward_channel != NULL));
+
+	/* In addition we also enforce the TLV validity rules:
+	 *  - No unknown even types
+	 *  - Types in monotonical non-repeating order
+	 */
+	valid = valid && (rs->type == SPHINX_V0_PAYLOAD || tlv_payload_is_valid(rs->payload.tlv));
 
 	switch (result) {
 	case htlc_accepted_continue:
-		if (rs->type == SPHINX_TLV_PAYLOAD && !tlv_payload_is_valid(rs->payload.tlv)) {
-			log_debug(channel->log, "Failing HTLC because of an invalid TLV payload");
+		if (!valid) {
+			log_debug(channel->log, "Failing HTLC because of an invalid payload");
 			failure_code = WIRE_INVALID_ONION_PAYLOAD;
-			fail_in_htlc(hin, failure_code, NULL, request->short_channel_id);
+			fail_in_htlc(hin, failure_code, NULL, NULL);
 		}else if (rs->nextcase == ONION_FORWARD) {
 			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
