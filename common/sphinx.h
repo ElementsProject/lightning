@@ -249,18 +249,4 @@ void sphinx_add_final_hop(struct sphinx_path *path,
 			  struct amount_msat forward,
 			  u32 outgoing_cltv);
 
-/**
- * Helper to extract fields from ONION_END.
- */
-bool route_step_decode_end(const struct route_step *rs,
-			   struct amount_msat *amt_forward,
-			   u32 *outgoing_cltv);
-
-/**
- * Helper to extract fields from ONION_FORWARD.
- */
-bool route_step_decode_forward(const struct route_step *rs,
-			       struct amount_msat *amt_forward,
-			       u32 *outgoing_cltv,
-			       struct short_channel_id *scid);
 #endif /* LIGHTNING_COMMON_SPHINX_H */
