@@ -683,6 +683,52 @@ struct onionpacket *create_onionpacket(
 	return packet;
 }
 
+/**
+ * Helper to extract fields from the legacy or tlv payload into the top-level
+ * struct.
+ */
+static void route_step_decode(struct route_step *rs)
+{
+	switch (rs->type) {
+	case SPHINX_V0_PAYLOAD:
+		rs->amt_to_forward = &rs->payload.v0.amt_forward;
+		rs->outgoing_cltv = &rs->payload.v0.outgoing_cltv;
+		if (rs->nextcase == ONION_FORWARD) {
+			rs->forward_channel = &rs->payload.v0.channel_id;
+		} else {
+			rs->forward_channel = NULL;
+		}
+		break;
+	case SPHINX_TLV_PAYLOAD:
+		if (rs->payload.tlv->amt_to_forward) {
+			rs->amt_to_forward = tal(rs, struct amount_msat);
+			amount_msat_from_u64(
+			    rs->amt_to_forward,
+			    rs->payload.tlv->amt_to_forward->amt_to_forward);
+		} else {
+			rs->amt_to_forward = NULL;
+		}
+
+		if (rs->payload.tlv->outgoing_cltv_value) {
+			rs->outgoing_cltv =
+			    &rs->payload.tlv->outgoing_cltv_value
+				 ->outgoing_cltv_value;
+		} else {
+			rs->outgoing_cltv = NULL;
+		}
+
+		if (rs->payload.tlv->short_channel_id)
+			rs->forward_channel = &rs->payload.tlv->short_channel_id
+						   ->short_channel_id;
+		else
+			rs->forward_channel = NULL;
+		break;
+	case SPHINX_INVALID_PAYLOAD:
+	case SPHINX_RAW_PAYLOAD:
+		abort();
+	}
+}
+
 /*
  * Given an onionpacket msg extract the information for the current
  * node and unwrap the remainder so that the node can forward it.
@@ -753,6 +799,8 @@ struct route_step *process_onionpacket(
 	} else {
 		step->nextcase = ONION_FORWARD;
 	}
+
+	route_step_decode(step);
 
 	return step;
 }

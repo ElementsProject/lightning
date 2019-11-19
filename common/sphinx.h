@@ -84,6 +84,11 @@ struct route_step {
 		struct tlv_tlv_payload *tlv;
 	} payload;
 	u8 *raw_payload;
+
+	/* Quick access for internal use. */
+	struct amount_msat *amt_to_forward;
+	u32 *outgoing_cltv;
+	struct short_channel_id *forward_channel;
 };
 
 /**
