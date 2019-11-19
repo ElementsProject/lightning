@@ -147,7 +147,7 @@ static void sphinx_add_v0_hop(struct sphinx_path *path,
 	towire_u32(&buf, outgoing_cltv);
 	towire(&buf, padding, ARRAY_SIZE(padding));
 	assert(tal_bytelen(buf) == 32);
-	sphinx_add_raw_hop(path, pubkey, 0, buf);
+	sphinx_add_raw_hop(path, pubkey, SPHINX_V0_PAYLOAD, buf);
 }
 
 static void sphinx_add_tlv_hop(struct sphinx_path *path,
@@ -156,7 +156,7 @@ static void sphinx_add_tlv_hop(struct sphinx_path *path,
 {
 	u8 *tlvs = tal_arr(path, u8, 0);
 	towire_tlvs(&tlvs, tlvs_tlv_payload, TLVS_TLV_PAYLOAD_ARRAY_SIZE, tlv);
-	sphinx_add_raw_hop(path, pubkey, tal_bytelen(tlvs), tlvs);
+	sphinx_add_raw_hop(path, pubkey, SPHINX_TLV_PAYLOAD, tlvs);
 }
 
 void sphinx_add_nonfinal_hop(struct sphinx_path *path,
