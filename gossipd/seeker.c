@@ -358,6 +358,8 @@ static struct short_channel_id *stale_scids_remove(const tal_t *ctx,
 		uintmap_del(&seeker->stale_scids, scid);
 		tal_free(qf);
 		i++;
+		if (i == max)
+			break;
 	}
 	tal_resize(&scids, i);
 	tal_resize(query_flags, i);
