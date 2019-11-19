@@ -18,6 +18,7 @@ ccan/ccan/cdump/tools/cdump-enumstr
 gen_*
 cli/lightning-cli
 tools/check-bolt
+tools/hsmtool
 coverage
 ccan/config.h
 __pycache__
