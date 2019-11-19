@@ -14,12 +14,16 @@
 #include <bitcoin/tx.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
+#include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <common/gossip_constants.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 #include <stdio.h>
+
+static bool verbose = false;
 
 struct update_opts {
 	u32 timestamp;
@@ -77,6 +81,26 @@ static char *sig_as_hex(const secp256k1_ecdsa_signature *sig)
 						    compact_sig,
 						    sig);
 	return tal_hexstr(NULL, compact_sig, sizeof(compact_sig));
+}
+
+static char *sig_notation(const struct privkey *privkey,
+			  struct sha256_double *hash,
+			  const secp256k1_ecdsa_signature *sig)
+{
+	const char *pstr = tal_hexstr(NULL, privkey->secret.data,
+				      sizeof(privkey->secret.data));
+	const char *hstr =
+		type_to_string(NULL, struct sha256_double, hash);
+
+	if (verbose)
+		return tal_fmt(NULL,
+			       "SIG(%s:%s)\n"
+			       "   -- privkey= %s\n"
+			       "   -- tx_hash= %s\n"
+			       "   -- computed_sig= %s",
+			       pstr, hstr, pstr, hstr, sig_as_hex(sig));
+
+	return tal_fmt(NULL, "SIG(%s:%s)", pstr, hstr);
 }
 
 /* BOLT #7:
@@ -145,7 +169,7 @@ static void print_update(const struct bitcoin_blkid *chainhash,
 	sign_hash(privkey, &hash, &sig);
 
 	printf("type=channel_update\n");
-	printf("   signature=%s\n", sig_as_hex(&sig));
+	printf("   signature=%s\n", sig_notation(privkey, &hash, &sig));
 	printf("   chain_hash=%s\n", tal_hexstr(NULL, chainhash, sizeof(*chainhash)));
 	printf("   short_channel_id=%s\n", short_channel_id_to_str(NULL, scid));
 	printf("   timestamp=%u\n", opts->timestamp);
@@ -189,7 +213,7 @@ static void print_nannounce(const struct node_id *nodeid,
 	sign_hash(privkey, &hash, &sig);
 
 	printf("type=node_announcement\n");
-	printf("   signature=%s\n", sig_as_hex(&sig));
+	printf("   signature=%s\n", sig_notation(privkey, &hash, &sig));
 	printf("   features=%s\n", tal_hex(NULL, NULL));
 	printf("   timestamp=%u\n", opts->timestamp);
 	printf("   node_id=%s\n", node_id_to_hexstr(NULL, nodeid));
@@ -220,7 +244,7 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
 
-	if (argc != 8 + 7 * 2)
+	if (argc < 8 + 7 * 2)
 		errx(1, "Usage: mkgossip <scid> <chainhash> <node-privkey1> <node-privkey2> <node1-funding-privkey> <node2-funding-privkey> <features-hex> update-opts-1 update-opts-2\n"
 			"Where <update-opts> is:\n"
 			"   <timestamp>\n"
@@ -230,6 +254,11 @@ int main(int argc, char *argv[])
 			"   <fee_proportional_millionths>\n"
 			"   <htlc_maximum_msat-or-empty>\n"
 			"   <hex-addrstr>");
+
+	opt_register_noarg("-v|--verbose", opt_set_bool, &verbose,
+			   "Increase verbosity");
+
+	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	argnum = 1;
 	if (!short_channel_id_from_str(argv[argnum], strlen(argv[argnum]), &scid))
@@ -297,10 +326,14 @@ int main(int argc, char *argv[])
 	sign_hash(&funding_privkey[1], &hash, &bitcoinsig[1]);
 
 	printf("type=channel_announcement\n");
-	printf("   node_signature_1=%s\n", sig_as_hex(&nodesig[lesser_key]));
-	printf("   node_signature_2=%s\n", sig_as_hex(&nodesig[!lesser_key]));
-	printf("   bitcoin_signature_1=%s\n", sig_as_hex(&bitcoinsig[lesser_key]));
-	printf("   bitcoin_signature_2=%s\n", sig_as_hex(&bitcoinsig[!lesser_key]));
+	printf("   node_signature_1=%s\n",
+	       sig_notation(&node_privkey[lesser_key], &hash, &nodesig[lesser_key]));
+	printf("   node_signature_2=%s\n",
+	       sig_notation(&node_privkey[!lesser_key], &hash, &nodesig[!lesser_key]));
+	printf("   bitcoin_signature_1=%s\n",
+	       sig_notation(&funding_privkey[lesser_key], &hash, &bitcoinsig[lesser_key]));
+	printf("   bitcoin_signature_2=%s\n",
+	       sig_notation(&funding_privkey[!lesser_key], &hash, &bitcoinsig[!lesser_key]));
 	printf("   features=%s\n", tal_hex(NULL, features));
 	printf("   chain_hash=%s\n", tal_hexstr(NULL, &chainhash, sizeof(chainhash)));
 	printf("   short_channel_id=%s\n", short_channel_id_to_str(NULL, &scid));

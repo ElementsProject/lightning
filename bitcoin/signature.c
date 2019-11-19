@@ -107,13 +107,14 @@ void sign_hash(const struct privkey *privkey,
 					  privkey->secret.data, NULL, extra_entropy);
 		((u32 *)extra_entropy)[0]++;
 	} while (!sig_has_low_r(s));
+
 	assert(ok);
 }
 
-static void bitcoin_tx_hash_for_sig(const struct bitcoin_tx *tx, unsigned int in,
-				    const u8 *script,
-				    enum sighash_type sighash_type,
-				    struct sha256_double *dest)
+void bitcoin_tx_hash_for_sig(const struct bitcoin_tx *tx, unsigned int in,
+			     const u8 *script,
+			     enum sighash_type sighash_type,
+			     struct sha256_double *dest)
 {
 	int ret;
 	u8 value[9];

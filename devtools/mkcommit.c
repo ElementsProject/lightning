@@ -162,16 +162,6 @@ static int parse_config(char *argv[],
 	return argnum;
 }
 
-static char *sig_as_hex(const struct bitcoin_signature *sig)
-{
-	u8 compact_sig[64];
-
-	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx,
-						    compact_sig,
-						    &sig->s);
-	return tal_hexstr(NULL, compact_sig, sizeof(compact_sig));
-}
-
 static int parse_htlc(char *argv[],
 		      struct added_htlc **htlcs,
 		      enum htlc_state **htlc_states,
@@ -224,6 +214,33 @@ static const struct preimage *preimage_of(const struct sha256 *hash,
 	abort();
 }
 
+static char *sig_as_hex(const struct bitcoin_signature *sig)
+{
+	u8 compact_sig[64];
+
+	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx,
+						    compact_sig,
+						    &sig->s);
+	return tal_hexstr(NULL, compact_sig, sizeof(compact_sig));
+}
+
+
+static char *sig_notation(const struct sha256_double *hash,
+			  const struct privkey *privkey,
+			  const struct bitcoin_signature *sig)
+{
+	const char *pstr = tal_hexstr(NULL, privkey->secret.data, sizeof(privkey->secret.data));
+	const char *hstr = type_to_string(NULL, struct sha256_double, hash);
+
+	if (verbose)
+		return tal_fmt(NULL,
+			       "SIG(%s:%s)\n privkey: %s\n tx_hash: %s\n"
+			       " sig: %s",
+			       pstr, hstr, pstr, hstr, sig_as_hex(sig));
+
+	return tal_fmt(NULL, "SIG(%s:%s)", pstr, hstr);
+}
+
 int main(int argc, char *argv[])
 {
 	struct secrets local, remote;
@@ -252,6 +269,7 @@ int main(int argc, char *argv[])
 	struct privkey local_htlc_privkey, remote_htlc_privkey;
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
 	bool option_static_remotekey = false;
+	struct sha256_double hash;
 
 	setup_locale();
 	chainparams = chainparams_for_network("bitcoin");
@@ -388,26 +406,33 @@ int main(int argc, char *argv[])
 				&local_per_commit_point, commitnum, LOCAL);
 
 	printf("## local_commitment\n"
-	       "# input amount %s, funding_wscript %s, key %s\n",
+	       "# input amount %s, funding_wscript %s, pubkey %s\n",
 	       type_to_string(NULL, struct amount_sat, &funding_amount),
 	       tal_hex(NULL, funding_wscript),
 	       type_to_string(NULL, struct pubkey, &funding_localkey));
 	printf("# unsigned local commitment tx: %s\n",
 	       tal_hex(NULL, linearize_tx(NULL, local_txs[0])));
 
+	/* Get the hash out, for printing */
+	bitcoin_tx_hash_for_sig(local_txs[0], 0, funding_wscript,
+				SIGHASH_ALL, &hash);
 	sign_tx_input(local_txs[0], 0, NULL, funding_wscript,
 		      &local.funding_privkey,
 		      &funding_localkey,
 		      SIGHASH_ALL,
 		      &local_sig);
-	printf("localsig_on_local: %s\n", sig_as_hex(&local_sig));
+	printf("localsig_on_local: %s\n", sig_notation(&hash,
+						       &local.funding_privkey,
+						       &local_sig));
 
 	sign_tx_input(local_txs[0], 0, NULL, funding_wscript,
 		      &remote.funding_privkey,
 		      &funding_remotekey,
 		      SIGHASH_ALL,
 		      &remote_sig);
-	printf("remotesig_on_local: %s\n", sig_as_hex(&remote_sig));
+	printf("remotesig_on_local: %s\n", sig_notation(&hash,
+							&remote.funding_privkey,
+							&remote_sig));
 
 	witness =
 		bitcoin_witness_2of2(NULL, &local_sig, &remote_sig,
@@ -454,6 +479,9 @@ int main(int argc, char *argv[])
 			= tal_dup(local_txs[1+i], struct amount_sat, &amt);
 
 		printf("# wscript: %s\n", tal_hex(NULL, wscripts[1+i]));
+
+		bitcoin_tx_hash_for_sig(local_txs[1+i], 0, wscripts[1+i],
+					SIGHASH_ALL, &hash);
 		sign_tx_input(local_txs[1+i], 0, NULL, wscripts[1+i],
 			      &local_htlc_privkey, &local_htlc_pubkey,
 			      SIGHASH_ALL, &local_htlc_sig);
@@ -461,9 +489,9 @@ int main(int argc, char *argv[])
 			      &remote_htlc_privkey, &remote_htlc_pubkey,
 			      SIGHASH_ALL, &remote_htlc_sig);
 		printf("localsig_on_local output %zu: %s\n",
-		       i, sig_as_hex(&local_htlc_sig));
+		       i, sig_notation(&hash, &local_htlc_privkey, &local_htlc_sig));
 		printf("remotesig_on_local output %zu: %s\n",
-		       i, sig_as_hex(&remote_htlc_sig));
+		       i, sig_notation(&hash, &remote_htlc_privkey, &remote_htlc_sig));
 
 		if (htlc_owner(htlcmap[i]) == LOCAL)
 			witness = bitcoin_witness_htlc_timeout_tx(NULL,
@@ -498,19 +526,25 @@ int main(int argc, char *argv[])
 	printf("# unsigned remote commitment tx: %s\n",
 	       tal_hex(NULL, linearize_tx(NULL, remote_txs[0])));
 
+	bitcoin_tx_hash_for_sig(remote_txs[0], 0, funding_wscript,
+				SIGHASH_ALL, &hash);
 	sign_tx_input(remote_txs[0], 0, NULL, funding_wscript,
 		      &local.funding_privkey,
 		      &funding_localkey,
 		      SIGHASH_ALL,
 		      &local_sig);
-	printf("localsig_on_remote: %s\n", sig_as_hex(&local_sig));
+	printf("localsig_on_remote: %s\n", sig_notation(&hash,
+							&local.funding_privkey,
+							&local_sig));
 
 	sign_tx_input(remote_txs[0], 0, NULL, funding_wscript,
 		      &remote.funding_privkey,
 		      &funding_remotekey,
 		      SIGHASH_ALL,
 		      &remote_sig);
-	printf("remotesig_on_remote: %s\n", sig_as_hex(&remote_sig));
+	printf("remotesig_on_remote: %s\n", sig_notation(&hash,
+							 &remote.funding_privkey,
+							 &remote_sig));
 
 	witness =
 		bitcoin_witness_2of2(NULL, &local_sig, &remote_sig,
@@ -557,6 +591,8 @@ int main(int argc, char *argv[])
 			= tal_dup(remote_txs[1+i], struct amount_sat, &amt);
 
 		printf("# wscript: %s\n", tal_hex(NULL, wscripts[1+i]));
+		bitcoin_tx_hash_for_sig(remote_txs[1+i], 0, wscripts[1+i],
+					SIGHASH_ALL, &hash);
 		sign_tx_input(remote_txs[1+i], 0, NULL, wscripts[1+i],
 			      &local_htlc_privkey, &local_htlc_pubkey,
 			      SIGHASH_ALL, &local_htlc_sig);
@@ -564,9 +600,9 @@ int main(int argc, char *argv[])
 			      &remote_htlc_privkey, &remote_htlc_pubkey,
 			      SIGHASH_ALL, &remote_htlc_sig);
 		printf("localsig_on_remote output %zu: %s\n",
-		       i, sig_as_hex(&local_htlc_sig));
+		       i, sig_notation(&hash, &local_htlc_privkey, &local_htlc_sig));
 		printf("remotesig_on_remote output %zu: %s\n",
-		       i, sig_as_hex(&remote_htlc_sig));
+		       i, sig_notation(&hash, &remote_htlc_privkey, &remote_htlc_sig));
 
 		if (htlc_owner(htlcmap[i]) == REMOTE)
 			witness = bitcoin_witness_htlc_timeout_tx(NULL,
