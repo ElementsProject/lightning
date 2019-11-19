@@ -524,17 +524,6 @@ struct route_step *process_onionpacket(
 	const size_t assocdatalen
 	)
 { fprintf(stderr, "process_onionpacket called!\n"); abort(); }
-/* Generated stub for route_step_decode_end */
-bool route_step_decode_end(const struct route_step *rs UNNEEDED,
-			   struct amount_msat *amt_forward UNNEEDED,
-			   u32 *outgoing_cltv UNNEEDED)
-{ fprintf(stderr, "route_step_decode_end called!\n"); abort(); }
-/* Generated stub for route_step_decode_forward */
-bool route_step_decode_forward(const struct route_step *rs UNNEEDED,
-			       struct amount_msat *amt_forward UNNEEDED,
-			       u32 *outgoing_cltv UNNEEDED,
-			       struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "route_step_decode_forward called!\n"); abort(); }
 /* Generated stub for serialize_onionpacket */
 u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,
