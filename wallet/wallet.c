@@ -1197,6 +1197,12 @@ static bool wallet_channels_load_active(struct wallet *w)
 		}
 		count++;
 	}
+
+	if (stmt->error) {
+		log_broken(w->log, "Error loading channels: %s", stmt->error);
+		ok = false;
+	}
+
 	log_debug(w->log, "Loaded %d channels from DB", count);
 	tal_free(stmt);
 	return ok;
