@@ -676,5 +676,6 @@ def test_fundchannel_listtransaction(node_factory, bitcoind):
     # next call warned about SQL Accessing a null column
     # and crashed the daemon for accessing random memory or null
     txs = l1.rpc.listtransactions()['transactions']
-    assert txs[0]['hash'] == txid
-    assert txs[0]['blockheight'] == 0
+
+    tx = [t for t in txs if t['hash'] == txid][0]
+    assert tx['blockheight'] == 0
