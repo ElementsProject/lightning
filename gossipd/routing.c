@@ -283,7 +283,6 @@ static bool in_txout_failures(struct routing_state *rstate,
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct chainparams *chainparams,
 					const struct node_id *local_id,
 					struct list_head *peers,
 					struct timers *timers,
@@ -295,7 +294,6 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->nodes = new_node_map(rstate);
 	rstate->gs = gossip_store_new(rstate, peers);
 	rstate->timers = timers;
-	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
 	rstate->local_channel_announced = false;
 	rstate->last_timestamp = 0;
@@ -1770,8 +1768,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 *  - if the specified `chain_hash` is unknown to the receiver:
 	 *    - MUST ignore the message.
 	 */
-	if (!bitcoin_blkid_eq(&chain_hash,
-			      &rstate->chainparams->genesis_blockhash)) {
+	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash)) {
 		status_peer_debug(peer ? &peer->id : NULL,
 		    "Received channel_announcement %s for unknown chain %s",
 		    type_to_string(pending, struct short_channel_id,
@@ -2146,8 +2143,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* FIXME: https://github.com/lightningnetwork/lightning-rfc/pull/512
 	 * says we MUST NOT exceed 2^32-1, but c-lightning did, so just trim
 	 * rather than rejecting. */
-	if (amount_msat_greater(htlc_maximum, rstate->chainparams->max_payment))
-		htlc_maximum = rstate->chainparams->max_payment;
+	if (amount_msat_greater(htlc_maximum, chainparams->max_payment))
+		htlc_maximum = chainparams->max_payment;
 
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
@@ -2301,8 +2298,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	 *    active on the specified chain):
 	 *    - MUST ignore the channel update.
 	 */
-	if (!bitcoin_blkid_eq(&chain_hash,
-			      &rstate->chainparams->genesis_blockhash)) {
+	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash)) {
 		status_peer_debug(peer ? &peer->id : NULL,
 				  "Received channel_update for unknown chain %s",
 				  type_to_string(tmpctx, struct bitcoin_blkid,

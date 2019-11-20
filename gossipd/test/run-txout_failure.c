@@ -98,7 +98,7 @@ int main(void)
 
 	timers_init(&timers, time_mono());
 	/* Random uninitalized node_id, we don't reference it. */
-	rstate = new_routing_state(tmpctx, NULL, tal(tmpctx, struct node_id),
+	rstate = new_routing_state(tmpctx, tal(tmpctx, struct node_id),
 				   NULL, &timers, NULL, false, false);
 
 	scid1.u64 = 100;

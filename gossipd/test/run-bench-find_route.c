@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
 	setup_tmpctx();
 
 	me = nodeid(0);
-	rstate = new_routing_state(tmpctx, NULL, &me, NULL, NULL, NULL,
+	rstate = new_routing_state(tmpctx, &me, NULL, NULL, NULL,
 				   false, false);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");

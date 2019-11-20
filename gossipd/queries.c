@@ -223,7 +223,8 @@ bool query_short_channel_ids(struct daemon *daemon,
 	} else
 		tlvs = NULL;
 
-	msg = towire_query_short_channel_ids(NULL, &daemon->chain_hash,
+	msg = towire_query_short_channel_ids(NULL,
+					     &chainparams->genesis_blockhash,
 					     encoded, tlvs);
 	queue_peer_msg(peer, take(msg));
 	peer->scid_query_outstanding = true;
@@ -278,7 +279,7 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	 *   - if does not maintain up-to-date channel information for `chain_hash`:
 	 *     - MUST set `complete` to 0.
 	 */
-	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
+	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain)) {
 		status_peer_debug(&peer->id,
 				  "sent query_short_channel_ids chainhash %s",
 				  type_to_string(tmpctx, struct bitcoin_blkid, &chain));
@@ -370,7 +371,7 @@ static void reply_channel_range(struct peer *peer,
 	tlvs->checksums_tlv = checksums;
 
 	u8 *msg = towire_reply_channel_range(NULL,
-					     &peer->daemon->chain_hash,
+					     &chainparams->genesis_blockhash,
 					     first_blocknum,
 					     number_of_blocks,
 					     1, encoded_scids, tlvs);
@@ -595,7 +596,7 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	 *   - if does not maintain up-to-date channel information for `chain_hash`:
 	 *     - MUST set `complete` to 0.
 	 */
-	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain_hash)) {
+	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
 		status_peer_debug(&peer->id,
 				  "query_channel_range with chainhash %s",
 				  type_to_string(tmpctx, struct bitcoin_blkid,
@@ -660,7 +661,7 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 				       tal_hex(tmpctx, msg));
 	}
 
-	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
+	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain)) {
 		return towire_errorfmt(peer, NULL,
 				       "reply_channel_range for bad chain: %s",
 				       tal_hex(tmpctx, msg));
@@ -810,7 +811,7 @@ const u8 *handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg)
 				       tal_hex(tmpctx, msg));
 	}
 
-	if (!bitcoin_blkid_eq(&peer->daemon->chain_hash, &chain)) {
+	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain)) {
 		return towire_errorfmt(peer, NULL,
 				       "reply_short_channel_ids_end for bad chain: %s",
 				       tal_hex(tmpctx, msg));
@@ -995,7 +996,7 @@ void maybe_send_query_responses(struct peer *peer)
 		 */
 		/* FIXME: We consider ourselves to have complete knowledge. */
 		u8 *end = towire_reply_short_channel_ids_end(peer,
-							     &peer->daemon->chain_hash,
+							     &chainparams->genesis_blockhash,
 							     true);
 		queue_peer_msg(peer, take(end));
 
@@ -1044,7 +1045,7 @@ bool query_channel_range(struct daemon *daemon,
 			  "sending query_channel_range for blocks %u+%u",
 			  first_blocknum, number_of_blocks);
 
-	msg = towire_query_channel_range(NULL, &daemon->chain_hash,
+	msg = towire_query_channel_range(NULL, &chainparams->genesis_blockhash,
 					 first_blocknum, number_of_blocks,
 					 tlvs);
 	queue_peer_msg(peer, take(msg));

@@ -260,9 +260,6 @@ static inline int half_chan_to(const struct node *n, const struct chan *chan)
 }
 
 struct routing_state {
-	/* Which chain we're on */
-	const struct chainparams *chainparams;
-
 	/* TImers base from struct gossipd. */
 	struct timers *timers;
 
@@ -345,7 +342,6 @@ struct exclude_entry {
 };
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct chainparams *chainparams,
 					const struct node_id *local_id,
 					struct list_head *peers,
 					struct timers *timers,
