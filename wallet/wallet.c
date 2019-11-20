@@ -2528,8 +2528,7 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 	}
 }
 
-bool wallet_network_check(struct wallet *w,
-			  const struct chainparams *chainparams)
+bool wallet_network_check(struct wallet *w)
 {
 	struct bitcoin_blkid chainhash;
 	struct db_stmt *stmt = db_prepare_v2(

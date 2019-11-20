@@ -186,8 +186,7 @@ void wallet_blocks_heights(struct wallet *w UNNEEDED, u32 def UNNEEDED, u32 *min
 void wallet_clean_utxos(struct wallet *w UNNEEDED, struct bitcoind *bitcoind UNNEEDED)
 { fprintf(stderr, "wallet_clean_utxos called!\n"); abort(); }
 /* Generated stub for wallet_network_check */
-bool wallet_network_check(struct wallet *w UNNEEDED,
-			  const struct chainparams *chainparams UNNEEDED)
+bool wallet_network_check(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_network_check called!\n"); abort(); }
 /* Generated stub for wallet_new */
 struct wallet *wallet_new(struct lightningd *ld UNNEEDED, struct timers *timers UNNEEDED)
