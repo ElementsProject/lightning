@@ -4,6 +4,10 @@ SUBMODULES =					\
 	external/jsmn				\
 	external/libbacktrace
 
+ifdef BUILD
+CROSSCOMPILE_OPTS := --host="$(MAKE_HOST)" --build="$(BUILD)"
+endif
+
 LIBSODIUM_HEADERS := external/libsodium/src/libsodium/include/sodium.h
 LIBWALLY_HEADERS := external/libwally-core/include/wally_bip32.h		\
 			external/libwally-core/include/wally_core.h	\
@@ -41,7 +45,7 @@ external/libsodium.a: external/libsodium/src/libsodium/libsodium.la
 external/libsodium/src/libsodium/include/sodium.h: submodcheck
 
 external/libsodium/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
-	cd external/libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(MAKE_HOST)" --build="$(BUILD)" --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
+	cd external/libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
 
 $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS): submodcheck
 
@@ -51,7 +55,7 @@ external/libsecp256k1.% external/libwallycore.%: external/libwally-core/src/secp
 	$(MAKE) -C external/libwally-core DESTDIR=$$(pwd)/external install-exec
 
 external/libwally-core/src/libwallycore.% external/libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
-	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(MAKE_HOST)" --build="$(BUILD)" --enable-module-recovery --enable-elements --enable-shared=no --prefix=/ --libdir=/ --enable-debug && $(MAKE)
+	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-module-recovery --enable-elements --enable-shared=no --prefix=/ --libdir=/ --enable-debug && $(MAKE)
 
 external/jsmn/jsmn.h: submodcheck
 
@@ -71,7 +75,7 @@ external/libbacktrace/backtrace.h: submodcheck
 # Need separate build dir: changes inside submodule make git think it's dirty.
 external/libbacktrace.a: external/libbacktrace/backtrace.h
 	@mkdir external/libbacktrace-build 2>/dev/null || true
-	cd external/libbacktrace-build && ../libbacktrace/configure CC="$(CC)" --enable-static=yes --host="$(MAKE_HOST)" --build="$(BUILD)" --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
+	cd external/libbacktrace-build && ../libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 	$(MAKE) -C external/libbacktrace-build DESTDIR=$$(pwd)/external install-exec
 
 distclean: external-distclean
