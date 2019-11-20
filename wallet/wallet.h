@@ -1021,8 +1021,7 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
  * genesis_hash with which the DB was initialized. Returns false if
  * the check failed, i.e., if the genesis hashes do not match.
  */
-bool wallet_network_check(struct wallet *w,
-			  const struct chainparams *chainparams);
+bool wallet_network_check(struct wallet *w);
 
 /**
  * wallet_block_add - Add a block to the blockchain tracked by this wallet
