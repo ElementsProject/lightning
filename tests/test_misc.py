@@ -1145,6 +1145,61 @@ def test_rescan(node_factory, bitcoind):
     assert not l1.daemon.is_in_log(r'Adding block 102')
 
 
+@pytest.mark.xfail(strict=True)
+def test_bitcoind_goes_backwards(node_factory, bitcoind):
+    """Check that we refuse to acknowledge bitcoind giving a shorter chain without explicit rescan"""
+    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+
+    bitcoind.generate_block(10)
+    sync_blockheight(bitcoind, [l1])
+    l1.stop()
+
+    # Now shrink chain (invalidateblock leaves 'headers' field until restart)
+    bitcoind.rpc.invalidateblock(bitcoind.rpc.getblockhash(105))
+    # Restart without killing proxies
+    bitcoind.rpc.stop()
+    TailableProc.stop(bitcoind)
+    bitcoind.start()
+
+    # Will simply refuse to start.
+    with pytest.raises(ValueError):
+        l1.start()
+
+    # Nor will it start with if we ask for a reindex of fewer blocks.
+    l1.daemon.opts['rescan'] = 3
+
+    with pytest.raises(ValueError):
+        l1.start()
+
+    # This will force it, however.
+    l1.daemon.opts['rescan'] = -100
+    l1.start()
+
+    # Now mess with bitcoind at runtime.
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1])
+
+    l1.daemon.wait_for_log('Adding block 110')
+
+    bitcoind.rpc.invalidateblock(bitcoind.rpc.getblockhash(105))
+    bitcoind.rpc.stop()
+    TailableProc.stop(bitcoind)
+    bitcoind.start()
+    bitcoind.generate_block(5)
+
+    # It will ignore bitcoind and keep asking for block 110.
+    time.sleep(5)
+    assert l1.rpc.getinfo()['blockheight'] == 110
+    assert not l1.daemon.is_in_log('Adding block 109',
+                                   start=l1.daemon.logsearch_start)
+
+    # Get past that, and it will suddenly read new blocks
+    bitcoind.generate_block(2)
+    l1.daemon.wait_for_log('Adding block 109')
+    l1.daemon.wait_for_log('Adding block 110')
+    l1.daemon.wait_for_log('Adding block 111')
+
+
 @flaky
 def test_reserve_enforcement(node_factory, executor):
     """Channeld should disallow you spending into your reserve"""
