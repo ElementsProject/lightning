@@ -97,7 +97,6 @@ struct peer {
 	 */
 	u64 htlc_id;
 
-	struct bitcoin_blkid chain_hash;
 	struct channel_id channel_id;
 	struct channel *channel;
 
@@ -266,8 +265,7 @@ static struct amount_msat advertized_htlc_max(const struct channel *channel)
 					     &lower_bound));
 	}
 
-	if (amount_msat_greater(lower_bound_msat,
-				channel->chainparams->max_payment))
+	if (amount_msat_greater(lower_bound_msat, chainparams->max_payment))
 		/* BOLT #7:
 		 *
 		 * The origin node:
@@ -277,7 +275,7 @@ static struct amount_msat advertized_htlc_max(const struct channel *channel)
 		 *         - for channels with `chain_hash` identifying the Bitcoin blockchain:
 		 * 			 - MUST set this to less than 2^32.
 		 */
-		lower_bound_msat = channel->chainparams->max_payment;
+		lower_bound_msat = chainparams->max_payment;
 
 	return lower_bound_msat;
 }
@@ -407,7 +405,7 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	    &peer->announcement_bitcoin_sigs[first],
 	    &peer->announcement_bitcoin_sigs[second],
 	    features,
-	    &peer->chain_hash,
+	    &chainparams->genesis_blockhash,
 	    &peer->short_channel_ids[LOCAL],
 	    &peer->node_ids[first],
 	    &peer->node_ids[second],
@@ -987,7 +985,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 	const u8 *msg;
 	secp256k1_ecdsa_signature *htlc_sigs;
 
-	txs = channel_txs(tmpctx, peer->channel->chainparams, &htlc_map,
+	txs = channel_txs(tmpctx, &htlc_map,
 			  &wscripts, peer->channel, &peer->remote_per_commit,
 			  commit_index, REMOTE);
 
@@ -1406,7 +1404,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	commit_sig.sighash_type = SIGHASH_ALL;
 
 	txs =
-	    channel_txs(tmpctx, peer->channel->chainparams, &htlc_map,
+	    channel_txs(tmpctx, &htlc_map,
 			&wscripts, peer->channel, &peer->next_local_per_commit,
 			peer->next_index[LOCAL], LOCAL);
 
@@ -3008,7 +3006,6 @@ static void init_channel(struct peer *peer)
 	}
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);
-	peer->chain_hash = chainparams->genesis_blockhash;
 
 	status_debug("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
@@ -3051,7 +3048,6 @@ static void init_channel(struct peer *peer)
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
 
 	peer->channel = new_full_channel(peer,
-					 &peer->chain_hash,
 					 &funding_txid,
 					 funding_txout,
 					 minimum_depth,

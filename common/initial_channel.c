@@ -9,7 +9,6 @@
 #include <inttypes.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
-				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u32 minimum_depth,
@@ -62,9 +61,6 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->commitment_number_obscurer
 		= commit_number_obscurer(&channel->basepoints[funder].payment,
 					 &channel->basepoints[!funder].payment);
-	channel->chainparams = chainparams_by_chainhash(chain_hash);
-	if (channel->chainparams == NULL)
-		return tal_free(channel);
 
 	channel->option_static_remotekey = option_static_remotekey;
 	return channel;
@@ -96,7 +92,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				       &channel->funding_pubkey[side],
 				       &channel->funding_pubkey[!side]);
 
-	return initial_commit_tx(ctx, channel->chainparams,
+	return initial_commit_tx(ctx,
 				 &channel->funding_txid,
 				 channel->funding_txout,
 				 channel->funding,

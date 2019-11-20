@@ -75,7 +75,6 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
 /**
  * initial_commit_tx: create (unsigned) commitment tx to spend the funding tx output
  * @ctx: context to allocate transaction and @htlc_map from.
- * @chainparams: Params for the resulting transactions
  * @funding_txid, @funding_out, @funding: funding outpoint.
  * @funder: is the LOCAL or REMOTE paying the fee?
  * @keyset: keys derived for this commit tx.
@@ -93,7 +92,6 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
  * transaction, so we carefully use the terms "self" and "other" here.
  */
 struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
-				     const struct chainparams *chainparams,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     struct amount_sat funding,

@@ -360,8 +360,6 @@ int main(int argc, char *argv[])
 			 &remotebase, &funding_remotekey, commitnum);
 
 	channel = new_full_channel(NULL,
-				   &chainparams_for_network("regtest")
-				   ->genesis_blockhash,
 				   &funding_txid, funding_outnum, 1,
 				   funding_amount,
 				   local_msat,
@@ -384,7 +382,7 @@ int main(int argc, char *argv[])
 	if (!per_commit_point(&localseed, &local_per_commit_point, commitnum))
 		errx(1, "Bad deriving local per-commitment-point");
 
-	local_txs = channel_txs(NULL, chainparams, &htlcmap, &wscripts, channel,
+	local_txs = channel_txs(NULL, &htlcmap, &wscripts, channel,
 				&local_per_commit_point, commitnum, LOCAL);
 
 	printf("## local_commitment\n"
@@ -485,7 +483,7 @@ int main(int argc, char *argv[])
 	/* Create the remote commitment tx */
 	if (!per_commit_point(&remoteseed, &remote_per_commit_point, commitnum))
 		errx(1, "Bad deriving remote per-commitment-point");
-	remote_txs = channel_txs(NULL, chainparams, &htlcmap, &wscripts, channel,
+	remote_txs = channel_txs(NULL, &htlcmap, &wscripts, channel,
 				 &remote_per_commit_point, commitnum, REMOTE);
 	remote_txs[0]->input_amounts[0]
 		= tal_dup(remote_txs[0], struct amount_sat, &funding_amount);
