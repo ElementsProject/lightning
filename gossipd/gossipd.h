@@ -39,9 +39,6 @@ struct daemon {
 	/* Routing information */
 	struct routing_state *rstate;
 
-	/* chainhash for checking/making gossip msgs */
-	struct bitcoin_blkid chain_hash;
-
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 

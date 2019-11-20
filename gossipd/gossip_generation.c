@@ -305,7 +305,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	/* We create an update with a dummy signature, and hand to hsmd to get
 	 * it signed. */
 	update = towire_channel_update_option_channel_htlc_max(tmpctx, &dummy_sig,
-				       &daemon->chain_hash,
+				       &chainparams->genesis_blockhash,
 				       &chan->scid,
 				       timestamp,
 				       message_flags, channel_flags,
