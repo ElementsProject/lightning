@@ -59,7 +59,6 @@ u8 *to_self_wscript(const tal_t *ctx,
 }
 
 struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
-				     const struct chainparams *chainparams,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     struct amount_sat funding,

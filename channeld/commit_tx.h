@@ -44,7 +44,6 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * transaction, so we carefully use the terms "self" and "other" here.
  */
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
-			     const struct chainparams *chainparams,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     struct amount_sat funding,

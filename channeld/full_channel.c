@@ -33,7 +33,6 @@ static void memleak_help_htlcmap(struct htable *memtable,
 #endif /* DEVELOPER */
 
 struct channel *new_full_channel(const tal_t *ctx,
-				 const struct bitcoin_blkid *chain_hash,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
 				 u32 minimum_depth,
@@ -50,7 +49,6 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 enum side funder)
 {
 	struct channel *channel = new_initial_channel(ctx,
-						      chain_hash,
 						      funding_txid,
 						      funding_txout,
 						      minimum_depth,
@@ -199,8 +197,7 @@ static bool sum_offered_msatoshis(struct amount_msat *total,
 	return true;
 }
 
-static void add_htlcs(const struct chainparams *chainparams,
-		      struct bitcoin_tx ***txs,
+static void add_htlcs(struct bitcoin_tx ***txs,
 		      const u8 ***wscripts,
 		      const struct htlc **htlcmap,
 		      const struct channel *channel,
@@ -258,7 +255,6 @@ static void add_htlcs(const struct chainparams *chainparams,
 
 /* FIXME: We could cache these. */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
-				const struct chainparams *chainparams,
 				const struct htlc ***htlcmap,
 				const u8 ***wscripts,
 				const struct channel *channel,
@@ -282,7 +278,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(
-	    ctx, chainparams, &channel->funding_txid, channel->funding_txout,
+	    ctx, &channel->funding_txid, channel->funding_txout,
 	    channel->funding, channel->funder,
 	    channel->config[!side].to_self_delay, &keyset,
 	    channel->view[side].feerate_per_kw,
@@ -295,7 +291,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 					     &channel->funding_pubkey[side],
 					     &channel->funding_pubkey[!side]);
 
-	add_htlcs(chainparams, &txs, wscripts, *htlcmap, channel, &keyset, side);
+	add_htlcs(&txs, wscripts, *htlcmap, channel, &keyset, side);
 
 	tal_free(committed);
 	return txs;
@@ -446,7 +442,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
 	 */
 	if (sender == LOCAL
-	    && amount_msat_greater(htlc->amount, channel->chainparams->max_payment)) {
+	    && amount_msat_greater(htlc->amount, chainparams->max_payment)) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 
