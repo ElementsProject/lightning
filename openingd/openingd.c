@@ -899,21 +899,38 @@ static void derive_input_output_info(const tal_t *ctx,
 	}
 }
 
+static bool inputs_eq(const struct input_info *a, const struct input_info *b)
+{
+	return bitcoin_txid_eq(&a->prevtx_txid, &b->prevtx_txid)
+		&& a->prevtx_vout == b->prevtx_vout;
+}
+
 static bool check_remote_inputs(struct state *state,
+				struct input_info **local_inputs,
 				struct input_info **remote_inputs,
 				struct amount_sat *input_funding)
 {
-	size_t i = 0;
+	size_t i, j;
 
-	/*
-	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
-	 * The sending node:
-	 * ...
-	 * - MUST NOT re-transmit inputs it has already received from the peer
-	 */
-	// FIXME(nifty): check this ^^^
 	*input_funding = AMOUNT_SAT(0);
 	for (i = 0; i < tal_count(remote_inputs); i++) {
+
+		/*
+		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+		 * The sending node:
+		 * ...
+		 * - MUST NOT re-transmit inputs it has already received from the peer
+		 */
+		/* Ugly brute force search for a match in our inputs */
+		for (j = 0; j < tal_count(local_inputs); j++) {
+			if (inputs_eq(local_inputs[j], remote_inputs[i]))
+				peer_failed(state->pps, &state->channel_id,
+					    "Remote replied with one of our inputs %s:%u",
+					    type_to_string(tmpctx, struct bitcoin_txid,
+							   &remote_inputs[i]->prevtx_txid),
+					    remote_inputs[i]->prevtx_vout);
+
+		}
 
 		if (!amount_sat_add(input_funding, *input_funding, remote_inputs[i]->input_satoshis))
 			peer_failed(state->pps, &state->channel_id,
@@ -942,6 +959,7 @@ static bool check_remote_inputs(struct state *state,
 /* Check that the tx info your peer sent you is kosher */
 static bool check_remote_input_outputs(struct state *state,
 				       enum role remote_role,
+				       struct input_info **local_inputs,
 				       struct input_info **remote_inputs,
 				       struct output_info **remote_outputs,
 				       struct amount_sat stated_funding_sats)
@@ -996,7 +1014,7 @@ static bool check_remote_input_outputs(struct state *state,
 				    REMOTE_OUTPUT_LIMIT);
 	}
 
-	if (!check_remote_inputs(state, remote_inputs, &funding))
+	if (!check_remote_inputs(state, local_inputs, remote_inputs, &funding))
 		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Peer sent malleable (non-Segwit) input.");
@@ -1126,7 +1144,8 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 			    "Parsing received funding_compose %s", tal_hex(msg, msg));
 
 	if (!check_remote_input_outputs(state, ACCEPTER,
-					remote_ins, remote_outs,
+					local_ins, remote_ins,
+					remote_outs,
 					state->accepter_funding))
 		return NULL;
 
@@ -1833,6 +1852,7 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	check_channel_id(state, &id_in, &state->channel_id);
 
 	if (!check_remote_input_outputs(state, OPENER,
+					our_inputs,
 					their_inputs,
 					their_outputs,
 					state->opener_funding))
