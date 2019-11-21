@@ -804,10 +804,11 @@ static void get_init_block(struct bitcoind *bitcoind,
 static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 			       struct chain_topology *topo)
 {
-	/* If bitcoind's current blockheight is below the requested height, just
-	 * go back to that height. This might be a new node catching up, or
-	 * bitcoind is processing a reorg. */
+	/* If bitcoind's current blockheight is below the requested
+	 * height, refuse.  You can always explicitly request a reindex from
+	 * that block number using --rescan=. */
 	if (blockcount < topo->max_blockheight) {
+		/* UINT32_MAX == no blocks in database */
 		if (topo->max_blockheight == UINT32_MAX) {
 			/* Relative rescan, but we didn't know the blockheight */
 			/* Protect against underflow in subtraction.
@@ -816,15 +817,9 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 				topo->max_blockheight = 0;
 			else
 				topo->max_blockheight = blockcount - bitcoind->ld->config.rescan;
-		} else {
-			/* Absolute blockheight, but bitcoind's blockheight isn't there yet */
-			/* Protect against underflow in subtraction.
-			 * Possible in regtest mode. */
-			if (blockcount < 1)
-				topo->max_blockheight = 0;
-			else
-				topo->max_blockheight = blockcount - 1;
-		}
+		} else
+			fatal("bitcoind has gone backwards from %u to %u blocks!",
+			      topo->max_blockheight, blockcount);
 	}
 
 	/* Rollback to the given blockheight, so we start track
