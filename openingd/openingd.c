@@ -881,7 +881,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct bitcoin_signature theirsig, sig;
 	struct bitcoin_tx *local_commit, *remote_commit;
 	struct bitcoin_blkid chain_hash;
-	u8 *msg;
+	u8 *msg, *our_upfront_shutdown_script;
 	const u8 *wscript;
 	u8 channel_flags;
 	char* err_reason;
@@ -1068,7 +1068,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
-	if (!fromwire_opening_got_offer_reply(tmpctx, msg, &err_reason))
+	if (!fromwire_opening_got_offer_reply(NULL, msg, &err_reason,
+					      &our_upfront_shutdown_script))
 		master_badmsg(WIRE_OPENING_GOT_OFFER_REPLY, msg);
 
 	/* If they give us a reason to reject, do so. */
@@ -1078,6 +1079,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		sync_crypto_write(state->pps, take(errmsg));
 		return NULL;
 	}
+
+	if (!our_upfront_shutdown_script)
+		our_upfront_shutdown_script = dev_upfront_shutdown_script(state);
 
 	/* OK, we accept! */
 	msg = towire_accept_channel_option_upfront_shutdown_script(NULL, &state->channel_id,
@@ -1094,7 +1098,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->our_points.delayed_payment,
 				    &state->our_points.htlc,
 				    &state->first_per_commitment_point[LOCAL],
-				    dev_upfront_shutdown_script(tmpctx));
+				    our_upfront_shutdown_script);
 
 	sync_crypto_write(state->pps, take(msg));
 
@@ -1263,6 +1267,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     state->feerate_per_kw,
 				     msg,
 				     state->localconf.channel_reserve,
+				     our_upfront_shutdown_script,
 				     state->remote_upfront_shutdown_script);
 }
 
