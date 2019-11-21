@@ -25,7 +25,7 @@ static char *canonicalize(char *str)
 	bool have_space = true;
 
 	if (!str)
-		return(str);
+		return str;
 
 	while (*from) {
 		if (cisspace(*from)) {
