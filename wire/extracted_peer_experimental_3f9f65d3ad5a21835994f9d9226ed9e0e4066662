@@ -1,10 +1,10 @@
---- wire/extracted_peer_wire_csv	2019-08-21 13:30:32.219341098 -0500
-+++ -	2019-09-11 17:38:34.177415676 -0500
-@@ -77,6 +77,89 @@
+--- wire/extracted_peer_wire_csv	2019-11-21 16:04:36.972045004 -0600
++++ -	2019-11-21 16:20:28.611476176 -0600
+@@ -77,6 +77,96 @@
  msgtype,funding_locked,36
  msgdata,funding_locked,channel_id,channel_id,
  msgdata,funding_locked,next_per_commitment_point,point,
-+msgtype,open_channel2,56
++msgtype,open_channel2,64
 +msgdata,open_channel2,chain_hash,chain_hash,
 +msgdata,open_channel2,temporary_channel_id,byte,32
 +msgdata,open_channel2,funding_satoshis,u64,
@@ -27,7 +27,7 @@
 +tlvtype,opening_tlvs,option_upfront_shutdown_script,1
 +tlvdata,opening_tlvs,option_upfront_shutdown_script,shutdown_len,u16,
 +tlvdata,opening_tlvs,option_upfront_shutdown_script,shutdown_scriptpubkey,byte,shutdown_len
-+msgtype,accept_channel2,57
++msgtype,accept_channel2,65
 +msgdata,accept_channel2,temporary_channel_id,byte,32
 +msgdata,accept_channel2,funding_satoshis,u64,
 +msgdata,accept_channel2,dust_limit_satoshis,u64,
@@ -46,14 +46,12 @@
 +tlvtype,accept_tlvs,option_upfront_shutdown_script,1
 +tlvdata,accept_tlvs,option_upfront_shutdown_script,shutdown_len,u16,
 +tlvdata,accept_tlvs,option_upfront_shutdown_script,shutdown_scriptpubkey,byte,shutdown_len
-+msgtype,funding_compose,58
-+msgdata,funding_compose,temporary_channel_id,byte,32
-+msgdata,funding_compose,num_inputs,u16,
-+msgdata,funding_compose,input_info,input_info,num_inputs
-+msgdata,funding_compose,num_outputs,u16,
-+msgdata,funding_compose,output_info,output_info,num_outputs
++msgtype,funding_add_input,66
++msgdata,funding_add_input,temporary_channel_id,byte,32
++msgdata,funding_add_input,num_inputs,u16,
++msgdata,funding_add_input,input_info,input_info,num_inputs
 +subtype,input_info
-+subtypedata,input_info,input_satoshis,u64,
++subtypedata,input_info,sats,u64,
 +subtypedata,input_info,prevtx_txid,sha256,
 +subtypedata,input_info,prevtx_vout,u32,
 +subtypedata,input_info,prevtx_scriptpubkey_len,u16,
@@ -61,22 +59,31 @@
 +subtypedata,input_info,max_witness_len,u16,
 +subtypedata,input_info,scriptlen,u16,
 +subtypedata,input_info,script,byte,scriptlen
++msgtype,funding_add_output,67
++msgdata,funding_add_output,temporary_channel_id,byte,32
++msgdata,funding_add_output,num_outputs,u16,
++msgdata,funding_add_output,output_info,output_info,num_outputs
 +subtype,output_info
-+subtypedata,output_info,output_satoshis,u64,
++subtypedata,output_info,sats,u64,
 +subtypedata,output_info,scriptlen,u16,
 +subtypedata,output_info,script,byte,scriptlen
-+msgtype,accepter_sigs,60
-+msgdata,accepter_sigs,channel_id,channel_id,
-+msgdata,accepter_sigs,commitment_signature,signature,
-+msgdata,accepter_sigs,num_witnesses,u16,
-+msgdata,accepter_sigs,witness_stack,witness_stack,num_witnesses
++msgtype,funding_add_complete,68
++msgdata,funding_add_complete,temporary_channel_id,byte,32
++msgdata,funding_add_complete,num_inputs,u16,
++msgdata,funding_add_complete,num_outputs,u16,
++msgtype,funding_signed2,69
++msgdata,funding_signed2,channel_id,channel_id,
++msgdata,funding_signed2,num_witnesses,u16,
++msgdata,funding_signed2,witness_stack,witness_stack,num_witnesses
 +subtype,witness_stack
++subtypedata,witness_stack,prevtx_txid,sha256,
++subtypedata,witness_stack,prevtx_vout,u32,
 +subtypedata,witness_stack,num_input_witness,u16,
 +subtypedata,witness_stack,witness_element,witness_element,num_input_witness
 +subtype,witness_element
 +subtypedata,witness_element,len,u16,
 +subtypedata,witness_element,witness,byte,len
-+msgtype,init_rbf,62
++msgtype,init_rbf,70
 +msgdata,init_rbf,channel_id,channel_id,
 +msgdata,init_rbf,funding_satoshis,u64,
 +msgdata,init_rbf,feerate_per_kw,u32,
@@ -85,7 +92,7 @@
 +msgdata,init_rbf,input_info,input_info,num_additional_inputs
 +msgdata,init_rbf,num_outputs,u16,
 +msgdata,init_rbf,output_info,output_info,num_outputs
-+msgtype,ack_rbf,63
++msgtype,ack_rbf,71
 +msgdata,ack_rbf,channel_id,channel_id,
  msgtype,shutdown,38
  msgdata,shutdown,channel_id,channel_id,

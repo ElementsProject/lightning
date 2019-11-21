@@ -852,7 +852,7 @@ static void derive_input_output_info(const tal_t *ctx,
 		struct input_info *in;
 		in = tal(*inputs, struct input_info);
 
-		in->input_satoshis = utxos[i]->amount;
+		in->sats = utxos[i]->amount;
 		in->prevtx_txid = utxos[i]->txid;
 		in->prevtx_vout = utxos[i]->outnum;
 		in->prevtx_scriptpubkey = tal_dup_arr(in, u8, utxos[i]->scriptPubkey,
@@ -891,7 +891,7 @@ static void derive_input_output_info(const tal_t *ctx,
 			continue;
 
 		out = tal(*outputs, struct output_info);
-		out->output_satoshis.satoshis = wo.satoshi; /* Raw: type conversion */
+		out->sats.satoshis = wo.satoshi; /* Raw: type conversion */
 		out->script = tal_arr(out, u8, wo.script_len);
 		memcpy(out->script, wo.script, wo.script_len);
 
@@ -932,11 +932,11 @@ static bool check_remote_inputs(struct state *state,
 
 		}
 
-		if (!amount_sat_add(input_funding, *input_funding, remote_inputs[i]->input_satoshis))
+		if (!amount_sat_add(input_funding, *input_funding, remote_inputs[i]->sats))
 			peer_failed(state->pps, &state->channel_id,
 				    "Overflow in remote input amounts %s + %s",
 				    type_to_string(tmpctx, struct amount_sat,
-					           &remote_inputs[i]->input_satoshis),
+					           &remote_inputs[i]->sats),
 			            type_to_string(tmpctx, struct amount_sat,
 					           input_funding));
 
@@ -1034,7 +1034,7 @@ static bool check_remote_input_outputs(struct state *state,
 		*     as the change address for any resulting funds after fees are deducted
 		*/
 		if (remote_role == OPENER) {
-			if (amount_sat_eq(AMOUNT_SAT(0), remote_outputs[i]->output_satoshis)) {
+			if (amount_sat_eq(AMOUNT_SAT(0), remote_outputs[i]->sats)) {
 				if (has_change_address)
 					peer_failed(state->pps,
 						    &state->channel_id,
@@ -1043,13 +1043,13 @@ static bool check_remote_input_outputs(struct state *state,
 				has_change_address = true;
 			}
 		}
-		if (!amount_sat_add(&other_outputs, other_outputs, remote_outputs[i]->output_satoshis))
+		if (!amount_sat_add(&other_outputs, other_outputs, remote_outputs[i]->sats))
 			peer_failed(state->pps, &state->channel_id,
 				    "Overflow in remote output satoshi sum %s + %s",
 				    type_to_string(tmpctx, struct amount_sat,
 						   &other_outputs),
 			            type_to_string(tmpctx, struct amount_sat,
-					           &remote_outputs[i]->output_satoshis));
+					           &remote_outputs[i]->sats));
 
 		/*
 		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
@@ -1102,6 +1102,168 @@ static bool check_remote_input_outputs(struct state *state,
 
 	return true;
 }
+
+static bool send_receive_funding_tx_info(struct state *state,
+					 enum role role,
+					 struct input_info ***local_inputs,
+					 struct output_info ***local_outputs,
+					 struct input_info ***remote_inputs,
+					 struct output_info ***remote_outputs)
+
+{
+	struct channel_id id_in;
+	bool complete;
+	size_t i;
+	u8 *msg;
+
+	/*
+	 *  BOLT-3f9f65d3ad5a21835994f9d9226ed9e0e4066662 #2
+	 *
+	 * - if is the `opener`:
+	 *   - MUST send at least one `funding_add_input` message
+	 *   ...
+	 * - if is the `accepter`:
+	 *   - MAY omit this message
+	 */
+	if (tal_count(*local_inputs) > 0) {
+		msg = towire_funding_add_input(tmpctx, &state->channel_id,
+					       cast_const2(const struct input_info **,
+						           *local_inputs));
+		sync_crypto_write(state->pps, take(msg));
+
+		peer_billboard(false, "Opening channel: funding_add_input sent");
+	} else
+		assert(role == ACCEPTER);
+
+
+	/*
+	 *  BOLT-3f9f65d3ad5a21835994f9d9226ed9e0e4066662 #2
+	 *
+	 * Either node:
+	 * - MAY omit this message
+	 */
+	if (tal_count(*local_outputs) > 0) {
+		msg = towire_funding_add_output(tmpctx, &state->channel_id,
+						cast_const2(const struct output_info **,
+							    *local_outputs));
+		sync_crypto_write(state->pps, take(msg));
+		peer_billboard(false, "Opening channel: funding_add_output sent");
+	}
+
+
+	/*
+	 *  BOLT-3f9f65d3ad5a21835994f9d9226ed9e0e4066662 #2
+	 *
+	 *  Both nodes:
+	 *   - MUST send this message after `accept_channel2` has been sent/received.
+	 *
+	 *  The sending node:
+	 *  - MUST ensure that the `num_inputs` corresponds to the total sum of all `num_inputs`
+	 *    sent in all `funding_add_input` messages that originated from them
+	 *  - MUST ensure that the `num_outputs` corresponds to the total sum of all `num_outputs`
+	 *    sent in all `funding_add_output` messages that originated from them
+	 */
+	/* FIXME: allow for more interactive input/output composition */
+	msg = towire_funding_add_complete(tmpctx, &state->channel_id,
+					  tal_count(*local_inputs),
+					  tal_count(*local_outputs));
+
+	sync_crypto_write(state->pps, take(msg));
+
+	peer_billboard(false, "Opening channel: funding_add_complete sent");
+
+	/* We expect the peer to send us their inputs/outputs. Read
+	 * until we get funding_add_complete */
+	complete = false;
+	*remote_inputs = tal_arr(state, struct input_info *, 0);
+	*remote_outputs = tal_arr(state, struct output_info *, 0);
+
+	while (!complete) {
+		struct input_info **inputs;
+		struct output_info **outputs;
+		u16 num_ins, num_outs;
+		int type;
+
+		msg = opening_negotiate_msg(tmpctx, state, role == OPENER);
+		if (!msg)
+			return false;
+
+		type = fromwire_peektype(msg);
+		switch (type) {
+			case WIRE_FUNDING_ADD_INPUT:
+				if (!fromwire_funding_add_input(state, msg, &id_in, &inputs))
+					peer_failed(state->pps, &state->channel_id,
+						    "Parsing received funding_add_input %s",
+						    tal_hex(msg, msg));
+				check_channel_id(state, &id_in, &state->channel_id);
+
+				// FIXME: is there a more succinct way to do this?
+				for (i = 0; i < tal_count(inputs); i++)
+					tal_arr_expand(remote_inputs, inputs[i]);
+				break;
+			case WIRE_FUNDING_ADD_OUTPUT:
+				if (!fromwire_funding_add_output(state, msg, &id_in, &outputs))
+					peer_failed(state->pps, &state->channel_id,
+						    "Parsing received funding_add_output %s",
+						    tal_hex(msg, msg));
+				check_channel_id(state, &id_in, &state->channel_id);
+
+				// FIXME: is there a more succinct way to do this?
+				for (i = 0; i < tal_count(outputs); i++)
+					tal_arr_expand(remote_outputs, outputs[i]);
+				break;
+			case WIRE_FUNDING_ADD_COMPLETE:
+				if (!fromwire_funding_add_complete(msg, &id_in,
+								   &num_ins, &num_outs))
+					peer_failed(state->pps, &state->channel_id,
+						    "Parsing received funding_add_complete %s",
+						    tal_hex(msg, msg));
+				check_channel_id(state, &id_in, &state->channel_id);
+				/*
+				 *  BOLT-3f9f65d3ad5a21835994f9d9226ed9e0e4066662 #2
+				 *
+				 *  The receiving node:
+				 *  - MUST fail the channel if:
+				 *   - the `num_inputs` does not correspond to the total
+				 *     sum of all `num_inputs` received in all
+				 *     `funding_add_input` messages
+				 *   - the `num_outputs` does not correspond to the total
+				 *     sum of all `num_outputs` received in all
+				 *     `funding_add_output` messages
+				 */
+				if (tal_count(*remote_inputs) != num_ins)
+					peer_failed(state->pps, &state->channel_id,
+						    "Expected %u inputs, received %zu :%s",
+						    num_ins, tal_count(*remote_inputs),
+						    tal_hex(msg, msg));
+
+				/**
+				 *  BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+				 *  - if is the `opener`:
+				 *    - MUST send at least one `funding_add_input` message
+				 */
+				if (num_ins == 0 && role != OPENER)
+					peer_failed(state->pps, &state->channel_id,
+						    "Opener must send at lease one input");
+
+				if (tal_count(*remote_outputs) != num_outs)
+					peer_failed(state->pps, &state->channel_id,
+						    "Expected %u outputs, received %zu :%s",
+						    num_outs, tal_count(*remote_outputs),
+						    tal_hex(msg, msg));
+				complete = true;
+				break;
+			default:
+				peer_failed(state->pps,
+					    &state->channel_id,
+					    "Expected a funding_add_ message, got %s",
+					    tal_hex(msg, msg));
+
+		}
+	}
+
+	return true;
+}
 #endif
 
 static u8 *funder_finalize_channel_setup2(struct state *state,
@@ -1122,35 +1284,18 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 
 	size_t i, input_count;
 	struct bitcoin_tx *funding_tx, *remote_commit, *local_commit;
-	const struct witness_stack **remote_witnesses;
+
+	// FIXME!! (don't set NULL)
+	const struct witness_stack **remote_witnesses = NULL;
 
 	/* Derive components, omitting the funding output */
 	derive_input_output_info(state, *tx, utxos, true,
 				 &local_ins, &local_outs);
 
-	/* Send them to the peer */
-	msg = towire_funding_compose(tmpctx, &state->channel_id,
-				     cast_const2(const struct input_info **, local_ins),
-				     cast_const2(const struct output_info **, local_outs));
-
-	sync_crypto_write(state->pps, take(msg));
-
-	peer_billboard(false,
-		       "Opening channel: funding_compose sent, "
-		       "waiting for funding_compose reply");
-
-	msg = opening_negotiate_msg(tmpctx, state, false);
-	if (!msg)
+	if (!send_receive_funding_tx_info(state, OPENER,
+					  &local_ins, &local_outs,
+					  &remote_ins, &remote_outs))
 		return NULL;
-
-	/* The next message is "funding_compose", which tells us the funding
-	 * inputs and outputs they've selected. */
-	if (!fromwire_funding_compose(state, msg, &id_in,
-				      &remote_ins,
-				      &remote_outs))
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Parsing received funding_compose %s", tal_hex(msg, msg));
 
 	if (!check_remote_input_outputs(state, ACCEPTER,
 					local_ins, remote_ins,
@@ -1256,12 +1401,14 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 		return NULL;
 
 	their_sig.sighash_type = SIGHASH_ALL;
+	/* FIXME!!!
 	if (!fromwire_accepter_sigs(state, msg, &id_in,
 				    &their_sig.s,
 				    (struct witness_stack ***)&remote_witnesses))
 		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Bad accepter_sigs in %s", tal_hex(msg, msg));
+	*/
 
 	peer_billboard(false,
 		       "Opening channel: accepter_sigs received");
@@ -1656,7 +1803,7 @@ static void inputs_to_infos(const tal_t *ctx, struct utxo **utxos,
 	for (i = 0; i < tal_count(utxos); i++) {
 		struct input_info *info;
 		info = tal(*input_infos, struct input_info);
-		info->input_satoshis = utxos[i]->amount;
+		info->sats = utxos[i]->amount;
 		info->prevtx_txid = utxos[i]->txid;
 		info->prevtx_vout = utxos[i]->outnum;
 
@@ -1694,7 +1841,7 @@ static struct output_info **outputs_to_infos(const tal_t *ctx, struct bitcoin_tx
 
 		info->script = tal_dup_arr(info, u8, outputs[i]->script,
 					   tal_count(outputs[i]->script), 0);
-		info->output_satoshis = outputs[i]->amount;
+		info->sats = outputs[i]->amount;
 		infos[i] = info;
 	}
 
@@ -1849,16 +1996,10 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	inputs_to_infos(state, utxos, &our_inputs);
 	our_outputs = outputs_to_infos(state, outputs);
 
-	/* The next message should be "funding_compose" which tells us the funding
-	 * inputs and outputs they've selected. */
-	if (!fromwire_funding_compose(state, msg, &id_in,
-				      &their_inputs,
-				      &their_outputs))
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Parsing received funding_compose");
-
-	check_channel_id(state, &id_in, &state->channel_id);
+	if (!send_receive_funding_tx_info(state, ACCEPTER,
+					  &our_inputs, &our_outputs,
+					  &their_inputs, &their_outputs))
+		return NULL;
 
 	if (!check_remote_input_outputs(state, OPENER,
 					our_inputs,
@@ -1890,16 +2031,8 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	status_debug("dual funding tx is %s",
 		     type_to_string(tmpctx, struct bitcoin_tx, funding_tx));
 
-	/* Now we send our inputs/outputs to them */
-	msg = towire_funding_compose(tmpctx, &state->channel_id,
-				     cast_const2(const struct input_info **, our_inputs),
-				     cast_const2(const struct output_info **, our_outputs));
 
-	sync_crypto_write(state->pps, take(msg));
-
-	peer_billboard(false, "Incoming channel: funding_compose sent,"
-			      " now waiting for commitment_signed");
-
+	/* We expect to get commitment_signed here */
 	msg = opening_negotiate_msg(tmpctx, state, false);
 	if (!msg)
 		return NULL;
@@ -2048,9 +2181,11 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	 * to save state to disk before doing so. */
 	assert(our_sig.sighash_type == SIGHASH_ALL);
 
+	/* FIXME: commitment_signed send dance etc!!
 	msg = towire_accepter_sigs(state, &state->channel_id,
 				   &our_sig.s,
 				   cast_const2(const struct witness_stack **, our_stack));
+			*/
 
 	/* we send everything to lightning, who commits things to the database etc.
 	 * lightningd will forward the signatures etc over to channeld, who

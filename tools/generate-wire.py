@@ -242,6 +242,7 @@ class Type(FieldSet):
         ('amt', 'u64'): ('amount_msat', False),
         ('msat', 'u64'): ('amount_msat', False),
         ('satoshis', 'u64'): ('amount_sat', False),
+        ('sats', 'u64'): ('amount_sat', False),
         ('node_id', 'pubkey', 'channel_announcement'): ('node_id', False),
         ('node_id', 'pubkey', 'node_announcement'): ('node_id', False),
         ('temporary_channel_id', 'u8'): ('channel_id', True),

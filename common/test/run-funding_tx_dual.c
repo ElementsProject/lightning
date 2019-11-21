@@ -163,7 +163,7 @@ static struct test_case test1(const tal_t *ctx)
 
 	struct input_info **opener_inputs = tal_arr(ctx, struct input_info *, 2);
 	struct input_info *input_one = tal(ctx, struct input_info);
-	input_one->input_satoshis = AMOUNT_SAT(250000000);
+	input_one->sats = AMOUNT_SAT(250000000);
 	input_one->prevtx_txid = txid;
 	input_one->prevtx_vout = 0;
 	input_one->prevtx_scriptpubkey = hex_to_u8(ctx, "220020fd89acf65485df89797d9ba7ba7a33624ac4452f00db08107f34257d33e5b946");
@@ -172,7 +172,7 @@ static struct test_case test1(const tal_t *ctx)
 	opener_inputs[0] = input_one;
 
 	struct input_info *input_two = tal(ctx, struct input_info);
-	input_two->input_satoshis = AMOUNT_SAT(250000000);
+	input_two->sats = AMOUNT_SAT(250000000);
 	input_two->prevtx_txid = txid;
 	input_two->prevtx_vout = 1;
 	input_two->prevtx_scriptpubkey = hex_to_u8(ctx, "a9146a235d064786b49e7043e4a042d4cc429f7eb69487");
@@ -182,7 +182,7 @@ static struct test_case test1(const tal_t *ctx)
 
 	struct input_info **accepter_inputs = tal_arr(ctx, struct input_info *, 2);
 	struct input_info *input_three = tal(ctx, struct input_info);
-	input_three->input_satoshis = AMOUNT_SAT(250000000);
+	input_three->sats = AMOUNT_SAT(250000000);
 	input_three->prevtx_txid = txid;
 	input_three->prevtx_vout = 2;
 	input_three->prevtx_scriptpubkey = hex_to_u8(ctx, "160014fbb4db9d85fba5e301f4399e3038928e44e37d32");
@@ -191,7 +191,7 @@ static struct test_case test1(const tal_t *ctx)
 	accepter_inputs[0] = input_three;
 
 	struct input_info *input_four = tal(ctx, struct input_info);
-	input_four->input_satoshis = AMOUNT_SAT(250000000);
+	input_four->sats = AMOUNT_SAT(250000000);
 	input_four->prevtx_txid = txid;
 	input_four->prevtx_vout = 3;
 	input_four->prevtx_scriptpubkey = hex_to_u8(ctx, "a9147ecd1b519326bc13b0ec716e469b58ed02b112a087");
@@ -201,13 +201,13 @@ static struct test_case test1(const tal_t *ctx)
 
 	struct output_info **opener_outputs = tal_arr(ctx, struct output_info *, 1);
 	struct output_info *output_one = tal(ctx, struct output_info);
-	output_one->output_satoshis = AMOUNT_SAT(0);
+	output_one->sats = AMOUNT_SAT(0);
 	output_one->script = hex_to_u8(ctx, "00141ca1cca8855bad6bc1ea5436edd8cff10b7e448b");
 	opener_outputs[0] = output_one;
 
 	struct output_info **accepter_outputs = tal_arr(ctx, struct output_info *, 1);
 	struct output_info *output_two = tal(ctx, struct output_info);
-	output_two->output_satoshis = AMOUNT_SAT(200000000);
+	output_two->sats = AMOUNT_SAT(200000000);
 	output_two->script = hex_to_u8(ctx, "001444cb0c39f93ecc372b5851725bd29d865d333b10");
 	accepter_outputs[0] = output_two;
 
@@ -241,7 +241,7 @@ static struct input_info *input_one(const tal_t *ctx, int vout, const char* txid
 	struct bitcoin_txid txid;
 	bitcoin_txid_from_hex(txid_str, strlen(txid_str), &txid);
 	struct input_info *input_one = tal(ctx, struct input_info);
-	input_one->input_satoshis = AMOUNT_SAT(500000);
+	input_one->sats = AMOUNT_SAT(500000);
 	input_one->prevtx_txid = txid;
 	input_one->prevtx_vout = vout;
 	input_one->prevtx_scriptpubkey = hex_to_u8(ctx, "0014ca5cc81df579bd589a428c0d29dceb81513fce8d");
@@ -256,7 +256,7 @@ static struct input_info *input_two(const tal_t *ctx, const char *txid_str)
 	bitcoin_txid_from_hex(txid_str, strlen(txid_str), &txid);
 
 	struct input_info *input_two = tal(ctx, struct input_info);
-	input_two->input_satoshis = AMOUNT_SAT(1000000);
+	input_two->sats = AMOUNT_SAT(1000000);
 	input_two->prevtx_txid = txid;
 	input_two->prevtx_vout = 0;
 	input_two->prevtx_scriptpubkey = hex_to_u8(ctx, "001483440596268132e6c99d44dae2d151dabd9a2b23");
@@ -271,7 +271,7 @@ static struct input_info *input_three(const tal_t *ctx, int vout, const char *tx
 	bitcoin_txid_from_hex(txid_str, strlen(txid_str), &txid);
 
 	struct input_info *input = tal(ctx, struct input_info);
-	input->input_satoshis = AMOUNT_SAT(1500000);
+	input->sats = AMOUNT_SAT(1500000);
 	input->prevtx_txid = txid;
 	input->prevtx_vout = vout;
 	input->prevtx_scriptpubkey = hex_to_u8(ctx, "0014d1f40e954d7a792284b6fb19a2e0bf777441d83e");
@@ -287,7 +287,7 @@ static struct input_info *input_four(const tal_t *ctx)
 	bitcoin_txid_from_hex(txid_str_two, strlen(txid_str_two), &txid);
 
 	struct input_info *input = tal(ctx, struct input_info);
-	input->input_satoshis = AMOUNT_SAT(2000000);
+	input->sats = AMOUNT_SAT(2000000);
 	input->prevtx_txid = txid;
 	input->prevtx_vout = 1;
 	input->prevtx_scriptpubkey = hex_to_u8(ctx, "0014fd9658fbd476d318f3b825b152b152aafa49bc92");
@@ -299,7 +299,7 @@ static struct input_info *input_four(const tal_t *ctx)
 static struct output_info *output_one(const tal_t *ctx, u64 amount)
 {
 	struct output_info *output_one = tal(ctx, struct output_info);
-	output_one->output_satoshis = (struct amount_sat){ amount };
+	output_one->sats = (struct amount_sat){ amount };
 	output_one->script = hex_to_u8(ctx, "00140f0963bc774334ebc14d11ce940c35cfa6986415");
 	return output_one;
 }
@@ -307,7 +307,7 @@ static struct output_info *output_one(const tal_t *ctx, u64 amount)
 static struct output_info *output_two(const tal_t *ctx, u64 amount)
 {
 	struct output_info *output = tal(ctx, struct output_info);
-	output->output_satoshis = (struct amount_sat){ amount };
+	output->sats = (struct amount_sat){ amount };
 	output->script = hex_to_u8(ctx, "0014d640ab16f347d1de5aba5a715321a5fc4ba9a5d5");
 	return output;
 }
@@ -315,7 +315,7 @@ static struct output_info *output_two(const tal_t *ctx, u64 amount)
 static struct output_info *output_three(const tal_t *ctx, u64 amount)
 {
 	struct output_info *output = tal(ctx, struct output_info);
-	output->output_satoshis = (struct amount_sat){ amount };
+	output->sats = (struct amount_sat){ amount };
 	output->script = hex_to_u8(ctx, "0014d295f76da2319791f36df5759e45b15d5e105221");
 	return output;
 }

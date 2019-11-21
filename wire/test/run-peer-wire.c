@@ -290,14 +290,21 @@ struct msg_accept_channel2 {
 	struct pubkey first_per_commitment_point;
 	struct tlv_accept_tlvs *tlv;
 };
-struct msg_funding_compose {
+struct msg_funding_add_input {
 	struct channel_id temporary_channel_id;
 	struct input_info **input_infos;
+};
+struct msg_funding_add_output {
+	struct channel_id temporary_channel_id;
 	struct output_info **output_infos;
 };
-struct msg_accepter_sigs {
+struct msg_funding_add_complete {
+	struct channel_id temporary_channel_id;
+	u16 num_inputs;
+	u16 num_outputs;
+};
+struct msg_funding_signed2 {
 	struct channel_id channel_id;
-	secp256k1_ecdsa_signature commitment_signature;
 	struct witness_stack **witness_stacks;
 };
 struct msg_init_rbf {
@@ -946,41 +953,72 @@ static struct msg_accept_channel2 *fromwire_struct_accept_channel2(const tal_t *
 		return s;
 	return tal_free(s);
 }
-static void *towire_struct_funding_compose(const tal_t *ctx,
-				           struct msg_funding_compose *s)
+static void *towire_struct_funding_add_input(const tal_t *ctx,
+				             struct msg_funding_add_input *s)
 {
-	return towire_funding_compose(ctx,
+	return towire_funding_add_input(ctx,
 		&s->temporary_channel_id,
-		(const struct input_info **)s->input_infos,
-		(const struct output_info **)s->output_infos);
+		(const struct input_info **)s->input_infos);
 }
-static struct msg_funding_compose *fromwire_struct_funding_compose(const tal_t *ctx, const void *p)
-{
-	struct msg_funding_compose *s = tal(ctx, struct msg_funding_compose);
 
-	if (fromwire_funding_compose(ctx, p,
+static struct msg_funding_add_input *fromwire_struct_funding_add_input(const tal_t *ctx, const void *p)
+{
+	struct msg_funding_add_input *s = tal(ctx, struct msg_funding_add_input);
+
+	if (fromwire_funding_add_input(ctx, p,
 				&s->temporary_channel_id,
-				&s->input_infos,
-				&s->output_infos))
+				&s->input_infos))
 		return s;
 	return tal_free(s);
 }
-static void *towire_struct_accepter_sigs(const tal_t *ctx,
-					   struct msg_accepter_sigs *s)
+static void *towire_struct_funding_add_output(const tal_t *ctx,
+				             struct msg_funding_add_output *s)
 {
-	return towire_accepter_sigs(ctx,
+	return towire_funding_add_output(ctx,
+		&s->temporary_channel_id,
+		(const struct output_info **)s->output_infos);
+}
+static struct msg_funding_add_output *fromwire_struct_funding_add_output(const tal_t *ctx, const void *p)
+{
+	struct msg_funding_add_output *s = tal(ctx, struct msg_funding_add_output);
+
+	if (fromwire_funding_add_output(ctx, p,
+			       		&s->temporary_channel_id,
+				       	&s->output_infos))
+		return s;
+	return tal_free(s);
+}
+static void *towire_struct_funding_add_complete(const tal_t *ctx,
+						struct msg_funding_add_complete *s)
+{
+	return towire_funding_add_complete(ctx, &s->temporary_channel_id,
+		       			   s->num_inputs,
+					   s->num_outputs);
+}
+static struct msg_funding_add_complete *fromwire_struct_funding_add_complete(const tal_t *ctx, const void *p)
+{
+	struct msg_funding_add_complete *s = tal(ctx, struct msg_funding_add_complete);
+
+	if (fromwire_funding_add_complete(p, &s->temporary_channel_id,
+					  &s->num_inputs,
+					  &s->num_outputs))
+		return s;
+	return tal_free(s);
+}
+static void *towire_struct_funding_signed2(const tal_t *ctx,
+					   struct msg_funding_signed2 *s)
+{
+	return towire_funding_signed2(ctx,
 			&s->channel_id,
-			&s->commitment_signature,
 			(const struct witness_stack **)s->witness_stacks);
 }
-static struct msg_accepter_sigs *fromwire_struct_accepter_sigs(const tal_t *ctx, const void *p)
+static struct msg_funding_signed2 *fromwire_struct_funding_signed2(const tal_t *ctx, const void *p)
 {
-	struct msg_accepter_sigs *s = tal(ctx, struct msg_accepter_sigs);
+	struct msg_funding_signed2 *s = tal(ctx, struct msg_funding_signed2);
 
-	if (fromwire_accepter_sigs(ctx, p,
-				   &s->channel_id,
-				   &s->commitment_signature,
-				   &s->witness_stacks)) {
+	if (fromwire_funding_signed2(ctx, p,
+				     &s->channel_id,
+				     &s->witness_stacks)) {
 		return s;
 	}
 	return tal_free(s);
@@ -1050,7 +1088,7 @@ static bool input_info_eq(struct input_info *a,
 static bool output_info_eq(struct output_info *a,
                            struct output_info *b)
 {
-       return eq_with(a, b, output_satoshis)
+       return eq_with(a, b, sats)
                && eq_var(a, b, script);
 }
 
@@ -1066,7 +1104,8 @@ static bool witness_stack_eq(struct witness_stack *a,
 {
 	bool ok = true;
 	eq_struct_set(a, b, witness_element, witness_element);
-	return ok;
+	return ok && eq_field(a, b, prevtx_txid)
+		&& eq_field(a, b, prevtx_vout);
 }
 
 
@@ -1104,17 +1143,29 @@ static bool accept_channel2_eq(const struct msg_accept_channel2 *a,
 		&& accept_tlv_eq(a->tlv, b->tlv);
 }
 
-static bool funding_compose_eq(const struct msg_funding_compose *a,
-			       const struct msg_funding_compose *b)
+static bool funding_add_input_eq(const struct msg_funding_add_input *a,
+			         const struct msg_funding_add_input *b)
 {
 	bool ok = true;
 	eq_struct_set(a, b, input_infos, input_info);
-	eq_struct_set(a, b, output_infos, output_info);
 	return ok && eq_upto(a, b, input_infos);
 }
 
-static bool accepter_sigs_eq(const struct msg_accepter_sigs *a,
-			     const struct msg_accepter_sigs *b)
+static bool funding_add_output_eq(const struct msg_funding_add_output *a,
+			          const struct msg_funding_add_output *b)
+{
+	bool ok = true;
+	eq_struct_set(a, b, output_infos, output_info);
+	return ok && eq_upto(a, b, output_infos);
+}
+
+static bool funding_add_complete_eq(const struct msg_funding_add_complete *a,
+				    const struct msg_funding_add_complete *b)
+{
+	return eq_with(a, b, num_outputs);
+}
+static bool funding_signed2_eq(const struct msg_funding_signed2 *a,
+			       const struct msg_funding_signed2 *b)
 {
 	bool ok = true;
 	eq_struct_set(a, b, witness_stacks, witness_stack);
@@ -1368,8 +1419,10 @@ int main(void)
 	/* v2 channel establishment */
 	struct msg_open_channel2 ocv2, *ocv22;
 	struct msg_accept_channel2 acv2, *acv22;
-	struct msg_funding_compose fcom, *fcom2;
-	struct msg_accepter_sigs acs, *acs2;
+	struct msg_funding_add_input fai, *fai2;
+	struct msg_funding_add_output fao, *fao2;
+	struct msg_funding_add_complete fac, *fac2;
+	struct msg_funding_signed2 fsv2, *fsv22;
 	struct msg_init_rbf irbf, *irbf2;
 	struct msg_ack_rbf arbf, *arbf2;
 #endif /* EXPERIMENTAL_FEATURES */
@@ -1604,51 +1657,63 @@ int main(void)
 	assert(accept_channel2_eq(&acv2, acv22));
 	test_corruption_tlv(&acv2, acv22, accept_channel2);
 
-	memset(&fcom, 2, sizeof(fcom));
-	fcom.input_infos = tal_arr(ctx, struct input_info *, 2);
-	memset(fcom.input_infos, 2, sizeof(struct input_info *) * 2);
+	memset(&fai, 2, sizeof(fai));
+	fai.input_infos = tal_arr(ctx, struct input_info *, 2);
+	memset(fai.input_infos, 2, sizeof(struct input_info *) * 2);
 	for (i = 0; i < 2; i++) {
-		fcom.input_infos[i] = tal(ctx, struct input_info);
-		memset(fcom.input_infos[i], 2, sizeof(struct input_info));
-		fcom.input_infos[i]->prevtx_scriptpubkey = tal_arr(ctx, u8, 2);
-		memset(fcom.input_infos[i]->prevtx_scriptpubkey, 2, 2);
-		fcom.input_infos[i]->script = tal_arr(ctx, u8, 2);
-		memset(fcom.input_infos[i]->script, 2, 2);
+		fai.input_infos[i] = tal(ctx, struct input_info);
+		memset(fai.input_infos[i], 2, sizeof(struct input_info));
+		fai.input_infos[i]->prevtx_scriptpubkey = tal_arr(ctx, u8, 2);
+		memset(fai.input_infos[i]->prevtx_scriptpubkey, 2, 2);
+		fai.input_infos[i]->script = tal_arr(ctx, u8, 2);
+		memset(fai.input_infos[i]->script, 2, 2);
 	}
-	fcom.output_infos = tal_arr(ctx, struct output_info *, 2);
-	memset(fcom.output_infos, 2, sizeof(struct output_info *)*2);
+	msg = towire_struct_funding_add_input(ctx, &fai);
+	fai2 = fromwire_struct_funding_add_input(ctx, msg);
+	assert(funding_add_input_eq(&fai, fai2));
+	test_corruption(&fai, fai2, funding_add_input);
+
+
+	memset(&fao, 2, sizeof(fao));
+	fao.output_infos = tal_arr(ctx, struct output_info *, 2);
+	memset(fao.output_infos, 2, sizeof(struct output_info *)*2);
 	for (i = 0; i < 2; i++) {
-		fcom.output_infos[i] = tal(ctx, struct output_info);
-		memset(fcom.output_infos[i], 2, sizeof(struct output_info));
-		fcom.output_infos[i]->script = tal_arr(ctx, u8, 2);
-		memset(fcom.output_infos[i]->script, 2, 2);
+		fao.output_infos[i] = tal(ctx, struct output_info);
+		memset(fao.output_infos[i], 2, sizeof(struct output_info));
+		fao.output_infos[i]->script = tal_arr(ctx, u8, 2);
+		memset(fao.output_infos[i]->script, 2, 2);
 	}
+	msg = towire_struct_funding_add_output(ctx, &fao);
+	fao2 = fromwire_struct_funding_add_output(ctx, msg);
+	assert(funding_add_output_eq(&fao, fao2));
+	test_corruption(&fao, fao2, funding_add_output);
 
-	msg = towire_struct_funding_compose(ctx, &fcom);
-	fcom2 = fromwire_struct_funding_compose(ctx, msg);
-	assert(funding_compose_eq(&fcom, fcom2));
-	test_corruption(&fcom, fcom2, funding_compose);
+	memset(&fac, 2, sizeof(fac));
+	msg = towire_struct_funding_add_complete(ctx, &fac);
+	fac2 = fromwire_struct_funding_add_complete(ctx, msg);
+	assert(funding_add_complete_eq(&fac, fac2));
+	test_corruption(&fac, fac2, funding_add_complete);
 
-	memset(&acs, 2, sizeof(acs));
-	acs.witness_stacks = tal_arr(ctx, struct witness_stack *, 2);
-	memset(acs.witness_stacks, 2, sizeof(struct witness_stack *) * 2);
+	memset(&fsv2, 2, sizeof(fsv2));
+	fsv2.witness_stacks = tal_arr(ctx, struct witness_stack *, 2);
+	memset(fsv2.witness_stacks, 2, sizeof(struct witness_stack *) * 2);
 	for (i = 0; i < 2; i++) {
-		acs.witness_stacks[i] = tal(ctx, struct witness_stack);
-		memset(acs.witness_stacks[i], 2, sizeof(struct witness_stack));
-		acs.witness_stacks[i]->witness_element = tal_arr(ctx, struct witness_element *, 2);
-		memset(acs.witness_stacks[i]->witness_element, 2, sizeof(struct witness_element *) * 2);
+		fsv2.witness_stacks[i] = tal(ctx, struct witness_stack);
+		memset(fsv2.witness_stacks[i], 2, sizeof(struct witness_stack));
+		fsv2.witness_stacks[i]->witness_element = tal_arr(ctx, struct witness_element *, 2);
+		memset(fsv2.witness_stacks[i]->witness_element, 2, sizeof(struct witness_element *) * 2);
 		for (size_t j = 0; j < 2; j++) {
-			acs.witness_stacks[i]->witness_element[j] = tal(ctx, struct witness_element);
-			memset(acs.witness_stacks[i]->witness_element[j], 2, sizeof(struct witness_element));
-			acs.witness_stacks[i]->witness_element[j]->witness = tal_arr(ctx, u8, 2);
-			memset(acs.witness_stacks[i]->witness_element[j]->witness, 2, 2);
+			fsv2.witness_stacks[i]->witness_element[j] = tal(ctx, struct witness_element);
+			memset(fsv2.witness_stacks[i]->witness_element[j], 2, sizeof(struct witness_element));
+			fsv2.witness_stacks[i]->witness_element[j]->witness = tal_arr(ctx, u8, 2);
+			memset(fsv2.witness_stacks[i]->witness_element[j]->witness, 2, 2);
 		}
 	}
 
-	msg = towire_struct_accepter_sigs(ctx, &acs);
-	acs2 = fromwire_struct_accepter_sigs(ctx, msg);
-	assert(accepter_sigs_eq(&acs, acs2));
-	test_corruption(&acs, acs2, accepter_sigs);
+	msg = towire_struct_funding_signed2(ctx, &fsv2);
+	fsv22 = fromwire_struct_funding_signed2(ctx, msg);
+	assert(funding_signed2_eq(&fsv2, fsv22));
+	test_corruption(&fsv2, fsv22, funding_signed2);
 
 	memset(&irbf, 2, sizeof(irbf));
 	irbf.input_infos = tal_arr(ctx, struct input_info *, 2);
