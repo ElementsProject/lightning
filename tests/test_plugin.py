@@ -535,7 +535,7 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     onion = json.load(open(fname))
     if EXPERIMENTAL_FEATURES:
         assert onion['type'] == 'tlv'
-        assert re.match(r'^020203e80401..0608................$', onion['payload'])
+        assert re.match(r'^11020203e80401..0608................$', onion['payload'])
     else:
         assert onion['type'] == 'legacy'
         assert re.match(r'^0000006700000.000100000000000003e8000000..000000000000000000000000$', onion['payload'])
