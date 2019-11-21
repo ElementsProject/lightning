@@ -171,8 +171,9 @@ static void bcli_failure(struct bitcoind *bitcoind,
 	bitcoind->error_count++;
 
 	/* Retry in 1 second (not a leak!) */
-	new_reltimer(bitcoind->ld->timers, notleak(bcli), time_from_sec(1),
-		     retry_bcli, bcli);
+	notleak(new_reltimer(bitcoind->ld->timers, notleak(bcli),
+			     time_from_sec(1),
+			     retry_bcli, bcli));
 }
 
 static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)

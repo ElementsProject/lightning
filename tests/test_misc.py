@@ -1135,17 +1135,24 @@ def test_rescan(node_factory, bitcoind):
     assert l1.daemon.is_in_log(r'Adding block 31')
     assert not l1.daemon.is_in_log(r'Adding block 30')
 
-    # Restarting with a future absolute blockheight should just start with
-    # the current height
+    # Restarting with a future absolute blockheight should *fail* if we
+    # can't find that height
     l1.daemon.opts['rescan'] = -500000
     l1.stop()
     bitcoind.generate_block(4)
+    with pytest.raises(ValueError):
+        l1.start()
+
+    # Restarting with future absolute blockheight is fine if we can find it.
+    l1.daemon.opts['rescan'] = -105
+    oldneedle = l1.daemon.logsearch_start
     l1.start()
+    # This could occur before pubkey msg, so move search needle back.
+    l1.daemon.logsearch_start = oldneedle
     l1.daemon.wait_for_log(r'Adding block 105')
     assert not l1.daemon.is_in_log(r'Adding block 102')
 
 
-@pytest.mark.xfail(strict=True)
 def test_bitcoind_goes_backwards(node_factory, bitcoind):
     """Check that we refuse to acknowledge bitcoind giving a shorter chain without explicit rescan"""
     l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
