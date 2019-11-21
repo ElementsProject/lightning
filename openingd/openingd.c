@@ -967,6 +967,7 @@ static bool check_remote_input_outputs(struct state *state,
 	size_t i = 0;
 	struct amount_sat funding, other_outputs, funding_tx_sats;
 	bool has_change_address;
+	u8 *wscript;
 
 	if (remote_role == OPENER) {
 		/**
@@ -1021,6 +1022,10 @@ static bool check_remote_input_outputs(struct state *state,
 
 	other_outputs = AMOUNT_SAT(0);
 	has_change_address = false;
+	/* Compute the funding output script */
+	wscript = bitcoin_redeem_2of2(tmpctx, &state->our_funding_pubkey,
+				      &state->their_funding_pubkey);
+
 	for (i = 0; i < tal_count(remote_outputs); i++) {
 		/*
 		* BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
@@ -1059,8 +1064,12 @@ static bool check_remote_input_outputs(struct state *state,
 		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
 		 * - MUST NOT include the channel funding output.
 		*/
-		// FIXME(nifty): check this ^^^
-
+		if (memeq(remote_outputs[i]->script,
+			  tal_count(remote_outputs[i]->script),
+			  wscript, tal_count(wscript)))
+			peer_failed(state->pps,
+				    &state->channel_id,
+				    "Peer included funding output in output set");
 	}
 
 	/**
