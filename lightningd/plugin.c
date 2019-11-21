@@ -1086,9 +1086,49 @@ void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins)
 {
 	struct plugin *p;
-	list_for_each(&plugins->plugins, p, list) {
-		json_add_string(response, "plugin", p->cmd);
+	struct plugin_opt *opt;
+	const char *plugin_name;
+	const char *opt_name;
+
+	/* DEPRECATED: duplicated JSON "plugin" entries */
+	if (deprecated_apis) {
+		list_for_each(&plugins->plugins, p, list) {
+			json_add_string(response, "plugin", p->cmd);
+		}
 	}
+
+	/* we output 'plugins' and their options as an array of substructures */
+	json_array_start(response, "plugins");
+	list_for_each(&plugins->plugins, p, list) {
+		json_object_start(response, NULL);
+		json_add_string(response, "path", p->cmd);
+
+		/* FIXME: use executables basename until plugins can define their names */
+		plugin_name = path_basename(NULL, p->cmd);
+		json_add_string(response, "name", plugin_name); // basename(p->cmd));
+		tal_free(plugin_name);
+
+		if (!list_empty(&p->plugin_opts)) {
+			json_object_start(response, "options");
+			list_for_each(&p->plugin_opts, opt, list)
+			{
+				/* Trim the `--` that we added before */
+				opt_name = opt->name + 2;
+				if (opt->value->as_bool) {
+					json_add_bool(response, opt_name, opt->value->as_bool);
+				} else if (opt->value->as_int) {
+					json_add_bool(response, opt_name, opt->value->as_int);
+				} else if (opt->value->as_str) {
+					json_add_string(response, opt_name, opt->value->as_str);
+				} else {
+					json_add_null(response, opt_name);
+				}
+			}
+			json_object_end(response);
+		}
+		json_object_end(response);
+	}
+	json_array_end(response);
 }
 
 /**

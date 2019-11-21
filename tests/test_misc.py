@@ -745,10 +745,23 @@ def test_listconfigs(node_factory, bitcoind, chainparams):
 
     # Test one at a time.
     for c in configs.keys():
-        if c.startswith('#'):
+        if c.startswith('#') or c.startswith('plugins'):
             continue
         oneconfig = l1.rpc.listconfigs(config=c)
         assert(oneconfig[c] == configs[c])
+
+
+def test_listconfigs_plugins(node_factory, bitcoind, chainparams):
+    l1 = node_factory.get_node()
+
+    # assert that we have pay plugin and that plugins have a name and path
+    configs = l1.rpc.listconfigs()
+    assert configs['plugins']
+    assert len([p for p in configs['plugins'] if p['name'] == "pay"]) == 1
+    for p in configs['plugins']:
+        assert p['name'] and len(p['name']) > 0
+        assert p['path'] and len(p['path']) > 0
+        assert os.path.isfile(p['path']) and os.access(p['path'], os.X_OK)
 
 
 def test_multirpc(node_factory):
