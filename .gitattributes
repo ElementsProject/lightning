@@ -4,3 +4,7 @@
 Makefile text eol=lf
 configure text eol=lf
 .gitmodules text eol=lf
+# The following files are generated and should not be shown in the
+# diffs by default on Github.
+doc/lightning*.7 linguist-generated=true
+
