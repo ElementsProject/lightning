@@ -1079,13 +1079,21 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_funding_close_upfront(node_factory, bitcoind):
     l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
 
-    def _fundchannel(l1, l2, close_to):
+    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/accepter_close_to.py')}
+    l2 = node_factory.get_node(options=opts)
+
+    # The 'accepter_close_to' plugin uses the channel funding amount to determine
+    # whether or not to include a 'close_to' address
+    amt_normal = 100007     # continues without returning a close_to
+    amt_addr = 100001       # returns valid regtest address
+
+    remote_valid_addr = 'bcrt1q7gtnxmlaly9vklvmfj06amfdef3rtnrdazdsvw'
+
+    def _fundchannel(l1, l2, amount, close_to):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         assert(l1.rpc.listpeers()['peers'][0]['id'] == l2.info['id'])
 
-        amount = 2**24 - 1
         resp = l1.rpc.fundchannel_start(l2.info['id'], amount, close_to=close_to)
         address = resp['funding_address']
 
@@ -1123,16 +1131,16 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
         for node in [l1, l2]:
             node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
-            channel = node.rpc.listpeers()['peers'][0]['channels'][0]
+            channel = node.rpc.listpeers()['peers'][0]['channels'][-1]
             assert amount * 1000 == channel['msatoshi_total']
 
     # check that normal peer close works
-    _fundchannel(l1, l2, None)
+    _fundchannel(l1, l2, amt_normal, None)
     assert l1.rpc.close(l2.info['id'])['type'] == 'mutual'
 
     # check that you can provide a closing address upfront
     addr = l1.rpc.newaddr()['bech32']
-    _fundchannel(l1, l2, addr)
+    _fundchannel(l1, l2, amt_normal, addr)
     # confirm that it appears in listpeers
     assert addr == only_one(l1.rpc.listpeers()['peers'])['channels'][1]['close_to_addr']
     resp = l1.rpc.close(l2.info['id'])
@@ -1141,21 +1149,28 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
     # check that passing in the same addr to close works
     addr = bitcoind.rpc.getnewaddress()
-    _fundchannel(l1, l2, addr)
+    _fundchannel(l1, l2, amt_normal, addr)
     assert addr == only_one(l1.rpc.listpeers()['peers'])['channels'][2]['close_to_addr']
     resp = l1.rpc.close(l2.info['id'], destination=addr)
     assert resp['type'] == 'mutual'
     assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
 
-    # check that remote peer closing works as expected
-    _fundchannel(l1, l2, addr)
+    # check that remote peer closing works as expected (and that remote's close_to works)
+    _fundchannel(l1, l2, amt_addr, addr)
+    # send some money to remote so that they have a closeout
+    l1.rpc.pay(l2.rpc.invoice((amt_addr // 2) * 1000, 'test_remote_close_to', 'desc')['bolt11'])
+    assert only_one(l2.rpc.listpeers()['peers'])['channels'][-1]['close_to_addr'] == remote_valid_addr
+
     resp = l2.rpc.close(l1.info['id'])
     assert resp['type'] == 'mutual'
-    assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
+    vouts = bitcoind.rpc.decoderawtransaction(resp['tx'])['vout']
+    assert len(vouts) == 2
+    for vout in vouts:
+        assert only_one(vout['scriptPubKey']['addresses']) in [addr, remote_valid_addr]
 
     # check that passing in a different addr to close causes an RPC error
     addr2 = l1.rpc.newaddr()['bech32']
-    _fundchannel(l1, l2, addr)
+    _fundchannel(l1, l2, amt_normal, addr)
     with pytest.raises(RpcError, match=r'does not match previous shutdown script'):
         l1.rpc.close(l2.info['id'], destination=addr2)
 

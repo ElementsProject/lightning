@@ -577,6 +577,21 @@ the string `reject` or `continue`.  If `reject` and
 there's a member `error_message`, that member is sent to the peer
 before disconnection.
 
+For a 'continue'd result, you can also include a `close_to` address,
+which will be used as the output address for a mutual close transaction.
+
+e.g.
+
+```json
+{
+    "result": "continue",
+    "close_to": "bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2"
+}
+```
+
+Note that `close_to` must be a valid address for the current chain; an invalid address will cause the node to exit with an error.
+
+
 #### `htlc_accepted`
 
 The `htlc_accepted` hook is called whenever an incoming HTLC is accepted, and
