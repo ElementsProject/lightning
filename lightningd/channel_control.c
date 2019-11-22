@@ -540,7 +540,7 @@ is_fundee_should_forget(struct lightningd *ld,
 	 *
 	 * A non-funding node (fundee):
 	 *   - SHOULD forget the channel if it does not see the
-	 * funding transaction after a reasonable timeout.
+	 * correct funding transaction after a reasonable timeout.
 	 */
 
 	/* Only applies if we are fundee. */
