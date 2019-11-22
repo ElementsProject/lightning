@@ -47,7 +47,8 @@ def directory(request, test_base_dir, test_name):
     # determine whether we succeeded or failed. Outcome can be None if the
     # failure occurs during the setup phase, hence the use to getattr instead
     # of accessing it directly.
-    outcome = getattr(request.node, 'rep_call', None).outcome
+    rep_call = getattr(request.node, 'rep_call', None)
+    outcome = 'passed' if rep_call is None else rep_call.outcome
     failed = not outcome or request.node.has_errors or outcome != 'passed'
 
     if not failed:
