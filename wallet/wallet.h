@@ -673,6 +673,8 @@ struct invoice_details {
 
 	/* The description of the payment. */
 	char *description;
+	/* The features, if any (tal_arr) */
+	u8 *features;
 };
 
 /* An object that handles iteration over the set of invoices */
@@ -713,6 +715,7 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   u64 expiry,
 			   const char *b11enc,
 			   const char *description,
+			   const u8 *features,
 			   const struct preimage *r,
 			   const struct sha256 *rhash);
 

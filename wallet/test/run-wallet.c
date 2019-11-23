@@ -138,6 +138,7 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 		     u64 expiry UNNEEDED,
 		     const char *b11enc UNNEEDED,
 		     const char *description UNNEEDED,
+		     const u8 *features UNNEEDED,
 		     const struct preimage *r UNNEEDED,
 		     const struct sha256 *rhash UNNEEDED)
 { fprintf(stderr, "invoices_create called!\n"); abort(); }

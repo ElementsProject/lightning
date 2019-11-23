@@ -480,6 +480,7 @@ static struct migration dbmigrations[] = {
     /* See https://github.com/ElementsProject/lightning/issues/3189 */
     {SQL("UPDATE forwarded_payments SET received_time=0 WHERE received_time IS NULL;"),
 	 NULL},
+    {SQL("ALTER TABLE invoices ADD COLUMN features BLOB DEFAULT '';"), NULL},
 };
 
 /* Leak tracking. */

@@ -116,6 +116,9 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 	else
 		dtl->description = NULL;
 
+	dtl->features = tal_dup_arr(dtl, u8,
+				    db_column_blob(stmt, 11),
+				    db_column_bytes(stmt, 11), 0);
 	return dtl;
 }
 
@@ -253,6 +256,7 @@ bool invoices_create(struct invoices *invoices,
 		     u64 expiry,
 		     const char *b11enc,
 		     const char *description,
+		     const u8 *features,
 		     const struct preimage *r,
 		     const struct sha256 *rhash)
 {
@@ -279,11 +283,11 @@ bool invoices_create(struct invoices *invoices,
 		"            ( payment_hash, payment_key, state"
 		"            , msatoshi, label, expiry_time"
 		"            , pay_index, msatoshi_received"
-		"            , paid_timestamp, bolt11, description)"
+		"            , paid_timestamp, bolt11, description, features)"
 		"     VALUES ( ?, ?, ?"
 		"            , ?, ?, ?"
 		"            , NULL, NULL"
-		"            , NULL, ?, ?);"));
+		"            , NULL, ?, ?, ?);"));
 
 	db_bind_sha256(stmt, 0, rhash);
 	db_bind_preimage(stmt, 1, r);
@@ -296,6 +300,7 @@ bool invoices_create(struct invoices *invoices,
 	db_bind_u64(stmt, 5, expiry_time);
 	db_bind_text(stmt, 6, b11enc);
 	db_bind_text(stmt, 7, description);
+	db_bind_blob(stmt, 8, features, tal_bytelen(features));
 
 	db_exec_prepared_v2(stmt);
 
@@ -435,6 +440,7 @@ bool invoices_iterate(struct invoices *invoices,
 						       ", paid_timestamp"
 						       ", bolt11"
 						       ", description"
+						       ", features"
 						       " FROM invoices;"));
 		db_query_prepared(stmt);
 		it->p = stmt;
@@ -622,6 +628,7 @@ const struct invoice_details *invoices_get_details(const tal_t *ctx,
 					       ", paid_timestamp"
 					       ", bolt11"
 					       ", description"
+					       ", features"
 					       " FROM invoices"
 					       " WHERE id = ?;"));
 	db_bind_u64(stmt, 0, invoice.id);
