@@ -9,14 +9,15 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-When lightningd(8) starts up, it reads a configuration file. By default
-that is *config* in the **.lightning** subdirectory of the home
-directory (if it exists), but that can be changed by the
-*--lightning-dir* or *--conf* options on the lightningd(8) command line.
+When lightningd(8) starts up it usually reads a general configuration
+file (default: **$HOME/.lightning/config**) then a network-specific
+configuration file (default: **$HOME/.lightning/testnet/config**).  This can
+be changed: see *--conf* and *--lightning-dir*.
 
-Configuration file options are processed first, then command line
-options: later options override earlier ones except *addr* options 
-and *log-level* with subsystems, which accumulate.
+General configuration files are processed first, then network-specific
+ones, then command line options: later options override earlier ones
+except *addr* options and *log-level* with subsystems, which
+accumulate.
 
 *include * followed by a filename includes another configuration file at that
 point, relative to the current configuration file.
@@ -150,8 +151,8 @@ Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
 Run in the background, suppress stdout and stderr.
 
  **conf**=*PATH*
-Sets configuration file (default: **lightning-dir**/*config* ). If this
-is a relative path, it is relative to the starting directory, not
+Sets configuration file, and disable reading the normal general and network
+ones. If this is a relative path, it is relative to the starting directory, not
 **lightning-dir** (unlike other paths). *PATH* must exist and be
 readable (we allow missing files in the default case). Using this inside
 a configuration file is meaningless.

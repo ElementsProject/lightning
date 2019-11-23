@@ -629,25 +629,6 @@ static void check_config(struct lightningd *ld)
 		fatal("--always-use-proxy needs --proxy");
 }
 
-/**
- * We turn the config file into cmdline arguments. @early tells us
- * whether to parse early options only (and ignore any unknown ones),
- * or the non-early options.
- */
-static void opt_parse_from_config(struct lightningd *ld, bool early)
-{
-	const char *filename;
-
-	/* The default config doesn't have to exist, but if the config was
-	 * specified on the command line it has to exist. */
-	if (ld->config_filename != NULL)
-		filename = ld->config_filename;
-	else
-		filename = path_join(tmpctx, ld->config_dir, "config");
-
-	parse_include(filename, ld->config_filename != NULL, early);
-}
-
 static char *test_subdaemons_and_exit(struct lightningd *ld)
 {
 	test_subdaemons(ld);
@@ -965,9 +946,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	 *  mimic this API here, even though they're on separate lines.*/
 	register_opts(ld);
 
-	/* Now look inside config file, but only handle the early
+	/* Now look inside config file(s), but only handle the early
 	 * options (testnet, plugins etc), others may be added on-demand */
-	opt_parse_from_config(ld, true);
+	parse_config_files(ld->config_filename, ld->config_dir, true);
 
 	/* Early cmdline options now override config file options. */
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
@@ -981,7 +962,7 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	/* Now look for config file, but only handle non-early
 	 * options, early ones have been parsed in
 	 * handle_early_opts */
-	opt_parse_from_config(ld, false);
+	parse_config_files(ld->config_filename, ld->config_dir, false);
 
 	/* Now parse cmdline, which overrides config. */
 	opt_parse(&argc, argv, opt_log_stderr_exit);

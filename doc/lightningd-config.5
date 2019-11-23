@@ -7,15 +7,16 @@ lightningd-config - Lightning daemon configuration file
 
 .SH DESCRIPTION
 
-When \fBlightningd\fR(8) starts up, it reads a configuration file\. By default
-that is \fIconfig\fR in the \fB\.lightning\fR subdirectory of the home
-directory (if it exists), but that can be changed by the
-\fI--lightning-dir\fR or \fI--conf\fR options on the \fBlightningd\fR(8) command line\.
+When \fBlightningd\fR(8) starts up it usually reads a general configuration
+file (default: \fB$HOME/\.lightning/config\fR) then a network-specific
+configuration file (default: \fB$HOME/\.lightning/testnet/config\fR)\.  This can
+be changed: see \fI--conf\fR and \fI--lightning-dir\fR\.
 
 
-Configuration file options are processed first, then command line
-options: later options override earlier ones except \fIaddr\fR options 
-and \fIlog-level\fR with subsystems, which accumulate\.
+General configuration files are processed first, then network-specific
+ones, then command line options: later options override earlier ones
+except \fIaddr\fR options and \fIlog-level\fR with subsystems, which
+accumulate\.
 
 
 \fIinclude \fR followed by a filename includes another configuration file at that
@@ -191,8 +192,8 @@ Run in the background, suppress stdout and stderr\.
 
 
  \fBconf\fR=\fIPATH\fR
-Sets configuration file (default: \fBlightning-dir\fR/\fIconfig\fR )\. If this
-is a relative path, it is relative to the starting directory, not
+Sets configuration file, and disable reading the normal general and network
+ones\. If this is a relative path, it is relative to the starting directory, not
 \fBlightning-dir\fR (unlike other paths)\. \fIPATH\fR must exist and be
 readable (we allow missing files in the default case)\. Using this inside
 a configuration file is meaningless\.
