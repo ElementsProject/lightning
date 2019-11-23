@@ -177,25 +177,12 @@ int main(int argc, char **argv)
 {
 	setup_locale();
 
-	bool unit = false;
-
 	secp256k1_ctx = secp256k1_context_create(
 		SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
 
-	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "--unit\n"
-			   "Run unit tests against test vectors",
-			   "Print this message.");
-	opt_register_noarg("--unit",
-			   opt_set_bool, &unit,
-			   "Run unit tests against test vectors");
+	run_unit_tests();
 
-	opt_parse(&argc, argv, opt_log_stderr_exit);
-
-	if (unit) {
-		run_unit_tests();
-	}
 	secp256k1_context_destroy(secp256k1_ctx);
 	opt_free_table();
 	tal_free(tmpctx);
