@@ -1105,9 +1105,8 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	u32 *feerate_per_kw;
 
 	u8 *msg = NULL;
-	struct amount_sat max_funding_satoshi, *amount;
+	struct amount_sat *amount;
 
-	max_funding_satoshi = chainparams->max_funding;
 	fc->cmd = cmd;
 	fc->cancels = tal_arr(fc, struct command *, 0);
 	fc->uc = NULL;
@@ -1149,11 +1148,11 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 		fc->our_upfront_shutdown_script = NULL;
 	}
 
-	if (amount_sat_greater(*amount, max_funding_satoshi))
+	if (amount_sat_greater(*amount, chainparams->max_funding))
 		return command_fail(cmd, FUND_MAX_EXCEEDED,
 				    "Amount exceeded %s",
 				    type_to_string(tmpctx, struct amount_sat,
-						   &max_funding_satoshi));
+						   &chainparams->max_funding));
 
 	fc->funding = *amount;
 	if (!feerate_per_kw) {
@@ -1203,7 +1202,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 			type_to_string(fc, struct node_id, id));
 	}
 
-	assert(!amount_sat_greater(*amount, max_funding_satoshi));
+	assert(!amount_sat_greater(*amount, chainparams->max_funding));
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
 
