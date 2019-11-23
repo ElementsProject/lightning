@@ -2,6 +2,7 @@ LIGHTNING_CLI_SRC := cli/lightning-cli.c
 LIGHTNING_CLI_OBJS := $(LIGHTNING_CLI_SRC:.c=.o)
 
 LIGHTNING_CLI_COMMON_OBJS :=			\
+	bitcoin/chainparams.o			\
 	common/configdir.o			\
 	common/json.o				\
 	common/memleak.o			\

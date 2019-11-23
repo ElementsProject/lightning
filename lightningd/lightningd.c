@@ -205,8 +205,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ This is detailed in chaintopology.c */
 	ld->topology = new_topology(ld, ld->log);
 	ld->daemon_parent_fd = -1;
-	ld->config_filename = NULL;
-	ld->pidfile = NULL;
 	ld->proxyaddr = NULL;
 	ld->use_proxy_always = false;
 	ld->pure_tor_setup = false;
@@ -657,10 +655,6 @@ int main(int argc, char *argv[])
 	/*~ Every daemon calls this in some form: the hooks are for dumping
 	 * backtraces when we crash (if supported on this platform). */
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
-
-	/*~ We use a global (in common/utils.h) for the chainparams.
-	 * We default to testnet for now. */
-	chainparams = chainparams_for_network("testnet");
 
 	/*~ There's always a battle between what a constructor like this
 	 * should do, and what should be added later by the caller.  In

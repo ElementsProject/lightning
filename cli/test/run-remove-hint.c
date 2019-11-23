@@ -114,6 +114,7 @@ int main(int argc UNUSED, char *argv[])
 
 	output = tal_strdup(NULL, "");
 	assert(test_main(3, fake_argv) == 0);
+	assert(!taken_any());
 
 	assert(streq(output, "channels=\n"
 		     "\n"
@@ -129,5 +130,6 @@ int main(int argc UNUSED, char *argv[])
 		     "num_channels=1\n"
 		     "num_connected=1\n"));
 	tal_free(output);
+	take_cleanup();
 	return 0;
 }

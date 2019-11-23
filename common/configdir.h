@@ -6,10 +6,21 @@
 /* Helper for options which are tal() strings. */
 char *opt_set_talstr(const char *arg, char **p);
 
-/* The default configuration dir: ~/.lightning */
-char *default_configdir(const tal_t *ctx);
+/* Initial options setup */
+void setup_option_allocators(void);
 
-/* The default rpc filename: lightning-rpc */
-char *default_rpcfile(const tal_t *ctx);
+/* Parse minimal config options and files */
+void initial_config_opts(const tal_t *ctx,
+			 int argc, char *argv[],
+			 char **config_filename,
+			 char **config_dir,
+			 char **rpc_filename);
+
+/* Parse a specific include file */
+void parse_include(const char *filename, bool must_exist, bool early);
+
+/* For listconfigs to access. */
+char *opt_ignore(const char *arg, void *unused);
+char *opt_ignore_noarg(void *unused);
 
 #endif /* LIGHTNING_COMMON_CONFIGDIR_H */
