@@ -123,6 +123,9 @@ void fulfill_htlc(struct htlc_in *hin UNNEEDED, const struct preimage *preimage 
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
+/* Generated stub for get_offered_bolt11features */
+u8 *get_offered_bolt11features(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "get_offered_bolt11features called!\n"); abort(); }
 /* Generated stub for htlc_is_trimmed */
 bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     struct amount_msat htlc_amount UNNEEDED,

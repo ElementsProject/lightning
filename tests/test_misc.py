@@ -1693,8 +1693,10 @@ def test_list_features_only(node_factory):
                     'option_upfront_shutdown_script/odd',
                     'option_gossip_queries/odd',
                     'option_var_onion_optin/odd',
+                    'option_payment_secret/odd',
                     'option_gossip_queries_ex/odd',
-                    'option_static_remotekey/odd']
+                    'option_static_remotekey/odd',
+                    ]
     else:
         expected = ['option_data_loss_protect/odd',
                     'option_upfront_shutdown_script/odd',
