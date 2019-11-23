@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_CONFIGDIR_H
 #define LIGHTNING_COMMON_CONFIGDIR_H
 #include "config.h"
+#include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/tal.h>
 
 /* Put things we're going to get rid of behind this, so testers can catch
@@ -28,8 +29,8 @@ void parse_config_files(const char *config_filename,
 			const char *config_basedir,
 			bool early);
 
-/* For listconfigs to access. */
-char *opt_ignore(const char *arg, void *unused);
-char *opt_ignore_noarg(void *unused);
+/* For listconfigs to detect. */
+bool is_restricted_ignored(const void *fn);
+bool is_restricted_print_if_nonnull(const void *fn);
 
 #endif /* LIGHTNING_COMMON_CONFIGDIR_H */

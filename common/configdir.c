@@ -191,15 +191,51 @@ static void opt_show_network(char buf[OPT_SHOW_LEN], const void *unused)
 	snprintf(buf, OPT_SHOW_LEN, "%s", chainparams->network_name);
 }
 
-/* Special option to ignore stuff we've parsed really early on */
-char *opt_ignore(const char *arg, void *unused)
+/* We track where we're getting options from, so we can detect misuse */
+enum parse_state {
+	CMDLINE = 1,
+	FORCED_CONFIG = 2,
+	TOPLEVEL_CONFIG = 4,
+	NETWORK_CONFIG = 8,
+};
+static enum parse_state parse_state = CMDLINE;
+
+static char *opt_restricted_cmdline(const char *arg, const void *unused)
 {
+	if (parse_state != CMDLINE)
+		return "not permitted in configuration files";
 	return NULL;
 }
 
-char *opt_ignore_noarg(void *unused)
+static char *opt_restricted_toplevel_noarg(const void *unused)
 {
+	if (parse_state == NETWORK_CONFIG)
+		return "not permitted in network-specific configuration files";
 	return NULL;
+}
+
+static char *opt_restricted_toplevel(const char *arg, const void *unused)
+{
+	return opt_restricted_toplevel_noarg(NULL);
+}
+
+static char *opt_restricted_forceconf_only(const char *arg, const void *unused)
+{
+	if (parse_state != CMDLINE && parse_state != FORCED_CONFIG)
+		return "not permitted in implicit configuration files";
+	return NULL;
+}
+
+bool is_restricted_ignored(const void *fn)
+{
+	return fn == opt_restricted_toplevel_noarg
+		|| fn == opt_restricted_toplevel
+		|| fn == opt_restricted_forceconf_only;
+}
+
+bool is_restricted_print_if_nonnull(const void *fn)
+{
+	return fn == opt_restricted_cmdline;
 }
 
 void setup_option_allocators(void)
@@ -236,12 +272,17 @@ void parse_config_files(const char *config_filename,
 			bool early)
 {
 	if (config_filename) {
+		parse_state = FORCED_CONFIG;
 		parse_include(config_filename, true, early);
+		parse_state = CMDLINE;
 		return;
 	}
 
+	parse_state = TOPLEVEL_CONFIG;
 	parse_implied_config_file(config_basedir, NULL, early);
+	parse_state = NETWORK_CONFIG;
 	parse_implied_config_file(config_basedir, chainparams->network_name, early);
+	parse_state = CMDLINE;
 }
 
 /* Could be a yet-to-be-upgraded dir (definitely testnet), or could be
@@ -303,14 +344,16 @@ void initial_config_opts(const tal_t *ctx,
 	/* Now, reset and ignore --conf option from now on. */
 	opt_free_table();
 
-	opt_register_early_arg("--conf=<file>", opt_ignore, NULL,
+	/* This is only ever valid on cmdline */
+	opt_register_early_arg("--conf=<file>",
+			       opt_restricted_cmdline, NULL,
 			       config_filename,
 			       "Specify configuration file");
 
 	/* If they set --conf it can still set --lightning-dir */
 	if (!*config_filename) {
 		opt_register_early_arg("--lightning-dir=<dir>",
-				       opt_ignore, opt_show_charp,
+				       opt_restricted_forceconf_only, opt_show_charp,
 				       config_basedir,
 				       "Set base directory: network-specific subdirectory is under here");
 	} else {
@@ -372,22 +415,29 @@ void initial_config_opts(const tal_t *ctx,
 	/* Now, reset and ignore those options from now on. */
 	opt_free_table();
 
-	opt_register_early_arg("--conf=<file>", opt_ignore, NULL,
+	opt_register_early_arg("--conf=<file>",
+			       opt_restricted_cmdline, NULL,
 			       config_filename,
 			       "Specify configuration file");
+
+	/* This is never in a default config file (since we used the defaults to find it!). */
 	opt_register_early_arg("--lightning-dir=<dir>",
-			       opt_ignore, opt_show_charp,
+			       opt_restricted_forceconf_only, opt_show_charp,
 			       config_basedir,
 			       "Set base directory: network-specific subdirectory is under here");
-	opt_register_early_arg("--network", opt_ignore, opt_show_network,
+	opt_register_early_arg("--network",
+			       opt_restricted_toplevel, opt_show_network,
 			       NULL,
 			       "Select the network parameters (bitcoin, testnet,"
 			       " regtest, litecoin or litecoin-testnet)");
-	opt_register_early_noarg("--testnet", opt_ignore_noarg, NULL,
+	opt_register_early_noarg("--testnet",
+				 opt_restricted_toplevel_noarg, NULL,
 				 "Alias for --network=testnet");
-	opt_register_early_noarg("--signet", opt_ignore_noarg, NULL,
+	opt_register_early_noarg("--signet",
+				 opt_restricted_toplevel_noarg, NULL,
 				 "Alias for --network=signet");
-	opt_register_early_noarg("--mainnet", opt_ignore_noarg, NULL,
+	opt_register_early_noarg("--mainnet",
+				 opt_restricted_toplevel_noarg, NULL,
 				 "Alias for --network=bitcoin");
 
 	/* They can set this later, it's just less effective. */
