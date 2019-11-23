@@ -9,6 +9,7 @@
 #include <common/amount.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
@@ -235,7 +236,8 @@ REGISTER_PLUGIN_HOOK(invoice_payment,
 void invoice_try_pay(struct lightningd *ld,
 		     struct htlc_in *hin,
 		     const struct sha256 *payment_hash,
-		     const struct amount_msat msat)
+		     const struct amount_msat msat,
+		     const struct secret *payment_secret)
 {
 	struct invoice invoice;
 	const struct invoice_details *details;
@@ -246,6 +248,42 @@ void invoice_try_pay(struct lightningd *ld,
 		return;
 	}
 	details = wallet_invoice_details(tmpctx, ld->wallet, invoice);
+
+	log_debug(ld->log, "payment_secret is %s",
+		  payment_secret ? "set": "NULL");
+
+	/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
+	 *
+	 * - if the `payment_secret` doesn't match the expected value for that
+	 *   `payment_hash`, or the `payment_secret` is required and is not
+	 *   present:
+	 *   - MUST fail the HTLC.
+	 *   - MUST return an `incorrect_or_unknown_payment_details` error.
+	 */
+	/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #1:
+	 *
+	 * - if `payment_secret` is required in the onion:
+	 *    - MUST set the even feature `var_onion_optin`.
+	 */
+	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
+	    && !payment_secret) {
+		fail_htlc(hin, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+		return;
+	}
+
+	if (payment_secret) {
+		struct secret expected;
+
+		invoice_secret(&details->r, &expected);
+		log_debug(ld->log, "payment_secret %s vs %s",
+			  type_to_string(tmpctx, struct secret, payment_secret),
+			  type_to_string(tmpctx, struct secret, &expected));
+		if (!secret_eq_consttime(payment_secret, &expected)) {
+			fail_htlc(hin,
+				  WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+			return;
+		}
+	}
 
 	/* BOLT #4:
 	 *

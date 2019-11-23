@@ -14,12 +14,14 @@ struct sha256;
  * @hin: the input HTLC which is offering to pay.
  * @payment_hash: hash of preimage they want.
  * @msat: amount they offer to pay.
+ * @payment_secret: they payment secret they sent, if any.
  *
  * Either calls fulfill_htlc() or fail_htlcs().
  */
 void invoice_try_pay(struct lightningd *ld,
 		     struct htlc_in *hin,
 		     const struct sha256 *payment_hash,
-		     const struct amount_msat msat);
+		     const struct amount_msat msat,
+		     const struct secret *payment_secret);
 
 #endif /* LIGHTNING_LIGHTNINGD_INVOICE_H */

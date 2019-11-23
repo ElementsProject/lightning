@@ -302,7 +302,7 @@ static char *decode_n(struct bolt11 *b11,
         return NULL;
 }
 
-/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #11:
+/* BOLT-412c260b537be95b105ae2062463f1d992024ca7 #11:
  *
  * * `s` (16): `data_length` 52. This 256-bit secret prevents
  *    forwarding nodes from probing the payment recipient.
@@ -317,7 +317,7 @@ static char *decode_s(struct bolt11 *b11,
                 return unknown_field(b11, hu5, data, data_len, 's',
                                      data_length);
 
-        /* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #11:
+        /* BOLT-412c260b537be95b105ae2062463f1d992024ca7 #11:
 	 *
 	 * A reader... MUST skip over unknown fields, OR an `f` field
 	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do

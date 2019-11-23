@@ -207,7 +207,8 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 void invoice_try_pay(struct lightningd *ld UNNEEDED,
 		     struct htlc_in *hin UNNEEDED,
 		     const struct sha256 *payment_hash UNNEEDED,
-		     const struct amount_msat msat UNNEEDED)
+		     const struct amount_msat msat UNNEEDED,
+		     const struct secret *payment_secret UNNEEDED)
 { fprintf(stderr, "invoice_try_pay called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
