@@ -5,7 +5,7 @@ from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
 from threading import Event
-from utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc, EXPERIMENTAL_FEATURES
+from utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc, EXPERIMENTAL_FEATURES, env
 from ephemeral_port_reserve import reserve
 
 import json
@@ -1849,3 +1849,134 @@ def test_config_in_subdir(node_factory):
 
     l1.daemon.opts['conf'] = os.path.join(l1.daemon.opts.get("lightning-dir"), "config")
     l1.start()
+
+
+def restore_valgrind(node, subdir):
+    """Move valgrind files back to where fixtures expect them"""
+    for f in os.listdir(subdir):
+        if f.startswith('valgrind-errors.'):
+            shutil.move(os.path.join(subdir, f),
+                        node.daemon.opts.get("lightning-dir"))
+
+
+@unittest.skipIf(env('COMPAT') != 1, "Upgrade code requires COMPAT_V073")
+def test_testnet_upgrade(node_factory):
+    """Test that we move files correctly on old testnet upgrade (even without specifying the network)"""
+    l1 = node_factory.get_node(start=False, may_fail=True)
+
+    basedir = l1.daemon.opts.get("lightning-dir")
+    # Make it old-style
+    os.rename(os.path.join(basedir, TEST_NETWORK, 'hsm_secret'),
+              os.path.join(basedir, 'hsm_secret'))
+    shutil.rmtree(os.path.join(basedir, TEST_NETWORK))
+    # Add (empty!) config file; it should be left in place.
+    with open(os.path.join(basedir, 'config'), 'wb') as f:
+        f.write(b"# Test config file")
+    with open(os.path.join(basedir, 'another_file'), 'wb') as f:
+        pass
+
+    # We need to allow this, otherwise no upgrade!
+    del l1.daemon.opts['allow-deprecated-apis']
+    # We want to test default network
+    del l1.daemon.opts['network']
+
+    # Wrong chain, will fail to start, but that's OK.
+    with pytest.raises(ValueError):
+        l1.start()
+
+    netdir = os.path.join(basedir, "testnet")
+    assert l1.daemon.is_in_log("Moving hsm_secret into {}/".format(netdir))
+    assert l1.daemon.is_in_log("Moving another_file into {}/".format(netdir))
+    assert not l1.daemon.is_in_log("Moving config into {}/".format(netdir))
+    assert not l1.daemon.is_in_log("Moving lightningd-testnet.pid into {}/"
+                                   .format(netdir))
+
+    # Should move these
+    assert os.path.isfile(os.path.join(netdir, "hsm_secret"))
+    assert not os.path.isfile(os.path.join(basedir, "hsm_secret"))
+    assert os.path.isfile(os.path.join(netdir, "another_file"))
+    assert not os.path.isfile(os.path.join(basedir, "another_file"))
+
+    # Should NOT move these
+    assert not os.path.isfile(os.path.join(netdir, "lightningd-testnet.pid"))
+    assert os.path.isfile(os.path.join(basedir, "lightningd-testnet.pid"))
+    assert not os.path.isfile(os.path.join(netdir, "config"))
+    assert os.path.isfile(os.path.join(basedir, "config"))
+
+    restore_valgrind(l1, netdir)
+
+
+@unittest.skipIf(env('COMPAT') != 1, "Upgrade code requires COMPAT_V073")
+def test_regtest_upgrade(node_factory):
+    """Test that we move files correctly on regtest upgrade"""
+    l1 = node_factory.get_node(start=False)
+
+    basedir = l1.daemon.opts.get("lightning-dir")
+    netdir = os.path.join(basedir, TEST_NETWORK)
+
+    # Make it old-style
+    os.rename(os.path.join(basedir, TEST_NETWORK, 'hsm_secret'),
+              os.path.join(basedir, 'hsm_secret'))
+    shutil.rmtree(os.path.join(basedir, TEST_NETWORK))
+    # Add config file which tells us it's regtest; it should be left in place.
+    with open(os.path.join(basedir, 'config'), 'wb') as f:
+        f.write(bytes("network={}".format(TEST_NETWORK), "utf-8"))
+    with open(os.path.join(basedir, 'another_file'), 'wb') as f:
+        pass
+
+    # We need to allow this, otherwise no upgrade!
+    del l1.daemon.opts['allow-deprecated-apis']
+    # It should get this from the config file.
+    del l1.daemon.opts['network']
+
+    l1.start()
+
+    assert l1.daemon.is_in_log("Moving hsm_secret into {}/".format(netdir))
+    assert l1.daemon.is_in_log("Moving another_file into {}/".format(netdir))
+    assert not l1.daemon.is_in_log("Moving config into {}/".format(netdir))
+    assert not l1.daemon.is_in_log("Moving lightningd-testnet.pid into {}/"
+                                   .format(netdir))
+
+    # Should move these
+    assert os.path.isfile(os.path.join(netdir, "hsm_secret"))
+    assert not os.path.isfile(os.path.join(basedir, "hsm_secret"))
+    assert os.path.isfile(os.path.join(netdir, "another_file"))
+    assert not os.path.isfile(os.path.join(basedir, "another_file"))
+
+    # Should NOT move these
+    assert not os.path.isfile(os.path.join(netdir, "lightningd-{}.pid".format(TEST_NETWORK)))
+    assert os.path.isfile(os.path.join(basedir, "lightningd-{}.pid".format(TEST_NETWORK)))
+    assert not os.path.isfile(os.path.join(netdir, "config"))
+    assert os.path.isfile(os.path.join(basedir, "config"))
+
+    # Should restart fine
+    l1.restart()
+
+    restore_valgrind(l1, netdir)
+
+
+@unittest.skipIf(VALGRIND, "valgrind files can't be written since we rmdir")
+@unittest.skipIf(TEST_NETWORK != "regtest", "needs bitcoin mainnet")
+def test_new_node_is_mainnet(node_factory):
+    """Test that an empty directory causes us to be on mainnet"""
+    l1 = node_factory.get_node(start=False, may_fail=True)
+
+    basedir = l1.daemon.opts.get("lightning-dir")
+    netdir = os.path.join(basedir, "bitcoin")
+
+    shutil.rmtree(basedir)
+
+    # Don't suppress upgrade (though it shouldn't happen!)
+    del l1.daemon.opts['allow-deprecated-apis']
+    # We want to test default network
+    del l1.daemon.opts['network']
+
+    # Wrong chain, will fail to start, but that's OK.
+    with pytest.raises(ValueError):
+        l1.start()
+
+    # Should create these
+    assert os.path.isfile(os.path.join(netdir, "hsm_secret"))
+    assert not os.path.isfile(os.path.join(basedir, "hsm_secret"))
+    assert not os.path.isfile(os.path.join(netdir, "lightningd-bitcoin.pid"))
+    assert os.path.isfile(os.path.join(basedir, "lightningd-bitcoin.pid"))
