@@ -655,7 +655,7 @@ send_payment(struct lightningd *ld,
 	struct channel *channel;
 	struct sphinx_path *path;
 	struct pubkey pubkey;
-	bool ret;
+	bool final_tlv, ret;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(ld->topology) + 1;
@@ -682,8 +682,20 @@ send_payment(struct lightningd *ld,
 	ret = pubkey_from_node_id(&pubkey, &ids[i]);
 	assert(ret);
 
+	final_tlv = should_use_tlv(route[i].style);
+	/* BOLT-3a09bc54f8443c4757b47541a5310aff6377ee21 #4:
+	 * - Unless `node_announcement`, `init` message or the
+	 *   [BOLT #11](11-payment-encoding.md#tagged-fields) offers feature
+	 *   `var_onion_optin`:
+	 *    - MUST use the legacy payload format instead.
+	 */
+	/* In our case, we don't use it unless we also have a payment_secret;
+	 * everyone should support this eventually */
+	if (!final_tlv && payment_secret)
+		final_tlv = true;
+
 	if (!sphinx_add_final_hop(path, &pubkey,
-				  should_use_tlv(route[i].style),
+				  final_tlv,
 				  route[i].amount,
 				  base_expiry + route[i].delay,
 				  route[i].amount, payment_secret)) {
