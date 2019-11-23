@@ -3,6 +3,10 @@
 #include "config.h"
 #include <ccan/tal/tal.h>
 
+/* Put things we're going to get rid of behind this, so testers can catch
+ * them early. */
+extern bool deprecated_apis;
+
 /* Helper for options which are tal() strings. */
 char *opt_set_talstr(const char *arg, char **p);
 

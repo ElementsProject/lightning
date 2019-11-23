@@ -9,7 +9,6 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/configdir.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/json_command.h>
@@ -41,8 +40,6 @@
 #include <termios.h>
 #include <unistd.h>
 #include <wire/wire.h>
-
-bool deprecated_apis = true;
 
 /* Declare opt_add_addr here, because we we call opt_add_addr
  * and opt_announce_addr vice versa
@@ -707,12 +704,6 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_arg("--disable-plugin", opt_disable_plugin,
 			       NULL, ld,
 			       "Disable a particular plugin by filename/name");
-
-	/* This can effect commandline parsing */
-	opt_register_early_arg("--allow-deprecated-apis",
-			       opt_set_bool_arg, opt_show_bool,
-			       &deprecated_apis,
-			       "Enable deprecated options, JSONRPC commands, fields, etc.");
 
 	/* Early, as it suppresses DNS lookups from cmdline too. */
 	opt_register_early_arg("--always-use-proxy",
