@@ -912,7 +912,8 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	/*~ This does enough parsing to get us the base configuration options */
 	initial_config_opts(ld, argc, argv,
 			    &ld->config_filename,
-			    &ld->config_dir,
+			    &ld->config_basedir,
+			    &ld->config_netdir,
 			    &ld->rpc_filename);
 
 	/* Copy in default config, to be modified by further options */
@@ -923,7 +924,7 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Now we can initialize wallet_dsn */
 	ld->wallet_dsn = tal_fmt(ld, "sqlite3://%s/lightningd.sqlite3",
-				 ld->config_dir);
+				 ld->config_netdir);
 
 	/* Set default PID file name to be per-network */
 	ld->pidfile = tal_fmt(ld, "lightningd-%s.pid",
@@ -931,15 +932,20 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/*~ Move into config dir: this eases path manipulation and also
 	 * gives plugins a good place to store their stuff. */
-	if (chdir(ld->config_dir) != 0) {
+	if (chdir(ld->config_netdir) != 0) {
 		log_unusual(ld->log, "Creating configuration directory %s",
-			    ld->config_dir);
-		if (mkdir(ld->config_dir, 0700) != 0)
+			    ld->config_netdir);
+		/* We assume home dir exists, so only create two. */
+		if (mkdir(ld->config_basedir, 0700) != 0 && errno != EEXIST)
 			fatal("Could not make directory %s: %s",
-			      ld->config_dir, strerror(errno));
-		if (chdir(ld->config_dir) != 0)
+			      ld->config_basedir,
+			      strerror(errno));
+		if (mkdir(ld->config_netdir, 0700) != 0)
+			fatal("Could not make directory %s: %s",
+			      ld->config_netdir, strerror(errno));
+		if (chdir(ld->config_netdir) != 0)
 			fatal("Could not change directory %s: %s",
-			      ld->config_dir, strerror(errno));
+			      ld->config_netdir, strerror(errno));
 	}
 
 	/*~ The ccan/opt code requires registration then parsing; we
@@ -948,7 +954,7 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Now look inside config file(s), but only handle the early
 	 * options (testnet, plugins etc), others may be added on-demand */
-	parse_config_files(ld->config_filename, ld->config_dir, true);
+	parse_config_files(ld->config_filename, ld->config_basedir, true);
 
 	/* Early cmdline options now override config file options. */
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
@@ -962,7 +968,7 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	/* Now look for config file, but only handle non-early
 	 * options, early ones have been parsed in
 	 * handle_early_opts */
-	parse_config_files(ld->config_filename, ld->config_dir, false);
+	parse_config_files(ld->config_filename, ld->config_basedir, false);
 
 	/* Now parse cmdline, which overrides config. */
 	opt_parse(&argc, argv, opt_log_stderr_exit);

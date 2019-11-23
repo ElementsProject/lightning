@@ -85,8 +85,8 @@ struct lightningd {
 
 	int pid_fd;
 
-	/* Our config dir, and rpc file */
-	char *config_dir;
+	/* Our config basedir, network directory, and rpc file */
+	char *config_basedir, *config_netdir;
 
 	/* Location of the RPC socket. */
 	char *rpc_filename;

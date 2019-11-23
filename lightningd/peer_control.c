@@ -1708,7 +1708,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 				wallet_total_forward_fees(cmd->ld->wallet),
 				"msatoshi_fees_collected",
 				"fees_collected_msat");
-    json_add_string(response, "lightning-dir", cmd->ld->config_dir);
+    json_add_string(response, "lightning-dir", cmd->ld->config_netdir);
 
     if (!cmd->ld->topology->bitcoind->synced)
 	    json_add_string(response, "warning_bitcoind_sync",

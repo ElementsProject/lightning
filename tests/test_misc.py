@@ -77,7 +77,7 @@ def test_db_upgrade(node_factory):
     assert(upgrades[0]['lightning_version'] == version)
 
     # Try resetting to earlier db state.
-    os.unlink(os.path.join(l1.daemon.lightning_dir, "lightningd.sqlite3"))
+    os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
     l1.db_manip("CREATE TABLE version (version INTEGER);")
     l1.db_manip("INSERT INTO version VALUES (1);")
 
@@ -714,7 +714,7 @@ def test_address(node_factory):
 
     # Now test UNIX domain binding.
     l1.stop()
-    l1.daemon.opts['bind-addr'] = os.path.join(l1.daemon.lightning_dir, "sock")
+    l1.daemon.opts['bind-addr'] = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "sock")
     l1.start()
 
     l2 = node_factory.get_node()
@@ -723,7 +723,7 @@ def test_address(node_factory):
     # 'addr' with local socket works too.
     l1.stop()
     del l1.daemon.opts['bind-addr']
-    l1.daemon.opts['addr'] = os.path.join(l1.daemon.lightning_dir, "sock")
+    l1.daemon.opts['addr'] = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "sock")
     # start expects a port, so we open-code here.
     l1.daemon.start()
 
@@ -851,6 +851,7 @@ def test_cli(node_factory):
     l1 = node_factory.get_node()
 
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    'help']).decode('utf-8')
@@ -859,6 +860,7 @@ def test_cli(node_factory):
 
     # Test JSON output.
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J',
@@ -869,6 +871,7 @@ def test_cli(node_factory):
 
     # Test keyword input (autodetect)
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J',
@@ -878,6 +881,7 @@ def test_cli(node_factory):
 
     # Test keyword input (forced)
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '-k',
@@ -887,6 +891,7 @@ def test_cli(node_factory):
 
     # Test ordered input (autodetect)
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J',
@@ -896,6 +901,7 @@ def test_cli(node_factory):
 
     # Test ordered input (forced)
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '-o',
@@ -908,6 +914,7 @@ def test_cli(node_factory):
         # This will error due to missing parameters.
         # We want to check if lightningd will crash.
         out = subprocess.check_output(['cli/lightning-cli',
+                                       '--network={}'.format(TEST_NETWORK),
                                        '--lightning-dir={}'
                                        .format(l1.daemon.lightning_dir),
                                        '-J', '-o',
@@ -918,6 +925,7 @@ def test_cli(node_factory):
     # Test it escapes JSON completely in both method and params.
     # cli turns " into \", reply turns that into \\\".
     out = subprocess.run(['cli/lightning-cli',
+                          '--network={}'.format(TEST_NETWORK),
                           '--lightning-dir={}'
                           .format(l1.daemon.lightning_dir),
                           'x"[]{}'],
@@ -925,11 +933,13 @@ def test_cli(node_factory):
     assert 'Unknown command \'x\\\\\\"[]{}\'' in out.stdout.decode('utf-8')
 
     subprocess.check_output(['cli/lightning-cli',
+                             '--network={}'.format(TEST_NETWORK),
                              '--lightning-dir={}'
                              .format(l1.daemon.lightning_dir),
                              'invoice', '123000', 'l"[]{}', 'd"[]{}']).decode('utf-8')
     # Check label is correct, and also that cli's keyword parsing works.
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-k',
@@ -961,23 +971,26 @@ def test_daemon_option(node_factory):
     l1.stop()
 
     os.unlink(l1.rpc.socket_path)
-    subprocess.run(l1.daemon.cmd_line + ['--daemon', '--log-file={}/log-daemon'.format(l1.daemon.lightning_dir)], env=l1.daemon.env,
+    logfname = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "log-daemon")
+    subprocess.run(l1.daemon.cmd_line + ['--daemon', '--log-file={}'.format(logfname)], env=l1.daemon.env,
                    check=True)
 
     # Test some known output (wait for rpc to be ready)
     wait_for(lambda: os.path.exists(l1.rpc.socket_path))
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    'help']).decode('utf-8')
     assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
 
     subprocess.run(['cli/lightning-cli',
+                    '--network={}'.format(TEST_NETWORK),
                     '--lightning-dir={}'.format(l1.daemon.lightning_dir),
                     'stop'], check=True)
 
     # It should not complain that subdaemons aren't children.
-    with open('{}/log-daemon'.format(l1.daemon.lightning_dir), 'r') as f:
+    with open(logfname, 'r') as f:
         assert 'No child process' not in f.read()
 
 
@@ -1374,8 +1387,8 @@ def test_feerates(node_factory):
 def test_logging(node_factory):
     # Since we redirect, node.start() will fail: do manually.
     l1 = node_factory.get_node(options={'log-file': 'logfile'}, may_fail=True, start=False)
-    logpath = os.path.join(l1.daemon.lightning_dir, 'logfile')
-    logpath_moved = os.path.join(l1.daemon.lightning_dir, 'logfile_moved')
+    logpath = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'logfile')
+    logpath_moved = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'logfile_moved')
 
     l1.daemon.rpcproxy.start()
     l1.daemon.opts['bitcoin-rpcport'] = l1.daemon.rpcproxy.rpcport
@@ -1402,7 +1415,7 @@ def test_crashlog(node_factory):
     l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
 
     def has_crash_log(n):
-        files = os.listdir(n.daemon.lightning_dir)
+        files = os.listdir(os.path.join(n.daemon.lightning_dir, TEST_NETWORK))
         crashfiles = [f for f in files if 'crash.log' in f]
         return len(crashfiles) > 0
 
@@ -1419,7 +1432,7 @@ def test_configfile_before_chdir(node_factory):
     olddir = os.getcwd()
     # as lightning_dir ends in /, basename and dirname don't work as expected.
     os.chdir(os.path.dirname(l1.daemon.lightning_dir[:-1]))
-    config = os.path.join(os.path.basename(l1.daemon.lightning_dir[:-1]), "test_configfile")
+    config = os.path.join(os.path.basename(l1.daemon.lightning_dir[:-1]), TEST_NETWORK, "test_configfile")
     # Test both an early arg and a normal arg.
     with open(config, 'wb') as f:
         f.write(b'always-use-proxy=true\n')
@@ -1788,7 +1801,6 @@ def test_config_in_subdir(node_factory):
     l1 = node_factory.get_node(start=False)
 
     subdir = os.path.join(l1.daemon.opts.get("lightning-dir"), "regtest")
-    os.makedirs(subdir)
     with open(os.path.join(subdir, "config"), 'w') as f:
         f.write('alias=test_config_in_subdir')
     l1.start()

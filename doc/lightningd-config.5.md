@@ -61,6 +61,7 @@ Bitcoin control options:
 
  **network**=*NETWORK*
 Select the network parameters (*bitcoin*, *testnet*, or *regtest*).
+This is not valid within the per-network configuration file.
 
  **testnet**
 Alias for *network=testnet*.
@@ -102,7 +103,9 @@ wrong.
 
  **lightning-dir**=*DIR*
 Sets the working directory. All files (except *--conf* and
-*--lightning-dir* on the command line) are relative to this.
+*--lightning-dir* on the command line) are relative to this.  This
+is only valid on the command-line, or in a configuration file specified
+by *--conf*.
 
  **pid-file**=*PATH*
 Specify pid file to write to.
@@ -155,7 +158,7 @@ Sets configuration file, and disable reading the normal general and network
 ones. If this is a relative path, it is relative to the starting directory, not
 **lightning-dir** (unlike other paths). *PATH* must exist and be
 readable (we allow missing files in the default case). Using this inside
-a configuration file is meaningless.
+a configuration file is invalid.
 
  **wallet**=*DSN*
 Identify the location of the wallet. This is a fully qualified data source

@@ -65,6 +65,7 @@ Bitcoin control options:
 
  \fBnetwork\fR=\fINETWORK\fR
 Select the network parameters (\fIbitcoin\fR, \fItestnet\fR, or \fIregtest\fR)\.
+This is not valid within the per-network configuration file\.
 
 
  \fBtestnet\fR
@@ -117,7 +118,9 @@ wrong\.
 
  \fBlightning-dir\fR=\fIDIR\fR
 Sets the working directory\. All files (except \fI--conf\fR and
-\fI--lightning-dir\fR on the command line) are relative to this\.
+\fI--lightning-dir\fR on the command line) are relative to this\.  This
+is only valid on the command-line, or in a configuration file specified
+by \fI--conf\fR\.
 
 
  \fBpid-file\fR=\fIPATH\fR
@@ -196,7 +199,7 @@ Sets configuration file, and disable reading the normal general and network
 ones\. If this is a relative path, it is relative to the starting directory, not
 \fBlightning-dir\fR (unlike other paths)\. \fIPATH\fR must exist and be
 readable (we allow missing files in the default case)\. Using this inside
-a configuration file is meaningless\.
+a configuration file is invalid\.
 
 
  \fBwallet\fR=\fIDSN\fR

@@ -204,14 +204,14 @@ void setup_option_allocators(void)
 }
 
 /* network is NULL for parsing top-level config file. */
-static void parse_implied_config_file(const char *config_dir,
+static void parse_implied_config_file(const char *config_basedir,
 				      const char *network,
 				      bool early)
 {
 	const char *dir, *filename;
 
-	if (config_dir)
-		dir = path_join(NULL, take(path_cwd(NULL)), config_dir);
+	if (config_basedir)
+		dir = path_join(NULL, take(path_cwd(NULL)), config_basedir);
 	else
 		dir = default_base_configdir(NULL);
 
@@ -227,7 +227,7 @@ static void parse_implied_config_file(const char *config_dir,
  * Otherwise we read <lightning-dir>/config then <lightning-dir>/<network>/config
  */
 void parse_config_files(const char *config_filename,
-			const char *config_dir,
+			const char *config_basedir,
 			bool early)
 {
 	if (config_filename) {
@@ -235,14 +235,15 @@ void parse_config_files(const char *config_filename,
 		return;
 	}
 
-	parse_implied_config_file(config_dir, NULL, early);
-	parse_implied_config_file(config_dir, chainparams->network_name, early);
+	parse_implied_config_file(config_basedir, NULL, early);
+	parse_implied_config_file(config_basedir, chainparams->network_name, early);
 }
 
 void initial_config_opts(const tal_t *ctx,
 			 int argc, char *argv[],
 			 char **config_filename,
-			 char **config_dir,
+			 char **config_basedir,
+			 char **config_netdir,
 			 char **rpc_filename)
 {
 	options_ctx = ctx;
@@ -255,11 +256,11 @@ void initial_config_opts(const tal_t *ctx,
 			       "Specify configuration file");
 
 	/* Cmdline can also set lightning-dir. */
-	*config_dir = NULL;
+	*config_basedir = NULL;
 	opt_register_early_arg("--lightning-dir=<dir>",
-			       opt_set_talstr, NULL,
-			       config_dir,
-			       "Set working directory. All other files are relative to this");
+			       opt_set_abspath, NULL,
+			       config_basedir,
+			       "Set base directory: network-specific subdirectory is under here");
 
 	/* Handle --version (and exit) here too */
 	opt_register_version();
@@ -277,19 +278,19 @@ void initial_config_opts(const tal_t *ctx,
 	if (!*config_filename) {
 		opt_register_early_arg("--lightning-dir=<dir>",
 				       opt_ignore, opt_show_charp,
-				       config_dir,
-				       "Set working directory. All other files are relative to this");
+				       config_basedir,
+				       "Set base directory: network-specific subdirectory is under here");
 	} else {
 		opt_register_early_arg("--lightning-dir=<dir>",
-				       opt_set_talstr, NULL,
-				       config_dir,
-				       "Set working directory. All other files are relative to this");
+				       opt_set_abspath, NULL,
+				       config_basedir,
+				       "Set base directory: network-specific subdirectory is under here");
 	}
 
 	/* Now, config file (or cmdline) can set network and lightning-dir */
 
 	/* We need to know network early, so we can set defaults (which normal
-	 * options can change) and default config_dir */
+	 * options can change) and default config_netdir */
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       NULL,
 			       "Select the network parameters (bitcoin, testnet,"
@@ -308,7 +309,7 @@ void initial_config_opts(const tal_t *ctx,
 	if (*config_filename)
 		parse_include(*config_filename, true, true);
 	else
-		parse_implied_config_file(*config_dir, NULL, true);
+		parse_implied_config_file(*config_basedir, NULL, true);
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
 	/* We use a global (in common/utils.h) for the chainparams.
@@ -316,11 +317,14 @@ void initial_config_opts(const tal_t *ctx,
 	if (!chainparams)
 		chainparams = chainparams_for_network("testnet");
 
-	if (!*config_dir)
-		*config_dir = default_base_configdir(ctx);
+	if (!*config_basedir)
+		*config_basedir = default_base_configdir(ctx);
+
+	*config_netdir
+		= path_join(NULL, *config_basedir, chainparams->network_name);
 
 	/* Make sure it's absolute */
-	*config_dir = path_join(ctx, take(path_cwd(NULL)), take(*config_dir));
+	*config_netdir = path_join(ctx, take(path_cwd(NULL)), take(*config_netdir));
 
 	/* Now, reset and ignore those options from now on. */
 	opt_free_table();
@@ -330,8 +334,8 @@ void initial_config_opts(const tal_t *ctx,
 			       "Specify configuration file");
 	opt_register_early_arg("--lightning-dir=<dir>",
 			       opt_ignore, opt_show_charp,
-			       config_dir,
-			       "Set working directory. All other files are relative to this");
+			       config_basedir,
+			       "Set base directory: network-specific subdirectory is under here");
 	opt_register_early_arg("--network", opt_ignore, opt_show_network,
 			       NULL,
 			       "Select the network parameters (bitcoin, testnet,"
