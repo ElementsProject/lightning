@@ -641,10 +641,6 @@ struct htlc_accepted_hook_payload {
 	struct htlc_in *hin;
 	struct channel *channel;
 	struct lightningd *ld;
-	struct amount_msat *amt_to_forward;
-	u32 *outgoing_cltv_value;
-	/* NULL if this is node is final */
-	struct short_channel_id *short_channel_id;
 	u8 *next_onion;
 };
 
@@ -748,13 +744,14 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 		json_add_string(s, "type", "tlv");
 	}
 
-	if (p->short_channel_id)
+	if (rs->forward_channel)
 		json_add_short_channel_id(s, "short_channel_id",
-					  p->short_channel_id);
-	if (p->amt_to_forward)
-		json_add_amount_msat_only(s, "forward_amount", *p->amt_to_forward);
-	if (p->outgoing_cltv_value)
-		json_add_u32(s, "outgoing_cltv_value", *p->outgoing_cltv_value);
+					  rs->forward_channel);
+	if (rs->amt_to_forward)
+		json_add_amount_msat_only(s, "forward_amount",
+					  *rs->amt_to_forward);
+	if (rs->outgoing_cltv)
+		json_add_u32(s, "outgoing_cltv_value", *rs->outgoing_cltv);
 	json_add_hex_talarr(s, "next_onion", p->next_onion);
 	json_add_secret(s, "shared_secret", hin->shared_secret);
 	json_object_end(s);
@@ -833,9 +830,9 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
 			gr->next_onion = serialize_onionpacket(gr, rs->next);
-			gr->next_channel = *request->short_channel_id;
-			gr->amt_to_forward = *request->amt_to_forward;
-			gr->outgoing_cltv_value = *request->outgoing_cltv_value;
+			gr->next_channel = *rs->forward_channel;
+			gr->amt_to_forward = *rs->amt_to_forward;
+			gr->outgoing_cltv_value = *rs->outgoing_cltv;
 			gr->hin = hin;
 
 			req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
@@ -846,8 +843,8 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 				 channel_resolve_reply, gr);
 		} else
 			handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
-					*request->amt_to_forward,
-					*request->outgoing_cltv_value);
+					*rs->amt_to_forward,
+					*rs->outgoing_cltv);
 		break;
 	case htlc_accepted_fail:
 		log_debug(channel->log,
@@ -858,7 +855,7 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 				   failure_code);
 			failure_code = WIRE_TEMPORARY_NODE_FAILURE;
 		}
-		fail_in_htlc(hin, failure_code, NULL, request->short_channel_id);
+		fail_in_htlc(hin, failure_code, NULL, rs->forward_channel);
 		break;
 	case htlc_accepted_resolve:
 		fulfill_htlc(hin, &payment_preimage);
@@ -975,9 +972,6 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 	hook_payload->ld = ld;
 	hook_payload->hin = hin;
 	hook_payload->channel = channel;
-	hook_payload->amt_to_forward = rs->amt_to_forward;
-	hook_payload->outgoing_cltv_value = rs->outgoing_cltv;
-	hook_payload->short_channel_id = rs->forward_channel;
 	hook_payload->next_onion = serialize_onionpacket(hook_payload, rs->next);
 
 	plugin_hook_call_htlc_accepted(ld, hook_payload, hook_payload);
