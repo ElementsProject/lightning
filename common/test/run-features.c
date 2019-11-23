@@ -87,7 +87,7 @@ int main(void)
 	assert(features_unsupported(bits) == -1);
 
 	/* We must support our own features. */
-	lf = get_offered_features(tmpctx);
+	lf = get_offered_initfeatures(tmpctx);
 	assert(features_unsupported(lf) == -1);
 
 	/* We can add random odd features, no problem. */
