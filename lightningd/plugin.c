@@ -971,7 +971,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 	struct jsonrpc_request *req;
 
 	plugins->pending_manifests = 0;
-	plugins->default_dir = path_join(plugins, plugins->ld->config_dir, "plugins");
+	plugins->default_dir = path_join(plugins, plugins->ld->config_basedir, "plugins");
 	plugins_add_default_dir(plugins);
 
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
@@ -1049,7 +1049,7 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 
 	/* Add .params.configuration */
 	json_object_start(req->stream, "configuration");
-	json_add_string(req->stream, "lightning-dir", ld->config_dir);
+	json_add_string(req->stream, "lightning-dir", ld->config_netdir);
 	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
 	json_add_bool(req->stream, "startup", plugin->plugins->startup);
 	json_add_string(req->stream, "network", chainparams->network_name);

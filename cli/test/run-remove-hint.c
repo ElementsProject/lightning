@@ -17,6 +17,7 @@ int test_connect(int sockfd, const struct sockaddr *addr,
 int test_getpid(void);
 int test_printf(const char *format, ...);
 int test_fputc(int c, FILE *stream);
+int test_chdir(const char *path);
 
 #define main test_main
 #define read test_read
@@ -25,6 +26,7 @@ int test_fputc(int c, FILE *stream);
 #define getpid test_getpid
 #define printf test_printf
 #define fputc test_fputc
+#define chdir test_chdir
 
   #include "../lightning-cli.c"
 #undef main
@@ -106,6 +108,11 @@ int test_fputc(int c, FILE *stream)
 	return (unsigned)c;
 }
 
+int test_chdir(const char *path)
+{
+	return 0;
+}
+
 int main(int argc UNUSED, char *argv[])
 {
 	setup_locale();
@@ -114,7 +121,6 @@ int main(int argc UNUSED, char *argv[])
 
 	output = tal_strdup(NULL, "");
 	assert(test_main(3, fake_argv) == 0);
-	assert(!taken_any());
 
 	assert(streq(output, "channels=\n"
 		     "\n"
@@ -130,6 +136,7 @@ int main(int argc UNUSED, char *argv[])
 		     "num_channels=1\n"
 		     "num_connected=1\n"));
 	tal_free(output);
+	assert(!taken_any());
 	take_cleanup();
 	return 0;
 }

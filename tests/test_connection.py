@@ -429,8 +429,8 @@ def test_connect_stresstest(node_factory, executor):
 
     # Hack l3 into a clone of l2, to stress reconnect code.
     l3.stop()
-    shutil.copyfile(os.path.join(l2.daemon.lightning_dir, 'hsm_secret'),
-                    os.path.join(l3.daemon.lightning_dir, 'hsm_secret'))
+    shutil.copyfile(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'hsm_secret'),
+                    os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, 'hsm_secret'))
     l3.start()
     l3.info = l3.rpc.getinfo()
 
@@ -1847,7 +1847,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2.stop()
 
     # Save copy of the db.
-    dbpath = os.path.join(l2.daemon.lightning_dir, "lightningd.sqlite3")
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
     orig_db = open(dbpath, "rb").read()
     l2.start()
 

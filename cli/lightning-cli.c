@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
 	const tal_t *ctx = tal(NULL, char);
-	char *config_filename, *lightning_dir, *rpc_filename;
+	char *config_filename, *lightning_dir, *net_dir, *rpc_filename;
 	jsmn_parser parser;
 	int parserr;
 	enum format format = DEFAULT_FORMAT;
@@ -446,7 +446,8 @@ int main(int argc, char *argv[])
 	setup_option_allocators();
 
 	initial_config_opts(ctx, argc, argv,
-			    &config_filename, &lightning_dir, &rpc_filename);
+			    &config_filename, &lightning_dir, &net_dir,
+			    &rpc_filename);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");
@@ -491,9 +492,9 @@ int main(int argc, char *argv[])
 		tal_free(page);
 	}
 
-	if (chdir(lightning_dir) != 0)
+	if (chdir(net_dir) != 0)
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Moving into '%s'",
-		    lightning_dir);
+		    net_dir);
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (strlen(rpc_filename) + 1 > sizeof(addr.sun_path))
@@ -627,8 +628,6 @@ int main(int argc, char *argv[])
 		default:
 			abort();
 		}
-		tal_free(lightning_dir);
-		tal_free(rpc_filename);
 		tal_free(ctx);
 		opt_free_table();
 		return 0;
@@ -641,8 +640,6 @@ int main(int argc, char *argv[])
 		print_json(resp, error, "");
 		printf("\n");
 	}
-	tal_free(lightning_dir);
-	tal_free(rpc_filename);
 	tal_free(ctx);
 	opt_free_table();
 	return 1;

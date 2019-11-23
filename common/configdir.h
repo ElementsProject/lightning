@@ -13,14 +13,15 @@ void setup_option_allocators(void);
 void initial_config_opts(const tal_t *ctx,
 			 int argc, char *argv[],
 			 char **config_filename,
-			 char **config_dir,
+			 char **config_basedir,
+			 char **config_netdir,
 			 char **rpc_filename);
 
 /* If they specify --conf, we just read that.
- * If they specify --lightning-dir, we just read <lightning_dir>/config.
- * Otherwise, we read ../config (toplevel), and config (network-level) */
+ * Otherwise, we read basedir/config (toplevel), and basedir/<network>/config
+ * (network-level) */
 void parse_config_files(const char *config_filename,
-			const char *config_dir,
+			const char *config_basedir,
 			bool early);
 
 /* For listconfigs to access. */

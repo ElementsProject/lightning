@@ -2,7 +2,7 @@ from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, EXPERIMENTAL_FEATURES
+from utils import DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, EXPERIMENTAL_FEATURES, TEST_NETWORK
 
 import json
 import os
@@ -316,7 +316,7 @@ def test_db_hook(node_factory, executor):
     l1.stop()
 
     # Databases should be identical.
-    db1 = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, 'lightningd.sqlite3'))
+    db1 = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'lightningd.sqlite3'))
     db2 = sqlite3.connect(dbfile)
 
     assert [x for x in db1.iterdump()] == [x for x in db2.iterdump()]
@@ -333,6 +333,7 @@ def test_utf8_passthrough(node_factory, executor):
 
     # Now, try native.
     out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    'utf8', 'ナンセンス 1杯']).decode('utf-8')

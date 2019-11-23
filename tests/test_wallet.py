@@ -611,7 +611,7 @@ def test_hsm_secret_encryption(node_factory):
 def test_hsmtool_secret_decryption(node_factory):
     l1 = node_factory.get_node()
     password = "reckless\n"
-    hsm_path = os.path.join(l1.daemon.lightning_dir, "hsm_secret")
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     # We need to simulate a terminal to use termios in `lightningd`.
     master_fd, slave_fd = os.openpty()
 

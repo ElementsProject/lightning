@@ -15,6 +15,7 @@ int test_connect(int sockfd, const struct sockaddr *addr,
 		 socklen_t addrlen);
 int test_getpid(void);
 int test_printf(const char *format, ...);
+int test_chdir(const char *path);
 
 #define main test_main
 #define read test_read
@@ -22,6 +23,7 @@ int test_printf(const char *format, ...);
 #define connect test_connect
 #define getpid test_getpid
 #define printf test_printf
+#define chdir test_chdir
 
   #include "../lightning-cli.c"
 #undef main
@@ -75,6 +77,11 @@ int test_getpid(void)
 }
 
 int test_printf(const char *fmt UNUSED, ...)
+{
+	return 0;
+}
+
+int test_chdir(const char *path)
 {
 	return 0;
 }
@@ -140,5 +147,7 @@ int main(int argc UNUSED, char *argv[])
 	max_read_return = -1;
 	assert(test_main(3, fake_argv) == 0);
 	tal_free(response);
+	assert(!taken_any());
+	take_cleanup();
 	return 0;
 }

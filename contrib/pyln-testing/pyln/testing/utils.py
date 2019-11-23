@@ -478,7 +478,7 @@ class LightningD(TailableProc):
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
-            'network': env('TEST_NETWORK', 'regtest'),
+            'network': TEST_NETWORK,
             'ignore-fee-limits': 'false',
             'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
             'bitcoin-rpcpassword': BITCOIND_CONFIG['rpcpassword'],
@@ -487,13 +487,13 @@ class LightningD(TailableProc):
         for k, v in opts.items():
             self.opts[k] = v
 
-        if not os.path.exists(lightning_dir):
-            os.makedirs(lightning_dir)
+        if not os.path.exists(os.path.join(lightning_dir, TEST_NETWORK)):
+            os.makedirs(os.path.join(lightning_dir, TEST_NETWORK))
 
         # Last 32-bytes of final part of dir -> seed.
         seed = (bytes(re.search('([^/]+)/*$', lightning_dir).group(1), encoding='utf-8') + bytes(32))[:32]
         if not random_hsm:
-            with open(os.path.join(lightning_dir, 'hsm_secret'), 'wb') as f:
+            with open(os.path.join(lightning_dir, TEST_NETWORK, 'hsm_secret'), 'wb') as f:
                 f.write(seed)
         if DEVELOPER:
             self.opts['dev-fast-gossip'] = None
@@ -551,7 +551,7 @@ class LightningNode(object):
         self.allow_bad_gossip = allow_bad_gossip
         self.db = db
 
-        socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
+        socket_path = os.path.join(lightning_dir, TEST_NETWORK, "lightning-rpc").format(node_id)
         self.rpc = LightningRpc(socket_path, self.executor)
 
         self.daemon = LightningD(
@@ -560,7 +560,7 @@ class LightningNode(object):
         )
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
-            self.daemon.disconnect_file = os.path.join(lightning_dir, "dev_disconnect")
+            self.daemon.disconnect_file = os.path.join(lightning_dir, TEST_NETWORK, "dev_disconnect")
             with open(self.daemon.disconnect_file, "w") as f:
                 f.write("\n".join(disconnect))
             self.daemon.opts["dev-disconnect"] = "dev_disconnect"
@@ -632,7 +632,7 @@ class LightningNode(object):
 
     # Assumes node is stopped!
     def db_manip(self, query):
-        db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3"))
+        db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
         db.row_factory = sqlite3.Row
         c = db.cursor()
         c.execute(query)
@@ -984,7 +984,7 @@ class NodeFactory(object):
 
         # Get the DB backend DSN we should be using for this test and this
         # node.
-        db = self.db_provider.get_db(lightning_dir, self.testname, node_id)
+        db = self.db_provider.get_db(os.path.join(lightning_dir, TEST_NETWORK), self.testname, node_id)
         node = self.node_cls(
             node_id, lightning_dir, self.bitcoind, self.executor, db=db,
             port=port, options=options, **kwargs
@@ -995,7 +995,7 @@ class NodeFactory(object):
 
         self.nodes.append(node)
         if dbfile:
-            out = open(os.path.join(node.daemon.lightning_dir,
+            out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
                                     'lightningd.sqlite3'), 'xb')
             with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
                 out.write(f.read())

@@ -35,7 +35,7 @@ plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and
 lightningd --plugin=/path/to/plugin1 --plugin=path/to/plugin2
 ```
 
-`lightningd` run your plugins from the `--lightning-dir`, then
+`lightningd` run your plugins from the `--lightning-dir`/networkname, then
 will write JSON-RPC requests to the plugin's `stdin` and
 will read replies from its `stdout`. To initialize the plugin two RPC
 methods are required:
@@ -132,7 +132,7 @@ simple JSON object containing the options:
     "greeting": "World"
   },
   "configuration": {
-    "lightning-dir": "/home/user/.lightning",
+    "lightning-dir": "/home/user/.lightning/testnet",
     "rpc-file": "lightning-rpc",
     "startup": true
   }

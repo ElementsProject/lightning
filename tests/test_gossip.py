@@ -912,7 +912,7 @@ def test_gossip_addresses(node_factory, bitcoind):
 def test_gossip_store_load(node_factory):
     """Make sure we can read canned gossip store"""
     l1 = node_factory.get_node(start=False)
-    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
@@ -944,7 +944,7 @@ def test_gossip_store_load(node_factory):
 def test_gossip_store_load_announce_before_update(node_factory):
     """Make sure we can read canned gossip store with node_announce before update.  This happens when a channel_update gets replaced, leaving node_announce before it"""
     l1 = node_factory.get_node(start=False)
-    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
@@ -987,7 +987,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
 def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
     l1 = node_factory.get_node(start=False, allow_broken_log=True)
-    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
@@ -999,7 +999,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
     # May preceed the Started msg waited for in 'start'.
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: dangling channel_announcement. Moving to gossip_store.corrupt and truncating'))
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1 bytes'))
-    assert os.path.exists(os.path.join(l1.daemon.lightning_dir, 'gossip_store.corrupt'))
+    assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
     # Extra sanity check if we can.
     if DEVELOPER:
@@ -1359,7 +1359,7 @@ def test_gossip_store_compact_noappend(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
     # It should truncate this, not leave junk!
-    with open(os.path.join(l2.daemon.lightning_dir, 'gossip_store.tmp'), 'wb') as f:
+    with open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.tmp'), 'wb') as f:
         f.write(bytearray.fromhex("07deadbeef"))
 
     l2.rpc.call('dev-compact-gossip-store')
@@ -1411,7 +1411,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1 = node_factory.get_node(start=False, allow_broken_log=True)
 
     # A channel announcement with no channel_update.
-    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
@@ -1433,12 +1433,12 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     # May preceed the Started msg waited for in 'start'.
     wait_for(lambda: l1.daemon.is_in_log('gossip_store: Unupdated channel_announcement at 1. Moving to gossip_store.corrupt and truncating'))
-    assert os.path.exists(os.path.join(l1.daemon.lightning_dir, 'gossip_store.corrupt'))
+    assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
     # This should actually result in an empty store.
     l1.rpc.call('dev-compact-gossip-store')
 
-    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), "rb") as f:
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
         assert bytearray(f.read()) == bytearray.fromhex("07")
 
 
