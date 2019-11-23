@@ -1,6 +1,7 @@
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/chainparams.h>
+#include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
@@ -117,6 +118,10 @@ int main(int argc, char *argv[])
 		printf("description_hash: %s\n",
 		       tal_hexstr(ctx, b11->description_hash,
 				  sizeof(*b11->description_hash)));
+	if (b11->payment_secret)
+		printf("payment_secret: %s\n",
+		       tal_hexstr(ctx, b11->payment_secret,
+				  sizeof(*b11->payment_secret)));
 	if (tal_bytelen(b11->features)) {
 		printf("features:");
 		for (size_t i = 0; i < tal_bytelen(b11->features) * CHAR_BIT; i++) {

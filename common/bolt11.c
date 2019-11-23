@@ -302,6 +302,37 @@ static char *decode_n(struct bolt11 *b11,
         return NULL;
 }
 
+/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #11:
+ *
+ * * `s` (16): `data_length` 52. This 256-bit secret prevents
+ *    forwarding nodes from probing the payment recipient.
+ */
+static char *decode_s(struct bolt11 *b11,
+                      struct hash_u5 *hu5,
+                      u5 **data, size_t *data_len,
+                      size_t data_length,
+		      bool *have_s)
+{
+        if (*have_s)
+                return unknown_field(b11, hu5, data, data_len, 's',
+                                     data_length);
+
+        /* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #11:
+	 *
+	 * A reader... MUST skip over unknown fields, OR an `f` field
+	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
+	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
+        if (data_length != 52)
+                return unknown_field(b11, hu5, data, data_len, 's',
+                                     data_length);
+
+        b11->payment_secret = tal(b11, struct secret);
+        pull_bits_certain(hu5, data, data_len, b11->payment_secret, 256,
+                          false);
+	*have_s = true;
+        return NULL;
+}
+
 /* BOLT #11:
  *
  * `f` (9): `data_length` variable, depending on version. Fallback
@@ -500,6 +531,7 @@ struct bolt11 *new_bolt11(const tal_t *ctx,
         b11->expiry = DEFAULT_X;
 	b11->features = tal_arr(b11, u8, 0);
         b11->min_final_cltv_expiry = DEFAULT_C;
+	b11->payment_secret = NULL;
 
         if (msat)
                 b11->msat = tal_dup(b11, struct amount_msat, msat);
@@ -519,7 +551,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         struct hash_u5 hu5;
         struct sha256 hash;
         bool have_p = false, have_n = false, have_d = false, have_h = false,
-                have_x = false, have_c = false;
+                have_x = false, have_c = false, have_s = false;
 
         b11->routes = tal_arr(b11, struct route_info *, 0);
 
@@ -693,6 +725,10 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 		case '9':
 			problem = decode_9(b11, &hu5, &data, &data_len,
 					   data_length);
+			break;
+		case 's':
+			problem = decode_s(b11, &hu5, &data, &data_len,
+					   data_length, &have_s);
 			break;
                 default:
                         unknown_field(b11, &hu5, &data, &data_len,
@@ -874,6 +910,11 @@ static void encode_c(u5 **data, u16 min_final_cltv_expiry)
         push_varlen_field(data, 'c', min_final_cltv_expiry);
 }
 
+static void encode_s(u5 **data, const struct secret *payment_secret)
+{
+        push_field(data, 's', payment_secret, 256);
+}
+
 static void encode_f(u5 **data, const u8 *fallback)
 {
         struct bitcoin_address pkh;
@@ -1039,6 +1080,9 @@ char *bolt11_encode_(const tal_t *ctx,
 
         if (b11->min_final_cltv_expiry != DEFAULT_C)
                 encode_c(&data, b11->min_final_cltv_expiry);
+
+	if (b11->payment_secret)
+		encode_s(&data, b11->payment_secret);
 
         for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
                 encode_f(&data, b11->fallbacks[i]);
