@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/bolt11.h>
+#include <common/features.h>
 #include <common/gossip_constants.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
@@ -81,6 +82,9 @@ struct pay_command {
 
 	/* Payment hash, as text. */
 	const char *payment_hash;
+
+	/* Payment secret, if specified by invoice. */
+	const char *payment_secret;
 
 	/* Description, if any. */
 	const char *label;
@@ -676,6 +680,9 @@ static struct command_result *getroute_done(struct command *cmd,
 	json_out_add(params, "bolt11", true, "%s", pc->ps->bolt11);
 	if (pc->label)
 		json_out_add(params, "label", true, "%s", pc->label);
+	if (pc->payment_secret)
+		json_out_add(params, "payment_secret", true, "%s",
+			     pc->payment_secret);
 	json_out_end(params, '}');
 
 	return send_outreq(cmd, "sendpay", sendpay_done, sendpay_error, pc,
@@ -1095,6 +1102,14 @@ static struct command_result *json_pay(struct command *cmd,
 		pc->msat = *msat;
 	}
 
+	/* Sanity check */
+	if (feature_offered(b11->features, OPT_VAR_ONION)
+	    && !b11->payment_secret) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt11:"
+				    " sets feature var_onion with no secret");
+	}
+
 	pc->maxfeepercent = *maxfeepercent;
 	pc->maxdelay = *maxdelay;
 	pc->exemptfee = *exemptfee;
@@ -1107,6 +1122,11 @@ static struct command_result *json_pay(struct command *cmd,
 	pc->stoptime = timeabs_add(time_now(), time_from_sec(*retryfor));
 	pc->excludes = tal_arr(cmd, const char *, 0);
 	pc->ps = add_pay_status(pc, b11str);
+	if (b11->payment_secret)
+		pc->payment_secret = tal_hexstr(pc, b11->payment_secret,
+						sizeof(*b11->payment_secret));
+	else
+		pc->payment_secret = NULL;
 	/* We try first without using routehint */
 	pc->current_routehint = NULL;
 	pc->routehints = filter_routehints(pc, b11->routes);
