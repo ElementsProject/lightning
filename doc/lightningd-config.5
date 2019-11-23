@@ -18,6 +18,10 @@ options: later options override earlier ones except \fIaddr\fR options
 and \fIlog-level\fR with subsystems, which accumulate\.
 
 
+\fIinclude \fR followed by a filename includes another configuration file at that
+point, relative to the current configuration file\.
+
+
 All these options are mirrored as commandline arguments to
 \fBlightningd\fR(8), so \fI--foo\fR becomes simply \fIfoo\fR in the configuration
 file, and \fI--foo=bar\fR becomes \fIfoo=bar\fR in the configuration file\.
