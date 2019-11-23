@@ -2411,6 +2411,25 @@ def test_tlv_or_legacy(node_factory, bitcoind):
         l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, 'Needs invoice secret support')
+@unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
+def test_pay_no_secret(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    l2.rpc.invoice(100000, "test_pay_no_secret", "test_pay_no_secret",
+                   preimage='00' * 32, expiry=2000000000)
+
+    # Produced from modified version (different secret!).
+    inv_badsecret = 'lnbcrt1u1pwuedm6pp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdqaw3jhxazlwpshjhmwda0hxetrwfjhgxq8pmnt9qqcqp9sp52au0npwmw4xxv2rfrat04kh9p3jlmklgavhfxqukx0l05pw5tccs9qypqsqa286dmt2xh3jy8cd8ndeyr845q8a7nhgjkerdqjns76jraux6j25ddx9f5k5r2ey0kk942x3uhaff66794kyjxxcd48uevf7p6ja53gqjj5ur7'
+    with pytest.raises(RpcError, match=r"INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_index': 1"):
+        l1.rpc.pay(inv_badsecret)
+
+    # Produced from old version (no secret!)
+    inv_nosecret = 'lnbcrt1u1pwue4vapp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdqaw3jhxazlwpshjhmwda0hxetrwfjhgxq8pmnt9qqcqp9570xsjyykvssa6ty8fjth6f2y8h09myngad9utesttwjwclv95fz3lgd402f9e5yzpnxmkypg55rkvpg522gcz4ymsjl2w3m4jhw4jsp55m7tl'
+    # This succeeds until we make secrets compulsory.
+    l1.rpc.pay(inv_nosecret)
+
+
 @flaky
 def test_shadow_routing(node_factory):
     """

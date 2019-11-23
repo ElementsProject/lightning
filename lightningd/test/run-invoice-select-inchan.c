@@ -93,6 +93,9 @@ void fail_htlc(struct htlc_in *hin UNNEEDED, enum onion_type failcode UNNEEDED)
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for feature_is_set */
+bool feature_is_set(const u8 *features UNNEEDED, size_t bit UNNEEDED)
+{ fprintf(stderr, "feature_is_set called!\n"); abort(); }
 /* Generated stub for fromwire_channel_dev_memleak_reply */
 bool fromwire_channel_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channel_dev_memleak_reply called!\n"); abort(); }

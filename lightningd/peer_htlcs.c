@@ -342,7 +342,7 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	invoice_try_pay(ld, hin, payment_hash, amt_to_forward);
+	invoice_try_pay(ld, hin, payment_hash, amt_to_forward, payment_secret);
 	return;
 
 fail:
