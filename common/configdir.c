@@ -84,7 +84,8 @@ static void config_log_stderr_exit(const char *fmt, ...)
 	errx(1, "%s", msg);
 }
 
-static void parse_include(const char *filename, bool must_exist, bool early)
+static void parse_include(const char *filename, bool must_exist, bool early,
+			  size_t depth)
 {
 	char *contents, **lines;
 	char **all_args; /*For each line: either `--`argument, include file, or NULL*/
@@ -136,7 +137,11 @@ static void parse_include(const char *filename, bool must_exist, bool early)
 			continue;
 
 		if (!strstarts(all_args[i], "--")) {
-			parse_include(all_args[i], true, early);
+			/* There could be more, but this gives a hint. */
+			if (depth > 100)
+				errx(1, "Include loop with %s and %s",
+				     filename, all_args[i]);
+			parse_include(all_args[i], true, early, ++depth);
 			continue;
 		}
 
@@ -260,7 +265,7 @@ static void parse_implied_config_file(const char *config_basedir,
 		dir = path_join(NULL, take(dir), network);
 
 	filename = path_join(NULL, take(dir), "config");
-	parse_include(filename, false, early);
+	parse_include(filename, false, early, 0);
 	tal_free(filename);
 }
 
@@ -273,7 +278,7 @@ void parse_config_files(const char *config_filename,
 {
 	if (config_filename) {
 		parse_state = FORCED_CONFIG;
-		parse_include(config_filename, true, early);
+		parse_include(config_filename, true, early, 0);
 		parse_state = CMDLINE;
 		return;
 	}
@@ -387,7 +392,7 @@ void initial_config_opts(const tal_t *ctx,
 
 	/* Read config file first, since cmdline must override */
 	if (*config_filename)
-		parse_include(*config_filename, true, true);
+		parse_include(*config_filename, true, true, 0);
 	else
 		parse_implied_config_file(*config_basedir, NULL, true);
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
