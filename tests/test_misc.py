@@ -1782,3 +1782,15 @@ def test_include(node_factory):
     l1.start()
 
     assert l1.rpc.listconfigs('alias')['alias'] == 'conf2'
+
+
+def test_config_in_subdir(node_factory):
+    l1 = node_factory.get_node(start=False)
+
+    subdir = os.path.join(l1.daemon.opts.get("lightning-dir"), "regtest")
+    os.makedirs(subdir)
+    with open(os.path.join(subdir, "config"), 'w') as f:
+        f.write('alias=test_config_in_subdir')
+    l1.start()
+
+    assert l1.rpc.listconfigs('alias')['alias'] == 'test_config_in_subdir'

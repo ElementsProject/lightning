@@ -79,7 +79,7 @@ static void config_log_stderr_exit(const char *fmt, ...)
 	errx(1, "%s", msg);
 }
 
-void parse_include(const char *filename, bool must_exist, bool early)
+static void parse_include(const char *filename, bool must_exist, bool early)
 {
 	char *contents, **lines;
 	char **all_args; /*For each line: either `--`argument, include file, or NULL*/
@@ -149,12 +149,12 @@ void parse_include(const char *filename, bool must_exist, bool early)
 	tal_free(contents);
 }
 
-static char *default_configdir(const tal_t *ctx)
+static char *default_base_configdir(const tal_t *ctx)
 {
 	char *path;
 	const char *env = getenv("HOME");
 	if (!env)
-		return tal_strdup(ctx, ".");
+		return path_cwd(ctx);
 
 	path = path_join(ctx, env, ".lightning");
 	return path;
@@ -203,6 +203,42 @@ void setup_option_allocators(void)
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 }
 
+/* network is NULL for parsing top-level config file. */
+static void parse_implied_config_file(const char *config_dir,
+				      const char *network,
+				      bool early)
+{
+	const char *dir, *filename;
+
+	if (config_dir)
+		dir = path_join(NULL, take(path_cwd(NULL)), config_dir);
+	else
+		dir = default_base_configdir(NULL);
+
+	if (network)
+		dir = path_join(NULL, take(dir), network);
+
+	filename = path_join(NULL, take(dir), "config");
+	parse_include(filename, false, early);
+	tal_free(filename);
+}
+
+/* If they specify --conf, we just read that.
+ * Otherwise we read <lightning-dir>/config then <lightning-dir>/<network>/config
+ */
+void parse_config_files(const char *config_filename,
+			const char *config_dir,
+			bool early)
+{
+	if (config_filename) {
+		parse_include(config_filename, true, early);
+		return;
+	}
+
+	parse_implied_config_file(config_dir, NULL, early);
+	parse_implied_config_file(config_dir, chainparams->network_name, early);
+}
+
 void initial_config_opts(const tal_t *ctx,
 			 int argc, char *argv[],
 			 char **config_filename,
@@ -216,7 +252,14 @@ void initial_config_opts(const tal_t *ctx,
 	*config_filename = NULL;
 	opt_register_early_arg("--conf=<file>", opt_set_abspath, NULL,
 			       config_filename,
-			       "Specify configuration file (default: <lightning-dir>/config)");
+			       "Specify configuration file");
+
+	/* Cmdline can also set lightning-dir. */
+	*config_dir = NULL;
+	opt_register_early_arg("--lightning-dir=<dir>",
+			       opt_set_talstr, NULL,
+			       config_dir,
+			       "Set working directory. All other files are relative to this");
 
 	/* Handle --version (and exit) here too */
 	opt_register_version();
@@ -228,14 +271,22 @@ void initial_config_opts(const tal_t *ctx,
 
 	opt_register_early_arg("--conf=<file>", opt_ignore, NULL,
 			       config_filename,
-			       "Specify configuration file (default: <lightning-dir>/config)");
+			       "Specify configuration file");
+
+	/* If they set --conf it can still set --lightning-dir */
+	if (!*config_filename) {
+		opt_register_early_arg("--lightning-dir=<dir>",
+				       opt_ignore, opt_show_charp,
+				       config_dir,
+				       "Set working directory. All other files are relative to this");
+	} else {
+		opt_register_early_arg("--lightning-dir=<dir>",
+				       opt_set_talstr, NULL,
+				       config_dir,
+				       "Set working directory. All other files are relative to this");
+	}
 
 	/* Now, config file (or cmdline) can set network and lightning-dir */
-	*config_dir = NULL;
-	opt_register_early_arg("--lightning-dir=<dir>",
-			       opt_set_talstr, NULL,
-			       config_dir,
-			       "Set working directory. All other files are relative to this");
 
 	/* We need to know network early, so we can set defaults (which normal
 	 * options can change) and default config_dir */
@@ -256,6 +307,8 @@ void initial_config_opts(const tal_t *ctx,
 	/* Read config file first, since cmdline must override */
 	if (*config_filename)
 		parse_include(*config_filename, true, true);
+	else
+		parse_implied_config_file(*config_dir, NULL, true);
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
 	/* We use a global (in common/utils.h) for the chainparams.
@@ -264,7 +317,7 @@ void initial_config_opts(const tal_t *ctx,
 		chainparams = chainparams_for_network("testnet");
 
 	if (!*config_dir)
-		*config_dir = default_configdir(ctx);
+		*config_dir = default_base_configdir(ctx);
 
 	/* Make sure it's absolute */
 	*config_dir = path_join(ctx, take(path_cwd(NULL)), take(*config_dir));
@@ -274,7 +327,7 @@ void initial_config_opts(const tal_t *ctx,
 
 	opt_register_early_arg("--conf=<file>", opt_ignore, NULL,
 			       config_filename,
-			       "Specify configuration file (default: <lightning-dir>/config)");
+			       "Specify configuration file");
 	opt_register_early_arg("--lightning-dir=<dir>",
 			       opt_ignore, opt_show_charp,
 			       config_dir,
