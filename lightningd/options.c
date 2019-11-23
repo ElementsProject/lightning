@@ -865,10 +865,12 @@ static void promote_missing_files(struct lightningd *ld)
 	while ((d = readdir(d_from)) != NULL) {
 		const char *fullname;
 
-		/* Ignore this directory and upper one, and leave config */
+		/* Ignore this directory and upper one, and leave
+		 * config and pid files */
 		if (streq(d->d_name, ".")
 		    || streq(d->d_name, "..")
-		    || streq(d->d_name, "config"))
+		    || streq(d->d_name, "config")
+		    || strends(d->d_name, ".pid"))
 			continue;
 
 		fullname = path_join(tmpctx, ld->config_basedir, d->d_name);
@@ -971,9 +973,10 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	ld->wallet_dsn = tal_fmt(ld, "sqlite3://%s/lightningd.sqlite3",
 				 ld->config_netdir);
 
-	/* Set default PID file name to be per-network */
-	ld->pidfile = tal_fmt(ld, "lightningd-%s.pid",
-			      chainparams->network_name);
+	/* Set default PID file name to be per-network (in base dir) */
+	ld->pidfile = path_join(ld, ld->config_basedir,
+				tal_fmt(tmpctx, "lightningd-%s.pid",
+					chainparams->network_name));
 
 	/*~ Move into config dir: this eases path manipulation and also
 	 * gives plugins a good place to store their stuff. */
