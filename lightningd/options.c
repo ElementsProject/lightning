@@ -848,6 +848,60 @@ static void register_opts(struct lightningd *ld)
 #endif
 }
 
+/* We are in ld->config_netdir when this is run! */
+static void promote_missing_files(struct lightningd *ld)
+{
+#ifdef COMPAT_V073
+	DIR *d_from;
+	struct dirent *d;
+	struct stat st;
+
+	/* If hsm_secret already exists, we assume we're ugpraded */
+	if (stat("hsm_secret", &st) == 0)
+		return;
+
+	if (errno != ENOENT)
+		err(1, "Looking for hsm_secret in lightning dir");
+
+	/* If hsm doesn't exist in basedir, we've nothing to upgrade. */
+	if (stat(path_join(tmpctx, ld->config_basedir, "hsm_secret"), &st) != 0)
+		return;
+
+	d_from = opendir(ld->config_basedir);
+	if (!d_from)
+		err(1, "Opening %s", ld->config_basedir);
+
+	while ((d = readdir(d_from)) != NULL) {
+		const char *fullname;
+
+		/* Ignore this directory and upper one, and leave config */
+		if (streq(d->d_name, ".")
+		    || streq(d->d_name, "..")
+		    || streq(d->d_name, "config"))
+			continue;
+
+		fullname = path_join(tmpctx, ld->config_basedir, d->d_name);
+
+		/* Ignore any directories. */
+		if (lstat(fullname, &st) != 0)
+			errx(1, "Could not stat %s", fullname);
+		if ((st.st_mode & S_IFMT) == S_IFDIR)
+			continue;
+
+		/* Check we don't overwrite something in this dir! */
+		if (lstat(d->d_name, &st) != -1)
+			errx(1, "Refusing to overwrite %s into %s/",
+			     fullname, ld->config_netdir);
+		log_unusual(ld->log, "Moving %s into %s/",
+			    d->d_name, ld->config_netdir);
+		if (rename(fullname, d->d_name) != 0)
+			err(1, "Could not move %s/%s to %s",
+			    ld->config_basedir, d->d_name, ld->config_netdir);
+	}
+	closedir(d_from);
+#endif /* COMPAT_V073 */
+}
+
 /* Names stolen from https://github.com/ternus/nsaproductgenerator/blob/master/nsa.js */
 static const char *codename_adjective[]
 = { "LOUD", "RED", "BLUE", "GREEN", "YELLOW", "IRATE", "ANGRY", "PEEVED",
@@ -947,6 +1001,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 			fatal("Could not change directory %s: %s",
 			      ld->config_netdir, strerror(errno));
 	}
+
+	/*~ We move files from old locations on first upgrade. */
+	promote_missing_files(ld);
 
 	/*~ The ccan/opt code requires registration then parsing; we
 	 *  mimic this API here, even though they're on separate lines.*/
