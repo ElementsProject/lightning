@@ -280,7 +280,9 @@ static void handle_localpay(struct htlc_in *hin,
 			    u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    struct amount_msat amt_to_forward,
-			    u32 outgoing_cltv_value)
+			    u32 outgoing_cltv_value,
+			    struct amount_msat total_msat,
+			    const struct secret *payment_secret)
 {
 	enum onion_type failcode;
 	struct lightningd *ld = hin->key.channel->peer->ld;
@@ -294,6 +296,18 @@ static void handle_localpay(struct htlc_in *hin,
 	 * The amount in the HTLC doesn't match the value in the onion.
 	 */
 	if (!check_amount(hin, amt_to_forward, hin->msat, AMOUNT_MSAT(0))) {
+		failcode = WIRE_FINAL_INCORRECT_HTLC_AMOUNT;
+		goto fail;
+	}
+
+	/* BOLT- #4:
+	 * - if it does not support `basic_mpp`:
+	 *    - MUST fail the HTLC if `total_msat` is not exactly equal to
+	 *    `amt_to_forward`.
+	 */
+	if (!amount_msat_eq(amt_to_forward, total_msat)) {
+		/* FIXME: Ideally, we use WIRE_INVALID_ONION_PAYLOAD and
+		 * point at the total_msat field */
 		failcode = WIRE_FINAL_INCORRECT_HTLC_AMOUNT;
 		goto fail;
 	}
@@ -598,6 +612,9 @@ fail:
 struct gossip_resolve {
 	struct short_channel_id next_channel;
 	struct amount_msat amt_to_forward;
+	struct amount_msat total_msat;
+	/* Only set if TLV specifies it */
+	const struct secret *payment_secret;
 	u32 outgoing_cltv_value;
 	u8 *next_onion;
 	struct htlc_in *hin;
@@ -752,6 +769,12 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 					  *rs->amt_to_forward);
 	if (rs->outgoing_cltv)
 		json_add_u32(s, "outgoing_cltv_value", *rs->outgoing_cltv);
+	/* These are specified together in TLV, so only print total_msat if
+	 * payment_secret set (ie. modern, and final hop) */
+	if (rs->payment_secret) {
+		json_add_amount_msat_only(s, "total_msat", *rs->total_msat);
+		json_add_secret(s, "payment_secret", rs->payment_secret);
+	}
 	json_add_hex_talarr(s, "next_onion", p->next_onion);
 	json_add_secret(s, "shared_secret", hin->shared_secret);
 	json_object_end(s);
@@ -844,7 +867,9 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 		} else
 			handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
 					*rs->amt_to_forward,
-					*rs->outgoing_cltv);
+					*rs->outgoing_cltv,
+					*rs->total_msat,
+					rs->payment_secret);
 		break;
 	case htlc_accepted_fail:
 		log_debug(channel->log,

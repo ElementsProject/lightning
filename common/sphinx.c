@@ -192,16 +192,25 @@ void sphinx_add_nonfinal_hop(struct sphinx_path *path,
 	}
 }
 
-void sphinx_add_final_hop(struct sphinx_path *path,
+bool sphinx_add_final_hop(struct sphinx_path *path,
 			  const struct pubkey *pubkey,
 			  bool use_tlv,
 			  struct amount_msat forward,
-			  u32 outgoing_cltv)
+			  u32 outgoing_cltv,
+			  struct amount_msat total_msat,
+			  const struct secret *payment_secret)
 {
+	/* These go together! */
+	if (!payment_secret)
+		assert(amount_msat_eq(total_msat, forward));
+
 	if (use_tlv) {
 		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
 		struct tlv_tlv_payload_amt_to_forward tlv_amt;
 		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
+#if EXPERIMENTAL_FEATURES
+		struct tlv_tlv_payload_payment_data tlv_pdata;
+#endif
 
 		/* BOLT #4:
 		 *
@@ -216,12 +225,27 @@ void sphinx_add_final_hop(struct sphinx_path *path,
 		tlv->amt_to_forward = &tlv_amt;
 		tlv->outgoing_cltv_value = &tlv_cltv;
 
+#if EXPERIMENTAL_FEATURES
+		if (payment_secret) {
+			tlv_pdata.payment_secret = *payment_secret;
+			tlv_pdata.total_msat = total_msat.millisatoshis; /* Raw: TLV convert */
+			tlv->payment_data = &tlv_pdata;
+		}
+#else
+		/* Wihtout EXPERIMENTAL_FEATURES, we can't send payment_secret */
+		if (payment_secret)
+			return false;
+#endif
 		sphinx_add_tlv_hop(path, pubkey, tlv);
 	} else {
 		static struct short_channel_id all_zero_scid;
+		/* No payment secrets in legacy format. */
+		if (payment_secret)
+			return false;
 		sphinx_add_v0_hop(path, pubkey, &all_zero_scid,
 				  forward, outgoing_cltv);
 	}
+	return true;
 }
 
 /* Small helper to append data to a buffer and update the position
@@ -693,6 +717,12 @@ static void route_step_decode(struct route_step *rs)
 	case SPHINX_V0_PAYLOAD:
 		rs->amt_to_forward = &rs->payload.v0.amt_forward;
 		rs->outgoing_cltv = &rs->payload.v0.outgoing_cltv;
+		rs->payment_secret = NULL;
+		/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
+		 * - if it is the final node:
+		 *   - MUST treat `total_msat` as if it were equal to
+		 *     `amt_to_forward` if it is not present. */
+		rs->total_msat = rs->amt_to_forward;
 		if (rs->nextcase == ONION_FORWARD) {
 			rs->forward_channel = &rs->payload.v0.channel_id;
 		} else {
@@ -722,6 +752,23 @@ static void route_step_decode(struct route_step *rs)
 						   ->short_channel_id;
 		else
 			rs->forward_channel = NULL;
+
+		rs->payment_secret = NULL;
+		/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
+		 * - if it is the final node:
+		 *   - MUST treat `total_msat` as if it were equal to
+		 *     `amt_to_forward` if it is not present. */
+		rs->total_msat = rs->amt_to_forward;
+
+#if EXPERIMENTAL_FEATURES
+		if (rs->payload.tlv->payment_data) {
+			rs->payment_secret
+				= &rs->payload.tlv->payment_data->payment_secret;
+			rs->total_msat = tal(rs, struct amount_msat);
+			rs->total_msat->millisatoshis /* Raw: tu64 on wire */
+				= rs->payload.tlv->payment_data->total_msat;
+		}
+#endif
 		break;
 	case SPHINX_INVALID_PAYLOAD:
 	case SPHINX_RAW_PAYLOAD:

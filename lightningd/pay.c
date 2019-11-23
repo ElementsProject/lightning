@@ -681,10 +681,17 @@ send_payment(struct lightningd *ld,
 	ret = pubkey_from_node_id(&pubkey, &ids[i]);
 	assert(ret);
 
-	sphinx_add_final_hop(path, &pubkey,
-			     should_use_tlv(route[i].style),
-			     route[i].amount,
-			     base_expiry + route[i].delay);
+	/* FIXME: This can't fail if payment_secret total_msat == amount, and
+	 * payment_secret is NULL, but it will later when we modify code. */
+	if (!sphinx_add_final_hop(path, &pubkey,
+				  should_use_tlv(route[i].style),
+				  route[i].amount,
+				  base_expiry + route[i].delay,
+				  route[i].amount, NULL)) {
+		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
+				    "Destination does not support"
+				    " payment_secret");
+	}
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);

@@ -89,6 +89,8 @@ struct route_step {
 	struct amount_msat *amt_to_forward;
 	u32 *outgoing_cltv;
 	struct short_channel_id *forward_channel;
+	struct secret *payment_secret;
+	struct amount_msat *total_msat;
 };
 
 /**
@@ -243,10 +245,12 @@ void sphinx_add_nonfinal_hop(struct sphinx_path *path,
 /**
  * Add a final hop to the path.
  */
-void sphinx_add_final_hop(struct sphinx_path *path,
+bool sphinx_add_final_hop(struct sphinx_path *path,
 			  const struct pubkey *pubkey,
 			  bool use_tlv,
 			  struct amount_msat forward,
-			  u32 outgoing_cltv);
+			  u32 outgoing_cltv,
+			  struct amount_msat total_msat,
+			  const struct secret *payment_secret);
 
 #endif /* LIGHTNING_COMMON_SPHINX_H */
