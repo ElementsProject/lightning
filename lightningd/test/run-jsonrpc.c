@@ -9,9 +9,6 @@ size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNN
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
-/* Generated stub for default_rpcfile */
-char *default_rpcfile(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "default_rpcfile called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }

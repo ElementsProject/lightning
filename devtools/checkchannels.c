@@ -111,7 +111,7 @@ static void copy_column(void *dst, size_t size,
 
 int main(int argc, char *argv[])
 {
-	char *config_dir, *hsmfile, *dbfile;
+	char *config_dir, *config_filename, *rpc_filename, *hsmfile, *dbfile;
 	sqlite3 *sql;
 	sqlite3_stmt *stmt;
 	int flags = SQLITE_OPEN_READONLY, dberr;
@@ -123,11 +123,11 @@ int main(int argc, char *argv[])
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 
-	config_dir = default_configdir(NULL);
-	opt_register_arg("--lightning-dir=<dir>",
-			 opt_set_talstr, opt_show_charp,
-			 &config_dir,
-			 "Where to find hsm_secret and lightningd.sqlite3");
+	setup_option_allocators();
+
+	initial_config_opts(NULL, argc, argv,
+			    &config_filename, &config_dir, &rpc_filename);
+
 	opt_register_noarg("-v|--verbose", opt_set_bool, &verbose,
 			 "Print everything");
 

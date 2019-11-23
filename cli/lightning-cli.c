@@ -29,25 +29,6 @@
 #define ERROR_TALKING_TO_LIGHTNINGD 2
 #define ERROR_USAGE 3
 
-/* Tal wrappers for opt. */
-static void *opt_allocfn(size_t size)
-{
-	return tal_arr_label(NULL, char, size, TAL_LABEL("opt_allocfn", ""));
-}
-
-static void *tal_reallocfn(void *ptr, size_t size)
-{
-	if (!ptr)
-		return opt_allocfn(size);
-	tal_resize_(&ptr, 1, size, false);
-	return ptr;
-}
-
-static void tal_freefn(void *ptr)
-{
-	tal_free(ptr);
-}
-
 struct netaddr;
 
 /* Returns number of tokens digested */
@@ -450,8 +431,7 @@ int main(int argc, char *argv[])
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
 	const tal_t *ctx = tal(NULL, char);
-	char *lightning_dir = default_configdir(ctx);
-	char *rpc_filename = default_rpcfile(ctx);
+	char *config_filename, *lightning_dir, *rpc_filename;
 	jsmn_parser parser;
 	int parserr;
 	enum format format = DEFAULT_FORMAT;
@@ -462,15 +442,11 @@ int main(int argc, char *argv[])
 	jsmn_init(&parser);
 
 	tal_set_backend(NULL, NULL, NULL, tal_error);
-	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
-	opt_register_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
-			 &lightning_dir,
-			 "Set working directory. All other files are relative to this");
+	setup_option_allocators();
 
-	opt_register_arg("--rpc-file", opt_set_talstr, opt_show_charp,
-			 &rpc_filename,
-			 "Set JSON-RPC socket (or /dev/tty)");
+	initial_config_opts(ctx, argc, argv,
+			    &config_filename, &lightning_dir, &rpc_filename);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");

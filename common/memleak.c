@@ -75,6 +75,10 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			if (strends(name, "struct io_plan *[]") && !tal_parent(i))
 				continue;
 
+			/* Other notleak internals. */
+			if (strends(name, "_notleak"))
+				continue;
+
 			/* Don't add tmpctx. */
 			if (streq(name, "tmpctx"))
 				continue;

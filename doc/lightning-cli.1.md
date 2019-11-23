@@ -18,6 +18,15 @@ OPTIONS
 Set the directory for the lightning daemon we’re talking to; defaults to
 *$HOME/.lightning*.
 
+ **--conf**=*PATH*
+Sets configuration file (default: **lightning-dir**/*config* ).
+
+ **--network**=*network*
+ **--mainnet**
+ **--testnet**
+ **--signet**
+Sets network explicitly.
+
  **--rpc-file**=*FILE*
 Named pipe to use to talk to lightning daemon: default is
 *lightning-rpc* in the lightning directory.

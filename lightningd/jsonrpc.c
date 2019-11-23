@@ -1006,7 +1006,6 @@ void jsonrpc_setup(struct lightningd *ld)
 {
 	struct json_command **commands = get_cmdlist();
 
-	ld->rpc_filename = default_rpcfile(ld);
 	ld->jsonrpc = tal(ld, struct jsonrpc);
 	strmap_init(&ld->jsonrpc->usagemap);
 	ld->jsonrpc->commands = tal_arr(ld->jsonrpc, struct json_command *, 0);
