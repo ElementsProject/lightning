@@ -101,6 +101,23 @@ static void wait_on_invoice(const struct invoice *invoice, void *cmd)
 		tell_waiter_deleted((struct command *) cmd);
 }
 
+/* We derive invoice secret using 1-way function from payment_preimage
+ * (just a different one from the payment_hash!) */
+static void invoice_secret(const struct preimage *payment_preimage,
+			   struct secret *payment_secret)
+{
+	struct preimage modified;
+	struct sha256 secret;
+
+	modified = *payment_preimage;
+	modified.r[0] ^= 1;
+
+	sha256(&secret, modified.r,
+	       ARRAY_SIZE(modified.r) * sizeof(*modified.r));
+	BUILD_ASSERT(sizeof(secret.u.u8) == sizeof(payment_secret->data));
+	memcpy(payment_secret->data, secret.u.u8, sizeof(secret.u.u8));
+}
+
 struct invoice_payment_hook_payload {
 	struct lightningd *ld;
 	/* Set to NULL if it is deleted while waiting for plugin */
@@ -684,6 +701,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	u64 *expiry;
 	struct sha256 rhash;
 	bool *exposeprivate;
+	struct secret payment_secret;
 #if DEVELOPER
 	const jsmntok_t *routes;
 #endif
@@ -757,6 +775,8 @@ static struct command_result *json_invoice(struct command *cmd,
 				sizeof(info->payment_preimage));
 	/* Generate preimage hash. */
 	sha256(&rhash, &info->payment_preimage, sizeof(info->payment_preimage));
+	/* Generate payment secret. */
+	invoice_secret(&info->payment_preimage, &payment_secret);
 
 	info->b11 = new_bolt11(info, msatoshi_val);
 	info->b11->chain = chainparams;
@@ -767,6 +787,9 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->expiry = *expiry;
 	info->b11->description = tal_steal(info->b11, desc_val);
 	info->b11->description_hash = NULL;
+	info->b11->payment_secret = tal_dup(info->b11, struct secret,
+					    &payment_secret);
+
 
 #if DEVELOPER
 	info->b11->routes = unpack_routes(info->b11, buffer, routes);
