@@ -43,92 +43,12 @@ size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNN
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
-/* Generated stub for fromwire */
-const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
-{ fprintf(stderr, "fromwire called!\n"); abort(); }
-/* Generated stub for fromwire_amount_msat */
-struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_amount_msat called!\n"); abort(); }
-/* Generated stub for fromwire_bigsize */
-bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
-/* Generated stub for fromwire_fail */
-const void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_fail called!\n"); abort(); }
-/* Generated stub for fromwire_secret */
-void fromwire_secret(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct secret *secret UNNEEDED)
-{ fprintf(stderr, "fromwire_secret called!\n"); abort(); }
-/* Generated stub for fromwire_sha256 */
-void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sha256 *sha256 UNNEEDED)
-{ fprintf(stderr, "fromwire_sha256 called!\n"); abort(); }
-/* Generated stub for fromwire_short_channel_id */
-void fromwire_short_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			       struct short_channel_id *short_channel_id UNNEEDED)
-{ fprintf(stderr, "fromwire_short_channel_id called!\n"); abort(); }
-/* Generated stub for fromwire_tu32 */
-u32 fromwire_tu32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_tu32 called!\n"); abort(); }
-/* Generated stub for fromwire_tu64 */
-u64 fromwire_tu64(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_tu64 called!\n"); abort(); }
-/* Generated stub for fromwire_u16 */
-u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u16 called!\n"); abort(); }
-/* Generated stub for fromwire_u32 */
-u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
-/* Generated stub for fromwire_u8 */
-u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u8 called!\n"); abort(); }
-/* Generated stub for fromwire_u8_array */
-void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr UNNEEDED, size_t num UNNEEDED)
-{ fprintf(stderr, "fromwire_u8_array called!\n"); abort(); }
-/* Generated stub for towire */
-void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "towire called!\n"); abort(); }
-/* Generated stub for towire_amount_msat */
-void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
-{ fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
-/* Generated stub for towire_bigsize */
-void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
-{ fprintf(stderr, "towire_bigsize called!\n"); abort(); }
-/* Generated stub for towire_pad */
-void towire_pad(u8 **pptr UNNEEDED, size_t num UNNEEDED)
-{ fprintf(stderr, "towire_pad called!\n"); abort(); }
-/* Generated stub for towire_secret */
-void towire_secret(u8 **pptr UNNEEDED, const struct secret *secret UNNEEDED)
-{ fprintf(stderr, "towire_secret called!\n"); abort(); }
-/* Generated stub for towire_sha256 */
-void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
-{ fprintf(stderr, "towire_sha256 called!\n"); abort(); }
-/* Generated stub for towire_short_channel_id */
-void towire_short_channel_id(u8 **pptr UNNEEDED,
-			     const struct short_channel_id *short_channel_id UNNEEDED)
-{ fprintf(stderr, "towire_short_channel_id called!\n"); abort(); }
 /* Generated stub for towire_tlvs */
 void towire_tlvs(u8 **pptr UNNEEDED,
 		 const struct tlv_record_type types[] UNNEEDED,
 		 size_t num_types UNNEEDED,
 		 const void *record UNNEEDED)
 { fprintf(stderr, "towire_tlvs called!\n"); abort(); }
-/* Generated stub for towire_tu32 */
-void towire_tu32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
-{ fprintf(stderr, "towire_tu32 called!\n"); abort(); }
-/* Generated stub for towire_tu64 */
-void towire_tu64(u8 **pptr UNNEEDED, u64 v UNNEEDED)
-{ fprintf(stderr, "towire_tu64 called!\n"); abort(); }
-/* Generated stub for towire_u16 */
-void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
-{ fprintf(stderr, "towire_u16 called!\n"); abort(); }
-/* Generated stub for towire_u32 */
-void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
-{ fprintf(stderr, "towire_u32 called!\n"); abort(); }
-/* Generated stub for towire_u64 */
-void towire_u64(u8 **pptr UNNEEDED, u64 v UNNEEDED)
-{ fprintf(stderr, "towire_u64 called!\n"); abort(); }
-/* Generated stub for towire_u8_array */
-void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNEEDED)
-{ fprintf(stderr, "towire_u8_array called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 secp256k1_context *secp256k1_ctx;
