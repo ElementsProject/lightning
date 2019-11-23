@@ -11,6 +11,8 @@
 #include <common/version.h>
 #include <errno.h>
 
+bool deprecated_apis = true;
+
 /* The regrettable globals */
 static const tal_t *options_ctx;
 
@@ -304,6 +306,10 @@ void initial_config_opts(const tal_t *ctx,
 	opt_register_early_noarg("--mainnet",
 				 opt_set_specific_network, "bitcoin",
 				 "Alias for --network=bitcoin");
+	opt_register_early_arg("--allow-deprecated-apis",
+			       opt_set_bool_arg, opt_show_bool,
+			       &deprecated_apis,
+			       "Enable deprecated options, JSONRPC commands, fields, etc.");
 
 	/* Read config file first, since cmdline must override */
 	if (*config_filename)
@@ -346,6 +352,12 @@ void initial_config_opts(const tal_t *ctx,
 				 "Alias for --network=signet");
 	opt_register_early_noarg("--mainnet", opt_ignore_noarg, NULL,
 				 "Alias for --network=bitcoin");
+
+	/* They can set this later, it's just less effective. */
+	opt_register_early_arg("--allow-deprecated-apis",
+			       opt_set_bool_arg, opt_show_bool,
+			       &deprecated_apis,
+			       "Enable deprecated options, JSONRPC commands, fields, etc.");
 
 	/* Set this up for when they parse cmdline proper. */
 	*rpc_filename = default_rpcfile(ctx);

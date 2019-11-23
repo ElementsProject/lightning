@@ -52,6 +52,11 @@ Print summary of options to standard output and exit.
  **--version**/**-V**
 Print version number to standard output and exit.
 
+ **allow-deprecated-apis**=*BOOL*
+Enable deprecated options. It defaults to *true*, but you should set
+it to *false* when testing to ensure that an upgrade won’t break your
+configuration.
+
 COMMANDS
 --------
 
