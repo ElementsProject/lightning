@@ -18,6 +18,9 @@ Configuration file options are processed first, then command line
 options: later options override earlier ones except *addr* options 
 and *log-level* with subsystems, which accumulate.
 
+*include * followed by a filename includes another configuration file at that
+point, relative to the current configuration file.
+
 All these options are mirrored as commandline arguments to
 lightningd(8), so *--foo* becomes simply *foo* in the configuration
 file, and *--foo=bar* becomes *foo=bar* in the configuration file.

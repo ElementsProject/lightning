@@ -1767,3 +1767,18 @@ def test_signmessage(node_factory):
     checknokey = l2.rpc.checkmessage(message="message for you", zbase=zm)
     assert checknokey['pubkey'] == l1.info['id']
     assert checknokey['verified']
+
+
+def test_include(node_factory):
+    l1 = node_factory.get_node(start=False)
+
+    subdir = os.path.join(l1.daemon.opts.get("lightning-dir"), "subdir")
+    os.makedirs(subdir)
+    with open(os.path.join(subdir, "conf1"), 'w') as f:
+        f.write('include conf2')
+    with open(os.path.join(subdir, "conf2"), 'w') as f:
+        f.write('alias=conf2')
+    l1.daemon.opts['conf'] = os.path.join(subdir, "conf1")
+    l1.start()
+
+    assert l1.rpc.listconfigs('alias')['alias'] == 'conf2'

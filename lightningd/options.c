@@ -700,9 +700,7 @@ static void setup_default_config(struct lightningd *ld)
 	ld->pidfile = tal_fmt(ld, "lightningd-%s.pid", chainparams->network_name);
 }
 
-
-/* FIXME: make this nicer! */
-static int config_parse_line_number = 0;
+static int config_parse_line_number;
 
 static void config_log_stderr_exit(const char *fmt, ...)
 {
@@ -723,7 +721,8 @@ static void config_log_stderr_exit(const char *fmt, ...)
 		assert(problem != NULL);
 		/*mangle it to remove '--' and add the line number.*/
 		msg = tal_fmt(NULL, "%s line %d: %.*s: %s",
-			      argv0, config_parse_line_number, len-2, arg+2, problem);
+			      argv0,
+			      config_parse_line_number, len-2, arg+2, problem);
 	} else {
 		msg = tal_vfmt(NULL, fmt, ap);
 	}
@@ -732,30 +731,22 @@ static void config_log_stderr_exit(const char *fmt, ...)
 	fatal("%s", msg);
 }
 
-/**
- * We turn the config file into cmdline arguments. @early tells us
- * whether to parse early options only (and ignore any unknown ones),
- * or the non-early options.
- */
-static void opt_parse_from_config(struct lightningd *ld, bool early)
+static void parse_include(struct lightningd *ld,
+			  const char *filename,
+			  bool must_exist,
+			  bool early)
 {
 	char *contents, **lines;
-	char **all_args; /*For each line: either argument string or NULL*/
+	char **all_args; /*For each line: either `--`argument, include file, or NULL*/
 	char *argv[3];
 	int i, argc;
-	char *filename;
-
-	if (ld->config_filename != NULL)
-		filename = ld->config_filename;
-	else
-		filename = path_join(tmpctx, ld->config_dir, "config");
 
 	contents = grab_file(ld, filename);
 
 	/* The default config doesn't have to exist, but if the config was
 	 * specified on the command line it has to exist. */
 	if (!contents) {
-		if ((errno != ENOENT) || (ld->config_filename != NULL))
+		if (must_exist)
 			fatal("Opening and reading %s: %s",
 			      filename, strerror(errno));
 		return;
@@ -769,8 +760,13 @@ static void opt_parse_from_config(struct lightningd *ld, bool early)
 	for (i = 0; i < tal_count(lines) - 1; i++) {
 		if (strstarts(lines[i], "#")) {
 			all_args[i] = NULL;
-		}
-		else {
+		} else if (strstarts(lines[i], "include ")) {
+			/* If relative, it's relative to current config file */
+			all_args[i] = path_join(all_args,
+						take(path_dirname(NULL,
+								  filename)),
+						lines[i] + strlen("include "));
+		} else {
 			/* Only valid forms are "foo" and "foo=bar" */
 			all_args[i] = tal_fmt(all_args, "--%s", lines[i]);
 		}
@@ -781,30 +777,49 @@ static void opt_parse_from_config(struct lightningd *ld, bool early)
 	argv[1] is the only element that changes between iterations.
 	*/
 	argc = 2;
-	argv[0] = "lightning config file";
+	argv[0] = cast_const(char *, filename);
 	argv[argc] = NULL;
 
-	if (early) {
-		for (i = 0; i < tal_count(all_args); i++) {
-			if (all_args[i] != NULL) {
-				config_parse_line_number = i + 1;
-				argv[1] = all_args[i];
-				opt_early_parse_incomplete(argc, argv,
-						config_log_stderr_exit);
-			}
+	for (i = 0; i < tal_count(all_args); i++) {
+		if (all_args[i] == NULL)
+			continue;
+
+		if (!strstarts(all_args[i], "--")) {
+			parse_include(ld, all_args[i], true, early);
+			continue;
 		}
-	} else {
-		for (i = 0; i < tal_count(all_args); i++) {
-			if (all_args[i] != NULL) {
-				config_parse_line_number = i + 1;
-				argv[1] = all_args[i];
-				opt_parse(&argc, argv, config_log_stderr_exit);
-				argc = 2; /* opt_parse might have changed it  */
-			}
+
+		config_parse_line_number = i + 1;
+		argv[1] = all_args[i];
+		if (early) {
+			opt_early_parse_incomplete(argc, argv,
+						   config_log_stderr_exit);
+		} else {
+			opt_parse(&argc, argv, config_log_stderr_exit);
+			argc = 2; /* opt_parse might have changed it  */
 		}
 	}
 
 	tal_free(contents);
+}
+
+/**
+ * We turn the config file into cmdline arguments. @early tells us
+ * whether to parse early options only (and ignore any unknown ones),
+ * or the non-early options.
+ */
+static void opt_parse_from_config(struct lightningd *ld, bool early)
+{
+	const char *filename;
+
+	/* The default config doesn't have to exist, but if the config was
+	 * specified on the command line it has to exist. */
+	if (ld->config_filename != NULL)
+		filename = ld->config_filename;
+	else
+		filename = path_join(tmpctx, ld->config_dir, "config");
+
+	parse_include(ld, filename, ld->config_filename != NULL, early);
 }
 
 static char *test_subdaemons_and_exit(struct lightningd *ld)
