@@ -502,6 +502,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 				   info->b11->expiry,
 				   b11enc,
 				   info->b11->description,
+				   info->b11->features,
 				   &info->payment_preimage,
 				   &info->b11->payment_hash)) {
 		was_pending(command_fail(info->cmd, INVOICE_LABEL_ALREADY_EXISTS,

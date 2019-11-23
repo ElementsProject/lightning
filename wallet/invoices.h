@@ -50,6 +50,7 @@ bool invoices_create(struct invoices *invoices,
 		     u64 expiry,
 		     const char *b11enc,
 		     const char *description,
+		     const u8 *features,
 		     const struct preimage *r,
 		     const struct sha256 *rhash);
 
