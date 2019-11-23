@@ -1112,7 +1112,8 @@ static void add_config(struct lightningd *ld,
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
 		} else if (opt->show) {
-			char *buf = tal_arr(name0, char, OPT_SHOW_LEN+1);
+			char buf[OPT_SHOW_LEN + sizeof("...")];
+			strcpy(buf + OPT_SHOW_LEN, "...");
 			opt->show(buf, opt->u.carg);
 
 			if (streq(buf, "true") || streq(buf, "false")
@@ -1126,7 +1127,8 @@ static void add_config(struct lightningd *ld,
 
 			/* opt_show_charp surrounds with "", strip them */
 			if (strstarts(buf, "\"")) {
-				buf[strlen(buf)-1] = '\0';
+				char *end = strrchr(buf, '"');
+				memmove(end, end + 1, strlen(end));
 				answer = buf + 1;
 			} else
 				answer = buf;
