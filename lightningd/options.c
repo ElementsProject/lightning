@@ -1079,7 +1079,7 @@ static void add_config(struct lightningd *ld,
 			/* Ignore hidden options (deprecated) */
 		} else if (opt->cb == (void *)opt_usage_and_exit
 		    || opt->cb == (void *)version_and_exit
-		    || opt->cb == (void *)opt_ignore_noarg
+		    || is_restricted_ignored(opt->cb)
 		    || opt->cb == (void *)opt_lightningd_usage
 		    || opt->cb == (void *)test_subdaemons_and_exit
 		    /* FIXME: we can't recover this. */
@@ -1129,7 +1129,7 @@ static void add_config(struct lightningd *ld,
 				answer = buf;
 		} else if (opt->cb_arg == (void *)opt_set_talstr
 			   || opt->cb_arg == (void *)opt_set_charp
-			   || opt->cb_arg == (void *)opt_ignore) {
+			   || is_restricted_print_if_nonnull(opt->cb_arg)) {
 			const char *arg = *(char **)opt->u.carg;
 			if (arg)
 				answer = tal_fmt(name0, "%s", arg);
