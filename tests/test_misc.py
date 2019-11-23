@@ -1806,3 +1806,46 @@ def test_config_in_subdir(node_factory):
     l1.start()
 
     assert l1.rpc.listconfigs('alias')['alias'] == 'test_config_in_subdir'
+
+    l1.stop()
+
+    # conf is not allowed in any config file.
+    with open(os.path.join(l1.daemon.opts.get("lightning-dir"), "config"), 'w') as f:
+        f.write('conf=regtest/conf')
+
+    out = subprocess.run(['lightningd/lightningd',
+                          '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert out.returncode == 1
+    assert "conf: not permitted in configuration files" in out.stderr.decode('utf-8')
+
+    # network is allowed in root config file.
+    with open(os.path.join(l1.daemon.opts.get("lightning-dir"), "config"), 'w') as f:
+        f.write('network=regtest')
+
+    l1.start()
+    l1.stop()
+
+    # but not in network config file.
+    with open(os.path.join(subdir, "config"), 'w') as f:
+        f.write('network=regtest')
+
+    out = subprocess.run(['lightningd/lightningd',
+                          '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert out.returncode == 1
+    assert "network: not permitted in network-specific configuration files" in out.stderr.decode('utf-8')
+
+    # lightning-dir only allowed if we explicitly use --conf
+    os.unlink(os.path.join(subdir, "config"))
+    with open(os.path.join(l1.daemon.opts.get("lightning-dir"), "config"), 'w') as f:
+        f.write('lightning-dir={}/test'.format(l1.daemon.opts.get("lightning-dir")))
+
+    out = subprocess.run(['lightningd/lightningd',
+                          '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert out.returncode == 1
+    assert "lightning-dir: not permitted in implicit configuration files" in out.stderr.decode('utf-8')
+
+    l1.daemon.opts['conf'] = os.path.join(l1.daemon.opts.get("lightning-dir"), "config")
+    l1.start()
