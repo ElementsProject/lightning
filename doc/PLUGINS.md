@@ -631,6 +631,8 @@ For detailed information about each field please refer to [BOLT 04 of the specif
      and should match the incoming funds in case we are the recipient.
  - `outgoing_cltv_value` determines what the CLTV value for the HTLC that we
      forward to the next hop should be.
+ - `total_msat` specifies the total amount to pay, if present.
+ - `payment_secret` specifies the payment secret (which the payer should have obtained from the invoice), if present.
  - `next_onion` is the fully processed onion that we should be sending to the
    next hop as part of the outgoing HTLC. Processed in this case means that we
    took the incoming onion, decrypted it, extracted the payload destined for

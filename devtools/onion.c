@@ -72,12 +72,13 @@ static void do_generate(int argc, char **argv,
 			struct amount_msat amt;
 			bool use_tlv = streq(argv[1 + i] + klen, "/tlv");
 
+			/* FIXME: support secret and and total_msat */
 			memset(&scid, i, sizeof(scid));
 			amt.millisatoshis = i; /* Raw: test code */
 			if (i == num_hops - 1)
 				sphinx_add_final_hop(sp, &path[i],
 						     use_tlv,
-						     amt, i);
+						     amt, i, amt, NULL);
 			else
 				sphinx_add_nonfinal_hop(sp, &path[i],
 							use_tlv,

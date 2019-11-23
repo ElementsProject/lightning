@@ -961,6 +961,11 @@ static u8 *make_failmsg(const tal_t *ctx,
 		/* FIXME: wire this into tlv parser somehow. */
 		msg = towire_invalid_onion_payload(ctx, 0, 0);
 		goto done;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_MPP_TIMEOUT:
+		msg = towire_mpp_timeout(ctx);
+		goto done;
+#endif /* EXPERIMENTAL_FEATURES */
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Asked to create failmsg %u (%s)",
