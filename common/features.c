@@ -111,8 +111,10 @@ bool feature_negotiated(const u8 *lfeatures, size_t f)
  * @bitmap: the features bitmap the peer is asking for
  * @supported: array of features we support
  * @num_supported: how many elements in supported
+ *
+ * Returns -1 on success, or first unsupported feature.
  */
-static bool all_supported_features(const u8 *bitmap,
+static int all_supported_features(const u8 *bitmap,
 				   const u32 *supported,
 				   size_t num_supported)
 {
@@ -126,18 +128,18 @@ static bool all_supported_features(const u8 *bitmap,
 		if (feature_supported(bitnum, supported, num_supported))
 			continue;
 
-		return false;
+		return bitnum;
 	}
-	return true;
+	return -1;
 }
 
-bool features_supported(const u8 *features)
+int features_unsupported(const u8 *features)
 {
 	/* BIT 2 would logically be "compulsory initial_routing_sync", but
 	 * that does not exist, so we special case it. */
 	if (feature_is_set(features,
 			   COMPULSORY_FEATURE(OPT_INITIAL_ROUTING_SYNC)))
-		return false;
+		return COMPULSORY_FEATURE(OPT_INITIAL_ROUTING_SYNC);
 
 	return all_supported_features(features,
 				      our_features,
