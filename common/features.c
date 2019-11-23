@@ -15,6 +15,72 @@ static const u32 our_features[] = {
 	OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
 };
 
+enum feature_copy_style {
+	/* Feature is not exposed (importantly, being 0, this is the default!). */
+	FEATURE_DONT_REPRESENT,
+	/* Feature is exposed. */
+	FEATURE_REPRESENT,
+	/* Feature is exposed, but always optional. */
+	FEATURE_REPRESENT_AS_OPTIONAL,
+};
+
+enum feature_place {
+	INIT_FEATURE,
+	GLOBAL_INIT_FEATURE,
+	NODE_ANNOUNCE_FEATURE,
+	BOLT11_FEATURE,
+};
+#define NUM_FEATURE_PLACE (BOLT11_FEATURE+1)
+
+struct feature_style {
+	u32 bit;
+	enum feature_copy_style copy_style[NUM_FEATURE_PLACE];
+};
+
+static const struct feature_style feature_styles[] = {
+	{ OPT_DATA_LOSS_PROTECT,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_INITIAL_ROUTING_SYNC,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_UPFRONT_SHUTDOWN_SCRIPT,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_GOSSIP_QUERIES,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_GOSSIP_QUERIES_EX,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_VAR_ONION,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [GLOBAL_INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_STATIC_REMOTEKEY,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [GLOBAL_INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_PAYMENT_SECRET,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_BASIC_MPP,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT } },
+};
+
+static enum feature_copy_style feature_copy_style(u32 f, enum feature_place p)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(feature_styles); i++) {
+		if (feature_styles[i].bit == COMPULSORY_FEATURE(f))
+			return feature_styles[i].copy_style[p];
+	}
+	abort();
+}
+
 /* BOLT #1:
  *
  * All data fields are unsigned big-endian unless otherwise specified.
@@ -39,31 +105,44 @@ static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
 	return features[tal_count(features) - 1 - byte] & (1 << (bit % 8));
 }
 
-static u8 *mkfeatures(const tal_t *ctx, const u32 *arr, size_t n)
+static u8 *mkfeatures(const tal_t *ctx, enum feature_place place)
 {
 	u8 *f = tal_arr(ctx, u8, 0);
 
-	for (size_t i = 0; i < n; i++)
-		set_feature_bit(&f, arr[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(our_features); i++) {
+		switch (feature_copy_style(our_features[i], place)) {
+		case FEATURE_DONT_REPRESENT:
+			continue;
+		case FEATURE_REPRESENT:
+			set_feature_bit(&f, our_features[i]);
+			continue;
+		case FEATURE_REPRESENT_AS_OPTIONAL:
+			set_feature_bit(&f, OPTIONAL_FEATURE(our_features[i]));
+			continue;
+		}
+		abort();
+	}
 	return f;
 }
 
-/* We currently advertize everything in node_announcement, except
- * initial_routing_sync which the spec says not to (and we don't set
- * any more anyway).
- *
- * FIXME: Add bolt ref when finalized!
- */
 u8 *get_offered_nodefeatures(const tal_t *ctx)
 {
-	return mkfeatures(ctx,
-			  our_features, ARRAY_SIZE(our_features));
+	return mkfeatures(ctx, NODE_ANNOUNCE_FEATURE);
 }
 
-u8 *get_offered_features(const tal_t *ctx)
+u8 *get_offered_initfeatures(const tal_t *ctx)
 {
-	return mkfeatures(ctx,
-			  our_features, ARRAY_SIZE(our_features));
+	return mkfeatures(ctx, INIT_FEATURE);
+}
+
+u8 *get_offered_globalinitfeatures(const tal_t *ctx)
+{
+	return mkfeatures(ctx, GLOBAL_INIT_FEATURE);
+}
+
+u8 *get_offered_bolt11features(const tal_t *ctx)
+{
+	return mkfeatures(ctx, BOLT11_FEATURE);
 }
 
 bool feature_is_set(const u8 *features, size_t bit)
@@ -155,7 +234,10 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_gossip_queries",
 		"option_var_onion_optin",
 		"option_gossip_queries_ex",
-		"option_static_remotekey" };
+		"option_static_remotekey",
+		"option_payment_secret",
+		"option_basic_mpp",
+	};
 
 	assert(f / 2 < ARRAY_SIZE(fnames));
 	return tal_fmt(ctx, "%s/%s",

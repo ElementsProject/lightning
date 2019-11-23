@@ -9,8 +9,10 @@
 int features_unsupported(const u8 *features);
 
 /* For sending our features: tal_count() returns length. */
-u8 *get_offered_features(const tal_t *ctx);
+u8 *get_offered_initfeatures(const tal_t *ctx);
+u8 *get_offered_globalinitfeatures(const tal_t *ctx);
 u8 *get_offered_nodefeatures(const tal_t *ctx);
+u8 *get_offered_bolt11features(const tal_t *ctx);
 
 /* Is this feature bit requested? (Either compulsory or optional) */
 bool feature_offered(const u8 *features, size_t f);
@@ -54,6 +56,14 @@ void set_feature_bit(u8 **ptr, u32 bit);
 #define OPT_GOSSIP_QUERIES			6
 #define OPT_GOSSIP_QUERIES_EX			10
 #define OPT_STATIC_REMOTEKEY			12
+
+/* BOLT-3a09bc54f8443c4757b47541a5310aff6377ee21 #9:
+ *
+ * | 14/15 | `payment_secret` |... IN9 ...
+ * | 16/17 | `basic_mpp`      |... IN9 ...
+ */
+#define OPT_PAYMENT_SECRET			14
+#define OPT_BASIC_MPP				16
 
 /* BOLT #9:
  *

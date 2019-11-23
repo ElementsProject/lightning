@@ -1835,10 +1835,7 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
-    l1.daemon.wait_for_log(r"\[OUT\] 0010"
-                           # gflen
-                           + format(len(lf) // 2, '04x')
-                           + lf
+    l1.daemon.wait_for_log(r"\[OUT\] 0010.*"
                            # lflen
                            + format(len(lf) // 2, '04x')
                            + lf)

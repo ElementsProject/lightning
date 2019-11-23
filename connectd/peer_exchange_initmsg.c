@@ -35,6 +35,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 {
 	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
 	u8 *globalfeatures, *features;
+	int unsup;
 
 	if (!msg)
 		return io_close(conn);
@@ -73,12 +74,10 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 *  - upon receiving unknown _even_ feature bits that are non-zero:
 	 *    - MUST fail the connection.
 	 */
-	if (features_unsupported(features) != -1) {
-		const u8 *our_features = get_offered_features(msg);
-		msg = towire_errorfmt(NULL, NULL, "Unsupported features %s:"
-				      " we only offer features %s",
-				      tal_hex(msg, features),
-				      tal_hex(msg, our_features));
+	unsup = features_unsupported(features);
+	if (unsup != -1) {
+		msg = towire_errorfmt(NULL, NULL, "Unsupported feature %u",
+				      unsup);
 		msg = cryptomsg_encrypt_msg(NULL, &peer->cs, take(msg));
 		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 	}
@@ -157,17 +156,18 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 * But we didn't have any globals for a long time, and it turned out
 	 * that people wanted us to broadcast local features so they could do
 	 * peer selection.  We agreed that the number spaces should be distinct,
-	 * but debate still rages on how to handle them.
+	 * but debate still raged on how to handle them.
 	 *
 	 * Meanwhile, we finally added a global bit to the spec, so now it
 	 * matters.  And LND v0.8 decided to make option_static_remotekey a
 	 * GLOBAL bit, not a local bit, so we need to send that as a global
-	 * bit here.  Thus, we send our full, combo, bitset as both global
-	 * and local bits. */
+	 * bit here.
+	 *
+	 * Finally, we agreed that bits below 13 could be put in both, but
+	 * from now on they'll all go in initfeatures. */
 	peer->msg = towire_init(NULL,
-				/* Features so nice, we send it twice! */
-				get_offered_features(tmpctx),
-				get_offered_features(tmpctx));
+				get_offered_globalinitfeatures(tmpctx),
+				get_offered_initfeatures(tmpctx));
 	status_peer_io(LOG_IO_OUT, &peer->id, peer->msg);
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
 
