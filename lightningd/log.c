@@ -307,9 +307,9 @@ const char *log_prefix(const struct log *log)
 enum log_level log_print_level(struct log *log)
 {
 	if (!log->print_level) {
-		/* Not set globally yet?  Print BROKEN messages only */
+		/* Not set globally yet?  Print UNUSUAL / BROKEN messages only */
 		if (!log->lr->default_print_level)
-			return LOG_BROKEN;
+			return LOG_UNUSUAL;
 		log->print_level = tal(log, enum log_level);
 		*log->print_level = filter_level(log->lr, log->prefix);
 	}
