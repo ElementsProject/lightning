@@ -2371,9 +2371,12 @@ def test_tlv_or_legacy(node_factory, bitcoind):
                                                    'cltv_expiry_delta': 6}]]})['bolt11']
     l1.rpc.pay(inv)
 
-    # Since L1 hasn't seen broadcast, it doesn't know they're TLV.
+    # Since L1 hasn't seen broadcast, it doesn't know L2 is TLV, but invoice tells it about L3
     l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
-    l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+    if EXPERIMENTAL_FEATURES:
+        l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
+    else:
+        l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
 
     # Turns out we only need 3 more blocks to announce l1->l2 channel.
     bitcoind.generate_block(3)
@@ -2384,23 +2387,8 @@ def test_tlv_or_legacy(node_factory, bitcoind):
     # Make sure l3 knows about l1->l2, so it will add route hint now.
     wait_for(lambda: len(l3.rpc.listchannels(scid12)['channels']) > 0)
 
-    # Now it should send TLV to l2, but not l3.
+    # Now it should send TLV to l2.
     inv = l3.rpc.invoice(10000, "test_tlv2", "test_tlv2")['bolt11']
-
-    l1.rpc.pay(inv)
-    if EXPERIMENTAL_FEATURES:
-        l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-    else:
-        l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
-    l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
-
-    # Now we finally announce l2->l3 channel, so l3 can announce tlv support.
-    bitcoind.generate_block(2)
-
-    wait_for(lambda: len(l1.rpc.listnodes(l3.info['id'])['nodes']) > 0)
-    wait_for(lambda: 'alias' in l1.rpc.listnodes(l3.info['id'])['nodes'][0])
-
-    inv = l3.rpc.invoice(10000, "test_tlv3", "test_tlv3")['bolt11']
 
     l1.rpc.pay(inv)
     if EXPERIMENTAL_FEATURES:
@@ -2414,7 +2402,7 @@ def test_tlv_or_legacy(node_factory, bitcoind):
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, 'Needs invoice secret support')
 @unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
 def test_pay_no_secret(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=False)
 
     l2.rpc.invoice(100000, "test_pay_no_secret", "test_pay_no_secret",
                    preimage='00' * 32, expiry=2000000000)
