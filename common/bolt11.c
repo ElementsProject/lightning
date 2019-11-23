@@ -458,6 +458,7 @@ static char *decode_9(struct bolt11 *b11,
                       size_t data_length)
 {
         size_t flen = (data_length * 5 + 7) / 8;
+	int badf;
 
         b11->features = tal_arr(b11, u8, flen);
         pull_bits_certain(hu5, data, data_len, b11->features,
@@ -478,9 +479,9 @@ static char *decode_9(struct bolt11 *b11,
 	 * The field is big-endian.  The least-significant bit is numbered 0,
 	 * which is _even_, and the next most significant bit is numbered 1,
 	 * which is _odd_. */
-	for (size_t i = 0; i < data_length * 5; i += 2)
-		if (feature_is_set(b11->features, i))
-			return tal_fmt(b11, "9: unknown feature bit %zu", i);
+	badf = features_unsupported(b11->features);
+	if (badf != -1)
+		return tal_fmt(b11, "9: unknown feature bit %i", badf);
 
 	return NULL;
 }

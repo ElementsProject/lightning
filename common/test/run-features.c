@@ -84,17 +84,17 @@ int main(void)
 
 	/* We always support no features. */
 	memset(bits, 0, tal_count(bits));
-	assert(features_supported(bits));
+	assert(features_unsupported(bits) == -1);
 
 	/* We must support our own features. */
 	lf = get_offered_features(tmpctx);
-	assert(features_supported(lf));
+	assert(features_unsupported(lf) == -1);
 
 	/* We can add random odd features, no problem. */
 	for (size_t i = 1; i < 16; i += 2) {
 		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
 		set_feature_bit(&bits, i);
-		assert(features_supported(bits));
+		assert(features_unsupported(bits) == -1);
 	}
 
 	/* We can't add random even features. */
@@ -104,9 +104,9 @@ int main(void)
 
 		/* Special case for missing compulsory feature */
 		if (i == 2) {
-			assert(!features_supported(bits));
+			assert(features_unsupported(bits) == i);
 		} else {
-			assert(features_supported(bits)
+			assert((features_unsupported(bits) == -1)
 			       == feature_supported(i, our_features,
 						    ARRAY_SIZE(our_features)));
 		}

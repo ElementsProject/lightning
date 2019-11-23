@@ -4,8 +4,9 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
-/* Returns true if we're OK with all these offered features. */
-bool features_supported(const u8 *features);
+/* Returns -1 if we're OK with all these offered features, otherwise first
+ * unsupported (even) feature. */
+int features_unsupported(const u8 *features);
 
 /* For sending our features: tal_count() returns length. */
 u8 *get_offered_features(const tal_t *ctx);

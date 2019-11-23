@@ -73,7 +73,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 *  - upon receiving unknown _even_ feature bits that are non-zero:
 	 *    - MUST fail the connection.
 	 */
-	if (!features_supported(features)) {
+	if (features_unsupported(features) != -1) {
 		const u8 *our_features = get_offered_features(msg);
 		msg = towire_errorfmt(NULL, NULL, "Unsupported features %s:"
 				      " we only offer features %s",
