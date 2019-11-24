@@ -268,6 +268,19 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	bool needed_dns = false;
 	tal_free(ld->proxyaddr);
 
+	/* we don't want dns by default with tor proxy so we disable this here if we should */
+	if (!ld->tor_proxy_only_tor) {
+		if (!deprecated_apis)
+				ld->use_proxy_always = true;
+	}
+	if (deprecated_apis && !ld->tor_proxy_only_tor)
+		log_unusual(ld->log, ld->use_proxy_always?
+				"DEPRECATED WARNING: --proxy with --use_proxy_always=true is deprecated and will be removed and route all over Tor set as the default"
+				" You configured : All ipv4/6, dns resolve and Tor traffic will route over the proxy":
+				"DEPRECATED WARNING: --proxy with --use_proxy_always=false is deprecated, please use --tor-proxy-only-tor to enable/disable ipv4/v6 and dns over a Tor proxy."
+				" You configured : Only Tor onion address traffic will route over the proxy, local dns resolve (possible deface of your hidden service is enabled)"
+				" and connect to ipv4/6 nodes will not route over the proxy");
+
 	/* We use a tal_arr here, so we can marshal it to gossipd */
 	ld->proxyaddr = tal_arr(ld, struct wireaddr, 1);
 
@@ -622,8 +635,8 @@ static void check_config(struct lightningd *ld)
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
 
-	if (ld->use_proxy_always && !ld->proxyaddr)
-		fatal("--always-use-proxy needs --proxy");
+	if (ld->tor_proxy_only_tor && !ld->proxyaddr)
+		fatal("--tor_proxy_only_tor needs --proxy");
 }
 
 static char *test_subdaemons_and_exit(struct lightningd *ld)
@@ -706,9 +719,14 @@ static void register_opts(struct lightningd *ld)
 			       "Disable a particular plugin by filename/name");
 
 	/* Early, as it suppresses DNS lookups from cmdline too. */
-	opt_register_early_arg("--always-use-proxy",
+	opt_register_early_noarg("--tor-proxy-only-tor",
+			       opt_set_bool, &ld->tor_proxy_only_tor,
+			       "Use the tor-proxy only for tor onion address");
+	if (deprecated_apis)
+	/* we  will use --proxy-tor-only-tor to disable default */
+		opt_register_early_arg("--always-use-proxy",
 			       opt_set_bool_arg, opt_show_bool,
-			       &ld->use_proxy_always, "Use the proxy always");
+			       &ld->use_proxy_always, "Use the proxy always ( warning : Option is deprecated )");
 
 	/* This immediately makes is a daemon. */
 	opt_register_early_noarg("--daemon", opt_start_daemon, ld,
@@ -814,9 +832,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--autolisten", opt_set_bool_arg, opt_show_bool,
 			 &ld->autolisten,
 			 "If true, listen on default port and announce if it seems to be a public interface");
-
-	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
-			ld,"Set a socks v5 proxy IP address and port");
+	/* we register proxy before addr derivates since they might require DNS */
+	opt_register_early_arg("--proxy", opt_add_proxy_addr, NULL,
+			ld,"Set a the tor address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
@@ -1012,6 +1030,14 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Finalize the logging subsystem now. */
 	logging_options_parsed(ld->log_book);
+
+	/* make sure that we set this early to enable DNS if set ! */
+	if (!deprecated_apis && ld->tor_proxy_only_tor)
+		ld->use_proxy_always = false;
+
+	if (deprecated_apis)
+		if (ld->use_proxy_always && !ld->proxyaddr)
+			fatal("--always-use-proxy needs --proxy");
 }
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])

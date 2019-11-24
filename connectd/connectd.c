@@ -780,7 +780,7 @@ static void try_connect_one_addr(struct connecting *connect)
 
 	/* This creates the new connection using our fd, with the initialization
 	 * function one of the above. */
-	if (use_proxy)
+	if (use_proxy || connect->daemon->use_proxy_always)
 		notleak(io_new_conn(connect, fd, conn_proxy_init, connect));
 	else
 		notleak(io_new_conn(connect, fd, conn_init, connect));
