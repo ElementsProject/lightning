@@ -741,7 +741,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         if (!have_p)
                 return decode_fail(b11, fail, "No valid 'p' field found");
 
-        if (have_h) {
+        if (have_h && description) {
                 struct sha256 sha;
 
                 /* BOLT #11:
@@ -750,9 +750,6 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 		 * in the `h` field exactly matches the hashed
 		 * description.
                  */
-                if (!description)
-                        return decode_fail(b11, fail,
-                                           "h: no description to check");
                 sha256(&sha, description, strlen(description));
                 if (!sha256_eq(b11->description_hash, &sha))
                         return decode_fail(b11, fail,
