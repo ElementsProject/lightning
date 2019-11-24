@@ -357,9 +357,9 @@ and this will be used to configure a Tor hidden service for port
 first IPv4 or IPv6 address we bind to.
 
 This option can be used multiple times to add more addresses, and
-its use disables autolisten.  If necessary, and 'always-use-proxy'
-is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
-or 'TORIPADDRESS'.
+its use disables autolisten.  If necessary, and 'tor-proxy-only-tor'
+is specified or 'always-use-proxy' (deprecated) is not spcified,
+a DNS lookup may be done to resolve 'IPADDRESS' or 'TORIPADDRESS'.
 
 
 .RE
@@ -379,8 +379,9 @@ interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
 not specified, 9735 is used.
 
 This option can be used multiple times to add more addresses, and
-its use disables autolisten.  If necessary, and 'always-use-proxy'
-is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
+its use disables autolisten.  If necessary, and 'tor-proxy-only-tor'
+is specified or 'always-use-proxy' (deprecated) is not spcified,
+a DNS lookup may be done to resolve 'IPADDRESS'.
 
 
 .RE
@@ -402,8 +403,8 @@ its use disables autolisten.  The spec says you can't announce
 more that one address of the same type (eg. two IPv4 or two IPv6
 addresses) so `lightningd` will refuse if you specify more than one.
 
-If necessary, and 'always-use-proxy' is not specified, a DNS
-lookup may be done to resolve 'IPADDRESS'.
+If necessary, and 'tor-proxy-only-tor' is specified or 'always-use-proxy' (deprecated)
+is not spcified, a DNS lookup may be done to resolve 'IPADDRESS'.
 
 
 .RE
@@ -422,15 +423,21 @@ no \fIaddr\fR, \fIbind-addr\fR or \fIannounce-addr\fR options are specified\. Se
 this to \fIfalse\fR disables that\.
 
 
- \fBproxy\fR=\fIIPADDRESS[:PORT]\fR
-Set a socks proxy to use to connect to Tor nodes (or for all connections
-if \fBalways-use-proxy\fR is set)\.
+ \fBproxy\fR=\fIIPADDRESS\[:PORT\]\fR
+Set the Tor proxy to use to connect to Tor nodes (or for all connections
+if \fIalways-use-proxy\fR is set. WARNING deprecated).
 
 
  \fBalways-use-proxy\fR=\fIBOOL\fR
-Always use the \fBproxy\fR, even to connect to normal IP addresses (you
-can still connect to Unix domain sockets manually)\. This also disables
-all DNS lookups, to avoid leaking information\.
+Always use the **proxy**, even to connect to normal IP addresses (you
+can still connect to Unix domain sockets manually). This also disables
+all DNS lookups, to avoid leaking information.
+
+
+ \fBtor-proxy-only-tor\fR
+Do not always use the \fBproxy\fR, and connect to normal IP addresses not
+over the proxy (you can still connect to Unix domain sockets manually).
+This also enables DNS lookups, and will leak information to the DNS system.
 
 
  \fBdisable-dns\fR
