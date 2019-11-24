@@ -75,6 +75,17 @@ enum sphinx_payload_type {
 	SPHINX_RAW_PAYLOAD = 255,
 };
 
+/*
+ * All the necessary information to generate a valid onion for this hop on a
+ * sphinx path. The payload is preserialized in order since the onion
+ * generation is payload agnostic. */
+struct sphinx_hop {
+	struct pubkey pubkey;
+	enum sphinx_payload_type type;
+	const u8 *payload;
+	u8 hmac[HMAC_SIZE];
+};
+
 struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
