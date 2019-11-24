@@ -37,17 +37,6 @@ struct keyset {
 	u8 gamma[KEY_LEN];
 };
 
-/*
- * All the necessary information to generate a valid onion for this hop on a
- * sphinx path. The payload is preserialized in order since the onion
- * generation is payload agnostic. */
-struct sphinx_hop {
-	struct pubkey pubkey;
-	enum sphinx_payload_type type;
-	const u8 *payload;
-	u8 hmac[HMAC_SIZE];
-};
-
 /* Encapsulates the information about a given payment path for the the onion
  * routing algorithm.
  */
