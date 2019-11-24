@@ -1370,18 +1370,15 @@ static struct command_result *json_createonion(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
-	const jsmntok_t *hopstok, *hop, *payloadtok, *typetok, *pubkeytok;
-	enum sphinx_payload_type type;
-	size_t i, hop_count = 0;
 	struct json_stream *response;
-	struct pubkey pubkey;
 	struct secret *session_key, *shared_secrets;
 	struct sphinx_path *sp;
-	u8 *assocdata, *payload, *serialized;
+	u8 *assocdata, *serialized;
 	struct onionpacket *packet;
+	struct sphinx_hop *hops;
 
 	if (!param(cmd, buffer, params,
-		   p_req("hops", param_array, &hopstok),
+		   p_req("hops", param_hops_array, &hops),
 		   p_req("assocdata", param_bin_from_hex, &assocdata),
 		   p_opt("session_key", param_secret, &session_key),
 		   NULL)) {
@@ -1393,48 +1390,9 @@ static struct command_result *json_createonion(struct command *cmd,
 	else
 		sp = sphinx_path_new_with_key(cmd, assocdata, session_key);
 
-	json_for_each_arr(i, hop, hopstok) {
-		payloadtok = json_get_member(buffer, hop, "payload");
-		typetok = json_get_member(buffer, hop, "type");
-		pubkeytok = json_get_member(buffer, hop, "pubkey");
-
-		if (!pubkeytok)
-			return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
-					    "Hop %zu does not have a pubkey", i);
-
-		if (!payloadtok)
-			return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
-					    "Hop %zu does not have a payload", i);
-
-		payload = json_tok_bin_from_hex(cmd, buffer, payloadtok);
-		if (!json_to_pubkey(buffer, pubkeytok, &pubkey))
-			return command_fail(
-			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "'pubkey' should be a pubkey, not '%.*s'",
-			    pubkeytok->end - pubkeytok->start,
-			    buffer + pubkeytok->start);
-
-		if (!payload)
-			return command_fail(
-			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "'payload' should be a hex encoded binary, not '%.*s'",
-			    pubkeytok->end - pubkeytok->start,
-			    buffer + pubkeytok->start);
-
-		if (!typetok || !json_tok_streq(buffer, typetok, "legacy")) {
-			type = SPHINX_RAW_PAYLOAD;
-		} else {
-			type = SPHINX_V0_PAYLOAD;
-		}
-
-		sphinx_add_raw_hop(sp, &pubkey, type, payload);
-		hop_count++;
-	}
-
-	if (hop_count == 0)
-		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
-				    "Cannot create an onion without hops.");
-
+	for (size_t i=0; i<tal_count(hops); i++)
+		sphinx_add_raw_hop(sp, &hops[i].pubkey, hops[i].type,
+				   hops[i].payload);
 
 	packet = create_onionpacket(cmd, sp, &shared_secrets);
 	if (!packet)
@@ -1446,7 +1404,7 @@ static struct command_result *json_createonion(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_add_hex(response, "onion", serialized, tal_bytelen(serialized));
 	json_array_start(response, "shared_secrets");
-	for (size_t i=0; i<hop_count; i++) {
+	for (size_t i=0; i<tal_count(hops); i++) {
 		json_add_secret(response, NULL, &shared_secrets[i]);
 	}
 	json_array_end(response);
