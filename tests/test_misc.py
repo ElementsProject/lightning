@@ -1438,14 +1438,14 @@ def test_configfile_before_chdir(node_factory):
     config = os.path.join(os.path.basename(l1.daemon.lightning_dir[:-1]), TEST_NETWORK, "test_configfile")
     # Test both an early arg and a normal arg.
     with open(config, 'wb') as f:
-        f.write(b'always-use-proxy=true\n')
+        f.write(b'tor-proxy-only-tor\n')
         f.write(b'proxy=127.0.0.1:100\n')
     l1.daemon.opts['conf'] = config
 
     # Update executable to point to right place
     l1.daemon.executable = os.path.join(olddir, l1.daemon.executable)
     l1.start()
-    assert l1.rpc.listconfigs()['always-use-proxy']
+    assert l1.rpc.listconfigs()['tor-proxy-only-tor'] == 'true'
     assert l1.rpc.listconfigs()['proxy'] == '127.0.0.1:100'
     os.chdir(olddir)
 
