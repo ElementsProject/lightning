@@ -365,25 +365,25 @@ int main(int argc, char *argv[])
 	setup_locale();
 	err_set_progname(argv[0]);
 
-	method = argv[1];
+	method = argc > 1 ? argv[1] : NULL;
 	if (!method)
 		show_usage();
 
 	if (streq(method, "decrypt")) {
-		if (!argv[2] || !argv[3])
+		if (argc < 3)
 			show_usage();
 		return decrypt_hsm(argv[2], argv[3]);
 	}
 
 	if (streq(method, "encrypt")) {
-		if (!argv[2] || !argv[3])
+		if (argc < 3)
 			show_usage();
 		return encrypt_hsm(argv[2], argv[3]);
 	}
 
 	if (streq(method, "dumpcommitments")) {
 		/*   node_id    channel_id   depth    hsm_secret  ?password? */
-		if (!(argv[2] && argv[3] && argv[4] && argv[5]))
+		if (argc < 5)
 			show_usage();
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
