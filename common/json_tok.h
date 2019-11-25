@@ -126,4 +126,9 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 					const char *buffer, const jsmntok_t *tok,
 					struct sphinx_hop **hops);
 
+struct command_result *param_secrets_array(struct command *cmd,
+					   const char *name, const char *buffer,
+					   const jsmntok_t *tok,
+					   struct secret **secrets);
+
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */

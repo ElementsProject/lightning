@@ -967,16 +967,14 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct lightningd *ld = cmd->ld;
 	struct wallet_payment *payment;
 	const char *label;
-	const jsmntok_t *secretstok, *cur;
 	struct secret *path_secrets;
-	size_t i;
 
 	if (!param(cmd, buffer, params,
 		   p_req("onion", param_bin_from_hex, &onion),
 		   p_req("first_hop", param_route_hop, &first_hop),
 		   p_req("payment_hash", param_sha256, &payment_hash),
 		   p_opt("label", param_escaped_string, &label),
-		   p_opt("shared_secrets", param_array, &secretstok),
+		   p_opt("shared_secrets", param_secrets_array, &path_secrets),
 		   NULL))
 		return command_param_failed();
 
@@ -987,20 +985,6 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    "Could not parse the onion. Parsing failed "
 				    "with failcode=%d",
 				    failcode);
-
-	if (secretstok) {
-		path_secrets = tal_arr(cmd, struct secret, secretstok->size);
-		json_for_each_arr(i, cur, secretstok) {
-			if (!json_to_secret(buffer, cur, &path_secrets[i]))
-				return command_fail(
-				    cmd, JSONRPC2_INVALID_PARAMS,
-				    "shared_secret[%zu] isn't a valid "
-				    "hex-encoded 32 byte secret",
-				    i);
-		}
-	} else {
-		path_secrets = NULL;
-	}
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);

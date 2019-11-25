@@ -324,3 +324,34 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 
 	return NULL;
 }
+
+struct command_result *param_secrets_array(struct command *cmd,
+					   const char *name, const char *buffer,
+					   const jsmntok_t *tok,
+					   struct secret **secrets)
+{
+	size_t i;
+	const jsmntok_t *s;
+	struct secret secret;
+
+	if (tok->type != JSMN_ARRAY) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "'%s' should be an array of secrets, got '%.*s'", name,
+		    tok->end - tok->start, buffer + tok->start);
+	}
+
+	*secrets = tal_arr(cmd, struct secret, 0);
+	json_for_each_arr(i, s, tok) {
+		if (!hex_decode(buffer + s->start, s->end - s->start, &secret,
+				sizeof(secret)))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "'%s[%zu]' should be a 32 byte hex "
+					    "value, not '%.*s'",
+					    name, i, s->end - s->start,
+					    buffer + s->start);
+
+		tal_arr_expand(secrets, secret);
+	}
+	return NULL;
+}
