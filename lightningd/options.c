@@ -331,7 +331,12 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	temp_term.c_lflag &= ~ECHO;
 	if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0)
 		return "Could not disable password echoing.";
-	printf("Enter hsm_secret password : ");
+	printf("The hsm_secret is encrypted with a password. In order to "
+	       "decrypt it and start the node you must provide the password.\n");
+	printf("Enter hsm_secret password: ");
+	/* If we don't flush we might end up being buffered and we might seem
+	 * to hang while we wait for the password. */
+	fflush(stdout);
 	if (getline(&passwd, &passwd_size, stdin) < 0)
 		return "Could not read password from stdin.";
 	if(passwd[strlen(passwd) - 1] == '\n')
