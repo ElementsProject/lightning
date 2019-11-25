@@ -28,13 +28,6 @@ struct tlv_field {
 	u8 *value;
 };
 
-/* Pull all tlvs from a stream.  Return false and calls fromwire_fail() on
- * error. */
-bool fromwire_tlvs(const u8 **cursor, size_t *max,
-		   const struct tlv_record_type types[],
-		   size_t num_types,
-		   void *record);
-
 /* Append a stream of tlvs: types[] must be in increasing type order! */
 void towire_tlvs(u8 **pptr,
 		 const struct tlv_record_type types[],
