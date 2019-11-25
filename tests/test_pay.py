@@ -2448,7 +2448,7 @@ def test_createonion_rpc(node_factory):
     l1 = node_factory.get_node()
 
     hops = [{
-        "type": "legacy",
+        "style": "legacy",
         "pubkey": "02eec7245d6b7d2ccb30380bfbe2a3648cd7a942653f5aa340edcea1f283686619",
         "payload": "0000000000000000000000000000000000000000"
     }, {
@@ -2461,7 +2461,7 @@ def test_createonion_rpc(node_factory):
         "pubkey": "032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991",
         "payload": "0303030303030303000000000000000300000003"
     }, {
-        "type": "legacy",
+        "style": "legacy",
         "pubkey": "02edabbd16b41c8371b92ef2f04c1185b4f03b6dcd52ba9b78d9d7c89c8f221145",
         "payload": "0404040404040404000000000000000400000004"
     }]
@@ -2501,14 +2501,14 @@ def test_sendonion_rpc(node_factory):
     for h, n in zip(route[:-1], route[1:]):
         # We tell the node h about the parameters to use for n (a.k.a. h + 1)
         hops.append({
-            "type": "legacy",
+            "style": "legacy",
             "pubkey": h['id'],
             "payload": serialize_payload(n)
         })
 
     # The last hop has a special payload:
     hops.append({
-        "type": "legacy",
+        "style": "legacy",
         "pubkey": route[-1]['id'],
         "payload": serialize_payload(route[-1])
     })

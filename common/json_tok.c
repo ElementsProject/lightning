@@ -261,7 +261,7 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 					const char *buffer, const jsmntok_t *tok,
 					struct sphinx_hop **hops)
 {
-	const jsmntok_t *hop, *payloadtok, *typetok, *pubkeytok;
+	const jsmntok_t *hop, *payloadtok, *styletok, *pubkeytok;
 	struct sphinx_hop h;
 	size_t i;
 	if (tok->type != JSMN_ARRAY) {
@@ -276,7 +276,7 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 	json_for_each_arr(i, hop, tok) {
 
 		payloadtok = json_get_member(buffer, hop, "payload");
-		typetok = json_get_member(buffer, hop, "type");
+		styletok = json_get_member(buffer, hop, "style");
 		pubkeytok = json_get_member(buffer, hop, "pubkey");
 
 		if (!pubkeytok)
@@ -302,9 +302,9 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 			    pubkeytok->end - pubkeytok->start,
 			    buffer + pubkeytok->start);
 
-		if (!typetok || json_tok_streq(buffer, typetok, "tlv")) {
+		if (!styletok || json_tok_streq(buffer, styletok, "tlv")) {
 			h.type = SPHINX_TLV_PAYLOAD;
-		} else if (json_tok_streq(buffer, typetok, "legacy")) {
+		} else if (json_tok_streq(buffer, styletok, "legacy")) {
 			h.type = SPHINX_V0_PAYLOAD;
 		} else {
 			return command_fail(

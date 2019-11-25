@@ -19,15 +19,15 @@ payload destined for that node. The following is an example of a 3 hop onion:
 ```json
 [
 	{
-		"type": "legacy",
+		"style": "legacy",
 		"pubkey": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
 		"payload": "000067000001000100000000000003e90000007b000000000000000000000000"
 	}, {
-		"type": "legacy",
+		"style": "legacy",
 		"pubkey": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
 		"payload": "000067000003000100000000000003e800000075000000000000000000000000"
 	}, {
-		"type": "legacy",
+		"style": "legacy",
 		"pubkey": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
 		"payload": "000067000003000100000000000003e800000075000000000000000000000000"
 	}
