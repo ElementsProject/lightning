@@ -5,6 +5,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/str/str.h>
+#include <common/bech32.h>
 #include <common/derive_basepoints.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
@@ -29,6 +30,8 @@ static void show_usage(void)
 	printf("	- decrypt <path/to/hsm_secret> <password>\n");
 	printf("	- encrypt <path/to/hsm_secret> <password>\n");
 	printf("	- dumpcommitments <node id> <channel dbid> <depth> "
+	       "<path/to/hsm_secret> [hsm_secret password]\n");
+	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 	       "<path/to/hsm_secret> [hsm_secret password]\n");
 	exit(0);
 }
@@ -285,6 +288,76 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	return 0;
 }
 
+/* In case of an unilateral close from the remote side while we suffered a
+ * loss of data, this tries to recover the private key from the `to_remote`
+ * output.
+ * This basically iterates over every `dbid` to derive the channel_seed and
+ * then derives the payment basepoint to compare to the pubkey hash specified
+ * in the witness programm.
+ * Note that since a node generates the key for the to_remote output from its
+ * *local* per_commitment_point, there is nothing we can do if
+ * `option_static_remotekey` was not negotiated.
+ *
+ * :param address: The bech32 address of the v0 P2WPKH witness programm
+ * :param node_id: The id of the node with which the channel was established
+ * :param tries: How many dbids to try.
+ * :param hsm_secret_path: The path to the hsm_secret
+ * :param passwd: The *optional* hsm_secret password
+ */
+static int guess_to_remote(const char *address, struct node_id *node_id,
+                           u64 tries, char *hsm_secret_path, char *passwd)
+{
+	struct secret hsm_secret, channel_seed, basepoint_secret;
+	struct pubkey basepoint;
+	struct ripemd160 pubkeyhash;
+	/* We only support P2WPKH, hence 20. */
+	u8 goal_pubkeyhash[20];
+	/* See common/bech32.h for buffer size. */
+	char hrp[strlen(address) - 6];
+	int witver;
+	size_t witlen;
+
+	/* Get the hrp to accept addresses from any network. */
+	if (bech32_decode(hrp, goal_pubkeyhash, &witlen, address, 90) != 1)
+		errx(ERROR_USAGE, "Could not get address' network");
+	if (segwit_addr_decode(&witver, goal_pubkeyhash, &witlen, hrp, address) != 1)
+		errx(ERROR_USAGE, "Wrong bech32 address");
+
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+	                                         | SECP256K1_CONTEXT_SIGN);
+
+	if (passwd)
+		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
+	else
+		get_hsm_secret(&hsm_secret, hsm_secret_path);
+
+	for (u64 dbid = 1; dbid < tries ; dbid++) {
+		get_channel_seed(&channel_seed, node_id, dbid, &hsm_secret);
+		if (!derive_payment_basepoint(&channel_seed,
+		                              &basepoint, &basepoint_secret))
+			errx(ERROR_KEYDERIV, "Could not derive basepoints for dbid %"PRIu64
+			                     " and channel seed %s.", dbid,
+			                     type_to_string(tmpctx,
+			                                    struct secret, &channel_seed));
+
+		pubkey_to_hash160(&basepoint, &pubkeyhash);
+		if (memcmp(pubkeyhash.u.u8, goal_pubkeyhash, 20) == 0) {
+			printf("bech32      : %s\n", address);
+			printf("pubkey hash : %s\n",
+			       tal_hexstr(tmpctx, pubkeyhash.u.u8, 20));
+			printf("pubkey      : %s \n",
+			       type_to_string(tmpctx, struct pubkey, &basepoint));
+			printf("privkey     : %s \n",
+			       type_to_string(tmpctx, struct secret, &basepoint_secret));
+			return 0;
+		}
+	}
+
+	printf("Could not find any basepoint matching the provided witness programm.\n"
+	       "Are you sure that the channel used `option_static_remotekey` ?\n");
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *method;
@@ -317,6 +390,17 @@ int main(int argc, char *argv[])
 			err(ERROR_USAGE, "Bad node id");
 		return dump_commitments_infos(&node_id, atol(argv[3]), atol(argv[4]),
 		                              argv[5], argv[6]);
+	}
+
+	if (streq(method, "guesstoremote")) {
+		/*   address    node_id    depth    hsm_secret  ?password? */
+		if (argc < 5)
+			show_usage();
+		struct node_id node_id;
+		if (!node_id_from_hexstr(argv[3], strlen(argv[3]), &node_id))
+			errx(ERROR_USAGE, "Bad node id");
+		return guess_to_remote(argv[2], &node_id, atol(argv[4]),
+		                       argv[5], argv[6]);
 	}
 
 	show_usage();
