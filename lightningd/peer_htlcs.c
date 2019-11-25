@@ -793,7 +793,8 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
  * correctly. */
 static bool htlc_accepted_can_continue(struct route_step *rs)
 {
-	if (rs->type == SPHINX_TLV_PAYLOAD && !tlv_payload_is_valid(rs->payload.tlv)) {
+	if (rs->type == SPHINX_TLV_PAYLOAD &&
+	    !tlv_payload_is_valid(rs->payload.tlv, NULL)) {
 		SUPERVERBOSE("Encoding of TLV payload is invalid");
 		return false;
 	}

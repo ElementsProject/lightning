@@ -306,7 +306,7 @@ fail:
 	return false;
 }
 
-int ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record)
+bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record, size_t *err_index)
 {
 	size_t numfields = tal_count(record->fields);
 	bool first = true;
@@ -321,8 +321,10 @@ int ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record)
 			 *   - otherwise, if `type` is odd:
 			 *     - MUST discard the next `length` bytes.
 			 */
-			SUPERVERBOSE("Unknown even type in TLV");
-			return i;
+			SUPERVERBOSE("unknown even");
+			if (err_index != NULL)
+				*err_index = i;
+			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
 			 *  - if decoded `type`s are not monotonically-increasing:
@@ -332,12 +334,14 @@ int ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record)
 				SUPERVERBOSE("duplicate tlv type");
 			else
 				SUPERVERBOSE("invalid ordering");
-			return i;
+			if (err_index != NULL)
+				*err_index = i;
+			return false;
 		}
 		first = false;
 		prev_type = f->numtype;
 	}
-	return -1;
+	return true;
 }
 
 % endfor ##  END TLV's

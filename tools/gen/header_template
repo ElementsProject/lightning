@@ -75,10 +75,12 @@ bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_na
  * - Types must be in monotonic non-repeating order
  * - We must understand all even types
  *
- * Returns the index of the field that was invalid, or -1 if the stream is
- * valid.
+ * Returns false if an error was detected, otherwise returns true. If err_index
+ * is non-null and we detect an error it is set to the index of the first error
+ * detected.
  */
-int ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record);
+bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record,
+			  size_t *err_index);
 
 % if tlv.name in options.expose_tlv_type:
 #define TLVS_${tlv.name.upper()}_ARRAY_SIZE ${len(tlv.messages)}

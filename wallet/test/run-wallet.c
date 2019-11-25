@@ -546,7 +546,8 @@ void subd_req_(const tal_t *ctx UNNEEDED,
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
 /* Generated stub for tlv_payload_is_valid */
-int tlv_payload_is_valid(const struct tlv_tlv_payload *record UNNEEDED)
+bool tlv_payload_is_valid(const struct tlv_tlv_payload *record UNNEEDED,
+			  size_t *err_index UNNEEDED)
 { fprintf(stderr, "tlv_payload_is_valid called!\n"); abort(); }
 /* Generated stub for topology_add_sync_waiter_ */
 void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
