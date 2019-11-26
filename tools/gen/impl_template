@@ -269,9 +269,10 @@ bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_na
 		 *     encoding for `type`.
 		 */
 		field.meta = NULL;
-		for (size_t i = 0; i < num_types; i++)
-		if (types[i].type == field.numtype)
-			field.meta = &types[i];
+		for (size_t i = 0; i < num_types; i++) {
+			if (types[i].type == field.numtype)
+				field.meta = &types[i];
+		}
 
 		if (field.meta) {
 			/* Length of message can't exceed 16 bits anyway. */
