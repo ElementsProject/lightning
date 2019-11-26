@@ -12,17 +12,16 @@ if it exists, or the status of all invoices if given no argument\.
 
 .SH RETURN VALUE
 
-On success, an array \fIinvoices\fR of objects is returned\. Each object
-contains \fIlabel\fR, \fIpayment_hash\fR, \fIstatus\fR (one of \fIunpaid\fR, \fIpaid\fR or
-\fIexpired\fR), and \fIexpiry_time\fR (a UNIX timestamp)\. If the \fImsatoshi\fR
-argument to \fBlightning-invoice\fR(7) was not "any", there will be an
-\fImsatoshi\fR field as a number, and \fIamount_msat\fR as the same number
-ending in \fImsat\fR\. If the invoice \fIstatus\fR is \fIpaid\fR, there will be a
-\fIpay_index\fR field and an \fImsatoshi_received\fR field (which may be
-slightly greater than \fImsatoshi\fR as some overpaying is permitted to
-allow clients to obscure payment paths); there will also be an
-\fIamount_received_msat\fR field with the same number as
-\fImsatoshi_received\fR but ending in \fImsat\fR\.
+On success, an array \fIinvoices\fR of objects is returned\. Each object contains
+\fIlabel\fR, \fIpayment_hash\fR, \fIstatus\fR (one of \fIunpaid\fR, \fIpaid\fR or \fIexpired\fR),
+\fIpayment_preimage\fR (for paid invoices), and \fIexpiry_time\fR (a UNIX
+timestamp)\.  If the \fImsatoshi\fR argument to \fBlightning-invoice\fR(7) was not "any",
+there will be an \fImsatoshi\fR field as a number, and \fIamount_msat\fR as the same
+number ending in \fImsat\fR\. If the invoice \fIstatus\fR is \fIpaid\fR, there will be a
+\fIpay_index\fR field and an \fImsatoshi_received\fR field (which may be slightly
+greater than \fImsatoshi\fR as some overpaying is permitted to allow clients to
+obscure payment paths); there will also be an \fIamount_received_msat\fR field
+with the same number as \fImsatoshi_received\fR but ending in \fImsat\fR\.
 
 .SH AUTHOR
 
