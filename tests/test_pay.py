@@ -517,6 +517,7 @@ def test_sendpay(node_factory):
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['pay_index'] == 1
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['msatoshi_received'] == rs['msatoshi']
+    assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['payment_preimage'] == preimage
 
     # Balances should reflect it.
     def check_balances():

@@ -61,6 +61,7 @@ static void json_add_invoice(struct json_stream *response,
 					    "msatoshi_received",
 					    "amount_received_msat");
 		json_add_u64(response, "paid_at", inv->paid_timestamp);
+		json_add_preimage(response, "payment_preimage", &inv->r);
 	}
 	if (inv->description)
 		json_add_string(response, "description", inv->description);
@@ -572,7 +573,6 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	json_add_sha256(response, "payment_hash", &details->rhash);
 	json_add_u64(response, "expires_at", details->expiry_time);
 	json_add_string(response, "bolt11", details->bolt11);
-	json_add_preimage(response, "preimage", &details->r);
 
 	/* Warn if there's not sufficient incoming capacity. */
 	if (tal_count(info->b11->routes) == 0) {
