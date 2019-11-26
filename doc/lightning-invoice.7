@@ -84,6 +84,7 @@ not\.
 
 The following error codes may occur:
 
+.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -91,9 +92,11 @@ The following error codes may occur:
 .IP \[bu]
 901: An invoice with the given \fIpreimage\fR already exists\.
 
+.RE
 
 One of the following warnings may occur (on success):
 
+.RS
 .IP \[bu]
 \fIwarning_offline\fR if no channel with a currently connected peer has
   the incoming capacity to pay this invoice
@@ -102,6 +105,7 @@ One of the following warnings may occur (on success):
   incoming capacity and has a peer that is publicly connected (i\.e\.
   not a dead end)
 
+.RE
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
