@@ -108,9 +108,8 @@ void json_add_payment_fields(struct json_stream *response,
 		break;
 	}
 	if (t->payment_preimage)
-		json_add_hex(response, "payment_preimage",
-			     t->payment_preimage,
-			     sizeof(*t->payment_preimage));
+		json_add_preimage(response, "payment_preimage",
+                    t->payment_preimage);
 	if (t->label)
 		json_add_string(response, "label", t->label);
 	if (t->bolt11)

@@ -438,6 +438,12 @@ void json_add_sha256(struct json_stream *result, const char *fieldname,
 	json_add_hex(result, fieldname, hash, sizeof(*hash));
 }
 
+void json_add_preimage(struct json_stream *result, const char *fieldname,
+		     const struct preimage *preimage)
+{
+	json_add_hex(result, fieldname, preimage, sizeof(*preimage));
+}
+
 /**
  * segwit_addr_net_decode - Try to decode a Bech32 address and detect
  * testnet/mainnet/regtest/signet

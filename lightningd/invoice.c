@@ -138,8 +138,7 @@ invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 {
 	json_object_start(stream, "payment");
 	json_add_escaped_string(stream, "label", payload->label);
-	json_add_hex(stream, "preimage",
-		     &payload->preimage, sizeof(payload->preimage));
+	json_add_preimage(stream, "preimage", &payload->preimage);
 	json_add_string(stream, "msat",
 			type_to_string(tmpctx, struct amount_msat,
 				       &payload->msat));
@@ -573,6 +572,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	json_add_sha256(response, "payment_hash", &details->rhash);
 	json_add_u64(response, "expires_at", details->expiry_time);
 	json_add_string(response, "bolt11", details->bolt11);
+	json_add_preimage(response, "preimage", &details->r);
 
 	/* Warn if there's not sufficient incoming capacity. */
 	if (tal_count(info->b11->routes) == 0) {

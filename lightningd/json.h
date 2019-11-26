@@ -27,6 +27,7 @@ struct json_stream;
 struct pubkey;
 struct node_id;
 struct sha256;
+struct preimage;
 struct short_channel_id;
 struct wallet_payment;
 struct wallet_tx;
@@ -205,6 +206,9 @@ void json_add_time(struct json_stream *result, const char *fieldname,
 
 void json_add_sha256(struct json_stream *result, const char *fieldname,
 		     const struct sha256 *hash);
+
+void json_add_preimage(struct json_stream *result, const char *fieldname,
+		     const struct preimage *preimage);
 
 struct command_result *param_bitcoin_address(struct command *cmd,
 					     const char *name,
