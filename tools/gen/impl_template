@@ -39,7 +39,7 @@ const char *${enum_set['name']}_name(int e)
     % if f.type_obj.has_array_helper():
 towire_${f.type_obj.name}_array(${ptr}, ${fieldname}, ${f.size('tal_count(' + fieldname + ')')});
     % else:
-for (size_t i = 0; i < ${f.size('tal_count(' + fieldname + ')')}; i++)
+	for (size_t i = 0; i < ${f.size('tal_count(' + fieldname + ')')}; i++)
 	% if f.type_obj.is_assignable() or f.type_obj.has_len_fields():
 		towire_${f.type_obj.name}(${ptr}, ${fieldname}[i]);
 	% else:
@@ -68,9 +68,9 @@ ${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, ${f.size('*plen
 fromwire_${type_}_array(cursor, plen, ${fieldname}, ${f.size('*plen')});
     % else:
         % if f.is_implicit_len():
-for (size_t i = 0; *plen != 0; i++)
+	for (size_t i = 0; *plen != 0; i++)
 	% else:
-for (size_t i = 0; i < ${f.size()}; i++)
+	for (size_t i = 0; i < ${f.size()}; i++)
         % endif
 	% if f.type_obj.is_assignable():
 		(${fieldname})[i] = fromwire_${type_}(cursor, plen);
