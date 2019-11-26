@@ -170,10 +170,6 @@ void json_add_escaped_string(struct json_stream *result UNNEEDED,
 			     const char *fieldname UNNEEDED,
 			     const struct json_escape *esc TAKES UNNEEDED)
 { fprintf(stderr, "json_add_escaped_string called!\n"); abort(); }
-/* Generated stub for json_add_hex */
-void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_add_hex called!\n"); abort(); }
 /* Generated stub for json_add_hex_talarr */
 void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 			 const char *fieldname UNNEEDED,
@@ -194,6 +190,10 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_preimage */
+void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		     const struct preimage *preimage UNNEEDED)
+{ fprintf(stderr, "json_add_preimage called!\n"); abort(); }
 /* Generated stub for json_add_secret */
 void json_add_secret(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,
