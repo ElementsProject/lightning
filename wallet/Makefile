@@ -31,8 +31,8 @@ check-source-bolt: $(WALLET_LIB_SRC:%=bolt-check/%) $(WALLET_LIB_HEADERS:%=bolt-
 clean: wallet-clean
 
 # Each database driver depends on its rewritten statements.
-wallet/db_sqlite3.c: wallet/gen_db_sqlite3.c
-wallet/db_postgres.c: wallet/gen_db_postgres.c
+wallet/db_sqlite3.o: wallet/gen_db_sqlite3.c
+wallet/db_postgres.o: wallet/gen_db_postgres.c
 
 # The following files contain SQL-annotated statements that we need to extact
 SQL_FILES := 				\
