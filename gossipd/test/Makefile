@@ -18,7 +18,6 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/utils.o				\
 	wire/gen_peer_wire.o			\
 	wire/fromwire.o				\
-	wire/tlvstream.o			\
 	wire/towire.o
 
 update-mocks: $(GOSSIPD_TEST_SRC:%=update-mocks/%)
