@@ -97,8 +97,9 @@ struct state {
 	u32 feerate_per_kw;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
-	/* If set, this is the scriptpubkey they *must* close with */
-	u8 *remote_upfront_shutdown_script;
+
+	/* If non-NULL, this is the scriptpubkey we/they *must* close with */
+	u8 *upfront_shutdown_script[NUM_SIDES];
 
 	/* This is a cluster of fields in open_channel and accept_channel which
 	 * indicate the restrictions each side places on the channel. */
@@ -142,6 +143,12 @@ static void negotiation_aborted(struct state *state, bool am_funder,
 		u8 *msg = towire_opening_funder_failed(NULL, why);
 		wire_sync_write(REQ_FD, take(msg));
 	}
+
+	/* Default is no shutdown_scriptpubkey: free any leftover ones. */
+	state->upfront_shutdown_script[LOCAL]
+		= tal_free(state->upfront_shutdown_script[LOCAL]);
+	state->upfront_shutdown_script[REMOTE]
+		= tal_free(state->upfront_shutdown_script[REMOTE]);
 
 	/*~ Reset state.  We keep gossipping with them, even though this open
 	* failed. */
@@ -493,9 +500,7 @@ static bool setup_channel_funder(struct state *state)
 
 /* We start the 'fund a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
-static u8 *funder_channel_start(struct state *state,
-				u8 *our_upfront_shutdown_script,
-				u8 channel_flags)
+static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 {
 	u8 *msg;
 	u8 *funding_output_script;
@@ -514,8 +519,8 @@ static u8 *funder_channel_start(struct state *state,
 	 * - otherwise:
 	 *   - MAY include a`shutdown_scriptpubkey`.
 	 */
-	if (!our_upfront_shutdown_script)
-		our_upfront_shutdown_script = dev_upfront_shutdown_script(tmpctx);
+	if (!state->upfront_shutdown_script[LOCAL])
+		state->upfront_shutdown_script[LOCAL] = dev_upfront_shutdown_script(state);
 
 	msg = towire_open_channel_option_upfront_shutdown_script(NULL,
 				  &chainparams->genesis_blockhash,
@@ -536,7 +541,7 @@ static u8 *funder_channel_start(struct state *state,
 				  &state->our_points.htlc,
 				  &state->first_per_commitment_point[LOCAL],
 				  channel_flags,
-				  our_upfront_shutdown_script);
+				  state->upfront_shutdown_script[LOCAL]);
 	sync_crypto_write(state->pps, take(msg));
 
 	/* This is usually a very transient state... */
@@ -547,10 +552,6 @@ static u8 *funder_channel_start(struct state *state,
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
 		return NULL;
-
-	/* Default is no shutdown_scriptpubkey: free any leftover one. */
-	state->remote_upfront_shutdown_script
-		= tal_free(state->remote_upfront_shutdown_script);
 
 	/* BOLT #2:
 	 *
@@ -577,7 +578,7 @@ static u8 *funder_channel_start(struct state *state,
 				     &state->their_points.delayed_payment,
 				     &state->their_points.htlc,
 				     &state->first_per_commitment_point[REMOTE],
-				     &state->remote_upfront_shutdown_script))
+				     &state->upfront_shutdown_script[REMOTE]))
 			peer_failed(state->pps,
 				    &state->channel_id,
 				    "Parsing accept_channel with option_upfront_shutdown_script %s", tal_hex(msg, msg));
@@ -866,7 +867,7 @@ static u8 *funder_channel_complete(struct state *state)
 					   state->funding_txout,
 					   state->feerate_per_kw,
 					   state->localconf.channel_reserve,
-					   state->remote_upfront_shutdown_script);
+					   state->upfront_shutdown_script[REMOTE]);
 }
 
 /*~ The peer sent us an `open_channel`, that means we're the fundee. */
@@ -878,14 +879,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct bitcoin_signature theirsig, sig;
 	struct bitcoin_tx *local_commit, *remote_commit;
 	struct bitcoin_blkid chain_hash;
-	u8 *msg, *our_upfront_shutdown_script;
+	u8 *msg;
 	const u8 *wscript;
 	u8 channel_flags;
 	char* err_reason;
-
-	/* Default is no shutdown_scriptpubkey: free any leftover one. */
-	state->remote_upfront_shutdown_script
-		= tal_free(state->remote_upfront_shutdown_script);
 
 	/* BOLT #2:
 	 *
@@ -916,7 +913,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			    &theirs.htlc,
 			    &state->first_per_commitment_point[REMOTE],
 			    &channel_flags,
-			    &state->remote_upfront_shutdown_script))
+			    &state->upfront_shutdown_script[REMOTE]))
 		    peer_failed(state->pps,
 				&state->channel_id,
 				"Parsing open_channel with option_upfront_shutdown_script %s", tal_hex(tmpctx, open_channel_msg));
@@ -1060,12 +1057,14 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				       state->remoteconf.to_self_delay,
 				       state->remoteconf.max_accepted_htlcs,
 				       channel_flags,
-				       state->remote_upfront_shutdown_script);
+				       state->upfront_shutdown_script[REMOTE]);
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
-	if (!fromwire_opening_got_offer_reply(NULL, msg, &err_reason,
-					      &our_upfront_shutdown_script))
+	/* We don't allocate off tmpctx, because that's freed inside
+	 * opening_negotiate_msg */
+	if (!fromwire_opening_got_offer_reply(state, msg, &err_reason,
+					      &state->upfront_shutdown_script[LOCAL]))
 		master_badmsg(WIRE_OPENING_GOT_OFFER_REPLY, msg);
 
 	/* If they give us a reason to reject, do so. */
@@ -1073,11 +1072,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		u8 *errmsg = towire_errorfmt(NULL, &state->channel_id,
 					     "%s", err_reason);
 		sync_crypto_write(state->pps, take(errmsg));
+		tal_free(err_reason);
 		return NULL;
 	}
 
-	if (!our_upfront_shutdown_script)
-		our_upfront_shutdown_script = dev_upfront_shutdown_script(state);
+	if (!state->upfront_shutdown_script[LOCAL])
+		state->upfront_shutdown_script[LOCAL] = dev_upfront_shutdown_script(state);
 
 	/* OK, we accept! */
 	msg = towire_accept_channel_option_upfront_shutdown_script(NULL, &state->channel_id,
@@ -1094,7 +1094,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->our_points.delayed_payment,
 				    &state->our_points.htlc,
 				    &state->first_per_commitment_point[LOCAL],
-				    our_upfront_shutdown_script);
+				    state->upfront_shutdown_script[LOCAL]);
 
 	sync_crypto_write(state->pps, take(msg));
 
@@ -1262,8 +1262,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     state->feerate_per_kw,
 				     msg,
 				     state->localconf.channel_reserve,
-				     our_upfront_shutdown_script,
-				     state->remote_upfront_shutdown_script);
+				     state->upfront_shutdown_script[LOCAL],
+				     state->upfront_shutdown_script[REMOTE]);
 }
 
 /*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
@@ -1359,20 +1359,19 @@ static u8 *handle_master_in(struct state *state)
 {
 	u8 *msg = wire_sync_read(tmpctx, REQ_FD);
 	enum opening_wire_type t = fromwire_peektype(msg);
-	u8 channel_flags, *upfront_shutdown_script;
+	u8 channel_flags;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 
 	switch (t) {
 	case WIRE_OPENING_FUNDER_START:
-		if (!fromwire_opening_funder_start(tmpctx, msg, &state->funding,
+		if (!fromwire_opening_funder_start(state, msg, &state->funding,
 						   &state->push_msat,
-						   &upfront_shutdown_script,
+						   &state->upfront_shutdown_script[LOCAL],
 						   &state->feerate_per_kw,
 						   &channel_flags))
 			master_badmsg(WIRE_OPENING_FUNDER_START, msg);
-		msg = funder_channel_start(state, upfront_shutdown_script,
-					   channel_flags);
+		msg = funder_channel_start(state, channel_flags);
 
 		/* We want to keep openingd alive, since we're not done yet */
 		if (msg)
@@ -1478,8 +1477,10 @@ int main(int argc, char *argv[])
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
 
-	/*~ We set this to NULL, meaning no requirements on shutdown */
-	state->remote_upfront_shutdown_script = NULL;
+	/*~ We set these to NULL, meaning no requirements on shutdown */
+	state->upfront_shutdown_script[LOCAL]
+		= state->upfront_shutdown_script[REMOTE]
+		= NULL;
 
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,
