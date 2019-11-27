@@ -66,7 +66,27 @@ struct ${tlv.struct_name()} {
 
 % for tlv in tlvs.values():
 struct ${tlv.struct_name()} *${tlv.struct_name()}_new(const tal_t *ctx);
-bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_name()} *record);
+
+/**
+ * Deserialize a TLV stream for the ${tlv.name} namespace.
+ *
+ * This function will parse any TLV stream, as long as the type, length and
+ * value fields are formatted correctly. Fields that are not known in the
+ * current namespace are stored in the `fields` member. Validity can be
+ * checked using ${tlv.name}_is_valid.
+ */
+bool fromwire_${tlv.name}(const u8 **cursor, size_t *max,
+			  struct ${tlv.struct_name()} * record);
+
+/**
+ * Serialize a TLV stream for the ${tlv.name} namespace.
+ *
+ * This function only considers known fields from the ${tlv.name} namespace,
+ * and will ignore any fields that may be stored in the `fields` member. This
+ * ensures that the resulting stream is valid according to
+ * `${tlv.name}_is_valid`.
+ */
+void towire_${tlv.name}(u8 **pptr, const void *record);
 
 /**
  * Check that the TLV stream is valid.
