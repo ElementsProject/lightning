@@ -524,7 +524,7 @@ int main(void)
 			continue;
 
 		p2 = tal_arr(tmpctx, u8, 0);
-		towire_tlvs(&p2, tlvs_n1, TLVS_N1_ARRAY_SIZE, tlv_n1);
+		towire_n1(&p2, tlv_n1);
 		assert(memeq(p2, tal_count(p2), orig_p, tal_count(orig_p)));
 	}
 
@@ -620,7 +620,7 @@ int main(void)
 				continue;
 
 			u8 *p2 = tal_arr(tmpctx, u8, 0);
-			towire_tlvs(&p2, tlvs_n1, TLVS_N1_ARRAY_SIZE, tlv_n1);
+			towire_n1(&p2, tlv_n1);
 			assert(memeq(orig_p, tal_count(orig_p),
 				     p2, tal_count(p2)));
 		}

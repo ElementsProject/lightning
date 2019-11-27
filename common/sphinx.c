@@ -144,7 +144,7 @@ static void sphinx_add_tlv_hop(struct sphinx_path *path,
 			       const struct tlv_tlv_payload *tlv)
 {
 	u8 *tlvs = tal_arr(path, u8, 0);
-	towire_tlvs(&tlvs, tlvs_tlv_payload, TLVS_TLV_PAYLOAD_ARRAY_SIZE, tlv);
+	towire_tlv_payload(&tlvs, tlv);
 	sphinx_add_raw_hop(path, pubkey, SPHINX_TLV_PAYLOAD, tlvs);
 }
 
