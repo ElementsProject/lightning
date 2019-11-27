@@ -409,7 +409,7 @@ u8 *towire_${msg.name}(const tal_t *ctx${''.join([f.arg_desc_to() for f in msg.f
 		% endif
 	    % endif
 	% elif f.type_obj.is_tlv():
-	towire_tlvs(&p, tlvs_${f.type_obj.tlv.name}, ARRAY_SIZE(tlvs_${f.type_obj.tlv.name}), ${f.name});
+	towire_${f.type_obj.tlv.name}(&p, ${f.name});
         % elif f.is_optional: ## is optional?
 	if (!${f.name})
 		towire_bool(&p, false);
