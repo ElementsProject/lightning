@@ -13,7 +13,6 @@ static const char *reason;
 #define SUPERVERBOSE(r) do { reason = (r); } while(0)
 
 #include <wire/gen_peer_wire.c>
-#include <wire/tlvstream.c>
 #include <wire/fromwire.c>
 #include <wire/towire.c>
 
