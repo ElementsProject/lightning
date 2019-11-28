@@ -1145,6 +1145,7 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectctl_init(
 		daemon, msg,
+		&chainparams,
 		&daemon->id,
 		&proposed_wireaddr,
 		&proposed_listen_announce,
