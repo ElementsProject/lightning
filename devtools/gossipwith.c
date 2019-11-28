@@ -1,4 +1,6 @@
 /* Simple tool to route gossip from a peer. */
+#include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
@@ -81,6 +83,22 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 }
 #endif
 
+static char *opt_set_network(const char *arg, void *unused)
+{
+	assert(arg != NULL);
+
+	/* Set the global chainparams instance */
+	chainparams = chainparams_for_network(arg);
+	if (!chainparams)
+		return tal_fmt(NULL, "Unknown network name '%s'", arg);
+	return NULL;
+}
+
+static void opt_show_network(char buf[OPT_SHOW_LEN], const void *unused)
+{
+	snprintf(buf, OPT_SHOW_LEN, "%s", chainparams->network_name);
+}
+
 void peer_failed_connection_lost(void)
 {
 	exit(0);
@@ -137,11 +155,19 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 				OPTIONAL_FEATURE(OPT_INITIAL_ROUTING_SYNC));
 
 	if (!no_init) {
-		msg = towire_init(NULL, NULL, features, NULL);
+		struct tlv_init_tlvs *tlvs = NULL;
+		if (chainparams) {
+			tlvs = tlv_init_tlvs_new(NULL);
+			tlvs->networks = tal(tlvs, struct tlv_init_tlvs_networks);
+			tlvs->networks->chains = tal_arr(tlvs->networks, struct bitcoin_blkid, 1);
+			tlvs->networks->chains[0] = chainparams->genesis_blockhash;
+		}
+			msg = towire_init(NULL, NULL, features, tlvs);
 
 		sync_crypto_write(pps, take(msg));
 		/* Ignore their init message. */
 		tal_free(sync_crypto_read(NULL, pps));
+		tal_free(tlvs);
 	}
 
 	if (stream_stdin)
@@ -254,6 +280,10 @@ int main(int argc, char *argv[])
 			   "Print out messages in hex");
 	opt_register_arg("--features=<hex>", opt_set_features, NULL,
 			 &features, "Send these features in init");
+	opt_register_arg("--network", opt_set_network, opt_show_network,
+	                 NULL,
+	                 "Select the network parameters (bitcoin, testnet, regtest"
+	                 " liquid, liquid-regtest, litecoin or litecoin-testnet)");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
