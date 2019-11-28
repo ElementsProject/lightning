@@ -1,6 +1,7 @@
 #include "chainparams.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
+#include <common/utils.h>
 #include <string.h>
 
 /* Version codes for BIP32 extended keys in libwally-core.
@@ -218,6 +219,14 @@ const struct chainparams *chainparams_for_network(const char *network_name)
 		}
 	}
 	return NULL;
+}
+
+const struct chainparams **chainparams_for_networks(const tal_t *ctx)
+{
+	const struct chainparams **params = tal_arr(ctx, const struct chainparams*, 0);
+	for (size_t i = 0; i < ARRAY_SIZE(networks); i++)
+		tal_arr_expand(&params, &networks[i]);
+	return params;
 }
 
 const struct chainparams *chainparams_by_chainhash(const struct bitcoin_blkid *chain_hash)
