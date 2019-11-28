@@ -55,6 +55,7 @@
 #include <inttypes.h>
 #include <secp256k1.h>
 #include <stdio.h>
+#include <wire/gen_common_wire.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
@@ -2911,6 +2912,21 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SEND_ERROR_REPLY:
 		break;
 	}
+
+	/* Now handle common messages. */
+	switch ((enum common_wire_type)t) {
+#if DEVELOPER
+	case WIRE_CUSTOMMSG_OUT:
+		/* TODO(cdecker) Add handling of custom messages. */
+		return;
+#else
+	case WIRE_CUSTOMMSG_OUT:
+#endif
+	/* We send these. */
+	case WIRE_CUSTOMMSG_IN:
+		break;
+	}
+
 	master_badmsg(-1, msg);
 }
 
