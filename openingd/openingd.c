@@ -47,6 +47,7 @@
 #include <secp256k1.h>
 #include <stdio.h>
 #include <wally_bip32.h>
+#include <wire/gen_common_wire.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
@@ -1410,6 +1411,20 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENING_FUNDER_FAILED:
 	case WIRE_OPENING_GOT_OFFER:
 	case WIRE_OPENING_GOT_OFFER_REPLY:
+		break;
+	}
+
+	/* Now handle common messages. */
+	switch ((enum common_wire_type)t) {
+#if DEVELOPER
+	case WIRE_CUSTOMMSG_OUT:
+		/* TODO(cdecker) Add handling of custom messages. */
+		return NULL;
+#else
+	case WIRE_CUSTOMMSG_OUT:
+#endif
+	/* We send these. */
+	case WIRE_CUSTOMMSG_IN:
 		break;
 	}
 

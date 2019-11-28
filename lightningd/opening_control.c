@@ -33,6 +33,7 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
+#include <wire/gen_common_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
@@ -922,6 +923,20 @@ static unsigned int openingd_msg(struct subd *openingd,
 	case WIRE_OPENING_DEV_MEMLEAK_REPLY:
 		break;
 	}
+
+	switch ((enum common_wire_type)t) {
+#if DEVELOPER
+	case WIRE_CUSTOMMSG_IN:
+		/* TODO(cdecker) Add handling of custom messages. */
+		return 0;
+#else
+	case WIRE_CUSTOMMSG_IN:
+#endif
+	/* We send these. */
+	case WIRE_CUSTOMMSG_OUT:
+		break;
+	}
+
 	log_broken(openingd->log, "Unexpected msg %s: %s",
 		   opening_wire_type_name(t), tal_hex(tmpctx, msg));
 	tal_free(openingd);
