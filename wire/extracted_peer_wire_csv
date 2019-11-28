@@ -3,6 +3,9 @@ msgdata,init,gflen,u16,
 msgdata,init,globalfeatures,byte,gflen
 msgdata,init,lflen,u16,
 msgdata,init,localfeatures,byte,lflen
+msgdata,init,tlvs,init_tlvs,
+tlvtype,init_tlvs,networks,1
+tlvdata,init_tlvs,networks,chains,chain_hash,...
 msgtype,error,17
 msgdata,error,channel_id,channel_id,
 msgdata,error,len,u16,

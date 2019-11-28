@@ -137,7 +137,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 				OPTIONAL_FEATURE(OPT_INITIAL_ROUTING_SYNC));
 
 	if (!no_init) {
-		msg = towire_init(NULL, NULL, features);
+		msg = towire_init(NULL, NULL, features, NULL);
 
 		sync_crypto_write(pps, take(msg));
 		/* Ignore their init message. */
