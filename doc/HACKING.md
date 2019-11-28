@@ -207,7 +207,7 @@ There are three kinds of tests:
 * **blackbox tests** - These test setup a mini-regtest environment and test
   lightningd as a whole.  They can be run individually:
 
-  `PYTHONPATH=contrib/pylightning py.test -v tests/`.
+  `PYTHONPATH=contrib/pylightning:contrib/pyln-client:contrib/pyln-testing py.test -v tests/`
 
   You can also append `-k TESTNAME` to run a single test.  Environment variables
   `DEBUG_SUBD=<subdaemon>` and `TIMEOUT=<seconds>` can be useful for debugging
@@ -216,7 +216,7 @@ There are three kinds of tests:
 * **pylightning tests** - will check contrib pylightning for codestyle and run
   the tests in `contrib/pylightning/tests` afterwards:
 
-  `make check-python`.
+  `make check-python`
 
 Our Travis CI instance (see `.travis.yml`) runs all these for each
 pull request.
