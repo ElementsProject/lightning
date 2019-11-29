@@ -584,25 +584,24 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 					enum onion_type *why_bad,
 					struct sha256 *next_onion_sha)
 {
-	struct onionpacket *op;
+	struct onionpacket op;
 	struct secret *secret = tal(ctx, struct secret);
 	const u8 *msg;
 	struct route_step *rs;
 
 	/* We unwrap the onion now. */
-	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE,
-			       why_bad);
-	if (!op)
+	*why_bad = parse_onionpacket(htlc->routing, TOTAL_PACKET_SIZE, &op);
+	if (*why_bad != 0)
 		return tal_free(secret);
 
 	/* Because wire takes struct pubkey. */
-	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &op->ephemeralkey));
+	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &op.ephemeralkey));
 	if (!fromwire_hsm_ecdh_resp(msg, secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
 
 	/* We make sure we can parse onion packet, so we know if shared secret
 	 * is actually valid (this checks hmac). */
-	rs = process_onionpacket(tmpctx, op, secret->data,
+	rs = process_onionpacket(tmpctx, &op, secret->data,
 				 htlc->rhash.u.u8,
 				 sizeof(htlc->rhash));
 	if (!rs) {

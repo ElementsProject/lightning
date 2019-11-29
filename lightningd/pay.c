@@ -969,7 +969,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 					     const jsmntok_t *params)
 {
 	u8 *onion;
-	struct onionpacket *packet;
+	struct onionpacket packet;
 	enum onion_type failcode;
 	struct htlc_out *hout;
 	struct route_hop *first_hop;
@@ -989,9 +989,9 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	packet = parse_onionpacket(cmd, onion, tal_bytelen(onion), &failcode);
+	failcode = parse_onionpacket(onion, tal_bytelen(onion), &packet);
 
-	if (!packet)
+	if (failcode != 0)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Could not parse the onion. Parsing failed "
 				    "with failcode=%d",
@@ -1032,7 +1032,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		wallet_local_htlc_out_delete(ld->wallet, channel, payment_hash);
 	}
 
-	failcode = send_onion(cmd->ld, packet, first_hop, payment_hash, channel,
+	failcode = send_onion(cmd->ld, &packet, first_hop, payment_hash, channel,
 			  &hout);
 
 	payment = tal(hout, struct wallet_payment);

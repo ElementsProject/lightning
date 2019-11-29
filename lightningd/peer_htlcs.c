@@ -894,7 +894,7 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 {
 	struct htlc_in *hin;
 	struct route_step *rs;
-	struct onionpacket *op;
+	struct onionpacket op;
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_accepted_hook_payload *hook_payload;
 
@@ -947,10 +947,10 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 
 	/* channeld calls both parse_onionpacket and process_onionpacket,
 	 * so they should succeed.. */
-	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
-			       sizeof(hin->onion_routing_packet),
-			       failcode);
-	if (!op) {
+	*failcode = parse_onionpacket(hin->onion_routing_packet,
+				      sizeof(hin->onion_routing_packet),
+				      &op);
+	if (*failcode != 0) {
 		channel_internal_error(channel,
 				       "bad onion in got_revoke: %s",
 				       tal_hexstr(channel, hin->onion_routing_packet,
@@ -958,7 +958,7 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 		return false;
 	}
 
-	rs = process_onionpacket(tmpctx, op, hin->shared_secret->data,
+	rs = process_onionpacket(tmpctx, &op, hin->shared_secret->data,
 				 hin->payment_hash.u.u8,
 				 sizeof(hin->payment_hash));
 	if (!rs) {
