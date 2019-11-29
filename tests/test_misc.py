@@ -1402,13 +1402,11 @@ def test_feerates(node_factory):
 
 def test_logging(node_factory):
     # Since we redirect, node.start() will fail: do manually.
-    l1 = node_factory.get_node(options={'log-file': 'logfile'}, may_fail=True, start=False)
+    l1 = node_factory.get_node(options={'log-file': 'logfile'}, start=False)
     logpath = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'logfile')
     logpath_moved = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'logfile_moved')
+    l1.daemon.start(wait_for_initialized=False)
 
-    l1.daemon.rpcproxy.start()
-    l1.daemon.opts['bitcoin-rpcport'] = l1.daemon.rpcproxy.rpcport
-    TailableProc.start(l1.daemon)
     wait_for(lambda: os.path.exists(logpath))
 
     shutil.move(logpath, logpath_moved)
