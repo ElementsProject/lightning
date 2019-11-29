@@ -136,36 +136,30 @@ u8 *serialize_onionpacket(
 	return dst;
 }
 
-struct onionpacket *parse_onionpacket(const tal_t *ctx,
-				      const void *src,
-				      const size_t srclen,
-				      enum onion_type *why_bad)
+enum onion_type parse_onionpacket(const u8 *src,
+				  const size_t srclen,
+				  struct onionpacket *dest)
 {
-	struct onionpacket *m;
 	int p = 0;
 	u8 rawEphemeralkey[PUBKEY_CMPR_LEN];
 
 	assert(srclen == TOTAL_PACKET_SIZE);
 
-	m = talz(ctx, struct onionpacket);
-
-	read_buffer(&m->version, src, 1, &p);
-	if (m->version != 0x00) {
+	read_buffer(&dest->version, src, 1, &p);
+	if (dest->version != 0x00) {
 		// FIXME add logging
-		*why_bad = WIRE_INVALID_ONION_VERSION;
-		return tal_free(m);
+		return WIRE_INVALID_ONION_VERSION;
 	}
 	read_buffer(rawEphemeralkey, src, sizeof(rawEphemeralkey), &p);
 
 	if (!pubkey_from_der(rawEphemeralkey, sizeof(rawEphemeralkey),
-			     &m->ephemeralkey)) {
-		*why_bad = WIRE_INVALID_ONION_KEY;
-		return tal_free(m);
+			     &dest->ephemeralkey)) {
+		return WIRE_INVALID_ONION_KEY;
 	}
 
-	read_buffer(&m->routinginfo, src, ROUTING_INFO_SIZE, &p);
-	read_buffer(&m->mac, src, HMAC_SIZE, &p);
-	return m;
+	read_buffer(&dest->routinginfo, src, ROUTING_INFO_SIZE, &p);
+	read_buffer(&dest->mac, src, HMAC_SIZE, &p);
+	return 0;
 }
 
 static void xorbytes(uint8_t *d, const uint8_t *a, const uint8_t *b, size_t len)

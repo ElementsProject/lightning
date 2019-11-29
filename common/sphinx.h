@@ -148,15 +148,13 @@ u8 *serialize_onionpacket(
 /**
  * parse_onionpacket - Parse an onionpacket from a buffer.
  *
- * @ctx: tal context to allocate from
  * @src: buffer to read the packet from
  * @srclen: length of the @src (must be TOTAL_PACKET_SIZE)
- * @why_bad: if NULL return, this is what was wrong with the packet.
+ * @dest: the destination into which we should parse the packet
  */
-struct onionpacket *parse_onionpacket(const tal_t *ctx,
-				      const void *src,
-				      const size_t srclen,
-				      enum onion_type *why_bad);
+enum onion_type parse_onionpacket(const u8 *src,
+				  const size_t srclen,
+				  struct onionpacket *dest);
 
 struct onionreply {
 	/* Node index in the path that is replying */

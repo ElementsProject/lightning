@@ -103,21 +103,21 @@ static struct route_step *decode_with_privkey(const tal_t *ctx, const u8 *onion,
 {
 	struct privkey seckey;
 	struct route_step *step;
-	struct onionpacket *packet;
+	struct onionpacket packet;
 	enum onion_type why_bad;
 	u8 shared_secret[32];
 	if (!hex_decode(hexprivkey, strlen(hexprivkey), &seckey, sizeof(seckey)))
 		errx(1, "Invalid private key hex '%s'", hexprivkey);
 
-	packet = parse_onionpacket(ctx, onion, TOTAL_PACKET_SIZE, &why_bad);
+	why_bad = parse_onionpacket(onion, TOTAL_PACKET_SIZE, &packet);
 
-	if (!packet)
+	if (why_bad != 0)
 		errx(1, "Error parsing message: %s", onion_type_name(why_bad));
 
-	if (!onion_shared_secret(shared_secret, packet, &seckey))
+	if (!onion_shared_secret(shared_secret, &packet, &seckey))
 		errx(1, "Error creating shared secret.");
 
-	step = process_onionpacket(ctx, packet, shared_secret, assocdata,
+	step = process_onionpacket(ctx, &packet, shared_secret, assocdata,
 				   tal_bytelen(assocdata));
 	return step;
 
