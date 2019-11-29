@@ -551,6 +551,9 @@ class LightningNode(object):
         self.allow_bad_gossip = allow_bad_gossip
         self.db = db
 
+        # Assume successful exit
+        self.rc = 0
+
         socket_path = os.path.join(lightning_dir, TEST_NETWORK, "lightning-rpc").format(node_id)
         self.rpc = LightningRpc(socket_path, self.executor)
 
@@ -665,19 +668,19 @@ class LightningNode(object):
         except Exception:
             pass
 
-        rc = self.daemon.wait(timeout)
+        self.rc = self.daemon.wait(timeout)
 
         # If it did not stop be more insistent
-        if rc is None:
-            rc = self.daemon.stop()
+        if self.rc is None:
+            self.rc = self.daemon.stop()
 
         self.daemon.save_log()
         self.daemon.cleanup()
 
-        if rc != 0 and not self.may_fail:
-            raise ValueError("Node did not exit cleanly, rc={}".format(rc))
+        if self.rc != 0 and not self.may_fail:
+            raise ValueError("Node did not exit cleanly, rc={}".format(self.rc))
         else:
-            return rc
+            return self.rc
 
     def restart(self, timeout=10, clean=True):
         """Stop and restart the lightning node.
