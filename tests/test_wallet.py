@@ -568,7 +568,7 @@ def test_transaction_annotations(node_factory, bitcoind):
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsm_secret_encryption(node_factory):
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(may_fail=True)  # May fail when started without key
     password = "reckful\n"
     # We need to simulate a terminal to use termios in `lightningd`.
     master_fd, slave_fd = os.openpty()
