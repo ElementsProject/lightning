@@ -1813,10 +1813,11 @@ def test_include(node_factory):
     assert l1.rpc.listconfigs('alias')['alias'] == 'conf2'
 
 
-def test_config_in_subdir(node_factory):
+def test_config_in_subdir(node_factory, chainparams):
     l1 = node_factory.get_node(start=False)
+    network = chainparams['name']
 
-    subdir = os.path.join(l1.daemon.opts.get("lightning-dir"), "regtest")
+    subdir = os.path.join(l1.daemon.opts.get("lightning-dir"), network)
     with open(os.path.join(subdir, "config"), 'w') as f:
         f.write('alias=test_config_in_subdir')
     l1.start()
@@ -1827,7 +1828,7 @@ def test_config_in_subdir(node_factory):
 
     # conf is not allowed in any config file.
     with open(os.path.join(l1.daemon.opts.get("lightning-dir"), "config"), 'w') as f:
-        f.write('conf=regtest/conf')
+        f.write('conf={}/conf'.format(network))
 
     out = subprocess.run(['lightningd/lightningd',
                           '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
@@ -1837,14 +1838,14 @@ def test_config_in_subdir(node_factory):
 
     # network is allowed in root config file.
     with open(os.path.join(l1.daemon.opts.get("lightning-dir"), "config"), 'w') as f:
-        f.write('network=regtest')
+        f.write('network={}'.format(network))
 
     l1.start()
     l1.stop()
 
     # but not in network config file.
     with open(os.path.join(subdir, "config"), 'w') as f:
-        f.write('network=regtest')
+        f.write('network={}'.format(network))
 
     out = subprocess.run(['lightningd/lightningd',
                           '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
