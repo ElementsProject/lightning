@@ -306,7 +306,9 @@ static struct command_result *fundchannel_start_done(struct command *cmd,
 }
 
 static struct command_result *fundchannel_start(struct command *cmd,
-						struct funding_req *fr)
+                                                const char *buf UNUSED,
+                                                const jsmntok_t *result UNUSED,
+                                                struct funding_req *fr)
 {
 	struct json_out *ret = json_out_new(NULL);
 
@@ -326,12 +328,23 @@ static struct command_result *fundchannel_start(struct command *cmd,
 	json_out_end(ret, '}');
 	json_out_finished(ret);
 
-	/* FIXME: as a nice feature, we should check that the peer
-	 * you want to connect to is connected first. if not, we should
-	 * connect and then call fundchannel start!  */
 	return send_outreq(cmd, "fundchannel_start",
 			   fundchannel_start_done, tx_abort,
 			   fr, take(ret));
+}
+
+static struct command_result *connect_to_peer(struct command *cmd,
+                                              struct funding_req *fr)
+{
+	struct json_out *ret = json_out_new(NULL);
+
+	json_out_start(ret, NULL, '{');
+	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
+	json_out_end(ret, '}');
+	json_out_finished(ret);
+
+	return send_outreq(cmd, "connect", fundchannel_start, forward_error,
+	                   fr, take(ret));
 }
 
 static struct command_result *tx_prepare_dryrun(struct command *cmd,
@@ -382,7 +395,7 @@ static struct command_result *tx_prepare_dryrun(struct command *cmd,
 		funding = chainparams->max_funding;
 
 	fr->funding_str = type_to_string(fr, struct amount_sat, &funding);
-	return fundchannel_start(cmd, fr);
+	return connect_to_peer(cmd, fr);
 }
 
 /* We will use 'id' and 'amount' to build a output: {id: amount}.
