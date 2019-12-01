@@ -2403,6 +2403,7 @@ def test_tlv_or_legacy(node_factory, bitcoind):
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, 'Needs invoice secret support')
 @unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=False)
 
