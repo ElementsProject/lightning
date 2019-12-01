@@ -807,10 +807,11 @@ def test_report_routing_failure(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs fast gossip")
-def test_query_short_channel_id(node_factory, bitcoind):
+def test_query_short_channel_id(node_factory, bitcoind, chainparams):
     l1, l2, l3 = node_factory.get_nodes(3)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    chain_hash = chainparams['chain_hash']
 
     # Empty result tests.
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', '1x1x1', '2x2x2'],
@@ -819,14 +820,14 @@ def test_query_short_channel_id(node_factory, bitcoind):
                              stdout=subprocess.PIPE).stdout.strip().decode()
 
     msgs = l1.query_gossip('query_short_channel_ids',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           chain_hash,
                            encoded,
                            filters=['0109'])
 
     # Should just get the WIRE_REPLY_SHORT_CHANNEL_IDS_END = 262
     # (with chainhash and completeflag = 1)
     assert len(msgs) == 1
-    assert msgs[0] == '010606226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f01'
+    assert msgs[0] == '0106{}01'.format(chain_hash)
 
     # Make channels public.
     scid12 = l1.fund_channel(l2, 10**5)
@@ -842,7 +843,7 @@ def test_query_short_channel_id(node_factory, bitcoind):
                              timeout=TIMEOUT,
                              stdout=subprocess.PIPE).stdout.strip().decode()
     msgs = l1.query_gossip('query_short_channel_ids',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           chain_hash,
                            encoded,
                            filters=['0109'])
 
@@ -855,14 +856,14 @@ def test_query_short_channel_id(node_factory, bitcoind):
     # 0x0101 = node_announcement
     assert msgs[3].startswith('0101')
     assert msgs[4].startswith('0101')
-    assert msgs[5] == '010606226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f01'
+    assert msgs[5] == '0106{}01'.format(chain_hash)
 
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
                              check=True,
                              timeout=TIMEOUT,
                              stdout=subprocess.PIPE).stdout.strip().decode()
     msgs = l1.query_gossip('query_short_channel_ids',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           chain_hash,
                            encoded,
                            filters=['0109'])
 
@@ -882,7 +883,7 @@ def test_query_short_channel_id(node_factory, bitcoind):
     assert msgs[6].startswith('0101')
     assert msgs[7].startswith('0101')
     assert msgs[8].startswith('0101')
-    assert msgs[9] == '010606226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f01'
+    assert msgs[9] == '0106{}01'.format(chain_hash)
 
 
 def test_gossip_addresses(node_factory, bitcoind):
