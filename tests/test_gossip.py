@@ -533,8 +533,9 @@ def test_routing_gossip(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev-set-max-scids-encode-size")
-def test_gossip_query_channel_range(node_factory, bitcoind):
+def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
     l1, l2, l3, l4 = node_factory.line_graph(4, fundchannel=False)
+    genesis_blockhash = chainparams['chain_hash']
 
     # Make public channels on consecutive blocks
     l1.fundwallet(10**6)
@@ -566,7 +567,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Asks l2 for all channels, gets both.
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           chainparams['chain_hash'],
                            0, 1000000,
                            filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
@@ -576,7 +577,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(0, '08x') + format(1000000, '08x') + '01'
                     # encoded_short_ids
@@ -585,13 +586,13 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Does not include scid12
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            0, block12,
                            filters=['0109'])
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(0, '08x') + format(block12, '08x') + '01'
                     # encoded_short_ids
@@ -599,7 +600,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Does include scid12
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            0, block12 + 1,
                            filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12],
@@ -609,7 +610,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(0, '08x') + format(block12 + 1, '08x') + '01'
                     # encoded_short_ids
@@ -618,7 +619,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Doesn't include scid23
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            0, block23,
                            filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12],
@@ -628,7 +629,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(0, '08x') + format(block23, '08x') + '01'
                     # encoded_short_ids
@@ -637,7 +638,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Does include scid23
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            block12, block23 - block12 + 1,
                            filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
@@ -647,7 +648,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(block12, '08x') + format(block23 - block12 + 1, '08x') + '01'
                     # encoded_short_ids
@@ -656,7 +657,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Only includes scid23
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            block23, 1,
                            filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid23],
@@ -666,7 +667,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(block23, '08x') + format(1, '08x') + '01'
                     # encoded_short_ids
@@ -675,13 +676,13 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Past both
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            block23 + 1, 1000000,
                            filters=['0109'])
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(block23 + 1, '08x') + format(1000000, '08x') + '01'
                     # encoded_short_ids
@@ -692,7 +693,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     l2.daemon.wait_for_log('Set max_scids_encode_bytes to 9')
 
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            0, 1000000,
                            filters=['0109'])
     # It should definitely have split
@@ -701,9 +702,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     start = 0
     scids = '00'
     for m in msgs:
-        assert m.startswith('0108'
-                            # blockhash
-                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f')
+        assert m.startswith('0108' + genesis_blockhash)
         this_start = int(m[4 + 64:4 + 64 + 8], base=16)
         num = int(m[4 + 64 + 8:4 + 64 + 8 + 8], base=16)
         # Pull off end of packet, assume it's uncompressed, and no TLVs!
@@ -719,7 +718,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Test overflow case doesn't split forever; should still only get 8 for this
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            1, 429496000,
                            filters=['0109'])
     assert len(msgs) == 8
@@ -735,7 +734,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
                            .format(2**32 - 1))
 
     msgs = l2.query_gossip('query_channel_range',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            0, 65535,
                            filters=['0109'])
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '01', scid12, scid23, scid34],
@@ -745,7 +744,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     # reply_channel_range == 264
     assert msgs == ['0108'
                     # blockhash
-                    '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+                    + genesis_blockhash
                     # first_blocknum, number_of_blocks, complete
                     + format(0, '08x') + format(65535, '08x') + '01'
                     # encoded_short_ids
