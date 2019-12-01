@@ -302,6 +302,11 @@ def executor(teardown_checks):
 
 @pytest.fixture
 def chainparams():
+    """Return the chainparams for the TEST_NETWORK.
+
+     - chain_hash is in network byte order, not the RPC return order.
+
+    """
     chainparams = {
         'regtest': {
             "bip173_prefix": "bcrt",
@@ -311,6 +316,7 @@ def chainparams():
             "elements": False,
             "example_addr": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg",
             "feeoutput": False,
+            "chain_hash": '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
         },
         'liquid-regtest': {
             "bip173_prefix": "ert",
@@ -320,6 +326,7 @@ def chainparams():
             "elements": True,
             "example_addr": "ert1qq8adjz4u6enf0cjey9j8yt0y490tact9fahkwf",
             "feeoutput": True,
+            "chain_hash": "9f87eb580b9e5f11dc211e9fb66abb3699999044f8fe146801162393364286c6",
         }
     }
 
