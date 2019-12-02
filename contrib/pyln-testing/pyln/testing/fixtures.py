@@ -305,6 +305,7 @@ def chainparams():
     """Return the chainparams for the TEST_NETWORK.
 
      - chain_hash is in network byte order, not the RPC return order.
+     - example_addr doesn't belong to any node in the test (randomly generated)
 
     """
     chainparams = {
@@ -324,7 +325,7 @@ def chainparams():
             "name": "liquid-regtest",
             "p2sh_prefix": 'X',
             "elements": True,
-            "example_addr": "ert1qq8adjz4u6enf0cjey9j8yt0y490tact9fahkwf",
+            "example_addr": "ert1qjsesxflhs3632syhcz7llpfx20p5tr0kpllfve",
             "feeoutput": True,
             "chain_hash": "9f87eb580b9e5f11dc211e9fb66abb3699999044f8fe146801162393364286c6",
         }
