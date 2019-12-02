@@ -122,6 +122,12 @@ struct state {
 	bool use_v2;
 	struct amount_sat accepter_funding;
 	u32 feerate_per_kw_funding;
+
+	/* List of queued add input/output/completes.
+	 * These get queued up while we're in transition
+	 * between fundchannel_start and fundchannel_complete
+	 */
+	u8 **funding_msg_queue;
 };
 
 static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
@@ -177,6 +183,7 @@ static void negotiation_aborted(struct state *state, bool am_opener,
 	* failed. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = tal_free(state->channel);
+	state->funding_msg_queue = tal_free(state->funding_msg_queue);
 }
 
 /*~ For negotiation failures: we tell them the parameter we didn't like. */
@@ -548,6 +555,9 @@ static bool setup_channel_funder(struct state *state)
 		set_reserve(state);
 	}
 
+	/* Initialize the msg queue */
+	state->funding_msg_queue = tal_arr(state, u8 *, 0);
+
 	/*~ Grab a random ID until the funding tx is created (we can't do that
 	 * until we know their funding_pubkey) */
 	temporary_channel_id(&state->channel_id);
@@ -821,6 +831,14 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 }
 
 #if EXPERIMENTAL_FEATURES
+/* Queue a 'pending' add_funding message. We'll
+ * process these after the break. */
+static void queue_msg(struct state *state, u8 *msg)
+{
+	tal_arr_expand(&state->funding_msg_queue,
+			tal_steal(state->funding_msg_queue, msg));
+}
+
 static void check_channel_id(struct state *state,
 		             struct channel_id *id_in,
 			     struct channel_id *original_channel_id)
@@ -1108,7 +1126,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 {
 	struct channel_id id_in;
 	bool complete;
-	size_t i;
+	size_t i, queue_count;
 	u8 *msg;
 
 	/*
@@ -1173,13 +1191,21 @@ static bool send_receive_funding_tx_info(struct state *state,
 	*remote_inputs = tal_arr(state, struct input_info *, 0);
 	*remote_outputs = tal_arr(state, struct output_info *, 0);
 
+	queue_count = 0;
 	while (!complete) {
 		struct input_info **inputs;
 		struct output_info **outputs;
 		u16 num_ins, num_outs;
 		int type;
 
-		msg = opening_negotiate_msg(tmpctx, state, role == OPENER);
+		/* First we get messages off the queue, if any */
+		if (queue_count < tal_count(state->funding_msg_queue)) {
+			msg = state->funding_msg_queue[queue_count++];
+		} else {
+			/* We pull it off the wire */
+			msg = opening_negotiate_msg(tmpctx, state, role == OPENER);
+		}
+
 		if (!msg)
 			return false;
 
@@ -1256,6 +1282,9 @@ static bool send_receive_funding_tx_info(struct state *state,
 
 		}
 	}
+
+	/* Free the message queue */
+	state->funding_msg_queue = tal_free(state->funding_msg_queue);
 
 	return true;
 }
@@ -2068,13 +2097,8 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 				     accept_tlv);
 
 	sync_crypto_write(state->pps, take(msg));
-
 	peer_billboard(false, "Incoming channel: accepted, now "
 			      "waiting for them to send funding_compose");
-
-	msg = opening_negotiate_msg(tmpctx, state, false);
-	if (!msg)
-		return NULL;
 
 	/* Convert our inputs/outputs to the correct format */
 	inputs_to_infos(state, utxos, &our_inputs);
@@ -2658,9 +2682,17 @@ static u8 *handle_peer_in(struct state *state)
 		return fundee_channel(state, msg);
 	}
 #if EXPERIMENTAL_FEATURES
-	else if (t == WIRE_OPEN_CHANNEL2) {
+	if (t == WIRE_OPEN_CHANNEL2) {
 		state->use_v2 = true;
 		return fundee_channel2(state, msg);
+	}
+	if (t == WIRE_FUNDING_ADD_INPUT
+			|| t == WIRE_FUNDING_ADD_OUTPUT
+			|| t == WIRE_FUNDING_ADD_COMPLETE) {
+		/* add to queue for this state/peer because
+		 * it's possible we're off getting ready for multi-fund whatever.*/
+		queue_msg(state, msg);
+		return NULL;
 	}
 #endif /* EXPERIMENTAL_FEATURES */
 
@@ -2909,6 +2941,9 @@ int main(int argc, char *argv[])
 	state->upfront_shutdown_script[LOCAL]
 		= state->upfront_shutdown_script[REMOTE]
 		= NULL;
+
+	/* We'll initialize the msg queue for the funder flow */
+	state->funding_msg_queue = NULL;
 
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,
