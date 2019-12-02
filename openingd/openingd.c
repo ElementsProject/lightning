@@ -973,15 +973,10 @@ static bool check_remote_input_outputs(struct state *state,
 		/**
 		 *  BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
 		 *  - if is the `opener`:
-		 *    - MUST send at least one `funding_add_input` message
+		 *  ...
     		 *    - MUST NOT send a total count of more than 64 inputs,
 		 *      across all `funding_add_input` messages.
 		 */
-		if (!tal_count(remote_inputs))
-			peer_failed(state->pps,
-				    &state->channel_id,
-				    "Opener sent no funding inputs");
-
 		if (tal_count(remote_inputs) > REMOTE_OPENER_INPUT_LIMIT)
 			peer_failed(state->pps,
 				    &state->channel_id,
@@ -1264,7 +1259,68 @@ static bool send_receive_funding_tx_info(struct state *state,
 
 	return true;
 }
-#endif
+
+static bool input_outpoint_eq(struct witness_stack *witness,
+			      struct input_info *input)
+{
+	return bitcoin_txid_eq(&witness->prevtx_txid, &input->prevtx_txid) &&
+		witness->prevtx_vout == input->prevtx_vout;
+}
+
+static u32 sum_witness_len(struct witness_stack *witness)
+{
+	u32 len = 0;
+	for (size_t i = 0; i < tal_count(witness->witness_element); i++)
+		len += tal_count(witness->witness_element[i]->witness);
+
+	return len;
+}
+
+static char *check_remote_witnesses(struct witness_stack **witnesses,
+				    struct input_info **inputs)
+{
+	size_t i, j;
+	u16 witness_len;
+
+	if (tal_count(witnesses) != tal_count(inputs))
+		return tal_fmt(tmpctx, "Received %zu witnesses for %zu inputs",
+			       tal_count(witnesses),
+			       tal_count(inputs));
+
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+	 * - if the `witness_stack` length exceeds `max_witness_len`:
+	 *   - MUST error.
+	 */
+	for (i = 0; i < tal_count(witnesses); i++) {
+		bool found = false;
+		for (j = 0; j < tal_count(inputs); j++) {
+			if (input_outpoint_eq(witnesses[i], inputs[j])) {
+				found = true;
+				witness_len = sum_witness_len(witnesses[i]);
+				if (witness_len > inputs[j]->max_witness_len) {
+					return tal_fmt(tmpctx, "Witness %s:%d len %u "
+						       "larger than specified max %u",
+						       type_to_string(tmpctx,
+								      struct bitcoin_txid,
+								      &witnesses[i]->prevtx_txid),
+						       witnesses[i]->prevtx_vout,
+						       witness_len, inputs[j]->max_witness_len);
+				}
+				break;
+			}
+		}
+		if (!found)
+			return tal_fmt(tmpctx, "No matching input found for witness %s:%u",
+				       type_to_string(tmpctx,
+						      struct bitcoin_txid,
+						      &witnesses[i]->prevtx_txid),
+				       witnesses[i]->prevtx_vout);
+	}
+
+	return NULL;
+}
+#endif /*EXPERIMENTAL_FEATURES */
 
 static u8 *funder_finalize_channel_setup2(struct state *state,
 					  struct utxo **utxos,
@@ -1285,8 +1341,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 	size_t i, input_count;
 	struct bitcoin_tx *funding_tx, *remote_commit, *local_commit;
 
-	// FIXME!! (don't set NULL)
-	const struct witness_stack **remote_witnesses = NULL;
+	struct witness_stack **remote_witnesses;
 
 	/* Derive components, omitting the funding output */
 	derive_input_output_info(state, *tx, utxos, true,
@@ -1401,28 +1456,17 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 		return NULL;
 
 	their_sig.sighash_type = SIGHASH_ALL;
-	/* FIXME!!!
-	if (!fromwire_accepter_sigs(state, msg, &id_in,
-				    &their_sig.s,
-				    (struct witness_stack ***)&remote_witnesses))
+
+	if (!fromwire_commitment_signed(state, msg, &id_in, &their_sig.s, NULL))
 		peer_failed(state->pps,
 			    &state->channel_id,
-			    "Bad accepter_sigs in %s", tal_hex(msg, msg));
-	*/
+			    "Bad commitment_signed in %s", tal_hex(msg, msg));
 
 	peer_billboard(false,
-		       "Opening channel: accepter_sigs received");
+		       "Opening channel: commitment_signed received");
 
 	/* Check that they're using the right channel_id */
 	check_channel_id(state, &id_in, &state->channel_id);
-
-	/* Check that they sent the right count of witnesses */
-	if (tal_count(remote_witnesses) != tal_count(remote_ins))
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Received %zu witnesses for %zu inputs",
-			    tal_count(remote_witnesses),
-			    tal_count(remote_ins));
 
 	/* We create *our* initial commitment transaction, and check the
 	 * signature they sent against that. */
@@ -1433,6 +1477,11 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 		negotiation_failed(state, false,
 				   "Did not meet fees and reserve: %s", err_reason);
 
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+	 * The sending node:
+	 * - MUST verify it has received valid commitment signatures from its peer
+	 */
 	if (!check_tx_sig(local_commit, 0, NULL, wscript, &state->their_funding_pubkey, &their_sig))
 		peer_failed(state->pps,
 			    &state->channel_id,
@@ -1444,7 +1493,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 					   &state->their_funding_pubkey));
 
 	peer_billboard(false,
-		       "Opening channel: accepter sigs are acceptable, moving to sign tx %s",
+		       "Opening channel: commitment sigs are acceptable, moving to sign tx %s",
 		       type_to_string(state, struct bitcoin_tx, funding_tx));
 
 	u32 *i_map = tal_arr(state, u32, input_count);
@@ -1452,6 +1501,40 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 		i_map[i] = ptr2int(map[i]);
 	}
 
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+	 * - MUST set `witness` to the serialized witness data for the input
+	 *   corresponding to `prevtx_txid`:`prevtx_vout`
+         */
+
+	/* Wait for their funding_signed2 message */
+	msg = opening_negotiate_msg(tmpctx, state, true);
+	if (!msg)
+		return NULL;
+
+	if (!fromwire_funding_signed2(state, msg,
+				      &id_in, &remote_witnesses))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Bad funding_signed2 in %s", tal_hex(msg, msg));
+
+	/* Check remote witness info */
+	err_reason = check_remote_witnesses(remote_witnesses, remote_ins);
+	if (err_reason)
+		peer_failed(state->pps, &state->channel_id,
+			    "%s", err_reason);
+
+
+	/* Pass back all of the funding and commitment tx info so that
+	 * we can commit to disk. We also start listening for funding confirms
+	 * since as soon as we send our sigs for the funding tx they may
+	 * broadcast (we may never hear back from the peer here) */
+	/*
+	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
+	 * The sending node:
+	 * ...
+	 * - MUST remember the details of this funding transaction.
+	 */
 	return towire_opening_dual_funding_signed(state,
 						  state->pps,
 						  local_commit,
@@ -1459,7 +1542,8 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 						  funding_tx,
 					          state->funding_txout,
 						  opener_change,
-						  remote_witnesses,
+						  cast_const2(const struct witness_stack **,
+							      remote_witnesses),
 						  i_map,
 						  state->opener_funding,
 						  &state->remoteconf,
@@ -2181,11 +2265,13 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	 * to save state to disk before doing so. */
 	assert(our_sig.sighash_type == SIGHASH_ALL);
 
-	/* FIXME: commitment_signed send dance etc!!
-	msg = towire_accepter_sigs(state, &state->channel_id,
-				   &our_sig.s,
-				   cast_const2(const struct witness_stack **, our_stack));
-			*/
+	/* We send our commitment sigs */
+	msg = towire_commitment_signed(state, &state->channel_id, &our_sig.s, NULL);
+	sync_crypto_write(state->pps, take(msg));
+
+	/* We send funding_signed2 after we've committed this to disk */
+	msg = towire_funding_signed2(state, &state->channel_id,
+				     cast_const2(const struct witness_stack **, our_stack));
 
 	/* we send everything to lightning, who commits things to the database etc.
 	 * lightningd will forward the signatures etc over to channeld, who
