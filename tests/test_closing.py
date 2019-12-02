@@ -357,12 +357,12 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(not COMPAT, "needs COMPAT=1")
-def test_deprecated_closing_compat(node_factory, bitcoind):
+def test_deprecated_closing_compat(node_factory, bitcoind, chainparams):
     """ The old-style close command is:
         close {id} {force} {timeout}
     """
     l1, l2 = node_factory.get_nodes(2, opts=[{'allow-deprecated-apis': True}, {}])
-    addr = 'bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg'
+    addr = chainparams['example_addr']
     nodeid = l2.info['id']
 
     l1.rpc.check(command_to_check='close', id=nodeid)
