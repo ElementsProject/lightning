@@ -398,17 +398,48 @@ failed:
 }
 
 #if EXPERIMENTAL_FEATURES
+// FIXME: Switch to PSBT, not unreleased tx
+static bool add_remote_witnesses(struct unreleased_tx *utx,
+				 struct witness_stack **witnesses)
+{
+	size_t i, j;
+
+	assert(tal_count(witnesses) == tal_count(utx->inputs));
+	for (i = 0; i < tal_count(witnesses); i++) {
+		struct witness_stack *witness = witnesses[i];
+
+		/* Convert witness stack into array of witnesses */
+		u8 **witnesses_arr = tal_arr(NULL, u8 *, tal_count(witness->witness_element));
+		for (j = 0; j < tal_count(witness->witness_element); j++) {
+			witnesses_arr[j] =
+				tal_dup_arr(witnesses_arr, u8,
+					    witness->witness_element[j]->witness,
+					    tal_count(witness->witness_element[j]->witness),
+					    0);
+		}
+
+		/* Find the corresponding input in the transaction */
+		for (j = 0; j < tal_count(utx->inputs); j++) {
+			if (bitcoin_txid_eq(&utx->inputs[j]->txid, &witness->prevtx_txid) &&
+					utx->inputs[j]->index == witness->prevtx_vout) {
+				utx->inputs[j]->witness = tal_steal(utx->inputs[j], witnesses_arr);
+				break;
+			}
+		}
+	}
+
+	return true;
+}
+
 static bool update_unreleased_tx(struct unreleased_tx *utx,
 				 struct bitcoin_tx *tx,
 				 u32 *input_map,
-				 struct amount_sat opener_change,
-				 struct witness_stack **witnesses)
+				 struct amount_sat opener_change)
 {
 	size_t i, j, num_other_ins, num_utxo;
 
 	num_utxo = tal_count(utx->wtx->utxos);
 	num_other_ins = tx->wtx->num_inputs - num_utxo;
-	assert(num_other_ins == tal_count(witnesses));
 
 	utx->inputs = tal_free(utx->inputs);
 	utx->inputs = tal_arr(utx, struct bitcoin_tx_input *, num_other_ins);
@@ -449,17 +480,6 @@ static bool update_unreleased_tx(struct unreleased_tx *utx,
 			memcpy(in->script, wi.script, wi.script_len);
 		} else
 			in->script = NULL;
-
-		in->witness = tal_arr(in, u8 *,
-				      tal_count(witnesses[i]->witness_element));
-		for (j = 0; j < tal_count(witnesses[i]->witness_element); j++) {
-			in->witness[j] =
-				tal_dup_arr(in->witness,
-					    u8,
-					    witnesses[i]->witness_element[j]->witness,
-					    tal_count(witnesses[i]->witness_element[j]->witness),
-					    0);
-		}
 
 		utx->inputs[i] = in;
 	}
@@ -513,7 +533,6 @@ static void opening_opener_sigs_received(struct subd *openingd, const u8 *resp,
 	struct funding_channel *fc = uc->fc;
 	struct unreleased_tx *utx = fc->utx;
 	u32 *input_map;
-	struct witness_stack **witnesses = NULL;
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -560,12 +579,17 @@ static void opening_opener_sigs_received(struct subd *openingd, const u8 *resp,
 	}
 
 	/* Update the funding tx that we have for this */
-	if (!update_unreleased_tx(utx, funding_tx, input_map, opener_change, witnesses)) {
+	if (!update_unreleased_tx(utx, funding_tx, input_map, opener_change)) {
 		log_broken(uc->log, "Unable to update unreleased tx");
 		uncommitted_channel_disconnect(uc, LOG_BROKEN, "internal error in creating updated tx");
 		goto cleanup;
 	}
 
+	if (!add_remote_witnesses(utx, remote_witnesses)) {
+		log_broken(uc->log, "Unable to update unreleased tx with witnesses");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, "internal error in updating tx witnesses");
+		goto cleanup;
+	}
 
 	bitcoin_tx_output_get_amount_sat(utx->tx, funding_txout, &total_funding);
 	bitcoin_txid(funding_tx, &funding_txid);
