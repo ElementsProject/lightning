@@ -1366,6 +1366,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 	struct amount_sat total_funding, opener_change;
 	struct bitcoin_signature their_sig, our_sig;
 	struct amount_msat local_funding_msat;
+	secp256k1_ecdsa_signature *unused_htlcs;
 
 	size_t i, input_count;
 	struct bitcoin_tx *funding_tx, *remote_commit, *local_commit;
@@ -1486,10 +1487,22 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 
 	their_sig.sighash_type = SIGHASH_ALL;
 
-	if (!fromwire_commitment_signed(state, msg, &id_in, &their_sig.s, NULL))
+	if (!fromwire_commitment_signed(state, msg, &id_in, &their_sig.s, &unused_htlcs))
 		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Bad commitment_signed in %s", tal_hex(msg, msg));
+
+	/*
+	 * BOLT-0254a8b2ffa21769240d35b33de28b582dc568b2 #2
+	 * The receiving node:
+	 * - if the message has one or more HTLC's:
+	 *   - MUST fail the channel.
+	 */
+	if (unused_htlcs != NULL)
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Unexpected HTLCs in commitment_signed %s",
+			    tal_hex(msg, msg));
 
 	peer_billboard(false,
 		       "Opening channel: commitment_signed received");
