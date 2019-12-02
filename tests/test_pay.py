@@ -2477,6 +2477,7 @@ def test_createonion_rpc(node_factory):
     assert(res['onion'].endswith('be89e4701eb870f8ed64fafa446c78df3ea'))
 
 
+@unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
 def test_sendonion_rpc(node_factory):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
     amt = 10**3
