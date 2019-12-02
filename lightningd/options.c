@@ -1081,6 +1081,7 @@ static void add_config(struct lightningd *ld,
 {
 	char *name0 = tal_strndup(response, name, len);
 	const char *answer = NULL;
+	char buf[OPT_SHOW_LEN + sizeof("...")];
 
 	if (opt->type & OPT_NOARG) {
 		if (opt->desc == opt_hidden) {
@@ -1117,7 +1118,6 @@ static void add_config(struct lightningd *ld,
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
 		} else if (opt->show) {
-			char buf[OPT_SHOW_LEN + sizeof("...")];
 			strcpy(buf + OPT_SHOW_LEN, "...");
 			opt->show(buf, opt->u.carg);
 
