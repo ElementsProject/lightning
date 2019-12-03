@@ -91,6 +91,9 @@ static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 	if (hop->type == SPHINX_V0_PAYLOAD)
 		return 65;
 
+	if (hop->type == SPHINX_RAW_PAYLOAD)
+		return size + HMAC_SIZE;
+
 	/* Since this uses the bigsize serialization format for variable
 	 * length integer encodings we need to allocate enough space for
 	 * it. Values >= 0xfd are used to signal multi-byte serializations. */
@@ -531,11 +534,17 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	size_t padding_size;
 	int pos = 0;
 
-	/* Backwards compatibility for the legacy hop_data format. */
-	if (hop->type == SPHINX_V0_PAYLOAD)
+	switch (hop->type) {
+	case SPHINX_V0_PAYLOAD:
+		/* Backwards compatibility for the legacy hop_data format. */
 		dest[pos++] = 0x00;
-	else
+		break;
+	case SPHINX_TLV_PAYLOAD:
 		pos += bigsize_put(dest+pos, raw_size);
+		break;
+	case SPHINX_RAW_PAYLOAD:
+		break;
+	}
 
 	memcpy(dest + pos, hop->payload, raw_size);
 	pos += raw_size;
