@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_OPENING_CONTROL_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <lightningd/peer_control.h>
 
 struct channel_id;
 struct crypto_state;
@@ -25,5 +26,7 @@ struct command;
 /* Calls report_leak_info() async. */
 void opening_dev_memleak(struct command *cmd);
 #endif
+
+struct subd *peer_get_owning_subd(struct peer *peer);
 
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_CONTROL_H */
