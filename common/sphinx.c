@@ -603,7 +603,11 @@ static bool sphinx_parse_payload(struct route_step *step, const u8 *src)
 		fromwire_varint(&tlv, &max);
 
 		if (!fromwire_tlv_payload(&tlv, &max, step->payload.tlv)) {
-			/* FIXME: record offset of violation for error! */
+			return false;
+		}
+
+		/* FIXME: record offset of violation for error! */
+		if (!tlv_payload_is_valid(step->payload.tlv, NULL)) {
 			return false;
 		}
 	}
