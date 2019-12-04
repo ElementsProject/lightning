@@ -51,7 +51,7 @@ struct plugin_conn {
 static struct plugin_conn rpc_conn;
 
 struct command {
-	u64 id;
+	u64 *id;
 	const char *methodname;
 	bool usage_only;
 };
@@ -159,12 +159,15 @@ static struct command *read_json_request(const tal_t *ctx,
 
 	method = json_get_member(membuf_elems(&conn->mb), toks, "method");
 	*params = json_get_member(membuf_elems(&conn->mb), toks, "params");
-	/* FIXME: Notifications don't have id! */
 	id = json_get_member(membuf_elems(&conn->mb), toks, "id");
-	if (!json_to_u64(membuf_elems(&conn->mb), id, &cmd->id))
-		plugin_err("JSON id '%*.s' is not a number",
-			   id->end - id->start,
-			   membuf_elems(&conn->mb) + id->start);
+	if (id) {
+		cmd->id = tal(cmd, u64);
+		if(!json_to_u64(membuf_elems(&conn->mb), id, cmd->id))
+			plugin_err("JSON id '%*.s' is not a number",
+			           id->end - id->start,
+			           membuf_elems(&conn->mb) + id->start);
+	} else
+		cmd->id = NULL;
 	cmd->usage_only = false;
 	cmd->methodname = json_strdup(cmd, membuf_elems(&conn->mb), method);
 
@@ -213,7 +216,7 @@ command_done_raw(struct command *cmd,
 		 const char *label,
 		 const char *str, int size)
 {
-	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
 
 	memcpy(json_out_member_direct(jout, label, size), str, size);
 
@@ -224,7 +227,7 @@ command_done_raw(struct command *cmd,
 struct command_result *WARN_UNUSED_RESULT
 command_success(struct command *cmd, const struct json_out *result)
 {
-	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
 
 	json_out_add_splice(jout, "result", result);
 	finish_and_send_json(STDOUT_FILENO, jout);
@@ -234,7 +237,7 @@ command_success(struct command *cmd, const struct json_out *result)
 struct command_result *WARN_UNUSED_RESULT
 command_success_str(struct command *cmd, const char *str)
 {
-	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
 
 	if (str)
 		json_out_addstr(jout, "result", str);
@@ -252,7 +255,7 @@ struct command_result *command_done_err(struct command *cmd,
 					const char *errmsg,
 					const struct json_out *data)
 {
-	struct json_out *jout = start_json_rpc(cmd, cmd->id);
+	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
 
 	json_out_start(jout, "error", '{');
 	json_out_add(jout, "code", false, "%d", code);
@@ -483,6 +486,8 @@ static struct command_result *
 handle_getmanifest(struct command *getmanifest_cmd,
 		   const struct plugin_command *commands,
 		   size_t num_commands,
+		   const struct plugin_notification *notif_subs,
+		   size_t num_notif_subs,
 		   const struct plugin_option *opts,
 		   const enum plugin_restartability restartability)
 {
@@ -512,6 +517,12 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_out_end(params, '}');
 	}
 	json_out_end(params, ']');
+
+	json_out_start(params, "subscriptions", '[');
+	for (size_t i = 0; i < num_notif_subs; i++)
+		json_out_addstr(params, NULL, notif_subs[i].name);
+	json_out_end(params, ']');
+
 	json_out_addstr(params, "dynamic", restartability == PLUGIN_RESTARTABLE ? "true" : "false");
 	json_out_end(params, '}');
 	json_out_finished(params);
@@ -612,13 +623,26 @@ static void handle_new_command(const tal_t *ctx,
 			       struct plugin_conn *request_conn,
 			       struct plugin_conn *rpc_conn,
 			       const struct plugin_command *commands,
-			       size_t num_commands)
+			       size_t num_commands,
+			       const struct plugin_notification *notif_subs,
+			       size_t num_notif_subs)
 {
 	struct command *cmd;
 	const jsmntok_t *params;
 	int reqlen;
 
 	cmd = read_json_request(ctx, request_conn, rpc_conn, &params, &reqlen);
+	/* If this is a notification. */
+	if (!cmd->id) {
+		for (size_t i = 0; i < num_notif_subs; i++) {
+			if (streq(cmd->methodname, notif_subs[i].name)) {
+				notif_subs[i].handle(cmd, membuf_elems(&request_conn->mb),
+				                     params);
+				membuf_consume(&request_conn->mb, reqlen);
+			}
+		}
+		return;
+	}
 	for (size_t i = 0; i < num_commands; i++) {
 		if (streq(cmd->methodname, commands[i].name)) {
 			commands[i].handle(cmd, membuf_elems(&request_conn->mb),
@@ -721,7 +745,10 @@ void plugin_main(char *argv[],
 						     const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
 		 const struct plugin_command *commands,
-		 size_t num_commands, ...)
+		 size_t num_commands,
+		 const struct plugin_notification *notif_subs,
+		 size_t num_notif_subs,
+		 ...)
 {
 	struct plugin_conn request_conn;
 	const tal_t *ctx = tal(NULL, char);
@@ -752,7 +779,7 @@ void plugin_main(char *argv[],
 		    membuf_tal_realloc);
 	uintmap_init(&out_reqs);
 
-	va_start(ap, num_commands);
+	va_start(ap, num_notif_subs);
 	while ((optname = va_arg(ap, const char *)) != NULL) {
 		struct plugin_option o;
 		o.name = optname;
@@ -770,7 +797,8 @@ void plugin_main(char *argv[],
 		plugin_err("Expected getmanifest not %s", cmd->methodname);
 
 	membuf_consume(&request_conn.mb, reqlen);
-	handle_getmanifest(cmd, commands, num_commands, opts, restartability);
+	handle_getmanifest(cmd, commands, num_commands, notif_subs, num_notif_subs,
+	                   opts, restartability);
 
 	cmd = read_json_request(tmpctx, &request_conn, &rpc_conn,
 				&params, &reqlen);
@@ -797,7 +825,7 @@ void plugin_main(char *argv[],
 		/* If we already have some input, process now. */
 		if (membuf_num_elems(&request_conn.mb) != 0) {
 			handle_new_command(ctx, &request_conn, &rpc_conn,
-					   commands, num_commands);
+					   commands, num_commands, notif_subs, num_notif_subs);
 			continue;
 		}
 		if (membuf_num_elems(&rpc_conn.mb) != 0) {
@@ -824,7 +852,7 @@ void plugin_main(char *argv[],
 
 		if (fds[0].revents & POLLIN)
 			handle_new_command(ctx, &request_conn, &rpc_conn,
-					   commands, num_commands);
+					   commands, num_commands, notif_subs, num_notif_subs);
 		if (fds[1].revents & POLLIN)
 			handle_rpc_reply(&rpc_conn);
 	}

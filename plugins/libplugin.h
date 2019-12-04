@@ -42,6 +42,14 @@ struct plugin_option {
 	void *arg;
 };
 
+/* Create an array of these, one for each notification you subscribe to. */
+struct plugin_notification {
+	const char *name;
+	void (*handle)(struct command *cmd,
+	               const char *buf,
+	               const jsmntok_t *params);
+};
+
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
 struct json_out *json_out_obj(const tal_t *ctx,
@@ -162,5 +170,8 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 						     const char *buf, const jsmntok_t *),
 					const enum plugin_restartability restartability,
 					const struct plugin_command *commands,
-					size_t num_commands, ...);
+					size_t num_commands,
+					const struct plugin_notification *notif_subs,
+					size_t num_notif_subs,
+					...);
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_H */
