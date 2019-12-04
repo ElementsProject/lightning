@@ -2852,6 +2852,14 @@ static void handle_dev_memleak(struct peer *peer, const u8 *msg)
 			 take(towire_channel_dev_memleak_reply(NULL,
 							       found_leak)));
 }
+
+/* We were told to send a custommsg to the peer by `lightningd`. All the
+ * verification is done on the side of `lightningd` so we should be good to
+ * just forward it here. */
+static void channeld_send_custommsg(struct peer *peer, const u8 *msg)
+{
+	sync_crypto_write(peer->pps, take(msg));
+}
 #endif /* DEVELOPER */
 
 static void req_in(struct peer *peer, const u8 *msg)
@@ -2917,7 +2925,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	switch ((enum common_wire_type)t) {
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_OUT:
-		/* TODO(cdecker) Add handling of custom messages. */
+		channeld_send_custommsg(peer, msg);
 		return;
 #else
 	case WIRE_CUSTOMMSG_OUT:

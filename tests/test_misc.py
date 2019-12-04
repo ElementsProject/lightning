@@ -2096,11 +2096,23 @@ def test_sendcustommsg(node_factory):
     with pytest.raises(RpcError, match=r'Cannot send messages of type 18 .WIRE_PING.'):
         l2.rpc.dev_sendcustommsg(l2.info['id'], r'0012')
 
+    # This should work since the peer is currently owned by `channeld`
     l2.rpc.dev_sendcustommsg(l1.info['id'], msg)
+    l2.daemon.wait_for_log(
+        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {serialized}'.format(
+            owner='channeld', serialized=serialized, peer_id=l1.info['id']
+        )
+    )
+    l1.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
+    l1.daemon.wait_for_log(
+        r'Got a custom message {serialized} from peer {peer_id}'.format(
+            serialized=serialized, peer_id=l2.info['id']))
+
+    # This should work since the peer is currently owned by `openingd`
     l2.rpc.dev_sendcustommsg(l4.info['id'], msg)
     l2.daemon.wait_for_log(
-        r'{peer_id}-openingd-chan#[0-9]: \[OUT\] {serialized}'.format(
-            serialized=serialized, peer_id=l4.info['id']
+        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {serialized}'.format(
+            owner='openingd', serialized=serialized, peer_id=l4.info['id']
         )
     )
     l4.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
