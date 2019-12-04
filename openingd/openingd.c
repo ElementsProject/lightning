@@ -1282,6 +1282,18 @@ static u8 *handle_peer_in(struct state *state)
 	if (t == WIRE_OPEN_CHANNEL)
 		return fundee_channel(state, msg);
 
+#if DEVELOPER
+	/* Handle custommsgs */
+	enum wire_type type = fromwire_peektype(msg);
+	if (type % 2 == 1 && !wire_type_is_defined(type)) {
+		/* The message is not part of the messages we know how to
+		 * handle. Assuming this is a custommsg, we just forward it to the
+		 * master. */
+		wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
+		return NULL;
+	}
+#endif
+
 	/* Handles standard cases, and legal unknown ones. */
 	if (handle_peer_gossip_or_error(state->pps,
 					&state->channel_id, false, msg))
