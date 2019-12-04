@@ -2072,8 +2072,10 @@ def test_sendcustommsg(node_factory):
     and we can't send to it.
 
     """
-    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'})
-    l4 = node_factory.get_node(options={'log-level': 'io'})
+    plugin = os.path.join(os.path.dirname(__file__), "plugins", "custommsg.py")
+    opts = {'log-level': 'io', 'plugin': plugin}
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts)
+    l4 = node_factory.get_node(options=opts)
     l2.connect(l4)
     l3.stop()
     msg = r'ff' * 32
@@ -2122,3 +2124,6 @@ def test_sendcustommsg(node_factory):
         )
     )
     l4.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
+    l4.daemon.wait_for_log(
+        r'Got a custom message {serialized} from peer {peer_id}'.format(
+            serialized=serialized, peer_id=l2.info['id']))
