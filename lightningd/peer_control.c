@@ -2404,6 +2404,16 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 		    type, wire_type_name(type));
 	}
 
+	if (type % 2 == 0) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_REQUEST,
+		    "Cannot send even-typed %d custom message. Currently "
+		    "custom messages are limited to odd-numbered message "
+		    "types, as even-numbered types might result in "
+		    "disconnections.",
+		    type);
+	}
+
 	peer = peer_by_id(cmd->ld, dest);
 	if (!peer) {
 		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
