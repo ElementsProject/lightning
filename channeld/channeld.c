@@ -1818,6 +1818,27 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	billboard_update(peer);
 }
 
+/* Try to handle a custommsg Returns true if it was a custom message and has
+ * been handled, false if the message was not handled.
+ */
+static bool channeld_handle_custommsg(const u8 *msg)
+{
+#if DEVELOPER
+	enum wire_type type = fromwire_peektype(msg);
+	if (type % 2 == 1 && !wire_type_is_defined(type)) {
+		/* The message is not part of the messages we know how to
+		 * handle. Assuming this is a custommsg, we just forward it to the
+		 * master. */
+		wire_sync_write(MASTER_FD, take(towire_custommsg_in(NULL, msg)));
+		return true;
+	} else {
+		return false;
+	}
+#else
+	return false;
+#endif
+}
+
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -1829,6 +1850,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		peer->expecting_pong = false;
 		return;
 	}
+
+	if (channeld_handle_custommsg(msg))
+		return;
 
 	/* Since LND seems to send errors which aren't actually fatal events,
 	 * we treat errors here as soft. */
@@ -2330,9 +2354,10 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = sync_crypto_read(tmpctx, peer->pps);
-	} while (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, true,
-					     msg)
-		 || capture_premature_msg(&premature_msgs, msg));
+	} while (channeld_handle_custommsg(msg) ||
+		 handle_peer_gossip_or_error(peer->pps, &peer->channel_id, true,
+					     msg) ||
+		 capture_premature_msg(&premature_msgs, msg));
 
 	if (peer->channel->option_static_remotekey) {
 		struct pubkey ignore;
