@@ -19,7 +19,7 @@ value MUST be accurate, otherwise the negotiated commitment transactions
 will not encompass the correct channel value.
 
 *feerate* is an optional field. Sets the feerate for subsequent
-commitment transactions.
+commitment transactions: see **fundchannel**.
 
 *announce* whether or not to announce this channel.
 
