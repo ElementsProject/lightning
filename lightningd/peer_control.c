@@ -2375,6 +2375,45 @@ void peer_dev_memleak(struct command *cmd)
 	peer_memleak_req_next(cmd, NULL);
 }
 
+struct custommsg_payload {
+	struct node_id peer_id;
+	const u8 *msg;
+};
+
+static void custommsg_callback(struct custommsg_payload *payload,
+			       const char *buffer, const jsmntok_t *toks)
+{
+	tal_free(payload);
+}
+
+static void custommsg_payload_serialize(struct custommsg_payload *payload,
+					struct json_stream *stream)
+{
+	json_add_hex_talarr(stream, "message", payload->msg);
+	json_add_node_id(stream, "peer_id", &payload->peer_id);
+}
+
+REGISTER_PLUGIN_HOOK(custommsg, custommsg_callback, struct custommsg_payload *,
+		     custommsg_payload_serialize, struct custommsg_payload *);
+
+void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
+			 const u8 *msg)
+{
+	struct custommsg_payload *p = tal(NULL, struct custommsg_payload);
+	u8 *custommsg;
+
+	if (!fromwire_custommsg_in(NULL, msg, &custommsg)) {
+		log_broken(ld->log, "Malformed custommsg from peer %s: %s",
+			   type_to_string(tmpctx, struct node_id, peer_id),
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	p->peer_id = *peer_id;
+	p->msg = tal_steal(p, custommsg);
+	plugin_hook_call_custommsg(ld, p, p);
+}
+
 static struct command_result *json_sendcustommsg(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *obj UNNEEDED,

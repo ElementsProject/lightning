@@ -111,6 +111,9 @@ bool fromwire_channel_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
+/* Generated stub for fromwire_custommsg_in */
+bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **msg UNNEEDED)
+{ fprintf(stderr, "fromwire_custommsg_in called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_get_channel_peer_reply */
 bool fromwire_gossip_get_channel_peer_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id **peer_id UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_channel_peer_reply called!\n"); abort(); }

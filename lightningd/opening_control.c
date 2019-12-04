@@ -926,7 +926,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	switch ((enum common_wire_type)t) {
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_IN:
-		/* TODO(cdecker) Add handling of custom messages. */
+		handle_custommsg_in(openingd->ld, openingd->node_id, msg);
 		return 0;
 #else
 	case WIRE_CUSTOMMSG_IN:
