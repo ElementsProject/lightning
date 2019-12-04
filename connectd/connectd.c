@@ -1428,7 +1428,7 @@ static void try_connect_peer(struct daemon *daemon,
 	* to retry; an address may get gossiped or appear on the DNS seed. */
 	if (tal_count(addrs) == 0) {
 		connect_failed(daemon, id, seconds_waited, addrhint,
-			       "No address known");
+			       "Unable to connect, no address known for peer");
 		return;
 	}
 
