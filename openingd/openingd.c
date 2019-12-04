@@ -1355,6 +1355,14 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 			take(towire_opening_dev_memleak_reply(NULL,
 							      found_leak)));
 }
+
+/* We were told to send a custommsg to the peer by `lightningd`. All the
+ * verification is done on the side of `lightningd` so we should be good to
+ * just forward it here. */
+static void openingd_send_custommsg(struct state *state, const u8 *msg)
+{
+	sync_crypto_write(state->pps, take(msg));
+}
 #endif /* DEVELOPER */
 
 /* Standard lightningd-fd-is-ready-to-read demux code.  Again, we could hang
@@ -1418,7 +1426,7 @@ static u8 *handle_master_in(struct state *state)
 	switch ((enum common_wire_type)t) {
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_OUT:
-		/* TODO(cdecker) Add handling of custom messages. */
+		openingd_send_custommsg(state, msg);
 		return NULL;
 #else
 	case WIRE_CUSTOMMSG_OUT:

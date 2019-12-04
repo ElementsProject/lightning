@@ -2060,3 +2060,47 @@ def test_waitblockheight(node_factory, executor, bitcoind):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [node])
     fut2.result(5)
+
+
+@unittest.skipIf(not DEVELOPER, "Needs dev-sendcustommsg")
+def test_sendcustommsg(node_factory):
+    """Check that we can send custommsgs to peers in various states.
+
+    `l2` is the node under test. `l1` has a channel with `l2` and should
+    therefore be attached to `channeld`. `l4` is just connected, so it should
+    be attached to `openingd`. `l3` has a channel open, but is disconnected
+    and we can't send to it.
+
+    """
+    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'})
+    l4 = node_factory.get_node(options={'log-level': 'io'})
+    l2.connect(l4)
+    l3.stop()
+    msg = r'ff' * 32
+    serialized = r'04070020' + msg
+
+    # This address doesn't exist so we should get an error when we try sending
+    # a message to it.
+    node_id = '02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f'
+    with pytest.raises(RpcError, match=r'No such peer'):
+        l1.rpc.dev_sendcustommsg(node_id, msg)
+
+    # `l3` is disconnected and we can't send messages to it
+    assert(not l2.rpc.listpeers(l3.info['id'])['peers'][0]['connected'])
+    with pytest.raises(RpcError, match=r'Peer is not connected'):
+        l2.rpc.dev_sendcustommsg(l3.info['id'], msg)
+
+    # We should not be able to send a bogus `ping` message, since it collides
+    # with a message defined in the spec, and could potentially mess up our
+    # internal state.
+    with pytest.raises(RpcError, match=r'Cannot send messages of type 18 .WIRE_PING.'):
+        l2.rpc.dev_sendcustommsg(l2.info['id'], r'0012')
+
+    l2.rpc.dev_sendcustommsg(l1.info['id'], msg)
+    l2.rpc.dev_sendcustommsg(l4.info['id'], msg)
+    l2.daemon.wait_for_log(
+        r'{peer_id}-openingd-chan#[0-9]: \[OUT\] {serialized}'.format(
+            serialized=serialized, peer_id=l4.info['id']
+        )
+    )
+    l4.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
