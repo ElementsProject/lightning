@@ -38,7 +38,7 @@ def test_connect(node_factory):
     assert len(l2.rpc.listpeers()) == 1
 
     # Should get reasonable error if unknown addr for peer.
-    with pytest.raises(RpcError, match=r'No address known'):
+    with pytest.raises(RpcError, match=r'Unable to connect, no address known'):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
 
     # Should get reasonable error if connection refuse.
