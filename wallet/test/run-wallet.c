@@ -420,6 +420,11 @@ void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
 { fprintf(stderr, "param called!\n"); abort(); }
+/* Generated stub for param_bin_from_hex */
+struct command_result *param_bin_from_hex(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+					  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+					  u8 **bin UNNEEDED)
+{ fprintf(stderr, "param_bin_from_hex called!\n"); abort(); }
 /* Generated stub for param_bitcoin_address */
 struct command_result *param_bitcoin_address(struct command *cmd UNNEEDED,
 					     const char *name UNNEEDED,
@@ -491,6 +496,9 @@ void payment_store(struct lightningd *ld UNNEEDED, struct wallet_payment *paymen
 void payment_succeeded(struct lightningd *ld UNNEEDED, struct htlc_out *hout UNNEEDED,
 		       const struct preimage *rval UNNEEDED)
 { fprintf(stderr, "payment_succeeded called!\n"); abort(); }
+/* Generated stub for peer_get_owning_subd */
+struct subd *peer_get_owning_subd(struct peer *peer UNNEEDED)
+{ fprintf(stderr, "peer_get_owning_subd called!\n"); abort(); }
 /* Generated stub for peer_memleak_done */
 void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "peer_memleak_done called!\n"); abort(); }
@@ -590,6 +598,9 @@ u8 *towire_connectctl_connect_to_peer(const tal_t *ctx UNNEEDED, const struct no
 /* Generated stub for towire_connectctl_peer_disconnected */
 u8 *towire_connectctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_connectctl_peer_disconnected called!\n"); abort(); }
+/* Generated stub for towire_custommsg_out */
+u8 *towire_custommsg_out(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "towire_custommsg_out called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,

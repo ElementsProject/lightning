@@ -54,6 +54,7 @@
 #include <lightningd/plugin_hook.h>
 #include <unistd.h>
 #include <wally_bip32.h>
+#include <wire/gen_common_wire.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire_sync.h>
 
@@ -2373,5 +2374,71 @@ void peer_dev_memleak(struct command *cmd)
 {
 	peer_memleak_req_next(cmd, NULL);
 }
+
+static struct command_result *json_sendcustommsg(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct node_id *dest;
+	struct peer *peer;
+	struct subd *owner;
+	u8 *msg;
+
+	if (!param(cmd, buffer, params,
+		   p_req("node_id", param_node_id, &dest),
+		   p_req("msg", param_bin_from_hex, &msg),
+		   NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, dest);
+	if (!peer) {
+		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
+				    "No such peer: %s",
+				    type_to_string(cmd, struct node_id, dest));
+	}
+
+	owner = peer_get_owning_subd(peer);
+	if (owner == NULL) {
+		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
+				    "Peer is not connected: %s",
+				    type_to_string(cmd, struct node_id, dest));
+	}
+
+	/* Only a couple of subdaemons have the ability to send custom
+	 * messages. We whitelist those, and error if the current owner is not
+	 * in the whitelist. The reason is that some subdaemons do not handle
+	 * spontaneous messages from the master well (I'm looking at you
+	 * `closingd`...). */
+	if (!streq(owner->name, "channeld") &&
+	    !streq(owner->name, "openingd")) {
+		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
+				    "Peer is currently owned by %s which does "
+				    "not support injecting custom messages.",
+				    owner->name);
+	}
+
+	subd_send_msg(owner, take(towire_custommsg_out(cmd, msg)));
+
+	response = json_stream_success(cmd);
+	json_add_string(response, "status",
+			tal_fmt(cmd,
+				"Message sent to subdaemon %s for delivery",
+				owner->name));
+
+	return command_success(cmd, response);
+}
+
+static const struct json_command sendcustommsg_command = {
+    "dev-sendcustommsg",
+    "utility",
+    json_sendcustommsg,
+    "Send a custom message to the peer with the given {node_id}",
+    .verbose = "dev-sendcustommsg node_id hexcustommsg",
+};
+
+AUTODATA(json_command, &sendcustommsg_command);
+
 #endif /* DEVELOPER */
 
