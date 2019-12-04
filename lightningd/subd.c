@@ -27,6 +27,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <wallet/db.h>
+#include <wire/gen_common_wire.h>
 #include <wire/wire_io.h>
 
 static bool move_fd(int from, int to)
@@ -741,9 +742,11 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 
 void subd_send_msg(struct subd *sd, const u8 *msg_out)
 {
+	u16 type = fromwire_peektype(msg_out);
 	/* FIXME: We should use unique upper bits for each daemon, then
 	 * have generate-wire.py add them, just assert here. */
-	assert(!strstarts(sd->msgname(fromwire_peektype(msg_out)), "INVALID"));
+	assert(!strstarts(common_wire_type_name(type), "INVALID") ||
+	       !strstarts(sd->msgname(type), "INVALID"));
 	msg_enqueue(sd->outq, msg_out);
 }
 
