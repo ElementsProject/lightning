@@ -306,8 +306,6 @@ static struct command_result *fundchannel_start_done(struct command *cmd,
 }
 
 static struct command_result *fundchannel_start(struct command *cmd,
-                                                const char *buf UNUSED,
-                                                const jsmntok_t *result UNUSED,
                                                 struct funding_req *fr)
 {
 	struct json_out *ret = json_out_new(NULL);
@@ -333,24 +331,10 @@ static struct command_result *fundchannel_start(struct command *cmd,
 			   fr, take(ret));
 }
 
-static struct command_result *connect_to_peer(struct command *cmd,
-                                              struct funding_req *fr)
-{
-	struct json_out *ret = json_out_new(NULL);
-
-	json_out_start(ret, NULL, '{');
-	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
-	json_out_end(ret, '}');
-	json_out_finished(ret);
-
-	return send_outreq(cmd, "connect", fundchannel_start, forward_error,
-	                   fr, take(ret));
-}
-
-static struct command_result *tx_prepare_dryrun(struct command *cmd,
-					        const char *buf,
-						const jsmntok_t *result,
-						struct funding_req *fr)
+static struct command_result *post_dryrun(struct command *cmd,
+					  const char *buf,
+					  const jsmntok_t *result,
+					  struct funding_req *fr)
 {
 	struct bitcoin_tx *tx;
 	const char *hex;
@@ -395,7 +379,39 @@ static struct command_result *tx_prepare_dryrun(struct command *cmd,
 		funding = chainparams->max_funding;
 
 	fr->funding_str = type_to_string(fr, struct amount_sat, &funding);
-	return connect_to_peer(cmd, fr);
+	return fundchannel_start(cmd, fr);
+}
+
+static struct command_result *exec_dryrun(struct command *cmd,
+					  const char *buf,
+					  const jsmntok_t *result,
+					  struct funding_req *fr)
+{
+	struct json_out *ret;
+
+	/* Now that we've tried connecting, we do a 'dry-run' of txprepare,
+	 * so we can get an accurate idea of the funding amount */
+	ret = txprepare(cmd, fr, placeholder_funding_addr);
+
+	return send_outreq(cmd, "txprepare",
+			   post_dryrun, forward_error,
+			   fr, take(ret));
+
+}
+
+static struct command_result *connect_to_peer(struct command *cmd,
+                                              struct funding_req *fr)
+{
+	struct json_out *ret = json_out_new(NULL);
+
+	json_out_start(ret, NULL, '{');
+	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
+	json_out_end(ret, '}');
+	json_out_finished(ret);
+
+	return send_outreq(cmd, "connect",
+			   exec_dryrun, forward_error,
+			   fr, take(ret));
 }
 
 /* We will use 'id' and 'amount' to build a output: {id: amount}.
@@ -424,7 +440,6 @@ static struct command_result *json_fundchannel(struct command *cmd,
 					       const jsmntok_t *params)
 {
 	struct funding_req *fr = tal(cmd, struct funding_req);
-	struct json_out *ret;
 
 	/* For generating help, give new-style. */
 	if (!params || !deprecated_apis || params->type == JSMN_ARRAY) {
@@ -461,14 +476,7 @@ static struct command_result *json_fundchannel(struct command *cmd,
 
 	fr->funding_all = streq(fr->funding_str, "all");
 
-	/* First we do a 'dry-run' of txprepare, so we can get
-	 * an accurate idea of the funding amount */
-	ret = txprepare(cmd, fr, placeholder_funding_addr);
-
-	return send_outreq(cmd, "txprepare",
-			   tx_prepare_dryrun, forward_error,
-			   fr, take(ret));
-
+	return connect_to_peer(cmd, fr);
 }
 
 static void init(struct plugin_conn *rpc,
