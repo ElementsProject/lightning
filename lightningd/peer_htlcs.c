@@ -962,7 +962,8 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 
 	/* FIXME: Have channeld hand through just the route_step! */
 
-	/* channeld tests this, so it should pass. */
+	/* channeld calls both parse_onionpacket and process_onionpacket,
+	 * so they should succeed.. */
 	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
 			       sizeof(hin->onion_routing_packet),
 			       failcode);
@@ -974,7 +975,6 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 		return false;
 	}
 
-	/* If it's crap, not channeld's fault, just fail it */
 	rs = process_onionpacket(tmpctx, op, hin->shared_secret->data,
 				 hin->payment_hash.u.u8,
 				 sizeof(hin->payment_hash));
@@ -984,12 +984,6 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 				       tal_hexstr(channel, hin->onion_routing_packet,
 						  sizeof(hin->onion_routing_packet)));
 		return false;
-	}
-
-	/* Unknown realm isn't a bad onion, it's a normal failure. */
-	if (rs->type == SPHINX_INVALID_PAYLOAD) {
-		*failcode = WIRE_INVALID_REALM;
-		goto out;
 	}
 
 	hook_payload = tal(hin, struct htlc_accepted_hook_payload);

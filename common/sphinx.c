@@ -549,15 +549,13 @@ static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 	return true;
 }
 
-static void sphinx_parse_payload(struct route_step *step, const u8 *src)
+static bool sphinx_parse_payload(struct route_step *step, const u8 *src)
 {
 	size_t hop_size, vsize;
 	bigsize_t raw_size;
 #if !EXPERIMENTAL_FEATURES
-	if (src[0] != 0x00) {
-		step->type = SPHINX_INVALID_PAYLOAD;
-		return;
-	}
+	if (src[0] != 0x00)
+		return false;
 #endif
 
 	/* BOLT #4:
@@ -583,8 +581,7 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 		hop_size = raw_size + vsize + HMAC_SIZE;
 		step->type = SPHINX_TLV_PAYLOAD;
 	} else {
-		step->type = SPHINX_INVALID_PAYLOAD;
-		return;
+		return false;
 	}
 
 	/* Copy common pieces over */
@@ -607,10 +604,10 @@ static void sphinx_parse_payload(struct route_step *step, const u8 *src)
 
 		if (!fromwire_tlv_payload(&tlv, &max, step->payload.tlv)) {
 			/* FIXME: record offset of violation for error! */
-			step->type = SPHINX_INVALID_PAYLOAD;
-			return;
+			return false;
 		}
 	}
+	return true;
 }
 
 struct onionpacket *create_onionpacket(
@@ -754,7 +751,6 @@ static void route_step_decode(struct route_step *rs)
 		}
 #endif
 		break;
-	case SPHINX_INVALID_PAYLOAD:
 	case SPHINX_RAW_PAYLOAD:
 		abort();
 	}
@@ -803,7 +799,8 @@ struct route_step *process_onionpacket(
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 
-	sphinx_parse_payload(step, paddedheader);
+	if (!sphinx_parse_payload(step, paddedheader))
+		return tal_free(step);
 
 	/* Extract how many bytes we need to shift away */
 	if (paddedheader[0] == 0x00) {
