@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ccan/fdpass/fdpass.h>
 #include <common/crypto_sync.h>
 #include <common/gossip_rcvd_filter.h>
@@ -155,6 +156,11 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 	bool all_channels;
 	struct channel_id actual;
 
+#if DEVELOPER
+	/* Any odd-typed unknown message is handled by the caller, so if we
+	 * find one here it's an error. */
+	assert(!is_unknown_msg_discardable(msg));
+#else
 	/* BOLT #1:
 	 *
 	 * A receiving node:
@@ -163,6 +169,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 	 */
 	if (is_unknown_msg_discardable(msg))
 		goto handled;
+#endif
 
 	if (handle_timestamp_filter(pps, msg))
 		return true;
