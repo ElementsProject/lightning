@@ -2385,12 +2385,24 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 	struct peer *peer;
 	struct subd *owner;
 	u8 *msg;
+	int type;
 
 	if (!param(cmd, buffer, params,
 		   p_req("node_id", param_node_id, &dest),
 		   p_req("msg", param_bin_from_hex, &msg),
 		   NULL))
 		return command_param_failed();
+
+	type = fromwire_peektype(msg);
+	if (wire_type_is_defined(type)) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_REQUEST,
+		    "Cannot send messages of type %d (%s). It is not possible "
+		    "to send messages that have a type managed internally "
+		    "since that might cause issues with the internal state "
+		    "tracking.",
+		    type, wire_type_name(type));
+	}
 
 	peer = peer_by_id(cmd->ld, dest);
 	if (!peer) {
