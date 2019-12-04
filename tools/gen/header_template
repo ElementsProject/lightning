@@ -26,6 +26,15 @@ enum ${enum_set['name']} {
 ## The 'name' functions for the enums
 % for enum_set in enum_sets:
 const char *${enum_set['name']}_name(int e);
+
+/**
+ * Determine whether a given message type is defined as a message.
+ *
+ * Returns true if the message type is part of the message definitions we have
+ * generated parsers for, false if it is a custom message that cannot be
+ * handled internally.
+ */
+bool ${enum_set['name']}_is_defined(u16 type);
 % endfor
 
 ## Structs for subtypes + tlv messages

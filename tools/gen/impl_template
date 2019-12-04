@@ -31,6 +31,18 @@ const char *${enum_set['name']}_name(int e)
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
 	return invalidbuf;
 }
+
+bool ${enum_set['name']}_is_defined(u16 type)
+{
+	switch ((enum ${enum_set['name']})type) {
+    % for msg in enum_set['set']:
+	case ${msg.enum_name()}:;
+    % endfor
+	      return true;
+	}
+	return false;
+}
+
 % endfor
 ## START PARTIALS
 ## Subtype and TLV-msg towire_
