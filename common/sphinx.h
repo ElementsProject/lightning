@@ -71,7 +71,6 @@ struct hop_data_legacy {
 enum sphinx_payload_type {
 	SPHINX_V0_PAYLOAD = 0,
 	SPHINX_TLV_PAYLOAD = 1,
-	SPHINX_INVALID_PAYLOAD = 254,
 	SPHINX_RAW_PAYLOAD = 255,
 };
 
