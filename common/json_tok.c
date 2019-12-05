@@ -261,7 +261,7 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 					const char *buffer, const jsmntok_t *tok,
 					struct sphinx_hop **hops)
 {
-	const jsmntok_t *hop, *payloadtok, *styletok, *pubkeytok;
+	const jsmntok_t *hop, *payloadtok, *pubkeytok;
 	struct sphinx_hop h;
 	size_t i;
 	if (tok->type != JSMN_ARRAY) {
@@ -274,9 +274,7 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 	*hops = tal_arr(cmd, struct sphinx_hop, 0);
 
 	json_for_each_arr(i, hop, tok) {
-
 		payloadtok = json_get_member(buffer, hop, "payload");
-		styletok = json_get_member(buffer, hop, "style");
 		pubkeytok = json_get_member(buffer, hop, "pubkey");
 
 		if (!pubkeytok)
@@ -287,7 +285,7 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Hop %zu does not have a payload", i);
 
-		h.payload = json_tok_bin_from_hex(*hops, buffer, payloadtok);
+		h.raw_payload = json_tok_bin_from_hex(*hops, buffer, payloadtok);
 		if (!json_to_pubkey(buffer, pubkeytok, &h.pubkey))
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
@@ -295,24 +293,12 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 			    pubkeytok->end - pubkeytok->start,
 			    buffer + pubkeytok->start);
 
-		if (!h.payload)
+		if (!h.raw_payload)
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "'payload' should be a hex encoded binary, not '%.*s'",
 			    pubkeytok->end - pubkeytok->start,
 			    buffer + pubkeytok->start);
-
-		if (!styletok || json_tok_streq(buffer, styletok, "tlv")) {
-			h.type = SPHINX_TLV_PAYLOAD;
-		} else if (json_tok_streq(buffer, styletok, "legacy")) {
-			h.type = SPHINX_V0_PAYLOAD;
-		} else {
-			return command_fail(
-			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "Unknown payload type for hop %zu: '%.*s'", i,
-			    pubkeytok->end - pubkeytok->start,
-			    buffer + pubkeytok->start);
-		}
 
 		tal_arr_expand(hops, h);
 	}
