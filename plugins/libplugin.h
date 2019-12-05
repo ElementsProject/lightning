@@ -50,6 +50,14 @@ struct plugin_notification {
 	               const jsmntok_t *params);
 };
 
+/* Create an array of these, one for each hook you subscribe to. */
+struct plugin_hook {
+	const char *name;
+	struct command_result *(*handle)(struct command *cmd,
+	                                 const char *buf,
+	                                 const jsmntok_t *params);
+};
+
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
 struct json_out *json_out_obj(const tal_t *ctx,
@@ -173,5 +181,7 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					size_t num_commands,
 					const struct plugin_notification *notif_subs,
 					size_t num_notif_subs,
+					const struct plugin_hook *hook_subs,
+					size_t num_hook_subs,
 					...);
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_H */
