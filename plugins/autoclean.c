@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
-	            NULL, 0,
+	            NULL, 0, NULL, 0,
 		    plugin_option("autocleaninvoice-cycle",
 				  "string",
 				  "Perform cleanup of expired invoices every"

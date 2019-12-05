@@ -488,6 +488,8 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		   size_t num_commands,
 		   const struct plugin_notification *notif_subs,
 		   size_t num_notif_subs,
+		   const struct plugin_hook *hook_subs,
+		   size_t num_hook_subs,
 		   const struct plugin_option *opts,
 		   const enum plugin_restartability restartability)
 {
@@ -521,6 +523,11 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	json_out_start(params, "subscriptions", '[');
 	for (size_t i = 0; i < num_notif_subs; i++)
 		json_out_addstr(params, NULL, notif_subs[i].name);
+	json_out_end(params, ']');
+
+	json_out_start(params, "hooks", '[');
+	for (size_t i = 0; i < num_hook_subs; i++)
+		json_out_addstr(params, NULL, hook_subs[i].name);
 	json_out_end(params, ']');
 
 	json_out_addstr(params, "dynamic", restartability == PLUGIN_RESTARTABLE ? "true" : "false");
@@ -625,7 +632,9 @@ static void handle_new_command(const tal_t *ctx,
 			       const struct plugin_command *commands,
 			       size_t num_commands,
 			       const struct plugin_notification *notif_subs,
-			       size_t num_notif_subs)
+			       size_t num_notif_subs,
+			       const struct plugin_hook *hook_subs,
+			       size_t num_hook_subs)
 {
 	struct command *cmd;
 	const jsmntok_t *params;
@@ -642,6 +651,14 @@ static void handle_new_command(const tal_t *ctx,
 			}
 		}
 		return;
+	}
+	for (size_t i = 0; i < num_hook_subs; i++) {
+		if (streq(cmd->methodname, hook_subs[i].name)) {
+			hook_subs[i].handle(cmd, membuf_elems(&request_conn->mb),
+					   params);
+			membuf_consume(&request_conn->mb, reqlen);
+			return;
+		}
 	}
 	for (size_t i = 0; i < num_commands; i++) {
 		if (streq(cmd->methodname, commands[i].name)) {
@@ -748,6 +765,8 @@ void plugin_main(char *argv[],
 		 size_t num_commands,
 		 const struct plugin_notification *notif_subs,
 		 size_t num_notif_subs,
+		 const struct plugin_hook *hook_subs,
+		 size_t num_hook_subs,
 		 ...)
 {
 	struct plugin_conn request_conn;
@@ -779,7 +798,7 @@ void plugin_main(char *argv[],
 		    membuf_tal_realloc);
 	uintmap_init(&out_reqs);
 
-	va_start(ap, num_notif_subs);
+	va_start(ap, num_hook_subs);
 	while ((optname = va_arg(ap, const char *)) != NULL) {
 		struct plugin_option o;
 		o.name = optname;
@@ -798,7 +817,7 @@ void plugin_main(char *argv[],
 
 	membuf_consume(&request_conn.mb, reqlen);
 	handle_getmanifest(cmd, commands, num_commands, notif_subs, num_notif_subs,
-	                   opts, restartability);
+	                   hook_subs, num_hook_subs, opts, restartability);
 
 	cmd = read_json_request(tmpctx, &request_conn, &rpc_conn,
 				&params, &reqlen);
@@ -825,7 +844,8 @@ void plugin_main(char *argv[],
 		/* If we already have some input, process now. */
 		if (membuf_num_elems(&request_conn.mb) != 0) {
 			handle_new_command(ctx, &request_conn, &rpc_conn,
-					   commands, num_commands, notif_subs, num_notif_subs);
+					   commands, num_commands, notif_subs, num_notif_subs,
+					   hook_subs, num_hook_subs);
 			continue;
 		}
 		if (membuf_num_elems(&rpc_conn.mb) != 0) {
@@ -852,7 +872,8 @@ void plugin_main(char *argv[],
 
 		if (fds[0].revents & POLLIN)
 			handle_new_command(ctx, &request_conn, &rpc_conn,
-					   commands, num_commands, notif_subs, num_notif_subs);
+					   commands, num_commands, notif_subs, num_notif_subs,
+					   hook_subs, num_hook_subs);
 		if (fds[1].revents & POLLIN)
 			handle_rpc_reply(&rpc_conn);
 	}
