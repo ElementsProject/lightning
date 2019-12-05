@@ -20,6 +20,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/hash_u5.o			\
 	common/memleak.o			\
 	common/node_id.o			\
+	common/onion.o				\
 	common/per_peer_state.o			\
 	common/pseudorand.o			\
 	common/json.o				\

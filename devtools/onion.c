@@ -9,6 +9,7 @@
 #include <common/amount.h>
 #include <common/json.h>
 #include <common/json_helpers.h>
+#include <common/onion.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -65,8 +66,7 @@ static void do_generate(int argc, char **argv,
 
 			if (!data)
 				errx(1, "bad hex after / in %s", argv[1 + i]);
-			sphinx_add_raw_hop(sp, &path[i], SPHINX_RAW_PAYLOAD,
-					   data);
+			sphinx_add_hop(sp, &path[i], data);
 		} else {
 			struct short_channel_id scid;
 			struct amount_msat amt;
@@ -76,13 +76,17 @@ static void do_generate(int argc, char **argv,
 			memset(&scid, i, sizeof(scid));
 			amt.millisatoshis = i; /* Raw: test code */
 			if (i == num_hops - 1)
-				sphinx_add_final_hop(sp, &path[i],
-						     use_tlv,
-						     amt, i, amt, NULL);
+				sphinx_add_hop(sp, &path[i],
+					       take(onion_final_hop(NULL,
+								    use_tlv,
+								    amt, i, amt,
+								    NULL)));
 			else
-				sphinx_add_nonfinal_hop(sp, &path[i],
-							use_tlv,
-							&scid, amt, i);
+				sphinx_add_hop(sp, &path[i],
+					       take(onion_nonfinal_hop(NULL,
+								       use_tlv,
+								       &scid,
+								       amt, i)));
 		}
 	}
 
@@ -183,7 +187,6 @@ static void runtest(const char *filename)
 	struct pubkey pubkey;
 	struct sphinx_path *path;
 	size_t i;
-	enum sphinx_payload_type type;
 	struct onionpacket *res;
 	struct route_step *step;
 	char *hexprivkey;
@@ -207,17 +210,26 @@ static void runtest(const char *filename)
 	/* Unpack the hops and build up the path */
 	hopstok = json_get_member(buffer, gentok, "hops");
 	json_for_each_arr(i, hop, hopstok) {
+		u8 *full;
+		size_t prepended;
+
 		payloadtok = json_get_member(buffer, hop, "payload");
 		typetok = json_get_member(buffer, hop, "type");
 		pubkeytok = json_get_member(buffer, hop, "pubkey");
 		payload = json_tok_bin_from_hex(ctx, buffer, payloadtok);
 		json_to_pubkey(buffer, pubkeytok, &pubkey);
 		if (!typetok || json_tok_streq(buffer, typetok, "legacy")) {
-			type = SPHINX_V0_PAYLOAD;
+			/* Legacy has a single 0 prepended as "realm" byte */
+			full = tal_arrz(ctx, u8, 1);
 		} else {
-			type = SPHINX_RAW_PAYLOAD;
+			/* TLV has length prepended */
+			full = tal_arr(ctx, u8, 0);
+			towire_bigsize(&full, tal_bytelen(payload));
 		}
-		sphinx_add_raw_hop(path, &pubkey, type, payload);
+		prepended = tal_bytelen(full);
+		tal_resize(&full, prepended + tal_bytelen(payload));
+		memcpy(full + prepended, payload, tal_bytelen(payload));
+		sphinx_add_hop(path, &pubkey, full);
 	}
 	res = create_onionpacket(ctx, path, &shared_secrets);
 	serialized = serialize_onionpacket(ctx, res);
@@ -242,13 +254,18 @@ static void runtest(const char *filename)
 	decodetok = json_get_member(buffer, toks, "decode");
 
 	json_for_each_arr(i, hop, decodetok) {
+		enum onion_payload_type type;
+		bool valid;
+
 		hexprivkey = json_strdup(ctx, buffer, hop);
 		printf("Processing at hop %zu\n", i);
 		step = decode_with_privkey(ctx, serialized, hexprivkey, associated_data);
 		serialized = serialize_onionpacket(ctx, step->next);
 		if (!serialized)
 			errx(1, "Error serializing message.");
-		printf("  Type: %d\n", step->type);
+		onion_payload_length(step->raw_payload, &valid, &type);
+		assert(valid);
+		printf("  Type: %d\n", type);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
 		printf("  Next onion: %s\n", tal_hex(ctx, serialized));
 		printf("  Next HMAC: %s\n", tal_hexstr(ctx, step->next->mac, HMAC_SIZE));

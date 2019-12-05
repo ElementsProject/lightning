@@ -5,6 +5,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
+#include <common/onion.h>
 #include <common/param.h>
 #include <common/timeout.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -725,6 +726,7 @@ send_payment(struct lightningd *ld,
 	struct sphinx_path *path;
 	struct pubkey pubkey;
 	bool final_tlv, ret;
+	u8 *onion;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(ld->topology) + 1;
@@ -739,11 +741,12 @@ send_payment(struct lightningd *ld,
 		ret = pubkey_from_node_id(&pubkey, &ids[i]);
 		assert(ret);
 
-		sphinx_add_nonfinal_hop(path, &pubkey,
+		sphinx_add_hop(path, &pubkey,
+			       take(onion_nonfinal_hop(NULL,
 					should_use_tlv(route[i].style),
 					&route[i + 1].channel_id,
 					route[i + 1].amount,
-					base_expiry + route[i + 1].delay);
+					base_expiry + route[i + 1].delay)));
 	}
 
 	/* And finally set the final hop to the special values in
@@ -763,15 +766,17 @@ send_payment(struct lightningd *ld,
 	if (!final_tlv && payment_secret)
 		final_tlv = true;
 
-	if (!sphinx_add_final_hop(path, &pubkey,
-				  final_tlv,
-				  route[i].amount,
-				  base_expiry + route[i].delay,
-				  route[i].amount, payment_secret)) {
+	onion = onion_final_hop(cmd,
+				final_tlv,
+				route[i].amount,
+				base_expiry + route[i].delay,
+				route[i].amount, payment_secret);
+	if (!onion) {
 		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
 				    "Destination does not support"
 				    " payment_secret");
 	}
+	sphinx_add_hop(path, &pubkey, onion);
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);
@@ -1381,8 +1386,7 @@ static struct command_result *json_createonion(struct command *cmd,
 		sp = sphinx_path_new_with_key(cmd, assocdata, session_key);
 
 	for (size_t i=0; i<tal_count(hops); i++)
-		sphinx_add_raw_hop(sp, &hops[i].pubkey, hops[i].type,
-				   hops[i].payload);
+		sphinx_add_hop(sp, &hops[i].pubkey, hops[i].raw_payload);
 
 	packet = create_onionpacket(cmd, sp, &shared_secrets);
 	if (!packet)
