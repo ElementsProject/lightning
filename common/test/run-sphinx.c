@@ -1,3 +1,4 @@
+#include "../onion.c"
 #include "../sphinx.c"
 #include <secp256k1.h>
 #include <ccan/opt/opt.h>

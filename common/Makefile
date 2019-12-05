@@ -39,6 +39,7 @@ COMMON_SRC_NOGEN :=				\
 	common/memleak.c			\
 	common/msg_queue.c			\
 	common/node_id.c			\
+	common/onion.c				\
 	common/param.c				\
 	common/per_peer_state.c			\
 	common/peer_billboard.c			\

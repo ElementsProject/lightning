@@ -61,6 +61,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
+	common/onion.o				\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/per_peer_state.o			\

@@ -45,6 +45,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
+	common/onion.o				\
 	common/param.o				\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\

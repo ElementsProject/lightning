@@ -5,6 +5,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
 #include <common/node_id.h>
+#include <common/onion.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 
@@ -79,29 +80,7 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 
 static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 {
-	size_t size = tal_bytelen(hop->payload), vsize;
-
-	/* There is no point really in trying to serialize something that is
-	 * larger than the maximum length we can fit into the payload region
-	 * anyway. 3 here is the maximum bigsize size that we allow. */
-	assert(size < ROUTING_INFO_SIZE - 3 - HMAC_SIZE);
-
-	/* Backwards compatibility: realm 0 is the legacy hop_data format and
-	 * always has 65 bytes in size */
-	if (hop->type == SPHINX_V0_PAYLOAD)
-		return 65;
-
-	/* Since this uses the bigsize serialization format for variable
-	 * length integer encodings we need to allocate enough space for
-	 * it. Values >= 0xfd are used to signal multi-byte serializations. */
-	if (size < 0xFD)
-		vsize = 1;
-	else
-		vsize = 3;
-
-	/* The hop must accomodate the hop_payload, as well as the bigsize
-	 * describing the length and HMAC. */
-	return vsize + size + HMAC_SIZE;
+	return tal_bytelen(hop->raw_payload) + HMAC_SIZE;
 }
 
 static size_t sphinx_path_payloads_size(const struct sphinx_path *path)
@@ -112,129 +91,14 @@ static size_t sphinx_path_payloads_size(const struct sphinx_path *path)
 	return size;
 }
 
-void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-			enum sphinx_payload_type type, const u8 *payload)
+void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		    const u8 *payload TAKES)
 {
 	struct sphinx_hop sp;
-	sp.payload = payload;
-	sp.type = type;
+	sp.raw_payload = tal_dup_arr(path, u8, payload, tal_count(payload), 0);
 	sp.pubkey = *pubkey;
 	tal_arr_expand(&path->hops, sp);
 	assert(sphinx_path_payloads_size(path) <= ROUTING_INFO_SIZE);
-}
-
-static void sphinx_add_v0_hop(struct sphinx_path *path,
-			      const struct pubkey *pubkey,
-			      const struct short_channel_id *scid,
-			      struct amount_msat forward, u32 outgoing_cltv)
-{
-	const u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			      0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	u8 *buf = tal_arr(path, u8, 0);
-	towire_short_channel_id(&buf, scid);
-	towire_u64(&buf, forward.millisatoshis); /* Raw: low-level serializer */
-	towire_u32(&buf, outgoing_cltv);
-	towire(&buf, padding, ARRAY_SIZE(padding));
-	assert(tal_bytelen(buf) == 32);
-	sphinx_add_raw_hop(path, pubkey, SPHINX_V0_PAYLOAD, buf);
-}
-
-static void sphinx_add_tlv_hop(struct sphinx_path *path,
-			       const struct pubkey *pubkey,
-			       const struct tlv_tlv_payload *tlv)
-{
-	u8 *tlvs = tal_arr(path, u8, 0);
-	towire_tlv_payload(&tlvs, tlv);
-	sphinx_add_raw_hop(path, pubkey, SPHINX_TLV_PAYLOAD, tlvs);
-}
-
-void sphinx_add_nonfinal_hop(struct sphinx_path *path,
-			     const struct pubkey *pubkey,
-			     bool use_tlv,
-			     const struct short_channel_id *scid,
-			     struct amount_msat forward,
-			     u32 outgoing_cltv)
-{
-	if (use_tlv) {
-		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
-		struct tlv_tlv_payload_amt_to_forward tlv_amt;
-		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
-		struct tlv_tlv_payload_short_channel_id tlv_scid;
-
-		/* BOLT #4:
-		 *
-		 * The writer:
-		 *  - MUST include `amt_to_forward` and `outgoing_cltv_value`
-		 *    for every node.
-		 *  - MUST include `short_channel_id` for every non-final node.
-		 */
-		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
-		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
-		tlv_scid.short_channel_id = *scid;
-		tlv->amt_to_forward = &tlv_amt;
-		tlv->outgoing_cltv_value = &tlv_cltv;
-		tlv->short_channel_id = &tlv_scid;
-
-		sphinx_add_tlv_hop(path, pubkey, tlv);
-	} else {
-		sphinx_add_v0_hop(path, pubkey, scid, forward, outgoing_cltv);
-	}
-}
-
-bool sphinx_add_final_hop(struct sphinx_path *path,
-			  const struct pubkey *pubkey,
-			  bool use_tlv,
-			  struct amount_msat forward,
-			  u32 outgoing_cltv,
-			  struct amount_msat total_msat,
-			  const struct secret *payment_secret)
-{
-	/* These go together! */
-	if (!payment_secret)
-		assert(amount_msat_eq(total_msat, forward));
-
-	if (use_tlv) {
-		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
-		struct tlv_tlv_payload_amt_to_forward tlv_amt;
-		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
-#if EXPERIMENTAL_FEATURES
-		struct tlv_tlv_payload_payment_data tlv_pdata;
-#endif
-
-		/* BOLT #4:
-		 *
-		 * The writer:
-		 *  - MUST include `amt_to_forward` and `outgoing_cltv_value`
-		 *    for every node.
-		 *...
-		 *  - MUST NOT include `short_channel_id` for the final node.
-		 */
-		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
-		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
-		tlv->amt_to_forward = &tlv_amt;
-		tlv->outgoing_cltv_value = &tlv_cltv;
-
-#if EXPERIMENTAL_FEATURES
-		if (payment_secret) {
-			tlv_pdata.payment_secret = *payment_secret;
-			tlv_pdata.total_msat = total_msat.millisatoshis; /* Raw: TLV convert */
-			tlv->payment_data = &tlv_pdata;
-		}
-#else
-		/* Wihtout EXPERIMENTAL_FEATURES, we can't send payment_secret */
-		if (payment_secret)
-			return false;
-#endif
-		sphinx_add_tlv_hop(path, pubkey, tlv);
-	} else {
-		static struct short_channel_id all_zero_scid;
-		/* No payment secrets in legacy format. */
-		if (payment_secret)
-			return false;
-		sphinx_add_v0_hop(path, pubkey, &all_zero_scid,
-				  forward, outgoing_cltv);
-	}
-	return true;
 }
 
 /* Small helper to append data to a buffer and update the position
@@ -514,100 +378,10 @@ static struct hop_params *generate_hop_params(
 	return params;
 }
 
-static void deserialize_hop_data(struct hop_data_legacy *data, const u8 *src)
+static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 {
-	const u8 *cursor = src;
-	size_t max = FRAME_SIZE;
-	data->realm = fromwire_u8(&cursor, &max);
-	fromwire_short_channel_id(&cursor, &max, &data->channel_id);
-	data->amt_forward = fromwire_amount_msat(&cursor, &max);
-	data->outgoing_cltv = fromwire_u32(&cursor, &max);
-}
-
-static bool sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
-{
-	size_t raw_size = tal_bytelen(hop->payload);
-	size_t hop_size = sphinx_hop_size(hop);
-	size_t padding_size;
-	int pos = 0;
-
-	/* Backwards compatibility for the legacy hop_data format. */
-	if (hop->type == SPHINX_V0_PAYLOAD)
-		dest[pos++] = 0x00;
-	else
-		pos += bigsize_put(dest+pos, raw_size);
-
-	memcpy(dest + pos, hop->payload, raw_size);
-	pos += raw_size;
-
-	padding_size = hop_size - pos - HMAC_SIZE;
-	memset(dest + pos, 0, padding_size);
-	pos += padding_size;
-
-	memcpy(dest + pos, hop->hmac, HMAC_SIZE);
-	assert(pos + HMAC_SIZE == hop_size);
-	return true;
-}
-
-static bool sphinx_parse_payload(struct route_step *step, const u8 *src)
-{
-	size_t hop_size, vsize;
-	bigsize_t raw_size;
-#if !EXPERIMENTAL_FEATURES
-	if (src[0] != 0x00)
-		return false;
-#endif
-
-	/* BOLT #4:
-	 *
-	 * The `length` field determines both the length and the format of the
-	 * `hop_payload` field; the following formats are defined:
-	 *
-	 * - Legacy `hop_data` format, identified by a single `0x00` byte for
-	 *   length. In this case the `hop_payload_length` is defined to be 32
-	 *   bytes.
-	 *
-	 * - `tlv_payload` format, identified by any length over `1`. In this
-	 *   case the `hop_payload_length` is equal to the numeric value of
-	 *   `length`.
-	 */
-	if (src[0] == 0x00) {
-		vsize = 1;
-		raw_size = 32;
-		hop_size = FRAME_SIZE;
-		step->type = SPHINX_V0_PAYLOAD;
-	} else if (src[0] > 1) {
-		vsize = bigsize_get(src, 3, &raw_size);
-		hop_size = raw_size + vsize + HMAC_SIZE;
-		step->type = SPHINX_TLV_PAYLOAD;
-	} else {
-		return false;
-	}
-
-	/* Copy common pieces over */
-	step->raw_payload = tal_dup_arr(step, u8, src, raw_size + vsize, 0);
-	memcpy(step->next->mac, src + hop_size - HMAC_SIZE, HMAC_SIZE);
-
-	/* And now try to parse whatever the payload contains so we can use it
-	 * later. */
-	if (step->type == SPHINX_V0_PAYLOAD)
-		deserialize_hop_data(&step->payload.v0, src);
-	else if (step->type == SPHINX_TLV_PAYLOAD) {
-		const u8 *tlv = step->raw_payload;
-		size_t max = tal_bytelen(tlv);
-		step->payload.tlv = tlv_tlv_payload_new(step);
-
-		/* The raw payload includes the length / realm prefix, Consume
-		 * the length off of the payload, so the decoding can strat
-		 * correctly. */
-		fromwire_varint(&tlv, &max);
-
-		if (!fromwire_tlv_payload(&tlv, &max, step->payload.tlv)) {
-			/* FIXME: record offset of violation for error! */
-			return false;
-		}
-	}
-	return true;
+	memcpy(dest, hop->raw_payload, tal_bytelen(hop->raw_payload));
+	memcpy(dest + tal_bytelen(hop->raw_payload), hop->hmac, HMAC_SIZE);
 }
 
 struct onionpacket *create_onionpacket(
@@ -663,11 +437,7 @@ struct onionpacket *create_onionpacket(
 		size_t shiftSize = sphinx_hop_size(&sp->hops[i]);
 		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
 			ROUTING_INFO_SIZE-shiftSize);
-		if (!sphinx_write_frame(packet->routinginfo, &sp->hops[i])) {
-			tal_free(packet);
-			tal_free(secrets);
-			return NULL;
-		}
+		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
@@ -688,74 +458,6 @@ struct onionpacket *create_onionpacket(
 	return packet;
 }
 
-/**
- * Helper to extract fields from the legacy or tlv payload into the top-level
- * struct.
- */
-static void route_step_decode(struct route_step *rs)
-{
-	switch (rs->type) {
-	case SPHINX_V0_PAYLOAD:
-		rs->amt_to_forward = &rs->payload.v0.amt_forward;
-		rs->outgoing_cltv = &rs->payload.v0.outgoing_cltv;
-		rs->payment_secret = NULL;
-		/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
-		 * - if it is the final node:
-		 *   - MUST treat `total_msat` as if it were equal to
-		 *     `amt_to_forward` if it is not present. */
-		rs->total_msat = rs->amt_to_forward;
-		if (rs->nextcase == ONION_FORWARD) {
-			rs->forward_channel = &rs->payload.v0.channel_id;
-		} else {
-			rs->forward_channel = NULL;
-		}
-		break;
-	case SPHINX_TLV_PAYLOAD:
-		if (rs->payload.tlv->amt_to_forward) {
-			rs->amt_to_forward = tal(rs, struct amount_msat);
-			amount_msat_from_u64(
-			    rs->amt_to_forward,
-			    rs->payload.tlv->amt_to_forward->amt_to_forward);
-		} else {
-			rs->amt_to_forward = NULL;
-		}
-
-		if (rs->payload.tlv->outgoing_cltv_value) {
-			rs->outgoing_cltv =
-			    &rs->payload.tlv->outgoing_cltv_value
-				 ->outgoing_cltv_value;
-		} else {
-			rs->outgoing_cltv = NULL;
-		}
-
-		if (rs->payload.tlv->short_channel_id)
-			rs->forward_channel = &rs->payload.tlv->short_channel_id
-						   ->short_channel_id;
-		else
-			rs->forward_channel = NULL;
-
-		rs->payment_secret = NULL;
-		/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
-		 * - if it is the final node:
-		 *   - MUST treat `total_msat` as if it were equal to
-		 *     `amt_to_forward` if it is not present. */
-		rs->total_msat = rs->amt_to_forward;
-
-#if EXPERIMENTAL_FEATURES
-		if (rs->payload.tlv->payment_data) {
-			rs->payment_secret
-				= &rs->payload.tlv->payment_data->payment_secret;
-			rs->total_msat = tal(rs, struct amount_msat);
-			rs->total_msat->millisatoshis /* Raw: tu64 on wire */
-				= rs->payload.tlv->payment_data->total_msat;
-		}
-#endif
-		break;
-	case SPHINX_RAW_PAYLOAD:
-		abort();
-	}
-}
-
 /*
  * Given an onionpacket msg extract the information for the current
  * node and unwrap the remainder so that the node can forward it.
@@ -774,8 +476,9 @@ struct route_step *process_onionpacket(
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 stream[NUM_STREAM_BYTES];
 	u8 paddedheader[2*ROUTING_INFO_SIZE];
-	size_t vsize;
+	size_t payload_size;
 	bigsize_t shift_size;
+	bool valid;
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
@@ -799,36 +502,35 @@ struct route_step *process_onionpacket(
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 
-	if (!sphinx_parse_payload(step, paddedheader))
+	payload_size = onion_payload_length(paddedheader, ROUTING_INFO_SIZE,
+					    &valid, NULL);
+#if !EXPERIMENTAL_FEATURES
+	/* We don't even attempt to handle non-legacy or malformed payloads */
+	if (!valid)
 		return tal_free(step);
+#endif
 
-	/* Extract how many bytes we need to shift away */
-	if (paddedheader[0] == 0x00) {
-		shift_size = FRAME_SIZE;
+	/* Can't decode?  Treat it as terminal. */
+	if (!valid) {
+		shift_size = payload_size;
+		memset(step->next->mac, 0, sizeof(step->next->mac));
 	} else {
-		/* In addition to the raw payload we need to also shift the
-		 * length encoding itself and the HMAC away. */
-		vsize = bigsize_get(paddedheader, 3, &shift_size);
-		shift_size += vsize + HMAC_SIZE;
-
-		/* If we get an unreasonable shift size we must return an error. */
-		if (shift_size >= ROUTING_INFO_SIZE)
-			return tal_free(step);
+		assert(payload_size <= ROUTING_INFO_SIZE - HMAC_SIZE);
+		/* Copy hmac */
+		shift_size = payload_size + HMAC_SIZE;
+		memcpy(step->next->mac, paddedheader + payload_size, HMAC_SIZE);
 	}
-
-	/* Copy the hmac from the last HMAC_SIZE bytes */
-        memcpy(&step->next->mac, paddedheader + shift_size - HMAC_SIZE, HMAC_SIZE);
+	step->raw_payload = tal_dup_arr(step, u8, paddedheader, payload_size, 0);
 
 	/* Left shift the current payload out and make the remainder the new onion */
-	memcpy(&step->next->routinginfo, paddedheader + shift_size, ROUTING_INFO_SIZE);
+	memcpy(&step->next->routinginfo, paddedheader + shift_size,
+	       ROUTING_INFO_SIZE);
 
 	if (memeqzero(step->next->mac, sizeof(step->next->mac))) {
 		step->nextcase = ONION_END;
 	} else {
 		step->nextcase = ONION_FORWARD;
 	}
-
-	route_step_decode(step);
 
 	return step;
 }

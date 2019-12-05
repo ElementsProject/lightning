@@ -68,39 +68,20 @@ struct hop_data_legacy {
 	u32 outgoing_cltv;
 };
 
-enum sphinx_payload_type {
-	SPHINX_V0_PAYLOAD = 0,
-	SPHINX_TLV_PAYLOAD = 1,
-	SPHINX_RAW_PAYLOAD = 255,
-};
-
 /*
  * All the necessary information to generate a valid onion for this hop on a
  * sphinx path. The payload is preserialized in order since the onion
  * generation is payload agnostic. */
 struct sphinx_hop {
 	struct pubkey pubkey;
-	enum sphinx_payload_type type;
-	const u8 *payload;
+	const u8 *raw_payload;
 	u8 hmac[HMAC_SIZE];
 };
 
 struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
-	enum sphinx_payload_type type;
-	union {
-		struct hop_data_legacy v0;
-		struct tlv_tlv_payload *tlv;
-	} payload;
 	u8 *raw_payload;
-
-	/* Quick access for internal use. */
-	struct amount_msat *amt_to_forward;
-	u32 *outgoing_cltv;
-	struct short_channel_id *forward_channel;
-	struct secret *payment_secret;
-	struct amount_msat *total_msat;
 };
 
 /**
@@ -237,30 +218,9 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 					     const struct secret *session_key);
 
 /**
- * Add a raw payload hop to the path.
+ * Add a payload hop to the path.
  */
-void sphinx_add_raw_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-			enum sphinx_payload_type type, const u8 *payload);
-
-/**
- * Add a non-final hop to the path.
- */
-void sphinx_add_nonfinal_hop(struct sphinx_path *path,
-			     const struct pubkey *pubkey,
-			     bool use_tlv,
-			     const struct short_channel_id *scid,
-			     struct amount_msat forward,
-			     u32 outgoing_cltv);
-
-/**
- * Add a final hop to the path.
- */
-bool sphinx_add_final_hop(struct sphinx_path *path,
-			  const struct pubkey *pubkey,
-			  bool use_tlv,
-			  struct amount_msat forward,
-			  u32 outgoing_cltv,
-			  struct amount_msat total_msat,
-			  const struct secret *payment_secret);
+void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		    const u8 *payload TAKES);
 
 #endif /* LIGHTNING_COMMON_SPHINX_H */
