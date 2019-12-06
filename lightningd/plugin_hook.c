@@ -76,16 +76,21 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 struct plugin_hook_request *r)
 {
 	const jsmntok_t *resulttok = json_get_member(buffer, toks, "result");
+	struct db *db = r->db;
+	struct plugin_destroyed *pd;
 
 	if (!resulttok)
 		fatal("Plugin for %s returned non-result response %.*s",
 		      r->hook->name,
 		      toks->end - toks->start, buffer + toks->start);
 
-	db_begin_transaction(r->db);
+	/* If command is "plugin stop", this can free r! */
+	pd = plugin_detect_destruction(r->hook->plugin);
+	db_begin_transaction(db);
 	r->hook->response_cb(r->cb_arg, buffer, resulttok);
-	db_commit_transaction(r->db);
-	tal_free(r);
+	db_commit_transaction(db);
+	if (!was_plugin_destroyed(pd))
+		tal_free(r);
 }
 
 void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
