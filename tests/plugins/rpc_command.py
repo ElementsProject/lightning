@@ -4,7 +4,7 @@ This plugin is used to test the `rpc_command` hook.
 """
 from lightning import Plugin
 
-plugin = Plugin(dynamic=False)
+plugin = Plugin()
 
 
 @plugin.hook("rpc_command")
