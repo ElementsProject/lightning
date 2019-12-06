@@ -765,7 +765,7 @@ class LightningNode(object):
         return channel['short_channel_id']
 
     def is_channel_active(self, chanid):
-        channels = self.rpc.listchannels()['channels']
+        channels = self.rpc.listchannels(chanid)['channels']
         active = [(c['short_channel_id'], c['channel_flags']) for c in channels if c['active']]
         return (chanid, 0) in active and (chanid, 1) in active
 
