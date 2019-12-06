@@ -41,6 +41,8 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
+#define UTXO_RESERVATION_BLOCKS 18
+
 /* Channel we're still opening. */
 struct uncommitted_channel {
 	/* peer->uncommitted_channel == this */
@@ -909,7 +911,13 @@ static void opening_fundee_finished(struct subd *openingd,
 				 &channel->funding_txid));
 
 	if (utxos) {
-		// TODO: mark utxos as shared
+		u32 tipheight = ld->topology->tip->height;
+		for (size_t i = 0; i < tal_count(utxos); i++)
+			wallet_output_reservation_update(ld->wallet, utxos[i],
+							 tipheight,
+							 UTXO_RESERVATION_BLOCKS);
+
+		// FIXME: associate input spend with channel?
 		tal_free(utxos);
 	}
 
