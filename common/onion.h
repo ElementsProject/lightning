@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_COMMON_ONION_H
 #define LIGHTNING_COMMON_ONION_H
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
 

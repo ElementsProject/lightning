@@ -1,7 +1,6 @@
-#include "config.h"
+#include "common/onion.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
-#include <common/onion.h>
 #include <common/sphinx.h>
 #include <wire/gen_onion_wire.h>
 
