@@ -2009,3 +2009,28 @@ def test_unicode_rpc(node_factory):
     assert(len(invoices) == 1)
     assert(invoices[0]['description'] == desc)
     assert(invoices[0]['label'] == desc)
+
+
+def test_wait_channel_active(node_factory):
+    l1, l2, l3, l4 = node_factory.line_graph(4, announce_channels=True)
+
+    # connect all and wait for each other
+    l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    scid4 = l4.fund_channel(l1, 10**6)
+    scid1 = l1.get_channel_scid(l2)
+    scid2 = l2.get_channel_scid(l3)
+    scid3 = l3.get_channel_scid(l4)
+
+    # we can wait for locally connected channels
+    l1.wait_channel_active(scid1)
+    l2.wait_channel_active(scid2)
+    l3.wait_channel_active(scid3)
+    l4.wait_channel_active(scid4)
+
+    # but it will timout for remote channels, why?
+    l1.wait_channel_active(scid2)
+    l1.wait_channel_active(scid3)
+
+    # Note: I debugged it, listchannels() which is used internally in wait_channel_active
+    # it will not contain the remote channels, even if timout is like 10 minutes.
+    assert True
