@@ -761,6 +761,7 @@ def test_sendpay_notifications(node_factory, bitcoind):
     assert results['sendpay_failure'][0] == err.value.error
 
 
+@pytest.mark.xfail(strict=True)
 def test_rpc_command_hook(node_factory):
     """Test the `sensitive_command` hook"""
     plugin = os.path.join(os.getcwd(), "tests/plugins/rpc_command.py")
@@ -778,6 +779,9 @@ def test_rpc_command_hook(node_factory):
     # The plugin sends a custom response to "listfunds"
     funds = l1.rpc.listfunds()
     assert funds[0] == "Custom result"
+
+    # Test command redirection to a plugin
+    l1.rpc.call('help', [0])
 
     # Test command which removes plugin itself!
     l1.rpc.plugin_stop('rpc_command.py')

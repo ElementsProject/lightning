@@ -21,6 +21,9 @@ def on_rpc_command(plugin, rpc_command, **kwargs):
         # Don't allow this command to be executed
         return {"return": {"error": {"code": -1,
                                      "message": "You cannot do this"}}}
+    elif request["method"] == "help":
+        request["method"] = "autocleaninvoice"
+        return {"replace": request}
     return {"continue": True}
 
 
