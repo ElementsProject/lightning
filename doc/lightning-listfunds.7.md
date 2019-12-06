@@ -16,11 +16,12 @@ currently open channels.
 RETURN VALUE
 ------------
 
-On success two arrays will be returned: *outputs* with funds currently
-locked onchain in UTXOs and *channels* with funds readily spendable in
+On success three arrays will be returned: *outputs* with funds currently
+locked onchain in UTXOs, *reserved_outputs* of outputs currently in the wallet
+but internally reserved for a transaction, and *channels* with funds readily spendable in
 channels.
 
-Each entry in *outputs* will include:
+Each entry in *outputs* and *reserved_outputs* will include:
 -   *txid*
 -   *output* (the index of the output in the transaction)
 -   *value* (the output value in satoshis)
@@ -28,6 +29,13 @@ Each entry in *outputs* will include:
     appended)
 -   *address*
 -   *status* (whether *unconfirmed*, *confirmed*, or *spent*)
+-   *blockheight* (block the transaction is in, if confirmed)
+-   *spend_priority* (used internally when funding new transactions)
+
+Each *reserved_outputs* entry might include:
+-   *reserved_at_height* (blockheight at which expiring reservation was placed on output)
+-   *reserved_until* (number of blocks for which reservation is valid)
+-   *reservation_expired* (true if reservation has expired, is eligible to spend)
 
 Each entry in *channels* will include:
 -   *peer\_id* - the peer with which the channel is opened.

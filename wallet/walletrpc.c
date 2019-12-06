@@ -834,6 +834,63 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
+static struct command_result *add_output(struct command *cmd,
+					 struct json_stream *stream,
+					 struct utxo *utxo)
+{
+	u32 reserved_until;
+	char* out;
+	struct pubkey funding_pubkey;
+
+	json_object_start(stream, NULL);
+	json_add_txid(stream, "txid", &utxo->txid);
+	json_add_num(stream, "output", utxo->outnum);
+	json_add_amount_sat_compat(stream, utxo->amount,
+				   "value", "amount_msat");
+
+	/* @close_info is for outputs that are not yet claimable */
+	if (utxo->close_info == NULL) {
+		bip32_pubkey(cmd->ld->wallet->bip32_base, &funding_pubkey,
+			     utxo->keyindex);
+		out = encode_pubkey_to_addr(cmd, cmd->ld,
+					    &funding_pubkey,
+					    utxo->is_p2sh,
+					    NULL);
+		if (!out) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "p2wpkh address encoding failure.");
+		}
+		json_add_string(stream, "address", out);
+	} else if (utxo->scriptPubkey != NULL) {
+		out = encode_scriptpubkey_to_addr(
+		    cmd, chainparams,
+		    utxo->scriptPubkey);
+		if (out)
+			json_add_string(stream, "address", out);
+	}
+
+	if (utxo->spendheight)
+		json_add_string(stream, "status", "spent");
+	else if (utxo->blockheight) {
+		json_add_string(stream, "status", "confirmed");
+		json_add_num(stream, "blockheight", *utxo->blockheight);
+	} else
+		json_add_string(stream, "status", "unconfirmed");
+
+	json_add_num(stream, "spend_priority", utxo->spend_priority);
+
+	if (utxo->reserved_at) {
+		reserved_until = *utxo->reserved_at + *utxo->reserved_for;
+		json_add_num(stream, "reserved_at_height", *utxo->reserved_at);
+		json_add_num(stream, "reserved_until", reserved_until);
+		json_add_bool(stream, "reservation_expired",
+			      cmd->ld->topology->tip->height >= reserved_until);
+	}
+	json_object_end(stream);
+
+	return NULL;
+}
+
 static struct command_result *json_listfunds(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
@@ -842,8 +899,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 	struct json_stream *response;
 	struct peer *p;
 	struct utxo **utxos;
-	char* out;
-	struct pubkey funding_pubkey;
+	struct command_result *res;
 
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
@@ -852,42 +908,20 @@ static struct command_result *json_listfunds(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_array_start(response, "outputs");
 	for (size_t i = 0; i < tal_count(utxos); i++) {
-		json_object_start(response, NULL);
-		json_add_txid(response, "txid", &utxos[i]->txid);
-		json_add_num(response, "output", utxos[i]->outnum);
-		json_add_amount_sat_compat(response, utxos[i]->amount,
-					   "value", "amount_msat");
+		res = add_output(cmd, response, utxos[i]);
+		if (res)
+			return res;
+	}
+	json_array_end(response);
+	utxos = tal_free(utxos);
 
-		/* @close_info is for outputs that are not yet claimable */
-		if (utxos[i]->close_info == NULL) {
-			bip32_pubkey(cmd->ld->wallet->bip32_base, &funding_pubkey,
-				     utxos[i]->keyindex);
-			out = encode_pubkey_to_addr(cmd, cmd->ld,
-						    &funding_pubkey,
-						    utxos[i]->is_p2sh,
-						    NULL);
-			if (!out) {
-				return command_fail(cmd, LIGHTNINGD,
-						    "p2wpkh address encoding failure.");
-			}
-		        json_add_string(response, "address", out);
-		} else if (utxos[i]->scriptPubkey != NULL) {
-			out = encode_scriptpubkey_to_addr(
-			    cmd, chainparams,
-			    utxos[i]->scriptPubkey);
-			if (out)
-				json_add_string(response, "address", out);
-		}
-
-		if (utxos[i]->spendheight)
-			json_add_string(response, "status", "spent");
-		else if (utxos[i]->blockheight) {
-			json_add_string(response, "status", "confirmed");
-			json_add_num(response, "blockheight", *utxos[i]->blockheight);
-		} else
-			json_add_string(response, "status", "unconfirmed");
-
-		json_object_end(response);
+	/* Also print reserved utxo information */
+	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_reserved);
+	json_array_start(response, "reserved_outputs");
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		res = add_output(cmd, response, utxos[i]);
+		if (res)
+			return res;
 	}
 	json_array_end(response);
 
