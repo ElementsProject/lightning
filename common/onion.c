@@ -263,8 +263,7 @@ struct onion_contents *onion_decode(const tal_t *ctx,
 		 *
 		 * The writer:
 		 *...
-		 *  - For every non-final node:
-		 *    - MUST include `short_channel_id`
+		 * - MUST include `short_channel_id` for every non-final node.
 		 */
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!tlv->short_channel_id)
