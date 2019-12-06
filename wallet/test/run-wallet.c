@@ -396,8 +396,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 u32 blockheight UNNEEDED)
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
 /* Generated stub for onion_decode */
-struct onion_contents *onion_decode(const tal_t *ctx UNNEEDED,
-				    const struct route_step *rs UNNEEDED)
+struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
+				   const struct route_step *rs UNNEEDED)
 { fprintf(stderr, "onion_decode called!\n"); abort(); }
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)

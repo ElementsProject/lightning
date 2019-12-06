@@ -657,7 +657,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 struct htlc_accepted_hook_payload {
 	struct route_step *route_step;
 	/* NULL if it couldn't be parsed! */
-	struct onion_contents *onion;
+	struct onion_payload *payload;
 	struct htlc_in *hin;
 	struct channel *channel;
 	struct lightningd *ld;
@@ -750,18 +750,18 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_object_start(s, "onion");
 
 	json_add_hex_talarr(s, "payload", rs->raw_payload);
-	if (p->onion) {
-		switch (p->onion->type) {
+	if (p->payload) {
+		switch (p->payload->type) {
 		case ONION_V0_PAYLOAD:
 			if (deprecated_apis) {
 				json_object_start(s, "per_hop_v0");
 				json_add_string(s, "realm", "00");
 				json_add_short_channel_id(s, "short_channel_id",
-							  p->onion->forward_channel);
+							  p->payload->forward_channel);
 				json_add_amount_msat_only(s, "forward_amount",
-							  p->onion->amt_to_forward);
+							  p->payload->amt_to_forward);
 				json_add_u64(s, "outgoing_cltv_value",
-					     p->onion->outgoing_cltv);
+					     p->payload->outgoing_cltv);
 				json_object_end(s);
 			}
 			json_add_string(s, "type", "legacy");
@@ -772,19 +772,19 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 			break;
 		}
 
-		if (p->onion->forward_channel)
+		if (p->payload->forward_channel)
 			json_add_short_channel_id(s, "short_channel_id",
-						  p->onion->forward_channel);
+						  p->payload->forward_channel);
 		json_add_amount_msat_only(s, "forward_amount",
-					  p->onion->amt_to_forward);
-		json_add_u32(s, "outgoing_cltv_value", p->onion->outgoing_cltv);
+					  p->payload->amt_to_forward);
+		json_add_u32(s, "outgoing_cltv_value", p->payload->outgoing_cltv);
 		/* These are specified together in TLV, so only print total_msat
 		 * if payment_secret set (ie. modern, and final hop) */
-		if (p->onion->payment_secret) {
+		if (p->payload->payment_secret) {
 			json_add_amount_msat_only(s, "total_msat",
-						  *p->onion->total_msat);
+						  *p->payload->total_msat);
 			json_add_secret(s, "payment_secret",
-					p->onion->payment_secret);
+					p->payload->payment_secret);
 		}
 	}
 	json_add_hex_talarr(s, "next_onion", p->next_onion);
@@ -820,7 +820,7 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	switch (result) {
 	case htlc_accepted_continue:
 		/* *Now* we barf if it failed to decode */
-		if (!request->onion) {
+		if (!request->payload) {
 			log_debug(channel->log, "Failing HTLC because of an invalid payload");
 			failure_code = WIRE_INVALID_ONION_PAYLOAD;
 			fail_in_htlc(hin, failure_code, NULL, NULL);
@@ -828,9 +828,9 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
 			gr->next_onion = serialize_onionpacket(gr, rs->next);
-			gr->next_channel = *request->onion->forward_channel;
-			gr->amt_to_forward = request->onion->amt_to_forward;
-			gr->outgoing_cltv_value = request->onion->outgoing_cltv;
+			gr->next_channel = *request->payload->forward_channel;
+			gr->amt_to_forward = request->payload->amt_to_forward;
+			gr->outgoing_cltv_value = request->payload->outgoing_cltv;
 			gr->hin = hin;
 
 			req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
@@ -841,10 +841,10 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 				 channel_resolve_reply, gr);
 		} else
 			handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
-					request->onion->amt_to_forward,
-					request->onion->outgoing_cltv,
-					*request->onion->total_msat,
-					request->onion->payment_secret);
+					request->payload->amt_to_forward,
+					request->payload->outgoing_cltv,
+					*request->payload->total_msat,
+					request->payload->payment_secret);
 		break;
 	case htlc_accepted_fail:
 		log_debug(channel->log,
@@ -855,7 +855,7 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 					   "htlc_acccepted hook: Can't return failure %u on last hop!",
 					   failure_code);
 				failure_code = WIRE_TEMPORARY_NODE_FAILURE;
-			} else if (!request->onion) {
+			} else if (!request->payload) {
 				log_broken(channel->log,
 					   "htlc_acccepted hook: Can't return failure %u on undecodable onion!",
 					   failure_code);
@@ -863,8 +863,8 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 			}
 		}
 		fail_in_htlc(hin, failure_code, NULL,
-			     request->onion
-			     ? request->onion->forward_channel : NULL);
+			     request->payload
+			     ? request->payload->forward_channel : NULL);
 		break;
 	case htlc_accepted_resolve:
 		fulfill_htlc(hin, &payment_preimage);
@@ -972,7 +972,7 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 	hook_payload = tal(hin, struct htlc_accepted_hook_payload);
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
-	hook_payload->onion = onion_decode(hook_payload, rs);
+	hook_payload->payload = onion_decode(hook_payload, rs);
 	hook_payload->ld = ld;
 	hook_payload->hin = hin;
 	hook_payload->channel = channel;

@@ -207,44 +207,44 @@ size_t onion_payload_length(const u8 *raw_payload,
 	return len;
 }
 
-struct onion_contents *onion_decode(const tal_t *ctx,
+struct onion_payload *onion_decode(const tal_t *ctx,
 				    const struct route_step *rs)
 {
-	struct onion_contents *c = tal(ctx, struct onion_contents);
+	struct onion_payload *p = tal(ctx, struct onion_payload);
 	const u8 *cursor = rs->raw_payload;
 	size_t max = tal_bytelen(cursor), len;
 	struct tlv_tlv_payload *tlv;
 
-	if (!pull_payload_length(&cursor, &max, &c->type, &len))
-		return tal_free(c);
+	if (!pull_payload_length(&cursor, &max, &p->type, &len))
+		return tal_free(p);
 
-	switch (c->type) {
+	switch (p->type) {
 	case ONION_V0_PAYLOAD:
-		c->type = ONION_V0_PAYLOAD;
-		c->forward_channel = tal(c, struct short_channel_id);
-		fromwire_short_channel_id(&cursor, &len, c->forward_channel);
-		c->amt_to_forward = fromwire_amount_msat(&cursor, &len);
-		c->outgoing_cltv = fromwire_u32(&cursor, &len);
-		c->payment_secret = NULL;
+		p->type = ONION_V0_PAYLOAD;
+		p->forward_channel = tal(p, struct short_channel_id);
+		fromwire_short_channel_id(&cursor, &len, p->forward_channel);
+		p->amt_to_forward = fromwire_amount_msat(&cursor, &len);
+		p->outgoing_cltv = fromwire_u32(&cursor, &len);
+		p->payment_secret = NULL;
 
 		if (rs->nextcase == ONION_FORWARD) {
-			c->total_msat = NULL;
+			p->total_msat = NULL;
 		} else {
 			/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
 			 * - if it is the final node:
 			 *   - MUST treat `total_msat` as if it were equal to
 			 *     `amt_to_forward` if it is not present. */
-			c->total_msat = tal_dup(c, struct amount_msat,
-						&c->amt_to_forward);
+			p->total_msat = tal_dup(p, struct amount_msat,
+						&p->amt_to_forward);
 		}
-		return c;
+		return p;
 
 	case ONION_TLV_PAYLOAD:
-		tlv = tal(c, struct tlv_tlv_payload);
+		tlv = tal(p, struct tlv_tlv_payload);
 		if (!fromwire_tlv_payload(&cursor, &len, tlv))
-			return tal_free(c);
+			return tal_free(p);
 		if (!tlv_payload_is_valid(tlv, NULL))
-			return tal_free(c);
+			return tal_free(p);
 
 		/* BOLT #4:
 		 *
@@ -253,11 +253,11 @@ struct onion_contents *onion_decode(const tal_t *ctx,
 		 *     `outgoing_cltv_value` are not present.
 		 */
 		if (!tlv->amt_to_forward || !tlv->outgoing_cltv_value)
-			return tal_free(c);
+			return tal_free(p);
 
-		amount_msat_from_u64(&c->amt_to_forward,
+		amount_msat_from_u64(&p->amt_to_forward,
 				     tlv->amt_to_forward->amt_to_forward);
-		c->outgoing_cltv = tlv->outgoing_cltv_value->outgoing_cltv_value;
+		p->outgoing_cltv = tlv->outgoing_cltv_value->outgoing_cltv_value;
 
 		/* BOLT #4:
 		 *
@@ -267,35 +267,35 @@ struct onion_contents *onion_decode(const tal_t *ctx,
 		 */
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!tlv->short_channel_id)
-				return tal_free(c);
-			c->forward_channel = tal(c, struct short_channel_id);
-			*c->forward_channel
+				return tal_free(p);
+			p->forward_channel = tal(p, struct short_channel_id);
+			*p->forward_channel
 				= tlv->short_channel_id->short_channel_id;
-			c->total_msat = NULL;
+			p->total_msat = NULL;
 		} else {
-			c->forward_channel = NULL;
+			p->forward_channel = NULL;
 			/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
 			 * - if it is the final node:
 			 *   - MUST treat `total_msat` as if it were equal to
 			 *     `amt_to_forward` if it is not present. */
-			c->total_msat = tal_dup(c, struct amount_msat,
-						&c->amt_to_forward);
+			p->total_msat = tal_dup(p, struct amount_msat,
+						&p->amt_to_forward);
 		}
 
-		c->payment_secret = NULL;
+		p->payment_secret = NULL;
 
 #if EXPERIMENTAL_FEATURES
 		if (tlv->payment_data) {
-			c->payment_secret = tal_dup(c, struct secret,
+			p->payment_secret = tal_dup(p, struct secret,
 						    &tlv->payment_data->payment_secret);
-			tal_free(c->total_msat);
-			c->total_msat = tal(c, struct amount_msat);
-			c->total_msat->millisatoshis /* Raw: tu64 on wire */
+			tal_free(p->total_msat);
+			p->total_msat = tal(p, struct amount_msat);
+			p->total_msat->millisatoshis /* Raw: tu64 on wire */
 				= tlv->payment_data->total_msat;
 		}
 #endif
 		tal_free(tlv);
-		return c;
+		return p;
 	}
 
 	/* You said it was a valid type! */

@@ -11,7 +11,7 @@ enum onion_payload_type {
 	ONION_TLV_PAYLOAD = 1,
 };
 
-struct onion_contents {
+struct onion_payload {
 	enum onion_payload_type type;
 
 	struct amount_msat amt_to_forward;
@@ -60,7 +60,7 @@ size_t onion_payload_length(const u8 *raw_payload,
  *
  * If the payload is not valid, returns NULL.
  */
-struct onion_contents *onion_decode(const tal_t *ctx,
-				    const struct route_step *rs);
+struct onion_payload *onion_decode(const tal_t *ctx,
+				   const struct route_step *rs);
 
 #endif /* LIGHTNING_COMMON_ONION_H */
