@@ -2009,3 +2009,55 @@ def test_unicode_rpc(node_factory):
     assert(len(invoices) == 1)
     assert(invoices[0]['description'] == desc)
     assert(invoices[0]['label'] == desc)
+
+
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_wait_channel_active(node_factory, bitcoind):
+    l1, l2, l3, l4 = node_factory.line_graph(4, announce_channels=True)
+
+    # connect all and wait for each other
+    l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    scid4 = l4.fund_channel(l1, 10**6)
+    scid1 = l1.get_channel_scid(l2)
+    scid2 = l2.get_channel_scid(l3)
+    scid3 = l3.get_channel_scid(l4)
+
+    # we can wait for locally connected channels
+    # without additional generate_block
+    l1.wait_channel_active(scid1)
+    l2.wait_channel_active(scid2)
+    l3.wait_channel_active(scid3)
+    l4.wait_channel_active(scid4)
+
+    # but it will timeout for remote channels
+    # if we add at least 3 blocks this works though, why is that?
+    bitcoind.generate_block(3)  # WHY IS THIS LINE REQUIRED?
+    l1.wait_channel_active(scid2)
+    assert True
+
+
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_wait_gossip_listchannels(node_factory, bitcoind):
+    # this test now does simply wait for listchannels to contain the remote channels eventually
+    # this is what is internally used on wait_channel_active
+    l1, l2, l3, l4, l5 = node_factory.line_graph(5, announce_channels=True)
+
+    # connect all and wait for each other
+    l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    scid1 = l1.get_channel_scid(l2)
+    scid2 = l1.get_channel_scid(l3)
+    scid3 = l3.get_channel_scid(l4)
+    scid4 = l3.get_channel_scid(l5)
+
+    # again, we can wait for local channels immideately
+    wait_for(lambda: l1.rpc.listchannels(scid1)['channels'])
+
+    # but we need at least 3 additional blocks for remote channels
+    bitcoind.generate_block(3)  # WHY IS THIS LINE REQUIRED?
+    wait_for(lambda: l1.rpc.listchannels(scid2)['channels'])
+    # whats even more confusing, we need exactly 2 additional blocks
+    # if channels are more than one hop away
+    bitcoind.generate_block(2)  # WHY IS THIS LINE REQUIRED?
+    wait_for(lambda: l1.rpc.listchannels(scid3)['channels'])
+    wait_for(lambda: l1.rpc.listchannels(scid4)['channels'])
+    assert True
