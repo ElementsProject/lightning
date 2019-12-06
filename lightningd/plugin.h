@@ -240,4 +240,9 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 */
 struct log *plugin_get_log(struct plugin *plugin);
 
+/* Pair of functions to detect if plugin destroys itself: must always
+ * call both! */
+struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin);
+bool was_plugin_destroyed(struct plugin_destroyed *destroyed);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

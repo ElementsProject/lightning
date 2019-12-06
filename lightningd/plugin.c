@@ -233,6 +233,7 @@ static void plugin_response_handle(struct plugin *plugin,
 				   const jsmntok_t *toks,
 				   const jsmntok_t *idtok)
 {
+	struct plugin_destroyed *pd;
 	struct jsonrpc_request *request;
 	u64 id;
 	/* We only send u64 ids, so if this fails it's a critical error (note
@@ -253,9 +254,13 @@ static void plugin_response_handle(struct plugin *plugin,
 	}
 
 	/* We expect the request->cb to copy if needed */
+	pd = plugin_detect_destruction(plugin);
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
 
-	tal_free(request);
+	/* Note that in the case of 'plugin stop' this can free request (since
+	 * plugin is parent), so detect that case */
+	if (!was_plugin_destroyed(pd))
+		tal_free(request);
 }
 
 /**
@@ -264,10 +269,15 @@ static void plugin_response_handle(struct plugin *plugin,
  * Internally calls the handler if it was able to fully parse a JSON message,
  * and returns true in that case.
  */
-static bool plugin_read_json_one(struct plugin *plugin)
+static bool plugin_read_json_one(struct plugin *plugin, bool *destroyed)
 {
 	bool valid;
 	const jsmntok_t *toks, *jrtok, *idtok;
+	struct plugin_destroyed *pd;
+
+	*destroyed = false;
+	/* Note that in the case of 'plugin stop' this can free request (since
+	 * plugin is parent), so detect that case */
 
 	/* FIXME: This could be done more efficiently by storing the
 	 * toks and doing an incremental parse, like lightning-cli
@@ -300,6 +310,7 @@ static bool plugin_read_json_one(struct plugin *plugin)
 		return false;
 	}
 
+	pd = plugin_detect_destruction(plugin);
 	if (!idtok) {
 		/* A Notification is a Request object without an "id"
 		 * member. A Request object that is a Notification
@@ -345,15 +356,21 @@ static bool plugin_read_json_one(struct plugin *plugin)
 		plugin_response_handle(plugin, toks, idtok);
 	}
 
-	/* Move this object out of the buffer */
-	memmove(plugin->buffer, plugin->buffer + toks[0].end,
-		tal_count(plugin->buffer) - toks[0].end);
-	plugin->used -= toks[0].end;
-	tal_free(toks);
+	/* Corner case: rpc_command hook can destroy plugin for 'plugin
+	 * stop'! */
+	if (was_plugin_destroyed(pd)) {
+		*destroyed = true;
+	} else {
+		/* Move this object out of the buffer */
+		memmove(plugin->buffer, plugin->buffer + toks[0].end,
+			tal_count(plugin->buffer) - toks[0].end);
+		plugin->used -= toks[0].end;
+		tal_free(toks);
+	}
 	return true;
 }
 
-static struct io_plan *plugin_read_json(struct io_conn *conn UNUSED,
+static struct io_plan *plugin_read_json(struct io_conn *conn,
 					struct plugin *plugin)
 {
 	bool success;
@@ -367,7 +384,12 @@ static struct io_plan *plugin_read_json(struct io_conn *conn UNUSED,
 
 	/* Read and process all messages from the connection */
 	do {
-		success = plugin_read_json_one(plugin);
+		bool destroyed;
+		success = plugin_read_json_one(plugin, &destroyed);
+
+		/* If it's destroyed, conn is already freed! */
+		if (destroyed)
+			return io_close(NULL);
 
 		/* Processing the message from the plugin might have
 		 * resulted in it stopping, so let's check. */
@@ -1202,4 +1224,33 @@ void *plugin_exclusive_loop(struct plugin *plugin)
 struct log *plugin_get_log(struct plugin *plugin)
 {
 	return plugin->log;
+}
+
+struct plugin_destroyed {
+	const struct plugin *plugin;
+};
+
+static void mark_plugin_destroyed(const struct plugin *unused,
+				  struct plugin_destroyed *pd)
+{
+	pd->plugin = NULL;
+}
+
+struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin)
+{
+	struct plugin_destroyed *pd = tal(NULL, struct plugin_destroyed);
+	pd->plugin = plugin;
+	tal_add_destructor2(plugin, mark_plugin_destroyed, pd);
+	return pd;
+}
+
+bool was_plugin_destroyed(struct plugin_destroyed *pd)
+{
+	if (pd->plugin) {
+		tal_del_destructor2(pd->plugin, mark_plugin_destroyed, pd);
+		tal_free(pd);
+		return false;
+	}
+	tal_free(pd);
+	return true;
 }
