@@ -378,13 +378,9 @@ static struct hop_params *generate_hop_params(
 	return params;
 }
 
-#include <stdio.h>
-
 static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 {
 	memcpy(dest, hop->raw_payload, tal_bytelen(hop->raw_payload));
-	fprintf(stderr, "sphinx_write_frame %s\n",
-		tal_hex(tmpctx, hop->raw_payload));
 	memcpy(dest + tal_bytelen(hop->raw_payload), hop->hmac, HMAC_SIZE);
 }
 
@@ -441,7 +437,6 @@ struct onionpacket *create_onionpacket(
 		size_t shiftSize = sphinx_hop_size(&sp->hops[i]);
 		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
 			ROUTING_INFO_SIZE-shiftSize);
-		fprintf(stderr, "Writing hop %i\n", i);
 		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
