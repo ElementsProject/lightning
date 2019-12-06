@@ -601,6 +601,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD our_funding_satoshi INTEGER DEFAULT 0;"), migrate_our_funding},
     {SQL("ALTER TABLE outputs ADD reserved_at INTEGER DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE outputs ADD reserved_for INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE outputs ADD spend_priority INTEGER DEFAULT 0;"), NULL},
 };
 
 /* Leak tracking. */

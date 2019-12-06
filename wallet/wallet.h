@@ -84,6 +84,13 @@ enum output_status {
 	output_state_any = 255
 };
 
+/* Default spending priorities. Used to sort outputs
+ * for coin selection */
+enum output_spend_priority {
+	spend_normal = 0,
+	spend_first = 1
+};
+
 static inline enum output_status output_status_in_db(enum output_status s)
 {
 	switch (s) {
@@ -385,6 +392,8 @@ bool wallet_output_reservation_update(struct wallet *w,
  *
  * Returns a `tal_arr` of `utxo` structs. Double indirection in order
  * to be able to steal individual elements onto something else.
+ *
+ * Are ordered by spend_priority, from highest to lowest.
  */
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 			      const enum output_status state);

@@ -47,6 +47,10 @@ struct utxo {
 	 * blocks the utxo is reserved for */
 	const u32 *reserved_for;
 
+	/* Ordering for spendable utxos, allows us to rank sort utxos
+	 * by priority for spending */
+	u8 spend_priority;
+
 	/* The scriptPubkey if it is known */
 	u8 *scriptPubkey;
 

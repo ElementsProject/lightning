@@ -863,7 +863,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 {
 	struct wallet *w = create_test_wallet(ld, ctx);
-	struct utxo u;
+	struct utxo u, u1;
 	struct pubkey pk;
 	struct node_id id;
 	struct amount_sat fee_estimate, change_satoshis;
@@ -966,6 +966,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	/* Check that reserved_at height and reserved_for is set */
 	CHECK(*utxos[0]->reserved_at == height);
 	CHECK(*utxos[0]->reserved_for == reserve_for_blocks);
+	CHECK(utxos[0]->spend_priority == spend_first);
 	tal_free(utxos);
 
 	/* Expire the lease! */
@@ -983,17 +984,28 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	utxos = (const struct utxo **)wallet_get_utxos(w, w, output_state_reserved);
 	CHECK(tal_count(utxos) == 0);
 
-	/* check that we can mark as spent */
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+	/* Add another utxo of the same value, set the spend priority high */
+	memset(&u1, 0, sizeof(u1));
+	u1.amount = AMOUNT_SAT(1);
+	memset(&u1.txid, 2, sizeof(u1.txid));
+	u1.spend_priority = 2;
+	CHECK_MSG(wallet_add_utxo(w, &u1, p2sh_wpkh),
+		  "wallet_add_utxo high priority utxo");
+
+	/* check that we get back two high priority utxos */
+	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(2), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
-	CHECK_MSG(utxos && tal_count(utxos) == 1, "utxo count is incorrect");
+	CHECK_MSG(utxos && tal_count(utxos) == 2, "utxo count is incorrect");
+	CHECK_MSG(utxos[0]->spend_priority == 2, "expected priority 2");
+	CHECK_MSG(utxos[1]->spend_priority == 1, "expected priority 1");
+
 	wallet_confirm_utxos(w, utxos);
 
 	tal_free(utxos);
 
 	/* Attempt to save an UTXO with close_info set, no commitment_point */
-	memset(&u.txid, 2, sizeof(u.txid));
+	memset(&u.txid, 3, sizeof(u.txid));
 	u.amount = AMOUNT_SAT(5);
 	u.close_info = tal(w, struct unilateral_close_info);
 	u.close_info->channel_id = 42;
