@@ -693,7 +693,7 @@ class LightningNode(object):
 
         self.start()
 
-    def fund_channel(self, l2, amount, wait_for_active=True):
+    def fund_channel(self, l2, amount, wait_for_active=True, announce_channel=True):
 
         # Give yourself some funds to work with
         addr = self.rpc.newaddr()['bech32']
@@ -704,7 +704,7 @@ class LightningNode(object):
 
         # Now go ahead and open a channel
         num_tx = len(self.bitcoin.rpc.getrawmempool())
-        tx = self.rpc.fundchannel(l2.info['id'], amount)['tx']
+        tx = self.rpc.fundchannel(l2.info['id'], amount, announce=announce_channel)['tx']
 
         wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
         self.bitcoin.generate_block(1)
