@@ -504,7 +504,7 @@ struct route_step *process_onionpacket(
 
 	payload_size = onion_payload_length(paddedheader, &valid, NULL);
 #if !EXPERIMENTAL_FEATURES
-	/* We don't even attempt to handle non-legacy or malformed headers */
+	/* We don't even attempt to handle non-legacy or malformed payloads */
 	if (!valid)
 		return tal_free(step);
 #endif
