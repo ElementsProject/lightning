@@ -19,9 +19,9 @@
  *    * [`u32`:`outgoing_cltv_value`]
  *    * [`12*byte`:`padding`]
  */
-static u8 *v0_hop(const tal_t *ctx,
-		  const struct short_channel_id *scid,
-		  struct amount_msat forward, u32 outgoing_cltv)
+static u8 *make_v0_hop(const tal_t *ctx,
+		       const struct short_channel_id *scid,
+		       struct amount_msat forward, u32 outgoing_cltv)
 {
 	const u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			      0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -35,8 +35,8 @@ static u8 *v0_hop(const tal_t *ctx,
 	return buf;
 }
 
-static u8 *tlv_hop(const tal_t *ctx,
-		   const struct tlv_tlv_payload *tlv)
+static u8 *make_tlv_hop(const tal_t *ctx,
+			const struct tlv_tlv_payload *tlv)
 {
 	/* We can't have over 64k anyway */
 	u8 *tlvs = tal_arr(ctx, u8, 3);
@@ -81,9 +81,9 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		tlv->outgoing_cltv_value = &tlv_cltv;
 		tlv->short_channel_id = &tlv_scid;
 
-		return tlv_hop(ctx, tlv);
+		return make_tlv_hop(ctx, tlv);
 	} else {
-		return v0_hop(ctx, scid, forward, outgoing_cltv);
+		return make_v0_hop(ctx, scid, forward, outgoing_cltv);
 	}
 }
 
@@ -130,13 +130,13 @@ u8 *onion_final_hop(const tal_t *ctx,
 		if (payment_secret)
 			return NULL;
 #endif
-		return tlv_hop(ctx, tlv);
+		return make_tlv_hop(ctx, tlv);
 	} else {
 		static struct short_channel_id all_zero_scid;
 		/* No payment secrets in legacy format. */
 		if (payment_secret)
 			return NULL;
-		return v0_hop(ctx, &all_zero_scid, forward, outgoing_cltv);
+		return make_v0_hop(ctx, &all_zero_scid, forward, outgoing_cltv);
 	}
 }
 
