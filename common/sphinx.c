@@ -502,7 +502,8 @@ struct route_step *process_onionpacket(
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 
-	payload_size = onion_payload_length(paddedheader, &valid, NULL);
+	payload_size = onion_payload_length(paddedheader, ROUTING_INFO_SIZE,
+					    &valid, NULL);
 #if !EXPERIMENTAL_FEATURES
 	/* We don't even attempt to handle non-legacy or malformed payloads */
 	if (!valid)

@@ -38,17 +38,15 @@ u8 *onion_final_hop(const tal_t *ctx,
 /**
  * onion_payload_length: measure payload length in decrypted onion.
  * @raw_payload: payload to look at.
+ * @len: length of @raw_payload in bytes.
  * @valid: set to true if it is valid, false otherwise.
  * @type: if non-NULL, set to type of payload if *@valid is true.
  *
- * @raw_payload is must be at least ROUTING_INFO_SIZE, or the value
- * returned from a previous call to onion_payload_length.
- *
  * If @valid is set, there is room for the HMAC immediately following,
- * and the return value is <= ROUTING_INFO_SIZE - HMAC_SIZE.  Otherwise,
- * the return value is ROUTING_INFO_SIZE.
+ * as the return value is <= ROUTING_INFO_SIZE - HMAC_SIZE.  Otherwise,
+ * the return value is @len (i.e. the entire payload).
  */
-size_t onion_payload_length(const u8 *raw_payload,
+size_t onion_payload_length(const u8 *raw_payload, size_t len,
 			    bool *valid,
 			    enum onion_payload_type *type);
 

@@ -263,7 +263,9 @@ static void runtest(const char *filename)
 		serialized = serialize_onionpacket(ctx, step->next);
 		if (!serialized)
 			errx(1, "Error serializing message.");
-		onion_payload_length(step->raw_payload, &valid, &type);
+		onion_payload_length(step->raw_payload,
+				     tal_bytelen(step->raw_payload),
+				     &valid, &type);
 		assert(valid);
 		printf("  Type: %d\n", type);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));

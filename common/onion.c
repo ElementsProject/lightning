@@ -194,17 +194,18 @@ static bool pull_payload_length(const u8 **cursor,
 #endif /* EXPERIMENTAL_FEATURES */
 }
 
-size_t onion_payload_length(const u8 *raw_payload,
+size_t onion_payload_length(const u8 *raw_payload, size_t len,
 			    bool *valid,
 			    enum onion_payload_type *type)
 {
-	size_t max = ROUTING_INFO_SIZE, len;
-	*valid = pull_payload_length(&raw_payload, &max, type, &len);
+	size_t max = len, payload_len;
+	*valid = pull_payload_length(&raw_payload, &max, type, &payload_len);
 
+	/* If it's not valid, copy the entire thing. */
 	if (!*valid)
-		return ROUTING_INFO_SIZE;
+		return len;
 
-	return len;
+	return payload_len;
 }
 
 struct onion_payload *onion_decode(const tal_t *ctx,
