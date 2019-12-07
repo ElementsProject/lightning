@@ -618,11 +618,56 @@ static void rpc_command_hook_serialize(struct rpc_command_hook_payload *p,
 	json_object_end(s);
 }
 
+static void replace_command(struct rpc_command_hook_payload *p,
+			    const char *buffer,
+			    const jsmntok_t *replacetok)
+{
+	const jsmntok_t *method = NULL, *params = NULL;
+	const char *bad;
+
+	/* Must contain "method", "params" and "id" */
+	if (replacetok->type != JSMN_OBJECT) {
+		bad = "'replace' must be an object";
+		goto fail;
+	}
+
+	method = json_get_member(buffer, replacetok, "method");
+	if (!method) {
+		bad = "missing 'method'";
+		goto fail;
+	}
+	params = json_get_member(buffer, replacetok, "params");
+	if (!params) {
+		bad = "missing 'params'";
+		goto fail;
+	}
+	if (!json_get_member(buffer, replacetok, "id")) {
+		bad = "missing 'id'";
+		goto fail;
+	}
+
+	p->cmd->json_cmd = find_cmd(p->cmd->ld->jsonrpc, buffer, method);
+	if (!p->cmd->json_cmd) {
+		bad = tal_fmt(tmpctx, "redirected to unknown method '%.*s'",
+			      method->end - method->start,
+			      buffer + method->start);
+		goto fail;
+	}
+
+	was_pending(command_exec(p->cmd->jcon, p->cmd, buffer, replacetok,
+				 params));
+	return;
+
+fail:
+	was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
+				 "Bad response to 'rpc_command' hook: %s", bad));
+}
+
 static void
 rpc_command_hook_callback(struct rpc_command_hook_payload *p,
                           const char *buffer, const jsmntok_t *resulttok)
 {
-	const jsmntok_t *tok, *method, *params, *custom_return, *tok_continue;
+	const jsmntok_t *tok, *params, *custom_return, *tok_continue;
 	struct json_stream *response;
 	bool exec;
 
@@ -643,18 +688,8 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p,
 	/* If the registered plugin did not respond with continue,
 	 * it wants either to replace the request... */
 	tok = json_get_member(buffer, resulttok, "replace");
-	if (tok) {
-		method = json_get_member(buffer, tok, "method");
-		params = json_get_member(buffer, tok, "params");
-		if (!method || !params)
-			return was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
-			                                "Bad response to 'rpc_command' hook: "
-			                                "the 'replace' object must contain a "
-			                                "'method' and a 'params' field."));
-		p->cmd->json_cmd = find_cmd(p->cmd->ld->jsonrpc, buffer, method);
-		return was_pending(command_exec(p->cmd->jcon, p->cmd, buffer,
-		                                method, params));
-	}
+	if (tok)
+		return replace_command(p, buffer, tok);
 
 	/* ...or return a custom JSONRPC response. */
 	tok = json_get_member(buffer, resulttok, "return");
