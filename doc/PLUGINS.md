@@ -703,6 +703,7 @@ the received JSON-RPC request to the registered plugin,
 ```json
 {
     "rpc_command": {
+        "id": 3,
         "method": "method_name",
         "params": {
             "param_1": [],
@@ -727,6 +728,7 @@ Replace the request made to `lightningd`:
 ```json
 {
     "replace": {
+        "id": 3,
         "method": "method_name",
         "params": {
             "param_1": [],
