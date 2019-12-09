@@ -760,8 +760,43 @@ Return a custom error to the request sender:
 }
 ```
 
+
+#### `custommsg`
+
+The `custommsg` plugin hook is the receiving counterpart to the
+[`dev-sendcustommsg`][sendcustommsg] RPC method and allows plugins to handle
+messages that are not handled internally. The goal of these two components is
+to allow the implementation of custom protocols or prototypes on top of a
+c-lightning node, without having to change the node's implementation itself.
+
+The payload for a call follows this format:
+
+```json
+{
+	"peer_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+	"message": "1337ffffffff"
+}
+```
+
+This payload would have been sent by the peer with the `node_id` matching
+`peer_id`, and the message has type `0x1337` and contents `ffffffff`. Notice
+that the messages are currently limited to odd-numbered types and must not
+match a type that is handled internally by c-lightning. These limitations are
+in place in order to avoid conflicts with the internal state tracking, and
+avoiding disconnections or channel closures, since odd-numbered message can be
+ignored by nodes (see ["it's ok to be odd" in the specification][oddok] for
+details). The plugin must implement the parsing of the message, including the
+type prefix, since c-lightning does not know how to parse the message.
+
+The result for this hook is currently being discarded. For future uses of the
+result we suggest just returning a `null`. This will ensure backward
+compatibility should the semantics be changed in future.
+
+
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
 [bolt4-failure-codes]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
 [bolt2-open-channel]: https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#the-open_channel-message
+[sendcustommsg]: lightning-dev-sendcustommsg.7.html
+[oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
