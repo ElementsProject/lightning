@@ -161,6 +161,9 @@ struct peer {
 
 	/* Empty commitments.  Spec violation, but a minor one. */
 	u64 last_empty_commitment;
+
+	/* When did we last send update_fee? */
+	u64 last_fee_update_indexes[NUM_SIDES];
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -1143,7 +1146,11 @@ static void send_commit(struct peer *peer)
 		if (feerate > max)
 			feerate = max;
 
-		if (feerate != channel_feerate(peer->channel, REMOTE)) {
+		/* FIXME: Our feerate logic has a bug when we have multiple
+		 * feerate changes in flight.  Don't do that for now. */
+		if ((peer->next_index[LOCAL] == peer->last_fee_update_indexes[LOCAL]
+		     || peer->next_index[REMOTE] == peer->last_fee_update_indexes[REMOTE])
+		    && feerate != channel_feerate(peer->channel, REMOTE)) {
 			u8 *msg;
 
 			if (!channel_update_feerate(peer->channel, feerate))
@@ -1155,6 +1162,8 @@ static void send_commit(struct peer *peer)
 			msg = towire_update_fee(NULL, &peer->channel_id,
 						feerate);
 			sync_crypto_write(peer->pps, take(msg));
+			peer->last_fee_update_indexes[LOCAL] = peer->next_index[LOCAL];
+			peer->last_fee_update_indexes[REMOTE] = peer->next_index[REMOTE];
 		}
 	}
 
@@ -3152,6 +3161,7 @@ int main(int argc, char *argv[])
 	/* We actually received it in the previous daemon, but near enough */
 	peer->last_recv = time_now();
 	peer->last_empty_commitment = 0;
+	peer->last_fee_update_indexes[LOCAL] = peer->last_fee_update_indexes[REMOTE] = -1ULL;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
