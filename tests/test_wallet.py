@@ -595,7 +595,8 @@ def test_hsm_secret_encryption(node_factory):
                     wait_for_initialized=False)
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
     os.write(master_fd, password[2:].encode("utf-8"))
-    l1.daemon.wait_for_log("Wrong password for encrypted hsm_secret.")
+    assert(l1.daemon.proc.wait() == 1)
+    assert(l1.daemon.is_in_log("Wrong password for encrypted hsm_secret."))
 
     # Test we can restore the same wallet with the same password
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
