@@ -1568,24 +1568,6 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 
-	/* If we're not synced with bitcoin network, we can't accept
-	 * any HTLCs.  We stall at this point, in the hope that it
-	 * won't take long! */
-	if (!topology_synced(ld->topology)) {
-		struct deferred_commitsig *d;
-
-		log_unusual(channel->log,
-			    "Deferring incoming commit until we sync");
-
-		/* If subdaemon dies, we want to forget this. */
-		d = tal(channel->owner, struct deferred_commitsig);
-		d->channel = channel;
-		d->msg = tal_dup_arr(d, u8, msg, tal_count(msg), 0);
-		topology_add_sync_waiter(d, ld->topology,
-					 retry_deferred_commitsig, d);
-		return;
-	}
-
 	if (!fromwire_channel_got_commitsig(msg, msg,
 					    &commitnum,
 					    &feerate,
@@ -1602,6 +1584,25 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 				    tal_hex(channel, msg));
 		return;
 	}
+
+	/* If we're not synced with bitcoin network, we can't accept
+	 * any new HTLCs.  We stall at this point, in the hope that it
+	 * won't take long! */
+	if (added && !topology_synced(ld->topology)) {
+		struct deferred_commitsig *d;
+
+		log_unusual(channel->log,
+			    "Deferring incoming commit until we sync");
+
+		/* If subdaemon dies, we want to forget this. */
+		d = tal(channel->owner, struct deferred_commitsig);
+		d->channel = channel;
+		d->msg = tal_dup_arr(d, u8, msg, tal_count(msg), 0);
+		topology_add_sync_waiter(d, ld->topology,
+					 retry_deferred_commitsig, d);
+		return;
+	}
+
 	tx->chainparams = chainparams;
 
 	log_debug(channel->log,
