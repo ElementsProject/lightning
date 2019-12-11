@@ -733,42 +733,108 @@ send_payment_core(struct lightningd *ld,
 		  struct short_channel_id *route_channels TAKES,
 		  struct secret *path_secrets)
 {
-	struct wallet_payment *payment;
+	const struct wallet_payment **payments, *old_payment = NULL;
 	struct channel *channel;
 	enum onion_type failcode;
 	struct htlc_out *hout;
 	struct routing_failure *fail;
+	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
 
-	/* Now, do we already have a payment? */
-	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash, partid);
-	if (payment) {
-		/* FIXME: We should really do something smarter here! */
-		if (payment->status == PAYMENT_PENDING) {
-			log_debug(ld->log, "send_payment: previous still in progress");
-			return json_sendpay_in_progress(cmd, payment);
-		}
-		if (payment->status == PAYMENT_COMPLETE) {
-			log_debug(ld->log, "send_payment: previous succeeded");
+	/* Now, do we already have one or more payments? */
+	payments = wallet_payment_list(tmpctx, ld->wallet, rhash);
+	for (size_t i = 0; i < tal_count(payments); i++) {
+		log_debug(ld->log, "Payment %zu/%zu: %s %s",
+			  i, tal_count(payments),
+			  type_to_string(tmpctx, struct amount_msat,
+					 &payments[i]->msatoshi),
+			  payments[i]->status == PAYMENT_COMPLETE ? "COMPLETE"
+			  : payments[i]->status == PAYMENT_PENDING ? "PENDING"
+			  : "FAILED");
+
+		switch (payments[i]->status) {
+		case PAYMENT_COMPLETE:
+			if (payments[i]->partid != partid)
+				continue;
+
 			/* Must match successful payment parameters. */
-			if (!amount_msat_eq(payment->msatoshi, msat)) {
+			if (!amount_msat_eq(payments[i]->msatoshi, msat)) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
 						    "Already succeeded "
 						    "with amount %s",
 						    type_to_string(tmpctx,
 								   struct amount_msat,
-								   &payment->msatoshi));
+								   &payments[i]->msatoshi));
 			}
-			if (payment->destination && destination
-			    && !node_id_eq(payment->destination, destination)) {
+			if (payments[i]->destination && destination
+			    && !node_id_eq(payments[i]->destination,
+					   destination)) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
 						    "Already succeeded to %s",
 						    type_to_string(tmpctx,
 								   struct node_id,
-								   payment->destination));
+								   payments[i]->destination));
 			}
-			return sendpay_success(cmd, payment);
-		}
-		log_debug(ld->log, "send_payment: found previous, retrying");
+			return sendpay_success(cmd, payments[i]);
+
+		case PAYMENT_PENDING:
+			/* Can't mix non-parallel and parallel payments! */
+			if (!payments[i]->partid != !partid) {
+				return command_fail(cmd, PAY_IN_PROGRESS,
+						    "Already have %s payment in progress",
+						    payments[i]->partid ? "parallel" : "non-parallel");
+			}
+			if (payments[i]->partid == partid)
+				return json_sendpay_in_progress(cmd, payments[i]);
+			/* You shouldn't change your mind about amount being
+			 * sent, since we'll use it in onion! */
+			else if (!amount_msat_eq(payments[i]->total_msat,
+						 total_msat))
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "msatoshi was previously %s, now %s",
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &payments[i]->total_msat),
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &total_msat));
+
+
+			if (!amount_msat_add(&msat_already_pending,
+					     msat_already_pending,
+					     payments[i]->msatoshi)) {
+				return command_fail(cmd, LIGHTNINGD,
+						    "Internal amount overflow!"
+						    " %s + %s in %zu/%zu",
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &msat_already_pending),
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &payments[i]->msatoshi),
+						    i, tal_count(payments));
+			}
+			break;
+
+		case PAYMENT_FAILED:
+			if (payments[i]->partid == partid)
+				old_payment = payments[i];
+ 		}
+	}
+
+	/* BOLT-3a09bc54f8443c4757b47541a5310aff6377ee21 #4:
+	 *
+	 * - MUST NOT send another HTLC if the total `amount_msat` of the HTLC
+	 *   set is already greater or equal to `total_msat`.
+	 */
+	/* We don't do this for single 0-value payments (sendonion does this) */
+	if (!amount_msat_eq(total_msat, AMOUNT_MSAT(0))
+	    && amount_msat_greater_eq(msat_already_pending, total_msat)) {
+		return command_fail(cmd, PAY_IN_PROGRESS,
+				    "Already have %s of %s payments in progress",
+				    type_to_string(tmpctx, struct amount_msat,
+						   &msat_already_pending),
+				    type_to_string(tmpctx, struct amount_msat,
+						   &total_msat));
 	}
 
 	channel = active_channel_by_id(ld, &first_hop->nodeid, NULL);
@@ -795,7 +861,7 @@ send_payment_core(struct lightningd *ld,
 						 &first_hop->channel_id,
 						 &channel->peer->id);
 
-		return sendpay_fail(cmd, payment, PAY_TRY_OTHER_ROUTE,
+		return sendpay_fail(cmd, old_payment, PAY_TRY_OTHER_ROUTE,
 				    NULL, fail, "First peer not ready");
 	}
 
@@ -804,14 +870,14 @@ send_payment_core(struct lightningd *ld,
 	 * a possibility, and we end up in handle_missing_htlc_output->
 	 * onchain_failed_our_htlc->payment_failed with no payment.
 	 */
-	if (payment) {
-		wallet_payment_delete(ld->wallet, rhash, payment->partid);
+	if (old_payment) {
+		wallet_payment_delete(ld->wallet, rhash, partid);
 		wallet_local_htlc_out_delete(ld->wallet, channel, rhash,
-					     payment->partid);
+					     partid);
 	}
 
 	/* If hout fails, payment should be freed too. */
-	payment = tal(hout, struct wallet_payment);
+	struct wallet_payment *payment = tal(hout, struct wallet_payment);
 	payment->id = 0;
 	payment->payment_hash = *rhash;
 	payment->partid = partid;
