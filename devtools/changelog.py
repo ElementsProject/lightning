@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 from collections import namedtuple
-import re
-import sys
-import shlex
-import subprocess
-import requests
+from datetime import datetime
 from mako.template import Template
 import argparse
-from datetime import datetime
+import os
+import re
+import requests
+import shlex
+import subprocess
+import sys
 
 # What sections do we support in the changelog:
 sections = [
@@ -49,7 +50,7 @@ def get_log_entries(commitrange):
             commit = m.group(1)
 
         m = re.match(
-            r'^\s+Changelog-({}): (.*)$'.format("|".join(sections)), l)
+            r'^\s+Changelog-({}): (.*)$'.format("|".join(sections)), l, re.IGNORECASE)
         if not m:
             continue
 
@@ -58,6 +59,9 @@ def get_log_entries(commitrange):
             'Accept': 'application/vnd.github.groot-preview+json',
         }
 
+        if os.environ.get('GH_TOKEN'):
+            headers['Authorization'] = 'token ' + os.environ.get('GH_TOKEN')
+
         url = 'https://api.github.com/repos/{repo}/commits/{commit}/pulls'.format(repo=repo, commit=commit)
         content = requests.get(url, headers=headers).json()
         if len(content):
@@ -65,7 +69,7 @@ def get_log_entries(commitrange):
         else:
             pullreq = None
 
-        e = Entry(commit, pullreq, m.group(2), m.group(1))
+        e = Entry(commit, pullreq, m.group(2), m.group(1).lower())
         entries.append(e)
 
     return entries
