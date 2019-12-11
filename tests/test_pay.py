@@ -532,12 +532,12 @@ def test_sendpay(node_factory):
     wait_for(check_balances)
 
     # Repeat will "succeed", but won't actually send anything (duplicate)
-    assert not l1.daemon.is_in_log('... succeeded')
+    assert not l1.daemon.is_in_log('Payment 0/1: .* COMPLETE')
     details = l1.rpc.sendpay([routestep], rhash)
     assert details['status'] == "complete"
     preimage2 = details['payment_preimage']
     assert preimage == preimage2
-    l1.daemon.wait_for_log('... succeeded')
+    l1.daemon.wait_for_log('Payment 0/1: .* COMPLETE')
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['msatoshi_received'] == rs['msatoshi']
 
