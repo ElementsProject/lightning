@@ -173,7 +173,7 @@ Note that once you encrypt the `hsm_secret` this option will be mandatory for
 ### Lightning node customization options
 
  **alias**=*NAME*
-Up to 32 UTF-8 characters to tag your node. Completely silly, since
+Up to 32 bytes of UTF-8 characters to tag your node. Completely silly, since
 anyone can call their node anything they want. The default is an
 NSA-style codename derived from your public key, but "Peter Todd" and
 "VAULTERO" are good options, too.
