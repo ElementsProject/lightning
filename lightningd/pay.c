@@ -715,7 +715,142 @@ static enum onion_type send_onion(struct lightningd *ld,
 			     payment_hash, partid, onion, NULL, hout);
 }
 
-/* Returns command_result if cmd was resolved, NULL if not yet called. */
+/* destination/route_channels/route_nodes are NULL (and path_secrets may be NULL)
+ * if we're sending a raw onion. */
+static struct command_result *
+send_payment_core(struct lightningd *ld,
+		  struct command *cmd,
+		  const struct sha256 *rhash,
+		  u64 partid,
+		  const struct route_hop *first_hop,
+		  struct amount_msat msat,
+		  struct amount_msat total_msat,
+		  const char *label TAKES,
+		  const char *b11str TAKES,
+		  const struct onionpacket *packet,
+		  const struct node_id *destination,
+		  struct node_id *route_nodes TAKES,
+		  struct short_channel_id *route_channels TAKES,
+		  struct secret *path_secrets)
+{
+	struct wallet_payment *payment;
+	struct channel *channel;
+	enum onion_type failcode;
+	struct htlc_out *hout;
+	struct routing_failure *fail;
+
+	/* Now, do we already have a payment? */
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash, partid);
+	if (payment) {
+		/* FIXME: We should really do something smarter here! */
+		if (payment->status == PAYMENT_PENDING) {
+			log_debug(ld->log, "send_payment: previous still in progress");
+			return json_sendpay_in_progress(cmd, payment);
+		}
+		if (payment->status == PAYMENT_COMPLETE) {
+			log_debug(ld->log, "send_payment: previous succeeded");
+			/* Must match successful payment parameters. */
+			if (!amount_msat_eq(payment->msatoshi, msat)) {
+				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+						    "Already succeeded "
+						    "with amount %s",
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &payment->msatoshi));
+			}
+			if (payment->destination && destination
+			    && !node_id_eq(payment->destination, destination)) {
+				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+						    "Already succeeded to %s",
+						    type_to_string(tmpctx,
+								   struct node_id,
+								   payment->destination));
+			}
+			return sendpay_success(cmd, payment);
+		}
+		log_debug(ld->log, "send_payment: found previous, retrying");
+	}
+
+	channel = active_channel_by_id(ld, &first_hop->nodeid, NULL);
+	if (!channel) {
+		struct json_stream *data
+			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,
+					   "No connection to first "
+					   "peer found");
+
+		json_add_routefail_info(data, 0, WIRE_UNKNOWN_NEXT_PEER,
+					&ld->id, &first_hop->channel_id,
+					node_id_idx(&ld->id, &first_hop->nodeid),
+					NULL);
+		json_object_end(data);
+		return command_failed(cmd, data);
+	}
+
+	failcode = send_onion(ld, packet, first_hop, rhash, partid,
+			      channel, &hout);
+
+	if (failcode) {
+		fail = immediate_routing_failure(cmd, ld,
+						 failcode,
+						 &first_hop->channel_id,
+						 &channel->peer->id);
+
+		return sendpay_fail(cmd, payment, PAY_TRY_OTHER_ROUTE,
+				    NULL, fail, "First peer not ready");
+	}
+
+	/* If we're retrying, delete all trace of previous one.  We delete
+	 * outgoing HTLC, too, otherwise it gets reported to onchaind as
+	 * a possibility, and we end up in handle_missing_htlc_output->
+	 * onchain_failed_our_htlc->payment_failed with no payment.
+	 */
+	if (payment) {
+		wallet_payment_delete(ld->wallet, rhash, payment->partid);
+		wallet_local_htlc_out_delete(ld->wallet, channel, rhash,
+					     payment->partid);
+	}
+
+	/* If hout fails, payment should be freed too. */
+	payment = tal(hout, struct wallet_payment);
+	payment->id = 0;
+	payment->payment_hash = *rhash;
+	payment->partid = partid;
+	if (destination)
+		payment->destination = tal_dup(payment, struct node_id, destination);
+	else
+		payment->destination = NULL;
+	payment->status = PAYMENT_PENDING;
+	payment->msatoshi = msat;
+	payment->msatoshi_sent = first_hop->amount;
+	payment->total_msat = total_msat;
+	payment->timestamp = time_now().ts.tv_sec;
+	payment->payment_preimage = NULL;
+	payment->path_secrets = tal_steal(payment, path_secrets);
+	if (route_nodes)
+		payment->route_nodes = tal_steal(payment, route_nodes);
+	else
+		payment->route_nodes = NULL;
+	if (route_channels)
+		payment->route_channels = tal_steal(payment, route_channels);
+	else
+		payment->route_channels = NULL;
+	payment->failonion = NULL;
+	if (label != NULL)
+		payment->label = tal_strdup(payment, label);
+	else
+		payment->label = NULL;
+	if (b11str != NULL)
+		payment->bolt11 = tal_strdup(payment, b11str);
+	else
+		payment->bolt11 = NULL;
+
+	/* We write this into db when HTLC is actually sent. */
+	wallet_payment_setup(ld->wallet, payment);
+
+	add_sendpay_waiter(ld, cmd, rhash);
+	return command_still_pending(cmd);
+}
+
 static struct command_result *
 send_payment(struct lightningd *ld,
 	     struct command *cmd,
@@ -731,14 +866,9 @@ send_payment(struct lightningd *ld,
 	unsigned int base_expiry;
 	struct onionpacket *packet;
 	struct secret *path_secrets;
-	enum onion_type failcode;
 	size_t i, n_hops = tal_count(route);
 	struct node_id *ids = tal_arr(tmpctx, struct node_id, n_hops);
-	struct wallet_payment *payment = NULL;
-	struct htlc_out *hout;
 	struct short_channel_id *channels;
-	struct routing_failure *fail;
-	struct channel *channel;
 	struct sphinx_path *path;
 	struct pubkey pubkey;
 	bool final_tlv, ret;
@@ -794,117 +924,19 @@ send_payment(struct lightningd *ld,
 	}
 	sphinx_add_hop(path, &pubkey, onion);
 
-	/* Now, do we already have a payment? */
-	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash, partid);
-	if (payment) {
-		/* FIXME: We should really do something smarter here! */
-		if (payment->status == PAYMENT_PENDING) {
-			log_debug(ld->log, "send_payment: previous still in progress");
-			return json_sendpay_in_progress(cmd, payment);
-		}
-		if (payment->status == PAYMENT_COMPLETE) {
-			log_debug(ld->log, "send_payment: previous succeeded");
-			/* Must match successful payment parameters. */
-			if (!amount_msat_eq(payment->msatoshi, msat)) {
-				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
-						    "Already succeeded "
-						    "with amount %s",
-						    type_to_string(tmpctx,
-								   struct amount_msat,
-								   &payment->msatoshi));
-			}
-			if (payment->destination &&
-			    !node_id_eq(payment->destination,
-					&ids[n_hops - 1])) {
-				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
-						    "Already succeeded to %s",
-						    type_to_string(tmpctx,
-								   struct node_id,
-								   payment->destination));
-			}
-			return sendpay_success(cmd, payment);
-		}
-		log_debug(ld->log, "send_payment: found previous, retrying");
-	}
-
-	channel = active_channel_by_id(ld, &ids[0], NULL);
-	if (!channel) {
-		struct json_stream *data
-			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,
-					   "No connection to first "
-					   "peer found");
-
-		json_add_routefail_info(data, 0, WIRE_UNKNOWN_NEXT_PEER,
-					&ld->id, &route[0].channel_id,
-					node_id_idx(&ld->id, &route[0].nodeid),
-					NULL);
-		json_object_end(data);
-		return command_failed(cmd, data);
-	}
-
-	packet = create_onionpacket(tmpctx, path, &path_secrets);
-	failcode = send_onion(ld, packet, &route[0], rhash, partid,
-			      channel, &hout);
-	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
-		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
-		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
-
-	if (failcode) {
-		fail = immediate_routing_failure(cmd, ld,
-						 failcode,
-						 &route[0].channel_id,
-						 &channel->peer->id);
-
-		return sendpay_fail(cmd, payment, PAY_TRY_OTHER_ROUTE,
-				    NULL, fail, "First peer not ready");
-	}
-
 	/* Copy channels used along the route. */
 	channels = tal_arr(tmpctx, struct short_channel_id, n_hops);
 	for (i = 0; i < n_hops; ++i)
 		channels[i] = route[i].channel_id;
 
-	/* If we're retrying, delete all trace of previous one.  We delete
-	 * outgoing HTLC, too, otherwise it gets reported to onchaind as
-	 * a possibility, and we end up in handle_missing_htlc_output->
-	 * onchain_failed_our_htlc->payment_failed with no payment.
-	 */
-	if (payment) {
-		wallet_payment_delete(ld->wallet, rhash, payment->partid);
-		wallet_local_htlc_out_delete(ld->wallet, channel, rhash,
-					     payment->partid);
-	}
-
-	/* If hout fails, payment should be freed too. */
-	payment = tal(hout, struct wallet_payment);
-	payment->id = 0;
-	payment->payment_hash = *rhash;
-	payment->partid = partid;
-	payment->destination = tal_dup(payment, struct node_id, &ids[n_hops - 1]);
-	payment->status = PAYMENT_PENDING;
-	payment->msatoshi = msat;
-	payment->msatoshi_sent = route[0].amount;
-	payment->total_msat = total_msat;
-	payment->timestamp = time_now().ts.tv_sec;
-	payment->payment_preimage = NULL;
-	payment->path_secrets = tal_steal(payment, path_secrets);
-	payment->route_nodes = tal_steal(payment, ids);
-	payment->route_channels = tal_steal(payment, channels);
-	payment->failonion = NULL;
-	if (label != NULL)
-		payment->label = tal_strdup(payment, label);
-	else
-		payment->label = NULL;
-	if (b11str != NULL)
-		payment->bolt11 = tal_strdup(payment, b11str);
-	else
-		payment->bolt11 = NULL;
-
-	/* We write this into db when HTLC is actually sent. */
-	wallet_payment_setup(ld->wallet, payment);
-
-	add_sendpay_waiter(ld, cmd, rhash);
-	return NULL;
+	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
+		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
+		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
+	packet = create_onionpacket(tmpctx, path, &path_secrets);
+	return send_payment_core(ld, cmd, rhash, partid, &route[0],
+				 msat, total_msat, label, b11str,
+				 packet, &ids[n_hops - 1], ids,
+				 channels, path_secrets);
 }
 
 static struct command_result *
@@ -991,12 +1023,9 @@ static struct command_result *json_sendonion(struct command *cmd,
 	u8 *onion;
 	struct onionpacket packet;
 	enum onion_type failcode;
-	struct htlc_out *hout;
 	struct route_hop *first_hop;
 	struct sha256 *payment_hash;
-	struct channel *channel;
 	struct lightningd *ld = cmd->ld;
-	struct wallet_payment *payment;
 	const char *label;
 	struct secret *path_secrets;
 
@@ -1017,74 +1046,12 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    "with failcode=%d",
 				    failcode);
 
-	/* Now, do we already have a payment? */
-	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash, /* FIXME: Set partid! */0);
-	if (payment) {
-		if (payment->status == PAYMENT_PENDING) {
-			log_debug(ld->log, "send_payment: previous still in progress");
-			return json_sendpay_in_progress(cmd, payment);
-		}
-		if (payment->status == PAYMENT_COMPLETE) {
-			log_debug(ld->log, "send_payment: previous succeeded");
-			return sendpay_success(cmd, payment);
-		}
-		log_debug(ld->log, "send_payment: found previous, retrying");
-	}
-
-	channel = active_channel_by_id(ld, &first_hop->nodeid, NULL);
-	if (!channel) {
-		struct json_stream *data
-			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,
-					   "No connection to first "
-					   "peer found");
-
-		json_add_routefail_info(data, 0, WIRE_UNKNOWN_NEXT_PEER,
-					&ld->id, &first_hop->channel_id,
-					node_id_idx(&ld->id, &first_hop->nodeid),
-					NULL);
-		json_object_end(data);
-		return command_failed(cmd, data);
-	}
-
-	/* Cleanup any prior payment. We're about to retry. */
-	if (payment) {
-		wallet_payment_delete(ld->wallet, payment_hash, /* FIXME: Set partid! */0);
-		wallet_local_htlc_out_delete(ld->wallet, channel, payment_hash, /* FIXME: Set partid! */0);
-	}
-
-	failcode = send_onion(cmd->ld, &packet, first_hop, payment_hash, /* FIXME: Set partid! */0, channel,
-			  &hout);
-
-	payment = tal(hout, struct wallet_payment);
-	payment->id = 0;
-	payment->payment_hash = *payment_hash;
-	payment->status = PAYMENT_PENDING;
-	payment->msatoshi = AMOUNT_MSAT(0);
-	payment->msatoshi_sent = first_hop->amount;
-	payment->timestamp = time_now().ts.tv_sec;
-
-	/* These are not available for sendonion payments since the onion is
-	 * opaque and we can't extract them. Errors have to be handled
-	 * externally, since we can't decrypt them.*/
-	payment->destination = NULL;
-	payment->payment_preimage = NULL;
-	payment->route_nodes = NULL;
-	payment->route_channels = NULL;
-	payment->bolt11 = NULL;
-	payment->failonion = NULL;
-	payment->path_secrets = tal_steal(payment, path_secrets);
-
-	if (label != NULL)
-		payment->label = tal_strdup(payment, label);
-	else
-		payment->label = NULL;
-
-	/* We write this into db when HTLC is actually sent. */
-	wallet_payment_setup(ld->wallet, payment);
-
-	add_sendpay_waiter(ld, cmd, payment_hash);
-	return command_still_pending(cmd);
+	return send_payment_core(ld, cmd, payment_hash, /* FIXME: Set partid! */0,
+				 first_hop, AMOUNT_MSAT(0), AMOUNT_MSAT(0),
+				 label, NULL, &packet, NULL, NULL, NULL,
+				 path_secrets);
 }
+
 static const struct json_command sendonion_command = {
 	"sendonion",
 	"payment",
@@ -1130,7 +1097,6 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct route_hop *route;
 	struct amount_msat *msat;
 	const char *b11str, *label = NULL;
-	struct command_result *res;
 	struct secret *payment_secret;
 
 	/* For generating help, give new-style. */
@@ -1267,15 +1233,12 @@ static struct command_result *json_sendpay(struct command *cmd,
 	}
 #endif
 
-	res = send_payment(cmd->ld, cmd, rhash, /* FIXME: Set partid! */ 0,
-			   route,
-			   msat ? *msat : route[routetok->size-1].amount,
-			   /* FIXME: Set total_msat! */
-			   msat ? *msat : route[routetok->size-1].amount,
-			   label, b11str, payment_secret);
-	if (res)
-		return res;
-	return command_still_pending(cmd);
+	return send_payment(cmd->ld, cmd, rhash, /* FIXME: Set partid! */ 0,
+			    route,
+			    msat ? *msat : route[routetok->size-1].amount,
+			    /* FIXME: Set total_msat! */
+			    msat ? *msat : route[routetok->size-1].amount,
+			    label, b11str, payment_secret);
 }
 
 static const struct json_command sendpay_command = {
