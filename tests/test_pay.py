@@ -2573,7 +2573,7 @@ def test_sendonion_rpc(node_factory):
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
-    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit'], 'dev-no-htlc-timeout': None}] * 2 + [{}])
+    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit'], 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
 
     # Two routes to l4: one via l2, and one via l3.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -2635,3 +2635,10 @@ def test_partial_payment(node_factory, bitcoind, executor):
     with pytest.raises(RpcError, match=r'WIRE_FINAL_INCORRECT_HTLC_AMOUNT'):
         l1.rpc.call('waitsendpay', {'payment_hash': inv['payment_hash'],
                                     'partid': 2})
+
+    for i in range(2):
+        line = l4.daemon.wait_for_log('print_htlc_onion.py: Got onion')
+        assert "'type': 'tlv'" in line
+        assert "'forward_amount': '500msat'" in line
+        assert "'total_msat': '1000msat'" in line
+        assert "'payment_secret': '{}'".format(paysecret) in line
