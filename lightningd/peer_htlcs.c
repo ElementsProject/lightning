@@ -278,8 +278,6 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 }
 
 static void handle_localpay(struct htlc_in *hin,
-			    u32 cltv_expiry,
-			    const struct sha256 *payment_hash,
 			    struct amount_msat amt_to_forward,
 			    u32 outgoing_cltv_value,
 			    struct amount_msat total_msat,
@@ -321,7 +319,7 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 * The CLTV expiry in the HTLC doesn't match the value in the onion.
 	 */
-	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value, 0)) {
+	if (!check_cltv(hin, hin->cltv_expiry, outgoing_cltv_value, 0)) {
 		failcode = WIRE_FINAL_INCORRECT_CLTV_EXPIRY;
 		goto fail;
 	}
@@ -333,17 +331,17 @@ static void handle_localpay(struct htlc_in *hin,
 	 *     - MUST return an `incorrect_or_unknown_payment_details` error.
 	 */
 	if (get_block_height(ld->topology) + ld->config.cltv_final
-	    > cltv_expiry) {
+	    > hin->cltv_expiry) {
 		log_debug(hin->key.channel->log,
 			  "Expiry cltv too soon %u < %u + %u",
-			  cltv_expiry,
+			  hin->cltv_expiry,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
 		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 		goto fail;
 	}
 
-	invoice_try_pay(ld, hin, payment_hash, amt_to_forward, payment_secret);
+	invoice_try_pay(ld, hin, &hin->payment_hash, amt_to_forward, payment_secret);
 	return;
 
 fail:
@@ -842,7 +840,7 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 			subd_req(hin, ld->gossip, req, -1, 0,
 				 channel_resolve_reply, gr);
 		} else
-			handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
+			handle_localpay(hin,
 					request->payload->amt_to_forward,
 					request->payload->outgoing_cltv,
 					*request->payload->total_msat,
