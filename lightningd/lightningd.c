@@ -630,7 +630,7 @@ int main(int argc, char *argv[])
 	int stop_fd;
 	struct timers *timers;
 	const char *stop_response;
-	struct htlc_in_map *unprocessed_htlcs;
+	struct htlc_in_map *unconnected_htlcs_in;
 	struct rlimit nofile = {1024, 1024};
 
 	/*~ Make sure that we limit ourselves to something reasonable. Modesty
@@ -778,7 +778,7 @@ int main(int argc, char *argv[])
 	 *  topology is initialized since some decisions rely on being able to
 	 *  know the blockheight. */
 	db_begin_transaction(ld->wallet->db);
-	unprocessed_htlcs = load_channels_from_wallet(ld);
+	unconnected_htlcs_in = load_channels_from_wallet(ld);
 	db_commit_transaction(ld->wallet->db);
 
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
@@ -792,7 +792,7 @@ int main(int argc, char *argv[])
 	/*~ Process any HTLCs we were in the middle of when we exited, now
 	 * that plugins (who might want to know via htlc_accepted hook) are
 	 * active. */
-	htlcs_resubmit(ld, unprocessed_htlcs);
+	htlcs_resubmit(ld, unconnected_htlcs_in);
 
 	/*~ Activate connect daemon.  Needs to be after the initialization of
 	 * chaintopology, otherwise peers may connect and ask for

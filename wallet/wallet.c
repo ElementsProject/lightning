@@ -1647,7 +1647,6 @@ void wallet_htlc_save_out(struct wallet *wallet,
 	/* We absolutely need the incoming HTLC to be persisted before
 	 * we can persist it's dependent */
 	assert(out->in == NULL || out->in->dbid != 0);
-	out->origin_htlc_id = out->in?out->in->dbid:0;
 
 	stmt = db_prepare_v2(
 	    wallet->db,
@@ -1770,8 +1769,11 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	return ok;
 }
 
-static bool wallet_stmt2htlc_out(struct channel *channel,
-				struct db_stmt *stmt, struct htlc_out *out)
+/* Removes matching htlc from unconnected_htlcs_in */
+static bool wallet_stmt2htlc_out(struct wallet *wallet,
+				 struct channel *channel,
+				 struct db_stmt *stmt, struct htlc_out *out,
+				 struct htlc_in_map *unconnected_htlcs_in)
 {
 	bool ok = true;
 	out->dbid = db_column_u64(stmt, 0);
@@ -1795,19 +1797,31 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 
 	out->failuremsg = db_column_arr(out, stmt, 8, u8);
 	out->failcode = db_column_int_or_default(stmt, 9, 0);
+	out->in = NULL;
 
 	if (!db_column_is_null(stmt, 10)) {
-		out->origin_htlc_id = db_column_u64(stmt, 10);
+		u64 in_id = db_column_u64(stmt, 10);
+		struct htlc_in *hin;
+
+		hin = remove_htlc_in_by_dbid(unconnected_htlcs_in, in_id);
+		if (hin)
+			htlc_out_connect_htlc_in(out, hin);
 		out->am_origin = false;
+		if (!out->in && !out->preimage) {
+#ifdef COMPAT_V061
+			log_broken(wallet->log,
+				   "Missing preimage for orphaned HTLC; replacing with zeros");
+			out->preimage = talz(out, struct preimage);
+#else
+			fatal("Unable to find corresponding htlc_in %"PRIu64
+			      " for unfulfilled htlc_out %"PRIu64,
+			      in_id, out->dbid);
+#endif
+		}
 	} else {
-		out->origin_htlc_id = 0;
 		out->partid = db_column_u64(stmt, 13);
 		out->am_origin = true;
 	}
-
-	/* Need to defer wiring until we can look up all incoming
-	 * htlcs, will wire using origin_htlc_id */
-	out->in = NULL;
 
 	return ok;
 }
@@ -1849,16 +1863,15 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 #endif
 }
 
-bool wallet_htlcs_load_for_channel(struct wallet *wallet,
-				   struct channel *chan,
-				   struct htlc_in_map *htlcs_in,
-				   struct htlc_out_map *htlcs_out)
+bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
+				      struct channel *chan,
+				      struct htlc_in_map *htlcs_in)
 {
 	struct db_stmt *stmt;
 	bool ok = true;
-	int incount = 0, outcount = 0;
+	int incount = 0;
 
-	log_debug(wallet->log, "Loading HTLCs for channel %"PRIu64, chan->dbid);
+	log_debug(wallet->log, "Loading in HTLCs for channel %"PRIu64, chan->dbid);
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
 					     ", channel_htlc_id"
@@ -1892,6 +1905,19 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	}
 	tal_free(stmt);
 
+	log_debug(wallet->log, "Restored %d incoming HTLCS", incount);
+	return ok;
+}
+
+bool wallet_htlcs_load_out_for_channel(struct wallet *wallet,
+				       struct channel *chan,
+				       struct htlc_out_map *htlcs_out,
+				       struct htlc_in_map *unconnected_htlcs_in)
+{
+	struct db_stmt *stmt;
+	bool ok = true;
+	int outcount = 0;
+
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
 					     ", channel_htlc_id"
@@ -1918,7 +1944,8 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 
 	while (db_step(stmt)) {
 		struct htlc_out *out = tal(chan, struct htlc_out);
-		ok &= wallet_stmt2htlc_out(chan, stmt, out);
+		ok &= wallet_stmt2htlc_out(wallet, chan, stmt, out,
+					   unconnected_htlcs_in);
 		connect_htlc_out(htlcs_out, out);
 		/* Cannot htlc_out_check because we haven't wired the
 		 * dependencies in yet */
@@ -1926,7 +1953,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	}
 	tal_free(stmt);
 
-	log_debug(wallet->log, "Restored %d incoming and %d outgoing HTLCS", incount, outcount);
+	log_debug(wallet->log, "Restored %d outgoing HTLCS", outcount);
 
 	return ok;
 }

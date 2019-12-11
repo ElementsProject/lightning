@@ -1579,27 +1579,47 @@ void activate_peers(struct lightningd *ld)
 struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 {
 	struct peer *peer;
+	struct htlc_in_map *unconnected_htlcs_in = tal(ld, struct htlc_in_map);
 
 	/* Load channels from database */
 	if (!wallet_init_channels(ld->wallet))
 		fatal("Could not load channels from the database");
 
-	/* This is a poor-man's db join :( */
+	/* First we load the incoming htlcs */
 	list_for_each(&ld->peers, peer, list) {
 		struct channel *channel;
 
 		list_for_each(&peer->channels, channel, list) {
-			if (!wallet_htlcs_load_for_channel(ld->wallet,
-							   channel,
-							   &ld->htlcs_in,
-							   &ld->htlcs_out)) {
+			if (!wallet_htlcs_load_in_for_channel(ld->wallet,
+							      channel,
+							      &ld->htlcs_in)) {
 				fatal("could not load htlcs for channel");
 			}
 		}
 	}
 
-	/* Now connect HTLC pointers together */
-	return htlcs_reconnect(ld, &ld->htlcs_in, &ld->htlcs_out);
+	/* Make a copy of the htlc_map: entries removed as they're matched */
+	htlc_in_map_copy(unconnected_htlcs_in, &ld->htlcs_in);
+
+	/* Now we load the outgoing HTLCs, so we can connect them. */
+	list_for_each(&ld->peers, peer, list) {
+		struct channel *channel;
+
+		list_for_each(&peer->channels, channel, list) {
+			if (!wallet_htlcs_load_out_for_channel(ld->wallet,
+							       channel,
+							       &ld->htlcs_out,
+							       unconnected_htlcs_in)) {
+				fatal("could not load outgoing htlcs for channel");
+			}
+		}
+	}
+
+#ifdef COMPAT_V061
+	fixup_htlcs_out(ld);
+#endif /* COMPAT_V061 */
+
+	return unconnected_htlcs_in;
 }
 
 static struct command_result *json_disconnect(struct command *cmd,

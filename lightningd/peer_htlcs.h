@@ -64,11 +64,11 @@ void onchain_fulfilled_htlc(struct channel *channel,
 
 void htlcs_notify_new_block(struct lightningd *ld, u32 height);
 
-struct htlc_in_map *htlcs_reconnect(struct lightningd *ld,
-				    struct htlc_in_map *htlcs_in,
-				    struct htlc_out_map *htlcs_out);
+/* Only defined if COMPAT_V061 */
+void fixup_htlcs_out(struct lightningd *ld);
 
-void htlcs_resubmit(struct lightningd *ld, struct htlc_in_map *unprocessed);
+void htlcs_resubmit(struct lightningd *ld,
+		    struct htlc_in_map *unconnected_htlcs_in);
 
 /* For HTLCs which terminate here, invoice payment calls one of these. */
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage);

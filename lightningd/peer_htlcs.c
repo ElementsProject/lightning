@@ -1274,7 +1274,7 @@ static bool update_out_htlc(struct channel *channel,
 		}
 
 		/* For our own HTLCs, we commit payment to db lazily */
-		if (hout->origin_htlc_id == 0)
+		if (hout->am_origin)
 			payment_store(ld,
 				      &hout->payment_hash, hout->partid);
 	}
@@ -2089,94 +2089,35 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 				  &hout->key.channel->peer->id),
 		   fix);
 }
+
+void fixup_htlcs_out(struct lightningd *ld)
+{
+	struct htlc_out_map_iter outi;
+	struct htlc_out *hout;
+
+	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+		if (!hout->am_origin)
+			fixup_hout(ld, hout);
+	}
+}
 #endif /* COMPAT_V061 */
 
-/**
- * htlcs_reconnect -- Link outgoing HTLCs to their origins after initial db load
- *
- * For each outgoing HTLC find the incoming HTLC that triggered it. If
- * we are the origin of the transfer then we cannot resolve the
- * incoming HTLC in which case we just leave it `NULL`.
- *
- * Returns a map of any htlcs we need to retry.
- */
-struct htlc_in_map *htlcs_reconnect(struct lightningd *ld,
-				    struct htlc_in_map *htlcs_in,
-				    struct htlc_out_map *htlcs_out)
-{
-	struct htlc_in_map_iter ini;
-	struct htlc_out_map_iter outi;
-	struct htlc_in *hin;
-	struct htlc_out *hout;
-	struct htlc_in_map *unprocessed = tal(NULL, struct htlc_in_map);
-
-	/* Any HTLCs which happened to be incoming and weren't forwarded before
-	 * we shutdown/crashed: fail them now.
-	 *
-	 * Note that since we do local processing synchronously, so this never
-	 * captures local payments.  But if it did, it would be a tiny corner
-	 * case. */
-	htlc_in_map_init(unprocessed);
-	for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
-	     hin = htlc_in_map_next(htlcs_in, &ini)) {
-		if (hin->hstate == RCVD_ADD_ACK_REVOCATION)
-			htlc_in_map_add(unprocessed, hin);
-	}
-
-	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
-	     hout = htlc_out_map_next(htlcs_out, &outi)) {
-
-		if (hout->am_origin) {
-			continue;
-		}
-
-		/* For fulfilled HTLCs, we fulfill incoming before outgoing is
-		 * completely resolved, so it's possible that we don't find
-		 * the incoming. */
-		for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
-		     hin = htlc_in_map_next(htlcs_in, &ini)) {
-			if (hout->origin_htlc_id == hin->dbid) {
-				log_debug(ld->log,
-					  "Found corresponding htlc_in %" PRIu64
-					  " for htlc_out %" PRIu64,
-					  hin->dbid, hout->dbid);
-				htlc_out_connect_htlc_in(hout, hin);
-				break;
-			}
-		}
-
-		if (!hout->in && !hout->preimage) {
-#ifdef COMPAT_V061
-			log_broken(ld->log,
-				   "Missing preimage for orphaned HTLC; replacing with zeros");
-			hout->preimage = talz(hout, struct preimage);
-#else
-			fatal("Unable to find corresponding htlc_in %"PRIu64
-			      " for unfulfilled htlc_out %"PRIu64,
-			      hout->origin_htlc_id, hout->dbid);
-#endif
-		}
-#ifdef COMPAT_V061
-		fixup_hout(ld, hout);
-#endif
-
-		if (hout->in)
-			htlc_in_map_del(unprocessed, hout->in);
-	}
-
-	return unprocessed;
-}
-
-void htlcs_resubmit(struct lightningd *ld, struct htlc_in_map *unprocessed)
+void htlcs_resubmit(struct lightningd *ld,
+		    struct htlc_in_map *unconnected_htlcs_in)
 {
 	struct htlc_in *hin;
 	struct htlc_in_map_iter ini;
 	enum onion_type failcode COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
 
-	/* Now fail any which were stuck. */
-	for (hin = htlc_in_map_first(unprocessed, &ini);
+	/* Now retry any which were stuck. */
+	for (hin = htlc_in_map_first(unconnected_htlcs_in, &ini);
 	     hin;
-	     hin = htlc_in_map_next(unprocessed, &ini)) {
+	     hin = htlc_in_map_next(unconnected_htlcs_in, &ini)) {
+		if (hin->hstate != RCVD_ADD_ACK_REVOCATION)
+			continue;
+
 		log_unusual(hin->key.channel->log,
 			    "Replaying old unprocessed HTLC #%"PRIu64,
 			    hin->key.id);
@@ -2192,8 +2133,8 @@ void htlcs_resubmit(struct lightningd *ld, struct htlc_in_map *unprocessed)
 	}
 
 	/* Don't leak memory! */
-	htlc_in_map_clear(unprocessed);
-	tal_free(unprocessed);
+	htlc_in_map_clear(unconnected_htlcs_in);
+	tal_free(unconnected_htlcs_in);
 }
 
 #if DEVELOPER

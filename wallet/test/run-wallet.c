@@ -1156,7 +1156,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	struct channel *chan = tal(ctx, struct channel);
 	struct peer *peer = talz(ctx, struct peer);
 	struct wallet *w = create_test_wallet(ld, ctx);
-	struct htlc_in_map *htlcs_in = tal(ctx, struct htlc_in_map);
+	struct htlc_in_map *htlcs_in = tal(ctx, struct htlc_in_map), *rem;
 	struct htlc_out_map *htlcs_out = tal(ctx, struct htlc_out_map);
 
 	/* Make sure we have our references correct */
@@ -1220,11 +1220,16 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 
-	CHECK_MSG(wallet_htlcs_load_for_channel(w, chan, htlcs_in, htlcs_out),
-		  "Failed loading HTLCs");
+	CHECK_MSG(wallet_htlcs_load_in_for_channel(w, chan, htlcs_in),
+		  "Failed loading in HTLCs");
+	/* Freed by htlcs_resubmit */
+	rem = tal(NULL, struct htlc_in_map);
+	htlc_in_map_copy(rem, htlcs_in);
+	CHECK_MSG(wallet_htlcs_load_out_for_channel(w, chan, htlcs_out, rem),
+		  "Failed loading out HTLCs");
 	db_commit_transaction(w->db);
 
-	htlcs_resubmit(w->ld, htlcs_reconnect(w->ld, htlcs_in, htlcs_out));
+	htlcs_resubmit(w->ld, rem);
 	CHECK(!wallet_err);
 
 	hin = htlc_in_map_get(htlcs_in, &in.key);
