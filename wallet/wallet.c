@@ -1661,7 +1661,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		" payment_hash,"
 		" payment_key,"
 		" hstate,"
-		" routing_onion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		" routing_onion,"
+		" partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_bind_u64(stmt, 1, out->key.id);
@@ -1682,6 +1683,10 @@ void wallet_htlc_save_out(struct wallet *wallet,
 
 	db_bind_blob(stmt, 9, out->onion_routing_packet,
 		     sizeof(out->onion_routing_packet));
+	if (!out->am_origin)
+		db_bind_null(stmt, 10);
+	else
+		db_bind_u64(stmt, 10, out->partid);
 
 	db_exec_prepared_v2(stmt);
 	out->dbid = db_last_insert_id_v2(stmt);
@@ -1796,6 +1801,7 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 		out->am_origin = false;
 	} else {
 		out->origin_htlc_id = 0;
+		out->partid = db_column_u64(stmt, 13);
 		out->am_origin = true;
 	}
 
@@ -1900,6 +1906,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 					     ", origin_htlc"
 					     ", shared_secret"
 					     ", received_time"
+					     ", partid"
 					     " FROM channel_htlcs"
 					     " WHERE direction = ?"
 					     " AND channel_id = ?"
@@ -2047,15 +2054,15 @@ void wallet_local_htlc_out_delete(struct wallet *wallet,
 {
 	struct db_stmt *stmt;
 
-	/* FIXME: Put partid into locally-generated htlc_out, select here! */
 	stmt = db_prepare_v2(wallet->db, SQL("DELETE FROM channel_htlcs"
 					     " WHERE direction = ?"
 					     " AND origin_htlc = ?"
-					     " AND payment_hash = ?"));
+					     " AND payment_hash = ?"
+					     " AND partid = ?;"));
 	db_bind_int(stmt, 0, DIRECTION_OUTGOING);
 	db_bind_int(stmt, 1, 0);
 	db_bind_sha256(stmt, 2, payment_hash);
-
+	db_bind_u64(stmt, 3, partid);
 	db_exec_prepared_v2(take(stmt));
 }
 

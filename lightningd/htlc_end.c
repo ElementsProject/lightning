@@ -252,6 +252,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      bool am_origin,
+			      u64 partid,
 			      struct htlc_in *in)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
@@ -273,6 +274,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->preimage = NULL;
 
 	hout->am_origin = am_origin;
+	if (am_origin)
+		hout->partid = partid;
 	hout->in = NULL;
 	if (in)
 		htlc_out_connect_htlc_in(hout, in);

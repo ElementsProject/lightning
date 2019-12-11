@@ -503,7 +503,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash,
-					 /* FIXME: Set partid! */0);
+					 hout->partid);
 
 #ifdef COMPAT_V052
 	/* Prior to "pay: delete HTLC when we delete payment." we would
@@ -573,11 +573,13 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	}
 
 	/* Save to DB */
-	payment_store(ld, &hout->payment_hash, /* FIXME: Set partid! */ 0);
-	wallet_payment_set_status(ld->wallet, &hout->payment_hash, /* FIXME: Set partid! */ 0,
+	payment_store(ld, &hout->payment_hash, hout->partid);
+	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
+				  hout->partid,
 				  PAYMENT_FAILED, NULL);
 	wallet_payment_set_failinfo(ld->wallet,
-				    &hout->payment_hash, /* FIXME: Set partid! */ 0,
+				    &hout->payment_hash,
+				    hout->partid,
 				    fail ? NULL : hout->failuremsg,
 				    pay_errcode == PAY_DESTINATION_PERM_FAIL,
 				    fail ? fail->erring_index : -1,
@@ -697,19 +699,20 @@ static bool should_use_tlv(enum route_hop_style style)
 }
 
 static enum onion_type send_onion(struct lightningd *ld,
-				   const struct onionpacket *packet,
-				   const struct route_hop *first_hop,
-				   const struct sha256 *payment_hash,
-				   struct channel *channel,
-				   struct htlc_out **hout)
+				  const struct onionpacket *packet,
+				  const struct route_hop *first_hop,
+				  const struct sha256 *payment_hash,
+				  u64 partid,
+				  struct channel *channel,
+				  struct htlc_out **hout)
 {
 	const u8 *onion;
 	unsigned int base_expiry;
 	base_expiry = get_block_height(ld->topology) + 1;
 	onion = serialize_onionpacket(tmpctx, packet);
 	return send_htlc_out(channel, first_hop->amount,
-				  base_expiry + first_hop->delay,
-				  payment_hash, onion, NULL, hout);
+			     base_expiry + first_hop->delay,
+			     payment_hash, partid, onion, NULL, hout);
 }
 
 /* Returns command_result if cmd was resolved, NULL if not yet called. */
@@ -840,7 +843,8 @@ send_payment(struct lightningd *ld,
 	}
 
 	packet = create_onionpacket(tmpctx, path, &path_secrets);
-	failcode = send_onion(ld, packet, &route[0], rhash, channel, &hout);
+	failcode = send_onion(ld, packet, &route[0], rhash, partid,
+			      channel, &hout);
 	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
 		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
 		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
@@ -1048,7 +1052,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		wallet_local_htlc_out_delete(ld->wallet, channel, payment_hash, /* FIXME: Set partid! */0);
 	}
 
-	failcode = send_onion(cmd->ld, &packet, first_hop, payment_hash, channel,
+	failcode = send_onion(cmd->ld, &packet, first_hop, payment_hash, /* FIXME: Set partid! */0, channel,
 			  &hout);
 
 	payment = tal(hout, struct wallet_payment);
