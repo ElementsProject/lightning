@@ -75,6 +75,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/gossip_msg.c			\
 	lightningd/hsm_control.c		\
 	lightningd/htlc_end.c			\
+	lightningd/htlc_set.c			\
 	lightningd/invoice.c			\
 	lightningd/io_loop_with_timers.c	\
 	lightningd/json.c			\

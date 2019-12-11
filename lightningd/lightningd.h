@@ -7,6 +7,7 @@
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/htlc_set.h>
 #include <lightningd/plugin.h>
 #include <stdio.h>
 #include <wallet/txfilter.h>
@@ -161,6 +162,11 @@ struct lightningd {
 	/* HTLCs in flight. */
 	struct htlc_in_map htlcs_in;
 	struct htlc_out_map htlcs_out;
+
+#if EXPERIMENTAL_FEATURES
+	/* Sets of HTLCs we are holding onto for MPP. */
+	struct htlc_set_map htlc_sets;
+#endif
 
 	struct wallet *wallet;
 
