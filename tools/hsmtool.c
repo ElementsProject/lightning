@@ -370,20 +370,20 @@ int main(int argc, char *argv[])
 		show_usage();
 
 	if (streq(method, "decrypt")) {
-		if (argc < 3)
+		if (argc < 4)
 			show_usage();
 		return decrypt_hsm(argv[2], argv[3]);
 	}
 
 	if (streq(method, "encrypt")) {
-		if (argc < 3)
+		if (argc < 4)
 			show_usage();
 		return encrypt_hsm(argv[2], argv[3]);
 	}
 
 	if (streq(method, "dumpcommitments")) {
 		/*   node_id    channel_id   depth    hsm_secret  ?password? */
-		if (argc < 5)
+		if (argc < 7)
 			show_usage();
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
@@ -394,7 +394,7 @@ int main(int argc, char *argv[])
 
 	if (streq(method, "guesstoremote")) {
 		/*   address    node_id    depth    hsm_secret  ?password? */
-		if (argc < 5)
+		if (argc < 7)
 			show_usage();
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[3], strlen(argv[3]), &node_id))
