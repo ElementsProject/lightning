@@ -130,6 +130,12 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     struct amount_sat dust_limit UNNEEDED,
 		     enum side side UNNEEDED)
 { fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
+/* Generated stub for htlc_set_add */
+void htlc_set_add(struct lightningd *ld UNNEEDED,
+		  struct htlc_in *hin UNNEEDED,
+		  struct amount_msat total_msat UNNEEDED,
+		  const struct secret *payment_secret UNNEEDED)
+{ fprintf(stderr, "htlc_set_add called!\n"); abort(); }
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
@@ -203,13 +209,6 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 		      void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
 		      void *cbarg UNNEEDED)
 { fprintf(stderr, "invoices_waitone called!\n"); abort(); }
-/* Generated stub for invoice_try_pay */
-void invoice_try_pay(struct lightningd *ld UNNEEDED,
-		     struct htlc_in *hin UNNEEDED,
-		     const struct sha256 *payment_hash UNNEEDED,
-		     const struct amount_msat msat UNNEEDED,
-		     const struct secret *payment_secret UNNEEDED)
-{ fprintf(stderr, "invoice_try_pay called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)

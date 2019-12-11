@@ -17,6 +17,7 @@
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/htlc_set.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -299,18 +300,6 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
-	 * - if it does not support `basic_mpp`:
-	 *    - MUST fail the HTLC if `total_msat` is not exactly equal to
-	 *    `amt_to_forward`.
-	 */
-	if (!amount_msat_eq(amt_to_forward, total_msat)) {
-		/* FIXME: Ideally, we use WIRE_INVALID_ONION_PAYLOAD and
-		 * point at the total_msat field */
-		failcode = WIRE_FINAL_INCORRECT_HTLC_AMOUNT;
-		goto fail;
-	}
-
 	/* BOLT #4:
 	 *
 	 * 1. type: 18 (`final_incorrect_cltv_expiry`)
@@ -341,7 +330,7 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	invoice_try_pay(ld, hin, &hin->payment_hash, amt_to_forward, payment_secret);
+	htlc_set_add(ld, hin, total_msat, payment_secret);
 	return;
 
 fail:

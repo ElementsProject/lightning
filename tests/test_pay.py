@@ -2625,16 +2625,15 @@ def test_partial_payment(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(r'dev_disconnect')
     l3.daemon.wait_for_log(r'dev_disconnect')
 
-    # Now continue, payments will fail because receiver doesn't do MPP.
+    # Now continue, payments will succeed due to MPP.
     l2.rpc.dev_reenable_commit(l4.info['id'])
     l3.rpc.dev_reenable_commit(l4.info['id'])
 
-    # See FIXME in peer_htlcs: WIRE_INVALID_ONION_PAYLOAD would be better.
-    with pytest.raises(RpcError, match=r'WIRE_FINAL_INCORRECT_HTLC_AMOUNT'):
-        l1.rpc.call('waitsendpay', [inv['payment_hash'], None, 1])
-    with pytest.raises(RpcError, match=r'WIRE_FINAL_INCORRECT_HTLC_AMOUNT'):
-        l1.rpc.call('waitsendpay', {'payment_hash': inv['payment_hash'],
-                                    'partid': 2})
+    res = l1.rpc.call('waitsendpay', [inv['payment_hash'], None, 1])
+    assert res['partid'] == 1
+    res = l1.rpc.call('waitsendpay', {'payment_hash': inv['payment_hash'],
+                                      'partid': 2})
+    assert res['partid'] == 2
 
     for i in range(2):
         line = l4.daemon.wait_for_log('print_htlc_onion.py: Got onion')

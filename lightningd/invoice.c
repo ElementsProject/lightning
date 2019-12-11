@@ -123,7 +123,7 @@ static void invoice_secret(const struct preimage *payment_preimage,
 struct invoice_payment_hook_payload {
 	struct lightningd *ld;
 	/* Set to NULL if it is deleted while waiting for plugin */
-	struct htlc_in *hin;
+	struct htlc_set *set;
 	/* What invoice it's trying to pay. */
 	const struct json_escape *label;
 	/* Amount it's offering. */
@@ -146,12 +146,13 @@ invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 	json_object_end(stream); /* .payment */
 }
 
-/* Peer dies?  Remove hin ptr from payload so we know to ignore plugin return */
-static void invoice_payload_remove_hin(struct htlc_in *hin,
+/* Set times out or HTLC deleted?  Remove set ptr from payload so we
+ * know to ignore plugin return */
+static void invoice_payload_remove_set(struct htlc_set *set,
 				       struct invoice_payment_hook_payload *payload)
 {
-	assert(payload->hin == hin);
-	payload->hin = NULL;
+	assert(payload->set == set);
+	payload->set = NULL;
 }
 
 static bool hook_gives_failcode(const char *buffer,
@@ -195,12 +196,12 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 	 * called even if the hook is not registered. */
 	notify_invoice_payment(ld, payload->msat, payload->preimage, payload->label);
 
-	tal_del_destructor2(payload->hin, invoice_payload_remove_hin, payload);
+	tal_del_destructor2(payload->set, invoice_payload_remove_set, payload);
 	/* We want to free this, whatever happens. */
 	tal_steal(tmpctx, payload);
 
 	/* If peer dies or something, this can happen. */
-	if (!payload->hin) {
+	if (!payload->set) {
 		log_debug(ld->log, "invoice '%s' paying htlc_in has gone!",
 			  payload->label->s);
 		return;
@@ -210,21 +211,22 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 	 * we can also fail */
 	if (!wallet_invoice_find_by_label(ld->wallet, &invoice, payload->label)) {
 		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
-		fail_htlc(payload->hin, failcode);
+		htlc_set_fail(payload->set, failcode);
 		return;
 	}
 
 	/* Did we have a hook result? */
 	if (hook_gives_failcode(buffer, toks, &failcode)) {
-		fail_htlc(payload->hin, failcode);
+		htlc_set_fail(payload->set, failcode);
 		return;
 	}
 
-	log_info(ld->log, "Resolved invoice '%s' with amount %s",
-		  payload->label->s,
-		  type_to_string(tmpctx, struct amount_msat, &payload->msat));
+	log_info(ld->log, "Resolved invoice '%s' with amount %s in %zu htlcs",
+		 payload->label->s,
+		 type_to_string(tmpctx, struct amount_msat, &payload->msat),
+		 tal_count(payload->set->htlcs));
 	wallet_invoice_resolve(ld->wallet, invoice, payload->msat);
-	fulfill_htlc(payload->hin, &payload->preimage);
+	htlc_set_fulfill(payload->set, &payload->preimage);
 }
 
 REGISTER_PLUGIN_HOOK(invoice_payment,
@@ -303,29 +305,18 @@ invoice_check_payment(const tal_t *ctx,
 }
 
 void invoice_try_pay(struct lightningd *ld,
-		     struct htlc_in *hin,
-		     const struct sha256 *payment_hash,
-		     const struct amount_msat msat,
-		     const struct secret *payment_secret)
+		     struct htlc_set *set,
+		     const struct invoice_details *details)
 {
-	const struct invoice_details *details;
 	struct invoice_payment_hook_payload *payload;
-
-	details = invoice_check_payment(tmpctx, ld, payment_hash, msat,
-					payment_secret);
-
-	if (!details) {
-		fail_htlc(hin, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
-		return;
-	}
 
 	payload = tal(ld, struct invoice_payment_hook_payload);
 	payload->ld = ld;
 	payload->label = tal_steal(payload, details->label);
-	payload->msat = msat;
+	payload->msat = set->so_far;
 	payload->preimage = details->r;
-	payload->hin = hin;
-	tal_add_destructor2(hin, invoice_payload_remove_hin, payload);
+	payload->set = set;
+	tal_add_destructor2(set, invoice_payload_remove_set, payload);
 
 	plugin_hook_call_invoice_payment(ld, payload, payload);
 }
