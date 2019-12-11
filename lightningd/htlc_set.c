@@ -136,8 +136,24 @@ void htlc_set_add(struct lightningd *ld,
 	set = htlc_set_map_get(&ld->htlc_sets, &hin->payment_hash);
 	if (!set)
 		set = new_htlc_set(ld, hin, total_msat);
-	else
+	else {
+		/* BOLT-0729433704dd11cc07a0535c09e5f64de7a5017b #4:
+		 *
+		 * if it supports `basic_mpp`:
+		 * ...
+		 *  - otherwise, if the total `amount_msat` of this HTLC set is
+		 *    less than `total_msat`:
+		 * ...
+		 *     - MUST require `payment_secret` for all HTLCs in the set.
+		 */
+		/* We check this now, since we want to fail with this as soon
+		 * as possible, to avoid other probing attacks. */
+		if (!payment_secret) {
+			fail_htlc(hin, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+			return;
+		}
 		tal_arr_expand(&set->htlcs, hin);
+	}
 
 	/* Remove from set should hin get destroyed somehow */
 	tal_add_destructor2(hin, htlc_set_hin_destroyed, set);
@@ -185,5 +201,12 @@ void htlc_set_add(struct lightningd *ld,
 	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 * - otherwise, if the total `amount_msat` of this HTLC set is less than
 	 *  `total_msat`:
-	 *   - MUST NOT fulfill any HTLCs in the HTLC set */
+	 *   - MUST NOT fulfill any HTLCs in the HTLC set
+	 *...
+	 *   - MUST require `payment_secret` for all HTLCs in the set. */
+	/* This catches the case of the first payment in a set. */
+	if (!payment_secret) {
+		htlc_set_fail(set, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+		return;
+	}
 }
