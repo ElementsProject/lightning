@@ -2641,3 +2641,9 @@ def test_partial_payment(node_factory, bitcoind, executor):
         assert "'forward_amount': '500msat'" in line
         assert "'total_msat': '1000msat'" in line
         assert "'payment_secret': '{}'".format(paysecret) in line
+
+    pay = only_one(l1.rpc.listpays()['pays'])
+    assert pay['bolt11'] == inv['bolt11']
+    assert pay['status'] == 'complete'
+    assert pay['number_of_parts'] == 2
+    assert pay['amount_sent_msat'] == Millisatoshi(1002)
