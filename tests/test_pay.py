@@ -2567,3 +2567,61 @@ def test_sendonion_rpc(node_factory):
     except RpcError as e:
         assert(e.error['code'] == 204)
         assert(e.error['data']['raw_message'] == "400f00000000000003e80000006c")
+
+
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_partial_payment(node_factory, bitcoind, executor):
+    # We want to test two payments at the same time, before we send commit
+    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit']}] * 2 + [{}])
+
+    # Two routes to l4: one via l2, and one via l3.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 100000)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fund_channel(l3, 100000)
+    l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    scid24 = l2.fund_channel(l4, 100000)
+    l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    scid34 = l3.fund_channel(l4, 100000)
+    bitcoind.generate_block(5)
+
+    # Wait until l1 knows about all channels.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
+
+    inv = l4.rpc.invoice(1000, 'inv', 'inv')
+    paysecret = l4.rpc.decodepay(inv['bolt11'])['payment_secret']
+
+    # Separate routes for each part of the payment.
+    r134 = l1.rpc.getroute(l4.info['id'], 500, 1, exclude=[scid24 + '/0', scid24 + '/1'])['route']
+    r124 = l1.rpc.getroute(l4.info['id'], 500, 1, exclude=[scid34 + '/0', scid34 + '/1'])['route']
+
+    # These can happen in parallel.
+    l1.rpc.call('sendpay', [r134, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+
+    # Can't mix non-parallel payment!
+    with pytest.raises(RpcError, match=r'Already have parallel payment in progress'):
+        l1.rpc.call('sendpay', {'route': r124,
+                                'payment_hash': inv['payment_hash'],
+                                'msatoshi': 1000,
+                                'payment_secret': paysecret})
+
+    # It will not allow a parallel with different msatoshi!
+    with pytest.raises(RpcError, match=r'msatoshi was previously 1000msat, now 999msat'):
+        l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 999, inv['bolt11'], paysecret, 2])
+
+    # This will work fine.
+    l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
+
+    # Any more would exceed total payment
+    with pytest.raises(RpcError, match=r'Already have 1000msat of 1000msat payments in progress'):
+        l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 3])
+
+    # But repeat is a NOOP.
+    l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+    l1.rpc.call('sendpay', [r134, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
+
+    # Now continue, payments will fail because receiver doesn't do MPP.
+    l2.rpc.dev_reenable_commit(l4.info['id'])
+    l3.rpc.dev_reenable_commit(l4.info['id'])
+
+    # FIXME: waitsendpay needs a 'partid' field.

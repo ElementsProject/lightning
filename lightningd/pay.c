@@ -280,11 +280,11 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 	struct wallet_payment *payment;
 
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
-				  /* FIXME: Set partid! */ 0,
+				  hout->partid,
 				  PAYMENT_COMPLETE, rval);
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash,
-					 /* FIXME: Set partid! */ 0);
+					 hout->partid);
 	assert(payment);
 
 	tell_waiters_success(ld, &hout->payment_hash, payment);
@@ -982,7 +982,7 @@ send_payment(struct lightningd *ld,
 				final_tlv,
 				route[i].amount,
 				base_expiry + route[i].delay,
-				route[i].amount, payment_secret);
+				total_msat, payment_secret);
 	if (!onion) {
 		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
 				    "Destination does not support"
@@ -1094,6 +1094,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct lightningd *ld = cmd->ld;
 	const char *label;
 	struct secret *path_secrets;
+	u64 *partid;
 
 	if (!param(cmd, buffer, params,
 		   p_req("onion", param_bin_from_hex, &onion),
@@ -1101,6 +1102,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_req("payment_hash", param_sha256, &payment_hash),
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("shared_secrets", param_secrets_array, &path_secrets),
+		   p_opt_def("partid", param_u64, &partid, 0),
 		   NULL))
 		return command_param_failed();
 
@@ -1112,7 +1114,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    "with failcode=%d",
 				    failcode);
 
-	return send_payment_core(ld, cmd, payment_hash, /* FIXME: Set partid! */0,
+	return send_payment_core(ld, cmd, payment_hash, *partid,
 				 first_hop, AMOUNT_MSAT(0), AMOUNT_MSAT(0),
 				 label, NULL, &packet, NULL, NULL, NULL,
 				 path_secrets);
@@ -1163,6 +1165,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct route_hop *route;
 	struct amount_msat *msat;
 	const char *b11str, *label = NULL;
+	u64 *partid;
 	struct secret *payment_secret;
 
 	/* For generating help, give new-style. */
@@ -1175,6 +1178,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			   p_opt("bolt11", param_string, &b11str),
 			   p_opt("payment_secret", param_secret,
 				 &payment_secret),
+			   p_opt_def("partid", param_u64, &partid, 0),
 			   NULL))
 			return command_param_failed();
 	} else if (params->type == JSMN_ARRAY) {
@@ -1186,6 +1190,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			   p_opt("bolt11", param_string, &b11str),
 			   p_opt("payment_secret", param_secret,
 				 &payment_secret),
+			   p_opt_def("partid", param_u64, &partid, 0),
 			   NULL))
 			return command_param_failed();
 	} else {
@@ -1199,6 +1204,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			   p_opt("bolt11", param_string, &b11str),
 			   p_opt("payment_secret", param_secret,
 				 &payment_secret),
+			   p_opt_def("partid", param_u64, &partid, 0),
 			   NULL))
 			return command_param_failed();
 
@@ -1265,20 +1271,21 @@ static struct command_result *json_sendpay(struct command *cmd,
 	 * requesting. The final hop amount is what we actually give, which can
 	 * be from the msatoshi to twice msatoshi. */
 
-	/* if not: msatoshi <= finalhop.amount <= 2 * msatoshi, fail. */
+	if (*partid && !msat)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Must specify msatoshi with partid");
+
+	/* if not: finalhop.amount <= 2 * msatoshi, fail. */
 	if (msat) {
 		struct amount_msat limit = route[routetok->size-1].amount;
 
-		if (amount_msat_less(*msat, limit))
+		if (!amount_msat_add(&limit, limit, limit))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "msatoshi %s less than final %s",
-					    type_to_string(tmpctx,
-							   struct amount_msat,
-							   msat),
+					    "Unbelievable final amount %s",
 					    type_to_string(tmpctx,
 							   struct amount_msat,
 							   &route[routetok->size-1].amount));
-		limit.millisatoshis *= 2; /* Raw: sanity check */
+
 		if (amount_msat_greater(*msat, limit))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi %s more than twice final %s",
@@ -1299,10 +1306,9 @@ static struct command_result *json_sendpay(struct command *cmd,
 	}
 #endif
 
-	return send_payment(cmd->ld, cmd, rhash, /* FIXME: Set partid! */ 0,
+	return send_payment(cmd->ld, cmd, rhash, *partid,
 			    route,
-			    msat ? *msat : route[routetok->size-1].amount,
-			    /* FIXME: Set total_msat! */
+			    route[routetok->size-1].amount,
 			    msat ? *msat : route[routetok->size-1].amount,
 			    label, b11str, payment_secret);
 }
