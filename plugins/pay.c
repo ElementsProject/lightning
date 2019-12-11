@@ -1300,18 +1300,10 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		const jsmntok_t *status, *b11;
 
 		json_out_start(ret, NULL, '{');
-		/* Old payments didn't have bolt11 field */
 		b11 = copy_member(ret, buf, t, "bolt11");
-		if (!b11) {
-			if (b11str) {
-				/* If it's a single query, we can fake it */
-				json_out_addstr(ret, "bolt11", b11str);
-			} else {
-				copy_member(ret, buf, t, "payment_hash");
-				copy_member(ret, buf, t, "destination");
-				copy_member(ret, buf, t, "amount_msat");
-			}
-		}
+		/* Old (or manual) payments didn't have bolt11 field */
+		if (!b11)
+			continue;
 
 		/* listsendpays might say it failed, but we're still retrying */
 		status = json_get_member(buf, t, "status");
