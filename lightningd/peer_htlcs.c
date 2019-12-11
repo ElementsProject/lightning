@@ -301,7 +301,7 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	/* BOLT- #4:
+	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 * - if it does not support `basic_mpp`:
 	 *    - MUST fail the HTLC if `total_msat` is not exactly equal to
 	 *    `amt_to_forward`.
