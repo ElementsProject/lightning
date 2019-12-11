@@ -26,12 +26,20 @@ bool read_all(int fd, void *data, size_t size)
 		ssize_t done;
 
 		done = read(fd, data, size);
-		if (done < 0 && errno == EINTR)
-			continue;
-		if (done <= 0)
+
+		switch (done) {
+		case -1:
+			if (errno == EINTR) {
+				continue;
+			}
 			return false;
-		data = (char *)data + done;
-		size -= done;
+		case 0:
+			errno = EBADMSG;
+			return false;
+		default:
+			data = (char *)data + done;
+			size -= done;
+		}
 	}
 
 	return true;
