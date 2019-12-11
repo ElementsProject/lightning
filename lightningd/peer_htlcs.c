@@ -1274,7 +1274,8 @@ static bool update_out_htlc(struct channel *channel,
 		/* For our own HTLCs, we commit payment to db lazily */
 		if (hout->origin_htlc_id == 0)
 			payment_store(ld,
-				      &hout->payment_hash);
+				      &hout->payment_hash,
+				      /* FIXME: Set partid! */ 0);
 	}
 
 	if (!htlc_out_update_state(channel, hout, newstate))
