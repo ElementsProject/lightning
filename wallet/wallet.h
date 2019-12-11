@@ -594,29 +594,35 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			enum onion_type failcode, const u8 *failuremsg);
 
 /**
- * wallet_htlcs_load_for_channel - Load HTLCs associated with chan from DB.
+ * wallet_htlcs_load_in_for_channel - Load incoming HTLCs associated with chan from DB.
  *
  * @wallet: wallet to load from
  * @chan: load HTLCs associated with this channel
  * @htlcs_in: htlc_in_map to store loaded htlc_in in
- * @htlcs_out: htlc_out_map to store loaded htlc_out in
  *
- * This function looks for HTLCs that are associated with the given
- * channel and loads them into the provided maps. One caveat is that
- * the `struct htlc_out` instances are not wired up with the
- * corresponding `struct htlc_in` in the forwarding case nor are they
- * associated with a `struct pay_command` in the case we originated
- * the payment. In the former case the corresponding `struct htlc_in`
- * may not have been loaded yet. In the latter case the pay_command
- * does not exist anymore since we restarted.
- *
- * Use `htlcs_reconnect` to wire htlc_out instances to the
- * corresponding htlc_in after loading all channels.
+ * This function looks for incoming HTLCs that are associated with the given
+ * channel and loads them into the provided map.
  */
-bool wallet_htlcs_load_for_channel(struct wallet *wallet,
-				   struct channel *chan,
-				   struct htlc_in_map *htlcs_in,
-				   struct htlc_out_map *htlcs_out);
+bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
+				      struct channel *chan,
+				      struct htlc_in_map *htlcs_in);
+
+/**
+ * wallet_htlcs_load_out_for_channel - Load outgoing HTLCs associated with chan from DB.
+ *
+ * @wallet: wallet to load from
+ * @chan: load HTLCs associated with this channel
+ * @htlcs_out: htlc_out_map to store loaded htlc_out in.
+ * @remaining_htlcs_in: htlc_in_map with unconnected htlcs (removed as we progress)
+ *
+ * We populate htlc_out->in by looking up in remaining_htlcs_in.  It's
+ * possible that it's still NULL, since we can have outgoing HTLCs
+ * outlive their corresponding incoming.
+ */
+bool wallet_htlcs_load_out_for_channel(struct wallet *wallet,
+				       struct channel *chan,
+				       struct htlc_out_map *htlcs_out,
+				       struct htlc_in_map *remaining_htlcs_in);
 
 /**
  * wallet_announcement_save - Save remote announcement information with channel.

@@ -97,7 +97,8 @@ void hsm_init(struct lightningd *ld UNNEEDED)
 void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "htlcs_notify_new_block called!\n"); abort(); }
 /* Generated stub for htlcs_resubmit */
-void htlcs_resubmit(struct lightningd *ld UNNEEDED, struct htlc_in_map *unprocessed UNNEEDED)
+void htlcs_resubmit(struct lightningd *ld UNNEEDED,
+		    struct htlc_in_map *unconnected_htlcs_in UNNEEDED)
 { fprintf(stderr, "htlcs_resubmit called!\n"); abort(); }
 /* Generated stub for jsonrpc_listen */
 void jsonrpc_listen(struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED)

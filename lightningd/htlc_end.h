@@ -58,7 +58,6 @@ struct htlc_out {
 	 * is saved to the database, must be >0 after saving to the
 	 * database. */
 	u64 dbid;
-	u64 origin_htlc_id;
 	struct htlc_key key;
 	struct amount_msat msat;
 	u32 cltv_expiry;
@@ -122,6 +121,10 @@ HTABLE_DEFINE_TYPE(struct htlc_out, keyof_htlc_out, hash_htlc_key, htlc_out_eq,
 struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
 			     const struct channel *channel,
 			     u64 htlc_id);
+
+/* FIXME: Slow function only used at startup. */
+struct htlc_in *remove_htlc_in_by_dbid(struct htlc_in_map *remaining_htlcs_in,
+				       u64 dbid);
 
 struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
 			       const struct channel *channel,
