@@ -37,6 +37,7 @@ struct sendpay_command {
 	struct list_node list;
 
 	struct sha256 payment_hash;
+	u64 partid;
 	struct command *cmd;
 };
 
@@ -50,11 +51,13 @@ static void destroy_sendpay_command(struct sendpay_command *pc)
 static void
 add_sendpay_waiter(struct lightningd *ld,
 		   struct command *cmd,
-		   const struct sha256 *payment_hash)
+		   const struct sha256 *payment_hash,
+		   u64 partid)
 {
 	struct sendpay_command *pc = tal(cmd, struct sendpay_command);
 
 	pc->payment_hash = *payment_hash;
+	pc->partid = partid;
 	pc->cmd = cmd;
 	list_add(&ld->sendpay_commands, &pc->list);
 	tal_add_destructor(pc, destroy_sendpay_command);
@@ -65,11 +68,13 @@ add_sendpay_waiter(struct lightningd *ld,
 static void
 add_waitsendpay_waiter(struct lightningd *ld,
 		       struct command *cmd,
-		       const struct sha256 *payment_hash)
+		       const struct sha256 *payment_hash,
+		       u64 partid)
 {
 	struct sendpay_command *pc = tal(cmd, struct sendpay_command);
 
 	pc->payment_hash = *payment_hash;
+	pc->partid = partid;
 	pc->cmd = cmd;
 	list_add(&ld->waitsendpay_commands, &pc->list);
 	tal_add_destructor(pc, destroy_sendpay_command);
@@ -252,6 +257,8 @@ static void tell_waiters_failed(struct lightningd *ld,
 	list_for_each_safe(&ld->waitsendpay_commands, pc, next, list) {
 		if (!sha256_eq(payment_hash, &pc->payment_hash))
 			continue;
+		if (payment->partid != pc->partid)
+			continue;
 
 		sendpay_fail(pc->cmd, payment,
 			     pay_errcode, onionreply, fail, details);
@@ -268,6 +275,8 @@ static void tell_waiters_success(struct lightningd *ld,
 	/* Careful: sendpay_success deletes cmd */
 	list_for_each_safe(&ld->waitsendpay_commands, pc, next, list) {
 		if (!sha256_eq(payment_hash, &pc->payment_hash))
+			continue;
+		if (payment->partid != pc->partid)
 			continue;
 
 		sendpay_success(pc->cmd, payment);
@@ -623,9 +632,12 @@ static struct command_result *wait_payment(struct lightningd *ld,
 						   payment_hash));
 	}
 
+	log_debug(cmd->ld->log, "Payment part %"PRIu64"/%"PRIu64" status %u",
+		  partid, payment->partid, payment->status);
+
 	switch (payment->status) {
 	case PAYMENT_PENDING:
-		add_waitsendpay_waiter(ld, cmd, payment_hash);
+		add_waitsendpay_waiter(ld, cmd, payment_hash, partid);
 		return NULL;
 
 	case PAYMENT_COMPLETE:
@@ -913,7 +925,7 @@ send_payment_core(struct lightningd *ld,
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
 
-	add_sendpay_waiter(ld, cmd, rhash);
+	add_sendpay_waiter(ld, cmd, rhash, partid);
 	return command_still_pending(cmd);
 }
 
@@ -1344,14 +1356,16 @@ static struct command_result *json_waitsendpay(struct command *cmd,
 	struct sha256 *rhash;
 	unsigned int *timeout;
 	struct command_result *res;
+	u64 *partid;
 
 	if (!param(cmd, buffer, params,
 		   p_req("payment_hash", param_sha256, &rhash),
 		   p_opt("timeout", param_number, &timeout),
+		   p_opt_def("partid", param_u64, &partid, 0),
 		   NULL))
 		return command_param_failed();
 
-	res = wait_payment(cmd->ld, cmd, rhash, /* FIXME: Set partid! */0);
+	res = wait_payment(cmd->ld, cmd, rhash, *partid);
 	if (res)
 		return res;
 
