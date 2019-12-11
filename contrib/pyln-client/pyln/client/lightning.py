@@ -5,8 +5,6 @@ import warnings
 from decimal import Decimal
 from math import floor, log10
 
-__version__ = "0.7.3"
-
 
 class RpcError(ValueError):
     def __init__(self, method, payload, error):
