@@ -2570,6 +2570,7 @@ def test_sendonion_rpc(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
     l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit']}] * 2 + [{}])

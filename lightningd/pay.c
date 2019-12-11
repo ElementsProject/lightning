@@ -978,6 +978,11 @@ send_payment(struct lightningd *ld,
 	if (!final_tlv && payment_secret)
 		final_tlv = true;
 
+	/* Parallel payments are invalid for legacy. */
+	if (partid && !final_tlv)
+		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
+				    "Cannot do parallel payments to legacy node");
+
 	onion = onion_final_hop(cmd,
 				final_tlv,
 				route[i].amount,
@@ -1305,6 +1310,10 @@ static struct command_result *json_sendpay(struct command *cmd,
 		payment_secret = NULL;
 	}
 #endif
+
+	if (*partid && !payment_secret)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "partid requires payment_secret");
 
 	return send_payment(cmd->ld, cmd, rhash, *partid,
 			    route,
