@@ -2569,11 +2569,11 @@ def test_sendonion_rpc(node_factory):
         assert(e.error['data']['raw_message'] == "400f00000000000003e80000006c")
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not DEVELOPER, "needs dev-disconnect, dev-no-htlc-timeout")
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
-    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit']}] * 2 + [{}])
+    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit'], 'dev-no-htlc-timeout': None}] * 2 + [{}])
 
     # Two routes to l4: one via l2, and one via l3.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -2621,8 +2621,17 @@ def test_partial_payment(node_factory, bitcoind, executor):
     l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
     l1.rpc.call('sendpay', [r134, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
 
+    # Make sure they've done the suppress-commitment thing before we unsuppress
+    l2.daemon.wait_for_log(r'dev_disconnect')
+    l3.daemon.wait_for_log(r'dev_disconnect')
+
     # Now continue, payments will fail because receiver doesn't do MPP.
     l2.rpc.dev_reenable_commit(l4.info['id'])
     l3.rpc.dev_reenable_commit(l4.info['id'])
 
-    # FIXME: waitsendpay needs a 'partid' field.
+    # See FIXME in peer_htlcs: WIRE_INVALID_ONION_PAYLOAD would be better.
+    with pytest.raises(RpcError, match=r'WIRE_FINAL_INCORRECT_HTLC_AMOUNT'):
+        l1.rpc.call('waitsendpay', [inv['payment_hash'], None, 1])
+    with pytest.raises(RpcError, match=r'WIRE_FINAL_INCORRECT_HTLC_AMOUNT'):
+        l1.rpc.call('waitsendpay', {'payment_hash': inv['payment_hash'],
+                                    'partid': 2})
