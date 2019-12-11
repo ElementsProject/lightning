@@ -2647,3 +2647,76 @@ def test_partial_payment(node_factory, bitcoind, executor):
     assert pay['status'] == 'complete'
     assert pay['number_of_parts'] == 2
     assert pay['amount_sent_msat'] == Millisatoshi(1002)
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
+def test_partial_payment_timeout(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(1000, 'inv', 'inv')
+    paysecret = l2.rpc.decodepay(inv['bolt11'])['payment_secret']
+
+    route = l1.rpc.getroute(l2.info['id'], 500, 1)['route']
+    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+
+    with pytest.raises(RpcError, match=r'WIRE_MPP_TIMEOUT'):
+        l1.rpc.call('waitsendpay', [inv['payment_hash'], 70 + TIMEOUT // 4, 1])
+
+    # We can still pay it normally.
+    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
+    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 1])
+    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 2])
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
+def test_partial_payment_restart(node_factory, bitcoind):
+    """Test that we recover a set when we restart"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{}]
+                                         + [{'may_reconnect': True}] * 2)
+
+    inv = l3.rpc.invoice(1000, 'inv', 'inv')
+    paysecret = l3.rpc.decodepay(inv['bolt11'])['payment_secret']
+
+    route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
+
+    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+
+    wait_for(lambda: [f['status'] for f in l2.rpc.listforwards()['forwards']] == ['offered'])
+
+    # Restart, and make sure it's reconnected to l2.
+    l3.restart()
+    print(l2.rpc.listpeers())
+    wait_for(lambda: [p['connected'] for p in l2.rpc.listpeers()['peers']] == [True, True])
+
+    # Pay second part.
+    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
+
+    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 1])
+    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 2])
+
+
+@unittest.skipIf(not DEVELOPER, "needs dev-fail")
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
+def test_partial_payment_htlc_loss(node_factory, bitcoind):
+    """Test that we discard a set when the HTLC is lost"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    inv = l3.rpc.invoice(1000, 'inv', 'inv')
+    paysecret = l3.rpc.decodepay(inv['bolt11'])['payment_secret']
+
+    route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
+
+    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+    wait_for(lambda: [f['status'] for f in l2.rpc.listforwards()['forwards']] == ['offered'])
+
+    l2.rpc.dev_fail(l3.info['id'])
+
+    # Since HTLC is missing from commit (dust), it's closed as soon as l2 sees
+    # it onchain.  l3 shouldn't crash though.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    with pytest.raises(RpcError,
+                       match=r'WIRE_PERMANENT_CHANNEL_FAILURE \(reply from remote\)'):
+        l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 1])
