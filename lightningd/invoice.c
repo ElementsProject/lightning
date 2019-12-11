@@ -252,18 +252,13 @@ void invoice_try_pay(struct lightningd *ld,
 	log_debug(ld->log, "payment_secret is %s",
 		  payment_secret ? "set": "NULL");
 
-	/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #4:
+	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 *
 	 * - if the `payment_secret` doesn't match the expected value for that
 	 *   `payment_hash`, or the `payment_secret` is required and is not
 	 *   present:
 	 *   - MUST fail the HTLC.
 	 *   - MUST return an `incorrect_or_unknown_payment_details` error.
-	 */
-	/* BOLT-e36f7b6517e1173dcbd49da3b516cfe1f48ae556 #1:
-	 *
-	 * - if `payment_secret` is required in the onion:
-	 *    - MUST set the even feature `var_onion_optin`.
 	 */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
 	    && !payment_secret) {

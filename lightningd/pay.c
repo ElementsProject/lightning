@@ -833,7 +833,7 @@ send_payment_core(struct lightningd *ld,
  		}
 	}
 
-	/* BOLT-3a09bc54f8443c4757b47541a5310aff6377ee21 #4:
+	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 *
 	 * - MUST NOT send another HTLC if the total `amount_msat` of the HTLC
 	 *   set is already greater or equal to `total_msat`.
@@ -979,7 +979,7 @@ send_payment(struct lightningd *ld,
 	assert(ret);
 
 	final_tlv = should_use_tlv(route[i].style);
-	/* BOLT-3a09bc54f8443c4757b47541a5310aff6377ee21 #4:
+	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 * - Unless `node_announcement`, `init` message or the
 	 *   [BOLT #11](11-payment-encoding.md#tagged-fields) offers feature
 	 *   `var_onion_optin`:
