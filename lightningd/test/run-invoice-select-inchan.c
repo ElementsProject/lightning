@@ -87,9 +87,6 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
                                   const u8 *scriptPubkey UNNEEDED)
 { fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
-/* Generated stub for fail_htlc */
-void fail_htlc(struct htlc_in *hin UNNEEDED, enum onion_type failcode UNNEEDED)
-{ fprintf(stderr, "fail_htlc called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -120,9 +117,6 @@ bool fromwire_hsm_sign_invoice_reply(const void *p UNNEEDED, secp256k1_ecdsa_rec
 /* Generated stub for fromwire_onchain_dev_memleak_reply */
 bool fromwire_onchain_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_dev_memleak_reply called!\n"); abort(); }
-/* Generated stub for fulfill_htlc */
-void fulfill_htlc(struct htlc_in *hin UNNEEDED, const struct preimage *preimage UNNEEDED)
-{ fprintf(stderr, "fulfill_htlc called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -136,6 +130,12 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     struct amount_sat dust_limit UNNEEDED,
 		     enum side side UNNEEDED)
 { fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
+/* Generated stub for htlc_set_fail */
+void htlc_set_fail(struct htlc_set *set UNNEEDED, enum onion_type failcode UNNEEDED)
+{ fprintf(stderr, "htlc_set_fail called!\n"); abort(); }
+/* Generated stub for htlc_set_fulfill */
+void htlc_set_fulfill(struct htlc_set *set UNNEEDED, const struct preimage *preimage UNNEEDED)
+{ fprintf(stderr, "htlc_set_fulfill called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)

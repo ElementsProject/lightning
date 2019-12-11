@@ -178,8 +178,7 @@ void htlc_set_add(struct lightningd *ld,
 	}
 
 	if (amount_msat_eq(set->so_far, total_msat)) {
-		/* FIXME: hand to invoice_try_pay! */
-		tal_free(set);
+		invoice_try_pay(ld, set, details);
 		return;
 	}
 
