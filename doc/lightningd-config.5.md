@@ -172,14 +172,14 @@ Note that once you encrypt the `hsm_secret` this option will be mandatory for
 
 ### Lightning node customization options
 
- **alias**=*RRGGBB*
- **rgb**=*RRGGBB*
-Your favorite color as a hex code.
-
+ **alias**=*NAME*
 Up to 32 UTF-8 characters to tag your node. Completely silly, since
 anyone can call their node anything they want. The default is an
 NSA-style codename derived from your public key, but "Peter Todd" and
 "VAULTERO" are good options, too.
+
+ **rgb**=*RRGGBB*
+Your favorite color as a hex code.
 
  **fee-base**=*MILLISATOSHI*
 Default: 1000. The base fee to charge for every payment which passes

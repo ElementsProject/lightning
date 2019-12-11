@@ -215,15 +215,15 @@ Note that once you encrypt the \fBhsm_secret\fR this option will be mandatory fo
 
 .SH Lightning node customization options
 
- \fBalias\fR=\fIRRGGBB\fR
- \fBrgb\fR=\fIRRGGBB\fR
-Your favorite color as a hex code\.
-
-
+ \fBalias\fR=\fINAME\fR
 Up to 32 UTF-8 characters to tag your node\. Completely silly, since
 anyone can call their node anything they want\. The default is an
 NSA-style codename derived from your public key, but "Peter Todd" and
 "VAULTERO" are good options, too\.
+
+
+ \fBrgb\fR=\fIRRGGBB\fR
+Your favorite color as a hex code\.
 
 
  \fBfee-base\fR=\fIMILLISATOSHI\fR
@@ -337,7 +337,8 @@ precisely control where to bind and what to announce with the
 \fIautolisten\fR logic, so you must specifiy exactly what you want!
 
 
- \fBaddr\fR=\fI[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]\fR
+ \fBaddr\fR=\fI[IPADDRESS[:PORT]]|autotor:TORIPADDRESS[:SERVICEPORT][/torport=TORPORT]|statictor:TORIPADDRESS[:SERVICEPORT][/torport=TORPORT][/torblob=[blob]]\fR
+
 
 Set an IP address (v4 or v6) or automatic Tor address to listen on and
 (maybe) announce as our node address\.
