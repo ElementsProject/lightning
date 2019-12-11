@@ -559,6 +559,8 @@ static struct migration dbmigrations[] = {
     {SQL("UPDATE payments SET total_msat = msatoshi;"), NULL},
     {SQL("UPDATE payments SET partid = 0;"), NULL},
     {SQL("DROP TABLE temp_payments;"), NULL},
+    {SQL("ALTER TABLE channel_htlcs ADD partid BIGINT;"), NULL},
+    {SQL("UPDATE channel_htlcs SET partid = 0;"), NULL},
 };
 
 /* Leak tracking. */

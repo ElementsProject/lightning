@@ -51,6 +51,7 @@ void update_per_commit_point(struct channel *channel,
 enum onion_type send_htlc_out(struct channel *out,
 			      struct amount_msat amount, u32 cltv,
 			      const struct sha256 *payment_hash,
+			      u64 partid,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
 			      struct htlc_out **houtp);
