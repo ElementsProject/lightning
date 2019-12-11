@@ -1,5 +1,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/htable/htable_type.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
@@ -1265,18 +1267,91 @@ static struct command_result *json_paystatus(struct command *cmd,
 	return command_success(cmd, ret);
 }
 
-static bool attempt_ongoing(const char *buf, const jsmntok_t *b11)
+static bool attempt_ongoing(const char *b11)
 {
 	struct pay_status *ps;
 	struct pay_attempt *attempt;
 
 	list_for_each(&pay_status, ps, list) {
-		if (!json_tok_streq(buf, b11, ps->bolt11))
+		if (!streq(b11, ps->bolt11))
 			continue;
 		attempt = &ps->attempts[tal_count(ps->attempts)-1];
 		return attempt->result == NULL && attempt->failure == NULL;
 	}
 	return false;
+}
+
+/* We consolidate multi-part payments into a single entry. */
+struct pay_mpp {
+	/* This is the bolt11 string, and lookup key */
+	const char *b11;
+	/* Status of combined payment */
+	const char *status;
+	/* Optional label (of first one!) */
+	const jsmntok_t *label;
+	/* Optional preimage (iff status is successful) */
+	const jsmntok_t *preimage;
+	/* Only counts "complete" or "pending" payments. */
+	size_t num_nonfailed_parts;
+	/* Total amount sent ("complete" or "pending" only). */
+	struct amount_msat amount_sent;
+};
+
+static const char *pay_mpp_key(const struct pay_mpp *pm)
+{
+	return pm->b11;
+}
+
+static size_t b11str_hash(const char *b11)
+{
+	return siphash24(siphash_seed(), b11, strlen(b11));
+}
+
+static bool pay_mpp_eq(const struct pay_mpp *pm, const char *b11)
+{
+	return streq(pm->b11, b11);
+}
+
+HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, b11str_hash, pay_mpp_eq,
+		   pay_map);
+
+static void add_amount_sent(const char *b11,
+			    struct amount_msat *total,
+			    const char *buf,
+			    const jsmntok_t *t)
+{
+	struct amount_msat sent;
+	json_to_msat(buf, json_get_member(buf, t, "amount_sent_msat"), &sent);
+	if (!amount_msat_add(total, *total, sent))
+		plugin_log(LOG_BROKEN,
+			   "Cannot add amount_sent_msat for %s: %s + %s",
+			   b11,
+			   type_to_string(tmpctx, struct amount_msat, total),
+			   type_to_string(tmpctx, struct amount_msat, &sent));
+}
+
+static void add_new_entry(struct json_out *ret,
+			  const char *buf,
+			  const struct pay_mpp *pm)
+{
+	json_out_start(ret, NULL, '{');
+	json_out_addstr(ret, "bolt11", pm->b11);
+	json_out_addstr(ret, "status", pm->status);
+	if (pm->label)
+		json_out_add_raw_len(ret, "label",
+				     json_tok_full(buf, pm->label),
+				     json_tok_full_len(pm->label));
+	if (pm->preimage)
+		json_out_add_raw_len(ret, "preimage",
+				     json_tok_full(buf, pm->preimage),
+				     json_tok_full_len(pm->preimage));
+	json_out_addstr(ret, "amount_sent_msat",
+			fmt_amount_msat(tmpctx, &pm->amount_sent));
+
+	if (pm->num_nonfailed_parts > 1)
+		json_out_add_u64(ret, "number_of_parts",
+				 pm->num_nonfailed_parts);
+	json_out_end(ret, '}');
 }
 
 static struct command_result *listsendpays_done(struct command *cmd,
@@ -1287,6 +1362,11 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	size_t i;
 	const jsmntok_t *t, *arr;
 	struct json_out *ret;
+	struct pay_map pay_map;
+	struct pay_map_iter it;
+	struct pay_mpp *pm;
+
+	pay_map_init(&pay_map);
 
 	arr = json_get_member(buf, result, "payments");
 	if (!arr || arr->type != JSMN_ARRAY)
@@ -1297,31 +1377,60 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	json_out_start(ret, NULL, '{');
 	json_out_start(ret, "pays", '[');
 	json_for_each_arr(i, t, arr) {
-		const jsmntok_t *status, *b11;
+		const jsmntok_t *status, *b11tok;
+		const char *b11;
 
-		json_out_start(ret, NULL, '{');
-		b11 = copy_member(ret, buf, t, "bolt11");
+		b11tok = json_get_member(buf, t, "bolt11");
 		/* Old (or manual) payments didn't have bolt11 field */
-		if (!b11)
+		if (!b11tok)
 			continue;
 
-		/* listsendpays might say it failed, but we're still retrying */
-		status = json_get_member(buf, t, "status");
-		if (status) {
-			if (json_tok_streq(buf, status, "failed")
-			    && attempt_ongoing(buf, b11)) {
-				json_out_addstr(ret, "status", "pending");
-			} else {
-				copy_member(ret, buf, t, "status");
-				if (json_tok_streq(buf, status, "complete"))
-					copy_member(ret, buf, t,
-						    "payment_preimage");
-			}
+		b11 = json_strdup(cmd, buf, b11tok);
+
+		pm = pay_map_get(&pay_map, b11);
+		if (!pm) {
+			pm = tal(cmd, struct pay_mpp);
+			pm->b11 = tal_steal(pm, b11);
+			pm->label = json_get_member(buf, t, "label");
+			pm->preimage = NULL;
+			pm->amount_sent = AMOUNT_MSAT(0);
+			pm->num_nonfailed_parts = 0;
+			pm->status = NULL;
+			pay_map_add(&pay_map, pm);
 		}
-		copy_member(ret, buf, t, "label");
-		copy_member(ret, buf, t, "amount_sent_msat");
-		json_out_end(ret, '}');
+
+		status = json_get_member(buf, t, "status");
+		if (json_tok_streq(buf, status, "complete")) {
+			add_amount_sent(pm->b11, &pm->amount_sent, buf, t);
+			pm->num_nonfailed_parts++;
+			pm->status = "complete";
+			pm->preimage
+				= json_get_member(buf, t, "payment_preimage");
+		} else if (json_tok_streq(buf, status, "pending")) {
+			add_amount_sent(pm->b11, &pm->amount_sent, buf, t);
+			pm->num_nonfailed_parts++;
+			/* Failed -> pending; don't downgrade success. */
+			if (!pm->status || !streq(pm->status, "complete"))
+				pm->status = "pending";
+		} else {
+			if (attempt_ongoing(pm->b11)) {
+				/* Failed -> pending; don't downgrade success. */
+				if (!pm->status
+				    || !streq(pm->status, "complete"))
+					pm->status = "pending";
+			} else if (!pm->status)
+				/* Only failed if they all failed */
+				pm->status = "failed";
+		}
 	}
+
+	/* Now we've collapsed them, provide summary (free mem as we go). */
+	while ((pm = pay_map_first(&pay_map, &it)) != NULL) {
+		add_new_entry(ret, buf, pm);
+		pay_map_del(&pay_map, pm);
+	}
+	pay_map_clear(&pay_map);
+
 	json_out_end(ret, ']');
 	json_out_end(ret, '}');
 	return command_success(cmd, ret);
