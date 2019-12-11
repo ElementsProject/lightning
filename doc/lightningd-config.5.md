@@ -206,7 +206,7 @@ This may result in a channel which cannot be closed, should fees
 increase, but make channels far more reliable since we never close it
 due to unreasonable fees.
 
- **commit-time**='MILLISECONDS
+ **commit-time**=*MILLISECONDS*
 How long to wait before sending commitment messages to the peer: in
 theory increasing this would reduce load, but your node would have to be
 extremely busy node for you to even notice.
