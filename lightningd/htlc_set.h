@@ -17,6 +17,7 @@ struct htlc_set {
 	struct amount_msat total_msat, so_far;
 	struct sha256 payment_hash;
 	struct htlc_in **htlcs;
+	struct oneshot *timeout;
 };
 
 static inline const struct sha256 *keyof_htlc_set(const struct htlc_set *set)
