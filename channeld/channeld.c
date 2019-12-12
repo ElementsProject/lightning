@@ -1392,11 +1392,11 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	/* We were supposed to check this was affordable as we go. */
 	if (peer->channel->funder == REMOTE) {
 		status_debug("Feerates are %u/%u",
-			     peer->channel->view[LOCAL].feerate_per_kw,
-			     peer->channel->view[REMOTE].feerate_per_kw);
+			     channel_feerate(peer->channel, LOCAL),
+			     channel_feerate(peer->channel, REMOTE));
 		assert(can_funder_afford_feerate(peer->channel,
-						 peer->channel->view[LOCAL]
-						 .feerate_per_kw));
+						 channel_feerate(peer->channel,
+								 LOCAL)));
 	}
 
 	if (!fromwire_commitment_signed(tmpctx, msg,
@@ -1443,7 +1443,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    type_to_string(msg, struct pubkey,
 					   &peer->channel->funding_pubkey
 					   [REMOTE]),
-			    peer->channel->view[LOCAL].feerate_per_kw);
+			    channel_feerate(peer->channel, LOCAL));
 	}
 
 	/* BOLT #2:

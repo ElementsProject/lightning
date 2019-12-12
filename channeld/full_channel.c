@@ -231,7 +231,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 {
 	size_t i;
 	struct bitcoin_txid txid;
-	u32 feerate_per_kw = channel->view[side].feerate_per_kw;
+	u32 feerate_per_kw = channel_feerate(channel, side);
 
 	/* Get txid of commitment transaction */
 	bitcoin_txid((*txs)[0], &txid);
@@ -306,7 +306,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    ctx, &channel->funding_txid, channel->funding_txout,
 	    channel->funding, channel->funder,
 	    channel->config[!side].to_self_delay, &keyset,
-	    channel->view[side].feerate_per_kw,
+	    channel_feerate(channel, side),
 	    channel->config[side].dust_limit, channel->view[side].owed[side],
 	    channel->view[side].owed[!side], committed, htlcmap,
 	    commitment_number ^ channel->commitment_number_obscurer, side);
@@ -370,7 +370,7 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 				       const struct htlc **removing,
 				       enum side side)
 {
-	u32 feerate = view->feerate_per_kw;
+	u32 feerate = channel_feerate(channel, side);
 	struct amount_sat dust_limit = channel->config[side].dust_limit;
 	size_t untrimmed;
 
@@ -970,11 +970,6 @@ bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 	channel->view[!channel->funder].feerate_per_kw = feerate_per_kw;
 	channel->changes_pending[!channel->funder] = true;
 	return true;
-}
-
-u32 channel_feerate(const struct channel *channel, enum side side)
-{
-	return channel->view[side].feerate_per_kw;
 }
 
 bool channel_sending_commit(struct channel *channel,
