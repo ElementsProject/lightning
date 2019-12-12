@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.0-rc1] - 2019-12-11: "Blockchain Good, Orange Coin Bad"
 
-This release named by @m-schmoock.
+This release was named by Michael Schmoock @m-schmoock.
 
 ### Added
 
@@ -69,7 +69,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ## [0.7.3] - 2019-10-18: "Bitcoin's Proof of Stake"
 
-This release named by @trueptolemy.
+This release was named by @trueptolemy.
 
 ### Added
 
@@ -132,7 +132,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ## [0.7.2.1] - 2019-08-19: "Nakamoto's Pre-approval by US Congress"
 
-This release named by Antoine Poinsot @darosior.
+This release was named by Antoine Poinsot @darosior.
 
 (Technically a .1 release, as it contains last-minute fixes after 0.7.2 was tagged)
 
@@ -184,7 +184,7 @@ changes.
 
 ## [0.7.1] - 2019-06-29: "The Unfailing Twitter Consensus Algorithm"
 
-This release named by (C-Lightning Core Team member) Lisa Neigut @niftynei.
+This release was named by (C-Lightning Core Team member) Lisa Neigut @niftynei.
 
 ### Added
 
@@ -249,7 +249,7 @@ changes.
 
 ## [0.7.0] - 2019-02-28: "Actually an Altcoin"
 
-This release named by Mark Beckwith @wythe.
+This release was named by Mark Beckwith @wythe.
 
 ### Added
 
@@ -330,7 +330,7 @@ provide appropriate suffixes for JSON input fields.
 
 ## [0.6.3] - 2019-01-09: "The Smallblock Conspiracy"
 
-This release named by @molxyz and [@ctrlbreak](https://twitter.com/ctrlbreak).
+This release was named by @molxyz and [@ctrlbreak](https://twitter.com/ctrlbreak).
 
 ### Added
 
@@ -378,7 +378,7 @@ changes.
 
 ## [0.6.2] - 2018-10-20: "The Consensus Loving Nasal Daemon"
 
-This release named by practicalswift.
+This release was named by practicalswift.
 
 ### Added
 
@@ -435,7 +435,7 @@ changes.
 
 ## [0.6.1] - 2018-09-11: "Principled Opposition To Segwit"
 
-This release named by ZmnSCPxj.
+This release was named by ZmnSCPxj.
 
 ### Added
 
@@ -521,7 +521,7 @@ This release named by ZmnSCPxj.
 In the prehistory of c-lightning, no changelog was kept.  But major
 JSON API changes are tracked.
 
-This release named by Fabrice Drouin.
+This release was named by Fabrice Drouin.
 
 ### Deprecated
 
