@@ -3,13 +3,16 @@
 lightning-waitsendpay - Command for sending a payment via a route
 .SH SYNOPSIS
 
-\fBwaitsendpay\fR \fIpayment_hash\fR [\fItimeout\fR]
+\fBwaitsendpay\fR \fIpayment_hash\fR [\fItimeout\fR] [\fIpartid\fR]
 
 .SH DESCRIPTION
 
 The \fBwaitsendpay\fR RPC command polls or waits for the status of an
 outgoing payment that was initiated by a previous \fBsendpay\fR
 invocation\.
+
+
+The \fIpartid\fR argument must match that of the \fBsendpay\fR command\.
 
 
 Optionally the client may provide a \fItimeout\fR, an integer in seconds,
@@ -43,6 +46,7 @@ route\.
 
 The following error codes may occur:
 
+.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -65,9 +69,11 @@ nothing to wait for\.
 stored\. This should only occur when querying failed payments on very
 old databases\.
 
+.RE
 
 A routing failure object has the fields below:
 
+.RS
 .IP \[bu]
 \fIerring_index\fR: The index of the node along the route that reported
 the error\. 0 for the local node, 1 for the first hop, and so on\.
@@ -86,6 +92,7 @@ error (or the final channel if the destination raised the error)\.
 \fIfailcodename\fR: The human-readable name corresponding to \fIfailcode\fR,
 if known\.
 
+.RE
 .SH AUTHOR
 
 ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
@@ -97,8 +104,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
-
-.HL
-
-Last updated 2019-05-22 16:46:09 CEST
 

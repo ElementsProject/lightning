@@ -4,7 +4,6 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_htlcs.h>
 
-#if EXPERIMENTAL_FEATURES
 /* If an HTLC times out, we need to free entire set, since we could be processing
  * it in invoice.c right now. */
 static void htlc_set_hin_destroyed(struct htlc_in *hin,
@@ -37,15 +36,12 @@ static void timeout_htlc_set(struct htlc_set *set)
 {
 	htlc_set_fail(set, WIRE_MPP_TIMEOUT);
 }
-#endif /* EXPERIMENTAL_FEATURES */
 
 void htlc_set_fail(struct htlc_set *set, enum onion_type failcode)
 {
 	for (size_t i = 0; i < tal_count(set->htlcs); i++) {
-#if EXPERIMENTAL_FEATURES
 		/* Don't remove from set */
 		tal_del_destructor2(set->htlcs[i], htlc_set_hin_destroyed, set);
-#endif
 		fail_htlc(set->htlcs[i], failcode);
 	}
 	tal_free(set);
@@ -54,10 +50,8 @@ void htlc_set_fail(struct htlc_set *set, enum onion_type failcode)
 void htlc_set_fulfill(struct htlc_set *set, const struct preimage *preimage)
 {
 	for (size_t i = 0; i < tal_count(set->htlcs); i++) {
-#if EXPERIMENTAL_FEATURES
 		/* Don't remove from set */
 		tal_del_destructor2(set->htlcs[i], htlc_set_hin_destroyed, set);
-#endif
 		fulfill_htlc(set->htlcs[i], preimage);
 	}
 	tal_free(set);
@@ -76,7 +70,6 @@ static struct htlc_set *new_htlc_set(struct lightningd *ld,
 	set->htlcs = tal_arr(set, struct htlc_in *, 1);
 	set->htlcs[0] = hin;
 
-#if EXPERIMENTAL_FEATURES
 	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 * - MUST fail all HTLCs in the HTLC set after some reasonable
 	 *   timeout.
@@ -87,9 +80,6 @@ static struct htlc_set *new_htlc_set(struct lightningd *ld,
 				    timeout_htlc_set, set);
 	htlc_set_map_add(&ld->htlc_sets, set);
 	tal_add_destructor2(set, destroy_htlc_set, &ld->htlc_sets);
-#else
-	set->timeout = NULL;
-#endif
 	return set;
 }
 
@@ -114,20 +104,6 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
-#if !EXPERIMENTAL_FEATURES
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
-	 * - if it does not support `basic_mpp`:
-	 *    - MUST fail the HTLC if `total_msat` is not exactly equal to
-	 *    `amt_to_forward`.
-	 */
-	if (!amount_msat_eq(hin->msat, total_msat)) {
-		fail_htlc(hin, WIRE_FINAL_INCORRECT_HTLC_AMOUNT);
-		return;
-	}
-
-	/* We create a transient set which just has one entry. */
-	set = new_htlc_set(ld, hin, total_msat);
-#else
 	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 *  - otherwise, if it supports `basic_mpp`:
 	 *    - MUST add it to the HTLC set corresponding to that `payment_hash`.
@@ -175,7 +151,6 @@ void htlc_set_add(struct lightningd *ld,
 		htlc_set_fail(set, WIRE_FINAL_INCORRECT_HTLC_AMOUNT);
 		return;
 	}
-#endif /* EXPERIMENTAL_FEATURES */
 
 	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
 	 * - if the total `amount_msat` of this HTLC set equals `total_msat`:

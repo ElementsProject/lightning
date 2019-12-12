@@ -3,7 +3,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError, Millisatoshi
-from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT, VALGRIND, EXPERIMENTAL_FEATURES
+from utils import DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT, VALGRIND
 
 import concurrent.futures
 import copy
@@ -2375,10 +2375,7 @@ def test_tlv_or_legacy(node_factory, bitcoind):
 
     # Since L1 hasn't seen broadcast, it doesn't know L2 is TLV, but invoice tells it about L3
     l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
-    if EXPERIMENTAL_FEATURES:
-        l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-    else:
-        l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+    l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
 
     # Turns out we only need 3 more blocks to announce l1->l2 channel.
     bitcoind.generate_block(3)
@@ -2393,15 +2390,10 @@ def test_tlv_or_legacy(node_factory, bitcoind):
     inv = l3.rpc.invoice(10000, "test_tlv2", "test_tlv2")['bolt11']
 
     l1.rpc.pay(inv)
-    if EXPERIMENTAL_FEATURES:
-        l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-        l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-    else:
-        l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
-        l3.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+    l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
+    l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, 'Needs invoice secret support')
 @unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
@@ -2570,7 +2562,6 @@ def test_sendonion_rpc(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev-disconnect, dev-no-htlc-timeout")
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
     l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit'], 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
@@ -2597,29 +2588,34 @@ def test_partial_payment(node_factory, bitcoind, executor):
     r124 = l1.rpc.getroute(l4.info['id'], 499, 1, exclude=[scid34 + '/0', scid34 + '/1'])['route']
 
     # These can happen in parallel.
-    l1.rpc.call('sendpay', [r134, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+    l1.rpc.sendpay(route=r134, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
 
     # Can't mix non-parallel payment!
     with pytest.raises(RpcError, match=r'Already have parallel payment in progress'):
-        l1.rpc.call('sendpay', {'route': r124,
-                                'payment_hash': inv['payment_hash'],
-                                'msatoshi': 1000,
-                                'payment_secret': paysecret})
+        l1.rpc.sendpay(route=r124,
+                       payment_hash=inv['payment_hash'],
+                       msatoshi=1000,
+                       payment_secret=paysecret)
 
     # It will not allow a parallel with different msatoshi!
     with pytest.raises(RpcError, match=r'msatoshi was previously 1000msat, now 999msat'):
-        l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 999, inv['bolt11'], paysecret, 2])
+        l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'],
+                       msatoshi=999, bolt11=inv['bolt11'],
+                       payment_secret=paysecret, partid=2)
 
     # This will work fine.
-    l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
+    l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'],
+                   msatoshi=1000, bolt11=inv['bolt11'],
+                   payment_secret=paysecret, partid=2)
 
     # Any more would exceed total payment
     with pytest.raises(RpcError, match=r'Already have 1000msat of 1000msat payments in progress'):
-        l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 3])
+        l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'],
+                       msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=3)
 
     # But repeat is a NOOP.
-    l1.rpc.call('sendpay', [r124, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
-    l1.rpc.call('sendpay', [r134, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
+    l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
+    l1.rpc.sendpay(route=r134, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
 
     # Make sure they've done the suppress-commitment thing before we unsuppress
     l2.daemon.wait_for_log(r'dev_disconnect')
@@ -2629,10 +2625,9 @@ def test_partial_payment(node_factory, bitcoind, executor):
     l2.rpc.dev_reenable_commit(l4.info['id'])
     l3.rpc.dev_reenable_commit(l4.info['id'])
 
-    res = l1.rpc.call('waitsendpay', [inv['payment_hash'], None, 1])
+    res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=1)
     assert res['partid'] == 1
-    res = l1.rpc.call('waitsendpay', {'payment_hash': inv['payment_hash'],
-                                      'partid': 2})
+    res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=2)
     assert res['partid'] == 2
 
     for i in range(2):
@@ -2649,7 +2644,6 @@ def test_partial_payment(node_factory, bitcoind, executor):
     assert pay['amount_sent_msat'] == Millisatoshi(1002)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
 def test_partial_payment_timeout(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
 
@@ -2657,19 +2651,18 @@ def test_partial_payment_timeout(node_factory, bitcoind):
     paysecret = l2.rpc.decodepay(inv['bolt11'])['payment_secret']
 
     route = l1.rpc.getroute(l2.info['id'], 500, 1)['route']
-    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
 
     with pytest.raises(RpcError, match=r'WIRE_MPP_TIMEOUT'):
-        l1.rpc.call('waitsendpay', [inv['payment_hash'], 70 + TIMEOUT // 4, 1])
+        l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=70 + TIMEOUT // 4, partid=1)
 
     # We can still pay it normally.
-    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
-    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
-    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 1])
-    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 2])
+    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
+    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
+    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1)
+    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
 def test_partial_payment_restart(node_factory, bitcoind):
     """Test that we recover a set when we restart"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
@@ -2681,7 +2674,7 @@ def test_partial_payment_restart(node_factory, bitcoind):
 
     route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
 
-    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
 
     wait_for(lambda: [f['status'] for f in l2.rpc.listforwards()['forwards']] == ['offered'])
 
@@ -2691,14 +2684,13 @@ def test_partial_payment_restart(node_factory, bitcoind):
     wait_for(lambda: [p['connected'] for p in l2.rpc.listpeers()['peers']] == [True, True])
 
     # Pay second part.
-    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 2])
+    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
 
-    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 1])
-    l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 2])
+    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1)
+    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2)
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev-fail")
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs partid support")
 def test_partial_payment_htlc_loss(node_factory, bitcoind):
     """Test that we discard a set when the HTLC is lost"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -2708,7 +2700,7 @@ def test_partial_payment_htlc_loss(node_factory, bitcoind):
 
     route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
 
-    l1.rpc.call('sendpay', [route, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
+    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
     wait_for(lambda: [f['status'] for f in l2.rpc.listforwards()['forwards']] == ['offered'])
 
     l2.rpc.dev_fail(l3.info['id'])
@@ -2719,4 +2711,4 @@ def test_partial_payment_htlc_loss(node_factory, bitcoind):
 
     with pytest.raises(RpcError,
                        match=r'WIRE_PERMANENT_CHANNEL_FAILURE \(reply from remote\)'):
-        l1.rpc.call('waitsendpay', [inv['payment_hash'], TIMEOUT, 1])
+        l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1)

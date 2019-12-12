@@ -101,9 +101,7 @@ u8 *onion_final_hop(const tal_t *ctx,
 		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
 		struct tlv_tlv_payload_amt_to_forward tlv_amt;
 		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
-#if EXPERIMENTAL_FEATURES
 		struct tlv_tlv_payload_payment_data tlv_pdata;
-#endif
 
 		/* BOLT #4:
 		 *
@@ -118,17 +116,11 @@ u8 *onion_final_hop(const tal_t *ctx,
 		tlv->amt_to_forward = &tlv_amt;
 		tlv->outgoing_cltv_value = &tlv_cltv;
 
-#if EXPERIMENTAL_FEATURES
 		if (payment_secret) {
 			tlv_pdata.payment_secret = *payment_secret;
 			tlv_pdata.total_msat = total_msat.millisatoshis; /* Raw: TLV convert */
 			tlv->payment_data = &tlv_pdata;
 		}
-#else
-		/* Wihtout EXPERIMENTAL_FEATURES, we can't send payment_secret */
-		if (payment_secret)
-			return NULL;
-#endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
 		static struct short_channel_id all_zero_scid;
@@ -170,10 +162,6 @@ static bool pull_payload_length(const u8 **cursor,
 		return true;
 	}
 
-#if !EXPERIMENTAL_FEATURES
-	/* Only handle legacy format */
-	return false;
-#else
 	/* BOLT #4:
 	 * - `tlv_payload` format, identified by any length over `1`. In this
 	 *   case the `hop_payload_length` is equal to the numeric value of
@@ -191,7 +179,6 @@ static bool pull_payload_length(const u8 **cursor,
 	}
 
 	return false;
-#endif /* EXPERIMENTAL_FEATURES */
 }
 
 size_t onion_payload_length(const u8 *raw_payload, size_t len,
@@ -289,7 +276,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 		p->payment_secret = NULL;
 
-#if EXPERIMENTAL_FEATURES
 		if (tlv->payment_data) {
 			p->payment_secret = tal_dup(p, struct secret,
 						    &tlv->payment_data->payment_secret);
@@ -298,7 +284,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			p->total_msat->millisatoshis /* Raw: tu64 on wire */
 				= tlv->payment_data->total_msat;
 		}
-#endif
 		tal_free(tlv);
 		return p;
 	}

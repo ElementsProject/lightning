@@ -8,9 +8,5 @@ COMPAT = env("COMPAT", "1") == "1"
 
 def expected_features():
     """Return the expected features hexstring for this configuration"""
-    if EXPERIMENTAL_FEATURES:
-        # features 1, 3, 7, 9, 11, 13, 15 and 17 (0x02aaa2).
-        return "02aaa2"
-    else:
-        # features 1, 3, 7, 11 and 13 (0x28a2).
-        return "28a2"
+    # features 1, 3, 7, 9, 11, 13, 15 and 17 (0x02aaa2).
+    return "02aaa2"

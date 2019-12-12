@@ -4,7 +4,7 @@ lightning-sendpay - Low-level command for sending a payment via a route
 .SH SYNOPSIS
 
 \fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIlabel\fR] [\fImsatoshi\fR]
-[\fIbolt11\fR]
+[\fIbolt11\fR] [\fIpartid\fR]
 
 .SH DESCRIPTION
 
@@ -31,21 +31,23 @@ The \fIlabel\fR and \fIbolt11\fR parameters, if provided, will be returned in
 
 The \fImsatoshi\fR amount, if provided, is the amount that will be recorded
 as the target payment value\. If not specified, it will be the final
-amount to the destination\. If specified, then the final amount at the
-destination must be from the specified \fImsatoshi\fR to twice the specified
-\fImsatoshi\fR, inclusive\. This is intended to obscure payments by
-overpaying slightly at the destination; the actual target payment is
-what should be specified as the \fImsatoshi\fR argument\. \fImsatoshi\fR is in
-millisatoshi precision; it can be a whole number, or a whole number
+amount to the destination\. By default it is in millisatoshi precision; it can be a whole number, or a whole number
 ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places ending
 in \fIsat\fR, or a number with 1 to 11 decimal places ending in \fIbtc\fR\.
+
+
+The \fIpartid\fR value, if provided and non-zero, allows for multiple parallel
+partial payments with the same \fIpayment_hash\fR\.  The \fImsatoshi\fR amount
+(which must be provided) for each \fBsendpay\fR with matching
+\fIpayment_hash\fR must be equal, and \fBsendpay\fR will fail if there are
+already \fImsatoshi\fR worth of payments pending\.
 
 
 Once a payment has succeeded, calls to \fBsendpay\fR with the same
 \fIpayment_hash\fR but a different \fImsatoshi\fR or destination will fail;
 this prevents accidental multiple payments\. Calls to \fBsendpay\fR with
 the same \fIpayment_hash\fR, \fImsatoshi\fR, and destination as a previous
-successful payment (even if a different route) will return immediately
+successful payment (even if a different route or \fIpartid\fR) will return immediately
 with success\.
 
 .SH RETURN VALUE
@@ -65,6 +67,7 @@ retried\.
 
 The following error codes may occur:
 
+.RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
 .IP \[bu]
@@ -81,9 +84,11 @@ will be routing failure object\.
 204: Failure along route; retry a different route\. The \fIdata\fR field
 of the error will be routing failure object\.
 
+.RE
 
 A routing failure object has the fields below:
 
+.RS
 .IP \[bu]
 \fIerring_index\fR\. The index of the node along the route that reported
 the error\. 0 for the local node, 1 for the first hop, and so on\.
@@ -101,6 +106,7 @@ received from the remote node\. Only present if error is from the
 remote node and the \fIfailcode\fR has the UPDATE bit set, as per BOLT
 #4\.
 
+.RE
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
@@ -114,8 +120,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
-
-.HL
-
-Last updated 2019-08-01 14:59:36 CEST
 
