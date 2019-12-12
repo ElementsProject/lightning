@@ -1,4 +1,3 @@
-#include <common/memleak.h>
 #include <common/timeout.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
@@ -84,10 +83,12 @@ static struct htlc_set *new_htlc_set(struct lightningd *ld,
 	 *   - SHOULD wait for at least 60 seconds after the initial
 	 *     HTLC.
 	 */
-	notleak(new_reltimer(ld->timers, set, time_from_sec(70),
-			     timeout_htlc_set, set));
+	set->timeout = new_reltimer(ld->timers, set, time_from_sec(70),
+				    timeout_htlc_set, set);
 	htlc_set_map_add(&ld->htlc_sets, set);
 	tal_add_destructor2(set, destroy_htlc_set, &ld->htlc_sets);
+#else
+	set->timeout = NULL;
 #endif
 	return set;
 }
@@ -194,6 +195,8 @@ void htlc_set_add(struct lightningd *ld,
 	}
 
 	if (amount_msat_eq(set->so_far, total_msat)) {
+		/* Disable timer now, in case invoice_hook is slow! */
+		tal_free(set->timeout);
 		invoice_try_pay(ld, set, details);
 		return;
 	}
