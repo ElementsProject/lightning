@@ -977,8 +977,8 @@ def test_funding_by_utxos(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs dev_forget_channel")
 def test_funding_external_wallet_corners(node_factory, bitcoind):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
 
     amount = 2**24
     l1.fundwallet(amount + 10000000)
@@ -1041,6 +1041,27 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     # l2 won't give up, since it considers error "soft".
     l2.rpc.dev_forget_channel(l1.info['id'])
 
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
+
+    # Check that can still cancel when peer is disconnected
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    wait_for(lambda: not only_one(l1.rpc.listpeers()['peers'])['connected'])
+    assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
+    assert len(l1.rpc.listpeers()['peers']) == 0
+
+    # l2 still has the channel open/waiting
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+
+    # on reconnect, channel should get destroyed
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log('Rejecting WIRE_CHANNEL_REESTABLISH for unknown channel_id')
+    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+
+    # we have to connect again, because we got disconnected when everything errored
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
     assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
