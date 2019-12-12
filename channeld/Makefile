@@ -46,6 +46,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/features.o			\
+	common/fee_states.o			\
 	common/gen_status_wire.o		\
 	common/gen_peer_status_wire.o		\
 	common/gossip_rcvd_filter.o		\

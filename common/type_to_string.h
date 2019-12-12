@@ -33,6 +33,7 @@ union printable_types {
 	const struct channel *channel;
 	const struct amount_msat *amount_msat;
 	const struct amount_sat *amount_sat;
+	const struct fee_states *fee_states;
 	const char *charp_;
 };
 
