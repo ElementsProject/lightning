@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **sendpay** *route* *payment\_hash* \[*label*\] \[*msatoshi*\]
-\[*bolt11*\]
+\[*bolt11*\] \[*partid*\]
 
 DESCRIPTION
 -----------
@@ -29,20 +29,21 @@ The *label* and *bolt11* parameters, if provided, will be returned in
 
 The *msatoshi* amount, if provided, is the amount that will be recorded
 as the target payment value. If not specified, it will be the final
-amount to the destination. If specified, then the final amount at the
-destination must be from the specified *msatoshi* to twice the specified
-*msatoshi*, inclusive. This is intended to obscure payments by
-overpaying slightly at the destination; the actual target payment is
-what should be specified as the *msatoshi* argument. *msatoshi* is in
-millisatoshi precision; it can be a whole number, or a whole number
+amount to the destination. By default it is in millisatoshi precision; it can be a whole number, or a whole number
 ending in *msat* or *sat*, or a number with three decimal places ending
 in *sat*, or a number with 1 to 11 decimal places ending in *btc*.
+
+The *partid* value, if provided and non-zero, allows for multiple parallel
+partial payments with the same *payment_hash*.  The *msatoshi* amount
+(which must be provided) for each **sendpay** with matching
+*payment_hash* must be equal, and **sendpay** will fail if there are
+already *msatoshi* worth of payments pending.
 
 Once a payment has succeeded, calls to **sendpay** with the same
 *payment\_hash* but a different *msatoshi* or destination will fail;
 this prevents accidental multiple payments. Calls to **sendpay** with
 the same *payment\_hash*, *msatoshi*, and destination as a previous
-successful payment (even if a different route) will return immediately
+successful payment (even if a different route or *partid*) will return immediately
 with success.
 
 RETURN VALUE

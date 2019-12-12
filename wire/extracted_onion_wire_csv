@@ -5,6 +5,9 @@ tlvtype,tlv_payload,outgoing_cltv_value,4
 tlvdata,tlv_payload,outgoing_cltv_value,outgoing_cltv_value,tu32,
 tlvtype,tlv_payload,short_channel_id,6
 tlvdata,tlv_payload,short_channel_id,short_channel_id,short_channel_id,
+tlvtype,tlv_payload,payment_data,8
+tlvdata,tlv_payload,payment_data,payment_secret,byte,32
+tlvdata,tlv_payload,payment_data,total_msat,tu64,
 msgtype,invalid_realm,PERM|1
 msgtype,temporary_node_failure,NODE|2
 msgtype,permanent_node_failure,PERM|NODE|2
@@ -48,3 +51,4 @@ msgtype,expiry_too_far,21
 msgtype,invalid_onion_payload,PERM|22
 msgdata,invalid_onion_payload,type,varint,
 msgdata,invalid_onion_payload,offset,u16,
+msgtype,mpp_timeout,23

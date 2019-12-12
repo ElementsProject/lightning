@@ -702,9 +702,7 @@ static bool should_use_tlv(enum route_hop_style style)
 {
 	switch (style) {
 	case ROUTE_HOP_TLV:
-#if EXPERIMENTAL_FEATURES
 		return true;
-#endif
 		/* Otherwise fall thru */
 	case ROUTE_HOP_LEGACY:
 		return false;
@@ -1315,15 +1313,6 @@ static struct command_result *json_sendpay(struct command *cmd,
 							   struct amount_msat,
 							   msat));
 	}
-
-	/* It's easier to leave this in the API, then ignore it here. */
-#if !EXPERIMENTAL_FEATURES
-	if (payment_secret) {
-		log_unusual(cmd->ld->log,
-			    "sendpay: we don't support payment_secret yet, ignoring");
-		payment_secret = NULL;
-	}
-#endif
 
 	if (*partid && !payment_secret)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

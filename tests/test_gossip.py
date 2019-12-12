@@ -2,7 +2,7 @@ from collections import Counter
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from lightning import RpcError
-from utils import wait_for, TIMEOUT, only_one, sync_blockheight, expected_features, EXPERIMENTAL_FEATURES
+from utils import wait_for, TIMEOUT, only_one, sync_blockheight, expected_features
 
 import json
 import logging
@@ -1450,10 +1450,7 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2.restart()
 
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store_compact_offline: [5-8] deleted, 9 copied'))
-    if EXPERIMENTAL_FEATURES:
-        wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1452 bytes'))
-    else:
-        wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1450 bytes'))
+    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1452 bytes'))
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
