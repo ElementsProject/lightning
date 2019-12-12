@@ -469,7 +469,8 @@ int main(void)
 	lchannel = new_full_channel(tmpctx,
 				    &funding_txid, funding_output_index, 0,
 				    funding_amount, to_local,
-				    feerate_per_kw,
+				    take(new_fee_states(NULL, LOCAL,
+							&feerate_per_kw[LOCAL])),
 				    local_config,
 				    remote_config,
 				    &localbase, &remotebase,
@@ -479,7 +480,8 @@ int main(void)
 	rchannel = new_full_channel(tmpctx,
 				    &funding_txid, funding_output_index, 0,
 				    funding_amount, to_remote,
-				    feerate_per_kw,
+				    take(new_fee_states(NULL, REMOTE,
+							&feerate_per_kw[REMOTE])),
 				    remote_config,
 				    local_config,
 				    &remotebase, &localbase,
@@ -655,6 +657,7 @@ int main(void)
 
 	/* No memory leaks please */
 	wally_cleanup(0);
+	take_cleanup();
 	tal_free(tmpctx);
 
 	/* FIXME: Do BOLT comparison! */

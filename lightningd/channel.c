@@ -1,6 +1,7 @@
 #include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
+#include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/utils.h>
@@ -236,6 +237,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
 	channel->channel_info = *channel_info;
+	channel->channel_info.fee_states
+		= dup_fee_states(channel, channel_info->fee_states);
 	channel->shutdown_scriptpubkey[REMOTE]
 		= tal_steal(channel, remote_shutdown_scriptpubkey);
 	channel->final_key_idx = final_key_idx;
