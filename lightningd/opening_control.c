@@ -614,6 +614,7 @@ static void opening_opener_sigs_received(struct subd *openingd, const u8 *resp,
 					fc->our_upfront_shutdown_script,
 					remote_upfront_shutdown_script);
 
+
 	/* Watch for funding confirms */
 	channel_watch_funding(ld, channel);
 
@@ -912,12 +913,14 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	if (utxos) {
 		u32 tipheight = ld->topology->tip->height;
-		for (size_t i = 0; i < tal_count(utxos); i++)
+		for (size_t i = 0; i < tal_count(utxos); i++) {
 			wallet_output_reservation_update(ld->wallet, utxos[i],
 							 tipheight,
 							 UTXO_RESERVATION_BLOCKS);
+			wallet_add_input_tx_tracking(ld->wallet, utxos[i],
+						     channel, &funding_txid);
+		}
 
-		// FIXME: associate input spend with channel?
 		tal_free(utxos);
 	}
 

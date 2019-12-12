@@ -149,6 +149,29 @@ struct txwatch *watch_txid(const tal_t *ctx,
 	return w;
 }
 
+struct channel *del_txwatch(struct chain_topology *topo,
+			    const struct bitcoin_txid *txid,
+			    u64 chan_dbid)
+{
+	struct txwatch_hash_iter i;
+	struct txwatch *w;
+	struct channel *c;
+
+	/* We could have more than one channel watching same txid,
+	 * but we trust that we'll clean that up in another pass */
+	for (w = txwatch_hash_getfirst(&topo->txwatches, txid, &i);
+	     w;
+	     w = txwatch_hash_getnext(&topo->txwatches, txid, &i)) {
+		if (w->channel->dbid == chan_dbid) {
+			c = w->channel;
+			tal_free(w);
+			return c;
+		}
+	}
+
+	return NULL;
+}
+
 struct txwatch *find_txwatch(struct chain_topology *topo,
 			     const struct bitcoin_txid *txid,
 			     const struct channel *channel)

@@ -91,4 +91,12 @@ void txwatch_inform(const struct chain_topology *topo,
 		    const struct bitcoin_tx *tx_may_steal);
 
 void watch_topology_changed(struct chain_topology *topo);
+
+/* del_txwatch - deletes a transaction watch for the given
+ * txid and channel dbid.
+ *
+ * @returns: the associated channel, if found */
+struct channel *del_txwatch(struct chain_topology *topo,
+			    const struct bitcoin_txid *txid,
+			    u64 channel_dbid);
 #endif /* LIGHTNING_LIGHTNINGD_WATCH_H */

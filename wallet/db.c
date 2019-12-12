@@ -602,6 +602,14 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE outputs ADD reserved_at INTEGER DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE outputs ADD reserved_for INTEGER DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE outputs ADD spend_priority INTEGER DEFAULT 0;"), NULL},
+    /* For dual-funding RBFs and input reuse, we track input to tx/channel association */
+    {SQL("CREATE TABLE output_tracking ("
+	 "  prev_out_tx BLOB"
+	 ", prev_out_index INTEGER"
+	 ", txid BLOB"
+	 ", channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE"
+	 ", PRIMARY KEY (prev_out_tx, prev_out_index, txid, channel_id));"),
+    	 NULL},
 };
 
 /* Leak tracking. */

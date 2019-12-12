@@ -349,6 +349,21 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers);
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type);
 
+/* wallet_add_input_tx_tracking - Associate a utxo with a transaction & channel
+ *
+ * Associate a UTXO with a channel and funding transaction id. This will allow
+ * us to 1) clean up channels that aren't opened because of a spend elsewhere
+ * and 2) track RBFs for channel opens.
+ */
+bool wallet_add_input_tx_tracking(struct wallet *w, struct utxo *utxo,
+				  struct channel *chnanel, struct bitcoin_txid *txid);
+
+/* wallet_find_check_input_tx - Find and clean up any associated funding tx's
+ * that are no longer valid/spendable because of the inclusion of this
+ * txid in a block. Cleans up any associated channels and tx-watches as well.
+ */
+bool wallet_find_check_input_tx(struct wallet *w, struct chain_topology *topo,
+				struct bitcoin_txid *txid);
 /**
  * wallet_confirm_tx - Confirm a tx which contains a UTXO.
  */

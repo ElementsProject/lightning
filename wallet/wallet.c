@@ -9,12 +9,15 @@
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
+#include <common/wire_error.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
+#include <lightningd/channel_control.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/subd.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <string.h>
 #include <wallet/db_common.h>
@@ -146,6 +149,117 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	db_bind_int(stmt, 12, utxo->spend_priority);
 
 	db_exec_prepared_v2(take(stmt));
+	return true;
+}
+
+bool wallet_add_input_tx_tracking(struct wallet *w, struct utxo *utxo,
+				  struct channel *channel, struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt;
+	size_t changes;
+
+	stmt = db_prepare_v2(w->db,
+		 	     SQL("INSERT INTO output_tracking ("
+				 "  prev_out_tx"
+				 ", prev_out_index"
+				 ", txid"
+				 ", channel_id"
+				 ") VALUES (?, ?, ?, ?);"));
+
+	db_bind_txid(stmt, 0, &utxo->txid);
+	db_bind_int(stmt, 1, utxo->outnum);
+	db_bind_txid(stmt, 2, txid);
+	db_bind_int(stmt, 3, channel->dbid);
+
+	db_exec_prepared_v2(stmt);
+	changes = db_count_changes(stmt);
+	tal_free(stmt);
+	return changes > 0;
+}
+
+bool wallet_find_check_input_tx(struct wallet *w, struct chain_topology *topo,
+				struct bitcoin_txid *txid)
+{
+	struct db_stmt *utxo_stmt, *stmt, *del_stmt;
+	struct bitcoin_txid utxo_txid, f_txid;
+	struct channel *chan;
+	u32 outpoint;
+	u64 blessed_chan_dbid, chan_dbid;
+	char *close_error = "input UTXO spent elsewhere";
+
+	utxo_stmt = db_prepare_v2(w->db,
+			     SQL("SELECT prev_out_tx, prev_out_index"
+				 ", channel_id FROM output_tracking"
+				 " WHERE txid = ?;"));
+	db_bind_txid(utxo_stmt, 0, txid);
+	db_query_prepared(utxo_stmt);
+
+	if (utxo_stmt->error)
+		fatal("%s", utxo_stmt->error);
+
+
+	/* Iterate through all of the inputs we cared about for this txid.
+	 * Look up any other tracking records for that input */
+	while (db_step(utxo_stmt)) {
+		/* Pull out the current utxo info */
+		db_column_txid(utxo_stmt, 0, &utxo_txid);
+		outpoint = db_column_int(utxo_stmt, 1);
+		blessed_chan_dbid = db_column_int(utxo_stmt, 2);
+
+		stmt = db_prepare_v2(w->db,
+				     SQL("SELECT txid, channel_id FROM output_tracking"
+					 " WHERE prev_out_tx = ? AND prev_out_index = ?"
+					 " AND txid != ?;"));
+		db_bind_txid(stmt, 0, &utxo_txid);
+		db_bind_int(stmt, 1, outpoint);
+		db_bind_txid(stmt, 2, txid);
+
+		db_query_prepared(stmt);
+		if (stmt->error)
+			fatal("%s", stmt->error);
+
+		while (db_step(stmt)) {
+			/* Pull out subquery's info */
+			db_column_txid(stmt, 0, &f_txid);
+			chan_dbid = db_column_int(stmt, 1);
+
+			/* Remove the tx_filter for this txid (this isn't ever coming)
+			 * and return the channel object */
+			chan = del_txwatch(topo, &f_txid, chan_dbid);
+
+			/* This is a channel cancel; otherwise it's an RBF'd tx.
+			 * Defunct RBFs don't need cleanup as the correction
+			 * to the 'good' txid is taken care of elsewhere
+			 *
+			 * `forget_channel` immediately marks the chan with an error,
+			 * so we check that to see if we're already canceling it (since
+			 * in some paths we require notifying the peer first, which
+			 * is not synchronous. Ultimately, this frees the channel,
+			 * so subsequent lookups of the channel in txwatch should return NULL
+			 * */
+			// FIXME: this can/might free channel.. what to do about
+			// other, possibly existing txwatches?
+			if (chan && chan_dbid != blessed_chan_dbid && !chan->error)
+				forget_channel(chan, close_error);
+
+			/* We want to delete all tracking for the
+			 * other outputs associated with this txid; it isn't
+			 * ever coming through. */
+			del_stmt = db_prepare_v2(w->db, SQL("DELETE FROM output_tracking"
+							    " WHERE txid = ?;"));
+			db_bind_txid(del_stmt, 0, &f_txid);
+			db_exec_prepared_v2(take(del_stmt));
+		}
+		tal_free(stmt);
+	}
+
+	/* Finally, clean up the existing txid's records */
+	del_stmt = db_prepare_v2(w->db, SQL("DELETE FROM output_tracking"
+					    " WHERE txid = ?;"));
+	db_bind_txid(del_stmt, 0, txid);
+	db_exec_prepared_v2(take(del_stmt));
+
+	tal_free(utxo_stmt);
 	return true;
 }
 

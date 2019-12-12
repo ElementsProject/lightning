@@ -101,6 +101,11 @@ void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UN
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }
+/* Generated stub for del_txwatch */
+struct channel *del_txwatch(struct chain_topology *topo UNNEEDED,
+			    const struct bitcoin_txid *txid UNNEEDED,
+			    u64 channel_dbid UNNEEDED)
+{ fprintf(stderr, "del_txwatch called!\n"); abort(); }
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
@@ -109,6 +114,9 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for forget_channel */
+void forget_channel(struct channel *channel UNNEEDED, const char *err_msg UNNEEDED)
+{ fprintf(stderr, "forget_channel called!\n"); abort(); }
 /* Generated stub for fromwire_channel_dev_memleak_reply */
 bool fromwire_channel_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channel_dev_memleak_reply called!\n"); abort(); }
