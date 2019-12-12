@@ -561,6 +561,34 @@ static struct migration dbmigrations[] = {
     {SQL("DROP TABLE temp_payments;"), NULL},
     {SQL("ALTER TABLE channel_htlcs ADD partid BIGINT;"), NULL},
     {SQL("UPDATE channel_htlcs SET partid = 0;"), NULL},
+    {SQL("CREATE TABLE channel_feerates ("
+	 "  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,"
+	 "  hstate INTEGER,"
+	 "  feerate_per_kw INTEGER,"
+	 "  UNIQUE (channel_id, hstate)"
+	 ");"),
+     NULL},
+    /* Cast old-style per-side feerates into most likely layout for statewise
+     * feerates. */
+    /* If we're funder (LOCAL=0):
+     *   Then our feerate is set last (SENT_ADD_ACK_REVOCATION = 4) */
+    {SQL("INSERT INTO channel_feerates(channel_id, hstate, feerate_per_kw)"
+	 " SELECT id, 4, local_feerate_per_kw FROM channels WHERE funder = 0;"),
+     NULL},
+    /*   If different, assume their feerate is in state SENT_ADD_COMMIT = 1 */
+    {SQL("INSERT INTO channel_feerates(channel_id, hstate, feerate_per_kw)"
+	 " SELECT id, 1, remote_feerate_per_kw FROM channels WHERE funder = 0 and local_feerate_per_kw != remote_feerate_per_kw;"),
+     NULL},
+    /* If they're funder (REMOTE=1):
+     *   Then their feerate is set last (RCVD_ADD_ACK_REVOCATION = 14) */
+    {SQL("INSERT INTO channel_feerates(channel_id, hstate, feerate_per_kw)"
+	 " SELECT id, 14, remote_feerate_per_kw FROM channels WHERE funder = 1;"),
+     NULL},
+    /*   If different, assume their feerate is in state RCVD_ADD_COMMIT = 11 */
+    {SQL("INSERT INTO channel_feerates(channel_id, hstate, feerate_per_kw)"
+	 " SELECT id, 11, local_feerate_per_kw FROM channels WHERE funder = 1 and local_feerate_per_kw != remote_feerate_per_kw;"),
+     NULL},
+    /* FIXME: Remove now-unused local_feerate_per_kw and remote_feerate_per_kw from channels */
 };
 
 /* Leak tracking. */
