@@ -20,6 +20,7 @@ COMMON_SRC_NOGEN :=				\
 	common/derive_basepoints.c		\
 	common/dev_disconnect.c			\
 	common/features.c			\
+	common/fee_states.c			\
 	common/funding_tx.c			\
 	common/gossip_rcvd_filter.c		\
 	common/gossip_store.c			\
