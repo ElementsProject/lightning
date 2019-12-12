@@ -100,7 +100,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 /* They specify our to_self_delay and v.v. */
 				 channel->config[!side].to_self_delay,
 				 &keyset,
-				 channel->view[side].feerate_per_kw,
+				 channel_feerate(channel, side),
 				 channel->config[side].dust_limit,
 				 channel->view[side].owed[side],
 				 channel->view[side].owed[!side],
@@ -108,6 +108,11 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 0 ^ channel->commitment_number_obscurer,
 				 side,
 				 err_reason);
+}
+
+u32 channel_feerate(const struct channel *channel, enum side side)
+{
+	return channel->view[side].feerate_per_kw;
 }
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)

@@ -122,4 +122,11 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      enum side side,
 				      char** err_reason);
 
+/**
+ * channel_feerate: Get fee rate for this side of channel.
+ * @channel: The channel
+ * @side: the side
+ */
+u32 channel_feerate(const struct channel *channel, enum side side);
+
 #endif /* LIGHTNING_COMMON_INITIAL_CHANNEL_H */
