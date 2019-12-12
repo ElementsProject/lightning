@@ -20,9 +20,6 @@ struct fulfilled_htlc;
 
 /* View from each side */
 struct channel_view {
-	/* Current feerate in satoshis per 1000 weight. */
-	u32 feerate_per_kw;
-
 	/* How much is owed to each side (includes pending changes) */
 	struct amount_msat owed[NUM_SIDES];
 };
@@ -59,6 +56,9 @@ struct channel {
 	/* Do we have changes pending for ourselves/other? */
 	bool changes_pending[NUM_SIDES];
 
+	/* Fee changes, some which may be in transit */
+	struct fee_states *fee_states;
+
 	/* What it looks like to each side. */
 	struct channel_view view[NUM_SIDES];
 
@@ -74,8 +74,7 @@ struct channel {
  * @minimum_depth: The minimum confirmations needed for funding transaction.
  * @funding_satoshis: The commitment transaction amount.
  * @local_msatoshi: The amount for the local side (remainder goes to remote)
- * @feerate_per_kw: feerate per kiloweight (satoshis) for the commitment
- *   transaction and HTLCS (at this stage, same for both sides)
+ * @fee_states: The fee update states.
  * @local: local channel configuration
  * @remote: remote channel configuration
  * @local_basepoints: local basepoints.
@@ -92,7 +91,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    u32 minimum_depth,
 				    struct amount_sat funding,
 				    struct amount_msat local_msatoshi,
-				    u32 feerate_per_kw,
+				    const struct fee_states *fee_states TAKES,
 				    const struct channel_config *local,
 				    const struct channel_config *remote,
 				    const struct basepoints *local_basepoints,

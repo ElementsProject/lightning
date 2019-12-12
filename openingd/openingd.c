@@ -20,6 +20,7 @@
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
+#include <common/fee_states.h>
 #include <common/funding_tx.h>
 #include <common/gen_peer_status_wire.h>
 #include <common/gossip_rcvd_filter.h>
@@ -670,7 +671,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     state->minimum_depth,
 					     state->funding,
 					     local_msat,
-					     state->feerate_per_kw,
+					     take(new_fee_states(NULL, LOCAL,
+								 &state->feerate_per_kw)),
 					     &state->localconf,
 					     &state->remoteconf,
 					     &state->our_points,
@@ -1136,7 +1138,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     state->minimum_depth,
 					     state->funding,
 					     state->push_msat,
-					     state->feerate_per_kw,
+					     take(new_fee_states(NULL, REMOTE,
+								 &state->feerate_per_kw)),
 					     &state->localconf,
 					     &state->remoteconf,
 					     &state->our_points, &theirs,
