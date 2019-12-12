@@ -163,10 +163,8 @@ struct lightningd {
 	struct htlc_in_map htlcs_in;
 	struct htlc_out_map htlcs_out;
 
-#if EXPERIMENTAL_FEATURES
 	/* Sets of HTLCs we are holding onto for MPP. */
 	struct htlc_set_map htlc_sets;
-#endif
 
 	struct wallet *wallet;
 

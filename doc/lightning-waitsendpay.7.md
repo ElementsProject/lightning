@@ -4,7 +4,7 @@ lightning-waitsendpay -- Command for sending a payment via a route
 SYNOPSIS
 --------
 
-**waitsendpay** *payment\_hash* \[*timeout*\]
+**waitsendpay** *payment\_hash* \[*timeout*\] \[*partid*\]
 
 DESCRIPTION
 -----------
@@ -12,6 +12,8 @@ DESCRIPTION
 The **waitsendpay** RPC command polls or waits for the status of an
 outgoing payment that was initiated by a previous **sendpay**
 invocation.
+
+The *partid* argument must match that of the **sendpay** command.
 
 Optionally the client may provide a *timeout*, an integer in seconds,
 for this RPC command to return. If the *timeout* is provided and the
