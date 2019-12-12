@@ -624,13 +624,6 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (htlcp)
 		*htlcp = htlc;
 
-	/* This is simply setting changes_pending[receiver] unless it's
-	 * an exotic state (i.e. channel_force_htlcs) */
-	if (htlc_state_flags(htlc->state) & HTLC_LOCAL_F_PENDING)
-		channel->changes_pending[LOCAL] = true;
-	if (htlc_state_flags(htlc->state) & HTLC_REMOTE_F_PENDING)
-		channel->changes_pending[REMOTE] = true;
-
 	return CHANNEL_ERR_ADD_OK;
 }
 
@@ -720,8 +713,6 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
-	/* The HTLC owner is the recipient of the fulfillment. */
-	channel->changes_pending[owner] = true;
 
 	dump_htlc(htlc, "FULFILL:");
 
@@ -765,8 +756,6 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
-	/* The HTLC owner is the recipient of the failure. */
-	channel->changes_pending[owner] = true;
 
 	dump_htlc(htlc, "FAIL:");
 	if (htlcp)
@@ -1008,29 +997,23 @@ bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 		     side_to_str(!channel->funder), feerate_per_kw);
 
 	start_fee_update(channel->fee_states, channel->funder, feerate_per_kw);
-
-	channel->changes_pending[!channel->funder] = true;
 	return true;
 }
 
 bool channel_sending_commit(struct channel *channel,
 			    const struct htlc ***htlcs)
 {
+	int change;
 	const enum htlc_state states[] = { SENT_ADD_HTLC,
 					   SENT_REMOVE_REVOCATION,
 					   SENT_ADD_REVOCATION,
 					   SENT_REMOVE_HTLC };
 	status_debug("Trying commit");
 
-	if (!channel->changes_pending[REMOTE]) {
-		assert(change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-				    htlcs, "testing sending_commit") == 0);
+	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
+			      htlcs, "sending_commit");
+	if (!change)
 		return false;
-	}
-
-	change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-		     htlcs, "sending_commit");
-	channel->changes_pending[REMOTE] = false;
 
 	return true;
 }
@@ -1049,31 +1032,23 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 			      htlcs, "rcvd_revoke_and_ack");
 
 	/* Their ack can queue changes on our side. */
-	if (change & HTLC_LOCAL_F_PENDING)
-		channel->changes_pending[LOCAL] = true;
-
-	return channel->changes_pending[LOCAL];
+	return (change & HTLC_LOCAL_F_PENDING);
 }
 
 /* FIXME: We can actually merge these two... */
 bool channel_rcvd_commit(struct channel *channel, const struct htlc ***htlcs)
 {
+	int change;
 	const enum htlc_state states[] = { RCVD_ADD_REVOCATION,
 					   RCVD_REMOVE_HTLC,
 					   RCVD_ADD_HTLC,
 					   RCVD_REMOVE_REVOCATION };
 
 	status_debug("Received commit");
-	if (!channel->changes_pending[LOCAL]) {
-		assert(change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-				    htlcs, "testing rcvd_commit") == 0);
+	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
+			      htlcs, "rcvd_commit");
+	if (!change)
 		return false;
-	}
-
-	change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states), htlcs,
-		     "rcvd_commit");
-
-	channel->changes_pending[LOCAL] = false;
 	return true;
 }
 
@@ -1089,10 +1064,7 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 			      "sending_revoke_and_ack");
 
 	/* Our ack can queue changes on their side. */
-	if (change & HTLC_REMOTE_F_PENDING)
-		channel->changes_pending[REMOTE] = true;
-
-	return channel->changes_pending[REMOTE];
+	return (change & HTLC_REMOTE_F_PENDING);
 }
 
 size_t num_channel_htlcs(const struct channel *channel)

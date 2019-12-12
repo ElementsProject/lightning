@@ -2531,15 +2531,6 @@ static void peer_reconnect(struct peer *peer,
 			send_fail_or_fulfill(peer, htlc);
 	}
 
-	/* Corner case: we will get upset with them if they send
-	 * commitment_signed with no changes.  But it could be that we sent a
-	 * feechange, they acked, and now they want to commit it; we can't
-	 * even tell by seeing if fees are different (short of saving full fee
-	 * state in database) since it could be a tiny feechange, or two
-	 * feechanges which cancelled out. */
-	if (peer->channel->funder == LOCAL)
-		peer->channel->changes_pending[LOCAL] = true;
-
 	peer_billboard(true, "Reconnected, and reestablished.");
 
 	/* BOLT #2:
