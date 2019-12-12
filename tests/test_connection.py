@@ -1030,7 +1030,12 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
     # Be sure fundchannel_complete is successful
     assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
-    # Canceld channel after fundchannel_complete
+
+    # Peer shouldn't be able to cancel channel
+    with pytest.raises(RpcError, match=r'Cannot cancel channel that was initiated by peer'):
+        l2.rpc.fundchannel_cancel(l1.info['id'])
+
+    # We can cancel channel after fundchannel_complete
     assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
 
     # l2 won't give up, since it considers error "soft".
