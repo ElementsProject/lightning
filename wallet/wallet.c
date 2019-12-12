@@ -2,8 +2,10 @@
 #include "wallet.h"
 
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/fee_states.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/wireaddr.h>
@@ -805,6 +807,42 @@ fail:
 	return false;
 }
 
+static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
+							 const u64 id,
+							 enum side funder)
+{
+	struct fee_states *fee_states;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT hstate, feerate_per_kw FROM channel_feerates WHERE channel_id = ?"));
+	db_bind_u64(stmt, 0, id);
+	db_query_prepared(stmt);
+
+	/* Start with blank slate. */
+	fee_states = new_fee_states(w, funder, NULL);
+	while (db_step(stmt)) {
+		enum htlc_state hstate = db_column_int(stmt, 0);
+		u32 feerate = db_column_int(stmt, 1);
+
+		if (fee_states->feerate[hstate] != NULL) {
+			log_broken(w->log,
+				   "duplicate channel_feerates for %s id %"PRIu64,
+				   htlc_state_name(hstate), id);
+			fee_states = tal_free(fee_states);
+			break;
+		}
+		fee_states->feerate[hstate] = tal_dup(fee_states, u32, &feerate);
+	}
+	tal_free(stmt);
+
+	if (fee_states && !fee_states_valid(fee_states, funder)) {
+		log_broken(w->log,
+			   "invalid channel_feerates for id %"PRIu64, id);
+		fee_states = tal_free(fee_states);
+	}
+	return fee_states;
+}
+
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a `db_stmt`
  */
@@ -894,13 +932,19 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_column_pubkey(stmt, 22, &channel_info.theirbase.delayed_payment);
 	db_column_pubkey(stmt, 23, &channel_info.remote_per_commit);
 	db_column_pubkey(stmt, 24, &channel_info.old_remote_per_commit);
-	channel_info.feerate_per_kw[LOCAL] = db_column_int(stmt, 25);
-	channel_info.feerate_per_kw[REMOTE] = db_column_int(stmt, 26);
 
 	wallet_channel_config_load(w, db_column_u64(stmt, 4),
 				   &channel_info.their_config);
 
+	channel_info.fee_states
+		= wallet_channel_fee_states_load(w,
+						 db_column_u64(stmt, 0),
+						 db_column_int(stmt, 6));
+	if (!channel_info.fee_states)
+		ok = false;
+
 	if (!ok) {
+		tal_free(channel_info.fee_states);
 		return NULL;
 	}
 
@@ -919,6 +963,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_column_amount_msat(stmt, 38, &msat_to_us_min);
 	db_column_amount_msat(stmt, 39, &msat_to_us_max);
 
+	/* We want it to take this, rather than copy. */
+	take(channel_info.fee_states);
 	chan = new_channel(peer, db_column_u64(stmt, 0),
 			   &wshachain,
 			   db_column_int(stmt, 5),
@@ -1011,6 +1057,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", delayed_payment_basepoint_remote"
 					", per_commit_remote"
 					", old_per_commit_remote"
+					/* FIXME: We don't use these two: */
 					", local_feerate_per_kw"
 					", remote_feerate_per_kw"
 					", shachain_remote_id"
@@ -1358,8 +1405,6 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  delayed_payment_basepoint_remote=?,"
 					"  per_commit_remote=?,"
 					"  old_per_commit_remote=?,"
-					"  local_feerate_per_kw=?,"
-					"  remote_feerate_per_kw=?,"
 					"  channel_config_remote=?,"
 					"  future_per_commitment_point=?"
 					" WHERE id=?"));
@@ -1370,15 +1415,32 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_pubkey(stmt, 4,  &chan->channel_info.theirbase.delayed_payment);
 	db_bind_pubkey(stmt, 5,  &chan->channel_info.remote_per_commit);
 	db_bind_pubkey(stmt, 6,  &chan->channel_info.old_remote_per_commit);
-	db_bind_int(stmt, 7, chan->channel_info.feerate_per_kw[LOCAL]);
-	db_bind_int(stmt, 8, chan->channel_info.feerate_per_kw[REMOTE]);
-	db_bind_u64(stmt, 9, chan->channel_info.their_config.id);
+	db_bind_u64(stmt, 7, chan->channel_info.their_config.id);
 	if (chan->future_per_commitment_point)
-		db_bind_pubkey(stmt, 10, chan->future_per_commitment_point);
+		db_bind_pubkey(stmt, 8, chan->future_per_commitment_point);
 	else
-		db_bind_null(stmt, 10);
-	db_bind_u64(stmt, 11, chan->dbid);
+		db_bind_null(stmt, 8);
+	db_bind_u64(stmt, 9, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
+
+	/* FIXME: Updates channel_feerates by discarding and rewriting. */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_feerates "
+					"WHERE channel_id=?"));
+	db_bind_u64(stmt, 0, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	for (enum htlc_state i = 0;
+	     i < ARRAY_SIZE(chan->channel_info.fee_states->feerate);
+	     i++) {
+		if (!chan->channel_info.fee_states->feerate[i])
+			continue;
+		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_feerates "
+						" VALUES(?, ?, ?)"));
+		db_bind_u64(stmt, 0, chan->dbid);
+		db_bind_int(stmt, 1, i);
+		db_bind_int(stmt, 2, *chan->channel_info.fee_states->feerate[i]);
+		db_exec_prepared_v2(take(stmt));
+	}
 
 	/* If we have a last_sent_commit, store it */
 	last_sent_commit = tal_arr(tmpctx, u8, 0);

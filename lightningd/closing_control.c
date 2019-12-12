@@ -2,6 +2,7 @@
 #include <bitcoin/script.h>
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
+#include <common/fee_states.h>
 #include <common/initial_commit_tx.h>
 #include <common/per_peer_state.h>
 #include <common/utils.h>
@@ -181,6 +182,7 @@ void peer_start_closingd(struct channel *channel,
 	int hsmfd;
 	struct secret last_remote_per_commit_secret;
 	struct lightningd *ld = channel->peer->ld;
+	u32 final_commit_feerate;
 
 	if (!channel->shutdown_scriptpubkey[REMOTE]) {
 		channel_internal_error(channel,
@@ -221,8 +223,9 @@ void peer_start_closingd(struct channel *channel,
 	 *    fee of the final commitment transaction, as calculated in
 	 *    [BOLT #3](03-transactions.md#fee-calculation).
 	 */
-	feelimit = commit_tx_base_fee(channel->channel_info.feerate_per_kw[LOCAL],
-				      0);
+	final_commit_feerate = get_feerate(channel->channel_info.fee_states,
+					   channel->funder, LOCAL);
+	feelimit = commit_tx_base_fee(final_commit_feerate, 0);
 
 	/* Pick some value above slow feerate (or min possible if unknown) */
 	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0);
@@ -230,7 +233,7 @@ void peer_start_closingd(struct channel *channel,
 	/* If we can't determine feerate, start at half unilateral feerate. */
 	feerate = mutual_close_feerate(ld->topology);
 	if (!feerate) {
-		feerate = channel->channel_info.feerate_per_kw[LOCAL] / 2;
+		feerate = final_commit_feerate / 2;
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
