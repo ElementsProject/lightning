@@ -16,8 +16,10 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/crypto_state.o			\
 	common/decode_array.o			\
 	common/features.o			\
+	common/fee_states.o			\
 	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
+	common/htlc_state.o			\
 	common/memleak.o			\
 	common/node_id.o			\
 	common/onion.o				\
