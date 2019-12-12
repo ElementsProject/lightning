@@ -1,3 +1,4 @@
+#include "../../common/fee_states.c"
 #include "../../common/initial_channel.c"
 #include "../../common/keyset.c"
 #include "../full_channel.c"
@@ -629,8 +630,10 @@ int main(void)
 	for (i = 0; i < ARRAY_SIZE(feerates); i++) {
 		feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = feerates[i];
 
-		lchannel->view[LOCAL].feerate_per_kw = feerate_per_kw[LOCAL];
-		rchannel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
+		*lchannel->fee_states->feerate[SENT_ADD_ACK_REVOCATION]
+			= feerate_per_kw[LOCAL];
+		*rchannel->fee_states->feerate[RCVD_ADD_ACK_REVOCATION]
+			= feerate_per_kw[REMOTE];
 
 		raw_tx = commit_tx(
 		    tmpctx, &funding_txid, funding_output_index,

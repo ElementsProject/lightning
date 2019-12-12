@@ -1499,7 +1499,7 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
     # Wait for reconnect....
-    l1.daemon.wait_for_log('Applying feerate 14000 to LOCAL')
+    l1.daemon.wait_for_log('Feerate:.*LOCAL now 14000')
 
     l1.pay(l2, 200000000)
     l2.pay(l1, 100000000)
