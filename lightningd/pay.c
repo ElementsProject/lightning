@@ -1292,26 +1292,26 @@ static struct command_result *json_sendpay(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Must specify msatoshi with partid");
 
-	/* if not: finalhop.amount <= 2 * msatoshi, fail. */
+	/* finalhop.amount > 2 * msatoshi, fail. */
 	if (msat) {
-		struct amount_msat limit = route[routetok->size-1].amount;
+		struct amount_msat limit;
 
-		if (!amount_msat_add(&limit, limit, limit))
+		if (!amount_msat_add(&limit, *msat, *msat))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Unbelievable final amount %s",
+					    "Unbelievable msatoshi %s",
 					    type_to_string(tmpctx,
 							   struct amount_msat,
-							   &route[routetok->size-1].amount));
+							   msat));
 
-		if (amount_msat_greater(*msat, limit))
+		if (amount_msat_greater(route[routetok->size-1].amount, limit))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "msatoshi %s more than twice final %s",
+					    "final %s more than twice msatoshi %s",
 					    type_to_string(tmpctx,
 							   struct amount_msat,
-							   msat),
+							   &route[routetok->size-1].amount),
 					    type_to_string(tmpctx,
 							   struct amount_msat,
-							   &route[routetok->size-1].amount));
+							   msat));
 	}
 
 	/* It's easier to leave this in the API, then ignore it here. */

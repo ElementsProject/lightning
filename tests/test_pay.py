@@ -2593,8 +2593,8 @@ def test_partial_payment(node_factory, bitcoind, executor):
     paysecret = l4.rpc.decodepay(inv['bolt11'])['payment_secret']
 
     # Separate routes for each part of the payment.
-    r134 = l1.rpc.getroute(l4.info['id'], 500, 1, exclude=[scid24 + '/0', scid24 + '/1'])['route']
-    r124 = l1.rpc.getroute(l4.info['id'], 500, 1, exclude=[scid34 + '/0', scid34 + '/1'])['route']
+    r134 = l1.rpc.getroute(l4.info['id'], 501, 1, exclude=[scid24 + '/0', scid24 + '/1'])['route']
+    r124 = l1.rpc.getroute(l4.info['id'], 499, 1, exclude=[scid34 + '/0', scid34 + '/1'])['route']
 
     # These can happen in parallel.
     l1.rpc.call('sendpay', [r134, inv['payment_hash'], None, 1000, inv['bolt11'], paysecret, 1])
@@ -2638,7 +2638,7 @@ def test_partial_payment(node_factory, bitcoind, executor):
     for i in range(2):
         line = l4.daemon.wait_for_log('print_htlc_onion.py: Got onion')
         assert "'type': 'tlv'" in line
-        assert "'forward_amount': '500msat'" in line
+        assert "'forward_amount': '499msat'" in line or "'forward_amount': '501msat'" in line
         assert "'total_msat': '1000msat'" in line
         assert "'payment_secret': '{}'".format(paysecret) in line
 
