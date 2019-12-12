@@ -53,9 +53,6 @@ struct channel {
 	/* All live HTLCs for this channel */
 	struct htlc_map *htlcs;
 
-	/* Do we have changes pending for ourselves/other? */
-	bool changes_pending[NUM_SIDES];
-
 	/* Fee changes, some which may be in transit */
 	struct fee_states *fee_states;
 
