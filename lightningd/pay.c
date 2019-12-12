@@ -627,7 +627,9 @@ static struct command_result *wait_payment(struct lightningd *ld,
 					 payment_hash, partid);
 	if (!payment) {
 		return command_fail(cmd, PAY_NO_SUCH_PAYMENT,
-				    "Never attempted payment for '%s'",
+				    "Never attempted payment part %"PRIu64
+				    " for '%s'",
+				    partid,
 				    type_to_string(tmpctx, struct sha256,
 						   payment_hash));
 	}
