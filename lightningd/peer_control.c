@@ -449,7 +449,8 @@ static void json_add_htlcs(struct lightningd *ld,
 	struct htlc_in_map_iter ini;
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
-	u32 local_feerate = channel->channel_info.feerate_per_kw[LOCAL];
+	u32 local_feerate = get_feerate(channel->channel_info.fee_states,
+					channel->funder, LOCAL);
 
 	/* FIXME: Add more fields. */
 	json_array_start(response, "htlcs");
@@ -519,7 +520,8 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
 	struct lightningd *ld = channel->peer->ld;
-	u32 local_feerate = channel->channel_info.feerate_per_kw[LOCAL];
+	u32 local_feerate = get_feerate(channel->channel_info.fee_states,
+					channel->funder, LOCAL);
 	size_t num_untrimmed_htlcs = 0;
 
 	/* Assume we tried to spend "spendable" */

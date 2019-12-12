@@ -5,6 +5,7 @@
 #include <common/addr.h>
 #include <common/channel_config.h>
 #include <common/features.h>
+#include <common/fee_states.h>
 #include <common/funding_tx.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
@@ -194,10 +195,8 @@ wallet_commit_channel(struct lightningd *ld,
 	} else
 		our_msat = push;
 
-	/* Feerates begin identical. */
-	channel_info->feerate_per_kw[LOCAL]
-		= channel_info->feerate_per_kw[REMOTE]
-		= feerate;
+	channel_info->fee_states = new_fee_states(uc, uc->fc ? LOCAL : REMOTE,
+						  &feerate);
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;

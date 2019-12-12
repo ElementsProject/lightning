@@ -1380,10 +1380,18 @@ static bool peer_save_commitsig_sent(struct channel *channel, u64 commitnum)
 	return true;
 }
 
+static void adjust_channel_feerate_bounds(struct channel *channel, u32 feerate)
+{
+	if (feerate > channel->max_possible_feerate)
+		channel->max_possible_feerate = feerate;
+	if (feerate < channel->min_possible_feerate)
+		channel->min_possible_feerate = feerate;
+}
+
 void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
-	u32 feerate;
+	struct fee_states *fee_states;
 	struct changed_htlc *changed_htlcs;
 	size_t i, maxid = 0, num_local_added = 0;
 	struct bitcoin_signature commit_sig;
@@ -1394,9 +1402,10 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 
 	if (!fromwire_channel_sending_commitsig(msg, msg,
 						&commitnum,
-						&feerate,
+						&fee_states,
 						&changed_htlcs,
-						&commit_sig, &htlc_sigs)) {
+						&commit_sig, &htlc_sigs)
+	    || !fee_states_valid(fee_states, channel->funder)) {
 		channel_internal_error(channel, "bad channel_sending_commitsig %s",
 				       tal_hex(channel, msg));
 		return;
@@ -1430,14 +1439,14 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 		channel->next_htlc_id += num_local_added;
 	}
 
-	/* Update remote feerate if we are funder. */
-	if (channel->funder == LOCAL)
-		channel->channel_info.feerate_per_kw[REMOTE] = feerate;
-
-	if (feerate > channel->max_possible_feerate)
-		channel->max_possible_feerate = feerate;
-	if (feerate < channel->min_possible_feerate)
-		channel->min_possible_feerate = feerate;
+	/* FIXME: We could detect if this changed, and adjust bounds and write
+	 * it to db iff it has. */
+	tal_free(channel->channel_info.fee_states);
+	channel->channel_info.fee_states = tal_steal(channel, fee_states);
+	adjust_channel_feerate_bounds(channel,
+				      get_feerate(fee_states,
+						  channel->funder,
+						  REMOTE));
 
 	if (!peer_save_commitsig_sent(channel, commitnum))
 		return;
@@ -1556,7 +1565,7 @@ static void retry_deferred_commitsig(struct chain_topology *topo,
 void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
-	u32 feerate;
+	struct fee_states *fee_states;
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct added_htlc *added;
@@ -1588,7 +1597,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	if (!fromwire_channel_got_commitsig(msg, msg,
 					    &commitnum,
-					    &feerate,
+					    &fee_states,
 					    &commit_sig,
 					    &htlc_sigs,
 					    &added,
@@ -1596,7 +1605,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 					    &fulfilled,
 					    &failed,
 					    &changed,
-					    &tx)) {
+					    &tx)
+	    || !fee_states_valid(fee_states, channel->funder)) {
 		channel_internal_error(channel,
 				    "bad fromwire_channel_got_commitsig %s",
 				    tal_hex(channel, msg));
@@ -1607,7 +1617,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	log_debug(channel->log,
 		  "got commitsig %"PRIu64
 		  ": feerate %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
-		  commitnum, feerate, tal_count(added), tal_count(fulfilled),
+		  commitnum, get_feerate(fee_states, channel->funder, LOCAL),
+		  tal_count(added), tal_count(fulfilled),
 		  tal_count(failed), tal_count(changed));
 
 	/* New HTLCs */
@@ -1635,17 +1646,12 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		}
 	}
 
-	/* Update both feerates if we're not funder (for funder, receiving
-	 * commitment_signed doesn't alter fees). */
-	if (channel->funder == REMOTE) {
-		channel->channel_info.feerate_per_kw[LOCAL]
-			= channel->channel_info.feerate_per_kw[REMOTE]
-			= feerate;
-	}
-	if (feerate > channel->max_possible_feerate)
-		channel->max_possible_feerate = feerate;
-	if (feerate < channel->min_possible_feerate)
-		channel->min_possible_feerate = feerate;
+	tal_free(channel->channel_info.fee_states);
+	channel->channel_info.fee_states = tal_steal(channel, fee_states);
+	adjust_channel_feerate_bounds(channel,
+				      get_feerate(fee_states,
+						  channel->funder,
+						  LOCAL));
 
 	/* Since we're about to send revoke, bump state again. */
 	if (!peer_sending_revocation(channel, added, fulfilled, failed, changed))
@@ -1684,13 +1690,14 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	enum onion_type *failcodes;
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
-	u32 feerate;
+	struct fee_states *fee_states;
 
 	if (!fromwire_channel_got_revoke(msg, msg,
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
-					 &feerate,
-					 &changed)) {
+					 &fee_states,
+					 &changed)
+	    || !fee_states_valid(fee_states, channel->funder)) {
 		channel_internal_error(channel, "bad fromwire_channel_got_revoke %s",
 				    tal_hex(channel, msg));
 		return;
@@ -1748,10 +1755,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* Update feerate if we are funder, their revoke_and_ack has set
-	 * this for local feerate. */
-	if (channel->funder == LOCAL)
-		channel->channel_info.feerate_per_kw[LOCAL] = feerate;
+	tal_free(channel->channel_info.fee_states);
+	channel->channel_info.fee_states = tal_steal(channel, fee_states);
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(channel, &next_per_commitment_point);

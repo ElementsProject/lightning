@@ -16,6 +16,7 @@
 #include <channeld/full_channel.h>
 #include <common/amount.h>
 #include <common/derive_basepoints.h>
+#include <common/fee_states.h>
 #include <common/htlc_wire.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>
@@ -251,7 +252,7 @@ int main(int argc, char *argv[])
 	struct amount_sat funding_amount;
 	struct bitcoin_txid funding_txid;
 	unsigned int funding_outnum;
-	u32 feerate_per_kw[NUM_SIDES];
+	u32 feerate_per_kw;
 	struct pubkey local_per_commit_point, remote_per_commit_point;
 	struct bitcoin_signature local_sig, remote_sig;
 	struct channel_config localconfig, remoteconfig;
@@ -318,7 +319,7 @@ int main(int argc, char *argv[])
 	if (!parse_amount_sat(&funding_amount, argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad funding-amount");
 	argnum++;
-	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = atoi(argv[argnum++]);
+	feerate_per_kw = atoi(argv[argnum++]);
 	if (!parse_amount_msat(&local_msat,
 			       argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad local-msat");
@@ -384,7 +385,8 @@ int main(int argc, char *argv[])
 				   &funding_txid, funding_outnum, 1,
 				   funding_amount,
 				   local_msat,
-				   feerate_per_kw,
+				   take(new_fee_states(NULL, fee_payer,
+						       &feerate_per_kw)),
 				   &localconfig, &remoteconfig,
 				   &localbase, &remotebase,
 				   &funding_localkey, &funding_remotekey,

@@ -722,7 +722,7 @@ static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
 
 static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 u64 remote_commit_index,
-				 u32 remote_feerate,
+				 const struct fee_states *fee_states,
 				 const struct htlc **changed_htlcs,
 				 const struct bitcoin_signature *commit_sig,
 				 const secp256k1_ecdsa_signature *htlc_sigs)
@@ -734,7 +734,7 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	 * committed to. */
 	changed = changed_htlc_arr(tmpctx, changed_htlcs);
 	msg = towire_channel_sending_commitsig(ctx, remote_commit_index,
-					       remote_feerate,
+					       fee_states,
 					       changed, commit_sig, htlc_sigs);
 	return msg;
 }
@@ -1181,7 +1181,7 @@ static void send_commit(struct peer *peer)
 	status_debug("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
 	msg = sending_commitsig_msg(NULL, peer->next_index[REMOTE],
-				    channel_feerate(peer->channel, REMOTE),
+				    peer->channel->fee_states,
 				    changed_htlcs,
 				    &commit_sig,
 				    htlc_sigs);
@@ -1364,10 +1364,12 @@ static void send_revocation(struct peer *peer,
 
 	/* Tell master daemon about commitsig (and by implication, that we're
 	 * sending revoke_and_ack), then wait for it to ack. */
+	/* We had to do this after channel_sending_revoke_and_ack, since we
+	 * want it to save the fee_states produced there. */
 	msg_for_master
 		= towire_channel_got_commitsig(NULL,
 					       peer->next_index[LOCAL] - 1,
-					       channel_feerate(peer->channel, LOCAL),
+					       peer->channel->fee_states,
 					       commit_sig, htlc_sigs,
 					       added,
 					       shared_secret,
@@ -1517,7 +1519,7 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 			  const struct secret *per_commitment_secret,
 			  const struct pubkey *next_per_commit_point,
 			  const struct htlc **changed_htlcs,
-			  u32 feerate)
+			  const struct fee_states *fee_states)
 {
 	u8 *msg;
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
@@ -1536,7 +1538,7 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 	}
 
 	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,
-					next_per_commit_point, feerate, changed);
+					next_per_commit_point, fee_states, changed);
 	return msg;
 }
 
@@ -1596,7 +1598,7 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	msg = got_revoke_msg(NULL, peer->revocations_received++,
 			     &old_commit_secret, &next_per_commit,
 			     changed_htlcs,
-			     channel_feerate(peer->channel, LOCAL));
+			     peer->channel->fee_states);
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNEL_GOT_REVOKE_REPLY);
 
@@ -2946,7 +2948,7 @@ static void init_channel(struct peer *peer)
 	bool reconnected;
 	u8 *funding_signed;
 	const u8 *msg;
-	u32 feerate_per_kw[NUM_SIDES];
+	struct fee_states *fee_states;
 	u32 minimum_depth, failheight;
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
@@ -2964,7 +2966,7 @@ static void init_channel(struct peer *peer)
 				   &funding,
 				   &minimum_depth,
 				   &conf[LOCAL], &conf[REMOTE],
-				   feerate_per_kw,
+				   &fee_states,
 				   &peer->feerate_min, &peer->feerate_max,
 				   &peer->their_commit_sig,
 				   &peer->pps,
@@ -3021,7 +3023,7 @@ static void init_channel(struct peer *peer)
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64
 		     " revocations_received = %"PRIu64
-		     " feerates %u/%u (range %u-%u)",
+		     " feerates %s range %u-%u",
 		     side_to_str(funder),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit),
@@ -3029,7 +3031,7 @@ static void init_channel(struct peer *peer)
 				    &peer->old_remote_per_commit),
 		     peer->next_index[LOCAL], peer->next_index[REMOTE],
 		     peer->revocations_received,
-		     feerate_per_kw[LOCAL], feerate_per_kw[REMOTE],
+		     type_to_string(tmpctx, struct fee_states, fee_states),
 		     peer->feerate_min, peer->feerate_max);
 
 	status_debug("option_static_remotekey = %u", option_static_remotekey);
@@ -3063,7 +3065,7 @@ static void init_channel(struct peer *peer)
 					 minimum_depth,
 					 funding,
 					 local_msat,
-					 feerate_per_kw,
+					 take(fee_states),
 					 &conf[LOCAL], &conf[REMOTE],
 					 &points[LOCAL], &points[REMOTE],
 					 &funding_pubkey[LOCAL],
@@ -3098,7 +3100,7 @@ static void init_channel(struct peer *peer)
 
 	/* Default desired feerate is the feerate we set for them last. */
 	if (peer->channel->funder == LOCAL)
-		peer->desired_feerate = feerate_per_kw[REMOTE];
+		peer->desired_feerate = channel_feerate(peer->channel, REMOTE);
 
 	/* from now we need keep watch over WIRE_CHANNEL_FUNDING_DEPTH */
 	peer->depth_togo = minimum_depth;
