@@ -698,14 +698,10 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 		return;
 	}
 
-	const char *error_reason = "Cancel channel by our RPC "
-				   "command before funding "
-				   "transaction broadcast.";
-	/* Set error so we don't try to reconnect. */
-	cancel->error = towire_errorfmt(cancel, NULL, "%s", error_reason);
-
-	subd_send_msg(cancel->owner,
-		      take(towire_channel_send_error(NULL, error_reason)));
+	char *error_reason = "Cancel channel by our RPC "
+			     "command before funding "
+			     "transaction broadcast.";
+	forget_channel(cancel, error_reason);
 }
 
 struct command_result *cancel_channel_before_broadcast(struct command *cmd,
