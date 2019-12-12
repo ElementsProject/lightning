@@ -1260,44 +1260,20 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
 				     point);
 }
 
-static void send_revocation(struct peer *peer)
+/* Convert changed htlcs into parts which lightningd expects. */
+static void marshall_htlc_info(const tal_t *ctx,
+			       const struct htlc **changed_htlcs,
+			       struct changed_htlc **changed,
+			       struct fulfilled_htlc **fulfilled,
+			       const struct failed_htlc ***failed,
+			       struct added_htlc **added,
+			       struct secret **shared_secret)
 {
-	/* Revoke previous commit, get new point. */
-	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-1,
-				      &peer->next_local_per_commit);
-
-	/* From now on we apply changes to the next commitment */
-	peer->next_index[LOCAL]++;
-
-	/* If this queues more changes on the other end, send commit. */
-	if (channel_sending_revoke_and_ack(peer->channel)) {
-		status_debug("revoke_and_ack made pending: commit timer");
-		start_commit_timer(peer);
-	}
-
-	sync_crypto_write_no_delay(peer->pps, take(msg));
-}
-
-static u8 *got_commitsig_msg(const tal_t *ctx,
-			     u64 local_commit_index,
-			     u32 local_feerate,
-			     const struct bitcoin_signature *commit_sig,
-			     const secp256k1_ecdsa_signature *htlc_sigs,
-			     const struct htlc **changed_htlcs,
-			     const struct bitcoin_tx *committx)
-{
-	struct changed_htlc *changed;
-	struct fulfilled_htlc *fulfilled;
-	const struct failed_htlc **failed;
-	struct added_htlc *added;
-	struct secret *shared_secret;
-	u8 *msg;
-
-	changed = tal_arr(tmpctx, struct changed_htlc, 0);
-	added = tal_arr(tmpctx, struct added_htlc, 0);
-	shared_secret = tal_arr(tmpctx, struct secret, 0);
-	failed = tal_arr(tmpctx, const struct failed_htlc *, 0);
-	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 0);
+	*changed = tal_arr(ctx, struct changed_htlc, 0);
+	*added = tal_arr(ctx, struct added_htlc, 0);
+	*shared_secret = tal_arr(ctx, struct secret, 0);
+	*failed = tal_arr(ctx, const struct failed_htlc *, 0);
+	*fulfilled = tal_arr(ctx, struct fulfilled_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
 		const struct htlc *htlc = changed_htlcs[i];
@@ -1318,25 +1294,25 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				memset(&s, 0, sizeof(s));
 			else
 				s = *htlc->shared_secret;
-			tal_arr_expand(&added, a);
-			tal_arr_expand(&shared_secret, s);
+			tal_arr_expand(added, a);
+			tal_arr_expand(shared_secret, s);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
 				struct fulfilled_htlc f;
 				assert(!htlc->fail && !htlc->failcode);
 				f.id = htlc->id;
 				f.payment_preimage = *htlc->r;
-				tal_arr_expand(&fulfilled, f);
+				tal_arr_expand(fulfilled, f);
 			} else {
 				struct failed_htlc *f;
 				assert(htlc->fail || htlc->failcode);
-				f = tal(failed, struct failed_htlc);
+				f = tal(*failed, struct failed_htlc);
 				f->id = htlc->id;
 				f->failcode = htlc->failcode;
 				f->failreason = cast_const(u8 *, htlc->fail);
 				f->scid = cast_const(struct short_channel_id *,
 							htlc->failed_scid);
-				tal_arr_expand(&failed, f);
+				tal_arr_expand(failed, f);
 			}
 		} else {
 			struct changed_htlc c;
@@ -1345,21 +1321,65 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 
 			c.id = htlc->id;
 			c.newstate = htlc->state;
-			tal_arr_expand(&changed, c);
+			tal_arr_expand(changed, c);
 		}
 	}
+}
 
-	msg = towire_channel_got_commitsig(ctx, local_commit_index,
-					   local_feerate,
-					   commit_sig,
-					   htlc_sigs,
-					   added,
-					   shared_secret,
-					   fulfilled,
-					   failed,
-					   changed,
-					   committx);
-	return msg;
+static void send_revocation(struct peer *peer,
+			    const struct bitcoin_signature *commit_sig,
+			    const secp256k1_ecdsa_signature *htlc_sigs,
+			    const struct htlc **changed_htlcs,
+			    const struct bitcoin_tx *committx)
+{
+	struct changed_htlc *changed;
+	struct fulfilled_htlc *fulfilled;
+	const struct failed_htlc **failed;
+	struct added_htlc *added;
+	struct secret *shared_secret;
+	const u8 *msg_for_master;
+
+	/* Marshall it now before channel_sending_revoke_and_ack changes htlcs */
+	/* FIXME: Make infrastructure handle state post-revoke_and_ack! */
+	marshall_htlc_info(tmpctx,
+			   changed_htlcs,
+			   &changed,
+			   &fulfilled,
+			   &failed,
+			   &added,
+			   &shared_secret);
+
+	/* Revoke previous commit, get new point. */
+	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-1,
+				      &peer->next_local_per_commit);
+
+	/* From now on we apply changes to the next commitment */
+	peer->next_index[LOCAL]++;
+
+	/* If this queues more changes on the other end, send commit. */
+	if (channel_sending_revoke_and_ack(peer->channel)) {
+		status_debug("revoke_and_ack made pending: commit timer");
+		start_commit_timer(peer);
+	}
+
+	/* Tell master daemon about commitsig (and by implication, that we're
+	 * sending revoke_and_ack), then wait for it to ack. */
+	msg_for_master
+		= towire_channel_got_commitsig(NULL,
+					       peer->next_index[LOCAL] - 1,
+					       channel_feerate(peer->channel, LOCAL),
+					       commit_sig, htlc_sigs,
+					       added,
+					       shared_secret,
+					       fulfilled,
+					       failed,
+					       changed,
+					       committx);
+	master_wait_sync_reply(tmpctx, peer, take(msg_for_master),
+			       WIRE_CHANNEL_GOT_COMMITSIG_REPLY);
+
+	/* Now we can finally send revoke_and_ack to peer */
+	sync_crypto_write_no_delay(peer->pps, take(msg));
 }
 
 static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
@@ -1489,14 +1509,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	status_debug("Received commit_sig with %zu htlc sigs",
 		     tal_count(htlc_sigs));
 
-	/* Tell master daemon, then wait for ack. */
-	msg = got_commitsig_msg(NULL, peer->next_index[LOCAL],
-				channel_feerate(peer->channel, LOCAL),
-				&commit_sig, htlc_sigs, changed_htlcs, txs[0]);
-
-	master_wait_sync_reply(tmpctx, peer, take(msg),
-			       WIRE_CHANNEL_GOT_COMMITSIG_REPLY);
-	return send_revocation(peer);
+	return send_revocation(peer,
+			       &commit_sig, htlc_sigs, changed_htlcs, txs[0]);
 }
 
 static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
