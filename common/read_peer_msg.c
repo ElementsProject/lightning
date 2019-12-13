@@ -148,6 +148,7 @@ bool handle_timestamp_filter(struct per_peer_state *pps, const u8 *msg TAKES)
 
 bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const struct channel_id *channel_id,
+				 bool soft_error,
 				 const u8 *msg TAKES)
 {
 	char *err;
@@ -176,7 +177,8 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 		if (err)
 			peer_failed_received_errmsg(pps, err,
 						    all_channels
-						    ? NULL : channel_id);
+						    ? NULL : channel_id,
+						    soft_error);
 
 		/* Ignore unknown channel errors. */
 		goto handled;

@@ -1824,7 +1824,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	if (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg))
+	/* Since LND seems to send errors which aren't actually fatal events,
+	 * we treat errors here as soft. */
+	if (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, true, msg))
 		return;
 
 	/* Must get funding_locked before almost anything. */
@@ -2322,7 +2324,8 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = sync_crypto_read(tmpctx, peer->pps);
-	} while (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg)
+	} while (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, true,
+					     msg)
 		 || capture_premature_msg(&premature_msgs, msg));
 
 	if (peer->channel->option_static_remotekey) {
