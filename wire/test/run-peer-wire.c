@@ -833,11 +833,31 @@ static bool error_eq(const struct msg_error *a,
 static bool init_eq(const struct msg_init *a,
 		    const struct msg_init *b)
 {
+	if (!eq_var(a, b, globalfeatures) || !eq_var(a, b, localfeatures))
+		return false;
+
+	/* Both or neither */
+	if (!a->tlvs != !b->tlvs)
+		return false;
+
+	if (!a->tlvs)
+		return true;
+
+	/* Both or neither */
+	if (!a->tlvs->networks != !b->tlvs->networks)
+		return false;
+
+	if (!a->tlvs->networks)
+		return true;
+
+	if (tal_count(a->tlvs->networks->chains)
+	    != tal_count(b->tlvs->networks->chains))
+		return false;
 	for (size_t i = 0; i < tal_count(a->tlvs->networks->chains); i++)
-		assert(bitcoin_blkid_eq(&a->tlvs->networks->chains[i],
-		                        &b->tlvs->networks->chains[i]));
-	return eq_var(a, b, globalfeatures)
-		&& eq_var(a, b, localfeatures);
+		if (!bitcoin_blkid_eq(&a->tlvs->networks->chains[i],
+				      &b->tlvs->networks->chains[i]))
+			return false;
+	return true;
 }
 
 static bool update_fee_eq(const struct msg_update_fee *a,
@@ -911,18 +931,28 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 }
 
 /* Try flipping each bit, try running short. */
-#define test_corruption(a, b, type)				\
+#define test_bitflip_and_short(a, b, type, short_decodefail)	\
 	for (i = 0; i < tal_count(msg) * 8; i++) {		\
 		msg[i / 8] ^= (1 << (i%8));			\
-		b = fromwire_struct_##type(ctx, msg);	\
+		b = fromwire_struct_##type(ctx, msg);		\
 		assert(!b || !type##_eq(a, b));			\
 		msg[i / 8] ^= (1 << (i%8));			\
 	}							\
 	for (i = 0; i < tal_count(msg); i++) {			\
 		u8 *trunc = tal_dup_arr(ctx, u8, msg, i, 0);	\
 		b = fromwire_struct_##type(ctx, trunc);		\
-		assert(!b);					\
+		if (short_decodefail)				\
+			assert(!b);				\
+		else						\
+			assert(!b || !type##_eq(a, b));		\
 	}
+
+#define test_corruption(a, b, type) \
+	test_bitflip_and_short(a, b, type, true)
+
+/* If it has a tlv at the end, truncated may still parse! */
+#define test_corruption_tlv(a, b, type) \
+	test_bitflip_and_short(a, b, type, false)
 
 int main(void)
 {
@@ -1046,6 +1076,7 @@ int main(void)
 		msg = towire_struct_init(ctx, &init);
 		init2 = fromwire_struct_init(ctx, msg);
 		assert(init_eq(&init, init2));
+		test_corruption_tlv(&init, init2, init);
 	}
 
 	memset(&uf, 2, sizeof(uf));
