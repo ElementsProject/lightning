@@ -103,7 +103,7 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 			handle_gossip_msg(pps, take(msg));
 			continue;
 		}
-		if (!handle_peer_gossip_or_error(pps, channel_id, msg))
+		if (!handle_peer_gossip_or_error(pps, channel_id, false, msg))
 			return msg;
 	}
 }

@@ -943,6 +943,7 @@ def test_funding_by_utxos(node_factory, bitcoind):
         l1.rpc.fundchannel(l3.info["id"], int(0.01 * 10**8), utxos=utxos)
 
 
+@unittest.skipIf(not DEVELOPER, "needs dev_forget_channel")
 def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
@@ -999,6 +1000,9 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
     # Canceld channel after fundchannel_complete
     assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
+
+    # l2 won't give up, since it considers error "soft".
+    l2.rpc.dev_forget_channel(l1.info['id'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
@@ -1431,7 +1435,7 @@ def test_update_fee(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_fee_limits(node_factory):
+def test_fee_limits(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5, 'may_reconnect': True}, fundchannel=True)
 
     # L1 asks for stupid low fee (will actually hit the floor of 253)
@@ -1439,11 +1443,13 @@ def test_fee_limits(node_factory):
     l1.set_feerates((15, 15, 15), False)
     l1.start()
 
-    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: channeld: received ERROR channel .*: update_fee 253 outside range 1875-75000')
+    l1.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL: channeld: .*: update_fee 253 outside range 1875-75000')
     # Make sure the resolution of this one doesn't interfere with the next!
     # Note: may succeed, may fail with insufficient fee, depending on how
     # bitcoind feels!
-    l1.daemon.wait_for_log('sendrawtx exit')
+    l2.daemon.wait_for_log('sendrawtx exit')
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2])
 
     # Trying to open a channel with too low a fee-rate is denied
     l4 = node_factory.get_node()

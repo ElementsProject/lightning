@@ -248,16 +248,20 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.set_feerates((10**6, 1000**6, 1000**6), False)
 
     # Wait for l1 notice
-    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: channeld: received ERROR channel .*: update_fee \d+ outside range 1875-75000')
+    l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL: channeld: .*: update_fee \d+ outside range 1875-75000')
+
+    # l2 fails hard.
+    l2.daemon.wait_for_log('sendrawtx exit')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
 
     # Should fail due to permenant channel fail
-    with pytest.raises(RpcError, match=r'failed: WIRE_UNKNOWN_NEXT_PEER \(First peer not ready\)'):
+    with pytest.raises(RpcError, match=r'WIRE_UNKNOWN_NEXT_PEER'):
         l1.rpc.sendpay(route, rhash)
 
     assert not l1.daemon.is_in_log('Payment is still in progress')
 
     # After it sees block, someone should close channel.
-    bitcoind.generate_block(1)
     l1.daemon.wait_for_log('ONCHAIN')
 
 
