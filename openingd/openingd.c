@@ -432,7 +432,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 					wire_sync_write(REQ_FD, take(msg));
 				}
 				peer_failed_received_errmsg(state->pps, err,
-							    NULL);
+							    NULL, false);
 			}
 			negotiation_aborted(state, am_funder,
 					    tal_fmt(tmpctx, "They sent error %s",
@@ -1283,7 +1283,7 @@ static u8 *handle_peer_in(struct state *state)
 
 	/* Handles standard cases, and legal unknown ones. */
 	if (handle_peer_gossip_or_error(state->pps,
-					&state->channel_id, msg))
+					&state->channel_id, false, msg))
 		return NULL;
 
 	sync_crypto_write(state->pps,

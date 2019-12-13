@@ -22,7 +22,9 @@ void peer_failed(struct per_peer_state *pps,
  * channel_id means all channels. */
 void peer_failed_received_errmsg(struct per_peer_state *pps,
 				 const char *desc,
-				 const struct channel_id *channel_id) NORETURN;
+				 const struct channel_id *channel_id,
+				 bool soft_error)
+	NORETURN;
 
 /* I/O error */
 void peer_failed_connection_lost(void) NORETURN;

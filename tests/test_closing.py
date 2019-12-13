@@ -1608,7 +1608,7 @@ def test_shutdown(node_factory):
 
 @flaky
 @unittest.skipIf(not DEVELOPER, "needs to set upfront_shutdown_script")
-def test_option_upfront_shutdown_script(node_factory, bitcoind):
+def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     l1 = node_factory.get_node(start=False)
     # Insist on upfront script we're not going to match.
     l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac"
@@ -1618,14 +1618,16 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 1000000, False)
 
-    l1.rpc.close(l2.info['id'])
+    # This will block, as l12 will send an erorr but l2 will retry.
+    fut = executor.submit(l1.rpc.close, l2.info['id'])
 
     # l2 will close unilaterally when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'received ERROR.*scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
+    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
 
     # Clear channel.
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
     bitcoind.generate_block(1)
+    fut.result(TIMEOUT)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
     wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
 
@@ -1636,7 +1638,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind):
     l2.rpc.close(l1.info['id'])
 
     # l2 will close unilaterally when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'received ERROR.*scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
+    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
 
     # Clear channel.
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
