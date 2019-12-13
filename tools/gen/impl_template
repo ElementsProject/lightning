@@ -60,25 +60,32 @@ towire_${f.type_obj.name}(${ptr}, ${'' if f.type_obj.is_assignable() else '&'}${
     if f.type_obj.is_varsize():
 	typename += ' *'
 %>\
-% if f.is_varlen():
-${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, ${f.size('*plen')}) : NULL;
-% endif
 % if f.is_array() or f.is_varlen():
     % if f.type_obj.has_array_helper():
+    ## We assume array helpers only deal with things literally transcribed!!
+	% if f.is_varlen():
+${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, ${f.size('*plen')}) : NULL;
+	% endif
 fromwire_${type_}_array(cursor, plen, ${fieldname}, ${f.size('*plen')});
     % else:
-        % if f.is_implicit_len():
-	for (size_t i = 0; *plen != 0; i++)
-	% else:
-	for (size_t i = 0; i < ${f.size()}; i++)
-        % endif
-	% if f.type_obj.is_assignable():
-		(${fieldname})[i] = fromwire_${type_}(cursor, plen);
-	% elif f.is_varlen() and f.type_obj.is_varsize():
-		(${fieldname})[i] = fromwire_${type_}(${ctx}, cursor, plen);
-	% else:
-		fromwire_${type_}(cursor, plen, ${fieldname} + i);
+	% if f.is_varlen():
+${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, 0) : NULL;
 	% endif
+        % if f.is_implicit_len():
+	for (size_t i = 0; *plen != 0; i++) {
+	% else:
+	for (size_t i = 0; i < ${f.size()}; i++) {
+        % endif
+		${typename} tmp;
+	% if f.type_obj.is_assignable():
+		tmp = fromwire_${type_}(cursor, plen);
+	% elif f.is_varlen() and f.type_obj.is_varsize():
+		tmp = fromwire_${type_}(${ctx}, cursor, plen);
+	% else:
+		fromwire_${type_}(cursor, plen, &tmp);
+	% endif
+		tal_arr_expand(&${fieldname}, tmp);
+	}
     % endif
 % else:
     % if f.type_obj.is_assignable():
