@@ -591,6 +591,13 @@ is_fundee_should_forget(struct lightningd *ld,
 	if (channel->scid)
 		return false;
 
+	/* Does not apply if we contributed funds.
+	 * These will get cleaned up when the
+	 * utxo we used to fund them gets spent elsewhere
+	 */
+	if (!amount_sat_eq(channel->our_funds, AMOUNT_SAT(0)))
+		return false;
+
 	/* Not even reached previous starting blocknum.
 	 * (e.g. if --rescan option is used) */
 	if (block_height < channel->first_blocknum)
