@@ -101,11 +101,6 @@ void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UN
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }
-/* Generated stub for del_txwatch */
-struct channel *del_txwatch(struct chain_topology *topo UNNEEDED,
-			    const struct bitcoin_txid *txid UNNEEDED,
-			    u64 channel_dbid UNNEEDED)
-{ fprintf(stderr, "del_txwatch called!\n"); abort(); }
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
@@ -114,9 +109,6 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
-/* Generated stub for forget_channel */
-void forget_channel(struct channel *channel UNNEEDED, const char *err_msg UNNEEDED)
-{ fprintf(stderr, "forget_channel called!\n"); abort(); }
 /* Generated stub for fromwire_channel_dev_memleak_reply */
 bool fromwire_channel_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channel_dev_memleak_reply called!\n"); abort(); }
@@ -764,6 +756,32 @@ u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 void plugin_hook_db_sync(struct db *db UNNEEDED)
 {
 }
+
+/* Let's keep track txids of txwatches that are deleted */
+struct bitcoin_txid **deleted_txid_watches;
+u64 *forgotten_channel_ids;
+
+/* Fake stubs for watch tracking */
+struct channel *del_txwatch(struct chain_topology *topo UNNEEDED,
+			    const struct bitcoin_txid *txid UNNEEDED,
+			    u64 chan_dbid UNNEEDED)
+{
+	struct channel *channel = tal(tmpctx, struct channel);
+
+	/* Add deleted txid watch to the set, for verification later */
+	tal_arr_expand(&deleted_txid_watches,
+		       tal_dup(NULL, struct bitcoin_txid, txid));
+
+	/* Pass back a 'fake' channel, with correct dbid */
+	channel->dbid = chan_dbid;
+	/* We also need a null chan->error (same as
+	 * normal channel creation) */
+	channel->error = NULL;
+	return channel;
+}
+void forget_channel(struct channel *channel UNNEEDED, const char *why UNNEEDED) {
+	tal_arr_expand(&forgotten_channel_ids, channel->dbid);
+}
 bool fromwire_hsm_get_channel_basepoints_reply(const void *p UNNEEDED,
 					       struct basepoints *basepoints,
 					       struct pubkey *funding_pubkey)
@@ -1037,6 +1055,152 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 
 	db_commit_transaction(w->db);
 	return true;
+}
+
+static bool test_input_tx_assoc(struct lightningd *ld, const tal_t *ctx)
+{
+	struct wallet *w = create_test_wallet(ld, ctx);
+	struct utxo u1, u2, u3, u4;
+	struct bitcoin_txid txidA, txidB, txidC, txidD, txidE, txid, utxid;
+	struct pubkey pk;
+	struct node_id id;
+	u64 channel_dbid, peer_dbid;
+	u32 outpoint;
+	struct channel *channel;
+	struct db_stmt *stmt;
+	size_t count;
+
+	/* Initialize the set of deleted tx watches */
+	deleted_txid_watches = tal_arr(ctx, struct bitcoin_txid *, 0);
+	/* Initialize set of forgotten channels */
+	forgotten_channel_ids = tal_arr(ctx, u64, 0);
+
+
+	CHECK(w);
+	channel = tal(ctx, struct channel);
+
+	/* Set up utxos */
+	memset(&u1, 1, sizeof(u1));
+	u1.amount = AMOUNT_SAT(1);
+	u1.outnum = 1;
+	memset(&u2, 2, sizeof(u2));
+	u2.amount = AMOUNT_SAT(2);
+	u2.outnum = 2;
+	memset(&u3, 3, sizeof(u3));
+	u3.amount = AMOUNT_SAT(3);
+	u3.outnum = 3;
+	memset(&u4, 4, sizeof(u4));
+	u4.amount = AMOUNT_SAT(4);
+	u4.outnum = 4;
+
+	/* Set up bitcoin txids */
+	memset(&txidA, 0, sizeof(txidA));
+	memset(&txidB, 1, sizeof(txidB));
+	memset(&txidC, 2, sizeof(txidC));
+	memset(&txidD, 3, sizeof(txidD));
+	memset(&txidE, 4, sizeof(txidE));
+
+	db_begin_transaction(w->db);
+
+	/* Insert channel + peers into the database */
+	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
+	node_id_from_pubkey(&id, &pk);
+
+	stmt = db_prepare_v2(w->db, SQL("INSERT INTO peers (node_id) VALUES (?);"));
+	db_bind_node_id(stmt, 0, &id);
+	db_exec_prepared_v2(stmt);
+	peer_dbid = db_last_insert_id_v2(take(stmt));
+
+	for (size_t i = 0; i < 4; i++) {
+		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channels "
+						"(peer_id, id) VALUES (?, ?);"));
+		db_bind_u64(stmt, 0, peer_dbid);
+		db_bind_int(stmt, 1, i);
+		db_exec_prepared_v2(take(stmt));
+	}
+
+	/* utxo set (1,2) for channel 0 open AB, txid_A */
+	channel->dbid = 0;
+	CHECK(wallet_add_input_tx_tracking(w, &u1, channel, &txidA));
+	CHECK(wallet_add_input_tx_tracking(w, &u2, channel, &txidA));
+
+	/* utxo set (1,2) for channel 1 open AC, &txid_A (same &txid, diff channel) */
+	channel->dbid = 1;
+	CHECK(wallet_add_input_tx_tracking(w, &u1, channel, &txidA));
+	CHECK(wallet_add_input_tx_tracking(w, &u2, channel, &txidA));
+
+	/* utxo set (1,3) for channel 2 open AD, &txid_B (diff &txid, diff channel) */
+	channel->dbid = 2;
+	CHECK(wallet_add_input_tx_tracking(w, &u1, channel, &txidB));
+	CHECK(wallet_add_input_tx_tracking(w, &u3, channel, &txidB));
+
+	/* utxo set (1,4) for channel 0 open AB, &txid_C (diff &txid, same channel) */
+	channel->dbid = 0;
+	CHECK(wallet_add_input_tx_tracking(w, &u1, channel, &txidC));
+	CHECK(wallet_add_input_tx_tracking(w, &u4, channel, &txidC));
+
+	/* utxo set (2,3) for channel 2 open AD, &txid_D (diff &txid, diff channel
+	 * , diff input overlap) */
+	channel->dbid = 2;
+	CHECK(wallet_add_input_tx_tracking(w, &u2, channel, &txidD));
+	CHECK(wallet_add_input_tx_tracking(w, &u3, channel, &txidD));
+
+	/* utxo set (3,4) for channel 3 open AE, &txid_E (no correlation, untouched) */
+	channel->dbid = 3;
+	CHECK(wallet_add_input_tx_tracking(w, &u3, channel, &txidE));
+	CHECK(wallet_add_input_tx_tracking(w, &u4, channel, &txidE));
+
+	CHECK_MSG(wallet_find_check_input_tx(w, ld->topology, &txidA),
+		  "Error clearing out related inputs");
+	CHECK_MSG(!wallet_err, wallet_err);
+
+	/* check that txid_E, (3,4) are the only things still in table */
+	stmt = db_prepare_v2(w->db, SQL("SELECT prev_out_tx, prev_out_index, txid, channel_id"
+					" FROM output_tracking"));
+	db_query_prepared(stmt);
+
+	CHECK(!stmt->error);
+	count = 0;
+	while (db_step(stmt)) {
+		db_column_txid(stmt, 0, &utxid);
+		outpoint = db_column_int(stmt, 1);
+		db_column_txid(stmt, 2, &txid);
+		channel_dbid = db_column_int(stmt, 3);
+
+		CHECK_MSG(bitcoin_txid_eq(&txid, &txidE),
+			  tal_fmt(ctx, "expected txidE, got %s channel id %"PRIu64" utxo %s",
+				  type_to_string(ctx, struct bitcoin_txid, &txid),
+				  channel_dbid,
+				  type_to_string(ctx, struct bitcoin_txid, &utxid)));
+		CHECK_MSG(channel_dbid == 3,
+			  tal_fmt(ctx, "channel_dbid is %"PRIu64", expecting 3", channel_dbid));
+		if (bitcoin_txid_eq(&utxid, &u3.txid)) {
+			CHECK(outpoint == 3);
+		} else if (bitcoin_txid_eq(&utxid, &u4.txid)) {
+			CHECK(outpoint == 4);
+		} else {
+			CHECK_MSG(false, "utxo incorrect");
+		}
+		count++;
+	}
+
+	/* Check that watches for txids are deleted. Checks order as well */
+	CHECK_MSG(tal_count(deleted_txid_watches) == 3, "Expected three deleted txid watches");
+	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[0], &txidB), "looking for txidB");
+	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[1], &txidC), "looking for txidC");
+	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[2], &txidD), "looking for txidD");
+
+	/* Because of how the mocks for this work, we'll get channel id '2' back twice */
+	CHECK_MSG(tal_count(forgotten_channel_ids) == 2,
+		  tal_fmt(ctx, "expected 2 forgotten channel calls got %zu",
+			  tal_count(forgotten_channel_ids)));
+	CHECK(forgotten_channel_ids[0] == 2);
+	CHECK(forgotten_channel_ids[1] == 2);
+
+	tal_free(stmt);
+
+	db_commit_transaction(w->db);
+	return count > 0;
 }
 
 static bool test_shachain_crud(struct lightningd *ld, const tal_t *ctx)
@@ -1539,6 +1703,7 @@ int main(void)
 	htlc_out_map_init(&ld->htlcs_out);
 
 	ok &= test_wallet_outputs(ld, tmpctx);
+	ok &= test_input_tx_assoc(ld, tmpctx);
 	ok &= test_shachain_crud(ld, tmpctx);
 	ok &= test_channel_crud(ld, tmpctx);
 	ok &= test_channel_config_crud(ld, tmpctx);
