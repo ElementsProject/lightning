@@ -41,6 +41,32 @@ struct connecting_socks {
 	struct connecting *connect;
 };
 
+static const char* socks5strerror(const tal_t *ctx, u8 code)
+{
+	// Error codes defined in https://tools.ietf.org/html/rfc1928#section-6
+	switch (code) {
+	case 0:
+		return tal_strdup(ctx, "success");
+	case 1:
+		return tal_strdup(ctx, "general SOCKS server failure");
+	case 2:
+		return tal_strdup(ctx, "connection not allowed by ruleset");
+	case 3:
+		return tal_strdup(ctx, "network unreachable");
+	case 4:
+		return tal_strdup(ctx, "host unreachable");
+	case 5:
+		return tal_strdup(ctx, "connection refused");
+	case 6:
+		return tal_strdup(ctx, "TTL expired");
+	case 7:
+		return tal_strdup(ctx, "command not supported");
+	case 8:
+		return tal_strdup(ctx, "address type not supported");
+	}
+	return tal_fmt(ctx, "unknown error: %d", code);
+}
+
 static struct io_plan *connect_finish2(struct io_conn *conn,
 				       struct connecting_socks *connect)
 {
@@ -57,6 +83,9 @@ static struct io_plan *connect_finish(struct io_conn *conn,
 	status_io(LOG_IO_IN, NULL, "proxy",
 		  connect->buffer, SIZE_OF_IPV4_RESPONSE + SIZE_OF_RESPONSE);
 
+	/* buffer[1] contains the reply status code and 0 means "success",
+	 * see https://tools.ietf.org/html/rfc1928#section-6
+	 */
 	if ( connect->buffer[1] == '\0') {
 		if ( connect->buffer[3] == SOCKS_TYP_IPV6) {
 			/* Read rest of response */
@@ -73,13 +102,15 @@ static struct io_plan *connect_finish(struct io_conn *conn,
 			return connection_out(conn, connect->connect);
 		} else {
 			status_debug
-			    ("Tor connect out for host %s error invalid type return ",
-			     connect->host);
+			    ("Tor connect out for host %s error invalid "
+			     "type return: %0x", connect->host,
+			     connect->buffer[3]);
 			return io_close(conn);
 		}
 	} else {
-		status_debug("Tor connect out for host %s error: %x ",
-			     connect->host, connect->buffer[1]);
+		status_debug("Error connecting to %s: Tor server reply: %s",
+			     connect->host,
+			     socks5strerror(tmpctx, connect->buffer[1]));
 		return io_close(conn);
 	}
 }
@@ -103,7 +134,10 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 	status_io(LOG_IO_IN, NULL, "proxy", connect->buffer, 2);
 
 	if (connect->buffer[1] == SOCKS_ERROR) {
-		status_debug("Connected out for %s error", connect->host);
+		// The Tor socks5 server did not like any of our authentication
+		// methods and we provided only "no auth".
+		status_debug("Connected out for %s error: authentication required",
+			     connect->host);
 		return io_close(conn);
 	}
 	/* make the V5 request */
