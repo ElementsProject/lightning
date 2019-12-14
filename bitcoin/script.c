@@ -369,6 +369,38 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
+bool is_p2sh_p2wpkh_redeemscript(const u8 *script)
+{
+	size_t script_len = tal_count(script);
+
+	/* Prefaced by the length */
+	if (script_len != BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN + 1)
+		return false;
+	if (script[0] != OP_PUSHBYTES(22))
+		return false;
+	if (script[1] != OP_0)
+		return false;
+	if (script[2] != OP_PUSHBYTES(20))
+		return false;
+	return true;
+}
+
+bool is_p2sh_p2wsh_redeemscript(const u8 *script)
+{
+	size_t script_len = tal_count(script);
+
+	/* Is prefaced by the length */
+	if (script_len != BITCOIN_SCRIPTPUBKEY_P2WSH_LEN + 1)
+		return false;
+	if (script[0] != OP_PUSHBYTES(34))
+		return false;
+	if (script[1] != OP_0)
+		return false;
+	if (script[2] != OP_PUSHBYTES(32))
+		return false;
+	return true;
+}
+
 bool is_p2pkh(const u8 *script, struct bitcoin_address *addr)
 {
 	size_t script_len = tal_count(script);

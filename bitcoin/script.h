@@ -123,6 +123,12 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 			    const struct pubkey *revocation_pubkey,
 			    const struct pubkey *local_delayedkey);
 
+/* Is this a P2SH-P2WPKH redeemscript? */
+bool is_p2sh_p2wpkh_redeemscript(const u8 *script);
+
+/* Is this a P2SH-P2WSH redeemscript? */
+bool is_p2sh_p2wsh_redeemscript(const u8 *script);
+
 /* Is this a pay to pubkey hash? (extract addr if not NULL) */
 bool is_p2pkh(const u8 *script, struct bitcoin_address *addr);
 

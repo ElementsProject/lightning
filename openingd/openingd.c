@@ -962,8 +962,8 @@ static bool check_remote_inputs(struct state *state,
 		 * - MUST ensure each `input_info` refers to a non-malleable (segwit) UTXO.  */
 		/* P2SH wrapped inputs send the redeemscript, which we can check */
 		if (remote_inputs[i]->script) {
-			if (!is_p2wpkh(remote_inputs[i]->script, NULL)
-					&& !is_p2wsh(remote_inputs[i]->script, NULL))
+			if (!is_p2sh_p2wpkh_redeemscript(remote_inputs[i]->script)
+					&& !is_p2sh_p2wsh_redeemscript(remote_inputs[i]->script))
 				return false;
 		} else if (!is_p2wpkh(remote_inputs[i]->prevtx_scriptpubkey, NULL)
 				&& !is_p2wsh(remote_inputs[i]->prevtx_scriptpubkey, NULL))
