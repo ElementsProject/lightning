@@ -317,9 +317,10 @@ class Plugin(object):
     @staticmethod
     def _coerce_arguments(func, ba):
         args = OrderedDict()
+        annotations = func.__annotations__ if hasattr(func, "__annotations__") else {}
         for key, val in ba.arguments.items():
-            annotation = func.__annotations__.get(key)
-            if annotation == Millisatoshi:
+            annotation = annotations.get(key, None)
+            if annotation is not None and annotation == Millisatoshi:
                 args[key] = Millisatoshi(val)
             else:
                 args[key] = val
