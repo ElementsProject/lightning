@@ -187,6 +187,7 @@ int main(void)
 	if (!amount_sat_sub(&change, utxo.amount, funding_sat)
 	    || !amount_sat_sub(&change, change, fee))
 		abort();
+	change = AMOUNT_SAT(0);
 	funding = funding_tx(tmpctx, chainparams,
 			     &funding_outnum, utxomap,
 			     funding_sat,
