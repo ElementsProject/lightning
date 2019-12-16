@@ -145,6 +145,7 @@ def test_closing_id(node_factory):
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
 
+@unittest.skipIf(VALGRIND, "Flaky under valgrind")
 def test_closing_torture(node_factory, executor, bitcoind):
     # We set up N-to-N fully-connected mesh, then try
     # closing them all at once.
