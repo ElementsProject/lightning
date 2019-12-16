@@ -35,7 +35,7 @@ plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and
 lightningd --plugin=/path/to/plugin1 --plugin=path/to/plugin2
 ```
 
-`lightningd` run your plugins from the `--lightning-dir`/networkname, then
+`lightningd` will run your plugins from the `--lightning-dir`/networkname, then
 will write JSON-RPC requests to the plugin's `stdin` and
 will read replies from its `stdout`. To initialize the plugin two RPC
 methods are required:
@@ -110,7 +110,7 @@ set to `description` if it was not provided). `usage` should surround optional
 parameter names in `[]`.
 
 The `dynamic` indicates if the plugin can be managed after `lightningd`
-has been started. Critical plugins that should not be stop should set it
+has been started. Critical plugins that should not be stopped should set it
 to false.
 
 Plugins are free to register any `name` for their `rpcmethod` as long
@@ -388,8 +388,8 @@ or
 #### `sendpay_success`
 
 A notification for topic `sendpay_success` is sent every time a sendpay
-success(with `complete` status). The json is same as the return value of
-command `sendpay`/`waitsendpay` when these cammand succeeds.
+succeeds (with `complete` status). The json is the same as the return value of
+the commands `sendpay`/`waitsendpay` when these commands succeed.
 
 ```json
 {
@@ -415,8 +415,8 @@ successes if is was subscribed.
 #### `sendpay_failure`
 
 A notification for topic `sendpay_failure` is sent every time a sendpay
-success(with `failed` status). The json is same as the return value of
-command `sendpay`/`waitsendpay` when this cammand fails.
+completes with `failed` status. The JSON is same as the return value of
+the commands `sendpay`/`waitsendpay` when these commands fail.
 
 ```json
 {
@@ -452,11 +452,11 @@ fails if is was subscribed.
 
 Hooks allow a plugin to define custom behavior for `lightningd`
 without having to modify the c-lightning source code itself. A plugin
-declares that it'd like to consulted on what to do next for certain
+declares that it'd like to be consulted on what to do next for certain
 events in the daemon. A hook can then decide how `lightningd` should
 react to the given event.
 
-Hooks and notifications sounds very similar, however there are a few
+Hooks and notifications are very similar, however there are a few
 key differences:
 
  - Notifications are asynchronous, i.e., `lightningd` will send the
