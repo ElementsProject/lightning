@@ -1,9 +1,10 @@
-import json
-import logging
-import socket
-import warnings
 from decimal import Decimal
 from math import floor, log10
+import json
+import logging
+import os
+import socket
+import warnings
 
 
 class RpcError(ValueError):
@@ -159,6 +160,73 @@ class Millisatoshi:
         return Millisatoshi(int(self) + int(other))
 
 
+class UnixSocket(object):
+    """A wrapper for socket.socket that is specialized to unix sockets.
+
+    Some OS implementations impose restrictions on the Unix sockets.
+
+     - On linux OSs the socket path must be shorter than the in-kernel buffer
+       size (somewhere around 100 bytes), thus long paths may end up failing
+       the `socket.connect` call.
+
+    This is a small wrapper that tries to work around these limitations.
+
+    """
+
+    def __init__(self, path):
+        self.path = path
+        self.sock = None
+        self.connect()
+
+    def connect(self):
+        try:
+            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            return self.sock.connect(self.path)
+        except OSError as e:
+            self.sock.close()
+
+            if (e.args[0] == "AF_UNIX path too long" and os.uname()[0] == "Linux"):
+                # If this is a Linux system we may be able to work around this
+                # issue by opening our directory and using `/proc/self/fd/` to
+                # get a short alias for the socket file.
+                #
+                # This was heavily inspired by the Open vSwitch code see here:
+                # https://github.com/openvswitch/ovs/blob/master/python/ovs/socket_util.py
+
+                dirname = os.path.dirname(self.path)
+                basename = os.path.basename(self.path)
+
+                # Open an fd to our home directory, that we can then find
+                # through `/proc/self/fd` and access the contents.
+                dirfd = os.open(dirname, os.O_DIRECTORY | os.O_RDONLY)
+                short_path = "/proc/self/fd/%d/%s" % (dirfd, basename)
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                return self.sock.connect(short_path)
+            else:
+                # There is no good way to recover from this.
+                raise
+
+    def close(self):
+        if self.sock is not None:
+            self.sock.close()
+        self.sock = None
+
+    def sendall(self, b):
+        if self.sock is None:
+            raise socket.error("not connected")
+
+        self.sock.sendall(b)
+
+    def recv(self, length):
+        if self.sock is None:
+            raise socket.error("not connected")
+
+        return self.sock.recv(length)
+
+    def __del__(self):
+        self.close()
+
+
 class UnixDomainSocketRpc(object):
     def __init__(self, socket_path, executor=None, logger=logging, encoder_cls=json.JSONEncoder, decoder=json.JSONDecoder()):
         self.socket_path = socket_path
@@ -215,8 +283,7 @@ class UnixDomainSocketRpc(object):
             payload = {k: v for k, v in payload.items() if v is not None}
 
         # FIXME: we open a new socket for every readobj call...
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect(self.socket_path)
+        sock = UnixSocket(self.socket_path)
         self._writeobj(sock, {
             "method": method,
             "params": payload,
