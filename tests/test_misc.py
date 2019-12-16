@@ -1,11 +1,11 @@
 from bitcoin.rpc import RawProxy
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
-from fixtures import TEST_NETWORK
+from fixtures import LightningNode, TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from lightning import RpcError
 from threading import Event
-from utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc, env
+from pyln.testing.utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc, env
 from ephemeral_port_reserve import reserve
 
 import json
@@ -2002,3 +2002,20 @@ def test_unicode_rpc(node_factory):
     assert(len(invoices) == 1)
     assert(invoices[0]['description'] == desc)
     assert(invoices[0]['label'] == desc)
+
+
+@unittest.skipIf(VALGRIND, "Testing pyln doesn't exercise anything interesting in the c code.")
+def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db_provider, test_base_dir):
+    lightning_dir = os.path.join(directory, "anode" + "far" * 30 + "away")
+    os.makedirs(lightning_dir)
+    db = db_provider.get_db(lightning_dir, "test_unix_socket_path_length", 1)
+
+    l1 = LightningNode(1, lightning_dir, bitcoind, executor, db=db, port=node_factory.get_next_port())
+
+    # `LightningNode.start()` internally calls `LightningRpc.getinfo()` which
+    # exercises the socket logic, and raises an issue if it fails.
+    l1.start()
+
+    # Let's just call it again to make sure it really works.
+    l1.rpc.listconfigs()
+    l1.stop()
