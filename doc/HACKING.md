@@ -109,15 +109,15 @@ Database
 
 c-lightning state is persisted in `lightning-dir`.
 It is a sqlite database stored in the `lightningd.sqlite3` file, typically
-under `~/.lightning`.
+under `~/.lightning/<network>/`.
 You can run queries against this file like so:
 
-    $ sqlite3 ~/.lightning/lightningd.sqlite3 \
+    $ sqlite3 ~/.lightning/bitcoin/lightningd.sqlite3 \
       "SELECT HEX(prev_out_tx), prev_out_index, status FROM outputs"
 
 Or you can launch into the sqlite3 repl and check things out from there:
 
-    $ sqlite3 ~/.lightning/lightningd.sqlite3
+    $ sqlite3 ~/.lightning/bitcoin/lightningd.sqlite3
     SQLite version 3.21.0 2017-10-24 18:55:49
     Enter ".help" for usage hints.
     sqlite> .tables
@@ -135,7 +135,7 @@ as some queries may lock the database and cause crashes.
 #### Common variables
 Table `vars` contains global variables used by lightning node.
 
-    $ sqlite3 ~/.lightning/lightningd.sqlite3
+    $ sqlite3 ~/.lightning/bitcoin/lightningd.sqlite3
     SQLite version 3.21.0 2017-10-24 18:55:49
     Enter ".help" for usage hints.
     sqlite> .headers on
