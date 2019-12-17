@@ -537,6 +537,16 @@ static bool all_true(const bool *barr, size_t n)
 	return true;
 }
 
+static bool scid_in_arr(const struct short_channel_id *scidarr,
+			const struct short_channel_id *scid)
+{
+	for (size_t i = 0; i < tal_count(scidarr); i++)
+		if (short_channel_id_eq(&scidarr[i], scid))
+			return true;
+
+	return false;
+}
+
 static void gossipd_incoming_channels_reply(struct subd *gossipd,
 					    const u8 *msg,
 					    const int *fs,
@@ -566,13 +576,33 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 		inchan_deadends = tal_arr(tmpctx, bool, 0);
 	}
 
-	if (chanhints->expose_all_private) {
+	if (chanhints && chanhints->expose_all_private) {
 		append_routes(&inchans, private);
 		append_bools(&inchan_deadends, private_deadends);
-	} else if (chanhints->hints) {
-		/* FIXME: Implement hint support! */
-		assert(!tal_count(chanhints->hints));
+	} else if (chanhints && chanhints->hints) {
+		/* Start by considering all channels as candidates */
+		append_routes(&inchans, private);
+		append_bools(&inchan_deadends, private_deadends);
+
+		/* Consider only hints they gave */
+		for (size_t i = 0; i < tal_count(inchans); i++) {
+			if (!scid_in_arr(chanhints->hints,
+					 &inchans[i].short_channel_id)) {
+				tal_arr_remove(&inchans, i);
+				tal_arr_remove(&inchan_deadends, i);
+			}
+		}
+
+		/* If they told us to use scids and we couldn't, fail. */
+		if (tal_count(inchans) == 0
+		    && tal_count(chanhints->hints) != 0) {
+			was_pending(command_fail(info->cmd,
+						 INVOICE_HINTS_GAVE_NO_ROUTES,
+						 "None of those hints were suitable local channels"));
+			return;
+		}
 	} else {
+		assert(!chanhints);
 		/* By default, only consider private channels if there are
 		 * no public channels *at all* */
 		if (tal_count(inchans) == 0) {
@@ -787,6 +817,50 @@ static struct command_result *param_time(struct command *cmd, const char *name,
 			    name, tok->end - tok->start, buffer + tok->start);
 }
 
+static struct command_result *param_chanhints(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct chanhints **chanhints)
+{
+	bool boolhint;
+
+	*chanhints = tal(cmd, struct chanhints);
+
+	/* Could be simply "true" or "false" */
+	if (json_to_bool(buffer, tok, &boolhint)) {
+		(*chanhints)->expose_all_private = boolhint;
+		(*chanhints)->hints
+			= tal_arr(*chanhints, struct short_channel_id, 0);
+		return NULL;
+	}
+
+	(*chanhints)->expose_all_private = false;
+	/* Could be a single short_channel_id or an array */
+	if (tok->type == JSMN_ARRAY) {
+		size_t i;
+		const jsmntok_t *t;
+
+		(*chanhints)->hints
+			= tal_arr(*chanhints, struct short_channel_id,
+				  tok->size);
+		json_for_each_arr(i, t, tok) {
+			if (!json_to_short_channel_id(buffer, t,
+						      &(*chanhints)->hints[i])) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "'%s' should be a short channel id, not '%.*s'",
+						    name, json_tok_full_len(t),
+						    json_tok_full(buffer, t));
+			}
+		}
+		return NULL;
+	}
+
+	/* Otherwise should be a short_channel_id */
+	return param_short_channel_id(cmd, name, buffer, tok,
+				      &(*chanhints)->hints);
+}
+
 static struct command_result *json_invoice(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -800,7 +874,6 @@ static struct command_result *json_invoice(struct command *cmd,
 	const u8 **fallback_scripts = NULL;
 	u64 *expiry;
 	struct sha256 rhash;
-	bool *exposeprivate;
 	struct secret payment_secret;
 #if DEVELOPER
 	const jsmntok_t *routes;
@@ -808,7 +881,6 @@ static struct command_result *json_invoice(struct command *cmd,
 
 	info = tal(cmd, struct invoice_info);
 	info->cmd = cmd;
-	info->chanhints = tal(info, struct chanhints);
 
 	if (!param(cmd, buffer, params,
 		   p_req("msatoshi", param_msat_or_any, &msatoshi_val),
@@ -817,7 +889,8 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_opt_def("expiry", param_time, &expiry, 3600*24*7),
 		   p_opt("fallbacks", param_array, &fallbacks),
 		   p_opt("preimage", param_tok, &preimagetok),
-		   p_opt("exposeprivatechannels", param_bool, &exposeprivate),
+		   p_opt("exposeprivatechannels", param_chanhints,
+			 &info->chanhints),
 #if DEVELOPER
 		   p_opt("dev-routes", param_array, &routes),
 #endif
@@ -837,17 +910,6 @@ static struct command_result *json_invoice(struct command *cmd,
 				    "(description length %zu)",
 				    BOLT11_FIELD_BYTE_LIMIT,
 				    strlen(desc_val));
-	}
-
-	/* Default is expose iff no public channels. */
-	if (exposeprivate == NULL) {
-		info->chanhints->expose_all_private = false;
-		info->chanhints->hints = NULL;
-	} else {
-		info->chanhints->expose_all_private = *exposeprivate;
-		/* FIXME: Support hints! */
-		info->chanhints->hints = tal_arr(info->chanhints,
-						 struct short_channel_id, 0);
 	}
 
 	if (msatoshi_val
