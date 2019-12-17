@@ -1,43 +1,92 @@
+lightningd (0.8.0ubuntu1) UNRELEASED; urgency=medium
+
+  * 
+
+ -- Christian Decker <cdecker@nox>  Tue, 17 Dec 2019 14:07:10 +0100
+
+lightningd (0.8.0) stable; urgency=medium
+
+  * Added (JSON API): Added createonion and sendonion JSON-RPC methods allowing the implementation of custom protocol extensions that are not directly implemented in c-lightning itself.
+  * Added (JSON API): listinvoices now displays the payment preimage if the invoice was paid.
+  * Added (JSON API): listpeers channels now include close_to and close_to_addr iff a close_to address was specified at channel open
+  * Added The new pyln-testing package now contains the testing infrastructure so it can be reused to test against c-lightning in external projects
+  * Added (config): configuration files now support include.
+  * Added (options): Allow the Tor inbound service port differ from 9735
+  * Added (options): Persistent Tor address support
+  * Added (plugins): A new plugin hook, rpc_command allows a plugin to take over lightningd for any RPC command.
+  * Added (plugins): Allow the accepter to specify an upfront_shutdown_script for a channel via a close_to field in the openchannel hook result
+  * Added (plugins): Plugins may now handle modern TLV-style payloads via the htlc_accepted hook
+  * Added (plugins): libplugin now supports writing plugins which register to hooks
+  * Added (plugins): libplugin now supports writing plugins which register to notifications
+  * Added (protocol): Payment amount fuzzing is restored, but through shadow routing.
+  * Added (protocol): We now signal the network we are running on at init.
+  * Added (quirks): Workaround LND's reply_channel_range issues instead of sending error.
+  * Added (tools): A new command, guesstoremote, is added to the hsmtool. It is meant to be used to recover funds after an unilateral close of a channel with option_static_remotekey enabled.
+  * Changed (config): Default network (new installs) is now bitcoin, not testnet.
+  * Changed (config): Lightning directory, plugins and files moved into <network>/ subdir
+  * Changed (JSON API): The fundchannel command now tries to connect to the peer before funding the channel, no need to connect before fundchannel if an address for the peer is known
+  * Changed (JSON API): htlc_accepted hook has type (currently legacy or tlv) and other fields directly inside onion.
+  * Changed (JSON API): lightning_ prefixes removed from subdaemon names, including in listpeers owner field.
+  * Changed (JSON API): listconfigs now structures plugins and include their options
+  * Changed (JSON API): the raw_payload now includes the first byte, i.e., the realm byte, of the payload as well. This allows correct decoding of a TLV payload in the plugins.
+  * Changed (logging): formatting made uniform: [NODEID-]SUBSYSTEM: MESSAGE
+  * Changed (options): config and <network>/config read by default.
+  * Changed (options): log-level can now specify different levels for different subsystems.
+  * Changed (protocol): The TLV payloads for the onion packets are no longer considered an experimental feature and generally available.
+  * WARNING: If you don't have a config file, you now may need to specify the network to lightning-cli
+  * Deprecated (JSON API): listconfigs duplicated "plugin" paths
+  * Deprecated (JSON API): htlc_accepted hook per_hop_v0 object deprecated, as is short_channel_id for the final hop
+  * Fixed (JSON API): #3231 listtransactions crash
+  * Fixed (JSON API): listconfigs appends '...' to truncated config options
+  * Fixed pyln-client now handles unicode characters in JSON-RPC requests and responses correctly.
+  * Fixed (bitcoin): If bitcoind goes backwards (e.g. reindex) refuse to start (unless forced with --rescan).
+  * Fixed (bug): gossipd crash on huge number of unknown channels.
+  * Fixed (gossip): No longer discard most node_announcements
+  * Fixed (options): We disable all dns even on startup the scan for bogus dns servers, if --always-use-proxy is set true
+  * Fixed (protocol): Unlikely corner case is simultanous HTLCs near balance limits fixed
+
+ -- Christian Decker <decker.christian@gmail.com>  Tue, 17 Dec 2019 14:05:00 +0100
+
 lightningd (0.7.3) stable; urgency=low
 
- * Added (DB): lightningd now supports different SQL backends, instead of the default which is sqlite3. Adds a PostgresSQL driver
- * Added (elements): Add support of Liquid-BTC on elements
- * Added (JSON API): `close` now accepts an optional parameter `destination`, to which the to-local output will be sent.
- * Added (JSON API): `txprepare` and `withdraw` now accept an optional parameter `utxos`, a list of utxos to include in the prepared transaction
- * Added (JSON API): `listfunds` now lists a blockheight for confirmed transactions, and has `connected` and `state` fields for channels, like `listpeers`.
- * Added (JSON API): `fundchannel_start` now includes field `scriptpubkey`
- * Added (JSON API): New method `listtransactions`
- * Added (JSON API): `signmessage` will now create a signature from your node on a message; `checkmessage` will verify it.
- * Added (JSON API): `fundchannel_start` now accepts an optional parameter `close_to`, the address to which these channel funds should be sent to on close. Returns `using_close_to` if will use.
- * Added (Plugin): new notifications `sendpay_success` and `sendpay_failure`.
- * Added (Protocol): nodes now announce features in `node_announcement` broadcasts.
- * Added (Protocol): we now offer `option_gossip_queries_ex` for finegrained gossip control.
- * Added (Protocol): we now retransmit `funding_locked` upon reconnection while closing if there was no update
- * Added (Protocol): no longer ask for `initial_routing_sync` (only affects ancient peers).
- * Added (bolt11): support for parsing feature bits (field `9`).
- * Added (Wallet): we now support the encryption of the BIP32 master seed (a.k.a. `hsm_secret`).
- * Added (pylightning): includes implementation of handshake protocol
- * Changed (Build): Now requires [`gettext`](https://www.gnu.org/software/gettext/)
- * Changed (JSON API): The parameter `exclude` of `getroute` now also support node-id.
- * Changed (JSON API): `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
- * Changed (JSON API): `fundchannel_cancel` is extended to work before funding broadcast.
- * Changed (JSON API): `pay` can exclude error nodes if the failcode of `sendpay` has the NODE bit set
- * Changed (JSON API): The `plugin` command now returns on error. A timeout of 20 seconds is added to `start` and `startdir` subcommands at the end of which the plugin is errored if it did not complete the handshake with `lightningd`.
- * Changed (JSON API): The `plugin` command does not allow to start static plugins after `lightningd` startup anymore.
- * Changed (Protocol): We now push our own gossip to all peers, independent of their filter.
- * Changed (Protocol): Now follows spec in responses to short channel id queries on unknown chainhashes
- * Changed (Tor): We default now with autotor to generate if possible temporary ED25519-V3 onions.  You can use new option `enable-autotor-v2-mode` to fallback to V2 RSA1024 mode.
- * Deprecated (JSON API): `fundchannel` now uses `amount` as the parameter name to replace `satoshi`
- * Deprecated (JSON API): `fundchannel_start` now uses `amount` as the parameter name to replace `satoshi`
- * Deprecated (JSON API): `listpeers` and `listnodes` fields `localfeatures` and `globalfeatures` (now just `features`).
- * Deprecated (Plugin): `peer_connected` hook fields `localfeatures` and `globalfeatures` (now just `features`).
- * Removed (JSON API): `short_channel_id` parameters in JSON commands with `:` separators (deprecated since 0.7.0).
- * Removed (JSON API): `description` parameters in `pay` and `sendpay` (deprecated since 0.7.0).
- * Removed (JSON API): `description` output field in `waitsendpay` and `sendpay` (deprecated since 0.7.0).
- * Removed (JSON API): `listpayments` (deprecated since 0.7.0).
- * Fixed Fixed bogus "Bad commit_sig signature" which caused channel closures when reconnecting after updating fees under simultaneous bidirectional traffic.
- * Fixed Relative `--lightning_dir` is now working again.
- * Fixed (Build): MacOS now builds again (missing pwritev).
+  * Added (DB): lightningd now supports different SQL backends, instead of the default which is sqlite3. Adds a PostgresSQL driver
+  * Added (elements): Add support of Liquid-BTC on elements
+  * Added (JSON API): `close` now accepts an optional parameter `destination`, to which the to-local output will be sent.
+  * Added (JSON API): `txprepare` and `withdraw` now accept an optional parameter `utxos`, a list of utxos to include in the prepared transaction
+  * Added (JSON API): `listfunds` now lists a blockheight for confirmed transactions, and has `connected` and `state` fields for channels, like `listpeers`.
+  * Added (JSON API): `fundchannel_start` now includes field `scriptpubkey`
+  * Added (JSON API): New method `listtransactions`
+  * Added (JSON API): `signmessage` will now create a signature from your node on a message; `checkmessage` will verify it.
+  * Added (JSON API): `fundchannel_start` now accepts an optional parameter `close_to`, the address to which these channel funds should be sent to on close. Returns `using_close_to` if will use.
+  * Added (Plugin): new notifications `sendpay_success` and `sendpay_failure`.
+  * Added (Protocol): nodes now announce features in `node_announcement` broadcasts.
+  * Added (Protocol): we now offer `option_gossip_queries_ex` for finegrained gossip control.
+  * Added (Protocol): we now retransmit `funding_locked` upon reconnection while closing if there was no update
+  * Added (Protocol): no longer ask for `initial_routing_sync` (only affects ancient peers).
+  * Added (bolt11): support for parsing feature bits (field `9`).
+  * Added (Wallet): we now support the encryption of the BIP32 master seed (a.k.a. `hsm_secret`).
+  * Added (pylightning): includes implementation of handshake protocol
+  * Changed (Build): Now requires [`gettext`](https://www.gnu.org/software/gettext/)
+  * Changed (JSON API): The parameter `exclude` of `getroute` now also support node-id.
+  * Changed (JSON API): `txprepare` now uses `outputs` as parameter other than `destination` and `satoshi`
+  * Changed (JSON API): `fundchannel_cancel` is extended to work before funding broadcast.
+  * Changed (JSON API): `pay` can exclude error nodes if the failcode of `sendpay` has the NODE bit set
+  * Changed (JSON API): The `plugin` command now returns on error. A timeout of 20 seconds is added to `start` and `startdir` subcommands at the end of which the plugin is errored if it did not complete the handshake with `lightningd`.
+  * Changed (JSON API): The `plugin` command does not allow to start static plugins after `lightningd` startup anymore.
+  * Changed (Protocol): We now push our own gossip to all peers, independent of their filter.
+  * Changed (Protocol): Now follows spec in responses to short channel id queries on unknown chainhashes
+  * Changed (Tor): We default now with autotor to generate if possible temporary ED25519-V3 onions.  You can use new option `enable-autotor-v2-mode` to fallback to V2 RSA1024 mode.
+  * Deprecated (JSON API): `fundchannel` now uses `amount` as the parameter name to replace `satoshi`
+  * Deprecated (JSON API): `fundchannel_start` now uses `amount` as the parameter name to replace `satoshi`
+  * Deprecated (JSON API): `listpeers` and `listnodes` fields `localfeatures` and `globalfeatures` (now just `features`).
+  * Deprecated (Plugin): `peer_connected` hook fields `localfeatures` and `globalfeatures` (now just `features`).
+  * Removed (JSON API): `short_channel_id` parameters in JSON commands with `:` separators (deprecated since 0.7.0).
+  * Removed (JSON API): `description` parameters in `pay` and `sendpay` (deprecated since 0.7.0).
+  * Removed (JSON API): `description` output field in `waitsendpay` and `sendpay` (deprecated since 0.7.0).
+  * Removed (JSON API): `listpayments` (deprecated since 0.7.0).
+  * Fixed Fixed bogus "Bad commit_sig signature" which caused channel closures when reconnecting after updating fees under simultaneous bidirectional traffic.
+  * Fixed Relative `--lightning_dir` is now working again.
+  * Fixed (Build): MacOS now builds again (missing pwritev).
 
  -- Christian Decker <decker.christian@gmail.com>  Tue, 05 Nov 2019 23:00:00 +0100
 
