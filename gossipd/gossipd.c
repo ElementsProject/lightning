@@ -1188,18 +1188,6 @@ static bool node_has_public_channels(const struct node *peer,
 	return false;
 }
 
-/*~ The `exposeprivate` flag is a trinary: NULL == dynamic, otherwise
- * value decides.  Thus, we provide two wrappers for clarity: */
-static bool never_expose(bool *exposeprivate)
-{
-	return exposeprivate && !*exposeprivate;
-}
-
-static bool always_expose(bool *exposeprivate)
-{
-	return exposeprivate && *exposeprivate;
-}
-
 /*~ For routeboost, we offer payers a hint of what incoming channels might
  * have capacity for their payment.  To do this, lightningd asks for the
  * information about all channels to this node; but gossipd doesn't know about
@@ -1211,13 +1199,11 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	struct node *node;
 	struct route_info *public = tal_arr(tmpctx, struct route_info, 0);
 	struct route_info *private = tal_arr(tmpctx, struct route_info, 0);
-	bool has_public;
-	bool *exposeprivate;
+	bool *priv_deadends = tal_arr(tmpctx, bool, 0);
+	bool *pub_deadends = tal_arr(tmpctx, bool, 0);
 
-	if (!fromwire_gossip_get_incoming_channels(tmpctx, msg, &exposeprivate))
+	if (!fromwire_gossip_get_incoming_channels(msg))
 		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
-
-	has_public = always_expose(exposeprivate);
 
 	node = get_node(daemon->rstate, &daemon->rstate->local_id);
 	if (node) {
@@ -1227,6 +1213,7 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 		for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 			const struct half_chan *hc;
 			struct route_info ri;
+			bool deadend;
 
 			hc = &c->half[half_chan_to(node, c)];
 
@@ -1239,25 +1226,21 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 			ri.fee_proportional_millionths = hc->proportional_fee;
 			ri.cltv_expiry_delta = hc->delay;
 
-			has_public |= is_chan_public(c);
-
-			/* If peer doesn't have other public channels,
-			 * no point giving route */
-			if (!node_has_public_channels(other_node(node, c), c))
-				continue;
-
-			if (always_expose(exposeprivate) || is_chan_public(c))
+			deadend = !node_has_public_channels(other_node(node, c),
+							    c);
+			if (is_chan_public(c)) {
 				tal_arr_expand(&public, ri);
-			else
+				tal_arr_expand(&pub_deadends, deadend);
+			} else {
 				tal_arr_expand(&private, ri);
+				tal_arr_expand(&priv_deadends, deadend);
+			}
 		}
 	}
 
-	/* If no public channels (even deadend ones!), share private ones. */
-	if (!has_public && !never_expose(exposeprivate))
-		msg = towire_gossip_get_incoming_channels_reply(NULL, private);
-	else
-		msg = towire_gossip_get_incoming_channels_reply(NULL, public);
+	msg = towire_gossip_get_incoming_channels_reply(NULL,
+							public, pub_deadends,
+							private, priv_deadends);
 	daemon_conn_send(daemon->master, take(msg));
 
 	return daemon_conn_read_next(conn, daemon->master);
