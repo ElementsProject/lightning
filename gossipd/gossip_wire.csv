@@ -128,12 +128,15 @@ msgdata,gossip_dev_compact_store_reply,success,bool,
 
 # master -> gossipd: get route_info for our incoming channels
 msgtype,gossip_get_incoming_channels,3025
-msgdata,gossip_get_incoming_channels,private_too,?bool,
 
 # gossipd -> master: here they are.
 msgtype,gossip_get_incoming_channels_reply,3125
-msgdata,gossip_get_incoming_channels_reply,num,u16,
-msgdata,gossip_get_incoming_channels_reply,route_info,route_info,num
+msgdata,gossip_get_incoming_channels_reply,num_public,u16,
+msgdata,gossip_get_incoming_channels_reply,public_route_info,route_info,num_public
+msgdata,gossip_get_incoming_channels_reply,public_deadends,bool,num_public
+msgdata,gossip_get_incoming_channels_reply,num_private,u16,
+msgdata,gossip_get_incoming_channels_reply,private_route_info,route_info,num_private
+msgdata,gossip_get_incoming_channels_reply,private_deadends,bool,num_private
 
 # master -> gossipd: blockheight increased.
 msgtype,gossip_new_blockheight,3026

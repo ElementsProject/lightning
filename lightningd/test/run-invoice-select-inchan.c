@@ -107,7 +107,7 @@ bool fromwire_channel_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEE
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_get_incoming_channels_reply */
-bool fromwire_gossip_get_incoming_channels_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct route_info **route_info UNNEEDED)
+bool fromwire_gossip_get_incoming_channels_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct route_info **public_route_info UNNEEDED, bool **public_deadends UNNEEDED, struct route_info **private_route_info UNNEEDED, bool **private_deadends UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_incoming_channels_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_get_channel_basepoints_reply */
 bool fromwire_hsm_get_channel_basepoints_reply(const void *p UNNEEDED, struct basepoints *basepoints UNNEEDED, struct pubkey *funding_pubkey UNNEEDED)
@@ -473,7 +473,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossip_get_incoming_channels */
-u8 *towire_gossip_get_incoming_channels(const tal_t *ctx UNNEEDED, bool *private_too UNNEEDED)
+u8 *towire_gossip_get_incoming_channels(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_gossip_get_incoming_channels called!\n"); abort(); }
 /* Generated stub for towire_hsm_get_channel_basepoints */
 u8 *towire_hsm_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
@@ -686,6 +686,7 @@ int main(void)
 	struct lightningd *ld;
 	bool any_offline;
 	struct route_info *inchans;
+	bool *deadends;
 	struct route_info **ret;
 	size_t n;
 
@@ -698,51 +699,53 @@ int main(void)
 	list_head_init(&ld->peers);
 
 	inchans = tal_arr(tmpctx, struct route_info, 0);
+	deadends = tal_arrz(tmpctx, bool, 100);
+
 	/* 1. Nothing to choose from -> NULL result. */
-	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
+	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
 	assert(any_offline == false);
 
 	/* 2. inchan but no corresponding peer -> NULL result. */
 	add_inchan(&inchans, 0);
-	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
+	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
 	assert(any_offline == false);
 
 	/* 3. inchan but its peer in awaiting lockin -> NULL result. */
 	add_peer(ld, 0, CHANNELD_AWAITING_LOCKIN, true);
-	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
+	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
 	assert(any_offline == false);
 
 	/* 4. connected peer but no corresponding inchan -> NULL result. */
 	add_peer(ld, 1, CHANNELD_NORMAL, true);
-	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
+	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
 	assert(any_offline == false);
 
 	/* 5. inchan but its peer (replaced with one) offline -> NULL result. */
 	list_del_from(&ld->peers, &list_tail(&ld->peers, struct peer, list)->list);
 	add_peer(ld, 1, CHANNELD_NORMAL, false);
 	add_inchan(&inchans, 1);
-	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline) == NULL);
+	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
 	assert(any_offline == true);
 
 	/* 6. Finally, a correct peer! */
 	add_inchan(&inchans, 2);
 	add_peer(ld, 2, CHANNELD_NORMAL, true);
 
-	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, &any_offline);
+	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline);
 	assert(tal_count(ret) == 1);
 	assert(tal_count(ret[0]) == 1);
 	assert(any_offline == true); /* Peer 1 is offline */
 	assert(route_info_eq(ret[0], &inchans[2]));
 
 	/* 7. Correct peer with just enough capacity_to_pay_us */
-	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1999), inchans, &any_offline);
+	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1999), inchans, deadends, &any_offline);
 	assert(tal_count(ret) == 1);
 	assert(tal_count(ret[0]) == 1);
 	assert(any_offline == false); /* Other candidate insufficient funds. */
 	assert(route_info_eq(ret[0], &inchans[2]));
 
 	/* 8. Not if we ask for too much! Our balance is 1msat. */
-	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(2000), inchans, &any_offline);
+	ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(2000), inchans, deadends, &any_offline);
 	assert(ret == NULL);
 	assert(any_offline == false); /* Other candidate insufficient funds. */
 
@@ -752,7 +755,7 @@ int main(void)
 
 	/* Simulate selection ratios between excesses 25% and 50% of capacity*/
 	for (size_t i = n = 0; i < 1000; i++) {
-		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, &any_offline);
+		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, deadends, &any_offline);
 		assert(tal_count(ret) == 1);
 		assert(tal_count(ret[0]) == 1);
 		assert(any_offline == false); /* Other candidate insufficient funds. */
@@ -770,11 +773,11 @@ int main(void)
 	/* 10. Last peer's capacity goes from 3 to 2 sat*/
 		list_tail(&list_tail(&ld->peers, struct peer, list)->channels, struct channel, list)->
 				channel_info.their_config.channel_reserve = AMOUNT_SAT(1);
-		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, &any_offline);
+		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, deadends, &any_offline);
 
 		/* Simulate selection ratios between excesses 25% and 75% of capacity*/
 	for (size_t i = n = 0; i < 1000; i++) {
-		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, &any_offline);
+		ret = select_inchan(tmpctx, ld, AMOUNT_MSAT(1499), inchans, deadends, &any_offline);
 		assert(tal_count(ret) == 1);
 		assert(tal_count(ret[0]) == 1);
 		assert(any_offline == false); /* Other candidate insufficient funds. */
