@@ -14,12 +14,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-/* How many seconds may the plugin take to reply to the `getmanifest
- * call`? This is the maximum delay to `lightningd --help` and until
+/* How many seconds may the plugin take to reply to the `getmanifest`
+ * call? This is the maximum delay to `lightningd --help` and until
  * we can start the main `io_loop` to communicate with peers. If this
  * hangs we can't do much, so we put an upper bound on the time we're
  * willing to wait. Plugins shouldn't do any initialization in the
- * `getmanifest` call anyway, that's what `init `is for. */
+ * `getmanifest` call anyway, that's what `init` is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
 
 #if DEVELOPER
