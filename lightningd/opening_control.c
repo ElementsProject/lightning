@@ -1130,7 +1130,7 @@ openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	struct uncommitted_channel *uc = payload->openingd->channel;
 	json_object_start(stream, "openchannel");
 	json_add_node_id(stream, "id", &uc->peer->id);
-	json_add_string(stream, "version", payload->is_v2 ? "2" : "1");
+	json_add_num(stream, "version", payload->is_v2 ? 2 : 1);
 	if (payload->is_v2)
 		json_add_amount_sat_only(stream, "opener_satoshis",
 					 payload->opener_satoshis);
