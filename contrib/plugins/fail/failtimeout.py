@@ -9,7 +9,7 @@ import time
 
 
 def json_getmanifest(request):
-    # Timeout is 60 seconds, so wait 11
+    # Timeout is 60 seconds, so wait more
     time.sleep(61)
     return {
         "options": [
