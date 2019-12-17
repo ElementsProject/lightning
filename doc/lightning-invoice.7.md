@@ -54,7 +54,9 @@ should not be used unless explicitly needed.
 If specified, *exposeprivatechannels* overrides the default route hint
 logic, which will use unpublished channels only if there are no
 published channels. If *true* unpublished channels are always considered
-as a route hint candidate; if *false*, never.
+as a route hint candidate; if *false*, never.  If it is a short channel id
+(e.g. *1x1x3*) or array of short channel ids, only those specific channels
+will be considered candidates, even if they are public.
 
 The route hint is selected from the set of incoming channels of which:
 peer’s balance minus their reserves is at least *msatoshi*, state is
@@ -79,13 +81,14 @@ The following error codes may occur:
 - -1: Catchall nonspecific error.
 - 900: An invoice with the given *label* already exists.
 - 901: An invoice with the given *preimage* already exists.
+- 902: None of the specified *exposeprivatechannels* were usable.
 
 One of the following warnings may occur (on success):
 - *warning\_offline* if no channel with a currently connected peer has
     the incoming capacity to pay this invoice
-- *warning\_capacity* if there is no channel that has both sufficient
-    incoming capacity and has a peer that is publicly connected (i.e.
-    not a dead end)
+- *warning\_capacity* if there is no channel that has sufficient
+    incoming capacity
+- *warning\_deadends* if there is no channel that is not a dead-end
 
 AUTHOR
 ------

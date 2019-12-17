@@ -59,7 +59,9 @@ should not be used unless explicitly needed\.
 If specified, \fIexposeprivatechannels\fR overrides the default route hint
 logic, which will use unpublished channels only if there are no
 published channels\. If \fItrue\fR unpublished channels are always considered
-as a route hint candidate; if \fIfalse\fR, never\.
+as a route hint candidate; if \fIfalse\fR, never\.  If it is a short channel id
+(e\.g\. \fI1x1x3\fR) or array of short channel ids, only those specific channels
+will be considered candidates, even if they are public\.
 
 
 The route hint is selected from the set of incoming channels of which:
@@ -91,6 +93,8 @@ The following error codes may occur:
 900: An invoice with the given \fIlabel\fR already exists\.
 .IP \[bu]
 901: An invoice with the given \fIpreimage\fR already exists\.
+.IP \[bu]
+902: None of the specified \fIexposeprivatechannels\fR were usable\.
 
 .RE
 
@@ -101,9 +105,10 @@ One of the following warnings may occur (on success):
 \fIwarning_offline\fR if no channel with a currently connected peer has
   the incoming capacity to pay this invoice
 .IP \[bu]
-\fIwarning_capacity\fR if there is no channel that has both sufficient
-  incoming capacity and has a peer that is publicly connected (i\.e\.
-  not a dead end)
+\fIwarning_capacity\fR if there is no channel that has sufficient
+  incoming capacity
+.IP \[bu]
+\fIwarning_deadends\fR if there is no channel that is not a dead-end
 
 .RE
 .SH AUTHOR
