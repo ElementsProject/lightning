@@ -9,6 +9,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/str.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json.h>
@@ -490,6 +491,13 @@ int main(int argc, char *argv[])
 		try_exec_man(page, dirname(argv[0]));
 
 		tal_free(page);
+	}
+
+	/* If an absolute path to the RPC socket is given, it takes over other
+	 * configuration options. */
+	if (path_is_abs(rpc_filename)) {
+		net_dir = path_dirname(ctx, rpc_filename);
+		rpc_filename = path_basename(ctx, rpc_filename);
 	}
 
 	if (chdir(net_dir) != 0)
