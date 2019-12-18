@@ -47,3 +47,4 @@ contrib/pyln-*/build/
 contrib/pyln-*/dist/
 contrib/pyln-*/pyln_*.egg-info/
 plugins/keysend
+release/
