@@ -589,6 +589,7 @@ static struct migration dbmigrations[] = {
 	 " SELECT id, 11, local_feerate_per_kw FROM channels WHERE funder = 1 and local_feerate_per_kw != remote_feerate_per_kw;"),
      NULL},
     /* FIXME: Remove now-unused local_feerate_per_kw and remote_feerate_per_kw from channels */
+    {SQL("INSERT INTO vars (name, intval) VALUES ('data_version', 0);"), NULL},
 };
 
 /* Leak tracking. */
