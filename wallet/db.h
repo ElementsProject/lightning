@@ -229,4 +229,7 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
  */
 const char **db_changes(struct db *db);
 
+/* Get the current data version. */
+u32 db_data_version_get(struct db *db);
+
 #endif /* LIGHTNING_WALLET_DB_H */

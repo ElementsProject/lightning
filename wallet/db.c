@@ -802,11 +802,27 @@ void db_begin_transaction_(struct db *db, const char *location)
 	db->in_transaction = location;
 }
 
+static void db_data_version_incr(struct db *db)
+{
+       struct db_stmt *stmt = db_prepare_v2(
+	       db, SQL("UPDATE vars "
+		       "SET intval = intval + 1 "
+		       "WHERE name = 'data_version'"));
+       db_exec_prepared_v2(stmt);
+       tal_free(stmt);
+       db->data_version++;
+}
+
 void db_commit_transaction(struct db *db)
 {
 	bool ok;
 	assert(db->in_transaction);
 	db_assert_no_outstanding_statements(db);
+
+	/* Increment before reporting changes to an eventual plugin. */
+	if (db->dirty)
+		db_data_version_incr(db);
+
 	db_report_changes(db, NULL, 0);
 	ok = db->config->commit_tx_fn(db);
 
@@ -954,7 +970,18 @@ static void db_migrate(struct lightningd *ld, struct db *db)
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
+}
 
+u32 db_data_version_get(struct db *db)
+{
+	struct db_stmt *stmt;
+	u32 version;
+	stmt = db_prepare_v2(db, SQL("SELECT intval FROM vars WHERE name = 'data_version'"));
+	db_query_prepared(stmt);
+	db_step(stmt);
+	version = db_column_int(stmt, 0);
+	tal_free(stmt);
+	return version;
 }
 
 struct db *db_setup(const tal_t *ctx, struct lightningd *ld)
@@ -966,6 +993,7 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld)
 
 	db_migrate(ld, db);
 
+	db->data_version = db_data_version_get(db);
 	db_commit_transaction(db);
 	return db;
 }
