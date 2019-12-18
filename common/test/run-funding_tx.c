@@ -187,7 +187,9 @@ int main(void)
 	if (!amount_sat_sub(&change, utxo.amount, funding_sat)
 	    || !amount_sat_sub(&change, change, fee))
 		abort();
-	change = AMOUNT_SAT(0);
+
+	/* Make a funding tx with change */
+	change = AMOUNT_SAT(1);
 	funding = funding_tx(tmpctx, chainparams,
 			     &funding_outnum, utxomap,
 			     funding_sat,
@@ -201,9 +203,15 @@ int main(void)
 	asset = bitcoin_tx_output_get_amount(funding, !funding_outnum);
 	assert(amount_asset_is_main(&asset));
 	tmpamt = amount_asset_to_sat(&asset);
+	assert(amount_sat_eq(tmpamt, change));
 	printf("change: %s\n",
 	       type_to_string(tmpctx, struct amount_sat,
 			      &tmpamt));
+
+	asset = bitcoin_tx_output_get_amount(funding, funding_outnum);
+	assert(amount_asset_is_main(&asset));
+	tmpamt = amount_asset_to_sat(&asset);
+	assert(amount_sat_eq(tmpamt, funding_sat));
 
 	printf("funding output: %u\n", funding_outnum);
 
@@ -216,6 +224,22 @@ int main(void)
 	bitcoin_tx_input_set_script(funding, 0, script);
 	printf("funding tx: %s\n",
 	       tal_hex(tmpctx, linearize_tx(tmpctx, funding)));
+
+	/* Make a funding tx without change */
+	change = AMOUNT_SAT(0);
+	funding = funding_tx(tmpctx, chainparams,
+			     &funding_outnum, utxomap,
+			     funding_sat,
+			     &local_funding_pubkey,
+			     &remote_funding_pubkey,
+			     change,
+			     &inputkey, NULL);
+
+	assert(funding->wtx->num_outputs == 1);
+	asset = bitcoin_tx_output_get_amount(funding, funding_outnum);
+	assert(amount_asset_is_main(&asset));
+	tmpamt = amount_asset_to_sat(&asset);
+	assert(amount_sat_eq(tmpamt, funding_sat));
 
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);
