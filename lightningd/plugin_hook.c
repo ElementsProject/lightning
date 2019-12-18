@@ -156,13 +156,14 @@ static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 	io_break(ph_req);
 }
 
-void plugin_hook_db_sync(struct db *db, const char **changes, const char *final)
+void plugin_hook_db_sync(struct db *db)
 {
 	const struct plugin_hook *hook = &db_write_hook;
 	struct jsonrpc_request *req;
 	struct plugin_hook_request *ph_req;
 	void *ret;
 
+	const char **changes = db_changes(db);
 	if (!hook->plugin)
 		return;
 
@@ -177,8 +178,6 @@ void plugin_hook_db_sync(struct db *db, const char **changes, const char *final)
 	json_array_start(req->stream, "writes");
 	for (size_t i = 0; i < tal_count(changes); i++)
 		json_add_string(req->stream, NULL, changes[i]);
-	if (final)
-		json_add_string(req->stream, NULL, final);
 	json_array_end(req->stream);
 	jsonrpc_request_end(req);
 

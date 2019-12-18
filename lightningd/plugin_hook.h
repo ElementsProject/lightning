@@ -108,8 +108,7 @@ bool plugin_hook_unregister(struct plugin *plugin, const char *method);
 /* Unregister all hooks a plugin has registered for */
 void plugin_hook_unregister_all(struct plugin *plugin);
 
-/* Special sync plugin hook for db: changes[] are SQL statements, with optional
- * final command appended. */
-void plugin_hook_db_sync(struct db *db, const char **changes, const char *final);
+/* Special sync plugin hook for db. */
+void plugin_hook_db_sync(struct db *db);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_HOOK_H */

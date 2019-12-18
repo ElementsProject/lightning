@@ -764,7 +764,7 @@ static void db_report_changes(struct db *db, const char *final, size_t min)
 	assert(tal_count(db->changes) >= min);
 
 	if (tal_count(db->changes) > min)
-		plugin_hook_db_sync(db, db->changes, final);
+		plugin_hook_db_sync(db);
 	db->changes = tal_free(db->changes);
 }
 
@@ -1398,4 +1398,9 @@ void db_changes_add(struct db_stmt *stmt, const char * expanded)
 	}
 
 	tal_arr_expand(&db->changes, tal_strdup(db->changes, expanded));
+}
+
+const char **db_changes(struct db *db)
+{
+	return db->changes;
 }
