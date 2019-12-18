@@ -34,6 +34,10 @@ struct db {
 	/* Were there any modifying statements in the current transaction?
 	 * Used to bump the data_version in the DB.*/
 	bool dirty;
+
+	/* The current DB version we expect to update if changes are
+	 * committed. */
+	u32 data_version;
 };
 
 struct db_query {

@@ -175,6 +175,8 @@ void plugin_hook_db_sync(struct db *db)
 	ph_req->hook = hook;
 	ph_req->db = db;
 
+	json_add_num(req->stream, "data_version", db_data_version_get(db));
+
 	json_array_start(req->stream, "writes");
 	for (size_t i = 0; i < tal_count(changes); i++)
 		json_add_string(req->stream, NULL, changes[i]);

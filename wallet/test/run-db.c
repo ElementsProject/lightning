@@ -63,6 +63,7 @@ static struct db *create_test_db(void)
 
 	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
 	db = db_open(NULL, dsn);
+	db->data_version = 0;
 	tal_free(dsn);
 	return db;
 }
@@ -107,6 +108,10 @@ static bool test_primitives(void)
 	CHECK_MSG(db_err, "Failing SQL command");
 	tal_free(stmt);
 	db_err = tal_free(db_err);
+
+	/* We didn't migrate the DB, so don't have the vars table. Pretend we
+	 * didn't change anything so we don't bump the data_version. */
+	db->dirty = false;
 	db_commit_transaction(db);
 	CHECK(!db->in_transaction);
 	tal_free(db);
