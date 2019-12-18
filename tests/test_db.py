@@ -1,8 +1,10 @@
 from fixtures import *  # noqa: F401,F403
-from utils import wait_for, sync_blockheight, COMPAT
 from fixtures import TEST_NETWORK
-
+from pyln.client import RpcError
+from utils import wait_for, sync_blockheight, COMPAT
 import os
+import pytest
+import time
 import unittest
 
 
@@ -136,3 +138,23 @@ def test_scid_upgrade(node_factory, bitcoind):
 
     assert l1.db_query('SELECT short_channel_id from channels;') == [{'short_channel_id': '103x1x1'}]
     assert l1.db_query('SELECT failchannel from payments;') == [{'failchannel': '103x1x1'}]
+
+
+def test_optimistic_locking(node_factory, bitcoind):
+    """Have a node run against a DB, then change it under its feet, crashing it.
+
+    We start a node, wait for it to settle its write so we have a window where
+    we can interfere, and watch the world burn (safely).
+    """
+    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+
+    sync_blockheight(bitcoind, [l1])
+    l1.rpc.getinfo()
+    time.sleep(1)
+    l1.db.execute("UPDATE vars SET intval = intval + 1 WHERE name = 'data_version';")
+
+    # Now trigger any DB write and we should be crashing.
+    with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
+        l1.rpc.newaddr()
+
+    assert(l1.daemon.is_in_log(r'Optimistic lock on the database failed'))
