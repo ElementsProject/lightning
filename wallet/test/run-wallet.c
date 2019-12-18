@@ -747,7 +747,9 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 				  w->bip32_base) == WALLY_OK);
 
 	CHECK_MSG(w->db, "Failed opening the db");
+	db_begin_transaction(w->db);
 	db_migrate(ld, w->db);
+	db_commit_transaction(w->db);
 	CHECK_MSG(!wallet_err, "DB migration failed");
 	w->max_channel_dbid = 0;
 

@@ -905,8 +905,6 @@ static void db_migrate(struct lightningd *ld, struct db *db)
 	int current, orig, available;
 	struct db_stmt *stmt;
 
-	db_begin_transaction(db);
-
 	orig = current = db_get_version(db);
 	available = ARRAY_SIZE(dbmigrations) - 1;
 
@@ -947,14 +945,18 @@ static void db_migrate(struct lightningd *ld, struct db *db)
 		tal_free(stmt);
 	}
 
-	db_commit_transaction(db);
 }
 
 struct db *db_setup(const tal_t *ctx, struct lightningd *ld)
 {
 	struct db *db = db_open(ctx, ld->wallet_dsn);
 	db->log = new_log(db, ld->log_book, NULL, "database");
+
+	db_begin_transaction(db);
+
 	db_migrate(ld, db);
+
+	db_commit_transaction(db);
 	return db;
 }
 
