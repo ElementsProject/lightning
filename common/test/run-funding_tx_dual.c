@@ -86,6 +86,7 @@ struct test_case {
 	struct amount_sat opener_funding;
 	struct amount_sat accepter_funding;
 	struct amount_sat expected_funding;
+	struct amount_sat expected_change;
 	struct bitcoin_tx *expected_tx;
 	char *local_pubkey_str;
 	char *remote_pubkey_str;
@@ -224,6 +225,7 @@ static struct test_case test1(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "02e16172a41e928cbd78f761bd1c657c4afc7495a1244f7f30166b654fbf7661e3",
 	  .local_pubkey_str = "0292edb5f7bbf9e900f7e024be1c1339c6d149c11930e613af3a983d2565f4e41e",
+	  .expected_change = AMOUNT_SAT(98282),
 	};
 
 	assert(test1.expected_tx);
@@ -347,6 +349,7 @@ static struct test_case test2(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(9745),
 	};
 
 	assert(test.expected_tx);
@@ -381,6 +384,7 @@ static struct test_case test3(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	assert(test.expected_tx);
@@ -415,6 +419,7 @@ static struct test_case test_no_change(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	assert(test.expected_tx);
@@ -450,6 +455,7 @@ static struct test_case test_change(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(868),
 	};
 
 	assert(test.expected_tx);
@@ -485,6 +491,7 @@ static struct test_case test_change_trimmed(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	assert(test.expected_tx);
@@ -492,9 +499,9 @@ static struct test_case test_change_trimmed(const tal_t *ctx)
 	return test;
 }
 
-
-/* With change trimmed, funding increases */
-static struct test_case test_change_trimmed_positive(const tal_t *ctx)
+/* With dusty change trimmed, funding increases
+ * (change - fee is positive but less than dust) */
+static struct test_case test_dust_change_trimmed(const tal_t *ctx)
 {
 	struct input_info **opener_inputs = tal_arr(ctx, struct input_info *, 1);
 	struct input_info **accepter_inputs = tal_arr(ctx, struct input_info *, 1);
@@ -502,28 +509,27 @@ static struct test_case test_change_trimmed_positive(const tal_t *ctx)
 	accepter_inputs[0] = input_two(ctx, txid_str_one);
 
 	struct output_info **opener_outputs = tal_arr(ctx, struct output_info *, 2);
-	opener_outputs[0] = output_one(ctx, 5000);
+	opener_outputs[0] = output_one(ctx, 6500);
 	opener_outputs[1] = output_three(ctx, 0);
 
 	struct output_info **accepter_outputs = tal_arr(ctx, struct output_info *, 1);
 	accepter_outputs[0] = output_two(ctx, 10000);
 
 
-        // fee = 1310
-        // change = 0
-        char *expected_tx_str = "02000000023f05da71fb470a53807eb01db4a9220941e3737fa44bccd1fb00f1968c98396c0000000000ffffffff3f05da71fb470a53807eb01db4a9220941e3737fa44bccd1fb00f1968c98396c0100000000ffffffff0388130000000000001600140f0963bc774334ebc14d11ce940c35cfa69864151027000000000000160014d640ab16f347d1de5aba5a715321a5fc4ba9a5d5aaa3160000000000220020c46bf3d1686d6dbb2d9244f8f67b90370c5aa2747045f1aeccb77d818711738200000000";
+        char *expected_tx_str = "02000000023f05da71fb470a53807eb01db4a9220941e3737fa44bccd1fb00f1968c98396c0000000000ffffffff3f05da71fb470a53807eb01db4a9220941e3737fa44bccd1fb00f1968c98396c0100000000ffffffff0364190000000000001600140f0963bc774334ebc14d11ce940c35cfa69864151027000000000000160014d640ab16f347d1de5aba5a715321a5fc4ba9a5d588a2160000000000220020c46bf3d1686d6dbb2d9244f8f67b90370c5aa2747045f1aeccb77d818711738200000000";
 	struct test_case test = {
-	  .feerate = 1300,
+	  .feerate = 100,
 	  .opener_inputs = opener_inputs,
 	  .accepter_inputs = accepter_inputs,
 	  .opener_outputs = opener_outputs,
 	  .accepter_outputs = accepter_outputs,
 	  .opener_funding = AMOUNT_SAT(493000),
 	  .accepter_funding = AMOUNT_SAT(990000),
-	  .expected_funding = AMOUNT_SAT(1483690.0),
+	  .expected_funding = AMOUNT_SAT(1483400),
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	assert(test.expected_tx);
@@ -556,6 +562,7 @@ static struct test_case test_less_than_dust(const tal_t *ctx)
           .expected_tx = NULL,
           .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
           .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
         };
 
 	return test;
@@ -587,6 +594,7 @@ static struct test_case test_less_than_dust_with_accepter(const tal_t *ctx)
           .expected_tx = NULL,
           .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
           .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
         };
 
 	return test;
@@ -615,6 +623,7 @@ static struct test_case test_one_input(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	assert(test.expected_tx);
@@ -646,6 +655,7 @@ static struct test_case test_two_input(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	assert(test.expected_tx);
@@ -685,6 +695,7 @@ static struct test_case test_full_set(const tal_t *ctx)
 	  .expected_tx = bitcoin_tx_from_hex(ctx, expected_tx_str, strlen(expected_tx_str)),
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(1893322),
 	};
 
 	assert(test.expected_tx);
@@ -714,6 +725,7 @@ static struct test_case test_more_than_input(const tal_t *ctx)
 	  .expected_tx = NULL,
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	return test;
@@ -743,16 +755,16 @@ static struct test_case test_culmulative_more_than_input(const tal_t *ctx)
 	  .expected_tx = NULL,
 	  .remote_pubkey_str = "03d30199d74fb5a22d47b6e054e2f378cedacffcb89904a61d75d0dbd407143e65",
 	  .local_pubkey_str = "03e60fce93b59e9ec53011aabc21c23e97b2a31369b87a5ae9c44ee89e2a6dec0a",
+	  .expected_change = AMOUNT_SAT(0),
 	};
 
 	return test;
 }
 
-
 #define num_tests 14
 static struct test_case (*test_cases[num_tests])(const tal_t *ctx) = {
 	test1, test2, test3, test_no_change, test_change, test_change_trimmed,
-	test_change_trimmed_positive, test_less_than_dust, test_one_input,
+	test_less_than_dust, test_one_input, test_dust_change_trimmed,
 	test_two_input, test_full_set, test_less_than_dust_with_accepter,
 	test_more_than_input, test_culmulative_more_than_input,
 };
@@ -819,6 +831,7 @@ int main(void)
 			abort();
 
 		assert(amount_sat_eq(total_funding, test.expected_funding));
+		assert(amount_sat_eq(opener_change, test.expected_change));
 		assert(bitcoin_tx_eq(funding, test.expected_tx));
 	}
 

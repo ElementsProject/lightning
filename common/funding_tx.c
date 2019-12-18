@@ -238,7 +238,7 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 {
 	size_t weight = 0;
 	struct amount_sat est_tx_fee, opener_total_sat,
-			  accepter_total_sat, output_val;
+			  accepter_total_sat, output_val, change;
 	struct bitcoin_tx *tx;
 	const struct output_info *change_output;
 
@@ -274,6 +274,7 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 	output_val = AMOUNT_SAT(0);
 	if (!calculate_output_value(opener_outputs, &output_val))
 		return NULL;
+
 	if (!amount_sat_sub(opener_change, *opener_change, output_val))
 		return NULL;
 
@@ -291,8 +292,8 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 	 *   ...
 	 *   2. Confirm that `change_satoshis` is greater than `dust_limit_satoshis`.
 	 */
-	if (amount_sat_sub(opener_change, *opener_change, est_tx_fee) &&
-			amount_sat_greater(*opener_change, chainparams->dust_limit)) {
+	if (amount_sat_sub(&change, *opener_change, est_tx_fee) &&
+			amount_sat_greater(change, chainparams->dust_limit)) {
 		if (!change_output) {
 			/*
 			 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #3
@@ -303,10 +304,11 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 			 *   will be added to the funding output, and credited to the opener's
 			 *   initial channel balance. */
 			if (!amount_sat_add(opener_funding, *opener_funding,
-					    *opener_change))
+					    change))
 				return NULL;
 			*opener_change = AMOUNT_SAT(0);
-		}
+		} else
+			*opener_change = change;
 
 		goto build_tx;
 	}
@@ -327,8 +329,8 @@ struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 		 *   2. As there is no change_output, any remaining `change_satoshis`
 		 *   will be added to the funding output, and credited to the opener's
 		 *   initial channel balance. */
-		if (amount_sat_sub(opener_change, *opener_change, est_tx_fee)) {
-			if (!amount_sat_add(opener_funding, *opener_funding, *opener_change))
+		if (amount_sat_sub(&change, *opener_change, est_tx_fee)) {
+			if (!amount_sat_add(opener_funding, *opener_funding, change))
 				return NULL;
 			*opener_change = AMOUNT_SAT(0);
 			goto build_tx;
