@@ -763,6 +763,11 @@ static void db_report_changes(struct db *db, const char *final, size_t min)
 	assert(db->changes);
 	assert(tal_count(db->changes) >= min);
 
+	/* Having changes implies that we have a dirty TX. The opposite is
+	 * currently not true, e.g., the postgres driver doesn't record
+	 * changes yet. */
+	assert(!tal_count(db->changes) || db->dirty);
+
 	if (tal_count(db->changes) > min)
 		plugin_hook_db_sync(db);
 	db->changes = tal_free(db->changes);
@@ -785,6 +790,9 @@ void db_begin_transaction_(struct db *db, const char *location)
 	if (db->in_transaction)
 		db_fatal("Already in transaction from %s", db->in_transaction);
 
+	/* No writes yet. */
+	db->dirty = false;
+
 	db_prepare_for_changes(db);
 	ok = db->config->begin_tx_fn(db);
 	if (!ok)
@@ -805,6 +813,7 @@ void db_commit_transaction(struct db *db)
 		db_fatal("Failed to commit DB transaction: %s", db->error);
 
 	db->in_transaction = NULL;
+	db->dirty = false;
 }
 
 static struct db_config *db_config_find(const char *dsn)
@@ -1357,6 +1366,10 @@ void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t)
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
 	bool ret = stmt->db->config->exec_fn(stmt);
+
+	/* If this was a write we need to bump the data_version upon commit. */
+	stmt->db->dirty = stmt->db->dirty || !stmt->query->readonly;
+
 	stmt->executed = true;
 	list_del_from(&stmt->db->pending_statements, &stmt->list);
 

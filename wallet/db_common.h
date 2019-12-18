@@ -30,6 +30,10 @@ struct db {
 	char *error;
 
 	struct log *log;
+
+	/* Were there any modifying statements in the current transaction?
+	 * Used to bump the data_version in the DB.*/
+	bool dirty;
 };
 
 struct db_query {
