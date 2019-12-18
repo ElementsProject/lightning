@@ -802,13 +802,30 @@ void db_begin_transaction_(struct db *db, const char *location)
 	db->in_transaction = location;
 }
 
+/* By making the update conditional on the current value we expect we
+ * are implementing an optimistic lock: if the update results in
+ * changes on the DB we know that the data_version did not change
+ * under our feet and no other transaction ran in the meantime.
+ *
+ * Notice that this update effectively locks the row, so that other
+ * operations attempting to change this outside the transaction will
+ * wait for this transaction to complete. The external change will
+ * ultimately fail the changes test below, it'll just delay its abort
+ * until our transaction is committed.
+ */
 static void db_data_version_incr(struct db *db)
 {
        struct db_stmt *stmt = db_prepare_v2(
 	       db, SQL("UPDATE vars "
 		       "SET intval = intval + 1 "
-		       "WHERE name = 'data_version'"));
+		       "WHERE name = 'data_version'"
+		       " AND intval = ?"));
+       db_bind_int(stmt, 0, db->data_version);
        db_exec_prepared_v2(stmt);
+       if (db_count_changes(stmt) != 1)
+	       fatal("Optimistic lock on the database failed. There may be a "
+                     "concurrent access to the database. Aborting since "
+                     "concurrent access is unsafe.");
        tal_free(stmt);
        db->data_version++;
 }
