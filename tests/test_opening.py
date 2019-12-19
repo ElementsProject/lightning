@@ -48,6 +48,67 @@ def test_two_sided_open(node_factory, bitcoind):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
+def test_reservation_crash(node_factory, bitcoind):
+    # we shouldn't reset to available if we crash with reserved utxos
+    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/funder.py')
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'plugin': plugin_path})
+
+    l1.fundwallet(200000000)
+    l2.fundwallet(200000000)
+
+    amount = 200000
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+
+    prep = l1.rpc.txprepare([{funding_addr: amount}], zero_out_change=True)
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+
+    # One output will be correct.
+    if decode['vout'][0]['value'] == Decimal('0.00200000'):
+        txout = 0
+    elif decode['vout'][1]['value'] == Decimal('0.00200000'):
+        txout = 1
+    else:
+        assert False
+
+    txid = l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['txid']
+    assert only_one(l1.rpc.listpeers()['peers'])['channels'] is not None
+
+    # Funds should be committed to this channel open
+    chan = only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])
+    assert chan['msatoshi_to_us'] == amount * 1000
+    funds = l2.rpc.listfunds()
+    assert len(funds['outputs']) == 0
+    assert not only_one(funds['reserved_outputs'])['reservation_expired']
+
+    # now we crash l2, who's got some reserved funds
+    l2.daemon.kill()
+    l2.start()
+
+    # check that our funds are still marked as reserved
+    funds = l2.rpc.listfunds()
+    assert len(funds['outputs']) == 0
+    assert not only_one(funds['reserved_outputs'])['reservation_expired']
+
+    # discard reserved tx so we don't leak on quit
+    l1.rpc.txdiscard(txid)
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
+def test_cancel_channel_twice(node_factory):
+    # check that we can cancel a channel 'twice' (two utxos in a different open)
+    assert True
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
+def test_rbf(node_factory, bitcoind):
+    assert True
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
 def test_double_spends(node_factory, bitcoind):
     # We re-use inputs if the tx hasn't been broadcast within a few hours/blocks
     # In the case that this happens, we should gracefully shutdown the

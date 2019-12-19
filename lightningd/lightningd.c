@@ -901,8 +901,11 @@ int main(int argc, char *argv[])
 		       min_blockheight, max_blockheight);
 
 	db_begin_transaction(ld->wallet->db);
+
 	/*~ Tell the wallet to start figuring out what to do for any reserved
-	 * unspent outputs we may have crashed with. */
+	 * unspent outputs we may have crashed with. Happens after topology
+	 * is initialized since we need the height to decide on some utxo
+	 * reservation's status */
 	wallet_clean_utxos(ld->wallet, ld->topology->bitcoind);
 
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
