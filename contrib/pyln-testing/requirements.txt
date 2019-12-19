@@ -1,6 +1,6 @@
-pytest==5.0.1
+pytest==5.3.1
 Flask==1.1.1
-cheroot==6.5.5
+cheroot==8.2.1
 ephemeral-port-reserve==1.1.1
-python-bitcoinlib==0.10.1
+python-bitcoinlib==0.10.2
 psycopg2-binary==2.8.4
