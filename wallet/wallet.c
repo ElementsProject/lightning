@@ -341,6 +341,42 @@ static bool wallet_clear_reservation(struct wallet *w, struct utxo *utxo)
 	return wallet_output_reservation_update(w, utxo, 0, 0);
 }
 
+struct utxo_reservation **wallet_fetch_channel_reservations(const tal_t *ctx,
+							    struct wallet *w,
+							    struct channel *c)
+{
+	struct db_stmt *stmt;
+	struct utxo_reservation **results;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT prev_out_tx"
+			     ", prev_out_index"
+			     ", txid"
+			     ", channel_id"
+			     " FROM output_tracking"
+			     " WHERE channel_id = ?;"));
+
+	db_bind_int(stmt, 0, c->dbid);
+	db_query_prepared(stmt);
+	if (stmt->error)
+		fatal("Error fetching channel utxo reservations: %s", stmt->error);
+
+	results = tal_arr(ctx, struct utxo_reservation *, 0);
+	while (db_step(stmt)) {
+		struct utxo_reservation *ur = tal(results, struct utxo_reservation);
+		db_column_txid(stmt, 0, &ur->prev_txid);
+		ur->prev_outnum = db_column_int(stmt, 1);
+		db_column_txid(stmt, 2, &ur->funding_txid);
+		ur->channel_dbid = db_column_int(stmt, 3);
+
+		tal_arr_expand(&results, ur);
+	}
+
+	tal_free(stmt);
+
+	/* We return NULL if no results found */
+	return tal_count(results) ? results : tal_free(results);
+}
+
 bool wallet_update_output_status(struct wallet *w,
 				 const struct bitcoin_txid *txid,
 				 const u32 outnum, enum output_status oldstatus,

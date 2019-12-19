@@ -387,6 +387,14 @@ bool wallet_update_output_status(struct wallet *w,
 				 enum output_status newstatus);
 
 /**
+ * wallet_fetch_channel_reservations - Find all current reservations for this channel
+ *
+ * Returns NULL if none found.
+ */
+struct utxo_reservation **wallet_fetch_channel_reservations(const tal_t *ctx,
+							    struct wallet *w,
+							    struct channel *c);
+/**
  * wallet_output_reservation_update - Add an expiration for a utxo reservation
  * Update a reserved output's reserved_at and reserved_for in the database.
  * Will be returned to available upon expiration.

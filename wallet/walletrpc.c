@@ -891,6 +891,25 @@ static struct command_result *add_output(struct command *cmd,
 	return NULL;
 }
 
+static void add_utxo_info(struct command *cmd,
+			  struct json_stream *stream,
+			  struct channel *c)
+{
+	struct utxo_reservation **rezzies;
+	size_t i;
+
+	rezzies = wallet_fetch_channel_reservations(cmd, cmd->ld->wallet, c);
+	json_array_start(stream, "utxo_reservations");
+	for (i = 0; i < tal_count(rezzies); i++) {
+		json_object_start(stream, NULL);
+		json_add_txid(stream, "txid", &rezzies[i]->prev_txid);
+		json_add_num(stream, "output", rezzies[i]->prev_outnum);
+		json_add_txid(stream, "funding_txid", &rezzies[i]->funding_txid);
+		json_object_end(stream);
+	}
+	json_array_end(stream);
+}
+
 static struct command_result *json_listfunds(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
@@ -937,6 +956,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 				      channel_active(c) && c->connected);
 			json_add_string(response, "state",
 					channel_state_name(c));
+
 			if (c->scid)
 				json_add_short_channel_id(response,
 							  "short_channel_id",
@@ -953,6 +973,14 @@ static struct command_result *json_listfunds(struct command *cmd,
 				      &c->funding_txid);
 			json_add_num(response, "funding_output",
 				      c->funding_outnum);
+
+			/* If we're in lockin state and no tx has been seen
+			 * on the wire, print out the related utxo info, as
+			 * it'll be useful for figuring out what's going on
+			 * with any utxos in `reserved_outputs` */
+			if (c->state == CHANNELD_AWAITING_LOCKIN && !c->scid)
+				add_utxo_info(cmd, response, c);
+
 			json_object_end(response);
 		}
 	}

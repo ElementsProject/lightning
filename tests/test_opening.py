@@ -1,11 +1,9 @@
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
-from lightning import RpcError
 from utils import EXPERIMENTAL_FEATURES, only_one, sync_blockheight
 
 import os
-import pytest
 import unittest
 
 
@@ -89,6 +87,7 @@ def test_double_spends(node_factory, bitcoind):
     funds = l2.rpc.listfunds()
     assert len(funds['outputs']) == 0
     assert not only_one(funds['reserved_outputs'])['reservation_expired']
+    originally_reserved_at = only_one(funds['reserved_outputs'])['reserved_at_height']
 
     # l1 doesn't broadcast, let's advance 18 blocks (UTXO_RESERVATION_BLOCKS)
     l1.bitcoin.generate_block(18)
@@ -102,131 +101,35 @@ def test_double_spends(node_factory, bitcoind):
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l3.rpc.fundchannel(l2.info['id'], amount)
 
-    # since we haven't updated our lookup for available utxos yet,
-    # we get a warning!!
-    l2.daemon.wait_for_log(r'Attempting to fund channel for 20000sat when max was set to 0sat')
+    # before the block is confirmed, we should still have both channels available
+    # and awaiting lock-in
+    funds = l2.rpc.listfunds()
+    reserved_out = only_one(funds['reserved_outputs'])
+    reserved_out['reserved_at_height'] > originally_reserved_at
+    for c in funds['channels']:
+        utxo_rez = only_one(c['utxo_reservations'])
+        assert utxo_rez['txid'] == reserved_out['txid'] and utxo_rez['output'] == reserved_out['output']
+    # the reserved output's txid + outpoint should be in each of the pending channels
+    peers = l2.rpc.listpeers()['peers']
+    assert len(peers) == 2
+    for p in peers:
+        assert only_one(p['channels'])['state'] == 'CHANNELD_AWAITING_LOCKIN'
+
+    # Go ahead and sink the funding tx for l2<->l3
+    l1.bitcoin.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+
+    peers = l2.rpc.listpeers()['peers']
+    assert len(peers) == 1
+    for p in peers:
+        only_one(p['channels'])['state'] == 'CHANNELD_NORMAL'
+
+    # Check that the reserved funds have gone away!
+    funds = l2.rpc.listfunds()
+    assert len(funds['reserved_outputs']) == 0
+    only_one(funds['channels'])['channel_sat'] == amount
+    only_one(funds['channels'])['channel_total_sat'] == amount * 2
+    assert 'utxo_reservations' not in only_one(funds['channels'])
 
     # Clean up prepped tx, otherwise we leak on quit
     l1.rpc.txdiscard(txid)
-
-
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
-def test_peer_publish_afterburn(node_factory, bitcoind):
-    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/funder.py')
-
-    l1 = node_factory.get_node(may_reconnect=True)
-    l2 = node_factory.get_node(options={'plugin': plugin_path},
-                               may_reconnect=True)
-
-    l1.fundwallet(200000000)
-    l2.fundwallet(200000000)
-
-    amount = 1000000
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
-
-    prep = l1.rpc.txprepare([{funding_addr: amount}])
-    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
-    assert decode['txid'] == prep['txid']
-
-    # One output will be correct.
-    if decode['vout'][0]['value'] == Decimal('0.01000000'):
-        txout = 0
-    elif decode['vout'][1]['value'] == Decimal('0.01000000'):
-        txout = 1
-    else:
-        assert False
-
-    complete = l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)
-    assert complete['commitments_secured']
-    txid = complete['txid']
-
-    # First prevent the burn from happening
-    def mock_sendrawtransaction(r):
-        return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
-
-    # Prevent funder from broadcasting funding tx (any tx really).
-    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
-
-    # Spin up a burn, but fail to publish it
-    l2.bitcoin.generate_block(132 + 25)
-    sync_blockheight(bitcoind, [l2])
-
-    # We should have been blocked from sending transaction
-    l2.daemon.wait_for_log(r'Unable to publish burn transaction. Errno 100')
-    assert len(l2.rpc.listfunds()['outputs']) == 0
-    assert len(l1.rpc.listfunds()['outputs']) == 0
-
-    # Remove the block, try again
-    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
-    l2.bitcoin.generate_block(25)
-    sync_blockheight(bitcoind, [l2])
-
-    # Shared txs should have burned, now
-    l2.daemon.wait_for_log(r'Found 1 burnable output at blockheight')
-    only_one(l2.rpc.listfunds()['outputs'])
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    only_one(l1.rpc.listpeers()['peers'])['channels'] is None
-
-    # Try sending the transaction
-    with pytest.raises(RpcError, match=r'Error broadcasting transaction:'):
-        l1.rpc.txsend(txid)
-
-    # tx should not be around anymore
-    with pytest.raises(RpcError, match=r'not an unreleased txid'):
-        l1.rpc.txdiscard(txid)
-
-    assert only_one(l1.rpc.listfunds()['outputs'])
-
-
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
-def test_accepter_burns(node_factory, bitcoind):
-    # We need a plugin to get l2 to contribute funds
-    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/funder.py')
-
-    l1 = node_factory.get_node(may_reconnect=True)
-    l2 = node_factory.get_node(may_reconnect=True)
-    l3 = node_factory.get_node(options={'plugin': plugin_path},
-                               may_reconnect=True)
-
-    l1.fundwallet(200000000)
-    l2.fundwallet(200000000)
-    l3.fundwallet(200000000)
-    l3.fundwallet(100000000)
-
-    assert len(l3.rpc.listfunds()['outputs']) == 2
-
-    fund_amount = 200000
-
-    def mock_sendrawtransaction(r):
-        return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
-
-    # Have two nodes attempt to connect with l3
-    for node in [l1, l2]:
-        # Prevent funder from broadcasting funding tx (any tx really).
-        node.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
-        node.rpc.connect(l3.info['id'], 'localhost', l3.port)
-        with pytest.raises(RpcError):
-            node.rpc.fundchannel(l3.info['id'], fund_amount)
-
-    # Outputs should be in 'shared' state
-    assert len(l3.rpc.listfunds()['outputs']) == 0
-
-    # Advance the blockchain til we hit the burn
-    l3.bitcoin.generate_block(132 + 25)
-    sync_blockheight(bitcoind, [l3])
-
-    # Shared txs should have burned
-    l3.daemon.wait_for_log(r'Found 2 burnable outputs at blockheight')
-    o = only_one(l3.rpc.listfunds()['outputs'])
-
-    # Should be one utxo roughly the value of the two orignal
-    # utxos, minus fees
-    assert(o['value'] < 300000000 and o['value'] > 299900000)
-
-    # Check that channel has been cancelled/forgotten
-    for node in [l1, l2]:
-        node.rpc.connect(l3.info['id'], 'localhost', l3.port)
-        only_one(node.rpc.listpeers()['peers'])['channels'] is None
-        assert only_one(node.rpc.listfunds()['outputs'])['value'] == 200000000

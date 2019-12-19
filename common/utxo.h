@@ -58,6 +58,13 @@ struct utxo {
 	u8 *scriptSig;
 };
 
+struct utxo_reservation {
+	struct bitcoin_txid prev_txid;
+	u32 prev_outnum;
+	u64 channel_dbid;
+	struct bitcoin_txid funding_txid;
+};
+
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
 struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max);
 
