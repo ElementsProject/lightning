@@ -55,7 +55,7 @@ RUN pip3 install --upgrade pip && \
     python3 -m pip install \
 	CherryPy==17.3.0 \
 	Flask==1.0.2 \
-	cheroot==6.5.2 \
+	cheroot==8.2.1 \
 	ephemeral-port-reserve==1.1.0 \
 	flaky==3.4.0 \
 	pytest-benchmark==3.1.1 \
@@ -63,7 +63,7 @@ RUN pip3 install --upgrade pip && \
 	pytest-timeout==1.3.3 \
 	pytest-xdist==1.22.2 \
 	pytest==3.8.1 \
-	python-bitcoinlib==0.7.0 \
+	python-bitcoinlib==0.10.2 \
 	tqdm==4.26.0 \
 	pytest-test-groups==1.0.3 \
 	flake8==3.5.0 \
