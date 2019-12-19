@@ -37,7 +37,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
 				 const struct keyset *keyset,
-				 struct witscript * o_wscript)
+				 struct witscript *o_wscript)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
@@ -58,7 +58,7 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 				  const struct htlc *htlc,
 				  const struct keyset *keyset,
-				  struct witscript * o_wscript)
+				  struct witscript *o_wscript)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
