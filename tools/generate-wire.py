@@ -225,6 +225,7 @@ class Type(FieldSet):
         'exclude_entry',
         'fee_states',
         'onionreply',
+        'witscript',
     ]
 
     # Some BOLT types are re-typed based on their field name

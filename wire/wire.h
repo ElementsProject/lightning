@@ -29,6 +29,7 @@ struct bitcoin_txid;
 struct preimage;
 struct ripemd160;
 struct siphash_seed;
+struct witscript;
 
 /* Makes generate-wire.py work */
 typedef char wirestring;
@@ -90,6 +91,7 @@ void towire_siphash_seed(u8 **cursor, const struct siphash_seed *seed);
 
 void towire_bip32_key_version(u8 **cursor, const struct bip32_key_version *version);
 void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
+void towire_witscript(u8 **pptr, const struct witscript *script);
 void towire_chainparams(u8 **cursor, const struct chainparams *chainparams);
 
 const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n);
@@ -144,6 +146,8 @@ void fromwire_bip32_key_version(const u8 **cursor, size_t *max,
 				struct bip32_key_version *version);
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
 						     const u8 **cursor, size_t *max);
+struct witscript *fromwire_witscript(const tal_t *ctx,
+				     const u8 **cursor, size_t *max);
 
 void fromwire_chainparams(const u8 **cursor, size_t *max,
 			  const struct chainparams **chainparams);
