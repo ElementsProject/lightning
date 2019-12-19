@@ -1,9 +1,11 @@
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
+from lightning import RpcError
 from utils import EXPERIMENTAL_FEATURES, only_one, sync_blockheight
 
 import os
+import pytest
 import unittest
 
 
@@ -194,3 +196,103 @@ def test_double_spends(node_factory, bitcoind):
 
     # Clean up prepped tx, otherwise we leak on quit
     l1.rpc.txdiscard(txid)
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual funding is experimental")
+def test_original_publishes(node_factory, bitcoind):
+    """ Same thing as double_spend test, except that the original
+        node publishes the tx, after the reservation has expired """
+    # We re-use inputs if the tx hasn't been broadcast within a few hours/blocks
+    # In the case that this happens, we should gracefully shutdown the
+    # channels associated with the double-spent utxo
+    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/funder.py')
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'plugin': plugin_path})
+    l3 = node_factory.get_node()
+
+    l1.fundwallet(200000000)
+    l2.fundwallet(200000000)
+    l3.fundwallet(200000000)
+
+    amount = 200000
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+
+    prep = l1.rpc.txprepare([{funding_addr: amount}], zero_out_change=True)
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+
+    # One output will be correct.
+    if decode['vout'][0]['value'] == Decimal('0.00200000'):
+        txout = 0
+    elif decode['vout'][1]['value'] == Decimal('0.00200000'):
+        txout = 1
+    else:
+        assert False
+
+    l1_txid = l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['txid']
+    assert only_one(l1.rpc.listpeers()['peers'])['channels'] is not None
+
+    # Funds should be committed to this channel open
+    chan = only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])
+    assert chan['msatoshi_to_us'] == amount * 1000
+    funds = l2.rpc.listfunds()
+    assert len(funds['outputs']) == 0
+    assert not only_one(funds['reserved_outputs'])['reservation_expired']
+
+    # l1 doesn't broadcast, let's advance 18 blocks (UTXO_RESERVATION_BLOCKS)
+    l1.bitcoin.generate_block(18)
+    sync_blockheight(bitcoind, [l2])
+
+    funds = l2.rpc.listfunds()
+    assert len(funds['outputs']) == 0
+    assert only_one(funds['reserved_outputs'])['reservation_expired']
+
+    # try to fundchannel from l3 <-> l2 now
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    funding_addr = l3.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+
+    prep = l3.rpc.txprepare([{funding_addr: amount}], zero_out_change=True)
+    decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+    assert decode['txid'] == prep['txid']
+
+    # One output will be correct.
+    if decode['vout'][0]['value'] == Decimal('0.00200000'):
+        txout = 0
+    elif decode['vout'][1]['value'] == Decimal('0.00200000'):
+        txout = 1
+    else:
+        assert False
+
+    l3_txid = l3.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['txid']
+    assert only_one(l3.rpc.listpeers()['peers'])['channels'] is not None
+
+    peers = l2.rpc.listpeers()['peers']
+    assert len(peers) == 2
+    for p in peers:
+        assert only_one(p['channels'])['state'] == 'CHANNELD_AWAITING_LOCKIN'
+
+    # Go ahead and sink the funding tx for l1<->l2
+    l1.rpc.txsend(l1_txid)
+    l1.bitcoin.generate_block(1)
+    sync_blockheight(bitcoind, [l2, l3])
+
+    peers = l2.rpc.listpeers()['peers']
+    assert len(peers) == 1
+    for p in peers:
+        only_one(p['channels'])['state'] == 'CHANNELD_NORMAL'
+
+    # Check that the reserved funds have gone away!
+    funds = l2.rpc.listfunds()
+    assert len(funds['reserved_outputs']) == 0
+    only_one(funds['channels'])['channel_sat'] == amount
+    only_one(funds['channels'])['channel_total_sat'] == amount * 2
+    assert 'utxo_reservations' not in only_one(funds['channels'])
+
+    # What happens if l3 tries to broadcast?
+    with pytest.raises(RpcError, match=r'Missing inputs. Unsent tx discarded'):
+        l3.rpc.txsend(l3_txid)
+
+    # FIXME: l3 should not be in AWAITING_UNILATERAL state
+    print(l3.rpc.listpeers())
