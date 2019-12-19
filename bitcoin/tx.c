@@ -398,6 +398,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 	tx->input_amounts = tal_arrz(tx, struct amount_sat*, input_count);
 	tx->wtx->locktime = 0;
 	tx->wtx->version = 2;
+	tx->output_witscripts = tal_arrz(tx, struct witscript*, output_count);
 	tx->chainparams = chainparams;
 	return tx;
 }

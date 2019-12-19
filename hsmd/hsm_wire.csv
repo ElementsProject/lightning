@@ -158,6 +158,10 @@ msgtype,hsm_sign_remote_commitment_tx,19
 msgdata,hsm_sign_remote_commitment_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_commitment_tx,remote_funding_key,pubkey,
 msgdata,hsm_sign_remote_commitment_tx,funding_amount,amount_sat,
+msgdata,hsm_sign_remote_commitment_tx,num_witscripts,u16,
+msgdata,hsm_sign_remote_commitment_tx,output_witscripts,witscript,num_witscripts
+msgdata,hsm_sign_remote_commitment_tx,remote_per_commit,pubkey,
+msgdata,hsm_sign_remote_commitment_tx,option_static_remotekey,bool,
 
 # channeld asks HSM to sign remote HTLC tx.
 msgtype,hsm_sign_remote_htlc_tx,20
