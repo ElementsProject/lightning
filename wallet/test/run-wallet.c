@@ -1061,7 +1061,7 @@ static bool test_input_tx_assoc(struct lightningd *ld, const tal_t *ctx)
 {
 	struct wallet *w = create_test_wallet(ld, ctx);
 	struct utxo u1, u2, u3, u4;
-	struct bitcoin_txid txidA, txidB, txidC, txidD, txidE, txid, utxid;
+	struct bitcoin_txid txidA, txidB, txidC, txidD, txidE, txidF, txid, utxid;
 	struct pubkey pk;
 	struct node_id id;
 	u64 channel_dbid, peer_dbid;
@@ -1099,6 +1099,7 @@ static bool test_input_tx_assoc(struct lightningd *ld, const tal_t *ctx)
 	memset(&txidC, 2, sizeof(txidC));
 	memset(&txidD, 3, sizeof(txidD));
 	memset(&txidE, 4, sizeof(txidE));
+	memset(&txidE, 5, sizeof(txidF));
 
 	db_begin_transaction(w->db);
 
@@ -1111,7 +1112,7 @@ static bool test_input_tx_assoc(struct lightningd *ld, const tal_t *ctx)
 	db_exec_prepared_v2(stmt);
 	peer_dbid = db_last_insert_id_v2(take(stmt));
 
-	for (size_t i = 0; i < 4; i++) {
+	for (size_t i = 0; i < 5; i++) {
 		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channels "
 						"(peer_id, id) VALUES (?, ?);"));
 		db_bind_u64(stmt, 0, peer_dbid);
@@ -1134,6 +1135,13 @@ static bool test_input_tx_assoc(struct lightningd *ld, const tal_t *ctx)
 	CHECK(wallet_add_input_tx_tracking(w, &u1, channel, &txidB));
 	CHECK(wallet_add_input_tx_tracking(w, &u3, channel, &txidB));
 
+	/* utxo set (1,2,3) for channel 2 open AD, &txid_F (diff &txid, diff channel, but RBF
+	 * of previous, txidB) */
+	channel->dbid = 2;
+	CHECK(wallet_add_input_tx_tracking(w, &u1, channel, &txidF));
+	CHECK(wallet_add_input_tx_tracking(w, &u2, channel, &txidF));
+	CHECK(wallet_add_input_tx_tracking(w, &u3, channel, &txidF));
+
 	/* utxo set (1,4) for channel 0 open AB, &txid_C (diff &txid, same channel) */
 	channel->dbid = 0;
 	CHECK(wallet_add_input_tx_tracking(w, &u1, channel, &txidC));
@@ -1141,7 +1149,7 @@ static bool test_input_tx_assoc(struct lightningd *ld, const tal_t *ctx)
 
 	/* utxo set (2,3) for channel 2 open AD, &txid_D (diff &txid, diff channel
 	 * , diff input overlap) */
-	channel->dbid = 2;
+	channel->dbid = 4;
 	CHECK(wallet_add_input_tx_tracking(w, &u2, channel, &txidD));
 	CHECK(wallet_add_input_tx_tracking(w, &u3, channel, &txidD));
 
@@ -1185,17 +1193,19 @@ static bool test_input_tx_assoc(struct lightningd *ld, const tal_t *ctx)
 	}
 
 	/* Check that watches for txids are deleted. Checks order as well */
-	CHECK_MSG(tal_count(deleted_txid_watches) == 3, "Expected three deleted txid watches");
+	CHECK_MSG(tal_count(deleted_txid_watches) == 4, "Expected three deleted txid watches");
 	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[0], &txidB), "looking for txidB");
 	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[1], &txidC), "looking for txidC");
-	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[2], &txidD), "looking for txidD");
+	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[2], &txidF), "looking for txidF");
+	CHECK_MSG(bitcoin_txid_eq(deleted_txid_watches[3], &txidD), "looking for txidD");
 
 	/* Because of how the mocks for this work, we'll get channel id '2' back twice */
-	CHECK_MSG(tal_count(forgotten_channel_ids) == 2,
-		  tal_fmt(ctx, "expected 2 forgotten channel calls got %zu",
+	CHECK_MSG(tal_count(forgotten_channel_ids) == 3,
+		  tal_fmt(ctx, "expected 3 forgotten channel calls got %zu",
 			  tal_count(forgotten_channel_ids)));
 	CHECK(forgotten_channel_ids[0] == 2);
 	CHECK(forgotten_channel_ids[1] == 2);
+	CHECK(forgotten_channel_ids[2] == 4);
 
 	tal_free(stmt);
 
