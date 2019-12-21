@@ -4,7 +4,7 @@ lightning-fundchannel - Command for establishing a lightning channel
 .SH SYNOPSIS
 
 \fBfundchannel\fR \fIid\fR \fIamount\fR [\fIfeerate\fR \fIannounce\fR] [\fIminconf\fR]
-[\fIutxos\fR]
+[\fIutxos\fR] [\fIpush_msat\fR]
 
 .SH DESCRIPTION
 
@@ -53,6 +53,12 @@ outputs should have\. Default is 1\.
 
 \fIutxos\fR specifies the utxos to be used to fund the channel, as an array
 of "txid:vout"\.
+
+
+\fIpush_msat\fR is the amount of millisatoshis to push to the channel peer at
+open\. Note that this is a gift to the peer -- these satoshis are
+added to the initial balance of the peer at channel start and are largely
+unrecoverable once pushed\.
 
 .SH RETURN VALUE
 

@@ -22,6 +22,7 @@ struct funding_req {
 	const char *funding_str;
 	const char *utxo_str;
 	bool funding_all;
+	struct amount_msat *push_msat;
 
 	bool *announce_channel;
 	u32 *minconf;
@@ -322,6 +323,9 @@ static struct command_result *fundchannel_start(struct command *cmd,
 		json_out_addstr(ret, "feerate", fr->feerate_str);
 	if (fr->announce_channel)
 		json_out_addbool(ret, "announce", *fr->announce_channel);
+	if (fr->push_msat)
+		json_out_addstr(ret, "push_msat",
+				type_to_string(tmpctx, struct amount_msat, fr->push_msat));
 
 	json_out_end(ret, '}');
 	json_out_finished(ret);
@@ -450,6 +454,7 @@ static struct command_result *json_fundchannel(struct command *cmd,
 			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
 			   p_opt_def("minconf", param_number, &fr->minconf, 1),
 			   p_opt("utxos", param_string, &fr->utxo_str),
+			   p_opt("push_msat", param_msat, &fr->push_msat),
 			   NULL))
 			return command_param_failed();
 	} else {
@@ -462,6 +467,7 @@ static struct command_result *json_fundchannel(struct command *cmd,
 			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
 			   p_opt_def("minconf", param_number, &fr->minconf, 1),
 			   p_opt("utxos", param_string, &fr->utxo_str),
+			   p_opt("push_msat", param_msat, &fr->push_msat),
 			   NULL))
 			return command_param_failed();
 

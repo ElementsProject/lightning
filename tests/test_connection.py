@@ -911,6 +911,35 @@ def test_funding_toolarge(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], amount)
 
 
+def test_funding_push(node_factory, bitcoind):
+    """ Try to push peer some sats """
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Send funds.
+    amount = 2**24
+    push_sat = 20000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # Fail to open (try to push too much)
+    with pytest.raises(RpcError, match=r'Requested to push_msat of 20000000msat is greater than available funding amount 10000sat'):
+        l1.rpc.fundchannel(l2.info['id'], 10000, push_msat=push_sat * 1000)
+
+    # This should work.
+    amount = amount - 1
+    l1.rpc.fundchannel(l2.info['id'], amount, push_msat=push_sat * 1000)
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    funds = only_one(l1.rpc.listfunds()['channels'])
+    assert funds['channel_sat'] + push_sat == funds['channel_total_sat']
+
+
 def test_funding_by_utxos(node_factory, bitcoind):
     """Fund a channel with specific utxos"""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
