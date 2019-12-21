@@ -548,14 +548,15 @@ class LightningRpc(UnixDomainSocketRpc):
         if 'satoshi' in kwargs:
             return self._deprecated_fundchannel(node_id, *args, **kwargs)
 
-        def _fundchannel(node_id, amount, feerate=None, announce=True, minconf=None, utxos=None):
+        def _fundchannel(node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None):
             payload = {
                 "id": node_id,
                 "amount": amount,
                 "feerate": feerate,
                 "announce": announce,
                 "minconf": minconf,
-                "utxos": utxos
+                "utxos": utxos,
+                "push_msat": push_msat
             }
             return self.call("fundchannel", payload)
 

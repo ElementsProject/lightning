@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **fundchannel** *id* *amount* \[*feerate* *announce*\] \[*minconf*\]
-\[*utxos*\]
+\[*utxos*\] \[*push_msat*\]
 
 DESCRIPTION
 -----------
@@ -48,6 +48,11 @@ outputs should have. Default is 1.
 
 *utxos* specifies the utxos to be used to fund the channel, as an array
 of "txid:vout".
+
+*push_msat* is the amount of millisatoshis to push to the channel peer at
+open. Note that this is a gift to the peer -- these satoshis are
+added to the initial balance of the peer at channel start and are largely
+unrecoverable once pushed.
 
 RETURN VALUE
 ------------
