@@ -217,7 +217,7 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
 {
-	/* example arg: "hsmd:rmthsmd" */
+	/* example arg: "lightning_hsmd:remote_hsmd" */
 	char *argbuf = tal_strdup(ld, arg);
 	char *colon = strchr(argbuf, ':');
 	if (!colon)
