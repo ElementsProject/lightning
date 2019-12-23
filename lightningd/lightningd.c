@@ -81,6 +81,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+static void destroy_alt_subdaemons(struct lightningd *ld);
+#if DEVELOPER
+static void memleak_help_alt_subdaemons(struct htable *memtable,
+					struct lightningd *ld);
+#endif /* DEVELOPER */
+
 /*~ The core lightning object: it's passed everywhere, and is basically a
  * global variable.  This new_xxx pattern is something we'll see often:
  * it allocates and initializes a new structure, using *tal*, the hierarchical
@@ -248,6 +254,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 */
 	ld->encrypted_hsm = false;
 
+	/* This is used to override subdaemons */
+	strmap_init(&ld->alt_subdaemons);
+	tal_add_destructor(ld, destroy_alt_subdaemons);
+	memleak_add_helper(ld, memleak_help_alt_subdaemons);
+
 	/*~ We change umask if we daemonize, but not if we don't. Initialize the
 	 * initial_umask anyway as we might rely on it later (`plugin start`). */
 	ld->initial_umask = umask(0);
@@ -278,6 +289,57 @@ static const char *subdaemons[] = {
 	"lightning_openingd"
 };
 
+/* Return true if called with a recognized subdaemon */
+bool is_subdaemon(const char *sdname)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(subdaemons); i++)
+		if (strcmp(sdname, subdaemons[i]) == 0)
+			return true;
+	return false;
+}
+
+static void destroy_alt_subdaemons(struct lightningd *ld)
+{
+	strmap_clear(&ld->alt_subdaemons);
+}
+
+#if DEVELOPER
+static void memleak_help_alt_subdaemons(struct htable *memtable,
+					struct lightningd *ld)
+{
+	memleak_remove_strmap(memtable, &ld->alt_subdaemons);
+}
+#endif /* DEVELOPER */
+
+const char *subdaemon_path(const struct lightningd *ld, const char *name)
+{
+	const char *dpath;
+
+	/*~ CCAN's path module uses tal, so wants a context to
+	 * allocate from.  We have a magic convenience context
+	 * `tmpctx` for temporary allocations like this.
+	 *
+	 * Because all our daemons at their core are of form `while
+	 * (!stopped) handle_events();` (an event loop pattern), we
+	 * can free `tmpctx` in that top-level loop after each event
+	 * is handled.
+	 */
+
+	/* Is there an alternate path for this subdaemon? */
+	const char *alt = strmap_get(&ld->alt_subdaemons, name);
+	if (alt) {
+		/* Is the alternate path absolute? */
+		if (alt[0] == '/')
+			dpath = tal_strdup(tmpctx, alt);
+		else
+			dpath = path_join(tmpctx, ld->daemon_dir, alt);
+	} else {
+		/* This subdaemon is found in the standard place. */
+		dpath = path_join(tmpctx, ld->daemon_dir, name);
+	}
+	return dpath;
+}
+
 /*~ Check we can run them, and check their versions */
 void test_subdaemons(const struct lightningd *ld)
 {
@@ -293,16 +355,7 @@ void test_subdaemons(const struct lightningd *ld)
 	 * a pointer, not an array. */
 	for (i = 0; i < ARRAY_SIZE(subdaemons); i++) {
 		int outfd;
-		/*~ CCAN's path module uses tal, so wants a context to
-		 * allocate from.  We have a magic convenience context
-		 * `tmpctx` for temporary allocations like this.
-		 *
-		 * Because all our daemons at their core are of form `while
-		 * (!stopped) handle_events();` (an event loop pattern), we
-		 * can free `tmpctx` in that top-level loop after each event
-		 * is handled.
-		 */
-		const char *dpath = path_join(tmpctx, ld->daemon_dir, subdaemons[i]);
+		const char *dpath = subdaemon_path(ld, subdaemons[i]);
 		const char *verstring;
 		/*~ CCAN's pipecmd module is like popen for grownups: it
 		 * takes pointers to fill in stdin, stdout and stderr file

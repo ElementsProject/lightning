@@ -4,6 +4,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <ccan/container_of/container_of.h>
+#include <ccan/strmap/strmap.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <lightningd/htlc_end.h>
@@ -257,11 +258,19 @@ struct lightningd {
 
 	/* Outstanding waitblockheight commands.  */
 	struct list_head waitblockheight_commands;
+
+	STRMAP(const char *) alt_subdaemons;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
  * Use only on carefully tested code! */
 extern bool tal_oom_ok;
+
+/* Return true if called with a recognized subdaemon, eg: "lightning_hsmd" */
+bool is_subdaemon(const char *sdname);
+
+/* Returns the path to the subdaemon. Considers alternate subdaemon paths. */
+const char *subdaemon_path(const struct lightningd *ld, const char *name);
 
 /* Check we can run subdaemons, and check their versions */
 void test_subdaemons(const struct lightningd *ld);

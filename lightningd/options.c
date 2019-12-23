@@ -215,6 +215,38 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE, true);
 }
 
+static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
+{
+	// example arg: "hsmd:rmthsmd"
+	char *argbuf = tal_strdup(ld, arg);
+	char *colon = strchr(argbuf, ':');
+	if (!colon)
+	{
+		tal_free(argbuf);
+		return tal_fmt(NULL, "argument must contain \':\'");
+	}
+	*colon = '\0';
+
+	if (!is_subdaemon(argbuf))
+	{
+		char *ret = tal_fmt(NULL, "%s is not a subdaemon", argbuf);
+		tal_free(argbuf);
+		return ret;
+	}
+	char *subdaemon = tal_strdup(ld, argbuf);
+	char *sdpath = tal_strdup(ld, colon+1);
+	if (!strmap_add(&ld->alt_subdaemons, subdaemon, sdpath))
+	{
+		tal_free(sdpath);
+		tal_free(subdaemon);
+		char *ret = tal_fmt(NULL, "%s already exists", argbuf);
+		tal_free(argbuf);
+		return ret;
+	}
+	tal_free(argbuf);
+	return NULL;
+}
+
 static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 {
 	struct wireaddr_internal addr;
@@ -878,6 +910,16 @@ static void register_opts(struct lightningd *ld)
 			 &ld->rpc_filemode,
 			 "Set the file mode (permissions) for the "
 			 "JSON-RPC socket");
+
+	opt_register_arg("--alt-subdaemon", opt_alt_subdaemon, NULL,
+			 ld, "Arg specified as SUBDAEMON:PATH. "
+			 "Specifies an alternate subdaemon binary. "
+			 "If the supplied path is relative the subdaemon "
+			 "binary is found in the working directory. "
+			 "This option may be specified multiple times, "
+			 "but only once for each subdaemon. For example, "
+			 "--alt-subdaemon=lightning_hsmd:remote_signer "
+			 "would use a hypothetical remote signing subdaemon.");
 
 	opt_register_logging(ld);
 	opt_register_version();
