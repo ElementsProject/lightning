@@ -37,6 +37,9 @@ struct pay_attempt {
 	struct json_out *failure;
 	/* The non-failure result (NULL on failure) */
 	const char *result;
+	/* The blockheight at which the payment attempt was
+	 * started.  */
+	u32 start_block;
 };
 
 struct pay_status {
@@ -787,6 +790,54 @@ static struct command_result *execute_getroute(struct command *cmd,
 			   take(params));
 }
 
+static struct command_result *
+getstartblockheight_done(struct command *cmd,
+			 const char *buf,
+			 const jsmntok_t *result,
+			 struct pay_command *pc)
+{
+	const jsmntok_t *blockheight_tok;
+	u64 blockheight;
+
+	blockheight_tok = json_get_member(buf, result, "blockheight");
+	if (!blockheight_tok)
+		plugin_err("getstartblockheight: "
+			   "getinfo gave no 'blockheight'? '%.*s'",
+			   result->end - result->start, buf);
+
+	if (!json_to_u64(buf, blockheight_tok, &blockheight))
+		plugin_err("getstartblockheight: "
+			   "getinfo gave non-number 'blockheight'? '%.*s'",
+			   result->end - result->start, buf);
+
+	current_attempt(pc)->start_block = (u32) blockheight;
+	assert(((u64) current_attempt(pc)->start_block) == blockheight);
+
+	return execute_getroute(cmd, pc);
+}
+
+static struct command_result *
+getstartblockheight_error(struct command *cmd,
+			  const char *buf,
+			  const jsmntok_t *error,
+			  struct pay_command *pc)
+{
+	/* Should never happen.  */
+	plugin_err("getstartblockheight: getinfo failed!? '%.*s'",
+		   error->end - error->start, buf);
+}
+
+static struct command_result *
+execute_getstartblockheight(struct command *cmd,
+			    struct pay_command *pc)
+{
+	return send_outreq(cmd, "getinfo",
+			   &getstartblockheight_done,
+			   &getstartblockheight_error,
+			   pc,
+			   take(json_out_obj(NULL, NULL, NULL)));
+}
+
 static struct command_result *start_pay_attempt(struct command *cmd,
 						struct pay_command *pc,
 						const char *fmt, ...)
@@ -811,7 +862,7 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	attempt->why = tal_vfmt(pc->ps, fmt, ap);
 	va_end(ap);
 
-	return execute_getroute(cmd, pc);
+	return execute_getstartblockheight(cmd, pc);
 }
 
 /* BOLT #7:
