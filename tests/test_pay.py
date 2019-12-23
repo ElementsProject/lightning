@@ -2746,7 +2746,6 @@ def test_createonion_limits(node_factory):
         l1.rpc.createonion(hops=hops, assocdata="BB" * 32)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs use_shadow")
 def test_blockheight_disagreement(node_factory, bitcoind, executor):
     """

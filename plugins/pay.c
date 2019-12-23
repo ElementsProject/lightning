@@ -14,6 +14,7 @@
 #include <plugins/libplugin.h>
 #include <stdio.h>
 #include <wire/onion_defs.h>
+#include <wire/wire.h>
 
 /* Public key of this node. */
 static struct node_id my_id;
@@ -323,11 +324,106 @@ static struct command_result *next_routehint(struct command *cmd,
 				    "Could not find a route");
 }
 
+static struct command_result *
+waitblockheight_done(struct command *cmd,
+		     const char *buf UNUSED,
+		     const jsmntok_t *result UNUSED,
+		     struct pay_command *pc)
+{
+	return start_pay_attempt(cmd, pc,
+				 "Retried due to blockheight "
+				 "disagreement with payee");
+}
+static struct command_result *
+waitblockheight_error(struct command *cmd,
+		      const char *buf UNUSED,
+		      const jsmntok_t *error UNUSED,
+		      struct pay_command *pc)
+{
+	if (time_after(time_now(), pc->stoptime))
+		return waitsendpay_expired(cmd, pc);
+	else
+		/* Ehhh just retry it. */
+		return waitblockheight_done(cmd, buf, error, pc);
+}
+
+static struct command_result *
+execute_waitblockheight(struct command *cmd,
+			u32 blockheight,
+			struct pay_command *pc)
+{
+	struct json_out *params;
+	struct timeabs now = time_now();
+	struct timerel remaining;
+
+	if (time_after(now, pc->stoptime))
+		return waitsendpay_expired(cmd, pc);
+
+	remaining = time_between(pc->stoptime, now);
+
+	params = json_out_new(tmpctx);
+	json_out_start(params, NULL, '{');
+	json_out_add_u32(params, "blockheight", blockheight);
+	json_out_add_u64(params, "timeout", time_to_sec(remaining));
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	return send_outreq(cmd, "waitblockheight",
+			   &waitblockheight_done,
+			   &waitblockheight_error,
+			   pc,
+			   params);
+}
+
+/* Gets the remote height from a
+ * WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS
+ * failure.
+ * Return 0 if unable to find such a height.
+ */
+static u32
+get_remote_block_height(const char *buf, const jsmntok_t *error)
+{
+	const jsmntok_t *raw_message_tok;
+	const u8 *raw_message;
+	size_t raw_message_len;
+	u16 type;
+
+	/* Is there even a raw_message?  */
+	raw_message_tok = json_delve(buf, error, ".data.raw_message");
+	if (!raw_message_tok)
+		return 0;
+	if (raw_message_tok->type != JSMN_STRING)
+		return 0;
+
+	raw_message = json_tok_bin_from_hex(tmpctx, buf, raw_message_tok);
+	if (!raw_message)
+		return 0;
+
+	/* BOLT #4:
+	 *
+	 * 1. type: PERM|15 (`incorrect_or_unknown_payment_details`)
+	 * 2. data:
+   	 * * [`u64`:`htlc_msat`]
+   	 * * [`u32`:`height`]
+	 *
+	 */
+	raw_message_len = tal_count(raw_message);
+
+	type = fromwire_u16(&raw_message, &raw_message_len); /* type */
+	if (type != WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS)
+		return 0;
+
+	(void) fromwire_u64(&raw_message, &raw_message_len); /* htlc_msat */
+
+	return fromwire_u32(&raw_message, &raw_message_len); /* height */
+}
+
 static struct command_result *waitsendpay_error(struct command *cmd,
 						const char *buf,
 						const jsmntok_t *error,
 						struct pay_command *pc)
 {
+	struct pay_attempt *attempt = current_attempt(pc);
 	const jsmntok_t *codetok, *failcodetok, *nodeidtok, *scidtok, *dirtok;
 	int code, failcode;
 	bool node_err = false;
@@ -339,17 +435,70 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 		plugin_err("waitsendpay error gave no 'code'? '%.*s'",
 			   error->end - error->start, buf + error->start);
 
+	if (code != PAY_UNPARSEABLE_ONION) {
+		failcodetok = json_delve(buf, error, ".data.failcode");
+		if (!json_to_int(buf, failcodetok, &failcode))
+			plugin_err("waitsendpay error gave no 'failcode'? '%.*s'",
+				   error->end - error->start, buf + error->start);
+	}
+
+	/* Special case for WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.
+	 *
+	 * One possible trigger for this failure is that the receiver
+	 * thinks the final timeout it gets is too near the future.
+	 *
+	 * For the most part, we respect the indicated `final_cltv`
+	 * in the invoice, and our shadow routing feature also tends
+	 * to give more timing budget to the receiver than the
+	 * `final_cltv`.
+	 *
+	 * However, there is an edge case possible on real networks:
+	 *
+	 * * We send out a payment respecting the `final_cltv` of
+	 *   the receiver.
+	 * * Miners mine a new block while the payment is in transit.
+	 * * By the time the payment reaches the receiver, the
+	 *   payment violates the `final_cltv` because the receiver
+	 *   is now using a different basis blockheight.
+	 *
+	 * This is a transient error.
+	 * Unfortunately, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS
+	 * is marked with the PERM bit.
+	 * This means that we would give up on this since `waitsendpay`
+	 * would return PAY_DESTINATION_PERM_FAIL instead of
+	 * PAY_TRY_OTHER_ROUTE.
+	 * Thus the `pay` plugin would not retry this case.
+	 *
+	 * Thus, we need to add this special-case checking here, where
+	 * the blockheight when we started the pay attempt was not
+	 * the same as what the payee reports.
+	 *
+	 * In the past this particular failure had its own failure code,
+	 * equivalent to 17.
+	 * In case the receiver is a really old software, we also
+	 * special-case it here.
+	 */
+	if ((code != PAY_UNPARSEABLE_ONION) &&
+	    ((failcode == 17) ||
+	     ((failcode == WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS) &&
+	      (attempt->start_block < get_remote_block_height(buf, error))))) {
+		u32 target_blockheight;
+
+		if (failcode == 17)
+			target_blockheight = attempt->start_block + 1;
+		else
+			target_blockheight = get_remote_block_height(buf, error);
+
+		return execute_waitblockheight(cmd, target_blockheight,
+					       pc);
+	}
+
 	/* FIXME: Handle PAY_UNPARSEABLE_ONION! */
 
 	/* Many error codes are final. */
 	if (code != PAY_TRY_OTHER_ROUTE) {
 		return forward_error(cmd, buf, error, pc);
 	}
-
-	failcodetok = json_delve(buf, error, ".data.failcode");
-	if (!json_to_int(buf, failcodetok, &failcode))
-		plugin_err("waitsendpay error gave no 'failcode'? '%.*s'",
-			   error->end - error->start, buf + error->start);
 
 	if (failcode & NODE) {
 		nodeidtok = json_delve(buf, error, ".data.erring_node");
@@ -797,7 +946,7 @@ getstartblockheight_done(struct command *cmd,
 			 struct pay_command *pc)
 {
 	const jsmntok_t *blockheight_tok;
-	u64 blockheight;
+	u32 blockheight;
 
 	blockheight_tok = json_get_member(buf, result, "blockheight");
 	if (!blockheight_tok)
@@ -805,13 +954,12 @@ getstartblockheight_done(struct command *cmd,
 			   "getinfo gave no 'blockheight'? '%.*s'",
 			   result->end - result->start, buf);
 
-	if (!json_to_u64(buf, blockheight_tok, &blockheight))
+	if (!json_to_u32(buf, blockheight_tok, &blockheight))
 		plugin_err("getstartblockheight: "
-			   "getinfo gave non-number 'blockheight'? '%.*s'",
+			   "getinfo gave non-unsigned-32-bit 'blockheight'? '%.*s'",
 			   result->end - result->start, buf);
 
-	current_attempt(pc)->start_block = (u32) blockheight;
-	assert(((u64) current_attempt(pc)->start_block) == blockheight);
+	current_attempt(pc)->start_block = blockheight;
 
 	return execute_getroute(cmd, pc);
 }
