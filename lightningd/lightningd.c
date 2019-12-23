@@ -72,6 +72,7 @@
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
+#include <lightningd/memdump.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
 #include <onchaind/onchain_wire.h>
@@ -329,7 +330,7 @@ const char *subdaemon_path(const struct lightningd *ld, const char *name)
 	const char *alt = strmap_get(&ld->alt_subdaemons, name);
 	if (alt) {
 		/* Is the alternate path absolute? */
-		if (alt[0] == '/')
+		if (path_is_abs(alt))
 			dpath = tal_strdup(tmpctx, alt);
 		else
 			dpath = path_join(tmpctx, ld->daemon_dir, alt);

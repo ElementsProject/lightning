@@ -217,32 +217,21 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
 {
-	// example arg: "hsmd:rmthsmd"
+	/* example arg: "hsmd:rmthsmd" */
 	char *argbuf = tal_strdup(ld, arg);
 	char *colon = strchr(argbuf, ':');
 	if (!colon)
-	{
-		tal_free(argbuf);
 		return tal_fmt(NULL, "argument must contain \':\'");
-	}
 	*colon = '\0';
 
 	if (!is_subdaemon(argbuf))
-	{
-		char *ret = tal_fmt(NULL, "%s is not a subdaemon", argbuf);
-		tal_free(argbuf);
-		return ret;
-	}
+		return tal_fmt(NULL, "%s is not a subdaemon", argbuf);
+
 	char *subdaemon = tal_strdup(ld, argbuf);
 	char *sdpath = tal_strdup(ld, colon+1);
 	if (!strmap_add(&ld->alt_subdaemons, subdaemon, sdpath))
-	{
-		tal_free(sdpath);
-		tal_free(subdaemon);
-		char *ret = tal_fmt(NULL, "%s already exists", argbuf);
-		tal_free(argbuf);
-		return ret;
-	}
+		return tal_fmt(NULL, "%s already exists", argbuf);
+
 	tal_free(argbuf);
 	return NULL;
 }
