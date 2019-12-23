@@ -724,34 +724,17 @@ static const char **dup_excludes(const tal_t *ctx, const char **excludes)
 	return ret;
 }
 
-static struct command_result *start_pay_attempt(struct command *cmd,
-						struct pay_command *pc,
-						const char *fmt, ...)
+/* Get a route from the lightningd. */
+static struct command_result *execute_getroute(struct command *cmd,
+					       struct pay_command *pc)
 {
+	struct pay_attempt *attempt = current_attempt(pc);
+
+	u32 max_hops = ROUTING_MAX_HOPS;
 	struct amount_msat msat;
 	const char *dest;
-	u32 max_hops = ROUTING_MAX_HOPS;
 	u32 cltv;
-	struct pay_attempt *attempt;
-	va_list ap;
-	size_t n;
 	struct json_out *params;
-
-	n = tal_count(pc->ps->attempts);
-	tal_resize(&pc->ps->attempts, n+1);
-	attempt = &pc->ps->attempts[n];
-
-	va_start(ap, fmt);
-	attempt->start = time_now();
-	/* Mark it unfinished */
-	attempt->end.ts.tv_sec = -1;
-	attempt->excludes = dup_excludes(pc->ps, pc->excludes);
-	attempt->route = NULL;
-	attempt->failure = NULL;
-	attempt->result = NULL;
-	attempt->sendpay = false;
-	attempt->why = tal_vfmt(pc->ps, fmt, ap);
-	va_end(ap);
 
 	/* routehint set below. */
 
@@ -802,6 +785,33 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 
 	return send_outreq(cmd, "getroute", getroute_done, getroute_error, pc,
 			   take(params));
+}
+
+static struct command_result *start_pay_attempt(struct command *cmd,
+						struct pay_command *pc,
+						const char *fmt, ...)
+{
+	struct pay_attempt *attempt;
+	va_list ap;
+	size_t n;
+
+	n = tal_count(pc->ps->attempts);
+	tal_resize(&pc->ps->attempts, n+1);
+	attempt = &pc->ps->attempts[n];
+
+	va_start(ap, fmt);
+	attempt->start = time_now();
+	/* Mark it unfinished */
+	attempt->end.ts.tv_sec = -1;
+	attempt->excludes = dup_excludes(pc->ps, pc->excludes);
+	attempt->route = NULL;
+	attempt->failure = NULL;
+	attempt->result = NULL;
+	attempt->sendpay = false;
+	attempt->why = tal_vfmt(pc->ps, fmt, ap);
+	va_end(ap);
+
+	return execute_getroute(cmd, pc);
 }
 
 /* BOLT #7:
