@@ -57,6 +57,7 @@
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
+#include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
