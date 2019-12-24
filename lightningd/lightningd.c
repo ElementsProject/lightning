@@ -244,9 +244,14 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->stop_conn = NULL;
 
 	/*~ This is used to signal that `hsm_secret` is encrypted, and will
-	 * be set to `true` if the `--encrypted` option is passed at startup.
+	 * be set to `true` if the `--encrypted-hsm` option is passed at startup.
 	 */
 	ld->encrypted_hsm = false;
+
+	/*~ We change umask if we daemonize, but not if we don't. Initialize the
+	 * initial_umask anyway as we might rely on it later (`plugin start`). */
+	ld->initial_umask = umask(0);
+	umask(ld->initial_umask);
 
 	return ld;
 }
@@ -533,7 +538,7 @@ static void complete_daemonize(struct lightningd *ld)
 		fatal("Could not setsid: %s", strerror(errno));
 
 	/* Discard our parent's old-fashioned umask prejudices. */
-	umask(0);
+	ld->initial_umask = umask(0);
 
 	/* OK, parent, you can exit(0) now. */
 	write_all(ld->daemon_parent_fd, &ok_status, sizeof(ok_status));
