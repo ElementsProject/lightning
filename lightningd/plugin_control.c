@@ -1,3 +1,4 @@
+#include <lightningd/options.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
 
@@ -206,7 +207,11 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 			plugin_kill(p, "%s stopped by lightningd via RPC", plugin_name);
 			tal_free(p);
 			response = json_stream_success(cmd);
-			json_add_string(response, "",
+			if (deprecated_apis)
+				json_add_string(response, "",
+			                    take(tal_fmt(NULL, "Successfully stopped %s.",
+			                                 plugin_name)));
+			json_add_string(response, "result",
 			                take(tal_fmt(NULL, "Successfully stopped %s.",
 			                             plugin_name)));
 			return command_success(cmd, response);
