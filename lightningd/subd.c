@@ -648,7 +648,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
-	const char *path = subdaemon_path(ld, name);
+	const char *path = subdaemon_path(tmpctx, ld, name);
 
 	sd->pid = subd(path, name, debug_subd,
 		       &msg_fd, disconnect_fd,
