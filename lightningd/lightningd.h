@@ -249,6 +249,8 @@ struct lightningd {
 	char *wallet_dsn;
 
 	bool encrypted_hsm;
+
+	mode_t initial_umask;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
