@@ -75,12 +75,6 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 *    - MAY fail the connection.
 	 */
 	if (tlvs->networks) {
-		if (!tlvs->networks->chains) {
-			status_peer_debug(&peer->id,
-			                  "bad networks TLV in init '%s', closing",
-			                  tal_hex(tmpctx, msg));
-			return io_close(conn);
-		}
 		if (!contains_common_chain(tlvs->networks->chains)) {
 			status_peer_debug(&peer->id,
 			                  "No common chain with this peer '%s', closing",
