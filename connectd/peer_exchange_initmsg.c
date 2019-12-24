@@ -30,7 +30,7 @@ struct peer {
 static bool contains_common_chain(struct bitcoin_blkid *chains)
 {
 	for (size_t i = 0; i < tal_count(chains); i++) {
-		if (bitcoin_blkid_eq(&chains[0], &chainparams->genesis_blockhash))
+		if (bitcoin_blkid_eq(&chains[i], &chainparams->genesis_blockhash))
 			return true;
 	}
 	return false;
