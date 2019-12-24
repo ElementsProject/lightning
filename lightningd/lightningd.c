@@ -313,31 +313,17 @@ static void memleak_help_alt_subdaemons(struct htable *memtable,
 }
 #endif /* DEVELOPER */
 
-const char *subdaemon_path(const struct lightningd *ld, const char *name)
+const char *subdaemon_path(const tal_t *ctx, const struct lightningd *ld, const char *name)
 {
-	const char *dpath;
-
-	/*~ CCAN's path module uses tal, so wants a context to
-	 * allocate from.  We have a magic convenience context
-	 * `tmpctx` for temporary allocations like this.
-	 *
-	 * Because all our daemons at their core are of form `while
-	 * (!stopped) handle_events();` (an event loop pattern), we
-	 * can free `tmpctx` in that top-level loop after each event
-	 * is handled.
-	 */
-
 	/* Is there an alternate path for this subdaemon? */
+	const char *dpath;
 	const char *alt = strmap_get(&ld->alt_subdaemons, name);
 	if (alt) {
-		/* Is the alternate path absolute? */
-		if (path_is_abs(alt))
-			dpath = tal_strdup(tmpctx, alt);
-		else
-			dpath = path_join(tmpctx, ld->daemon_dir, alt);
+		/* path_join will honor absolute paths as well. */
+		dpath = path_join(ctx, ld->daemon_dir, alt);
 	} else {
 		/* This subdaemon is found in the standard place. */
-		dpath = path_join(tmpctx, ld->daemon_dir, name);
+		dpath = path_join(ctx, ld->daemon_dir, name);
 	}
 	return dpath;
 }
@@ -356,8 +342,17 @@ void test_subdaemons(const struct lightningd *ld)
 	 * ARRAY_SIZE will cause a compiler error if the argument is actually
 	 * a pointer, not an array. */
 	for (i = 0; i < ARRAY_SIZE(subdaemons); i++) {
+		/*~ CCAN's path module uses tal, so wants a context to
+		 * allocate from.  We have a magic convenience context
+		 * `tmpctx` for temporary allocations like this.
+		 *
+		 * Because all our daemons at their core are of form `while
+		 * (!stopped) handle_events();` (an event loop pattern), we
+		 * can free `tmpctx` in that top-level loop after each event
+		 * is handled.
+		 */
 		int outfd;
-		const char *dpath = subdaemon_path(ld, subdaemons[i]);
+		const char *dpath = subdaemon_path(tmpctx, ld, subdaemons[i]);
 		const char *verstring;
 		/*~ CCAN's pipecmd module is like popen for grownups: it
 		 * takes pointers to fill in stdin, stdout and stderr file

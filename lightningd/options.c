@@ -217,6 +217,11 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
 {
+	char *subdaemon;
+	char *sdpath;
+	char *prevname;
+	char *prevval;
+
 	/* example arg: "lightning_hsmd:remote_hsmd" */
 	char *argbuf = tal_strdup(ld, arg);
 	char *colon = strchr(argbuf, ':');
@@ -227,10 +232,17 @@ static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
 	if (!is_subdaemon(argbuf))
 		return tal_fmt(NULL, "%s is not a subdaemon", argbuf);
 
-	char *subdaemon = tal_strdup(ld, argbuf);
-	char *sdpath = tal_strdup(ld, colon+1);
-	if (!strmap_add(&ld->alt_subdaemons, subdaemon, sdpath))
-		return tal_fmt(NULL, "%s already exists", argbuf);
+	subdaemon = tal_strdup(ld, argbuf);
+
+	/* Remove any preexisting alt subdaemon mapping. */
+	prevname = strmap_del(&ld->alt_subdaemons, subdaemon, (const char **) &prevval);
+	if (prevname) {
+		tal_free(prevname);
+		tal_free(prevval);
+	}
+
+	sdpath = tal_strdup(ld, colon+1);
+	strmap_add(&ld->alt_subdaemons, subdaemon, sdpath);
 
 	tal_free(argbuf);
 	return NULL;
@@ -905,8 +917,8 @@ static void register_opts(struct lightningd *ld)
 			 "Specifies an alternate subdaemon binary. "
 			 "If the supplied path is relative the subdaemon "
 			 "binary is found in the working directory. "
-			 "This option may be specified multiple times, "
-			 "but only once for each subdaemon. For example, "
+			 "This option may be specified multiple times. "
+			 "For example, "
 			 "--alt-subdaemon=lightning_hsmd:remote_signer "
 			 "would use a hypothetical remote signing subdaemon.");
 
