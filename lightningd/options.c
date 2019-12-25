@@ -1170,6 +1170,35 @@ static void json_add_opt_addrs(struct json_stream *response,
 	}
 }
 
+struct json_add_opt_alt_subdaemon_args {
+	const char *name0;
+	struct json_stream *response;
+};
+
+static bool json_add_opt_alt_subdaemon(const char *member,
+				       void *valuev,
+				       void *argpv)
+{
+	struct json_add_opt_alt_subdaemon_args *argp =
+		(struct json_add_opt_alt_subdaemon_args *) argpv;
+	const char *value = (const char *) valuev;
+
+	json_add_string(argp->response,
+			argp->name0,
+			tal_fmt(argp->name0, "%s:%s", member, value));
+	return true;
+}
+
+static void json_add_opt_alt_subdaemons(struct json_stream *response,
+					const char *name0,
+					alt_subdaemon_map *alt_subdaemons)
+{
+	struct json_add_opt_alt_subdaemon_args args;
+	args.name0 = name0;
+	args.response = response;
+	strmap_iterate(alt_subdaemons, json_add_opt_alt_subdaemon, &args);
+}
+
 static void add_config(struct lightningd *ld,
 		       struct json_stream *response,
 		       const struct opt_table *opt,
@@ -1263,6 +1292,10 @@ static void add_config(struct lightningd *ld,
 					   ld->proposed_wireaddr,
 					   ld->proposed_listen_announce,
 					   ADDR_ANNOUNCE);
+			return;
+		} else if (opt->cb_arg == (void *)opt_alt_subdaemon) {
+			json_add_opt_alt_subdaemons(response, name0,
+						    &ld->alt_subdaemons);
 			return;
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
 			if (ld->proxyaddr)
