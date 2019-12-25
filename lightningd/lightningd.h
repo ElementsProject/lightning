@@ -77,6 +77,8 @@ struct config {
 	struct secret *keypass;
 };
 
+typedef STRMAP(const char *) alt_subdaemon_map;
+
 struct lightningd {
 	/* The directory to find all the subdaemons. */
 	const char *daemon_dir;
@@ -253,7 +255,7 @@ struct lightningd {
 
 	mode_t initial_umask;
 
-	STRMAP(const char *) alt_subdaemons;
+	alt_subdaemon_map alt_subdaemons;
 
 	/* Outstanding waitblockheight commands.  */
 	struct list_head waitblockheight_commands;
