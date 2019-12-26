@@ -997,6 +997,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("waitanyinvoice", payload)
 
+    def waitblockheight(self, blockheight, timeout=None):
+        """
+        Wait for the blockchain to reach the specified block height.
+        """
+        payload = {
+            "blockheight": blockheight,
+            "timeout": timeout
+        }
+        return self.call("waitblockheight", payload)
+
     def waitinvoice(self, label):
         """
         Wait for an incoming payment matching the invoice with {label}

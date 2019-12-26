@@ -21,6 +21,7 @@
 #include <common/initial_commit_tx.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
 #include <common/param.h>
@@ -1749,6 +1750,112 @@ static const struct json_command getinfo_command = {
     "Show information about this node"
 };
 AUTODATA(json_command, &getinfo_command);
+
+/* Wait for at least a specific blockheight, then return, or time out.  */
+struct waitblockheight_waiter {
+	/* struct lightningd::waitblockheight_commands.  */
+	struct list_node list;
+	/* Command structure. This is the parent of the close command. */
+	struct command *cmd;
+	/* The block height being waited for.  */
+	u32 block_height;
+	/* Whether we have been removed from the list.  */
+	bool removed;
+};
+/* Completes a pending waitblockheight.  */
+static struct command_result *
+waitblockheight_complete(struct command *cmd,
+			 u32 block_height)
+{
+	struct json_stream *response;
+
+	response = json_stream_success(cmd);
+	json_add_num(response, "blockheight", block_height);
+	return command_success(cmd, response);
+}
+/* Called when command is destroyed without being resolved.  */
+static void
+destroy_waitblockheight_waiter(struct waitblockheight_waiter *w)
+{
+	if (!w->removed)
+		list_del(&w->list);
+}
+/* Called on timeout.  */
+static void
+timeout_waitblockheight_waiter(struct waitblockheight_waiter *w)
+{
+	list_del(&w->list);
+	w->removed = true;
+	tal_steal(tmpctx, w);
+	was_pending(command_fail(w->cmd, LIGHTNINGD,
+				 "Timed out."));
+}
+/* Called by lightningd at each new block.  */
+void waitblockheight_notify_new_block(struct lightningd *ld,
+				      u32 block_height)
+{
+	struct waitblockheight_waiter *w, *n;
+	char *to_delete = tal(NULL, char);
+
+	/* Use safe since we could resolve commands and thus
+	 * trigger removal of list elements.
+	 */
+	list_for_each_safe(&ld->waitblockheight_commands, w, n, list) {
+		/* Skip commands that have not been reached yet.  */
+		if (w->block_height > block_height)
+			continue;
+
+		list_del(&w->list);
+		w->removed = true;
+		tal_steal(to_delete, w);
+		was_pending(waitblockheight_complete(w->cmd,
+						     block_height));
+	}
+	tal_free(to_delete);
+}
+static struct command_result *json_waitblockheight(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj,
+						   const jsmntok_t *params)
+{
+	unsigned int *target_block_height;
+	u32 block_height;
+	unsigned int *timeout;
+	struct waitblockheight_waiter *w;
+
+	if (!param(cmd, buffer, params,
+		   p_req("blockheight", param_number, &target_block_height),
+		   p_opt_def("timeout", param_number, &timeout, 60),
+		   NULL))
+		return command_param_failed();
+
+	/* Check if already reached anyway.  */
+	block_height = get_block_height(cmd->ld->topology);
+	if (*target_block_height <= block_height)
+		return waitblockheight_complete(cmd, block_height);
+
+	/* Create a new waitblockheight command. */
+	w = tal(cmd, struct waitblockheight_waiter);
+	tal_add_destructor(w, &destroy_waitblockheight_waiter);
+	list_add(&cmd->ld->waitblockheight_commands, &w->list);
+	w->cmd = cmd;
+	w->block_height = *target_block_height;
+	w->removed = false;
+	/* Install the timeout.  */
+	(void) new_reltimer(cmd->ld->timers, w, time_from_sec(*timeout),
+			    &timeout_waitblockheight_waiter, w);
+
+	return command_still_pending(cmd);
+}
+
+static const struct json_command waitblockheight_command = {
+	"waitblockheight",
+	"utility",
+	&json_waitblockheight,
+	"Wait for the blockchain to reach {blockheight}, up to "
+	"{timeout} seconds."
+};
+AUTODATA(json_command, &waitblockheight_command);
 
 static struct command_result *param_channel_or_all(struct command *cmd,
 					     const char *name,
