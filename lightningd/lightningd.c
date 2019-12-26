@@ -185,6 +185,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->sendpay_commands);
 	list_head_init(&ld->close_commands);
 	list_head_init(&ld->ping_commands);
+	list_head_init(&ld->waitblockheight_commands);
 
 	/*~ Tal also explicitly supports arrays: it stores the number of
 	 * elements, which can be accessed with tal_count() (or tal_bytelen()
@@ -597,6 +598,7 @@ void notify_new_block(struct lightningd *ld, u32 block_height)
 	htlcs_notify_new_block(ld, block_height);
 	channel_notify_new_block(ld, block_height);
 	gossip_notify_new_block(ld, block_height);
+	waitblockheight_notify_new_block(ld, block_height);
 }
 
 static void on_sigint(int _ UNUSED)

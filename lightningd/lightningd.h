@@ -251,6 +251,9 @@ struct lightningd {
 	bool encrypted_hsm;
 
 	mode_t initial_umask;
+
+	/* Outstanding waitblockheight commands.  */
+	struct list_head waitblockheight_commands;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
