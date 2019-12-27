@@ -881,6 +881,7 @@ static void promote_missing_files(struct lightningd *ld)
 		if (streq(d->d_name, ".")
 		    || streq(d->d_name, "..")
 		    || streq(d->d_name, "config")
+		    || streq(d->d_name, "lightning-rpc")
 		    || strends(d->d_name, ".pid"))
 			continue;
 
