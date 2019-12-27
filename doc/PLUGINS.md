@@ -607,7 +607,6 @@ The payload of the hook call has the following format:
     "short_channel_id": "1x2x3",
     "forward_amount": "42msat",
     "outgoing_cltv_value": 500014
-    }
   },
   "next_onion": "[1365bytes of serialized onion]",
   "shared_secret": "0000000000000000000000000000000000000000000000000000000000000000",
