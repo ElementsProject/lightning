@@ -277,7 +277,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
-    prep = l1.rpc.txprepare([{addr: Millisatoshi(amount * 3 * 1000)}])
+    prep = l1.rpc.txprepare(outputs=[{addr: Millisatoshi(amount * 3 * 1000)}])
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
     # 4 inputs, 2 outputs (3 if we have a fee output).

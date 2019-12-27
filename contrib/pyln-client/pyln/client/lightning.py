@@ -990,7 +990,7 @@ class LightningRpc(UnixDomainSocketRpc):
         if 'destination' in kwargs or 'satoshi' in kwargs:
             return self._deprecated_txprepare(*args, **kwargs)
 
-        if not isinstance(args[0], list):
+        if len(args) and not isinstance(args[0], list):
             return self._deprecated_txprepare(*args, **kwargs)
 
         def _txprepare(outputs, feerate=None, minconf=None, utxos=None):
