@@ -1914,6 +1914,10 @@ def test_testnet_upgrade(node_factory):
     assert not os.path.isfile(os.path.join(netdir, "config"))
     assert os.path.isfile(os.path.join(basedir, "config"))
 
+    # The RPC socket should now be created in <lightning_dir>/<netdir>
+    assert "lightning-rpc" in os.listdir(netdir)
+    assert "lightning-rpc" not in os.listdir(basedir)
+
     restore_valgrind(l1, netdir)
 
 
@@ -1959,6 +1963,10 @@ def test_regtest_upgrade(node_factory):
     assert os.path.isfile(os.path.join(basedir, "lightningd-{}.pid".format(TEST_NETWORK)))
     assert not os.path.isfile(os.path.join(netdir, "config"))
     assert os.path.isfile(os.path.join(basedir, "config"))
+
+    # The RPC socket should now be created in <lightning_dir>/<netdir>
+    assert "lightning-rpc" in os.listdir(netdir)
+    assert "lightning-rpc" not in os.listdir(basedir)
 
     # Should restart fine
     l1.restart()
