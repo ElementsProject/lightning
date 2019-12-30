@@ -262,7 +262,6 @@ def test_deprecated_txprepare(node_factory, bitcoind):
     l1.rpc.call('txprepare', {'destination': addr, 'satoshi': Millisatoshi(amount * 100)})
 
 
-@pytest.mark.xfail
 def test_txprepare_multi(node_factory, bitcoind):
     amount = 10000000
     l1 = node_factory.get_node(random_hsm=True)

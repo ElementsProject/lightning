@@ -19,24 +19,37 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       int *change_outnum)
 {
 	struct bitcoin_tx *tx;
+	int output_count;
 
 	tx = tx_spending_utxos(ctx, chainparams, utxos, bip32_base,
 			       !amount_sat_eq(change, AMOUNT_SAT(0)),
 			       tal_count(outputs));
 
-	bitcoin_tx_add_multi_outputs(tx, outputs);
+	output_count = bitcoin_tx_add_multi_outputs(tx, outputs);
+	assert(output_count == tal_count(outputs));
 
 	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
-		const void *map[2];
-		map[0] = int2ptr(0);
-		map[1] = int2ptr(1);
+		/* Add one to the output_count, for the change */
+		output_count++;
+
+		const void *map[output_count];
+		for (size_t i = 0; i < output_count; i++)
+			map[i] = int2ptr(i);
+
 		bitcoin_tx_add_output(tx, scriptpubkey_p2wpkh(tmpctx, changekey),
 				      change);
+
+		assert(tx->wtx->num_outputs == output_count);
 		permute_outputs(tx, NULL, map);
+
+		/* The change is the last output added, so the last position
+		 * in the map */
 		if (change_outnum)
-			*change_outnum = ptr2int(map[1]);
+			*change_outnum = ptr2int(map[output_count - 1]);
+
 	} else if (change_outnum)
 		*change_outnum = -1;
+
 	permute_inputs(tx, (const void **)utxos);
 	elements_tx_add_fee_output(tx);
 	assert(bitcoin_tx_check(tx));
