@@ -2,7 +2,7 @@ from .lightning import LightningRpc, RpcError, Millisatoshi
 from .plugin import Plugin, monkey_patch
 
 
-__version__ = "0.7.4"
+__version__ = "0.8.0"
 
 
 __all__ = [
