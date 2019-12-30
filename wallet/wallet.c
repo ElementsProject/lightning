@@ -3127,6 +3127,29 @@ bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
 	return true;
 }
 
+struct bitcoin_tx *wallet_transaction_get(const tal_t *ctx, struct wallet *w,
+					  const struct bitcoin_txid *txid)
+{
+	struct bitcoin_tx *tx;
+	struct db_stmt *stmt = db_prepare_v2(
+	    w->db, SQL("SELECT rawtx FROM transactions WHERE id=?"));
+	db_bind_txid(stmt, 0, txid);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return NULL;
+	}
+
+	if (!db_column_is_null(stmt, 0))
+		tx = db_column_tx(ctx, stmt, 0);
+	else
+		tx = NULL;
+
+	tal_free(stmt);
+	return tx;
+}
+
 u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 {
 	u32 blockheight;

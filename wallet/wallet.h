@@ -1122,6 +1122,15 @@ bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
 			     enum wallet_tx_type *type);
 
 /**
+ * Get the transaction from the database
+ *
+ * Looks up a transaction we have in the database and returns it, or NULL if
+ * not found.
+ */
+struct bitcoin_tx *wallet_transaction_get(const tal_t *ctx, struct wallet *w,
+					  const struct bitcoin_txid *txid);
+
+/**
  * Get the confirmation height of a transaction we are watching by its
  * txid. Returns 0 if the transaction was not part of any block.
  */
