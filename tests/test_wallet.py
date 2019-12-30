@@ -265,6 +265,22 @@ def test_deprecated_txprepare(node_factory, bitcoind):
     l1.rpc.call('txprepare', {'destination': addr, 'satoshi': Millisatoshi(amount * 100)})
 
 
+@pytest.mark.xfail
+def test_txprepare_multi(node_factory, bitcoind):
+    amount = 10000000
+    l1 = node_factory.get_node(random_hsm=True)
+
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    outputs = []
+    for i in range(9):
+        outputs.append({l1.rpc.newaddr()['bech32']: Millisatoshi(amount * 100)})
+    prep = l1.rpc.txprepare(outputs=outputs)
+    l1.rpc.txdiscard(prep['txid'])
+
+
 def test_txprepare(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node(random_hsm=True)
