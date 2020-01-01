@@ -135,7 +135,9 @@ OS version: FreeBSD 11.1-RELEASE or above
 Get dependencies:
 
     # pkg install -y \
-      autoconf automake gettext git gmp gmake libtool python python3 sqlite3 libsodium py36-mako bash
+      autoconf automake bash gettext git gmp gmake libtool \
+      python python3 sqlite3 libsodium py36-mako py36-pip
+    # pip install mrkd
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -148,6 +150,9 @@ Clone lightning:
     $ cd lightning
 
 Build lightning:
+
+**Note**: Make sure you've set an utf-8 locale, e.g. 
+`export LC_CTYPE=en_US.UTF-8`, otherwise manpage installation may fail.
 
     $ ./configure
     $ gmake
