@@ -122,7 +122,6 @@ for any subsystem containing that string.  Subsystems include:
 * *plugin-manager*: The plugin subsystem
 * *plugin-P*: Each plugin, P = plugin path without directory
 * *hsmd*: The secret-holding daemon
-* *gossipd*: The gossip daemon
 * *connectd*: The network connection daemon
 * *jsonrpc#FD*: Each JSONRPC connection, FD = file descriptor number
 
