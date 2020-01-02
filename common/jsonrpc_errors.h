@@ -51,6 +51,9 @@ static const errcode_t FUNDING_UNKNOWN_PEER = 306;
 static const errcode_t CONNECT_NO_KNOWN_ADDRESS = 400;
 static const errcode_t CONNECT_ALL_ADDRESSES_FAILED = 401;
 
+/* bitcoin-cli plugin errors */
+#define BCLI_ERROR                      400
+
 /* Errors from `invoice` command */
 static const errcode_t INVOICE_LABEL_ALREADY_EXISTS = 900;
 static const errcode_t INVOICE_PREIMAGE_ALREADY_EXISTS = 901;
