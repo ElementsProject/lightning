@@ -15,6 +15,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/addr.h>
+#include <common/closing_fee.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/htlc_trim.h>
@@ -52,6 +53,8 @@
 #include <lightningd/options.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_common_wire.h>
@@ -1285,12 +1288,16 @@ static struct command_result *json_close(struct command *cmd,
 	bool do_timeout;
 	const u8 *close_to_script = NULL;
 	bool close_script_set;
+	const char *fee_negotiation_step_str;
+	char* end;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_tok, &idtok),
 		   p_opt_def("unilateraltimeout", param_number, &timeout,
 			     48 * 3600),
 		   p_opt("destination", param_bitcoin_address, &close_to_script),
+		   p_opt("fee_negotiation_step", param_string,
+			 &fee_negotiation_step_str),
 		   NULL))
 		return command_param_failed();
 
@@ -1356,6 +1363,35 @@ static struct command_result *json_close(struct command *cmd,
 	} else
 		close_script_set = false;
 
+	if (fee_negotiation_step_str == NULL) {
+		channel->closing_fee_negotiation_step = 50;
+		channel->closing_fee_negotiation_step_unit =
+		    CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
+	} else {
+		channel->closing_fee_negotiation_step =
+		    strtoull(fee_negotiation_step_str, &end, 10);
+		if (*end == '%') {
+			if (channel->closing_fee_negotiation_step < 1 ||
+			    channel->closing_fee_negotiation_step > 100)
+				return command_fail(
+				    cmd, JSONRPC2_INVALID_PARAMS,
+				    "Wrong value given for "
+				    "fee_negotiation_step: \"%s\", the "
+				    "percentage should be between 1 and 100",
+				    fee_negotiation_step_str);
+			channel->closing_fee_negotiation_step_unit =
+			    CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
+		} else if (*end == '\0')
+			channel->closing_fee_negotiation_step_unit =
+			    CLOSING_FEE_NEGOTIATION_STEP_UNIT_SATOSHI;
+		else
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Wrong value given for fee_negotiation_step: "
+			    "\"%s\", should be an integer or an integer "
+			    "followed by %%",
+			    fee_negotiation_step_str);
+	}
 
 	/* Normal case.
 	 * We allow states shutting down and sigexchange; a previous
