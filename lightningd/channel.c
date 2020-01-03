@@ -1,6 +1,7 @@
 #include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
+#include <common/closing_fee.h>
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
@@ -242,6 +243,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->shutdown_scriptpubkey[REMOTE]
 		= tal_steal(channel, remote_shutdown_scriptpubkey);
 	channel->final_key_idx = final_key_idx;
+	channel->closing_fee_negotiation_step = 50;
+	channel->closing_fee_negotiation_step_unit
+		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	if (local_shutdown_scriptpubkey)
 		channel->shutdown_scriptpubkey[LOCAL]
 			= tal_steal(channel, local_shutdown_scriptpubkey);

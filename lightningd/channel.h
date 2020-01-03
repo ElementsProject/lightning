@@ -94,6 +94,12 @@ struct channel {
 	/* Address for any final outputs */
 	u64 final_key_idx;
 
+	/* Amount to give up on each step of the closing fee negotiation. */
+	u64 closing_fee_negotiation_step;
+
+	/* Whether closing_fee_negotiation_step is in satoshi or %. */
+	u8 closing_fee_negotiation_step_unit;
+
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;

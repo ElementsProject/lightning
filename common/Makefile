@@ -73,6 +73,7 @@ COMMON_SRC_NOGEN :=				\
 COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
+	common/closing_fee.h				\
 	common/ecdh.h					\
 	common/errcode.h				\
 	common/gossip_constants.h			\

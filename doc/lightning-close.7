@@ -3,7 +3,7 @@
 lightning-close - Command for closing channels with direct peers
 .SH SYNOPSIS
 
-\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR]
+\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR] [\fIfee_negotiation_step\fR]
 
 .SH DESCRIPTION
 
@@ -29,6 +29,30 @@ The default is 2 days (172800 seconds)\.
 The \fIdestination\fR can be of any Bitcoin accepted type, including bech32\.
 If it isn't specified, the default is a c-lightning wallet address\.
 
+
+The \fIfee_negotiation_step\fR parameter controls how closing fee
+negotiation is performed assuming the peer proposes a fee that is
+different than our estimate\. On every negotiation step we must give up
+some amount from our proposal towards the peer's proposal\. This parameter
+can be an integer in which case it is interpreted as number of satoshis
+to step at a time\. Or it can be an integer followed by "%s" to designate
+a percentage of the interval to give up\. A few examples, assuming the peer
+proposes a closing fee of 3000 satoshi and our estimate shows it must be 4000:
+
+.RS
+.IP \[bu]
+"10": our next proposal will be 4000-10=3990\.
+.IP \[bu]
+"10%": our next proposal will be 4000-(10% of (4000-3000))=3900\.
+.IP \[bu]
+"1": our next proposal will be 3999\. This is the most extreme case when we
+insist on our fee as much as possible\.
+.IP \[bu]
+"100%": our next proposal will be 3000\. This is the most relaxed case when
+we quickly accept the peer's proposal\.
+The default is "50%"\.
+
+.RE
 
 The peer needs to be live and connected in order to negotiate a mutual
 close\. The default of unilaterally closing after 48 hours is usually a
