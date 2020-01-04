@@ -686,8 +686,72 @@ static struct command_result *getutxout(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static void bitcoind_failure(struct plugin *p, const char *error_message)
+{
+	const char **cmd = gather_args(bitcoind, "echo", NULL);
+	const char *err =
+	tal_fmt(bitcoind, "\n%s\n\n"
+			  "Make sure you have bitcoind running and that bitcoin-cli"
+			  " is able to connect to bitcoind.\n\n"
+			  "You can verify that your Bitcoin Core installation is"
+			  " ready for use by running:\n\n"
+			  "    $ %s 'hello world'\n", error_message,
+			  args_string(cmd, cmd));
+	plugin_err(p, err);
+}
+
+static void wait_for_bitcoind(struct plugin *p)
+{
+	int from, status, ret;
+	pid_t child;
+	const char **cmd = gather_args(bitcoind, "echo", NULL);
+	bool printed = false;
+
+	for (;;) {
+		child = pipecmdarr(NULL, &from, &from, cast_const2(char **,cmd));
+		if (child < 0) {
+			if (errno == ENOENT)
+				bitcoind_failure(p, "bitcoin-cli not found. Is bitcoin-cli "
+						    "(part of Bitcoin Core) available in your PATH?");
+			plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
+		}
+
+		char *output = grab_fd(cmd, from);
+
+		while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
+		if (ret != child)
+			bitcoind_failure(p, tal_fmt(bitcoind, "Waiting for %s: %s",
+						    cmd[0], strerror(errno)));
+		if (!WIFEXITED(status))
+			bitcoind_failure(p, tal_fmt(bitcoind, "Death of %s: signal %i",
+						   cmd[0], WTERMSIG(status)));
+
+		if (WEXITSTATUS(status) == 0)
+			break;
+
+		/* bitcoin/src/rpc/protocol.h:
+		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
+		 */
+		if (WEXITSTATUS(status) != 28) {
+			if (WEXITSTATUS(status) == 1)
+				bitcoind_failure(p, "Could not connect to bitcoind using"
+						    " bitcoin-cli. Is bitcoind running?");
+			bitcoind_failure(p, tal_fmt(bitcoind, "%s exited with code %i: %s",
+						    cmd[0], WEXITSTATUS(status), output));
+		}
+
+		if (!printed) {
+			plugin_log(p, LOG_UNUSUAL,
+				   "Waiting for bitcoind to warm up...");
+			printed = true;
+		}
+		sleep(1);
+	}
+	tal_free(cmd);
+}
+
 /* Initialize the global context when handshake is done. */
-static void init(struct plugin *p UNUSED, const char *buffer UNUSED,
+static void init(struct plugin *p, const char *buffer UNUSED,
                  const jsmntok_t *config UNUSED)
 {
 	bitcoind = tal(NULL, struct bitcoind);
@@ -704,6 +768,10 @@ static void init(struct plugin *p UNUSED, const char *buffer UNUSED,
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
 	bitcoind->rpcport = NULL;
+
+	wait_for_bitcoind(p);
+	plugin_log(p, LOG_INFORM,
+		   "bitcoin-cli initialized and connected to bitcoind.");
 }
 
 static const struct plugin_command commands[] = {
