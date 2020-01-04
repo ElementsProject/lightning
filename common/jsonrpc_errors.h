@@ -41,6 +41,8 @@
 #define FUND_OUTPUT_IS_DUST             302
 #define FUNDING_BROADCAST_FAIL          303
 #define FUNDING_STILL_SYNCING_BITCOIN   304
+#define FUNDING_PEER_NOT_CONNECTED      305
+#define FUNDING_UNKNOWN_PEER            306
 
 /* Errors from `invoice` command */
 #define INVOICE_LABEL_ALREADY_EXISTS	900

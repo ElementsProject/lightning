@@ -1024,7 +1024,7 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 	funding_txout = *funding_txout_num;
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
-		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
+		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
 	channel = peer_active_channel(peer);
@@ -1033,7 +1033,8 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 				    channel_state_name(channel));
 
 	if (!peer->uncommitted_channel)
-		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
 
 	if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
 		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
@@ -1071,7 +1072,7 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
-		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
+		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
 	if (peer->uncommitted_channel) {
@@ -1185,7 +1186,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
-		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
+		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
 	channel = peer_active_channel(peer);
@@ -1195,7 +1196,8 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	}
 
 	if (!peer->uncommitted_channel) {
-		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
 	}
 
 	if (peer->uncommitted_channel->fc) {
