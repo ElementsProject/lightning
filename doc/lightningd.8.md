@@ -37,23 +37,24 @@ options.
 LOGGING AND COMMANDING C-LIGHTNING
 ----------------------------------
 
-    By default, C-Lightning will log to the standard output.
-    To log to a specific file, use '--log-file=PATH'.
-    Sending SIGHUP will cause C-Lightning to reopen this file,
-    for example to do log rotation.
+By default, C-Lightning will log to the standard output.
+To log to a specific file, use **--log-file**=*PATH*.
+Sending SIGHUP will cause C-Lightning to reopen this file,
+for example to do log rotation.
 
-    C-Lightning will set up a Unix domain socket for receiving
-    commands.
-    By default this will be the file 'lightning-rpc' in your
-    specified 'lightning-dir'.
-    You can use lightning-cli(1) to send commands to C-Lightning
-    once 'lightningd' has started; you need to match the
-    '--lightning-dir' and '--rpc-file' options between them.
+C-Lightning will set up a Unix domain socket for receiving
+commands.
+By default this will be the file **lightning-rpc** in your
+specified **lightning-dir**.
+You can use lightning-cli(1) to send commands to C-Lightning
+once **lightningd** has started; you need to match the
+**--lightning-dir** and **--rpc-file** options between them.
 
-    Commands for C-Lightning are described in various manpages
-    in section 7, with the common prefix 'lightning-'.
+Commands for C-Lightning are described in various manpages
+in section 7, with the common prefix **lightning-**.
 
-    QUICK START
+QUICK START
+-----------
 
 First, decide on and create a directory for *lightning-dir*, or just use
 the default *$HOME/.lightning*. Then create a *config* file in this

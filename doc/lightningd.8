@@ -35,30 +35,24 @@ See \fBlightningd-config\fR(5) for a comprehensive list of all available
 options\.
 
 .SH LOGGING AND COMMANDING C-LIGHTNING
-.nf
-.RS
+
 By default, C-Lightning will log to the standard output.
-To log to a specific file, use '--log-file=PATH'.
+To log to a specific file, use \fB--log-file\fR=\fIPATH\fR.
 Sending SIGHUP will cause C-Lightning to reopen this file,
 for example to do log rotation.
 
 C-Lightning will set up a Unix domain socket for receiving
 commands.
-By default this will be the file 'lightning-rpc' in your
-specified 'lightning-dir'.
+By default this will be the file \fBlightning-rpc\fR in your
+specified \fBlightning-dir\fR.
 You can use lightning-cli(1) to send commands to C-Lightning
-once 'lightningd' has started; you need to match the
-'--lightning-dir' and '--rpc-file' options between them.
+once \fBlightningd\fR has started; you need to match the
+\fB--lightning-dir\fR and \fB--rpc-file\fR options between them.
 
 Commands for C-Lightning are described in various manpages
-in section 7, with the common prefix 'lightning-'.
+in section 7, with the common prefix \fBlightning-\fR.
 
-QUICK START
-
-
-.RE
-
-.fi
+.SH QUICK START
 
 First, decide on and create a directory for \fIlightning-dir\fR, or just use
 the default \fI$HOME/\.lightning\fR\. Then create a \fIconfig\fR file in this
