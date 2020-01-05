@@ -45,7 +45,16 @@ On success, returns the *funding\_address* and the *scriptpubkey* for the channe
 If a `close_to` address was provided, will close to this address iff the `close_to` address is
 returned in the response. Otherwise, the peer does not support `option_upfront_shutdownscript`.
 
-On failure, returns an error.
+On error the returned object will contain `code` and `message` properties,
+with `code` being one of the following:
+
+- -32602: If the given parameters are wrong.
+- -1: Catchall nonspecific error.
+- 300: The amount exceeded the maximum configured funding amount.
+- 301: The provided `push_msat` is greater than the provided `amount`.
+- 304: Still syncing with bitcoin network
+- 305: Peer is not connected.
+- 306: Unknown peer id.
 
 AUTHOR
 ------

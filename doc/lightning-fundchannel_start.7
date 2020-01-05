@@ -50,8 +50,26 @@ If a \fBclose_to\fR address was provided, will close to this address iff the \fB
 returned in the response\. Otherwise, the peer does not support \fBoption_upfront_shutdownscript\fR\.
 
 
-On failure, returns an error\.
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
 
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+300: The amount exceeded the maximum configured funding amount\.
+.IP \[bu]
+301: The provided \fBpush_msat\fR is greater than the provided \fBamount\fR\.
+.IP \[bu]
+304: Still syncing with bitcoin network
+.IP \[bu]
+305: Peer is not connected\.
+.IP \[bu]
+306: Unknown peer id\.
+
+.RE
 .SH AUTHOR
 
 Lisa Neigut \fI<niftynei@gmail.com\fR> is mainly responsible\.
