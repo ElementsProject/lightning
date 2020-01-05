@@ -30,7 +30,13 @@ RETURN VALUE
 On success, returns a confirmation that *commitments\_secured* and the
 derived *channel\_id*.
 
-On failure, returns an error.
+On error the returned object will contain `code` and `message` properties,
+with `code` being one of the following:
+
+- -32602: If the given parameters are wrong.
+- -1: Catchall nonspecific error.
+- 305: Peer is not connected.
+- 306: Unknown peer id.
 
 AUTHOR
 ------

@@ -32,8 +32,20 @@ On success, returns a confirmation that \fIcommitments_secured\fR and the
 derived \fIchannel_id\fR\.
 
 
-On failure, returns an error\.
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
 
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+305: Peer is not connected\.
+.IP \[bu]
+306: Unknown peer id\.
+
+.RE
 .SH AUTHOR
 
 Lisa Neigut \fI<niftynei@gmail.com\fR> is mainly responsible\.
@@ -46,8 +58,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcancel\fR(7)
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
-
-.HL
-
-Last updated 2019-06-12 11:16:20 CEST
 
