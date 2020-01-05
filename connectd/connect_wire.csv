@@ -44,6 +44,7 @@ msgdata,connectctl_connect_to_peer,addrhint,?wireaddr_internal,
 # Connectd->master: connect failed.
 msgtype,connectctl_connect_failed,2020
 msgdata,connectctl_connect_failed,id,node_id,
+msgdata,connectctl_connect_failed,failcode,u32,
 msgdata,connectctl_connect_failed,failreason,wirestring,
 msgdata,connectctl_connect_failed,seconds_to_delay,u32,
 msgdata,connectctl_connect_failed,addrhint,?wireaddr_internal,

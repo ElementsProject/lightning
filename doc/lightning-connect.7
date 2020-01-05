@@ -40,14 +40,41 @@ another node\. Once the peer is connected a channel can be opened with
 
 On success the peer \fIid\fR is returned\.
 
+.SH ERRORS
 
-The following error codes may occur:
+On failure, one of the following errors will be returned:
 
-.IP \[bu]
--1: Catchall nonspecific error\. This may occur if the host is not
-valid or there are problems communicating with the peer\. \fBconnect\fR
-will make up to 10 attempts to connect to the peer before giving up\.
+.nf
+.RS
+{ "code" : 400, "message" : "Unable to connect, no address known for peer" }
 
+
+.RE
+
+.fi
+
+If some addresses are known but connecting to all of them failed, the message
+will contain details about the failures:
+
+.nf
+.RS
+{ "code" : 401, "message" : "..." }
+
+
+.RE
+
+.fi
+
+If the given parameters are wrong:
+
+.nf
+.RS
+{ "code" : -32602, "message" : "..." }
+
+
+.RE
+
+.fi
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
