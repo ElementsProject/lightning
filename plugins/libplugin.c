@@ -162,7 +162,7 @@ static struct command *read_json_request(const tal_t *ctx,
 	id = json_get_member(membuf_elems(&conn->mb), toks, "id");
 	if (id) {
 		cmd->id = tal(cmd, u64);
-		if(!json_to_u64(membuf_elems(&conn->mb), id, cmd->id))
+		if (!json_to_u64(membuf_elems(&conn->mb), id, cmd->id))
 			plugin_err("JSON id '%*.s' is not a number",
 			           id->end - id->start,
 			           membuf_elems(&conn->mb) + id->start);

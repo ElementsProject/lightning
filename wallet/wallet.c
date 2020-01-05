@@ -3338,7 +3338,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 		db_bind_null(stmt, 3);
 	}
 
-	if(failcode != 0) {
+	if (failcode != 0) {
 		assert(state == FORWARD_FAILED || state == FORWARD_LOCAL_FAILED);
 		db_bind_int(stmt, 4, (int)failcode);
 	} else {
@@ -3386,7 +3386,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_u64(stmt, 0, in->dbid);
 
-	if(out) {
+	if (out) {
 		db_bind_u64(stmt, 1, out->dbid);
 		db_bind_u64(stmt, 3, out->key.channel->scid->u64);
 		db_bind_amount_msat(stmt, 5, &out->msat);
@@ -3411,7 +3411,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	else
 		db_bind_null(stmt, 8);
 
-	if(failcode != 0) {
+	if (failcode != 0) {
 		assert(state == FORWARD_FAILED || state == FORWARD_LOCAL_FAILED);
 		db_bind_int(stmt, 9, (int)failcode);
 	} else {

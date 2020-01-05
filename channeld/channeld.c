@@ -3036,7 +3036,7 @@ static void init_channel(struct peer *peer)
 
 	status_debug("option_static_remotekey = %u", option_static_remotekey);
 
-	if(remote_ann_node_sig && remote_ann_bitcoin_sig) {
+	if (remote_ann_node_sig && remote_ann_bitcoin_sig) {
 		peer->announcement_node_sigs[REMOTE] = *remote_ann_node_sig;
 		peer->announcement_bitcoin_sigs[REMOTE] = *remote_ann_bitcoin_sig;
 		peer->have_sigs[REMOTE] = true;

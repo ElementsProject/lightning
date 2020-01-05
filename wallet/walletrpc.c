@@ -726,7 +726,7 @@ static struct command_result *json_listaddrs(struct command *cmd,
 
 	for (s64 keyidx = 0; keyidx <= *bip32_max_index; keyidx++) {
 
-		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
+		if (keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
 		}
 

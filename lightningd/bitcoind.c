@@ -1051,7 +1051,7 @@ static char* check_blockchain_from_bitcoincli(const tal_t *ctx,
 			       args_string(tmpctx, cmd),
 			       (int)output_bytes, output);
 
-	if(!json_tok_streq(output, valuetok,
+	if (!json_tok_streq(output, valuetok,
 			   chainparams->bip70_name))
 		return tal_fmt(ctx, "Error blockchain for bitcoin-cli?"
 			       " Should be: %s",

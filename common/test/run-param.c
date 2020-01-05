@@ -554,7 +554,7 @@ static void test_invoice(struct command *cmd,
 	const jsmntok_t *preimagetok;
 
 	assert(cmd->mode == CMD_USAGE);
-	if(!param(cmd, buffer, params,
+	if (!param(cmd, buffer, params,
 		  p_req("msatoshi", param_u64, &msatoshi_val),
 		  p_req("label", param_label, &label_val),
 		  p_req("description", param_escaped_string, &desc_val),
