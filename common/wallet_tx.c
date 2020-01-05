@@ -71,7 +71,7 @@ struct command_result *param_utxos(struct command *cmd,
 								"Could not get a txid out of \"%s\"",
 								json_strdup(tmpctx, buffer, &txid_tok));
 		}
-		if(!json_to_number(buffer, (const jsmntok_t*)&outnum_tok, outnum))
+		if (!json_to_number(buffer, (const jsmntok_t*)&outnum_tok, outnum))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 								"Could not get a vout out of \"%s\"",
 								json_strdup(tmpctx, buffer, &outnum_tok));

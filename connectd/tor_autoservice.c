@@ -111,7 +111,7 @@ static struct wireaddr *make_onion(const tal_t *ctx,
 			continue;
 
 		if (use_v3_autotor)
-			if(strstr(line, "\"0.0") ||
+			if (strstr(line, "\"0.0") ||
 				strstr(line, "\"0.1") ||
 				strstr(line, "\"0.2") ||
 				strstr(line, "\"0.3")) {

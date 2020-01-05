@@ -1075,7 +1075,7 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 	}
 
 	if (peer->uncommitted_channel) {
-		if(!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
+		if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
 			return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
 
 		/* Make sure this gets notified if we succeed or cancel */

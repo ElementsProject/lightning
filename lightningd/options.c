@@ -344,7 +344,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	fflush(stdout);
 	if (getline(&passwd, &passwd_size, stdin) < 0)
 		return "Could not read password from stdin.";
-	if(passwd[strlen(passwd) - 1] == '\n')
+	if (passwd[strlen(passwd) - 1] == '\n')
 		passwd[strlen(passwd) - 1] = '\0';
 	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
 		return "Could not restore terminal options.";

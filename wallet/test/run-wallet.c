@@ -957,7 +957,7 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	}
 
 	CHECK((c1->last_tx != NULL) ==  (c2->last_tx != NULL));
-	if(c1->last_tx) {
+	if (c1->last_tx) {
 		CHECK(bitcoin_tx_eq(c1->last_tx, c2->last_tx));
 	}
 	CHECK(memeq(&c1->last_sig, sizeof(c1->last_sig),

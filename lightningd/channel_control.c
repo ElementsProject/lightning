@@ -414,7 +414,7 @@ void peer_start_channeld(struct channel *channel,
 	if (ld->config.ignore_fee_limits)
 		log_debug(channel->log, "Ignoring fee limits!");
 
-	if(!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet, channel->dbid,
+	if (!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet, channel->dbid,
 				       &remote_ann_node_sig, &remote_ann_bitcoin_sig)) {
 		channel_internal_error(channel,
 				       "Could not load remote announcement signatures");
@@ -714,7 +714,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	/* Check if we broadcast the transaction. (We store the transaction type into DB
 	 * before broadcast). */
 	enum wallet_tx_type type;
-	if(wallet_transaction_type(cmd->ld->wallet,
+	if (wallet_transaction_type(cmd->ld->wallet,
 				   &cancel_channel->funding_txid,
 				   &type))
 		return command_fail(cmd, LIGHTNINGD,

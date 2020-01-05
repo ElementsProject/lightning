@@ -2197,7 +2197,7 @@ void json_format_forwarding_object(struct json_stream *response,
 	}
 	json_add_string(response, "status", forward_status_name(cur->status));
 
-	if(cur->failcode != 0) {
+	if (cur->failcode != 0) {
 		json_add_num(response, "failcode", cur->failcode);
 		json_add_string(response, "failreason",
 				onion_type_name(cur->failcode));
