@@ -44,6 +44,10 @@
 #define FUNDING_PEER_NOT_CONNECTED      305
 #define FUNDING_UNKNOWN_PEER            306
 
+/* `connect` errors */
+#define CONNECT_NO_KNOWN_ADDRESS	400
+#define CONNECT_ALL_ADDRESSES_FAILED	401
+
 /* Errors from `invoice` command */
 #define INVOICE_LABEL_ALREADY_EXISTS	900
 #define INVOICE_PREIMAGE_ALREADY_EXISTS	901

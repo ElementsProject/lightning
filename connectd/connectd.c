@@ -30,6 +30,7 @@
 #include <common/daemon_conn.h>
 #include <common/decode_array.h>
 #include <common/features.h>
+#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/ping.h>
 #include <common/pseudorand.h>
@@ -565,22 +566,24 @@ static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
+			   u32 errcode,
 			   const char *errfmt, ...)
-	PRINTF_FMT(5,6);
+	PRINTF_FMT(6,7);
 
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
+			   u32 errcode,
 			   const char *errfmt, ...)
 {
 	u8 *msg;
 	va_list ap;
-	char *err;
+	char *errmsg;
 	u32 wait_seconds;
 
 	va_start(ap, errfmt);
-	err = tal_vfmt(tmpctx, errfmt, ap);
+	errmsg = tal_vfmt(tmpctx, errfmt, ap);
 	va_end(ap);
 
 	/* Wait twice as long to reconnect, between min and max. */
@@ -594,11 +597,11 @@ static void connect_failed(struct daemon *daemon,
 	 * happened.  We leave it to lightningd to decide if it wants to try
 	 * again, with the wait_seconds as a hint of how long before
 	 * asking. */
-	msg = towire_connectctl_connect_failed(NULL, id, err, wait_seconds,
-					       addrhint);
+	msg = towire_connectctl_connect_failed(NULL, id, errcode, errmsg,
+					       wait_seconds, addrhint);
 	daemon_conn_send(daemon->master, take(msg));
 
-	status_peer_debug(id, "Failed connected out: %s", err);
+	status_peer_debug(id, "Failed connected out: %s", errmsg);
 }
 
 /*~ This is the destructor for the (unsuccessful) connection.  We accumulate
@@ -717,7 +720,8 @@ static void try_connect_one_addr(struct connecting *connect)
 	if (connect->addrnum == tal_count(connect->addrs)) {
 		connect_failed(connect->daemon, &connect->id,
 			       connect->seconds_waited,
-			       connect->addrhint, "%s", connect->errors);
+			       connect->addrhint, CONNECT_ALL_ADDRESSES_FAILED,
+			       "%s", connect->errors);
 		tal_free(connect);
 		return;
 	}
@@ -1428,6 +1432,7 @@ static void try_connect_peer(struct daemon *daemon,
 	* to retry; an address may get gossiped or appear on the DNS seed. */
 	if (tal_count(addrs) == 0) {
 		connect_failed(daemon, id, seconds_waited, addrhint,
+			       CONNECT_NO_KNOWN_ADDRESS,
 			       "Unable to connect, no address known for peer");
 		return;
 	}

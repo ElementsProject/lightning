@@ -37,10 +37,21 @@ RETURN VALUE
 
 On success the peer *id* is returned.
 
-The following error codes may occur:
--   -1: Catchall nonspecific error. This may occur if the host is not
-    valid or there are problems communicating with the peer. **connect**
-    will make up to 10 attempts to connect to the peer before giving up.
+ERRORS
+------
+
+On failure, one of the following errors will be returned:
+
+    { "code" : 400, "message" : "Unable to connect, no address known for peer" }
+
+If some addresses are known but connecting to all of them failed, the message
+will contain details about the failures:
+
+    { "code" : 401, "message" : "..." }
+
+If the given parameters are wrong:
+
+    { "code" : -32602, "message" : "..." }
 
 AUTHOR
 ------
