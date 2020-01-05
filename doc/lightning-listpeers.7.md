@@ -62,7 +62,7 @@ If *id* is not a valid public key, an error message will be returned:
 
 If *level* is not a valid log level, an error message will be returned:
 
-    { "code" : -32602, "message" "'level' should be 'io', 'debug', 'info', or 'unusual', not '...'" }
+    { "code" : -32602, "message" : "'level' should be 'io', 'debug', 'info', or 'unusual', not '...'" }
 
 AUTHOR
 ------
