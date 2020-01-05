@@ -204,7 +204,7 @@ There are three kinds of tests:
   and `make update-mocks` will automatically generate stub functions which will
   allow you to link (and conveniently crash if they're called).
 
-* **blackbox tests** - These test setup a mini-regtest environment and test
+* **blackbox tests** - These tests setup a mini-regtest environment and test
   lightningd as a whole.  They can be run individually:
 
   `PYTHONPATH=contrib/pylightning:contrib/pyln-client:contrib/pyln-testing py.test -v tests/`
