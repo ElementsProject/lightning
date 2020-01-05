@@ -147,15 +147,15 @@ def test_closing_id(node_factory):
 
 @unittest.skipIf(VALGRIND, "Flaky under valgrind")
 def test_closing_torture(node_factory, executor, bitcoind):
-    # We set up N-to-N fully-connected mesh, then try
+    # We set up a fully-connected mesh of N nodes, then try
     # closing them all at once.
     amount = 10**6
 
-    num_nodes = 10  # => 55 channels (36 seconds on my laptop)
+    num_nodes = 10  # => 45 channels (36 seconds on my laptop)
     if VALGRIND:
-        num_nodes -= 4  # => 21 (135 seconds)
+        num_nodes -= 4  # => 15 (135 seconds)
     if SLOW_MACHINE:
-        num_nodes -= 1  # => 45/15 (37/95 seconds)
+        num_nodes -= 1  # => 36/10 (37/95 seconds)
 
     nodes = node_factory.get_nodes(num_nodes)
 
