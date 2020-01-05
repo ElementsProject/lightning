@@ -128,45 +128,42 @@ $ lightningd --network=testnet
 ```
 
 To Build on FreeBSD
----------------------
+-------------------
 
 OS version: FreeBSD 11.1-RELEASE or above
 
-Get dependencies:
+c-lightning is in the FreeBSD ports, so install it as any other port
+(dependencies are handled automatically):
 
-    # pkg install -y \
-      autoconf automake bash gettext git gmp gmake libtool \
-      python python3 sqlite3 libsodium py36-mako py36-pip
-    # pip install mrkd
+    # pkg install c-lightning
 
-If you don't have Bitcoin installed locally you'll need to install that
-as well:
+for a binary, pre-compiled package. If you want to compile locally and
+fiddle with compile time options:
 
-    # pkg install -y bitcoin-daemon bitcoin-utils
+    # cd /usr/ports/net-p2p/c-lightning && make install
 
-Clone lightning:
+mrkd is required to build man pages from markdown files (not done by the port):
 
-    $ git clone https://github.com/ElementsProject/lightning.git
-    $ cd lightning
+    # cd /usr/ports/devel/py-pip && make install
+    $ pip install --user mrkd
 
-Build lightning:
+See `/usr/ports/net-p2p/c-lightning/Makefile` for instructions on how to
+build from an arbitrary git commit, instead of the latest release tag.
 
 **Note**: Make sure you've set an utf-8 locale, e.g. 
 `export LC_CTYPE=en_US.UTF-8`, otherwise manpage installation may fail.
 
-    $ ./configure
-    $ gmake
-    $ gmake install
-
 Running lightning:
 
-**Note**: Edit your `/usr/local/etc/bitcoin.conf` to include
-`rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also need to
-include `testnet=1`
+Configure bitcoind, if not already: add `rpcuser=<foo>` and `rpcpassword=<bar>`
+to `/usr/local/etc/bitcoin.conf`, maybe also `testnet=1`.
+
+Configure lightningd: copy `/usr/local/etc/lightningd-bitcoin.conf.sample` to
+`/usr/local/etc/lightningd-bitcoin.conf` and edit according to your needs.
 
     # service bitcoind start
-    $ ./lightningd/lightningd &
-    $ ./cli/lightning-cli help
+    # service lightningd start
+    # lightning-cli --rpc-file /var/db/c-lightning/bitcoin/lightning-rpc --lightning-dir=/var/db/c-lightning help
 
 To Build on NixOS
 --------------------
