@@ -130,13 +130,13 @@ $ lightningd --network=testnet
 To Build on FreeBSD
 ---------------------
 
-OS version: FreeBSD 11.1-RELEASE or above
+OS version: FreeBSD 12.1-RELEASE or above
 
 Get dependencies:
 
     # pkg install -y \
       autoconf automake bash gettext git gmp gmake libtool \
-      python python3 sqlite3 libsodium py36-mako py36-pip
+      python python3 sqlite3 libsodium py37-mako py37-pip
     # pip install mrkd
 
 If you don't have Bitcoin installed locally you'll need to install that
