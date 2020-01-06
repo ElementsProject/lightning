@@ -81,7 +81,8 @@ this example:
       "name": "gettime",
       "usage": "",
       "description": "Returns the current time in {timezone}",
-      "long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
+      "long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines.",
+      "version": 1
     }
   ],
   "subscriptions": [
@@ -105,9 +106,9 @@ The `rpcmethods` are methods that will be exposed via `lightningd`'s
 JSON-RPC over Unix-Socket interface, just like the builtin
 commands. Any parameters given to the JSON-RPC calls will be passed
 through verbatim. Notice that the `name`, `description` and `usage` fields
-are mandatory, while the `long_description` can be omitted (it'll be
-set to `description` if it was not provided). `usage` should surround optional
-parameter names in `[]`.
+are mandatory, while the `version` and `long_description` ones can be 
+omitted (it'll be set to `description` if it was not provided). `usage`
+should surround optional parameter names in `[]`.
 
 The `dynamic` indicates if the plugin can be managed after `lightningd`
 has been started. Critical plugins that should not be stopped should set it
@@ -118,6 +119,10 @@ as the name was not previously registered. This includes both built-in
 methods, such as `help` and `getinfo`, as well as methods registered
 by other plugins. If there is a conflict then `lightningd` will report
 an error and exit.
+Plugins' `rpcmethod`s can be versioned, this is useful for RPC methods a
+plugin may provide and `lightningd` rely on. The version is an unsigned
+integer, such as its bump means a breaking change either `lightningd` or
+plugin-side, or both.
 
 ### The `init` method
 
