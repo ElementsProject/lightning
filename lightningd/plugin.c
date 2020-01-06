@@ -1165,6 +1165,16 @@ void json_add_opt_plugins(struct json_stream *response,
 			}
 			json_object_end(response);
 		}
+
+		json_array_start(response, "methods");
+		for (size_t i = 0; i < tal_count(p->methods); i++) {
+			json_object_start(response, NULL);
+			json_add_string(response, "name", p->methods[i].name);
+			if (p->methods[i].version)
+				json_add_u32(response, "version", *p->methods[i].version);
+			json_object_end(response);
+		}
+		json_array_end(response);
 		json_object_end(response);
 	}
 	json_array_end(response);

@@ -762,6 +762,8 @@ def test_listconfigs_plugins(node_factory, bitcoind, chainparams):
         assert p['name'] and len(p['name']) > 0
         assert p['path'] and len(p['path']) > 0
         assert os.path.isfile(p['path']) and os.access(p['path'], os.X_OK)
+        if p['name'] == 'pay':
+            assert len(p['methods']) > 0 and p['methods'][0]['name'] == 'pay'
 
 
 def test_multirpc(node_factory):
