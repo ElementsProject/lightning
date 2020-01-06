@@ -93,7 +93,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 
 	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s",
 			 path_basename(tmpctx, p->cmd));
-	p->methods = tal_arr(p, const char *, 0);
+	p->methods = tal_arr(p, struct plugin_method, 0);
 	list_head_init(&p->plugin_opts);
 
 	list_add_tail(&plugins->plugins, &p->list);
@@ -619,7 +619,7 @@ static struct plugin *find_plugin_for_command(struct command *cmd)
 	/* Find the plugin that registered this RPC call */
 	list_for_each(&plugins->plugins, plugin, list) {
 		for (size_t i=0; i<tal_count(plugin->methods); i++) {
-			if (streq(cmd->json_cmd->name, plugin->methods[i]))
+			if (streq(cmd->json_cmd->name, plugin->methods[i].name))
 				return plugin;
 		}
 	}
@@ -662,15 +662,18 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 				 const char *buffer,
 				 const jsmntok_t *meth)
 {
-	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok, *usagetok;
+	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok,
+			*usagetok, *versiontok;
 	struct json_command *cmd;
 	const char *usage;
+	struct plugin_method rpcmethod;
 
 	nametok = json_get_member(buffer, meth, "name");
 	categorytok = json_get_member(buffer, meth, "category");
 	desctok = json_get_member(buffer, meth, "description");
 	longdesctok = json_get_member(buffer, meth, "long_description");
 	usagetok = json_get_member(buffer, meth, "usage");
+	versiontok = json_get_member(buffer, meth, "version");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
 		plugin_kill(plugin,
@@ -730,7 +733,21 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 			   cmd->name);
 		return false;
 	}
-	tal_arr_expand(&plugin->methods, cmd->name);
+
+	rpcmethod.name = cmd->name;
+	if (!versiontok)
+		rpcmethod.version = NULL;
+	else {
+		rpcmethod.version = tal(plugin->methods, u32);
+		if (!json_to_number(buffer, versiontok, rpcmethod.version)) {
+			plugin_kill(plugin,
+				    "\"version\" is not a valid unsigned integer: %.*s",
+				    versiontok->end - versiontok->start,
+				    buffer + versiontok->start);
+			return false;
+		}
+	}
+	tal_arr_expand(&plugin->methods, rpcmethod);
 	return true;
 }
 

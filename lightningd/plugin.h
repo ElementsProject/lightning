@@ -26,6 +26,11 @@ enum plugin_state {
 	CONFIGURED
 };
 
+struct plugin_method {
+	const char *name;
+	u32 *version;
+};
+
 /**
  * A plugin, exposed as a stub so we can pass it as an argument.
  */
@@ -58,7 +63,7 @@ struct plugin {
 	/* List of options that this plugin registered */
 	struct list_head plugin_opts;
 
-	const char **methods;
+	struct plugin_method *methods;
 
 	/* Timer to add a timeout to some plugin RPC calls. Used to
 	 * guarantee that `getmanifest` doesn't block indefinitely. */
