@@ -1,7 +1,10 @@
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky
-from lightning import RpcError
-from utils import only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND, SLOW_MACHINE, COMPAT
+from pyln.client import RpcError
+from utils import (
+    only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND,
+    SLOW_MACHINE, COMPAT
+)
 
 import os
 import queue

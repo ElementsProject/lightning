@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from lightning import RpcError
+from pyln.client import RpcError
 from utils import only_one, DEVELOPER, wait_for, wait_channel_quiescent
 
 
