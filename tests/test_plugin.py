@@ -5,6 +5,7 @@ from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK
 )
+
 import json
 import os
 import pytest

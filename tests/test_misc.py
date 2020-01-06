@@ -3,9 +3,12 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import LightningNode, TEST_NETWORK
 from flaky import flaky  # noqa: F401
-from lightning import RpcError
+from pyln.client import RpcError
 from threading import Event
-from pyln.testing.utils import DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc, env
+from pyln.testing.utils import (
+    DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for,
+    TailableProc, env
+)
 from ephemeral_port_reserve import reserve
 
 import json
