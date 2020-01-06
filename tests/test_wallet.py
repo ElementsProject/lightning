@@ -2,8 +2,11 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
-from lightning import RpcError, Millisatoshi
-from utils import only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES, COMPAT, VALGRIND
+from pyln.client import RpcError, Millisatoshi
+from utils import (
+    only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES, COMPAT,
+    VALGRIND
+)
 
 import os
 import pytest

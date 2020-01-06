@@ -1,8 +1,10 @@
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
-from lightning import RpcError, Millisatoshi
-from utils import DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK
+from pyln.client import RpcError, Millisatoshi
+from utils import (
+    DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK
+)
 
 import json
 import os
