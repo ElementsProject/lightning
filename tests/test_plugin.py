@@ -88,6 +88,16 @@ def test_rpc_passthrough(node_factory):
     with pytest.raises(RpcError):
         n.rpc.fail()
 
+    # Try to register versioned RPC methods
+    plugin_path = os.path.join(os.getcwd(),
+                               'tests/plugins/versioned_rpcmethod.py')
+    n.rpc.plugin_start(plugin_path)
+    assert "helloworld" == n.rpc.call("helloworld", {})
+    for p in n.rpc.listconfigs()["plugins"]:
+        if p["name"] == "versioned_rpcmethod.py":
+            assert p["methods"][0]["name"] == "helloworld"
+            assert p["methods"][0]["version"] == 1
+
 
 def test_plugin_dir(node_factory):
     """--plugin-dir works"""
