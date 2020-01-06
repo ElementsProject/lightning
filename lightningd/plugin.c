@@ -1144,19 +1144,18 @@ void json_add_opt_plugins(struct json_stream *response,
 
 		/* FIXME: use executables basename until plugins can define their names */
 		plugin_name = path_basename(NULL, p->cmd);
-		json_add_string(response, "name", plugin_name); // basename(p->cmd));
+		json_add_string(response, "name", plugin_name);
 		tal_free(plugin_name);
 
 		if (!list_empty(&p->plugin_opts)) {
 			json_object_start(response, "options");
-			list_for_each(&p->plugin_opts, opt, list)
-			{
+			list_for_each(&p->plugin_opts, opt, list) {
 				/* Trim the `--` that we added before */
 				opt_name = opt->name + 2;
 				if (opt->value->as_bool) {
 					json_add_bool(response, opt_name, opt->value->as_bool);
 				} else if (opt->value->as_int) {
-					json_add_bool(response, opt_name, opt->value->as_int);
+					json_add_s32(response, opt_name, *opt->value->as_int);
 				} else if (opt->value->as_str) {
 					json_add_string(response, opt_name, opt->value->as_str);
 				} else {
