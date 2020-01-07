@@ -32,6 +32,7 @@ list of 0 or more objects\.
 
 Each object in the list contains the following data:
 
+.RS
 .IP \[bu]
 \fIsource\fR : The node providing entry to the channel, specifying the
 fees charged for using the channel in that direction\.
@@ -79,27 +80,20 @@ through this channel\.
 \fIhtlc_maximum_msat\fR : The maximum payment which can be send
 through this channel\.
 
+.RE
 
 If \fIshort_channel_id\fR or \fIsource\fR is supplied and no matching channels
 are found, a "channels" object with an empty list is returned\.
 
-.SH ERRORS
 
-If \fIshort_channel_id\fR is not a valid short_channel_id, an error
-message will be returned:
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
 
-.nf
 .RS
-{ "code" : -32602,
-  "message" : "'short_channel_id' should be a short channel id, not '...'" }
-
+.IP \[bu]
+-32602: If the given parameters are wrong\.
 
 .RE
-
-.fi
-
-Similarly if \fIsource\fR is not a valid pubkey\.
-
 .SH AUTHOR
 
 Michael Hawkins \fI<michael.hawkins@protonmail.com\fR>\.
@@ -115,6 +109,7 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
 Lightning RFC site
 
+.RS
 .IP \[bu]
 
 BOLT #2:
@@ -128,7 +123,4 @@ BOLT #7:
 
 
 
-.HL
-
-Last updated 2019-06-12 11:16:20 CEST
-
+.RE

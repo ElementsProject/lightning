@@ -35,17 +35,11 @@ RETURN VALUE
 
 On success, an empty object is returned.
 
-ERRORS
-------
+On error the returned object will contain `code` and `message` properties,
+with `code` being one of the following:
 
-If *id* is invalid, an error message will be returned:
-
-    { "code" : -1, "message" : "Peer not connected" }
-
-If the peer has an active channel and *force* is not set, an error
-message will be returned:
-
-    { "code" : -1, "message" : "Peer is in state CHANNELD_NORMAL" }
+- -32602: If the given parameters are wrong.
+- -1: Catchall nonspecific error.
 
 AUTHOR
 ------

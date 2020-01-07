@@ -40,30 +40,17 @@ connection\.
 
 On success, an empty object is returned\.
 
-.SH ERRORS
 
-If \fIid\fR is invalid, an error message will be returned:
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
 
-.nf
 .RS
-{ "code" : -1, "message" : "Peer not connected" }
-
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
 
 .RE
-
-.fi
-
-If the peer has an active channel and \fIforce\fR is not set, an error
-message will be returned:
-
-.nf
-.RS
-{ "code" : -1, "message" : "Peer is in state CHANNELD_NORMAL" }
-
-
-.RE
-
-.fi
 .SH AUTHOR
 
 Michael Hawkins \fI<michael.hawkins@protonmail.com\fR>\.
