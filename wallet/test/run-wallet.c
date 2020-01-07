@@ -486,7 +486,7 @@ void payment_failed(struct lightningd *ld UNNEEDED, const struct htlc_out *hout 
 { fprintf(stderr, "payment_failed called!\n"); abort(); }
 /* Generated stub for payment_store */
 void payment_store(struct lightningd *ld UNNEEDED,
-		   const struct sha256 *payment_hash UNNEEDED, u64 partid UNNEEDED)
+		   struct wallet_payment *payment UNNEEDED)
 { fprintf(stderr, "payment_store called!\n"); abort(); }
 /* Generated stub for payment_succeeded */
 void payment_succeeded(struct lightningd *ld UNNEEDED, struct htlc_out *hout UNNEEDED,
@@ -1282,8 +1282,9 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	t->partid = 0;
 
 	db_begin_transaction(w->db);
-	wallet_payment_setup(w, tal_dup(NULL, struct wallet_payment, t));
-	wallet_payment_store(w, &t->payment_hash, 0);
+	t2 = tal_dup(NULL, struct wallet_payment, t);
+	wallet_payment_setup(w, t2);
+	wallet_payment_store(w, take(t2));
 	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash, 0);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);

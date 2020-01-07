@@ -2185,14 +2185,10 @@ void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment)
 }
 
 void wallet_payment_store(struct wallet *wallet,
-			  const struct sha256 *payment_hash,
-			  u64 partid)
+			  struct wallet_payment *payment TAKES)
 {
 	struct db_stmt *stmt;
-	struct wallet_payment *payment;
-
-	payment = find_unstored_payment(wallet, payment_hash, partid);
-	if (!payment) {
+	if (!find_unstored_payment(wallet, &payment->payment_hash, payment->partid)) {
 		/* Already stored on-disk */
 #if DEVELOPER
 		/* Double-check that it is indeed stored to disk
@@ -2203,8 +2199,8 @@ void wallet_payment_store(struct wallet *wallet,
 		    db_prepare_v2(wallet->db, SQL("SELECT status FROM payments"
 						  " WHERE payment_hash=?"
 						  " AND partid = ?;"));
-		db_bind_sha256(stmt, 0, payment_hash);
-		db_bind_u64(stmt, 1, partid);
+		db_bind_sha256(stmt, 0, &payment->payment_hash);
+		db_bind_u64(stmt, 1, payment->partid);
 		db_query_prepared(stmt);
 		res = db_step(stmt);
 		assert(res);
@@ -2274,8 +2270,17 @@ void wallet_payment_store(struct wallet *wallet,
 	db_bind_amount_msat(stmt, 11, &payment->total_msat);
 	db_bind_u64(stmt, 12, payment->partid);
 
-	db_exec_prepared_v2(take(stmt));
-	tal_free(payment);
+	db_exec_prepared_v2(stmt);
+	payment->id = db_last_insert_id_v2(stmt);
+	assert(payment->id > 0);
+	tal_free(stmt);
+
+	if (taken(payment)) {
+		tal_free(payment);
+	}  else {
+		list_del(&payment->list);
+		tal_del_destructor(payment, destroy_unstored_payment);
+	}
 }
 
 void wallet_payment_delete(struct wallet *wallet,

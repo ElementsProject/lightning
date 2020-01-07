@@ -487,26 +487,26 @@ remote_routing_failure(const tal_t *ctx,
 	return routing_failure;
 }
 
-void payment_store(struct lightningd *ld,
-		   const struct sha256 *payment_hash, u64 partid)
+void payment_store(struct lightningd *ld, struct wallet_payment *payment TAKES)
 {
 	struct sendpay_command *pc;
 	struct sendpay_command *next;
-	const struct wallet_payment *payment;
+	/* Need to remember here otherwise wallet_payment_store will free us. */
+	bool ptaken = taken(payment);
 
-	wallet_payment_store(ld->wallet, payment_hash, partid);
-	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
-					 payment_hash, partid);
-	assert(payment);
+	wallet_payment_store(ld->wallet, payment);
 
 	/* Trigger any sendpay commands waiting for the store to occur. */
 	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
-		if (!sha256_eq(payment_hash, &pc->payment_hash))
+		if (!sha256_eq(&payment->payment_hash, &pc->payment_hash))
 			continue;
 
 		/* Deletes from list, frees pc */
 		json_sendpay_in_progress(pc->cmd, payment);
 	}
+
+	if (ptaken)
+		tal_free(payment);
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
@@ -589,7 +589,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	}
 
 	/* Save to DB */
-	payment_store(ld, &hout->payment_hash, hout->partid);
+	payment_store(ld, payment);
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  hout->partid,
 				  PAYMENT_FAILED, NULL);
@@ -606,11 +606,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    failmsg,
 				    fail ? fail->channel_dir : 0);
 
-	/* payment_store -> wallet_payment_store just freed `payment` from
-	 * under us (useless indirection), so reload it in order to publish
-	 * the notification. */
-	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
-					 &hout->payment_hash, hout->partid);
 	tell_waiters_failed(ld, &hout->payment_hash, payment, pay_errcode,
 			    hout->failuremsg, fail, failmsg);
 }
