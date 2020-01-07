@@ -65,16 +65,10 @@ through this channel.
 If *short\_channel\_id* or *source* is supplied and no matching channels
 are found, a "channels" object with an empty list is returned.
 
-ERRORS
-------
+On error the returned object will contain `code` and `message` properties,
+with `code` being one of the following:
 
-If *short\_channel\_id* is not a valid short\_channel\_id, an error
-message will be returned:
-
-    { "code" : -32602,
-      "message" : "'short_channel_id' should be a short channel id, not '...'" }
-
-Similarly if *source* is not a valid pubkey.
+- -32602: If the given parameters are wrong.
 
 AUTHOR
 ------

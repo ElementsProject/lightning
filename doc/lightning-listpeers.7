@@ -67,29 +67,15 @@ peer at the specified \fIlevel\fR
 If \fIid\fR is supplied and no matching nodes are found, a "peers" object
 with an empty list is returned\.
 
-.SH ERRORS
 
-If \fIid\fR is not a valid public key, an error message will be returned:
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
 
-.nf
 .RS
-{ "code" : -32602, "message" : "'id' should be a pubkey, not '...'" }
-
+.IP \[bu]
+-32602: If the given parameters are wrong\.
 
 .RE
-
-.fi
-
-If \fIlevel\fR is not a valid log level, an error message will be returned:
-
-.nf
-.RS
-{ "code" : -32602, "message" : "'level' should be 'io', 'debug', 'info', or 'unusual', not '...'" }
-
-
-.RE
-
-.fi
 .SH AUTHOR
 
 Michael Hawkins \fI<michael.hawkins@protonmail.com\fR>\.

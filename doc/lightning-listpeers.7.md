@@ -53,16 +53,10 @@ peer at the specified *level*
 If *id* is supplied and no matching nodes are found, a "peers" object
 with an empty list is returned.
 
-ERRORS
-------
+On error the returned object will contain `code` and `message` properties,
+with `code` being one of the following:
 
-If *id* is not a valid public key, an error message will be returned:
-
-    { "code" : -32602, "message" : "'id' should be a pubkey, not '...'" }
-
-If *level* is not a valid log level, an error message will be returned:
-
-    { "code" : -32602, "message" : "'level' should be 'io', 'debug', 'info', or 'unusual', not '...'" }
+- -32602: If the given parameters are wrong.
 
 AUTHOR
 ------
