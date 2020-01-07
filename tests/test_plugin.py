@@ -758,6 +758,32 @@ def test_sendpay_notifications(node_factory, bitcoind):
     assert results['sendpay_failure'][0] == err.value.error
 
 
+@pytest.mark.xfail(strict=True)
+def test_sendpay_notifications_nowaiter(node_factory):
+    opts = [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/sendpay_notifications.py')},
+            {},
+            {'may_reconnect': False}]
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    chanid23 = l2.get_channel_scid(l3)
+    amount = 10**8
+
+    payment_hash1 = l3.rpc.invoice(amount, "first", "desc")['payment_hash']
+    payment_hash2 = l3.rpc.invoice(amount, "second", "desc")['payment_hash']
+    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+
+    l1.rpc.sendpay(route, payment_hash1)
+    l1.daemon.wait_for_log(r'Received a sendpay_success')
+
+    l2.rpc.close(chanid23, 1)
+
+    l1.rpc.sendpay(route, payment_hash2)
+    l1.daemon.wait_for_log(r'Received a sendpay_failure')
+
+    results = l1.rpc.call('listsendpays_plugin')
+    assert len(results['sendpay_success']) == 1
+    assert len(results['sendpay_failure']) == 1
+
+
 def test_rpc_command_hook(node_factory):
     """Test the `sensitive_command` hook"""
     plugin = os.path.join(os.getcwd(), "tests/plugins/rpc_command.py")
