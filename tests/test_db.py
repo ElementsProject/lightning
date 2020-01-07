@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from utils import wait_for, sync_blockheight, COMPAT
+from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER
 import os
 import pytest
 import time
@@ -140,6 +140,7 @@ def test_scid_upgrade(node_factory, bitcoind):
     assert l1.db_query('SELECT failchannel from payments;') == [{'failchannel': '103x1x1'}]
 
 
+@unittest.skipIf(VALGRIND and not DEVELOPER, "Without developer valgrind will complain about debug symbols missing")
 def test_optimistic_locking(node_factory, bitcoind):
     """Have a node run against a DB, then change it under its feet, crashing it.
 
