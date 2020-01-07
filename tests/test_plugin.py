@@ -758,7 +758,6 @@ def test_sendpay_notifications(node_factory, bitcoind):
     assert results['sendpay_failure'][0] == err.value.error
 
 
-@pytest.mark.xfail(strict=True)
 def test_sendpay_notifications_nowaiter(node_factory):
     opts = [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/sendpay_notifications.py')},
             {},
