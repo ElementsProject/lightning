@@ -719,6 +719,7 @@ static struct command_result *handle_init(struct command *cmd,
 	char *dir, *network;
 	struct json_out *param_obj;
 	struct plugin *p = cmd->plugin;
+	bool with_rpc = true;
 
 	configtok = json_delve(buf, params, ".configuration");
 
@@ -742,16 +743,19 @@ static struct command_result *handle_init(struct command *cmd,
 	addr.sun_path[rpctok->end - rpctok->start] = '\0';
 	addr.sun_family = AF_UNIX;
 
-	if (connect(p->rpc_conn->fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-		plugin_err(p, "Connecting to '%.*s': %s",
+	if (connect(p->rpc_conn->fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+		with_rpc = false;
+		plugin_log(p, LOG_UNUSUAL, "Could not connect to '%.*s': %s",
 			   rpctok->end - rpctok->start, buf + rpctok->start,
 			   strerror(errno));
+	} else {
+		param_obj = json_out_obj(NULL, "config", "allow-deprecated-apis");
+		deprecated_apis = streq(rpc_delve(tmpctx, p, "listconfigs",
+						  take(param_obj),
+						  ".allow-deprecated-apis"),
+					"true");
+	}
 
-	param_obj = json_out_obj(NULL, "config", "allow-deprecated-apis");
-	deprecated_apis = streq(rpc_delve(tmpctx, p, "listconfigs",
-					  take(param_obj),
-					  ".allow-deprecated-apis"),
-				  "true");
 	opttok = json_get_member(buf, params, "options");
 	json_for_each_obj(i, t, opttok) {
 		char *opt = json_strdup(NULL, buf, t);
@@ -772,7 +776,8 @@ static struct command_result *handle_init(struct command *cmd,
 	if (p->init)
 		p->init(p, buf, configtok);
 
-	io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
+	if (with_rpc)
+		io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
 
 	return command_success_str(cmd, NULL);
 }
