@@ -235,7 +235,8 @@ static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
 	subdaemon = tal_strdup(ld, argbuf);
 
 	/* Remove any preexisting alt subdaemon mapping. */
-	prevname = strmap_del(&ld->alt_subdaemons, subdaemon, (const char **) &prevval);
+	prevname = strmap_del(&ld->alt_subdaemons, subdaemon,
+			      (const char **) &prevval);
 	if (prevname) {
 		tal_free(prevname);
 		tal_free(prevval);
