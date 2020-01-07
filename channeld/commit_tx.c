@@ -50,8 +50,8 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 	SUPERVERBOSE("# HTLC %" PRIu64 " offered %s wscript %s\n", htlc->id,
 		     type_to_string(tmpctx, struct amount_sat, &amount),
 		     tal_hex(wscript, wscript));
-	o_wscript->ptr = tal_dup_arr(o_wscript, u8,
-				     wscript, tal_count(wscript), 0);
+	o_wscript->ptr = tal_dup_arr(o_wscript, u8, wscript,
+				     tal_count(wscript), 0);
 	tal_free(wscript);
 }
 
