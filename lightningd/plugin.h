@@ -181,6 +181,13 @@ bool plugin_remove(struct plugins *plugins, const char *name);
 void plugin_kill(struct plugin *plugin, char *fmt, ...) PRINTF_FMT(2,3);
 
 /**
+ * Returns the plugin which registers the command with name {cmd_name}
+ */
+struct plugin *find_plugin_for_command(struct lightningd *ld,
+				       const char *cmd_name);
+
+
+/**
  * Send the configure message to all plugins.
  *
  * Once we've collected all the command line arguments we can go ahead

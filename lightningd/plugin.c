@@ -611,21 +611,21 @@ static void plugin_rpcmethod_cb(const char *buffer,
 	command_raw_complete(cmd, response);
 }
 
-static struct plugin *find_plugin_for_command(struct command *cmd)
+struct plugin *find_plugin_for_command(struct lightningd *ld,
+				       const char *cmd_name)
 {
-	struct plugins *plugins = cmd->ld->plugins;
+	struct plugins *plugins = ld->plugins;
 	struct plugin *plugin;
 
 	/* Find the plugin that registered this RPC call */
 	list_for_each(&plugins->plugins, plugin, list) {
 		for (size_t i=0; i<tal_count(plugin->methods); i++) {
-			if (streq(cmd->json_cmd->name, plugin->methods[i]))
+			if (streq(cmd_name, plugin->methods[i]))
 				return plugin;
 		}
 	}
-	/* This should never happen, it'd mean that a plugin didn't
-	 * cleanup after dying */
-	abort();
+
+	return NULL;
 }
 
 static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
@@ -641,7 +641,9 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	if (cmd->mode == CMD_CHECK)
 		return command_param_failed();
 
-	plugin = find_plugin_for_command(cmd);
+	plugin = find_plugin_for_command(cmd->ld, cmd->json_cmd->name);
+	if (!plugin)
+		fatal("No plugin for %s ?", cmd->json_cmd->name);
 
 	/* Find ID again (We've parsed them before, this should not fail!) */
 	idtok = json_get_member(buffer, toks, "id");
