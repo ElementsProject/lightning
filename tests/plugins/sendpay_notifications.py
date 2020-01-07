@@ -14,13 +14,13 @@ def init(configuration, options, plugin):
 
 @plugin.subscribe("sendpay_success")
 def notify_sendpay_success(plugin, sendpay_success):
-    plugin.log("receive a sendpay_success recored, id: {}, payment_hash: {}".format(sendpay_success['id'], sendpay_success['payment_hash']))
+    plugin.log("Received a sendpay_success: id={}, payment_hash={}".format(sendpay_success['id'], sendpay_success['payment_hash']))
     plugin.success_list.append(sendpay_success)
 
 
 @plugin.subscribe("sendpay_failure")
 def notify_sendpay_failure(plugin, sendpay_failure):
-    plugin.log("receive a sendpay_failure recored, id: {}, payment_hash: {}".format(sendpay_failure['data']['id'],
+    plugin.log("Received a sendpay_failure: id={}, payment_hash={}".format(sendpay_failure['data']['id'],
                sendpay_failure['data']['payment_hash']))
     plugin.failure_list.append(sendpay_failure)
 
