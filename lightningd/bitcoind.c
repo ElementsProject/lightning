@@ -1011,6 +1011,7 @@ static bool process_getblockchaininfo(struct bitcoin_cli *bcli)
 
 static void destroy_bitcoind(struct bitcoind *bitcoind)
 {
+	strmap_clear(&bitcoind->pluginsmap);
 	/* Suppresses the callbacks from bcli_finished as we free conns. */
 	bitcoind->shutdown = true;
 }
@@ -1146,6 +1147,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 {
 	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
 
+	strmap_init(&bitcoind->pluginsmap);
 	bitcoind->cli = NULL;
 	bitcoind->datadir = NULL;
 	bitcoind->ld = ld;
