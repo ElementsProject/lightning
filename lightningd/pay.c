@@ -606,8 +606,13 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    failmsg,
 				    fail ? fail->channel_dir : 0);
 
-	tell_waiters_failed(ld, &hout->payment_hash, payment,
-			    pay_errcode, hout->failuremsg, fail, failmsg);
+	/* payment_store -> wallet_payment_store just freed `payment` from
+	 * under us (useless indirection), so reload it in order to publish
+	 * the notification. */
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
+					 &hout->payment_hash, hout->partid);
+	tell_waiters_failed(ld, &hout->payment_hash, payment, pay_errcode,
+			    hout->failuremsg, fail, failmsg);
 }
 
 /* Wait for a payment. If cmd is deleted, then wait_payment()
