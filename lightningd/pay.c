@@ -191,6 +191,21 @@ void json_sendpay_fail_fields(struct json_stream *js,
 					fail->msg);
 }
 
+static const char *sendpay_errmsg_fmt(const tal_t *ctx, int pay_errcode,
+				      const struct routing_failure *fail,
+				      const char *details)
+{
+	char *errmsg;
+	if (pay_errcode == PAY_UNPARSEABLE_ONION)
+		errmsg = "Malformed error reply";
+	else {
+		assert(fail);
+		errmsg = tal_fmt(ctx, "failed: %s (%s)",
+				 onion_type_name(fail->failcode), details);
+	}
+	return errmsg;
+}
+
 /* onionreply used if pay_errcode == PAY_UNPARSEABLE_ONION */
 static struct command_result *
 sendpay_fail(struct command *cmd,
@@ -201,16 +216,8 @@ sendpay_fail(struct command *cmd,
 	     const char *details)
 {
 	struct json_stream *data;
-	char *errmsg;
-
-	if (pay_errcode == PAY_UNPARSEABLE_ONION)
-		errmsg = "Malformed error reply";
-	else {
-		assert(fail);
-		errmsg = tal_fmt(tmpctx, "failed: %s (%s)",
-				 onion_type_name(fail->failcode),
-				 details);
-	}
+	const char *errmsg =
+	    sendpay_errmsg_fmt(tmpctx, pay_errcode, fail, details);
 
 	notify_sendpay_failure(cmd->ld,
 			       payment,

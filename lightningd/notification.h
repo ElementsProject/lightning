@@ -63,6 +63,6 @@ void notify_sendpay_failure(struct lightningd *ld,
 			    int pay_errcode,
 			    const u8 *onionreply,
 			    const struct routing_failure *fail,
-			    char *errmsg);
+			    const char *errmsg);
 
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */
