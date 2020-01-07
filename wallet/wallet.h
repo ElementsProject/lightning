@@ -941,8 +941,7 @@ void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment)
  * Stores the payment in the database.
  */
 void wallet_payment_store(struct wallet *wallet,
-			  const struct sha256 *payment_hash,
-			  u64 partid);
+			  struct wallet_payment *payment TAKES);
 
 /**
  * wallet_payment_delete - Remove a payment
