@@ -1,4 +1,5 @@
 from collections import Counter
+from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from lightning import RpcError
@@ -1600,9 +1601,10 @@ def test_statictor_onions(node_factory):
     """
     # please define your values
     torip = '127.0.0.1'
-    toripps = '127.0.0.1:9051'
+    torips = '127.0.0.1:9051'
     torport = 9050
     torserviceport = 9051
+    portA, portB = reserve(), reserve()
 
     if not check_socket(format(torip), torserviceport):
         return
@@ -1610,11 +1612,17 @@ def test_statictor_onions(node_factory):
     if not check_socket(format(torip), torport):
         return
 
-    l1 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps)]})
-    l2 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps, '/torblob=11234567890123456789012345678901')]})
+    l1 = node_factory.get_node(may_fail=True, options={
+        'bind-addr': '127.0.0.1:{}'.format(portA),
+        'addr': ['statictor:{}'.format(torips)]
+    })
+    l2 = node_factory.get_node(may_fail=True, options={
+        'bind-addr': '127.0.0.1:{}'.format(portB),
+        'addr': ['statictor:{}/torblob=11234567890123456789012345678901'.format(torips)]
+    })
 
-    assert l1.daemon.is_in_log('127.0.0.1:'.format(l1.port))
-    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:9735,127.0.0.1:'.format(l2.port))
+    assert l1.daemon.is_in_log('127.0.0.1:{}'.format(l1.port))
+    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:9735,127.0.0.1:{}'.format(l2.port))
 
 
 @unittest.skipIf(not DEVELOPER, "needs a running Tor service instance at port 9151 or 9051")
@@ -1626,18 +1634,20 @@ def test_torport_onions(node_factory):
     """
     # please define your values
     torip = '127.0.0.1'
-    toripps = '127.0.0.1:9051'
+    torips = '127.0.0.1:9051'
     torport = 9050
     torserviceport = 9051
 
-    if not check_socket(format(torip), torserviceport):
+    if not check_socket(torip, torserviceport):
         return
 
-    if not check_socket(format(torip), torport):
+    if not check_socket(torip, torport):
         return
 
-    l1 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps, '/torport=45321')]})
-    l2 = node_factory.get_node(may_fail=True, options={'addr': ['statictor:'.format(toripps, '/torport=45321:torblob=11234567890123456789012345678901')]})
+    portA, portB = reserve(), reserve()
 
-    assert l1.daemon.is_in_log('45321,127.0.0.1:'.format(l1.port))
-    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:45321,127.0.0.1:'.format(l2.port))
+    l1 = node_factory.get_node(may_fail=True, options={'bind-addr': '127.0.0.1:{}'.format(portA), 'addr': ['statictor:{}/torport=45321'.format(torips)]})
+    l2 = node_factory.get_node(may_fail=True, options={'bind-addr': '127.0.0.1:{}'.format(portB), 'addr': ['statictor:{}/torport=45321/torblob=11234567890123456789012345678901'.format(torips)]})
+
+    assert l1.daemon.is_in_log('45321,127.0.0.1:{}'.format(l1.port))
+    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:45321,127.0.0.1:{}'.format(l2.port))
