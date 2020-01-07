@@ -38,6 +38,43 @@ static const char *methods[] = {"getchaininfo", "getrawblockbyheight",
                                 "sendrawtransaction", "getutxout",
                                 "getfeerate"};
 
+static void plugin_config_cb(const char *buffer,
+			     const jsmntok_t *toks,
+			     const jsmntok_t *idtok,
+			     struct plugin *plugin)
+{
+	plugin->plugin_state = CONFIGURED;
+	io_break(plugin);
+}
+
+static void config_plugin(struct plugin *plugin)
+{
+	struct jsonrpc_request *req;
+
+	req = jsonrpc_request_start(plugin, "init", plugin->log,
+	                            plugin_config_cb, plugin);
+	plugin_populate_init_request(plugin, req);
+	jsonrpc_request_end(req);
+	plugin_request_send(plugin, req);
+	io_loop_with_timers(plugin->plugins->ld);
+}
+
+static void wait_plugin(struct bitcoind *bitcoind, const char *method,
+			struct plugin *p)
+{
+	/* We need our Bitcoin backend to be initialized, but the plugins have
+	 * not yet been started at this point.
+	 * So send `init` to each plugin which registered for a Bitcoin method
+	 * and wait for its response, which we take as an ACK that it is
+	 * operational (i.e. bcli will wait for `bitcoind` to be warmed up
+	 * before responding to `init`).
+	 * Note that lightningd/plugin will not send `init` to an already
+	 * configured plugin. */
+	if (p->plugin_state != CONFIGURED)
+		config_plugin(p);
+	strmap_add(&bitcoind->pluginsmap, method, p);
+}
+
 void bitcoind_check_commands(struct bitcoind *bitcoind)
 {
 	size_t i;
@@ -50,6 +87,7 @@ void bitcoind_check_commands(struct bitcoind *bitcoind)
 			      "Bitcoin plugin (by default plugins/bcli) "
 			      "registered ?", methods[i]);
 		}
+		wait_plugin(bitcoind, methods[i], p);
 	}
 }
 
