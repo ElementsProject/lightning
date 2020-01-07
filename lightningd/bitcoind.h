@@ -5,6 +5,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/strmap/strmap.h>
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
@@ -61,6 +62,10 @@ struct bitcoind {
 	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
 
 	struct list_head pending_getfilteredblock;
+
+	/* Map each method to a plugin, so we can have multiple plugins
+	 * handling different functionalities. */
+	STRMAP(struct plugin *) pluginsmap;
 };
 
 /* A single outpoint in a filtered block */
