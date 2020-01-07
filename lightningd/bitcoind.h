@@ -182,4 +182,6 @@ void bitcoind_gettxout(struct bitcoind *bitcoind,
 
 void bitcoind_getclientversion(struct bitcoind *bitcoind);
 
+void bitcoind_check_commands(struct bitcoind *bitcoind);
+
 #endif /* LIGHTNING_LIGHTNINGD_BITCOIND_H */

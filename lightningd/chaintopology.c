@@ -955,6 +955,9 @@ void setup_topology(struct chain_topology *topo,
 	topo->min_blockheight = min_blockheight;
 	topo->max_blockheight = max_blockheight;
 
+	/* This waits for bitcoind. */
+	bitcoind_check_commands(topo->bitcoind);
+
 	/* Make sure bitcoind is started, and ready */
 	wait_for_bitcoind(topo->bitcoind);
 

@@ -7,10 +7,12 @@
 #include "bitcoind.h"
 #include "lightningd.h"
 #include "log.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
@@ -22,6 +24,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/plugin.h>
 
 /* Bitcoind's web server has a default of 4 threads, with queue depth 16.
  * It will *fail* rather than queue beyond that, so we must not stress it!
@@ -29,6 +32,26 @@
  * This is how many request for each priority level we have.
  */
 #define BITCOIND_MAX_PARALLEL 4
+
+/* The names of the request we can make to our Bitcoin backend. */
+static const char *methods[] = {"getchaininfo", "getrawblockbyheight",
+                                "sendrawtransaction", "getutxout",
+                                "getfeerate"};
+
+void bitcoind_check_commands(struct bitcoind *bitcoind)
+{
+	size_t i;
+	struct plugin *p;
+
+	for (i = 0; i < ARRAY_SIZE(methods); i++) {
+		p = find_plugin_for_command(bitcoind->ld, methods[i]);
+		if (p == NULL) {
+			fatal("Could not access the plugin for %s, is a "
+			      "Bitcoin plugin (by default plugins/bcli) "
+			      "registered ?", methods[i]);
+		}
+	}
+}
 
 /* Add the n'th arg to *args, incrementing n and keeping args of size n+1 */
 static void add_arg(const char ***args, const char *arg)
