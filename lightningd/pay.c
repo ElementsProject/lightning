@@ -235,7 +235,7 @@ json_sendpay_in_progress(struct command *cmd,
 {
 	struct json_stream *response = json_stream_success(cmd);
 	json_add_string(response, "message",
-			"Monitor status with listpayments or waitsendpay");
+			"Monitor status with listpays or waitsendpay");
 	json_add_payment_fields(response, payment);
 	return command_success(cmd, response);
 }
