@@ -961,8 +961,6 @@ void setup_topology(struct chain_topology *topo,
 	/* Make sure bitcoind is started, and ready */
 	wait_for_bitcoind(topo->bitcoind);
 
-	bitcoind_getclientversion(topo->bitcoind);
-
 	bitcoind_getblockcount(topo->bitcoind, get_init_blockhash, topo);
 
 	tal_add_destructor(topo, destroy_chain_topology);

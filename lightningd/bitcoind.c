@@ -890,66 +890,6 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 		bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
 }
 
-static bool extract_numeric_version(struct bitcoin_cli *bcli,
-			    const char *output, size_t output_bytes,
-			    u64 *version)
-{
-	const jsmntok_t *tokens, *versiontok;
-	bool valid;
-
-	tokens = json_parse_input(output, output, output_bytes, &valid);
-	if (!tokens)
-		fatal("%s: %s response",
-		      bcli_args(tmpctx, bcli),
-		      valid ? "partial" : "invalid");
-
-	if (tokens[0].type != JSMN_OBJECT) {
-		log_unusual(bcli->bitcoind->log,
-			    "%s: gave non-object (%.*s)?",
-			    bcli_args(tmpctx, bcli),
-			    (int)output_bytes, output);
-		return false;
-	}
-
-	versiontok = json_get_member(output, tokens, "version");
-	if (!versiontok)
-		return false;
-
-	return json_to_u64(output, versiontok, version);
-}
-
-static bool process_getclientversion(struct bitcoin_cli *bcli)
-{
-	u64 version;
-	u64 min_version = chainparams->cli_min_supported_version;
-
-	if (!extract_numeric_version(bcli, bcli->output,
-				     bcli->output_bytes,
-				     &version)) {
-		fatal("%s: Unable to getclientversion (%.*s)",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes,
-		      bcli->output);
-	}
-
-	if (version < min_version)
-		fatal("Unsupported bitcoind version? bitcoind version: %"PRIu64","
-		      " supported minimum version: %"PRIu64"",
-		      version, min_version);
-
-	return true;
-}
-
-void bitcoind_getclientversion(struct bitcoind *bitcoind)
-{
-	/* `getnetworkinfo` was added in v0.14.0. The older version would
-	 * return non-zero exitstatus. */
-	start_bitcoin_cli(bitcoind, NULL, process_getclientversion, false,
-			  BITCOIND_HIGH_PRIO,
-			  NULL, NULL,
-			  "getnetworkinfo", NULL);
-}
-
 /* Mutual recursion */
 static bool process_getblockchaininfo(struct bitcoin_cli *bcli);
 
