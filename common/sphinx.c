@@ -83,7 +83,7 @@ static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 	return tal_bytelen(hop->raw_payload) + HMAC_SIZE;
 }
 
-static size_t sphinx_path_payloads_size(const struct sphinx_path *path)
+size_t sphinx_path_payloads_size(const struct sphinx_path *path)
 {
 	size_t size = 0;
 	for (size_t i=0; i<tal_count(path->hops); i++)
