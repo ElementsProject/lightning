@@ -742,14 +742,21 @@ static void remove_tip(struct chain_topology *topo)
 	tal_free(b);
 }
 
-static void have_new_block(struct bitcoind *bitcoind UNUSED,
-			   struct bitcoin_block *blk,
-			   struct chain_topology *topo)
+static void get_new_block(struct bitcoind *bitcoind,
+			  struct bitcoin_blkid *blkid,
+			  struct bitcoin_block *blk,
+			  struct chain_topology *topo)
 {
-	/* Annotate all transactions with the chainparams */
-	for (size_t i=0; i<tal_count(blk->tx); i++)
-		blk->tx[i]->chainparams = chainparams;
+	if (!blkid && !blk) {
+		/* No such block, we're done. */
+		updates_complete(topo);
+		return;
+	}
+	assert(blkid && blk);
 
+	/* Annotate all transactions with the chainparams */
+	for (size_t i = 0; i < tal_count(blk->tx); i++)
+		blk->tx[i]->chainparams = chainparams;
 
 	/* Unexpected predecessor?  Free predecessor, refetch it. */
 	if (!bitcoin_blkid_eq(&topo->tip->blkid, &blk->hdr.prev_hash))
@@ -761,22 +768,10 @@ static void have_new_block(struct bitcoind *bitcoind UNUSED,
 	try_extend_tip(topo);
 }
 
-static void get_new_block(struct bitcoind *bitcoind,
-			  const struct bitcoin_blkid *blkid,
-			  struct chain_topology *topo)
-{
-	if (!blkid) {
-		/* No such block, we're done. */
-		updates_complete(topo);
-		return;
-	}
-	bitcoind_getrawblock(bitcoind, blkid, have_new_block, topo);
-}
-
 static void try_extend_tip(struct chain_topology *topo)
 {
-	bitcoind_getblockhash(topo->bitcoind, topo->tip->height + 1,
-			      get_new_block, topo);
+	bitcoind_getrawblockbyheight(topo->bitcoind, topo->tip->height + 1,
+				     get_new_block, topo);
 }
 
 static void init_topo(struct bitcoind *bitcoind UNUSED,
