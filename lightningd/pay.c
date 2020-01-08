@@ -1460,6 +1460,11 @@ static struct command_result *json_createonion(struct command *cmd,
 	for (size_t i=0; i<tal_count(hops); i++)
 		sphinx_add_hop(sp, &hops[i].pubkey, hops[i].raw_payload);
 
+	if (sphinx_path_payloads_size(sp) > ROUTING_INFO_SIZE)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Payloads exceed maximum onion packet size.");
+
 	packet = create_onionpacket(cmd, sp, &shared_secrets);
 	if (!packet)
 		return command_fail(cmd, LIGHTNINGD,
