@@ -2716,3 +2716,32 @@ def test_partial_payment_htlc_loss(node_factory, bitcoind):
     with pytest.raises(RpcError,
                        match=r'WIRE_PERMANENT_CHANNEL_FAILURE \(reply from remote\)'):
         l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1)
+
+
+@pytest.mark.xfail(strict=True)
+def test_createonion_limits(node_factory):
+    l1, = node_factory.get_nodes(1)
+    hops = [{
+        "pubkey": "02eec7245d6b7d2ccb30380bfbe2a3648cd7a942653f5aa340edcea1f283686619",
+        "payload": "00" * 228
+    }, {
+        "pubkey": "0324653eac434488002cc06bbfb7f10fe18991e35f9fe4302dbea6d2353dc0ab1c",
+        "payload": "00" * 228
+    }, {
+        "pubkey": "027f31ebc5462c1fdce1b737ecff52d37d75dea43ce11c74d25aa297165faa2007",
+        "payload": "00" * 228
+    }, {
+        "pubkey": "032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991",
+        "payload": "00" * 228
+    }, {
+        "pubkey": "02edabbd16b41c8371b92ef2f04c1185b4f03b6dcd52ba9b78d9d7c89c8f221145",
+        "payload": "00" * 228
+    }]
+
+    # This should success since it's right at the edge
+    l1.rpc.createonion(hops=hops, assocdata="BB" * 32)
+
+    # This one should fail however
+    with pytest.raises(RpcError, match=r'Payloads exceed maximum onion packet size.'):
+        hops[0]['payload'] += '01'
+        l1.rpc.createonion(hops=hops, assocdata="BB" * 32)
