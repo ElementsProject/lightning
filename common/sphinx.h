@@ -221,4 +221,9 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 		    const u8 *payload TAKES);
 
+/**
+ * Compute the size of the serialized payloads.
+ */
+size_t sphinx_path_payloads_size(const struct sphinx_path *path);
+
 #endif /* LIGHTNING_COMMON_SPHINX_H */
