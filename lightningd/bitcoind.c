@@ -556,34 +556,211 @@ void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 			  "getblock", hex, "false", NULL);
 }
 
-static bool process_getblockcount(struct bitcoin_cli *bcli)
+/* Our Bitcoin backend plugin gave us a bad response. We can't recover. */
+static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
+				 const jsmntok_t *toks, const char *method,
+				 const char *reason)
 {
-	u32 blockcount;
-	char *p, *end;
-	void (*cb)(struct bitcoind *bitcoind,
-		   u32 blockcount,
-		   void *arg) = bcli->cb;
-
-	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
-	blockcount = strtol(p, &end, 10);
-	if (end == p || *end != '\n')
-		fatal("%s: gave non-numeric blockcount %s",
-		      bcli_args(tmpctx, bcli), p);
-
-	cb(bcli->bitcoind, blockcount, bcli->cb_arg);
-	return true;
+	struct plugin *p = strmap_get(&bitcoind->pluginsmap, method);
+	fatal("%s error: bad response to %s (%s), response was %.*s",
+	      p->cmd, method, reason,
+	      toks->end - toks->start, buf + toks->start);
 }
 
-void bitcoind_getblockcount_(struct bitcoind *bitcoind,
-			      void (*cb)(struct bitcoind *bitcoind,
-					 u32 blockcount,
-					 void *arg),
-			      void *arg)
+/* `getrawblockbyheight`
+ *
+ * If no block were found at that height, will set each field to `null`.
+ * Plugin response:
+ * {
+ *	"blockhash": "<blkid>",
+ *	"block": "rawblock"
+ * }
+ */
+
+struct getrawblockbyheight_call {
+	struct bitcoind *bitcoind;
+	void (*cb)(struct bitcoind *bitcoind,
+		   struct bitcoin_blkid *blkid,
+		   struct bitcoin_block *block,
+		   void *);
+	void *cb_arg;
+};
+
+static void
+getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
+			     const jsmntok_t *idtok,
+			     struct getrawblockbyheight_call *call)
 {
-	start_bitcoin_cli(bitcoind, NULL, process_getblockcount, false,
-			  BITCOIND_HIGH_PRIO,
-			  cb, arg,
-			  "getblockcount", NULL);
+	const jsmntok_t *resulttok, *blockhashtok, *blocktok;
+	const char *block_str, *blockhash_str;
+	struct bitcoin_blkid blkid;
+	struct bitcoin_block *blk;
+
+	resulttok = json_get_member(buf, toks, "result");
+	if (!resulttok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "getrawblockbyheight",
+				     "bad 'result' field");
+
+	blockhashtok = json_get_member(buf, resulttok, "blockhash");
+	if (!blockhashtok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "getrawblockbyheight",
+				     "bad 'blockhash' field");
+	/* If block hash is `null`, this means not found! Call the callback
+	 * with NULL values. */
+	if (json_tok_is_null(buf, blockhashtok)) {
+		db_begin_transaction(call->bitcoind->ld->wallet->db);
+		call->cb(call->bitcoind, NULL, NULL, call->cb_arg);
+		db_commit_transaction(call->bitcoind->ld->wallet->db);
+		goto clean;
+	}
+	blockhash_str = json_strdup(tmpctx, buf, blockhashtok);
+	if (!bitcoin_blkid_from_hex(blockhash_str, strlen(blockhash_str), &blkid))
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "getrawblockbyheight",
+				     "bad block hash");
+
+	blocktok = json_get_member(buf, resulttok, "block");
+	if (!blocktok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "getrawblockbyheight",
+				     "bad 'block' field");
+	block_str = json_strdup(tmpctx, buf, blocktok);
+	blk = bitcoin_block_from_hex(tmpctx, chainparams, block_str,
+				     strlen(block_str));
+	if (!blk)
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "getrawblockbyheight",
+				     "bad block");
+
+	db_begin_transaction(call->bitcoind->ld->wallet->db);
+	call->cb(call->bitcoind, &blkid, blk, call->cb_arg);
+	db_commit_transaction(call->bitcoind->ld->wallet->db);
+
+clean:
+	tal_free(call);
+}
+
+void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
+				   u32 height,
+				   void (*cb)(struct bitcoind *bitcoind,
+					      struct bitcoin_blkid *blkid,
+					      struct bitcoin_block *blk,
+					      void *arg),
+				   void *cb_arg)
+{
+	struct jsonrpc_request *req;
+	struct getrawblockbyheight_call *call = tal(NULL,
+						    struct getrawblockbyheight_call);
+
+	call->bitcoind = bitcoind;
+	call->cb = cb;
+	call->cb_arg = cb_arg;
+
+	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight",
+				    bitcoind->log, getrawblockbyheight_callback,
+				    /* Freed in cb. */
+				    notleak(call));
+	json_add_num(req->stream, "height", height);
+	jsonrpc_request_end(req);
+	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
+				       "getrawblockbyheight"), req);
+}
+
+/* `getchaininfo`
+ *
+ * Called at startup to check the network we are operating on, and to check
+ * if the Bitcoin backend is synced to the network tip. This also allows to
+ * get the current block count.
+ * {
+ *	"chain": "<bip70_chainid>",
+ *	"headercount": <number of fetched headers>,
+ *	"blockcount": <number of fetched block>,
+ *	"ibd": <synced?>
+ * }
+ */
+
+struct getchaininfo_call {
+	struct bitcoind *bitcoind;
+	/* Should we log verbosely? */
+	bool first_call;
+	void (*cb)(struct bitcoind *bitcoind,
+		   const char *chain,
+		   u32 headercount,
+		   u32 blockcount,
+		   const bool ibd,
+		   const bool first_call,
+		   void *);
+	void *cb_arg;
+};
+
+static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
+				  const jsmntok_t *idtok,
+				  struct getchaininfo_call *call)
+{
+	const jsmntok_t *resulttok, *chaintok, *headerstok, *blktok, *ibdtok;
+	u32 headers = 0;
+	u32 blocks = 0;
+	bool ibd = false;
+
+	resulttok = json_get_member(buf, toks, "result");
+	if (!resulttok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
+				     "bad 'result' field");
+
+	chaintok = json_get_member(buf, resulttok, "chain");
+	if (!chaintok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
+				     "bad 'chain' field");
+
+	headerstok = json_get_member(buf, resulttok, "headercount");
+	if (!headerstok || !json_to_number(buf, headerstok, &headers))
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
+				     "bad 'headercount' field");
+
+	blktok = json_get_member(buf, resulttok, "blockcount");
+	if (!blktok || !json_to_number(buf, blktok, &blocks))
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
+				     "bad 'blockcount' field");
+
+	ibdtok = json_get_member(buf, resulttok, "ibd");
+	if (!ibdtok || !json_to_bool(buf, ibdtok, &ibd))
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
+				     "bad 'ibd' field");
+
+	db_begin_transaction(call->bitcoind->ld->wallet->db);
+	call->cb(call->bitcoind, json_strdup(tmpctx, buf, chaintok), headers,
+		 blocks, ibd, call->first_call, call->cb_arg);
+	db_commit_transaction(call->bitcoind->ld->wallet->db);
+
+	tal_free(call);
+}
+
+void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
+			    const bool first_call,
+			    void (*cb)(struct bitcoind *bitcoind,
+				       const char *chain,
+				       u32 headercount,
+				       u32 blockcount,
+				       const bool ibd,
+				       const bool first_call,
+				       void *),
+			    void *cb_arg)
+{
+	struct jsonrpc_request *req;
+	struct getchaininfo_call *call = tal(bitcoind, struct getchaininfo_call);
+
+	call->bitcoind = bitcoind;
+	call->cb = cb;
+	call->cb_arg = cb_arg;
+	call->first_call = first_call;
+
+	req = jsonrpc_request_start(bitcoind, "getchaininfo", bitcoind->log,
+				    getchaininfo_callback, call);
+	jsonrpc_request_end(req);
+	plugin_request_send(strmap_get(&bitcoind->pluginsmap, "getchaininfo"),
+			    req);
 }
 
 struct get_output {
@@ -890,233 +1067,11 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 		bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
 }
 
-/* Mutual recursion */
-static bool process_getblockchaininfo(struct bitcoin_cli *bcli);
-
-static void retry_getblockchaininfo(struct bitcoind *bitcoind)
-{
-	assert(!bitcoind->synced);
-	start_bitcoin_cli(bitcoind, NULL,
-			  process_getblockchaininfo,
-			  false, BITCOIND_LOW_PRIO, NULL, NULL,
-			  "getblockchaininfo", NULL);
-}
-
-/* Given JSON object from getblockchaininfo, are we synced?  Poll if not. */
-static void is_bitcoind_synced_yet(struct bitcoind *bitcoind,
-				   const char *output, size_t output_len,
-				   const jsmntok_t *obj,
-				   bool initial)
-{
-	const jsmntok_t *t;
-	unsigned int headers, blocks;
-	bool ibd;
-
-	t = json_get_member(output, obj, "headers");
-	if (!t || !json_to_number(output, t, &headers))
-		fatal("Invalid 'headers' field in getblockchaininfo '%.*s'",
-		      (int)output_len, output);
-
-	t = json_get_member(output, obj, "blocks");
-	if (!t || !json_to_number(output, t, &blocks))
-		fatal("Invalid 'blocks' field in getblockchaininfo '%.*s'",
-		      (int)output_len, output);
-
-	t = json_get_member(output, obj, "initialblockdownload");
-	if (!t || !json_to_bool(output, t, &ibd))
-		fatal("Invalid 'initialblockdownload' field in getblockchaininfo '%.*s'",
-		      (int)output_len, output);
-
-	if (ibd) {
-		if (initial)
-			log_unusual(bitcoind->log,
-				    "Waiting for initial block download"
-				    " (this can take a while!)");
-		else
-			log_debug(bitcoind->log,
-				  "Still waiting for initial block download");
-	} else if (headers != blocks) {
-		if (initial)
-			log_unusual(bitcoind->log,
-				    "Waiting for bitcoind to catch up"
-				    " (%u blocks of %u)",
-				    blocks, headers);
-		else
-			log_debug(bitcoind->log,
-				  "Waiting for bitcoind to catch up"
-				  " (%u blocks of %u)",
-				  blocks, headers);
-	} else {
-		if (!initial)
-			log_info(bitcoind->log, "Bitcoind now synced.");
-		bitcoind->synced = true;
-		return;
-	}
-
-	bitcoind->synced = false;
-	notleak(new_reltimer(bitcoind->ld->timers, bitcoind,
-			     /* Be 4x more aggressive in this case. */
-			     time_divide(time_from_sec(bitcoind->ld->topology
-						       ->poll_seconds), 4),
-			     retry_getblockchaininfo, bitcoind));
-}
-
-static bool process_getblockchaininfo(struct bitcoin_cli *bcli)
-{
-	const jsmntok_t *tokens;
-	bool valid;
-
-	tokens = json_parse_input(bcli, bcli->output, bcli->output_bytes,
-				  &valid);
-	if (!tokens)
-		fatal("%s: %s response (%.*s)",
-		      bcli_args(tmpctx, bcli),
-		      valid ? "partial" : "invalid",
-		      (int)bcli->output_bytes, bcli->output);
-
-	if (tokens[0].type != JSMN_OBJECT) {
-		log_unusual(bcli->bitcoind->log,
-			    "%s: gave non-object (%.*s)?",
-			    bcli_args(tmpctx, bcli),
-			    (int)bcli->output_bytes, bcli->output);
-		return false;
-	}
-
-	is_bitcoind_synced_yet(bcli->bitcoind, bcli->output, bcli->output_bytes,
-			       tokens, false);
-	return true;
-}
-
 static void destroy_bitcoind(struct bitcoind *bitcoind)
 {
 	strmap_clear(&bitcoind->pluginsmap);
 	/* Suppresses the callbacks from bcli_finished as we free conns. */
 	bitcoind->shutdown = true;
-}
-
-static const char **cmdarr(const tal_t *ctx, const struct bitcoind *bitcoind,
-			   const char *cmd, ...)
-{
-	va_list ap;
-	const char **args;
-
-	va_start(ap, cmd);
-	args = gather_args(bitcoind, ctx, cmd, ap);
-	va_end(ap);
-	return args;
-}
-
-static void fatal_bitcoind_failure(struct bitcoind *bitcoind, const char *error_message)
-{
-	const char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
-
-	fprintf(stderr, "%s\n\n", error_message);
-	fprintf(stderr, "Make sure you have bitcoind running and that bitcoin-cli is able to connect to bitcoind.\n\n");
-	fprintf(stderr, "You can verify that your Bitcoin Core installation is ready for use by running:\n\n");
-	fprintf(stderr, "    $ %s 'hello world'\n", args_string(cmd, cmd));
-	tal_free(cmd);
-	exit(1);
-}
-
-/* This function is used to check "chain" field from
- * bitcoin-cli "getblockchaininfo" API */
-static char* check_blockchain_from_bitcoincli(const tal_t *ctx,
-				struct bitcoind *bitcoind,
-				char* output, const char **cmd)
-{
-	size_t output_bytes;
-	const jsmntok_t *tokens, *valuetok;
-	bool valid;
-
-	if (!output)
-		return tal_fmt(ctx, "Reading from %s failed: %s",
-			       args_string(tmpctx, cmd), strerror(errno));
-
-	output_bytes = tal_count(output);
-
-	tokens = json_parse_input(cmd, output, output_bytes,
-			          &valid);
-
-	if (!tokens)
-		return tal_fmt(ctx, "%s: %s response",
-			       args_string(tmpctx, cmd),
-			       valid ? "partial" : "invalid");
-
-	if (tokens[0].type != JSMN_OBJECT)
-		return tal_fmt(ctx, "%s: gave non-object (%.*s)?",
-			       args_string(tmpctx, cmd),
-			       (int)output_bytes, output);
-
-	valuetok = json_get_member(output, tokens, "chain");
-	if (!valuetok)
-		return tal_fmt(ctx, "%s: had no chain member (%.*s)?",
-			       args_string(tmpctx, cmd),
-			       (int)output_bytes, output);
-
-	if (!json_tok_streq(output, valuetok,
-			   chainparams->bip70_name))
-		return tal_fmt(ctx, "Error blockchain for bitcoin-cli?"
-			       " Should be: %s",
-			       chainparams->bip70_name);
-
-	is_bitcoind_synced_yet(bitcoind, output, output_bytes, tokens, true);
-	return NULL;
-}
-
-void wait_for_bitcoind(struct bitcoind *bitcoind)
-{
-	int from, status, ret;
-	pid_t child;
-	const char **cmd = cmdarr(bitcoind, bitcoind, "getblockchaininfo", NULL);
-	bool printed = false;
-	char *errstr;
-
-	for (;;) {
-		child = pipecmdarr(NULL, &from, &from, cast_const2(char **,cmd));
-		if (child < 0) {
-			if (errno == ENOENT) {
-				fatal_bitcoind_failure(bitcoind, "bitcoin-cli not found. Is bitcoin-cli (part of Bitcoin Core) available in your PATH?");
-			}
-			fatal("%s exec failed: %s", cmd[0], strerror(errno));
-		}
-
-		char *output = grab_fd(cmd, from);
-
-		while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
-		if (ret != child)
-			fatal("Waiting for %s: %s", cmd[0], strerror(errno));
-		if (!WIFEXITED(status))
-			fatal("Death of %s: signal %i",
-			      cmd[0], WTERMSIG(status));
-
-		if (WEXITSTATUS(status) == 0) {
-			/* If succeeded, so check answer it gave. */
-			errstr = check_blockchain_from_bitcoincli(tmpctx, bitcoind, output, cmd);
-			if (errstr)
-				fatal("%s", errstr);
-
-			break;
-		}
-
-		/* bitcoin/src/rpc/protocol.h:
-		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
-		 */
-		if (WEXITSTATUS(status) != 28) {
-			if (WEXITSTATUS(status) == 1) {
-				fatal_bitcoind_failure(bitcoind, "Could not connect to bitcoind using bitcoin-cli. Is bitcoind running?");
-			}
-			fatal("%s exited with code %i: %s",
-			      cmd[0], WEXITSTATUS(status), output);
-		}
-
-		if (!printed) {
-			log_unusual(bitcoind->log,
-				    "Waiting for bitcoind to warm up...");
-			printed = true;
-		}
-		sleep(1);
-	}
-	tal_free(cmd);
 }
 
 struct bitcoind *new_bitcoind(const tal_t *ctx,
@@ -1143,6 +1098,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	bitcoind->rpcconnect = NULL;
 	bitcoind->rpcport = NULL;
 	tal_add_destructor(bitcoind, destroy_bitcoind);
+	bitcoind->synced = false;
 
 	return bitcoind;
 }

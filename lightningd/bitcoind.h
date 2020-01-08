@@ -89,8 +89,6 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,
 			      struct log *log);
 
-void wait_for_bitcoind(struct bitcoind *bitcoind);
-
 void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 			     const u32 blocks[], const char *estmode[],
 			     size_t num_estimates,
@@ -119,20 +117,6 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 						struct bitcoind *,	\
 						int, const char *),	\
 			    (arg))
-
-void bitcoind_getblockcount_(struct bitcoind *bitcoind,
-			     void (*cb)(struct bitcoind *bitcoind,
-					u32 blockcount,
-					void *arg),
-			     void *arg);
-
-#define bitcoind_getblockcount(bitcoind_, cb, arg)			\
-	bitcoind_getblockcount_((bitcoind_),				\
-				typesafe_cb_preargs(void, void *,	\
-						    (cb), (arg),	\
-						    struct bitcoind *,	\
-						    u32 blockcount),	\
-				(arg))
 
 /* blkid is NULL if call fails. */
 void bitcoind_getblockhash_(struct bitcoind *bitcoind,
@@ -177,6 +161,40 @@ void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 						  struct bitcoind *,	\
 						  struct bitcoin_block *), \
 			      (arg))
+
+void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
+			    const bool first_call,
+			    void (*cb)(struct bitcoind *bitcoind,
+				       const char *chain,
+				       u32 headercount,
+				       u32 blockcount,
+				       const bool ibd,
+				       const bool first_call, void *),
+			    void *cb_arg);
+#define bitcoind_getchaininfo(bitcoind_, first_call_, cb, arg)		   \
+	bitcoind_getchaininfo_((bitcoind_), (first_call_),		   \
+			      typesafe_cb_preargs(void, void *,		   \
+						  (cb), (arg),		   \
+						  struct bitcoind *,	   \
+						  const char *, u32, u32,  \
+						  const bool, const bool), \
+			      (arg))
+
+void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
+				   u32 height,
+				   void (*cb)(struct bitcoind *bitcoind,
+					      struct bitcoin_blkid *blkid,
+					      struct bitcoin_block *blk,
+					      void *arg),
+				   void *arg);
+#define bitcoind_getrawblockbyheight(bitcoind_, height_, cb, arg)		\
+	bitcoind_getrawblockbyheight_((bitcoind_), (height_),			\
+				      typesafe_cb_preargs(void, void *,		\
+							  (cb), (arg),		\
+							  struct bitcoind *,	\
+							  struct bitcoin_blkid *, \
+							  struct bitcoin_block *),\
+				      (arg))
 
 void bitcoind_gettxout(struct bitcoind *bitcoind,
 		       const struct bitcoin_txid *txid, const u32 outnum,
