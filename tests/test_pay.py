@@ -2718,7 +2718,6 @@ def test_partial_payment_htlc_loss(node_factory, bitcoind):
         l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1)
 
 
-@pytest.mark.xfail(strict=True)
 def test_createonion_limits(node_factory):
     l1, = node_factory.get_nodes(1)
     hops = [{

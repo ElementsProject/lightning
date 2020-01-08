@@ -98,7 +98,6 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 	sp.raw_payload = tal_dup_arr(path, u8, payload, tal_count(payload), 0);
 	sp.pubkey = *pubkey;
 	tal_arr_expand(&path->hops, sp);
-	assert(sphinx_path_payloads_size(path) <= ROUTING_INFO_SIZE);
 }
 
 /* Small helper to append data to a buffer and update the position
@@ -395,6 +394,12 @@ struct onionpacket *create_onionpacket(
 	u8 stream[ROUTING_INFO_SIZE];
 	struct hop_params *params;
 	struct secret *secrets = tal_arr(ctx, struct secret, num_hops);
+
+	if (sphinx_path_payloads_size(sp) > ROUTING_INFO_SIZE) {
+		tal_free(packet);
+		tal_free(secrets);
+		return NULL;
+	}
 
 	if (sp->session_key == NULL) {
 		sp->session_key = tal(sp, struct secret);
