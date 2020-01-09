@@ -140,23 +140,30 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 			     connect->host);
 		return io_close(conn);
 	}
-	/* make the V5 request */
-	connect->hlen = strlen(connect->host);
-	connect->buffer[0] = SOCKS_V5;
-	connect->buffer[1] = SOCKS_CONNECT;
-	connect->buffer[2] = 0;
-	connect->buffer[3] = SOCKS_DOMAIN;
-	connect->buffer[4] = connect->hlen;
+	if (connect->buffer[1] == '\0') {
+		/* make the V5 request */
+		connect->hlen = strlen(connect->host);
+		connect->buffer[0] = SOCKS_V5;
+		connect->buffer[1] = SOCKS_CONNECT;
+		connect->buffer[2] = 0;
+		connect->buffer[3] = SOCKS_DOMAIN;
+		connect->buffer[4] = connect->hlen;
 
-	memcpy(connect->buffer + SOCK_REQ_V5_LEN, connect->host, connect->hlen);
-	memcpy(connect->buffer + SOCK_REQ_V5_LEN + strlen(connect->host),
-	       &(connect->port), sizeof connect->port);
+		memcpy(connect->buffer + SOCK_REQ_V5_LEN, connect->host, connect->hlen);
+		memcpy(connect->buffer + SOCK_REQ_V5_LEN + strlen(connect->host),
+				&(connect->port), sizeof connect->port);
 
-	status_io(LOG_IO_OUT, NULL, "proxy", connect->buffer,
-		  SOCK_REQ_V5_HEADER_LEN + connect->hlen);
-	return io_write(conn, connect->buffer,
-			SOCK_REQ_V5_HEADER_LEN + connect->hlen,
-			connect_out, connect);
+		status_io(LOG_IO_OUT, NULL, "proxy", connect->buffer,
+				SOCK_REQ_V5_HEADER_LEN + connect->hlen);
+		return io_write(conn, connect->buffer,
+				SOCK_REQ_V5_HEADER_LEN + connect->hlen,
+				connect_out, connect);
+	} else {
+		status_debug("Connected out for %s error: unexpected connect answer %0x from the tor socks5 proxy",
+				connect->host,
+				connect->buffer[1]);
+		return io_close(conn);
+	}
 }
 
 static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *conn,
