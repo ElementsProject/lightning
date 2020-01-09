@@ -2266,10 +2266,10 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 				    "or `dev-fail` instead.");
 	}
 
-	bitcoind_gettxout(cmd->ld->topology->bitcoind,
-			  &forget->channel->funding_txid,
-			  forget->channel->funding_outnum,
-			  process_dev_forget_channel, forget);
+	bitcoind_getutxout(cmd->ld->topology->bitcoind,
+			   &forget->channel->funding_txid,
+			   forget->channel->funding_outnum,
+			   process_dev_forget_channel, forget);
 	return command_still_pending(cmd);
 }
 
