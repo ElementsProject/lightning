@@ -43,7 +43,7 @@
  * available outputs.
  */
 static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
-					int exitstatus, const char *msg,
+					bool success, const char *msg,
 					struct unreleased_tx *utx)
 {
 	struct command *cmd = utx->wtx->cmd;
@@ -53,7 +53,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 	/* FIXME: This won't be necessary once we use ccan/json_out! */
 	/* Massage output into shape so it doesn't kill the JSON serialization */
 	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
-	if (exitstatus == 0) {
+	if (success) {
 		/* Mark used outputs as spent */
 		wallet_confirm_utxos(ld->wallet, utx->wtx->utxos);
 
@@ -66,7 +66,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 
 		struct json_stream *response = json_stream_success(cmd);
 		json_add_tx(response, "tx", utx->tx);
-		json_add_string(response, "txid", output);
+		json_add_txid(response, "txid", &utx->txid);
 		was_pending(command_success(cmd, response));
 	} else {
 		was_pending(command_fail(cmd, LIGHTNINGD,
