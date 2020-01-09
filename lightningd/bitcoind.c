@@ -781,89 +781,88 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 			    req);
 }
 
-struct get_output {
+/* `getutxout`
+ *
+ * Get informations about an UTXO. If the TXO is spent, the plugin will set
+ * all fields to `null`.
+ * {
+ *	"amount": <The output's amount in *sats*>,
+ *	"script": "The output's scriptPubKey",
+ * }
+ */
+
+struct getutxout_call {
+	struct bitcoind *bitcoind;
 	unsigned int blocknum, txnum, outnum;
 
 	/* The real callback */
-	void (*cb)(struct bitcoind *bitcoind, const struct bitcoin_tx_output *txout, void *arg);
-
+	void (*cb)(struct bitcoind *bitcoind,
+		   const struct bitcoin_tx_output *txout, void *arg);
 	/* The real callback arg */
-	void *cbarg;
+	void *cb_arg;
 };
 
-static bool process_gettxout(struct bitcoin_cli *bcli)
+static void getutxout_callback(const char *buf, const jsmntok_t *toks,
+			      const jsmntok_t *idtok,
+			      struct getutxout_call *call)
 {
-	void (*cb)(struct bitcoind *bitcoind,
-		   const struct bitcoin_tx_output *output,
-		   void *arg) = bcli->cb;
-	const jsmntok_t *tokens, *valuetok, *scriptpubkeytok, *hextok;
-	struct bitcoin_tx_output out;
-	bool valid;
+	const jsmntok_t *resulttok, *amounttok, *scripttok;
+	struct bitcoin_tx_output txout;
 
-	/* As of at least v0.15.1.0, bitcoind returns "success" but an empty
-	   string on a spent gettxout */
-	if (*bcli->exitstatus != 0 || bcli->output_bytes == 0) {
-		cb(bcli->bitcoind, NULL, bcli->cb_arg);
-		return true;
+	resulttok = json_get_member(buf, toks, "result");
+	if (!resulttok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
+				     "bad 'result' field");
+
+	scripttok = json_get_member(buf, resulttok, "script");
+	if (!scripttok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
+				     "bad 'script' field");
+	if (json_tok_is_null(buf, scripttok)) {
+		db_begin_transaction(call->bitcoind->ld->wallet->db);
+		call->cb(call->bitcoind, NULL, call->cb_arg);
+		db_commit_transaction(call->bitcoind->ld->wallet->db);
+		goto clean;
 	}
+	txout.script = json_tok_bin_from_hex(tmpctx, buf, scripttok);
 
-	tokens = json_parse_input(bcli->output, bcli->output, bcli->output_bytes,
-				  &valid);
-	if (!tokens)
-		fatal("%s: %s response",
-		      bcli_args(tmpctx, bcli), valid ? "partial" : "invalid");
+	amounttok = json_get_member(buf, resulttok, "amount");
+	if (!amounttok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
+				     "bad 'amount' field");
+	if (!json_to_sat(buf, amounttok, &txout.amount))
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
+				     "bad sats amount");
 
-	if (tokens[0].type != JSMN_OBJECT)
-		fatal("%s: gave non-object (%.*s)?",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
+	db_begin_transaction(call->bitcoind->ld->wallet->db);
+	call->cb(call->bitcoind, &txout, call->cb_arg);
+	db_commit_transaction(call->bitcoind->ld->wallet->db);
 
-	valuetok = json_get_member(bcli->output, tokens, "value");
-	if (!valuetok)
-		fatal("%s: had no value member (%.*s)?",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
-
-	if (!json_to_bitcoin_amount(bcli->output, valuetok, &out.amount.satoshis)) /* Raw: talking to bitcoind */
-		fatal("%s: had bad value (%.*s)?",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
-
-	scriptpubkeytok = json_get_member(bcli->output, tokens, "scriptPubKey");
-	if (!scriptpubkeytok)
-		fatal("%s: had no scriptPubKey member (%.*s)?",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
-	hextok = json_get_member(bcli->output, scriptpubkeytok, "hex");
-	if (!hextok)
-		fatal("%s: had no scriptPubKey->hex member (%.*s)?",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
-
-	out.script = tal_hexdata(bcli, bcli->output + hextok->start,
-				 hextok->end - hextok->start);
-	if (!out.script)
-		fatal("%s: scriptPubKey->hex invalid hex (%.*s)?",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
-
-	cb(bcli->bitcoind, &out, bcli->cb_arg);
-	return true;
+clean:
+	tal_free(call);
 }
 
-void bitcoind_gettxout(struct bitcoind *bitcoind,
-		       const struct bitcoin_txid *txid, const u32 outnum,
-		       void (*cb)(struct bitcoind *bitcoind,
-				  const struct bitcoin_tx_output *txout,
-				  void *arg),
-		       void *arg)
+void bitcoind_getutxout_(struct bitcoind *bitcoind,
+			 const struct bitcoin_txid *txid, const u32 outnum,
+			 void (*cb)(struct bitcoind *bitcoind,
+				    const struct bitcoin_tx_output *txout,
+				    void *arg),
+			 void *cb_arg)
 {
-	start_bitcoin_cli(bitcoind, NULL,
-			  process_gettxout, true, BITCOIND_LOW_PRIO, cb, arg,
-			  "gettxout",
-			  take(type_to_string(NULL, struct bitcoin_txid, txid)),
-			  take(tal_fmt(NULL, "%u", outnum)),
-			  NULL);
+	struct jsonrpc_request *req;
+	struct getutxout_call *call = tal(bitcoind, struct getutxout_call);
+
+	call->bitcoind = bitcoind;
+	call->cb = cb;
+	call->cb_arg = cb_arg;
+
+	req = jsonrpc_request_start(bitcoind, "getutxout", bitcoind->log,
+				    getutxout_callback, call);
+	json_add_txid(req->stream, "txid", txid);
+	json_add_num(req->stream, "vout", outnum);
+	jsonrpc_request_end(req);
+	plugin_request_send(strmap_get(&bitcoind->pluginsmap, "getutxout"),
+			    req);
 }
 
 /* Context for the getfilteredblock call. Wraps the actual arguments while we
@@ -901,7 +900,7 @@ process_getfilteredblock_step2(struct bitcoind *bitcoind,
 	call->current_outpoint++;
 	if (call->current_outpoint < tal_count(call->outpoints)) {
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
+		bitcoind_getutxout(bitcoind, &o->txid, o->outnum,
 				  process_getfilteredblock_step2, call);
 	} else {
 		/* If there were no more outpoints to check, we call the callback. */
@@ -969,7 +968,7 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 		 * store the one's that are unspent in
 		 * call->result->outpoints. */
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
+		bitcoind_getutxout(bitcoind, &o->txid, o->outnum,
 				  process_getfilteredblock_step2, call);
 	}
 }

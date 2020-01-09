@@ -930,7 +930,7 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 		json_array_end(rescan->response);
 		was_pending(command_success(rescan->cmd, rescan->response));
 	} else {
-		bitcoind_gettxout(
+		bitcoind_getutxout(
 		    bitcoind->ld->topology->bitcoind, &rescan->utxos[0]->txid,
 		    rescan->utxos[0]->outnum, process_utxo_result, rescan);
 	}
@@ -956,7 +956,7 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 		json_array_end(rescan->response);
 		return command_success(cmd, rescan->response);
 	}
-	bitcoind_gettxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
+	bitcoind_getutxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
 			  rescan->utxos[0]->outnum, process_utxo_result,
 			  rescan);
 	return command_still_pending(cmd);

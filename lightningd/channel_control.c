@@ -774,11 +774,11 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	/* Note: The above check and this check can't completely ensure that
 	 * the funding transaction isn't broadcast. We can't know if the funding
 	 * is broadcast by external wallet and the transaction hasn't been onchain. */
-	bitcoind_gettxout(cmd->ld->topology->bitcoind,
-			  &cancel_channel->funding_txid,
-			  cancel_channel->funding_outnum,
-			  process_check_funding_broadcast,
-			  notleak(cc));
+	bitcoind_getutxout(cmd->ld->topology->bitcoind,
+			   &cancel_channel->funding_txid,
+			   cancel_channel->funding_outnum,
+			   process_check_funding_broadcast,
+			   notleak(cc));
 	return command_still_pending(cmd);
 }
 

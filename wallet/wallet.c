@@ -3599,8 +3599,8 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	/* If we have more, resolve them too. */
 	tal_arr_remove(&utxos, 0);
 	if (tal_count(utxos) != 0) {
-		bitcoind_gettxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
-				  process_utxo_result, utxos);
+		bitcoind_getutxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
+				   process_utxo_result, utxos);
 	} else
 		tal_free(utxos);
 }
@@ -3610,8 +3610,8 @@ void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind)
 	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_reserved);
 
 	if (tal_count(utxos) != 0) {
-		bitcoind_gettxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
-				  process_utxo_result, notleak(utxos));
+		bitcoind_getutxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
+				   process_utxo_result, notleak(utxos));
 	} else
 		tal_free(utxos);
 }
