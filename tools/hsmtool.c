@@ -152,10 +152,14 @@ static int decrypt_hsm(const char *hsm_secret_path, const char *passwd)
 	int fd;
 	struct stat st;
 	struct secret hsm_secret;
+	const char *dir, *backup;
 
 	if (sodium_init() == -1)
 		err(ERROR_LIBSODIUM,
 		    "Could not initialize libsodium. Not enough entropy ?");
+
+	dir = path_dirname(NULL, hsm_secret_path);
+	backup = path_join(dir, dir, "hsm_secret.backup");
 
 	if (stat(hsm_secret_path, &st) != 0)
 		err(ERROR_HSM_FILE, "Could not stat hsm_secret");
@@ -164,7 +168,7 @@ static int decrypt_hsm(const char *hsm_secret_path, const char *passwd)
 	get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
 
 	/* Create a backup file, "just in case". */
-	rename(hsm_secret_path, "hsm_secret.backup");
+	rename(hsm_secret_path, backup);
 	fd = open(hsm_secret_path, O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
 		err(ERROR_HSM_FILE, "Could not open new hsm_secret");
@@ -180,11 +184,12 @@ static int decrypt_hsm(const char *hsm_secret_path, const char *passwd)
 	/* Be as paranoïd as in hsmd with the file state on disk. */
 	if (!ensure_hsm_secret_exists(fd, hsm_secret_path)) {
 		unlink_noerr(hsm_secret_path);
-		rename("hsm_secret.backup", hsm_secret_path);
+		rename(backup, hsm_secret_path);
 		err(ERROR_HSM_FILE,
 		    "Could not ensure hsm_secret existence.");
 	}
-	unlink_noerr("hsm_secret.backup");
+	unlink_noerr(backup);
+	tal_free(dir);
 
 	printf("Succesfully decrypted hsm_secret, be careful now :-).\n");
 	return 0;
@@ -200,6 +205,10 @@ static int encrypt_hsm(const char *hsm_secret_path, const char *passwd)
 	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
 	/* The cipher size is static with xchacha20poly1305. */
 	u8 cipher[sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES];
+	const char *dir, *backup;
+
+	dir = path_dirname(NULL, hsm_secret_path);
+	backup = path_join(dir, dir, "hsm_secret.backup");
 
 	if (sodium_init() == -1)
 		err(ERROR_LIBSODIUM,
@@ -228,7 +237,7 @@ static int encrypt_hsm(const char *hsm_secret_path, const char *passwd)
 		err(ERROR_LIBSODIUM, "Could not encrypt the seed.");
 
 	/* Create a backup file, "just in case". */
-	rename(hsm_secret_path, "hsm_secret.backup");
+	rename(hsm_secret_path, backup);
 	fd = open(hsm_secret_path, O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
 		err(ERROR_HSM_FILE, "Could not open new hsm_secret");
@@ -238,17 +247,18 @@ static int encrypt_hsm(const char *hsm_secret_path, const char *passwd)
 		|| !write_all(fd, cipher, sizeof(cipher))) {
 		unlink_noerr(hsm_secret_path);
 		close(fd);
-		rename("hsm_secret.backup", hsm_secret_path);
+		rename(backup, hsm_secret_path);
 		err(ERROR_HSM_FILE, "Failure writing cipher to hsm_secret.");
 	}
 
 	/* Be as paranoïd as in hsmd with the file state on disk. */
 	if (!ensure_hsm_secret_exists(fd, hsm_secret_path)) {
 		unlink_noerr(hsm_secret_path);
-		rename("hsm_secret.backup", hsm_secret_path);
+		rename(backup, hsm_secret_path);
 		err(ERROR_HSM_FILE, "Could not ensure hsm_secret existence.");
 	}
-	unlink_noerr("hsm_secret.backup");
+	unlink_noerr(backup);
+	tal_free(dir);
 
 	printf("Succesfully encrypted hsm_secret. You'll now have to pass the "
 	       "--encrypted-hsm startup option.\n");
