@@ -38,7 +38,7 @@ char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
 		  void (*failed)(struct channel *channel UNNEEDED,
-				 int exitstatus UNNEEDED,
+				 bool success UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
 /* Generated stub for channel_tell_depth */

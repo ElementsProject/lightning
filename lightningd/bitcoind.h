@@ -107,7 +107,7 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			 const char *hextx,
 			 void (*cb)(struct bitcoind *bitcoind,
-				    int exitstatus, const char *msg, void *),
+				    bool success, const char *msg, void *),
 			 void *arg);
 
 #define bitcoind_sendrawtx(bitcoind_, hextx, cb, arg)			\
@@ -115,7 +115,7 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\
 						struct bitcoind *,	\
-						int, const char *),	\
+						bool, const char *),	\
 			    (arg))
 
 /* blkid is NULL if call fails. */

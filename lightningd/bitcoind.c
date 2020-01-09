@@ -495,33 +495,6 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 	do_one_estimatefee(bitcoind, efee);
 }
 
-static bool process_sendrawtx(struct bitcoin_cli *bcli)
-{
-	void (*cb)(struct bitcoind *bitcoind,
-		   int, const char *msg, void *) = bcli->cb;
-	const char *msg = tal_strndup(bcli, bcli->output,
-				      bcli->output_bytes);
-
-	log_debug(bcli->bitcoind->log, "sendrawtx exit %u, gave %s",
-		  *bcli->exitstatus, msg);
-
-	cb(bcli->bitcoind, *bcli->exitstatus, msg, bcli->cb_arg);
-	return true;
-}
-
-void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
-			 const char *hextx,
-			 void (*cb)(struct bitcoind *bitcoind,
-				    int exitstatus, const char *msg, void *),
-			 void *arg)
-{
-	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
-	start_bitcoin_cli(bitcoind, NULL, process_sendrawtx, true,
-			  BITCOIND_HIGH_PRIO,
-			  cb, arg,
-			  "sendrawtransaction", hextx, NULL);
-}
-
 static bool process_rawblock(struct bitcoin_cli *bcli)
 {
 	struct bitcoin_block *blk;
@@ -565,6 +538,85 @@ static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
 	fatal("%s error: bad response to %s (%s), response was %.*s",
 	      p->cmd, method, reason,
 	      toks->end - toks->start, buf + toks->start);
+}
+
+/* `sendrawtransaction`
+ *
+ * Send a transaction to the Bitcoin backend plugin. If the broadcast was
+ * not successful on its end, the plugin will populate the `errmsg` with
+ * the reason.
+ *
+ * Plugin response:
+ * {
+ *	"success": <true|false>,
+ *	"errmsg": "<not empty if !success>"
+ * }
+ */
+
+struct sendrawtx_call {
+	struct bitcoind *bitcoind;
+	void (*cb)(struct bitcoind *bitcoind,
+		   bool success,
+		   const char *err_msg,
+		   void *);
+	void *cb_arg;
+};
+
+static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
+			       const jsmntok_t *idtok,
+			       struct sendrawtx_call *call)
+{
+	const jsmntok_t *resulttok, *successtok, *errtok;
+	bool success = false;
+
+	resulttok = json_get_member(buf, toks, "result");
+	if (!resulttok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "sendrawtransaction",
+				     "bad 'result' field");
+
+	successtok = json_get_member(buf, resulttok, "success");
+	if (!successtok || !json_to_bool(buf, successtok, &success))
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "sendrawtransaction",
+				     "bad 'success' field");
+
+	errtok = json_get_member(buf, resulttok, "errmsg");
+	if (!success && !errtok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "sendrawtransaction",
+				     "bad 'errmsg' field");
+
+	db_begin_transaction(call->bitcoind->ld->wallet->db);
+	call->cb(call->bitcoind, success,
+		 errtok ? json_strdup(tmpctx, buf, errtok) : NULL,
+		 call->cb_arg);
+	db_commit_transaction(call->bitcoind->ld->wallet->db);
+
+	tal_free(call);
+}
+
+void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
+			 const char *hextx,
+			 void (*cb)(struct bitcoind *bitcoind,
+				    bool success, const char *err_msg, void *),
+			 void *cb_arg)
+{
+	struct jsonrpc_request *req;
+	struct sendrawtx_call *call = tal(bitcoind, struct sendrawtx_call);
+
+	call->bitcoind = bitcoind;
+	call->cb = cb;
+	call->cb_arg = cb_arg;
+	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
+
+	req = jsonrpc_request_start(bitcoind, "sendrawtransaction",
+				    bitcoind->log, sendrawtx_callback,
+				    call);
+	json_add_string(req->stream, "tx", hextx);
+	jsonrpc_request_end(req);
+	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
+				       "sendrawtransaction"), req);
 }
 
 /* `getrawblockbyheight`

@@ -37,7 +37,7 @@ struct outgoing_tx {
 	struct channel *channel;
 	const char *hextx;
 	struct bitcoin_txid txid;
-	void (*failed_or_success)(struct channel *channel, int exitstatus, const char *err);
+	void (*failed_or_success)(struct channel *channel, bool success, const char *err);
 };
 
 struct block {
@@ -166,7 +166,7 @@ struct command_result *param_feerate_estimate(struct command *cmd,
 void broadcast_tx(struct chain_topology *topo,
 		  struct channel *channel, const struct bitcoin_tx *tx,
 		  void (*failed)(struct channel *channel,
-				 int exitstatus,
+				 bool success,
 				 const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
