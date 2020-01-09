@@ -6,6 +6,7 @@
 #include <common/wireaddr.h>
 #include <connectd/connectd.h>
 #include <connectd/tor.h>
+#include <inttypes.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -64,7 +65,7 @@ static const char* socks5strerror(const tal_t *ctx, u8 code)
 	case 8:
 		return tal_strdup(ctx, "address type not supported");
 	}
-	return tal_fmt(ctx, "unknown error: %d", code);
+	return tal_fmt(ctx, "unknown error: %" PRIu8, code);
 }
 
 static struct io_plan *connect_finish2(struct io_conn *conn,
