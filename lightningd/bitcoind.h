@@ -118,22 +118,6 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 						bool, const char *),	\
 			    (arg))
 
-/* blkid is NULL if call fails. */
-void bitcoind_getblockhash_(struct bitcoind *bitcoind,
-			    u32 height,
-			    void (*cb)(struct bitcoind *bitcoind,
-				       const struct bitcoin_blkid *blkid,
-				       void *arg),
-			    void *arg);
-#define bitcoind_getblockhash(bitcoind_, height, cb, arg)		\
-	bitcoind_getblockhash_((bitcoind_),				\
-			       (height),				\
-			       typesafe_cb_preargs(void, void *,	\
-						   (cb), (arg),		\
-						   struct bitcoind *,	\
-						   const struct bitcoin_blkid *), \
-			       (arg))
-
 void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 				void (*cb)(struct bitcoind *bitcoind,
 					   const struct filteredblock *fb,
@@ -147,20 +131,6 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 						       struct bitcoind *, \
 						       const struct filteredblock *), \
 				   (arg))
-
-void bitcoind_getrawblock_(struct bitcoind *bitcoind,
-			   const struct bitcoin_blkid *blockid,
-			   void (*cb)(struct bitcoind *bitcoind,
-				      struct bitcoin_block *blk,
-				      void *arg),
-			   void *arg);
-#define bitcoind_getrawblock(bitcoind_, blkid, cb, arg)			\
-	bitcoind_getrawblock_((bitcoind_), (blkid),			\
-			      typesafe_cb_preargs(void, void *,		\
-						  (cb), (arg),		\
-						  struct bitcoind *,	\
-						  struct bitcoin_block *), \
-			      (arg))
 
 void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 			    const bool first_call,

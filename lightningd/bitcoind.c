@@ -495,40 +495,6 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 	do_one_estimatefee(bitcoind, efee);
 }
 
-static bool process_rawblock(struct bitcoin_cli *bcli)
-{
-	struct bitcoin_block *blk;
-	void (*cb)(struct bitcoind *bitcoind,
-		   struct bitcoin_block *blk,
-		   void *arg) = bcli->cb;
-
-	blk = bitcoin_block_from_hex(bcli, chainparams,
-				     bcli->output, bcli->output_bytes);
-	if (!blk)
-		fatal("%s: bad block '%.*s'?",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
-
-	cb(bcli->bitcoind, blk, bcli->cb_arg);
-	return true;
-}
-
-void bitcoind_getrawblock_(struct bitcoind *bitcoind,
-			   const struct bitcoin_blkid *blockid,
-			   void (*cb)(struct bitcoind *bitcoind,
-				      struct bitcoin_block *blk,
-				      void *arg),
-			   void *arg)
-{
-	char hex[hex_str_size(sizeof(*blockid))];
-
-	bitcoin_blkid_to_hex(blockid, hex, sizeof(hex));
-	start_bitcoin_cli(bitcoind, NULL, process_rawblock, false,
-			  BITCOIND_HIGH_PRIO,
-			  cb, arg,
-			  "getblock", hex, "false", NULL);
-}
-
 /* Our Bitcoin backend plugin gave us a bad response. We can't recover. */
 static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
 				 const jsmntok_t *toks, const char *method,
@@ -885,50 +851,6 @@ static bool process_gettxout(struct bitcoin_cli *bcli)
 	return true;
 }
 
-static bool process_getblockhash(struct bitcoin_cli *bcli)
-{
-	struct bitcoin_blkid blkid;
-	void (*cb)(struct bitcoind *bitcoind,
-		   const struct bitcoin_blkid *blkid,
-		   void *arg) = bcli->cb;
-
-	/* If it failed with error 8, call with NULL block. */
-	if (*bcli->exitstatus != 0) {
-		/* Other error means we have to retry. */
-		if (*bcli->exitstatus != 8)
-			return false;
-		cb(bcli->bitcoind, NULL, bcli->cb_arg);
-		return true;
-	}
-
-	if (bcli->output_bytes == 0
-	    || !bitcoin_blkid_from_hex(bcli->output, bcli->output_bytes-1,
-				       &blkid)) {
-		fatal("%s: bad blockid '%.*s'",
-		      bcli_args(tmpctx, bcli),
-		      (int)bcli->output_bytes, bcli->output);
-	}
-
-	cb(bcli->bitcoind, &blkid, bcli->cb_arg);
-	return true;
-}
-
-void bitcoind_getblockhash_(struct bitcoind *bitcoind,
-			    u32 height,
-			    void (*cb)(struct bitcoind *bitcoind,
-				       const struct bitcoin_blkid *blkid,
-				       void *arg),
-			    void *arg)
-{
-	char str[STR_MAX_CHARS(height)];
-	snprintf(str, sizeof(str), "%u", height);
-
-	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, true,
-			  BITCOIND_HIGH_PRIO,
-			  cb, arg,
-			  "getblockhash", str, NULL);
-}
-
 void bitcoind_gettxout(struct bitcoind *bitcoind,
 		       const struct bitcoin_txid *txid, const u32 outnum,
 		       void (*cb)(struct bitcoind *bitcoind,
@@ -965,7 +887,7 @@ process_getfiltered_block_final(struct bitcoind *bitcoind,
 				const struct filteredblock_call *call);
 
 static void
-process_getfilteredblock_step3(struct bitcoind *bitcoind,
+process_getfilteredblock_step2(struct bitcoind *bitcoind,
 			       const struct bitcoin_tx_output *output,
 			       void *arg)
 {
@@ -980,24 +902,35 @@ process_getfilteredblock_step3(struct bitcoind *bitcoind,
 	if (call->current_outpoint < tal_count(call->outpoints)) {
 		o = call->outpoints[call->current_outpoint];
 		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
-				  process_getfilteredblock_step3, call);
+				  process_getfilteredblock_step2, call);
 	} else {
 		/* If there were no more outpoints to check, we call the callback. */
 		process_getfiltered_block_final(bitcoind, call);
 	}
 }
 
-static void process_getfilteredblock_step2(struct bitcoind *bitcoind,
+static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
+					   struct bitcoin_blkid *blkid,
 					   struct bitcoin_block *block,
 					   struct filteredblock_call *call)
 {
 	struct filteredblock_outpoint *o;
 	struct bitcoin_tx *tx;
 
-	/* If for some reason we couldn't get the block, just report a
-	 * failure. */
-	if (block == NULL)
+	/* If we were unable to fetch the block hash (bitcoind doesn't know
+	 * about a block at that height), we can short-circuit and just call
+	 * the callback. */
+	if (!blkid)
 		return process_getfiltered_block_final(bitcoind, call);
+
+	/* So we have the first piece of the puzzle, the block hash */
+	call->result = tal(call, struct filteredblock);
+	call->result->height = call->height;
+	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
+	call->result->id = *blkid;
+
+	/* If the plugin gave us a block id, they MUST send us a block. */
+	assert(block != NULL);
 
 	call->result->prev_hash = block->hdr.prev_hash;
 
@@ -1037,29 +970,8 @@ static void process_getfilteredblock_step2(struct bitcoind *bitcoind,
 		 * call->result->outpoints. */
 		o = call->outpoints[call->current_outpoint];
 		bitcoind_gettxout(bitcoind, &o->txid, o->outnum,
-				  process_getfilteredblock_step3, call);
+				  process_getfilteredblock_step2, call);
 	}
-}
-
-static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
-					   const struct bitcoin_blkid *blkid,
-					   struct filteredblock_call *call)
-{
-	/* If we were unable to fetch the block hash (bitcoind doesn't know
-	 * about a block at that height), we can short-circuit and just call
-	 * the callback. */
-	if (!blkid)
-		return process_getfiltered_block_final(bitcoind, call);
-
-	/* So we have the first piece of the puzzle, the block hash */
-	call->result = tal(call, struct filteredblock);
-	call->result->height = call->height;
-	call->result->outpoints = tal_arr(call->result, struct filteredblock_outpoint *, 0);
-	call->result->id = *blkid;
-
-	/* Now get the raw block to get all outpoints that were created in
-	 * this block. */
-	bitcoind_getrawblock(bitcoind, blkid, process_getfilteredblock_step2, call);
 }
 
 /* Takes a call, dispatches it to all queued requests that match the same
@@ -1091,7 +1003,8 @@ next:
 	 * pop here. */
 	if (!list_empty(&bitcoind->pending_getfilteredblock)) {
 		c = list_top(&bitcoind->pending_getfilteredblock, struct filteredblock_call, list);
-		bitcoind_getblockhash(bitcoind, c->height, process_getfilteredblock_step1, c);
+		bitcoind_getrawblockbyheight(bitcoind, c->height,
+					     process_getfilteredblock_step1, c);
 	}
 }
 
@@ -1116,7 +1029,8 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 
 	list_add_tail(&bitcoind->pending_getfilteredblock, &call->list);
 	if (start)
-		bitcoind_getblockhash(bitcoind, height, process_getfilteredblock_step1, call);
+		bitcoind_getrawblockbyheight(bitcoind, height,
+					     process_getfilteredblock_step1, call);
 }
 
 static void destroy_bitcoind(struct bitcoind *bitcoind)
