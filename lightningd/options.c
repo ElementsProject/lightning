@@ -789,34 +789,10 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
-	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
-			 &ld->topology->bitcoind->datadir,
-			 "-datadir arg for bitcoin-cli");
 	opt_register_arg("--rgb", opt_set_rgb, NULL, ld,
 			 "RRGGBB hex color for node");
 	opt_register_arg("--alias", opt_set_alias, NULL, ld,
 			 "Up to 32-byte alias for node");
-
-	opt_register_arg("--bitcoin-cli", opt_set_talstr, NULL,
-			 &ld->topology->bitcoind->cli,
-			 "bitcoin-cli pathname");
-	opt_register_arg("--bitcoin-rpcuser", opt_set_talstr, NULL,
-			 &ld->topology->bitcoind->rpcuser,
-			 "bitcoind RPC username");
-	opt_register_arg("--bitcoin-rpcpassword", opt_set_talstr, NULL,
-			 &ld->topology->bitcoind->rpcpass,
-			 "bitcoind RPC password");
-	opt_register_arg("--bitcoin-rpcconnect", opt_set_talstr, NULL,
-			 &ld->topology->bitcoind->rpcconnect,
-			 "bitcoind RPC host to connect to");
-	opt_register_arg("--bitcoin-rpcport", opt_set_talstr, NULL,
-			 &ld->topology->bitcoind->rpcport,
-			 "bitcoind RPC port");
-	opt_register_arg("--bitcoin-retry-timeout",
-			 opt_set_u64, opt_show_u64,
-			 &ld->topology->bitcoind->retry_timeout,
-			 "how long to keep trying to contact bitcoind "
-			 "before fatally exiting");
 
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
