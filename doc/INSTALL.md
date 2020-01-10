@@ -184,7 +184,7 @@ To Build on macOS
 
 Assuming you have Xcode and Homebrew installed. Install dependencies:
 
-    $ brew install autoconf automake libtool python3 gmp gnu-sed gettext
+    $ brew install autoconf automake libtool python3 gmp gnu-sed gettext libsodium
     $ ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
     $ export PATH="/usr/local/opt:$PATH"
 
@@ -205,7 +205,7 @@ If you need Python 3.x for mako (or get a mako build error):
 If you don't have bitcoind installed locally you'll need to install that
 as well:
 
-    $ brew install berkeley-db4 boost miniupnpc openssl pkg-config libevent libsodium
+    $ brew install berkeley-db4 boost miniupnpc pkg-config libevent
     $ git clone https://github.com/bitcoin/bitcoin
     $ cd bitcoin
     $ ./autogen.sh
