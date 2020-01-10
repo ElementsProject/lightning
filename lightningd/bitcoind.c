@@ -1,4 +1,8 @@
-/* Code for talking to bitcoind.  We use bitcoin-cli. */
+/* Code for talking to bitcoind.  We use a plugin as the Bitcoin backend.
+ * The default one shipped with C-lightning is a plugin which talks to bitcoind
+ * by using bitcoin-cli, but the interface we use to gather Bitcoin data is
+ * standardized and you can use another plugin as the Bitcoin backend, or
+ * even make your own! */
 #include "bitcoin/base58.h"
 #include "bitcoin/block.h"
 #include "bitcoin/feerate.h"
@@ -739,8 +743,6 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 static void destroy_bitcoind(struct bitcoind *bitcoind)
 {
 	strmap_clear(&bitcoind->pluginsmap);
-	/* Suppresses the callbacks from bcli_finished as we free conns. */
-	bitcoind->shutdown = true;
 }
 
 struct bitcoind *new_bitcoind(const tal_t *ctx,
@@ -750,22 +752,9 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
 
 	strmap_init(&bitcoind->pluginsmap);
-	bitcoind->cli = NULL;
-	bitcoind->datadir = NULL;
 	bitcoind->ld = ld;
 	bitcoind->log = log;
-	for (size_t i = 0; i < BITCOIND_NUM_PRIO; i++) {
-		bitcoind->num_requests[i] = 0;
-		list_head_init(&bitcoind->pending[i]);
-	}
 	list_head_init(&bitcoind->pending_getfilteredblock);
-	bitcoind->shutdown = false;
-	bitcoind->error_count = 0;
-	bitcoind->retry_timeout = 60;
-	bitcoind->rpcuser = NULL;
-	bitcoind->rpcpass = NULL;
-	bitcoind->rpcconnect = NULL;
-	bitcoind->rpcport = NULL;
 	tal_add_destructor(bitcoind, destroy_bitcoind);
 	bitcoind->synced = false;
 
