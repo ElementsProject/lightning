@@ -30,7 +30,7 @@
 #define SOCK_REQ_V5_LEN			5
 #define SOCK_REQ_V5_HEADER_LEN	7
 
-/* some crufts can not forward ipv6*/
+/* some crufts can not forward ipv6 */
 #undef BIND_FIRST_TO_IPV6
 
 struct connecting_socks {
@@ -43,7 +43,7 @@ struct connecting_socks {
 
 static const char* socks5strerror(const tal_t *ctx, u8 code)
 {
-	// Error codes defined in https://tools.ietf.org/html/rfc1928#section-6
+	/* Error codes defined in https://tools.ietf.org/html/rfc1928#section-6 */
 	switch (code) {
 	case 0:
 		return tal_strdup(ctx, "success");
@@ -134,8 +134,9 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 	status_io(LOG_IO_IN, NULL, "proxy", connect->buffer, 2);
 
 	if (connect->buffer[1] == SOCKS_ERROR) {
-		// The Tor socks5 server did not like any of our authentication
-		// methods and we provided only "no auth".
+		/* The Tor socks5 server did not like any of our authentication
+		 * methods and we provided only "no auth".
+		 */
 		status_debug("Connected out for %s error: authentication required",
 			     connect->host);
 		return io_close(conn);
@@ -187,7 +188,7 @@ static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
 			&io_tor_connect_after_req_to_connect, connect);
 }
 
-// called when we want to connect to TOR SOCKS5
+/* called when we want to connect to TOR SOCKS5 */
 struct io_plan *io_tor_connect(struct io_conn *conn,
 			       const struct addrinfo *tor_proxyaddr,
 			       const char *host, u16 port,
