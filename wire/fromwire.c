@@ -165,6 +165,15 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 	return ret;
 }
 
+int fromwire_int(const u8 **cursor, size_t *max)
+{
+	int ret;
+
+	if (!fromwire(cursor, max, &ret, sizeof(ret)))
+		return 0;
+	return ret;
+}
+
 bigsize_t fromwire_bigsize(const u8 **cursor, size_t *max)
 {
 	bigsize_t v;
