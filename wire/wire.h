@@ -79,6 +79,7 @@ void towire_tu64(u8 **pptr, u64 v);
 void towire_double(u8 **pptr, const double *v);
 void towire_pad(u8 **pptr, size_t num);
 void towire_bool(u8 **pptr, bool v);
+void towire_int(u8 **pptr, int v);
 void towire_bigsize(u8 **pptr, const bigsize_t val);
 
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num);
@@ -101,6 +102,7 @@ u32 fromwire_tu32(const u8 **cursor, size_t *max);
 u64 fromwire_tu64(const u8 **cursor, size_t *max);
 void fromwire_double(const u8 **cursor, size_t *max, double *v);
 bool fromwire_bool(const u8 **cursor, size_t *max);
+int fromwire_int(const u8 **cursor, size_t *max);
 bigsize_t fromwire_bigsize(const u8 **cursor, size_t *max);
 void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret);
 void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey);

@@ -566,7 +566,7 @@ static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
-			   u32 errcode,
+			   int errcode,
 			   const char *errfmt, ...)
 	PRINTF_FMT(6,7);
 
@@ -574,7 +574,7 @@ static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
-			   u32 errcode,
+			   int errcode,
 			   const char *errfmt, ...)
 {
 	u8 *msg;

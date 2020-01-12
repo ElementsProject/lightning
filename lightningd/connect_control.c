@@ -16,7 +16,6 @@
 #include <errno.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_wire.h>
-#include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
@@ -232,7 +231,7 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 static void connect_failed(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	u32 errcode;
+	int errcode;
 	char *errmsg;
 	struct connect *c;
 	u32 seconds_to_delay;
@@ -240,15 +239,14 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	struct channel *channel;
 
 	if (!fromwire_connectctl_connect_failed(tmpctx, msg, &id, &errcode, &errmsg,
-						&seconds_to_delay, &addrhint) ||
-	    errcode > INT_MAX)
+						&seconds_to_delay, &addrhint))
 		fatal("Connect gave bad CONNECTCTL_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
 	/* We can have multiple connect commands: fail them all */
 	while ((c = find_connect(ld, &id)) != NULL) {
 		/* They delete themselves from list */
-		was_pending(command_fail(c->cmd, (int)errcode, "%s", errmsg));
+		was_pending(command_fail(c->cmd, errcode, "%s", errmsg));
 	}
 
 	/* If we have an active channel, then reconnect. */

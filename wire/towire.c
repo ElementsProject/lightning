@@ -87,6 +87,11 @@ void towire_bool(u8 **pptr, bool v)
 	towire(pptr, &val, sizeof(val));
 }
 
+void towire_int(u8 **pptr, int v)
+{
+	towire(pptr, &v, sizeof(v));
+}
+
 void towire_bigsize(u8 **pptr, const bigsize_t val)
 {
 	u8 buf[BIGSIZE_MAX_LEN];
