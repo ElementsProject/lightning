@@ -676,6 +676,11 @@ int main(void)
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
 	assert(any_offline == false);
 
+	/* 3a. inchan but its peer is borked -> NULL result */
+	add_peer(ld, 0, CHANNELD_BORKED, true);
+	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
+	assert(any_offline == false);
+
 	/* 4. connected peer but no corresponding inchan -> NULL result. */
 	add_peer(ld, 1, CHANNELD_NORMAL, true);
 	assert(select_inchan(tmpctx, ld, AMOUNT_MSAT(0), inchans, deadends, &any_offline) == NULL);
