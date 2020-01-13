@@ -221,6 +221,13 @@ resolve_one_close_command(struct close_command *cc, bool cooperative)
 	struct json_stream *result = json_stream_success(cc->cmd);
 	struct bitcoin_txid txid;
 
+	/* Borked channels don't have onchain txids or tx info */
+	if (channel_is_borked(cc->channel)) {
+		json_add_string(result, "type", "borked");
+		was_pending(command_success(cc->cmd, result));
+		return;
+	}
+
 	bitcoin_txid(cc->channel->last_tx, &txid);
 
 	json_add_tx(result, "tx", cc->channel->last_tx);
