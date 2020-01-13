@@ -285,20 +285,21 @@ static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
  * not already watching: there are not usually many, nor many reorgs, so the
  * redundancy is OK.
  */
-static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
-					  struct wallet *wallet)
+void watch_for_utxo_reconfirmation(struct chain_topology *topo)
 {
 	struct utxo **unconfirmed;
+	struct channel *channel;
 
-	unconfirmed = wallet_get_unconfirmed_closeinfo_utxos(tmpctx, wallet);
+	unconfirmed = wallet_get_unconfirmed_closeinfo_utxos(tmpctx, topo->ld->wallet);
 	for (size_t i = 0; i < tal_count(unconfirmed); i++) {
 		assert(unconfirmed[i]->close_info != NULL);
 		assert(unconfirmed[i]->blockheight == NULL);
 
-		if (find_txwatch(topo, &unconfirmed[i]->txid, NULL))
+		channel = channel_by_dbid(topo->ld, unconfirmed[i]->close_info->channel_id);
+		if (find_txwatch(topo, &unconfirmed[i]->txid, channel))
 			continue;
 
-		notleak(watch_txid(topo, topo, NULL, &unconfirmed[i]->txid,
+		notleak(watch_txid(topo, topo, channel, &unconfirmed[i]->txid,
 				   closeinfo_txid_confirmed));
 	}
 }
@@ -779,7 +780,7 @@ static void remove_tip(struct chain_topology *topo)
 
 	wallet_block_remove(topo->ld->wallet, b);
 	/* This may have unconfirmed txs: reconfirm as we add blocks. */
-	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
+	watch_for_utxo_reconfirmation(topo);
 	block_map_del(&topo->block_map, b);
 	tal_free(b);
 }
@@ -960,8 +961,6 @@ static void check_blockcount(struct chain_topology *topo, u32 blockcount)
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
 	wallet_blocks_rollback(topo->ld->wallet, topo->max_blockheight);
-	/* This may have unconfirmed txs: reconfirm as we add blocks. */
-	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
 }
 
 static void retry_check_chain(struct chain_topology *topo);

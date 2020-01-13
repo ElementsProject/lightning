@@ -12,6 +12,7 @@
 #include <lightningd/watch.h>
 #include <math.h>
 #include <stddef.h>
+#include <wallet/wallet.h>
 
 struct bitcoin_tx;
 struct bitcoind;
@@ -181,6 +182,8 @@ void broadcast_tx(struct chain_topology *topo,
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology, struct timers *timers,
 		    u32 min_blockheight, u32 max_blockheight);
+
+void watch_for_utxo_reconfirmation(struct chain_topology *topo);
 
 void begin_topology(struct chain_topology *topo);
 

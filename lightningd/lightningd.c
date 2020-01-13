@@ -912,6 +912,10 @@ int main(int argc, char *argv[])
 	 *  topology is initialized since some decisions rely on being able to
 	 *  know the blockheight. */
 	unconnected_htlcs_in = load_channels_from_wallet(ld);
+
+	/* Now that we have channels initialized, add watches for unconfirmed txs:
+	 * will be reconfirmed as we add blocks. */
+	watch_for_utxo_reconfirmation(ld->topology);
 	db_commit_transaction(ld->wallet->db);
 
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
