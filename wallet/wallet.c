@@ -240,7 +240,7 @@ bool wallet_find_check_input_tx(struct wallet *w, struct chain_topology *topo,
 			// FIXME: this can/might free channel.. what to do about
 			// other, possibly existing txwatches?
 			if (chan && chan_dbid != blessed_chan_dbid && !chan->error)
-				forget_channel(chan, close_error);
+				forget_channel(chan, false, close_error);
 
 			/* We want to delete all tracking for the
 			 * other outputs associated with this txid; it isn't

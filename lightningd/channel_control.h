@@ -31,6 +31,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 						       const jsmntok_t *cidtok);
 
 /* Forget a channel. Deletes the channel and handles all
- * associated waiting commands, if present. Notifies peer if available */
-void forget_channel(struct channel *channel, const char *err_msg);
+ * associated waiting commands, if present. Notifies peer if available
+ * and notify is `true` */
+void forget_channel(struct channel *channel, bool notify, const char *err_msg);
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */

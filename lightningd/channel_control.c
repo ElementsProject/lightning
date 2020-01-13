@@ -268,7 +268,7 @@ static void handle_error_channel(struct channel *channel,
 	forget(channel);
 }
 
-void forget_channel(struct channel *channel, const char *why)
+void forget_channel(struct channel *channel, bool notify, const char *why)
 {
 	struct channel_id cid;
 
@@ -278,10 +278,10 @@ void forget_channel(struct channel *channel, const char *why)
 
 	/* If the peer is connected, we let them know. Otherwise
 	 * we just directly remove the channel */
-	if (channel->owner)
+	if (channel->owner && notify) {
 		subd_send_msg(channel->owner,
 			      take(towire_channel_send_error(NULL, why)));
-	else
+	} else
 		forget(channel);
 }
 
@@ -711,7 +711,7 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 	char *error_reason = "Cancel channel by our RPC "
 			     "command before funding "
 			     "transaction broadcast.";
-	forget_channel(cancel, error_reason);
+	forget_channel(cancel, true, error_reason);
 }
 
 struct command_result *cancel_channel_before_broadcast(struct command *cmd,
