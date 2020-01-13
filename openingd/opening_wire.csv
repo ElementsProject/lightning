@@ -133,6 +133,8 @@ msgdata,opening_fundee,funding_txid,bitcoin_txid,
 msgdata,opening_fundee,funding_txout,u16,
 msgdata,opening_fundee,opener_funding,amount_sat,
 msgdata,opening_fundee,accepter_funding,amount_sat,
+msgdata,opening_fundee,remote_inputs_len,u16,
+msgdata,opening_fundee,remote_inputs,bitcoin_tx_input,remote_inputs_len
 msgdata,opening_fundee,push_msat,amount_msat,
 msgdata,opening_fundee,channel_flags,u8,
 msgdata,opening_fundee,feerate_per_kw,u32,

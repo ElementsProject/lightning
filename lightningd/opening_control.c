@@ -819,6 +819,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	struct channel_info channel_info;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
+	const struct bitcoin_tx_input **remote_inputs;
 	struct lightningd *ld = openingd->ld;
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
@@ -853,6 +854,7 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &funding_outnum,
 					   &opener_funding,
 					   &accepter_funding,
+					   (struct bitcoin_tx_input ***)&remote_inputs,
 					   &push,
 					   &channel_flags,
 					   &feerate,

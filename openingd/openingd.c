@@ -1997,6 +1997,25 @@ static struct output_info **outputs_to_infos(const tal_t *ctx, struct bitcoin_tx
 	return infos;
 }
 
+static const struct bitcoin_tx_input **convert_inputs(const tal_t *ctx,
+						      struct input_info **ins)
+{
+	size_t i;
+	struct bitcoin_tx_input **res = tal_arr(ctx, struct bitcoin_tx_input *,
+						tal_count(ins));
+	for (i = 0; i < tal_count(ins); i++) {
+		struct bitcoin_tx_input *n = tal(res, struct bitcoin_tx_input);
+		n->txid = ins[i]->prevtx_txid;
+		n->index = ins[i]->prevtx_vout;
+		n->amount = ins[i]->sats;
+		n->witness = NULL;
+		n->script = NULL;
+		n->sequence_number = UINT32_MAX;
+		res[i] = n;
+	}
+	return cast_const2(const struct bitcoin_tx_input **, res);
+}
+
 static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 {
 	struct bitcoin_blkid chain_hash;
@@ -2012,6 +2031,7 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	struct bitcoin_signature their_sig, our_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct bitcoin_tx *local_commit, *remote_commit;
+	const struct bitcoin_tx_input **remote_inputs;
 	struct amount_sat total_funding, opener_change;
 	struct amount_msat local_msat;
 	struct channel_id id_in;
@@ -2331,6 +2351,11 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	msg = towire_funding_signed2(state, &state->channel_id,
 				     cast_const2(const struct witness_stack **, our_stack));
 
+	/* We convert their inputs to a different format to get around
+	 * the fact that we're sharing this call with the v1 (non EXPERIMENTAL_FEATURES)
+	 * pathway as well */
+	remote_inputs = convert_inputs(state, their_inputs);
+
 	/* we send everything to lightning, who commits things to the database etc.
 	 * lightningd will forward the signatures etc over to channeld, who
 	 * sends the final opening sequence message for us. */
@@ -2349,6 +2374,7 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 				     state->funding_txout,
 				     state->opener_funding,
 				     state->accepter_funding,
+				     remote_inputs,
 				     state->push_msat,
 				     channel_flags,
 				     state->feerate_per_kw,
@@ -2691,6 +2717,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     state->funding_txout,
 				     state->opener_funding,
 				     AMOUNT_SAT(0),
+				     NULL,
 				     state->push_msat,
 				     channel_flags,
 				     state->feerate_per_kw,
