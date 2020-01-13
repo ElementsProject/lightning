@@ -97,11 +97,6 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 
 		/* We did spends first, in case that tells us to watch tx. */
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid)) {
-			/* If this is a tx we're watching, go ahead and
-			 * see if this cleans up / invalidates any other
-			 * channel opens or RBF'd transactions */
-			wallet_find_check_input_tx(topo->ld->wallet,
-						   topo, &txid);
 			wallet_transaction_add(topo->ld->wallet,
 					       tx, b->height, i);
 		}
