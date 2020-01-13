@@ -271,7 +271,8 @@ static inline bool channel_active(const struct channel *channel)
 {
 	return channel->state != FUNDING_SPEND_SEEN
 		&& channel->state != CLOSINGD_COMPLETE
-		&& !channel_on_chain(channel);
+		&& !channel_on_chain(channel)
+		&& !channel_is_borked(channel);
 }
 
 void get_channel_basepoints(struct lightningd *ld,
