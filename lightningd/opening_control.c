@@ -417,7 +417,7 @@ void reinstate_channel_watches(struct wallet *w, struct channel *c)
 		wallet_channel_reservations_fetch_all(c->txowatches,
 						      w, c);
 
-	log_debug(c->log, "Reinstating %zu channel watches.",
+	log_debug(c->log, "Reinstating %zu watches for channel.",
 		  tal_count(utxo_rs));
 
 	for (i = 0; i < tal_count(utxo_rs); i++)

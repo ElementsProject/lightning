@@ -292,7 +292,10 @@ bool maybe_bork_channel(struct channel *channel, struct bitcoin_txid *txid,
 	/* Returns true if borked */
 	// TODO: only update to borked if there's no other eligible 'rbf'
 	// txids outstanding
-	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_BORKED);
+
+	/* The channel may already be in a borked state, if this is a replay from start */
+	if (!channel_is_borked(channel))
+		channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_BORKED);
 	return true;
 }
 

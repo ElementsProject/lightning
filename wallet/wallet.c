@@ -1610,7 +1610,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", remote_upfront_shutdown_script"
 					", option_static_remotekey"
 					", shutdown_scriptpubkey_local"
-					" FROM channels WHERE state < ?;"));
+					" FROM channels WHERE state != ?;"));
 	db_bind_int(stmt, 0, CLOSED);
 	db_query_prepared(stmt);
 

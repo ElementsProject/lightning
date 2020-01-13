@@ -611,6 +611,53 @@ def test_borked_tx_reorg(node_factory, bitcoind):
     assert 'short_channel_id' in l3_channel
 
 
+# This assumes that EXPERIMENTAL_FEATURES implies DEVELOPER
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs EXPERIMENTAL_FEATURES=1")
+def test_borked_tx_restart(node_factory, bitcoind):
+    # Test that restarting a node while a transaction is borked/getting borked/
+    # buried works as expected
+    opts = {'funding-confirms': 6, 'rescan': 10}
+    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/funder.py')
+
+    l1 = node_factory.get_node(options=opts)
+    opts['plugin'] = plugin_path
+    l2 = node_factory.get_node(options={'plugin': plugin_path})
+
+    l1.fundwallet(10000000)
+    l2.fundwallet(10000000)
+
+    funding_amount = 1000000
+    gen_funding_tx(bitcoind, l1, l2, funding_amount)
+
+    l1.stop()
+
+    # Have l2 spend their funds elsewhere, and mine it
+    bitcoind.generate_block(18)
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], funding_amount)
+    bitcoind.generate_block(1)
+
+    l1.start()
+    sync_blockheight(bitcoind, [l1])
+
+    assert only_one(l1.rpc.listfunds()['channels'])['state'] == 'CHANNELD_BORKED'
+
+    l1.restart()
+    # Wait for the sync to finish
+    sync_blockheight(bitcoind, [l1])
+
+    # Still in BORKED state
+    assert len(l1.rpc.listfunds()['channels']) == 1
+    assert only_one(l1.rpc.listfunds()['channels'])['state'] == 'CHANNELD_BORKED'
+
+    l1.stop()
+    bitcoind.generate_block(5)      # Push the borking tx down to 6
+    l1.start()
+    sync_blockheight(bitcoind, [l1])
+    assert len(l1.rpc.listpeers()['peers']) == 0
+    assert len(l1.rpc.listfunds()['channels']) == 0
+
+
 # Test closing a channel that's not on-chain yet (but going to be borked?)
 # Test fundchannel_cancel'ing a channel that's not on-chain yet (but will be borked?)
 # - we shouldn't be able to cancel these, but we can 'bork' them by spending their input

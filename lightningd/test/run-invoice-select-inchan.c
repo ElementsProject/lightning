@@ -77,6 +77,12 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
+/* Generated stub for db_begin_transaction_ */
+void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
+{ fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
+/* Generated stub for db_commit_transaction */
+void db_commit_transaction(struct db *db UNNEEDED)
+{ fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
 /* Generated stub for delay_then_reconnect */
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)

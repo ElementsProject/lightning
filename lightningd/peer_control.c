@@ -1492,6 +1492,15 @@ static void activate_peer(struct peer *peer, u32 delay)
 	list_for_each(&peer->channels, channel, list) {
 		/* Watching lockin may be unnecessary, but it's harmless. */
 		channel_watch_funding(ld, channel);
+
+		/* If the channel's not locked in, we should watch for all of
+		 * the utxos; the replay will/should clean these up and add the
+		 * requisite txwatch for a 'borking tx' (if needed) */
+		if (channel_not_locked(channel)) {
+			db_begin_transaction(ld->wallet->db);
+			reinstate_channel_watches(ld->wallet, channel);
+			db_commit_transaction(ld->wallet->db);
+		}
 	}
 }
 
