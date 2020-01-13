@@ -430,8 +430,10 @@ void channel_errmsg(struct channel *channel,
 	 */
 
 	/* We should immediately forget the channel if we receive error during
-	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
+	 * CHANNELD_AWAITING_LOCKIN if we are fundee and have no funds
+	 * in the channel open */
 	if (!err_for_them && channel->opener == REMOTE
+	    && amount_sat_eq(channel->our_funds, AMOUNT_SAT(0))
 	    && channel->state == CHANNELD_AWAITING_LOCKIN)
 		channel_fail_forget(channel, "%s: %s ERROR %s",
 				    channel->owner->name,
