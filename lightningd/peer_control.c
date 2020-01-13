@@ -233,10 +233,10 @@ resolve_one_close_command(struct close_command *cc, bool cooperative)
 	was_pending(command_success(cc->cmd, result));
 }
 
-/* Resolve a close command for a channel that will be closed soon. */
-static void
-resolve_close_command(struct lightningd *ld, struct channel *channel,
-		      bool cooperative)
+/* Resolve a close command for a channel that will be closed soon, or
+ * that is borked (never will be on chain) */
+void resolve_close_command(struct lightningd *ld, struct channel *channel,
+			   bool cooperative)
 {
 	struct close_command *cc;
 	struct close_command *n;

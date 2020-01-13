@@ -85,6 +85,9 @@ void activate_peers(struct lightningd *ld);
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperative);
 
+void resolve_close_command(struct lightningd *ld, struct channel *channel,
+			   bool cooperative);
+
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 
 /* Pull peers, channels and HTLCs from db, and wire them up.
