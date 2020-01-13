@@ -198,6 +198,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->dbid = dbid;
 	channel->error = NULL;
 	channel->htlc_timeout = NULL;
+	channel->txowatches = tal(channel, u8);
 	if (their_shachain)
 		channel->their_shachain = *their_shachain;
 	else {

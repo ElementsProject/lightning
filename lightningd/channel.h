@@ -133,6 +133,9 @@ struct channel {
 
 	/* Any commands trying to forget us. */
 	struct command **forgets;
+
+	/* Anchor to hang txowatches off of, to make cleanup concise */
+	u8 *txowatches;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
