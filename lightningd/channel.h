@@ -256,6 +256,17 @@ static inline bool channel_on_chain(const struct channel *channel)
 	return channel_state_on_chain(channel->state);
 }
 
+static inline bool channel_is_borked(const struct channel *channel)
+{
+	return channel->state == CHANNELD_BORKED;
+}
+
+static inline bool channel_not_locked(const struct channel *channel)
+{
+	return channel_is_borked(channel)
+		|| channel->state == CHANNELD_AWAITING_LOCKIN;
+}
+
 static inline bool channel_active(const struct channel *channel)
 {
 	return channel->state != FUNDING_SPEND_SEEN
