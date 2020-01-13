@@ -285,6 +285,25 @@ void forget_channel(struct channel *channel, bool notify, const char *why)
 		forget(channel);
 }
 
+bool maybe_bork_channel(struct channel *channel, struct bitcoin_txid *txid,
+			struct bitcoin_txid *input_txid, u32 input_outpoint)
+{
+	/* If there's no RBF alternative, we move this channel into the 'borked' state */
+	/* Returns true if borked */
+	// TODO: only update to borked if there's no other eligible 'rbf'
+	// txids outstanding
+	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_BORKED);
+	return true;
+}
+
+bool maybe_cleanup_channel(struct channel *channel, const struct bitcoin_txid *txid)
+{
+	/* in theory, returns false if the channel isn't ready to be cleaned up */
+	/* but since we don't do RBF accounting yet... */
+	//FIXME: handle removal of txid for an RBF'd tx
+	return true;
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);

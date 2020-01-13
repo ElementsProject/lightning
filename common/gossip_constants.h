@@ -38,6 +38,8 @@
  */
 #define ANNOUNCE_MIN_DEPTH 6
 
+#define BORKED_MIN_DEPTH 6
+
 /* Gossip timing constants.  These can be overridden in --enable-developer
  * configurations with --dev-fast-gossip, otherwise the argument is ignored */
 #define DEV_FAST_GOSSIP(dev_fast_gossip_flag, fast, normal)	\

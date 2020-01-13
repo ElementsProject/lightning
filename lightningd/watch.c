@@ -228,9 +228,13 @@ struct txowatch *watch_txo(const tal_t *ctx,
 {
 	struct txowatch *w = tal(ctx, struct txowatch);
 
+	/* never watch the utxo for an uncommitted channel */
+	assert(channel->dbid != 0);
+
 	w->topo = topo;
 	w->out.txid = *txid;
 	w->out.index = output;
+	w->out.chan_dbid = channel->dbid;
 	w->channel = channel;
 	w->cb = cb;
 
@@ -269,6 +273,7 @@ static bool txw_fire(struct txwatch *txw,
 		tal_free(txw);
 		return true;
 	case KEEP_WATCHING:
+	case WATCH_DELETED:
 		return true;
 	}
 	fatal("txwatch callback %p returned %i\n", txw->cb, r);
@@ -308,6 +313,7 @@ void txowatch_fire(struct chain_topology *topo,
 		tal_free(txow);
 		return;
 	case KEEP_WATCHING:
+	case WATCH_DELETED:
 		return;
 	}
 	fatal("txowatch callback %p returned %i", txow->cb, r);

@@ -28,8 +28,14 @@ enum channel_state {
 	/* On chain */
 	ONCHAIN,
 
-	/* Final state after we have fully settled on-chain */
-	CLOSED
+	/* Final state after we have fully settled on-chain. Can
+	 * also reach this state if opening transaction gets borked
+	 * (i.e. is never on chain) */
+	CLOSED,
+
+	/* A funding input has been spent in a different tx, will never open.
+	 * Waiting for input to get sunk to 6 before deleting/marking CLOSED */
+	CHANNELD_BORKED
 };
 #define CHANNEL_STATE_MAX CLOSED
 

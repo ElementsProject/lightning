@@ -380,6 +380,9 @@ void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook 
 /* Generated stub for plugin_hook_continue */
 bool plugin_hook_continue(void *arg UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *toks UNNEEDED)
 { fprintf(stderr, "plugin_hook_continue called!\n"); abort(); }
+/* Generated stub for reinstate_channel_watches */
+void reinstate_channel_watches(struct wallet *w UNNEEDED, struct channel *c UNNEEDED)
+{ fprintf(stderr, "reinstate_channel_watches called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
 void subd_release_channel(struct subd *owner UNNEEDED, void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }
@@ -541,6 +544,9 @@ void wallet_invoice_waitone(const tal_t *ctx UNNEEDED,
 			    void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
 			    void *cbarg UNNEEDED)
 { fprintf(stderr, "wallet_invoice_waitone called!\n"); abort(); }
+/* Generated stub for wallet_output_tracking_delete */
+void wallet_output_tracking_delete(struct wallet *w UNNEEDED, u64 channel_dbid UNNEEDED)
+{ fprintf(stderr, "wallet_output_tracking_delete called!\n"); abort(); }
 /* Generated stub for wallet_peer_delete */
 void wallet_peer_delete(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_peer_delete called!\n"); abort(); }

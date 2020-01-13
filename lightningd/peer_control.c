@@ -928,6 +928,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 		}
 
 		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_BORKED:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
 			assert(!channel->owner);
@@ -1097,6 +1098,16 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		}
 	}
 
+	/* This is a re-org. We need to re-add watches for all associated txos */
+	if (depth == 0) {
+		log_info(channel->log, "Reorg called on channel funding tx %s",
+			  type_to_string(tmpctx, struct bitcoin_txid, txid));
+
+		/* We re-instate the watches for all of this channel's utxos
+		 * in case something ends up 'borking' this tx open during a reorg */
+		reinstate_channel_watches(ld->wallet, channel);
+	}
+
 	/* Try to tell subdaemon */
 	if (!channel_tell_depth(ld, channel, txid, depth))
 		return KEEP_WATCHING;
@@ -1107,6 +1118,9 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	/* We keep telling it depth/scid until we get to announce depth. */
 	if (depth < ANNOUNCE_MIN_DEPTH)
 		return KEEP_WATCHING;
+
+	/* Ok, we're locked in. Remove any output_tracking for this channel */
+	wallet_output_tracking_delete(ld->wallet, channel->dbid);
 
 	return DELETE_WATCH;
 }

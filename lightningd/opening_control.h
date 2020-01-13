@@ -21,6 +21,8 @@ void peer_start_openingd(struct peer *peer,
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
 			      const char *why);
 
+void reinstate_channel_watches(struct wallet *w, struct channel *c);
+
 #if DEVELOPER
 struct command;
 /* Calls report_leak_info() async. */

@@ -18,12 +18,14 @@ struct txwatch;
 
 enum watch_result {
 	DELETE_WATCH = -1,
-	KEEP_WATCHING = -2
+	KEEP_WATCHING = -2,
+	WATCH_DELETED = -3
 };
 
 struct txwatch_output {
 	struct bitcoin_txid txid;
 	unsigned int index;
+	u64 chan_dbid;
 };
 
 const struct txwatch_output *txowatch_keyof(const struct txowatch *w);

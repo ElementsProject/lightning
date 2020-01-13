@@ -152,8 +152,9 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	return true;
 }
 
-bool wallet_add_input_tx_tracking(struct wallet *w, struct utxo *utxo,
-				  struct channel *channel, struct bitcoin_txid *txid)
+bool wallet_add_input_tx_tracking(struct wallet *w, const struct bitcoin_txid *input_txid,
+				  u32 input_outnum, struct channel *channel,
+				  struct bitcoin_txid *txid)
 {
 	struct db_stmt *stmt;
 	size_t changes;
@@ -166,8 +167,8 @@ bool wallet_add_input_tx_tracking(struct wallet *w, struct utxo *utxo,
 				 ", channel_id"
 				 ") VALUES (?, ?, ?, ?);"));
 
-	db_bind_txid(stmt, 0, &utxo->txid);
-	db_bind_int(stmt, 1, utxo->outnum);
+	db_bind_txid(stmt, 0, input_txid);
+	db_bind_int(stmt, 1, input_outnum);
 	db_bind_txid(stmt, 2, txid);
 	db_bind_int(stmt, 3, channel->dbid);
 
@@ -177,90 +178,48 @@ bool wallet_add_input_tx_tracking(struct wallet *w, struct utxo *utxo,
 	return changes > 0;
 }
 
-bool wallet_find_check_input_tx(struct wallet *w, struct chain_topology *topo,
-				struct bitcoin_txid *txid)
+bool wallet_input_tx_exists(struct wallet *w, struct bitcoin_txid *txid,
+			    u64 channel_dbid)
 {
-	struct db_stmt *utxo_stmt, *stmt, *del_stmt;
-	struct bitcoin_txid utxo_txid, f_txid;
-	struct channel *chan;
-	u32 outpoint;
-	u64 blessed_chan_dbid, chan_dbid;
-	char *close_error = "input UTXO spent elsewhere";
+	struct db_stmt *stmt;
+	bool match;
 
-	utxo_stmt = db_prepare_v2(w->db,
-			     SQL("SELECT prev_out_tx, prev_out_index"
-				 ", channel_id FROM output_tracking"
-				 " WHERE txid = ?;"));
-	db_bind_txid(utxo_stmt, 0, txid);
-	db_query_prepared(utxo_stmt);
+	stmt = db_prepare_v2(w->db,
+			     SQL("SELECT COUNT(1)"
+				 " FROM output_tracking"
+				 " WHERE txid = ?"
+				 "  AND channel_id = ?;"));
+	db_bind_txid(stmt, 0, txid);
+	db_bind_int(stmt, 1, channel_dbid);
+	db_query_prepared(stmt);
 
-	if (utxo_stmt->error)
-		fatal("%s", utxo_stmt->error);
+	if (db_step(stmt)) {
+		match = db_column_u64(stmt, 0) > 0;
+	} else
+		match = false;
 
+	tal_free(stmt);
+	return match;
+}
 
-	/* Iterate through all of the inputs we cared about for this txid.
-	 * Look up any other tracking records for that input */
-	while (db_step(utxo_stmt)) {
-		/* Pull out the current utxo info */
-		db_column_txid(utxo_stmt, 0, &utxo_txid);
-		outpoint = db_column_int(utxo_stmt, 1);
-		blessed_chan_dbid = db_column_int(utxo_stmt, 2);
+void wallet_output_tracking_delete(struct wallet *w, u64 channel_dbid)
+{
+	struct db_stmt *stmt;
+	/* delete any references to this txid */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM output_tracking"
+					" WHERE channel_id = ?;"));
+	db_bind_int(stmt, 0, channel_dbid);
+	db_exec_prepared_v2(take(stmt));
+}
 
-		stmt = db_prepare_v2(w->db,
-				     SQL("SELECT txid, channel_id FROM output_tracking"
-					 " WHERE prev_out_tx = ? AND prev_out_index = ?"
-					 " AND txid != ?;"));
-		db_bind_txid(stmt, 0, &utxo_txid);
-		db_bind_int(stmt, 1, outpoint);
-		db_bind_txid(stmt, 2, txid);
+void wallet_transaction_delete(struct wallet *w, const struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt;
 
-		db_query_prepared(stmt);
-		if (stmt->error)
-			fatal("%s", stmt->error);
-
-		while (db_step(stmt)) {
-			/* Pull out subquery's info */
-			db_column_txid(stmt, 0, &f_txid);
-			chan_dbid = db_column_int(stmt, 1);
-
-			/* Remove the tx_filter for this txid (this isn't ever coming)
-			 * and return the channel object */
-			chan = del_txwatch(topo, &f_txid, chan_dbid);
-
-			/* This is a channel cancel; otherwise it's an RBF'd tx.
-			 * Defunct RBFs don't need cleanup as the correction
-			 * to the 'good' txid is taken care of elsewhere
-			 *
-			 * `forget_channel` immediately marks the chan with an error,
-			 * so we check that to see if we're already canceling it (since
-			 * in some paths we require notifying the peer first, which
-			 * is not synchronous. Ultimately, this frees the channel,
-			 * so subsequent lookups of the channel in txwatch should return NULL
-			 * */
-			// FIXME: this can/might free channel.. what to do about
-			// other, possibly existing txwatches?
-			if (chan && chan_dbid != blessed_chan_dbid && !chan->error)
-				forget_channel(chan, false, close_error);
-
-			/* We want to delete all tracking for the
-			 * other outputs associated with this txid; it isn't
-			 * ever coming through. */
-			del_stmt = db_prepare_v2(w->db, SQL("DELETE FROM output_tracking"
-							    " WHERE txid = ?;"));
-			db_bind_txid(del_stmt, 0, &f_txid);
-			db_exec_prepared_v2(take(del_stmt));
-		}
-		tal_free(stmt);
-	}
-
-	/* Finally, clean up the existing txid's records */
-	del_stmt = db_prepare_v2(w->db, SQL("DELETE FROM output_tracking"
-					    " WHERE txid = ?;"));
-	db_bind_txid(del_stmt, 0, txid);
-	db_exec_prepared_v2(take(del_stmt));
-
-	tal_free(utxo_stmt);
-	return true;
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM transactions"
+					" WHERE id = ?;"));
+	db_bind_txid(stmt, 0, txid);
+	db_exec_prepared_v2(take(stmt));
 }
 
 /**
@@ -338,24 +297,67 @@ static bool reservation_expired(struct wallet *w, const struct utxo *utxo)
 	return *utxo->reserved_at + *utxo->reserved_for <= w->ld->topology->tip->height;
 }
 
-static bool wallet_clear_reservation(struct wallet *w, struct utxo *utxo)
+static bool wallet_clear_reservation(struct wallet *w, const struct utxo *utxo)
 {
 	return wallet_output_reservation_update(w, utxo, 0, 0);
 }
 
-struct utxo_reservation **wallet_fetch_channel_reservations(const tal_t *ctx,
-							    struct wallet *w,
-							    struct channel *c)
+struct utxo_reservation **wallet_channel_reservations_fetch_all(const tal_t *ctx,
+								struct wallet *w,
+								struct channel *c)
 {
 	struct db_stmt *stmt;
 	struct utxo_reservation **results;
 
+	/* We save both ours and theirs inputs to output_tracking, so filter
+	 * to just inputs that we own here */
 	stmt = db_prepare_v2(w->db, SQL("SELECT prev_out_tx"
 			     ", prev_out_index"
 			     ", txid"
 			     ", channel_id"
 			     " FROM output_tracking"
 			     " WHERE channel_id = ?;"));
+
+	db_bind_int(stmt, 0, c->dbid);
+	db_query_prepared(stmt);
+	if (stmt->error)
+		fatal("Error fetching channel utxo reservations: %s", stmt->error);
+
+	results = tal_arr(ctx, struct utxo_reservation *, 0);
+	while (db_step(stmt)) {
+		struct utxo_reservation *ur = tal(results, struct utxo_reservation);
+		db_column_txid(stmt, 0, &ur->prev_txid);
+		ur->prev_outnum = db_column_int(stmt, 1);
+		db_column_txid(stmt, 2, &ur->funding_txid);
+		ur->channel_dbid = db_column_int(stmt, 3);
+
+		tal_arr_expand(&results, ur);
+	}
+
+	tal_free(stmt);
+
+	/* We return NULL if no results found */
+	return tal_count(results) ? results : tal_free(results);
+}
+
+struct utxo_reservation **wallet_channel_reservations_fetch(const tal_t *ctx,
+							    struct wallet *w,
+							    struct channel *c)
+{
+	struct db_stmt *stmt;
+	struct utxo_reservation **results;
+
+	/* We save both ours and theirs inputs to output_tracking, so filter
+	 * to just inputs that we own here */
+	stmt = db_prepare_v2(w->db, SQL("SELECT o.prev_out_tx"
+			     ", o.prev_out_index"
+			     ", ot.txid"
+			     ", ot.channel_id"
+			     " FROM outputs o"
+			     " LEFT OUTER JOIN output_tracking ot"
+			     "  ON o.prev_out_index = ot.prev_out_index"
+			     "   AND o.prev_out_tx = ot.prev_out_tx"
+			     " WHERE ot.channel_id = ?;"));
 
 	db_bind_int(stmt, 0, c->dbid);
 	db_query_prepared(stmt);
@@ -451,7 +453,7 @@ static bool wallet_reserve_output(struct wallet *w, struct utxo *u)
 }
 
 bool wallet_output_reservation_update(struct wallet *w,
-				      struct utxo *utxo,
+				      const struct utxo *utxo,
 				      const u32 current_height,
 				      const u32 reserve_for)
 {
@@ -3804,6 +3806,28 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	tal_free(stmt);
 
 	return txids;
+}
+
+struct bitcoin_tx *wallet_channel_find_funding_tx(const tal_t *ctx,
+						  struct wallet *w,
+						  struct channel *channel)
+{
+	struct db_stmt *stmt;
+	struct bitcoin_tx *funding_tx;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT rawtx"
+					" FROM transactions"
+					" WHERE id = ?;"));
+	db_bind_txid(stmt, 0, &channel->funding_txid);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt))
+		funding_tx = db_column_tx(ctx, stmt, 0);
+	else
+		funding_tx = NULL;
+
+	tal_free(stmt);
+	return funding_tx;
 }
 
 void wallet_channeltxs_add(struct wallet *w, struct channel *chan,

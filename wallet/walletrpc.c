@@ -898,7 +898,7 @@ static void add_utxo_info(struct command *cmd,
 	struct utxo_reservation **rezzies;
 	size_t i;
 
-	rezzies = wallet_fetch_channel_reservations(cmd, cmd->ld->wallet, c);
+	rezzies = wallet_channel_reservations_fetch(cmd, cmd->ld->wallet, c);
 	json_array_start(stream, "utxo_reservations");
 	for (i = 0; i < tal_count(rezzies); i++) {
 		json_object_start(stream, NULL);

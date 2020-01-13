@@ -355,15 +355,27 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
  * us to 1) clean up channels that aren't opened because of a spend elsewhere
  * and 2) track RBFs for channel opens.
  */
-bool wallet_add_input_tx_tracking(struct wallet *w, struct utxo *utxo,
-				  struct channel *chnanel, struct bitcoin_txid *txid);
+bool wallet_add_input_tx_tracking(struct wallet *w, const struct bitcoin_txid *input_txid,
+				  u32 input_outnum, struct channel *channel,
+				  struct bitcoin_txid *txid);
 
-/* wallet_find_check_input_tx - Find and clean up any associated funding tx's
- * that are no longer valid/spendable because of the inclusion of this
- * txid in a block. Cleans up any associated channels and tx-watches as well.
+/* wallet_input_tx_exists - Confirm that the txid matches for this channel.
+ *
+ * Returns true if this is a valid txid for the channel open.
  */
-bool wallet_find_check_input_tx(struct wallet *w, struct chain_topology *topo,
-				struct bitcoin_txid *txid);
+bool wallet_input_tx_exists(struct wallet *w, struct bitcoin_txid *txid,
+			    u64 channel_dbid);
+
+/* wallet_output_tracking_delete - remove all output tracking for a channel */
+void wallet_output_tracking_delete(struct wallet *w, u64 channel_dbid);
+
+/* wallet_transaction_delete - Delete a transaction record from the database
+ *
+ * Used for transactions that bork channels, that aren't our wallet's, after
+ * the transaction has reached sufficient depth to be considered permanent.
+ */
+void wallet_transaction_delete(struct wallet *w, const struct bitcoin_txid *txid);
+
 /**
  * wallet_confirm_tx - Confirm a tx which contains a UTXO.
  */
@@ -386,12 +398,19 @@ bool wallet_update_output_status(struct wallet *w,
 				 const u32 outnum, enum output_status oldstatus,
 				 enum output_status newstatus);
 
+/* wallet_channel_reservations_fetch_all - Finds all utxo inputs for this
+ * channel, including peer's inputs.
+ */
+struct utxo_reservation **wallet_channel_reservations_fetch_all(const tal_t *ctx,
+								struct wallet *w,
+								struct channel *c);
 /**
- * wallet_fetch_channel_reservations - Find all current reservations for this channel
+ * wallet_channel_reservations_fetch - Find all current reservations for this channel,
+ * filtered to just utxos that we own.
  *
  * Returns NULL if none found.
  */
-struct utxo_reservation **wallet_fetch_channel_reservations(const tal_t *ctx,
+struct utxo_reservation **wallet_channel_reservations_fetch(const tal_t *ctx,
 							    struct wallet *w,
 							    struct channel *c);
 /**
@@ -407,7 +426,7 @@ struct utxo_reservation **wallet_fetch_channel_reservations(const tal_t *ctx,
  * @current_height - current blockeheight
  * @reserve_for - number of blocks to hold reservation */
 bool wallet_output_reservation_update(struct wallet *w,
-				      struct utxo *utxo,
+				      const struct utxo *utxo,
 				      const u32 current_height,
 				      const u32 reserved_for);
 /**
@@ -1222,6 +1241,12 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 						   struct wallet *w,
 						   const u32 blockheight);
 
+/* Given a channel, find the funding tx from the transactions table.
+ *
+ * Returns NULL if not found */
+struct bitcoin_tx *wallet_channel_find_funding_tx(const tal_t *ctx,
+						  struct wallet *w,
+						  struct channel *channel);
 /**
  * Store transactions of interest in the database to replay on restart
  */

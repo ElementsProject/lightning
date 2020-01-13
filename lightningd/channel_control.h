@@ -23,6 +23,29 @@ bool channel_tell_depth(struct lightningd *ld,
 void channel_notify_new_block(struct lightningd *ld,
 			      u32 block_height);
 
+/* A utxo for the funding tx of this channel has been spent,
+ * and not for the txid that we were expecting. Clean up this
+ * channel, which is now Dead on Arrival.
+ *
+ * Note that 'maybe' has to do with the fact that for RBF'd
+ * channel opens, we may have more eligible txid's issued,
+ * so the nullification of one doesn't necessarily guarantee
+ * that this channel is dead */
+bool maybe_cleanup_channel(struct channel *channel,
+			   const struct bitcoin_txid *txid);
+
+/* A utxo for the funding tx of this channel has been
+ * spotted as spent. It'll get cleaned up once the
+ * transaction bearing the 'borking' utxo spend reaches
+ * sufficient depth.
+ *
+ * Note that 'maybe' has to do with the fact that for RBF'd
+ * channel opens, we may have more eligible txid's issued,
+ * so the nullification of one doesn't necessarily guarantee
+ * that this channel is borked */
+bool maybe_bork_channel(struct channel *channel, struct bitcoin_txid *txid,
+			struct bitcoin_txid *input_txid, u32 input_outpoint);
+
 /* Cancel the channel after `fundchannel_complete` succeeds
  * but before funding broadcasts. */
 struct command_result *cancel_channel_before_broadcast(struct command *cmd,

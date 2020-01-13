@@ -401,6 +401,170 @@ failed:
 	tal_free(fc->uc);
 }
 
+/* Used semi-recursively, so declared here */
+enum watch_result txo_spent(struct chain_topology *topo,
+			    struct channel *channel,
+			    const struct bitcoin_tx *tx,
+			    size_t input_num,
+			    const struct block *block);
+
+void reinstate_channel_watches(struct wallet *w, struct channel *c)
+{
+	size_t i;
+	struct utxo_reservation **utxo_rs;
+	/* Pull up all the tx records, for this channel */
+	utxo_rs =
+		wallet_channel_reservations_fetch_all(c->txowatches,
+						      w, c);
+
+	log_debug(c->log, "Reinstating %zu channel watches.",
+		  tal_count(utxo_rs));
+
+	for (i = 0; i < tal_count(utxo_rs); i++)
+		watch_txo(c->txowatches, w->ld->topology, c,
+			  &utxo_rs[i]->prev_txid,
+			  utxo_rs[i]->prev_outnum,
+			  txo_spent);
+
+	tal_free(utxo_rs);
+}
+
+/* A channel open was 'borked' by this transaction getting published. We track
+ * its burial (channel open min depth) and when reached, clean up (i.e. delete) the channel
+ * and associated commitment transaction information */
+static enum watch_result watch_borked_tx_burial(struct lightningd *ld, struct channel *channel,
+						const struct bitcoin_txid *txid,
+						const struct bitcoin_tx *tx,
+						unsigned int depth)
+{
+	/* This is a reorg. We need to roll back the channel state
+	 * to AWAITING LOCKIN and re-instate all of the txo watches
+	 * on its inputs */
+	if (depth == 0) {
+		log_info(channel->log, "Reorg for 'borking' tx %s, reinstating channel.",
+			 type_to_string(tmpctx, struct bitcoin_txid, txid));
+		reinstate_channel_watches(ld->wallet, channel);
+		channel_set_state(channel, CHANNELD_BORKED, CHANNELD_AWAITING_LOCKIN);
+		return DELETE_WATCH;
+	}
+
+	if (depth < BORKED_MIN_DEPTH)
+		return KEEP_WATCHING;
+
+	if (maybe_cleanup_channel(channel, txid)) {
+		log_debug(channel->log, "Forgetting channel, permanently borked");
+
+		wallet_transaction_delete(ld->wallet, txid);
+		forget_channel(channel, false, "input UTXO spent elsewhere");
+
+		return WATCH_DELETED;
+	}
+
+	/* This one's not the one to clean up the channel entirely,
+	 * but we don't need it anymore */
+	return DELETE_WATCH;
+}
+
+enum watch_result txo_spent(struct chain_topology *topo,
+			    struct channel *channel,
+			    const struct bitcoin_tx *tx,
+			    size_t input_num,
+			    const struct block *block)
+{
+	struct bitcoin_txid txid, input_txid;
+	u32 input_outnum;
+
+	/* If this is a tx we're watching, go ahead and
+	 * see if this cleans up / invalidates any other
+	 * channel opens or RBF'd transactions */
+	bitcoin_txid(tx, &txid);
+
+	/* First, try cleanup by txid, as that's most likely
+	 * to be the actual case, i.e. this is a transaction we're
+	 * expecting. We'll do the right thing for it when we the txwatch for it
+	 * fires */
+	if (wallet_input_tx_exists(topo->ld->wallet, &txid, channel->dbid)) {
+		/* Clear out any other txowatches, and reset them */
+		channel->txowatches = tal_free(channel->txowatches);
+		channel->txowatches = tal(channel, u8);
+		return WATCH_DELETED;
+	}
+
+	bitcoin_tx_input_get_txid(tx, input_num, &input_txid);
+	input_outnum = tx->wtx->inputs[input_num].index;
+	log_unusual(channel->log,
+		    "input utxo %s:%u for channel funding_txid %s"
+		    " spent in txid %s",
+		    type_to_string(tmpctx, struct bitcoin_txid, &input_txid),
+		    input_outnum,
+		    type_to_string(tmpctx, struct bitcoin_txid, &channel->funding_txid),
+		    type_to_string(tmpctx, struct bitcoin_txid, &txid));
+
+	/* Check if we need to mark this channel as 'borked' now (RBF will do more
+	 * fancy things here */
+	if (maybe_bork_channel(channel, &txid, &input_txid, input_outnum)) {
+		/* Watch the 'borking' transaction; we'll clean everything up
+		 * when it's reached a depth of BORKED_MIN_DEPTH */
+		watch_tx(channel, topo, channel, tx, watch_borked_tx_burial);
+
+		/* Since we've got at least one tx that nullifies this channel
+		 * we can delete all of the other txowatches for it */
+		channel->txowatches = tal_free(channel->txowatches);
+		/* Reset the txowatch object counter */
+		channel->txowatches = tal(channel, u8);
+
+		return WATCH_DELETED;
+	}
+
+	/* This channel is still has valid utxos outstanding. Delete this watch
+	 * but keep looking for other utxos related to it. */
+	return DELETE_WATCH;
+}
+
+static void watch_tx_inputs(struct wallet *w, struct channel *c,
+			    struct bitcoin_txid *funding_txid,
+			    const struct bitcoin_tx_input **remote_inputs,
+			    const struct utxo **our_utxos)
+{
+	size_t i;
+	struct bitcoin_txid txid;
+	u32 outpoint;
+
+	/* Ideally this will get pushed out and included in a block
+	 * tout suite but in case not, we should watch not only
+	 * for all of our own inputs but also all of the inputs of our
+	 * peer, so that if they spend them elsewhere we know to cleanup */
+	for (i = 0; i < tal_count(remote_inputs); i++) {
+		txid = remote_inputs[i]->txid;
+		outpoint = remote_inputs[i]->index;
+
+		wallet_add_input_tx_tracking(w, &txid, outpoint,
+					     c, funding_txid);
+		/* Also watch it come in  */
+		watch_txo(c->txowatches, w->ld->topology, c, &txid,
+			  outpoint, txo_spent);
+
+		log_debug(c->log, "added input %s:%u to txo tracking",
+			  type_to_string(tmpctx, struct bitcoin_txid, &txid),
+			  outpoint);
+	}
+
+	for (i = 0; i < tal_count(our_utxos); i++) {
+		txid = our_utxos[i]->txid;
+		outpoint = our_utxos[i]->outnum;
+
+		wallet_add_input_tx_tracking(w, &txid, outpoint,
+					     c, funding_txid);
+		watch_txo(c->txowatches, w->ld->topology, c, &txid,
+			  outpoint, txo_spent);
+
+		log_debug(c->log, "added input %s:%u to txo tracking",
+			  type_to_string(tmpctx, struct bitcoin_txid, &txid),
+			  outpoint);
+	}
+
+}
+
 #if EXPERIMENTAL_FEATURES
 // FIXME: Switch to PSBT, not unreleased tx
 static bool add_remote_witnesses(struct unreleased_tx *utx,
@@ -615,6 +779,11 @@ static void opening_opener_sigs_received(struct subd *openingd, const u8 *resp,
 					fc->our_upfront_shutdown_script,
 					remote_upfront_shutdown_script);
 
+
+	/* Watch for spends of any of the inputs to the tx */
+	watch_tx_inputs(ld->wallet, channel, &channel->funding_txid,
+			cast_const2(const struct bitcoin_tx_input **, utx->inputs),
+			utx->wtx->utxos);
 
 	/* Watch for funding confirms */
 	channel_watch_funding(ld, channel);
@@ -832,7 +1001,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	struct channel *channel;
 	u8 *remote_upfront_shutdown_script, *local_upfront_shutdown_script;
 	struct per_peer_state *pps;
-	struct utxo **utxos;
+	const struct utxo **utxos;
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 
@@ -885,7 +1054,8 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	if (uc->pf)
 		/* We steal here, because otherwise gets eaten below */
-		utxos = tal_steal(tmpctx, uc->pf->utxos);
+		utxos = cast_const2(const struct utxo **,
+				    tal_steal(tmpctx, uc->pf->utxos));
 	else
 		utxos = NULL;
 
@@ -910,22 +1080,23 @@ static void opening_fundee_finished(struct subd *openingd,
 		goto failed_later;
 	}
 
+	/* Add a watch for all the inputs for this channel open */
+	watch_tx_inputs(ld->wallet, channel, &channel->funding_txid,
+			remote_inputs, utxos);
+
+	u32 tipheight = ld->topology->tip->height;
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		wallet_output_reservation_update(ld->wallet, utxos[i],
+						 tipheight,
+						 UTXO_RESERVATION_BLOCKS);
+	}
+
+	if (utxos)
+		tal_free(utxos);
+
 	log_debug(channel->log, "Watching funding tx %s",
 		  type_to_string(reply, struct bitcoin_txid,
 				 &channel->funding_txid));
-
-	if (utxos) {
-		u32 tipheight = ld->topology->tip->height;
-		for (size_t i = 0; i < tal_count(utxos); i++) {
-			wallet_output_reservation_update(ld->wallet, utxos[i],
-							 tipheight,
-							 UTXO_RESERVATION_BLOCKS);
-			wallet_add_input_tx_tracking(ld->wallet, utxos[i],
-						     channel, &funding_txid);
-		}
-
-		tal_free(utxos);
-	}
 
 	channel_watch_funding(ld, channel);
 
