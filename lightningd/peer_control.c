@@ -1111,7 +1111,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	return DELETE_WATCH;
 }
 
-static enum watch_result funding_spent(struct channel *channel,
+static enum watch_result funding_spent(struct chain_topology *topo,
+				       struct channel *channel,
 				       const struct bitcoin_tx *tx,
 				       size_t inputnum UNUSED,
 				       const struct block *block)

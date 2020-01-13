@@ -82,7 +82,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 			if (txo) {
 				wallet_transaction_add(topo->ld->wallet,
 						       tx, b->height, i);
-				txowatch_fire(txo, tx, j, b);
+				txowatch_fire(topo, txo, tx, j, b);
 			}
 		}
 

@@ -65,7 +65,8 @@ struct txowatch *watch_txo(const tal_t *ctx,
 			   struct channel *channel,
 			   const struct bitcoin_txid *txid,
 			   unsigned int output,
-			   enum watch_result (*cb)(struct channel *channel,
+			   enum watch_result (*cb)(struct chain_topology *topo,
+				   		   struct channel *channel,
 						   const struct bitcoin_tx *tx,
 						   size_t input_num,
 						   const struct block *block));
@@ -78,7 +79,7 @@ void txwatch_fire(struct chain_topology *topo,
 		  const struct bitcoin_txid *txid,
 		  unsigned int depth);
 
-void txowatch_fire(const struct txowatch *txow,
+void txowatch_fire(struct chain_topology *topo, const struct txowatch *txow,
 		   const struct bitcoin_tx *tx, size_t input_num,
 		   const struct block *block);
 

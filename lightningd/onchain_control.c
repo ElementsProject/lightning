@@ -137,7 +137,8 @@ static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *
 /**
  * Entrypoint for the txowatch callback, stores tx and calls onchain_txo_spent.
  */
-static enum watch_result onchain_txo_watched(struct channel *channel,
+static enum watch_result onchain_txo_watched(struct chain_topology *topo,
+					     struct channel *channel,
 					     const struct bitcoin_tx *tx,
 					     size_t input_num,
 					     const struct block *block)

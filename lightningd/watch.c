@@ -49,10 +49,12 @@ struct txowatch {
 	struct txwatch_output out;
 
 	/* A new tx. */
-	enum watch_result (*cb)(struct channel *channel,
+	enum watch_result (*cb)(struct chain_topology *topo,
+				struct channel *channel,
 				const struct bitcoin_tx *tx,
 				size_t input_num,
 				const struct block *block);
+
 };
 
 struct txwatch {
@@ -218,7 +220,8 @@ struct txowatch *watch_txo(const tal_t *ctx,
 			   struct channel *channel,
 			   const struct bitcoin_txid *txid,
 			   unsigned int output,
-			   enum watch_result (*cb)(struct channel *channel,
+			   enum watch_result (*cb)(struct chain_topology *topo,
+				   		   struct channel *channel,
 						   const struct bitcoin_tx *tx,
 						   size_t input_num,
 						   const struct block *block))
@@ -283,7 +286,8 @@ void txwatch_fire(struct chain_topology *topo,
 		txw_fire(txw, txid, depth);
 }
 
-void txowatch_fire(const struct txowatch *txow,
+void txowatch_fire(struct chain_topology *topo,
+		   const struct txowatch *txow,
 		   const struct bitcoin_tx *tx,
 		   size_t input_num,
 		   const struct block *block)
@@ -298,7 +302,7 @@ void txowatch_fire(const struct txowatch *txow,
 		  txow->out.index,
 		  type_to_string(tmpctx, struct bitcoin_txid, &txid));
 
-	r = txow->cb(txow->channel, tx, input_num, block);
+	r = txow->cb(topo, txow->channel, tx, input_num, block);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txow);
