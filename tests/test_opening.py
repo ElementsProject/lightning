@@ -584,9 +584,12 @@ def test_borked_tx_reorg(node_factory, bitcoind):
     # Ok, one channel should be borked, the other channel should
     # be awaiting lockin, with a scid
     assert only_one(l1.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CHANNELD_BORKED'
+    assert l1.rpc.getinfo()['num_inactive_channels'] == 1
+
     l3_channel = only_one(l3.rpc.listpeers()['peers'])['channels'][0]
     assert l3_channel['state'] == 'CHANNELD_AWAITING_LOCKIN'
     assert 'short_channel_id' not in l3_channel
+    assert l3.rpc.getinfo()['num_pending_channels'] == 1
 
     # Stop l1 before the reorg
     l1.stop()
