@@ -209,7 +209,7 @@ ifeq ($(HAVE_POSTGRES),1)
 LDLIBS += -lpq
 endif
 
-default: all-programs all-test-programs
+default: all-programs all-test-programs doc-all
 
 ccan/config.h: config.vars configure ccan/tools/configurator/configurator.c
 	./configure --reconfigure
