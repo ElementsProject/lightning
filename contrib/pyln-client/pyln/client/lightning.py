@@ -357,7 +357,7 @@ class LightningRpc(UnixDomainSocketRpc):
             return obj
 
     def __init__(self, socket_path, executor=None, logger=logging):
-        super().__init__(socket_path, executor, logging, self.LightningJSONEncoder, self.LightningJSONDecoder())
+        super().__init__(socket_path, executor, logger, self.LightningJSONEncoder, self.LightningJSONDecoder())
 
     def autocleaninvoice(self, cycle_seconds=None, expired_by=None):
         """
