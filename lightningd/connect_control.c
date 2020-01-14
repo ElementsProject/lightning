@@ -136,7 +136,8 @@ static struct command_result *json_connect(struct command *cmd,
 	/* If we know about peer, see if it's already connected. */
 	peer = peer_by_id(cmd->ld, &id);
 	if (peer) {
-		struct channel *channel = peer_active_channel(peer);
+		struct channel *channel =
+			peer_active_or_borked_channel(peer);
 
 		if (peer->uncommitted_channel
 		    || (channel && channel->connected)) {

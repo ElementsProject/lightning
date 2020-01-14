@@ -1013,7 +1013,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
-	hook_payload->channel = peer_active_channel(peer);
+	hook_payload->channel = peer_active_or_borked_channel(peer);
 
 	plugin_hook_call_peer_connected(ld, hook_payload);
 }
@@ -1173,7 +1173,7 @@ static void json_add_peer(struct lightningd *ld,
 	if (p->uncommitted_channel)
 		connected = true;
 	else {
-		channel = peer_active_channel(p);
+		channel = peer_active_or_borked_channel(p);
 		connected = channel && channel->connected;
 	}
 	json_add_bool(response, "connected", connected);
@@ -1255,7 +1255,7 @@ command_find_channel(struct command *cmd,
 
 	if (json_tok_channel_id(buffer, tok, &cid)) {
 		list_for_each(&ld->peers, peer, list) {
-			*channel = peer_active_channel(peer);
+			*channel = peer_active_or_borked_channel(peer);
 			if (!*channel)
 				continue;
 			derive_channel_id(&channel_cid,
@@ -1316,7 +1316,7 @@ static struct command_result *json_close(struct command *cmd,
 
 	peer = peer_from_json(cmd->ld, buffer, idtok);
 	if (peer)
-		channel = peer_active_channel(peer);
+		channel = peer_active_or_borked_channel(peer);
 	else {
 		struct command_result *res;
 		res = command_find_channel(cmd, buffer, idtok, &channel);
@@ -1335,6 +1335,10 @@ static struct command_result *json_close(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer has no active channel");
 	}
+
+	if (channel_is_borked(channel))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel is BORKED, cannot be closed");
 
 
 	/* If we've set a local shutdown script for this peer, and it's not the
@@ -1583,11 +1587,12 @@ static struct command_result *json_disconnect(struct command *cmd,
 	if (!peer) {
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
-	channel = peer_active_channel(peer);
+	channel = peer_active_or_borked_channel(peer);
 	if (channel) {
-		if (*force) {
+		if (*force || channel_is_borked(channel)) {
 			channel_fail_reconnect(channel,
-					       "disconnect command force=true");
+					       "disconnect command %s",
+					       force ? "force=true" : "");
 			return command_success(cmd, json_stream_success(cmd));
 		}
 		return command_fail(cmd, LIGHTNINGD, "Peer is in state %s",
@@ -1813,10 +1818,11 @@ static struct command_result *param_channel_or_all(struct command *cmd,
 	/* Find channel by peer_id */
 	peer = peer_from_json(cmd->ld, buffer, tok);
 	if (peer) {
-		*channel = peer_active_channel(peer);
+		*channel = peer_active_or_borked_channel(peer);
 		if (!*channel)
 			return command_fail(cmd, LIGHTNINGD,
-					"Could not find active channel of peer with that id");
+					    "Could not find active or borked "
+					    "channel of peer with that id");
 		return NULL;
 
 	/* Find channel by id or scid */
@@ -2020,7 +2026,7 @@ static struct command_result *json_dev_fail(struct command *cmd,
 				    "Could not find peer with that id");
 	}
 
-	channel = peer_active_channel(peer);
+	channel = peer_active_or_borked_channel(peer);
 	if (!channel) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not find active channel with peer");

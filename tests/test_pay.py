@@ -1940,7 +1940,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     assert(db_fees[0]['feerate_ppm'] == 43)
 
     # check if invalid scid raises proper error
-    with pytest.raises(RpcError, match=r'-1.*Could not find active channel of peer with that id'):
+    with pytest.raises(RpcError, match=r'-1.*Could not find active or borked channel of peer with that id'):
         result = l1.rpc.setchannelfee(l3.info['id'], 42, 43)
     with pytest.raises(RpcError, match=r'-32602.*Given id is not a channel ID or short channel ID'):
         result = l1.rpc.setchannelfee('f42' + scid[3:], 42, 43)

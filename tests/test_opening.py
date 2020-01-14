@@ -251,8 +251,8 @@ def test_double_spends(node_factory, bitcoind):
     # channels associated with the double-spent utxo
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/funder.py')
 
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node(options={'plugin': plugin_path})
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True, options={'plugin': plugin_path})
     l3 = node_factory.get_node()
 
     l1.fundwallet(200000000)
@@ -330,6 +330,11 @@ def test_double_spends(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Channel is considered \'borked\' and is uncloseable'):
         l1.rpc.fundchannel_cancel(l2.info['id'])
 
+    # Try disconnecting and then reconnecting the borked peers (l1 <-> l2)
+    l2.rpc.disconnect(l1.info['id'])
+    assert not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected']
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
     # Check that the reserved funds have gone away!
     funds = l2.rpc.listfunds()
     assert len(funds['reserved_outputs']) == 0
@@ -341,7 +346,7 @@ def test_double_spends(node_factory, bitcoind):
     assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CHANNELD_BORKED'
 
     # Attempt to close borked channel, shouldn't work (not active)
-    with pytest.raises(RpcError, match=r'Peer has no active channel'):
+    with pytest.raises(RpcError, match=r'Channel is BORKED, cannot be closed'):
         l1.rpc.close(l2.info['id'])
 
     # Clean up prepped tx, otherwise we leak on quit
@@ -544,8 +549,6 @@ def test_original_publishes(node_factory, bitcoind):
 def test_borked_tx_reorg(node_factory, bitcoind):
     """ We should be able to bork a transaction, then reorg and confirm it.
         We should also be able to confirm a tx, reorg and then bork it."""
-    # Rescan to detect reorg at restart and may_reconnect so channeld
-    # will restart.  Reorg can cause bad gossip msg.
     opts = {'funding-confirms': 6, 'rescan': 10}
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/funder.py')
 

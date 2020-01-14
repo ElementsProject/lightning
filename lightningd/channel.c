@@ -297,6 +297,18 @@ const char *channel_state_str(enum channel_state state)
 	return "unknown";
 }
 
+struct channel *peer_active_or_borked_channel(struct peer *peer)
+{
+	struct channel *channel;
+
+	list_for_each(&peer->channels, channel, list) {
+		if (channel_active(channel)
+				|| channel_is_borked(channel))
+			return channel;
+	}
+	return NULL;
+}
+
 struct channel *peer_active_channel(struct peer *peer)
 {
 	struct channel *channel;

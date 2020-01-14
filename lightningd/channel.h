@@ -217,6 +217,10 @@ void channel_set_state(struct channel *channel,
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
 
+/* Find a channel which is not onchain (or never will be on chain),
+ * if any */
+struct channel *peer_active_or_borked_channel(struct peer *peer);
+
 /* Find a channel which is in state CHANNELD_NORMAL, if any */
 struct channel *peer_normal_channel(struct peer *peer);
 
