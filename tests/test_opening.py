@@ -326,6 +326,10 @@ def test_double_spends(node_factory, bitcoind):
         else:
             only_one(p['channels'])['state'] == 'CHANNELD_BORKED'
 
+    # Try to 'cancel' a BORKED channel
+    with pytest.raises(RpcError, match=r'Channel is considered \'borked\' and is uncloseable'):
+        l1.rpc.fundchannel_cancel(l2.info['id'])
+
     # Check that the reserved funds have gone away!
     funds = l2.rpc.listfunds()
     assert len(funds['reserved_outputs']) == 0

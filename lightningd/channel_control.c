@@ -781,6 +781,13 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 				    "Cannot cancel channel that was "
 				    "initiated by peer");
 
+	if (channel_is_borked(cancel_channel))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel is considered 'borked' and is uncloseable. "
+				    "A 'borked' channel is one where a funding_tx input"
+				    " has been spent in a different transaction, making"
+				    " it unlikely that this channel will open.");
+
 	/* Check if we broadcast the transaction. (We store the transaction type into DB
 	 * before broadcast). */
 	enum wallet_tx_type type;
