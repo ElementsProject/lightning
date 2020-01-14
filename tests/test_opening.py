@@ -6,6 +6,7 @@ from utils import EXPERIMENTAL_FEATURES, only_one, sync_blockheight, wait_for
 
 import os
 import pytest
+import re
 import unittest
 
 
@@ -322,9 +323,12 @@ def test_double_spends(node_factory, bitcoind):
     assert len(peers) == 2
     for p in peers:
         if p['id'] == l3.info['id']:
-            only_one(p['channels'])['state'] == 'CHANNELD_NORMAL'
+            assert only_one(p['channels'])['state'] == 'CHANNELD_NORMAL'
         else:
-            only_one(p['channels'])['state'] == 'CHANNELD_BORKED'
+            c = only_one(p['channels'])
+            assert c['state'] == 'CHANNELD_BORKED'
+            r = re.compile('Input .*:.* double spent in tx .*')
+            assert any(r.search(line) for line in c['status'])
 
     # Try to 'cancel' a BORKED channel
     with pytest.raises(RpcError, match=r'Channel is considered \'borked\' and is uncloseable'):

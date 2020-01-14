@@ -513,6 +513,14 @@ enum watch_result txo_spent(struct chain_topology *topo,
 		/* Reset the txowatch object counter */
 		channel->txowatches = tal(channel, u8);
 
+		channel_set_billboard(channel, false,
+				      tal_fmt(tmpctx, "Input %s:%u double spent in tx %s",
+					      type_to_string(tmpctx, struct bitcoin_txid,
+							     &input_txid),
+					      input_outnum,
+					      type_to_string(tmpctx, struct bitcoin_txid,
+							     &txid)));
+
 		return WATCH_DELETED;
 	}
 
