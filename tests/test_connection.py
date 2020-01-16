@@ -6,7 +6,8 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT,
-    SLOW_MACHINE, expected_peer_features, expected_node_features
+    SLOW_MACHINE, expected_peer_features, expected_node_features,
+    EXPERIMENTAL_FEATURES
 )
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
@@ -1043,11 +1044,15 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Dual funding needs experimental")
 def test_funding_close_upfront(node_factory, bitcoind):
     l1 = node_factory.get_node()
 
     opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/accepter_close_to.py')}
     l2 = node_factory.get_node(options=opts)
+
+    l1.fundwallet(100000000)
+    l2.fundwallet(100000000)
 
     # The 'accepter_close_to' plugin uses the channel funding amount to determine
     # whether or not to include a 'close_to' address
@@ -1061,44 +1066,31 @@ def test_funding_close_upfront(node_factory, bitcoind):
         assert(l1.rpc.listpeers()['peers'][0]['id'] == l2.info['id'])
 
         resp = l1.rpc.fundchannel_start(l2.info['id'], amount, close_to=close_to)
-        address = resp['funding_address']
+        funding_addr = resp['funding_address']
 
         if close_to:
             assert resp['close_to']
         else:
             assert 'close_to' not in resp
 
-        peer = l1.rpc.listpeers()['peers'][0]
-        # Peer should still be connected and in state waiting for funding_txid
-        assert peer['id'] == l2.info['id']
-        r = re.compile('Funding channel start: awaiting funding_txid with output to .*')
-        assert any(r.match(line) for line in peer['channels'][0]['status'])
-        assert 'OPENINGD' in peer['channels'][0]['state']
+        prep = l1.rpc.txprepare([{funding_addr: amount}], zero_out_change=True)
+        decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
+        assert decode['txid'] == prep['txid']
 
-        # 'Externally' fund the address from fundchannel_start
-        addr_scriptpubkey = bitcoind.rpc.getaddressinfo(address)['scriptPubKey']
-        txout = CMutableTxOut(amount, bytearray.fromhex(addr_scriptpubkey))
-        unfunded_tx = CMutableTransaction([], [txout])
-        hextx = binascii.hexlify(unfunded_tx.serialize()).decode('utf8')
+        # One output will be correct.
+        if decode['vout'][0]['value'] == Decimal(str(amount / 10 ** 8)):
+            txout = 0
+        elif decode['vout'][1]['value'] == Decimal(str(amount / 10 ** 8)):
+            txout = 1
+        else:
+            assert False
 
-        funded_tx_obj = bitcoind.rpc.fundrawtransaction(hextx)
-        raw_funded_tx = funded_tx_obj['hex']
-        txid = bitcoind.rpc.decoderawtransaction(raw_funded_tx)['txid']
-        txout = 1 if funded_tx_obj['changepos'] == 0 else 0
-
-        assert l1.rpc.fundchannel_complete(l2.info['id'], txid, txout)['commitments_secured']
-
-        # Broadcast the transaction manually and confirm that channel locks in
-        signed_tx = bitcoind.rpc.signrawtransactionwithwallet(raw_funded_tx)['hex']
-        assert txid == bitcoind.rpc.decoderawtransaction(signed_tx)['txid']
-
-        bitcoind.rpc.sendrawtransaction(signed_tx)
+        txid = l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['txid']
+        l1.rpc.txsend(txid)
         bitcoind.generate_block(1)
 
         for node in [l1, l2]:
             node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
-            channel = node.rpc.listpeers()['peers'][0]['channels'][-1]
-            assert amount * 1000 == channel['msatoshi_total']
 
     # check that normal peer close works
     _fundchannel(l1, l2, amt_normal, None)
@@ -1117,9 +1109,11 @@ def test_funding_close_upfront(node_factory, bitcoind):
     addr = bitcoind.rpc.getnewaddress()
     _fundchannel(l1, l2, amt_normal, addr)
     assert addr == only_one(l1.rpc.listpeers()['peers'])['channels'][2]['close_to_addr']
+    l2_close_to_addr = l2.rpc.listpeers()['peers'][0]['channels'][-1]['close_to_addr']
     resp = l1.rpc.close(l2.info['id'], destination=addr)
     assert resp['type'] == 'mutual'
-    assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
+    for vout in bitcoind.rpc.decoderawtransaction(resp['tx'])['vout']:
+        assert only_one(vout['scriptPubKey']['addresses']) in [addr, l2_close_to_addr]
 
     # check that remote peer closing works as expected (and that remote's close_to works)
     _fundchannel(l1, l2, amt_addr, addr)

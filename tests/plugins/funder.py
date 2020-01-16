@@ -15,16 +15,16 @@ plugin = Plugin()
 
 @plugin.hook("openchannel")
 def on_openchannel(openchannel, plugin, **kwargs):
-    if openchannel['version'] == "1":
+    if openchannel['version'] == 1:
         raise ValueError("Not to be used with v1")
 
     their_funds = Millisatoshi(openchannel['opener_satoshis'])
     # We send back our maximum available funds
     if their_funds.to_satoshi() % 2 == 1:
         our_funds = Millisatoshi(openchannel['available_funds'])
-        return {'result': 'continue', 'funding_sats': our_funds}
+        return {'result': 'continue', 'funding_sats': our_funds.to_satoshi_str()}
     else:
-        return {'result': 'continue', 'funding_sats': their_funds}
+        return {'result': 'continue', 'funding_sats': their_funds.to_satoshi_str()}
 
 
 plugin.run()
