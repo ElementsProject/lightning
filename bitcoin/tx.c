@@ -170,9 +170,10 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 
 	/* Now store the input amount if we know it, so we can sign later */
 	if (tal_count(tx->input_amounts) < tx->wtx->num_inputs)
-		tal_resize(&tx->input_amounts, tx->wtx->num_inputs);
+		tal_resizez(&tx->input_amounts, tx->wtx->num_inputs);
 
-	tx->input_amounts[i] = tal_free(tx->input_amounts[i]);
+	if (tx->input_amounts[i])
+		tx->input_amounts[i] = tal_free(tx->input_amounts[i]);
 	tx->input_amounts[i] = tal_dup(tx, struct amount_sat, &amount);
 
 	return i;
