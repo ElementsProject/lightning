@@ -1,8 +1,8 @@
 /* lightningd/json_stream.h
  * Helpers for outputting JSON results into a membuf.
  */
-#ifndef LIGHTNING_LIGHTNINGD_JSON_STREAM_H
-#define LIGHTNING_LIGHTNINGD_JSON_STREAM_H
+#ifndef LIGHTNING_COMMON_JSON_STREAM_H
+#define LIGHTNING_COMMON_JSON_STREAM_H
 #include "config.h"
 #include <ccan/membuf/membuf.h>
 #include <ccan/short_types/short_types.h>
@@ -131,4 +131,4 @@ struct io_plan *json_stream_output_(struct json_stream *js,
 
 void json_stream_flush(struct json_stream *js);
 
-#endif /* LIGHTNING_LIGHTNINGD_JSON_STREAM_H */
+#endif /* LIGHTNING_COMMON_JSON_STREAM_H */

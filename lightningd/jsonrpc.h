@@ -6,7 +6,7 @@
 #include <ccan/list/list.h>
 #include <common/errcode.h>
 #include <common/json.h>
-#include <lightningd/json_stream.h>
+#include <common/json_stream.h>
 #include <stdarg.h>
 
 struct jsonrpc;

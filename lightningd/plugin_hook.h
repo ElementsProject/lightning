@@ -5,7 +5,7 @@
 #include <ccan/autodata/autodata.h>
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
-#include <lightningd/json_stream.h>
+#include <common/json_stream.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/plugin.h>
 

@@ -1,4 +1,4 @@
-#include "../json_stream.c"
+#include "../../common/json_stream.c"
 #include "../jsonrpc.c"
 #include "../json.c"
 
