@@ -6,10 +6,8 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
+#include <common/json_stream.h>
 #include <common/utils.h>
-#include <lightningd/json.h>
-#include <lightningd/json_stream.h>
-#include <lightningd/log.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -208,8 +206,6 @@ static struct io_plan *json_stream_output_write(struct io_conn *conn,
 	}
 
 	js->reader = conn;
-	if (js->log)
-		log_io(js->log, LOG_IO_OUT, NULL, "", p, js->len_read);
 	return io_write(conn,
 			p, js->len_read,
 			json_stream_output_write, js);

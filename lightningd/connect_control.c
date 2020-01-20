@@ -6,6 +6,7 @@
 #include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_stream.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/node_id.h>
@@ -21,7 +22,6 @@
 #include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
-#include <lightningd/json_stream.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
