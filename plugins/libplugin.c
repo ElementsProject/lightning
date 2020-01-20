@@ -37,6 +37,17 @@ bool deprecated_apis;
 
 extern const struct chainparams *chainparams;
 
+struct plugin {
+	enum plugin_restartability restartability;
+	const struct plugin_command *commands;
+	size_t num_commands;
+	const struct plugin_notification *notif_subs;
+	size_t num_notif_subs;
+	const struct plugin_hook *hook_subs;
+	size_t num_hook_subs;
+	struct plugin_option *opts;
+};
+
 struct plugin_timer {
 	struct timer timer;
 	struct command_result *(*cb)(void);
@@ -484,53 +495,47 @@ send_outreq_(struct command *cmd,
 
 static struct command_result *
 handle_getmanifest(struct command *getmanifest_cmd,
-		   const struct plugin_command *commands,
-		   size_t num_commands,
-		   const struct plugin_notification *notif_subs,
-		   size_t num_notif_subs,
-		   const struct plugin_hook *hook_subs,
-		   size_t num_hook_subs,
-		   const struct plugin_option *opts,
-		   const enum plugin_restartability restartability)
+		   struct plugin *p)
 {
 	struct json_out *params = json_out_new(tmpctx);
 
 	json_out_start(params, NULL, '{');
 	json_out_start(params, "options", '[');
-	for (size_t i = 0; i < tal_count(opts); i++) {
+	for (size_t i = 0; i < tal_count(p->opts); i++) {
 		json_out_start(params, NULL, '{');
-		json_out_addstr(params, "name", opts[i].name);
-		json_out_addstr(params, "type", opts[i].type);
-		json_out_addstr(params, "description", opts[i].description);
+		json_out_addstr(params, "name", p->opts[i].name);
+		json_out_addstr(params, "type", p->opts[i].type);
+		json_out_addstr(params, "description", p->opts[i].description);
 		json_out_end(params, '}');
 	}
 	json_out_end(params, ']');
 
 	json_out_start(params, "rpcmethods", '[');
-	for (size_t i = 0; i < num_commands; i++) {
+	for (size_t i = 0; i < p->num_commands; i++) {
 		json_out_start(params, NULL, '{');
-		json_out_addstr(params, "name", commands[i].name);
+		json_out_addstr(params, "name", p->commands[i].name);
 		json_out_addstr(params, "usage",
-				strmap_get(&usagemap, commands[i].name));
-		json_out_addstr(params, "description", commands[i].description);
-		if (commands[i].long_description)
+				strmap_get(&usagemap, p->commands[i].name));
+		json_out_addstr(params, "description", p->commands[i].description);
+		if (p->commands[i].long_description)
 			json_out_addstr(params, "long_description",
-					commands[i].long_description);
+					p->commands[i].long_description);
 		json_out_end(params, '}');
 	}
 	json_out_end(params, ']');
 
 	json_out_start(params, "subscriptions", '[');
-	for (size_t i = 0; i < num_notif_subs; i++)
-		json_out_addstr(params, NULL, notif_subs[i].name);
+	for (size_t i = 0; i < p->num_notif_subs; i++)
+		json_out_addstr(params, NULL, p->notif_subs[i].name);
 	json_out_end(params, ']');
 
 	json_out_start(params, "hooks", '[');
-	for (size_t i = 0; i < num_hook_subs; i++)
-		json_out_addstr(params, NULL, hook_subs[i].name);
+	for (size_t i = 0; i < p->num_hook_subs; i++)
+		json_out_addstr(params, NULL, p->hook_subs[i].name);
 	json_out_end(params, ']');
 
-	json_out_addstr(params, "dynamic", restartability == PLUGIN_RESTARTABLE ? "true" : "false");
+	json_out_addstr(params, "dynamic",
+			p->restartability == PLUGIN_RESTARTABLE ? "true" : "false");
 	json_out_end(params, '}');
 	json_out_finished(params);
 
@@ -629,12 +634,7 @@ char *charp_option(const char *arg, char **p)
 static void handle_new_command(const tal_t *ctx,
 			       struct plugin_conn *request_conn,
 			       struct plugin_conn *rpc_conn,
-			       const struct plugin_command *commands,
-			       size_t num_commands,
-			       const struct plugin_notification *notif_subs,
-			       size_t num_notif_subs,
-			       const struct plugin_hook *hook_subs,
-			       size_t num_hook_subs)
+			       struct plugin *p)
 {
 	struct command *cmd;
 	const jsmntok_t *params;
@@ -643,27 +643,27 @@ static void handle_new_command(const tal_t *ctx,
 	cmd = read_json_request(ctx, request_conn, rpc_conn, &params, &reqlen);
 	/* If this is a notification. */
 	if (!cmd->id) {
-		for (size_t i = 0; i < num_notif_subs; i++) {
-			if (streq(cmd->methodname, notif_subs[i].name)) {
-				notif_subs[i].handle(cmd, membuf_elems(&request_conn->mb),
-				                     params);
+		for (size_t i = 0; i < p->num_notif_subs; i++) {
+			if (streq(cmd->methodname, p->notif_subs[i].name)) {
+				p->notif_subs[i].handle(cmd, membuf_elems(&request_conn->mb),
+				                        params);
 				membuf_consume(&request_conn->mb, reqlen);
 			}
 		}
 		return;
 	}
-	for (size_t i = 0; i < num_hook_subs; i++) {
-		if (streq(cmd->methodname, hook_subs[i].name)) {
-			hook_subs[i].handle(cmd, membuf_elems(&request_conn->mb),
-					   params);
+	for (size_t i = 0; i < p->num_hook_subs; i++) {
+		if (streq(cmd->methodname, p->hook_subs[i].name)) {
+			p->hook_subs[i].handle(cmd, membuf_elems(&request_conn->mb),
+					       params);
 			membuf_consume(&request_conn->mb, reqlen);
 			return;
 		}
 	}
-	for (size_t i = 0; i < num_commands; i++) {
-		if (streq(cmd->methodname, commands[i].name)) {
-			commands[i].handle(cmd, membuf_elems(&request_conn->mb),
-					   params);
+	for (size_t i = 0; i < p->num_commands; i++) {
+		if (streq(cmd->methodname, p->commands[i].name)) {
+			p->commands[i].handle(cmd, membuf_elems(&request_conn->mb),
+					      params);
 			membuf_consume(&request_conn->mb, reqlen);
 			return;
 		}
@@ -757,9 +757,44 @@ void plugin_log(enum log_level l, const char *fmt, ...)
 	va_end(ap);
 }
 
+static struct plugin *new_plugin(const tal_t *ctx,
+				 const enum plugin_restartability restartability,
+				 const struct plugin_command *commands,
+				 size_t num_commands,
+				 const struct plugin_notification *notif_subs,
+				 size_t num_notif_subs,
+				 const struct plugin_hook *hook_subs,
+				 size_t num_hook_subs,
+				 va_list ap)
+{
+	const char *optname;
+	struct plugin *p = tal(ctx, struct plugin);
+
+	p->restartability = restartability;
+	p->commands = commands;
+	p->num_commands = num_commands;
+	p->notif_subs = notif_subs;
+	p->num_notif_subs = num_notif_subs;
+	p->hook_subs = hook_subs;
+	p->num_hook_subs = num_hook_subs;
+	p->opts = tal_arr(p, struct plugin_option, 0);
+
+	while ((optname = va_arg(ap, const char *)) != NULL) {
+		struct plugin_option o;
+		o.name = optname;
+		o.type = va_arg(ap, const char *);
+		o.description = va_arg(ap, const char *);
+		o.handle = va_arg(ap, char *(*)(const char *str, void *arg));
+		o.arg = va_arg(ap, void *);
+		tal_arr_expand(&p->opts, o);
+	}
+
+	return p;
+}
+
 void plugin_main(char *argv[],
 		 void (*init)(struct plugin_conn *rpc,
-						     const char *buf, const jsmntok_t *),
+			      const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
 		 const struct plugin_command *commands,
 		 size_t num_commands,
@@ -769,15 +804,13 @@ void plugin_main(char *argv[],
 		 size_t num_hook_subs,
 		 ...)
 {
+	struct plugin *plugin;
 	struct plugin_conn request_conn;
-	const tal_t *ctx = tal(NULL, char);
 	struct command *cmd;
 	const jsmntok_t *params;
 	int reqlen;
 	struct pollfd fds[2];
-	struct plugin_option *opts = tal_arr(ctx, struct plugin_option, 0);
 	va_list ap;
-	const char *optname;
 
 	setup_locale();
 
@@ -788,27 +821,21 @@ void plugin_main(char *argv[],
 
 	setup_command_usage(commands, num_commands);
 
+	va_start(ap, num_hook_subs);
+	plugin = new_plugin(NULL, restartability, commands, num_commands,
+			    notif_subs, num_notif_subs, hook_subs,
+			    num_hook_subs, ap);
+	va_end(ap);
+
 	timers_init(&timers, time_mono());
 	membuf_init(&rpc_conn.mb,
-		    tal_arr(ctx, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
+		    tal_arr(plugin, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
 		    membuf_tal_realloc);
 	request_conn.fd = STDIN_FILENO;
 	membuf_init(&request_conn.mb,
-		    tal_arr(ctx, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
+		    tal_arr(plugin, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
 		    membuf_tal_realloc);
 	uintmap_init(&out_reqs);
-
-	va_start(ap, num_hook_subs);
-	while ((optname = va_arg(ap, const char *)) != NULL) {
-		struct plugin_option o;
-		o.name = optname;
-		o.type = va_arg(ap, const char *);
-		o.description = va_arg(ap, const char *);
-		o.handle = va_arg(ap, char *(*)(const char *str, void *arg));
-		o.arg = va_arg(ap, void *);
-		tal_arr_expand(&opts, o);
-	}
-	va_end(ap);
 
 	cmd = read_json_request(tmpctx, &request_conn, NULL,
 				&params, &reqlen);
@@ -816,8 +843,7 @@ void plugin_main(char *argv[],
 		plugin_err("Expected getmanifest not %s", cmd->methodname);
 
 	membuf_consume(&request_conn.mb, reqlen);
-	handle_getmanifest(cmd, commands, num_commands, notif_subs, num_notif_subs,
-	                   hook_subs, num_hook_subs, opts, restartability);
+	handle_getmanifest(cmd, plugin);
 
 	cmd = read_json_request(tmpctx, &request_conn, &rpc_conn,
 				&params, &reqlen);
@@ -825,7 +851,7 @@ void plugin_main(char *argv[],
 		plugin_err("Expected init not %s", cmd->methodname);
 
 	handle_init(cmd, membuf_elems(&request_conn.mb),
-		    params, opts, init);
+		    params, plugin->opts, init);
 	membuf_consume(&request_conn.mb, reqlen);
 
 	/* Set up fds for poll. */
@@ -843,9 +869,7 @@ void plugin_main(char *argv[],
 
 		/* If we already have some input, process now. */
 		if (membuf_num_elems(&request_conn.mb) != 0) {
-			handle_new_command(ctx, &request_conn, &rpc_conn,
-					   commands, num_commands, notif_subs, num_notif_subs,
-					   hook_subs, num_hook_subs);
+			handle_new_command(plugin, &request_conn, &rpc_conn, plugin);
 			continue;
 		}
 		if (membuf_num_elems(&rpc_conn.mb) != 0) {
@@ -871,10 +895,10 @@ void plugin_main(char *argv[],
 		poll(fds, 2, t);
 
 		if (fds[0].revents & POLLIN)
-			handle_new_command(ctx, &request_conn, &rpc_conn,
-					   commands, num_commands, notif_subs, num_notif_subs,
-					   hook_subs, num_hook_subs);
+			handle_new_command(plugin, &request_conn, &rpc_conn, plugin);
 		if (fds[1].revents & POLLIN)
 			handle_rpc_reply(&rpc_conn);
 	}
+
+	tal_free(plugin);
 }
