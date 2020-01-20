@@ -1244,7 +1244,7 @@ bool channel_force_htlcs(struct channel *channel,
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
 			status_broken("Fail %s HTLC %"PRIu64" state %s",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     fulfilled[i].id,
+				     failed[i]->id,
 				     htlc_state_name(htlc->state));
 			return false;
 		}
