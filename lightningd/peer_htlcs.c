@@ -576,7 +576,6 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	hout = tal(tmpctx, struct htlc_out);
 	failcode = send_htlc_out(next, amt_to_forward,
 				 outgoing_cltv_value, &hin->payment_hash,
 				 0, next_onion, hin, &hout);
