@@ -1017,8 +1017,8 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		p->buffer = tal_arr(p, char, 64);
 		p->stop = false;
 
-		/* Create two connections, one read-only on top of p->stdin, and one
-		 * write-only on p->stdout */
+		/* Create two connections, one read-only on top of p->stdout, and one
+		 * write-only on p->stdin */
 		io_new_conn(p, stdout, plugin_stdout_conn_init, p);
 		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
 		req = jsonrpc_request_start(p, "getmanifest", p->log,
