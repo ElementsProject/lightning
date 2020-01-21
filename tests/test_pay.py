@@ -2479,7 +2479,7 @@ def test_createonion_rpc(node_factory):
     # The trailer is generated using the filler and can be ued as a
     # checksum. This trailer is from the test-vector in the specs.
     print(res)
-    assert(res['onion'].endswith('be89e4701eb870f8ed64fafa446c78df3ea'))
+    assert(res['onion'].endswith('9400f45a48e6dc8ddbaeb3'))
 
 
 @unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
