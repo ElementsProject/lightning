@@ -425,7 +425,7 @@ struct onionpacket *create_onionpacket(
 	/* Note that this is just hop_payloads: the rest of the packet is
 	 * overwritten below or above anyway. */
 	generate_key(padkey, "pad", 3, sp->session_key);
-	generate_cipher_stream(stream, padkey, ROUTING_INFO_SIZE);
+	generate_cipher_stream(packet->routinginfo, padkey, ROUTING_INFO_SIZE);
 
 	generate_header_padding(filler, sizeof(filler), sp, params);
 
