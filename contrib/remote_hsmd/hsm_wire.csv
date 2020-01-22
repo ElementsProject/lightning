@@ -1,0 +1,212 @@
+# Clients should not give a bad request but not the HSM's decision to crash.
+msgtype,hsmstatus_client_bad_request,1000
+msgdata,hsmstatus_client_bad_request,id,node_id,
+msgdata,hsmstatus_client_bad_request,description,wirestring,
+msgdata,hsmstatus_client_bad_request,len,u16,
+msgdata,hsmstatus_client_bad_request,msg,u8,len
+
+#include <bitcoin/chainparams.h>
+# Start the HSM.
+msgtype,hsm_init,11
+msgdata,hsm_init,bip32_key_version,bip32_key_version,
+msgdata,hsm_init,chainparams,chainparams,
+msgdata,hsm_init,hsm_encryption_key,?secret,
+msgdata,hsm_init,dev_force_privkey,?privkey,
+msgdata,hsm_init,dev_force_bip32_seed,?secret,
+msgdata,hsm_init,dev_force_channel_secrets,?secrets,
+msgdata,hsm_init,dev_force_channel_secrets_shaseed,?sha256,
+
+#include <common/bip32.h>
+msgtype,hsm_init_reply,111
+msgdata,hsm_init_reply,node_id,node_id,
+msgdata,hsm_init_reply,bip32,ext_key,
+
+# Get a new HSM FD, with the specified capabilities
+msgtype,hsm_client_hsmfd,9
+# Which identity to use for requests
+msgdata,hsm_client_hsmfd,id,node_id,
+# Database id for this client, if any.
+msgdata,hsm_client_hsmfd,dbid,u64,
+msgdata,hsm_client_hsmfd,capabilities,u64,
+
+# No content, just an fd.
+msgtype,hsm_client_hsmfd_reply,109
+
+#include <common/derive_basepoints.h>
+# Get the basepoints and funding key for this specific channel.
+msgtype,hsm_get_channel_basepoints,10
+msgdata,hsm_get_channel_basepoints,peerid,node_id,
+msgdata,hsm_get_channel_basepoints,dbid,u64,
+
+msgtype,hsm_get_channel_basepoints_reply,110
+msgdata,hsm_get_channel_basepoints_reply,basepoints,basepoints,
+msgdata,hsm_get_channel_basepoints_reply,funding_pubkey,pubkey,
+
+# Return signature for a funding tx.
+#include <common/utxo.h>
+# FIXME: This should also take their commit sig & details, to verify.
+msgtype,hsm_sign_funding,4
+msgdata,hsm_sign_funding,satoshi_out,amount_sat,
+msgdata,hsm_sign_funding,change_out,amount_sat,
+msgdata,hsm_sign_funding,change_keyindex,u32,
+msgdata,hsm_sign_funding,our_pubkey,pubkey,
+msgdata,hsm_sign_funding,their_pubkey,pubkey,
+msgdata,hsm_sign_funding,num_inputs,u16,
+msgdata,hsm_sign_funding,inputs,utxo,num_inputs
+
+msgtype,hsm_sign_funding_reply,104
+msgdata,hsm_sign_funding_reply,tx,bitcoin_tx,
+
+# Master asks the HSM to sign a node_announcement
+msgtype,hsm_node_announcement_sig_req,6
+msgdata,hsm_node_announcement_sig_req,annlen,u16,
+msgdata,hsm_node_announcement_sig_req,announcement,u8,annlen
+
+msgtype,hsm_node_announcement_sig_reply,106
+msgdata,hsm_node_announcement_sig_reply,signature,secp256k1_ecdsa_signature,
+
+# Sign a withdrawal request
+msgtype,hsm_sign_withdrawal,7
+msgdata,hsm_sign_withdrawal,satoshi_out,amount_sat,
+msgdata,hsm_sign_withdrawal,change_out,amount_sat,
+msgdata,hsm_sign_withdrawal,change_keyindex,u32,
+msgdata,hsm_sign_withdrawal,num_outputs,u16,
+msgdata,hsm_sign_withdrawal,outputs,bitcoin_tx_output,num_outputs
+msgdata,hsm_sign_withdrawal,num_inputs,u16,
+msgdata,hsm_sign_withdrawal,inputs,utxo,num_inputs
+
+msgtype,hsm_sign_withdrawal_reply,107
+msgdata,hsm_sign_withdrawal_reply,tx,bitcoin_tx,
+
+# Sign an invoice
+msgtype,hsm_sign_invoice,8
+msgdata,hsm_sign_invoice,len,u16,
+msgdata,hsm_sign_invoice,u5bytes,u8,len
+msgdata,hsm_sign_invoice,hrplen,u16,
+msgdata,hsm_sign_invoice,hrp,u8,hrplen
+
+msgtype,hsm_sign_invoice_reply,108
+msgdata,hsm_sign_invoice_reply,sig,secp256k1_ecdsa_recoverable_signature,
+
+# Give me ECDH(node-id-secret,point)
+msgtype,hsm_ecdh_req,1
+msgdata,hsm_ecdh_req,point,pubkey,
+msgtype,hsm_ecdh_resp,100
+msgdata,hsm_ecdh_resp,ss,secret,
+
+msgtype,hsm_cannouncement_sig_req,2
+msgdata,hsm_cannouncement_sig_req,calen,u16,
+msgdata,hsm_cannouncement_sig_req,ca,u8,calen
+
+msgtype,hsm_cannouncement_sig_reply,102
+msgdata,hsm_cannouncement_sig_reply,node_signature,secp256k1_ecdsa_signature,
+msgdata,hsm_cannouncement_sig_reply,bitcoin_signature,secp256k1_ecdsa_signature,
+
+msgtype,hsm_cupdate_sig_req,3
+msgdata,hsm_cupdate_sig_req,culen,u16,
+msgdata,hsm_cupdate_sig_req,cu,u8,culen
+
+msgtype,hsm_cupdate_sig_reply,103
+msgdata,hsm_cupdate_sig_reply,culen,u16,
+msgdata,hsm_cupdate_sig_reply,cu,u8,culen
+
+# Master asks HSM to sign a commitment transaction.
+msgtype,hsm_sign_commitment_tx,5
+msgdata,hsm_sign_commitment_tx,peer_id,node_id,
+msgdata,hsm_sign_commitment_tx,channel_dbid,u64,
+msgdata,hsm_sign_commitment_tx,tx,bitcoin_tx,
+msgdata,hsm_sign_commitment_tx,remote_funding_key,pubkey,
+msgdata,hsm_sign_commitment_tx,funding_amount,amount_sat,
+
+msgtype,hsm_sign_commitment_tx_reply,105
+msgdata,hsm_sign_commitment_tx_reply,sig,bitcoin_signature,
+
+# Onchaind asks HSM to sign a spend to-us.  Four variants, since each set
+# of keys is derived differently...
+# FIXME: Have master tell hsmd the keyindex, so it can validate output!
+msgtype,hsm_sign_delayed_payment_to_us,12
+msgdata,hsm_sign_delayed_payment_to_us,commit_num,u64,
+msgdata,hsm_sign_delayed_payment_to_us,tx,bitcoin_tx,
+msgdata,hsm_sign_delayed_payment_to_us,wscript_len,u16,
+msgdata,hsm_sign_delayed_payment_to_us,wscript,u8,wscript_len
+msgdata,hsm_sign_delayed_payment_to_us,input_amount,amount_sat,
+
+msgtype,hsm_sign_remote_htlc_to_us,13
+msgdata,hsm_sign_remote_htlc_to_us,remote_per_commitment_point,pubkey,
+msgdata,hsm_sign_remote_htlc_to_us,tx,bitcoin_tx,
+msgdata,hsm_sign_remote_htlc_to_us,wscript_len,u16,
+msgdata,hsm_sign_remote_htlc_to_us,wscript,u8,wscript_len
+msgdata,hsm_sign_remote_htlc_to_us,input_amount,amount_sat,
+
+msgtype,hsm_sign_penalty_to_us,14
+msgdata,hsm_sign_penalty_to_us,revocation_secret,secret,
+msgdata,hsm_sign_penalty_to_us,tx,bitcoin_tx,
+msgdata,hsm_sign_penalty_to_us,wscript_len,u16,
+msgdata,hsm_sign_penalty_to_us,wscript,u8,wscript_len
+msgdata,hsm_sign_penalty_to_us,input_amount,amount_sat,
+
+# Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
+msgtype,hsm_sign_local_htlc_tx,16
+msgdata,hsm_sign_local_htlc_tx,commit_num,u64,
+msgdata,hsm_sign_local_htlc_tx,tx,bitcoin_tx,
+msgdata,hsm_sign_local_htlc_tx,wscript_len,u16,
+msgdata,hsm_sign_local_htlc_tx,wscript,u8,wscript_len
+msgdata,hsm_sign_local_htlc_tx,input_amount,amount_sat,
+
+# Openingd/channeld asks HSM to sign the other sides' commitment tx.
+msgtype,hsm_sign_remote_commitment_tx,19
+msgdata,hsm_sign_remote_commitment_tx,tx,bitcoin_tx,
+msgdata,hsm_sign_remote_commitment_tx,remote_funding_key,pubkey,
+msgdata,hsm_sign_remote_commitment_tx,funding_amount,amount_sat,
+msgdata,hsm_sign_remote_commitment_tx,num_witscripts,u16,
+msgdata,hsm_sign_remote_commitment_tx,output_witscripts,witscript,num_witscripts
+msgdata,hsm_sign_remote_commitment_tx,remote_per_commit,pubkey,
+msgdata,hsm_sign_remote_commitment_tx,option_static_remotekey,bool,
+
+# channeld asks HSM to sign remote HTLC tx.
+msgtype,hsm_sign_remote_htlc_tx,20
+msgdata,hsm_sign_remote_htlc_tx,tx,bitcoin_tx,
+msgdata,hsm_sign_remote_htlc_tx,len,u16,
+msgdata,hsm_sign_remote_htlc_tx,wscript,u8,len
+msgdata,hsm_sign_remote_htlc_tx,amounts_satoshi,amount_sat,
+msgdata,hsm_sign_remote_htlc_tx,remote_per_commit_point,pubkey,
+
+# closingd asks HSM to sign mutual close tx.
+msgtype,hsm_sign_mutual_close_tx,21
+msgdata,hsm_sign_mutual_close_tx,tx,bitcoin_tx,
+msgdata,hsm_sign_mutual_close_tx,remote_funding_key,pubkey,
+msgdata,hsm_sign_mutual_close_tx,funding,amount_sat,
+
+# Reply for all the above requests.
+msgtype,hsm_sign_tx_reply,112
+msgdata,hsm_sign_tx_reply,sig,bitcoin_signature,
+
+# Openingd/channeld/onchaind asks for Nth per_commitment_point, if > 2, gets N-2 secret.
+msgtype,hsm_get_per_commitment_point,18
+msgdata,hsm_get_per_commitment_point,n,u64,
+
+msgtype,hsm_get_per_commitment_point_reply,118
+msgdata,hsm_get_per_commitment_point_reply,per_commitment_point,pubkey,
+msgdata,hsm_get_per_commitment_point_reply,old_commitment_secret,?secret,
+
+# master -> hsmd: do you have a memleak?
+msgtype,hsm_dev_memleak,33
+
+msgtype,hsm_dev_memleak_reply,133
+msgdata,hsm_dev_memleak_reply,leak,bool,
+
+# channeld asks to check if claimed future commitment_secret is correct.
+msgtype,hsm_check_future_secret,22
+msgdata,hsm_check_future_secret,n,u64,
+msgdata,hsm_check_future_secret,commitment_secret,secret,
+
+msgtype,hsm_check_future_secret_reply,122
+msgdata,hsm_check_future_secret_reply,correct,bool,
+
+# lightningd asks us to sign a string.
+msgtype,hsm_sign_message,23
+msgdata,hsm_sign_message,len,u16,
+msgdata,hsm_sign_message,msg,u8,len
+
+msgtype,hsm_sign_message_reply,123
+msgdata,hsm_sign_message_reply,sig,secp256k1_ecdsa_recoverable_signature,

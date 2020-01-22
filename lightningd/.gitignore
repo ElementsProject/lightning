@@ -6,3 +6,4 @@ lightning_hsmd
 lightning_openingd
 lightning_closingd
 lightning_onchaind
+remote_hsmd
