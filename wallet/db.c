@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/node_id.h>
+#include <common/onionreply.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
@@ -1227,6 +1228,11 @@ void db_bind_json_escape(struct db_stmt *stmt, int pos,
 	db_bind_text(stmt, pos, esc->s);
 }
 
+void db_bind_onionreply(struct db_stmt *stmt, int pos, const struct onionreply *r)
+{
+	db_bind_blob(stmt, pos, r->contents, tal_bytelen(r->contents));
+}
+
 void db_column_preimage(struct db_stmt *stmt, int col,
 			struct preimage *preimage)
 {
@@ -1407,6 +1413,16 @@ struct secret *db_column_secret_arr(const tal_t *ctx, struct db_stmt *stmt,
 void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t)
 {
 	db_column_sha256d(stmt, pos, &t->shad);
+}
+
+struct onionreply *db_column_onionreply(const tal_t *ctx,
+					struct db_stmt *stmt, int col)
+{
+	struct onionreply *r = tal(ctx, struct onionreply);
+	r->contents = tal_dup_arr(r, u8,
+				  db_column_blob(stmt, col),
+				  db_column_bytes(stmt, col), 0);
+	return r;
 }
 
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
