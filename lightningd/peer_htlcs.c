@@ -364,7 +364,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			    struct htlc_out *hout)
 {
 	u16 failure_code;
-	u8 *failurestr;
+	char *failurestr;
 	struct lightningd *ld = subd->ld;
 
 	if (!fromwire_channel_offer_htlc_reply(msg, msg,
@@ -380,10 +380,9 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 	if (failure_code) {
 		hout->failcode = (enum onion_type) failure_code;
 		if (hout->am_origin) {
-			char *localfail = tal_fmt(msg, "%s: %.*s",
+			char *localfail = tal_fmt(msg, "%s: %s",
 						  onion_type_name(failure_code),
-						  (int)tal_count(failurestr),
-						  (const char *)failurestr);
+						  failurestr);
 			payment_failed(ld, hout, localfail);
 
 		} else if (hout->in) {
