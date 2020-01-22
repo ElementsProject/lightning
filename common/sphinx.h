@@ -156,12 +156,6 @@ enum onion_type parse_onionpacket(const u8 *src,
 				  const size_t srclen,
 				  struct onionpacket *dest);
 
-struct onionreply {
-	/* Node index in the path that is replying */
-	int origin_index;
-	u8 *msg;
-};
-
 /**
  * create_onionreply - Format a failure message so we can return it
  *
@@ -191,10 +185,12 @@ u8 *wrap_onionreply(const tal_t *ctx, const struct secret *shared_secret,
  * @shared_secrets: shared secrets from the forward path
  * @numhops: path length and number of shared_secrets provided
  * @reply: the incoming reply
+ * @origin_index: the index in the path where the reply came from (-1 if unknown)
  */
-struct onionreply *unwrap_onionreply(const tal_t *ctx,
-				     const struct secret *shared_secrets,
-				     const int numhops, const u8 *reply);
+u8 *unwrap_onionreply(const tal_t *ctx,
+		      const struct secret *shared_secrets,
+		      const int numhops, const u8 *reply,
+		      int *origin_index);
 
 /**
  * Create a new empty sphinx_path.
