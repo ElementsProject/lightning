@@ -57,6 +57,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
+	common/onionreply.o			\
 	common/per_peer_state.o			\
 	common/pseudorand.o			\
 	common/status.o				\

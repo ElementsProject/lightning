@@ -6,6 +6,7 @@
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/onion.h>
+#include <common/onionreply.h>
 #include <common/param.h>
 #include <common/timeout.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -172,14 +173,14 @@ json_add_routefail_info(struct json_stream *js,
 void json_sendpay_fail_fields(struct json_stream *js,
 			      const struct wallet_payment *payment,
 			      int pay_errcode,
-			      const u8 *onionreply,
+			      const struct onionreply *onionreply,
 			      const struct routing_failure *fail)
 {
 	/* "immediate_routing_failure" is before payment creation. */
 	if (payment)
 		json_add_payment_fields(js, payment);
 	if (pay_errcode == PAY_UNPARSEABLE_ONION)
-		json_add_hex_talarr(js, "onionreply", onionreply);
+		json_add_hex_talarr(js, "onionreply", onionreply->contents);
 	else
 		json_add_routefail_info(js,
 					fail->erring_index,
@@ -210,7 +211,7 @@ static struct command_result *
 sendpay_fail(struct command *cmd,
 	     const struct wallet_payment *payment,
 	     int pay_errcode,
-	     const u8 *onionreply,
+	     const struct onionreply *onionreply,
 	     const struct routing_failure *fail,
 	     const char *errmsg)
 {
@@ -243,7 +244,7 @@ static void tell_waiters_failed(struct lightningd *ld,
 				const struct sha256 *payment_hash,
 				const struct wallet_payment *payment,
 				int pay_errcode,
-				const u8 *onionreply,
+				const struct onionreply *onionreply,
 				const struct routing_failure *fail,
 				const char *details)
 {
@@ -620,7 +621,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 					   u64 partid)
 {
 	struct wallet_payment *payment;
-	u8 *failonionreply;
+	struct onionreply *failonionreply;
 	bool faildestperm;
 	int failindex;
 	enum onion_type failcode;

@@ -164,8 +164,9 @@ enum onion_type parse_onionpacket(const u8 *src,
  *     HMAC
  * @failure_msg: message (must support tal_len)
  */
-u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
-		      const u8 *failure_msg);
+struct onionreply *create_onionreply(const tal_t *ctx,
+				     const struct secret *shared_secret,
+				     const u8 *failure_msg);
 
 /**
  * wrap_onionreply - Add another encryption layer to the reply.
@@ -175,8 +176,9 @@ u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
  *     encryption.
  * @reply: the reply to wrap
  */
-u8 *wrap_onionreply(const tal_t *ctx, const struct secret *shared_secret,
-		    const u8 *reply);
+struct onionreply *wrap_onionreply(const tal_t *ctx,
+				   const struct secret *shared_secret,
+				   const struct onionreply *reply);
 
 /**
  * unwrap_onionreply - Remove layers, check integrity and parse reply
@@ -186,10 +188,13 @@ u8 *wrap_onionreply(const tal_t *ctx, const struct secret *shared_secret,
  * @numhops: path length and number of shared_secrets provided
  * @reply: the incoming reply
  * @origin_index: the index in the path where the reply came from (-1 if unknown)
+ *
+ * Reverses create_onionreply and wrap_onionreply.
  */
 u8 *unwrap_onionreply(const tal_t *ctx,
 		      const struct secret *shared_secrets,
-		      const int numhops, const u8 *reply,
+		      const int numhops,
+		      const struct onionreply *reply,
 		      int *origin_index);
 
 /**

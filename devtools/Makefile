@@ -23,6 +23,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/node_id.o			\
 	common/onion.o				\
+	common/onionreply.o			\
 	common/per_peer_state.o			\
 	common/pseudorand.o			\
 	common/json.o				\

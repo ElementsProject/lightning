@@ -34,7 +34,7 @@ struct htlc {
 	const u8 *routing;
 
 	/* Failure message we received or generated. */
-	const u8 *fail;
+	const struct onionreply *fail;
 	/* For a local failure, we might have to generate fail ourselves
 	 * (or, if BADONION we send a update_fail_malformed_htlc). */
 	enum onion_type failcode;
