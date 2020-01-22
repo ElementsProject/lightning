@@ -60,7 +60,8 @@ static struct secret secret_from_hex(const char *hex)
  * we match the test vectors and that we can also unwrap it. */
 static void run_unit_tests(void)
 {
-	struct onionreply *oreply;
+	u8 *oreply;
+	int origin_index;
 	u8 *reply;
 	u8 *raw = tal_hexdata(tmpctx, "2002", 4);
 
@@ -163,9 +164,10 @@ static void run_unit_tests(void)
 		assert(memcmp(reply, intermediates[i], tal_count(reply)) == 0);
 	}
 
-	oreply = unwrap_onionreply(tmpctx, ss, 5, reply);
-	printf("unwrapped %s\n", tal_hex(tmpctx, oreply->msg));
-	assert(memcmp(raw, oreply->msg, tal_bytelen(raw)) == 0);
+	oreply = unwrap_onionreply(tmpctx, ss, 5, reply, &origin_index);
+	printf("unwrapped %s\n", tal_hex(tmpctx, oreply));
+	assert(memeq(raw, tal_bytelen(raw), oreply, tal_bytelen(oreply)));
+	assert(origin_index == 4);
 }
 
 int main(int argc, char **argv)

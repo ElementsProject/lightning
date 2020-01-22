@@ -604,12 +604,12 @@ u8 *wrap_onionreply(const tal_t *ctx,
 	return result;
 }
 
-struct onionreply *unwrap_onionreply(const tal_t *ctx,
-				     const struct secret *shared_secrets,
-				     const int numhops, const u8 *reply)
+u8 *unwrap_onionreply(const tal_t *ctx,
+		      const struct secret *shared_secrets,
+		      const int numhops, const u8 *reply,
+		      int *origin_index)
 {
-	struct onionreply *oreply = tal(tmpctx, struct onionreply);
-	u8 *msg = tal_arr(oreply, u8, tal_count(reply));
+	u8 *msg = tal_arr(tmpctx, u8, tal_count(reply)), *final;
 	u8 key[KEY_LEN], hmac[HMAC_SIZE];
 	const u8 *cursor;
 	size_t max;
@@ -620,7 +620,7 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 	}
 
 	memcpy(msg, reply, tal_count(reply));
-	oreply->origin_index = -1;
+	*origin_index = -1;
 
 	for (int i = 0; i < numhops; i++) {
 		/* Since the encryption is just XORing with the cipher
@@ -633,11 +633,11 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 		compute_hmac(hmac, msg + sizeof(hmac),
 			     tal_count(msg) - sizeof(hmac), key, KEY_LEN);
 		if (memcmp(hmac, msg, sizeof(hmac)) == 0) {
-			oreply->origin_index = i;
+			*origin_index = i;
 			break;
 		}
 	}
-	if (oreply->origin_index == -1) {
+	if (*origin_index == -1) {
 		return NULL;
 	}
 
@@ -649,10 +649,8 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 		return NULL;
 	}
 
-	oreply->msg = tal_arr(oreply, u8, msglen);
-	fromwire(&cursor, &max, oreply->msg, msglen);
+	final = tal_arr(ctx, u8, msglen);
+	fromwire(&cursor, &max, final, msglen);
 
-	tal_steal(ctx, oreply);
-	return oreply;
-
+	return final;
 }

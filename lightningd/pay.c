@@ -373,23 +373,22 @@ static struct routing_failure*
 remote_routing_failure(const tal_t *ctx,
 		       struct lightningd *ld,
 		       const struct wallet_payment *payment,
-		       const struct onionreply *failure,
+		       const u8 *failuremsg,
+		       int origin_index,
 		       struct log *log,
 		       int *pay_errcode)
 {
-	enum onion_type failcode = fromwire_peektype(failure->msg);
+	enum onion_type failcode = fromwire_peektype(failuremsg);
 	struct routing_failure *routing_failure;
 	const struct node_id *route_nodes;
 	const struct node_id *erring_node;
 	const struct short_channel_id *route_channels;
 	const struct short_channel_id *erring_channel;
-	int origin_index;
 	int dir;
 
 	routing_failure = tal(ctx, struct routing_failure);
 	route_nodes = payment->route_nodes;
 	route_channels = payment->route_channels;
-	origin_index = failure->origin_index;
 
 	assert(route_nodes == NULL || origin_index < tal_count(route_nodes));
 
@@ -448,7 +447,7 @@ remote_routing_failure(const tal_t *ctx,
 		 * following node. */
 		if (failcode & BADONION) {
 			log_debug(log, "failcode %u from onionreply %s",
-				  failcode, tal_hex(tmpctx, failure->msg));
+				  failcode, tal_hex(tmpctx, failuremsg));
 			erring_node = &route_nodes[origin_index + 1];
 		} else
 			erring_node = &route_nodes[origin_index];
@@ -460,14 +459,14 @@ remote_routing_failure(const tal_t *ctx,
 							   erring_node,
 							   erring_channel,
 							   dir,
-							   failure->msg);
+							   failuremsg);
 		subd_send_msg(ld->gossip, take(gossip_msg));
 	}
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
-	routing_failure->msg = tal_dup_arr(routing_failure, u8, failure->msg,
-					   tal_count(failure->msg), 0);
+	routing_failure->msg = tal_dup_arr(routing_failure, u8, failuremsg,
+					   tal_count(failuremsg), 0);
 
 	if (erring_node != NULL)
 		routing_failure->erring_node =
@@ -557,11 +556,12 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		failmsg = "reply from remote";
 		/* Try to parse reply. */
 		struct secret *path_secrets = payment->path_secrets;
-		struct onionreply *reply;
+		u8 *reply;
+		int origin_index;
 
 		reply = unwrap_onionreply(tmpctx, path_secrets,
 					  tal_count(path_secrets),
-					  hout->failuremsg);
+					  hout->failuremsg, &origin_index);
 		if (!reply) {
 			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" failed with bad reply (%s)",
@@ -571,18 +571,19 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			fail = NULL;
 			pay_errcode = PAY_UNPARSEABLE_ONION;
 		} else {
-			enum onion_type failcode = fromwire_peektype(reply->msg);
+			enum onion_type failcode = fromwire_peektype(reply);
 			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" "
 				 "failed from %ith node "
 				 "with code 0x%04x (%s)",
 				 hout->key.id,
-				 reply->origin_index,
+				 origin_index,
 				 failcode, onion_type_name(failcode));
 			log_debug(hout->key.channel->log, "failmsg: %s",
-				  tal_hex(tmpctx, reply->msg));
+				  tal_hex(tmpctx, reply));
 			fail = remote_routing_failure(tmpctx, ld,
 						      payment, reply,
+						      origin_index,
 						      hout->key.channel->log,
 						      &pay_errcode);
 		}
