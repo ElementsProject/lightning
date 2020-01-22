@@ -2608,8 +2608,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err e;
 	enum onion_type failcode;
-	/* Subtle: must be tal object since we marshal using tal_bytelen() */
-	const char *failmsg;
+	const char *failstr;
 	struct amount_sat htlc_fee;
 
 	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
@@ -2641,13 +2640,13 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		start_commit_timer(peer);
 		/* Tell the master. */
 		msg = towire_channel_offer_htlc_reply(NULL, peer->htlc_id,
-						      0, NULL);
+						      0, "");
 		wire_sync_write(MASTER_FD, take(msg));
 		peer->htlc_id++;
 		return;
 	case CHANNEL_ERR_INVALID_EXPIRY:
 		failcode = WIRE_INCORRECT_CLTV_EXPIRY;
-		failmsg = tal_fmt(inmsg, "Invalid cltv_expiry %u", cltv_expiry);
+		failstr = tal_fmt(inmsg, "Invalid cltv_expiry %u", cltv_expiry);
 		goto failed;
 	case CHANNEL_ERR_DUPLICATE:
 	case CHANNEL_ERR_DUPLICATE_ID_DIFFERENT:
@@ -2656,30 +2655,30 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	case CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED:
 		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
-		failmsg = tal_fmt(inmsg, "Mini mode: maximum value exceeded");
+		failstr = "Mini mode: maximum value exceeded";
 		goto failed;
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
-		failmsg = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, &htlc_fee));
+		failstr = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, &htlc_fee));
 		goto failed;
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
 		failcode = WIRE_AMOUNT_BELOW_MINIMUM;
-		failmsg = tal_fmt(inmsg, "HTLC too small (%s minimum)",
+		failstr = tal_fmt(inmsg, "HTLC too small (%s minimum)",
 				  type_to_string(tmpctx,
 						 struct amount_msat,
 						 &peer->channel->config[REMOTE].htlc_minimum));
 		goto failed;
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
-		failmsg = tal_fmt(inmsg, "Too many HTLCs");
+		failstr = "Too many HTLCs";
 		goto failed;
 	}
 	/* Shouldn't return anything else! */
 	abort();
 
 failed:
-	msg = towire_channel_offer_htlc_reply(NULL, 0, failcode, (u8*)failmsg);
+	msg = towire_channel_offer_htlc_reply(NULL, 0, failcode, failstr);
 	wire_sync_write(MASTER_FD, take(msg));
 }
 

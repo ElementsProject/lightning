@@ -88,8 +88,7 @@ msgtype,channel_offer_htlc_reply,1104
 msgdata,channel_offer_htlc_reply,id,u64,
 # Zero failure code means success.,
 msgdata,channel_offer_htlc_reply,failure_code,u16,
-msgdata,channel_offer_htlc_reply,failurestrlen,u16,
-msgdata,channel_offer_htlc_reply,failurestr,u8,failurestrlen
+msgdata,channel_offer_htlc_reply,failurestr,wirestring,
 
 # Main daemon found out the preimage for an HTLC
 #include <bitcoin/preimage.h>
