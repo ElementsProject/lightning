@@ -18,6 +18,7 @@
 struct lightningd;
 struct log;
 struct node_id;
+struct onionreply;
 struct db_stmt;
 struct db;
 
@@ -120,6 +121,8 @@ void db_bind_amount_sat(struct db_stmt *stmt, int pos,
 			const struct amount_sat *sat);
 void db_bind_json_escape(struct db_stmt *stmt, int pos,
 			 const struct json_escape *esc);
+void db_bind_onionreply(struct db_stmt *stmt, int col,
+			const struct onionreply *r);
 
 bool db_step(struct db_stmt *stmt);
 u64 db_column_u64(struct db_stmt *stmt, int col);
@@ -150,6 +153,9 @@ bool db_column_signature(struct db_stmt *stmt, int col,
 			 secp256k1_ecdsa_signature *sig);
 struct timeabs db_column_timeabs(struct db_stmt *stmt, int col);
 struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col);
+
+struct onionreply *db_column_onionreply(const tal_t *ctx,
+					struct db_stmt *stmt, int col);
 
 #define db_column_arr(ctx, stmt, col, type)			\
 	((type *)db_column_arr_((ctx), (stmt), (col),		\

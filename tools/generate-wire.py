@@ -224,6 +224,7 @@ class Type(FieldSet):
         'bitcoin_tx_output',
         'exclude_entry',
         'fee_states',
+        'onionreply',
     ]
 
     # Some BOLT types are re-typed based on their field name
