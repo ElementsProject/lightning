@@ -62,6 +62,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/keyset.o				\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/onionreply.o			\
 	common/per_peer_state.o			\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\

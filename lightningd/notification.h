@@ -17,6 +17,8 @@
 #include <wallet/wallet.h>
 #include <wire/gen_onion_wire.h>
 
+struct onionreply;
+
 bool notifications_have_topic(const char *topic);
 
 struct notification {
@@ -61,7 +63,7 @@ void notify_sendpay_success(struct lightningd *ld,
 void notify_sendpay_failure(struct lightningd *ld,
 			    const struct wallet_payment *payment,
 			    int pay_errcode,
-			    const u8 *onionreply,
+			    const struct onionreply *onionreply,
 			    const struct routing_failure *fail,
 			    const char *errmsg);
 

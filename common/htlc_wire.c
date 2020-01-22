@@ -3,6 +3,7 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
 #include <common/memleak.h>
+#include <common/onionreply.h>
 #include <wire/wire.h>
 
 /* FIXME: We could adapt tools/generate-wire.py to generate structures
@@ -26,8 +27,8 @@ void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 {
 	/* Only one can be set. */
-	assert(failed->failcode || tal_count(failed->failreason));
-	assert(!failed->failcode || !tal_count(failed->failreason));
+	assert(failed->failcode || failed->failreason);
+	assert(!failed->failcode || !failed->failreason);
 	towire_u64(pptr, failed->id);
 	towire_u16(pptr, failed->failcode);
 	if (failed->failcode & UPDATE) {
@@ -37,9 +38,7 @@ void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 		assert(!failed->scid);
 		if (!failed->failcode) {
 			assert(failed->failreason);
-			towire_u16(pptr, tal_count(failed->failreason));
-			towire_u8_array(pptr, failed->failreason,
-					tal_count(failed->failreason));
+			towire_onionreply(pptr, failed->failreason);
 		}
 	}
 }
@@ -98,12 +97,8 @@ struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, si
 	failed->id = fromwire_u64(cursor, max);
 	failed->failcode = fromwire_u16(cursor, max);
 	if (failed->failcode == 0) {
-		u16 failreason_len;
 		failed->scid = NULL;
-		failreason_len = fromwire_u16(cursor, max);
-		failed->failreason = tal_arr(failed, u8, failreason_len);
-		fromwire_u8_array(cursor, max, failed->failreason,
-				  failreason_len);
+		failed->failreason = fromwire_onionreply(failed, cursor, max);
 	} else {
 		failed->failreason = NULL;
 		if (failed->failcode & UPDATE) {

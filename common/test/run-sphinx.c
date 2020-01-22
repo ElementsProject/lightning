@@ -1,4 +1,5 @@
 #include "../onion.c"
+#include "../onionreply.c"
 #include "../sphinx.c"
 #include <secp256k1.h>
 #include <ccan/opt/opt.h>
@@ -61,8 +62,8 @@ static struct secret secret_from_hex(const char *hex)
 static void run_unit_tests(void)
 {
 	u8 *oreply;
+	struct onionreply *reply;
 	int origin_index;
-	u8 *reply;
 	u8 *raw = tal_hexdata(tmpctx, "2002", 4);
 
 	/* Shared secrets we already have from the forward path */
@@ -158,10 +159,10 @@ static void run_unit_tests(void)
 
 	reply = create_onionreply(tmpctx, &ss[4], raw);
 	for (int i = 4; i >= 0; i--) {
-		printf("input_packet %s\n", tal_hex(tmpctx, reply));
+		printf("input_packet %s\n", tal_hex(tmpctx, reply->contents));
 		reply = wrap_onionreply(tmpctx, &ss[i], reply);
-		printf("obfuscated_packet %s\n", tal_hex(tmpctx, reply));
-		assert(memcmp(reply, intermediates[i], tal_count(reply)) == 0);
+		printf("obfuscated_packet %s\n", tal_hex(tmpctx, reply->contents));
+		assert(memcmp(reply->contents, intermediates[i], tal_count(reply->contents)) == 0);
 	}
 
 	oreply = unwrap_onionreply(tmpctx, ss, 5, reply, &origin_index);

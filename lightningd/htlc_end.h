@@ -40,7 +40,7 @@ struct htlc_in {
 	enum onion_type failcode;
 
 	/* For a remote error. */
-	const u8 *failuremsg;
+	const struct onionreply *failuremsg;
 
 	/* If failcode & UPDATE, this is the channel which failed. */
 	struct short_channel_id failoutchannel;
@@ -72,7 +72,7 @@ struct htlc_out {
 	enum onion_type failcode;
 
 	/* For a remote error. */
-	const u8 *failuremsg;
+	const struct onionreply *failuremsg;
 
 	/* If we fulfilled, here's the preimage. */
 	/* FIXME: This is basically unused, except as a bool! */

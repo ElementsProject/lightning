@@ -5,6 +5,7 @@
 
 struct htlc_out;
 struct lightningd;
+struct onionreply;
 struct preimage;
 struct sha256;
 struct json_stream;
@@ -28,7 +29,7 @@ void json_add_payment_fields(struct json_stream *response,
 void json_sendpay_fail_fields(struct json_stream *js,
 			      const struct wallet_payment *t,
 			      int pay_errcode,
-			      const u8 *onionreply,
+			      const struct onionreply *onionreply,
 			      const struct routing_failure *fail);
 
 #endif /* LIGHTNING_LIGHTNINGD_PAY_H */

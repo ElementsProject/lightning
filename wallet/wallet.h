@@ -591,7 +591,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
-			enum onion_type failcode, const u8 *failuremsg);
+			enum onion_type failcode,
+			const struct onionreply *failuremsg);
 
 /**
  * wallet_htlcs_load_in_for_channel - Load incoming HTLCs associated with chan from DB.
@@ -998,7 +999,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 const struct sha256 *payment_hash,
 				 u64 partid,
 				 /* outputs */
-				 u8 **failonionreply,
+				 struct onionreply **failonionreply,
 				 bool *faildestperm,
 				 int *failindex,
 				 enum onion_type *failcode,
@@ -1014,7 +1015,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct sha256 *payment_hash,
 				 u64 partid,
-				 const u8 *failonionreply,
+				 const struct onionreply *failonionreply,
 				 bool faildestperm,
 				 int failindex,
 				 enum onion_type failcode,

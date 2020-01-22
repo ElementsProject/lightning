@@ -9,6 +9,7 @@
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/onion.h>
+#include <common/onionreply.h>
 #include <common/overflows.h>
 #include <common/param.h>
 #include <common/sphinx.h>
@@ -96,7 +97,7 @@ static bool htlc_out_update_state(struct channel *channel,
 
 static void fail_in_htlc(struct htlc_in *hin,
 			 enum onion_type failcode,
-			 const u8 *failuremsg,
+			 const struct onionreply *failuremsg,
 			 const struct short_channel_id *out_channelid)
 {
 	struct failed_htlc failed_htlc;
@@ -105,7 +106,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 	assert(failcode || failuremsg);
 	hin->failcode = failcode;
 	if (failuremsg)
-		hin->failuremsg = tal_dup_arr(hin, u8, failuremsg, tal_count(failuremsg), 0);
+		hin->failuremsg = dup_onionreply(hin, failuremsg);
 
 	/* We need this set, since we send it to channeld. */
 	if (hin->failcode & UPDATE)
@@ -125,7 +126,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 
 	failed_htlc.id = hin->key.id;
 	failed_htlc.failcode = hin->failcode;
-	failed_htlc.failreason = cast_const(u8 *, hin->failuremsg);
+	failed_htlc.failreason = hin->failuremsg;
 	if (failed_htlc.failcode & UPDATE)
 		failed_htlc.scid = &hin->failoutchannel;
 	else
@@ -1079,9 +1080,7 @@ static bool peer_failed_our_htlc(struct channel *channel,
 
 	hout->failcode = failed->failcode;
 	if (!failed->failcode)
-		hout->failuremsg = tal_dup_arr(hout, u8, failed->failreason,
-					       tal_count(failed->failreason), 0);
-
+		hout->failuremsg = dup_onionreply(hout, failed->failreason);
 	else
 		hout->failuremsg = NULL;
 
@@ -1796,7 +1795,7 @@ static void add_fulfill(u64 id, enum side side,
 static void add_fail(u64 id, enum side side,
 		     enum onion_type failcode,
 		     const struct short_channel_id *failing_channel,
-		     const u8 *failuremsg,
+		     const struct onionreply *failuremsg,
 		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
 {
@@ -1813,8 +1812,7 @@ static void add_fail(u64 id, enum side side,
 		newf->scid = NULL;
 
 	if (failuremsg)
-		newf->failreason
-			= tal_dup_arr(newf, u8, failuremsg, tal_count(failuremsg), 0);
+		newf->failreason = dup_onionreply(newf, failuremsg);
 	else
 		newf->failreason = NULL;
 

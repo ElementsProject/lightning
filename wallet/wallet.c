@@ -8,6 +8,7 @@
 #include <common/fee_states.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
+#include <common/onionreply.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
@@ -1757,7 +1758,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
-			enum onion_type failcode, const u8 *failuremsg)
+			enum onion_type failcode,
+			const struct onionreply *failuremsg)
 {
 	struct db_stmt *stmt;
 
@@ -1779,7 +1781,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 
 	db_bind_int(stmt, 2, failcode);
 	if (failuremsg)
-		db_bind_blob(stmt, 3, failuremsg, tal_bytelen(failuremsg));
+		db_bind_onionreply(stmt, 3, failuremsg);
 	else
 		db_bind_null(stmt, 3);
 
@@ -1810,7 +1812,10 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	memcpy(&in->onion_routing_packet, db_column_blob(stmt, 7),
 	       sizeof(in->onion_routing_packet));
 
-	in->failuremsg = db_column_arr(in, stmt, 8, u8);
+	if (db_column_is_null(stmt, 8))
+		in->failuremsg = NULL;
+	else
+		in->failuremsg = db_column_onionreply(in, stmt, 8);
 	in->failcode = db_column_int(stmt, 9);
 
 	if (db_column_is_null(stmt, 11)) {
@@ -1857,7 +1862,10 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 	memcpy(&out->onion_routing_packet, db_column_blob(stmt, 7),
 	       sizeof(out->onion_routing_packet));
 
-	out->failuremsg = db_column_arr(out, stmt, 8, u8);
+	if (db_column_is_null(stmt, 8))
+		out->failuremsg = NULL;
+	else
+		out->failuremsg = db_column_onionreply(out, stmt, 8);
 	out->failcode = db_column_int_or_default(stmt, 9, 0);
 	out->in = NULL;
 
@@ -2473,7 +2481,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 const struct sha256 *payment_hash,
 				 u64 partid,
 				 /* outputs */
-				 u8 **failonionreply,
+				 struct onionreply **failonionreply,
 				 bool *faildestperm,
 				 int *failindex,
 				 enum onion_type *failcode,
@@ -2503,9 +2511,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 	if (db_column_is_null(stmt, 0))
 		*failonionreply = NULL;
 	else {
-		len = db_column_bytes(stmt, 0);
-		*failonionreply = tal_arr(ctx, u8, len);
-		memcpy(*failonionreply, db_column_blob(stmt, 0), len);
+		*failonionreply = db_column_onionreply(ctx, stmt, 0);
 	}
 	*faildestperm = db_column_int(stmt, 1) != 0;
 	*failindex = db_column_int(stmt, 2);
@@ -2545,7 +2551,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct sha256 *payment_hash,
 				 u64 partid,
-				 const u8 *failonionreply /*tal_arr*/,
+				 const struct onionreply *failonionreply,
 				 bool faildestperm,
 				 int failindex,
 				 enum onion_type failcode,
@@ -2570,8 +2576,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 					     " WHERE payment_hash=?"
 					     " AND partid=?;"));
 	if (failonionreply)
-		db_bind_blob(stmt, 0, failonionreply,
-			     tal_count(failonionreply));
+		db_bind_blob(stmt, 0, failonionreply->contents,
+			     tal_count(failonionreply->contents));
 	else
 		db_bind_null(stmt, 0);
 

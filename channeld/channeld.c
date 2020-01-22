@@ -36,6 +36,7 @@
 #include <common/memleak.h>
 #include <common/msg_queue.h>
 #include <common/node_id.h>
+#include <common/onionreply.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
@@ -1306,7 +1307,7 @@ static void marshall_htlc_info(const tal_t *ctx,
 				f = tal(*failed, struct failed_htlc);
 				f->id = htlc->id;
 				f->failcode = htlc->failcode;
-				f->failreason = cast_const(u8 *, htlc->fail);
+				f->failreason = htlc->fail;
 				f->scid = cast_const(struct short_channel_id *,
 							htlc->failed_scid);
 				tal_arr_expand(failed, f);
@@ -1656,6 +1657,7 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	u8 *reason;
 	struct htlc *htlc;
 
+	/* reason is not an onionreply because spec doesn't know about that */
 	if (!fromwire_update_fail_htlc(msg, msg,
 				       &channel_id, &id, &reason)) {
 		peer_failed(peer->pps,
@@ -1665,11 +1667,14 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 
 	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
-	case CHANNEL_ERR_REMOVE_OK:
+	case CHANNEL_ERR_REMOVE_OK: {
 		/* Save reason for when we tell master. */
-		htlc->fail = tal_steal(htlc, reason);
+		struct onionreply *r = tal(htlc, struct onionreply);
+		r->contents = tal_steal(r, reason);
+		htlc->fail = r;
 		start_commit_timer(peer);
 		return;
+	}
 	case CHANNEL_ERR_NO_SUCH_ID:
 	case CHANNEL_ERR_ALREADY_FULFILLED:
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
@@ -1934,7 +1939,7 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 							h->id, &sha256_of_onion,
 							h->why_bad_onion);
 	} else if (h->failcode || h->fail) {
-		const u8 *onion;
+		const struct onionreply *onion;
 		if (h->failcode) {
 			/* Local failure, make a message. */
 			u8 *failmsg = make_failmsg(tmpctx, peer, h, h->failcode,
@@ -1950,7 +1955,7 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 		msg = towire_update_fail_htlc(peer, &peer->channel_id, h->id,
 					      wrap_onionreply(tmpctx,
 							      h->shared_secret,
-							      onion));
+							      onion)->contents);
 	} else if (h->r) {
 		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id, h->id,
 						 h->r);

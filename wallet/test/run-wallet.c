@@ -485,8 +485,7 @@ void payment_failed(struct lightningd *ld UNNEEDED, const struct htlc_out *hout 
 		    const char *localfail UNNEEDED)
 { fprintf(stderr, "payment_failed called!\n"); abort(); }
 /* Generated stub for payment_store */
-void payment_store(struct lightningd *ld UNNEEDED,
-		   struct wallet_payment *payment UNNEEDED)
+void payment_store(struct lightningd *ld UNNEEDED, struct wallet_payment *payment UNNEEDED)
 { fprintf(stderr, "payment_store called!\n"); abort(); }
 /* Generated stub for payment_succeeded */
 void payment_succeeded(struct lightningd *ld UNNEEDED, struct htlc_out *hout UNNEEDED,
@@ -1173,6 +1172,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wallet *w = create_test_wallet(ld, ctx);
 	struct htlc_in_map *htlcs_in = tal(ctx, struct htlc_in_map), *rem;
 	struct htlc_out_map *htlcs_out = tal(ctx, struct htlc_out_map);
+	struct onionreply *onionreply;
 
 	/* Make sure we have our references correct */
 	db_begin_transaction(w->db);
@@ -1215,8 +1215,9 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(
 		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, NULL)),
 	    "Update HTLC with payment_key failed");
+	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100));
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, tal_arrz(tmpctx, u8, 100))),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, onionreply)),
 	    "Update HTLC with failreason failed");
 
 	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
