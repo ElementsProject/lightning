@@ -13,7 +13,9 @@
 extern "C" {
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
+#include <common/hash_u5.h>
 #include <common/node_id.h>
 #include <common/status.h>
 #include <common/utils.h>
@@ -37,14 +39,24 @@ using grpc::ClientContext;
 using grpc::Status;
 using grpc::StatusCode;
 
+using rpc::ChannelUpdateSigReq;
+using rpc::ChannelUpdateSigRsp;
 using rpc::ECDHReq;
 using rpc::ECDHRsp;
+using rpc::GetPerCommitmentPointReq;
+using rpc::GetPerCommitmentPointRsp;
 using rpc::InitHSMReq;
 using rpc::InitHSMRsp;
 using rpc::KeyLocator;
+using rpc::PassClientHSMFdReq;
+using rpc::PassClientHSMFdRsp;
 using rpc::SignDescriptor;
+using rpc::SignInvoiceReq;
+using rpc::SignInvoiceRsp;
 using rpc::SignRemoteCommitmentTxReq;
 using rpc::SignRemoteCommitmentTxRsp;
+using rpc::SignRemoteHTLCTxReq;
+using rpc::SignRemoteHTLCTxRsp;
 using rpc::SignWithdrawalTxReq;
 using rpc::SignWithdrawalTxRsp;
 using rpc::Signature;
@@ -79,18 +91,20 @@ string channel_nonce(struct node_id *peer_id, u64 dbid)
 
 u8 ***return_sigs(RepeatedPtrField< ::rpc::Signature > const &isigs)
 {
-	u8 ***osigs;
+	u8 ***osigs = NULL;
 	int nsigs = isigs.size();
-	osigs = tal_arrz(tmpctx, u8**, nsigs);
-	for (size_t ii = 0; ii < nsigs; ++ii) {
-		Signature const &sig = isigs[ii];
-		int nelem = sig.item_size();
-		osigs[ii] = tal_arrz(osigs, u8*, nelem);
-		for (size_t jj = 0; jj < nelem; ++jj) {
-			string const &elem = sig.item(jj);
-			size_t elen = elem.size();
-			osigs[ii][jj] = tal_arr(osigs[ii], u8, elen);
-			memcpy(osigs[ii][jj], &elem[0], elen);
+	if (nsigs > 0) {
+		osigs = tal_arrz(tmpctx, u8**, nsigs);
+		for (size_t ii = 0; ii < nsigs; ++ii) {
+			Signature const &sig = isigs[ii];
+			int nelem = sig.item_size();
+			osigs[ii] = tal_arrz(osigs, u8*, nelem);
+			for (size_t jj = 0; jj < nelem; ++jj) {
+				string const &elem = sig.item(jj);
+				size_t elen = elem.size();
+				osigs[ii][jj] = tal_arr(osigs[ii], u8, elen);
+				memcpy(osigs[ii][jj], &elem[0], elen);
+			}
 		}
 	}
 	return osigs;
@@ -163,6 +177,7 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 			  struct node_id *o_node_id)
 {
 	status_debug("%s:%d %s", __FILE__, __LINE__, __FUNCTION__);
+
 	last_message = "";
 	InitHSMReq req;
 
@@ -237,9 +252,9 @@ proxy_stat proxy_handle_ecdh(struct pubkey *point,
 		dump_node_id(&self_id).c_str(),
 		dump_pubkey(point).c_str()
 		);
+
 	last_message = "";
 	ECDHReq req;
-
 	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
 	req.set_point((const char *) point->pubkey.data,
 		      sizeof(point->pubkey.data));
@@ -255,6 +270,46 @@ proxy_stat proxy_handle_ecdh(struct pubkey *point,
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
 			     dump_hex(o_ss->data, sizeof(o_ss->data)).c_str());
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status.error_code());
+	}
+}
+
+proxy_stat proxy_handle_pass_client_hsmfd(
+	struct node_id *peer_id,
+	u64 dbid,
+	u64 capabilities)
+{
+	status_debug(
+		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
+		"capabilities=%" PRIu64 "",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_node_id(peer_id).c_str(),
+		dbid,
+		capabilities
+		);
+
+	last_message = "";
+	PassClientHSMFdReq req;
+	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	req.set_channel_nonce(channel_nonce(peer_id, dbid));
+	req.set_capabilities(capabilities);
+
+	ClientContext context;
+	PassClientHSMFdRsp rsp;
+	Status status = stub->PassClientHSMFd(&context, req, &rsp);
+	if (status.ok()) {
+		status_debug("%s:%d %s self_id=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -421,6 +476,250 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 		status_debug("%s:%d %s self_id=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str());
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status.error_code());
+	}
+}
+
+proxy_stat proxy_handle_sign_remote_htlc_tx(
+	struct bitcoin_tx *tx,
+	u8 *wscript,
+	struct pubkey *remote_per_commit_point,
+	struct node_id *peer_id,
+	u64 dbid,
+	u8 ****o_sigs)
+{
+	status_debug(
+		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
+		"wscript=%s tx=%s",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_node_id(peer_id).c_str(),
+		dbid,
+		dump_hex(wscript, tal_count(wscript)).c_str(),
+		dump_tx(tx).c_str()
+		);
+
+	last_message = "";
+	SignRemoteHTLCTxReq req;
+	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	req.set_channel_nonce(channel_nonce(peer_id, dbid));
+	req.set_remote_per_commit_point(
+		(const char *) remote_per_commit_point->pubkey.data,
+		sizeof(remote_per_commit_point->pubkey.data));
+	req.set_wscript(wscript, tal_count(wscript));
+	req.set_raw_tx_bytes(serialized_tx(tx, true));
+
+	assert(tx->wtx->num_inputs == 1);
+	for (size_t ii = 0; ii < tx->wtx->num_inputs; ii++) {
+	 	const struct wally_tx_input *in = &tx->wtx->inputs[ii];
+		SignDescriptor *desc = req.add_input_descs();
+		/* FIXME - Do we need to set key_index and key_family here? */
+		desc->mutable_output()->set_value(
+			tx->input_amounts[ii]->satoshis);
+	}
+
+	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
+	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
+		SignDescriptor *desc = req.add_output_descs();
+		/* FIXME - We don't need to set *anything* here? */
+	}
+
+	ClientContext context;
+	SignRemoteHTLCTxRsp rsp;
+	Status status = stub->SignRemoteHTLCTx(&context, req, &rsp);
+	if (status.ok()) {
+		*o_sigs = return_sigs(rsp.sigs());
+		status_debug("%s:%d %s self_id=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str());
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status.error_code());
+	}
+}
+
+proxy_stat proxy_handle_get_per_commitment_point(
+	struct node_id *peer_id,
+	u64 dbid,
+	u64 n,
+	struct pubkey *o_per_commitment_point,
+	struct secret **o_old_secret)
+{
+	status_debug(
+		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
+		"n=%" PRIu64 "",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_node_id(peer_id).c_str(),
+		dbid,
+		n
+		);
+
+	last_message = "";
+	GetPerCommitmentPointReq req;
+	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	req.set_channel_nonce(channel_nonce(peer_id, dbid));
+	req.set_n(n);
+
+	ClientContext context;
+	GetPerCommitmentPointRsp rsp;
+	Status status = stub->GetPerCommitmentPoint(&context, req, &rsp);
+	if (status.ok()) {
+		/* per_commitment_point needs to be compressed DER */
+		if (!pubkey_from_der(
+			    (const u8*)rsp.per_commitment_point().c_str(),
+			    rsp.per_commitment_point().length(),
+			    o_per_commitment_point)) {
+			last_message = "bad returned per_commitment_point";
+			return PROXY_INTERNAL_ERROR;
+		}
+		assert(rsp.old_secret().empty() || (
+			       rsp.old_secret().length() ==
+			       sizeof((*o_old_secret)->data)));
+		if (rsp.old_secret().empty())
+			*o_old_secret = NULL;
+		else {
+			*o_old_secret = tal(tmpctx, struct secret);
+			memcpy((*o_old_secret)->data, rsp.old_secret().c_str(),
+			       sizeof((*o_old_secret)->data));
+		}
+		status_debug("%s:%d %s self_id=%s "
+			     "per_commitment_point=%s old_secret=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str(),
+			     dump_pubkey(o_per_commitment_point).c_str(),
+			     (*o_old_secret ?
+			      dump_hex((*o_old_secret)->data,
+				       sizeof((*o_old_secret)->data)).c_str() :
+			      "<none>"));
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status.error_code());
+	}
+}
+
+proxy_stat proxy_handle_sign_invoice(
+	u5 *u5bytes,
+	u8 *hrpu8,
+	u8 **o_sig)
+{
+	status_debug(
+		"%s:%d %s self_id=%s u5bytes=%s hrpu8=%s",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_hex(u5bytes, tal_count(u5bytes)).c_str(),
+		string((const char *)hrpu8, tal_count(hrpu8)).c_str()
+		);
+
+	last_message = "";
+	SignInvoiceReq req;
+	req.set_data_part(u5bytes, tal_count(u5bytes));
+	req.set_human_readable_part((const char *)hrpu8, tal_count(hrpu8));
+
+	ClientContext context;
+	SignInvoiceRsp rsp;
+	Status status = stub->SignInvoice(&context, req, &rsp);
+	if (status.ok()) {
+		*o_sig = tal_dup_arr(tmpctx, u8, (const u8*) rsp.sig().data(),
+				     rsp.sig().size(), 0);
+		status_debug("%s:%d %s self_id=%s sig=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str(),
+			     dump_hex(*o_sig, tal_count(*o_sig)).c_str());
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status.error_code());
+	}
+}
+
+proxy_stat proxy_handle_channel_update_sig(
+	struct bitcoin_blkid *chain_hash,
+	struct short_channel_id *scid,
+	u32 timestamp,
+	u8 message_flags,
+	u8 channel_flags,
+	u16 cltv_expiry_delta,
+	struct amount_msat *htlc_minimum,
+	u32 fee_base_msat,
+	u32 fee_proportional_mill,
+	struct amount_msat *htlc_maximum,
+	secp256k1_ecdsa_signature *o_sig)
+{
+	status_debug(
+		"%s:%d %s self_id=%s "
+		"chain_hash=%s scid=%" PRIu64 " timestamp=%u "
+		"message_flags=0x%x channel_flags=0x%x "
+		"cltv_expiry_delta=%ud htlc_minimum=%" PRIu64 " "
+		"fee_base_msat=%u fee_proportional_mill=%u "
+		"htlc_maximum=%" PRIu64 "",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_hex(chain_hash->shad.sha.u.u8,
+			 sizeof(chain_hash->shad.sha.u.u8)).c_str(),
+		scid->u64,
+		timestamp,
+		static_cast<u32>(message_flags),
+		static_cast<u32>(channel_flags),
+		static_cast<u32>(cltv_expiry_delta),
+		htlc_minimum->millisatoshis,
+		fee_base_msat,
+		fee_proportional_mill,
+		htlc_maximum->millisatoshis
+		);
+
+	last_message = "";
+	ChannelUpdateSigReq req;
+	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	req.set_chain_hash((const char *) chain_hash->shad.sha.u.u8,
+			   sizeof(chain_hash->shad.sha.u.u8));
+	req.set_short_channel_id(scid->u64);
+	req.set_timestamp(timestamp);
+	req.set_message_flags(static_cast<u32>(message_flags));
+	req.set_channel_flags(static_cast<u32>(channel_flags));
+	req.set_cltv_expiry_delta(static_cast<u32>(cltv_expiry_delta));
+	req.set_htlc_minimum(htlc_minimum->millisatoshis);
+	req.set_fee_base_msat(fee_base_msat);
+	req.set_fee_proportional_mill(fee_proportional_mill);
+	req.set_htlc_maximum(htlc_maximum->millisatoshis);
+
+	ClientContext context;
+	ChannelUpdateSigRsp rsp;
+	Status status = stub->ChannelUpdateSig(&context, req, &rsp);
+	if (status.ok()) {
+		// FIXME - UNCOMMENT RETURN VALUE WHEN IMPLEMENTED
+		// assert(rsp.sig().size() == sizeof(o_sig->data));
+		// memcpy(o_sig->data, (const u8*) rsp.sig().data(),
+		//        sizeof(o_sig->data));
+		status_debug("%s:%d %s self_id=%s sig=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str(),
+			     dump_hex(o_sig, sizeof(o_sig->data)).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {

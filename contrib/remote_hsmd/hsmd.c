@@ -893,6 +893,21 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "inner channel_update too short");
 
+	proxy_stat rv = proxy_handle_channel_update_sig(
+		&chain_hash, &scid, timestamp, message_flags, channel_flags,
+		cltv_expiry_delta, &htlc_minimum, fee_base_msat,
+		fee_proportional_mill, &htlc_maximum, &sig);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
+
 	node_key(&node_pkey, NULL);
 	sha256_double(&hash, cu + offset, tal_count(cu) - offset);
 
@@ -1103,6 +1118,40 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 					      &remote_per_commit_point))
 		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
+
+	/* Need input amount for signing */
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &amount);
+
+	u8 *** sigs;
+	proxy_stat rv = proxy_handle_sign_remote_htlc_tx(
+		tx,
+		wscript,
+		&remote_per_commit_point,
+		&c->id,
+		c->dbid,
+		&sigs);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+
+	/* FIXME - server-side not implemented yet. Use original code
+	 * below for now */
+
+	/*
+	assert(tal_count(sigs) == 1);
+
+	bool ok = signature_from_der(sigs[0][0], tal_count(sigs[0][0]), &sig);
+	assert(ok);
+	status_debug("%s:%d %s: signature: %s",
+		     __FILE__, __LINE__, __FUNCTION__,
+		     type_to_string(tmpctx, struct bitcoin_signature, &sig));
+	*/
+
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
 
@@ -1119,8 +1168,6 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Failed deriving htlc pubkey");
 
-	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &amount);
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      SIGHASH_ALL, &sig);
 
@@ -1374,14 +1421,33 @@ static struct io_plan *handle_get_per_commitment_point(struct io_conn *conn,
 	if (!fromwire_hsm_get_per_commitment_point(msg_in, &n))
 		return bad_req(conn, c, msg_in);
 
+	proxy_stat rv = proxy_handle_get_per_commitment_point(
+		&c->id, c->dbid, n,
+		&per_commitment_point, &old_secret);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+
+	/* FIXME - lightning-signer server only currently returns the
+	 * per_commitment_point, use the original code to compute the
+	 * old_secret for now.
+	 */
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	if (!derive_shaseed(&channel_seed, &shaseed))
 		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
 
+	/*
 	if (!per_commit_point(&shaseed, &per_commitment_point, n))
 		return bad_req_fmt(conn, c, msg_in,
 				   "bad per_commit_point %"PRIu64, n);
+	*/
 
+	/* FIXME - replace this with old_secret from the server */
 	if (n >= 2) {
 		old_secret = tal(tmpctx, struct secret);
 		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
@@ -1527,6 +1593,16 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 
 	status_debug("new_client: %"PRIu64, dbid);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
+
+	proxy_stat rv = proxy_handle_pass_client_hsmfd(&id, dbid, capabilities);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
 
 	/*~ We stash this in a global, because we need to get both the fd and
 	 * the client pointer to the callback.  The other way would be to
@@ -1762,6 +1838,21 @@ static struct io_plan *handle_sign_invoice(struct io_conn *conn,
 
 	if (!fromwire_hsm_sign_invoice(tmpctx, msg_in, &u5bytes, &hrpu8))
 		return bad_req(conn, c, msg_in);
+
+	u8 *sigbytes;
+	proxy_stat rv = proxy_handle_sign_invoice(u5bytes, hrpu8, &sigbytes);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+
+	/* FIXME - convert the returned signature to an
+	 * secp256k1_ecdsa_recoverable_signature and remove the code
+	 * below. */
 
 	/* BOLT #11:
 	 *
