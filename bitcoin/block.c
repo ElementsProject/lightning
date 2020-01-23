@@ -52,8 +52,11 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	if (is_elements(chainparams)) {
 		b->elements_hdr = tal(b, struct elements_block_hdr);
 		b->elements_hdr->block_height = pull_le32(&p, &len);
+		sha256_le32(&shactx, b->elements_hdr->block_height);
 
 		size_t challenge_len = pull_varint(&p, &len);
+		sha256_varint(&shactx, challenge_len);
+		sha256_update(&shactx, p, challenge_len);
 		b->elements_hdr->proof.challenge = tal_arr(b->elements_hdr, u8, challenge_len);
 		pull(&p, &len, b->elements_hdr->proof.challenge, challenge_len);
 
