@@ -23,6 +23,7 @@ struct bitcoin_block_hdr {
 	le32 timestamp;
 	le32 target;
 	le32 nonce;
+	struct sha256_double hash;
 };
 
 struct elements_block_proof {
