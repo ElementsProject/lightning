@@ -1682,9 +1682,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	for (i = 0; i < tal_count(changed); i++) {
 		/* If we're doing final accept, we need to forward */
 		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
-			if (!peer_accepted_htlc(channel, changed[i].id, false,
-						&failcodes[i]))
-				return;
+			peer_accepted_htlc(channel, changed[i].id, false,
+					   &failcodes[i]);
 		} else {
 			if (!changed_htlc(channel, &changed[i])) {
 				channel_internal_error(channel,
