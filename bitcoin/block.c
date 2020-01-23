@@ -4,6 +4,14 @@
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
 
+static void sha256_varint(struct sha256_ctx *ctx, u64 val)
+{
+	u8 vt[VARINT_MAX_LEN];
+	size_t vtlen;
+	vtlen = varint_put(vt, val);
+	sha256_update(ctx, vt, vtlen);
+}
+
 /* Encoding is <blockhdr> <varint-num-txs> <tx>... */
 struct bitcoin_block *
 bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
@@ -81,8 +89,6 @@ void bitcoin_block_blkid(const struct bitcoin_block *b,
 			 struct bitcoin_blkid *out)
 {
 	struct sha256_ctx shactx;
-	u8 vt[VARINT_MAX_LEN];
-	size_t vtlen;
 
 	sha256_init(&shactx);
 	sha256_le32(&shactx, b->hdr.version);
@@ -94,8 +100,7 @@ void bitcoin_block_blkid(const struct bitcoin_block *b,
 		size_t clen = tal_bytelen(b->elements_hdr->proof.challenge);
 		sha256_le32(&shactx, b->elements_hdr->block_height);
 
-		vtlen = varint_put(vt, clen);
-		sha256_update(&shactx, vt, vtlen);
+		sha256_varint(&shactx, clen);
 		sha256_update(&shactx, b->elements_hdr->proof.challenge, clen);
 		/* The solution is skipped, since that'd create a circular
 		 * dependency apparently */
