@@ -13,6 +13,7 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	u8 *linear_tx;
 	const u8 *p;
 	size_t len, i, num;
+	struct sha256_ctx shactx;
 
 	if (hexlen && hex[hexlen-1] == '\n')
 		hexlen--;
@@ -26,10 +27,19 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	if (!hex_decode(hex, hexlen, linear_tx, len))
 		return tal_free(b);
 
+	sha256_init(&shactx);
+
 	b->hdr.version = pull_le32(&p, &len);
+	sha256_le32(&shactx, b->hdr.version);
+
 	pull(&p, &len, &b->hdr.prev_hash, sizeof(b->hdr.prev_hash));
+	sha256_update(&shactx, &b->hdr.prev_hash, sizeof(b->hdr.prev_hash));
+
 	pull(&p, &len, &b->hdr.merkle_hash, sizeof(b->hdr.merkle_hash));
+	sha256_update(&shactx, &b->hdr.merkle_hash, sizeof(b->hdr.merkle_hash));
+
 	b->hdr.timestamp = pull_le32(&p, &len);
+	sha256_le32(&shactx, b->hdr.timestamp);
 
 	if (is_elements(chainparams)) {
 		b->elements_hdr = tal(b, struct elements_block_hdr);
@@ -45,8 +55,12 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 
 	} else {
 		b->hdr.target = pull_le32(&p, &len);
+		sha256_le32(&shactx, b->hdr.target);
+
 		b->hdr.nonce = pull_le32(&p, &len);
+		sha256_le32(&shactx, b->hdr.nonce);
 	}
+	sha256_double_done(&shactx, &b->hdr.hash);
 
 	num = pull_varint(&p, &len);
 	b->tx = tal_arr(b, struct bitcoin_tx *, num);
