@@ -526,6 +526,9 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-no-htlc-timeout", opt_set_bool,
 			   &ld->dev_no_htlc_timeout,
 			   "Don't kill channeld if HTLCs not confirmed within 30 seconds");
+	opt_register_noarg("--dev-fail-process-onionpacket", opt_set_bool,
+			   &dev_fail_process_onionpacket,
+			   "Force all processing of onion packets to fail");
 }
 #endif /* DEVELOPER */
 

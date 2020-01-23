@@ -1591,6 +1591,28 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
 
 
+@pytest.mark.xfail(strict=True)    
+@unittest.skipIf(not DEVELOPER, "Needs DEVELOPER=1 to force onion fail")
+def test_bad_onion_immediate_peer(node_factory, bitcoind):
+    """Test that we handle the malformed msg when we're the origin"""
+    l1, l2 = node_factory.line_graph(2, opts={'dev-fail-process-onionpacket': None})
+
+    h = l2.rpc.invoice(123000, 'test_bad_onion_immediate_peer', 'description')['payment_hash']
+    route = l1.rpc.getroute(l2.info['id'], 123000, 1)['route']
+    assert len(route) == 1
+
+    l1.rpc.sendpay(route, h)
+    with pytest.raises(RpcError) as err:
+        l1.rpc.waitsendpay(h)
+
+    # FIXME: #define PAY_UNPARSEABLE_ONION		202
+    PAY_UNPARSEABLE_ONION = 202
+    assert err.value.error['code'] == PAY_UNPARSEABLE_ONION
+    # FIXME: WIRE_INVALID_ONION_HMAC = BADONION|PERM|5
+    WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
+    assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
+
+
 def test_newaddr(node_factory, chainparams):
     l1 = node_factory.get_node()
     p2sh = l1.rpc.newaddr('p2sh-segwit')

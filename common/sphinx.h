@@ -227,4 +227,9 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
  */
 size_t sphinx_path_payloads_size(const struct sphinx_path *path);
 
+#if DEVELOPER
+/* Override to force us to reject valid onion packets */
+extern bool dev_fail_process_onionpacket;
+#endif
+
 #endif /* LIGHTNING_COMMON_SPHINX_H */

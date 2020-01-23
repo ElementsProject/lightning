@@ -492,7 +492,8 @@ void peer_start_channeld(struct channel *channel,
 				      /* Set at channel open, even if not
 				       * negotiated now! */
 				      channel->option_static_remotekey,
-				      IFDEV(ld->dev_fast_gossip, false));
+				      IFDEV(ld->dev_fast_gossip, false),
+				      IFDEV(dev_fail_process_onionpacket, false));
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
