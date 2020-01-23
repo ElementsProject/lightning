@@ -3007,6 +3007,9 @@ static void init_channel(struct peer *peer)
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
 	bool option_static_remotekey;
+#if !DEVELOPER
+	bool dev_fail_process_onionpacket; /* Ignored */
+#endif
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -3066,8 +3069,9 @@ static void init_channel(struct peer *peer)
 				   &remote_ann_node_sig,
 				   &remote_ann_bitcoin_sig,
 				   &option_static_remotekey,
-				   &dev_fast_gossip)) {
-					   master_badmsg(WIRE_CHANNEL_INIT, msg);
+				   &dev_fast_gossip,
+				   &dev_fail_process_onionpacket)) {
+		master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);

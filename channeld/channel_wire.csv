@@ -70,6 +70,7 @@ msgdata,channel_init,remote_ann_node_sig,?secp256k1_ecdsa_signature,
 msgdata,channel_init,remote_ann_bitcoin_sig,?secp256k1_ecdsa_signature,
 msgdata,channel_init,option_static_remotekey,bool,
 msgdata,channel_init,dev_fast_gossip,bool,
+msgdata,channel_init,dev_fail_process_onionpacket,bool,
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 msgtype,channel_funding_depth,1002
