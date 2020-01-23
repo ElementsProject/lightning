@@ -946,7 +946,7 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 		return false;
 	}
 
-	rs = process_onionpacket(tmpctx, &op, hin->shared_secret->data,
+	rs = process_onionpacket(tmpctx, &op, hin->shared_secret,
 				 hin->payment_hash.u.u8,
 				 sizeof(hin->payment_hash));
 	if (!rs) {

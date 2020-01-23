@@ -523,7 +523,7 @@ void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook 
 struct route_step *process_onionpacket(
 	const tal_t * ctx UNNEEDED,
 	const struct onionpacket *packet UNNEEDED,
-	const u8 *shared_secret UNNEEDED,
+	const struct secret *shared_secret UNNEEDED,
 	const u8 *assocdata UNNEEDED,
 	const size_t assocdatalen
 	)
