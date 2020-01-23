@@ -179,7 +179,7 @@ void json_sendpay_fail_fields(struct json_stream *js,
 	/* "immediate_routing_failure" is before payment creation. */
 	if (payment)
 		json_add_payment_fields(js, payment);
-	if (pay_errcode == PAY_UNPARSEABLE_ONION)
+	if (pay_errcode == PAY_UNPARSEABLE_ONION && onionreply)
 		json_add_hex_talarr(js, "onionreply", onionreply->contents);
 	else
 		json_add_routefail_info(js,
@@ -487,6 +487,30 @@ remote_routing_failure(const tal_t *ctx,
 	return routing_failure;
 }
 
+/* If our immediate peer says WIRE_UPDATE_FAIL_MALFORMED_HTLC, we only get a
+ * code, no onion msg. */
+static struct routing_failure *
+badonion_routing_failure(const tal_t *ctx,
+			 struct lightningd *ld,
+			 const struct wallet_payment *payment,
+			 enum onion_type failcode)
+{
+	struct routing_failure *rf;
+
+	rf = tal(ctx, struct routing_failure);
+
+	rf->erring_index = 0;
+	rf->failcode = failcode;
+	rf->msg = NULL;
+	rf->erring_node = tal_dup(rf, struct node_id,
+				  &payment->route_nodes[0]);
+	rf->erring_channel = tal_dup(rf, struct short_channel_id,
+				     &payment->route_channels[0]);
+	rf->channel_dir = node_id_idx(&ld->id, &payment->route_nodes[0]);
+
+	return rf;
+}
+
 void payment_store(struct lightningd *ld, struct wallet_payment *payment TAKES)
 {
 	struct sendpay_command *pc;
@@ -551,8 +575,15 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		pay_errcode = PAY_UNPARSEABLE_ONION;
 		fail = NULL;
 		failmsg = NULL;
+	} else if (hout->failcode) {
+		/* Direct peer told channeld it's a malformed onion using
+		 * update_fail_malformed_htlc. */
+		failmsg = "malformed onion";
+		fail = badonion_routing_failure(tmpctx, ld, payment,
+						hout->failcode);
+		pay_errcode = PAY_UNPARSEABLE_ONION;
 	} else {
-		/* Must be remote fail. */
+		/* Must be normal remote fail with an onion-wrapped error. */
 		assert(!hout->failcode);
 		failmsg = "reply from remote";
 		/* Try to parse reply. */
