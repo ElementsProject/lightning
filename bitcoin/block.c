@@ -60,7 +60,7 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 		b->hdr.nonce = pull_le32(&p, &len);
 		sha256_le32(&shactx, b->hdr.nonce);
 	}
-	sha256_double_done(&shactx, &b->hdr.hash);
+	sha256_double_done(&shactx, &b->hdr.hash.shad);
 
 	num = pull_varint(&p, &len);
 	b->tx = tal_arr(b, struct bitcoin_tx *, num);
