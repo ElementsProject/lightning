@@ -18,7 +18,6 @@
 #include <sodium/crypto_stream_chacha20.h>
 
 #define BLINDING_FACTOR_SIZE 32
-#define SHARED_SECRET_SIZE 32
 #define KEY_LEN 32
 
 #define NUM_STREAM_BYTES (2*ROUTING_INFO_SIZE)
@@ -27,7 +26,7 @@
 #define RHO_KEYTYPE "rho"
 
 struct hop_params {
-	u8 secret[SHARED_SECRET_SIZE];
+	struct secret secret;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	struct pubkey ephemeralkey;
 };
@@ -211,9 +210,10 @@ static void compute_packet_hmac(const struct onionpacket *packet,
 	memcpy(hmac, mac, HMAC_SIZE);
 }
 
-static bool generate_key(void *k, const char *t, u8 tlen, const u8 *s)
+static bool generate_key(void *k, const char *t, u8 tlen,
+			 const struct secret *s)
 {
-	return compute_hmac(k, s, KEY_LEN, t, tlen);
+	return compute_hmac(k, s->data, KEY_LEN, t, tlen);
 }
 
 static bool generate_header_padding(void *dst, size_t dstlen,
@@ -227,7 +227,7 @@ static bool generate_header_padding(void *dst, size_t dstlen,
 	memset(dst, 0, dstlen);
 	for (int i = 0; i < tal_count(path->hops) - 1; i++) {
 		if (!generate_key(&key, RHO_KEYTYPE, strlen(RHO_KEYTYPE),
-				  params[i].secret))
+				  &params[i].secret))
 			return false;
 
 		generate_cipher_stream(stream, key, sizeof(stream));
@@ -253,7 +253,7 @@ static bool generate_header_padding(void *dst, size_t dstlen,
 }
 
 static void compute_blinding_factor(const struct pubkey *key,
-				    const u8 sharedsecret[SHARED_SECRET_SIZE],
+				    const struct secret *sharedsecret,
 				    u8 res[BLINDING_FACTOR_SIZE])
 {
 	struct sha256_ctx ctx;
@@ -263,7 +263,7 @@ static void compute_blinding_factor(const struct pubkey *key,
 	pubkey_to_der(der, key);
 	sha256_init(&ctx);
 	sha256_update(&ctx, der, sizeof(der));
-	sha256_update(&ctx, sharedsecret, SHARED_SECRET_SIZE);
+	sha256_update(&ctx, sharedsecret->data, sizeof(sharedsecret->data));
 	sha256_done(&ctx, &temp);
 	memcpy(res, &temp, 32);
 }
@@ -281,17 +281,18 @@ static bool blind_group_element(struct pubkey *blindedelement,
 	return true;
 }
 
-static bool create_shared_secret(u8 *secret, const struct pubkey *pubkey,
+static bool create_shared_secret(struct secret *secret,
+				 const struct pubkey *pubkey,
 				 const struct secret *session_key)
 {
-	if (secp256k1_ecdh(secp256k1_ctx, secret, &pubkey->pubkey,
+	if (secp256k1_ecdh(secp256k1_ctx, secret->data, &pubkey->pubkey,
 			   session_key->data, NULL, NULL) != 1)
 		return false;
 	return true;
 }
 
 bool onion_shared_secret(
-	u8 *secret,
+	struct secret *secret,
 	const struct onionpacket *packet,
 	const struct privkey *privkey)
 {
@@ -299,7 +300,7 @@ bool onion_shared_secret(
 				    &privkey->secret);
 }
 
-static void generate_key_set(const u8 secret[SHARED_SECRET_SIZE],
+static void generate_key_set(const struct secret *secret,
 			     struct keyset *keys)
 {
 	generate_key(keys->rho, "rho", 3, secret);
@@ -324,12 +325,12 @@ static struct hop_params *generate_hop_params(
 				       path->session_key->data) != 1)
 		return NULL;
 
-	if (!create_shared_secret(params[0].secret, &path->hops[0].pubkey,
+	if (!create_shared_secret(&params[0].secret, &path->hops[0].pubkey,
 				  path->session_key))
 		return NULL;
 
 	compute_blinding_factor(
-		&params[0].ephemeralkey, params[0].secret,
+		&params[0].ephemeralkey, &params[0].secret,
 		params[0].blind);
 
 	/* Recursively compute all following ephemeral public keys,
@@ -367,7 +368,7 @@ static struct hop_params *generate_hop_params(
 
 		compute_blinding_factor(
 			&params[i].ephemeralkey,
-			params[i].secret, params[i].blind);
+			&params[i].secret, params[i].blind);
 	}
 	return params;
 }
@@ -423,14 +424,14 @@ struct onionpacket *create_onionpacket(
 	 */
 	/* Note that this is just hop_payloads: the rest of the packet is
 	 * overwritten below or above anyway. */
-	generate_key(padkey, "pad", 3, sp->session_key->data);
+	generate_key(padkey, "pad", 3, sp->session_key);
 	generate_cipher_stream(stream, padkey, ROUTING_INFO_SIZE);
 
 	generate_header_padding(filler, sizeof(filler), sp, params);
 
 	for (i = num_hops - 1; i >= 0; i--) {
 		memcpy(sp->hops[i].hmac, nexthmac, HMAC_SIZE);
-		generate_key_set(params[i].secret, &keys);
+		generate_key_set(&params[i].secret, &keys);
 		generate_cipher_stream(stream, keys.rho, ROUTING_INFO_SIZE);
 
 		/* Rightshift mix-header by FRAME_SIZE */
@@ -451,7 +452,7 @@ struct onionpacket *create_onionpacket(
 	memcpy(&packet->ephemeralkey, &params[0].ephemeralkey, sizeof(secp256k1_pubkey));
 
 	for (i=0; i<num_hops; i++) {
-		memcpy(&secrets[i], params[i].secret, SHARED_SECRET_SIZE);
+		secrets[i] = params[i].secret;
 	}
 
 	*path_secrets = secrets;
@@ -465,7 +466,7 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t *ctx,
 	const struct onionpacket *msg,
-	const u8 *shared_secret,
+	const struct secret *shared_secret,
 	const u8 *assocdata,
 	const size_t assocdatalen
 	)
@@ -574,7 +575,7 @@ struct onionreply *create_onionreply(const tal_t *ctx,
  	 * Where `hmac` is an HMAC authenticating the remainder of the packet,
 	 * with a key generated using the above process, with key type `um`
 	 */
-	generate_key(key, "um", 2, shared_secret->data);
+	generate_key(key, "um", 2, shared_secret);
 
 	compute_hmac(hmac, payload, tal_count(payload), key, KEY_LEN);
 	reply->contents = tal_arr(reply, u8, 0),
@@ -603,7 +604,7 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 	 *
 	 * The obfuscation step is repeated by every hop along the return path.
 	 */
-	generate_key(key, "ammag", 5, shared_secret->data);
+	generate_key(key, "ammag", 5, shared_secret);
 	generate_cipher_stream(stream, key, streamlen);
 	result->contents = tal_arr(result, u8, streamlen);
 	xorbytes(result->contents, stream, reply->contents, streamlen);
@@ -637,7 +638,7 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 
 		/* Check if the HMAC matches, this means that this is
 		 * the origin */
-		generate_key(key, "um", 2, shared_secrets[i].data);
+		generate_key(key, "um", 2, &shared_secrets[i]);
 		compute_hmac(hmac, r->contents + sizeof(hmac),
 			     tal_count(r->contents) - sizeof(hmac),
 			     key, KEY_LEN);

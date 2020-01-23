@@ -602,7 +602,7 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 
 	/* We make sure we can parse onion packet, so we know if shared secret
 	 * is actually valid (this checks hmac). */
-	rs = process_onionpacket(tmpctx, &op, secret->data,
+	rs = process_onionpacket(tmpctx, &op, secret,
 				 htlc->rhash.u.u8,
 				 sizeof(htlc->rhash));
 	if (!rs) {

@@ -107,12 +107,12 @@ struct onionpacket *create_onionpacket(
 /**
  * onion_shared_secret - calculate ECDH shared secret between nodes.
  *
- * @secret: the shared secret (32 bytes long)
+ * @secret: the shared secret
  * @pubkey: the public key of the other node
  * @privkey: the private key of this node (32 bytes long)
  */
 bool onion_shared_secret(
-	u8 *secret,
+	struct secret *secret,
 	const struct onionpacket *packet,
 	const struct privkey *privkey);
 
@@ -130,7 +130,7 @@ bool onion_shared_secret(
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
 	const struct onionpacket *packet,
-	const u8 *shared_secret,
+	const struct secret *shared_secret,
 	const u8 *assocdata,
 	const size_t assocdatalen
 	);
