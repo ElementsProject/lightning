@@ -105,6 +105,30 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
+static char *opt_set_mode(const char *arg, mode_t *m)
+{
+	char *endp;
+	long l;
+
+	assert(arg != NULL);
+
+	/* Ensure length, and starts with 0.  */
+	if (strlen(arg) != 4 || arg[0] != '0')
+		return tal_fmt(NULL, "'%s' is not a file mode", arg);
+
+	/* strtol, manpage, yech.  */
+	errno = 0;
+	l = strtol(arg, &endp, 8); /* Octal.  */
+	if (errno || *endp)
+		return tal_fmt(NULL, "'%s' is not a file mode", arg);
+	*m = l;
+	/* Range check not needed, previous strlen checks ensures only
+	 * 9-bit, which fits mode_t (unless your Unix is seriously borked).
+	 */
+
+	return NULL;
+}
+
 static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
 				   enum addr_listen_announce ala,
@@ -223,6 +247,11 @@ static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
 static void opt_show_s32(char buf[OPT_SHOW_LEN], const s32 *u)
 {
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIi32, *u);
+}
+
+static void opt_show_mode(char buf[OPT_SHOW_LEN], const mode_t *m)
+{
+	snprintf(buf, OPT_SHOW_LEN, "\"%04o\"", (int) *m);
 }
 
 static char *opt_set_rgb(const char *arg, struct lightningd *ld)
@@ -841,6 +870,11 @@ static void register_opts(struct lightningd *ld)
 	opt_register_noarg("--encrypted-hsm", opt_set_hsm_password, ld,
 	                   "Set the password to encrypt hsm_secret with. If no password is passed through command line, "
 	                   "you will be prompted to enter it.");
+
+	opt_register_arg("--rpc-file-mode", &opt_set_mode, &opt_show_mode,
+			 &ld->rpc_filemode,
+			 "Set the file mode (permissions) for the "
+			 "JSON-RPC socket");
 
 	opt_register_logging(ld);
 	opt_register_version();
