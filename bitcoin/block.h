@@ -10,6 +10,12 @@
 
 struct chainparams;
 
+enum dynafed_params_type {
+	DYNAFED_PARAMS_NULL,
+	DYNAFED_PARAMS_COMPACT,
+	DYNAFED_PARAMS_FULL,
+};
+
 struct bitcoin_blkid {
 	struct sha256_double shad;
 };

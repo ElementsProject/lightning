@@ -12,6 +12,80 @@ static void sha256_varint(struct sha256_ctx *ctx, u64 val)
 	sha256_update(ctx, vt, vtlen);
 }
 
+static void bitcoin_block_pull_dynafed_params(const u8 **cursor, size_t *len, struct sha256_ctx *shactx)
+{
+	u8 type;
+	u64 l1, l2;
+	pull(cursor, len, &type, 1);
+	sha256_update(shactx, &type, 1);
+	switch ((enum dynafed_params_type)type) {
+	case DYNAFED_PARAMS_NULL:
+		break;
+	case DYNAFED_PARAMS_COMPACT:
+		/* "scriptPubKey" used for block signing */
+		l1 = pull_varint(cursor, len);
+		sha256_varint(shactx, l1);
+		sha256_update(shactx, *cursor, l1);
+		pull(cursor, len, NULL, l1);
+
+		/* signblock_witness_limit */
+		sha256_update(shactx, *cursor, 4);
+		pull(cursor, len, NULL, 4);
+
+		/* Skip elided_root */
+		sha256_update(shactx, *cursor, 32);
+		pull(cursor, len, NULL, 32);
+		break;
+
+	case DYNAFED_PARAMS_FULL:
+		/* "scriptPubKey" used for block signing */
+		l1 = pull_varint(cursor, len);
+		sha256_varint(shactx, l1);
+		sha256_update(shactx, *cursor, l1);
+		pull(cursor, len, NULL, l1);
+
+		/* signblock_witness_limit */
+		sha256_update(shactx, *cursor, 4);
+		pull(cursor, len, NULL, 4);
+
+		/* fedpeg_program */
+		l1 = pull_varint(cursor, len);
+		sha256_varint(shactx, l1);
+		sha256_update(shactx, *cursor, l1);
+		pull(cursor, len, NULL, l1);
+
+		/* fedpegscript */
+		l1 = pull_varint(cursor, len);
+		sha256_varint(shactx, l1);
+		sha256_update(shactx, *cursor, l1);
+		pull(cursor, len, NULL, l1);
+
+		/* extension space */
+		l2 = pull_varint(cursor, len);
+		sha256_varint(shactx, l2);
+		for (size_t i = 0; i < l2; i++) {
+			l1 = pull_varint(cursor, len);
+			sha256_varint(shactx, l1);
+			sha256_update(shactx, *cursor, l1);
+			pull(cursor, len, NULL, l1);
+		}
+		break;
+	}
+}
+
+static void bitcoin_block_pull_dynafed_details(const u8 **cursor, size_t *len, struct sha256_ctx *shactx)
+{
+	bitcoin_block_pull_dynafed_params(cursor, len, shactx);
+	bitcoin_block_pull_dynafed_params(cursor, len, shactx);
+
+	/* Consume the signblock_witness */
+	u64 numwitnesses = pull_varint(cursor, len);
+	for (size_t i=0; i<numwitnesses; i++) {
+		u64 witsize = pull_varint(cursor, len);
+		pull(cursor, len, NULL, witsize);
+	}
+}
+
 /* Encoding is <blockhdr> <varint-num-txs> <tx>... */
 struct bitcoin_block *
 bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
@@ -22,6 +96,7 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	const u8 *p;
 	size_t len, i, num;
 	struct sha256_ctx shactx;
+	bool is_dynafed;
 
 	if (hexlen && hex[hexlen-1] == '\n')
 		hexlen--;
@@ -50,19 +125,29 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	sha256_le32(&shactx, b->hdr.timestamp);
 
 	if (is_elements(chainparams)) {
+		/* A dynafed block is signalled by setting the MSB of the version. */
+		is_dynafed = (b->hdr.version >> 31 == 1);
 		b->elements_hdr = tal(b, struct elements_block_hdr);
 		b->elements_hdr->block_height = pull_le32(&p, &len);
 		sha256_le32(&shactx, b->elements_hdr->block_height);
 
-		size_t challenge_len = pull_varint(&p, &len);
-		sha256_varint(&shactx, challenge_len);
-		sha256_update(&shactx, p, challenge_len);
-		b->elements_hdr->proof.challenge = tal_arr(b->elements_hdr, u8, challenge_len);
-		pull(&p, &len, b->elements_hdr->proof.challenge, challenge_len);
+		if (is_dynafed) {
+			bitcoin_block_pull_dynafed_details(&p, &len, &shactx);
+		} else {
+			size_t challenge_len = pull_varint(&p, &len);
+			sha256_varint(&shactx, challenge_len);
+			sha256_update(&shactx, p, challenge_len);
+			b->elements_hdr->proof.challenge =
+			    tal_arr(b->elements_hdr, u8, challenge_len);
+			pull(&p, &len, b->elements_hdr->proof.challenge,
+			     challenge_len);
 
-		size_t solution_len = pull_varint(&p, &len);
-		b->elements_hdr->proof.solution = tal_arr(b->elements_hdr, u8, solution_len);
-		pull(&p, &len, b->elements_hdr->proof.solution, solution_len);
+			size_t solution_len = pull_varint(&p, &len);
+			b->elements_hdr->proof.solution =
+			    tal_arr(b->elements_hdr, u8, solution_len);
+			pull(&p, &len, b->elements_hdr->proof.solution,
+			     solution_len);
+		}
 
 	} else {
 		b->hdr.target = pull_le32(&p, &len);
