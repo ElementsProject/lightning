@@ -314,7 +314,7 @@ static struct command_result *fundchannel_start(struct command *cmd,
 	json_out_start(ret, NULL, '{');
 	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
 
-	if (deprecated_apis)
+	if (cmd->plugin->deprecated_apis)
 		json_out_addstr(ret, "satoshi", fr->funding_str);
 	else
 		json_out_addstr(ret, "amount", fr->funding_str);
@@ -446,7 +446,7 @@ static struct command_result *json_fundchannel(struct command *cmd,
 	struct funding_req *fr = tal(cmd, struct funding_req);
 
 	/* For generating help, give new-style. */
-	if (!params || !deprecated_apis || params->type == JSMN_ARRAY) {
+	if (!params || !cmd->plugin->deprecated_apis || params->type == JSMN_ARRAY) {
 		if (!param(cmd, buf, params,
 			   p_req("id", param_node_id, &fr->id),
 			   p_req("amount", param_string_check_sat, &fr->funding_str),

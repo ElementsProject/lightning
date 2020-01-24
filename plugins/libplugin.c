@@ -4,9 +4,7 @@
 #include <ccan/io/io.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/timer/timer.h>
 #include <common/daemon.h>
 #include <common/json_stream.h>
 #include <common/utils.h>
@@ -26,21 +24,11 @@
 static UINTMAP(struct out_req *) out_reqs;
 static u64 next_outreq_id;
 
-/* Map from json command names to usage strings: we don't put this inside
- * struct json_command as it's good practice to have those const. */
-static STRMAP(const char *) usagemap;
-
-/* Timers */
-static struct timers timers;
-static size_t in_timer;
-
-bool deprecated_apis;
-
-extern const struct chainparams *chainparams;
+const struct chainparams *chainparams;
 
 struct plugin_timer {
 	struct timer timer;
-	struct command_result *(*cb)(void);
+	struct command_result *(*cb)(struct plugin *p);
 };
 
 struct out_req {
@@ -247,10 +235,10 @@ struct command_result *command_err_raw(struct command *cmd,
 				json_str, strlen(json_str));
 }
 
-struct command_result *timer_complete(void)
+struct command_result *timer_complete(struct plugin *p)
 {
-	assert(in_timer > 0);
-	in_timer--;
+	assert(p->in_timer > 0);
+	p->in_timer--;
 	return &complete;
 }
 
@@ -302,7 +290,7 @@ bool command_check_only(const struct command *cmd)
 void command_set_usage(struct command *cmd, const char *usage TAKES)
 {
 	usage = tal_strdup(NULL, usage);
-	if (!strmap_add(&usagemap, cmd->methodname, usage))
+	if (!strmap_add(&cmd->plugin->usagemap, cmd->methodname, usage))
 		plugin_err("Two usages for command %s?", cmd->methodname);
 }
 
@@ -476,7 +464,7 @@ handle_getmanifest(struct command *getmanifest_cmd)
 		json_out_start(params, NULL, '{');
 		json_out_addstr(params, "name", p->commands[i].name);
 		json_out_addstr(params, "usage",
-				strmap_get(&usagemap, p->commands[i].name));
+				strmap_get(&p->usagemap, p->commands[i].name));
 		json_out_addstr(params, "description", p->commands[i].description);
 		if (p->commands[i].long_description)
 			json_out_addstr(params, "long_description",
@@ -542,7 +530,7 @@ static struct command_result *handle_init(struct command *cmd,
 			   strerror(errno));
 
 	param_obj = json_out_obj(NULL, "config", "allow-deprecated-apis");
-	deprecated_apis = streq(rpc_delve(tmpctx, p, "listconfigs",
+	p->deprecated_apis = streq(rpc_delve(tmpctx, p, "listconfigs",
 					  take(param_obj),
 					  ".allow-deprecated-apis"),
 				  "true");
@@ -589,46 +577,46 @@ char *charp_option(const char *arg, char **p)
 	return NULL;
 }
 
-static void setup_command_usage(const struct plugin_command *commands,
-				size_t num_commands)
+static void setup_command_usage(struct plugin *p)
 {
 	struct command *usage_cmd = tal(tmpctx, struct command);
 
 	/* This is how common/param can tell it's just a usage request */
 	usage_cmd->usage_only = true;
-	for (size_t i = 0; i < num_commands; i++) {
+	usage_cmd->plugin = p;
+	for (size_t i = 0; i < p->num_commands; i++) {
 		struct command_result *res;
 
-		usage_cmd->methodname = commands[i].name;
-		res = commands[i].handle(usage_cmd, NULL, NULL);
+		usage_cmd->methodname = p->commands[i].name;
+		res = p->commands[i].handle(usage_cmd, NULL, NULL);
 		assert(res == &complete);
-		assert(strmap_get(&usagemap, commands[i].name));
+		assert(strmap_get(&p->usagemap, p->commands[i].name));
 	}
 }
 
-static void call_plugin_timer(struct rpc_conn *rpc, struct timer *timer)
+static void call_plugin_timer(struct plugin *p, struct timer *timer)
 {
 	struct plugin_timer *t = container_of(timer, struct plugin_timer, timer);
 
-	in_timer++;
+	p->in_timer++;
 	/* Free this if they don't. */
 	tal_steal(tmpctx, t);
-	t->cb();
+	t->cb(p);
 }
 
-static void destroy_plugin_timer(struct plugin_timer *timer)
+static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
 {
-	timer_del(&timers, &timer->timer);
+	timer_del(&p->timers, &timer->timer);
 }
 
-struct plugin_timer *plugin_timer(struct rpc_conn *rpc, struct timerel t,
-				  struct command_result *(*cb)(void))
+struct plugin_timer *plugin_timer(struct plugin *p, struct timerel t,
+				  struct command_result *(*cb)(struct plugin *p))
 {
 	struct plugin_timer *timer = tal(NULL, struct plugin_timer);
 	timer->cb = cb;
 	timer_init(&timer->timer);
-	timer_addrel(&timers, &timer->timer, t);
-	tal_add_destructor(timer, destroy_plugin_timer);
+	timer_addrel(&p->timers, &timer->timer, t);
+	tal_add_destructor2(timer, destroy_plugin_timer, p);
 	return timer;
 }
 
@@ -907,6 +895,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->init = init;
 	p->manifested = p->initialized = false;
 	p->restartability = restartability;
+	strmap_init(&p->usagemap);
+	p->in_timer = 0;
 
 	p->commands = commands;
 	p->num_commands = num_commands;
@@ -951,16 +941,15 @@ void plugin_main(char *argv[],
 	/* Note this already prints to stderr, which is enough for now */
 	daemon_setup(argv[0], NULL, NULL);
 
-	setup_command_usage(commands, num_commands);
-
 	va_start(ap, num_hook_subs);
 	plugin = new_plugin(NULL, init, restartability, commands, num_commands,
 			    notif_subs, num_notif_subs, hook_subs,
 			    num_hook_subs, ap);
 	va_end(ap);
 	uintmap_init(&out_reqs);
+	setup_command_usage(plugin);
 
-	timers_init(&timers, time_mono());
+	timers_init(&plugin->timers, time_mono());
 
 	io_new_conn(plugin, STDIN_FILENO, stdin_conn_init, plugin);
 	io_new_conn(plugin, STDOUT_FILENO, stdout_conn_init, plugin);
@@ -976,8 +965,8 @@ void plugin_main(char *argv[],
 		}
 
 		/* Will only exit if a timer has expired. */
-		io_loop(&timers, &expired);
-		call_plugin_timer(&plugin->rpc_conn, expired);
+		io_loop(&plugin->timers, &expired);
+		call_plugin_timer(plugin, expired);
 	}
 
 	tal_free(plugin);

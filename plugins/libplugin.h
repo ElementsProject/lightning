@@ -4,7 +4,9 @@
 #include "config.h"
 
 #include <ccan/ccan/membuf/membuf.h>
+#include <ccan/strmap/strmap.h>
 #include <ccan/time/time.h>
+#include <ccan/timer/timer.h>
 #include <common/errcode.h>
 #include <common/json.h>
 #include <common/json_command.h>
@@ -55,6 +57,15 @@ struct plugin {
 	bool manifested;
 	/* Has init been received ? */
 	bool initialized;
+
+	/* Map from json command names to usage strings: we don't put this inside
+	 * struct json_command as it's good practice to have those const. */
+	STRMAP(const char *) usagemap;
+	/* Timers */
+	struct timers timers;
+	size_t in_timer;
+
+	bool deprecated_apis;
 };
 
 struct command {
@@ -63,8 +74,6 @@ struct command {
 	bool usage_only;
 	struct plugin *plugin;
 };
-
-extern bool deprecated_apis;
 
 /* Create an array of these, one for each command you support. */
 struct plugin_command {
@@ -191,16 +200,16 @@ struct command_result *forward_result(struct command *cmd,
 /* Callback for timer where we expect a 'command_result'.  All timers
  * must return this eventually, though they may do so via a convoluted
  * send_req() path. */
-struct command_result *timer_complete(void);
+struct command_result *timer_complete(struct plugin *p);
 
 /* Access timer infrastructure to add a timer.
  *
  * Freeing this releases the timer, otherwise it's freed after @cb
  * if it hasn't been freed already.
  */
-struct plugin_timer *plugin_timer(struct rpc_conn *rpc,
+struct plugin_timer *plugin_timer(struct plugin *p,
 				  struct timerel t,
-				  struct command_result *(*cb)(void));
+				  struct command_result *(*cb)(struct plugin *p));
 
 /* Log something */
 void plugin_log(enum log_level l, const char *fmt, ...) PRINTF_FMT(2, 3);
