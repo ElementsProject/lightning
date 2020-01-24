@@ -3,7 +3,7 @@
 lightning-waitanyinvoice - Command for waiting for payments
 .SH SYNOPSIS
 
-\fBwaitanyinvoice\fR [\fIlastpay_index\fR]
+\fBwaitanyinvoice\fR [\fIlastpay_index\fR] [\fIimmediate\fR]
 
 .SH DESCRIPTION
 
@@ -22,11 +22,26 @@ invoice when it gets paid\. The first valid \fIpay_index\fR is 1; specifying
 \fIlastpay_index\fR of 0 equivalent to not specifying a \fIlastpay_index\fR\.
 Negative \fIlastpay_index\fR is invalid\.
 
+
+If \fIimmediate\fR is \fItrue\fR, then if no paid invoice is available as
+yet, this will return immediately with an error instead of waiting\.
+If not specified, or \fIfalse\fR, then this will wait for a paid invoice\.
+
 .SH RETURN VALUE
 
 On success, an invoice description will be returned as per
 \fBlightning-listinvoice\fR(7): \fIcomplete\fR will always be \fItrue\fR\.
 
+
+Possible errors are:
+
+.RS
+.IP \[bu]
+904\.
+The \fIimmediate\fR flag was set to \fItrue\fR and no paid invoices
+are available right now\.
+
+.RE
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.

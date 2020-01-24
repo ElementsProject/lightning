@@ -4,7 +4,7 @@ lightning-waitanyinvoice -- Command for waiting for payments
 SYNOPSIS
 --------
 
-**waitanyinvoice** \[*lastpay\_index*\]
+**waitanyinvoice** \[*lastpay\_index*\] \[*immediate*\]
 
 DESCRIPTION
 -----------
@@ -22,11 +22,21 @@ invoice when it gets paid. The first valid *pay\_index* is 1; specifying
 *lastpay\_index* of 0 equivalent to not specifying a *lastpay\_index*.
 Negative *lastpay\_index* is invalid.
 
+If *immediate* is *true*, then if no paid invoice is available as
+yet, this will return immediately with an error instead of waiting.
+If not specified, or *false*, then this will wait for a paid invoice.
+
 RETURN VALUE
 ------------
 
 On success, an invoice description will be returned as per
 lightning-listinvoice(7): *complete* will always be *true*.
+
+Possible errors are:
+
+* 904.
+  The *immediate* flag was set to *true* and no paid invoices
+  are available right now.
 
 AUTHOR
 ------
