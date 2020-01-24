@@ -8,7 +8,7 @@
    they've requested.
 """
 
-from lightning import Plugin, Millisatoshi
+from pyln.client import Plugin, Millisatoshi
 
 plugin = Plugin()
 
