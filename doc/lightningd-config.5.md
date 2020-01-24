@@ -149,6 +149,13 @@ cause it to reopen this file (useful for log rotation).
  **rpc-file**=*PATH*
 Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
 
+ **rpc-file-mode**=*MODE*
+Set JSON-RPC socket file mode, as a 4-digit octal number.
+Default is 0600, meaning only the user that launched lightningd
+can command it.
+Set to 0660 to allow users with the same group to access the RPC
+as well.
+
  **daemon**
 Run in the background, suppress stdout and stderr.
 

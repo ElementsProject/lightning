@@ -188,6 +188,14 @@ cause it to reopen this file (useful for log rotation)\.
 Set JSON-RPC socket (or /dev/tty), such as for \fBlightning-cli\fR(1)\.
 
 
+ \fBrpc-file-mode\fR=\fIMODE\fR
+Set JSON-RPC socket file mode, as a 4-digit octal number\.
+Default is 0600, meaning only the user that launched lightningd
+can command it\.
+Set to 0660 to allow users with the same group to access the RPC
+as well\.
+
+
  \fBdaemon\fR
 Run in the background, suppress stdout and stderr\.
 

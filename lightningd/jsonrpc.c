@@ -1074,7 +1074,7 @@ bool command_check_only(const struct command *cmd)
 void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 {
 	struct sockaddr_un addr;
-	int fd, old_umask;
+	int fd, old_umask, new_umask;
 	const char *rpc_filename = ld->rpc_filename;
 
 	/* Should not initialize it twice. */
@@ -1103,8 +1103,9 @@ void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 		errx(1, "rpc filename '%s' in use", rpc_filename);
 	unlink(rpc_filename);
 
-	/* This file is only rw by us! */
-	old_umask = umask(0177);
+	/* Set the umask according to the desired file mode.  */
+	new_umask = ld->rpc_filemode ^ 0777;
+	old_umask = umask(new_umask);
 	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)))
 		err(1, "Binding rpc socket to '%s'", rpc_filename);
 	umask(old_umask);

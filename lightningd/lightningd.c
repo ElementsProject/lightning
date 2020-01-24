@@ -78,7 +78,6 @@
 #include <signal.h>
 #include <sodium.h>
 #include <sys/resource.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -253,6 +252,16 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * initial_umask anyway as we might rely on it later (`plugin start`). */
 	ld->initial_umask = umask(0);
 	umask(ld->initial_umask);
+
+	/*~ This is the mode of the created JSON-RPC socket file, in
+	 * traditional Unix octal. 0600 means only the user that ran
+	 * lightningd can invoke RPC on it. Changing it to 0660 may
+	 * be sensible if you run lightningd in its own system user,
+	 * and just let specific users (add the group of the
+	 * lightningd runner as an ancillary group) access its
+	 * RPC. Can be overridden with `--rpc-file-mode`.
+	 */
+	ld->rpc_filemode = 0600;
 
 	return ld;
 }

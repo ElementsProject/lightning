@@ -10,6 +10,7 @@
 #include <lightningd/htlc_set.h>
 #include <lightningd/plugin.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 
@@ -91,6 +92,8 @@ struct lightningd {
 
 	/* Location of the RPC socket. */
 	char *rpc_filename;
+	/* Mode of the RPC filename. */
+	mode_t rpc_filemode;
 
 	/* The root of the jsonrpc interface. Can be shut down
 	 * separately from the rest of the daemon to allow a clean
