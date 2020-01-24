@@ -445,6 +445,7 @@ def test_waitanyinvoice(node_factory, executor):
     inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
     inv2 = l2.rpc.invoice(1000, 'inv2', 'inv2')
     inv3 = l2.rpc.invoice(1000, 'inv3', 'inv3')
+    inv4 = l2.rpc.invoice(1000, 'inv4', 'inv4')
 
     # Attempt to wait for the first invoice
     f = executor.submit(l2.rpc.waitanyinvoice)
@@ -472,6 +473,18 @@ def test_waitanyinvoice(node_factory, executor):
     l1.rpc.pay(inv3['bolt11'])
     r = f.result(timeout=5)
     assert r['label'] == 'inv3'
+    pay_index = r['pay_index']
+
+    # If timeout is 0 and a paid invoice is not yet
+    # available, it should fail immediately.
+    with pytest.raises(RpcError):
+        l2.rpc.waitanyinvoice(pay_index, 0)
+
+    # If timeout is 0 but a paid invoice is available
+    # anyway, it should return successfully immediately.
+    l1.rpc.pay(inv4['bolt11'])
+    r = executor.submit(l2.rpc.waitanyinvoice, pay_index, 0).result(timeout=5)
+    assert r['label'] == 'inv4'
 
     with pytest.raises(RpcError):
         l2.rpc.waitanyinvoice('non-number')
