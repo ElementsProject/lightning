@@ -94,9 +94,10 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	struct bitcoin_block *b;
 	u8 *linear_tx;
 	const u8 *p;
-	size_t len, i, num;
+	size_t len, i, num, templen;
 	struct sha256_ctx shactx;
 	bool is_dynafed;
+	u32 height;
 
 	if (hexlen && hex[hexlen-1] == '\n')
 		hexlen--;
@@ -127,26 +128,24 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	if (is_elements(chainparams)) {
 		/* A dynafed block is signalled by setting the MSB of the version. */
 		is_dynafed = (b->hdr.version >> 31 == 1);
-		b->elements_hdr = tal(b, struct elements_block_hdr);
-		b->elements_hdr->block_height = pull_le32(&p, &len);
-		sha256_le32(&shactx, b->elements_hdr->block_height);
+
+		/* elements_header.height */
+		height = pull_le32(&p, &len);
+		sha256_le32(&shactx, height);
 
 		if (is_dynafed) {
 			bitcoin_block_pull_dynafed_details(&p, &len, &shactx);
 		} else {
-			size_t challenge_len = pull_varint(&p, &len);
-			sha256_varint(&shactx, challenge_len);
-			sha256_update(&shactx, p, challenge_len);
-			b->elements_hdr->proof.challenge =
-			    tal_arr(b->elements_hdr, u8, challenge_len);
-			pull(&p, &len, b->elements_hdr->proof.challenge,
-			     challenge_len);
+			/* elemens_header.challenge */
+			templen = pull_varint(&p, &len);
+			sha256_varint(&shactx, templen);
+			sha256_update(&shactx, p, templen);
+			pull(&p, &len, NULL, templen);
 
-			size_t solution_len = pull_varint(&p, &len);
-			b->elements_hdr->proof.solution =
-			    tal_arr(b->elements_hdr, u8, solution_len);
-			pull(&p, &len, b->elements_hdr->proof.solution,
-			     solution_len);
+			/* elements_header.solution. Not hashed since it'd be
+			 * a circular dependency. */
+			templen = pull_varint(&p, &len);
+			pull(&p, &len, NULL, templen);
 		}
 
 	} else {
