@@ -511,6 +511,10 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 		addr->itype = ADDR_INTERNAL_STATICTOR;
 		addr->u.torservice.port = DEFAULT_PORT;
 		memset(&(addr->u.torservice.blob[0]), 0, sizeof(addr->u.torservice.blob));
+		/* Init the upper part of blob with random bytes so that a user can gen
+		 * an persistent .onion from less than 32 char blobstring with at least 128bit entropy
+		 */
+		randombytes_buf((void * const)&(addr->u.torservice.blob[32]), 32);
 
 		/* Format is separated by slash. */
 		char **parts = tal_strsplit(tmpctx, arg, "/", STR_EMPTY_OK);
@@ -534,12 +538,18 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			if (tal_strreg(tmpctx, parts[i], "torblob")) {
 				char **parts_eq = tal_strsplit(tmpctx, parts[i], "=", STR_EMPTY_OK);
 				if (tal_count(parts_eq) == 3) {
-					if (strlen((char *)parts_eq[1]) == 0) {
+					size_t len = strlen((char *)parts_eq[1]);
+					if (len == 0) {
 						if (err_msg)
 							*err_msg = "Blob too short";
 						return false;
 					}
-				strncpy((char *)&(addr->u.torservice.blob[0]), (const char *)parts_eq[1], TOR_V3_BLOBLEN);
+					if (len > TOR_V3_BLOBLEN) {
+						if (err_msg)
+							*err_msg = "Blob must be less than 64 char";
+						return false;
+					}
+				memcpy((void *)&(addr->u.torservice.blob[0]), (const void *)parts_eq[1], len);
 				use_magic_blob = false;
 				}
 			}
