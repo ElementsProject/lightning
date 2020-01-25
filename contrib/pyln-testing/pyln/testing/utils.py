@@ -443,17 +443,6 @@ class ElementsD(BitcoinD):
         self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
         self.prefix = 'elementsd'
 
-    def generate_block(self, numblocks=1, wait_for_mempool=0):
-        if wait_for_mempool:
-            if isinstance(wait_for_mempool, str):
-                wait_for_mempool = [wait_for_mempool]
-            if isinstance(wait_for_mempool, list):
-                wait_for(lambda: all(txid in self.rpc.getrawmempool() for txid in wait_for_mempool))
-            else:
-                wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
-        # As of 0.16, generate() is removed; use generatetoaddress.
-        return self.rpc.generate(numblocks)
-
     def getnewaddress(self):
         """Need to get an address and then make it unconfidential
         """
