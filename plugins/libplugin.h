@@ -3,6 +3,7 @@
 #define LIGHTNING_PLUGINS_LIBPLUGIN_H
 #include "config.h"
 
+#include <ccan/ccan/membuf/membuf.h>
 #include <ccan/time/time.h>
 #include <common/errcode.h>
 #include <common/json.h>
@@ -12,16 +13,58 @@
 #include <common/param.h>
 #include <common/status_levels.h>
 
-struct command;
 struct json_out;
-struct plugin_conn;
-
-extern bool deprecated_apis;
 
 enum plugin_restartability {
 	PLUGIN_STATIC,
 	PLUGIN_RESTARTABLE
 };
+
+struct rpc_conn {
+	int fd;
+	MEMBUF(char) mb;
+};
+
+struct plugin {
+	/* lightningd interaction */
+	struct io_conn *stdin_conn;
+	struct io_conn *stdout_conn;
+
+	/* To read from lightningd */
+	char *buffer;
+	size_t used, len_read;
+
+	/* To write to lightningd */
+	struct json_stream **js_arr;
+
+	struct rpc_conn rpc_conn;
+
+	enum plugin_restartability restartability;
+	const struct plugin_command *commands;
+	size_t num_commands;
+	const struct plugin_notification *notif_subs;
+	size_t num_notif_subs;
+	const struct plugin_hook *hook_subs;
+	size_t num_hook_subs;
+	struct plugin_option *opts;
+
+	/* Anything special to do at init ? */
+	void (*init)(struct plugin *p,
+		     const char *buf, const jsmntok_t *);
+	/* Has the manifest been sent already ? */
+	bool manifested;
+	/* Has init been received ? */
+	bool initialized;
+};
+
+struct command {
+	u64 *id;
+	const char *methodname;
+	bool usage_only;
+	struct plugin *plugin;
+};
+
+extern bool deprecated_apis;
 
 /* Create an array of these, one for each command you support. */
 struct plugin_command {
@@ -96,9 +139,10 @@ command_success_str(struct command *cmd, const char *str);
 /* Synchronous helper to send command and extract single field from
  * response; can only be used in init callback. */
 const char *rpc_delve(const tal_t *ctx,
+		      struct plugin *plugin,
 		      const char *method,
 		      const struct json_out *params TAKES,
-		      struct plugin_conn *rpc, const char *guide);
+		      const char *guide);
 
 /* Async rpc request.
  * @cmd can be NULL if we're coming from a timer callback.
@@ -154,7 +198,7 @@ struct command_result *timer_complete(void);
  * Freeing this releases the timer, otherwise it's freed after @cb
  * if it hasn't been freed already.
  */
-struct plugin_timer *plugin_timer(struct plugin_conn *rpc,
+struct plugin_timer *plugin_timer(struct rpc_conn *rpc,
 				  struct timerel t,
 				  struct command_result *(*cb)(void));
 
@@ -175,7 +219,7 @@ char *charp_option(const char *arg, char **p);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
-					void (*init)(struct plugin_conn *rpc,
+					void (*init)(struct plugin *p,
 						     const char *buf, const jsmntok_t *),
 					const enum plugin_restartability restartability,
 					const struct plugin_command *commands,
