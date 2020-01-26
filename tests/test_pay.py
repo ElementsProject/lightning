@@ -2601,7 +2601,6 @@ def test_partial_payment(node_factory, bitcoind, executor):
     with pytest.raises(RpcError, match=r'Already have parallel payment in progress'):
         l1.rpc.sendpay(route=r124,
                        payment_hash=inv['payment_hash'],
-                       msatoshi=1000,
                        payment_secret=paysecret)
 
     # It will not allow a parallel with different msatoshi!

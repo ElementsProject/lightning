@@ -1197,6 +1197,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	const char *b11str, *label = NULL;
 	u64 *partid;
 	struct secret *payment_secret;
+	bool is_mpp;
 
 	/* For generating help, give new-style. */
 	if (!params || !deprecated_apis) {
@@ -1297,13 +1298,32 @@ static struct command_result *json_sendpay(struct command *cmd,
 		route[i].direction = direction ? *direction : 0;
 	}
 
+	/* We switch to mpp mode if a partid was specified, or the final
+	 * amount doesn't match the specified total amount. */
+	is_mpp = *partid != 0 ||
+		 (msat && !amount_msat_eq(*msat, route[routetok->size].amount));
+
+	if (is_mpp && *partid == 0)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Must specify partid for multi-part payments (mpp was "
+		    "enabled because an amount in msatoshi was specified)");
+
 	/* The given msatoshi is the actual payment that the payee is
 	 * requesting. The final hop amount is what we actually give, which can
 	 * be from the msatoshi to twice msatoshi. */
+	if (is_mpp && !msat)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Must specify total msatoshi for multi-part payments (mpp "
+		    "was enabled because partid was specified)");
 
-	if (*partid && !msat)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Must specify msatoshi with partid");
+	if (is_mpp && !payment_secret)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Must specify a payment_secret for multi-part payments "
+		    "(mpp was enabled because partid or an amount in msatoshi "
+		    "was specified)");
 
 	/* finalhop.amount > 2 * msatoshi, fail. */
 	if (msat) {
