@@ -30,7 +30,6 @@ pubkeys = [
 def test_onion(directory, oniontool):
     """ Generate a 5 hop onion and then decode it.
     """
-    os.makedirs(directory)
     tempfile = os.path.join(directory, 'onion')
     out = subprocess.check_output(
         [oniontool, 'generate'] + pubkeys
@@ -53,7 +52,6 @@ def test_onion(directory, oniontool):
 def test_rendezvous_onion(directory, oniontool):
     """Create a compressed onion, decompress it at the RV node and then forward normally.
     """
-    os.makedirs(directory)
     tempfile = os.path.join(directory, 'onion')
     out = subprocess.check_output(
         [oniontool, '--rendezvous-id', pubkeys[0], 'generate'] + pubkeys
