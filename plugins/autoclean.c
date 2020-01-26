@@ -72,11 +72,11 @@ static void init(struct plugin *p,
 	rpc = &p->rpc_conn;
 
 	if (cycle_seconds) {
-		plugin_log(LOG_INFORM, "autocleaning every %"PRIu64" seconds", cycle_seconds);
+		plugin_log(p, LOG_INFORM, "autocleaning every %"PRIu64" seconds", cycle_seconds);
 		cleantimer = plugin_timer(p, time_from_sec(cycle_seconds),
 					  do_clean);
 	} else
-		plugin_log(LOG_DBG, "autocleaning not active");
+		plugin_log(p, LOG_DBG, "autocleaning not active");
 }
 
 static const struct plugin_command commands[] = { {
