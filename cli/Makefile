@@ -3,11 +3,22 @@ LIGHTNING_CLI_OBJS := $(LIGHTNING_CLI_SRC:.c=.o)
 
 LIGHTNING_CLI_COMMON_OBJS :=			\
 	bitcoin/chainparams.o			\
+	bitcoin/pubkey.o			\
+	bitcoin/shadouble.o			\
+	bitcoin/tx.o				\
+	common/amount.o				\
+	common/base32.o				\
+	common/bigsize.o			\
 	common/configdir.o			\
 	common/json.o				\
+	common/json_stream.o			\
 	common/memleak.o			\
+	common/type_to_string.o			\
 	common/utils.o				\
-	common/version.o
+	common/version.o			\
+	common/wireaddr.o			\
+	wire/fromwire.o				\
+	wire/towire.o
 
 lightning-cli-all: cli/lightning-cli
 

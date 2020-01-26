@@ -22,6 +22,7 @@ PLUGIN_COMMON_OBJS :=				\
 	bitcoin/tx.o				\
 	bitcoin/varint.o			\
 	common/amount.o				\
+	common/base32.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
@@ -31,6 +32,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/hash_u5.o			\
 	common/json.o				\
 	common/json_helpers.o			\
+	common/json_stream.o			\
 	common/json_tok.o			\
 	common/memleak.o			\
 	common/node_id.o			\
@@ -39,6 +41,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
+	common/wireaddr.o			\
 	wire/fromwire.o				\
 	wire/towire.o
 

@@ -8,6 +8,9 @@ bool cupdate_different(struct gossip_store *gs UNNEEDED,
 		       const struct half_chan *hc UNNEEDED,
 		       const u8 *cupdate UNNEEDED)
 { fprintf(stderr, "cupdate_different called!\n"); abort(); }
+/* Generated stub for fmt_wireaddr_without_port */
+char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
+{ fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_add_channel */
 bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
@@ -36,6 +39,28 @@ const u8 *gossip_store_get_private_update(const tal_t *ctx UNNEEDED,
 					  struct gossip_store *gs UNNEEDED,
 					  u64 offset UNNEEDED)
 { fprintf(stderr, "gossip_store_get_private_update called!\n"); abort(); }
+/* Generated stub for json_add_member */
+void json_add_member(struct json_stream *js UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     bool quote UNNEEDED,
+		     const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "json_add_member called!\n"); abort(); }
+/* Generated stub for json_array_end */
+void json_array_end(struct json_stream *js UNNEEDED)
+{ fprintf(stderr, "json_array_end called!\n"); abort(); }
+/* Generated stub for json_array_start */
+void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
+{ fprintf(stderr, "json_array_start called!\n"); abort(); }
+/* Generated stub for json_member_direct */
+char *json_member_direct(struct json_stream *js UNNEEDED,
+			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
+{ fprintf(stderr, "json_member_direct called!\n"); abort(); }
+/* Generated stub for json_object_end */
+void json_object_end(struct json_stream *js UNNEEDED)
+{ fprintf(stderr, "json_object_end called!\n"); abort(); }
+/* Generated stub for json_object_start */
+void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
+{ fprintf(stderr, "json_object_start called!\n"); abort(); }
 /* Generated stub for memleak_add_helper_ */
 void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
 						    const tal_t *)){ }
