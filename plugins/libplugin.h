@@ -3,7 +3,8 @@
 #define LIGHTNING_PLUGINS_LIBPLUGIN_H
 #include "config.h"
 
-#include <ccan/ccan/membuf/membuf.h>
+#include <ccan/intmap/intmap.h>
+#include <ccan/membuf/membuf.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
@@ -39,8 +40,19 @@ struct plugin {
 	/* To write to lightningd */
 	struct json_stream **js_arr;
 
+	/* Asynchronous RPC interaction */
+	struct io_conn *io_rpc_conn;
+	struct json_stream **rpc_js_arr;
+	char *rpc_buffer;
+	size_t rpc_used, rpc_len_read;
+	/* Tracking async RPC requests */
+	UINTMAP(struct out_req *) out_reqs;
+	u64 next_outreq_id;
+
+	/* Synchronous RPC interaction */
 	struct rpc_conn rpc_conn;
 
+	/* Plugin informations */
 	enum plugin_restartability restartability;
 	const struct plugin_command *commands;
 	size_t num_commands;
