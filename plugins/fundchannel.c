@@ -485,17 +485,17 @@ static struct command_result *json_fundchannel(struct command *cmd,
 	return connect_to_peer(cmd, fr);
 }
 
-static void init(struct plugin_conn *rpc,
+static void init(struct plugin *p,
 		 const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	/* Figure out what the 'placeholder' addr is */
 	const char *network_name;
 	u8 *placeholder = tal_hexdata(tmpctx, placeholder_script, strlen(placeholder_script));
 
-	network_name = rpc_delve(tmpctx, "listconfigs",
+	network_name = rpc_delve(tmpctx, p, "listconfigs",
 				 take(json_out_obj(NULL, "config",
 						   "network")),
-			         rpc, ".network");
+				 ".network");
 	chainparams = chainparams_for_network(network_name);
 	placeholder_funding_addr = encode_scriptpubkey_to_addr(NULL, chainparams,
 							       placeholder);

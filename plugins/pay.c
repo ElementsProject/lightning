@@ -1666,20 +1666,20 @@ static struct command_result *json_listpays(struct command *cmd,
 			   take(json_out_obj(NULL, "bolt11", b11str)));
 }
 
-static void init(struct plugin_conn *rpc,
+static void init(struct plugin *p,
 		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	const char *field;
 
-	field = rpc_delve(tmpctx, "getinfo",
-			  take(json_out_obj(NULL, NULL, NULL)), rpc, ".id");
+	field = rpc_delve(tmpctx, p, "getinfo",
+			  take(json_out_obj(NULL, NULL, NULL)), ".id");
 	if (!node_id_from_hexstr(field, strlen(field), &my_id))
 		plugin_err("getinfo didn't contain valid id: '%s'", field);
 
-	field = rpc_delve(tmpctx, "listconfigs",
+	field = rpc_delve(tmpctx, p, "listconfigs",
 			  take(json_out_obj(NULL,
 					    "config", "max-locktime-blocks")),
-			  rpc, ".max-locktime-blocks");
+			  ".max-locktime-blocks");
 	maxdelay_default = atoi(field);
 }
 
