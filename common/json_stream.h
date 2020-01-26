@@ -14,8 +14,27 @@
 
 struct command;
 struct io_conn;
-struct json_stream;
 struct log;
+
+struct json_stream {
+	/* NULL if we ran OOM! */
+	struct json_out *jout;
+
+	/* Who is writing to this buffer now; NULL if nobody is. */
+	struct command *writer;
+
+	/* Who is io_writing from this buffer now: NULL if nobody is. */
+	struct io_conn *reader;
+	struct io_plan *(*reader_cb)(struct io_conn *conn,
+				     struct json_stream *js,
+				     void *arg);
+	void *reader_arg;
+	size_t len_read;
+
+	/* Where to log I/O */
+	struct log *log;
+};
+
 
 /**
  * new_json_stream - create a new JSON stream.
