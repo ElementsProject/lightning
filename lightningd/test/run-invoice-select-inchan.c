@@ -2,6 +2,7 @@
 #include "../invoice.c"
 #include "../peer_control.c"
 #include <ccan/alignof/alignof.h>
+#include <common/errcode.h>
 
 bool deprecated_apis = false;
 
@@ -50,7 +51,7 @@ bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 bool command_check_only(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_check_only called!\n"); abort(); }
 /* Generated stub for command_fail */
-struct command_result *command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
+struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }

@@ -10,6 +10,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <common/errcode.h>
 #include <common/node_id.h>
 #include <common/utils.h>
 
@@ -87,9 +88,9 @@ void towire_bool(u8 **pptr, bool v)
 	towire(pptr, &val, sizeof(val));
 }
 
-void towire_int(u8 **pptr, int v)
+void towire_errcode_t(u8 **pptr, errcode_t v)
 {
-	towire(pptr, &v, sizeof(v));
+	towire_u32(pptr, (u32)v);
 }
 
 void towire_bigsize(u8 **pptr, const bigsize_t val)

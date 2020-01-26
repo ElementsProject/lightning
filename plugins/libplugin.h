@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <ccan/time/time.h>
+#include <common/errcode.h>
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -74,7 +75,7 @@ void NORETURN plugin_err(const char *fmt, ...);
  * NULL, data can be NULL; otherwise it must be a JSON object. */
 struct command_result *WARN_UNUSED_RESULT
 command_done_err(struct command *cmd,
-		 int code,
+		 errcode_t code,
 		 const char *errmsg,
 		 const struct json_out *data);
 

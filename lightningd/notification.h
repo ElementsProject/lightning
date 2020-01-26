@@ -7,6 +7,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
+#include <common/errcode.h>
 #include <common/node_id.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/jsonrpc.h>
@@ -62,7 +63,7 @@ void notify_sendpay_success(struct lightningd *ld,
 
 void notify_sendpay_failure(struct lightningd *ld,
 			    const struct wallet_payment *payment,
-			    int pay_errcode,
+			    errcode_t pay_errcode,
 			    const struct onionreply *onionreply,
 			    const struct routing_failure *fail,
 			    const char *errmsg);

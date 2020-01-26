@@ -251,14 +251,14 @@ command_success_str(struct command *cmd, const char *str)
 }
 
 struct command_result *command_done_err(struct command *cmd,
-					int code,
+					errcode_t code,
 					const char *errmsg,
 					const struct json_out *data)
 {
 	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
 
 	json_out_start(jout, "error", '{');
-	json_out_add(jout, "code", false, "%d", code);
+	json_out_add(jout, "code", false, "%" PRIerrcode, code);
 	json_out_addstr(jout, "message", errmsg);
 
 	if (data)
@@ -305,7 +305,7 @@ struct command_result *forward_result(struct command *cmd,
 
 /* Called by param() directly if it's malformed. */
 struct command_result *command_fail(struct command *cmd,
-				    int code, const char *fmt, ...)
+				    errcode_t code, const char *fmt, ...)
 {
 	va_list ap;
 	struct command_result *res;
