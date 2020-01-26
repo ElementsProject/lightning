@@ -41,6 +41,9 @@ def directory(request, test_base_dir, test_name):
     directory = os.path.join(test_base_dir, "{}_{}".format(test_name, __attempts[test_name]))
     request.node.has_errors = False
 
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
     yield directory
 
     # This uses the status set in conftest.pytest_runtest_makereport to
