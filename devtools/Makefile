@@ -28,6 +28,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/pseudorand.o			\
 	common/json.o				\
 	common/json_helpers.o			\
+	common/json_stream.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\

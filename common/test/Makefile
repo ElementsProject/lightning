@@ -14,6 +14,19 @@ ALL_OBJS += $(COMMON_TEST_PROGRAMS:=.o)
 # Sphinx test wants to decode TLVs.
 common/test/run-sphinx: wire/gen_onion_wire.o wire/towire.o wire/fromwire.o
 
+common/test/run-param					\
+common/test/run-json:					\
+	common/amount.o					\
+	common/base32.o					\
+	common/bigsize.o				\
+	common/json.o					\
+	common/json_stream.o				\
+	common/wireaddr.o				\
+	common/type_to_string.o				\
+	wire/fromwire.o					\
+	wire/gen_onion_wire.o				\
+	wire/towire.o
+
 update-mocks: $(COMMON_TEST_SRC:%=update-mocks/%)
 
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
