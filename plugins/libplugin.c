@@ -120,6 +120,39 @@ struct command_result *command_param_failed(void)
 	return &complete;
 }
 
+
+static void ld_send(struct plugin *plugin, struct json_stream *stream)
+{
+	tal_steal(plugin->js_arr, stream);
+	tal_arr_expand(&plugin->js_arr, stream);
+	io_wake(plugin);
+}
+
+/* FIXME: Move lightningd/jsonrpc to common/ ? */
+
+static struct json_stream *jsonrpc_stream_start(struct command *cmd)
+{
+	struct json_stream *js = new_json_stream(cmd, cmd, NULL);
+
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_u64(js, "id", *cmd->id);
+
+	return js;
+}
+
+static struct command_result *command_complete(struct command *cmd,
+					       struct json_stream *result)
+{
+	/* Global object */
+	json_object_compat_end(result);
+	json_stream_close(result, cmd);
+	ld_send(cmd->plugin, result);
+	tal_free(cmd);
+
+	return &complete;
+}
+
 struct json_out *json_out_obj(const tal_t *ctx,
 			      const char *fieldname,
 			      const char *str)
@@ -198,52 +231,41 @@ static void finish_and_send_json(int fd, struct json_out *jout)
 	json_out_consume(jout, len);
 }
 
-/* param.c is insistant on functions returning 'struct command_result'; we
- * just always return NULL. */
-static struct command_result *WARN_UNUSED_RESULT end_cmd(struct command *cmd)
-{
-	tal_free(cmd);
-	return &complete;
-}
-
 /* str is raw JSON from RPC output. */
 static struct command_result *WARN_UNUSED_RESULT
 command_done_raw(struct command *cmd,
 		 const char *label,
 		 const char *str, int size)
 {
-	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
+	struct json_stream *js = jsonrpc_stream_start(cmd);
 
-	memcpy(json_out_member_direct(jout, label, size), str, size);
+	memcpy(json_out_member_direct(js->jout, label, size), str, size);
 
-	finish_and_send_json(STDOUT_FILENO, jout);
-	return end_cmd(cmd);
+	return command_complete(cmd, js);
 }
 
 struct command_result *WARN_UNUSED_RESULT
 command_success(struct command *cmd, const struct json_out *result)
 {
-	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
+	struct json_stream *js = jsonrpc_stream_start(cmd);
 
-	json_out_add_splice(jout, "result", result);
-	finish_and_send_json(STDOUT_FILENO, jout);
-	return end_cmd(cmd);
+	json_out_add_splice(js->jout, "result", result);
+	return command_complete(cmd, js);
 }
 
 struct command_result *WARN_UNUSED_RESULT
 command_success_str(struct command *cmd, const char *str)
 {
-	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
+	struct json_stream *js = jsonrpc_stream_start(cmd);
 
 	if (str)
-		json_out_addstr(jout, "result", str);
+		json_add_string(js, "result", str);
 	else {
 		/* Use an empty object if they don't want anything. */
-		json_out_start(jout, "result", '{');
-		json_out_end(jout, '}');
+		json_object_start(js, "result");
+		json_object_end(js);
 	}
-	finish_and_send_json(STDOUT_FILENO, jout);
-	return end_cmd(cmd);
+	return command_complete(cmd, js);
 }
 
 struct command_result *command_done_err(struct command *cmd,
@@ -251,18 +273,17 @@ struct command_result *command_done_err(struct command *cmd,
 					const char *errmsg,
 					const struct json_out *data)
 {
-	struct json_out *jout = start_json_rpc(cmd, *cmd->id);
+	struct json_stream *js = jsonrpc_stream_start(cmd);
 
-	json_out_start(jout, "error", '{');
-	json_out_add(jout, "code", false, "%" PRIerrcode, code);
-	json_out_addstr(jout, "message", errmsg);
+	json_object_start(js, "error");
+	json_add_errcode(js, "code", code);
+	json_add_string(js, "message", errmsg);
 
 	if (data)
-		json_out_add_splice(jout, "data", data);
-	json_out_end(jout, '}');
+		json_out_add_splice(js->jout, "data", data);
+	json_object_end(js);
 
-	finish_and_send_json(STDOUT_FILENO, jout);
-	return end_cmd(cmd);
+	return command_complete(cmd, js);
 }
 
 struct command_result *command_err_raw(struct command *cmd,
