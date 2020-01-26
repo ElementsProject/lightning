@@ -74,6 +74,9 @@ struct pay_status {
 };
 
 struct pay_command {
+	/* Global state */
+	struct plugin *plugin;
+
 	/* Destination, as text */
 	const char *dest;
 
@@ -215,7 +218,8 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 						const char *fmt, ...);
 
 /* Is this (erring) channel within the routehint itself? */
-static bool node_or_channel_in_routehint(const struct route_info *routehint,
+static bool node_or_channel_in_routehint(struct plugin *plugin,
+					 const struct route_info *routehint,
 					 const char *idstr, size_t idlen)
 {
 	struct node_id nodeid;
@@ -224,7 +228,7 @@ static bool node_or_channel_in_routehint(const struct route_info *routehint,
 
 	if (!node_id_from_hexstr(idstr, idlen, &nodeid)) {
 		if (!short_channel_id_from_str(idstr, idlen, &scid))
-			plugin_err("bad erring_node or erring_channel '%.*s'",
+			plugin_err(plugin, "bad erring_node or erring_channel '%.*s'",
 				   (int)idlen, idstr);
 		else
 			node_err = false;
@@ -280,14 +284,16 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 	return command_done_err(cmd, PAY_STOPPED_RETRYING, errmsg, data);
 }
 
-static bool routehint_excluded(const struct route_info *routehint,
+static bool routehint_excluded(struct plugin *plugin,
+			       const struct route_info *routehint,
 			       const char **excludes)
 {
 	/* Note that we ignore direction here: in theory, we could have
 	 * found that one direction of a channel is unavailable, but they
 	 * are suggesting we use it the other way.  Very unlikely though! */
 	for (size_t i = 0; i < tal_count(excludes); i++)
-		if (node_or_channel_in_routehint(routehint,
+		if (node_or_channel_in_routehint(plugin,
+						 routehint,
 						 excludes[i],
 						 strlen(excludes[i])))
 			return true;
@@ -300,7 +306,8 @@ static struct command_result *next_routehint(struct command *cmd,
 	size_t num_attempts = count_sendpays(pc->ps->attempts);
 
 	while (tal_count(pc->routehints) > 0) {
-		if (!routehint_excluded(pc->routehints[0], pc->excludes)) {
+		if (!routehint_excluded(pc->plugin, pc->routehints[0],
+					pc->excludes)) {
 			pc->current_routehint = pc->routehints[0];
 			tal_arr_remove(&pc->routehints, 0);
 			return start_pay_attempt(cmd, pc, "Trying route hint");
@@ -434,13 +441,13 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 
 	codetok = json_get_member(buf, error, "code");
 	if (!json_to_errcode(buf, codetok, &code))
-		plugin_err("waitsendpay error gave no 'code'? '%.*s'",
+		plugin_err(cmd->plugin, "waitsendpay error gave no 'code'? '%.*s'",
 			   error->end - error->start, buf + error->start);
 
 	if (code != PAY_UNPARSEABLE_ONION) {
 		failcodetok = json_delve(buf, error, ".data.failcode");
 		if (!json_to_int(buf, failcodetok, &failcode))
-			plugin_err("waitsendpay error gave no 'failcode'? '%.*s'",
+			plugin_err(cmd->plugin, "waitsendpay error gave no 'failcode'? '%.*s'",
 				   error->end - error->start, buf + error->start);
 	}
 
@@ -505,17 +512,17 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 	if (failcode & NODE) {
 		nodeidtok = json_delve(buf, error, ".data.erring_node");
 		if (!nodeidtok)
-			plugin_err("waitsendpay error no erring_node '%.*s'",
+			plugin_err(cmd->plugin, "waitsendpay error no erring_node '%.*s'",
 				   error->end - error->start, buf + error->start);
 		node_err = true;
 	} else {
 		scidtok = json_delve(buf, error, ".data.erring_channel");
 		if (!scidtok)
-			plugin_err("waitsendpay error no erring_channel '%.*s'",
+			plugin_err(cmd->plugin, "waitsendpay error no erring_channel '%.*s'",
 				   error->end - error->start, buf + error->start);
 		dirtok = json_delve(buf, error, ".data.erring_direction");
 		if (!dirtok)
-			plugin_err("waitsendpay error no erring_direction '%.*s'",
+			plugin_err(cmd->plugin, "waitsendpay error no erring_direction '%.*s'",
 				   error->end - error->start, buf + error->start);
 	}
 
@@ -525,7 +532,7 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 
 	if (node_err) {
 		/* If failure is in routehint part, try next one */
-		if (node_or_channel_in_routehint(pc->current_routehint,
+		if (node_or_channel_in_routehint(pc->plugin, pc->current_routehint,
 						 buf + nodeidtok->start,
 						 nodeidtok->end - nodeidtok->start))
 			return next_routehint(cmd, pc);
@@ -537,7 +544,7 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 			       buf + nodeidtok->start));
 	} else {
 		/* If failure is in routehint part, try next one */
-		if (node_or_channel_in_routehint(pc->current_routehint,
+		if (node_or_channel_in_routehint(pc->plugin, pc->current_routehint,
 						 buf + scidtok->start,
 						 scidtok->end - scidtok->start))
 			return next_routehint(cmd, pc);
@@ -705,7 +712,8 @@ static bool maybe_exclude(struct pay_command *pc,
 
 	scid = json_get_member(buf, route, "channel");
 
-	if (node_or_channel_in_routehint(pc->current_routehint,
+	if (node_or_channel_in_routehint(pc->plugin,
+					 pc->current_routehint,
 					 buf + scid->start,
 					 scid->end - scid->start))
 		return false;
@@ -732,7 +740,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	struct json_out *params;
 
 	if (!t)
-		plugin_err("getroute gave no 'route'? '%.*s'",
+		plugin_err(cmd->plugin, "getroute gave no 'route'? '%.*s'",
 			   result->end - result->start, buf);
 
 	if (pc->current_routehint) {
@@ -749,15 +757,15 @@ static struct command_result *getroute_done(struct command *cmd,
 		attempt->route = json_strdup(pc->ps->attempts, buf, t);
 
 	if (!json_to_msat(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
-		plugin_err("getroute with invalid msatoshi? %.*s",
+		plugin_err(cmd->plugin, "getroute with invalid msatoshi? %.*s",
 			   result->end - result->start, buf);
 	if (!amount_msat_sub(&fee, fee, pc->msat))
-		plugin_err("final amount %s less than paid %s",
+		plugin_err(cmd->plugin, "final amount %s less than paid %s",
 			   type_to_string(tmpctx, struct amount_msat, &fee),
 			   type_to_string(tmpctx, struct amount_msat, &pc->msat));
 
 	if (!json_to_number(buf, json_delve(buf, t, "[0].delay"), &delay))
-		plugin_err("getroute with invalid delay? %.*s",
+		plugin_err(cmd->plugin, "getroute with invalid delay? %.*s",
 			   result->end - result->start, buf);
 
 	/* Casting u64 to double will lose some precision. The loss of precision
@@ -858,7 +866,7 @@ static struct command_result *getroute_error(struct command *cmd,
 
 	codetok = json_get_member(buf, error, "code");
 	if (!json_to_errcode(buf, codetok, &code))
-		plugin_err("getroute error gave no 'code'? '%.*s'",
+		plugin_err(cmd->plugin, "getroute error gave no 'code'? '%.*s'",
 			   error->end - error->start, buf + error->start);
 
 	/* Strange errors from getroute should be forwarded. */
@@ -952,12 +960,12 @@ getstartblockheight_done(struct command *cmd,
 
 	blockheight_tok = json_get_member(buf, result, "blockheight");
 	if (!blockheight_tok)
-		plugin_err("getstartblockheight: "
+		plugin_err(cmd->plugin, "getstartblockheight: "
 			   "getinfo gave no 'blockheight'? '%.*s'",
 			   result->end - result->start, buf);
 
 	if (!json_to_u32(buf, blockheight_tok, &blockheight))
-		plugin_err("getstartblockheight: "
+		plugin_err(cmd->plugin, "getstartblockheight: "
 			   "getinfo gave non-unsigned-32-bit 'blockheight'? '%.*s'",
 			   result->end - result->start, buf);
 
@@ -973,7 +981,7 @@ getstartblockheight_error(struct command *cmd,
 			  struct pay_command *pc)
 {
 	/* Should never happen.  */
-	plugin_err("getstartblockheight: getinfo failed!? '%.*s'",
+	plugin_err(cmd->plugin, "getstartblockheight: getinfo failed!? '%.*s'",
 		   error->end - error->start, buf);
 }
 
@@ -1124,7 +1132,7 @@ static struct command_result *listpeers_done(struct command *cmd,
 
 	peers = json_get_member(buf, result, "peers");
 	if (!peers)
-		plugin_err("listpeers gave no 'peers'? '%.*s'",
+		plugin_err(cmd->plugin, "listpeers gave no 'peers'? '%.*s'",
 			   result->end - result->start, buf);
 
 	json_for_each_arr(i, peer, peers) {
@@ -1526,7 +1534,8 @@ static bool pay_mpp_eq(const struct pay_mpp *pm, const char *b11)
 HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, b11str_hash, pay_mpp_eq,
 		   pay_map);
 
-static void add_amount_sent(const char *b11,
+static void add_amount_sent(struct plugin *p,
+			    const char *b11,
 			    struct amount_msat *total,
 			    const char *buf,
 			    const jsmntok_t *t)
@@ -1534,7 +1543,7 @@ static void add_amount_sent(const char *b11,
 	struct amount_msat sent;
 	json_to_msat(buf, json_get_member(buf, t, "amount_sent_msat"), &sent);
 	if (!amount_msat_add(total, *total, sent))
-		plugin_log(LOG_BROKEN,
+		plugin_log(p, LOG_BROKEN,
 			   "Cannot add amount_sent_msat for %s: %s + %s",
 			   b11,
 			   type_to_string(tmpctx, struct amount_msat, total),
@@ -1612,13 +1621,15 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 		status = json_get_member(buf, t, "status");
 		if (json_tok_streq(buf, status, "complete")) {
-			add_amount_sent(pm->b11, &pm->amount_sent, buf, t);
+			add_amount_sent(cmd->plugin, pm->b11,
+					&pm->amount_sent, buf, t);
 			pm->num_nonfailed_parts++;
 			pm->status = "complete";
 			pm->preimage
 				= json_get_member(buf, t, "payment_preimage");
 		} else if (json_tok_streq(buf, status, "pending")) {
-			add_amount_sent(pm->b11, &pm->amount_sent, buf, t);
+			add_amount_sent(cmd->plugin, pm->b11,
+					&pm->amount_sent, buf, t);
 			pm->num_nonfailed_parts++;
 			/* Failed -> pending; don't downgrade success. */
 			if (!pm->status || !streq(pm->status, "complete"))
@@ -1674,7 +1685,7 @@ static void init(struct plugin *p,
 	field = rpc_delve(tmpctx, p, "getinfo",
 			  take(json_out_obj(NULL, NULL, NULL)), ".id");
 	if (!node_id_from_hexstr(field, strlen(field), &my_id))
-		plugin_err("getinfo didn't contain valid id: '%s'", field);
+		plugin_err(p, "getinfo didn't contain valid id: '%s'", field);
 
 	field = rpc_delve(tmpctx, p, "listconfigs",
 			  take(json_out_obj(NULL,

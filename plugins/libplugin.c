@@ -72,6 +72,13 @@ static void ld_send(struct plugin *plugin, struct json_stream *stream)
 
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
 
+static void jsonrpc_finish_and_send(struct plugin *p, struct json_stream *js)
+{
+	json_object_compat_end(js);
+	json_stream_close(js, NULL);
+	ld_send(p, js);
+}
+
 static struct json_stream *jsonrpc_stream_start(struct command *cmd)
 {
 	struct json_stream *js = new_json_stream(cmd, cmd, NULL);
@@ -138,7 +145,7 @@ static int read_json_from_rpc(struct plugin *p)
 		if (r == 0)
 			exit(0);
 		if (r < 0)
-			plugin_err("Reading JSON input: %s", strerror(errno));
+			plugin_err(p, "Reading JSON input: %s", strerror(errno));
 		membuf_added(&p->rpc_conn.mb, r);
 	}
 
@@ -291,7 +298,8 @@ void command_set_usage(struct command *cmd, const char *usage TAKES)
 {
 	usage = tal_strdup(NULL, usage);
 	if (!strmap_add(&cmd->plugin->usagemap, cmd->methodname, usage))
-		plugin_err("Two usages for command %s?", cmd->methodname);
+		plugin_err(cmd->plugin, "Two usages for command %s?",
+			   cmd->methodname);
 }
 
 /* Reads rpc reply and returns tokens, setting contents to 'error' or
@@ -309,7 +317,7 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 
 	toks = json_parse_input(ctx, membuf_elems(&plugin->rpc_conn.mb), *reqlen, &valid);
 	if (!valid)
-		plugin_err("Malformed JSON reply '%.*s'",
+		plugin_err(plugin, "Malformed JSON reply '%.*s'",
 			   *reqlen, membuf_elems(&plugin->rpc_conn.mb));
 
 	*contents = json_get_member(membuf_elems(&plugin->rpc_conn.mb), toks, "error");
@@ -319,7 +327,7 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 		*contents = json_get_member(membuf_elems(&plugin->rpc_conn.mb), toks,
 					    "result");
 		if (!*contents)
-			plugin_err("JSON reply with no 'result' nor 'error'? '%.*s'",
+			plugin_err(plugin, "JSON reply with no 'result' nor 'error'? '%.*s'",
 				   *reqlen, membuf_elems(&plugin->rpc_conn.mb));
 		*error = false;
 	}
@@ -360,13 +368,13 @@ const char *rpc_delve(const tal_t *ctx,
 
 	read_rpc_reply(tmpctx, plugin, &contents, &error, &reqlen);
 	if (error)
-		plugin_err("Got error reply to %s: '%.*s'",
+		plugin_err(plugin, "Got error reply to %s: '%.*s'",
 		     method, reqlen, membuf_elems(&plugin->rpc_conn.mb));
 
 	t = json_delve(membuf_elems(&plugin->rpc_conn.mb), contents, guide);
 	if (!t)
-		plugin_err("Could not find %s in reply to %s: '%.*s'",
-		     guide, method, reqlen, membuf_elems(&plugin->rpc_conn.mb));
+		plugin_err(plugin, "Could not find %s in reply to %s: '%.*s'",
+			   guide, method, reqlen, membuf_elems(&plugin->rpc_conn.mb));
 
 	ret = json_strdup(ctx, membuf_elems(&plugin->rpc_conn.mb), t);
 	membuf_consume(&plugin->rpc_conn.mb, reqlen);
@@ -386,14 +394,14 @@ static void handle_rpc_reply(struct plugin *plugin)
 
 	t = json_get_member(membuf_elems(&plugin->rpc_conn.mb), toks, "id");
 	if (!t)
-		plugin_err("JSON reply without id '%.*s'",
+		plugin_err(plugin, "JSON reply without id '%.*s'",
 			   reqlen, membuf_elems(&plugin->rpc_conn.mb));
 	if (!json_to_u64(membuf_elems(&plugin->rpc_conn.mb), t, &id))
-		plugin_err("JSON reply without numeric id '%.*s'",
+		plugin_err(plugin, "JSON reply without numeric id '%.*s'",
 			   reqlen, membuf_elems(&plugin->rpc_conn.mb));
 	out = uintmap_get(&out_reqs, id);
 	if (!out)
-		plugin_err("JSON reply with unknown id '%.*s' (%"PRIu64")",
+		plugin_err(plugin, "JSON reply with unknown id '%.*s' (%"PRIu64")",
 			   reqlen, membuf_elems(&plugin->rpc_conn.mb), id);
 
 	/* We want to free this if callback doesn't. */
@@ -508,7 +516,7 @@ static struct command_result *handle_init(struct command *cmd,
 	dirtok = json_delve(buf, configtok, ".lightning-dir");
 	dir = json_strdup(tmpctx, buf, dirtok);
 	if (chdir(dir) != 0)
-		plugin_err("chdir to %s: %s", dir, strerror(errno));
+		plugin_err(p, "chdir to %s: %s", dir, strerror(errno));
 
 	nettok = json_delve(buf, configtok, ".network");
 	network = json_strdup(tmpctx, buf, nettok);
@@ -517,7 +525,7 @@ static struct command_result *handle_init(struct command *cmd,
 	rpctok = json_delve(buf, configtok, ".rpc-file");
 	p->rpc_conn.fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (rpctok->end - rpctok->start + 1 > sizeof(addr.sun_path))
-		plugin_err("rpc filename '%.*s' too long",
+		plugin_err(p, "rpc filename '%.*s' too long",
 			   rpctok->end - rpctok->start,
 			   buf + rpctok->start);
 	memcpy(addr.sun_path, buf + rpctok->start, rpctok->end - rpctok->start);
@@ -525,7 +533,7 @@ static struct command_result *handle_init(struct command *cmd,
 	addr.sun_family = AF_UNIX;
 
 	if (connect(p->rpc_conn.fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-		plugin_err("Connecting to '%.*s': %s",
+		plugin_err(p, "Connecting to '%.*s': %s",
 			   rpctok->end - rpctok->start, buf + rpctok->start,
 			   strerror(errno));
 
@@ -544,7 +552,7 @@ static struct command_result *handle_init(struct command *cmd,
 			problem = p->opts[i].handle(json_strdup(opt, buf, t+1),
 						    p->opts[i].arg);
 			if (problem)
-				plugin_err("option '%s': %s",
+				plugin_err(p, "option '%s': %s",
 					   p->opts[i].name, problem);
 			break;
 		}
@@ -620,45 +628,45 @@ struct plugin_timer *plugin_timer(struct plugin *p, struct timerel t,
 	return timer;
 }
 
-static void plugin_logv(enum log_level l, const char *fmt, va_list ap)
+static void plugin_logv(struct plugin *p, enum log_level l,
+			const char *fmt, va_list ap)
 {
-	struct json_out *jout = json_out_new(tmpctx);
+	struct json_stream *js = new_json_stream(NULL, NULL, NULL);
 
-	json_out_start(jout, NULL, '{');
-	json_out_addstr(jout, "jsonrpc", "2.0");
-	json_out_addstr(jout, "method", "log");
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_string(js, "method", "log");
 
-	json_out_start(jout, "params", '{');
-	json_out_addstr(jout, "level",
+	json_object_start(js, "params");
+	json_add_string(js, "level",
 			l == LOG_DBG ? "debug"
 			: l == LOG_INFORM ? "info"
 			: l == LOG_UNUSUAL ? "warn"
 			: "error");
-	json_out_addv(jout, "message", true, fmt, ap);
-	json_out_end(jout, '}');
+	json_out_addv(js->jout, "message", true, fmt, ap);
+	json_object_end(js);
 
-	/* Last '}' is done by finish_and_send_json */
-	finish_and_send_json(STDOUT_FILENO, jout);
+	jsonrpc_finish_and_send(p, js);
 }
 
-void NORETURN plugin_err(const char *fmt, ...)
+void NORETURN plugin_err(struct plugin *p, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	plugin_logv(LOG_BROKEN, fmt, ap);
+	plugin_logv(p, LOG_BROKEN, fmt, ap);
 	va_end(ap);
 	va_start(ap, fmt);
 	errx(1, "%s", tal_vfmt(NULL, fmt, ap));
 	va_end(ap);
 }
 
-void plugin_log(enum log_level l, const char *fmt, ...)
+void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	plugin_logv(l, fmt, ap);
+	plugin_logv(p, l, fmt, ap);
 	va_end(ap);
 }
 
@@ -673,7 +681,7 @@ static void ld_command_handle(struct plugin *plugin,
 	paramstok = json_get_member(plugin->buffer, toks, "params");
 
 	if (!methtok || !paramstok)
-		plugin_err("Malformed JSON-RPC notification missing "
+		plugin_err(plugin, "Malformed JSON-RPC notification missing "
 			   "\"method\" or \"params\": %.*s",
 			   json_tok_full_len(toks),
 			   json_tok_full(plugin->buffer, toks));
@@ -685,7 +693,7 @@ static void ld_command_handle(struct plugin *plugin,
 	if (idtok) {
 		cmd->id = tal(cmd, u64);
 		if (!json_to_u64(plugin->buffer, idtok, cmd->id))
-			plugin_err("JSON id '%*.s' is not a number",
+			plugin_err(plugin, "JSON id '%*.s' is not a number",
 				   json_tok_full_len(idtok),
 				   json_tok_full(plugin->buffer, idtok));
 	}
@@ -696,7 +704,7 @@ static void ld_command_handle(struct plugin *plugin,
 			plugin->manifested = true;
 			return;
 		}
-		plugin_err("Did not receive 'getmanifest' yet, but got '%s'"
+		plugin_err(plugin, "Did not receive 'getmanifest' yet, but got '%s'"
 			   " instead", cmd->methodname);
 	}
 
@@ -706,7 +714,7 @@ static void ld_command_handle(struct plugin *plugin,
 			plugin->initialized = true;
 			return;
 		}
-		plugin_err("Did not receive 'init' yet, but got '%s'"
+		plugin_err(plugin, "Did not receive 'init' yet, but got '%s'"
 			   " instead", cmd->methodname);
 	}
 
@@ -721,7 +729,7 @@ static void ld_command_handle(struct plugin *plugin,
 				return;
 			}
 		}
-		plugin_err("Unregistered notification %.*s",
+		plugin_err(plugin, "Unregistered notification %.*s",
 			   json_tok_full_len(methtok),
 			   json_tok_full(plugin->buffer, methtok));
 	}
@@ -744,7 +752,7 @@ static void ld_command_handle(struct plugin *plugin,
 		}
 	}
 
-	plugin_err("Unknown command '%s'", cmd->methodname);
+	plugin_err(plugin, "Unknown command '%s'", cmd->methodname);
 }
 
 /**
@@ -764,7 +772,7 @@ static bool ld_read_json_one(struct plugin *plugin)
 				&valid);
 	if (!toks) {
 		if (!valid) {
-			plugin_err("Failed to parse JSON response '%.*s'",
+			plugin_err(plugin, "Failed to parse JSON response '%.*s'",
 				   (int)plugin->used, plugin->buffer);
 			return false;
 		}
@@ -780,7 +788,7 @@ static bool ld_read_json_one(struct plugin *plugin)
 
 	jrtok = json_get_member(plugin->buffer, toks, "jsonrpc");
 	if (!jrtok) {
-		plugin_err("JSON-RPC message does not contain \"jsonrpc\" field");
+		plugin_err(plugin, "JSON-RPC message does not contain \"jsonrpc\" field");
 		return false;
 	}
 

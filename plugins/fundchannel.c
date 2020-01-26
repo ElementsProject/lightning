@@ -143,7 +143,7 @@ static struct command_result *send_tx(struct command *cmd,
 	tok = json_get_member(buf, result, "commitments_secured");
 	if (!json_to_bool(buf, tok, &commitments_secured) || !commitments_secured)
 		/* TODO: better failure path? this should never fail though. */
-		plugin_err("Commitment not secured.");
+		plugin_err(cmd->plugin, "Commitment not secured.");
 
 	/* Stash the channel_id so we can return it when finalized */
 	tok = json_get_member(buf, result, "channel_id");
@@ -175,16 +175,16 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 
 	txid_tok = json_get_member(buf, result, "txid");
 	if (!txid_tok)
-		plugin_err("txprepare missing 'txid' field");
+		plugin_err(cmd->plugin, "txprepare missing 'txid' field");
 
 	tx_tok = json_get_member(buf, result, "unsigned_tx");
 	if (!tx_tok)
-		plugin_err("txprepare missing 'unsigned_tx' field");
+		plugin_err(cmd->plugin, "txprepare missing 'unsigned_tx' field");
 
 	hex = json_strdup(tmpctx, buf, tx_tok);
 	tx = bitcoin_tx_from_hex(fr, hex, strlen(hex));
 	if (!tx)
-		plugin_err("Unable to parse tx %s", hex);
+		plugin_err(cmd->plugin, "Unable to parse tx %s", hex);
 
 	/* Find the txout */
 	outnum_found = false;
@@ -197,14 +197,14 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 		}
 	}
 	if (!outnum_found)
-		plugin_err("txprepare doesn't include our funding output. "
+		plugin_err(cmd->plugin, "txprepare doesn't include our funding output. "
 			   "tx: %s, output: %s",
 			   type_to_string(tmpctx, struct bitcoin_tx, tx),
 			   tal_hex(tmpctx, fr->out_script));
 
 	hex = json_strdup(tmpctx, buf, txid_tok);
 	if (!bitcoin_txid_from_hex(hex, strlen(hex), &fr->tx_id))
-		plugin_err("Unable to parse txid %s", hex);
+		plugin_err(cmd->plugin, "Unable to parse txid %s", hex);
 
 	ret = json_out_new(NULL);
 	json_out_start(ret, NULL, '{');
@@ -350,7 +350,7 @@ static struct command_result *post_dryrun(struct command *cmd,
 	/* Stash the 'reserved' txid to unreserve later */
 	hex = json_strdup(tmpctx, buf, json_get_member(buf, result, "txid"));
 	if (!bitcoin_txid_from_hex(hex, strlen(hex), &fr->tx_id))
-		plugin_err("Unable to parse reserved txid %s", hex);
+		plugin_err(cmd->plugin, "Unable to parse reserved txid %s", hex);
 
 
 	hex = json_strdup(tmpctx, buf, json_get_member(buf, result, "unsigned_tx"));
@@ -376,7 +376,7 @@ static struct command_result *post_dryrun(struct command *cmd,
 	}
 
 	if (!funding_found)
-		plugin_err("Error creating placebo funding tx, funding_out not found. %s", hex);
+		plugin_err(cmd->plugin, "Error creating placebo funding tx, funding_out not found. %s", hex);
 
 	/* Update funding to actual amount */
 	if (fr->funding_all && amount_sat_greater(funding, chainparams->max_funding))

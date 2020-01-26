@@ -121,7 +121,7 @@ struct json_out *json_out_obj(const tal_t *ctx,
 struct command_result *command_param_failed(void);
 
 /* Call this on fatal error. */
-void NORETURN plugin_err(const char *fmt, ...);
+void NORETURN plugin_err(struct plugin *p, const char *fmt, ...);
 
 /* This command is finished, here's a detailed error; @cmd cannot be
  * NULL, data can be NULL; otherwise it must be a JSON object. */
@@ -212,7 +212,7 @@ struct plugin_timer *plugin_timer(struct plugin *p,
 				  struct command_result *(*cb)(struct plugin *p));
 
 /* Log something */
-void plugin_log(enum log_level l, const char *fmt, ...) PRINTF_FMT(2, 3);
+void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
 
 /* Macro to define arguments */
 #define plugin_option(name, type, description, set, arg)			\
