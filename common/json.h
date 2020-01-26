@@ -3,7 +3,9 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
+#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/errcode.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -37,6 +39,9 @@ bool json_to_number(const char *buffer, const jsmntok_t *tok,
 bool json_to_u64(const char *buffer, const jsmntok_t *tok,
 		 uint64_t *num);
 
+/* Extract signed 64 bit integer from this (may be a string, or a number literal) */
+bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num);
+
 /* Extract number from this (may be a string, or a number literal) */
 bool json_to_u32(const char *buffer, const jsmntok_t *tok,
                  uint32_t *num);
@@ -50,6 +55,9 @@ bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num);
 
 /* Extract signed integer from this (may be a string, or a number literal) */
 bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num);
+
+/* Extract an error code from this (may be a string, or a number literal) */
+bool json_to_errcode(const char *buffer, const jsmntok_t *tok, errcode_t *errcode);
 
 /* Extract boolean from this */
 bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b);

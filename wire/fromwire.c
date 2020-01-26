@@ -9,8 +9,10 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
+#include <ccan/short_types/short_types.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
+#include <common/errcode.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -165,12 +167,12 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 	return ret;
 }
 
-int fromwire_int(const u8 **cursor, size_t *max)
+errcode_t fromwire_errcode_t(const u8 **cursor, size_t *max)
 {
-	int ret;
+	errcode_t ret;
 
-	if (!fromwire(cursor, max, &ret, sizeof(ret)))
-		return 0;
+	ret = (s32)fromwire_u32(cursor, max);
+
 	return ret;
 }
 

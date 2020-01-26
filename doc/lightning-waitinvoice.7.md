@@ -18,12 +18,12 @@ RETURN VALUE
 On success, an invoice description will be returned as per
 lightning-listinvoice(7). The *status* field will be *paid*.
 
-If the invoice is deleted while unpaid, or the invoice does not exist,
-this command will return with an error with code -1.
+On error the returned object will contain `code` and `message` properties,
+with `code` being one of the following:
 
-If the invoice expires before being paid, or is already expired, this
-command will return with an error with code -2, with the data being the
-invoice data as per **listinvoice**.
+- -32602: If the given parameters are wrong.
+- -1: If the invoice is deleted while unpaid, or the invoice does not exist.
+- 903: If the invoice expires before being paid, or is already expired.
 
 AUTHOR
 ------

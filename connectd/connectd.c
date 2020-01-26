@@ -29,6 +29,7 @@
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/decode_array.h>
+#include <common/errcode.h>
 #include <common/features.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -566,7 +567,7 @@ static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
-			   int errcode,
+			   errcode_t errcode,
 			   const char *errfmt, ...)
 	PRINTF_FMT(6,7);
 
@@ -574,7 +575,7 @@ static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
-			   int errcode,
+			   errcode_t errcode,
 			   const char *errfmt, ...)
 {
 	u8 *msg;

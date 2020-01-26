@@ -16,14 +16,18 @@ On success, an invoice description will be returned as per
 \fBlightning-listinvoice\fR(7)\. The \fIstatus\fR field will be \fIpaid\fR\.
 
 
-If the invoice is deleted while unpaid, or the invoice does not exist,
-this command will return with an error with code -1\.
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
 
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: If the invoice is deleted while unpaid, or the invoice does not exist\.
+.IP \[bu]
+903: If the invoice expires before being paid, or is already expired\.
 
-If the invoice expires before being paid, or is already expired, this
-command will return with an error with code -2, with the data being the
-invoice data as per \fBlistinvoice\fR\.
-
+.RE
 .SH AUTHOR
 
 Christian Decker \fI<decker.christian@gmail.com\fR> is mainly
@@ -37,8 +41,4 @@ responsible\.
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
-
-.HL
-
-Last updated 2019-04-07 14:23:17 CEST
 

@@ -4,13 +4,14 @@
 #define LIGHTNING_COMMON_JSON_COMMAND_H
 #include "config.h"
 #include <ccan/compiler/compiler.h>
+#include <common/errcode.h>
 #include <stdbool.h>
 
 struct command;
 struct command_result;
 
 /* Caller supplied this: param assumes it can call it. */
-struct command_result *command_fail(struct command *cmd, int code,
+struct command_result *command_fail(struct command *cmd, errcode_t code,
 				    const char *fmt, ...)
 	PRINTF_FMT(3, 4) WARN_UNUSED_RESULT;
 

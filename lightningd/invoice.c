@@ -82,8 +82,7 @@ static struct command_result *tell_waiter(struct command *cmd,
 		json_add_invoice(response, details);
 		return command_success(cmd, response);
 	} else {
-		/* FIXME: -2 should be a constant in jsonrpc_errors.h.  */
-		response = json_stream_fail(cmd, -2,
+		response = json_stream_fail(cmd, INVOICE_EXPIRED_DURING_WAIT,
 					    "invoice expired during wait");
 		json_add_invoice(response, details);
 		json_object_end(response);

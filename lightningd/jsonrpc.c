@@ -464,7 +464,7 @@ struct command_result *command_failed(struct command *cmd,
 	return command_raw_complete(cmd, result);
 }
 
-struct command_result *command_fail(struct command *cmd, int code,
+struct command_result *command_fail(struct command *cmd, errcode_t code,
 				    const char *fmt, ...)
 {
 	const char *errmsg;
@@ -502,7 +502,7 @@ static void json_command_malformed(struct json_connection *jcon,
 	json_add_string(js, "jsonrpc", "2.0");
 	json_add_literal(js, "id", id, strlen(id));
 	json_object_start(js, "error");
-	json_add_member(js, "code", false, "%d", JSONRPC2_INVALID_REQUEST);
+	json_add_member(js, "code", false, "%" PRIerrcode, JSONRPC2_INVALID_REQUEST);
 	json_add_string(js, "message", error);
 	json_object_end(js);
 	json_object_compat_end(js);
@@ -553,7 +553,7 @@ struct json_stream *json_stream_success(struct command *cmd)
 }
 
 struct json_stream *json_stream_fail_nodata(struct command *cmd,
-					    int code,
+					    errcode_t code,
 					    const char *errmsg)
 {
 	struct json_stream *js = json_start(cmd);
@@ -561,14 +561,14 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 	assert(code);
 
 	json_object_start(js, "error");
-	json_add_member(js, "code", false, "%d", code);
+	json_add_member(js, "code", false, "%" PRIerrcode, code);
 	json_add_string(js, "message", errmsg);
 
 	return js;
 }
 
 struct json_stream *json_stream_fail(struct command *cmd,
-				     int code,
+				     errcode_t code,
 				     const char *errmsg)
 {
 	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
@@ -704,10 +704,11 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p,
 
 		custom_return = json_get_member(buffer, tok, "error");
 		if (custom_return) {
-			int code;
+			errcode_t code;
 			const char *errmsg;
-			if (!json_to_int(buffer, json_get_member(buffer, custom_return, "code"),
-			                 &code))
+			if (!json_to_errcode(buffer,
+					     json_get_member(buffer, custom_return, "code"),
+					     &code))
 				return was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
 				                                "Bad response to 'rpc_command' hook: "
 				                                "'error' object does not contain a code."));

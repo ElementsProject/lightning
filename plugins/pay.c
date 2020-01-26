@@ -7,6 +7,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/bolt11.h>
+#include <common/errcode.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
 #include <common/pseudorand.h>
@@ -425,13 +426,14 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 {
 	struct pay_attempt *attempt = current_attempt(pc);
 	const jsmntok_t *codetok, *failcodetok, *nodeidtok, *scidtok, *dirtok;
-	int code, failcode;
+	errcode_t code;
+	int failcode;
 	bool node_err = false;
 
 	attempt_failed_tok(pc, "waitsendpay", buf, error);
 
 	codetok = json_get_member(buf, error, "code");
-	if (!json_to_int(buf, codetok, &code))
+	if (!json_to_errcode(buf, codetok, &code))
 		plugin_err("waitsendpay error gave no 'code'? '%.*s'",
 			   error->end - error->start, buf + error->start);
 
@@ -849,13 +851,13 @@ static struct command_result *getroute_error(struct command *cmd,
 					     const jsmntok_t *error,
 					     struct pay_command *pc)
 {
-	int code;
+	errcode_t code;
 	const jsmntok_t *codetok;
 
 	attempt_failed_tok(pc, "getroute", buf, error);
 
 	codetok = json_get_member(buf, error, "code");
-	if (!json_to_int(buf, codetok, &code))
+	if (!json_to_errcode(buf, codetok, &code))
 		plugin_err("getroute error gave no 'code'? '%.*s'",
 			   error->end - error->start, buf + error->start);
 

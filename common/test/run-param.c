@@ -5,6 +5,7 @@
 #include "../param.c"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <common/errcode.h>
 #include <common/json.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -28,7 +29,7 @@ struct command_result {
 static struct command_result cmd_failed;
 
 struct command_result *command_fail(struct command *cmd,
-				    int code, const char *fmt, ...)
+				    errcode_t code, const char *fmt, ...)
 {
 	failed = true;
 	va_list ap;

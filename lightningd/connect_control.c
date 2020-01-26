@@ -2,6 +2,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
+#include <common/errcode.h>
 #include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -231,7 +232,7 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 static void connect_failed(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	int errcode;
+	errcode_t errcode;
 	char *errmsg;
 	struct connect *c;
 	u32 seconds_to_delay;

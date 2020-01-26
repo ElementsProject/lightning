@@ -65,6 +65,30 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
+bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
+{
+	char *end;
+	long long l;
+
+	l = strtoll(buffer + tok->start, &end, 0);
+	if (end != buffer + tok->end)
+		return false;
+
+	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
+	*num = l;
+
+	/* Check for overflow/underflow */
+	if ((l == LONG_MAX || l == LONG_MIN) && errno == ERANGE)
+		return false;
+
+	/* Check if the number did not fit in `s64` (in case `long long`
+	is a bigger type). */
+	if (*num != l)
+		return false;
+
+	return true;
+}
+
 bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
 {
 	char *end;
@@ -122,22 +146,29 @@ bool json_to_u32(const char *buffer, const jsmntok_t *tok,
 
 bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num)
 {
-	char *end;
-	long l;
+	s64 tmp;
 
-	l = strtol(buffer + tok->start, &end, 0);
-	if (end != buffer + tok->end)
+	if (!json_to_s64(buffer, tok, &tmp))
+		return false;
+	*num = tmp;
+
+	/* Just in case it doesn't fit. */
+	if (*num != tmp)
 		return false;
 
-	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
-	*num = l;
+	return true;
+}
 
-	/* Check for overflow/underflow */
-	if ((l == LONG_MAX || l == LONG_MIN) && errno == ERANGE)
+bool json_to_errcode(const char *buffer, const jsmntok_t *tok, errcode_t *errcode)
+{
+	s64 tmp;
+
+	if (!json_to_s64(buffer, tok, &tmp))
 		return false;
+	*errcode = tmp;
 
-	/* Check for truncation */
-	if (*num != l)
+	/* Just in case it doesn't fit. */
+	if (*errcode != tmp)
 		return false;
 
 	return true;
