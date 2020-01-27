@@ -285,6 +285,7 @@ class UnixDomainSocketRpc(object):
         # FIXME: we open a new socket for every readobj call...
         sock = UnixSocket(self.socket_path)
         self._writeobj(sock, {
+            "jsonrpc": "2.0",
             "method": method,
             "params": payload,
             "id": self.next_id,
