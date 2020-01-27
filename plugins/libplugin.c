@@ -426,7 +426,8 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 }
 
 struct command_result *
-send_outreq_(struct command *cmd,
+send_outreq_(struct plugin *plugin,
+	     struct command *cmd,
 	     const char *method,
 	     struct command_result *(*cb)(struct command *command,
 					  const char *buf,
@@ -442,23 +443,23 @@ send_outreq_(struct command *cmd,
 	struct json_stream *js;
 	struct out_req *out;
 
-	out = tal(cmd, struct out_req);
-	out->id = cmd->plugin->next_outreq_id++;
+	out = tal(plugin, struct out_req);
+	out->id = plugin->next_outreq_id++;
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
 	out->arg = arg;
-	uintmap_add(&cmd->plugin->out_reqs, out->id, out);
+	uintmap_add(&plugin->out_reqs, out->id, out);
 
-	js = new_json_stream(NULL, cmd, NULL);
+	js = new_json_stream(NULL, NULL, NULL);
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
 	json_add_u64(js, "id", out->id);
 	json_add_string(js, "method", method);
 	json_out_add_splice(js->jout, "params", params);
 	json_object_compat_end(js);
-	json_stream_close(js, cmd);
-	ld_rpc_send(cmd->plugin, js);
+	json_stream_close(js, NULL);
+	ld_rpc_send(plugin, js);
 
 	if (taken(params))
 		tal_free(params);
