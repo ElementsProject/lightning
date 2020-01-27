@@ -1,6 +1,12 @@
-## Tests in list
 
-test_pay.py::test_sendpay
+API Coverage
+----------------------------------------------------------------
+
+## Failing Tests
+
+# passes much of the time
+tests/test_closing.py::test_closing_different_fees
+
 
 #### proxy and server done
 
@@ -14,10 +20,28 @@ test_pay.py::test_sendpay
 
 3   hsm_cupdate_sig_req					ChannelUpdateSig
 8   hsm_sign_invoice					SignInvoice
+10  hsm_get_channel_basepoints			GetChannelBasepoints
 18  hsm_get_per_commitment_point		GetPerCommitmentPoint
 20  hsm_sign_remote_htlc_tx				SignRemoteHTLCTx
+    HSM_SIGN_MUTUAL_CLOSE_TX			SignMutualCloseTx
+    HSM_SIGN_COMMITMENT_TX				SignCommitmentTx
+    WIRE_HSM_CANNOUNCEMENT_SIG_REQ
+    WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ
+    WIRE_HSM_SIGN_PENALTY_TO_US
+    WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US
+    WIRE_HSM_SIGN_LOCAL_HTLC_TX
+    WIRE_HSM_SIGN_REMOTE_HTLC_TO_US
+    handle_check_future_secret
 
 #### need proxy and server
 
-10  hsm_get_channel_basepoints
+handle_sign_funding_tx
+handle_sign_message
 
+Improvements
+----------------------------------------------------------------
+
+#### Remove contrib/remote_signer/hsm_wire.csv
+
+Generate gen_hsm_wire.{h,c} from c-lightning/hsmd/hsm_wire.csv instead.
+  

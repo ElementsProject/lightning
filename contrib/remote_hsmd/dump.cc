@@ -4,7 +4,9 @@
 extern "C" {
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/signature.h>
 #include <bitcoin/tx.h>
+#include <common/derive_basepoints.h>
 #include <common/node_id.h>
 #include <common/status.h>
 #include <common/utils.h>
@@ -36,14 +38,41 @@ string dump_bitcoin_txid(const struct bitcoin_txid *txid)
 	return dump_hex(txid->shad.sha.u.u8, sizeof(txid->shad.sha.u.u8));
 }
 
+string dump_bitcoin_signature(const struct bitcoin_signature *sp)
+{
+	ostringstream ostrm;
+	ostrm << "{ "
+	      << "sighash_type=" << int(sp->sighash_type)
+	      << "s=" << dump_secp256k1_ecdsa_signature(&sp->s)
+	      << " }";
+	return ostrm.str();
+}
+
+string dump_secp256k1_ecdsa_signature(const secp256k1_ecdsa_signature *sp)
+{
+	return dump_hex(sp->data, sizeof(sp->data));
+}
+
 string dump_node_id(const struct node_id *pp)
 {
 	return dump_hex(pp->k, sizeof(pp->k));
 }
 
-string dump_pubkey(struct pubkey *kp)
+string dump_pubkey(const struct pubkey *kp)
 {
 	return dump_hex(kp->pubkey.data, sizeof(kp->pubkey.data));
+}
+
+string dump_basepoints(const struct basepoints *bp)
+{
+	ostringstream ostrm;
+	ostrm << "{ ";
+	ostrm << "revocation=" << dump_pubkey(&bp->revocation);
+	ostrm << ", payment=" << dump_pubkey(&bp->payment);
+	ostrm << ", htlc=" << dump_pubkey(&bp->htlc);
+	ostrm << ", delayed_payment=" << dump_pubkey(&bp->delayed_payment);
+	ostrm << " }";
+	return ostrm.str();
 }
 
 string dump_unilateral_close_info(const struct unilateral_close_info *ip)
@@ -117,10 +146,12 @@ string dump_input_amounts(const struct amount_sat **ias)
 {
 	ostringstream ostrm;
 	ostrm << "[";
-	for (size_t ii = 0; ii < tal_count(ias); ii++) {
-		if (ii != 0)
-			ostrm << ",";
-		ostrm << ias[ii]->satoshis;
+	if (*ias) {
+		for (size_t ii = 0; ii < tal_count(ias); ii++) {
+			if (ii != 0)
+				ostrm << ",";
+			ostrm << ias[ii]->satoshis;
+		}
 	}
 	ostrm << "]";
 	return ostrm.str();
