@@ -170,7 +170,8 @@ const char *rpc_delve(const tal_t *ctx,
  * @params can be NULL, otherwise it's an array or object.
  */
 struct command_result *
-send_outreq_(struct command *cmd,
+send_outreq_(struct plugin *plugin,
+	     struct command *cmd,
 	     const char *method,
 	     struct command_result *(*cb)(struct command *command,
 					  const char *buf,
@@ -183,8 +184,8 @@ send_outreq_(struct command *cmd,
 	     void *arg,
 	     const struct json_out *params TAKES);
 
-#define send_outreq(cmd, method, cb, errcb, arg, params)		\
-	send_outreq_((cmd), (method),					\
+#define send_outreq(plugin, cmd, method, cb, errcb, arg, params)	\
+	send_outreq_((plugin), (cmd), (method),				\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
 					 struct command *command,	\

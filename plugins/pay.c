@@ -376,7 +376,7 @@ execute_waitblockheight(struct command *cmd,
 	json_out_end(params, '}');
 	json_out_finished(params);
 
-	return send_outreq(cmd, "waitblockheight",
+	return send_outreq(cmd->plugin, cmd, "waitblockheight",
 			   &waitblockheight_done,
 			   &waitblockheight_error,
 			   pc,
@@ -581,7 +581,7 @@ static struct command_result *sendpay_done(struct command *cmd,
 					   const jsmntok_t *result,
 					   struct pay_command *pc)
 {
-	return send_outreq(cmd, "waitsendpay",
+	return send_outreq(cmd->plugin, cmd, "waitsendpay",
 			   waitsendpay_done, waitsendpay_error, pc,
 			   take(json_out_obj(NULL, "payment_hash",
 					     pc->payment_hash)));
@@ -849,7 +849,7 @@ static struct command_result *getroute_done(struct command *cmd,
 			     pc->payment_secret);
 	json_out_end(params, '}');
 
-	return send_outreq(cmd, "sendpay", sendpay_done, sendpay_error, pc,
+	return send_outreq(cmd->plugin, cmd, "sendpay", sendpay_done, sendpay_error, pc,
 			   take(params));
 
 }
@@ -945,7 +945,7 @@ static struct command_result *execute_getroute(struct command *cmd,
 	}
 	json_out_end(params, '}');
 
-	return send_outreq(cmd, "getroute", getroute_done, getroute_error, pc,
+	return send_outreq(cmd->plugin, cmd, "getroute", getroute_done, getroute_error, pc,
 			   take(params));
 }
 
@@ -989,7 +989,7 @@ static struct command_result *
 execute_getstartblockheight(struct command *cmd,
 			    struct pay_command *pc)
 {
-	return send_outreq(cmd, "getinfo",
+	return send_outreq(cmd->plugin, cmd, "getinfo",
 			   &getstartblockheight_done,
 			   &getstartblockheight_error,
 			   pc,
@@ -1113,7 +1113,7 @@ static struct command_result *shadow_route(struct command *cmd,
 	if (pseudorand(2) == 0)
 		return start_pay_attempt(cmd, pc, "Initial attempt");
 
-	return send_outreq(cmd, "listchannels",
+	return send_outreq(cmd->plugin, cmd, "listchannels",
 			   add_shadow_route, forward_error, pc,
 			   take(json_out_obj(NULL, "source", pc->shadow_dest)));
 }
@@ -1357,7 +1357,7 @@ static struct command_result *json_pay(struct command *cmd,
 #endif
 
 	/* Get capacities of local channels (no parameters) */
-	return send_outreq(cmd, "listpeers", listpeers_done, forward_error, pc,
+	return send_outreq(cmd->plugin, cmd, "listpeers", listpeers_done, forward_error, pc,
 			   take(json_out_obj(NULL, NULL, NULL)));
 }
 
@@ -1670,7 +1670,7 @@ static struct command_result *json_listpays(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	return send_outreq(cmd, "listsendpays",
+	return send_outreq(cmd->plugin, cmd, "listsendpays",
 			   listsendpays_done, forward_error,
 			   cast_const(char *, b11str),
 			   /* Neatly returns empty object if b11str is NULL */

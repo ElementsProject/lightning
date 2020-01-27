@@ -103,7 +103,7 @@ static struct command_result *tx_abort(struct command *cmd,
 	/* We need to call txdiscard, and forward the actual cause for the
 	 * error after we've cleaned up. We swallow any errors returned by
 	 * this call, as we don't really care if it succeeds or not */
-	return send_outreq(cmd, "txdiscard",
+	return send_outreq(cmd->plugin, cmd, "txdiscard",
 			   send_prior, send_prior,
 			   fr, take(ret));
 }
@@ -155,7 +155,7 @@ static struct command_result *send_tx(struct command *cmd,
 			type_to_string(tmpctx, struct bitcoin_txid, &fr->tx_id));
 	json_out_end(ret, '}');
 
-	return send_outreq(cmd, "txsend",
+	return send_outreq(cmd->plugin, cmd, "txsend",
 			   finish, tx_abort,
 			   fr, take(ret));
 }
@@ -214,7 +214,7 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 	json_out_add(ret, "txout", false, "%u", outnum);
 	json_out_end(ret, '}');
 
-	return send_outreq(cmd, "fundchannel_complete",
+	return send_outreq(cmd->plugin, cmd, "fundchannel_complete",
 			   send_tx, tx_abort,
 			   fr, take(ret));
 }
@@ -234,7 +234,7 @@ static struct command_result *cancel_start(struct command *cmd,
 	json_out_addstr(ret, "id", node_id_to_hexstr(tmpctx, fr->id));
 	json_out_end(ret, '}');
 
-	return send_outreq(cmd, "fundchannel_cancel",
+	return send_outreq(cmd->plugin, cmd, "fundchannel_cancel",
 			   send_prior, send_prior,
 			   fr, take(ret));
 }
@@ -274,7 +274,7 @@ static struct command_result *prepare_actual(struct command *cmd,
 
 	ret = txprepare(cmd, fr, fr->funding_addr);
 
-	return send_outreq(cmd, "txprepare",
+	return send_outreq(cmd->plugin, cmd, "txprepare",
 			   tx_prepare_done, cancel_start,
 			   fr, take(ret));
 }
@@ -301,7 +301,7 @@ static struct command_result *fundchannel_start_done(struct command *cmd,
 			type_to_string(tmpctx, struct bitcoin_txid, &fr->tx_id));
 	json_out_end(ret, '}');
 
-	return send_outreq(cmd, "txdiscard",
+	return send_outreq(cmd->plugin, cmd, "txdiscard",
 			   prepare_actual, cancel_start,
 			   fr, take(ret));
 }
@@ -330,7 +330,7 @@ static struct command_result *fundchannel_start(struct command *cmd,
 	json_out_end(ret, '}');
 	json_out_finished(ret);
 
-	return send_outreq(cmd, "fundchannel_start",
+	return send_outreq(cmd->plugin, cmd, "fundchannel_start",
 			   fundchannel_start_done, tx_abort,
 			   fr, take(ret));
 }
@@ -397,7 +397,7 @@ static struct command_result *exec_dryrun(struct command *cmd,
 	 * so we can get an accurate idea of the funding amount */
 	ret = txprepare(cmd, fr, placeholder_funding_addr);
 
-	return send_outreq(cmd, "txprepare",
+	return send_outreq(cmd->plugin, cmd, "txprepare",
 			   post_dryrun, forward_error,
 			   fr, take(ret));
 
@@ -413,7 +413,7 @@ static struct command_result *connect_to_peer(struct command *cmd,
 	json_out_end(ret, '}');
 	json_out_finished(ret);
 
-	return send_outreq(cmd, "connect",
+	return send_outreq(cmd->plugin, cmd, "connect",
 			   exec_dryrun, forward_error,
 			   fr, take(ret));
 }

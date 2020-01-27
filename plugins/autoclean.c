@@ -32,7 +32,7 @@ static struct command_result *do_clean(struct plugin *p)
 	json_out_finished(params);
 
 	/* FIXME: delexpiredinvoice should be in our plugin too! */
-	return send_outreq(NULL, "delexpiredinvoice", ignore, ignore, p,
+	return send_outreq(p, NULL, "delexpiredinvoice", ignore, ignore, p,
 			   take(params));
 }
 
