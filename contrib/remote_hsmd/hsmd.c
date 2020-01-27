@@ -80,6 +80,16 @@ static struct privkey *dev_force_privkey;
 static struct secret *dev_force_bip32_seed;
 #endif
 
+/* FIXME - REMOVE THIS WHEN WE'VE COMPLETED THE PROXY IMPL */
+enum proxy_impl {
+	PROXY_IMPL_NONE = 0,		/* proxy unimplemented */
+	PROXY_IMPL_MARSHALED = 1,	/* marshaled, sent, result unused */
+	PROXY_IMPL_COMPLETE = 2,	/* marshaled, sent, result used */
+	PROXY_IMPL_IGNORE = 3		/* skip for now */
+};
+static int g_proxy_impl;
+static enum hsm_wire_type g_proxy_last;
+
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
 	/* The ccan/io async io connection for this client: it closes, we die. */
@@ -734,6 +744,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
 	}
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
 
 	/*~ We don't need the hsm_secret encryption key anymore.
 	 * Note that sodium_munlock() also zeroes the memory. */
@@ -777,6 +788,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	/*~ In the normal case, we return the shared secret, and then read
 	 * the next msg. */
@@ -905,6 +917,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
 
 	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
 
@@ -1086,6 +1099,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
 	assert(tal_count(sigs) == 1);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	bool ok = signature_from_der(sigs[0][0], tal_count(sigs[0][0]), &sig);
 	assert(ok);
@@ -1138,6 +1152,7 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
 
 	/* FIXME - server-side not implemented yet. Use original code
 	 * below for now */
@@ -1432,6 +1447,7 @@ static struct io_plan *handle_get_per_commitment_point(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
 
 	/* FIXME - lightning-signer server only currently returns the
 	 * per_commitment_point, use the original code to compute the
@@ -1603,6 +1619,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	/*~ We stash this in a global, because we need to get both the fd and
 	 * the client pointer to the callback.  The other way would be to
@@ -1799,6 +1816,7 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	assert(tal_count(sigs) == tal_count(utxos));
 	for (size_t ii = 0; ii < tal_count(sigs); ++ii) {
@@ -1849,6 +1867,7 @@ static struct io_plan *handle_sign_invoice(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
 
 	/* FIXME - convert the returned signature to an
 	 * secp256k1_ecdsa_recoverable_signature and remove the code
@@ -2088,17 +2107,20 @@ static bool check_client_capabilities(struct client *client,
 }
 
 /*~ This is the core of the HSM daemon: handling requests. */
-static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
+static struct io_plan *handle_client_(struct io_conn *conn, struct client *c)
 {
 	enum hsm_wire_type t = fromwire_peektype(c->msg_in);
+	g_proxy_last = t;
 
 	status_debug("Client: Received message %d from client", t);
 
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
-	if (!check_client_capabilities(c, t))
+	if (!check_client_capabilities(c, t)) {
+		g_proxy_impl = PROXY_IMPL_IGNORE;
 		return bad_req_fmt(conn, c, c->msg_in,
 				   "does not have capability to run %d", t);
+	}
 
 	/* Now actually go and do what the client asked for */
 	switch (t) {
@@ -2191,6 +2213,21 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	}
 
 	return bad_req_fmt(conn, c, c->msg_in, "Unknown request");
+}
+
+/* FIXME - This wrapper is only here to figure out which handlers aren't
+ * proxied yet, remove it when we're done and rename handle_client_ to
+ * handle_client ...
+ */
+static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
+{
+	g_proxy_impl = PROXY_IMPL_NONE;	/* presume unimplemented */
+	struct io_plan *rv = handle_client_(conn, c);
+	if (g_proxy_impl == PROXY_IMPL_NONE) {
+		fprintf(stderr, "PROXY NEED %s\n",
+			hsm_wire_type_name(g_proxy_last));
+	}
+	return rv;
 }
 
 static void master_gone(struct io_conn *unused UNUSED, struct client *c UNUSED)
