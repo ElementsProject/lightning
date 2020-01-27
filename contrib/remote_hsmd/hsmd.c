@@ -856,6 +856,22 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Invalid channel announcement");
 
+	proxy_stat rv = proxy_handle_cannouncement_sig(
+		&c->id, c->dbid, ca,
+		&node_sig, &bitcoin_sig
+		);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
+
 	node_key(&node_pkey, NULL);
 	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
 
@@ -953,6 +969,20 @@ static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
 	if (!fromwire_hsm_get_channel_basepoints(msg_in, &peer_id, &dbid))
 		return bad_req(conn, c, msg_in);
 
+	proxy_stat rv = proxy_handle_get_channel_basepoints(
+		&peer_id, dbid, &basepoints, &funding_pubkey);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
+
 	get_channel_seed(&peer_id, dbid, &seed);
 	derive_basepoints(&seed, &funding_pubkey, &basepoints, NULL, NULL);
 
@@ -998,6 +1028,38 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	if (tx->wtx->num_outputs == 0)
 		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
 
+	/*~ Segregated Witness also added the input amount to the signing
+	 * algorithm; it's only part of the input implicitly (it's part of the
+	 * output it's spending), so in our 'bitcoin_tx' structure it's a
+	 * pointer, as we don't always know it (and zero is a valid amount, so
+	 * NULL is better to mean 'unknown' and has the nice property that
+	 * you'll crash if you assume it's there and you're wrong.) */
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
+
+	u8 *** sigs;
+	proxy_stat rv = proxy_handle_sign_commitment_tx(
+		tx, &remote_funding_pubkey, &funding,
+		&c->id, c->dbid,
+		&sigs);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+#if 0
+	assert(tal_count(sigs) == 1);
+
+	bool ok = signature_from_der(sigs[0][0], tal_count(sigs[0][0]), &sig);
+	assert(ok);
+	status_debug("%s:%d %s: signature: %s",
+		     __FILE__, __LINE__, __FUNCTION__,
+		     type_to_string(tmpctx, struct bitcoin_signature, &sig));
+#else
 	get_channel_seed(&peer_id, dbid, &channel_seed);
 	derive_basepoints(&channel_seed,
 			  &local_funding_pubkey, NULL, &secrets, NULL);
@@ -1008,18 +1070,12 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	funding_wscript = bitcoin_redeem_2of2(tmpctx,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey);
-	/*~ Segregated Witness also added the input amount to the signing
-	 * algorithm; it's only part of the input implicitly (it's part of the
-	 * output it's spending), so in our 'bitcoin_tx' structure it's a
-	 * pointer, as we don't always know it (and zero is a valid amount, so
-	 * NULL is better to mean 'unknown' and has the nice property that
-	 * you'll crash if you assume it's there and you're wrong.) */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
 		      SIGHASH_ALL,
 		      &sig);
+#endif
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_commitment_tx_reply(NULL, &sig)));
@@ -1065,6 +1121,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	if (tal_count(output_witscripts) != tx->wtx->num_outputs)
 		return bad_req_fmt(conn, c, msg_in, "tx must have matching witscripts");
 
+	/* FIXME - WE DON'T NEED THESE ANYMORE, RIGHT? */
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed,
 			  &local_funding_pubkey, NULL, &secrets, NULL);
@@ -1134,16 +1191,17 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 	tx->chainparams = c->chainparams;
 
 	/* Need input amount for signing */
+	if (tx->wtx->num_inputs != 1)
+		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &amount);
 
-	u8 *** sigs;
 	proxy_stat rv = proxy_handle_sign_remote_htlc_tx(
 		tx,
 		wscript,
 		&remote_per_commit_point,
 		&c->id,
 		c->dbid,
-		&sigs);
+		&sig);
 	if (PROXY_PERMANENT(rv))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "proxy_%s failed: %s", __FUNCTION__,
@@ -1240,6 +1298,26 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 						     &input_sat))
 		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
+
+	if (tx->wtx->num_inputs != 1)
+		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
+
+	struct bitcoin_signature sig;
+	proxy_stat rv = proxy_handle_sign_delayed_payment_to_us(
+		tx, commit_num, wscript, &c->id, c->dbid, &sig);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
+
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	/*~ ccan/crypto/shachain how we efficiently derive 2^48 ordered
@@ -1295,6 +1373,33 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	tx->chainparams = c->chainparams;
+
+	/* Need input amount for signing */
+	if (tx->wtx->num_inputs != 1)
+		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
+
+	struct bitcoin_signature sig;
+	proxy_stat rv = proxy_handle_sign_remote_htlc_to_us(
+		tx,
+		wscript,
+		&remote_per_commitment_point,
+		&c->id,
+		c->dbid,
+		&sig);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - server-side not implemented yet. Use original code
+	 * below for now */
+
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
@@ -1334,6 +1439,26 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 					     &input_sat))
 		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
+
+	/* Need input amount for signing */
+	if (tx->wtx->num_inputs != 1)
+		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
+
+	struct bitcoin_signature sig;
+	proxy_stat rv = proxy_handle_sign_penalty_to_us(
+		tx, &revocation_secret, wscript, &c->id, c->dbid, &sig);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
 
 	if (!pubkey_from_secret(&revocation_secret, &point))
 		return bad_req_fmt(conn, c, msg_in, "Failed deriving pubkey");
@@ -1409,9 +1534,23 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 
 	if (tx->wtx->num_inputs != 1)
 		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
+
+	proxy_stat rv = proxy_handle_sign_local_htlc_tx(
+		tx, commit_num, wscript, &c->id, c->dbid, &sig);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
 
 	/* FIXME: Check that output script is correct! */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      SIGHASH_ALL, &sig);
 
@@ -1499,6 +1638,21 @@ static struct io_plan *handle_check_future_secret(struct io_conn *conn,
 	if (!fromwire_hsm_check_future_secret(msg_in, &n, &suggested))
 		return bad_req(conn, c, msg_in);
 
+	bool correct;
+	proxy_stat rv = proxy_handle_check_future_secret(
+		&c->id, c->dbid, n, &suggested, &correct);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
+
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	if (!derive_shaseed(&channel_seed, &shaseed))
 		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
@@ -1536,6 +1690,28 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	tx->chainparams = c->chainparams;
+
+	/* Need input amount for signing */
+	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
+
+	u8 *** sigs;
+	proxy_stat rv = proxy_handle_sign_mutual_close_tx(
+		tx, &remote_funding_pubkey, &funding,
+		&c->id, c->dbid,
+		&sigs);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	/* FIXME - uncomment this: assert(tal_count(sigs) == 1); */
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - USE SERVER RESULT AND REMOVE BELOW */
+
 	/* FIXME: We should know dust level, decent fee range and
 	 * balances, and final_keyindex, and thus be able to check tx
 	 * outputs! */
@@ -1546,8 +1722,6 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 	funding_wscript = bitcoin_redeem_2of2(tmpctx,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey);
-	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
@@ -1816,20 +1990,34 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
-	assert(tal_count(sigs) == tal_count(utxos));
-	for (size_t ii = 0; ii < tal_count(sigs); ++ii) {
-		assert(tal_count(sigs[ii]) == 2);
+	/* FIXME - There are two things we can't do remotely yet:
+	 * 1. Handle P2SH inputs.
+	 * 2. Handle inputs w/ close_info.
+	 */
+	bool demure = false;
+	for (size_t ii = 0; ii < tx->wtx->num_inputs; ii++)
+		if (utxos[ii]->is_p2sh || utxos[ii]->close_info)
+			demure = true;
+	if (!demure) {
+		/* Sign w/ the remote lightning-signer. */
+		g_proxy_impl = PROXY_IMPL_COMPLETE;
+		assert(tal_count(sigs) == tal_count(utxos));
+		for (size_t ii = 0; ii < tal_count(sigs); ++ii) {
+			assert(tal_count(sigs[ii]) == 2);
 
-		u8 **witness = tal_arr(tx, u8 *, 2);
-		witness[0] = tal_dup_arr(witness, u8, sigs[ii][0],
-					 tal_count(sigs[ii][0]), 0);
-		witness[1] = tal_dup_arr(witness, u8, sigs[ii][1],
-					 tal_count(sigs[ii][1]), 0);
-		bitcoin_tx_input_set_witness(tx, ii, take(witness));
+			u8 **witness = tal_arr(tx, u8 *, 2);
+			witness[0] = tal_dup_arr(witness, u8, sigs[ii][0],
+						 tal_count(sigs[ii][0]), 0);
+			witness[1] = tal_dup_arr(witness, u8, sigs[ii][1],
+						 tal_count(sigs[ii][1]), 0);
+			bitcoin_tx_input_set_witness(tx, ii, take(witness));
+		}
+	} else {
+		/* It's P2SH, need to sign here */
+		g_proxy_impl = PROXY_IMPL_MARSHALED;
+		sign_all_inputs(tx, utxos);
 	}
-
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));
 }
@@ -1948,6 +2136,19 @@ static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Invalid announcement");
 
+	proxy_stat rv = proxy_handle_sign_node_announcement(ann, &sig);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
+
 	node_key(&node_pkey, NULL);
 	sha256_double(&hash, ann + offset, tal_count(ann) - offset);
 
@@ -2007,6 +2208,9 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	struct htable *memtable;
 	bool found_leak;
 	u8 *reply;
+
+	/* Ignore this routine for proxy implementation purposes */
+	g_proxy_impl = PROXY_IMPL_IGNORE;
 
 	memtable = memleak_enter_allocations(tmpctx, msg_in, msg_in);
 
@@ -2223,9 +2427,22 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 {
 	g_proxy_impl = PROXY_IMPL_NONE;	/* presume unimplemented */
 	struct io_plan *rv = handle_client_(conn, c);
-	if (g_proxy_impl == PROXY_IMPL_NONE) {
-		fprintf(stderr, "PROXY NEED %s\n",
+	switch (g_proxy_impl) {
+	case PROXY_IMPL_NONE:
+		fprintf(stderr, "PROXY_IMPL_NONE %s\n",
 			hsm_wire_type_name(g_proxy_last));
+		assert(false);
+		break;
+	case PROXY_IMPL_MARSHALED:
+		/*
+		fprintf(stderr, "PROXY_IMPL_MARSHALED %s\n",
+			hsm_wire_type_name(g_proxy_last));
+		*/
+		break;
+	case PROXY_IMPL_COMPLETE:
+	case PROXY_IMPL_IGNORE:
+		/* quiet on purpose here */
+		break;
 	}
 	return rv;
 }
