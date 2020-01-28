@@ -3,7 +3,7 @@
 lightning-waitanyinvoice - Command for waiting for payments
 .SH SYNOPSIS
 
-\fBwaitanyinvoice\fR [\fIlastpay_index\fR]
+\fBwaitanyinvoice\fR [\fIlastpay_index\fR] [\fItimeout\fR]
 
 .SH DESCRIPTION
 
@@ -22,11 +22,29 @@ invoice when it gets paid\. The first valid \fIpay_index\fR is 1; specifying
 \fIlastpay_index\fR of 0 equivalent to not specifying a \fIlastpay_index\fR\.
 Negative \fIlastpay_index\fR is invalid\.
 
+
+If \fItimeout\fR is specified, wait at most that number of seconds, which
+must be an integer\.
+If the specified \fItimeout\fR is reached, this command will return with an
+error\.
+You can specify this to 0 so that \fBwaitanyinvoice\fR will return
+immediately with an error if no pending invoice is available yet\.
+If unspecified, this command will wait indefinitely\.
+
 .SH RETURN VALUE
 
 On success, an invoice description will be returned as per
 \fBlightning-listinvoice\fR(7): \fIcomplete\fR will always be \fItrue\fR\.
 
+
+Possible errors are:
+
+.RS
+.IP \[bu]
+904\.
+The \fItimeout\fR was reached without an invoice being paid\.
+
+.RE
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
