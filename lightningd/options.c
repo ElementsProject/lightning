@@ -219,33 +219,26 @@ static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
 {
 	char *subdaemon;
 	char *sdpath;
-	char *prevname;
-	char *prevval;
 
 	/* example arg: "lightning_hsmd:remote_hsmd" */
-	char *argbuf = tal_strdup(ld, arg);
-	char *colon = strchr(argbuf, ':');
-	if (!colon)
-		return tal_fmt(NULL, "argument must contain \':\'");
-	*colon = '\0';
 
-	if (!is_subdaemon(argbuf))
-		return tal_fmt(NULL, "%s is not a subdaemon", argbuf);
+	size_t colonoff = strcspn(arg, ":");
+	if (!arg[colonoff])
+		return tal_fmt(NULL, "argument must contain ':'");
 
-	subdaemon = tal_strdup(ld, argbuf);
+	subdaemon = tal_strndup(ld, arg, colonoff);
+	if (!is_subdaemon(subdaemon))
+		return tal_fmt(NULL, "\"%s\" is not a subdaemon", subdaemon);
 
-	/* Remove any preexisting alt subdaemon mapping. */
-	prevname = strmap_del(&ld->alt_subdaemons, subdaemon,
-			      (const char **) &prevval);
-	if (prevname) {
-		tal_free(prevname);
-		tal_free(prevval);
-	}
+	/* Make the value a tal-child of the subdaemon */
+	sdpath = tal_strdup(subdaemon, arg + colonoff + 1);
 
-	sdpath = tal_strdup(ld, colon+1);
+	/* Remove any preexisting alt subdaemon mapping (and
+	 * implicitly, the sdpath). */
+	tal_free(strmap_del(&ld->alt_subdaemons, subdaemon, NULL));
+
 	strmap_add(&ld->alt_subdaemons, subdaemon, sdpath);
 
-	tal_free(argbuf);
 	return NULL;
 }
 
@@ -1177,13 +1170,9 @@ struct json_add_opt_alt_subdaemon_args {
 };
 
 static bool json_add_opt_alt_subdaemon(const char *member,
-				       void *valuev,
-				       void *argpv)
+				       const char *value,
+				       struct json_add_opt_alt_subdaemon_args *argp)
 {
-	struct json_add_opt_alt_subdaemon_args *argp =
-		(struct json_add_opt_alt_subdaemon_args *) argpv;
-	const char *value = (const char *) valuev;
-
 	json_add_string(argp->response,
 			argp->name0,
 			tal_fmt(argp->name0, "%s:%s", member, value));
