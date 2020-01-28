@@ -568,50 +568,47 @@ send_outreq_(struct plugin *plugin,
 static struct command_result *
 handle_getmanifest(struct command *getmanifest_cmd)
 {
-	struct json_out *params = json_out_new(tmpctx);
+	struct json_stream *params = jsonrpc_stream_success(getmanifest_cmd);
 	struct plugin *p = getmanifest_cmd->plugin;
 
-	json_out_start(params, NULL, '{');
-	json_out_start(params, "options", '[');
+	json_array_start(params, "options");
 	for (size_t i = 0; i < tal_count(p->opts); i++) {
-		json_out_start(params, NULL, '{');
-		json_out_addstr(params, "name", p->opts[i].name);
-		json_out_addstr(params, "type", p->opts[i].type);
-		json_out_addstr(params, "description", p->opts[i].description);
-		json_out_end(params, '}');
+		json_object_start(params, NULL);
+		json_add_string(params, "name", p->opts[i].name);
+		json_add_string(params, "type", p->opts[i].type);
+		json_add_string(params, "description", p->opts[i].description);
+		json_object_end(params);
 	}
-	json_out_end(params, ']');
+	json_array_end(params);
 
-	json_out_start(params, "rpcmethods", '[');
+	json_object_start(params, "rpcmethods");
 	for (size_t i = 0; i < p->num_commands; i++) {
-		json_out_start(params, NULL, '{');
-		json_out_addstr(params, "name", p->commands[i].name);
-		json_out_addstr(params, "usage",
+		json_object_start(params, NULL);
+		json_add_string(params, "name", p->commands[i].name);
+		json_add_string(params, "usage",
 				strmap_get(&p->usagemap, p->commands[i].name));
-		json_out_addstr(params, "description", p->commands[i].description);
+		json_add_string(params, "description", p->commands[i].description);
 		if (p->commands[i].long_description)
-			json_out_addstr(params, "long_description",
+			json_add_string(params, "long_description",
 					p->commands[i].long_description);
-		json_out_end(params, '}');
+		json_object_end(params);
 	}
-	json_out_end(params, ']');
+	json_array_end(params);
 
-	json_out_start(params, "subscriptions", '[');
+	json_array_start(params, "subscriptions");
 	for (size_t i = 0; i < p->num_notif_subs; i++)
-		json_out_addstr(params, NULL, p->notif_subs[i].name);
-	json_out_end(params, ']');
+		json_add_string(params, NULL, p->notif_subs[i].name);
+	json_array_end(params);
 
-	json_out_start(params, "hooks", '[');
+	json_array_start(params, "hooks");
 	for (size_t i = 0; i < p->num_hook_subs; i++)
-		json_out_addstr(params, NULL, p->hook_subs[i].name);
-	json_out_end(params, ']');
+		json_add_string(params, NULL, p->hook_subs[i].name);
+	json_array_end(params);
 
-	json_out_addstr(params, "dynamic",
+	json_add_string(params, "dynamic",
 			p->restartability == PLUGIN_RESTARTABLE ? "true" : "false");
-	json_out_end(params, '}');
-	json_out_finished(params);
 
-	return command_success(getmanifest_cmd, params);
+	return command_finished(getmanifest_cmd, params);
 }
 
 static void rpc_conn_finished(struct io_conn *conn,
