@@ -915,11 +915,20 @@ static void promote_missing_files(struct lightningd *ld)
 		if (streq(d->d_name, ".")
 		    || streq(d->d_name, "..")
 		    || streq(d->d_name, "config")
-		    || streq(d->d_name, "lightning-rpc")
 		    || strends(d->d_name, ".pid"))
 			continue;
 
 		fullname = path_join(tmpctx, ld->config_basedir, d->d_name);
+
+		/* Simply remove rpc file: if they use --rpc-file to place it
+		 * here explicitly it will get recreated, but moving it would
+		 * be confusing as it would be unused. */
+		if (streq(d->d_name, "lightning-rpc")) {
+			if (unlink(fullname) != 0)
+				log_unusual(ld->log, "Could not unlink %s: %s",
+					    fullname, strerror(errno));
+			continue;
+		}
 
 		/* Ignore any directories. */
 		if (lstat(fullname, &st) != 0)
