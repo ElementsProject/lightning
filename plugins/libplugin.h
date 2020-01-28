@@ -70,6 +70,25 @@ struct plugin_hook {
 	                                 const jsmntok_t *params);
 };
 
+/* Helper to create a JSONRPC2 response stream with a "result" object. */
+struct json_stream *jsonrpc_stream_success(struct command *cmd);
+
+/* Helper to create a JSONRPC2 response stream with an "error" object. */
+struct json_stream *jsonrpc_stream_fail(struct command *cmd,
+					int code,
+					const char *err);
+
+/* Helper to create a JSONRPC2 response stream with an "error" object,
+ * to which will be added a "data" object. */
+struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
+					     int code,
+					     const char *err);
+
+/* This command is finished, here's the response (the content of the
+ * "result" or "error" field) */
+struct command_result *WARN_UNUSED_RESULT
+command_finished(struct command *cmd, struct json_stream *response);
+
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
 struct json_out *json_out_obj(const tal_t *ctx,

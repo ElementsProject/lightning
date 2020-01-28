@@ -150,6 +150,37 @@ static struct json_stream *jsonrpc_stream_start(struct command *cmd)
 	return js;
 }
 
+struct json_stream *jsonrpc_stream_success(struct command *cmd)
+{
+	struct json_stream *js = jsonrpc_stream_start(cmd);
+
+	json_object_start(js, "result");
+	return js;
+}
+
+struct json_stream *jsonrpc_stream_fail(struct command *cmd,
+					int code,
+					const char *err)
+{
+	struct json_stream *js = jsonrpc_stream_start(cmd);
+
+	json_object_start(js, "error");
+	json_add_member(js, "code", false, "%d", code);
+	json_add_string(js, "message", err);
+
+	return js;
+}
+
+struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
+					     int code,
+					     const char *err)
+{
+	struct json_stream *js = jsonrpc_stream_fail(cmd, code, err);
+
+	json_object_start(js, "data");
+	return js;
+}
+
 static struct command_result *command_complete(struct command *cmd,
 					       struct json_stream *result)
 {
@@ -160,6 +191,15 @@ static struct command_result *command_complete(struct command *cmd,
 	tal_free(cmd);
 
 	return &complete;
+}
+
+struct command_result *WARN_UNUSED_RESULT
+command_finished(struct command *cmd, struct json_stream *response)
+{
+	/* "result" or "error" object */
+	json_object_end(response);
+
+	return command_complete(cmd, response);
 }
 
 struct json_out *json_out_obj(const tal_t *ctx,
