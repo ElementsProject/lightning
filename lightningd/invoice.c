@@ -16,6 +16,7 @@
 #include <common/overflows.h>
 #include <common/param.h>
 #include <common/pseudorand.h>
+#include <common/timeout.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -101,6 +102,12 @@ static void wait_on_invoice(const struct invoice *invoice, void *cmd)
 		tell_waiter((struct command *) cmd, invoice);
 	else
 		tell_waiter_deleted((struct command *) cmd);
+}
+static void wait_timed_out(struct command *cmd)
+{
+	was_pending(command_fail(cmd, INVOICE_WAIT_TIMED_OUT,
+				 "Timed out while waiting "
+				 "for invoice to be paid"));
 }
 
 /* We derive invoice secret using 1-way function from payment_preimage
@@ -1129,12 +1136,24 @@ static struct command_result *json_waitanyinvoice(struct command *cmd,
 						  const jsmntok_t *params)
 {
 	u64 *pay_index;
+	u64 *timeout;
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("lastpay_index", param_u64, &pay_index, 0),
+		   p_opt("timeout", &param_u64, &timeout),
 		   NULL))
 		return command_param_failed();
+
+	/*~ We allocate the timeout and the wallet-waitanyinvoice
+	 * in the cmd context, so whichever one manages to complete
+	 * the command first (and destroy the cmd context)
+	 * auto-cancels the other, is not tal amazing?
+	 */
+	if (timeout)
+		(void) new_reltimer(cmd->ld->timers, cmd,
+				    time_from_sec(*timeout),
+				    &wait_timed_out, cmd);
 
 	/* Set command as pending. We do not know if
 	 * wallet_invoice_waitany will return immediately
@@ -1155,7 +1174,8 @@ static const struct json_command waitanyinvoice_command = {
 	"waitanyinvoice",
 	"payment",
 	json_waitanyinvoice,
-	"Wait for the next invoice to be paid, after {lastpay_index} (if supplied)"
+	"Wait for the next invoice to be paid, after {lastpay_index} (if supplied).  "
+	"If {timeout} seconds is reached while waiting, fail with an error."
 };
 AUTODATA(json_command, &waitanyinvoice_command);
 

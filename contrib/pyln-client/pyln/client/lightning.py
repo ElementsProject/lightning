@@ -988,14 +988,18 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("stop")
 
-    def waitanyinvoice(self, lastpay_index=None):
+    def waitanyinvoice(self, lastpay_index=None, timeout=None, **kwargs):
         """
         Wait for the next invoice to be paid, after {lastpay_index}
         (if supplied)
+        Fail after {timeout} seconds has passed without an invoice
+        being paid.
         """
         payload = {
-            "lastpay_index": lastpay_index
+            "lastpay_index": lastpay_index,
+            "timeout": timeout
         }
+        payload.update({k: v for k, v in kwargs.items()})
         return self.call("waitanyinvoice", payload)
 
     def waitblockheight(self, blockheight, timeout=None):
