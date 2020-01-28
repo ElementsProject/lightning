@@ -1119,7 +1119,7 @@ static void add_config(struct lightningd *ld,
 		       const struct opt_table *opt,
 		       const char *name, size_t len)
 {
-	char *name0 = tal_strndup(response, name, len);
+	char *name0 = tal_strndup(tmpctx, name, len);
 	const char *answer = NULL;
 	char buf[OPT_SHOW_LEN + sizeof("...")];
 
@@ -1234,7 +1234,6 @@ static void add_config(struct lightningd *ld,
 		struct json_escape *esc = json_escape(NULL, answer);
 		json_add_escaped_string(response, name0, take(esc));
 	}
-	tal_free(name0);
 }
 
 static struct command_result *json_listconfigs(struct command *cmd,
