@@ -1,9 +1,3 @@
-libjsmn.a
-libsecp256k1.a
-libsecp256k1.la
-libsodium.a
-libsodium.la
-libwallycore.a
-libwallycore.la
-libwally-core-build
-libsodium-build
+x86_64-linux-gnu
+aarch64-linux-gnu
+arm-linux-gnueabihf

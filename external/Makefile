@@ -4,13 +4,12 @@ SUBMODULES =					\
 	external/jsmn				\
 	external/libbacktrace
 
+TOP := ../..
 ifdef BUILD
 CROSSCOMPILE_OPTS := --host="$(MAKE_HOST)" --build="$(BUILD)"
 TARGET_DIR := external/"$(MAKE_HOST)"
-TOP := ../..
 else
-TARGET_DIR := external
-TOP := ..
+TARGET_DIR := external/"$(shell gcc -dumpmachine)"
 endif
 
 LIBSODIUM_HEADERS := external/libsodium/src/libsodium/include/sodium.h
