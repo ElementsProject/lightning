@@ -514,16 +514,66 @@ It is currently extremely restricted:
    commands, as these may become intermingled and break rule #1.
 3. the hook will be called before your plugin is initialized!
 
+This hook, unlike all the other hooks, is also strongly synchronous:
+`lightningd` will stop almost all the other processing until this
+hook responds.
+
 ```json
 {
+  "data_version": 42,
   "writes": [
     "PRAGMA foreign_keys = ON"
   ]
 }
 ```
 
+This hook is intended for creating continuous backups.
+The intent is that your backup plugin maintains three
+pieces of information (possibly in separate files):
+(1) a snapshot of the database, (2) a log of database queries
+that will bring that snapshot up-to-date, and (3) the previous
+`data_version`.
+
+`data_version` is an unsigned 32-bit number that will always
+increment by 1 each time `db_write` is called.
+Note that this will wrap around on the limit of 32-bit numbers.
+
+`writes` is an array of strings, each string being a database query
+that modifies the database.
+If the `data_version` above is validated correctly, then you can
+simply append this to the log of database queries.
+
+Your plugin **MUST** validate the `data_version`.
+It **MUST** keep track of the previous `data_version` it got,
+and:
+
+1. If the new `data_version` is ***exactly*** one higher than
+   the previous, then this is the ideal case and nothing bad
+   happened and we should save this and continue.
+2. If the new `data_version` is ***exactly*** the same value
+   as the previous, then the previous set of queries was not
+   committed.
+   Your plugin **MAY** overwrite the previous set of queries with
+   the current set, or it **MAY** overwrite its entire backup
+   with a new snapshot of the database and the current `writes`
+   array (treating this case as if `data_version` were two or
+   more higher than the previous).
+3. If the new `data_version` is ***less than*** the previous,
+   your plugin **MUST** halt and catch fire, and have the
+   operator inspect what exactly happend here.
+4. Otherwise, some queries were lost and your plugin **SHOULD**
+   recover by creating a new snapshot of the database: copy the
+   database file, back up the given `writes` array, then delete
+   (or atomically `rename` if in a POSIX filesystem) the previous
+   backups of the database and SQL statements, or you **MAY**
+   fail the hook to abort `lightningd`.
+
+The "rolling up" of the database could be done periodically as well
+if the log of SQL statements has grown large.
+
 Any response but "true" will cause lightningd to error without
 committing to the database!
+This is the expected way to halt and catch fire.
 
 #### `invoice_payment`
 
