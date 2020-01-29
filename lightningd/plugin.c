@@ -69,6 +69,9 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
 
+	for (int i = 0; i < NUM_PLUGIN_FEATURES_TYPE; i++)
+		p->featurebits[i] = NULL;
+
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
@@ -811,12 +814,16 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 	fatal("Can't recover from plugin failure, terminating.");
 }
 
+/* List of JSON keys matching `plugin_features_type`. */
+static const char *plugin_features_type_names[] = {"node", "init", "invoice"};
+
 bool plugin_parse_getmanifest_response(const char *buffer,
                                        const jsmntok_t *toks,
                                        const jsmntok_t *idtok,
                                        struct plugin *plugin)
 {
-	const jsmntok_t *resulttok, *dynamictok;
+	const jsmntok_t *resulttok, *dynamictok, *featurestok, *tok;
+	u8 *featurebits;
 
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok || resulttok->type != JSMN_OBJECT)
@@ -827,6 +834,31 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 		plugin_kill(plugin, "Bad 'dynamic' field ('%.*s')",
 			    json_tok_full_len(dynamictok),
 			    json_tok_full(buffer, dynamictok));
+
+	featurestok = json_get_member(buffer, resulttok, "featurebits");
+	if (featurestok) {
+		for (int i = 0; i < NUM_PLUGIN_FEATURES_TYPE; i++) {
+			tok = json_get_member(buffer, featurestok,
+					      plugin_features_type_names[i]);
+
+			if (!tok)
+				continue;
+
+			featurebits =
+			    json_tok_bin_from_hex(plugin, buffer, tok);
+
+			if (featurebits) {
+				plugin->featurebits[i] = featurebits;
+			} else {
+				plugin_kill(
+				    plugin,
+				    "Featurebits returned by plugin is not a "
+				    "valid hexadecimal string: %.*s",
+				    tok->end - tok->start, buffer + tok->start);
+				return true;
+			}
+		}
+	}
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
