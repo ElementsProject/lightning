@@ -10,6 +10,7 @@
 #include <common/errcode.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
+#include <common/json_stream.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin.h>
@@ -197,14 +198,6 @@ static void attempt_failed_tok(struct pay_command *pc, const char *method,
 	failed_end(failed);
 }
 
-/* Helper to add a u32. */
-static void json_out_add_u32(struct json_out *jout,
-			     const char *fieldname,
-			     u32 val)
-{
-	json_out_add(jout, fieldname, false, "%"PRIu32, val);
-}
-
 /* Helper to add a u64. */
 static void json_out_add_u64(struct json_out *jout,
 			     const char *fieldname,
@@ -360,7 +353,7 @@ execute_waitblockheight(struct command *cmd,
 			u32 blockheight,
 			struct pay_command *pc)
 {
-	struct json_out *params;
+	struct out_req *req;
 	struct timeabs now = time_now();
 	struct timerel remaining;
 
@@ -369,18 +362,14 @@ execute_waitblockheight(struct command *cmd,
 
 	remaining = time_between(pc->stoptime, now);
 
-	params = json_out_new(tmpctx);
-	json_out_start(params, NULL, '{');
-	json_out_add_u32(params, "blockheight", blockheight);
-	json_out_add_u64(params, "timeout", time_to_sec(remaining));
-	json_out_end(params, '}');
-	json_out_finished(params);
+	req = jsonrpc_request_start(cmd->plugin, cmd, "waitblockheight",
+				    &waitblockheight_done,
+				    &waitblockheight_error,
+				    pc);
+	json_add_u32(req->js, "blockheight", blockheight);
+	json_add_u32(req->js, "timeout", time_to_sec(remaining));
 
-	return send_outreq(cmd->plugin, cmd, "waitblockheight",
-			   &waitblockheight_done,
-			   &waitblockheight_error,
-			   pc,
-			   params);
+	return send_outreq(cmd->plugin, req);
 }
 
 /* Gets the remote height from a
@@ -581,10 +570,13 @@ static struct command_result *sendpay_done(struct command *cmd,
 					   const jsmntok_t *result,
 					   struct pay_command *pc)
 {
-	return send_outreq(cmd->plugin, cmd, "waitsendpay",
-			   waitsendpay_done, waitsendpay_error, pc,
-			   take(json_out_obj(NULL, "payment_hash",
-					     pc->payment_hash)));
+	struct out_req *req = jsonrpc_request_start(cmd->plugin, cmd,
+						    "waitsendpay",
+						    waitsendpay_done,
+						    waitsendpay_error, pc);
+	json_add_string(req->js, "payment_hash", pc->payment_hash);
+
+	return send_outreq(cmd->plugin, req);
 }
 
 /* Calculate how many millisatoshi we need at the start of this route
@@ -737,7 +729,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	struct amount_msat fee;
 	u32 delay;
 	double feepercent;
-	struct json_out *params;
+	struct out_req *req;
 
 	if (!t)
 		plugin_err(cmd->plugin, "getroute gave no 'route'? '%.*s'",
@@ -837,21 +829,17 @@ static struct command_result *getroute_done(struct command *cmd,
 	}
 
 	attempt->sendpay = true;
-	params = json_out_new(NULL);
-	json_out_start(params, NULL, '{');
-	json_out_add_raw(params, "route", attempt->route);
-	json_out_add(params, "payment_hash", true, "%s", pc->payment_hash);
-	json_out_add(params, "bolt11", true, "%s", pc->ps->bolt11);
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+				    sendpay_done, sendpay_error, pc);
+	json_out_add_raw(req->js->jout, "route", attempt->route);
+	json_add_string(req->js, "payment_hash", pc->payment_hash);
+	json_add_string(req->js, "bolt11", pc->ps->bolt11);
 	if (pc->label)
-		json_out_add(params, "label", true, "%s", pc->label);
+		json_add_string(req->js, "label", pc->label);
 	if (pc->payment_secret)
-		json_out_add(params, "payment_secret", true, "%s",
-			     pc->payment_secret);
-	json_out_end(params, '}');
+		json_add_string(req->js, "payment_secret", pc->payment_secret);
 
-	return send_outreq(cmd->plugin, cmd, "sendpay", sendpay_done, sendpay_error, pc,
-			   take(params));
-
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *getroute_error(struct command *cmd,
@@ -896,7 +884,7 @@ static struct command_result *execute_getroute(struct command *cmd,
 	struct amount_msat msat;
 	const char *dest;
 	u32 cltv;
-	struct json_out *params;
+	struct out_req *req;
 
 	/* routehint set below. */
 
@@ -929,24 +917,22 @@ static struct command_result *execute_getroute(struct command *cmd,
 	}
 
 	/* OK, ask for route to destination */
-	params = json_out_new(NULL);
-	json_out_start(params, NULL, '{');
-	json_out_addstr(params, "id", dest);
-	json_out_addstr(params, "msatoshi",
+	req = jsonrpc_request_start(cmd->plugin, cmd, "getroute",
+				    getroute_done, getroute_error, pc);
+	json_add_string(req->js, "id", dest);
+	json_add_string(req->js, "msatoshi",
 			type_to_string(tmpctx, struct amount_msat, &msat));
-	json_out_add_u32(params, "cltv", cltv);
-	json_out_add_u32(params, "maxhops", max_hops);
-	json_out_add(params, "riskfactor", false, "%f", pc->riskfactor);
+	json_add_u32(req->js, "cltv", cltv);
+	json_add_u32(req->js, "maxhops", max_hops);
+	json_add_member(req->js, "riskfactor", false, "%f", pc->riskfactor);
 	if (tal_count(pc->excludes) != 0) {
-		json_out_start(params, "exclude", '[');
+		json_array_start(req->js, "exclude");
 		for (size_t i = 0; i < tal_count(pc->excludes); i++)
-			json_out_addstr(params, NULL, pc->excludes[i]);
-		json_out_end(params, ']');
+			json_add_string(req->js, NULL, pc->excludes[i]);
+		json_array_end(req->js);
 	}
-	json_out_end(params, '}');
 
-	return send_outreq(cmd->plugin, cmd, "getroute", getroute_done, getroute_error, pc,
-			   take(params));
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *
@@ -989,11 +975,11 @@ static struct command_result *
 execute_getstartblockheight(struct command *cmd,
 			    struct pay_command *pc)
 {
-	return send_outreq(cmd->plugin, cmd, "getinfo",
-			   &getstartblockheight_done,
-			   &getstartblockheight_error,
-			   pc,
-			   take(json_out_obj(NULL, NULL, NULL)));
+	struct out_req *req = jsonrpc_request_start(cmd->plugin, cmd, "getinfo",
+						    &getstartblockheight_done,
+						    &getstartblockheight_error,
+						    pc);
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *start_pay_attempt(struct command *cmd,
@@ -1106,6 +1092,8 @@ static struct command_result *add_shadow_route(struct command *cmd,
 static struct command_result *shadow_route(struct command *cmd,
 					   struct pay_command *pc)
 {
+	struct out_req *req;
+
 #if DEVELOPER
 	if (!pc->use_shadow)
 		return start_pay_attempt(cmd, pc, "Initial attempt");
@@ -1113,9 +1101,9 @@ static struct command_result *shadow_route(struct command *cmd,
 	if (pseudorand(2) == 0)
 		return start_pay_attempt(cmd, pc, "Initial attempt");
 
-	return send_outreq(cmd->plugin, cmd, "listchannels",
-			   add_shadow_route, forward_error, pc,
-			   take(json_out_obj(NULL, "source", pc->shadow_dest)));
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listchannels",
+				    add_shadow_route, forward_error, pc);
+	return send_outreq(cmd->plugin, req);
 }
 
 /* gossipd doesn't know much about the current state of channels; here we
@@ -1271,6 +1259,7 @@ static struct command_result *json_pay(struct command *cmd,
 	double *maxfeepercent;
 	unsigned int *maxdelay;
 	struct amount_msat *exemptfee;
+	struct out_req *req;
 #if DEVELOPER
 	bool *use_shadow;
 #endif
@@ -1357,8 +1346,9 @@ static struct command_result *json_pay(struct command *cmd,
 #endif
 
 	/* Get capacities of local channels (no parameters) */
-	return send_outreq(cmd->plugin, cmd, "listpeers", listpeers_done, forward_error, pc,
-			   take(json_out_obj(NULL, NULL, NULL)));
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeers",
+				    listpeers_done, forward_error, pc);
+	return send_outreq(cmd->plugin, req);
 }
 
 /* FIXME: Add this to ccan/time? */
@@ -1663,6 +1653,7 @@ static struct command_result *json_listpays(struct command *cmd,
 					    const jsmntok_t *params)
 {
 	const char *b11str;
+	struct out_req *req;
 
 	/* FIXME: would be nice to parse as a bolt11 so check worked in future */
 	if (!param(cmd, buf, params,
@@ -1670,11 +1661,12 @@ static struct command_result *json_listpays(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	return send_outreq(cmd->plugin, cmd, "listsendpays",
-			   listsendpays_done, forward_error,
-			   cast_const(char *, b11str),
-			   /* Neatly returns empty object if b11str is NULL */
-			   take(json_out_obj(NULL, "bolt11", b11str)));
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
+				    listsendpays_done, forward_error,
+				    cast_const(char *, b11str));
+	if (b11str)
+		json_add_string(req->js, "bolt11", b11str);
+	return send_outreq(cmd->plugin, req);
 }
 
 static void init(struct plugin *p,

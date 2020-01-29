@@ -23,16 +23,13 @@ static struct command_result *ignore(struct command *timer,
 
 static struct command_result *do_clean(struct plugin *p)
 {
-	struct json_out *params = json_out_new(NULL);
-	json_out_start(params, NULL, '{');
-	json_out_add(params, "maxexpirytime", false, "%"PRIu64,
-		     time_now().ts.tv_sec - expired_by);
-	json_out_end(params, '}');
-	json_out_finished(params);
-
 	/* FIXME: delexpiredinvoice should be in our plugin too! */
-	return send_outreq(p, NULL, "delexpiredinvoice", ignore, ignore, p,
-			   take(params));
+	struct out_req *req = jsonrpc_request_start(p, NULL, "delexpiredinvoice",
+						    ignore, ignore, p);
+	json_add_u64(req->js, "maxexpirytime",
+		     time_now().ts.tv_sec - expired_by);
+
+	return send_outreq(p, req);
 }
 
 static struct command_result *json_autocleaninvoice(struct command *cmd,
