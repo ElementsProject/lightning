@@ -51,39 +51,42 @@ cat > pytest.ini << EOF
 addopts=-p no:logging --color=no --force-flaky
 EOF
 
-if [ "$TARGET_HOST" == "arm-linux-gnueabihf" ] || [ "$TARGET_HOST" == "arm-linux-gnueabihf" ]
+if [ "$TARGET_HOST" == "arm-linux-gnueabihf" ] || [ "$TARGET_HOST" == "aarch64-linux-gnu" ]
 then
     export QEMU_LD_PREFIX=/usr/"$TARGET_HOST"/
     export MAKE_HOST="$TARGET_HOST"
+    export BUILD=x86_64-pc-linux-gnu
     export AR="$TARGET_HOST"-ar
     export AS="$TARGET_HOST"-as
     export CC="$TARGET_HOST"-gcc
     export CXX="$TARGET_HOST"-g++
     export LD="$TARGET_HOST"-ld
     export STRIP="$TARGET_HOST"-strip
+    export CONFIGURATION_WRAPPER=qemu-"${TARGET_HOST%%-*}"-static
 
     wget -q https://zlib.net/zlib-1.2.11.tar.gz \
-    && tar xvf zlib-1.2.11.tar.gz \
+    && tar xf zlib-1.2.11.tar.gz \
     && cd zlib-1.2.11 \
     && ./configure --prefix="$QEMU_LD_PREFIX" \
     && make \
-    && sudo make install 
+    && sudo make install
     cd .. && rm zlib-1.2.11.tar.gz && rm -rf zlib-1.2.11
 
     wget -q https://www.sqlite.org/2018/sqlite-src-3260000.zip \
-    && unzip sqlite-src-3260000.zip \
+    && unzip -q sqlite-src-3260000.zip \
     && cd sqlite-src-3260000 \
+    && automake --add-missing --force-missing --copy || true \
     && ./configure --disable-tcl --enable-static --disable-readline --disable-threadsafe --disable-load-extension --host="$TARGET_HOST" --prefix="$QEMU_LD_PREFIX" \
     && make \
-    && sudo make install 
+    && sudo make install
     cd .. && rm sqlite-src-3260000.zip && rm -rf sqlite-src-3260000
 
     wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
-    && tar xvf gmp-6.1.2.tar.xz \
+    && tar xf gmp-6.1.2.tar.xz \
     && cd gmp-6.1.2 \
     && ./configure --disable-assembly --prefix="$QEMU_LD_PREFIX" --host="$TARGET_HOST" \
     && make \
-    && sudo make install 
+    && sudo make install
     cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
 
     ./configure --enable-static
@@ -92,9 +95,10 @@ then
     make -j3 > /dev/null
     echo -en 'travis_fold:end:script.2\\r'
 
-    echo -en 'travis_fold:start:script.3\\r'
-    make -j$PYTEST_PAR check-units
-    echo -en 'travis_fold:end:script.3\\r'
+    # Tests would need to be wrapped with qemu-<arch>-static
+    #echo -en 'travis_fold:start:script.3\\r'
+    #make -j$PYTEST_PAR check-units
+    #echo -en 'travis_fold:end:script.3\\r'
 elif [ "$SOURCE_CHECK_ONLY" == "false" ]; then
     echo -en 'travis_fold:start:script.2\\r'
     make -j3 > /dev/null

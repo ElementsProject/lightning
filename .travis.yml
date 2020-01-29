@@ -37,7 +37,9 @@ env:
   - VALGRIND=0 ARCH=arm64v8 DEVELOPER=1 TARGET_HOST=aarch64-linux-gnu
 cache:
   directories:
-    - dependencies
+    - external/x86_64-linux-gnu
+    - external/aarch64-linux-gnu
+    - external/arm-linux-gnueabihf
 
 script:
   .travis/build.sh
