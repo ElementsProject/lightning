@@ -883,11 +883,13 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	struct node_id *source, destination;
 	struct amount_msat msat;
 	u32 final_cltv;
-	u64 riskfactor_by_million;
+	/* risk factor 12.345% -> riskfactor_millionths = 12345000 */
+	u64 riskfactor_millionths;
 	u32 max_hops;
 	u8 *out;
 	struct route_hop *hops;
-	double fuzz;
+	/* fuzz 12.345% -> fuzz_millionths = 12345000 */
+	u64 fuzz_millionths;
 	struct exclude_entry **excluded;
 
 	/* To choose between variations, we need to know how much we're
@@ -901,12 +903,9 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	 * for a route from ourselves (the usual case): in that case,
 	 * we don't have to consider fees on our own outgoing channels.
 	 */
-	if (!fromwire_gossip_getroute_request(msg, msg,
-					      &source, &destination,
-					      &msat, &riskfactor_by_million,
-					      &final_cltv, &fuzz,
-					      &excluded,
-					      &max_hops))
+	if (!fromwire_gossip_getroute_request(
+		msg, msg, &source, &destination, &msat, &riskfactor_millionths,
+		&final_cltv, &fuzz_millionths, &excluded, &max_hops))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
 	status_debug("Trying to find a route from %s to %s for %s",
@@ -916,9 +915,10 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 		     type_to_string(tmpctx, struct amount_msat, &msat));
 
 	/* routing.c does all the hard work; can return NULL. */
-	hops = get_route(tmpctx, daemon->rstate, source, &destination,
-			 msat, riskfactor_by_million / 1000000.0, final_cltv,
-			 fuzz, pseudorand_u64(), excluded, max_hops);
+	hops = get_route(tmpctx, daemon->rstate, source, &destination, msat,
+			 riskfactor_millionths / 1000000.0, final_cltv,
+			 fuzz_millionths / 1000000.0, pseudorand_u64(),
+			 excluded, max_hops);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
 	daemon_conn_send(daemon->master, take(out));

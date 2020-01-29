@@ -77,11 +77,6 @@ void towire_tu64(u8 **pptr, u64 v)
 	return towire_tlv_uint(pptr, v);
 }
 
-void towire_double(u8 **pptr, const double *v)
-{
-	towire(pptr, v, sizeof(*v));
-}
-
 void towire_bool(u8 **pptr, bool v)
 {
 	u8 val = v;

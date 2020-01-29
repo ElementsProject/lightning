@@ -25,10 +25,14 @@ struct command_result *param_bool(struct command *cmd, const char *name,
 				  const char *buffer, const jsmntok_t *tok,
 				  bool **b);
 
-/* Extract double from this (must be a number literal) */
-struct command_result *param_double(struct command *cmd, const char *name,
-				    const char *buffer, const jsmntok_t *tok,
-				    double **num);
+/*
+ * Extract a non-negative (either 0 or positive) floating-point number from this
+ * (must be a number literal), multiply it by 1 million and return it as an
+ * integer.
+ */
+struct command_result *param_millionths(struct command *cmd, const char *name,
+					const char *buffer,
+					const jsmntok_t *tok, uint64_t **num);
 
 /* Extract an escaped string (and unescape it) */
 struct command_result *param_escaped_string(struct command *cmd,
@@ -56,11 +60,6 @@ struct command_result *param_number(struct command *cmd, const char *name,
 struct command_result *param_sha256(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct sha256 **hash);
-
-/* Extract double in range [0.0, 100.0] */
-struct command_result *param_percent(struct command *cmd, const char *name,
-				     const char *buffer, const jsmntok_t *tok,
-				     double **num);
 
 /* Extract number from this (may be a string, or a number literal) */
 struct command_result *param_u64(struct command *cmd, const char *name,

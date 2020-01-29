@@ -35,10 +35,9 @@ msgtype,gossip_getroute_request,3006
 msgdata,gossip_getroute_request,source,?node_id,
 msgdata,gossip_getroute_request,destination,node_id,
 msgdata,gossip_getroute_request,msatoshi,amount_msat,
-# We don't pass doubles, so pass riskfactor  1000000.
-msgdata,gossip_getroute_request,riskfactor_by_million,u64,
+msgdata,gossip_getroute_request,riskfactor_millionths,u64,
 msgdata,gossip_getroute_request,final_cltv,u32,
-msgdata,gossip_getroute_request,fuzz,double,
+msgdata,gossip_getroute_request,fuzz_millionths,u64,
 msgdata,gossip_getroute_request,num_excluded,u16,
 msgdata,gossip_getroute_request,excluded,exclude_entry,num_excluded
 msgdata,gossip_getroute_request,max_hops,u32,

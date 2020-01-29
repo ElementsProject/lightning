@@ -35,17 +35,21 @@ struct command_result *param_bool(struct command *cmd, const char *name,
 			    name, tok->end - tok->start, buffer + tok->start);
 }
 
-struct command_result *param_double(struct command *cmd, const char *name,
-				    const char *buffer, const jsmntok_t *tok,
-				    double **num)
+struct command_result *param_millionths(struct command *cmd, const char *name,
+					const char *buffer,
+					const jsmntok_t *tok, uint64_t **num)
 {
-	*num = tal(cmd, double);
-	if (json_to_double(buffer, tok, *num))
+	double d;
+	if (json_to_double(buffer, tok, &d) && d >= 0.0) {
+		*num = tal(cmd, uint64_t);
+		**num = (uint64_t)(d * 1000000);
 		return NULL;
+	}
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a double, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail(
+	    cmd, JSONRPC2_INVALID_PARAMS,
+	    "'%s' should be a non-negative floating-point number, not '%.*s'",
+	    name, tok->end - tok->start, buffer + tok->start);
 }
 
 struct command_result *param_escaped_string(struct command *cmd,
@@ -125,19 +129,6 @@ struct command_result *param_sha256(struct command *cmd, const char *name,
 
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			    "'%s' should be a 32 byte hex value, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
-}
-
-struct command_result *param_percent(struct command *cmd, const char *name,
-				     const char *buffer, const jsmntok_t *tok,
-				     double **num)
-{
-	*num = tal(cmd, double);
-	if (json_to_double(buffer, tok, *num) && **num >= 0.0)
-		return NULL;
-
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a positive double, not '%.*s'",
 			    name, tok->end - tok->start, buffer + tok->start);
 }
 

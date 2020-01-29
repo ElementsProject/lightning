@@ -21,9 +21,9 @@ in *btc*.
 
 There are two considerations for how good a route is: how low the fees
 are, and how long your payment will get stuck in a delayed output if a
-node goes down during the process. The *riskfactor* floating-point field
-controls this tradeoff; it is the annual cost of your funds being stuck
-(as a percentage).
+node goes down during the process. The *riskfactor* non-negative
+floating-point field controls this tradeoff; it is the annual cost of
+your funds being stuck (as a percentage).
 
 For example, if you thought the convenience of keeping your funds liquid
 (not stuck) was worth 20% per annum interest, *riskfactor* would be 20.
@@ -32,7 +32,7 @@ If you didn’t care about risk, *riskfactor* would be zero.
 
 *fromid* is the node to start the route from: default is this node.
 
-The *fuzzpercent* is a positive floating-point number, representing a
+The *fuzzpercent* is a non-negative floating-point number, representing a
 percentage of the actual fee. The *fuzzpercent* is used to distort
 computed fees along each channel, to provide some randomization to the
 route generated. 0.0 means the exact fee of that channel is used, while
