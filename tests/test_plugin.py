@@ -2,6 +2,7 @@ from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
+from pyln.proto import Invoice
 from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK
 )
@@ -823,3 +824,41 @@ def test_libplugin(node_factory):
 
     # Test RPC calls FIXME: test concurrent ones ?
     assert l1.rpc.call("testrpc") == l1.rpc.getinfo()
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
+def test_plugin_feature_announce(node_factory):
+    """Check that features registered by plugins show up in messages.
+
+    l1 is the node under test, l2 only serves as the counterparty for a
+    channel to check the featurebits in the `channel_announcement`. The plugin
+    registers an individual featurebit for each of the locations we can stash
+    feature bits in:
+
+     - 1 << 101 for `init` messages
+     - 1 << 103 for `node_announcement`
+     - 1 << 105 for bolt11 invoices
+
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/feature-test.py')
+    l1, l2 = node_factory.line_graph(
+        2, opts=[{'plugin': plugin, 'log-level': 'io'}, {}],
+        wait_for_announce=True
+    )
+
+    # Check the featurebits we've set in the `init` message from
+    # feature-test.py. (1 << 101) results in 13 bytes featutebits (000d) and
+    # has a leading 0x20, the remainder is added to avoid false positives, but
+    # may cause failures if we add support for more native featurebits.
+    init = l1.daemon.is_in_log(r'\[OUT\] 001000.*000d2000000000000000000002aaa2')
+    assert(init is not None)  # Make sure we caught the log message
+
+    # Check the invoice featurebit we set in feature-test.py
+    inv = l1.rpc.invoice(123, 'lbl', 'desc')['bolt11']
+    details = Invoice.decode(inv)
+    assert(details.featurebits.int & (1 << 105) != 0)
+
+    # Check the featurebit set in the `node_announcement`
+    node = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
+    assert(int(node['features'], 16) & (1 << 103) != 0)
