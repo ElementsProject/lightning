@@ -5,3 +5,5 @@ libsodium.a
 libsodium.la
 libwallycore.a
 libwallycore.la
+libwally-core-build
+libsodium-build
