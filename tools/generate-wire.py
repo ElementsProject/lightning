@@ -199,7 +199,6 @@ class Type(FieldSet):
         'secp256k1_ecdsa_signature',
         'secp256k1_ecdsa_recoverable_signature',
         'wirestring',
-        'double',
         'errcode_t',
         'bigsize',
         'varint',

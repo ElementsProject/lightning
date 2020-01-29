@@ -131,17 +131,17 @@ struct sanity {
 	char *str;
 	bool failed;
 	int ival;
-	double dval;
+	u64 fpval; /* floating-point, multiplied by 1000000 */
 	char *fail_str;
 };
 
 struct sanity buffers[] = {
 	// pass
-	{"['42', '3.15']", false, 42, 3.15, NULL},
-	{"{ 'u64' : '42', 'double' : '3.15' }", false, 42, 3.15, NULL},
+	{"['42', '3.15']", false, 42, 3150000, NULL},
+	{"{ 'u64' : '42', 'fp' : '3.15' }", false, 42, 3150000, NULL},
 
 	// fail
-	{"{'u64':'42', 'double':'3.15', 'extra':'stuff'}", true, 0, 0,
+	{"{'u64':'42', 'fp':'3.15', 'extra':'stuff'}", true, 0, 0,
 	 "unknown parameter"},
 	{"['42', '3.15', 'stuff']", true, 0, 0, "too many"},
 	{"['42', '3.15', 'null']", true, 0, 0, "too many"},
@@ -151,17 +151,17 @@ struct sanity buffers[] = {
 	{"['42']", true, 0, 0, "missing required"},
 
 	// fail wrong type
-	{"{'u64':'hello', 'double':'3.15'}", true, 0, 0, "be an unsigned 64"},
+	{"{'u64':'hello', 'fp':'3.15'}", true, 0, 0, "be an unsigned 64"},
 	{"['3.15', '3.15', 'stuff']", true, 0, 0, "integer"},
 };
 
 static void stest(const struct json *j, struct sanity *b)
 {
 	u64 *ival;
-	double *dval;
+	u64 *fpval;
 	if (!param(cmd, j->buffer, j->toks,
 		   p_req("u64", param_u64, &ival),
-		   p_req("double", param_double, &dval), NULL)) {
+		   p_req("fp", param_millionths, &fpval), NULL)) {
 		assert(check_fail());
 		assert(b->failed == true);
 		if (!strstr(fail_msg, b->fail_str)) {
@@ -172,7 +172,7 @@ static void stest(const struct json *j, struct sanity *b)
 		assert(!check_fail());
 		assert(b->failed == false);
 		assert(*ival == 42);
-		assert(*dval > 3.1499 && b->dval < 3.1501);
+		assert(*fpval > 3149900 && b->fpval < 3150100);
 	}
 }
 
@@ -222,13 +222,13 @@ static void dup_names(void)
 {
 	struct json *j =
 		json_parse(cmd,
-			   "{ 'u64' : '42', 'u64' : '43', 'double' : '3.15' }");
+			   "{ 'u64' : '42', 'u64' : '43', 'fp' : '3.15' }");
 
 	u64 *i;
-	double *d;
+	u64 *fp;
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", param_u64, &i),
-		      p_req("double", param_double, &d), NULL));
+		      p_req("fp", param_millionths, &fp), NULL));
 }
 
 static void null_params(void)
@@ -290,28 +290,28 @@ static void bad_programmer(void)
 {
 	u64 *ival;
 	u64 *ival2;
-	double *dval;
+	u64 *fpval;
 	struct json *j = json_parse(cmd, "[ '25', '546', '26' ]");
 
 	/* check for repeated names */
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("repeat", param_u64, &ival),
-		      p_req("double", param_double, &dval),
+		      p_req("fp", param_millionths, &fpval),
 		      p_req("repeat", param_u64, &ival2), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("repeat", param_u64, &ival),
-		      p_req("double", param_double, &dval),
+		      p_req("fp", param_millionths, &fpval),
 		      p_req("repeat", param_u64, &ival), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", param_u64, &ival),
-		      p_req("repeat", param_double, &dval),
-		      p_req("repeat", param_double, &dval), NULL));
+		      p_req("repeat", param_millionths, &fpval),
+		      p_req("repeat", param_millionths, &fpval), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
@@ -330,12 +330,13 @@ static void bad_programmer(void)
 	/* Add required param after optional */
 	j = json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
 	unsigned int *msatoshi;
-	double *riskfactor;
-	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", param_u64, &ival),
-		      p_req("double", param_double, &dval),
-		      p_opt_def("msatoshi", param_number, &msatoshi, 100),
-		      p_req("riskfactor", param_double, &riskfactor), NULL));
+	u64 *riskfactor_millionths;
+	assert(!param(
+	    cmd, j->buffer, j->toks, p_req("u64", param_u64, &ival),
+	    p_req("fp", param_millionths, &fpval),
+	    p_opt_def("msatoshi", param_number, &msatoshi, 100),
+	    p_req("riskfactor", param_millionths, &riskfactor_millionths),
+	    NULL));
 	assert(*msatoshi);
 	assert(*msatoshi == 100);
 	assert(check_fail());
@@ -525,16 +526,16 @@ static void param_tests(void)
 	test_cb(param_bool, bool, "[ tru ]", false, false);
 	test_cb(param_bool, bool, "[ 1 ]", false, false);
 
-	test_cb(param_percent, double, "[ -0.01 ]", 0, false);
-	test_cb(param_percent, double, "[ 0.00 ]", 0, true);
-	test_cb(param_percent, double, "[ 1 ]", 1, true);
-	test_cb(param_percent, double, "[ 1.1 ]", 1.1, true);
-	test_cb(param_percent, double, "[ 1.01 ]", 1.01, true);
-	test_cb(param_percent, double, "[ 99.99 ]", 99.99, true);
-	test_cb(param_percent, double, "[ 100.0 ]", 100, true);
-	test_cb(param_percent, double, "[ 100.001 ]", 100.001, true);
-	test_cb(param_percent, double, "[ 1000 ]", 1000, true);
-	test_cb(param_percent, double, "[ 'wow' ]", 0, false);
+	test_cb(param_millionths, u64, "[ -0.01 ]", 0, false);
+	test_cb(param_millionths, u64, "[ 0.00 ]", 0, true);
+	test_cb(param_millionths, u64, "[ 1 ]", 1000000, true);
+	test_cb(param_millionths, u64, "[ 1.1 ]", 1100000, true);
+	test_cb(param_millionths, u64, "[ 1.01 ]", 1010000, true);
+	test_cb(param_millionths, u64, "[ 99.99 ]", 99990000, true);
+	test_cb(param_millionths, u64, "[ 100.0 ]", 100000000, true);
+	test_cb(param_millionths, u64, "[ 100.001 ]", 100001000, true);
+	test_cb(param_millionths, u64, "[ 1000 ]", 1000000000, true);
+	test_cb(param_millionths, u64, "[ 'wow' ]", 0, false);
 }
 
 static void test_invoice(struct command *cmd,

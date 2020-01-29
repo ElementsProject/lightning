@@ -13,7 +13,9 @@
 #include <common/json_stream.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <wire/onion_defs.h>
 #include <wire/wire.h>
@@ -83,11 +85,13 @@ struct pay_command {
 
 	/* How much we're paying, and what riskfactor for routing. */
 	struct amount_msat msat;
-	double riskfactor;
+	/* riskfactor 12.345% -> riskfactor_millionths = 12345000 */
+	u64 riskfactor_millionths;
 	unsigned int final_cltv;
 
 	/* Limits on what routes we'll accept. */
-	double maxfeepercent;
+	/* 12.345% -> maxfee_pct_millionths = 12345000 */
+	u64 maxfee_pct_millionths;
 	unsigned int maxdelay;
 	struct amount_msat exemptfee;
 
@@ -719,8 +723,8 @@ static struct command_result *getroute_done(struct command *cmd,
 	struct pay_attempt *attempt = current_attempt(pc);
 	const jsmntok_t *t = json_get_member(buf, result, "route");
 	struct amount_msat fee;
+	struct amount_msat max_fee;
 	u32 delay;
-	double feepercent;
 	struct out_req *req;
 
 	if (!t)
@@ -752,14 +756,19 @@ static struct command_result *getroute_done(struct command *cmd,
 		plugin_err(cmd->plugin, "getroute with invalid delay? %.*s",
 			   result->end - result->start, buf);
 
-	/* Casting u64 to double will lose some precision. The loss of precision
-	 * in feepercent will be like 3.0000..(some dots)..1 % - 3.0 %.
-	 * That loss will not be representable in double. So, it's Okay to
-	 * cast u64 to double for feepercent calculation. */
-	feepercent = ((double)fee.millisatoshis) * 100.0 / ((double) pc->msat.millisatoshis); /* Raw: fee double manipulation */
+	if (pc->maxfee_pct_millionths / 100 > UINT32_MAX)
+		plugin_err(cmd->plugin, "max fee percent too large: %lf",
+			   pc->maxfee_pct_millionths / 1000000.0);
 
-	if (amount_msat_greater(fee, pc->exemptfee)
-	    && feepercent > pc->maxfeepercent) {
+	if (!amount_msat_fee(&max_fee, pc->msat, 0,
+			     (u32)(pc->maxfee_pct_millionths / 100)))
+		plugin_err(
+		    cmd->plugin, "max fee too large: %s * %lf%%",
+		    type_to_string(tmpctx, struct amount_msat, &pc->msat),
+		    pc->maxfee_pct_millionths / 1000000.0);
+
+	if (amount_msat_greater(fee, pc->exemptfee) &&
+	    amount_msat_greater(fee, max_fee)) {
 		const jsmntok_t *charger;
 		struct json_out *failed;
 		char *feemsg;
@@ -916,7 +925,8 @@ static struct command_result *execute_getroute(struct command *cmd,
 			type_to_string(tmpctx, struct amount_msat, &msat));
 	json_add_u32(req->js, "cltv", cltv);
 	json_add_u32(req->js, "maxhops", max_hops);
-	json_add_member(req->js, "riskfactor", false, "%f", pc->riskfactor);
+	json_add_member(req->js, "riskfactor", false, "%lf",
+			pc->riskfactor_millionths / 1000000.0);
 	if (tal_count(pc->excludes) != 0) {
 		json_array_start(req->js, "exclude");
 		for (size_t i = 0; i < tal_count(pc->excludes); i++)
@@ -1245,10 +1255,10 @@ static struct command_result *json_pay(struct command *cmd,
 	struct bolt11 *b11;
 	const char *b11str;
 	char *fail;
-	double *riskfactor;
+	u64 *riskfactor_millionths;
 	unsigned int *retryfor;
 	struct pay_command *pc = tal(cmd, struct pay_command);
-	double *maxfeepercent;
+	u64 *maxfee_pct_millionths;
 	unsigned int *maxdelay;
 	struct amount_msat *exemptfee;
 	struct out_req *req;
@@ -1256,16 +1266,18 @@ static struct command_result *json_pay(struct command *cmd,
 	bool *use_shadow;
 #endif
 
-	if (!param(cmd, buf, params,
-		   p_req("bolt11", param_string, &b11str),
+	if (!param(cmd, buf, params, p_req("bolt11", param_string, &b11str),
 		   p_opt("msatoshi", param_msat, &msat),
 		   p_opt("label", param_string, &pc->label),
-		   p_opt_def("riskfactor", param_double, &riskfactor, 10),
-		   p_opt_def("maxfeepercent", param_percent, &maxfeepercent, 0.5),
+		   p_opt_def("riskfactor", param_millionths,
+			     &riskfactor_millionths, 10000000),
+		   p_opt_def("maxfeepercent", param_millionths,
+			     &maxfee_pct_millionths, 500000),
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     maxdelay_default),
-		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
+		   p_opt_def("exemptfee", param_msat, &exemptfee,
+			     AMOUNT_MSAT(5000)),
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
 #endif
@@ -1312,10 +1324,10 @@ static struct command_result *json_pay(struct command *cmd,
 				    " sets feature var_onion with no secret");
 	}
 
-	pc->maxfeepercent = *maxfeepercent;
+	pc->maxfee_pct_millionths = *maxfee_pct_millionths;
 	pc->maxdelay = *maxdelay;
 	pc->exemptfee = *exemptfee;
-	pc->riskfactor = *riskfactor;
+	pc->riskfactor_millionths = *riskfactor_millionths;
 	pc->final_cltv = b11->min_final_cltv_expiry;
 	pc->dest = type_to_string(cmd, struct node_id, &b11->receiver_id);
 	pc->shadow_dest = tal_strdup(pc, pc->dest);
