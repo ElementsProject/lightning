@@ -23,6 +23,10 @@ If not specified, the *port* defaults to 9735.
 If *host* is not specified, the connection will be attempted to an IP
 belonging to *id* obtained through gossip with other already connected
 peers.
+This can fail if your C-lightning node is a fresh install that has not
+connected to any peers yet (your node has no gossip yet),
+or if the target *id* is a fresh install that has no channels yet
+(nobody will gossip about a node until it has one published channel).
 
 If *host* begins with a */* it is interpreted as a local path, and the
 connection will be made to that local socket (see **bind-addr** in

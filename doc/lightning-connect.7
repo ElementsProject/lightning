@@ -25,6 +25,10 @@ If not specified, the \fIport\fR defaults to 9735\.
 If \fIhost\fR is not specified, the connection will be attempted to an IP
 belonging to \fIid\fR obtained through gossip with other already connected
 peers\.
+This can fail if your C-lightning node is a fresh install that has not
+connected to any peers yet (your node has no gossip yet),
+or if the target \fIid\fR is a fresh install that has no channels yet
+(nobody will gossip about a node until it has one published channel)\.
 
 
 If \fIhost\fR begins with a \fI/\fR it is interpreted as a local path, and the
