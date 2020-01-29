@@ -330,8 +330,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	u8 *msg;
 	u8 **witness;
 
-	tx = bitcoin_tx(ctx, out->chainparams, 1, 1);
-	tx->wtx->locktime = locktime;
+	tx = bitcoin_tx(ctx, out->chainparams, 1, 1, locktime);
 	bitcoin_tx_add_input(tx, &out->txid, out->outnum, to_self_delay,
 			     out->sat, NULL);
 

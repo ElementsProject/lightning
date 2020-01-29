@@ -380,7 +380,8 @@ static void bitcoin_tx_destroy(struct bitcoin_tx *tx)
 
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 			      const struct chainparams *chainparams,
-			      varint_t input_count, varint_t output_count)
+			      varint_t input_count, varint_t output_count,
+			      u32 nlocktime)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	assert(chainparams);
@@ -396,7 +397,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 
 	tx->input_amounts = tal_arrz(tx, struct amount_sat*, input_count);
-	tx->wtx->locktime = 0;
+	tx->wtx->locktime = nlocktime;
 	tx->wtx->version = 2;
 	tx->chainparams = chainparams;
 	return tx;

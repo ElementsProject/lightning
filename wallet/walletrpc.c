@@ -89,7 +89,8 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 					     utx->wtx->change_key_index,
 					     cast_const2(const struct bitcoin_tx_output **,
 							 utx->outputs),
-					     utx->wtx->utxos);
+					     utx->wtx->utxos,
+					     utx->tx->wtx->locktime);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
@@ -141,6 +142,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	const u8 *destination = NULL;
 	size_t out_len, i;
 	const struct utxo **chosen_utxos = NULL;
+	u32 locktime = 0;
 
 	*utx = tal(cmd, struct unreleased_tx);
 	(*utx)->wtx = tal(*utx, struct wallet_tx);
@@ -278,6 +280,17 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 			   p_opt("utxos", param_utxos, &chosen_utxos),
 			   NULL))
 		return command_param_failed();
+		/* Setting the locktime to the next block to be mined has multiple
+		 * benefits:
+		 * - anti fee-snipping (even if not yet likely)
+		 * - less distinguishable transactions (with this we create
+		 *   general-purpose transactions which looks like bitcoind:
+		 *   native segwit, nlocktime set to tip, and sequence set to
+		 *   0xFFFFFFFE by default. Other wallets are likely to implement
+		 *   this too).
+		 * FIXME: Do we want to also fuzz this like bitcoind does ?
+		 */
+		locktime = cmd->ld->topology->tip->height;
 	}
 
 	if (!feerate_per_kw) {
@@ -397,7 +410,8 @@ create_tx:
 				 (*utx)->wtx->utxos, (*utx)->outputs,
 				 changekey, (*utx)->wtx->change,
 				 cmd->ld->wallet->bip32_base,
-				 &(*utx)->change_outnum);
+				 &(*utx)->change_outnum,
+				 locktime);
 	bitcoin_txid((*utx)->tx, &(*utx)->txid);
 
 	return NULL;

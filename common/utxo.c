@@ -62,14 +62,17 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 				     const struct utxo **utxos,
 				     const struct ext_key *bip32_base,
 				     bool add_change_output,
-				     size_t num_output)
+				     size_t num_output,
+				     u32 nlocktime,
+				     u32 nsequence)
 {
 	struct pubkey key;
 	u8 *script;
 
 	assert(num_output);
 	size_t outcount = add_change_output ? 1 + num_output : num_output;
-	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, tal_count(utxos), outcount);
+	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, tal_count(utxos),
+					   outcount, nlocktime);
 
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (utxos[i]->is_p2sh && bip32_base) {
@@ -80,8 +83,7 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 		}
 
 		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
-				     BITCOIN_TX_DEFAULT_SEQUENCE,
-		 		     utxos[i]->amount, script);
+				     nsequence, utxos[i]->amount, script);
 	}
 
 	return tx;

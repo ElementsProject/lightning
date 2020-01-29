@@ -57,7 +57,8 @@ size_t bitcoin_tx_weight(const struct bitcoin_tx *tx);
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 			      const struct chainparams *chainparams,
-			      varint_t input_count, varint_t output_count);
+			      varint_t input_count, varint_t output_count,
+			      u32 nlocktime);
 
 /* This takes a raw bitcoin tx in hex. */
 struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,

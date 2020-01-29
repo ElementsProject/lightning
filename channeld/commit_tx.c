@@ -146,7 +146,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 #endif
 
 	/* Worst-case sizing: both to-local and to-remote outputs. */
-	tx = bitcoin_tx(ctx, chainparams, 1, untrimmed + 2);
+	tx = bitcoin_tx(ctx, chainparams, 1, untrimmed + 2, 0);
 
 	/* We keep track of which outputs have which HTLCs */
 	*htlcmap = tal_arr(tx, const struct htlc *, tx->wtx->outputs_allocation_len);

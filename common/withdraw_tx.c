@@ -16,14 +16,15 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct pubkey *changekey,
 			       struct amount_sat change,
 			       const struct ext_key *bip32_base,
-			       int *change_outnum)
+			       int *change_outnum, u32 nlocktime)
 {
 	struct bitcoin_tx *tx;
 	int output_count;
 
 	tx = tx_spending_utxos(ctx, chainparams, utxos, bip32_base,
 			       !amount_sat_eq(change, AMOUNT_SAT(0)),
-			       tal_count(outputs));
+			       tal_count(outputs), nlocktime,
+			       BITCOIN_TX_DEFAULT_SEQUENCE - 1);
 
 	output_count = bitcoin_tx_add_multi_outputs(tx, outputs);
 	assert(output_count == tal_count(outputs));
