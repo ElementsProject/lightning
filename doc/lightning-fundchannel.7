@@ -10,8 +10,13 @@ lightning-fundchannel - Command for establishing a lightning channel
 
 The \fBfundchannel\fR RPC command opens a payment channel with a peer by
 committing a funding transaction to the blockchain as defined in BOLT
-#2\. \fBfundchannel\fR by itself does not attempt to open a connection\. A
-connection must first be established using \fBconnect\fR\. Once the
+#2\.
+If not already connected, \fBfundchannel\fR will automatically attempt
+to connect if C-lightning knows a way to contact the node (either from
+normal gossip, or from a previous \fBconnect\fR call)\.
+This auto-connection can fail if C-lightning does not know how to contact
+the target node; see \fBlightning-connect\fR(7)\.
+Once the
 transaction is confirmed, normal channel operations may begin\. Readiness
 is indicated by \fBlistpeers\fR reporting a \fIstate\fR of CHANNELD_NORMAL
 for the channel\.

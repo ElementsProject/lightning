@@ -127,9 +127,9 @@ key is a long hex string, like so:
 (this example public key is not used as of this writing)
 
 After determining a public key, use lightning-connect(7) to connect to
-that public key:
+that public key at that IP:
 
-    $ lightning-cli connect $PUBLICKEY
+    $ lightning-cli connect $PUBLICKEY $IP
 
 Then open a channel to that node using lightning-fundchannel(7):
 

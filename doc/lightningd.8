@@ -36,21 +36,23 @@ options\.
 
 .SH LOGGING AND COMMANDING C-LIGHTNING
 
-By default, C-Lightning will log to the standard output.
-To log to a specific file, use \fB--log-file\fR=\fIPATH\fR.
+By default, C-Lightning will log to the standard output\.
+To log to a specific file, use \fB--log-file\fR=\fIPATH\fR\.
 Sending SIGHUP will cause C-Lightning to reopen this file,
-for example to do log rotation.
+for example to do log rotation\.
+
 
 C-Lightning will set up a Unix domain socket for receiving
-commands.
+commands\.
 By default this will be the file \fBlightning-rpc\fR in your
-specified \fBlightning-dir\fR.
-You can use lightning-cli(1) to send commands to C-Lightning
+specified \fBlightning-dir\fR\.
+You can use \fBlightning-cli\fR(1) to send commands to C-Lightning
 once \fBlightningd\fR has started; you need to match the
-\fB--lightning-dir\fR and \fB--rpc-file\fR options between them.
+\fB--lightning-dir\fR and \fB--rpc-file\fR options between them\.
+
 
 Commands for C-Lightning are described in various manpages
-in section 7, with the common prefix \fBlightning-\fR.
+in section 7, with the common prefix \fBlightning-\fR\.
 
 .SH QUICK START
 
@@ -174,11 +176,11 @@ key is a long hex string, like so:
 
 
 After determining a public key, use \fBlightning-connect\fR(7) to connect to
-that public key:
+that public key at that IP:
 
 .nf
 .RS
-$ lightning-cli connect $PUBLICKEY
+$ lightning-cli connect $PUBLICKEY $IP
 
 
 .RE
