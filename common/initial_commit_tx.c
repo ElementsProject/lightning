@@ -145,7 +145,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 
 
 	/* Worst-case sizing: both to-local and to-remote outputs. */
-	tx = bitcoin_tx(ctx, chainparams, 1, untrimmed + 2);
+	tx = bitcoin_tx(ctx, chainparams, 1, untrimmed + 2, 0);
 
 	/* This could be done in a single loop, but we follow the BOLT
 	 * literally to make comments in test vectors clearer. */

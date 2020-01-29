@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 	    || !pubkey_from_privkey(&funding_privkey[REMOTE], &funding_pubkey[REMOTE]))
 		errx(1, "Bad deriving funding pubkeys");
 
-	tx = bitcoin_tx(NULL, chainparams, 1, 2);
+	tx = bitcoin_tx(NULL, chainparams, 1, 2, 0);
 
 	/* Our input spends the anchor tx output. */
 	bitcoin_tx_add_input(tx, &funding_txid, funding_outnum,

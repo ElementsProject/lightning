@@ -15,7 +15,10 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 				  struct amount_sat htlc_fee,
 				  u32 locktime)
 {
-	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, 1, 1);
+	/* BOLT #3:
+	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
+	 */
+	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
 	u8 *wscript;
 	struct amount_sat amount;
 
@@ -33,11 +36,6 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 * * version: 2
 	 */
 	assert(tx->wtx->version == 2);
-
-	/* BOLT #3:
-	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
-	 */
-	tx->wtx->locktime = locktime;
 
 	/* BOLT #3:
 	 * * txin count: 1

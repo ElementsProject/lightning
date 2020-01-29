@@ -25,6 +25,7 @@ struct utxo;
  * @change: (in) amount to send as change.
  * @bip32_base: (in) bip32 base for key derivation, or NULL.
  * @change_outnum: (out) set to output index of change output or -1 if none, unless NULL.
+ * @nlocktime: (in) the value to set as the transaction's nLockTime.
  */
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct chainparams *chainparams,
@@ -33,6 +34,6 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct pubkey *changekey,
 			       struct amount_sat change,
 			       const struct ext_key *bip32_base,
-			       int *change_outnum);
+			       int *change_outnum, u32 nlocktime);
 
 #endif /* LIGHTNING_COMMON_WITHDRAW_TX_H */
