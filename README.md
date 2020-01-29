@@ -1,6 +1,6 @@
 # c-lightning: A specification compliant Lightning Network implementation in C
 
-c-lightning is a lighweight, highly customizable and [standard compliant][std] implementation of the Lightning Network protocol.
+c-lightning is a lightweight, highly customizable and [standard compliant][std] implementation of the Lightning Network protocol.
 
 * [Getting Started](#getting-started)
     * [Installation](#installation)
