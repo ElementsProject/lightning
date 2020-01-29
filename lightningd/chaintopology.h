@@ -85,7 +85,8 @@ HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map)
 struct chain_topology {
 	struct lightningd *ld;
 	struct block *root;
-	struct block *prev_tip, *tip;
+	struct block *tip;
+	struct bitcoin_blkid prev_tip;
 	struct block_map block_map;
 	u32 feerate[NUM_FEERATES];
 	bool feerate_uninitialized;

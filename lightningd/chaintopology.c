@@ -585,7 +585,7 @@ void topology_add_sync_waiter_(const tal_t *ctx,
 /* Once we're run out of new blocks to add, call this. */
 static void updates_complete(struct chain_topology *topo)
 {
-	if (topo->tip != topo->prev_tip) {
+	if (!bitcoin_blkid_eq(&topo->tip->blkid, &topo->prev_tip)) {
 		/* Tell lightningd about new block. */
 		notify_new_block(topo->bitcoind->ld, topo->tip->height);
 
@@ -599,7 +599,7 @@ static void updates_complete(struct chain_topology *topo)
 		db_set_intvar(topo->bitcoind->ld->wallet->db,
 			      "last_processed_block", topo->tip->height);
 
-		topo->prev_tip = topo->tip;
+		topo->prev_tip = topo->tip->blkid;
 	}
 
 	/* If bitcoind is synced, we're now synced. */
@@ -785,7 +785,8 @@ static void init_topo(struct bitcoind *bitcoind UNUSED,
 {
 	topo->root = new_block(topo, blk, topo->max_blockheight);
 	block_map_add(&topo->block_map, topo->root);
-	topo->tip = topo->prev_tip = topo->root;
+	topo->tip = topo->root;
+	topo->prev_tip = topo->tip->blkid;
 
 	/* In case we don't get all the way to updates_complete */
 	db_set_intvar(topo->bitcoind->ld->wallet->db,
