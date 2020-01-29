@@ -6,6 +6,11 @@ SUBMODULES =					\
 
 ifdef BUILD
 CROSSCOMPILE_OPTS := --host="$(MAKE_HOST)" --build="$(BUILD)"
+TARGET_DIR := external/"$(MAKE_HOST)"
+TOP := ../..
+else
+TARGET_DIR := external
+TOP := ..
 endif
 
 LIBSODIUM_HEADERS := external/libsodium/src/libsodium/include/sodium.h
@@ -17,45 +22,51 @@ LIBSECP_HEADERS := external/libwally-core/src/secp256k1/include/secp256k1_ecdh.h
 JSMN_HEADERS := external/jsmn/jsmn.h
 
 EXTERNAL_HEADERS := $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS)
-EXTERNAL_LIBS := external/libwallycore.a external/libsecp256k1.a external/libjsmn.a external/libbacktrace.a
+EXTERNAL_LIBS := ${TARGET_DIR}/libwallycore.a ${TARGET_DIR}/libsecp256k1.a ${TARGET_DIR}/libjsmn.a ${TARGET_DIR}/libbacktrace.a
 
 EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libwally-core/include/			\
 	-I external/libwally-core/src/secp256k1/include/	\
 	-I external/jsmn/					\
 	-I external/libbacktrace/				\
-	-I external/libbacktrace-build
+	-I ${TARGET_DIR}/libbacktrace-build
 
 ifneq ($(HAVE_GOOD_LIBSODIUM),1)
-EXTERNAL_INCLUDE_FLAGS += -I external/libsodium/src/libsodium/include
-EXTERNAL_LIBS += external/libsodium.a
+EXTERNAL_INCLUDE_FLAGS += -I external/libsodium/src/libsodium/include \
+			  -I external/libsodium/src/libsodium/include/sodium \
+			  -I $(TARGET_DIR)/libsodium-build/src/libsodium/include
+EXTERNAL_LIBS += ${TARGET_DIR}/libsodium.a
 else
 LDLIBS += -lsodium
 endif
 
-EXTERNAL_LDLIBS := -Lexternal $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
+EXTERNAL_LDLIBS := -L${TARGET_DIR} $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
 submodcheck: FORCE
 	@tools/refresh-submodules.sh $(SUBMODULES)
 
 # We build libsodium, since Ubuntu xenial has one too old.
-external/libsodium.a: external/libsodium/src/libsodium/libsodium.la
-	$(MAKE) -C external/libsodium DESTDIR=$$(pwd)/external install-exec
+$(TARGET_DIR)/libsodium.a: $(TARGET_DIR)/libsodium-build/src/libsodium/libsodium.la
+	$(MAKE) -C $(TARGET_DIR)/libsodium-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
 external/libsodium/src/libsodium/include/sodium.h: submodcheck
 
-external/libsodium/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
-	cd external/libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
+$(TARGET_DIR)/libsodium-build/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
+	cd external/libsodium && ./autogen.sh
+	mkdir -p ${TARGET_DIR}/libsodium-build
+	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
 
 $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS): submodcheck
 
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
-external/libsecp256k1.% external/libwallycore.%: external/libwally-core/src/secp256k1/libsecp256k1.la external/libwally-core/src/libwallycore.la
-	$(MAKE) -C external/libwally-core DESTDIR=$$(pwd)/external install-exec
+$(TARGET_DIR)/libsecp256k1.% $(TARGET_DIR)/libwallycore.%: $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.la $(TARGET_DIR)/libwally-core-build/src/libwallycore.la
+	$(MAKE) -C $(TARGET_DIR)/libwally-core-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
-external/libwally-core/src/libwallycore.% external/libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
-	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-module-recovery --enable-elements --enable-shared=no --prefix=/ --libdir=/ --enable-debug && $(MAKE)
+$(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
+	cd external/libwally-core && ./tools/autogen.sh
+	mkdir -p ${TARGET_DIR}/libwally-core-build
+	cd ${TARGET_DIR}/libwally-core-build && ${TOP}/libwally-core/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-module-recovery --enable-elements --enable-shared=no --prefix=/ --libdir=/ --enable-debug && $(MAKE)
 
 external/jsmn/jsmn.h: submodcheck
 
@@ -64,32 +75,33 @@ external/jsmn/jsmn.h: submodcheck
 external/jsmn/jsmn.c: external/jsmn/jsmn.h
 	[ -f $@ ]
 
-external/jsmn.o: external/jsmn/jsmn.c Makefile
-	$(COMPILE.c) -DJSMN_STRICT=1 $(OUTPUT_OPTION) $<
+$(TARGET_DIR)/jsmn-build/jsmn.o: external/jsmn/jsmn.c Makefile
+	@mkdir -p $(@D)
+	$(COMPILE.c) -DJSMN_STRICT=1 -o $@ $<
 
-external/libjsmn.a: external/jsmn.o
+$(TARGET_DIR)/libjsmn.a: $(TARGET_DIR)/jsmn-build/jsmn.o
 	$(AR) rc $@ $<
 
 external/libbacktrace/backtrace.h: submodcheck
 
 # Need separate build dir: changes inside submodule make git think it's dirty.
-external/libbacktrace.a: external/libbacktrace/backtrace.h
-	@mkdir external/libbacktrace-build 2>/dev/null || true
-	cd external/libbacktrace-build && ../libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
-	$(MAKE) -C external/libbacktrace-build DESTDIR=$$(pwd)/external install-exec
+$(TARGET_DIR)/libbacktrace.a: external/libbacktrace/backtrace.h
+	@mkdir $(TARGET_DIR)/libbacktrace-build 2>/dev/null || true
+	cd $(TARGET_DIR)/libbacktrace-build && $(TOP)/libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
+	$(MAKE) -C $(TARGET_DIR)/libbacktrace-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
 distclean: external-distclean
 clean: external-clean
 
 external-clean:
-	$(RM) $(EXTERNAL_LIBS) external/*.la external/*.o
-	if [ -f external/libsodium/Makefile ]; then make -C external/libsodium clean; fi
-	if [ -f external/libwally-core/Makefile ]; then make -C external/libwally-core clean; fi
-	if [ -f external/ibwally-core/src/Makefile ]; then make -C external/libwally-core/src clean; fi
+	$(RM) $(EXTERNAL_LIBS) $(TARGET_DIR)/*.la $(TARGET_DIR)/*.o
+	if [ -f ${TARGET_DIR}/libsodium-build/Makefile ]; then make -C ${TARGET_DIR}/libsodium-build clean; fi
+	if [ -f ${TARGET_DIR}/libwally-core-build/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build clean; fi
+	if [ -f ${TARGET_DIR}/libwally-core-build/src/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build/src clean; fi
 
 external-distclean:
 	make -C external/libsodium distclean || true
-	$(RM) -rf external/libbacktrace-build
-	$(RM) external/libsodium/src/libsodium/libsodium.la
-	$(RM) external/libwally-core/src/secp256k1/libsecp256k1.la external/libwally-core/src/libwallycore.la
+	$(RM) -rf ${TARGET_DIR}/libbacktrace-build
+	$(RM) ${TARGET_DIR}/libsodium-build/src/libsodium/libsodium.la
+	$(RM) ${TARGET_DIR}/libwally-core-build/src/secp256k1/libsecp256k1.la ${TARGET_DIR}/libwally-core-build/src/libwallycore.la
 	$(RM) -r `git status --ignored --porcelain external/libwally-core | grep '^!! ' | cut -c3-`
