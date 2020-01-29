@@ -28,24 +28,6 @@ struct plugin_timer {
 	struct command_result *(*cb)(struct plugin *p);
 };
 
-struct out_req {
-	/* The unique id of this request. */
-	u64 id;
-	/* The command which is why we're calling this rpc. */
-	struct command *cmd;
-	/* The callback when we get a response. */
-	struct command_result *(*cb)(struct command *command,
-				     const char *buf,
-				     const jsmntok_t *result,
-				     void *arg);
-	/* The callback when we get an error. */
-	struct command_result *(*errcb)(struct command *command,
-					const char *buf,
-					const jsmntok_t *error,
-					void *arg);
-	void *arg;
-};
-
 struct rpc_conn {
 	int fd;
 	MEMBUF(char) mb;
@@ -131,6 +113,39 @@ static void ld_rpc_send(struct plugin *plugin, struct json_stream *stream)
 }
 
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
+
+struct out_req *
+jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
+		       const char *method,
+		       struct command_result *(*cb)(struct command *command,
+						    const char *buf,
+						    const jsmntok_t *result,
+						    void *arg),
+		       struct command_result *(*errcb)(struct command *command,
+						       const char *buf,
+						       const jsmntok_t *result,
+						       void *arg),
+		       void *arg)
+{
+	struct out_req *out;
+
+	out = tal(plugin, struct out_req);
+	out->id = plugin->next_outreq_id++;
+	out->cmd = cmd;
+	out->cb = cb;
+	out->errcb = errcb;
+	out->arg = arg;
+	uintmap_add(&plugin->out_reqs, out->id, out);
+
+	out->js = new_json_stream(NULL, cmd, NULL);
+	json_object_start(out->js, NULL);
+	json_add_string(out->js, "jsonrpc", "2.0");
+	json_add_u64(out->js, "id", out->id);
+	json_add_string(out->js, "method", method);
+	json_object_start(out->js, "params");
+
+	return out;
+}
 
 static void jsonrpc_finish_and_send(struct plugin *p, struct json_stream *js)
 {
@@ -524,43 +539,14 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 }
 
 struct command_result *
-send_outreq_(struct plugin *plugin,
-	     struct command *cmd,
-	     const char *method,
-	     struct command_result *(*cb)(struct command *command,
-					  const char *buf,
-					  const jsmntok_t *result,
-					  void *arg),
-	     struct command_result *(*errcb)(struct command *command,
-					     const char *buf,
-					     const jsmntok_t *result,
-					     void *arg),
-	     void *arg,
-	     const struct json_out *params TAKES)
+send_outreq(struct plugin *plugin, const struct out_req *req)
 {
-	struct json_stream *js;
-	struct out_req *out;
+	/* The "param" object. */
+	json_object_end(req->js);
+	json_object_compat_end(req->js);
+	json_stream_close(req->js, req->cmd);
 
-	out = tal(plugin, struct out_req);
-	out->id = plugin->next_outreq_id++;
-	out->cmd = cmd;
-	out->cb = cb;
-	out->errcb = errcb;
-	out->arg = arg;
-	uintmap_add(&plugin->out_reqs, out->id, out);
-
-	js = new_json_stream(NULL, NULL, NULL);
-	json_object_start(js, NULL);
-	json_add_string(js, "jsonrpc", "2.0");
-	json_add_u64(js, "id", out->id);
-	json_add_string(js, "method", method);
-	json_out_add_splice(js->jout, "params", params);
-	json_object_compat_end(js);
-	json_stream_close(js, NULL);
-	ld_rpc_send(plugin, js);
-
-	if (taken(params))
-		tal_free(params);
+	ld_rpc_send(plugin, req->js);
 
 	return &pending;
 }
@@ -581,7 +567,7 @@ handle_getmanifest(struct command *getmanifest_cmd)
 	}
 	json_array_end(params);
 
-	json_object_start(params, "rpcmethods");
+	json_array_start(params, "rpcmethods");
 	for (size_t i = 0; i < p->num_commands; i++) {
 		json_object_start(params, NULL);
 		json_add_string(params, "name", p->commands[i].name);
