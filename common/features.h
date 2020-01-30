@@ -27,6 +27,9 @@ const char **list_supported_features(const tal_t *ctx);
 bool feature_is_set(const u8 *features, size_t bit);
 void set_feature_bit(u8 **ptr, u32 bit);
 
+/* Given two featurebit vectors, combine them by applying a logical OR. */
+u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
+
 /* BOLT #9:
  *
  * Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
