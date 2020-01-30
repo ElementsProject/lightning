@@ -87,10 +87,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 
 	/* The globalfeatures field is now unused, but there was a
 	 * window where it was: combine the two. */
-	for (size_t i = 0; i < tal_bytelen(globalfeatures) * 8; i++) {
-		if (feature_is_set(globalfeatures, i))
-			set_feature_bit(&features, i);
-	}
+	features = featurebits_or(tmpctx, take(features), globalfeatures);
 
 	/* BOLT #1:
 	 *
