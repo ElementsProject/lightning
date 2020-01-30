@@ -123,13 +123,15 @@ is only valid on the command-line, or in a configuration file specified
 by \fI--conf\fR\.
 
 
- \fBalt-subdaemon\fR=\fISUBDAEMON\fR:\fIPATH\fR
-Specifies an alternate subdaemon binary\.  If the supplied path
-is relative the subdaemon binary is found in the working directory\.
-This option may be specified multiple times\.
+ \fBsubdaemon\fR=\fISUBDAEMON\fR:\fIPATH\fR
+Specifies an alternate subdaemon binary\.
+Current subdaemons are \fIchannel\fR, \fIclosing\fR,
+\fIconnect\fR, \fIgossip\fR, \fIhsm\fR, \fIonchain\fR, and \fIopening\fR\.
+If the supplied path is relative the subdaemon binary is found in the
+working directory\. This option may be specified multiple times\.
 
 
- So, \fBalt-subdaemon=lightning_hsmd:remote_signer\fR would use a
+ So, \fBsubdaemon=lightning_hsmd:remote_signer\fR would use a
 hypothetical remote signing proxy instead of the standard \fIlightning_hsmd\fR
 binary\.
 

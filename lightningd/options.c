@@ -215,12 +215,12 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE, true);
 }
 
-static char *opt_alt_subdaemon(const char *arg, struct lightningd *ld)
+static char *opt_subdaemon(const char *arg, struct lightningd *ld)
 {
 	char *subdaemon;
 	char *sdpath;
 
-	/* example arg: "lightning_hsmd:remote_hsmd" */
+	/* example arg: "hsm:remote_hsmd" */
 
 	size_t colonoff = strcspn(arg, ":");
 	if (!arg[colonoff])
@@ -906,14 +906,14 @@ static void register_opts(struct lightningd *ld)
 			 "Set the file mode (permissions) for the "
 			 "JSON-RPC socket");
 
-	opt_register_arg("--alt-subdaemon", opt_alt_subdaemon, NULL,
+	opt_register_arg("--subdaemon", opt_subdaemon, NULL,
 			 ld, "Arg specified as SUBDAEMON:PATH. "
 			 "Specifies an alternate subdaemon binary. "
 			 "If the supplied path is relative the subdaemon "
 			 "binary is found in the working directory. "
 			 "This option may be specified multiple times. "
 			 "For example, "
-			 "--alt-subdaemon=lightning_hsmd:remote_signer "
+			 "--subdaemon=hsm:remote_signer "
 			 "would use a hypothetical remote signing subdaemon.");
 
 	opt_register_logging(ld);
@@ -1179,9 +1179,9 @@ static bool json_add_opt_alt_subdaemon(const char *member,
 	return true;
 }
 
-static void json_add_opt_alt_subdaemons(struct json_stream *response,
-					const char *name0,
-					alt_subdaemon_map *alt_subdaemons)
+static void json_add_opt_subdaemons(struct json_stream *response,
+				    const char *name0,
+				    alt_subdaemon_map *alt_subdaemons)
 {
 	struct json_add_opt_alt_subdaemon_args args;
 	args.name0 = name0;
@@ -1283,8 +1283,8 @@ static void add_config(struct lightningd *ld,
 					   ld->proposed_listen_announce,
 					   ADDR_ANNOUNCE);
 			return;
-		} else if (opt->cb_arg == (void *)opt_alt_subdaemon) {
-			json_add_opt_alt_subdaemons(response, name0,
+		} else if (opt->cb_arg == (void *)opt_subdaemon) {
+			json_add_opt_subdaemons(response, name0,
 						    &ld->alt_subdaemons);
 			return;
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
