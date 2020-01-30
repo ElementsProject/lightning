@@ -1846,6 +1846,11 @@ static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
 
+	/* Only count soft errors if the channel has locked-in already;
+	 * otherwise we can't cancel a channel before it has opened.
+	 */
+	bool soft_error = peer->funding_locked[REMOTE] || peer->funding_locked[LOCAL];
+
 	peer->last_recv = time_now();
 
 	/* Catch our own ping replies. */
@@ -1859,7 +1864,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 	/* Since LND seems to send errors which aren't actually fatal events,
 	 * we treat errors here as soft. */
-	if (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, true, msg))
+	if (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, soft_error, msg))
 		return;
 
 	/* Must get funding_locked before almost anything. */
@@ -2350,6 +2355,8 @@ static void peer_reconnect(struct peer *peer,
 	sync_crypto_write(peer->pps, take(msg));
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
+	bool soft_error = peer->funding_locked[REMOTE]
+		|| peer->funding_locked[LOCAL];
 
 	/* Read until they say something interesting (don't forward
 	 * gossip *to* them yet: we might try sending channel_update
@@ -2358,7 +2365,7 @@ static void peer_reconnect(struct peer *peer,
 		clean_tmpctx();
 		msg = sync_crypto_read(tmpctx, peer->pps);
 	} while (channeld_handle_custommsg(msg) ||
-		 handle_peer_gossip_or_error(peer->pps, &peer->channel_id, true,
+		 handle_peer_gossip_or_error(peer->pps, &peer->channel_id, soft_error,
 					     msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
