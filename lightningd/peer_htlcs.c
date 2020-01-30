@@ -2179,7 +2179,7 @@ void json_format_forwarding_object(struct json_stream *response,
 	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 
 	/* This can be unknown if we failed before channel lookup */
-	if (cur->channel_out.u64 != 0 || deprecated_apis)
+	if (cur->channel_out.u64 != 0)
 		json_add_short_channel_id(response, "out_channel",
 					  &cur->channel_out);
 	json_add_amount_msat_compat(response,
@@ -2187,7 +2187,7 @@ void json_format_forwarding_object(struct json_stream *response,
 				    "in_msatoshi", "in_msat");
 
 	/* These can be unset (aka zero) if we failed before channel lookup */
-	if (cur->channel_out.u64 != 0 || deprecated_apis) {
+	if (cur->channel_out.u64 != 0) {
 		json_add_amount_msat_compat(response,
 					    cur->msat_out,
 					    "out_msatoshi",  "out_msat");
