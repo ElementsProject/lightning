@@ -2601,7 +2601,7 @@ def test_partial_payment(node_factory, bitcoind, executor):
     with pytest.raises(RpcError, match=r'Already have parallel payment in progress'):
         l1.rpc.sendpay(route=r124,
                        payment_hash=inv['payment_hash'],
-                       msatoshi=1000,
+                       msatoshi=499,
                        payment_secret=paysecret)
 
     # It will not allow a parallel with different msatoshi!
@@ -2800,3 +2800,35 @@ def test_blockheight_disagreement(node_factory, bitcoind, executor):
 
     # pay command should complete without error
     fut.result()
+
+
+def test_sendpay_msatoshi_arg(node_factory):
+    """sendpay msatoshi arg was used for non-MPP to indicate the amount
+they asked for.  But using it with anything other than the final amount
+caused a crash in 0.8.0, so we then disallowed it.
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(1000, 'inv', 'inv')
+
+    # Can't send non-MPP payment which specifies msatoshi != final.
+    with pytest.raises(RpcError, match=r'Do not specify msatoshi \(1001msat\) without'
+                       ' partid: if you do, it must be exactly'
+                       r' the final amount \(1000msat\)'):
+        l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1000, 1)['route'], payment_hash=inv['payment_hash'], msatoshi=1001, bolt11=inv['bolt11'])
+    with pytest.raises(RpcError, match=r'Do not specify msatoshi \(999msat\) without'
+                       ' partid: if you do, it must be exactly'
+                       r' the final amount \(1000msat\)'):
+        l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1000, 1)['route'], payment_hash=inv['payment_hash'], msatoshi=999, bolt11=inv['bolt11'])
+
+    # Can't send MPP payment which pays any more than amount.
+    with pytest.raises(RpcError, match=r'Final amount 1001msat is greater than 1000msat, despite MPP'):
+        l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1001, 1)['route'], payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], partid=1)
+
+    # But this works
+    l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1001, 1)['route'], payment_hash=inv['payment_hash'], msatoshi=1001, bolt11=inv['bolt11'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+
+    inv = only_one(l2.rpc.listinvoices('inv')['invoices'])
+    assert inv['status'] == 'paid'
+    assert inv['amount_received_msat'] == Millisatoshi(1001)
