@@ -10,6 +10,7 @@
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
 #include <common/param.h>
+#include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/utxo.h>
@@ -288,9 +289,11 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 		 *   native segwit, nlocktime set to tip, and sequence set to
 		 *   0xFFFFFFFE by default. Other wallets are likely to implement
 		 *   this too).
-		 * FIXME: Do we want to also fuzz this like bitcoind does ?
 		 */
 		locktime = cmd->ld->topology->tip->height;
+		/* Eventually fuzz it too. */
+		if (pseudorand(10) == 0)
+			locktime -= (u32)pseudorand(100);
 	}
 
 	if (!feerate_per_kw) {
