@@ -710,25 +710,6 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     assert plugin_stats[5] == expect
 
 
-def test_plugin_deprecated_relpath(node_factory):
-    """Test that we can use old-style relative plugin paths with deprecated-apis"""
-    l1 = node_factory.get_node(options={'plugin-dir': 'contrib/plugins',
-                                        'plugin': 'tests/plugins/millisatoshis.py',
-                                        'allow-deprecated-apis': True})
-
-    plugins = l1.rpc.plugin_list()['plugins']
-    assert ('helloworld.py', True) in [(os.path.basename(p['name']), p['active']) for p in plugins]
-    assert ('millisatoshis.py', True) in [(os.path.basename(p['name']), p['active']) for p in plugins]
-
-    assert l1.daemon.is_in_log('DEPRECATED WARNING.*plugin-dir={}'
-                               .format(os.path.join(os.getcwd(),
-                                                    'contrib/plugins')))
-
-    assert l1.daemon.is_in_log('DEPRECATED WARNING.*plugin={}'
-                               .format(os.path.join(os.getcwd(),
-                                                    'tests/plugins/millisatoshis.py')))
-
-
 def test_sendpay_notifications(node_factory, bitcoind):
     """ test 'sendpay_success' and 'sendpay_failure' notifications
     """

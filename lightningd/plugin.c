@@ -69,23 +69,6 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
 
-	/* Fix up old-style relative paths */
-	if (deprecated_apis
-	    && !path_is_abs(p->cmd)
-	    && access(p->cmd, X_OK) != 0) {
-		char *oldpath = path_join(tmpctx,
-					  plugins->ld->original_directory,
-					  p->cmd);
-		if (access(oldpath, X_OK) == 0) {
-			log_unusual(plugins->log, "DEPRECATED WARNING:"
-				    " plugin is now relative to"
-				    " lightning-dir, please change to"
-				    " plugin=%s",
-				    oldpath);
-			tal_free(p->cmd);
-			p->cmd = tal_steal(p, oldpath);
-		}
-	}
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
