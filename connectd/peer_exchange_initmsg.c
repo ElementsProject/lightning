@@ -155,7 +155,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      struct daemon *daemon,
 				      const struct crypto_state *cs,
 				      const struct node_id *id,
-				      const struct wireaddr_internal *addr)
+				      const struct wireaddr_internal *addr,
+				      const u8 *init_featurebits)
 {
 	/* If conn is closed, forget peer */
 	struct peer *peer = tal(conn, struct peer);
@@ -200,7 +201,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 * from now on they'll all go in initfeatures. */
 	peer->msg = towire_init(NULL,
 				get_offered_globalinitfeatures(tmpctx),
-				get_offered_initfeatures(tmpctx),
+				init_featurebits,
 				tlvs);
 	status_peer_io(LOG_IO_OUT, &peer->id, peer->msg);
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
