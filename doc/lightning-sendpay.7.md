@@ -27,8 +27,8 @@ definite failure.
 The *label* and *bolt11* parameters, if provided, will be returned in
 *waitsendpay* and *listsendpays* results.
 
-The *msatoshi* amount, if provided, is the amount that will be recorded
-as the target payment value. If not specified, it will be the final
+The *msatoshi* amount must be provided if *partid* is non-zero, otherwise
+it must be equal to the final
 amount to the destination. By default it is in millisatoshi precision; it can be a whole number, or a whole number
 ending in *msat* or *sat*, or a number with three decimal places ending
 in *sat*, or a number with 1 to 11 decimal places ending in *btc*.

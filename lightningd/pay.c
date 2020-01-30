@@ -1297,31 +1297,33 @@ static struct command_result *json_sendpay(struct command *cmd,
 		route[i].direction = direction ? *direction : 0;
 	}
 
-	/* The given msatoshi is the actual payment that the payee is
-	 * requesting. The final hop amount is what we actually give, which can
-	 * be from the msatoshi to twice msatoshi. */
-
 	if (*partid && !msat)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Must specify msatoshi with partid");
 
-	/* finalhop.amount > 2 * msatoshi, fail. */
-	if (msat) {
-		struct amount_msat limit;
+	const struct amount_msat final_amount = route[routetok->size-1].amount;
 
-		if (!amount_msat_add(&limit, *msat, *msat))
+	if (msat && !*partid && !amount_msat_eq(*msat, final_amount))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Do not specify msatoshi (%s) without"
+				    " partid: if you do, it must be exactly"
+				    " the final amount (%s)",
+				    type_to_string(tmpctx, struct amount_msat,
+						   msat),
+				    type_to_string(tmpctx, struct amount_msat,
+						   &final_amount));
+
+	/* For MPP, the total we send must *exactly* equal the amount
+	 * we promise to send (msatoshi).  So no single payment can be
+	 * > than that. */
+	if (*partid) {
+		if (amount_msat_greater(final_amount, *msat))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Unbelievable msatoshi %s",
+					    "Final amount %s is greater than"
+					    " %s, despite MPP",
 					    type_to_string(tmpctx,
 							   struct amount_msat,
-							   msat));
-
-		if (amount_msat_greater(route[routetok->size-1].amount, limit))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "final %s more than twice msatoshi %s",
-					    type_to_string(tmpctx,
-							   struct amount_msat,
-							   &route[routetok->size-1].amount),
+							   &final_amount),
 					    type_to_string(tmpctx,
 							   struct amount_msat,
 							   msat));
@@ -1333,8 +1335,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 
 	return send_payment(cmd->ld, cmd, rhash, *partid,
 			    route,
-			    route[routetok->size-1].amount,
-			    msat ? *msat : route[routetok->size-1].amount,
+			    final_amount,
+			    msat ? *msat : final_amount,
 			    label, b11str, payment_secret);
 }
 
