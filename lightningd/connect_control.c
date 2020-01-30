@@ -337,7 +337,7 @@ static void connect_init_done(struct subd *connectd,
 int connectd_init(struct lightningd *ld)
 {
 	int fds[2];
-	u8 *msg;
+	u8 *msg, *init_features;
 	int hsmfd;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
@@ -362,6 +362,12 @@ int connectd_init(struct lightningd *ld)
 		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
 	}
 
+	init_features =
+	    featurebits_or(tmpctx,
+			   take(plugins_collect_featurebits(
+			       tmpctx, ld->plugins, PLUGIN_FEATURES_INIT)),
+			   take(get_offered_initfeatures(tmpctx)));
+
 	msg = towire_connectctl_init(
 	    tmpctx, chainparams,
 	    &ld->id,
@@ -370,7 +376,7 @@ int connectd_init(struct lightningd *ld)
 	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
 	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
 	    ld->tor_service_password ? ld->tor_service_password : "",
-	    ld->config.use_v3_autotor);
+	    ld->config.use_v3_autotor, init_features);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
