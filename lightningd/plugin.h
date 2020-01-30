@@ -266,4 +266,8 @@ struct log *plugin_get_log(struct plugin *plugin);
 struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin);
 bool was_plugin_destroyed(struct plugin_destroyed *destroyed);
 
+/* Gather all the features of the given type that plugins registered. */
+u8 *plugins_collect_featurebits(const tal_t *ctx, const struct plugins *plugins,
+				enum plugin_features_type type);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

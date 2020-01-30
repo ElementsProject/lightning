@@ -3,6 +3,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
+#include <common/features.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <lightningd/json.h>
@@ -44,6 +45,18 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	memleak_add_helper(p, memleak_help_pending_requests);
 
 	return p;
+}
+
+u8 *plugins_collect_featurebits(const tal_t *ctx, const struct plugins *plugins,
+				enum plugin_features_type type)
+{
+	struct plugin *p;
+	u8 *res = tal_arr(ctx, u8, 0);
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->featurebits[type])
+			res = featurebits_or(ctx, take(res), p->featurebits[type]);
+	}
+	return res;
 }
 
 static void destroy_plugin(struct plugin *p)
