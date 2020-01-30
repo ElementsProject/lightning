@@ -95,6 +95,9 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for featurebits_or */
+u8 *featurebits_or(const tal_t *ctx UNNEEDED, const u8 *f1 TAKES UNNEEDED, const u8 *f2 TAKES UNNEEDED)
+{ fprintf(stderr, "featurebits_or called!\n"); abort(); }
 /* Generated stub for feature_is_set */
 bool feature_is_set(const u8 *features UNNEEDED, size_t bit UNNEEDED)
 { fprintf(stderr, "feature_is_set called!\n"); abort(); }
@@ -377,6 +380,10 @@ void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
 void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       void *payload UNNEEDED, void *cb_arg UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
+/* Generated stub for plugins_collect_featurebits */
+u8 *plugins_collect_featurebits(const tal_t *ctx UNNEEDED, const struct plugins *plugins UNNEEDED,
+				enum plugin_features_type type UNNEEDED)
+{ fprintf(stderr, "plugins_collect_featurebits called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
 void subd_release_channel(struct subd *owner UNNEEDED, void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }
