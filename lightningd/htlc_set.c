@@ -27,9 +27,10 @@ static void destroy_htlc_set(struct htlc_set *set,
 	htlc_set_map_del(map, set);
 }
 
-/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+/* BOLT #4:
  * - MUST fail all HTLCs in the HTLC set after some reasonable
  *   timeout.
+ *...
  *   - SHOULD use `mpp_timeout` for the failure message.
  */
 static void timeout_htlc_set(struct htlc_set *set)
@@ -70,7 +71,7 @@ static struct htlc_set *new_htlc_set(struct lightningd *ld,
 	set->htlcs = tal_arr(set, struct htlc_in *, 1);
 	set->htlcs[0] = hin;
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+	/* BOLT #4:
 	 * - MUST fail all HTLCs in the HTLC set after some reasonable
 	 *   timeout.
 	 *   - SHOULD wait for at least 60 seconds after the initial
@@ -91,7 +92,7 @@ void htlc_set_add(struct lightningd *ld,
 	struct htlc_set *set;
 	const struct invoice_details *details;
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+	/* BOLT #4:
 	 * The final node:
 	 *   - MUST fail the HTLC if dictated by Requirements under
 	 *     [Failure Messages](#failure-messages)
@@ -104,17 +105,15 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+	/* BOLT #4:
 	 *  - otherwise, if it supports `basic_mpp`:
 	 *    - MUST add it to the HTLC set corresponding to that `payment_hash`.
-	 *    - if the total `amount_msat` of this HTLC set equals `total_msat`:
-	 *      - SHOULD fulfill all HTLCs in the HTLC set
 	 */
 	set = htlc_set_map_get(&ld->htlc_sets, &hin->payment_hash);
 	if (!set)
 		set = new_htlc_set(ld, hin, total_msat);
 	else {
-		/* BOLT-0729433704dd11cc07a0535c09e5f64de7a5017b #4:
+		/* BOLT #4:
 		 *
 		 * if it supports `basic_mpp`:
 		 * ...
@@ -135,7 +134,7 @@ void htlc_set_add(struct lightningd *ld,
 	/* Remove from set should hin get destroyed somehow */
 	tal_add_destructor2(hin, htlc_set_hin_destroyed, set);
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+	/* BOLT #4:
 	 * - SHOULD fail the entire HTLC set if `total_msat` is not
 	 *   the same for all HTLCs in the set.
 	 */
@@ -152,7 +151,7 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+	/* BOLT #4:
 	 * - if the total `amount_msat` of this HTLC set equals `total_msat`:
 	 *   - SHOULD fulfill all HTLCs in the HTLC set
 	 */
@@ -176,7 +175,7 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+	/* BOLT #4:
 	 * - otherwise, if the total `amount_msat` of this HTLC set is less than
 	 *  `total_msat`:
 	 *   - MUST NOT fulfill any HTLCs in the HTLC set

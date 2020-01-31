@@ -266,7 +266,7 @@ invoice_check_payment(const tal_t *ctx,
 
 	details = wallet_invoice_details(ctx, ld->wallet, invoice);
 
-	/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+	/* BOLT #4:
 	 *  - if the `payment_secret` doesn't match the expected value for that
 	 *     `payment_hash`, or the `payment_secret` is required and is not
 	 *     present:
