@@ -18,8 +18,6 @@
 #include <unistd.h>
 #include <wally_core.h>
 
-struct backtrace_state *backtrace_state;
-
 #if BACKTRACE_SUPPORTED
 static void (*bt_print)(const char *fmt, ...) PRINTF_FMT(1,2);
 static void (*bt_exit)(void);

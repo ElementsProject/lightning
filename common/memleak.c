@@ -7,6 +7,8 @@
 #include <common/memleak.h>
 #include <common/utils.h>
 
+struct backtrace_state *backtrace_state;
+
 #if DEVELOPER
 static bool memleak_track;
 

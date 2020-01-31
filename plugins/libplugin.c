@@ -35,7 +35,7 @@ static size_t in_timer;
 
 bool deprecated_apis;
 
-const struct chainparams *chainparams;
+extern const struct chainparams *chainparams;
 
 struct plugin_timer {
 	struct timer timer;
