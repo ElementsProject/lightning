@@ -220,7 +220,7 @@ static char *opt_subdaemon(const char *arg, struct lightningd *ld)
 	char *subdaemon;
 	char *sdpath;
 
-	/* example arg: "hsm:remote_hsmd" */
+	/* example arg: "hsmd:remote_hsmd" */
 
 	size_t colonoff = strcspn(arg, ":");
 	if (!arg[colonoff])
@@ -913,7 +913,7 @@ static void register_opts(struct lightningd *ld)
 			 "binary is found in the working directory. "
 			 "This option may be specified multiple times. "
 			 "For example, "
-			 "--subdaemon=hsm:remote_signer "
+			 "--subdaemon=hsmd:remote_signer "
 			 "would use a hypothetical remote signing subdaemon.");
 
 	opt_register_logging(ld);

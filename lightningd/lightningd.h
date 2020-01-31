@@ -268,7 +268,7 @@ struct lightningd {
  * Use only on carefully tested code! */
 extern bool tal_oom_ok;
 
-/* Returns true if called with a recognized subdaemon, eg: "hsm" */
+/* Returns true if called with a recognized subdaemon, eg: "hsmd" */
 bool is_subdaemon(const char *sdname);
 
 /* Returns the path to the subdaemon. Considers alternate subdaemon paths. */

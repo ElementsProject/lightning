@@ -291,12 +291,12 @@ static const char *subdaemons[] = {
 	"lightning_openingd"
 };
 
-/* Return true if called with a recognized subdaemon e.g. "hsm" */
+/* Return true if called with a recognized subdaemon e.g. "hsmd" */
 bool is_subdaemon(const char *sdname)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(subdaemons); i++)
 		/* Skip the "lightning_" prefix in the table */
-		if (strncmp(sdname, subdaemons[i] + 10, strlen(sdname)) == 0)
+		if (streq(sdname, subdaemons[i] + strlen("lightning_")))
 			return true;
 	return false;
 }
@@ -316,11 +316,12 @@ static void memleak_help_alt_subdaemons(struct htable *memtable,
 
 const char *subdaemon_path(const tal_t *ctx, const struct lightningd *ld, const char *name)
 {
-	/* Strip the leading "lightning_" and following 'd' before looking
-	 * in alt_subdaemons
+	/* Strip the leading "lightning_" before looking in alt_subdaemons.
 	 */
-	assert(strlen(name) > 10 + 1);	/* len("lightning_") + len("d") */
-	const char *short_name = tal_strndup(ctx, name + 10, strlen(name) - 11);
+	size_t pfxlen = strlen("lightning_");
+	assert(strlen(name) > pfxlen);
+	const char *short_name =
+		tal_strndup(ctx, name + pfxlen, strlen(name) - pfxlen);
 
 	/* Is there an alternate path for this subdaemon? */
 	const char *dpath;

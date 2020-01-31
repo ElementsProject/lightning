@@ -109,12 +109,12 @@ by *--conf*.
 
  **subdaemon**=*SUBDAEMON*:*PATH*
 Specifies an alternate subdaemon binary.
-Current subdaemons are *channel*, *closing*,
-*connect*, *gossip*, *hsm*, *onchain*, and *opening*.
+Current subdaemons are *channeld*, *closingd*,
+*connectd*, *gossipd*, *hsmd*, *onchaind*, and *openingd*.
 If the supplied path is relative the subdaemon binary is found in the
 working directory. This option may be specified multiple times.
 
- So, **subdaemon=lightning_hsmd:remote_signer** would use a
+ So, **subdaemon=hsmd:remote_signer** would use a
 hypothetical remote signing proxy instead of the standard *lightning_hsmd*
 binary.
 
