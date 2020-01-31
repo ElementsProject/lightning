@@ -791,7 +791,6 @@ def test_rpc_command_hook(node_factory):
     l1.rpc.plugin_stop('rpc_command.py')
 
 
-@pytest.mark.xfail(strict=True)
 def test_libplugin(node_factory):
     """Sanity checks for plugins made with libplugin"""
     plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")

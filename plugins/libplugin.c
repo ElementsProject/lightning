@@ -591,8 +591,7 @@ handle_getmanifest(struct command *getmanifest_cmd)
 		json_add_string(params, NULL, p->hook_subs[i].name);
 	json_array_end(params);
 
-	json_add_string(params, "dynamic",
-			p->restartability == PLUGIN_RESTARTABLE ? "true" : "false");
+	json_add_bool(params, "dynamic", p->restartability == PLUGIN_RESTARTABLE);
 
 	return command_finished(getmanifest_cmd, params);
 }
