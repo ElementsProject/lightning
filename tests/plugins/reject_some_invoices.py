@@ -20,7 +20,7 @@ def on_payment(payment, plugin, **kwargs):
         WIRE_TEMPORARY_NODE_FAILURE = 0x2002
         return {'failure_code': WIRE_TEMPORARY_NODE_FAILURE}
 
-    return {}
+    return {'result': 'continue'}
 
 
 plugin.run()
