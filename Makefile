@@ -237,6 +237,7 @@ include doc/Makefile
 include devtools/Makefile
 include tools/Makefile
 include plugins/Makefile
+include tests/plugins/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
