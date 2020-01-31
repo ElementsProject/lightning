@@ -104,7 +104,7 @@ static bool secret_eq_str(const struct secret *s, const char *str)
 	return secret_eq_consttime(s, &expect);
 }
 
-secp256k1_context *secp256k1_ctx;
+extern secp256k1_context *secp256k1_ctx;
 const void *trc;
 static struct pubkey rs_pub, ls_pub, e_pub;
 static struct privkey ls_priv, e_priv;

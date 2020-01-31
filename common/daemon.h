@@ -20,6 +20,4 @@ void daemon_shutdown(void);
 /* Kick in a debugger if they set --debugger */
 void daemon_maybe_debug(char *argv[]);
 
-struct backtrace_state *backtrace_state;
-
 #endif /* LIGHTNING_COMMON_DAEMON_H */
