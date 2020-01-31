@@ -826,7 +826,6 @@ def test_libplugin(node_factory):
     assert l1.rpc.call("testrpc") == l1.rpc.getinfo()
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
 def test_plugin_feature_announce(node_factory):
     """Check that features registered by plugins show up in messages.
