@@ -92,6 +92,11 @@ this example:
     "openchannel",
     "htlc_accepted"
   ],
+  "features": {
+    "node": "D0000000",
+    "init": "0E000000",
+    "invoice": "00AD0000"
+  },
   "dynamic": true
 }
 ```
@@ -112,6 +117,21 @@ parameter names in `[]`.
 The `dynamic` indicates if the plugin can be managed after `lightningd`
 has been started. Critical plugins that should not be stopped should set it
 to false.
+
+The `features` object allows the plugin to register featurebits that should be
+announced in a number of places in the protocol. They can be used to signal
+support for custom protocol extensions to direct peers, remote nodes and in
+invoices. Custom protocol extensions can be implemented for example using the
+`sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and
+the `htlc_accepted` hook. The keys in the `features` object are `node` for
+features that should be announced via the `node_announcement` to all nodes in
+the network, `init` for features that should be announced to direct peers
+during the connection setup, and `invoice` for features that should be
+announced to a potential sender of a payment in the invoice. The low range of
+featurebits is reserved for standardize features, so please pick random, high
+position bits for experiments. If you'd like to standardize your extension
+please reach out to the [specification repository][spec] to get a featurebit
+assigned.
 
 Plugins are free to register any `name` for their `rpcmethod` as long
 as the name was not previously registered. This includes both built-in
@@ -857,3 +877,4 @@ compatibility should the semantics be changed in future.
 [bolt2-open-channel]: https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#the-open_channel-message
 [sendcustommsg]: lightning-dev-sendcustommsg.7.html
 [oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
+[spec]: [https://github.com/lightningnetwork/lightning-rfc]
