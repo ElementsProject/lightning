@@ -1,8 +1,10 @@
 #include <ccan/io/io.h>
+#include <common/configdir.h>
 #include <common/memleak.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/plugin_hook.h>
 #include <wallet/db.h>
+#include <wallet/db_common.h>
 
 /* Struct containing all the information needed to deserialize and
  * dispatch an eventual plugin_hook response. */
@@ -136,21 +138,49 @@ static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 			     struct plugin_hook_request *ph_req)
 {
 	const jsmntok_t *resulttok;
-	bool resp;
 
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok)
 		fatal("Plugin returned an invalid response to the db_write "
 		      "hook: %s", buffer);
 
-	/* We expect result: True.  Anything else we abort. */
-	if (!json_to_bool(buffer, resulttok, &resp))
+#ifdef COMPAT_V080
+	/* For back-compatibility we allow to return a simple Boolean true.  */
+	if (deprecated_apis) {
+		bool resp;
+		if (json_to_bool(buffer, resulttok, &resp)) {
+			static bool warned = false;
+			/* If it fails, we must not commit to our db. */
+			if (!resp)
+				fatal("Plugin returned failed db_write: %s.",
+				      buffer);
+			if (!warned) {
+				warned = true;
+				log_unusual(ph_req->db->log,
+					    "Plugin returned 'true' to "
+					    "'db_hook'.  "
+					    "This is now deprecated and "
+					    "you should return "
+					    "{'result': 'continue'} "
+					    "instead.");
+			}
+			/* Resume.  */
+			io_break(ph_req);
+			return;
+		}
+	}
+#endif /* defined(COMPAT_V080) */
+
+	/* We expect result: { 'result' : 'continue' }.
+	 * Anything else we abort.
+	 */
+	resulttok = json_get_member(buffer, resulttok, "result");
+	if (resulttok) {
+		if (!json_tok_streq(buffer, resulttok, "continue"))
+			fatal("Plugin returned failed db_write: %s.", buffer);
+	} else
 		fatal("Plugin returned an invalid result to the db_write "
 		      "hook: %s", buffer);
-
-	/* If it fails, we must not commit to our db. */
-	if (!resp)
-		fatal("Plugin returned failed db_write: %s.", buffer);
 
 	/* We're done, exit exclusive loop. */
 	io_break(ph_req);

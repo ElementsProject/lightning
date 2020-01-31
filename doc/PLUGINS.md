@@ -473,6 +473,10 @@ Hooks are considered to be an advanced feature due to the fact that
 carefully, and make sure your plugins always return a valid response
 to any hook invocation.
 
+As a convention, for all hooks, returning the object
+`{ "result" : "continue" }` results in `lightningd` behaving exactly as if
+no plugin is registered on the hook.
+
 ### Hook Types
 
 #### `peer_connected`
@@ -571,7 +575,8 @@ and:
 The "rolling up" of the database could be done periodically as well
 if the log of SQL statements has grown large.
 
-Any response but "true" will cause lightningd to error without
+Any response other than `{"result": "continue"}` will cause lightningd
+to error without
 committing to the database!
 This is the expected way to halt and catch fire.
 
@@ -592,8 +597,9 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
 The hook is sparse on purpose, since the plugin can use the JSON-RPC
 `listinvoices` command to get additional details about this invoice.
 It can return a non-zero `failure_code` field as defined for final
-nodes in [BOLT 4][bolt4-failure-codes], or otherwise an empty object
-to accept the payment.
+nodes in [BOLT 4][bolt4-failure-codes], a `result` field with the string
+`reject` to fail it with `incorrect_or_unknown_payment_details`, or a
+`result` field with the string `continue` to accept the payment.
 
 
 #### `openchannel`
@@ -769,7 +775,7 @@ Let `lightningd` execute the command with
 
 ```json
 {
-    "continue": true
+    "result" : "continue"
 }
 ```
 Replace the request made to `lightningd`:
@@ -839,7 +845,8 @@ details). The plugin must implement the parsing of the message, including the
 type prefix, since c-lightning does not know how to parse the message.
 
 The result for this hook is currently being discarded. For future uses of the
-result we suggest just returning a `null`. This will ensure backward
+result we suggest just returning `{'result': 'continue'}`.
+This will ensure backward
 compatibility should the semantics be changed in future.
 
 
