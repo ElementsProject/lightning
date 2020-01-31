@@ -57,7 +57,7 @@ void set_feature_bit(u8 **ptr, u32 bit);
 #define OPT_GOSSIP_QUERIES_EX			10
 #define OPT_STATIC_REMOTEKEY			12
 
-/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #9:
+/* BOLT #9:
  *
  * | 14/15 | `payment_secret` |... IN9 ...
  * | 16/17 | `basic_mpp`      |... IN9 ...

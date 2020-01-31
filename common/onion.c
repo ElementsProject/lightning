@@ -227,7 +227,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (rs->nextcase == ONION_FORWARD) {
 			p->total_msat = NULL;
 		} else {
-			/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+			/* BOLT #4:
 			 * - if it is the final node:
 			 *   - MUST treat `total_msat` as if it were equal to
 			 *     `amt_to_forward` if it is not present. */
@@ -276,7 +276,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			p->total_msat = NULL;
 		} else {
 			p->forward_channel = NULL;
-			/* BOLT-9441a66faad63edc8cd89860b22fbf24a86f0dcd #4:
+			/* BOLT #4:
 			 * - if it is the final node:
 			 *   - MUST treat `total_msat` as if it were equal to
 			 *     `amt_to_forward` if it is not present. */
