@@ -191,7 +191,7 @@ static void gossip_topology_synced(struct chain_topology *topo, void *unused)
  * message */
 void gossip_init(struct lightningd *ld, int connectd_fd)
 {
-	u8 *msg;
+	u8 *msg, *node_featurebits;
 	int hsmfd;
 
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_SIGN_GOSSIP);
@@ -206,11 +206,16 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	topology_add_sync_waiter(ld->gossip, ld->topology,
 				 gossip_topology_synced, NULL);
 
+	node_featurebits =
+	    featurebits_or(tmpctx, take(get_offered_nodefeatures(tmpctx)),
+			   take(plugins_collect_featurebits(
+			       tmpctx, ld->plugins, PLUGIN_FEATURES_NODE)));
+
 	msg = towire_gossipctl_init(
 	    tmpctx,
 	    chainparams,
 	    &ld->id,
-	    get_offered_nodefeatures(tmpctx),
+	    node_featurebits,
 	    ld->rgb,
 	    ld->alias,
 	    ld->announcable,
