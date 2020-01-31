@@ -157,8 +157,8 @@ static void decode_p(struct bolt11 *b11,
         /* BOLT #11:
          *
          * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, or 53, respectively.
+	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
+	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively.
 	*/
         if (data_length != 52) {
                 unknown_field(b11, hu5, data, data_len, 'p', data_length);
@@ -210,8 +210,8 @@ static void decode_h(struct bolt11 *b11,
         /* BOLT #11:
 	 *
 	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, or 53, respectively. */
+	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
+	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
         if (data_length != 52) {
                 unknown_field(b11, hu5, data, data_len, 'h', data_length);
                 return;
@@ -285,8 +285,8 @@ static char *decode_n(struct bolt11 *b11,
         /* BOLT #11:
 	 *
 	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, or 53, respectively. */
+	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
+	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
         if (data_length != 53)
                 return unknown_field(b11, hu5, data, data_len, 'n',
                                      data_length);
@@ -1024,6 +1024,7 @@ char *bolt11_encode_(const tal_t *ctx,
 	 * - if a specific minimum `amount` is required for successful payment:
 	 *   - MUST include that `amount`.
 	 * - MUST encode `amount` as a positive decimal integer with no leading 0s.
+	 * - If the `p` multiplier is used the `amount` the last decimal MUST be `0`.
 	 * - SHOULD use the shortest representation possible, by using the largest multiplier or omitting the multiplier.
 	 */
         if (b11->msat) {
