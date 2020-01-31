@@ -28,9 +28,19 @@ if [ ! -f dependencies/bin/bitcoind ]; then
 fi
 
 pyenv global 3.7
-pip3 install --user --quiet -r requirements.txt -r tests/requirements.txt -r doc/requirements.txt
-pip3 install --quiet \
+
+# Update pip first, may save us the compilation of binary packages in the next call
+pip3 install --user -U --quiet --progress-bar off \
+     pip \
      pytest-test-groups==1.0.3
+
+pip3 install --user -U --quiet --progress-bar off \
+     -r requirements.txt \
+     -r tests/requirements.txt \
+     -r doc/requirements.txt \
+     -r contrib/pyln-client/requirements.txt \
+     -r contrib/pyln-proto/requirements.txt \
+     -r contrib/pyln-testing/requirements.txt
 
 echo "Configuration which is going to be built:"
 echo -en 'travis_fold:start:script.1\\r'
