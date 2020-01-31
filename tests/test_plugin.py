@@ -789,3 +789,28 @@ def test_rpc_command_hook(node_factory):
 
     # Test command which removes plugin itself!
     l1.rpc.plugin_stop('rpc_command.py')
+
+
+@pytest.mark.xfail(strict=True)
+def test_libplugin(node_factory):
+    """Sanity checks for plugins made with libplugin"""
+    plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1 = node_factory.get_node(options={"plugin": plugin})
+
+    # Test startup
+    assert l1.daemon.is_in_log("test_libplugin initialised!")
+    # Test dynamic startup
+    l1.rpc.plugin_stop(plugin)
+    l1.rpc.plugin_start(plugin)
+    l1.rpc.check("helloworld")
+
+    # Test commands
+    assert l1.rpc.call("helloworld") == "hello world"
+    assert l1.rpc.call("helloworld", {"name": "test"}) == "hello test"
+    l1.stop()
+    l1.daemon.opts["plugin"] = plugin
+    l1.daemon.opts["name"] = "test_opt"
+    l1.start()
+    assert l1.rpc.call("helloworld") == "hello test_opt"
+    # But param takes over!
+    assert l1.rpc.call("helloworld", {"name": "test"}) == "hello test"
