@@ -87,17 +87,15 @@ static struct command_result *finish(struct command *cmd,
 				     const jsmntok_t *result,
 				     struct funding_req *fr)
 {
-	struct json_out *out;
+	struct json_stream *out;
 
-	out = json_out_new(NULL);
-	json_out_start(out, NULL, '{');
-	copy_member(out, buf, result, "tx");
-	json_out_addstr(out, "txid",
+	out = jsonrpc_stream_success(cmd);
+	json_add_tok(out, "tx", json_get_member(buf, result, "tx"), buf);
+	json_add_string(out, "txid",
 			type_to_string(tmpctx, struct bitcoin_txid, &fr->tx_id));
-	json_out_addstr(out, "channel_id", fr->chanstr);
-	json_out_end(out, '}');
+	json_add_string(out, "channel_id", fr->chanstr);
 
-	return command_success(cmd, out);
+	return command_finished(cmd, out);
 }
 
 /* We're ready to broadcast the transaction */
