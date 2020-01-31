@@ -73,6 +73,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
 	p->subscriptions = NULL;
+	p->dynamic = false;
 
 	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s",
 			 path_basename(tmpctx, p->cmd));
@@ -810,22 +811,22 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 	fatal("Can't recover from plugin failure, terminating.");
 }
 
-
 bool plugin_parse_getmanifest_response(const char *buffer,
                                        const jsmntok_t *toks,
                                        const jsmntok_t *idtok,
                                        struct plugin *plugin)
 {
 	const jsmntok_t *resulttok, *dynamictok;
-	bool dynamic_plugin;
 
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok || resulttok->type != JSMN_OBJECT)
 		return false;
 
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
-	if (dynamictok && json_to_bool(buffer, dynamictok, &dynamic_plugin))
-		plugin->dynamic = dynamic_plugin;
+	if (dynamictok && !json_to_bool(buffer, dynamictok, &plugin->dynamic))
+		plugin_kill(plugin, "Bad 'dynamic' field ('%.*s')",
+			    json_tok_full_len(dynamictok),
+			    json_tok_full(buffer, dynamictok));
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
 	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||

@@ -115,7 +115,7 @@ static struct command_result *plugin_start(struct dynamic_plugin *dp)
 	struct jsonrpc_request *req;
 	struct plugin *p = dp->plugin;
 
-	p->dynamic = true;
+	p->dynamic = false;
 	p_cmd = tal_arrz(NULL, char *, 2);
 	p_cmd[0] = p->cmd;
 	/* In case the plugin create files, this is a better default. */
