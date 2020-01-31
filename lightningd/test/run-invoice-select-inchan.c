@@ -250,7 +250,7 @@ void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UN
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
 /* Generated stub for json_stream_fail */
 struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
-				     int code UNNEEDED,
+				     errcode_t code UNNEEDED,
 				     const char *errmsg UNNEEDED)
 { fprintf(stderr, "json_stream_fail called!\n"); abort(); }
 /* Generated stub for json_stream_success */
@@ -262,10 +262,6 @@ enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED
 			     const char *buffer UNNEEDED,
 			     const jsmntok_t *tok UNNEEDED, const u8 **scriptpubkey UNNEEDED)
 { fprintf(stderr, "json_to_address_scriptpubkey called!\n"); abort(); }
-/* Generated stub for json_tok_channel_id */
-bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			 struct channel_id *cid UNNEEDED)
-{ fprintf(stderr, "json_tok_channel_id called!\n"); abort(); }
 /* Generated stub for json_to_node_id */
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
@@ -274,6 +270,10 @@ bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_tok_channel_id */
+bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			 struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "json_tok_channel_id called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
