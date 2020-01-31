@@ -69,9 +69,12 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		/* BOLT #4:
 		 *
 		 * The writer:
-		 *  - MUST include `amt_to_forward` and `outgoing_cltv_value`
-		 *    for every node.
-		 *  - MUST include `short_channel_id` for every non-final node.
+		 *...
+		 *  - For every node:
+		 *    - MUST include `amt_to_forward` and `outgoing_cltv_value`.
+		 *  - For every non-final node:
+		 *    - MUST include `short_channel_id`
+		 *    - MUST NOT include `payment_data`
 		 */
 		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
 		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
@@ -106,10 +109,16 @@ u8 *onion_final_hop(const tal_t *ctx,
 		/* BOLT #4:
 		 *
 		 * The writer:
-		 *  - MUST include `amt_to_forward` and `outgoing_cltv_value`
-		 *    for every node.
 		 *...
-		 *  - MUST NOT include `short_channel_id` for the final node.
+		 *  - For every node:
+		 *    - MUST include `amt_to_forward` and `outgoing_cltv_value`.
+		 *...
+		 *  - For the final node:
+		 *    - MUST NOT include `short_channel_id`
+		 *    - if the recipient provided `payment_secret`:
+		 *      - MUST include `payment_data`
+		 *      - MUST set `payment_secret` to the one provided
+		 *      - MUST set `total_msat` to the total amount it will send
 		 */
 		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
 		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
@@ -255,7 +264,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 *
 		 * The writer:
 		 *...
-		 * - MUST include `short_channel_id` for every non-final node.
+		 *  - For every non-final node:
+		 *    - MUST include `short_channel_id`
 		 */
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!tlv->short_channel_id)
