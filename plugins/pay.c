@@ -198,14 +198,6 @@ static void attempt_failed_tok(struct pay_command *pc, const char *method,
 	failed_end(failed);
 }
 
-/* Helper to add a u64. */
-static void json_out_add_u64(struct json_out *jout,
-			     const char *fieldname,
-			     u64 val)
-{
-	json_out_add(jout, fieldname, false, "%"PRIu64, val);
-}
-
 static struct command_result *start_pay_attempt(struct command *cmd,
 						struct pay_command *pc,
 						const char *fmt, ...);
@@ -255,26 +247,26 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 						  struct pay_command *pc)
 {
 	char *errmsg;
-	struct json_out *data;
+	struct json_stream *data;
 	size_t num_attempts = count_sendpays(pc->ps->attempts);
 
 	errmsg = tal_fmt(pc, "Gave up after %zu attempt%s: see paystatus",
 			 num_attempts, num_attempts == 1 ? "" : "s");
-	data = json_out_new(NULL);
-	json_out_start(data, NULL, '{');
-	json_out_start(data, "attempts", '[');
+	data = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING, errmsg);
+	json_object_start(data, "data");
+	json_array_start(data, "attempts");
 	for (size_t i = 0; i < tal_count(pc->ps->attempts); i++) {
-		json_out_start(data, NULL, '{');
+		json_object_start(data, NULL);
 		if (pc->ps->attempts[i].route)
-			json_out_add_raw(data, "route",
+			json_add_member(data, "route", false, "%s",
 					 pc->ps->attempts[i].route);
-		json_out_add_splice(data, "failure",
+		json_out_add_splice(data->jout, "failure",
 				    pc->ps->attempts[i].failure);
-		json_out_end(data, '}');
+		json_object_end(data);
 	}
-	json_out_end(data, ']');
-	json_out_end(data, '}');
-	return command_done_err(cmd, PAY_STOPPED_RETRYING, errmsg, data);
+	json_array_end(data);
+	json_object_end(data);
+	return command_finished(cmd, data);
 }
 
 static bool routehint_excluded(struct plugin *plugin,
@@ -1363,7 +1355,7 @@ static void utc_timestring(const struct timeabs *time, char str[UTC_TIMELEN])
 		 (int) time->ts.tv_nsec / 1000000);
 }
 
-static void add_attempt(struct json_out *ret,
+static void add_attempt(struct json_stream *ret,
 			const struct pay_status *ps,
 			const struct pay_attempt *attempt)
 {
@@ -1371,56 +1363,56 @@ static void add_attempt(struct json_out *ret,
 
 	utc_timestring(&attempt->start, timestr);
 
-	json_out_start(ret, NULL, '{');
-	json_out_addstr(ret, "strategy", attempt->why);
-	json_out_addstr(ret, "start_time", timestr);
-	json_out_add_u64(ret, "age_in_seconds",
+	json_object_start(ret, NULL);
+	json_add_string(ret, "strategy", attempt->why);
+	json_add_string(ret, "start_time", timestr);
+	json_add_u64(ret, "age_in_seconds",
 		     time_to_sec(time_between(time_now(), attempt->start)));
 	if (attempt->result || attempt->failure) {
 		utc_timestring(&attempt->end, timestr);
-		json_out_addstr(ret, "end_time", timestr);
-		json_out_add_u64(ret, "duration_in_seconds",
-				 time_to_sec(time_between(attempt->end,
-							  attempt->start)));
+		json_add_string(ret, "end_time", timestr);
+		json_add_u64(ret, "duration_in_seconds",
+			     time_to_sec(time_between(attempt->end,
+						      attempt->start)));
 	}
 	if (tal_count(attempt->routehint)) {
-		json_out_start(ret, "routehint", '[');
+		json_array_start(ret, "routehint");
 		for (size_t i = 0; i < tal_count(attempt->routehint); i++) {
-			json_out_start(ret, NULL, '{');
-			json_out_addstr(ret, "id",
+			json_object_start(ret, NULL);
+			json_add_string(ret, "id",
 					type_to_string(tmpctx, struct node_id,
 						       &attempt->routehint[i].pubkey));
-			json_out_addstr(ret, "channel",
+			json_add_string(ret, "channel",
 					type_to_string(tmpctx,
 						       struct short_channel_id,
 						       &attempt->routehint[i].short_channel_id));
-			json_out_add_u64(ret, "fee_base_msat",
-					 attempt->routehint[i].fee_base_msat);
-			json_out_add_u64(ret, "fee_proportional_millionths",
-					 attempt->routehint[i].fee_proportional_millionths);
-			json_out_add_u64(ret, "cltv_expiry_delta",
-					 attempt->routehint[i].cltv_expiry_delta);
-			json_out_end(ret, '}');
+			json_add_u64(ret, "fee_base_msat",
+				     attempt->routehint[i].fee_base_msat);
+			json_add_u64(ret, "fee_proportional_millionths",
+				     attempt->routehint[i].fee_proportional_millionths);
+			json_add_u64(ret, "cltv_expiry_delta",
+				     attempt->routehint[i].cltv_expiry_delta);
+			json_object_end(ret);
 		}
-		json_out_end(ret, ']');
+		json_array_end(ret);
 	}
 	if (tal_count(attempt->excludes)) {
-		json_out_start(ret, "excluded_nodes_or_channels", '[');
+		json_array_start(ret, "excluded_nodes_or_channels");
 		for (size_t i = 0; i < tal_count(attempt->excludes); i++)
-			json_out_addstr(ret, NULL, attempt->excludes[i]);
-		json_out_end(ret, ']');
+			json_add_string(ret, NULL, attempt->excludes[i]);
+		json_array_end(ret);
 	}
 
 	if (attempt->route)
-		json_out_add_raw(ret, "route", attempt->route);
+		json_add_member(ret, "route", true, "%s", attempt->route);
 
 	if (attempt->failure)
-		json_out_add_splice(ret, "failure", attempt->failure);
+		json_out_add_splice(ret->jout, "failure", attempt->failure);
 
 	if (attempt->result)
-		json_out_add_raw(ret, "success", attempt->result);
+		json_add_member(ret, "success", true, "%s", attempt->result);
 
-	json_out_end(ret, '}');
+	json_object_end(ret);
 }
 
 static struct command_result *json_paystatus(struct command *cmd,
@@ -1429,51 +1421,49 @@ static struct command_result *json_paystatus(struct command *cmd,
 {
 	struct pay_status *ps;
 	const char *b11str;
-	struct json_out *ret;
+	struct json_stream *ret;
 
 	if (!param(cmd, buf, params,
 		   p_opt("bolt11", param_string, &b11str),
 		   NULL))
 		return command_param_failed();
 
-	ret = json_out_new(NULL);
-	json_out_start(ret, NULL, '{');
-	json_out_start(ret, "pay", '[');
+	ret = jsonrpc_stream_success(cmd);
+	json_array_start(ret, "pay");
 
 	/* FIXME: Index by bolt11 string! */
 	list_for_each(&pay_status, ps, list) {
 		if (b11str && !streq(b11str, ps->bolt11))
 			continue;
 
-		json_out_start(ret, NULL, '{');
-		json_out_addstr(ret, "bolt11", ps->bolt11);
-		json_out_add_u64(ret, "msatoshi",
+		json_object_start(ret, NULL);
+		json_add_string(ret, "bolt11", ps->bolt11);
+		json_add_u64(ret, "msatoshi",
 			     ps->msat.millisatoshis); /* Raw: JSON */
-		json_out_addstr(ret, "amount_msat",
-			       type_to_string(tmpctx, struct amount_msat,
-					      &ps->msat));
-		json_out_addstr(ret, "destination", ps->dest);
+		json_add_string(ret, "amount_msat",
+				type_to_string(tmpctx, struct amount_msat,
+					       &ps->msat));
+		json_add_string(ret, "destination", ps->dest);
 		if (ps->label)
-			json_out_addstr(ret, "label", ps->label);
+			json_add_string(ret, "label", ps->label);
 		if (ps->routehint_modifications)
-			json_out_addstr(ret, "routehint_modifications",
+			json_add_string(ret, "routehint_modifications",
 					ps->routehint_modifications);
 		if (ps->shadow && !streq(ps->shadow, ""))
-			json_out_addstr(ret, "shadow", ps->shadow);
+			json_add_string(ret, "shadow", ps->shadow);
 		if (ps->exclusions)
-			json_out_addstr(ret, "local_exclusions", ps->exclusions);
+			json_add_string(ret, "local_exclusions", ps->exclusions);
 
 		assert(tal_count(ps->attempts));
-		json_out_start(ret, "attempts", '[');
+		json_array_start(ret, "attempts");
 		for (size_t i = 0; i < tal_count(ps->attempts); i++)
 			add_attempt(ret, ps, &ps->attempts[i]);
-		json_out_end(ret, ']');
-		json_out_end(ret, '}');
+		json_array_end(ret);
+		json_object_end(ret);
 	}
-	json_out_end(ret, ']');
-	json_out_end(ret, '}');
+	json_array_end(ret);
 
-	return command_success(cmd, ret);
+	return command_finished(cmd, ret);
 }
 
 static bool attempt_ongoing(const char *b11)
@@ -1540,28 +1530,24 @@ static void add_amount_sent(struct plugin *p,
 			   type_to_string(tmpctx, struct amount_msat, &sent));
 }
 
-static void add_new_entry(struct json_out *ret,
+static void add_new_entry(struct json_stream *ret,
 			  const char *buf,
 			  const struct pay_mpp *pm)
 {
-	json_out_start(ret, NULL, '{');
-	json_out_addstr(ret, "bolt11", pm->b11);
-	json_out_addstr(ret, "status", pm->status);
+	json_object_start(ret, NULL);
+	json_add_string(ret, "bolt11", pm->b11);
+	json_add_string(ret, "status", pm->status);
 	if (pm->label)
-		json_out_add_raw_len(ret, "label",
-				     json_tok_full(buf, pm->label),
-				     json_tok_full_len(pm->label));
+		json_add_tok(ret, "label", pm->label, buf);
 	if (pm->preimage)
-		json_out_add_raw_len(ret, "preimage",
-				     json_tok_full(buf, pm->preimage),
-				     json_tok_full_len(pm->preimage));
-	json_out_addstr(ret, "amount_sent_msat",
+		json_add_tok(ret, "preimage", pm->preimage, buf);
+	json_add_string(ret, "amount_sent_msat",
 			fmt_amount_msat(tmpctx, &pm->amount_sent));
 
 	if (pm->num_nonfailed_parts > 1)
-		json_out_add_u64(ret, "number_of_parts",
-				 pm->num_nonfailed_parts);
-	json_out_end(ret, '}');
+		json_add_u64(ret, "number_of_parts",
+			     pm->num_nonfailed_parts);
+	json_object_end(ret);
 }
 
 static struct command_result *listsendpays_done(struct command *cmd,
@@ -1571,7 +1557,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 {
 	size_t i;
 	const jsmntok_t *t, *arr;
-	struct json_out *ret;
+	struct json_stream *ret;
 	struct pay_map pay_map;
 	struct pay_map_iter it;
 	struct pay_mpp *pm;
@@ -1583,9 +1569,8 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Unexpected non-array result from listsendpays");
 
-	ret = json_out_new(NULL);
-	json_out_start(ret, NULL, '{');
-	json_out_start(ret, "pays", '[');
+	ret = jsonrpc_stream_success(cmd);
+	json_array_start(ret, "pays");
 	json_for_each_arr(i, t, arr) {
 		const jsmntok_t *status, *b11tok;
 		const char *b11;
@@ -1643,9 +1628,8 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	}
 	pay_map_clear(&pay_map);
 
-	json_out_end(ret, ']');
-	json_out_end(ret, '}');
-	return command_success(cmd, ret);
+	json_array_end(ret);
+	return command_finished(cmd, ret);
 }
 
 static struct command_result *json_listpays(struct command *cmd,
