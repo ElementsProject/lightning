@@ -173,7 +173,7 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
  * * `amt_to_forward`: The amount, in millisatoshis, to forward to the next
  *   receiving peer specified within the routing information.
  *
- *   This value amount MUST include the origin node's computed _fee_ for the
+ *   For non-final nodes, this value amount MUST include the origin node's computed _fee_ for the
  *   receiving peer. When processing an incoming Sphinx packet and the HTLC
  *   message that it is encapsulated within, if the following inequality
  *   doesn't hold, then the HTLC should be rejected as it would indicate that
@@ -181,15 +181,14 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
  *
  *     incoming_htlc_amt - fee >= amt_to_forward
  *
- *   Where `fee` is either calculated according to the receiving peer's
+ *   Where `fee` is calculated according to the receiving peer's
  *   advertised fee schema (as described in [BOLT
- *   #7](07-routing-gossip.md#htlc-fees)) or is 0, if the processing node is
- *   the final node.
+ *   #7](07-routing-gossip.md#htlc-fees).
  */
-static bool check_amount(struct htlc_in *hin,
-			 struct amount_msat amt_to_forward,
-			 struct amount_msat amt_in_htlc,
-			 struct amount_msat fee)
+static bool check_fwd_amount(struct htlc_in *hin,
+			     struct amount_msat amt_to_forward,
+			     struct amount_msat amt_in_htlc,
+			     struct amount_msat fee)
 {
 	struct amount_msat fwd;
 
@@ -290,13 +289,25 @@ static void handle_localpay(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * 1. type: 19 (`final_incorrect_htlc_amount`)
-	 * 2. data:
-	 *    * [`u64`:`incoming_htlc_amt`]
-	 *
-	 * The amount in the HTLC doesn't match the value in the onion.
+	 * For the final node, this value MUST be exactly equal to the
+	 * incoming htlc amount, otherwise the HTLC should be rejected.
 	 */
-	if (!check_amount(hin, amt_to_forward, hin->msat, AMOUNT_MSAT(0))) {
+	if (!amount_msat_eq(amt_to_forward, hin->msat)) {
+		log_debug(hin->key.channel->log,
+			  "HTLC %"PRIu64" final incorrect amount:"
+			  " %s in, %s expected",
+			  hin->key.id,
+			  type_to_string(tmpctx, struct amount_msat, &hin->msat),
+			  type_to_string(tmpctx, struct amount_msat,
+					 &amt_to_forward));
+		/* BOLT #4:
+		 *
+		 * 1. type: 19 (`final_incorrect_htlc_amount`)
+		 * 2. data:
+		 *    * [`u64`:`incoming_htlc_amt`]
+		 *
+		 * The amount in the HTLC doesn't match the value in the onion.
+		 */
 		failcode = WIRE_FINAL_INCORRECT_HTLC_AMOUNT;
 		goto fail;
 	}
@@ -524,7 +535,7 @@ static void forward_htlc(struct htlc_in *hin,
 		failcode = WIRE_FEE_INSUFFICIENT;
 		goto fail;
 	}
-	if (!check_amount(hin, amt_to_forward, hin->msat, fee)) {
+	if (!check_fwd_amount(hin, amt_to_forward, hin->msat, fee)) {
 		failcode = WIRE_FEE_INSUFFICIENT;
 		goto fail;
 	}
