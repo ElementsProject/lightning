@@ -27,8 +27,6 @@ c-lightning Documentation
    :maxdepth: 1
    :caption: Manpages
 
-   lightningd <lightningd.8.md>
-   lightningd-config <lightningd-config.5.md>
    lightning-autocleaninvoice <lightning-autocleaninvoice.7.md>
    lightning-check <lightning-check.7.md>
    lightning-checkmessage <lightning-checkmessage.7.md>
@@ -69,3 +67,5 @@ c-lightning Documentation
    lightning-waitinvoice <lightning-waitinvoice.7.md>
    lightning-waitsendpay <lightning-waitsendpay.7.md>
    lightning-withdraw <lightning-withdraw.7.md>
+   lightningd <lightningd.8.md>
+   lightningd-config <lightningd-config.5.md>
