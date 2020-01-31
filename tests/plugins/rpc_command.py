@@ -24,7 +24,7 @@ def on_rpc_command(plugin, rpc_command, **kwargs):
     elif request["method"] == "help":
         request["method"] = "autocleaninvoice"
         return {"replace": request}
-    return {"continue": True}
+    return {"result": "continue"}
 
 
 plugin.run()
