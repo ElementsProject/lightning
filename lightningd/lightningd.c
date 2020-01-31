@@ -320,8 +320,7 @@ const char *subdaemon_path(const tal_t *ctx, const struct lightningd *ld, const 
 	 */
 	size_t pfxlen = strlen("lightning_");
 	assert(strlen(name) > pfxlen);
-	const char *short_name =
-		tal_strndup(ctx, name + pfxlen, strlen(name) - pfxlen);
+	const char *short_name = tal_strdup(ctx, name + pfxlen);
 
 	/* Is there an alternate path for this subdaemon? */
 	const char *dpath;
