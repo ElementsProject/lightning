@@ -667,9 +667,9 @@ static void
 rpc_command_hook_callback(struct rpc_command_hook_payload *p,
                           const char *buffer, const jsmntok_t *resulttok)
 {
-	const jsmntok_t *tok, *params, *custom_return, *tok_continue;
+	const jsmntok_t *tok, *params, *custom_return;
+	const jsmntok_t *innerresulttok;
 	struct json_stream *response;
-	bool exec;
 
 	params = json_get_member(p->buffer, p->request, "params");
 
@@ -678,11 +678,37 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p,
 	if (buffer == NULL)
 	    return was_pending(command_exec(p->cmd->jcon, p->cmd, p->buffer,
 		                                p->request, params));
-	else {
+
+#ifdef COMPAT_V080
+	if (deprecated_apis) {
+		const jsmntok_t *tok_continue;
+		bool exec;
 		tok_continue = json_get_member(buffer, resulttok, "continue");
-		if (tok_continue && json_to_bool(buffer, tok_continue, &exec) && exec)
+		if (tok_continue && json_to_bool(buffer, tok_continue, &exec) && exec) {
+			static bool warned = false;
+			if (!warned) {
+				warned = true;
+				log_unusual(p->cmd->ld->log,
+					    "Plugin returned 'continue' : true "
+					    "to rpc_command hook.  "
+					    "This is now deprecated and "
+					    "you should return with "
+					    "{'result': 'continue'} instead.");
+			}
 			return was_pending(command_exec(p->cmd->jcon, p->cmd, p->buffer,
 			                                p->request, params));
+		}
+	}
+#endif /* defined(COMPAT_V080) */
+
+	innerresulttok = json_get_member(buffer, resulttok, "result");
+	if (innerresulttok) {
+		if (json_tok_streq(buffer, innerresulttok, "continue")) {
+			return was_pending(command_exec(p->cmd->jcon, p->cmd, p->buffer,
+							p->request, params));
+		}
+		return was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
+						"Bad 'result' to 'rpc_command' hook."));
 	}
 
 	/* If the registered plugin did not respond with continue,
