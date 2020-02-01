@@ -819,3 +819,6 @@ def test_libplugin(node_factory):
     l2.connect(l1)
     assert l1.daemon.is_in_log("{} peer_connected".format(l2.info["id"]))
     l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))
+
+    # Test RPC calls FIXME: test concurrent ones ?
+    assert l1.rpc.call("testrpc") == l1.rpc.getinfo()

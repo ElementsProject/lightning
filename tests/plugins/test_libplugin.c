@@ -1,4 +1,5 @@
 #include <ccan/array_size/array_size.h>
+#include <common/json_stream.h>
 #include <plugins/libplugin.h>
 
 
@@ -53,6 +54,36 @@ static void json_connected(struct command *cmd,
 		   json_strdup(tmpctx, buf, idtok));
 }
 
+static struct command_result *testrpc_cb(struct command *cmd,
+					 const char *buf,
+					 const jsmntok_t *params,
+					 void *cb_arg UNUSED)
+{
+	int i = 0;
+	const jsmntok_t *t;
+	struct json_stream *response;
+
+	response = jsonrpc_stream_success(cmd);
+	json_for_each_obj(i, t, params)
+		json_add_tok(response, json_strdup(tmpctx, buf, t), t+1, buf);
+
+	return command_finished(cmd, response);
+}
+
+static struct command_result *json_testrpc(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *params)
+{
+	struct out_req *req;
+
+	if (!param(cmd, buf, params, NULL))
+		return command_param_failed();
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "getinfo", testrpc_cb,
+				    testrpc_cb, NULL);
+	return send_outreq(cmd->plugin, req);
+}
+
 static void init(struct plugin *p,
 		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -67,6 +98,13 @@ static const struct plugin_command commands[] = { {
 		" option was set, and 'hello {name}' if the name parameter "
 		"was passed (takes over the option)",
 		json_helloworld,
+	},
+	{
+		"testrpc",
+		"utils",
+		"Makes a simple getinfo call, to test rpc socket.",
+		"",
+		json_testrpc,
 	}
 };
 
