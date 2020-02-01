@@ -264,5 +264,9 @@ void json_add_preimage(struct json_stream *result, const char *fieldname,
 void json_add_tok(struct json_stream *result, const char *fieldname,
                   const jsmntok_t *tok, const char *buffer);
 
+/* Add an error code */
+void json_add_errcode(struct json_stream *result, const char *fieldname,
+		      errcode_t code);
+
 
 #endif /* LIGHTNING_COMMON_JSON_H */
