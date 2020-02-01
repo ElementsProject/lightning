@@ -22,6 +22,37 @@ static struct command_result *json_helloworld(struct command *cmd,
 	return command_success_str(cmd, tal_fmt(tmpctx, "hello %s", name));
 }
 
+static struct command_result *
+json_peer_connected(struct command *cmd,
+		    const char *buf,
+		    const jsmntok_t *params)
+{
+	const jsmntok_t *peertok, *idtok;
+	struct json_stream *response;
+
+	peertok = json_get_member(buf, params, "peer");
+	assert(peertok);
+	idtok = json_get_member(buf, peertok, "id");
+	assert(idtok);
+	plugin_log(cmd->plugin, LOG_INFORM, "%s peer_connected",
+		   json_strdup(tmpctx, buf, idtok));
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_string(response, "result", "continue");
+
+	return command_finished(cmd, response);
+}
+
+static void json_connected(struct command *cmd,
+			   const char *buf,
+			   const jsmntok_t *params)
+{
+	const jsmntok_t *idtok = json_get_member(buf, params, "id");
+	assert(idtok);
+	plugin_log(cmd->plugin, LOG_INFORM, "%s connected",
+		   json_strdup(tmpctx, buf, idtok));
+}
+
 static void init(struct plugin *p,
 		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -39,11 +70,23 @@ static const struct plugin_command commands[] = { {
 	}
 };
 
+static const struct plugin_hook hooks[] = { {
+		"peer_connected",
+		json_peer_connected,
+	}
+};
+
+static const struct plugin_notification notifs[] = { {
+		"connect",
+		json_connected,
+	}
+};
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
-	            NULL, 0, NULL, 0,
+	            notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
 		    plugin_option("name",
 				  "string",
 				  "Who to say hello to.",

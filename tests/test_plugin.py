@@ -813,3 +813,9 @@ def test_libplugin(node_factory):
     assert l1.rpc.call("helloworld") == "hello test_opt"
     # But param takes over!
     assert l1.rpc.call("helloworld", {"name": "test"}) == "hello test"
+
+    # Test hooks and notifications
+    l2 = node_factory.get_node()
+    l2.connect(l1)
+    assert l1.daemon.is_in_log("{} peer_connected".format(l2.info["id"]))
+    l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))
