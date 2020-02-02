@@ -138,6 +138,10 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 struct command_result *WARN_UNUSED_RESULT
 command_finished(struct command *cmd, struct json_stream *response);
 
+/* Helper for a command that'll be finished in a callback. */
+struct command_result *WARN_UNUSED_RESULT
+command_still_pending(struct command *cmd);
+
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
 struct json_out *json_out_obj(const tal_t *ctx,

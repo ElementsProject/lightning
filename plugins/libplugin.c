@@ -217,6 +217,12 @@ command_finished(struct command *cmd, struct json_stream *response)
 	return command_complete(cmd, response);
 }
 
+struct command_result *WARN_UNUSED_RESULT
+command_still_pending(struct command *cmd)
+{
+	return &pending;
+}
+
 struct json_out *json_out_obj(const tal_t *ctx,
 			      const char *fieldname,
 			      const char *str)
