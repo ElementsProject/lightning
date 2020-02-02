@@ -117,8 +117,22 @@ static void test_b11(const char *b11str,
 			     expect_b11->fallbacks[i],
 			     tal_count(expect_b11->fallbacks[i])));
 
-	/* FIXME: compare routes. */
 	assert(tal_count(b11->routes) == tal_count(expect_b11->routes));
+	for (size_t i = 0; i < tal_count(b11->routes); i++) {
+		assert(tal_count(b11->routes[i])
+		       == tal_count(expect_b11->routes[i]));
+		for (size_t j = 0; j < tal_count(b11->routes[i]); j++) {
+			const struct route_info *r = &b11->routes[i][j],
+				*er = &expect_b11->routes[i][j];
+			assert(node_id_eq(&er->pubkey, &r->pubkey));
+			assert(er->cltv_expiry_delta == r->cltv_expiry_delta);
+			assert(short_channel_id_eq(&er->short_channel_id,
+						   &r->short_channel_id));
+			assert(er->fee_base_msat == r->fee_base_msat);
+			assert(er->fee_proportional_millionths
+			       == r->fee_proportional_millionths);
+		}
+	}
 
 	expect_extra = list_top(&expect_b11->extra_fields, struct bolt11_field,
 				list);
