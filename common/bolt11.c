@@ -390,9 +390,14 @@ static char *decode_f(struct bolt11 *b11,
                 fallback = scriptpubkey_witness_raw(b11, version,
 						    f, tal_count(f));
                 tal_free(f);
-        } else
+        } else {
+		/* Restore version for unknown field! */
+		(*data)--;
+		(*data_len)++;
+		data_length++;
                 return unknown_field(b11, hu5, data, data_len, 'f',
                                      data_length);
+	}
 
 	if (b11->fallbacks == NULL)
 		b11->fallbacks = tal_arr(b11, const u8 *, 1);
