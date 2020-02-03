@@ -69,7 +69,7 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 static void init(struct plugin *p,
 		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	rpc = &p->rpc_conn;
+	rpc = p->rpc_conn;
 
 	if (cycle_seconds) {
 		plugin_log(p, LOG_INFORM, "autocleaning every %"PRIu64" seconds", cycle_seconds);

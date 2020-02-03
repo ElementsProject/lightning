@@ -44,6 +44,11 @@ struct out_req {
 	void *arg;
 };
 
+struct rpc_conn {
+	int fd;
+	MEMBUF(char) mb;
+};
+
 /* command_result is mainly used as a compile-time check to encourage you
  * to return as soon as you get one (and not risk use-after-free of command).
  * Here we use two values: complete (cmd freed) and pending (still going) */
@@ -134,24 +139,24 @@ static int read_json_from_rpc(struct plugin *p)
 
 	/* We rely on the double-\n marker which only terminates JSON top
 	 * levels.  Thanks lightningd! */
-	while ((end = memmem(membuf_elems(&p->rpc_conn.mb),
-			     membuf_num_elems(&p->rpc_conn.mb), "\n\n", 2))
+	while ((end = memmem(membuf_elems(&p->rpc_conn->mb),
+			     membuf_num_elems(&p->rpc_conn->mb), "\n\n", 2))
 	       == NULL) {
 		ssize_t r;
 
 		/* Make sure we've room for at least READ_CHUNKSIZE. */
-		membuf_prepare_space(&p->rpc_conn.mb, READ_CHUNKSIZE);
-		r = read(p->rpc_conn.fd, membuf_space(&p->rpc_conn.mb),
-			 membuf_num_space(&p->rpc_conn.mb));
+		membuf_prepare_space(&p->rpc_conn->mb, READ_CHUNKSIZE);
+		r = read(p->rpc_conn->fd, membuf_space(&p->rpc_conn->mb),
+			 membuf_num_space(&p->rpc_conn->mb));
 		/* lightningd goes away, we go away. */
 		if (r == 0)
 			exit(0);
 		if (r < 0)
 			plugin_err(p, "Reading JSON input: %s", strerror(errno));
-		membuf_added(&p->rpc_conn.mb, r);
+		membuf_added(&p->rpc_conn->mb, r);
 	}
 
-	return end + 2 - membuf_elems(&p->rpc_conn.mb);
+	return end + 2 - membuf_elems(&p->rpc_conn->mb);
 }
 
 /* This starts a JSON RPC message with boilerplate */
@@ -317,20 +322,20 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 
 	*reqlen = read_json_from_rpc(plugin);
 
-	toks = json_parse_input(ctx, membuf_elems(&plugin->rpc_conn.mb), *reqlen, &valid);
+	toks = json_parse_input(ctx, membuf_elems(&plugin->rpc_conn->mb), *reqlen, &valid);
 	if (!valid)
 		plugin_err(plugin, "Malformed JSON reply '%.*s'",
-			   *reqlen, membuf_elems(&plugin->rpc_conn.mb));
+			   *reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
-	*contents = json_get_member(membuf_elems(&plugin->rpc_conn.mb), toks, "error");
+	*contents = json_get_member(membuf_elems(&plugin->rpc_conn->mb), toks, "error");
 	if (*contents)
 		*error = true;
 	else {
-		*contents = json_get_member(membuf_elems(&plugin->rpc_conn.mb), toks,
+		*contents = json_get_member(membuf_elems(&plugin->rpc_conn->mb), toks,
 					    "result");
 		if (!*contents)
 			plugin_err(plugin, "JSON reply with no 'result' nor 'error'? '%.*s'",
-				   *reqlen, membuf_elems(&plugin->rpc_conn.mb));
+				   *reqlen, membuf_elems(&plugin->rpc_conn->mb));
 		*error = false;
 	}
 	return toks;
@@ -366,20 +371,20 @@ const char *rpc_delve(const tal_t *ctx,
 	struct json_out *jout;
 
 	jout = start_json_request(tmpctx, 0, method, params);
-	finish_and_send_json(plugin->rpc_conn.fd, jout);
+	finish_and_send_json(plugin->rpc_conn->fd, jout);
 
 	read_rpc_reply(tmpctx, plugin, &contents, &error, &reqlen);
 	if (error)
 		plugin_err(plugin, "Got error reply to %s: '%.*s'",
-		     method, reqlen, membuf_elems(&plugin->rpc_conn.mb));
+		     method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
-	t = json_delve(membuf_elems(&plugin->rpc_conn.mb), contents, guide);
+	t = json_delve(membuf_elems(&plugin->rpc_conn->mb), contents, guide);
 	if (!t)
 		plugin_err(plugin, "Could not find %s in reply to %s: '%.*s'",
-			   guide, method, reqlen, membuf_elems(&plugin->rpc_conn.mb));
+			   guide, method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
-	ret = json_strdup(ctx, membuf_elems(&plugin->rpc_conn.mb), t);
-	membuf_consume(&plugin->rpc_conn.mb, reqlen);
+	ret = json_strdup(ctx, membuf_elems(&plugin->rpc_conn->mb), t);
+	membuf_consume(&plugin->rpc_conn->mb, reqlen);
 	return ret;
 }
 
@@ -646,7 +651,7 @@ static struct command_result *handle_init(struct command *cmd,
 	chainparams = chainparams_for_network(network);
 
 	rpctok = json_delve(buf, configtok, ".rpc-file");
-	p->rpc_conn.fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	p->rpc_conn->fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (rpctok->end - rpctok->start + 1 > sizeof(addr.sun_path))
 		plugin_err(p, "rpc filename '%.*s' too long",
 			   rpctok->end - rpctok->start,
@@ -655,7 +660,7 @@ static struct command_result *handle_init(struct command *cmd,
 	addr.sun_path[rpctok->end - rpctok->start] = '\0';
 	addr.sun_family = AF_UNIX;
 
-	if (connect(p->rpc_conn.fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+	if (connect(p->rpc_conn->fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 		plugin_err(p, "Connecting to '%.*s': %s",
 			   rpctok->end - rpctok->start, buf + rpctok->start,
 			   strerror(errno));
@@ -685,7 +690,7 @@ static struct command_result *handle_init(struct command *cmd,
 	if (p->init)
 		p->init(p, buf, configtok);
 
-	io_new_conn(p, p->rpc_conn.fd, rpc_conn_init, p);
+	io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
 
 	return command_success_str(cmd, NULL);
 }
@@ -1028,7 +1033,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->next_outreq_id = 0;
 	uintmap_init(&p->out_reqs);
 	/* Sync RPC FIXME: maybe go full async ? */
-	membuf_init(&p->rpc_conn.mb,
+	p->rpc_conn = tal(p, struct rpc_conn);
+	membuf_init(&p->rpc_conn->mb,
 		    tal_arr(p, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
 		    membuf_tal_realloc);
 
