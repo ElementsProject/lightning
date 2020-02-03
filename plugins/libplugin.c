@@ -25,7 +25,8 @@ bool deprecated_apis;
 
 struct plugin_timer {
 	struct timer timer;
-	struct command_result *(*cb)(struct plugin *p);
+	void (*cb)(void *cb_arg);
+	void *cb_arg;
 };
 
 struct rpc_conn {
@@ -820,7 +821,7 @@ static void call_plugin_timer(struct plugin *p, struct timer *timer)
 	p->in_timer++;
 	/* Free this if they don't. */
 	tal_steal(tmpctx, t);
-	t->cb(p);
+	t->cb(t->cb_arg);
 }
 
 static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
@@ -829,10 +830,12 @@ static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
 }
 
 struct plugin_timer *plugin_timer(struct plugin *p, struct timerel t,
-				  struct command_result *(*cb)(struct plugin *p))
+				  void (*cb)(void *cb_arg),
+				  void *cb_arg)
 {
 	struct plugin_timer *timer = tal(NULL, struct plugin_timer);
 	timer->cb = cb;
+	timer->cb_arg = cb_arg;
 	timer_init(&timer->timer);
 	timer_addrel(&p->timers, &timer->timer, t);
 	tal_add_destructor2(timer, destroy_plugin_timer, p);

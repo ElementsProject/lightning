@@ -212,7 +212,8 @@ struct command_result *timer_complete(struct plugin *p);
  */
 struct plugin_timer *plugin_timer(struct plugin *p,
 				  struct timerel t,
-				  struct command_result *(*cb)(struct plugin *p));
+				  void (*cb)(void *cb_arg),
+				  void *cb_arg);
 
 /* Log something */
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
