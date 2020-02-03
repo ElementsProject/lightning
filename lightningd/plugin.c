@@ -487,7 +487,7 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 	popt = tal(plugin, struct plugin_opt);
 	popt->value = talz(popt, struct plugin_opt_value);
 
-	popt->name = tal_fmt(plugin, "--%.*s", nametok->end - nametok->start,
+	popt->name = tal_fmt(popt, "--%.*s", nametok->end - nametok->start,
 			     buffer + nametok->start);
 	if (json_tok_streq(buffer, typetok, "string")) {
 		popt->type = "string";
