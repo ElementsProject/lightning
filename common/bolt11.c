@@ -649,6 +649,17 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 		 * amount required for payment.
 		*/
                 b11->msat = tal(b11, struct amount_msat);
+		/* BOLT-50143e388e16a449a92ed574fc16eb35b51426b9 #11:
+		 *
+		 * - if multiplier is `p` and the last decimal of `amount` is
+		 *   not 0:
+		 *    - MUST fail the payment.
+		 */
+		if (amount * m10 % 10 != 0)
+			return decode_fail(b11, fail,
+					   "Invalid sub-millisatoshi amount"
+					   " '%sp'", amountstr);
+
                 b11->msat->millisatoshis = amount * m10 / 10; /* Raw: raw amount multiplier calculation */
         }
 
