@@ -836,6 +836,7 @@ bool plugin_parse_getmanifest_response(const char *buffer,
                                        struct plugin *plugin)
 {
 	const jsmntok_t *resulttok, *dynamictok, *featurestok, *tok;
+	bool have_featurebits = false;
 	u8 *featurebits;
 
 	resulttok = json_get_member(buffer, toks, "result");
@@ -849,6 +850,7 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 			    json_tok_full(buffer, dynamictok));
 
 	featurestok = json_get_member(buffer, resulttok, "featurebits");
+
 	if (featurestok) {
 		for (int i = 0; i < NUM_PLUGIN_FEATURES_TYPE; i++) {
 			tok = json_get_member(buffer, featurestok,
@@ -859,6 +861,8 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 
 			featurebits =
 			    json_tok_bin_from_hex(plugin, buffer, tok);
+
+			have_featurebits |= tal_bytelen(featurebits) > 0;
 
 			if (featurebits) {
 				plugin->featurebits[i] = featurebits;
@@ -871,6 +875,16 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 				return true;
 			}
 		}
+	}
+
+	if (plugin->dynamic && have_featurebits) {
+		plugin_kill(plugin,
+			    "Custom featurebits only allows for non-dynamic "
+			    "plugins: dynamic=%d, featurebits=%.*s",
+			    plugin->dynamic,
+			    featurestok->end - featurestok->start,
+			    buffer + featurestok->start);
+		return true;
 	}
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
