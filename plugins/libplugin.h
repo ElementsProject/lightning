@@ -17,15 +17,11 @@
 #include <common/status_levels.h>
 
 struct json_out;
+struct rpc_conn;
 
 enum plugin_restartability {
 	PLUGIN_STATIC,
 	PLUGIN_RESTARTABLE
-};
-
-struct rpc_conn {
-	int fd;
-	MEMBUF(char) mb;
 };
 
 struct plugin {
@@ -50,7 +46,7 @@ struct plugin {
 	u64 next_outreq_id;
 
 	/* Synchronous RPC interaction */
-	struct rpc_conn rpc_conn;
+	struct rpc_conn *rpc_conn;
 
 	/* Plugin informations */
 	enum plugin_restartability restartability;
