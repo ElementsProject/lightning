@@ -562,6 +562,13 @@ int main(void)
 	assert(!bolt11_decode(tmpctx, "lnbc2500x1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpujr6jxr9gq9pv6g46y7d20jfkegkg4gljz2ea2a3m9lmvvr95tq2s0kvu70u3axgelz3kyvtp2ywwt0y8hkx2869zq5dll9nelr83zzqqpgl2zg", NULL, &fail));
 	assert(streq(fail, "Invalid amount postfix 'x'"));
 
+	/* BOLT- #11:
+	 * > ### Invalid sub-millisatoshi precision.
+	 * > lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu7hqtk93pkf7sw55rdv4k9z2vj050rxdr6za9ekfs3nlt5lr89jqpdmxsmlj9urqumg0h9wzpqecw7th56tdms40p2ny9q4ddvjsedzcplva53s
+	 */
+	assert(!bolt11_decode(tmpctx, "lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu7hqtk93pkf7sw55rdv4k9z2vj050rxdr6za9ekfs3nlt5lr89jqpdmxsmlj9urqumg0h9wzpqecw7th56tdms40p2ny9q4ddvjsedzcplva53s", NULL, &fail));
+	assert(streq(fail, "Invalid sub-millisatoshi amount '2500000001p'"));
+
 	/* FIXME: Test the others! */
 	wally_cleanup(0);
 	tal_free(tmpctx);
