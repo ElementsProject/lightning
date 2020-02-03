@@ -1,3 +1,4 @@
+#include <ccan/opt/opt.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
@@ -196,6 +197,18 @@ plugin_dynamic_startdir(struct command *cmd, const char *dir_path)
 	return command_still_pending(cmd);
 }
 
+static void clear_plugin(struct plugin *p, const char *name)
+{
+	struct plugin_opt *opt;
+
+	list_for_each(&p->plugin_opts, opt, list)
+		if (!opt_unregister(opt->name))
+			fatal("Could not unregister %s from plugin %s",
+			      opt->name, name);
+	plugin_kill(p, "%s stopped by lightningd via RPC", name);
+	tal_free(p);
+}
+
 static struct command_result *
 plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 {
@@ -209,9 +222,7 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 				                    "%s cannot be managed when "
 				                    "lightningd is up",
 				                    plugin_name);
-			plugin_hook_unregister_all(p);
-			plugin_kill(p, "%s stopped by lightningd via RPC", plugin_name);
-			tal_free(p);
+			clear_plugin(p, plugin_name);
 			response = json_stream_success(cmd);
 			if (deprecated_apis)
 				json_add_string(response, "",
