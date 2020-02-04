@@ -59,8 +59,9 @@ struct plugin_hook {
 	void (*response_cb)(void *arg, const char *buffer, const jsmntok_t *toks);
 	void (*serialize_payload)(void *src, struct json_stream *dest);
 
-	/* Which plugin has registered this hook? */
-	struct plugin *plugin;
+	/* Which plugins have registered this hook? This is a `tal_arr`
+	 * initialized at creation. */
+	struct plugin **plugins;
 };
 AUTODATA_TYPE(hooks, struct plugin_hook);
 
@@ -107,7 +108,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 	    typesafe_cb_cast(void (*)(void *, struct json_stream *),           \
 			     void (*)(payload_type, struct json_stream *),     \
 			     serialize_payload),                               \
-	    NULL, /* .plugin */                                                \
+	    NULL, /* .plugins */                                               \
 	};                                                                     \
 	AUTODATA(hooks, &name##_hook_gen);                                     \
 	PLUGIN_HOOK_CALL_DEF(name, payload_type, response_cb_arg_type);
