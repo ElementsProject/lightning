@@ -176,6 +176,23 @@ void _opt_register(const char *names, enum opt_type type,
 	add_opt(&opt);
 }
 
+bool opt_unregister(const char *names)
+{
+	int found = -1, i;
+
+	for (i = 0; i < opt_count; i++) {
+		if (opt_table[i].type == OPT_SUBTABLE)
+			continue;
+		if (strcmp(opt_table[i].names, names) == 0)
+			found = i;
+	}
+	if (found == -1)
+		return false;
+	opt_count--;
+	memmove(&opt_table[found], &opt_table[found+1], opt_count - found);
+	return true;
+}
+
 void opt_register_table(const struct opt_table entry[], const char *desc)
 {
 	unsigned int i, start = opt_count;
