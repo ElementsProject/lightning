@@ -21,7 +21,7 @@ typedef unsigned long bitmap_word;
 /*
  * We wrap each word in a structure for type checking.
  */
-typedef struct {
+typedef struct bitmap {
 	bitmap_word w;
 } bitmap;
 
