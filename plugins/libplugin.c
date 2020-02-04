@@ -21,6 +21,8 @@
 
 const struct chainparams *chainparams;
 
+bool deprecated_apis;
+
 struct plugin_timer {
 	struct timer timer;
 	struct command_result *(*cb)(struct plugin *p);
@@ -666,7 +668,7 @@ static struct command_result *handle_init(struct command *cmd,
 			   strerror(errno));
 
 	param_obj = json_out_obj(NULL, "config", "allow-deprecated-apis");
-	p->deprecated_apis = streq(rpc_delve(tmpctx, p, "listconfigs",
+	deprecated_apis = streq(rpc_delve(tmpctx, p, "listconfigs",
 					  take(param_obj),
 					  ".allow-deprecated-apis"),
 				  "true");

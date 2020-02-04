@@ -19,6 +19,8 @@
 struct json_out;
 struct rpc_conn;
 
+extern bool deprecated_apis;
+
 enum plugin_restartability {
 	PLUGIN_STATIC,
 	PLUGIN_RESTARTABLE
@@ -72,8 +74,6 @@ struct plugin {
 	/* Timers */
 	struct timers timers;
 	size_t in_timer;
-
-	bool deprecated_apis;
 };
 
 struct command {
