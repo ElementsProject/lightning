@@ -130,7 +130,8 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
  * annoying, and to make it clear that it's totally synchronous. */
 
 /* Special synchronous hook for db */
-static struct plugin_hook db_write_hook = { "db_write", NULL, NULL, NULL };
+static struct plugin_hook db_write_hook = {"db_write", PLUGIN_HOOK_SINGLE, NULL,
+					   NULL, NULL};
 AUTODATA(hooks, &db_write_hook);
 
 static void db_hook_response(const char *buffer, const jsmntok_t *toks,

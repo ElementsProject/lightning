@@ -821,6 +821,7 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload,
 }
 
 REGISTER_PLUGIN_HOOK(openchannel,
+		     PLUGIN_HOOK_SINGLE,
 		     openchannel_hook_cb,
 		     struct openchannel_hook_payload *,
 		     openchannel_hook_serialize,
