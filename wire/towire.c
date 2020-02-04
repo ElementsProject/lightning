@@ -263,6 +263,17 @@ void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
 	towire_u8_array(pptr, output->script, tal_count(output->script));
 }
 
+void towire_witscript(u8 **pptr, const struct witscript *script)
+{
+	if (script == NULL) {
+		towire_u16(pptr, 0);
+	} else {
+		assert(script->ptr != NULL);
+		towire_u16(pptr, tal_count(script->ptr));
+		towire_u8_array(pptr, script->ptr, tal_count(script->ptr));
+	}
+}
+
 void towire_chainparams(u8 **cursor, const struct chainparams *chainparams)
 {
 	towire_bitcoin_blkid(cursor, &chainparams->genesis_blockhash);
