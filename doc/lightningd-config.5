@@ -123,6 +123,19 @@ is only valid on the command-line, or in a configuration file specified
 by \fI--conf\fR\.
 
 
+ \fBsubdaemon\fR=\fISUBDAEMON\fR:\fIPATH\fR
+Specifies an alternate subdaemon binary\.
+Current subdaemons are \fIchanneld\fR, \fIclosingd\fR,
+\fIconnectd\fR, \fIgossipd\fR, \fIhsmd\fR, \fIonchaind\fR, and \fIopeningd\fR\.
+If the supplied path is relative the subdaemon binary is found in the
+working directory\. This option may be specified multiple times\.
+
+
+ So, \fBsubdaemon=hsmd:remote_signer\fR would use a
+hypothetical remote signing proxy instead of the standard \fIlightning_hsmd\fR
+binary\.
+
+
  \fBpid-file\fR=\fIPATH\fR
 Specify pid file to write to\.
 

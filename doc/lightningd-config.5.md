@@ -107,6 +107,17 @@ Sets the working directory. All files (except *--conf* and
 is only valid on the command-line, or in a configuration file specified
 by *--conf*.
 
+ **subdaemon**=*SUBDAEMON*:*PATH*
+Specifies an alternate subdaemon binary.
+Current subdaemons are *channeld*, *closingd*,
+*connectd*, *gossipd*, *hsmd*, *onchaind*, and *openingd*.
+If the supplied path is relative the subdaemon binary is found in the
+working directory. This option may be specified multiple times.
+
+ So, **subdaemon=hsmd:remote_signer** would use a
+hypothetical remote signing proxy instead of the standard *lightning_hsmd*
+binary.
+
  **pid-file**=*PATH*
 Specify pid file to write to.
 

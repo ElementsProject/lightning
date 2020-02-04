@@ -136,7 +136,7 @@ static void close_taken_fds(va_list *ap)
 }
 
 /* We use sockets, not pipes, because fds are bidir. */
-static int subd(const char *dir, const char *name,
+static int subd(const char *path, const char *name,
 		const char *debug_subdaemon,
 		int *msgfd, int dev_disconnect_fd,
 		bool io_logging,
@@ -202,7 +202,7 @@ static int subd(const char *dir, const char *name,
 				close(i);
 
 		num_args = 0;
-		args[num_args++] = path_join(NULL, dir, name);
+		args[num_args++] = tal_strdup(NULL, path);
 		if (io_logging)
 			args[num_args++] = "--log-io";
 #if DEVELOPER
@@ -649,7 +649,9 @@ static struct subd *new_subd(struct lightningd *ld,
 	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
-	sd->pid = subd(ld->daemon_dir, name, debug_subd,
+	const char *path = subdaemon_path(tmpctx, ld, name);
+
+	sd->pid = subd(path, name, debug_subd,
 		       &msg_fd, disconnect_fd,
 		       /* We only turn on subdaemon io logging if we're going
 			* to print it: too stressful otherwise! */

@@ -215,6 +215,33 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE, true);
 }
 
+static char *opt_subdaemon(const char *arg, struct lightningd *ld)
+{
+	char *subdaemon;
+	char *sdpath;
+
+	/* example arg: "hsmd:remote_hsmd" */
+
+	size_t colonoff = strcspn(arg, ":");
+	if (!arg[colonoff])
+		return tal_fmt(NULL, "argument must contain ':'");
+
+	subdaemon = tal_strndup(ld, arg, colonoff);
+	if (!is_subdaemon(subdaemon))
+		return tal_fmt(NULL, "\"%s\" is not a subdaemon", subdaemon);
+
+	/* Make the value a tal-child of the subdaemon */
+	sdpath = tal_strdup(subdaemon, arg + colonoff + 1);
+
+	/* Remove any preexisting alt subdaemon mapping (and
+	 * implicitly, the sdpath). */
+	tal_free(strmap_del(&ld->alt_subdaemons, subdaemon, NULL));
+
+	strmap_add(&ld->alt_subdaemons, subdaemon, sdpath);
+
+	return NULL;
+}
+
 static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 {
 	struct wireaddr_internal addr;
@@ -879,6 +906,16 @@ static void register_opts(struct lightningd *ld)
 			 "Set the file mode (permissions) for the "
 			 "JSON-RPC socket");
 
+	opt_register_arg("--subdaemon", opt_subdaemon, NULL,
+			 ld, "Arg specified as SUBDAEMON:PATH. "
+			 "Specifies an alternate subdaemon binary. "
+			 "If the supplied path is relative the subdaemon "
+			 "binary is found in the working directory. "
+			 "This option may be specified multiple times. "
+			 "For example, "
+			 "--subdaemon=hsmd:remote_signer "
+			 "would use a hypothetical remote signing subdaemon.");
+
 	opt_register_logging(ld);
 	opt_register_version();
 
@@ -1127,6 +1164,31 @@ static void json_add_opt_addrs(struct json_stream *response,
 	}
 }
 
+struct json_add_opt_alt_subdaemon_args {
+	const char *name0;
+	struct json_stream *response;
+};
+
+static bool json_add_opt_alt_subdaemon(const char *member,
+				       const char *value,
+				       struct json_add_opt_alt_subdaemon_args *argp)
+{
+	json_add_string(argp->response,
+			argp->name0,
+			tal_fmt(argp->name0, "%s:%s", member, value));
+	return true;
+}
+
+static void json_add_opt_subdaemons(struct json_stream *response,
+				    const char *name0,
+				    alt_subdaemon_map *alt_subdaemons)
+{
+	struct json_add_opt_alt_subdaemon_args args;
+	args.name0 = name0;
+	args.response = response;
+	strmap_iterate(alt_subdaemons, json_add_opt_alt_subdaemon, &args);
+}
+
 static void add_config(struct lightningd *ld,
 		       struct json_stream *response,
 		       const struct opt_table *opt,
@@ -1220,6 +1282,10 @@ static void add_config(struct lightningd *ld,
 					   ld->proposed_wireaddr,
 					   ld->proposed_listen_announce,
 					   ADDR_ANNOUNCE);
+			return;
+		} else if (opt->cb_arg == (void *)opt_subdaemon) {
+			json_add_opt_subdaemons(response, name0,
+						    &ld->alt_subdaemons);
 			return;
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
 			if (ld->proxyaddr)
