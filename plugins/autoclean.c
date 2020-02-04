@@ -8,7 +8,6 @@
 
 static u64 cycle_seconds = 0, expired_by = 86400;
 static struct plugin_timer *cleantimer;
-static struct rpc_conn *rpc;
 
 static struct command_result *do_clean(struct plugin *p);
 
@@ -69,8 +68,6 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 static void init(struct plugin *p,
 		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	rpc = p->rpc_conn;
-
 	if (cycle_seconds) {
 		plugin_log(p, LOG_INFORM, "autocleaning every %"PRIu64" seconds", cycle_seconds);
 		cleantimer = plugin_timer(p, time_from_sec(cycle_seconds),

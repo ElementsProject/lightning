@@ -17,6 +17,7 @@
 #include <common/status_levels.h>
 
 struct json_out;
+struct plugin;
 struct rpc_conn;
 
 extern bool deprecated_apis;
@@ -24,56 +25,6 @@ extern bool deprecated_apis;
 enum plugin_restartability {
 	PLUGIN_STATIC,
 	PLUGIN_RESTARTABLE
-};
-
-struct plugin {
-	/* lightningd interaction */
-	struct io_conn *stdin_conn;
-	struct io_conn *stdout_conn;
-
-	/* To read from lightningd */
-	char *buffer;
-	size_t used, len_read;
-
-	/* To write to lightningd */
-	struct json_stream **js_arr;
-
-	/* Asynchronous RPC interaction */
-	struct io_conn *io_rpc_conn;
-	struct json_stream **rpc_js_arr;
-	char *rpc_buffer;
-	size_t rpc_used, rpc_len_read;
-	/* Tracking async RPC requests */
-	UINTMAP(struct out_req *) out_reqs;
-	u64 next_outreq_id;
-
-	/* Synchronous RPC interaction */
-	struct rpc_conn *rpc_conn;
-
-	/* Plugin informations */
-	enum plugin_restartability restartability;
-	const struct plugin_command *commands;
-	size_t num_commands;
-	const struct plugin_notification *notif_subs;
-	size_t num_notif_subs;
-	const struct plugin_hook *hook_subs;
-	size_t num_hook_subs;
-	struct plugin_option *opts;
-
-	/* Anything special to do at init ? */
-	void (*init)(struct plugin *p,
-		     const char *buf, const jsmntok_t *);
-	/* Has the manifest been sent already ? */
-	bool manifested;
-	/* Has init been received ? */
-	bool initialized;
-
-	/* Map from json command names to usage strings: we don't put this inside
-	 * struct json_command as it's good practice to have those const. */
-	STRMAP(const char *) usagemap;
-	/* Timers */
-	struct timers timers;
-	size_t in_timer;
 };
 
 struct command {
