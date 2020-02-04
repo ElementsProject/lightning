@@ -504,10 +504,12 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
     # We suppress each one after first commit; HTLC gets added not fulfilled.
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
-                               may_fail=True, feerates=(7500, 7500, 7500, 7500),
+    disconnects = ['=WIRE_COMMITMENT_SIGNED', '=WIRE_COMMITMENT_SIGNED-nocommit']
+    l1 = node_factory.get_node(disconnect=disconnects,
+                               may_fail=True,
+                               feerates=(7500, 7500, 7500, 7500),
                                allow_broken_log=True)
-    l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'])
+    l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 10**6)
