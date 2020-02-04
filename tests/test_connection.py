@@ -1061,6 +1061,8 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     # we have to connect again, because we got disconnected when everything errored
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    # A successful funding_complete will always have a commitments_secured that is true,
+    # otherwise it would have failed
     assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
     l1.rpc.txsend(prep['txid'])
     with pytest.raises(RpcError, match=r'.* been broadcast.*'):
