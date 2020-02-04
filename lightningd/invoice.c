@@ -269,6 +269,7 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 }
 
 REGISTER_PLUGIN_HOOK(invoice_payment,
+		     PLUGIN_HOOK_SINGLE,
 		     invoice_payment_hook_cb,
 		     struct invoice_payment_hook_payload *,
 		     invoice_payment_serialize,

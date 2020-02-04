@@ -44,8 +44,18 @@
  * and callback have the correct type.
  */
 
+enum plugin_hook_type {
+	PLUGIN_HOOK_SINGLE,
+	PLUGIN_HOOK_CHAIN,
+};
+
 struct plugin_hook {
 	const char *name;
+
+	/* Which type of plugin is this? It'll determine how many plugins can
+	 * register this hook, and how the hooks are called. */
+	enum plugin_hook_type type;
+
 	void (*response_cb)(void *arg, const char *buffer, const jsmntok_t *toks);
 	void (*serialize_payload)(void *src, struct json_stream *dest);
 
@@ -84,14 +94,16 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
  * response_cb function accepts the deserialized response format and
  * an arbitrary extra argument used to maintain context.
  */
-#define REGISTER_PLUGIN_HOOK(name, response_cb, response_cb_arg_type,          \
+#define REGISTER_PLUGIN_HOOK(name, type, response_cb, response_cb_arg_type,    \
 			     serialize_payload, payload_type)                  \
 	struct plugin_hook name##_hook_gen = {                                 \
 	    stringify(name),                                                   \
-	    typesafe_cb_cast(void (*)(void *, const char *, const jsmntok_t *),\
-			     void (*)(response_cb_arg_type,		       \
-				      const char *, const jsmntok_t *),	       \
-			     response_cb),                                     \
+	    type,                                                              \
+	    typesafe_cb_cast(                                                  \
+		void (*)(void *, const char *, const jsmntok_t *),             \
+		void (*)(response_cb_arg_type, const char *,                   \
+			 const jsmntok_t *),                                   \
+		response_cb),                                                  \
 	    typesafe_cb_cast(void (*)(void *, struct json_stream *),           \
 			     void (*)(payload_type, struct json_stream *),     \
 			     serialize_payload),                               \

@@ -873,7 +873,8 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	tal_free(request);
 }
 
-REGISTER_PLUGIN_HOOK(htlc_accepted, htlc_accepted_hook_callback,
+REGISTER_PLUGIN_HOOK(htlc_accepted, PLUGIN_HOOK_SINGLE,
+		     htlc_accepted_hook_callback,
 		     struct htlc_accepted_hook_payload *,
 		     htlc_accepted_hook_serialize,
 		     struct htlc_accepted_hook_payload *);
