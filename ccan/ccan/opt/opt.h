@@ -229,6 +229,15 @@ void opt_register_table(const struct opt_table *table, const char *desc);
 		      (arg), (desc))
 
 /**
+ * opt_unregister - unregister an option.
+ * @names: the names it was registered with.
+ *
+ * This undoes opt_register[_early]_[no]arg.  Returns true if the option was
+ * found, otherwise false.
+ */
+bool opt_unregister(const char *names);
+
+/**
  * opt_parse - parse arguments.
  * @argc: pointer to argc
  * @argv: argv array.
