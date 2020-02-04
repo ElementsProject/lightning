@@ -63,7 +63,7 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num);
 
 /* Extract number from this (may be a string, or a number literal) */
 bool json_to_u32(const char *buffer, const jsmntok_t *tok,
-                 uint32_t *num);
+		 uint32_t *num);
 
 /* Extract number from this (may be a string, or a number literal) */
 bool json_to_u16(const char *buffer, const jsmntok_t *tok,

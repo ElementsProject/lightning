@@ -149,7 +149,7 @@ void daemon_setup(const char *argv0,
 	 * not start if it cannot do its job correctly. */
 	if (sodium_init() == -1)
 		errx(1, "Could not initialize libsodium. Maybe not enough entropy"
-		         " available ?");
+		     " available ?");
 
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);

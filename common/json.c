@@ -123,7 +123,7 @@ bool json_to_number(const char *buffer, const jsmntok_t *tok,
 }
 
 bool json_to_u16(const char *buffer, const jsmntok_t *tok,
-                 short unsigned int *num)
+		 short unsigned int *num)
 {
 	uint64_t u64;
 
@@ -355,7 +355,7 @@ void json_tok_print(const char *buffer, const jsmntok_t *tok)
 	printf("size: %d, count: %td\n", tok->size, last - first);
 	while (first != last) {
 		printf("%td. %.*s, %s\n", first - tok,
-		        first->end - first->start, buffer + first->start,
+			first->end - first->start, buffer + first->start,
 			jsmntype_to_string(first->type));
 		first++;
 	}
@@ -405,32 +405,32 @@ const jsmntok_t *json_delve(const char *buffer,
 			    const char *guide)
 {
        while (*guide) {
-               const char *key;
-               size_t len = strcspn(guide+1, ".[]");
+	       const char *key;
+	       size_t len = strcspn(guide+1, ".[]");
 
-               key = tal_strndup(tmpctx, guide+1, len);
-               switch (guide[0]) {
-               case '.':
-                       if (tok->type != JSMN_OBJECT)
-                               return NULL;
-                       tok = json_get_member(buffer, tok, key);
-                       if (!tok)
-                               return NULL;
-                       break;
-               case '[':
-                       if (tok->type != JSMN_ARRAY)
-                               return NULL;
-                       tok = json_get_arr(tok, atol(key));
-                       if (!tok)
-                               return NULL;
-                       /* Must be terminated */
-                       assert(guide[1+strlen(key)] == ']');
-                       len++;
-                       break;
-               default:
-                       abort();
-               }
-               guide += len + 1;
+	       key = tal_strndup(tmpctx, guide+1, len);
+	       switch (guide[0]) {
+	       case '.':
+		       if (tok->type != JSMN_OBJECT)
+			       return NULL;
+		       tok = json_get_member(buffer, tok, key);
+		       if (!tok)
+			       return NULL;
+		       break;
+	       case '[':
+		       if (tok->type != JSMN_ARRAY)
+			       return NULL;
+		       tok = json_get_arr(tok, atol(key));
+		       if (!tok)
+			       return NULL;
+		       /* Must be terminated */
+		       assert(guide[1+strlen(key)] == ']');
+		       len++;
+		       break;
+	       default:
+		       abort();
+	       }
+	       guide += len + 1;
        }
 
        return tok;

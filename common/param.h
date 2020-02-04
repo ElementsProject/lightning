@@ -73,7 +73,7 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 /*
  * Add a required parameter.
  */
-#define p_req(name, cbx, arg)                                \
+#define p_req(name, cbx, arg)				     \
 	      name"",                                        \
 	      true,                                          \
 	      (param_cbx)(cbx),				     \

@@ -31,7 +31,7 @@ struct io_plan *io_lock_acquire_out_(struct io_conn *conn, struct io_lock *lock,
 				     void *arg);
 
 #define io_lock_acquire_in(conn, lock, next, arg)                             \
-	io_lock_acquire_in_((conn), (lock),                                   \
+	io_lock_acquire_in_((conn), (lock),				      \
 			    typesafe_cb_preargs(struct io_plan *, void *, \
 						(next), (arg),		\
 						struct io_conn *),	\

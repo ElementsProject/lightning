@@ -9,7 +9,7 @@
 typedef unsigned char u5;
 
 struct hash_u5 {
-        u64 buf;
+	u64 buf;
         unsigned int num_bits;
         struct sha256_ctx hash;
 };
