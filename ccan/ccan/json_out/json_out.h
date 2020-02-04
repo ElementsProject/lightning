@@ -87,11 +87,11 @@ bool json_out_end(struct json_out *jout, char type);
  * If the resulting string requires escaping, and @quote is true, we
  * call json_escape().
  */
+PRINTF_FMT(4,5)
 bool json_out_add(struct json_out *jout,
 		  const char *fieldname,
 		  bool quote,
-		  const char *fmt, ...)
-	PRINTF_FMT(4,5);
+		  const char *fmt, ...);
 
 /**
  * json_out_addv - add a formatted member (vararg variant)

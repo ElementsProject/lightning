@@ -639,7 +639,7 @@ static struct test *find_test(const char *name)
 #define MAIN_BODY_BOILERPLATE "return 0;\n"
 #define MAIN_END_BOILERPLATE "}\n"
 
-static bool run_test(const char *cmd, struct test *test)
+static bool run_test(const char *cmd, const char *wrapper, struct test *test)
 {
 	char *output, *newcmd;
 	FILE *outf;
@@ -667,7 +667,7 @@ static bool run_test(const char *cmd, struct test *test)
 				dep++;
 				positive = false;
 			}
-			if (run_test(cmd, find_test(dep)) != positive) {
+			if (run_test(cmd, wrapper, find_test(dep)) != positive) {
 				test->answer = false;
 				test->done = true;
 				return test->answer;
@@ -757,7 +757,14 @@ static bool run_test(const char *cmd, struct test *test)
 		/* We run INSIDE_MAIN tests for sanity checking. */
 		if (strstr(test->style, "EXECUTE")
 		    || strstr(test->style, "INSIDE_MAIN")) {
-			output = run("." DIR_SEP OUTPUT_FILE, &status);
+			char *cmd = malloc(strlen(wrapper) + strlen(" ." DIR_SEP OUTPUT_FILE) + 1);
+
+			strcpy(cmd, wrapper);
+			strcat(cmd, " ." DIR_SEP OUTPUT_FILE);
+			output = run(cmd, &status);
+			if (wrapper) {
+				free(cmd);
+			}
 			if (!strstr(test->style, "EXECUTE") && status != 0)
 				c12r_errx(EXIT_BAD_TEST,
 					  "Test for %s failed with %i:\n%s",
@@ -908,6 +915,7 @@ int main(int argc, const char *argv[])
 		= { "", DEFAULT_COMPILER, DEFAULT_FLAGS, NULL };
 	const char *outflag = DEFAULT_OUTPUT_EXE_FLAG;
 	const char *configurator_cc = NULL;
+	const char *wrapper = "";
 	const char *orig_cc;
 	const char *varfile = NULL;
 	const char *headerfile = NULL;
@@ -919,7 +927,7 @@ int main(int argc, const char *argv[])
 
 	while (argc > 1) {
 		if (strcmp(argv[1], "--help") == 0) {
-			printf("Usage: configurator [-v] [--var-file=<filename>] [-O<outflag>] [--configurator-cc=<compiler-for-tests>] [--autotools-style] [--extra-tests] [<compiler> <flags>...]\n"
+			printf("Usage: configurator [-v] [--var-file=<filename>] [-O<outflag>] [--configurator-cc=<compiler-for-tests>] [--wrapper=<wrapper-for-tests>] [--autotools-style] [--extra-tests] [<compiler> <flags>...]\n"
 			       "  <compiler> <flags> will have \"<outflag> <outfile> <infile.c>\" appended\n"
 			       "Default: %s %s %s\n",
 			       DEFAULT_COMPILER, DEFAULT_FLAGS,
@@ -946,6 +954,10 @@ int main(int argc, const char *argv[])
 			verbose += 2;
 		} else if (strncmp(argv[1], "--configurator-cc=", 18) == 0) {
 			configurator_cc = argv[1] + 18;
+			argc--;
+			argv++;
+		} else if (strncmp(argv[1], "--wrapper=", 10) == 0) {
+			wrapper = argv[1] + 10;
 			argc--;
 			argv++;
 		} else if (strncmp(argv[1], "--var-file=", 11) == 0) {
@@ -995,7 +1007,7 @@ int main(int argc, const char *argv[])
 		end_test(1);
 	}
 	for (i = 0; tests[i].name; i++)
-		run_test(cmd, &tests[i]);
+		run_test(cmd, wrapper, &tests[i]);
 	free(cmd);
 
 	remove(OUTPUT_FILE);
