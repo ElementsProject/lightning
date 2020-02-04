@@ -750,8 +750,8 @@ static struct io_plan *handle_ecdh(struct io_conn *conn,
 	if (!fromwire_hsm_ecdh_req(msg_in, &point))
 		return bad_req(conn, c, msg_in);
 
-	/*~ We simply use the secp256k1_ecdh function: if ss.data is invalid,
-	 * we kill them for bad randomness (~1 in 2^127 if ss.data is random) */
+	/*~ We simply use the secp256k1_ecdh function: if privkey.secret.data is invalid,
+	 * we kill them for bad randomness (~1 in 2^127 if privkey.secret.data is random) */
 	node_key(&privkey, NULL);
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
 			   privkey.secret.data, NULL, NULL) != 1) {
