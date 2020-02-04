@@ -735,6 +735,30 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 						    &secretstuff.bip32)));
 }
 
+/*~ The libsecp256k1 EC Diffie Hellman function provides X and Y coordinates
+ * of the point.
+ * We want the point itself, but the official constructors for struct pubkey
+ * use DER encoding, so we use a temporary DER encoding in-memory and
+ * convert from that.
+ */
+static int ecdh_load_point(u8 *uoutput,
+			   const u8 *x, const u8 *y,
+			   void *data UNUSED)
+{
+	struct pubkey *output = (struct pubkey *) uoutput;
+	u8 der_encoding[PUBKEY_CMPR_LEN];
+	/* Copied from libsecp256k1 code, no idea why this is.  */
+	u8 version = (y[31] & 0x01) | 0x02;
+
+	der_encoding[0] = version;
+	memcpy(&der_encoding[1], x, PUBKEY_CMPR_LEN - 1);
+
+	if (pubkey_from_der(der_encoding, sizeof(der_encoding), output))
+		return 1;
+	else
+		return 0;
+}
+
 /*~ The client has asked us to extract the shared secret from an EC Diffie
  * Hellman token.  This doesn't leak any information, but requires the private
  * key, so the hsmd performs it.  It's used to set up an encryption key for the
@@ -745,7 +769,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn,
 {
 	struct privkey privkey;
 	struct pubkey point;
-	struct secret ss;
+	struct pubkey ss;
 
 	if (!fromwire_hsm_ecdh_req(msg_in, &point))
 		return bad_req(conn, c, msg_in);
@@ -753,8 +777,8 @@ static struct io_plan *handle_ecdh(struct io_conn *conn,
 	/*~ We simply use the secp256k1_ecdh function: if privkey.secret.data is invalid,
 	 * we kill them for bad randomness (~1 in 2^127 if privkey.secret.data is random) */
 	node_key(&privkey, NULL);
-	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
-			   privkey.secret.data, NULL, NULL) != 1) {
+	if (secp256k1_ecdh(secp256k1_ctx, (u8 *) &ss, &point.pubkey,
+			   privkey.secret.data, &ecdh_load_point, NULL) != 1) {
 		return bad_req_fmt(conn, c, msg_in, "secp256k1_ecdh fail");
 	}
 

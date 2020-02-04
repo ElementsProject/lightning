@@ -1573,6 +1573,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
 {
 	u8 *req = towire_hsm_ecdh_req(tmpctx, point), *resp;
+	struct pubkey ss;
+	u8 ss_der[PUBKEY_CMPR_LEN];
+	struct sha256 ss_sha;
 	struct secret *secret = tal(ctx, struct secret);
 
 	if (!wire_sync_write(HSM_FD, req))
@@ -1584,8 +1587,21 @@ struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
 	/* Note: hsmd will actually hang up on us if it can't ECDH: that implies
 	 * that our node private key is invalid, and we shouldn't have made
 	 * it this far.  */
-	if (!fromwire_hsm_ecdh_resp(resp, secret))
+	if (!fromwire_hsm_ecdh_resp(resp, &ss))
 		return tal_free(secret);
+
+	/* BOLT #8:
+	 *
+	 *   * `ECDH(k, rk)`: performs an Elliptic-Curve Diffie-Hellman operation using
+	 *     `k`, which is a valid `secp256k1` private key, and `rk`, which is a valid public key
+	 *       * The returned value is the SHA256 of the DER-compressed format of the
+	 * 	    generated point.
+	 */
+	/* Encode shared secret point ss as DER, then hash the DER-encoding,
+	 * and finally use that as the secret.  */
+	pubkey_to_der(ss_der, &ss);
+	sha256(&ss_sha, ss_der, sizeof(ss_der));
+	memcpy(secret->data, ss_sha.u.u8, sizeof(secret->data));
 
 	return secret;
 }

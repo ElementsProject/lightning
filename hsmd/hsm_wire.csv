@@ -89,11 +89,11 @@ msgdata,hsm_sign_invoice,hrp,u8,hrplen
 msgtype,hsm_sign_invoice_reply,108
 msgdata,hsm_sign_invoice_reply,sig,secp256k1_ecdsa_recoverable_signature,
 
-# Give me ECDH(node-id-secret,point)
-msgtype,hsm_ecdh_req,1
+# Give me ECDH(node-id-secret,point), return point
+msgtype,hsm_ecdh_req,99
 msgdata,hsm_ecdh_req,point,pubkey,
-msgtype,hsm_ecdh_resp,100
-msgdata,hsm_ecdh_resp,ss,secret,
+msgtype,hsm_ecdh_resp,199
+msgdata,hsm_ecdh_resp,ss,pubkey,
 
 msgtype,hsm_cannouncement_sig_req,2
 msgdata,hsm_cannouncement_sig_req,calen,u16,

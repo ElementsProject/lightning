@@ -587,6 +587,9 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 					struct sha256 *next_onion_sha)
 {
 	struct onionpacket op;
+	struct pubkey ss;
+	u8 ss_der[PUBKEY_CMPR_LEN];
+	struct sha256 ss_sha;
 	struct secret *secret = tal(ctx, struct secret);
 	const u8 *msg;
 	struct route_step *rs;
@@ -598,8 +601,20 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 
 	/* Because wire takes struct pubkey. */
 	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &op.ephemeralkey));
-	if (!fromwire_hsm_ecdh_resp(msg, secret))
+	if (!fromwire_hsm_ecdh_resp(msg, &ss))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
+
+	/* BOLT #4:
+	 *
+	 * The resulting curve point is serialized to the
+	 * DER-compressed representation and hashed using `SHA256`. The hash output is used
+	 * as the 32-byte shared secret.
+	 */
+	/* Encode shared secret point ss as DER, then hash the DER-encoding,
+	 * and finally use that as the secret.  */
+	pubkey_to_der(ss_der, &ss);
+	sha256(&ss_sha, ss_der, sizeof(ss_der));
+	memcpy(secret->data, ss_sha.u.u8, sizeof(secret->data));
 
 	/* We make sure we can parse onion packet, so we know if shared secret
 	 * is actually valid (this checks hmac). */
