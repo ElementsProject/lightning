@@ -2151,3 +2151,29 @@ def test_sendcustommsg(node_factory):
     l4.daemon.wait_for_log(
         r'Got a custom message {serialized} from peer {peer_id}'.format(
             serialized=serialized, peer_id=l2.info['id']))
+
+
+@unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")
+def test_getsharedsecret(node_factory):
+    """
+    Test getsharedsecret command.
+    """
+    # From BOLT 8 test vectors.
+    options = [
+        {"dev-force-privkey": "1212121212121212121212121212121212121212121212121212121212121212"},
+        {}
+    ]
+    l1, l2 = node_factory.get_nodes(2, opts=options)
+
+    # Check BOLT 8 test vectors.
+    shared_secret = l1.rpc.getsharedsecret("028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7")['shared_secret']
+    assert (shared_secret == "1e2fb3c8fe8fb9f262f649f64d26ecf0f2c0a805a767cf02dc2d77a6ef1fdcc3")
+
+    # Clear the forced privkey of l1.
+    del l1.daemon.opts["dev-force-privkey"]
+    l1.restart()
+
+    # l1 and l2 can generate the same shared secret
+    # knowing only the public key of the other.
+    assert (l1.rpc.getsharedsecret(l2.info["id"])["shared_secret"]
+            == l2.rpc.getsharedsecret(l1.info["id"])["shared_secret"])
