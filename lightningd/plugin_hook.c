@@ -9,6 +9,8 @@
 /* Struct containing all the information needed to deserialize and
  * dispatch an eventual plugin_hook response. */
 struct plugin_hook_request {
+	struct plugin *plugin;
+	int current_plugin;
 	const struct plugin_hook *hook;
 	void *cb_arg;
 	struct db *db;
@@ -33,26 +35,44 @@ bool plugin_hook_register(struct plugin *plugin, const char *method)
 	if (!hook) {
 		/* No such hook name registered */
 		return false;
-	} else if (hook->plugin != NULL) {
-		/* Another plugin already registered for this name */
-		return false;
 	}
-	hook->plugin = plugin;
+
+	/* Make sure the plugins array is initialized. */
+	if (hook->plugins == NULL)
+		hook->plugins = notleak(tal_arr(NULL, struct plugin *, 0));
+
+	/* If this is a single type hook and we have a plugin registered we
+	 * must fail this attempt to add the plugin to the hook. */
+	if (hook->type == PLUGIN_HOOK_SINGLE && tal_count(hook->plugins) > 0)
+		return false;
+
+	/* Ensure we don't register the same plugin multple times. */
+	for (size_t i=0; i<tal_count(hook->plugins); i++)
+		if (hook->plugins[i] == plugin)
+			return true;
+
+	/* Ok, we're sure they can register and they aren't yet registered, so
+	 * register them. */
+	tal_arr_expand(&hook->plugins, plugin);
 	return true;
 }
 
 bool plugin_hook_unregister(struct plugin *plugin, const char *method)
 {
 	struct plugin_hook *hook = plugin_hook_by_name(method);
-	if (!hook) {
+
+	if (!hook || !hook->plugins) {
 		/* No such hook name registered */
 		return false;
-	} else if (hook->plugin == NULL) {
-		/* This name is not registered */
-		return false;
 	}
-	hook->plugin = NULL;
-	return true;
+
+	for (size_t i = 0; i < tal_count(hook->plugins); i++) {
+		if (hook->plugins[i] == plugin) {
+			tal_arr_remove(&hook->plugins, i);
+			return true;
+		}
+	}
+	return false;
 }
 
 void plugin_hook_unregister_all(struct plugin *plugin)
@@ -63,8 +83,7 @@ void plugin_hook_unregister_all(struct plugin *plugin)
 		hooks = autodata_get(hooks, &num_hooks);
 
 	for (size_t i = 0; i < num_hooks; i++)
-		if (hooks[i]->plugin == plugin)
-			hooks[i]->plugin = NULL;
+		plugin_hook_unregister(plugin, hooks[i]->name);
 }
 
 /**
@@ -87,7 +106,7 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 		      toks->end - toks->start, buffer + toks->start);
 
 	/* If command is "plugin stop", this can free r! */
-	pd = plugin_detect_destruction(r->hook->plugin);
+	pd = plugin_detect_destruction(r->plugin);
 	db_begin_transaction(db);
 	r->hook->response_cb(r->cb_arg, buffer, resulttok);
 	db_commit_transaction(db);
@@ -100,22 +119,26 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 {
 	struct jsonrpc_request *req;
 	struct plugin_hook_request *ph_req;
-	if (hook->plugin) {
+	if (tal_count(hook->plugins)) {
 		/* If we have a plugin that has registered for this
 		 * hook, serialize and call it */
 		/* FIXME: technically this is a leak, but we don't
 		 * currently have a list to store these. We might want
 		 * to eventually to inspect in-flight requests. */
-		ph_req = notleak(tal(hook->plugin, struct plugin_hook_request));
-		req = jsonrpc_request_start(NULL, hook->name,
-					    plugin_get_log(hook->plugin),
-					    plugin_hook_callback, ph_req);
+		ph_req = notleak(tal(hook->plugins, struct plugin_hook_request));
 		ph_req->hook = hook;
 		ph_req->cb_arg = cb_arg;
 		ph_req->db = ld->wallet->db;
+		ph_req->current_plugin = 0;
+		ph_req->plugin = hook->plugins[ph_req->current_plugin];
+
+		req = jsonrpc_request_start(NULL, hook->name,
+					    plugin_get_log(ph_req->plugin),
+					    plugin_hook_callback, ph_req);
+
 		hook->serialize_payload(payload, req->stream);
 		jsonrpc_request_end(req);
-		plugin_request_send(hook->plugin, req);
+		plugin_request_send(ph_req->plugin, req);
 	} else {
 		/* If no plugin has registered for this hook, just
 		 * call the callback with a NULL result. Saves us the
@@ -193,18 +216,21 @@ void plugin_hook_db_sync(struct db *db)
 	struct jsonrpc_request *req;
 	struct plugin_hook_request *ph_req;
 	void *ret;
+	struct plugin *plugin;
 
 	const char **changes = db_changes(db);
-	if (!hook->plugin)
+	if (tal_count(hook->plugins) == 0)
 		return;
 
-	ph_req = notleak(tal(hook->plugin, struct plugin_hook_request));
+	ph_req = notleak(tal(hook->plugins, struct plugin_hook_request));
 	/* FIXME: do IO logging for this! */
 	req = jsonrpc_request_start(NULL, hook->name, NULL, db_hook_response,
 				    ph_req);
 
 	ph_req->hook = hook;
 	ph_req->db = db;
+	ph_req->current_plugin = 0;
+	plugin = ph_req->plugin = hook->plugins[ph_req->current_plugin];
 
 	json_add_num(req->stream, "data_version", db_data_version_get(db));
 
@@ -214,14 +240,14 @@ void plugin_hook_db_sync(struct db *db)
 	json_array_end(req->stream);
 	jsonrpc_request_end(req);
 
-	plugin_request_send(hook->plugin, req);
+	plugin_request_send(ph_req->plugin, req);
 
 	/* We can be called on way out of an io_loop, which is already breaking.
 	 * That will make this immediately return; save the break value and call
 	 * again, then hand it onwards. */
-	ret = plugin_exclusive_loop(hook->plugin);
+	ret = plugin_exclusive_loop(plugin);
 	if (ret != ph_req) {
-		void *ret2 = plugin_exclusive_loop(hook->plugin);
+		void *ret2 = plugin_exclusive_loop(plugin);
 		assert(ret2 == ph_req);
 		io_break(ret);
 	}
