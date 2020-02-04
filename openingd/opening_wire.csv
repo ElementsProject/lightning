@@ -49,7 +49,7 @@ msgdata,opening_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 msgtype,opening_got_offer_reply,6105
 msgdata,opening_got_offer_reply,rejection,?wirestring,
 msgdata,opening_got_offer_reply,shutdown_len,u16,
-msgdata,opening_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
+msgdata,opening_got_offer_reply,our_shutdown_scriptpubkey,u8,shutdown_len
 
 # master->openingd: we'd like to fund this too, maybe
 msgtype,opening_got_offer_reply_fund,6107
@@ -59,7 +59,7 @@ msgdata,opening_got_offer_reply_fund,utxos,utxo,num_inputs
 msgdata,opening_got_offer_reply_fund,num_outputs,u16,
 msgdata,opening_got_offer_reply_fund,outputs,bitcoin_tx_output,num_outputs
 msgdata,opening_got_offer_reply_fund,shutdown_len,u16,
-msgdata,opening_got_offer_reply_fund,our_shutdown_scriptpubkey,?u8,shutdown_len
+msgdata,opening_got_offer_reply_fund,our_shutdown_scriptpubkey,u8,shutdown_len
 
 # Openingd->master: we've successfully offered channel.
 # This gives their sig, means we can broadcast tx: we're done.

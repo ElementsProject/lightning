@@ -175,7 +175,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
 	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
 		channel_fail_permanent(channel, "Bad shutdown scriptpubkey %s",
-				       tal_hex(channel, scriptpubkey));
+				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}
 
