@@ -1126,3 +1126,15 @@ class LightningRpc(UnixDomainSocketRpc):
             "pubkey": pubkey,
         }
         return self.call("checkmessage", payload)
+
+    def getecdh(self, point, **kwargs):
+        """
+        Compute the Elliptic Curve Diffie Hellman shared
+        secret point from this node private key and an
+        input {point}.
+        """
+        payload = {
+            "point": point
+        }
+        payload.update({k: v for k, v in kwargs.items()})
+        return self.call("getecdh", payload)

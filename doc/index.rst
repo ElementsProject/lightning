@@ -43,6 +43,7 @@ c-lightning Documentation
    lightning-fundchannel_cancel <lightning-fundchannel_cancel.7.md>
    lightning-fundchannel_complete <lightning-fundchannel_complete.7.md>
    lightning-fundchannel_start <lightning-fundchannel_start.7.md>
+   lightning-getecdh <lightning-getecdh.7.md>
    lightning-getroute <lightning-getroute.7.md>
    lightning-invoice <lightning-invoice.7.md>
    lightning-listchannels <lightning-listchannels.7.md>
