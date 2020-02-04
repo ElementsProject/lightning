@@ -202,7 +202,7 @@ struct command_result *param_sat_or_all(struct command *cmd, const char *name,
 }
 
 struct command_result *param_node_id(struct command *cmd, const char *name,
-		                     const char *buffer, const jsmntok_t *tok,
+		  		     const char *buffer, const jsmntok_t *tok,
 				     struct node_id **id)
 {
 	*id = tal(cmd, struct node_id);

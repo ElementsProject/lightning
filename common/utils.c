@@ -138,6 +138,6 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n)
     assert(len % elemsize == 0);
     assert((n + 1) * elemsize <= len);
     memmove(objp + elemsize * n, objp + elemsize * (n+1),
-                      len - (elemsize * (n+1)));
+	    len - (elemsize * (n+1)));
     tal_resize((char **)p, len - elemsize);
 }

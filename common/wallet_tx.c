@@ -37,7 +37,7 @@ struct command_result *param_wtx(struct command *cmd,
 					buffer + tok->start);
 
 	if (amount_sat_greater(wtx->amount, max))
-                return command_fail(wtx->cmd, FUND_MAX_EXCEEDED,
+		return command_fail(wtx->cmd, FUND_MAX_EXCEEDED,
 				    "Amount exceeded %s",
 				    type_to_string(tmpctx, struct amount_sat,
 						   &max));

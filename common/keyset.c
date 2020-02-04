@@ -8,7 +8,7 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 		   bool option_static_remotekey,
 		   struct keyset *keyset)
 {
-        /* BOLT #3:
+	/* BOLT #3:
 	 *
 	 * ### `localpubkey`, `local_htlcpubkey`, `remote_htlcpubkey`, `local_delayedpubkey`, and `remote_delayedpubkey` Derivation
 	 *

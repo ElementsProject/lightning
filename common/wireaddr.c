@@ -311,7 +311,7 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 
 struct wireaddr *
 wireaddr_from_hostname(const tal_t *ctx,
-                       const char *hostname,
+		       const char *hostname,
                        const u16 port, bool *no_dns,
                        struct sockaddr *broken_reply,
                        const char **err_msg)
