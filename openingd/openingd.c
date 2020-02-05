@@ -1408,7 +1408,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 		return NULL;
 
 	input_count = tal_count(local_ins) + tal_count(remote_ins);
-	const void *map[input_count];
+	void **map = tal_arr(state, void *, input_count);
 	for (i = 0; i < input_count; i++)
 		map[i] = int2ptr(i);
 
@@ -1473,9 +1473,11 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 					   &state->first_per_commitment_point[REMOTE],
 					   REMOTE, &err_reason);
 
-	if (!remote_commit)
+	if (!remote_commit) {
 		negotiation_failed(state, true,
 				   "Could not meet fees and reserve: %s", err_reason);
+		goto fail_1;
+	}
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
@@ -1532,9 +1534,12 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->first_per_commitment_point[LOCAL],
 					  LOCAL, &err_reason);
-	if (!local_commit)
+	if (!local_commit) {
 		negotiation_failed(state, false,
 				   "Did not meet fees and reserve: %s", err_reason);
+		goto fail_2;
+	}
+
 
 	/*
 	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
@@ -1564,6 +1569,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 		else
 			input_amts[i] = AMOUNT_SAT(0);
 	}
+	map = tal_free(map);
 
 	/*
 	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
@@ -1622,9 +1628,21 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 						  state->feerate_per_kw_funding,
 					          state->localconf.channel_reserve,
 					          state->upfront_shutdown_script[REMOTE]);
-#else
-	return NULL;
+
+
+fail_2:
+	tal_free(remote_commit);
+fail_1:
+	tal_free(funding_tx);
+	tal_free(wscript);
+	tal_free(map);
+	tal_free(local_ins);
+	tal_free(local_outs);
+	tal_free(remote_ins);
+	tal_free(remote_outs);
 #endif /* EXPERIMENTAL_FEATURES */
+
+	return NULL;
 }
 
 static bool funder_finalize_channel_setup(struct state *state,
@@ -2289,6 +2307,7 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	if (!remote_commit) {
 		negotiation_failed(state, true,
 				   "Could not meet their fees and reserve: %s", err_reason);
+		return NULL;
 	}
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
