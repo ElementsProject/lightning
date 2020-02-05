@@ -839,10 +839,6 @@ int main(int argc, char *argv[])
 	else if (max_blockheight != UINT32_MAX)
 		max_blockheight -= ld->config.rescan;
 
-	/*~ Tell the wallet to start figuring out what to do for any reserved
-	 * unspent outputs we may have crashed with. */
-	wallet_clean_utxos(ld->wallet, ld->topology->bitcoind);
-
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);
 
@@ -851,10 +847,14 @@ int main(int argc, char *argv[])
 	setup_topology(ld->topology, ld->timers,
 		       min_blockheight, max_blockheight);
 
+	db_begin_transaction(ld->wallet->db);
+	/*~ Tell the wallet to start figuring out what to do for any reserved
+	 * unspent outputs we may have crashed with. */
+	wallet_clean_utxos(ld->wallet, ld->topology->bitcoind);
+
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
 	 *  topology is initialized since some decisions rely on being able to
 	 *  know the blockheight. */
-	db_begin_transaction(ld->wallet->db);
 	unconnected_htlcs_in = load_channels_from_wallet(ld);
 	db_commit_transaction(ld->wallet->db);
 
