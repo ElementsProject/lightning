@@ -714,6 +714,8 @@ class LightningNode(object):
 
         # Now go ahead and open a channel
         num_tx = len(self.bitcoin.rpc.getrawmempool())
+
+        self.rpc.connect(l2.info['id'], 'localhost', l2.port)
         tx = self.rpc.fundchannel(l2.info['id'], amount, announce=announce_channel)['tx']
 
         wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
