@@ -102,7 +102,6 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 {
 	const jsmntok_t *resulttok, *resrestok;
 	struct db *db = r->db;
-	struct plugin_destroyed *pd;
 	bool more_plugins = r->current_plugin + 1 < tal_count(r->hook->plugins);
 
 	resulttok = json_get_member(buffer, toks, "result");
@@ -115,18 +114,16 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	resrestok = json_get_member(buffer, resulttok, "result");
 
 	/* If this is a hook response containing a `continue` and we have more
-	 * plugins queue the next call. */
+	 * plugins queue the next call. In that case we discard the remainder
+	 * of the result, and let the next plugin decide. */
 	if (resrestok && json_tok_streq(buffer, resrestok, "continue") &&
 	    more_plugins) {
 		plugin_hook_call_next(r);
 	} else {
-		/* If command is "plugin stop", this can free r! */
-		pd = plugin_detect_destruction(r->plugin);
 		db_begin_transaction(db);
 		r->hook->response_cb(r->cb_arg, buffer, resulttok);
 		db_commit_transaction(db);
-		if (!was_plugin_destroyed(pd))
-			tal_free(r);
+		tal_free(r);
 	}
 }
 
