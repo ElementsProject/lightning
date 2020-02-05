@@ -4,8 +4,8 @@ API Coverage
 
 ## Failing Tests
 
-# passes much of the time
-tests/test_closing.py::test_closing_different_fees
+tests/test_connection.py::test_restart_many_payments
+tests/test_misc.py::test_signmessage
 
 
 #### proxy and server done

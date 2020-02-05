@@ -1963,10 +1963,11 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	struct bitcoin_tx *tx;
 	struct pubkey changekey;
 	struct bitcoin_tx_output **outputs;
+	u32 nlocktime;
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in, &satoshi_out,
 					  &change_out, &change_keyindex,
-					  &outputs, &utxos))
+					  &outputs, &utxos, &nlocktime))
 		return bad_req(conn, c, msg_in);
 
 	if (!bip32_pubkey(&secretstuff.bip32, &changekey, change_keyindex))
@@ -1975,7 +1976,7 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 
 	tx = withdraw_tx(tmpctx, c->chainparams,
 			 cast_const2(const struct utxo **, utxos), outputs,
-			 &changekey, change_out, NULL, NULL);
+			 &changekey, change_out, NULL, NULL, nlocktime);
 
 	u8 *** sigs;
 	proxy_stat rv = proxy_handle_sign_withdrawal_tx(
