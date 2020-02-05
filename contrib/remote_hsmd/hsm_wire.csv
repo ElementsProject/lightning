@@ -74,6 +74,7 @@ msgdata,hsm_sign_withdrawal,num_outputs,u16,
 msgdata,hsm_sign_withdrawal,outputs,bitcoin_tx_output,num_outputs
 msgdata,hsm_sign_withdrawal,num_inputs,u16,
 msgdata,hsm_sign_withdrawal,inputs,utxo,num_inputs
+msgdata,hsm_sign_withdrawal,nlocktime,u32,
 
 msgtype,hsm_sign_withdrawal_reply,107
 msgdata,hsm_sign_withdrawal_reply,tx,bitcoin_tx,
