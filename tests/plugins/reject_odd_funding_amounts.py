@@ -15,7 +15,12 @@ def on_openchannel(openchannel, plugin, **kwargs):
     for k in sorted(openchannel.keys()):
         print("{}={}".format(k, openchannel[k]))
 
-    if Millisatoshi(openchannel['funding_satoshis']).to_satoshi() % 2 == 1:
+    if 'version' in openchannel and openchannel['version'] == 2:
+        key = 'opener_satoshis'
+    else:
+        key = 'funding_satoshis'
+
+    if Millisatoshi(openchannel[key]).to_satoshi() % 2 == 1:
         return {'result': 'reject', 'error_message': "I don't like odd amounts"}
 
     return {'result': 'continue'}

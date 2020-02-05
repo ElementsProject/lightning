@@ -496,18 +496,29 @@ def test_openchannel_hook(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], 100000)
 
     # Make sure plugin got all the vars we expect
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: 11 VARS')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: channel_flags=1')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: channel_reserve_satoshis=1000000msat')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: dust_limit_satoshis=546000msat')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: feerate_per_kw=7500')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: funding_satoshis=100000000msat')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: htlc_minimum_msat=0msat')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: id={}'.format(l1.info['id']))
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: max_accepted_htlcs=483')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: max_htlc_value_in_flight_msat=18446744073709551615msat')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: push_msat=0msat')
     l2.daemon.wait_for_log('reject_odd_funding_amounts.py: to_self_delay=5')
+
+    if l2.daemon.is_in_log('reject_odd_funding_amounts.py: 12 VARS'):
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: channel_reserve_satoshis=1000000msat')
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: funding_satoshis=100000000msat')
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: version=1')
+    # For V2 !!
+    elif l2.daemon.is_in_log('reject_odd_funding_amounts.py: 14 VARS'):
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: available_funds=0msat')
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: channel_reserve_satoshis=0msat')
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: feerate_per_kw_funding=7500')
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: opener_satoshis=100000000msat')
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: version=2')
+    else:
+        raise Exception("VAR count incorrect/not found")
 
     # Close it.
     txid = l1.rpc.close(l2.info['id'])['txid']
