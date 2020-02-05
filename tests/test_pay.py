@@ -331,7 +331,7 @@ def test_pay_optional_args(node_factory):
 def test_payment_success_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED', '+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
                                may_reconnect=True,
                                feerates=(7500, 7500, 7500, 7500))
@@ -376,7 +376,7 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
 def test_payment_failed_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED', '+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
                                may_reconnect=True,
                                feerates=(7500, 7500, 7500, 7500))

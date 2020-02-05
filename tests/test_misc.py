@@ -279,7 +279,7 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(options={'dev-no-reconnect': None},
                                feerates=(7500, 7500, 7500, 7500))
-    l2 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'])
+    l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED', '+WIRE_COMMITMENT_SIGNED'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 10**6)

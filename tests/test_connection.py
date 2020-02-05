@@ -518,7 +518,8 @@ def test_reconnect_sender_add1(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_reconnect_sender_add(node_factory):
-    disconnects = ['-WIRE_COMMITMENT_SIGNED',
+    disconnects = ['=WIRE_COMMITMENT_SIGNED',
+                   '-WIRE_COMMITMENT_SIGNED',
                    '@WIRE_COMMITMENT_SIGNED',
                    '+WIRE_COMMITMENT_SIGNED',
                    '-WIRE_REVOKE_AND_ACK',
@@ -542,13 +543,14 @@ def test_reconnect_sender_add(node_factory):
     # This will send commit, so will reconnect as required.
     l1.rpc.sendpay(route, rhash)
     # Should have printed this for every reconnect.
-    for i in range(0, len(disconnects)):
+    for i in range(0, len(disconnects) - 1):
         l1.daemon.wait_for_log('Already have funding locked in')
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_reconnect_receiver_add(node_factory):
-    disconnects = ['-WIRE_COMMITMENT_SIGNED',
+    disconnects = ['=WIRE_COMMITMENT_SIGNED',
+                   '-WIRE_COMMITMENT_SIGNED',
                    '@WIRE_COMMITMENT_SIGNED',
                    '+WIRE_COMMITMENT_SIGNED',
                    '-WIRE_REVOKE_AND_ACK',
@@ -568,7 +570,7 @@ def test_reconnect_receiver_add(node_factory):
 
     route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
     l1.rpc.sendpay(route, rhash)
-    for i in range(len(disconnects)):
+    for i in range(len(disconnects) - 1):
         l1.daemon.wait_for_log('Already have funding locked in')
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
 
@@ -1451,7 +1453,7 @@ def test_fee_limits(node_factory, bitcoind):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_update_fee_reconnect(node_factory, bitcoind):
     # Disconnect after commitsig for fee update.
-    disconnects = ['+WIRE_COMMITMENT_SIGNED*3']
+    disconnects = ['=WIRE_COMMITMENT_SIGNED', '+WIRE_COMMITMENT_SIGNED*2']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True,
                                feerates=(15000, 15000, 15000, 3750))
@@ -1760,7 +1762,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_funder_feerate_reconnect(node_factory, bitcoind):
     # l1 updates fees, then reconnect so l2 retransmits commitment_signed.
-    disconnects = ['-WIRE_COMMITMENT_SIGNED*3']
+    disconnects = ['=WIRE_COMMITMENT_SIGNED', '-WIRE_COMMITMENT_SIGNED*3']
     l1 = node_factory.get_node(may_reconnect=True,
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
