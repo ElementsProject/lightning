@@ -943,7 +943,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
     # FIXME: allow for v2 channel opens to support externally funded
     if int(resp['open_channel_version']) == 2:
-        return
+        pytest.skip('running as v2, external wallet funding not permitted')
 
     with pytest.raises(RpcError, match=r'Already funding channel'):
         l1.rpc.fundchannel(l2.info['id'], amount)
@@ -1114,7 +1114,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
         # FIXME: external wallet opens currently disabled for v2
         if resp['open_channel_version'] == 2:
-            return False
+            pytest.skip('running as v2, external wallet funding not permitted')
 
         funding_addr = resp['funding_address']
 
@@ -1141,13 +1141,9 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
         for node in [l1, l2]:
             node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
-        return True
-
-    # FIXME: allow for externally funded channels on v2 of the protocol
-    if not _fundchannel(l1, l2, amt_normal, None):
-        return
 
     # check that normal peer close works
+    _fundchannel(l1, l2, amt_normal, None)
     assert l1.rpc.close(l2.info['id'])['type'] == 'mutual'
 
     # check that you can provide a closing address upfront
