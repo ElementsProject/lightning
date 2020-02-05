@@ -13,6 +13,7 @@ struct plugin_hook_request {
 	int current_plugin;
 	const struct plugin_hook *hook;
 	void *cb_arg;
+	void *payload;
 	struct db *db;
 };
 
@@ -129,6 +130,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		ph_req->hook = hook;
 		ph_req->cb_arg = cb_arg;
 		ph_req->db = ld->wallet->db;
+		ph_req->payload = payload;
 		ph_req->current_plugin = 0;
 		ph_req->plugin = hook->plugins[ph_req->current_plugin];
 
