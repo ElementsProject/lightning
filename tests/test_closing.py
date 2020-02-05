@@ -328,7 +328,7 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
     # Both nodes should have disabled the channel in their view
     wait_for(lambda: len(l1.getactivechannels()) == 0)
 
-    assert bitcoind.rpc.getmempoolinfo()['size'] == 3
+    wait_for(lambda: bitcoind.rpc.getmempoolinfo()['size'] == 3)
 
     # Now grab the close transaction
     closetxs = {}
