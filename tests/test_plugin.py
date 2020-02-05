@@ -1012,3 +1012,54 @@ def test_bcli(node_factory, bitcoind, chainparams):
 
     resp = l1.rpc.call("sendrawtransaction", {"tx": "dummy"})
     assert not resp["success"] and "decode failed" in resp["errmsg"]
+
+
+@pytest.mark.xfail(strict=True)
+def test_hook_crash(node_factory, executor, bitcoind):
+    """Verify that we fail over if a plugin crashes while handling a hook.
+
+    We create a star topology, with l1 opening channels to the other nodes,
+    and then triggering the plugins on those nodes in order to exercise the
+    hook chain. p0 is the interesting plugin because as soon as it get called
+    for the htlc_accepted hook it'll crash on purpose. We should still make it
+    through the chain, the plugins should all be called and the payment should
+    still go through.
+
+    """
+    p0 = os.path.join(os.path.dirname(__file__), "plugins/hook-crash.py")
+    p1 = os.path.join(os.path.dirname(__file__), "plugins/hook-chain-odd.py")
+    p2 = os.path.join(os.path.dirname(__file__), "plugins/hook-chain-even.py")
+    perm = [
+        (p0, p1, p2),  # Crashing plugin is first in chain
+        (p1, p0, p2),  # Crashing plugin is in the middle of the chain
+        (p1, p2, p0),  # Crashing plugin is last in chain
+    ]
+
+    l1 = node_factory.get_node()
+    nodes = [node_factory.get_node() for _ in perm]
+
+    # Start them in any order and we should still always end up with each
+    # plugin being called and ultimately the `pay` call should succeed:
+    for plugins, n in zip(perm, nodes):
+        for p in plugins:
+            n.rpc.plugin_start(p)
+        l1.openchannel(n, 10**6, confirm=False, wait_for_announce=False)
+
+    bitcoind.generate_block(6)
+
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2 * len(perm))
+
+    futures = []
+    for n in nodes:
+        inv = n.rpc.invoice(123, "lbl", "desc")['bolt11']
+        futures.append(executor.submit(l1.rpc.pay, inv))
+
+    for n in nodes:
+        n.daemon.wait_for_logs([
+            r'Plugin is about to crash.',
+            r'plugin-hook-chain-odd.py: htlc_accepted called for payment_hash',
+            r'plugin-hook-chain-even.py: htlc_accepted called for payment_hash',
+        ])
+
+    # Collect the results:
+    [f.result(TIMEOUT) for f in futures]
