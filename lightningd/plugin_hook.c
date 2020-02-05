@@ -115,10 +115,26 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 		tal_free(r);
 }
 
+static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
+{
+	struct jsonrpc_request *req;
+	const struct plugin_hook *hook = ph_req->hook;
+	ph_req->current_plugin++;
+	assert(ph_req->current_plugin < tal_count(hook->plugins));
+	ph_req->plugin = ph_req->hook->plugins[ph_req->current_plugin];
+
+	req = jsonrpc_request_start(NULL, hook->name,
+				    plugin_get_log(ph_req->plugin),
+				    plugin_hook_callback, ph_req);
+
+	hook->serialize_payload(ph_req->payload, req->stream);
+	jsonrpc_request_end(req);
+	plugin_request_send(ph_req->plugin, req);
+}
+
 void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		       void *payload, void *cb_arg)
 {
-	struct jsonrpc_request *req;
 	struct plugin_hook_request *ph_req;
 	if (tal_count(hook->plugins)) {
 		/* If we have a plugin that has registered for this
@@ -130,17 +146,9 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		ph_req->hook = hook;
 		ph_req->cb_arg = cb_arg;
 		ph_req->db = ld->wallet->db;
-		ph_req->payload = payload;
-		ph_req->current_plugin = 0;
-		ph_req->plugin = hook->plugins[ph_req->current_plugin];
-
-		req = jsonrpc_request_start(NULL, hook->name,
-					    plugin_get_log(ph_req->plugin),
-					    plugin_hook_callback, ph_req);
-
-		hook->serialize_payload(payload, req->stream);
-		jsonrpc_request_end(req);
-		plugin_request_send(ph_req->plugin, req);
+		ph_req->payload = tal_steal(ph_req, payload);
+		ph_req->current_plugin = -1;
+		plugin_hook_call_next(ph_req);
 	} else {
 		/* If no plugin has registered for this hook, just
 		 * call the callback with a NULL result. Saves us the
