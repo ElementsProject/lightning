@@ -249,12 +249,21 @@ def test_disconnect(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_disconnect_funder(node_factory):
-    # Now error on funder side duringchannel open.
-    disconnects = ['-WIRE_OPEN_CHANNEL',
-                   '@WIRE_OPEN_CHANNEL',
-                   '+WIRE_OPEN_CHANNEL',
-                   '-WIRE_FUNDING_CREATED',
-                   '@WIRE_FUNDING_CREATED']
+    if EXPERIMENTAL_FEATURES:
+        openchannel_key = 'WIRE_OPEN_CHANNEL2'
+        # for v2, we replace 'funding created' with
+        # 'commitment signed'
+        funding_created = 'WIRE_COMMITMENT_SIGNED'
+    else:
+        openchannel_key = 'WIRE_OPEN_CHANNEL'
+        funding_created = 'WIRE_FUNDING_CREATED'
+
+    # Now error on funder side during channel open.
+    disconnects = ['-' + openchannel_key,
+                   '@' + openchannel_key,
+                   '+' + openchannel_key,
+                   '-' + funding_created,
+                   '@' + funding_created]
     l1 = node_factory.get_node(disconnect=disconnects)
     l2 = node_factory.get_node()
 
@@ -277,10 +286,15 @@ def test_disconnect_funder(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_disconnect_fundee(node_factory):
+    if EXPERIMENTAL_FEATURES:
+        acceptchannel_key = 'WIRE_ACCEPT_CHANNEL2'
+    else:
+        acceptchannel_key = 'WIRE_ACCEPT_CHANNEL'
+
     # Now error on fundee side during channel open.
-    disconnects = ['-WIRE_ACCEPT_CHANNEL',
-                   '@WIRE_ACCEPT_CHANNEL',
-                   '+WIRE_ACCEPT_CHANNEL']
+    disconnects = ['-' + acceptchannel_key,
+                   '@' + acceptchannel_key,
+                   '+' + acceptchannel_key]
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
 
@@ -305,7 +319,12 @@ def test_disconnect_fundee(node_factory):
 def test_disconnect_half_signed(node_factory):
     # Now, these are the corner cases.  Fundee sends funding_signed,
     # but funder doesn't receive it.
-    disconnects = ['@WIRE_FUNDING_SIGNED']
+    if EXPERIMENTAL_FEATURES:
+        funding_signedkey = 'WIRE_FUNDING_SIGNED2'
+    else:
+        funding_signedkey = 'WIRE_FUNDING_SIGNED'
+
+    disconnects = ['@' + funding_signedkey]
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
 
@@ -322,8 +341,13 @@ def test_disconnect_half_signed(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_reconnect_signed(node_factory):
+    if EXPERIMENTAL_FEATURES:
+        funding_signedkey = 'WIRE_FUNDING_SIGNED2'
+    else:
+        funding_signedkey = 'WIRE_FUNDING_SIGNED'
+
     # This will fail *after* both sides consider channel opening.
-    disconnects = ['+WIRE_FUNDING_SIGNED']
+    disconnects = ['+' + funding_signedkey]
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
@@ -349,8 +373,13 @@ def test_reconnect_signed(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_reconnect_openingd(node_factory):
+    if EXPERIMENTAL_FEATURES:
+        acceptchannel_key = 'WIRE_ACCEPT_CHANNEL2'
+    else:
+        acceptchannel_key = 'WIRE_ACCEPT_CHANNEL'
+
     # Openingd thinks we're still opening; funder reconnects..
-    disconnects = ['0WIRE_ACCEPT_CHANNEL']
+    disconnects = ['0' + acceptchannel_key]
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
@@ -2053,8 +2082,13 @@ def test_restart_many_payments(node_factory, bitcoind):
 def test_fail_unconfirmed(node_factory, bitcoind, executor):
     """Test that if we crash with an unconfirmed connection to a known
     peer, we don't have a dangling peer in db"""
+    if EXPERIMENTAL_FEATURES:
+        openchannel_key = 'WIRE_OPEN_CHANNEL2'
+    else:
+        openchannel_key = 'WIRE_OPEN_CHANNEL'
+
     # = is a NOOP disconnect, but sets up file.
-    l1 = node_factory.get_node(disconnect=['=WIRE_OPEN_CHANNEL'])
+    l1 = node_factory.get_node(disconnect=['=' + openchannel_key])
     l2 = node_factory.get_node()
 
     # First one, we close by mutual agreement.
@@ -2070,7 +2104,7 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
     l1.stop()
     # Mangle disconnect file so this time it blackholes....
     with open(l1.daemon.disconnect_file, "w") as f:
-        f.write("0WIRE_OPEN_CHANNEL\n")
+        f.write('0' + openchannel_key + '\n')
     l1.start()
 
     # Now we establish a new channel, which gets stuck.
