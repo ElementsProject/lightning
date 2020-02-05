@@ -105,11 +105,11 @@ def test_bitcoin_failure(node_factory, bitcoind):
     l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
 
     # This should cause both estimatefee and getblockhash fail
-    l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
+    l1.daemon.wait_for_logs(['Unable to estimate .* fee',
                              'getblockhash .* exited with status 1'])
 
     # And they should retry!
-    l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
+    l1.daemon.wait_for_logs(['Unable to estimate .* fee',
                              'getblockhash .* exited with status 1'])
 
     # Restore, then it should recover and get blockheight.
@@ -137,7 +137,7 @@ def test_bitcoin_ibd(node_factory, bitcoind):
     # "Finish" IDB.
     l1.daemon.rpcproxy.mock_rpc('getblockchaininfo', None)
 
-    l1.daemon.wait_for_log('Bitcoind now synced')
+    l1.daemon.wait_for_log('Bitcoin backend now synced')
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
 
 
@@ -1648,7 +1648,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     def mock_fail(*args):
         raise ValueError()
 
-    l1.daemon.rpcproxy.mock_rpc('getblock', mock_fail)
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', mock_fail)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_fail)
 
     f = executor.submit(l1.start)
@@ -1657,12 +1657,12 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     # Make sure it fails on the first `getblock` call (need to use `is_in_log`
     # since the `wait_for_log` in `start` sets the offset)
     wait_for(lambda: l1.daemon.is_in_log(
-        r'getblock [a-z0-9]* false exited with status 1'))
+        r'getblockhash [a-z0-9]* exited with status 1'))
     wait_for(lambda: l1.daemon.is_in_log(
-        r'estimatesmartfee 2 CONSERVATIVE exited with status 1'))
+        r'Unable to estimate CONSERVATIVE/2 fee'))
 
     # Now unset the mock, so calls go through again
-    l1.daemon.rpcproxy.mock_rpc('getblock', None)
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
 
     f.result()
