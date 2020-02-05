@@ -87,6 +87,9 @@ void plugin_hook_unregister_all(struct plugin *plugin)
 		plugin_hook_unregister(plugin, hooks[i]->name);
 }
 
+/* Mutual recursion */
+static void plugin_hook_call_next(struct plugin_hook_request *ph_req);
+
 /**
  * Callback to be passed to the jsonrpc_request.
  *
@@ -97,22 +100,34 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 const jsmntok_t *idtok,
 				 struct plugin_hook_request *r)
 {
-	const jsmntok_t *resulttok = json_get_member(buffer, toks, "result");
+	const jsmntok_t *resulttok, *resrestok;
 	struct db *db = r->db;
 	struct plugin_destroyed *pd;
+	bool more_plugins = r->current_plugin + 1 < tal_count(r->hook->plugins);
+
+	resulttok = json_get_member(buffer, toks, "result");
 
 	if (!resulttok)
 		fatal("Plugin for %s returned non-result response %.*s",
-		      r->hook->name,
-		      toks->end - toks->start, buffer + toks->start);
+		      r->hook->name, toks->end - toks->start,
+		      buffer + toks->start);
 
-	/* If command is "plugin stop", this can free r! */
-	pd = plugin_detect_destruction(r->plugin);
-	db_begin_transaction(db);
-	r->hook->response_cb(r->cb_arg, buffer, resulttok);
-	db_commit_transaction(db);
-	if (!was_plugin_destroyed(pd))
-		tal_free(r);
+	resrestok = json_get_member(buffer, resulttok, "result");
+
+	/* If this is a hook response containing a `continue` and we have more
+	 * plugins queue the next call. */
+	if (resrestok && json_tok_streq(buffer, resrestok, "continue") &&
+	    more_plugins) {
+		plugin_hook_call_next(r);
+	} else {
+		/* If command is "plugin stop", this can free r! */
+		pd = plugin_detect_destruction(r->plugin);
+		db_begin_transaction(db);
+		r->hook->response_cb(r->cb_arg, buffer, resulttok);
+		db_commit_transaction(db);
+		if (!was_plugin_destroyed(pd))
+			tal_free(r);
+	}
 }
 
 static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
