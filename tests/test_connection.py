@@ -1029,6 +1029,15 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     num_complete = 0
     num_cancel = 0
 
+    # This test doesn't work for v2, so make sure we're not on v2
+    l1.rpc.connect(nodes[0].info['id'], 'localhost', nodes[0].port)
+    result = l1.rpc.fundchannel_start(nodes[0].info['id'], "100000sat")
+    if result['open_channel_version'] == 2:
+        # FIXME: let v2 of fundchannel_start handle external wallet funds
+        pytest.skip('running as v2, external wallet funding not permitted')
+    else:
+        l1.rpc.fundchannel_cancel(nodes[0].info['id'])
+
     for count, n in enumerate(nodes):
         l1.rpc.connect(n.info['id'], 'localhost', n.port)
         l1.rpc.fundchannel_start(n.info['id'], "100000sat")
