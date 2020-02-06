@@ -93,6 +93,14 @@ struct node_id self_id;
 proxy_stat map_status(Status const & status)
 {
 	StatusCode code = status.error_code();
+
+	// FIXME - this is bogus, but the pytest framework loses our
+	// status_unusual messages.
+	if (code != StatusCode::OK) {
+		cerr << "PROXY-HSMD grpc::StatusCode " << int(code)
+		     << ": " << status.error_message()
+		     << endl;
+	}
 	switch (code) {
 	case StatusCode::OK:			return PROXY_OK;
 	case StatusCode::CANCELLED:		return PROXY_CANCELLED;
