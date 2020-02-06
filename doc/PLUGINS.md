@@ -475,6 +475,28 @@ declares that it'd like to be consulted on what to do next for certain
 events in the daemon. A hook can then decide how `lightningd` should
 react to the given event.
 
+The call semantics of the hooks, i.e., when and how hooks are called, depend
+on the hook type. Most hooks are currently set to `single`-mode. In this mode
+only a single plugin can register the hook, and that plugin will get called
+for each event of that type. If a second plugin attempts to register the hook
+it gets killed and a corresponding log entry will be added to the logs. In
+`chain`-mode multiple plugins can register for the hook type and they are
+called sequentially if a matching event is triggered. Each plugin can then
+handle the event or defer by returning a `continue` result like the following:
+
+```json
+{
+  "result": "continue"
+}
+```
+
+The remainder of the response is ignored and if there are any more plugins
+that have registered the hook the next one gets called. If there are no more
+plugins then the internal handling is resumed as if no hook had been
+called. Any other result returned by a plugin is considered an exit from the
+chain. Upon exit no more plugin hooks are called for the current event, and
+the result is executed. Unless otherwise stated all hooks are `single`-mode.
+
 Hooks and notifications are very similar, however there are a few
 key differences:
 
@@ -482,10 +504,11 @@ key differences:
    notifications but not wait for the plugin to process them. Hooks on
    the other hand are synchronous, `lightningd` cannot finish
    processing the event until the plugin has returned.
- - Any number of plugins can subscribe to a notification topic,
-   however only one plugin may register for any hook topic at any
-   point in time (we cannot disambiguate between multiple plugins
-   returning contradictory results from a hook callback).
+ - Any number of plugins can subscribe to a notification topic and get
+   notified in parallel, however only one plugin may register for
+   `single`-mode hook types, and in all cases only one plugin may return a
+   non-`continue` response. This avoids having multiple contradictory
+   responses.
 
 Hooks are considered to be an advanced feature due to the fact that
 `lightningd` relies on the plugin to tell it what to do next. Use them
@@ -765,6 +788,12 @@ verdict during startup. This means that, if the plugin response wasn't
 processed before the HTLC was forwarded, failed, or resolved, then the plugin
 may see the same HTLC again during startup. It is therefore paramount that the
 plugin is idempotent if it talks to an external system.
+
+The `htlc_accepted` hook is a chained hook, i.e., multiple plugins can
+register it, and they will be called in the order they were registered in
+until the first plugin return a result that is not `{"result": "continue"}`,
+after which the event is considered to be handled. After the event has been
+handled the remaining plugins will be skipped.
 
 
 ### `rpc_command`
