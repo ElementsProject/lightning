@@ -90,16 +90,20 @@ unique_ptr<Signer::Stub> stub;
 string last_message;
 struct node_id self_id;
 
-proxy_stat map_status(StatusCode const & code)
+proxy_stat map_status(Status const & status)
 {
+	StatusCode code = status.error_code();
 	switch (code) {
 	case StatusCode::OK:			return PROXY_OK;
+	case StatusCode::CANCELLED:		return PROXY_CANCELLED;
 	case StatusCode::DEADLINE_EXCEEDED:	return PROXY_TIMEOUT;
 	case StatusCode::UNAVAILABLE:		return PROXY_UNAVAILABLE;
 	case StatusCode::INVALID_ARGUMENT:	return PROXY_INVALID_ARGUMENT;
 	case StatusCode::INTERNAL:		return PROXY_INTERNAL_ERROR;
 	default:
-		cerr << "UNHANDLED grpc::StatusCode " << int(code) << endl;
+		cerr << "UNHANDLED grpc::StatusCode " << int(code)
+		     << ": " << status.error_message()
+		     << endl;
 		abort();
 	}
 }
@@ -267,7 +271,7 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 			       __FILE__, __LINE__, __FUNCTION__,
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -306,7 +310,7 @@ proxy_stat proxy_handle_ecdh(const struct pubkey *point,
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -346,7 +350,7 @@ proxy_stat proxy_handle_pass_client_hsmfd(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -431,7 +435,7 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -510,7 +514,7 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -573,7 +577,7 @@ proxy_stat proxy_handle_get_per_commitment_point(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -613,7 +617,7 @@ proxy_stat proxy_handle_sign_invoice(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -687,7 +691,7 @@ proxy_stat proxy_handle_channel_update_sig(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -760,7 +764,7 @@ proxy_stat proxy_handle_get_channel_basepoints(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -820,7 +824,7 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -880,7 +884,7 @@ proxy_stat proxy_handle_sign_commitment_tx(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -936,7 +940,7 @@ proxy_stat proxy_handle_cannouncement_sig(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -982,7 +986,7 @@ proxy_stat proxy_handle_sign_node_announcement(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -1051,7 +1055,7 @@ proxy_stat proxy_handle_sign_local_htlc_tx(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -1119,7 +1123,7 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -1188,7 +1192,7 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -1256,7 +1260,7 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -1328,7 +1332,7 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
@@ -1374,7 +1378,7 @@ proxy_stat proxy_handle_check_future_secret(
 			       dump_node_id(&self_id).c_str(),
 			       status.error_message().c_str());
 		last_message = status.error_message();
-		return map_status(status.error_code());
+		return map_status(status);
 	}
 }
 
