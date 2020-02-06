@@ -1,5 +1,5 @@
-/api.grpc.pb.cc
-/api.grpc.pb.h
-/api.pb.cc
-/api.pb.h
-/api.proto
+/remotesigner.grpc.pb.cc
+/remotesigner.grpc.pb.h
+/remotesigner.pb.cc
+/remotesigner.pb.h
+/remotesigner.proto
