@@ -73,6 +73,8 @@ rmthsmd-all: lightningd/remote_hsmd
 
 lightningd/remote_hsmd: $(LIGHTNINGD_RMTHSM_OBJS) $(LIGHTNINGD_LIB_OBJS) $(RMTHSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 
+contrib/remote_hsmd/remotesigner.pb.o: $(ALL_GEN_HEADERS)
+
 contrib/remote_hsmd/remotesigner.grpc.pb.o contrib/remote_hsmd/remotesigner.pb.o contrib/remote_hsmd/proxy.o contrib/remote_hsmd/dump.o : CPPFLAGS +=  $(CMNFLAGS) `pkg-config --cflags protobuf grpc`
 lightningd/remote_hsmd: LDLIBS += -L/usr/local/lib \
 	`pkg-config --libs protobuf grpc++`\
