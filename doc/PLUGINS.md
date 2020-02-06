@@ -237,9 +237,8 @@ above for example subscribes to the two topics `connect` and
 `disconnect`. The topics that are currently defined and the
 corresponding payloads are listed below.
 
-### Notification Types
 
-#### `channel_opened`
+### `channel_opened`
 
 A notification for topic `channel_opened` is sent if a peer successfully funded a channel
 with us. It contains the peer id, the funding amount (in millisatoshis), the funding
@@ -257,7 +256,7 @@ into a block.
 }
 ```
 
-#### `connect`
+### `connect`
 
 A notification for topic `connect` is sent every time a new connection
 to a peer is established.
@@ -269,7 +268,7 @@ to a peer is established.
 }
 ```
 
-#### `disconnect`
+### `disconnect`
 
 A notification for topic `disconnect` is sent every time a connection
 to a peer was lost.
@@ -280,7 +279,7 @@ to a peer was lost.
 }
 ```
 
-#### `invoice_payment`
+### `invoice_payment`
 
 A notification for topic `invoice_payment` is sent every time an invoie is paid.
 
@@ -294,7 +293,7 @@ A notification for topic `invoice_payment` is sent every time an invoie is paid.
 }
 ```
 
-#### `warning`
+### `warning`
 
 A notification for topic `warning` is sent every time a new `BROKEN`
 /`UNUSUAL` level(in plugins, we use `error`/`warn`) log generated,
@@ -322,7 +321,7 @@ forms:
 `jcon fd <error_fd_to_jsonrpc>:`, `plugin-manager`;
 4. `log` is the context of the original log entry.
 
-#### `forward_event`
+### `forward_event`
 
 A notification for topic `forward_event` is sent every time the status
 of a forward payment is set. The json format is same as the API
@@ -405,7 +404,7 @@ or
    only `settled` and `failed` case contain `resolved_time`;
  - The `failcode` and `failreason` are defined in [BOLT 4][bolt4-failure-codes].
 
-#### `sendpay_success`
+### `sendpay_success`
 
 A notification for topic `sendpay_success` is sent every time a sendpay
 succeeds (with `complete` status). The json is the same as the return value of
@@ -432,7 +431,7 @@ returns the result of sendpay in specified time or timeout, but
 `sendpay_success` will always return the result anytime when sendpay
 successes if is was subscribed.
 
-#### `sendpay_failure`
+### `sendpay_failure`
 
 A notification for topic `sendpay_failure` is sent every time a sendpay
 completes with `failed` status. The JSON is same as the return value of
@@ -497,9 +496,7 @@ As a convention, for all hooks, returning the object
 `{ "result" : "continue" }` results in `lightningd` behaving exactly as if
 no plugin is registered on the hook.
 
-### Hook Types
-
-#### `peer_connected`
+### `peer_connected`
 
 This hook is called whenever a peer has connected and successfully completed
 the cryptographic handshake. The parameters have the following structure if there is a channel with the peer:
@@ -527,7 +524,7 @@ there's a member `error_message`, that member is sent to the peer
 before disconnection.
 
 
-#### `db_write`
+### `db_write`
 
 This hook is called whenever a change is about to be committed to the database.
 It is currently extremely restricted:
@@ -600,7 +597,7 @@ to error without
 committing to the database!
 This is the expected way to halt and catch fire.
 
-#### `invoice_payment`
+### `invoice_payment`
 
 This hook is called whenever a valid payment for an unpaid invoice has arrived.
 
@@ -622,7 +619,7 @@ nodes in [BOLT 4][bolt4-failure-codes], a `result` field with the string
 `result` field with the string `continue` to accept the payment.
 
 
-#### `openchannel`
+### `openchannel`
 
 This hook is called whenever a remote peer tries to fund a channel to us,
 and it has passed basic sanity checks:
@@ -668,7 +665,7 @@ e.g.
 Note that `close_to` must be a valid address for the current chain; an invalid address will cause the node to exit with an error.
 
 
-#### `htlc_accepted`
+### `htlc_accepted`
 
 The `htlc_accepted` hook is called whenever an incoming HTLC is accepted, and
 its result determines how `lightningd` should treat that HTLC.
@@ -770,7 +767,7 @@ may see the same HTLC again during startup. It is therefore paramount that the
 plugin is idempotent if it talks to an external system.
 
 
-#### `rpc_command`
+### `rpc_command`
 
 The `rpc_command` hook allows a plugin to take over any RPC command. It sends
 the received JSON-RPC request to the registered plugin,
@@ -837,7 +834,7 @@ Return a custom error to the request sender:
 ```
 
 
-#### `custommsg`
+### `custommsg`
 
 The `custommsg` plugin hook is the receiving counterpart to the
 [`dev-sendcustommsg`][sendcustommsg] RPC method and allows plugins to handle
