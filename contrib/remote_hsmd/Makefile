@@ -8,13 +8,13 @@ default: rmthsmd-all
 
 LIGHTNINGD_RMTHSM_SRC := contrib/remote_hsmd/hsmd.c	\
 	contrib/remote_hsmd/gen_hsm_wire.c \
-	contrib/remote_hsmd/api.pb.cc \
-	contrib/remote_hsmd/api.grpc.pb.cc \
+	contrib/remote_hsmd/remotesigner.pb.cc \
+	contrib/remote_hsmd/remotesigner.grpc.pb.cc \
 	contrib/remote_hsmd/dump.cc \
 	contrib/remote_hsmd/proxy.cc
 LIGHTNINGD_RMTHSM_HEADERS := contrib/remote_hsmd/gen_hsm_wire.h \
-	contrib/remote_hsmd/api.pb.h \
-	contrib/remote_hsmd/api.grpc.pb.h
+	contrib/remote_hsmd/remotesigner.pb.h \
+	contrib/remote_hsmd/remotesigner.grpc.pb.h
 LIGHTNINGD_RMTHSM_CCOBJS := $(LIGHTNINGD_RMTHSM_SRC:.cc=.o)
 LIGHTNINGD_RMTHSM_OBJS := $(LIGHTNINGD_RMTHSM_CCOBJS:.c=.o)
 
@@ -67,13 +67,13 @@ $(LIGHTNINGD_RMTHSM_OBJS): $(LIGHTNINGD_HEADERS)
 ALL_OBJS += $(LIGHTNINGD_RMTHSM_OBJS)
 ALL_PROGRAMS += lightningd/remote_hsmd
 ALL_GEN_HEADERS += contrib/remote_hsmd/gen_hsm_wire.h
-ALL_GEN_HEADERS += contrib/remote_hsmd/api.pb.h contrib/remote_hsmd/api.grpc.pb.h
+ALL_GEN_HEADERS += contrib/remote_hsmd/remotesigner.pb.h contrib/remote_hsmd/remotesigner.grpc.pb.h
 
 rmthsmd-all: lightningd/remote_hsmd
 
 lightningd/remote_hsmd: $(LIGHTNINGD_RMTHSM_OBJS) $(LIGHTNINGD_LIB_OBJS) $(RMTHSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 
-contrib/remote_hsmd/api.grpc.pb.o contrib/remote_hsmd/api.pb.o contrib/remote_hsmd/proxy.o contrib/remote_hsmd/dump.o : CPPFLAGS +=  $(CMNFLAGS) `pkg-config --cflags protobuf grpc`
+contrib/remote_hsmd/remotesigner.grpc.pb.o contrib/remote_hsmd/remotesigner.pb.o contrib/remote_hsmd/proxy.o contrib/remote_hsmd/dump.o : CPPFLAGS +=  $(CMNFLAGS) `pkg-config --cflags protobuf grpc`
 lightningd/remote_hsmd: LDLIBS += -L/usr/local/lib \
 	`pkg-config --libs protobuf grpc++`\
 	-pthread\
