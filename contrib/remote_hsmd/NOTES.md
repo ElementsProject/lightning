@@ -46,4 +46,4 @@ tests/test_connection.py::test_balance \
 rust-lightning-signer
 ----------------------------------------------------------------
 
-    cargo run --bin server
+    cargo run --bin server |& tee log3
