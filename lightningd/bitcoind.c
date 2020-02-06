@@ -80,6 +80,9 @@ void bitcoind_check_commands(struct bitcoind *bitcoind)
 	for (i = 0; i < ARRAY_SIZE(methods); i++) {
 		p = find_plugin_for_command(bitcoind->ld, methods[i]);
 		if (p == NULL) {
+			/* For testing .. */
+			log_debug(bitcoind->ld->log, "Missing a Bitcoin plugin"
+						     " command");
 			fatal("Could not access the plugin for %s, is a "
 			      "Bitcoin plugin (by default plugins/bcli) "
 			      "registered ?", methods[i]);
