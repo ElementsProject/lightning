@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
+from hashlib import sha256
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
 from utils import (
@@ -859,3 +860,75 @@ def test_plugin_feature_announce(node_factory):
     # Check the featurebit set in the `node_announcement`
     node = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
     assert(int(node['features'], 16) & (1 << 103) != 0)
+
+
+def test_hook_chaining(node_factory):
+    """Check that hooks are called in order and the chain exits correctly
+
+    We start two nodes, l2 will have two plugins registering the same hook
+    (`htlc_accepted`) but handle different cases:
+
+    - the `odd` plugin only handles the "AA"*32 preimage
+    - the `even` plugin only handles the "BB"*32 preimage
+
+    We check that plugins are called in the order they are registering the
+    hook, and that they exit the call chain as soon as one plugin returns a
+    result that isn't `continue`. On exiting the chain the remaining plugins
+    are not called. If no plugin exits the chain we continue to handle
+    internally as usual.
+
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    # Start the plugins manually instead of specifying them on the command
+    # line, otherwise we cannot guarantee the order in which the hooks are
+    # registered.
+    p1 = os.path.join(os.path.dirname(__file__), "plugins/hook-chain-odd.py")
+    p2 = os.path.join(os.path.dirname(__file__), "plugins/hook-chain-even.py")
+    l2.rpc.plugin_start(p1)
+    l2.rpc.plugin_start(p2)
+
+    preimage1 = b'\xAA' * 32
+    preimage2 = b'\xBB' * 32
+    preimage3 = b'\xCC' * 32
+    hash1 = sha256(preimage1).hexdigest()
+    hash2 = sha256(preimage2).hexdigest()
+    hash3 = sha256(preimage3).hexdigest()
+
+    inv = l2.rpc.invoice(123, 'odd', "Odd payment handled by the first plugin",
+                         preimage="AA" * 32)['bolt11']
+    l1.rpc.pay(inv)
+
+    # The first plugin will handle this, the second one should not be called.
+    assert(l2.daemon.is_in_log(
+        r'plugin-hook-chain-odd.py: htlc_accepted called for payment_hash {}'.format(hash1)
+    ))
+    assert(not l2.daemon.is_in_log(
+        r'plugin-hook-chain-even.py: htlc_accepted called for payment_hash {}'.format(hash1)
+    ))
+
+    # The second run is with a payment_hash that `hook-chain-even.py` knows
+    # about. `hook-chain-odd.py` is called, it returns a `continue`, and then
+    # `hook-chain-even.py` resolves it.
+    inv = l2.rpc.invoice(
+        123, 'even', "Even payment handled by the second plugin", preimage="BB" * 32
+    )['bolt11']
+    l1.rpc.pay(inv)
+    assert(l2.daemon.is_in_log(
+        r'plugin-hook-chain-odd.py: htlc_accepted called for payment_hash {}'.format(hash2)
+    ))
+    assert(l2.daemon.is_in_log(
+        r'plugin-hook-chain-even.py: htlc_accepted called for payment_hash {}'.format(hash2)
+    ))
+
+    # And finally an invoice that neither know about, so it should get settled
+    # by the internal invoice handling.
+    inv = l2.rpc.invoice(123, 'neither', "Neither plugin handles this",
+                         preimage="CC" * 32)['bolt11']
+    l1.rpc.pay(inv)
+    assert(l2.daemon.is_in_log(
+        r'plugin-hook-chain-odd.py: htlc_accepted called for payment_hash {}'.format(hash3)
+    ))
+    assert(l2.daemon.is_in_log(
+        r'plugin-hook-chain-even.py: htlc_accepted called for payment_hash {}'.format(hash3)
+    ))
