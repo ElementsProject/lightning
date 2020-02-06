@@ -386,14 +386,14 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	SignFundingTxRequest req;
 	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == tal_count(utxos));
 	for (size_t ii = 0; ii < tx->wtx->num_inputs; ii++) {
 	 	const struct utxo *in = utxos[ii];
 		/* Fails in tests/test_closing.py::test_onchain_first_commit */
 		/* assert(!in->is_p2sh); */
-		SignDescriptor *desc = req.add_input_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 		desc->mutable_key_loc()->set_key_index(in->keyindex);
 		desc->mutable_output()->set_value(in->amount.satoshis);
 	}
@@ -406,7 +406,7 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	assert(tal_count(outputs) == 1);
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* Does this output match the funding output? */
 		if (memeq(out->script, out->script_len,
 			  outputs[0]->script, tal_count(outputs[0]->script))) {
@@ -485,16 +485,16 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 				tal_count(output_witscripts[ii]->ptr));
 		else
 			req.add_output_witscripts("");
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
@@ -795,16 +795,16 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	req.set_remote_funding_pubkey(
 		(const char *) remote_funding_pubkey->pubkey.data,
 		sizeof(remote_funding_pubkey->pubkey.data));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
@@ -855,16 +855,16 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	req.set_remote_funding_pubkey(
 		(const char *) remote_funding_pubkey->pubkey.data,
 		sizeof(remote_funding_pubkey->pubkey.data));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
@@ -1016,18 +1016,18 @@ proxy_stat proxy_handle_sign_local_htlc_tx(
 	SignLocalHTLCTxRequest req;
 	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 	req.set_commit_num(commit_num);
 	req.set_wscript(wscript, tal_count(wscript));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
@@ -1086,16 +1086,16 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 		(const char *) remote_per_commit_point->pubkey.data,
 		sizeof(remote_per_commit_point->pubkey.data));
 	req.set_wscript(wscript, tal_count(wscript));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
@@ -1153,18 +1153,18 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 	SignDelayedPaymentToUsRequest req;
 	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 	req.set_commit_num(commit_num);
 	req.set_wscript(wscript, tal_count(wscript));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
@@ -1223,16 +1223,16 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 		(const char *) remote_per_commit_point->pubkey.data,
 		sizeof(remote_per_commit_point->pubkey.data));
 	req.set_wscript(wscript, tal_count(wscript));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
@@ -1291,20 +1291,20 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 	SignPenaltyToUsRequest req;
 	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_raw_tx_bytes(serialized_tx(tx, true));
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	req.set_revocation_secret((const char *)revocation_secret->data,
 				  sizeof(revocation_secret->data));
 	req.set_wscript(wscript, tal_count(wscript));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = req.add_input_descs();
+	SignDescriptor *desc = req.mutable_tx()->add_input_descs();
 	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.add_output_descs();
+		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
 		/* FIXME - We don't need to set *anything* here? */
 	}
 
