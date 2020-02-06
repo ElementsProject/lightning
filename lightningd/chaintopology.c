@@ -1001,6 +1001,9 @@ void setup_topology(struct chain_topology *topo,
 	/* This waits for bitcoind. */
 	bitcoind_check_commands(topo->bitcoind);
 
+	/* For testing.. */
+	log_debug(topo->ld->log, "All Bitcoin plugin commands registered");
+
 	/* Sanity checks, then topology initialization. */
 	bitcoind_getchaininfo(topo->bitcoind, true, check_chain, topo);
 

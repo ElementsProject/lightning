@@ -931,3 +931,84 @@ def test_hook_chaining(node_factory):
     assert(l2.daemon.is_in_log(
         r'plugin-hook-chain-even.py: htlc_accepted called for payment_hash {}'.format(hash3)
     ))
+
+
+def test_bitcoin_backend(node_factory, bitcoind):
+    """
+    This tests interaction with the Bitcoin backend, but not specifically bcli
+    """
+    l1 = node_factory.get_node(start=False, options={"disable-plugin": "bcli"},
+                               may_fail=True, allow_broken_log=True)
+
+    # We don't start if we haven't all the required methods registered.
+    plugin = os.path.join(os.getcwd(), "tests/plugins/bitcoin/part1.py")
+    l1.daemon.opts["plugin"] = plugin
+    try:
+        l1.daemon.start()
+    except ValueError:
+        assert l1.daemon.is_in_log("Missing a Bitcoin plugin command")
+        # Now we should start if all the commands are registered, even if they
+        # are registered by two distincts plugins.
+        del l1.daemon.opts["plugin"]
+        l1.daemon.opts["plugin-dir"] = os.path.join(os.getcwd(),
+                                                    "tests/plugins/bitcoin/")
+        try:
+            l1.daemon.start()
+        except ValueError:
+            msg = "All Bitcoin plugin commands registered"
+            assert l1.daemon.is_in_log(msg)
+        else:
+            raise Exception("We registered all commands but couldn't start!")
+    else:
+        raise Exception("We could start without all commands registered !!")
+
+    # But restarting with just bcli is ok
+    del l1.daemon.opts["plugin-dir"]
+    del l1.daemon.opts["disable-plugin"]
+    l1.start()
+    assert l1.daemon.is_in_log("bitcoin-cli initialized and connected to"
+                               " bitcoind")
+
+
+def test_bcli(node_factory, bitcoind, chainparams):
+    """
+    This tests the bcli plugin, used to gather Bitcoin data from a local
+    bitcoind.
+    Mostly sanity checks of the interface..
+    """
+    l1, l2 = node_factory.get_nodes(2)
+
+    # We cant stop it dynamically
+    with pytest.raises(RpcError):
+        l1.rpc.plugin_stop("bcli")
+
+    # Failure case of feerate is tested in test_misc.py
+    assert "feerate" in l1.rpc.call("getfeerate", {"blocks": 3,
+                                                   "mode": "CONSERVATIVE"})
+
+    resp = l1.rpc.call("getchaininfo")
+    assert resp["chain"] == chainparams['name']
+    for field in ["headercount", "blockcount", "ibd"]:
+        assert field in resp
+
+    # We shouldn't get upset if we ask for an unknown-yet block
+    resp = l1.rpc.call("getrawblockbyheight", {"height": 500})
+    assert resp["blockhash"] is resp["block"] is None
+    resp = l1.rpc.call("getrawblockbyheight", {"height": 50})
+    assert resp["blockhash"] is not None and resp["blockhash"] is not None
+    # Some other bitcoind-failure cases for this call are covered in
+    # tests/test_misc.py
+
+    l1.fundwallet(10**5)
+    l1.connect(l2)
+    txid = l1.rpc.fundchannel(l2.info["id"], 10**4)["txid"]
+    txo = l1.rpc.call("getutxout", {"txid": txid, "vout": 0})
+    assert (Millisatoshi(txo["amount"]) == Millisatoshi(10**4 * 10**3)
+            and txo["script"].startswith("0020"))
+    l1.rpc.close(l2.info["id"])
+    # When output is spent, it should give us null !
+    txo = l1.rpc.call("getutxout", {"txid": txid, "vout": 0})
+    assert txo["amount"] is txo["script"] is None
+
+    resp = l1.rpc.call("sendrawtransaction", {"tx": "dummy"})
+    assert not resp["success"] and "decode failed" in resp["errmsg"]
