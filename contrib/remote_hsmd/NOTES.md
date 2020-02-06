@@ -1,4 +1,10 @@
+c-lightning
+----------------------------------------------------------------
 
+Building
+
+    ./configure --enable-developer
+    make
 
 Run all of the integration tests:
 ```
