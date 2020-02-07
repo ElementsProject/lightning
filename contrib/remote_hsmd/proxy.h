@@ -66,7 +66,7 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 	struct witscript const **output_witscripts,
 	const struct pubkey *remote_per_commit,
 	bool option_static_remotekey,
-	u8 ****o_sigs);
+	struct bitcoin_signature *o_sig);
 
 proxy_stat proxy_handle_get_per_commitment_point(
 	struct node_id *peer_id,
@@ -78,7 +78,7 @@ proxy_stat proxy_handle_get_per_commitment_point(
 proxy_stat proxy_handle_sign_invoice(
 	u5 *u5bytes,
 	u8 *hrpu8,
-	u8 **o_sig);
+	secp256k1_ecdsa_recoverable_signature *o_sig);
 
 proxy_stat proxy_handle_channel_update_sig(
 	struct bitcoin_blkid *chain_hash,
@@ -105,7 +105,7 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
-	u8 ****o_sigs);
+	struct bitcoin_signature *o_sig);
 
 proxy_stat proxy_handle_sign_commitment_tx(
 	struct bitcoin_tx *tx,
@@ -113,7 +113,7 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
-	u8 ****o_sigs);
+	struct bitcoin_signature *o_sig);
 
 proxy_stat proxy_handle_sign_node_announcement(
 	u8 *node_announcement,

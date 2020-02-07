@@ -11,6 +11,7 @@ extern "C" {
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/utxo.h>
+#include <secp256k1_recovery.h>
 }
 
 #include "contrib/remote_hsmd/dump.h"
@@ -49,6 +50,12 @@ string dump_bitcoin_signature(const struct bitcoin_signature *sp)
 }
 
 string dump_secp256k1_ecdsa_signature(const secp256k1_ecdsa_signature *sp)
+{
+	return dump_hex(sp->data, sizeof(sp->data));
+}
+
+string dump_secp256k1_ecdsa_recoverable_signature(
+	const secp256k1_ecdsa_recoverable_signature *sp)
 {
 	return dump_hex(sp->data, sizeof(sp->data));
 }

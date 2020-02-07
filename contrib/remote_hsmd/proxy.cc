@@ -21,6 +21,7 @@ extern "C" {
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/utxo.h>
+#include <secp256k1_recovery.h>
 }
 
 #include "contrib/remote_hsmd/remotesigner.pb.h"
@@ -40,51 +41,9 @@ using grpc::ClientContext;
 using grpc::Status;
 using grpc::StatusCode;
 
-using remotesigner::ChannelAnnouncementSigRequest;
-using remotesigner::ChannelAnnouncementSigReply;
-using remotesigner::ChannelUpdateSigRequest;
-using remotesigner::ChannelUpdateSigReply;
-using remotesigner::CheckFutureSecretRequest;
-using remotesigner::CheckFutureSecretReply;
-using remotesigner::ECDHRequest;
-using remotesigner::ECDHReply;
-using remotesigner::GetChannelBasepointsRequest;
-using remotesigner::GetChannelBasepointsReply;
-using remotesigner::GetPerCommitmentPointRequest;
-using remotesigner::GetPerCommitmentPointReply;
-using remotesigner::InitRequest;
-using remotesigner::InitReply;
-using remotesigner::KeyLocator;
-using remotesigner::NodeAnnouncementSigRequest;
-using remotesigner::NodeAnnouncementSigReply;
-using remotesigner::NewChannelRequest;
-using remotesigner::NewChannelReply;
-using remotesigner::SignCommitmentTxRequest;
-using remotesigner::SignCommitmentTxReply;
-using remotesigner::SignDelayedPaymentToUsRequest;
-using remotesigner::SignDelayedPaymentToUsReply;
-using remotesigner::SignDescriptor;
-using remotesigner::SignInvoiceRequest;
-using remotesigner::SignInvoiceReply;
-using remotesigner::SignLocalHTLCTxRequest;
-using remotesigner::SignLocalHTLCTxReply;
-using remotesigner::SignMutualCloseTxRequest;
-using remotesigner::SignMutualCloseTxReply;
-using remotesigner::SignPenaltyToUsRequest;
-using remotesigner::SignPenaltyToUsReply;
-using remotesigner::SignRemoteCommitmentTxRequest;
-using remotesigner::SignRemoteCommitmentTxReply;
-using remotesigner::SignRemoteHTLCToUsRequest;
-using remotesigner::SignRemoteHTLCToUsReply;
-using remotesigner::SignRemoteHTLCTxRequest;
-using remotesigner::SignRemoteHTLCTxReply;
-using remotesigner::SignFundingTxRequest;
-using remotesigner::SignFundingTxReply;
-using remotesigner::Signature;
-using remotesigner::Signer;
-using remotesigner::Transaction;
-
 using ::google::protobuf::RepeatedPtrField;
+
+using namespace remotesigner;
 
 namespace {
 unique_ptr<Signer::Stub> stub;
@@ -123,14 +82,49 @@ string channel_nonce(struct node_id *peer_id, u64 dbid)
 		string((char const *)&dbid, sizeof(dbid));
 }
 
-u8 ***return_sigs(RepeatedPtrField< ::remotesigner::Signature > const &isigs)
+void output_bitcoin_signature(BitcoinSignature const &bs,
+			      struct bitcoin_signature *o_sig)
+{
+	bool ok = signature_from_der(
+		(const u8*)bs.data().data(),
+		bs.data().size(),
+		o_sig);
+	assert(ok);
+}
+
+void output_ecdsa_signature(ECDSASignature const &es,
+			    secp256k1_ecdsa_signature *o_sig)
+{
+	int ok = secp256k1_ecdsa_signature_parse_der(
+		secp256k1_ctx,
+		o_sig,
+		(const u8*)es.data().data(),
+		es.data().size());
+	assert(ok);
+}
+
+void output_ecdsa_recoverable_signature(ECDSARecoverableSignature const &es,
+			    secp256k1_ecdsa_recoverable_signature *o_sig)
+{
+	assert(es.data().size() == 65);
+	int recid = es.data().data()[64];
+	int ok = secp256k1_ecdsa_recoverable_signature_parse_compact(
+		secp256k1_ctx,
+		o_sig,
+		(const u8*)es.data().data(),
+		recid);
+	assert(ok);
+}
+
+void output_witnesses(RepeatedPtrField<WitnessStack> const &wits,
+		      u8 ****o_sigs)
 {
 	u8 ***osigs = NULL;
-	int nsigs = isigs.size();
+	int nsigs = wits.size();
 	if (nsigs > 0) {
 		osigs = tal_arrz(tmpctx, u8**, nsigs);
 		for (size_t ii = 0; ii < nsigs; ++ii) {
-			Signature const &sig = isigs[ii];
+			WitnessStack const &sig = wits[ii];
 			int nelem = sig.item_size();
 			osigs[ii] = tal_arrz(osigs, u8*, nelem);
 			for (size_t jj = 0; jj < nelem; ++jj) {
@@ -141,7 +135,7 @@ u8 ***return_sigs(RepeatedPtrField< ::remotesigner::Signature > const &isigs)
 			}
 		}
 	}
-	return osigs;
+	*o_sigs = osigs;
 }
 
 bool return_pubkey(const string &i_pubkey, struct pubkey *o_pubkey)
@@ -447,7 +441,7 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	SignFundingTxReply rsp;
 	Status status = stub->SignFundingTx(&context, req, &rsp);
 	if (status.ok()) {
-		*o_sigs = return_sigs(rsp.sigs());
+		output_witnesses(rsp.witnesses(), o_sigs);
 		status_debug("%s:%d %s self_id=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str());
@@ -472,7 +466,7 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 	struct witscript const **output_witscripts,
 	const struct pubkey *remote_per_commit,
 	bool option_static_remotekey,
-	u8 ****o_sigs)
+	struct bitcoin_signature *o_sig)
 {
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
@@ -516,7 +510,7 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 	SignRemoteCommitmentTxReply rsp;
 	Status status = stub->SignRemoteCommitmentTx(&context, req, &rsp);
 	if (status.ok()) {
-		*o_sigs = return_sigs(rsp.sigs());
+		output_bitcoin_signature(rsp.signature(), o_sig);
 		status_debug("%s:%d %s self_id=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str());
@@ -598,7 +592,7 @@ proxy_stat proxy_handle_get_per_commitment_point(
 proxy_stat proxy_handle_sign_invoice(
 	u5 *u5bytes,
 	u8 *hrpu8,
-	u8 **o_sig)
+	secp256k1_ecdsa_recoverable_signature *o_sig)
 {
 	status_debug(
 		"%s:%d %s self_id=%s u5bytes=%s hrpu8=%s",
@@ -617,12 +611,13 @@ proxy_stat proxy_handle_sign_invoice(
 	SignInvoiceReply rsp;
 	Status status = stub->SignInvoice(&context, req, &rsp);
 	if (status.ok()) {
-		*o_sig = tal_dup_arr(tmpctx, u8, (const u8*) rsp.sig().data(),
-				     rsp.sig().size(), 0);
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+		// output_ecdsa_recoverable_signature(rsp.signature(), o_sig);
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_hex(*o_sig, tal_count(*o_sig)).c_str());
+			     dump_secp256k1_ecdsa_recoverable_signature(
+				     o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -689,14 +684,16 @@ proxy_stat proxy_handle_channel_update_sig(
 	ChannelUpdateSigReply rsp;
 	Status status = stub->ChannelUpdateSig(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT RETURN VALUE WHEN IMPLEMENTED
-		// assert(rsp.sig().size() == sizeof(o_sig->data));
-		// memcpy(o_sig->data, (const u8*) rsp.sig().data(),
-		//        sizeof(o_sig->data));
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_ecdsa_signature(rsp.signature(), o_sig);
+#else
+		memset(o_sig->data, '\0', sizeof(o_sig->data));
+#endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_hex(o_sig, sizeof(o_sig->data)).c_str());
+			     dump_secp256k1_ecdsa_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -788,7 +785,7 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
-	u8 ****o_sigs)
+	struct bitcoin_signature *o_sig)
 {
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
@@ -816,10 +813,16 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	SignMutualCloseTxReply rsp;
 	Status status = stub->SignMutualCloseTx(&context, req, &rsp);
 	if (status.ok()) {
-		*o_sigs = return_sigs(rsp.sigs());
-		status_debug("%s:%d %s self_id=%s",
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_bitcoin_signature(rsp.signature(), o_sig);
+#else
+		memset(o_sig, '\0', sizeof(*o_sig));
+#endif
+		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
-			     dump_node_id(&self_id).c_str());
+			     dump_node_id(&self_id).c_str(),
+			     dump_bitcoin_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -838,7 +841,7 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
-	u8 ****o_sigs)
+	struct bitcoin_signature *o_sig)
 {
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
@@ -866,10 +869,16 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	SignCommitmentTxReply rsp;
 	Status status = stub->SignCommitmentTx(&context, req, &rsp);
 	if (status.ok()) {
-		*o_sigs = return_sigs(rsp.sigs());
-		status_debug("%s:%d %s self_id=%s",
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_bitcoin_signature(rsp.signature(), o_sig);
+#else
+		memset(o_sig, '\0', sizeof(*o_sig));
+#endif
+		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
-			     dump_node_id(&self_id).c_str());
+			     dump_node_id(&self_id).c_str(),
+			     dump_bitcoin_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -910,22 +919,19 @@ proxy_stat proxy_handle_cannouncement_sig(
 	ChannelAnnouncementSigReply rsp;
 	Status status = stub->ChannelAnnouncementSig(&context, req, &rsp);
 	if (status.ok()) {
-		/* FIXME - Uncomment these when real value returned */
-#if 1
-		/* For now just make valgrind happy */
-		memset(o_node_sig, '\0', sizeof(*o_node_sig));
-		memset(o_bitcoin_sig, '\0', sizeof(*o_bitcoin_sig));
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_ecdsa_signature(rsp.node_signature(), o_node_sig);
+		output_ecdsa_signature(rsp.bitcoin_signature(), o_bitcoin_sig);
 #else
-		/* FIXME - return these values here */
-		assert(false);
+		memset(o_node_sig->data, '\0', sizeof(o_node_sig->data));
+		memset(o_bitcoin_sig->data, '\0', sizeof(o_bitcoin_sig->data));
 #endif
 		status_debug("%s:%d %s self_id=%s node_sig=%s bitcoin_sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_hex(o_node_sig,
-				      sizeof(o_node_sig->data)).c_str(),
-			     dump_hex(o_bitcoin_sig,
-				      sizeof(o_bitcoin_sig->data)).c_str());
+			     dump_secp256k1_ecdsa_signature(o_node_sig).c_str(),
+			     dump_secp256k1_ecdsa_signature(o_bitcoin_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -960,18 +966,16 @@ proxy_stat proxy_handle_sign_node_announcement(
 	NodeAnnouncementSigReply rsp;
 	Status status = stub->NodeAnnouncementSig(&context, req, &rsp);
 	if (status.ok()) {
-		/* FIXME - Uncomment these when real value returned */
-#if 1
-		/* For now just make valgrind happy */
-		memset(o_sig, '\0', sizeof(*o_sig));
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_ecdsa_signature(rsp.signature(), o_sig);
 #else
-		/* FIXME - return these values here */
-		assert(false);
+		memset(o_sig->data, '\0', sizeof(o_sig->data));
 #endif
 		status_debug("%s:%d %s self_id=%s node_sig=%s bitcoin_sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_hex(o_sig, sizeof(o_sig->data)).c_str());
+			     dump_secp256k1_ecdsa_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -1077,18 +1081,16 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 	SignRemoteHTLCTxReply rsp;
 	Status status = stub->SignRemoteHTLCTx(&context, req, &rsp);
 	if (status.ok()) {
-#if 1
-		/* For now just make valgrind happy */
-		memset(o_sig->s.data, '\0', sizeof(o_sig->s.data));
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_bitcoin_signature(rsp.signature(), o_sig);
 #else
-		assert(rsp.sig().length() == sizeof(o_sig->s.data));
-		memcpy(o_sig->s.data, rsp.sig().data(), sizeof(o_sig->s.data));
+		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_bitcoin_signature(o_sig).c_str()
-			);
+			     dump_bitcoin_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -1136,18 +1138,16 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 	SignDelayedPaymentToUsReply rsp;
 	Status status = stub->SignDelayedPaymentToUs(&context, req, &rsp);
 	if (status.ok()) {
-#if 1
-		/* For now just make valgrind happy */
-		memset(o_sig, '\0', sizeof(*o_sig));
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_bitcoin_signature(rsp.signature(), o_sig);
 #else
-		/* FIXME - return these values here */
-		assert(false);
+		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
-		status_debug("%s:%d %s self_id=%s privkey=%s",
+		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_bitcoin_signature(o_sig).c_str()
-			);
+			     dump_bitcoin_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -1194,18 +1194,16 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 	SignRemoteHTLCToUsReply rsp;
 	Status status = stub->SignRemoteHTLCToUs(&context, req, &rsp);
 	if (status.ok()) {
-#if 1
-		/* For now just make valgrind happy */
-		memset(o_sig->s.data, '\0', sizeof(o_sig->s.data));
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_bitcoin_signature(rsp.signature(), o_sig);
 #else
-		assert(rsp.sig().length() == sizeof(o_sig->s.data));
-		memcpy(o_sig->s.data, rsp.sig().data(), sizeof(o_sig->s.data));
+		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_bitcoin_signature(o_sig).c_str()
-			);
+			     dump_bitcoin_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -1255,18 +1253,16 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 	SignPenaltyToUsReply rsp;
 	Status status = stub->SignPenaltyToUs(&context, req, &rsp);
 	if (status.ok()) {
-#if 1
-		/* For now just make valgrind happy */
-		memset(o_sig->s.data, '\0', sizeof(o_sig->s.data));
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_bitcoin_signature(rsp.signature(), o_sig);
 #else
-		assert(rsp.sig().length() == sizeof(o_sig->s.data));
-		memcpy(o_sig->s.data, rsp.sig().data(), sizeof(o_sig->s.data));
+		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_bitcoin_signature(o_sig).c_str()
-			);
+			     dump_bitcoin_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
