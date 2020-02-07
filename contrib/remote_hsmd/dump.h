@@ -5,6 +5,7 @@ std::string dump_basepoints(const struct basepoints *bp);
 std::string dump_bitcoin_txid(const struct bitcoin_txid *txid);
 std::string dump_bitcoin_signature(const struct bitcoin_signature *sp);
 std::string dump_secp256k1_ecdsa_signature(const secp256k1_ecdsa_signature *sp);
+std::string dump_secp256k1_ecdsa_recoverable_signature(const secp256k1_ecdsa_recoverable_signature *sp);
 std::string dump_node_id(const struct node_id *pp);
 std::string dump_pubkey(const struct pubkey *kp);
 std::string dump_unilateral_close_info(const struct unilateral_close_info *ip);
