@@ -269,7 +269,6 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	assert(n <= tx->wtx->outputs_allocation_len);
 	tal_resize(htlcmap, n);
-	tal_resize(&(tx->output_witscripts), n);
 
 	/* BOLT #3:
 	 *
@@ -307,6 +306,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, funding, NULL);
 
 	elements_tx_add_fee_output(tx);
+	tal_resize(&(tx->output_witscripts), tx->wtx->num_outputs);
 
 	return tx;
 }

@@ -207,8 +207,6 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 
 	assert(n <= tx->wtx->num_outputs);
 
-	tal_resize(&(tx->output_witscripts), n);
-
 	/* BOLT #3:
 	 *
 	 * 7. Sort the outputs into [BIP 69+CLTV
@@ -244,6 +242,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, funding, NULL);
 
 	elements_tx_add_fee_output(tx);
+	tal_resize(&(tx->output_witscripts), tx->wtx->num_outputs);
+
 	assert(bitcoin_tx_check(tx));
 
 	return tx;
