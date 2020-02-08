@@ -165,16 +165,4 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx);
  */
 void bitcoin_tx_finalize(struct bitcoin_tx *tx);
 
-/**
- * Add an explicit fee output if necessary.
- *
- * An explicit fee output is only necessary if we are using an elements
- * transaction, and we have a non-zero fee. This method may be called multiple
- * times.
- *
- * Returns the position of the fee output, or -1 in the case of non-elements
- * transactions.
- */
-int elements_tx_add_fee_output(struct bitcoin_tx *tx);
-
 #endif /* LIGHTNING_BITCOIN_TX_H */
