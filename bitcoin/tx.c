@@ -98,7 +98,17 @@ static struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
 	return fee;
 }
 
-int elements_tx_add_fee_output(struct bitcoin_tx *tx)
+/**
+ * Add an explicit fee output if necessary.
+ *
+ * An explicit fee output is only necessary if we are using an elements
+ * transaction, and we have a non-zero fee. This method may be called multiple
+ * times.
+ *
+ * Returns the position of the fee output, or -1 in the case of non-elements
+ * transactions.
+ */
+static int elements_tx_add_fee_output(struct bitcoin_tx *tx)
 {
 	struct amount_sat fee = bitcoin_tx_compute_fee(tx);
 	int pos;
