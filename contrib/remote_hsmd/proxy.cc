@@ -76,10 +76,45 @@ proxy_stat map_status(Status const & status)
 	}
 }
 
+void marshal_secret(struct secret const *ss, Secret * o_sp)
+{
+	o_sp->set_data(ss->data, sizeof(ss->data));
+}
+
+void marshal_node_id(struct node_id const *np, NodeId *o_np)
+{
+	o_np->set_data(np->k, sizeof(np->k));
+}
+
+void marshal_pubkey(struct pubkey const *pp, PubKey *o_pp)
+{
+	o_pp->set_data(pp->pubkey.data, sizeof(pp->pubkey.data));
+}
+
 string channel_nonce(struct node_id *peer_id, u64 dbid)
 {
 	return string((char const *)peer_id->k, sizeof(peer_id->k)) +
 		string((char const *)&dbid, sizeof(dbid));
+}
+
+void output_secret(Secret const &ss, struct secret *o_sp)
+{
+	assert(ss.data().size() == sizeof(o_sp->data));
+	memcpy(o_sp->data, ss.data().data(), sizeof(o_sp->data));
+
+}
+void output_node_id(NodeId const &nn, struct node_id *o_np)
+{
+	assert(nn.data().size() == sizeof(o_np->k));
+	memcpy(o_np->k, nn.data().data(), sizeof(o_np->k));
+}
+
+void output_pubkey(PubKey const &pk, struct pubkey *o_pp)
+{
+	bool ok = pubkey_from_der((u8 const *)pk.data().data(),
+				  pk.data().size(),
+				  o_pp);
+	assert(ok);
 }
 
 void output_bitcoin_signature(BitcoinSignature const &bs,
@@ -267,18 +302,14 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 			      sizeof(chainparams->fee_asset_tag));
 
 	/* FIXME - Sending the secret instead of generating on the remote. */
-	req.set_hsm_secret(hsm_secret->data, sizeof(hsm_secret->data));
+	marshal_secret(hsm_secret, req.mutable_hsm_secret());
 
 	ClientContext context;
 	InitReply rsp;
 	Status status = stub->Init(&context, req, &rsp);
 	if (status.ok()) {
-		assert(rsp.self_node_id().length() == sizeof(o_node_id->k));
-		memcpy(o_node_id->k, rsp.self_node_id().c_str(),
-		       sizeof(o_node_id->k));
-		assert(rsp.self_node_id().length() == sizeof(self_id.k));
-		memcpy(self_id.k, rsp.self_node_id().c_str(),
-		       sizeof(self_id.k));
+		output_node_id(rsp.self_node_id(), o_node_id);
+		output_node_id(rsp.self_node_id(), &self_id);
 		status_debug("%s:%d %s node_id=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(o_node_id).c_str());
@@ -305,21 +336,18 @@ proxy_stat proxy_handle_ecdh(const struct pubkey *point,
 
 	last_message = "";
 	ECDHRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
-	req.set_point((const char *) point->pubkey.data,
-		      sizeof(point->pubkey.data));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
+	marshal_pubkey(point, req.mutable_point());
 
 	ClientContext context;
 	ECDHReply rsp;
 	Status status = stub->ECDH(&context, req, &rsp);
 	if (status.ok()) {
-		assert(rsp.shared_secret().length() == sizeof(o_ss->data));
-		memcpy(o_ss->data, rsp.shared_secret().c_str(),
-		       sizeof(o_ss->data));
+		output_secret(rsp.shared_secret(), o_ss);
 		status_debug("%s:%d %s self_id=%s ss=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_hex(o_ss->data, sizeof(o_ss->data)).c_str());
+			     dump_secret(o_ss).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -349,7 +377,7 @@ proxy_stat proxy_handle_pass_client_hsmfd(
 
 	last_message = "";
 	NewChannelRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_capabilities(capabilities);
 
@@ -402,10 +430,10 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 
 	last_message = "";
 	SignFundingTxRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 
+	req.mutable_tx()->set_raw_tx_bytes(serialized_tx(tx, true));
 	assert(tx->wtx->num_inputs == tal_count(utxos));
 	for (size_t ii = 0; ii < tx->wtx->num_inputs; ii++) {
 	 	const struct utxo *in = utxos[ii];
@@ -442,9 +470,10 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	Status status = stub->SignFundingTx(&context, req, &rsp);
 	if (status.ok()) {
 		output_witnesses(rsp.witnesses(), o_sigs);
-		status_debug("%s:%d %s self_id=%s",
+		status_debug("%s:%d %s self_id=%s witnesses=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
-			     dump_node_id(&self_id).c_str());
+			     dump_node_id(&self_id).c_str(),
+			     dump_witnesses((u8 const ***) *o_sigs).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -487,14 +516,12 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 
 	last_message = "";
 	SignRemoteCommitmentTxRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_remote_funding_pubkey(
-		(const char *) remote_funding_pubkey->pubkey.data,
-		sizeof(remote_funding_pubkey->pubkey.data));
-	req.set_remote_percommit_point(
-		(const char *) remote_per_commit->pubkey.data,
-		sizeof(remote_per_commit->pubkey.data));
+	marshal_pubkey(remote_funding_pubkey,
+		       req.mutable_remote_funding_pubkey());
+	marshal_pubkey(remote_per_commit,
+		       req.mutable_remote_per_commit_point());
 	req.set_option_static_remotekey(option_static_remotekey);
 	for (size_t ii = 0; ii < tal_count(output_witscripts); ii++)
 		if (output_witscripts[ii])
@@ -511,9 +538,10 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 	Status status = stub->SignRemoteCommitmentTx(&context, req, &rsp);
 	if (status.ok()) {
 		output_bitcoin_signature(rsp.signature(), o_sig);
-		status_debug("%s:%d %s self_id=%s",
+		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
-			     dump_node_id(&self_id).c_str());
+			     dump_node_id(&self_id).c_str(),
+			     dump_bitcoin_signature(o_sig).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -545,7 +573,7 @@ proxy_stat proxy_handle_get_per_commitment_point(
 
 	last_message = "";
 	GetPerCommitmentPointRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_n(n);
 
@@ -553,30 +581,19 @@ proxy_stat proxy_handle_get_per_commitment_point(
 	GetPerCommitmentPointReply rsp;
 	Status status = stub->GetPerCommitmentPoint(&context, req, &rsp);
 	if (status.ok()) {
-		if (!return_pubkey(rsp.per_commitment_point(),
-				   o_per_commitment_point)) {
-			last_message = "bad returned per_commitment_point";
-			return PROXY_INTERNAL_ERROR;
-		}
-		assert(rsp.old_secret().empty() || (
-			       rsp.old_secret().length() ==
-			       sizeof((*o_old_secret)->data)));
-		if (rsp.old_secret().empty())
+		output_pubkey(rsp.per_commitment_point(),
+			      o_per_commitment_point);
+		if (rsp.old_secret().data().empty())
 			*o_old_secret = NULL;
-		else {
-			*o_old_secret = tal(tmpctx, struct secret);
-			memcpy((*o_old_secret)->data, rsp.old_secret().c_str(),
-			       sizeof((*o_old_secret)->data));
-		}
+		else
+			output_secret(rsp.old_secret(), *o_old_secret);
 		status_debug("%s:%d %s self_id=%s "
 			     "per_commitment_point=%s old_secret=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
 			     dump_pubkey(o_per_commitment_point).c_str(),
 			     (*o_old_secret ?
-			      dump_hex((*o_old_secret)->data,
-				       sizeof((*o_old_secret)->data)).c_str() :
-			      "<none>"));
+			      dump_secret(*o_old_secret).c_str() : "<none>"));
 		last_message = "success";
 		return PROXY_OK;
 	} else {
@@ -612,7 +629,11 @@ proxy_stat proxy_handle_sign_invoice(
 	Status status = stub->SignInvoice(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-		// output_ecdsa_recoverable_signature(rsp.signature(), o_sig);
+#if 0
+		output_ecdsa_recoverable_signature(rsp.signature(), o_sig);
+#else
+		memset(o_sig, '\0', sizeof(*o_sig));
+#endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -667,7 +688,7 @@ proxy_stat proxy_handle_channel_update_sig(
 
 	last_message = "";
 	ChannelUpdateSigRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_chain_hash((const char *) chain_hash->shad.sha.u.u8,
 			   sizeof(chain_hash->shad.sha.u.u8));
 	req.set_short_channel_id(scid->u64);
@@ -722,7 +743,7 @@ proxy_stat proxy_handle_get_channel_basepoints(
 
 	last_message = "";
 	GetChannelBasepointsRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 
 	ClientContext context;
@@ -801,11 +822,10 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 
 	last_message = "";
 	SignMutualCloseTxRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_remote_funding_pubkey(
-		(const char *) remote_funding_pubkey->pubkey.data,
-		sizeof(remote_funding_pubkey->pubkey.data));
+	marshal_pubkey(remote_funding_pubkey,
+		       req.mutable_remote_funding_pubkey());
 
 	setup_single_input_tx(tx, req.mutable_tx());
 
@@ -857,11 +877,10 @@ proxy_stat proxy_handle_sign_commitment_tx(
 
 	last_message = "";
 	SignCommitmentTxRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_remote_funding_pubkey(
-		(const char *) remote_funding_pubkey->pubkey.data,
-		sizeof(remote_funding_pubkey->pubkey.data));
+	marshal_pubkey(remote_funding_pubkey,
+		       req.mutable_remote_funding_pubkey());
 
 	setup_single_input_tx(tx, req.mutable_tx());
 
@@ -910,7 +929,7 @@ proxy_stat proxy_handle_cannouncement_sig(
 
 	last_message = "";
 	ChannelAnnouncementSigRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_channel_announcement(channel_announcement,
 				     tal_count(channel_announcement));
@@ -958,7 +977,7 @@ proxy_stat proxy_handle_sign_node_announcement(
 
 	last_message = "";
 	NodeAnnouncementSigRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_node_announcement(node_announcement,
 				     tal_count(node_announcement));
 
@@ -1012,7 +1031,7 @@ proxy_stat proxy_handle_sign_local_htlc_tx(
 
 	last_message = "";
 	SignLocalHTLCTxRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_commit_num(commit_num);
 	req.set_wscript(wscript, tal_count(wscript));
@@ -1068,11 +1087,10 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 
 	last_message = "";
 	SignRemoteHTLCTxRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_remote_per_commit_point(
-		(const char *) remote_per_commit_point->pubkey.data,
-		sizeof(remote_per_commit_point->pubkey.data));
+	marshal_pubkey(remote_per_commit_point,
+		       req.mutable_remote_per_commit_point());
 	req.set_wscript(wscript, tal_count(wscript));
 
 	setup_single_input_tx(tx, req.mutable_tx());
@@ -1127,7 +1145,7 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 
 	last_message = "";
 	SignDelayedPaymentToUsRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_commit_num(commit_num);
 	req.set_wscript(wscript, tal_count(wscript));
@@ -1181,11 +1199,10 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 
 	last_message = "";
 	SignRemoteHTLCToUsRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_remote_per_commit_point(
-		(const char *) remote_per_commit_point->pubkey.data,
-		sizeof(remote_per_commit_point->pubkey.data));
+	marshal_pubkey(remote_per_commit_point,
+		       req.mutable_remote_per_commit_point());
 	req.set_wscript(wscript, tal_count(wscript));
 
 	setup_single_input_tx(tx, req.mutable_tx());
@@ -1241,10 +1258,9 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 
 	last_message = "";
 	SignPenaltyToUsRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
-	req.set_revocation_secret((const char *)revocation_secret->data,
-				  sizeof(revocation_secret->data));
+	marshal_secret(revocation_secret, req.mutable_revocation_secret());
 	req.set_wscript(wscript, tal_count(wscript));
 
 	setup_single_input_tx(tx, req.mutable_tx());
@@ -1295,11 +1311,10 @@ proxy_stat proxy_handle_check_future_secret(
 
 	last_message = "";
 	CheckFutureSecretRequest req;
-	req.set_self_node_id((const char *) self_id.k, sizeof(self_id.k));
+	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_n(n);
-	req.set_suggested((const char *)suggested->data,
-			  sizeof(suggested->data));
+	marshal_secret(suggested, req.mutable_suggested());
 
 	ClientContext context;
 	CheckFutureSecretReply rsp;
