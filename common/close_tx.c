@@ -60,8 +60,8 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 		return tal_free(tx);
 
 	permute_outputs(tx, NULL, NULL);
-	elements_tx_add_fee_output(tx);
 
+	bitcoin_tx_finalize(tx);
 	assert(bitcoin_tx_check(tx));
 	return tx;
 }

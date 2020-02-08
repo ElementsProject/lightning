@@ -305,8 +305,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	u32 sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
 	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, funding, NULL);
 
-	elements_tx_add_fee_output(tx);
-	tal_resize(&(tx->output_witscripts), tx->wtx->num_outputs);
+	bitcoin_tx_finalize(tx);
+	assert(bitcoin_tx_check(tx));
 
 	return tx;
 }

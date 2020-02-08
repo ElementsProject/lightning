@@ -156,6 +156,15 @@ void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
  */
 bool bitcoin_tx_check(const struct bitcoin_tx *tx);
 
+
+/**
+ * Finalize a transaction by truncating overallocated and temporary
+ * fields. This includes adding a fee output for elements transactions or
+ * adjusting an existing fee output, and resizing metadata arrays for inputs
+ * and outputs.
+ */
+void bitcoin_tx_finalize(struct bitcoin_tx *tx);
+
 /**
  * Add an explicit fee output if necessary.
  *
