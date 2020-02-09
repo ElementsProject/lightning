@@ -790,6 +790,15 @@ class LightningNode(object):
         if time.time() > start_time + timeout:
             raise ValueError("Error waiting for a route to destination {}".format(destination))
 
+    # This helper waits for all HTLCs to settle
+    def wait_for_htlcs(self):
+        peers = self.rpc.listpeers()['peers']
+        for p, peer in enumerate(peers):
+            if 'channels' in peer:
+                for c, channel in enumerate(peer['channels']):
+                    if 'htlcs' in channel:
+                        wait_for(lambda: len(self.rpc.listpeers()['peers'][p]['channels'][c]['htlcs']) == 0)
+
     def pay(self, dst, amt, label=None):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
