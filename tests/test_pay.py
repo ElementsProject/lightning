@@ -2299,8 +2299,8 @@ def test_channel_drainage(node_factory, bitcoind):
     l1.rpc.waitsendpay(payment_hash, 10)
 
     # wait until totally settled
-    wait_for(lambda: len(l1.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
-    wait_for(lambda: len(l2.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
+    l1.wait_for_htlcs()
+    l2.wait_for_htlcs()
 
     # But we can get more!  By using a trimmed htlc output; this doesn't cause
     # an increase in tx fee, so it's allowed.
@@ -2311,8 +2311,8 @@ def test_channel_drainage(node_factory, bitcoind):
     l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # wait until totally settled
-    wait_for(lambda: len(l1.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
-    wait_for(lambda: len(l2.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
+    l1.wait_for_htlcs()
+    l2.wait_for_htlcs()
 
     # Now, l1 is paying fees, but it can't afford a larger tx, so any
     # attempt to add an HTLC which is not trimmed will fail.
