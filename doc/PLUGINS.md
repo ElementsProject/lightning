@@ -119,7 +119,7 @@ has been started. Critical plugins that should not be stopped should set it
 to false.
 
 The `features` object allows the plugin to register featurebits that should be
-announced in a number of places in the protocol. They can be used to signal
+announced in a number of places in [the protocol][bolt9]. They can be used to signal
 support for custom protocol extensions to direct peers, remote nodes and in
 invoices. Custom protocol extensions can be implemented for example using the
 `sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and
@@ -878,3 +878,4 @@ compatibility should the semantics be changed in future.
 [sendcustommsg]: lightning-dev-sendcustommsg.7.html
 [oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
 [spec]: [https://github.com/lightningnetwork/lightning-rfc]
+[bolt9]: https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md

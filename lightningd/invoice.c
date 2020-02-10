@@ -1007,8 +1007,8 @@ static struct command_result *json_invoice(struct command *cmd,
 	 * This is a combination of natively supported features and featurebits
 	 * that plugins asked us to include in the invoice. */
 	info->b11->features = featurebits_or(
-	    info->b11, take(get_offered_bolt11features(info->b11)),
-	    take(plugins_collect_featurebits(tmpctx, cmd->ld->plugins,
+	    info->b11, take(get_offered_bolt11features(NULL)),
+	    take(plugins_collect_featurebits(NULL, cmd->ld->plugins,
 					     PLUGIN_FEATURES_INVOICE)));
 
 #if DEVELOPER

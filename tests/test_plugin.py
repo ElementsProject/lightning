@@ -4,7 +4,7 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
 from utils import (
-    DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK
+    DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK, expected_features
 )
 
 import json
@@ -848,10 +848,8 @@ def test_plugin_feature_announce(node_factory):
 
     # Check the featurebits we've set in the `init` message from
     # feature-test.py. (1 << 101) results in 13 bytes featutebits (000d) and
-    # has a leading 0x20, the remainder is added to avoid false positives, but
-    # may cause failures if we add support for more native featurebits.
-    init = l1.daemon.is_in_log(r'\[OUT\] 001000.*000d2000000000000000000002aaa2')
-    assert(init is not None)  # Make sure we caught the log message
+    # has a leading 0x20.
+    assert l1.daemon.is_in_log(r'\[OUT\] 001000.*000d20{:0>24}'.format(expected_features()))
 
     # Check the invoice featurebit we set in feature-test.py
     inv = l1.rpc.invoice(123, 'lbl', 'desc')['bolt11']
