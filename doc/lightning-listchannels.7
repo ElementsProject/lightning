@@ -66,18 +66,20 @@ settlement on-chain\.
 channel_update message was received\.
 .IP \[bu]
 \fIbase_fee_millisatoshi\fR : The base fee (in millisatoshi) charged
-for the HTLC (BOLT #2)\.
+for the HTLC (BOLT #7; equivalent to \fBfee_base_msat\fR)\.
 .IP \[bu]
 \fIfee_per_millionth\fR : The amount (in millionths of a satoshi)
-charged per transferred satoshi (BOLT #2)\.
+charged per transferred satoshi (BOLT #7; equivalent to
+\fBfee_proportional_millionths\fR)\.
 .IP \[bu]
-\fIdelay\fR : The number of blocks delay required to wait for on-chain
-settlement when unilaterally closing the channel (BOLT #2)\.
+\fIdelay\fR : The number of blocks of additional delay required when
+forwarding an HTLC in this direction\. (BOLT #7; equivalent to
+\fBcltv_expiry_delta\fR)\.
 .IP \[bu]
-\fIhtlc_minimum_msat\fR : The minimum payment which can be send
+\fIhtlc_minimum_msat\fR : The minimum payment which can be sent
 through this channel\.
 .IP \[bu]
-\fIhtlc_maximum_msat\fR : The maximum payment which can be send
+\fIhtlc_maximum_msat\fR : The maximum payment which can be sent
 through this channel\.
 
 .RE
@@ -111,16 +113,7 @@ Lightning RFC site
 
 .RS
 .IP \[bu]
-
-BOLT #2:
-\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md\fR
-
-
-.IP \[bu]
-
 BOLT #7:
 \fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md\fR
-
-
 
 .RE
