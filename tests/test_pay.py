@@ -2333,6 +2333,115 @@ def test_channel_drainage(node_factory, bitcoind):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
+@unittest.skipIf(not DEVELOPER, "slow gossip, needs DEVELOPER=1")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'The numbers below are bitcoin specific')
+def test_lockup_poc(node_factory, bitcoind):
+    # SETUP: A circle that allows l1 to attack the channel between l2 and l3 so
+    #        that l4->l5 route becomes effectively locked for remote users.
+    #
+    #  +--------> l1 --------+
+    #  |                     |
+    #  +--- l3 <----- l2 <---+
+    #       ^          |
+    #       |          |
+    #  l4 --+          +--> l5
+    #
+    # FUNDING:
+    #  scid12:  l1 -> l2   11**6
+    #  scid23:  l2 -> l3   10**6
+    #  scid31:  l3 -> l1   11**6
+    #  scid43:  l4 -> l3   10**6
+    #  scid25:  l2 -> l5   10**6
+
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+    nodes = [l1, l2, l3, l4, l5]
+    l1.connect(l2)
+    l2.connect(l3)
+    l3.connect(l1)
+    l4.connect(l3)
+    l2.connect(l5)
+    scid12 = l1.fund_channel(l2, 11**6)
+    scid23 = l2.fund_channel(l3, 10**6)
+    scid31 = l3.fund_channel(l1, 11**6)
+    scid43 = l4.fund_channel(l3, 10**6)
+    scid25 = l2.fund_channel(l5, 10**6)
+    scids = [scid12, scid23, scid31, scid43, scid25]
+    l1id = l1.rpc.getinfo()["id"]
+    l2id = l2.rpc.getinfo()["id"]
+
+    # a helper that sets fees on a manual route
+    def setup_routing_fees(plugin, route, amount):
+        delay = 10
+        amount_iter = amount
+        for r in reversed(route):
+            r['msatoshi'] = amount_iter.millisatoshis
+            r['amount_msat'] = amount_iter
+            r['delay'] = delay
+            channels = plugin.rpc.listchannels(r['channel'])
+            ch = next(c for c in channels.get('channels') if c['destination'] == r['id'])
+            fee = Millisatoshi(ch['base_fee_millisatoshi'])
+            # BOLT #7 requires fee >= fee_base_msat + ( amount_to_forward * fee_proportional_millionths / 1000000 )
+            fee += (amount_iter * ch['fee_per_millionth'] + 10**6 - 1) // 10**6    # integer math trick to round up
+            amount_iter += fee
+            delay += ch['delay']
+
+    # wait for each others gossip
+    bitcoind.generate_block(6)
+    for n in nodes:
+        for scid in scids:
+            n.wait_channel_active(scid)
+
+    # build a circular route with scid23 in the middle
+    r = l1.rpc.getroute(
+        l1id,
+        Millisatoshi(1000),
+        riskfactor=0,
+        cltv=9,
+        fromid=l2id,
+        fuzzpercent=0,
+        exclude=[scid12 + '/0', scid12 + '/1'])
+    route_out = {
+        'id': l2id,
+        'channel': scid12,
+        'direction': int(l1id >= l2id)}
+    route = [route_out] + r['route']
+
+    # first drain
+    amount_1 = Millisatoshi('976550000msat')
+    setup_routing_fees(l1, route, amount_1)
+    invoice = l1.rpc.invoice("any", "drain", "description")
+    payment_hash = invoice['payment_hash']
+    l1.rpc.sendpay(route, payment_hash)
+    result = l1.rpc.waitsendpay(payment_hash)
+    assert(result.get('status') == 'complete')
+    for n in nodes:
+        n.wait_for_htlcs()
+
+    # second drain to lockup into trimmed HTLC only state
+    amount_2 = Millisatoshi("2580000msat")
+    setup_routing_fees(l1, route, amount_2)
+    invoice = l1.rpc.invoice("any", "lockup", "description")
+    payment_hash = invoice['payment_hash']
+    l1.rpc.sendpay(route, payment_hash)
+    result = l1.rpc.waitsendpay(payment_hash)
+    assert(result.get('status') == 'complete')
+    for n in nodes:
+        n.wait_for_htlcs()
+
+    # NOW: l1 is very mean and goes offline, so routing must go through scid23.
+    # Alternatively, l1 could make it very expensive to use his route :D
+    l1.stop()
+
+    # scid23 is now locked
+    invoice = l5.rpc.invoice(Millisatoshi("100000sat"), "scid23 is locked for untrimmed HTLCs", "foo")
+    with pytest.raises(RpcError, match=r"Ran out of routes to try"):
+        result = l4.rpc.pay(invoice['bolt11'])
+    # only small trimmed HTLC can unlock
+    invoice = l5.rpc.invoice(Millisatoshi("10000sat"), "unlock scid23 with a small trimmed HTLC", "bar")
+    result = l4.rpc.pay(invoice['bolt11'])
+    assert(result.get('status') == 'complete')
+
+
 def test_error_returns_blockheight(node_factory, bitcoind):
     """Test that incorrect_or_unknown_payment_details returns block height"""
     l1, l2 = node_factory.line_graph(2)
