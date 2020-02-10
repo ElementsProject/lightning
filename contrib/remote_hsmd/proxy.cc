@@ -729,7 +729,7 @@ proxy_stat proxy_handle_channel_update_sig(
 		);
 
 	last_message = "";
-	ChannelUpdateSigRequest req;
+	SignChannelUpdateRequest req;
 	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_chain_hash((const char *) chain_hash->shad.sha.u.u8,
 			   sizeof(chain_hash->shad.sha.u.u8));
@@ -744,8 +744,8 @@ proxy_stat proxy_handle_channel_update_sig(
 	req.set_htlc_maximum(htlc_maximum->millisatoshis);
 
 	ClientContext context;
-	ChannelUpdateSigReply rsp;
-	Status status = stub->ChannelUpdateSig(&context, req, &rsp);
+	SignChannelUpdateReply rsp;
+	Status status = stub->SignChannelUpdate(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
@@ -970,15 +970,15 @@ proxy_stat proxy_handle_cannouncement_sig(
 		);
 
 	last_message = "";
-	ChannelAnnouncementSigRequest req;
+	SignChannelAnnouncementRequest req;
 	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_channel_announcement(channel_announcement,
 				     tal_count(channel_announcement));
 
 	ClientContext context;
-	ChannelAnnouncementSigReply rsp;
-	Status status = stub->ChannelAnnouncementSig(&context, req, &rsp);
+	SignChannelAnnouncementReply rsp;
+	Status status = stub->SignChannelAnnouncement(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
@@ -1018,14 +1018,14 @@ proxy_stat proxy_handle_sign_node_announcement(
 		);
 
 	last_message = "";
-	NodeAnnouncementSigRequest req;
+	SignNodeAnnouncementRequest req;
 	marshal_node_id(&self_id, req.mutable_self_node_id());
 	req.set_node_announcement(node_announcement,
 				     tal_count(node_announcement));
 
 	ClientContext context;
-	NodeAnnouncementSigReply rsp;
-	Status status = stub->NodeAnnouncementSig(&context, req, &rsp);
+	SignNodeAnnouncementReply rsp;
+	Status status = stub->SignNodeAnnouncement(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
