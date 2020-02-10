@@ -257,19 +257,20 @@ const char **list_supported_features(const tal_t *ctx)
 u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES)
 {
 	size_t l1 = tal_bytelen(f1), l2 = tal_bytelen(f2);
-	size_t lm = l1 > l2 ? l1 : l2;
-	u8 *result = tal_arrz(ctx, u8, lm);
+	u8 *result;
 
-	for (size_t i = 0; i < l1; i++)
-		result[lm - l1 + i] = f1[i];
+	/* Easier if f2 is shorter. */
+	if (l1 < l2)
+		return featurebits_or(ctx, f2, f1);
 
+	assert(l2 <= l1);
+	result = tal_dup_arr(ctx, u8, f1, l1, 0);
+
+	/* Note: features are packed to the end of the bitmap */
 	for (size_t i = 0; i < l2; i++)
-		result[lm - l2 + i] |= f2[i];
+		result[l1 - l2 + i] |= f2[i];
 
 	/* Cleanup the featurebits if we were told to do so. */
-	if (taken(f1))
-		tal_free(f1);
-
 	if (taken(f2))
 		tal_free(f2);
 
