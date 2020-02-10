@@ -651,6 +651,48 @@ proxy_stat proxy_handle_sign_invoice(
 	}
 }
 
+proxy_stat proxy_handle_sign_message(
+	u8 *msg,
+	secp256k1_ecdsa_recoverable_signature *o_sig)
+{
+	status_debug(
+		"%s:%d %s self_id=%s msg=%s",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_hex(msg, tal_count(msg)).c_str()
+		);
+
+	last_message = "";
+	SignMessageRequest req;
+	req.set_message(msg, tal_count(msg));
+
+	ClientContext context;
+	SignMessageReply rsp;
+	Status status = stub->SignMessage(&context, req, &rsp);
+	if (status.ok()) {
+		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
+#if 0
+		output_ecdsa_recoverable_signature(rsp.signature(), o_sig);
+#else
+		memset(o_sig, '\0', sizeof(*o_sig));
+#endif
+		status_debug("%s:%d %s self_id=%s sig=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str(),
+			     dump_secp256k1_ecdsa_recoverable_signature(
+				     o_sig).c_str());
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status);
+	}
+}
+
 proxy_stat proxy_handle_channel_update_sig(
 	struct bitcoin_blkid *chain_hash,
 	struct short_channel_id *scid,

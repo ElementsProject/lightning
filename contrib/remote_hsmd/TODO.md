@@ -4,8 +4,8 @@ API Coverage
 
 ## Failing Tests
 
+# intermittent
 tests/test_connection.py::test_restart_many_payments
-tests/test_misc.py::test_signmessage
 
 
 #### proxy and server done
@@ -32,11 +32,11 @@ tests/test_misc.py::test_signmessage
     WIRE_HSM_SIGN_LOCAL_HTLC_TX
     WIRE_HSM_SIGN_REMOTE_HTLC_TO_US
     handle_check_future_secret
+    handle_sign_message
 
 #### need proxy and server
 
 handle_sign_funding_tx
-handle_sign_message
 
 Improvements
 ----------------------------------------------------------------
