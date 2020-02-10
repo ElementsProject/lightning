@@ -52,14 +52,16 @@ settlement on-chain.
 - *last\_update* : Unix timestamp (seconds) showing when the last
 channel\_update message was received.
 - *base\_fee\_millisatoshi* : The base fee (in millisatoshi) charged
-for the HTLC (BOLT \#2).
+for the HTLC (BOLT \#7; equivalent to `fee_base_msat`).
 - *fee\_per\_millionth* : The amount (in millionths of a satoshi)
-charged per transferred satoshi (BOLT \#2).
-- *delay* : The number of blocks delay required to wait for on-chain
-settlement when unilaterally closing the channel (BOLT \#2).
-- *htlc\_minimum\_msat* : The minimum payment which can be send
+charged per transferred satoshi (BOLT \#7; equivalent to
+`fee_proportional_millionths`).
+- *delay* : The number of blocks of additional delay required when
+forwarding an HTLC in this direction. (BOLT \#7; equivalent to
+`cltv_expiry_delta`).
+- *htlc\_minimum\_msat* : The minimum payment which can be sent
 through this channel.
-- *htlc\_maximum\_msat* : The maximum payment which can be send
+- *htlc\_maximum\_msat* : The maximum payment which can be sent
 through this channel.
 
 If *short\_channel\_id* or *source* is supplied and no matching channels
@@ -86,9 +88,6 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 Lightning RFC site
-
--   BOLT \#2:
-    <https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md>
 
 -   BOLT \#7:
     <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
