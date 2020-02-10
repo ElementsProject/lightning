@@ -2167,6 +2167,19 @@ static struct io_plan *handle_sign_message(struct io_conn *conn,
 	if (!fromwire_hsm_sign_message(tmpctx, msg_in, &msg))
 		return bad_req(conn, c, msg_in);
 
+	proxy_stat rv = proxy_handle_sign_message(msg, &rsig);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
+
+	/* FIXME - USE THE PROXIED VALUE WHEN SERVER SUPPORTS */
+
 	/* Prefixing by a known string means we'll never be convinced
 	 * to sign some gossip message, etc. */
 	sha256_update(&sctx, "Lightning Signed Message:",

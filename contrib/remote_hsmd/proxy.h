@@ -80,6 +80,10 @@ proxy_stat proxy_handle_sign_invoice(
 	u8 *hrpu8,
 	secp256k1_ecdsa_recoverable_signature *o_sig);
 
+proxy_stat proxy_handle_sign_message(
+	u8 *msg,
+	secp256k1_ecdsa_recoverable_signature *o_sig);
+
 proxy_stat proxy_handle_channel_update_sig(
 	struct bitcoin_blkid *chain_hash,
 	struct short_channel_id *scid,
