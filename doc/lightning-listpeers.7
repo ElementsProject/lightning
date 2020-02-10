@@ -57,7 +57,7 @@ Each object in the list contains the following data:
 .IP \[bu]
 \fIfeatures\fR : Bit flags showing supported features (BOLT #9)
 .IP \[bu]
-\fIchannels\fR : An list of channel id’s open on the peer
+\fIchannels\fR : An array of objects describing channels with the peer\.
 .IP \[bu]
 \fIlog\fR : Only present if \fIlevel\fR is set\. List logs related to the
 peer at the specified \fIlevel\fR
@@ -67,6 +67,228 @@ peer at the specified \fIlevel\fR
 If \fIid\fR is supplied and no matching nodes are found, a "peers" object
 with an empty list is returned\.
 
+
+The objects in the \fIchannels\fR array will have at least these fields:
+
+.RS
+.IP \[bu]
+\fIstate\fR: Any of these strings:.RS
+.IP \[bu]
+\fB"OPENINGD"\fR: The channel funding protocol with the peer is ongoing
+and both sides are negotiating parameters\.
+.IP \[bu]
+\fB"CHANNELD_AWAITING_LOCKIN"\fR: The peer and you have agreed on channel
+parameters and are just waiting for the channel funding transaction to
+be confirmed deeply\.
+Both you and the peer must acknowledge the channel funding transaction
+to be confirmed deeply before entering the next state\.
+.IP \[bu]
+\fB"CHANNELD_NORMAL"\fR: The channel can be used for normal payments\.
+.IP \[bu]
+\fB"CHANNELD_SHUTTING_DOWN"\fR: A mutual close was requested (by you or
+peer) and both of you are waiting for HTLCs in-flight to be either
+failed or succeeded\.
+The channel can no longer be used for normal payments and forwarding\.
+Mutual close will proceed only once all HTLCs in the channel have
+either been fulfilled or failed\.
+.IP \[bu]
+\fB"CLOSINGD_SIGEXCHANGE"\fR: You and the peer are negotiating the mutual
+close onchain fee\.
+.IP \[bu]
+\fB"CLOSINGD_COMPLETE"\fR: You and the peer have agreed on the mutual close
+onchain fee and are awaiting the mutual close getting confirmed deeply\.
+.IP \[bu]
+\fB"AWAITING_UNILATERAL"\fR: You initiated a unilateral close, and are now
+waiting for the peer-selected unilateral close timeout to complete\.
+.IP \[bu]
+\fB"FUNDING_SPEND_SEEN"\fR: You saw the funding transaction getting
+spent (usually the peer initiated a unilateral close) and will now
+determine what exactly happened (i\.e\. if it was a theft attempt)\.
+.IP \[bu]
+\fB"ONCHAIN"\fR: You saw the funding transaction getting spent and now
+know what happened (i\.e\. if it was a proper unilateral close by the
+peer, or a theft attempt)\.
+.IP \[bu]
+\fB"CLOSED"\fR: The channel closure has been confirmed deeply\.
+The channel will eventually be removed from this array\.
+
+.RE
+
+.IP \[bu]
+\fIstatus\fR: An array of strings containing the most important log messages
+relevant to this channel\.
+Also known as the "billboard"\.
+.IP \[bu]
+\fIowner\fR: A string describing which particular sub-daemon of \fBlightningd\fR
+currently is responsible for this channel\.
+One of: \fB"lightning_openingd"\fR, \fB"lightning_channeld"\fR,
+\fB"lightning_closingd"\fR, \fB"lightning_onchaind"\fR\.
+.IP \[bu]
+\fIto_us_msat\fR: A string describing how much of the funds is owned by us;
+a number followed by a string unit\.
+.IP \[bu]
+\fItotal_msat\fR: A string describing the total capacity of the channel;
+a number followed by a string unit\.
+
+.RE
+
+These fields may exist if the channel has gotten beyond the \fB"OPENINGD"\fR
+state, or in various circumstances:
+
+.RS
+.IP \[bu]
+\fIshort_channel_id\fR: A string of the short channel ID for the channel;
+Format is \fB"BBBBxTTTxOOO"\fR, where \fB"BBBB"\fR is the numeric block height
+at which the funding transaction was confirmed, \fB"TTT"\fR is the numeric
+funding transaction index within that block, and \fB"OOO"\fR is the
+numeric output index of the transaction output that actually anchors
+this channel\.
+.IP \[bu]
+\fIdirection\fR: The channel-direction we own, as per  BOLT #7\.
+We own channel-direction 0 if our node ID is "less than" the peer node ID
+in a lexicographical ordering of our node IDs, otherwise we own
+channel-direction 1\.
+Our \fBchannel_update\fR will use this \fIdirection\fR\.
+.IP \[bu]
+\fIchannel_id\fR: The full channel ID of the channel;
+the funding transaction ID XORed with the output number\.
+.IP \[bu]
+\fIfunding_txid\fR: The funding transaction ID of the channel\.
+.IP \[bu]
+\fIclose_to\fR: The raw \fBscriptPubKey\fR that was indicated in the starting
+\fBfundchannel_start\fR command and accepted by the peer\.
+If the \fBscriptPubKey\fR encodes a standardized address, an additional
+\fIclose_to_addr\fR field will be present with the standardized address\.
+.IP \[bu]
+\fIprivate\fR: A boolean, true if the channel is unpublished, false if the
+channel is published\.
+.IP \[bu]
+\fIfunding_msat\fR: An object, whose field names are the node
+IDs involved in the channel, and whose values are strings (numbers with
+a unit suffix) indicating how much that node originally contributed in
+opening the channel\.
+.IP \[bu]
+\fImin_to_us_msat\fR: A string describing the historic point at which
+we owned the least amount of funds in this channel;
+a number followed by a string unit\.
+If the peer were to succesfully steal from us, this is the amount we
+would still retain\.
+.IP \[bu]
+\fImax_to_us_msat\fR: A string describing the historic point at which
+we owned the most amount of funds in this channel;
+a number followed by a string unit\.
+If we were to successfully steal from the peer, this is the amount we
+could potentially get\.
+.IP \[bu]
+\fIdust_limit_msat\fR: A string describing an amount;
+if an HTLC or the amount wholly-owned by one node is at or below this
+amount, it will be considered "dusty" and will not appear in a close
+transaction, and will be donated to miners as fee;
+a number followed by a string unit\.
+.IP \[bu]
+\fImax_total_htlc_in_msat\fR: A string describing an amount;
+the sum of all HTLCs in the channel cannot exceed this amount;
+a number followed by a string unit\.
+.IP \[bu]
+\fItheir_reserve_msat\fR: A string describing the minimum amount that
+the peer must keep in the channel when it attempts to send out;
+if it has less than this in the channel, it cannot send to us on
+that channel;
+a number followed by a string unit\.
+We impose this on them, default is 1% of the total channel capacity\.
+.IP \[bu]
+\fIour_reserve_msat\fR: A string describing the minimum amount that
+you must keep in the channel when you attempt to send out;
+if you have less than this in the channel, you cannot send out
+via this channel;
+a number followed by a string unit\.
+The peer imposes this on us, default is 1% of the total channel capacity\.
+.IP \[bu]
+\fIspendable_msat\fR: A string describing an \fB\fIestimate\fR\fR of how much we
+can send out over this channel;
+a number followed by a string unit\.
+This is an \fB\fIestimate\fR\fR, which can be wrong because adding HTLCs requires
+an increase in fees paid to onchain miners, and onchain fees change
+dynamically according to onchain activity\.
+.IP \[bu]
+\fIminimum_htlc_in_msat\fR: A string describing the minimum amount that
+an HTLC must have before we accept it\.
+.IP \[bu]
+\fItheir_to_self_delay\fR: The number of blocks that the peer must wait
+to claim their funds, if they close unilaterally\.
+.IP \[bu]
+\fIour_to_self_delay\fR: The number of blocks that you must wait to claim
+your funds, if you close unilaterally\.
+.IP \[bu]
+\fImax_accepted_htlcs\fR: The maximum number of HTLCs you will accept on
+this channel\.
+.IP \[bu]
+\fIin_payments_offered\fR: The number of incoming HTLCs offered over this
+channel\.
+.IP \[bu]
+\fIin_offered_msat\fR: A string describing the total amount of all incoming
+HTLCs offered over this channel;
+a number followed by a string unit\.
+.IP \[bu]
+\fIin_payments_fulfilled\fR: The number of incoming HTLCs offered \fIand
+successfully claimed\fR over this channel\.
+.IP \[bu]
+\fIin_fulfilled_msat\fR: A string describing the total amount of all
+incoming HTLCs offered \fIand successfully claimed\fR over this channel;
+a number followed by a string unit\.
+.IP \[bu]
+\fIout_payments_offered\fR: The number of outgoing HTLCs offered over
+this channel\.
+.IP \[bu]
+\fIout_offered_msat\fR: A string describing the total amount of all
+outgoing HTLCs offered over this channel;
+a number followed by a string unit\.
+.IP \[bu]
+\fIout_payments_fulfilled\fR: The number of outgoing HTLCs offered \fIand
+successfully claimed\fR over this channel\.
+.IP \[bu]
+\fIout_fulfilled_msat\fR: A string describing the total amount of all
+outgoing HTLCs offered \fIand successfully claimed\fR over this channel;
+a number followed by a string unit\.
+.IP \[bu]
+\fIhtlcs\fR: An array of objects describing the HTLCs currently in-flight
+in the channel\.
+
+.RE
+
+Objects in the \fIhtlcs\fR array will contain these fields:
+
+.RS
+.IP \[bu]
+\fIdirection\fR: Either the string \fB"out"\fR or \fB"in"\fR, whether it is an
+outgoing or incoming HTLC\.
+.IP \[bu]
+\fIid\fR: A numeric ID uniquely identifying this HTLC\.
+.IP \[bu]
+\fIamount_msat\fR: The value of the HTLC\.
+.IP \[bu]
+\fIexpiry\fR: The blockheight at which the HTLC will be forced to return
+to its offerer: an \fB"in"\fR HTLC will be returned to the peer, an
+\fB"out"\fR HTLC will be returned to you\.
+\fBNOTE\fR If the \fIexpiry\fR of any outgoing HTLC will arrive in the next
+block, \fBlightningd\fR(8) will automatically unilaterally close the
+channel in order to enforce the timeout onchain\.
+.IP \[bu]
+\fIpayment_hash\fR: The payment hash, whose preimage must be revealed to
+successfully claim this HTLC\.
+.IP \[bu]
+\fIstate\fR: A string describing whether the HTLC has been communicated to
+or from the peer, whether it has been signed in a new commitment, whether 
+the previous commitment (that does not contain it) has been revoked, as
+well as when the HTLC is fulfilled or failed offchain\.
+.IP \[bu]
+\fIlocal_trimmed\fR: A boolean, existing and \fBtrue\fR if the HTLC is not
+actually instantiated as an output (i\.e\. "trimmed") on the commitment
+transaction (and will not be instantiated on a unilateral close)\.
+Generally true if the HTLC is below the \fIdust_limit_msat\fR for the
+channel\.
+
+.RE
 
 On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
 with \fBcode\fR being one of the following:
@@ -82,7 +304,7 @@ Michael Hawkins \fI<michael.hawkins@protonmail.com\fR>\.
 
 .SH SEE ALSO
 
-\fBlightning-connect\fR(7)
+\fBlightning-connect\fR(7), lightning-fundchannel_\fBstart\fR(7)
 
 .SH RESOURCES
 
