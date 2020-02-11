@@ -84,19 +84,6 @@ proxy_stat proxy_handle_sign_message(
 	u8 *msg,
 	secp256k1_ecdsa_recoverable_signature *o_sig);
 
-proxy_stat proxy_handle_channel_update_sig(
-	struct bitcoin_blkid *chain_hash,
-	struct short_channel_id *scid,
-	u32 timestamp,
-	u8 message_flags,
-	u8 channel_flags,
-	u16 cltv_expiry_delta,
-	struct amount_msat *htlc_minimum,
-	u32 fee_base_msat,
-	u32 fee_proportional_mill,
-	struct amount_msat *htlc_maximum,
-	secp256k1_ecdsa_signature *o_sig);
-
 proxy_stat proxy_handle_get_channel_basepoints(
 	struct node_id *peer_id,
 	u64 dbid,
@@ -119,16 +106,16 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	u64 dbid,
 	struct bitcoin_signature *o_sig);
 
-proxy_stat proxy_handle_sign_node_announcement(
-	u8 *node_announcement,
-	secp256k1_ecdsa_signature *o_sig);
-
 proxy_stat proxy_handle_cannouncement_sig(
 	struct node_id *peer_id,
 	u64 dbid,
 	u8 *channel_announcement,
 	secp256k1_ecdsa_signature *o_node_sig,
 	secp256k1_ecdsa_signature *o_bitcoin_sig);
+
+proxy_stat proxy_handle_channel_update_sig(
+	u8 *channel_update,
+	secp256k1_ecdsa_signature *o_sig);
 
 proxy_stat proxy_handle_sign_local_htlc_tx(
 	struct bitcoin_tx *tx,
@@ -176,6 +163,10 @@ proxy_stat proxy_handle_check_future_secret(
 	u64 n,
 	struct secret *suggested,
 	bool *o_correct);
+
+proxy_stat proxy_handle_sign_node_announcement(
+	u8 *node_announcement,
+	secp256k1_ecdsa_signature *o_sig);
 
 #ifdef __cplusplus
 } /* extern C */
