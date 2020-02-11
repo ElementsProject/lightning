@@ -3,7 +3,7 @@
 
 The plugin offers 3 options, one of each supported type.
 """
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 

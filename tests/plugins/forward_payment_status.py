@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """This plugin is used to check that forward_event calls are working correctly.
 """
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 

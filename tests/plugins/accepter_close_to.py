@@ -9,7 +9,7 @@
       - otherwise: we don't include the close_to
 """
 
-from lightning import Plugin, Millisatoshi
+from pyln.client import Plugin, Millisatoshi
 
 plugin = Plugin()
 

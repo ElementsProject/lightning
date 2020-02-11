@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from lightning import Plugin, Millisatoshi
+from pyln.client import Plugin, Millisatoshi
 
 
 plugin = Plugin(autopatch=True)

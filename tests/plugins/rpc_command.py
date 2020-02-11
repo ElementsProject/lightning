@@ -2,7 +2,7 @@
 """
 This plugin is used to test the `rpc_command` hook.
 """
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 

@@ -4,7 +4,7 @@
 We just refuse to let them pay invoices with preimages divisible by 16.
 """
 
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 

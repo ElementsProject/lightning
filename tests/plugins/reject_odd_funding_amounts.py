@@ -4,7 +4,7 @@
 We just refuse to let them open channels with an odd amount of millisatoshis.
 """
 
-from lightning import Plugin, Millisatoshi
+from pyln.client import Plugin, Millisatoshi
 
 plugin = Plugin()
 
