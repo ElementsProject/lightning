@@ -15,6 +15,7 @@ Run all of the integration tests:
 ```
 SUBDAEMON='hsmd:remote_hsmd' \
 make \
+PYTEST_PAR=1 \
 DEVELOPER=1 \
 VALGRIND=0 \
 pytest \

@@ -896,8 +896,6 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	 */
 	/* 2 bytes msg type + 64 bytes signature */
 	size_t offset = 66;
-	struct privkey node_pkey;
-	struct sha256_double hash;
 	secp256k1_ecdsa_signature sig;
 	struct short_channel_id scid;
 	u32 timestamp, fee_base_msat, fee_proportional_mill;
@@ -921,10 +919,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "inner channel_update too short");
 
-	proxy_stat rv = proxy_handle_channel_update_sig(
-		&chain_hash, &scid, timestamp, message_flags, channel_flags,
-		cltv_expiry_delta, &htlc_minimum, fee_base_msat,
-		fee_proportional_mill, &htlc_maximum, &sig);
+	proxy_stat rv = proxy_handle_channel_update_sig(cu, &sig);
 	if (PROXY_PERMANENT(rv))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "proxy_%s failed: %s", __FUNCTION__,
@@ -933,14 +928,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	node_key(&node_pkey, NULL);
-	sha256_double(&hash, cu + offset, tal_count(cu) - offset);
-
-	sign_hash(&node_pkey, &hash, &sig);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	cu = towire_channel_update_option_channel_htlc_max(tmpctx, &sig, &chain_hash,
 				   &scid, timestamp, message_flags, channel_flags,
