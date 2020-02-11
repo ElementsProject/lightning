@@ -363,8 +363,19 @@ static bool get_room_above_reserve(const struct channel *channel,
 	return true;
 }
 
+static size_t num_untrimmed_htlcs(enum side side,
+				  struct amount_sat dust_limit,
+				  u32 feerate,
+				  const struct htlc **committed,
+				  const struct htlc **adding,
+				  const struct htlc **removing)
+{
+	return commit_tx_num_untrimmed(committed, feerate, dust_limit, side)
+		+ commit_tx_num_untrimmed(adding, feerate, dust_limit, side)
+		- commit_tx_num_untrimmed(removing, feerate, dust_limit, side);
+}
+
 static struct amount_sat fee_for_htlcs(const struct channel *channel,
-				       const struct channel_view *view,
 				       const struct htlc **committed,
 				       const struct htlc **adding,
 				       const struct htlc **removing,
@@ -374,12 +385,8 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 	struct amount_sat dust_limit = channel->config[side].dust_limit;
 	size_t untrimmed;
 
-	untrimmed = commit_tx_num_untrimmed(committed, feerate, dust_limit,
-					    side)
-		+ commit_tx_num_untrimmed(adding, feerate, dust_limit,
-					  side)
-		- commit_tx_num_untrimmed(removing, feerate, dust_limit,
-					  side);
+	untrimmed = num_untrimmed_htlcs(side, dust_limit, feerate,
+					committed, adding, removing);
 
 	return commit_tx_base_fee(feerate, untrimmed);
 }
@@ -536,7 +543,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 */
 	if (enforce_aggregate_limits) {
 		struct amount_msat remainder;
-		struct amount_sat fee = fee_for_htlcs(channel, view,
+		struct amount_sat fee = fee_for_htlcs(channel,
 						      committed,
 						      adding,
 						      removing,
@@ -578,7 +585,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			/* Should be able to afford both their own commit tx
 			 * fee, and other's commit tx fee, which are subtly
 			 * different! */
-			fee = fee_for_htlcs(channel, view,
+			fee = fee_for_htlcs(channel,
 					    committed,
 					    adding,
 					    removing,
@@ -596,7 +603,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 							    &remainder));
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 			}
-			fee = fee_for_htlcs(channel, view,
+			fee = fee_for_htlcs(channel,
 					    committed,
 					    adding,
 					    removing,
