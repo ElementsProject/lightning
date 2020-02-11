@@ -2333,6 +2333,34 @@ def test_channel_drainage(node_factory, bitcoind):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
+@pytest.mark.xfail(strict=True)
+def test_lockup_drain(node_factory, bitcoind):
+    """Try to get channel into a state where funder can't afford fees on additional HTLC, so fundee can't add HTLC"""
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+
+    # l1 sends all the money to l2 until even 1 msat can't get through.
+    total = 0
+    msat = 16**9
+    while msat != 0:
+        try:
+            l1.pay(l2, msat)
+            print("l1->l2: {}".format(msat))
+            total += msat
+        except RpcError:
+            msat //= 2
+
+    # Even if feerate now increases 1.5x (22500), l2 should be able to send
+    # non-dust HTLC to l1.
+    l1.set_feerates([22500] * 3, False)
+    # Restart forces fast fee adjustment (otherwise it's smoothed and takes
+    # a very long time!).
+    l1.restart()
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'])
+    assert(l1.rpc.feerates('perkw')['perkw']['normal'] == 22500)
+
+    l2.pay(l1, total // 2)
+
+
 def test_error_returns_blockheight(node_factory, bitcoind):
     """Test that incorrect_or_unknown_payment_details returns block height"""
     l1, l2 = node_factory.line_graph(2)
