@@ -10,6 +10,8 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 	/* Is this a unilateral close output and needs the
 	 * close_info? */
 	bool is_unilateral_close = utxo->close_info != NULL;
+	bool is_reserved = utxo->reserved_at != NULL;
+
 	towire_bitcoin_txid(pptr, &utxo->txid);
 	towire_u32(pptr, utxo->outnum);
 	towire_amount_sat(pptr, utxo->amount);
@@ -29,6 +31,13 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 		if (utxo->close_info->commitment_point)
 			towire_pubkey(pptr, utxo->close_info->commitment_point);
 	}
+
+	towire_bool(pptr, is_reserved);
+	if (is_reserved) {
+		towire_u32(pptr, *utxo->reserved_at);
+		towire_u32(pptr, *utxo->reserved_for);
+	}
+	towire_u8(pptr, utxo->spend_priority);
 }
 
 struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
@@ -65,6 +74,15 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	} else {
 		utxo->close_info = NULL;
 	}
+
+	if (fromwire_bool(ptr, max)) {
+		const u32 reserved_at = fromwire_u32(ptr, max),
+			reserved_for = fromwire_u32(ptr, max);
+
+		utxo->reserved_at = &reserved_at;
+		utxo->reserved_for = &reserved_for;
+	}
+	utxo->spend_priority = fromwire_u8(ptr, max);
 
 	return utxo;
 }

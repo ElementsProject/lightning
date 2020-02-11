@@ -296,13 +296,18 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	u->close_info->channel_id = channel->dbid;
 	u->close_info->peer_id = channel->peer->id;
 	u->spendheight = NULL;
+	u->reserved_at = NULL;
+	u->reserved_for = NULL;
+	u->scriptPubkey = NULL;
+	u->scriptSig = NULL;
+	u->spend_priority = spend_normal;
 
 	if (!fromwire_onchain_add_utxo(
 		u, msg, &u->txid, &u->outnum, &u->close_info->commitment_point,
 		&u->amount, &blockheight, &u->scriptPubkey)) {
 		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
 	}
-	u->blockheight = blockheight>0?&blockheight:NULL;
+	u->blockheight = blockheight > 0 ? &blockheight : NULL;
 
 	outpointfilter_add(channel->peer->ld->wallet->owned_outpoints, &u->txid, u->outnum);
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
