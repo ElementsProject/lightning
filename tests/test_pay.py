@@ -578,7 +578,9 @@ def test_sendpay(node_factory):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The reserve computation is bitcoin specific")
 def test_sendpay_cant_afford(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundamount=10**6)
+    # Set feerates the same so we don't have to wait for update.
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6,
+                                     opts={'feerates': (15000, 15000, 15000)})
 
     # Can't pay more than channel capacity.
     def pay(lsrc, ldst, amt, label=None):
@@ -593,7 +595,7 @@ def test_sendpay_cant_afford(node_factory):
         pay(l1, l2, 10**9 + 1)
 
     # This is the fee, which needs to be taken into account for l1.
-    available = 10**9 - 13440000
+    available = 10**9 - 24030000
     # Reserve is 1%.
     reserve = 10**7
 
@@ -2275,65 +2277,6 @@ def test_channel_spendable_capped(node_factory, bitcoind):
     assert l1.rpc.listpeers()['peers'][0]['channels'][0]['spendable_msat'] == Millisatoshi(0xFFFFFFFF)
 
 
-@unittest.skipIf(TEST_NETWORK != 'regtest', 'The numbers below are bitcoin specific')
-def test_channel_drainage(node_factory, bitcoind):
-    """Test channel drainage.
-
-    Test to drains a channels as much as possible,
-    especially in regards to commitment fee:
-
-    [l1] <=> [l2]
-    """
-    sats = 10**6
-    l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True)
-
-    # wait for everyone to see every channel as active
-    for n in [l1, l2]:
-        wait_for(lambda: [c['active'] for c in n.rpc.listchannels()['channels']] == [True] * 2 * 1)
-
-    # This first HTLC drains the channel.
-    amount = Millisatoshi("976559200msat")
-    payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
-    route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
-    l1.rpc.sendpay(route, payment_hash)
-    l1.rpc.waitsendpay(payment_hash, 10)
-
-    # wait until totally settled
-    l1.wait_for_htlcs()
-    l2.wait_for_htlcs()
-
-    # But we can get more!  By using a trimmed htlc output; this doesn't cause
-    # an increase in tx fee, so it's allowed.
-    amount = Millisatoshi("2580800msat")
-    payment_hash = l2.rpc.invoice('any', 'inv2', 'for testing')['payment_hash']
-    route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
-    l1.rpc.sendpay(route, payment_hash)
-    l1.rpc.waitsendpay(payment_hash, TIMEOUT)
-
-    # wait until totally settled
-    l1.wait_for_htlcs()
-    l2.wait_for_htlcs()
-
-    # Now, l1 is paying fees, but it can't afford a larger tx, so any
-    # attempt to add an HTLC which is not trimmed will fail.
-    payment_hash = l1.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
-
-    # feerate_per_kw = 15000, so htlc_timeout_fee = 663 * 15000 / 1000 = 9945.
-    # dust_limit is 546.  So it's trimmed if < 9945 + 546.
-    amount = Millisatoshi("10491sat")
-    route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
-    l2.rpc.sendpay(route, payment_hash)
-    with pytest.raises(RpcError, match=r"Capacity exceeded.*'erring_index': 0"):
-        l2.rpc.waitsendpay(payment_hash, TIMEOUT)
-
-    # But if it's trimmed, we're ok.
-    amount -= 1
-    route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
-    l2.rpc.sendpay(route, payment_hash)
-    l2.rpc.waitsendpay(payment_hash, TIMEOUT)
-
-
-@pytest.mark.xfail(strict=True)
 def test_lockup_drain(node_factory, bitcoind):
     """Try to get channel into a state where funder can't afford fees on additional HTLC, so fundee can't add HTLC"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
