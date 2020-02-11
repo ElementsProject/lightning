@@ -2320,20 +2320,15 @@ def test_channel_drainage(node_factory, bitcoind):
 
     # feerate_per_kw = 15000, so htlc_timeout_fee = 663 * 15000 / 1000 = 9945.
     # dust_limit is 546.  So it's trimmed if < 9945 + 546.
-    amount = Millisatoshi("10491sat")
-    route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
-    l2.rpc.sendpay(route, payment_hash)
-    with pytest.raises(RpcError, match=r"Capacity exceeded.*'erring_index': 0"):
-        l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
-    # But if it's trimmed, we're ok.
-    amount -= 1
+    # But we allow a single HTLC addition to break into reserve, so this
+    # actually works.
+    amount = Millisatoshi("10491sat")
     route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
     l2.rpc.sendpay(route, payment_hash)
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)    
 def test_lockup_drain(node_factory, bitcoind):
     """Try to get channel into a state where funder can't afford fees on additional HTLC, so fundee can't add HTLC"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})

@@ -391,6 +391,31 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 	return commit_tx_base_fee(feerate, untrimmed);
 }
 
+/* If we're non-funder, we let ourselves add an HTLC even if the
+ * funder would have to dip into reserves to pay the fees.  This
+ * ensures progress */
+static bool single_nonfunder_exception(struct channel *channel,
+				       const struct htlc **committed,
+				       const struct htlc **adding)
+{
+	size_t num_ours_added;
+
+	if (channel->funder != REMOTE)
+		return false;
+
+	/* Already committed to one of ours?  No more. */
+	for (size_t i = 0; i < tal_count(committed); i++)
+		if (htlc_owner(committed[i]) == LOCAL)
+			return false;
+
+	num_ours_added = 0;
+	for (size_t i = 0; i < tal_count(adding); i++)
+		if (htlc_owner(adding[i]) == LOCAL)
+			num_ours_added++;
+
+	return num_ours_added <= 1;
+}
+
 static enum channel_add_err add_htlc(struct channel *channel,
 				     enum htlc_state state,
 				     u64 id,
@@ -575,8 +600,10 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		}
 
 		/* Try not to add a payment which will take funder into fees
-		 * on either our side or theirs. */
-		if (sender == LOCAL) {
+		 * on either our side or theirs.  However, allow a single HTLC
+		 * if we're not the funder. */
+		if (sender == LOCAL
+		    && !single_nonfunder_exception(channel, committed, adding)) {
 			if (!get_room_above_reserve(channel, view,
 						    adding, removing,
 						    channel->funder,
