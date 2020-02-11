@@ -6,7 +6,7 @@ stashed away, and are only resolved on the fifth invocation. All calls
 will then return the argument of the fifth call.
 
 """
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 
