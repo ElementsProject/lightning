@@ -76,6 +76,40 @@ proxy_stat map_status(Status const & status)
 	}
 }
 
+/* BIP144:
+ * If the witness is empty, the old serialization format should be used. */
+bool uses_witness(const struct bitcoin_tx *tx)
+{
+	size_t i;
+	for (i = 0; i < tx->wtx->num_inputs; i++) {
+		if (tx->wtx->inputs[i].witness)
+			return true;
+	}
+	return false;
+}
+
+
+string serialized_tx(struct bitcoin_tx const *tx, bool bip144)
+{
+	int res;
+	size_t len, written;
+	u8 *serialized;;
+	u8 flag = 0;
+
+	if (bip144 && uses_witness(tx))
+		flag |= WALLY_TX_FLAG_USE_WITNESS;
+
+	res = wally_tx_get_length(tx->wtx, flag, &len);
+	assert(res == WALLY_OK);
+
+	string retval(len, '\0');
+	res = wally_tx_to_bytes(tx->wtx, flag, (unsigned char *)&retval[0],
+				retval.size(), &written);
+	assert(res == WALLY_OK);
+	assert(len == written);
+	return retval;
+}
+
 void marshal_secret(struct secret const *ss, Secret * o_sp)
 {
 	o_sp->set_data(ss->data, sizeof(ss->data));
@@ -91,25 +125,40 @@ void marshal_pubkey(struct pubkey const *pp, PubKey *o_pp)
 	o_pp->set_data(pp->pubkey.data, sizeof(pp->pubkey.data));
 }
 
+void marshal_single_input_tx(struct bitcoin_tx const *tx, Transaction *o_tp)
+{
+	o_tp->set_raw_tx_bytes(serialized_tx(tx, true));
+
+	assert(tx->wtx->num_inputs == 1);
+	SignDescriptor *desc = o_tp->add_input_descs();
+	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
+	/* FIXME - What else needs to be set? */
+
+	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
+		SignDescriptor *desc = o_tp->add_output_descs();
+		/* FIXME - We don't need to set *anything* here? */
+	}
+}
+
 string channel_nonce(struct node_id *peer_id, u64 dbid)
 {
 	return string((char const *)peer_id->k, sizeof(peer_id->k)) +
 		string((char const *)&dbid, sizeof(dbid));
 }
 
-void output_secret(Secret const &ss, struct secret *o_sp)
+void unmarshal_secret(Secret const &ss, struct secret *o_sp)
 {
 	assert(ss.data().size() == sizeof(o_sp->data));
 	memcpy(o_sp->data, ss.data().data(), sizeof(o_sp->data));
 
 }
-void output_node_id(NodeId const &nn, struct node_id *o_np)
+void unmarshal_node_id(NodeId const &nn, struct node_id *o_np)
 {
 	assert(nn.data().size() == sizeof(o_np->k));
 	memcpy(o_np->k, nn.data().data(), sizeof(o_np->k));
 }
 
-void output_pubkey(PubKey const &pk, struct pubkey *o_pp)
+void unmarshal_pubkey(PubKey const &pk, struct pubkey *o_pp)
 {
 	bool ok = pubkey_from_der((u8 const *)pk.data().data(),
 				  pk.data().size(),
@@ -117,7 +166,7 @@ void output_pubkey(PubKey const &pk, struct pubkey *o_pp)
 	assert(ok);
 }
 
-void output_bitcoin_signature(BitcoinSignature const &bs,
+void unmarshal_bitcoin_signature(BitcoinSignature const &bs,
 			      struct bitcoin_signature *o_sig)
 {
 	bool ok = signature_from_der(
@@ -127,7 +176,7 @@ void output_bitcoin_signature(BitcoinSignature const &bs,
 	assert(ok);
 }
 
-void output_ecdsa_signature(ECDSASignature const &es,
+void unmarshal_ecdsa_signature(ECDSASignature const &es,
 			    secp256k1_ecdsa_signature *o_sig)
 {
 	int ok = secp256k1_ecdsa_signature_parse_der(
@@ -138,7 +187,7 @@ void output_ecdsa_signature(ECDSASignature const &es,
 	assert(ok);
 }
 
-void output_ecdsa_recoverable_signature(ECDSARecoverableSignature const &es,
+void unmarshal_ecdsa_recoverable_signature(ECDSARecoverableSignature const &es,
 			    secp256k1_ecdsa_recoverable_signature *o_sig)
 {
 	assert(es.data().size() == 65);
@@ -151,7 +200,7 @@ void output_ecdsa_recoverable_signature(ECDSARecoverableSignature const &es,
 	assert(ok);
 }
 
-void output_witnesses(RepeatedPtrField<WitnessStack> const &wits,
+void unmarshal_witnesses(RepeatedPtrField<WitnessStack> const &wits,
 		      u8 ****o_sigs)
 {
 	u8 ***osigs = NULL;
@@ -180,58 +229,10 @@ bool return_pubkey(const string &i_pubkey, struct pubkey *o_pubkey)
 		(const u8*)i_pubkey.c_str(), i_pubkey.length(), o_pubkey);
 }
 
-/* BIP144:
- * If the witness is empty, the old serialization format should be used. */
-bool uses_witness(const struct bitcoin_tx *tx)
-{
-	size_t i;
-	for (i = 0; i < tx->wtx->num_inputs; i++) {
-		if (tx->wtx->inputs[i].witness)
-			return true;
-	}
-	return false;
-}
-
-string serialized_tx(struct bitcoin_tx *tx, bool bip144)
-{
-	int res;
-	size_t len, written;
-	u8 *serialized;;
-	u8 flag = 0;
-
-	if (bip144 && uses_witness(tx))
-		flag |= WALLY_TX_FLAG_USE_WITNESS;
-
-	res = wally_tx_get_length(tx->wtx, flag, &len);
-	assert(res == WALLY_OK);
-
-	string retval(len, '\0');
-	res = wally_tx_to_bytes(tx->wtx, flag, (unsigned char *)&retval[0],
-				retval.size(), &written);
-	assert(res == WALLY_OK);
-	assert(len == written);
-	return retval;
-}
-
 /* Copied from ccan/mem/mem.h which the c++ compiler doesn't like */
 static inline bool memeq(const void *a, size_t al, const void *b, size_t bl)
 {
 	return al == bl && !memcmp(a, b, bl);
-}
-
-void setup_single_input_tx(struct bitcoin_tx *tx, Transaction *o_tp)
-{
-	o_tp->set_raw_tx_bytes(serialized_tx(tx, true));
-
-	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = o_tp->add_input_descs();
-	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
-	/* FIXME - What else needs to be set? */
-
-	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
-		SignDescriptor *desc = o_tp->add_output_descs();
-		/* FIXME - We don't need to set *anything* here? */
-	}
 }
 
 } /* end namespace */
@@ -308,8 +309,8 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 	InitReply rsp;
 	Status status = stub->Init(&context, req, &rsp);
 	if (status.ok()) {
-		output_node_id(rsp.self_node_id(), o_node_id);
-		output_node_id(rsp.self_node_id(), &self_id);
+		unmarshal_node_id(rsp.self_node_id(), o_node_id);
+		unmarshal_node_id(rsp.self_node_id(), &self_id);
 		status_debug("%s:%d %s node_id=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(o_node_id).c_str());
@@ -343,7 +344,7 @@ proxy_stat proxy_handle_ecdh(const struct pubkey *point,
 	ECDHReply rsp;
 	Status status = stub->ECDH(&context, req, &rsp);
 	if (status.ok()) {
-		output_secret(rsp.shared_secret(), o_ss);
+		unmarshal_secret(rsp.shared_secret(), o_ss);
 		status_debug("%s:%d %s self_id=%s ss=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -469,7 +470,7 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	SignFundingTxReply rsp;
 	Status status = stub->SignFundingTx(&context, req, &rsp);
 	if (status.ok()) {
-		output_witnesses(rsp.witnesses(), o_sigs);
+		unmarshal_witnesses(rsp.witnesses(), o_sigs);
 		status_debug("%s:%d %s self_id=%s witnesses=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -530,14 +531,13 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 				tal_count(output_witscripts[ii]->ptr));
 		else
 			req.add_output_witscripts("");
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignRemoteCommitmentTxReply rsp;
 	Status status = stub->SignRemoteCommitmentTx(&context, req, &rsp);
 	if (status.ok()) {
-		output_bitcoin_signature(rsp.signature(), o_sig);
+		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -581,12 +581,12 @@ proxy_stat proxy_handle_get_per_commitment_point(
 	GetPerCommitmentPointReply rsp;
 	Status status = stub->GetPerCommitmentPoint(&context, req, &rsp);
 	if (status.ok()) {
-		output_pubkey(rsp.per_commitment_point(),
+		unmarshal_pubkey(rsp.per_commitment_point(),
 			      o_per_commitment_point);
 		if (rsp.old_secret().data().empty())
 			*o_old_secret = NULL;
 		else
-			output_secret(rsp.old_secret(), *o_old_secret);
+			unmarshal_secret(rsp.old_secret(), *o_old_secret);
 		status_debug("%s:%d %s self_id=%s "
 			     "per_commitment_point=%s old_secret=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
@@ -630,7 +630,7 @@ proxy_stat proxy_handle_sign_invoice(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_ecdsa_recoverable_signature(rsp.signature(), o_sig);
+		unmarshal_ecdsa_recoverable_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -672,7 +672,7 @@ proxy_stat proxy_handle_sign_message(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_ecdsa_recoverable_signature(rsp.signature(), o_sig);
+		unmarshal_ecdsa_recoverable_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -717,7 +717,7 @@ proxy_stat proxy_handle_channel_update_sig(
 	SignChannelUpdateReply rsp;
 	Status status = stub->SignChannelUpdate(&context, req, &rsp);
 	if (status.ok()) {
-		output_ecdsa_signature(rsp.signature(), o_sig);
+		unmarshal_ecdsa_signature(rsp.signature(), o_sig);
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -833,8 +833,7 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	marshal_pubkey(remote_funding_pubkey,
 		       req.mutable_remote_funding_pubkey());
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignMutualCloseTxReply rsp;
@@ -842,7 +841,7 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_bitcoin_signature(rsp.signature(), o_sig);
+		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -888,8 +887,7 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	marshal_pubkey(remote_funding_pubkey,
 		       req.mutable_remote_funding_pubkey());
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignCommitmentTxReply rsp;
@@ -897,7 +895,7 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_bitcoin_signature(rsp.signature(), o_sig);
+		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -947,8 +945,8 @@ proxy_stat proxy_handle_cannouncement_sig(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_ecdsa_signature(rsp.node_signature(), o_node_sig);
-		output_ecdsa_signature(rsp.bitcoin_signature(), o_bitcoin_sig);
+		unmarshal_ecdsa_signature(rsp.node_signature(), o_node_sig);
+		unmarshal_ecdsa_signature(rsp.bitcoin_signature(), o_bitcoin_sig);
 #else
 		memset(o_node_sig->data, '\0', sizeof(o_node_sig->data));
 		memset(o_bitcoin_sig->data, '\0', sizeof(o_bitcoin_sig->data));
@@ -998,8 +996,7 @@ proxy_stat proxy_handle_sign_local_htlc_tx(
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_commit_num(commit_num);
 	req.set_wscript(wscript, tal_count(wscript));
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignLocalHTLCTxReply rsp;
@@ -1055,8 +1052,7 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 	marshal_pubkey(remote_per_commit_point,
 		       req.mutable_remote_per_commit_point());
 	req.set_wscript(wscript, tal_count(wscript));
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignRemoteHTLCTxReply rsp;
@@ -1064,7 +1060,7 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_bitcoin_signature(rsp.signature(), o_sig);
+		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -1112,8 +1108,7 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	req.set_commit_num(commit_num);
 	req.set_wscript(wscript, tal_count(wscript));
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignDelayedPaymentToUsReply rsp;
@@ -1121,7 +1116,7 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_bitcoin_signature(rsp.signature(), o_sig);
+		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -1167,8 +1162,7 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 	marshal_pubkey(remote_per_commit_point,
 		       req.mutable_remote_per_commit_point());
 	req.set_wscript(wscript, tal_count(wscript));
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignRemoteHTLCToUsReply rsp;
@@ -1176,7 +1170,7 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_bitcoin_signature(rsp.signature(), o_sig);
+		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -1225,8 +1219,7 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 	req.set_channel_nonce(channel_nonce(peer_id, dbid));
 	marshal_secret(revocation_secret, req.mutable_revocation_secret());
 	req.set_wscript(wscript, tal_count(wscript));
-
-	setup_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, req.mutable_tx());
 
 	ClientContext context;
 	SignPenaltyToUsReply rsp;
@@ -1234,7 +1227,7 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_bitcoin_signature(rsp.signature(), o_sig);
+		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig, '\0', sizeof(*o_sig));
 #endif
@@ -1311,11 +1304,14 @@ proxy_stat proxy_handle_sign_node_announcement(
 			 tal_count(node_announcement)).c_str()
 		);
 
+	/* Skip the portion of the channel_update that we don't sign */
+	size_t offset = 2 + 64;	/* sizeof(type) + sizeof(signature) */
+	size_t cusz = tal_count(node_announcement);
+
 	last_message = "";
 	SignNodeAnnouncementRequest req;
 	marshal_node_id(&self_id, req.mutable_self_node_id());
-	req.set_node_announcement(node_announcement,
-				     tal_count(node_announcement));
+	req.set_node_announcement(node_announcement + offset, cusz - offset);
 
 	ClientContext context;
 	SignNodeAnnouncementReply rsp;
@@ -1323,7 +1319,7 @@ proxy_stat proxy_handle_sign_node_announcement(
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
 #if 0
-		output_ecdsa_signature(rsp.signature(), o_sig);
+		unmarshal_ecdsa_signature(rsp.signature(), o_sig);
 #else
 		memset(o_sig->data, '\0', sizeof(o_sig->data));
 #endif
