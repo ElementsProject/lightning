@@ -2207,7 +2207,7 @@ def test_change_chaining(node_factory, bitcoind):
 def test_feerate_spam(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
 
-    slack = 25000000 if not chainparams['elements'] else 35000000
+    slack = 35000000
     # Pay almost everything to l2.
     l1.pay(l2, 10**9 - slack)
 
@@ -2218,8 +2218,8 @@ def test_feerate_spam(node_factory, chainparams):
     # Now change feerates to something l1 can't afford.
     l1.set_feerates((100000, 100000, 100000))
 
-    # It will raise as far as it can (20000)
-    l1.daemon.wait_for_log('Setting REMOTE feerate to 20000')
+    # It will raise as far as it can (34000)
+    l1.daemon.wait_for_log('Setting REMOTE feerate to 34000')
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
     # But it won't do it again once it's at max.

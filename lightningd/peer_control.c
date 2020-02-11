@@ -553,7 +553,10 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 			num_untrimmed_htlcs++;
 	}
 
-	return commit_tx_base_fee(local_feerate, num_untrimmed_htlcs);
+	/* Funder is conservative: makes sure it allows an extra HTLC
+	 * even if feerate increases 50% */
+	return commit_tx_base_fee(local_feerate + local_feerate / 2,
+				  num_untrimmed_htlcs + 1);
 }
 
 static void subtract_offered_htlcs(const struct channel *channel,
