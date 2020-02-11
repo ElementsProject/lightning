@@ -189,7 +189,8 @@ bool opt_unregister(const char *names)
 	if (found == -1)
 		return false;
 	opt_count--;
-	memmove(&opt_table[found], &opt_table[found+1], opt_count - found);
+	memmove(&opt_table[found], &opt_table[found+1],
+		(opt_count - found) * sizeof(opt_table[found]));
 	return true;
 }
 
