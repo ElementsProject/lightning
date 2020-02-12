@@ -674,12 +674,12 @@ proxy_stat proxy_handle_channel_update_sig(
 
 	/* Skip the portion of the channel_update that we don't sign */
 	size_t offset = 2 + 64;	/* sizeof(type) + sizeof(signature) */
-	size_t cusz = tal_count(channel_update);
+	size_t annsz = tal_count(channel_update);
 
 	last_message = "";
 	SignChannelUpdateRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
-	req.set_channel_update(channel_update + offset, cusz - offset);
+	req.set_channel_update(channel_update + offset, annsz - offset);
 
 	ClientContext context;
 	SignChannelUpdateReply rsp;
@@ -1274,24 +1274,19 @@ proxy_stat proxy_handle_sign_node_announcement(
 
 	/* Skip the portion of the channel_update that we don't sign */
 	size_t offset = 2 + 64;	/* sizeof(type) + sizeof(signature) */
-	size_t cusz = tal_count(node_announcement);
+	size_t annsz = tal_count(node_announcement);
 
 	last_message = "";
 	SignNodeAnnouncementRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
-	req.set_node_announcement(node_announcement + offset, cusz - offset);
+	req.set_node_announcement(node_announcement + offset, annsz - offset);
 
 	ClientContext context;
 	SignNodeAnnouncementReply rsp;
 	Status status = stub->SignNodeAnnouncement(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-#if 0
 		unmarshal_ecdsa_signature(rsp.signature(), o_sig);
-#else
-		memset(o_sig->data, '\0', sizeof(o_sig->data));
-#endif
-		status_debug("%s:%d %s self_id=%s node_sig=%s bitcoin_sig=%s",
+		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
 			     dump_secp256k1_ecdsa_signature(o_sig).c_str());
