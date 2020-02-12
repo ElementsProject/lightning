@@ -4,6 +4,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.8.1-rc1] - 2020-02-12: "Channel to the Moon"
+
+This release named by Vasil Dimov @vasild.
+
+### Added
+
+ - Plugin: pluggable backends for Bitcoin data queries, default still bitcoind (using bitcoin-cli). ([3488](https://github.com/ElementsProject/lightning/pull/3488))
+ - Plugin: Plugins can now signal support for experimental protocol extensions by registering featurebits for `node_announcement`s, the connection handshake, and for invoices. For now this is limited to non-dynamic plugins only ([3477](https://github.com/ElementsProject/lightning/pull/3477))
+ - Plugin: 'plugin start' now restores initial umask before spawning the plugin process ([3375](https://github.com/ElementsProject/lightning/pull/3375))
+ - JSON API: `fundchannel` and `fundchannel_start` can now accept an optional parameter, `push_msat`, which will gift that amount of satoshis to the peer at channel open. ([3369](https://github.com/ElementsProject/lightning/pull/3369))
+ - JSON API: `waitanyinvoice` now supports a `timeout` parameter, which when set will cause the command to fail if unpaid after `timeout` seconds (can be 0). ([3449](https://github.com/ElementsProject/lightning/pull/3449))
+ - Config: `--rpc-file-mode` sets permissions on the JSON-RPC socket. ([3437](https://github.com/ElementsProject/lightning/pull/3437))
+ - Config: `--subdaemon` allows alternate subdaemons. ([3372](https://github.com/ElementsProject/lightning/pull/3372))
+ - lightningd: Optimistic locking prevents instances from running concurrently against the same database, providing linear consistency to changes. ([3358](https://github.com/ElementsProject/lightning/pull/3358))
+ - hsmd: Added fields to hsm_sign_remote_commitment_tx to allow complete validation by signing daemon. ([3363](https://github.com/ElementsProject/lightning/pull/3363))
+ - Wallet: withdrawal transactions now sets nlocktime to the current tip. ([3465](https://github.com/ElementsProject/lightning/pull/3465))
+ - elements: Added support for the dynafed block header format and elementsd >=0.18.1 ([3440](https://github.com/ElementsProject/lightning/pull/3440))
+
+### Changed
+
+ - JSON API: The hooks `db_write`, `invoice_payment`, and `rpc_command` now accept `{ "result": "continue" }` to mean "do default action". ([3475](https://github.com/ElementsProject/lightning/pull/3475))
+ - Plugin: Multiple plugins can now register for the htlc_accepted hook. ([3489](https://github.com/ElementsProject/lightning/pull/3489))
+ - JSON API: `funchannel_cancel`: only the opener of a fundchannel can cancel the channel open ([3336](https://github.com/ElementsProject/lightning/pull/3336))
+ - JSON API: `sendpay` optional `msatoshi` param for non-MPP (if set), must be the exact amount sent to the final recipient. ([3470](https://github.com/ElementsProject/lightning/pull/3470))
+ - JSON API: `waitinvoice` now returns error code 903 to designate that the invoice expired during wait, instead of the previous -2 ([3441](https://github.com/ElementsProject/lightning/pull/3441))
+ - JSON_API: The `connect` command now returns its own error codes instead of a generic -1. ([3397](https://github.com/ElementsProject/lightning/pull/3397))
+ - Plugin: `notify_sendpay_success` and `notify_sendpay_failure` are now always called, even if there is no command waiting on the result. ([3405](https://github.com/ElementsProject/lightning/pull/3405))
+ - hsmtool: `hsmtool` now creates its backup copy in the same directory as the original `hsm_secret` file. ([3409](https://github.com/ElementsProject/lightning/pull/3409))
+ - JSON API: `invoice` `exposeprivatechannels` can specify exact channel candidates. ([3351](https://github.com/ElementsProject/lightning/pull/3351))
+ - JSON API: `db_write` new field `data_version` which contains a numeric transaction counter. ([3358](https://github.com/ElementsProject/lightning/pull/3358))
+ - JSON API: `plugin stop` result is now accessible using the `result` key instead of the empty ('') key. ([3374](https://github.com/ElementsProject/lightning/pull/3374))
+ - lightning-cli: specifying `--rpc-file` (without `--network`) has been restored. ([3353](https://github.com/ElementsProject/lightning/pull/3353))
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON API: The hook `db_write` returning `true`: use `{ "result": "continue" }`. ([3475](https://github.com/ElementsProject/lightning/pull/3475))
+ - JSON API: The hook `invoice_payment` returning `{}`: use `{ "result": "continue" }`. ([3475](https://github.com/ElementsProject/lightning/pull/3475))
+ - JSON API: The hook `rpc_command` returning `{"continue": true}`: use `{ "result": "continue" }`. ([3475](https://github.com/ElementsProject/lightning/pull/3475))
+ - JSON API: `plugin stop` result with an empty ("") key: use "result". ([3374](https://github.com/ElementsProject/lightning/pull/3374))
+
+
+### Removed
+
+ - Plugin: Relative plugin paths are not relative to startup (deprecated v0.7.2.1) ([3471](https://github.com/ElementsProject/lightning/pull/3471))
+ - JSON API: Dummy fields in listforwards (deprecated v0.7.2.1) ([3471](https://github.com/ElementsProject/lightning/pull/3471))
+
+### Fixed
+
+ - Doc: Corrected and expanded `lightning-listpeers.7` documentation. ([3497](https://github.com/ElementsProject/lightning/pull/3497))
+ - Doc: Fixed factual errors in `lightning-listchannels.7` documentation. ([3494](https://github.com/ElementsProject/lightning/pull/3494))
+ - Protocol: Corner case where channel could become unusable (https://github.com/lightningnetwork/lightning-rfc/issues/728) ([3500](https://github.com/ElementsProject/lightning/pull/3500))
+ - Plugins: Dynamic C plugins can now be managed when lightningd is up ([3480](https://github.com/ElementsProject/lightning/pull/3480))
+ - Doc: `connect`: clarified failure problems and usage. ([3459](https://github.com/ElementsProject/lightning/pull/3459))
+ - Doc: `fundchannel`: clarify that we automatically `connect`s if your node knows how. ([3459](https://github.com/ElementsProject/lightning/pull/3459))
+ - Protocol: Now correctly reject "fees" paid when we're the final hop (lightning-rfc#711) ([3474](https://github.com/ElementsProject/lightning/pull/3474))
+ - JSON API: `txprepare` no longer crashes when more than two outputs are specified ([3384](https://github.com/ElementsProject/lightning/pull/3384))
+ - Pyln: now includes the "jsonrpc" field to jsonrpc2 requests ([3442](https://github.com/ElementsProject/lightning/pull/3442))
+ - Plugin: `pay` now detects a previously non-permanent error (`final_cltv_too_soon`) that has been merged into a permanent error (`incorrect_or_unknown_payment_details`), and retries. ([3376](https://github.com/ElementsProject/lightning/pull/3376))
+ - JSON API: The arguments for `createonion` are now checked to ensure they fit in the onion packet. ([3404](https://github.com/ElementsProject/lightning/pull/3404))
+ - TOR: We don't send any further request if the return code of connect is not zero or error. ([3408](https://github.com/ElementsProject/lightning/pull/3408))
+ - Build: Developer mode compilation on FreeBSD. ([3344](https://github.com/ElementsProject/lightning/pull/3344))
+ - Protocol: We now reject invoices which ask for sub-millisatoshi amounts ([3481](https://github.com/ElementsProject/lightning/pull/3481))
+
+### Security
+
 ## [0.8.0] - 2019-12-16: "Blockchain Good, Orange Coin Bad"
 
 This release was named by Michael Schmoock @m-schmoock.
@@ -567,8 +634,8 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[Unreleased]: https://github.com/ElementsProject/lightning/compare/v0.8.0...HEAD
-[0.8.0-rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.8.0-rc1
+[0.8.1-rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.8.1-rc1
+[0.8.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.8.0
 [0.7.3]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.3
 [0.7.2.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.2.1
 [0.7.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.7.1
