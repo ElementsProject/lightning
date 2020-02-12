@@ -90,6 +90,19 @@ enum proxy_impl {
 static int g_proxy_impl;
 static enum hsm_wire_type g_proxy_last;
 
+/* FIXME - REMOVE THIS WHEN NO LONGER NEEDED */
+#if 0
+static void print_hex(char const *tag, void const *vptr, size_t sz)
+{
+	fprintf(stderr, "%s: ", tag);
+	uint8_t const *ptr = (uint8_t const *) vptr;
+	for (size_t ii = 0; ii < sz; ++ii) {
+		fprintf(stderr, "%02x", (int) ptr[ii]);
+	}
+	fprintf(stderr, "\n");
+}
+#endif
+
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
 	/* The ccan/io async io connection for this client: it closes, we die. */
@@ -1076,12 +1089,10 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 							struct client *c,
 							const u8 *msg_in)
 {
-	struct pubkey remote_funding_pubkey, local_funding_pubkey;
+	struct pubkey remote_funding_pubkey;
 	struct amount_sat funding;
-	struct secret channel_seed;
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
-	struct secrets secrets;
 	struct witscript **output_witscripts;
 	struct pubkey remote_per_commit;
 	bool option_static_remotekey;
@@ -1104,24 +1115,9 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	if (tal_count(output_witscripts) != tx->wtx->num_outputs)
 		return bad_req_fmt(conn, c, msg_in, "tx must have matching witscripts");
 
-	/* FIXME - WE DON'T NEED THESE ANYMORE, RIGHT? */
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	derive_basepoints(&channel_seed,
-			  &local_funding_pubkey, NULL, &secrets, NULL);
-
 	/* Need input amount for signing */
 	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 
-/*
-	funding_wscript = bitcoin_redeem_2of2(tmpctx,
-					      &local_funding_pubkey,
-					      &remote_funding_pubkey);
-	sign_tx_input(tx, 0, NULL, funding_wscript,
-		      &secrets.funding_privkey,
-		      &local_funding_pubkey,
-		      SIGHASH_ALL,
-		      &sig);
-*/
 	proxy_stat rv = proxy_handle_sign_remote_commitment_tx(
 		tx, &remote_funding_pubkey, &funding,
 		&c->id, c->dbid,
@@ -1628,7 +1624,7 @@ static struct io_plan *handle_check_future_secret(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_COMPLETE;
+	g_proxy_impl = PROXY_IMPL_MARSHALED;
 
 	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
 
@@ -2095,8 +2091,6 @@ static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
 	 */
 	/* 2 bytes msg type + 64 bytes signature */
 	size_t offset = 66;
-	struct sha256_double hash;
-	struct privkey node_pkey;
 	secp256k1_ecdsa_signature sig;
 	u8 *reply;
 	u8 *ann;
@@ -2121,14 +2115,7 @@ static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	node_key(&node_pkey, NULL);
-	sha256_double(&hash, ann + offset, tal_count(ann) - offset);
-
-	sign_hash(&node_pkey, &hash, &sig);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	reply = towire_hsm_node_announcement_sig_reply(NULL, &sig);
 	return req_reply(conn, c, take(reply));
