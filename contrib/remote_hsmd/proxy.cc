@@ -132,8 +132,34 @@ void marshal_pubkey(struct pubkey const *pp, PubKey *o_pp)
 	o_pp->set_data(pp->pubkey.data, sizeof(pp->pubkey.data));
 }
 
-void marshal_single_input_tx(struct bitcoin_tx const *tx, Transaction *o_tp)
+void marshal_single_input_tx(struct bitcoin_tx const *tx,
+			     u8 const *output_witscript,
+			     struct witscript const **output_witscripts,
+			     Transaction *o_tp)
 {
+	if (output_witscript) {
+		/* Called with a single witscript. */
+		assert(tx->wtx->num_outputs == 1);
+		o_tp->add_output_witscripts((const char *) output_witscript,
+					    tal_count(output_witscript));
+	} else if (output_witscripts) {
+		/* Called with an array of witscripts. */
+		size_t nwitscripts = tal_count(output_witscripts);
+		assert(nwitscripts == tx->wtx->num_outputs);
+		for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++)
+			if (output_witscripts[ii])
+				o_tp->add_output_witscripts(
+					(const char *)
+					output_witscripts[ii]->ptr,
+					tal_count(output_witscripts[ii]->ptr));
+			else
+				o_tp->add_output_witscripts("");
+	} else {
+		/* Called with no witscrtipts. */
+		for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++)
+			o_tp->add_output_witscripts("");
+	}
+
 	o_tp->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
@@ -492,17 +518,10 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 	marshal_pubkey(remote_per_commit,
 		       req.mutable_remote_per_commit_point());
 	req.set_option_static_remotekey(option_static_remotekey);
-	for (size_t ii = 0; ii < tal_count(output_witscripts); ii++)
-		if (output_witscripts[ii])
-			req.add_output_witscripts(
-				(const char *) output_witscripts[ii]->ptr,
-				tal_count(output_witscripts[ii]->ptr));
-		else
-			req.add_output_witscripts("");
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, NULL, output_witscripts, req.mutable_tx());
 
 	ClientContext context;
-	SignRemoteCommitmentTxReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignRemoteCommitmentTx(&context, req, &rsp);
 	if (status.ok()) {
 		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
@@ -593,7 +612,7 @@ proxy_stat proxy_handle_sign_invoice(
 	req.set_human_readable_part((const char *)hrpu8, tal_count(hrpu8));
 
 	ClientContext context;
-	SignInvoiceReply rsp;
+	RecoverableNodeSignatureReply rsp;
 	Status status = stub->SignInvoice(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -635,7 +654,7 @@ proxy_stat proxy_handle_sign_message(
 	req.set_message(msg, tal_count(msg));
 
 	ClientContext context;
-	SignMessageReply rsp;
+	RecoverableNodeSignatureReply rsp;
 	Status status = stub->SignMessage(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -682,7 +701,7 @@ proxy_stat proxy_handle_channel_update_sig(
 	req.set_channel_update(channel_update + offset, annsz - offset);
 
 	ClientContext context;
-	SignChannelUpdateReply rsp;
+	NodeSignatureReply rsp;
 	Status status = stub->SignChannelUpdate(&context, req, &rsp);
 	if (status.ok()) {
 		unmarshal_ecdsa_signature(rsp.signature(), o_sig);
@@ -801,10 +820,10 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_pubkey(remote_funding_pubkey,
 		       req.mutable_remote_funding_pubkey());
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, NULL, NULL, req.mutable_tx());
 
 	ClientContext context;
-	SignMutualCloseTxReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignMutualCloseTx(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -855,10 +874,10 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_pubkey(remote_funding_pubkey,
 		       req.mutable_remote_funding_pubkey());
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, NULL, NULL, req.mutable_tx());
 
 	ClientContext context;
-	SignCommitmentTxReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignCommitmentTx(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -963,11 +982,10 @@ proxy_stat proxy_handle_sign_local_htlc_tx(
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	req.set_n(commit_num);
-	req.set_witscript(wscript, tal_count(wscript));
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
 
 	ClientContext context;
-	SignLocalHTLCTxReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignLocalHTLCTx(&context, req, &rsp);
 	if (status.ok()) {
 #if 1
@@ -1019,11 +1037,10 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_pubkey(remote_per_commit_point,
 		       req.mutable_remote_per_commit_point());
-	req.set_witscript(wscript, tal_count(wscript));
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
 
 	ClientContext context;
-	SignRemoteHTLCTxReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignRemoteHTLCTx(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -1075,11 +1092,10 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	req.set_n(commit_num);
-	req.set_witscript(wscript, tal_count(wscript));
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
 
 	ClientContext context;
-	SignDelayedPaymentToUsReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignDelayedPaymentToUs(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -1129,11 +1145,10 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_pubkey(remote_per_commit_point,
 		       req.mutable_remote_per_commit_point());
-	req.set_witscript(wscript, tal_count(wscript));
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
 
 	ClientContext context;
-	SignRemoteHTLCToUsReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignRemoteHTLCToUs(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -1186,11 +1201,10 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_secret(revocation_secret, req.mutable_revocation_secret());
-	req.set_witscript(wscript, tal_count(wscript));
-	marshal_single_input_tx(tx, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
 
 	ClientContext context;
-	SignPenaltyToUsReply rsp;
+	SignatureReply rsp;
 	Status status = stub->SignPenaltyToUs(&context, req, &rsp);
 	if (status.ok()) {
 		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
@@ -1282,7 +1296,7 @@ proxy_stat proxy_handle_sign_node_announcement(
 	req.set_node_announcement(node_announcement + offset, annsz - offset);
 
 	ClientContext context;
-	SignNodeAnnouncementReply rsp;
+	NodeSignatureReply rsp;
 	Status status = stub->SignNodeAnnouncement(&context, req, &rsp);
 	if (status.ok()) {
 		unmarshal_ecdsa_signature(rsp.signature(), o_sig);
