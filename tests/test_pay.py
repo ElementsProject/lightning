@@ -376,7 +376,12 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
 def test_payment_failed_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED', '+WIRE_COMMITMENT_SIGNED'],
+
+    # FIXME: use something else to switch on v2 enablement
+    disconnects = ['+WIRE_COMMITMENT_SIGNED']
+    if EXPERIMENTAL_FEATURES:
+        disconnects = ['=WIRE_COMMITMENT_SIGNED'] + disconnects
+    l1 = node_factory.get_node(disconnect=disconnects,
                                options={'dev-no-reconnect': None},
                                may_reconnect=True,
                                feerates=(7500, 7500, 7500, 7500))

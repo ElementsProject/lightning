@@ -1506,8 +1506,11 @@ def test_fee_limits(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_update_fee_reconnect(node_factory, bitcoind):
-    # Disconnect after commitsig for fee update.
-    disconnects = ['=WIRE_COMMITMENT_SIGNED', '+WIRE_COMMITMENT_SIGNED*2']
+    # Disconnect after first commitsig.
+    # FIXME: use something else to switch on for v2 enabled
+    disconnects = ['+WIRE_COMMITMENT_SIGNED*3']
+    if EXPERIMENTAL_FEATURES:
+        disconnects = ['=WIRE_COMMITMENT_SIGNED', '+WIRE_COMMITMENT_SIGNED*2']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True,
                                feerates=(15000, 15000, 15000, 3750))

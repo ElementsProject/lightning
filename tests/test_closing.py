@@ -3,7 +3,7 @@ from flaky import flaky
 from pyln.client import RpcError
 from utils import (
     only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND,
-    SLOW_MACHINE
+    SLOW_MACHINE, EXPERIMENTAL_FEATURES
 )
 
 import os
@@ -504,7 +504,8 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
     # We suppress each one after first commit; HTLC gets added not fulfilled.
     # Feerates identical so we don't get gratuitous commit to update them
-    disconnects = ['=WIRE_COMMITMENT_SIGNED', '=WIRE_COMMITMENT_SIGNED-nocommit']
+    disconnects = ['=WIRE_COMMITMENT_SIGNED-nocommit']
+
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_fail=True,
                                feerates=(7500, 7500, 7500, 7500),
