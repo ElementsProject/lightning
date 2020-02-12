@@ -637,7 +637,8 @@ static bool rpc_read_response_one(struct plugin *plugin)
 
 	jrtok = json_get_member(plugin->rpc_buffer, toks, "jsonrpc");
 	if (!jrtok) {
-		plugin_err(plugin, "JSON-RPC message does not contain \"jsonrpc\" field");
+		plugin_err(plugin, "JSON-RPC message does not contain \"jsonrpc\" field: '%.*s'",
+                                   (int)plugin->rpc_used, plugin->rpc_buffer);
 		return false;
 	}
 
@@ -981,7 +982,7 @@ static void ld_command_handle(struct plugin *plugin,
 static bool ld_read_json_one(struct plugin *plugin)
 {
 	bool valid;
-	const jsmntok_t *toks, *jrtok;
+	const jsmntok_t *toks;
 	struct command *cmd = tal(plugin, struct command);
 
 	/* FIXME: This could be done more efficiently by storing the
@@ -1005,12 +1006,8 @@ static bool ld_read_json_one(struct plugin *plugin)
 		return false;
 	}
 
-	jrtok = json_get_member(plugin->buffer, toks, "jsonrpc");
-	if (!jrtok) {
-		plugin_err(plugin, "JSON-RPC message does not contain \"jsonrpc\" field");
-		return false;
-	}
-
+	/* FIXME: Spark doesn't create proper jsonrpc 2.0!  So we don't
+	 * check for "jsonrpc" here. */
 	ld_command_handle(plugin, cmd, toks);
 
 	/* Move this object out of the buffer */
