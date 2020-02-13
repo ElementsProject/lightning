@@ -824,7 +824,8 @@ class LightningNode(object):
         # sendpay is async now
         self.rpc.sendpay([routestep], rhash)
         # wait for sendpay to comply
-        self.rpc.waitsendpay(rhash)
+        result = self.rpc.waitsendpay(rhash)
+        assert(result.get('status') == 'complete')
 
     # Note: this feeds through the smoother in update_feerate, so changing
     # it on a running daemon may not give expected result!
