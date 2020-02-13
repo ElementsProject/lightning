@@ -740,6 +740,7 @@ int main(int argc, char *argv[])
 	 * valgrind will warn us if we make decisions based on uninitialized
 	 * variables. */
 	ld = new_lightningd(NULL);
+	ld->state = LD_STATE_RUNNING;
 
 	/* Figure out where our daemons are first. */
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
@@ -931,6 +932,7 @@ int main(int argc, char *argv[])
 	 *  shut down.
 	 */
 	assert(io_loop_ret == ld);
+	ld->state = LD_STATE_SHUTDOWN;
 
 	/* Keep this fd around, to write final response at the end. */
 	stop_fd = io_conn_fd(ld->stop_conn);
