@@ -80,6 +80,11 @@ struct config {
 
 typedef STRMAP(const char *) alt_subdaemon_map;
 
+enum lightningd_state {
+	LD_STATE_RUNNING,
+	LD_STATE_SHUTDOWN,
+};
+
 struct lightningd {
 	/* The directory to find all the subdaemons. */
 	const char *daemon_dir;
@@ -262,6 +267,8 @@ struct lightningd {
 	struct list_head waitblockheight_commands;
 
 	alt_subdaemon_map alt_subdaemons;
+
+	enum lightningd_state state;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

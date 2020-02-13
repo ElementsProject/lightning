@@ -17,6 +17,7 @@ struct plugin_hook_request {
 	void *cb_arg;
 	void *payload;
 	struct db *db;
+	struct lightningd *ld;
 };
 
 /* A link in the plugin_hook call chain (there's a joke in there about
@@ -156,6 +157,11 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	bool more_plugins, cont;
 	struct plugin_hook_call_link *last;
 
+	if (r->ld->state == LD_STATE_SHUTDOWN) {
+		log_debug(r->ld->log,
+			  "Abandoning plugin hook call due to shutdown");
+		return;
+	}
 	/* Pop the head off the call chain and continue with the next */
 	last = list_pop(&r->call_chain, struct plugin_hook_call_link, list);
 	assert(last != NULL);
@@ -232,6 +238,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		ph_req->db = ld->wallet->db;
 		ph_req->payload = tal_steal(ph_req, payload);
 		ph_req->current_plugin = -1;
+		ph_req->ld = ld;
 
 		list_head_init(&ph_req->call_chain);
 		for (size_t i=0; i<tal_count(hook->plugins); i++) {
