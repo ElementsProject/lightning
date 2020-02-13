@@ -3365,6 +3365,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 }
 
 void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
+				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
 				  enum onion_type failcode)
@@ -3432,7 +3433,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	db_exec_prepared_v2(take(stmt));
 
 notify:
-	notify_forward_event(w->ld, in, out, state, failcode, resolved_time);
+	notify_forward_event(w->ld, in, scid_out, out ? &out->msat : NULL,
+			     state, failcode, resolved_time);
 }
 
 struct amount_msat wallet_total_forward_fees(struct wallet *w)

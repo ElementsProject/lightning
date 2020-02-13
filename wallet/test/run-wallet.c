@@ -388,7 +388,10 @@ void notify_disconnect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UN
 /* Generated stub for notify_forward_event */
 void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  const struct htlc_in *in UNNEEDED,
-			  const struct htlc_out *out UNNEEDED,
+			  /* May be NULL if we don't know. */
+			  const struct short_channel_id *scid_out UNNEEDED,
+			  /* May be NULL. */
+			  const struct amount_msat *amount_out UNNEEDED,
 			  enum forward_status state UNNEEDED,
 			  enum onion_type failcode UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED)

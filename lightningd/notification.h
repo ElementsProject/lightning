@@ -53,7 +53,10 @@ void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 
 void notify_forward_event(struct lightningd *ld,
 			  const struct htlc_in *in,
-			  const struct htlc_out *out,
+			  /* May be NULL if we don't know. */
+			  const struct short_channel_id *scid_out,
+			  /* May be NULL. */
+			  const struct amount_msat *amount_out,
 			  enum forward_status state,
 			  enum onion_type failcode,
 			  struct timeabs *resolved_time);
