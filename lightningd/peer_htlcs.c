@@ -404,7 +404,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			/* here we haven't called connect_htlc_out(),
 			 * so set htlc field with NULL */
 			wallet_forwarded_payment_add(ld->wallet,
-					 hout->in, NULL,
+					 hout->in, NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 failure_code);
 		}
@@ -514,7 +514,7 @@ static void forward_htlc(struct htlc_in *hin,
 	if (!next || !next->scid) {
 		local_fail_htlc(hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
-					 hin, NULL,
+					 hin, next ? next->scid : NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 hin->failcode);
 		return;
@@ -603,7 +603,7 @@ static void forward_htlc(struct htlc_in *hin,
 fail:
 	local_fail_htlc(hin, failcode, next->scid);
 	wallet_forwarded_payment_add(ld->wallet,
-				 hin, hout,
+				 hin, next->scid, hout,
 				 FORWARD_LOCAL_FAILED,
 				 hin->failcode);
 }
@@ -637,7 +637,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 	if (!peer_id) {
 		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
 		wallet_forwarded_payment_add(gr->hin->key.channel->peer->ld->wallet,
-					 gr->hin, NULL,
+					 gr->hin, &gr->next_channel, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 gr->hin->failcode);
 		tal_free(gr);
@@ -1009,7 +1009,8 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 		payment_succeeded(ld, hout, preimage);
 	else if (hout->in) {
 		fulfill_htlc(hout->in, preimage);
-		wallet_forwarded_payment_add(ld->wallet, hout->in, hout,
+		wallet_forwarded_payment_add(ld->wallet, hout->in,
+					     hout->key.channel->scid, hout,
 					     FORWARD_SETTLED, 0);
 	}
 }
@@ -1102,6 +1103,7 @@ static bool peer_failed_our_htlc(struct channel *channel,
 
 	if (hout->in)
 		wallet_forwarded_payment_add(ld->wallet, hout->in,
+					     channel->scid,
 					 hout, FORWARD_FAILED, hout->failcode);
 
 	return true;
@@ -1141,7 +1143,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE,
 				hout->key.channel->scid);
 		wallet_forwarded_payment_add(hout->key.channel->peer->ld->wallet,
-					 hout->in, hout,
+					 hout->in, channel->scid, hout,
 					 FORWARD_LOCAL_FAILED,
 					 hout->failcode);
 	}
@@ -1266,7 +1268,8 @@ static bool update_out_htlc(struct channel *channel,
 						      hout->msat);
 
 		if (hout->in) {
-			wallet_forwarded_payment_add(ld->wallet, hout->in, hout,
+			wallet_forwarded_payment_add(ld->wallet, hout->in,
+						     channel->scid, hout,
 						     FORWARD_OFFERED, 0);
 		}
 
@@ -1760,7 +1763,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		local_fail_htlc(hin, failcodes[i], NULL);
 		// in fact, now we don't know if this htlc is a forward or localpay!
 		wallet_forwarded_payment_add(ld->wallet,
-					 hin, NULL,
+					 hin, NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 hin->failcode);
 	}

@@ -26,6 +26,7 @@ This release named by Vasil Dimov @vasild.
 
  - JSON API: The hooks `db_write`, `invoice_payment`, and `rpc_command` now accept `{ "result": "continue" }` to mean "do default action". ([3475](https://github.com/ElementsProject/lightning/pull/3475))
  - Plugin: Multiple plugins can now register for the htlc_accepted hook. ([3489](https://github.com/ElementsProject/lightning/pull/3489))
+ - JSON API: `listforwards` now shows `out_channel` even if we couldn't forward.
  - JSON API: `funchannel_cancel`: only the opener of a fundchannel can cancel the channel open ([3336](https://github.com/ElementsProject/lightning/pull/3336))
  - JSON API: `sendpay` optional `msatoshi` param for non-MPP (if set), must be the exact amount sent to the final recipient. ([3470](https://github.com/ElementsProject/lightning/pull/3470))
  - JSON API: `waitinvoice` now returns error code 903 to designate that the invoice expired during wait, instead of the previous -2 ([3441](https://github.com/ElementsProject/lightning/pull/3441))

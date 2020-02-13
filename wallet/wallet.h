@@ -1173,6 +1173,7 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
  * Add of update a forwarded_payment
  */
 void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
+				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
 				  enum onion_type failcode);
