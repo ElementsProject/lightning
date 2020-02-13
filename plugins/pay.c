@@ -1454,7 +1454,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 		if (ps->exclusions)
 			json_add_string(ret, "local_exclusions", ps->exclusions);
 
-		assert(tal_count(ps->attempts));
+		/* If it's in listpeers right now, this can be 0 */
 		json_array_start(ret, "attempts");
 		for (size_t i = 0; i < tal_count(ps->attempts); i++)
 			add_attempt(ret, ps, &ps->attempts[i]);
