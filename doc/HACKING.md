@@ -160,8 +160,14 @@ Testing
 Install `valgrind` and the python dependencies for best results:
 
 ```
-sudo apt install valgrind cppcheck shellcheck
-pip3 install -r tests/requirements.txt
+sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev
+pip3 install --user \
+         -r requirements.txt \
+         -r contrib/pyln-client/requirements.txt \
+         -r contrib/pyln-proto/requirements.txt \
+         -r contrib/pyln-testing/requirements.txt \
+         -r tests/requirements.txt \
+         -r doc/requirements.txt
 ```
 
 Re-run `configure` for the python dependencies
