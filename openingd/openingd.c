@@ -852,7 +852,13 @@ static u8 *funder_channel_complete(struct state *state)
 
 	/* We recalculate the local_msat from cached values; should
 	 * succeed because we checked it earlier */
-	assert(amount_sat_sub_msat(&local_msat, state->funding, state->push_msat));
+	if (!amount_sat_sub_msat(&local_msat, state->funding, state->push_msat))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "push_msat %s > funding %s?",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &state->push_msat),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &state->funding));
 
 	if (!funder_finalize_channel_setup(state, local_msat, &sig, &tx))
 		return NULL;

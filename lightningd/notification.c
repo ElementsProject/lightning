@@ -191,8 +191,9 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 		cur->channel_out = *scid_out;
 		if (amount_out) {
 			cur->msat_out = *amount_out;
-			assert(amount_msat_sub(&cur->fee,
-					       in->msat, *amount_out));
+			if (!amount_msat_sub(&cur->fee,
+					     in->msat, *amount_out))
+				abort();
 		} else {
 			cur->msat_out = AMOUNT_MSAT(0);
 			cur->fee = AMOUNT_MSAT(0);
