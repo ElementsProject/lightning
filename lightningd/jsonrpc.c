@@ -145,10 +145,8 @@ static void destroy_jcon(struct json_connection *jcon)
 {
 	struct command *c;
 
-	list_for_each(&jcon->commands, c, list) {
-		log_debug(jcon->log, "Abandoning command %s", c->json_cmd->name);
+	list_for_each(&jcon->commands, c, list)
 		c->jcon = NULL;
-	}
 
 	/* Make sure this happens last! */
 	tal_free(jcon->log);
