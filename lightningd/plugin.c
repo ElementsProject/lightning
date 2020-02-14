@@ -439,14 +439,8 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
  */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
-	if (conn == plugin->stdin_conn)
-		plugin->stdin_conn = NULL;
-
-	else if (conn == plugin->stdout_conn)
-		plugin->stdout_conn = NULL;
-
-	if (plugin->stdin_conn == NULL && plugin->stdout_conn == NULL)
-		tal_free(plugin);
+	plugin->stdout_conn = NULL;
+	tal_free(plugin);
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
@@ -454,8 +448,8 @@ struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
 {
 	/* We write to their stdin */
 	/* We don't have anything queued yet, wait for notification */
+	plugin->stdin_conn = tal_steal(plugin, conn);
 	plugin->stdin_conn = conn;
-	io_set_finish(conn, plugin_conn_finish, plugin);
 	return io_wait(plugin->stdin_conn, plugin, plugin_write_json, plugin);
 }
 
