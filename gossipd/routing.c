@@ -1217,10 +1217,19 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 		 unvisited, shortest_cost_function);
 	dijkstra_cleanup(unvisited);
 
-	/* This must succeed, since we found a route before */
+	/* This will usually succeed, since we found a route before; however
+	 * it's possible that it fails in corner cases.  Consider that the reduced
+	 * riskfactor may make us select a more fee-expensive route, which then
+	 * makes us unable to complete the route due to htlc_max restrictions. */
 	short_route = build_route(ctx, rstate, dst, src, me, riskfactor, 1,
 				  fuzz, base_seed, fee);
-	assert(short_route);
+	if (!short_route) {
+		status_info("Could't find short enough route %s->%s",
+			    type_to_string(tmpctx, struct node_id, &dst->id),
+			    type_to_string(tmpctx, struct node_id, &src->id));
+		goto out;
+	}
+
 	if (!amount_msat_sub(&short_cost,
 			     dst->dijkstra.total, src->dijkstra.total))
 		goto bad_total;
