@@ -835,9 +835,9 @@ static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
 	timer_del(&p->timers, &timer->timer);
 }
 
-struct plugin_timer *plugin_timer(struct plugin *p, struct timerel t,
-				  void (*cb)(void *cb_arg),
-				  void *cb_arg)
+struct plugin_timer *plugin_timer_(struct plugin *p, struct timerel t,
+				   void (*cb)(void *cb_arg),
+				   void *cb_arg)
 {
 	struct plugin_timer *timer = tal(NULL, struct plugin_timer);
 	timer->cb = cb;

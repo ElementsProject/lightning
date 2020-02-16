@@ -210,10 +210,16 @@ struct command_result *timer_complete(struct plugin *p);
  * Freeing this releases the timer, otherwise it's freed after @cb
  * if it hasn't been freed already.
  */
-struct plugin_timer *plugin_timer(struct plugin *p,
-				  struct timerel t,
-				  void (*cb)(void *cb_arg),
-				  void *cb_arg);
+struct plugin_timer *plugin_timer_(struct plugin *p,
+				   struct timerel t,
+				   void (*cb)(void *cb_arg),
+				   void *cb_arg);
+
+#define plugin_timer(plugin, time, cb, cb_arg)		\
+	plugin_timer_((plugin), (time),			\
+		      typesafe_cb(void, void *,		\
+				  (cb), (cb_arg)),	\
+		      (cb_arg))				\
 
 /* Log something */
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
