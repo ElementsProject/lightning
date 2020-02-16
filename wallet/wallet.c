@@ -1831,6 +1831,12 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 #endif
 	}
 
+#ifdef COMPAT_V072
+	if (db_column_is_null(stmt, 12)) {
+		in->received_time.ts.tv_sec = 0;
+		in->received_time.ts.tv_nsec = 0;
+	} else
+#endif /* COMPAT_V072 */
 	in->received_time = db_column_timeabs(stmt, 12);
 
 	return ok;
