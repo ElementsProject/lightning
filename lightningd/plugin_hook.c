@@ -155,7 +155,7 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	const jsmntok_t *resulttok, *resrestok;
 	struct db *db = r->db;
 	bool more_plugins, cont;
-	struct plugin_hook_call_link *last;
+	struct plugin_hook_call_link *last, *it;
 
 	if (r->ld->state == LD_STATE_SHUTDOWN) {
 		log_debug(r->ld->log,
@@ -200,6 +200,15 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 		db_begin_transaction(db);
 		r->hook->response_cb(r->cb_arg, buffer, resulttok);
 		db_commit_transaction(db);
+
+		/* We need to remove the destructors from the remaining
+		 * call-chain, otherwise they'd still be called when the
+		 * plugin dies or we shut down. */
+		list_for_each(&r->call_chain, it, list) {
+			tal_del_destructor(it, plugin_hook_killed);
+			tal_steal(r, it);
+		}
+
 		tal_free(r);
 	}
 }
