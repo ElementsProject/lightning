@@ -56,8 +56,7 @@ Here's a checklist for the release process.
 
 ### Tagging the Release
 
-1. Update the CHANGELOG.md; remove -rcN in both places, update the date, and
-   add an [Unreleased] footnote URL from this new version to HEAD.
+1. Update the CHANGELOG.md; remove -rcN in both places, update the date.
 2. Add a PR with that release.
 3. Merge the PR, then `git pull && git tag -s v<VERSION> && git push --tags`.
 4. Run `tools/build-release.sh` to build the non-reprodicible images
@@ -84,7 +83,6 @@ Here's a checklist for the release process.
 
 ### Post-release
 
-1. Add a new '[Unreleased]' section to the CHANGELOG.md with empty headers.
-2. Look through PRs which were delayed for release and merge them.
-3. Close out the Milestone for the now-shipped release.
-4. Update this file with any missing or changed instructions.
+1. Look through PRs which were delayed for release and merge them.
+2. Close out the Milestone for the now-shipped release.
+3. Update this file with any missing or changed instructions.
