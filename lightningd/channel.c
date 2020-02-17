@@ -265,6 +265,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		= tal_steal(channel, remote_upfront_shutdown_script);
 	channel->option_static_remotekey = option_static_remotekey;
 	channel->forgets = tal_arr(channel, struct command *, 0);
+	channel->stripped_update = NULL;
 
 	list_add_tail(&peer->channels, &channel->list);
 	tal_add_destructor(channel, destroy_channel);
