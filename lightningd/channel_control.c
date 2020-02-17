@@ -493,9 +493,6 @@ void peer_start_channeld(struct channel *channel,
 				      htlcs, htlc_states,
 				      fulfilled_htlcs, fulfilled_sides,
 				      failed_in, failed_out,
-				      /* This is an approximation, but failing
-				       * on restart is a corner case */
-				      get_block_height(ld->topology),
 				      channel->scid != NULL,
 				      channel->remote_funding_locked,
 				      &scid,

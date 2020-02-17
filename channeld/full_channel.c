@@ -149,9 +149,8 @@ static void dump_htlc(const struct htlc *htlc, const char *prefix)
 		     htlc->id,
 		     htlc_state_name(htlc->state),
 		     htlc_state_name(remote_state),
-		     htlc->r ? "FULFILLED" : htlc->fail ? "FAILED" :
-		     htlc->failcode
-		     ? tal_fmt(tmpctx, "FAILCODE:%u", htlc->failcode) : "");
+		     htlc->r ? "FULFILLED" : htlc->failed ? "FAILED"
+		     : "");
 }
 
 void dump_htlcs(const struct channel *channel, const char *prefix)
@@ -466,7 +465,6 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->id = id;
 	htlc->amount = amount;
 	htlc->state = state;
-	htlc->shared_secret = NULL;
 
 	/* FIXME: Change expiry to simple u32 */
 
@@ -483,9 +481,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	}
 
 	htlc->rhash = *payment_hash;
-	htlc->fail = NULL;
-	htlc->failcode = 0;
-	htlc->failed_scid = NULL;
+	htlc->failed = NULL;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
 
@@ -1168,7 +1164,7 @@ static bool adjust_balance(struct balance view_owed[NUM_SIDES][NUM_SIDES],
 		if (htlc_has(htlc, HTLC_FLAG(side, HTLC_F_COMMITTED)))
 			continue;
 
-		if (!htlc->fail && !htlc->failcode && !htlc->r) {
+		if (!htlc->failed && !htlc->r) {
 			status_broken("%s HTLC %"PRIu64
 				      " %s neither fail nor fulfill?",
 				      htlc_state_owner(htlc->state) == LOCAL
@@ -1189,8 +1185,7 @@ bool channel_force_htlcs(struct channel *channel,
 			 const struct fulfilled_htlc *fulfilled,
 			 const enum side *fulfilled_sides,
 			 const struct failed_htlc **failed_in,
-			 const u64 *failed_out,
-			 u32 failheight)
+			 const u64 *failed_out)
 {
 	size_t i;
 	struct htlc *htlc;
@@ -1253,16 +1248,10 @@ bool channel_force_htlcs(struct channel *channel,
 				     fulfilled[i].id);
 			return false;
 		}
-		if (htlc->fail) {
+		if (htlc->failed) {
 			status_broken("Fulfill %s HTLC %"PRIu64" already failed",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
 				     fulfilled[i].id);
-			return false;
-		}
-		if (htlc->failcode) {
-			status_broken("Fulfill %s HTLC %"PRIu64" already fail %u",
-				     fulfilled_sides[i] == LOCAL ? "out" : "in",
-				     fulfilled[i].id, htlc->failcode);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
@@ -1289,37 +1278,12 @@ bool channel_force_htlcs(struct channel *channel,
 				     failed_in[i]->id);
 			return false;
 		}
-		if (htlc->fail) {
+		if (htlc->failed) {
 			status_broken("Fail in HTLC %"PRIu64" already failed_in",
 				     failed_in[i]->id);
 			return false;
 		}
-		if (htlc->failcode) {
-			status_broken("Fail in HTLC %"PRIu64" already fail %u",
-				     failed_in[i]->id, htlc->failcode);
-			return false;
-		}
-		if (!htlc_has(htlc, HTLC_REMOVING)) {
-			status_broken("Fail in HTLC %"PRIu64" state %s",
-				     failed_in[i]->id,
-				     htlc_state_name(htlc->state));
-			return false;
-		}
-		htlc->failcode = failed_in[i]->failcode;
-		/* We assume they all failed_in at the same height, which is
-		 * not necessarily true in case of restart.  But it's only
-		 * a hint. */
-		htlc->failblock = failheight;
-		if (failed_in[i]->failreason)
-			htlc->fail = dup_onionreply(htlc, failed_in[i]->failreason);
-		else
-			htlc->fail = NULL;
-		if (failed_in[i]->scid)
-			htlc->failed_scid = tal_dup(htlc,
-						    struct short_channel_id,
-						    failed_in[i]->scid);
-		else
-			htlc->failed_scid = NULL;
+		htlc->failed = tal_steal(htlc, failed_in[i]);
 	}
 
 	for (i = 0; i < tal_count(failed_out); i++) {
@@ -1336,14 +1300,9 @@ bool channel_force_htlcs(struct channel *channel,
 				      failed_out[i]);
 			return false;
 		}
-		if (htlc->fail) {
+		if (htlc->failed) {
 			status_broken("Fail out HTLC %"PRIu64" already failed",
 				      failed_out[i]);
-			return false;
-		}
-		if (htlc->failcode) {
-			status_broken("Fail out HTLC %"PRIu64" already fail %u",
-				      failed_out[i], htlc->failcode);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
@@ -1355,7 +1314,7 @@ bool channel_force_htlcs(struct channel *channel,
 
 		/* Now, we don't really care why our htlcs failed: lightningd
 		 * already knows.  Just mark it failed using anything. */
-		htlc->fail = tal(htlc, struct onionreply);
+		htlc->failed = tal(htlc, struct failed_htlc);
 	}
 
 	/* You'd think, since we traverse HTLCs in ID order, this would never
