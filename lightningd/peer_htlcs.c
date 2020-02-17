@@ -1799,12 +1799,11 @@ static void add_fulfill(u64 id, enum side side,
 	tal_arr_expand(fulfilled_sides, side);
 }
 
-static void add_fail(u64 id, enum side side,
+static void add_fail(u64 id,
 		     enum onion_type failcode,
 		     const struct short_channel_id *failing_channel,
 		     const struct onionreply *failonion,
-		     const struct failed_htlc ***failed_htlcs,
-		     enum side **failed_sides)
+		     const struct failed_htlc ***failed_htlcs)
 {
 	struct failed_htlc *newf;
 
@@ -1824,7 +1823,6 @@ static void add_fail(u64 id, enum side side,
 		newf->failreason = NULL;
 
 	tal_arr_expand(failed_htlcs, newf);
-	tal_arr_expand(failed_sides, side);
 }
 
 /* FIXME: Load direct from db. */
@@ -1834,8 +1832,8 @@ void peer_htlcs(const tal_t *ctx,
 		enum htlc_state **htlc_states,
 		struct fulfilled_htlc **fulfilled_htlcs,
 		enum side **fulfilled_sides,
-		const struct failed_htlc ***failed_htlcs,
-		enum side **failed_sides)
+		const struct failed_htlc ***failed_in,
+		u64 **failed_out)
 {
 	struct htlc_in_map_iter ini;
 	struct htlc_out_map_iter outi;
@@ -1847,8 +1845,8 @@ void peer_htlcs(const tal_t *ctx,
 	*htlc_states = tal_arr(ctx, enum htlc_state, 0);
 	*fulfilled_htlcs = tal_arr(ctx, struct fulfilled_htlc, 0);
 	*fulfilled_sides = tal_arr(ctx, enum side, 0);
-	*failed_htlcs = tal_arr(ctx, const struct failed_htlc *, 0);
-	*failed_sides = tal_arr(ctx, enum side, 0);
+	*failed_in = tal_arr(ctx, const struct failed_htlc *, 0);
+	*failed_out = tal_arr(ctx, u64, 0);
 
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
 	     hin;
@@ -1862,9 +1860,9 @@ void peer_htlcs(const tal_t *ctx,
 			 hin->hstate);
 
 		if (hin->failonion || hin->failcode)
-			add_fail(hin->key.id, REMOTE, hin->failcode,
+			add_fail(hin->key.id, hin->failcode,
 				 &hin->failoutchannel,
-				 hin->failonion, failed_htlcs, failed_sides);
+				 hin->failonion, failed_in);
 		if (hin->preimage)
 			add_fulfill(hin->key.id, REMOTE, hin->preimage,
 				    fulfilled_htlcs, fulfilled_sides);
@@ -1882,9 +1880,8 @@ void peer_htlcs(const tal_t *ctx,
 			 hout->hstate);
 
 		if (hout->failonion || hout->failcode)
-			add_fail(hout->key.id, LOCAL, hout->failcode,
-				 hout->key.channel->scid,
-				 hout->failonion, failed_htlcs, failed_sides);
+			tal_arr_expand(failed_out, hout->key.id);
+
 		if (hout->preimage)
 			add_fulfill(hout->key.id, LOCAL, hout->preimage,
 				    fulfilled_htlcs, fulfilled_sides);

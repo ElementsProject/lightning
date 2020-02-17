@@ -3005,8 +3005,8 @@ static void init_channel(struct peer *peer)
 	enum htlc_state *hstates;
 	struct fulfilled_htlc *fulfilled;
 	enum side *fulfilled_sides;
-	struct failed_htlc **failed;
-	enum side *failed_sides;
+	struct failed_htlc **failed_in;
+	u64 *failed_out;
 	struct added_htlc *htlcs;
 	bool reconnected;
 	u8 *funding_signed;
@@ -3060,8 +3060,8 @@ static void init_channel(struct peer *peer)
 				   &hstates,
 				   &fulfilled,
 				   &fulfilled_sides,
-				   &failed,
-				   &failed_sides,
+				   &failed_in,
+				   &failed_out,
 				   &failheight,
 				   &peer->funding_locked[LOCAL],
 				   &peer->funding_locked[REMOTE],
@@ -3143,8 +3143,9 @@ static void init_channel(struct peer *peer)
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
 				 fulfilled, fulfilled_sides,
 				 cast_const2(const struct failed_htlc **,
-					     failed),
-				 failed_sides, failheight))
+					     failed_in),
+				 failed_out,
+				 failheight))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not restore HTLCs");
 
@@ -3157,8 +3158,8 @@ static void init_channel(struct peer *peer)
 	tal_free(hstates);
 	tal_free(fulfilled);
 	tal_free(fulfilled_sides);
-	tal_free(failed);
-	tal_free(failed_sides);
+	tal_free(failed_in);
+	tal_free(failed_out);
 	tal_free(remote_ann_node_sig);
 	tal_free(remote_ann_bitcoin_sig);
 
