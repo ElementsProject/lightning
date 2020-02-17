@@ -1,6 +1,6 @@
 .TH "LIGHTNING-TXPREPARE" "7" "" "" "lightning-txprepare"
 .SH NAME
-
+lightning-txprepare - Command to prepare to withdraw funds from the internal wallet
 .SH SYNOPSIS
 
 \fBtxprepare\fR \fIoutputs\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
@@ -17,7 +17,7 @@ and \fIamount\fR({\fIdestination\fR: \fIamount\fR})\. Its format is like:
 [{address1: amount1}, {address2: amount2}]
 or
 [{address: \fIall\fR}]\.
-It supports the any number of outputs\.
+It supports any number of \fBconfirmed\fR outputs\.
 
 
 The \fIdestination\fR of output is the address which can be of any Bitcoin accepted
@@ -55,7 +55,6 @@ of "txid:vout"\. These must be drawn from the node's available UTXO set\.
 supports multiple outputs and uses \fIoutputs\fR as parameter\. The second part
 is provided by \fBtxsend\fR\.
 
-
 .SH RETURN VALUE
 
 On success, an object with attributes \fIunsigned_tx\fR and \fItxid\fR will be
@@ -85,7 +84,7 @@ fees) to create the transaction\.
 .RE
 .SH AUTHOR
 
-Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
@@ -93,5 +92,5 @@ Rusty Russell \fBNone\fR (\fI<rusty@rustcorp.com.au\fR)> is mainly responsible\.
 
 .SH RESOURCES
 
-Main web site: \fBNone\fR (\fIhttps://github.com/ElementsProject/lightning\fR)
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
