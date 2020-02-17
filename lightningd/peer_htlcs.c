@@ -455,8 +455,9 @@ enum onion_type send_htlc_out(struct channel *out,
 			      struct htlc_in *in,
 			      struct htlc_out **houtp)
 {
-	struct htlc_out *hout;
 	u8 *msg;
+
+	*houtp = NULL;
 
 	if (!channel_can_add_htlc(out)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
@@ -477,10 +478,10 @@ enum onion_type send_htlc_out(struct channel *out,
 	}
 
 	/* Make peer's daemon own it, catch if it dies. */
-	hout = new_htlc_out(out->owner, out, amount, cltv,
-			    payment_hash, onion_routing_packet, in == NULL,
-			    partid, in);
-	tal_add_destructor(hout, destroy_hout_subd_died);
+	*houtp = new_htlc_out(out->owner, out, amount, cltv,
+			      payment_hash, onion_routing_packet, in == NULL,
+			      partid, in);
+	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit (first) htlc. */
 	if (!out->htlc_timeout && !IFDEV(out->peer->ld->dev_no_htlc_timeout, 0))
@@ -490,10 +491,9 @@ enum onion_type send_htlc_out(struct channel *out,
 						 out);
 	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
 					onion_routing_packet);
-	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply, hout);
+	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
+		 *houtp);
 
-	if (houtp)
-		*houtp = hout;
 	return 0;
 }
 
@@ -592,13 +592,6 @@ static void forward_htlc(struct htlc_in *hin,
 				 0, next_onion, hin, &hout);
 	if (!failcode)
 		return;
-
-	/* In fact, we didn't get the new htlc_out in these 2 cases */
-	if (failcode == WIRE_UNKNOWN_NEXT_PEER ||
-		failcode == WIRE_TEMPORARY_CHANNEL_FAILURE) {
-		tal_free(hout);
-		hout = NULL;
-	}
 
 fail:
 	local_fail_htlc(hin, failcode, next->scid);
