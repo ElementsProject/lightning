@@ -280,6 +280,7 @@ def test_txprepare_multi(node_factory, bitcoind):
     l1.rpc.txdiscard(prep['txid'])
 
 
+@pytest.mark.xfail(strict=True)
 def test_txprepare(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node(random_hsm=True)
@@ -366,10 +367,15 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     l1.rpc.txdiscard(prep4['txid'])
 
     # Try passing in a utxo set
-    utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]][:4]
-
+    utxos = [utxo["txid"] + ":" + str(utxo["output"])
+             for utxo in l1.rpc.listfunds()["outputs"]][:4]
     prep5 = l1.rpc.txprepare([{addr:
                              Millisatoshi(amount * 3.5 * 1000)}], utxos=utxos)
+
+    # Try passing unconfirmed utxos
+    unconfirmed_utxo = l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
+    utxos = [unconfirmed_utxo["txid"] + ":0"]
+    l1.rpc.txprepare([{addr: Millisatoshi(amount * 3.5 * 1000)}], utxos=utxos)
 
     decode = bitcoind.rpc.decoderawtransaction(prep5['unsigned_tx'])
     assert decode['txid'] == prep5['txid']
