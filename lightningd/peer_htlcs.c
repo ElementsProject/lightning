@@ -109,8 +109,16 @@ static void fail_in_htlc(struct htlc_in *hin,
 		hin->failonion = dup_onionreply(hin, failonion);
 
 	/* We need this set, since we send it to channeld. */
-	if (hin->failcode & UPDATE)
-		hin->failoutchannel = *out_channelid;
+	if (hin->failcode & UPDATE) {
+		/* We don't save the outgoing channel which failed; probably
+		 * not worth it for this corner case.  So we can't set
+		 * hin->failoutchannel to tell channeld what update to send,
+		 * thus we turn those into a WIRE_TEMPORARY_NODE_FAILURE. */
+		if (!out_channelid)
+			hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
+		else
+			hin->failoutchannel = *out_channelid;
+	}
 
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
@@ -2167,6 +2175,7 @@ static const struct json_command dev_ignore_htlcs = {
 	"Set ignoring incoming HTLCs for peer {id} to {ignore}", false,
 	"Set/unset ignoring of all incoming HTLCs.  For testing only."
 };
+
 AUTODATA(json_command, &dev_ignore_htlcs);
 #endif /* DEVELOPER */
 

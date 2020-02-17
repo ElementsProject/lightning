@@ -1904,13 +1904,6 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 
 static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 {
-	/* We don't save the outgoing channel which failed; probably not worth
-	 * it for this corner case.  So we can't set hin->failoutchannel to
-	 * tell channeld what update to send, thus we turn those into a
-	 * WIRE_TEMPORARY_NODE_FAILURE. */
-	if (hin->failcode & UPDATE)
-		hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
-
 	/* We didn't used to save failcore, failonion... */
 #ifdef COMPAT_V061
 	/* We care about HTLCs being removed only, not those being added. */
