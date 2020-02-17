@@ -21,10 +21,6 @@ size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNN
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
-/* Generated stub for dup_onionreply */
-struct onionreply *dup_onionreply(const tal_t *ctx UNNEEDED,
-				  const struct onionreply *r TAKES UNNEEDED)
-{ fprintf(stderr, "dup_onionreply called!\n"); abort(); }
 /* Generated stub for memleak_add_helper_ */
 void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
 						    const tal_t *)){ }

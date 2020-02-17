@@ -49,7 +49,6 @@ msgdata,channel_init,num_failed_in,u16,
 msgdata,channel_init,failed_in,failed_htlc,num_failed_in
 msgdata,channel_init,num_failed_out,u16,
 msgdata,channel_init,failed_out,u64,num_failed_out
-msgdata,channel_init,failheight,u32,
 msgdata,channel_init,local_funding_locked,bool,
 msgdata,channel_init,remote_funding_locked,bool,
 msgdata,channel_init,funding_short_id,short_channel_id,
@@ -100,7 +99,6 @@ msgdata,channel_fulfill_htlc,fulfilled_htlc,fulfilled_htlc,
 # Main daemon says HTLC failed
 msgtype,channel_fail_htlc,1006
 msgdata,channel_fail_htlc,failed_htlc,failed_htlc,
-msgdata,channel_fail_htlc,failheight,u32,
 
 # When we receive funding_locked.
 msgtype,channel_got_funding_locked,1019
@@ -130,7 +128,6 @@ msgdata,channel_got_commitsig,htlc_signature,secp256k1_ecdsa_signature,num_htlcs
 # RCVD_ADD_COMMIT: we're now committed to their new offered HTLCs.
 msgdata,channel_got_commitsig,num_added,u16,
 msgdata,channel_got_commitsig,added,added_htlc,num_added
-msgdata,channel_got_commitsig,shared_secret,secret,num_added
 # RCVD_REMOVE_COMMIT: we're now no longer committed to these HTLCs.
 msgdata,channel_got_commitsig,num_fulfilled,u16,
 msgdata,channel_got_commitsig,fulfilled,fulfilled_htlc,num_fulfilled

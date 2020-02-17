@@ -27,11 +27,17 @@ struct fulfilled_htlc {
 
 struct failed_htlc {
 	u64 id;
-	/* Either this is 0 and failreason non-NULL, or vice versa. */
-	enum onion_type failcode;
-	const struct onionreply *failreason;
-	/* Non-NULL if failcode & UPDATE */
-	struct short_channel_id *scid;
+
+	/* If this is non-NULL, then the onion was malformed and this is the
+	 * SHA256 of what we got: send update_fail_malformed_htlc, using
+	 * failcode. */
+	struct sha256 *sha256_of_onion;
+	/* WIRE_INVALID_ONION_VERSION, WIRE_INVALID_ONION_KEY or
+	 * WIRE_INVALID_ONION_HMAC (ie. must have BADONION) */
+	enum onion_type badonion;
+
+	/* Otherwise, this is the onion ready to send to them. */
+	const struct onionreply *onion;
 };
 
 struct changed_htlc {

@@ -26,20 +26,16 @@ void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
 
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 {
-	/* Only one can be set. */
-	assert(failed->failcode || failed->failreason);
-	assert(!failed->failcode || !failed->failreason);
 	towire_u64(pptr, failed->id);
-	towire_u16(pptr, failed->failcode);
-	if (failed->failcode & UPDATE) {
-		assert(!failed->failreason);
-		towire_short_channel_id(pptr, failed->scid);
+	/* Only one can be set. */
+	if (failed->sha256_of_onion) {
+		assert(!failed->onion);
+		assert(failed->badonion & BADONION);
+		towire_u16(pptr, failed->badonion);
+		towire_sha256(pptr, failed->sha256_of_onion);
 	} else {
-		assert(!failed->scid);
-		if (!failed->failcode) {
-			assert(failed->failreason);
-			towire_onionreply(pptr, failed->failreason);
-		}
+		towire_u16(pptr, 0);
+		towire_onionreply(pptr, failed->onion);
 	}
 }
 
@@ -93,20 +89,20 @@ void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
 struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
 	struct failed_htlc *failed = tal(ctx, struct failed_htlc);
+	enum onion_type badonion;
 
 	failed->id = fromwire_u64(cursor, max);
-	failed->failcode = fromwire_u16(cursor, max);
-	if (failed->failcode == 0) {
-		failed->scid = NULL;
-		failed->failreason = fromwire_onionreply(failed, cursor, max);
+	badonion = fromwire_u16(cursor, max);
+	if (badonion) {
+		failed->onion = NULL;
+		if (!(badonion & BADONION))
+			return tal_free(failed);
+		failed->badonion = badonion;
+		failed->sha256_of_onion = tal(failed, struct sha256);
+		fromwire_sha256(cursor, max, failed->sha256_of_onion);
 	} else {
-		failed->failreason = NULL;
-		if (failed->failcode & UPDATE) {
-			failed->scid = tal(failed, struct short_channel_id);
-			fromwire_short_channel_id(cursor, max, failed->scid);
-		} else {
-			failed->scid = NULL;
-		}
+		failed->sha256_of_onion = NULL;
+		failed->onion = fromwire_onionreply(failed, cursor, max);
 	}
 
 	return failed;

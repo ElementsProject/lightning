@@ -36,6 +36,7 @@ struct htlc_in {
 	/* Shared secret for us to send any failure message (NULL if malformed) */
 	struct secret *shared_secret;
 
+	/* FIXME: Use failed_htlc here */
 	/* If a local error, this is non-zero. */
 	enum onion_type failcode;
 
@@ -68,6 +69,7 @@ struct htlc_out {
 	/* Onion information */
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 
+	/* FIXME: Use failed_htlc here */
 	/* If a local error, this is non-zero. */
 	enum onion_type failcode;
 
