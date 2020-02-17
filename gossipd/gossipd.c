@@ -1342,6 +1342,7 @@ static struct io_plan *get_channel_peer(struct io_conn *conn,
 	struct short_channel_id scid;
 	struct local_chan *local_chan;
 	const struct node_id *key;
+	const u8 *stripped_update;
 
 	if (!fromwire_gossip_get_channel_peer(msg, &scid))
 		master_badmsg(WIRE_GOSSIP_GET_CHANNEL_PEER, msg);
@@ -1351,11 +1352,28 @@ static struct io_plan *get_channel_peer(struct io_conn *conn,
 		status_debug("Failed to resolve local channel %s",
 			     type_to_string(tmpctx, struct short_channel_id, &scid));
 		key = NULL;
+		stripped_update = NULL;
 	} else {
+		const struct half_chan *hc;
+
 		key = &local_chan->chan->nodes[!local_chan->direction]->id;
+		/* Since we're going to use it, make sure it's up-to-date. */
+		refresh_local_channel(daemon, local_chan, false);
+
+		hc = &local_chan->chan->half[local_chan->direction];
+		if (is_halfchan_defined(hc)) {
+			const u8 *update;
+
+			update = gossip_store_get(tmpctx, daemon->rstate->gs,
+						  hc->bcast.index);
+			stripped_update = tal_dup_arr(tmpctx, u8, update + 2,
+						      tal_count(update) - 2, 0);
+		} else
+			stripped_update = NULL;
 	}
 	daemon_conn_send(daemon->master,
-			 take(towire_gossip_get_channel_peer_reply(NULL, key)));
+			 take(towire_gossip_get_channel_peer_reply(NULL, key,
+							   stripped_update)));
 	return daemon_conn_read_next(conn, daemon->master);
 }
 

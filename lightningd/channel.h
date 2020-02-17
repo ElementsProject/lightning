@@ -123,6 +123,9 @@ struct channel {
 
 	/* Any commands trying to forget us. */
 	struct command **forgets;
+
+	/* Lastest channel_update from gossipd, if any: type stripped! */
+	const u8 *stripped_update;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,

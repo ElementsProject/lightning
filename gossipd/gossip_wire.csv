@@ -80,6 +80,8 @@ msgdata,gossip_get_channel_peer,channel_id,short_channel_id,
 
 msgtype,gossip_get_channel_peer_reply,3109
 msgdata,gossip_get_channel_peer_reply,peer_id,?node_id,
+msgdata,gossip_get_channel_peer_reply,stripped_update_len,u16,
+msgdata,gossip_get_channel_peer_reply,stripped_update,u8,stripped_update_len
 
 # gossipd->master: we're closing this channel.
 msgtype,gossip_local_channel_close,3027

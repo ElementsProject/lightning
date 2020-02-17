@@ -510,6 +510,7 @@ static void forward_htlc(struct htlc_in *hin,
 			 struct amount_msat amt_to_forward,
 			 u32 outgoing_cltv_value,
 			 const struct node_id *next_hop,
+			 const u8 *stripped_update TAKES,
 			 const u8 next_onion[TOTAL_PACKET_SIZE])
 {
 	enum onion_type failcode;
@@ -525,8 +526,16 @@ static void forward_htlc(struct htlc_in *hin,
 					 hin, next ? next->scid : NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 hin->failcode);
+		if (taken(stripped_update))
+			tal_free(stripped_update);
 		return;
 	}
+
+	/* OK, apply any channel_update gossipd gave us for this channel. */
+	tal_free(next->stripped_update);
+	next->stripped_update
+			= tal_dup_arr(next, u8, stripped_update,
+				      tal_count(stripped_update), 0);
 
 	/* BOLT #7:
 	 *
@@ -627,8 +636,10 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 				  const int *fds UNUSED, struct gossip_resolve *gr)
 {
 	struct node_id *peer_id;
+	u8 *stripped_update;
 
-	if (!fromwire_gossip_get_channel_peer_reply(msg, msg, &peer_id)) {
+	if (!fromwire_gossip_get_channel_peer_reply(msg, msg, &peer_id,
+						    &stripped_update)) {
 		log_broken(gossip->log,
 			   "bad fromwire_gossip_get_channel_peer_reply %s",
 			   tal_hex(msg, msg));
@@ -647,6 +658,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 
 	forward_htlc(gr->hin, gr->hin->cltv_expiry,
 		     gr->amt_to_forward, gr->outgoing_cltv_value, peer_id,
+		     take(stripped_update),
 		     gr->next_onion);
 	tal_free(gr);
 }
