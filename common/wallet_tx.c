@@ -205,7 +205,7 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 	/* + segwit marker + flag */
 	weight = 4 * (4 + 1 + 1 + 4) + 4 * (8 + 1 + out_len) + 1 + 1;
 	for (size_t i = 0; i < tal_count(utxos); i++) {
-		if (!*utxos[i]->blockheight || *utxos[i]->blockheight > maxheight) {
+		if (!utxos[i]->blockheight || *utxos[i]->blockheight > maxheight) {
 			tal_arr_remove(&utxos, i);
 			continue;
 		}
@@ -236,9 +236,11 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 		tx->amount = total_amount;
 		if (!amount_sat_sub(&tx->amount, tx->amount, fee_estimate))
 			return command_fail(tx->cmd, FUND_CANNOT_AFFORD,
-								"Cannot afford transaction with %s sats of fees",
-								type_to_string(tmpctx, struct amount_sat,
-									&fee_estimate));
+					    "Cannot afford transaction with %s"
+					    " sats of fees, make sure to use "
+					    "confirmed utxos.",
+					    type_to_string(tmpctx, struct amount_sat,
+							   &fee_estimate));
 	} else {
 		if (!amount_sat_sub(&tx->change, tx->change, fee_estimate)) {
 			/* Try again without a change output */
@@ -246,7 +248,9 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 			fee_estimate = amount_tx_fee(fee_rate_per_kw, weight);
 			if (!amount_sat_sub(&tx->change, tx->change, fee_estimate))
 				return command_fail(tx->cmd, FUND_CANNOT_AFFORD,
-						    "Cannot afford transaction with %s sats of fees",
+						    "Cannot afford transaction with %s"
+						    " sats of fees, make sure to use "
+						    "confirmed utxos.",
 						    type_to_string(tmpctx, struct amount_sat,
 								   &fee_estimate));
 			tx->change = AMOUNT_SAT(0);
