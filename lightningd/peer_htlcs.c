@@ -1970,22 +1970,20 @@ static void add_fulfill(u64 id, enum side side,
 
 static void add_fail(struct htlc_in *hin,
 		     enum onion_type failcode,
-		     const u8 *failing_channel_update,
 		     const struct onionreply *failonion,
 		     const struct failed_htlc ***failed_htlcs)
 {
 	struct failed_htlc *newf;
 
-	if ((failcode & UPDATE) && !failing_channel_update) {
-		/* We don't save the outgoing channel which failed; probably
-		 * not worth it for this corner case.  So we can't set
-		 * hin->failoutchannel to tell channeld what update to send,
-		 * thus we turn those into a WIRE_TEMPORARY_NODE_FAILURE. */
+	/* We don't save the outgoing channel which failed; probably
+	 * not worth it for this corner case.  So we can't set
+	 * hin->failoutchannel to tell channeld what update to send,
+	 * thus we turn those into a WIRE_TEMPORARY_NODE_FAILURE. */
+	if (failcode & UPDATE)
 		failcode = WIRE_TEMPORARY_NODE_FAILURE;
-	}
 
 	newf = mk_failed_htlc(*failed_htlcs, hin, failcode, failonion,
-			      failing_channel_update);
+			      NULL);
 	tal_arr_expand(failed_htlcs, newf);
 }
 
@@ -2025,7 +2023,6 @@ void peer_htlcs(const tal_t *ctx,
 
 		if (hin->failonion || hin->failcode)
 			add_fail(hin, hin->failcode,
-				 NULL,
 				 hin->failonion, failed_in);
 		if (hin->preimage)
 			add_fulfill(hin->key.id, REMOTE, hin->preimage,
