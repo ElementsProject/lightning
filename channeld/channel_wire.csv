@@ -45,9 +45,10 @@ msgdata,channel_init,htlc_states,enum htlc_state,num_htlcs
 msgdata,channel_init,num_fulfilled,u16,
 msgdata,channel_init,fulfilled,fulfilled_htlc,num_fulfilled
 msgdata,channel_init,fulfilled_sides,enum side,num_fulfilled
-msgdata,channel_init,num_failed,u16,
-msgdata,channel_init,failed,failed_htlc,num_failed
-msgdata,channel_init,failed_sides,enum side,num_failed
+msgdata,channel_init,num_failed_in,u16,
+msgdata,channel_init,failed_in,failed_htlc,num_failed_in
+msgdata,channel_init,num_failed_out,u16,
+msgdata,channel_init,failed_out,u64,num_failed_out
 msgdata,channel_init,failheight,u32,
 msgdata,channel_init,local_funding_locked,bool,
 msgdata,channel_init,remote_funding_locked,bool,

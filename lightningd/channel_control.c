@@ -369,8 +369,8 @@ void peer_start_channeld(struct channel *channel,
 	enum htlc_state *htlc_states;
 	struct fulfilled_htlc *fulfilled_htlcs;
 	enum side *fulfilled_sides;
-	const struct failed_htlc **failed_htlcs;
-	enum side *failed_sides;
+	const struct failed_htlc **failed_in;
+	u64 *failed_out;
 	struct short_channel_id scid;
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
@@ -409,7 +409,7 @@ void peer_start_channeld(struct channel *channel,
 	}
 
 	peer_htlcs(tmpctx, channel, &htlcs, &htlc_states, &fulfilled_htlcs,
-		   &fulfilled_sides, &failed_htlcs, &failed_sides);
+		   &fulfilled_sides, &failed_in, &failed_out);
 
 	if (channel->scid) {
 		scid = *channel->scid;
@@ -492,7 +492,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->next_htlc_id,
 				      htlcs, htlc_states,
 				      fulfilled_htlcs, fulfilled_sides,
-				      failed_htlcs, failed_sides,
+				      failed_in, failed_out,
 				      /* This is an approximation, but failing
 				       * on restart is a corner case */
 				      get_block_height(ld->topology),
