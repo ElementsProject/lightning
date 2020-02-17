@@ -53,7 +53,7 @@ struct name {
 struct notifier {
 	struct prop_hdr hdr; /* NOTIFIER */
 	enum tal_notify_type types;
-	union {
+	union notifier_cb {
 		void (*notifyfn)(tal_t *, enum tal_notify_type, void *);
 		void (*destroy)(tal_t *); /* If NOTIFY_IS_DESTRUCTOR set */
 		void (*destroy2)(tal_t *, void *); /* If NOTIFY_EXTRA_ARG */
@@ -228,11 +228,16 @@ static void notify(const struct tal_hdr *ctx,
 		if (n->types & type) {
 			errno = saved_errno;
 			if (n->types & NOTIFY_IS_DESTRUCTOR) {
+				/* Blatt this notifier in case it tries to
+				 * tal_del_destructor() from inside */
+				union notifier_cb cb = n->u;
+				/* It's a union, so this NULLs destroy2 too! */
+				n->u.destroy = NULL;
 				if (n->types & NOTIFY_EXTRA_ARG)
-					n->u.destroy2(from_tal_hdr(ctx),
-						      EXTRA_ARG(n));
+					cb.destroy2(from_tal_hdr(ctx),
+						    EXTRA_ARG(n));
 				else
-					n->u.destroy(from_tal_hdr(ctx));
+					cb.destroy(from_tal_hdr(ctx));
 			} else
 				n->u.notifyfn(from_tal_hdr_or_null(ctx), type,
 					      (void *)info);

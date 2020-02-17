@@ -164,7 +164,8 @@ void *tal_free(const tal_t *p);
  * @function: the function to call before it's freed.
  *
  * If @function has not been successfully added as a destructor, this returns
- * false.
+ * false.  Note that if we're inside the destructor call itself, this will
+ * return false.
  */
 #define tal_del_destructor(ptr, function)				      \
 	tal_del_destructor_((ptr), typesafe_cb(void, void *, (function), (ptr)))
@@ -195,7 +196,8 @@ void *tal_free(const tal_t *p);
  * @function: the function to call before it's freed.
  *
  * If @function has not been successfully added as a destructor, this returns
- * false.
+ * false.  Note that if we're inside the destructor call itself, this will
+ * return false.
  */
 #define tal_del_destructor(ptr, function)				      \
 	tal_del_destructor_((ptr), typesafe_cb(void, void *, (function), (ptr)))
