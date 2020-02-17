@@ -127,7 +127,8 @@ static struct migration dbmigrations[] = {
 	 "  payment_hash BLOB,"
 	 "  payment_key BLOB,"
 	 "  routing_onion BLOB,"
-	 "  failuremsg BLOB,"
+	 "  failuremsg BLOB," /* Note: This is in fact the failure onionreply,
+			       * but renaming columns is hard! */
 	 "  malformed_onion INTEGER,"
 	 "  hstate INTEGER,"
 	 "  shared_secret BLOB,"

@@ -98,11 +98,11 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 	else if (htlc_state_owner(hin->hstate) != REMOTE)
 		return corrupt(abortstr, "invalid state %s",
 			       htlc_state_name(hin->hstate));
-	else if (hin->failuremsg && hin->preimage)
-		return corrupt(abortstr, "Both failuremsg and succeeded");
+	else if (hin->failonion && hin->preimage)
+		return corrupt(abortstr, "Both failonion and succeeded");
 	else if (hin->failcode != 0 && hin->preimage)
 		return corrupt(abortstr, "Both failcode and succeeded");
-	else if (hin->failuremsg && (hin->failcode & BADONION))
+	else if (hin->failonion && (hin->failcode & BADONION))
 		return corrupt(abortstr, "Both failed and malformed");
 
 	/* Can't have a resolution while still being added. */
@@ -110,13 +110,13 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 	    && hin->hstate <= RCVD_ADD_ACK_REVOCATION) {
 		if (hin->preimage)
 			return corrupt(abortstr, "Still adding, has preimage");
-		if (hin->failuremsg)
+		if (hin->failonion)
 			return corrupt(abortstr, "Still adding, has failmsg");
 		if (hin->failcode)
 			return corrupt(abortstr, "Still adding, has failcode");
 	} else if (hin->hstate >= SENT_REMOVE_HTLC
 		   && hin->hstate <= SENT_REMOVE_ACK_REVOCATION) {
-		if (!hin->preimage && !hin->failuremsg && !hin->failcode)
+		if (!hin->preimage && !hin->failonion && !hin->failcode)
 			return corrupt(abortstr, "Removing, no resolution");
 	} else
 		return corrupt(abortstr, "Bad state %s",
@@ -149,7 +149,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 
 	hin->hstate = RCVD_ADD_COMMIT;
 	hin->failcode = 0;
-	hin->failuremsg = NULL;
+	hin->failonion = NULL;
 	hin->preimage = NULL;
 
 	hin->received_time = time_now();
@@ -163,7 +163,7 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 	if (htlc_state_owner(hout->hstate) != LOCAL)
 		return corrupt(abortstr, "invalid state %s",
 			       htlc_state_name(hout->hstate));
-	else if (hout->failuremsg && hout->preimage)
+	else if (hout->failonion && hout->preimage)
 		return corrupt(abortstr, "Both failed and succeeded");
 
 	if (hout->am_origin && hout->in)
@@ -185,7 +185,7 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 			return corrupt(abortstr, "Input hash != output hash");
 		/* If output is resolved, input must be resolved same
 		 * way (or not resolved yet). */
-		if (hout->failuremsg) {
+		if (hout->failonion) {
 			if (hout->in->failcode)
 				return corrupt(abortstr,
 					       "Output failmsg, input failcode");
@@ -193,16 +193,16 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				return corrupt(abortstr,
 					       "Output failmsg, input preimage");
 		} else if (hout->failcode) {
-			if (hout->in->failuremsg)
+			if (hout->in->failonion)
 				return corrupt(abortstr,
-					       "Output failcode, input failmsg");
+					       "Output failcode, input failonion");
 			if (hout->in->preimage)
 				return corrupt(abortstr,
 					       "Output failcode, input preimage");
 		} else if (hout->preimage) {
-			if (hout->in->failuremsg)
+			if (hout->in->failonion)
 				return corrupt(abortstr,
-					       "Output preimage, input failmsg");
+					       "Output preimage, input failonion");
 			if (hout->in->failcode)
 				return corrupt(abortstr,
 					       "Output preimage, input failcode");
@@ -210,7 +210,7 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 			if (hout->in->preimage)
 				return corrupt(abortstr,
 					       "Output unresolved, input preimage");
-			if (hout->in->failuremsg)
+			if (hout->in->failonion)
 				return corrupt(abortstr,
 					       "Output unresovled, input failmsg");
 			if (hout->in->failcode)
@@ -224,13 +224,13 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 	    && hout->hstate <= SENT_ADD_ACK_REVOCATION) {
 		if (hout->preimage)
 			return corrupt(abortstr, "Still adding, has preimage");
-		if (hout->failuremsg)
+		if (hout->failonion)
 			return corrupt(abortstr, "Still adding, has failmsg");
 		if (hout->failcode)
 			return corrupt(abortstr, "Still adding, has failcode");
 	} else if (hout->hstate >= RCVD_REMOVE_HTLC
 		   && hout->hstate <= RCVD_REMOVE_ACK_REVOCATION) {
-		if (!hout->preimage && !hout->failuremsg && !hout->failcode)
+		if (!hout->preimage && !hout->failonion && !hout->failcode)
 			return corrupt(abortstr, "Removing, no resolution");
 	} else
 		return corrupt(abortstr, "Bad state %s",
@@ -286,7 +286,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 
 	hout->hstate = SENT_ADD_HTLC;
 	hout->failcode = 0;
-	hout->failuremsg = NULL;
+	hout->failonion = NULL;
 	hout->preimage = NULL;
 
 	hout->am_origin = am_origin;
