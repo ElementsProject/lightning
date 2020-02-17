@@ -97,7 +97,7 @@ void timer_init(struct timer *t)
 	list_node_init(&t->list);
 }
 
-static bool list_node_initted(const struct list_node *n)
+static inline bool list_node_initted(const struct list_node *n)
 {
 	return n->prev == n;
 }
