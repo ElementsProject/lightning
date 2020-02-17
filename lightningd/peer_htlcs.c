@@ -74,7 +74,7 @@ static bool htlc_in_update_state(struct channel *channel,
 
 	wallet_htlc_update(channel->peer->ld->wallet,
 			   hin->dbid, newstate, hin->preimage,
-			   hin->failcode, hin->failuremsg);
+			   hin->failcode, hin->failonion);
 
 	hin->hstate = newstate;
 	return true;
@@ -89,7 +89,7 @@ static bool htlc_out_update_state(struct channel *channel,
 		return false;
 
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
-			   hout->preimage, hout->failcode, hout->failuremsg);
+			   hout->preimage, hout->failcode, hout->failonion);
 
 	hout->hstate = newstate;
 	return true;
@@ -97,16 +97,16 @@ static bool htlc_out_update_state(struct channel *channel,
 
 static void fail_in_htlc(struct htlc_in *hin,
 			 enum onion_type failcode,
-			 const struct onionreply *failuremsg,
+			 const struct onionreply *failonion,
 			 const struct short_channel_id *out_channelid)
 {
 	struct failed_htlc failed_htlc;
 	assert(!hin->preimage);
 
-	assert(failcode || failuremsg);
+	assert(failcode || failonion);
 	hin->failcode = failcode;
-	if (failuremsg)
-		hin->failuremsg = dup_onionreply(hin, failuremsg);
+	if (failonion)
+		hin->failonion = dup_onionreply(hin, failonion);
 
 	/* We need this set, since we send it to channeld. */
 	if (hin->failcode & UPDATE)
@@ -126,7 +126,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 
 	failed_htlc.id = hin->key.id;
 	failed_htlc.failcode = hin->failcode;
-	failed_htlc.failreason = hin->failuremsg;
+	failed_htlc.failreason = hin->failonion;
 	if (failed_htlc.failcode & UPDATE)
 		failed_htlc.scid = &hin->failoutchannel;
 	else
@@ -158,12 +158,12 @@ void fail_htlc(struct htlc_in *hin, enum onion_type failcode)
 static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 {
 	htlc_out_check(hout, __func__);
-	assert(hout->failcode || hout->failuremsg);
+	assert(hout->failcode || hout->failonion);
 
 	if (hout->am_origin) {
 		payment_failed(hout->key.channel->peer->ld, hout, localfail);
 	} else if (hout->in) {
-		fail_in_htlc(hout->in, hout->failcode, hout->failuremsg,
+		fail_in_htlc(hout->in, hout->failcode, hout->failonion,
 			     hout->key.channel->scid);
 	}
 }
@@ -999,7 +999,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	htlc_out_check(hout, __func__);
 
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, hout->failcode, hout->failuremsg);
+			   hout->preimage, hout->failcode, hout->failonion);
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
 						channel->dbid,
@@ -1055,7 +1055,7 @@ void onchain_fulfilled_htlc(struct channel *channel,
 
 		/* It's possible that we failed some and succeeded one,
 		 * if we got multiple errors. */
-		if (hout->failcode != 0 || hout->failuremsg)
+		if (hout->failcode != 0 || hout->failonion)
 			continue;
 
 		if (!sha256_eq(&hout->payment_hash, &payment_hash))
@@ -1093,9 +1093,9 @@ static bool peer_failed_our_htlc(struct channel *channel,
 
 	hout->failcode = failed->failcode;
 	if (!failed->failcode)
-		hout->failuremsg = dup_onionreply(hout, failed->failreason);
+		hout->failonion = dup_onionreply(hout, failed->failreason);
 	else
-		hout->failuremsg = NULL;
+		hout->failonion = NULL;
 
 	log_debug(channel->log, "Our HTLC %"PRIu64" failed (%u)", failed->id,
 		  hout->failcode);
@@ -1121,7 +1121,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		return;
 
 	/* Don't fail twice (or if already succeeded)! */
-	if (hout->failuremsg || hout->failcode || hout->preimage)
+	if (hout->failonion || hout->failcode || hout->preimage)
 		return;
 
 	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
@@ -1130,7 +1130,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	hout->hstate = RCVD_REMOVE_HTLC;
 	htlc_out_check(hout, __func__);
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, hout->failcode, hout->failuremsg);
+			   hout->preimage, hout->failcode, hout->failonion);
 
 	if (hout->am_origin) {
 		assert(why != NULL);
@@ -1152,7 +1152,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 {
 	htlc_in_check(hin, __func__);
-	assert(hin->failuremsg || hin->preimage || hin->failcode);
+	assert(hin->failonion || hin->preimage || hin->failcode);
 
 	log_debug(channel->log, "Removing in HTLC %"PRIu64" state %s %s",
 		  hin->key.id, htlc_state_name(hin->hstate),
@@ -1189,7 +1189,7 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 {
 	htlc_out_check(hout, __func__);
-	assert(hout->failuremsg || hout->preimage || hout->failcode);
+	assert(hout->failonion || hout->preimage || hout->failcode);
 	log_debug(channel->log, "Removing out HTLC %"PRIu64" state %s %s",
 		  hout->key.id, htlc_state_name(hout->hstate),
 		  hout->preimage ? "FULFILLED"
@@ -1809,7 +1809,7 @@ static void add_fulfill(u64 id, enum side side,
 static void add_fail(u64 id, enum side side,
 		     enum onion_type failcode,
 		     const struct short_channel_id *failing_channel,
-		     const struct onionreply *failuremsg,
+		     const struct onionreply *failonion,
 		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
 {
@@ -1825,8 +1825,8 @@ static void add_fail(u64 id, enum side side,
 	} else
 		newf->scid = NULL;
 
-	if (failuremsg)
-		newf->failreason = dup_onionreply(newf, failuremsg);
+	if (failonion)
+		newf->failreason = dup_onionreply(newf, failonion);
 	else
 		newf->failreason = NULL;
 
@@ -1868,10 +1868,10 @@ void peer_htlcs(const tal_t *ctx,
 			 hin->cltv_expiry, hin->onion_routing_packet,
 			 hin->hstate);
 
-		if (hin->failuremsg || hin->failcode)
+		if (hin->failonion || hin->failcode)
 			add_fail(hin->key.id, REMOTE, hin->failcode,
 				 &hin->failoutchannel,
-				 hin->failuremsg, failed_htlcs, failed_sides);
+				 hin->failonion, failed_htlcs, failed_sides);
 		if (hin->preimage)
 			add_fulfill(hin->key.id, REMOTE, hin->preimage,
 				    fulfilled_htlcs, fulfilled_sides);
@@ -1888,10 +1888,10 @@ void peer_htlcs(const tal_t *ctx,
 			 hout->cltv_expiry, hout->onion_routing_packet,
 			 hout->hstate);
 
-		if (hout->failuremsg || hout->failcode)
+		if (hout->failonion || hout->failcode)
 			add_fail(hout->key.id, LOCAL, hout->failcode,
 				 hout->key.channel->scid,
-				 hout->failuremsg, failed_htlcs, failed_sides);
+				 hout->failonion, failed_htlcs, failed_sides);
 		if (hout->preimage)
 			add_fulfill(hout->key.id, LOCAL, hout->preimage,
 				    fulfilled_htlcs, fulfilled_sides);
@@ -2073,7 +2073,7 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 		return;
 
 	/* Failed ones (only happens after db fixed!) OK. */
-	if (hout->failcode || hout->failuremsg)
+	if (hout->failcode || hout->failonion)
 		return;
 
 	/* payment_preimage for HTLC in *was* stored, so look for that. */

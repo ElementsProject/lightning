@@ -538,7 +538,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 {
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
-	const char *failmsg;
+	const char *failstr;
 	errcode_t pay_errcode;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
@@ -564,7 +564,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	/* This gives more details than a generic failure message */
 	if (localfail) {
 		fail = local_routing_failure(tmpctx, ld, hout, payment);
-		failmsg = localfail;
+		failstr = localfail;
 		pay_errcode = PAY_TRY_OTHER_ROUTE;
 	} else if (payment->path_secrets == NULL) {
 		/* This was a payment initiated with `sendonion`, we therefore
@@ -574,18 +574,18 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 		pay_errcode = PAY_UNPARSEABLE_ONION;
 		fail = NULL;
-		failmsg = NULL;
+		failstr = NULL;
 	} else if (hout->failcode) {
 		/* Direct peer told channeld it's a malformed onion using
 		 * update_fail_malformed_htlc. */
-		failmsg = "malformed onion";
+		failstr = "malformed onion";
 		fail = badonion_routing_failure(tmpctx, ld, payment,
 						hout->failcode);
 		pay_errcode = PAY_UNPARSEABLE_ONION;
 	} else {
 		/* Must be normal remote fail with an onion-wrapped error. */
 		assert(!hout->failcode);
-		failmsg = "reply from remote";
+		failstr = "reply from remote";
 		/* Try to parse reply. */
 		struct secret *path_secrets = payment->path_secrets;
 		u8 *reply;
@@ -593,12 +593,12 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 		reply = unwrap_onionreply(tmpctx, path_secrets,
 					  tal_count(path_secrets),
-					  hout->failuremsg, &origin_index);
+					  hout->failonion, &origin_index);
 		if (!reply) {
 			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" failed with bad reply (%s)",
 				 hout->key.id,
-				 tal_hex(tmpctx, hout->failuremsg));
+				 tal_hex(tmpctx, hout->failonion->contents));
 			/* Cannot record failure. */
 			fail = NULL;
 			pay_errcode = PAY_UNPARSEABLE_ONION;
@@ -629,18 +629,18 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	wallet_payment_set_failinfo(ld->wallet,
 				    &hout->payment_hash,
 				    hout->partid,
-				    fail ? NULL : hout->failuremsg,
+				    fail ? NULL : hout->failonion,
 				    pay_errcode == PAY_DESTINATION_PERM_FAIL,
 				    fail ? fail->erring_index : -1,
 				    fail ? fail->failcode : 0,
 				    fail ? fail->erring_node : NULL,
 				    fail ? fail->erring_channel : NULL,
 				    NULL,
-				    failmsg,
+				    failstr,
 				    fail ? fail->channel_dir : 0);
 
 	tell_waiters_failed(ld, &hout->payment_hash, payment, pay_errcode,
-			    hout->failuremsg, fail, failmsg);
+			    hout->failonion, fail, failstr);
 }
 
 /* Wait for a payment. If cmd is deleted, then wait_payment()

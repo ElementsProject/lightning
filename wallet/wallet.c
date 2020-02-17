@@ -1759,7 +1759,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
 			enum onion_type failcode,
-			const struct onionreply *failuremsg)
+			const struct onionreply *failonion)
 {
 	struct db_stmt *stmt;
 
@@ -1780,8 +1780,8 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 		db_bind_null(stmt, 1);
 
 	db_bind_int(stmt, 2, failcode);
-	if (failuremsg)
-		db_bind_onionreply(stmt, 3, failuremsg);
+	if (failonion)
+		db_bind_onionreply(stmt, 3, failonion);
 	else
 		db_bind_null(stmt, 3);
 
@@ -1813,9 +1813,9 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	       sizeof(in->onion_routing_packet));
 
 	if (db_column_is_null(stmt, 8))
-		in->failuremsg = NULL;
+		in->failonion = NULL;
 	else
-		in->failuremsg = db_column_onionreply(in, stmt, 8);
+		in->failonion = db_column_onionreply(in, stmt, 8);
 	in->failcode = db_column_int(stmt, 9);
 
 	if (db_column_is_null(stmt, 11)) {
@@ -1869,9 +1869,9 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 	       sizeof(out->onion_routing_packet));
 
 	if (db_column_is_null(stmt, 8))
-		out->failuremsg = NULL;
+		out->failonion = NULL;
 	else
-		out->failuremsg = db_column_onionreply(out, stmt, 8);
+		out->failonion = db_column_onionreply(out, stmt, 8);
 	out->failcode = db_column_int_or_default(stmt, 9, 0);
 	out->in = NULL;
 
@@ -1911,7 +1911,7 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 	if (hin->failcode & UPDATE)
 		hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
 
-	/* We didn't used to save failcore, failuremsg... */
+	/* We didn't used to save failcore, failonion... */
 #ifdef COMPAT_V061
 	/* We care about HTLCs being removed only, not those being added. */
 	if (hin->hstate < SENT_REMOVE_HTLC)
@@ -1922,7 +1922,7 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 		return;
 
 	/* Failed ones (only happens after db fixed!) OK. */
-	if (hin->failcode || hin->failuremsg)
+	if (hin->failcode || hin->failonion)
 		return;
 
 	hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
