@@ -307,6 +307,28 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 	wire_sync_write(peer->pps->gossip_fd, take(msg));
 }
 
+/* Get the latest channel update for this channel from gossipd */
+static NEEDED const u8 *get_local_channel_update(const tal_t *ctx, struct peer *peer)
+{
+	const u8 *msg;
+
+	msg = towire_gossipd_get_update(NULL, &peer->short_channel_ids[LOCAL]);
+ 	wire_sync_write(peer->pps->gossip_fd, take(msg));
+
+	/* Wait for reply to come back; handle other gossipd msgs meanwhile */
+	while ((msg = wire_sync_read(tmpctx, peer->pps->gossip_fd)) != NULL) {
+		u8 *update;
+		if (fromwire_gossipd_get_update_reply(ctx, msg, &update))
+			return update;
+
+		handle_gossip_msg(peer->pps, take(msg));
+	}
+
+	/* Gossipd hangs up on us to kill us when a new
+	 * connection comes in. */
+	peer_failed_connection_lost();
+}
+
 /**
  * Add a channel locally and send a channel update to the peer
  *
