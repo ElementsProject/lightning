@@ -355,7 +355,7 @@ int main(void)
 	struct channel_config *local_config, *remote_config;
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlc_map, **htlcs;
-	const u8 *funding_wscript, **wscripts;
+	const u8 *funding_wscript, *funding_wscript_alt;
 	size_t i;
 
 	wally_init(0);
@@ -521,16 +521,15 @@ int main(void)
 			   NULL, &htlc_map, 0x2bb038521914 ^ 42, LOCAL);
 
 	txs = channel_txs(tmpctx,
-			  &htlc_map, &wscripts,
+			  &htlc_map, &funding_wscript_alt,
 			  lchannel, &local_per_commitment_point, 42, LOCAL);
 	assert(tal_count(txs) == 1);
 	assert(tal_count(htlc_map) == 2);
-	assert(tal_count(wscripts) == 1);
-	assert(scripteq(wscripts[0], funding_wscript));
+	assert(scripteq(funding_wscript_alt, funding_wscript));
 	tx_must_be_eq(txs[0], raw_tx);
 
 	txs2 = channel_txs(tmpctx,
-			   &htlc_map, &wscripts,
+			   &htlc_map, &funding_wscript,
 			   rchannel, &local_per_commitment_point, 42, REMOTE);
 	txs_must_be_eq(txs, txs2);
 
@@ -557,10 +556,10 @@ int main(void)
 	assert(lchannel->view[REMOTE].owed[REMOTE].millisatoshis
 	       == rchannel->view[LOCAL].owed[LOCAL].millisatoshis);
 
-	txs = channel_txs(tmpctx, &htlc_map, &wscripts,
+	txs = channel_txs(tmpctx, &htlc_map, &funding_wscript,
 			  lchannel, &local_per_commitment_point, 42, LOCAL);
 	assert(tal_count(txs) == 1);
-	txs2 = channel_txs(tmpctx, &htlc_map, &wscripts,
+	txs2 = channel_txs(tmpctx, &htlc_map, &funding_wscript,
 			   rchannel, &local_per_commitment_point, 42, REMOTE);
 	txs_must_be_eq(txs, txs2);
 
@@ -575,10 +574,10 @@ int main(void)
 	assert(lchannel->view[REMOTE].owed[REMOTE].millisatoshis
 	       == rchannel->view[LOCAL].owed[LOCAL].millisatoshis);
 
-	txs = channel_txs(tmpctx, &htlc_map, &wscripts,
+	txs = channel_txs(tmpctx, &htlc_map, &funding_wscript,
 			  lchannel, &local_per_commitment_point, 42, LOCAL);
 	assert(tal_count(txs) == 6);
-	txs2 = channel_txs(tmpctx, &htlc_map, &wscripts,
+	txs2 = channel_txs(tmpctx, &htlc_map, &funding_wscript,
 			   rchannel, &local_per_commitment_point, 42, REMOTE);
 	txs_must_be_eq(txs, txs2);
 
@@ -644,12 +643,12 @@ int main(void)
 		    to_local, to_remote, htlcs, &htlc_map, 0x2bb038521914 ^ 42,
 		    LOCAL);
 
-		txs = channel_txs(tmpctx, &htlc_map, &wscripts,
+		txs = channel_txs(tmpctx, &htlc_map, &funding_wscript,
 				  lchannel, &local_per_commitment_point, 42,
 				  LOCAL);
 		tx_must_be_eq(txs[0], raw_tx);
 
-		txs2 = channel_txs(tmpctx, &htlc_map, &wscripts,
+		txs2 = channel_txs(tmpctx, &htlc_map, &funding_wscript,
 				   rchannel, &local_per_commitment_point,
 				   42, REMOTE);
 		txs_must_be_eq(txs, txs2);

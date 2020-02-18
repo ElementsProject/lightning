@@ -222,7 +222,6 @@ static bool sum_offered_msatoshis(struct amount_msat *total,
 }
 
 static void add_htlcs(struct bitcoin_tx ***txs,
-		      const u8 ***wscripts,
 		      const struct htlc **htlcmap,
 		      const struct channel *channel,
 		      const struct keyset *keyset,
@@ -238,7 +237,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 	for (i = 0; i < tal_count(htlcmap); i++) {
 		const struct htlc *htlc = htlcmap[i];
 		struct bitcoin_tx *tx;
-		u8 *wscript;
+		struct witscript *witscript;
 
 		if (!htlc)
 			continue;
@@ -250,29 +249,22 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
 					     keyset);
-			wscript	= bitcoin_wscript_htlc_offer(*wscripts,
-						     &keyset->self_htlc_key,
-						     &keyset->other_htlc_key,
-						     &htlc->rhash,
-						     &keyset->self_revocation_key);
 		} else {
 			tx = htlc_success_tx(*txs, chainparams, &txid, i,
 					     htlc->amount,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
 					     keyset);
-			wscript	= bitcoin_wscript_htlc_receive(*wscripts,
-						       &htlc->expiry,
-						       &keyset->self_htlc_key,
-						       &keyset->other_htlc_key,
-						       &htlc->rhash,
-						       &keyset->self_revocation_key);
 		}
+		/* Re-use the previously-generated witness script */
+		witscript = (*txs)[0]->output_witscripts[i];
+		tx->output_witscripts[0] =
+		        tal(tx->output_witscripts, struct witscript);
+		tx->output_witscripts[0]->ptr =
+			tal_dup_arr(tx->output_witscripts[0], u8,
+				    witscript->ptr, tal_count(witscript->ptr), 0);
 
 		/* Append to array. */
-		assert(tal_count(*txs) == tal_count(*wscripts));
-
-		tal_arr_expand(wscripts, wscript);
 		tal_arr_expand(txs, tx);
 	}
 }
@@ -280,7 +272,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 /* FIXME: We could cache these. */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				const struct htlc ***htlcmap,
-				const u8 ***wscripts,
+				const u8 **funding_wscript,
 				const struct channel *channel,
 				const struct pubkey *per_commitment_point,
 				u64 commitment_number,
@@ -310,12 +302,13 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    channel->view[side].owed[!side], committed, htlcmap,
 	    commitment_number ^ channel->commitment_number_obscurer, side);
 
-	*wscripts = tal_arr(ctx, const u8 *, 1);
-	(*wscripts)[0] = bitcoin_redeem_2of2(*wscripts,
-					     &channel->funding_pubkey[side],
-					     &channel->funding_pubkey[!side]);
+	/* Generating and saving witness script required to spend
+	 * the funding output */
+	*funding_wscript = bitcoin_redeem_2of2(*funding_wscript,
+					      &channel->funding_pubkey[side],
+					      &channel->funding_pubkey[!side]);
 
-	add_htlcs(&txs, wscripts, *htlcmap, channel, &keyset, side);
+	add_htlcs(&txs, *htlcmap, channel, &keyset, side);
 
 	tal_free(committed);
 	return txs;
