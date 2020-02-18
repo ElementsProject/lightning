@@ -1755,11 +1755,13 @@ void wallet_htlc_save_out(struct wallet *wallet,
 	tal_free(stmt);
 }
 
+/* input htlcs use failcode & failonion, output htlcs use failmsg & failonion */
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
 			enum onion_type failcode,
-			const struct onionreply *failonion)
+			const struct onionreply *failonion,
+			const u8 *failmsg)
 {
 	struct db_stmt *stmt;
 
@@ -1768,11 +1770,12 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	assert(htlc_dbid);
 	stmt = db_prepare_v2(
 	    wallet->db, SQL("UPDATE channel_htlcs SET hstate=?, payment_key=?, "
-			    "malformed_onion=?, failuremsg=? WHERE id=?"));
+			    "malformed_onion=?, failuremsg=?, localfailmsg=?"
+			    " WHERE id=?"));
 
 	/* FIXME: htlc_state_in_db */
 	db_bind_int(stmt, 0, new_state);
-	db_bind_u64(stmt, 4, htlc_dbid);
+	db_bind_u64(stmt, 5, htlc_dbid);
 
 	if (payment_key)
 		db_bind_preimage(stmt, 1, payment_key);
@@ -1780,10 +1783,16 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 		db_bind_null(stmt, 1);
 
 	db_bind_int(stmt, 2, failcode);
+
 	if (failonion)
 		db_bind_onionreply(stmt, 3, failonion);
 	else
 		db_bind_null(stmt, 3);
+
+	if (failmsg)
+		db_bind_blob(stmt, 4, failmsg, tal_bytelen(failmsg));
+	else
+		db_bind_null(stmt, 4);
 
 	db_exec_prepared_v2(take(stmt));
 }
@@ -1872,6 +1881,7 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 		out->failonion = NULL;
 	else
 		out->failonion = db_column_onionreply(out, stmt, 8);
+
 	out->failcode = db_column_int_or_default(stmt, 9, 0);
 	out->in = NULL;
 
@@ -2002,6 +2012,7 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet,
 					     ", shared_secret"
 					     ", received_time"
 					     ", partid"
+					     ", localfailmsg"
 					     " FROM channel_htlcs"
 					     " WHERE direction = ?"
 					     " AND channel_id = ?"

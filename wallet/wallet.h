@@ -582,7 +582,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
  * @payment_key: the `payment_key` which hashes to the `payment_hash`,
  *   or NULL if unknown.
  * @failcode: the current failure code, or 0.
- * @failonion: the current failure message (from peer), or NULL.
+ * @failonion: the current failure onion message (from peer), or NULL.
+ * @failmsg: the current local failure message, or NULL.
  *
  * Used to update the state of an HTLC, either a `struct htlc_in` or a
  * `struct htlc_out` and optionally set the `payment_key` should the
@@ -592,7 +593,8 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
 			enum onion_type failcode,
-			const struct onionreply *failonion);
+			const struct onionreply *failonion,
+			const u8 *failmsg);
 
 /**
  * wallet_htlcs_load_in_for_channel - Load incoming HTLCs associated with chan from DB.
