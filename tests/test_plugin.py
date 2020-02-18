@@ -161,7 +161,7 @@ def test_plugin_command(node_factory):
         n2.rpc.plugin_stop(plugin="static.py")
 
     # Test that we don't crash when starting a broken plugin
-    with pytest.raises(RpcError, match=r"Timed out while waiting for plugin response"):
+    with pytest.raises(RpcError, match=r"Plugin exited before completing handshake."):
         n2.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/broken.py"))
 
 
