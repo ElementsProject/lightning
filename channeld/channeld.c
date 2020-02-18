@@ -810,14 +810,14 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 {
 	size_t i;
 	struct bitcoin_tx **txs;
-	const u8 **wscripts;
+	const u8 *funding_wscript;
 	const struct htlc **htlc_map;
 	struct pubkey local_htlckey;
 	const u8 *msg;
 	secp256k1_ecdsa_signature *htlc_sigs;
 
 	txs = channel_txs(tmpctx, &htlc_map,
-			  &wscripts, peer->channel, &peer->remote_per_commit,
+			  &funding_wscript, peer->channel, &peer->remote_per_commit,
 			  commit_index, REMOTE);
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
@@ -838,7 +838,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 		     type_to_string(tmpctx, struct bitcoin_signature,
 				    commit_sig),
 		     type_to_string(tmpctx, struct bitcoin_tx, txs[0]),
-		     tal_hex(tmpctx, wscripts[0]),
+		     tal_hex(tmpctx, funding_wscript),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->channel->funding_pubkey[LOCAL]));
 	dump_htlcs(peer->channel, "Sending commit_sig");
@@ -861,7 +861,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
 		struct bitcoin_signature sig;
 		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1],
-						     wscripts[i + 1],
+						     txs[i+1]->output_witscripts[0]->ptr,
 						     *txs[i+1]->input_amounts[0],
 						     &peer->remote_per_commit);
 
@@ -876,10 +876,11 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 			     type_to_string(tmpctx, struct bitcoin_signature,
 					    &sig),
 			     type_to_string(tmpctx, struct bitcoin_tx, txs[1+i]),
-			     tal_hex(tmpctx, wscripts[1+i]),
+			     tal_hex(tmpctx, txs[i+1]->output_witscripts[0]->ptr),
 			     type_to_string(tmpctx, struct pubkey,
 					    &local_htlckey));
-		assert(check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
+		assert(check_tx_sig(txs[1+i], 0, NULL,
+				    txs[i+1]->output_witscripts[0]->ptr,
 				    &local_htlckey,
 				    &sig));
 	}
@@ -1201,7 +1202,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	struct pubkey remote_htlckey;
 	struct bitcoin_tx **txs;
 	const struct htlc **htlc_map, **changed_htlcs;
-	const u8 **wscripts;
+	const u8 *funding_wscript;
 	size_t i;
 
 	changed_htlcs = tal_arr(msg, const struct htlc *, 0);
@@ -1241,7 +1242,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 
 	txs =
 	    channel_txs(tmpctx, &htlc_map,
-			&wscripts, peer->channel, &peer->next_local_per_commit,
+			&funding_wscript, peer->channel, &peer->next_local_per_commit,
 			peer->next_index[LOCAL], LOCAL);
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].htlc,
@@ -1261,7 +1262,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	 *    - if `signature` is not valid for its local commitment transaction:
 	 *      - MUST fail the channel.
 	 */
-	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0],
+	if (!check_tx_sig(txs[0], 0, NULL, funding_wscript,
 			  &peer->channel->funding_pubkey[REMOTE], &commit_sig)) {
 		dump_htlcs(peer->channel, "receiving commit_sig");
 		peer_failed(peer->pps,
@@ -1271,7 +1272,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    type_to_string(msg, struct bitcoin_signature,
 					   &commit_sig),
 			    type_to_string(msg, struct bitcoin_tx, txs[0]),
-			    tal_hex(msg, wscripts[0]),
+			    tal_hex(msg, funding_wscript),
 			    type_to_string(msg, struct pubkey,
 					   &peer->channel->funding_pubkey
 					   [REMOTE]),
@@ -1305,14 +1306,14 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 		sig.s = htlc_sigs[i];
 		sig.sighash_type = SIGHASH_ALL;
 
-		if (!check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
+		if (!check_tx_sig(txs[1+i], 0, NULL, txs[1+i]->output_witscripts[0]->ptr,
 				  &remote_htlckey, &sig))
 			peer_failed(peer->pps,
 				    &peer->channel_id,
 				    "Bad commit_sig signature %s for htlc %s wscript %s key %s",
 				    type_to_string(msg, struct bitcoin_signature, &sig),
 				    type_to_string(msg, struct bitcoin_tx, txs[1+i]),
-				    tal_hex(msg, wscripts[1+i]),
+				    tal_hex(msg, txs[1+i]->output_witscripts[0]->ptr),
 				    type_to_string(msg, struct pubkey,
 						   &remote_htlckey));
 	}
