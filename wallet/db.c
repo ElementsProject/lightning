@@ -592,6 +592,10 @@ static struct migration dbmigrations[] = {
      NULL},
     /* FIXME: Remove now-unused local_feerate_per_kw and remote_feerate_per_kw from channels */
     {SQL("INSERT INTO vars (name, intval) VALUES ('data_version', 0);"), NULL},
+    /* For outgoing HTLCs, we now keep a localmsg instead of a failcode.
+     * Turn anything in transition into a WIRE_TEMPORARY_NODE_FAILURE. */
+    {SQL("ALTER TABLE channel_htlcs ADD localfailmsg BLOB;"), NULL},
+    {SQL("UPDATE channel_htlcs SET localfailmsg=decode('2002', 'hex') WHERE malformed_onion != 0 AND direction = 1;"), NULL},
 };
 
 /* Leak tracking. */

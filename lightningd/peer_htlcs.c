@@ -76,7 +76,7 @@ static bool htlc_in_update_state(struct channel *channel,
 
 	wallet_htlc_update(channel->peer->ld->wallet,
 			   hin->dbid, newstate, hin->preimage,
-			   hin->failcode, hin->failonion);
+			   hin->failcode, hin->failonion, NULL);
 
 	hin->hstate = newstate;
 	return true;
@@ -91,7 +91,8 @@ static bool htlc_out_update_state(struct channel *channel,
 		return false;
 
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
-			   hout->preimage, hout->failcode, hout->failonion);
+			   hout->preimage, hout->failcode, hout->failonion,
+			   NULL);
 
 	hout->hstate = newstate;
 	return true;
@@ -1100,7 +1101,8 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	htlc_out_check(hout, __func__);
 
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, hout->failcode, hout->failonion);
+			   hout->preimage, hout->failcode, hout->failonion,
+			   NULL);
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
 						channel->dbid,
@@ -1281,7 +1283,8 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	hout->hstate = RCVD_REMOVE_HTLC;
 	htlc_out_check(hout, __func__);
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, hout->failcode, hout->failonion);
+			   hout->preimage, hout->failcode, hout->failonion,
+			   NULL);
 
 	if (hout->am_origin) {
 		assert(why != NULL);

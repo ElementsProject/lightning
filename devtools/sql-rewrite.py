@@ -41,6 +41,8 @@ class Sqlite3Rewriter(Rewriter):
             r'BIGSERIAL': 'INTEGER',
             r'CURRENT_TIMESTAMP\(\)': "strftime('%s', 'now')",
             r'INSERT INTO[ \t]+(.*)[ \t]+ON CONFLICT.*DO NOTHING;': 'INSERT OR IGNORE INTO \\1;',
+            # Rewrite "decode('abcd', 'hex')" to become "x'abcd'"
+            r'decode\((.*),\s*[\'\"]hex[\'\"]\)': 'x\\1',
         }
         return self.rewrite_types(query, typemapping)
 
