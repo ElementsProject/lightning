@@ -547,11 +547,6 @@ void json_add_num(struct json_stream *result, const char *fieldname, unsigned in
 	json_add_member(result, fieldname, false, "%u", value);
 }
 
-void json_add_double(struct json_stream *result, const char *fieldname, double value)
-{
-	json_add_member(result, fieldname, false, "%f", value);
-}
-
 void json_add_u64(struct json_stream *result, const char *fieldname,
 		  uint64_t value)
 {
