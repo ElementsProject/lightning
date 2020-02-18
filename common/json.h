@@ -185,9 +185,6 @@ void json_add_escaped_string(struct json_stream *result,
 void json_add_literal(struct json_stream *result, const char *fieldname,
 		      const char *literal, int len);
 /* '"fieldname" : value' or 'value' if fieldname is NULL */
-void json_add_double(struct json_stream *result, const char *fieldname,
-		     double value);
-/* '"fieldname" : value' or 'value' if fieldname is NULL */
 void json_add_num(struct json_stream *result, const char *fieldname,
 		  unsigned int value);
 /* '"fieldname" : value' or 'value' if fieldname is NULL */
