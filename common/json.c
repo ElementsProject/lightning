@@ -13,8 +13,10 @@
 #include <common/json.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
+#include <common/overflows.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
+#include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdarg.h>
@@ -97,13 +99,45 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 	return true;
 }
 
-bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
+bool json_to_millionths(const char *buffer, const jsmntok_t *tok,
+			u64 *millionths)
 {
-	char *end;
+	int decimal_places = -1;
+	bool has_digits = 0;
 
-	*num = strtod(buffer + tok->start, &end);
-	if (end != buffer + tok->end)
+	*millionths = 0;
+	for (int i = tok->start; i < tok->end; i++) {
+		if (isdigit(buffer[i])) {
+			has_digits = true;
+			/* Ignore too much precision */
+			if (decimal_places >= 0 && ++decimal_places > 6)
+				continue;
+			if (mul_overflows_u64(*millionths, 10))
+				return false;
+			*millionths *= 10;
+			if (add_overflows_u64(*millionths, buffer[i] - '0'))
+				return false;
+			*millionths += buffer[i] - '0';
+		} else if (buffer[i] == '.') {
+			if (decimal_places != -1)
+				return false;
+			decimal_places = 0;
+		} else
+			return false;
+	}
+
+	if (!has_digits)
 		return false;
+
+	if (decimal_places == -1)
+		decimal_places = 0;
+
+	while (decimal_places < 6) {
+		if (mul_overflows_u64(*millionths, 10))
+			return false;
+		*millionths *= 10;
+		decimal_places++;
+	}
 	return true;
 }
 

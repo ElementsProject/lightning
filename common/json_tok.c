@@ -39,12 +39,9 @@ struct command_result *param_millionths(struct command *cmd, const char *name,
 					const char *buffer,
 					const jsmntok_t *tok, uint64_t **num)
 {
-	double d;
-	if (json_to_double(buffer, tok, &d) && d >= 0.0) {
-		*num = tal(cmd, uint64_t);
-		**num = (uint64_t)(d * 1000000);
+	*num = tal(cmd, uint64_t);
+	if (json_to_millionths(buffer, tok, *num))
 		return NULL;
-	}
 
 	return command_fail(
 	    cmd, JSONRPC2_INVALID_PARAMS,
