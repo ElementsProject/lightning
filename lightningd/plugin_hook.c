@@ -12,7 +12,6 @@
 struct plugin_hook_request {
 	struct list_head call_chain;
 	struct plugin *plugin;
-	int current_plugin;
 	const struct plugin_hook *hook;
 	void *cb_arg;
 	void *payload;
@@ -133,7 +132,6 @@ static void plugin_hook_killed(struct plugin_hook_call_link *link)
 		/* Call next will unlink, so we don't need to. This is treated
 		 * equivalent to the plugin returning a continue-result.
 		 */
-		link->req->current_plugin--;
 		plugin_hook_callback(NULL, NULL, NULL, link->req);
 	} else {
 		/* The plugin is in the list waiting to be called, just remove
@@ -188,12 +186,11 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 		resrestok = NULL;
 	}
 
-	more_plugins = r->current_plugin + 1 < tal_count(r->hook->plugins);
-	cont = buffer == NULL || (resrestok && json_tok_streq(buffer, resrestok, "continue"));
-
 	/* If this is a hook response containing a `continue` and we have more
 	 * plugins queue the next call. In that case we discard the remainder
 	 * of the result, and let the next plugin decide. */
+	cont = buffer == NULL || (resrestok && json_tok_streq(buffer, resrestok, "continue"));
+	more_plugins = !list_empty(&r->call_chain);
 	if (cont && more_plugins) {
 		plugin_hook_call_next(r);
 	} else {
@@ -217,9 +214,8 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 {
 	struct jsonrpc_request *req;
 	const struct plugin_hook *hook = ph_req->hook;
-	ph_req->current_plugin++;
-	assert(ph_req->current_plugin < tal_count(hook->plugins));
-	ph_req->plugin = ph_req->hook->plugins[ph_req->current_plugin];
+	assert(!list_empty(&ph_req->call_chain));
+	ph_req->plugin = list_top(&ph_req->call_chain, struct plugin_hook_call_link, list)->plugin;
 
 	req = jsonrpc_request_start(NULL, hook->name,
 				    plugin_get_log(ph_req->plugin),
@@ -246,7 +242,6 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		ph_req->cb_arg = cb_arg;
 		ph_req->db = ld->wallet->db;
 		ph_req->payload = tal_steal(ph_req, payload);
-		ph_req->current_plugin = -1;
 		ph_req->ld = ld;
 
 		list_head_init(&ph_req->call_chain);
@@ -349,8 +344,7 @@ void plugin_hook_db_sync(struct db *db)
 
 	ph_req->hook = hook;
 	ph_req->db = db;
-	ph_req->current_plugin = 0;
-	plugin = ph_req->plugin = hook->plugins[ph_req->current_plugin];
+	plugin = ph_req->plugin = hook->plugins[0];
 
 	json_add_num(req->stream, "data_version", db_data_version_get(db));
 
