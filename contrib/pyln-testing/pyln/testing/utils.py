@@ -17,7 +17,6 @@ import sqlite3
 import string
 import struct
 import subprocess
-import sys
 import threading
 import time
 
@@ -67,10 +66,6 @@ DEVELOPER = env("DEVELOPER", "0") == "1"
 TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
 SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
 TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
-
-
-if TEST_DEBUG:
-    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 
 def wait_for(success, timeout=TIMEOUT):

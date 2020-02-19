@@ -1,12 +1,13 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG
 
 import logging
 import os
 import pytest
 import re
 import shutil
+import sys
 import tempfile
 
 
@@ -26,6 +27,18 @@ def test_base_dir():
 
     if os.listdir(directory) == []:
         shutil.rmtree(directory)
+
+
+@pytest.fixture(autouse=True)
+def setup_logging():
+    logger = logging.getLogger()
+    before_handlers = list(logger.handlers)
+
+    if TEST_DEBUG:
+        logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
+
+    yield
+    logger.handlers = before_handlers
 
 
 @pytest.fixture
