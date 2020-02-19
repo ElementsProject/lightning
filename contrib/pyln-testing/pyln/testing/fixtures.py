@@ -55,7 +55,12 @@ def directory(request, test_base_dir, test_name):
     failed = not outcome or request.node.has_errors or outcome != 'passed'
 
     if not failed:
-        shutil.rmtree(directory)
+        try:
+            shutil.rmtree(directory)
+        except Exception:
+            files = [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
+            print("Directory still contains files:", files)
+            raise
     else:
         logging.debug("Test execution failed, leaving the test directory {} intact.".format(directory))
 
