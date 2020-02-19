@@ -69,8 +69,13 @@ bool json_to_u32(const char *buffer, const jsmntok_t *tok,
 bool json_to_u16(const char *buffer, const jsmntok_t *tok,
                  uint16_t *num);
 
-/* Extract double from this (must be a number literal) */
-bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num);
+/*
+ * Extract a non-negative (either 0 or positive) floating-point number from this
+ * (must be a number literal), multiply it by 1 million and return it as an
+ * integer. Any fraction smaller than 0.000001 is ignored.
+ */
+bool json_to_millionths(const char *buffer, const jsmntok_t *tok,
+			u64 *millionths);
 
 /* Extract signed integer from this (may be a string, or a number literal) */
 bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num);

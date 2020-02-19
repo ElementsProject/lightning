@@ -46,6 +46,62 @@ static int test_json_tok_bitcoin_amount(void)
 	return 0;
 }
 
+static void do_json_tok_millionths(const char *val, bool ok, uint64_t expected)
+{
+	uint64_t amount;
+	jsmntok_t tok;
+
+	tok.start = 0;
+	tok.end = strlen(val);
+
+	assert(json_to_millionths(val, &tok, &amount) == ok);
+	if (ok)
+		assert(amount == expected);
+}
+
+static int test_json_tok_millionths(void)
+{
+	do_json_tok_millionths("", false, 0);
+	do_json_tok_millionths("0..0", false, 0);
+	do_json_tok_millionths("0.0.", false, 0);
+	do_json_tok_millionths(".", false, 0);
+	do_json_tok_millionths("..", false, 0);
+
+	do_json_tok_millionths("0", true, 0);
+	do_json_tok_millionths(".0", true, 0);
+	do_json_tok_millionths("0.", true, 0);
+	do_json_tok_millionths("100", true, 100 * 1000000);
+	do_json_tok_millionths("100.0", true, 100 * 1000000);
+	do_json_tok_millionths("100.", true, 100 * 1000000);
+	do_json_tok_millionths("100.000001", true, 100 * 1000000 + 1);
+	do_json_tok_millionths("100.0000001", true, 100 * 1000000);
+	do_json_tok_millionths(".000009", true, 9);
+	do_json_tok_millionths(".0000099", true, 9);
+	do_json_tok_millionths("18446744073709.551615", true,
+			       18446744073709551615ULL);
+	do_json_tok_millionths("18446744073709.551616", false, 0);
+	do_json_tok_millionths("18446744073709.551625", false, 0);
+	do_json_tok_millionths("18446744073709.551715", false, 0);
+	do_json_tok_millionths("18446744073709.552615", false, 0);
+	do_json_tok_millionths("18446744073709.561615", false, 0);
+	do_json_tok_millionths("18446744073709.651615", false, 0);
+	do_json_tok_millionths("18446744073710.551615", false, 0);
+	do_json_tok_millionths("18446744073809.551615", false, 0);
+	do_json_tok_millionths("18446744074709.551615", false, 0);
+	do_json_tok_millionths("18446744083709.551615", false, 0);
+	do_json_tok_millionths("18446744173709.551615", false, 0);
+	do_json_tok_millionths("18446745073709.551615", false, 0);
+	do_json_tok_millionths("18446754073709.551615", false, 0);
+	do_json_tok_millionths("18446844073709.551615", false, 0);
+	do_json_tok_millionths("18447744073709.551615", false, 0);
+	do_json_tok_millionths("18456744073709.551615", false, 0);
+	do_json_tok_millionths("18546744073709.551615", false, 0);
+	do_json_tok_millionths("19446744073709.551615", false, 0);
+	do_json_tok_millionths("28446744073709.551615", false, 0);
+
+	return 0;
+}
+
 static void test_json_tok_size(void)
 {
 	const jsmntok_t *toks;
@@ -190,6 +246,7 @@ int main(void)
 
 	test_json_tok_size();
 	test_json_tok_bitcoin_amount();
+	test_json_tok_millionths();
 	test_json_delve();
 	assert(!taken_any());
 	take_cleanup();
