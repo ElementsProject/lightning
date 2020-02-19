@@ -192,6 +192,12 @@ ALL_PROGRAMS =
 
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
+# If CFLAGS is already set in the environment of make (to whatever value, it
+# does not matter) then it would export it to subprocesses with the above value
+# we set, including CWARNFLAGS which by default contains -Wall -Werror. This
+# breaks at least libwally-core which tries to switch off some warnings with
+# -Wno-whatever. So, tell make to not export our CFLAGS to subprocesses.
+unexport CFLAGS
 
 # We can get configurator to run a different compile cmd to cross-configure.
 CONFIGURATOR_CC := $(CC)
