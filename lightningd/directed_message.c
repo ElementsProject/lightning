@@ -1,4 +1,5 @@
 #include <channeld/gen_channel_wire.h>
+#include <common/json_helpers.h>
 #include <lightningd/channel.h>
 #include <lightningd/directed_message.h>
 #include <lightningd/lightningd.h>
@@ -8,6 +9,15 @@
 #define DIRECTED_MSG_MAX	1000
 
 #if EXPERIMENTAL_FEATURES
+static LIST_HEAD(our_dms);
+
+struct our_dm {
+	struct list_node list;
+	struct command *cmd;
+	struct sha256 hash;
+	struct secret *shared_secrets;
+};
+
 static void destroy_directed_msg(struct directed_msg *di,
 				  struct directed_msg_htable *ht)
 {
@@ -85,6 +95,7 @@ void handle_directed_to_us(struct channel *channel, const u8 *msg)
 {
 	struct sha256 hash_in;
 	struct secret ss;
+	struct onionreply *onionreply;
 	u8 *payload;
 
 	if (!fromwire_got_directed_tous(msg, msg, &hash_in, &ss, &payload))
@@ -94,6 +105,14 @@ void handle_directed_to_us(struct channel *channel, const u8 *msg)
 	/* FIXME: Wire up directed message handling! */
 	log_info(channel->log, "Received directed message %s",
 		 tal_hex(tmpctx, payload));
+
+	onionreply = create_onionreply(tmpctx, &ss,
+				       (u8 *)tal_fmt(tmpctx, "Reply to msg len %zu",
+						     tal_bytelen(payload)));
+
+	make_peer_send(channel->peer->ld, channel,
+		       take(towire_send_directed_reply_msg(NULL, &hash_in, &ss,
+							   onionreply)));
 }
 
 void handle_directed_forward(struct channel *channel, const u8 *msg)
@@ -116,6 +135,47 @@ void handle_directed_forward(struct channel *channel, const u8 *msg)
 	}
 }
 
+static struct our_dm *find_our_dm(struct lightningd *ld,
+				  const struct sha256 *hash)
+{
+	struct our_dm *dm;
+
+	list_for_each(&our_dms, dm, list) {
+		if (sha256_eq(&dm->hash, hash))
+			return dm;
+	}
+	return NULL;
+}
+
+static bool handle_reply_to_our_dm(struct lightningd *ld,
+				   const struct sha256 *hash,
+				   const struct onionreply *onionreply)
+{
+	int origin;
+	u8 *resp;
+	struct our_dm *dm = find_our_dm(ld, hash);
+
+	if (!dm)
+		return false;
+
+	list_del_from(&our_dms, &dm->list);
+	resp = unwrap_onionreply(dm->cmd, dm->shared_secrets,
+				 tal_count(dm->shared_secrets),
+				 onionreply, &origin);
+	if (!resp) {
+		was_pending(command_fail(dm->cmd, LIGHTNINGD,
+					 "Invalid onionreply"));
+	} else if (origin != tal_count(dm->shared_secrets)-1) {
+		was_pending(command_fail(dm->cmd, LIGHTNINGD,
+					 "Onionreply from node %i", origin));
+	} else {
+		struct json_stream *response = json_stream_success(dm->cmd);
+		json_add_hex(response, "reply", resp, tal_bytelen(resp));
+		was_pending(command_success(dm->cmd, response));
+	}
+	return true;
+}
+
 void handle_directed_reply(struct channel *channel, const u8 *msg)
 {
 	struct lightningd *ld = channel->peer->ld;
@@ -126,6 +186,9 @@ void handle_directed_reply(struct channel *channel, const u8 *msg)
 	if (!fromwire_got_directed_reply(msg, msg, &hash, &onionreply))
 		channel_internal_error(channel, "bad got_directed_reply: %s",
 				       tal_hex(tmpctx, msg));
+
+	if (handle_reply_to_our_dm(ld, &hash, onionreply))
+		return;
 
 	di = directed_msg_htable_get(&ld->directed_msg_htable, &hash);
 	if (!di) {
@@ -142,4 +205,116 @@ void handle_directed_reply(struct channel *channel, const u8 *msg)
 	/* Replies are one-shot. */
 	tal_free(di);
 }
+
+static struct command_result *param_pubkey_array(struct command *cmd,
+						 const char *name,
+						 const char *buffer,
+						 const jsmntok_t *tok,
+						 struct pubkey **arr)
+{
+	const jsmntok_t *t;
+	size_t i;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be an array, not '%.*s'",
+				    name, tok->end - tok->start,
+				    buffer + tok->start);
+
+	*arr = tal_arr(cmd, struct pubkey, tok->size);
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_pubkey(buffer, t, &(*arr)[i]))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s[%zu] '%.*s' not a valid node id",
+					    name, i, t->end - t->start,
+					    buffer + t->start);
+	}
+	return NULL;
+}
+
+/* This would be a better sphinx API, once we remove legacy payloads! */
+static void sphinx_add_tlv_hop(struct log *log,
+			       struct sphinx_path *sp,
+			       const struct pubkey *pubkey,
+			       const void *arr,
+			       size_t arrlen)
+{
+	u8 *payload = tal_arr(NULL, u8, 0);
+	towire_bigsize(&payload, arrlen);
+	towire(&payload, arr, arrlen);
+	sphinx_add_hop(sp, pubkey, take(payload));
+}
+
+static struct command_result *json_send_message(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
+{
+	struct pubkey *nodes;
+	const char *message;
+	struct sphinx_path *sp;
+	struct onionpacket *packet;
+	const u8 *ser;
+	struct our_dm *dm;
+	struct node_id first;
+	struct peer *peer;
+
+	if (!param(cmd, buffer, params,
+		   p_req("message", param_string, &message),
+		   p_req("nodes", param_pubkey_array, &nodes),
+		   NULL))
+		return command_param_failed();
+
+	if (tal_count(nodes) == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Empty nodes parameter");
+
+	/* Sphinx path, with each one containing the next hop */
+	sp = sphinx_path_new(cmd, NULL);
+	for (size_t i = 0; i < tal_count(nodes) - 1; i++) {
+		u8 *payload = tal_arr(sp, u8, 0);
+		towire_pubkey(&payload, &nodes[i+1]);
+		sphinx_add_tlv_hop(cmd->ld->log,
+				   sp, &nodes[i], payload, tal_bytelen(payload));
+	}
+	/* Final one contains message. */
+	sphinx_add_tlv_hop(cmd->ld->log,sp, &nodes[tal_count(nodes)-1],
+			   message, strlen(message));
+
+	if (sphinx_path_payloads_size(sp) > ROUTING_INFO_SIZE)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Payloads exceed maximum onion packet size.");
+
+	node_id_from_pubkey(&first, &nodes[0]);
+	peer = peer_by_id(cmd->ld, &first);
+	if (!peer)
+		return command_fail(cmd, LIGHTNINGD, "First peer not connected");
+
+	dm = tal(cmd, struct our_dm);
+	dm->cmd = cmd;
+	packet = create_onionpacket(dm, sp, &dm->shared_secrets);
+
+	for (size_t i = 0; i < tal_count(dm->shared_secrets); i++)
+		log_debug(cmd->ld->log, "shared_secrets[%zi] = %s",
+			  i, type_to_string(tmpctx, struct secret,
+					    &dm->shared_secrets[i]));
+
+	ser = serialize_onionpacket(NULL, packet);
+	sha256(&dm->hash, ser, tal_bytelen(ser));
+
+	if (!make_peer_send(cmd->ld, peer_active_channel(peer),
+			    take(towire_send_directed_msg(NULL, ser))))
+		return command_fail(cmd, LIGHTNINGD, "First peer not ready");
+
+	list_add(&our_dms, &dm->list);
+	return command_still_pending(cmd);
+}
+
+static const struct json_command send_message_command = {
+	"sendmessage",
+	"utility",
+	json_send_message,
+	"Send {message} via onion message via {route} node id array"
+};
+AUTODATA(json_command, &send_message_command);
 #endif /* EXPERIMENTAL_FEATURES */

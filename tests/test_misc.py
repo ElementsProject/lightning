@@ -10,6 +10,7 @@ from pyln.testing.utils import (
     TailableProc, env
 )
 from ephemeral_port_reserve import reserve
+from utils import EXPERIMENTAL_FEATURES
 
 import json
 import os
@@ -2148,3 +2149,13 @@ def test_sendcustommsg(node_factory):
     l4.daemon.wait_for_log(
         r'Got a custom message {serialized} from peer {peer_id}'.format(
             serialized=serialized, peer_id=l2.info['id']))
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendmessage")
+def test_sendmessage(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    route = [l2.info['id'], l3.info['id']]
+    reply = l1.rpc.call('sendmessage', ["Test message", route])
+    assert reply['reply'] == 'Reply to msg len 12'.encode('utf-8').hex() + '00'
+    assert l3.daemon.is_log('Received directed message 54657374206D657373616765')
