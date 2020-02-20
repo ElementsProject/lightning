@@ -319,6 +319,11 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
+	case WIRE_GOT_DIRECTED_TOUS:
+	case WIRE_GOT_DIRECTED_FORWARD:
+	case WIRE_GOT_DIRECTED_REPLY:
+		/* FIXME */
+		break;
 
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
@@ -334,6 +339,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_FEERATES:
 	case WIRE_CHANNEL_SPECIFIC_FEERATES:
 	case WIRE_CHANNEL_DEV_MEMLEAK:
+	case WIRE_SEND_DIRECTED_MSG:
+	case WIRE_SEND_DIRECTED_REPLY_MSG:
 	/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:

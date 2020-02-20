@@ -2,6 +2,7 @@
 #include <common/channel_config.h>
 #include <common/derive_basepoints.h>
 #include <common/fee_states.h>
+#include <common/onionreply.h>
 #include <common/per_peer_state.h>
 
 # Begin!  (passes gossipd-client fd)
@@ -207,3 +208,30 @@ msgdata,channel_send_error,reason,wirestring,
 
 # Tell master channeld has sent the error message.
 msgtype,channel_send_error_reply,1108
+
+# Tell lightningd we got a directed message (for us, or to fwd)
+msgtype,got_directed_tous,1142
+msgdata,got_directed_tous,hash,sha256,
+msgdata,got_directed_tous,shared_secret,secret,
+msgdata,got_directed_tous,len,u16,
+msgdata,got_directed_tous,payload,u8,len
+
+msgtype,got_directed_forward,1143
+msgdata,got_directed_forward,hash,sha256,
+msgdata,got_directed_forward,shared_secret,secret,
+msgdata,got_directed_forward,next,node_id,
+msgdata,got_directed_forward,onion,u8,1366
+
+msgtype,got_directed_reply,1144
+msgdata,got_directed_reply,hash,sha256,
+msgdata,got_directed_reply,onionreply,onionreply,
+
+# Lightnignd tells us to send a directed message.
+msgtype,send_directed_msg,1040
+msgdata,send_directed_msg,onion,u8,1366
+
+# Lightnignd tells us to send a directed message reply.
+msgtype,send_directed_reply_msg,1041
+msgdata,send_directed_reply_msg,hash,sha256,
+msgdata,send_directed_reply_msg,shared_secret,secret,
+msgdata,send_directed_reply_msg,onionreply,onionreply,

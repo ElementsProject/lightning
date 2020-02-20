@@ -1842,6 +1842,134 @@ static bool channeld_handle_custommsg(const u8 *msg)
 #endif
 }
 
+#if EXPERIMENTAL_FEATURES
+/* Peer sends directed msg. */
+static void handle_directed(struct peer *peer, const u8 *msg)
+{
+	enum onion_type badreason;
+	struct onionpacket op;
+	struct secret ss;
+	struct route_step *rs;
+	struct sha256 hash;
+	u8 onion[TOTAL_PACKET_SIZE];
+	const u8 *cursor;
+	size_t max;
+
+	if (!fromwire_directed(msg, onion))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Bad directed %s", tal_hex(peer, msg));
+
+	sha256(&hash, onion, sizeof(onion));
+
+	/* We unwrap the onion now. */
+	badreason = parse_onionpacket(onion, TOTAL_PACKET_SIZE, &op);
+	if (badreason != 0) {
+		status_debug("directed msg: can't parse onionpacket: %s",
+			     onion_type_name(badreason));
+		/* FIXME: Should we send some kind of reply? */
+		return;
+	}
+
+	/* Because wire takes struct pubkey. */
+	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &op.ephemeralkey));
+	if (!fromwire_hsm_ecdh_resp(msg, &ss))
+		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
+
+	/* We make sure we can parse onion packet, so we know if shared secret
+	 * is actually valid (this checks hmac). */
+	rs = process_onionpacket(tmpctx, &op, &ss, NULL, 0);
+	if (!rs) {
+		status_debug("directed msg: can't process onionpacket ss=%s",
+			     type_to_string(tmpctx, struct secret, &ss));
+		/* FIXME: Should we send some kind of reply? */
+		return;
+	}
+
+	/* The raw payload is prepended with length in the TLV world. */
+	cursor = rs->raw_payload;
+	max = tal_bytelen(rs->raw_payload);
+	fromwire_bigsize(&cursor, &max);
+	if (!cursor) {
+		status_debug("directed msg: Invalid payload %s",
+			     tal_hex(tmpctx, rs->raw_payload));
+		/* FIXME: Should we send some kind of reply? */
+		return;
+	}
+
+	if (rs->nextcase == ONION_END) {
+		const u8 *payload = tal_dup_arr(tmpctx, u8, cursor, max, 0);
+		wire_sync_write(MASTER_FD,
+				take(towire_got_directed_tous(NULL, &hash, &ss,
+							      payload)));
+	} else {
+		struct pubkey next;
+		struct node_id next_id;
+		u8 *ser = serialize_onionpacket(tmpctx, rs->next);
+
+		/* This does more sanity checking that fromwire_node_id */
+		fromwire_pubkey(&cursor, &max, &next);
+		if (!cursor) {
+			status_debug("directed msg: malformed next onion %s!",
+				     tal_hex(tmpctx, rs->raw_payload));
+			return;
+		}
+		node_id_from_pubkey(&next_id, &next);
+
+		wire_sync_write(MASTER_FD,
+				take(towire_got_directed_forward(NULL,
+								 &hash, &ss,
+								 &next_id,
+								 ser)));
+	}
+}
+
+/* We send directed msg. */
+static void send_directed(struct peer *peer, const u8 *msg)
+{
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+
+	if (!fromwire_send_directed_msg(msg, onion_routing_packet))
+		master_badmsg(WIRE_SEND_DIRECTED_MSG, msg);
+
+	sync_crypto_write(peer->pps,
+			  take(towire_directed(NULL, onion_routing_packet)));
+}
+
+/* Peer replies to directed msg */
+static void handle_directed_reply(struct peer *peer, const u8 *msg)
+{
+	struct sha256 hash;
+	u8 *reply;
+
+	/* We deliberately unwrap here: lightningd never parses peer msgs! */
+	if (!fromwire_directed_reply(msg, msg, &hash, &reply))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Bad directed_reply %s", tal_hex(peer, msg));
+
+	wire_sync_write(MASTER_FD,
+			take(towire_got_directed_reply(NULL, &hash,
+						       new_onionreply(msg,
+								      reply))));
+}
+
+/* We send directed reply. */
+static void send_directed_reply(struct peer *peer, const u8 *msg)
+{
+	struct sha256 hash;
+	struct secret ss;
+	struct onionreply *r;
+
+	if (!fromwire_send_directed_reply_msg(msg, msg, &hash, &ss, &r))
+		master_badmsg(WIRE_SEND_DIRECTED_REPLY_MSG, msg);
+
+	r = wrap_onionreply(tmpctx, &ss, r);
+	sync_crypto_write(peer->pps,
+			  take(towire_directed_reply(NULL, &hash, r->contents)));
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -1913,6 +2041,14 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(peer, msg);
 		return;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_DIRECTED:
+		handle_directed(peer, msg);
+		return;
+	case WIRE_DIRECTED_REPLY:
+		handle_directed_reply(peer, msg);
+		return;
+#endif
 
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
@@ -2926,6 +3062,19 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SEND_ERROR:
 		handle_send_error(peer, msg);
 		return;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_SEND_DIRECTED_MSG:
+		send_directed(peer, msg);
+		return;
+	case WIRE_SEND_DIRECTED_REPLY_MSG:
+		send_directed_reply(peer, msg);
+		return;
+#else
+	case WIRE_SEND_DIRECTED_MSG:
+	case WIRE_SEND_DIRECTED_REPLY_MSG:
+		break;
+#endif /* !EXPERIMENTAL_FEATURES */
+
 #if DEVELOPER
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
 		handle_dev_reenable_commit(peer);
@@ -2953,6 +3102,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNEL_SEND_ERROR_REPLY:
+	case WIRE_GOT_DIRECTED_TOUS:
+	case WIRE_GOT_DIRECTED_FORWARD:
+	case WIRE_GOT_DIRECTED_REPLY:
 		break;
 	}
 

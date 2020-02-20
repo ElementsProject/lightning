@@ -31,6 +31,10 @@ static bool unknown_type(enum wire_type t)
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_DIRECTED:
+	case WIRE_DIRECTED_REPLY:
+#endif
 		return false;
 	}
 	return true;
@@ -68,6 +72,10 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_DIRECTED:
+	case WIRE_DIRECTED_REPLY:
+#endif
 		break;
 	}
 	return false;
