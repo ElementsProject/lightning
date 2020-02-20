@@ -1,5 +1,6 @@
 #include "../routing.c"
 #include "../gossip_store.c"
+#include <common/json_stream.h>
 #include <stdio.h>
 
 void status_fmt(enum log_level level UNUSED,

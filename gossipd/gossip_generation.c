@@ -2,7 +2,9 @@
  * generation, man!" */
 #include <ccan/mem/mem.h>
 #include <common/memleak.h>
+#include <common/status.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <errno.h>
