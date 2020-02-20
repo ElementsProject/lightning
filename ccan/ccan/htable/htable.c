@@ -365,6 +365,20 @@ void htable_delval_(struct htable *ht, struct htable_iter *i)
 	ht->deleted++;
 }
 
+void *htable_pick_(const struct htable *ht, size_t seed, struct htable_iter *i)
+{
+	void *e;
+	struct htable_iter unwanted;
+
+	if (!i)
+		i = &unwanted;
+	i->off = seed % ((size_t)1 << ht->bits);
+	e = htable_next(ht, i);
+	if (!e)
+		e = htable_first(ht, i);
+	return e;
+}
+
 struct htable *htable_check(const struct htable *ht, const char *abortstr)
 {
 	void *p;

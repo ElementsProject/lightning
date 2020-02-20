@@ -268,6 +268,19 @@ void *htable_prev_(const struct htable *htable, struct htable_iter *i);
 void htable_delval_(struct htable *ht, struct htable_iter *i);
 
 /**
+ * htable_pick - set iterator to a random valid entry.
+ * @ht: the htable
+ * @seed: a random number to use.
+ * @i: the htable_iter which is output (or NULL).
+ *
+ * Usually used with htable_delval to delete a random entry.  Returns
+ * NULL iff the table is empty, otherwise a random entry.
+ */
+#define htable_pick(htable, seed, i)					\
+	htable_pick_(htable_debug(htable, HTABLE_LOC), seed, i)
+void *htable_pick_(const struct htable *ht, size_t seed, struct htable_iter *i);
+
+/**
  * htable_set_allocator - set calloc/free functions.
  * @alloc: allocator to use, must zero memory!
  * @free: unallocator to use (@p is NULL or a return from @alloc)
