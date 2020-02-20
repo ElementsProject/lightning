@@ -3,6 +3,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/json.c>
+#include <common/pseudorand.h>
 #include <common/utils.h>
 #include <wire/wire.h>
 
@@ -63,6 +64,9 @@ void json_object_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for type_to_string_ */
 const char *type_to_string_(const tal_t *ctx UNNEEDED, const char *typename UNNEEDED,
 			    union printable_types u UNNEEDED)

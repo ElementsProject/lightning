@@ -319,11 +319,21 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_GOT_DIRECTED_TOUS:
+		handle_directed_to_us(sd->channel, msg);
+		break;
+	case WIRE_GOT_DIRECTED_FORWARD:
+		handle_directed_forward(sd->channel, msg);
+		break;
+	case WIRE_GOT_DIRECTED_REPLY:
+		handle_directed_reply(sd->channel, msg);
+		break;
+#else
 	case WIRE_GOT_DIRECTED_TOUS:
 	case WIRE_GOT_DIRECTED_FORWARD:
 	case WIRE_GOT_DIRECTED_REPLY:
-		/* FIXME */
-		break;
+#endif
 
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:

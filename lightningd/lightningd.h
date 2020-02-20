@@ -7,6 +7,7 @@
 #include <ccan/strmap/strmap.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
+#include <lightningd/directed_message.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
 #include <lightningd/plugin.h>
@@ -262,6 +263,9 @@ struct lightningd {
 	struct list_head waitblockheight_commands;
 
 	alt_subdaemon_map alt_subdaemons;
+
+	/* Directed message map, so we can return replies to correct place */
+	struct directed_msg_htable directed_msg_htable;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

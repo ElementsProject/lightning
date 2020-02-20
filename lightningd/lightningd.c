@@ -276,6 +276,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 */
 	ld->rpc_filemode = 0600;
 
+	/*~ For directed messages, we do best-effort forwarding, and remember
+	 * where they came from so we can forward any reply. */
+	directed_msg_htable_init(&ld->directed_msg_htable);
+
 	return ld;
 }
 
