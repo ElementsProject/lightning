@@ -16,7 +16,7 @@ git clone --recursive https://github.com/jedisct1/libsodium.git external/libsodi
 (cd external/libsodium; git checkout 675149b9b8b66ff44152553fb3ebf9858128363d)
 
 git clone --recursive https://github.com/ElementsProject/libwally-core.git external/libwally-core
-(cd external/libwally-core; git checkout 50042b527cc0ee6ef27c8620d2d2550157a0958b )
+(cd external/libwally-core; git checkout 0041b04644687e0aac7c1611fe31c810babac66d )
 
 rm -rf external/jsmn/.git external/libsodium/.git/ external/libbacktrace/.git/ external/libwally-core/.git
 
