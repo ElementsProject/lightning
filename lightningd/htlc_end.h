@@ -36,15 +36,11 @@ struct htlc_in {
 	/* Shared secret for us to send any failure message (NULL if malformed) */
 	struct secret *shared_secret;
 
-	/* FIXME: Use failed_htlc here */
-	/* If a local error, this is non-zero. */
-	enum onion_type failcode;
+	/* If we couldn't decode the onion, this contains the error code.. */
+	enum onion_type badonion;
 
-	/* For a remote error. */
+	/* Otherwise, this contains the failure message to send. */
 	const struct onionreply *failonion;
-
-	/* If failcode & UPDATE, this is the channel which failed. */
-	struct short_channel_id failoutchannel;
 
 	/* If they fulfilled, here's the preimage. */
 	struct preimage *preimage;
