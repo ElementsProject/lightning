@@ -100,9 +100,9 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 			       htlc_state_name(hin->hstate));
 	else if (hin->failonion && hin->preimage)
 		return corrupt(abortstr, "Both failonion and succeeded");
-	else if (hin->failcode != 0 && hin->preimage)
-		return corrupt(abortstr, "Both failcode and succeeded");
-	else if (hin->failonion && (hin->failcode & BADONION))
+	else if (hin->badonion != 0 && hin->preimage)
+		return corrupt(abortstr, "Both badonion and succeeded");
+	else if (hin->failonion && hin->badonion)
 		return corrupt(abortstr, "Both failed and malformed");
 
 	/* Can't have a resolution while still being added. */
@@ -112,11 +112,11 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 			return corrupt(abortstr, "Still adding, has preimage");
 		if (hin->failonion)
 			return corrupt(abortstr, "Still adding, has failmsg");
-		if (hin->failcode)
-			return corrupt(abortstr, "Still adding, has failcode");
+		if (hin->badonion)
+			return corrupt(abortstr, "Still adding, has badonion");
 	} else if (hin->hstate >= SENT_REMOVE_HTLC
 		   && hin->hstate <= SENT_REMOVE_ACK_REVOCATION) {
-		if (!hin->preimage && !hin->failonion && !hin->failcode)
+		if (!hin->preimage && !hin->failonion && !hin->badonion)
 			return corrupt(abortstr, "Removing, no resolution");
 	} else
 		return corrupt(abortstr, "Bad state %s",
@@ -148,7 +148,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	       sizeof(hin->onion_routing_packet));
 
 	hin->hstate = RCVD_ADD_COMMIT;
-	hin->failcode = 0;
+	hin->badonion = 0;
 	hin->failonion = NULL;
 	hin->preimage = NULL;
 
@@ -186,9 +186,9 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 		/* If output is resolved, input must be resolved same
 		 * way (or not resolved yet). */
 		if (hout->failonion) {
-			if (hout->in->failcode)
+			if (hout->in->badonion)
 				return corrupt(abortstr,
-					       "Output failmsg, input failcode");
+					       "Output failmsg, input badonion");
 			if (hout->in->preimage)
 				return corrupt(abortstr,
 					       "Output failmsg, input preimage");
@@ -203,9 +203,9 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 			if (hout->in->failonion)
 				return corrupt(abortstr,
 					       "Output preimage, input failonion");
-			if (hout->in->failcode)
+			if (hout->in->badonion)
 				return corrupt(abortstr,
-					       "Output preimage, input failcode");
+					       "Output preimage, input badonion");
 		} else {
 			if (hout->in->preimage)
 				return corrupt(abortstr,
@@ -213,9 +213,9 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 			if (hout->in->failonion)
 				return corrupt(abortstr,
 					       "Output unresovled, input failmsg");
-			if (hout->in->failcode)
+			if (hout->in->badonion)
 				return corrupt(abortstr,
-					       "Output unresolved, input failcode");
+					       "Output unresolved, input badonion");
 		}
 	}
 

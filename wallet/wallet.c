@@ -1828,7 +1828,7 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 		in->failonion = NULL;
 	else
 		in->failonion = db_column_onionreply(in, stmt, 8);
-	in->failcode = db_column_int(stmt, 9);
+	in->badonion = db_column_int(stmt, 9);
 	if (db_column_is_null(stmt, 11)) {
 		in->shared_secret = NULL;
 	} else {
@@ -1853,12 +1853,12 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 #ifdef COMPAT_V080
 	/* This field is now reserved for badonion codes: the rest should
 	 * use the failonion field. */
-	if (in->failcode && !(in->failcode & BADONION)) {
+	if (in->badonion && !(in->badonion & BADONION)) {
 		log_broken(channel->log,
 			   "Replacing incoming HTLC %"PRIu64" error "
 			   "%s with WIRE_TEMPORARY_NODE_FAILURE",
-			   in->key.id, onion_type_name(in->failcode));
-		in->failcode = 0;
+			   in->key.id, onion_type_name(in->badonion));
+		in->badonion = 0;
 		in->failonion = create_onionreply(in,
 						  in->shared_secret,
 						  towire_temporary_node_failure(tmpctx));
@@ -1947,10 +1947,12 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 		return;
 
 	/* Failed ones (only happens after db fixed!) OK. */
-	if (hin->failcode || hin->failonion)
+	if (hin->badonion || hin->failonion)
 		return;
 
-	hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
+	hin->failonion = create_onionreply(hin,
+					   hin->shared_secret,
+					   towire_temporary_node_failure(tmpctx));
 
 	log_broken(wallet->log, "HTLC #%"PRIu64" (%s) "
 		   " for amount %s"

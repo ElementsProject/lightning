@@ -76,7 +76,7 @@ static bool htlc_in_update_state(struct channel *channel,
 
 	wallet_htlc_update(channel->peer->ld->wallet,
 			   hin->dbid, newstate, hin->preimage,
-			   hin->failcode, hin->failonion, NULL);
+			   hin->badonion, hin->failonion, NULL);
 
 	hin->hstate = newstate;
 	return true;
@@ -161,7 +161,7 @@ static void local_fail_in_htlc_badonion(struct htlc_in *hin,
 	assert(!hin->preimage);
 
 	assert(badonion & BADONION);
-	hin->failcode = badonion;
+	hin->badonion = badonion;
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
 	htlc_in_check(hin, __func__);
@@ -714,7 +714,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 		wallet_forwarded_payment_add(gr->hin->key.channel->peer->ld->wallet,
 					 gr->hin, &gr->next_channel, NULL,
 					 FORWARD_LOCAL_FAILED,
-					 gr->hin->failcode);
+					 WIRE_UNKNOWN_NEXT_PEER);
 		tal_free(gr);
 		return;
 	}
@@ -1293,12 +1293,12 @@ void onchain_failed_our_htlc(const struct channel *channel,
 static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 {
 	htlc_in_check(hin, __func__);
-	assert(hin->failonion || hin->preimage || hin->failcode);
+	assert(hin->failonion || hin->preimage || hin->badonion);
 
 	log_debug(channel->log, "Removing in HTLC %"PRIu64" state %s %s",
 		  hin->key.id, htlc_state_name(hin->hstate),
 		  hin->preimage ? "FULFILLED"
-		  : hin->failcode ? onion_type_name(hin->failcode)
+		  : hin->badonion ? onion_type_name(hin->badonion)
 		  : "REMOTEFAIL");
 
 	/* If we fulfilled their HTLC, credit us. */
@@ -2019,8 +2019,8 @@ void peer_htlcs(const tal_t *ctx,
 			 hin->cltv_expiry, hin->onion_routing_packet,
 			 hin->hstate);
 
-		if (hin->failcode)
-			add_fail_badonion(hin, hin->failcode, failed_in);
+		if (hin->badonion)
+			add_fail_badonion(hin, hin->badonion, failed_in);
 		if (hin->failonion)
 			add_fail(hin, hin->failonion, failed_in);
 		if (hin->preimage)
