@@ -221,19 +221,12 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 }
 
 static void fail_in_htlc(struct htlc_in *hin,
-			 enum onion_type failcode,
-			 const struct onionreply *failonion,
-			 const u8 *channel_update)
+			 const struct onionreply *failonion TAKES)
 {
-	struct failed_htlc *failed_htlc;
+	struct failed_htlc failed_htlc;
 	assert(!hin->preimage);
 
-	assert(failcode || failonion);
-	/* These callers should be using local_fail_in_htlc_badonion! */
-	assert(!(failcode & BADONION));
-	hin->failcode = failcode;
-	if (failonion)
-		hin->failonion = dup_onionreply(hin, failonion);
+	hin->failonion = dup_onionreply(hin, failonion);
 
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
@@ -247,10 +240,13 @@ static void fail_in_htlc(struct htlc_in *hin,
 	if (channel_on_chain(hin->key.channel))
 		return;
 
-	failed_htlc = mk_failed_htlc(tmpctx, hin, failcode, failonion,
-				     channel_update);
+	failed_htlc.id = hin->key.id;
+	failed_htlc.sha256_of_onion = NULL;
+	/* Wrap onion error */
+	failed_htlc.onion
+		= wrap_onionreply(tmpctx, hin->shared_secret, hin->failonion);
 	subd_send_msg(hin->key.channel->owner,
-		      take(towire_channel_fail_htlc(NULL, failed_htlc)));
+		      take(towire_channel_fail_htlc(NULL, &failed_htlc)));
 }
 
 /* Immediately fail HTLC with a BADONION code */
@@ -286,21 +282,16 @@ static void local_fail_in_htlc_badonion(struct htlc_in *hin,
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
-static void local_fail_htlc(struct htlc_in *hin, enum onion_type failcode,
-			    const u8 *out_channel_update)
-{
-	log_info(hin->key.channel->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
-		 hin->key.id, failcode, onion_type_name(failcode));
-
-	fail_in_htlc(hin, failcode, NULL, out_channel_update);
-}
-
 void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 {
-	/* FIXME: pass failmsg through! */
-	local_fail_htlc(hin, fromwire_peektype(failmsg), NULL);
+	struct onionreply *failonion = create_onionreply(NULL,
+							 hin->shared_secret,
+							 failmsg);
+
 	if (taken(failmsg))
 		tal_free(failmsg);
+
+	fail_in_htlc(hin, take(failonion));
 }
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
@@ -331,8 +322,7 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
-		fail_in_htlc(hout->in, 0, failonion,
-			     hout->key.channel->stripped_update);
+		fail_in_htlc(hout->in, failonion);
 	}
 }
 
@@ -573,8 +563,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
-			fail_in_htlc(hout->in, 0, failonion,
-				     hout->key.channel->stripped_update);
+			fail_in_htlc(hout->in, failonion);
 
 			/* here we haven't called connect_htlc_out(),
 			 * so set htlc field with NULL */
@@ -622,13 +611,15 @@ static void htlc_offer_timeout(struct channel *channel)
 			      "Adding HTLC timed out: killed connection");
 }
 
-enum onion_type send_htlc_out(struct channel *out,
-			      struct amount_msat amount, u32 cltv,
-			      const struct sha256 *payment_hash,
-			      u64 partid,
-			      const u8 *onion_routing_packet,
-			      struct htlc_in *in,
-			      struct htlc_out **houtp)
+/* Returns failmsg, or NULL on success. */
+const u8 *send_htlc_out(const tal_t *ctx,
+			struct channel *out,
+			struct amount_msat amount, u32 cltv,
+			const struct sha256 *payment_hash,
+			u64 partid,
+			const u8 *onion_routing_packet,
+			struct htlc_in *in,
+			struct htlc_out **houtp)
 {
 	u8 *msg;
 
@@ -637,19 +628,21 @@ enum onion_type send_htlc_out(struct channel *out,
 	if (!channel_can_add_htlc(out)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
 			 channel_state_name(out));
-		return WIRE_UNKNOWN_NEXT_PEER;
+		return towire_unknown_next_peer(ctx);
 	}
 
 	if (!out->owner) {
 		log_info(out->log, "Attempt to send HTLC but unowned (%s)",
 			 channel_state_name(out));
-		return WIRE_TEMPORARY_CHANNEL_FAILURE;
+		return towire_temporary_channel_failure(ctx,
+							out->stripped_update);
 	}
 
 	if (!topology_synced(out->peer->ld->topology)) {
 		log_info(out->log, "Attempt to send HTLC but still syncing"
 			 " with bitcoin network");
-		return WIRE_TEMPORARY_CHANNEL_FAILURE;
+		return towire_temporary_channel_failure(ctx,
+							out->stripped_update);
 	}
 
 	/* Make peer's daemon own it, catch if it dies. */
@@ -669,7 +662,7 @@ enum onion_type send_htlc_out(struct channel *out,
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
 		 *houtp);
 
-	return 0;
+	return NULL;
 }
 
 static void forward_htlc(struct htlc_in *hin,
@@ -680,7 +673,7 @@ static void forward_htlc(struct htlc_in *hin,
 			 const u8 *stripped_update TAKES,
 			 const u8 next_onion[TOTAL_PACKET_SIZE])
 {
-	enum onion_type failcode;
+	const u8 *failmsg;
 	struct amount_msat fee;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next = active_channel_by_id(ld, next_hop, NULL);
@@ -688,11 +681,11 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* Unknown peer, or peer not ready. */
 	if (!next || !next->scid) {
-		local_fail_htlc(hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
+		local_fail_in_htlc(hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
 					 hin, next ? next->scid : NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
-					 hin->failcode);
+					 WIRE_UNKNOWN_NEXT_PEER);
 		if (taken(stripped_update))
 			tal_free(stripped_update);
 		return;
@@ -716,24 +709,27 @@ static void forward_htlc(struct htlc_in *hin,
 		log_broken(ld->log, "Fee overflow forwarding %s!",
 			   type_to_string(tmpctx, struct amount_msat,
 					  &amt_to_forward));
-		failcode = WIRE_FEE_INSUFFICIENT;
+		failmsg = towire_fee_insufficient(tmpctx, hin->msat,
+						  next->stripped_update);
 		goto fail;
 	}
 	if (!check_fwd_amount(hin, amt_to_forward, hin->msat, fee)) {
-		failcode = WIRE_FEE_INSUFFICIENT;
+		failmsg = towire_fee_insufficient(tmpctx, hin->msat,
+						  next->stripped_update);
 		goto fail;
 	}
 
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,
 			ld->config.cltv_expiry_delta)) {
-		failcode = WIRE_INCORRECT_CLTV_EXPIRY;
+		failmsg = towire_incorrect_cltv_expiry(tmpctx, cltv_expiry,
+						       next->stripped_update);
 		goto fail;
 	}
 
 	if (amount_msat_greater(amt_to_forward,
 				chainparams->max_payment)) {
 		/* ENOWUMBO! */
-		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
+		failmsg = towire_required_channel_feature_missing(tmpctx);
 		goto fail;
 	}
 
@@ -751,7 +747,8 @@ static void forward_htlc(struct htlc_in *hin,
 			  "Expiry cltv %u too close to current %u",
 			  outgoing_cltv_value,
 			  get_block_height(ld->topology));
-		failcode = WIRE_EXPIRY_TOO_SOON;
+		failmsg = towire_expiry_too_soon(tmpctx,
+						 next->stripped_update);
 		goto fail;
 	}
 
@@ -767,22 +764,22 @@ static void forward_htlc(struct htlc_in *hin,
 			  outgoing_cltv_value,
 			  get_block_height(ld->topology),
 			  ld->config.locktime_max);
-		failcode = WIRE_EXPIRY_TOO_FAR;
+		failmsg = towire_expiry_too_far(tmpctx);
 		goto fail;
 	}
 
-	failcode = send_htlc_out(next, amt_to_forward,
-				 outgoing_cltv_value, &hin->payment_hash,
-				 0, next_onion, hin, &hout);
-	if (!failcode)
+	failmsg = send_htlc_out(tmpctx, next, amt_to_forward,
+				outgoing_cltv_value, &hin->payment_hash,
+				0, next_onion, hin, &hout);
+	if (!failmsg)
 		return;
 
 fail:
-	local_fail_htlc(hin, failcode, next->stripped_update);
+	local_fail_in_htlc(hin, failmsg);
 	wallet_forwarded_payment_add(ld->wallet,
 				 hin, next->scid, hout,
 				 FORWARD_LOCAL_FAILED,
-				 hin->failcode);
+				 fromwire_peektype(failmsg));
 }
 
 /* Temporary information, while we resolve the next hop */
@@ -814,7 +811,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 	}
 
 	if (!peer_id) {
-		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
+		local_fail_in_htlc(gr->hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(gr->hin->key.channel->peer->ld->wallet,
 					 gr->hin, &gr->next_channel, NULL,
 					 FORWARD_LOCAL_FAILED,
@@ -993,6 +990,7 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	u8 *req;
 	enum htlc_accepted_result result;
 	enum onion_type failure_code;
+	const u8 *failmsg;
 	u8 *channel_update;
 	result = htlc_accepted_hook_deserialize(buffer, toks, &payment_preimage, &failure_code, &channel_update);
 
@@ -1001,8 +999,8 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 		/* *Now* we barf if it failed to decode */
 		if (!request->payload) {
 			log_debug(channel->log, "Failing HTLC because of an invalid payload");
-			failure_code = WIRE_INVALID_ONION_PAYLOAD;
-			fail_in_htlc(hin, failure_code, NULL, NULL);
+			local_fail_in_htlc_badonion(hin,
+						    WIRE_INVALID_ONION_PAYLOAD);
 		} else if (rs->nextcase == ONION_FORWARD) {
 			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
@@ -1028,21 +1026,41 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	case htlc_accepted_fail:
 		log_debug(channel->log,
 			  "Failing incoming HTLC as instructed by plugin hook");
-		if (failure_code & UPDATE) {
-			if (rs->nextcase == ONION_END) {
-				log_broken(channel->log,
-					   "htlc_acccepted hook: Can't return failure %u on last hop!",
-					   failure_code);
-				failure_code = WIRE_TEMPORARY_NODE_FAILURE;
-			} else if (!request->payload) {
-				log_broken(channel->log,
-					   "htlc_acccepted hook: Can't return failure %u on undecodable onion!",
-					   failure_code);
-				failure_code = WIRE_TEMPORARY_NODE_FAILURE;
-			}
+		/* FIXME: Deprecate failure_code in favor of failure_message! */
+		/* We only handle the simplest cases here */
+		switch (failure_code) {
+		case WIRE_INVALID_REALM:
+			failmsg = towire_invalid_realm(NULL);
+			break;
+		case WIRE_TEMPORARY_NODE_FAILURE:
+			failmsg = towire_temporary_node_failure(NULL);
+			break;
+		case WIRE_PERMANENT_NODE_FAILURE:
+			failmsg = towire_permanent_node_failure(NULL);
+			break;
+		case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+			failmsg = towire_required_node_feature_missing(NULL);
+			break;
+		case WIRE_CHANNEL_DISABLED:
+			failmsg = towire_channel_disabled(NULL);
+			break;
+		case WIRE_PERMANENT_CHANNEL_FAILURE:
+			failmsg = towire_permanent_channel_failure(NULL);
+			break;
+		case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+			failmsg = towire_required_channel_feature_missing(NULL);
+			break;
+		case WIRE_UNKNOWN_NEXT_PEER:
+			failmsg = towire_unknown_next_peer(NULL);
+			break;
+		default:
+			log_broken(channel->log,
+				   "htlc_accepted_hook plugin returned %u,"
+				   " turning to WIRE_TEMPORARY_NODE_FAILURE",
+				   failure_code);
+			failmsg = towire_temporary_node_failure(NULL);
 		}
-		/* FIXME: Supply update in this case! */
-		fail_in_htlc(hin, failure_code, NULL, NULL);
+		local_fail_in_htlc(hin, take(failmsg));
 		break;
 	case htlc_accepted_resolve:
 		fulfill_htlc(hin, &payment_preimage);
@@ -1362,8 +1380,8 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		payment_failed(ld, hout, localfail);
 		tal_free(localfail);
 	} else if (hout->in) {
-		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE,
-				hout->key.channel->stripped_update);
+		local_fail_in_htlc(hout->in,
+				   take(towire_permanent_channel_failure(NULL)));
 		wallet_forwarded_payment_add(hout->key.channel->peer->ld->wallet,
 					 hout->in, channel->scid, hout,
 					 FORWARD_LOCAL_FAILED,
@@ -1998,9 +2016,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		} else if (failmsgs[i]) {
 			hin = find_htlc_in(&ld->htlcs_in, channel,
 					   changed[i].id);
-			/* FIXME: Pass through the failmsg direcly! */
-			local_fail_htlc(hin, fromwire_peektype(failmsgs[i]),
-					NULL);
+			local_fail_in_htlc(hin, failmsgs[i]);
 		} else
 			continue;
 
@@ -2365,7 +2381,7 @@ void htlcs_resubmit(struct lightningd *ld,
 		if (!peer_accepted_htlc(tmpctx, hin->key.channel, hin->key.id,
 					true, &badonion, &failmsg)) {
 			if (failmsg)
-				local_fail_htlc(hin, fromwire_peektype(failmsg), NULL);
+				local_fail_in_htlc(hin, failmsg);
 			else
 				local_fail_in_htlc_badonion(hin, badonion);
 		}

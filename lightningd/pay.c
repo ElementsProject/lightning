@@ -731,7 +731,8 @@ static bool should_use_tlv(enum route_hop_style style)
 	abort();
 }
 
-static enum onion_type send_onion(struct lightningd *ld,
+/* Returns failmsg on failure, tallocated off ctx */
+static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 				  const struct onionpacket *packet,
 				  const struct route_hop *first_hop,
 				  const struct sha256 *payment_hash,
@@ -743,7 +744,7 @@ static enum onion_type send_onion(struct lightningd *ld,
 	unsigned int base_expiry;
 	base_expiry = get_block_height(ld->topology) + 1;
 	onion = serialize_onionpacket(tmpctx, packet);
-	return send_htlc_out(channel, first_hop->amount,
+	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
 			     payment_hash, partid, onion, NULL, hout);
 }
@@ -768,7 +769,7 @@ send_payment_core(struct lightningd *ld,
 {
 	const struct wallet_payment **payments, *old_payment = NULL;
 	struct channel *channel;
-	enum onion_type failcode;
+	const u8 *failmsg;
 	struct htlc_out *hout;
 	struct routing_failure *fail;
 	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
@@ -885,12 +886,12 @@ send_payment_core(struct lightningd *ld,
 		return command_failed(cmd, data);
 	}
 
-	failcode = send_onion(ld, packet, first_hop, rhash, partid,
+	failmsg = send_onion(tmpctx, ld, packet, first_hop, rhash, partid,
 			      channel, &hout);
 
-	if (failcode) {
+	if (failmsg) {
 		fail = immediate_routing_failure(cmd, ld,
-						 failcode,
+						 fromwire_peektype(failmsg),
 						 &first_hop->channel_id,
 						 &channel->peer->id);
 
