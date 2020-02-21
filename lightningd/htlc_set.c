@@ -14,7 +14,7 @@ static void htlc_set_hin_destroyed(struct htlc_in *hin,
 			/* Don't try to re-fail this HTLC! */
 			tal_arr_remove(&set->htlcs, i);
 			/* Kind of the correct failure code. */
-			htlc_set_fail(set, WIRE_MPP_TIMEOUT);
+			htlc_set_fail(set, take(towire_mpp_timeout(NULL)));
 			return;
 		}
 	}
@@ -35,15 +35,19 @@ static void destroy_htlc_set(struct htlc_set *set,
  */
 static void timeout_htlc_set(struct htlc_set *set)
 {
-	htlc_set_fail(set, WIRE_MPP_TIMEOUT);
+	htlc_set_fail(set, take(towire_mpp_timeout(NULL)));
 }
 
-void htlc_set_fail(struct htlc_set *set, enum onion_type failcode)
+void htlc_set_fail(struct htlc_set *set, const u8 *failmsg TAKES)
 {
+	/* Don't let local_fail_in_htlc take! */
+	if (taken(failmsg))
+		tal_steal(set, failmsg);
+
 	for (size_t i = 0; i < tal_count(set->htlcs); i++) {
 		/* Don't remove from set */
 		tal_del_destructor2(set->htlcs[i], htlc_set_hin_destroyed, set);
-		fail_htlc(set->htlcs[i], failcode);
+		local_fail_in_htlc(set->htlcs[i], failmsg);
 	}
 	tal_free(set);
 }
@@ -101,7 +105,8 @@ void htlc_set_add(struct lightningd *ld,
 	details = invoice_check_payment(tmpctx, ld, &hin->payment_hash,
 					total_msat, payment_secret);
 	if (!details) {
-		fail_htlc(hin, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+		local_fail_in_htlc(hin,
+				   take(failmsg_incorrect_or_unknown(NULL, hin)));
 		return;
 	}
 
@@ -125,7 +130,7 @@ void htlc_set_add(struct lightningd *ld,
 		/* We check this now, since we want to fail with this as soon
 		 * as possible, to avoid other probing attacks. */
 		if (!payment_secret) {
-			fail_htlc(hin, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+			local_fail_in_htlc(hin, take(failmsg_incorrect_or_unknown(NULL, hin)));
 			return;
 		}
 		tal_arr_expand(&set->htlcs, hin);
@@ -147,7 +152,9 @@ void htlc_set_add(struct lightningd *ld,
 					   &set->total_msat),
 			    type_to_string(tmpctx, struct amount_msat,
 					   &total_msat));
-		htlc_set_fail(set, WIRE_FINAL_INCORRECT_HTLC_AMOUNT);
+		htlc_set_fail(set,
+			      take(towire_final_incorrect_htlc_amount(NULL,
+								      hin->msat)));
 		return;
 	}
 
@@ -164,7 +171,9 @@ void htlc_set_add(struct lightningd *ld,
 					   &set->so_far),
 			    type_to_string(tmpctx, struct amount_msat,
 					   &hin->msat));
-		htlc_set_fail(set, WIRE_FINAL_INCORRECT_HTLC_AMOUNT);
+		htlc_set_fail(set,
+			      take(towire_final_incorrect_htlc_amount(NULL,
+								      hin->msat)));
 		return;
 	}
 
@@ -183,7 +192,8 @@ void htlc_set_add(struct lightningd *ld,
 	 *   - MUST require `payment_secret` for all HTLCs in the set. */
 	/* This catches the case of the first payment in a set. */
 	if (!payment_secret) {
-		htlc_set_fail(set, WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS);
+		htlc_set_fail(set,
+			      take(failmsg_incorrect_or_unknown(NULL, hin)));
 		return;
 	}
 }

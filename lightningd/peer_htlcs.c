@@ -295,12 +295,21 @@ static void local_fail_htlc(struct htlc_in *hin, enum onion_type failcode,
 	fail_in_htlc(hin, failcode, NULL, out_channel_update);
 }
 
-void fail_htlc(struct htlc_in *hin, enum onion_type failcode)
+void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 {
-	assert(failcode);
-	/* Final hop never sends an UPDATE. */
-	assert(!(failcode & UPDATE));
-	local_fail_htlc(hin, failcode, NULL);
+	/* FIXME: pass failmsg through! */
+	local_fail_htlc(hin, fromwire_peektype(failmsg), NULL);
+	if (taken(failmsg))
+		tal_free(failmsg);
+}
+
+/* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
+const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
+				       const struct htlc_in *hin)
+{
+	return towire_incorrect_or_unknown_payment_details(
+		ctx, hin->msat,
+		get_block_height(hin->key.channel->owner->ld->topology));
 }
 
 /* localfail are for handing to the local payer if it's local. */
@@ -443,7 +452,7 @@ static void handle_localpay(struct htlc_in *hin,
 			    struct amount_msat total_msat,
 			    const struct secret *payment_secret)
 {
-	enum onion_type failcode;
+	const u8 *failmsg;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 
 	/* BOLT #4:
@@ -467,7 +476,7 @@ static void handle_localpay(struct htlc_in *hin,
 		 *
 		 * The amount in the HTLC doesn't match the value in the onion.
 		 */
-		failcode = WIRE_FINAL_INCORRECT_HTLC_AMOUNT;
+		failmsg = towire_final_incorrect_htlc_amount(NULL, hin->msat);
 		goto fail;
 	}
 
@@ -480,7 +489,8 @@ static void handle_localpay(struct htlc_in *hin,
 	 * The CLTV expiry in the HTLC doesn't match the value in the onion.
 	 */
 	if (!check_cltv(hin, hin->cltv_expiry, outgoing_cltv_value, 0)) {
-		failcode = WIRE_FINAL_INCORRECT_CLTV_EXPIRY;
+		failmsg = towire_final_incorrect_cltv_expiry(NULL,
+							     hin->cltv_expiry);
 		goto fail;
 	}
 
@@ -497,7 +507,7 @@ static void handle_localpay(struct htlc_in *hin,
 			  hin->cltv_expiry,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
-		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
+		failmsg = failmsg_incorrect_or_unknown(NULL, hin);
 		goto fail;
 	}
 
@@ -505,7 +515,7 @@ static void handle_localpay(struct htlc_in *hin,
 	return;
 
 fail:
-	fail_htlc(hin, failcode);
+	local_fail_in_htlc(hin, take(failmsg));
 }
 
 /*
