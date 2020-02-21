@@ -308,7 +308,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 }
 
 /* Get the latest channel update for this channel from gossipd */
-static NEEDED const u8 *get_local_channel_update(const tal_t *ctx, struct peer *peer)
+static const u8 *get_local_channel_update(const tal_t *ctx, struct peer *peer)
 {
 	const u8 *msg;
 
@@ -2407,7 +2407,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err e;
-	enum onion_type failcode;
+	const u8 *failwiremsg;
 	const char *failstr;
 	struct amount_sat htlc_fee;
 
@@ -2445,7 +2445,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		peer->htlc_id++;
 		return;
 	case CHANNEL_ERR_INVALID_EXPIRY:
-		failcode = WIRE_INCORRECT_CLTV_EXPIRY;
+		failwiremsg = towire_incorrect_cltv_expiry(inmsg, cltv_expiry, get_local_channel_update(tmpctx, peer));
 		failstr = tal_fmt(inmsg, "Invalid cltv_expiry %u", cltv_expiry);
 		goto failed;
 	case CHANNEL_ERR_DUPLICATE:
@@ -2454,23 +2454,23 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 			      "Duplicate HTLC %"PRIu64, peer->htlc_id);
 
 	case CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED:
-		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
+		failwiremsg = towire_required_node_feature_missing(inmsg);
 		failstr = "Mini mode: maximum value exceeded";
 		goto failed;
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
-		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		failwiremsg = towire_temporary_channel_failure(inmsg, get_local_channel_update(inmsg, peer));
 		failstr = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, &htlc_fee));
 		goto failed;
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
-		failcode = WIRE_AMOUNT_BELOW_MINIMUM;
+		failwiremsg = towire_amount_below_minimum(inmsg, amount, get_local_channel_update(inmsg, peer));
 		failstr = tal_fmt(inmsg, "HTLC too small (%s minimum)",
 				  type_to_string(tmpctx,
 						 struct amount_msat,
 						 &peer->channel->config[REMOTE].htlc_minimum));
 		goto failed;
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
-		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		failwiremsg = towire_temporary_channel_failure(inmsg, get_local_channel_update(inmsg, peer));
 		failstr = "Too many HTLCs";
 		goto failed;
 	}
@@ -2478,7 +2478,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	abort();
 
 failed:
-	msg = towire_channel_offer_htlc_reply(NULL, 0, failcode, failstr);
+	msg = towire_channel_offer_htlc_reply(NULL, 0, failwiremsg, failstr);
 	wire_sync_write(MASTER_FD, take(msg));
 }
 

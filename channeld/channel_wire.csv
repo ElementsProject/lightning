@@ -87,8 +87,9 @@ msgdata,channel_offer_htlc,onion_routing_packet,u8,1366
 # Reply; synchronous since IDs have to increment.
 msgtype,channel_offer_htlc_reply,1104
 msgdata,channel_offer_htlc_reply,id,u64,
-# Zero failure code means success.,
-msgdata,channel_offer_htlc_reply,failure_code,u16,
+# Empty failure message means success.
+msgdata,channel_offer_htlc_reply,len,u16,
+msgdata,channel_offer_htlc_reply,failuremsg,u8,len
 msgdata,channel_offer_htlc_reply,failurestr,wirestring,
 
 # Main daemon found out the preimage for an HTLC

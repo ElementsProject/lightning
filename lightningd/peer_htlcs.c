@@ -91,8 +91,8 @@ static bool htlc_out_update_state(struct channel *channel,
 		return false;
 
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
-			   hout->preimage, hout->failcode, hout->failonion,
-			   NULL);
+			   hout->preimage, 0, hout->failonion,
+			   hout->failmsg);
 
 	hout->hstate = newstate;
 	return true;
@@ -273,12 +273,22 @@ void fail_htlc(struct htlc_in *hin, enum onion_type failcode)
 static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 {
 	htlc_out_check(hout, __func__);
-	assert(hout->failcode || hout->failonion);
+	assert(hout->failmsg || hout->failonion);
 
 	if (hout->am_origin) {
 		payment_failed(hout->key.channel->peer->ld, hout, localfail);
 	} else if (hout->in) {
-		fail_in_htlc(hout->in, hout->failcode, hout->failonion,
+		const struct onionreply *failonion;
+
+		/* If we have an onion, simply copy it. */
+		if (hout->failonion)
+			failonion = hout->failonion;
+		/* Otherwise, we need to onionize this local error. */
+		else
+			failonion = create_onionreply(hout,
+						      hout->in->shared_secret,
+						      hout->failmsg);
+		fail_in_htlc(hout->in, 0, failonion,
 			     hout->key.channel->stripped_update);
 	}
 }
@@ -475,10 +485,11 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->key.id);
 
-	hout->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+	hout->failmsg = towire_temporary_channel_failure(hout,
+							 hout->key.channel->stripped_update);
 
 	/* Assign a temporary state (we're about to free it!) so checks
-	 * are happy that it has a failure code */
+	 * are happy that it has a failure message */
 	assert(hout->hstate == SENT_ADD_HTLC);
 	hout->hstate = RCVD_REMOVE_HTLC;
 
@@ -490,13 +501,13 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNUSED,
 			    struct htlc_out *hout)
 {
-	u16 failure_code;
+	u8 *failmsg;
 	char *failurestr;
 	struct lightningd *ld = subd->ld;
 
 	if (!fromwire_channel_offer_htlc_reply(msg, msg,
 					       &hout->key.id,
-					       &failure_code,
+					       &failmsg,
 					       &failurestr)) {
 		channel_internal_error(subd->channel,
 				       "Bad channel_offer_htlc_reply");
@@ -504,24 +515,29 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 		return;
 	}
 
-	if (failure_code) {
-		hout->failcode = (enum onion_type) failure_code;
+	if (tal_count(failmsg)) {
+		hout->failmsg = tal_steal(hout, failmsg);
 		if (hout->am_origin) {
 			char *localfail = tal_fmt(msg, "%s: %s",
-						  onion_type_name(failure_code),
+						  onion_type_name(fromwire_peektype(failmsg)),
 						  failurestr);
 			payment_failed(ld, hout, localfail);
 
 		} else if (hout->in) {
-			local_fail_htlc(hout->in, failure_code,
-					hout->key.channel->stripped_update);
+			struct onionreply *failonion;
+
+			failonion = create_onionreply(hout,
+						      hout->in->shared_secret,
+						      hout->failmsg);
+			fail_in_htlc(hout->in, 0, failonion,
+				     hout->key.channel->stripped_update);
 
 			/* here we haven't called connect_htlc_out(),
 			 * so set htlc field with NULL */
 			wallet_forwarded_payment_add(ld->wallet,
 					 hout->in, NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
-					 failure_code);
+						     fromwire_peektype(hout->failmsg));
 		}
 
 		/* Prevent hout from being failed twice. */
@@ -1101,8 +1117,8 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	htlc_out_check(hout, __func__);
 
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, hout->failcode, hout->failonion,
-			   NULL);
+			   hout->preimage, 0, hout->failonion,
+			   hout->failmsg);
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
 						channel->dbid,
@@ -1158,7 +1174,7 @@ void onchain_fulfilled_htlc(struct channel *channel,
 
 		/* It's possible that we failed some and succeeded one,
 		 * if we got multiple errors. */
-		if (hout->failcode != 0 || hout->failonion)
+		if (hout->failmsg || hout->failonion)
 			continue;
 
 		if (!sha256_eq(&hout->payment_hash, &payment_hash))
@@ -1196,6 +1212,7 @@ static bool peer_failed_our_htlc(struct channel *channel,
 
 	if (failed->sha256_of_onion) {
 		struct sha256 our_sha256_of_onion;
+		u8 *failmsg;
 
 		/* BOLT #2:
 		 *
@@ -1211,19 +1228,6 @@ static bool peer_failed_our_htlc(struct channel *channel,
 				       " for htlc with id %"PRIu64".",
 				    hout->key.id);
 
-		/* We only handle these cases in make_failmsg, so convert any
-		 * (future?) unknown one. */
-		if (failed->badonion != WIRE_INVALID_ONION_VERSION
-		    && failed->badonion != WIRE_INVALID_ONION_HMAC
-		    && failed->badonion != WIRE_INVALID_ONION_KEY) {
-			log_unusual(channel->log,
-				    "Unknown update_fail_malformed_htlc code %u:"
-				    " sending WIRE_INVALID_ONION_VERSION",
-				    failed->badonion);
-			hout->failcode = WIRE_INVALID_ONION_VERSION;
-		} else
-			hout->failcode = failed->badonion;
-
 		/* BOLT #2:
 		 *
 		 * - otherwise, a receiving node which has an outgoing HTLC
@@ -1234,30 +1238,29 @@ static bool peer_failed_our_htlc(struct channel *channel,
 		 *   `failure_code` given and setting the data to
 		 *   `sha256_of_onion`.
 		 */
-		if (hout->in) {
-			const u8 *f;
-
-			f = make_failmsg(tmpctx, hout->in, hout->failcode,
-					 hout->key.channel->stripped_update,
-					 failed->sha256_of_onion,
-					 get_block_height(hout->key.channel->owner->ld->topology));
-			hout->failonion = create_onionreply(hout,
-							     hout->in->shared_secret,
-							     f);
-			hout->failcode = 0;
-		}
+		/* All badonion codes are the same form, so we make them
+		 * manually, which covers any unknown cases too.  Grep fodder:
+		 * towire_invalid_onion_version, towire_invalid_onion_hmac,
+		 * towire_invalid_onion_key. */
+		failmsg = tal_arr(hout, u8, 0);
+		towire_u16(&failmsg, failed->badonion);
+		towire_sha256(&failmsg, failed->sha256_of_onion);
+		hout->failmsg = failmsg;
 	} else {
 		hout->failonion = dup_onionreply(hout, failed->onion);
 	}
 
 	log_debug(channel->log, "Our HTLC %"PRIu64" failed (%u)", failed->id,
-		  hout->failcode);
+		  fromwire_peektype(hout->failmsg));
 	htlc_out_check(hout, __func__);
 
 	if (hout->in)
 		wallet_forwarded_payment_add(ld->wallet, hout->in,
 					     channel->scid,
-					 hout, FORWARD_FAILED, hout->failcode);
+					     hout, FORWARD_FAILED,
+					     hout->failmsg
+					     ? fromwire_peektype(hout->failmsg)
+					     : 0);
 
 	return true;
 }
@@ -1274,17 +1277,17 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		return;
 
 	/* Don't fail twice (or if already succeeded)! */
-	if (hout->failonion || hout->failcode || hout->preimage)
+	if (hout->failonion || hout->failmsg || hout->preimage)
 		return;
 
-	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
+	hout->failmsg = towire_permanent_channel_failure(hout);
 
 	/* Force state to something which expects a failure, and save to db */
 	hout->hstate = RCVD_REMOVE_HTLC;
 	htlc_out_check(hout, __func__);
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, hout->failcode, hout->failonion,
-			   NULL);
+			   hout->preimage, 0, hout->failonion,
+			   hout->failmsg);
 
 	if (hout->am_origin) {
 		assert(why != NULL);
@@ -1299,7 +1302,9 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		wallet_forwarded_payment_add(hout->key.channel->peer->ld->wallet,
 					 hout->in, channel->scid, hout,
 					 FORWARD_LOCAL_FAILED,
-					 hout->failcode);
+					 hout->failmsg
+					 ? fromwire_peektype(hout->failmsg)
+					 : 0);
 	}
 }
 
@@ -1343,11 +1348,11 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 {
 	htlc_out_check(hout, __func__);
-	assert(hout->failonion || hout->preimage || hout->failcode);
+	assert(hout->failonion || hout->preimage || hout->failmsg);
 	log_debug(channel->log, "Removing out HTLC %"PRIu64" state %s %s",
 		  hout->key.id, htlc_state_name(hout->hstate),
 		  hout->preimage ? "FULFILLED"
-		  : hout->failcode ? onion_type_name(hout->failcode)
+		  : hout->failmsg ? onion_type_name(fromwire_peektype(hout->failmsg))
 		  : "REMOTEFAIL");
 
 	/* If it's failed, now we can forward since it's completely locked-in */
@@ -2043,7 +2048,7 @@ void peer_htlcs(const tal_t *ctx,
 			 hout->cltv_expiry, hout->onion_routing_packet,
 			 hout->hstate);
 
-		if (hout->failonion || hout->failcode)
+		if (hout->failonion || hout->failmsg)
 			tal_arr_expand(failed_out, hout->key.id);
 
 		if (hout->preimage)
@@ -2227,7 +2232,7 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 		return;
 
 	/* Failed ones (only happens after db fixed!) OK. */
-	if (hout->failcode || hout->failonion)
+	if (hout->failmsg || hout->failonion)
 		return;
 
 	/* payment_preimage for HTLC in *was* stored, so look for that. */
@@ -2236,8 +2241,8 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 					 hout->in->preimage);
 		fix = "restoring preimage from incoming HTLC";
 	} else {
-		hout->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
-		fix = "subsituting temporary channel failure";
+		hout->failmsg = towire_temporary_node_failure(hout);
+		fix = "subsituting temporary node failure";
 	}
 
 	log_broken(ld->log, "HTLC #%"PRIu64" (%s) "

@@ -344,11 +344,10 @@ local_routing_failure(const tal_t *ctx,
 {
 	struct routing_failure *routing_failure;
 
-	assert(hout->failcode);
-
 	routing_failure = tal(ctx, struct routing_failure);
 	routing_failure->erring_index = 0;
-	routing_failure->failcode = hout->failcode;
+	routing_failure->failcode = fromwire_peektype(hout->failmsg);
+
 	routing_failure->erring_node =
 	    tal_dup(routing_failure, struct node_id, &ld->id);
 
@@ -365,7 +364,8 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure->msg = NULL;
 
 	log_debug(hout->key.channel->log, "local_routing_failure: %u (%s)",
-		  hout->failcode, onion_type_name(hout->failcode));
+		  routing_failure->failcode,
+		  onion_type_name(routing_failure->failcode));
 	return routing_failure;
 }
 
@@ -427,7 +427,9 @@ remote_routing_failure(const tal_t *ctx,
 		 *   - if the PERM bit is set:
 		 *     - SHOULD fail the payment.
 		 * */
-		if (failcode & PERM)
+		if (failcode & BADONION)
+			*pay_errcode = PAY_UNPARSEABLE_ONION;
+		else if (failcode & PERM)
 			*pay_errcode = PAY_DESTINATION_PERM_FAIL;
 		else
 			/* FIXME: not right for WIRE_FINAL_EXPIRY_TOO_SOON */
@@ -487,30 +489,6 @@ remote_routing_failure(const tal_t *ctx,
 	return routing_failure;
 }
 
-/* If our immediate peer says WIRE_UPDATE_FAIL_MALFORMED_HTLC, we only get a
- * code, no onion msg. */
-static struct routing_failure *
-badonion_routing_failure(const tal_t *ctx,
-			 struct lightningd *ld,
-			 const struct wallet_payment *payment,
-			 enum onion_type failcode)
-{
-	struct routing_failure *rf;
-
-	rf = tal(ctx, struct routing_failure);
-
-	rf->erring_index = 0;
-	rf->failcode = failcode;
-	rf->msg = NULL;
-	rf->erring_node = tal_dup(rf, struct node_id,
-				  &payment->route_nodes[0]);
-	rf->erring_channel = tal_dup(rf, struct short_channel_id,
-				     &payment->route_channels[0]);
-	rf->channel_dir = node_id_idx(&ld->id, &payment->route_nodes[0]);
-
-	return rf;
-}
-
 void payment_store(struct lightningd *ld, struct wallet_payment *payment TAKES)
 {
 	struct sendpay_command *pc;
@@ -540,6 +518,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct routing_failure* fail = NULL;
 	const char *failstr;
 	errcode_t pay_errcode;
+	const u8 *failmsg;
+	int origin_index;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash,
@@ -575,26 +555,24 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		pay_errcode = PAY_UNPARSEABLE_ONION;
 		fail = NULL;
 		failstr = NULL;
-	} else if (hout->failcode) {
-		/* Direct peer told channeld it's a malformed onion using
-		 * update_fail_malformed_htlc. */
-		failstr = "malformed onion";
-		fail = badonion_routing_failure(tmpctx, ld, payment,
-						hout->failcode);
-		pay_errcode = PAY_UNPARSEABLE_ONION;
+	} else if (hout->failmsg) {
+		/* This can happen when a direct peer told channeld it's a
+		 * malformed onion using update_fail_malformed_htlc. */
+		failstr = "local failure";
+		failmsg = hout->failmsg;
+		origin_index = 0;
+		pay_errcode = PAY_TRY_OTHER_ROUTE;
+		goto use_failmsg;
 	} else {
 		/* Must be normal remote fail with an onion-wrapped error. */
-		assert(!hout->failcode);
 		failstr = "reply from remote";
 		/* Try to parse reply. */
 		struct secret *path_secrets = payment->path_secrets;
-		u8 *reply;
-		int origin_index;
 
-		reply = unwrap_onionreply(tmpctx, path_secrets,
-					  tal_count(path_secrets),
-					  hout->failonion, &origin_index);
-		if (!reply) {
+		failmsg = unwrap_onionreply(tmpctx, path_secrets,
+					    tal_count(path_secrets),
+					    hout->failonion, &origin_index);
+		if (!failmsg) {
 			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" failed with bad reply (%s)",
 				 hout->key.id,
@@ -603,7 +581,10 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			fail = NULL;
 			pay_errcode = PAY_UNPARSEABLE_ONION;
 		} else {
-			enum onion_type failcode = fromwire_peektype(reply);
+			enum onion_type failcode;
+
+		use_failmsg:
+			failcode = fromwire_peektype(failmsg);
 			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" "
 				 "failed from %ith node "
@@ -611,10 +592,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				 hout->key.id,
 				 origin_index,
 				 failcode, onion_type_name(failcode));
-			log_debug(hout->key.channel->log, "failmsg: %s",
-				  tal_hex(tmpctx, reply));
 			fail = remote_routing_failure(tmpctx, ld,
-						      payment, reply,
+						      payment, failmsg,
 						      origin_index,
 						      hout->key.channel->log,
 						      &pay_errcode);

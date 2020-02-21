@@ -1882,7 +1882,12 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 	else
 		out->failonion = db_column_onionreply(out, stmt, 8);
 
-	out->failcode = db_column_int_or_default(stmt, 9, 0);
+	if (db_column_is_null(stmt, 14))
+		out->failmsg = NULL;
+	else
+		out->failmsg = tal_dup_arr(out, u8, db_column_blob(stmt, 14),
+					   db_column_bytes(stmt, 14), 0);
+
 	out->in = NULL;
 
 	if (!db_column_is_null(stmt, 10)) {
