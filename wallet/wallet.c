@@ -1759,11 +1759,14 @@ void wallet_htlc_save_out(struct wallet *wallet,
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
-			enum onion_type failcode,
+			enum onion_type badonion,
 			const struct onionreply *failonion,
 			const u8 *failmsg)
 {
 	struct db_stmt *stmt;
+
+	/* We should only use this for badonion codes */
+	assert(!badonion || (badonion & BADONION));
 
 	/* The database ID must be set by a previous call to
 	 * `wallet_htlc_save_*` */
@@ -1782,7 +1785,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	else
 		db_bind_null(stmt, 1);
 
-	db_bind_int(stmt, 2, failcode);
+	db_bind_int(stmt, 2, badonion);
 
 	if (failonion)
 		db_bind_onionreply(stmt, 3, failonion);
@@ -1826,7 +1829,6 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	else
 		in->failonion = db_column_onionreply(in, stmt, 8);
 	in->failcode = db_column_int(stmt, 9);
-
 	if (db_column_is_null(stmt, 11)) {
 		in->shared_secret = NULL;
 	} else {
@@ -1847,6 +1849,21 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	} else
 #endif /* COMPAT_V072 */
 	in->received_time = db_column_timeabs(stmt, 12);
+
+#ifdef COMPAT_V080
+	/* This field is now reserved for badonion codes: the rest should
+	 * use the failonion field. */
+	if (in->failcode && !(in->failcode & BADONION)) {
+		log_broken(channel->log,
+			   "Replacing incoming HTLC %"PRIu64" error "
+			   "%s with WIRE_TEMPORARY_NODE_FAILURE",
+			   in->key.id, onion_type_name(in->failcode));
+		in->failcode = 0;
+		in->failonion = create_onionreply(in,
+						  in->shared_secret,
+						  towire_temporary_node_failure(tmpctx));
+	}
+#endif
 
 	return ok;
 }
