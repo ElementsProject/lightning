@@ -192,13 +192,13 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 			if (hout->in->preimage)
 				return corrupt(abortstr,
 					       "Output failmsg, input preimage");
-		} else if (hout->failcode) {
+		} else if (hout->failmsg) {
 			if (hout->in->failonion)
 				return corrupt(abortstr,
-					       "Output failcode, input failonion");
+					       "Output failmsg, input failonion");
 			if (hout->in->preimage)
 				return corrupt(abortstr,
-					       "Output failcode, input preimage");
+					       "Output failmsg, input preimage");
 		} else if (hout->preimage) {
 			if (hout->in->failonion)
 				return corrupt(abortstr,
@@ -226,11 +226,11 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 			return corrupt(abortstr, "Still adding, has preimage");
 		if (hout->failonion)
 			return corrupt(abortstr, "Still adding, has failmsg");
-		if (hout->failcode)
-			return corrupt(abortstr, "Still adding, has failcode");
+		if (hout->failmsg)
+			return corrupt(abortstr, "Still adding, has failmsg");
 	} else if (hout->hstate >= RCVD_REMOVE_HTLC
 		   && hout->hstate <= RCVD_REMOVE_ACK_REVOCATION) {
-		if (!hout->preimage && !hout->failonion && !hout->failcode)
+		if (!hout->preimage && !hout->failonion && !hout->failmsg)
 			return corrupt(abortstr, "Removing, no resolution");
 	} else
 		return corrupt(abortstr, "Bad state %s",
@@ -285,7 +285,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	       sizeof(hout->onion_routing_packet));
 
 	hout->hstate = SENT_ADD_HTLC;
-	hout->failcode = 0;
+	hout->failmsg = NULL;
 	hout->failonion = NULL;
 	hout->preimage = NULL;
 

@@ -69,9 +69,8 @@ struct htlc_out {
 	/* Onion information */
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 
-	/* FIXME: Use failed_htlc here */
-	/* If a local error, this is non-zero. */
-	enum onion_type failcode;
+	/* If a local error, this is non-NULL. */
+	const u8 *failmsg;
 
 	/* For a remote error. */
 	const struct onionreply *failonion;
