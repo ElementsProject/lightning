@@ -416,3 +416,53 @@ build_tx:
 	return tx;
 }
 #endif /* EXPERIMENTAL_FEATURES */
+
+void towire_input_info(u8 **pptr, const struct input_info *input_info)
+{
+	towire_u16(pptr, input_info->serial_id);
+	towire_amount_sat(pptr, input_info->sats);
+	towire_bitcoin_txid(pptr, &input_info->prevtx_txid);
+	towire_u32(pptr, input_info->prevtx_vout);
+	towire_u16(pptr, tal_count(input_info->prevtx_scriptpubkey));
+	towire_u8_array(pptr, input_info->prevtx_scriptpubkey,
+			tal_count(input_info->prevtx_scriptpubkey));
+	towire_u16(pptr, input_info->max_witness_len);
+	towire_u16(pptr, tal_count(input_info->script));
+	towire_u8_array(pptr, input_info->script, tal_count(input_info->script));
+}
+struct input_info *fromwire_input_info(const tal_t *ctx, const u8 **ptr, size_t *max)
+{
+	struct input_info *input = tal(ctx, struct input_info);
+	u16 prevtx_scriptlen;
+	u16 script_len;
+
+	input->serial_id = fromwire_u16(ptr, max);
+	input->sats = fromwire_amount_sat(ptr, max);
+	fromwire_bitcoin_txid(ptr, max, &input->prevtx_txid);
+	input->prevtx_vout = fromwire_u32(ptr, max);
+	prevtx_scriptlen = fromwire_u16(ptr, max);
+	fromwire_u8_array(ptr, max, input->prevtx_scriptpubkey, prevtx_scriptlen);
+	input->max_witness_len = fromwire_u16(ptr, max);
+	script_len = fromwire_u16(ptr, max);
+	fromwire_u8_array(ptr, max, input->script, script_len);
+
+	return input;
+}
+void towire_output_info(u8 **pptr, const struct output_info *output_info)
+{
+	towire_u16(pptr, output_info->serial_id);
+	towire_amount_sat(pptr, output_info->sats);
+	towire_u16(pptr, tal_count(output_info->script));
+	towire_u8_array(pptr, output_info->script, tal_count(output_info->script));
+}
+struct output_info *fromwire_output_info(const tal_t *ctx, const u8 **ptr, size_t *max)
+{
+	struct output_info *output = tal(ctx, struct output_info);
+	u16 script_len;
+
+	output->serial_id = fromwire_u16(ptr, max);
+	output->sats = fromwire_amount_sat(ptr, max);
+	script_len = fromwire_u16(ptr, max);
+	fromwire_u8_array(ptr, max, output->script, script_len);
+	return output;
+}

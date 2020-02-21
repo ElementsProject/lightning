@@ -54,6 +54,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
+	common/funding_tx.o			\
 	common/gen_status_wire.o		\
 	common/htlc_tx.o			\
 	common/htlc_wire.o			\

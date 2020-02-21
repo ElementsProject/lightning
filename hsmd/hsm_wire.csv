@@ -63,7 +63,7 @@ msgtype,hsm_dual_funding_sigs,40
 #include <common/utxo.h>
 #include <common/htlc.h>
 #include <common/htlc_wire.h>
-#include <wire/gen_peer_wire.h>
+#include <common/funding_tx.h>
 msgdata,hsm_dual_funding_sigs,num_utxos,u16,
 msgdata,hsm_dual_funding_sigs,our_utxos,utxo,num_utxos
 msgdata,hsm_dual_funding_sigs,feerate_kw_funding,u32,

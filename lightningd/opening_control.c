@@ -594,14 +594,8 @@ static bool add_remote_witnesses(struct unreleased_tx *utx,
 					    0);
 		}
 
-		/* Find the corresponding input in the transaction */
-		for (j = 0; j < tal_count(utx->inputs); j++) {
-			if (bitcoin_txid_eq(&utx->inputs[j]->txid, &witness->prevtx_txid) &&
-					utx->inputs[j]->index == witness->prevtx_vout) {
-				utx->inputs[j]->witness = tal_steal(utx->inputs[j], witnesses_arr);
-				break;
-			}
-		}
+		/* FIXME: make sure inputs are ordered corrrectly (by serial_id) */
+		utx->inputs[i]->witness = tal_steal(utx->inputs[i], witnesses_arr);
 	}
 
 	return true;

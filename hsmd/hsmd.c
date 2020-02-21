@@ -1722,10 +1722,6 @@ static struct io_plan *handle_sign_dual_funding_tx(struct io_conn *conn,
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Unable to find index for input");
 
-		/* Copy over info for which input this belongs to */
-		memcpy(&stack->prevtx_txid, &our_utxos[i]->txid, sizeof(struct bitcoin_txid));
-		stack->prevtx_vout = our_utxos[i]->outnum;
-
 		sign_input(tx, our_utxos[i], &inkey, &sig, input_index);
 		witnesses =
 			bitcoin_witness_p2wpkh(tmpctx, &sig, &inkey);

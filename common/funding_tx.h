@@ -13,6 +13,27 @@ struct privkey;
 struct pubkey;
 struct utxo;
 
+struct input_info {
+	u16 serial_id;
+	struct amount_sat sats;
+	struct bitcoin_txid prevtx_txid;
+	u32 prevtx_vout;
+	u8 *prevtx_scriptpubkey;
+	u16 max_witness_len;
+	u8 *script;
+};
+
+struct output_info {
+	u16 serial_id;
+	struct amount_sat sats;
+	u8 *script;
+};
+
+void towire_input_info(u8 **pptr, const struct input_info *input_info);
+struct input_info *fromwire_input_info(const tal_t *ctx, const u8 **ptr, size_t *max);
+void towire_output_info(u8 **pptr, const struct output_info *output_info);
+struct output_info *fromwire_output_info(const tal_t *ctx, const u8 **ptr, size_t *max);
+
 /**
  * funding_tx: create a P2WSH funding transaction for a channel.
  * @ctx: context to tal from.

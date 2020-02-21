@@ -182,6 +182,7 @@ msgdata,opening_dual_funding_signed,shutdown_scriptpubkey,u8,shutdown_len
 # openingd -> master: are these inputs valid?
 msgtype,opening_check_inputs,6312
 #if EXPERIMENTAL_FEATURES
+#include <common/funding_tx.h>
 msgdata,opening_check_inputs,num_inputs,u32,
 msgdata,opening_check_inputs,inputs,input_info,num_inputs
 

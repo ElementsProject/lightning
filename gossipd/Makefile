@@ -54,6 +54,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/features.o			\
+	common/funding_tx.o			\
 	common/gen_status_wire.o		\
 	common/gossip_rcvd_filter.o		\
 	common/htlc_wire.o			\
@@ -63,6 +64,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/node_id.o			\
 	common/onionreply.o			\
 	common/per_peer_state.o			\
+	common/permute_tx.o			\
 	common/ping.o				\
 	common/pseudorand.o			\
 	common/status.o				\

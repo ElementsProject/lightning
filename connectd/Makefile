@@ -52,6 +52,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/ecdh_hsmd.o			\
 	common/features.o			\
+	common/funding_tx.o			\
 	common/gen_status_wire.o		\
 	common/gossip_rcvd_filter.o		\
 	common/htlc_wire.o			\
@@ -61,6 +62,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/node_id.o			\
 	common/onionreply.o			\
 	common/per_peer_state.o			\
+	common/permute_tx.o			\
 	common/pseudorand.o			\
 	common/status.o				\
 	common/status_wire.o			\

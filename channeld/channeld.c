@@ -1968,14 +1968,15 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_CLOSING_SIGNED:
 #if EXPERIMENTAL_FEATURES
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_TX_SIGNATURES:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-	case WIRE_FUNDING_ADD_INPUT:
-	case WIRE_FUNDING_ADD_OUTPUT:
-	case WIRE_FUNDING_ADD_COMPLETE:
-	case WIRE_FUNDING_SIGNED2:
 	case WIRE_INIT_RBF:
-	case WIRE_ACK_RBF:
 #endif /* EXPERIMENTAL_FEATURES */
 		break;
 
@@ -1991,6 +1992,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_PING:
 	case WIRE_PONG:
 	case WIRE_ERROR:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_BLACKLIST_PODLE:
+#endif /* EXPERIMENTAL_FEATURES */
 		abort();
 	}
 

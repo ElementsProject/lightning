@@ -630,14 +630,15 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		state->feerate_per_kw_funding = state->feerate_per_kw;
 		msg = towire_open_channel2(NULL,
 					   &chainparams->genesis_blockhash,
-					   &state->channel_id,
+					   0, /* FIXME: use real locktime */
+					   NULL, /* FIXME: use real podleh2 */
+					   state->feerate_per_kw_funding,
 					   state->opener_funding,
 					   state->push_msat,
 					   state->localconf.dust_limit,
 					   state->localconf.max_htlc_value_in_flight,
 					   state->localconf.htlc_minimum,
 					   state->feerate_per_kw,
-					   state->feerate_per_kw_funding,
 					   state->localconf.to_self_delay,
 					   state->localconf.max_accepted_htlcs,
 					   &state->our_funding_pubkey,
@@ -1135,6 +1136,40 @@ static bool check_remote_input_outputs(struct state *state,
 	return true;
 }
 
+static u16 next_serial(enum role role)
+{
+	/* todo: pick a random number, and check parity. must be unique? */
+	if (role == ACCEPTER)
+		return 1;
+	return 0;
+}
+
+static bool remove_output(struct output_info **outs, u16 serial_id)
+{
+	size_t i;
+	for (i = 0; i < tal_count(outs); i++) {
+		if (outs[i]->serial_id == serial_id) {
+			// how to remove ??
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool remove_input(struct input_info **ins, u16 serial_id)
+{
+	size_t i;
+	for (i = 0; i < tal_count(ins); i++) {
+		if (ins[i]->serial_id == serial_id) {
+			// how to remove ??
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static bool send_receive_funding_tx_info(struct state *state,
 					 enum role role,
 					 struct input_info ***local_inputs,
@@ -1144,6 +1179,8 @@ static bool send_receive_funding_tx_info(struct state *state,
 
 {
 	struct channel_id id_in;
+	struct input_info *input;
+	struct output_info *output;
 	bool complete;
 	size_t i, queue_count;
 	u8 *msg;
@@ -1157,15 +1194,26 @@ static bool send_receive_funding_tx_info(struct state *state,
 	 * - if is the `accepter`:
 	 *   - MAY omit this message
 	 */
-	if (tal_count(*local_inputs) > 0) {
-		msg = towire_funding_add_input(tmpctx, &state->channel_id,
-					       cast_const2(const struct input_info **,
-						           *local_inputs));
+	for (i = 0; i < tal_count(local_inputs); i++) {
+		input = *local_inputs[i];
+		msg = towire_tx_add_input(tmpctx, &state->channel_id,
+					  next_serial(role),
+					  input->sats,
+					  &input->prevtx_txid,
+					  input->prevtx_vout,
+					  input->prevtx_scriptpubkey,
+					  input->max_witness_len,
+					  input->script,
+					  NULL); // FIXME: podle!
+
 		sync_crypto_write(state->pps, take(msg));
 
-		peer_billboard(false, "Opening channel: funding_add_input sent");
-	} else
+	}
+
+	if (tal_count(local_inputs) == 0)
 		assert(role == ACCEPTER);
+	else
+		peer_billboard(false, "Opening channel: tx_add_inputs sent");
 
 
 	/*
@@ -1174,35 +1222,22 @@ static bool send_receive_funding_tx_info(struct state *state,
 	 * Either node:
 	 * - MAY omit this message
 	 */
-	if (tal_count(*local_outputs) > 0) {
-		msg = towire_funding_add_output(tmpctx, &state->channel_id,
-						cast_const2(const struct output_info **,
-							    *local_outputs));
+	for (i = 0; i < tal_count(local_outputs); i++) {
+		output = *local_outputs[i];
+		msg = towire_tx_add_output(tmpctx, &state->channel_id,
+						next_serial(role),
+						output->sats,
+						output->script);
 		sync_crypto_write(state->pps, take(msg));
-		peer_billboard(false, "Opening channel: funding_add_output sent");
 	}
 
+	if (tal_count(local_outputs) > 0)
+		peer_billboard(false, "Opening channel: tx_add_outputs sent");
 
-	/*
-	 *  BOLT-3f9f65d3ad5a21835994f9d9226ed9e0e4066662 #2
-	 *
-	 *  Both nodes:
-	 *   - MUST send this message after `accept_channel2` has been sent/received.
-	 *
-	 *  The sending node:
-	 *  - MUST ensure that the `num_inputs` corresponds to the total sum of all `num_inputs`
-	 *    sent in all `funding_add_input` messages that originated from them
-	 *  - MUST ensure that the `num_outputs` corresponds to the total sum of all `num_outputs`
-	 *    sent in all `funding_add_output` messages that originated from them
-	 */
+
 	/* FIXME: allow for more interactive input/output composition */
-	msg = towire_funding_add_complete(tmpctx, &state->channel_id,
-					  tal_count(*local_inputs),
-					  tal_count(*local_outputs));
-
+	msg = towire_tx_complete(tmpctx, &state->channel_id);
 	sync_crypto_write(state->pps, take(msg));
-
-	peer_billboard(false, "Opening channel: funding_add_complete sent");
 
 	/* We expect the peer to send us their inputs/outputs. Read
 	 * until we get funding_add_complete */
@@ -1212,9 +1247,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 
 	queue_count = 0;
 	while (!complete) {
-		struct input_info **inputs;
-		struct output_info **outputs;
-		u16 num_ins, num_outs;
+		u16 serial_id;
 		int type;
 
 		/* First we get messages off the queue, if any */
@@ -1230,73 +1263,98 @@ static bool send_receive_funding_tx_info(struct state *state,
 
 		type = fromwire_peektype(msg);
 		switch (type) {
-			case WIRE_FUNDING_ADD_INPUT:
-				if (!fromwire_funding_add_input(state, msg, &id_in, &inputs))
+			case WIRE_TX_ADD_INPUT:
+				input = tal(remote_inputs, struct input_info);
+				struct tlv_tx_add_input_tlvs *tlv =
+					tlv_tx_add_input_tlvs_new(input);
+
+				if (!fromwire_tx_add_input(input, msg, &id_in,
+							   &input->serial_id,
+							   &input->sats,
+							   &input->prevtx_txid,
+							   &input->prevtx_vout,
+							   &input->prevtx_scriptpubkey,
+							   &input->max_witness_len,
+							   &input->script,
+							   tlv))
 					peer_failed(state->pps, &state->channel_id,
-						    "Parsing received funding_add_input %s",
+						    "Parsing received tx_add_input %s",
 						    tal_hex(msg, msg));
 				check_channel_id(state, &id_in, &state->channel_id);
 
-				// FIXME: is there a more succinct way to do this?
-				for (i = 0; i < tal_count(inputs); i++)
-					tal_arr_expand(remote_inputs, inputs[i]);
+				// FIXME: verify podle?
+				tal_arr_expand(remote_inputs, input);
+				msg = towire_tx_complete(tmpctx, &state->channel_id);
+				sync_crypto_write(state->pps, take(msg));
 				break;
-			case WIRE_FUNDING_ADD_OUTPUT:
-				if (!fromwire_funding_add_output(state, msg, &id_in, &outputs))
+			case WIRE_TX_ADD_OUTPUT:
+				output = tal(remote_outputs, struct output_info);
+				if (!fromwire_tx_add_output(output, msg, &id_in,
+							    &output->serial_id,
+							    &output->sats,
+							    &output->script))
 					peer_failed(state->pps, &state->channel_id,
-						    "Parsing received funding_add_output %s",
+						    "Parsing received tx_add_output %s",
 						    tal_hex(msg, msg));
 				check_channel_id(state, &id_in, &state->channel_id);
 
-				// FIXME: is there a more succinct way to do this?
-				for (i = 0; i < tal_count(outputs); i++)
-					tal_arr_expand(remote_outputs, outputs[i]);
+				tal_arr_expand(remote_outputs, output);
+				msg = towire_tx_complete(tmpctx, &state->channel_id);
+				sync_crypto_write(state->pps, take(msg));
 				break;
-			case WIRE_FUNDING_ADD_COMPLETE:
-				if (!fromwire_funding_add_complete(msg, &id_in,
-								   &num_ins, &num_outs))
+			case WIRE_TX_REMOVE_INPUT:
+				if (!fromwire_tx_remove_input(msg, &id_in, &serial_id))
 					peer_failed(state->pps, &state->channel_id,
-						    "Parsing received funding_add_complete %s",
-						    tal_hex(msg, msg));
-				check_channel_id(state, &id_in, &state->channel_id);
-				/*
-				 *  BOLT-3f9f65d3ad5a21835994f9d9226ed9e0e4066662 #2
-				 *
-				 *  The receiving node:
-				 *  - MUST fail the channel if:
-				 *   - the `num_inputs` does not correspond to the total
-				 *     sum of all `num_inputs` received in all
-				 *     `funding_add_input` messages
-				 *   - the `num_outputs` does not correspond to the total
-				 *     sum of all `num_outputs` received in all
-				 *     `funding_add_output` messages
-				 */
-				if (tal_count(*remote_inputs) != num_ins)
-					peer_failed(state->pps, &state->channel_id,
-						    "Expected %u inputs, received %zu :%s",
-						    num_ins, tal_count(*remote_inputs),
+						    "Parsing received tx_remove_input %s",
 						    tal_hex(msg, msg));
 
+				check_channel_id(state, &id_in, &state->channel_id);
+				if (!remove_input(*remote_inputs, serial_id))
+					peer_failed(state->pps, &state->channel_id,
+						    "Attempted to remove unknown input %u",
+						    serial_id);
+
+				msg = towire_tx_complete(tmpctx, &state->channel_id);
+				sync_crypto_write(state->pps, take(msg));
+				break;
+			case WIRE_TX_REMOVE_OUTPUT:
+				if (!fromwire_tx_remove_output(msg, &id_in, &serial_id))
+					peer_failed(state->pps, &state->channel_id,
+						    "Parsing received tx_remove_output %s",
+						    tal_hex(msg, msg));
+
+				check_channel_id(state, &id_in, &state->channel_id);
+				if (!remove_output(*remote_outputs, serial_id))
+					peer_failed(state->pps, &state->channel_id,
+						    "Attempted to remove unknown output %u",
+						    serial_id);
+
+				msg = towire_tx_complete(tmpctx, &state->channel_id);
+				sync_crypto_write(state->pps, take(msg));
+				break;
+			case WIRE_TX_COMPLETE:
+				if (!fromwire_tx_complete(msg, &id_in))
+					peer_failed(state->pps, &state->channel_id,
+						    "Parsing received tx_complete %s",
+						    tal_hex(msg, msg));
+				check_channel_id(state, &id_in, &state->channel_id);
 				/**
 				 *  BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
 				 *  - if is the `opener`:
 				 *    - MUST send at least one `funding_add_input` message
 				 */
-				if (num_ins == 0 && role != OPENER)
+				if (tal_count(*remote_inputs) == 0)
 					peer_failed(state->pps, &state->channel_id,
 						    "Opener must send at lease one input");
 
-				if (tal_count(*remote_outputs) != num_outs)
-					peer_failed(state->pps, &state->channel_id,
-						    "Expected %u outputs, received %zu :%s",
-						    num_outs, tal_count(*remote_outputs),
-						    tal_hex(msg, msg));
+				msg = towire_tx_complete(tmpctx, &state->channel_id);
+				sync_crypto_write(state->pps, take(msg));
 				complete = true;
 				break;
 			default:
 				peer_failed(state->pps,
 					    &state->channel_id,
-					    "Expected a funding_add_ message, got %s",
+					    "Expected a tx_ message, got %s",
 					    tal_hex(msg, msg));
 
 		}
@@ -1308,18 +1366,13 @@ static bool send_receive_funding_tx_info(struct state *state,
 	return true;
 }
 
-static bool input_outpoint_eq(struct witness_stack *witness,
-			      struct input_info *input)
-{
-	return bitcoin_txid_eq(&witness->prevtx_txid, &input->prevtx_txid) &&
-		witness->prevtx_vout == input->prevtx_vout;
-}
-
 static u32 sum_witness_len(struct witness_stack *witness)
 {
 	u32 len = 0;
 	for (size_t i = 0; i < tal_count(witness->witness_element); i++)
-		len += tal_count(witness->witness_element[i]->witness);
+		/* We add one for each element -- the size counter */
+		/* FIXME: use varsize of len to get size */
+		len += tal_count(witness->witness_element[i]->witness) + 1;
 
 	return len;
 }
@@ -1327,7 +1380,7 @@ static u32 sum_witness_len(struct witness_stack *witness)
 static char *check_remote_witnesses(struct witness_stack **witnesses,
 				    struct input_info **inputs)
 {
-	size_t i, j;
+	size_t i;
 	u16 witness_len;
 
 	if (tal_count(witnesses) != tal_count(inputs))
@@ -1335,35 +1388,24 @@ static char *check_remote_witnesses(struct witness_stack **witnesses,
 			       tal_count(witnesses),
 			       tal_count(inputs));
 
+	//TODO: sort input_info by serial_id
+
 	/*
 	 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
 	 * - if the `witness_stack` length exceeds `max_witness_len`:
 	 *   - MUST error.
 	 */
 	for (i = 0; i < tal_count(witnesses); i++) {
-		bool found = false;
-		for (j = 0; j < tal_count(inputs); j++) {
-			if (input_outpoint_eq(witnesses[i], inputs[j])) {
-				found = true;
-				witness_len = sum_witness_len(witnesses[i]);
-				if (witness_len > inputs[j]->max_witness_len) {
-					return tal_fmt(tmpctx, "Witness %s:%d len %u "
-						       "larger than specified max %u",
-						       type_to_string(tmpctx,
-								      struct bitcoin_txid,
-								      &witnesses[i]->prevtx_txid),
-						       witnesses[i]->prevtx_vout,
-						       witness_len, inputs[j]->max_witness_len);
-				}
-				break;
-			}
-		}
-		if (!found)
-			return tal_fmt(tmpctx, "No matching input found for witness %s:%u",
+		witness_len = sum_witness_len(witnesses[i]);
+		if (witness_len > inputs[i]->max_witness_len) {
+			return tal_fmt(tmpctx, "Witness for %s:%d len %u "
+				       "larger than specified max %u",
 				       type_to_string(tmpctx,
 						      struct bitcoin_txid,
-						      &witnesses[i]->prevtx_txid),
-				       witnesses[i]->prevtx_vout);
+						      &inputs[i]->prevtx_txid),
+				       inputs[i]->prevtx_vout,
+				       witness_len, inputs[i]->max_witness_len);
+		}
 	}
 
 	return NULL;
@@ -1389,6 +1431,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 
 	size_t i, input_count;
 	struct bitcoin_tx *funding_tx, *remote_commit, *local_commit;
+	struct bitcoin_txid remote_txid;
 
 	struct witness_stack **remote_witnesses;
 
@@ -1582,11 +1625,21 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 	if (!msg)
 		return NULL;
 
-	if (!fromwire_funding_signed2(state, msg,
-				      &id_in, &remote_witnesses))
+	if (!fromwire_tx_signatures(state, msg, &id_in,
+				    &remote_txid,
+				    &remote_witnesses))
 		peer_failed(state->pps,
 			    &state->channel_id,
-			    "Bad funding_signed2 in %s", tal_hex(msg, msg));
+			    "Bad tx_signatures in %s", tal_hex(msg, msg));
+
+	check_channel_id(state, &id_in, &state->channel_id);
+	if (!bitcoin_txid_eq(&state->funding_txid, &remote_txid))
+		peer_failed(state->pps, &state->channel_id,
+			    "Wrong txid for funding_signatures. "
+			    "Expected %s, got %s",
+			    type_to_string(tmpctx, struct bitcoin_txid, &state->funding_txid),
+			    type_to_string(tmpctx, struct bitcoin_txid, &remote_txid));
+
 
 	/* Check remote witness info */
 	err_reason = check_remote_witnesses(remote_witnesses, remote_ins);
@@ -2056,18 +2109,21 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	const u8 *wscript;
 	u8 channel_flags;
 	u8 *msg;
+	u32 locktime;
+	struct sha256 podle_h2;
 
 	struct tlv_opening_tlvs *tlv = tlv_opening_tlvs_new(tmpctx);
 	if (!fromwire_open_channel2(open_channel2_msg,
 				    &chain_hash,
-				    &state->channel_id,
+				    &locktime,
+				    &podle_h2,
+				    &state->feerate_per_kw_funding,
 				    &state->opener_funding,
 				    &state->push_msat,
 				    &state->remoteconf.dust_limit,
 				    &state->remoteconf.max_htlc_value_in_flight,
 				    &state->remoteconf.htlc_minimum,
 				    &state->feerate_per_kw,
-				    &state->feerate_per_kw_funding,
 				    &state->remoteconf.to_self_delay,
 				    &state->remoteconf.max_accepted_htlcs,
 				    &state->their_funding_pubkey,
@@ -2366,8 +2422,9 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	msg = towire_commitment_signed(state, &state->channel_id, &our_sig.s, NULL);
 	sync_crypto_write(state->pps, take(msg));
 
-	/* We send funding_signed2 after we've committed this to disk */
-	msg = towire_funding_signed2(state, &state->channel_id,
+	/* We send tx signatures after we've committed this to disk */
+	msg = towire_tx_signatures(state, &state->channel_id,
+				     &state->funding_txid,
 				     cast_const2(const struct witness_stack **, our_stack));
 
 	/* We convert their inputs to a different format to get around
@@ -2766,9 +2823,11 @@ static u8 *handle_peer_in(struct state *state)
 		state->use_v2 = true;
 		return fundee_channel2(state, msg);
 	}
-	if (t == WIRE_FUNDING_ADD_INPUT
-			|| t == WIRE_FUNDING_ADD_OUTPUT
-			|| t == WIRE_FUNDING_ADD_COMPLETE) {
+	if (t == WIRE_TX_ADD_INPUT
+			|| t == WIRE_TX_ADD_OUTPUT
+			|| t == WIRE_TX_REMOVE_INPUT
+			|| t == WIRE_TX_REMOVE_OUTPUT
+			|| t == WIRE_TX_COMPLETE) {
 		/* add to queue for this state/peer because
 		 * it's possible we're off getting ready for multi-fund whatever.*/
 		queue_msg(state, msg);

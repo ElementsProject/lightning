@@ -467,6 +467,11 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_PONG:
 		err = handle_pong(peer, msg);
 		goto handled_relay;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_BLACKLIST_PODLE:
+		/* FIXME: handle blacklisted PoDLE */
+		goto handled_relay;
+#endif /* EXPERIMENTAL_FEATURES */
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */
 	case WIRE_INIT:
@@ -490,14 +495,15 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_ONION_MESSAGE:
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_TX_SIGNATURES:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-	case WIRE_FUNDING_ADD_INPUT:
-	case WIRE_FUNDING_ADD_OUTPUT:
-	case WIRE_FUNDING_ADD_COMPLETE:
-	case WIRE_FUNDING_SIGNED2:
 	case WIRE_INIT_RBF:
-	case WIRE_ACK_RBF:
 #endif /* EXPERIMENTAL_FEATURES */
 		status_broken("peer %s: relayed unexpected msg of type %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
