@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="Blockchain Good, Orange Coin Bad"
-VERSION=0.8.0
+VERSION_NAME="Channel to the Moon"
+VERSION=0.8.1
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
