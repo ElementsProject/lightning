@@ -187,33 +187,38 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 			      toks[0].end - toks[0].start, buffer);
 	}
 
+	t = json_get_member(buffer, toks, "failure_message");
+	if (t) {
+		const u8 *failmsg = json_tok_bin_from_hex(ctx, buffer, t);
+		if (!failmsg)
+			fatal("Invalid invoice_payment_hook failure_message: %.*s",
+			      toks[0].end - toks[1].start, buffer);
+		return failmsg;
+	}
+
+	if (!deprecated_apis)
+		return NULL;
+
 	t = json_get_member(buffer, toks, "failure_code");
-#ifdef COMPAT_V080
-	if (!t && deprecated_apis) {
+	if (!t) {
 		static bool warned = false;
 		if (!warned) {
 			warned = true;
 			log_unusual(log,
 				    "Plugin did not return object with "
-				    "'result' or 'failure_code' fields.  "
+				    "'result' or 'failure_message' fields.  "
 				    "This is now deprecated and you should "
 				    "return {'result': 'continue' } or "
 				    "{'result': 'reject'} or "
-				    "{'failure_code': 42} instead.");
+				    "{'failure_message'... instead.");
 		}
-		return false;
+		return failmsg_incorrect_or_unknown(ctx, hin);
 	}
-#endif /* defined(COMPAT_V080) */
-	if (!t)
-		fatal("Invalid invoice_payment_hook response, expecting "
-		      "'result' or 'failure_code' field: %.*s",
-		      toks[0].end - toks[0].start, buffer);
 
 	if (!json_to_number(buffer, t, &val))
 		fatal("Invalid invoice_payment_hook failure_code: %.*s",
 		      toks[0].end - toks[1].start, buffer);
 
-	/* FIXME: Allow hook to return its own failmsg directly? */
 	if (val == WIRE_TEMPORARY_NODE_FAILURE)
 		return towire_temporary_node_failure(ctx);
 	if (val != WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS)

@@ -747,17 +747,50 @@ enum htlc_accepted_result {
 	htlc_accepted_resolve,
 };
 
+/* We only handle the simplest cases here */
+static u8 *convert_failcode(const tal_t *ctx,
+			    struct lightningd *ld,
+			    unsigned int failure_code)
+{
+	switch (failure_code) {
+	case WIRE_INVALID_REALM:
+		return towire_invalid_realm(ctx);
+	case WIRE_TEMPORARY_NODE_FAILURE:
+		return towire_temporary_node_failure(ctx);
+	case WIRE_PERMANENT_NODE_FAILURE:
+		return towire_permanent_node_failure(ctx);
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+		return towire_required_node_feature_missing(ctx);
+	case WIRE_CHANNEL_DISABLED:
+		return towire_channel_disabled(ctx);
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+		return towire_permanent_channel_failure(ctx);
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+		return towire_required_channel_feature_missing(ctx);
+	case WIRE_UNKNOWN_NEXT_PEER:
+		return towire_unknown_next_peer(ctx);
+	default:
+		log_broken(ld->log,
+			   "htlc_accepted_hook plugin returned failure_code %u,"
+			   " turning to WIRE_TEMPORARY_NODE_FAILURE",
+			   failure_code);
+		return towire_temporary_node_failure(ctx);
+	}
+}
+
 /**
  * Parses the JSON-RPC response into a struct understood by the callback.
  */
-static enum htlc_accepted_result htlc_accepted_hook_deserialize(const char *buffer, const jsmntok_t *toks,
-                                                                /* If accepted */
-                                                                struct preimage *payment_preimage,
-                                                                /* If rejected */
-                                                                enum onion_type *failure_code,
-                                                                u8 **channel_update)
+static enum htlc_accepted_result
+htlc_accepted_hook_deserialize(const tal_t *ctx,
+			       struct lightningd *ld,
+			       const char *buffer, const jsmntok_t *toks,
+			       /* If accepted */
+			       struct preimage *payment_preimage,
+			       /* If rejected (tallocated off ctx) */
+                               const u8 **failmsg)
 {
-	const jsmntok_t *resulttok, *failcodetok, *paykeytok, *chanupdtok;
+	const jsmntok_t *resulttok, *paykeytok;
 	enum htlc_accepted_result result;
 
 	if (!toks || !buffer)
@@ -777,23 +810,31 @@ static enum htlc_accepted_result htlc_accepted_hook_deserialize(const char *buff
 	}
 
 	if (json_tok_streq(buffer, resulttok, "fail")) {
+		const jsmntok_t *failmsgtok, *failcodetok;
+
 		result = htlc_accepted_fail;
-		failcodetok = json_get_member(buffer, toks, "failure_code");
-		chanupdtok = json_get_member(buffer, toks, "channel_update");
-		if (failcodetok &&
-		    !json_to_number(buffer, failcodetok, failure_code))
-			fatal("Plugin provided a non-numeric failcode "
-			      "in response to an htlc_accepted hook");
-
-		if (!failcodetok)
-			*failure_code = WIRE_TEMPORARY_NODE_FAILURE;
-
-		if (chanupdtok)
-			*channel_update =
-			    json_tok_bin_from_hex(buffer, buffer, chanupdtok);
-		else
-			*channel_update = NULL;
-
+		failmsgtok = json_get_member(buffer, toks, "failure_message");
+		if (failmsgtok) {
+			*failmsg = json_tok_bin_from_hex(ctx, buffer,
+							 failmsgtok);
+			if (!*failmsg)
+				fatal("Bad failure_message for htlc_accepted"
+				      " hook: %.*s",
+				      failmsgtok->end - failmsgtok->start,
+				      buffer + failmsgtok->start);
+		} else if (deprecated_apis
+			   && (failcodetok = json_get_member(buffer, toks,
+							     "failure_code"))) {
+			unsigned int failcode;
+			if (!json_to_number(buffer, failcodetok, &failcode))
+				fatal("Bad failure_code for htlc_accepted"
+				      " hook: %.*s",
+				      failcodetok->end
+				      - failcodetok->start,
+				      buffer + failcodetok->start);
+			*failmsg = convert_failcode(ctx, ld, failcode);
+		} else
+			*failmsg = towire_temporary_node_failure(ctx);
 	} else if (json_tok_streq(buffer, resulttok, "resolve")) {
 		result = htlc_accepted_resolve;
 		paykeytok = json_get_member(buffer, toks, "payment_key");
@@ -888,10 +929,8 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	struct preimage payment_preimage;
 	u8 *req;
 	enum htlc_accepted_result result;
-	enum onion_type failure_code;
 	const u8 *failmsg;
-	u8 *channel_update;
-	result = htlc_accepted_hook_deserialize(buffer, toks, &payment_preimage, &failure_code, &channel_update);
+	result = htlc_accepted_hook_deserialize(request, ld, buffer, toks, &payment_preimage, &failmsg);
 
 	switch (result) {
 	case htlc_accepted_continue:
@@ -925,40 +964,6 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	case htlc_accepted_fail:
 		log_debug(channel->log,
 			  "Failing incoming HTLC as instructed by plugin hook");
-		/* FIXME: Deprecate failure_code in favor of failure_message! */
-		/* We only handle the simplest cases here */
-		switch (failure_code) {
-		case WIRE_INVALID_REALM:
-			failmsg = towire_invalid_realm(NULL);
-			break;
-		case WIRE_TEMPORARY_NODE_FAILURE:
-			failmsg = towire_temporary_node_failure(NULL);
-			break;
-		case WIRE_PERMANENT_NODE_FAILURE:
-			failmsg = towire_permanent_node_failure(NULL);
-			break;
-		case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-			failmsg = towire_required_node_feature_missing(NULL);
-			break;
-		case WIRE_CHANNEL_DISABLED:
-			failmsg = towire_channel_disabled(NULL);
-			break;
-		case WIRE_PERMANENT_CHANNEL_FAILURE:
-			failmsg = towire_permanent_channel_failure(NULL);
-			break;
-		case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-			failmsg = towire_required_channel_feature_missing(NULL);
-			break;
-		case WIRE_UNKNOWN_NEXT_PEER:
-			failmsg = towire_unknown_next_peer(NULL);
-			break;
-		default:
-			log_broken(channel->log,
-				   "htlc_accepted_hook plugin returned %u,"
-				   " turning to WIRE_TEMPORARY_NODE_FAILURE",
-				   failure_code);
-			failmsg = towire_temporary_node_failure(NULL);
-		}
 		local_fail_in_htlc(hin, take(failmsg));
 		break;
 	case htlc_accepted_resolve:

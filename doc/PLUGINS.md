@@ -636,8 +636,8 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
 
 The hook is sparse on purpose, since the plugin can use the JSON-RPC
 `listinvoices` command to get additional details about this invoice.
-It can return a non-zero `failure_code` field as defined for final
-nodes in [BOLT 4][bolt4-failure-codes], a `result` field with the string
+It can return a `failure_message` field as defined for final
+nodes in [BOLT 4][bolt4-failure-messages], a `result` field with the string
 `reject` to fail it with `incorrect_or_unknown_payment_details`, or a
 `result` field with the string `continue` to accept the payment.
 
@@ -763,12 +763,12 @@ usual checks such as sufficient fees and CLTV deltas are still enforced.
 ```json
 {
   "result": "fail",
-  "failure_code": 4301
+  "failure_message": "2002"
 }
 ```
 
-`fail` will tell `lightningd` to fail the HTLC with a given numeric
-`failure_code` (please refer to the [spec][bolt4-failure-codes] for details).
+`fail` will tell `lightningd` to fail the HTLC with a given hex-encoded
+`failure_message` (please refer to the [spec][bolt4-failure-messages] for details: `incorrect_or_unknown_payment_details` is the most common).
 
 ```json
 {
@@ -899,7 +899,7 @@ compatibility should the semantics be changed in future.
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-[bolt4-failure-codes]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
+[bolt4-failure-messages]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
 [bolt2-open-channel]: https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#the-open_channel-message
 [sendcustommsg]: lightning-dev-sendcustommsg.7.html
 [oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
