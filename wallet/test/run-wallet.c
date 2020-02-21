@@ -1326,7 +1326,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, onionreply, NULL)),
 	    "Update HTLC with failonion failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0x2002, NULL, NULL)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, WIRE_INVALID_ONION_VERSION, NULL, NULL)),
 	    "Update HTLC with failcode failed");
 
 	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
