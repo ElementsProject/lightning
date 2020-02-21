@@ -16,9 +16,8 @@ def on_payment(payment, plugin, **kwargs):
     print("preimage={}".format(payment['preimage']))
 
     if payment['preimage'].endswith('0'):
-        # FIXME: Define this!
-        WIRE_TEMPORARY_NODE_FAILURE = 0x2002
-        return {'failure_code': WIRE_TEMPORARY_NODE_FAILURE}
+        # WIRE_TEMPORARY_NODE_FAILURE = 0x2002
+        return {'failure_message': "2002"}
 
     return {'result': 'continue'}
 
