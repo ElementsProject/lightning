@@ -229,6 +229,8 @@ static void fail_in_htlc(struct htlc_in *hin,
 	assert(!hin->preimage);
 
 	assert(failcode || failonion);
+	/* These callers should be using local_fail_in_htlc_badonion! */
+	assert(!(failcode & BADONION));
 	hin->failcode = failcode;
 	if (failonion)
 		hin->failonion = dup_onionreply(hin, failonion);
@@ -249,6 +251,38 @@ static void fail_in_htlc(struct htlc_in *hin,
 				     channel_update);
 	subd_send_msg(hin->key.channel->owner,
 		      take(towire_channel_fail_htlc(NULL, failed_htlc)));
+}
+
+/* Immediately fail HTLC with a BADONION code */
+static void local_fail_in_htlc_badonion(struct htlc_in *hin,
+					enum onion_type badonion)
+{
+	struct failed_htlc failed_htlc;
+	assert(!hin->preimage);
+
+	assert(badonion & BADONION);
+	hin->failcode = badonion;
+	/* We update state now to signal it's in progress, for persistence. */
+	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
+	htlc_in_check(hin, __func__);
+
+	failed_htlc.id = hin->key.id;
+	failed_htlc.onion = NULL;
+	failed_htlc.badonion = badonion;
+	failed_htlc.sha256_of_onion = tal(tmpctx, struct sha256);
+	sha256(failed_htlc.sha256_of_onion, hin->onion_routing_packet,
+	       sizeof(hin->onion_routing_packet));
+
+	/* Tell peer, if we can. */
+	if (!hin->key.channel->owner)
+		return;
+
+	/* onchaind doesn't care, it can't do anything but wait */
+	if (channel_on_chain(hin->key.channel))
+		return;
+
+	subd_send_msg(hin->key.channel->owner,
+		      take(towire_channel_fail_htlc(NULL, &failed_htlc)));
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
@@ -1017,15 +1051,21 @@ REGISTER_PLUGIN_HOOK(htlc_accepted, PLUGIN_HOOK_CHAIN,
 /**
  * Everyone is committed to this htlc of theirs
  *
+ * @param ctx: context for failmsg, if any.
  * @param channel: The channel this HTLC was accepted from.
  * @param id: the ID of the HTLC we accepted
  * @param replay: Are we loading from the database and therefore should not
  *        perform the transition to RCVD_ADD_ACK_REVOCATION?
- * @param[out] failcode: If we decide to fail right away this will be set to a
- *        non-zero failcode.
+ * @param[out] badonion: Set non-zero if the onion was bad.
+ * @param[out] failmsg: If there was some other error.
+ *
+ * If this returns false, exactly one of @badonion or @failmsg is set.
  */
-static bool peer_accepted_htlc(struct channel *channel, u64 id,
-			       bool replay, enum onion_type *failcode)
+static bool peer_accepted_htlc(const tal_t *ctx,
+			       struct channel *channel, u64 id,
+			       bool replay,
+			       enum onion_type *badonion,
+			       u8 **failmsg)
 {
 	struct htlc_in *hin;
 	struct route_step *rs;
@@ -1033,15 +1073,22 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_accepted_hook_payload *hook_payload;
 
+	*failmsg = NULL;
+	*badonion = 0;
+
 	hin = find_htlc_in(&ld->htlcs_in, channel, id);
 	if (!hin) {
 		channel_internal_error(channel,
 				    "peer_got_revoke unknown htlc %"PRIu64, id);
+		*failmsg = towire_temporary_node_failure(ctx);
 		return false;
 	}
 
-	if (!replay && !htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION))
+	if (!replay && !htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION)) {
+		*failmsg = towire_temporary_node_failure(ctx);
 		return false;
+	}
+
 	htlc_in_check(hin, __func__);
 
 #if DEVELOPER
@@ -1056,8 +1103,12 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 	 *   - SHOULD fail to route any HTLC added after it has sent `shutdown`.
 	 */
 	if (channel->state == CHANNELD_SHUTTING_DOWN) {
-		*failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
-		goto out;
+		*failmsg = towire_permanent_channel_failure(ctx);
+		log_debug(channel->log,
+			  "Rejecting their htlc %"PRIu64
+			  " since we're shutting down",
+			  id);
+		return false;
 	}
 
 	/* BOLT #2:
@@ -1072,10 +1123,14 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 	 * a subset of the cltv check done in handle_localpay and
 	 * forward_htlc. */
 
-	*failcode = parse_onionpacket(hin->onion_routing_packet,
-					  sizeof(hin->onion_routing_packet),
-					  &op);
-	if (*failcode) {
+	*badonion = parse_onionpacket(hin->onion_routing_packet,
+				      sizeof(hin->onion_routing_packet),
+				      &op);
+	if (*badonion) {
+		log_debug(channel->log,
+			  "Rejecting their htlc %"PRIu64
+			  " since onion is unparsable %s",
+			  id, onion_type_name(*badonion));
 		/* Now we can fail it. */
 		return false;
 	}
@@ -1084,7 +1139,11 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 				 hin->payment_hash.u.u8,
 				 sizeof(hin->payment_hash));
 	if (!rs) {
-		*failcode = WIRE_INVALID_ONION_HMAC;
+		*badonion = WIRE_INVALID_ONION_HMAC;
+		log_debug(channel->log,
+			  "Rejecting their htlc %"PRIu64
+			  " since onion is unprocessable %s",
+			  id, onion_type_name(*badonion));
 		return false;
 	}
 
@@ -1100,10 +1159,6 @@ static bool peer_accepted_htlc(struct channel *channel, u64 id,
 	plugin_hook_call_htlc_accepted(ld, hook_payload, hook_payload);
 
 	/* Falling through here is ok, after all the HTLC locked */
-out:
-	log_debug(channel->log, "their htlc %"PRIu64" %s",
-		  id, *failcode ? onion_type_name(*failcode) : "locked");
-
 	return true;
 }
 
@@ -1842,7 +1897,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	struct secret per_commitment_secret;
 	struct pubkey next_per_commitment_point;
 	struct changed_htlc *changed;
-	enum onion_type *failcodes;
+	enum onion_type *badonions;
+	u8 **failmsgs;
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 	struct fee_states *fee_states;
@@ -1863,12 +1919,14 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		  revokenum, tal_count(changed));
 
 	/* Save any immediate failures for after we reply. */
-	failcodes = tal_arrz(msg, enum onion_type, tal_count(changed));
+	badonions = tal_arrz(msg, enum onion_type, tal_count(changed));
+	failmsgs = tal_arrz(msg, u8 *, tal_count(changed));
 	for (i = 0; i < tal_count(changed); i++) {
 		/* If we're doing final accept, we need to forward */
 		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
-			peer_accepted_htlc(channel, changed[i].id, false,
-					   &failcodes[i]);
+			peer_accepted_htlc(failmsgs,
+					   channel, changed[i].id, false,
+					   &badonions[i], &failmsgs[i]);
 		} else {
 			if (!changed_htlc(channel, &changed[i])) {
 				channel_internal_error(channel,
@@ -1923,19 +1981,25 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	for (i = 0; i < tal_count(changed); i++) {
 		struct htlc_in *hin;
 
-		if (!failcodes[i])
+		if (badonions[i]) {
+			hin = find_htlc_in(&ld->htlcs_in, channel,
+					   changed[i].id);
+			local_fail_in_htlc_badonion(hin, badonions[i]);
+		} else if (failmsgs[i]) {
+			hin = find_htlc_in(&ld->htlcs_in, channel,
+					   changed[i].id);
+			/* FIXME: Pass through the failmsg direcly! */
+			local_fail_htlc(hin, fromwire_peektype(failmsgs[i]),
+					NULL);
+		} else
 			continue;
 
-		/* These are all errors before finding next hop. */
-		assert(!(failcodes[i] & UPDATE));
-
-		hin = find_htlc_in(&ld->htlcs_in, channel, changed[i].id);
-		local_fail_htlc(hin, failcodes[i], NULL);
 		// in fact, now we don't know if this htlc is a forward or localpay!
 		wallet_forwarded_payment_add(ld->wallet,
 					 hin, NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
-					 hin->failcode);
+					 badonions[i] ? badonions[i]
+					     : fromwire_peektype(failmsgs[i]));
 	}
 	wallet_channel_save(ld->wallet, channel);
 }
@@ -2275,7 +2339,8 @@ void htlcs_resubmit(struct lightningd *ld,
 {
 	struct htlc_in *hin;
 	struct htlc_in_map_iter ini;
-	enum onion_type failcode COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
+	enum onion_type badonion COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
+	u8 *failmsg;
 
 	/* Now retry any which were stuck. */
 	for (hin = htlc_in_map_first(unconnected_htlcs_in, &ini);
@@ -2287,14 +2352,12 @@ void htlcs_resubmit(struct lightningd *ld,
 		log_unusual(hin->key.channel->log,
 			    "Replaying old unprocessed HTLC #%"PRIu64,
 			    hin->key.id);
-		if (!peer_accepted_htlc(hin->key.channel, hin->key.id, true, &failcode)) {
-			fail_in_htlc(hin,
-				     failcode != 0
-					 ? failcode
-					 : WIRE_TEMPORARY_NODE_FAILURE,
-				     NULL, NULL);
-		}  else if (failcode) {
-			fail_in_htlc(hin, failcode, NULL, NULL);
+		if (!peer_accepted_htlc(tmpctx, hin->key.channel, hin->key.id,
+					true, &badonion, &failmsg)) {
+			if (failmsg)
+				local_fail_htlc(hin, fromwire_peektype(failmsg), NULL);
+			else
+				local_fail_in_htlc_badonion(hin, badonion);
 		}
 	}
 
