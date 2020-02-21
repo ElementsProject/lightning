@@ -92,6 +92,10 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
 				  const u8 *scriptPubkey UNNEEDED)
 { fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
+/* Generated stub for failmsg_incorrect_or_unknown */
+const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx UNNEEDED,
+				       const struct htlc_in *hin UNNEEDED)
+{ fprintf(stderr, "failmsg_incorrect_or_unknown called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -147,7 +151,7 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     enum side side UNNEEDED)
 { fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
 /* Generated stub for htlc_set_fail */
-void htlc_set_fail(struct htlc_set *set UNNEEDED, enum onion_type failcode UNNEEDED)
+void htlc_set_fail(struct htlc_set *set UNNEEDED, const u8 *failmsg TAKES UNNEEDED)
 { fprintf(stderr, "htlc_set_fail called!\n"); abort(); }
 /* Generated stub for htlc_set_fulfill */
 void htlc_set_fulfill(struct htlc_set *set UNNEEDED, const struct preimage *preimage UNNEEDED)
@@ -436,6 +440,9 @@ u8 *towire_hsm_sign_invoice(const tal_t *ctx UNNEEDED, const u8 *u5bytes UNNEEDE
 /* Generated stub for towire_onchain_dev_memleak */
 u8 *towire_onchain_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchain_dev_memleak called!\n"); abort(); }
+/* Generated stub for towire_temporary_node_failure */
+u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_temporary_node_failure called!\n"); abort(); }
 /* Generated stub for txfilter_add_scriptpubkey */
 void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
 { fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }

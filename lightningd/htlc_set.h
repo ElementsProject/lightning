@@ -49,7 +49,7 @@ void htlc_set_add(struct lightningd *ld,
 		  const struct secret *payment_secret);
 
 /* Fail every htlc in the set: frees set */
-void htlc_set_fail(struct htlc_set *set, enum onion_type failcode);
+void htlc_set_fail(struct htlc_set *set, const u8 *failmsg TAKES);
 
 /* Fulfill every htlc in the set: frees set */
 void htlc_set_fulfill(struct htlc_set *set, const struct preimage *preimage);

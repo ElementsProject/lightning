@@ -71,11 +71,15 @@ void htlcs_resubmit(struct lightningd *ld,
 
 /* For HTLCs which terminate here, invoice payment calls one of these. */
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage);
-void fail_htlc(struct htlc_in *hin, enum onion_type failcode);
+void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES);
 
 /* This json process will be used as the serialize method for
  * forward_event_notification_gen and be used in
  * `listforwardings_add_forwardings()`. */
 void json_format_forwarding_object(struct json_stream *response, const char *fieldname,
 				   const struct forwarding *cur);
+
+/* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
+const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
+				       const struct htlc_in *hin);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */
