@@ -608,6 +608,7 @@ proxy_stat proxy_handle_sign_invoice(
 
 	last_message = "";
 	SignInvoiceRequest req;
+	marshal_node_id(&self_id, req.mutable_node_id());
 	req.set_data_part(u5bytes, tal_count(u5bytes));
 	req.set_human_readable_part((const char *)hrpu8, tal_count(hrpu8));
 
@@ -615,12 +616,7 @@ proxy_stat proxy_handle_sign_invoice(
 	RecoverableNodeSignatureReply rsp;
 	Status status = stub->SignInvoice(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-#if 0
 		unmarshal_ecdsa_recoverable_signature(rsp.signature(), o_sig);
-#else
-		memset(o_sig, '\0', sizeof(*o_sig));
-#endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -1043,12 +1039,7 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 	SignatureReply rsp;
 	Status status = stub->SignRemoteHTLCTx(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-#if 0
 		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
-#else
-		memset(o_sig, '\0', sizeof(*o_sig));
-#endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),

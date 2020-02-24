@@ -1148,16 +1148,11 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 						  struct client *c,
 						  const u8 *msg_in)
 {
-	struct secret channel_seed;
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
-	struct secrets secrets;
-	struct basepoints basepoints;
 	struct pubkey remote_per_commit_point;
 	struct amount_sat amount;
 	u8 *wscript;
-	struct privkey htlc_privkey;
-	struct pubkey htlc_pubkey;
 
 	if (!fromwire_hsm_sign_remote_htlc_tx(tmpctx, msg_in,
 					      &tx, &wscript, &amount,
@@ -1185,39 +1180,7 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - server-side not implemented yet. Use original code
-	 * below for now */
-
-	/*
-	assert(tal_count(sigs) == 1);
-
-	bool ok = signature_from_der(sigs[0][0], tal_count(sigs[0][0]), &sig);
-	assert(ok);
-	status_debug("%s:%d %s: signature: %s",
-		     __FILE__, __LINE__, __FUNCTION__,
-		     type_to_string(tmpctx, struct bitcoin_signature, &sig));
-	*/
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
-
-	if (!derive_simple_privkey(&secrets.htlc_basepoint_secret,
-				   &basepoints.htlc,
-				   &remote_per_commit_point,
-				   &htlc_privkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc privkey");
-
-	if (!derive_simple_key(&basepoints.htlc,
-			       &remote_per_commit_point,
-			       &htlc_pubkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc pubkey");
-
-	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
-		      SIGHASH_ALL, &sig);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
@@ -2011,11 +1974,7 @@ static struct io_plan *handle_sign_invoice(struct io_conn *conn,
 	 * entirely transparent to the C compiler. */
 	u5 *u5bytes;
 	u8 *hrpu8;
-	char *hrp;
-	struct sha256 sha;
         secp256k1_ecdsa_recoverable_signature rsig;
-	struct hash_u5 hu5;
-	struct privkey node_pkey;
 
 	if (!fromwire_hsm_sign_invoice(tmpctx, msg_in, &u5bytes, &hrpu8))
 		return bad_req(conn, c, msg_in);
@@ -2029,46 +1988,7 @@ static struct io_plan *handle_sign_invoice(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - USE THE PROXIED VALUE WHEN SERVER SUPPORTS */
-
-	/* BOLT #11:
-	 *
-	 * A writer... MUST set `signature` to a valid 512-bit
-	 * secp256k1 signature of the SHA2 256-bit hash of the
-	 * human-readable part, represented as UTF-8 bytes,
-	 * concatenated with the data part (excluding the signature)
-	 * with 0 bits appended to pad the data to the next byte
-	 * boundary, with a trailing byte containing the recovery ID
-	 * (0, 1, 2, or 3).
-	 */
-
-	/* FIXME: Check invoice! */
-
-	/*~ tal_dup_arr() does what you'd expect: allocate an array by copying
-	 * another; the cast is needed because the hrp is a 'char' array, not
-	 * a 'u8' (unsigned char) as it's the "human readable" part.
-	 *
-	 * The final arg of tal_dup_arr() is how many extra bytes to allocate:
-	 * it's so often zero that I've thought about dropping the argument, but
-	 * in cases like this (adding a NUL terminator) it's perfect. */
-	hrp = tal_dup_arr(tmpctx, char, (char *)hrpu8, tal_count(hrpu8), 1);
-	hrp[tal_count(hrpu8)] = '\0';
-
-	hash_u5_init(&hu5, hrp);
-	hash_u5(&hu5, u5bytes, tal_count(u5bytes));
-	hash_u5_done(&hu5, &sha);
-
-	node_key(&node_pkey, NULL);
-	/*~ By no small coincidence, this libsecp routine uses the exact
-	 * recovery signature format mandated by BOLT 11. */
-	if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, &rsig,
-                                              (const u8 *)&sha,
-                                              node_pkey.secret.data,
-                                              NULL, NULL)) {
-		return bad_req_fmt(conn, c, msg_in, "Failed to sign invoice");
-	}
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_invoice_reply(NULL, &rsig)));

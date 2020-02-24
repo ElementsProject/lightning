@@ -6,6 +6,7 @@ API Coverage
 
 # intermittent
 tests/test_connection.py::test_funding_cancel_race
+tests/test_misc.py::test_bad_onion_immediate_peer
 
 ## Proxy Scoreboard
 
@@ -14,19 +15,19 @@ COMPLETE		proxy_stat proxy_handle_pass_client_hsmfd
 COMPLETE		proxy_stat proxy_handle_sign_remote_commitment_tx
 COMPLETE		proxy_stat proxy_handle_channel_update_sig
 COMPLETE		proxy_stat proxy_handle_sign_node_announcement
+COMPLETE		proxy_stat proxy_handle_sign_remote_htlc_tx
+COMPLETE		proxy_stat proxy_handle_sign_invoice
 
 PARTIAL (-P2SH)	proxy_stat proxy_handle_sign_withdrawal_tx
 
 MARSHALED		proxy_stat proxy_init_hsm
 MARSHALED		proxy_stat proxy_handle_get_per_commitment_point
-MARSHALED		proxy_stat proxy_handle_sign_invoice
 MARSHALED		proxy_stat proxy_handle_sign_message
 MARSHALED		proxy_stat proxy_handle_get_channel_basepoints
 MARSHALED		proxy_stat proxy_handle_sign_mutual_close_tx
 MARSHALED		proxy_stat proxy_handle_sign_commitment_tx
 MARSHALED		proxy_stat proxy_handle_cannouncement_sig
 MARSHALED		proxy_stat proxy_handle_sign_local_htlc_tx
-MARSHALED		proxy_stat proxy_handle_sign_remote_htlc_tx
 MARSHALED		proxy_stat proxy_handle_sign_delayed_payment_to_us
 MARSHALED		proxy_stat proxy_handle_sign_remote_htlc_to_us
 MARSHALED		proxy_stat proxy_handle_sign_penalty_to_us
