@@ -11,6 +11,8 @@ WIRE_TEST_COMMON_OBJS :=		\
 
 wire/test/run-peer-wire: common/bigsize.o
 
+wire/test/run-fromwire: common/node_id.o
+
 update-mocks: $(WIRE_TEST_SRC:%=update-mocks/%)
 
 $(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(BITCOIN_OBJS)

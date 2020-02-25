@@ -68,6 +68,10 @@ static struct channel_id *dev_force_tmp_channel_id;
 struct state {
 	struct per_peer_state *pps;
 
+	/* We need the node ordering between us and our peer
+	 * for v2 channel ids; is ordering given us/them */
+	u8 node_order;
+
 	/* Features they offered */
 	u8 *their_features;
 
@@ -553,20 +557,22 @@ static bool setup_channel_funder(struct state *state)
 		 * could do it for the we-are-funding case. */
 		state->accepter_funding = AMOUNT_SAT(0);
 		set_reserve(state);
+
+		/*~ Grab a random ID until the funding tx is created (we can't do that
+		 * until we know their funding_pubkey) */
+		/* Only applies to v1 opens; v2's use the basepoint to discern
+		 * channel_id. */
+		temporary_channel_id(&state->channel_id);
+#if DEVELOPER
+		/* --dev-force-tmp-channel-id specified */
+		if (dev_force_tmp_channel_id)
+			state->channel_id = *dev_force_tmp_channel_id;
+#endif
 	}
 
 	/* Initialize the msg queue */
 	state->funding_msg_queue = tal_arr(state, u8 *, 0);
 
-	/*~ Grab a random ID until the funding tx is created (we can't do that
-	 * until we know their funding_pubkey) */
-	temporary_channel_id(&state->channel_id);
-
-#if DEVELOPER
-	/* --dev-force-tmp-channel-id specified */
-	if (dev_force_tmp_channel_id)
-		state->channel_id = *dev_force_tmp_channel_id;
-#endif
 	/* BOLT #2:
 	 *
 	 * The sending node:
@@ -741,7 +747,6 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 			    "experimental features. %s",
 			    tal_hex(msg, msg));
 #endif
-
 	} else {
 		/* BOLT #2:
 		 *
@@ -791,6 +796,21 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				    "Parsing accept_channel %s", tal_hex(msg, msg));
 	}
 
+
+	/*
+	 * BOLT-FIXME #2
+	 *
+	 * For channels established using the v2 protocol, the `channel_id` is the
+	 * SHA256(lesser-peers-revocation-basepoint || greater-peers-revocation-basepoint),
+	 * where the lesser and greater peer is based off the order of their respective
+	 * node id, using the compressed key notation.
+	 */
+	if (state->use_v2)
+		derive_channel_id2(&state->channel_id,
+				   &state->our_points.revocation,
+				   &state->their_points.revocation,
+				   state->node_order);
+
 	/* BOLT #2:
 	 *
 	 * The `temporary_channel_id` MUST be the same as the
@@ -799,7 +819,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		/* In this case we exit, since we don't know what's going on. */
 		peer_failed(state->pps,
 			    &state->channel_id,
-			    "accept_channel ids don't match: sent %s got %s",
+			    "accept_channel ids don't match: expected %s got %s",
 			    type_to_string(msg, struct channel_id, &id_in),
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id));
@@ -1507,10 +1527,6 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 			    &state->channel_id,
 			    "We could not create channel with given config");
 
-	/* We switch over to using the funding_tx derived channel_id */
-	derive_channel_id(&state->channel_id,
-			  &state->funding_txid, state->funding_txout);
-
 	/* We need to send them the signatures for their commitment tx */
 	remote_commit = initial_channel_tx(state, &wscript, state->channel,
 					   &state->first_per_commitment_point[REMOTE],
@@ -2207,6 +2223,19 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 		accept_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey =
 			state->upfront_shutdown_script[LOCAL];
 	}
+
+	/*
+	 * BOLT-FIXME #2
+	 *
+	 * For channels established using the v2 protocol, the `channel_id` is the
+	 * SHA256(lesser-peers-revocation-basepoint || greater-peers-revocation-basepoint),
+	 * where the lesser and greater peer is based off the order of their respective
+	 * node id, using the compressed key notation.
+	 */
+	derive_channel_id2(&state->channel_id,
+			   &state->our_points.revocation,
+			   &state->their_points.revocation,
+			   state->node_order);
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     state->accepter_funding,
@@ -2944,7 +2973,8 @@ static u8 *handle_master_in(struct state *state)
 
 	switch (t) {
 	case WIRE_OPENING_FUNDER_START:
-		if (!fromwire_opening_funder_start(tmpctx, msg, &state->opener_funding,
+		if (!fromwire_opening_funder_start(tmpctx, msg,
+						   &state->opener_funding,
 						   &state->push_msat,
 						   &state->upfront_shutdown_script[LOCAL],
 						   &state->feerate_per_kw,
@@ -3041,6 +3071,7 @@ int main(int argc, char *argv[])
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_init(state, msg,
+				   &state->node_order,
 				   &chainparams,
 				   &state->our_features,
 				   &state->localconf,

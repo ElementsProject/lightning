@@ -349,7 +349,7 @@ char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
 
 REGISTER_TYPE_TO_HEXSTR(channel_id);
 
-/* BOLT #2:
+/* BOLT-FIXME #2:
  *
  * This message introduces the `channel_id` to identify the channel.  It's
  * derived from the funding transaction by combining the `funding_txid` and
@@ -363,6 +363,31 @@ void derive_channel_id(struct channel_id *channel_id,
 	memcpy(channel_id, txid, sizeof(*channel_id));
 	channel_id->id[sizeof(*channel_id)-2] ^= txout >> 8;
 	channel_id->id[sizeof(*channel_id)-1] ^= txout;
+}
+/*
+ * BOLT-FIXME #2
+ *
+ * For channels established using the v2 protocol, the `channel_id` is the
+ * SHA256(lesser-peers-revocation-basepoint || greater-peers-revocation-basepoint),
+ * where the lesser and greater peer is based off the order of their respective
+ * node id, using the compressed key notation.
+ */
+void derive_channel_id2(struct channel_id *channel_id,
+			const struct pubkey *node_1_rev_base,
+			const struct pubkey *node_2_rev_base,
+			int comparison_result)
+{
+	struct sha256 h;
+	u8 ids[2 * PUBKEY_CMPR_LEN];
+	size_t diff_1 = comparison_result < 0 ? 0 : PUBKEY_CMPR_LEN,
+		diff_2 = comparison_result >= 0 ? 0 : PUBKEY_CMPR_LEN;
+
+	pubkey_to_der(ids + diff_1, node_1_rev_base);
+	pubkey_to_der(ids + diff_2, node_2_rev_base);
+	sha256(&h, ids, sizeof(ids));
+
+	BUILD_ASSERT(sizeof(*channel_id) == sizeof(h.u.u8));
+	memcpy(channel_id, h.u.u8, sizeof(h.u.u8));
 }
 
 struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,

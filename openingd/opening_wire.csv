@@ -5,6 +5,8 @@
 #include <common/per_peer_state.h>
 
 msgtype,opening_init,6000
+# We need the node ordering (us/peer) for deriving the channel_id (v2)
+msgdata,opening_init,node_order,u8,
 # Which network are we configured for?
 msgdata,opening_init,chainparams,chainparams,
 msgdata,opening_init,our_features,feature_set,

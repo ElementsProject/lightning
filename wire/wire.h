@@ -45,6 +45,11 @@ typedef bigsize varint;
 void derive_channel_id(struct channel_id *channel_id,
 		       const struct bitcoin_txid *txid, u16 txout);
 
+void derive_channel_id2(struct channel_id *channel_id,
+			const struct pubkey *node_1_rev_base,
+			const struct pubkey *node_2_rev_base,
+			int comparison_result);
+
 /* Read the type; returns -1 if not long enough.  cursor is a tal ptr. */
 int fromwire_peektype(const u8 *cursor);
 const void *fromwire_fail(const u8 **cursor, size_t *max);
