@@ -65,8 +65,17 @@ If you need a lot of inbound liquidity, you can use a service that trustlessly s
 for Lightning channel capacity.
 There are a few online service providers that will create channels to you.
 A few of them charge fees for this service.
-
 Note that if you already have a channel open to them, you'll need to close it before requesting another channel.
+
+### Are there any issues if my node changes its IP address? What happens to the channels if it does?
+
+There is no risk to your channels if your IP address changes.
+However, be sure to change your announced address (or [setup a TOR hidden service](TOR.md))
+in your config so that others can establish connections at your new address !
+
+### Can I have two hosts with the same public key and different IP addresses, both online and operating at the same time?
+
+No.
 
 ### Are there any issues if my node changes its IP address? What happens to the channels if it does?
 
