@@ -24,7 +24,6 @@ RUN apt-get -qq update && \
 	libsqlite3-dev \
 	libgmp-dev \
 	git \
-	python \
 	python3 \
 	valgrind \
 	net-tools \

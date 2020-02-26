@@ -36,7 +36,7 @@ Get dependencies:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python python3 python3-mako net-tools zlib1g-dev libsodium-dev \
+      libsqlite3-dev python3 python3-mako net-tools zlib1g-dev libsodium-dev \
       gettext
 
 If you don't have Bitcoin installed locally you'll need to install that
@@ -88,7 +88,6 @@ $ sudo dnf update -y && \
                 git \
                 gmp-devel \
                 libsq3-devel \
-                python2-devel \
                 python3-devel \
                 python3-pip \
                 python3-setuptools \

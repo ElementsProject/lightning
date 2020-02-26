@@ -48,7 +48,7 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
 FROM debian:stretch-slim as builder
 
 ENV LIGHTNINGD_VERSION=master
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python python3 python3-mako wget gnupg dirmngr git gettext
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python3 python3-mako wget gnupg dirmngr git gettext
 
 RUN wget -q https://zlib.net/zlib-1.2.11.tar.gz \
 && tar xvf zlib-1.2.11.tar.gz \
