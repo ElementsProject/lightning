@@ -48,7 +48,7 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
 FROM debian:stretch-slim as builder
 
 ENV LIGHTNINGD_VERSION=master
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential gettext git libtool python python3 python3-mako wget gnupg dirmngr git \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential gettext git libtool python3 python3-mako wget gnupg dirmngr git \
   libc6-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
 ENV target_host=arm-linux-gnueabihf
