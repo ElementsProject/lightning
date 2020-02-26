@@ -24,7 +24,9 @@ override_dh_auto_build:
 # dh_make generated override targets
 # This is example for Cmake (See https://bugs.debian.org/641051 )
 override_dh_auto_configure:
-	./configure CC=gcc --disable-developer --disable-valgrind --prefix=/usr
+	# PYTHON_VERSION is required for libwally's ./configure script so it
+	# doesn't fall back on the deprecated (and removed) version 2
+	PYTHON_VERSION=3 ./configure CC=gcc --disable-developer --disable-valgrind --prefix=/usr
 
 override_dh_auto_test:
 	echo Skipping
