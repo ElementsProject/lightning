@@ -7,6 +7,7 @@ c-lightning Documentation
 
    INSTALL.md
    TOR.md
+   FAQ <FAQ.md>
 
 .. toctree::
    :maxdepth: 2
