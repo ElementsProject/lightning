@@ -249,13 +249,6 @@ void unmarshal_witnesses(RepeatedPtrField<WitnessStack> const &wits,
 	*o_sigs = osigs;
 }
 
-bool return_pubkey(const string &i_pubkey, struct pubkey *o_pubkey)
-{
-	/* pubkey needs to be compressed DER */
-	return pubkey_from_der(
-		(const u8*)i_pubkey.c_str(), i_pubkey.length(), o_pubkey);
-}
-
 /* Copied from ccan/mem/mem.h which the c++ compiler doesn't like */
 static inline bool memeq(const void *a, size_t al, const void *b, size_t bl)
 {
@@ -740,38 +733,13 @@ proxy_stat proxy_handle_get_channel_basepoints(
 	GetChannelBasepointsReply rsp;
 	Status status = stub->GetChannelBasepoints(&context, req, &rsp);
 	if (status.ok()) {
-		/* FIXME - Uncomment these when real value returned */
-#if 1
-		/* For now just make valgrind happy */
-		memset(o_basepoints, '\0', sizeof(*o_basepoints));
-		memset(o_funding_pubkey, '\0', sizeof(*o_funding_pubkey));
-#else
-		if (!return_pubkey(rsp.basepoints().revocation(),
-				   &o_basepoints->revocation)) {
-			last_message = "bad returned revocation basepoint";
-			return PROXY_INTERNAL_ERROR;
-		}
-		if (!return_pubkey(rsp.basepoints().payment(),
-				   &o_basepoints->payment)) {
-			last_message = "bad returned payment basepoint";
-			return PROXY_INTERNAL_ERROR;
-		}
-		if (!return_pubkey(rsp.basepoints().htlc(),
-				   &o_basepoints->htlc)) {
-			last_message = "bad returned htlc basepoint";
-			return PROXY_INTERNAL_ERROR;
-		}
-		if (!return_pubkey(rsp.basepoints().delayed_payment(),
-				   &o_basepoints->delayed_payment)) {
-			last_message = "bad returned delayed_payment basepoint";
-			return PROXY_INTERNAL_ERROR;
-		}
-		if (!return_pubkey(rsp.remote_funding_pubkey(),
-				   o_funding_pubkey)) {
-			last_message = "bad returned funding pubkey";
-			return PROXY_INTERNAL_ERROR;
-		}
-#endif
+		Basepoints const & bps = rsp.basepoints();
+		unmarshal_pubkey(bps.revocation(), &o_basepoints->revocation);
+		unmarshal_pubkey(bps.payment(), &o_basepoints->payment);
+		unmarshal_pubkey(bps.htlc(), &o_basepoints->htlc);
+		unmarshal_pubkey(bps.delayed_payment(),
+				 &o_basepoints->delayed_payment);
+		unmarshal_pubkey(bps.funding_pubkey(), o_funding_pubkey);
 		status_debug("%s:%d %s self_id=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),

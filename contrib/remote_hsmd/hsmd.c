@@ -963,7 +963,6 @@ static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
 {
 	struct node_id peer_id;
 	u64 dbid;
-	struct secret seed;
 	struct basepoints basepoints;
 	struct pubkey funding_pubkey;
 
@@ -980,12 +979,7 @@ static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	get_channel_seed(&peer_id, dbid, &seed);
-	derive_basepoints(&seed, &funding_pubkey, &basepoints, NULL, NULL);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c,
 			 take(towire_hsm_get_channel_basepoints_reply(NULL,
