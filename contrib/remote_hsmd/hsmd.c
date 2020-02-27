@@ -1498,8 +1498,6 @@ static struct io_plan *handle_get_per_commitment_point(struct io_conn *conn,
 						       struct client *c,
 						       const u8 *msg_in)
 {
-	struct secret channel_seed;
-	struct sha256 shaseed;
 	struct pubkey per_commitment_point;
 	u64 n;
 	struct secret *old_secret;
@@ -1518,32 +1516,7 @@ static struct io_plan *handle_get_per_commitment_point(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - lightning-signer server only currently returns the
-	 * per_commitment_point, use the original code to compute the
-	 * old_secret for now.
-	 */
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
-
-	/*
-	if (!per_commit_point(&shaseed, &per_commitment_point, n))
-		return bad_req_fmt(conn, c, msg_in,
-				   "bad per_commit_point %"PRIu64, n);
-	*/
-
-	/* FIXME - replace this with old_secret from the server */
-	if (n >= 2) {
-		old_secret = tal(tmpctx, struct secret);
-		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
-			return bad_req_fmt(conn, c, msg_in,
-					   "Cannot derive secret %"PRIu64,
-					   n - 2);
-		}
-	} else
-		old_secret = NULL;
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	/*~ hsm_client_wire.csv marks the secret field here optional, so it only
 	 * gets included if the parameter is non-NULL.  We violate 80 columns

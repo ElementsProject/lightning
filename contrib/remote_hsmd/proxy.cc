@@ -563,10 +563,12 @@ proxy_stat proxy_handle_get_per_commitment_point(
 	if (status.ok()) {
 		unmarshal_pubkey(rsp.per_commitment_point(),
 			      o_per_commitment_point);
-		if (rsp.old_secret().data().empty())
+		if (rsp.old_secret().data().empty()) {
 			*o_old_secret = NULL;
-		else
+		} else {
+			*o_old_secret = tal_arr(tmpctx, struct secret, 1);
 			unmarshal_secret(rsp.old_secret(), *o_old_secret);
+		}
 		status_debug("%s:%d %s self_id=%s "
 			     "per_commitment_point=%s old_secret=%s",
 			     __FILE__, __LINE__, __FUNCTION__,

@@ -4,7 +4,7 @@ API Coverage
 
 ## Failing Tests
 
-# intermittent
+# Frequently Intermittent
 tests/test_connection.py::test_funding_cancel_race
 tests/test_misc.py::test_bad_onion_immediate_peer
 
@@ -18,11 +18,11 @@ COMPLETE		proxy_stat proxy_handle_sign_node_announcement
 COMPLETE		proxy_stat proxy_handle_sign_remote_htlc_tx
 COMPLETE		proxy_stat proxy_handle_sign_invoice
 COMPLETE		proxy_stat proxy_handle_get_channel_basepoints
+COMPLETE		proxy_stat proxy_handle_get_per_commitment_point
 
 PARTIAL (-P2SH)	proxy_stat proxy_handle_sign_withdrawal_tx
 
 MARSHALED		proxy_stat proxy_init_hsm
-MARSHALED		proxy_stat proxy_handle_get_per_commitment_point
 MARSHALED		proxy_stat proxy_handle_sign_message
 MARSHALED		proxy_stat proxy_handle_sign_mutual_close_tx
 MARSHALED		proxy_stat proxy_handle_sign_commitment_tx
