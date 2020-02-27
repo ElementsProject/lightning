@@ -116,7 +116,7 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 		goto out;
 	} else
 		/* It's a raw gossip msg: this copies or takes() */
-		gossip = tal_dup_arr(tmpctx, u8, msg, tal_bytelen(msg), 0);
+		gossip = tal_dup_talarr(tmpctx, u8, msg);
 
 	/* Gossipd can send us gossip messages, OR errors */
 	if (fromwire_peektype(gossip) == WIRE_ERROR) {

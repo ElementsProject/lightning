@@ -8,6 +8,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
+#include <common/utils.h>
 
 /* Some standard ops */
 #define OP_0		0x00
@@ -451,8 +452,7 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
 
 	witness[0] = stack_sig(witness, sig);
 	witness[1] = tal_dup_arr(witness, u8, elem, elemsize, 0);
-	witness[2] = tal_dup_arr(witness, u8,
-				 witnessscript, tal_count(witnessscript), 0);
+	witness[2] = tal_dup_talarr(witness, u8, witnessscript);
 
 	return witness;
 }
@@ -675,7 +675,7 @@ u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
 	witness[1] = stack_sig(witness, remotehtlcsig);
 	witness[2] = stack_sig(witness, localhtlcsig);
 	witness[3] = stack_number(witness, 0);
-	witness[4] = tal_dup_arr(witness, u8, wscript, tal_count(wscript), 0);
+	witness[4] = tal_dup_talarr(witness, u8, wscript);
 
 	return witness;
 }
@@ -692,7 +692,7 @@ u8 **bitcoin_witness_htlc_success_tx(const tal_t *ctx,
 	witness[1] = stack_sig(witness, remotesig);
 	witness[2] = stack_sig(witness, localhtlcsig);
 	witness[3] = stack_preimage(witness, preimage);
-	witness[4] = tal_dup_arr(witness, u8, wscript, tal_count(wscript), 0);
+	witness[4] = tal_dup_talarr(witness, u8, wscript);
 
 	return witness;
 }

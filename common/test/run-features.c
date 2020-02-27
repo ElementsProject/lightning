@@ -112,14 +112,14 @@ int main(void)
 
 	/* We can add random odd features, no problem. */
 	for (size_t i = 1; i < 16; i += 2) {
-		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
+		bits = tal_dup_talarr(tmpctx, u8, lf);
 		set_feature_bit(&bits, i);
 		assert(features_unsupported(bits) == -1);
 	}
 
 	/* We can't add random even features. */
 	for (size_t i = 0; i < 16; i += 2) {
-		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
+		bits = tal_dup_talarr(tmpctx, u8, lf);
 		set_feature_bit(&bits, i);
 
 		/* Special case for missing compulsory feature */

@@ -468,8 +468,7 @@ remote_routing_failure(const tal_t *ctx,
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
-	routing_failure->msg = tal_dup_arr(routing_failure, u8, failuremsg,
-					   tal_count(failuremsg), 0);
+	routing_failure->msg = tal_dup_talarr(routing_failure, u8, failuremsg);
 
 	if (erring_node != NULL)
 		routing_failure->erring_node =

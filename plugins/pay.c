@@ -868,8 +868,7 @@ static struct command_result *getroute_error(struct command *cmd,
 /* Deep copy of excludes array. */
 static const char **dup_excludes(const tal_t *ctx, const char **excludes)
 {
-	const char **ret = tal_dup_arr(ctx, const char *,
-				       excludes, tal_count(excludes), 0);
+	const char **ret = tal_dup_talarr(ctx, const char *, excludes);
 	for (size_t i = 0; i < tal_count(ret); i++)
 		ret[i] = tal_strdup(ret, excludes[i]);
 	return ret;

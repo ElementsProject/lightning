@@ -395,9 +395,9 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	pr->cs = *cs;
 	pr->addr = *addr;
 
-	/*~ Note that tal_dup_arr() will do handle the take() of features
+	/*~ Note that tal_dup_talarr() will do handle the take() of features
 	 * (turning it into a simply tal_steal() in those cases). */
-	pr->features = tal_dup_arr(pr, u8, features, tal_count(features), 0);
+	pr->features = tal_dup_talarr(pr, u8, features);
 
 	/*~ ccan/io supports waiting on an address: in this case, the key in
 	 * the peer set.  When someone calls `io_wake()` on that address, it

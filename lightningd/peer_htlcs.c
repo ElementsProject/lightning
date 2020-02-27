@@ -1748,7 +1748,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		/* If subdaemon dies, we want to forget this. */
 		d = tal(channel->owner, struct deferred_commitsig);
 		d->channel = channel;
-		d->msg = tal_dup_arr(d, u8, msg, tal_count(msg), 0);
+		d->msg = tal_dup_talarr(d, u8, msg);
 		topology_add_sync_waiter(d, ld->topology,
 					 retry_deferred_commitsig, d);
 		return;

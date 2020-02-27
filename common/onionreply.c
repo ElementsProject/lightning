@@ -28,13 +28,13 @@ struct onionreply *dup_onionreply(const tal_t *ctx,
 		return cast_const(struct onionreply *, tal_steal(ctx, r));
 
 	n = tal(ctx, struct onionreply);
-	n->contents = tal_dup_arr(n, u8, r->contents, tal_count(r->contents), 0);
+	n->contents = tal_dup_talarr(n, u8, r->contents);
 	return n;
 }
 
 struct onionreply *new_onionreply(const tal_t *ctx, const u8 *contents TAKES)
 {
 	struct onionreply *r = tal(ctx, struct onionreply);
-	r->contents = tal_dup_arr(r, u8, contents, tal_count(contents), 0);
+	r->contents = tal_dup_talarr(r, u8, contents);
 	return r;
 }

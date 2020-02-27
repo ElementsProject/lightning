@@ -1650,7 +1650,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	}
 
 	uc = tal(rstate, struct unupdated_channel);
-	uc->channel_announce = tal_dup_arr(uc, u8, msg, tal_count(msg), 0);
+	uc->channel_announce = tal_dup_talarr(uc, u8, msg);
 	uc->added = gossip_time_now(rstate);
 	uc->index = index;
 	uc->sat = sat;
@@ -1694,8 +1694,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	pending->updates[0] = NULL;
 	pending->updates[1] = NULL;
 	pending->update_peer_softref[0] = pending->update_peer_softref[1] = NULL;
-	pending->announce = tal_dup_arr(pending, u8,
-					announce, tal_count(announce), 0);
+	pending->announce = tal_dup_talarr(pending, u8, announce);
 	pending->update_timestamps[0] = pending->update_timestamps[1] = 0;
 
 	if (!fromwire_channel_announcement(pending, pending->announce,
@@ -1973,7 +1972,8 @@ static void update_pending(struct pending_cannouncement *pending,
 					  "Replacing existing update");
 			tal_free(pending->updates[direction]);
 		}
-		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_count(update), 0);
+		pending->updates[direction]
+			= tal_dup_talarr(pending, u8, update);
 		pending->update_timestamps[direction] = timestamp;
 		clear_softref(pending, &pending->update_peer_softref[direction]);
 		set_softref(pending, &pending->update_peer_softref[direction],
@@ -2473,9 +2473,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		pna->index = index;
 		tal_free(pna->node_announcement);
 		clear_softref(pna, &pna->peer_softref);
-		pna->node_announcement = tal_dup_arr(pna, u8, msg,
-						     tal_count(msg),
-						     0);
+		pna->node_announcement = tal_dup_talarr(pna, u8, msg);
 		set_softref(pna, &pna->peer_softref, peer);
 		return true;
 	}

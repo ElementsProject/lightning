@@ -82,7 +82,7 @@ void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES)
 {
 	scriptpubkeyset_add(
 	    &filter->scriptpubkeyset,
-	    notleak(tal_dup_arr(filter, u8, script, tal_count(script), 0)));
+	    notleak(tal_dup_talarr(filter, u8, script)));
 }
 
 void txfilter_add_derkey(struct txfilter *filter,

@@ -214,8 +214,7 @@ static bool check_params(struct param *params)
 		return false;
 
 	/* duplicate so we can sort */
-	struct param *copy = tal_dup_arr(params, struct param,
-					 params, tal_count(params), 0);
+	struct param *copy = tal_dup_talarr(params, struct param, params);
 
 	/* check for repeated names and args */
 	if (!check_unique(copy, comp_by_name))

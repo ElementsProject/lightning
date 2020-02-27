@@ -4,6 +4,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <wire/wire_io.h>
 
@@ -136,9 +137,8 @@ struct io_plan *io_write_wire_(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	arg->u1.const_vp = tal_dup_arr(conn, u8,
-				       memcheck(data, tal_bytelen(data)),
-				       tal_bytelen(data), 0);
+	arg->u1.const_vp = tal_dup_talarr(conn, u8,
+					  memcheck(data, tal_bytelen(data)));
 
 	/* We use u2 to store the length we've written. */
 	arg->u2.s = INSIDE_HEADER_BIT;
