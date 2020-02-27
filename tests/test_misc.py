@@ -184,8 +184,11 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
     assert 'warning_lightningd_sync' in l1.rpc.getinfo()
 
+    # Make sure it's connected to l2 (otherwise we get TEMPORARY_CHANNEL_FAILURE)
+    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+
     # Payments will fail.  FIXME: More informative msg?
-    with pytest.raises(RpcError, match=r'TEMPORARY_CHANNEL_FAILURE'):
+    with pytest.raises(RpcError, match=r'TEMPORARY_NODE_FAILURE'):
         l1.pay(l2, 1000)
 
     # Can't fund a new channel.

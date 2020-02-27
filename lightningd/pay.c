@@ -741,11 +741,13 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 {
 	const u8 *onion;
 	unsigned int base_expiry;
+	bool dont_care_about_channel_update;
 	base_expiry = get_block_height(ld->topology) + 1;
 	onion = serialize_onionpacket(tmpctx, packet);
 	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
-			     payment_hash, partid, onion, NULL, hout);
+			     payment_hash, partid, onion, NULL, hout,
+			     &dont_care_about_channel_update);
 }
 
 /* destination/route_channels/route_nodes are NULL (and path_secrets may be NULL)
