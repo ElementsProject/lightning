@@ -73,15 +73,6 @@ msgdata,gossip_ping_reply,totlen,u16,
 msgtype,gossip_dev_set_max_scids_encode_size,3030
 msgdata,gossip_dev_set_max_scids_encode_size,max,u32,
 
-# Given a short_channel_id, return the other endpoint (or none if DNE)
-msgtype,gossip_get_channel_peer,3009
-msgdata,gossip_get_channel_peer,channel_id,short_channel_id,
-
-msgtype,gossip_get_channel_peer_reply,3109
-msgdata,gossip_get_channel_peer_reply,peer_id,?node_id,
-msgdata,gossip_get_channel_peer_reply,stripped_update_len,u16,
-msgdata,gossip_get_channel_peer_reply,stripped_update,u8,stripped_update_len
-
 # Given a short_channel_id, return the latest (stripped) update for error msg.
 msgtype,gossip_get_stripped_cupdate,3010
 msgdata,gossip_get_stripped_cupdate,channel_id,short_channel_id,
