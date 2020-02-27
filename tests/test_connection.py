@@ -2207,7 +2207,11 @@ def test_change_chaining(node_factory, bitcoind):
 def test_feerate_spam(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
 
-    slack = 45000000
+    # We constrain the value the funder has at its disposal so we get the
+    # REMOTE feerate we are looking for below. This may be fragile and depends
+    # on the transactions we generate.
+    slack = 45000000 if not chainparams['elements'] else 68000000
+
     # Pay almost everything to l2.
     l1.pay(l2, 10**9 - slack)
 
