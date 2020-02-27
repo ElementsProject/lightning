@@ -513,8 +513,6 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	/*~ The three "global" daemons, which we shutdown explicitly: we
 	 * give them 10 seconds to exit gracefully before killing them.  */
 	ld->connectd = subd_shutdown(ld->connectd, 10);
-	ld->gossip = subd_shutdown(ld->gossip, 10);
-	ld->hsm = subd_shutdown(ld->hsm, 10);
 
 	/* Now we free all the HTLCs */
 	free_htlcs(ld, NULL);
@@ -546,6 +544,11 @@ static void shutdown_subdaemons(struct lightningd *ld)
 		/* Removes itself from list as we free it */
 		tal_free(p);
 	}
+
+	/*~ Now they're all dead, we can stop gossipd: doing it before HTLCs is
+	 * problematic because local_fail_in_htlc_needs_update() asks gossipd */
+	ld->gossip = subd_shutdown(ld->gossip, 10);
+	ld->hsm = subd_shutdown(ld->hsm, 10);
 
 	/*~ Commit the transaction.  Note that the db is actually
 	 * single-threaded, so commits never fail and we don't need
