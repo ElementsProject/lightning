@@ -3,7 +3,6 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <lightningd/lightningd.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/socket.h>
