@@ -3,6 +3,7 @@
 #include "close_tx.h"
 #include "permute_tx.h"
 #include <assert.h>
+#include <common/utils.h>
 
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
@@ -41,16 +42,14 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 			     BITCOIN_TX_DEFAULT_SEQUENCE, funding, NULL);
 
 	if (amount_sat_greater_eq(to_us, dust_limit)) {
-		script =
-		    tal_dup_arr(tx, u8, our_script, tal_count(our_script), 0);
+		script = tal_dup_talarr(tx, u8, our_script);
 		/* One output is to us. */
 		bitcoin_tx_add_output(tx, script, to_us);
 		num_outputs++;
 	}
 
 	if (amount_sat_greater_eq(to_them, dust_limit)) {
-		script = tal_dup_arr(tx, u8, their_script,
-				     tal_count(their_script), 0);
+		script = tal_dup_talarr(tx, u8, their_script);
 		/* Other output is to them. */
 		bitcoin_tx_add_output(tx, script, to_them);
 		num_outputs++;

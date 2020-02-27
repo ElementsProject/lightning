@@ -62,8 +62,7 @@ struct sphinx_path {
 struct sphinx_path *sphinx_path_new(const tal_t *ctx, const u8 *associated_data)
 {
 	struct sphinx_path *sp = tal(ctx, struct sphinx_path);
-	sp->associated_data = tal_dup_arr(sp, u8, associated_data,
-					  tal_bytelen(associated_data), 0);
+	sp->associated_data = tal_dup_talarr(sp, u8, associated_data);
 	sp->session_key = NULL;
 	sp->hops = tal_arr(sp, struct sphinx_hop, 0);
 	return sp;
@@ -95,7 +94,7 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 		    const u8 *payload TAKES)
 {
 	struct sphinx_hop sp;
-	sp.raw_payload = tal_dup_arr(path, u8, payload, tal_count(payload), 0);
+	sp.raw_payload = tal_dup_talarr(path, u8, payload);
 	sp.pubkey = *pubkey;
 	tal_arr_expand(&path->hops, sp);
 }

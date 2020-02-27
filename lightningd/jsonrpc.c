@@ -831,10 +831,8 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
-	rpc_hook->buffer = tal_dup_arr(rpc_hook, char, jcon->buffer,
-	                               tal_count(jcon->buffer), 0);
-	rpc_hook->request = tal_dup_arr(rpc_hook, const jsmntok_t, tok,
-	                                tal_count(tok), 0);
+	rpc_hook->buffer = tal_dup_talarr(rpc_hook, char, jcon->buffer);
+	rpc_hook->request = tal_dup_talarr(rpc_hook, jsmntok_t, tok);
 	/* Prevent a race between was_pending and still_pending */
 	new_reltimer(c->ld->timers, rpc_hook, time_from_msec(1),
 	             call_rpc_command_hook, rpc_hook);

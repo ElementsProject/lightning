@@ -77,8 +77,7 @@ static void destroy_peer(struct peer *peer)
 static void peer_update_features(struct peer *peer, const u8 *features TAKES)
 {
 	tal_free(peer->features);
-	peer->features = tal_dup_arr(peer, u8,
-				     features, tal_count(features), 0);
+	peer->features = tal_dup_talarr(peer, u8, features);
 }
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
@@ -386,9 +385,7 @@ void channel_errmsg(struct channel *channel,
 
 	/* Do we have an error to send? */
 	if (err_for_them && !channel->error)
-		channel->error = tal_dup_arr(channel, u8,
-					     err_for_them,
-					     tal_count(err_for_them), 0);
+		channel->error = tal_dup_talarr(channel, u8, err_for_them);
 
 	/* Other implementations chose to ignore errors early on.  Not
 	 * surprisingly, they now spew out spurious errors frequently,

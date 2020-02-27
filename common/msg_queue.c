@@ -16,7 +16,7 @@ struct msg_queue *msg_queue_new(const tal_t *ctx)
 
 static void do_enqueue(struct msg_queue *q, const u8 *add TAKES)
 {
-	tal_arr_expand(&q->q, tal_dup_arr(q, u8, add, tal_count(add), 0));
+	tal_arr_expand(&q->q, tal_dup_talarr(q, u8, add));
 
 	/* In case someone is waiting */
 	io_wake(q);

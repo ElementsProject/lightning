@@ -1612,7 +1612,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 
 		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
-		utxo->scriptPubkey = tal_dup_arr(utxo, u8, script, tal_bytelen(script), 0);
+		utxo->scriptPubkey = tal_dup_talarr(utxo, u8, script);
 
 		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s",
 			  output,
