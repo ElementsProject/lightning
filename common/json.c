@@ -4,7 +4,10 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
+#include <bitcoin/short_channel_id.h>
+#include <bitcoin/tx.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -14,6 +17,7 @@
 #include <common/json_stream.h>
 #include <common/node_id.h>
 #include <common/overflows.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <ctype.h>

@@ -6,6 +6,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/json.h>
 #include <common/json_helpers.h>
+#include <common/json_stream.h>
 #include <stdio.h>
 
 #ifdef NDEBUG

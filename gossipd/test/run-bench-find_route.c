@@ -4,6 +4,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/json_stream.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>

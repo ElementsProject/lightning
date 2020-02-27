@@ -1,5 +1,6 @@
 #include <common/bech32.h>
 #include <common/hash_u5.h>
+#include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
@@ -8,6 +9,8 @@
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <hsmd/gen_hsm_wire.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
 #include <string.h>
 #include <wire/wire_sync.h>
