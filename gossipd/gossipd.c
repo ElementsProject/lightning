@@ -1377,6 +1377,46 @@ static struct io_plan *get_channel_peer(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+/*~ lightningd: so, get me the latest update for this local channel,
+ *  so I can include it in an error message. */
+static struct io_plan *get_stripped_cupdate(struct io_conn *conn,
+					    struct daemon *daemon, const u8 *msg)
+{
+	struct short_channel_id scid;
+	struct local_chan *local_chan;
+	const u8 *stripped_update;
+
+	if (!fromwire_gossip_get_stripped_cupdate(msg, &scid))
+		master_badmsg(WIRE_GOSSIP_GET_STRIPPED_CUPDATE, msg);
+
+	local_chan = local_chan_map_get(&daemon->rstate->local_chan_map, &scid);
+	if (!local_chan) {
+		status_debug("Failed to resolve local channel %s",
+			     type_to_string(tmpctx, struct short_channel_id, &scid));
+		stripped_update = NULL;
+	} else {
+		const struct half_chan *hc;
+
+		/* Since we're going to use it, make sure it's up-to-date. */
+		refresh_local_channel(daemon, local_chan, false);
+
+		hc = &local_chan->chan->half[local_chan->direction];
+		if (is_halfchan_defined(hc)) {
+			const u8 *update;
+
+			update = gossip_store_get(tmpctx, daemon->rstate->gs,
+						  hc->bcast.index);
+			stripped_update = tal_dup_arr(tmpctx, u8, update + 2,
+						      tal_count(update) - 2, 0);
+		} else
+			stripped_update = NULL;
+	}
+	daemon_conn_send(daemon->master,
+			 take(towire_gossip_get_stripped_cupdate_reply(NULL,
+							   stripped_update)));
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
 /*~ We queue incoming channel_announcement pending confirmation from lightningd
  * that it really is an unspent output.  Here's its reply. */
 static struct io_plan *handle_txout_reply(struct io_conn *conn,
@@ -1574,6 +1614,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_GET_CHANNEL_PEER:
 		return get_channel_peer(conn, daemon, msg);
 
+	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE:
+		return get_stripped_cupdate(conn, daemon, msg);
+
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 		return handle_txout_reply(conn, daemon, msg);
 
@@ -1621,6 +1664,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
+	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_GET_TXOUT:
 	case WIRE_GOSSIP_DEV_MEMLEAK_REPLY:

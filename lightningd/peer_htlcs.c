@@ -128,6 +128,74 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 	return f;
 }
 
+static void tell_channeld_htlc_failed(const struct htlc_in *hin,
+				      const struct failed_htlc *failed_htlc)
+{
+	/* Tell peer, if we can. */
+	if (!hin->key.channel->owner)
+		return;
+
+	/* onchaind doesn't care, it can't do anything but wait */
+	if (channel_on_chain(hin->key.channel))
+		return;
+
+	subd_send_msg(hin->key.channel->owner,
+		      take(towire_channel_fail_htlc(NULL, failed_htlc)));
+}
+
+struct failmsg_update_cbdata {
+	struct htlc_in *hin;
+	const u8 *failmsg_needs_update;
+};
+
+static void failmsg_update_reply(struct subd *gossipd,
+				 const u8 *msg,
+				 const int *unused,
+				 struct failmsg_update_cbdata *cbdata)
+{
+	u8 *failmsg;
+	u8 *stripped_update;
+	struct failed_htlc *failed_htlc;
+
+	/* In theory, we could have no update because channel suddenly closed,
+	 * but it's v. unlikely */
+	if (!fromwire_gossip_get_stripped_cupdate_reply(msg, msg,
+							&stripped_update)
+	    || !tal_count(stripped_update)) {
+		log_broken(gossipd->log,
+			   "bad fromwire_gossip_get_stripped_cupdate %s",
+			   tal_hex(msg, msg));
+		failmsg = towire_temporary_node_failure(NULL);
+	} else {
+		/* End of failmsg is two zero bytes (empty update). */
+		assert(tal_count(cbdata->failmsg_needs_update) >= 2);
+		failmsg = tal_dup_arr(msg, u8,
+				      cbdata->failmsg_needs_update,
+				      tal_count(cbdata->failmsg_needs_update)-2,
+				      0);
+		towire_u16(&failmsg, tal_count(stripped_update));
+		towire_u8_array(&failmsg,
+				stripped_update, tal_count(stripped_update));
+	}
+
+	/* Now we replace dummy failonion with this real one */
+	tal_free(cbdata->hin->failonion);
+	cbdata->hin->failonion
+		= create_onionreply(cbdata->hin,
+				    cbdata->hin->shared_secret,
+				    failmsg);
+
+	wallet_htlc_update(gossipd->ld->wallet,
+			   cbdata->hin->dbid, cbdata->hin->hstate,
+			   cbdata->hin->preimage,
+			   cbdata->hin->badonion,
+			   cbdata->hin->failonion, NULL);
+
+	failed_htlc = mk_failed_htlc(tmpctx,
+				     cbdata->hin, cbdata->hin->failonion);
+	tell_channeld_htlc_failed(cbdata->hin, failed_htlc);
+}
+
 static void fail_in_htlc(struct htlc_in *hin,
 			 const struct onionreply *failonion TAKES)
 {
@@ -140,17 +208,8 @@ static void fail_in_htlc(struct htlc_in *hin,
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
 	htlc_in_check(hin, __func__);
 
-	/* Tell peer, if we can. */
-	if (!hin->key.channel->owner)
-		return;
-
-	/* onchaind doesn't care, it can't do anything but wait */
-	if (channel_on_chain(hin->key.channel))
-		return;
-
 	failed_htlc = mk_failed_htlc(tmpctx, hin, hin->failonion);
-	subd_send_msg(hin->key.channel->owner,
-		      take(towire_channel_fail_htlc(NULL, failed_htlc)));
+	tell_channeld_htlc_failed(hin, failed_htlc);
 }
 
 /* Immediately fail HTLC with a BADONION code */
@@ -167,17 +226,7 @@ static void local_fail_in_htlc_badonion(struct htlc_in *hin,
 	htlc_in_check(hin, __func__);
 
 	failed_htlc = mk_failed_htlc_badonion(tmpctx, hin, badonion);
-
-	/* Tell peer, if we can. */
-	if (!hin->key.channel->owner)
-		return;
-
-	/* onchaind doesn't care, it can't do anything but wait */
-	if (channel_on_chain(hin->key.channel))
-		return;
-
-	subd_send_msg(hin->key.channel->owner,
-		      take(towire_channel_fail_htlc(NULL, failed_htlc)));
+	tell_channeld_htlc_failed(hin, failed_htlc);
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
@@ -191,6 +240,34 @@ void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 		tal_free(failmsg);
 
 	fail_in_htlc(hin, take(failonion));
+}
+
+/* This is used for cases where we can immediately fail the HTLC, but
+ * need to append a channel_update. */
+void local_fail_in_htlc_needs_update(struct htlc_in *hin,
+				     const u8 *failmsg_needs_update TAKES,
+				     const struct short_channel_id *failmsg_scid)
+{
+	struct failmsg_update_cbdata *cbdata;
+
+	/* To avoid the state where we have no failonion, we use a temporary
+	 * one, and update once we get the reply from gossipd. */
+	assert(!hin->preimage);
+
+	hin->failonion = create_onionreply(hin,
+					   hin->shared_secret,
+					   towire_temporary_node_failure(tmpctx));
+	/* We update state now to signal it's in progress, for persistence. */
+	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
+	htlc_in_check(hin, __func__);
+
+	cbdata = tal(hin, struct failmsg_update_cbdata);
+	cbdata->hin = hin;
+	cbdata->failmsg_needs_update
+		= tal_dup_talarr(cbdata, u8, failmsg_needs_update);
+	subd_req(cbdata, hin->key.channel->peer->ld->gossip,
+		 take(towire_gossip_get_stripped_cupdate(NULL, failmsg_scid)),
+		 -1, 0, failmsg_update_reply, cbdata);
 }
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
