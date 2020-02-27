@@ -74,6 +74,9 @@ void htlcs_resubmit(struct lightningd *ld,
 /* For HTLCs which terminate here, invoice payment calls one of these. */
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage);
 void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES);
+void local_fail_in_htlc_needs_update(struct htlc_in *hin,
+				     const u8 *failmsg_needs_update TAKES,
+				     const struct short_channel_id *failmsg_scid);
 
 /* This json process will be used as the serialize method for
  * forward_event_notification_gen and be used in

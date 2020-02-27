@@ -82,6 +82,14 @@ msgdata,gossip_get_channel_peer_reply,peer_id,?node_id,
 msgdata,gossip_get_channel_peer_reply,stripped_update_len,u16,
 msgdata,gossip_get_channel_peer_reply,stripped_update,u8,stripped_update_len
 
+# Given a short_channel_id, return the latest (stripped) update for error msg.
+msgtype,gossip_get_stripped_cupdate,3010
+msgdata,gossip_get_stripped_cupdate,channel_id,short_channel_id,
+
+msgtype,gossip_get_stripped_cupdate_reply,3110
+msgdata,gossip_get_stripped_cupdate_reply,stripped_update_len,u16,
+msgdata,gossip_get_stripped_cupdate_reply,stripped_update,u8,stripped_update_len
+
 # gossipd->master: we're closing this channel.
 msgtype,gossip_local_channel_close,3027
 msgdata,gossip_local_channel_close,short_channel_id,short_channel_id,

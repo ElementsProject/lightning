@@ -123,6 +123,9 @@ bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8
 /* Generated stub for fromwire_gossip_get_channel_peer_reply */
 bool fromwire_gossip_get_channel_peer_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id **peer_id UNNEEDED, u8 **stripped_update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_channel_peer_reply called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_get_stripped_cupdate_reply */
+bool fromwire_gossip_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_get_stripped_cupdate_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_ecdh_resp */
 bool fromwire_hsm_ecdh_resp(const void *p UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_ecdh_resp called!\n"); abort(); }
@@ -577,9 +580,6 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 					  void *arg) UNNEEDED,
 			       void *arg UNNEEDED)
 { fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
-/* Generated stub for towire_amount_below_minimum */
-u8 *towire_amount_below_minimum(const tal_t *ctx UNNEEDED, struct amount_msat htlc_msat UNNEEDED, const u8 *channel_update UNNEEDED)
-{ fprintf(stderr, "towire_amount_below_minimum called!\n"); abort(); }
 /* Generated stub for towire_channel_dev_memleak */
 u8 *towire_channel_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_dev_memleak called!\n"); abort(); }
@@ -645,6 +645,9 @@ u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_
 /* Generated stub for towire_gossip_get_channel_peer */
 u8 *towire_gossip_get_channel_peer(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_gossip_get_channel_peer called!\n"); abort(); }
+/* Generated stub for towire_gossip_get_stripped_cupdate */
+u8 *towire_gossip_get_stripped_cupdate(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_gossip_get_stripped_cupdate called!\n"); abort(); }
 /* Generated stub for towire_hsm_ecdh_req */
 u8 *towire_hsm_ecdh_req(const tal_t *ctx UNNEEDED, const struct pubkey *point UNNEEDED)
 { fprintf(stderr, "towire_hsm_ecdh_req called!\n"); abort(); }
@@ -657,24 +660,9 @@ u8 *towire_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expiry UNNE
 /* Generated stub for towire_incorrect_or_unknown_payment_details */
 u8 *towire_incorrect_or_unknown_payment_details(const tal_t *ctx UNNEEDED, struct amount_msat htlc_msat UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "towire_incorrect_or_unknown_payment_details called!\n"); abort(); }
-/* Generated stub for towire_invalid_onion_hmac */
-u8 *towire_invalid_onion_hmac(const tal_t *ctx UNNEEDED, const struct sha256 *sha256_of_onion UNNEEDED)
-{ fprintf(stderr, "towire_invalid_onion_hmac called!\n"); abort(); }
-/* Generated stub for towire_invalid_onion_key */
-u8 *towire_invalid_onion_key(const tal_t *ctx UNNEEDED, const struct sha256 *sha256_of_onion UNNEEDED)
-{ fprintf(stderr, "towire_invalid_onion_key called!\n"); abort(); }
-/* Generated stub for towire_invalid_onion_payload */
-u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, varint type UNNEEDED, u16 offset UNNEEDED)
-{ fprintf(stderr, "towire_invalid_onion_payload called!\n"); abort(); }
-/* Generated stub for towire_invalid_onion_version */
-u8 *towire_invalid_onion_version(const tal_t *ctx UNNEEDED, const struct sha256 *sha256_of_onion UNNEEDED)
-{ fprintf(stderr, "towire_invalid_onion_version called!\n"); abort(); }
 /* Generated stub for towire_invalid_realm */
 u8 *towire_invalid_realm(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_invalid_realm called!\n"); abort(); }
-/* Generated stub for towire_mpp_timeout */
-u8 *towire_mpp_timeout(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_mpp_timeout called!\n"); abort(); }
 /* Generated stub for towire_onchain_dev_memleak */
 u8 *towire_onchain_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchain_dev_memleak called!\n"); abort(); }

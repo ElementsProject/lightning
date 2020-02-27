@@ -139,6 +139,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_GET_CHANNEL_PEER:
+	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE:
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 	case WIRE_GOSSIP_OUTPOINT_SPENT:
 	case WIRE_GOSSIP_PAYMENT_FAILURE:
@@ -158,6 +159,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIP_DEV_COMPACT_STORE_REPLY:
+	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE_REPLY:
 		break;
 
 	case WIRE_GOSSIP_PING_REPLY:
