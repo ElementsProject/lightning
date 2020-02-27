@@ -1199,14 +1199,10 @@ command_find_channel(struct command *cmd,
 				    tok->end - tok->start,
 				    buffer + tok->start);
 	} else if (json_to_short_channel_id(buffer, tok, &scid)) {
-		list_for_each(&ld->peers, peer, list) {
-			*channel = peer_active_channel(peer);
-			if (!*channel)
-				continue;
-			if ((*channel)->scid
-			    && (*channel)->scid->u64 == scid.u64)
-				return NULL;
-		}
+		*channel = active_channel_by_scid(ld, &scid);
+		if (*channel)
+			return NULL;
+
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Short channel ID not found: '%.*s'",
 				    tok->end - tok->start,

@@ -657,13 +657,13 @@ static void forward_htlc(struct htlc_in *hin,
 			 u32 cltv_expiry,
 			 struct amount_msat amt_to_forward,
 			 u32 outgoing_cltv_value,
-			 const struct node_id *next_hop,
+			 const struct short_channel_id *scid,
 			 const u8 next_onion[TOTAL_PACKET_SIZE])
 {
 	const u8 *failmsg;
 	struct amount_msat fee;
 	struct lightningd *ld = hin->key.channel->peer->ld;
-	struct channel *next = active_channel_by_id(ld, next_hop, NULL);
+	struct channel *next = active_channel_by_scid(ld, scid);
 	struct htlc_out *hout = NULL;
 	bool needs_update_appended;
 
@@ -767,50 +767,6 @@ fail:
 				 hin, next->scid, hout,
 				 FORWARD_LOCAL_FAILED,
 				 fromwire_peektype(failmsg));
-}
-
-/* Temporary information, while we resolve the next hop */
-struct gossip_resolve {
-	struct short_channel_id next_channel;
-	struct amount_msat amt_to_forward;
-	struct amount_msat total_msat;
-	/* Only set if TLV specifies it */
-	const struct secret *payment_secret;
-	u32 outgoing_cltv_value;
-	u8 *next_onion;
-	struct htlc_in *hin;
-};
-
-/* We received a resolver reply, which gives us the node_ids of the
- * channel we want to forward over */
-static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
-				  const int *fds UNUSED, struct gossip_resolve *gr)
-{
-	struct node_id *peer_id;
-	u8 *stripped_update;
-
-	if (!fromwire_gossip_get_channel_peer_reply(msg, msg, &peer_id,
-						    &stripped_update)) {
-		log_broken(gossip->log,
-			   "bad fromwire_gossip_get_channel_peer_reply %s",
-			   tal_hex(msg, msg));
-		return;
-	}
-
-	if (!peer_id) {
-		local_fail_in_htlc(gr->hin, take(towire_unknown_next_peer(NULL)));
-		wallet_forwarded_payment_add(gr->hin->key.channel->peer->ld->wallet,
-					 gr->hin, &gr->next_channel, NULL,
-					 FORWARD_LOCAL_FAILED,
-					 WIRE_UNKNOWN_NEXT_PEER);
-		tal_free(gr);
-		return;
-	}
-
-	forward_htlc(gr->hin, gr->hin->cltv_expiry,
-		     gr->amt_to_forward, gr->outgoing_cltv_value, peer_id,
-		     gr->next_onion);
-	tal_free(gr);
 }
 
 /**
@@ -1014,7 +970,6 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	struct channel *channel = request->channel;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	u8 *req;
 	enum htlc_accepted_result result;
 	const u8 *failmsg;
 	result = htlc_accepted_hook_deserialize(request, ld, buffer, toks, &payment_preimage, &failmsg);
@@ -1027,20 +982,11 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 			local_fail_in_htlc_badonion(hin,
 						    WIRE_INVALID_ONION_PAYLOAD);
 		} else if (rs->nextcase == ONION_FORWARD) {
-			struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
-
-			gr->next_onion = serialize_onionpacket(gr, rs->next);
-			gr->next_channel = *request->payload->forward_channel;
-			gr->amt_to_forward = request->payload->amt_to_forward;
-			gr->outgoing_cltv_value = request->payload->outgoing_cltv;
-			gr->hin = hin;
-
-			req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
-			log_debug(channel->log, "Asking gossip to resolve channel %s",
-				  type_to_string(tmpctx, struct short_channel_id,
-						 &gr->next_channel));
-			subd_req(hin, ld->gossip, req, -1, 0,
-				 channel_resolve_reply, gr);
+			forward_htlc(hin, hin->cltv_expiry,
+				     request->payload->amt_to_forward,
+				     request->payload->outgoing_cltv,
+				     request->payload->forward_channel,
+				     serialize_onionpacket(tmpctx, rs->next));
 		} else
 			handle_localpay(hin,
 					request->payload->amt_to_forward,
