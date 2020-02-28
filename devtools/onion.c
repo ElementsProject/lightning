@@ -290,6 +290,30 @@ static void runtest(const char *filename)
 	tal_free(ctx);
 }
 
+static void decompress(char *hexprivkey, char *hexonion)
+{
+	struct privkey rendezvous_key;
+	size_t onionlen = hex_data_size(strlen(hexonion));
+	u8 *compressed, *decompressed;
+	struct pubkey ephkey;
+	struct secret shared_secret;
+
+	if (!hex_decode(hexprivkey, strlen(hexprivkey), &rendezvous_key, sizeof(rendezvous_key)))
+		errx(1, "Invalid private key hex '%s'", hexprivkey);
+
+	compressed = tal_arr(NULL, u8, onionlen);
+	if (!hex_decode(hexonion, strlen(hexonion), compressed, onionlen))
+		errx(1, "Invalid onion hex '%s'", hexonion);
+
+	if (onionlen < HMAC_SIZE + 1 + PUBKEY_SIZE)
+		errx(1, "Onion is too short to contain the version, ephemeral key and HMAC");
+
+	pubkey_from_der(compressed + 1, PUBKEY_SIZE, &ephkey);
+
+	decompressed = sphinx_decompress(NULL, compressed, &shared_secret);
+	printf("Decompressed Onion: %s\n", tal_hex(NULL, decompressed));
+}
+
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
 {
@@ -353,6 +377,15 @@ int main(int argc, char **argv)
 			do_generate(argc, argv, assocdata, NULL);
 		else
 			do_generate(argc, argv, assocdata, &rendezvous_id);
+	} else if (streq(method, "decompress")) {
+		if (argc != 4) {
+			errx(2,
+			     "'%s decompress' requires a private key and a "
+			     "compressed onion",
+			     argv[0]);
+		}
+
+		decompress(argv[2], argv[3]);
 	} else if (streq(method, "decode")) {
 		do_decode(argc, argv, assocdata);
 	} else {
