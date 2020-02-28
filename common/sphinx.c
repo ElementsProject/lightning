@@ -86,6 +86,19 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 	return sp;
 }
 
+bool sphinx_path_set_rendezvous(struct sphinx_path *sp,
+				const struct node_id *rendezvous_id)
+{
+	if (rendezvous_id == NULL) {
+		sp->rendezvous_id = tal_free(sp->rendezvous_id);
+		return true;
+	} else {
+		sp->rendezvous_id = tal_free(sp->rendezvous_id);
+		sp->rendezvous_id = tal(sp, struct pubkey);
+		return pubkey_from_node_id(sp->rendezvous_id, rendezvous_id);
+	}
+}
+
 static size_t sphinx_hop_size(const struct sphinx_hop *hop)
 {
 	return tal_bytelen(hop->raw_payload) + HMAC_SIZE;
@@ -142,6 +155,30 @@ u8 *serialize_onionpacket(
 	write_buffer(dst, m->mac, sizeof(m->mac), &p);
 	return dst;
 }
+
+u8 *serialize_compressed_onion(const tal_t *ctx,
+			       const struct sphinx_path *sp,
+			       const struct onionpacket *packet)
+{
+	u8 *dst;
+	u8 der[PUBKEY_CMPR_LEN];
+	size_t payloads_size = sphinx_path_payloads_size(sp);
+	size_t max_prefill  = ROUTING_INFO_SIZE - payloads_size;
+	size_t rv_onion_size = TOTAL_PACKET_SIZE - max_prefill;
+	int p = 0;
+
+	assert(sp->rendezvous_id != NULL);
+
+	dst = tal_arr(ctx, u8, rv_onion_size);
+
+	pubkey_to_der(der, &packet->ephemeralkey);
+	write_buffer(dst, &packet->version, 1, &p);
+	write_buffer(dst, der, sizeof(der), &p);
+	write_buffer(dst, packet->routinginfo, ROUTING_INFO_SIZE - max_prefill, &p);
+	write_buffer(dst, packet->mac, sizeof(packet->mac), &p);
+	return dst;
+}
+
 
 enum onion_type parse_onionpacket(const u8 *src,
 				  const size_t srclen,
