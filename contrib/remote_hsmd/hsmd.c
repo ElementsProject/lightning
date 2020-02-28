@@ -1179,6 +1179,8 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
+// TODO - This goes away when we complete all callers.
+//
 /*~ This covers several cases where onchaind is creating a transaction which
  * sends funds to our internal wallet. */
 /* FIXME: Derive output address for this client, and check it here! */
@@ -1291,11 +1293,8 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 						     const u8 *msg_in)
 {
 	struct amount_sat input_sat;
-	struct secret channel_seed, htlc_basepoint_secret;
-	struct pubkey htlc_basepoint;
 	struct bitcoin_tx *tx;
 	struct pubkey remote_per_commitment_point;
-	struct privkey privkey;
 	u8 *wscript;
 
 	if (!fromwire_hsm_sign_remote_htlc_to_us(tmpctx, msg_in,
@@ -1327,27 +1326,9 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
-	/* FIXME - server-side not implemented yet. Use original code
-	 * below for now */
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-
-	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
-				   &htlc_basepoint_secret))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed derive_htlc_basepoint");
-
-	if (!derive_simple_privkey(&htlc_basepoint_secret,
-				   &htlc_basepoint,
-				   &remote_per_commitment_point,
-				   &privkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc privkey");
-
-	return handle_sign_to_us_tx(conn, c, msg_in,
-				    tx, &privkey, wscript, input_sat);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
 /*~ This is used when the remote peer's commitment transaction is revoked;

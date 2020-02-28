@@ -42,6 +42,9 @@ Some popular tests:
     export THETEST=tests/test_pay.py::test_sendpay
     export THETEST=tests/test_pay.py::test_pay
     export THETEST=tests/test_closing.py::test_onchain_different_fees
+    export THETEST=tests/test_closing.py::test_onchain_feechange
+    export THETEST=tests/test_closing.py::test_onchain_all_dust
+    export THETEST=tests/test_closing.py::test_permfail_new_commit
 
 Tests remote_commitment:
 
