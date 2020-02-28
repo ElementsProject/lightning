@@ -16,12 +16,14 @@
 #include <err.h>
 #include <secp256k1.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #define ASSOC_DATA_SIZE 32
 
 static void do_generate(int argc, char **argv,
-			const u8 assocdata[ASSOC_DATA_SIZE])
+			const u8 assocdata[ASSOC_DATA_SIZE],
+			const struct node_id *rvnode_id)
 {
 	const tal_t *ctx = talz(NULL, tal_t);
 	int num_hops = argc - 2;
@@ -36,6 +38,7 @@ static void do_generate(int argc, char **argv,
 	memset(&session_key, 'A', sizeof(struct secret));
 
 	sp = sphinx_path_new_with_key(ctx, tmp_assocdata, &session_key);
+	sphinx_path_set_rendezvous(sp, rvnode_id);
 
 	for (int i = 0; i < num_hops; i++) {
 		size_t klen = strcspn(argv[2 + i], "/");
@@ -91,6 +94,10 @@ static void do_generate(int argc, char **argv,
 	}
 
 	struct onionpacket *res = create_onionpacket(ctx, sp, &shared_secrets);
+
+	if (rvnode_id != NULL)
+		printf("Rendezvous onion: %s\n",
+		       tal_hex(ctx, serialize_compressed_onion(ctx, sp, res)));
 
 	u8 *serialized = serialize_onionpacket(ctx, res);
 	if (!serialized)
@@ -170,6 +177,12 @@ static char *opt_set_ad(const char *arg, u8 *assocdata)
 static void opt_show_ad(char buf[OPT_SHOW_LEN], const u8 *assocdata)
 {
 	hex_encode(assocdata, ASSOC_DATA_SIZE, buf, OPT_SHOW_LEN);
+}
+
+static char *opt_set_node_id(const char *arg, struct node_id *node_id)
+{
+	node_id_from_hexstr(arg, strlen(arg), node_id);
+	return NULL;
 }
 
 /**
@@ -301,15 +314,18 @@ int main(int argc, char **argv)
 	setup_locale();
 	const char *method;
 	u8 assocdata[ASSOC_DATA_SIZE];
+	struct node_id rendezvous_id;
 	memset(&assocdata, 'B', sizeof(assocdata));
+	memset(&rendezvous_id, 0, sizeof(struct node_id));
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
-	opt_register_arg("--assoc-data", opt_set_ad, opt_show_ad,
-			 assocdata,
+	opt_register_arg("--assoc-data", opt_set_ad, opt_show_ad, assocdata,
 			 "Associated data (usu. payment_hash of payment)");
+	opt_register_arg("--rendezvous-id", opt_set_node_id, NULL,
+			 &rendezvous_id, "Node ID of the rendez-vous node");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n\n\tdecode <onion_file> <privkey>\n"
 			   "\tgenerate <pubkey1> <pubkey2> ...\n"
@@ -333,7 +349,10 @@ int main(int argc, char **argv)
 			errx(1, "'runtest' requires a filename argument");
 		runtest(argv[2]);
 	} else if (streq(method, "generate")) {
-		do_generate(argc, argv, assocdata);
+		if (memeqzero(&rendezvous_id, sizeof(rendezvous_id)))
+			do_generate(argc, argv, assocdata, NULL);
+		else
+			do_generate(argc, argv, assocdata, &rendezvous_id);
 	} else if (streq(method, "decode")) {
 		do_decode(argc, argv, assocdata);
 	} else {
