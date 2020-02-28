@@ -49,12 +49,10 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 	return fee;
 }
 
-/* Is this better than the last tx we were holding?  This can happen
- * even without closingd misbehaving, if we have multiple,
- * interrupted, rounds of negotiation. */
-static bool better_closing_fee(struct lightningd *ld,
-			       struct channel *channel,
-			       const struct bitcoin_tx *tx)
+/* Assess whether a proposed closing fee is acceptable. */
+static bool closing_fee_is_acceptable(struct lightningd *ld,
+				      struct channel *channel,
+				      const struct bitcoin_tx *tx)
 {
 	struct amount_sat fee, last_fee, min_fee;
 	u64 weight;
@@ -85,15 +83,10 @@ static bool better_closing_fee(struct lightningd *ld,
 		return false;
 	}
 
-	/* In case of a tie, prefer new over old: this covers the preference
+	/* Prefer new over old: this covers the preference
 	 * for a mutual close over a unilateral one. */
 
-	/* If we don't know the feerate, prefer higher fee. */
-	if (feerate_unknown)
-		return amount_sat_greater_eq(fee, last_fee);
-
-	/* Otherwise prefer lower fee. */
-	return amount_sat_less_eq(fee, last_fee);
+	return true;
 }
 
 static void peer_received_closing_signature(struct channel *channel,
@@ -112,7 +105,7 @@ static void peer_received_closing_signature(struct channel *channel,
 	tx->chainparams = chainparams;
 
 	/* FIXME: Make sure signature is correct! */
-	if (better_closing_fee(ld, channel, tx)) {
+	if (closing_fee_is_acceptable(ld, channel, tx)) {
 		channel_set_last_tx(channel, tx, &sig, TX_CHANNEL_CLOSE);
 		wallet_channel_save(ld->wallet, channel);
 	}

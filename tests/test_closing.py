@@ -393,6 +393,87 @@ def test_deprecated_closing_compat(node_factory, bitcoind, chainparams):
         l1.rpc.call('check', ['close', nodeid, "Given enough eyeballs, all bugs are shallow."])
 
 
+def closing_fee(node_factory, bitcoind, chainparams, opts):
+    rate = opts['funder_feerate_per_kw']
+    funder = node_factory.get_node(feerates=(rate, rate, rate))
+
+    rate = opts['fundee_feerate_per_kw']
+    fundee = node_factory.get_node(feerates=(rate, rate, rate))
+
+    funder_id = funder.info['id']
+    fundee_id = fundee.info['id']
+
+    fund_amount = 10**6
+
+    funder.rpc.connect(fundee_id, 'localhost', fundee.port)
+    funder.fund_channel(fundee, fund_amount)
+
+    assert bitcoind.rpc.getmempoolinfo()['size'] == 0
+
+    if opts['close_initiated_by'] == 'funder':
+        funder.rpc.close(peer_id=fundee_id)
+    else:
+        assert opts['close_initiated_by'] == 'fundee'
+        fundee.rpc.close(peer_id=funder_id)
+
+    # Get the closing transaction from the bitcoind mempool and get its fee
+
+    mempool = None
+    mempool_tx_ids = None
+
+    def get_mempool_when_size_1():
+        nonlocal mempool, mempool_tx_ids
+        mempool = bitcoind.rpc.getrawmempool(True)
+        mempool_tx_ids = list(mempool.keys())
+        return len(mempool_tx_ids) == 1
+
+    wait_for(get_mempool_when_size_1)
+
+    close_tx_id = mempool_tx_ids[0]
+    fee_mempool = round(mempool[close_tx_id]['fee'] * 10**8)
+
+    # Get the proclaimed closing fee from the two nodes' statuses
+
+    status_agreed_regex = re.compile("agreed on a closing fee of ([0-9]+) satoshi")
+
+    # [fee_from_funder_status, fee_from_fundee_status]
+    fees_from_status = [None, None]
+
+    def get_fee_from_status(node, peer_id, i):
+        nonlocal fees_from_status
+        status = only_one(only_one(node.rpc.listpeers(peer_id)['peers'][0]['channels'])['status'])
+        m = status_agreed_regex.search(status)
+        if not m:
+            return False
+        fees_from_status[i] = int(m.group(1))
+        return True
+
+    wait_for(lambda: get_fee_from_status(funder, fundee_id, 0))
+    wait_for(lambda: get_fee_from_status(fundee, funder_id, 1))
+
+    assert fee_mempool == fees_from_status[0]
+    assert fee_mempool == fees_from_status[1]
+    assert fee_mempool == opts['expected_close_fee']
+
+
+def test_closing_fee(node_factory, bitcoind, chainparams):
+    """Test that the closing negotiation strategy works"""
+    # feerate 27625 -> closing fee negotiation starts at 20000
+    # feerate 29006 -> closing fee negotiation starts at 21000
+
+    opts = {
+        'funder_feerate_per_kw': 29006,
+        'fundee_feerate_per_kw': 27625,
+        'close_initiated_by': 'funder',
+        'expected_close_fee': 20333
+    }
+
+    closing_fee(node_factory, bitcoind, chainparams, opts)
+
+    opts['close_initiated_by'] = 'fundee'
+    closing_fee(node_factory, bitcoind, chainparams, opts)
+
+
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
