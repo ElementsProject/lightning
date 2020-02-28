@@ -21,6 +21,7 @@ COMPLETE		proxy_stat proxy_handle_get_channel_basepoints
 COMPLETE		proxy_stat proxy_handle_get_per_commitment_point
 COMPLETE		proxy_stat proxy_handle_sign_local_htlc_tx
 COMPLETE		proxy_stat proxy_handle_sign_remote_htlc_to_us
+COMPLETE		proxy_stat proxy_handle_sign_delayed_payment_to_us
 
 PARTIAL (-P2SH)	proxy_stat proxy_handle_sign_withdrawal_tx
 
@@ -29,7 +30,6 @@ MARSHALED		proxy_stat proxy_handle_sign_message
 MARSHALED		proxy_stat proxy_handle_sign_mutual_close_tx
 MARSHALED		proxy_stat proxy_handle_sign_commitment_tx
 MARSHALED		proxy_stat proxy_handle_cannouncement_sig
-MARSHALED		proxy_stat proxy_handle_sign_delayed_payment_to_us
 MARSHALED		proxy_stat proxy_handle_sign_penalty_to_us
 MARSHALED		proxy_stat proxy_handle_check_future_secret
 

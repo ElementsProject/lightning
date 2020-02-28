@@ -1217,12 +1217,7 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 {
 	u64 commit_num;
 	struct amount_sat input_sat;
-	struct secret channel_seed, basepoint_secret;
-	struct pubkey basepoint;
 	struct bitcoin_tx *tx;
-	struct sha256 shaseed;
-	struct pubkey per_commitment_point;
-	struct privkey privkey;
 	u8 *wscript;
 
 	/*~ We don't derive the wscript ourselves, but perhaps we should? */
@@ -1250,39 +1245,7 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 				   proxy_last_message());
 	g_proxy_impl = PROXY_IMPL_MARSHALED;
 
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-
-	/*~ ccan/crypto/shachain how we efficiently derive 2^48 ordered
-	 * preimages from a single seed; the twist is that as the preimages
-	 * are revealed, you can generate the previous ones yourself, needing
-	 * to only keep log(N) of them at any time. */
-	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
-
-	/*~ BOLT #3 describes exactly how this is used to generate the Nth
-	 * per-commitment point. */
-	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
-		return bad_req_fmt(conn, c, msg_in,
-				   "bad per_commitment_point %"PRIu64,
-				   commit_num);
-
-	/*~ ... which is combined with the basepoint to generate then N'th key.
-	 */
-	if (!derive_delayed_payment_basepoint(&channel_seed,
-					      &basepoint,
-					      &basepoint_secret))
-		return bad_req_fmt(conn, c, msg_in, "failed deriving basepoint");
-
-	if (!derive_simple_privkey(&basepoint_secret,
-				   &basepoint,
-				   &per_commitment_point,
-				   &privkey))
-		return bad_req_fmt(conn, c, msg_in, "failed deriving privkey");
-
-	return handle_sign_to_us_tx(conn, c, msg_in,
-				    tx, &privkey, wscript, input_sat);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
 /*~ This is used when a commitment transaction is onchain, and has an HTLC
