@@ -50,6 +50,43 @@ def test_onion(directory, oniontool):
     assert(out == ['payload=000000000000000000000000000000000400000004000000000000000000000000'])
 
 
+def test_rendezvous_onion(directory, oniontool):
+    """Create a compressed onion, decompress it at the RV node and then forward normally.
+    """
+    os.makedirs(directory)
+    tempfile = os.path.join(directory, 'onion')
+    out = subprocess.check_output(
+        [oniontool, '--rendezvous-id', pubkeys[0], 'generate'] + pubkeys
+    ).decode('ASCII').strip().split('\n')
+    assert(len(out) == 2)
+    compressed = out[0].split(' ')[-1]
+    uncompressed = out[1]
+
+    assert(len(compressed) < len(uncompressed))
+
+    # Now decompress the onion to get back the original onion
+    out2 = subprocess.check_output(
+        [oniontool, 'decompress', privkeys[0], compressed]
+    ).decode('ASCII').strip().split('\n')
+    decompressed = out2[-1].split(' ')[-1]
+
+    assert(uncompressed == decompressed)
+
+    # And now just for safety make sure the following nodes can still process
+    # and forward the onion.
+    def store_onion(o):
+        with open(tempfile, 'w') as f:
+            f.write(o)
+
+    store_onion(decompressed)
+
+    for i, pk in enumerate(privkeys):
+        out = subprocess.check_output([oniontool, 'decode', tempfile, pk]).decode('ASCII').strip().split('\n')
+        store_onion(out[-1][5:])
+
+    assert(out == ['payload=000000000000000000000000000000000400000004000000000000000000000000'])
+
+
 def test_onion_vectors(oniontool):
     tests = [
         'onion-test-multi-frame.json',
