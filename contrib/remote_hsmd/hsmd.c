@@ -1423,14 +1423,9 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 {
 	u64 commit_num;
 	struct amount_sat input_sat;
-	struct secret channel_seed, htlc_basepoint_secret;
-	struct sha256 shaseed;
-	struct pubkey per_commitment_point, htlc_basepoint;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
 	struct bitcoin_signature sig;
-	struct privkey htlc_privkey;
-	struct pubkey htlc_pubkey;
 
 	if (!fromwire_hsm_sign_local_htlc_tx(tmpctx, msg_in,
 					     &commit_num, &tx, &wscript,
@@ -1438,31 +1433,6 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	tx->chainparams = c->chainparams;
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-
-	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
-
-	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
-		return bad_req_fmt(conn, c, msg_in,
-				   "bad per_commitment_point %"PRIu64,
-				   commit_num);
-
-	if (!derive_htlc_basepoint(&channel_seed,
-				   &htlc_basepoint,
-				   &htlc_basepoint_secret))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc basepoint");
-
-	if (!derive_simple_privkey(&htlc_basepoint_secret,
-				   &htlc_basepoint,
-				   &per_commitment_point,
-				   &htlc_privkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc privkey");
-
-	if (!pubkey_from_privkey(&htlc_privkey, &htlc_pubkey))
-		return bad_req_fmt(conn, c, msg_in, "bad pubkey_from_privkey");
 
 	if (tx->wtx->num_inputs != 1)
 		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
@@ -1478,13 +1448,7 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	/* FIXME: Check that output script is correct! */
-	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
-		      SIGHASH_ALL, &sig);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
