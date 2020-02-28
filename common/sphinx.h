@@ -246,6 +246,13 @@ u8 *serialize_compressed_onion(const tal_t *ctx,
 bool sphinx_path_set_rendezvous(struct sphinx_path *sp,
 				const struct node_id *rendezvous_id);
 
+/**
+ * Given a compressed onion expand it by re-generating the prefiller and
+ * inserting it in the appropriate place.
+ */
+u8 *sphinx_decompress(const tal_t *ctx, const u8 *compressed,
+		      struct secret *shared_secret);
+
 #if DEVELOPER
 /* Override to force us to reject valid onion packets */
 extern bool dev_fail_process_onionpacket;

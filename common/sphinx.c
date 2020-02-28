@@ -785,3 +785,27 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 		return tal_free(final);
 	return final;
 }
+
+u8 *sphinx_decompress(const tal_t *ctx, const u8 *compressed,
+		      struct secret *shared_secret)
+{
+	size_t compressedlen = tal_bytelen(compressed);
+	size_t prefill_size = TOTAL_PACKET_SIZE - compressedlen;
+	u8 *dst;
+	int p = 0;
+
+	assert(prefill_size >= 0);
+	assert(compressedlen >= VERSION_SIZE + PUBKEY_SIZE + HMAC_SIZE);
+	dst = tal_arrz(ctx, u8, TOTAL_PACKET_SIZE);
+	write_buffer(
+	    dst, compressed,
+	    VERSION_SIZE + PUBKEY_SIZE + ROUTING_INFO_SIZE - prefill_size, &p);
+
+	/* We can just XOR here since we initialized the array with zeros. */
+	sphinx_prefill_stream_xor(dst + p, prefill_size, shared_secret);
+	p += prefill_size;
+
+	write_buffer(dst, compressed + compressedlen - HMAC_SIZE, HMAC_SIZE,
+		     &p);
+	return dst;
+}
