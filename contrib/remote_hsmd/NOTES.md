@@ -45,10 +45,13 @@ Some popular tests:
     export THETEST=tests/test_closing.py::test_onchain_feechange
     export THETEST=tests/test_closing.py::test_onchain_all_dust
     export THETEST=tests/test_closing.py::test_permfail_new_commit
-    export THETEST=tests/test_closing.py::test_onchain_multihtlc_our_unilateral 
-    export THETEST=tests/test_closing.py::test_onchain_multihtlc_their_unilateral 
-    export THETEST=tests/test_closing.py::test_permfail_htlc_in 
-    export THETEST=tests/test_closing.py::test_permfail_htlc_out 
+    export THETEST=tests/test_closing.py::test_onchain_multihtlc_our_unilateral
+    export THETEST=tests/test_closing.py::test_onchain_multihtlc_their_unilateral
+    export THETEST=tests/test_closing.py::test_permfail_htlc_in
+    export THETEST=tests/test_closing.py::test_permfail_htlc_out
+    export THETEST=tests/test_closing.py::test_penalty_inhtlc 
+    export THETEST=tests/test_closing.py::test_penalty_outhtlc 
+
 
 Tests remote_commitment:
 

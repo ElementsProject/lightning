@@ -1179,34 +1179,6 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
-// TODO - This goes away when we complete all callers.
-//
-/*~ This covers several cases where onchaind is creating a transaction which
- * sends funds to our internal wallet. */
-/* FIXME: Derive output address for this client, and check it here! */
-static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
-					    struct client *c,
-					    const u8 *msg_in,
-					    struct bitcoin_tx *tx,
-					    const struct privkey *privkey,
-					    const u8 *wscript,
-					    struct amount_sat input_sat)
-{
-	struct bitcoin_signature sig;
-	struct pubkey pubkey;
-
-	if (!pubkey_from_privkey(privkey, &pubkey))
-		return bad_req_fmt(conn, c, msg_in, "bad pubkey_from_privkey");
-
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
-
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
-	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, SIGHASH_ALL, &sig);
-
-	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
-}
-
 /*~ When we send a commitment transaction onchain (unilateral close), there's
  * a delay before we can spend it.  onchaind does an explicit transaction to
  * transfer it to the wallet so that doesn't need to remember how to spend
@@ -1302,11 +1274,8 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 						 const u8 *msg_in)
 {
 	struct amount_sat input_sat;
-	struct secret channel_seed, revocation_secret, revocation_basepoint_secret;
-	struct pubkey revocation_basepoint;
+	struct secret revocation_secret;
 	struct bitcoin_tx *tx;
-	struct pubkey point;
-	struct privkey privkey;
 	u8 *wscript;
 
 	if (!fromwire_hsm_sign_penalty_to_us(tmpctx, msg_in,
@@ -1332,30 +1301,9 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	if (!pubkey_from_secret(&revocation_secret, &point))
-		return bad_req_fmt(conn, c, msg_in, "Failed deriving pubkey");
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_revocation_basepoint(&channel_seed,
-					 &revocation_basepoint,
-					 &revocation_basepoint_secret))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving revocation basepoint");
-
-	if (!derive_revocation_privkey(&revocation_basepoint_secret,
-				       &revocation_secret,
-				       &revocation_basepoint,
-				       &point,
-				       &privkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving revocation privkey");
-
-	return handle_sign_to_us_tx(conn, c, msg_in,
-				    tx, &privkey, wscript, input_sat);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
 /*~ This is used when a commitment transaction is onchain, and has an HTLC
