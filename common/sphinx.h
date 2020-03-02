@@ -253,6 +253,17 @@ bool sphinx_path_set_rendezvous(struct sphinx_path *sp,
 u8 *sphinx_decompress(const tal_t *ctx, const u8 *compressed,
 		      struct secret *shared_secret);
 
+/**
+ * Use ECDH to generate a shared secret from a privkey and a pubkey.
+ *
+ * Sphinx uses shared secrets derived from a private key and a public key
+ * using ECDH in a number of places. This is a simple wrapper around the
+ * secp256k1 functions, with our internal types.
+ */
+bool sphinx_create_shared_secret(struct secret *privkey,
+				 const struct pubkey *pubkey,
+				 const struct secret *secret);
+
 #if DEVELOPER
 /* Override to force us to reject valid onion packets */
 extern bool dev_fail_process_onionpacket;

@@ -310,8 +310,23 @@ static void decompress(char *hexprivkey, char *hexonion)
 
 	pubkey_from_der(compressed + 1, PUBKEY_SIZE, &ephkey);
 
-	decompressed = sphinx_decompress(NULL, compressed, &shared_secret);
-	printf("Decompressed Onion: %s\n", tal_hex(NULL, decompressed));
+	tinyonion = sphinx_compressed_onion_deserialize(NULL, compressed);
+	if (tinyonion == NULL)
+		errx(1, "Could not deserialize compressed onion");
+
+	if (!sphinx_create_shared_secret(&shared_secret,
+					 &tinyonion->ephemeralkey,
+					 &rendezvous_key.secret))
+		errx(1,
+		     "Could not generate shared secret from ephemeral key %s "
+		     "and private key %s",
+		     pubkey_to_hexstr(NULL, &ephkey), hexprivkey);
+
+	onion = sphinx_decompress(NULL, tinyonion, &shared_secret);
+	if (onion == NULL)
+		errx(1, "Could not decompress compressed onion");
+
+	printf("Decompressed Onion: %s\n", tal_hex(NULL, serialize_onionpacket(NULL, onion)));
 }
 
 /* Tal wrappers for opt. */
