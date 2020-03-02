@@ -30,6 +30,14 @@ struct onionpacket {
 	u8 routinginfo[ROUTING_INFO_SIZE];
 };
 
+struct sphinx_compressed_onion {
+	u8 version;
+	struct pubkey ephemeralkey;
+	u8 *routinginfo;
+	u8 mac[HMAC_SIZE];
+};
+
+
 enum route_next_case {
 	ONION_END = 0,
 	ONION_FORWARD = 1,
@@ -250,8 +258,9 @@ bool sphinx_path_set_rendezvous(struct sphinx_path *sp,
  * Given a compressed onion expand it by re-generating the prefiller and
  * inserting it in the appropriate place.
  */
-u8 *sphinx_decompress(const tal_t *ctx, const u8 *compressed,
-		      struct secret *shared_secret);
+struct onionpacket *sphinx_decompress(const tal_t *ctx,
+				      const struct sphinx_compressed_onion *src,
+				      const struct secret *shared_secret);
 
 /**
  * Use ECDH to generate a shared secret from a privkey and a pubkey.
@@ -263,6 +272,20 @@ u8 *sphinx_decompress(const tal_t *ctx, const u8 *compressed,
 bool sphinx_create_shared_secret(struct secret *privkey,
 				 const struct pubkey *pubkey,
 				 const struct secret *secret);
+
+
+/**
+ * Given a compressible onionpacket, return the compressed version.
+ */
+struct sphinx_compressed_onion *
+sphinx_compress(const tal_t *ctx, const struct onionpacket *packet,
+		const struct sphinx_path *path);
+
+u8 *sphinx_compressed_onion_serialize(
+    const tal_t *ctx, const struct sphinx_compressed_onion *onion);
+
+struct sphinx_compressed_onion *
+sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src);
 
 #if DEVELOPER
 /* Override to force us to reject valid onion packets */
