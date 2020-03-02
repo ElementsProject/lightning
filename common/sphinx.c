@@ -786,26 +786,96 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 	return final;
 }
 
-u8 *sphinx_decompress(const tal_t *ctx, const u8 *compressed,
-		      struct secret *shared_secret)
+struct onionpacket *sphinx_decompress(const tal_t *ctx,
+				      const struct sphinx_compressed_onion *src,
+				      const struct secret *shared_secret)
 {
-	size_t compressedlen = tal_bytelen(compressed);
-	size_t prefill_size = TOTAL_PACKET_SIZE - compressedlen;
-	u8 *dst;
+	struct onionpacket *res = tal(ctx, struct onionpacket);
+	size_t srclen = tal_bytelen(src->routinginfo);
+	size_t prefill_size = ROUTING_INFO_SIZE - srclen;
+
+	res->version = src->version;
+	res->ephemeralkey = src->ephemeralkey;
+	memcpy(res->mac, src->mac, HMAC_SIZE);
+
+	/* Decompress routinginfo by copying the unmodified prefix, setting
+	 * the compressed suffix to 0x00 bytes and then xoring the obfuscation
+	 * stream in place. */
+	memset(res->routinginfo, 0, ROUTING_INFO_SIZE);
+	memcpy(res->routinginfo, src->routinginfo, srclen);
+	sphinx_prefill_stream_xor(res->routinginfo + srclen, prefill_size,
+				  shared_secret);
+
+	return res;
+}
+
+struct sphinx_compressed_onion *
+sphinx_compress(const tal_t *ctx, const struct onionpacket *packet,
+		const struct sphinx_path *path)
+{
+	struct sphinx_compressed_onion *res;
+	size_t payloads_size = sphinx_path_payloads_size(path);
+
+	/* We can't compress an onion that doesn't have a rendez-vous node. */
+	if (path->rendezvous_id)
+		return NULL;
+
+	res = tal(ctx, struct sphinx_compressed_onion);
+	res->version = packet->version;
+	res->ephemeralkey = packet->ephemeralkey;
+	memcpy(res->mac, packet->mac, HMAC_SIZE);
+
+	res->routinginfo = tal_arr(res, u8, payloads_size);
+	memcpy(res->routinginfo, packet->routinginfo, payloads_size);
+
+	return res;
+}
+
+u8 *sphinx_compressed_onion_serialize(const tal_t *ctx, const struct sphinx_compressed_onion *onion)
+{
+	size_t routelen = tal_bytelen(onion->routinginfo);
+	size_t len = VERSION_SIZE + PUBKEY_SIZE + routelen + HMAC_SIZE;
+	u8 *dst = tal_arr(ctx, u8, len);
+	u8 der[PUBKEY_CMPR_LEN];
 	int p = 0;
 
-	assert(prefill_size >= 0);
-	assert(compressedlen >= VERSION_SIZE + PUBKEY_SIZE + HMAC_SIZE);
-	dst = tal_arrz(ctx, u8, TOTAL_PACKET_SIZE);
-	write_buffer(
-	    dst, compressed,
-	    VERSION_SIZE + PUBKEY_SIZE + ROUTING_INFO_SIZE - prefill_size, &p);
+	pubkey_to_der(der, &onion->ephemeralkey);
 
-	/* We can just XOR here since we initialized the array with zeros. */
-	sphinx_prefill_stream_xor(dst + p, prefill_size, shared_secret);
-	p += prefill_size;
+	write_buffer(dst, &onion->version, VERSION_SIZE, &p);
+	write_buffer(dst, der, PUBKEY_SIZE, &p);
+	write_buffer(dst, onion->routinginfo, routelen, &p);
+	write_buffer(dst, onion->mac, HMAC_SIZE, &p);
 
-	write_buffer(dst, compressed + compressedlen - HMAC_SIZE, HMAC_SIZE,
-		     &p);
+	assert(p == len);
+	return dst;
+}
+
+struct sphinx_compressed_onion *
+sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src)
+{
+	size_t srclen = tal_bytelen(src);
+	size_t routelen = srclen - VERSION_SIZE - PUBKEY_SIZE - HMAC_SIZE;
+	struct sphinx_compressed_onion *dst =
+	    tal(ctx, struct sphinx_compressed_onion);
+	int p = 0;
+	u8 ephkey[PUBKEY_SIZE];
+
+	assert(srclen <= TOTAL_PACKET_SIZE);
+
+	read_buffer(&dst->version, src, 1, &p);
+	if (dst->version != 0x00)
+		return tal_free(dst);
+
+	read_buffer(ephkey, src, PUBKEY_SIZE, &p);
+
+	if (!pubkey_from_der(ephkey, PUBKEY_SIZE, &dst->ephemeralkey)) {
+		return tal_free(dst);
+	}
+
+	dst->routinginfo = tal_arr(dst, u8, routelen);
+	read_buffer(dst->routinginfo, src, routelen, &p);
+	read_buffer(&dst->mac, src, HMAC_SIZE, &p);
+	assert(p == srclen);
+
 	return dst;
 }
