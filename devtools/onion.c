@@ -294,9 +294,11 @@ static void decompress(char *hexprivkey, char *hexonion)
 {
 	struct privkey rendezvous_key;
 	size_t onionlen = hex_data_size(strlen(hexonion));
-	u8 *compressed, *decompressed;
+	u8 *compressed;
 	struct pubkey ephkey;
 	struct secret shared_secret;
+	struct onionpacket *onion;
+	struct sphinx_compressed_onion *tinyonion;
 
 	if (!hex_decode(hexprivkey, strlen(hexprivkey), &rendezvous_key, sizeof(rendezvous_key)))
 		errx(1, "Invalid private key hex '%s'", hexprivkey);
