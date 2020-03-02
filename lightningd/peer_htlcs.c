@@ -897,6 +897,7 @@ htlc_accepted_hook_deserialize(const tal_t *ctx,
 		      json_strdup(tmpctx, buffer, resulttok));
 	}
 
+	/* cppcheck-suppress uninitvar - false positive on fatal() above */
 	return result;
 }
 

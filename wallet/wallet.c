@@ -3741,6 +3741,7 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 			else
 				fatal("Transaction annotations are only available for inputs and outputs. Value %d", loc);
 
+			/* cppcheck-suppress uninitvar - false positive on fatal() above */
 			ann->type = db_column_int(stmt, 8);
 			if (!db_column_is_null(stmt, 9))
 				db_column_short_channel_id(stmt, 9, &ann->channel);
