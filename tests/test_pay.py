@@ -8,8 +8,6 @@ from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT,
     VALGRIND
 )
-
-import concurrent.futures
 import copy
 import os
 import pytest
@@ -1549,14 +1547,17 @@ def test_pay_variants(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 @unittest.skipIf(VALGRIND and SLOW_MACHINE, "Travis times out under valgrind")
-def test_pay_retry(node_factory, bitcoind):
+def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     """Make sure pay command retries properly. """
+
     def exhaust_channel(funder, fundee, scid, already_spent=0):
-        """Spend all available capacity (10^6 - 1%) of channel"""
-        maxpay = (10**6 - 10**6 // 100 - 16020) * 1000 - already_spent
-        inv = fundee.rpc.invoice(maxpay,
-                                 ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20)),
-                                 "exhaust_channel")
+        """Spend all available capacity (10^6 - 1%) of channel
+        """
+        peer = funder.rpc.listpeers(fundee.info['id'])['peers'][0]
+        chan = peer['channels'][0]
+        maxpay = chan['spendable_msatoshi']
+        lbl = ''.join(random.choice(string.ascii_letters) for _ in range(20))
+        inv = fundee.rpc.invoice(maxpay, lbl, "exhaust_channel")
         routestep = {
             'msatoshi': maxpay,
             'id': fundee.info['id'],
@@ -1607,7 +1608,6 @@ def test_pay_retry(node_factory, bitcoind):
 
     # Make sure listpays doesn't transiently show failure while pay
     # is retrying.
-    executor = concurrent.futures.ThreadPoolExecutor()
     fut = executor.submit(listpays_nofail, inv['bolt11'])
 
     # Pay l1->l5 should succeed via straight line (eventually)
