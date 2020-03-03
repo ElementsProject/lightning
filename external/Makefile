@@ -54,7 +54,7 @@ external/libsodium/src/libsodium/include/sodium.h: submodcheck
 $(TARGET_DIR)/libsodium-build/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
 	cd external/libsodium && ./autogen.sh
 	mkdir -p ${TARGET_DIR}/libsodium-build
-	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
+	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 
 $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS): submodcheck
 
