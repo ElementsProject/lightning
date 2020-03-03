@@ -10,7 +10,6 @@
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
 #include <wire/gen_onion_wire.h>
-#include <wire/wire.h>
 
 #define VERSION_SIZE 1
 #define REALM_SIZE 1
