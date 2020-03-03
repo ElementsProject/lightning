@@ -17,6 +17,8 @@
 #include <sodium/crypto_auth_hmacsha256.h>
 #include <sodium/crypto_stream_chacha20.h>
 
+#include <wire/wire.h>
+
 #define BLINDING_FACTOR_SIZE 32
 #define KEY_LEN 32
 
@@ -130,15 +132,6 @@ static void write_buffer(u8 *dst, const void *src, const size_t len, int *pos)
 	*pos += len;
 }
 
-/* Read len bytes from the source at position pos into dst and update
- * the position pos accordingly.
- */
-static void read_buffer(void *dst, const u8 *src, const size_t len, int *pos)
-{
-	memcpy(dst, src + *pos, len);
-	*pos += len;
-}
-
 u8 *serialize_onionpacket(
 	const tal_t *ctx,
 	const struct onionpacket *m)
@@ -184,25 +177,25 @@ enum onion_type parse_onionpacket(const u8 *src,
 				  const size_t srclen,
 				  struct onionpacket *dest)
 {
-	int p = 0;
-	u8 rawEphemeralkey[PUBKEY_CMPR_LEN];
+	const u8 *cursor = src;
+	size_t max = srclen;
 
 	assert(srclen == TOTAL_PACKET_SIZE);
 
-	read_buffer(&dest->version, src, 1, &p);
+	dest->version = fromwire_u8(&cursor, &max);
 	if (dest->version != 0x00) {
 		// FIXME add logging
 		return WIRE_INVALID_ONION_VERSION;
 	}
-	read_buffer(rawEphemeralkey, src, sizeof(rawEphemeralkey), &p);
 
-	if (!pubkey_from_der(rawEphemeralkey, sizeof(rawEphemeralkey),
-			     &dest->ephemeralkey)) {
+	fromwire_pubkey(&cursor, &max, &dest->ephemeralkey);
+	if (cursor == NULL) {
 		return WIRE_INVALID_ONION_KEY;
 	}
 
-	read_buffer(&dest->routinginfo, src, ROUTING_INFO_SIZE, &p);
-	read_buffer(&dest->mac, src, HMAC_SIZE, &p);
+	fromwire_u8_array(&cursor, &max, dest->routinginfo, ROUTING_INFO_SIZE);
+	fromwire_u8_array(&cursor, &max, dest->mac, HMAC_SIZE);
+	assert(max == 0);
 	return 0;
 }
 
@@ -853,29 +846,26 @@ u8 *sphinx_compressed_onion_serialize(const tal_t *ctx, const struct sphinx_comp
 struct sphinx_compressed_onion *
 sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src)
 {
-	size_t srclen = tal_bytelen(src);
-	size_t routelen = srclen - VERSION_SIZE - PUBKEY_SIZE - HMAC_SIZE;
+	const u8 *cursor = src;
+	size_t max = tal_bytelen(src);
+	size_t routelen = max - VERSION_SIZE - PUBKEY_SIZE - HMAC_SIZE;
 	struct sphinx_compressed_onion *dst =
 	    tal(ctx, struct sphinx_compressed_onion);
-	int p = 0;
-	u8 ephkey[PUBKEY_SIZE];
 
-	assert(srclen <= TOTAL_PACKET_SIZE);
+	/* This is not a compressed onion, so let's not parse it. */
+	if (routelen > ROUTING_INFO_SIZE)
+		return tal_free(dst);
 
-	read_buffer(&dst->version, src, 1, &p);
+	dst->version = fromwire_u8(&cursor, &max);
 	if (dst->version != 0x00)
 		return tal_free(dst);
 
-	read_buffer(ephkey, src, PUBKEY_SIZE, &p);
-
-	if (!pubkey_from_der(ephkey, PUBKEY_SIZE, &dst->ephemeralkey)) {
-		return tal_free(dst);
-	}
+	fromwire_pubkey(&cursor, &max, &dst->ephemeralkey);
 
 	dst->routinginfo = tal_arr(dst, u8, routelen);
-	read_buffer(dst->routinginfo, src, routelen, &p);
-	read_buffer(&dst->mac, src, HMAC_SIZE, &p);
-	assert(p == srclen);
+	fromwire_u8_array(&cursor, &max, dst->routinginfo, routelen);
+	fromwire_u8_array(&cursor, &max, dst->mac, HMAC_SIZE);
 
+	assert(max == 0);
 	return dst;
 }
