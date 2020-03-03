@@ -32,7 +32,9 @@ static void do_generate(int argc, char **argv,
 	struct secret session_key;
 	struct secret *shared_secrets;
 	struct sphinx_path *sp;
-
+	struct sphinx_compressed_onion *comp;
+	u8 *serialized;
+	struct onionpacket *packet;
 	const u8* tmp_assocdata =tal_dup_arr(ctx, u8, assocdata,
 					  ASSOC_DATA_SIZE, 0);
 	memset(&session_key, 'A', sizeof(struct secret));
@@ -93,13 +95,17 @@ static void do_generate(int argc, char **argv,
 		}
 	}
 
-	struct onionpacket *res = create_onionpacket(ctx, sp, &shared_secrets);
+	packet = create_onionpacket(ctx, sp, &shared_secrets);
 
-	if (rvnode_id != NULL)
-		printf("Rendezvous onion: %s\n",
-		       tal_hex(ctx, serialize_compressed_onion(ctx, sp, res)));
+	if (rvnode_id != NULL) {
+		comp = sphinx_compress(ctx, packet, sp);
+		serialized = sphinx_compressed_onion_serialize(ctx, comp);
+		printf("Rendezvous onion: %s\n", tal_hex(ctx, serialized));
+	} else {
+		assert(sphinx_compress(ctx, packet, sp) == NULL);
+	}
 
-	u8 *serialized = serialize_onionpacket(ctx, res);
+	serialized = serialize_onionpacket(ctx, packet);
 	if (!serialized)
 		errx(1, "Error serializing message.");
 	printf("%s\n", tal_hex(ctx, serialized));
