@@ -611,8 +611,22 @@ struct rpc_command_hook_payload {
 static void rpc_command_hook_serialize(struct rpc_command_hook_payload *p,
                                        struct json_stream *s)
 {
+	const jsmntok_t *tok;
+	size_t i;
+	char *key;
 	json_object_start(s, "rpc_command");
-	json_add_tok(s, "rpc_command", p->request, p->buffer);
+
+#ifdef COMPAT_V081
+	if (deprecated_apis)
+		json_add_tok(s, "rpc_command", p->request, p->buffer);
+#endif
+
+	json_for_each_obj(i, tok, p->request) {
+		key = tal_strndup(NULL, p->buffer + tok->start,
+				  tok->end - tok->start);
+		json_add_tok(s, key, tok + 1, p->buffer);
+		tal_free(key);
+	}
 	json_object_end(s);
 }
 
