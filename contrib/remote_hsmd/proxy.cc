@@ -763,19 +763,17 @@ proxy_stat proxy_handle_get_channel_basepoints(
 proxy_stat proxy_handle_sign_mutual_close_tx(
 	struct bitcoin_tx *tx,
 	const struct pubkey *remote_funding_pubkey,
-	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
 	struct bitcoin_signature *o_sig)
 {
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
-		"funding=%" PRIu64 " remote_funding_pubkey=%s tx=%s",
+		"remote_funding_pubkey=%s tx=%s",
 		__FILE__, __LINE__, __FUNCTION__,
 		dump_node_id(&self_id).c_str(),
 		dump_node_id(peer_id).c_str(),
 		dbid,
-		funding->satoshis,
 		dump_pubkey(remote_funding_pubkey).c_str(),
 		dump_tx(tx).c_str()
 		);
@@ -792,12 +790,7 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	SignatureReply rsp;
 	Status status = stub->SignMutualCloseTx(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-#if 0
 		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
-#else
-		memset(o_sig, '\0', sizeof(*o_sig));
-#endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -817,19 +810,17 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 proxy_stat proxy_handle_sign_commitment_tx(
 	struct bitcoin_tx *tx,
 	const struct pubkey *remote_funding_pubkey,
-	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
 	struct bitcoin_signature *o_sig)
 {
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
-		"funding=%" PRIu64 " remote_funding_pubkey=%s tx=%s",
+		"remote_funding_pubkey=%s tx=%s",
 		__FILE__, __LINE__, __FUNCTION__,
 		dump_node_id(&self_id).c_str(),
 		dump_node_id(peer_id).c_str(),
 		dbid,
-		funding->satoshis,
 		dump_pubkey(remote_funding_pubkey).c_str(),
 		dump_tx(tx).c_str()
 		);
@@ -846,12 +837,7 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	SignatureReply rsp;
 	Status status = stub->SignCommitmentTx(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-#if 0
 		unmarshal_bitcoin_signature(rsp.signature(), o_sig);
-#else
-		memset(o_sig, '\0', sizeof(*o_sig));
-#endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),

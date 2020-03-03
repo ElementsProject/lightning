@@ -93,7 +93,6 @@ proxy_stat proxy_handle_get_channel_basepoints(
 proxy_stat proxy_handle_sign_mutual_close_tx(
 	struct bitcoin_tx *tx,
 	const struct pubkey *remote_funding_pubkey,
-	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
 	struct bitcoin_signature *o_sig);
@@ -101,7 +100,6 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 proxy_stat proxy_handle_sign_commitment_tx(
 	struct bitcoin_tx *tx,
 	const struct pubkey *remote_funding_pubkey,
-	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
 	struct bitcoin_signature *o_sig);

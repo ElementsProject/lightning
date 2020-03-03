@@ -38,23 +38,32 @@ $THETEST \
 
 Some popular tests:
 
+    # sign-invoice, handle-sign-remote-htlc-tx
     export THETEST=tests/test_connection.py::test_balance
     export THETEST=tests/test_pay.py::test_sendpay
     export THETEST=tests/test_pay.py::test_pay
+
+    # sign-local-htlc-tx
     export THETEST=tests/test_closing.py::test_onchain_different_fees
+
+    # sign-remote-htlc-to-us
     export THETEST=tests/test_closing.py::test_onchain_feechange
     export THETEST=tests/test_closing.py::test_onchain_all_dust
     export THETEST=tests/test_closing.py::test_permfail_new_commit
+
+    # sign-delayed-payment-to-us
     export THETEST=tests/test_closing.py::test_onchain_multihtlc_our_unilateral
     export THETEST=tests/test_closing.py::test_onchain_multihtlc_their_unilateral
     export THETEST=tests/test_closing.py::test_permfail_htlc_in
     export THETEST=tests/test_closing.py::test_permfail_htlc_out
-    export THETEST=tests/test_closing.py::test_penalty_inhtlc 
-    export THETEST=tests/test_closing.py::test_penalty_outhtlc 
 
+    # sign-penalty-to-us
+    export THETEST=tests/test_closing.py::test_penalty_inhtlc
+    export THETEST=tests/test_closing.py::test_penalty_outhtlc
+    export THETEST=tests/test_closing.py::test_closing
 
-Tests remote_commitment:
-
+    # sign-mutual-close
+    export THETEST=tests/test_closing.py::test_closing
 
 rust-lightning-signer
 ----------------------------------------------------------------

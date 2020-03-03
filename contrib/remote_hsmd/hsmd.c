@@ -998,15 +998,12 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 						 struct client *c,
 						 const u8 *msg_in)
 {
-	struct pubkey remote_funding_pubkey, local_funding_pubkey;
+	struct pubkey remote_funding_pubkey;
 	struct node_id peer_id;
 	u64 dbid;
 	struct amount_sat funding;
-	struct secret channel_seed;
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
-	struct secrets secrets;
-	const u8 *funding_wscript;
 
 	if (!fromwire_hsm_sign_commitment_tx(tmpctx, msg_in,
 					     &peer_id, &dbid,
@@ -1032,9 +1029,7 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 
 	proxy_stat rv = proxy_handle_sign_commitment_tx(
-		tx, &remote_funding_pubkey, &funding,
-		&c->id, c->dbid,
-		&sig);
+		tx, &remote_funding_pubkey, &peer_id, dbid, &sig);
 	if (PROXY_PERMANENT(rv))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "proxy_%s failed: %s", __FUNCTION__,
@@ -1044,28 +1039,6 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
 	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-#if 0
-	status_debug("%s:%d %s: signature: %s",
-		     __FILE__, __LINE__, __FUNCTION__,
-		     type_to_string(tmpctx, struct bitcoin_signature, &sig));
-#else
-	get_channel_seed(&peer_id, dbid, &channel_seed);
-	derive_basepoints(&channel_seed,
-			  &local_funding_pubkey, NULL, &secrets, NULL);
-
-	/*~ Bitcoin signatures cover the (part of) the script they're
-	 * executing; the rules are a bit complex in general, but for
-	 * Segregated Witness it's simply the current script. */
-	funding_wscript = bitcoin_redeem_2of2(tmpctx,
-					      &local_funding_pubkey,
-					      &remote_funding_pubkey);
-	sign_tx_input(tx, 0, NULL, funding_wscript,
-		      &secrets.funding_privkey,
-		      &local_funding_pubkey,
-		      SIGHASH_ALL,
-		      &sig);
-#endif
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_commitment_tx_reply(NULL, &sig)));
@@ -1436,13 +1409,10 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 						   struct client *c,
 						   const u8 *msg_in)
 {
-	struct secret channel_seed;
 	struct bitcoin_tx *tx;
-	struct pubkey remote_funding_pubkey, local_funding_pubkey;
+	struct pubkey remote_funding_pubkey;
 	struct bitcoin_signature sig;
-	struct secrets secrets;
 	struct amount_sat funding;
-	const u8 *funding_wscript;
 
 	if (!fromwire_hsm_sign_mutual_close_tx(tmpctx, msg_in,
 					       &tx,
@@ -1456,9 +1426,7 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 
 	proxy_stat rv = proxy_handle_sign_mutual_close_tx(
-		tx, &remote_funding_pubkey, &funding,
-		&c->id, c->dbid,
-		&sig);
+		tx, &remote_funding_pubkey, &c->id, c->dbid, &sig);
 	if (PROXY_PERMANENT(rv))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "proxy_%s failed: %s", __FUNCTION__,
@@ -1467,25 +1435,7 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	/* FIXME - uncomment this: assert(tal_count(sigs) == 1); */
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - USE SERVER RESULT AND REMOVE BELOW */
-
-	/* FIXME: We should know dust level, decent fee range and
-	 * balances, and final_keyindex, and thus be able to check tx
-	 * outputs! */
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	derive_basepoints(&channel_seed,
-			  &local_funding_pubkey, NULL, &secrets, NULL);
-
-	funding_wscript = bitcoin_redeem_2of2(tmpctx,
-					      &local_funding_pubkey,
-					      &remote_funding_pubkey);
-	sign_tx_input(tx, 0, NULL, funding_wscript,
-		      &secrets.funding_privkey,
-		      &local_funding_pubkey,
-		      SIGHASH_ALL, &sig);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
