@@ -12,8 +12,8 @@ struct onionreply *fromwire_onionreply(const tal_t *ctx,
 				       const u8 **cursor, size_t *max)
 {
 	struct onionreply *r = tal(ctx, struct onionreply);
-	r->contents = tal_arr(r, u8, fromwire_u16(cursor, max));
-	fromwire_u8_array(cursor, max, r->contents, tal_count(r->contents));
+	r->contents = fromwire_tal_bytes(r, cursor, max,
+					 fromwire_u16(cursor, max));
 	if (!*cursor)
 		return tal_free(r);
 	return r;

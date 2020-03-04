@@ -21,8 +21,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	}
 
 	flen = fromwire_u16(pptr, max);
-	entry->features = tal_arr(entry, u8, flen);
-	fromwire_u8_array(pptr, max, entry->features, flen);
+	entry->features = fromwire_tal_bytes(entry, pptr, max, flen);
 
 	numaddresses = fromwire_u8(pptr, max);
 

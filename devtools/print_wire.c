@@ -104,10 +104,9 @@ static void printwire_addresses(const u8 **cursor, size_t *plen, size_t len)
 static void printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t len)
 {
 	struct short_channel_id *scids;
-	u8 *arr = tal_arr(tmpctx, u8, len);
+	u8 *arr = fromwire_tal_bytes(tmpctx, cursor, plen, len);
 
-	fromwire_u8_array(cursor, plen, arr, len);
-	if (!*cursor)
+	if (!arr)
 		return;
 
 	printf("[");
