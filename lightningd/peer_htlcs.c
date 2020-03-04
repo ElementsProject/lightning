@@ -780,6 +780,8 @@ struct htlc_accepted_hook_payload {
 	struct channel *channel;
 	struct lightningd *ld;
 	u8 *next_onion;
+	u64 failtlvtype;
+	size_t failtlvpos;
 };
 
 /* The possible return value types that a plugin may return for the
@@ -1116,7 +1118,9 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	hook_payload = tal(hin, struct htlc_accepted_hook_payload);
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
-	hook_payload->payload = onion_decode(hook_payload, rs);
+	hook_payload->payload = onion_decode(hook_payload, rs,
+					     &hook_payload->failtlvtype,
+					     &hook_payload->failtlvpos);
 	hook_payload->ld = ld;
 	hook_payload->hin = hin;
 	hook_payload->channel = channel;
