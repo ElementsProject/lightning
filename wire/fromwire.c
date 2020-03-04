@@ -308,6 +308,19 @@ void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 	fromwire(cursor, max, arr, num);
 }
 
+u8 *fromwire_tal_arrn(const tal_t *ctx,
+		      const u8 **cursor, size_t *max, size_t num)
+{
+	u8 *arr;
+	if (num > *max) {
+		fromwire_fail(cursor, max);
+		return NULL;
+	}
+	arr = tal_arr(ctx, u8, num);
+	fromwire_u8_array(cursor, max, arr, num);
+	return arr;
+}
+
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
 {
 	fromwire(cursor, max, NULL, num);
@@ -393,20 +406,19 @@ struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
 	struct bitcoin_tx_output *output = tal(ctx, struct bitcoin_tx_output);
 	output->amount = fromwire_amount_sat(cursor, max);
 	u16 script_len = fromwire_u16(cursor, max);
-	output->script = tal_arr(output, u8, script_len);
-	fromwire_u8_array(cursor, max, output->script, script_len);
+	output->script = fromwire_tal_arrn(output, cursor, max, script_len);
+	if (!*cursor)
+		return tal_free(output);
 	return output;
 }
 
 struct witscript *fromwire_witscript(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
-	struct witscript *retval;
+	struct witscript *retval = tal(ctx, struct witscript);
 	u16 len = fromwire_u16(cursor, max);
-	if (!len)
-		return NULL;
-	retval = tal(ctx, struct witscript);
-	retval->ptr = tal_arr(retval, u8, len);
-	fromwire_u8_array(cursor, max, retval->ptr, len);
+	retval->ptr = fromwire_tal_arrn(retval, cursor, max, len);
+	if (!*cursor)
+		return tal_free(retval);
 	return retval;
 }
 

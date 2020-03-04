@@ -136,6 +136,8 @@ struct amount_sat fromwire_amount_sat(const u8 **cursor, size_t *max);
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);
+u8 *fromwire_tal_arrn(const tal_t *ctx,
+		       const u8 **cursor, size_t *max, size_t num);
 char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max);
 struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 				       const u8 **cursor, size_t *max);
