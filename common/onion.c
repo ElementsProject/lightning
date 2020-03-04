@@ -205,7 +205,9 @@ size_t onion_payload_length(const u8 *raw_payload, size_t len,
 }
 
 struct onion_payload *onion_decode(const tal_t *ctx,
-				    const struct route_step *rs)
+				   const struct route_step *rs,
+				   u64 *failtlvtype,
+				   size_t *failtlvpos)
 {
 	struct onion_payload *p = tal(ctx, struct onion_payload);
 	const u8 *cursor = rs->raw_payload;
@@ -245,9 +247,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (!fromwire_tlv_payload(&cursor, &max, tlv))
 			goto fail;
 
-		if (!tlv_payload_is_valid(tlv, failtlvpos))
+		if (!tlv_payload_is_valid(tlv, failtlvpos)) {
+			*failtlvtype = tlv->fields[*failtlvpos].numtype;
 			goto fail;
-
+		}
 
 		/* BOLT #4:
 		 *

@@ -411,7 +411,9 @@ enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
 /* Generated stub for onion_decode */
 struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
-				   const struct route_step *rs UNNEEDED)
+				   const struct route_step *rs UNNEEDED,
+				   u64 *failtlvtype UNNEEDED,
+				   size_t *failtlvpos UNNEEDED)
 { fprintf(stderr, "onion_decode called!\n"); abort(); }
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
@@ -654,6 +656,9 @@ u8 *towire_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expiry UNNE
 /* Generated stub for towire_incorrect_or_unknown_payment_details */
 u8 *towire_incorrect_or_unknown_payment_details(const tal_t *ctx UNNEEDED, struct amount_msat htlc_msat UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "towire_incorrect_or_unknown_payment_details called!\n"); abort(); }
+/* Generated stub for towire_invalid_onion_payload */
+u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, varint type UNNEEDED, u16 offset UNNEEDED)
+{ fprintf(stderr, "towire_invalid_onion_payload called!\n"); abort(); }
 /* Generated stub for towire_invalid_realm */
 u8 *towire_invalid_realm(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_invalid_realm called!\n"); abort(); }
