@@ -824,12 +824,11 @@ sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src)
 {
 	const u8 *cursor = src;
 	size_t max = tal_bytelen(src);
-	size_t routelen = max - VERSION_SIZE - PUBKEY_SIZE - HMAC_SIZE;
 	struct sphinx_compressed_onion *dst =
 	    tal(ctx, struct sphinx_compressed_onion);
 
 	/* This is not a compressed onion, so let's not parse it. */
-	if (routelen > ROUTING_INFO_SIZE)
+	if (max > TOTAL_PACKET_SIZE)
 		return tal_free(dst);
 
 	dst->version = fromwire_u8(&cursor, &max);
@@ -837,11 +836,12 @@ sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src)
 		return tal_free(dst);
 
 	fromwire_pubkey(&cursor, &max, &dst->ephemeralkey);
-
-	dst->routinginfo = tal_arr(dst, u8, routelen);
-	fromwire_u8_array(&cursor, &max, dst->routinginfo, routelen);
+	dst->routinginfo = fromwire_tal_bytes(dst, &cursor, &max, max - HMAC_SIZE);
 	fromwire_u8_array(&cursor, &max, dst->mac, HMAC_SIZE);
 
-	assert(max == 0);
+	/* If at any point we failed to pull from the serialized compressed
+	 * onion the entire deserialization is considered to have failed. */
+	if (cursor == NULL)
+		return tal_free(dst);
 	return dst;
 }
