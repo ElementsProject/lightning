@@ -819,7 +819,7 @@ def test_libplugin(node_factory):
     # Test hooks and notifications
     l2 = node_factory.get_node()
     l2.connect(l1)
-    assert l1.daemon.is_in_log("{} peer_connected".format(l2.info["id"]))
+    l1.daemon.wait_for_log("{} peer_connected".format(l2.info["id"]))
     l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))
 
     # Test RPC calls FIXME: test concurrent ones ?
