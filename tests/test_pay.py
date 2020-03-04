@@ -2806,7 +2806,6 @@ caused a crash in 0.8.0, so we then disallowed it.
     assert inv['amount_received_msat'] == Millisatoshi(1001)
 
 
-@pytest.mark.xfail(strict=True)
 def test_reject_invalid_payload(node_factory):
     """Send an onion payload with an unknown even type.
 
