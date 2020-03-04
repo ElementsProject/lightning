@@ -30,7 +30,12 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/plugin.h>
 
-/* The names of the request we can make to our Bitcoin backend. */
+/* How many seconds will we wait for our Bitcoin plugin to respond to `init` ?
+ * Note that bcli waits for bitcoind to be warmed up before responding, so it
+ * shouldn't be too low. */
+#define BITCOIN_INIT_TIMEOUT 30
+
+/* The names of the requests we can make to our Bitcoin backend. */
 static const char *methods[] = {"getchaininfo", "getrawblockbyheight",
                                 "sendrawtransaction", "getutxout",
                                 "getfeerate"};
@@ -40,8 +45,15 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
+	tal_free(plugin->timeout_timer);
 	plugin->plugin_state = CONFIGURED;
 	io_break(plugin);
+}
+
+static void plugin_config_timeout(void *unused UNUSED)
+{
+	fatal("Timed out while waiting for (one of) the Bitcoin backend "
+	      "plugin(s) to complete the handshake.");
 }
 
 static void config_plugin(struct plugin *plugin)
@@ -53,6 +65,13 @@ static void config_plugin(struct plugin *plugin)
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
+
+	/* Don't hang forever if the plugin encountered a problem at init. */
+	plugin->timeout_timer
+		= new_reltimer(plugin->plugins->ld->timers, NULL,
+			       time_from_sec(BITCOIN_INIT_TIMEOUT),
+			       plugin_config_timeout, NULL);
+
 	io_loop_with_timers(plugin->plugins->ld);
 }
 
