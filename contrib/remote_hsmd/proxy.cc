@@ -867,25 +867,23 @@ proxy_stat proxy_handle_cannouncement_sig(
 			 tal_count(channel_announcement)).c_str()
 		);
 
+	/* Skip the portion of the channel_update that we don't sign */
+	size_t offset = 2 + 256; /* sizeof(type) + 4*sizeof(signature) */
+	size_t annsz = tal_count(channel_announcement);
+
 	last_message = "";
 	SignChannelAnnouncementRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
-	req.set_channel_announcement(channel_announcement,
-				     tal_count(channel_announcement));
+	req.set_channel_announcement(channel_announcement + offset,
+				     annsz - offset);
 
 	ClientContext context;
 	SignChannelAnnouncementReply rsp;
 	Status status = stub->SignChannelAnnouncement(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-#if 0
 		unmarshal_ecdsa_signature(rsp.node_signature(), o_node_sig);
 		unmarshal_ecdsa_signature(rsp.bitcoin_signature(), o_bitcoin_sig);
-#else
-		memset(o_node_sig->data, '\0', sizeof(o_node_sig->data));
-		memset(o_bitcoin_sig->data, '\0', sizeof(o_bitcoin_sig->data));
-#endif
 		status_debug("%s:%d %s self_id=%s node_sig=%s bitcoin_sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),

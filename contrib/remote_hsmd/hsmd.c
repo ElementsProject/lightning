@@ -833,14 +833,9 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	 */
 	/* First type bytes are the msg type */
 	size_t offset = 2 + 256;
-	struct privkey node_pkey;
 	secp256k1_ecdsa_signature node_sig, bitcoin_sig;
-	struct sha256_double hash;
 	u8 *reply;
 	u8 *ca;
-	struct pubkey funding_pubkey;
-	struct privkey funding_privkey;
-	struct secret channel_seed;
 
 	/*~ You'll find FIXMEs like this scattered through the code.
 	 * Sometimes they suggest simple improvements which someone like
@@ -849,10 +844,6 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 
 	/*~ Christian uses TODO(cdecker) or FIXME(cdecker), but I'm sure he won't
 	 * mind if you fix this for him! */
-
-	/* FIXME: We should cache these. */
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	derive_funding_key(&channel_seed, &funding_pubkey, &funding_privkey);
 
 	/*~ fromwire_ routines which need to do allocation take a tal context
 	 * as their first field; tmpctx is good here since we won't need it
@@ -881,15 +872,7 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	node_key(&node_pkey, NULL);
-	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
-
-	sign_hash(&node_pkey, &hash, &node_sig);
-	sign_hash(&funding_privkey, &hash, &bitcoin_sig);
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	reply = towire_hsm_cannouncement_sig_reply(NULL, &node_sig,
 						   &bitcoin_sig);

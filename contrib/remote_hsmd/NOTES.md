@@ -71,6 +71,9 @@ Some popular tests:
     # sign-message
     export THETEST=tests/test_misc.py::test_signmessage
 
+    # sign-channel-announcement
+    export THETEST=tests/test_closing.py::test_closing_different_fees
+
 rust-lightning-signer
 ----------------------------------------------------------------
 
