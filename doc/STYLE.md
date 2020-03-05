@@ -36,6 +36,22 @@ using early returns or continues, eg:
 }
 ```
 
+## Tabs and indentaion
+
+The C code uses TAB charaters with a visual indentation of 8 whitespaces.
+If you submit code for a review, make sure your editor knows this.
+
+When breaking a line with more than 80 characters, align parameters and
+arguments like so:
+
+```C
+static void subtract_received_htlcs(const struct channel *channel,
+				    struct amount_msat *amount)
+```
+
+Note: For more details, the files `.clang-format` and `.editorconfig` are
+located in the projects root directory.
+
 ## Prefer Simple Statements
 
 Notice the statement above uses separate tests, rather than combining
