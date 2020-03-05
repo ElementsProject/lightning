@@ -11,7 +11,7 @@ from pyln.client import Plugin
 plugin = Plugin()
 
 
-@plugin.method("getfeerate")
+@plugin.method("estimatefees")
 def getfeerate(plugin, **kwargs):
     time.sleep(1)
     return {}

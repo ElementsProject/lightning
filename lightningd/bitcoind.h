@@ -61,14 +61,13 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct log *log);
 
 void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
-			     const u32 blocks[], const char *estmode[],
 			     size_t num_estimates,
 			     void (*cb)(struct bitcoind *bitcoind,
 					const u32 satoshi_per_kw[], void *),
 			     void *arg);
 
-#define bitcoind_estimate_fees(bitcoind_, blocks, estmode, num, cb, arg) \
-	bitcoind_estimate_fees_((bitcoind_), (blocks), (estmode), (num), \
+#define bitcoind_estimate_fees(bitcoind_, num, cb, arg) \
+	bitcoind_estimate_fees_((bitcoind_), (num), \
 				typesafe_cb_preargs(void, void *,	\
 						    (cb), (arg),	\
 						    struct bitcoind *,	\

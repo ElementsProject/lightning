@@ -429,13 +429,9 @@ static void update_feerates(struct bitcoind *bitcoind,
 
 static void start_fee_estimate(struct chain_topology *topo)
 {
-	const char *estmodes[] = { "CONSERVATIVE", "ECONOMICAL", "ECONOMICAL" };
-	const u32 blocks[] = { 2, 4, 100 };
-
-
 	/* Once per new block head, update fee estimates. */
-	bitcoind_estimate_fees(topo->bitcoind, blocks, estmodes, NUM_FEERATES,
-			       update_feerates, topo);
+	bitcoind_estimate_fees(topo->bitcoind, NUM_FEERATES, update_feerates,
+			       topo);
 }
 
 u32 opening_feerate(struct chain_topology *topo)
