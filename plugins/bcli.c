@@ -449,16 +449,35 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 	return command_finished(bcli->cmd, response);
 }
 
-static struct command_result *process_estimatefee(struct bitcoin_cli *bcli)
+
+struct estimatefees_stash {
+	/* FIXME: We use u64 but lightningd will store them as u32. */
+	u64 urgent, normal, slow;
+};
+
+static struct command_result *
+estimatefees_null_response(struct bitcoin_cli *bcli)
+{
+	struct json_stream *response = jsonrpc_stream_success(bcli->cmd);
+
+	json_add_null(response, "opening");
+	json_add_null(response, "mutual_close");
+	json_add_null(response, "unilateral_close");
+	json_add_null(response, "delayed_to_us");
+	json_add_null(response, "htlc_resolution");
+	json_add_null(response, "penalty");
+	json_add_null(response, "min_acceptable");
+	json_add_null(response, "max_acceptable");
+
+	return command_finished(bcli->cmd, response);
+}
+
+static struct command_result *
+estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 {
 	const jsmntok_t *tokens, *feeratetok = NULL;
-	struct json_stream *response;
 	bool valid;
-	u64 feerate;
 	char *err;
-
-	if (*bcli->exitstatus != 0)
-		goto end;
 
 	tokens = json_parse_input(bcli->output, bcli->output,
 	                          (int)bcli->output_bytes, &valid);
@@ -478,22 +497,95 @@ static struct command_result *process_estimatefee(struct bitcoin_cli *bcli)
 
 	feeratetok = json_get_member(bcli->output, tokens, "feerate");
 	if (feeratetok &&
-	    !json_to_bitcoin_amount(bcli->output, feeratetok, &feerate)) {
+	    !json_to_bitcoin_amount(bcli->output, feeratetok, feerate)) {
 		err = tal_fmt(bcli->cmd, "%s: bad 'feerate' field (%.*s)",
 			      bcli_args(bcli), (int)bcli->output_bytes,
 			      bcli->output);
 		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
-	}
+	} else if (!feeratetok)
+		/* We return null if estimation failed, and bitcoin-cli will
+		 * exit with 0 but no feerate field on failure. */
+		return estimatefees_null_response(bcli);
 
-end:
+	return NULL;
+}
+
+/* We got all the feerates, give them to lightningd. */
+static struct command_result *estimatefees_final_step(struct bitcoin_cli *bcli)
+{
+	struct command_result *err;
+	struct json_stream *response;
+	struct estimatefees_stash *stash = bcli->stash;
+
+	/* bitcoind could theoretically fail to estimate for a higher target. */
+	if (*bcli->exitstatus != 0)
+		return estimatefees_null_response(bcli);
+
+	err = estimatefees_parse_feerate(bcli, &stash->slow);
+	if (err)
+		return err;
+
 	response = jsonrpc_stream_success(bcli->cmd);
-	if (feeratetok)
-		json_add_u64(response, "feerate", feerate);
-	else
-		json_add_null(response, "feerate");
+	json_add_u64(response, "opening", stash->normal);
+	json_add_u64(response, "mutual_close", stash->normal);
+	json_add_u64(response, "unilateral_close", stash->urgent);
+	json_add_u64(response, "delayed_to_us", stash->normal);
+	json_add_u64(response, "htlc_resolution", stash->normal);
+	json_add_u64(response, "penalty", stash->normal);
+	/* We divide the slow feerate for the minimum acceptable, lightningd
+	 * will use floor if it's hit, though. */
+	json_add_u64(response, "min_acceptable", stash->slow / 2);
+	json_add_u64(response, "max_acceptable", stash->urgent);
 
 	return command_finished(bcli->cmd, response);
 }
+
+/* We got the response for the normal feerate, now treat the slow one. */
+static struct command_result *estimatefees_third_step(struct bitcoin_cli *bcli)
+{
+	struct command_result *err;
+	struct estimatefees_stash *stash = bcli->stash;
+	const char **params = tal_arr(bcli->cmd, const char *, 2);
+
+	/* bitcoind could theoretically fail to estimate for a higher target. */
+	if (*bcli->exitstatus != 0)
+		return estimatefees_null_response(bcli);
+
+	err = estimatefees_parse_feerate(bcli, &stash->normal);
+	if (err)
+		return err;
+
+	params[0] = "100";
+	params[1] = "ECONOMICAL";
+	start_bitcoin_cli(NULL, bcli->cmd, estimatefees_final_step, true,
+			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
+
+	return command_still_pending(bcli->cmd);
+}
+
+/* We got the response for the urgent feerate, now treat the normal one. */
+static struct command_result *estimatefees_second_step(struct bitcoin_cli *bcli)
+{
+	struct command_result *err;
+	struct estimatefees_stash *stash = bcli->stash;
+	const char **params = tal_arr(bcli->cmd, const char *, 2);
+
+	/* If we cannot estimatefees, no need to continue bothering bitcoind. */
+	if (*bcli->exitstatus != 0)
+		return estimatefees_null_response(bcli);
+
+	err = estimatefees_parse_feerate(bcli, &stash->urgent);
+	if (err)
+		return err;
+
+	params[0] = "4";
+	params[1] = "ECONOMICAL";
+	start_bitcoin_cli(NULL, bcli->cmd, estimatefees_third_step, true,
+			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
+
+	return command_still_pending(bcli->cmd);
+}
+
 
 static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcli)
 {
@@ -623,25 +715,28 @@ static struct command_result *getchaininfo(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-/* Get current feerate.
- * Calls `estimatesmartfee` and returns the feerate as btc/k*VBYTE*.
+/* Get the current feerates. We use an urgent feerate for unilateral_close and max,
+ * a slow feerate for min, and a normal for all others.
+ *
+ * Calls `estimatesmartfee` with targets 2/CONSERVATIVE (urgent),
+ * 4/ECONOMICAL (normal), and 100/ECONOMICAL (slow) then returns the
+ * feerates as sat/kVB.
  */
-static struct command_result *getfeerate(struct command *cmd,
-                                         const char *buf UNUSED,
-                                         const jsmntok_t *toks UNUSED)
+static struct command_result *estimatefees(struct command *cmd,
+					   const char *buf UNUSED,
+					   const jsmntok_t *toks UNUSED)
 {
-	u32 *blocks;
+	struct estimatefees_stash *stash = tal(cmd, struct estimatefees_stash);
 	const char **params = tal_arr(cmd, const char *, 2);
 
-	if (!param(cmd, buf, toks,
-		   p_req("blocks", param_number, &blocks),
-		   p_req("mode", param_string, &params[1]),
-		   NULL))
+	if (!param(cmd, buf, toks, NULL))
 	    return command_param_failed();
 
-	params[0] = tal_fmt(params, "%u", *blocks);
-	start_bitcoin_cli(NULL, cmd, process_estimatefee, true,
-			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, NULL);
+	/* First call to estimatesmartfee, for urgent estimation. */
+	params[0] = "2";
+	params[1] = "CONSERVATIVE";
+	start_bitcoin_cli(NULL, cmd, estimatefees_second_step, true,
+			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
 
 	return command_still_pending(cmd);
 }
@@ -773,11 +868,12 @@ static const struct plugin_command commands[] = {
 		getchaininfo
 	},
 	{
-		"getfeerate",
+		"estimatefees",
 		"bitcoin",
-		"Get the Bitcoin feerate in btc/kilo-vbyte.",
+		"Get the urgent, normal and slow Bitcoin feerates as"
+		" sat/kVB.",
 		"",
-		getfeerate
+		estimatefees
 	},
 	{
 		"sendrawtransaction",
