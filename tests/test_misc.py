@@ -1681,7 +1681,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     wait_for(lambda: l1.daemon.is_in_log(
         r'getblockhash [a-z0-9]* exited with status 1'))
     wait_for(lambda: l1.daemon.is_in_log(
-        r'Unable to estimate CONSERVATIVE/2 fee'))
+        r'Unable to estimate opening fees'))
 
     # Now unset the mock, so calls go through again
     l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
