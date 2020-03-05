@@ -1364,10 +1364,8 @@ static struct io_plan *handle_check_future_secret(struct io_conn *conn,
 						  struct client *c,
 						  const u8 *msg_in)
 {
-	struct secret channel_seed;
-	struct sha256 shaseed;
 	u64 n;
-	struct secret secret, suggested;
+	struct secret suggested;
 
 	if (!fromwire_hsm_check_future_secret(msg_in, &n, &suggested))
 		return bad_req(conn, c, msg_in);
@@ -1383,25 +1381,11 @@ static struct io_plan *handle_check_future_secret(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
-	/* FIXME - REPLACE BELOW W/ REMOTE RETURN */
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
-
-	if (!per_commit_secret(&shaseed, &secret, n))
-		return bad_req_fmt(conn, c, msg_in,
-				   "bad commit secret #%"PRIu64, n);
-
-	/*~ Note the special secret_eq_consttime: we generate foo_eq for many
-	 * types using ccan/structeq, but not 'struct secret' because any
-	 * comparison risks leaking information about the secret if it is
-	 * timing dependent. */
 	return req_reply(conn, c,
 			 take(towire_hsm_check_future_secret_reply(NULL,
-				   secret_eq_consttime(&secret, &suggested))));
+								   correct)));
 }
 
 /* This is used by closingd to sign off on a mutual close tx. */

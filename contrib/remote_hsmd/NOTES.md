@@ -64,6 +64,9 @@ Some popular tests:
 
     # sign-mutual-close
     export THETEST=tests/test_closing.py::test_closing
+    
+    # check-future-secret
+    export THETEST=tests/test_connection.py::test_dataloss_protection
 
 rust-lightning-signer
 ----------------------------------------------------------------
