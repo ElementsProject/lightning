@@ -1811,10 +1811,7 @@ static struct io_plan *handle_sign_message(struct io_conn *conn,
 					   const u8 *msg_in)
 {
 	u8 *msg;
-	struct sha256_ctx sctx = SHA256_INIT;
-	struct sha256_double shad;
 	secp256k1_ecdsa_recoverable_signature rsig;
-	struct privkey node_pkey;
 
 	if (!fromwire_hsm_sign_message(tmpctx, msg_in, &msg))
 		return bad_req(conn, c, msg_in);
@@ -1828,26 +1825,7 @@ static struct io_plan *handle_sign_message(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
-
-	/* FIXME - USE THE PROXIED VALUE WHEN SERVER SUPPORTS */
-
-	/* Prefixing by a known string means we'll never be convinced
-	 * to sign some gossip message, etc. */
-	sha256_update(&sctx, "Lightning Signed Message:",
-		      strlen("Lightning Signed Message:"));
-	sha256_update(&sctx, msg, tal_count(msg));
-	sha256_double_done(&sctx, &shad);
-
-	node_key(&node_pkey, NULL);
-	/*~ By no small coincidence, this libsecp routine uses the exact
-	 * recovery signature format mandated by BOLT 11. */
-	if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, &rsig,
-                                              shad.sha.u.u8,
-                                              node_pkey.secret.data,
-                                              NULL, NULL)) {
-		return bad_req_fmt(conn, c, msg_in, "Failed to sign message");
-	}
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_message_reply(NULL, &rsig)));

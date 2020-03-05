@@ -27,11 +27,11 @@ COMPLETE		proxy_stat proxy_handle_sign_penalty_to_us
 COMPLETE		proxy_stat proxy_handle_sign_commitment_tx
 COMPLETE		proxy_stat proxy_handle_sign_mutual_close_tx
 COMPLETE		proxy_stat proxy_handle_check_future_secret
+COMPLETE		proxy_stat proxy_handle_sign_message
 
 PARTIAL (-P2SH)	proxy_stat proxy_handle_sign_withdrawal_tx
 
 MARSHALED		proxy_stat proxy_init_hsm
-MARSHALED		proxy_stat proxy_handle_sign_message
 MARSHALED		proxy_stat proxy_handle_cannouncement_sig
 ```
 

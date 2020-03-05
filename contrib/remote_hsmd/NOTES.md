@@ -67,6 +67,9 @@ Some popular tests:
     
     # check-future-secret
     export THETEST=tests/test_connection.py::test_dataloss_protection
+    
+    # sign-message
+    export THETEST=tests/test_misc.py::test_signmessage
 
 rust-lightning-signer
 ----------------------------------------------------------------

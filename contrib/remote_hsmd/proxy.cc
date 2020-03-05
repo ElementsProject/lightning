@@ -642,18 +642,14 @@ proxy_stat proxy_handle_sign_message(
 
 	last_message = "";
 	SignMessageRequest req;
+	marshal_node_id(&self_id, req.mutable_node_id());
 	req.set_message(msg, tal_count(msg));
 
 	ClientContext context;
 	RecoverableNodeSignatureReply rsp;
 	Status status = stub->SignMessage(&context, req, &rsp);
 	if (status.ok()) {
-		// FIXME - UNCOMMENT WHEN SERVER IMPLEMENTS:
-#if 0
 		unmarshal_ecdsa_recoverable_signature(rsp.signature(), o_sig);
-#else
-		memset(o_sig, '\0', sizeof(*o_sig));
-#endif
 		status_debug("%s:%d %s self_id=%s sig=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
