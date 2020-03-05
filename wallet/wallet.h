@@ -1240,4 +1240,6 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
  */
 void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb);
 
+void wallet_add_short_channel_id(struct wallet *w, const struct short_channel_id *scid);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

@@ -3752,3 +3752,15 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 	tal_free(stmt);
 	return txs;
 }
+
+void wallet_add_short_channel_id(struct wallet *w, const struct short_channel_id *scid) {
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(
+	    w->db, SQL("INSERT INTO short_channels_ids ("
+		       "  channel_id"
+		       ") VALUES (?) ON CONFLICT(channel_id) DO NOTHING;"));
+	db_bind_u64(stmt, 0, scid->u64);
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
