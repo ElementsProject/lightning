@@ -143,6 +143,7 @@ u8 *onion_final_hop(const tal_t *ctx,
 /* Returns true if valid, and fills in type. */
 static bool pull_payload_length(const u8 **cursor,
 				size_t *max,
+				bool has_realm,
 				enum onion_payload_type *type,
 				size_t *len)
 {
@@ -163,7 +164,7 @@ static bool pull_payload_length(const u8 **cursor,
 	 *   length. In this case the `hop_payload_length` is defined to be 32
 	 *   bytes.
 	 */
-	if (*len == 0) {
+	if (has_realm && *len == 0) {
 		if (type)
 			*type = ONION_V0_PAYLOAD;
 		assert(*cursor - start == 1);
@@ -176,10 +177,15 @@ static bool pull_payload_length(const u8 **cursor,
 	 *   case the `hop_payload_length` is equal to the numeric value of
 	 *   `length`.
 	 */
-	if (*len > 1) {
+	if (!has_realm || *len > 1) {
 		/* It's still invalid if it claims to be too long! */
-		if (*len > ROUTING_INFO_SIZE - HMAC_SIZE)
-			return false;
+		if (has_realm) {
+			if (*len > ROUTING_INFO_SIZE - HMAC_SIZE)
+				return false;
+		} else {
+			if (*len > *max)
+				return false;
+		}
 
 		if (type)
 			*type = ONION_TLV_PAYLOAD;
@@ -190,12 +196,12 @@ static bool pull_payload_length(const u8 **cursor,
 	return false;
 }
 
-size_t onion_payload_length(const u8 *raw_payload, size_t len,
+size_t onion_payload_length(const u8 *raw_payload, size_t len, bool has_realm,
 			    bool *valid,
 			    enum onion_payload_type *type)
 {
 	size_t max = len, payload_len;
-	*valid = pull_payload_length(&raw_payload, &max, type, &payload_len);
+	*valid = pull_payload_length(&raw_payload, &max, has_realm, type, &payload_len);
 
 	/* If it's not valid, copy the entire thing. */
 	if (!*valid)
@@ -214,7 +220,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	size_t max = tal_bytelen(cursor), len;
 	struct tlv_tlv_payload *tlv;
 
-	if (!pull_payload_length(&cursor, &max, &p->type, &len))
+	if (!pull_payload_length(&cursor, &max, true, &p->type, &len))
 		return tal_free(p);
 
 	switch (p->type) {

@@ -131,7 +131,7 @@ static struct route_step *decode_with_privkey(const tal_t *ctx, const u8 *onion,
 		errx(1, "Error creating shared secret.");
 
 	step = process_onionpacket(ctx, &packet, &shared_secret, assocdata,
-				   tal_bytelen(assocdata));
+				   tal_bytelen(assocdata), true);
 	return step;
 
 }
@@ -285,7 +285,7 @@ static void runtest(const char *filename)
 			errx(1, "Error serializing message.");
 		onion_payload_length(step->raw_payload,
 				     tal_bytelen(step->raw_payload),
-				     &valid, &type);
+				     true, &valid, &type);
 		assert(valid);
 		printf("  Type: %d\n", type);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
