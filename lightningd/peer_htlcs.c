@@ -24,6 +24,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <lightningd/options.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
@@ -131,6 +132,7 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 static void tell_channeld_htlc_failed(const struct htlc_in *hin,
 				      const struct failed_htlc *failed_htlc)
 {
+	struct lightningd *ld = hin->key.channel->peer->ld;
 	/* Tell peer, if we can. */
 	if (!hin->key.channel->owner)
 		return;
@@ -141,6 +143,8 @@ static void tell_channeld_htlc_failed(const struct htlc_in *hin,
 
 	subd_send_msg(hin->key.channel->owner,
 		      take(towire_channel_fail_htlc(NULL, failed_htlc)));
+
+	notify_htlc_failed(ld, hin->key.channel->scid, failed_htlc, NULL);
 }
 
 struct failmsg_update_cbdata {
@@ -1290,6 +1294,8 @@ static bool peer_failed_our_htlc(struct channel *channel,
 					     ? fromwire_peektype(hout->failmsg)
 					     : 0);
 
+	notify_htlc_failed(ld, channel->scid, failed, NULL);
+
 	return true;
 }
 
@@ -2185,6 +2191,8 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 			/* Peer already failed, or we hit it? */
 			if (hout->key.channel->error)
 				continue;
+
+			notify_htlc_failed(ld, hout->key.channel->scid, NULL, hout);
 
 			channel_fail_permanent(hout->key.channel,
 					    "Offered HTLC %"PRIu64

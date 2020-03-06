@@ -404,6 +404,14 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  enum onion_type failcode UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED)
 { fprintf(stderr, "notify_forward_event called!\n"); abort(); }
+/* Generated stub for notify_htlc_failed */
+void notify_htlc_failed(struct lightningd *ld UNNEEDED,
+			const struct short_channel_id *scid UNNEEDED,
+			/* non NULL if htlc failed/local_failed */
+			const struct failed_htlc *failed UNNEEDED,
+			/* non NULL if htlc expired */
+			const struct htlc_out *hout UNNEEDED)
+{ fprintf(stderr, "notify_htlc_failed called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,

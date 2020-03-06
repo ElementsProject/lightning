@@ -310,3 +310,47 @@ void notify_sendpay_failure(struct lightningd *ld,
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void htlc_failed_notification_serialize(struct json_stream *stream,
+					       const struct short_channel_id *scid,
+					       const struct failed_htlc *failed,
+					       const struct htlc_out *hout)
+{
+	json_object_start(stream, "htlc_failed");
+	json_add_short_channel_id(stream, "short_channel_id", scid);
+	if (hout) {
+		json_add_num(stream, "id", hout->key.id);
+		json_add_string(stream, "status", "expired");
+	}
+	else if (failed) {
+		json_add_num(stream, "id", failed->id);
+		if (failed->sha256_of_onion) {
+			json_add_string(stream, "status", "local_failed");
+			json_add_string(stream, "badonion",
+					onion_type_name(failed->badonion));
+		}
+		else
+			json_add_string(stream, "status", "failed");
+	}
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(htlc_failed,
+                      htlc_failed_notification_serialize);
+
+void notify_htlc_failed(struct lightningd *ld,
+			const struct short_channel_id *scid,
+			const struct failed_htlc *failed,
+			const struct htlc_out *hout)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct short_channel_id *,
+			  const struct failed_htlc *,
+			  const struct htlc_out *) = htlc_failed_notification_gen.serialize;
+
+	struct jsonrpc_notification *n = jsonrpc_notification_start(NULL, "htlc_failed");
+	serialize(n->stream, scid, failed, hout);
+	jsonrpc_notification_end(n);
+
+	plugins_notify(ld->plugins, take(n));
+}
