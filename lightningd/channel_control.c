@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
+#include <lightningd/onion_message.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -319,11 +320,17 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_GOT_ONIONMSG_TO_US:
+		handle_onionmsg_to_us(sd->channel, msg);
+		break;
+	case WIRE_GOT_ONIONMSG_FORWARD:
+		handle_onionmsg_forward(sd->channel, msg);
+		break;
+#else
 	case WIRE_GOT_ONIONMSG_TO_US:
 	case WIRE_GOT_ONIONMSG_FORWARD:
-		/* FIXME */
-		break;
-
+#endif
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_DEPTH:
