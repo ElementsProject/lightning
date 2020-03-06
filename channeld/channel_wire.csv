@@ -2,6 +2,7 @@
 #include <common/channel_config.h>
 #include <common/derive_basepoints.h>
 #include <common/fee_states.h>
+#include <common/onionreply.h>
 #include <common/per_peer_state.h>
 
 # Begin!  (passes gossipd-client fd)
@@ -206,3 +207,26 @@ msgdata,channel_send_error,reason,wirestring,
 
 # Tell master channeld has sent the error message.
 msgtype,channel_send_error_reply,1108
+
+# Tell lightningd we got a onion message (for us, or to fwd)
+msgtype,got_onionmsg_to_us,1142
+msgdata,got_onionmsg_to_us,next_scid,?short_channel_id,
+msgdata,got_onionmsg_to_us,next_node_id,?node_id,
+msgdata,got_onionmsg_to_us,next_onion_len,u16,
+msgdata,got_onionmsg_to_us,next_onion,u8,next_onion_len
+msgdata,got_onionmsg_to_us,shared_secret,secret,
+msgdata,got_onionmsg_to_us,e2e_len,u16,
+msgdata,got_onionmsg_to_us,e2e_payload,u8,e2e_len
+
+msgtype,got_onionmsg_forward,1143
+msgdata,got_onionmsg_forward,next_scid,?short_channel_id,
+msgdata,got_onionmsg_forward,next_node_id,?node_id,
+msgdata,got_onionmsg_forward,onion,u8,1366
+msgdata,got_onionmsg_forward,len,u16,
+msgdata,got_onionmsg_forward,e2e_payload,u8,len
+
+# Lightnignd tells us to send a onion message.
+msgtype,send_onionmsg,1040
+msgdata,send_onionmsg,onion,u8,1366
+msgdata,send_onionmsg,len,u16,
+msgdata,send_onionmsg,e2e_payload,u8,len

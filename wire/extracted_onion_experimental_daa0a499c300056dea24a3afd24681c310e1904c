@@ -1,0 +1,17 @@
+--- wire/extracted_onion_wire_csv	2020-02-25 05:52:39.612291156 +1030
++++ -	2020-03-04 16:26:35.787772217 +1030
+@@ -8,6 +8,14 @@
+ tlvtype,tlv_payload,payment_data,8
+ tlvdata,tlv_payload,payment_data,payment_secret,byte,32
+ tlvdata,tlv_payload,payment_data,total_msat,tu64,
++tlvtype,tlv_dm_payload,next_short_channel_id,2
++tlvdata,tlv_dm_payload,next_short_channel_id,short_channel_id,short_channel_id,
++tlvtype,tlv_dm_payload,next_node_id,4
++tlvdata,tlv_dm_payload,next_node_id,node_id,point,
++tlvtype,tlv_dm_payload,forward_onion,6
++tlvdata,tlv_dm_payload,forward_onion,partial_onion,byte,...
++tlvtype,tlv_dm_payload,reply_onion,8
++tlvdata,tlv_dm_payload,reply_onion,partial_onion,byte,...
+ msgtype,invalid_realm,PERM|1
+ msgtype,temporary_node_failure,NODE|2
+ msgtype,permanent_node_failure,PERM|NODE|2

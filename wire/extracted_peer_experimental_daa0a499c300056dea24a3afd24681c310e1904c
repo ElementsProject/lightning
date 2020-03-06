@@ -1,0 +1,10 @@
+--- wire/extracted_peer_wire_csv	2020-02-25 05:52:39.612291156 +1030
++++ -	2020-03-04 16:26:35.725479720 +1030
+@@ -208,3 +205,7 @@
+ msgdata,gossip_timestamp_filter,chain_hash,chain_hash,
+ msgdata,gossip_timestamp_filter,first_timestamp,u32,
+ msgdata,gossip_timestamp_filter,timestamp_range,u32,
++msgtype,onionmsg,385,option_onion_messages
++msgdata,onionmsg,onion_routing_packet,byte,1366
++msgdata,onionmsg,len,u16,
++msgdata,onionmsg,end_to_end_payload,byte,len

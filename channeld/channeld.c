@@ -1622,6 +1622,167 @@ static bool channeld_handle_custommsg(const u8 *msg)
 #endif
 }
 
+#if EXPERIMENTAL_FEATURES
+static u8 *unpack_onion(const tal_t *ctx, const u8 *partial_onion)
+{
+	struct secret ss;
+	struct sphinx_compressed_onion *c;
+	const u8 *msg;
+
+	c = sphinx_compressed_onion_deserialize(tmpctx, partial_onion);
+	if (!c) {
+		status_debug("onion msg: invalid next_onion %s",
+			     tal_hex(tmpctx, partial_onion));
+		return NULL;
+	}
+
+	/* We need to ecdh again to get shared secret here.
+	 * FIXME: Can't we share? */
+	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &c->ephemeralkey));
+	if (!fromwire_hsm_ecdh_resp(msg, &ss))
+		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
+
+	return serialize_onionpacket(ctx, sphinx_decompress(tmpctx, c, &ss));
+}
+
+/* Peer sends onion msg. */
+static void handle_onionmsg(struct peer *peer, const u8 *msg)
+{
+	enum onion_type badreason;
+	struct onionpacket op;
+	struct secret ss;
+	struct route_step *rs;
+	struct sha256 hash;
+	u8 onion[TOTAL_PACKET_SIZE];
+	const u8 *cursor;
+	u8 *e2e_payload, *next_onion;
+	size_t max, maxlen;
+	struct tlv_tlv_dm_payload *dm;
+	const struct short_channel_id *next_scid;
+	struct node_id *next_node;
+
+	if (!fromwire_onionmsg(msg, msg, onion, &e2e_payload))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Bad onionmsg %s", tal_hex(peer, msg));
+
+	sha256(&hash, onion, sizeof(onion));
+
+	/* We unwrap the onion now. */
+	badreason = parse_onionpacket(onion, TOTAL_PACKET_SIZE, &op);
+	if (badreason != 0) {
+		status_debug("onion msg: can't parse onionpacket: %s",
+			     onion_type_name(badreason));
+		return;
+	}
+
+	/* Because wire takes struct pubkey. */
+	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &op.ephemeralkey));
+	if (!fromwire_hsm_ecdh_resp(msg, &ss))
+		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
+
+	/* We make sure we can parse onion packet, so we know if shared secret
+	 * is actually valid (this checks hmac). */
+	rs = process_onionpacket(tmpctx, &op, &ss, NULL, 0, false);
+	if (!rs) {
+		status_debug("onion msg: can't process onionpacket ss=%s",
+			     type_to_string(tmpctx, struct secret, &ss));
+		return;
+	}
+
+	/* The raw payload is prepended with length in the TLV world. */
+	cursor = rs->raw_payload;
+	max = tal_bytelen(rs->raw_payload);
+	maxlen = fromwire_bigsize(&cursor, &max);
+	if (!cursor) {
+		status_debug("onion msg: Invalid hop payload %s",
+			     tal_hex(tmpctx, rs->raw_payload));
+		return;
+	}
+	if (maxlen > max) {
+		status_debug("onion msg: overlong hop payload %s",
+			     tal_hex(tmpctx, rs->raw_payload));
+		return;
+	}
+
+	dm = tlv_tlv_dm_payload_new(msg);
+	if (!fromwire_tlv_dm_payload(&cursor, &maxlen, dm)) {
+		status_debug("onion msg: invalid dm_payload %s",
+			     tal_hex(tmpctx, rs->raw_payload));
+		return;
+	}
+
+	if (dm->next_short_channel_id)
+		next_scid = &dm->next_short_channel_id->short_channel_id;
+	else
+		next_scid = NULL;
+
+	if (dm->next_node_id) {
+		next_node = tal(msg, struct node_id);
+		node_id_from_pubkey(next_node, &dm->next_node_id->node_id);
+	} else
+		next_node = NULL;
+
+	if (dm->forward_onion) {
+		/* If this has a forward onion, we use that, and forward */
+		next_onion = unpack_onion(msg, dm->forward_onion->partial_onion);
+		rs->nextcase = ONION_FORWARD;
+	} else
+		next_onion = NULL;
+
+	if (rs->nextcase == ONION_END) {
+		u8 *reply_onion;
+		if (dm->reply_onion)
+			reply_onion = unpack_onion(msg, dm->reply_onion->partial_onion);
+		else
+			reply_onion = NULL;
+
+		/* payload may not be valid, so we hand it pre-decrypted to lightningd */
+		wire_sync_write(MASTER_FD,
+				take(towire_got_onionmsg_to_us(NULL,
+							       next_scid,
+							       next_node,
+							       reply_onion,
+							       &ss,
+							       e2e_payload)));
+	} else {
+		e2e_payload = unwrap_e2e_payload(tmpctx, e2e_payload, &ss);
+
+		/* If they don't override, we just send next onion */
+		if (!next_onion)
+			next_onion = serialize_onionpacket(tmpctx, rs->next);
+
+		/* This *MUST* have instructions on where to go next. */
+		if (!next_scid && !next_node) {
+			status_debug("onion msg: no next field in %s",
+				     tal_hex(tmpctx, rs->raw_payload));
+			return;
+		}
+
+		wire_sync_write(MASTER_FD,
+				take(towire_got_onionmsg_forward(NULL,
+								 next_scid,
+								 next_node,
+								 next_onion,
+								 e2e_payload)));
+	}
+}
+
+/* We send onion msg. */
+static void send_onionmsg(struct peer *peer, const u8 *msg)
+{
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 *e2e_payload;
+
+	if (!fromwire_send_onionmsg(msg, msg,
+				    onion_routing_packet, &e2e_payload))
+		master_badmsg(WIRE_SEND_ONIONMSG, msg);
+
+	sync_crypto_write(peer->pps,
+			  take(towire_onionmsg(NULL, onion_routing_packet, e2e_payload)));
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -1693,6 +1854,11 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(peer, msg);
 		return;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONIONMSG:
+		handle_onionmsg(peer, msg);
+		return;
+#endif
 
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
@@ -2681,6 +2847,15 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SEND_ERROR:
 		handle_send_error(peer, msg);
 		return;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_SEND_ONIONMSG:
+		send_onionmsg(peer, msg);
+		return;
+#else
+	case WIRE_SEND_ONIONMSG:
+		break;
+#endif /* !EXPERIMENTAL_FEATURES */
+
 #if DEVELOPER
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
 		handle_dev_reenable_commit(peer);
@@ -2708,6 +2883,8 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNEL_SEND_ERROR_REPLY:
+	case WIRE_GOT_ONIONMSG_TO_US:
+	case WIRE_GOT_ONIONMSG_FORWARD:
 		break;
 	}
 
