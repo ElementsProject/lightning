@@ -11,6 +11,7 @@
 #include <common/json_helpers.h>
 #include <common/onion.h>
 #include <common/sphinx.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <err.h>
@@ -109,6 +110,10 @@ static void do_generate(int argc, char **argv,
 	}
 	printf("%s\n", tal_hex(ctx, serialized));
 
+	printf("secrets:");
+	for (int i = 0; i < num_hops; i++)
+		printf(" %s", type_to_string(ctx, struct secret, &shared_secrets[i]));
+	printf("\n");
 	tal_free(ctx);
 }
 
