@@ -10,6 +10,7 @@ from pyln.testing.utils import (
     TailableProc, env
 )
 from ephemeral_port_reserve import reserve
+from utils import EXPERIMENTAL_FEATURES
 
 import json
 import os
@@ -2156,6 +2157,91 @@ def test_sendcustommsg(node_factory):
     l4.daemon.wait_for_log(
         r'Got a custom message {serialized} from peer {peer_id}'.format(
             serialized=serialized, peer_id=l2.info['id']))
+
+# FIXME: A real python library to make TLVs would be nice!
+def bigsize_hex(value):
+    if value < 0xfd:
+        return "{:02x}".format(value)
+    elif value <= 0xffff:
+        return "fd" + "{:04x}".format(value)
+    elif value <= 0xffffffff:
+        return "fe" + "{:08x}".format(value)
+    else:
+        return "ff" + "{:016x}".format(value)
+
+def prefix_len_hex(hexvalue):
+    return bigsize_hex(len(hexvalue) // 2) + hexvalue
+
+def tlv_hex(typenum, hexvalue):
+    return bigsize_hex(typenum) + prefix_len_hex(hexvalue)
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendonionmessage")
+def test_sendonionmessage(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    oniontool = os.path.join(os.path.dirname(__file__), "..", "devtools", "onion")
+    onionmsgtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "onionmessage")
+
+    hexmsg = bytes("Test message", encoding="utf8").hex()
+    # 1. type: 4 (`next_node_id`)
+    l2tlvs = prefix_len_hex(tlv_hex(4, l3.info['id']))
+    l3tlvs = prefix_len_hex('')
+    output = subprocess.check_output(
+        [oniontool, 'generate', l2.info['id'] + '/' + l2tlvs, l3.info['id'] + '/' + l3tlvs]
+    ).decode('ASCII')
+
+    onion = output.split('\n')[0]
+    secrets = output.split('\n')[1].split(':')[1].split()
+    payload = subprocess.check_output(
+        [onionmsgtool, 'encrypt', hexmsg, secrets[0], secrets[1]]
+    ).decode('ASCII').strip()
+    
+    l1.rpc.call('sendonionmessage', [onion, l2.info['id'], payload])
+    assert l3.daemon.wait_for_log('Received onion message ' + hexmsg)
+
+    # Now by SCID.
+    # 1. type: 2 (`next_short_channel_id`)
+    scid = l2.get_channel_scid(l3).split('x')
+    hexscid = "{:06x}{:06x}{:04x}".format(int(scid[0]), int(scid[1]), int(scid[2]))
+    l2tlvs = prefix_len_hex(tlv_hex(2, hexscid))
+    l3tlvs = prefix_len_hex('')
+    output = subprocess.check_output(
+        [oniontool, 'generate', l2.info['id'] + '/' + l2tlvs, l3.info['id'] + '/' + l3tlvs]
+    ).decode('ASCII')
+
+    onion = output.split('\n')[0]
+    secrets = output.split('\n')[1].split(':')[1].split()
+    payload = subprocess.check_output(
+        [onionmsgtool, 'encrypt', hexmsg, secrets[0], secrets[1]]
+    ).decode('ASCII').strip()
+
+    l1.rpc.call('sendonionmessage', [onion, l2.info['id'], payload])
+    assert l3.daemon.wait_for_log('Received onion message ' + hexmsg)
+
+    # Now with forward onion!
+    output = subprocess.check_output(
+        [oniontool, '--partial-to', l2.info['id'], 'generate', l3.info['id'] + '/' + l3tlvs]
+    ).decode('ASCII')
+
+    partonion = output.split('\n')[0].strip()
+    final_secret = output.split('\n')[1].split(':')[1].strip()
+
+    # 1. type: 6 (`forward_onion`)
+    l2tlvs = prefix_len_hex(tlv_hex(2, hexscid) + tlv_hex(6, partonion))
+    output = subprocess.check_output(
+        [oniontool, 'generate', l2.info['id'] + '/' + l2tlvs]
+    ).decode('ASCII')
+    
+    onion = output.split('\n')[0]
+    first_secret = output.split('\n')[1].split(':')[1].strip()
+
+    payload = subprocess.check_output(
+        [onionmsgtool, 'encrypt', hexmsg, first_secret, final_secret]
+    ).decode('ASCII').strip()
+
+    l1.rpc.call('sendonionmessage', [onion, l2.info['id'], payload])
+    assert l3.daemon.wait_for_log('Received onion message ' + hexmsg)
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")

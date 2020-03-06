@@ -150,4 +150,79 @@ void handle_onionmsg_forward(struct channel *channel, const u8 *msg)
 	make_peer_send(ld, outchan,
 		       take(towire_send_onionmsg(NULL, onion, e2e_payload)));
 }
+
+static struct command_result *param_first_hop(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct channel **channel)
+{
+	struct short_channel_id scid;
+	struct node_id node_id;
+
+	if (json_to_short_channel_id(buffer, tok, &scid)) {
+		*channel = active_channel_by_scid(cmd->ld, &scid);
+		if (!*channel) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "No active channel with scid %s",
+					    type_to_string(tmpctx,
+							   struct short_channel_id,
+							   &scid));
+		}
+	} else if (json_to_node_id(buffer, tok, &node_id)) {
+		*channel = active_channel_by_id(cmd->ld, &node_id, NULL);
+		if (!*channel) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "No active channel with peer %s",
+					    type_to_string(tmpctx,
+							   struct node_id,
+							   &node_id));
+		}
+	} else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' needs to be a short_channel_id or node_id",
+				    name);
+	return NULL;
+}
+
+static struct command_result *json_send_onion_message(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *obj UNNEEDED,
+						      const jsmntok_t *params)
+{
+	const u8 *ser;
+	u8 *onion, *e2e;
+	struct channel *first_hop;
+	enum onion_type failcode;
+	struct onionpacket packet;
+
+	if (!param(cmd, buffer, params,
+		   p_req("onion", param_bin_from_hex, &onion),
+		   p_req("first_hop", param_first_hop, &first_hop),
+		   p_req("payload", param_bin_from_hex, &e2e),
+		   NULL))
+		return command_param_failed();
+
+	failcode = parse_onionpacket(onion, tal_bytelen(onion), &packet);
+	if (failcode != 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not parse the onion. Parsing failed "
+				    "with failcode=%d",
+				    failcode);
+
+	ser = serialize_onionpacket(cmd, &packet);
+	if (!make_peer_send(cmd->ld, first_hop,
+			    take(towire_send_onionmsg(NULL, ser, e2e))))
+		return command_fail(cmd, LIGHTNINGD, "First peer not ready");
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command send_onion_message_command = {
+	"sendonionmessage",
+	"utility",
+	json_send_onion_message,
+	"Send {onion} as onion message to {first_hop} (node_id or short_channel_id) with {payload}"
+};
+AUTODATA(json_command, &send_onion_message_command);
 #endif /* EXPERIMENTAL_FEATURES */
