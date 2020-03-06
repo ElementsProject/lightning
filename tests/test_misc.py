@@ -2244,6 +2244,60 @@ def test_sendonionmessage(node_factory):
     assert l3.daemon.wait_for_log('Received onion message ' + hexmsg)
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendonionmessage")
+def test_sendonionmessage_reply(node_factory):
+    oniontool = os.path.join(os.path.dirname(__file__), "..", "devtools", "onion")
+    onionmsgtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "onionmessage")
+
+    plugin = os.path.join(os.path.dirname(__file__), "plugins", "onionmessage-reply.py")
+    l1, l2, l3 = node_factory.line_graph(3, opts={'plugin': plugin, 'onionmsgtool': onionmsgtool})
+
+    # Make reply onion.
+    # 1. type: 4 (`next_node_id`)
+    l2tlvs = prefix_len_hex(tlv_hex(4, l1.info['id']))
+    l1tlvs = prefix_len_hex('')
+    output = subprocess.check_output(
+        [oniontool, '--partial-to', l3.info['id'], 'generate',
+         l2.info['id'] + '/' + l2tlvs,
+         l1.info['id'] + '/' + l1tlvs]
+    ).decode('ASCII')
+    replyonion = output.split('\n')[0]
+    replysecrets = output.split('\n')[1].split(':')[1].split()
+
+    hexmsg = bytes("Test message", encoding="utf8").hex()
+    # 1. type: 4 (`next_node_id`)
+    l2tlvs = prefix_len_hex(tlv_hex(4, l3.info['id']))
+    # 1. type: 8 (`reply_onion`)
+    l3tlvs = prefix_len_hex(tlv_hex(4, l2.info['id']) + tlv_hex(8, replyonion))
+    output = subprocess.check_output(
+        [oniontool, 'generate', l2.info['id'] + '/' + l2tlvs, l3.info['id'] + '/' + l3tlvs]
+    ).decode('ASCII')
+    print(output)
+
+    onion = output.split('\n')[0]
+    secrets = output.split('\n')[1].split(':')[1].split()
+    payload = subprocess.check_output(
+        [onionmsgtool, 'encrypt', hexmsg, secrets[0], secrets[1]]
+    ).decode('ASCII').strip()
+
+    l1.rpc.call('sendonionmessage', [onion, l2.info['id'], payload])
+    assert l3.daemon.wait_for_log('Received onion message ' + hexmsg)
+
+    assert l3.daemon.wait_for_log('sent reply')
+    # We will get reply, which we can't decode.
+    line = l1.daemon.wait_for_log('payload:')
+    assert line
+    payload = re.search('payload:([0-9a-fA-F]*)', line).group(1)
+    payload = subprocess.check_output(
+        [onionmsgtool, 'unwrap', payload, secrets[0]]
+    ).decode('ASCII').strip()
+    print("unwrapping with {} gave {}".format(secrets[0], payload))
+    plaintext = subprocess.check_output(
+        [onionmsgtool, 'decrypt', payload, secrets[1]]
+    ).decode('ASCII').strip()
+    assert plaintext == bytes('Acknowledge: ', encoding="utf8").hex() + hexmsg
+
+
 @unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")
 def test_getsharedsecret(node_factory):
     """
