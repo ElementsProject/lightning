@@ -13,10 +13,10 @@ The **listchannels** RPC command returns data on channels that are known
 to the node. Because channels may be bidirectional, up to 2 objects will
 be returned for each channel (one for each direction).
 
-If *short\_channel\_id* is supplied, then only known channels with a
-matching *short\_channel\_id* are returned.
+If *short\_channel\_id* is a short channel id, then only known channels with a
+matching *short\_channel\_id* are returned.  Otherwise, it must be null.
 
-If *source* is supplied, then only channels leading from that node id
+If *source* is a node id, then only channels leading from that node id
 are returned.
 
 If neither is supplied, data on all lightning channels known to this
