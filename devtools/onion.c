@@ -96,19 +96,22 @@ static void do_generate(int argc, char **argv,
 	}
 
 	packet = create_onionpacket(ctx, sp, &shared_secrets);
+	if (!packet)
+		errx(1, "Onion is too long?");
 
 	if (rvnode_id != NULL) {
 		comp = sphinx_compress(ctx, packet, sp);
 		serialized = sphinx_compressed_onion_serialize(ctx, comp);
-		printf("Rendezvous onion: %s\n", tal_hex(ctx, serialized));
+		if (!serialized)
+			errx(1, "Error serializing partial onion.");
 	} else {
 		assert(sphinx_compress(ctx, packet, sp) == NULL);
+		serialized = serialize_onionpacket(ctx, packet);
+		if (!serialized)
+			errx(1, "Error serializing message.");
 	}
-
-	serialized = serialize_onionpacket(ctx, packet);
-	if (!serialized)
-		errx(1, "Error serializing message.");
 	printf("%s\n", tal_hex(ctx, serialized));
+
 	tal_free(ctx);
 }
 
@@ -371,8 +374,8 @@ int main(int argc, char **argv)
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_arg("--assoc-data", opt_set_ad, opt_show_ad, assocdata,
 			 "Associated data (usu. payment_hash of payment)");
-	opt_register_arg("--rendezvous-id", opt_set_node_id, NULL,
-			 &rendezvous_id, "Node ID of the rendez-vous node");
+	opt_register_arg("--partial-to", opt_set_node_id, NULL,
+			 &rendezvous_id, "Make partial onion for this node id");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n\n\tdecode <onion_file> <privkey>\n"
 			   "\tgenerate <pubkey1> <pubkey2> ...\n"
