@@ -205,6 +205,46 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 		      int *origin_index);
 
 /**
+ * create_e2e_payload - Encrypt end-to-end payload for onion.
+ *
+ * @ctx: tal context to allocate from
+ * @e2e_payload: tal_bytelen(@e2e_payload) of payload (copied unless taken())
+ * @shared_secrets: shared secret for recipient
+ */
+u8 *create_e2e_payload(const tal_t *ctx,
+		       const u8 *e2e_payload TAKES,
+		       const struct secret *shared_secret);
+
+/**
+ * unwrap_e2e_payload - process an incoming end-to-end-paylod by stripping one
+ *
+ * @ctx: tal context to allocate from
+ * @e2e_payload: tal_bytelen(@e2e_payload) of payload (copied unless taken())
+ * @shared_secret: the result of onion_shared_secret.
+ *
+ * Never fails.  Note that this is *not* to be used for the final
+ * destination: see final_e2e_payload.
+ */
+u8 *unwrap_e2e_payload(const tal_t *ctx,
+		       const u8 *e2e_payload TAKES,
+		       const struct secret *shared_secret);
+
+/* This is perfectly symmetrical */
+#define wrap_e2e_payload unwrap_e2e_payload
+
+/**
+ * final_e2e_payload - process a final end-to-end payload
+ *
+ * @ctx: tal context to allocate from
+ * @e2e_payload: tal_bytelen(@e2e_payload) of payload (copied unless taken())
+ * @shared_secret: the result of onion_shared_secret.
+ *
+ * Returns NULL if it was corrupt */
+u8 *final_e2e_payload(const tal_t *ctx,
+		      const u8 *e2e_payload TAKES,
+		      const struct secret *shared_secret);
+
+/**
  * Create a new empty sphinx_path.
  *
  * The sphinx_path instance can then be decorated with other functions and

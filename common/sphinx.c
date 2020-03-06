@@ -1,6 +1,8 @@
 #include <assert.h>
 
 #include <ccan/array_size/array_size.h>
+#include <ccan/build_assert/build_assert.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
@@ -14,6 +16,7 @@
 
 #include <secp256k1_ecdh.h>
 
+#include <sodium/crypto_aead_chacha20poly1305.h>
 #include <sodium/crypto_auth_hmacsha256.h>
 #include <sodium/crypto_stream_chacha20.h>
 
@@ -548,6 +551,94 @@ struct onionpacket *create_onionpacket(
 
 	*path_secrets = secrets;
 	return packet;
+}
+
+u8 *create_e2e_payload(const tal_t *ctx,
+		       const u8 *e2e_payload TAKES,
+		       const struct secret *secret)
+{
+	u8 *enc;
+
+	/* Sphinx paper uses a block cypher here, with the first
+	 * bytes being the receivers' key.  We use AD instead,
+	 * since we already rely on that. */
+	static unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
+	unsigned long long clen;
+	u8 key[crypto_aead_chacha20poly1305_IETF_KEYBYTES];
+	int ret;
+	size_t e2e_len = tal_bytelen(e2e_payload);
+
+	BUILD_ASSERT(sizeof(key) == KEY_LEN);
+
+	/* If taken, reuse in-place */
+	if (taken(e2e_payload)) {
+		tal_resize(&e2e_payload,
+			   e2e_len + crypto_aead_chacha20poly1305_IETF_ABYTES);
+		enc = cast_const(u8 *, e2e_payload);
+	} else {
+		enc = tal_arr(ctx, u8,
+			      e2e_len + crypto_aead_chacha20poly1305_IETF_ABYTES);
+	}
+
+	generate_key(key, "pi", 2, secret);
+
+	ret = crypto_aead_chacha20poly1305_ietf_encrypt(enc, &clen,
+							e2e_payload,
+							e2e_len,
+							NULL, 0,
+							NULL, npub, key);
+	assert(ret == 0);
+	assert(clen == tal_bytelen(enc));
+
+	return enc;
+}
+
+u8 *unwrap_e2e_payload(const tal_t *ctx,
+		       const u8 *e2e_payload TAKES,
+		       const struct secret *shared_secret)
+{
+	u8 key[KEY_LEN];
+	u8 *dec = tal_dup_talarr(ctx, u8, e2e_payload);
+
+	generate_key(key, "pi", 2, shared_secret);
+	xor_cipher_stream(dec, key, tal_bytelen(dec));
+	return dec;
+}
+
+u8 *final_e2e_payload(const tal_t *ctx,
+		      const u8 *e2e_payload TAKES,
+		      const struct secret *shared_secret)
+{
+	/* Final hop needs to check decryption */
+	u8 key[KEY_LEN];
+	unsigned long long dlen;
+	static unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
+	u8 *ret;
+
+	if (tal_bytelen(e2e_payload) < crypto_aead_chacha20poly1305_IETF_ABYTES) {
+		if (taken(e2e_payload))
+			tal_free(e2e_payload);
+		return NULL;
+	}
+
+	if (taken(e2e_payload))
+		ret = cast_const(u8 *, tal_steal(ctx, e2e_payload));
+	else
+		ret = tal_arr(ctx, u8, tal_bytelen(e2e_payload) - crypto_aead_chacha20poly1305_IETF_ABYTES);
+
+	generate_key(key, "pi", 2, shared_secret);
+	if (crypto_aead_chacha20poly1305_ietf_decrypt(ret, &dlen,
+						      NULL,
+						      e2e_payload,
+						      tal_bytelen(e2e_payload),
+						      NULL, 0,
+						      npub, key) != 0)
+		return tal_free(ret);
+
+	/* Trim to length if we are reusing buffer. */
+	if (ret == e2e_payload)
+		tal_resize(&ret, dlen);
+	return ret;
 }
 
 #if DEVELOPER
