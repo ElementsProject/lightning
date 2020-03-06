@@ -1,6 +1,6 @@
 DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/gen_print_onion_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels devtools/mkquery devtools/lightning-checkmessage
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/onionmessage devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels devtools/mkquery devtools/lightning-checkmessage
 DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c)
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
@@ -64,6 +64,10 @@ devtools/create-gossipstore.o: gossipd/gen_gossip_store.h
 devtools/onion.c: ccan/config.h
 
 devtools/onion: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
+
+devtools/onionmessage.c: ccan/config.h
+
+devtools/onionmessage: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/onionmessage.o common/sphinx.o
 
 devtools/gossipwith: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/gen_peer_wire.o devtools/gossipwith.o common/cryptomsg.o common/cryptomsg.o common/crypto_sync.o
 
