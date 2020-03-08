@@ -2275,34 +2275,20 @@ def test_lockup_drain(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
 
     # l1 sends all the money to l2 until even 1 msat can't get through.
-    total = 0
-    msat = 16**9
-    while msat != 0:
-        try:
-            l1.pay(l2, msat)
-            print("l1->l2: {}".format(msat))
-            total += msat
-        except RpcError:
-            msat //= 2
+    total = l1.drain(l2)
 
     # Even if feerate now increases 2x (30000), l2 should be able to send
     # non-dust HTLC to l1.
-    l1.set_feerates([30000] * 3, False)
-    # Restart forces fast fee adjustment (otherwise it's smoothed and takes
-    # a very long time!).
-    l1.restart()
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'])
-    assert(l1.rpc.feerates('perkw')['perkw']['normal'] == 30000)
-
+    l1.force_feerates(30000)
     l2.pay(l1, total // 2)
 
-    # But if feerate increase just a little more, l2 should not be able to send
-    # non-dust HTLC to l1
-    l1.set_feerates([30002] * 3, False)  # TODO: why does 30001 fail, off by one in C code?
-    l1.restart()
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'])
-    assert(l1.rpc.feerates('perkw')['perkw']['normal'] == 30002)
+    # reset fees and send all back again
+    l1.force_feerates(15000)
+    l1.drain(l2)
 
+    # But if feerate increase just a little more, l2 should not be able to send
+    # non-fust HTLC to l1
+    l1.force_feerates(30002)  # TODO: Why does 30001 fail? off by one in C code?
     with pytest.raises(RpcError, match=r".*Capacity exceeded.*"):
         l2.pay(l1, total // 2)
 
