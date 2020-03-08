@@ -990,7 +990,7 @@ class NodeFactory(object):
 
     def get_node(self, node_id=None, options=None, dbfile=None,
                  feerates=(15000, 7500, 3750), start=True,
-                 wait_for_bitcoind_sync=True, **kwargs):
+                 wait_for_bitcoind_sync=True, expect_fail=False, **kwargs):
 
         node_id = self.get_node_id() if not node_id else node_id
         port = self.get_next_port()
@@ -1021,8 +1021,15 @@ class NodeFactory(object):
 
         if start:
             try:
-                node.start(wait_for_bitcoind_sync)
+                # Capture stderr if we're failing
+                if expect_fail:
+                    stderr = subprocess.PIPE
+                else:
+                    stderr = None
+                node.start(wait_for_bitcoind_sync, stderr=stderr)
             except Exception:
+                if expect_fail:
+                    return node
                 node.daemon.stop()
                 raise
         return node
