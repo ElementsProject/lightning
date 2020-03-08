@@ -114,7 +114,7 @@ struct plugins {
  */
 struct plugin_opt_value {
 	char *as_str;
-	int *as_int;
+	s64 *as_int;
 	bool *as_bool;
 };
 
