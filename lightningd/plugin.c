@@ -466,13 +466,37 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 {
+	char *endp;
+	long long l;
+
 	tal_free(popt->value->as_str);
+
 	popt->value->as_str = tal_strdup(popt, arg);
-	if (streq(popt->type, "int"))
-		*popt->value->as_int = atoi(arg);
-	else if (streq(popt->type, "bool"))
-		*popt->value->as_bool = streq(arg, "true") || streq(arg, "True")
-			|| streq(arg, "1");
+	if (streq(popt->type, "int")) {
+		errno = 0;
+		l = strtoll(arg, &endp, 0);
+		if (errno || *endp)
+			return tal_fmt(tmpctx, "%s does not parse as type %s",
+				       popt->value->as_str, popt->type);
+		*popt->value->as_int = l;
+
+		/* Check if the number did not fit in `s64` (in case `long long`
+		 * is a bigger type). */
+		if (*popt->value->as_int != l)
+			return tal_fmt(tmpctx, "%s does not parse as type %s (overflowed)",
+				       popt->value->as_str, popt->type);
+	} else if (streq(popt->type, "bool")) {
+		/* valid values are 'true', 'True', '1', '0', 'false', 'False', or '' */
+		if (streq(arg, "true") || streq(arg, "True") || streq(arg, "1")) {
+			*popt->value->as_bool = true;
+		} else if (streq(arg, "false") || streq(arg, "False")
+				|| streq(arg, "0") || streq(arg, "")) {
+			*popt->value->as_bool = false;
+		} else
+			return tal_fmt(tmpctx, "%s does not parse as type %s",
+				       popt->value->as_str, popt->type);
+	}
+
 	return NULL;
 }
 
@@ -509,12 +533,12 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 		}
 	} else if (json_tok_streq(buffer, typetok, "int")) {
 		popt->type = "int";
-		popt->value->as_int = talz(popt->value, int);
+		popt->value->as_int = talz(popt->value, s64);
 		if (defaulttok) {
-			json_to_int(buffer, defaulttok, popt->value->as_int);
-			popt->value->as_str = tal_fmt(popt->value, "%d", *popt->value->as_int);
+			json_to_s64(buffer, defaulttok, popt->value->as_int);
+			popt->value->as_str = tal_fmt(popt->value, "%"PRIu64, *popt->value->as_int);
 			popt->description = tal_fmt(
-					popt, "%.*s (default: %i)", desctok->end - desctok->start,
+					popt, "%.*s (default: %"PRIu64")", desctok->end - desctok->start,
 					buffer + desctok->start, *popt->value->as_int);
 		}
 	} else if (json_tok_streq(buffer, typetok, "bool")) {
@@ -535,7 +559,7 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 		popt->description = json_strdup(popt, buffer, desctok);
 	list_add_tail(&plugin->plugin_opts, &popt->list);
 	opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
-				popt->description);
+			 popt->description);
 	return true;
 }
 
@@ -1185,7 +1209,7 @@ void json_add_opt_plugins(struct json_stream *response,
 				if (opt->value->as_bool) {
 					json_add_bool(response, opt_name, opt->value->as_bool);
 				} else if (opt->value->as_int) {
-					json_add_s32(response, opt_name, *opt->value->as_int);
+					json_add_s64(response, opt_name, *opt->value->as_int);
 				} else if (opt->value->as_str) {
 					json_add_string(response, opt_name, opt->value->as_str);
 				} else {
