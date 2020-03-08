@@ -404,6 +404,10 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  enum onion_type failcode UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED)
 { fprintf(stderr, "notify_forward_event called!\n"); abort(); }
+/* Generated stub for notify_htlc_accepted */
+void notify_htlc_accepted(struct lightningd *ld UNNEEDED,
+		          struct htlc_accepted_plugin_payload *p UNNEEDED)
+{ fprintf(stderr, "notify_htlc_accepted called!\n"); abort(); }
 /* Generated stub for notify_htlc_failed */
 void notify_htlc_failed(struct lightningd *ld UNNEEDED,
 			const struct short_channel_id *scid UNNEEDED,

@@ -16,6 +16,7 @@ struct htlc_stub;
 struct lightningd;
 struct forwarding;
 struct json_stream;
+struct htlc_accepted_plugin_payload;
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {
@@ -84,6 +85,9 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
  * `listforwardings_add_forwardings()`. */
 void json_format_forwarding_object(struct json_stream *response, const char *fieldname,
 				   const struct forwarding *cur);
+
+void htlc_accepted_plugin_serialize(struct htlc_accepted_plugin_payload *p,
+				    struct json_stream *s);
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
 const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,

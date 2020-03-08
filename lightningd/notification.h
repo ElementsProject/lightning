@@ -20,6 +20,7 @@
 #include <wire/gen_onion_wire.h>
 
 struct onionreply;
+struct htlc_accepted_plugin_payload;
 
 bool notifications_have_topic(const char *topic);
 
@@ -82,5 +83,8 @@ void notify_htlc_failed(struct lightningd *ld,
 void notify_htlc_settled(struct lightningd *ld,
 			 const struct short_channel_id * scid,
 			 const struct fulfilled_htlc *fulfilled);
+
+void notify_htlc_accepted(struct lightningd *ld,
+		          struct htlc_accepted_plugin_payload *p);
 
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

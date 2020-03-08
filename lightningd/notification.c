@@ -385,3 +385,29 @@ void notify_htlc_settled(struct lightningd *ld,
 
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void htlc_accepted_notification_serialize(struct json_stream *stream,
+						 struct htlc_accepted_plugin_payload *p)
+{
+	json_object_start(stream, "htlc_accepted");
+	htlc_accepted_plugin_serialize(p, stream);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(htlc_accepted,
+                      htlc_accepted_notification_serialize);
+
+void notify_htlc_accepted(struct lightningd *ld,
+		          struct htlc_accepted_plugin_payload *p)
+{
+	void (*serialize)(struct json_stream *,
+			  struct htlc_accepted_plugin_payload *p) =
+				 htlc_accepted_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+	    jsonrpc_notification_start(NULL, "htlc_accepted");
+	serialize(n->stream, p);
+	jsonrpc_notification_end(n);
+
+	plugins_notify(ld->plugins, take(n));
+}

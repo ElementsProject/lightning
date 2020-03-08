@@ -909,8 +909,8 @@ htlc_accepted_hook_deserialize(const tal_t *ctx,
 	return result;
 }
 
-static void htlc_accepted_plugin_serialize(struct htlc_accepted_plugin_payload *p,
-					 struct json_stream *s)
+void htlc_accepted_plugin_serialize(struct htlc_accepted_plugin_payload *p,
+				    struct json_stream *s)
 {
 	const struct route_step *rs = p->route_step;
 	const struct htlc_in *hin = p->hin;
@@ -1135,6 +1135,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	hook_payload->channel = channel;
 	hook_payload->next_onion = serialize_onionpacket(hook_payload, rs->next);
 
+	notify_htlc_accepted(ld, hook_payload);
 	plugin_hook_call_htlc_accepted(ld, hook_payload, hook_payload);
 
 	/* Falling through here is ok, after all the HTLC locked */
