@@ -354,3 +354,34 @@ void notify_htlc_failed(struct lightningd *ld,
 
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void htlc_settled_notification_serialize(struct json_stream *stream,
+						const struct short_channel_id *scid,
+						const struct fulfilled_htlc *fulfilled)
+{
+	json_object_start(stream, "htlc_settled");
+	json_add_short_channel_id(stream, "short_channel_id", scid);
+	json_add_num(stream, "id", fulfilled->id);
+	json_add_preimage(stream, "payment_preimage", &fulfilled->payment_preimage);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(htlc_settled,
+                      htlc_settled_notification_serialize);
+
+void notify_htlc_settled(struct lightningd *ld,
+			 const struct short_channel_id * scid,
+			 const struct fulfilled_htlc *fulfilled)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct short_channel_id *,
+			  const struct fulfilled_htlc *) =
+					htlc_settled_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+	    jsonrpc_notification_start(NULL, "htlc_settled");
+	serialize(n->stream, scid, fulfilled);
+	jsonrpc_notification_end(n);
+
+	plugins_notify(ld->plugins, take(n));
+}

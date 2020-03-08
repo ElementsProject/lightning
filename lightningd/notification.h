@@ -79,4 +79,8 @@ void notify_htlc_failed(struct lightningd *ld,
 			/* non NULL if htlc expired */
 			const struct htlc_out *hout);
 
+void notify_htlc_settled(struct lightningd *ld,
+			 const struct short_channel_id * scid,
+			 const struct fulfilled_htlc *fulfilled);
+
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

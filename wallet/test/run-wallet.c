@@ -412,6 +412,11 @@ void notify_htlc_failed(struct lightningd *ld UNNEEDED,
 			/* non NULL if htlc expired */
 			const struct htlc_out *hout UNNEEDED)
 { fprintf(stderr, "notify_htlc_failed called!\n"); abort(); }
+/* Generated stub for notify_htlc_settled */
+void notify_htlc_settled(struct lightningd *ld UNNEEDED,
+			 const struct short_channel_id * scid UNNEEDED,
+			 const struct fulfilled_htlc *fulfilled UNNEEDED)
+{ fprintf(stderr, "notify_htlc_settled called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,

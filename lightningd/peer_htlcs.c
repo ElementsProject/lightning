@@ -386,6 +386,7 @@ static bool check_cltv(struct htlc_in *hin,
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 {
 	u8 *msg;
+	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *channel = hin->key.channel;
 	struct wallet *wallet = channel->peer->ld->wallet;
 
@@ -422,6 +423,7 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 		fulfilled_htlc.id = hin->key.id;
 		fulfilled_htlc.payment_preimage = *preimage;
 		msg = towire_channel_fulfill_htlc(hin, &fulfilled_htlc);
+		notify_htlc_settled(ld, channel->scid,  &fulfilled_htlc);
 	}
 	subd_send_msg(channel->owner, take(msg));
 }
