@@ -656,6 +656,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
 		 *houtp);
 
+	notify_htlc_offered(out->peer->ld, *houtp);
+
 	return NULL;
 }
 

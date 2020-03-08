@@ -87,4 +87,6 @@ void notify_htlc_settled(struct lightningd *ld,
 void notify_htlc_accepted(struct lightningd *ld,
 		          struct htlc_accepted_plugin_payload *p);
 
+void notify_htlc_offered(struct lightningd *ld, const struct htlc_out *hout);
+
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

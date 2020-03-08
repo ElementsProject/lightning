@@ -411,3 +411,44 @@ void notify_htlc_accepted(struct lightningd *ld,
 
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void htlc_offered_notification_serialize(struct json_stream *stream,
+						const struct htlc_out *hout,
+						s32 blockheight)
+{
+	json_object_start(stream, "htlc");
+	json_add_short_channel_id(stream, "short_channel_id", hout->key.channel->scid);
+	json_add_amount_msat_only(stream, "amount", hout->msat);
+	json_add_u32(stream, "cltv_expiry", hout->cltv_expiry);
+	json_add_s32(stream, "cltv_expiry_relative", hout->cltv_expiry - blockheight);
+	json_add_sha256(stream, "payment_hash", &hout->payment_hash);
+	if (hout->in) {
+		json_object_start(stream, "htlc_in");
+		json_add_short_channel_id(stream, "short_channel_id", hout->in->key.channel->scid);
+		json_add_amount_msat_only(stream, "amount", hout->in->msat);
+		json_add_u32(stream, "cltv_expiry", hout->in->cltv_expiry);
+		json_add_s32(stream, "cltv_expiry_relative", hout->in->cltv_expiry - blockheight);
+		json_add_sha256(stream, "payment_hash", &hout->in->payment_hash);
+		json_add_secret(stream, "shared_secret", hout->in->shared_secret);
+		json_object_end(stream);
+	}
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(htlc_offered,
+                      htlc_offered_notification_serialize);
+
+void notify_htlc_offered(struct lightningd *ld, const struct htlc_out *hout)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct htlc_out *,
+			  s32) = htlc_offered_notification_gen.serialize;
+
+	s32 blockheight = ld->topology->tip->height;
+	struct jsonrpc_notification *n =
+	    jsonrpc_notification_start(NULL, "htlc_offered");
+	serialize(n->stream, hout, blockheight);
+	jsonrpc_notification_end(n);
+
+	plugins_notify(ld->plugins, take(n));
+}
