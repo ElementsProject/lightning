@@ -250,6 +250,9 @@ class Plugin(object):
                 "Name {} is already used by another option".format(name)
             )
 
+        if opt_type not in ["string", "int", "bool"]:
+            raise ValueError('{} not in supported type set (string, int, bool)')
+
         self.options[name] = {
             'name': name,
             'default': default,
