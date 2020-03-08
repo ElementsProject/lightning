@@ -780,6 +780,8 @@ struct htlc_accepted_hook_payload {
 	struct channel *channel;
 	struct lightningd *ld;
 	u8 *next_onion;
+	u64 failtlvtype;
+	size_t failtlvpos;
 };
 
 /* The possible return value types that a plugin may return for the
@@ -979,9 +981,12 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	case htlc_accepted_continue:
 		/* *Now* we barf if it failed to decode */
 		if (!request->payload) {
-			log_debug(channel->log, "Failing HTLC because of an invalid payload");
-			local_fail_in_htlc_badonion(hin,
-						    WIRE_INVALID_ONION_PAYLOAD);
+			log_debug(channel->log,
+				  "Failing HTLC because of an invalid payload");
+			local_fail_in_htlc(hin,
+					   take(towire_invalid_onion_payload(
+					       NULL, request->failtlvtype,
+					       request->failtlvpos)));
 		} else if (rs->nextcase == ONION_FORWARD) {
 			forward_htlc(hin, hin->cltv_expiry,
 				     request->payload->amt_to_forward,
@@ -1116,7 +1121,9 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	hook_payload = tal(hin, struct htlc_accepted_hook_payload);
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
-	hook_payload->payload = onion_decode(hook_payload, rs);
+	hook_payload->payload = onion_decode(hook_payload, rs,
+					     &hook_payload->failtlvtype,
+					     &hook_payload->failtlvpos);
 	hook_payload->ld = ld;
 	hook_payload->hin = hin;
 	hook_payload->channel = channel;

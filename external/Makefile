@@ -54,7 +54,7 @@ external/libsodium/src/libsodium/include/sodium.h: submodcheck
 $(TARGET_DIR)/libsodium-build/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
 	cd external/libsodium && ./autogen.sh
 	mkdir -p ${TARGET_DIR}/libsodium-build
-	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
+	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 
 $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS): submodcheck
 
@@ -71,7 +71,7 @@ $(TARGET_DIR)/libsecp256k1.% $(TARGET_DIR)/libwallycore.%: $(TARGET_DIR)/libwall
 $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd external/libwally-core && ./tools/autogen.sh
 	mkdir -p ${TARGET_DIR}/libwally-core-build
-	cd ${TARGET_DIR}/libwally-core-build && PYTHON_VERSION=3 ${TOP}/libwally-core/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-module-recovery --enable-elements --enable-shared=no --prefix=/ --libdir=/ --enable-debug && $(MAKE)
+	cd ${TARGET_DIR}/libwally-core-build && PYTHON_VERSION=3 CFLAGS=-std=c99 ${TOP}/libwally-core/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-module-recovery --enable-elements --enable-shared=no --prefix=/ --libdir=/ --enable-debug && $(MAKE)
 
 external/jsmn/jsmn.h: submodcheck
 

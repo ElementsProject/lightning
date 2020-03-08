@@ -59,6 +59,8 @@ size_t onion_payload_length(const u8 *raw_payload, size_t len,
  * If the payload is not valid, returns NULL.
  */
 struct onion_payload *onion_decode(const tal_t *ctx,
-				   const struct route_step *rs);
+				   const struct route_step *rs,
+				   u64 *failtlvtype,
+				   size_t *failtlvpos);
 
 #endif /* LIGHTNING_COMMON_ONION_H */

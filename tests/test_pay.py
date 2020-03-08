@@ -3,6 +3,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
+from pyln.proto.onion import TlvPayload
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT,
     VALGRIND
@@ -2803,3 +2804,34 @@ caused a crash in 0.8.0, so we then disallowed it.
     inv = only_one(l2.rpc.listinvoices('inv')['invoices'])
     assert inv['status'] == 'paid'
     assert inv['amount_received_msat'] == Millisatoshi(1001)
+
+
+def test_reject_invalid_payload(node_factory):
+    """Send an onion payload with an unknown even type.
+
+    Recipient l2 should reject it the incoming HTLC with an invalid onion
+    payload error.
+
+    """
+
+    l1, l2 = node_factory.line_graph(2)
+    amt = 10**3
+    route = l1.rpc.getroute(l2.info['id'], amt, 10)['route']
+    inv = l2.rpc.invoice(amt, "lbl", "desc")
+
+    first_hop = route[0]
+
+    # A TLV payload with an unknown even type:
+    payload = TlvPayload()
+    payload.add_field(0xB000, b'Hi there')
+    hops = [{"pubkey": l2.info['id'], "payload": payload.to_hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv['payment_hash'])
+    l1.rpc.sendonion(onion=onion['onion'],
+                     first_hop=first_hop,
+                     payment_hash=inv['payment_hash'],
+                     shared_secrets=onion['shared_secrets'])
+
+    l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
+
+    with pytest.raises(RpcError, match=r'WIRE_INVALID_ONION_PAYLOAD'):
+        l1.rpc.waitsendpay(inv['payment_hash'])

@@ -205,7 +205,9 @@ size_t onion_payload_length(const u8 *raw_payload, size_t len,
 }
 
 struct onion_payload *onion_decode(const tal_t *ctx,
-				    const struct route_step *rs)
+				   const struct route_step *rs,
+				   u64 *failtlvtype,
+				   size_t *failtlvpos)
 {
 	struct onion_payload *p = tal(ctx, struct onion_payload);
 	const u8 *cursor = rs->raw_payload;
@@ -243,9 +245,12 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	case ONION_TLV_PAYLOAD:
 		tlv = tlv_tlv_payload_new(p);
 		if (!fromwire_tlv_payload(&cursor, &max, tlv))
-			return tal_free(p);
-		if (!tlv_payload_is_valid(tlv, NULL))
-			return tal_free(p);
+			goto fail;
+
+		if (!tlv_payload_is_valid(tlv, failtlvpos)) {
+			*failtlvtype = tlv->fields[*failtlvpos].numtype;
+			goto fail;
+		}
 
 		/* BOLT #4:
 		 *
@@ -254,7 +259,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 *     `outgoing_cltv_value` are not present.
 		 */
 		if (!tlv->amt_to_forward || !tlv->outgoing_cltv_value)
-			return tal_free(p);
+			goto fail;
 
 		amount_msat_from_u64(&p->amt_to_forward,
 				     tlv->amt_to_forward->amt_to_forward);
@@ -269,7 +274,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 */
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!tlv->short_channel_id)
-				return tal_free(p);
+				goto fail;
 			p->forward_channel = tal(p, struct short_channel_id);
 			*p->forward_channel
 				= tlv->short_channel_id->short_channel_id;
@@ -300,4 +305,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 	/* You said it was a valid type! */
 	abort();
+fail:
+	tal_free(tlv);
+	tal_free(p);
+	return NULL;
 }

@@ -689,15 +689,13 @@ static struct command_result *getutxout(struct command *cmd,
 static void bitcoind_failure(struct plugin *p, const char *error_message)
 {
 	const char **cmd = gather_args(bitcoind, "echo", NULL);
-	const char *err =
-	tal_fmt(bitcoind, "\n%s\n\n"
-			  "Make sure you have bitcoind running and that bitcoin-cli"
-			  " is able to connect to bitcoind.\n\n"
-			  "You can verify that your Bitcoin Core installation is"
-			  " ready for use by running:\n\n"
-			  "    $ %s 'hello world'\n", error_message,
-			  args_string(cmd, cmd));
-	plugin_err(p, err);
+	plugin_err(p, "\n%s\n\n"
+		      "Make sure you have bitcoind running and that bitcoin-cli"
+		      " is able to connect to bitcoind.\n\n"
+		      "You can verify that your Bitcoin Core installation is"
+		      " ready for use by running:\n\n"
+		      "    $ %s 'hello world'\n", error_message,
+		      args_string(cmd, cmd));
 }
 
 static void wait_for_bitcoind(struct plugin *p)
