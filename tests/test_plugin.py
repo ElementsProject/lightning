@@ -46,6 +46,56 @@ def test_option_passthrough(node_factory, directory):
     n.stop()
 
 
+def test_option_types(node_factory):
+    """Ensure that desired types of options are
+       respected in output """
+
+    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/options.py')
+    n = node_factory.get_node(options={
+        'plugin': plugin_path,
+        'str_opt': 'ok',
+        'int_opt': 22,
+        'bool_opt': 1,
+    })
+
+    n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
+    n.daemon.is_in_log(r"option int_opt 22 <class 'int'>")
+    n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
+    n.stop()
+
+    # A blank bool_opt should default to false
+    n = node_factory.get_node(options={
+        'plugin': plugin_path, 'str_opt': 'ok',
+        'int_opt': 22,
+        'bool_opt': '',
+    })
+
+    n.daemon.is_in_log(r"option bool_opt False <class 'bool'>")
+    n.stop()
+
+    # What happens if we give it a bad bool-option?
+    n = node_factory.get_node(options={
+        'plugin': plugin_path,
+        'str_opt': 'ok',
+        'int_opt': 22,
+        'bool_opt': '!',
+    }, expect_fail=True, may_fail=True)
+
+    # the node should fail to start, and we get a stderr msg
+    assert n.daemon.is_in_stderr('bool_opt: ! does not parse as type bool')
+
+    # What happens if we give it a bad int-option?
+    n = node_factory.get_node(options={
+        'plugin': plugin_path,
+        'str_opt': 'ok',
+        'int_opt': 'notok',
+        'bool_opt': 1,
+    }, may_fail=True, expect_fail=True)
+
+    # the node should fail to start, and we get a stderr msg
+    assert n.daemon.is_in_stderr('--int_opt: notok does not parse as type int')
+
+
 def test_millisatoshi_passthrough(node_factory):
     """ Ensure that Millisatoshi arguments and return work.
     """
