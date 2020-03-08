@@ -1128,11 +1128,13 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 		name = opt->name + 2;
 		if (opt->value->as_bool) {
 			json_add_bool(req->stream, name, *opt->value->as_bool);
-			continue;
+			if (!deprecated_apis)
+				continue;
 		}
 		if (opt->value->as_int) {
 			json_add_s64(req->stream, name, *opt->value->as_int);
-			continue;
+			if (!deprecated_apis)
+				continue;
 		}
 		if (opt->value->as_str) {
 			json_add_string(req->stream, name, opt->value->as_str);
