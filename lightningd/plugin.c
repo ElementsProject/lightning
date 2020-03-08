@@ -1102,6 +1102,14 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	list_for_each(&plugin->plugin_opts, opt, list) {
 		/* Trim the `--` that we added before */
 		name = opt->name + 2;
+		if (opt->value->as_bool) {
+			json_add_bool(req->stream, name, *opt->value->as_bool);
+			continue;
+		}
+		if (opt->value->as_int) {
+			json_add_s64(req->stream, name, *opt->value->as_int);
+			continue;
+		}
 		if (opt->value->as_str) {
 			json_add_string(req->stream, name, opt->value->as_str);
 		}
