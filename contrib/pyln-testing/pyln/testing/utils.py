@@ -140,6 +140,7 @@ class TailableProc(object):
         self.proc = None
         self.outputDir = outputDir
         self.logsearch_start = 0
+        self.err_logs = []
 
         # Should we be logging lines we read from stdout?
         self.verbose = verbose
@@ -210,6 +211,10 @@ class TailableProc(object):
         self.running = False
         self.proc.stdout.close()
         if self.proc.stderr:
+            for line in iter(self.proc.stderr.readline, ''):
+                if len(line) == 0:
+                    break
+                self.err_logs.append(line.rstrip().decode('ASCII'))
             self.proc.stderr.close()
 
     def is_in_log(self, regex, start=0):
@@ -222,6 +227,18 @@ class TailableProc(object):
                 return l
 
         logging.debug("Did not find '%s' in logs", regex)
+        return None
+
+    def is_in_stderr(self, regex):
+        """Look for `regex` in stderr."""
+
+        ex = re.compile(regex)
+        for l in self.err_logs:
+            if ex.search(l):
+                logging.debug("Found '%s' in stderr", regex)
+                return l
+
+        logging.debug("Did not find '%s' in stderr", regex)
         return None
 
     def wait_for_logs(self, regexs, timeout=TIMEOUT):
@@ -637,8 +654,8 @@ class LightningNode(object):
             info = self.rpc.getinfo()
         return 'warning_bitcoind_sync' not in info and 'warning_lightningd_sync' not in info
 
-    def start(self, wait_for_bitcoind_sync=True):
-        self.daemon.start()
+    def start(self, wait_for_bitcoind_sync=True, stderr=None):
+        self.daemon.start(stderr=stderr)
         # Cache `getinfo`, we'll be using it a lot
         self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
