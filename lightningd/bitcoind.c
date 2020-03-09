@@ -121,6 +121,18 @@ static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
 	      toks->end - toks->start, buf + toks->start);
 }
 
+/* Send a request to the Bitcoin plugin which registered that method,
+ * if it's still alive. */
+static void bitcoin_plugin_send(struct bitcoind *bitcoind,
+				struct jsonrpc_request *req)
+{
+	struct plugin *plugin = strmap_get(&bitcoind->pluginsmap, req->method);
+	if (!plugin)
+		fatal("Bitcoin backend plugin for %s died.", req->method);
+
+	plugin_request_send(plugin, req);
+}
+
 /* `getfeerate`
  *
  * Gather feerate from our Bitcoin backend. Will set the feerate to `null`
@@ -211,8 +223,7 @@ static void do_one_estimatefee(struct bitcoind *bitcoind,
 	json_add_num(req->stream, "blocks", call->blocks[call->i]);
 	json_add_string(req->stream, "mode", call->estmode[call->i]);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
-				       "getfeerate"), req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
@@ -311,8 +322,7 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 				    call);
 	json_add_string(req->stream, "tx", hextx);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
-				       "sendrawtransaction"), req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* `getrawblockbyheight`
@@ -412,8 +422,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 				    notleak(call));
 	json_add_num(req->stream, "height", height);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
-				       "getrawblockbyheight"), req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* `getchaininfo`
@@ -507,8 +516,7 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 	req = jsonrpc_request_start(bitcoind, "getchaininfo", bitcoind->log,
 				    getchaininfo_callback, call);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap, "getchaininfo"),
-			    req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* `getutxout`
@@ -591,8 +599,7 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind,
 	json_add_txid(req->stream, "txid", txid);
 	json_add_num(req->stream, "vout", outnum);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap, "getutxout"),
-			    req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* Context for the getfilteredblock call. Wraps the actual arguments while we
