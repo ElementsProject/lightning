@@ -126,9 +126,6 @@ open a channel:
 ```bash
 # Returns an address <address>
 lightning-cli newaddr
-
-# Returns a transaction id <txid>
-bitcoin-cli sendtoaddress <address> <amount_in_bitcoins>
 ```
 
 `lightningd` will register the funds once the transaction is confirmed.
