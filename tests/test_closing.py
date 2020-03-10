@@ -216,9 +216,9 @@ def test_closing_torture(node_factory, executor, bitcoind):
 def test_closing_different_fees(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
-    # Default feerate = 15000/7500/1000
+    # Default feerate = 15000/11000/7500/1000
     # It will start at the second number, accepting anything above the first.
-    feerates = [[20000, 15000, 7400], [8000, 1001, 100]]
+    feerates = [[20000, 11000, 15000, 7400], [8000, 6000, 1001, 100]]
     amounts = [0, 545999, 546000]
     num_peers = len(feerates) * len(amounts)
 
@@ -362,10 +362,10 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
 
 def closing_fee(node_factory, bitcoind, chainparams, opts):
     rate = opts['funder_feerate_per_kw']
-    funder = node_factory.get_node(feerates=(rate, rate, rate))
+    funder = node_factory.get_node(feerates=(rate, rate, rate, rate))
 
     rate = opts['fundee_feerate_per_kw']
-    fundee = node_factory.get_node(feerates=(rate, rate, rate))
+    fundee = node_factory.get_node(feerates=(rate, rate, rate, rate))
 
     funder_id = funder.info['id']
     fundee_id = fundee.info['id']
@@ -446,7 +446,9 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
     # We suppress each one after first commit; HTLC gets added not fulfilled.
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'], may_fail=True, feerates=(7500, 7500, 7500), allow_broken_log=True)
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+                               may_fail=True, feerates=(7500, 7500, 7500, 7500),
+                               allow_broken_log=True)
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -487,6 +489,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     bitcoind.generate_block(1)
 
     l2.daemon.wait_for_log(' to ONCHAIN')
+
     # FIXME: l1 should try to stumble along!
     wait_for(lambda: len(l2.getactivechannels()) == 0)
 
@@ -509,7 +512,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     outputs = l2.rpc.listfunds()['outputs']
     assert [o['status'] for o in outputs] == ['confirmed'] * 2
     # Allow some lossage for fees.
-    slack = 27000 if chainparams['elements'] else 15000
+    slack = 30000 if chainparams['elements'] else 20000
     assert sum(o['value'] for o in outputs) < 10**6
     assert sum(o['value'] for o in outputs) > 10**6 - slack
 
@@ -519,7 +522,9 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an outgoing HTLC"""
     # First we need to get funds to l2, so suppress after second.
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'], may_fail=True, feerates=(7500, 7500, 7500), allow_broken_log=True)
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'],
+                               may_fail=True, feerates=(7500, 7500, 7500, 7500),
+                               allow_broken_log=True)
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -589,7 +594,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     outputs = l2.rpc.listfunds()['outputs']
     assert [o['status'] for o in outputs] == ['confirmed'] * 3
     # Allow some lossage for fees.
-    slack = 27000 if chainparams['elements'] else 15000
+    slack = 30000 if chainparams['elements'] else 20000
     assert sum(o['value'] for o in outputs) < 10**6
     assert sum(o['value'] for o in outputs) > 10**6 - slack
 
@@ -687,7 +692,8 @@ def test_onchaind_replay(node_factory, bitcoind):
     disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
     options = {'watchtime-blocks': 201, 'cltv-delta': 101}
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(options=options, disconnect=disconnects, feerates=(7500, 7500, 7500))
+    l1 = node_factory.get_node(options=options, disconnect=disconnects,
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(options=options)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -740,7 +746,8 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     # HTLC 1->2, 1 fails after it's irrevocably committed
     disconnects = ['@WIRE_REVOKE_AND_ACK', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=disconnects, feerates=(7500, 7500, 7500))
+    l1 = node_factory.get_node(disconnect=disconnects,
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -803,7 +810,8 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     # HTLC 1->2, 1 fails just after it's irrevocably committed
     disconnects = ['+WIRE_REVOKE_AND_ACK*3', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(disconnect=disconnects, feerates=(7500, 7500, 7500))
+    l1 = node_factory.get_node(disconnect=disconnects,
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1038,7 +1046,8 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     # is generated on-the-fly, and is thus feerate sensitive.
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None}, feerates=(7500, 7500, 7500))
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1060,7 +1069,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     l2.wait_for_channel_onchain(l1.info['id'])
 
     # Make l1's fees really high (and wait for it to exceed 50000)
-    l1.set_feerates((100000, 100000, 100000))
+    l1.set_feerates((100000, 100000, 100000, 100000))
     l1.daemon.wait_for_log('Feerate estimate for unilateral_close set to [56789][0-9]{4}')
 
     bitcoind.generate_block(1)
@@ -1097,12 +1106,12 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     p1 = executor.submit(l1.pay, l2, 1000000000)
     l1.daemon.wait_for_log('htlc 0: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
 
-    l1.set_feerates((16000, 7500, 3750))
+    l1.set_feerates((16000, 11000, 7500, 3750))
     p2 = executor.submit(l1.pay, l2, 900000000)
     l1.daemon.wait_for_log('htlc 1: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
 
     # Restart with different feerate for second HTLC.
-    l1.set_feerates((5000, 5000, 3750))
+    l1.set_feerates((5000, 5000, 5000, 3750))
     l1.restart()
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
@@ -1156,7 +1165,8 @@ def test_permfail_new_commit(node_factory, bitcoind, executor):
     # Test case where we have two possible commits: it will use new one.
     disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None}, feerates=(7500, 7500, 7500))
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1457,7 +1467,8 @@ def test_permfail_htlc_in(node_factory, bitcoind, executor):
     # Test case where we fail with unsettled incoming HTLC.
     disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None}, feerates=(7500, 7500, 7500))
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1503,7 +1514,8 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
     l1 = node_factory.get_node(options={'dev-no-reconnect': None})
     # Feerates identical so we don't get gratuitous commit to update them
-    l2 = node_factory.get_node(disconnect=disconnects, feerates=(7500, 7500, 7500))
+    l2 = node_factory.get_node(disconnect=disconnects,
+                               feerates=(7500, 7500, 7500, 7500))
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.daemon.wait_for_log('openingd-chan#1: Handed peer, entering loop'.format(l1.info['id']))
