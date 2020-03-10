@@ -41,8 +41,14 @@ static const struct pubkey *remote_per_commitment_point;
 /* The commitment number we're dealing with (if not mutual close) */
 static u64 commit_num;
 
-/* The feerate to use when we generate transactions. */
-static u32 feerate_per_kw;
+/* The feerate for the transaction spending our delayed output. */
+static u32 delayed_to_us_feerate;
+
+/* The feerate for transactions spending HTLC outputs. */
+static u32 htlc_feerate;
+
+/* The feerate for transactions spending from revoked transactions. */
+static u32 penalty_feerate;
 
 /* Min and max feerates we ever used */
 static u32 min_possible_feerate, max_possible_feerate;
@@ -321,7 +327,8 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 				   u32 locktime,
 				   const void *elem, size_t elemsize,
 				   const u8 *wscript,
-				   enum tx_type *tx_type)
+				   enum tx_type *tx_type,
+				   u32 feerate)
 {
 	struct bitcoin_tx *tx;
 	struct amount_sat fee, min_out, amt;
@@ -340,7 +347,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
 	weight = elements_add_overhead(weight, 1, 1);
-	fee = amount_tx_fee(feerate_per_kw, weight);
+	fee = amount_tx_fee(feerate, weight);
 
 	/* Result is trivial?  Spend with small feerate, but don't wait
 	 * around for it as it might not confirm. */
@@ -977,10 +984,8 @@ static void resolve_htlc_tx(const struct chainparams *chainparams,
 	 * nSequence `to_self_delay` and a witness stack `<local_delayedsig>
 	 * 0`
 	 */
-	tx = tx_to_us(*outs, delayed_payment_to_us,
-		      out, to_self_delay[LOCAL], 0, NULL, 0,
-		      wscript,
-		      &tx_type);
+	tx = tx_to_us(*outs, delayed_payment_to_us, out, to_self_delay[LOCAL],
+		      0, NULL, 0, wscript, &tx_type, htlc_feerate);
 
 	propose_resolution(out, tx, to_self_delay[LOCAL], tx_type);
 }
@@ -1002,10 +1007,8 @@ static void steal_htlc_tx(struct tracked_output *out)
 	 * To spend this via penalty, the remote node uses a witness stack
 	 * `<revocationsig> 1`
 	 */
-	tx = tx_to_us(out, penalty_to_us, out, 0xFFFFFFFF, 0,
-		      &ONE, sizeof(ONE),
-		      out->wscript,
-		      &tx_type);
+	tx = tx_to_us(out, penalty_to_us, out, 0xFFFFFFFF, 0, &ONE,
+		      sizeof(ONE), out->wscript, &tx_type, penalty_feerate);
 	propose_resolution(out, tx, 0, tx_type);
 }
 
@@ -1326,11 +1329,10 @@ static void handle_preimage(const struct chainparams *chainparams,
 			 *    - MUST *resolve* the output by spending it to a
 			 *      convenient address.
 			 */
-			tx = tx_to_us(outs[i], remote_htlc_to_us,
-				      outs[i], 0, 0,
-				      preimage, sizeof(*preimage),
-				      outs[i]->wscript,
-				      &tx_type);
+			tx = tx_to_us(outs[i], remote_htlc_to_us, outs[i], 0,
+				      0, preimage, sizeof(*preimage),
+				      outs[i]->wscript, &tx_type,
+				      htlc_feerate);
 			propose_resolution(outs[i], tx, 0, tx_type);
 		}
 	}
@@ -1606,10 +1608,8 @@ static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 	 *     - MUST *resolve* the output, by spending it to a convenient
 	 *       address.
 	 */
-	tx = tx_to_us(out, remote_htlc_to_us,
-		      out, 0, cltv_expiry, NULL, 0,
-		      htlc_scripts[matches[0]],
-		      &tx_type);
+	tx = tx_to_us(out, remote_htlc_to_us, out, 0, cltv_expiry, NULL, 0,
+		      htlc_scripts[matches[0]], &tx_type, htlc_feerate);
 
 	propose_resolution_at_block(out, tx, cltv_expiry, tx_type);
 
@@ -1868,11 +1868,10 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *
 			 *	<local_delayedsig> 0
 			 */
-			to_us = tx_to_us(out, delayed_payment_to_us,
-					 out, to_self_delay[LOCAL], 0,
-					 NULL, 0,
-					 local_wscript,
-					 &tx_type);
+			to_us = tx_to_us(out, delayed_payment_to_us, out,
+					 to_self_delay[LOCAL], 0, NULL, 0,
+					 local_wscript, &tx_type,
+					 delayed_to_us_feerate);
 
 			/* BOLT #5:
 			 *
@@ -1988,12 +1987,8 @@ static void steal_to_them_output(struct tracked_output *out)
 					   &keyset->self_revocation_key,
 					   &keyset->self_delayed_payment_key);
 
-	tx = tx_to_us(tmpctx,
-		      penalty_to_us,
-		      out, 0xFFFFFFFF, 0,
-		      &ONE, sizeof(ONE),
-		      wscript,
-		      &tx_type);
+	tx = tx_to_us(tmpctx, penalty_to_us, out, 0xFFFFFFFF, 0, &ONE,
+		      sizeof(ONE), wscript, &tx_type, penalty_feerate);
 
 	propose_resolution(out, tx, 0, tx_type);
 }
@@ -2012,12 +2007,8 @@ static void steal_htlc(struct tracked_output *out)
 	 *     <revocation_sig> <revocationpubkey>
 	 */
 	pubkey_to_der(der, &keyset->self_revocation_key);
-	tx = tx_to_us(out,
-		      penalty_to_us,
-		      out, 0xFFFFFFFF, 0,
-		      der, sizeof(der),
-		      out->wscript,
-		      &tx_type);
+	tx = tx_to_us(out, penalty_to_us, out, 0xFFFFFFFF, 0, der, sizeof(der),
+		      out->wscript, &tx_type, penalty_feerate);
 
 	propose_resolution(out, tx, 0, tx_type);
 }
@@ -2687,7 +2678,9 @@ int main(int argc, char *argv[])
 				   &remote_per_commit_point,
 				   &to_self_delay[LOCAL],
 				   &to_self_delay[REMOTE],
-				   &feerate_per_kw,
+				   &delayed_to_us_feerate,
+				   &htlc_feerate,
+				   &penalty_feerate,
 				   &dust_limit,
 				   &our_broadcast_txid,
 				   &scriptpubkey[LOCAL],
@@ -2710,7 +2703,9 @@ int main(int argc, char *argv[])
 
 	tx->chainparams = chainparams;
 
-	status_debug("feerate_per_kw = %u", feerate_per_kw);
+	status_debug("delayed_to_us_feerate = %u, htlc_feerate = %u, "
+		     "penalty_feerate = %u", delayed_to_us_feerate,
+		     htlc_feerate, penalty_feerate);
 	bitcoin_txid(tx, &txid);
 	/* We need to keep tx around, but there's only one: not really a leak */
 	tal_steal(ctx, notleak(tx));

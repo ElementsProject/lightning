@@ -545,7 +545,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				    * we specify theirs. */
 				  channel->channel_info.their_config.to_self_delay,
 				  channel->our_config.to_self_delay,
-				  feerate,
+				  feerate, feerate, feerate,
 				  channel->our_config.dust_limit,
 				  &our_last_txid,
 				  channel->shutdown_scriptpubkey[LOCAL],
