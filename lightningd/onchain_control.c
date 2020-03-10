@@ -457,7 +457,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
 	int hsmfd;
-	u32 feerate;
+	u32 feerates[3];
 
 	channel_fail_permanent(channel, "Funding transaction spent");
 
@@ -502,33 +502,41 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	bitcoin_txid(tx, &txid);
 	bitcoin_txid(channel->last_tx, &our_last_txid);
 
-	/* We try to use normal feerate for onchaind spends. */
-	feerate = try_get_feerate(ld->topology, FEERATE_NORMAL);
-	if (!feerate) {
-		/* We have at least one data point: the last tx's feerate. */
-		struct amount_sat fee = channel->funding;
-		for (size_t i = 0; i < channel->last_tx->wtx->num_outputs; i++) {
-			struct amount_asset asset =
-			    bitcoin_tx_output_get_amount(channel->last_tx, i);
-			struct amount_sat amt;
-			assert(amount_asset_is_main(&asset));
-			amt = amount_asset_to_sat(&asset);
-			if (!amount_sat_sub(&fee, fee, amt)) {
-				log_broken(channel->log, "Could not get fee"
-					   " funding %s tx %s",
-					   type_to_string(tmpctx,
-							  struct amount_sat,
-							  &channel->funding),
-					   type_to_string(tmpctx,
-							  struct bitcoin_tx,
-							  channel->last_tx));
-				return KEEP_WATCHING;
+	/* We try to get the feerate for each transaction type, 0 if estimation
+	 * failed. */
+	feerates[0] = delayed_to_us_feerate(ld->topology);
+	feerates[1] = htlc_resolution_feerate(ld->topology);
+	feerates[2] = penalty_feerate(ld->topology);
+	/* We check them separately but there is a high chance that if estimation
+	 * failed for one, it failed for all.. */
+	for (size_t i = 0; i < 3; i++) {
+		if (!feerates[i]) {
+			/* We have at least one data point: the last tx's feerate. */
+			struct amount_sat fee = channel->funding;
+			for (size_t i = 0;
+			     i < channel->last_tx->wtx->num_outputs; i++) {
+				struct amount_asset asset =
+					bitcoin_tx_output_get_amount(channel->last_tx, i);
+				struct amount_sat amt;
+				assert(amount_asset_is_main(&asset));
+				amt = amount_asset_to_sat(&asset);
+				if (!amount_sat_sub(&fee, fee, amt)) {
+					log_broken(channel->log, "Could not get fee"
+						   " funding %s tx %s",
+						   type_to_string(tmpctx,
+								  struct amount_sat,
+								  &channel->funding),
+						   type_to_string(tmpctx,
+								  struct bitcoin_tx,
+								  channel->last_tx));
+					return KEEP_WATCHING;
+				}
 			}
-		}
 
-		feerate = fee.satoshis / bitcoin_tx_weight(tx); /* Raw: reverse feerate extraction */
-		if (feerate < feerate_floor())
-			feerate = feerate_floor();
+			feerates[i] = fee.satoshis / bitcoin_tx_weight(tx); /* Raw: reverse feerate extraction */
+			if (feerates[i] < feerate_floor())
+				feerates[i] = feerate_floor();
+		}
 	}
 
 	msg = towire_onchain_init(channel,
@@ -545,7 +553,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				    * we specify theirs. */
 				  channel->channel_info.their_config.to_self_delay,
 				  channel->our_config.to_self_delay,
-				  feerate, feerate, feerate,
+				  /* delayed_to_us, htlc, and penalty. */
+				  feerates[0], feerates[1], feerates[2],
 				  channel->our_config.dust_limit,
 				  &our_last_txid,
 				  channel->shutdown_scriptpubkey[LOCAL],

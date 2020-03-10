@@ -458,6 +458,21 @@ u32 unilateral_feerate(struct chain_topology *topo)
 	return try_get_feerate(topo, FEERATE_URGENT);
 }
 
+u32 delayed_to_us_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_NORMAL);
+}
+
+u32 htlc_resolution_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_NORMAL);
+}
+
+u32 penalty_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_NORMAL);
+}
+
 u32 feerate_from_style(u32 feerate, enum feerate_style style)
 {
 	switch (style) {
