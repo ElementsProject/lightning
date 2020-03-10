@@ -247,7 +247,7 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.daemon.wait_for_log('peer_out WIRE_CHANNEL_REESTABLISH')
 
     # Make l2 upset by asking for crazy fee.
-    l1.set_feerates((10**6, 1000**6, 1000**6), False)
+    l1.set_feerates((10**6, 1000**6, 1000**6, 1000**6), False)
 
     # Wait for l1 notice
     l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL: channeld: .*: update_fee \d+ outside range 1875-75000')
@@ -330,7 +330,7 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
                                may_reconnect=True,
-                               feerates=(7500, 7500, 7500))
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -375,7 +375,7 @@ def test_payment_failed_persistence(node_factory, executor):
     l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
                                may_reconnect=True,
-                               feerates=(7500, 7500, 7500))
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -579,7 +579,7 @@ def test_sendpay(node_factory):
 def test_sendpay_cant_afford(node_factory):
     # Set feerates the same so we don't have to wait for update.
     l1, l2 = node_factory.line_graph(2, fundamount=10**6,
-                                     opts={'feerates': (15000, 15000, 15000)})
+                                     opts={'feerates': (15000, 15000, 15000, 15000)})
 
     # Can't pay more than channel capacity.
     with pytest.raises(RpcError):
@@ -1570,7 +1570,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     # We connect every node to l5; in a line and individually.
     # Keep fixed fees so we can easily calculate exhaustion
     l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False,
-                                                 opts={'feerates': (7500, 7500, 7500)})
+                                                 opts={'feerates': (7500, 7500, 7500, 7500)})
 
     # scid12
     l1.fund_channel(l2, 10**6, wait_for_active=False)

@@ -860,10 +860,12 @@ class LightningNode(object):
             params = r['params']
             if params == [2, 'CONSERVATIVE']:
                 feerate = feerates[0] * 4
-            elif params == [4, 'ECONOMICAL']:
+            elif params == [3, 'CONSERVATIVE']:
                 feerate = feerates[1] * 4
-            elif params == [100, 'ECONOMICAL']:
+            elif params == [4, 'ECONOMICAL']:
                 feerate = feerates[2] * 4
+            elif params == [100, 'ECONOMICAL']:
+                feerate = feerates[3] * 4
             else:
                 raise ValueError()
             return {
@@ -878,13 +880,14 @@ class LightningNode(object):
         # Technically, this waits until it's called, not until it's processed.
         # We wait until all three levels have been called.
         if wait_for_effect:
-            wait_for(lambda: self.daemon.rpcproxy.mock_counts['estimatesmartfee'] >= 3)
+            wait_for(lambda:
+                     self.daemon.rpcproxy.mock_counts['estimatesmartfee'] >= 4)
 
     # force new feerates by restarting and thus skipping slow smoothed process
     # Note: testnode must be created with: opts={'may_reconnect': True}
     def force_feerates(self, rate):
         assert(self.may_reconnect)
-        self.set_feerates([rate] * 3, False)
+        self.set_feerates([rate] * 4, False)
         self.restart()
         self.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
         assert(self.rpc.feerates('perkw')['perkw']['opening'] == rate)
@@ -1005,7 +1008,7 @@ class NodeFactory(object):
         return [j.result() for j in jobs]
 
     def get_node(self, node_id=None, options=None, dbfile=None,
-                 feerates=(15000, 7500, 3750), start=True,
+                 feerates=(15000, 11000, 7500, 3750), start=True,
                  wait_for_bitcoind_sync=True, expect_fail=False, **kwargs):
 
         node_id = self.get_node_id() if not node_id else node_id
