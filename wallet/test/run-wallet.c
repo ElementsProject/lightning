@@ -351,6 +351,21 @@ enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED
 /* Generated stub for json_to_bool */
 bool json_to_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *b UNNEEDED)
 { fprintf(stderr, "json_to_bool called!\n"); abort(); }
+/* Generated stub for json_to_node_id */
+bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			       struct node_id *id UNNEEDED)
+{ fprintf(stderr, "json_to_node_id called!\n"); abort(); }
+/* Generated stub for json_to_number */
+bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		    unsigned int *num UNNEEDED)
+{ fprintf(stderr, "json_to_number called!\n"); abort(); }
+/* Generated stub for json_to_preimage */
+bool json_to_preimage(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct preimage *preimage UNNEEDED)
+{ fprintf(stderr, "json_to_preimage called!\n"); abort(); }
+/* Generated stub for json_to_short_channel_id */
+bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			      struct short_channel_id *scid UNNEEDED)
+{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_tok_bin_from_hex */
 u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
@@ -367,21 +382,6 @@ int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 /* Generated stub for json_tok_streq */
 bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
 { fprintf(stderr, "json_tok_streq called!\n"); abort(); }
-/* Generated stub for json_to_node_id */
-bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			       struct node_id *id UNNEEDED)
-{ fprintf(stderr, "json_to_node_id called!\n"); abort(); }
-/* Generated stub for json_to_number */
-bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		    unsigned int *num UNNEEDED)
-{ fprintf(stderr, "json_to_number called!\n"); abort(); }
-/* Generated stub for json_to_preimage */
-bool json_to_preimage(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct preimage *preimage UNNEEDED)
-{ fprintf(stderr, "json_to_preimage called!\n"); abort(); }
-/* Generated stub for json_to_short_channel_id */
-bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			      struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
@@ -604,12 +604,12 @@ u8 *towire_channel_got_revoke_reply(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channel_offer_htlc */
 u8 *towire_channel_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366])
 { fprintf(stderr, "towire_channel_offer_htlc called!\n"); abort(); }
-/* Generated stub for towire_channel_sending_commitsig_reply */
-u8 *towire_channel_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_sending_commitsig_reply called!\n"); abort(); }
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
+/* Generated stub for towire_channel_sending_commitsig_reply */
+u8 *towire_channel_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_channel_sending_commitsig_reply called!\n"); abort(); }
 /* Generated stub for towire_channel_specific_feerates */
 u8 *towire_channel_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_base UNNEEDED, u32 feerate_ppm UNNEEDED)
 { fprintf(stderr, "towire_channel_specific_feerates called!\n"); abort(); }

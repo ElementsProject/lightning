@@ -103,6 +103,9 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for feature_is_set */
 bool feature_is_set(const u8 *features UNNEEDED, size_t bit UNNEEDED)
 { fprintf(stderr, "feature_is_set called!\n"); abort(); }
+/* Generated stub for featurebits_or */
+u8 *featurebits_or(const tal_t *ctx UNNEEDED, const u8 *f1 TAKES UNNEEDED, const u8 *f2 TAKES UNNEEDED)
+{ fprintf(stderr, "featurebits_or called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
@@ -197,10 +200,6 @@ enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED
 			     const char *buffer UNNEEDED,
 			     const jsmntok_t *tok UNNEEDED, const u8 **scriptpubkey UNNEEDED)
 { fprintf(stderr, "json_to_address_scriptpubkey called!\n"); abort(); }
-/* Generated stub for json_tok_channel_id */
-bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			 struct channel_id *cid UNNEEDED)
-{ fprintf(stderr, "json_tok_channel_id called!\n"); abort(); }
 /* Generated stub for json_to_node_id */
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
@@ -209,6 +208,10 @@ bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_tok_channel_id */
+bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			 struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "json_tok_channel_id called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
