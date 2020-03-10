@@ -297,8 +297,10 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	}
 
 	if (!feerate_per_kw) {
+		/* We mainly use `txprepare` for opening transactions, and FEERATE_OPENING
+		 * is kind of the new FEERATE_NORMAL so it fits well `withdraw` too. */
 		result = param_feerate_estimate(cmd, &feerate_per_kw,
-						FEERATE_NORMAL);
+						FEERATE_OPENING);
 		if (result)
 			return result;
 	}

@@ -887,7 +887,7 @@ class LightningNode(object):
         self.set_feerates([rate] * 3, False)
         self.restart()
         self.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
-        assert(self.rpc.feerates('perkw')['perkw']['normal'] == rate)
+        assert(self.rpc.feerates('perkw')['perkw']['opening'] == rate)
 
     def wait_for_onchaind_broadcast(self, name, resolve=None):
         """Wait for onchaind to drop tx name to resolve (if any)"""
