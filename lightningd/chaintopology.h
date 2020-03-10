@@ -146,9 +146,13 @@ u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
 u32 feerate_min(struct lightningd *ld, bool *unknown);
 u32 feerate_max(struct lightningd *ld, bool *unknown);
 
-u32 mutual_close_feerate(struct chain_topology *topo);
 u32 opening_feerate(struct chain_topology *topo);
+u32 mutual_close_feerate(struct chain_topology *topo);
 u32 unilateral_feerate(struct chain_topology *topo);
+/* For onchain resolution. */
+u32 delayed_to_us_feerate(struct chain_topology *topo);
+u32 htlc_resolution_feerate(struct chain_topology *topo);
+u32 penalty_feerate(struct chain_topology *topo);
 
 /* We always use feerate-per-ksipa, ie. perkw */
 u32 feerate_from_style(u32 feerate, enum feerate_style style);
