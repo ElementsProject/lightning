@@ -1,3 +1,4 @@
+from binascii import unhexlify
 from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
@@ -766,6 +767,49 @@ def test_sendpay_notifications_nowaiter(node_factory):
     results = l1.rpc.call('listsendpays_plugin')
     assert len(results['sendpay_success']) == 1
     assert len(results['sendpay_failure']) == 1
+
+
+def test_htlc_lifecycle(node_factory, bitcoind, executor):
+    # htlc lifecycle events: htlc_offered, htlc_accepted, htlc_settled, htlc_failed
+    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/htlc_lifecycle.py')}
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    h1 = l3.rpc.invoice(123000, 'test_htlc', 'normal')['payment_hash']
+    h2 = l3.rpc.invoice(123000, 'test_htlc_failed', 'bad onion')['payment_hash']
+    route = l1.rpc.getroute(l3.info['id'], 123000, 1)['route']
+
+    l1.rpc.sendpay(route, h1)
+    l1.rpc.waitsendpay(h1)
+
+    # get htlc events in chronological order for every node
+    l1_htlc_events = l1.rpc.call('htlc_plugin')['type']
+    l2_htlc_events = l2.rpc.call('htlc_plugin')['type']
+    l3_htlc_events = l3.rpc.call('htlc_plugin')['type']
+
+    # get the corresponding payloads of the htlc events for node l1 and l3
+    l1_data = l1.rpc.call('htlc_plugin')['data']
+    l3_data = l3.rpc.call('htlc_plugin')['data']
+
+    # test chronological order of htlc events for every node
+    assert ['htlc_offered'] == l1_htlc_events
+    assert ['htlc_accepted', 'htlc_offered', 'htlc_settled'] == l2_htlc_events
+    assert ['htlc_accepted', 'htlc_settled'] == l3_htlc_events
+
+    # Test reading the payload data: payment_hash in htlc_offered of l1 should
+    # match the preimage in htlc_settled of l3
+    payment_hash = l1_data[0]['payment_hash']
+    preimage = unhexlify(l3_data[1]['payment_preimage'])
+    assert sha256(preimage).hexdigest() == payment_hash
+
+    # Test setup for htlc_failed event
+    mangled_nodeid = '0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518'
+    # Replace id with a different pubkey, so onion encoded badly at second hop.
+    route[1]['id'] = mangled_nodeid
+    l1.rpc.sendpay(route, h2)
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay(h2)
+
+    assert "failed" == l2.rpc.call('htlc_plugin')['data'][-1]['status']
+    assert "WIRE_INVALID_ONION_HMAC" == l3.rpc.call('htlc_plugin')['data'][-1]['badonion']
 
 
 def test_rpc_command_hook(node_factory):
