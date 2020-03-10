@@ -1419,10 +1419,15 @@ def test_feerates(node_factory):
     assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 5000 // 2
 
-    assert len(feerates['onchain_fee_estimates']) == 3
+    assert len(feerates['onchain_fee_estimates']) == 5
     assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['perkw']['opening'] * 702 // 1000
     assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['perkw']['mutual_close'] * 673 // 1000
     assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['unilateral_close'] * 598 // 1000
+    htlc_feerate = feerates["perkw"]["htlc_resolution"]
+    htlc_timeout_cost = feerates["onchain_fee_estimates"]["htlc_timeout_satoshis"]
+    htlc_success_cost = feerates["onchain_fee_estimates"]["htlc_success_satoshis"]
+    assert htlc_timeout_cost == htlc_feerate * 663 // 1000
+    assert htlc_success_cost == htlc_feerate * 703 // 1000
 
 
 def test_logging(node_factory):

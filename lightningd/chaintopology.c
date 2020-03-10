@@ -559,6 +559,20 @@ static struct command_result *json_feerates(struct command *cmd,
 		/* eg. 02000000000101c4fecaae1ea940c15ec502de732c4c386d51f981317605bbe5ad2c59165690ab00000000009db0e280010a2d0f00000000002200208d290003cedb0dd00cd5004c2d565d55fc70227bf5711186f4fa9392f8f32b4a0400483045022100952fcf8c730c91cf66bcb742cd52f046c0db3694dc461e7599be330a22466d790220740738a6f9d9e1ae5c86452fa07b0d8dddc90f8bee4ded24a88fe4b7400089eb01483045022100db3002a93390fc15c193da57d6ce1020e82705e760a3aa935ebe864bd66dd8e8022062ee9c6aa7b88ff4580e2671900a339754116371d8f40eba15b798136a76cd150147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae9a3ed620 == weight 598 */
 		json_add_u64(response, "unilateral_close_satoshis",
 			     unilateral_feerate(cmd->ld->topology) * 598 / 1000);
+		/* BOLT #3:
+		 *
+		 * The *expected weight* of an HTLC transaction is calculated as follows:
+		 * ...
+		 * results in weights of:
+		 *
+		 *	663 (HTLC-timeout)
+		 *	703 (HTLC-success)
+		 *
+		 */
+		json_add_u64(response, "htlc_timeout_satoshis",
+			     htlc_resolution_feerate(cmd->ld->topology) * 663 / 1000);
+		json_add_u64(response, "htlc_success_satoshis",
+			     htlc_resolution_feerate(cmd->ld->topology) * 703 / 1000);
 		json_object_end(response);
 	}
 
