@@ -467,6 +467,69 @@ returns the result of sendpay in specified time or timeout, but
 `sendpay_failure` will always return the result anytime when sendpay
 fails if is was subscribed.
 
+### `htlc_offered`
+
+A notification for topic `htlc_offered` is sent every time a HTLC is offered.
+
+```json
+{
+  "htlc": {
+    "short_channel_id": "103x1x1",
+    "amount": "123000msat",
+    "cltv_expiry": 118,
+    "cltv_expiry_relative": 10,
+    "payment_hash": "995c36261d875f4b32e4cc21f5273aaa6f37d633beed9818f747ce215d24d869",
+    "htlc_in": {
+      "short_channel_id": "103x2x1",
+      "amount": "123002msat",
+      "cltv_expiry": 124,
+      "cltv_expiry_relative": 16,
+      "payment_hash": "995c36261d875f4b32e4cc21f5273aaa6f37d633beed9818f747ce215d24d869",
+      "shared_secret": "d9184255d877734a5be3d977c616d66cc231f9fd63f09dd0d148438d80df1e63"
+    }
+  }
+}
+```
+
+`htlc_in` is excluded for a locally generated payment.
+
+### `htlc_accepted`
+
+A notification for topic `htlc_accepted` is sent every time a HTLC is offered.
+Its payload is identical to the hook version of `htlc_accepted`.
+
+### `htlc_settled`
+
+A notification for topic `htlc_settled` is sent every time a HTLC is fulfilled.
+
+```json
+{
+  "htlc_settled": {
+     "short_channel_id": "103x1x1",
+     "id": 0,
+     "payment_preimage": "555aeb11883c506ff0a165fb997dc297a4d5a5be9c0152d27f7f50169ec168ac"
+  }
+}
+```
+
+### `htlc_failed`
+
+A notification for topic `htlc_failed` is sent every time a HTLC has timed out
+or it has failed to route.
+
+```json
+{
+  "htlc_failed": {
+    "short_channel_id": "103x2x1",
+    "id": 1,
+    "status": "local_failed",
+    "badonion": "WIRE_INVALID_ONION_HMAC"
+  }
+}
+```
+status can be: `failed`, `local_failed` or `expired`. `badonion` is inlcuded only
+on `local_failed`.
+
 ## Hooks
 
 Hooks allow a plugin to define custom behavior for `lightningd`
