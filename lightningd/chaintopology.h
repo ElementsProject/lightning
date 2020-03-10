@@ -22,11 +22,16 @@ struct txwatch;
 
 /* FIXME: move all feerate stuff out to new lightningd/feerate.[ch] files */
 enum feerate {
-	FEERATE_URGENT, /* Aka: aim for next block. */
-	FEERATE_NORMAL, /* Aka: next 4 blocks or so. */
-	FEERATE_SLOW, /* Aka: next 100 blocks or so. */
+	FEERATE_OPENING,
+	FEERATE_MUTUAL_CLOSE,
+	FEERATE_UNILATERAL_CLOSE,
+	FEERATE_DELAYED_TO_US,
+	FEERATE_HTLC_RESOLUTION,
+	FEERATE_PENALTY,
+	FEERATE_MIN,
+	FEERATE_MAX,
 };
-#define NUM_FEERATES (FEERATE_SLOW+1)
+#define NUM_FEERATES (FEERATE_MAX+1)
 
 /* We keep the last three in case there are outliers (for min/max) */
 #define FEE_HISTORY_NUM 3

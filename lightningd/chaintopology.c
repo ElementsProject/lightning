@@ -14,6 +14,7 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -300,9 +301,14 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 const char *feerate_name(enum feerate feerate)
 {
 	switch (feerate) {
-	case FEERATE_URGENT: return "urgent";
-	case FEERATE_NORMAL: return "normal";
-	case FEERATE_SLOW: return "slow";
+	case FEERATE_OPENING: return "opening";
+	case FEERATE_MUTUAL_CLOSE: return "mutual_close";
+	case FEERATE_UNILATERAL_CLOSE: return "unilateral_close";
+	case FEERATE_DELAYED_TO_US: return "delayed_to_us";
+	case FEERATE_HTLC_RESOLUTION: return "htlc_resolution";
+	case FEERATE_PENALTY: return "penalty";
+	case FEERATE_MIN: return "min_acceptable";
+	case FEERATE_MAX: return "max_acceptable";
 	}
 	abort();
 }
@@ -337,13 +343,23 @@ static void add_feerate_history(struct chain_topology *topo,
 	topo->feehistory[feerate][0] = val;
 }
 
+/* Did the the feerate change since we last estimated it ? */
+static bool feerate_changed(struct chain_topology *topo, u32 old_feerates[])
+{
+	for (enum feerate f = 0; f < NUM_FEERATES; f++) {
+		if (try_get_feerate(topo, f) != old_feerates[f])
+			return true;
+	}
+
+	return false;
+}
+
 /* We sanitize feerates if necessary to put them in descending order. */
 static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
 			    struct chain_topology *topo)
 {
 	u32 old_feerates[NUM_FEERATES];
-	bool changed = false;
 	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
 	 * have the feerate account for 90 percent of the values polled in the last
 	 * 2 minutes. The following will do that in a polling interval
@@ -405,26 +421,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 		maybe_completed_init(topo);
 	}
 
-	/* Make sure (known) fee rates are in order. */
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		if (!topo->feerate[i])
-			continue;
-		for (size_t j = 0; j < i; j++) {
-			if (!topo->feerate[j])
-				continue;
-			if (topo->feerate[j] < topo->feerate[i]) {
-				log_unusual(topo->log,
-					  "Feerate estimate for %s (%u) above %s (%u)",
-					  feerate_name(i), topo->feerate[i],
-					  feerate_name(j), topo->feerate[j]);
-				topo->feerate[j] = topo->feerate[i];
-			}
-		}
-		if (try_get_feerate(topo, i) != old_feerates[i])
-			changed = true;
-	}
-
-	if (changed)
+	if (feerate_changed(topo, old_feerates))
 		notify_feerate_change(bitcoind->ld);
 
 	next_updatefee_timer(topo);
@@ -432,45 +429,43 @@ static void update_feerates(struct bitcoind *bitcoind,
 
 static void start_fee_estimate(struct chain_topology *topo)
 {
-	/* FEERATE_IMMEDIATE, FEERATE_NORMAL, FEERATE_SLOW */
 	const char *estmodes[] = { "CONSERVATIVE", "ECONOMICAL", "ECONOMICAL" };
 	const u32 blocks[] = { 2, 4, 100 };
 
-	BUILD_ASSERT(ARRAY_SIZE(blocks) == NUM_FEERATES);
 
 	/* Once per new block head, update fee estimates. */
 	bitcoind_estimate_fees(topo->bitcoind, blocks, estmodes, NUM_FEERATES,
 			       update_feerates, topo);
 }
 
-u32 mutual_close_feerate(struct chain_topology *topo)
-{
-	return try_get_feerate(topo, FEERATE_NORMAL);
-}
-
 u32 opening_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_NORMAL);
+	return try_get_feerate(topo, FEERATE_OPENING);
+}
+
+u32 mutual_close_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_MUTUAL_CLOSE);
 }
 
 u32 unilateral_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_URGENT);
+	return try_get_feerate(topo, FEERATE_UNILATERAL_CLOSE);
 }
 
 u32 delayed_to_us_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_NORMAL);
+	return try_get_feerate(topo, FEERATE_DELAYED_TO_US);
 }
 
 u32 htlc_resolution_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_NORMAL);
+	return try_get_feerate(topo, FEERATE_HTLC_RESOLUTION);
 }
 
 u32 penalty_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_NORMAL);
+	return try_get_feerate(topo, FEERATE_PENALTY);
 }
 
 u32 feerate_from_style(u32 feerate, enum feerate_style style)
@@ -525,7 +520,8 @@ static struct command_result *json_feerates(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_object_start(response, json_feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
-		if (!feerates[i])
+		if (!feerates[i] || feerates[i] == FEERATE_MIN
+		    || feerates[i] == FEERATE_MAX)
 			continue;
 		json_add_num(response, feerate_name(i),
 			     feerate_to_style(feerates[i], *style));
@@ -534,6 +530,23 @@ static struct command_result *json_feerates(struct command *cmd,
 		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
 	json_add_u64(response, "max_acceptable",
 		     feerate_to_style(feerate_max(cmd->ld, NULL), *style));
+
+	if (deprecated_apis) {
+		/* urgent feerate was CONSERVATIVE/2, i.e. what bcli gives us
+		 * now for unilateral close feerate */
+		json_add_u64(response, "urgent",
+			     feerate_to_style(unilateral_feerate(cmd->ld->topology), *style));
+		/* normal feerate was ECONOMICAL/4, i.e. what bcli gives us
+		 * now for opening feerate */
+		json_add_u64(response, "normal",
+			     feerate_to_style(opening_feerate(cmd->ld->topology), *style));
+		/* slow feerate was ECONOMICAL/100, i.e. what bcli gives us
+		 * now for min feerate, but doubled (the min was slow/2 but now
+		 * the Bitcoin plugin directly gives the real min acceptable). */
+		json_add_u64(response, "slow",
+			     feerate_to_style(feerate_min(cmd->ld, NULL) * 2, *style));
+	}
+
 	json_object_end(response);
 
 	if (missing)
@@ -827,20 +840,18 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	if (ld->config.ignore_fee_limits)
 		min = 1;
 	else {
-		min = try_get_feerate(ld->topology, FEERATE_SLOW);
+		min = try_get_feerate(ld->topology, FEERATE_MIN);
 		if (!min) {
 			if (unknown)
 				*unknown = true;
 		} else {
-			const u32 *hist = ld->topology->feehistory[FEERATE_SLOW];
+			const u32 *hist = ld->topology->feehistory[FEERATE_MIN];
 
 			/* If one of last three was an outlier, use that. */
 			for (size_t i = 0; i < FEE_HISTORY_NUM; i++) {
 				if (hist[i] < min)
 					min = hist[i];
 			}
-			/* Normally, we use half of slow rate. */
-			min /= 2;
 		}
 	}
 
@@ -858,7 +869,7 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
 	u32 feerate;
-	const u32 *feehistory = ld->topology->feehistory[FEERATE_URGENT];
+	const u32 *feehistory = ld->topology->feehistory[FEERATE_MAX];
 
 	if (unknown)
 		*unknown = false;
@@ -867,7 +878,7 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 		return UINT_MAX;
 
 	/* If we don't know feerate, don't limit other side. */
-	feerate = try_get_feerate(ld->topology, FEERATE_URGENT);
+	feerate = try_get_feerate(ld->topology, FEERATE_MAX);
 	if (!feerate) {
 		if (unknown)
 			*unknown = true;

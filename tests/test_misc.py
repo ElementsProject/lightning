@@ -1359,6 +1359,10 @@ def test_feerates(node_factory):
     })
     l1.start()
 
+    # All estimation types
+    types = ["opening", "mutual_close", "unilateral_close", "delayed_to_us",
+             "htlc_resolution", "penalty"]
+
     # Query feerates (shouldn't give any!)
     wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 2)
     feerates = l1.rpc.feerates('perkw')
@@ -1366,6 +1370,8 @@ def test_feerates(node_factory):
     assert 'perkb' not in feerates
     assert feerates['perkw']['max_acceptable'] == 2**32 - 1
     assert feerates['perkw']['min_acceptable'] == 253
+    for t in types:
+        assert t not in feerates['perkw']
 
     wait_for(lambda: len(l1.rpc.feerates('perkb')['perkb']) == 2)
     feerates = l1.rpc.feerates('perkb')
@@ -1373,42 +1379,50 @@ def test_feerates(node_factory):
     assert 'perkw' not in feerates
     assert feerates['perkb']['max_acceptable'] == (2**32 - 1)
     assert feerates['perkb']['min_acceptable'] == 253 * 4
+    for t in types:
+        assert t not in feerates['perkb']
 
     # Now try setting them, one at a time.
+    # Set CONSERVATIVE/2 feerate, for max and unilateral_close
     l1.set_feerates((15000, 0, 0), True)
     wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 3)
     feerates = l1.rpc.feerates('perkw')
-    assert feerates['perkw']['urgent'] == 15000
+    assert feerates['perkw']['unilateral_close'] == 15000
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
     assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 253
 
+    # Set ECONOMICAL/4 feerate, for all but min
     l1.set_feerates((15000, 6250, 0), True)
-    wait_for(lambda: len(l1.rpc.feerates('perkb')['perkb']) == 4)
+    wait_for(lambda: len(l1.rpc.feerates('perkb')['perkb']) == len(types) + 2)
     feerates = l1.rpc.feerates('perkb')
-    assert feerates['perkb']['urgent'] == 15000 * 4
-    assert feerates['perkb']['normal'] == 25000
+    assert feerates['perkb']['unilateral_close'] == 15000 * 4
+    for t in types:
+        if t != "unilateral_close":
+            assert feerates['perkb'][t] == 25000
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkw' not in feerates
     assert feerates['perkb']['max_acceptable'] == 15000 * 4 * 10
     assert feerates['perkb']['min_acceptable'] == 253 * 4
 
+    # Set ECONOMICAL/100 feerate for min
     l1.set_feerates((15000, 6250, 5000), True)
-    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 5)
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) >= len(types) + 2)
     feerates = l1.rpc.feerates('perkw')
-    assert feerates['perkw']['urgent'] == 15000
-    assert feerates['perkw']['normal'] == 25000 // 4
-    assert feerates['perkw']['slow'] == 5000
+    assert feerates['perkw']['unilateral_close'] == 15000
+    for t in types:
+        if t != "unilateral_close":
+            assert feerates['perkw'][t] == 25000 // 4
     assert 'warning' not in feerates
     assert 'perkb' not in feerates
     assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 5000 // 2
 
     assert len(feerates['onchain_fee_estimates']) == 3
-    assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['perkw']['normal'] * 702 // 1000
-    assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['perkw']['normal'] * 673 // 1000
-    assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['urgent'] * 598 // 1000
+    assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['perkw']['opening'] * 702 // 1000
+    assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['perkw']['mutual_close'] * 673 // 1000
+    assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['unilateral_close'] * 598 // 1000
 
 
 def test_logging(node_factory):
