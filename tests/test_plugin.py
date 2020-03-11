@@ -58,9 +58,9 @@ def test_option_types(node_factory):
         'bool_opt': True,
     })
 
-    n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
-    n.daemon.is_in_log(r"option int_opt 22 <class 'int'>")
-    n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
+    assert n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
+    assert n.daemon.is_in_log(r"option int_opt 22 <class 'int'>")
+    assert n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
     n.stop()
 
     # A blank bool_opt should default to false
@@ -70,7 +70,7 @@ def test_option_types(node_factory):
         'bool_opt': '',
     })
 
-    n.daemon.is_in_log(r"option bool_opt False <class 'bool'>")
+    assert n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
     n.stop()
 
     # What happens if we give it a bad bool-option?
@@ -103,13 +103,15 @@ def test_option_types(node_factory):
         'str_opt': 'ok',
         'int_opt': 22,
         'bool_opt': 1,
+        'allow-deprecated-apis': True
     })
 
-    n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
-    n.daemon.is_in_log(r"option int_opt 22 <class 'int'>")
-    n.daemon.is_in_log(r"option int_opt 22 <class 'str'>")
-    n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
-    n.daemon.is_in_log(r"option bool_opt true <class 'str'>")
+    # because of how the python json parser works, since we're adding the deprecated
+    # string option after the 'typed' option in the JSON, the string option overwrites
+    # the earlier typed option in JSON parsing, resulting in a option set of only strings
+    assert n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
+    assert n.daemon.is_in_log(r"option int_opt 22 <class 'str'>")
+    assert n.daemon.is_in_log(r"option bool_opt 1 <class 'str'>")
     n.stop()
 
 
