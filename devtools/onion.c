@@ -145,7 +145,8 @@ static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE]
 	if (argc != 4)
 		opt_usage_exit_fail("Expect an filename and privkey with 'decode' method");
 
-	char *hextemp = grab_file(ctx, argv[2]);
+	/* "-" means stdin, which is NULL for grab_file */
+	char *hextemp = grab_file(ctx, streq(argv[2], "-") ? NULL : argv[2]);
 	size_t hexlen = strlen(hextemp);
 
 	// trim trailing whitespace
