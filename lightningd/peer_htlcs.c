@@ -1108,7 +1108,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 
 	rs = process_onionpacket(tmpctx, &op, hin->shared_secret,
 				 hin->payment_hash.u.u8,
-				 sizeof(hin->payment_hash));
+				 sizeof(hin->payment_hash), true);
 	if (!rs) {
 		*badonion = WIRE_INVALID_ONION_HMAC;
 		log_debug(channel->log,

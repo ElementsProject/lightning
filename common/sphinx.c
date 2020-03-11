@@ -563,7 +563,8 @@ struct route_step *process_onionpacket(
 	const struct onionpacket *msg,
 	const struct secret *shared_secret,
 	const u8 *assocdata,
-	const size_t assocdatalen
+	const size_t assocdatalen,
+	bool has_realm
 	)
 {
 	struct route_step *step = talz(ctx, struct route_step);
@@ -596,7 +597,7 @@ struct route_step *process_onionpacket(
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 
-	payload_size = onion_payload_length(paddedheader, ROUTING_INFO_SIZE,
+	payload_size = onion_payload_length(paddedheader, ROUTING_INFO_SIZE, has_realm,
 					    &valid, NULL);
 
 	/* Can't decode?  Treat it as terminal. */

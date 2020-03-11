@@ -550,7 +550,8 @@ struct route_step *process_onionpacket(
 	const struct onionpacket *packet UNNEEDED,
 	const struct secret *shared_secret UNNEEDED,
 	const u8 *assocdata UNNEEDED,
-	const size_t assocdatalen
+	const size_t assocdatalen UNNEEDED,
+	bool has_realm
 	)
 { fprintf(stderr, "process_onionpacket called!\n"); abort(); }
 /* Generated stub for serialize_onionpacket */
