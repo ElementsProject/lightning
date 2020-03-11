@@ -39,6 +39,7 @@ u8 *onion_final_hop(const tal_t *ctx,
  * onion_payload_length: measure payload length in decrypted onion.
  * @raw_payload: payload to look at.
  * @len: length of @raw_payload in bytes.
+ * @has_realm: used for HTLCs, where first byte 0 is magical.
  * @valid: set to true if it is valid, false otherwise.
  * @type: if non-NULL, set to type of payload if *@valid is true.
  *
@@ -47,6 +48,7 @@ u8 *onion_final_hop(const tal_t *ctx,
  * the return value is @len (i.e. the entire payload).
  */
 size_t onion_payload_length(const u8 *raw_payload, size_t len,
+			    bool has_realm,
 			    bool *valid,
 			    enum onion_payload_type *type);
 
