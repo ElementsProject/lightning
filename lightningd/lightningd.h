@@ -61,10 +61,6 @@ struct config {
 	/* ipv6 bind disable */
 	bool no_ipv6_bind;
 
-	/* Accept fee changes only if they are in the range our_fee -
-	 * our_fee*multiplier */
-	u32 max_fee_multiplier;
-
 	/* Are we allowed to use DNS lookup for peers. */
 	bool use_dns;
 

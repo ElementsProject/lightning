@@ -153,8 +153,7 @@ static void bitcoin_plugin_send(struct bitcoind *bitcoind,
  *   - `htlc_resolution` is used for resolving onchain HTLCs
  *   - `penalty` is used for resolving revoked transactions
  *   - `min` is the minimum acceptable feerate
- *   - `max` is the maximum acceptable feerate, note that it will be multiplied by the
- *   config's  `max_fee_multiplier`.
+ *   - `max` is the maximum acceptable feerate
  *
  * Plugin response:
  * {

@@ -518,13 +518,6 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-bitcoind-poll", opt_set_u32, opt_show_u32,
 			 &ld->topology->poll_seconds,
 			 "Time between polling for new transactions");
-	opt_register_arg("--dev-max-fee-multiplier", opt_set_u32, opt_show_u32,
-			 &ld->config.max_fee_multiplier,
-			 "Allow the fee proposed by the remote end to be up to "
-			 "multiplier times higher than our own. Small values "
-			 "will cause channels to be closed more often due to "
-			 "fee fluctuations, large values may result in large "
-			 "fees.");
 
 	opt_register_noarg("--dev-fast-gossip", opt_set_bool,
 			   &ld->dev_fast_gossip,
@@ -598,9 +591,6 @@ static const struct config testnet_config = {
 	/* Rescan 5 hours of blocks on testnet, it's reorg happy */
 	.rescan = 30,
 
-	/* Fees may be in the range our_fee - 10*our_fee */
-	.max_fee_multiplier = 10,
-
 	.use_dns = true,
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
@@ -658,9 +648,6 @@ static const struct config mainnet_config = {
 
 	/* Rescan 2.5 hours of blocks on startup, it's not so reorg happy */
 	.rescan = 15,
-
-	/* Fees may be in the range our_fee - 10*our_fee */
-	.max_fee_multiplier = 10,
 
 	.use_dns = true,
 

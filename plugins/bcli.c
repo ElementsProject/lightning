@@ -59,6 +59,10 @@ struct bitcoind {
 
 	/* Passthrough parameters for bitcoin-cli */
 	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
+
+	/* The factor to time the urgent feerate by to get the maximum
+	 * acceptable feerate. */
+	u32 max_fee_multiplier;
 };
 
 static struct bitcoind *bitcoind;
@@ -535,7 +539,14 @@ static struct command_result *estimatefees_final_step(struct bitcoin_cli *bcli)
 	/* We divide the slow feerate for the minimum acceptable, lightningd
 	 * will use floor if it's hit, though. */
 	json_add_u64(response, "min_acceptable", stash->slow / 2);
-	json_add_u64(response, "max_acceptable", stash->urgent);
+	/* BOLT #2:
+	*
+	* Given the variance in fees, and the fact that the transaction may be
+	* spent in the future, it's a good idea for the fee payer to keep a good
+	* margin (say 5x the expected fee requirement)
+	*/
+	json_add_u64(response, "max_acceptable",
+		     stash->urgent * bitcoind->max_fee_multiplier);
 
 	return command_finished(bcli->cmd, response);
 }
@@ -910,6 +921,7 @@ int main(int argc, char *argv[])
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
 	bitcoind->rpcport = NULL;
+	bitcoind->max_fee_multiplier = 10;
 
 	plugin_main(argv, init, PLUGIN_STATIC, commands, ARRAY_SIZE(commands),
 		    NULL, 0, NULL, 0,
@@ -942,5 +954,15 @@ int main(int argc, char *argv[])
 				  "how long to keep retrying to contact bitcoind"
 				  " before fatally exiting",
 				  u64_option, &bitcoind->retry_timeout),
+#if DEVELOPER
+		    plugin_option("dev-max-fee-multiplier",
+				  "string",
+				  "Allow the fee proposed by the remote end to"
+				  " be up to multiplier times higher than our "
+				  "own. Small values will cause channels to be"
+				  " closed more often due to fee fluctuations,"
+				  " large values may result in large fees.",
+				  u32_option, &bitcoind->max_fee_multiplier),
+#endif /* DEVELOPER */
 		    NULL);
 }
