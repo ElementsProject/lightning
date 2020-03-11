@@ -797,6 +797,25 @@ char *u64_option(const char *arg, u64 *i)
 	return NULL;
 }
 
+char *u32_option(const char *arg, u32 *i)
+{
+	char *endp;
+	u64 n;
+
+	errno = 0;
+	n = strtoul(arg, &endp, 0);
+	if (*endp || !arg[0])
+		return tal_fmt(NULL, "'%s' is not a number", arg);
+	if (errno)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+
+	*i = n;
+	if (*i != n)
+		return tal_fmt(NULL, "'%s' is too large (overflow)", arg);
+
+	return NULL;
+}
+
 char *charp_option(const char *arg, char **p)
 {
 	*p = tal_strdup(NULL, arg);
