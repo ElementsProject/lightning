@@ -550,10 +550,21 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 			num_untrimmed_htlcs++;
 	}
 
-	/* Funder is conservative: makes sure it allows an extra HTLC
-	 * even if feerate increases 50% */
-	return commit_tx_base_fee(local_feerate + local_feerate / 2,
-				  num_untrimmed_htlcs + 1);
+	/*
+	 * BOLT-95c74fef2fe590cb8adbd7b848743a229ffe825a #2:
+	 * Adding an HTLC: update_add_htlc
+	 *
+	 * A sending node:
+	 *   - if it is responsible for paying the Bitcoin fee:
+	 *     - SHOULD NOT offer `amount_msat` if, after adding that HTLC to
+	 *       its commitment transaction, its remaining balance doesn't allow
+	 *       it to pay the fee for a future additional non-dust HTLC at
+	 *       `N*feerate_per_kw` while maintaining its channel reserve
+	 *       ("fee spike buffer"), where `N` is a parameter chosen by the
+	 *       implementation (`N = 2` is recommended to ensure
+	 *       predictability).
+	 */
+	return commit_tx_base_fee(local_feerate * 2, num_untrimmed_htlcs + 1);
 }
 
 static void subtract_offered_htlcs(const struct channel *channel,

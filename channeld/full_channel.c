@@ -390,18 +390,19 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 	return commit_tx_base_fee(feerate, untrimmed);
 }
 
-/* There is a corner case where the funder can spend so much that the
+/*
+ * There is a corner case where the funder can spend so much that the
  * non-funder can't add any non-dust HTLCs (since the funder would
  * have to pay the additional fee, but it can't afford to).  This
  * leads to the channel starving at the feast!  This was reported by
  * ACINQ's @t-bast
  * (https://github.com/lightningnetwork/lightning-rfc/issues/728) and
- * demonstrated with c-lightning by @m-schmook
+ * demonstrated with c-lightning by @m-schmoock
  * (https://github.com/ElementsProject/lightning/pull/3498).
  *
  * To mostly avoid this situation, at least from our side, we apply an
  * additional constraint when we're funder trying to add an HTLC: make
- * sure we can afford one more HTLC, even if fees increase 50%.
+ * sure we can afford one more HTLC, even if fees increase by 100%.
  *
  * We could do this for the peer, as well, by rejecting their HTLC
  * immediately in this case.  But rejecting a remote HTLC here causes
@@ -409,7 +410,11 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
  * architected to reject HTLCs in channeld (it's usually lightningd's
  * job, but it doesn't have all the channel balance change calculation
  * logic.  So we look after ourselves for now, and hope other nodes start
- * self-regulating too. */
+ * self-regulating too.
+ *
+ * This mitigation will become BOLT #2 standard by:
+ * https://github.com/lightningnetwork/lightning-rfc/issues/740
+ */
 static bool local_funder_has_fee_headroom(const struct channel *channel,
 					  struct amount_msat remainder,
 					  const struct htlc **committed,
@@ -428,17 +433,17 @@ static bool local_funder_has_fee_headroom(const struct channel *channel,
 					feerate,
 					committed, adding, removing);
 
-	/* Now, how much would it cost us if feerate increases 50% and we added
+	/* Now, how much would it cost us if feerate increases 100% and we added
 	 * another HTLC? */
-	fee = commit_tx_base_fee(feerate + feerate/2, untrimmed + 1);
+	fee = commit_tx_base_fee(2 * feerate, untrimmed + 1);
 	if (amount_msat_greater_eq_sat(remainder, fee))
 		return true;
 
-	status_debug("Adding HTLC would leave us only %s:"
-		     " we need %s for another HTLC if fees increase 50%% to %uperkw",
+	status_debug("Adding HTLC would leave us only %s: we need %s for"
+		     " another HTLC if fees increase by 100%% to %uperkw",
 		     type_to_string(tmpctx, struct amount_msat, &remainder),
 		     type_to_string(tmpctx, struct amount_sat, &fee),
-		     feerate + feerate/2);
+		     feerate + feerate);
 	return false;
 }
 
