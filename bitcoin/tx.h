@@ -11,6 +11,7 @@
 #include <wally_transaction.h>
 
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF
+#define BITCOIN_TX_RBF_SEQUENCE 0xFFFFFFFD
 
 struct witscript {
     u8 *ptr;

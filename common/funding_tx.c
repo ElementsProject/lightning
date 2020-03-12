@@ -190,9 +190,13 @@ static bool calculate_output_value(struct output_info **outputs,
 static void add_inputs(struct bitcoin_tx *tx, struct input_info **inputs)
 {
 	size_t i = 0;
+
+	/* BOLT-b746cacbde53ea6170ec43ee3eff46fbb4139bfd #2
+	 * - Each input's sequence number is 0xFEFFFFFF (little endian).
+	 */
 	for (i = 0; i < tal_count(inputs); i++) {
 		bitcoin_tx_add_input(tx, &inputs[i]->prevtx_txid, inputs[i]->prevtx_vout,
-				     BITCOIN_TX_DEFAULT_SEQUENCE,
+				     BITCOIN_TX_RBF_SEQUENCE,
 				     inputs[i]->sats, inputs[i]->script);
 	}
 }
