@@ -584,37 +584,29 @@ def test_sendpay_cant_afford(node_factory):
                                      opts={'feerates': (15000, 15000, 15000)})
 
     # Can't pay more than channel capacity.
-    def pay(lsrc, ldst, amt, label=None):
-        if not label:
-            label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
-        rhash = ldst.rpc.invoice(amt, label, label)['payment_hash']
-        routestep = {'msatoshi': amt, 'id': ldst.info['id'], 'delay': 5, 'channel': '1x1x1'}
-        lsrc.rpc.sendpay([routestep], rhash)
-        lsrc.rpc.waitsendpay(rhash)
-
     with pytest.raises(RpcError):
-        pay(l1, l2, 10**9 + 1)
+        l1.pay(l2, 10**9 + 1)
 
     # This is the fee, which needs to be taken into account for l1.
-    available = 10**9 - 24030000
+    available = 10**9 - 32040000
     # Reserve is 1%.
     reserve = 10**7
 
     # Can't pay past reserve.
     with pytest.raises(RpcError):
-        pay(l1, l2, available)
+        l1.pay(l2, available)
     with pytest.raises(RpcError):
-        pay(l1, l2, available - reserve + 1)
+        l1.pay(l2, available - reserve + 1)
 
     # Can pay up to reserve (1%)
-    pay(l1, l2, available - reserve)
+    l1.pay(l2, available - reserve)
 
     # And now it can't pay back, due to its own reserve.
     with pytest.raises(RpcError):
-        pay(l2, l1, available - reserve)
+        l2.pay(l1, available - reserve)
 
     # But this should work.
-    pay(l2, l1, available - reserve * 2)
+    l2.pay(l1, available - reserve * 2)
 
 
 def test_decodepay(node_factory):
@@ -1561,7 +1553,7 @@ def test_pay_retry(node_factory, bitcoind):
     """Make sure pay command retries properly. """
     def exhaust_channel(funder, fundee, scid, already_spent=0):
         """Spend all available capacity (10^6 - 1%) of channel"""
-        maxpay = (10**6 - 10**6 // 100 - 13440) * 1000 - already_spent
+        maxpay = (10**6 - 10**6 // 100 - 16020) * 1000 - already_spent
         inv = fundee.rpc.invoice(maxpay,
                                  ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20)),
                                  "exhaust_channel")
@@ -2293,16 +2285,26 @@ def test_lockup_drain(node_factory, bitcoind):
         except RpcError:
             msat //= 2
 
-    # Even if feerate now increases 1.5x (22500), l2 should be able to send
+    # Even if feerate now increases 2x (30000), l2 should be able to send
     # non-dust HTLC to l1.
-    l1.set_feerates([22500] * 3, False)
+    l1.set_feerates([30000] * 3, False)
     # Restart forces fast fee adjustment (otherwise it's smoothed and takes
     # a very long time!).
     l1.restart()
     wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'])
-    assert(l1.rpc.feerates('perkw')['perkw']['normal'] == 22500)
+    assert(l1.rpc.feerates('perkw')['perkw']['normal'] == 30000)
 
     l2.pay(l1, total // 2)
+
+    # But if feerate increase just a little more, l2 should not be able to send
+    # non-dust HTLC to l1
+    l1.set_feerates([30002] * 3, False)  # TODO: why does 30001 fail, off by one in C code?
+    l1.restart()
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'])
+    assert(l1.rpc.feerates('perkw')['perkw']['normal'] == 30002)
+
+    with pytest.raises(RpcError, match=r".*Capacity exceeded.*"):
+        l2.pay(l1, total // 2)
 
 
 def test_error_returns_blockheight(node_factory, bitcoind):
