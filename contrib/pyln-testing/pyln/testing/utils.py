@@ -822,24 +822,22 @@ class LightningNode(object):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 
+        # check we are connected
+        dst_id = dst.info['id']
+        assert len(self.rpc.listpeers(dst_id).get('peers')) == 1
+
+        # make an invoice
         rhash = dst.rpc.invoice(amt, label, label)['payment_hash']
         invoices = dst.rpc.listinvoices(label)['invoices']
         assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
         routestep = {
             'msatoshi': amt,
-            'id': dst.info['id'],
+            'id': dst_id,
             'delay': 5,
-            'channel': '1x1x1'
+            'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
         }
 
-        def wait_pay():
-            # Up to 10 seconds for payment to succeed.
-            start_time = time.time()
-            while dst.rpc.listinvoices(label)['invoices'][0]['status'] != 'paid':
-                if time.time() > start_time + 10:
-                    raise TimeoutError('Payment timed out')
-                time.sleep(0.1)
         # sendpay is async now
         self.rpc.sendpay([routestep], rhash)
         # wait for sendpay to comply
