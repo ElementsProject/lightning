@@ -87,6 +87,7 @@ msgdata,opening_funder_reply,shutdown_scriptpubkey,u8,shutdown_len
 # master->openingd: start channel establishment for a funding tx
 msgtype,opening_funder_start,6002
 msgdata,opening_funder_start,funding_satoshis,amount_sat,
+msgdata,opening_funder_start,tx_locktime,u32,
 msgdata,opening_funder_start,push_msat,amount_msat,
 msgdata,opening_funder_start,len_upfront,u16,
 msgdata,opening_funder_start,upfront_shutdown_script,u8,len_upfront

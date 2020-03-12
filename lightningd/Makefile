@@ -102,6 +102,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/plugin.c			\
 	lightningd/plugin_control.c		\
 	lightningd/plugin_hook.c		\
+	lightningd/tx_locktime.c		\
 	lightningd/subd.c			\
 	lightningd/watch.c
 

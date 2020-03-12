@@ -222,6 +222,7 @@ static void add_outputs(struct bitcoin_tx *tx, struct output_info **outputs,
 
 struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 					   const struct chainparams *chainparams,
+					   u32 tx_locktime,
 				           u16 *outnum,
 					   u32 feerate_kw_funding,
 				           struct amount_sat *opener_funding,
@@ -362,7 +363,7 @@ build_tx:
 		assert(output_count > 0);
 	}
 
-	tx = bitcoin_tx(ctx, chainparams, input_count, output_count, 0);
+	tx = bitcoin_tx(ctx, chainparams, input_count, output_count, tx_locktime);
 
 	/* Add the funding output */
 	wscript = bitcoin_redeem_2of2(tx, local_fundingkey, remote_fundingkey);

@@ -67,6 +67,7 @@ msgtype,hsm_dual_funding_sigs,40
 msgdata,hsm_dual_funding_sigs,num_utxos,u16,
 msgdata,hsm_dual_funding_sigs,our_utxos,utxo,num_utxos
 msgdata,hsm_dual_funding_sigs,feerate_kw_funding,u32,
+msgdata,hsm_dual_funding_sigs,tx_locktime,u32,
 msgdata,hsm_dual_funding_sigs,opener_funding,amount_sat,
 msgdata,hsm_dual_funding_sigs,accepter_funding,amount_sat,
 msgdata,hsm_dual_funding_sigs,num_opener_inputs,u16,

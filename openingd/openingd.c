@@ -127,6 +127,9 @@ struct state {
 	struct amount_sat accepter_funding;
 	u32 feerate_per_kw_funding;
 
+	/* Locktime for funding transaction */
+	u32 locktime;
+
 	/* List of queued add input/output/completes.
 	 * These get queued up while we're in transition
 	 * between fundchannel_start and fundchannel_complete
@@ -636,7 +639,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		state->feerate_per_kw_funding = state->feerate_per_kw;
 		msg = towire_open_channel2(NULL,
 					   &chainparams->genesis_blockhash,
-					   0, /* FIXME: use real locktime */
+					   state->locktime,
 					   NULL, /* FIXME: use real podleh2 */
 					   state->feerate_per_kw_funding,
 					   state->opener_funding,
@@ -1477,6 +1480,7 @@ static u8 *funder_finalize_channel_setup2(struct state *state,
 
 	/* Build the funding transaction */
 	funding_tx = dual_funding_funding_tx(state, chainparams,
+					     state->locktime,
 					     &state->funding_txout,
 					     state->feerate_per_kw_funding,
 					     &state->opener_funding,
@@ -2125,13 +2129,12 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	const u8 *wscript;
 	u8 channel_flags;
 	u8 *msg;
-	u32 locktime;
 	struct sha256 podle_h2;
 
 	struct tlv_opening_tlvs *tlv = tlv_opening_tlvs_new(tmpctx);
 	if (!fromwire_open_channel2(open_channel2_msg,
 				    &chain_hash,
-				    &locktime,
+				    &state->locktime,
 				    &podle_h2,
 				    &state->feerate_per_kw_funding,
 				    &state->opener_funding,
@@ -2275,6 +2278,7 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 
 	/* Build the funding tx */
 	funding_tx = dual_funding_funding_tx(state, chainparams,
+					     state->locktime,
 					     &state->funding_txout,
 					     state->feerate_per_kw_funding,
 					     &state->opener_funding,
@@ -2418,6 +2422,7 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	msg = towire_hsm_dual_funding_sigs(tmpctx,
 					   cast_const2(const struct utxo **, utxos),
 					   state->feerate_per_kw_funding,
+					   state->locktime,
 					   state->opener_funding,
 					   state->accepter_funding,
 					   cast_const2(const struct input_info **, their_inputs),
@@ -2975,6 +2980,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENING_FUNDER_START:
 		if (!fromwire_opening_funder_start(tmpctx, msg,
 						   &state->opener_funding,
+						   &state->locktime,
 						   &state->push_msat,
 						   &state->upfront_shutdown_script[LOCAL],
 						   &state->feerate_per_kw,

@@ -72,6 +72,7 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
  * funding_tx: create a P2WSH funding transaction for a channel.
  * @ctx: context to tal from.
  * @chainparams: (in) the params for the resulting transaction.
+ * @locktime: (in) blockheight to use for the tx locktime
  * @outnum: (out) txout which is the funding output.
  * @feerate_kw_funding: (in) feerate for the funding transaction
  * @opener_funding: (in/out) funding amount contributed by opener
@@ -88,6 +89,7 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
  */
 struct bitcoin_tx *dual_funding_funding_tx(const tal_t *ctx,
 	                                   const struct chainparams *chainparams,
+					   u32 tx_locktime,
 				           u16 *outnum,
 					   u32 feerate_kw_funding,
 				           struct amount_sat *opener_funding,

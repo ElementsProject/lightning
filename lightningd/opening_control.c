@@ -35,6 +35,7 @@
 #include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <lightningd/tx_locktime.h>
 #include <openingd/channel_establishment.h>
 #include <openingd/gen_opening_wire.h>
 #include <wire/gen_common_wire.h>
@@ -1887,6 +1888,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	struct channel *channel;
 	bool *announce_channel;
 	u32 *feerate_per_kw;
+	u32 locktime;
 
 	u8 *msg = NULL;
 	struct amount_sat *amount;
@@ -1976,6 +1978,11 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 			type_to_string(fc, struct node_id, id));
 	}
 
+	/* BOLT-b746cacbde53ea6170ec43ee3eff46fbb4139bfd #2
+	 * `locktime` is the locktime for the funding transaction.
+	 */
+	locktime = locktime_for_new_tx(cmd->ld->topology);
+
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
 
@@ -1992,6 +1999,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 
 	msg = towire_opening_funder_start(NULL,
 					  *amount,
+					  locktime,
 					  fc->push,
 					  fc->our_upfront_shutdown_script,
 					  *feerate_per_kw,

@@ -818,6 +818,7 @@ int main(void)
 
 		/* Note that dust_limit is set to 546, via chainparams */
 		funding = dual_funding_funding_tx(tmpctx, chainparams,
+						  0, /* examples all have locktime at 0 */
 						  &outnum, test.feerate,
 						  &test.opener_funding,
 						  test.accepter_funding,

@@ -1648,7 +1648,7 @@ static struct io_plan *handle_sign_dual_funding_tx(struct io_conn *conn,
 {
 	size_t i = 0, j;
 	struct bitcoin_tx *tx;
-	u32 feerate_kw_funding, offset;
+	u32 feerate_kw_funding, offset, tx_locktime;
 	struct pubkey local_pubkey, remote_pubkey;
 	struct amount_sat opener_funding, accepter_funding;
 	struct input_info **opener_inputs, **accepter_inputs;
@@ -1662,6 +1662,7 @@ static struct io_plan *handle_sign_dual_funding_tx(struct io_conn *conn,
 					    msg_in,
 					    &our_utxos,
 					    &feerate_kw_funding,
+					    &tx_locktime,
 					    &opener_funding,
 					    &accepter_funding,
 					    &opener_inputs,
@@ -1683,6 +1684,7 @@ static struct io_plan *handle_sign_dual_funding_tx(struct io_conn *conn,
 
 	tx = dual_funding_funding_tx(tmpctx,
 				     c->chainparams,
+				     tx_locktime,
 				     NULL,
 				     feerate_kw_funding,
 				     &opener_funding,
