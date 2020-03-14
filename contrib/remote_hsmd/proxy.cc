@@ -140,36 +140,38 @@ void marshal_single_input_tx(struct bitcoin_tx const *tx,
 	if (output_witscript) {
 		/* Called with a single witscript. */
 		assert(tx->wtx->num_outputs == 1);
-		o_tp->add_output_witscripts((const char *) output_witscript,
-					    tal_count(output_witscript));
 	} else if (output_witscripts) {
 		/* Called with an array of witscripts. */
-		size_t nwitscripts = tal_count(output_witscripts);
-		assert(nwitscripts == tx->wtx->num_outputs);
-		for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++)
-			if (output_witscripts[ii])
-				o_tp->add_output_witscripts(
-					(const char *)
-					output_witscripts[ii]->ptr,
-					tal_count(output_witscripts[ii]->ptr));
-			else
-				o_tp->add_output_witscripts("");
-	} else {
-		/* Called with no witscrtipts. */
-		for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++)
-			o_tp->add_output_witscripts("");
+		assert(tal_count(output_witscripts) == tx->wtx->num_outputs);
 	}
 
 	o_tp->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
-	SignDescriptor *desc = o_tp->add_input_descs();
-	desc->mutable_output()->set_value(tx->input_amounts[0]->satoshis);
+	InputDescriptor *idesc = o_tp->add_input_descs();
+	idesc->mutable_prev_output()->set_value(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
-		SignDescriptor *desc = o_tp->add_output_descs();
-		/* FIXME - We don't need to set *anything* here? */
+		OutputDescriptor *odesc = o_tp->add_output_descs();
+		if (output_witscript) {
+			/* We have a single witscript. */
+			odesc->set_witscript((const char *) output_witscript,
+					     tal_count(output_witscript));
+		} else if (output_witscripts) {
+			/* We have an array of witscripts. */
+			if (output_witscripts[ii])
+				odesc->set_witscript(
+					(const char *)
+					output_witscripts[ii]->ptr,
+					tal_count(output_witscripts[ii]->ptr));
+			else
+				odesc->set_witscript("");
+		} else {
+			/* Called w/ no witscripts. */
+			odesc->set_witscript("");
+		}
+
 	}
 }
 
@@ -227,23 +229,17 @@ void unmarshal_ecdsa_recoverable_signature(ECDSARecoverableSignature const &es,
 	assert(ok);
 }
 
-void unmarshal_witnesses(RepeatedPtrField<WitnessStack> const &wits,
-		      u8 ****o_sigs)
+void unmarshal_signatures(RepeatedPtrField<BitcoinSignature> const &sigs,
+			  u8 ***o_sigs)
 {
-	u8 ***osigs = NULL;
-	int nsigs = wits.size();
+	u8 **osigs = NULL;
+	int nsigs = sigs.size();
 	if (nsigs > 0) {
-		osigs = tal_arrz(tmpctx, u8**, nsigs);
+		osigs = tal_arrz(tmpctx, u8*, nsigs);
 		for (size_t ii = 0; ii < nsigs; ++ii) {
-			WitnessStack const &sig = wits[ii];
-			int nelem = sig.item_size();
-			osigs[ii] = tal_arrz(osigs, u8*, nelem);
-			for (size_t jj = 0; jj < nelem; ++jj) {
-				string const &elem = sig.item(jj);
-				size_t elen = elem.size();
-				osigs[ii][jj] = tal_arr(osigs[ii], u8, elen);
-				memcpy(osigs[ii][jj], &elem[0], elen);
-			}
+			BitcoinSignature const &bs = sigs[ii];
+			osigs[ii] = tal_arr(osigs, u8, bs.data().size());
+			memcpy(osigs[ii], bs.data().data(), bs.data().size());
 		}
 	}
 	*o_sigs = osigs;
@@ -397,8 +393,25 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	struct bitcoin_tx_output **outputs,
 	struct utxo **utxos,
 	struct bitcoin_tx *tx,
-	u8 ****o_sigs)
+	u8 ***o_sigs)
 {
+	fprintf(stderr,
+		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
+		"satoshi_out=%" PRIu64 " change_out=%" PRIu64 " "
+		"change_keyindex=%u utxos=%s outputs=%s tx=%s\n",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_node_id(peer_id).c_str(),
+		dbid,
+		satoshi_out->satoshis,
+		change_out->satoshis,
+		change_keyindex,
+		dump_utxos((const struct utxo **)utxos).c_str(),
+		dump_bitcoin_tx_outputs(
+			(const struct bitcoin_tx_output **)outputs).c_str(),
+		dump_tx(tx).c_str()
+		);
+
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
 		"satoshi_out=%" PRIu64 " change_out=%" PRIu64 " "
@@ -427,9 +440,12 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	 	const struct utxo *in = utxos[ii];
 		/* Fails in tests/test_closing.py::test_onchain_first_commit */
 		/* assert(!in->is_p2sh); */
-		SignDescriptor *desc = req.mutable_tx()->add_input_descs();
-		desc->mutable_key_loc()->set_key_index(in->keyindex);
-		desc->mutable_output()->set_value(in->amount.satoshis);
+		InputDescriptor *idesc = req.mutable_tx()->add_input_descs();
+		idesc->mutable_key_loc()->set_key_index(in->keyindex);
+		idesc->mutable_prev_output()->set_value(in->amount.satoshis);
+		idesc->set_spend_type(in->is_p2sh
+				      ? SpendType::P2SH_P2WPKH
+				      : SpendType::P2WPKH);
 	}
 
 	/* We expect exactly two total ouputs, with one non-change. */
@@ -440,7 +456,7 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	assert(tal_count(outputs) == 1);
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
 	 	const struct wally_tx_output *out = &tx->wtx->outputs[ii];
-		SignDescriptor *desc = req.mutable_tx()->add_output_descs();
+		OutputDescriptor *odesc = req.mutable_tx()->add_output_descs();
 		/* Does this output match the funding output? */
 		if (memeq(out->script, out->script_len,
 			  outputs[0]->script, tal_count(outputs[0]->script))) {
@@ -449,7 +465,8 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 		} else {
 			/* Nope, this must be the change output. */
 			assert(out->satoshi == change_out->satoshis);
-			desc->mutable_key_loc()->set_key_index(change_keyindex);
+			odesc->mutable_key_loc()->
+				set_key_index(change_keyindex);
 		}
 	}
 
@@ -457,14 +474,22 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	SignFundingTxReply rsp;
 	Status status = stub->SignFundingTx(&context, req, &rsp);
 	if (status.ok()) {
-		unmarshal_witnesses(rsp.witnesses(), o_sigs);
+		unmarshal_signatures(rsp.signatures(), o_sigs);
+		fprintf(stderr, "%s:%d %s self_id=%s witnesses=%s\n",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str(),
+			     dump_signatures((u8 const **) *o_sigs).c_str());
 		status_debug("%s:%d %s self_id=%s witnesses=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
-			     dump_witnesses((u8 const ***) *o_sigs).c_str());
+			     dump_signatures((u8 const **) *o_sigs).c_str());
 		last_message = "success";
 		return PROXY_OK;
 	} else {
+		fprintf(stderr, "%s:%d %s: self_id=%s %s\n",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
 		status_unusual("%s:%d %s: self_id=%s %s",
 			       __FILE__, __LINE__, __FUNCTION__,
 			       dump_node_id(&self_id).c_str(),
@@ -1234,6 +1259,13 @@ proxy_stat proxy_handle_sign_node_announcement(
 		last_message = status.error_message();
 		return map_status(status);
 	}
+}
+
+// FIXME - This routine allows us to pretty print the tx to stderr
+// from C code.  Probably should remove it in production ...
+void print_tx(char const *tag, struct bitcoin_tx const *tx)
+{
+	fprintf(stderr, "%s: tx=%s\n", tag, dump_tx(tx).c_str());
 }
 
 } /* extern "C" */

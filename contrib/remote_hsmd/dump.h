@@ -9,7 +9,7 @@ std::string dump_secp256k1_ecdsa_recoverable_signature(const secp256k1_ecdsa_rec
 std::string dump_secret(const struct secret *sp);
 std::string dump_node_id(const struct node_id *pp);
 std::string dump_pubkey(const struct pubkey *kp);
-std::string dump_witnesses(const u8 ***wp);
+std::string dump_signatures(const u8 **sp);
 std::string dump_unilateral_close_info(const struct unilateral_close_info *ip);
 std::string dump_utxo(const struct utxo *in);
 std::string dump_utxos(const struct utxo **utxos);
