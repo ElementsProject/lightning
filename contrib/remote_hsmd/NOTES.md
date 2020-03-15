@@ -80,7 +80,13 @@ Some popular tests:
     export THETEST=tests/test_connection.py::test_disconnect_fundee 
     export THETEST=tests/test_connection.py::test_reconnect_signed 
     export THETEST=tests/test_connection.py::test_reconnect_openingd 
-    export THETEST=tests/test_connection.py::test_shutdown_awaiting_lockin 
+    export THETEST=tests/test_connection.py::test_shutdown_awaiting_lockin
+    
+    # unilateral_close_info
+    tests/test_closing.py::test_closing_negotiation_reconnect
+    tests/test_closing.py::test_permfail
+    tests/test_closing.py::test_option_upfront_shutdown_script
+    tests/test_connection.py::test_fee_limits
 
 rust-lightning-signer
 ----------------------------------------------------------------
@@ -101,3 +107,7 @@ p2wsh
 p2shwsh
 ```
 
+
+```
+
+```

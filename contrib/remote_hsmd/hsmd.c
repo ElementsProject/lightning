@@ -757,7 +757,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
 	}
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
+	g_proxy_impl = PROXY_IMPL_IGNORE;
 
 	/*~ We don't need the hsm_secret encryption key anymore.
 	 * Note that sodium_munlock() also zeroes the memory. */
@@ -1021,7 +1021,7 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_commitment_tx_reply(NULL, &sig)));
@@ -1171,7 +1171,7 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
-	g_proxy_impl = PROXY_IMPL_MARSHALED;
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
@@ -1656,13 +1656,12 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 			 cast_const2(const struct utxo **, utxos), outputs,
 			 &changekey, change_out, NULL, NULL, nlocktime);
 
-	/* FIXME - There are two things we can't do remotely yet:
-	 * 1. Handle P2SH inputs.
+	/* FIXME - There are things we can't do remotely yet:
 	 * 2. Handle inputs w/ close_info.
 	 */
 	bool demure = false;
 	for (size_t ii = 0; ii < tx->wtx->num_inputs; ii++)
-		if (utxos[ii]->is_p2sh || utxos[ii]->close_info)
+		if (utxos[ii]->close_info)
 			demure = true;
 
 	if (!demure) {
@@ -1690,6 +1689,16 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 			const struct utxo *in = utxos[ii];
 			hsm_key_for_utxo(NULL, &inkey, in);
 			pubkey_to_der(der_pubkey, &inkey);
+
+			if (in->is_p2sh) {
+				u8 *script = bitcoin_scriptsig_p2sh_p2wpkh(
+					tx, &inkey);
+				bitcoin_tx_input_set_script(tx, ii, script);
+
+			} else {
+				bitcoin_tx_input_set_script(tx, ii, NULL);
+			}
+
 			u8 **witness = tal_arr(tx, u8 *, 2);
 			witness[0] = tal_dup_arr(witness, u8,
 						 sigs[ii],
