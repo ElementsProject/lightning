@@ -205,7 +205,8 @@ struct command_result *wtx_from_utxos(struct wallet_tx *tx,
 	/* + segwit marker + flag */
 	weight = 4 * (4 + 1 + 1 + 4) + 4 * (8 + 1 + out_len) + 1 + 1;
 	for (size_t i = 0; i < tal_count(utxos); i++) {
-		if (!utxos[i]->blockheight || *utxos[i]->blockheight > maxheight) {
+		if (maxheight > 0 &&
+		    (!utxos[i]->blockheight || *utxos[i]->blockheight > maxheight)) {
 			tal_arr_remove(&utxos, i);
 			continue;
 		}
