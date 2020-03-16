@@ -165,6 +165,12 @@ def test_withdraw(node_factory, bitcoind):
     for utxo in utxos:
         assert utxo in vins
 
+    # Try passing unconfirmed utxos
+    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
+                         for _ in range(5)]
+    uutxos = [u["txid"] + ":0" for u in unconfirmed_utxos]
+    l1.rpc.withdraw(waddr, "all", minconf=0, utxos=uutxos)
+
 
 def test_minconf_withdraw(node_factory, bitcoind):
     """Issue 2518: ensure that ridiculous confirmation levels don't overflow
