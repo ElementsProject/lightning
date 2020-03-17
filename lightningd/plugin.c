@@ -497,7 +497,7 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 		if (streq(arg, "true") || streq(arg, "True") || streq(arg, "1")) {
 			*popt->value->as_bool = true;
 		} else if (streq(arg, "false") || streq(arg, "False")
-				|| streq(arg, "0") || streq(arg, "")) {
+				|| streq(arg, "0")) {
 			*popt->value->as_bool = false;
 		} else
 			return tal_fmt(tmpctx, "%s does not parse as type %s",
