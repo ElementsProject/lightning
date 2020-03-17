@@ -104,7 +104,7 @@ this example:
 The `options` will be added to the list of command line options that
 `lightningd` accepts. The above will add a `--greeting` option with a
 default value of `World` and the specified description. *Notice that
-currently string, (unsigned) integers, and bool options are supported.*
+currently string, integers, bool, and flag options are supported.*
 
 The `rpcmethods` are methods that will be exposed via `lightningd`'s
 JSON-RPC over Unix-Socket interface, just like the builtin
@@ -138,6 +138,48 @@ as the name was not previously registered. This includes both built-in
 methods, such as `help` and `getinfo`, as well as methods registered
 by other plugins. If there is a conflict then `lightningd` will report
 an error and exit.
+
+#### Types of Options
+
+There are currently four supported option 'types':
+  - string: a string
+  - bool: a boolean
+  - int: parsed as a signed integer (64-bit)
+  - flag: no-arg flag option. Is boolean under the hood. Defaults to false.
+
+Nota bene: if a `flag` type option is not set, it will not appear
+in the options set that is passed to the plugin.
+
+Here's an example option set, as sent in response to `getmanifest`
+
+```json
+  "options": [
+    {
+      "name": "greeting",
+      "type": "string",
+      "default": "World",
+      "description": "What name should I call you?"
+    },
+    {
+      "name": "run-hot",
+      "type": "flag",
+      "default": None,  // defaults to false
+      "description": "If set, overclocks plugin"
+    },
+    {
+      "name": "is_online",
+      "type": "bool",
+      "default": false,
+      "description": "Set to true if plugin can use network"
+    },
+    {
+      "name": "service-port",
+      "type": "int",
+      "default": 6666,
+      "description": "Port to use to connect to 3rd-party service"
+    }
+  ],
+```
 
 ### The `init` method
 

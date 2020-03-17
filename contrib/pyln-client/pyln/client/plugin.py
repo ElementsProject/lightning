@@ -250,8 +250,8 @@ class Plugin(object):
                 "Name {} is already used by another option".format(name)
             )
 
-        if opt_type not in ["string", "int", "bool"]:
-            raise ValueError('{} not in supported type set (string, int, bool)')
+        if opt_type not in ["string", "int", "bool", "flag"]:
+            raise ValueError('{} not in supported type set (string, int, bool, flag)')
 
         self.options[name] = {
             'name': name,
@@ -260,6 +260,15 @@ class Plugin(object):
             'type': opt_type,
             'value': None,
         }
+
+    def add_flag_option(self, name, description):
+        """Add a flag option that we'd like to register with lightningd.
+
+        Needs to be called before `Plugin.run`, otherwise we might not
+        end up getting it set.
+
+        """
+        self.add_option(name, None, description, opt_type="flag")
 
     def get_option(self, name):
         if name not in self.options:

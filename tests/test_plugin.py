@@ -61,6 +61,8 @@ def test_option_types(node_factory):
     assert n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
     assert n.daemon.is_in_log(r"option int_opt 22 <class 'int'>")
     assert n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
+    # flag options aren't passed through if not flagged on
+    assert not n.daemon.is_in_log(r"option flag_opt")
     n.stop()
 
     # A blank bool_opt should default to false
@@ -68,9 +70,11 @@ def test_option_types(node_factory):
         'plugin': plugin_path, 'str_opt': 'ok',
         'int_opt': 22,
         'bool_opt': '',
+        'flag_opt': None,
     })
 
     assert n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
+    assert n.daemon.is_in_log(r"option flag_opt True <class 'bool'>")
     n.stop()
 
     # What happens if we give it a bad bool-option?
@@ -97,12 +101,26 @@ def test_option_types(node_factory):
     assert not n.daemon.running
     assert n.daemon.is_in_stderr('--int_opt: notok does not parse as type int')
 
+    # Flag opts shouldn't allow any input
+    n = node_factory.get_node(options={
+        'plugin': plugin_path,
+        'str_opt': 'ok',
+        'int_opt': 11,
+        'bool_opt': 1,
+        'flag_opt': True,
+    }, may_fail=True, expect_fail=True)
+
+    # the node should fail to start, and we get a stderr msg
+    assert not n.daemon.running
+    assert n.daemon.is_in_stderr("--flag_opt: doesn't allow an argument")
+
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/options.py')
     n = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'int_opt': 22,
         'bool_opt': 1,
+        'flag_opt': None,
         'allow-deprecated-apis': True
     })
 
@@ -112,6 +130,7 @@ def test_option_types(node_factory):
     assert n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
     assert n.daemon.is_in_log(r"option int_opt 22 <class 'str'>")
     assert n.daemon.is_in_log(r"option bool_opt 1 <class 'str'>")
+    assert n.daemon.is_in_log(r"option flag_opt True <class 'bool'>")
     n.stop()
 
 
