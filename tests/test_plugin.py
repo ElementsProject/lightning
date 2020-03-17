@@ -69,7 +69,7 @@ def test_option_types(node_factory):
     n = node_factory.get_node(options={
         'plugin': plugin_path, 'str_opt': 'ok',
         'int_opt': 22,
-        'bool_opt': '',
+        'bool_opt': 'true',
         'flag_opt': None,
     })
 
