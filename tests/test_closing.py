@@ -465,7 +465,7 @@ def test_closing_fee(node_factory, bitcoind, chainparams):
         'funder_feerate_per_kw': 29006,
         'fundee_feerate_per_kw': 27625,
         'close_initiated_by': 'funder',
-        'expected_close_fee': 20333
+        'expected_close_fee': 33533 if chainparams['elements'] else 20333
     }
 
     closing_fee(node_factory, bitcoind, chainparams, opts)
