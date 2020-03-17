@@ -403,8 +403,10 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 		 * confirmation height and that it is below the required
 		 * maxheight (current_height - minconf) */
 		if (maxheight != 0 &&
-		    (!u->blockheight || *u->blockheight > maxheight))
+		    (!u->blockheight || *u->blockheight > maxheight)) {
+			tal_free(u);
 			continue;
+		}
 
 		tal_arr_expand(&utxos, u);
 
