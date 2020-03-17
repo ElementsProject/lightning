@@ -255,6 +255,12 @@ void plugin_request_send(struct plugin *plugin,
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt);
 
 /**
+ * Callback called when plugin flag-type options.It just stores
+ * the value in the plugin_opt
+ */
+char *plugin_opt_flag_set(struct plugin_opt *popt);
+
+/**
  * Helpers to initialize a connection to a plugin; we read from their
  * stdout, and write to their stdin.
  */

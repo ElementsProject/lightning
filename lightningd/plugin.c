@@ -464,6 +464,13 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 			       plugin_read_json, plugin);
 }
 
+char *plugin_opt_flag_set(struct plugin_opt *popt)
+{
+	/* A set flag is a true */
+	*popt->value->as_bool = true;
+	return NULL;
+}
+
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 {
 	char *endp;
@@ -551,15 +558,29 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 					popt, "%.*s (default: %s)", desctok->end - desctok->start,
 					buffer + desctok->start, *popt->value->as_bool ? "true" : "false");
 		}
+	} else if (json_tok_streq(buffer, typetok, "flag")) {
+		popt->type = "flag";
+		popt->value->as_bool = talz(popt->value, bool);
+		popt->description = json_strdup(popt, buffer, desctok);
+		/* We default flags to false, the default token is ignored */
+		*popt->value->as_bool = false;
+
 	} else {
-		plugin_kill(plugin, "Only \"string\", \"int\", and \"bool\" options are supported");
+		plugin_kill(plugin, "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
 		return false;
 	}
 	if (!defaulttok)
 		popt->description = json_strdup(popt, buffer, desctok);
 	list_add_tail(&plugin->plugin_opts, &popt->list);
-	opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
-			 popt->description);
+
+	if (streq(popt->type, "flag"))
+		opt_register_noarg(popt->name, plugin_opt_flag_set, popt,
+				   popt->description);
+
+	else
+		opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
+				 popt->description);
+
 	return true;
 }
 
@@ -1127,6 +1148,11 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 		/* Trim the `--` that we added before */
 		name = opt->name + 2;
 		if (opt->value->as_bool) {
+			/* We don't include 'flag' types if they're not
+			 * flagged on */
+			if (streq(opt->type, "flag") && !*opt->value->as_bool)
+				continue;
+
 			json_add_bool(req->stream, name, *opt->value->as_bool);
 			if (!deprecated_apis)
 				continue;
