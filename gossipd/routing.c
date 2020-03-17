@@ -648,7 +648,7 @@ static WARN_UNUSED_RESULT bool risk_add_fee(struct amount_msat *risk,
 
 	/* Won't overflow on add, just lose precision */
 	r = (double)riskbias + riskfactor * delay * msat.millisatoshis + risk->millisatoshis; /* Raw: to double */
-	if (r > UINT64_MAX)
+	if (r > (double)UINT64_MAX)
 		return false;
 	risk->millisatoshis = r; /* Raw: from double */
 	return true;
@@ -682,7 +682,7 @@ static bool fuzz_fee(u64 *fee,
 	 * 2*fuzz*rand              random number between 0.0 -> 2*fuzz
 	 * 2*fuzz*rand - fuzz       random number between -fuzz -> +fuzz
 	 */
-	fee_scale = 1.0 + (2.0 * fuzz * h / UINT64_MAX) - fuzz;
+	fee_scale = 1.0 + (2.0 * fuzz * h / (double)UINT64_MAX) - fuzz;
 	fuzzed_fee = *fee * fee_scale;
 	if (fee_scale > 1.0 && fuzzed_fee < *fee)
 		return false;
