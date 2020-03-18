@@ -75,15 +75,20 @@ string dump_pubkey(const struct pubkey *kp)
 	return dump_hex(kp->pubkey.data, sizeof(kp->pubkey.data));
 }
 
-string dump_signatures(const u8 **sp)
+string dump_witnesses(const u8 ***wp)
 {
 	ostringstream ostrm;
  	ostrm << "[";
-	for (size_t input_ndx = 0; input_ndx < tal_count(sp); ++input_ndx) {
+	for (size_t input_ndx = 0; input_ndx < tal_count(wp); ++input_ndx) {
 		if (input_ndx != 0)
 			ostrm << " ";
-		u8 const *sig = sp[input_ndx];
+		ostrm << "[";
+		u8 const *sig = wp[input_ndx][0];
 		ostrm << dump_hex(sig, tal_count(sig));
+		ostrm << " ";
+		u8 const *pubkey = wp[input_ndx][1];
+		ostrm << dump_hex(pubkey, tal_count(pubkey));
+		ostrm << "]";
 	}
  	ostrm << "]";
 	return ostrm.str();

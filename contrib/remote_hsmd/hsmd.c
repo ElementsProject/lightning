@@ -1638,7 +1638,6 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	u32 change_keyindex;
 	struct utxo **utxos;
 	struct bitcoin_tx *tx;
-	struct bitcoin_tx *tx2;	// REF
 	struct pubkey changekey;
 	struct bitcoin_tx_output **outputs;
 	u32 nlocktime;
@@ -1652,77 +1651,60 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Failed to get key %u", change_keyindex);
 
+	// FIXME - The next few lines are for debug, remove them.
+	struct bitcoin_tx *tx2 =
+		withdraw_tx(tmpctx, c->chainparams,
+			    cast_const2(const struct utxo **, utxos), outputs,
+			    &changekey, change_out, NULL, NULL, nlocktime);
+	sign_all_inputs(tx2, utxos);
+	print_tx("REF", tx2);
+
 	tx = withdraw_tx(tmpctx, c->chainparams,
 			 cast_const2(const struct utxo **, utxos), outputs,
 			 &changekey, change_out, NULL, NULL, nlocktime);
 
-	/* FIXME - There are things we can't do remotely yet:
-	 * 2. Handle inputs w/ close_info.
-	 */
-	bool demure = false;
-	for (size_t ii = 0; ii < tx->wtx->num_inputs; ii++)
-		if (utxos[ii]->close_info)
-			demure = true;
+	u8 *** wits;
+	proxy_stat rv = proxy_handle_sign_withdrawal_tx(
+		&c->id, c->dbid, &satoshi_out,
+		&change_out, change_keyindex,
+		outputs, utxos, tx, &wits);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
 
-	if (!demure) {
-		u8 ** sigs;
-		proxy_stat rv = proxy_handle_sign_withdrawal_tx(
-			&c->id, c->dbid, &satoshi_out,
-			&change_out, change_keyindex,
-			outputs, utxos, tx, &sigs);
-		if (PROXY_PERMANENT(rv))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "proxy_%s failed: %s", __FUNCTION__,
-				      proxy_last_message());
-		else if (!PROXY_SUCCESS(rv))
-			return bad_req_fmt(conn, c, msg_in,
-					   "proxy_%s error: %s", __FUNCTION__,
-					   proxy_last_message());
+	/* Sign w/ the remote lightning-signer. */
+	g_proxy_impl = PROXY_IMPL_COMPLETE;
+	assert(tal_count(wits) == tal_count(utxos));
+	for (size_t ii = 0; ii < tal_count(wits); ++ii) {
+		struct pubkey inkey;
+		bool ok = pubkey_from_der(
+			wits[ii][1], tal_count(wits[ii][1]), &inkey);
+		assert(ok);
 
-		/* Sign w/ the remote lightning-signer. */
-		g_proxy_impl = PROXY_IMPL_COMPLETE;
-		assert(tal_count(sigs) == tal_count(utxos));
-		for (size_t ii = 0; ii < tal_count(sigs); ++ii) {
-			/* Figure out keys to spend this. */
-			struct pubkey inkey;
-			u8 der_pubkey[PUBKEY_CMPR_LEN];
-			const struct utxo *in = utxos[ii];
-			hsm_key_for_utxo(NULL, &inkey, in);
-			pubkey_to_der(der_pubkey, &inkey);
+		if (utxos[ii]->is_p2sh) {
+			u8 *script = bitcoin_scriptsig_p2sh_p2wpkh(
+				tx, &inkey);
+			bitcoin_tx_input_set_script(tx, ii, script);
 
-			if (in->is_p2sh) {
-				u8 *script = bitcoin_scriptsig_p2sh_p2wpkh(
-					tx, &inkey);
-				bitcoin_tx_input_set_script(tx, ii, script);
-
-			} else {
-				bitcoin_tx_input_set_script(tx, ii, NULL);
-			}
-
-			u8 **witness = tal_arr(tx, u8 *, 2);
-			witness[0] = tal_dup_arr(witness, u8,
-						 sigs[ii],
-						 tal_count(sigs[ii]), 0);
-			witness[1] = tal_dup_arr(witness, u8,
-						 der_pubkey,
-						 sizeof(der_pubkey), 0);
-			bitcoin_tx_input_set_witness(tx, ii, take(witness));
+		} else {
+			bitcoin_tx_input_set_script(tx, ii, NULL);
 		}
 
-		print_tx("RLS", tx);
-	} else {
-		/* It's P2SH, need to sign here */
-		g_proxy_impl = PROXY_IMPL_MARSHALED;
-		sign_all_inputs(tx, utxos);
+		u8 **witness = tal_arr(tx, u8 *, 2);
+		witness[0] = tal_dup_arr(witness, u8,
+					 wits[ii][0],
+					 tal_count(wits[ii][0]), 0);
+		witness[1] = tal_dup_arr(witness, u8,
+					 wits[ii][1],
+					 tal_count(wits[ii][1]), 0);
+		bitcoin_tx_input_set_witness(tx, ii, take(witness));
 	}
-
-	tx2 = withdraw_tx(tmpctx, c->chainparams,
-			  cast_const2(const struct utxo **, utxos), outputs,
-			  &changekey, change_out, NULL, NULL, nlocktime);
-
-	sign_all_inputs(tx2, utxos);
-
-	print_tx("REF", tx2);
+	print_tx("RLS", tx);
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));

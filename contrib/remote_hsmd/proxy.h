@@ -55,7 +55,7 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	struct bitcoin_tx_output **outputs,
 	struct utxo **utxos,
 	struct bitcoin_tx *tx,
-	u8 ***o_sigs);
+	u8 ****o_wits);
 
 proxy_stat proxy_handle_sign_remote_commitment_tx(
 	struct bitcoin_tx *tx,
