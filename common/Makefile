@@ -10,6 +10,7 @@ COMMON_SRC_NOGEN :=				\
 	common/blinding.c			\
 	common/bolt11.c				\
 	common/channel_config.c			\
+	common/coin_mvt.c			\
 	common/close_tx.c			\
 	common/configdir.c			\
 	common/crypto_state.c			\
