@@ -607,6 +607,9 @@ static struct migration dbmigrations[] = {
 	 ", amount BIGINT"
 	 ", PRIMARY KEY (channel_id, commitnum)"
 	 ");"), NULL},
+    /* For incoming HTLCs, we now keep track of whether or not we provided
+     * the preimage for it, or not. */
+    {SQL("ALTER TABLE channel_htlcs ADD we_filled INTEGER;"), NULL},
 };
 
 /* Leak tracking. */

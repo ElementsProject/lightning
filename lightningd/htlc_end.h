@@ -53,6 +53,8 @@ struct htlc_in {
 	struct pubkey *blinding;
 	/* Only set if blinding != NULL */
 	struct secret blinding_ss;
+	/* true if we supplied the preimage */
+	bool we_filled;
 };
 
 struct htlc_out {

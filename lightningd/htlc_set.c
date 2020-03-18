@@ -57,6 +57,9 @@ void htlc_set_fulfill(struct htlc_set *set, const struct preimage *preimage)
 	for (size_t i = 0; i < tal_count(set->htlcs); i++) {
 		/* Don't remove from set */
 		tal_del_destructor2(set->htlcs[i], htlc_set_hin_destroyed, set);
+
+		/* mark that we filled -- needed for tagging coin mvt */
+		set->htlcs[i]->we_filled = true;
 		fulfill_htlc(set->htlcs[i], preimage);
 	}
 	tal_free(set);
