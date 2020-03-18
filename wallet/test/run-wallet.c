@@ -384,6 +384,20 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for new_channel_coin_mvt */
+struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx UNNEEDED,
+					      struct bitcoin_txid *funding_txid UNNEEDED,
+					      u32 funding_outnum UNNEEDED,
+					      struct sha256 payment_hash UNNEEDED,
+					      u32 part_id UNNEEDED,
+					      struct amount_msat amount UNNEEDED,
+					      enum mvt_tag tag UNNEEDED,
+					      bool is_credit UNNEEDED,
+					      enum mvt_unit_type unit UNNEEDED)
+{ fprintf(stderr, "new_channel_coin_mvt called!\n"); abort(); }
+/* Generated stub for notify_channel_mvt */
+void notify_channel_mvt(struct lightningd *ld UNNEEDED, const struct channel_coin_mvt *mvt UNNEEDED)
+{ fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED,
 		    struct wireaddr_internal *addr UNNEEDED)
