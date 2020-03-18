@@ -25,6 +25,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/blinding.o			\
 	common/bolt11.o				\
 	common/channel_config.o			\
+	common/coin_mvt.o			\
 	common/configdir.o			\
 	common/crypto_state.o			\
 	common/daemon.o				\
@@ -78,6 +79,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/channel.c			\
 	lightningd/channel_control.c		\
 	lightningd/closing_control.c		\
+	lightningd/coin_mvts.c			\
 	lightningd/connect_control.c		\
 	lightningd/onion_message.c		\
 	lightningd/gossip_control.c		\

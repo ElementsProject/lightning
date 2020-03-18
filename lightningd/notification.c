@@ -345,3 +345,72 @@ void notify_sendpay_failure(struct lightningd *ld,
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
+			struct mvt_id *id)
+{
+	switch (mvt_type) {
+		case CHAIN_MVT:
+			/* some 'journal entries' don't have a txid */
+			if (id->tx_txid)
+				json_add_string(stream, "txid",
+						type_to_string(tmpctx, struct bitcoin_txid,
+							       id->tx_txid));
+			/* some chain ledger entries aren't associated with a utxo
+			 * e.g. journal updates (due to penalty/state loss) and
+			 * chain_fee entries */
+			if (id->output_txid) {
+				json_add_string(stream, "utxo_txid",
+						type_to_string(tmpctx, struct bitcoin_txid,
+							       id->output_txid));
+				json_add_u32(stream, "vout", id->vout);
+			}
+
+			/* on-chain htlcs include a payment hash */
+			if (id->payment_hash)
+				json_add_sha256(stream, "payment_hash", id->payment_hash);
+			return;
+		case CHANNEL_MVT:
+			json_add_sha256(stream, "payment_hash", id->payment_hash);
+			if (id->part_id)
+				json_add_u64(stream, "part_id", id->part_id);
+			return;
+	}
+	abort();
+}
+
+static void coin_movement_notification_serialize(struct json_stream *stream,
+						 struct coin_mvt *mvt)
+{
+	json_object_start(stream, "coin_movement");
+	json_add_num(stream, "version", mvt->version);
+	json_add_node_id(stream, "node_id", mvt->node_id);
+	json_add_u64(stream, "movement_idx", mvt->counter);
+	json_add_string(stream, "type", mvt_type_str(mvt->type));
+	json_add_string(stream, "account_id", mvt->account_id);
+	json_mvt_id(stream, mvt->type, &mvt->id);
+	json_add_amount_msat_only(stream, "credit", mvt->credit);
+	json_add_amount_msat_only(stream, "debit", mvt->debit);
+	json_add_string(stream, "tag", mvt_tag_str(mvt->tag));
+	json_add_u32(stream, "blockheight", mvt->blockheight);
+	json_add_u32(stream, "timestamp", mvt->timestamp);
+	json_add_string(stream, "unit_of_account", mvt_unit_str(mvt->unit));
+
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(coin_movement,
+		      coin_movement_notification_serialize);
+
+void notify_coin_mvt(struct lightningd *ld,
+		     const struct coin_mvt *mvt)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct coin_mvt *) = coin_movement_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, "coin_movement");
+	serialize(n->stream, mvt);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}

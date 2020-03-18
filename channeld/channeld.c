@@ -29,6 +29,7 @@
 #include <channeld/gen_channel_wire.h>
 #include <channeld/watchtower.h>
 #include <common/blinding.h>
+#include <common/coin_mvt.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>

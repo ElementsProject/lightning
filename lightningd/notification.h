@@ -7,6 +7,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
+#include <common/coin_mvt.h>
 #include <common/errcode.h>
 #include <common/node_id.h>
 #include <lightningd/htlc_end.h>
@@ -74,4 +75,6 @@ void notify_sendpay_failure(struct lightningd *ld,
 			    const struct routing_failure *fail,
 			    const char *errmsg);
 
+void notify_coin_mvt(struct lightningd *ld,
+		     const struct coin_mvt *mvt);
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */
