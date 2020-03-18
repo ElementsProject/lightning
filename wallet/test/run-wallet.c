@@ -1311,17 +1311,17 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	wallet_err = tal_free(wallet_err);
 
 	/* Update */
-	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, NULL, NULL)),
+	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, NULL, NULL, false)),
 		  "Update HTLC with null payment_key failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, NULL, NULL)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, NULL, NULL, false)),
 	    "Update HTLC with payment_key failed");
 	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100));
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, onionreply, NULL)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, onionreply, NULL, false)),
 	    "Update HTLC with failonion failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, WIRE_INVALID_ONION_VERSION, NULL, NULL)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, WIRE_INVALID_ONION_VERSION, NULL, NULL, false)),
 	    "Update HTLC with failcode failed");
 
 	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
@@ -1333,7 +1333,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(wallet_err);
 	wallet_err = tal_free(wallet_err);
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, NULL, tal_arrz(tmpctx, u8, 100))),
+		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, NULL, tal_arrz(tmpctx, u8, 100), false)),
 	    "Update outgoing HTLC with failmsg failed");
 
 	/* Attempt to load them from the DB again */

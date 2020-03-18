@@ -158,6 +158,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->badonion = 0;
 	hin->failonion = NULL;
 	hin->preimage = NULL;
+	hin->we_filled = false;
 
 	hin->received_time = time_now();
 
