@@ -6,7 +6,8 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
 from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
-    DEPRECATED_APIS, expected_peer_features, expected_node_features
+    DEPRECATED_APIS, expected_peer_features, expected_node_features, account_balance,
+    check_coin_moves, first_channel_id
 )
 
 import json
@@ -1355,3 +1356,106 @@ def test_plugin_fail(node_factory):
     time.sleep(2)
     # It should clean up!
     assert 'failcmd' not in [h['command'] for h in l1.rpc.help()['help']]
+
+
+@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
+def test_coin_movement_notices(node_factory, bitcoind):
+    """Verify that coin movements are triggered correctly.
+    """
+
+    l1_l2_mvts = [
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'channel_mvt', 'credit': 100001001, 'debit': 0, 'tag': 'routed'},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tag': 'routed'},
+        {'type': 'channel_mvt', 'credit': 100000000, 'debit': 0, 'tag': 'invoice'},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tag': 'invoice'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 100001000, 'tag': 'withdrawal'},
+    ]
+    l2_l3_mvts = [
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
+        {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 5430501, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 944570000, 'tag': 'withdrawal'},
+    ]
+    l2_wallet_mvts = [
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 995418000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 4582000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 995418000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 944570000, 'debit': 0, 'tag': 'deposit'},
+    ]
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {},
+        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')},
+        {}
+    ], wait_for_announce=True)
+
+    bitcoind.generate_block(5)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+    amount = 10**8
+
+    payment_hash13 = l3.rpc.invoice(amount, "first", "desc")['payment_hash']
+    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+
+    # status: offered -> settled
+    l1.rpc.sendpay(route, payment_hash13)
+    l1.rpc.waitsendpay(payment_hash13)
+
+    # status: offered -> failed
+    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    payment_hash13 = "f" * 64
+    with pytest.raises(RpcError):
+        l1.rpc.sendpay(route, payment_hash13)
+        l1.rpc.waitsendpay(payment_hash13)
+
+    # go the other direction
+    payment_hash31 = l1.rpc.invoice(amount // 2, "first", "desc")['payment_hash']
+    route = l3.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
+    l3.rpc.sendpay(route, payment_hash31)
+    l3.rpc.waitsendpay(payment_hash31)
+
+    # receive a payment (endpoint)
+    payment_hash12 = l2.rpc.invoice(amount, "first", "desc")['payment_hash']
+    route = l1.rpc.getroute(l2.info['id'], amount, 1)['route']
+    l1.rpc.sendpay(route, payment_hash12)
+    l1.rpc.waitsendpay(payment_hash12)
+
+    # send a payment (originator)
+    payment_hash21 = l1.rpc.invoice(amount // 2, "second", "desc")['payment_hash']
+    route = l2.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
+    l2.rpc.sendpay(route, payment_hash21)
+    l2.rpc.waitsendpay(payment_hash21)
+
+    # close the channel down
+    chan1 = l2.get_channel_scid(l1)
+    chan3 = l2.get_channel_scid(l3)
+    chanid_1 = first_channel_id(l2, l1)
+    chanid_3 = first_channel_id(l2, l3)
+
+    l2.rpc.close(chan1)
+    l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+    assert account_balance(l2, chanid_1) == 100001001
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l2])
+    l2.daemon.wait_for_log('{}.*FUNDING_TRANSACTION/FUNDING_OUTPUT->MUTUAL_CLOSE depth'.format(l1.info['id']))
+
+    l2.rpc.close(chan3)
+    l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+    assert account_balance(l2, chanid_3) == 950000501
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l2])
+    l2.daemon.wait_for_log('{}.*FUNDING_TRANSACTION/FUNDING_OUTPUT->MUTUAL_CLOSE depth'.format(l3.info['id']))
+
+    # Ending channel balance should be zero
+    assert account_balance(l2, chanid_1) == 0
+    assert account_balance(l2, chanid_3) == 0
+
+    # Verify we recorded all the movements we expect
+    check_coin_moves(l2, chanid_1, l1_l2_mvts)
+    check_coin_moves(l2, chanid_3, l2_l3_mvts)
+    check_coin_moves(l2, 'wallet', l2_wallet_mvts)
