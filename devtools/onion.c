@@ -287,7 +287,9 @@ static void runtest(const char *filename)
 		printf("  Type: %d\n", type);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
 		printf("  Next onion: %s\n", tal_hex(ctx, serialized));
-		printf("  Next HMAC: %s\n", tal_hexstr(ctx, step->next->mac, HMAC_SIZE));
+		printf("  Next HMAC: %s\n",
+		       tal_hexstr(ctx, step->next->hmac.bytes,
+				  crypto_auth_hmacsha256_BYTES));
 	}
 
 	tal_free(ctx);

@@ -19,6 +19,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/fee_states.o			\
 	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
+	common/hmac.o				\
 	common/htlc_state.o			\
 	common/memleak.o			\
 	common/node_id.o			\

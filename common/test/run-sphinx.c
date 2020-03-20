@@ -1,3 +1,4 @@
+#include "../hmac.c"
 #include "../onion.c"
 #include "../onionreply.c"
 #include "../sphinx.c"

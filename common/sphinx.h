@@ -7,6 +7,7 @@
 
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/hmac.h>
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
 #include <wire/gen_onion_wire.h>
@@ -22,7 +23,7 @@
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
-	u8 mac[HMAC_SIZE];
+	struct hmac hmac;
 	struct pubkey ephemeralkey;
 
 	/* Encrypted information */
@@ -33,7 +34,7 @@ struct sphinx_compressed_onion {
 	u8 version;
 	struct pubkey ephemeralkey;
 	u8 *routinginfo;
-	u8 mac[HMAC_SIZE];
+	struct hmac hmac;
 };
 
 
@@ -82,7 +83,7 @@ struct hop_data_legacy {
 struct sphinx_hop {
 	struct pubkey pubkey;
 	const u8 *raw_payload;
-	u8 hmac[HMAC_SIZE];
+	struct hmac hmac;
 };
 
 struct route_step {
