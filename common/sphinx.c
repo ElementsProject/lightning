@@ -20,7 +20,6 @@
 #include <wire/wire.h>
 
 #define BLINDING_FACTOR_SIZE 32
-#define KEY_LEN 32
 
 #define NUM_STREAM_BYTES (2*ROUTING_INFO_SIZE)
 #define ONION_REPLY_SIZE 256
@@ -34,10 +33,7 @@ struct hop_params {
 };
 
 struct keyset {
-	u8 pi[KEY_LEN];
-	u8 mu[KEY_LEN];
-	u8 rho[KEY_LEN];
-	u8 gamma[KEY_LEN];
+	struct secret pi, mu, rho, gamma;
 };
 
 /* Encapsulates the information about a given payment path for the the onion
@@ -187,19 +183,19 @@ static void xorbytes(uint8_t *d, const uint8_t *a, const uint8_t *b, size_t len)
  * Generate a pseudo-random byte stream of length `dstlen` from key `k` and
  * store it in `dst`. `dst must be at least `dstlen` bytes long.
  */
-static void generate_cipher_stream(void *dst, const u8 *k, size_t dstlen)
+static void generate_cipher_stream(void *dst, const struct secret *k, size_t dstlen)
 {
 	const u8 nonce[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-	crypto_stream_chacha20(dst, dstlen, nonce, k);
+	crypto_stream_chacha20(dst, dstlen, nonce, k->data);
 }
 
 /* xor cipher stream into dst */
-static void xor_cipher_stream(void *dst, const u8 *k, size_t dstlen)
+static void xor_cipher_stream(void *dst, const struct secret *k, size_t dstlen)
 {
 	const u8 nonce[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-	crypto_stream_chacha20_xor(dst, dst, dstlen, nonce, k);
+	crypto_stream_chacha20_xor(dst, dst, dstlen, nonce, k->data);
 }
 
 static bool compute_hmac(
@@ -219,7 +215,7 @@ static bool compute_hmac(
 
 static void compute_packet_hmac(const struct onionpacket *packet,
 				const u8 *assocdata, const size_t assocdatalen,
-				u8 *mukey, u8 *hmac)
+				const struct secret *mukey, u8 *hmac)
 {
 	u8 mactemp[ROUTING_INFO_SIZE + assocdatalen];
 	u8 mac[32];
@@ -228,14 +224,14 @@ static void compute_packet_hmac(const struct onionpacket *packet,
 	write_buffer(mactemp, packet->routinginfo, ROUTING_INFO_SIZE, &pos);
 	write_buffer(mactemp, assocdata, assocdatalen, &pos);
 
-	compute_hmac(mac, mactemp, sizeof(mactemp), mukey, KEY_LEN);
+	compute_hmac(mac, mactemp, sizeof(mactemp), mukey->data, sizeof(mukey->data));
 	memcpy(hmac, mac, HMAC_SIZE);
 }
 
-static bool generate_key(void *k, const char *t, u8 tlen,
+static bool generate_key(struct secret *k, const char *t, u8 tlen,
 			 const struct secret *s)
 {
-	return compute_hmac(k, s->data, KEY_LEN, t, tlen);
+	return compute_hmac(k->data, s->data, sizeof(s->data), t, tlen);
 }
 
 static bool generate_header_padding(void *dst, size_t dstlen,
@@ -243,7 +239,7 @@ static bool generate_header_padding(void *dst, size_t dstlen,
 				    struct hop_params *params)
 {
 	u8 stream[2 * ROUTING_INFO_SIZE];
-	u8 key[KEY_LEN];
+	struct secret key;
 	size_t fillerStart, fillerEnd, fillerSize;
 
 	memset(dst, 0, dstlen);
@@ -252,7 +248,7 @@ static bool generate_header_padding(void *dst, size_t dstlen,
 				  &params[i].secret))
 			return false;
 
-		generate_cipher_stream(stream, key, sizeof(stream));
+		generate_cipher_stream(stream, &key, sizeof(stream));
 
 		/* Sum up how many bytes have been used by previous hops,
 		 * that gives us the start in the stream */
@@ -279,7 +275,7 @@ static bool generate_prefill(void *dst, size_t dstlen,
 			     struct hop_params *params)
 {
 	u8 stream[2 * ROUTING_INFO_SIZE];
-	u8 key[KEY_LEN];
+	struct secret key;
 	size_t fillerStart, fillerSize;
 
 	memset(dst, 0, dstlen);
@@ -288,7 +284,7 @@ static bool generate_prefill(void *dst, size_t dstlen,
 				  &params[i].secret))
 			return false;
 
-		generate_cipher_stream(stream, key, sizeof(stream));
+		generate_cipher_stream(stream, &key, sizeof(stream));
 
 		/* Sum up how many bytes have been used by previous hops,
 		 * that gives us the start in the stream */
@@ -355,10 +351,10 @@ bool onion_shared_secret(
 static void generate_key_set(const struct secret *secret,
 			     struct keyset *keys)
 {
-	generate_key(keys->rho, "rho", 3, secret);
-	generate_key(keys->pi, "pi", 2, secret);
-	generate_key(keys->mu, "mu", 2, secret);
-	generate_key(keys->gamma, "gamma", 5, secret);
+	generate_key(&keys->rho, "rho", 3, secret);
+	generate_key(&keys->pi, "pi", 2, secret);
+	generate_key(&keys->mu, "mu", 2, secret);
+	generate_key(&keys->gamma, "gamma", 5, secret);
 }
 
 static struct hop_params *generate_hop_params(
@@ -434,9 +430,9 @@ static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
 static void sphinx_prefill_stream_xor(u8 *dst, size_t dstlen,
 				      const struct secret *shared_secret)
 {
-	u8 padkey[KEY_LEN];
-	generate_key(padkey, "prefill", 7, shared_secret);
-	xor_cipher_stream(dst, padkey, dstlen);
+	struct secret padkey;
+	generate_key(&padkey, "prefill", 7, shared_secret);
+	xor_cipher_stream(dst, &padkey, dstlen);
 }
 
 static void sphinx_prefill(u8 *routinginfo, const struct sphinx_path *sp,
@@ -476,7 +472,7 @@ struct onionpacket *create_onionpacket(
 			      sphinx_hop_size(&sp->hops[num_hops - 1]);
 	u8 filler[fillerSize];
 	struct keyset keys;
-	u8 padkey[KEY_LEN];
+	struct secret padkey;
 	u8 nexthmac[HMAC_SIZE];
 	struct hop_params *params;
 	struct secret *secrets = tal_arr(ctx, struct secret, num_hops);
@@ -510,8 +506,8 @@ struct onionpacket *create_onionpacket(
 	 */
 	/* Note that this is just hop_payloads: the rest of the packet is
 	 * overwritten below or above anyway. */
-	generate_key(padkey, "pad", 3, sp->session_key);
-	generate_cipher_stream(packet->routinginfo, padkey, ROUTING_INFO_SIZE);
+	generate_key(&padkey, "pad", 3, sp->session_key);
+	generate_cipher_stream(packet->routinginfo, &padkey, ROUTING_INFO_SIZE);
 
 	generate_header_padding(filler, sizeof(filler), sp, params);
 
@@ -529,14 +525,14 @@ struct onionpacket *create_onionpacket(
 		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
 			ROUTING_INFO_SIZE-shiftSize);
 		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
-		xor_cipher_stream(packet->routinginfo, keys.rho,
+		xor_cipher_stream(packet->routinginfo, &keys.rho,
 				  ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
 			memcpy(packet->routinginfo + ROUTING_INFO_SIZE - fillerSize, filler, fillerSize);
 		}
 
-		compute_packet_hmac(packet, sp->associated_data, tal_bytelen(sp->associated_data), keys.mu,
+		compute_packet_hmac(packet, sp->associated_data, tal_bytelen(sp->associated_data), &keys.mu,
 				    nexthmac);
 	}
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
@@ -580,7 +576,7 @@ struct route_step *process_onionpacket(
 	step->next->version = msg->version;
 	generate_key_set(shared_secret, &keys);
 
-	compute_packet_hmac(msg, assocdata, assocdatalen, keys.mu, hmac);
+	compute_packet_hmac(msg, assocdata, assocdatalen, &keys.mu, hmac);
 
 	if (memcmp(msg->mac, hmac, sizeof(hmac)) != 0
 	    || IFDEV(dev_fail_process_onionpacket, false)) {
@@ -591,7 +587,7 @@ struct route_step *process_onionpacket(
 	//FIXME:store seen secrets to avoid replay attacks
 	memset(paddedheader, 0, sizeof(paddedheader));
 	memcpy(paddedheader, msg->routinginfo, ROUTING_INFO_SIZE);
-	xor_cipher_stream(paddedheader, keys.rho, sizeof(paddedheader));
+	xor_cipher_stream(paddedheader, &keys.rho, sizeof(paddedheader));
 
 	compute_blinding_factor(&msg->ephemeralkey, shared_secret, blind);
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
@@ -633,7 +629,7 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 	size_t padlen = ONION_REPLY_SIZE - msglen;
 	struct onionreply *reply = tal(ctx, struct onionreply);
 	u8 *payload = tal_arr(ctx, u8, 0);
-	u8 key[KEY_LEN];
+	struct secret key;
 	u8 hmac[HMAC_SIZE];
 
 	/* BOLT #4:
@@ -669,9 +665,9 @@ struct onionreply *create_onionreply(const tal_t *ctx,
  	 * Where `hmac` is an HMAC authenticating the remainder of the packet,
 	 * with a key generated using the above process, with key type `um`
 	 */
-	generate_key(key, "um", 2, shared_secret);
+	generate_key(&key, "um", 2, shared_secret);
 
-	compute_hmac(hmac, payload, tal_count(payload), key, KEY_LEN);
+	compute_hmac(hmac, payload, tal_count(payload), key.data, sizeof(key.data));
 	reply->contents = tal_arr(reply, u8, 0),
 	towire(&reply->contents, hmac, sizeof(hmac));
 
@@ -685,7 +681,7 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 				   const struct secret *shared_secret,
 				   const struct onionreply *reply)
 {
-	u8 key[KEY_LEN];
+	struct secret key;
 	struct onionreply *result = tal(ctx, struct onionreply);
 
 	/* BOLT #4:
@@ -696,9 +692,9 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 	 *
 	 * The obfuscation step is repeated by every hop along the return path.
 	 */
-	generate_key(key, "ammag", 5, shared_secret);
+	generate_key(&key, "ammag", 5, shared_secret);
 	result->contents = tal_dup_talarr(result, u8, reply->contents);
-	xor_cipher_stream(result->contents, key, tal_bytelen(result->contents));
+	xor_cipher_stream(result->contents, &key, tal_bytelen(result->contents));
 	return result;
 }
 
@@ -709,7 +705,8 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 		      int *origin_index)
 {
 	struct onionreply *r;
-	u8 key[KEY_LEN], hmac[HMAC_SIZE];
+	struct secret key;
+	u8 hmac[HMAC_SIZE];
 	const u8 *cursor;
 	u8 *final;
 	size_t max;
@@ -729,10 +726,10 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 
 		/* Check if the HMAC matches, this means that this is
 		 * the origin */
-		generate_key(key, "um", 2, &shared_secrets[i]);
+		generate_key(&key, "um", 2, &shared_secrets[i]);
 		compute_hmac(hmac, r->contents + sizeof(hmac),
 			     tal_count(r->contents) - sizeof(hmac),
-			     key, KEY_LEN);
+			     key.data, sizeof(key.data));
 		if (memcmp(hmac, r->contents, sizeof(hmac)) == 0) {
 			*origin_index = i;
 			break;
