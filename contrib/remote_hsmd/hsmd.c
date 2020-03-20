@@ -2092,7 +2092,8 @@ int main(int argc, char *argv[])
 	status_setup_async(status_conn);
 	uintmap_init(&clients);
 
-	master = new_client(NULL, NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP,
+	master = new_client(NULL, NULL, NULL, 0,
+			    HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH,
 			    REQ_FD);
 
 	/* First client == lightningd. */
