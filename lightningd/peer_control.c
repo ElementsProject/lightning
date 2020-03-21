@@ -509,10 +509,10 @@ static void json_add_sat_only(struct json_stream *result,
 				type_to_string(tmpctx, struct amount_msat, &msat));
 }
 
-/* Fee a commitment transaction would currently cost when spending */
-/* This is quite a lot of work to figure out what it would cost us! */
-static struct amount_sat commit_txfee_spend(const struct channel *channel,
-					   struct amount_msat spendable)
+/* Fee a commitment transaction would currently cost */
+static struct amount_sat commit_txfee(const struct channel *channel,
+				      struct amount_msat amount,
+				      enum side side)
 {
 	/* FIXME: make per-channel htlc maps! */
 	const struct htlc_in *hin;
@@ -520,72 +520,17 @@ static struct amount_sat commit_txfee_spend(const struct channel *channel,
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
 	struct lightningd *ld = channel->peer->ld;
-	u32 local_feerate = get_feerate(channel->channel_info.fee_states,
-					channel->funder, LOCAL);
 	size_t num_untrimmed_htlcs = 0;
-
-	/* Assume we tried to spend "spendable" */
-	if (!htlc_is_trimmed(LOCAL, spendable,
-			     local_feerate, channel->our_config.dust_limit,
-			     LOCAL))
-		num_untrimmed_htlcs++;
-
-	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
-	     hin;
-	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
-		if (hin->key.channel != channel)
-			continue;
-		if (!htlc_is_trimmed(REMOTE, hin->msat, local_feerate,
-				     channel->our_config.dust_limit,
-				     LOCAL))
-			num_untrimmed_htlcs++;
-	}
-	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
-	     hout;
-	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
-		if (hout->key.channel != channel)
-			continue;
-		if (!htlc_is_trimmed(LOCAL, hout->msat, local_feerate,
-				     channel->our_config.dust_limit,
-				     LOCAL))
-			num_untrimmed_htlcs++;
-	}
-
-	/*
-	 * BOLT-95c74fef2fe590cb8adbd7b848743a229ffe825a #2:
-	 * Adding an HTLC: update_add_htlc
-	 *
-	 * A sending node:
-	 *   - if it is responsible for paying the Bitcoin fee:
-	 *     - SHOULD NOT offer `amount_msat` if, after adding that HTLC to
-	 *       its commitment transaction, its remaining balance doesn't allow
-	 *       it to pay the fee for a future additional non-dust HTLC at
-	 *       `N*feerate_per_kw` while maintaining its channel reserve
-	 *       ("fee spike buffer"), where `N` is a parameter chosen by the
-	 *       implementation (`N = 2` is recommended to ensure
-	 *       predictability).
-	 */
-	return commit_tx_base_fee(local_feerate * 2, num_untrimmed_htlcs + 1);
-}
-
-/* Fee a commitment transaction would currently cost when receiving */
-static struct amount_sat commit_txfee_recv(const struct channel *channel,
-					   struct amount_msat receivable)
-{
-	/* FIXME: make per-channel htlc maps! */
-	const struct htlc_in *hin;
-	struct htlc_in_map_iter ini;
-	const struct htlc_out *hout;
-	struct htlc_out_map_iter outi;
-	struct lightningd *ld = channel->peer->ld;
 	u32 feerate = get_feerate(channel->channel_info.fee_states,
-				  channel->funder, REMOTE);
-	size_t num_untrimmed_htlcs = 0;
+				  channel->funder, side);
+	struct amount_sat dust_limit;
+	if (side == LOCAL)
+		dust_limit = channel->our_config.dust_limit;
+	if (side == REMOTE)
+		dust_limit = channel->channel_info.their_config.dust_limit;
 
-	/* Assume we tried to receive "receivable" */
-	if (!htlc_is_trimmed(REMOTE, receivable, feerate,
-			     channel->channel_info.their_config.dust_limit,
-			     REMOTE))
+	/* Assume we tried to add "amount" */
+	if (!htlc_is_trimmed(side, amount, feerate, dust_limit, side))
 		num_untrimmed_htlcs++;
 
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
@@ -593,9 +538,8 @@ static struct amount_sat commit_txfee_recv(const struct channel *channel,
 	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
 		if (hin->key.channel != channel)
 			continue;
-		if (!htlc_is_trimmed(LOCAL, hin->msat, feerate,
-				     channel->channel_info.their_config.dust_limit,
-				     REMOTE))
+		if (!htlc_is_trimmed(!side, hin->msat, feerate, dust_limit,
+				     side))
 			num_untrimmed_htlcs++;
 	}
 	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
@@ -603,29 +547,26 @@ static struct amount_sat commit_txfee_recv(const struct channel *channel,
 	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
 		if (hout->key.channel != channel)
 			continue;
-		if (!htlc_is_trimmed(REMOTE, hout->msat, feerate,
-				     channel->channel_info.their_config.dust_limit,
-				     REMOTE))
+		if (!htlc_is_trimmed(side, hout->msat, feerate, dust_limit,
+				     side))
 			num_untrimmed_htlcs++;
 	}
 
 	/*
-	 * BOLT-95c74fef2fe590cb8adbd7b848743a229ffe825a #2:
+	 * BOLT-f5490f17d17ff49dc26ee459432b3c9db4fda8a9 #2:
 	 * Adding an HTLC: update_add_htlc
 	 *
 	 * A sending node:
 	 *   - if it is responsible for paying the Bitcoin fee:
-	 *     - SHOULD NOT offer `amount_msat` if, after adding that HTLC to
-	 *       its commitment transaction, its remaining balance doesn't allow
-	 *       it to pay the fee for a future additional non-dust HTLC at
-	 *       `N*feerate_per_kw` while maintaining its channel reserve
-	 *       ("fee spike buffer"), where `N` is a parameter chosen by the
-	 *       implementation (`N = 2` is recommended to ensure
-	 *       predictability).
+	 *     - SHOULD NOT offer amount_msat if, after adding that HTLC to its
+	 *       commitment transaction, its remaining balance doesn't allow it
+	 *       to pay the fee for a future additional non-dust HTLC at a
+	 *       higher feerate while maintaining its channel reserve
+	 *       ("fee spike buffer"). A buffer of 2*feerate_per_kw is
+	 *       recommended to ensure predictability.
 	 */
 	return commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1);
 }
-
 
 static void subtract_offered_htlcs(const struct channel *channel,
 				   struct amount_msat *amount)
@@ -793,7 +734,8 @@ static void json_add_channel(struct lightningd *ld,
 	/* If we're funder, subtract txfees we'll need to spend this */
 	if (channel->funder == LOCAL) {
 		if (!amount_msat_sub_sat(&spendable, spendable,
-					 commit_txfee_spend(channel, spendable)))
+					 commit_txfee(channel, spendable,
+						      LOCAL)))
 			spendable = AMOUNT_MSAT(0);
 	}
 
@@ -824,7 +766,8 @@ static void json_add_channel(struct lightningd *ld,
 	/* If they're funder, subtract txfees they'll need to spend this */
 	if (channel->funder == REMOTE) {
 		if (!amount_msat_sub_sat(&receivable, receivable,
-					 commit_txfee_recv(channel, receivable)))
+					 commit_txfee(channel,
+						      receivable, REMOTE)))
 			receivable = AMOUNT_MSAT(0);
 	}
 
