@@ -12,6 +12,7 @@ extern "C" {
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <secp256k1_recovery.h>
+#include <wally_bip32.h>
 }
 
 #include "contrib/remote_hsmd/dump.h"
@@ -73,6 +74,16 @@ string dump_node_id(const struct node_id *pp)
 string dump_pubkey(const struct pubkey *kp)
 {
 	return dump_hex(kp->pubkey.data, sizeof(kp->pubkey.data));
+}
+
+string dump_ext_pubkey(const struct ext_key *xp)
+{
+	char *out;
+	int rv = bip32_key_to_base58(xp, BIP32_FLAG_KEY_PUBLIC, &out);
+	assert(rv == WALLY_OK);
+	string retval(out);
+	wally_free_string(out);
+	return retval;
 }
 
 string dump_witnesses(const u8 ***wp)

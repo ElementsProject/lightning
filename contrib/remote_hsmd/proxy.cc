@@ -22,6 +22,7 @@ extern "C" {
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <secp256k1_recovery.h>
+#include <wally_bip32.h>
 }
 
 #include "contrib/remote_hsmd/remotesigner.pb.h"
@@ -214,6 +215,12 @@ void unmarshal_pubkey(PubKey const &pk, struct pubkey *o_pp)
 	assert(ok);
 }
 
+void unmarshal_ext_pubkey(ExtPubKey const &xpk, struct ext_key *o_xp)
+{
+	int rv = bip32_key_from_base58(xpk.encoded().data(), o_xp);
+	assert(rv == WALLY_OK);
+}
+
 void unmarshal_bitcoin_signature(BitcoinSignature const &bs,
 			      struct bitcoin_signature *o_sig)
 {
@@ -293,42 +300,74 @@ void proxy_setup()
 
 proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 			  struct chainparams const *chainparams,
-			  struct secret *hsm_encryption_key,
-			  struct privkey *privkey,
-			  struct secret *seed,
-			  struct secrets *secrets,
-			  struct sha256 *shaseed,
 			  struct secret *hsm_secret,
-			  struct node_id *o_node_id)
+			  struct node_id *o_node_id,
+			  struct ext_key *o_ext_pubkey)
 {
-	status_debug("%s:%d %s", __FILE__, __LINE__, __FUNCTION__);
+	status_debug(
+		"%s:%d %s hsm_secret=%s",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_secret(hsm_secret).c_str()
+		);
 
-	last_message = "";
-	InitRequest req;
+	/* First we make the Init call to create the Node. */
+	{
+		last_message = "";
+		InitRequest req;
 
-	auto cp = req.mutable_chainparams();
-	cp->set_network_name(chainparams->network_name);
+		auto cp = req.mutable_chainparams();
+		cp->set_network_name(chainparams->network_name);
 
-	/* FIXME - Sending the secret instead of generating on the remote. */
-	marshal_secret(hsm_secret, req.mutable_hsm_secret());
+		/* FIXME - Sending the secret instead of generating on
+		 * the remote. */
+		marshal_secret(hsm_secret, req.mutable_hsm_secret());
 
-	ClientContext context;
-	InitReply rsp;
-	Status status = stub->Init(&context, req, &rsp);
-	if (status.ok()) {
-		unmarshal_node_id(rsp.node_id(), o_node_id);
-		unmarshal_node_id(rsp.node_id(), &self_id);
-		status_debug("%s:%d %s node_id=%s",
-			     __FILE__, __LINE__, __FUNCTION__,
-			     dump_node_id(o_node_id).c_str());
-		last_message = "success";
-		return PROXY_OK;
-	} else {
-		status_unusual("%s:%d %s: %s",
-			       __FILE__, __LINE__, __FUNCTION__,
-			       status.error_message().c_str());
-		last_message = status.error_message();
-		return map_status(status);
+		ClientContext context;
+		InitReply rsp;
+		Status status = stub->Init(&context, req, &rsp);
+		if (status.ok()) {
+			unmarshal_node_id(rsp.node_id(), o_node_id);
+			unmarshal_node_id(rsp.node_id(), &self_id);
+			status_debug("%s:%d %s node_id=%s",
+				     __FILE__, __LINE__, __FUNCTION__,
+				     dump_node_id(o_node_id).c_str());
+			last_message = "success";
+			// Fall-through to the next part. */
+		} else {
+			status_unusual("%s:%d %s: %s",
+				       __FILE__, __LINE__, __FUNCTION__,
+				       status.error_message().c_str());
+			last_message = status.error_message();
+			return map_status(status);
+		}
+	}
+
+	/* Next we make the GetExtPubKey call to fetch the XPUB. */
+	{
+		last_message = "";
+		GetExtPubKeyRequest req;
+
+		marshal_node_id(&self_id, req.mutable_node_id());
+		req.set_derivation_path("m");
+
+		ClientContext context;
+		GetExtPubKeyReply rsp;
+		Status status = stub->GetExtPubKey(&context, req, &rsp);
+		if (status.ok()) {
+			unmarshal_ext_pubkey(rsp.xpub(), o_ext_pubkey);
+			status_debug("%s:%d %s node_id=%s ext_pubkey=%s",
+				     __FILE__, __LINE__, __FUNCTION__,
+				     dump_node_id(&self_id).c_str(),
+				     dump_ext_pubkey(o_ext_pubkey).c_str());
+			last_message = "success";
+			return PROXY_OK;
+		} else {
+			status_unusual("%s:%d %s: %s",
+				       __FILE__, __LINE__, __FUNCTION__,
+				       status.error_message().c_str());
+			last_message = status.error_message();
+			return map_status(status);
+		}
 	}
 }
 

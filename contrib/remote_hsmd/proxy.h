@@ -30,13 +30,9 @@ void proxy_setup(void);
 proxy_stat proxy_init_hsm(
 	struct bip32_key_version *bip32_key_version,
 	struct chainparams const *chainparams,
-	struct secret *hsm_encryption_key,
-	struct privkey *privkey,
-	struct secret *seed,
-	struct secrets *secrets,
-	struct sha256 *shaseed,
 	struct secret *hsm_secret,
-	struct node_id *o_node_id);
+	struct node_id *o_node_id,
+	struct ext_key *o_ext_pub_key);
 
 proxy_stat proxy_handle_ecdh(
 	const struct pubkey *point,

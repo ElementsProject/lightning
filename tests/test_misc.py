@@ -1110,6 +1110,7 @@ def test_daemon_option(node_factory):
 
 @flaky
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(os.getenv('SUBDAEMON', 'xxx') == 'hsmd:remote_hsmd', "remote_hsmd doesn't have repeatable random seeding")
 def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
@@ -2129,6 +2130,7 @@ def test_regtest_upgrade(node_factory):
 
 @unittest.skipIf(VALGRIND, "valgrind files can't be written since we rmdir")
 @unittest.skipIf(TEST_NETWORK != "regtest", "needs bitcoin mainnet")
+@unittest.skipIf(os.getenv('SUBDAEMON', 'xxx') == 'hsmd:remote_hsmd', "remote_hsmd doesn't create hsm_secret file")
 def test_new_node_is_mainnet(node_factory):
     """Test that an empty directory causes us to be on mainnet"""
     l1 = node_factory.get_node(start=False, may_fail=True)
@@ -2357,6 +2359,7 @@ def test_sendonionmessage_reply(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")
+@unittest.skipIf(os.getenv('SUBDAEMON', 'xxx') == 'hsmd:remote_hsmd', "remote_hsmd doesn't support dev-force-privkey")
 def test_getsharedsecret(node_factory):
     """
     Test getsharedsecret command.

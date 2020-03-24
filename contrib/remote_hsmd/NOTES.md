@@ -86,7 +86,6 @@ Some popular tests:
     export THETEST=tests/test_connection.py::test_fee_limits
     export THETEST=tests/test_closing.py::test_option_upfront_shutdown_script
 
-
 rust-lightning-signer
 ----------------------------------------------------------------
 
@@ -94,8 +93,6 @@ rust-lightning-signer
 
 
 Signing Formats
-----------------------------------------------------------------
-
 ```
 rust-lightning  c-lightning     rust-lightning-signer
 p2pkh                           P2PKH
@@ -107,6 +104,11 @@ p2shwsh
 ```
 
 
+Failing tests after removing seed from hsmd:
 ```
-
+    export THETEST=tests/test_misc.py::test_blockchaintrack
+    export THETEST=tests/test_misc.py::test_new_node_is_mainnet
+    export THETEST=tests/test_misc.py::test_getsharedsecret
+    export THETEST=tests/test_wallet.py::test_hsm_secret_encryption
+    export THETEST=tests/test_wallet.py::test_hsmtool_secret_decryption
 ```
