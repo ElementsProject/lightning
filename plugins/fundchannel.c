@@ -393,40 +393,16 @@ static struct command_result *json_fundchannel(struct command *cmd,
 {
 	struct funding_req *fr = tal(cmd, struct funding_req);
 
-	/* For generating help, give new-style. */
-	if (!params || !deprecated_apis || params->type == JSMN_ARRAY) {
-		if (!param(cmd, buf, params,
-			   p_req("id", param_node_id, &fr->id),
-			   p_req("amount", param_string_check_sat, &fr->funding_str),
-			   p_opt("feerate", param_string, &fr->feerate_str),
-			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
-			   p_opt_def("minconf", param_number, &fr->minconf, 1),
-			   p_opt("utxos", param_string, &fr->utxo_str),
-			   p_opt("push_msat", param_msat, &fr->push_msat),
-			   NULL))
-			return command_param_failed();
-	} else {
-		const char *satoshi_str;
-		if (!param(cmd, buf, params,
-			   p_req("id", param_node_id, &fr->id),
-			   p_opt("amount", param_string, &fr->funding_str),
-			   p_opt("satoshi", param_string, &satoshi_str),
-			   p_opt("feerate", param_string, &fr->feerate_str),
-			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
-			   p_opt_def("minconf", param_number, &fr->minconf, 1),
-			   p_opt("utxos", param_string, &fr->utxo_str),
-			   p_opt("push_msat", param_msat, &fr->push_msat),
-			   NULL))
-			return command_param_failed();
-
-		if (!fr->funding_str) {
-			if (satoshi_str)
-				fr->funding_str = satoshi_str;
-			else
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Need set 'amount' field");
-		}
-	}
+	if (!param(cmd, buf, params,
+		   p_req("id", param_node_id, &fr->id),
+		   p_req("amount", param_string_check_sat, &fr->funding_str),
+		   p_opt("feerate", param_string, &fr->feerate_str),
+		   p_opt_def("announce", param_bool, &fr->announce_channel, true),
+		   p_opt_def("minconf", param_number, &fr->minconf, 1),
+		   p_opt("utxos", param_string, &fr->utxo_str),
+		   p_opt("push_msat", param_msat, &fr->push_msat),
+		   NULL))
+		return command_param_failed();
 
 	fr->funding_all = streq(fr->funding_str, "all");
 
