@@ -1218,61 +1218,6 @@ command_find_channel(struct command *cmd,
 	}
 }
 
-/* param_tok_timeout_or_force and param_tok_dest_or_timeout are made to
- * support 'check' command for array type parameters.
- *
- * But the parameters are mixed with the old style and new style(like
- * close {id} {force} {destination}), 'check' is unable to tell the error.
- */
-static struct command_result *param_tok_timeout_or_force(
-					struct command *cmd, const char *name,
-					const char *buffer, const jsmntok_t * tok,
-					const jsmntok_t **out)
-{
-	if (command_check_only(cmd)) {
-		unsigned int timeout;
-		bool force;
-		if (!json_to_bool(buffer, tok, &force)) {
-			if (!json_to_number(buffer, tok, &timeout))
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Expected unilerataltimeout to be a number");
-		}
-		return NULL;
-	}
-
-	*out = tok;
-	return NULL;
-}
-
-static struct command_result *param_tok_dest_or_timeout(
-					struct command *cmd, const char *name,
-					const char *buffer, const jsmntok_t * tok,
-					const jsmntok_t **out)
-{
-	if (command_check_only(cmd)) {
-		unsigned int timeout;
-		const u8 *script;
-		if (!json_to_number(buffer, tok, &timeout)) {
-			enum address_parse_result res;
-			res = json_to_address_scriptpubkey(cmd,
-							   chainparams,
-							   buffer, tok,
-							   &script);
-			if (res == ADDRESS_PARSE_UNRECOGNIZED)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Could not parse destination address");
-			else if (res == ADDRESS_PARSE_WRONG_NETWORK)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Destination address is not on network %s",
-						    chainparams->network_name);
-		}
-		return NULL;
-	}
-
-	*out = tok;
-	return NULL;
-}
-
 static struct command_result *json_close(struct command *cmd,
 					 const char *buffer,
 					 const jsmntok_t *obj UNNEEDED,
@@ -1285,140 +1230,17 @@ static struct command_result *json_close(struct command *cmd,
 	bool force = true;
 	bool do_timeout;
 	const u8 *close_to_script = NULL;
-	unsigned int *old_timeout;
-	bool *old_force, close_script_set;
+	bool close_script_set;
 
-	/* For generating help, give new-style. */
-	if (!params || !deprecated_apis) {
-		if (!param(cmd, buffer, params,
-			   p_req("id", param_tok, &idtok),
-			   p_opt_def("unilateraltimeout", param_number,
-				     &timeout, 48 * 3600),
-			   p_opt("destination", param_bitcoin_address,
-				 &close_to_script),
-			   NULL))
-			return command_param_failed();
-		do_timeout = (*timeout != 0);
-	} else if (params->type == JSMN_ARRAY) {
-		const jsmntok_t *firsttok, *secondtok;
-		bool old_style;
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_tok, &idtok),
+		   p_opt_def("unilateraltimeout", param_number, &timeout,
+			     48 * 3600),
+		   p_opt("destination", param_bitcoin_address, &close_to_script),
+		   NULL))
+		return command_param_failed();
 
-		/* Could be new or old style; get as tok. */
- 		if (!param(cmd, buffer, params,
-			   p_req("id", param_tok, &idtok),
-			   p_opt("unilateraltimeout_or_force",
-				 param_tok_timeout_or_force, &firsttok),
-			   p_opt("destination_or_timeout",
-				 param_tok_dest_or_timeout, &secondtok),
-			   NULL))
-			return command_param_failed();
-
-		if (firsttok) {
-			/* old-style force bool? */
-			if (json_to_bool(buffer, firsttok, &force)) {
-				old_style = true;
-				timeout = tal(cmd, unsigned int);
-
-				/* Old default timeout */
-				if (!secondtok)
-					*timeout = 30;
-				else {
-					if (!json_to_number(buffer, secondtok, timeout))
-						return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-								    "close: Expected timeout to be a number. "
-								    "This argument ordering is deprecated!");
-				}
-			/* New-style timeout */
-			} else {
-				old_style = false;
-				timeout = tal(cmd, unsigned int);
-				if (!json_to_number(buffer, firsttok, timeout))
-					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							    "Expected unilerataltimeout to be a number");
-
-				if (secondtok) {
-					enum address_parse_result res;
-					res = json_to_address_scriptpubkey(cmd,
-									   chainparams,
-									   buffer, secondtok,
-									   &close_to_script);
-					if (res == ADDRESS_PARSE_UNRECOGNIZED)
-						return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-								    "Could not parse destination address");
-					else if (res == ADDRESS_PARSE_WRONG_NETWORK)
-						return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-								    "Destination address is not on network %s",
-								    chainparams->network_name);
-				}
-			}
-		} else if (secondtok) {
-			unsigned int *tmp_timeout = tal(tmpctx, unsigned int);
-
-			if (json_to_number(buffer, secondtok, tmp_timeout)) {
-				old_style = true;
-				timeout = tal_steal(cmd, tmp_timeout);
-			} else {
-				old_style = false;
-				enum address_parse_result res;
-
-				res = json_to_address_scriptpubkey(cmd,
-								   chainparams,
-								   buffer, secondtok,
-								   &close_to_script);
-				if (res == ADDRESS_PARSE_UNRECOGNIZED)
-					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							    "Could not parse destination address");
-				else if (res == ADDRESS_PARSE_WRONG_NETWORK)
-					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							    "Destination address is not on network %s",
-							    chainparams->network_name);
-			}
-		} else
-			old_style = false;
-
-		/* If they didn't specify timeout, it's the (new) default */
-		if (!timeout) {
-			timeout = tal(cmd, unsigned int);
-			*timeout = 48 * 3600;
-		}
-		/* New style: do_timeout unless it's 0 */
-		if (!old_style)
-			do_timeout = (*timeout != 0);
-		else
-			do_timeout = true;
-	} else {
-		/* Named parameters are easy to distinguish */
-		if (!param(cmd, buffer, params,
-			   p_req("id", param_tok, &idtok),
-			   p_opt_def("unilateraltimeout", param_number,
-				     &timeout, 48 * 3600),
-			   p_opt("destination", param_bitcoin_address,
-				 &close_to_script),
-			   p_opt("force", param_bool, &old_force),
-			   p_opt("timeout", param_number, &old_timeout),
-			   NULL))
-			return command_param_failed();
-
-		/* Old style has lower priority. */
-		if (!close_to_script) {
-			/* Old style. */
-			if (old_timeout) {
-				*timeout = *old_timeout;
-			}
-			if (old_force) {
-				/* Use old default */
-				if (!old_timeout)
-					*timeout = 30;
-				force = *old_force;
-			}
-		}
-
-		/* New style: do_timeout unless it's 0 */
-		if (!old_timeout && !old_force)
-			do_timeout = (*timeout != 0);
-		else
-			do_timeout = true;
-	}
+	do_timeout = (*timeout != 0);
 
 	peer = peer_from_json(cmd->ld, buffer, idtok);
 	if (peer)
