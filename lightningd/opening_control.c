@@ -99,10 +99,11 @@ struct funding_channel {
 };
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
+					   enum log_level level,
 					   const char *desc)
 {
 	u8 *msg = towire_connectctl_peer_disconnected(tmpctx, &uc->peer->id);
-	log_info(uc->log, "%s", desc);
+	log_(uc->log, level, NULL, false, "%s", desc);
 	subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc && uc->fc->cmd)
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
@@ -118,7 +119,7 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc,
 	subd_release_channel(uc->openingd, uc);
 	uc->openingd = NULL;
 
-	uncommitted_channel_disconnect(uc, why);
+	uncommitted_channel_disconnect(uc, LOG_INFORM, why);
 	tal_free(uc);
 }
 
@@ -485,7 +486,8 @@ static void opening_fundee_finished(struct subd *openingd,
 				           &remote_upfront_shutdown_script)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
-		uncommitted_channel_disconnect(uc, "bad OPENING_FUNDEE_REPLY");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN,
+					       "bad OPENING_FUNDEE_REPLY");
 		goto failed;
 	}
 
@@ -494,8 +496,9 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	/* openingd should never accept them funding channel in this case. */
 	if (peer_active_channel(uc->peer)) {
-		log_broken(uc->log, "openingd accepted peer funding channel");
-		uncommitted_channel_disconnect(uc, "already have active channel");
+		uncommitted_channel_disconnect(uc,
+					       LOG_BROKEN,
+					       "already have active channel");
 		goto failed;
 	}
 
@@ -513,7 +516,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					local_upfront_shutdown_script,
 					remote_upfront_shutdown_script);
 	if (!channel) {
-		uncommitted_channel_disconnect(uc, "Commit channel failed");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN,
+					       "Commit channel failed");
 		goto failed;
 	}
 
@@ -585,7 +589,7 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 {
 	/* Close fds, if any. */
 	tal_free(pps);
-	uncommitted_channel_disconnect(uc, desc);
+	uncommitted_channel_disconnect(uc, LOG_INFORM, desc);
 	tal_free(uc);
 }
 
@@ -973,7 +977,7 @@ void peer_start_openingd(struct peer *peer,
 					take(&pps->gossip_store_fd),
 					take(&hsmfd), NULL);
 	if (!uc->openingd) {
-		uncommitted_channel_disconnect(uc,
+		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       tal_fmt(tmpctx,
 						       "Running lightning_openingd: %s",
 						       strerror(errno)));

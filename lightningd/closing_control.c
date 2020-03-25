@@ -202,7 +202,7 @@ void peer_start_closingd(struct channel *channel,
 					   NULL));
 
 	if (!channel->owner) {
-		log_unusual(channel->log, "Could not subdaemon closing: %s",
+		log_broken(channel->log, "Could not subdaemon closing: %s",
 			    strerror(errno));
 		channel_fail_reconnect_later(channel,
 					     "Failed to subdaemon closing");
