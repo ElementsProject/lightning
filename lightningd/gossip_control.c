@@ -267,9 +267,6 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
 		json_add_u64(response, "last_timestamp",
 			     nodes[i]->last_timestamp);
-		if (deprecated_apis)
-			json_add_hex_talarr(response, "globalfeatures",
-					    nodes[i]->features);
 		json_add_hex_talarr(response, "features", nodes[i]->features);
 		json_array_start(response, "addresses");
 		for (j=0; j<tal_count(nodes[i]->addresses); j++) {

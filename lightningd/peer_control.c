@@ -798,10 +798,6 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_add_string(
 	    stream, "addr",
 	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
-	if (deprecated_apis) {
-		json_add_hex_talarr(stream, "globalfeatures", NULL);
-		json_add_hex_talarr(stream, "localfeatures", p->features);
-	}
 	json_add_hex_talarr(stream, "features", p->features);
 	json_object_end(stream); /* .peer */
 }
@@ -1124,11 +1120,6 @@ static void json_add_peer(struct lightningd *ld,
 					       struct wireaddr_internal,
 					       &p->addr));
 		json_array_end(response);
-		if (deprecated_apis) {
-			json_add_hex_talarr(response, "globalfeatures", NULL);
-			json_add_hex_talarr(response, "localfeatures",
-					    p->features);
-		}
 		json_add_hex_talarr(response, "features", p->features);
 	}
 
