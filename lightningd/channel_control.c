@@ -401,8 +401,8 @@ void peer_start_channeld(struct channel *channel,
 					   take(&hsmfd), NULL));
 
 	if (!channel->owner) {
-		log_unusual(channel->log, "Could not subdaemon channel: %s",
-			    strerror(errno));
+		log_broken(channel->log, "Could not subdaemon channel: %s",
+			   strerror(errno));
 		channel_fail_reconnect_later(channel,
 					     "Failed to subdaemon channel");
 		return;
