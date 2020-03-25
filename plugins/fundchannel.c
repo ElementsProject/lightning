@@ -272,8 +272,7 @@ static struct command_result *fundchannel_start(struct command *cmd,
 
 	if (deprecated_apis)
 		json_add_string(req->js, "satoshi", fr->funding_str);
-	else
-		json_add_string(req->js, "amount", fr->funding_str);
+	json_add_string(req->js, "amount", fr->funding_str);
 
 	if (fr->feerate_str)
 		json_add_string(req->js, "feerate", fr->feerate_str);
