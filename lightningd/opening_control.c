@@ -977,6 +977,7 @@ void peer_start_openingd(struct peer *peer,
 					       tal_fmt(tmpctx,
 						       "Running lightning_openingd: %s",
 						       strerror(errno)));
+		tal_free(uc);
 		return;
 	}
 
