@@ -1133,43 +1133,15 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	fc->uc = NULL;
 	fc->inflight = false;
 
-	/* For generating help, give new-style. */
-	if (!params || !deprecated_apis || params->type == JSMN_ARRAY) {
-		if (!param(fc->cmd, buffer, params,
-			   p_req("id", param_node_id, &id),
-			   p_req("amount", param_sat, &amount),
-			   p_opt("feerate", param_feerate, &feerate_per_kw),
-			   p_opt_def("announce", param_bool, &announce_channel, true),
-			   p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
-			   p_opt("push_msat", param_msat, &push_msat),
-			   NULL))
-			return command_param_failed();
-	} else {
-		/* For json object type when allow deprecated api, 'check' command
-		 * can't find the error if we don't set 'amount' nor 'satoshi'.
-		 */
-		struct amount_sat *satoshi;
-		if (!param(fc->cmd, buffer, params,
-			   p_req("id", param_node_id, &id),
-			   p_opt("amount", param_sat, &amount),
-			   p_opt("satoshi", param_sat, &satoshi),
-			   p_opt("feerate", param_feerate, &feerate_per_kw),
-			   p_opt_def("announce", param_bool, &announce_channel, true),
-			   p_opt("push_msat", param_msat, &push_msat),
-			   NULL))
-			return command_param_failed();
-
-		if (!amount) {
-			if (satoshi)
-				amount = satoshi;
-			else
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Need set 'amount' field");
-		}
-
-		/* No upfront shutdown script option for deprecated API */
-		fc->our_upfront_shutdown_script = NULL;
-	}
+	if (!param(fc->cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("amount", param_sat, &amount),
+		   p_opt("feerate", param_feerate, &feerate_per_kw),
+		   p_opt_def("announce", param_bool, &announce_channel, true),
+		   p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
+		   p_opt("push_msat", param_msat, &push_msat),
+		   NULL))
+		return command_param_failed();
 
 	if (amount_sat_greater(*amount, chainparams->max_funding))
 		return command_fail(cmd, FUND_MAX_EXCEEDED,
