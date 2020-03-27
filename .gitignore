@@ -44,3 +44,4 @@ contrib/pylightning/pylightning.egg-info/
 contrib/pyln-*/build/
 contrib/pyln-*/dist/
 contrib/pyln-*/pyln_*.egg-info/
+plugins/keysend
