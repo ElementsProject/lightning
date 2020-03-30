@@ -327,7 +327,7 @@ static void fail_out_htlc(struct htlc_out *hout,
  *
  *   Where `fee` is calculated according to the receiving peer's
  *   advertised fee schema (as described in [BOLT
- *   #7](07-routing-gossip.md#htlc-fees).
+ *   #7](07-routing-gossip.md#htlc-fees)).
  */
 static bool check_fwd_amount(struct htlc_in *hin,
 			     struct amount_msat amt_to_forward,

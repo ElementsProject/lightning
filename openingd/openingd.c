@@ -561,7 +561,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	 *...
 	 *  - `funding_pubkey`, `revocation_basepoint`, `htlc_basepoint`,
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
-	 *    valid DER-encoded compressed secp256k1 pubkeys.
+	 *    valid secp256k1 pubkeys in compressed format.
 	 */
 	if (feature_negotiated(state->features,
 			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {
@@ -902,7 +902,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *...
 	 *  - `funding_pubkey`, `revocation_basepoint`, `htlc_basepoint`,
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
-	 *     DER-encoded compressed secp256k1 pubkeys.
+	 *     secp256k1 pubkeys in compressed format.
 	 */
 	if (feature_negotiated(state->features,
 			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {

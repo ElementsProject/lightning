@@ -425,11 +425,11 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	 * into the handshake digest:
 	 *
 	 * * The initiating node mixes in the responding node's static public
-	 *    key serialized in Bitcoin's DER-compressed format:
+	 *    key serialized in Bitcoin's compressed format:
 	 *    * `h = SHA-256(h || rs.pub.serializeCompressed())`
 	 *
 	 * * The responding node mixes in their local static public key
-	 *   serialized in Bitcoin's DER-compressed format:
+	 *   serialized in Bitcoin's compressed format:
 	 *    * `h = SHA-256(h || ls.pub.serializeCompressed())`
 	 */
 	sha_mix_in_key(&handshake->h, responder_id);

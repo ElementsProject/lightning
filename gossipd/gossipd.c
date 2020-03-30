@@ -613,7 +613,8 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	 *
 	 * A node:
 	 *   - if the `gossip_queries` feature is negotiated:
-	 * 	- MUST NOT relay any gossip messages unless explicitly requested.
+	 * 	- MUST NOT relay any gossip messages it did not generate itself,
+	 *        unless explicitly requested.
 	 */
 	if (peer->gossip_queries_feature) {
 		gs = NULL;

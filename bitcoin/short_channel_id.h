@@ -19,8 +19,8 @@ STRUCTEQ_DEF(short_channel_id, 0, u64);
 /* BOLT #7:
  *
  * - MUST set `node_id_1` and `node_id_2` to the public keys of the two nodes
- * operating the channel, such that `node_id_1` is the numerically-lesser of the
- * two DER-encoded keys sorted in ascending numerical order.
+ * operating the channel, such that `node_id_1` is the lexicographically-lesser of the
+ * two compressed keys sorted in ascending lexicographic order.
  *...
  *   - if the origin node is `node_id_1` in the message:
  *     - MUST set the `direction` bit of `channel_flags` to 0.

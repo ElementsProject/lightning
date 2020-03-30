@@ -34,6 +34,7 @@ void gossip_setup_timestamp_filter(struct per_peer_state *pps,
 	 *     equal to `first_timestamp`, and less than `first_timestamp` plus
 	 *     `timestamp_range`.
 	 * 	- MAY wait for the next outgoing gossip flush to send these.
+	 *   ...
 	 *   - SHOULD restrict future gossip messages to those whose `timestamp`
 	 *     is greater or equal to `first_timestamp`, and less than
 	 *     `first_timestamp` plus `timestamp_range`.

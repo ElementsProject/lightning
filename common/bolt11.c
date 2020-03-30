@@ -1040,7 +1040,7 @@ char *bolt11_encode_(const tal_t *ctx,
 	 * - if a specific minimum `amount` is required for successful payment:
 	 *   - MUST include that `amount`.
 	 * - MUST encode `amount` as a positive decimal integer with no leading 0s.
-	 * - If the `p` multiplier is used the `amount` the last decimal MUST be `0`.
+	 * - If the `p` multiplier is used the last decimal of `amount` MUST be `0`.
 	 * - SHOULD use the shortest representation possible, by using the largest multiplier or omitting the multiplier.
 	 */
 	if (b11->msat) {
