@@ -14,7 +14,6 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      struct daemon *daemon,
 				      const struct crypto_state *cs,
 				      const struct node_id *id,
-				      const struct wireaddr_internal *addr,
-				      const u8 *init_featurebits);
+				      const struct wireaddr_internal *addr);
 
 #endif /* LIGHTNING_CONNECTD_PEER_EXCHANGE_INITMSG_H */

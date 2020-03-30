@@ -17,8 +17,6 @@ msgdata,connectctl_init,dev_allow_localhost,bool,
 msgdata,connectctl_init,use_dns,bool,
 msgdata,connectctl_init,tor_password,wirestring,
 msgdata,connectctl_init,use_v3_autotor,bool,
-msgdata,connectctl_init,init_featurebits_len,u16,
-msgdata,connectctl_init,init_featurebits,u8,init_featurebits_len
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectctl_init_reply,2100
