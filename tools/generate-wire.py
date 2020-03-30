@@ -225,6 +225,7 @@ class Type(FieldSet):
         'fee_states',
         'onionreply',
         'witscript',
+        'feature_set',
     ]
 
     # Some BOLT types are re-typed based on their field name

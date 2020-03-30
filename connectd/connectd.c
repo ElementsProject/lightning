@@ -1188,12 +1188,14 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	struct wireaddr_internal *proposed_wireaddr;
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announcable;
+	struct feature_set *feature_set;
 	char *tor_password;
 
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectctl_init(
 		daemon, msg,
 		&chainparams,
+		&feature_set,
 		&daemon->id,
 		&proposed_wireaddr,
 		&proposed_listen_announce,
@@ -1205,6 +1207,9 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
 	}
+
+	/* Now we know what features to advertize. */
+	features_init(take(feature_set));
 
 	if (!pubkey_from_node_id(&daemon->mykey, &daemon->id))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

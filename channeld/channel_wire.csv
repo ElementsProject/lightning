@@ -1,12 +1,14 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/derive_basepoints.h>
+#include <common/features.h>
 #include <common/fee_states.h>
 #include <common/per_peer_state.h>
 
 # Begin!  (passes gossipd-client fd)
 msgtype,channel_init,1000
 msgdata,channel_init,chainparams,chainparams,
+msgdata,channel_init,feature_set,feature_set,
 msgdata,channel_init,funding_txid,bitcoin_txid,
 msgdata,channel_init,funding_txout,u16,
 msgdata,channel_init,funding_satoshi,amount_sat,

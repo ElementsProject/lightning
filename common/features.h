@@ -21,8 +21,15 @@ struct feature_set {
 /* Initialize core features (for lightningd). */
 struct feature_set *features_core_init(const u8 *features TAKES);
 
+/* Initialize subdaemon features. */
+void features_init(struct feature_set *fset TAKES);
+
 /* Free feature allocations */
 void features_cleanup(void);
+
+struct feature_set *fromwire_feature_set(const tal_t *ctx,
+					 const u8 **ptr, size_t *max);
+void towire_feature_set(u8 **pptr, const struct feature_set *fset);
 
 /* Returns -1 if we're OK with all these offered features, otherwise first
  * unsupported (even) feature. */

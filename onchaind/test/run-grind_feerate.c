@@ -55,6 +55,13 @@ bool fromwire_onchain_known_preimage(const void *p UNNEEDED, struct preimage *pr
 /* Generated stub for fromwire_onchain_spent */
 bool fromwire_onchain_spent(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_tx **tx UNNEEDED, u32 *input_num UNNEEDED, u32 *blockheight UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_spent called!\n"); abort(); }
+/* Generated stub for fromwire_tal_arrn */
+u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
+		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
+{ fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
+/* Generated stub for fromwire_u16 */
+u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_u16 called!\n"); abort(); }
 /* Generated stub for htlc_offered_wscript */
 u8 *htlc_offered_wscript(const tal_t *ctx UNNEEDED,
 			 const struct ripemd160 *ripemd UNNEEDED,
@@ -182,6 +189,12 @@ u8 *towire_onchain_missing_htlc_output(const tal_t *ctx UNNEEDED, const struct h
 /* Generated stub for towire_onchain_unwatch_tx */
 u8 *towire_onchain_unwatch_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "towire_onchain_unwatch_tx called!\n"); abort(); }
+/* Generated stub for towire_u16 */
+void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
+{ fprintf(stderr, "towire_u16 called!\n"); abort(); }
+/* Generated stub for towire_u8_array */
+void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNEEDED)
+{ fprintf(stderr, "towire_u8_array called!\n"); abort(); }
 /* Generated stub for wire_sync_read */
 u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 { fprintf(stderr, "wire_sync_read called!\n"); abort(); }

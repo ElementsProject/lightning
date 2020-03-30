@@ -1004,7 +1004,7 @@ void setup_color_and_alias(struct lightningd *ld)
 	}
 }
 
-static void setup_default_features(void)
+static struct feature_set *setup_default_features(void)
 {
 	static const u32 default_features[] = {
 		OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
@@ -1021,7 +1021,7 @@ static void setup_default_features(void)
 	for (size_t i = 0; i < ARRAY_SIZE(default_features); i++)
 		set_feature_bit(&f, default_features[i]);
 
-	features_core_init(take(f));
+	return features_core_init(take(f));
 }
 
 void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
@@ -1030,7 +1030,7 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	setup_option_allocators();
 
 	/* Make sure options are populated. */
-	setup_default_features();
+	ld->feature_set = setup_default_features();
 
 	/*~ List features immediately, before doing anything interesting */
 	opt_register_early_noarg("--list-features-only",

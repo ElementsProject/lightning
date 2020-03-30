@@ -459,6 +459,7 @@ void peer_start_channeld(struct channel *channel,
 
 	initmsg = towire_channel_init(tmpctx,
 				      chainparams,
+ 				      ld->feature_set,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding,

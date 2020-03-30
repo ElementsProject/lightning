@@ -1,11 +1,13 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/derive_basepoints.h>
+#include <common/features.h>
 #include <common/per_peer_state.h>
 
 msgtype,opening_init,6000
 # Which network are we configured for?
 msgdata,opening_init,chainparams,chainparams,
+msgdata,opening_init,feature_set,feature_set,
 # Base configuration we'll offer (channel reserve will vary with amount)
 msgdata,opening_init,our_config,channel_config,
 # Minimum/maximum configuration values we'll accept
