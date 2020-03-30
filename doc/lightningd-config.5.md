@@ -298,65 +298,62 @@ precisely control where to bind and what to announce with the
 Set an IP address (v4 or v6) or automatic Tor address to listen on and
 (maybe) announce as our node address.
 
-    An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
-    IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
-    interfaces, '::' means 'bind to all IPv6 interfaces'.  If 'PORT' is
-    not specified, 9735 is used.  If we can determine a public IP
-    address from the resulting binding, and no other addresses of the
-    same type are already announced, the address is announced.
+An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
+interfaces, '::' means 'bind to all IPv6 interfaces'.  If 'PORT' is
+not specified, 9735 is used.  If we can determine a public IP
+address from the resulting binding, the address is announced.
 
-    If the argument begins with 'autotor:' then it is followed by the
-    IPv4 or IPv6 address of the Tor control port (default port 9051),
-    and this will be used to configure a Tor hidden service for port
-    9735.  The Tor hidden service will be configured to point to the
-    first IPv4 or IPv6 address we bind to.
+If the argument begins with 'autotor:' then it is followed by the
+IPv4 or IPv6 address of the Tor control port (default port 9051),
+and this will be used to configure a Tor hidden service for port 9735.
+The Tor hidden service will be configured to point to the
+first IPv4 or IPv6 address we bind to.
 
-    If the argument begins with 'statictor:' then it is followed by the
-    IPv4 or IPv6 address of the Tor control port (default port 9051),
-    and this will be used to configure a static Tor hidden service for port
-    9735.  The Tor hidden service will be configured to point to the
-    first IPv4 or IPv6 address we bind to and is by default unique to
-    your nodes id. You can add the text '/torblob=BLOB' followed by up to
-    64 Bytes of text to generate from this text a v3 onion service
-    address text unique to the first 32 Byte of this text.
-    You can also use an postfix '/torport=TORPORT' to select the external
-    tor binding. The result is that over tor your node is accessible by a port
-    defined by you and possible different from your local node port assignment
+If the argument begins with 'statictor:' then it is followed by the
+IPv4 or IPv6 address of the Tor control port (default port 9051),
+and this will be used to configure a static Tor hidden service for port 9735.
+The Tor hidden service will be configured to point to the
+first IPv4 or IPv6 address we bind to and is by default unique to
+your nodes id. You can add the text '/torblob=BLOB' followed by up to
+64 Bytes of text to generate from this text a v3 onion service
+address text unique to the first 32 Byte of this text.
+You can also use an postfix '/torport=TORPORT' to select the external
+tor binding. The result is that over tor your node is accessible by a port
+defined by you and possible different from your local node port assignment
 
-    This option can be used multiple times to add more addresses, and
-    its use disables autolisten.  If necessary, and 'always-use-proxy'
-    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
-    or 'TORIPADDRESS'.
+This option can be used multiple times to add more addresses, and
+its use disables autolisten.  If necessary, and 'always-use-proxy'
+is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
+or 'TORIPADDRESS'.
 
  **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH*
 Set an IP address or UNIX domain socket to listen to, but do not
 announce. A UNIX domain socket is distinguished from an IP address by
 beginning with a */*.
 
-    An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
-    IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
-    interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
-    not specified, 9735 is used.
+An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
+interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
+not specified, 9735 is used.
 
-    This option can be used multiple times to add more addresses, and
-    its use disables autolisten.  If necessary, and 'always-use-proxy'
-    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
+This option can be used multiple times to add more addresses, and
+its use disables autolisten.  If necessary, and 'always-use-proxy'
+is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
 
  **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]*
 Set an IP (v4 or v6) address or Tor address to announce; a Tor address
 is distinguished by ending in *.onion*. *PORT* defaults to 9735.
 
-    Empty or wildcard IPv4 and IPv6 addresses don't make sense here.
-    Also, unlike the 'addr' option, there is no checking that your
-    announced addresses are public (e.g. not localhost).
+Empty or wildcard IPv4 and IPv6 addresses don't make sense here.
+Also, unlike the 'addr' option, there is no checking that your
+announced addresses are public (e.g. not localhost).
 
-    This option can be used multiple times to add more addresses, and
-    its use disables autolisten.  The spec says you can't announce
-    more that one address of the same type (eg. two IPv4 or two IPv6
-    addresses) so `lightningd` will refuse if you specify more than one.
+This option can be used multiple times to add more addresses, and
+its use disables autolisten.
 
-    If necessary, and 'always-use-proxy' is not specified, a DNS
-    lookup may be done to resolve 'IPADDRESS'.
+If necessary, and 'always-use-proxy' is not specified, a DNS
+lookup may be done to resolve 'IPADDRESS'.
 
  **offline**
 Do not bind to any ports, and do not try to reconnect to any peers. This
