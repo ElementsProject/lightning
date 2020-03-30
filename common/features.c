@@ -28,6 +28,7 @@ enum feature_place {
 	INIT_FEATURE,
 	GLOBAL_INIT_FEATURE,
 	NODE_ANNOUNCE_FEATURE,
+	CHANNEL_FEATURE,
 	BOLT11_FEATURE,
 };
 #define NUM_FEATURE_PLACE (BOLT11_FEATURE+1)
@@ -138,6 +139,44 @@ u8 *get_offered_initfeatures(const tal_t *ctx)
 u8 *get_offered_globalinitfeatures(const tal_t *ctx)
 {
 	return mkfeatures(ctx, GLOBAL_INIT_FEATURE);
+}
+
+static void clear_feature_bit(u8 *features, u32 bit)
+{
+	size_t bytenum = bit / 8, bitnum = bit % 8, len = tal_count(features);
+
+	if (bytenum >= len)
+		return;
+
+	features[len - 1 - bytenum] &= ~(1 << bitnum);
+}
+
+/* BOLT #7:
+ *
+ *   - MUST set `features` based on what features were negotiated for this channel, according to [BOLT #9](09-features.md#assigned-features-flags)
+ *  - MUST set `len` to the minimum length required to hold the `features` bits
+ *  it sets.
+ */
+u8 *get_agreed_channelfeatures(const tal_t *ctx, const u8 *theirfeatures)
+{
+	u8 *f = mkfeatures(ctx, CHANNEL_FEATURE);
+	size_t max_len = 0;
+
+	/* Clear any features which they didn't offer too */
+	for (size_t i = 0; i < 8 * tal_count(f); i += 2) {
+		if (!feature_offered(f, i))
+			continue;
+		if (!feature_offered(theirfeatures, i)) {
+			clear_feature_bit(f, COMPULSORY_FEATURE(i));
+			clear_feature_bit(f, OPTIONAL_FEATURE(i));
+			continue;
+		}
+		max_len = (i / 8) + 1;
+	}
+
+	/* Trim to length */
+	tal_resize(&f, max_len);
+	return f;
 }
 
 u8 *get_offered_bolt11features(const tal_t *ctx)
@@ -276,3 +315,4 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES)
 
 	return result;
 }
+

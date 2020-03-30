@@ -413,7 +413,7 @@ static void send_announcement_signatures(struct peer *peer)
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 {
 	int first, second;
-	u8 *cannounce, *features = tal_arr(ctx, u8, 0);
+	u8 *cannounce, *features = get_agreed_channelfeatures(tmpctx, peer->features);
 
 	if (peer->channel_direction == 0) {
 		first = LOCAL;
@@ -435,7 +435,6 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	    &peer->node_ids[second],
 	    &peer->channel->funding_pubkey[first],
 	    &peer->channel->funding_pubkey[second]);
-	tal_free(features);
 	return cannounce;
 }
 
