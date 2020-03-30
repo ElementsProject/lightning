@@ -4,6 +4,26 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
+enum feature_place {
+	INIT_FEATURE,
+	GLOBAL_INIT_FEATURE,
+	NODE_ANNOUNCE_FEATURE,
+	CHANNEL_FEATURE,
+	BOLT11_FEATURE,
+};
+#define NUM_FEATURE_PLACE (BOLT11_FEATURE+1)
+
+/* The complete set of features for all contexts */
+struct feature_set {
+	u8 *bits[NUM_FEATURE_PLACE];
+};
+
+/* Initialize core features (for lightningd). */
+struct feature_set *features_core_init(const u8 *features TAKES);
+
+/* Free feature allocations */
+void features_cleanup(void);
+
 /* Returns -1 if we're OK with all these offered features, otherwise first
  * unsupported (even) feature. */
 int features_unsupported(const u8 *features);

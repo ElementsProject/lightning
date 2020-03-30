@@ -5,6 +5,7 @@
 #include "../features.c"
 #include "../node_id.c"
 #include "../hash_u5.c"
+#include "../memleak.c"
 #include "../wire/fromwire.c"
 #include "../wire/towire.c"
 #include <ccan/err/err.h>
@@ -148,6 +149,7 @@ int main(void)
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
+	features_core_init(NULL);
 
 	/* BOLT #11:
 	 *
@@ -572,5 +574,6 @@ int main(void)
 	/* FIXME: Test the others! */
 	wally_cleanup(0);
 	tal_free(tmpctx);
+	features_cleanup();
 	return 0;
 }
