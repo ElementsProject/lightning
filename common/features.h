@@ -14,6 +14,9 @@ u8 *get_offered_globalinitfeatures(const tal_t *ctx);
 u8 *get_offered_nodefeatures(const tal_t *ctx);
 u8 *get_offered_bolt11features(const tal_t *ctx);
 
+/* For the features in channel_announcement */
+u8 *get_agreed_channelfeatures(const tal_t *ctx, const u8 *theirfeatures);
+
 /* Is this feature bit requested? (Either compulsory or optional) */
 bool feature_offered(const u8 *features, size_t f);
 
