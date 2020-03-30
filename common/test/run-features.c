@@ -1,4 +1,5 @@
 #include "../features.c"
+#include "../memleak.c"
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -51,14 +52,32 @@ static void test_featurebits_or(void)
 	    memeq(result, tal_bytelen(result), control, tal_bytelen(control)));
 }
 
+static void setup_features(void)
+{
+	static const u32 default_features[] = {
+		OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
+		OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
+		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
+		OPTIONAL_FEATURE(OPT_VAR_ONION),
+		OPTIONAL_FEATURE(OPT_PAYMENT_SECRET),
+		OPTIONAL_FEATURE(OPT_BASIC_MPP),
+		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
+		OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
+	};
+	u8 *f = tal_arr(NULL, u8, 0);
+	for (size_t i = 0; i < ARRAY_SIZE(default_features); i++)
+		set_feature_bit(&f, default_features[i]);
+	features_core_init(take(f));
+}
+
 int main(void)
 {
 	u8 *bits, *lf;
-
 	setup_locale();
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
+	setup_features();
 
 	bits = tal_arr(tmpctx, u8, 0);
 	for (size_t i = 0; i < 100; i += 3)
@@ -127,8 +146,7 @@ int main(void)
 			assert(features_unsupported(bits) == i);
 		} else {
 			assert((features_unsupported(bits) == -1)
-			       == feature_supported(i, our_features,
-						    ARRAY_SIZE(our_features)));
+			       == feature_offered(our_features->bits[INIT_FEATURE], i));
 		}
 	}
 
@@ -137,5 +155,6 @@ int main(void)
 	wally_cleanup(0);
 	tal_free(tmpctx);
 	take_cleanup();
+	features_cleanup();
 	return 0;
 }
