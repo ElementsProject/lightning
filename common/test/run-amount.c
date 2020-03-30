@@ -101,7 +101,7 @@ int main(void)
 	PASS_SAT(&sat, "1000msat", 1);
 	PASS_SAT(&sat, "1000000msat", 1000);
 	PASS_SAT(&sat, "2100000000000000000msat", 2100000000000000ULL);
-	FAIL_SAT(&sat, "0msat");
+	PASS_SAT(&sat, "0msat", 0);
 	FAIL_SAT(&sat, "100msat");
 	FAIL_SAT(&sat, "2000000000000000999msat");
 	FAIL_SAT(&sat, "-1000msat");
