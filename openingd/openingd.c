@@ -1481,6 +1481,7 @@ int main(int argc, char *argv[])
 	struct state *state = tal(NULL, struct state);
 	struct secret *none;
 	struct channel_id *force_tmp_channel_id;
+	struct feature_set *feature_set;
 
 	subdaemon_setup(argc, argv);
 
@@ -1492,6 +1493,7 @@ int main(int argc, char *argv[])
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_init(state, msg,
 				   &chainparams,
+				   &feature_set,
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity,
@@ -1506,6 +1508,8 @@ int main(int argc, char *argv[])
 				   &force_tmp_channel_id,
 				   &dev_fast_gossip))
 		master_badmsg(WIRE_OPENING_INIT, msg);
+
+	features_init(take(feature_set));
 
 #if DEVELOPER
 	dev_force_tmp_channel_id = force_tmp_channel_id;

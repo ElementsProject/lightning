@@ -2753,6 +2753,7 @@ static void init_channel(struct peer *peer)
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
 	bool option_static_remotekey;
+	struct feature_set *feature_set;
 #if !DEVELOPER
 	bool dev_fail_process_onionpacket; /* Ignored */
 #endif
@@ -2764,6 +2765,7 @@ static void init_channel(struct peer *peer)
 	msg = wire_sync_read(tmpctx, MASTER_FD);
 	if (!fromwire_channel_init(peer, msg,
 				   &chainparams,
+				   &feature_set,
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &minimum_depth,
@@ -2818,6 +2820,10 @@ static void init_channel(struct peer *peer)
 				   &dev_fail_process_onionpacket)) {
 		master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
+
+	/* Now we know what features to advertize. */
+	features_init(take(feature_set));
+
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);
 

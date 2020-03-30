@@ -9,32 +9,6 @@
  * the init features is a superset of the others. */
 static struct feature_set *our_features;
 
-/* FIXME: Remove once all subdaemons call features_init() */
-static const u8 *our_feature_bits(enum feature_place place)
-{
-	if (!our_features) {
-		static const u32 our_features[] = {
-			OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
-			OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
-			OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
-			OPTIONAL_FEATURE(OPT_VAR_ONION),
-			OPTIONAL_FEATURE(OPT_PAYMENT_SECRET),
-			OPTIONAL_FEATURE(OPT_BASIC_MPP),
-			OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
-			OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
-		};
-		u8 *f = tal_arr(NULL, u8, 0);
-
-		for (size_t i = 0; i < ARRAY_SIZE(our_features); i++)
-			set_feature_bit(&f, our_features[i]);
-
-		features_core_init(take(f));
-	}
-
-	/* This is currently always a superset of other bits */
-	return our_features->bits[place];
-}
-
 enum feature_copy_style {
 	/* Feature is not exposed (importantly, being 0, this is the default!). */
 	FEATURE_DONT_REPRESENT,
@@ -133,6 +107,20 @@ struct feature_set *features_core_init(const u8 *feature_bits)
 	return our_features;
 }
 
+void features_init(struct feature_set *fset TAKES)
+{
+	assert(!our_features);
+
+	if (taken(fset))
+		our_features = notleak(tal_steal(NULL, fset));
+	else {
+		our_features = notleak(tal(NULL, struct feature_set));
+		for (size_t i = 0; i < ARRAY_SIZE(fset->bits); i++)
+			our_features->bits[i] = tal_dup_talarr(our_features, u8,
+							       fset->bits[i]);
+	}
+}
+
 void features_cleanup(void)
 {
 	our_features = tal_free(our_features);
@@ -164,17 +152,17 @@ static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
 
 u8 *get_offered_nodefeatures(const tal_t *ctx)
 {
-	return tal_dup_talarr(ctx, u8, our_feature_bits(NODE_ANNOUNCE_FEATURE));
+	return tal_dup_talarr(ctx, u8, our_features->bits[NODE_ANNOUNCE_FEATURE]);
 }
 
 u8 *get_offered_initfeatures(const tal_t *ctx)
 {
-	return tal_dup_talarr(ctx, u8, our_feature_bits(INIT_FEATURE));
+	return tal_dup_talarr(ctx, u8, our_features->bits[INIT_FEATURE]);
 }
 
 u8 *get_offered_globalinitfeatures(const tal_t *ctx)
 {
-	return tal_dup_talarr(ctx, u8, our_feature_bits(GLOBAL_INIT_FEATURE));
+	return tal_dup_talarr(ctx, u8, our_features->bits[GLOBAL_INIT_FEATURE]);
 }
 
 static void clear_feature_bit(u8 *features, u32 bit)
@@ -195,7 +183,7 @@ static void clear_feature_bit(u8 *features, u32 bit)
  */
 u8 *get_agreed_channelfeatures(const tal_t *ctx, const u8 *theirfeatures)
 {
-	u8 *f = tal_dup_talarr(ctx, u8, our_feature_bits(CHANNEL_FEATURE));
+	u8 *f = tal_dup_talarr(ctx, u8, our_features->bits[CHANNEL_FEATURE]);
 	size_t max_len = 0;
 
 	/* Clear any features which they didn't offer too */
@@ -217,7 +205,7 @@ u8 *get_agreed_channelfeatures(const tal_t *ctx, const u8 *theirfeatures)
 
 u8 *get_offered_bolt11features(const tal_t *ctx)
 {
-	return tal_dup_talarr(ctx, u8, our_feature_bits(BOLT11_FEATURE));
+	return tal_dup_talarr(ctx, u8, our_features->bits[BOLT11_FEATURE]);
 }
 
 bool feature_is_set(const u8 *features, size_t bit)
@@ -239,7 +227,7 @@ bool feature_offered(const u8 *features, size_t f)
 bool feature_negotiated(const u8 *lfeatures, size_t f)
 {
 	return feature_offered(lfeatures, f)
-		&& feature_offered(our_feature_bits(INIT_FEATURE), f);
+		&& feature_offered(our_features->bits[INIT_FEATURE], f);
 }
 
 /**
@@ -262,7 +250,7 @@ static int all_supported_features(const u8 *bitmap)
 		if (!test_bit(bitmap, bitnum/8, bitnum%8))
 			continue;
 
-		if (feature_offered(our_feature_bits(INIT_FEATURE), bitnum))
+		if (feature_offered(our_features->bits[INIT_FEATURE], bitnum))
 			continue;
 
 		return bitnum;
@@ -307,8 +295,8 @@ const char **list_supported_features(const tal_t *ctx)
 {
 	const char **list = tal_arr(ctx, const char *, 0);
 
-	for (size_t i = 0; i < tal_bytelen(our_feature_bits(INIT_FEATURE)) * 8; i++) {
-		if (test_bit(our_feature_bits(INIT_FEATURE), i / 8, i % 8))
+	for (size_t i = 0; i < tal_bytelen(our_features->bits[INIT_FEATURE]) * 8; i++) {
+		if (test_bit(our_features->bits[INIT_FEATURE], i / 8, i % 8))
 			tal_arr_expand(&list, feature_name(list, i));
 	}
 
@@ -338,3 +326,24 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES)
 	return result;
 }
 
+struct feature_set *fromwire_feature_set(const tal_t *ctx,
+					 const u8 **cursor, size_t *max)
+{
+	struct feature_set *fset = tal(ctx, struct feature_set);
+
+	for (size_t i = 0; i < ARRAY_SIZE(fset->bits); i++)
+		fset->bits[i] = fromwire_tal_arrn(fset, cursor, max,
+						  fromwire_u16(cursor, max));
+
+	if (!*cursor)
+		return tal_free(fset);
+	return fset;
+}
+
+void towire_feature_set(u8 **pptr, const struct feature_set *fset)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(fset->bits); i++) {
+		towire_u16(pptr, tal_bytelen(fset->bits[i]));
+		towire_u8_array(pptr, fset->bits[i], tal_bytelen(fset->bits[i]));
+	}
+}

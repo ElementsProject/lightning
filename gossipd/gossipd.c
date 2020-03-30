@@ -828,9 +828,11 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	u32 *dev_gossip_time;
 	bool dev_fast_gossip, dev_fast_gossip_prune;
 	u32 timestamp;
+	struct feature_set *feature_set;
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     &chainparams,
+				     &feature_set,
 				     &daemon->id,
 				     &daemon->nodefeatures,
 				     daemon->rgb,
@@ -842,6 +844,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 
+	features_init(take(feature_set));
 	daemon->rstate = new_routing_state(daemon,
 					   &daemon->id,
 					   &daemon->peers,

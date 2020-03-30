@@ -1,10 +1,12 @@
 #include <common/cryptomsg.h>
+#include <common/features.h>
 #include <common/wireaddr.h>
 #include <wire/gen_onion_wire.h>
 
 # Initialize the gossip daemon.
 msgtype,gossipctl_init,3000
 msgdata,gossipctl_init,chainparams,chainparams,
+msgdata,gossipctl_init,feature_set,feature_set,
 msgdata,gossipctl_init,id,node_id,
 msgdata,gossipctl_init,gflen,u16,
 msgdata,gossipctl_init,globalfeatures,u8,gflen

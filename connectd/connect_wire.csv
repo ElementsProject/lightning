@@ -1,10 +1,12 @@
 #include <common/cryptomsg.h>
+#include <common/features.h>
 #include <common/per_peer_state.h>
 #include <common/wireaddr.h>
 #include <lightningd/gossip_msg.h>
 
 msgtype,connectctl_init,2000
 msgdata,connectctl_init,chainparams,chainparams,
+msgdata,connectctl_init,feature_set,feature_set,
 msgdata,connectctl_init,id,node_id,
 msgdata,connectctl_init,num_wireaddrs,u16,
 msgdata,connectctl_init,wireaddrs,wireaddr_internal,num_wireaddrs

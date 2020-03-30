@@ -214,6 +214,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	msg = towire_gossipctl_init(
 	    tmpctx,
 	    chainparams,
+	    ld->feature_set,
 	    &ld->id,
 	    node_featurebits,
 	    ld->rgb,
