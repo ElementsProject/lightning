@@ -1,6 +1,7 @@
 /* Routines to make our own gossip messages.  Not as in "we're the gossip
  * generation, man!" */
 #include <ccan/mem/mem.h>
+#include <common/features.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/timeout.h>
@@ -37,7 +38,8 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
 	announcement =
-	    towire_node_announcement(ctx, sig, daemon->nodefeatures, timestamp,
+	    towire_node_announcement(ctx, sig, get_offered_nodefeatures(tmpctx),
+				     timestamp,
 				     &daemon->id, daemon->rgb, daemon->alias,
 				     addresses);
 	return announcement;

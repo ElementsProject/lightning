@@ -42,9 +42,6 @@ struct daemon {
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 
-	/* Features to list in node_announcement. */
-	u8 *nodefeatures;
-
 	/* Alias (not NUL terminated) and favorite color for node_announcement */
 	u8 alias[32];
 	u8 rgb[3];

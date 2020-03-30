@@ -1013,14 +1013,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->description_hash = NULL;
 	info->b11->payment_secret = tal_dup(info->b11, struct secret,
 					    &payment_secret);
-
-	/* Which features should we announce to the node receiving this invoice?
-	 * This is a combination of natively supported features and featurebits
-	 * that plugins asked us to include in the invoice. */
-	info->b11->features = featurebits_or(
-	    info->b11, take(get_offered_bolt11features(NULL)),
-	    take(plugins_collect_featurebits(NULL, cmd->ld->plugins,
-					     PLUGIN_FEATURES_INVOICE)));
+	info->b11->features = get_offered_bolt11features(info->b11);
 
 #if DEVELOPER
 	info->b11->routes = unpack_routes(info->b11, buffer, routes);

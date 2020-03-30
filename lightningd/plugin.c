@@ -47,18 +47,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	return p;
 }
 
-u8 *plugins_collect_featurebits(const tal_t *ctx, const struct plugins *plugins,
-				enum plugin_features_type type)
-{
-	struct plugin *p;
-	u8 *res = tal_arr(ctx, u8, 0);
-	list_for_each(&plugins->plugins, p, list) {
-		if (p->featurebits[type])
-			res = featurebits_or(ctx, take(res), p->featurebits[type]);
-	}
-	return res;
-}
-
 static void destroy_plugin(struct plugin *p)
 {
 	plugin_hook_unregister_all(p);
@@ -81,9 +69,6 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 	p = tal(plugins, struct plugin);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
-
-	for (int i = 0; i < NUM_PLUGIN_FEATURES_TYPE; i++)
-		p->featurebits[i] = NULL;
 
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
@@ -868,12 +853,8 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 	fatal("Can't recover from plugin failure, terminating.");
 }
 
-/* List of JSON keys matching `plugin_features_type`. */
-static const char *plugin_features_type_names[] = {"node", "init", "invoice", "channel"};
-static const size_t plugin_features_fset[] = {NODE_ANNOUNCE_FEATURE,
-					      INIT_FEATURE,
-					      BOLT11_FEATURE,
-					      CHANNEL_FEATURE};
+/* List of JSON keys matching `enum feature_place`. */
+static const char *plugin_feature_place_names[] = {"init", NULL, "node", "channel", "invoice"};
 
 bool plugin_parse_getmanifest_response(const char *buffer,
                                        const jsmntok_t *toks,
@@ -881,7 +862,6 @@ bool plugin_parse_getmanifest_response(const char *buffer,
                                        struct plugin *plugin)
 {
 	const jsmntok_t *resulttok, *dynamictok, *featurestok, *tok;
-	u8 *featurebits;
 
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok || resulttok->type != JSMN_OBJECT)
@@ -899,21 +879,24 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 		bool have_featurebits = false;
 		struct feature_set *fset = talz(tmpctx, struct feature_set);
 
-		for (int i = 0; i < NUM_PLUGIN_FEATURES_TYPE; i++) {
+		BUILD_ASSERT(ARRAY_SIZE(plugin_feature_place_names)
+			     == ARRAY_SIZE(fset->bits));
+
+		for (int i = 0; i < ARRAY_SIZE(fset->bits); i++) {
+			/* We don't allow setting the obs global init */
+			if (!plugin_feature_place_names[i])
+				continue;
+
 			tok = json_get_member(buffer, featurestok,
-					      plugin_features_type_names[i]);
+					      plugin_feature_place_names[i]);
 
 			if (!tok)
 				continue;
 
-			featurebits =
-			    json_tok_bin_from_hex(plugin, buffer, tok);
+			fset->bits[i] = json_tok_bin_from_hex(fset, buffer, tok);
+			have_featurebits |= tal_bytelen(fset->bits[i]) > 0;
 
-			have_featurebits |= tal_bytelen(featurebits) > 0;
-
-			if (featurebits) {
-				plugin->featurebits[i] = featurebits;
-			} else {
+			if (!fset->bits[i]) {
 				plugin_kill(
 				    plugin,
 				    "Featurebits returned by plugin is not a "
@@ -921,7 +904,6 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 				    tok->end - tok->start, buffer + tok->start);
 				return true;
 			}
-			fset->bits[plugin_features_fset[i]] = featurebits;
 		}
 
 		if (plugin->dynamic && have_featurebits) {

@@ -154,9 +154,6 @@ struct daemon {
 
 	/* Allow to define the default behavior of tor services calls*/
 	bool use_v3_autotor;
-
-	/* featurebits that we support internally, and via plugins */
-	u8 *init_featurebits;
 };
 
 /* Peers we're trying to reach: we iterate through addrs until we succeed
@@ -475,8 +472,7 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
-	return peer_exchange_initmsg(conn, daemon, cs, &id, addr,
-				     daemon->init_featurebits);
+	return peer_exchange_initmsg(conn, daemon, cs, &id, addr);
 }
 
 /*~ When we get a connection in we set up its network address then call
@@ -536,8 +532,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	node_id_from_pubkey(&id, key);
 	connect->connstate = "Exchanging init messages";
 	status_peer_debug(&id, "Connect OUT");
-	return peer_exchange_initmsg(conn, connect->daemon, cs, &id, addr,
-				     connect->daemon->init_featurebits);
+	return peer_exchange_initmsg(conn, connect->daemon, cs, &id, addr);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
@@ -1202,7 +1197,7 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password,
-		&daemon->use_v3_autotor, &daemon->init_featurebits)) {
+		&daemon->use_v3_autotor)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
