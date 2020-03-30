@@ -951,44 +951,21 @@ static void add_binding(struct wireaddr_internal **binding,
 static int wireaddr_cmp_type(const struct wireaddr *a,
 			     const struct wireaddr *b, void *unused)
 {
-	/* Returns > 0 if a belongs after b, < 0 if before, == 0 if don't care */
-	return (int)a->type - (int)b->type;
-}
+	/* This works, but of course it's inefficient.  We don't
+	 * really care, since it's called only once at startup. */
+	u8 *a_wire = tal_arr(tmpctx, u8, 0), *b_wire = tal_arr(tmpctx, u8, 0);
+	int cmp, minlen;
 
-/*~ The spec for we-can't-remember reasons specifies only one address of each
- * type.  I think there was a bias against "hubs" which would want this.  So
- * we sort and uniquify. */
-static void finalize_announcable(struct wireaddr **announcable)
-{
-	size_t n = tal_count(*announcable);
+	towire_wireaddr(&a_wire, a);
+	towire_wireaddr(&b_wire, b);
 
-	/* BOLT #7:
-	 *
-	 * The origin node:
-	 *...
-	 *   - MUST NOT include more than one `address descriptor` of the same
-	 *     type.
-	 */
-	asort(*announcable, n, wireaddr_cmp_type, NULL);
-	for (size_t i = 1; i < n; i++) {
-		/* Note we use > instead of !=: catches asort bugs too. */
-		if ((*announcable)[i].type > (*announcable)[i-1].type)
-			continue;
-
-		status_unusual("WARNING: Cannot announce address %s,"
-			       " already announcing %s",
-			       type_to_string(tmpctx, struct wireaddr,
-					      &(*announcable)[i]),
-			       type_to_string(tmpctx, struct wireaddr,
-					      &(*announcable)[i-1]));
-
-		/* Move and shrink; step back because i++ above would skip. */
-		memmove(*announcable + i,
-			*announcable + i + 1,
-			(n - i - 1) * sizeof((*announcable)[0]));
-		tal_resize(announcable, --n);
-		--i;
-	}
+	minlen = tal_bytelen(a_wire) < tal_bytelen(b_wire)
+		? tal_bytelen(a_wire) : tal_bytelen(b_wire);
+	cmp = memcmp(a_wire, b_wire, minlen);
+	/* On a tie, shorter one goes first. */
+	if (cmp == 0)
+		return tal_bytelen(a_wire) - tal_bytelen(b_wire);
+	return cmp;
 }
 
 /*~ The user can specify three kinds of addresses: ones we bind to but don't
@@ -1184,8 +1161,16 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		};
 		add_announcable(announcable, toraddr);
 	}
-	/* Sort and uniquify. */
-	finalize_announcable(announcable);
+
+	/*~ The spec used to ban more than one address of each type, but
+	 * nobody could remember exactly why, so now that's allowed. */
+	/* BOLT #7:
+	 *
+	 * The origin node:
+	 *...
+	 *   - MUST place address descriptors in ascending order.
+	 */
+	asort(*announcable, tal_count(*announcable), wireaddr_cmp_type, NULL);
 
 	return binding;
 }

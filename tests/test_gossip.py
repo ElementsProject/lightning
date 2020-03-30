@@ -120,9 +120,6 @@ def test_announce_address(node_factory, bitcoind):
             'dev-allow-localhost': None}
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
-    # It should warn about the collision between --addr=127.0.0.1:<ephem>
-    # and --announce-addr=1.2.3.4:1234 (may happen before get_nodes returns).
-    wait_for(lambda: l1.daemon.is_in_log('Cannot announce address 127.0.0.1:[0-9]*, already announcing 1.2.3.4:1234'))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     scid = l1.fund_channel(l2, 10**6)
     bitcoind.generate_block(5)
@@ -130,8 +127,14 @@ def test_announce_address(node_factory, bitcoind):
     l1.wait_channel_active(scid)
     l2.wait_channel_active(scid)
 
-    # We should see it send node announce (257 = 0x0101)
-    l1.daemon.wait_for_log(r"\[OUT\] 0101.*004d010102030404d202000000000000000000000000000000002607039216a8b803f3acd758aa260704e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607'")
+    # We should see it send node announce with all addresses (257 = 0x0101)
+    # local ephemeral port is masked out.
+    l1.daemon.wait_for_log(r"\[OUT\] 0101.*54"
+                           "010102030404d2"
+                           "017f000001...."
+                           "02000000000000000000000000000000002607"
+                           "039216a8b803f3acd758aa2607"
+                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607")
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
