@@ -94,6 +94,7 @@ this example:
   ],
   "features": {
     "node": "D0000000",
+    "channel": "D0000000",
     "init": "0E000000",
     "invoice": "00AD0000"
   },
@@ -126,7 +127,7 @@ invoices. Custom protocol extensions can be implemented for example using the
 the `htlc_accepted` hook. The keys in the `features` object are `node` for
 features that should be announced via the `node_announcement` to all nodes in
 the network, `init` for features that should be announced to direct peers
-during the connection setup, and `invoice` for features that should be
+during the connection setup, `channel` for features which should apply to `channel_announcement`, and `invoice` for features that should be
 announced to a potential sender of a payment in the invoice. The low range of
 featurebits is reserved for standardize features, so please pick random, high
 position bits for experiments. If you'd like to standardize your extension

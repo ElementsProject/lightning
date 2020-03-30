@@ -31,6 +31,9 @@ struct feature_set *fromwire_feature_set(const tal_t *ctx,
 					 const u8 **ptr, size_t *max);
 void towire_feature_set(u8 **pptr, const struct feature_set *fset);
 
+/* Add features supplied by a plugin: returns false if we already have them */
+bool features_additional(const struct feature_set *feature_set);
+
 /* Returns -1 if we're OK with all these offered features, otherwise first
  * unsupported (even) feature. */
 int features_unsupported(const u8 *features);

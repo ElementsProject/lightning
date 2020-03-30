@@ -126,6 +126,28 @@ void features_cleanup(void)
 	our_features = tal_free(our_features);
 }
 
+bool features_additional(const struct feature_set *newfset)
+{
+	/* Check first, before we change anything! */
+	for (size_t i = 0; i < ARRAY_SIZE(newfset->bits); i++) {
+		/* FIXME: We could allow a plugin to upgrade an optional feature
+		 * to a compulsory one? */
+		for (size_t b = 0; b < tal_bytelen(newfset->bits[i])*8; b++) {
+			if (feature_is_set(newfset->bits[i], b)
+			    && feature_is_set(our_features->bits[i], b))
+				return false;
+		}
+	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(newfset->bits); i++) {
+		for (size_t b = 0; b < tal_bytelen(newfset->bits[i])*8; b++) {
+			if (feature_is_set(newfset->bits[i], b))
+				set_feature_bit(&our_features->bits[i], b);
+		}
+	}
+	return true;
+}
+
 /* BOLT #1:
  *
  * All data fields are unsigned big-endian unless otherwise specified.
