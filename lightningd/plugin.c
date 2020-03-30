@@ -869,7 +869,11 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 }
 
 /* List of JSON keys matching `plugin_features_type`. */
-static const char *plugin_features_type_names[] = {"node", "init", "invoice"};
+static const char *plugin_features_type_names[] = {"node", "init", "invoice", "channel"};
+static const size_t plugin_features_fset[] = {NODE_ANNOUNCE_FEATURE,
+					      INIT_FEATURE,
+					      BOLT11_FEATURE,
+					      CHANNEL_FEATURE};
 
 bool plugin_parse_getmanifest_response(const char *buffer,
                                        const jsmntok_t *toks,
@@ -877,7 +881,6 @@ bool plugin_parse_getmanifest_response(const char *buffer,
                                        struct plugin *plugin)
 {
 	const jsmntok_t *resulttok, *dynamictok, *featurestok, *tok;
-	bool have_featurebits = false;
 	u8 *featurebits;
 
 	resulttok = json_get_member(buffer, toks, "result");
@@ -893,6 +896,9 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 	featurestok = json_get_member(buffer, resulttok, "featurebits");
 
 	if (featurestok) {
+		bool have_featurebits = false;
+		struct feature_set *fset = talz(tmpctx, struct feature_set);
+
 		for (int i = 0; i < NUM_PLUGIN_FEATURES_TYPE; i++) {
 			tok = json_get_member(buffer, featurestok,
 					      plugin_features_type_names[i]);
@@ -915,17 +921,24 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 				    tok->end - tok->start, buffer + tok->start);
 				return true;
 			}
+			fset->bits[plugin_features_fset[i]] = featurebits;
 		}
-	}
 
-	if (plugin->dynamic && have_featurebits) {
-		plugin_kill(plugin,
-			    "Custom featurebits only allows for non-dynamic "
-			    "plugins: dynamic=%d, featurebits=%.*s",
-			    plugin->dynamic,
-			    featurestok->end - featurestok->start,
-			    buffer + featurestok->start);
-		return true;
+		if (plugin->dynamic && have_featurebits) {
+			plugin_kill(plugin,
+				    "Custom featurebits only allows for non-dynamic "
+				    "plugins: dynamic=%d, featurebits=%.*s",
+				    plugin->dynamic,
+				    featurestok->end - featurestok->start,
+				    buffer + featurestok->start);
+			return true;
+		}
+
+		if (!features_additional(fset)) {
+			plugin_kill(plugin,
+				    "Custom featurebits already present");
+			return true;
+		}
 	}
 
 	if (!plugin_opts_add(plugin, buffer, resulttok) ||
