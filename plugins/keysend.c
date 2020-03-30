@@ -42,6 +42,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd, const char
 	char *hexpreimage, *hexpaymenthash;
 	struct sha256 payment_hash;
 	bigsize_t s;
+	bool unknown_even_type = false;
+	struct tlv_field *field;
 
 	if (!payloadt)
 		return htlc_accepted_continue(cmd);
@@ -58,8 +60,12 @@ static struct command_result *htlc_accepted_call(struct command *cmd, const char
 
 	/* Try looking for the field that contains the preimage */
 	for (int i=0; i<tal_count(payload->fields); i++) {
-		if (payload->fields[i].numtype == PREIMAGE_TLV_TYPE) {
-			preimage_field = &payload->fields[i];
+		field = &payload->fields[i];
+		if (field->numtype == PREIMAGE_TLV_TYPE) {
+			preimage_field = field;
+			break;
+		} else if (field->numtype % 2 == 0 && field->meta == NULL) {
+			unknown_even_type = true;
 			break;
 		}
 	}
@@ -68,6 +74,15 @@ static struct command_result *htlc_accepted_call(struct command *cmd, const char
 	 * someone else take care of it. */
 	if (preimage_field == NULL)
 		return htlc_accepted_continue(cmd);
+
+	if (unknown_even_type) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Payload contains unknown even TLV-type %" PRIu64
+			   ", can't safely accept the keysend. Deferring to "
+			   "other plugins.",
+			   preimage_field->numtype);
+		return htlc_accepted_continue(cmd);
+	}
 
 	/* If the preimage is not 32 bytes long then we can't accept the
 	 * payment. */
