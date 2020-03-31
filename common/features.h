@@ -13,6 +13,8 @@ enum feature_place {
 };
 #define NUM_FEATURE_PLACE (BOLT11_FEATURE+1)
 
+extern const char *feature_place_names[NUM_FEATURE_PLACE];
+
 /* The complete set of features for all contexts */
 struct feature_set {
 	u8 *bits[NUM_FEATURE_PLACE];

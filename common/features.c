@@ -19,6 +19,14 @@ struct feature_style {
 	enum feature_copy_style copy_style[NUM_FEATURE_PLACE];
 };
 
+const char *feature_place_names[] = {
+	"init",
+	NULL,
+	"node",
+	"channel",
+	"invoice"
+};
+
 static const struct feature_style feature_styles[] = {
 	{ OPT_DATA_LOSS_PROTECT,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
