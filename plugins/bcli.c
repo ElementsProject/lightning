@@ -947,7 +947,7 @@ int main(int argc, char *argv[])
 	bitcoind->rpcport = NULL;
 	bitcoind->max_fee_multiplier = 10;
 
-	plugin_main(argv, init, PLUGIN_STATIC, commands, ARRAY_SIZE(commands),
+	plugin_main(argv, init, PLUGIN_STATIC, NULL, commands, ARRAY_SIZE(commands),
 		    NULL, 0, NULL, 0,
 		    plugin_option("bitcoin-datadir",
 				  "string",

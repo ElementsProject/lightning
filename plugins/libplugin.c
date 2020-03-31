@@ -5,7 +5,6 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
-#include <common/features.h>
 #include <common/json_stream.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -85,7 +84,6 @@ struct plugin {
 	/* Feature set for lightningd */
 	struct feature_set *our_features;
 };
-
 
 /* command_result is mainly used as a compile-time check to encourage you
  * to return as soon as you get one (and not risk use-after-free of command).
@@ -604,6 +602,18 @@ handle_getmanifest(struct command *getmanifest_cmd)
 	for (size_t i = 0; i < p->num_hook_subs; i++)
 		json_add_string(params, NULL, p->hook_subs[i].name);
 	json_array_end(params);
+
+	if (p->our_features != NULL) {
+		json_object_start(params, "features");
+		for (size_t i = 0; i < NUM_FEATURE_PLACE; i++) {
+			u8 *f = p->our_features->bits[i];
+			const char *fieldname = feature_place_names[i];
+			if (fieldname == NULL)
+				continue;
+			json_add_hex(params, fieldname, f, tal_bytelen(f));
+		}
+		json_object_end(params);
+	}
 
 	json_add_bool(params, "dynamic", p->restartability == PLUGIN_RESTARTABLE);
 
@@ -1151,6 +1161,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 				 void (*init)(struct plugin *p,
 					      const char *buf, const jsmntok_t *),
 				 const enum plugin_restartability restartability,
+				 struct feature_set *features,
 				 const struct plugin_command *commands,
 				 size_t num_commands,
 				 const struct plugin_notification *notif_subs,
@@ -1173,6 +1184,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->rpc_len_read = 0;
 	p->next_outreq_id = 0;
 	uintmap_init(&p->out_reqs);
+
+	p->our_features = features;
 	/* Sync RPC FIXME: maybe go full async ? */
 	p->rpc_conn = tal(p, struct rpc_conn);
 	membuf_init(&p->rpc_conn->mb,
@@ -1210,6 +1223,7 @@ void plugin_main(char *argv[],
 		 void (*init)(struct plugin *p,
 			      const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
+		 struct feature_set *features,
 		 const struct plugin_command *commands,
 		 size_t num_commands,
 		 const struct plugin_notification *notif_subs,
@@ -1229,8 +1243,8 @@ void plugin_main(char *argv[],
 	daemon_setup(argv[0], NULL, NULL);
 
 	va_start(ap, num_hook_subs);
-	plugin = new_plugin(NULL, init, restartability, commands, num_commands,
-			    notif_subs, num_notif_subs, hook_subs,
+	plugin = new_plugin(NULL, init, restartability, features, commands,
+			    num_commands, notif_subs, num_notif_subs, hook_subs,
 			    num_hook_subs, ap);
 	va_end(ap);
 	setup_command_usage(plugin);
