@@ -1692,6 +1692,10 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(peer, msg);
 		return;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONION_MESSAGE:
+		break;
+#endif
 
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:

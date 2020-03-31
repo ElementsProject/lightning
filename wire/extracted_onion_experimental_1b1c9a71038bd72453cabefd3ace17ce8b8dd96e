@@ -1,0 +1,28 @@
+--- wire/extracted_onion_wire_csv	2020-03-25 10:24:12.861645774 +1030
++++ -	2020-03-26 13:47:13.498294435 +1030
+@@ -8,6 +8,25 @@
+ tlvtype,tlv_payload,payment_data,8
+ tlvdata,tlv_payload,payment_data,payment_secret,byte,32
+ tlvdata,tlv_payload,payment_data,total_msat,tu64,
++tlvtype,onionmsg_payload,next_node_id,4
++tlvdata,onionmsg_payload,next_node_id,node_id,point,
++tlvtype,onionmsg_payload,next_short_channel_id,6
++tlvdata,onionmsg_payload,next_short_channel_id,short_channel_id,short_channel_id,
++tlvtype,onionmsg_payload,reply_path,8
++tlvdata,onionmsg_payload,reply_path,blinding,point,
++tlvdata,onionmsg_payload,reply_path,path,onionmsg_path,...
++tlvtype,onionmsg_payload,enctlv,10
++tlvdata,onionmsg_payload,enctlv,enctlv,byte,...
++tlvtype,onionmsg_payload,blinding,12
++tlvdata,onionmsg_payload,blinding,blinding,point,
++tlvtype,encmsg_tlvs,next_node_id,4
++tlvdata,encmsg_tlvs,next_node_id,node_id,point,
++tlvtype,encmsg_tlvs,next_short_channel_id,6
++tlvdata,encmsg_tlvs,next_short_channel_id,short_channel_id,short_channel_id,
++subtype,onionmsg_path
++subtypedata,onionmsg_path,node_id,point,
++subtypedata,onionmsg_path,enclen,u16,
++subtypedata,onionmsg_path,enctlv,byte,enclen
+ msgtype,invalid_realm,PERM|1
+ msgtype,temporary_node_failure,NODE|2
+ msgtype,permanent_node_failure,PERM|NODE|2
