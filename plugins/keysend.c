@@ -3,6 +3,7 @@
 #include <wire/gen_onion_wire.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484
+#define KEYSEND_FEATUREBIT 55
 
 static void init(struct plugin *p, const char *buf UNUSED,
 		 const jsmntok_t *config UNUSED)
@@ -128,10 +129,14 @@ static const struct plugin_hook hooks[] = {
 
 int main(int argc, char *argv[])
 {
+	struct feature_set features;
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
-	            NULL, 0, hooks, ARRAY_SIZE(hooks), NULL);
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, NULL, commands,
+
+	for (int i=0; i<ARRAY_SIZE(features.bits); i++)
+		features.bits[i] = tal_arr(NULL, u8, 0);
+	set_feature_bit(&features.bits[NODE_ANNOUNCE_FEATURE], KEYSEND_FEATUREBIT);
+
+	plugin_main(argv, init, PLUGIN_STATIC, &features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
 		    NULL);
 }
