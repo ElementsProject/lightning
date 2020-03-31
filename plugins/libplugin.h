@@ -9,6 +9,7 @@
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <common/errcode.h>
+#include <common/features.h>
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -245,6 +246,7 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					void (*init)(struct plugin *p,
 						     const char *buf, const jsmntok_t *),
 					const enum plugin_restartability restartability,
+					struct feature_set *features,
 					const struct plugin_command *commands,
 					size_t num_commands,
 					const struct plugin_notification *notif_subs,

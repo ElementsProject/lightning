@@ -131,4 +131,7 @@ int main(int argc, char *argv[])
 	setup_locale();
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
 	            NULL, 0, hooks, ARRAY_SIZE(hooks), NULL);
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, NULL, commands,
+		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
+		    NULL);
 }

@@ -123,7 +123,7 @@ static const struct plugin_notification notifs[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, NULL, commands, ARRAY_SIZE(commands),
 	            notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
 		    plugin_option("name",
 				  "string",
