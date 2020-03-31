@@ -896,9 +896,6 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 	fatal("Can't recover from plugin failure, terminating.");
 }
 
-/* List of JSON keys matching `enum feature_place`. */
-static const char *plugin_feature_place_names[] = {"init", NULL, "node", "channel", "invoice"};
-
 bool plugin_parse_getmanifest_response(const char *buffer,
                                        const jsmntok_t *toks,
                                        const jsmntok_t *idtok,
@@ -922,16 +919,16 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 		bool have_featurebits = false;
 		struct feature_set *fset = talz(tmpctx, struct feature_set);
 
-		BUILD_ASSERT(ARRAY_SIZE(plugin_feature_place_names)
+		BUILD_ASSERT(ARRAY_SIZE(feature_place_names)
 			     == ARRAY_SIZE(fset->bits));
 
 		for (int i = 0; i < ARRAY_SIZE(fset->bits); i++) {
 			/* We don't allow setting the obs global init */
-			if (!plugin_feature_place_names[i])
+			if (!feature_place_names[i])
 				continue;
 
 			tok = json_get_member(buffer, featurestok,
-					      plugin_feature_place_names[i]);
+					      feature_place_names[i]);
 
 			if (!tok)
 				continue;
@@ -1214,9 +1211,9 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	json_add_string(req->stream, "network", chainparams->network_name);
 	json_object_start(req->stream, "feature_set");
 	for (enum feature_place fp = 0; fp < NUM_FEATURE_PLACE; fp++) {
-		if (plugin_feature_place_names[fp]) {
+		if (feature_place_names[fp]) {
 			json_add_hex_talarr(req->stream,
-					    plugin_feature_place_names[fp],
+					    feature_place_names[fp],
 					    ld->our_features->bits[fp]);
 		}
 	}
