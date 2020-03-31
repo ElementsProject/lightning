@@ -1195,38 +1195,21 @@ static struct command_result *param_route_hop_style(struct command *cmd,
 			    json_tok_full(buffer, tok));
 }
 
-static struct command_result *json_sendpay(struct command *cmd,
-					   const char *buffer,
-					   const jsmntok_t *obj UNNEEDED,
-					   const jsmntok_t *params)
+static struct command_result *param_route_hops(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       struct route_hop **hops)
 {
-	const jsmntok_t *routetok;
-	const jsmntok_t *t;
 	size_t i;
-	struct sha256 *rhash;
-	struct route_hop *route;
-	struct amount_msat *msat;
-	const char *b11str, *label;
-	u64 *partid;
-	struct secret *payment_secret;
+	const jsmntok_t *t;
 
-	/* For generating help, give new-style. */
-	if (!param(cmd, buffer, params,
-		   p_req("route", param_array, &routetok),
-		   p_req("payment_hash", param_sha256, &rhash),
-		   p_opt("label", param_escaped_string, &label),
-		   p_opt("msatoshi", param_msat, &msat),
-		   p_opt("bolt11", param_string, &b11str),
-		   p_opt("payment_secret", param_secret, &payment_secret),
-		   p_opt_def("partid", param_u64, &partid, 0),
-		   NULL))
-		return command_param_failed();
+	if (tok->type != JSMN_ARRAY || tok->size == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%s must be an (non-empty) array", name);
 
-	if (routetok->size == 0)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");
-
-	route = tal_arr(cmd, struct route_hop, routetok->size);
-	json_for_each_arr(i, t, routetok) {
+	*hops = tal_arr(cmd, struct route_hop, tok->size);
+	json_for_each_arr(i, t, tok) {
 		struct amount_msat *msat, *amount_msat;
 		struct node_id *id;
 		struct short_channel_id *channel;
@@ -1249,16 +1232,16 @@ static struct command_result *json_sendpay(struct command *cmd,
 
 		if (!msat && !amount_msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "route[%zi]: must have msatoshi"
-					    " or amount_msat", i);
+					    "%s[%zi]: must have msatoshi"
+					    " or amount_msat", name, i);
 		if (!id || !channel || !delay)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "route[%zi]: must have id, channel"
-					    " and delay", i);
+					    "%s[%zi]: must have id, channel"
+					    " and delay", name, i);
 		if (msat && amount_msat && !amount_msat_eq(*msat, *amount_msat))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "route[%zi]: msatoshi %s != amount_msat %s",
-					    i,
+					    "%s[%zi]: msatoshi %s != amount_msat %s",
+					    name, i,
 					    type_to_string(tmpctx,
 							   struct amount_msat,
 							   msat),
@@ -1268,20 +1251,47 @@ static struct command_result *json_sendpay(struct command *cmd,
 		if (!msat)
 			msat = amount_msat;
 
-		route[i].amount = *msat;
-		route[i].nodeid = *id;
-		route[i].delay = *delay;
-		route[i].channel_id = *channel;
-		route[i].style = *style;
+		(*hops)[i].amount = *msat;
+		(*hops)[i].nodeid = *id;
+		(*hops)[i].delay = *delay;
+		(*hops)[i].channel_id = *channel;
+		(*hops)[i].style = *style;
 		/* FIXME: Actually ignored by sending code! */
-		route[i].direction = direction ? *direction : 0;
+		(*hops)[i].direction = direction ? *direction : 0;
 	}
+
+	return NULL;
+}
+
+static struct command_result *json_sendpay(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
+{
+	struct sha256 *rhash;
+	struct route_hop *route;
+	struct amount_msat *msat;
+	const char *b11str, *label;
+	u64 *partid;
+	struct secret *payment_secret;
+
+	/* For generating help, give new-style. */
+	if (!param(cmd, buffer, params,
+		   p_req("route", param_route_hops, &route),
+		   p_req("payment_hash", param_sha256, &rhash),
+		   p_opt("label", param_escaped_string, &label),
+		   p_opt("msatoshi", param_msat, &msat),
+		   p_opt("bolt11", param_string, &b11str),
+		   p_opt("payment_secret", param_secret, &payment_secret),
+		   p_opt_def("partid", param_u64, &partid, 0),
+		   NULL))
+		return command_param_failed();
 
 	if (*partid && !msat)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Must specify msatoshi with partid");
 
-	const struct amount_msat final_amount = route[routetok->size-1].amount;
+	const struct amount_msat final_amount = route[tal_count(route)-1].amount;
 
 	if (msat && !*partid && !amount_msat_eq(*msat, final_amount))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
