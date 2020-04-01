@@ -2182,6 +2182,8 @@ def test_sendcustommsg(node_factory):
 def test_sendonionmessage(node_factory):
     l1, l2, l3 = node_factory.line_graph(3)
 
+    blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
+
     l1.rpc.call('sendonionmessage',
                 {'hops':
                  [{'id': l2.info['id']},
@@ -2196,7 +2198,23 @@ def test_sendonionmessage(node_factory):
                   {'id': l3.info['id']}]})
     assert l3.daemon.wait_for_log('Got onionmsg')
 
-    # FIXME: Test blinded path!
+    # Now test blinded path.
+    output = subprocess.check_output(
+        [blindedpathtool, '--simple-output', 'create', l2.info['id'], l3.info['id']]
+    ).decode('ASCII').strip()
+
+    # First line is blinding, then <peerid> then <encblob>.
+    blinding, p1, p1enc, p2 = output.split('\n')
+    # First hop can't be blinded!
+    assert p1 == l2.info['id']
+
+    l1.rpc.call('sendonionmessage',
+                {'hops':
+                 [{'id': l2.info['id'],
+                   'blinding': blinding,
+                   'enctlv': p1enc},
+                  {'id': p2}]})
+    assert l3.daemon.wait_for_log('Got onionmsg')
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")
