@@ -226,6 +226,7 @@ class Type(FieldSet):
         'onionreply',
         'witscript',
         'feature_set',
+        'onionmsg_path',
     ]
 
     # Some BOLT types are re-typed based on their field name
