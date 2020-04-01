@@ -4,9 +4,59 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 
 #if EXPERIMENTAL_FEATURES
+struct onion_message_hook_payload {
+	/* Optional */
+	struct pubkey *reply_blinding;
+	struct onionmsg_path **reply_path;
+
+	/* FIXME: Include other TLV fields here! */
+};
+
+static void
+onion_message_serialize(struct onion_message_hook_payload *payload,
+			   struct json_stream *stream)
+{
+	json_object_start(stream, "onion_message");
+	if (payload->reply_path) {
+		json_array_start(stream, "reply_path");
+		for (size_t i = 0; i < tal_count(payload->reply_path); i++) {
+			json_object_start(stream, NULL);
+			json_add_pubkey(stream, "id",
+					&payload->reply_path[i]->node_id);
+			if (payload->reply_path[i]->enctlv)
+				json_add_hex_talarr(stream, "enctlv",
+						    payload->reply_path[i]->enctlv);
+			if (i == 0)
+				json_add_pubkey(stream, "blinding",
+						payload->reply_blinding);
+			json_object_end(stream);
+		}
+		json_array_end(stream);
+	}
+	json_object_end(stream);
+}
+
+static void
+onion_message_hook_cb(struct onion_message_hook_payload *payload,
+			 const char *buffer,
+			 const jsmntok_t *toks)
+{
+	/* The core infra checks the "result"; anything other than continue
+	 * just stops. */
+	tal_free(payload);
+}
+
+REGISTER_PLUGIN_HOOK(onion_message,
+		     PLUGIN_HOOK_CHAIN,
+		     onion_message_hook_cb,
+		     struct onion_message_hook_payload *,
+		     onion_message_serialize,
+		     struct onion_message_hook_payload *);
+
 /* Returns false if we can't tell it */
 static bool make_peer_send(struct lightningd *ld,
 			   struct channel *dst, const u8 *msg TAKES)
@@ -40,19 +90,29 @@ static bool make_peer_send(struct lightningd *ld,
 
 void handle_onionmsg_to_us(struct channel *channel, const u8 *msg)
 {
-	struct pubkey *reply_blinding;
-	struct onionmsg_path **reply_path;
+	struct lightningd *ld = channel->peer->ld;
+	struct onion_message_hook_payload *payload;
 
-	if (!fromwire_got_onionmsg_to_us(msg, msg,
-					 &reply_blinding, &reply_path)) {
+	payload = tal(ld, struct onion_message_hook_payload);
+
+	if (!fromwire_got_onionmsg_to_us(payload, msg,
+					 &payload->reply_blinding,
+					 &payload->reply_path)) {
 		channel_internal_error(channel, "bad got_onionmsg_tous: %s",
 				       tal_hex(tmpctx, msg));
 		return;
 	}
 
-	log_info(channel->log, "Got onionmsg%s%s",
-		 reply_blinding ? " reply_blinding": "",
-		 reply_path ? " reply_path": "");
+	if (payload->reply_path && !payload->reply_blinding) {
+		log_broken(channel->log,
+			   "No reply blinding, ignoring reply path");
+		payload->reply_path = tal_free(payload->reply_path);
+	}
+
+	log_debug(channel->log, "Got onionmsg%s%s",
+		  payload->reply_blinding ? " reply_blinding": "",
+		  payload->reply_path ? " reply_path": "");
+	plugin_hook_call_onion_message(ld, payload, payload);
 }
 
 void handle_onionmsg_forward(struct channel *channel, const u8 *msg)
