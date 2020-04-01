@@ -19,6 +19,8 @@
 #include <string.h>
 #include <unistd.h>
 
+static bool simpleout = false;
+
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
 {
@@ -99,6 +101,8 @@ int main(int argc, char **argv)
 			   "Show this message");
 	opt_register_noarg("--first-node", opt_set_bool, &first,
 			   "Don't try to tweak key to unwrap onion");
+	opt_register_noarg("--simple-output", opt_set_bool, &simpleout,
+			   "Output values without prefixes, one per line");
 	opt_register_version();
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
@@ -158,8 +162,12 @@ int main(int argc, char **argv)
 		}
 
 		/* Print initial blinding factor */
-		printf("Blinding: %s\n",
-		       type_to_string(tmpctx, struct pubkey, &pk_e[0]));
+		if (simpleout)
+			printf("%s\n",
+			       type_to_string(tmpctx, struct pubkey, &pk_e[0]));
+		else
+			printf("Blinding: %s\n",
+			       type_to_string(tmpctx, struct pubkey, &pk_e[0]));
 
 		for (size_t i = 0; i < num - 1; i++) {
 			u8 *p;
@@ -192,16 +200,28 @@ int main(int argc, char **argv)
 			towire_onionmsg_payload(&p, outer);
 			ret = bigsize_put(buf, tal_bytelen(p));
 
-			/* devtools/onion wants length explicitly prepended */
-			printf("%s/%.*s%s ",
-			       type_to_string(tmpctx, struct pubkey, &b[i]),
-			       ret * 2,
-			       tal_hexstr(tmpctx, buf, ret),
-			       tal_hex(tmpctx, p));
+			if (simpleout) {
+				printf("%s\n%s\n",
+				       type_to_string(tmpctx, struct pubkey,
+						      &b[i]),
+				       tal_hex(tmpctx, outer->enctlv->enctlv));
+			} else {
+				/* devtools/onion wants length explicitly prepended */
+				printf("%s/%.*s%s ",
+				       type_to_string(tmpctx, struct pubkey,
+						      &b[i]),
+				       ret * 2,
+				       tal_hexstr(tmpctx, buf, ret),
+				       tal_hex(tmpctx, p));
+			}
 		}
 		/* No payload for last node */
-		printf("%s/00\n",
-		       type_to_string(tmpctx, struct pubkey, &b[num-1]));
+		if (simpleout)
+			printf("%s\n",
+			       type_to_string(tmpctx, struct pubkey, &b[num-1]));
+		else
+			printf("%s/00\n",
+			       type_to_string(tmpctx, struct pubkey, &b[num-1]));
 	} else if (streq(argv[1], "unwrap")) {
 		struct privkey privkey;
 		struct pubkey blinding;
