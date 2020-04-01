@@ -10,6 +10,7 @@ from pyln.testing.utils import (
     TailableProc, env
 )
 from ephemeral_port_reserve import reserve
+from utils import EXPERIMENTAL_FEATURES
 
 import json
 import os
@@ -2175,6 +2176,27 @@ def test_sendcustommsg(node_factory):
     l4.daemon.wait_for_log(
         r'Got a custom message {serialized} from peer {peer_id}'.format(
             serialized=serialized, peer_id=l2.info['id']))
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendonionmessage")
+def test_sendonionmessage(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    l1.rpc.call('sendonionmessage',
+                {'hops':
+                 [{'id': l2.info['id']},
+                  {'id': l3.info['id']}]})
+    assert l3.daemon.wait_for_log('Got onionmsg')
+
+    # Now by SCID.
+    l1.rpc.call('sendonionmessage',
+                {'hops':
+                 [{'id': l2.info['id'],
+                   'short_channel_id': l2.get_channel_scid(l3)},
+                  {'id': l3.info['id']}]})
+    assert l3.daemon.wait_for_log('Got onionmsg')
+
+    # FIXME: Test blinded path!
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")
