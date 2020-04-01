@@ -2217,6 +2217,36 @@ def test_sendonionmessage(node_factory):
     assert l3.daemon.wait_for_log('Got onionmsg')
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendonionmessage")
+def test_sendonionmessage_reply(node_factory):
+    blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
+
+    plugin = os.path.join(os.path.dirname(__file__), "plugins", "onionmessage-reply.py")
+    l1, l2, l3 = node_factory.line_graph(3, opts={'plugin': plugin})
+
+    # Make reply path
+    output = subprocess.check_output(
+        [blindedpathtool, '--simple-output', 'create', l2.info['id'], l1.info['id']]
+    ).decode('ASCII').strip()
+
+    # First line is blinding, then <peerid> then <encblob>.
+    blinding, p1, p1enc, p2 = output.split('\n')
+    # First hop can't be blinded!
+    assert p1 == l2.info['id']
+
+    l1.rpc.call('sendonionmessage',
+                {'hops':
+                 [{'id': l2.info['id']},
+                  {'id': l3.info['id']}],
+                 'reply_path':
+                 {'blinding': blinding,
+                  'path': [{'id': p1, 'enctlv': p1enc}, {'id': p2}]}})
+
+    assert l3.daemon.wait_for_log('Got onionmsg reply_blinding reply_path')
+    assert l3.daemon.wait_for_log('Sent reply via')
+    assert l1.daemon.wait_for_log('Got onionmsg')
+
+
 @unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")
 def test_getsharedsecret(node_factory):
     """
