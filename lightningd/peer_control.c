@@ -996,9 +996,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	per_peer_state_set_fds(hook_payload->pps,
 			       peer_fd, gossip_fd, gossip_store_fd);
 
-	/* Complete any outstanding connect commands. */
-	connect_succeeded(ld, &id);
-
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);
@@ -1009,6 +1006,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	hook_payload->peer = peer;
 
 	peer_update_features(peer, features);
+
+	/* Complete any outstanding connect commands. */
+	connect_succeeded(ld, peer);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);

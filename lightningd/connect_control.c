@@ -68,10 +68,11 @@ static struct connect *find_connect(struct lightningd *ld,
 }
 
 static struct command_result *connect_cmd_succeed(struct command *cmd,
-						  const struct node_id *id)
+						  const struct peer *peer)
 {
 	struct json_stream *response = json_stream_success(cmd);
-	json_add_node_id(response, "id", id);
+	json_add_node_id(response, "id", &peer->id);
+	json_add_hex_talarr(response, "features", peer->features);
 	return command_success(cmd, response);
 }
 
@@ -139,7 +140,7 @@ static struct command_result *json_connect(struct command *cmd,
 
 		if (peer->uncommitted_channel
 		    || (channel && channel->connected)) {
-			return connect_cmd_succeed(cmd, &id);
+			return connect_cmd_succeed(cmd, peer);
 		}
 	}
 
@@ -256,14 +257,14 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 		delay_then_reconnect(channel, seconds_to_delay, addrhint);
 }
 
-void connect_succeeded(struct lightningd *ld, const struct node_id *id)
+void connect_succeeded(struct lightningd *ld, const struct peer *peer)
 {
 	struct connect *c;
 
 	/* We can have multiple connect commands: fail them all */
-	while ((c = find_connect(ld, id)) != NULL) {
+	while ((c = find_connect(ld, &peer->id)) != NULL) {
 		/* They delete themselves from list */
-		connect_cmd_succeed(c->cmd, id);
+		connect_cmd_succeed(c->cmd, peer);
 	}
 }
 
