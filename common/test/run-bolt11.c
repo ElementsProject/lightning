@@ -64,7 +64,7 @@ static void test_b11(const char *b11str,
 	char *reproduce;
 	struct bolt11_field *b11_extra, *expect_extra;
 
-	b11 = bolt11_decode(tmpctx, b11str, hashed_desc, &fail);
+	b11 = bolt11_decode(tmpctx, b11str, NULL, hashed_desc, &fail);
 	if (!b11)
 		errx(1, "%s:%u:%s", __FILE__, __LINE__, fail);
 
@@ -145,11 +145,11 @@ int main(void)
 	const char *badstr;
         struct bolt11_field *extra;
 	char *fail;
+	struct feature_set *fset;
 
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
-	features_core_init(NULL);
 
 	/* BOLT #11:
 	 *
@@ -268,7 +268,7 @@ int main(void)
 
 	for (size_t i = 0; i <= strlen(badstr); i++) {
 		if (bolt11_decode(tmpctx, tal_strndup(tmpctx, badstr, i),
-				  NULL, &fail))
+				  NULL, NULL, &fail))
 			abort();
 		assert(strstr(fail, "Bad bech32")
 		       || strstr(fail, "Invoices must start with ln"));
@@ -461,8 +461,22 @@ int main(void)
 	set_feature_bit(&b11->features, 100);
 	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q4psqqqqqqqqqqqqqqqpqsqq40wa3khl49yue3zsgm26jrepqr2eghqlx86rttutve3ugd05em86nsefzh4pfurpd9ek9w2vp95zxqnfe2u7ckudyahsa52q66tgzcp6t2dyk"));
-	assert(!bolt11_decode(tmpctx, badstr, NULL, &fail));
+	/* Empty set of allowed bits, ensures this fails! */
+	fset = tal(tmpctx, struct feature_set);
+	fset->bits[BOLT11_FEATURE] = tal_arr(fset, u8, 0);
+	assert(!bolt11_decode(tmpctx, badstr, fset, NULL, &fail));
 	assert(streq(fail, "9: unknown feature bit 100"));
+
+	/* We'd actually allow this if we either (1) don't check, or (2) accept that feature in
+	 * either compulsory or optional forms. */
+	assert(bolt11_decode(tmpctx, badstr, NULL, NULL, &fail));
+
+	set_feature_bit(&fset->bits[BOLT11_FEATURE], 100);
+	assert(bolt11_decode(tmpctx, badstr, fset, NULL,&fail));
+
+	clear_feature_bit(fset->bits[BOLT11_FEATURE], 100);
+	set_feature_bit(&fset->bits[BOLT11_FEATURE], 101);
+	assert(bolt11_decode(tmpctx, badstr, fset, NULL, &fail));
 
 	/* BOLT-1fbccd30bb503203e4a255de67f9adb504563425 #11:
 	 *
@@ -527,53 +541,52 @@ int main(void)
 	 * > ### Bech32 checksum is invalid.
 	 * > lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrnt
 	 */
-	assert(!bolt11_decode(tmpctx, "lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrnt", NULL, &fail));
+	assert(!bolt11_decode(tmpctx, "lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrnt", NULL, NULL, &fail));
 	assert(streq(fail, "Bad bech32 string"));
 
 	/* BOLT-4e228a7fb4ea78af914d1ce82a63cbce8026279e #11:
 	 * > ### Malformed bech32 string (no 1)
 	 * > pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrny
 	 */
-	assert(!bolt11_decode(tmpctx, "pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrny", NULL, &fail));
+	assert(!bolt11_decode(tmpctx, "pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrny", NULL, NULL, &fail));
 	assert(streq(fail, "Bad bech32 string"));
 
 	/* BOLT-4e228a7fb4ea78af914d1ce82a63cbce8026279e #11:
 	 * > ### Malformed bech32 string (mixed case)
 	 * > LNBC2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrny
 	 */
-	assert(!bolt11_decode(tmpctx, "LNBC2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrny", NULL, &fail));
+	assert(!bolt11_decode(tmpctx, "LNBC2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrny", NULL, NULL, &fail));
 	assert(streq(fail, "Bad bech32 string"));
 
 	/* BOLT-4e228a7fb4ea78af914d1ce82a63cbce8026279e #11:
 	 * > ### Signature is not recoverable.
 	 * > lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaxtrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspk28uwq
 	 */
-	assert(!bolt11_decode(tmpctx, "lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaxtrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspk28uwq", NULL, &fail));
+	assert(!bolt11_decode(tmpctx, "lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaxtrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspk28uwq", NULL, NULL, &fail));
 	assert(streq(fail, "signature recovery failed"));
 
 	/* BOLT-4e228a7fb4ea78af914d1ce82a63cbce8026279e #11:
 	 * > ### String is too short.
 	 * > lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6na6hlh
 	 */
-	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6na6hlh", NULL, &fail));
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6na6hlh", NULL, NULL, &fail));
 
 	/* BOLT-4e228a7fb4ea78af914d1ce82a63cbce8026279e #11:
 	 * > ### Invalid multiplier
 	 * > lnbc2500x1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpujr6jxr9gq9pv6g46y7d20jfkegkg4gljz2ea2a3m9lmvvr95tq2s0kvu70u3axgelz3kyvtp2ywwt0y8hkx2869zq5dll9nelr83zzqqpgl2zg
 	 */
-	assert(!bolt11_decode(tmpctx, "lnbc2500x1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpujr6jxr9gq9pv6g46y7d20jfkegkg4gljz2ea2a3m9lmvvr95tq2s0kvu70u3axgelz3kyvtp2ywwt0y8hkx2869zq5dll9nelr83zzqqpgl2zg", NULL, &fail));
+	assert(!bolt11_decode(tmpctx, "lnbc2500x1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpujr6jxr9gq9pv6g46y7d20jfkegkg4gljz2ea2a3m9lmvvr95tq2s0kvu70u3axgelz3kyvtp2ywwt0y8hkx2869zq5dll9nelr83zzqqpgl2zg", NULL, NULL, &fail));
 	assert(streq(fail, "Invalid amount postfix 'x'"));
 
 	/* BOLT- #11:
 	 * > ### Invalid sub-millisatoshi precision.
 	 * > lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu7hqtk93pkf7sw55rdv4k9z2vj050rxdr6za9ekfs3nlt5lr89jqpdmxsmlj9urqumg0h9wzpqecw7th56tdms40p2ny9q4ddvjsedzcplva53s
 	 */
-	assert(!bolt11_decode(tmpctx, "lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu7hqtk93pkf7sw55rdv4k9z2vj050rxdr6za9ekfs3nlt5lr89jqpdmxsmlj9urqumg0h9wzpqecw7th56tdms40p2ny9q4ddvjsedzcplva53s", NULL, &fail));
+	assert(!bolt11_decode(tmpctx, "lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu7hqtk93pkf7sw55rdv4k9z2vj050rxdr6za9ekfs3nlt5lr89jqpdmxsmlj9urqumg0h9wzpqecw7th56tdms40p2ny9q4ddvjsedzcplva53s", NULL, NULL, &fail));
 	assert(streq(fail, "Invalid sub-millisatoshi amount '2500000001p'"));
 
 	/* FIXME: Test the others! */
 	wally_cleanup(0);
 	tal_free(tmpctx);
-	features_cleanup();
 	return 0;
 }

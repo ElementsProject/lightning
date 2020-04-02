@@ -38,9 +38,6 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      struct timerel expire UNNEEDED,
 			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
 { fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
-/* Generated stub for notleak_ */
-void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)
-{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for query_channel_range */
 bool query_channel_range(struct daemon *daemon UNNEEDED,
 			 struct peer *peer UNNEEDED,

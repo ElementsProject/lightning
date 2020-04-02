@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 		errx(ERROR_USAGE, "Need argument\n%s",
 		     opt_usage(argv[0], NULL));
 
-	b11 = bolt11_decode(ctx, argv[2], description, &fail);
+	b11 = bolt11_decode(ctx, argv[2], NULL, description, &fail);
 	if (!b11)
 		errx(ERROR_BAD_DECODE, "%s", fail);
 

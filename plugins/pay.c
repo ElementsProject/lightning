@@ -1283,7 +1283,8 @@ static struct command_result *json_pay(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	b11 = bolt11_decode(cmd, b11str, NULL, &fail);
+	/* FIXME: We need to know our features! */
+	b11 = bolt11_decode(cmd, b11str, NULL, NULL, &fail);
 	if (!b11) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11: %s", fail);

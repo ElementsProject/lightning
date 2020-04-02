@@ -120,7 +120,7 @@ struct lightningd {
 	struct node_id id;
 
 	/* Feature set we offer. */
-	const struct feature_set *feature_set;
+	struct feature_set *feature_set;
 
 	/* My name is... my favorite color is... */
 	u8 *alias; /* At least 32 bytes (zero-filled) */
