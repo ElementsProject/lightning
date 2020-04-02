@@ -2628,7 +2628,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			 * fee output. */
 			out = new_tracked_output(tx->chainparams,
 						 &outs, txid, tx_blockheight,
-						 OUR_UNILATERAL, i,
+						 THEIR_REVOKED_UNILATERAL, i,
 						 amt,
 						 ELEMENTS_FEE,
 						 NULL, NULL, NULL);
@@ -2879,7 +2879,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			 * fee output. */
 			out = new_tracked_output(tx->chainparams,
 						 &outs, txid, tx_blockheight,
-						 OUR_UNILATERAL, i,
+						 THEIR_UNILATERAL, i,
 						 amt,
 						 ELEMENTS_FEE,
 						 NULL, NULL, NULL);
