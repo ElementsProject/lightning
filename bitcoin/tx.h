@@ -172,4 +172,9 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx);
  */
 void bitcoin_tx_finalize(struct bitcoin_tx *tx);
 
+/**
+ * Returns true if the given outnum is a fee output
+ */
+bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

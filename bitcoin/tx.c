@@ -63,7 +63,7 @@ int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
 	return tx->wtx->num_outputs;
 }
 
-static bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum)
+bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum)
 {
 	assert(outnum < tx->wtx->num_outputs);
 	return chainparams->is_elements &&
