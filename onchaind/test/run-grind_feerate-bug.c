@@ -97,6 +97,18 @@ void memleak_remove_referenced(struct htable *memtable UNNEEDED, const void *roo
 void memleak_scan_region(struct htable *memtable UNNEEDED,
 			 const void *p UNNEEDED, size_t bytelen UNNEEDED)
 { fprintf(stderr, "memleak_scan_region called!\n"); abort(); }
+/* Generated stub for new_chain_coin_mvt_sat */
+struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx UNNEEDED,
+					      const char *account_name UNNEEDED,
+					      const struct bitcoin_txid *tx_txid UNNEEDED,
+					      const struct bitcoin_txid *output_txid UNNEEDED,
+					      u32 vout UNNEEDED,
+					      struct sha256 *payment_hash UNNEEDED,
+					      enum mvt_tag tag UNNEEDED,
+					      struct amount_sat amt_sat UNNEEDED,
+					      bool is_credit UNNEEDED,
+					      enum mvt_unit_type unit UNNEEDED)
+{ fprintf(stderr, "new_chain_coin_mvt_sat called!\n"); abort(); }
 /* Generated stub for notleak_ */
 void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
@@ -168,6 +180,9 @@ u8 *towire_onchain_init_reply(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_onchain_missing_htlc_output */
 u8 *towire_onchain_missing_htlc_output(const tal_t *ctx UNNEEDED, const struct htlc_stub *htlc UNNEEDED)
 { fprintf(stderr, "towire_onchain_missing_htlc_output called!\n"); abort(); }
+/* Generated stub for towire_onchain_notify_coin_mvt */
+u8 *towire_onchain_notify_coin_mvt(const tal_t *ctx UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
+{ fprintf(stderr, "towire_onchain_notify_coin_mvt called!\n"); abort(); }
 /* Generated stub for towire_onchain_unwatch_tx */
 u8 *towire_onchain_unwatch_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "towire_onchain_unwatch_tx called!\n"); abort(); }

@@ -50,6 +50,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/coin_mvt.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
