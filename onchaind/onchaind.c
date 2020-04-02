@@ -808,8 +808,17 @@ static void proposal_meets_depth(struct tracked_output *out)
 		onchain_txtype_to_wallet_txtype(out->proposal->tx_type))));
 
 	/* Don't wait for this if we're ignoring the tiny payment. */
-	if (out->proposal->tx_type == IGNORING_TINY_PAYMENT)
+	if (out->proposal->tx_type == IGNORING_TINY_PAYMENT) {
+		struct bitcoin_txid txid;
+		struct amount_sat fees;
+
 		ignore_output(out);
+		/* log the coin movements here, since we're not
+		 * going to wait til we hear about it */
+		bitcoin_txid(out->proposal->tx, &txid);
+		fees = record_chain_fees_tx(&txid, out->proposal->tx);
+		record_channel_withdrawal_minus_fees(&txid, out, fees);
+	}
 
 	/* Otherwise we will get a callback when it's in a block. */
 }
@@ -1606,6 +1615,12 @@ static void handle_preimage(const struct chainparams *chainparams,
 				      outs[i]->wscript, &tx_type,
 				      htlc_feerate);
 			propose_resolution(outs[i], tx, 0, tx_type);
+			if (tx_type == IGNORING_TINY_PAYMENT) {
+				struct bitcoin_txid txid;
+				bitcoin_txid(tx, &txid);
+				record_htlc_fulfilled(&txid, outs[i], true);
+			}
+
 		}
 	}
 }
