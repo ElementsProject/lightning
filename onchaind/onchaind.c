@@ -1199,12 +1199,26 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 			      tx_type_name(out->tx_type),
 			      output_type_name(out->output_type));
 
-	if (tal_count(witness_preimage) != sizeof(preimage))
+	if (tal_count(witness_preimage) != sizeof(preimage)) {
+		/* It's possible something terrible happened and we broadcast
+		 * an old commitment state, which they're now cleaning up.
+		 *
+		 * We stumble along.
+		 */
+		if (out->tx_type == OUR_UNILATERAL
+				&& tal_count(witness_preimage) == PUBKEY_CMPR_LEN) {
+			status_unusual("Our cheat attempt failed, they're "
+				       "taking our htlc out (%s)",
+				       type_to_string(tmpctx, struct amount_sat,
+						      &out->sat));
+			return;
+		}
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s/%s spent with bad witness length %zu",
 			      tx_type_name(out->tx_type),
 			      output_type_name(out->output_type),
 			      tal_count(witness_preimage));
+	}
 	memcpy(&preimage, witness_preimage, sizeof(preimage));
 	sha256(&sha, &preimage, sizeof(preimage));
 	ripemd160(&ripemd, &sha, sizeof(sha));
@@ -1455,6 +1469,8 @@ static void output_spent(const struct chainparams *chainparams,
 				 *    output is considered *irrevocably resolved*
 				 */
 				ignore_output(out);
+
+				record_htlc_fulfilled(&txid, out, false);
 				onchain_annotate_txout(
 				    &spendertxid, out->outnum,
 				    TX_CHANNEL_HTLC_SUCCESS | TX_THEIRS);
