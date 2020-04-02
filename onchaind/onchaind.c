@@ -157,6 +157,18 @@ static void record_htlc_fulfilled(const struct bitcoin_txid *txid,
 	send_coin_mvt(take(mvt));
 }
 
+static void update_ledger_chain_fees_msat(const struct bitcoin_txid *txid,
+					  struct amount_msat fees)
+{
+	struct chain_coin_mvt *mvt;
+	mvt = new_chain_coin_mvt(NULL, NULL,
+				 txid, NULL, 0, NULL,
+				 CHAIN_FEES, fees,
+				 false, BTC);
+
+	send_coin_mvt(take(mvt));
+}
+
 static void update_ledger_chain_fees(const struct bitcoin_txid *txid,
 				     struct amount_sat fees)
 {
@@ -186,6 +198,49 @@ static struct amount_sat record_chain_fees_tx(const struct bitcoin_txid *txid,
 		     type_to_string(tmpctx, struct bitcoin_txid, txid));
 	update_ledger_chain_fees(txid, fees);
 	return fees;
+}
+
+static void record_mutual_closure(const struct bitcoin_txid *txid,
+				  struct amount_sat our_out,
+				  int output_num)
+{
+	struct amount_msat chain_fees, output_msat;
+	struct chain_coin_mvt *mvt;
+
+	/* First figure out 'fees' we paid on this will include
+	 *   - 'residue' that can't fit onchain (< 1 sat)
+	 *   - trimmed output, if our balance is < dust_limit
+	 *   - fees paid for getting this tx mined
+	 */
+	if (!amount_sat_to_msat(&output_msat, our_out))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to convert %s to msat",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &our_out));
+
+	if (!amount_msat_sub(&chain_fees, our_msat, output_msat))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to subtract %s from %s",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &output_msat),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &our_msat));
+
+	if (!amount_msat_eq(AMOUNT_MSAT(0), chain_fees))
+		update_ledger_chain_fees_msat(txid, chain_fees);
+
+	/* If we have no output, we exit early */
+	if (amount_msat_eq(AMOUNT_MSAT(0), output_msat))
+		return;
+
+	assert(output_num > -1);
+	/* Otherwise, we record the channel withdrawal */
+	mvt = new_chain_coin_mvt(NULL, NULL, txid,
+				 txid, output_num, NULL,
+				 WITHDRAWAL, output_msat,
+				 false, BTC);
+
+	send_coin_mvt(take(mvt));
 }
 
 static void record_channel_withdrawal_minus_fees(const struct bitcoin_txid *tx_txid,
@@ -870,10 +925,12 @@ static u64 unmask_commit_number(const struct bitcoin_tx *tx,
 
 static bool is_mutual_close(const struct bitcoin_tx *tx,
 			    const u8 *local_scriptpubkey,
-			    const u8 *remote_scriptpubkey)
+			    const u8 *remote_scriptpubkey,
+			    int *local_outnum)
 {
 	size_t i;
 	bool local_matched = false, remote_matched = false;
+	*local_outnum = -1;
 
 	for (i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, i);
@@ -883,9 +940,10 @@ static bool is_mutual_close(const struct bitcoin_tx *tx,
 			/* This is a fee output, ignore please */
 			continue;
 		} else if (scripteq(script, local_scriptpubkey)
-		    && !local_matched)
+		    && !local_matched) {
+			*local_outnum = i;
 			local_matched = true;
-		else if (scripteq(script, remote_scriptpubkey)
+		} else if (scripteq(script, remote_scriptpubkey)
 			 && !remote_matched)
 			remote_matched = true;
 		else
@@ -1586,8 +1644,11 @@ static void init_reply(const char *what)
 
 static void handle_mutual_close(const struct chainparams *chainparams,
 				const struct bitcoin_txid *txid,
-				struct tracked_output **outs)
+				struct tracked_output **outs,
+				const struct bitcoin_tx *tx,
+				int our_outnum)
 {
+	struct amount_sat our_out;
 	init_reply("Tracking mutual close transaction");
 
 	/* Annotate the first input as close. We can currently only have a
@@ -1602,6 +1663,17 @@ static void handle_mutual_close(const struct chainparams *chainparams,
 	 * already agreed to the output, which is sent to its specified `scriptpubkey`
 	 */
 	resolved_by_other(outs[0], txid, MUTUAL_CLOSE);
+
+	/* It's possible there's no to_us output */
+	if (our_outnum > -1) {
+		struct amount_asset asset;
+		asset = bitcoin_tx_output_get_amount(tx, our_outnum);
+		assert(amount_asset_is_main(&asset));
+		our_out = amount_asset_to_sat(&asset);
+	} else
+		our_out = AMOUNT_SAT(0);
+
+	record_mutual_closure(txid, our_out, our_outnum);
 
 	wait_for_resolved(chainparams, outs);
 }
@@ -2808,6 +2880,7 @@ int main(int argc, char *argv[])
 	bool *tell_if_missing, *tell_immediately;
 	u32 tx_blockheight;
 	struct pubkey *possible_remote_per_commitment_point;
+	int mutual_outnum;
 
 	subdaemon_setup(argc, argv);
 
@@ -2899,8 +2972,8 @@ int main(int argc, char *argv[])
 	 * without any pending payments) and publish it on the blockchain (see
 	 * [BOLT #2: Channel Close](02-peer-protocol.md#channel-close)).
 	 */
-	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE]))
-		handle_mutual_close(tx->chainparams, &txid, outs);
+	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE], &mutual_outnum))
+		handle_mutual_close(tx->chainparams, &txid, outs, tx, mutual_outnum);
 	else {
 		/* BOLT #5:
 		 *

@@ -97,6 +97,18 @@ void memleak_remove_referenced(struct htable *memtable UNNEEDED, const void *roo
 void memleak_scan_region(struct htable *memtable UNNEEDED,
 			 const void *p UNNEEDED, size_t bytelen UNNEEDED)
 { fprintf(stderr, "memleak_scan_region called!\n"); abort(); }
+/* Generated stub for new_chain_coin_mvt */
+struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx UNNEEDED,
+					  const char *account_name UNNEEDED,
+					  const struct bitcoin_txid *tx_txid UNNEEDED,
+					  const struct bitcoin_txid *output_txid UNNEEDED,
+					  u32 vout UNNEEDED,
+					  struct sha256 *payment_hash UNNEEDED,
+					  enum mvt_tag tag UNNEEDED,
+					  struct amount_msat amount UNNEEDED,
+					  bool is_credit UNNEEDED,
+					  enum mvt_unit_type unit UNNEEDED)
+{ fprintf(stderr, "new_chain_coin_mvt called!\n"); abort(); }
 /* Generated stub for new_chain_coin_mvt_sat */
 struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx UNNEEDED,
 					      const char *account_name UNNEEDED,
