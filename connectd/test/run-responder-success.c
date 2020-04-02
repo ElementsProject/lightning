@@ -217,7 +217,7 @@ static struct io_plan *test_read(struct io_conn *conn,
 static struct io_plan *success(struct io_conn *conn UNUSED,
 			       const struct pubkey *them UNUSED,
 			       const struct wireaddr_internal *addr UNUSED,
-			       const struct crypto_state *cs,
+			       struct crypto_state *cs,
 			       void *unused UNUSED)
 {
 	assert(secret_eq_str(&cs->sk, expect_sk));

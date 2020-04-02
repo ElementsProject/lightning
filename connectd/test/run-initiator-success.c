@@ -218,7 +218,7 @@ static struct io_plan *test_read(struct io_conn *conn,
 static struct io_plan *success(struct io_conn *conn UNUSED,
 			       const struct pubkey *them,
 			       const struct wireaddr_internal *addr UNUSED,
-			       const struct crypto_state *cs,
+			       struct crypto_state *cs,
 			       void *unused UNUSED)
 {
 	assert(pubkey_eq(them, &rs_pub));
