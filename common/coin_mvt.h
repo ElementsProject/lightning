@@ -165,4 +165,7 @@ const char *mvt_type_str(enum mvt_type type);
 const char *mvt_tag_str(enum mvt_tag tag);
 const char *mvt_unit_str(enum mvt_unit_type unit);
 
+void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt);
+void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt);
+
 #endif /* LIGHTNING_COMMON_COIN_MVT_H */

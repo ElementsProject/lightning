@@ -180,3 +180,61 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 
 	return mvt;
 }
+
+void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
+{
+	if (mvt->account_name) {
+		towire_u16(pptr, strlen(mvt->account_name));
+		towire_u8_array(pptr, (u8 *)mvt->account_name, strlen(mvt->account_name));
+	} else
+		towire_u16(pptr, 0);
+	towire_bitcoin_txid(pptr, cast_const(struct bitcoin_txid *, mvt->tx_txid));
+
+	if (mvt->output_txid) {
+		towire_bool(pptr, true);
+		towire_bitcoin_txid(pptr, cast_const(struct bitcoin_txid *, mvt->output_txid));
+	} else
+		towire_bool(pptr, false);
+	towire_u32(pptr, mvt->vout);
+	if (mvt->payment_hash) {
+		towire_bool(pptr, true);
+		towire_sha256(pptr, mvt->payment_hash);
+	} else
+		towire_bool(pptr, false);
+	towire_u8(pptr, mvt->tag);
+	towire_amount_msat(pptr, mvt->credit);
+	towire_amount_msat(pptr, mvt->debit);
+	towire_u8(pptr, mvt->unit);
+}
+
+void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt)
+{
+	u16 account_name_len;
+	account_name_len = fromwire_u16(cursor, max);
+
+	if (account_name_len) {
+		mvt->account_name = tal_arr(mvt, char, account_name_len);
+		fromwire_u8_array(cursor, max, (u8 *)mvt->account_name, account_name_len);
+	} else
+		mvt->account_name = NULL;
+
+	mvt->tx_txid = tal(mvt, struct bitcoin_txid);
+	fromwire_bitcoin_txid(cursor, max,
+			      cast_const(struct bitcoin_txid *, mvt->tx_txid));
+	if (fromwire_bool(cursor, max)) {
+		mvt->output_txid = tal(mvt, struct bitcoin_txid);
+		fromwire_bitcoin_txid(cursor, max,
+				      cast_const(struct bitcoin_txid *, mvt->output_txid));
+	} else
+		mvt->output_txid = NULL;
+	mvt->vout = fromwire_u32(cursor, max);
+	if (fromwire_bool(cursor, max)) {
+		mvt->payment_hash = tal(mvt, struct sha256);
+		fromwire_sha256(cursor, max, mvt->payment_hash);
+	} else
+		mvt->payment_hash = NULL;
+	mvt->tag = fromwire_u8(cursor, max);
+	mvt->credit = fromwire_amount_msat(cursor, max);
+	mvt->debit = fromwire_amount_msat(cursor, max);
+	mvt->unit = fromwire_u8(cursor, max);
+}
