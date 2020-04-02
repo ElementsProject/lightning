@@ -381,6 +381,16 @@ bool amount_msat_less_eq_sat(struct amount_msat msat, struct amount_sat sat)
 	return msat.millisatoshis <= msat_from_sat.millisatoshis;
 }
 
+bool amount_msat_eq_sat(struct amount_msat msat, struct amount_sat sat)
+{
+	struct amount_msat msat_from_sat;
+
+	if (!amount_sat_to_msat(&msat_from_sat, sat))
+		return false;
+
+	return msat.millisatoshis == msat_from_sat.millisatoshis;
+}
+
 bool amount_msat_to_u32(struct amount_msat msat, u32 *millisatoshis)
 {
 	if (amount_msat_greater_eq(msat, AMOUNT_MSAT(0x100000000)))

@@ -105,6 +105,8 @@ bool amount_msat_greater_eq_sat(struct amount_msat msat, struct amount_sat sat);
 bool amount_msat_less_sat(struct amount_msat msat, struct amount_sat sat);
 /* Is msat <= sat? */
 bool amount_msat_less_eq_sat(struct amount_msat msat, struct amount_sat sat);
+/* Is msat == sat? */
+bool amount_msat_eq_sat(struct amount_msat msat, struct amount_sat sat);
 
 /* Check whether this asset is actually the main / fee-paying asset of the
  * current chain. */
