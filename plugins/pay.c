@@ -1104,6 +1104,7 @@ static struct command_result *shadow_route(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "listchannels",
 				    add_shadow_route, forward_error, pc);
+	json_add_string(req->js, "source", pc->shadow_dest);
 	return send_outreq(cmd->plugin, req);
 }
 
