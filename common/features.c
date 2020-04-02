@@ -52,6 +52,10 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_LARGE_CHANNELS,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL } },
 };
 
 static enum feature_copy_style feature_copy_style(u32 f, enum feature_place p)

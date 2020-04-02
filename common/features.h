@@ -92,8 +92,10 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
  *
  * | 14/15 | `payment_secret` |... IN9 ...
  * | 16/17 | `basic_mpp`      |... IN9 ...
+ * | 18/19 | `option_support_large_channel` |... INC+ ...
  */
 #define OPT_PAYMENT_SECRET			14
 #define OPT_BASIC_MPP				16
+#define OPT_LARGE_CHANNELS			18
 
 #endif /* LIGHTNING_COMMON_FEATURES_H */
