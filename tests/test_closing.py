@@ -573,7 +573,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
         # The first needle will match, but since we don't have a direct output
         # for l2 it won't result in an output, hence the comment:
         # r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_REVOKED_UNILATERAL .([a-f0-9]{64}).',
-        r'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
+        r'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
         r'Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
     ]
     matches = list(map(l2.daemon.is_in_log, needles))
@@ -668,7 +668,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     l2.daemon.logsearch_start = needle
     needles = [
         r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_REVOKED_UNILATERAL .([a-f0-9]{64}).',
-        r'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
+        r'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
         r'Resolved THEIR_REVOKED_UNILATERAL/OUR_HTLC by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
     ]
     matches = list(map(l2.daemon.is_in_log, needles))
