@@ -10,6 +10,8 @@ msgdata,onchain_init,shachain,shachain,
 # transaction that we need to parse correctly.
 msgdata,onchain_init,chainparams,chainparams,
 msgdata,onchain_init,funding_amount_satoshi,amount_sat,
+# Our current balance (of funding amount, not counting any pending htlcs)
+msgdata,onchain_init,our_msat,amount_msat,
 # Remote per commit point for committed tx.
 msgdata,onchain_init,old_remote_per_commitment_point,pubkey,
 # Remote per commit point for current tx (needed if we haven't got revoke_and_ack yet).
