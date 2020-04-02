@@ -177,4 +177,18 @@ void bitcoin_tx_finalize(struct bitcoin_tx *tx);
  */
 bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum);
 
+/**
+ * Calculate the fees for this transaction
+ */
+struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx);
+
+/*
+ * Calculate the fees for this transaction, given a pre-computed input balance.
+ *
+ * This is needed for cases where the input_amounts aren't properly initialized,
+ * typically due to being passed across the wire.
+ */
+struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
+						  struct amount_sat input_val);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */
