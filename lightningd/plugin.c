@@ -1169,6 +1169,15 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
 	json_add_bool(req->stream, "startup", plugin->plugins->startup);
 	json_add_string(req->stream, "network", chainparams->network_name);
+	json_object_start(req->stream, "feature_set");
+	for (enum feature_place fp = 0; fp < NUM_FEATURE_PLACE; fp++) {
+		if (plugin_feature_place_names[fp]) {
+			json_add_hex_talarr(req->stream,
+					    plugin_feature_place_names[fp],
+					    ld->feature_set->bits[fp]);
+		}
+	}
+	json_object_end(req->stream);
 	json_object_end(req->stream);
 }
 
