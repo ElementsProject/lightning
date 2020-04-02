@@ -5,7 +5,8 @@ from hashlib import sha256
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
 from utils import (
-    DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK, expected_features
+    DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
+    DEPRECATED_APIS, expected_features
 )
 
 import json
@@ -46,6 +47,7 @@ def test_option_passthrough(node_factory, directory):
     n.stop()
 
 
+@unittest.skipIf(DEPRECATED_APIS, "We test the new API.")
 def test_option_types(node_factory):
     """Ensure that desired types of options are
        respected in output """
@@ -914,7 +916,9 @@ def test_libplugin(node_factory):
     assert l1.rpc.call("testrpc") == l1.rpc.getinfo()
 
 
-@unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
+@unittest.skipIf(
+    not DEVELOPER or DEPRECATED_APIS, "needs LIGHTNINGD_DEV_LOG_IO and new API"
+)
 def test_plugin_feature_announce(node_factory):
     """Check that features registered by plugins show up in messages.
 
