@@ -6,8 +6,8 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError
 from threading import Event
 from pyln.testing.utils import (
-    DEVELOPER, TIMEOUT, VALGRIND, sync_blockheight, only_one, wait_for,
-    TailableProc, env
+    DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
+    wait_for, TailableProc, env
 )
 from ephemeral_port_reserve import reserve
 from utils import EXPERIMENTAL_FEATURES
@@ -743,6 +743,7 @@ def test_address(node_factory):
     l2.rpc.connect(l1.info['id'], l1.daemon.opts['addr'])
 
 
+@unittest.skipIf(DEPRECATED_APIS, "Tests the --allow-deprecated-apis config")
 def test_listconfigs(node_factory, bitcoind, chainparams):
     # Make extremely long entry, check it works
     l1 = node_factory.get_node(options={'log-prefix': 'lightning1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'})
@@ -1352,7 +1353,10 @@ def test_ipv4_and_ipv6(node_factory):
         assert int(bind[0]['port']) == port
 
 
-@unittest.skipIf(not DEVELOPER, "Without DEVELOPER=1 we snap to FEERATE_FLOOR on testnets")
+@unittest.skipIf(
+    not DEVELOPER or DEPRECATED_APIS, "Without DEVELOPER=1 we snap to "
+    "FEERATE_FLOOR on testnets, and we test the new API."
+)
 def test_feerates(node_factory):
     l1 = node_factory.get_node(options={'log-level': 'io'}, start=False)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
