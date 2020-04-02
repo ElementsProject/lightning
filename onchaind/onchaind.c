@@ -200,6 +200,17 @@ static struct amount_sat record_chain_fees_tx(const struct bitcoin_txid *txid,
 	return fees;
 }
 
+static void add_amt(struct amount_sat *sum, struct amount_sat amt)
+{
+	if (!amount_sat_add(sum, *sum, amt))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to add %s to %s",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &amt),
+			      type_to_string(tmpctx, struct amount_sat,
+					     sum));
+}
+
 static void record_mutual_closure(const struct bitcoin_txid *txid,
 				  struct amount_sat our_out,
 				  int output_num)
@@ -241,6 +252,35 @@ static void record_mutual_closure(const struct bitcoin_txid *txid,
 				 false, BTC);
 
 	send_coin_mvt(take(mvt));
+}
+
+static void record_chain_fees_unilateral(const struct bitcoin_txid *txid,
+					 struct amount_sat funding,
+					 struct amount_sat their_outs,
+					 struct amount_sat our_outs)
+{
+	struct amount_msat trimmed;
+	status_debug("chain_movements...recording chain fees for unilateral."
+		     " our msat balance %s, funding %s,"
+		     " their_outs %s, our outs %s",
+		     type_to_string(tmpctx, struct amount_msat, &our_msat),
+		     type_to_string(tmpctx, struct amount_sat, &funding),
+		     type_to_string(tmpctx, struct amount_sat, &their_outs),
+		     type_to_string(tmpctx, struct amount_sat, &our_outs));
+
+	/* we need to figure out what we paid in fees, total.
+	 * this encompasses the actual chain fees + any trimmed outputs */
+	if (!amount_msat_sub_sat(&trimmed, our_msat, our_outs))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to subtract %s from %s",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &our_msat),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &our_outs));
+
+	status_debug("logging 'chain fees' for unilateral (trimmed) %s",
+		     type_to_string(tmpctx, struct amount_msat, &trimmed));
+	update_ledger_chain_fees_msat(txid, trimmed);
 }
 
 static void record_coin_loss(const struct bitcoin_txid *txid,
@@ -1986,6 +2026,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	struct pubkey local_per_commitment_point;
 	struct keyset *ks;
 	size_t i;
+	struct amount_sat their_outs = AMOUNT_SAT(0), our_outs = AMOUNT_SAT(0);
 
 	init_reply("Tracking our own unilateral close");
 	onchain_annotate_txin(txid, 0, TX_CHANNEL_UNILATERAL);
@@ -2128,6 +2169,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 					   tx_type);
 
 			script[LOCAL] = NULL;
+			add_amt(&our_outs, amt);
 			continue;
 		}
 		if (script[REMOTE]
@@ -2147,6 +2189,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 						 NULL, NULL, NULL);
 			ignore_output(out);
 			script[REMOTE] = NULL;
+			add_amt(&their_outs, amt);
 			continue;
 		}
 
@@ -2179,6 +2222,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 								out, matches,
 								htlcs,
 								htlc_scripts);
+			add_amt(&our_outs, amt);
 		} else {
 			out = new_tracked_output(tx->chainparams,
 						 &outs, txid,
@@ -2197,6 +2241,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			/* Tells us which htlc to use */
 			which_htlc = resolve_their_htlc(out, matches, htlcs,
 							htlc_scripts);
+			add_amt(&their_outs, amt);
 		}
 		out->htlc = htlcs[which_htlc];
 		out->wscript = tal_steal(out, htlc_scripts[which_htlc]);
@@ -2210,6 +2255,9 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 	note_missing_htlcs(htlc_scripts, htlcs,
 			   tell_if_missing, tell_immediately);
+
+	record_chain_fees_unilateral(txid, outs[0]->sat,
+				     their_outs, our_outs);
 	wait_for_resolved(tx->chainparams, outs);
 }
 
@@ -2554,6 +2602,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	u8 *remote_wscript, *script[NUM_SIDES];
 	struct keyset *ks;
 	size_t i;
+	struct amount_sat their_outs = AMOUNT_SAT(0), our_outs = AMOUNT_SAT(0);
 
 	init_reply("Tracking their unilateral close");
 	onchain_annotate_txin(txid, 0, TX_CHANNEL_UNILATERAL | TX_THEIRS);
@@ -2693,6 +2742,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						 i, amt,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
+			record_channel_withdrawal(txid, out);
 
 			tell_wallet_to_remote(tx, i, txid,
 					      tx_blockheight,
@@ -2700,6 +2750,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 					      remote_per_commitment_point,
 					      option_static_remotekey);
 			script[LOCAL] = NULL;
+			add_amt(&our_outs, amt);
 			continue;
 		}
 		if (script[REMOTE]
@@ -2719,6 +2770,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						 DELAYED_OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
+			add_amt(&their_outs, amt);
 			continue;
 		}
 
@@ -2747,6 +2799,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 								  matches,
 								  htlcs,
 								  htlc_scripts);
+			add_amt(&our_outs, amt);
 		} else {
 			out = new_tracked_output(tx->chainparams,
 						 &outs, txid,
@@ -2764,6 +2817,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			 */
 			which_htlc = resolve_their_htlc(out, matches, htlcs,
 							htlc_scripts);
+			add_amt(&their_outs, amt);
 		}
 		out->htlc = htlcs[which_htlc];
 		out->wscript = tal_steal(out, htlc_scripts[which_htlc]);
@@ -2772,6 +2826,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 
 	note_missing_htlcs(htlc_scripts, htlcs,
 			   tell_if_missing, tell_immediately);
+	record_chain_fees_unilateral(txid, outs[0]->sat,
+				     their_outs, our_outs);
 	wait_for_resolved(tx->chainparams, outs);
 }
 
