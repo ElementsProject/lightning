@@ -117,6 +117,9 @@ struct tracked_output {
 	struct resolution *resolved;
 
 	const struct chainparams *chainparams;
+
+	/* stashed so we can pass it along to the coin ledger */
+	struct sha256 *payment_hash;
 };
 
 /* We vary feerate until signature they offered matches. */
@@ -928,6 +931,10 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 			      type_to_string(tmpctx, struct ripemd160,
 					     &out->htlc.ripemd));
 
+	/* we stash the payment_hash into the tracking_output so we
+	 * can pass it along, if needbe, to the coin movement tracker */
+	out->payment_hash = tal_dup(out, struct sha256, &sha);
+
 	/* Tell master we found a preimage. */
 	status_debug("%s/%s gave us preimage %s",
 		     tx_type_name(out->tx_type),
@@ -1271,6 +1278,9 @@ static void handle_preimage(const struct chainparams *chainparams,
 				     tx_type_name(outs[i]->resolved->tx_type));
 			return;
 		}
+
+		/* stash the payment_hash so we can track this coin movement */
+		outs[i]->payment_hash = tal_dup(outs[i], struct sha256, &sha);
 
 		/* Discard any previous resolution.  Could be a timeout,
 		 * could be due to multiple identical rhashes in tx. */
