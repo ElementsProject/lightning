@@ -413,21 +413,39 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr,
-			       const struct crypto_state *cs,
+			       struct crypto_state *cs,
 			       const u8 *features TAKES)
 {
 	u8 *msg;
 	struct per_peer_state *pps;
+	int unsup;
 
 	if (node_set_get(&daemon->peers, id))
 		return peer_reconnected(conn, daemon, id, addr, cs, features);
 
-	/* We've successfully connected. */
-	connected_to_peer(daemon, conn, id);
-
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
 	if (taken(features))
 		tal_steal(tmpctx, features);
+
+	/* BOLT #1:
+	 *
+	 * The receiving node:
+	 * ...
+	 *  - upon receiving unknown _odd_ feature bits that are non-zero:
+	 *    - MUST ignore the bit.
+	 *  - upon receiving unknown _even_ feature bits that are non-zero:
+	 *    - MUST fail the connection.
+	 */
+	unsup = features_unsupported(features);
+	if (unsup != -1) {
+		msg = towire_errorfmt(NULL, NULL, "Unsupported feature %u",
+				      unsup);
+		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
+		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
+	}
+
+	/* We've successfully connected. */
+	connected_to_peer(daemon, conn, id);
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
 	pps = new_per_peer_state(tmpctx, cs);
@@ -466,7 +484,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 static struct io_plan *handshake_in_success(struct io_conn *conn,
 					    const struct pubkey *id_key,
 					    const struct wireaddr_internal *addr,
-					    const struct crypto_state *cs,
+					    struct crypto_state *cs,
 					    struct daemon *daemon)
 {
 	struct node_id id;
@@ -524,7 +542,7 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *key,
 					     const struct wireaddr_internal *addr,
-					     const struct crypto_state *cs,
+					     struct crypto_state *cs,
 					     struct connecting *connect)
 {
 	struct node_id id;

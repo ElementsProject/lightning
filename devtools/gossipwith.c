@@ -142,7 +142,7 @@ static struct io_plan *simple_read(struct io_conn *conn,
 static struct io_plan *handshake_success(struct io_conn *conn,
 					 const struct pubkey *them,
 					 const struct wireaddr_internal *addr,
-					 const struct crypto_state *orig_cs,
+					 struct crypto_state *orig_cs,
 					 char **args)
 {
 	u8 *msg;
