@@ -5,6 +5,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
+#include <common/features.h>
 #include <common/json_stream.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -82,6 +83,9 @@ struct plugin {
 	/* Timers */
 	struct timers timers;
 	size_t in_timer;
+
+	/* Feature set for lightningd */
+	struct feature_set *fset;
 };
 
 
@@ -146,6 +150,11 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	json_object_start(out->js, "params");
 
 	return out;
+}
+
+const struct feature_set *plugin_feature_set(const struct plugin *p)
+{
+	return p->fset;
 }
 
 static void jsonrpc_finish_and_send(struct plugin *p, struct json_stream *js)
@@ -710,11 +719,37 @@ static struct io_plan *rpc_conn_init(struct io_conn *conn,
 			 rpc_conn_write_request(conn, plugin));
 }
 
+static struct feature_set *json_to_feature_set(struct plugin *plugin,
+					       const char *buf,
+					       const jsmntok_t *features)
+{
+	struct feature_set *fset = talz(plugin, struct feature_set);
+	const jsmntok_t *t;
+	size_t i;
+
+	json_for_each_obj(i, t, features) {
+		enum feature_place p;
+		if (json_tok_streq(buf, t, "init"))
+			p = INIT_FEATURE;
+		else if (json_tok_streq(buf, t, "node"))
+			p = NODE_ANNOUNCE_FEATURE;
+		else if (json_tok_streq(buf, t, "channel"))
+			p = CHANNEL_FEATURE;
+		else if (json_tok_streq(buf, t, "invoice"))
+			p = BOLT11_FEATURE;
+		else
+			continue;
+		fset->bits[p] = json_tok_bin_from_hex(fset, buf, t + 1);
+	}
+	return fset;
+}
+
 static struct command_result *handle_init(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
 {
-	const jsmntok_t *configtok, *rpctok, *dirtok, *opttok, *nettok, *t;
+	const jsmntok_t *configtok, *rpctok, *dirtok, *opttok, *nettok, *fsettok,
+		*t;
 	struct sockaddr_un addr;
 	size_t i;
 	char *dir, *network;
@@ -733,6 +768,9 @@ static struct command_result *handle_init(struct command *cmd,
 	nettok = json_delve(buf, configtok, ".network");
 	network = json_strdup(tmpctx, buf, nettok);
 	chainparams = chainparams_for_network(network);
+
+	fsettok = json_delve(buf, configtok, ".feature_set");
+	p->fset = json_to_feature_set(p, buf, fsettok);
 
 	rpctok = json_delve(buf, configtok, ".rpc-file");
 	p->rpc_conn->fd = socket(AF_UNIX, SOCK_STREAM, 0);
