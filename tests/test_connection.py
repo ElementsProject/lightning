@@ -6,7 +6,8 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT,
-    SLOW_MACHINE, expected_peer_features, expected_node_features
+    SLOW_MACHINE, expected_peer_features, expected_node_features,
+    check_coin_moves, first_channel_id, account_balance
 )
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
@@ -821,7 +822,10 @@ def test_funding_toolarge(node_factory, bitcoind):
 
 def test_funding_push(node_factory, bitcoind):
     """ Try to push peer some sats """
-    l1 = node_factory.get_node()
+    # We track balances, to verify that accounting is ok.
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+
+    l1 = node_factory.get_node(options={'plugin': coin_mvt_plugin})
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -842,10 +846,22 @@ def test_funding_push(node_factory, bitcoind):
     # This should work.
     amount = amount - 1
     l1.rpc.fundchannel(l2.info['id'], amount, push_msat=push_sat * 1000)
+
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
     funds = only_one(l1.rpc.listfunds()['channels'])
     assert funds['channel_sat'] + push_sat == funds['channel_total_sat']
+
+    l1.daemon.wait_for_log('1 coins')
+    # we have to give the file write a second
+    time.sleep(1)
+    chanid = first_channel_id(l2, l1)
+    channel_mvts = [
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 20000000, 'tag': 'pushed'},
+        {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tag': 'deposit'},
+    ]
+    check_coin_moves(l1, chanid, channel_mvts)
+    assert account_balance(l1, chanid) == (amount - push_sat) * 1000
 
 
 def test_funding_by_utxos(node_factory, bitcoind):

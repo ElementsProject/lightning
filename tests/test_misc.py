@@ -9,6 +9,9 @@ from pyln.testing.utils import (
     DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
     wait_for, TailableProc, env
 )
+from utils import (
+    check_coin_moves, account_balance
+)
 from ephemeral_port_reserve import reserve
 from utils import EXPERIMENTAL_FEATURES
 
@@ -472,10 +475,14 @@ def test_bech32_funding(node_factory, chainparams):
     assert only_one(fundingtx['vin'])['txid'] == res['wallettxid']
 
 
-def test_withdraw(node_factory, bitcoind, chainparams):
+def test_withdraw_misc(node_factory, bitcoind, chainparams):
+    # We track channel balances, to verify that accounting is ok.
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+
     amount = 1000000
     # Don't get any funds from previous runs.
-    l1 = node_factory.get_node(random_hsm=True)
+    l1 = node_factory.get_node(random_hsm=True,
+                               options={'plugin': coin_mvt_plugin})
     l2 = node_factory.get_node(random_hsm=True)
     addr = l1.rpc.newaddr()['bech32']
 
@@ -596,6 +603,42 @@ def test_withdraw(node_factory, bitcoind, chainparams):
     # This should fail, can't even afford fee.
     with pytest.raises(RpcError, match=r'Cannot afford transaction'):
         l1.rpc.withdraw(waddr, 'all')
+
+    assert account_balance(l1, 'wallet') == 0
+    wallet_moves = [
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993730000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 6270000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 1993730000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993730000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 6270000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 1993730000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993730000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 6270000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 1993730000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993370000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 6630000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 1993370000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 11961030000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 13530000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 11961030000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 11957378000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 3652000, 'tag': 'chain_fees'},
+    ]
+    check_coin_moves(l1, 'wallet', wallet_moves)
 
 
 def test_minconf_withdraw(node_factory, bitcoind):
