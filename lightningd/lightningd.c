@@ -703,6 +703,39 @@ static void setup_sig_handlers(void)
 	}
 }
 
+/*~ We actually keep more than one set of features, used in different
+ * contexts.  common/features.c knows how each standard feature is
+ * presented, so we have it generate the set for each one at a time, and
+ * combine them.
+ *
+ * This is inefficient, but the primitives are useful for adding single
+ * features later, or adding them when supplied by plugins. */
+static struct feature_set *default_features(const tal_t *ctx)
+{
+	struct feature_set *ret = NULL;
+	static const u32 features[] = {
+		OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
+		OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
+		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
+		OPTIONAL_FEATURE(OPT_VAR_ONION),
+		OPTIONAL_FEATURE(OPT_PAYMENT_SECRET),
+		OPTIONAL_FEATURE(OPT_BASIC_MPP),
+		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
+		OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(features); i++) {
+		struct feature_set *f
+			= feature_set_for_feature(NULL, features[i]);
+		if (!ret)
+			ret = tal_steal(ctx, f);
+		else
+			feature_set_or(ret, take(f));
+	}
+
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -750,6 +783,9 @@ int main(int argc, char *argv[])
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
 	if (!ld->daemon_dir)
 		errx(1, "Could not find daemons");
+
+	/* Set up the feature bits for what we support */
+	ld->feature_set = default_features(ld);
 
 	/*~ Handle early options; this moves us into --lightning-dir.
 	 * Plugins may add new options, which is why we are splitting

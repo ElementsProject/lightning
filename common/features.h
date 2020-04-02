@@ -18,43 +18,38 @@ struct feature_set {
 	u8 *bits[NUM_FEATURE_PLACE];
 };
 
-/* Initialize core features (for lightningd). */
-struct feature_set *features_core_init(const u8 *features TAKES);
+/* Create feature set for a known feature. */
+struct feature_set *feature_set_for_feature(const tal_t *ctx, int feature);
 
-/* Initialize subdaemon features. */
-void features_init(struct feature_set *fset TAKES);
-
-/* Free feature allocations */
-void features_cleanup(void);
-
+/* Marshalling a feature set */
 struct feature_set *fromwire_feature_set(const tal_t *ctx,
 					 const u8 **ptr, size_t *max);
 void towire_feature_set(u8 **pptr, const struct feature_set *fset);
 
-/* Add features supplied by a plugin: returns false if we already have them */
-bool features_additional(const struct feature_set *feature_set);
+/* a |= b, or returns false if features already in a */
+bool feature_set_or(struct feature_set *a,
+		    const struct feature_set *b TAKES);
 
 /* Returns -1 if we're OK with all these offered features, otherwise first
  * unsupported (even) feature. */
-int features_unsupported(const u8 *features);
-
-/* For sending our features: tal_count() returns length. */
-u8 *get_offered_initfeatures(const tal_t *ctx);
-u8 *get_offered_globalinitfeatures(const tal_t *ctx);
-u8 *get_offered_nodefeatures(const tal_t *ctx);
-u8 *get_offered_bolt11features(const tal_t *ctx);
+int features_unsupported(const struct feature_set *ours, const u8 *theirs,
+			 enum feature_place p);
 
 /* For the features in channel_announcement */
-u8 *get_agreed_channelfeatures(const tal_t *ctx, const u8 *theirfeatures);
+u8 *get_agreed_channelfeatures(const tal_t *ctx,
+			       const struct feature_set *ours,
+			       const u8 *theirfeatures);
 
 /* Is this feature bit requested? (Either compulsory or optional) */
 bool feature_offered(const u8 *features, size_t f);
 
 /* Was this feature bit offered by them and us? */
-bool feature_negotiated(const u8 *lfeatures, size_t f);
+bool feature_negotiated(const struct feature_set *ours,
+			const u8 *features, size_t f);
 
-/* Return a list of what features we advertize. */
-const char **list_supported_features(const tal_t *ctx);
+/* Return a list of what (init) features we advertize. */
+const char **list_supported_features(const tal_t *ctx,
+				     const struct feature_set *ours);
 
 /* Low-level helpers to deal with big-endian bitfields. */
 bool feature_is_set(const u8 *features, size_t bit);

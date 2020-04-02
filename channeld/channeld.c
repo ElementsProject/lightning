@@ -76,6 +76,9 @@ struct peer {
 	/* Features peer supports. */
 	u8 *features;
 
+	/* Features we support. */
+	struct feature_set *fset;
+
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
 
@@ -415,7 +418,7 @@ static void send_announcement_signatures(struct peer *peer)
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 {
 	int first, second;
-	u8 *cannounce, *features = get_agreed_channelfeatures(tmpctx, peer->features);
+	u8 *cannounce, *features = get_agreed_channelfeatures(tmpctx, peer->fset, peer->features);
 
 	if (peer->channel_direction == 0) {
 		first = LOCAL;
@@ -2325,7 +2328,7 @@ static void peer_reconnect(struct peer *peer,
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 
-	dataloss_protect = feature_negotiated(peer->features,
+	dataloss_protect = feature_negotiated(peer->fset, peer->features,
 					      OPT_DATA_LOSS_PROTECT);
 
 	/* Both these options give us extra fields to check. */
@@ -3045,7 +3048,6 @@ static void init_channel(struct peer *peer)
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
 	bool option_static_remotekey;
-	struct feature_set *feature_set;
 #if !DEVELOPER
 	bool dev_fail_process_onionpacket; /* Ignored */
 #endif
@@ -3057,7 +3059,7 @@ static void init_channel(struct peer *peer)
 	msg = wire_sync_read(tmpctx, MASTER_FD);
 	if (!fromwire_channel_init(peer, msg,
 				   &chainparams,
-				   &feature_set,
+				   &peer->fset,
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &minimum_depth,
@@ -3112,9 +3114,6 @@ static void init_channel(struct peer *peer)
 				   &dev_fail_process_onionpacket)) {
 		master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
-
-	/* Now we know what features to advertize. */
-	features_init(take(feature_set));
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);

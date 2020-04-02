@@ -65,32 +65,70 @@ static void test_featurebits_or(void)
 	    memeq(result, tal_bytelen(result), control, tal_bytelen(control)));
 }
 
-static void setup_features(void)
+static bool feature_set_eq(const struct feature_set *f1,
+			   const struct feature_set *f2)
 {
-	static const u32 default_features[] = {
-		OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
-		OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
-		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
-		OPTIONAL_FEATURE(OPT_VAR_ONION),
-		OPTIONAL_FEATURE(OPT_PAYMENT_SECRET),
-		OPTIONAL_FEATURE(OPT_BASIC_MPP),
-		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
-		OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
-	};
-	u8 *f = tal_arr(NULL, u8, 0);
-	for (size_t i = 0; i < ARRAY_SIZE(default_features); i++)
-		set_feature_bit(&f, default_features[i]);
-	features_core_init(take(f));
+	/* We assume minimal sizing */
+	for (size_t i = 0; i < ARRAY_SIZE(f1->bits); i++) {
+		if (!memeq(f1->bits[i], tal_bytelen(f1->bits[i]),
+			   f2->bits[i], tal_bytelen(f2->bits[i])))
+			return false;
+	}
+	return true;
+}
+
+static void test_feature_set_or(void)
+{
+	struct feature_set *f1, *f2, *control;
+
+	for (size_t i = 0; i < ARRAY_SIZE(f1->bits); i++) {
+		f1 = talz(tmpctx, struct feature_set);
+		f2 = talz(tmpctx, struct feature_set);
+		control = talz(tmpctx, struct feature_set);
+
+		f1->bits[i] = tal_arr(f1, u8, 0);
+		f2->bits[i] = tal_arr(f2, u8, 0);
+		control->bits[i] = tal_arr(control, u8, 0);
+
+		/* or with nothing is a nop */
+		set_feature_bit(&f1->bits[i], 0);
+		set_feature_bit(&control->bits[i], 0);
+		assert(feature_set_or(f1, f2));
+		assert(feature_set_eq(f1, control));
+
+		/* or compulsory with either compulsory or optional is a fail */
+		set_feature_bit(&f2->bits[i], 0);
+		assert(!feature_set_or(f1, f2));
+		assert(feature_set_eq(f1, control));
+		assert(!feature_set_or(f2, f1));
+
+		clear_feature_bit(f2->bits[i], 0);
+		set_feature_bit(&f2->bits[i], 1);
+		assert(!feature_set_or(f1, f2));
+		assert(feature_set_eq(f1, control));
+		assert(!feature_set_or(f2, f1));
+
+		clear_feature_bit(f2->bits[i], 1);
+		set_feature_bit(&f2->bits[i], 10);
+		set_feature_bit(&control->bits[i], 10);
+		assert(feature_set_or(f1, f2));
+		assert(feature_set_eq(f1, control));
+	}
 }
 
 int main(void)
 {
-	u8 *bits, *lf;
+	u8 *bits;
+	struct feature_set *fset;
+
 	setup_locale();
 	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
-	setup_features();
+
+	/* Just some bits to set. */
+	fset = feature_set_for_feature(tmpctx,
+				       OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT));
 
 	bits = tal_arr(tmpctx, u8, 0);
 	for (size_t i = 0; i < 100; i += 3)
@@ -136,38 +174,37 @@ int main(void)
 
 	/* We always support no features. */
 	memset(bits, 0, tal_count(bits));
-	assert(features_unsupported(bits) == -1);
+	assert(features_unsupported(fset, bits, INIT_FEATURE) == -1);
 
 	/* We must support our own features. */
-	lf = get_offered_initfeatures(tmpctx);
-	assert(features_unsupported(lf) == -1);
+	assert(features_unsupported(fset, fset->bits[INIT_FEATURE], INIT_FEATURE) == -1);
 
 	/* We can add random odd features, no problem. */
 	for (size_t i = 1; i < 16; i += 2) {
-		bits = tal_dup_talarr(tmpctx, u8, lf);
+		bits = tal_dup_talarr(tmpctx, u8, fset->bits[INIT_FEATURE]);
 		set_feature_bit(&bits, i);
-		assert(features_unsupported(bits) == -1);
+		assert(features_unsupported(fset, bits, INIT_FEATURE) == -1);
 	}
 
 	/* We can't add random even features. */
 	for (size_t i = 0; i < 16; i += 2) {
-		bits = tal_dup_talarr(tmpctx, u8, lf);
+		bits = tal_dup_talarr(tmpctx, u8, fset->bits[INIT_FEATURE]);
 		set_feature_bit(&bits, i);
 
 		/* Special case for missing compulsory feature */
 		if (i == 2) {
-			assert(features_unsupported(bits) == i);
+			assert(features_unsupported(fset, bits, INIT_FEATURE) == i);
 		} else {
-			assert((features_unsupported(bits) == -1)
-			       == feature_offered(our_features->bits[INIT_FEATURE], i));
+			assert((features_unsupported(fset, bits, INIT_FEATURE) == -1)
+			       == feature_offered(fset->bits[INIT_FEATURE], i));
 		}
 	}
 
 	test_featurebits_or();
+	test_feature_set_or();
 
 	wally_cleanup(0);
 	tal_free(tmpctx);
 	take_cleanup();
-	features_cleanup();
 	return 0;
 }

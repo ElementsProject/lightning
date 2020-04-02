@@ -220,7 +220,8 @@ wallet_commit_channel(struct lightningd *ld,
 	 */
 	/* i.e. We set it now for the channel permanently. */
 	option_static_remotekey
-		= feature_negotiated(uc->peer->features, OPT_STATIC_REMOTEKEY);
+		= feature_negotiated(ld->feature_set,
+				     uc->peer->features, OPT_STATIC_REMOTEKEY);
 
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
@@ -1009,7 +1010,8 @@ void peer_start_openingd(struct peer *peer,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
 				  peer->features,
-				  feature_negotiated(peer->features,
+				  feature_negotiated(peer->ld->feature_set,
+						     peer->features,
 						     OPT_STATIC_REMOTEKEY),
 				  send_msg,
 				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),

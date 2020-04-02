@@ -14,6 +14,8 @@
 /* We only have 10 bits for the field length, meaning < 640 bytes */
 #define BOLT11_FIELD_BYTE_LIMIT ((1 << 10) * 5 / 8)
 
+struct feature_set;
+
 struct bolt11_field {
 	struct list_node list;
 
@@ -74,8 +76,11 @@ struct bolt11 {
 };
 
 /* Decodes and checks signature; returns NULL on error; description is
- * (optional) out-of-band description of payment, for `h` field. */
+ * (optional) out-of-band description of payment, for `h` field.
+ * fset is NULL to accept any features (usually not desirable!).
+ */
 struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
+			     const struct feature_set *fset,
 			     const char *description, char **fail);
 
 /* Initialize an empty bolt11 struct with optional amount */

@@ -692,7 +692,7 @@ static char *test_subdaemons_and_exit(struct lightningd *ld)
 
 static char *list_features_and_exit(struct lightningd *ld)
 {
-	const char **features = list_supported_features(ld);
+	const char **features = list_supported_features(tmpctx, ld->feature_set);
 	for (size_t i = 0; i < tal_count(features); i++)
 		printf("%s\n", features[i]);
 	exit(0);
@@ -1004,33 +1004,10 @@ void setup_color_and_alias(struct lightningd *ld)
 	}
 }
 
-static struct feature_set *setup_default_features(void)
-{
-	static const u32 default_features[] = {
-		OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
-		OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
-		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
-		OPTIONAL_FEATURE(OPT_VAR_ONION),
-		OPTIONAL_FEATURE(OPT_PAYMENT_SECRET),
-		OPTIONAL_FEATURE(OPT_BASIC_MPP),
-		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
-		OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
-	};
-	u8 *f = tal_arr(NULL, u8, 0);
-
-	for (size_t i = 0; i < ARRAY_SIZE(default_features); i++)
-		set_feature_bit(&f, default_features[i]);
-
-	return features_core_init(take(f));
-}
-
 void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 {
 	/* Make ccan/opt use tal for allocations */
 	setup_option_allocators();
-
-	/* Make sure options are populated. */
-	ld->feature_set = setup_default_features();
 
 	/*~ List features immediately, before doing anything interesting */
 	opt_register_early_noarg("--list-features-only",

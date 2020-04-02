@@ -154,6 +154,9 @@ struct daemon {
 
 	/* Allow to define the default behavior of tor services calls*/
 	bool use_v3_autotor;
+
+	/* Our features, as lightningd told us */
+	struct feature_set *fset;
 };
 
 /* Peers we're trying to reach: we iterate through addrs until we succeed
@@ -300,7 +303,7 @@ static bool get_gossipfds(struct daemon *daemon,
 	/*~ The way features generally work is that both sides need to offer it;
 	 * we always offer `gossip_queries`, but this check is explicit. */
 	gossip_queries_feature
-		= feature_negotiated(features, OPT_GOSSIP_QUERIES);
+		= feature_negotiated(daemon->fset, features, OPT_GOSSIP_QUERIES);
 
 	/*~ `initial_routing_sync` is supported by every node, since it was in
 	 * the initial lightning specification: it means the peer wants the
@@ -436,7 +439,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	 *  - upon receiving unknown _even_ feature bits that are non-zero:
 	 *    - MUST fail the connection.
 	 */
-	unsup = features_unsupported(features);
+	unsup = features_unsupported(daemon->fset, features, INIT_FEATURE);
 	if (unsup != -1) {
 		msg = towire_errorfmt(NULL, NULL, "Unsupported feature %u",
 				      unsup);
@@ -490,7 +493,7 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
-	return peer_exchange_initmsg(conn, daemon, cs, &id, addr);
+	return peer_exchange_initmsg(conn, daemon, daemon->fset, cs, &id, addr);
 }
 
 /*~ When we get a connection in we set up its network address then call
@@ -550,7 +553,8 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	node_id_from_pubkey(&id, key);
 	connect->connstate = "Exchanging init messages";
 	status_peer_debug(&id, "Connect OUT");
-	return peer_exchange_initmsg(conn, connect->daemon, cs, &id, addr);
+	return peer_exchange_initmsg(conn, connect->daemon,
+				     connect->daemon->fset, cs, &id, addr);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
@@ -1201,14 +1205,13 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	struct wireaddr_internal *proposed_wireaddr;
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announcable;
-	struct feature_set *feature_set;
 	char *tor_password;
 
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectctl_init(
 		daemon, msg,
 		&chainparams,
-		&feature_set,
+		&daemon->fset,
 		&daemon->id,
 		&proposed_wireaddr,
 		&proposed_listen_announce,
@@ -1220,9 +1223,6 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
 	}
-
-	/* Now we know what features to advertize. */
-	features_init(take(feature_set));
 
 	if (!pubkey_from_node_id(&daemon->mykey, &daemon->id))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

@@ -916,7 +916,7 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 			return true;
 		}
 
-		if (!features_additional(fset)) {
+		if (!feature_set_or(plugin->plugins->ld->feature_set, fset)) {
 			plugin_kill(plugin,
 				    "Custom featurebits already present");
 			return true;
