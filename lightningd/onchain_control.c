@@ -571,6 +571,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  &channel->their_shachain.chain,
 				  chainparams,
 				  channel->funding,
+				  channel->our_msat,
 				  &channel->channel_info.old_remote_per_commit,
 				  &channel->channel_info.remote_per_commit,
 				   /* BOLT #2:

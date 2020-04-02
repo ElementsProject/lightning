@@ -75,6 +75,9 @@ static u32 reasonable_depth;
 /* The messages to send at that depth. */
 static u8 **missing_htlc_msgs;
 
+/* Our recorded channel balance at 'chain time' */
+static struct amount_msat our_msat;
+
 /* Does option_static_remotekey apply to this commitment tx? */
 bool option_static_remotekey;
 
@@ -2817,6 +2820,7 @@ int main(int argc, char *argv[])
 				   &shachain,
 				   &chainparams,
 				   &funding,
+				   &our_msat,
 				   &old_remote_per_commit_point,
 				   &remote_per_commit_point,
 				   &to_self_delay[LOCAL],
