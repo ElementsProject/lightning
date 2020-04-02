@@ -1,3 +1,4 @@
+#include <common/coin_mvt.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_wire.h>
 #include <common/wallet.h>
@@ -120,3 +121,5 @@ msgdata,onchain_annotate_txin,txid,bitcoin_txid,
 msgdata,onchain_annotate_txin,innum,u32,
 msgdata,onchain_annotate_txin,type,enum wallet_tx_type,
 
+msgtype,onchain_notify_coin_mvt,5037
+msgdata,onchain_notify_coin_mvt,mvt,chain_coin_mvt,

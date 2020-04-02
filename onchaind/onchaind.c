@@ -4,6 +4,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
+#include <common/coin_mvt.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_tx.h>
 #include <common/initial_commit_tx.h>
@@ -121,6 +122,136 @@ struct tracked_output {
 	/* stashed so we can pass it along to the coin ledger */
 	struct sha256 *payment_hash;
 };
+
+static void send_coin_mvt(struct chain_coin_mvt *mvt TAKES)
+{
+	wire_sync_write(REQ_FD,
+			take(towire_onchain_notify_coin_mvt(NULL, mvt)));
+
+	if (taken(mvt))
+		tal_free(mvt);
+}
+
+static void record_htlc_fulfilled(const struct bitcoin_txid *txid,
+				  struct tracked_output *out,
+				  bool we_fulfilled)
+{
+	struct chain_coin_mvt *mvt;
+
+	/* we're recording the *deposit* of a utxo which contained channel
+	 * funds (htlc).
+	 *
+	 * since we really don't know if this was a 'routed' or 'destination'
+	 * htlc here, we record it as a 'deposit/withdrawal' type */
+	mvt = new_chain_coin_mvt_sat(NULL, NULL,
+				     txid, &out->txid,
+				     out->outnum,
+				     out->payment_hash,
+				     ONCHAIN_HTLC,
+				     out->sat, we_fulfilled,
+				     BTC);
+
+	send_coin_mvt(take(mvt));
+}
+
+static void update_ledger_chain_fees(const struct bitcoin_txid *txid,
+				     struct amount_sat fees)
+{
+	struct chain_coin_mvt *mvt;
+	mvt = new_chain_coin_mvt_sat(NULL, NULL,
+				     txid, NULL, 0, NULL,
+				     CHAIN_FEES, fees,
+				     false, BTC);
+
+	if (!mvt)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to convert %s to msat",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &fees));
+	send_coin_mvt(take(mvt));
+}
+
+/* Log the fees paid on this transaction as 'chain fees'. note that
+ * you *cannot* pass a chaintopology-originated tx to this method,
+ * as they don't have the input_amounts populated */
+static struct amount_sat record_chain_fees_tx(const struct bitcoin_txid *txid,
+					      const struct bitcoin_tx *tx)
+{
+	struct amount_sat fees;
+	fees = bitcoin_tx_compute_fee(tx);
+	status_debug("recording chain fees for tx %s",
+		     type_to_string(tmpctx, struct bitcoin_txid, txid));
+	update_ledger_chain_fees(txid, fees);
+	return fees;
+}
+
+static void record_channel_withdrawal_minus_fees(const struct bitcoin_txid *tx_txid,
+				      		 struct tracked_output *out,
+						 struct amount_sat fees)
+{
+	struct chain_coin_mvt *mvt;
+	struct amount_sat emitted_amt;
+
+	if (!amount_sat_sub(&emitted_amt, out->sat, fees))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to subtract %s from %s",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &fees),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &out->sat));
+
+	mvt = new_chain_coin_mvt_sat(NULL, NULL,
+				     tx_txid, &out->txid,
+				     out->outnum, NULL, WITHDRAWAL,
+				     emitted_amt, false,
+				     BTC);
+
+	if (!mvt)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to convert %s to msat",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &out->sat));
+
+	send_coin_mvt(take(mvt));
+}
+
+
+static bool is_our_htlc_tx(struct tracked_output *out)
+{
+	return out->resolved &&
+		(out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX
+		 || out->resolved->tx_type == OUR_HTLC_SUCCESS_TX);
+}
+
+static bool is_channel_deposit(struct tracked_output *out)
+{
+	return out->resolved &&
+		(out->resolved->tx_type == THEIR_HTLC_FULFILL_TO_US
+		 || out->resolved->tx_type == OUR_HTLC_SUCCESS_TX);
+}
+
+static void record_coin_movements(struct tracked_output *out,
+				  const struct bitcoin_tx *tx,
+				  const struct bitcoin_txid *txid)
+{
+	struct amount_sat fees;
+	/* there is a case where we've fulfilled an htlc onchain,
+	 * in which case we log a deposit to the channel */
+	if (is_channel_deposit(out))
+		record_htlc_fulfilled(txid, out, true);
+
+
+	/* record fees paid for the tx here */
+	/* FIXME: for now, every resolution generates its own tx,
+	 * this will need to be updated if we switch to batching */
+	fees = record_chain_fees_tx(txid, tx);
+
+	/* we don't record a channel withdrawal until we get to
+	 * the 'exit' utxo, which for local commitment htlc txs
+	 * is the child htlc_tx's output */
+	if (!is_our_htlc_tx(out))
+		record_channel_withdrawal_minus_fees(txid, out, fees);
+}
 
 /* We vary feerate until signature they offered matches. */
 static bool grind_htlc_tx_fee(struct amount_sat *fee,
@@ -1064,6 +1195,8 @@ static void output_spent(const struct chainparams *chainparams,
 			    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX)
 				resolve_htlc_tx(chainparams, outs, i, tx, &txid,
 						tx_blockheight);
+
+			record_coin_movements(out, out->proposal->tx, &txid);
 			return;
 		}
 

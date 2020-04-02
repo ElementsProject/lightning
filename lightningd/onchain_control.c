@@ -178,6 +178,24 @@ static void watch_tx_and_outputs(struct channel *channel,
 			  onchain_txo_watched);
 }
 
+static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
+{
+	struct channel_id channel_id;
+	struct chain_coin_mvt *mvt = tal(NULL, struct chain_coin_mvt);
+
+	if (!fromwire_onchain_notify_coin_mvt(msg, mvt)) {
+		channel_internal_error(channel, "Invalid onchain notify_coin_mvt");
+		return;
+	}
+
+	derive_channel_id(&channel_id, &channel->funding_txid,
+			  channel->funding_outnum);
+	mvt->account_name =
+		type_to_string(mvt, struct channel_id, &channel_id);
+	notify_chain_mvt(channel->peer->ld, mvt);
+	tal_free(mvt);
+}
+
 static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
@@ -382,6 +400,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIN_ANNOTATE_TXOUT:
 		onchain_annotate_txout(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIN_NOTIFY_COIN_MVT:
+		handle_onchain_log_coin_move(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */
