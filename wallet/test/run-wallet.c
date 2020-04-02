@@ -384,6 +384,18 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for new_chain_coin_mvt_sat */
+struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx UNNEEDED,
+					      const char *account_name UNNEEDED,
+					      const struct bitcoin_txid *tx_txid UNNEEDED,
+					      const struct bitcoin_txid *output_txid UNNEEDED,
+					      u32 vout UNNEEDED,
+					      struct sha256 *payment_hash UNNEEDED,
+					      enum mvt_tag tag UNNEEDED,
+					      struct amount_sat amt_sat UNNEEDED,
+					      bool is_credit UNNEEDED,
+					      enum mvt_unit_type unit UNNEEDED)
+{ fprintf(stderr, "new_chain_coin_mvt_sat called!\n"); abort(); }
 /* Generated stub for new_channel_coin_mvt */
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx UNNEEDED,
 					      struct bitcoin_txid *funding_txid UNNEEDED,
@@ -395,6 +407,9 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx UNNEEDED,
 					      bool is_credit UNNEEDED,
 					      enum mvt_unit_type unit UNNEEDED)
 { fprintf(stderr, "new_channel_coin_mvt called!\n"); abort(); }
+/* Generated stub for notify_chain_mvt */
+void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
+{ fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
 void notify_channel_mvt(struct lightningd *ld UNNEEDED, const struct channel_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
