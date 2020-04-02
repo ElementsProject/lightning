@@ -1153,3 +1153,14 @@ def test_hook_crash(node_factory, executor, bitcoind):
 
     # Collect the results:
     [f.result(TIMEOUT) for f in futures]
+
+
+def test_feature_set(node_factory):
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/show_feature_set.py')
+    l1 = node_factory.get_node(options={"plugin": plugin})
+
+    fs = l1.rpc.call('getfeatureset')
+    assert fs['init'] == expected_features()
+    assert fs['node'] == expected_features()
+    assert fs['channel'] == ''
+    assert 'invoice' in fs
