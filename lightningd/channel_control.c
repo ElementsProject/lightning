@@ -2,6 +2,7 @@
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/coin_mvt.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
 #include <common/json_command.h>
@@ -17,6 +18,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -74,6 +76,51 @@ void notify_feerate_change(struct lightningd *ld)
 	}
 }
 
+static void record_channel_open(struct channel *channel)
+{
+	struct channel_id channel_id;
+	struct chain_coin_mvt *mvt;
+	struct amount_msat channel_open_amt;
+	u8 *ctx = tal(NULL, u8);
+
+	/* figure out the 'account name' */
+	derive_channel_id(&channel_id, &channel->funding_txid,
+			  channel->funding_outnum);
+
+	/* FIXME: logic here will change for dual funded channels */
+	if (channel->opener == LOCAL) {
+		if (!amount_sat_to_msat(&channel_open_amt, channel->funding))
+			fatal("Unable to convert funding %s to msat",
+			      type_to_string(tmpctx, struct amount_sat, &channel->funding));
+
+		/* if we pushed sats, we should decrement that from the channel balance */
+		if (amount_msat_greater(channel->push, AMOUNT_MSAT(0))) {
+			mvt = new_chain_coin_mvt(ctx,
+						 type_to_string(tmpctx, struct channel_id, &channel_id),
+						 &channel->funding_txid,
+						 NULL, 0, NULL,
+						 PUSHED, channel->push,
+						 false, BTC);
+			notify_chain_mvt(channel->peer->ld, mvt);
+		}
+	} else {
+		/* we're not the funder, we record our 'opening balance' anyway
+		 * (there's a small chance we were pushed some satoshis, otherwise
+		 * it's zero) */
+		channel_open_amt = channel->our_msat;
+	}
+
+	mvt = new_chain_coin_mvt(ctx,
+				 type_to_string(tmpctx, struct channel_id, &channel_id),
+				 &channel->funding_txid,
+				 &channel->funding_txid,
+				 channel->funding_outnum,
+				 NULL, DEPOSIT, channel_open_amt,
+				 true, BTC);
+	notify_chain_mvt(channel->peer->ld, mvt);
+	tal_free(ctx);
+}
+
 static void lockin_complete(struct channel *channel)
 {
 	/* We set this once we're locked in. */
@@ -93,6 +140,7 @@ static void lockin_complete(struct channel *channel)
 	/* Fees might have changed (and we use IMMEDIATE once we're funded),
 	 * so update now. */
 	try_update_feerates(channel->peer->ld, channel);
+	record_channel_open(channel);
 }
 
 /* We were informed by channeld that it announced the channel and sent
