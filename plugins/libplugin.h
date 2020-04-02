@@ -90,6 +90,9 @@ struct plugin_hook {
 	                                 const jsmntok_t *params);
 };
 
+/* Return the feature set of the current lightning node */
+const struct feature_set *plugin_feature_set(const struct plugin *p);
+
 /* Helper to create a JSONRPC2 request stream. Send it with `send_outreq`. */
 struct out_req *
 jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
