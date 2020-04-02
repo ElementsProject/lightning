@@ -243,6 +243,27 @@ static void record_mutual_closure(const struct bitcoin_txid *txid,
 	send_coin_mvt(take(mvt));
 }
 
+static void record_coin_loss(const struct bitcoin_txid *txid,
+			     struct tracked_output *out)
+{
+	struct chain_coin_mvt *mvt;
+	/* We don't for sure know that it's a 'penalty'
+	 * but we write it as that anyway... */
+	mvt = new_chain_coin_mvt_sat(NULL, NULL,
+				     txid, &out->txid,
+				     out->outnum, NULL,
+				     PENALTY, out->sat, false,
+				     BTC);
+
+	if (!mvt)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to convert %s to msat",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &out->sat));
+
+	send_coin_mvt(take(mvt));
+}
+
 static void record_channel_withdrawal_minus_fees(const struct bitcoin_txid *tx_txid,
 				      		 struct tracked_output *out,
 						 struct amount_sat fees)
@@ -273,6 +294,12 @@ static void record_channel_withdrawal_minus_fees(const struct bitcoin_txid *tx_t
 	send_coin_mvt(take(mvt));
 }
 
+
+static void record_channel_withdrawal(const struct bitcoin_txid *tx_txid,
+				      struct tracked_output *out)
+{
+	record_channel_withdrawal_minus_fees(tx_txid, out, AMOUNT_SAT(0));
+}
 
 static bool is_our_htlc_tx(struct tracked_output *out)
 {
@@ -1265,6 +1292,7 @@ static void output_spent(const struct chainparams *chainparams,
 		case OUTPUT_TO_US:
 		case DELAYED_OUTPUT_TO_US:
 			unknown_spend(out, tx);
+			record_coin_loss(&txid, out);
 			break;
 
 		case THEIR_HTLC:
@@ -2747,6 +2775,46 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	wait_for_resolved(tx->chainparams, outs);
 }
 
+static void update_ledger_unknown(const struct bitcoin_txid *txid,
+				  struct amount_sat amt_salvaged)
+{
+	/* ideally, we'd be able to capture the loss to fees (if we funded
+	 * the channel) here separately, but given that we don't know the htlc
+	 * set (and thus which outputs are trimmed), this is difficult.
+	 *
+	 * instead, we count the difference between any recoverable output
+	 * and our current channel balance as a loss (or gain) */
+	bool is_credit;
+	struct amount_msat diff;
+	struct chain_coin_mvt *mvt;
+
+	/* we do nothing if the amount withdrawn via 'salvage' is
+	 * the same as our channel balance */
+	if (amount_msat_eq_sat(our_msat, amt_salvaged))
+		return;
+
+	/* if we've withdrawn *less* in salvage than we have on the books
+	 * as being ours, we record the difference as a debit */
+	if (!amount_msat_sub_sat(&diff, our_msat, amt_salvaged)) {
+		is_credit = false;
+		if (!amount_sat_sub_msat(&diff, amt_salvaged, our_msat))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "overflow subtracting %s from %s",
+				      type_to_string(tmpctx, struct amount_msat,
+						     &our_msat),
+				      type_to_string(tmpctx, struct amount_sat,
+						     &amt_salvaged));
+	} else
+		is_credit = true;
+
+	/* FIXME: elements txs not in BTC ?? */
+	mvt = new_chain_coin_mvt(NULL, NULL,
+				 txid, NULL, 0, NULL,
+				 JOURNAL, diff,
+				 is_credit, BTC);
+	send_coin_mvt(take(mvt));
+}
+
 static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 				      u32 tx_blockheight,
 				      u64 commit_num,
@@ -2759,6 +2827,7 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 {
 	int to_us_output = -1;
 	u8 *local_script;
+	struct amount_sat amt_salvaged = AMOUNT_SAT(0);
 
 	onchain_annotate_txin(txid, 0, TX_CHANNEL_UNILATERAL | TX_THEIRS);
 
@@ -2767,8 +2836,9 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 	/* If they don't give us a per-commitment point and we rotate keys,
 	 * we're out of luck. */
 	if (!possible_remote_per_commitment_point
-	    && !option_static_remotekey)
+	    && !option_static_remotekey) {
 		goto search_done;
+	}
 
 	if (!option_static_remotekey) {
 		struct keyset *ks = tal(tmpctx, struct keyset);
@@ -2822,6 +2892,7 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 						 i, amt,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
+			record_channel_withdrawal(txid, out);
 
 			tell_wallet_to_remote(tx, i, txid,
 					      tx_blockheight,
@@ -2844,6 +2915,10 @@ search_done:
 			      commit_num);
 		init_reply("ERROR: Unknown commitment, recovering our funds!");
 	}
+
+	/* update our accounting notions for this channel.
+	 * should result in a channel balance of zero */
+	update_ledger_unknown(txid, amt_salvaged);
 
 	/* Tell master to give up on HTLCs immediately. */
 	for (size_t i = 0; i < tal_count(htlcs); i++) {
