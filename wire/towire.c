@@ -226,8 +226,25 @@ void towire_wirestring(u8 **pptr, const char *str)
 
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 {
+	size_t i;
 	u8 *lin = linearize_tx(tmpctx, tx);
 	towire_u8_array(pptr, lin, tal_count(lin));
+
+	/* We only want to 'save' the amounts if every amount
+	 * has been populated */
+	for (i = 0; i < tal_count(tx->input_amounts); i++) {
+		if (!tx->input_amounts[i]) {
+			towire_u16(pptr, 0);
+			return;
+		}
+	}
+
+	/* Otherwise, we include the input amount set */
+	towire_u16(pptr, tal_count(tx->input_amounts));
+	for (i = 0; i < tal_count(tx->input_amounts); i++) {
+		assert(tx->input_amounts[i]);
+		towire_amount_sat(pptr, *tx->input_amounts[i]);
+	}
 }
 
 void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
