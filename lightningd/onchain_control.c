@@ -6,6 +6,7 @@
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
 #include <lightningd/onchain_control.h>
@@ -286,6 +287,7 @@ static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg U
 static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 {
 	struct utxo *u = tal(msg, struct utxo);
+	struct chain_coin_mvt *mvt;
 	u32 blockheight;
 	u->close_info = tal(u, struct unilateral_close_info);
 
@@ -305,6 +307,10 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 
 	outpointfilter_add(channel->peer->ld->wallet->owned_outpoints, &u->txid, u->outnum);
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
+
+	mvt = new_chain_coin_mvt_sat(msg, "wallet", &u->txid, &u->txid, u->outnum,
+				     NULL, DEPOSIT, u->amount, true, BTC);
+	notify_chain_mvt(channel->peer->ld, mvt);
 }
 
 static void onchain_annotate_txout(struct channel *channel, const u8 *msg)
