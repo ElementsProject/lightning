@@ -135,6 +135,22 @@ static void send_coin_mvt(struct chain_coin_mvt *mvt TAKES)
 		tal_free(mvt);
 }
 
+static void record_their_successful_cheat(const struct bitcoin_txid *txid,
+					  struct tracked_output *out)
+{
+	struct chain_coin_mvt *mvt;
+	/* They successfully spent a delayed_to_them output
+	 * that we were expecting to revoke */
+	mvt = new_chain_coin_mvt_sat(NULL, NULL,
+				     txid, &out->txid,
+				     out->outnum, NULL,
+				     PENALTY,
+				     out->sat, false,
+				     BTC);
+
+	send_coin_mvt(take(mvt));
+}
+
 static void record_htlc_fulfilled(const struct bitcoin_txid *txid,
 				  struct tracked_output *out,
 				  bool we_fulfilled)
@@ -772,6 +788,8 @@ static enum wallet_tx_type onchain_txtype_to_wallet_txtype(enum tx_type t)
 		return TX_CHANNEL_SWEEP;
 	case OUR_PENALTY_TX:
 		return TX_CHANNEL_PENALTY;
+	case THEIR_DELAYED_CHEAT:
+		return TX_CHANNEL_CHEAT | TX_THEIRS;
 	case THEIR_UNILATERAL:
 	case UNKNOWN_UNILATERAL:
 	case THEIR_REVOKED_UNILATERAL:
@@ -1141,7 +1159,8 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 	struct ripemd160 ripemd;
 
 	/* Our HTLC, they filled (must be an HTLC-success tx). */
-	if (out->tx_type == THEIR_UNILATERAL) {
+	if (out->tx_type == THEIR_UNILATERAL
+		|| out->tx_type == THEIR_REVOKED_UNILATERAL) {
 		/* BOLT #3:
 		 *
 		 * ## HTLC-Timeout and HTLC-Success Transactions
@@ -1272,19 +1291,67 @@ static void resolve_htlc_tx(const struct chainparams *chainparams,
  *   - MUST *resolve* the _remote node's HTLC-success transaction_ by spending it
  *     using the revocation private key.
  */
-static void steal_htlc_tx(struct tracked_output *out)
+static void steal_htlc_tx(const struct chainparams *chainparams,
+			  struct tracked_output *out,
+			  struct tracked_output ***outs,
+			  const struct bitcoin_tx *htlc_tx,
+			  struct bitcoin_txid *htlc_txid,
+			  u32 htlc_tx_blockheight,
+			  enum tx_type htlc_tx_type)
 {
 	struct bitcoin_tx *tx;
 	enum tx_type tx_type = OUR_PENALTY_TX;
+	struct tracked_output *htlc_out;
+	struct amount_asset asset;
+	struct amount_sat htlc_out_amt, fees;
 
+	u8 *wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[LOCAL],
+					      &keyset->self_revocation_key,
+					      &keyset->self_delayed_payment_key);
+
+	asset = bitcoin_tx_output_get_amount(htlc_tx, 0);
+	assert(amount_asset_is_main(&asset));
+	htlc_out_amt = amount_asset_to_sat(&asset);
+
+	htlc_out = new_tracked_output(chainparams, outs,
+				      htlc_txid, htlc_tx_blockheight,
+				      htlc_tx_type,
+				      /* htlc tx's only have 1 output */
+				      0, htlc_out_amt,
+				      DELAYED_CHEAT_OUTPUT_TO_THEM,
+				      &out->htlc, wscript, NULL);
 	/* BOLT #3:
 	 *
 	 * To spend this via penalty, the remote node uses a witness stack
 	 * `<revocationsig> 1`
 	 */
-	tx = tx_to_us(out, penalty_to_us, out, 0xFFFFFFFF, 0, &ONE,
-		      sizeof(ONE), out->wscript, &tx_type, penalty_feerate);
-	propose_resolution(out, tx, 0, tx_type);
+	tx = tx_to_us(htlc_out, penalty_to_us, htlc_out,
+		      0xFFFFFFFF, 0,
+		      &ONE, sizeof(ONE),
+		      htlc_out->wscript,
+		      &tx_type, penalty_feerate);
+
+	/* mark commitment tx htlc output as 'resolved by them' */
+	resolved_by_other(out, htlc_txid, htlc_tx_type);
+
+	/* for penalties, we record *any* chain fees
+	 * paid as coming from our channel balance, so
+	 * that our balance ends up at zero */
+	if (!amount_sat_sub(&fees, out->sat, htlc_out->sat))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to subtract %s from %s",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &htlc_out->sat),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &out->sat));
+
+	status_debug("recording chain fees for peer's htlc tx, that we're about to steal"
+		     " the output of. fees: %s",
+		     type_to_string(tmpctx, struct amount_sat, &fees));
+	update_ledger_chain_fees(htlc_txid, fees);
+
+	/* annnd done! */
+	propose_resolution(htlc_out, tx, 0, tx_type);
 }
 
 static void onchain_annotate_txout(const struct bitcoin_txid *txid, u32 outnum,
@@ -1346,7 +1413,9 @@ static void output_spent(const struct chainparams *chainparams,
 
 		case THEIR_HTLC:
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
-				steal_htlc_tx(out);
+				/* we've actually got a 'new' output here */
+				steal_htlc_tx(chainparams, out, outs, tx, &txid,
+					      tx_blockheight, THEIR_HTLC_TIMEOUT_TO_THEM);
 			} else {
 				/* We ignore this timeout tx, since we should
 				 * resolve by ignoring once we reach depth. */
@@ -1372,9 +1441,10 @@ static void output_spent(const struct chainparams *chainparams,
 			 *       HTLC-success transaction input witness.
 			 */
 			handle_htlc_onchain_fulfill(out, tx);
-			if (out->tx_type == THEIR_REVOKED_UNILATERAL)
-				steal_htlc_tx(out);
-			else {
+			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
+				steal_htlc_tx(chainparams, out, outs, tx, &txid,
+					      tx_blockheight, OUR_HTLC_FULFILL_TO_THEM);
+			} else {
 				/* BOLT #5:
 				 *
 				 * ## HTLC Output Handling: Local Commitment,
@@ -1397,6 +1467,11 @@ static void output_spent(const struct chainparams *chainparams,
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Funding output spent again!");
 
+		case DELAYED_CHEAT_OUTPUT_TO_THEM:
+			/* They successfully spent a delayed revoked output */
+			resolved_by_other(out, &txid, THEIR_DELAYED_CHEAT);
+			record_their_successful_cheat(&txid, out);
+			break;
 		/* Um, we don't track these! */
 		case OUTPUT_TO_THEM:
 		case DELAYED_OUTPUT_TO_THEM:
@@ -2351,6 +2426,40 @@ static void tell_wallet_to_remote(const struct bitcoin_tx *tx,
 						     scriptpubkey)));
 }
 
+/* When a 'cheat' transaction comes through, our accounting is
+ * going to be off, as it's publishing/finalizing old state.
+ * To compensate for this, we count *all* of the channel funds
+ * as ours; any subsequent handling of utxos on this tx
+ * will correctly mark the funds as a 'channel withdrawal'
+ */
+static void update_ledger_cheat(const struct bitcoin_txid *txid,
+				struct tracked_output *out)
+{
+	/* how much of a difference should we update the
+	 * channel account ledger by? */
+	struct amount_msat amt;
+	struct chain_coin_mvt *mvt;
+
+	if (amount_msat_eq_sat(our_msat, out->sat))
+		return;
+
+	if (!amount_sat_sub_msat(&amt, out->sat, our_msat))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "unable to subtract our balance %s from channel total %s",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &our_msat),
+			      type_to_string(tmpctx, struct amount_sat,
+					     &out->sat));
+
+	/* add the difference to our ledger balance */
+	/* FIXME: elements is not always btc? */
+	mvt = new_chain_coin_mvt(NULL, NULL,
+				 txid, &out->txid,
+				 out->outnum, NULL, JOURNAL, amt,
+				 true, BTC);
+	send_coin_mvt(take(mvt));
+}
+
 /* BOLT #5:
  *
  * If any node tries to cheat by broadcasting an outdated commitment
@@ -2373,10 +2482,15 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	struct keyset *ks;
 	struct pubkey *k;
 	size_t i;
+	/* We need to figure out what the 'chain fees'
+	 * for this unilateral tx are */
+	struct amount_sat total_outs = AMOUNT_SAT(0), fee_cost;
+	bool amt_ok;
 
 	init_reply("Tracking their illegal close: taking all funds");
 	onchain_annotate_txin(
 	    txid, 0, TX_CHANNEL_UNILATERAL | TX_CHANNEL_CHEAT | TX_THEIRS);
+	update_ledger_cheat(txid, outs[0]);
 
 	/* BOLT #5:
 	 *
@@ -2522,6 +2636,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 i, amt,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
+			record_channel_withdrawal(txid, out);
 
 			tell_wallet_to_remote(tx, i, txid,
 					      tx_blockheight,
@@ -2529,6 +2644,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 					      remote_per_commitment_point,
 					      option_static_remotekey);
 			script[LOCAL] = NULL;
+			add_amt(&total_outs, amt);
 			continue;
 		}
 		if (script[REMOTE]
@@ -2542,10 +2658,11 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 &outs, txid, tx_blockheight,
 						 THEIR_REVOKED_UNILATERAL, i,
 						 amt,
-						 DELAYED_OUTPUT_TO_THEM,
+						 DELAYED_CHEAT_OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
 			steal_to_them_output(out);
 			script[REMOTE] = NULL;
+			add_amt(&total_outs, amt);
 			continue;
 		}
 
@@ -2576,6 +2693,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 htlc_scripts[which_htlc],
 						 NULL);
 			steal_htlc(out);
+			add_amt(&total_outs, amt);
 		} else {
 			out = new_tracked_output(tx->chainparams,
 						 &outs, txid,
@@ -2594,12 +2712,21 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			 *     * spend the *HTLC-timeout tx*, if the remote node has published it.
 			 */
 			steal_htlc(out);
+			add_amt(&total_outs, amt);
 		}
 		htlc_scripts[which_htlc] = NULL;
 	}
 
 	note_missing_htlcs(htlc_scripts, htlcs,
 			   tell_if_missing, tell_immediately);
+
+	/* Record the fee cost for this tx, deducting it from channel balance */
+	amt_ok = amount_sat_sub(&fee_cost, outs[0]->sat, total_outs);
+	assert(amt_ok);
+	status_debug("recording chain fees for their cheat %s",
+		     type_to_string(tmpctx, struct amount_sat, &fee_cost));
+	update_ledger_chain_fees(txid, fee_cost);
+
 	wait_for_resolved(tx->chainparams, outs);
 }
 
