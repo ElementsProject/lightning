@@ -2264,3 +2264,17 @@ def test_wumbo_channels(node_factory, bitcoind):
     # Make sure l2 sees correct size.
     wait_for(lambda: [c['amount_msat'] for c in l2.rpc.listchannels(l1.get_channel_scid(l3))['channels']]
              == [Millisatoshi(str((1 << 24) - 1) + "sat")] * 2)
+
+    # Make sure 'all' works with wumbo peers.
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: l1.channel_state(l2) == 'ONCHAIN')
+
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 'all')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: 'CHANNELD_NORMAL' in [c['state'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']])
+
+    # Exact amount depends on fees, but it will be wumbo!
+    amount = [c['funding_msat'][l1.info['id']] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'][0]
+    assert Millisatoshi(amount) > Millisatoshi(str((1 << 24) - 1) + "sat")

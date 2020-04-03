@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/amount.h>
+#include <common/features.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/type_to_string.h>
@@ -24,6 +25,9 @@ struct funding_req {
 	const char *utxo_str;
 	bool funding_all;
 	struct amount_msat *push_msat;
+
+	/* Features offered by this peer. */
+	const u8 *features;
 
 	bool *announce_channel;
 	u32 *minconf;
@@ -329,7 +333,10 @@ static struct command_result *post_dryrun(struct command *cmd,
 		plugin_err(cmd->plugin, "Error creating placebo funding tx, funding_out not found. %s", hex);
 
 	/* Update funding to actual amount */
-	if (fr->funding_all && amount_sat_greater(funding, chainparams->max_funding))
+	if (fr->funding_all
+	    && !feature_negotiated(plugin_feature_set(cmd->plugin),
+				   fr->features, OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(funding, chainparams->max_funding))
 		funding = chainparams->max_funding;
 
 	fr->funding_str = type_to_string(fr, struct amount_sat, &funding);
@@ -341,9 +348,21 @@ static struct command_result *exec_dryrun(struct command *cmd,
 					  const jsmntok_t *result,
 					  struct funding_req *fr)
 {
-	struct out_req *req = jsonrpc_request_start(cmd->plugin, cmd, "txprepare",
-						    post_dryrun, forward_error,
-						    fr);
+	struct out_req *req;
+	const jsmntok_t *t;
+
+	/* Stash features so we can wumbo. */
+	t = json_get_member(buf, result, "features");
+	if (!t)
+		plugin_err(cmd->plugin, "No features found in connect response?");
+	fr->features = json_tok_bin_from_hex(fr, buf, t);
+	if (!fr->features)
+		plugin_err(cmd->plugin, "Bad features '%.*s' in connect response?",
+			   t->end - t->start, buf + t->start);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "txprepare",
+				    post_dryrun, forward_error,
+				    fr);
 
 	/* Now that we've tried connecting, we do a 'dry-run' of txprepare,
 	 * so we can get an accurate idea of the funding amount */
