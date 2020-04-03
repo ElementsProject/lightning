@@ -7,6 +7,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bech32_util.c			\
 	common/bigsize.c			\
 	common/bip32.c				\
+	common/blinding.c			\
 	common/bolt11.c				\
 	common/channel_config.c			\
 	common/close_tx.c			\

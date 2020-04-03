@@ -6,6 +6,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/tal.h>
+#include <common/blinding.h>
 #include <common/hmac.h>
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
@@ -38,51 +39,6 @@ static void *tal_reallocfn(void *ptr, size_t size)
 static void tal_freefn(void *ptr)
 {
 	tal_free(ptr);
-}
-
-/* E(i-1) = H(E(i) || ss(i)) * E(i) */
-static struct sha256 hash_e_and_ss(const struct pubkey *e,
-				   const struct secret *ss)
-{
-	u8 der[PUBKEY_CMPR_LEN];
-	struct sha256_ctx shactx;
-	struct sha256 h;
-
-	pubkey_to_der(der, e);
-	sha256_init(&shactx);
-	sha256_update(&shactx, der, sizeof(der));
-	sha256_update(&shactx, ss->data, sizeof(ss->data));
-	sha256_done(&shactx, &h);
-
-	return h;
-}
-
-/* E(i-1) = H(E(i) || ss(i)) * E(i) */
-static struct pubkey next_pubkey(const struct pubkey *pk,
-				 const struct sha256 *h)
-{
-	struct pubkey ret;
-
-	ret = *pk;
-	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, &ret.pubkey, h->u.u8)
-	    != 1)
-		abort();
-
-	return ret;
-}
-
-/* e(i+1) = H(E(i) || ss(i)) * e(i) */
-static struct privkey next_privkey(const struct privkey *e,
-				   const struct sha256 *h)
-{
-	struct privkey ret;
-
-	ret = *e;
-	if (secp256k1_ec_privkey_tweak_mul(secp256k1_ctx, ret.secret.data,
-					   h->u.u8) != 1)
-		abort();
-
-	return ret;
 }
 
 int main(int argc, char **argv)
@@ -155,10 +111,11 @@ int main(int argc, char **argv)
 					abort();
 			}
 			subkey_from_hmac("rho", &ss, &rho[i]);
-			h = hash_e_and_ss(&pk_e[i], &ss);
+			blinding_hash_e_and_ss(&pk_e[i], &ss, &h);
 			if (i != num-1)
-				pk_e[i+1] = next_pubkey(&pk_e[i], &h);
-			e = next_privkey(&e, &h);
+				blinding_next_pubkey(&pk_e[i], &h,
+						     &pk_e[i+1]);
+			blinding_next_privkey(&e, &h, &e);
 		}
 
 		/* Print initial blinding factor */
@@ -326,8 +283,8 @@ int main(int argc, char **argv)
 		printf("Contents: %s\n", tal_hex(tmpctx, dec));
 
 		/* E(i-1) = H(E(i) || ss(i)) * E(i) */
-		h = hash_e_and_ss(&blinding, &ss);
-		res = next_pubkey(&blinding, &h);
+		blinding_hash_e_and_ss(&blinding, &ss, &h);
+		blinding_next_pubkey(&blinding, &h, &res);
 		printf("Next blinding: %s\n",
 		       type_to_string(tmpctx, struct pubkey, &res));
 		printf("Next onion: %s\n", tal_hex(tmpctx, serialize_onionpacket(tmpctx, rs->next)));
