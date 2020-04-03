@@ -12,7 +12,7 @@ struct wireaddr_internal;
 /* If successful, calls peer_connected() */
 struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      struct daemon *daemon,
-				      const struct feature_set *fset,
+				      const struct feature_set *our_features,
 				      const struct crypto_state *cs,
 				      const struct node_id *id,
 				      const struct wireaddr_internal *addr);

@@ -834,7 +834,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     &chainparams,
-				     &daemon->fset,
+				     &daemon->our_features,
 				     &daemon->id,
 				     daemon->rgb,
 				     daemon->alias,

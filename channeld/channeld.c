@@ -74,10 +74,10 @@ struct peer {
 	u64 next_index[NUM_SIDES];
 
 	/* Features peer supports. */
-	u8 *features;
+	u8 *their_features;
 
 	/* Features we support. */
-	struct feature_set *fset;
+	struct feature_set *our_features;
 
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
@@ -418,7 +418,9 @@ static void send_announcement_signatures(struct peer *peer)
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 {
 	int first, second;
-	u8 *cannounce, *features = get_agreed_channelfeatures(tmpctx, peer->fset, peer->features);
+	u8 *cannounce, *features
+		= get_agreed_channelfeatures(tmpctx, peer->our_features,
+					     peer->their_features);
 
 	if (peer->channel_direction == 0) {
 		first = LOCAL;
@@ -2328,7 +2330,8 @@ static void peer_reconnect(struct peer *peer,
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 
-	dataloss_protect = feature_negotiated(peer->fset, peer->features,
+	dataloss_protect = feature_negotiated(peer->our_features,
+					      peer->their_features,
 					      OPT_DATA_LOSS_PROTECT);
 
 	/* Both these options give us extra fields to check. */
@@ -3059,7 +3062,7 @@ static void init_channel(struct peer *peer)
 	msg = wire_sync_read(tmpctx, MASTER_FD);
 	if (!fromwire_channel_init(peer, msg,
 				   &chainparams,
-				   &peer->fset,
+				   &peer->our_features,
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &minimum_depth,
@@ -3105,7 +3108,7 @@ static void init_channel(struct peer *peer)
 				   &funding_signed,
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
-				   &peer->features,
+				   &peer->their_features,
 				   &peer->remote_upfront_shutdown_script,
 				   &remote_ann_node_sig,
 				   &remote_ann_bitcoin_sig,

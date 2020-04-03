@@ -67,7 +67,7 @@ struct state {
 	struct per_peer_state *pps;
 
 	/* Features they offered */
-	u8 *features;
+	u8 *their_features;
 
 	/* Constraints on a channel they open. */
 	u32 minimum_depth;
@@ -114,7 +114,7 @@ struct state {
 
 	bool option_static_remotekey;
 
-	struct feature_set *fset;
+	struct feature_set *our_features;
 };
 
 static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
@@ -492,7 +492,8 @@ static bool setup_channel_funder(struct state *state)
 	 *  - otherwise:
 	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
 	 */
-	if (!feature_negotiated(state->fset, state->features, OPT_LARGE_CHANNELS)
+	if (!feature_negotiated(state->our_features,
+				state->their_features, OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(state->funding, chainparams->max_funding)) {
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding_satoshis must be < %s, not %s",
@@ -569,7 +570,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
 	 *    valid secp256k1 pubkeys in compressed format.
 	 */
-	if (feature_negotiated(state->fset, state->features,
+	if (feature_negotiated(state->our_features, state->their_features,
 			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {
 		if (!fromwire_accept_channel_option_upfront_shutdown_script(state,
 				     msg, &id_in,
@@ -650,8 +651,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	return towire_opening_funder_start_reply(state,
 						 funding_output_script,
 						 feature_negotiated(
-							 state->fset,
-							 state->features,
+							 state->our_features,
+							 state->their_features,
 							 OPT_UPFRONT_SHUTDOWN_SCRIPT));
 }
 
@@ -911,7 +912,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
 	 *     secp256k1 pubkeys in compressed format.
 	 */
-	if (feature_negotiated(state->fset, state->features,
+	if (feature_negotiated(state->our_features, state->their_features,
 			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {
 		if (!fromwire_open_channel_option_upfront_shutdown_script(state,
 			    open_channel_msg, &chain_hash,
@@ -980,7 +981,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
 	 *   `option_support_large_channel`. */
 	/* We choose to require *negotiation*, not just support! */
-	if (!feature_negotiated(state->fset, state->features, OPT_LARGE_CHANNELS)
+	if (!feature_negotiated(state->our_features, state->their_features,
+				OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(state->funding, chainparams->max_funding)) {
 		negotiation_failed(state, false,
 				   "funding_satoshis %s too large",
@@ -1503,7 +1505,7 @@ int main(int argc, char *argv[])
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_init(state, msg,
 				   &chainparams,
-				   &state->fset,
+				   &state->our_features,
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity,
@@ -1512,7 +1514,7 @@ int main(int argc, char *argv[])
 				   &state->our_funding_pubkey,
 				   &state->minimum_depth,
 				   &state->min_feerate, &state->max_feerate,
-				   &state->features,
+				   &state->their_features,
 				   &state->option_static_remotekey,
 				   &inner,
 				   &force_tmp_channel_id,

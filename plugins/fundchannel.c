@@ -27,7 +27,7 @@ struct funding_req {
 	struct amount_msat *push_msat;
 
 	/* Features offered by this peer. */
-	const u8 *features;
+	const u8 *their_features;
 
 	bool *announce_channel;
 	u32 *minconf;
@@ -335,7 +335,7 @@ static struct command_result *post_dryrun(struct command *cmd,
 	/* Update funding to actual amount */
 	if (fr->funding_all
 	    && !feature_negotiated(plugin_feature_set(cmd->plugin),
-				   fr->features, OPT_LARGE_CHANNELS)
+				   fr->their_features, OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(funding, chainparams->max_funding))
 		funding = chainparams->max_funding;
 
@@ -355,8 +355,8 @@ static struct command_result *exec_dryrun(struct command *cmd,
 	t = json_get_member(buf, result, "features");
 	if (!t)
 		plugin_err(cmd->plugin, "No features found in connect response?");
-	fr->features = json_tok_bin_from_hex(fr, buf, t);
-	if (!fr->features)
+	fr->their_features = json_tok_bin_from_hex(fr, buf, t);
+	if (!fr->their_features)
 		plugin_err(cmd->plugin, "Bad features '%.*s' in connect response?",
 			   t->end - t->start, buf + t->start);
 

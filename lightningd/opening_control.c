@@ -220,8 +220,9 @@ wallet_commit_channel(struct lightningd *ld,
 	 */
 	/* i.e. We set it now for the channel permanently. */
 	option_static_remotekey
-		= feature_negotiated(ld->feature_set,
-				     uc->peer->features, OPT_STATIC_REMOTEKEY);
+		= feature_negotiated(ld->our_features,
+				     uc->peer->their_features,
+				     OPT_STATIC_REMOTEKEY);
 
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
@@ -1000,7 +1001,7 @@ void peer_start_openingd(struct peer *peer,
 
 	msg = towire_opening_init(NULL,
 				  chainparams,
-				  peer->ld->feature_set,
+				  peer->ld->our_features,
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity,
@@ -1009,9 +1010,9 @@ void peer_start_openingd(struct peer *peer,
 				  uc->minimum_depth,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
-				  peer->features,
-				  feature_negotiated(peer->ld->feature_set,
-						     peer->features,
+				  peer->their_features,
+				  feature_negotiated(peer->ld->our_features,
+						     peer->their_features,
 						     OPT_STATIC_REMOTEKEY),
 				  send_msg,
 				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
@@ -1199,8 +1200,8 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	 *  - otherwise:
 	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
 	 */
-	if (!feature_negotiated(cmd->ld->feature_set,
-				peer->features, OPT_LARGE_CHANNELS)
+	if (!feature_negotiated(cmd->ld->our_features,
+				peer->their_features, OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(*amount, chainparams->max_funding))
 		return command_fail(cmd, FUND_MAX_EXCEEDED,
 				    "Amount exceeded %s",

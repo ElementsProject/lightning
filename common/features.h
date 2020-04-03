@@ -32,24 +32,25 @@ bool feature_set_or(struct feature_set *a,
 
 /* Returns -1 if we're OK with all these offered features, otherwise first
  * unsupported (even) feature. */
-int features_unsupported(const struct feature_set *ours, const u8 *theirs,
+int features_unsupported(const struct feature_set *our_features,
+			 const u8 *their_features,
 			 enum feature_place p);
 
 /* For the features in channel_announcement */
 u8 *get_agreed_channelfeatures(const tal_t *ctx,
-			       const struct feature_set *ours,
+			       const struct feature_set *our_features,
 			       const u8 *theirfeatures);
 
 /* Is this feature bit requested? (Either compulsory or optional) */
 bool feature_offered(const u8 *features, size_t f);
 
 /* Was this feature bit offered by them and us? */
-bool feature_negotiated(const struct feature_set *ours,
-			const u8 *features, size_t f);
+bool feature_negotiated(const struct feature_set *our_features,
+			const u8 *their_features, size_t f);
 
 /* Return a list of what (init) features we advertize. */
 const char **list_supported_features(const tal_t *ctx,
-				     const struct feature_set *ours);
+				     const struct feature_set *fset);
 
 /* Low-level helpers to deal with big-endian bitfields. */
 bool feature_is_set(const u8 *features, size_t bit);

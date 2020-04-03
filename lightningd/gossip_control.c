@@ -209,7 +209,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	msg = towire_gossipctl_init(
 	    tmpctx,
 	    chainparams,
-	    ld->feature_set,
+	    ld->our_features,
 	    &ld->id,
 	    ld->rgb,
 	    ld->alias,

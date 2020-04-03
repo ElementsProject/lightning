@@ -916,7 +916,7 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 			return true;
 		}
 
-		if (!feature_set_or(plugin->plugins->ld->feature_set, fset)) {
+		if (!feature_set_or(plugin->plugins->ld->our_features, fset)) {
 			plugin_kill(plugin,
 				    "Custom featurebits already present");
 			return true;
@@ -1174,7 +1174,7 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 		if (plugin_feature_place_names[fp]) {
 			json_add_hex_talarr(req->stream,
 					    plugin_feature_place_names[fp],
-					    ld->feature_set->bits[fp]);
+					    ld->our_features->bits[fp]);
 		}
 	}
 	json_object_end(req->stream);

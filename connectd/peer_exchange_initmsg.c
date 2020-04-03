@@ -135,7 +135,7 @@ static struct io_plan *peer_write_postclose(struct io_conn *conn,
 
 struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      struct daemon *daemon,
-				      const struct feature_set *fset,
+				      const struct feature_set *our_features,
 				      const struct crypto_state *cs,
 				      const struct node_id *id,
 				      const struct wireaddr_internal *addr)
@@ -182,8 +182,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 * Finally, we agreed that bits below 13 could be put in both, but
 	 * from now on they'll all go in initfeatures. */
 	peer->msg = towire_init(NULL,
-				fset->bits[GLOBAL_INIT_FEATURE],
-				fset->bits[INIT_FEATURE],
+				our_features->bits[GLOBAL_INIT_FEATURE],
+				our_features->bits[INIT_FEATURE],
 				tlvs);
 	status_peer_io(LOG_IO_OUT, &peer->id, peer->msg);
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
