@@ -3100,6 +3100,8 @@ static void init_channel(struct peer *peer)
 		 * it directly!
 		 */
 		peer->short_channel_ids[REMOTE] = peer->short_channel_ids[LOCAL];
+		tal_free(remote_ann_node_sig);
+		tal_free(remote_ann_bitcoin_sig);
 	}
 
 	/* First commit is used for opening: if we've sent 0, we're on
