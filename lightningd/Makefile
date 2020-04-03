@@ -28,6 +28,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/crypto_state.o			\
 	common/daemon.o				\
 	common/derive_basepoints.o		\
+	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/fee_states.o			\
 	common/funding_tx.o			\

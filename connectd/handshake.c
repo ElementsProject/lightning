@@ -7,6 +7,7 @@
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <common/crypto_state.h>
+#include <common/ecdh.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -471,10 +472,8 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	 * 3. `se = ECDH(s.priv, re)`
 	 *     * where `re` is the ephemeral public key of the responder
 	 */
-	h->ss = hsm_do_ecdh(h, &h->re);
-	if (!h->ss)
-		return handshake_failed(conn, h);
-
+	h->ss = tal(h, struct secret);
+	ecdh(&h->re, h->ss);
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
@@ -903,10 +902,8 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 *    * The responder performs an ECDH between its static private key and
 	 *      the initiator's ephemeral public key.
 	 */
-	h->ss = hsm_do_ecdh(h, &h->re);
-	if (!h->ss)
-		return handshake_failed(conn, h);
-
+	h->ss = tal(h, struct secret);
+	ecdh(&h->re, h->ss);
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:

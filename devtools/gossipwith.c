@@ -104,13 +104,11 @@ void peer_failed_connection_lost(void)
 	exit(0);
 }
 
-struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
+void ecdh(const struct pubkey *point, struct secret *ss)
 {
-	struct secret *ss = tal(ctx, struct secret);
 	if (secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
 			   notsosecret.data, NULL, NULL) != 1)
-		return tal_free(ss);
-	return ss;
+		abort();
 }
 
 /* We don't want to discard *any* messages. */

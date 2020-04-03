@@ -57,6 +57,7 @@
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
+#include <common/ecdh_hsmd.h>
 #include <common/features.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -736,6 +737,14 @@ static struct feature_set *default_features(const tal_t *ctx)
 	return ret;
 }
 
+/*~ We need this function style to hand to ecdh_hsmd_setup, but it's just a thin
+ * wrapper around fatal() */
+static void hsm_ecdh_failed(enum status_failreason fail,
+			    const char *fmt, ...)
+{
+	fatal("hsm failure: %s", fmt);
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -963,6 +972,9 @@ int main(int argc, char *argv[])
 	/*~ Setting this (global) activates the crash log: we don't usually need
 	 * a backtrace if we fail during startup. */
 	crashlog = ld->log;
+
+	/*~ This sets up the ecdh() function in ecdh_hsmd to talk to hsmd */
+	ecdh_hsmd_setup(ld->hsm_fd, hsm_ecdh_failed);
 
 	/*~ The root of every backtrace (almost).  This is our main event
 	 *  loop. */

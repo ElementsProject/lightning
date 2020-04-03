@@ -46,6 +46,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
+	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/fee_states.o			\
 	common/gen_status_wire.o		\

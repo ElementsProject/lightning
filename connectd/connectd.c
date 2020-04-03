@@ -29,6 +29,7 @@
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/decode_array.h>
+#include <common/ecdh_hsmd.h>
 #include <common/errcode.h>
 #include <common/features.h>
 #include <common/jsonrpc_errors.h>
@@ -1157,8 +1158,11 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				randombytes_buf((void * const)&random, 32);
 				/* generate static tor node address, take first 32 bytes from secret of node_id plus 32 random bytes from sodiom */
 				struct sha256 sha;
+				struct secret ss;
+
+				ecdh(&pb, &ss);
 				/* let's sha, that will clear ctx of hsm data */
-				sha256(&sha, hsm_do_ecdh(tmpctx, &pb), 32);
+				sha256(&sha, &ss, 32);
 				/* even if it's a secret pub derived, tor shall see only the single sha */
 				memcpy((void *)&blob[0], &sha, 32);
 				memcpy((void *)&blob[32], &random, 32);
@@ -1578,31 +1582,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		      t, tal_hex(tmpctx, msg));
 }
 
-/*~ Helper for handshake.c: we ask `hsmd` to do the ECDH to get the shared
- * secret.  It's here because it's nicer then giving the handshake code
- * knowledge of the HSM, but also at one stage I made a hacky gossip vampire
- * tool which used the handshake code, so it's nice to keep that
- * standalone. */
-struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
-{
-	u8 *req = towire_hsm_ecdh_req(tmpctx, point), *resp;
-	struct secret *secret = tal(ctx, struct secret);
-
-	if (!wire_sync_write(HSM_FD, req))
-		return tal_free(secret);
-	resp = wire_sync_read(req, HSM_FD);
-	if (!resp)
-		return tal_free(secret);
-
-	/* Note: hsmd will actually hang up on us if it can't ECDH: that implies
-	 * that our node private key is invalid, and we shouldn't have made
-	 * it this far.  */
-	if (!fromwire_hsm_ecdh_resp(resp, secret))
-		return tal_free(secret);
-
-	return secret;
-}
-
 /*~ UNUSED is defined to an __attribute__ for GCC; at one stage we tried to use
  * it ubiquitously to make us compile cleanly with -Wunused, but it's bitrotted
  * and we'd need to start again.
@@ -1647,6 +1626,10 @@ int main(int argc, char *argv[])
 	/* This tells the status_* subsystem to use this connection to send
 	 * our status_ and failed messages. */
 	status_setup_async(daemon->master);
+
+	/* Set up ecdh() function so it uses our HSM fd, and calls
+	 * status_failed on error. */
+	ecdh_hsmd_setup(HSM_FD, status_failed);
 
 	/* Should never exit. */
 	io_loop(NULL, NULL);

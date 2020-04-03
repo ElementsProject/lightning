@@ -30,6 +30,7 @@
 #include <common/blinding.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
+#include <common/ecdh_hsmd.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
 #include <common/gossip_store.h>
@@ -1668,11 +1669,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		status_debug("blinding in = %s",
 			     type_to_string(tmpctx, struct pubkey, blinding_in));
 		blinding_ss = tal(msg, struct secret);
-		msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, blinding_in));
-
-		if (!fromwire_hsm_ecdh_resp(msg, blinding_ss))
-			status_failed(STATUS_FAIL_HSM_IO,
-				      "Reading ecdh response for blinding");
+		ecdh(blinding_in, blinding_ss);
 
 		/* b(i) = HMAC256("blinded_node_id", ss(i)) * k(i) */
 		subkey_from_hmac("blinded_node_id", blinding_ss, &hmac);
@@ -1691,9 +1688,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		blinding_in = NULL;
 	}
 
-	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &op.ephemeralkey));
-	if (!fromwire_hsm_ecdh_resp(msg, &ss))
-		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
+	ecdh(&op.ephemeralkey, &ss);
 
 	/* We make sure we can parse onion packet, so we know if shared secret
 	 * is actually valid (this checks hmac). */
@@ -1733,11 +1728,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		*blinding_in = om->blinding->blinding;
 		blinding_ss = tal(msg, struct secret);
 
-		msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, blinding_in));
-
-		if (!fromwire_hsm_ecdh_resp(msg, blinding_ss))
-			status_failed(STATUS_FAIL_HSM_IO,
-				      "Reading ecdh response for om blinding");
+		ecdh(blinding_in, blinding_ss);
 	}
 
 	if (om->enctlv) {
@@ -3217,6 +3208,9 @@ int main(int argc, char *argv[])
 		memset(&peer->announcement_bitcoin_sigs[i], 0,
 		       sizeof(peer->announcement_bitcoin_sigs[i]));
 	}
+
+	/* Prepare the ecdh() function for use */
+	ecdh_hsmd_setup(HSM_FD, status_failed);
 
 	/* Read init_channel message sync. */
 	init_channel(peer);

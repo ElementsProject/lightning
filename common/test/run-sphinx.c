@@ -7,6 +7,7 @@
 #include <ccan/short_types/short_types.h>
 #include <string.h>
 #include <ccan/str/hex/hex.h>
+#include <common/ecdh.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 #include <err.h>
@@ -46,6 +47,9 @@ size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNN
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
+/* Generated stub for ecdh */
+void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
+{ fprintf(stderr, "ecdh called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
