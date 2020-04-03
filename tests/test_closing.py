@@ -1222,8 +1222,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     # Payment failed, BTW
     assert only_one(l2.rpc.listinvoices('onchain_dust_out')['invoices'])['status'] == 'unpaid'
 
-    # l1 repeats the onchaind outputs, so we get duplicated emissions. FIXME??
-    assert account_balance(l1, channel_id) == -1000000000
+    assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
 
 

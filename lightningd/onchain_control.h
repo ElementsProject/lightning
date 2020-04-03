@@ -11,7 +11,8 @@ struct block;
 
 enum watch_result onchaind_funding_spent(struct channel *channel,
 					 const struct bitcoin_tx *tx,
-					 u32 blockheight);
+					 u32 blockheight,
+					 bool is_replay);
 
 void onchaind_replay_channels(struct lightningd *ld);
 

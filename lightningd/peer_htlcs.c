@@ -423,7 +423,7 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	}
 
 	if (channel_on_chain(channel)) {
-		msg = towire_onchain_known_preimage(hin, preimage);
+		msg = towire_onchain_known_preimage(hin, preimage, false);
 	} else {
 		struct fulfilled_htlc fulfilled_htlc;
 		fulfilled_htlc.id = hin->key.id;

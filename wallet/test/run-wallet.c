@@ -434,7 +434,8 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,
-					 u32 blockheight UNNEEDED)
+					 u32 blockheight UNNEEDED,
+					 bool is_replay UNNEEDED)
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
 /* Generated stub for onion_decode */
 struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
@@ -703,7 +704,7 @@ u8 *towire_invalid_realm(const tal_t *ctx UNNEEDED)
 u8 *towire_onchain_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchain_dev_memleak called!\n"); abort(); }
 /* Generated stub for towire_onchain_known_preimage */
-u8 *towire_onchain_known_preimage(const tal_t *ctx UNNEEDED, const struct preimage *preimage UNNEEDED)
+u8 *towire_onchain_known_preimage(const tal_t *ctx UNNEEDED, const struct preimage *preimage UNNEEDED, bool is_replay UNNEEDED)
 { fprintf(stderr, "towire_onchain_known_preimage called!\n"); abort(); }
 /* Generated stub for towire_permanent_channel_failure */
 u8 *towire_permanent_channel_failure(const tal_t *ctx UNNEEDED)
