@@ -58,7 +58,6 @@ static struct amount_sat compute_fee(const struct bitcoin_tx *tx,
 
 	return bitcoin_tx_compute_fee_w_inputs(tx, input_sum);
 }
-
 static void record_coin_moves(struct lightningd *ld,
 			      struct unreleased_tx *utx)
 {
@@ -78,7 +77,7 @@ static void record_coin_moves(struct lightningd *ld,
 		}
 		sats = amount_asset_to_sat(&asset);
 		mvt = new_chain_coin_mvt_sat(utx, "wallet", &utx->txid,
-					     &utx->txid, i, NULL,
+					     &utx->txid, i, NULL, 0,
 					     WITHDRAWAL, sats,
 					     false, BTC);
 		if (!mvt)
@@ -98,7 +97,7 @@ static void record_coin_moves(struct lightningd *ld,
 	 * You can do this in post by accounting for any 'chain_fees' logged for
 	 * the funding txid when looking at a channel. */
 	mvt = new_chain_coin_mvt_sat(utx, "wallet", &utx->txid,
-				     NULL, 0, NULL, CHAIN_FEES,
+				     NULL, 0, NULL, 0, CHAIN_FEES,
 				     fees, false, BTC);
 
 	if (!mvt)

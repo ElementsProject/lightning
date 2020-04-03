@@ -392,7 +392,15 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 	json_add_amount_msat_only(stream, "credit", mvt->credit);
 	json_add_amount_msat_only(stream, "debit", mvt->debit);
 	json_add_string(stream, "tag", mvt_tag_str(mvt->tag));
-	json_add_u32(stream, "blockheight", mvt->blockheight);
+
+	/* Only chain movements have blockheights. A blockheight
+	 * of 'zero' means we haven't seen this tx confirmed yet. */
+	if (mvt->type == CHAIN_MVT) {
+		if (mvt->blockheight)
+			json_add_u32(stream, "blockheight", mvt->blockheight);
+		else
+			json_add_null(stream, "blockheight");
+	}
 	json_add_u32(stream, "timestamp", mvt->timestamp);
 	json_add_string(stream, "unit_of_account", mvt_unit_str(mvt->unit));
 

@@ -1654,6 +1654,16 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->txid), blockheight ? " CONFIRMED" : "");
 
+		/* We only record final ledger movements */
+		if (blockheight) {
+			mvt = new_chain_coin_mvt_sat(utxo, "wallet", &utxo->txid,
+						     &utxo->txid, utxo->outnum, NULL,
+						     blockheight ? *blockheight : 0,
+						     DEPOSIT, utxo->amount,
+						     true, BTC);
+			notify_chain_mvt(w->ld, mvt);
+		}
+
 		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {
 			/* In case we already know the output, make
 			 * sure we actually track its
@@ -1665,13 +1675,6 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			tal_free(utxo);
 			continue;
 		}
-
-		/* add this to our wallet amount */
-		mvt = new_chain_coin_mvt_sat(utxo, "wallet", &utxo->txid,
-					     &utxo->txid, utxo->outnum,
-					     NULL, DEPOSIT, utxo->amount,
-					     true, BTC);
-		notify_chain_mvt(w->ld, mvt);
 
 		/* This is an unconfirmed change output, we should track it */
 		if (!is_p2sh && !blockheight)

@@ -69,6 +69,7 @@ struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 					  const struct bitcoin_txid *output_txid,
 					  u32 vout,
 					  struct sha256 *payment_hash,
+					  u32 blockheight,
 					  enum mvt_tag tag,
 					  struct amount_msat amount,
 					  bool is_credit,
@@ -89,6 +90,7 @@ struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 	/* for htlc's that are filled onchain, we also have a
 	 * preimage, NULL otherwise */
 	mvt->payment_hash = payment_hash;
+	mvt->blockheight = blockheight;
 
 	mvt->tag = tag;
 	if (is_credit) {
@@ -109,6 +111,7 @@ struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 					      const struct bitcoin_txid *output_txid,
 					      u32 vout,
 					      struct sha256 *payment_hash,
+					      u32 blockheight,
 					      enum mvt_tag tag,
 					      struct amount_sat amt_sat,
 					      bool is_credit,
@@ -120,14 +123,13 @@ struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
 				  output_txid, vout, payment_hash,
-				  tag, amt_msat, is_credit,
+				  blockheight, tag, amt_msat, is_credit,
 				  unit);
 }
 
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
 				    u32 timestamp,
-				    u32 blockheight,
 				    struct node_id *node_id)
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
@@ -145,7 +147,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	mvt->debit = chain_mvt->debit;
 	mvt->unit = chain_mvt->unit;
 	mvt->timestamp = timestamp;
-	mvt->blockheight = blockheight;
+	mvt->blockheight = chain_mvt->blockheight;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = node_id;
 	mvt->counter = mvt_count++;
@@ -155,8 +157,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 
 struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      const struct channel_coin_mvt *chan_mvt,
-				      u32 timestamp, u32 blockheight,
-				      struct node_id *node_id)
+				      u32 timestamp, struct node_id *node_id)
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
@@ -173,7 +174,8 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->debit = chan_mvt->debit;
 	mvt->unit = chan_mvt->unit;
 	mvt->timestamp = timestamp;
-	mvt->blockheight = blockheight;
+	/* channel movements don't have a blockheight */
+	mvt->blockheight = 0;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = node_id;
 	mvt->counter = mvt_count++;
@@ -201,6 +203,7 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 		towire_sha256(pptr, mvt->payment_hash);
 	} else
 		towire_bool(pptr, false);
+	towire_u32(pptr, mvt->blockheight);
 	towire_u8(pptr, mvt->tag);
 	towire_amount_msat(pptr, mvt->credit);
 	towire_amount_msat(pptr, mvt->debit);
@@ -233,6 +236,7 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 		fromwire_sha256(cursor, max, mvt->payment_hash);
 	} else
 		mvt->payment_hash = NULL;
+	mvt->blockheight = fromwire_u32(cursor, max);
 	mvt->tag = fromwire_u8(cursor, max);
 	mvt->credit = fromwire_amount_msat(cursor, max);
 	mvt->debit = fromwire_amount_msat(cursor, max);
