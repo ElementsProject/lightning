@@ -888,10 +888,6 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     amount = 2**24
     l1.fundwallet(amount + 10000000)
 
-    # Fail to open (too large)
-    with pytest.raises(RpcError, match=r'Amount exceeded 16777215'):
-        l1.rpc.fundchannel_start(l2.info['id'], amount)
-
     amount = amount - 1
     fake_txid = '929764844a8f9938b669a60a1d51a11c9e2613c7eb4776e4126f1f20c0a685c3'
     fake_txout = 0
@@ -906,6 +902,10 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r'No channel funding in progress.'):
         l1.rpc.fundchannel_complete(l2.info['id'], fake_txid, fake_txout)
+
+    # Fail to open (too large)
+    with pytest.raises(RpcError, match=r'Amount exceeded 16777215'):
+        l1.rpc.fundchannel_start(l2.info['id'], amount + 1)
 
     l1.rpc.fundchannel_start(l2.info['id'], amount)
     with pytest.raises(RpcError, match=r'Already funding channel'):

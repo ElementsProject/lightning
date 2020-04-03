@@ -1146,12 +1146,6 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	if (amount_sat_greater(*amount, chainparams->max_funding))
-		return command_fail(cmd, FUND_MAX_EXCEEDED,
-				    "Amount exceeded %s",
-				    type_to_string(tmpctx, struct amount_sat,
-						   &chainparams->max_funding));
-
 	if (push_msat && amount_msat_greater_sat(*push_msat, *amount))
 		return command_fail(cmd, FUND_CANNOT_AFFORD,
 				    "Requested to push_msat of %s is greater than "
@@ -1199,6 +1193,20 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
 	}
 
+	/* BOLT #2:
+	 *  - if both nodes advertised `option_support_large_channel`:
+	 *    - MAY set `funding_satoshis` greater than or equal to 2^24 satoshi.
+	 *  - otherwise:
+	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
+	 */
+	if (!feature_negotiated(cmd->ld->feature_set,
+				peer->features, OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(*amount, chainparams->max_funding))
+		return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Amount exceeded %s",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &chainparams->max_funding));
+
 	fc->push = push_msat ? *push_msat : AMOUNT_MSAT(0);
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
 	if (!*announce_channel) {
@@ -1207,7 +1215,6 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 			type_to_string(fc, struct node_id, id));
 	}
 
-	assert(!amount_sat_greater(*amount, chainparams->max_funding));
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
 
