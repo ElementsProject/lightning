@@ -487,9 +487,13 @@ static bool setup_channel_funder(struct state *state)
 	 *
 	 * The sending node:
 	 *...
-	 *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
+	 *  - if both nodes advertised `option_support_large_channel`:
+	 *    - MAY set `funding_satoshis` greater than or equal to 2^24 satoshi.
+	 *  - otherwise:
+	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
 	 */
-	if (amount_sat_greater(state->funding, chainparams->max_funding)) {
+	if (!feature_negotiated(state->fset, state->features, OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(state->funding, chainparams->max_funding)) {
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding_satoshis must be < %s, not %s",
 			      type_to_string(tmpctx, struct amount_sat,
@@ -969,11 +973,15 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
-	/* BOLT #2 FIXME:
+	/* BOLT #2:
 	 *
-	 * The receiving node ... MUST fail the channel if `funding-satoshis`
-	 * is greater than or equal to 2^24 */
-	if (amount_sat_greater(state->funding, chainparams->max_funding)) {
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
+	 *   `option_support_large_channel`. */
+	/* We choose to require *negotiation*, not just support! */
+	if (!feature_negotiated(state->fset, state->features, OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(state->funding, chainparams->max_funding)) {
 		negotiation_failed(state, false,
 				   "funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
