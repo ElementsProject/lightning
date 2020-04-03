@@ -610,6 +610,8 @@ static struct migration dbmigrations[] = {
     /* For incoming HTLCs, we now keep track of whether or not we provided
      * the preimage for it, or not. */
     {SQL("ALTER TABLE channel_htlcs ADD we_filled INTEGER;"), NULL},
+    /* We track the counter for coin_moves, as a convenience for notification consumers */
+    {SQL("INSERT INTO vars (name, intval) VALUES ('coin_moves_count', 0);"), NULL},
 };
 
 /* Leak tracking. */

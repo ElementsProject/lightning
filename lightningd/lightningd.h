@@ -268,6 +268,10 @@ struct lightningd {
 	alt_subdaemon_map alt_subdaemons;
 
 	enum lightningd_state state;
+
+	/* Total number of coin moves we've seen, since
+	 * coin move tracking was cool */
+	s64 coin_moves_count;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

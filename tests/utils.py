@@ -48,6 +48,19 @@ def check_coin_moves(n, account_id, expected_moves):
             assert mv['blockheight'] is not None
 
 
+def check_coin_moves_idx(n):
+    """ Just check that the counter increments smoothly"""
+    moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
+    idx = 0
+    for m in moves:
+        c_idx = m['movement_idx']
+        # verify that the index count increments smoothly here, also
+        if c_idx == 0 and idx == 0:
+            continue
+        assert c_idx == idx + 1
+        idx = c_idx
+
+
 def account_balance(n, account_id):
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
     chan_moves = [m for m in moves if m['account_id'] == account_id]

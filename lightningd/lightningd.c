@@ -70,6 +70,7 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/io_loop_with_timers.h>
@@ -824,6 +825,10 @@ int main(int argc, char *argv[])
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
 	ld->wallet = wallet_new(ld, ld->timers);
+
+	/*~ We keep track of how many 'coin moves' we've ever made.
+	 * Initialize the starting value from the database here. */
+	coin_mvts_init_count(ld);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);
