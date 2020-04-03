@@ -19,6 +19,7 @@ static const char *mvt_tags[] = {
 	"journal_entry",
 	"onchain_htlc",
 	"pushed",
+	"spend_track",
 };
 const char *mvt_tag_str(enum mvt_tag tag)
 {

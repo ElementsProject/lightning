@@ -384,6 +384,14 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 						     struct wallet *w);
 
+/** wallet_utxo_get - Retrive a utxo.
+ *
+ * Returns a utxo, or NULL if not found.
+ */
+struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
+			     const struct bitcoin_txid *txid,
+			     u32 outnum);
+
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					bool with_change,
 					struct amount_sat value,
@@ -1091,12 +1099,14 @@ bool wallet_have_block(struct wallet *w, u32 blockheight);
  * Given the outpoint (txid, outnum), and the blockheight, mark the
  * corresponding DB entries as spent at the blockheight.
  *
+ * @our_spend - set to true if found in our wallet's output set, false otherwise
  * @return scid The short_channel_id corresponding to the spent outpoint, if
  *         any.
  */
 const struct short_channel_id *
 wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
-		      const struct bitcoin_txid *txid, const u32 outnum);
+		      const struct bitcoin_txid *txid, const u32 outnum,
+		      bool *our_spend);
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 					  const struct short_channel_id *scid);
