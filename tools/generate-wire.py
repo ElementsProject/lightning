@@ -216,6 +216,7 @@ class Type(FieldSet):
         'gossip_getnodes_entry',
         'gossip_getchannels_entry',
         'failed_htlc',
+        'existing_htlc',
         'utxo',
         'bitcoin_tx',
         'wirestring',

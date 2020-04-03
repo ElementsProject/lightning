@@ -29,14 +29,8 @@ struct channel_info {
 };
 
 /* Get all HTLCs for a peer, to send in init message. */
-void peer_htlcs(const tal_t *ctx,
-		const struct channel *channel,
-		struct added_htlc **htlcs,
-		enum htlc_state **htlc_states,
-		struct fulfilled_htlc **fulfilled_htlcs,
-		enum side **fulfilled_sides,
-		const struct failed_htlc ***failed_in,
-		u64 **failed_out);
+const struct existing_htlc **peer_htlcs(const tal_t *ctx,
+					const struct channel *channel);
 
 void free_htlcs(struct lightningd *ld, const struct channel *channel);
 
