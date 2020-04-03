@@ -3,7 +3,7 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
-from pyln.client import RpcError
+from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT,
     SLOW_MACHINE, expected_features
@@ -2220,3 +2220,47 @@ def test_pay_disconnect_stress(node_factory, executor):
                 pass
 
         fut.result()
+
+
+def test_wumbo_channels(node_factory, bitcoind):
+    f = bytes.fromhex(expected_features())
+
+    # OPT_LARGE_CHANNELS = 18 (19 for us). 0x080000
+    f = (f[:-3] + bytes([f[-3] | 0x08]) + f[-2:]).hex()
+
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{'large-channels': None},
+                                              {'large-channels': None},
+                                              {}])
+    conn = l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    assert conn['features'] == f
+    assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['features'] == f
+
+    # Now, can we open a giant channel?
+    l1.fundwallet(1 << 26)
+    l1.rpc.fundchannel(l2.info['id'], 1 << 24)
+
+    # Get that mined, and announced.
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    # Connect l3, get gossip.
+    l3.rpc.connect(l1.info['id'], 'localhost', port=l1.port)
+    wait_for(lambda: len(l3.rpc.listnodes(l1.info['id'])['nodes']) == 1)
+    wait_for(lambda: 'features' in only_one(l3.rpc.listnodes(l1.info['id'])['nodes']))
+
+    # Make sure channel capacity is what we expected.
+    assert ([c['amount_msat'] for c in l3.rpc.listchannels()['channels']]
+            == [Millisatoshi(str(1 << 24) + "sat")] * 2)
+
+    # Make sure we can't open a wumbo channel if we don't agree.
+    with pytest.raises(RpcError, match='Amount exceeded'):
+        l1.rpc.fundchannel(l3.info['id'], 1 << 24)
+
+    # But we can open and announce a normal one.
+    l1.rpc.fundchannel(l3.info['id'], 'all')
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: l1.channel_state(l3) == 'CHANNELD_NORMAL')
+
+    # Make sure l2 sees correct size.
+    wait_for(lambda: [c['amount_msat'] for c in l2.rpc.listchannels(l1.get_channel_scid(l3))['channels']]
+             == [Millisatoshi(str((1 << 24) - 1) + "sat")] * 2)
