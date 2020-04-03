@@ -14,6 +14,7 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/coin_mvt.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
@@ -23,6 +24,7 @@
 #include <common/utils.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/io_loop_with_timers.h>
 
@@ -660,6 +662,92 @@ static void updates_complete(struct chain_topology *topo)
 	next_topology_timer(topo);
 }
 
+static void record_output_spend(struct lightningd *ld,
+				const struct bitcoin_txid *txid,
+				const struct bitcoin_txid *utxo_txid,
+				u32 vout, u32 blockheight,
+				struct amount_sat *input_amt)
+{
+	struct utxo *utxo;
+	struct chain_coin_mvt *mvt;
+	u8 *ctx = tal(NULL, u8);
+
+	utxo = wallet_utxo_get(ctx, ld->wallet, utxo_txid, vout);
+	if (!utxo)
+		log_broken(ld->log, "No record of utxo %s:%d",
+			    type_to_string(tmpctx, struct bitcoin_txid,
+					   utxo_txid),
+			    vout);
+
+	*input_amt = utxo->amount;
+	mvt = new_chain_coin_mvt_sat(ctx, "wallet", txid,
+				     utxo_txid, vout, NULL,
+				     blockheight,
+				     SPEND_TRACK, AMOUNT_SAT(0),
+				     false, BTC);
+	if (!mvt)
+		fatal("unable to convert %s to msat",
+		      type_to_string(tmpctx, struct amount_sat,
+				     input_amt));
+	notify_chain_mvt(ld, mvt);
+	tal_free(ctx);
+}
+
+static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_tx *tx,
+				    struct bitcoin_txid *txid, u32 blockheight,
+				    struct amount_sat inputs_total)
+{
+	struct amount_sat fee;
+	struct chain_coin_mvt *mvt;
+	size_t i;
+	u8 *ctx = tal(NULL, u8);
+
+	if (!tx)
+		log_broken(ld->log, "We have no record of transaction %s",
+			   type_to_string(ctx, struct bitcoin_txid, txid));
+
+	/* We record every output on this transaction as a withdraw */
+	/* FIXME: collaborative tx will need to keep track of which
+	 *        outputs are ours */
+	for (i = 0; i < tx->wtx->num_outputs; i++) {
+		struct amount_asset asset;
+		struct amount_sat outval;
+		if (elements_tx_output_is_fee(tx, i))
+			continue;
+		asset = bitcoin_tx_output_get_amount(tx, i);
+		assert(amount_asset_is_main(&asset));
+		outval = amount_asset_to_sat(&asset);
+		mvt = new_chain_coin_mvt_sat(ctx, "wallet", txid,
+					     txid, i, NULL,
+					     blockheight, WITHDRAWAL,
+					     outval, false, BTC);
+		if (!mvt)
+			fatal("unable to convert %s to msat",
+			      type_to_string(tmpctx, struct amount_sat, &fee));
+
+		notify_chain_mvt(ld, mvt);
+	}
+
+	fee = bitcoin_tx_compute_fee_w_inputs(tx, inputs_total);
+
+	/* Note that to figure out the *total* 'onchain'
+	 * cost of a channel, you'll want to also include
+	 * fees logged here, to the 'wallet' account (for funding tx).
+	 * You can do this in post by accounting for any 'chain_fees' logged for
+	 * the funding txid when looking at a channel. */
+	mvt = new_chain_coin_mvt_sat(ctx, "wallet", txid,
+				     NULL, 0, NULL, blockheight,
+				     CHAIN_FEES, fee, false, BTC);
+
+	if (!mvt)
+		fatal("unable to convert %s to msat",
+		      type_to_string(tmpctx, struct amount_sat, &fee));
+
+	notify_chain_mvt(ld, mvt);
+
+	tal_free(ctx);
+}
+
 /**
  * topo_update_spends -- Tell the wallet about all spent outpoints
  */
@@ -668,19 +756,56 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 	const struct short_channel_id *scid;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
+		bool our_tx = false;
+		struct bitcoin_txid txid;
+		struct amount_sat inputs_total = AMOUNT_SAT(0);
+
+		bitcoin_txid(tx, &txid);
+
 		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
 			const struct wally_tx_input *input = &tx->wtx->inputs[j];
-			struct bitcoin_txid txid;
-			bitcoin_tx_input_get_txid(tx, j, &txid);
+			struct bitcoin_txid outpoint_txid;
+			bool our_spend;
+
+			bitcoin_tx_input_get_txid(tx, j, &outpoint_txid);
 
 			scid = wallet_outpoint_spend(topo->ld->wallet, tmpctx,
-						     b->height, &txid,
-						     input->index);
+						     b->height, &outpoint_txid,
+						     input->index,
+						     &our_spend);
 			if (scid) {
 				gossipd_notify_spend(topo->bitcoind->ld, scid);
 				tal_free(scid);
 			}
+
+			our_tx |= our_spend;
+			if (our_spend) {
+				struct amount_sat input_amt;
+				bool ok;
+
+				record_output_spend(topo->ld, &txid, &outpoint_txid,
+						    input->index, b->height, &input_amt);
+				ok = amount_sat_add(&inputs_total, inputs_total, input_amt);
+				assert(ok);
+			} else if (our_tx)
+				log_broken(topo->ld->log, "Recording fee spend for tx %s but "
+					   "our wallet did not contribute input %s:%d",
+					   type_to_string(tmpctx, struct bitcoin_txid,
+							  &txid),
+					   type_to_string(tmpctx, struct bitcoin_txid,
+							  &outpoint_txid),
+					   input->index);
+
 		}
+
+		/* For now we assume that if one of the spent utxos
+		 * in this tx is 'ours', that we own all of the
+		 * utxos and therefore paid all of the fees
+		 * FIXME: update once interactive tx construction
+		 * is a reality */
+		if (our_tx)
+			record_tx_outs_and_fees(topo->ld, tx, &txid,
+						b->height, inputs_total);
 	}
 }
 

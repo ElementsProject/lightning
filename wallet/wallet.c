@@ -314,6 +314,46 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 	return results;
 }
 
+struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
+			     const struct bitcoin_txid *txid,
+			     u32 outnum)
+{
+	struct db_stmt *stmt;
+	struct utxo *utxo;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey"
+					" FROM outputs"
+					" WHERE prev_out_tx = ?"
+					" AND prev_out_index = ?"));
+
+	db_bind_sha256d(stmt, 0, &txid->shad);
+	db_bind_int(stmt, 1, outnum);
+
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return NULL;
+	}
+
+	utxo = wallet_stmt2output(ctx, stmt);
+	tal_free(stmt);
+
+	return utxo;
+}
+
 /**
  * unreserve_utxo - Mark a reserved UTXO as available again
  */
@@ -2904,7 +2944,8 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 
 const struct short_channel_id *
 wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
-		      const struct bitcoin_txid *txid, const u32 outnum)
+		      const struct bitcoin_txid *txid, const u32 outnum,
+		      bool *our_spend)
 {
 	struct short_channel_id *scid;
 	struct db_stmt *stmt;
@@ -2921,7 +2962,10 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 		db_bind_int(stmt, 2, outnum);
 
 		db_exec_prepared_v2(take(stmt));
-	}
+
+		*our_spend = true;
+	} else
+		*our_spend = false;
 
 	if (outpointfilter_matches(w->utxoset_outpoints, txid, outnum)) {
 		stmt = db_prepare_v2(w->db, SQL("UPDATE utxoset "

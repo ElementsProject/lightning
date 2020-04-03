@@ -6,7 +6,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/bech32.h>
-#include <common/coin_mvt.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
@@ -23,7 +22,6 @@
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -35,77 +33,6 @@
 #include <wallet/wallet.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
-
-static struct amount_sat compute_fee(const struct bitcoin_tx *tx,
-				     struct unreleased_tx *utx)
-{
-	size_t i;
-	bool ok;
-	struct amount_sat input_sum = AMOUNT_SAT(0);
-
-	/* ok so, the easiest thing to do is to add up all the inputs,
-	 * separately, and then compute the fee from the outputs.
-	 * 'normally' we'd just pass in the tx to `bitcoin_compute_fee`
-	 * but due to how serialization works, the input amounts aren't
-	 * preserved here */
-	/* FIXME: use `bitcoin_compute_fee` once input amounts
-	 * are preserved across the wire */
-	for (i = 0; i < tal_count(utx->wtx->utxos); i++) {
-		ok = amount_sat_add(&input_sum, input_sum,
-				    utx->wtx->utxos[i]->amount);
-		assert(ok);
-	}
-
-	return bitcoin_tx_compute_fee_w_inputs(tx, input_sum);
-}
-static void record_coin_moves(struct lightningd *ld,
-			      struct unreleased_tx *utx)
-{
-	struct amount_sat fees;
-	struct chain_coin_mvt *mvt;
-	size_t i;
-
-	/* record each of the outputs as a withdrawal */
-	for (i = 0; i < utx->tx->wtx->num_outputs; i++) {
-		struct amount_asset asset;
-		struct amount_sat sats;
-		asset = bitcoin_tx_output_get_amount(utx->tx, i);
-		if (elements_tx_output_is_fee(utx->tx, i) ||
-		    !amount_asset_is_main(&asset)) {
-			/* FIXME: handle non-btc withdrawals */
-			continue;
-		}
-		sats = amount_asset_to_sat(&asset);
-		mvt = new_chain_coin_mvt_sat(utx, "wallet", &utx->txid,
-					     &utx->txid, i, NULL, 0,
-					     WITHDRAWAL, sats,
-					     false, BTC);
-		if (!mvt)
-			fatal("unable to convert %s to msat",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &sats));
-		notify_chain_mvt(ld, mvt);
-	}
-
-	/* we can't use bitcoin_tx_compute_fee because the input
-	 * amounts aren't set... */
-	fees = compute_fee(utx->tx, utx);
-
-	/* Note that to figure out the *total* 'onchain'
-	 * cost of a channel, you'll want to also include
-	 * fees logged here, to the 'wallet' account (for funding tx).
-	 * You can do this in post by accounting for any 'chain_fees' logged for
-	 * the funding txid when looking at a channel. */
-	mvt = new_chain_coin_mvt_sat(utx, "wallet", &utx->txid,
-				     NULL, 0, NULL, 0, CHAIN_FEES,
-				     fees, false, BTC);
-
-	if (!mvt)
-		fatal("unable to convert %s to msat",
-		      type_to_string(tmpctx, struct amount_sat, &fees));
-
-	notify_chain_mvt(ld, mvt);
-}
 
 /**
  * wallet_withdrawal_broadcast - The tx has been broadcast (or it failed)
@@ -130,7 +57,6 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 	if (success) {
 		/* Mark used outputs as spent */
 		wallet_confirm_utxos(ld->wallet, utx->wtx->utxos);
-		record_coin_moves(ld, utx);
 
 		/* Extract the change output and add it to the DB */
 		wallet_extract_owned_outputs(ld->wallet, utx->tx, NULL, &change);

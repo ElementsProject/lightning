@@ -29,6 +29,7 @@ enum mvt_tag {
 	JOURNAL = 6,
 	ONCHAIN_HTLC = 7,
 	PUSHED = 8,
+	SPEND_TRACK = 9,
 };
 
 enum mvt_unit_type {
