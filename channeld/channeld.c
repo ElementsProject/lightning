@@ -27,6 +27,7 @@
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/blinding.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
@@ -1629,37 +1630,6 @@ static bool channeld_handle_custommsg(const u8 *msg)
 }
 
 #if EXPERIMENTAL_FEATURES
-/* H(E(i) || ss(i)) */
-static struct sha256 hash_e_and_ss(const struct pubkey *e,
-				   const struct secret *ss)
-{
-	u8 der[PUBKEY_CMPR_LEN];
-	struct sha256_ctx shactx;
-	struct sha256 h;
-
-	pubkey_to_der(der, e);
-	sha256_init(&shactx);
-	sha256_update(&shactx, der, sizeof(der));
-	sha256_update(&shactx, ss->data, sizeof(ss->data));
-	sha256_done(&shactx, &h);
-
-	return h;
-}
-
-/* E(i-1) = H(E(i) || ss(i)) * E(i) */
-static struct pubkey next_pubkey(const struct pubkey *pk,
-				 const struct sha256 *h)
-{
-	struct pubkey ret;
-
-	ret = *pk;
-	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, &ret.pubkey, h->u.u8)
-	    != 1)
-		abort();
-
-	return ret;
-}
-
 /* Peer sends onion msg. */
 static void handle_onion_message(struct peer *peer, const u8 *msg)
 {
@@ -1866,9 +1836,10 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 
 		if (blinding_ss) {
 			/* E(i-1) = H(E(i) || ss(i)) * E(i) */
-			struct sha256 h = hash_e_and_ss(blinding_in, blinding_ss);
+			struct sha256 h;
+			blinding_hash_e_and_ss(blinding_in, blinding_ss, &h);
 			next_blinding = tal(msg, struct pubkey);
-			*next_blinding = next_pubkey(blinding_in, &h);
+			blinding_next_pubkey(blinding_in, &h, next_blinding);
 		} else
 			next_blinding = NULL;
 
