@@ -43,6 +43,7 @@ msgdata,onchain_init,min_possible_feerate,u32,
 msgdata,onchain_init,max_possible_feerate,u32,
 msgdata,onchain_init,possible_remote_per_commit_point,?pubkey,
 msgdata,onchain_init,option_static_remotekey,bool,
+msgdata,onchain_init,is_replay,bool,
 
 #include <onchaind/onchain_wire.h>
 # This is all the HTLCs: one per message
@@ -65,11 +66,13 @@ msgtype,onchain_spent,5004
 msgdata,onchain_spent,tx,bitcoin_tx,
 msgdata,onchain_spent,input_num,u32,
 msgdata,onchain_spent,blockheight,u32,
+msgdata,onchain_spent,is_replay,bool,
 
 # master->onchaind: We will receive more than one of these, as depth changes.
 msgtype,onchain_depth,5005
 msgdata,onchain_depth,txid,bitcoin_txid,
 msgdata,onchain_depth,depth,u32,
+msgdata,onchain_depth,is_replay,bool,
 
 # onchaind->master: We don't want to watch this tx, or its outputs
 msgtype,onchain_unwatch_tx,5006
@@ -78,6 +81,7 @@ msgdata,onchain_unwatch_tx,txid,bitcoin_txid,
 # master->onchaind: We know HTLC preimage
 msgtype,onchain_known_preimage,5007
 msgdata,onchain_known_preimage,preimage,preimage,
+msgdata,onchain_known_preimage,is_replay,bool,
 
 # onchaind->master: We discovered HTLC preimage
 msgtype,onchain_extracted_preimage,5008
