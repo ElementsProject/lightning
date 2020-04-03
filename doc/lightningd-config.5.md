@@ -230,6 +230,13 @@ extremely busy node for you to even notice.
 
 ### Lightning channel and HTLC options
 
+ **large-channels**
+Removes capacity limits for channel creation.  Version 1.0 of the specification
+limited channel sizes to 16777215 satoshi.  With this option (which your
+node will advertize to peers), your node will accept larger incoming channels
+and if the peer supports it, will open larger channels.  Note: this option
+is spelled **large-channels** but it's pronounced **wumbo**.
+
  **watchtime-blocks**=*BLOCKS*
 How long we need to spot an outdated close attempt: on opening a channel
 we tell our peer that this is how long they’ll have to wait if they
