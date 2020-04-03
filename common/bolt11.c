@@ -489,7 +489,7 @@ static void shift_bitmap_down(u8 *bitmap, size_t bits)
  *  See [Feature Bits](#feature-bits).
  */
 static char *decode_9(struct bolt11 *b11,
-		      const struct feature_set *fset,
+		      const struct feature_set *our_features,
 		      struct hash_u5 *hu5,
 		      u5 **data, size_t *data_len,
 		      size_t data_length)
@@ -512,9 +512,10 @@ static char *decode_9(struct bolt11 *b11,
 	 * - if the `9` field contains unknown _even_ bits that are non-zero:
 	 *   - MUST fail the payment.
 	 */
-	/* We skip this check for the cli tool, which sets fset to NULL */
-	if (fset) {
-		badf = features_unsupported(fset, b11->features, BOLT11_FEATURE);
+	/* We skip this check for the cli tool, which sets our_features to NULL */
+	if (our_features) {
+		badf = features_unsupported(our_features,
+					    b11->features, BOLT11_FEATURE);
 		if (badf != -1)
 			return tal_fmt(b11, "9: unknown feature bit %i", badf);
 	}
@@ -545,7 +546,7 @@ struct bolt11 *new_bolt11(const tal_t *ctx,
 
 /* Decodes and checks signature; returns NULL on error. */
 struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
-			     const struct feature_set *fset,
+			     const struct feature_set *our_features,
 			     const char *description, char **fail)
 {
 	char *hrp, *amountstr, *prefix;
@@ -740,7 +741,8 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 					   data_length);
 			break;
 		case '9':
-			problem = decode_9(b11, fset, &hu5, &data, &data_len,
+			problem = decode_9(b11, our_features, &hu5,
+					   &data, &data_len,
 					   data_length);
 			break;
 		case 's':

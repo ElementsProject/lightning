@@ -85,7 +85,7 @@ struct plugin {
 	size_t in_timer;
 
 	/* Feature set for lightningd */
-	struct feature_set *fset;
+	struct feature_set *our_features;
 };
 
 
@@ -154,7 +154,7 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 
 const struct feature_set *plugin_feature_set(const struct plugin *p)
 {
-	return p->fset;
+	return p->our_features;
 }
 
 static void jsonrpc_finish_and_send(struct plugin *p, struct json_stream *js)
@@ -770,7 +770,7 @@ static struct command_result *handle_init(struct command *cmd,
 	chainparams = chainparams_for_network(network);
 
 	fsettok = json_delve(buf, configtok, ".feature_set");
-	p->fset = json_to_feature_set(p, buf, fsettok);
+	p->our_features = json_to_feature_set(p, buf, fsettok);
 
 	rpctok = json_delve(buf, configtok, ".rpc-file");
 	p->rpc_conn->fd = socket(AF_UNIX, SOCK_STREAM, 0);

@@ -59,7 +59,7 @@ struct daemon {
 	struct seeker *seeker;
 
 	/* Features lightningd told us to set. */
-	struct feature_set *fset;
+	struct feature_set *our_features;
 };
 
 /* This represents each peer we're gossiping with */

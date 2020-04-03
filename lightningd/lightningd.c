@@ -785,7 +785,7 @@ int main(int argc, char *argv[])
 		errx(1, "Could not find daemons");
 
 	/* Set up the feature bits for what we support */
-	ld->feature_set = default_features(ld);
+	ld->our_features = default_features(ld);
 
 	/*~ Handle early options; this moves us into --lightning-dir.
 	 * Plugins may add new options, which is why we are splitting

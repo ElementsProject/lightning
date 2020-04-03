@@ -6,7 +6,7 @@
 
 msgtype,connectctl_init,2000
 msgdata,connectctl_init,chainparams,chainparams,
-msgdata,connectctl_init,feature_set,feature_set,
+msgdata,connectctl_init,our_features,feature_set,
 msgdata,connectctl_init,id,node_id,
 msgdata,connectctl_init,num_wireaddrs,u16,
 msgdata,connectctl_init,wireaddrs,wireaddr_internal,num_wireaddrs

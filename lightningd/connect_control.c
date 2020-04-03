@@ -72,7 +72,7 @@ static struct command_result *connect_cmd_succeed(struct command *cmd,
 {
 	struct json_stream *response = json_stream_success(cmd);
 	json_add_node_id(response, "id", &peer->id);
-	json_add_hex_talarr(response, "features", peer->features);
+	json_add_hex_talarr(response, "features", peer->their_features);
 	return command_success(cmd, response);
 }
 
@@ -365,7 +365,7 @@ int connectd_init(struct lightningd *ld)
 
 	msg = towire_connectctl_init(
 	    tmpctx, chainparams,
-	    ld->feature_set,
+	    ld->our_features,
 	    &ld->id,
 	    wireaddrs,
 	    listen_announce,

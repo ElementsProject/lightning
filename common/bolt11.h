@@ -80,7 +80,7 @@ struct bolt11 {
  * fset is NULL to accept any features (usually not desirable!).
  */
 struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
-			     const struct feature_set *fset,
+			     const struct feature_set *our_features,
 			     const char *description, char **fail);
 
 /* Initialize an empty bolt11 struct with optional amount */

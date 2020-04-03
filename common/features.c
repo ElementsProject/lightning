@@ -158,17 +158,17 @@ static void clear_feature_bit(u8 *features, u32 bit)
  *  it sets.
  */
 u8 *get_agreed_channelfeatures(const tal_t *ctx,
-			       const struct feature_set *ours,
-			       const u8 *theirfeatures)
+			       const struct feature_set *our_features,
+			       const u8 *their_features)
 {
-	u8 *f = tal_dup_talarr(ctx, u8, ours->bits[CHANNEL_FEATURE]);
+	u8 *f = tal_dup_talarr(ctx, u8, our_features->bits[CHANNEL_FEATURE]);
 	size_t max_len = 0;
 
 	/* Clear any features which they didn't offer too */
 	for (size_t i = 0; i < 8 * tal_count(f); i += 2) {
 		if (!feature_offered(f, i))
 			continue;
-		if (!feature_offered(theirfeatures, i)) {
+		if (!feature_offered(their_features, i)) {
 			clear_feature_bit(f, COMPULSORY_FEATURE(i));
 			clear_feature_bit(f, OPTIONAL_FEATURE(i));
 			continue;
@@ -197,11 +197,11 @@ bool feature_offered(const u8 *features, size_t f)
 		|| feature_is_set(features, OPTIONAL_FEATURE(f));
 }
 
-bool feature_negotiated(const struct feature_set *ours,
-			const u8 *lfeatures, size_t f)
+bool feature_negotiated(const struct feature_set *our_features,
+			const u8 *their_features, size_t f)
 {
-	return feature_offered(lfeatures, f)
-		&& feature_offered(ours->bits[INIT_FEATURE], f);
+	return feature_offered(their_features, f)
+		&& feature_offered(our_features->bits[INIT_FEATURE], f);
 }
 
 /**
@@ -215,7 +215,7 @@ bool feature_negotiated(const struct feature_set *ours,
  *
  * Returns -1 on success, or first unsupported feature.
  */
-static int all_supported_features(const struct feature_set *ours,
+static int all_supported_features(const struct feature_set *our_features,
 				  const u8 *bitmap,
 				  enum feature_place p)
 {
@@ -226,7 +226,7 @@ static int all_supported_features(const struct feature_set *ours,
 		if (!test_bit(bitmap, bitnum/8, bitnum%8))
 			continue;
 
-		if (feature_offered(ours->bits[p], bitnum))
+		if (feature_offered(our_features->bits[p], bitnum))
 			continue;
 
 		return bitnum;
@@ -234,16 +234,17 @@ static int all_supported_features(const struct feature_set *ours,
 	return -1;
 }
 
-int features_unsupported(const struct feature_set *ours, const u8 *theirs,
+int features_unsupported(const struct feature_set *our_features,
+			 const u8 *their_features,
 			 enum feature_place p)
 {
 	/* BIT 2 would logically be "compulsory initial_routing_sync", but
 	 * that does not exist, so we special case it. */
-	if (feature_is_set(theirs,
+	if (feature_is_set(their_features,
 			   COMPULSORY_FEATURE(OPT_INITIAL_ROUTING_SYNC)))
 		return COMPULSORY_FEATURE(OPT_INITIAL_ROUTING_SYNC);
 
-	return all_supported_features(ours, theirs, p);
+	return all_supported_features(our_features, their_features, p);
 }
 
 static const char *feature_name(const tal_t *ctx, size_t f)
@@ -269,12 +270,12 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 }
 
 const char **list_supported_features(const tal_t *ctx,
-				     const struct feature_set *ours)
+				     const struct feature_set *fset)
 {
 	const char **list = tal_arr(ctx, const char *, 0);
 
-	for (size_t i = 0; i < tal_bytelen(ours->bits[INIT_FEATURE]) * 8; i++) {
-		if (test_bit(ours->bits[INIT_FEATURE], i / 8, i % 8))
+	for (size_t i = 0; i < tal_bytelen(fset->bits[INIT_FEATURE]) * 8; i++) {
+		if (test_bit(fset->bits[INIT_FEATURE], i / 8, i % 8))
 			tal_arr_expand(&list, feature_name(list, i));
 	}
 

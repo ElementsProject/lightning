@@ -74,10 +74,11 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
-static void peer_update_features(struct peer *peer, const u8 *features TAKES)
+static void peer_update_features(struct peer *peer,
+				 const u8 *their_features TAKES)
 {
-	tal_free(peer->features);
-	peer->features = tal_dup_talarr(peer, u8, features);
+	tal_free(peer->their_features);
+	peer->their_features = tal_dup_talarr(peer, u8, their_features);
 }
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
@@ -92,7 +93,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->id = *id;
 	peer->uncommitted_channel = NULL;
 	peer->addr = *addr;
-	peer->features = NULL;
+	peer->their_features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
 #if DEVELOPER
@@ -851,7 +852,7 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_add_string(
 	    stream, "addr",
 	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
-	json_add_hex_talarr(stream, "features", p->features);
+	json_add_hex_talarr(stream, "features", p->their_features);
 	json_object_end(stream); /* .peer */
 }
 
@@ -980,7 +981,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd, int gossip_store_fd)
 {
 	struct node_id id;
-	u8 *features;
+	u8 *their_features;
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
 
@@ -989,7 +990,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	if (!fromwire_connect_peer_connected(hook_payload, msg,
 					     &id, &hook_payload->addr,
 					     &hook_payload->pps,
-					     &features))
+					     &their_features))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
@@ -1005,7 +1006,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
 
-	peer_update_features(peer, features);
+	peer_update_features(peer, their_features);
 
 	/* Complete any outstanding connect commands. */
 	connect_succeeded(ld, peer);
@@ -1173,7 +1174,7 @@ static void json_add_peer(struct lightningd *ld,
 					       struct wireaddr_internal,
 					       &p->addr));
 		json_array_end(response);
-		json_add_hex_talarr(response, "features", p->features);
+		json_add_hex_talarr(response, "features", p->their_features);
 	}
 
 	json_array_start(response, "channels");

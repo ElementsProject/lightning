@@ -692,7 +692,7 @@ static char *test_subdaemons_and_exit(struct lightningd *ld)
 
 static char *list_features_and_exit(struct lightningd *ld)
 {
-	const char **features = list_supported_features(tmpctx, ld->feature_set);
+	const char **features = list_supported_features(tmpctx, ld->our_features);
 	for (size_t i = 0; i < tal_count(features); i++)
 		printf("%s\n", features[i]);
 	exit(0);
@@ -744,7 +744,7 @@ static char *opt_start_daemon(struct lightningd *ld)
 
 static char *opt_set_wumbo(struct lightningd *ld)
 {
-	feature_set_or(ld->feature_set,
+	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
 						    OPTIONAL_FEATURE(OPT_LARGE_CHANNELS))));
 	return NULL;
@@ -1203,7 +1203,8 @@ static void add_config(struct lightningd *ld,
 			json_add_bool(response, "encrypted-hsm", ld->encrypted_hsm);
 		} else if (opt->cb == (void *)opt_set_wumbo) {
 			json_add_bool(response, "wumbo",
-				      feature_offered(ld->feature_set->bits[INIT_FEATURE],
+				      feature_offered(ld->our_features
+						      ->bits[INIT_FEATURE],
 						      OPT_LARGE_CHANNELS));
 		} else {
 			/* Insert more decodes here! */

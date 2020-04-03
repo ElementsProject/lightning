@@ -19,6 +19,6 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr,
 			       struct crypto_state *cs,
-			       const u8 *features TAKES);
+			       const u8 *their_features TAKES);
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_H */
