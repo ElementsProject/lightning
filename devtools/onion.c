@@ -7,6 +7,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
+#include <common/ecdh.h>
 #include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/onion.h>
@@ -18,6 +19,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+/* We don't actually use this, but common/onion needs it */
+void ecdh(const struct pubkey *point, struct secret *ss)
+{
+	abort();
+}
 
 static void do_generate(int argc, char **argv,
 			const u8 *assocdata,

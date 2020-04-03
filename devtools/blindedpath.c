@@ -7,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/tal.h>
 #include <common/blinding.h>
+#include <common/ecdh.h>
 #include <common/hmac.h>
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
@@ -39,6 +40,12 @@ static void *tal_reallocfn(void *ptr, size_t size)
 static void tal_freefn(void *ptr)
 {
 	tal_free(ptr);
+}
+
+/* We don't actually use this, but common/onion needs it */
+void ecdh(const struct pubkey *point, struct secret *ss)
+{
+	abort();
 }
 
 int main(int argc, char **argv)
