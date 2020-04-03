@@ -270,8 +270,6 @@ static struct command_result *fundchannel_start(struct command *cmd,
 
 	json_add_string(req->js, "id", node_id_to_hexstr(tmpctx, fr->id));
 
-	if (deprecated_apis)
-		json_add_string(req->js, "satoshi", fr->funding_str);
 	json_add_string(req->js, "amount", fr->funding_str);
 
 	if (fr->feerate_str)
