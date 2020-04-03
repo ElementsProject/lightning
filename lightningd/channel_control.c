@@ -377,12 +377,7 @@ void peer_start_channeld(struct channel *channel,
 {
 	u8 *initmsg;
 	int hsmfd;
-	struct added_htlc *htlcs;
-	enum htlc_state *htlc_states;
-	struct fulfilled_htlc *fulfilled_htlcs;
-	enum side *fulfilled_sides;
-	const struct failed_htlc **failed_in;
-	u64 *failed_out;
+	const struct existing_htlc **htlcs;
 	struct short_channel_id scid;
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
@@ -420,8 +415,7 @@ void peer_start_channeld(struct channel *channel,
 		return;
 	}
 
-	peer_htlcs(tmpctx, channel, &htlcs, &htlc_states, &fulfilled_htlcs,
-		   &fulfilled_sides, &failed_in, &failed_out);
+	htlcs = peer_htlcs(tmpctx, channel);
 
 	if (channel->scid) {
 		scid = *channel->scid;
@@ -503,9 +497,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->next_index[REMOTE],
 				      num_revocations,
 				      channel->next_htlc_id,
-				      htlcs, htlc_states,
-				      fulfilled_htlcs, fulfilled_sides,
-				      failed_in, failed_out,
+				      htlcs,
 				      channel->scid != NULL,
 				      channel->remote_funding_locked,
 				      &scid,

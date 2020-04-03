@@ -1975,123 +1975,77 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
-static void add_htlc(struct added_htlc **htlcs,
-		     enum htlc_state **htlc_states,
-		     u64 id,
-		     struct amount_msat amount,
-		     const struct sha256 *payment_hash,
-		     u32 cltv_expiry,
-		     const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
-		     enum htlc_state state)
-{
-	struct added_htlc a;
-
-	a.id = id;
-	a.amount = amount;
-	a.payment_hash = *payment_hash;
-	a.cltv_expiry = cltv_expiry;
-	memcpy(a.onion_routing_packet, onion_routing_packet,
-	       sizeof(a.onion_routing_packet));
-
-	tal_arr_expand(htlcs, a);
-	tal_arr_expand(htlc_states, state);
-}
-
-static void add_fulfill(u64 id, enum side side,
-			const struct preimage *payment_preimage,
-			struct fulfilled_htlc **fulfilled_htlcs,
-			enum side **fulfilled_sides)
-{
-	struct fulfilled_htlc f;
-
-	f.id = id;
-	f.payment_preimage = *payment_preimage;
-
-	tal_arr_expand(fulfilled_htlcs, f);
-	tal_arr_expand(fulfilled_sides, side);
-}
-
-static void add_fail(struct htlc_in *hin,
-		     const struct onionreply *failonion,
-		     const struct failed_htlc ***failed_htlcs)
-{
-	struct failed_htlc *newf;
-
-	newf = mk_failed_htlc(*failed_htlcs, hin, failonion);
-	tal_arr_expand(failed_htlcs, newf);
-}
-
-static void add_fail_badonion(struct htlc_in *hin,
-			      enum onion_type badonion,
-			      const struct failed_htlc ***failed_htlcs)
-{
-	struct failed_htlc *newf;
-
-	newf = mk_failed_htlc_badonion(*failed_htlcs, hin, badonion);
-	tal_arr_expand(failed_htlcs, newf);
-}
 
 /* FIXME: Load direct from db. */
-void peer_htlcs(const tal_t *ctx,
-		const struct channel *channel,
-		struct added_htlc **htlcs,
-		enum htlc_state **htlc_states,
-		struct fulfilled_htlc **fulfilled_htlcs,
-		enum side **fulfilled_sides,
-		const struct failed_htlc ***failed_in,
-		u64 **failed_out)
+const struct existing_htlc **peer_htlcs(const tal_t *ctx,
+					const struct channel *channel)
 {
+	struct existing_htlc **htlcs;
 	struct htlc_in_map_iter ini;
 	struct htlc_out_map_iter outi;
 	struct htlc_in *hin;
 	struct htlc_out *hout;
 	struct lightningd *ld = channel->peer->ld;
 
-	*htlcs = tal_arr(ctx, struct added_htlc, 0);
-	*htlc_states = tal_arr(ctx, enum htlc_state, 0);
-	*fulfilled_htlcs = tal_arr(ctx, struct fulfilled_htlc, 0);
-	*fulfilled_sides = tal_arr(ctx, enum side, 0);
-	*failed_in = tal_arr(ctx, const struct failed_htlc *, 0);
-	*failed_out = tal_arr(ctx, u64, 0);
+	htlcs = tal_arr(ctx, struct existing_htlc *, 0);
 
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
 	     hin;
 	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+		struct failed_htlc *f;
+		struct existing_htlc *existing;
+
 		if (hin->key.channel != channel)
 			continue;
 
-		add_htlc(htlcs, htlc_states,
-			 hin->key.id, hin->msat, &hin->payment_hash,
-			 hin->cltv_expiry, hin->onion_routing_packet,
-			 hin->hstate);
-
 		if (hin->badonion)
-			add_fail_badonion(hin, hin->badonion, failed_in);
-		if (hin->failonion)
-			add_fail(hin, hin->failonion, failed_in);
-		if (hin->preimage)
-			add_fulfill(hin->key.id, REMOTE, hin->preimage,
-				    fulfilled_htlcs, fulfilled_sides);
+			f = take(mk_failed_htlc_badonion(NULL, hin, hin->badonion));
+		else if (hin->failonion)
+			f = take(mk_failed_htlc(NULL, hin, hin->failonion));
+		else
+			f = NULL;
+
+		existing = new_existing_htlc(htlcs, hin->key.id, hin->hstate,
+					     hin->msat, &hin->payment_hash,
+					     hin->cltv_expiry,
+					     hin->onion_routing_packet,
+					     hin->preimage,
+					     f);
+		tal_arr_expand(&htlcs, existing);
 	}
 
 	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
 	     hout;
 	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+		struct failed_htlc *f;
+		struct existing_htlc *existing;
+
 		if (hout->key.channel != channel)
 			continue;
 
-		add_htlc(htlcs, htlc_states,
-			 hout->key.id, hout->msat, &hout->payment_hash,
-			 hout->cltv_expiry, hout->onion_routing_packet,
-			 hout->hstate);
+		/* Note that channeld doesn't actually care *why* outgoing
+		 * HTLCs failed, so just use a dummy here. */
+		if (hout->failonion || hout->failmsg) {
+			f = take(tal(NULL, struct failed_htlc));
+			f->id = hout->key.id;
+			f->sha256_of_onion = tal(f, struct sha256);
+			memset(f->sha256_of_onion, 0,
+			       sizeof(*f->sha256_of_onion));
+			f->badonion = BADONION;
+			f->onion = NULL;
+		} else
+			f = NULL;
 
-		if (hout->failonion || hout->failmsg)
-			tal_arr_expand(failed_out, hout->key.id);
-
-		if (hout->preimage)
-			add_fulfill(hout->key.id, LOCAL, hout->preimage,
-				    fulfilled_htlcs, fulfilled_sides);
+		existing = new_existing_htlc(htlcs, hout->key.id, hout->hstate,
+					     hout->msat, &hout->payment_hash,
+					     hout->cltv_expiry,
+					     hout->onion_routing_packet,
+					     hout->preimage,
+					     f);
+		tal_arr_expand(&htlcs, existing);
 	}
+
+	return cast_const2(const struct existing_htlc **, htlcs);
 }
 
 /* If channel is NULL, free them all (for shutdown) */

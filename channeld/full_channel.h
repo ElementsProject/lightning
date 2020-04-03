@@ -7,6 +7,8 @@
 #include <common/initial_channel.h>
 #include <common/sphinx.h>
 
+struct existing_htlc;
+
 /**
  * new_full_channel: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
@@ -227,22 +229,12 @@ size_t num_channel_htlcs(const struct channel *channel);
 /**
  * channel_force_htlcs: force these htlcs into the (new) channel
  * @channel: the channel
- * @htlcs: the htlcs to add (tal_arr)
- * @hstates: the states for the htlcs (tal_arr of same size)
- * @fulfilled: htlcs of those which are fulfilled
- * @fulfilled_sides: sides for ids in @fulfilled
- * @failed_in: incoming htlcs which are failed (stolen!)
- * @failed_out: outgoing htlc ids which are failed
+ * @htlcs: the htlcs to add (tal_arr) elements stolen.
  *
  * This is used for restoring a channel state.
  */
 bool channel_force_htlcs(struct channel *channel,
-			 const struct added_htlc *htlcs,
-			 const enum htlc_state *hstates,
-			 const struct fulfilled_htlc *fulfilled,
-			 const enum side *fulfilled_sides,
-			 const struct failed_htlc **failed_in,
-			 const u64 *failed_out);
+			 const struct existing_htlc **htlcs);
 
 /**
  * dump_htlcs: debugging dump of all HTLCs

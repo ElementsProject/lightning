@@ -1,10 +1,64 @@
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
 #include <wire/wire.h>
+
+struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
+				    const struct failed_htlc *f TAKES)
+{
+	struct failed_htlc *newf;
+
+	if (taken(f))
+		return cast_const(struct failed_htlc *, tal_steal(ctx, f));
+	newf = tal(ctx, struct failed_htlc);
+	newf->id = f->id;
+	if (f->sha256_of_onion)
+		newf->sha256_of_onion = tal_dup(newf, struct sha256, f->sha256_of_onion);
+	else
+		newf->sha256_of_onion = NULL;
+	newf->badonion = f->badonion;
+	if (f->onion)
+		newf->onion = dup_onionreply(newf, f->onion);
+	else
+		newf->onion = NULL;
+	return newf;
+}
+
+struct existing_htlc *new_existing_htlc(const tal_t *ctx,
+					u64 id,
+					enum htlc_state state,
+					struct amount_msat amount,
+					const struct sha256 *payment_hash,
+					u32 cltv_expiry,
+					const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
+					const struct preimage *preimage,
+					const struct failed_htlc *failed TAKES)
+{
+	struct existing_htlc *existing = tal(ctx, struct existing_htlc);
+
+	existing->id = id;
+	existing->state = state;
+	existing->amount = amount;
+	existing->cltv_expiry = cltv_expiry;
+	existing->payment_hash = *payment_hash;
+	memcpy(existing->onion_routing_packet, onion_routing_packet,
+	       sizeof(existing->onion_routing_packet));
+	if (preimage)
+		existing->payment_preimage
+			= tal_dup(existing, struct preimage, preimage);
+	else
+		existing->payment_preimage = NULL;
+	if (failed)
+		existing->failed = failed_htlc_dup(existing, failed);
+	else
+		existing->failed = NULL;
+
+	return existing;
+}
 
 /* FIXME: We could adapt tools/generate-wire.py to generate structures
  * and code like this. */
@@ -16,6 +70,27 @@ void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 	towire_u32(pptr, added->cltv_expiry);
 	towire(pptr, added->onion_routing_packet,
 	       sizeof(added->onion_routing_packet));
+}
+
+void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
+{
+	towire_u8(pptr, existing->state);
+	towire_u64(pptr, existing->id);
+	towire_amount_msat(pptr, existing->amount);
+ 	towire_sha256(pptr, &existing->payment_hash);
+	towire_u32(pptr, existing->cltv_expiry);
+	towire(pptr, existing->onion_routing_packet,
+	       sizeof(existing->onion_routing_packet));
+	if (existing->payment_preimage) {
+		towire_bool(pptr, true);
+		towire_preimage(pptr, existing->payment_preimage);
+	} else
+		towire_bool(pptr, false);
+	if (existing->failed) {
+		towire_bool(pptr, true);
+		towire_failed_htlc(pptr, existing->failed);
+	} else
+		towire_bool(pptr, false);
 }
 
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
@@ -77,6 +152,30 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 	added->cltv_expiry = fromwire_u32(cursor, max);
 	fromwire(cursor, max, added->onion_routing_packet,
 		 sizeof(added->onion_routing_packet));
+}
+
+struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
+					     const u8 **cursor, size_t *max)
+{
+	struct existing_htlc *existing = tal(ctx, struct existing_htlc);
+
+	existing->state = fromwire_u8(cursor, max);
+	existing->id = fromwire_u64(cursor, max);
+	existing->amount = fromwire_amount_msat(cursor, max);
+	fromwire_sha256(cursor, max, &existing->payment_hash);
+	existing->cltv_expiry = fromwire_u32(cursor, max);
+	fromwire(cursor, max, existing->onion_routing_packet,
+		 sizeof(existing->onion_routing_packet));
+	if (fromwire_bool(cursor, max)) {
+		existing->payment_preimage = tal(existing, struct preimage);
+		fromwire_preimage(cursor, max, existing->payment_preimage);
+	} else
+		existing->payment_preimage = NULL;
+	if (fromwire_bool(cursor, max))
+		existing->failed = fromwire_failed_htlc(existing, cursor, max);
+	else
+		existing->failed = NULL;
+	return existing;
 }
 
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,

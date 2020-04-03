@@ -41,16 +41,8 @@ msgdata,channel_init,next_index_local,u64,
 msgdata,channel_init,next_index_remote,u64,
 msgdata,channel_init,revocations_received,u64,
 msgdata,channel_init,next_htlc_id,u64,
-msgdata,channel_init,num_htlcs,u16,
-msgdata,channel_init,htlcs,added_htlc,num_htlcs
-msgdata,channel_init,htlc_states,enum htlc_state,num_htlcs
-msgdata,channel_init,num_fulfilled,u16,
-msgdata,channel_init,fulfilled,fulfilled_htlc,num_fulfilled
-msgdata,channel_init,fulfilled_sides,enum side,num_fulfilled
-msgdata,channel_init,num_failed_in,u16,
-msgdata,channel_init,failed_in,failed_htlc,num_failed_in
-msgdata,channel_init,num_failed_out,u16,
-msgdata,channel_init,failed_out,u64,num_failed_out
+msgdata,channel_init,num_existing_htlcs,u16,
+msgdata,channel_init,htlcs,existing_htlc,num_existing_htlcs
 msgdata,channel_init,local_funding_locked,bool,
 msgdata,channel_init,remote_funding_locked,bool,
 msgdata,channel_init,funding_short_id,short_channel_id,

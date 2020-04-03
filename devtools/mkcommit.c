@@ -10,6 +10,7 @@
  */
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/cast/cast.h>
 #include <ccan/opt/opt.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
@@ -163,55 +164,52 @@ static int parse_config(char *argv[],
 	return argnum;
 }
 
-static int parse_htlc(char *argv[],
-		      struct added_htlc **htlcs,
-		      enum htlc_state **htlc_states,
-		      struct preimage **preimages)
+static int parse_htlc(char *argv[], struct existing_htlc ***htlcs)
 {
-	struct added_htlc add;
+	struct existing_htlc *exist = tal(*htlcs, struct existing_htlc);
 	int argnum = 0;
-	struct preimage preimage;
 
-	add.id = tal_count(*htlcs);
+	exist->id = tal_count(*htlcs);
 	if (streq(argv[argnum], "local"))
-		tal_arr_expand(htlc_states, SENT_ADD_ACK_REVOCATION);
+		exist->state = SENT_ADD_ACK_REVOCATION;
 	else if (streq(argv[argnum], "remote"))
-		tal_arr_expand(htlc_states, RCVD_ADD_ACK_REVOCATION);
+		exist->state = RCVD_ADD_ACK_REVOCATION;
 	else
 		errx(1, "Bad htlc offer: %s should be 'local' or 'remote'",
 		     argv[argnum]);
 	argnum++;
+	exist->payment_preimage = tal(*htlcs, struct preimage);
 	if (!hex_decode(argv[argnum], strlen(argv[argnum]),
-			&preimage, sizeof(preimage)))
+			exist->payment_preimage, sizeof(*exist->payment_preimage)))
 		errx(1, "Bad payment-preimage %s", argv[argnum]);
-	tal_arr_expand(preimages, preimage);
-	sha256(&add.payment_hash, &preimage, sizeof(preimage));
+
+	sha256(&exist->payment_hash, exist->payment_preimage,
+	       sizeof(*exist->payment_preimage));
 	argnum++;
-	if (!parse_amount_msat(&add.amount,
+	if (!parse_amount_msat(&exist->amount,
 			       argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad htlc amount %s", argv[argnum]);
 	argnum++;
-	add.cltv_expiry = atoi(argv[argnum]);
+	exist->cltv_expiry = atoi(argv[argnum]);
 	argnum++;
 
 	printf("# HTLC %"PRIu64": %s amount=%s preimage=%s payment_hash=%s cltv=%u\n",
-	       add.id, argv[0],
-	       type_to_string(tmpctx, struct amount_msat, &add.amount),
-	       type_to_string(tmpctx, struct preimage, &preimage),
-	       type_to_string(tmpctx, struct sha256, &add.payment_hash),
-	       add.cltv_expiry);
+	       exist->id, argv[0],
+	       type_to_string(tmpctx, struct amount_msat, &exist->amount),
+	       type_to_string(tmpctx, struct preimage, exist->payment_preimage),
+	       type_to_string(tmpctx, struct sha256, &exist->payment_hash),
+	       exist->cltv_expiry);
 
-	tal_arr_expand(htlcs, add);
+	tal_arr_expand(htlcs, exist);
 	return argnum;
 }
 
 static const struct preimage *preimage_of(const struct sha256 *hash,
-					  const struct added_htlc *htlcs,
-					  const struct preimage *preimages)
+					  const struct existing_htlc **htlcs)
 {
-	for (size_t i = 0; i < tal_count(preimages); i++)
-		if (sha256_eq(hash, &htlcs[i].payment_hash))
-			return preimages + i;
+	for (size_t i = 0; i < tal_count(htlcs); i++)
+		if (sha256_eq(hash, &htlcs[i]->payment_hash))
+			return htlcs[i]->payment_preimage;
 	abort();
 }
 
@@ -263,9 +261,7 @@ int main(int argc, char *argv[])
 	u8 **witness;
 	const u8 **wscripts;
 	struct channel *channel;
-	struct added_htlc *htlcs = tal_arr(NULL, struct added_htlc, 0);
-	enum htlc_state *hstates = tal_arr(NULL, enum htlc_state, 0);
-	struct preimage *preimages = tal_arr(NULL, struct preimage, 0);
+	struct existing_htlc **htlcs = tal_arr(NULL, struct existing_htlc *, 0);
 	const struct htlc **htlcmap;
 	struct privkey local_htlc_privkey, remote_htlc_privkey;
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
@@ -348,7 +344,7 @@ int main(int argc, char *argv[])
 	while (argnum < argc) {
 		if (argnum + 4 > argc)
 			opt_usage_exit_fail("Too few arguments for htlc");
-		argnum += parse_htlc(argv + argnum, &htlcs, &hstates, &preimages);
+		argnum += parse_htlc(argv + argnum, &htlcs);
 	}
 	printf("\n");
 
@@ -393,7 +389,8 @@ int main(int argc, char *argv[])
 				   option_static_remotekey,
 				   fee_payer);
 
-	if (!channel_force_htlcs(channel, htlcs, hstates, NULL, NULL, NULL, NULL))
+	if (!channel_force_htlcs(channel,
+			 cast_const2(const struct existing_htlc **, htlcs)))
 		errx(1, "Cannot add HTLCs");
 
 	u8 *funding_wscript = bitcoin_redeem_2of2(NULL,
@@ -504,7 +501,7 @@ int main(int argc, char *argv[])
 			witness = bitcoin_witness_htlc_success_tx(NULL,
 								  &local_htlc_sig,
 								  &remote_htlc_sig,
-								  preimage_of(&htlcmap[i]->rhash, htlcs, preimages),
+								  preimage_of(&htlcmap[i]->rhash, cast_const2(const struct existing_htlc **, htlcs)),
 								  wscripts[1+i]);
 		bitcoin_tx_input_set_witness(local_txs[1+i], 0, witness);
 		printf("htlc tx for output %zu: %s\n",
@@ -615,7 +612,7 @@ int main(int argc, char *argv[])
 			witness = bitcoin_witness_htlc_success_tx(NULL,
 								  &remote_htlc_sig,
 								  &local_htlc_sig,
-								  preimage_of(&htlcmap[i]->rhash, htlcs, preimages),
+								  preimage_of(&htlcmap[i]->rhash, cast_const2(const struct existing_htlc **, htlcs)),
 								  wscripts[1+i]);
 		bitcoin_tx_input_set_witness(remote_txs[1+i], 0, witness);
 		printf("htlc tx for output %zu: %s\n",

@@ -3036,12 +3036,7 @@ static void init_channel(struct peer *peer)
 	struct channel_config conf[NUM_SIDES];
 	struct bitcoin_txid funding_txid;
 	enum side funder;
-	enum htlc_state *hstates;
-	struct fulfilled_htlc *fulfilled;
-	enum side *fulfilled_sides;
-	struct failed_htlc **failed_in;
-	u64 *failed_out;
-	struct added_htlc *htlcs;
+	struct existing_htlc **htlcs;
 	bool reconnected;
 	u8 *funding_signed;
 	const u8 *msg;
@@ -3092,11 +3087,6 @@ static void init_channel(struct peer *peer)
 				   &peer->revocations_received,
 				   &peer->htlc_id,
 				   &htlcs,
-				   &hstates,
-				   &fulfilled,
-				   &fulfilled_sides,
-				   &failed_in,
-				   &failed_out,
 				   &peer->funding_locked[LOCAL],
 				   &peer->funding_locked[REMOTE],
 				   &peer->short_channel_ids[LOCAL],
@@ -3175,23 +3165,13 @@ static void init_channel(struct peer *peer)
 					 option_static_remotekey,
 					 funder);
 
-	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
-				 fulfilled, fulfilled_sides,
-				 cast_const2(const struct failed_htlc **,
-					     failed_in),
-				 failed_out))
+	if (!channel_force_htlcs(peer->channel,
+			 cast_const2(const struct existing_htlc **, htlcs)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not restore HTLCs");
 
 	/* We don't need these any more, so free them. */
 	tal_free(htlcs);
-	tal_free(hstates);
-	tal_free(fulfilled);
-	tal_free(fulfilled_sides);
-	tal_free(failed_in);
-	tal_free(failed_out);
-	tal_free(remote_ann_node_sig);
-	tal_free(remote_ann_bitcoin_sig);
 
 	peer->channel_direction = node_id_idx(&peer->node_ids[LOCAL],
 					      &peer->node_ids[REMOTE]);
