@@ -7,7 +7,7 @@ from pyln.proto import Invoice
 from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     DEPRECATED_APIS, expected_peer_features, expected_node_features, account_balance,
-    check_coin_moves, first_channel_id
+    check_coin_moves, first_channel_id, check_coin_moves_idx
 )
 
 import json
@@ -1391,9 +1391,9 @@ def test_coin_movement_notices(node_factory, bitcoind):
     ]
 
     l1, l2, l3 = node_factory.line_graph(3, opts=[
-        {},
-        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')},
-        {}
+        {'may_reconnect': True},
+        {'may_reconnect': True, 'plugin': os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')},
+        {'may_reconnect': True},
     ], wait_for_announce=True)
 
     bitcoind.generate_block(5)
@@ -1432,6 +1432,9 @@ def test_coin_movement_notices(node_factory, bitcoind):
     l2.rpc.sendpay(route, payment_hash21)
     l2.rpc.waitsendpay(payment_hash21)
 
+    # restart to test index
+    l2.restart()
+
     # close the channel down
     chan1 = l2.get_channel_scid(l1)
     chan3 = l2.get_channel_scid(l3)
@@ -1460,3 +1463,4 @@ def test_coin_movement_notices(node_factory, bitcoind):
     check_coin_moves(l2, chanid_1, l1_l2_mvts)
     check_coin_moves(l2, chanid_3, l2_l3_mvts)
     check_coin_moves(l2, 'wallet', l2_wallet_mvts)
+    check_coin_moves_idx(l2)

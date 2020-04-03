@@ -32,8 +32,6 @@ const char *mvt_unit_str(enum mvt_unit_type unit)
 	return mvt_units[unit];
 }
 
-static u64 mvt_count = 0;
-
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      struct bitcoin_txid *funding_txid,
 					      u32 funding_outnum,
@@ -131,7 +129,8 @@ struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
 				    u32 timestamp,
-				    struct node_id *node_id)
+				    struct node_id *node_id,
+				    s64 count)
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
@@ -151,14 +150,15 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	mvt->blockheight = chain_mvt->blockheight;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = node_id;
-	mvt->counter = mvt_count++;
+	mvt->counter = count;
 
 	return mvt;
 }
 
 struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      const struct channel_coin_mvt *chan_mvt,
-				      u32 timestamp, struct node_id *node_id)
+				      u32 timestamp, struct node_id *node_id,
+				      s64 count)
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
@@ -179,7 +179,7 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->blockheight = 0;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = node_id;
-	mvt->counter = mvt_count++;
+	mvt->counter = count;
 
 	return mvt;
 }
