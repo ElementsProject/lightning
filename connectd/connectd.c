@@ -1330,6 +1330,8 @@ static const char **seednames(const tal_t *ctx, const struct node_id *id)
 	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
 	/* This is cdecker's seed */
 	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.bitcoinstats.com", bech32));
+	/* This is darosior's seed */
+	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.darosior.ninja", bech32));
 	return seednames;
 }
 
@@ -1361,6 +1363,8 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 								 &a.u.wireaddr));
 				tal_arr_expand(addrs, a);
 			}
+			/* Other seeds will likely have the same informations. */
+			return;
 		} else
 			status_peer_debug(id, "Could not resolve %s", hostnames[i]);
 	}
