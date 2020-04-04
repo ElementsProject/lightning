@@ -41,7 +41,7 @@ You can use the `listfunds` command and take a ratio of `our_amount_msat` over
 A better option is to use the [`summary` plugin](https://github.com/lightningd/plugins/tree/master/summary)
 which nicely displays channel balances, along with other useful channel informations.
 
-### My channel which only tries the passed in route is in state `STATE`, what does that mean ?
+### My channel is in state `STATE`, what does that mean ?
 
 See the [listpeers command manpage](https://lightning.readthedocs.io/lightning-listpeers.7.html#return-value).
 
@@ -66,16 +66,6 @@ for Lightning channel capacity.
 There are a few online service providers that will create channels to you.
 A few of them charge fees for this service.
 Note that if you already have a channel open to them, you'll need to close it before requesting another channel.
-
-### Are there any issues if my node changes its IP address? What happens to the channels if it does?
-
-There is no risk to your channels if your IP address changes.
-However, be sure to change your announced address (or [setup a TOR hidden service](TOR.md))
-in your config so that others can establish connections at your new address !
-
-### Can I have two hosts with the same public key and different IP addresses, both online and operating at the same time?
-
-No.
 
 ### Are there any issues if my node changes its IP address? What happens to the channels if it does?
 
