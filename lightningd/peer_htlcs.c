@@ -157,14 +157,10 @@ static void failmsg_update_reply(struct subd *gossipd,
 	u8 *stripped_update;
 	struct failed_htlc *failed_htlc;
 
-	/* In theory, we could have no update because channel suddenly closed,
-	 * but it's v. unlikely */
+	/* This can happen because channel never got properly announced.*/
 	if (!fromwire_gossip_get_stripped_cupdate_reply(msg, msg,
 							&stripped_update)
 	    || !tal_count(stripped_update)) {
-		log_broken(gossipd->log,
-			   "bad fromwire_gossip_get_stripped_cupdate %s",
-			   tal_hex(msg, msg));
 		failmsg = towire_temporary_node_failure(NULL);
 	} else {
 		/* End of failmsg is two zero bytes (empty update). */
