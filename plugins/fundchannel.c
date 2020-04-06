@@ -433,7 +433,7 @@ static void init(struct plugin *p,
 static const struct plugin_command commands[] = { {
 		"fundchannel",
 		"channels",
-		"Fund channel with {id} using {satoshi} (or 'all'), at optional {feerate}. "
+		"Fund channel with {id} using {amount} (or 'all'), at optional {feerate}. "
 		"Only use outputs that have {minconf} confirmations.",
 		"Initiaties a channel open with node 'id'. Must "
 		"be connected to the node and have enough funds available at the requested minimum confirmation "
