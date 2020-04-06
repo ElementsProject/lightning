@@ -1200,3 +1200,75 @@ def test_replacement_payload(node_factory):
         l1.rpc.pay(inv)
 
     assert l2.daemon.wait_for_log("Attept to pay.*with wrong secret")
+
+
+@unittest.skipIf(not DEVELOPER, "Requires dev_sign_last_tx")
+def test_watchtower(node_factory, bitcoind, directory, chainparams):
+    """Test watchtower hook.
+
+    l1 and l2 open a channel, make a couple of updates and then l1 cheats on
+    l2 while that one is offline. The watchtower plugin meanwhile stashes all
+    the penalty transactions and we release the one matching the offending
+    commitment transaction.
+
+    """
+    p = os.path.join(os.path.dirname(__file__), "plugins/watchtower.py")
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts=[{'may_fail': True, 'allow_broken_log': True}, {'plugin': p}]
+    )
+
+    # Force a new commitment
+    l1.rpc.pay(l2.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
+
+    tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    # Now make sure it is out of date
+    l1.rpc.pay(l2.rpc.invoice(25000000, 'lbl2', 'desc2')['bolt11'])
+
+    # l2 stops watching the chain, allowing the watchtower to react
+    l2.stop()
+
+    # Now l1 cheats
+    bitcoind.rpc.sendrawtransaction(tx)
+    time.sleep(1)
+    bitcoind.generate_block(1)
+
+    wt_file = os.path.join(
+        l2.daemon.lightning_dir,
+        chainparams['name'],
+        'watchtower.csv'
+    )
+
+    cheat_tx = bitcoind.rpc.decoderawtransaction(tx)
+    for l in open(wt_file, 'r'):
+        txid, penalty = l.strip().split(', ')
+        if txid == cheat_tx['txid']:
+            # This one should succeed, since it is a response to the cheat_tx
+            bitcoind.rpc.sendrawtransaction(penalty)
+            break
+
+    # Need this to check that l2 gets the funds
+    penalty_meta = bitcoind.rpc.decoderawtransaction(penalty)
+
+    time.sleep(1)
+    bitcoind.generate_block(1)
+
+    # Make sure l2's normal penalty_tx doesn't reach the network
+    def mock_sendrawtransaction(tx):
+        print("NOT broadcasting", tx)
+
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
+
+    # Restart l2, and it should continue where the watchtower left off:
+    l2.start()
+
+    # l2 will still try to broadcast its latest commitment tx, but it'll fail
+    # since l1 has cheated. All commitments share the same prefix, so look for
+    # that.
+    penalty_prefix = tx[:(4 + 1 + 36) * 2]  # version, txin_count, first txin in hex
+    l2.daemon.wait_for_log(r'Expected error broadcasting tx {}'.format(penalty_prefix))
+
+    # Now make sure the penalty output ends up in our wallet
+    fund_txids = [o['txid'] for o in l2.rpc.listfunds()['outputs']]
+    assert(penalty_meta['txid'] in fund_txids)
