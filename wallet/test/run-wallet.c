@@ -740,6 +740,17 @@ bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
 #endif
 
+const struct bitcoin_tx *
+penalty_tx_create(const tal_t *ctx, struct lightningd *ld,
+                 const struct channel *channel,
+                 const struct secret *revocation_preimage,
+                 const struct bitcoin_txid *commitment_txid,
+                 s16 to_them_outnum, struct amount_sat to_them_sats)
+{
+	fprintf(stderr, "penalty_tx_create called!\n");
+	abort();
+}
+
 /* Fake stubs to talk to hsm */
 u8 *towire_hsm_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
 {
