@@ -616,7 +616,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 		 */
 		b11->msat = NULL;
 	} else {
-		u64 m10 = 10;
+		u64 m10 = 10 * MSAT_PER_BTC; /* Pico satoshis in a Bitcoin */
 		u64 amount;
 		char *end;
 
