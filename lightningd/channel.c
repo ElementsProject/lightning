@@ -3,8 +3,10 @@
 #include <ccan/tal/str/str.h>
 #include <common/closing_fee.h>
 #include <common/fee_states.h>
+#include <common/htlc_tx.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
+#include <common/keyset.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
@@ -277,6 +279,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
 				  take(p2wpkh_for_keyidx(NULL, peer->ld,
 							 channel->final_key_idx)));
+
+	channel->prev_commitment = NULL;
+	channel->next_commitment = NULL;
 
 	return channel;
 }

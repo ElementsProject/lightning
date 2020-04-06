@@ -288,6 +288,16 @@ void forget_channel(struct channel *channel, const char *why)
 static void handle_channel_resending_commitsig(struct channel *channel,
 					       const u8 *msg)
 {
+	struct penalty_base *pbase;
+	/* Clear previous state, might be stale due to reconnect and restart
+	 * at a previous commit. */
+	if (!fromwire_channel_resending_commitsig(
+		    msg, msg, &pbase))
+		channel_internal_error(channel,
+				       "bad channel_resending_commitsig %s",
+				       tal_hex(channel, msg));
+	tal_free(channel->next_commitment);
+	channel->next_commitment = tal_steal(channel, pbase);
 }
 
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)

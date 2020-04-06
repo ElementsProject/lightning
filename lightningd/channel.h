@@ -129,6 +129,9 @@ struct channel {
 
 	/* Any commands trying to forget us. */
 	struct command **forgets;
+
+	struct penalty_base *prev_commitment;
+	struct penalty_base *next_commitment;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,

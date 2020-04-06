@@ -1670,6 +1670,11 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	struct lightningd *ld = channel->peer->ld;
 	struct penalty_base *pbase;
 
+        /* Rotate the remote_commit_txid through, so the revoke that is coming
+         * next finds the previous one to build the penalty transaction. */
+        tal_free(channel->prev_commitment);
+        channel->prev_commitment = channel->next_commitment;
+
 	channel->htlc_timeout = tal_free(channel->htlc_timeout);
 
 	if (!fromwire_channel_sending_commitsig(msg, msg,
@@ -1683,6 +1688,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 				       tal_hex(channel, msg));
 		return;
 	}
+	channel->next_commitment = tal_steal(channel, pbase);
 
 	for (i = 0; i < tal_count(changed_htlcs); i++) {
 		if (!changed_htlc(channel, changed_htlcs + i)) {

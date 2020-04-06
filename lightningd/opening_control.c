@@ -427,6 +427,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		goto cleanup;
 	}
 
+	/* Remember the commit_txid so we can build a penalty later. */
+	channel->next_commitment = tal_steal(channel, pbase);
+
 	/* Watch for funding confirms */
 	channel_watch_funding(ld, channel);
 
@@ -537,6 +540,9 @@ static void opening_fundee_finished(struct subd *openingd,
 	/* Tell plugins about the success */
 	notify_channel_opened(ld, &channel->peer->id, &channel->funding,
 			      &channel->funding_txid, &channel->remote_funding_locked);
+
+	/* Remember the commit_txid so we can build a penalty later. */
+	channel->next_commitment = tal_steal(channel, pbase);
 
 	/* On to normal operation! */
 	peer_start_channeld(channel, pps, funding_signed, false);
