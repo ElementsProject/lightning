@@ -304,7 +304,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 
 	/* Generating and saving witness script required to spend
 	 * the funding output */
-	*funding_wscript = bitcoin_redeem_2of2(*funding_wscript,
+	*funding_wscript = bitcoin_redeem_2of2(ctx,
 					      &channel->funding_pubkey[side],
 					      &channel->funding_pubkey[!side]);
 
