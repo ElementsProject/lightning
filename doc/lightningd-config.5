@@ -227,6 +227,30 @@ name, including a scheme such as \fBsqlite3\fR or \fBpostgres\fR followed by the
 connection parameters\.
 
 
+The default wallet corresponds to the following DSN:
+
+.nf
+.RS
+--wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3
+.RE
+
+.fi
+
+The following is an example of a postgresql wallet DSN:
+
+.nf
+.RS
+--wallet=postgres://user:pass@localhost:5432/db_name
+.RE
+
+.fi
+
+This will connect to a the DB server running on \fBlocalhost\fR port \fB5432\fR,
+authenticate with username \fBuser\fR and password \fBpass\fR, and then use the
+database \fBdb_name\fR\. The database must exist, but the schema will be managed
+automatically by \fBlightningd\fR\.
+
+
  \fBencrypted-hsm\fR
 If set, you will be prompted to enter a password used to encrypt the \fBhsm_secret\fR\.
 Note that once you encrypt the \fBhsm_secret\fR this option will be mandatory for
@@ -283,7 +307,7 @@ extremely busy node for you to even notice\.
 
  \fBlarge-channels\fR
 Removes capacity limits for channel creation\.  Version 1\.0 of the specification
-limited channel sizes to 16777216 satoshi\.  With this option (which your
+limited channel sizes to 16777215 satoshi\.  With this option (which your
 node will advertize to peers), your node will accept larger incoming channels
 and if the peer supports it, will open larger channels\.  Note: this option
 is spelled \fBlarge-channels\fR but it's pronounced \fBwumbo\fR\.

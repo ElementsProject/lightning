@@ -182,6 +182,23 @@ Identify the location of the wallet. This is a fully qualified data source
 name, including a scheme such as `sqlite3` or `postgres` followed by the
 connection parameters.
 
+The default wallet corresponds to the following DSN:
+
+```
+--wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3
+```
+
+The following is an example of a postgresql wallet DSN:
+
+```
+--wallet=postgres://user:pass@localhost:5432/db_name
+```
+
+This will connect to a the DB server running on `localhost` port `5432`,
+authenticate with username `user` and password `pass`, and then use the
+database `db_name`. The database must exist, but the schema will be managed
+automatically by `lightningd`.
+
  **encrypted-hsm**
 If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
 Note that once you encrypt the `hsm_secret` this option will be mandatory for
