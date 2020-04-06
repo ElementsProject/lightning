@@ -32,6 +32,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchtower.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_wire.h>
 #include <wallet/wallet.h>
@@ -1973,6 +1974,38 @@ void update_per_commit_point(struct channel *channel,
 	ci->remote_per_commit = *per_commitment_point;
 }
 
+struct commitment_revocation_payload {
+	struct bitcoin_txid commitment_txid;
+	const struct bitcoin_tx *penalty_tx;
+};
+
+static void commitment_revocation_hook_serialize(
+    struct commitment_revocation_payload *payload, struct json_stream *stream)
+{
+	json_add_txid(stream, "commitment_txid", &payload->commitment_txid);
+	json_add_tx(stream, "penalty_tx", payload->penalty_tx);
+}
+
+static bool
+commitment_revocation_hook_deserialize(struct commitment_revocation_payload *p,
+				       const char *buffer,
+				       const jsmntok_t *toks)
+{
+	return true;
+}
+
+static void
+commitment_revocation_hook_cb(struct commitment_revocation_payload *p STEALS)
+{
+	/* No-op callback */
+}
+
+REGISTER_PLUGIN_HOOK(commitment_revocation,
+		     commitment_revocation_hook_deserialize,
+		     commitment_revocation_hook_cb,
+		     commitment_revocation_hook_serialize,
+		     struct commitment_revocation_payload *);
+
 void peer_got_revoke(struct channel *channel, const u8 *msg)
 {
 	u64 revokenum;
@@ -1984,6 +2017,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 	struct fee_states *fee_states;
+	const struct bitcoin_tx *tx;
+	struct commitment_revocation_payload *payload;
 
 	if (!fromwire_channel_got_revoke(msg, msg,
 					 &revokenum, &per_commitment_secret,
@@ -2082,6 +2117,22 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 					     : fromwire_peektype(failmsgs[i]));
 	}
 	wallet_channel_save(ld->wallet, channel);
+
+	if (channel->prev_commitment == NULL)
+		return;
+
+	tx = penalty_tx_create(tmpctx, ld, channel, &per_commitment_secret,
+			       &channel->prev_commitment->txid,
+			       channel->prev_commitment->outnum,
+			       channel->prev_commitment->amount);
+
+	if (tx == NULL)
+		return;
+
+	payload = tal(tmpctx, struct commitment_revocation_payload);
+	payload->commitment_txid = channel->prev_commitment->txid;
+	payload->penalty_tx = tal_steal(payload, tx);
+	plugin_hook_call_commitment_revocation(ld, payload);
 }
 
 
