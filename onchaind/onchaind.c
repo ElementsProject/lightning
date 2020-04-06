@@ -305,7 +305,8 @@ static u8 *penalty_to_us(const tal_t *ctx,
 			 const u8 *wscript)
 {
 	return towire_hsm_sign_penalty_to_us(ctx, remote_per_commitment_secret,
-					     tx, wscript, *tx->input_amounts[0]);
+					     tx, wscript, *tx->input_amounts[0],
+					     NULL, NULL);
 }
 
 /*
