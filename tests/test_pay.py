@@ -922,6 +922,18 @@ def test_decodepay(node_factory):
     with pytest.raises(RpcError, match='unknown feature.*100'):
         l1.rpc.decodepay('lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4pqqqqqqqqqqqqqqqqqqszk3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sphzfxz7')
 
+    # Example of an invoice without a multiplier suffix to the amount. This
+    # should then be interpreted as 7 BTC according to the spec:
+    #
+    #   `amount`: optional number in that currency, followed by an optional
+    #   `multiplier` letter. The unit encoded here is the 'social' convention of
+    #   a payment unit -- in the case of Bitcoin the unit is 'bitcoin' NOT
+    #   satoshis.
+    b11 = "lnbcrt71p0g4u8upp5xn4k45tsp05akmn65s5k2063d5fyadhjse9770xz5sk7u4x6vcmqdqqcqzynxqrrssx94cf4p727jamncsvcd8m99n88k423ruzq4dxwevfatpp5gx2mksj2swshjlx4pe3j5w9yed5xjktrktzd3nc2a04kq8yu84l7twhwgpxjn3pw"
+    b11 = l1.rpc.decodepay(b11)
+    sat_per_btc = 10**8
+    assert(b11['msatoshi'] == 7 * sat_per_btc * 1000)
+
     with pytest.raises(RpcError):
         l1.rpc.decodepay('1111111')
 
