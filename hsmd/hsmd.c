@@ -1220,18 +1220,46 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 	struct pubkey point;
 	struct privkey privkey;
 	u8 *wscript;
+	struct node_id *node_id;
+	u64 *channel_dbid;
 
 	if (!fromwire_hsm_sign_penalty_to_us(tmpctx, msg_in,
 					     &revocation_secret,
 					     &tx, &wscript,
-					     &input_sat))
+					     &input_sat,
+					     &node_id,
+					     &channel_dbid))
 		return bad_req(conn, c, msg_in);
+
+	/* node_id and channel_dbid are optional, and only necessary when we
+	 * are not a peer client (i.e., they are already set in the connection
+	 * context. Either we are a peer client, or we have both node_id and
+	 * channel_dbid set. The following ensures equality if we are a peer
+	 * client. */
+	assert(c->dbid != 0 || (node_id != NULL && channel_dbid != NULL));
+
+	/* If we are a peer client these must be NULL or match the ones we
+	 * have stashed in the peer client connection context. */
+	if (c->dbid != 0) {
+		if (node_id != NULL && !node_id_eq(node_id, &c->id))
+			return bad_req_fmt(
+			    conn, c, msg_in,
+			    "node_id in signature request doesn't match "
+			    "channel peer node_id.");
+		if (channel_dbid != NULL && *channel_dbid != c->dbid)
+			return bad_req_fmt(conn, c, msg_in,
+					   "channel_dbid in signature request "
+					   "doesn't match channel dbid.");
+		node_id = &c->id;
+		channel_dbid = &c->dbid;
+	}
+
 	tx->chainparams = c->chainparams;
 
 	if (!pubkey_from_secret(&revocation_secret, &point))
 		return bad_req_fmt(conn, c, msg_in, "Failed deriving pubkey");
 
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	get_channel_seed(node_id, *channel_dbid, &channel_seed);
 	if (!derive_revocation_basepoint(&channel_seed,
 					 &revocation_basepoint,
 					 &revocation_basepoint_secret))
@@ -2056,7 +2084,8 @@ int main(int argc, char *argv[])
 	uintmap_init(&clients);
 
 	master = new_client(NULL, NULL, NULL, 0,
-			    HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH,
+			    HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP |
+				HSM_CAP_ECDH | HSM_CAP_SIGN_ONCHAIN_TX,
 			    REQ_FD);
 
 	/* First client == lightningd. */

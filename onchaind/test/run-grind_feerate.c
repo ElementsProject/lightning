@@ -151,7 +151,7 @@ u8 *towire_hsm_sign_delayed_payment_to_us(const tal_t *ctx UNNEEDED, u64 commit_
 u8 *towire_hsm_sign_local_htlc_tx(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_local_htlc_tx called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_penalty_to_us */
-u8 *towire_hsm_sign_penalty_to_us(const tal_t *ctx UNNEEDED, const struct secret *revocation_secret UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED)
+u8 *towire_hsm_sign_penalty_to_us(const tal_t *ctx UNNEEDED, const struct secret *revocation_secret UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED, const struct node_id *node_id UNNEEDED, u64 *channel_dbid UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_penalty_to_us called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_remote_htlc_to_us */
 u8 *towire_hsm_sign_remote_htlc_to_us(const tal_t *ctx UNNEEDED, const struct pubkey *remote_per_commitment_point UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED)

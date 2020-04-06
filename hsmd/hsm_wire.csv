@@ -145,6 +145,10 @@ msgdata,hsm_sign_penalty_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_penalty_to_us,wscript_len,u16,
 msgdata,hsm_sign_penalty_to_us,wscript,u8,wscript_len
 msgdata,hsm_sign_penalty_to_us,input_amount,amount_sat,
+# If this is the master requesting a signature on behalf of a peer-client
+# (typically onchaind) these fields are set. They are double checked in hsmd.
+msgdata,hsm_sign_penalty_to_us,node_id,?node_id,
+msgdata,hsm_sign_penalty_to_us,channel_dbid,?u64,
 
 # Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
 msgtype,hsm_sign_local_htlc_tx,16
