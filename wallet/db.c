@@ -596,6 +596,12 @@ static struct migration dbmigrations[] = {
      * Turn anything in transition into a WIRE_TEMPORARY_NODE_FAILURE. */
     {SQL("ALTER TABLE channel_htlcs ADD localfailmsg BLOB;"), NULL},
     {SQL("UPDATE channel_htlcs SET localfailmsg=decode('2002', 'hex') WHERE malformed_onion != 0 AND direction = 1;"), NULL},
+    {SQL("ALTER TABLE channels ADD prev_penalty_base_txid BLOB;"), NULL},
+    {SQL("ALTER TABLE channels ADD prev_penalty_base_outnum INTEGER;"), NULL},
+    {SQL("ALTER TABLE channels ADD prev_penalty_base_amount BIGINT;"), NULL},
+    {SQL("ALTER TABLE channels ADD next_penalty_base_txid BLOB;"), NULL},
+    {SQL("ALTER TABLE channels ADD next_penalty_base_outnum INTEGER;"), NULL},
+    {SQL("ALTER TABLE channels ADD next_penalty_base_amount BIGINT;"), NULL},
 };
 
 /* Leak tracking. */

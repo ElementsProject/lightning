@@ -9,6 +9,7 @@
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
+#include <common/penalty_base.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
@@ -1015,6 +1016,33 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 43),
 			   db_column_arr(tmpctx, stmt, 44, u8),
 			   db_column_int(stmt, 45));
+
+	if (!db_column_is_null(stmt, 47)) {
+		/* If the penalty_base txid is set, we must also have an
+		 * outnum and an amount */
+		assert(!db_column_is_null(stmt, 48));
+		assert(!db_column_is_null(stmt, 49));
+		chan->prev_commitment = tal(chan, struct penalty_base);
+		db_column_txid(stmt, 47, &chan->prev_commitment->txid);
+		chan->prev_commitment->outnum = db_column_int(stmt, 48);
+		db_column_amount_sat(stmt, 49, &chan->prev_commitment->amount);
+		chan->prev_commitment->commitment_num = chan->next_index[REMOTE] - 2;
+	} else {
+		chan->prev_commitment = NULL;
+	}
+
+	if (!db_column_is_null(stmt, 50)) {
+		/* If the penalty_base txid is set, we must also have an
+		 * outnum and an amount */
+		assert(!db_column_is_null(stmt, 51));
+		assert(!db_column_is_null(stmt, 52));
+		chan->next_commitment = tal(chan, struct penalty_base);
+		db_column_txid(stmt, 50, &chan->next_commitment->txid);
+		chan->next_commitment->outnum = db_column_int(stmt, 51);
+		db_column_amount_sat(stmt, 52, &chan->next_commitment->amount);
+		chan->next_commitment->commitment_num = chan->next_index[REMOTE] - 1;
+	}
+
 	return chan;
 }
 
@@ -1040,7 +1068,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 
 	/* We load all channels */
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					"  id"
+					"  id" /* 0 */
 					", peer_id"
 					", short_channel_id"
 					", channel_config_local"
@@ -1050,7 +1078,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", channel_flags"
 					", minimum_depth"
 					", next_index_local"
-					", next_index_remote"
+					", next_index_remote" /* 10 */
 					", next_htlc_id"
 					", funding_tx_id"
 					", funding_tx_outnum"
@@ -1060,7 +1088,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", msatoshi_local"
 					", fundingkey_remote"
 					", revocation_basepoint_remote"
-					", payment_basepoint_remote"
+					", payment_basepoint_remote" /* 20 */
 					", htlc_basepoint_remote"
 					", delayed_payment_basepoint_remote"
 					", per_commit_remote"
@@ -1071,7 +1099,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", shachain_remote_id"
 					", shutdown_scriptpubkey_remote"
 					", shutdown_keyidx_local"
-					", last_sent_commit_state"
+					", last_sent_commit_state" /* 30 */
 					", last_sent_commit_id"
 					", last_tx"
 					", last_sig"
@@ -1081,13 +1109,19 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", max_possible_feerate"
 					", msatoshi_to_us_min"
 					", msatoshi_to_us_max"
-					", future_per_commitment_point"
+					", future_per_commitment_point" /* 40 */
 					", last_sent_commit"
 					", feerate_base"
 					", feerate_ppm"
 					", remote_upfront_shutdown_script"
 					", option_static_remotekey"
 					", shutdown_scriptpubkey_local"
+					", prev_penalty_base_txid"
+					", prev_penalty_base_outnum"
+					", prev_penalty_base_amount"
+					", next_penalty_base_txid" /* 50 */
+					", next_penalty_base_outnum"
+					", next_penalty_base_amount"
 					" FROM channels WHERE state < ?;"));
 	db_bind_int(stmt, 0, CLOSED);
 	db_query_prepared(stmt);
@@ -1457,14 +1491,49 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 				    &chan->last_sent_commit[i]);
 
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
-					"  last_sent_commit=?"
+					"  last_sent_commit=?,"
+					"  prev_penalty_base_txid=?,"
+					"  prev_penalty_base_outnum=?,"
+					"  prev_penalty_base_amount=?,"
+					"  next_penalty_base_txid=?,"
+					"  next_penalty_base_outnum=?,"
+					"  next_penalty_base_amount=?"
 					" WHERE id=?"));
 	if (tal_count(last_sent_commit))
 		db_bind_blob(stmt, 0, last_sent_commit,
 			     tal_count(last_sent_commit));
 	else
 		db_bind_null(stmt, 0);
-	db_bind_u64(stmt, 1, chan->dbid);
+
+	if (chan->prev_commitment != NULL) {
+		struct penalty_base *pbase = chan->prev_commitment;
+		assert(pbase->commitment_num == chan->next_index[REMOTE] - 2);
+		db_bind_txid(stmt, 1, &pbase->txid);
+		db_bind_int(stmt, 2, pbase->outnum);
+		db_bind_amount_sat(stmt, 3, &pbase->amount);
+		/* No need to store the commitment number since it will always
+		 * be `chan->next_index[REMOTE] - 2` */
+	} else {
+		db_bind_null(stmt, 1);
+		db_bind_null(stmt, 2);
+		db_bind_null(stmt, 3);
+	}
+
+	if (chan->next_commitment != NULL) {
+		struct penalty_base *pbase = chan->next_commitment;
+		assert(pbase->commitment_num == chan->next_index[REMOTE] - 1);
+		db_bind_txid(stmt, 4, &pbase->txid);
+		db_bind_int(stmt, 5, pbase->outnum);
+		db_bind_amount_sat(stmt, 6, &pbase->amount);
+		/* No need to store the commitment number since it will always
+		 * be `chan->next_index[REMOTE] - 2` */
+	} else {
+		db_bind_null(stmt, 4);
+		db_bind_null(stmt, 5);
+		db_bind_null(stmt, 6);
+	}
+
+	db_bind_u64(stmt, 7, chan->dbid);
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
 }
