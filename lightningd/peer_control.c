@@ -1370,9 +1370,15 @@ static struct command_result *json_close(struct command *cmd,
 	} else {
 		channel->closing_fee_negotiation_step =
 		    strtoull(fee_negotiation_step_str, &end, 10);
-		if (*end == '%') {
-			if (channel->closing_fee_negotiation_step < 1 ||
-			    channel->closing_fee_negotiation_step > 100)
+
+		if (channel->closing_fee_negotiation_step == 0)
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Wrong value given for fee_negotiation_step: "
+			    "\"%s\", must be positive",
+			    fee_negotiation_step_str);
+		else if (*end == '%') {
+			if (channel->closing_fee_negotiation_step > 100)
 				return command_fail(
 				    cmd, JSONRPC2_INVALID_PARAMS,
 				    "Wrong value given for "
