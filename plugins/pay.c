@@ -147,13 +147,6 @@ static void json_out_add_raw_len(struct json_out *jout,
 	memcpy(p, jsonstr, len);
 }
 
-static void json_out_add_raw(struct json_out *jout,
-			     const char *fieldname,
-			     const char *jsonstr)
-{
-	json_out_add_raw_len(jout, fieldname, jsonstr, strlen(jsonstr));
-}
-
 static struct json_out *failed_start(struct pay_command *pc)
 {
 	struct pay_attempt *attempt = current_attempt(pc);
@@ -179,6 +172,15 @@ static const jsmntok_t *copy_member(struct json_out *ret,
 	if (!m)
 		return NULL;
 
+	/* FIXME: The fact it is a string is probably the wrong thing
+	 * to handle: if it *is* a string we should probably copy
+	 * the quote marks, but json_tok_full/json_tok_full_len
+	 * specifically remove those.
+	 * It works *now* because it is only used in "code" and
+	 * "data": "code" is always numeric, and "data" is usually
+	 * a JSON object/key-value table, but pure stromgs will
+	 * probably result in invalid JSON.
+	 */
 	/* Literal copy: it's already JSON escaped, and may be a string. */
 	json_out_add_raw_len(ret, membername,
 			     json_tok_full(buf, m), json_tok_full_len(m));
@@ -262,7 +264,7 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 	for (size_t i = 0; i < tal_count(pc->ps->attempts); i++) {
 		json_object_start(data, NULL);
 		if (pc->ps->attempts[i].route)
-			json_add_member(data, "route", true, "%s",
+			json_add_jsonstr(data, "route",
 					 pc->ps->attempts[i].route);
 		json_out_add_splice(data->jout, "failure",
 				    pc->ps->attempts[i].failure);
@@ -835,7 +837,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	attempt->sendpay = true;
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
 				    sendpay_done, sendpay_error, pc);
-	json_out_add_raw(req->js->jout, "route", attempt->route);
+	json_add_jsonstr(req->js, "route", attempt->route);
 	json_add_string(req->js, "payment_hash", pc->payment_hash);
 	json_add_string(req->js, "bolt11", pc->ps->bolt11);
 	if (pc->label)
@@ -1420,7 +1422,7 @@ static void add_attempt(struct json_stream *ret,
 	}
 
 	if (attempt->route)
-		json_add_member(ret, "route", true, "%s", attempt->route);
+		json_add_jsonstr(ret, "route", attempt->route);
 
 	if (attempt->failure)
 		json_out_add_splice(ret->jout, "failure", attempt->failure);
