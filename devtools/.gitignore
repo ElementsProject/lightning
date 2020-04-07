@@ -12,3 +12,4 @@ create-gossipstore
 checkchannels 
 mkquery 
 lightning-checkmessage 
+blindedpath
