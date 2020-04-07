@@ -826,12 +826,14 @@ static enum htlc_accepted_result
 htlc_accepted_hook_deserialize(const tal_t *ctx,
 			       struct lightningd *ld,
 			       const char *buffer, const jsmntok_t *toks,
+			       /* If it specified a replacement payload (off ctx) */
+			       u8 **payload,
 			       /* If accepted */
 			       struct preimage *payment_preimage,
 			       /* If rejected (tallocated off ctx) */
                                const u8 **failmsg)
 {
-	const jsmntok_t *resulttok, *paykeytok;
+	const jsmntok_t *resulttok, *paykeytok, *payloadtok;
 	enum htlc_accepted_result result;
 
 	if (!toks || !buffer)
@@ -845,6 +847,17 @@ htlc_accepted_hook_deserialize(const tal_t *ctx,
 		fatal("Plugin return value does not contain 'result' key %s",
 		      json_strdup(tmpctx, buffer, toks));
 	}
+
+	payloadtok = json_get_member(buffer, toks, "payload");
+	if (payloadtok) {
+		*payload = json_tok_bin_from_hex(ctx, buffer, payloadtok);
+		if (!*payload)
+			fatal("Bad payload for htlc_accepted"
+			      " hook: %.*s",
+			      payloadtok->end - payloadtok->start,
+			      buffer + payloadtok->start);
+	} else
+		*payload = NULL;
 
 	if (json_tok_streq(buffer, resulttok, "continue")) {
 		return htlc_accepted_continue;
@@ -971,7 +984,21 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	struct preimage payment_preimage;
 	enum htlc_accepted_result result;
 	const u8 *failmsg;
-	result = htlc_accepted_hook_deserialize(request, ld, buffer, toks, &payment_preimage, &failmsg);
+	u8 *payload = NULL; /* Some compilers seems to not understand this is
+			       being set below. */
+
+	result = htlc_accepted_hook_deserialize(request, ld, buffer, toks,
+						&payload, &payment_preimage, &failmsg);
+
+	/* If we have a replacement payload, parse it now. */
+	if (payload) {
+		tal_free(request->payload);
+		tal_free(rs->raw_payload);
+		rs->raw_payload = tal_steal(rs, payload);
+		request->payload = onion_decode(request, rs,
+						&request->failtlvtype,
+						&request->failtlvpos);
+	}
 
 	switch (result) {
 	case htlc_accepted_continue:

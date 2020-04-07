@@ -316,15 +316,22 @@ invoice_check_payment(const tal_t *ctx,
 	 *    - MUST fail the HTLC.
 	 */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
-	    && !payment_secret)
+	    && !payment_secret) {
+		log_debug(ld->log, "Attept to pay %s without secret",
+			  type_to_string(tmpctx, struct sha256, &details->rhash));
 		return tal_free(details);
+	}
 
 	if (payment_secret) {
 		struct secret expected;
 
 		invoice_secret(&details->r, &expected);
-		if (!secret_eq_consttime(payment_secret, &expected))
+		if (!secret_eq_consttime(payment_secret, &expected)) {
+			log_debug(ld->log, "Attept to pay %s with wrong secret",
+				  type_to_string(tmpctx, struct sha256,
+						 &details->rhash));
 			return tal_free(details);
+		}
 	}
 
 	/* BOLT #4:
