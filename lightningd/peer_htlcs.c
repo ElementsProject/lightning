@@ -853,6 +853,20 @@ htlc_accepted_hook_try_resolve(struct htlc_accepted_hook_payload *request,
 	}
 }
 
+static u8 *prepend_length(const tal_t *ctx, const u8 *payload TAKES)
+{
+	u8 buf[BIGSIZE_MAX_LEN], *ret;
+	size_t len;
+
+	len = bigsize_put(buf, tal_bytelen(payload));
+	ret = tal_arr(ctx, u8, len + tal_bytelen(payload));
+	memcpy(ret, buf, len);
+	memcpy(ret + len, payload, tal_bytelen(payload));
+	if (taken(payload))
+		tal_free(payload);
+	return ret;
+}
+
 /**
  * Callback when a plugin answers to the htlc_accepted hook
  */
@@ -860,10 +874,12 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 					   const char *buffer,
 					   const jsmntok_t *toks)
 {
+	struct route_step *rs = request->route_step;
 	struct htlc_in *hin = request->hin;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	const jsmntok_t *resulttok, *paykeytok;
+	const jsmntok_t *resulttok, *paykeytok, *payloadtok;
+	u8 *payload;
 
 	if (!toks || !buffer)
 		return true;
@@ -876,6 +892,26 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 		fatal("Plugin return value does not contain 'result' key %s",
 		      json_strdup(tmpctx, buffer, toks));
 	}
+
+	payloadtok = json_get_member(buffer, toks, "payload");
+	if (payloadtok) {
+		payload = json_tok_bin_from_hex(rs, buffer, payloadtok);
+		if (!payload)
+			fatal("Bad payload for htlc_accepted"
+			      " hook: %.*s",
+			      payloadtok->end - payloadtok->start,
+			      buffer + payloadtok->start);
+		tal_free(request->payload);
+		tal_free(rs->raw_payload);
+
+		rs->raw_payload = prepend_length(rs, take(payload));
+		request->payload = onion_decode(request, rs,
+						hin->blinding, &hin->blinding_ss,
+						&request->failtlvtype,
+						&request->failtlvpos);
+
+	} else
+		payload = NULL;
 
 	if (json_tok_streq(buffer, resulttok, "continue")) {
 		return true;

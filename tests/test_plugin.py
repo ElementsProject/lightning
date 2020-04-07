@@ -1180,3 +1180,23 @@ def test_feature_set(node_factory):
     assert fs['node'] == expected_features()
     assert fs['channel'] == ''
     assert 'invoice' in fs
+
+
+def test_replacement_payload(node_factory):
+    """Test that htlc_accepted plugin hook can replace payload"""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/replace_payload.py')
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {"plugin": plugin}])
+
+    # Replace with an invalid payload.
+    l2.rpc.call('setpayload', ['0000'])
+    inv = l2.rpc.invoice(123, 'test_replacement_payload', 'test_replacement_payload')['bolt11']
+    with pytest.raises(RpcError, match=r"WIRE_INVALID_ONION_PAYLOAD \(reply from remote\)"):
+        l1.rpc.pay(inv)
+
+    # Replace with valid payload, but corrupt payment_secret
+    l2.rpc.call('setpayload', ['corrupt_secret'])
+
+    with pytest.raises(RpcError, match=r"WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS \(reply from remote\)"):
+        l1.rpc.pay(inv)
+
+    assert l2.daemon.wait_for_log("Attept to pay.*with wrong secret")
