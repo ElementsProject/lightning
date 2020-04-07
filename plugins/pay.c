@@ -698,6 +698,9 @@ static bool maybe_exclude(struct pay_command *pc,
 {
 	const jsmntok_t *scid, *dir;
 
+	if (!route)
+		return false;
+
 	scid = json_get_member(buf, route, "channel");
 
 	if (node_or_channel_in_routehint(pc->plugin,
