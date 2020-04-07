@@ -44,17 +44,6 @@ struct funding_req {
 	const char *error;
 };
 
-/* Helper to copy JSON object directly into a json_out */
-static void json_out_add_raw_len(struct json_out *jout,
-				 const char *fieldname,
-				 const char *jsonstr, size_t len)
-{
-	char *p;
-
-	p = json_out_member_direct(jout, fieldname, len);
-	memcpy(p, jsonstr, len);
-}
-
 static struct command_result *send_prior(struct command *cmd,
 					 const char *buf,
 					 const jsmntok_t *error,
@@ -220,8 +209,7 @@ static void txprepare(struct json_stream *js,
 	if (fr->minconf)
 		json_add_u32(js, "minconf", *fr->minconf);
 	if (fr->utxo_str)
-		json_out_add_raw_len(js->jout, "utxos", fr->utxo_str,
-				     strlen(fr->utxo_str));
+		json_add_jsonstr(js, "utxos", fr->utxo_str);
 }
 
 static struct command_result *prepare_actual(struct command *cmd,

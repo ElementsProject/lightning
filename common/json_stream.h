@@ -115,6 +115,18 @@ void json_add_member(struct json_stream *js,
 		     const char *fmt, ...) PRINTF_FMT(4,5);
 
 /**
+ * json_add_jsonstr - add a JSON entity in a string that is already
+ * JSON-formatted.
+ * @js: the json_stream.
+ * @fieldname: fieldname (if in object), otherwise must be NULL.
+ * @jsonstr: the JSON entity, must be non-NULL, a null-terminated
+ * string that is already formatted in JSON.
+ */
+void json_add_jsonstr(struct json_stream *js,
+		      const char *fieldname,
+		      const char *jsonstr);
+
+/**
  * json_member_direct - start a generic member.
  * @js: the json_stream.
  * @fieldname: fieldname (if in object), otherwise must be NULL.
