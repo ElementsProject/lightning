@@ -1669,12 +1669,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
-	struct penalty_base *pbase;
-
-        /* Rotate the remote_commit_txid through, so the revoke that is coming
-         * next finds the previous one to build the penalty transaction. */
-        tal_free(channel->prev_commitment);
-        channel->prev_commitment = channel->next_commitment;
+	struct penalty_base *pbase, *cur = channel->next_commitment;
 
 	channel->htlc_timeout = tal_free(channel->htlc_timeout);
 
@@ -1689,6 +1684,20 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 				       tal_hex(channel, msg));
 		return;
 	}
+
+        /* Rotate the remote_commit_txid through, so the revoke that is coming
+         * next finds the previous one to build the penalty transaction. We
+         * can be sure that the two commitments really are consecutive, since
+         * the only out-of-order commitment is when resending a commitment on
+         * reconnect, but that doesn't end up here (it just overwrites the
+         * `channel->next_commitment`). So either we have a next_commitment
+         * that gets rotated away having `commitnum == next_commitment + 1` or
+         * we don't have one (meaning we skipped one or more due to
+         * insufficient funds on their end that we could steal).
+	 */
+	assert(cur == NULL || cur->commitment_num + 1 == commitnum);
+	tal_free(channel->prev_commitment);
+	channel->prev_commitment = channel->next_commitment;
 	channel->next_commitment = tal_steal(channel, pbase);
 
 	for (i = 0; i < tal_count(changed_htlcs); i++) {
@@ -2120,6 +2129,15 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 
 	if (channel->prev_commitment == NULL)
 		return;
+
+	if (channel->prev_commitment->commitment_num != revokenum) {
+		log_broken(channel->log,
+			   "Revocation does not match the previous "
+			   "commitment: %" PRIu64 " != %" PRIu64,
+			   revokenum,
+			   channel->prev_commitment->commitment_num);
+		return;
+	}
 
 	tx = penalty_tx_create(tmpctx, ld, channel, &per_commitment_secret,
 			       &channel->prev_commitment->txid,
