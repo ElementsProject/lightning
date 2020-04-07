@@ -20,8 +20,6 @@
 
 #define READ_CHUNKSIZE 4096
 
-const struct chainparams *chainparams;
-
 bool deprecated_apis;
 
 struct plugin_timer {
