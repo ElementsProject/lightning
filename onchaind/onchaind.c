@@ -295,15 +295,47 @@ static void record_chain_fees_unilateral(const struct bitcoin_txid *txid,
 		     type_to_string(tmpctx, struct amount_sat, &their_outs),
 		     type_to_string(tmpctx, struct amount_sat, &our_outs));
 
+	/* It's possible they published a commitment tx that
+	 * paid us an htlc before we updated our balance. It's also
+	 * possible that they fulfilled an htlc, but we'll just write
+	 * that down in the chain fees :/ */
+	if (!amount_msat_greater_eq_sat(our_msat, our_outs)) {
+		struct amount_msat missing;
+		struct chain_coin_mvt *mvt;
+
+		if (!amount_sat_sub_msat(&missing, our_outs, our_msat))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "unable to subtract %s from %s",
+				      type_to_string(tmpctx, struct amount_msat,
+						     &our_msat),
+				      type_to_string(tmpctx, struct amount_sat,
+						     &our_outs));
+
+		/* Log the difference and update our_msat */
+		mvt = new_chain_coin_mvt(NULL, NULL,
+					 txid, NULL, 0, NULL,
+					 blockheight,
+					 JOURNAL, missing,
+					 true, BTC);
+		send_coin_mvt(take(mvt));
+		if (!amount_msat_add(&our_msat, our_msat, missing))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "unable to add %s to %s",
+				      type_to_string(tmpctx, struct amount_msat,
+						     &missing),
+				      type_to_string(tmpctx, struct amount_msat,
+						     &our_msat));
+	}
+
 	/* we need to figure out what we paid in fees, total.
 	 * this encompasses the actual chain fees + any trimmed outputs */
 	if (!amount_msat_sub_sat(&trimmed, our_msat, our_outs))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "unable to subtract %s from %s",
-			      type_to_string(tmpctx, struct amount_msat,
-					     &our_msat),
 			      type_to_string(tmpctx, struct amount_sat,
-					     &our_outs));
+					     &our_outs),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &our_msat));
 
 	status_debug("logging 'chain fees' for unilateral (trimmed) %s",
 		     type_to_string(tmpctx, struct amount_msat, &trimmed));
