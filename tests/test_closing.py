@@ -1055,7 +1055,10 @@ def test_onchain_first_commit(node_factory, bitcoind):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_onchain_unwatch(node_factory, bitcoind):
     """Onchaind should not watch random spends"""
-    l1, l2 = node_factory.line_graph(2)
+    # We track channel balances, to verify that accounting is ok.
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
+    channel_id = first_channel_id(l1, l2)
 
     l1.pay(l2, 200000000)
 
@@ -1097,6 +1100,8 @@ def test_onchain_unwatch(node_factory, bitcoind):
     assert not l1.daemon.is_in_log("but we don't care",
                                    start=l1.daemon.logsearch_start)
 
+    assert account_balance(l1, channel_id) == 0
+    assert account_balance(l2, channel_id) == 0
     # Note: for this test we leave onchaind running, so we can detect
     # any leaks!
 
