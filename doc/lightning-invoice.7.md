@@ -56,7 +56,7 @@ logic, which will use unpublished channels only if there are no
 published channels. If *true* unpublished channels are always considered
 as a route hint candidate; if *false*, never.  If it is a short channel id
 (e.g. *1x1x3*) or array of short channel ids, only those specific channels
-will be considered candidates, even if they are public.
+will be considered candidates, even if they are public or dead-ends.
 
 The route hint is selected from the set of incoming channels of which:
 peer’s balance minus their reserves is at least *msatoshi*, state is

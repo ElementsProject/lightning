@@ -640,7 +640,11 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 					 &inchans[i].short_channel_id)) {
 				tal_arr_remove(&inchans, i);
 				tal_arr_remove(&inchan_deadends, i);
-			}
+				i--;
+			} else
+				/* If they specify directly, we don't
+				 * care if it's a deadend */
+				inchan_deadends[i] = false;
 		}
 
 		/* If they told us to use scids and we couldn't, fail. */
