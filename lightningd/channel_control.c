@@ -285,6 +285,11 @@ void forget_channel(struct channel *channel, const char *why)
 		forget(channel);
 }
 
+static void handle_channel_resending_commitsig(struct channel *channel,
+					       const u8 *msg)
+{
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -331,6 +336,11 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_GOT_ONIONMSG_TO_US:
 	case WIRE_GOT_ONIONMSG_FORWARD:
 #endif
+
+	case WIRE_CHANNEL_RESENDING_COMMITSIG:
+		handle_channel_resending_commitsig(sd->channel, msg);
+		break;
+
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_DEPTH:

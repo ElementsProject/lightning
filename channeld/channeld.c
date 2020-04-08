@@ -722,6 +722,7 @@ static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
 
 static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 u64 remote_commit_index,
+				 struct penalty_base *pbase,
 				 const struct fee_states *fee_states,
 				 const struct htlc **changed_htlcs,
 				 const struct bitcoin_signature *commit_sig,
@@ -733,9 +734,8 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	/* We tell master what (of our) HTLCs peer will now be
 	 * committed to. */
 	changed = changed_htlc_arr(tmpctx, changed_htlcs);
-	msg = towire_channel_sending_commitsig(ctx, remote_commit_index,
-					       fee_states,
-					       changed, commit_sig, htlc_sigs);
+	msg = towire_channel_sending_commitsig(ctx, remote_commit_index, pbase, fee_states, changed,
+					       commit_sig, htlc_sigs);
 	return msg;
 }
 
@@ -817,20 +817,16 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 /* Returns HTLC sigs, sets commit_sig */
 static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 						  const struct peer *peer,
+						  struct bitcoin_tx **txs,
+						  const u8 *funding_wscript,
+						  const struct htlc **htlc_map,
 						  u64 commit_index,
 						  struct bitcoin_signature *commit_sig)
 {
 	size_t i;
-	struct bitcoin_tx **txs;
-	const u8 *funding_wscript;
-	const struct htlc **htlc_map;
 	struct pubkey local_htlckey;
 	const u8 *msg;
 	secp256k1_ecdsa_signature *htlc_sigs;
-
-	txs = channel_txs(tmpctx, &htlc_map,
-			  &funding_wscript, peer->channel, &peer->remote_per_commit,
-			  commit_index, REMOTE);
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
@@ -927,6 +923,11 @@ static void send_commit(struct peer *peer)
 	const struct htlc **changed_htlcs;
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
+	struct bitcoin_tx **txs;
+	const u8 *funding_wscript;
+	const struct htlc **htlc_map;
+	struct wally_tx_output *direct_outputs[NUM_SIDES];
+	struct penalty_base *pbase;
 
 #if DEVELOPER
 	/* Hack to suppress all commit sends if dev_disconnect says to */
@@ -1017,12 +1018,24 @@ static void send_commit(struct peer *peer)
 		return;
 	}
 
-	htlc_sigs = calc_commitsigs(tmpctx, peer, peer->next_index[REMOTE],
-				    &commit_sig);
+	txs = channel_txs(tmpctx, &htlc_map, direct_outputs,
+			  &funding_wscript, peer->channel, &peer->remote_per_commit,
+			  peer->next_index[REMOTE], REMOTE);
+
+	htlc_sigs =
+	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
+			    peer->next_index[REMOTE], &commit_sig);
+
+	if (direct_outputs[LOCAL] != NULL)
+		pbase = penalty_base_new(tmpctx, peer->next_index[REMOTE],
+					 txs[0], direct_outputs[LOCAL]);
+	else
+		pbase = NULL;
 
 	status_debug("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
 	msg = sending_commitsig_msg(NULL, peer->next_index[REMOTE],
+				    pbase,
 				    peer->channel->fee_states,
 				    changed_htlcs,
 				    &commit_sig,
@@ -1258,7 +1271,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	commit_sig.sighash_type = SIGHASH_ALL;
 
 	txs =
-	    channel_txs(tmpctx, &htlc_map,
+	    channel_txs(tmpctx, &htlc_map, NULL,
 			&funding_wscript, peer->channel, &peer->next_local_per_commit,
 			peer->next_index[LOCAL], LOCAL);
 
@@ -2031,6 +2044,11 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	u8 *msg;
+	struct bitcoin_tx **txs;
+	const u8 *funding_wscript;
+	const struct htlc **htlc_map;
+	struct wally_tx_output *direct_outputs[NUM_SIDES];
+	struct penalty_base *pbase;
 
 	status_debug("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u",
 		     channel_feerate(peer->channel, LOCAL),
@@ -2114,7 +2132,11 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	}
 
 	/* Re-send the commitment_signed itself. */
-	htlc_sigs = calc_commitsigs(tmpctx, peer, peer->next_index[REMOTE]-1,
+	txs = channel_txs(tmpctx, &htlc_map, direct_outputs,
+			  &funding_wscript, peer->channel, &peer->remote_per_commit,
+			  peer->next_index[REMOTE]-1, REMOTE);
+
+	htlc_sigs = calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map, peer->next_index[REMOTE]-1,
 				    &commit_sig);
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
 				       &commit_sig.s, htlc_sigs);
@@ -2127,6 +2149,15 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			       " but they already send revocation %"PRIu64"?",
 			       peer->next_index[REMOTE]-1,
 			       peer->revocations_received);
+
+	if (direct_outputs[LOCAL] != NULL)
+		pbase = penalty_base_new(tmpctx, peer->next_index[REMOTE] - 1,
+					 txs[0], direct_outputs[LOCAL]);
+	else
+		pbase = NULL;
+
+	wire_sync_write(MASTER_FD, take(towire_channel_resending_commitsig(
+						tmpctx, pbase)));
 }
 
 /* BOLT #2:
@@ -3022,6 +3053,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
+	case WIRE_CHANNEL_RESENDING_COMMITSIG:
 	case WIRE_CHANNEL_GOT_COMMITSIG:
 	case WIRE_CHANNEL_GOT_REVOKE:
 	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
