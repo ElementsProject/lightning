@@ -184,11 +184,27 @@ class TlvField(object):
 
 
 class Tu32Field(TlvField):
-    pass
+    def to_bytes(self):
+        raw = struct.pack("!I", self.value)
+        while len(raw) > 1 and raw[0] == 0:
+            raw = raw[1:]
+        b = BytesIO()
+        varint_encode(self.typenum, b)
+        varint_encode(len(raw), b)
+        b.write(raw)
+        return b.getvalue()
 
 
 class Tu64Field(TlvField):
-    pass
+    def to_bytes(self):
+        raw = struct.pack("!Q", self.value)
+        while len(raw) > 1 and raw[0] == 0:
+            raw = raw[1:]
+        b = BytesIO()
+        varint_encode(self.typenum, b)
+        varint_encode(len(raw), b)
+        b.write(raw)
+        return b.getvalue()
 
 
 class ShortChannelIdField(TlvField):
