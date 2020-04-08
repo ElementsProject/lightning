@@ -1,3 +1,4 @@
+from bitcoin.core import COIN
 from bitcoin.rpc import RawProxy as BitcoinProxy
 from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
@@ -25,6 +26,7 @@ BITCOIND_CONFIG = {
     "regtest": 1,
     "rpcuser": "rpcuser",
     "rpcpassword": "rpcpass",
+    "fallbackfee": Decimal(1000) / COIN,
 }
 
 
