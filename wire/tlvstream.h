@@ -34,4 +34,7 @@ void towire_tlvs(u8 **pptr,
 		 size_t num_types,
 		 const void *record);
 
+/* Given any tlvstream serialize the raw fields (untyped ones). */
+void towire_tlvstream_raw(u8 **pptr, const struct tlv_field *fields);
+
 #endif /* LIGHTNING_WIRE_TLVSTREAM_H */
