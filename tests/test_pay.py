@@ -2942,3 +2942,20 @@ def test_sendpay_blinding(node_factory):
                    payment_hash=inv['payment_hash'],
                    bolt11=inv['bolt11'])
     l1.rpc.waitsendpay(inv['payment_hash'])
+
+
+def test_excluded_adjacent_routehint(node_factory, bitcoind):
+    """Test case where we try have a routehint which leads to an adjacent
+    node, but the result exceeds our maxfee; we crashed trying to find
+    what part of the path was most expensive in that case
+
+    """
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    # We'll be forced to use routehint, since we don't know about l3.
+    wait_for(lambda: l3.channel_state(l2) == 'CHANNELD_NORMAL')
+    inv = l3.rpc.invoice(10**3, "lbl", "desc", exposeprivatechannels=l2.get_channel_scid(l3))
+
+    # This will make it reject the routehint.
+    with pytest.raises(RpcError, match=r'Route wanted fee of 1msat'):
+        l1.rpc.pay(bolt11=inv['bolt11'], maxfeepercent=0, exemptfee=0)
