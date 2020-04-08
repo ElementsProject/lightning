@@ -30,3 +30,31 @@ def test_tlv_payload():
     ))
 
     assert(payload.to_bytes() == tlv)
+
+
+def test_tu_fields():
+    pairs = [
+        (0, b'\x01\x01\x00'),
+        (1 << 8, b'\x01\x02\x01\x00'),
+        (1 << 16, b'\x01\x03\x01\x00\x00'),
+        (1 << 24, b'\x01\x04\x01\x00\x00\x00'),
+        ((1 << 32) - 1, b'\x01\x04\xFF\xFF\xFF\xFF'),
+    ]
+
+    # These should work for Tu32
+    for i, o in pairs:
+        f = onion.Tu32Field(1, i)
+        assert(f.to_bytes() == o)
+
+    # And these should work for Tu64
+    pairs += [
+        (1 << 32, b'\x01\x05\x01\x00\x00\x00\x00'),
+        (1 << 40, b'\x01\x06\x01\x00\x00\x00\x00\x00'),
+        (1 << 48, b'\x01\x07\x01\x00\x00\x00\x00\x00\x00'),
+        (1 << 56, b'\x01\x08\x01\x00\x00\x00\x00\x00\x00\x00'),
+        ((1 << 64) - 1, b'\x01\x08\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
+    ]
+
+    for i, o in pairs:
+        f = onion.Tu64Field(1, i)
+        assert(f.to_bytes() == o)
