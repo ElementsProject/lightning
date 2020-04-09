@@ -976,8 +976,8 @@ The plugin, if fee estimation succeeds, must respond with the following fields:
     - `delayed_to_us` (number), used for resolving our output from our unilateral close
     - `htlc_resolution` (number), used for resolving HTLCs after an unilateral close
     - `penalty` (number), used for resolving revoked transactions
-    - `min` (number), used as the minimum acceptable feerate
-    - `max` (number), used as the maximum acceptable feerate
+    - `min_acceptable` (number), used as the minimum acceptable feerate
+    - `max_acceptable` (number), used as the maximum acceptable feerate
 
 
 ### `getrawblockbyheight`
