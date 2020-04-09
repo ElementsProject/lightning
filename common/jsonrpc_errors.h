@@ -25,6 +25,9 @@ static const errcode_t PARAM_DEV_ERROR = -2;
 /* Plugin returned an error */
 static const errcode_t PLUGIN_ERROR = -3;
 
+/* Plugin terminated while handling a request. */
+static const errcode_t PLUGIN_TERMINATED = -4;
+
 /* Errors from `pay`, `sendpay`, or `waitsendpay` commands */
 static const errcode_t PAY_IN_PROGRESS = 200;
 static const errcode_t PAY_RHASH_ALREADY_USED = 201;
