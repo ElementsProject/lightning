@@ -19,6 +19,12 @@ def hello(plugin, name="world"):
     return s
 
 
+@plugin.method("bye")
+def bye(plugin, name, **kwargs):
+    """This methods requires {name} to be set by the caller !"""
+    return "Bye {}".format(name)
+
+
 @plugin.init()
 def init(options, configuration, plugin, **kwargs):
     plugin.log("Plugin helloworld.py initialized")

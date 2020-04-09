@@ -83,9 +83,12 @@ class Request(dict):
         self._write_result({
             'jsonrpc': '2.0',
             'id': self.id,
-            "error": "Error while processing {method}: {exc}".format(
-                method=self.method, exc=repr(exc)
-            ),
+            "error": {
+                "code": -32600,  # "Invalid Request"
+                "message": "Error while processing {method}: {exc}"
+                           .format(method=self.method, exc=str(exc)),
+                # 'data' field "may be omitted."
+            },
         })
 
     def _write_result(self, result):

@@ -180,6 +180,11 @@ def test_rpc_passthrough(node_factory):
     with pytest.raises(RpcError):
         n.rpc.fail()
 
+    # Try to call a method without enough arguments
+    with pytest.raises(RpcError, match="processing bye: missing a required"
+                                       " argument"):
+        n.rpc.bye()
+
 
 def test_plugin_dir(node_factory):
     """--plugin-dir works"""
