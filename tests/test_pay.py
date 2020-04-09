@@ -228,6 +228,9 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5,
                                               'may_reconnect': True})
 
+    # Dummy payment to kick off update_fee messages
+    l1.pay(l2, 1000)
+
     inv = l2.rpc.invoice(123000, 'test_pay_disconnect', 'description')
     rhash = inv['payment_hash']
 

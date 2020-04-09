@@ -2750,7 +2750,12 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 	 */
 	if (peer->channel->funder == LOCAL) {
 		peer->desired_feerate = feerate;
-		start_commit_timer(peer);
+		/* Don't do this for the first feerate, wait until something else
+		 * happens.  LND seems to get upset in some cases otherwise:
+		 * see https://github.com/ElementsProject/lightning/issues/3596 */
+		if (peer->next_index[LOCAL] != 1
+		    || peer->next_index[REMOTE] != 1)
+			start_commit_timer(peer);
 	} else {
 		/* BOLT #2:
 		 *

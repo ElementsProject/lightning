@@ -1367,7 +1367,6 @@ def test_update_fee(node_factory, bitcoind):
 
     # Make l1 send out feechange.
     l1.set_feerates((14000, 11000, 7500, 3750))
-    l2.daemon.wait_for_log('peer updated fee to 14000')
 
     # Now make sure an HTLC works.
     # (First wait for route propagation.)
@@ -1376,6 +1375,8 @@ def test_update_fee(node_factory, bitcoind):
 
     # Make payments.
     l1.pay(l2, 200000000)
+    # First payment causes fee update.
+    l2.daemon.wait_for_log('peer updated fee to 14000')
     l2.pay(l1, 100000000)
 
     # Now shutdown cleanly.
@@ -1400,6 +1401,9 @@ def test_update_fee(node_factory, bitcoind):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_fee_limits(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5, 'may_reconnect': True}, fundchannel=True)
+
+    # Kick off fee adjustment using HTLC.
+    l1.pay(l2, 1000)
 
     # L1 asks for stupid low fee (will actually hit the floor of 253)
     l1.stop()
@@ -1430,6 +1434,9 @@ def test_fee_limits(node_factory, bitcoind):
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     chan = l1.fund_channel(l3, 10**6)
 
+    # Kick off fee adjustment using HTLC.
+    l1.pay(l3, 1000)
+
     # Try stupid high fees
     l1.stop()
     l1.set_feerates((15000 * 10, 11000, 7500, 3750), False)
@@ -1449,8 +1456,8 @@ def test_fee_limits(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_update_fee_reconnect(node_factory, bitcoind):
-    # Disconnect after first commitsig.
-    disconnects = ['+WIRE_COMMITMENT_SIGNED']
+    # Disconnect after commitsig for fee update.
+    disconnects = ['+WIRE_COMMITMENT_SIGNED*3']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True,
                                feerates=(15000, 15000, 15000, 3750))
@@ -1459,6 +1466,9 @@ def test_update_fee_reconnect(node_factory, bitcoind):
                                feerates=(14000, 15000, 14000, 3750))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     chan = l1.fund_channel(l2, 10**6)
+
+    # Make an HTLC just to get us to do feechanges.
+    l1.pay(l2, 1000)
 
     # Make l1 send out feechange; triggers disconnect/reconnect.
     # (Note: < 10% change, so no smoothing here!)
@@ -1755,12 +1765,15 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_funder_feerate_reconnect(node_factory, bitcoind):
     # l1 updates fees, then reconnect so l2 retransmits commitment_signed.
-    disconnects = ['-WIRE_COMMITMENT_SIGNED']
+    disconnects = ['-WIRE_COMMITMENT_SIGNED*3']
     l1 = node_factory.get_node(may_reconnect=True,
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 10**6)
+
+    # Need a payment otherwise it won't update fee.
+    l1.pay(l2, 10**9 // 2)
 
     # create fee update, causing disconnect.
     l1.set_feerates((15000, 11000, 7500, 3750))
