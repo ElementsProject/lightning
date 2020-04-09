@@ -71,6 +71,7 @@ static struct {
  * so set it static.*/
 static struct  bip32_key_version  bip32_key_version;
 
+/* These are no longer used, but handle_memleak seems to need them. */
 #if DEVELOPER
 /* If they specify --dev-force-privkey it ends up in here. */
 static struct privkey *dev_force_privkey;
@@ -353,11 +354,12 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				const u8 *msg_in)
 {
 	struct node_id node_id;
-	struct privkey *privkey;
-	struct secret *seed;
-	struct secrets *secrets;
-	struct sha256 *shaseed;
+	struct privkey *force_privkey;
+	struct secret *force_bip32_seed;
+	struct secrets *force_channel_secrets;
+	struct sha256 *force_channel_secrets_shaseed;
 	struct secret *hsm_encryption_key;
+	struct secret hsm_secret;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -367,36 +369,42 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
 	if (!fromwire_hsm_init(NULL, msg_in, &bip32_key_version, &chainparams,
-	                       &hsm_encryption_key, &privkey, &seed, &secrets, &shaseed))
+	                       &hsm_encryption_key, &force_privkey,
+			       &force_bip32_seed, &force_channel_secrets,
+			       &force_channel_secrets_shaseed))
 		return bad_req(conn, c, msg_in);
 
 #if DEVELOPER
-	dev_force_privkey = privkey;
-	dev_force_bip32_seed = seed;
-	dev_force_channel_secrets = secrets;
-	dev_force_channel_secrets_shaseed = shaseed;
+	dev_force_privkey = force_privkey;
+	dev_force_bip32_seed = force_bip32_seed;
+	dev_force_channel_secrets = force_channel_secrets;
+	dev_force_channel_secrets_shaseed = force_channel_secrets_shaseed;
 #endif
+
+	// We can't force any of these secrets individually, we only
+	// can set the seed (for testnet integration tests).  If we
+	// see anything being set fail fast.
+	assert(force_privkey == NULL);
+	assert(force_bip32_seed == NULL);
+	assert(force_channel_secrets == NULL);
+	assert(force_channel_secrets_shaseed == NULL);
+
+	/* The hsm_encryption_key doesn't make any sense with the
+	 * remote signer, fail-fast if it's set.
+	 */
+	assert(hsm_encryption_key == NULL);
 
 	/* Once we have read the init message we know which params the master
 	 * will use */
 	c->chainparams = chainparams;
 
-	/* Fail fast if these are set. */
-	assert(hsm_encryption_key == NULL);
-	assert(privkey == NULL);
-	assert(seed == NULL);
-	assert(secrets == NULL);
-	assert(shaseed == NULL);
-
-	/* The c-lightning testing framework imbues the hsm_secret
-	 * with a file created before hsmd starts.  To allow running
-	 * the c-lightning test suite we use the secret from the
-	 * testing framework rather than generating in the remote
-	 * signer for now.  The seed is NOT otherwise retained.
+	/* To support integration tests we honor any seed provided
+	 * in the hsm_secret file (testnet only). Otherwise we
+	 * generate a random seed.
 	 */
-	struct secret hsm_secret;
-	if (!read_test_seed(&hsm_secret))
+	if (!read_test_seed(&hsm_secret)) {
 		randombytes_buf(&hsm_secret, sizeof(hsm_secret));
+	}
 
 	proxy_stat rv = proxy_init_hsm(&bip32_key_version, chainparams,
 				       &hsm_secret, &node_id,

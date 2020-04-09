@@ -348,7 +348,6 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 		GetExtPubKeyRequest req;
 
 		marshal_node_id(&self_id, req.mutable_node_id());
-		req.set_derivation_path("m");
 
 		ClientContext context;
 		GetExtPubKeyReply rsp;
