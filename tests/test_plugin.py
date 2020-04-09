@@ -1143,6 +1143,9 @@ def test_hook_crash(node_factory, executor, bitcoind):
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2 * len(perm))
 
+    # Start an RPC call that should error once the plugin crashes.
+    f1 = executor.submit(nodes[0].rpc.hold_rpc_call)
+
     futures = []
     for n in nodes:
         inv = n.rpc.invoice(123, "lbl", "desc")['bolt11']
@@ -1157,6 +1160,10 @@ def test_hook_crash(node_factory, executor, bitcoind):
 
     # Collect the results:
     [f.result(TIMEOUT) for f in futures]
+
+    # Make sure the RPC call was terminated with the correct error
+    with pytest.raises(RpcError, match=r'Plugin terminated before replying'):
+        f1.result(10)
 
 
 def test_feature_set(node_factory):

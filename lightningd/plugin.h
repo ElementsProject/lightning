@@ -66,6 +66,10 @@ struct plugin {
 
 	/* An array of subscribed topics */
 	char **subscriptions;
+
+	/* An array of currently pending RPC method calls, to be killed if the
+	 * plugin exits. */
+	struct list_head pending_rpccalls;
 };
 
 /**
