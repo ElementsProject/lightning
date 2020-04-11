@@ -2630,20 +2630,20 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	return NULL;
 }
 
-struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
-			    const struct node_id *source,
-			    const struct node_id *destination,
-			    struct amount_msat msat, double riskfactor,
-			    u32 final_cltv,
-			    double fuzz, u64 seed,
-			    struct exclude_entry **excluded,
-			    u32 max_hops)
+struct route_hop **get_route(const tal_t *ctx, struct routing_state *rstate,
+			     const struct node_id *source,
+			     const struct node_id *destination,
+			     struct amount_msat msat, double riskfactor,
+			     u32 final_cltv,
+			     double fuzz, u64 seed,
+			     struct exclude_entry **excluded,
+			     u32 max_hops)
 {
 	struct chan **route;
 	struct amount_msat total_amount;
 	unsigned int total_delay;
 	struct amount_msat fee;
-	struct route_hop *hops;
+	struct route_hop **hops;
 	struct node *n;
 	struct amount_msat *saved_capacity;
 	struct short_channel_id_dir *excluded_chan;
@@ -2717,7 +2717,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	}
 
 	/* Fees, delays need to be calculated backwards along route. */
-	hops = tal_arr(ctx, struct route_hop, tal_count(route));
+	hops = tal_arr(ctx, struct route_hop *, tal_count(route));
 	total_amount = msat;
 	total_delay = final_cltv;
 
@@ -2728,12 +2728,15 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 
 		int idx = half_chan_to(n, route[i]);
 		c = &route[i]->half[idx];
-		hops[i].channel_id = route[i]->scid;
-		hops[i].nodeid = n->id;
-		hops[i].amount = total_amount;
-		hops[i].delay = total_delay;
-		hops[i].direction = idx;
-		hops[i].style = n->hop_style;
+		hops[i] = tal(hops, struct route_hop);
+		hops[i]->channel_id = route[i]->scid;
+		hops[i]->nodeid = n->id;
+		hops[i]->amount = total_amount;
+		hops[i]->delay = total_delay;
+		hops[i]->direction = idx;
+		hops[i]->style = n->hop_style;
+		hops[i]->blinding = NULL;
+		hops[i]->enctlv = NULL;
 
 		/* Since we calculated this route, it should not overflow! */
 		if (!amount_msat_add_fee(&total_amount,

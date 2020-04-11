@@ -333,12 +333,12 @@ static void json_add_route_hop(struct json_stream *r, char const *n,
 
 /* Output a route */
 static void json_add_route(struct json_stream *r, char const *n,
-			   const struct route_hop *hops, size_t hops_len)
+			   struct route_hop **hops, size_t hops_len)
 {
 	size_t i;
 	json_array_start(r, n);
 	for (i = 0; i < hops_len; ++i) {
-		json_add_route_hop(r, NULL, &hops[i]);
+		json_add_route_hop(r, NULL, hops[i]);
 	}
 	json_array_end(r);
 }
@@ -347,7 +347,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 				struct command *cmd)
 {
 	struct json_stream *response;
-	struct route_hop *hops;
+	struct route_hop **hops;
 
 	fromwire_gossip_getroute_reply(reply, reply, &hops);
 

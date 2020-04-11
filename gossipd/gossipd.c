@@ -891,7 +891,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u64 riskfactor_millionths;
 	u32 max_hops;
 	u8 *out;
-	struct route_hop *hops;
+	struct route_hop **hops;
 	/* fuzz 12.345% -> fuzz_millionths = 12345000 */
 	u64 fuzz_millionths;
 	struct exclude_entry **excluded;
@@ -924,7 +924,9 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 			 fuzz_millionths / 1000000.0, pseudorand_u64(),
 			 excluded, max_hops);
 
-	out = towire_gossip_getroute_reply(NULL, hops);
+	out = towire_gossip_getroute_reply(NULL,
+					   cast_const2(const struct route_hop **,
+						       hops));
 	daemon_conn_send(daemon->master, take(out));
 	return daemon_conn_read_next(conn, daemon->master);
 }
