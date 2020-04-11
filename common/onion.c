@@ -1,6 +1,7 @@
 #include "common/onion.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <common/ecdh.h>
 #include <common/sphinx.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
@@ -60,7 +61,9 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		       bool use_tlv,
 		       const struct short_channel_id *scid,
 		       struct amount_msat forward,
-		       u32 outgoing_cltv)
+		       u32 outgoing_cltv,
+		       const struct pubkey *blinding,
+		       const u8 *enctlv)
 {
 	if (use_tlv) {
 		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
@@ -84,9 +87,24 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		tlv->amt_to_forward = &tlv_amt;
 		tlv->outgoing_cltv_value = &tlv_cltv;
 		tlv->short_channel_id = &tlv_scid;
-
+#if EXPERIMENTAL_FEATURES
+		struct tlv_tlv_payload_blinding_seed tlv_blinding;
+		struct tlv_tlv_payload_enctlv tlv_enctlv;
+		if (blinding) {
+			tlv_blinding.blinding_seed = *blinding;
+			tlv->blinding_seed = &tlv_blinding;
+		}
+		if (enctlv) {
+			tlv_enctlv.enctlv = cast_const(u8 *, enctlv);
+			tlv->enctlv = &tlv_enctlv;
+		}
+#endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
+#if EXPERIMENTAL_FEATURES
+		if (blinding || enctlv)
+			return NULL;
+#endif
 		return make_v0_hop(ctx, scid, forward, outgoing_cltv);
 	}
 }
@@ -96,6 +114,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 		    struct amount_msat forward,
 		    u32 outgoing_cltv,
 		    struct amount_msat total_msat,
+		    const struct pubkey *blinding,
+		    const u8 *enctlv,
 		    const struct secret *payment_secret)
 {
 	/* These go together! */
@@ -132,12 +152,28 @@ u8 *onion_final_hop(const tal_t *ctx,
 			tlv_pdata.total_msat = total_msat.millisatoshis; /* Raw: TLV convert */
 			tlv->payment_data = &tlv_pdata;
 		}
+#if EXPERIMENTAL_FEATURES
+		struct tlv_tlv_payload_blinding_seed tlv_blinding;
+		struct tlv_tlv_payload_enctlv tlv_enctlv;
+		if (blinding) {
+			tlv_blinding.blinding_seed = *blinding;
+			tlv->blinding_seed = &tlv_blinding;
+		}
+		if (enctlv) {
+			tlv_enctlv.enctlv = cast_const(u8 *, enctlv);
+			tlv->enctlv = &tlv_enctlv;
+		}
+#endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
 		static struct short_channel_id all_zero_scid;
 		/* No payment secrets in legacy format. */
 		if (payment_secret)
 			return NULL;
+#if EXPERIMENTAL_FEATURES
+		if (blinding || enctlv)
+			return NULL;
+#endif
 		return make_v0_hop(ctx, &all_zero_scid, forward, outgoing_cltv);
 	}
 }

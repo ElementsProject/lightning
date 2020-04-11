@@ -30,7 +30,9 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		       bool use_tlv,
 		       const struct short_channel_id *scid,
 		       struct amount_msat forward,
-		       u32 outgoing_cltv);
+		       u32 outgoing_cltv,
+		       const struct pubkey *blinding,
+		       const u8 *enctlv);
 
 /* Note that this can fail if we supply payment_secret and !use_tlv! */
 u8 *onion_final_hop(const tal_t *ctx,
@@ -38,6 +40,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 		    struct amount_msat forward,
 		    u32 outgoing_cltv,
 		    struct amount_msat total_msat,
+		    const struct pubkey *blinding,
+		    const u8 *enctlv,
 		    const struct secret *payment_secret);
 
 /**
