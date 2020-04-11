@@ -1812,6 +1812,8 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	db_column_amount_msat(stmt, 2, &in->msat);
 	in->cltv_expiry = db_column_int(stmt, 3);
 	in->hstate = db_column_int(stmt, 4);
+	/* FIXME: save blinding in db !*/
+	in->blinding = NULL;
 
 	db_column_sha256(stmt, 5, &in->payment_hash);
 
@@ -1884,6 +1886,8 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 	out->cltv_expiry = db_column_int(stmt, 3);
 	out->hstate = db_column_int(stmt, 4);
 	db_column_sha256(stmt, 5, &out->payment_hash);
+	/* FIXME: save blinding in db !*/
+	out->blinding = NULL;
 
 	if (!db_column_is_null(stmt, 6)) {
 		out->preimage = tal(out, struct preimage);

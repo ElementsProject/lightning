@@ -22,6 +22,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/blinding.o			\
 	common/bolt11.o				\
 	common/channel_config.o			\
 	common/configdir.o			\

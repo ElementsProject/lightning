@@ -92,6 +92,7 @@ u32 actual_feerate(const struct channel *channel,
  * @cltv_expiry: block number when HTLC can no longer be redeemed.
  * @payment_hash: hash whose preimage can redeem HTLC.
  * @routing: routing information (copied)
+ * @blinding: optional blinding information for this HTLC.
  * @htlcp: optional pointer for resulting htlc: filled in if and only if CHANNEL_ERR_NONE.
  *
  * If this returns CHANNEL_ERR_NONE, the fee htlc was added and
@@ -105,6 +106,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE],
+				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee);
 

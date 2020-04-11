@@ -447,6 +447,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     u32 cltv_expiry,
 				     const struct sha256 *payment_hash,
 				     const u8 routing[TOTAL_PACKET_SIZE],
+				     const struct pubkey *blinding TAKES,
 				     struct htlc **htlcp,
 				     bool enforce_aggregate_limits,
 				     struct amount_sat *htlc_fee)
@@ -479,6 +480,10 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	}
 
 	htlc->rhash = *payment_hash;
+	if (blinding)
+		htlc->blinding = tal_dup(htlc, struct pubkey, blinding);
+	else
+		htlc->blinding = NULL;
 	htlc->failed = NULL;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
@@ -694,6 +699,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE],
+				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee)
 {
@@ -705,7 +711,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 		state = RCVD_ADD_HTLC;
 
 	return add_htlc(channel, state, id, amount, cltv_expiry,
-			payment_hash, routing, htlcp, true, htlc_fee);
+			payment_hash, routing, blinding,
+			htlcp, true, htlc_fee);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -1212,7 +1219,9 @@ bool channel_force_htlcs(struct channel *channel,
 			     htlcs[i]->id, htlcs[i]->amount,
 			     htlcs[i]->cltv_expiry,
 			     &htlcs[i]->payment_hash,
-			     htlcs[i]->onion_routing_packet, &htlc, false, NULL);
+			     htlcs[i]->onion_routing_packet,
+			     htlcs[i]->blinding,
+			     &htlc, false, NULL);
 		if (e != CHANNEL_ERR_ADD_OK) {
 			status_broken("%s HTLC %"PRIu64" failed error %u",
 				     htlc_state_owner(htlcs[i]->state) == LOCAL

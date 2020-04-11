@@ -45,6 +45,16 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 				    void *arg) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
+/* Generated stub for blinding_hash_e_and_ss */
+void blinding_hash_e_and_ss(const struct pubkey *e UNNEEDED,
+			    const struct secret *ss UNNEEDED,
+			    struct sha256 *sha UNNEEDED)
+{ fprintf(stderr, "blinding_hash_e_and_ss called!\n"); abort(); }
+/* Generated stub for blinding_next_pubkey */
+bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
+			  const struct sha256 *h UNNEEDED,
+			  struct pubkey *next UNNEEDED)
+{ fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
@@ -58,9 +68,6 @@ bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 				 const struct bitcoin_txid *txid UNNEEDED,
 				 u32 depth UNNEEDED)
 { fprintf(stderr, "channel_tell_depth called!\n"); abort(); }
-/* Generated stub for command_check_only */
-bool command_check_only(const struct command *cmd UNNEEDED)
-{ fprintf(stderr, "command_check_only called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
@@ -91,6 +98,9 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
+/* Generated stub for ecdh */
+void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
+{ fprintf(stderr, "ecdh called!\n"); abort(); }
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
@@ -123,9 +133,6 @@ bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8
 /* Generated stub for fromwire_gossip_get_stripped_cupdate_reply */
 bool fromwire_gossip_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_stripped_cupdate_reply called!\n"); abort(); }
-/* Generated stub for fromwire_hsm_ecdh_resp */
-bool fromwire_hsm_ecdh_resp(const void *p UNNEEDED, struct secret *ss UNNEEDED)
-{ fprintf(stderr, "fromwire_hsm_ecdh_resp called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_commitment_tx_reply */
 bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_commitment_tx_reply called!\n"); abort(); }
@@ -342,15 +349,6 @@ char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const 
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
-/* Generated stub for json_to_address_scriptpubkey */
-enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED,
-			     const struct chainparams *chainparams UNNEEDED,
-			     const char *buffer UNNEEDED,
-			     const jsmntok_t *tok UNNEEDED, const u8 **scriptpubkey UNNEEDED)
-{ fprintf(stderr, "json_to_address_scriptpubkey called!\n"); abort(); }
-/* Generated stub for json_to_bool */
-bool json_to_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *b UNNEEDED)
-{ fprintf(stderr, "json_to_bool called!\n"); abort(); }
 /* Generated stub for json_to_node_id */
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
@@ -580,6 +578,11 @@ void subd_req_(const tal_t *ctx UNNEEDED,
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
+/* Generated stub for subkey_from_hmac */
+void subkey_from_hmac(const char *prefix UNNEEDED,
+		      const struct secret *base UNNEEDED,
+		      struct secret *key UNNEEDED)
+{ fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
 /* Generated stub for topology_add_sync_waiter_ */
 void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 			       struct chain_topology *topo UNNEEDED,
@@ -609,7 +612,7 @@ u8 *towire_channel_got_commitsig_reply(const tal_t *ctx UNNEEDED)
 u8 *towire_channel_got_revoke_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_got_revoke_reply called!\n"); abort(); }
 /* Generated stub for towire_channel_offer_htlc */
-u8 *towire_channel_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366])
+u8 *towire_channel_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366] UNNEEDED, const struct pubkey *blinding UNNEEDED)
 { fprintf(stderr, "towire_channel_offer_htlc called!\n"); abort(); }
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED)
@@ -652,9 +655,6 @@ u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_
 /* Generated stub for towire_gossip_get_stripped_cupdate */
 u8 *towire_gossip_get_stripped_cupdate(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_gossip_get_stripped_cupdate called!\n"); abort(); }
-/* Generated stub for towire_hsm_ecdh_req */
-u8 *towire_hsm_ecdh_req(const tal_t *ctx UNNEEDED, const struct pubkey *point UNNEEDED)
-{ fprintf(stderr, "towire_hsm_ecdh_req called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_commitment_tx */
 u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, struct amount_sat funding_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_commitment_tx called!\n"); abort(); }

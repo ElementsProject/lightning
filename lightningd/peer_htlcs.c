@@ -6,6 +6,8 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/blinding.h>
+#include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/onion.h>
@@ -204,7 +206,15 @@ static void fail_in_htlc(struct htlc_in *hin,
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
 	htlc_in_check(hin, __func__);
 
-	failed_htlc = mk_failed_htlc(tmpctx, hin, hin->failonion);
+#if EXPERIMENTAL_FEATURES
+	/* In a blinded path, all failures become invalid_onion_blinding */
+	if (hin->blinding) {
+		failed_htlc = mk_failed_htlc_badonion(tmpctx, hin,
+						      WIRE_INVALID_ONION_BLINDING);
+	} else
+#endif
+		failed_htlc = mk_failed_htlc(tmpctx, hin, hin->failonion);
+
 	tell_channeld_htlc_failed(hin, failed_htlc);
 }
 
@@ -599,6 +609,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			struct channel *out,
 			struct amount_msat amount, u32 cltv,
 			const struct sha256 *payment_hash,
+			const struct pubkey *blinding,
 			u64 partid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
@@ -631,7 +642,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 
 	/* Make peer's daemon own it, catch if it dies. */
 	*houtp = new_htlc_out(out->owner, out, amount, cltv,
-			      payment_hash, onion_routing_packet, in == NULL,
+			      payment_hash, onion_routing_packet,
+			      blinding, in == NULL,
 			      partid, in);
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
@@ -642,7 +654,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 						 htlc_offer_timeout,
 						 out);
 	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
-					onion_routing_packet);
+					onion_routing_packet, blinding);
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
 		 *houtp);
 
@@ -654,7 +666,8 @@ static void forward_htlc(struct htlc_in *hin,
 			 struct amount_msat amt_to_forward,
 			 u32 outgoing_cltv_value,
 			 const struct short_channel_id *scid,
-			 const u8 next_onion[TOTAL_PACKET_SIZE])
+			 const u8 next_onion[TOTAL_PACKET_SIZE],
+			 const struct pubkey *next_blinding)
 {
 	const u8 *failmsg;
 	struct amount_msat fee;
@@ -749,7 +762,7 @@ static void forward_htlc(struct htlc_in *hin,
 
 	failmsg = send_htlc_out(tmpctx, next, amt_to_forward,
 				outgoing_cltv_value, &hin->payment_hash,
-				0, next_onion, hin,
+				next_blinding, 0, next_onion, hin,
 				&hout, &needs_update_appended);
 	if (!failmsg)
 		return;
@@ -775,6 +788,7 @@ struct htlc_accepted_hook_payload {
 	struct htlc_in *hin;
 	struct channel *channel;
 	struct lightningd *ld;
+	struct pubkey *next_blinding;
 	u8 *next_onion;
 	u64 failtlvtype;
 	size_t failtlvpos;
@@ -988,7 +1002,8 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 				     request->payload->amt_to_forward,
 				     request->payload->outgoing_cltv,
 				     request->payload->forward_channel,
-				     serialize_onionpacket(tmpctx, rs->next));
+				     serialize_onionpacket(tmpctx, rs->next),
+				     request->next_blinding);
 		} else
 			handle_localpay(hin,
 					request->payload->amt_to_forward,
@@ -1014,6 +1029,35 @@ REGISTER_PLUGIN_HOOK(htlc_accepted, PLUGIN_HOOK_CHAIN,
 		     struct htlc_accepted_hook_payload *,
 		     htlc_accepted_hook_serialize,
 		     struct htlc_accepted_hook_payload *);
+
+/* Apply tweak to ephemeral key if blinding is non-NULL, then do ECDH */
+static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
+				const struct pubkey *blinding,
+				const struct secret *blinding_ss,
+				struct secret *ss)
+{
+	struct pubkey point = *ephemeral_key;
+
+#if EXPERIMENTAL_FEATURES
+	if (blinding) {
+		struct secret hmac;
+
+		/* b(i) = HMAC256("blinded_node_id", ss(i)) * k(i) */
+		subkey_from_hmac("blinded_node_id", blinding_ss, &hmac);
+
+		/* We instead tweak the *ephemeral* key from the onion and use
+		 * our normal privkey: since hsmd knows only how to ECDH with
+		 * our real key */
+		if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
+						  &point.pubkey,
+						  hmac.data) != 1) {
+			return false;
+		}
+	}
+#endif /* EXPERIMENTAL_FEATURES */
+	ecdh(&point, ss);
+	return true;
+}
 
 /**
  * Everyone is committed to this htlc of theirs
@@ -1048,12 +1092,12 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		channel_internal_error(channel,
 				    "peer_got_revoke unknown htlc %"PRIu64, id);
 		*failmsg = towire_temporary_node_failure(ctx);
-		return false;
+		goto fail;
 	}
 
 	if (!replay && !htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION)) {
 		*failmsg = towire_temporary_node_failure(ctx);
-		return false;
+		goto fail;
 	}
 
 	htlc_in_check(hin, __func__);
@@ -1075,7 +1119,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 			  "Rejecting their htlc %"PRIu64
 			  " since we're shutting down",
 			  id);
-		return false;
+		goto fail;
 	}
 
 	/* BOLT #2:
@@ -1099,7 +1143,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 			  " since onion is unparsable %s",
 			  id, onion_type_name(*badonion));
 		/* Now we can fail it. */
-		return false;
+		goto fail;
 	}
 
 	rs = process_onionpacket(tmpctx, &op, hin->shared_secret,
@@ -1109,16 +1153,17 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		*badonion = WIRE_INVALID_ONION_HMAC;
 		log_debug(channel->log,
 			  "Rejecting their htlc %"PRIu64
-			  " since onion is unprocessable %s",
-			  id, onion_type_name(*badonion));
-		return false;
+			  " since onion is unprocessable %s ss=%s",
+			  id, onion_type_name(*badonion),
+			  type_to_string(tmpctx, struct secret, hin->shared_secret));
+		goto fail;
 	}
 
 	hook_payload = tal(hin, struct htlc_accepted_hook_payload);
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
 	hook_payload->payload = onion_decode(hook_payload, rs,
-					     NULL, NULL,
+					     hin->blinding, &hin->blinding_ss,
 					     &hook_payload->failtlvtype,
 					     &hook_payload->failtlvpos);
 	hook_payload->ld = ld;
@@ -1126,10 +1171,34 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	hook_payload->channel = channel;
 	hook_payload->next_onion = serialize_onionpacket(hook_payload, rs->next);
 
+#if EXPERIMENTAL_FEATURES
+	/* We could have blinding from hin or from inside onion. */
+	if (hook_payload->payload && hook_payload->payload->blinding) {
+		struct sha256 sha;
+		blinding_hash_e_and_ss(hook_payload->payload->blinding,
+				       &hook_payload->payload->blinding_ss,
+				       &sha);
+		hook_payload->next_blinding = tal(hook_payload, struct pubkey);
+		blinding_next_pubkey(hook_payload->payload->blinding, &sha,
+				     hook_payload->next_blinding);
+	} else
+#endif
+		hook_payload->next_blinding = NULL;
+
 	plugin_hook_call_htlc_accepted(ld, hook_payload, hook_payload);
 
 	/* Falling through here is ok, after all the HTLC locked */
 	return true;
+
+fail:
+#if EXPERIMENTAL_FEATURES
+	/* In a blinded path, *all* failures are "invalid_onion_blinding" */
+	if (hin->blinding) {
+		*failmsg = tal_free(*failmsg);
+		*badonion = WIRE_INVALID_ONION_BLINDING;
+	}
+#endif
+	return false;
 }
 
 static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
@@ -1659,18 +1728,18 @@ static bool channel_added_their_htlc(struct channel *channel,
 	}
 
 	/* Do the work of extracting shared secret now if possible. */
+	/* FIXME: We do this *again* in peer_accepted_htlc! */
 	failcode = parse_onionpacket(added->onion_routing_packet,
 				     sizeof(added->onion_routing_packet),
 				     &op);
 	if (!failcode) {
-		/* Because wire takes struct pubkey. */
-		u8 *msg = towire_hsm_ecdh_req(tmpctx, &op.ephemeralkey);
-		if (!wire_sync_write(ld->hsm_fd, take(msg)))
-			fatal("Could not write to HSM: %s", strerror(errno));
-
-		msg = wire_sync_read(tmpctx, ld->hsm_fd);
-		if (!fromwire_hsm_ecdh_resp(msg, &shared_secret))
-			fatal("Reading ecdh response: %s", strerror(errno));
+		if (!ecdh_maybe_blinding(&op.ephemeralkey,
+					 added->blinding, &added->blinding_ss,
+					 &shared_secret)) {
+			log_debug(channel->log, "htlc %"PRIu64
+				  ": can't tweak pubkey", added->id);
+			return false;
+		}
 	}
 
 	/* This stays around even if we fail it immediately: it *is*
@@ -1678,6 +1747,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	hin = new_htlc_in(channel, channel, added->id, added->amount,
 			  added->cltv_expiry, &added->payment_hash,
 			  failcode ? NULL : &shared_secret,
+			  added->blinding, &added->blinding_ss,
 			  added->onion_routing_packet);
 
 	/* Save an incoming htlc to the wallet */
@@ -2006,6 +2076,7 @@ const struct existing_htlc **peer_htlcs(const tal_t *ctx,
 					     hin->msat, &hin->payment_hash,
 					     hin->cltv_expiry,
 					     hin->onion_routing_packet,
+					     hin->blinding,
 					     hin->preimage,
 					     f);
 		tal_arr_expand(&htlcs, existing);
@@ -2037,6 +2108,7 @@ const struct existing_htlc **peer_htlcs(const tal_t *ctx,
 					     hout->msat, &hout->payment_hash,
 					     hout->cltv_expiry,
 					     hout->onion_routing_packet,
+					     hout->blinding,
 					     hout->preimage,
 					     f);
 		tal_arr_expand(&htlcs, existing);

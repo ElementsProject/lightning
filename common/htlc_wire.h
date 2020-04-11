@@ -18,6 +18,10 @@ struct added_htlc {
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+
+	/* If this is non-NULL, secret is the resulting shared secret */
+	struct pubkey *blinding;
+	struct secret blinding_ss;
 };
 
 /* This is how lightningd tells us about HTLCs which already exist at startup */
@@ -28,6 +32,8 @@ struct existing_htlc {
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	/* If this is non-NULL, this is blinding to send with (outgoing) HTLC */
+	struct pubkey *blinding;
 	/* If fulfilled, this is non-NULL */
 	struct preimage *payment_preimage;
 	/* If failed, this is set */
@@ -66,7 +72,8 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					const struct sha256 *payment_hash,
 					u32 cltv_expiry,
 					const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
-					const struct preimage *preimage,
+					const struct pubkey *blinding TAKES,
+					const struct preimage *preimage TAKES,
 					const struct failed_htlc *failed TAKES);
 
 struct failed_htlc *failed_htlc_dup(const tal_t *ctx, const struct failed_htlc *f TAKES);

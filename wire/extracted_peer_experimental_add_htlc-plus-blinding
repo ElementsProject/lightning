@@ -8,7 +8,7 @@ index 5a2a8c23f..7b26242e3 100644
  msgdata,update_add_htlc,onion_routing_packet,byte,1366
 +msgdata,update_add_htlc,tlvs,update_add_tlvs,
 +tlvtype,update_add_tlvs,blinding,2
-+tlvdata,update_add_tlvs,blinding,ecdh,byte,32
++tlvdata,update_add_tlvs,blinding,blinding,point,
  msgtype,update_fulfill_htlc,130
  msgdata,update_fulfill_htlc,channel_id,channel_id,
  msgdata,update_fulfill_htlc,id,u64,

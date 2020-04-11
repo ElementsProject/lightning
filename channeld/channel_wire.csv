@@ -77,6 +77,7 @@ msgdata,channel_offer_htlc,amount_msat,amount_msat,
 msgdata,channel_offer_htlc,cltv_expiry,u32,
 msgdata,channel_offer_htlc,payment_hash,sha256,
 msgdata,channel_offer_htlc,onion_routing_packet,u8,1366
+msgdata,channel_offer_htlc,blinding,?pubkey,
 
 # Reply; synchronous since IDs have to increment.
 msgtype,channel_offer_htlc_reply,1104
