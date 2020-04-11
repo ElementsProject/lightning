@@ -723,6 +723,9 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_BASIC_MPP),
 		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
 		OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
+#if EXPERIMENTAL_FEATURES
+		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
+#endif
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(features); i++) {

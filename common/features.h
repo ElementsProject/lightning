@@ -99,4 +99,11 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
 #define OPT_BASIC_MPP				16
 #define OPT_LARGE_CHANNELS			18
 
+/* BOLT-9fc25cfd2895578c0b1ab701ebe6c1eb67a19623 #9:
+ *
+ * | 102/103 | `option_onion_messages` |... INC+ ...
+ */
+#if EXPERIMENTAL_FEATURES
+#define OPT_ONION_MESSAGES			102
+#endif
 #endif /* LIGHTNING_COMMON_FEATURES_H */
