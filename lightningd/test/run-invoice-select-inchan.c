@@ -23,7 +23,7 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
 /* Generated stub for bolt11_decode */
 struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
-			     const struct feature_set *fset UNNEEDED,
+			     const struct feature_set *our_features UNNEEDED,
 			     const char *description UNNEEDED, char **fail UNNEEDED)
 { fprintf(stderr, "bolt11_decode called!\n"); abort(); }
 /* Generated stub for bolt11_encode_ */
@@ -48,9 +48,6 @@ bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 				 const struct bitcoin_txid *txid UNNEEDED,
 				 u32 depth UNNEEDED)
 { fprintf(stderr, "channel_tell_depth called!\n"); abort(); }
-/* Generated stub for command_check_only */
-bool command_check_only(const struct command *cmd UNNEEDED)
-{ fprintf(stderr, "command_check_only called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
@@ -103,9 +100,6 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for feature_is_set */
 bool feature_is_set(const u8 *features UNNEEDED, size_t bit UNNEEDED)
 { fprintf(stderr, "feature_is_set called!\n"); abort(); }
-/* Generated stub for featurebits_or */
-u8 *featurebits_or(const tal_t *ctx UNNEEDED, const u8 *f1 TAKES UNNEEDED, const u8 *f2 TAKES UNNEEDED)
-{ fprintf(stderr, "featurebits_or called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }

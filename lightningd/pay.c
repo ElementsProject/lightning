@@ -732,12 +732,13 @@ static bool should_use_tlv(enum route_hop_style style)
 
 /* Returns failmsg on failure, tallocated off ctx */
 static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
-				  const struct onionpacket *packet,
-				  const struct route_hop *first_hop,
-				  const struct sha256 *payment_hash,
-				  u64 partid,
-				  struct channel *channel,
-				  struct htlc_out **hout)
+			    const struct onionpacket *packet,
+			    const struct route_hop *first_hop,
+			    const struct sha256 *payment_hash,
+			    const struct pubkey *blinding,
+			    u64 partid,
+			    struct channel *channel,
+			    struct htlc_out **hout)
 {
 	const u8 *onion;
 	unsigned int base_expiry;
@@ -746,7 +747,7 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 	onion = serialize_onionpacket(tmpctx, packet);
 	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
-			     payment_hash, partid, onion, NULL, hout,
+			     payment_hash, blinding, partid, onion, NULL, hout,
 			     &dont_care_about_channel_update);
 }
 
@@ -887,7 +888,7 @@ send_payment_core(struct lightningd *ld,
 		return command_failed(cmd, data);
 	}
 
-	failmsg = send_onion(tmpctx, ld, packet, first_hop, rhash, partid,
+	failmsg = send_onion(tmpctx, ld, packet, first_hop, rhash, NULL, partid,
 			      channel, &hout);
 
 	if (failmsg) {
