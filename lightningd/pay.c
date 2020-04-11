@@ -996,7 +996,9 @@ send_payment(struct lightningd *ld,
 					should_use_tlv(route[i].style),
 					&route[i + 1].channel_id,
 					route[i + 1].amount,
-					base_expiry + route[i + 1].delay)));
+					base_expiry + route[i + 1].delay,
+					route[i].blinding,
+					route[i].enctlv)));
 	}
 
 	/* And finally set the final hop to the special values in
@@ -1025,7 +1027,8 @@ send_payment(struct lightningd *ld,
 				final_tlv,
 				route[i].amount,
 				base_expiry + route[i].delay,
-				total_msat, payment_secret);
+				total_msat, route[i].blinding, route[i].enctlv,
+				payment_secret);
 	if (!onion) {
 		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
 				    "Destination does not support"
