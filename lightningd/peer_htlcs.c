@@ -1118,6 +1118,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
 	hook_payload->payload = onion_decode(hook_payload, rs,
+					     NULL, NULL,
 					     &hook_payload->failtlvtype,
 					     &hook_payload->failtlvpos);
 	hook_payload->ld = ld;
