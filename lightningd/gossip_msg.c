@@ -58,14 +58,28 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 	towire(pptr, entry->color, ARRAY_SIZE(entry->color));
 }
 
-void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)
+struct route_hop *fromwire_route_hop(const tal_t *ctx,
+				     const u8 **pptr, size_t *max)
 {
+	struct route_hop *entry = tal(ctx, struct route_hop);
+	size_t enclen;
+
 	fromwire_node_id(pptr, max, &entry->nodeid);
 	fromwire_short_channel_id(pptr, max, &entry->channel_id);
 	entry->direction = fromwire_u8(pptr, max);
 	entry->amount = fromwire_amount_msat(pptr, max);
 	entry->delay = fromwire_u32(pptr, max);
 	entry->style = fromwire_u8(pptr, max);
+	if (fromwire_bool(pptr, max)) {
+		entry->blinding = tal(entry, struct pubkey);
+		fromwire_pubkey(pptr, max, entry->blinding);
+	}
+	enclen = fromwire_u16(pptr, max);
+	if (enclen)
+		entry->enctlv = fromwire_tal_arrn(entry, pptr, max, enclen);
+	else
+		entry->enctlv = NULL;
+	return entry;
 }
 
 void towire_route_hop(u8 **pptr, const struct route_hop *entry)
@@ -76,6 +90,13 @@ void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 	towire_amount_msat(pptr, entry->amount);
 	towire_u32(pptr, entry->delay);
 	towire_u8(pptr, entry->style);
+	if (entry->blinding) {
+		towire_bool(pptr, true);
+		towire_pubkey(pptr, entry->blinding);
+	} else
+		towire_bool(pptr, false);
+	towire_u16(pptr, tal_bytelen(entry->enctlv));
+	towire_u8_array(pptr, entry->enctlv, tal_bytelen(entry->enctlv));
 }
 
 void fromwire_route_info(const u8 **pptr, size_t *max, struct route_info *entry)

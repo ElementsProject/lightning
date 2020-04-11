@@ -325,6 +325,8 @@ struct route_hop {
 	struct node_id nodeid;
 	struct amount_msat amount;
 	u32 delay;
+	struct pubkey *blinding;
+	u8 *enctlv;
 	enum route_hop_style style;
 };
 
@@ -408,15 +410,15 @@ struct node *get_node(struct routing_state *rstate,
 		      const struct node_id *id);
 
 /* Compute a route to a destination, for a given amount and riskfactor. */
-struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
-			    const struct node_id *source,
-			    const struct node_id *destination,
-			    const struct amount_msat msat, double riskfactor,
-			    u32 final_cltv,
-			    double fuzz,
-			    u64 seed,
-			    struct exclude_entry **excluded,
-			    u32 max_hops);
+struct route_hop **get_route(const tal_t *ctx, struct routing_state *rstate,
+			     const struct node_id *source,
+			     const struct node_id *destination,
+			     const struct amount_msat msat, double riskfactor,
+			     u32 final_cltv,
+			     double fuzz,
+			     u64 seed,
+			     struct exclude_entry **excluded,
+			     u32 max_hops);
 /* Disable channel(s) based on the given routing failure. */
 void routing_failure(struct routing_state *rstate,
 		     const struct node_id *erring_node,

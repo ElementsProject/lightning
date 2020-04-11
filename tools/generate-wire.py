@@ -228,6 +228,7 @@ class Type(FieldSet):
         'witscript',
         'feature_set',
         'onionmsg_path',
+        'route_hop',
     ]
 
     # Some BOLT types are re-typed based on their field name
