@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_ONION_H
 #define LIGHTNING_COMMON_ONION_H
 #include "config.h"
+#include <bitcoin/privkey.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
 
@@ -19,6 +20,10 @@ struct onion_payload {
 	struct amount_msat *total_msat;
 	struct short_channel_id *forward_channel;
 	struct secret *payment_secret;
+
+	/* If blinding is set, blinding_ss is the shared secret.*/
+	struct pubkey *blinding;
+	struct secret blinding_ss;
 };
 
 u8 *onion_nonfinal_hop(const tal_t *ctx,
@@ -57,11 +62,17 @@ size_t onion_payload_length(const u8 *raw_payload, size_t len,
  * @ctx: context to allocate onion_contents off.
  * @rs: the route_step, whose raw_payload is of at least length
  *       onion_payload_length().
+ * @blinding: the optional incoming blinding point.
+ * @blinding_ss: the shared secret derived from @blinding (iff that's non-NULL)
+ * @failtlvtype: (out) the tlv type which failed to parse.
+ * @failtlvpos: (out) the offset in the tlv which failed to parse.
  *
  * If the payload is not valid, returns NULL.
  */
 struct onion_payload *onion_decode(const tal_t *ctx,
 				   const struct route_step *rs,
+				   const struct pubkey *blinding,
+				   const struct secret *blinding_ss,
 				   u64 *failtlvtype,
 				   size_t *failtlvpos);
 
