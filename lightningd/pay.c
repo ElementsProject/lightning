@@ -1218,7 +1218,9 @@ static struct command_result *param_route_hops(struct command *cmd,
 		struct node_id *id;
 		struct short_channel_id *channel;
 		unsigned *delay, *direction;
-		enum route_hop_style *style;
+		struct pubkey *blinding;
+		u8 *enctlv;
+		enum route_hop_style *style, default_style;
 
 		if (!param(cmd, buffer, t,
 			   /* Only *one* of these is required */
@@ -1229,8 +1231,9 @@ static struct command_result *param_route_hops(struct command *cmd,
 			   p_opt("delay", param_number, &delay),
 			   p_opt("channel", param_short_channel_id, &channel),
 			   p_opt("direction", param_number, &direction),
-			   p_opt_def("style", param_route_hop_style, &style,
-				     ROUTE_HOP_LEGACY),
+			   p_opt("style", param_route_hop_style, &style),
+			   p_opt("blinding", param_pubkey, &blinding),
+			   p_opt("enctlv", param_bin_from_hex, &enctlv),
 			   NULL))
 			return command_param_failed();
 
@@ -1255,11 +1258,21 @@ static struct command_result *param_route_hops(struct command *cmd,
 		if (!msat)
 			msat = amount_msat;
 
+		if (blinding || enctlv) {
+			if (style && *style == ROUTE_HOP_LEGACY)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "%s[%zi]: Can't have blinding or enctlv with legacy", name, i);
+			default_style = ROUTE_HOP_TLV;
+		} else
+			default_style = ROUTE_HOP_LEGACY;
+
 		(*hops)[i].amount = *msat;
 		(*hops)[i].nodeid = *id;
 		(*hops)[i].delay = *delay;
 		(*hops)[i].channel_id = *channel;
-		(*hops)[i].style = *style;
+		(*hops)[i].blinding = blinding;
+		(*hops)[i].enctlv = enctlv;
+		(*hops)[i].style = style ? *style : default_style;
 		/* FIXME: Actually ignored by sending code! */
 		(*hops)[i].direction = direction ? *direction : 0;
 	}
