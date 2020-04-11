@@ -76,6 +76,7 @@ int main(int argc, char **argv)
 	if (streq(argv[1], "create")) {
 		struct privkey e;
 		struct pubkey *pk_e, *b, *nodes;
+		struct short_channel_id **scids;
 		struct secret *rho;
 		size_t num = argc - 2;
 
@@ -91,6 +92,7 @@ int main(int argc, char **argv)
 		/* rho(i) */
 		rho = tal_arr(tmpctx, struct secret, num);
 
+		scids = tal_arr(tmpctx, struct short_channel_id *, num);
 		/* Randomness, chosen with a fair dice roll! */
 		memset(&e, 6, sizeof(e));
 		if (!pubkey_from_privkey(&e, &pk_e[0]))
@@ -100,12 +102,23 @@ int main(int argc, char **argv)
 			struct secret ss;
 			struct secret hmac;
 			struct sha256 h;
+			const char *slash;
 
 			if (!pubkey_from_hexstr(argv[2+i],
 						strcspn(argv[2+i], "/"),
 						&nodes[i]))
 				errx(1, "%s not a valid pubkey", argv[2+i]);
 
+			slash = strchr(argv[2+i], '/');
+			if (slash) {
+				scids[i] = tal(scids, struct short_channel_id);
+				if (!short_channel_id_from_str(slash+1,
+							       strlen(slash+1),
+							       scids[i]))
+					errx(1, "%s is not a valid scids",
+					     slash + 1);
+			} else
+				scids[i] = NULL;
 			if (secp256k1_ecdh(secp256k1_ctx, ss.data,
 					   &nodes[i].pubkey, e.secret.data, NULL, NULL) != 1)
 				abort();
@@ -142,9 +155,16 @@ int main(int argc, char **argv)
 
 			/* Inner is encrypted */
 			inner = tlv_onionmsg_payload_new(tmpctx);
-			/* FIXME: Use /scid for encblob if specified */
-			inner->next_node_id = tal(inner, struct tlv_onionmsg_payload_next_node_id);
-			inner->next_node_id->node_id = nodes[i+1];
+			/* Use scid if they provided one */
+			if (scids[i]) {
+				inner->next_short_channel_id
+					= tal(inner, struct tlv_onionmsg_payload_next_short_channel_id);
+				inner->next_short_channel_id->short_channel_id
+					= *scids[i];
+			} else {
+				inner->next_node_id = tal(inner, struct tlv_onionmsg_payload_next_node_id);
+				inner->next_node_id->node_id = nodes[i+1];
+			}
 			p = tal_arr(tmpctx, u8, 0);
 			towire_encmsg_tlvs(&p, inner);
 
