@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT,
-    VALGRIND
+    VALGRIND, EXPERIMENTAL_FEATURES
 )
 import copy
 import os
@@ -15,6 +15,7 @@ import random
 import re
 import string
 import struct
+import subprocess
 import time
 import unittest
 
@@ -2895,3 +2896,49 @@ def test_reject_invalid_payload(node_factory):
 
     with pytest.raises(RpcError, match=r'WIRE_INVALID_ONION_PAYLOAD'):
         l1.rpc.waitsendpay(inv['payment_hash'])
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs blinding args to sendpay")
+def test_sendpay_blinding(node_factory):
+    l1, l2, l3, l4 = node_factory.line_graph(4)
+
+    blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
+
+    # Create blinded path l2->l4
+    output = subprocess.check_output(
+        [blindedpathtool, '--simple-output', 'create',
+         l2.info['id'] + "/" + l2.get_channel_scid(l3),
+         l3.info['id'] + "/" + l3.get_channel_scid(l4),
+         l4.info['id']]
+    ).decode('ASCII').strip()
+
+    # First line is blinding, then <peerid> then <encblob>.
+    blinding, p1, p1enc, p2, p2enc, p3 = output.split('\n')
+    # First hop can't be blinded!
+    assert p1 == l2.info['id']
+
+    amt = 10**3
+    inv = l4.rpc.invoice(amt, "lbl", "desc")
+
+    route = [{'id': l2.info['id'],
+              'channel': l1.get_channel_scid(l2),
+              'amount_msat': Millisatoshi(1002),
+              'delay': 21,
+              'blinding': blinding,
+              'enctlv': p1enc},
+             {'id': p2,
+              'amount_msat': Millisatoshi(1001),
+              'delay': 15,
+              # FIXME: this is a dummy!
+              'channel': '0x0x0',
+              'enctlv': p2enc},
+             {'id': p3,
+              # FIXME: this is a dummy!
+              'channel': '0x0x0',
+              'amount_msat': Millisatoshi(1000),
+              'delay': 9,
+              'style': 'tlv'}]
+    l1.rpc.sendpay(route=route,
+                   payment_hash=inv['payment_hash'],
+                   bolt11=inv['bolt11'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
