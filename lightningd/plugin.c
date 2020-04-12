@@ -56,6 +56,19 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	return p;
 }
 
+void plugins_free(struct plugins *plugins)
+{
+	struct plugin *p;
+	/* Plugins are usually the unit of allocation, and they are internally
+	 * consistent, so let's free each plugin first. */
+	while (!list_empty(&plugins->plugins)) {
+		p = list_pop(&plugins->plugins, struct plugin, list);
+		tal_free(p);
+	}
+
+	tal_free(plugins);
+}
+
 static void destroy_plugin(struct plugin *p)
 {
 	struct plugin_rpccall *call;
