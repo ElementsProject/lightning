@@ -2,6 +2,16 @@
 
 To use any Tor features with c-lightning you must have Tor installed and running.
 
+Please note that nodes with V3 onion address i.e `vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion`
+will not be reachable over Tor if your Tor version is below 0.3.2.2-alpha
+
+Connections to nodes with old Tor V2 address form with less than 10 char prefix before .onion
+i.e.`3fyb44wdhnd2ghhl.onion` should work with any version of Tor.
+
+You can check your installed Tor version with `tor --version` or `sudo tor --version`
+
+If Tor is not installed you can install it on Debian based Linux systems (Ubuntu, Debian, etc) with the following command:
+
 ```bash
 sudo apt install tor
 ```
