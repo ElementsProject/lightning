@@ -138,6 +138,26 @@ void plugins_add_default_dir(struct plugins *plugins);
 void plugins_init(struct plugins *plugins, const char *dev_plugin_debug);
 
 /**
+ * Free all resources that are held by plugins in the correct order.
+ *
+ * This function ensures that the resources dangling off of the plugins struct
+ * are freed in the correct order. This is necessary since the struct manages
+ * two orthogonal sets of resources:
+ *
+ *  - Plugins
+ *  - Hook calls and notifications
+ *
+ * The tal hierarchy is organized in a plugin centric way, i.e., the plugins
+ * may exit in an arbitrary order and they'll unregister pointers in the other
+ * resources. However this will fail if `tal_free` decides to free one of the
+ * non-plugin resources (technically a sibling in the allocation tree) before
+ * the plugins we will get a use-after-free. This function fixes this by
+ * freeing in the correct order without adding additional child-relationships
+ * in the allocation structure and without adding destructors.
+ */
+void plugins_free(struct plugins *plugins);
+
+/**
  * Register a plugin for initialization and execution.
  *
  * @param plugins: Plugin context
