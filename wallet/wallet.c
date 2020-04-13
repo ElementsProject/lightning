@@ -3763,3 +3763,64 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 	tal_free(stmt);
 	return txs;
 }
+
+void wallet_penalty_base_add(struct wallet *w, u64 chan_id,
+			     const struct penalty_base *pb)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO penalty_bases ("
+				 "  channel_id"
+				 ", commitnum"
+				 ", txid"
+				 ", outnum"
+				 ", amount"
+				 ") VALUES (?, ?, ?, ?, ?);"));
+
+	db_bind_u64(stmt, 0, chan_id);
+	db_bind_u64(stmt, 1, pb->commitment_num);
+	db_bind_txid(stmt, 2, &pb->txid);
+	db_bind_int(stmt, 3, pb->outnum);
+	db_bind_amount_sat(stmt, 4, &pb->amount);
+
+	db_exec_prepared_v2(take(stmt));
+}
+
+struct penalty_base *wallet_penalty_base_load_for_channel(const tal_t *ctx,
+							  struct wallet *w,
+							  u64 chan_id)
+{
+	struct db_stmt *stmt;
+	struct penalty_base *res = tal_arr(ctx, struct penalty_base, 0);
+	stmt = db_prepare_v2(
+		w->db,
+		SQL("SELECT commitnum, txid, outnum, amount "
+		    "FROM penalty_bases "
+		    "WHERE channel_id = ?"));
+
+	db_bind_u64(stmt, 0, chan_id);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct penalty_base pb;
+		pb.commitment_num = db_column_u64(stmt, 0);
+		db_column_txid(stmt, 1, &pb.txid);
+		pb.outnum = db_column_int(stmt, 2);
+		db_column_amount_sat(stmt, 3, &pb.amount);
+		tal_arr_expand(&res, pb);
+	}
+	tal_free(stmt);
+	return res;
+}
+
+void wallet_penalty_base_delete(struct wallet *w, u64 chan_id, u64 commitnum)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(
+		w->db,
+		SQL("DELETE FROM penalty_bases "
+		    "WHERE channel_id = ? AND commitnum = ?"));
+	db_bind_u64(stmt, 0, chan_id);
+	db_bind_u64(stmt, 1, commitnum);
+	db_exec_prepared_v2(take(stmt));
+}
