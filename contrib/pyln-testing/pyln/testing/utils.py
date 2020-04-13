@@ -871,7 +871,9 @@ class LightningNode(object):
             elif params == [100, 'ECONOMICAL']:
                 feerate = feerates[3] * 4
             else:
-                raise ValueError()
+                raise ValueError("Don't have a feerate set for {}/{}.".format(
+                    params[0], params[1],
+                ))
             return {
                 'id': r['id'],
                 'error': None,
