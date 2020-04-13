@@ -732,7 +732,7 @@ int main(void)
 		       dust_limit,
 		       to_local,
 		       to_remote,
-		       NULL, &htlc_map, commitment_number ^ cn_obscurer,
+		       NULL, &htlc_map, NULL, commitment_number ^ cn_obscurer,
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
@@ -744,7 +744,7 @@ int main(void)
 			dust_limit,
 			to_local,
 			to_remote,
-			NULL, &htlc_map2, commitment_number ^ cn_obscurer,
+			NULL, &htlc_map2, NULL, commitment_number ^ cn_obscurer,
 			REMOTE);
 	tx_must_be_eq(tx, tx2);
 	report(tx, wscript, &x_remote_funding_privkey, &remote_funding_pubkey,
@@ -788,7 +788,7 @@ int main(void)
 		       dust_limit,
 		       to_local,
 		       to_remote,
-		       htlcs, &htlc_map, commitment_number ^ cn_obscurer,
+		       htlcs, &htlc_map, NULL, commitment_number ^ cn_obscurer,
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
@@ -800,7 +800,7 @@ int main(void)
 			dust_limit,
 			to_local,
 			to_remote,
-			inv_htlcs, &htlc_map2,
+			inv_htlcs, &htlc_map2, NULL,
 			commitment_number ^ cn_obscurer,
 			REMOTE);
 	tx_must_be_eq(tx, tx2);
@@ -832,7 +832,7 @@ int main(void)
 				  dust_limit,
 				  to_local,
 				  to_remote,
-				  htlcs, &htlc_map,
+				  htlcs, &htlc_map, NULL,
 				  commitment_number ^ cn_obscurer,
 				  LOCAL);
 		/* This is what it would look like for peer generating it! */
@@ -845,7 +845,7 @@ int main(void)
 				dust_limit,
 				to_local,
 				to_remote,
-				inv_htlcs, &htlc_map2,
+				inv_htlcs, &htlc_map2, NULL,
 				commitment_number ^ cn_obscurer,
 				REMOTE);
 		tx_must_be_eq(newtx, tx2);
@@ -877,7 +877,7 @@ int main(void)
 			       dust_limit,
 			       to_local,
 			       to_remote,
-			       htlcs, &htlc_map,
+			       htlcs, &htlc_map, NULL,
 			       commitment_number ^ cn_obscurer,
 			       LOCAL);
 		report(tx, wscript,
@@ -914,7 +914,7 @@ int main(void)
 				  dust_limit,
 				  to_local,
 				  to_remote,
-				  htlcs, &htlc_map,
+				  htlcs, &htlc_map, NULL,
 				  commitment_number ^ cn_obscurer,
 				  LOCAL);
 		report(newtx, wscript,
@@ -973,7 +973,7 @@ int main(void)
 			       dust_limit,
 			       to_local,
 			       to_remote,
-			       htlcs, &htlc_map,
+			       htlcs, &htlc_map, NULL,
 			       commitment_number ^ cn_obscurer,
 			       LOCAL);
 		report(tx, wscript,
