@@ -13,6 +13,9 @@ struct wireaddr_internal;
 /* Called by io_tor_connect once it has a connection out. */
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect);
 
+/* add erros to error list */
+void add_errors_to_error_list(struct connecting *connect, const char *error);
+
 /* Called by peer_exchange_initmsg if successful. */
 struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
