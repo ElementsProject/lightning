@@ -1477,12 +1477,11 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 			channel->msat_to_us_max = channel->our_msat;
 
 		/* Coins have definitively moved, log a movement */
-		mvt = new_channel_coin_mvt(hin, &channel->funding_txid,
-					   channel->funding_outnum,
-					   hin->payment_hash, 0, hin->msat,
-					   hin->we_filled ? INVOICE : ROUTED,
-					   /* FIXME: variable unit ? */
-					   true, BTC);
+		if (hin->we_filled)
+			mvt = new_channel_mvt_invoice_hin(hin, hin, channel);
+		else
+			mvt = new_channel_mvt_routed_hin(hin, hin, channel);
+
 		notify_channel_mvt(channel->peer->ld, mvt);
 	}
 
@@ -1526,14 +1525,10 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 			channel->msat_to_us_min = channel->our_msat;
 
 		/* Coins have definitively moved, log a movement */
-		mvt = new_channel_coin_mvt(hout, &channel->funding_txid,
-					   channel->funding_outnum,
-					   hout->payment_hash, hout->partid,
-					   hout->msat,
-					   /* routed payments flow through... */
-					   hout->am_origin ? INVOICE : ROUTED,
-					   /* FIXME: variable unit ? */
-					   false, BTC);
+		if (hout->am_origin)
+			mvt = new_channel_mvt_invoice_hout(hout, hout, channel);
+		else
+			mvt = new_channel_mvt_routed_hout(hout, hout, channel);
 
 		notify_channel_mvt(channel->peer->ld, mvt);
 	}

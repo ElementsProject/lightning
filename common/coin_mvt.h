@@ -45,7 +45,7 @@ struct channel_coin_mvt {
 
 	/* mutlti-part payments may share a payment hash,
 	 * so we should also record a 'part-id' for them */
-	u32 part_id;
+	u64 *part_id;
 
 	/* label / tag */
 	enum mvt_tag tag;
@@ -86,7 +86,7 @@ struct chain_coin_mvt {
 /* differs depending on type!? */
 struct mvt_id {
 	struct sha256 *payment_hash;
-	u32 part_id;
+	u64 *part_id;
 	const struct bitcoin_txid *tx_txid;
 	const struct bitcoin_txid *output_txid;
 	u32 vout;
@@ -130,7 +130,7 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      struct bitcoin_txid *funding_txid,
 					      u32 funding_outnum,
 					      struct sha256 payment_hash,
-					      u32 part_id,
+					      u64 *part_id,
 					      struct amount_msat amount,
 					      enum mvt_tag tag,
 					      bool is_credit,

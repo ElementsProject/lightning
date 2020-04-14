@@ -397,17 +397,26 @@ struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx UNNEEDED,
 					      bool is_credit UNNEEDED,
 					      enum mvt_unit_type unit UNNEEDED)
 { fprintf(stderr, "new_chain_coin_mvt_sat called!\n"); abort(); }
-/* Generated stub for new_channel_coin_mvt */
-struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx UNNEEDED,
-					      struct bitcoin_txid *funding_txid UNNEEDED,
-					      u32 funding_outnum UNNEEDED,
-					      struct sha256 payment_hash UNNEEDED,
-					      u32 part_id UNNEEDED,
-					      struct amount_msat amount UNNEEDED,
-					      enum mvt_tag tag UNNEEDED,
-					      bool is_credit UNNEEDED,
-					      enum mvt_unit_type unit UNNEEDED)
-{ fprintf(stderr, "new_channel_coin_mvt called!\n"); abort(); }
+/* Generated stub for new_channel_mvt_invoice_hin */
+struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
+						     struct htlc_in *hin UNNEEDED,
+						     struct channel *channel UNNEEDED)
+{ fprintf(stderr, "new_channel_mvt_invoice_hin called!\n"); abort(); }
+/* Generated stub for new_channel_mvt_invoice_hout */
+struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx UNNEEDED,
+						      struct htlc_out *hout UNNEEDED,
+						      struct channel *channel UNNEEDED)
+{ fprintf(stderr, "new_channel_mvt_invoice_hout called!\n"); abort(); }
+/* Generated stub for new_channel_mvt_routed_hin */
+struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx UNNEEDED,
+						    struct htlc_in *hin UNNEEDED,
+						    struct channel *channel UNNEEDED)
+{ fprintf(stderr, "new_channel_mvt_routed_hin called!\n"); abort(); }
+/* Generated stub for new_channel_mvt_routed_hout */
+struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx UNNEEDED,
+						     struct htlc_out *hout UNNEEDED,
+						     struct channel *channel UNNEEDED)
+{ fprintf(stderr, "new_channel_mvt_routed_hout called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
