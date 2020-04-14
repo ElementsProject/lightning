@@ -36,6 +36,50 @@ void notify_chain_mvt(struct lightningd *ld, const struct chain_coin_mvt *mvt)
 	notify_coin_mvt(ld, cm);
 }
 
+struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
+						     struct htlc_in *hin,
+						     struct channel *channel)
+{
+	return new_channel_coin_mvt(ctx, &channel->funding_txid,
+				    channel->funding_outnum,
+				    hin->payment_hash, NULL,
+				    hin->msat, INVOICE,
+				    true, BTC);
+}
+
+struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
+						    struct htlc_in *hin,
+						    struct channel *channel)
+{
+	return new_channel_coin_mvt(ctx, &channel->funding_txid,
+				    channel->funding_outnum,
+				    hin->payment_hash, NULL,
+				    hin->msat, ROUTED,
+				    true, BTC);
+}
+
+struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
+						      struct htlc_out *hout,
+						      struct channel *channel)
+{
+	return new_channel_coin_mvt(ctx, &channel->funding_txid,
+				    channel->funding_outnum,
+				    hout->payment_hash, &hout->partid,
+				    hout->msat, INVOICE,
+				    false, BTC);
+}
+
+struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
+						     struct htlc_out *hout,
+						     struct channel *channel)
+{
+	return new_channel_coin_mvt(ctx, &channel->funding_txid,
+				    channel->funding_outnum,
+				    hout->payment_hash, NULL,
+				    hout->msat, ROUTED,
+				    false, BTC);
+}
+
 void coin_mvts_init_count(struct lightningd *ld)
 {
 	s64 count;
