@@ -572,7 +572,7 @@ static void init_txfilter(struct wallet *w, struct txfilter *filter)
 
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	/*~ One of the C99 things I unequivocally approve: for-loop scope. */
-	for (u64 i = 0; i <= bip32_max_index; i++) {
+	for (u64 i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
 		if (bip32_key_from_parent(w->bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			abort();
 		}

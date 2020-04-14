@@ -50,6 +50,9 @@ struct wallet {
 
 	/* Unreleased txs, waiting for txdiscard/txsend */
 	struct list_head unreleased_txs;
+
+	/* How many keys should we look ahead at most? */
+	u64 keyscan_gap;
 };
 
 /* A transaction we've txprepared, but  haven't signed and released yet */
