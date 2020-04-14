@@ -60,6 +60,7 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	wallet->db = db_setup(wallet, ld);
 	wallet->log = new_log(wallet, ld->log_book, NULL, "wallet");
 	wallet->bip32_base = NULL;
+	wallet->keyscan_gap = 50;
 	list_head_init(&wallet->unstored_payments);
 	list_head_init(&wallet->unreleased_txs);
 
@@ -551,7 +552,7 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 	else
 		return false;
 
-	for (i = 0; i <= bip32_max_index; i++) {
+	for (i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
 		u8 *s;
 
 		if (bip32_key_from_parent(w->bip32_base, i,
@@ -566,6 +567,10 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 			s = p2sh;
 		}
 		if (scripteq(s, script)) {
+			/* If we found a used key in the keyscan_gap we should
+			 * remember that. */
+			if (i > bip32_max_index)
+				db_set_intvar(w->db, "bip32_max_index", i);
 			tal_free(s);
 			*index = i;
 			return true;
