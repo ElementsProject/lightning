@@ -985,6 +985,28 @@ This will ensure backward
 compatibility should the semantics be changed in future.
 
 
+### `commitment_revocation`
+
+The `commitment_revocation` hook is called whenever a peer has sent a
+revocation for a prior channel state. The hook includes the commitment
+transaction hash that was revoked as well as a matching penalty transaction
+that can be used to punish the peer if it ever attempts to publish the revoked
+commitment. The primary use-case for this hook is to implement watchtower
+plugins that hand the penalty transaction to a remote watchtower that will
+monitor the blockchain during our absence.
+
+The payload has the following format:
+
+```json
+{
+	"commitment_txid": "df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+	"penalty_tx": "0200000000010115360fd932a9c60e2f7f[...]f0ce1f271291714e5752ae993ed620"
+}
+```
+
+The result returned by the plugin is currently ignored, but should always
+return `{"result": "continue"}` in case additional handling is added in the
+future.
 
 ## Bitcoin backend
 
