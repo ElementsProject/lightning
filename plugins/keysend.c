@@ -18,17 +18,13 @@ static struct command_result *
 htlc_accepted_continue(struct command *cmd, struct tlv_tlv_payload *payload)
 {
 	struct json_stream *response;
-	u8 *binpayload, *rawpayload;
 	response = jsonrpc_stream_success(cmd);
 
 	json_add_string(response, "result", "continue");
 	if (payload) {
-		binpayload = tal_arr(cmd, u8, 0);
+		u8 *binpayload = tal_arr(cmd, u8, 0);
 		towire_tlvstream_raw(&binpayload, payload->fields);
-		rawpayload = tal_arr(cmd, u8, 0);
-		towire_bigsize(&rawpayload, tal_bytelen(binpayload));
-		towire(&rawpayload, binpayload, tal_bytelen(binpayload));
-		json_add_string(response, "payload", tal_hex(cmd, rawpayload));
+		json_add_string(response, "payload", tal_hex(cmd, binpayload));
 	}
 	return command_finished(cmd, response);
 }

@@ -804,8 +804,10 @@ if we're the recipient, or attempt to forward it otherwise. Notice that the
 usual checks such as sufficient fees and CLTV deltas are still enforced.
 
 It can also replace the `onion.payload` by specifying a `payload` in
-the response.  This will be re-parsed; it's useful for removing onion
-fields which a plugin doesn't want lightningd to consider.
+the response.  Note that this is always a TLV-style payload, so unlike
+`onion.payload` there is no length prefix (and it must be at least 4
+hex digits long).  This will be re-parsed; it's useful for removing
+onion fields which a plugin doesn't want lightningd to consider.
 
 
 ```json
