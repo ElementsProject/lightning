@@ -6,6 +6,7 @@
 #include <common/wireaddr.h>
 #include <connectd/connectd.h>
 #include <connectd/tor.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -102,16 +103,25 @@ static struct io_plan *connect_finish(struct io_conn *conn,
 				     connect->host);
 			return connection_out(conn, connect->connect);
 		} else {
-			status_debug
-			    ("Tor connect out for host %s error invalid "
+			const char *msg = tal_fmt(tmpctx,
+			     "Tor connect out for host %s error invalid "
 			     "type return: %0x", connect->host,
 			     connect->buffer[3]);
+			status_debug("%s", msg);
+			add_errors_to_error_list(connect->connect, msg);
+
+			errno = ECONNREFUSED;
 			return io_close(conn);
 		}
 	} else {
-		status_debug("Error connecting to %s: Tor server reply: %s",
+		const char *msg = tal_fmt(tmpctx,
+			     "Error connecting to %s: Tor server reply: %s",
 			     connect->host,
 			     socks5strerror(tmpctx, connect->buffer[1]));
+		status_debug("%s", msg);
+		add_errors_to_error_list(connect->connect, msg);
+
+		errno = ECONNREFUSED;
 		return io_close(conn);
 	}
 }
@@ -138,8 +148,13 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 		/* The Tor socks5 server did not like any of our authentication
 		 * methods and we provided only "no auth".
 		 */
-		status_debug("Connected out for %s error: authentication required",
+		const char *msg = tal_fmt(tmpctx,
+			     "Connected out for %s error: authentication required",
 			     connect->host);
+		status_debug("%s", msg);
+		add_errors_to_error_list(connect->connect, msg);
+
+		errno = ECONNREFUSED;
 		return io_close(conn);
 	}
 	if (connect->buffer[1] == '\0') {
@@ -161,9 +176,14 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 				SOCK_REQ_V5_HEADER_LEN + connect->hlen,
 				connect_out, connect);
 	} else {
-		status_debug("Connected out for %s error: unexpected connect answer %0x from the tor socks5 proxy",
+			const char *msg = tal_fmt(tmpctx,
+				"Connected out for %s error: unexpected connect answer %0x from the tor socks5 proxy",
 				connect->host,
 				connect->buffer[1]);
+			status_debug("%s", msg);
+			add_errors_to_error_list(connect->connect, msg);
+
+		errno = ECONNREFUSED;
 		return io_close(conn);
 	}
 }
