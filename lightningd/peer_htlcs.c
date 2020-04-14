@@ -95,9 +95,10 @@ static bool htlc_out_update_state(struct channel *channel,
 			     "out"))
 		return false;
 
+	bool we_filled = false;
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
 			   hout->preimage, 0, hout->failonion,
-			   hout->failmsg, false);
+			   hout->failmsg, &we_filled);
 
 	hout->hstate = newstate;
 	return true;
@@ -186,11 +187,12 @@ static void failmsg_update_reply(struct subd *gossipd,
 				    cbdata->hin->shared_secret,
 				    failmsg);
 
+	bool we_filled = false;
 	wallet_htlc_update(gossipd->ld->wallet,
 			   cbdata->hin->dbid, cbdata->hin->hstate,
 			   cbdata->hin->preimage,
 			   cbdata->hin->badonion,
-			   cbdata->hin->failonion, NULL, false);
+			   cbdata->hin->failonion, NULL, &we_filled);
 
 	failed_htlc = mk_failed_htlc(tmpctx,
 				     cbdata->hin, cbdata->hin->failonion);
@@ -853,7 +855,8 @@ htlc_accepted_hook_try_resolve(struct htlc_accepted_hook_payload *request,
 		towire_u16(&unknown_details, 0x400f);
 		local_fail_in_htlc(hin, take(unknown_details));
 	} else {
-		hin->we_filled = true;
+		hin->we_filled = tal(hin, bool);
+		*hin->we_filled = true;
 		fulfill_htlc(hin, payment_preimage);
 	}
 }
@@ -1244,6 +1247,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 				 const struct preimage *preimage)
 {
 	struct lightningd *ld = channel->peer->ld;
+	bool we_filled = false;
 
 	assert(!hout->preimage);
 	hout->preimage = tal_dup(hout, struct preimage, preimage);
@@ -1251,7 +1255,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
 			   hout->preimage, 0, hout->failonion,
-			   hout->failmsg, false);
+			   hout->failmsg, &we_filled);
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
 						channel->dbid,
@@ -1418,9 +1422,11 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	/* Force state to something which expects a failure, and save to db */
 	hout->hstate = RCVD_REMOVE_HTLC;
 	htlc_out_check(hout, __func__);
+
+	bool we_filled = false;
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
 			   hout->preimage, 0, hout->failonion,
-			   hout->failmsg, false);
+			   hout->failmsg, &we_filled);
 
 	if (hout->am_origin) {
 		assert(why != NULL);

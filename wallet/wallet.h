@@ -616,7 +616,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			enum onion_type badonion,
 			const struct onionreply *failonion,
 			const u8 *failmsg,
-			bool we_filled);
+			bool *we_filled);
 
 /**
  * wallet_htlcs_load_in_for_channel - Load incoming HTLCs associated with chan from DB.
