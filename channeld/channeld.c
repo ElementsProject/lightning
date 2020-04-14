@@ -1362,13 +1362,31 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			       &commit_sig, htlc_sigs, changed_htlcs, txs[0]);
 }
 
-static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
+/* Pops the penalty base for the given commitnum from our internal list. There
+ * may not be one, in which case we return NULL and leave the list
+ * unmodified. */
+static struct penalty_base *
+penalty_base_by_commitnum(const tal_t *ctx, struct peer *peer, u64 commitnum)
+{
+	struct penalty_base *res = NULL;
+	for (size_t i = 0; i < tal_count(peer->pbases); i++) {
+		if (peer->pbases[i]->commitment_num == commitnum) {
+			res = tal_steal(ctx, peer->pbases[i]);
+			tal_arr_remove(&peer->pbases, i);
+			break;
+		}
+	}
+	return res;
+}
+
+static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 			  const struct secret *per_commitment_secret,
 			  const struct pubkey *next_per_commit_point,
 			  const struct htlc **changed_htlcs,
 			  const struct fee_states *fee_states)
 {
 	u8 *msg;
+	struct penalty_base *pbase;
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
@@ -1384,8 +1402,10 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 		tal_arr_expand(&changed, c);
 	}
 
-	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,
-					next_per_commit_point, fee_states, changed);
+	pbase = penalty_base_by_commitnum(tmpctx, peer, revoke_num);
+	msg = towire_channel_got_revoke(peer, revoke_num, per_commitment_secret,
+					next_per_commit_point, fee_states,
+					changed, pbase);
 	return msg;
 }
 
@@ -1442,7 +1462,7 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 		status_debug("No commits outstanding after recv revoke_and_ack");
 
 	/* Tell master about things this locks in, wait for response */
-	msg = got_revoke_msg(NULL, peer->revocations_received++,
+	msg = got_revoke_msg(peer, peer->revocations_received++,
 			     &old_commit_secret, &next_per_commit,
 			     changed_htlcs,
 			     peer->channel->fee_states);

@@ -152,6 +152,7 @@ msgdata,channel_got_revoke,next_per_commit_point,pubkey,
 msgdata,channel_got_revoke,fee_states,fee_states,
 msgdata,channel_got_revoke,num_changed,u16,
 msgdata,channel_got_revoke,changed,changed_htlc,num_changed
+msgdata,channel_got_revoke,pbase,?penalty_base,
 # Wait for reply, to make sure it's on disk before we continue
 # (eg. if we sent another commitment_signed, that would implicitly ack).
 msgtype,channel_got_revoke_reply,1122
