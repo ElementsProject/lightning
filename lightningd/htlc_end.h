@@ -54,7 +54,7 @@ struct htlc_in {
 	/* Only set if blinding != NULL */
 	struct secret blinding_ss;
 	/* true if we supplied the preimage */
-	bool we_filled;
+	bool *we_filled;
 };
 
 struct htlc_out {
