@@ -29,6 +29,7 @@
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>
@@ -676,12 +677,15 @@ fail:
 }
 
 static void
-rpc_command_hook_callback(struct rpc_command_hook_payload *p,
+rpc_command_hook_callback(struct rpc_command_hook_payload *p STEALS,
                           const char *buffer, const jsmntok_t *resulttok)
 {
 	const jsmntok_t *tok, *params, *custom_return;
 	const jsmntok_t *innerresulttok;
 	struct json_stream *response;
+
+	/* Free payload with cmd */
+	tal_steal(p->cmd, p);
 
 	params = json_get_member(p->buffer, p->request, "params");
 
@@ -767,13 +771,12 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p,
 
 REGISTER_PLUGIN_HOOK(rpc_command, PLUGIN_HOOK_SINGLE,
 		     rpc_command_hook_callback,
-                     struct rpc_command_hook_payload *,
                      rpc_command_hook_serialize,
                      struct rpc_command_hook_payload *);
 
 static void call_rpc_command_hook(struct rpc_command_hook_payload *p)
 {
-	plugin_hook_call_rpc_command(p->cmd->ld, p, p);
+	plugin_hook_call_rpc_command(p->cmd->ld, p);
 }
 
 /* We return struct command_result so command_fail return value has a natural
@@ -842,7 +845,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    jcon->buffer + method->start);
 	}
 
-	rpc_hook = tal(c, struct rpc_command_hook_payload);
+	rpc_hook = tal(NULL, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
 	rpc_hook->buffer = tal_dup_talarr(rpc_hook, char, jcon->buffer);

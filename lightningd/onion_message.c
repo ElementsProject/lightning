@@ -41,7 +41,7 @@ onion_message_serialize(struct onion_message_hook_payload *payload,
 }
 
 static void
-onion_message_hook_cb(struct onion_message_hook_payload *payload,
+onion_message_hook_cb(struct onion_message_hook_payload *payload STEALS,
 			 const char *buffer,
 			 const jsmntok_t *toks)
 {
@@ -53,7 +53,6 @@ onion_message_hook_cb(struct onion_message_hook_payload *payload,
 REGISTER_PLUGIN_HOOK(onion_message,
 		     PLUGIN_HOOK_CHAIN,
 		     onion_message_hook_cb,
-		     struct onion_message_hook_payload *,
 		     onion_message_serialize,
 		     struct onion_message_hook_payload *);
 
@@ -112,7 +111,7 @@ void handle_onionmsg_to_us(struct channel *channel, const u8 *msg)
 	log_debug(channel->log, "Got onionmsg%s%s",
 		  payload->reply_blinding ? " reply_blinding": "",
 		  payload->reply_path ? " reply_path": "");
-	plugin_hook_call_onion_message(ld, payload, payload);
+	plugin_hook_call_onion_message(ld, payload);
 }
 
 void handle_onionmsg_forward(struct channel *channel, const u8 *msg)

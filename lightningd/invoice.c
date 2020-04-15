@@ -231,7 +231,7 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 }
 
 static void
-invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
+invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload STEALS,
 			const char *buffer,
 			const jsmntok_t *toks)
 {
@@ -281,7 +281,6 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 REGISTER_PLUGIN_HOOK(invoice_payment,
 		     PLUGIN_HOOK_SINGLE,
 		     invoice_payment_hook_cb,
-		     struct invoice_payment_hook_payload *,
 		     invoice_payment_serialize,
 		     struct invoice_payment_hook_payload *);
 
@@ -360,7 +359,7 @@ void invoice_try_pay(struct lightningd *ld,
 {
 	struct invoice_payment_hook_payload *payload;
 
-	payload = tal(ld, struct invoice_payment_hook_payload);
+	payload = tal(NULL, struct invoice_payment_hook_payload);
 	payload->ld = ld;
 	payload->label = tal_steal(payload, details->label);
 	payload->msat = set->so_far;
@@ -368,7 +367,7 @@ void invoice_try_pay(struct lightningd *ld,
 	payload->set = set;
 	tal_add_destructor2(set, invoice_payload_remove_set, payload);
 
-	plugin_hook_call_invoice_payment(ld, payload, payload);
+	plugin_hook_call_invoice_payment(ld, payload);
 }
 
 static bool hsm_sign_b11(const u5 *u5bytes,
