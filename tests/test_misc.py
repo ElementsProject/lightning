@@ -605,9 +605,6 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     with pytest.raises(RpcError, match=r'Cannot afford transaction'):
         l1.rpc.withdraw(waddr, 'all')
 
-    # Coins aren't counted as moved until we receive notice they've
-    # been mined.
-    assert account_balance(l1, 'wallet') == 11974560000
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
     assert account_balance(l1, 'wallet') == 0
