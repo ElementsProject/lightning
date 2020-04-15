@@ -1696,11 +1696,9 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 
 		/* We only record final ledger movements */
 		if (blockheight) {
-			mvt = new_chain_coin_mvt_sat(utxo, "wallet", &utxo->txid,
-						     &utxo->txid, utxo->outnum, NULL,
-						     blockheight ? *blockheight : 0,
-						     DEPOSIT, utxo->amount,
-						     true, BTC);
+			mvt = new_coin_deposit_sat(utxo, "wallet", &utxo->txid, utxo->outnum,
+						   blockheight ? *blockheight : 0,
+						   utxo->amount, BTC);
 			notify_chain_mvt(w->ld, mvt);
 		}
 

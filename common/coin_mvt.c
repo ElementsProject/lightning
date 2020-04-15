@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ccan/ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
@@ -62,17 +63,16 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 	return mvt;
 }
 
-struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
-					  const char *account_name,
-					  const struct bitcoin_txid *tx_txid,
-					  const struct bitcoin_txid *output_txid,
-					  u32 vout,
-					  struct sha256 *payment_hash,
-					  u32 blockheight,
-					  enum mvt_tag tag,
-					  struct amount_msat amount,
-					  bool is_credit,
-					  enum mvt_unit_type unit)
+static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
+						 const char *account_name,
+						 const struct bitcoin_txid *tx_txid,
+						 const struct bitcoin_txid *output_txid,
+						 u32 vout,
+						 const struct sha256 *payment_hash TAKES,
+						 u32 blockheight, enum mvt_tag tag,
+						 struct amount_msat amount,
+						 bool is_credit,
+						 enum mvt_unit_type unit)
 {
 	struct chain_coin_mvt *mvt = tal(ctx, struct chain_coin_mvt);
 
@@ -88,7 +88,10 @@ struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 
 	/* for htlc's that are filled onchain, we also have a
 	 * preimage, NULL otherwise */
-	mvt->payment_hash = payment_hash;
+	if (payment_hash)
+		mvt->payment_hash = tal_dup(mvt, struct sha256, payment_hash);
+	else
+		mvt->payment_hash = NULL;
 	mvt->blockheight = blockheight;
 
 	mvt->tag = tag;
@@ -104,26 +107,197 @@ struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 	return mvt;
 }
 
-struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
-					      const char *account_name,
-					      const struct bitcoin_txid *tx_txid,
-					      const struct bitcoin_txid *output_txid,
-					      u32 vout,
-					      struct sha256 *payment_hash,
-					      u32 blockheight,
-					      enum mvt_tag tag,
-					      struct amount_sat amt_sat,
-					      bool is_credit,
-					      enum mvt_unit_type unit)
+static struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
+						     const char *account_name,
+						     const struct bitcoin_txid *tx_txid,
+						     const struct bitcoin_txid *output_txid,
+						     u32 vout,
+						     const struct sha256 *payment_hash TAKES,
+						     u32 blockheight, enum mvt_tag tag,
+						     struct amount_sat amt_sat,
+						     bool is_credit, enum mvt_unit_type unit)
 {
 	struct amount_msat amt_msat;
-	if (!amount_sat_to_msat(&amt_msat, amt_sat))
-		return NULL;
+	bool ok;
+	ok = amount_sat_to_msat(&amt_msat, amt_sat);
+	assert(ok);
 
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
 				  output_txid, vout, payment_hash,
 				  blockheight, tag, amt_msat, is_credit,
 				  unit);
+}
+
+struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx,
+					  const char *account_name,
+					  const struct bitcoin_txid *tx_txid,
+					  const struct bitcoin_txid *out_txid,
+					  u32 vout,
+					  u32 blockheight,
+					  struct amount_msat amount,
+					  enum mvt_unit_type unit)
+{
+	return new_chain_coin_mvt(ctx, account_name, tx_txid,
+				  out_txid, vout, NULL, blockheight,
+				  WITHDRAWAL, amount, false, unit);
+}
+
+struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
+					       const char *account_name,
+					       const struct bitcoin_txid *tx_txid,
+					       const struct bitcoin_txid *out_txid,
+					       u32 vout,
+					       u32 blockheight,
+					       struct amount_sat amount,
+					       enum mvt_unit_type unit)
+{
+	struct amount_msat amt_msat;
+	bool ok;
+
+	ok = amount_sat_to_msat(&amt_msat, amount);
+	assert(ok);
+
+	return new_coin_withdrawal(ctx, account_name, tx_txid, out_txid, vout,
+				   blockheight, amt_msat, unit);
+}
+
+struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx,
+					   const char *account_name,
+					   const struct bitcoin_txid *tx_txid,
+					   u32 blockheight,
+					   struct amount_msat amount,
+					   enum mvt_unit_type unit)
+{
+	return new_chain_coin_mvt(ctx, account_name, tx_txid,
+				  NULL, 0, NULL, blockheight,
+				  CHAIN_FEES, amount, false, unit);
+}
+
+struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
+					       const char *account_name,
+					       const struct bitcoin_txid *tx_txid,
+					       u32 blockheight,
+					       struct amount_sat amount,
+					       enum mvt_unit_type unit)
+{
+	struct amount_msat amt_msat;
+	bool ok;
+
+	ok = amount_sat_to_msat(&amt_msat, amount);
+	assert(ok);
+
+	return new_coin_chain_fees(ctx, account_name, tx_txid,
+				   blockheight, amt_msat, unit);
+}
+
+struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
+					      const char *account_name,
+					      const struct bitcoin_txid *txid,
+					      const struct bitcoin_txid *out_txid,
+					      u32 vout,
+					      u32 blockheight,
+					      struct amount_msat amount,
+					      bool is_credit,
+					      enum mvt_unit_type unit)
+{
+	return new_chain_coin_mvt(ctx, account_name, txid,
+				  out_txid, vout, NULL,
+				  blockheight, JOURNAL,
+				  amount, is_credit, unit);
+}
+
+struct chain_coin_mvt *new_coin_deposit(const tal_t *ctx,
+					const char *account_name,
+					const struct bitcoin_txid *txid,
+					u32 vout, u32 blockheight,
+					struct amount_msat amount,
+					enum mvt_unit_type unit)
+{
+	return new_chain_coin_mvt(ctx, account_name, txid, txid,
+				  vout, NULL, blockheight, DEPOSIT,
+				  amount, true, unit);
+}
+
+struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx,
+					    const char *account_name,
+					    const struct bitcoin_txid *txid,
+					    u32 vout,
+					    u32 blockheight,
+					    struct amount_sat amount,
+					    enum mvt_unit_type unit)
+{
+	struct amount_msat amt_msat;
+	bool ok;
+
+	ok = amount_sat_to_msat(&amt_msat, amount);
+	assert(ok);
+
+	return new_coin_deposit(ctx, account_name, txid,
+				vout, blockheight,
+				amt_msat, unit);
+}
+struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
+					    const char *account_name,
+					    const struct bitcoin_txid *txid,
+					    const struct bitcoin_txid *out_txid,
+					    u32 vout,
+					    u32 blockheight,
+					    struct amount_sat amount,
+					    enum mvt_unit_type unit)
+{
+	struct amount_msat amt_msat;
+	bool ok;
+
+	ok = amount_sat_to_msat(&amt_msat, amount);
+	assert(ok);
+
+	return new_chain_coin_mvt(ctx, account_name,
+				  txid, out_txid,
+				  vout, NULL,
+				  blockheight, PENALTY,
+				  amt_msat, false,
+				  unit);
+}
+
+struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx,
+						 const char *account_name,
+						 const struct bitcoin_txid *txid,
+						 const struct bitcoin_txid *out_txid,
+						 u32 vout,
+						 struct sha256 payment_hash,
+						 u32 blockheight,
+						 struct amount_sat amount,
+						 bool is_credit,
+						 enum mvt_unit_type unit)
+{
+	return new_chain_coin_mvt_sat(ctx, account_name,
+				      txid, out_txid, vout,
+				      take(tal_dup(NULL, struct sha256,
+						   &payment_hash)), blockheight,
+				      ONCHAIN_HTLC, amount, is_credit, unit);
+}
+
+struct chain_coin_mvt *new_coin_pushed(const tal_t *ctx,
+				       const char *account_name,
+				       const struct bitcoin_txid *txid,
+				       u32 blockheight,
+				       struct amount_msat amount,
+				       enum mvt_unit_type unit)
+{
+	return new_chain_coin_mvt(ctx, account_name, txid, NULL, 0,
+				  NULL, blockheight, PUSHED, amount,
+				  false, unit);
+}
+
+struct chain_coin_mvt *new_coin_spend_track(const tal_t *ctx,
+					    const struct bitcoin_txid *txid,
+					    const struct bitcoin_txid *out_txid,
+					    u32 vout, u32 blockheight,
+					    enum mvt_unit_type unit)
+{
+	return new_chain_coin_mvt_sat(ctx, "wallet", txid, out_txid, vout,
+				      NULL, blockheight, SPEND_TRACK, AMOUNT_SAT(0),
+				      false, unit);
 }
 
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,

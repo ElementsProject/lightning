@@ -680,15 +680,8 @@ static void record_output_spend(struct lightningd *ld,
 			    vout);
 
 	*input_amt = utxo->amount;
-	mvt = new_chain_coin_mvt_sat(ctx, "wallet", txid,
-				     utxo_txid, vout, NULL,
-				     blockheight,
-				     SPEND_TRACK, AMOUNT_SAT(0),
-				     false, BTC);
-	if (!mvt)
-		fatal("unable to convert %s to msat",
-		      type_to_string(tmpctx, struct amount_sat,
-				     input_amt));
+	mvt = new_coin_spend_track(ctx, txid, utxo_txid, vout,
+				   blockheight, BTC);
 	notify_chain_mvt(ld, mvt);
 	tal_free(ctx);
 }
@@ -717,14 +710,8 @@ static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_
 		asset = bitcoin_tx_output_get_amount(tx, i);
 		assert(amount_asset_is_main(&asset));
 		outval = amount_asset_to_sat(&asset);
-		mvt = new_chain_coin_mvt_sat(ctx, "wallet", txid,
-					     txid, i, NULL,
-					     blockheight, WITHDRAWAL,
-					     outval, false, BTC);
-		if (!mvt)
-			fatal("unable to convert %s to msat",
-			      type_to_string(tmpctx, struct amount_sat, &fee));
-
+		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid, txid,
+					      i, blockheight, outval, BTC);
 		notify_chain_mvt(ld, mvt);
 	}
 
@@ -735,15 +722,9 @@ static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_
 	 * fees logged here, to the 'wallet' account (for funding tx).
 	 * You can do this in post by accounting for any 'chain_fees' logged for
 	 * the funding txid when looking at a channel. */
-	mvt = new_chain_coin_mvt_sat(ctx, "wallet", txid,
-				     NULL, 0, NULL, blockheight,
-				     CHAIN_FEES, fee, false, BTC);
-
-	if (!mvt)
-		fatal("unable to convert %s to msat",
-		      type_to_string(tmpctx, struct amount_sat, &fee));
-
-	notify_chain_mvt(ld, mvt);
+	notify_chain_mvt(ld,
+			new_coin_chain_fees_sat(ctx, "wallet", txid,
+						blockheight, fee, BTC));
 
 	tal_free(ctx);
 }

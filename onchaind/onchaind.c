@@ -123,7 +123,7 @@ struct tracked_output {
 	const struct chainparams *chainparams;
 
 	/* stashed so we can pass it along to the coin ledger */
-	struct sha256 *payment_hash;
+	struct sha256 payment_hash;
 };
 
 static void send_coin_mvt(struct chain_coin_mvt *mvt TAKES)
@@ -142,12 +142,9 @@ static void record_their_successful_cheat(const struct bitcoin_txid *txid,
 	struct chain_coin_mvt *mvt;
 	/* They successfully spent a delayed_to_them output
 	 * that we were expecting to revoke */
-	mvt = new_chain_coin_mvt_sat(NULL, NULL,
-				     txid, &out->txid,
-				     out->outnum, NULL,
-				     blockheight, PENALTY,
-				     out->sat, false,
-				     BTC);
+	mvt = new_coin_penalty_sat(NULL, NULL,
+				   txid, &out->txid, out->outnum,
+				   blockheight, out->sat, BTC);
 
 	send_coin_mvt(take(mvt));
 }
@@ -164,14 +161,10 @@ static void record_htlc_fulfilled(const struct bitcoin_txid *txid,
 	 *
 	 * since we really don't know if this was a 'routed' or 'destination'
 	 * htlc here, we record it as a 'deposit/withdrawal' type */
-	mvt = new_chain_coin_mvt_sat(NULL, NULL,
-				     txid, &out->txid,
-				     out->outnum,
-				     out->payment_hash,
-				     blockheight,
-				     ONCHAIN_HTLC,
-				     out->sat, we_fulfilled,
-				     BTC);
+	mvt = new_coin_onchain_htlc_sat(NULL, NULL, txid, &out->txid,
+					out->outnum, out->payment_hash,
+					blockheight, out->sat, we_fulfilled,
+					BTC);
 
 	send_coin_mvt(take(mvt));
 }
@@ -180,14 +173,8 @@ static void update_ledger_chain_fees_msat(const struct bitcoin_txid *txid,
 					  u32 blockheight,
 					  struct amount_msat fees)
 {
-	struct chain_coin_mvt *mvt;
-	mvt = new_chain_coin_mvt(NULL, NULL,
-				 txid, NULL, 0, NULL,
-				 blockheight,
-				 CHAIN_FEES, fees,
-				 false, BTC);
-
-	send_coin_mvt(take(mvt));
+	send_coin_mvt(take(new_coin_chain_fees(NULL, NULL, txid,
+					       blockheight, fees, BTC)));
 }
 
 static void update_ledger_chain_fees(const struct bitcoin_txid *txid,
@@ -195,17 +182,9 @@ static void update_ledger_chain_fees(const struct bitcoin_txid *txid,
 				     struct amount_sat fees)
 {
 	struct chain_coin_mvt *mvt;
-	mvt = new_chain_coin_mvt_sat(NULL, NULL,
-				     txid, NULL, 0, NULL,
-				     blockheight,
-				     CHAIN_FEES, fees,
-				     false, BTC);
+	mvt = new_coin_chain_fees_sat(NULL, NULL, txid,
+				     blockheight, fees, BTC);
 
-	if (!mvt)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "unable to convert %s to msat",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &fees));
 	send_coin_mvt(take(mvt));
 }
 
@@ -241,7 +220,6 @@ static void record_mutual_closure(const struct bitcoin_txid *txid,
 				  int output_num)
 {
 	struct amount_msat chain_fees, output_msat;
-	struct chain_coin_mvt *mvt;
 
 	/* First figure out 'fees' we paid on this will include
 	 *   - 'residue' that can't fit onchain (< 1 sat)
@@ -271,13 +249,8 @@ static void record_mutual_closure(const struct bitcoin_txid *txid,
 
 	assert(output_num > -1);
 	/* Otherwise, we record the channel withdrawal */
-	mvt = new_chain_coin_mvt(NULL, NULL, txid,
-				 txid, output_num, NULL,
-				 blockheight,
-				 WITHDRAWAL, output_msat,
-				 false, BTC);
-
-	send_coin_mvt(take(mvt));
+	send_coin_mvt(take(new_coin_withdrawal(NULL, NULL, txid, txid, output_num,
+					       blockheight, output_msat, BTC)));
 }
 
 static void record_chain_fees_unilateral(const struct bitcoin_txid *txid,
@@ -301,7 +274,6 @@ static void record_chain_fees_unilateral(const struct bitcoin_txid *txid,
 	 * that down in the chain fees :/ */
 	if (!amount_msat_greater_eq_sat(our_msat, our_outs)) {
 		struct amount_msat missing;
-		struct chain_coin_mvt *mvt;
 
 		if (!amount_sat_sub_msat(&missing, our_outs, our_msat))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -312,12 +284,10 @@ static void record_chain_fees_unilateral(const struct bitcoin_txid *txid,
 						     &our_outs));
 
 		/* Log the difference and update our_msat */
-		mvt = new_chain_coin_mvt(NULL, NULL,
-					 txid, NULL, 0, NULL,
-					 blockheight,
-					 JOURNAL, missing,
-					 true, BTC);
-		send_coin_mvt(take(mvt));
+		send_coin_mvt(take(new_coin_journal_entry(NULL, NULL, txid,
+							  NULL, 0, blockheight,
+							  missing,
+							  true, BTC)));
 		if (!amount_msat_add(&our_msat, our_msat, missing))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "unable to add %s to %s",
@@ -349,18 +319,9 @@ static void record_coin_loss(const struct bitcoin_txid *txid,
 	struct chain_coin_mvt *mvt;
 	/* We don't for sure know that it's a 'penalty'
 	 * but we write it as that anyway... */
-	mvt = new_chain_coin_mvt_sat(NULL, NULL,
-				     txid, &out->txid,
-				     out->outnum, NULL,
-				     blockheight,
-				     PENALTY, out->sat, false,
-				     BTC);
-
-	if (!mvt)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "unable to convert %s to msat",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &out->sat));
+	mvt = new_coin_penalty_sat(NULL, NULL, txid, &out->txid,
+				   out->outnum, blockheight, out->sat,
+				   BTC);
 
 	send_coin_mvt(take(mvt));
 }
@@ -370,7 +331,6 @@ static void record_channel_withdrawal_minus_fees(const struct bitcoin_txid *tx_t
 						 u32 blockheight,
 						 struct amount_sat fees)
 {
-	struct chain_coin_mvt *mvt;
 	struct amount_sat emitted_amt;
 
 	if (!amount_sat_sub(&emitted_amt, out->sat, fees))
@@ -381,20 +341,10 @@ static void record_channel_withdrawal_minus_fees(const struct bitcoin_txid *tx_t
 			      type_to_string(tmpctx, struct amount_sat,
 					     &out->sat));
 
-	mvt = new_chain_coin_mvt_sat(NULL, NULL,
-				     tx_txid, &out->txid,
-				     out->outnum, NULL,
-				     blockheight, WITHDRAWAL,
-				     emitted_amt, false,
-				     BTC);
-
-	if (!mvt)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "unable to convert %s to msat",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &out->sat));
-
-	send_coin_mvt(take(mvt));
+	send_coin_mvt(take(new_coin_withdrawal_sat(
+					NULL, NULL, tx_txid, &out->txid,
+					out->outnum, blockheight,
+					emitted_amt, BTC)));
 }
 
 
@@ -1288,7 +1238,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 
 	/* we stash the payment_hash into the tracking_output so we
 	 * can pass it along, if needbe, to the coin movement tracker */
-	out->payment_hash = tal_dup(out, struct sha256, &sha);
+	out->payment_hash = sha;
 
 	/* Tell master we found a preimage. */
 	status_debug("%s/%s gave us preimage %s",
@@ -1714,7 +1664,7 @@ static void handle_preimage(const struct chainparams *chainparams,
 		}
 
 		/* stash the payment_hash so we can track this coin movement */
-		outs[i]->payment_hash = tal_dup(outs[i], struct sha256, &sha);
+		outs[i]->payment_hash = sha;
 
 		/* Discard any previous resolution.  Could be a timeout,
 		 * could be due to multiple identical rhashes in tx. */
@@ -2543,7 +2493,6 @@ static void update_ledger_cheat(const struct bitcoin_txid *txid,
 	/* how much of a difference should we update the
 	 * channel account ledger by? */
 	struct amount_msat amt;
-	struct chain_coin_mvt *mvt;
 
 	if (amount_msat_eq_sat(our_msat, out->sat))
 		return;
@@ -2558,13 +2507,10 @@ static void update_ledger_cheat(const struct bitcoin_txid *txid,
 
 	/* add the difference to our ledger balance */
 	/* FIXME: elements is not always btc? */
-	mvt = new_chain_coin_mvt(NULL, NULL,
-				 txid, &out->txid,
-				 out->outnum, NULL,
-				 blockheight,
-				 JOURNAL, amt,
-				 true, BTC);
-	send_coin_mvt(take(mvt));
+	send_coin_mvt(take(new_coin_journal_entry(NULL, NULL, txid,
+						  &out->txid, out->outnum,
+						  blockheight, amt,
+						  true, BTC)));
 }
 
 /* BOLT #5:
@@ -3107,7 +3053,6 @@ static void update_ledger_unknown(const struct bitcoin_txid *txid,
 	 * and our current channel balance as a loss (or gain) */
 	bool is_credit;
 	struct amount_msat diff;
-	struct chain_coin_mvt *mvt;
 
 	/* we do nothing if the amount withdrawn via 'salvage' is
 	 * the same as our channel balance */
@@ -3129,12 +3074,9 @@ static void update_ledger_unknown(const struct bitcoin_txid *txid,
 		is_credit = true;
 
 	/* FIXME: elements txs not in BTC ?? */
-	mvt = new_chain_coin_mvt(NULL, NULL,
-				 txid, NULL, 0, NULL,
-				 blockheight,
-				 JOURNAL, diff,
-				 is_credit, BTC);
-	send_coin_mvt(take(mvt));
+	send_coin_mvt(take(new_coin_journal_entry(NULL, NULL, txid, NULL, 0,
+						  blockheight, diff,
+						  is_credit, BTC)));
 }
 
 static void handle_unknown_commitment(const struct bitcoin_tx *tx,
