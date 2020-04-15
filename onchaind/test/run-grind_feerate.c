@@ -114,16 +114,14 @@ struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx UNNEEDED,
 					   const char *account_name UNNEEDED,
 					   const struct bitcoin_txid *tx_txid UNNEEDED,
 					   u32 blockheight UNNEEDED,
-					   struct amount_msat amount UNNEEDED,
-					   enum mvt_unit_type unit UNNEEDED)
+					   struct amount_msat amount UNNEEDED)
 { fprintf(stderr, "new_coin_chain_fees called!\n"); abort(); }
 /* Generated stub for new_coin_chain_fees_sat */
 struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx UNNEEDED,
 					       const char *account_name UNNEEDED,
 					       const struct bitcoin_txid *tx_txid UNNEEDED,
 					       u32 blockheight UNNEEDED,
-					       struct amount_sat amount UNNEEDED,
-					       enum mvt_unit_type unit UNNEEDED)
+					       struct amount_sat amount UNNEEDED)
 { fprintf(stderr, "new_coin_chain_fees_sat called!\n"); abort(); }
 /* Generated stub for new_coin_journal_entry */
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx UNNEEDED,
@@ -133,19 +131,17 @@ struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx UNNEEDED,
 					      u32 vout UNNEEDED,
 					      u32 blockheight UNNEEDED,
 					      struct amount_msat amount UNNEEDED,
-					      bool is_credit UNNEEDED,
-					      enum mvt_unit_type unit UNNEEDED)
+					      bool is_credit UNNEEDED)
 { fprintf(stderr, "new_coin_journal_entry called!\n"); abort(); }
 /* Generated stub for new_coin_onchain_htlc_sat */
 struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx UNNEEDED,
-	       					 const char *account_name UNNEEDED,
+						 const char *account_name UNNEEDED,
 						 const struct bitcoin_txid *txid UNNEEDED,
 						 const struct bitcoin_txid *out_txid UNNEEDED,
 						 u32 vout UNNEEDED, struct sha256 payment_hash UNNEEDED,
 						 u32 blockheight UNNEEDED,
 						 struct amount_sat amount UNNEEDED,
-						 bool is_credit UNNEEDED,
-						 enum mvt_unit_type unit UNNEEDED)
+						 bool is_credit UNNEEDED)
 { fprintf(stderr, "new_coin_onchain_htlc_sat called!\n"); abort(); }
 /* Generated stub for new_coin_penalty_sat */
 struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx UNNEEDED,
@@ -154,8 +150,7 @@ struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx UNNEEDED,
 					    const struct bitcoin_txid *out_txid UNNEEDED,
 					    u32 vout UNNEEDED,
 					    u32 blockheight UNNEEDED,
-					    struct amount_sat amount UNNEEDED,
-					    enum mvt_unit_type unit UNNEEDED)
+					    struct amount_sat amount UNNEEDED)
 { fprintf(stderr, "new_coin_penalty_sat called!\n"); abort(); }
 /* Generated stub for new_coin_withdrawal */
 struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx UNNEEDED,
@@ -164,8 +159,7 @@ struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx UNNEEDED,
 					  const struct bitcoin_txid *out_txid UNNEEDED,
 					  u32 vout UNNEEDED,
 					  u32 blockheight UNNEEDED,
-					  struct amount_msat amount UNNEEDED,
-					  enum mvt_unit_type unit UNNEEDED)
+					  struct amount_msat amount UNNEEDED)
 { fprintf(stderr, "new_coin_withdrawal called!\n"); abort(); }
 /* Generated stub for new_coin_withdrawal_sat */
 struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx UNNEEDED,
@@ -174,8 +168,7 @@ struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_txid *out_txid UNNEEDED,
 					       u32 vout UNNEEDED,
 					       u32 blockheight UNNEEDED,
-					       struct amount_sat amount UNNEEDED,
-					       enum mvt_unit_type unit UNNEEDED)
+					       struct amount_sat amount UNNEEDED)
 { fprintf(stderr, "new_coin_withdrawal_sat called!\n"); abort(); }
 /* Generated stub for notleak_ */
 void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)

@@ -342,8 +342,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
 
 	mvt = new_coin_deposit_sat(msg, "wallet", &u->txid,
-				   u->outnum, blockheight,
-				   u->amount, BTC);
+				   u->outnum, blockheight, u->amount);
 	notify_chain_mvt(channel->peer->ld, mvt);
 }
 

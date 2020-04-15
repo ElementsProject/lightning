@@ -18,8 +18,8 @@ void notify_channel_mvt(struct lightningd *ld, const struct channel_coin_mvt *mv
 
 	timestamp = time_now().ts.tv_sec;
 	count = update_count(ld);
-	cm = finalize_channel_mvt(mvt, mvt, timestamp,
-				  &ld->id, count);
+	cm = finalize_channel_mvt(mvt, mvt, chainparams->bip173_name,
+				  timestamp, &ld->id, count);
 	notify_coin_mvt(ld, cm);
 }
 
@@ -31,8 +31,8 @@ void notify_chain_mvt(struct lightningd *ld, const struct chain_coin_mvt *mvt)
 
 	timestamp = time_now().ts.tv_sec;
 	count = update_count(ld);
-	cm = finalize_chain_mvt(mvt, mvt, timestamp,
-				&ld->id, count);
+	cm = finalize_chain_mvt(mvt, mvt, chainparams->bip173_name,
+				timestamp, &ld->id, count);
 	notify_coin_mvt(ld, cm);
 }
 
@@ -44,7 +44,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 				    channel->funding_outnum,
 				    hin->payment_hash, NULL,
 				    hin->msat, INVOICE,
-				    true, BTC);
+				    true);
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
@@ -55,7 +55,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 				    channel->funding_outnum,
 				    hin->payment_hash, NULL,
 				    hin->msat, ROUTED,
-				    true, BTC);
+				    true);
 }
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
@@ -66,7 +66,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 				    channel->funding_outnum,
 				    hout->payment_hash, &hout->partid,
 				    hout->msat, INVOICE,
-				    false, BTC);
+				    false);
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
@@ -77,7 +77,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 				    channel->funding_outnum,
 				    hout->payment_hash, NULL,
 				    hout->msat, ROUTED,
-				    false, BTC);
+				    false);
 }
 
 void coin_mvts_init_count(struct lightningd *ld)

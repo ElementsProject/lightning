@@ -31,7 +31,7 @@ def notify_coin_movement(plugin, coin_movement, **kwargs):
     plugin.log("{} coins debit: {}".format(idx, coin_movement['debit']))
     plugin.log("{} coins tag: {}".format(idx, coin_movement['tag']))
     plugin.log("{} coins timestamp: {}".format(idx, coin_movement['timestamp']))
-    plugin.log("{} coins unit_of_account: {}".format(idx, coin_movement['unit_of_account']))
+    plugin.log("{} coins coin_type: {}".format(idx, coin_movement['coin_type']))
 
     for f in ['payment_hash', 'utxo_txid', 'vout', 'txid', 'part_id', 'blockheight']:
         if f in coin_movement:
