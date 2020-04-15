@@ -860,7 +860,7 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 }
 
 static void
-peer_connected_hook_cb(struct peer_connected_hook_payload *payload,
+peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 		       const char *buffer,
 		       const jsmntok_t *toks)
 {
@@ -974,7 +974,6 @@ send_error:
 
 REGISTER_PLUGIN_HOOK(peer_connected, PLUGIN_HOOK_SINGLE,
 		     peer_connected_hook_cb,
-		     struct peer_connected_hook_payload *,
 		     peer_connected_serialize,
 		     struct peer_connected_hook_payload *);
 
@@ -1018,7 +1017,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	assert(!peer->uncommitted_channel);
 	hook_payload->channel = peer_active_channel(peer);
 
-	plugin_hook_call_peer_connected(ld, hook_payload, hook_payload);
+	plugin_hook_call_peer_connected(ld, hook_payload);
 }
 
 /* FIXME: Unify our watch code so we get notified by txout, instead, like
@@ -2297,7 +2296,7 @@ struct custommsg_payload {
 	const u8 *msg;
 };
 
-static void custommsg_callback(struct custommsg_payload *payload,
+static void custommsg_callback(struct custommsg_payload *payload STEALS,
 			       const char *buffer, const jsmntok_t *toks)
 {
 	tal_free(payload);
@@ -2310,8 +2309,9 @@ static void custommsg_payload_serialize(struct custommsg_payload *payload,
 	json_add_node_id(stream, "peer_id", &payload->peer_id);
 }
 
-REGISTER_PLUGIN_HOOK(custommsg, PLUGIN_HOOK_SINGLE, custommsg_callback,
-		     struct custommsg_payload *, custommsg_payload_serialize,
+REGISTER_PLUGIN_HOOK(custommsg, PLUGIN_HOOK_SINGLE,
+		     custommsg_callback,
+		     custommsg_payload_serialize,
 		     struct custommsg_payload *);
 
 void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
@@ -2329,7 +2329,7 @@ void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
 
 	p->peer_id = *peer_id;
 	p->msg = tal_steal(p, custommsg);
-	plugin_hook_call_custommsg(ld, p, p);
+	plugin_hook_call_custommsg(ld, p);
 }
 
 static struct command_result *json_sendcustommsg(struct command *cmd,

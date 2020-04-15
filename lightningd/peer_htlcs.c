@@ -976,7 +976,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
  * Callback when a plugin answers to the htlc_accepted hook
  */
 static void
-htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
+htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request STEALS,
 			    const char *buffer, const jsmntok_t *toks)
 {
 	struct route_step *rs = request->route_step;
@@ -1027,7 +1027,6 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 
 REGISTER_PLUGIN_HOOK(htlc_accepted, PLUGIN_HOOK_CHAIN,
 		     htlc_accepted_hook_callback,
-		     struct htlc_accepted_hook_payload *,
 		     htlc_accepted_hook_serialize,
 		     struct htlc_accepted_hook_payload *);
 
@@ -1160,7 +1159,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		goto fail;
 	}
 
-	hook_payload = tal(hin, struct htlc_accepted_hook_payload);
+	hook_payload = tal(NULL, struct htlc_accepted_hook_payload);
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
 	hook_payload->payload = onion_decode(hook_payload, rs,
@@ -1186,7 +1185,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 #endif
 		hook_payload->next_blinding = NULL;
 
-	plugin_hook_call_htlc_accepted(ld, hook_payload, hook_payload);
+	plugin_hook_call_htlc_accepted(ld, hook_payload);
 
 	/* Falling through here is ok, after all the HTLC locked */
 	return true;

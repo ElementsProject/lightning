@@ -14,7 +14,6 @@ struct plugin_hook_request {
 	struct plugin *plugin;
 	const struct plugin_hook *hook;
 	void *cb_arg;
-	void *payload;
 	struct db *db;
 	struct lightningd *ld;
 };
@@ -221,13 +220,13 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 				    plugin_get_log(ph_req->plugin),
 				    plugin_hook_callback, ph_req);
 
-	hook->serialize_payload(ph_req->payload, req->stream);
+	hook->serialize_payload(ph_req->cb_arg, req->stream);
 	jsonrpc_request_end(req);
 	plugin_request_send(ph_req->plugin, req);
 }
 
 void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
-		       void *payload, void *cb_arg)
+		       tal_t *cb_arg STEALS)
 {
 	struct plugin_hook_request *ph_req;
 	struct plugin_hook_call_link *link;
@@ -239,9 +238,8 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		 * to eventually to inspect in-flight requests. */
 		ph_req = notleak(tal(hook->plugins, struct plugin_hook_request));
 		ph_req->hook = hook;
-		ph_req->cb_arg = cb_arg;
+		ph_req->cb_arg = tal_steal(ph_req, cb_arg);
 		ph_req->db = ld->wallet->db;
-		ph_req->payload = tal_steal(ph_req, payload);
 		ph_req->ld = ld;
 
 		list_head_init(&ph_req->call_chain);

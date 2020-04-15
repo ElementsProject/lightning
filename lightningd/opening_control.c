@@ -754,7 +754,7 @@ static void openchannel_payload_remove_openingd(struct subd *openingd,
 	payload->openingd = NULL;
 }
 
-static void openchannel_hook_cb(struct openchannel_hook_payload *payload,
+static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
 			    const char *buffer,
 			    const jsmntok_t *toks)
 {
@@ -829,7 +829,6 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload,
 REGISTER_PLUGIN_HOOK(openchannel,
 		     PLUGIN_HOOK_SINGLE,
 		     openchannel_hook_cb,
-		     struct openchannel_hook_payload *,
 		     openchannel_hook_serialize,
 		     struct openchannel_hook_payload *);
 
@@ -847,7 +846,7 @@ static void opening_got_offer(struct subd *openingd,
 		return;
 	}
 
-	payload = tal(openingd->ld, struct openchannel_hook_payload);
+	payload = tal(openingd, struct openchannel_hook_payload);
 	payload->openingd = openingd;
 	if (!fromwire_opening_got_offer(payload, msg,
 					&payload->funding_satoshis,
@@ -868,7 +867,7 @@ static void opening_got_offer(struct subd *openingd,
 	}
 
 	tal_add_destructor2(openingd, openchannel_payload_remove_openingd, payload);
-	plugin_hook_call_openchannel(openingd->ld, payload, payload);
+	plugin_hook_call_openchannel(openingd->ld, payload);
 }
 
 static unsigned int openingd_msg(struct subd *openingd,
