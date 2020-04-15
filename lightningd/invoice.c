@@ -278,11 +278,10 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload STEALS,
 	htlc_set_fulfill(payload->set, &payload->preimage);
 }
 
-REGISTER_PLUGIN_HOOK(invoice_payment,
-		     PLUGIN_HOOK_SINGLE,
-		     invoice_payment_hook_cb,
-		     invoice_payment_serialize,
-		     struct invoice_payment_hook_payload *);
+REGISTER_SINGLE_PLUGIN_HOOK(invoice_payment,
+			    invoice_payment_hook_cb,
+			    invoice_payment_serialize,
+			    struct invoice_payment_hook_payload *);
 
 const struct invoice_details *
 invoice_check_payment(const tal_t *ctx,

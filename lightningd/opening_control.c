@@ -826,11 +826,10 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
 							  our_upfront_shutdown_script)));
 }
 
-REGISTER_PLUGIN_HOOK(openchannel,
-		     PLUGIN_HOOK_SINGLE,
-		     openchannel_hook_cb,
-		     openchannel_hook_serialize,
-		     struct openchannel_hook_payload *);
+REGISTER_SINGLE_PLUGIN_HOOK(openchannel,
+			    openchannel_hook_cb,
+			    openchannel_hook_serialize,
+			    struct openchannel_hook_payload *);
 
 static void opening_got_offer(struct subd *openingd,
 			      const u8 *msg,

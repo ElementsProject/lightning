@@ -549,6 +549,9 @@ void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
 void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       tal_t *cb_arg UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
+/* Generated stub for plugin_hook_continue */
+bool plugin_hook_continue(void *arg UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *toks UNNEEDED)
+{ fprintf(stderr, "plugin_hook_continue called!\n"); abort(); }
 /* Generated stub for process_onionpacket */
 struct route_step *process_onionpacket(
 	const tal_t * ctx UNNEEDED,

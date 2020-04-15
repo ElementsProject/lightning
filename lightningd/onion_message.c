@@ -41,17 +41,15 @@ onion_message_serialize(struct onion_message_hook_payload *payload,
 }
 
 static void
-onion_message_hook_cb(struct onion_message_hook_payload *payload STEALS,
-			 const char *buffer,
-			 const jsmntok_t *toks)
+onion_message_hook_cb(struct onion_message_hook_payload *payload STEALS)
 {
-	/* The core infra checks the "result"; anything other than continue
+	/* plugin_hook_continue checks the "result"; anything other than continue
 	 * just stops. */
 	tal_free(payload);
 }
 
 REGISTER_PLUGIN_HOOK(onion_message,
-		     PLUGIN_HOOK_CHAIN,
+		     plugin_hook_continue,
 		     onion_message_hook_cb,
 		     onion_message_serialize,
 		     struct onion_message_hook_payload *);
