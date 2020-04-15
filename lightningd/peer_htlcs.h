@@ -82,5 +82,6 @@ void json_format_forwarding_object(struct json_stream *response, const char *fie
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
 const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
+				       struct lightningd *ld,
 				       const struct htlc_in *hin);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */
