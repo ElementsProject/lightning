@@ -27,12 +27,6 @@ const char *mvt_tag_str(enum mvt_tag tag)
 	return mvt_tags[tag];
 }
 
-static const char *mvt_units[] = { "btc", };
-const char *mvt_unit_str(enum mvt_unit_type unit)
-{
-	return mvt_units[unit];
-}
-
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      struct bitcoin_txid *funding_txid,
 					      u32 funding_outnum,
@@ -40,8 +34,7 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      u64 *part_id,
 					      struct amount_msat amount,
 					      enum mvt_tag tag,
-					      bool is_credit,
-					      enum mvt_unit_type unit)
+					      bool is_credit)
 {
 	struct channel_coin_mvt *mvt = tal(ctx, struct channel_coin_mvt);
 
@@ -58,8 +51,6 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 		mvt->credit = AMOUNT_MSAT(0);
 	}
 
-	mvt->unit = unit;
-
 	return mvt;
 }
 
@@ -71,8 +62,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 						 const struct sha256 *payment_hash TAKES,
 						 u32 blockheight, enum mvt_tag tag,
 						 struct amount_msat amount,
-						 bool is_credit,
-						 enum mvt_unit_type unit)
+						 bool is_credit)
 {
 	struct chain_coin_mvt *mvt = tal(ctx, struct chain_coin_mvt);
 
@@ -102,7 +92,6 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 		mvt->debit = amount;
 		mvt->credit = AMOUNT_MSAT(0);
 	}
-	mvt->unit = unit;
 
 	return mvt;
 }
@@ -115,7 +104,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 						     const struct sha256 *payment_hash TAKES,
 						     u32 blockheight, enum mvt_tag tag,
 						     struct amount_sat amt_sat,
-						     bool is_credit, enum mvt_unit_type unit)
+						     bool is_credit)
 {
 	struct amount_msat amt_msat;
 	bool ok;
@@ -124,8 +113,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
 				  output_txid, vout, payment_hash,
-				  blockheight, tag, amt_msat, is_credit,
-				  unit);
+				  blockheight, tag, amt_msat, is_credit);
 }
 
 struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx,
@@ -134,12 +122,11 @@ struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx,
 					  const struct bitcoin_txid *out_txid,
 					  u32 vout,
 					  u32 blockheight,
-					  struct amount_msat amount,
-					  enum mvt_unit_type unit)
+					  struct amount_msat amount)
 {
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
 				  out_txid, vout, NULL, blockheight,
-				  WITHDRAWAL, amount, false, unit);
+				  WITHDRAWAL, amount, false);
 }
 
 struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
@@ -148,8 +135,7 @@ struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
 					       const struct bitcoin_txid *out_txid,
 					       u32 vout,
 					       u32 blockheight,
-					       struct amount_sat amount,
-					       enum mvt_unit_type unit)
+					       struct amount_sat amount)
 {
 	struct amount_msat amt_msat;
 	bool ok;
@@ -158,27 +144,25 @@ struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
 	assert(ok);
 
 	return new_coin_withdrawal(ctx, account_name, tx_txid, out_txid, vout,
-				   blockheight, amt_msat, unit);
+				   blockheight, amt_msat);
 }
 
 struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx,
 					   const char *account_name,
 					   const struct bitcoin_txid *tx_txid,
 					   u32 blockheight,
-					   struct amount_msat amount,
-					   enum mvt_unit_type unit)
+					   struct amount_msat amount)
 {
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
 				  NULL, 0, NULL, blockheight,
-				  CHAIN_FEES, amount, false, unit);
+				  CHAIN_FEES, amount, false);
 }
 
 struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
 					       const char *account_name,
 					       const struct bitcoin_txid *tx_txid,
 					       u32 blockheight,
-					       struct amount_sat amount,
-					       enum mvt_unit_type unit)
+					       struct amount_sat amount)
 {
 	struct amount_msat amt_msat;
 	bool ok;
@@ -187,7 +171,7 @@ struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
 	assert(ok);
 
 	return new_coin_chain_fees(ctx, account_name, tx_txid,
-				   blockheight, amt_msat, unit);
+				   blockheight, amt_msat);
 }
 
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
@@ -197,25 +181,23 @@ struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
 					      u32 vout,
 					      u32 blockheight,
 					      struct amount_msat amount,
-					      bool is_credit,
-					      enum mvt_unit_type unit)
+					      bool is_credit)
 {
 	return new_chain_coin_mvt(ctx, account_name, txid,
 				  out_txid, vout, NULL,
 				  blockheight, JOURNAL,
-				  amount, is_credit, unit);
+				  amount, is_credit);
 }
 
 struct chain_coin_mvt *new_coin_deposit(const tal_t *ctx,
 					const char *account_name,
 					const struct bitcoin_txid *txid,
 					u32 vout, u32 blockheight,
-					struct amount_msat amount,
-					enum mvt_unit_type unit)
+					struct amount_msat amount)
 {
 	return new_chain_coin_mvt(ctx, account_name, txid, txid,
 				  vout, NULL, blockheight, DEPOSIT,
-				  amount, true, unit);
+				  amount, true);
 }
 
 struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx,
@@ -223,8 +205,7 @@ struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx,
 					    const struct bitcoin_txid *txid,
 					    u32 vout,
 					    u32 blockheight,
-					    struct amount_sat amount,
-					    enum mvt_unit_type unit)
+					    struct amount_sat amount)
 {
 	struct amount_msat amt_msat;
 	bool ok;
@@ -233,8 +214,7 @@ struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx,
 	assert(ok);
 
 	return new_coin_deposit(ctx, account_name, txid,
-				vout, blockheight,
-				amt_msat, unit);
+				vout, blockheight, amt_msat);
 }
 struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 					    const char *account_name,
@@ -242,8 +222,7 @@ struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 					    const struct bitcoin_txid *out_txid,
 					    u32 vout,
 					    u32 blockheight,
-					    struct amount_sat amount,
-					    enum mvt_unit_type unit)
+					    struct amount_sat amount)
 {
 	struct amount_msat amt_msat;
 	bool ok;
@@ -255,8 +234,7 @@ struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 				  txid, out_txid,
 				  vout, NULL,
 				  blockheight, PENALTY,
-				  amt_msat, false,
-				  unit);
+				  amt_msat, false);
 }
 
 struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx,
@@ -267,41 +245,39 @@ struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx,
 						 struct sha256 payment_hash,
 						 u32 blockheight,
 						 struct amount_sat amount,
-						 bool is_credit,
-						 enum mvt_unit_type unit)
+						 bool is_credit)
 {
 	return new_chain_coin_mvt_sat(ctx, account_name,
 				      txid, out_txid, vout,
 				      take(tal_dup(NULL, struct sha256,
 						   &payment_hash)), blockheight,
-				      ONCHAIN_HTLC, amount, is_credit, unit);
+				      ONCHAIN_HTLC, amount, is_credit);
 }
 
 struct chain_coin_mvt *new_coin_pushed(const tal_t *ctx,
 				       const char *account_name,
 				       const struct bitcoin_txid *txid,
 				       u32 blockheight,
-				       struct amount_msat amount,
-				       enum mvt_unit_type unit)
+				       struct amount_msat amount)
 {
 	return new_chain_coin_mvt(ctx, account_name, txid, NULL, 0,
 				  NULL, blockheight, PUSHED, amount,
-				  false, unit);
+				  false);
 }
 
 struct chain_coin_mvt *new_coin_spend_track(const tal_t *ctx,
 					    const struct bitcoin_txid *txid,
 					    const struct bitcoin_txid *out_txid,
-					    u32 vout, u32 blockheight,
-					    enum mvt_unit_type unit)
+					    u32 vout, u32 blockheight)
 {
 	return new_chain_coin_mvt_sat(ctx, "wallet", txid, out_txid, vout,
 				      NULL, blockheight, SPEND_TRACK, AMOUNT_SAT(0),
-				      false, unit);
+				      false);
 }
 
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
+				    const char *bip173_name,
 				    u32 timestamp,
 				    struct node_id *node_id,
 				    s64 count)
@@ -310,6 +286,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 
 	mvt->account_id = tal_strndup(mvt, chain_mvt->account_name,
 				      strlen(chain_mvt->account_name));
+	mvt->bip173_name = tal_strndup(mvt, bip173_name, strlen(bip173_name));
 	mvt->type = CHAIN_MVT;
 
 	mvt->id.tx_txid = chain_mvt->tx_txid;
@@ -319,7 +296,6 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	mvt->tag = chain_mvt->tag;
 	mvt->credit = chain_mvt->credit;
 	mvt->debit = chain_mvt->debit;
-	mvt->unit = chain_mvt->unit;
 	mvt->timestamp = timestamp;
 	mvt->blockheight = chain_mvt->blockheight;
 	mvt->version = COIN_MVT_VERSION;
@@ -331,6 +307,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 
 struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      const struct channel_coin_mvt *chan_mvt,
+				      const char *bip173_name,
 				      u32 timestamp, struct node_id *node_id,
 				      s64 count)
 {
@@ -338,6 +315,7 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 
 	mvt->account_id = type_to_string(mvt, struct channel_id,
 					 &chan_mvt->chan_id);
+	mvt->bip173_name = tal_strndup(mvt, bip173_name, strlen(bip173_name));
 	mvt->type = CHANNEL_MVT;
 	mvt->id.payment_hash = chan_mvt->payment_hash;
 	mvt->id.part_id = chan_mvt->part_id;
@@ -347,7 +325,6 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->tag = chan_mvt->tag;
 	mvt->credit = chan_mvt->credit;
 	mvt->debit = chan_mvt->debit;
-	mvt->unit = chan_mvt->unit;
 	mvt->timestamp = timestamp;
 	/* channel movements don't have a blockheight */
 	mvt->blockheight = 0;
@@ -382,7 +359,6 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 	towire_u8(pptr, mvt->tag);
 	towire_amount_msat(pptr, mvt->credit);
 	towire_amount_msat(pptr, mvt->debit);
-	towire_u8(pptr, mvt->unit);
 }
 
 void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt)
@@ -415,5 +391,4 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 	mvt->tag = fromwire_u8(cursor, max);
 	mvt->credit = fromwire_amount_msat(cursor, max);
 	mvt->debit = fromwire_amount_msat(cursor, max);
-	mvt->unit = fromwire_u8(cursor, max);
 }

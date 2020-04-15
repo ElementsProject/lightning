@@ -680,8 +680,7 @@ static void record_output_spend(struct lightningd *ld,
 			    vout);
 
 	*input_amt = utxo->amount;
-	mvt = new_coin_spend_track(ctx, txid, utxo_txid, vout,
-				   blockheight, BTC);
+	mvt = new_coin_spend_track(ctx, txid, utxo_txid, vout, blockheight);
 	notify_chain_mvt(ld, mvt);
 	tal_free(ctx);
 }
@@ -711,7 +710,7 @@ static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_
 		assert(amount_asset_is_main(&asset));
 		outval = amount_asset_to_sat(&asset);
 		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid, txid,
-					      i, blockheight, outval, BTC);
+					      i, blockheight, outval);
 		notify_chain_mvt(ld, mvt);
 	}
 
@@ -724,7 +723,7 @@ static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_
 	 * the funding txid when looking at a channel. */
 	notify_chain_mvt(ld,
 			new_coin_chain_fees_sat(ctx, "wallet", txid,
-						blockheight, fee, BTC));
+						blockheight, fee));
 
 	tal_free(ctx);
 }

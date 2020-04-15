@@ -410,8 +410,7 @@ struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx UNNEEDED,
 					    const struct bitcoin_txid *txid UNNEEDED,
 					    u32 vout UNNEEDED,
 					    u32 blockheight UNNEEDED,
-					    struct amount_sat amount UNNEEDED,
-					    enum mvt_unit_type unit UNNEEDED)
+					    struct amount_sat amount UNNEEDED)
 { fprintf(stderr, "new_coin_deposit_sat called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)

@@ -549,7 +549,7 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"tag":"deposit",
 		"blockheight":102, // (`channel_mvt` type only. may be null)
 		"timestamp":1585948198,
-		"unit_of_account":"btc"
+		"coin_type":"bc"
 	}
 }
 ```
@@ -610,7 +610,7 @@ before confirmation.
 The `timestamp` is seconds since Unix epoch of the node's machine time
 at the time lightningd broadcasts the notification.
 
-`unit_of_account` is the 'currency' this coin movememnt is denominated in.
+`coin_type` is the BIP173 name for the coin which moved.
 
 
 ## Hooks
