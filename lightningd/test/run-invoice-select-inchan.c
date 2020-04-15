@@ -92,6 +92,7 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
 /* Generated stub for failmsg_incorrect_or_unknown */
 const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx UNNEEDED,
+				       struct lightningd *ld UNNEEDED,
 				       const struct htlc_in *hin UNNEEDED)
 { fprintf(stderr, "failmsg_incorrect_or_unknown called!\n"); abort(); }
 /* Generated stub for fatal */

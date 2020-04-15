@@ -278,11 +278,12 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
 const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
+				       struct lightningd *ld,
 				       const struct htlc_in *hin)
 {
 	return towire_incorrect_or_unknown_payment_details(
 		ctx, hin->msat,
-		get_block_height(hin->key.channel->owner->ld->topology));
+		get_block_height(ld->topology));
 }
 
 /* localfail are for handing to the local payer if it's local. */
@@ -489,7 +490,7 @@ static void handle_localpay(struct htlc_in *hin,
 			  hin->cltv_expiry,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
-		failmsg = failmsg_incorrect_or_unknown(NULL, hin);
+		failmsg = failmsg_incorrect_or_unknown(NULL, ld, hin);
 		goto fail;
 	}
 
