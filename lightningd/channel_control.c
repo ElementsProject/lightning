@@ -100,15 +100,11 @@ static void record_channel_open(struct channel *channel)
 
 		/* if we pushed sats, we should decrement that from the channel balance */
 		if (amount_msat_greater(channel->push, AMOUNT_MSAT(0))) {
-			mvt = new_chain_coin_mvt(ctx,
-						 type_to_string(tmpctx,
-								struct channel_id,
-								&channel_id),
-						 &channel->funding_txid,
-						 NULL, 0, NULL,
-						 blockheight,
-						 PUSHED, channel->push,
-						 false, BTC);
+			mvt = new_coin_pushed(ctx, type_to_string(tmpctx,
+								  struct channel_id,
+								  &channel_id),
+					      &channel->funding_txid,
+					      blockheight, channel->push, BTC);
 			notify_chain_mvt(channel->peer->ld, mvt);
 		}
 	} else {
@@ -118,15 +114,12 @@ static void record_channel_open(struct channel *channel)
 		channel_open_amt = channel->our_msat;
 	}
 
-	mvt = new_chain_coin_mvt(ctx,
-				 type_to_string(tmpctx, struct channel_id,
-						&channel_id),
-				 &channel->funding_txid,
-				 &channel->funding_txid,
-				 channel->funding_outnum,
-				 NULL, blockheight,
-				 DEPOSIT, channel_open_amt,
-				 true, BTC);
+	mvt = new_coin_deposit(ctx,
+			       type_to_string(tmpctx, struct channel_id,
+					      &channel_id),
+			       &channel->funding_txid,
+			       channel->funding_outnum,
+			       blockheight, channel_open_amt, BTC);
 	notify_chain_mvt(channel->peer->ld, mvt);
 	tal_free(ctx);
 }
