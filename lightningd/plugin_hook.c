@@ -139,6 +139,12 @@ static void plugin_hook_killed(struct plugin_hook_call_link *link)
 	}
 }
 
+bool plugin_hook_continue(void *unused, const char *buffer, const jsmntok_t *toks)
+{
+	const jsmntok_t *resrestok = json_get_member(buffer, toks, "result");
+	return resrestok && json_tok_streq(buffer, resrestok, "continue");
+}
+
 /**
  * Callback to be passed to the jsonrpc_request.
  *
@@ -149,10 +155,10 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 const jsmntok_t *idtok,
 				 struct plugin_hook_request *r)
 {
-	const jsmntok_t *resulttok, *resrestok;
+	const jsmntok_t *resulttok;
 	struct db *db = r->db;
-	bool more_plugins, cont;
 	struct plugin_hook_call_link *last, *it;
+	bool in_transaction = false;
 
 	if (r->ld->state == LD_STATE_SHUTDOWN) {
 		log_debug(r->ld->log,
@@ -173,40 +179,47 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 			      r->hook->name, toks->end - toks->start,
 			      buffer + toks->start);
 
-		resrestok = json_get_member(buffer, resulttok, "result");
-	} else {
-		/* Buffer and / or resulttok could be used by the reponse_cb
-		 * to identify no-result responses. So make sure both are
-		 * set */
-		resulttok = NULL;
-		/* cppcheck isn't smart enough to notice that `resrestok`
-		 * doesn't need to be initialized in the expression
-		 * initializing `cont`, so set it to NULL to shut it up. */
-		resrestok = NULL;
-	}
-
-	/* If this is a hook response containing a `continue` and we have more
-	 * plugins queue the next call. In that case we discard the remainder
-	 * of the result, and let the next plugin decide. */
-	cont = buffer == NULL || (resrestok && json_tok_streq(buffer, resrestok, "continue"));
-	more_plugins = !list_empty(&r->call_chain);
-	if (cont && more_plugins) {
-		plugin_hook_call_next(r);
-	} else {
-		db_begin_transaction(db);
-		r->hook->response_cb(r->cb_arg, buffer, resulttok);
-		db_commit_transaction(db);
-
-		/* We need to remove the destructors from the remaining
-		 * call-chain, otherwise they'd still be called when the
-		 * plugin dies or we shut down. */
-		list_for_each(&r->call_chain, it, list) {
-			tal_del_destructor(it, plugin_hook_killed);
-			tal_steal(r, it);
+		if (r->hook->type == PLUGIN_HOOK_CHAIN) {
+			db_begin_transaction(db);
+			if (!r->hook->deserialize_cb(r->cb_arg, buffer,
+						     resulttok)) {
+				tal_free(r->cb_arg);
+				db_commit_transaction(db);
+				goto cleanup;
+			}
+			in_transaction = true;
 		}
-
-		tal_free(r);
+	} else {
+		/* plugin died */
+		resulttok = NULL;
 	}
+
+	if (!list_empty(&r->call_chain)) {
+		if (in_transaction)
+			db_commit_transaction(db);
+		plugin_hook_call_next(r);
+		return;
+	}
+
+	/* We optimize for the case where we already called deserialize_cb */
+	if (!in_transaction)
+		db_begin_transaction(db);
+	if (r->hook->type == PLUGIN_HOOK_CHAIN)
+		r->hook->final_cb(r->cb_arg);
+	else
+		r->hook->single_response_cb(r->cb_arg, buffer, resulttok);
+	db_commit_transaction(db);
+
+cleanup:
+	/* We need to remove the destructors from the remaining
+	 * call-chain, otherwise they'd still be called when the
+	 * plugin dies or we shut down. */
+	list_for_each(&r->call_chain, it, list) {
+		tal_del_destructor(it, plugin_hook_killed);
+		tal_steal(r, it);
+	}
+
+	tal_free(r);
 }
 
 static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
@@ -258,7 +271,10 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		 * roundtrip to the serializer and deserializer. If we
 		 * were expecting a default response it should have
 		 * been part of the `cb_arg`. */
-		hook->response_cb(cb_arg, NULL, NULL);
+		if (hook->type == PLUGIN_HOOK_CHAIN)
+			hook->final_cb(cb_arg);
+		else
+			hook->single_response_cb(cb_arg, NULL, NULL);
 	}
 }
 

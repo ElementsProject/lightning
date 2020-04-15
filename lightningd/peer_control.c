@@ -972,10 +972,10 @@ send_error:
 	tal_free(payload);
 }
 
-REGISTER_PLUGIN_HOOK(peer_connected, PLUGIN_HOOK_SINGLE,
-		     peer_connected_hook_cb,
-		     peer_connected_serialize,
-		     struct peer_connected_hook_payload *);
+REGISTER_SINGLE_PLUGIN_HOOK(peer_connected,
+			    peer_connected_hook_cb,
+			    peer_connected_serialize,
+			    struct peer_connected_hook_payload *);
 
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_died. */
@@ -2309,10 +2309,10 @@ static void custommsg_payload_serialize(struct custommsg_payload *payload,
 	json_add_node_id(stream, "peer_id", &payload->peer_id);
 }
 
-REGISTER_PLUGIN_HOOK(custommsg, PLUGIN_HOOK_SINGLE,
-		     custommsg_callback,
-		     custommsg_payload_serialize,
-		     struct custommsg_payload *);
+REGISTER_SINGLE_PLUGIN_HOOK(custommsg,
+			    custommsg_callback,
+			    custommsg_payload_serialize,
+			    struct custommsg_payload *);
 
 void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
 			 const u8 *msg)

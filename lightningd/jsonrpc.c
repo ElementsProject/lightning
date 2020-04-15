@@ -769,10 +769,10 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p STEALS,
 	                         "Bad response to 'rpc_command' hook."));
 }
 
-REGISTER_PLUGIN_HOOK(rpc_command, PLUGIN_HOOK_SINGLE,
-		     rpc_command_hook_callback,
-                     rpc_command_hook_serialize,
-                     struct rpc_command_hook_payload *);
+REGISTER_SINGLE_PLUGIN_HOOK(rpc_command,
+			    rpc_command_hook_callback,
+			    rpc_command_hook_serialize,
+			    struct rpc_command_hook_payload *);
 
 static void call_rpc_command_hook(struct rpc_command_hook_payload *p)
 {
