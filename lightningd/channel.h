@@ -133,11 +133,11 @@ struct channel {
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
-			    struct wallet_shachain *their_shachain,
+			    struct wallet_shachain *their_shachain STEALS,
 			    enum channel_state state,
 			    enum side funder,
 			    /* NULL or stolen */
-			    struct log *log,
+			    struct log *log STEALS,
 			    const char *transient_billboard TAKES,
 			    u8 channel_flags,
 			    const struct channel_config *our_config,
@@ -151,23 +151,22 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_msat push,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
-			    struct short_channel_id *scid,
+			    struct short_channel_id *scid STEALS,
 			    struct amount_msat our_msatoshi,
 			    struct amount_msat msatoshi_to_us_min,
 			    struct amount_msat msatoshi_to_us_max,
-			    /* Stolen */
-			    struct bitcoin_tx *last_tx,
+			    struct bitcoin_tx *last_tx STEALS,
 			    const struct bitcoin_signature *last_sig,
 			    /* NULL or stolen */
-			    secp256k1_ecdsa_signature *last_htlc_sigs,
+			    secp256k1_ecdsa_signature *last_htlc_sigs STEALS,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
-			    u8 *remote_shutdown_scriptpubkey,
+			    u8 *remote_shutdown_scriptpubkey STEALS,
 			    const u8 *local_shutdown_scriptpubkey,
 			    u64 final_key_idx,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
-			    struct changed_htlc *last_sent_commit,
+			    struct changed_htlc *last_sent_commit STEALS,
 			    u32 first_blocknum,
 			    u32 min_possible_feerate,
 			    u32 max_possible_feerate,
@@ -178,10 +177,10 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 feerate_base,
 			    u32 feerate_ppm,
 			    /* NULL or stolen */
-			    const u8 *remote_upfront_shutdown_script,
+			    const u8 *remote_upfront_shutdown_script STEALS,
 			    bool option_static_remotekey);
 
-void delete_channel(struct channel *channel);
+void delete_channel(struct channel *channel STEALS);
 
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);

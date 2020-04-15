@@ -112,7 +112,7 @@ static void destroy_channel(struct channel *channel)
 	list_del_from(&channel->peer->channels, &channel->list);
 }
 
-void delete_channel(struct channel *channel)
+void delete_channel(struct channel *channel STEALS)
 {
 	struct peer *peer = channel->peer;
 	wallet_channel_close(channel->peer->ld->wallet, channel->dbid);
