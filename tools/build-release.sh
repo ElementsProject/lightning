@@ -7,7 +7,7 @@ if [ x"$1" = x"--inside-docker" ]; then
     git clone /src /build
     cd /build
     ./configure
-    make -j3
+    make
     make install DESTDIR=/"$VER"
     cd /"$VER" && tar cvfz /release/clightning-"$VER".tar.gz -- *
     exit 0
