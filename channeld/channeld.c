@@ -2046,6 +2046,27 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	 */
 	/* In our case, we consider ourselves already committed to this, so
 	 * retransmission is simplest. */
+	/* We need to send fulfills/failures before adds, so we split them
+	 * up into two loops -- this is the 'fulfill/fail' loop */
+	for (i = 0; i < tal_count(last); i++) {
+		const struct htlc *h;
+
+		h = channel_get_htlc(peer->channel,
+				     htlc_state_owner(last[i].newstate),
+				     last[i].id);
+		/* I think this can happen if we actually received revoke_and_ack
+		 * then they asked for a retransmit */
+		if (!h)
+			peer_failed(peer->pps,
+				    &peer->channel_id,
+				    "Can't find HTLC %"PRIu64" to resend",
+				    last[i].id);
+
+		if (h->state == SENT_REMOVE_COMMIT)
+			send_fail_or_fulfill(peer, h);
+	}
+	/* We need to send fulfills/failures before adds, so we split them
+	 * up into two loops -- this is the 'add' loop */
 	for (i = 0; i < tal_count(last); i++) {
 		const struct htlc *h;
 
@@ -2082,8 +2103,6 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 #endif
 				);
 			sync_crypto_write(peer->pps, take(msg));
-		} else if (h->state == SENT_REMOVE_COMMIT) {
-			send_fail_or_fulfill(peer, h);
 		}
 	}
 
