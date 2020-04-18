@@ -701,6 +701,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
     """ Test that the penalizing node claims any published
@@ -842,6 +843,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 def test_penalty_htlc_tx_timeout(node_factory, bitcoind):
     """ Test that the penalizing node claims any published
