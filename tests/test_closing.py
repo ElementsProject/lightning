@@ -562,17 +562,31 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
 
     # FIXME: test HTLC tx race!
 
-    # 100 blocks later, all resolved.
     bitcoind.generate_block(100)
 
-    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+    sync_blockheight(bitcoind, [l2])
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
+    # Do one last pass over the logs to extract the reactions l2 sent
+    l2.daemon.logsearch_start = needle
+    needles = [
+        # The first needle will match, but since we don't have a direct output
+        # for l2 it won't result in an output, hence the comment:
+        # r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_REVOKED_UNILATERAL .([a-f0-9]{64}).',
+        r'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
+        r'Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
+    ]
+    matches = list(map(l2.daemon.is_in_log, needles))
+
+    # Now extract the txids for these responses
+    txids = set([re.search(r'\(([0-9a-f]{64})\)', m).group(1) for m in matches])
+
+    # We should have one confirmed output for each of the above reactions in
+    # the list of funds we own.
     outputs = l2.rpc.listfunds()['outputs']
+
     assert [o['status'] for o in outputs] == ['confirmed'] * 2
-    # Allow some lossage for fees.
-    slack = 30000 if chainparams['elements'] else 20000
-    assert sum(o['value'] for o in outputs) < 10**6
-    assert sum(o['value'] for o in outputs) > 10**6 - slack
+    assert set([o['txid'] for o in outputs]) == txids
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -647,14 +661,27 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     # 100 blocks later, all resolved.
     bitcoind.generate_block(100)
 
+    sync_blockheight(bitcoind, [l2])
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
+    # Do one last pass over the logs to extract the reactions l2 sent
+    l2.daemon.logsearch_start = needle
+    needles = [
+        r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_REVOKED_UNILATERAL .([a-f0-9]{64}).',
+        r'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
+        r'Resolved THEIR_REVOKED_UNILATERAL/OUR_HTLC by our proposal OUR_PENALTY_TX .([a-f0-9]{64}).',
+    ]
+    matches = list(map(l2.daemon.is_in_log, needles))
+
+    # Now extract the txids for these responses
+    txids = set([re.search(r'\(([0-9a-f]{64})\)', m).group(1) for m in matches])
+
+    # We should have one confirmed output for each of the above reactions in
+    # the list of funds we own.
     outputs = l2.rpc.listfunds()['outputs']
+
     assert [o['status'] for o in outputs] == ['confirmed'] * 3
-    # Allow some lossage for fees.
-    slack = 30000 if chainparams['elements'] else 20000
-    assert sum(o['value'] for o in outputs) < 10**6
-    assert sum(o['value'] for o in outputs) > 10**6 - slack
+    assert set([o['txid'] for o in outputs]) == txids
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
