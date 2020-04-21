@@ -845,7 +845,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    jcon->buffer + method->start);
 	}
 
-	rpc_hook = tal(NULL, struct rpc_command_hook_payload);
+	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
 	rpc_hook->buffer = tal_dup_talarr(rpc_hook, char, jcon->buffer);
