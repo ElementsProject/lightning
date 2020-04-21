@@ -852,10 +852,10 @@ def test_funding_push(node_factory, bitcoind):
     funds = only_one(l1.rpc.listfunds()['channels'])
     assert funds['channel_sat'] + push_sat == funds['channel_total_sat']
 
-    l1.daemon.wait_for_log('1 coins')
-    # we have to give the file write a second
-    time.sleep(1)
     chanid = first_channel_id(l2, l1)
+    l1.daemon.wait_for_log('coins account: {}'.format(chanid))
+    # give the file write a second
+    time.sleep(1)
     channel_mvts = [
         {'type': 'chain_mvt', 'credit': 0, 'debit': 20000000, 'tag': 'pushed'},
         {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tag': 'deposit'},
