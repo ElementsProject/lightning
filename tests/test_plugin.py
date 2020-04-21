@@ -1434,22 +1434,29 @@ def test_coin_movement_notices(node_factory, bitcoind):
 
     # restart to test index
     l2.restart()
+    wait_for(lambda: all(p['channels'][0]['state'] == 'CHANNELD_NORMAL' for p in l2.rpc.listpeers()['peers']))
 
-    # close the channel down
+    # close the channels down
     chan1 = l2.get_channel_scid(l1)
     chan3 = l2.get_channel_scid(l3)
     chanid_1 = first_channel_id(l2, l1)
     chanid_3 = first_channel_id(l2, l3)
 
     l2.rpc.close(chan1)
-    l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+    l2.daemon.wait_for_logs([
+        ' to CLOSINGD_COMPLETE',
+        'sendrawtx exit 0',
+    ])
     assert account_balance(l2, chanid_1) == 100001001
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l2])
     l2.daemon.wait_for_log('{}.*FUNDING_TRANSACTION/FUNDING_OUTPUT->MUTUAL_CLOSE depth'.format(l1.info['id']))
 
     l2.rpc.close(chan3)
-    l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+    l2.daemon.wait_for_logs([
+        ' to CLOSINGD_COMPLETE',
+        'sendrawtx exit 0',
+    ])
     assert account_balance(l2, chanid_3) == 950000501
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l2])
