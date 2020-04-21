@@ -694,6 +694,25 @@ def test_invoice_payment_notification(node_factory):
                            .format(label, preimage, msats))
 
 
+@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+def test_invoice_creation_notification(node_factory):
+    """
+    Test the 'invoice_creation' notification
+    """
+    opts = [{}, {"plugin": os.path.join(os.getcwd(), "contrib/plugins/helloworld.py")}]
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    msats = 12345
+    preimage = '1' * 64
+    label = "a_descriptive_label"
+    inv1 = l2.rpc.invoice(msats, label, 'description', preimage=preimage)
+    l1.rpc.dev_pay(inv1['bolt11'], use_shadow=False)
+
+    l2.daemon.wait_for_log(r"Received invoice_creation event for label {},"
+                           " preimage {}, and amount of {}msat"
+                           .format(label, preimage, msats))
+
+
 def test_channel_opened_notification(node_factory):
     """
     Test the 'channel_opened' notification sent at channel funding success.

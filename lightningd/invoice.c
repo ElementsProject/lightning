@@ -720,6 +720,8 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	json_add_u64(response, "expires_at", details->expiry_time);
 	json_add_string(response, "bolt11", details->bolt11);
 
+	notify_invoice_creation(info->cmd->ld, *info->b11->msat, info->payment_preimage, info->label);
+
 	/* Warn if there's not sufficient incoming capacity. */
 	if (tal_count(info->b11->routes) == 0) {
 		log_unusual(info->cmd->ld->log,

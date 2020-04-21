@@ -47,6 +47,9 @@ void notify_warning(struct lightningd *ld, struct log_entry *l);
 void notify_invoice_payment(struct lightningd *ld, struct amount_msat amount,
 			    struct preimage preimage, const struct json_escape *label);
 
+void notify_invoice_creation(struct lightningd *ld, struct amount_msat amount,
+			    struct preimage preimage, const struct json_escape *label);
+
 void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
 			   bool *funding_locked);

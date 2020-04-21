@@ -334,6 +334,20 @@ A notification for topic `invoice_payment` is sent every time an invoie is paid.
     "msat": "10000msat"
   }
 }
+
+```
+### `invoice_creation`
+
+A notification for topic `invoice_creation` is sent every time an invoie is paid.
+
+```json
+{
+  "invoice_creation": {
+    "label": "unique-label-for-invoice",
+    "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+    "msat": "10000msat"
+  }
+}
 ```
 
 ### `warning`

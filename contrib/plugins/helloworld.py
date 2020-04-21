@@ -48,6 +48,14 @@ def on_payment(plugin, invoice_payment, **kwargs):
                                           invoice_payment.get("msat")))
 
 
+@plugin.subscribe("invoice_creation")
+def on_invoice_creation(plugin, invoice_creation, **kwargs):
+    plugin.log("Received invoice_payment event for label {}, preimage {},"
+               " and amount of {}".format(invoice_creation.get("label"),
+                                          invoice_creation.get("preimage"),
+                                          invoice_creation.get("msat")))
+
+
 @plugin.hook("htlc_accepted")
 def on_htlc_accepted(onion, htlc, plugin, **kwargs):
     plugin.log('on_htlc_accepted called')

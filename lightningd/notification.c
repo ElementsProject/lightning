@@ -140,6 +140,37 @@ void notify_invoice_payment(struct lightningd *ld, struct amount_msat amount,
 	plugins_notify(ld->plugins, take(n));
 }
 
+static void invoice_creation_notification_serialize(struct json_stream *stream,
+						   struct amount_msat amount,
+						   struct preimage preimage,
+						   const struct json_escape *label)
+{
+	json_object_start(stream, "invoice_creation");
+	json_add_string(stream, "msat",
+			type_to_string(tmpctx, struct amount_msat, &amount));
+	json_add_hex(stream, "preimage", &preimage, sizeof(preimage));
+	json_add_escaped_string(stream, "label", label);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(invoice_creation,
+		      invoice_creation_notification_serialize)
+
+void notify_invoice_creation(struct lightningd *ld, struct amount_msat amount,
+			    struct preimage preimage, const struct json_escape *label)
+{
+	void (*serialize)(struct json_stream *,
+			  struct amount_msat,
+			  struct preimage,
+			  const struct json_escape *) = invoice_creation_notification_gen.serialize;
+
+	struct jsonrpc_notification *n
+		= jsonrpc_notification_start(NULL, invoice_creation_notification_gen.topic);
+	serialize(n->stream, amount, preimage, label);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
+
 static void channel_opened_notification_serialize(struct json_stream *stream,
 						  struct node_id *node_id,
 						  struct amount_sat *funding_sat,
