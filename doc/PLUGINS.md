@@ -324,7 +324,7 @@ to a peer was lost.
 
 ### `invoice_payment`
 
-A notification for topic `invoice_payment` is sent every time an invoie is paid.
+A notification for topic `invoice_payment` is sent every time an invoice is paid.
 
 ```json
 {
@@ -338,7 +338,7 @@ A notification for topic `invoice_payment` is sent every time an invoie is paid.
 ```
 ### `invoice_creation`
 
-A notification for topic `invoice_creation` is sent every time an invoie is paid.
+A notification for topic `invoice_creation` is sent every time an invoice is created.
 
 ```json
 {
