@@ -42,18 +42,14 @@ def on_disconnect(plugin, id, **kwargs):
 
 @plugin.subscribe("invoice_payment")
 def on_payment(plugin, invoice_payment, **kwargs):
-    plugin.log("Received invoice_payment event for label {}, preimage {},"
-               " and amount of {}".format(invoice_payment.get("label"),
-                                          invoice_payment.get("preimage"),
-                                          invoice_payment.get("msat")))
+    plugin.log("Received invoice_payment event for label {label}, preimage {preimage},"
+               " and amount of {msat}".format(**invoice_payment))
 
 
 @plugin.subscribe("invoice_creation")
 def on_invoice_creation(plugin, invoice_creation, **kwargs):
-    plugin.log("Received invoice_creation event for label {}, preimage {},"
-               " and amount of {}".format(invoice_creation.get("label"),
-                                          invoice_creation.get("preimage"),
-                                          invoice_creation.get("msat")))
+    plugin.log("Received invoice_creation event for label {label}, preimage {preimage},"
+               " and amount of {msat}".format(**invoice_creation))
 
 
 @plugin.hook("htlc_accepted")
