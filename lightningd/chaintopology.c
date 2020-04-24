@@ -516,8 +516,7 @@ static struct command_result *json_feerates(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_object_start(response, json_feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
-		if (!feerates[i] || feerates[i] == FEERATE_MIN
-		    || feerates[i] == FEERATE_MAX)
+		if (!feerates[i] || i == FEERATE_MIN || i == FEERATE_MAX)
 			continue;
 		json_add_num(response, feerate_name(i),
 			     feerate_to_style(feerates[i], *style));
