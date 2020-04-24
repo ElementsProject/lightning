@@ -10,7 +10,8 @@ Install
 7. [Android](#to-cross-compile-for-android)
 8. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
 9. [Armbian](#to-compile-for-armbian)
-10. [Additional steps](#additional-steps)
+10. [Alpine](#to-compile-for-alpine)
+11. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -336,6 +337,33 @@ You can compile in `customize-image.sh` using the instructions for Ubuntu.
 
 A working example that compiles both bitcoind and c-lightning for Armbian can
 be found [here](https://github.com/Sjors/armbian-bitcoin-core).
+
+To compile for Alpine
+---------------------
+Get dependencies:
+```
+apk update
+apk add ca-certificates alpine-sdk autoconf automake git libtool \
+  gmp-dev sqlite-dev python python3 py3-mako net-tools zlib-dev libsodium gettext
+```
+Clone lightning:
+```
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
+git submodule update --init
+```
+Build and install:
+```
+./configure
+make
+make install
+```
+Clean up:
+```
+cd .. && rm -rf lightning
+apk del ca-certificates alpine-sdk autoconf automake git libtool \
+  gmp-dev sqlite python3 py3-mako net-tools zlib-dev libsodium gettext
+```
 
 Additional steps
 --------------------
