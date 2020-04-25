@@ -972,7 +972,7 @@ The plugin must respond to `getchainfo` with the following fields:
 
 ### `estimatefees`
 
-Polled by `lightningd` to get the current feerate, all values must be passed in BTC/kVB.
+Polled by `lightningd` to get the current feerate, all values must be passed in sat/kVB.
 
 If fee estimation fails, the plugin must set all the fields to `null`.
 
