@@ -13,8 +13,8 @@ PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:.c=.o)
 PLUGIN_KEYSEND_SRC := plugins/keysend.c
 PLUGIN_KEYSEND_OBJS := $(PLUGIN_KEYSEND_SRC:.c=.o)
 
-PLUGIN_LIB_SRC := plugins/libplugin.c
-PLUGIN_LIB_HEADER := plugins/libplugin.h
+PLUGIN_LIB_SRC := plugins/libplugin.c plugins/libplugin-pay.c
+PLUGIN_LIB_HEADER := plugins/libplugin.h plugins/libplugin-pay.h
 PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:.c=.o)
 
 PLUGIN_COMMON_OBJS :=				\
