@@ -6,7 +6,7 @@ import base58
 import bitstring
 import hashlib
 import re
-import secp256k1
+import coincurve
 import time
 import struct
 
@@ -180,14 +180,14 @@ class Invoice(object):
 
     def __str__(self):
         return "Invoice[{}, amount={}{} tags=[{}]]".format(
-            hexlify(self.pubkey.serialize()).decode('utf-8'),
+            hexlify(self.pubkey.format()).decode('utf-8'),
             self.amount, self.currency,
             ", ".join([k + '=' + str(v) for k, v in self.tags])
         )
 
     @property
     def hexpubkey(self):
-        return hexlify(self.pubkey.serialize()).decode('ASCII')
+        return hexlify(self.pubkey.format()).decode('ASCII')
 
     @property
     def hexpaymenthash(self):
@@ -273,11 +273,8 @@ class Invoice(object):
             raise ValueError("Must include either 'd' or 'h'")
 
         # We actually sign the hrp, then data (padded to 8 bits with zeroes).
-        privkey = secp256k1.PrivateKey(bytes(unhexlify(privkey)))
-        sig = privkey.ecdsa_sign_recoverable(bytearray([ord(c) for c in hrp]) + data.tobytes())
-        # This doesn't actually serialize, but returns a pair of values :(
-        sig, recid = privkey.ecdsa_recoverable_serialize(sig)
-        data += bytes(sig) + bytes([recid])
+        privkey = coincurve.PrivateKey(secret=bytes(unhexlify(privkey)))
+        data += privkey.sign_recoverable(bytearray([ord(c) for c in hrp]) + data.tobytes())
 
         return bech32_encode(hrp, bitarray_to_u5(data))
 
@@ -374,8 +371,7 @@ class Invoice(object):
                 if data_length != 53:
                     inv.unknown_tags.append((tag, tagdata))
                     continue
-                inv.pubkey = secp256k1.PublicKey(flags=secp256k1.ALL_FLAGS)
-                inv.pubkey.deserialize(trim_to_bytes(tagdata))
+                inv.pubkey = coincurve.PublicKey(trim_to_bytes(tagdata))
 
             elif tag == 'c':
                 inv.min_final_cltv_expiry = tagdata.uint
@@ -395,11 +391,11 @@ class Invoice(object):
             if not inv.pubkey.ecdsa_verify(bytearray([ord(c) for c in hrp]) + data.tobytes(), inv.signature):
                 raise ValueError('Invalid signature')
         else:  # Recover pubkey from signature.
-            inv.pubkey = secp256k1.PublicKey(flags=secp256k1.ALL_FLAGS)
-            inv.signature = inv.pubkey.ecdsa_recoverable_deserialize(
-                sigdecoded[0:64], sigdecoded[64])
-            inv.pubkey.public_key = inv.pubkey.ecdsa_recover(
-                bytearray([ord(c) for c in hrp]) + data.tobytes(), inv.signature)
+            inv.signature = coincurve.ecdsa.deserialize_recoverable(
+                sigdecoded[0:65])
+            inv.pubkey = coincurve.PublicKey.from_signature_and_message(
+                sigdecoded[0:65],
+                bytearray([ord(c) for c in hrp]) + data.tobytes())
 
         return inv
 
