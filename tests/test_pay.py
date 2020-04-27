@@ -2961,12 +2961,18 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
         l1.rpc.pay(bolt11=inv['bolt11'], maxfeepercent=0, exemptfee=0)
 
 
+@pytest.mark.xfail(strict=True)
 def test_keysend(node_factory):
     # Use a temporary python plugin until we implement a native one
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/keysend.py')
     opts = {'plugin': plugin_path}
     amt = 10000
     l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+
+    # The keysend featurebit must be set in the announcement, i.e., l1 should
+    # learn that l3 supports keysends.
+    features = l1.rpc.listnodes(l3.info['id'])['nodes'][0]['features']
+    assert(int(features, 16) >> 55 & 0x01 == 1)
 
     # Send an indirect one from l1 to l3
     l1.rpc.keysend(l3.info['id'], amt)
