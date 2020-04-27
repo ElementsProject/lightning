@@ -119,12 +119,12 @@ The `dynamic` indicates if the plugin can be managed after `lightningd`
 has been started. Critical plugins that should not be stopped should set it
 to false.
 
-The `features` object allows the plugin to register featurebits that should be
+The `featurebits` object allows the plugin to register featurebits that should be
 announced in a number of places in [the protocol][bolt9]. They can be used to signal
 support for custom protocol extensions to direct peers, remote nodes and in
 invoices. Custom protocol extensions can be implemented for example using the
 `sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and
-the `htlc_accepted` hook. The keys in the `features` object are `node` for
+the `htlc_accepted` hook. The keys in the `featurebits` object are `node` for
 features that should be announced via the `node_announcement` to all nodes in
 the network, `init` for features that should be announced to direct peers
 during the connection setup, `channel` for features which should apply to `channel_announcement`, and `invoice` for features that should be

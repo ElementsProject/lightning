@@ -604,7 +604,7 @@ handle_getmanifest(struct command *getmanifest_cmd)
 	json_array_end(params);
 
 	if (p->our_features != NULL) {
-		json_object_start(params, "features");
+		json_object_start(params, "featurebits");
 		for (size_t i = 0; i < NUM_FEATURE_PLACE; i++) {
 			u8 *f = p->our_features->bits[i];
 			const char *fieldname = feature_place_names[i];
