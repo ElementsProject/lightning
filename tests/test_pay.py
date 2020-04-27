@@ -2961,7 +2961,6 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
         l1.rpc.pay(bolt11=inv['bolt11'], maxfeepercent=0, exemptfee=0)
 
 
-@pytest.mark.xfail(strict=True)
 def test_keysend(node_factory):
     # Use a temporary python plugin until we implement a native one
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/keysend.py')
