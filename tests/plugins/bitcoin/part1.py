@@ -33,5 +33,6 @@ def getchaininfo(plugin, **kwargs):
 plugin.add_option("bitcoin-rpcuser", "", "")
 plugin.add_option("bitcoin-rpcpassword", "", "")
 plugin.add_option("bitcoin-rpcport", "", "")
+plugin.add_option("bitcoin-datadir", "", "")
 
 plugin.run()
