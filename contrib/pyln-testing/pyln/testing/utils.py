@@ -488,6 +488,9 @@ class LightningD(TailableProc):
             'ignore-fee-limits': 'false',
             'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
             'bitcoin-rpcpassword': BITCOIND_CONFIG['rpcpassword'],
+
+            # Make sure we don't touch any existing config files in the user's $HOME
+            'bitcoin-datadir': lightning_dir,
         }
 
         for k, v in opts.items():
