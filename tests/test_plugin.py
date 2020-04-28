@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
 from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
-    DEPRECATED_APIS, expected_features
+    DEPRECATED_APIS, expected_peer_features, expected_node_features
 )
 
 import json
@@ -946,7 +946,7 @@ def test_plugin_feature_announce(node_factory):
     # Check the featurebits we've set in the `init` message from
     # feature-test.py. (1 << 101) results in 13 bytes featutebits (000d) and
     # has a leading 0x20.
-    assert l1.daemon.is_in_log(r'\[OUT\] 001000.*000d20{:0>24}'.format(expected_features()))
+    assert l1.daemon.is_in_log(r'\[OUT\] 001000.*000d20{:0>24}'.format(expected_peer_features()))
 
     # Check the invoice featurebit we set in feature-test.py
     inv = l1.rpc.invoice(123, 'lbl', 'desc')['bolt11']
@@ -1176,8 +1176,8 @@ def test_feature_set(node_factory):
     l1 = node_factory.get_node(options={"plugin": plugin})
 
     fs = l1.rpc.call('getfeatureset')
-    assert fs['init'] == expected_features()
-    assert fs['node'] == expected_features()
+    assert fs['init'] == expected_peer_features()
+    assert fs['node'] == expected_node_features()
     assert fs['channel'] == ''
     assert 'invoice' in fs
 
