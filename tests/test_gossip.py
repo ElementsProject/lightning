@@ -1456,7 +1456,7 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2.restart()
 
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store_compact_offline: [5-8] deleted, 9 copied'))
-    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1452 bytes'))
+    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1460 bytes'))
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
