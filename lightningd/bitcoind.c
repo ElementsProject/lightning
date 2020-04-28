@@ -40,20 +40,20 @@ static const char *methods[] = {"getchaininfo", "getrawblockbyheight",
                                 "sendrawtransaction", "getutxout",
                                 "estimatefees"};
 
+static void bitcoin_destructor(struct plugin *p)
+{
+	if (p->plugins->ld->state == LD_STATE_SHUTDOWN)
+		return;
+	fatal("The Bitcoin backend died.");
+}
+
 static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *toks,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	tal_free(plugin->timeout_timer);
 	plugin->plugin_state = CONFIGURED;
 	io_break(plugin);
-}
-
-static void plugin_config_timeout(void *unused UNUSED)
-{
-	fatal("Timed out while waiting for (one of) the Bitcoin backend "
-	      "plugin(s) to complete the handshake.");
 }
 
 static void config_plugin(struct plugin *plugin)
@@ -66,11 +66,7 @@ static void config_plugin(struct plugin *plugin)
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
 
-	/* Don't hang forever if the plugin encountered a problem at init. */
-	plugin->timeout_timer
-		= new_reltimer(plugin->plugins->ld->timers, NULL,
-			       time_from_sec(BITCOIN_INIT_TIMEOUT),
-			       plugin_config_timeout, NULL);
+	tal_add_destructor(plugin, bitcoin_destructor);
 
 	io_loop_with_timers(plugin->plugins->ld);
 }
