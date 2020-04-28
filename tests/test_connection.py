@@ -6,7 +6,7 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT,
-    SLOW_MACHINE, expected_features
+    SLOW_MACHINE, expected_peer_features, expected_node_features
 )
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
@@ -1558,7 +1558,8 @@ def test_forget_channel(node_factory):
 
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
-    lfeatures = expected_features()
+    lfeatures = expected_peer_features()
+    nfeatures = expected_node_features()
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
@@ -1576,11 +1577,11 @@ def test_peerinfo(node_factory, bitcoind):
     nodes2 = l2.rpc.listnodes(l2.info['id'])['nodes']
     peer1 = l1.rpc.getpeer(l2.info['id'])
     peer2 = l2.rpc.getpeer(l1.info['id'])
-    assert only_one(nodes1)['features'] == peer1['features']
-    assert only_one(nodes2)['features'] == peer2['features']
-
-    assert l1.rpc.getpeer(l2.info['id'])['features'] == lfeatures
-    assert l2.rpc.getpeer(l1.info['id'])['features'] == lfeatures
+    # peer features != to node features now because of keysend, which adds a node feature
+    assert only_one(nodes1)['features'] == nfeatures
+    assert only_one(nodes2)['features'] == nfeatures
+    assert peer1['features'] == lfeatures
+    assert peer2['features'] == lfeatures
 
     # If it reconnects after db load, it should know features.
     l1.restart()
@@ -1813,7 +1814,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2 = node_factory.get_node(may_reconnect=True, options={'log-level': 'io'},
                                feerates=(7500, 7500, 7500, 7500), allow_broken_log=True)
 
-    lf = expected_features()
+    lf = expected_peer_features()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
@@ -2236,7 +2237,7 @@ def test_pay_disconnect_stress(node_factory, executor):
 
 
 def test_wumbo_channels(node_factory, bitcoind):
-    f = bytes.fromhex(expected_features())
+    f = bytes.fromhex(expected_peer_features())
 
     # OPT_LARGE_CHANNELS = 18 (19 for us). 0x080000
     f = (f[:-3] + bytes([f[-3] | 0x08]) + f[-2:]).hex()
