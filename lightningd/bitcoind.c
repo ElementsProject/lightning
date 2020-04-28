@@ -238,8 +238,6 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->arg = arg;
 
-	/* No parameter needed, we always want an urgent, normal and slow
-	 * feerate. This gives computation flexibility to the plugin. */
 	req = jsonrpc_request_start(bitcoind, "estimatefees", bitcoind->log,
 				    estimatefees_callback, call);
 	jsonrpc_request_end(req);
