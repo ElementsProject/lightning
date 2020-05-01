@@ -53,10 +53,10 @@ EXPERIMENTAL_PEER_PATCHES := $(wildcard wire/extracted_peer_experimental_*)
 EXPERIMENTAL_ONION_PATCHES := $(wildcard wire/extracted_onion_experimental_*)
 
 wire/gen_peer_wire_csv: wire/extracted_peer_wire_csv $(EXPERIMENTAL_PEER_PATCHES)
-	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_PEER_PATCHES); do patch $@.$$$$ $$exp; done; mv $@.$$$$ $@
+	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_PEER_PATCHES); do patch $@.$$$$ $$exp >/dev/null ; done; mv $@.$$$$ $@
 
 wire/gen_onion_wire_csv: wire/extracted_onion_wire_csv $(EXPERIMENTAL_ONION_PATCHES)
-	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_ONION_PATCHES); do patch $@.$$$$ $$exp; done; mv $@.$$$$ $@
+	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_ONION_PATCHES); do patch $@.$$$$ $$exp; done >/dev/null ; mv $@.$$$$ $@
 
 else # /* EXPERIMENTAL_FEATURES */
 wire/gen_peer_wire_csv: wire/extracted_peer_wire_csv
