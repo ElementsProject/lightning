@@ -21,6 +21,12 @@ BOLTVERSION := 4107c69e315b4f33d5b00459bef919bcfaa64bf2
 
 SORT=LC_ALL=C sort
 
+ifeq ($V,1)
+VERBOSE = echo $(2); $(2)
+else
+VERBOSE = echo $(1); $(2)
+endif
+
 ifneq ($(VALGRIND),0)
 VG=VALGRIND=1 valgrind -q --error-exitcode=7
 VG_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
@@ -217,7 +223,11 @@ ifeq ($(HAVE_POSTGRES),1)
 LDLIBS += -lpq
 endif
 
-default: all-programs all-test-programs doc-all
+default: show-flags all-programs all-test-programs doc-all
+
+show-flags:
+	@echo "CC: $(CC) $(CFLAGS) -c -o"
+	@echo "LD: $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
 
 ccan/config.h: config.vars configure ccan/tools/configurator/configurator.c
 	./configure --reconfigure
@@ -225,6 +235,9 @@ ccan/config.h: config.vars configure ccan/tools/configurator/configurator.c
 config.vars:
 	@echo 'File config.vars not found: you must run ./configure before running make.' >&2
 	@exit 1
+
+%.o: %.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 
 include external/Makefile
 include bitcoin/Makefile
@@ -405,7 +418,7 @@ $(ALL_TEST_PROGRAMS): %: %.o
 # uses some ccan modules internally).  We want to rely on -lwallycore etc.
 # (as per EXTERNAL_LDLIBS) so we filter them out here.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
-	$(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o $@
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o $@)
 
 # Everything depends on the CCAN headers, and Makefile
 $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
@@ -580,7 +593,7 @@ installcheck: all-programs
 	@rm -rf testinstall || true
 
 .PHONY: installdirs install-program install-data install uninstall \
-	installcheck ncc bin-tarball
+	installcheck ncc bin-tarball show-flags
 
 # Make a tarball of opt/clightning/, optionally with label for distribution.
 bin-tarball: clightning-$(VERSION)-$(DISTRO).tar.xz
@@ -590,102 +603,102 @@ clightning-$(VERSION)-$(DISTRO).tar.xz: install
 	trap "rm -rf opt" 0; tar cvfa $@ opt/
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-tal-link.o: $(CCANDIR)/ccan/tal/link/link.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-tal-path.o: $(CCANDIR)/ccan/tal/path/path.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-tal-grab_file.o: $(CCANDIR)/ccan/tal/grab_file/grab_file.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-take.o: $(CCANDIR)/ccan/take/take.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-list.o: $(CCANDIR)/ccan/list/list.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-autodata.o: $(CCANDIR)/ccan/autodata/autodata.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-ptr_valid.o: $(CCANDIR)/ccan/ptr_valid/ptr_valid.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-str.o: $(CCANDIR)/ccan/str/str.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-opt.o: $(CCANDIR)/ccan/opt/opt.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-opt-helpers.o: $(CCANDIR)/ccan/opt/helpers.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-opt-parse.o: $(CCANDIR)/ccan/opt/parse.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-opt-usage.o: $(CCANDIR)/ccan/opt/usage.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-err.o: $(CCANDIR)/ccan/err/err.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-noerr.o: $(CCANDIR)/ccan/noerr/noerr.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-str-hex.o: $(CCANDIR)/ccan/str/hex/hex.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crc32c.o: $(CCANDIR)/ccan/crc32c/crc32c.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crypto-hmac.o: $(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crypto-hkdf.o: $(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
-	$(CC) $(CFLAGS) -DSHACHAIN_BITS=48 -c -o $@ $<
+	@$(call VERBOSE, "cc $< -DSHACHAIN_BITS=48", $(CC) $(CFLAGS) -DSHACHAIN_BITS=48 -c -o $@ $<)
 ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-ilog.o: $(CCANDIR)/ccan/ilog/ilog.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-intmap.o: $(CCANDIR)/ccan/intmap/intmap.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-time.o: $(CCANDIR)/ccan/time/time.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-io-fdpass.o: $(CCANDIR)/ccan/io/fdpass/fdpass.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-fdpass.o: $(CCANDIR)/ccan/fdpass/fdpass.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-bitmap.o: $(CCANDIR)/ccan/bitmap/bitmap.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-json_escape.o: $(CCANDIR)/ccan/json_escape/json_escape.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-json_out.o: $(CCANDIR)/ccan/json_out/json_out.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
