@@ -381,8 +381,7 @@ static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_amount_sat_only(response, "amount", output.amount);
-	json_add_string(response, "script",
-			tal_hexstr(response, output.script, sizeof(output.script)));
+	json_add_string(response, "script", tal_hex(response, output.script));
 
 	return command_finished(bcli->cmd, response);
 }
