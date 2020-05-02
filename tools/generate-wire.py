@@ -547,6 +547,9 @@ def main(options, args=None, output=sys.stdout, lines=None):
 
     # Create a new 'master' that serves as the coordinator for the file generation
     master = Master()
+    for i in options.include:
+        master.add_include('#include <{}>'.format(i))
+
     try:
         while True:
             ln, line = next(genline)
@@ -689,6 +692,7 @@ if __name__ == "__main__":
                         action="store_true", default=False)
     parser.add_argument("--page", choices=['header', 'impl'], help="page to print")
     parser.add_argument('--expose-tlv-type', action='append', default=[])
+    parser.add_argument('--include', action='append', default=[])
     parser.add_argument('header_filename', help='The filename of the header')
     parser.add_argument('enum_name', help='The name of the enum to produce')
     parser.add_argument("files", help='Files to read in (or stdin)', nargs=REMAINDER)
