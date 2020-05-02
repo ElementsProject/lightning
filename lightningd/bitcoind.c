@@ -30,11 +30,6 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/plugin.h>
 
-/* How many seconds will we wait for our Bitcoin plugin to respond to `init` ?
- * Note that bcli waits for bitcoind to be warmed up before responding, so it
- * shouldn't be too low. */
-#define BITCOIN_INIT_TIMEOUT 30
-
 /* The names of the requests we can make to our Bitcoin backend. */
 static const char *methods[] = {"getchaininfo", "getrawblockbyheight",
                                 "sendrawtransaction", "getutxout",
