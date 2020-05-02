@@ -85,6 +85,8 @@ struct pay_command {
 
 	/* How much we're paying, and what riskfactor for routing. */
 	struct amount_msat msat;
+	/* Blank amount to pay, without fees and shadow route(s). */
+	struct amount_msat initial_msat;
 	/* riskfactor 12.345% -> riskfactor_millionths = 12345000 */
 	u64 riskfactor_millionths;
 	unsigned int final_cltv;
@@ -1046,6 +1048,12 @@ static struct command_result *add_shadow_route(struct command *cmd,
 	size_t i;
 	u64 sample = 0;
 	struct route_info *route = tal_arr(NULL, struct route_info, 1);
+	struct amount_msat fees, maxfees;
+	/* Don't go above this. Note how we use the initial amount to get the percentage
+	 * of the fees, or it would increase with the addition of new shadow routes. */
+	if (!amount_msat_fee(&maxfees, pc->initial_msat, 0, pc->maxfee_pct_millionths))
+		plugin_err(cmd->plugin, "Overflow when computing maxfees for "
+					"shadow routes.");
 
 	json_for_each_arr(i, chan, channels) {
 		u64 v = pseudorand(UINT64_MAX);
@@ -1067,6 +1075,11 @@ static struct command_result *add_shadow_route(struct command *cmd,
 			               &route[0].fee_base_msat);
 			json_to_number(buf, json_get_member(buf, chan, "fee_per_millionth"),
 			               &route[0].fee_proportional_millionths);
+
+			if (!amount_msat_fee(&fees, pc->initial_msat, route[0].fee_base_msat,
+					    route[0].fee_proportional_millionths)
+			    || amount_msat_greater_eq(fees, maxfees))
+				continue;
 
 			best = chan;
 			sample = v;
@@ -1313,13 +1326,13 @@ static struct command_result *json_pay(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter unnecessary");
 		}
-		pc->msat = *b11->msat;
+		pc->msat = pc->initial_msat = *b11->msat;
 	} else {
 		if (!msat) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter required");
 		}
-		pc->msat = *msat;
+		pc->msat = pc->initial_msat = *msat;
 	}
 
 	/* Sanity check */
