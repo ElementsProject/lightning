@@ -452,7 +452,6 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     fut2.result(10)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_pay_maxfee_shadow(node_factory):
     """Test that we respect maxfeepercent for shadow routing."""
