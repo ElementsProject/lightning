@@ -8,7 +8,7 @@ if [ "$EXPOSE_TCP" == "true" ]; then
 
     echo "C-Lightning starting"
     while read -r i; do if [ "$i" = "lightning-rpc" ]; then break; fi; done \
-    < <(inotifywait  -e create,open --format '%f' --quiet "$LIGHTNINGD_DATA" --monitor)
+    < <(inotifywait -r -e create,open --format '%f' --quiet "$LIGHTNINGD_DATA" --monitor)
     echo "C-Lightning started"
     echo "C-Lightning started, RPC available on port $LIGHTNINGD_RPC_PORT"
 
