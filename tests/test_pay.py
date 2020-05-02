@@ -452,6 +452,35 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     fut2.result(10)
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
+def test_pay_maxfee_shadow(node_factory):
+    """Test that we respect maxfeepercent for shadow routing."""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True,
+                                         wait_for_announce=True)
+    # We use this to search for shadow routes
+    wait_for(
+        lambda: len(l1.rpc.listchannels(source=l2.info["id"])["channels"]) > 1
+    )
+
+    # shadow routes are random, so run multiple times.
+    for i in range(5):
+        # A tiny amount, we must not add the base_fee between l2 and l3
+        amount = 2
+        bolt11 = l2.rpc.invoice(amount, "tiny.{}".format(i), "tiny")["bolt11"]
+        pay_status = l1.rpc.pay(bolt11)
+        assert pay_status["amount_msat"] == Millisatoshi(amount)
+
+    # shadow routes are random, so run multiple times.
+    for i in range(5):
+        # A bigger amount, shadow routing could have been used but we set a low
+        # maxfeepercent.
+        amount = 20000
+        bolt11 = l2.rpc.invoice(amount, "big.{}".format(i), "bigger")["bolt11"]
+        pay_status = l1.rpc.pay(bolt11, maxfeepercent="0.000001")
+        assert pay_status["amount_msat"] == Millisatoshi(amount)
+
+
 def test_sendpay(node_factory):
     l1, l2 = node_factory.line_graph(2, fundamount=10**6)
 
