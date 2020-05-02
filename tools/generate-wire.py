@@ -500,10 +500,11 @@ class Master(object):
     def write(self, options, output):
         template = self.find_template(options)
         enum_sets = []
-        enum_sets.append({
-            'name': options.enum_name,
-            'set': self.messages.values(),
-        })
+        if len(self.messages.values()) != 0:
+            enum_sets.append({
+                'name': options.enum_name,
+                'set': self.messages.values(),
+            })
         stuff = {}
         stuff['top_comments'] = self.top_comments
         stuff['options'] = options
