@@ -422,7 +422,7 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos);
  *
  * FIXME: This is very slow with lots of inputs!
  *
- * @w: (in) allet holding the pubkeys to check against (privkeys are on HSM)
+ * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
  * @script: (in) the script to check
  * @index: (out) the bip32 derivation index that matched the script
  * @output_is_p2sh: (out) whether the script is a p2sh, or p2wpkh
