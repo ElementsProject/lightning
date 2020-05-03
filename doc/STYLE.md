@@ -184,7 +184,7 @@ c-lightning, and to make things more pleasant for contributors.
 
 ### Changelog Entries in Commit Messages
 
-We are maintaining a chanelog in the top-level directory of this
+We are maintaining a changelog in the top-level directory of this
 project. However since every pull request has a tendency to touch the file and
 therefore create merge-conflicts we decided to derive the changelog file from
 the pull requests that were added between releases. In order for a pull
