@@ -254,11 +254,11 @@ static struct connecting *find_connecting(struct daemon *daemon,
 {
 	struct connecting *i;
 
-	/*~ Note the pubkey_eq function: this is generally preferred over
+	/*~ Note the node_id_eq function: this is generally preferred over
 	 * doing a memcmp() manually, as it is both typesafe and can handle
 	 * any padding which the C compiler is allowed to insert between
 	 * members (unnecessary here, as there's no padding in a `struct
-	 * pubkey`). */
+	 * node_id`). */
 	list_for_each(&daemon->connecting, i, list)
 		if (node_id_eq(id, &i->id))
 			return i;
