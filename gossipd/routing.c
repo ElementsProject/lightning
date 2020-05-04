@@ -93,6 +93,8 @@ HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
 struct unupdated_channel {
 	/* The channel_announcement message */
 	const u8 *channel_announce;
+	/* The feature bitmap within it */
+	const u8 *features;
 	/* The short_channel_id */
 	struct short_channel_id scid;
 	/* The ids of the nodes */
@@ -571,7 +573,8 @@ struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct node_id *id1,
 		      const struct node_id *id2,
-		      struct amount_sat satoshis)
+		      struct amount_sat satoshis,
+		      const u8 *features)
 {
 	struct chan *chan = tal(rstate, struct chan);
 	int n1idx = node_id_idx(id1, id2);
@@ -606,6 +609,8 @@ struct chan *new_chan(struct routing_state *rstate,
 	init_half_chan(rstate, chan, n1idx);
 	init_half_chan(rstate, chan, !n1idx);
 
+	/* Stash hint here about whether we have features */
+	chan->half[0].any_features = tal_bytelen(features) != 0;
 	uintmap_add(&rstate->chanmap, scid->u64, chan);
 
 	/* Initialize shadow structure if it's local */
@@ -1651,6 +1656,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	uc = tal(rstate, struct unupdated_channel);
 	uc->channel_announce = tal_dup_talarr(uc, u8, msg);
+	uc->features = tal_steal(uc, features);
 	uc->added = gossip_time_now(rstate);
 	uc->index = index;
 	uc->sat = sat;
@@ -2098,7 +2104,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (uc) {
 		assert(!chan);
 		chan = new_chan(rstate, &short_channel_id,
-				&uc->id[0], &uc->id[1], sat);
+				&uc->id[0], &uc->id[1], sat, uc->features);
 	}
 
 	/* Discard older updates */
@@ -2926,7 +2932,8 @@ bool handle_local_add_channel(struct routing_state *rstate,
 			  type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
+	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat,
+			features);
 	if (!index)
 		index = gossip_store_add(rstate->gs, msg, 0, false, NULL);
 	chan->bcast.index = index;

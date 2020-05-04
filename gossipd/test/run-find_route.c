@@ -142,7 +142,7 @@ static void add_connection(struct routing_state *rstate,
 
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from, to, satoshis);
+		chan = new_chan(rstate, &scid, from, to, satoshis, NULL);
 
 	c = &chan->half[node_id_idx(from, to)];
 	/* Make sure it's seen as initialized (index non-zero). */
