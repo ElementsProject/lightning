@@ -116,6 +116,36 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 	return true;
 }
 
+#ifdef COMPAT_V082
+/* The upgrade from version 7 is trivial */
+static bool can_upgrade(u8 oldversion)
+{
+	return oldversion == 7;
+}
+
+static bool upgrade_field(u8 oldversion, u8 **msg)
+{
+	assert(can_upgrade(oldversion));
+
+	/* We only need to upgrade this */
+	if (fromwire_peektype(*msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL) {
+		/* Append two 0 bytes, for (empty) feature bits */
+		tal_resizez(msg, tal_bytelen(*msg) + 2);
+	}
+	return true;
+}
+#else
+static bool can_upgrade(u8 oldversion)
+{
+	return false;
+}
+
+static bool upgrade_field(u8 oldversion, u8 **msg)
+{
+	abort();
+}
+#endif /* !COMPAT_V082 */
+
 /* Read gossip store entries, copy non-deleted ones.  This code is written
  * as simply and robustly as possible! */
 static u32 gossip_store_compact_offline(void)
@@ -123,7 +153,7 @@ static u32 gossip_store_compact_offline(void)
 	size_t count = 0, deleted = 0;
 	int old_fd, new_fd;
 	struct gossip_hdr hdr;
-	u8 version;
+	u8 oldversion, version = GOSSIP_STORE_VERSION;
 	struct stat st;
 
 	old_fd = open(GOSSIP_STORE_FILENAME, O_RDONLY);
@@ -143,8 +173,8 @@ static u32 gossip_store_compact_offline(void)
 		goto close_old;
 	}
 
-	if (!read_all(old_fd, &version, sizeof(version))
-	    || version != GOSSIP_STORE_VERSION) {
+	if (!read_all(old_fd, &oldversion, sizeof(oldversion))
+	    || (oldversion != version && !can_upgrade(oldversion))) {
 		status_broken("gossip_store_compact: bad version");
 		goto close_and_delete;
 	}
@@ -173,6 +203,19 @@ static u32 gossip_store_compact_offline(void)
 			deleted++;
 			tal_free(msg);
 			continue;
+		}
+
+		if (oldversion != version) {
+			if (!upgrade_field(oldversion, &msg)) {
+				tal_free(msg);
+				goto close_and_delete;
+			}
+
+			/* Recalc msglen and header */
+			msglen = tal_bytelen(msg);
+			hdr.len = cpu_to_be32(msglen);
+			hdr.crc = cpu_to_be32(crc32c(be32_to_cpu(hdr.timestamp),
+						      msg, msglen));
 		}
 
 		if (!write_all(new_fd, &hdr, sizeof(hdr))

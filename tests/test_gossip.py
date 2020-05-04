@@ -4,7 +4,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    wait_for, TIMEOUT, only_one, sync_blockheight, expected_node_features
+    wait_for, TIMEOUT, only_one, sync_blockheight, expected_node_features, COMPAT
 )
 
 import json
@@ -1659,7 +1659,7 @@ def test_torport_onions(node_factory):
     assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:45321,127.0.0.1:{}'.format(l2.port))
 
 
-@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete gossip_store")
 def test_gossip_store_upgrade_v7_v8(node_factory):
     """Version 8 added feature bits to local channel announcements"""
     l1 = node_factory.get_node(start=False)
