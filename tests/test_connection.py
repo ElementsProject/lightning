@@ -1596,7 +1596,8 @@ def test_peerinfo(node_factory, bitcoind):
     wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
-    bitcoind.generate_block(100)
+    # Make sure close tx hits mempool before we mine blocks.
+    bitcoind.generate_block(100, wait_for_mempool=1)
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
