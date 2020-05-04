@@ -2,7 +2,7 @@ from collections import Counter
 from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from pyln.client import RpcError
+from pyln.client import RpcError, Millisatoshi
 from utils import (
     wait_for, TIMEOUT, only_one, sync_blockheight, expected_node_features
 )
@@ -1657,3 +1657,71 @@ def test_torport_onions(node_factory):
 
     assert l1.daemon.is_in_log('45321,127.0.0.1:{}'.format(l1.port))
     assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:45321,127.0.0.1:{}'.format(l2.port))
+
+
+@pytest.mark.xfail(strict=True)
+def test_gossip_store_upgrade_v7_v8(node_factory):
+    """Version 8 added feature bits to local channel announcements"""
+    l1 = node_factory.get_node(start=False)
+
+    # A channel announcement with no channel_update.
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
+        f.write(bytearray.fromhex("07000000428ce4d2d8000000000daf00"
+                                  "00670000010001022d223620a359a47f"
+                                  "f7f7ac447c85c46c923da53389221a00"
+                                  "54c11c1e3ca31d5900000000000f4240"
+                                  "000d8000000000000000000000000000"
+                                  "00008e3af3badf000000001006008a01"
+                                  "02005a9911d425effd461f803a380f05"
+                                  "e72d3332eb6e9a7c6c58405ae61eacde"
+                                  "4e2da18240ffb3d5c595f85e4f78b594"
+                                  "c59e4d01c0470edd4f5afe645026515e"
+                                  "fe06226e46111a0b59caaf126043eb5b"
+                                  "bf28c34f3a5e332a1fc7b2b73cf18891"
+                                  "0f00006700000100015eaa5eb0010100"
+                                  "06000000000000000000000001000000"
+                                  "0a000000003b0233800000008e074a6e"
+                                  "0f000000001006008a0102463de636b2"
+                                  "f46ccd6c23259787fc39dc4fdb983510"
+                                  "1651879325b18cf1bb26330127e51ce8"
+                                  "7a111b05ef92fe00a9a089979dc49178"
+                                  "200f49139a541e7078cdc506226e4611"
+                                  "1a0b59caaf126043eb5bbf28c34f3a5e"
+                                  "332a1fc7b2b73cf188910f0000670000"
+                                  "0100015eaa5eb0010000060000000000"
+                                  "000000000000010000000a000000003b"
+                                  "023380"))
+
+    l1.start()
+
+    assert l1.rpc.listchannels()['channels'] == [
+        {'source': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+         'destination': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+         'short_channel_id': '103x1x1',
+         'public': False,
+         'satoshis': 1000000,
+         'amount_msat': Millisatoshi(1000000000),
+         'message_flags': 1,
+         'channel_flags': 0,
+         'active': False,
+         'last_update': 1588223664,
+         'base_fee_millisatoshi': 1,
+         'fee_per_millionth': 10,
+         'delay': 6,
+         'htlc_minimum_msat': Millisatoshi(0),
+         'htlc_maximum_msat': Millisatoshi(990000000)},
+        {'source': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+         'destination': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+         'short_channel_id': '103x1x1',
+         'public': False,
+         'satoshis': 1000000,
+         'amount_msat': Millisatoshi(1000000000),
+         'message_flags': 1,
+         'channel_flags': 1,
+         'active': False,
+         'last_update': 1588223664,
+         'base_fee_millisatoshi': 1,
+         'fee_per_millionth': 10,
+         'delay': 6,
+         'htlc_minimum_msat': Millisatoshi(0),
+         'htlc_maximum_msat': Millisatoshi(990000000)}]
