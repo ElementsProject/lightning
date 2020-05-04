@@ -1189,11 +1189,11 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
 
     l2.rpc.dev_ignore_htlcs(id=l1.info['id'], ignore=True)
     p1 = executor.submit(l1.pay, l2, 1000000000)
-    l1.daemon.wait_for_log('htlc 0: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+    l2.daemon.wait_for_log('htlc 0: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION')
 
     l1.set_feerates((16000, 11000, 7500, 3750))
     p2 = executor.submit(l1.pay, l2, 900000000)
-    l1.daemon.wait_for_log('htlc 1: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+    l2.daemon.wait_for_log('htlc 1: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION')
 
     # Restart with different feerate for second HTLC.
     l1.set_feerates((5000, 5000, 5000, 3750))
@@ -1201,7 +1201,7 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
     p3 = executor.submit(l1.pay, l2, 800000000)
-    l1.daemon.wait_for_log('htlc 2: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+    l2.daemon.wait_for_log('htlc 2: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION')
 
     # Drop to chain
     l1.rpc.dev_fail(l2.info['id'])
