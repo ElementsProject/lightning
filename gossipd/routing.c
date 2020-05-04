@@ -2904,9 +2904,10 @@ bool handle_local_add_channel(struct routing_state *rstate,
 	struct node_id remote_node_id;
 	struct amount_sat sat;
 	struct chan *chan;
+	u8 *features;
 
-	if (!fromwire_gossipd_local_add_channel(msg, &scid, &remote_node_id,
-						&sat)) {
+	if (!fromwire_gossipd_local_add_channel(msg, msg, &scid, &remote_node_id,
+						&sat, &features)) {
 		status_peer_broken(peer ? &peer->id : NULL,
 				  "Unable to parse local_add_channel message: %s",
 				   tal_hex(msg, msg));

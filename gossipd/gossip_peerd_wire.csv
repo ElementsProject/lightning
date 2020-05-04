@@ -16,6 +16,8 @@ msgtype,gossipd_local_add_channel,3503
 msgdata,gossipd_local_add_channel,short_channel_id,short_channel_id,
 msgdata,gossipd_local_add_channel,remote_node_id,node_id,
 msgdata,gossipd_local_add_channel,satoshis,amount_sat,
+msgdata,gossipd_local_add_channel,flen,u16,
+msgdata,gossipd_local_add_channel,features,u8,flen
 
 # Send this channel_update.
 msgtype,gossipd_local_channel_update,3504
