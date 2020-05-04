@@ -295,7 +295,8 @@ static void fail_out_htlc(struct htlc_out *hout,
 	assert(hout->failmsg || hout->failonion);
 
 	if (hout->am_origin) {
-		payment_failed(hout->key.channel->peer->ld, hout, localfail);
+		payment_failed(hout->key.channel->peer->ld, hout, localfail,
+			       failmsg_needs_update);
 		if (taken(failmsg_needs_update))
 			tal_free(failmsg_needs_update);
 	} else if (hout->in) {
@@ -549,7 +550,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			char *localfail = tal_fmt(msg, "%s: %s",
 						  onion_type_name(fromwire_peektype(failmsg)),
 						  failurestr);
-			payment_failed(ld, hout, localfail);
+			payment_failed(ld, hout, localfail, NULL);
 
 		} else if (hout->in) {
 			struct onionreply *failonion;
@@ -1422,7 +1423,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_type_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);
-		payment_failed(ld, hout, localfail);
+		payment_failed(ld, hout, localfail, NULL);
 		tal_free(localfail);
 	} else if (hout->in) {
 		local_fail_in_htlc(hout->in,
