@@ -18,3 +18,12 @@ def expected_node_features():
     """Return the expected node features hexstring for this configuration"""
     # features 1, 3, 7, 9, 11, 13, 15, 17 and 55 (0x8000000002aaa2).
     return "8000000002aaa2"
+
+
+def expected_channel_features():
+    """Return the expected channel features hexstring for this configuration"""
+    # experimental OPT_ONION_MESSAGES
+    if EXPERIMENTAL_FEATURES:
+        return '80000000000000000000000000'
+    else:
+        return ''

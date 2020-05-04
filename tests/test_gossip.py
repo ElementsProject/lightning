@@ -1709,7 +1709,9 @@ def test_gossip_store_upgrade_v7_v8(node_factory):
          'fee_per_millionth': 10,
          'delay': 6,
          'htlc_minimum_msat': Millisatoshi(0),
-         'htlc_maximum_msat': Millisatoshi(990000000)},
+         'htlc_maximum_msat': Millisatoshi(990000000),
+         # This store was created on an experimental branch (OPT_ONION_MESSAGES)
+         'features': '80000000000000000000000000'},
         {'source': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
          'destination': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
          'short_channel_id': '103x1x1',
@@ -1724,4 +1726,5 @@ def test_gossip_store_upgrade_v7_v8(node_factory):
          'fee_per_millionth': 10,
          'delay': 6,
          'htlc_minimum_msat': Millisatoshi(0),
-         'htlc_maximum_msat': Millisatoshi(990000000)}]
+         'htlc_maximum_msat': Millisatoshi(990000000),
+         'features': '80000000000000000000000000'}]
