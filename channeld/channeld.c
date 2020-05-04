@@ -349,12 +349,16 @@ static const u8 *get_local_channel_update(const tal_t *ctx, struct peer *peer)
 static void make_channel_local_active(struct peer *peer)
 {
 	u8 *msg;
+	const u8 *annfeatures = get_agreed_channelfeatures(tmpctx,
+							   peer->our_features,
+							   peer->their_features);
 
 	/* Tell gossipd about local channel. */
 	msg = towire_gossipd_local_add_channel(NULL,
 					       &peer->short_channel_ids[LOCAL],
 					       &peer->node_ids[REMOTE],
-					       peer->channel->funding);
+					       peer->channel->funding,
+					       annfeatures);
  	wire_sync_write(peer->pps->gossip_fd, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should
