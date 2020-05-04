@@ -41,6 +41,10 @@ struct half_chan {
 	/* Token bucket */
 	u8 tokens;
 
+	/* Feature cache for parent chan: squeezed in here where it would
+	 * otherwise simply be padding. */
+	u8 any_features;
+
 	/* Minimum and maximum number of msatoshi in an HTLC */
 	struct amount_msat htlc_minimum, htlc_maximum;
 };
@@ -361,7 +365,8 @@ struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct node_id *id1,
 		      const struct node_id *id2,
-		      struct amount_sat sat);
+		      struct amount_sat sat,
+		      const u8 *features);
 
 /* Handlers for incoming messages */
 

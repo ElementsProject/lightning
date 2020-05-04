@@ -134,7 +134,7 @@ get_or_make_connection(struct routing_state *rstate,
 		abort();
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from_id, to_id, satoshis);
+		chan = new_chan(rstate, &scid, from_id, to_id, satoshis, NULL);
 
 	/* Make sure it's seen as initialized (index non-zero). */
 	chan->half[idx].bcast.index = 1;
