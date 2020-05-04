@@ -33,6 +33,7 @@ struct gossip_getchannels_entry {
 	bool local_disabled;
 	/* NULL if we haven't received an update */
 	struct gossip_halfchannel_entry *e[2];
+	u8 *features;
 };
 
 struct gossip_getnodes_entry *

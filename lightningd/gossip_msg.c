@@ -143,6 +143,8 @@ fromwire_gossip_getchannels_entry(const tal_t *ctx,
 	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
 	entry->public = fromwire_bool(pptr, max);
 	entry->local_disabled = fromwire_bool(pptr, max);
+	entry->features = fromwire_tal_arrn(entry,
+					    pptr, max, fromwire_u16(pptr, max));
 
 	if (fromwire_bool(pptr, max)) {
 		entry->e[0] = tal(entry, struct gossip_halfchannel_entry);
@@ -180,6 +182,8 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 	towire_short_channel_id(pptr, &entry->short_channel_id);
 	towire_bool(pptr, entry->public);
 	towire_bool(pptr, entry->local_disabled);
+	towire_u16(pptr, tal_bytelen(entry->features));
+	towire_u8_array(pptr, entry->features, tal_bytelen(entry->features));
 	if (entry->e[0]) {
 		towire_bool(pptr, true);
 		towire_gossip_halfchannel_entry(pptr, entry->e[0]);

@@ -966,6 +966,41 @@ static struct gossip_halfchannel_entry *hc_entry(const tal_t *ctx,
 	return e;
 }
 
+/*~ We don't keep channel features in memory; they're rarely used.  So we
+ * remember if it exists, and load it off disk when needed. */
+static u8 *get_channel_features(const tal_t *ctx,
+				struct gossip_store *gs,
+				const struct chan *chan)
+{
+	secp256k1_ecdsa_signature sig;
+	u8 *features;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id short_channel_id;
+	struct node_id node_id;
+	struct pubkey bitcoin_key;
+	struct amount_sat sats;
+	const u8 *ann;
+
+	/* This is where we stash a flag to indicate it exists. */
+	if (!chan->half[0].any_features)
+		return NULL;
+
+	/* Could be a channel_announcement, could be a local_add_channel */
+	ann = gossip_store_get(tmpctx, gs, chan->bcast.index);
+	if (!fromwire_channel_announcement(ctx, ann, &sig, &sig, &sig, &sig,
+					   &features, &chain_hash,
+					   &short_channel_id,
+					   &node_id, &node_id,
+					   &bitcoin_key, &bitcoin_key)
+	    && !fromwire_gossipd_local_add_channel(ctx, ann, &short_channel_id,
+						   &node_id, &sats, &features))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "bad channel_announcement / local_add_channel at %u: %s",
+			      chan->bcast.index, tal_hex(tmpctx, ann));
+
+	return features;
+}
+
 /*~ Marshal (possibly) both channel directions into entries. */
 static void append_channel(struct routing_state *rstate,
 			   const struct gossip_getchannels_entry ***entries,
@@ -980,6 +1015,7 @@ static void append_channel(struct routing_state *rstate,
 	e->local_disabled = is_chan_local_disabled(rstate, chan);
 	e->public = is_chan_public(chan);
 	e->short_channel_id = chan->scid;
+	e->features = get_channel_features(e, rstate->gs, chan);
 	if (!srcfilter || node_id_eq(&e->node[0], srcfilter))
 		e->e[0] = hc_entry(*entries, chan, 0);
 	else
