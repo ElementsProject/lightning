@@ -509,7 +509,7 @@ enum onion_type parse_onionpacket(const u8 *src UNNEEDED,
 { fprintf(stderr, "parse_onionpacket called!\n"); abort(); }
 /* Generated stub for payment_failed */
 void payment_failed(struct lightningd *ld UNNEEDED, const struct htlc_out *hout UNNEEDED,
-		    const char *localfail UNNEEDED)
+		    const char *localfail UNNEEDED, const u8 *failmsg_needs_update UNNEEDED)
 { fprintf(stderr, "payment_failed called!\n"); abort(); }
 /* Generated stub for payment_store */
 void payment_store(struct lightningd *ld UNNEEDED, struct wallet_payment *payment UNNEEDED)
@@ -547,11 +547,8 @@ void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
 { fprintf(stderr, "per_peer_state_set_fds called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 void plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
-		       tal_t *cb_arg UNNEEDED)
+		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
-/* Generated stub for plugin_hook_continue */
-bool plugin_hook_continue(void *arg UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *toks UNNEEDED)
-{ fprintf(stderr, "plugin_hook_continue called!\n"); abort(); }
 /* Generated stub for process_onionpacket */
 struct route_step *process_onionpacket(
 	const tal_t * ctx UNNEEDED,

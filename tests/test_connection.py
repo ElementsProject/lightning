@@ -2193,6 +2193,7 @@ def test_feerate_stress(node_factory, executor):
 
     # Make sure it's reconnected, and wait for last payment.
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
+    # We can get temporary NODE_
     with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
         l1.rpc.waitsendpay("{:064x}".format(l1done - 1))
     with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):

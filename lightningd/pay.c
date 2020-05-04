@@ -340,13 +340,14 @@ static struct routing_failure*
 local_routing_failure(const tal_t *ctx,
 		      const struct lightningd *ld,
 		      const struct htlc_out *hout,
+		      enum onion_type failcode,
 		      const struct wallet_payment *payment)
 {
 	struct routing_failure *routing_failure;
 
 	routing_failure = tal(ctx, struct routing_failure);
 	routing_failure->erring_index = 0;
-	routing_failure->failcode = fromwire_peektype(hout->failmsg);
+	routing_failure->failcode = failcode;
 
 	routing_failure->erring_node =
 	    tal_dup(routing_failure, struct node_id, &ld->id);
@@ -511,7 +512,7 @@ void payment_store(struct lightningd *ld, struct wallet_payment *payment TAKES)
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
-		    const char *localfail)
+		    const char *localfail, const u8 *failmsg_needs_update)
 {
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
@@ -542,7 +543,15 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
-		fail = local_routing_failure(tmpctx, ld, hout, payment);
+		/* Use temporary_channel_failure if failmsg has it */
+		enum onion_type failcode;
+		if (failmsg_needs_update)
+			failcode = fromwire_peektype(failmsg_needs_update);
+		else
+			failcode = fromwire_peektype(hout->failmsg);
+
+		fail = local_routing_failure(tmpctx, ld, hout, failcode,
+					     payment);
 		failstr = localfail;
 		pay_errcode = PAY_TRY_OTHER_ROUTE;
 	} else if (payment->path_secrets == NULL) {
