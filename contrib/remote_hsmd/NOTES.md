@@ -11,6 +11,14 @@ Building
     ./configure --enable-developer
     make
 
+Dependencies
+
+    sudo dnf install libsecp256k1-devel
+
+    pip3 install --user base58
+    pip3 install --user bitstring
+    pip3 install --user secp256k1
+
 Run all of the integration tests:
 ```
 SUBDAEMON='hsmd:remote_hsmd' \
