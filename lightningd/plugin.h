@@ -22,8 +22,14 @@
 
 
 enum plugin_state {
+	/* We have to ask getmanifest */
 	UNCONFIGURED,
-	CONFIGURED
+	/* Got `getmanifest` reply, now we need to send `init`. */
+	NEEDS_INIT,
+	/* We have to get `init` response */
+	AWAITING_INIT_RESPONSE,
+	/* We have `init` response. */
+	INIT_COMPLETE
 };
 
 /**
