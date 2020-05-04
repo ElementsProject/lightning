@@ -969,6 +969,7 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 	    !plugin_hooks_add(plugin, buffer, resulttok))
 		return false;
 
+	plugin->plugin_state = NEEDS_INIT;
 	return true;
 }
 
@@ -1167,7 +1168,7 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	plugin->plugin_state = CONFIGURED;
+	plugin->plugin_state = INIT_COMPLETE;
 }
 
 void
@@ -1240,7 +1241,7 @@ void plugins_config(struct plugins *plugins)
 {
 	struct plugin *p;
 	list_for_each(&plugins->plugins, p, list) {
-		if (p->plugin_state == UNCONFIGURED)
+		if (p->plugin_state == NEEDS_INIT)
 			plugin_config(p);
 	}
 

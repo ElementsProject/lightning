@@ -25,7 +25,7 @@ static struct command_result *plugin_dynamic_list_plugins(struct command *cmd)
 		json_object_start(response, NULL);
 		json_add_string(response, "name", p->cmd);
 		json_add_bool(response, "active",
-		              p->plugin_state == CONFIGURED);
+		              p->plugin_state == INIT_COMPLETE);
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -69,14 +69,14 @@ static void plugin_dynamic_config_callback(const char *buffer,
 {
 	struct plugin *p;
 
-	dp->plugin->plugin_state = CONFIGURED;
+	dp->plugin->plugin_state = INIT_COMPLETE;
 	/* Reset the timer only now so that we are either configured, or
 	 * killed. */
 	tal_free(dp->plugin->timeout_timer);
 	tal_del_destructor2(dp->plugin, plugin_dynamic_crash, dp);
 
 	list_for_each(&dp->plugin->plugins->plugins, p, list) {
-		if (p->plugin_state != CONFIGURED)
+		if (p->plugin_state != INIT_COMPLETE)
 			return;
 	}
 
