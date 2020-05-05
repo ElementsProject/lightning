@@ -196,8 +196,10 @@ bool plugin_remove(struct plugins *plugins, const char *name);
 
 /**
  * Kick of initialization of a plugin.
+ *
+ * Returns error string, or NULL.
  */
-bool plugin_send_getmanifest(struct plugin *p);
+const char *plugin_send_getmanifest(struct plugin *p);
 
 /**
  * Kick of initialization of all plugins which need it/
