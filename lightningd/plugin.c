@@ -10,6 +10,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>
+#include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
 #include <signal.h>
 #include <sys/stat.h>
@@ -50,6 +51,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log = new_log(p, log_book, NULL, "plugin-manager");
 	p->ld = ld;
 	p->startup = true;
+	p->json_cmds = tal_arr(p, struct command *, 0);
 	uintmap_init(&p->pending_requests);
 	memleak_add_helper(p, memleak_help_pending_requests);
 
@@ -69,6 +71,36 @@ void plugins_free(struct plugins *plugins)
 	tal_free(plugins);
 }
 
+static void check_plugins_resolved(struct plugins *plugins)
+{
+	/* As startup, we break out once all getmanifest are returned */
+	if (plugins->startup) {
+		if (!plugins_any_in_state(plugins, AWAITING_GETMANIFEST_RESPONSE))
+			io_break(plugins);
+	/* Otherwise we wait until all finished. */
+	} else if (plugins_all_in_state(plugins, INIT_COMPLETE)) {
+		struct command **json_cmds;
+
+		/* Clear commands first, in case callbacks add new ones.
+		 * Paranoia, but wouldn't that be a nasty bug to find? */
+		json_cmds = plugins->json_cmds;
+		plugins->json_cmds = tal_arr(plugins, struct command *, 0);
+		for (size_t i = 0; i < tal_count(json_cmds); i++)
+			plugin_cmd_all_complete(plugins, json_cmds[i]);
+		tal_free(json_cmds);
+	}
+}
+
+struct command_result *plugin_register_all_complete(struct lightningd *ld,
+						    struct command *cmd)
+{
+	if (plugins_all_in_state(ld->plugins, INIT_COMPLETE))
+		return plugin_cmd_all_complete(ld->plugins, cmd);
+
+	tal_arr_expand(&ld->plugins->json_cmds, cmd);
+	return NULL;
+}
+
 static void destroy_plugin(struct plugin *p)
 {
 	struct plugin_rpccall *call;
@@ -83,7 +115,8 @@ static void destroy_plugin(struct plugin *p)
 	}
 }
 
-struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
+struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
+			       struct command *start_cmd)
 {
 	struct plugin *p, *p_temp;
 
@@ -99,6 +132,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES)
 	p = tal(plugins, struct plugin);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+	p->start_cmd = start_cmd;
 
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
@@ -166,6 +200,11 @@ void plugin_kill(struct plugin *plugin, char *fmt, ...)
 	io_wake(plugin);
 	kill(plugin->pid, SIGKILL);
 	list_del(&plugin->list);
+
+	if (plugin->start_cmd)
+		plugin_cmd_killed(plugin->start_cmd, plugin, msg);
+
+	check_plugins_resolved(plugin->plugins);
 }
 
 /**
@@ -456,7 +495,12 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
 	plugin->stdout_conn = NULL;
+	if (plugin->start_cmd) {
+		plugin_cmd_succeeded(plugin->start_cmd, plugin);
+		plugin->start_cmd = NULL;
+	}
 	tal_free(plugin);
+	check_plugins_resolved(plugin->plugins);
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
@@ -892,8 +936,12 @@ static bool plugin_hooks_add(struct plugin *plugin, const char *buffer,
 
 static void plugin_manifest_timeout(struct plugin *plugin)
 {
-	log_broken(plugin->log, "The plugin failed to respond to \"getmanifest\" in time, terminating.");
-	fatal("Can't recover from plugin failure, terminating.");
+	plugin_kill(plugin,
+		    "failed to respond to \"%s\" in time, terminating.",
+		    plugin->plugin_state == AWAITING_GETMANIFEST_RESPONSE
+		    ? "getmanifest" : "init");
+	if (plugin->plugins->startup)
+		fatal("Can't recover from plugin failure, terminating.");
 }
 
 bool plugin_parse_getmanifest_response(const char *buffer,
@@ -908,10 +956,12 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 		return false;
 
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
-	if (dynamictok && !json_to_bool(buffer, dynamictok, &plugin->dynamic))
+	if (dynamictok && !json_to_bool(buffer, dynamictok, &plugin->dynamic)) {
 		plugin_kill(plugin, "Bad 'dynamic' field ('%.*s')",
 			    json_tok_full_len(dynamictok),
 			    json_tok_full(buffer, dynamictok));
+		return false;
+	}
 
 	featurestok = json_get_member(buffer, resulttok, "featurebits");
 
@@ -995,6 +1045,9 @@ bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state
 	return true;
 }
 
+/* FIXME: Forward declaration to reduce patch noise */
+static void plugin_config(struct plugin *plugin);
+
 /**
  * Callback for the plugin_manifest request.
  */
@@ -1003,16 +1056,25 @@ static void plugin_manifest_cb(const char *buffer,
 			       const jsmntok_t *idtok,
 			       struct plugin *plugin)
 {
-	if (!plugin_parse_getmanifest_response(buffer, toks, idtok, plugin))
+	if (!plugin_parse_getmanifest_response(buffer, toks, idtok, plugin)) {
 		plugin_kill(plugin, "%s: Bad response to getmanifest.", plugin->cmd);
+		return;
+	}
 
-	/* Reset timer, it'd kill us otherwise. */
-	tal_free(plugin->timeout_timer);
+	/* At startup, we want to io_break once all getmanifests are done */
+	check_plugins_resolved(plugin->plugins);
 
-	/* Check if all plugins have replied to getmanifest, and break
-	 * if they have */
-	if (!plugins_any_in_state(plugin->plugins, AWAITING_GETMANIFEST_RESPONSE))
-		io_break(plugin->plugins);
+	if (plugin->plugins->startup) {
+		/* Reset timer, it'd kill us otherwise. */
+		plugin->timeout_timer = tal_free(plugin->timeout_timer);
+	} else {
+		/* Note: here 60 second timer continues through init */
+		/* After startup, automatically call init after getmanifest */
+		if (!plugin->dynamic)
+			plugin_kill(plugin, "Not a dynamic plugin");
+		else
+			plugin_config(plugin);
+	}
 }
 
 /* If this is a valid plugin return full path name, otherwise NULL */
@@ -1089,7 +1151,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool error_ok)
 			continue;
 		fullpath = plugin_fullpath(tmpctx, dir, di->d_name);
 		if (fullpath) {
-			p = plugin_register(plugins, fullpath);
+			p = plugin_register(plugins, fullpath, NULL);
 			if (!p && !error_ok)
 				return tal_fmt(NULL, "Failed to register %s: %s",
 				               fullpath, strerror(errno));
@@ -1189,6 +1251,12 @@ static void plugin_config_cb(const char *buffer,
 			     struct plugin *plugin)
 {
 	plugin->plugin_state = INIT_COMPLETE;
+	plugin->timeout_timer = tal_free(plugin->timeout_timer);
+	if (plugin->start_cmd) {
+		plugin_cmd_succeeded(plugin->start_cmd, plugin);
+		plugin->start_cmd = NULL;
+	}
+	check_plugins_resolved(plugin->plugins);
 }
 
 void

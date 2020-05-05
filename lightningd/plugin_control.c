@@ -14,14 +14,15 @@ struct dynamic_plugin {
 /**
  * Returned by all subcommands on success.
  */
-static struct command_result *plugin_dynamic_list_plugins(struct command *cmd)
+static struct command_result *plugin_dynamic_list_plugins(struct command *cmd,
+							  const struct plugins *plugins)
 {
 	struct json_stream *response;
-	struct plugin *p;
+	const struct plugin *p;
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "plugins");
-	list_for_each(&cmd->ld->plugins->plugins, p, list) {
+	list_for_each(&plugins->plugins, p, list) {
 		json_object_start(response, NULL);
 		json_add_string(response, "name", p->cmd);
 		json_add_bool(response, "active",
@@ -50,6 +51,24 @@ plugin_dynamic_error(struct dynamic_plugin *dp, const char *error)
 	return command_fail(dp->cmd, JSONRPC2_INVALID_PARAMS,
 	                    "%s: %s", dp->plugin ? dp->plugin->cmd : "unknown plugin",
 	                    error);
+}
+
+struct command_result *plugin_cmd_killed(struct command *cmd,
+					 struct plugin *plugin, const char *msg)
+{
+	return command_fail(cmd, PLUGIN_ERROR, "%s: %s", plugin->cmd, msg);
+}
+
+struct command_result *plugin_cmd_succeeded(struct command *cmd,
+					    struct plugin *plugin)
+{
+	return plugin_dynamic_list_plugins(cmd, plugin->plugins);
+}
+
+struct command_result *plugin_cmd_all_complete(struct plugins *plugins,
+					       struct command *cmd)
+{
+	return plugin_dynamic_list_plugins(cmd, plugins);
 }
 
 static void plugin_dynamic_timeout(struct dynamic_plugin *dp)
@@ -81,7 +100,7 @@ static void plugin_dynamic_config_callback(const char *buffer,
 	}
 
 	/* No plugin unconfigured left, return the plugin list */
-	was_pending(plugin_dynamic_list_plugins(dp->cmd));
+	was_pending(plugin_dynamic_list_plugins(dp->cmd, dp->plugin->plugins));
 }
 
 /**
@@ -184,7 +203,7 @@ plugin_dynamic_start(struct command *cmd, const char *plugin_path)
 
 	dp = tal(cmd, struct dynamic_plugin);
 	dp->cmd = cmd;
-	dp->plugin = plugin_register(cmd->ld->plugins, plugin_path);
+	dp->plugin = plugin_register(cmd->ld->plugins, plugin_path, NULL);
 	if (!dp->plugin)
 		return plugin_dynamic_error(dp, "Is already registered");
 
@@ -218,7 +237,7 @@ plugin_dynamic_startdir(struct command *cmd, const char *dir_path)
 		}
 	}
 	if (!found)
-		plugin_dynamic_list_plugins(cmd);
+		plugin_dynamic_list_plugins(cmd, cmd->ld->plugins);
 
 	return command_still_pending(cmd);
 }
@@ -289,7 +308,7 @@ plugin_dynamic_rescan_plugins(struct command *cmd)
 	}
 
 	if (!found)
-		return plugin_dynamic_list_plugins(cmd);
+		return plugin_dynamic_list_plugins(cmd, cmd->ld->plugins);
 	return command_still_pending(cmd);
 }
 
@@ -361,7 +380,7 @@ static struct command_result *json_plugin_control(struct command *cmd,
 			   NULL))
 			return command_param_failed();
 
-		return plugin_dynamic_list_plugins(cmd);
+		return plugin_dynamic_list_plugins(cmd, cmd->ld->plugins);
 	}
 
 	/* subcmd must be one of the above: param_subcommand checked it! */

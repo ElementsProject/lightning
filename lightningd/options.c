@@ -343,7 +343,7 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 {
-	plugin_register(ld->plugins, arg);
+	plugin_register(ld->plugins, arg, NULL);
 	return NULL;
 }
 
