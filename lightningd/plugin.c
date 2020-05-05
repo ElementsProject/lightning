@@ -606,8 +606,8 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 
 /* Add a single plugin option to the plugin as well as registering it with the
  * command line options. */
-static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
-			   const jsmntok_t *opt)
+static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
+				  const jsmntok_t *opt)
 {
 	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok;
 	struct plugin_opt *popt;
@@ -617,9 +617,8 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 	defaulttok = json_get_member(buffer, opt, "default");
 
 	if (!typetok || !nametok || !desctok) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "An option is missing either \"name\", \"description\" or \"type\"");
-		return false;
 	}
 
 	popt = tal(plugin, struct plugin_opt);
@@ -663,8 +662,8 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 		*popt->value->as_bool = false;
 
 	} else {
-		plugin_kill(plugin, "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
-		return false;
+		return tal_fmt(plugin,
+			       "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
 	}
 	if (!defaulttok)
 		popt->description = json_strdup(popt, buffer, desctok);
@@ -678,33 +677,34 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 		opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
 				 popt->description);
 
-	return true;
+	return NULL;
 }
 
 /* Iterate through the options in the manifest response, and add them
  * to the plugin and the command line options */
-static bool plugin_opts_add(struct plugin *plugin,
-			    const char *buffer,
-			    const jsmntok_t *resulttok)
+static const char *plugin_opts_add(struct plugin *plugin,
+				   const char *buffer,
+				   const jsmntok_t *resulttok)
 {
 	const jsmntok_t *options = json_get_member(buffer, resulttok, "options");
 
 	if (!options) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "\"result.options\" was not found in the manifest");
-		return false;
 	}
 
 	if (options->type != JSMN_ARRAY) {
-		plugin_kill(plugin, "\"result.options\" is not an array");
-		return false;
+		return tal_fmt(plugin, "\"result.options\" is not an array");
 	}
 
-	for (size_t i = 0; i < options->size; i++)
-		if (!plugin_opt_add(plugin, buffer, json_get_arr(options, i)))
-			return false;
+	for (size_t i = 0; i < options->size; i++) {
+		const char *err;
+		err = plugin_opt_add(plugin, buffer, json_get_arr(options, i));
+		if (err)
+			return err;
+	}
 
-	return true;
+	return NULL;
 }
 
 static void json_stream_forward_change_id(struct json_stream *stream,
@@ -808,9 +808,9 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static bool plugin_rpcmethod_add(struct plugin *plugin,
-				 const char *buffer,
-				 const jsmntok_t *meth)
+static const char *plugin_rpcmethod_add(struct plugin *plugin,
+					const char *buffer,
+					const jsmntok_t *meth)
 {
 	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok, *usagetok;
 	struct json_command *cmd;
@@ -823,38 +823,34 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 	usagetok = json_get_member(buffer, meth, "usage");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "rpcmethod does not have a string \"name\": %.*s",
 			    meth->end - meth->start, buffer + meth->start);
-		return false;
 	}
 
 	if (!desctok || desctok->type != JSMN_STRING) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "rpcmethod does not have a string "
 			    "\"description\": %.*s",
 			    meth->end - meth->start, buffer + meth->start);
-		return false;
 	}
 
 	if (longdesctok && longdesctok->type != JSMN_STRING) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "\"long_description\" is not a string: %.*s",
 			    meth->end - meth->start, buffer + meth->start);
-		return false;
 	}
 
 	if (usagetok && usagetok->type != JSMN_STRING) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "\"usage\" is not a string: %.*s",
 			    meth->end - meth->start, buffer + meth->start);
-		return false;
 	}
 
 	cmd = notleak(tal(plugin, struct json_command));
 	cmd->name = json_strdup(cmd, buffer, nametok);
 	if (categorytok)
-        cmd->category = json_strdup(cmd, buffer, categorytok);
+		cmd->category = json_strdup(cmd, buffer, categorytok);
 	else
 		cmd->category = "plugin";
 	cmd->description = json_strdup(cmd, buffer, desctok);
@@ -865,110 +861,107 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 	if (usagetok)
 		usage = json_strdup(tmpctx, buffer, usagetok);
 	else if (!deprecated_apis) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "\"usage\" not provided by plugin");
-		return false;
 	} else
 		usage = "[params]";
 
 	cmd->deprecated = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
 	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
-		log_broken(plugin->log,
+		return tal_fmt(plugin,
 			   "Could not register method \"%s\", a method with "
 			   "that name is already registered",
 			   cmd->name);
-		return false;
 	}
 	tal_arr_expand(&plugin->methods, cmd->name);
-	return true;
+	return NULL;
 }
 
-static bool plugin_rpcmethods_add(struct plugin *plugin,
-				  const char *buffer,
-				  const jsmntok_t *resulttok)
+static const char *plugin_rpcmethods_add(struct plugin *plugin,
+					 const char *buffer,
+					 const jsmntok_t *resulttok)
 {
 	const jsmntok_t *methods =
 		json_get_member(buffer, resulttok, "rpcmethods");
 
 	if (!methods)
-		return false;
+		return tal_fmt(plugin, "\"result.rpcmethods\" missing");
 
 	if (methods->type != JSMN_ARRAY) {
-		plugin_kill(plugin,
+		return tal_fmt(plugin,
 			    "\"result.rpcmethods\" is not an array");
-		return false;
 	}
 
-	for (size_t i = 0; i < methods->size; i++)
-		if (!plugin_rpcmethod_add(plugin, buffer,
-					  json_get_arr(methods, i)))
-			return false;
-	return true;
+	for (size_t i = 0; i < methods->size; i++) {
+		const char *err;
+		err = plugin_rpcmethod_add(plugin, buffer,
+					   json_get_arr(methods, i));
+		if (err)
+			return err;
+	}
+
+	return NULL;
 }
 
-static bool plugin_subscriptions_add(struct plugin *plugin, const char *buffer,
-				     const jsmntok_t *resulttok)
+static const char *plugin_subscriptions_add(struct plugin *plugin,
+					    const char *buffer,
+					    const jsmntok_t *resulttok)
 {
 	const jsmntok_t *subscriptions =
 	    json_get_member(buffer, resulttok, "subscriptions");
 
 	if (!subscriptions) {
 		plugin->subscriptions = NULL;
-		return true;
+		return NULL;
 	}
 	plugin->subscriptions = tal_arr(plugin, char *, 0);
 	if (subscriptions->type != JSMN_ARRAY) {
-		plugin_kill(plugin, "\"result.subscriptions\" is not an array");
-		return false;
+		return tal_fmt(plugin, "\"result.subscriptions\" is not an array");
 	}
 
 	for (int i = 0; i < subscriptions->size; i++) {
 		char *topic;
 		const jsmntok_t *s = json_get_arr(subscriptions, i);
 		if (s->type != JSMN_STRING) {
-			plugin_kill(
-			    plugin,
-			    "result.subscriptions[%d] is not a string: %s", i,
-			    plugin->buffer);
-			return false;
+			return tal_fmt(plugin,
+				       "result.subscriptions[%d] is not a string: '%.*s'", i,
+					json_tok_full_len(s),
+					json_tok_full(buffer, s));
 		}
 		topic = json_strdup(plugin, plugin->buffer, s);
 
 		if (!notifications_have_topic(topic)) {
-			plugin_kill(
+			return tal_fmt(
 			    plugin,
 			    "topic '%s' is not a known notification topic", topic);
-			return false;
 		}
 
 		tal_arr_expand(&plugin->subscriptions, topic);
 	}
-	return true;
+	return NULL;
 }
 
-static bool plugin_hooks_add(struct plugin *plugin, const char *buffer,
-			     const jsmntok_t *resulttok)
+static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
+				    const jsmntok_t *resulttok)
 {
 	const jsmntok_t *hookstok = json_get_member(buffer, resulttok, "hooks");
 	if (!hookstok)
-		return true;
+		return NULL;
 
 	for (int i = 0; i < hookstok->size; i++) {
-		char *name = json_strdup(NULL, plugin->buffer,
+		char *name = json_strdup(tmpctx, plugin->buffer,
 					 json_get_arr(hookstok, i));
 		if (!plugin_hook_register(plugin, name)) {
-			plugin_kill(plugin,
+			return tal_fmt(plugin,
 				    "could not register hook '%s', either the "
 				    "name doesn't exist or another plugin "
 				    "already registered it.",
 				    name);
-			tal_free(name);
-			return false;
 		}
 		tal_free(name);
 	}
-	return true;
+	return NULL;
 }
 
 static void plugin_manifest_timeout(struct plugin *plugin)
@@ -981,23 +974,25 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 		fatal("Can't recover from plugin failure, terminating.");
 }
 
-bool plugin_parse_getmanifest_response(const char *buffer,
-                                       const jsmntok_t *toks,
-                                       const jsmntok_t *idtok,
-                                       struct plugin *plugin)
+static const char *plugin_parse_getmanifest_response(const char *buffer,
+						     const jsmntok_t *toks,
+						     const jsmntok_t *idtok,
+						     struct plugin *plugin)
 {
 	const jsmntok_t *resulttok, *dynamictok, *featurestok, *tok;
+	const char *err;
 
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok || resulttok->type != JSMN_OBJECT)
-		return false;
+		return tal_fmt(plugin, "Invalid/missing result tok in '%.*s'",
+			       json_tok_full_len(toks),
+			       json_tok_full(buffer, toks));
 
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
 	if (dynamictok && !json_to_bool(buffer, dynamictok, &plugin->dynamic)) {
-		plugin_kill(plugin, "Bad 'dynamic' field ('%.*s')",
+		return tal_fmt(plugin, "Bad 'dynamic' field ('%.*s')",
 			    json_tok_full_len(dynamictok),
 			    json_tok_full(buffer, dynamictok));
-		return false;
 	}
 
 	featurestok = json_get_member(buffer, resulttok, "featurebits");
@@ -1024,40 +1019,39 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 			have_featurebits |= tal_bytelen(fset->bits[i]) > 0;
 
 			if (!fset->bits[i]) {
-				plugin_kill(
+				return tal_fmt(
 				    plugin,
 				    "Featurebits returned by plugin is not a "
 				    "valid hexadecimal string: %.*s",
 				    tok->end - tok->start, buffer + tok->start);
-				return true;
 			}
 		}
 
 		if (plugin->dynamic && have_featurebits) {
-			plugin_kill(plugin,
+			return tal_fmt(plugin,
 				    "Custom featurebits only allows for non-dynamic "
 				    "plugins: dynamic=%d, featurebits=%.*s",
 				    plugin->dynamic,
 				    featurestok->end - featurestok->start,
 				    buffer + featurestok->start);
-			return true;
 		}
 
 		if (!feature_set_or(plugin->plugins->ld->our_features, fset)) {
-			plugin_kill(plugin,
+			return tal_fmt(plugin,
 				    "Custom featurebits already present");
-			return true;
 		}
 	}
 
-	if (!plugin_opts_add(plugin, buffer, resulttok) ||
-	    !plugin_rpcmethods_add(plugin, buffer, resulttok) ||
-	    !plugin_subscriptions_add(plugin, buffer, resulttok) ||
-	    !plugin_hooks_add(plugin, buffer, resulttok))
-		return false;
+	err = plugin_opts_add(plugin, buffer, resulttok);
+	if (!err)
+		err = plugin_rpcmethods_add(plugin, buffer, resulttok);
+	if (!err)
+		err = plugin_subscriptions_add(plugin, buffer, resulttok);
+	if (!err)
+		err = plugin_hooks_add(plugin, buffer, resulttok);
 
 	plugin->plugin_state = NEEDS_INIT;
-	return true;
+	return err;
 }
 
 bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state)
@@ -1093,8 +1087,11 @@ static void plugin_manifest_cb(const char *buffer,
 			       const jsmntok_t *idtok,
 			       struct plugin *plugin)
 {
-	if (!plugin_parse_getmanifest_response(buffer, toks, idtok, plugin)) {
-		plugin_kill(plugin, "%s: Bad response to getmanifest.", plugin->cmd);
+	const char *err;
+	err = plugin_parse_getmanifest_response(buffer, toks, idtok, plugin);
+
+	if (err) {
+		plugin_kill(plugin, "%s", err);
 		return;
 	}
 

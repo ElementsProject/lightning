@@ -248,14 +248,6 @@ bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state
 bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state);
 
 /**
- * Read and treat (populate options, methods, ...) the `getmanifest` response.
- */
-bool plugin_parse_getmanifest_response(const char *buffer,
-                                       const jsmntok_t *toks,
-                                       const jsmntok_t *idtok,
-                                       struct plugin *plugin);
-
-/**
  * This populates the jsonrpc request with the plugin/lightningd specifications
  */
 void plugin_populate_init_request(struct plugin *p, struct jsonrpc_request *req);
