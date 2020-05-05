@@ -46,6 +46,8 @@ struct plugin {
 	bool stop;
 	struct plugins *plugins;
 	const char **plugin_path;
+	/* If there's a json command which ordered this to start */
+	struct command *start_cmd;
 
 	enum plugin_state plugin_state;
 
@@ -96,6 +98,9 @@ struct plugins {
 
 	struct lightningd *ld;
 	const char *default_dir;
+
+	/* If there are json commands waiting for plugin resolutions. */
+	struct command **json_cmds;
 };
 
 /* The value of a plugin option, which can have different types.
@@ -169,8 +174,14 @@ void plugins_free(struct plugins *plugins);
  *
  * @param plugins: Plugin context
  * @param path: The path of the executable for this plugin
+ * @param start_cmd: The optional JSON command which caused this.
+ *
+ * If @start_cmd, then plugin_cmd_killed or plugin_cmd_succeeded will be called
+ * on it eventually.
  */
-struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES);
+struct plugin *plugin_register(struct plugins *plugins,
+			       const char* path TAKES,
+			       struct command *start_cmd);
 
 /**
  * Returns true if the provided name matches a plugin command
@@ -196,6 +207,15 @@ void plugin_kill(struct plugin *plugin, char *fmt, ...) PRINTF_FMT(2,3);
 struct plugin *find_plugin_for_command(struct lightningd *ld,
 				       const char *cmd_name);
 
+
+/**
+ * Call plugin_cmd_all_complete once all plugins are init or killed.
+ *
+ * Returns NULL if it's still pending. otherwise, returns
+ * plugin_cmd_all_complete().
+ */
+struct command_result *plugin_register_all_complete(struct lightningd *ld,
+						    struct command *cmd);
 
 /**
  * Send the configure message to all plugins.
