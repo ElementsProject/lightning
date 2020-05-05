@@ -52,6 +52,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->ld = ld;
 	p->startup = true;
 	p->json_cmds = tal_arr(p, struct command *, 0);
+	p->blacklist = tal_arr(p, const char *, 0);
 	uintmap_init(&p->pending_requests);
 	memleak_add_helper(p, memleak_help_pending_requests);
 
@@ -175,19 +176,30 @@ bool plugin_paths_match(const char *cmd, const char *name)
 	}
 }
 
-bool plugin_remove(struct plugins *plugins, const char *name)
+void plugin_blacklist(struct plugins *plugins, const char *name)
 {
 	struct plugin *p, *next;
-	bool removed = false;
 
 	list_for_each_safe(&plugins->plugins, p, next, list) {
 		if (plugin_paths_match(p->cmd, name)) {
+			log_info(plugins->log, "%s: disabled via disable-plugin",
+				 p->cmd);
 			list_del_from(&plugins->plugins, &p->list);
 			tal_free(p);
-			removed = true;
 		}
 	}
-	return removed;
+
+	tal_arr_expand(&plugins->blacklist,
+		       tal_strdup(plugins->blacklist, name));
+}
+
+bool plugin_blacklisted(struct plugins *plugins, const char *name)
+{
+	for (size_t i = 0; i < tal_count(plugins->blacklist); i++)
+		if (plugin_paths_match(name, plugins->blacklist[i]))
+			return true;
+
+	return false;
 }
 
 void plugin_kill(struct plugin *plugin, const char *msg)
@@ -1179,7 +1191,12 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool error_ok)
 		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
 			continue;
 		fullpath = plugin_fullpath(tmpctx, dir, di->d_name);
-		if (fullpath) {
+		if (!fullpath)
+			continue;
+		if (plugin_blacklisted(plugins, fullpath)) {
+			log_info(plugins->log, "%s: disabled via disable-plugin",
+				 fullpath);
+		} else {
 			p = plugin_register(plugins, fullpath, NULL);
 			if (!p && !error_ok)
 				return tal_fmt(NULL, "Failed to register %s: %s",

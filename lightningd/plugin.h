@@ -100,6 +100,9 @@ struct plugins {
 
 	/* If there are json commands waiting for plugin resolutions. */
 	struct command **json_cmds;
+
+	/* Blacklist of plugins from --disable-plugin */
+	const char **blacklist;
 };
 
 /* The value of a plugin option, which can have different types.
@@ -191,10 +194,18 @@ bool plugin_paths_match(const char *cmd, const char *name);
  * @param plugins: Plugin context
  * @param arg: The basename or fullname of the executable for this plugin
  */
-bool plugin_remove(struct plugins *plugins, const char *name);
+void plugin_blacklist(struct plugins *plugins, const char *name);
 
 /**
- * Kick of initialization of a plugin.
+ * Is a plugin disabled?.
+ *
+ * @param plugins: Plugin context
+ * @param arg: The basename or fullname of the executable for this plugin
+ */
+bool plugin_blacklisted(struct plugins *plugins, const char *name);
+
+/**
+ * Kick off initialization of a plugin.
  *
  * Returns error string, or NULL.
  */

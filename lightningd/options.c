@@ -343,15 +343,18 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 {
+	if (plugin_blacklisted(ld->plugins, arg)) {
+		log_info(ld->log, "%s: disabled via disable-plugin", arg);
+		return NULL;
+	}
 	plugin_register(ld->plugins, arg, NULL);
 	return NULL;
 }
 
 static char *opt_disable_plugin(const char *arg, struct lightningd *ld)
 {
-	if (plugin_remove(ld->plugins, arg))
-		return NULL;
-	return tal_fmt(NULL, "Could not find plugin %s", arg);
+	plugin_blacklist(ld->plugins, arg);
+	return NULL;
 }
 
 static char *opt_add_plugin_dir(const char *arg, struct lightningd *ld)

@@ -434,9 +434,11 @@ including the default built-in plugin directory. You can still add
 normal effect.
 
  **disable-plugin**=*PLUGIN*
-If *PLUGIN* contains a /, plugins with the same path as *PLUGIN* are
-disabled. Otherwise, any plugin with that base name is disabled,
-whatever directory it is in.
+If *PLUGIN* contains a /, plugins with the same path as *PLUGIN* will
+not be loaded at startup. Otherwise, no plugin with that base name will
+be loaded at startup, whatever directory it is in.  This option is useful for
+disabling a single plugin inside a directory.  You can still explicitly
+load plugins which have been disabled, using lightning-plugin(7) `start`.
 
 BUGS
 ----
