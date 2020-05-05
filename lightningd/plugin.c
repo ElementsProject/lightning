@@ -180,6 +180,7 @@ void plugin_blacklist(struct plugins *plugins, const char *name)
 {
 	struct plugin *p, *next;
 
+	log_debug(plugins->log, "blacklist for %s", name);
 	list_for_each_safe(&plugins->plugins, p, next, list) {
 		if (plugin_paths_match(p->cmd, name)) {
 			log_info(plugins->log, "%s: disabled via disable-plugin",
@@ -1450,6 +1451,15 @@ void json_add_opt_plugins(struct json_stream *response,
 		}
 		json_object_end(response);
 	}
+	json_array_end(response);
+}
+
+void json_add_opt_disable_plugins(struct json_stream *response,
+				  const struct plugins *plugins)
+{
+	json_array_start(response, "disable-plugin");
+	for (size_t i = 0; i < tal_count(plugins->blacklist); i++)
+		json_add_string(response, NULL, plugins->blacklist[i]);
 	json_array_end(response);
 }
 
