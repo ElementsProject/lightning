@@ -209,6 +209,16 @@ struct plugin *find_plugin_for_command(struct lightningd *ld,
 void plugins_config(struct plugins *plugins);
 
 /**
+ * Are any plugins at this state still?
+ */
+bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state);
+
+/**
+ * Are all plugins at this state?
+ */
+bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state);
+
+/**
  * Read and treat (populate options, methods, ...) the `getmanifest` response.
  */
 bool plugin_parse_getmanifest_response(const char *buffer,

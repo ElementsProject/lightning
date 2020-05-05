@@ -973,6 +973,28 @@ bool plugin_parse_getmanifest_response(const char *buffer,
 	return true;
 }
 
+bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state)
+{
+	const struct plugin *p;
+
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->plugin_state == state)
+			return true;
+	}
+	return false;
+}
+
+bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state)
+{
+	const struct plugin *p;
+
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->plugin_state != state)
+			return false;
+	}
+	return true;
+}
+
 /**
  * Callback for the plugin_manifest request.
  */
