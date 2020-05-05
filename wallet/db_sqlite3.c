@@ -157,7 +157,7 @@ static bool db_sqlite3_commit_tx(struct db *db)
 	char *errmsg;
 	err = sqlite3_exec(db->conn, "COMMIT;", NULL, NULL, &errmsg);
 	if (err != SQLITE_OK) {
-		db->error = tal_fmt(db, "Failed to begin a transaction: %s", errmsg);
+		db->error = tal_fmt(db, "Failed to commit a transaction: %s", errmsg);
 		return false;
 	}
 	return true;
