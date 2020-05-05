@@ -212,6 +212,8 @@ void plugin_kill(struct plugin *plugin, const char *msg)
 		plugin->start_cmd = NULL;
 	}
 
+	/* Don't come back when we free stdout_conn! */
+	io_set_finish(plugin->stdout_conn, NULL, NULL);
 	tal_free(plugin);
 }
 
@@ -518,22 +520,10 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 	return io_out_wait(conn, plugin, plugin_write_json, plugin);
 }
 
-/**
- * Finalizer for both stdin and stdout connections.
- *
- * Takes care of final cleanup, once the plugin is definitely dead.
- */
+/* This catches the case where their stdout closes (usually they're dead). */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
-	struct plugins *plugins = plugin->plugins;
-	plugin->stdout_conn = NULL;
-	if (plugin->start_cmd) {
-		plugin_cmd_killed(plugin->start_cmd, plugin,
-				  "Plugin exited before completing handshake.");
-		plugin->start_cmd = NULL;
-	}
-	tal_free(plugin);
-	check_plugins_resolved(plugins);
+	plugin_kill(plugin, "Plugin exited before completing handshake.");
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
@@ -541,18 +531,15 @@ struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
 {
 	/* We write to their stdin */
 	/* We don't have anything queued yet, wait for notification */
-	plugin->stdin_conn = tal_steal(plugin, conn);
-	plugin->stdin_conn = conn;
-	return io_wait(plugin->stdin_conn, plugin, plugin_write_json, plugin);
+	return io_wait(conn, plugin, plugin_write_json, plugin);
 }
 
 struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
                                         struct plugin *plugin)
 {
 	/* We read from their stdout */
-	plugin->stdout_conn = conn;
 	io_set_finish(conn, plugin_conn_finish, plugin);
-	return io_read_partial(plugin->stdout_conn, plugin->buffer,
+	return io_read_partial(conn, plugin->buffer,
 			       tal_bytelen(plugin->buffer), &plugin->len_read,
 			       plugin_read_json, plugin);
 }
@@ -1260,8 +1247,8 @@ const char *plugin_send_getmanifest(struct plugin *p)
 
 	/* Create two connections, one read-only on top of p->stdout, and one
 	 * write-only on p->stdin */
-	io_new_conn(p, stdout, plugin_stdout_conn_init, p);
-	io_new_conn(p, stdin, plugin_stdin_conn_init, p);
+	p->stdout_conn = io_new_conn(p, stdout, plugin_stdout_conn_init, p);
+	p->stdin_conn = io_new_conn(p, stdin, plugin_stdin_conn_init, p);
 	req = jsonrpc_request_start(p, "getmanifest", p->log,
 				    plugin_manifest_cb, p);
 	jsonrpc_request_end(req);
