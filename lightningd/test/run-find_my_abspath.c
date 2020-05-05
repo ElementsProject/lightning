@@ -194,7 +194,7 @@ void plugins_config(struct plugins *plugins UNNEEDED)
 void plugins_free(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_free called!\n"); abort(); }
 /* Generated stub for plugins_init */
-void plugins_init(struct plugins *plugins UNNEEDED, const char *dev_plugin_debug UNNEEDED)
+void plugins_init(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_init called!\n"); abort(); }
 /* Generated stub for plugins_new */
 struct plugins *plugins_new(const tal_t *ctx UNNEEDED, struct log_book *log_book UNNEEDED,
