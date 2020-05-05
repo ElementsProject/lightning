@@ -53,7 +53,7 @@ struct command_result *plugin_cmd_all_complete(struct plugins *plugins,
 
 /**
  * Called when trying to start a plugin through RPC, it starts the plugin and
- * will give a result 20 seconds later at the most.
+ * will give a result 60 seconds later at the most (once init completes).
  */
 static struct command_result *
 plugin_dynamic_start(struct command *cmd, const char *plugin_path)
