@@ -200,15 +200,15 @@ struct lightningd {
 	 * if we are the fundee. */
 	u32 max_funding_unconfirmed;
 
-	/* If we want to debug a subdaemon/plugin. */
-	const char *dev_debug_subprocess;
-
 	/* RPC which asked us to shutdown, if non-NULL */
 	struct io_conn *stop_conn;
 	/* RPC response to send once we've shut down. */
 	const char *stop_response;
 
 #if DEVELOPER
+	/* If we want to debug a subdaemon/plugin. */
+	const char *dev_debug_subprocess;
+
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 

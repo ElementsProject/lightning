@@ -1188,60 +1188,85 @@ void plugins_add_default_dir(struct plugins *plugins)
 	}
 }
 
-void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
+bool plugin_send_getmanifest(struct plugin *p)
 {
-	struct plugin *p;
 	char **cmd;
 	int stdin, stdout;
 	struct jsonrpc_request *req;
+	bool debug = false;
 
+#if DEVELOPER
+	if (p->plugins->ld->dev_debug_subprocess
+	    && strends(p->cmd, p->plugins->ld->dev_debug_subprocess))
+		debug = true;
+#endif
+	cmd = tal_arrz(tmpctx, char *, 2 + debug);
+	cmd[0] = p->cmd;
+	if (debug)
+		cmd[1] = "--debugger";
+	p->pid = pipecmdarr(&stdin, &stdout, &pipecmd_preserve, cmd);
+	if (p->pid == -1)
+		return false;
+
+	log_debug(p->plugins->log, "started(%u) %s", p->pid, p->cmd);
+	p->buffer = tal_arr(p, char, 64);
+	p->stop = false;
+
+	/* Create two connections, one read-only on top of p->stdout, and one
+	 * write-only on p->stdin */
+	io_new_conn(p, stdout, plugin_stdout_conn_init, p);
+	io_new_conn(p, stdin, plugin_stdin_conn_init, p);
+	req = jsonrpc_request_start(p, "getmanifest", p->log,
+				    plugin_manifest_cb, p);
+	jsonrpc_request_end(req);
+	plugin_request_send(p, req);
+	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
+
+	/* Don't timeout if they're running a debugger. */
+	if (debug)
+		p->timeout_timer = NULL;
+	else {
+		p->timeout_timer
+			= new_reltimer(p->plugins->ld->timers, p,
+				       time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
+				       plugin_manifest_timeout, p);
+	}
+
+	return true;
+}
+
+bool plugins_send_getmanifest(struct plugins *plugins)
+{
+	struct plugin *p, *next;
+	bool sent = false;
+
+	/* Spawn the plugin processes before entering the io_loop */
+	list_for_each_safe(&plugins->plugins, p, next, list) {
+		if (p->plugin_state != UNCONFIGURED)
+			continue;
+		if (plugin_send_getmanifest(p)) {
+			sent = true;
+			continue;
+		}
+		if (plugins->startup)
+			fatal("error starting plugin '%s': %s", p->cmd,
+			      strerror(errno));
+		plugin_kill(p, "error starting: %s", strerror(errno));
+		tal_free(p);
+	}
+
+	return sent;
+}
+
+void plugins_init(struct plugins *plugins)
+{
 	plugins->default_dir = path_join(plugins, plugins->ld->config_basedir, "plugins");
 	plugins_add_default_dir(plugins);
 
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
-	/* Spawn the plugin processes before entering the io_loop */
-	list_for_each(&plugins->plugins, p, list) {
-		bool debug;
 
-		debug = dev_plugin_debug && strends(p->cmd, dev_plugin_debug);
-		cmd = tal_arrz(p, char *, 2 + debug);
-		cmd[0] = p->cmd;
-		if (debug)
-			cmd[1] = "--debugger";
-		p->pid = pipecmdarr(&stdin, &stdout, &pipecmd_preserve, cmd);
-
-		if (p->pid == -1)
-			fatal("error starting plugin '%s': %s", p->cmd,
-			      strerror(errno));
-		else
-			log_debug(plugins->log, "started(%u) %s", p->pid, p->cmd);
-		p->buffer = tal_arr(p, char, 64);
-		p->stop = false;
-
-		/* Create two connections, one read-only on top of p->stdout, and one
-		 * write-only on p->stdin */
-		io_new_conn(p, stdout, plugin_stdout_conn_init, p);
-		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
-		req = jsonrpc_request_start(p, "getmanifest", p->log,
-					    plugin_manifest_cb, p);
-		jsonrpc_request_end(req);
-		plugin_request_send(p, req);
-		p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
-
-		/* Don't timeout if they're running a debugger. */
-		if (debug)
-			p->timeout_timer = NULL;
-		else {
-			p->timeout_timer
-				= new_reltimer(plugins->ld->timers, p,
-					       time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
-					       plugin_manifest_timeout, p);
-		}
-		tal_free(cmd);
-	}
-
-	if (plugins_any_in_state(plugins, AWAITING_GETMANIFEST_RESPONSE))
+	if (plugins_send_getmanifest(plugins))
 		io_loop_with_timers(plugins->ld);
 }
 

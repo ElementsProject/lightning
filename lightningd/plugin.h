@@ -144,10 +144,8 @@ void plugins_add_default_dir(struct plugins *plugins);
  * arguments. In order to read the getmanifest reply from the plugins
  * we spin up our own io_loop that exits once all plugins have
  * responded.
- *
- * The dev_plugin_debug arg comes from --dev-debugger if DEVELOPER.
  */
-void plugins_init(struct plugins *plugins, const char *dev_plugin_debug);
+void plugins_init(struct plugins *plugins);
 
 /**
  * Free all resources that are held by plugins in the correct order.
@@ -195,6 +193,18 @@ bool plugin_paths_match(const char *cmd, const char *name);
  * @param arg: The basename or fullname of the executable for this plugin
  */
 bool plugin_remove(struct plugins *plugins, const char *name);
+
+/**
+ * Kick of initialization of a plugin.
+ */
+bool plugin_send_getmanifest(struct plugin *p);
+
+/**
+ * Kick of initialization of all plugins which need it/
+ *
+ * Return true if any were started.
+ */
+bool plugins_send_getmanifest(struct plugins *plugins);
 
 /**
  * Kill a plugin process, with an error message.
