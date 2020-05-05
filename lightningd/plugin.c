@@ -113,6 +113,10 @@ static void destroy_plugin(struct plugin *p)
 		    call->cmd, PLUGIN_TERMINATED,
 		    "Plugin terminated before replying to RPC call."));
 	}
+
+	/* Don't call this if we're still parsing options! */
+	if (p->plugin_state != UNCONFIGURED)
+		check_plugins_resolved(p->plugins);
 }
 
 struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
@@ -190,14 +194,11 @@ void plugin_kill(struct plugin *plugin, const char *msg)
 {
 	log_info(plugin->log, "Killing plugin: %s", msg);
 	kill(plugin->pid, SIGKILL);
-	list_del(&plugin->list);
-
 	if (plugin->start_cmd) {
 		plugin_cmd_killed(plugin->start_cmd, plugin, msg);
 		plugin->start_cmd = NULL;
 	}
 
-	check_plugins_resolved(plugin->plugins);
 	tal_free(plugin);
 }
 
