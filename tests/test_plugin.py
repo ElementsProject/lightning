@@ -194,6 +194,7 @@ def test_plugin_dir(node_factory):
 
 def test_plugin_slowinit(node_factory):
     """Tests that the 'plugin' RPC command times out if plugin doesnt respond"""
+    os.environ['SLOWINIT_TIME'] = '21'
     n = node_factory.get_node()
 
     with pytest.raises(RpcError, match="Timed out while waiting for plugin response"):
@@ -205,6 +206,7 @@ def test_plugin_slowinit(node_factory):
     n.rpc.plugin_list()
 
 
+@pytest.mark.xfail(strict=True)
 def test_plugin_command(node_factory):
     """Tests the 'plugin' RPC command"""
     n = node_factory.get_node()
@@ -258,6 +260,15 @@ def test_plugin_command(node_factory):
     # Test that we don't crash when starting a broken plugin
     with pytest.raises(RpcError, match=r"Plugin exited before completing handshake."):
         n2.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/broken.py"))
+
+    # Test that we can add a directory with more than one new plugin in it.
+    try:
+        n.rpc.plugin_startdir(os.path.join(os.getcwd(), "tests/plugins"))
+    except RpcError:
+        pass
+
+    # Usually, it crashes after the above return.
+    n.rpc.stop()
 
 
 def test_plugin_disable(node_factory):
