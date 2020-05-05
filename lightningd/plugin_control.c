@@ -59,6 +59,7 @@ static struct command_result *
 plugin_dynamic_start(struct command *cmd, const char *plugin_path)
 {
 	struct plugin *p = plugin_register(cmd->ld->plugins, plugin_path, cmd);
+	const char *err;
 
 	if (!p)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -66,10 +67,11 @@ plugin_dynamic_start(struct command *cmd, const char *plugin_path)
 				    plugin_path);
 
 	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
-	if (!plugin_send_getmanifest(p))
+	err = plugin_send_getmanifest(p);
+	if (err)
 		return command_fail(cmd, PLUGIN_ERROR,
-				    "%s: failed to open: %s",
-				    plugin_path, strerror(errno));
+				    "%s: %s",
+				    plugin_path, err);
 
 	return command_still_pending(cmd);
 }

@@ -1224,7 +1224,7 @@ void plugins_add_default_dir(struct plugins *plugins)
 	}
 }
 
-bool plugin_send_getmanifest(struct plugin *p)
+const char *plugin_send_getmanifest(struct plugin *p)
 {
 	char **cmd;
 	int stdin, stdout;
@@ -1242,7 +1242,7 @@ bool plugin_send_getmanifest(struct plugin *p)
 		cmd[1] = "--debugger";
 	p->pid = pipecmdarr(&stdin, &stdout, &pipecmd_preserve, cmd);
 	if (p->pid == -1)
-		return false;
+		return tal_fmt(p, "opening pipe: %s", strerror(errno));
 
 	log_debug(p->plugins->log, "started(%u) %s", p->pid, p->cmd);
 	p->buffer = tal_arr(p, char, 64);
@@ -1268,7 +1268,7 @@ bool plugin_send_getmanifest(struct plugin *p)
 				       plugin_manifest_timeout, p);
 	}
 
-	return true;
+	return NULL;
 }
 
 bool plugins_send_getmanifest(struct plugins *plugins)
@@ -1278,9 +1278,12 @@ bool plugins_send_getmanifest(struct plugins *plugins)
 
 	/* Spawn the plugin processes before entering the io_loop */
 	list_for_each_safe(&plugins->plugins, p, next, list) {
+		const char *err;
+
 		if (p->plugin_state != UNCONFIGURED)
 			continue;
-		if (plugin_send_getmanifest(p)) {
+		err = plugin_send_getmanifest(p);
+		if (!err) {
 			sent = true;
 			continue;
 		}
