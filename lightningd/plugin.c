@@ -228,7 +228,12 @@ static void plugin_send(struct plugin *plugin, struct json_stream *stream)
 	io_wake(plugin);
 }
 
-static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
+/* Returns the error string, or NULL */
+static const char *plugin_log_handle(struct plugin *plugin,
+				     const jsmntok_t *paramstok)
+	WARN_UNUSED_RESULT;
+static const char *plugin_log_handle(struct plugin *plugin,
+				     const jsmntok_t *paramstok)
 {
 	const jsmntok_t *msgtok, *leveltok;
 	enum log_level level;
@@ -237,9 +242,8 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 	leveltok = json_get_member(plugin->buffer, paramstok, "level");
 
 	if (!msgtok || msgtok->type != JSMN_STRING) {
-		plugin_kill(plugin, "Log notification from plugin doesn't have "
-				    "a string \"message\" field");
-		return;
+		return tal_fmt(plugin, "Log notification from plugin doesn't have "
+			       "a string \"message\" field");
 	}
 
 	if (!leveltok || json_tok_streq(plugin->buffer, leveltok, "info"))
@@ -251,22 +255,27 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 	else if (json_tok_streq(plugin->buffer, leveltok, "error"))
 		level = LOG_BROKEN;
 	else {
-		plugin_kill(plugin,
-			    "Unknown log-level %.*s, valid values are "
-			    "\"debug\", \"info\", \"warn\", or \"error\".",
-			    json_tok_full_len(leveltok),
-			    json_tok_full(plugin->buffer, leveltok));
-		return;
+		return tal_fmt(plugin,
+			       "Unknown log-level %.*s, valid values are "
+			       "\"debug\", \"info\", \"warn\", or \"error\".",
+			       json_tok_full_len(leveltok),
+			       json_tok_full(plugin->buffer, leveltok));
 	}
 
 	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
 	/* FIXME: Let plugin specify node_id? */
 	log_(plugin->log, level, NULL, call_notifier, "%.*s", msgtok->end - msgtok->start,
 	     plugin->buffer + msgtok->start);
+	return NULL;
 }
 
-static void plugin_notification_handle(struct plugin *plugin,
-				       const jsmntok_t *toks)
+/* Returns the error string, or NULL */
+static const char *plugin_notification_handle(struct plugin *plugin,
+					      const jsmntok_t *toks)
+	WARN_UNUSED_RESULT;
+
+static const char *plugin_notification_handle(struct plugin *plugin,
+					      const jsmntok_t *toks)
 {
 	const jsmntok_t *methtok, *paramstok;
 
@@ -274,12 +283,11 @@ static void plugin_notification_handle(struct plugin *plugin,
 	paramstok = json_get_member(plugin->buffer, toks, "params");
 
 	if (!methtok || !paramstok) {
-		plugin_kill(plugin,
-			    "Malformed JSON-RPC notification missing "
-			    "\"method\" or \"params\": %.*s",
-			    toks->end - toks->start,
-			    plugin->buffer + toks->start);
-		return;
+		return tal_fmt(plugin,
+			       "Malformed JSON-RPC notification missing "
+			       "\"method\" or \"params\": %.*s",
+			       toks->end - toks->start,
+			       plugin->buffer + toks->start);
 	}
 
 	/* Dispatch incoming notifications. This is currently limited
@@ -287,17 +295,23 @@ static void plugin_notification_handle(struct plugin *plugin,
 	 * unwieldy we can switch to the AUTODATA construction to
 	 * register notification handlers in a variety of places. */
 	if (json_tok_streq(plugin->buffer, methtok, "log")) {
-		plugin_log_handle(plugin, paramstok);
+		return plugin_log_handle(plugin, paramstok);
 	} else {
-		plugin_kill(plugin, "Unknown notification method %.*s",
-			    json_tok_full_len(methtok),
-			    json_tok_full(plugin->buffer, methtok));
+		return tal_fmt(plugin, "Unknown notification method %.*s",
+			       json_tok_full_len(methtok),
+			       json_tok_full(plugin->buffer, methtok));
 	}
 }
 
-static void plugin_response_handle(struct plugin *plugin,
-				   const jsmntok_t *toks,
-				   const jsmntok_t *idtok)
+/* Returns the error string, or NULL */
+static const char *plugin_response_handle(struct plugin *plugin,
+					  const jsmntok_t *toks,
+					  const jsmntok_t *idtok)
+	WARN_UNUSED_RESULT;
+
+static const char *plugin_response_handle(struct plugin *plugin,
+					  const jsmntok_t *toks,
+					  const jsmntok_t *idtok)
 {
 	struct plugin_destroyed *pd;
 	struct jsonrpc_request *request;
@@ -305,18 +319,16 @@ static void plugin_response_handle(struct plugin *plugin,
 	/* We only send u64 ids, so if this fails it's a critical error (note
 	 * that this also works if id is inside a JSON string!). */
 	if (!json_to_u64(plugin->buffer, idtok, &id)) {
-		plugin_kill(plugin,
-			    "JSON-RPC response \"id\"-field is not a u64");
-		return;
+		return tal_fmt(plugin,
+			       "JSON-RPC response \"id\"-field is not a u64");
 	}
 
 	request = uintmap_get(&plugin->plugins->pending_requests, id);
 
 	if (!request) {
-		plugin_kill(
-		    plugin,
-		    "Received a JSON-RPC response for non-existent request");
-		return;
+		return tal_fmt(
+			plugin,
+			"Received a JSON-RPC response for non-existent request");
 	}
 
 	/* We expect the request->cb to copy if needed */
@@ -327,19 +339,27 @@ static void plugin_response_handle(struct plugin *plugin,
 	 * plugin is parent), so detect that case */
 	if (!was_plugin_destroyed(pd))
 		tal_free(request);
+
+	return NULL;
 }
 
 /**
  * Try to parse a complete message from the plugin's buffer.
  *
- * Internally calls the handler if it was able to fully parse a JSON message,
- * and returns true in that case.
+ * Returns NULL if there was no error.
+ * If it can parse a JSON message, sets *@complete, and returns any error
+ * from the callback.
+ *
+ * If @destroyed was set, it means the plugin called plugin stop on itself.
  */
-static bool plugin_read_json_one(struct plugin *plugin, bool *destroyed)
+static const char *plugin_read_json_one(struct plugin *plugin,
+					bool *complete,
+					bool *destroyed)
 {
 	bool valid;
 	const jsmntok_t *toks, *jrtok, *idtok;
 	struct plugin_destroyed *pd;
+	const char *err;
 
 	*destroyed = false;
 	/* Note that in the case of 'plugin stop' this can free request (since
@@ -352,28 +372,31 @@ static bool plugin_read_json_one(struct plugin *plugin, bool *destroyed)
 				&valid);
 	if (!toks) {
 		if (!valid) {
-			plugin_kill(plugin, "Failed to parse JSON response '%.*s'",
-				    (int)plugin->used, plugin->buffer);
-			return false;
+			return tal_fmt(plugin,
+				       "Failed to parse JSON response '%.*s'",
+				       (int)plugin->used, plugin->buffer);
 		}
 		/* We need more. */
-		return false;
+		*complete = false;
+		return NULL;
 	}
 
 	/* Empty buffer? (eg. just whitespace). */
 	if (tal_count(toks) == 1) {
 		plugin->used = 0;
-		return false;
+		/* We need more. */
+		*complete = false;
+		return NULL;
 	}
 
+	*complete = true;
 	jrtok = json_get_member(plugin->buffer, toks, "jsonrpc");
 	idtok = json_get_member(plugin->buffer, toks, "id");
 
 	if (!jrtok) {
-		plugin_kill(
+		return tal_fmt(
 		    plugin,
 		    "JSON-RPC message does not contain \"jsonrpc\" field");
-		return false;
 	}
 
 	pd = plugin_detect_destruction(plugin);
@@ -389,7 +412,7 @@ static bool plugin_read_json_one(struct plugin *plugin, bool *destroyed)
 		 *
 		 * https://www.jsonrpc.org/specification#notification
 		 */
-		plugin_notification_handle(plugin, toks);
+		err = plugin_notification_handle(plugin, toks);
 
 	} else {
 		/* When a rpc call is made, the Server MUST reply with
@@ -419,7 +442,7 @@ static bool plugin_read_json_one(struct plugin *plugin, bool *destroyed)
 		 *
 		 * https://www.jsonrpc.org/specification#response_object
 		 */
-		plugin_response_handle(plugin, toks, idtok);
+		err = plugin_response_handle(plugin, toks, idtok);
 	}
 
 	/* Corner case: rpc_command hook can destroy plugin for 'plugin
@@ -433,7 +456,7 @@ static bool plugin_read_json_one(struct plugin *plugin, bool *destroyed)
 		plugin->used -= toks[0].end;
 		tal_free(toks);
 	}
-	return true;
+	return err;
 }
 
 static struct io_plan *plugin_read_json(struct io_conn *conn,
@@ -451,16 +474,17 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 	/* Read and process all messages from the connection */
 	do {
 		bool destroyed;
-		success = plugin_read_json_one(plugin, &destroyed);
+		const char *err;
+		err = plugin_read_json_one(plugin, &success, &destroyed);
 
 		/* If it's destroyed, conn is already freed! */
 		if (destroyed)
 			return io_close(NULL);
 
-		/* Processing the message from the plugin might have
-		 * resulted in it stopping, so let's check. */
-		if (plugin->stop)
+		if (err) {
+			plugin_kill(plugin, "%s", err);
 			return io_close(plugin->stdout_conn);
+		}
 	} while (success);
 
 	/* Now read more from the connection */
