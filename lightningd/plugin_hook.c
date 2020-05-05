@@ -238,7 +238,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 	plugin_request_send(ph_req->plugin, req);
 }
 
-void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
+bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		       tal_t *cb_arg STEALS)
 {
 	struct plugin_hook_request *ph_req;
@@ -265,6 +265,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 			list_add_tail(&ph_req->call_chain, &link->list);
 		}
 		plugin_hook_call_next(ph_req);
+		return false;
 	} else {
 		/* If no plugin has registered for this hook, just
 		 * call the callback with a NULL result. Saves us the
@@ -275,6 +276,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 			hook->final_cb(cb_arg);
 		else
 			hook->single_response_cb(cb_arg, NULL, NULL);
+		return true;
 	}
 }
 
