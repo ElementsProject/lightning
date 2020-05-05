@@ -229,7 +229,7 @@ def test_plugin_command(node_factory):
     # Make sure the plugin behaves normally after stop and restart
     assert("Successfully stopped helloworld.py."
            == n.rpc.plugin_stop(plugin="helloworld.py")["result"])
-    n.daemon.wait_for_log(r"Killing plugin: helloworld.py")
+    n.daemon.wait_for_log(r"Killing plugin: stopped by lightningd via RPC")
     n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "contrib/plugins/helloworld.py"))
     n.daemon.wait_for_log(r"Plugin helloworld.py initialized")
     assert("Hello world" == n.rpc.call(method="hello"))
@@ -237,7 +237,7 @@ def test_plugin_command(node_factory):
     # Now stop the helloworld plugin
     assert("Successfully stopped helloworld.py."
            == n.rpc.plugin_stop(plugin="helloworld.py")["result"])
-    n.daemon.wait_for_log(r"Killing plugin: helloworld.py")
+    n.daemon.wait_for_log(r"Killing plugin: stopped by lightningd via RPC")
     # Make sure that the 'hello' command from the helloworld.py plugin
     # is not available anymore.
     cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]

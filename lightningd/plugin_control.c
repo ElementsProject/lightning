@@ -97,12 +97,6 @@ plugin_dynamic_startdir(struct command *cmd, const char *dir_path)
 	return command_still_pending(cmd);
 }
 
-static void clear_plugin(struct plugin *p, const char *name)
-{
-	plugin_kill(p, "%s stopped by lightningd via RPC", name);
-	tal_free(p);
-}
-
 static struct command_result *
 plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 {
@@ -116,7 +110,7 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 				                    "%s cannot be managed when "
 				                    "lightningd is up",
 				                    plugin_name);
-			clear_plugin(p, plugin_name);
+			plugin_kill(p, "stopped by lightningd via RPC");
 			response = json_stream_success(cmd);
 			if (deprecated_apis)
 				json_add_string(response, "",
