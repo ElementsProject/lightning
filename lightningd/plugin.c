@@ -186,15 +186,8 @@ bool plugin_remove(struct plugins *plugins, const char *name)
 	return removed;
 }
 
-void plugin_kill(struct plugin *plugin, char *fmt, ...)
+void plugin_kill(struct plugin *plugin, const char *msg)
 {
-	char *msg;
-	va_list ap;
-
-	va_start(ap, fmt);
-	msg = tal_vfmt(plugin, fmt, ap);
-	va_end(ap);
-
 	log_info(plugin->log, "Killing plugin: %s", msg);
 	plugin->stop = true;
 	io_wake(plugin);
@@ -474,7 +467,7 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 			return io_close(NULL);
 
 		if (err) {
-			plugin_kill(plugin, "%s", err);
+			plugin_kill(plugin, err);
 			/* plugin_kill frees plugin */
 			return io_close(NULL);
 		}
@@ -968,10 +961,13 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 static void plugin_manifest_timeout(struct plugin *plugin)
 {
 	bool startup = plugin->plugins->startup;
-	plugin_kill(plugin,
-		    "failed to respond to \"%s\" in time, terminating.",
-		    plugin->plugin_state == AWAITING_GETMANIFEST_RESPONSE
-		    ? "getmanifest" : "init");
+	if (plugin->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
+		plugin_kill(plugin,
+			    "failed to respond to 'getmanifest' in time, terminating.");
+	else
+		plugin_kill(plugin,
+			    "failed to respond to 'init' in time, terminating.");
+
 	if (startup)
 		fatal("Can't recover from plugin failure, terminating.");
 }
@@ -1093,7 +1089,7 @@ static void plugin_manifest_cb(const char *buffer,
 	err = plugin_parse_getmanifest_response(buffer, toks, idtok, plugin);
 
 	if (err) {
-		plugin_kill(plugin, "%s", err);
+		plugin_kill(plugin, err);
 		return;
 	}
 
@@ -1288,9 +1284,8 @@ bool plugins_send_getmanifest(struct plugins *plugins)
 			continue;
 		}
 		if (plugins->startup)
-			fatal("error starting plugin '%s': %s", p->cmd,
-			      strerror(errno));
-		plugin_kill(p, "error starting: %s", strerror(errno));
+			fatal("error starting plugin '%s': %s", p->cmd, err);
+		plugin_kill(p, err);
 	}
 
 	return sent;

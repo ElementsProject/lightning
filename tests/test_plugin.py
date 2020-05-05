@@ -197,7 +197,7 @@ def test_plugin_slowinit(node_factory):
     os.environ['SLOWINIT_TIME'] = '61'
     n = node_factory.get_node()
 
-    with pytest.raises(RpcError, match='failed to respond to "init" in time, terminating.'):
+    with pytest.raises(RpcError, match='failed to respond to \'init\' in time, terminating.'):
         n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
 
     # It's not actually configured yet, see what happens;
