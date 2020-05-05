@@ -1218,3 +1218,18 @@ def test_replacement_payload(node_factory):
         l1.rpc.pay(inv)
 
     assert l2.daemon.wait_for_log("Attept to pay.*with wrong secret")
+
+
+def test_plugin_fail(node_factory):
+    """Test that a plugin which fails (not during a command)"""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/fail_by_itself.py')
+    l1 = node_factory.get_node(options={"plugin": plugin})
+
+    time.sleep(2)
+    # It should clean up!
+    assert 'failcmd' not in [h['command'] for h in l1.rpc.help()['help']]
+
+    l1.rpc.plugin_start(plugin)
+    time.sleep(2)
+    # It should clean up!
+    assert 'failcmd' not in [h['command'] for h in l1.rpc.help()['help']]
