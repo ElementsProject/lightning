@@ -1003,17 +1003,16 @@ static void plugin_manifest_cb(const char *buffer,
 			       const jsmntok_t *idtok,
 			       struct plugin *plugin)
 {
-	/* Check if all plugins have replied to getmanifest, and break
-	 * if they have */
-	plugin->plugins->pending_manifests--;
-	if (plugin->plugins->pending_manifests == 0)
-		io_break(plugin->plugins);
-
 	if (!plugin_parse_getmanifest_response(buffer, toks, idtok, plugin))
 		plugin_kill(plugin, "%s: Bad response to getmanifest.", plugin->cmd);
 
 	/* Reset timer, it'd kill us otherwise. */
 	tal_free(plugin->timeout_timer);
+
+	/* Check if all plugins have replied to getmanifest, and break
+	 * if they have */
+	if (!plugins_any_in_state(plugin->plugins, AWAITING_GETMANIFEST_RESPONSE))
+		io_break(plugin->plugins);
 }
 
 /* If this is a valid plugin return full path name, otherwise NULL */
@@ -1134,7 +1133,6 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 	int stdin, stdout;
 	struct jsonrpc_request *req;
 
-	plugins->pending_manifests = 0;
 	plugins->default_dir = path_join(plugins, plugins->ld->config_basedir, "plugins");
 	plugins_add_default_dir(plugins);
 
@@ -1169,7 +1167,6 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		plugin_request_send(p, req);
 		p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
 
-		plugins->pending_manifests++;
 		/* Don't timeout if they're running a debugger. */
 		if (debug)
 			p->timeout_timer = NULL;
@@ -1182,7 +1179,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		tal_free(cmd);
 	}
 
-	if (plugins->pending_manifests > 0)
+	if (plugins_any_in_state(plugins, AWAITING_GETMANIFEST_RESPONSE))
 		io_loop_with_timers(plugins->ld);
 }
 
