@@ -528,9 +528,11 @@ normal effect\.
 
 
  \fBdisable-plugin\fR=\fIPLUGIN\fR
-If \fIPLUGIN\fR contains a /, plugins with the same path as \fIPLUGIN\fR are
-disabled\. Otherwise, any plugin with that base name is disabled,
-whatever directory it is in\.
+If \fIPLUGIN\fR contains a /, plugins with the same path as \fIPLUGIN\fR will
+not be loaded at startup\. Otherwise, no plugin with that base name will
+be loaded at startup, whatever directory it is in\.  This option is useful for
+disabling a single plugin inside a directory\.  You can still explicitly
+load plugins which have been disabled, using \fBlightning-plugin\fR(7) \fBstart\fR\.
 
 .SH BUGS
 

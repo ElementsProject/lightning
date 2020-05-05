@@ -273,13 +273,14 @@ def test_plugin_command(node_factory):
 def test_plugin_disable(node_factory):
     """--disable-plugin works"""
     plugin_dir = os.path.join(os.getcwd(), 'contrib/plugins')
-    # We need plugin-dir before disable-plugin!
+    # We used to need plugin-dir before disable-plugin!
     n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
                                                    ('disable-plugin',
                                                     '{}/helloworld.py'
                                                     .format(plugin_dir))]))
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
+    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
 
     # Also works by basename.
     n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
@@ -287,6 +288,39 @@ def test_plugin_disable(node_factory):
                                                     'helloworld.py')]))
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
+    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+
+    # Other order also works!
+    n = node_factory.get_node(options=OrderedDict([('disable-plugin',
+                                                    'helloworld.py'),
+                                                   ('plugin-dir', plugin_dir)]))
+    with pytest.raises(RpcError):
+        n.rpc.hello(name='Sun')
+    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+
+    # Both orders of explicit specification work.
+    n = node_factory.get_node(options=OrderedDict([('disable-plugin',
+                                                    'helloworld.py'),
+                                                   ('plugin',
+                                                    '{}/helloworld.py'
+                                                    .format(plugin_dir))]))
+    with pytest.raises(RpcError):
+        n.rpc.hello(name='Sun')
+    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+
+    # Both orders of explicit specification work.
+    n = node_factory.get_node(options=OrderedDict([('plugin',
+                                                    '{}/helloworld.py'
+                                                    .format(plugin_dir)),
+                                                   ('disable-plugin',
+                                                    'helloworld.py')]))
+    with pytest.raises(RpcError):
+        n.rpc.hello(name='Sun')
+    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+
+    # Still disabled if we load directory.
+    n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
+    n.daemon.wait_for_log('helloworld.py: disabled via disable-plugin')
 
 
 def test_plugin_hook(node_factory, executor):
