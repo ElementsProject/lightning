@@ -190,6 +190,7 @@ void plugin_kill(struct plugin *plugin, char *fmt, ...)
 {
 	char *msg;
 	va_list ap;
+	struct plugin_opt *opt;
 
 	va_start(ap, fmt);
 	msg = tal_vfmt(plugin, fmt, ap);
@@ -201,8 +202,18 @@ void plugin_kill(struct plugin *plugin, char *fmt, ...)
 	kill(plugin->pid, SIGKILL);
 	list_del(&plugin->list);
 
-	if (plugin->start_cmd)
+	/* FIXME: This cleans up as it goes because plugin_kill called twice! */
+	while ((opt = list_top(&plugin->plugin_opts, struct plugin_opt, list))) {
+		if (!opt_unregister(opt->name))
+			fatal("Could not unregister %s from plugin %s",
+			      opt->name, plugin->cmd);
+		list_del_from(&plugin->plugin_opts, &opt->list);
+	}
+
+	if (plugin->start_cmd) {
 		plugin_cmd_killed(plugin->start_cmd, plugin, msg);
+		plugin->start_cmd = NULL;
+	}
 
 	check_plugins_resolved(plugin->plugins);
 }
@@ -494,13 +505,15 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
  */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
+	struct plugins *plugins = plugin->plugins;
 	plugin->stdout_conn = NULL;
 	if (plugin->start_cmd) {
-		plugin_cmd_succeeded(plugin->start_cmd, plugin);
+		plugin_cmd_killed(plugin->start_cmd, plugin,
+				  "Plugin exited before completing handshake.");
 		plugin->start_cmd = NULL;
 	}
 	tal_free(plugin);
-	check_plugins_resolved(plugin->plugins);
+	check_plugins_resolved(plugins);
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
