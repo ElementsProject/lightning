@@ -43,7 +43,6 @@ struct plugin {
 	pid_t pid;
 	char *cmd;
 	struct io_conn *stdin_conn, *stdout_conn;
-	bool stop;
 	struct plugins *plugins;
 	const char **plugin_path;
 	/* If there's a json command which ordered this to start */

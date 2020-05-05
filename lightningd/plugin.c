@@ -189,8 +189,6 @@ bool plugin_remove(struct plugins *plugins, const char *name)
 void plugin_kill(struct plugin *plugin, const char *msg)
 {
 	log_info(plugin->log, "Killing plugin: %s", msg);
-	plugin->stop = true;
-	io_wake(plugin);
 	kill(plugin->pid, SIGKILL);
 	list_del(&plugin->list);
 
@@ -501,8 +499,6 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 {
 	if (tal_count(plugin->js_arr)) {
 		return json_stream_output(plugin->js_arr[0], plugin->stdin_conn, plugin_stream_complete, plugin);
-	} else if (plugin->stop) {
-		return io_close(conn);
 	}
 
 	return io_out_wait(conn, plugin, plugin_write_json, plugin);
@@ -1242,7 +1238,6 @@ const char *plugin_send_getmanifest(struct plugin *p)
 
 	log_debug(p->plugins->log, "started(%u) %s", p->pid, p->cmd);
 	p->buffer = tal_arr(p, char, 64);
-	p->stop = false;
 
 	/* Create two connections, one read-only on top of p->stdout, and one
 	 * write-only on p->stdin */
