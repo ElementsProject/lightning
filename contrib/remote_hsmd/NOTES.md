@@ -13,36 +13,20 @@ Building
 
 Dependencies
 
-    sudo dnf install libsecp256k1-devel
+Build libsecp256k1 with `./configure --enable-module-recovery`, see
+https://github.com/golemfactory/golem/issues/2168 for background.
 
     pip3 install --user base58
     pip3 install --user bitstring
     pip3 install --user secp256k1
 
 Run all of the integration tests:
-```
-SUBDAEMON='hsmd:remote_hsmd' \
-make \
-PYTEST_PAR=1 \
-DEVELOPER=1 \
-VALGRIND=0 \
-pytest \
-|& tee log
-```
 
-Single test, excercises funding transaction:
-```
-PYTHONPATH=`pwd`/hsmd:`pwd`/contrib/pylightning:`pwd`/contrib/pyln-testing:`pwd`/contrib/pyln-client:$PYTHONPATH \
-TEST_DEBUG=1 \
-DEVELOPER=1 \
-VALGRIND=0 \
-SLOW_MACHINE=1 \
-SUBDAEMON='hsmd:remote_hsmd' \
-pytest \
-$THETEST \
--v --timeout=550 --timeout_method=thread -x -s \
-|& tee log
-```
+    ./contrib/remote_hsmd/scripts/run-all-tests |& tee log
+    
+Run a single test:
+
+    ./contrib/remote_hsmd/scripts/run-one-test $THETEST |& tee log
 
 Some popular tests:
 

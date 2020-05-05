@@ -17,5 +17,5 @@ SLOW_MACHINE=1 \
 SUBDAEMON='hsmd:remote_hsmd' \
 pytest \
 $THETEST \
--v --timeout=550 --timeout_method=thread -x -s \
-|& tee log
+-v --timeout=550 --timeout_method=thread -x -s
+
