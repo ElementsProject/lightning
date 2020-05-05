@@ -1145,6 +1145,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 					    plugin_manifest_cb, p);
 		jsonrpc_request_end(req);
 		plugin_request_send(p, req);
+		p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
 
 		plugins->pending_manifests++;
 		/* Don't timeout if they're running a debugger. */
@@ -1232,6 +1233,7 @@ plugin_config(struct plugin *plugin)
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
+	plugin->plugin_state = AWAITING_INIT_RESPONSE;
 }
 
 void plugins_config(struct plugins *plugins)
