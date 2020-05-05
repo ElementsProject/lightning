@@ -190,7 +190,6 @@ void plugin_kill(struct plugin *plugin, char *fmt, ...)
 {
 	char *msg;
 	va_list ap;
-	struct plugin_opt *opt;
 
 	va_start(ap, fmt);
 	msg = tal_vfmt(plugin, fmt, ap);
@@ -201,14 +200,6 @@ void plugin_kill(struct plugin *plugin, char *fmt, ...)
 	io_wake(plugin);
 	kill(plugin->pid, SIGKILL);
 	list_del(&plugin->list);
-
-	/* FIXME: This cleans up as it goes because plugin_kill called twice! */
-	while ((opt = list_top(&plugin->plugin_opts, struct plugin_opt, list))) {
-		if (!opt_unregister(opt->name))
-			fatal("Could not unregister %s from plugin %s",
-			      opt->name, plugin->cmd);
-		list_del_from(&plugin->plugin_opts, &opt->list);
-	}
 
 	if (plugin->start_cmd) {
 		plugin_cmd_killed(plugin->start_cmd, plugin, msg);
@@ -606,6 +597,13 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 	return NULL;
 }
 
+static void destroy_plugin_opt(struct plugin_opt *opt)
+{
+	if (!opt_unregister(opt->name))
+		fatal("Could not unregister %s", opt->name);
+	list_del(&opt->list);
+}
+
 /* Add a single plugin option to the plugin as well as registering it with the
  * command line options. */
 static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
@@ -679,6 +677,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 		opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
 				 popt->description);
 
+	tal_add_destructor(popt, destroy_plugin_opt);
 	return NULL;
 }
 
