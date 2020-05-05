@@ -100,6 +100,7 @@ static bool db_sqlite3_query(struct db_stmt *stmt)
 static bool db_sqlite3_exec(struct db_stmt *stmt)
 {
 	int err;
+	bool success;
 #if !HAVE_SQLITE3_EXPANDED_SQL
 	/* Register the tracing function if we don't have an explicit way of
 	 * expanding the statement. */
@@ -108,14 +109,16 @@ static bool db_sqlite3_exec(struct db_stmt *stmt)
 
 	if (!db_sqlite3_query(stmt)) {
 		/* If the prepare step caused an error we hand it up. */
-		return false;
+		success = false;
+		goto done;
 	}
 
 	err = sqlite3_step(stmt->inner_stmt);
 	if (err != SQLITE_DONE) {
 		tal_free(stmt->error);
 		stmt->error = db_sqlite3_fmt_error(stmt);
-		return false;
+		success = false;
+		goto done;
 	}
 
 #if HAVE_SQLITE3_EXPANDED_SQL
@@ -124,13 +127,17 @@ static bool db_sqlite3_exec(struct db_stmt *stmt)
 	expanded_sql = sqlite3_expanded_sql(stmt->inner_stmt);
 	db_changes_add(stmt, expanded_sql);
 	sqlite3_free(expanded_sql);
-#else
+#endif
+	success = true;
+
+done:
+#if !HAVE_SQLITE3_EXPANDED_SQL
 	/* Unregister the trace callback to avoid it accessing the potentially
 	 * stale pointer to stmt */
 	sqlite3_trace(stmt->db->conn, NULL, NULL);
 #endif
 
-	return true;
+	return success;
 }
 
 static bool db_sqlite3_step(struct db_stmt *stmt)
