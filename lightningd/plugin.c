@@ -1222,9 +1222,6 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	json_object_end(req->stream);
 }
 
-/* FIXME(cdecker) This just builds a string for the request because
- * the json_stream is tightly bound to the command interface. It
- * should probably be generalized and fixed up. */
 static void
 plugin_config(struct plugin *plugin)
 {
