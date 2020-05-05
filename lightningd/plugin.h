@@ -275,6 +275,12 @@ void json_add_opt_plugins(struct json_stream *response,
 
 
 /**
+ * Add the disable-plugins options to listconfigs.
+ */
+void json_add_opt_disable_plugins(struct json_stream *response,
+				  const struct plugins *plugins);
+
+/**
  * Used by db hooks which can't have any other I/O while talking to plugin.
  *
  * Returns output of io_loop() (ie. whatever gets passed to io_break()

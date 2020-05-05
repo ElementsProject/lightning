@@ -322,6 +322,12 @@ def test_plugin_disable(node_factory):
     n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
     n.daemon.wait_for_log('helloworld.py: disabled via disable-plugin')
 
+    # Check that list works
+    n = node_factory.get_node(options={'disable-plugin':
+                                       ['something-else.py', 'helloworld.py']})
+
+    assert n.rpc.listconfigs()['disable-plugin'] == ['something-else.py', 'helloworld.py']
+
 
 def test_plugin_hook(node_factory, executor):
     """The helloworld plugin registers a htlc_accepted hook.
