@@ -97,6 +97,7 @@ static void plugin_dynamic_config(struct dynamic_plugin *dp)
 	                            plugin_dynamic_config_callback, dp);
 	plugin_populate_init_request(dp->plugin, req);
 	jsonrpc_request_end(req);
+	dp->plugin->plugin_state = AWAITING_INIT_RESPONSE;
 	plugin_request_send(dp->plugin, req);
 }
 
@@ -112,6 +113,7 @@ static void plugin_dynamic_manifest_callback(const char *buffer,
 		return was_pending(plugin_dynamic_error(dp, "Not a dynamic plugin"));
 
 	/* We got the manifest, now send the init message */
+	dp->plugin->plugin_state = NEEDS_INIT;
 	plugin_dynamic_config(dp);
 }
 
@@ -167,6 +169,7 @@ static struct command_result *plugin_start(struct dynamic_plugin *dp)
 	                            plugin_dynamic_manifest_callback, dp);
 	jsonrpc_request_end(req);
 	plugin_request_send(p, req);
+	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
 	return command_still_pending(dp->cmd);
 }
 
