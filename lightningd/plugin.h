@@ -209,9 +209,9 @@ const char *plugin_send_getmanifest(struct plugin *p);
 bool plugins_send_getmanifest(struct plugins *plugins);
 
 /**
- * Kill a plugin process, with an error message.
+ * Kill a plugin process and free @plugin, with an error message.
  */
-void plugin_kill(struct plugin *plugin, char *fmt, ...) PRINTF_FMT(2,3);
+void plugin_kill(struct plugin *plugin, const char *msg);
 
 /**
  * Returns the plugin which registers the command with name {cmd_name}
