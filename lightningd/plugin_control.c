@@ -33,26 +33,6 @@ static struct command_result *plugin_dynamic_list_plugins(struct command *cmd,
 	return command_success(cmd, response);
 }
 
-/* Mutual recursion. */
-static void plugin_dynamic_crash(struct plugin *plugin, struct dynamic_plugin *dp);
-
-/**
- * Returned by all subcommands on error.
- */
-static struct command_result *
-plugin_dynamic_error(struct dynamic_plugin *dp, const char *error)
-{
-	if (dp->plugin)
-		plugin_kill(dp->plugin, "%s", error);
-	else
-		log_info(dp->cmd->ld->log, "%s", error);
-
-	tal_del_destructor2(dp->plugin, plugin_dynamic_crash, dp);
-	return command_fail(dp->cmd, JSONRPC2_INVALID_PARAMS,
-	                    "%s: %s", dp->plugin ? dp->plugin->cmd : "unknown plugin",
-	                    error);
-}
-
 struct command_result *plugin_cmd_killed(struct command *cmd,
 					 struct plugin *plugin, const char *msg)
 {
@@ -71,127 +51,6 @@ struct command_result *plugin_cmd_all_complete(struct plugins *plugins,
 	return plugin_dynamic_list_plugins(cmd, plugins);
 }
 
-static void plugin_dynamic_timeout(struct dynamic_plugin *dp)
-{
-	plugin_dynamic_error(dp, "Timed out while waiting for plugin response");
-}
-
-static void plugin_dynamic_crash(struct plugin *p, struct dynamic_plugin *dp)
-{
-	plugin_dynamic_error(dp, "Plugin exited before completing handshake.");
-}
-
-static void plugin_dynamic_config_callback(const char *buffer,
-                                           const jsmntok_t *toks,
-                                           const jsmntok_t *idtok,
-                                           struct dynamic_plugin *dp)
-{
-	struct plugin *p;
-
-	dp->plugin->plugin_state = INIT_COMPLETE;
-	/* Reset the timer only now so that we are either configured, or
-	 * killed. */
-	tal_free(dp->plugin->timeout_timer);
-	tal_del_destructor2(dp->plugin, plugin_dynamic_crash, dp);
-
-	list_for_each(&dp->plugin->plugins->plugins, p, list) {
-		if (p->plugin_state != INIT_COMPLETE)
-			return;
-	}
-
-	/* No plugin unconfigured left, return the plugin list */
-	was_pending(plugin_dynamic_list_plugins(dp->cmd, dp->plugin->plugins));
-}
-
-/**
- * Send the init message to the plugin. We don't care about its response,
- * but it's considered the last part of the handshake : once it responds
- * it is considered configured.
- */
-static void plugin_dynamic_config(struct dynamic_plugin *dp)
-{
-	struct jsonrpc_request *req;
-
-	req = jsonrpc_request_start(dp->plugin, "init", dp->plugin->log,
-	                            plugin_dynamic_config_callback, dp);
-	plugin_populate_init_request(dp->plugin, req);
-	jsonrpc_request_end(req);
-	dp->plugin->plugin_state = AWAITING_INIT_RESPONSE;
-	plugin_request_send(dp->plugin, req);
-}
-
-static void plugin_dynamic_manifest_callback(const char *buffer,
-                                             const jsmntok_t *toks,
-                                             const jsmntok_t *idtok,
-                                             struct dynamic_plugin *dp)
-{
-	if (!plugin_parse_getmanifest_response(buffer, toks, idtok, dp->plugin))
-		return was_pending(plugin_dynamic_error(dp, "Gave a bad response to getmanifest"));
-
-	if (!dp->plugin->dynamic)
-		return was_pending(plugin_dynamic_error(dp, "Not a dynamic plugin"));
-
-	/* We got the manifest, now send the init message */
-	dp->plugin->plugin_state = NEEDS_INIT;
-	plugin_dynamic_config(dp);
-}
-
-/**
- * This starts a plugin : spawns the process, connect its stdout and stdin,
- * then sends it a getmanifest request.
- */
-static struct command_result *plugin_start(struct dynamic_plugin *dp)
-{
-	int stdin, stdout;
-	mode_t prev_mask;
-	char **p_cmd;
-	struct jsonrpc_request *req;
-	struct plugin *p = dp->plugin;
-
-	p->dynamic = false;
-	p_cmd = tal_arrz(NULL, char *, 2);
-	p_cmd[0] = p->cmd;
-	/* In case the plugin create files, this is a better default. */
-	prev_mask = umask(dp->cmd->ld->initial_umask);
-	p->pid = pipecmdarr(&stdin, &stdout, &pipecmd_preserve, p_cmd);
-	umask(prev_mask);
-	if (p->pid == -1)
-		return plugin_dynamic_error(dp, "Error running command");
-	else
-		log_debug(dp->cmd->ld->plugins->log, "started(%u) %s", p->pid, p->cmd);
-	tal_free(p_cmd);
-	p->buffer = tal_arr(p, char, 64);
-	p->stop = false;
-	/* Give the plugin 20 seconds to respond to `getmanifest`, so we don't hang
-	 * too long on the RPC caller. */
-	p->timeout_timer = new_reltimer(dp->cmd->ld->timers, dp,
-	                                time_from_sec((20)),
-	                                plugin_dynamic_timeout, dp);
-
-	/* Besides the timeout we could also have the plugin crash before
-	 * completing the handshake. In that case we'll get notified and we
-	 * can clean up the `struct dynamic_plugin` and return an appropriate
-	 * error.
-	 *
-	 * The destructor is deregistered in the following places:
-	 *
-	 *  - plugin_dynamic_error in case of a timeout or a crash
-	 *  - plugin_dynamic_config_callback if the handshake completes
-	 */
-	tal_add_destructor2(p, plugin_dynamic_crash, dp);
-
-	/* Create two connections, one read-only on top of the plugin's stdin, and one
-	 * write-only on its stdout. */
-	io_new_conn(p, stdout, plugin_stdout_conn_init, p);
-	io_new_conn(p, stdin, plugin_stdin_conn_init, p);
-	req = jsonrpc_request_start(p, "getmanifest", p->log,
-	                            plugin_dynamic_manifest_callback, dp);
-	jsonrpc_request_end(req);
-	plugin_request_send(p, req);
-	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
-	return command_still_pending(dp->cmd);
-}
-
 /**
  * Called when trying to start a plugin through RPC, it starts the plugin and
  * will give a result 20 seconds later at the most.
@@ -199,15 +58,20 @@ static struct command_result *plugin_start(struct dynamic_plugin *dp)
 static struct command_result *
 plugin_dynamic_start(struct command *cmd, const char *plugin_path)
 {
-	struct dynamic_plugin *dp;
+	struct plugin *p = plugin_register(cmd->ld->plugins, plugin_path, cmd);
 
-	dp = tal(cmd, struct dynamic_plugin);
-	dp->cmd = cmd;
-	dp->plugin = plugin_register(cmd->ld->plugins, plugin_path, NULL);
-	if (!dp->plugin)
-		return plugin_dynamic_error(dp, "Is already registered");
+	if (!p)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%s: already registered",
+				    plugin_path);
 
-	return plugin_start(dp);
+	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
+	if (!plugin_send_getmanifest(p))
+		return command_fail(cmd, PLUGIN_ERROR,
+				    "%s: failed to open: %s",
+				    plugin_path, strerror(errno));
+
+	return command_still_pending(cmd);
 }
 
 /**
@@ -218,38 +82,23 @@ static struct command_result *
 plugin_dynamic_startdir(struct command *cmd, const char *dir_path)
 {
 	const char *err;
-	struct plugin *p;
-	/* If the directory is empty */
-	bool found;
+	struct command_result *res;
 
 	err = add_plugin_dir(cmd->ld->plugins, dir_path, false);
 	if (err)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "%s", err);
 
-	found = false;
-	list_for_each(&cmd->ld->plugins->plugins, p, list) {
-		if (p->plugin_state == UNCONFIGURED) {
-			found = true;
-			struct dynamic_plugin *dp = tal(cmd, struct dynamic_plugin);
-			dp->plugin = p;
-			dp->cmd = cmd;
-			plugin_start(dp);
-		}
-	}
-	if (!found)
-		plugin_dynamic_list_plugins(cmd, cmd->ld->plugins);
+	/* If none added, this calls plugin_cmd_all_complete immediately */
+	res = plugin_register_all_complete(cmd->ld, cmd);
+	if (res)
+		return res;
 
+	plugins_send_getmanifest(cmd->ld->plugins);
 	return command_still_pending(cmd);
 }
 
 static void clear_plugin(struct plugin *p, const char *name)
 {
-	struct plugin_opt *opt;
-
-	list_for_each(&p->plugin_opts, opt, list)
-		if (!opt_unregister(opt->name))
-			fatal("Could not unregister %s from plugin %s",
-			      opt->name, name);
 	plugin_kill(p, "%s stopped by lightningd via RPC", name);
 	tal_free(p);
 }
@@ -290,25 +139,16 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 static struct command_result *
 plugin_dynamic_rescan_plugins(struct command *cmd)
 {
-	bool found;
-	struct plugin *p;
+	struct command_result *res;
 
 	/* This will not fail on "already registered" error. */
 	plugins_add_default_dir(cmd->ld->plugins);
 
-	found = false;
-	list_for_each(&cmd->ld->plugins->plugins, p, list) {
-		if (p->plugin_state == UNCONFIGURED) {
-			struct dynamic_plugin *dp = tal(cmd, struct dynamic_plugin);
-			dp->plugin = p;
-			dp->cmd = cmd;
-			plugin_start(dp);
-			found = true;
-		}
-	}
+	/* If none added, this calls plugin_cmd_all_complete immediately */
+	res = plugin_register_all_complete(cmd->ld, cmd);
+	if (res)
+		return res;
 
-	if (!found)
-		return plugin_dynamic_list_plugins(cmd, cmd->ld->plugins);
 	return command_still_pending(cmd);
 }
 

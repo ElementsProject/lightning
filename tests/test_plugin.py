@@ -194,10 +194,10 @@ def test_plugin_dir(node_factory):
 
 def test_plugin_slowinit(node_factory):
     """Tests that the 'plugin' RPC command times out if plugin doesnt respond"""
-    os.environ['SLOWINIT_TIME'] = '21'
+    os.environ['SLOWINIT_TIME'] = '61'
     n = node_factory.get_node()
 
-    with pytest.raises(RpcError, match="Timed out while waiting for plugin response"):
+    with pytest.raises(RpcError, match='failed to respond to "init" in time, terminating.'):
         n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
 
     # It's not actually configured yet, see what happens;
@@ -206,7 +206,6 @@ def test_plugin_slowinit(node_factory):
     n.rpc.plugin_list()
 
 
-@pytest.mark.xfail(strict=True)
 def test_plugin_command(node_factory):
     """Tests the 'plugin' RPC command"""
     n = node_factory.get_node()
