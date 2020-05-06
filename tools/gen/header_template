@@ -68,7 +68,11 @@ struct ${tlv.struct_name()} {
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
     % for msg in tlv.messages.values():
+        % if msg.singleton():
+	${msg.singleton().type_obj.type_name()} *${msg.name};
+	% else:
         struct ${msg.struct_name()} *${msg.name};
+	% endif
     % endfor
 };
 % endfor

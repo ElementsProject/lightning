@@ -74,7 +74,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 *    - MAY fail the connection.
 	 */
 	if (tlvs->networks) {
-		if (!contains_common_chain(tlvs->networks->chains)) {
+		if (!contains_common_chain(tlvs->networks)) {
 			status_peer_debug(&peer->id,
 			                  "No common chain with this peer '%s', closing",
 			                  tal_hex(tmpctx, msg));
@@ -160,9 +160,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 *     channels for.
 	 */
 	tlvs = tlv_init_tlvs_new(tmpctx);
-	tlvs->networks = tal(tlvs, struct tlv_init_tlvs_networks);
-	tlvs->networks->chains = tal_arr(tlvs->networks, struct bitcoin_blkid, 1);
-	tlvs->networks->chains[0] = chainparams->genesis_blockhash;
+	tlvs->networks = tal_dup_arr(tlvs, struct bitcoin_blkid,
+				     &chainparams->genesis_blockhash, 1, 0);
 
 	/* Initially, there were two sets of feature bits: global and local.
 	 * Local affected peer nodes only, global affected everyone.  Both were

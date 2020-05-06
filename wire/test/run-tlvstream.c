@@ -294,19 +294,19 @@ struct valid_stream {
 	const struct tlv_n1 expect;
 };
 
-static struct tlv_n1_tlv1 tlv1_0 = { .amount_msat = 0 };
-static struct tlv_n1_tlv1 tlv1_1 = { .amount_msat = 1 };
-static struct tlv_n1_tlv1 tlv1_256 = { .amount_msat = 256 };
-static struct tlv_n1_tlv1 tlv1_65536 = { .amount_msat = 65536 };
-static struct tlv_n1_tlv1 tlv1_16777216 = { .amount_msat = 16777216 };
-static struct tlv_n1_tlv1 tlv1_4294967296 = { .amount_msat = 4294967296ULL };
-static struct tlv_n1_tlv1 tlv1_1099511627776 = { .amount_msat = 1099511627776ULL};
-static struct tlv_n1_tlv1 tlv1_281474976710656 = { .amount_msat = 281474976710656ULL };
-static struct tlv_n1_tlv1 tlv1_72057594037927936 = { .amount_msat = 72057594037927936ULL };
-static struct tlv_n1_tlv2 tlv2_0x0x550 = { .scid.u64 = 0x000000000226 };
+static u64 tlv1_0 = 0;
+static u64 tlv1_1 = 1;
+static u64 tlv1_256 = 256;
+static u64 tlv1_65536 = 65536;
+static u64 tlv1_16777216 = 16777216;
+static u64 tlv1_4294967296 = 4294967296ULL;
+static u64 tlv1_1099511627776 = 1099511627776UL;
+static u64 tlv1_281474976710656 = 281474976710656ULL;
+static u64 tlv1_72057594037927936 = 72057594037927936ULL;
+static struct short_channel_id tlv2_0x0x550 = { .u64 = 0x000000000226 };
 /* filled in at runtime. */
 static struct tlv_n1_tlv3 tlv3_node_id;
-static struct tlv_n1_tlv4 tlv4_550 = { .cltv_delta = 550 };
+static u16 tlv4_550 = 550;
 
 static struct valid_stream valid_streams[] = {
 	/* Valid but no (known) content. */
@@ -338,7 +338,7 @@ static bool tlv_n1_eq(const struct tlv_n1 *a, const struct tlv_n1 *b)
 	if (a->tlv1) {
 		if (!b->tlv1)
 			return false;
-		if (a->tlv1->amount_msat != b->tlv1->amount_msat)
+		if (*a->tlv1 != *b->tlv1)
 			return false;
 	} else if (b->tlv1)
 		return false;
@@ -346,7 +346,7 @@ static bool tlv_n1_eq(const struct tlv_n1 *a, const struct tlv_n1 *b)
 	if (a->tlv2) {
 		if (!b->tlv2)
 			return false;
-		if (!short_channel_id_eq(&a->tlv2->scid, &b->tlv2->scid))
+		if (!short_channel_id_eq(a->tlv2, b->tlv2))
 			return false;
 	} else if (b->tlv2)
 		return false;
@@ -368,7 +368,7 @@ static bool tlv_n1_eq(const struct tlv_n1 *a, const struct tlv_n1 *b)
 	if (a->tlv4) {
 		if (!b->tlv4)
 			return false;
-		if (a->tlv4->cltv_delta != b->tlv4->cltv_delta)
+		if (*a->tlv4 != *b->tlv4)
 			return false;
 	} else if (b->tlv4)
 		return false;

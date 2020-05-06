@@ -638,8 +638,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 			    "Bad peer_add_htlc %s", tal_hex(msg, msg));
 
 #if EXPERIMENTAL_FEATURES
-	if (tlvs->blinding)
-		blinding = &tlvs->blinding->blinding;
+	blinding = tlvs->blinding;
 #endif
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
@@ -1661,8 +1660,6 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 	const u8 *cursor;
 	size_t max, maxlen;
 	struct tlv_onionmsg_payload *om;
-	const struct short_channel_id *next_scid;
-	struct node_id *next_node;
 	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
 
 	if (!fromwire_onion_message(msg, onion, tlvs))
@@ -1682,8 +1679,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		struct secret hmac;
 
 		/* E(i) */
-		blinding_in = tal(msg, struct pubkey);
-		*blinding_in = tlvs->blinding->blinding;
+		blinding_in = tal_dup(msg, struct pubkey, tlvs->blinding);
 		status_debug("blinding in = %s",
 			     type_to_string(tmpctx, struct pubkey, blinding_in));
 		blinding_ss = tal(msg, struct secret);
@@ -1742,8 +1738,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 	/* If we weren't given a blinding factor, tlv can provide one. */
 	if (om->blinding && !blinding_ss) {
 		/* E(i) */
-		blinding_in = tal(msg, struct pubkey);
-		*blinding_in = om->blinding->blinding;
+		blinding_in = tal_dup(msg, struct pubkey, om->blinding);
 		blinding_ss = tal(msg, struct secret);
 
 		ecdh(blinding_in, blinding_ss);
@@ -1764,19 +1759,19 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		subkey_from_hmac("rho", blinding_ss, &rho);
 
 		/* Overrides next_scid / next_node */
-		if (tal_bytelen(om->enctlv->enctlv)
+		if (tal_bytelen(om->enctlv)
 		    < crypto_aead_chacha20poly1305_ietf_ABYTES) {
 			status_debug("enctlv too short for mac");
 			return;
 		}
 
 		dec = tal_arr(msg, u8,
-			      tal_bytelen(om->enctlv->enctlv)
+			      tal_bytelen(om->enctlv)
 			      - crypto_aead_chacha20poly1305_ietf_ABYTES);
 		ret = crypto_aead_chacha20poly1305_ietf_decrypt(dec, NULL,
 								NULL,
-								om->enctlv->enctlv,
-								tal_bytelen(om->enctlv->enctlv),
+								om->enctlv,
+								tal_bytelen(om->enctlv),
 								NULL, 0,
 								npub,
 								rho.data);
@@ -1801,17 +1796,6 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	if (om->next_short_channel_id)
-		next_scid = &om->next_short_channel_id->short_channel_id;
-	else
-		next_scid = NULL;
-
-	if (om->next_node_id) {
-		next_node = tal(msg, struct node_id);
-		node_id_from_pubkey(next_node, &om->next_node_id->node_id);
-	} else
-		next_node = NULL;
-
 	if (om->enctlv) {
 		status_broken("FIXME: Handle enctlv!");
 		return;
@@ -1835,14 +1819,16 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 							       path)));
 	} else {
 		struct pubkey *next_blinding;
+		struct node_id next_node;
 
 		/* This *MUST* have instructions on where to go next. */
-		if (!next_scid && !next_node) {
+		if (!om->next_short_channel_id && !om->next_node_id) {
 			status_debug("onion msg: no next field in %s",
 				     tal_hex(tmpctx, rs->raw_payload));
 			return;
 		}
 
+		node_id_from_pubkey(&next_node, om->next_node_id);
 		if (blinding_ss) {
 			/* E(i-1) = H(E(i) || ss(i)) * E(i) */
 			struct sha256 h;
@@ -1854,8 +1840,8 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 
 		wire_sync_write(MASTER_FD,
 				take(towire_got_onionmsg_forward(NULL,
-								 next_scid,
-								 next_node,
+								 om->next_short_channel_id,
+								 &next_node,
 								 next_blinding,
 								 serialize_onionpacket(tmpctx, rs->next))));
 	}
@@ -1871,11 +1857,8 @@ static void send_onionmsg(struct peer *peer, const u8 *msg)
 	if (!fromwire_send_onionmsg(msg, msg, onion_routing_packet, &blinding))
 		master_badmsg(WIRE_SEND_ONIONMSG, msg);
 
-	if (blinding) {
-		tlvs->blinding = tal(tlvs,
-				     struct tlv_onion_message_tlvs_blinding);
-		tlvs->blinding->blinding = *blinding;
-	}
+	if (blinding)
+		tlvs->blinding = tal_dup(tlvs, struct pubkey, blinding);
 	sync_crypto_write(peer->pps,
 			  take(towire_onion_message(NULL,
 						    onion_routing_packet,
@@ -2087,8 +2070,8 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			struct tlv_update_add_tlvs *tlvs;
 			if (h->blinding) {
 				tlvs = tlv_update_add_tlvs_new(tmpctx);
-				tlvs->blinding = tal(tlvs, struct tlv_update_add_tlvs_blinding);
-				tlvs->blinding->blinding = *h->blinding;
+				tlvs->blinding = tal_dup(tlvs, struct pubkey,
+							 h->blinding);
 			} else
 				tlvs = NULL;
 #endif
@@ -2724,8 +2707,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	struct tlv_update_add_tlvs *tlvs;
 	if (blinding) {
 		tlvs = tlv_update_add_tlvs_new(tmpctx);
-		tlvs->blinding = tal(tlvs, struct tlv_update_add_tlvs_blinding);
-		tlvs->blinding->blinding = *blinding;
+		tlvs->blinding = tal_dup(tlvs, struct pubkey, blinding);
 	} else
 		tlvs = NULL;
 #endif

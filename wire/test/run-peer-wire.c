@@ -858,12 +858,12 @@ static bool init_eq(const struct msg_init *a,
 	if (!a->tlvs->networks)
 		return true;
 
-	if (tal_count(a->tlvs->networks->chains)
-	    != tal_count(b->tlvs->networks->chains))
+	if (tal_count(a->tlvs->networks)
+	    != tal_count(b->tlvs->networks))
 		return false;
-	for (size_t i = 0; i < tal_count(a->tlvs->networks->chains); i++)
-		if (!bitcoin_blkid_eq(&a->tlvs->networks->chains[i],
-				      &b->tlvs->networks->chains[i]))
+	for (size_t i = 0; i < tal_count(a->tlvs->networks); i++)
+		if (!bitcoin_blkid_eq(&a->tlvs->networks[i],
+				      &b->tlvs->networks[i]))
 			return false;
 	return true;
 }
@@ -1078,9 +1078,8 @@ int main(void)
 		init.localfeatures = tal_arr(ctx, u8, 2);
 		memset(init.localfeatures, 2, 2);
 		init.tlvs = tlv_init_tlvs_new(ctx);
-		init.tlvs->networks = tal(init.tlvs, struct tlv_init_tlvs_networks);
-		init.tlvs->networks->chains = tal_arr(ctx, struct bitcoin_blkid, 1);
-		init.tlvs->networks->chains[0] = chains[i]->genesis_blockhash;
+		init.tlvs->networks = tal_arr(init.tlvs, struct bitcoin_blkid, 1);
+		init.tlvs->networks[0] = chains[i]->genesis_blockhash;
 		msg = towire_struct_init(ctx, &init);
 		init2 = fromwire_struct_init(ctx, msg);
 		assert(init_eq(&init, init2));

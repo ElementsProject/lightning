@@ -156,9 +156,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		struct tlv_init_tlvs *tlvs = NULL;
 		if (chainparams) {
 			tlvs = tlv_init_tlvs_new(NULL);
-			tlvs->networks = tal(tlvs, struct tlv_init_tlvs_networks);
-			tlvs->networks->chains = tal_arr(tlvs->networks, struct bitcoin_blkid, 1);
-			tlvs->networks->chains[0] = chainparams->genesis_blockhash;
+			tlvs->networks = tal_arr(tlvs, struct bitcoin_blkid, 1);
+			tlvs->networks[0] = chainparams->genesis_blockhash;
 		}
 			msg = towire_init(NULL, NULL, features, tlvs);
 

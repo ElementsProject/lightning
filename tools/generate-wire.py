@@ -172,6 +172,12 @@ class FieldSet(object):
     def needs_context(self):
         return any([field.needs_context() or field.is_optional for field in self.fields.values()])
 
+    def singleton(self):
+        """Return the single message, if there's only one, otherwise None"""
+        if len(self.fields) == 1:
+            return next(iter(self.fields.values()))
+        return None
+
 
 class Type(FieldSet):
     assignables = [
@@ -480,8 +486,14 @@ class Master(object):
                     unsorted.remove(s)
         return sorted_types
 
-    def tlv_messages(self):
-        return [m for tlv in self.tlvs.values() for m in tlv.messages.values()]
+    def tlv_structs(self):
+        ret = []
+        for tlv in self.tlvs.values():
+            for v in tlv.messages.values():
+                if not v.singleton():
+                    ret.append(v)
+
+        return ret
 
     def find_template(self, options):
         dirpath = os.path.dirname(os.path.abspath(__file__))
@@ -512,7 +524,7 @@ class Master(object):
         stuff['includes'] = self.inclusions
         stuff['enum_sets'] = enum_sets
         subtypes = self.get_ordered_subtypes()
-        stuff['structs'] = subtypes + self.tlv_messages()
+        stuff['structs'] = subtypes + self.tlv_structs()
         stuff['tlvs'] = self.tlvs
 
         # We leave out extension messages in the printing pages. Any extension

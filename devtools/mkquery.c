@@ -49,9 +49,8 @@ int main(int argc, char *argv[])
 			tlvs = NULL;
 		else if (argc == 6) {
 			tlvs = tlv_query_channel_range_tlvs_new(ctx);
-			tlvs->query_option = tal(tlvs, struct tlv_query_channel_range_tlvs_query_option);
-			tlvs->query_option->query_option_flags
-				= strtol(argv[5], NULL, 0);
+			tlvs->query_option = tal(tlvs, varint);
+			*tlvs->query_option = strtol(argv[5], NULL, 0);
 		} else
 			usage();
 		msg = towire_query_channel_range(ctx, &chainhash,

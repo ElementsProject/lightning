@@ -300,20 +300,19 @@ static void populate_tlvs(struct hop *hops,
 		tlv = tlv_onionmsg_payload_new(tmpctx);
 		/* If they don't give scid, use next node id */
 		if (hops[i].scid) {
-			tlv->next_short_channel_id = tal(tlv, struct tlv_onionmsg_payload_next_short_channel_id);
-			tlv->next_short_channel_id->short_channel_id = *hops[i].scid;
+			tlv->next_short_channel_id
+				= tal_dup(tlv, struct short_channel_id,
+					  hops[i].scid);
 		} else if (i != tal_count(hops)-1) {
-			tlv->next_node_id = tal(tlv, struct tlv_onionmsg_payload_next_node_id);
-			tlv->next_node_id->node_id = hops[i+1].id;
+			tlv->next_node_id = tal_dup(tlv, struct pubkey,
+						    &hops[i+1].id);
 		}
 		if (hops[i].blinding) {
-			tlv->blinding = tal(tlv, struct tlv_onionmsg_payload_blinding);
-			tlv->blinding->blinding = *hops[i].blinding;
+			tlv->blinding = tal_dup(tlv, struct pubkey,
+						hops[i].blinding);
 		}
-		if (hops[i].enctlv) {
-			tlv->enctlv = tal(tlv, struct tlv_onionmsg_payload_enctlv);
-			tlv->enctlv->enctlv = hops[i].enctlv;
-		}
+		/* Note: tal_dup_talarr returns NULL for NULL */
+		tlv->enctlv = tal_dup_talarr(tlv, u8, hops[i].enctlv);
 
 		if (i == tal_count(hops)-1 && reply_path)
 			tlv->reply_path = reply_path;

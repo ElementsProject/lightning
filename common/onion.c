@@ -67,9 +67,6 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 {
 	if (use_tlv) {
 		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
-		struct tlv_tlv_payload_amt_to_forward tlv_amt;
-		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
-		struct tlv_tlv_payload_short_channel_id tlv_scid;
 
 		/* BOLT #4:
 		 *
@@ -81,23 +78,13 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		 *    - MUST include `short_channel_id`
 		 *    - MUST NOT include `payment_data`
 		 */
-		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
-		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
-		tlv_scid.short_channel_id = *scid;
-		tlv->amt_to_forward = &tlv_amt;
-		tlv->outgoing_cltv_value = &tlv_cltv;
-		tlv->short_channel_id = &tlv_scid;
+		tlv->amt_to_forward = &forward.millisatoshis; /* Raw: TLV convert */
+		tlv->outgoing_cltv_value = &outgoing_cltv;
+		tlv->short_channel_id = cast_const(struct short_channel_id *,
+						   scid);
 #if EXPERIMENTAL_FEATURES
-		struct tlv_tlv_payload_blinding_seed tlv_blinding;
-		struct tlv_tlv_payload_enctlv tlv_enctlv;
-		if (blinding) {
-			tlv_blinding.blinding_seed = *blinding;
-			tlv->blinding_seed = &tlv_blinding;
-		}
-		if (enctlv) {
-			tlv_enctlv.enctlv = cast_const(u8 *, enctlv);
-			tlv->enctlv = &tlv_enctlv;
-		}
+		tlv->blinding_seed = cast_const(struct pubkey *, blinding);
+		tlv->enctlv = cast_const(u8 *, enctlv);
 #endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
@@ -124,8 +111,6 @@ u8 *onion_final_hop(const tal_t *ctx,
 
 	if (use_tlv) {
 		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
-		struct tlv_tlv_payload_amt_to_forward tlv_amt;
-		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
 		struct tlv_tlv_payload_payment_data tlv_pdata;
 
 		/* BOLT #4:
@@ -142,10 +127,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 		 *      - MUST set `payment_secret` to the one provided
 		 *      - MUST set `total_msat` to the total amount it will send
 		 */
-		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
-		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
-		tlv->amt_to_forward = &tlv_amt;
-		tlv->outgoing_cltv_value = &tlv_cltv;
+		tlv->amt_to_forward = &forward.millisatoshis; /* Raw: TLV convert */
+		tlv->outgoing_cltv_value = &outgoing_cltv;
 
 		if (payment_secret) {
 			tlv_pdata.payment_secret = *payment_secret;
@@ -153,16 +136,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 			tlv->payment_data = &tlv_pdata;
 		}
 #if EXPERIMENTAL_FEATURES
-		struct tlv_tlv_payload_blinding_seed tlv_blinding;
-		struct tlv_tlv_payload_enctlv tlv_enctlv;
-		if (blinding) {
-			tlv_blinding.blinding_seed = *blinding;
-			tlv->blinding_seed = &tlv_blinding;
-		}
-		if (enctlv) {
-			tlv_enctlv.enctlv = cast_const(u8 *, enctlv);
-			tlv->enctlv = &tlv_enctlv;
-		}
+		tlv->blinding_seed = cast_const(struct pubkey *, blinding);
+		tlv->enctlv = cast_const(u8 *, enctlv);
 #endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
@@ -351,9 +326,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (!tlv->amt_to_forward || !tlv->outgoing_cltv_value)
 			goto fail;
 
-		amount_msat_from_u64(&p->amt_to_forward,
-				     tlv->amt_to_forward->amt_to_forward);
-		p->outgoing_cltv = tlv->outgoing_cltv_value->outgoing_cltv_value;
+		amount_msat_from_u64(&p->amt_to_forward, *tlv->amt_to_forward);
+		p->outgoing_cltv = *tlv->outgoing_cltv_value;
 
 		/* BOLT #4:
 		 *
@@ -365,9 +339,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!tlv->short_channel_id)
 				goto fail;
-			p->forward_channel = tal(p, struct short_channel_id);
-			*p->forward_channel
-				= tlv->short_channel_id->short_channel_id;
+			p->forward_channel = tal_dup(p, struct short_channel_id,
+						     tlv->short_channel_id);
 			p->total_msat = NULL;
 		} else {
 			p->forward_channel = NULL;
@@ -391,7 +364,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			if (tlv->blinding_seed) {
 				p->blinding =
 					tal_dup(p, struct pubkey,
-						&tlv->blinding_seed->blinding_seed);
+						tlv->blinding_seed);
 				ecdh(p->blinding, &p->blinding_ss);
 			}
 		} else
@@ -408,7 +381,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 				ntlv = decrypt_tlv(tmpctx,
 						   &p->blinding_ss,
-						   tlv->enctlv->enctlv);
+						   tlv->enctlv);
 				if (!ntlv)
 					goto fail;
 
@@ -417,7 +390,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 					goto fail;
 
 				*p->forward_channel
-					= ntlv->short_channel_id->short_channel_id;
+					= *ntlv->short_channel_id;
 			}
 		}
 #endif /* EXPERIMENTAL_FEATURES */
