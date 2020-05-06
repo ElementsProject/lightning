@@ -114,7 +114,6 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
  * | Bits    | Name                            |...
  * | 28/29   | `option_dual_fund`              |...
  */
-/* FIXME: update the RFC to match */
-#define OPT_FUNDCHANNEL_V2			18
+#define OPT_FUNDCHANNEL_V2			28
 
 #endif /* LIGHTNING_COMMON_FEATURES_H */
