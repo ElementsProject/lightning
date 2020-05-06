@@ -158,21 +158,19 @@ int main(int argc, char **argv)
 			/* Use scid if they provided one */
 			if (scids[i]) {
 				inner->next_short_channel_id
-					= tal(inner, struct tlv_onionmsg_payload_next_short_channel_id);
-				inner->next_short_channel_id->short_channel_id
-					= *scids[i];
+					= tal_dup(inner, struct short_channel_id,
+						  scids[i]);
 			} else {
-				inner->next_node_id = tal(inner, struct tlv_onionmsg_payload_next_node_id);
-				inner->next_node_id->node_id = nodes[i+1];
+				inner->next_node_id
+					= tal_dup(inner, struct pubkey, &nodes[i+1]);
 			}
 			p = tal_arr(tmpctx, u8, 0);
 			towire_encmsg_tlvs(&p, inner);
 
 			outer = tlv_onionmsg_payload_new(tmpctx);
-			outer->enctlv = tal(outer, struct tlv_onionmsg_payload_enctlv);
-			outer->enctlv->enctlv = tal_arr(tmpctx, u8, tal_count(p)
+			outer->enctlv = tal_arr(outer, u8, tal_count(p)
 				      + crypto_aead_chacha20poly1305_ietf_ABYTES);
-			ret = crypto_aead_chacha20poly1305_ietf_encrypt(outer->enctlv->enctlv, NULL,
+			ret = crypto_aead_chacha20poly1305_ietf_encrypt(outer->enctlv, NULL,
 									p,
 									tal_bytelen(p),
 									NULL, 0,
@@ -188,7 +186,7 @@ int main(int argc, char **argv)
 				printf("%s\n%s\n",
 				       type_to_string(tmpctx, struct pubkey,
 						      &b[i]),
-				       tal_hex(tmpctx, outer->enctlv->enctlv));
+				       tal_hex(tmpctx, outer->enctlv));
 			} else {
 				/* devtools/onion wants length explicitly prepended */
 				printf("%s/%.*s%s ",
@@ -290,17 +288,17 @@ int main(int argc, char **argv)
 		if (!outer->enctlv)
 			errx(1, "No enctlv field");
 
-		if (tal_bytelen(outer->enctlv->enctlv)
+		if (tal_bytelen(outer->enctlv)
 		    < crypto_aead_chacha20poly1305_ietf_ABYTES)
 			errx(1, "enctlv field too short");
 
 		dec = tal_arr(tmpctx, u8,
-			      tal_bytelen(outer->enctlv->enctlv)
+			      tal_bytelen(outer->enctlv)
 			      - crypto_aead_chacha20poly1305_ietf_ABYTES);
 		ret = crypto_aead_chacha20poly1305_ietf_decrypt(dec, NULL,
 								NULL,
-								outer->enctlv->enctlv,
-								tal_bytelen(outer->enctlv->enctlv),
+								outer->enctlv,
+								tal_bytelen(outer->enctlv),
 								NULL, 0,
 								npub,
 								rho.data);
