@@ -1164,7 +1164,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 	struct channel_id id_in;
 	struct input_info *input;
 	struct output_info *output;
-	bool complete;
+	bool complete, last_sent_complete = false;
 	size_t i, queue_count;
 	u8 *msg;
 
@@ -1225,6 +1225,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 	/* We expect the peer to send us their inputs/outputs. Read
 	 * until we get funding_add_complete */
 	complete = false;
+	last_sent_complete = true;
 	*remote_inputs = tal_arr(state, struct input_info *, 0);
 	*remote_outputs = tal_arr(state, struct output_info *, 0);
 
@@ -1267,8 +1268,6 @@ static bool send_receive_funding_tx_info(struct state *state,
 
 				// FIXME: verify podle?
 				tal_arr_expand(remote_inputs, input);
-				msg = towire_tx_complete(tmpctx, &state->channel_id);
-				sync_crypto_write(state->pps, take(msg));
 				break;
 			case WIRE_TX_ADD_OUTPUT:
 				output = tal(remote_outputs, struct output_info);
@@ -1282,8 +1281,6 @@ static bool send_receive_funding_tx_info(struct state *state,
 				check_channel_id(state, &id_in, &state->channel_id);
 
 				tal_arr_expand(remote_outputs, output);
-				msg = towire_tx_complete(tmpctx, &state->channel_id);
-				sync_crypto_write(state->pps, take(msg));
 				break;
 			case WIRE_TX_REMOVE_INPUT:
 				if (!fromwire_tx_remove_input(msg, &id_in, &serial_id))
@@ -1297,8 +1294,6 @@ static bool send_receive_funding_tx_info(struct state *state,
 						    "Attempted to remove unknown input %u",
 						    serial_id);
 
-				msg = towire_tx_complete(tmpctx, &state->channel_id);
-				sync_crypto_write(state->pps, take(msg));
 				break;
 			case WIRE_TX_REMOVE_OUTPUT:
 				if (!fromwire_tx_remove_output(msg, &id_in, &serial_id))
@@ -1312,8 +1307,6 @@ static bool send_receive_funding_tx_info(struct state *state,
 						    "Attempted to remove unknown output %u",
 						    serial_id);
 
-				msg = towire_tx_complete(tmpctx, &state->channel_id);
-				sync_crypto_write(state->pps, take(msg));
 				break;
 			case WIRE_TX_COMPLETE:
 				if (!fromwire_tx_complete(msg, &id_in))
@@ -1330,8 +1323,10 @@ static bool send_receive_funding_tx_info(struct state *state,
 					peer_failed(state->pps, &state->channel_id,
 						    "Opener must send at lease one input");
 
-				msg = towire_tx_complete(tmpctx, &state->channel_id);
-				sync_crypto_write(state->pps, take(msg));
+				if (!last_sent_complete) {
+					msg = towire_tx_complete(tmpctx, &state->channel_id);
+					sync_crypto_write(state->pps, take(msg));
+				}
 				complete = true;
 				break;
 			default:
