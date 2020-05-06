@@ -1011,49 +1011,6 @@ static bool check_remote_input_outputs(struct state *state,
 	size_t i = 0;
 	u8 *msg, *err_msg, *wscript;
 
-	if (remote_role == OPENER) {
-		/**
-		 *  BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
-		 *  - if is the `opener`:
-		 *  ...
-    		 *    - MUST NOT send a total count of more than 64 inputs,
-		 *      across all `funding_add_input` messages.
-		 */
-		if (tal_count(remote_inputs) > REMOTE_OPENER_INPUT_LIMIT)
-			peer_failed(state->pps,
-				    &state->channel_id,
-				    "%zu surpassed maximum input limit %u",
-				    tal_count(remote_inputs),
-				    REMOTE_OPENER_INPUT_LIMIT);
-	} else {
-		/**
-		 * BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
-		 * - if is the `accepter`:
-    		 *  - MUST NOT send a total count of more than 16 inputs, across
-		 *    all `funding_add_input` messages.
-		 */
-		if (tal_count(remote_inputs) > REMOTE_ACCEPTER_INPUT_LIMIT)
-			peer_failed(state->pps,
-				    &state->channel_id,
-				    "Too many inputs added. "
-				    "Received %ld inputs, max allowed is %d",
-				    tal_count(remote_inputs),
-				    REMOTE_ACCEPTER_INPUT_LIMIT);
-
-		/* BOLT-343afe6a339617807ced92ab10480188f8e6970e #2
-		 * - if is the `accepter`:
-		 *   - MUST NOT send a total count of more than 8 outputs,
-		 *     across all `funding_add_output` messages.
-		 */
-		if (tal_count(remote_outputs) > REMOTE_OUTPUT_LIMIT)
-			peer_failed(state->pps,
-				    &state->channel_id,
-				    "Too many outputs added. "
-				    "Received %ld outputs, max allowed is %d",
-				    tal_count(remote_outputs),
-				    REMOTE_OUTPUT_LIMIT);
-	}
-
 	if (!check_remote_inputs(state, local_inputs, remote_inputs, &funding))
 		peer_failed(state->pps,
 			    &state->channel_id,

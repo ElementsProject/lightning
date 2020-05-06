@@ -1457,15 +1457,6 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
 								0, 0,
 								UINT32_MAX, /* minconf 1 */
 								&fee_estimate, &change);
-
-		/* Verify that we're still under the max remote that is allowed */
-		if (tal_count(pf->utxos) > REMOTE_ACCEPTER_INPUT_LIMIT) {
-			log_info(openingd->log,
-				 "Too many utxos selected (%zu), only %"PRIu16" allowed",
-				 tal_count(pf->utxos), REMOTE_ACCEPTER_INPUT_LIMIT);
-			pf->utxos = tal_free(pf->utxos);
-			change = AMOUNT_SAT(0);
-		}
 	} else {
 		change = AMOUNT_SAT(0);
 		pf->utxos = NULL;
