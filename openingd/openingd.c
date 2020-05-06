@@ -1177,7 +1177,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 	 * - if is the `accepter`:
 	 *   - MAY omit this message
 	 */
-	for (i = 0; i < tal_count(local_inputs); i++) {
+	for (i = 0; i < tal_count(*local_inputs); i++) {
 		input = *local_inputs[i];
 		msg = towire_tx_add_input(tmpctx, &state->channel_id,
 					  next_serial(role),
@@ -1193,7 +1193,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 
 	}
 
-	if (tal_count(local_inputs) == 0)
+	if (tal_count(*local_inputs) == 0)
 		assert(role == ACCEPTER);
 	else
 		peer_billboard(false, "Opening channel: tx_add_inputs sent");
@@ -1205,7 +1205,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 	 * Either node:
 	 * - MAY omit this message
 	 */
-	for (i = 0; i < tal_count(local_outputs); i++) {
+	for (i = 0; i < tal_count(*local_outputs); i++) {
 		output = *local_outputs[i];
 		msg = towire_tx_add_output(tmpctx, &state->channel_id,
 						next_serial(role),
@@ -1214,7 +1214,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 		sync_crypto_write(state->pps, take(msg));
 	}
 
-	if (tal_count(local_outputs) > 0)
+	if (tal_count(*local_outputs) > 0)
 		peer_billboard(false, "Opening channel: tx_add_outputs sent");
 
 
@@ -1248,7 +1248,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 		type = fromwire_peektype(msg);
 		switch (type) {
 			case WIRE_TX_ADD_INPUT:
-				input = tal(remote_inputs, struct input_info);
+				input = tal(*remote_inputs, struct input_info);
 				struct tlv_tx_add_input_tlvs *tlv =
 					tlv_tx_add_input_tlvs_new(input);
 
@@ -1270,7 +1270,7 @@ static bool send_receive_funding_tx_info(struct state *state,
 				tal_arr_expand(remote_inputs, input);
 				break;
 			case WIRE_TX_ADD_OUTPUT:
-				output = tal(remote_outputs, struct output_info);
+				output = tal(*remote_outputs, struct output_info);
 				if (!fromwire_tx_add_output(output, msg, &id_in,
 							    &output->serial_id,
 							    &output->sats,
