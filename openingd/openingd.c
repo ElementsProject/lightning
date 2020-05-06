@@ -627,6 +627,9 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	if (state->use_v2) {
 #if EXPERIMENTAL_FEATURES
 		struct tlv_opening_tlvs *tlv = tlv_opening_tlvs_new(tmpctx);
+		/* FIXME: use real podleh2 */
+		struct sha256 *podleh2 = tal(tmpctx, struct sha256);
+
 		if (state->upfront_shutdown_script[LOCAL]) {
 			tlv->option_upfront_shutdown_script =
 				tal(tlv, struct tlv_opening_tlvs_option_upfront_shutdown_script);
@@ -640,7 +643,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		msg = towire_open_channel2(NULL,
 					   &chainparams->genesis_blockhash,
 					   state->locktime,
-					   NULL, /* FIXME: use real podleh2 */
+					   podleh2,
 					   state->feerate_per_kw_funding,
 					   state->opener_funding,
 					   state->push_msat,
