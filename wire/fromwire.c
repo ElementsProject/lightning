@@ -375,12 +375,12 @@ void derive_channel_id(struct channel_id *channel_id,
 void derive_channel_id2(struct channel_id *channel_id,
 			const struct pubkey *node_1_rev_base,
 			const struct pubkey *node_2_rev_base,
-			int comparison_result)
+			bool node_1_first)
 {
 	struct sha256 h;
 	u8 ids[2 * PUBKEY_CMPR_LEN];
-	size_t diff_1 = comparison_result < 0 ? 0 : PUBKEY_CMPR_LEN,
-		diff_2 = comparison_result >= 0 ? 0 : PUBKEY_CMPR_LEN;
+	size_t diff_1 = node_1_first ? 0 : PUBKEY_CMPR_LEN,
+		diff_2 = !node_1_first ? 0 : PUBKEY_CMPR_LEN;
 
 	pubkey_to_der(ids + diff_1, node_1_rev_base);
 	pubkey_to_der(ids + diff_2, node_2_rev_base);

@@ -1726,7 +1726,7 @@ void peer_start_openingd(struct peer *peer,
 
 	msg = towire_opening_init(NULL,
 				  /* We need sorting order to derive channel_id2 */
-				  node_id_cmp(&peer->ld->id, &peer->id),
+				  node_id_cmp(&peer->ld->id, &peer->id) > 0,
 				  chainparams,
 				  peer->ld->our_features,
 				  &uc->our_config,

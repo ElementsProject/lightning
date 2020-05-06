@@ -70,7 +70,7 @@ struct state {
 
 	/* We need the node ordering between us and our peer
 	 * for v2 channel ids; is ordering given us/them */
-	u8 node_order;
+	bool first_node_is_us;
 
 	/* Features they offered */
 	u8 *their_features;
@@ -812,7 +812,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		derive_channel_id2(&state->channel_id,
 				   &state->our_points.revocation,
 				   &state->their_points.revocation,
-				   state->node_order);
+				   state->first_node_is_us);
 
 	/* BOLT #2:
 	 *
@@ -2195,7 +2195,7 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 	derive_channel_id2(&state->channel_id,
 			   &state->our_points.revocation,
 			   &state->their_points.revocation,
-			   state->node_order);
+			   state->first_node_is_us);
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     state->accepter_funding,
@@ -3034,7 +3034,7 @@ int main(int argc, char *argv[])
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_init(state, msg,
-				   &state->node_order,
+				   &state->first_node_is_us,
 				   &chainparams,
 				   &state->our_features,
 				   &state->localconf,
