@@ -767,11 +767,14 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 	}
 }
 
+
+
 static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 					 struct amount_sat sat,
 					 const u32 feerate_per_kw,
 					 size_t outscriptlen,
 					 bool may_have_change,
+					 bool include_common_fields,
 					 u32 maxheight,
 					 struct amount_sat *satoshi_in,
 					 struct amount_sat *fee_estimate)
@@ -783,11 +786,25 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	/* version, input count, output count, locktime */
-	weight = (4 + 1 + 1 + 4) * 4;
-
-	/* Add segwit fields: marker + flag */
-	weight += 1 + 1;
+	/* BOLT-937cbac261629c046ad7dbff7dd0b285e98e7d70 #2
+	 * The initiator is responsible for paying the fees for the following fields,
+	 * to be referred to as the `common` fields.
+	 *
+	 *  - version
+	 * - segwit marker + flag
+	 * - input count
+	 * - output count
+	 * - locktime
+	 *
+	 * Each party to the transaction is responsible for paying the fees
+	 * for their input, output, and witness, at the agreed `feerate`.
+	*/
+	if (include_common_fields)
+		/* version, input count, output count, locktime,
+		 * segwit marker + flag */
+		weight = (4 + 1 + 1 + 4) * 4 + 1 + 1;
+	else
+		weight = 0;
 
 	/* The main output: amount, len, scriptpubkey */
 	weight += (8 + 1 + outscriptlen) * 4;
@@ -880,6 +897,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					bool with_change,
+					bool include_common_fields,
 					struct amount_sat sat,
 					const u32 feerate_per_kw,
 					size_t outscriptlen,
@@ -891,8 +909,8 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	const struct utxo **utxo;
 
 	utxo = wallet_select(ctx, w, sat, feerate_per_kw,
-			     outscriptlen, with_change, maxheight,
-			     &satoshi_in, fee_estimate);
+			     outscriptlen, with_change, include_common_fields,
+			     maxheight, &satoshi_in, fee_estimate);
 
 	/* Couldn't afford it? */
 	if (!amount_sat_sub(change, satoshi_in, sat)
@@ -947,7 +965,7 @@ const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 
 	/* Huge value, but won't overflow on addition */
 	utxo = wallet_select(ctx, w, AMOUNT_SAT(1ULL << 56), feerate_per_kw,
-			     outscriptlen, false, maxheight,
+			     outscriptlen, false, true, maxheight,
 			     &satoshi_in, fee_estimate);
 
 	/* Can't afford fees? */

@@ -928,7 +928,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info");
 
 	/* Now select them */
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(2), 0, 21,
+	utxos = wallet_select_coins(w, w, true, true, AMOUNT_SAT(2), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
 	CHECK(utxos && tal_count(utxos) == 2);
@@ -966,7 +966,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "could not change output state ignoring oldstate");
 
 	/* Check for 'reserved' state changes */
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+	utxos = wallet_select_coins(w, w, true, true, AMOUNT_SAT(1), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
 	CHECK(utxos && tal_count(utxos) == 1);
@@ -982,7 +982,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	tal_free(utxos);
 
 	/* Now should be unable to select 1 sat amount */
-	CHECK_MSG(!wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+	CHECK_MSG(!wallet_select_coins(w, w, true, true, AMOUNT_SAT(1), 0, 21,
 				       0 /* no confirmations required */,
 				       &fee_estimate, &change_satoshis),
 	          "too many utxos available");
@@ -1000,7 +1000,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	/* Expire the lease! */
 	ld->topology->tip->height = height + reserve_for_blocks;
 
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+	utxos = wallet_select_coins(w, w, true, true, AMOUNT_SAT(1), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
 	CHECK_MSG(utxos && tal_count(utxos) == 1, "utxo count is incorrect");
@@ -1021,7 +1021,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo high priority utxo");
 
 	/* check that we get back two high priority utxos */
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(2), 0, 21,
+	utxos = wallet_select_coins(w, w, true, true, AMOUNT_SAT(2), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
 	CHECK_MSG(utxos && tal_count(utxos) == 2, "utxo count is incorrect");
@@ -1043,7 +1043,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info no commitment_point");
 
 	/* Now select it */
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(5), 0, 21,
+	utxos = wallet_select_coins(w, w, true, true, AMOUNT_SAT(5), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
 	CHECK(utxos && tal_count(utxos) == 1);

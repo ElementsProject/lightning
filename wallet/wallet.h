@@ -452,6 +452,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					bool with_change,
+					bool include_common_fields,
 					struct amount_sat value,
 					const u32 feerate_per_kw,
 					size_t outscriptlen,

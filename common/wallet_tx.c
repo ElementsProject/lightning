@@ -160,14 +160,14 @@ struct command_result *wtx_select_utxos(struct wallet_tx *tx,
 	}
 
 	tx->utxos = wallet_select_coins(tx, tx->cmd->ld->wallet,
-					true, tx->amount,
+					true, true, tx->amount,
 					fee_rate_per_kw, out_len,
 					maxheight,
 					&fee_estimate, &tx->change);
 	if (!tx->utxos) {
 		/* Try again, without change this time */
 		tx->utxos = wallet_select_coins(tx, tx->cmd->ld->wallet,
-						false, tx->amount,
+						false, true, tx->amount,
 						fee_rate_per_kw, out_len,
 						maxheight,
 						&fee_estimate, &tx->change);

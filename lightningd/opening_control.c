@@ -1453,9 +1453,9 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
 
 		struct amount_sat fee_estimate UNUSED;
 		pf->utxos = (struct utxo **)wallet_select_coins(pf, openingd->ld->wallet,
-								true, pf->accepter_funding,
-								0, 0,
-								UINT32_MAX, /* minconf 1 */
+								true, false,
+								pf->accepter_funding,
+								0, 0, UINT32_MAX, /* minconf 1 */
 								&fee_estimate, &change);
 	} else {
 		change = AMOUNT_SAT(0);
