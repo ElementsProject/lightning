@@ -2312,11 +2312,6 @@ static u8 *fundee_channel2(struct state *state, const u8 *open_channel2_msg)
 			    &state->channel_id,
 			    "Peer sent HTLCs with initial commitment signed msg");
 
-	/* We expect to have switched over to using the funding_tx
-	  * derived channel_id as of now */
-	derive_channel_id(&state->channel_id,
-			  &state->funding_txid, state->funding_txout);
-
 	/* If this check fails, we know that they've derived a different funding
 	 * tx than we have */
 	check_channel_id(state, &id_in, &state->channel_id);
