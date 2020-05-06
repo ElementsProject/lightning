@@ -37,6 +37,10 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 /* Generated stub for fromwire_pubkey */
 void fromwire_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "fromwire_pubkey called!\n"); abort(); }
+/* Generated stub for fromwire_tal_arrn */
+u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
+		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
+{ fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
 /* Generated stub for fromwire_u16 */
 u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u16 called!\n"); abort(); }

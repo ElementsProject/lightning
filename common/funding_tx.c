@@ -438,18 +438,14 @@ void towire_input_info(u8 **pptr, const struct input_info *input_info)
 struct input_info *fromwire_input_info(const tal_t *ctx, const u8 **ptr, size_t *max)
 {
 	struct input_info *input = tal(ctx, struct input_info);
-	u16 prevtx_scriptlen;
-	u16 script_len;
 
 	input->serial_id = fromwire_u16(ptr, max);
 	input->sats = fromwire_amount_sat(ptr, max);
 	fromwire_bitcoin_txid(ptr, max, &input->prevtx_txid);
 	input->prevtx_vout = fromwire_u32(ptr, max);
-	prevtx_scriptlen = fromwire_u16(ptr, max);
-	fromwire_u8_array(ptr, max, input->prevtx_scriptpubkey, prevtx_scriptlen);
+	input->prevtx_scriptpubkey = fromwire_tal_arrn(input, ptr, max, fromwire_u16(ptr, max));
 	input->max_witness_len = fromwire_u16(ptr, max);
-	script_len = fromwire_u16(ptr, max);
-	fromwire_u8_array(ptr, max, input->script, script_len);
+	input->script = fromwire_tal_arrn(input, ptr, max, fromwire_u16(ptr, max));
 
 	return input;
 }
