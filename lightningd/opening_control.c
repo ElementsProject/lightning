@@ -1560,13 +1560,16 @@ static void opening_got_offer(struct subd *openingd,
 	}
 
 	if (payload->is_v2) {
+		struct amount_sat fee_est UNUSED;
+		u32 maxheight;
 		uc->pf = tal(uc, struct peer_funding);
-		/* Calculate the max we can contribute to this channel */
-		/* We use one less than the contribution count limit
-		 * to leave room for a change output */
-		wallet_compute_max(openingd->ld->wallet,
-				   REMOTE_ACCEPTER_INPUT_LIMIT,
-				   &payload->available_funds);
+		/* Calculate the max we can contribute to this channel,  i.e. the entire
+		 * current, unreserved or reservation expired, at least once
+		 * confirmed utxo value */
+		maxheight = minconf_to_maxheight(1, openingd->ld);
+		tal_free(wallet_select_all(NULL, openingd->ld->wallet,
+					   0, 0, maxheight,
+					   &payload->available_funds, &fee_est));
 	} else
 		uc->pf = NULL;
 
