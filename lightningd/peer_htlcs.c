@@ -1982,12 +1982,14 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 	struct fee_states *fee_states;
+	struct penalty_base *pbase;
 
 	if (!fromwire_channel_got_revoke(msg, msg,
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
 					 &fee_states,
-					 &changed)
+					 &changed,
+					 &pbase)
 	    || !fee_states_valid(fee_states, channel->opener)) {
 		channel_internal_error(channel, "bad fromwire_channel_got_revoke %s",
 				    tal_hex(channel, msg));
