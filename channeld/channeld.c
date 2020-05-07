@@ -1416,7 +1416,8 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 		ptx = penalty_tx_create(
 		    NULL, peer->channel, peer->feerate_penalty,
 		    peer->final_scriptpubkey, per_commitment_secret,
-		    &pbase->txid, pbase->outnum, pbase->amount);
+		    &pbase->txid, pbase->outnum, pbase->amount,
+		    HSM_FD);
 	}
 
 	msg = towire_channel_got_revoke(peer, revoke_num, per_commitment_secret,

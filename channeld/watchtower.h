@@ -13,6 +13,7 @@ penalty_tx_create(const tal_t *ctx,
 		  u8 *final_scriptpubkey,
 		  const struct secret *revocation_preimage,
 		  const struct bitcoin_txid *commitment_txid,
-		  s16 to_them_outnum, struct amount_sat to_them_sats);
+		  s16 to_them_outnum, struct amount_sat to_them_sats,
+		  int hsm_fd);
 
 #endif /* LIGHTNING_CHANNELD_WATCHTOWER_H */
