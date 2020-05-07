@@ -47,6 +47,7 @@ COMMON_SRC_NOGEN :=				\
 	common/onion.c				\
 	common/onionreply.c			\
 	common/param.c				\
+	common/penalty_base.c			\
 	common/per_peer_state.c			\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\
