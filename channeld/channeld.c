@@ -27,6 +27,7 @@
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
 #include <channeld/gen_channel_wire.h>
+#include <channeld/watchtower.h>
 #include <common/blinding.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
@@ -1394,6 +1395,7 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 	u8 *msg;
 	struct penalty_base *pbase;
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
+	const struct bitcoin_tx *ptx = NULL;
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
 		struct changed_htlc c;
@@ -1409,9 +1411,18 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 	}
 
 	pbase = penalty_base_by_commitnum(tmpctx, peer, revoke_num);
+
+	if (pbase) {
+		ptx = penalty_tx_create(
+		    NULL, peer->channel, peer->feerate_penalty,
+		    peer->final_scriptpubkey, per_commitment_secret,
+		    &pbase->txid, pbase->outnum, pbase->amount);
+	}
+
 	msg = towire_channel_got_revoke(peer, revoke_num, per_commitment_secret,
 					next_per_commit_point, fee_states,
-					changed, pbase);
+					changed, pbase, ptx);
+	tal_free(ptx);
 	return msg;
 }
 
