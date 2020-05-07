@@ -43,23 +43,25 @@ penalty_tx_create(const tal_t *ctx,
 
 	if (to_them_outnum == -1 ||
 	    amount_sat_less_eq(to_them_sats, dust_limit)) {
-		status_unusual(
+		status_debug(
 			    "Cannot create penalty transaction because there "
 			    "is no non-dust to_them output in the commitment.");
 		return NULL;
 	}
 
 	if (!pubkey_from_secret(&remote_per_commitment_secret, &remote_per_commitment_point))
-		status_broken("Failed derive from per_commitment_secret %s",
-		      type_to_string(tmpctx, struct secret,
-				     &remote_per_commitment_secret));
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed derive from per_commitment_secret %s",
+			      type_to_string(tmpctx, struct secret,
+					     &remote_per_commitment_secret));
 
 	if (!derive_keyset(&remote_per_commitment_point,
 			   &basepoints[REMOTE],
 			   &basepoints[LOCAL],
 			   option_static_remotekey,
 			   &keyset))
-		abort(); /* TODO(cdecker) Handle a bit more gracefully */
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed deriving keyset");
 
 	wscript = bitcoin_wscript_to_local(tmpctx, remote_to_self_delay,
 					   &keyset.self_revocation_key,
@@ -77,7 +79,7 @@ penalty_tx_create(const tal_t *ctx,
 	fee = amount_tx_fee(penalty_feerate, weight);
 
 	if (!amount_sat_add(&min_out, dust_limit, fee))
-		status_broken(
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot add dust_limit %s and fee %s",
 			      type_to_string(tmpctx, struct amount_sat, &dust_limit),
 			      type_to_string(tmpctx, struct amount_sat, &fee));
@@ -91,7 +93,7 @@ penalty_tx_create(const tal_t *ctx,
 	 * happen! */
 	if (!amount_sat_sub(&amt, to_them_sats, fee)) {
 		amt = dust_limit;
-		status_broken(
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			   "TX can't afford minimal feerate"
 			   "; setting output to %s",
 			   type_to_string(tmpctx, struct amount_sat, &amt));
@@ -104,13 +106,13 @@ penalty_tx_create(const tal_t *ctx,
 					  wscript, *tx->input_amounts[0]);
 
 	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg)))
-		status_broken("Writing sign request to hsm");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Writing sign request to hsm");
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_sign_tx_reply(msg, &sig)) {
-		status_broken("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
-		abort();
-	}
+	if (!msg || !fromwire_hsm_sign_tx_reply(msg, &sig))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
 
 	witness = bitcoin_witness_sig_and_element(tx, &sig, &ONE, sizeof(ONE),
 						  wscript);
