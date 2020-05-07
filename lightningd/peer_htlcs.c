@@ -1669,11 +1669,13 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
+	struct penalty_base *pbase;
 
 	channel->htlc_timeout = tal_free(channel->htlc_timeout);
 
 	if (!fromwire_channel_sending_commitsig(msg, msg,
 						&commitnum,
+						&pbase,
 						&fee_states,
 						&changed_htlcs,
 						&commit_sig, &htlc_sigs)

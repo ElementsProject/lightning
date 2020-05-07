@@ -69,6 +69,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/onionreply.o			\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
+	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/ping.o				\

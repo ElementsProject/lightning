@@ -100,9 +100,12 @@ msgdata,channel_fail_htlc,failed_htlc,failed_htlc,
 msgtype,channel_got_funding_locked,1019
 msgdata,channel_got_funding_locked,next_per_commit_point,pubkey,
 
+#include <common/penalty_base.h>
+
 # When we send a commitment_signed message, tell master.
 msgtype,channel_sending_commitsig,1020
 msgdata,channel_sending_commitsig,commitnum,u64,
+msgdata,channel_sending_commitsig,pbase,?penalty_base,
 msgdata,channel_sending_commitsig,fee_states,fee_states,
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 msgdata,channel_sending_commitsig,num_changed,u16,
