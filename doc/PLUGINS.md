@@ -604,6 +604,45 @@ there's a member `error_message`, that member is sent to the peer
 before disconnection.
 
 
+### `commitment_revocation`
+
+This hook is called whenever a channel state is updated, and the old state was
+revoked. State updates in Lightning consist of the following steps:
+
+ 1. Proposal of a new state commitment in the form of a commitment transaction
+ 2. Exchange of signatures for the agreed upon commitment transaction
+ 3. Verification that the signatures match the commitment transaction
+ 4. Exchange of revocation secrets that could be used to penalize an eventual misbehaving party
+
+The `commitment_revocation` hook is used to inform the plugin about the state
+transition being completed, and deliver the penalty transaction. The penalty
+transaction could then be sent to a watchtower that automaticaly reacts in
+case one party attempts to settle using a revoked commitment.
+
+The payload consists of the following information:
+
+```json
+{
+	"commitment_txid": "58eea2cf538cfed79f4d6b809b920b40bb6b35962c4bb4cc81f5550a7728ab05",
+	"penalty_tx": "02000000000101...ac00000000"
+}
+```
+
+Notice that the `commitment_txid` could also be extracted from the sole input
+of the `penalty_tx`, however it is enclosed so plugins don't have to include
+the logic to parse transactions.
+
+Not included are the `htlc_success` and `htlc_failure` transactions that
+may also be spending `commitment_tx` outputs. This is because these
+transactions are much more dynamic and have a predictable timeout, allowing
+wallets to ensure a quick checkin when the CLTV of the HTLC is about to
+expire.
+
+The `commitment_revocation` hook is a chained hook, i.e., multiple plugins can
+register it, and they will be called in the order they were registered in.
+Plugins should always return `{"result": "continue"}`, otherwise subsequent
+hook subscribers would not get called.
+
 ### `db_write`
 
 This hook is called whenever a change is about to be committed to the database.
