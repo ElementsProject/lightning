@@ -84,6 +84,9 @@ struct peer {
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
 
+	/* Feerate to be used when creating penalty transactions. */
+	u32 feerate_penalty;
+
 	/* Local next per-commit point. */
 	struct pubkey next_local_per_commit;
 
@@ -2816,7 +2819,8 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 
 	if (!fromwire_channel_feerates(inmsg, &feerate,
 				       &peer->feerate_min,
-				       &peer->feerate_max))
+				       &peer->feerate_max,
+				       &peer->feerate_penalty))
 		master_badmsg(WIRE_CHANNEL_FEERATES, inmsg);
 
 	/* BOLT #2:
@@ -3110,7 +3114,9 @@ static void init_channel(struct peer *peer)
 				   &minimum_depth,
 				   &conf[LOCAL], &conf[REMOTE],
 				   &fee_states,
-				   &peer->feerate_min, &peer->feerate_max,
+				   &peer->feerate_min,
+				   &peer->feerate_max,
+				   &peer->feerate_penalty,
 				   &peer->their_commit_sig,
 				   &peer->pps,
 				   &funding_pubkey[REMOTE],
