@@ -170,6 +170,9 @@ struct peer {
 
 	/* Empty commitments.  Spec violation, but a minor one. */
 	u64 last_empty_commitment;
+
+	/* Penalty bases for this channel / peer. */
+	struct penalty_base **pbases;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -1032,6 +1035,10 @@ static void send_commit(struct peer *peer)
 	if (direct_outputs[LOCAL] != NULL) {
 		pbase = penalty_base_new(tmpctx, peer->next_index[REMOTE],
 					 txs[0], direct_outputs[LOCAL]);
+
+		/* Add the penalty_base to our in-memory list as well, so we
+		 * can find it again later. */
+		tal_arr_expand(&peer->pbases, tal_steal(peer, pbase));
 	}  else
 		pbase = NULL;
 
@@ -3085,6 +3092,7 @@ static void init_channel(struct peer *peer)
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
 	bool option_static_remotekey;
+	struct penalty_base *pbases;
 #if !DEVELOPER
 	bool dev_fail_process_onionpacket; /* Ignored */
 #endif
@@ -3143,9 +3151,18 @@ static void init_channel(struct peer *peer)
 				   &remote_ann_bitcoin_sig,
 				   &option_static_remotekey,
 				   &dev_fast_gossip,
-				   &dev_fail_process_onionpacket)) {
+				   &dev_fail_process_onionpacket,
+				   &pbases)) {
 		master_badmsg(WIRE_CHANNEL_INIT, msg);
 	}
+
+	/* Keeping an array of pointers is better since it allows us to avoid
+	 * extra allocations later. */
+	peer->pbases = tal_arr(peer, struct penalty_base *, 0);
+	for (size_t i=0; i<tal_count(pbases); i++)
+		tal_arr_expand(&peer->pbases,
+			       tal_dup(peer, struct penalty_base, &pbases[i]));
+	tal_free(pbases);
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);

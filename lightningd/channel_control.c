@@ -385,6 +385,7 @@ void peer_start_channeld(struct channel *channel,
 	bool reached_announce_depth;
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;
+	struct penalty_base *pbases;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -463,6 +464,9 @@ void peer_start_channeld(struct channel *channel,
 		return;
 	}
 
+	pbases = wallet_penalty_base_load_for_channel(
+	    tmpctx, channel->peer->ld->wallet, channel->dbid);
+
 	initmsg = towire_channel_init(tmpctx,
 				      chainparams,
  				      ld->our_features,
@@ -517,7 +521,8 @@ void peer_start_channeld(struct channel *channel,
 				       * negotiated now! */
 				      channel->option_static_remotekey,
 				      IFDEV(ld->dev_fast_gossip, false),
-				      IFDEV(dev_fail_process_onionpacket, false));
+				      IFDEV(dev_fail_process_onionpacket, false),
+				      pbases);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
