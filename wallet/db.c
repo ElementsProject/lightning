@@ -599,6 +599,14 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_htlcs ADD localfailmsg BLOB;"), NULL},
     {SQL("UPDATE channel_htlcs SET localfailmsg=decode('2002', 'hex') WHERE malformed_onion != 0 AND direction = 1;"), NULL},
     {SQL("ALTER TABLE channels ADD our_funding_satoshi BIGINT DEFAULT 0;"), migrate_our_funding},
+    {SQL("CREATE TABLE penalty_bases ("
+	 "  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE"
+	 ", commitnum BIGINT"
+	 ", txid BLOB"
+	 ", outnum INTEGER"
+	 ", amount BIGINT"
+	 ", PRIMARY KEY (channel_id, commitnum)"
+	 ");"), NULL},
 };
 
 /* Leak tracking. */
