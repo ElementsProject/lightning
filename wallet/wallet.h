@@ -10,6 +10,7 @@
 #include <ccan/list/list.h>
 #include <ccan/tal/tal.h>
 #include <common/channel_config.h>
+#include <common/penalty_base.h>
 #include <common/utxo.h>
 #include <common/wallet.h>
 #include <lightningd/bitcoind.h>
@@ -1250,5 +1251,29 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
  * This can be used to backfill the blocks and still unspent UTXOs that were before our wallet birth height.
  */
 void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb);
+
+/**
+ * Store a penalty base in the database.
+ *
+ * Required to eventually create a penalty transaction when we get a
+ * revocation.
+ */
+void wallet_penalty_base_add(struct wallet *w, u64 chan_id,
+			     const struct penalty_base *pb);
+
+/**
+ * Retrieve all pending penalty bases for a given channel.
+ *
+ * This list should stay relatively small since we remove items from it as we
+ * get revocations. We retrieve this list whenever we start a new `channeld`.
+ */
+struct penalty_base *wallet_penalty_base_load_for_channel(const tal_t *ctx,
+							  struct wallet *w,
+							  u64 chan_id);
+
+/**
+ * Delete a penalty_base, after we created and delivered it to the hook.
+ */
+void wallet_penalty_base_delete(struct wallet *w, u64 chan_id, u64 commitnum);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */
