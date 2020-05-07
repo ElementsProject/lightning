@@ -5,6 +5,7 @@
 
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
+#include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
