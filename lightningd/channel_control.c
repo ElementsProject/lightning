@@ -38,7 +38,8 @@ static void update_feerates(struct lightningd *ld, struct channel *channel)
 
 	msg = towire_channel_feerates(NULL, feerate,
 				      feerate_min(ld, NULL),
-				      feerate_max(ld, NULL));
+				      feerate_max(ld, NULL),
+				      try_get_feerate(ld->topology, FEERATE_PENALTY));
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -480,6 +481,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->channel_info.fee_states,
 				      feerate_min(ld, NULL),
 				      feerate_max(ld, NULL),
+				      try_get_feerate(ld->topology, FEERATE_PENALTY),
 				      &channel->last_sig,
 				      pps,
 				      &channel->channel_info.remote_fundingkey,
@@ -819,7 +821,8 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 
 	msg = towire_channel_feerates(NULL, *feerate,
 				      feerate_min(cmd->ld, NULL),
-				      feerate_max(cmd->ld, NULL));
+				      feerate_max(cmd->ld, NULL),
+				      try_get_feerate(cmd->ld->topology, FEERATE_PENALTY));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);
