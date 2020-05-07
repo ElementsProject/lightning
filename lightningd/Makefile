@@ -53,6 +53,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/onion.o				\
 	common/onionreply.o			\
 	common/param.o				\
+	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
