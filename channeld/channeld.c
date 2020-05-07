@@ -725,6 +725,7 @@ static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
 
 static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 u64 remote_commit_index,
+				 struct penalty_base *pbase,
 				 const struct fee_states *fee_states,
 				 const struct htlc **changed_htlcs,
 				 const struct bitcoin_signature *commit_sig,
@@ -736,9 +737,8 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	/* We tell master what (of our) HTLCs peer will now be
 	 * committed to. */
 	changed = changed_htlc_arr(tmpctx, changed_htlcs);
-	msg = towire_channel_sending_commitsig(ctx, remote_commit_index,
-					       fee_states,
-					       changed, commit_sig, htlc_sigs);
+	msg = towire_channel_sending_commitsig(ctx, remote_commit_index, pbase, fee_states, changed,
+					       commit_sig, htlc_sigs);
 	return msg;
 }
 
@@ -930,6 +930,7 @@ static void send_commit(struct peer *peer)
 	const u8 *funding_wscript;
 	const struct htlc **htlc_map;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
+	struct penalty_base *pbase;
 
 #if DEVELOPER
 	/* Hack to suppress all commit sends if dev_disconnect says to */
@@ -1028,9 +1029,16 @@ static void send_commit(struct peer *peer)
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
 			    peer->next_index[REMOTE], &commit_sig);
 
+	if (direct_outputs[LOCAL] != NULL) {
+		pbase = penalty_base_new(tmpctx, peer->next_index[REMOTE],
+					 txs[0], direct_outputs[LOCAL]);
+	}  else
+		pbase = NULL;
+
 	status_debug("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
 	msg = sending_commitsig_msg(NULL, peer->next_index[REMOTE],
+				    pbase,
 				    peer->channel->fee_states,
 				    changed_htlcs,
 				    &commit_sig,
