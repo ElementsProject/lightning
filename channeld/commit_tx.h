@@ -37,6 +37,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * @htlcs: tal_arr of htlcs committed by transaction (some may be trimmed)
  * @htlc_map: outputed map of outnum->HTLC (NULL for direct outputs).
  * @obscured_commitment_number: number to encode in commitment transaction
+ * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
  * @side: side to generate commitment transaction for.
  *
  * We need to be able to generate the remote side's tx to create signatures,
@@ -56,6 +57,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     struct amount_msat other_pay,
 			     const struct htlc **htlcs,
 			     const struct htlc ***htlcmap,
+			     struct wally_tx_output *direct_outputs[NUM_SIDES],
 			     u64 obscured_commitment_number,
 			     enum side side);
 

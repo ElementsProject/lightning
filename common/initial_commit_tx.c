@@ -71,6 +71,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     struct amount_msat other_pay,
 				     struct amount_sat self_reserve,
 				     u64 obscured_commitment_number,
+				     struct wally_tx_output *direct_outputs[NUM_SIDES],
 				     enum side side,
 				     char** err_reason)
 {
@@ -80,6 +81,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	struct amount_msat total_pay;
 	struct amount_sat amount;
 	u32 sequence;
+	void *dummy_local = (void *)LOCAL, *dummy_remote = (void *)REMOTE;
+	const void *output_order[NUM_SIDES];
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
@@ -180,6 +183,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		tx->output_witscripts[n]->ptr =
 			tal_dup_arr(tx->output_witscripts[n], u8,
 				    wscript, tal_count(wscript), 0);
+		output_order[n] = dummy_local;
 		n++;
 	}
 
@@ -202,6 +206,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		    tx, scriptpubkey_p2wpkh(tx, &keyset->other_payment_key),
 		    amount);
 		assert(pos == n);
+		output_order[n] = dummy_remote;
 		n++;
 	}
 
@@ -212,7 +217,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 7. Sort the outputs into [BIP 69+CLTV
 	 *    order](#transaction-input-and-output-ordering)
 	 */
-	permute_outputs(tx, NULL, NULL);
+	permute_outputs(tx, NULL, output_order);
 
 	/* BOLT #3:
 	 *
@@ -241,7 +246,19 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
 	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, funding, NULL);
 
+	if (direct_outputs != NULL) {
+		direct_outputs[LOCAL] = direct_outputs[REMOTE] = NULL;
+		for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+			if (output_order[i] == dummy_local)
+				direct_outputs[LOCAL] = &tx->wtx->outputs[i];
+			else if (output_order[i] == dummy_remote)
+				direct_outputs[REMOTE] = &tx->wtx->outputs[i];
+		}
+	}
+
+	/* This doesn't reorder outputs, so we can do this after mapping outputs. */
 	bitcoin_tx_finalize(tx);
+
 	assert(bitcoin_tx_check(tx));
 
 	return tx;

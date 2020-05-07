@@ -50,6 +50,7 @@ struct channel *new_full_channel(const tal_t *ctx,
  * @ctx: tal context to allocate return value from.
  * @channel: The channel to evaluate
  * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx).
+ * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
  * @funding_wscript: Pointer to wscript for the funding tx output
  * @per_commitment_point: Per-commitment point to determine keys
  * @commitment_number: The index of this commitment.
@@ -61,6 +62,7 @@ struct channel *new_full_channel(const tal_t *ctx,
  */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				const struct htlc ***htlcmap,
+				struct wally_tx_output *direct_outputs[NUM_SIDES],
 				const u8 **funding_wscript,
 				const struct channel *channel,
 				const struct pubkey *per_commitment_point,
