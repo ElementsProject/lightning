@@ -665,6 +665,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	struct channel_id id_in;
 	const u8 *wscript;
 	char *err_reason;
+	struct wally_tx_output *direct_outputs[NUM_SIDES];
 
 	/*~ Now we can initialize the `struct channel`.  This represents
 	 * the current channel state and is how we can generate the current
@@ -710,7 +711,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	/* This gives us their first commitment transaction. */
 	*tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->first_per_commitment_point[REMOTE],
-				REMOTE, &err_reason);
+				REMOTE, direct_outputs, &err_reason);
 	if (!*tx) {
 		/* This should not happen: we should never create channels we
 		 * can't afford the fees for after reserve. */
@@ -820,7 +821,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 * signature they sent against that. */
 	*tx = initial_channel_tx(state, &wscript, state->channel,
 				 &state->first_per_commitment_point[LOCAL],
-				 LOCAL, &err_reason);
+				 LOCAL, direct_outputs, &err_reason);
 	if (!*tx) {
 		negotiation_failed(state, true,
 				   "Could not meet our fees and reserve: %s", err_reason);
@@ -903,6 +904,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	const u8 *wscript;
 	u8 channel_flags;
 	char* err_reason;
+	struct wally_tx_output *direct_outputs[NUM_SIDES];
 
 	/* BOLT #2:
 	 *
@@ -1185,7 +1187,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 */
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->first_per_commitment_point[LOCAL],
-					  LOCAL, &err_reason);
+					  LOCAL, NULL, &err_reason);
 	/* This shouldn't happen either, AFAICT. */
 	if (!local_commit) {
 		negotiation_failed(state, false,
@@ -1245,7 +1247,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 */
 	remote_commit = initial_channel_tx(state, &wscript, state->channel,
 					   &state->first_per_commitment_point[REMOTE],
-					   REMOTE, &err_reason);
+					   REMOTE, direct_outputs, &err_reason);
 	if (!remote_commit) {
 		negotiation_failed(state, false,
 				   "Could not meet their fees and reserve: %s", err_reason);

@@ -106,6 +106,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
  * @channel: The channel to evaluate
  * @per_commitment_point: Per-commitment point to determine keys
  * @side: which side to get the commitment transaction for
+ * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
  * @err_reason: When NULL is returned, this will point to a human readable reason.
  *
  * Returns the unsigned initial commitment transaction for @side, or NULL
@@ -116,6 +117,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      const struct channel *channel,
 				      const struct pubkey *per_commitment_point,
 				      enum side side,
+				      struct wally_tx_output *direct_outputs[NUM_SIDES],
 				      char** err_reason);
 
 /**
