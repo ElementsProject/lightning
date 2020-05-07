@@ -13,7 +13,6 @@
 #include <wire/wire_sync.h>
 
 static const u8 ONE = 0x1;
-#define HSM_FD 6
 
 const struct bitcoin_tx *
 penalty_tx_create(const tal_t *ctx,
@@ -22,7 +21,8 @@ penalty_tx_create(const tal_t *ctx,
 		  u8 *final_scriptpubkey,
 		  const struct secret *revocation_preimage,
 		  const struct bitcoin_txid *commitment_txid,
-		  s16 to_them_outnum, struct amount_sat to_them_sats)
+		  s16 to_them_outnum, struct amount_sat to_them_sats,
+		  int hsm_fd)
 {
 	u8 *wscript;
 	struct bitcoin_tx *tx;
@@ -105,11 +105,11 @@ penalty_tx_create(const tal_t *ctx,
 	    towire_hsm_sign_penalty_to_us(ctx, &remote_per_commitment_secret, tx,
 					  wscript, *tx->input_amounts[0]);
 
-	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg)))
+	if (!wire_sync_write(hsm_fd, take(hsm_sign_msg)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Writing sign request to hsm");
 
-	msg = wire_sync_read(tmpctx, HSM_FD);
+	msg = wire_sync_read(tmpctx, hsm_fd);
 	if (!msg || !fromwire_hsm_sign_tx_reply(msg, &sig))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
