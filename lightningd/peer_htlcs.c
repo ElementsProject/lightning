@@ -1731,6 +1731,9 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	channel->last_sent_commit = tal_steal(channel, changed_htlcs);
 	wallet_channel_save(ld->wallet, channel);
 
+	if (pbase)
+		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
+
 	/* Tell it we've got it, and to go ahead with commitment_signed. */
 	subd_send_msg(channel->owner,
 		      take(towire_channel_sending_commitsig_reply(msg)));

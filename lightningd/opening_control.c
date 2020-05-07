@@ -438,6 +438,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* Needed for the success statement */
 	derive_channel_id(&fc->cid, &channel->funding_txid, funding_txout);
 
+	if (pbase)
+		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
+
 	funding_success(channel);
 	peer_start_channeld(channel, pps, NULL, false);
 
@@ -542,6 +545,9 @@ static void opening_fundee_finished(struct subd *openingd,
 	/* Tell plugins about the success */
 	notify_channel_opened(ld, &channel->peer->id, &channel->funding,
 			      &channel->funding_txid, &channel->remote_funding_locked);
+
+	if (pbase)
+		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	/* On to normal operation! */
 	peer_start_channeld(channel, pps, funding_signed, false);
