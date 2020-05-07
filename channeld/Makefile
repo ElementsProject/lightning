@@ -16,14 +16,17 @@ LIGHTNINGD_CHANNEL_HEADERS_NOGEN :=			\
 	channeld/channeld_htlc.h		\
 	channeld/commit_tx.h			\
 	channeld/full_channel.h			\
-	channeld/full_channel_error.h
+	channeld/full_channel_error.h		\
+	channeld/watchtower.h
 
 LIGHTNINGD_CHANNEL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN) $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN)
 
 LIGHTNINGD_CHANNEL_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
-	channeld/full_channel.c		\
-	channeld/gen_channel_wire.c
+	channeld/full_channel.c			\
+	channeld/gen_channel_wire.c		\
+	channeld/watchtower.c
+
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 
 # Make sure these depend on everything.
