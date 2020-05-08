@@ -120,6 +120,9 @@ struct payment_modifier {
 	void (*post_step_cb)(void *data, struct payment *p);
 };
 
+void *payment_mod_get_data(const struct payment *payment,
+			   const struct payment_modifier *mod);
+
 #define REGISTER_PAYMENT_MODIFIER(name, data_type, data_init_cb, step_cb)      \
 	struct payment_modifier name##_pay_mod = {                             \
 	    stringify(name),                                                   \
@@ -129,12 +132,22 @@ struct payment_modifier {
 			     void (*)(data_type, struct payment *), step_cb),  \
 	};
 
+/* The UNUSED marker is used to shut some compilers up. */
+#define REGISTER_PAYMENT_MODIFIER_HEADER(name, data_type)                      \
+	extern struct payment_modifier name##_pay_mod;                         \
+	UNUSED static inline data_type *payment_mod_##name##_get_data(         \
+	    const struct payment *p)                                           \
+	{                                                                      \
+		return payment_mod_get_data(p, &name##_pay_mod);               \
+	}
+
 struct dummy_data {
 	unsigned int *dummy_param;
 };
 
 /* List of globally available payment modifiers. */
 extern struct payment_modifier dummy_pay_mod;
+REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
