@@ -15,6 +15,7 @@
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
+#include <plugins/libplugin-pay.h>
 #include <plugins/libplugin.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1702,6 +1703,70 @@ static void init(struct plugin *p,
 	maxdelay_default = atoi(field);
 }
 
+#if DEVELOPER
+struct payment_modifier *paymod_mods[2] = {
+	&dummy_pay_mod,
+	NULL,
+};
+
+static struct command_result *json_paymod(struct command *cmd,
+					  const char *buf,
+					  const jsmntok_t *params)
+{
+	struct payment *p;
+	const char *b11str;
+	struct bolt11 *b11;
+	char *fail;
+	struct dummy_data *ddata;
+	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
+
+	ddata = (struct dummy_data*)p->modifier_data[0];
+
+	/* If any of the modifiers need to add params to the JSON-RPC call we
+	 * would add them to the `param()` call below, and have them be
+	 * initialized directly that way. */
+	if (!param(cmd, buf, params, p_req("bolt11", param_string, &b11str),
+		   p_opt_def("dummy", param_number, &ddata->dummy_param, 42),
+		      NULL))
+		return command_param_failed();
+
+	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
+			    NULL, &fail);
+	if (!b11)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt11: %s", fail);
+
+	if (!b11->chain)
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for an unknown network");
+
+	if (b11->chain != chainparams)
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for another network %s", b11->chain->network_name);
+
+	if (time_now().ts.tv_sec > b11->timestamp + b11->expiry)
+		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
+
+	if (b11->msat)
+		p->amount = *b11->msat;
+	else
+		abort();
+
+	/* Sanity check */
+	if (feature_offered(b11->features, OPT_VAR_ONION)
+	    && !b11->payment_secret)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt11:"
+				    " sets feature var_onion with no secret");
+
+	p->json_buffer = tal_steal(p, buf);
+	p->json_toks = params;
+	p->destination = p->getroute_destination = &b11->receiver_id;
+	p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
+	payment_start(p);
+
+	return command_still_pending(cmd);
+}
+#endif
+
 static const struct plugin_command commands[] = { {
 		"pay",
 		"payment",
@@ -1720,7 +1785,16 @@ static const struct plugin_command commands[] = { {
 		"List result of payment {bolt11}, or all",
 		"Covers old payments (failed and succeeded) and current ones.",
 		json_listpays
-	}
+	},
+#if DEVELOPER
+	{
+		"paymod",
+		"payment",
+		"Send payment specified by {bolt11}",
+		"Experimental implementation of pay using modifiers",
+		json_paymod
+	},
+#endif
 };
 
 int main(int argc, char *argv[])

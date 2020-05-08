@@ -1,4 +1,5 @@
 #include <plugins/libplugin-pay.h>
+#include <stdio.h>
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
@@ -144,3 +145,19 @@ void payment_continue(struct payment *p)
 	 * `payment_continue` after the final state. */
 	abort();
 }
+
+static inline struct dummy_data *
+dummy_data_init(struct payment *p)
+{
+	return tal(p, struct dummy_data);
+}
+
+static inline void dummy_step_cb(struct dummy_data *dd,
+				 struct payment *p)
+{
+	fprintf(stderr, "dummy_step_cb called for payment %p at step %d\n", p, p->step);
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(dummy, struct dummy_data *, dummy_data_init,
+			  dummy_step_cb);
