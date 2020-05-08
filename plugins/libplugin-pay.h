@@ -129,6 +129,10 @@ struct payment_modifier {
 			     void (*)(data_type, struct payment *), step_cb),  \
 	};
 
+struct dummy_data {
+	unsigned int *dummy_param;
+};
+
 /* List of globally available payment modifiers. */
 extern struct payment_modifier dummy_pay_mod;
 

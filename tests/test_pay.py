@@ -3043,3 +3043,17 @@ def test_invalid_onion_channel_update(node_factory):
 
     # l1 should still be alive afterwards.
     assert l1.rpc.getinfo()['id'] == l1id
+
+
+@unittest.skipIf(not DEVELOPER, "paymod is only available to developers for now.")
+def test_pay_modifiers(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {}])
+
+    # Make sure that the dummy param is in the help (and therefore assigned to
+    # the modifier data).
+    hlp = l1.rpc.help("paymod")['help'][0]
+    assert(hlp['command'] == 'paymod bolt11 [dummy]')
+
+    inv = l2.rpc.invoice(123, 'lbl', 'desc')['bolt11']
+    with pytest.raises(RpcError, match="Not functional yet"):
+        l1.rpc.paymod(inv)
