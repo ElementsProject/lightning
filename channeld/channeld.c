@@ -1879,7 +1879,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 							       path)));
 	} else {
 		struct pubkey *next_blinding;
-		struct node_id next_node;
+		struct node_id *next_node;
 
 		/* This *MUST* have instructions on where to go next. */
 		if (!om->next_short_channel_id && !om->next_node_id) {
@@ -1888,7 +1888,6 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 			return;
 		}
 
-		node_id_from_pubkey(&next_node, om->next_node_id);
 		if (blinding_ss) {
 			/* E(i-1) = H(E(i) || ss(i)) * E(i) */
 			struct sha256 h;
@@ -1898,10 +1897,16 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		} else
 			next_blinding = NULL;
 
+		if (om->next_node_id) {
+			next_node = tal(tmpctx, struct node_id);
+			node_id_from_pubkey(next_node, om->next_node_id);
+		} else
+			next_node = NULL;
+
 		wire_sync_write(MASTER_FD,
 				take(towire_got_onionmsg_forward(NULL,
 								 om->next_short_channel_id,
-								 &next_node,
+								 next_node,
 								 next_blinding,
 								 serialize_onionpacket(tmpctx, rs->next))));
 	}
