@@ -60,6 +60,14 @@ enum payment_step {
 };
 
 struct payment {
+	/* The command that triggered this payment. */
+	struct command *cmd;
+
+	const char *json_buffer;
+	const jsmntok_t *json_toks;
+
+	/* The current phase we are in. */
+	enum payment_step step;
 
 	/* Real destination we want to route to */
 	struct node_id *destination;
@@ -94,6 +102,41 @@ struct payment {
 
 	struct short_channel_id *exclusions;
 
+	/* Tree structure of payments and subpayments. */
+	struct payment *parent, **children;
+
+	/* Null-terminated array of modifiers to apply to the payment. NULL
+	 * terminated mainly so we can build a stack of modifiers at
+	 * compile-time instead of allocating a list for each payment
+	 * specifically. */
+	struct payment_modifier **modifiers;
+	void **modifier_data;
+	int current_modifier;
 };
+
+struct payment_modifier {
+	const char *name;
+	void *(*data_init)(struct payment *p);
+	void (*post_step_cb)(void *data, struct payment *p);
+};
+
+#define REGISTER_PAYMENT_MODIFIER(name, data_type, data_init_cb, step_cb)      \
+	struct payment_modifier name##_pay_mod = {                             \
+	    stringify(name),                                                   \
+	    typesafe_cb_cast(void *(*)(struct payment *),                      \
+			     data_type (*)(struct payment *), data_init_cb),   \
+	    typesafe_cb_cast(void (*)(void *, struct payment *),               \
+			     void (*)(data_type, struct payment *), step_cb),  \
+	};
+
+/* List of globally available payment modifiers. */
+extern struct payment_modifier dummy_pay_mod;
+
+struct payment *payment_new(tal_t *ctx, struct command *cmd,
+			    struct payment *parent,
+			    struct payment_modifier **mods);
+
+void payment_start(struct payment *p);
+void payment_continue(struct payment *p);
 
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H */
