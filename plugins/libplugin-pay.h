@@ -145,6 +145,10 @@ struct dummy_data {
 	unsigned int *dummy_param;
 };
 
+struct retry_mod_data {
+	int retries;
+};
+
 /* List of globally available payment modifiers. */
 extern struct payment_modifier dummy_pay_mod;
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);

@@ -1704,8 +1704,9 @@ static void init(struct plugin *p,
 }
 
 #if DEVELOPER
-struct payment_modifier *paymod_mods[2] = {
+struct payment_modifier *paymod_mods[3] = {
 	&dummy_pay_mod,
+	&retry_pay_mod,
 	NULL,
 };
 

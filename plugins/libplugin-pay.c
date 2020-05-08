@@ -174,3 +174,39 @@ static inline void dummy_step_cb(struct dummy_data *dd,
 
 REGISTER_PAYMENT_MODIFIER(dummy, struct dummy_data *, dummy_data_init,
 			  dummy_step_cb);
+
+static struct retry_mod_data *retry_data_init(struct payment *p);
+
+static inline void retry_step_cb(struct retry_mod_data *rd,
+				 struct payment *p);
+
+REGISTER_PAYMENT_MODIFIER(retry, struct retry_mod_data *, retry_data_init,
+			  retry_step_cb);
+
+static struct retry_mod_data *
+retry_data_init(struct payment *p)
+{
+	struct retry_mod_data *rdata = tal(p, struct retry_mod_data);
+	struct retry_mod_data *parent_rdata;
+	if (p->parent != NULL) {
+		parent_rdata = payment_mod_retry_get_data(p->parent);
+		rdata->retries = parent_rdata->retries - 1;
+	} else {
+		rdata->retries = 10;
+	}
+	return rdata;
+}
+
+static inline void retry_step_cb(struct retry_mod_data *rd,
+				 struct payment *p)
+{
+	struct payment *subpayment;
+	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
+	if (p->step == PAYMENT_STEP_FAILED && rdata->retries > 0) {
+		subpayment = payment_new(p, p->cmd, p, p->modifiers);
+		payment_start(subpayment);
+		p->step = PAYMENT_STEP_RETRY;
+	}
+
+	payment_continue(p);
+}
