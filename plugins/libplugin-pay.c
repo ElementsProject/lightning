@@ -146,6 +146,19 @@ void payment_continue(struct payment *p)
 	abort();
 }
 
+void *payment_mod_get_data(const struct payment *p,
+			   const struct payment_modifier *mod)
+{
+	for (size_t i = 0; p->modifiers[i] != NULL; i++)
+		if (p->modifiers[i] == mod)
+			return p->modifier_data[i];
+
+	/* If we ever get here it means that we asked for the data for a
+	 * non-existent modifier. This is a compile-time/wiring issue, so we
+	 * better check that modifiers match the data we ask for. */
+	abort();
+}
+
 static inline struct dummy_data *
 dummy_data_init(struct payment *p)
 {
