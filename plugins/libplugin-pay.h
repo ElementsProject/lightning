@@ -28,6 +28,37 @@ struct payment_result {
 struct channel_status {
 };
 
+/* Each payment goes through a number of steps that are always processed in
+ * the same order, and some modifiers are called with the payment, and the
+ * modifier's data before and after certain steps, allowing customization. The
+ * following enum represents the normal workflow of processing a payment, and
+ * is used by `payment_continue` to re-enter the state machine from a
+ * modifier. The values are powers of two in order to make aggregating of
+ * subtree states in the root easy.
+ */
+enum payment_step {
+	PAYMENT_STEP_INITIALIZED = 1,
+
+	/* We just called getroute and got a resulting route, allow modifiers
+	 * to amend the route. */
+	PAYMENT_STEP_GOT_ROUTE = 2,
+
+	/* We just computed the onion payload, allow modifiers to amend,
+	 * before constructing the onion packet. */
+	PAYMENT_STEP_ONION_PAYLOAD = 4,
+
+	/* The following states mean that the current payment failed, but a
+	 * child payment is still running, and we can't say yet whether the
+	 * overall payment will fail or succeed. */
+	PAYMENT_STEP_SPLIT = 8,
+	PAYMENT_STEP_RETRY = 16,
+
+	/* The payment state-machine has terminated, these are the final
+	 * states that a payment can be in. */
+	PAYMENT_STEP_FAILED = 32,
+	PAYMENT_STEP_SUCCESS = 64,
+};
+
 struct payment {
 
 	/* Real destination we want to route to */
