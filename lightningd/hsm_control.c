@@ -117,7 +117,8 @@ void hsm_init(struct lightningd *ld)
 							 IFDEV(ld->dev_force_privkey, NULL),
 							 IFDEV(ld->dev_force_bip32_seed, NULL),
 							 IFDEV(ld->dev_force_channel_secrets, NULL),
-							 IFDEV(ld->dev_force_channel_secrets_shaseed, NULL))))
+							 IFDEV(ld->dev_force_channel_secrets_shaseed, NULL),
+							 NULL, NULL)))
 		err(1, "Writing init msg to hsm");
 
 	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);

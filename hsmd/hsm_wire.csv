@@ -15,6 +15,10 @@ msgdata,hsm_init,dev_force_privkey,?privkey,
 msgdata,hsm_init,dev_force_bip32_seed,?secret,
 msgdata,hsm_init,dev_force_channel_secrets,?secrets,
 msgdata,hsm_init,dev_force_channel_secrets_shaseed,?sha256,
+msgdata,hsm_init,mnemonic_len,u16,
+msgdata,hsm_init,mnemonic,u8,mnemonic_len
+msgdata,hsm_init,passphrase_len,u16,
+msgdata,hsm_init,passphrase,u8,passphrase_len
 
 #include <common/bip32.h>
 msgtype,hsm_init_reply,111

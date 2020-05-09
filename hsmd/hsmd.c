@@ -51,6 +51,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <wally_bip32.h>
+#include <wally_bip39.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
 
@@ -389,11 +390,13 @@ static void get_channel_seed(const struct node_id *peer_id, u64 dbid,
 }
 
 /*~ Called at startup to derive the bip32 field. */
-static void populate_secretstuff(void)
+static void populate_secretstuff(char *mnemonic, const char *passphrase)
 {
-	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
-	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
+	u8 bip39_seed[BIP39_SEED_LEN_512];
+	u8 entropy[BIP39_ENTROPY_LEN_256];
+	size_t bip39_seed_len;
+	struct words *words;
 
 	assert(bip32_key_version.bip32_pubkey_version == BIP32_VER_MAIN_PUBLIC
 			|| bip32_key_version.bip32_pubkey_version == BIP32_VER_TEST_PUBLIC);
@@ -401,20 +404,36 @@ static void populate_secretstuff(void)
 	assert(bip32_key_version.bip32_privkey_version == BIP32_VER_MAIN_PRIVATE
 			|| bip32_key_version.bip32_privkey_version == BIP32_VER_TEST_PRIVATE);
 
-	/* Fill in the BIP32 tree for bitcoin addresses. */
-	/* In libwally-core, the version BIP32_VER_TEST_PRIVATE is for testnet/regtest,
-	 * and BIP32_VER_MAIN_PRIVATE is for mainnet. For litecoin, we also set it like
-	 * bitcoin else.*/
-	do {
-		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
-			    &salt, sizeof(salt),
-			    &secretstuff.hsm_secret,
-			    sizeof(secretstuff.hsm_secret),
-			    "bip32 seed", strlen("bip32 seed"));
-		salt++;
-	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-				     bip32_key_version.bip32_privkey_version,
-				     0, &master_extkey) != WALLY_OK);
+	/*~ If mnemonic was not provided, generate it. */
+	if (strlen(mnemonic) == 0) {
+		/*~ Generate random array of bytes (entropy). */
+		randombytes_buf(entropy, sizeof(entropy));
+		/*~ Get the English list of words (we do not support any other
+		 * languages yet). */
+		if (bip39_get_wordlist("en", &words) != WALLY_OK)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Could not get the BIP39 list of words");
+		/*~ Generate mnemonic from entropy - 24 words separated with
+		 * spaces. */
+		if (bip39_mnemonic_from_bytes(words, entropy, sizeof(entropy),
+					      &mnemonic) != WALLY_OK)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Could not generate mnemonic from entropy");
+		status_unusual("generated mnemonic: %s", mnemonic);
+	}
+
+	/*~ Create BIP39 binary seed. */
+	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip39_seed,
+				   sizeof(bip39_seed),
+				   &bip39_seed_len) != WALLY_OK)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't convert mnemonic to seed");
+	/*~ Create BIP32 master key. */
+	if (bip32_key_from_seed(bip39_seed, bip39_seed_len,
+				bip32_key_version.bip32_privkey_version,
+				0, &master_extkey) != WALLY_OK)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't create bip32 master key");
 
 #if DEVELOPER
 	/* In DEVELOPER mode, we can override with --dev-force-bip32-seed */
@@ -542,15 +561,21 @@ static void create_hsm(int fd)
 /*~ We store our root secret in a "hsm_secret" file (like all of c-lightning,
  * we run in the user's .lightning directory). */
 static void maybe_create_new_hsm(const struct secret *encryption_key,
-                                 bool random_hsm)
+                                 const char *mnemonic, bool random_hsm)
 {
 	/*~ Note that this is opened for write-only, even though the permissions
 	 * are set to read-only.  That's perfectly valid! */
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0) {
 		/* If this is not the first time we've run, it will exist. */
-		if (errno == EEXIST)
-			return;
+		if (errno == EEXIST) {
+			/*~ User should not provide mnemonic if it's not the
+			 * first run. */
+			if (strlen(mnemonic) == 0)
+				return;
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Custom mnemonic was provided, but the HSM secret already exists");
+		}
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "creating: %s", strerror(errno));
 	}
@@ -603,7 +628,8 @@ static void maybe_create_new_hsm(const struct secret *encryption_key,
 /*~ We always load the HSM file, even if we just created it above.  This
  * both unifies the code paths, and provides a nice sanity check that the
  * file contents are as they will be for future invocations. */
-static void load_hsm(const struct secret *encryption_key)
+static void load_hsm(const struct secret *encryption_key, char *mnemonic,
+		     const char *passphrase)
 {
 	struct stat st;
 	int fd = open("hsm_secret", O_RDONLY);
@@ -628,7 +654,7 @@ static void load_hsm(const struct secret *encryption_key)
 			if (remove("hsm_secret") != 0)
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				              "removing clear hsm_secret: %s", strerror(errno));
-			maybe_create_new_hsm(encryption_key, false);
+			maybe_create_new_hsm(encryption_key, mnemonic, false);
 			fd = open("hsm_secret", O_RDONLY);
 			if (fd < 0)
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -666,7 +692,7 @@ static void load_hsm(const struct secret *encryption_key)
 	/* else { handled in hsm_control } */
 	close(fd);
 
-	populate_secretstuff();
+	populate_secretstuff(mnemonic, passphrase);
 }
 
 /*~ This is the response to lightningd's HSM_INIT request, which is the first
@@ -682,17 +708,37 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct secrets *secrets;
 	struct sha256 *shaseed;
 	struct secret *hsm_encryption_key;
+	char *passphrase;
+	u8 *passphraseu8;
+	/*~ Mnemonic for the master key seed - 24 words separates with spaces. */
+	char *mnemonic;
+	u8 *mnemonicu8;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
 
 	/*~ The fromwire_* routines are autogenerated, based on the message
-	 * definitions in hsm_client_wire.csv.  The format of those files is
-	 * an extension of the simple comma-separated format output by the
+	 * definitions in hsm_wire.csv.  The format of those files is an
+	 * extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
 	if (!fromwire_hsm_init(NULL, msg_in, &bip32_key_version, &chainparams,
-	                       &hsm_encryption_key, &privkey, &seed, &secrets, &shaseed))
+	                       &hsm_encryption_key, &privkey, &seed, &secrets,
+			       &shaseed, &mnemonicu8, &passphraseu8))
 		return bad_req(conn, c, msg_in);
+
+	/*~ tal_dup_arr() does what you'd expect: allocate an array by copying
+	 * another; the cast is needed because passphrase and mnemonic are
+	 * 'char' arrays, not 'u8', as requested by libwally API.
+	 *
+	 * The final arg of tal_dup_arr() is how many extra bytes to allocate:
+	 * it's so often zero that we've thought about dropping the argument, but
+	 * in cases like this (adding a NUL terminator) it's perfect. */
+	passphrase = tal_dup_arr(tmpctx, char, (char *)passphraseu8,
+				 tal_count(passphraseu8), 1);
+	passphrase[tal_count(passphraseu8)] = '\0';
+	mnemonic = tal_dup_arr(tmpctx, char, (char *)mnemonicu8,
+			       tal_count(mnemonicu8), 1);
+	mnemonic[tal_count(mnemonicu8)] = '\0';
 
 	/*~ The memory is actually copied in towire(), so lock the `hsm_secret`
 	 * encryption key (new) memory again here. */
@@ -713,8 +759,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	/* Once we have read the init message we know which params the master
 	 * will use */
 	c->chainparams = chainparams;
-	maybe_create_new_hsm(hsm_encryption_key, true);
-	load_hsm(hsm_encryption_key);
+	maybe_create_new_hsm(hsm_encryption_key, mnemonic, true);
+	load_hsm(hsm_encryption_key, mnemonic, passphrase);
 
 	/*~ We don't need the hsm_secret encryption key anymore.
 	 * Note that sodium_munlock() also zeroes the memory. */
