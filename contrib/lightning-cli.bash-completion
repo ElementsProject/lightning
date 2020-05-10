@@ -31,7 +31,7 @@ _lightning_cli() {
 
             # get the regular commands
             if [[ -z "$cur" || "$cur" =~ ^[a-z] ]]; then
-		helpopts=$($lightning_cli -H help 2>/dev/null | sed -n 's/^\([a-z][a-z_-]*\).*/\1/p' | sed '$ d')
+		helpopts=$($lightning_cli help 2>/dev/null | sed -n 's/^\([a-z][a-z_-]*\).*/\1/p' | sed '$ d')
             fi
 
             COMPREPLY=( $( compgen -W "$helpopts $globalcmds" -X "*," -- "$cur" ) )
