@@ -1095,15 +1095,18 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 	status_debug("new_client: %"PRIu64, dbid);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
 
-	proxy_stat rv = proxy_handle_pass_client_hsmfd(&id, dbid, capabilities);
-	if (PROXY_PERMANENT(rv))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		              "proxy_%s failed: %s", __FUNCTION__,
-			      proxy_last_message());
-	else if (!PROXY_SUCCESS(rv))
-		return bad_req_fmt(conn, c, msg_in,
-				   "proxy_%s error: %s", __FUNCTION__,
-				   proxy_last_message());
+	// Skip zero dbid (master, gossipd, connectd).
+	if (dbid != 0) {
+		proxy_stat rv = proxy_handle_pass_client_hsmfd(&id, dbid, capabilities);
+		if (PROXY_PERMANENT(rv))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "proxy_%s failed: %s", __FUNCTION__,
+				      proxy_last_message());
+		else if (!PROXY_SUCCESS(rv))
+			return bad_req_fmt(conn, c, msg_in,
+					   "proxy_%s error: %s", __FUNCTION__,
+					   proxy_last_message());
+	}
 
 	/*~ We stash this in a global, because we need to get both the fd and
 	 * the client pointer to the callback.  The other way would be to
