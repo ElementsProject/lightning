@@ -426,6 +426,85 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	return NULL;
 }
 
+/* Prompt the user to enter a password, from which will be derived the key used
+ * for `hsm_secret` encryption.
+ * The algorithm used to derive the key is Argon2(id), to which libsodium
+ * defaults. However argon2id-specific constants are used in case someone runs
+ * it with a libsodium version which default constants differs (typically
+ * <1.0.9).
+ */
+static char *opt_set_hsm_mnemonic(struct lightningd *ld)
+{
+	struct termios current_term, temp_term;
+	ld->mnemonic_hsm = true;
+
+	// ld->config.mnemonic = tal(NULL, char *);
+	// ld->config.passphrase = tal(NULL, char *);
+
+	/* Don't swap the mnemonic/passphrase */
+	if (sodium_mlock(ld->config.mnemonic, sizeof(ld->config.mnemonic) != 0))
+		return "Could not lock hsm mnemonic memory.";
+
+	if (sodium_mlock(ld->config.passphrase,
+			 sizeof(ld->config.passphrase) != 0))
+		return "Could not lock hsm passphrase memory.";
+
+	printf("The hsm_secret will be derived using the mnemonic and "
+	       "passphrase following the BIP39 standard.\n");
+	char word[50];
+	uint n_words;
+
+	for (n_words = 0; n_words < 24; n_words++) {
+		printf("Enter word %i out of 24: ", n_words + 1);
+		scanf("%s", word);
+		/* We need to concat the strings using ' ' so libwally can
+		 * validate it */
+		if (n_words == 0) {
+			strcpy(ld->config.mnemonic, word);
+		} else {
+			strcat(ld->config.mnemonic, " ");
+			strcat(ld->config.mnemonic, word);
+		}
+	}
+	/* Pass NULL as the first parameter to use the default English list. */
+	if (bip39_mnemonic_validate(NULL, ld->config.mnemonic) != 0)
+		return "The mnemonic list of words is not valid";
+
+	if (tcgetattr(fileno(stdin), &current_term) != 0)
+		return "Could not get current terminal options.";
+
+	/* Get the passphrase from stdin, but don't echo it. */
+	temp_term = current_term;
+	temp_term.c_lflag &= ~ECHO;
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0)
+		return "Could not disable passphrase echoing.";
+
+	printf("Warning: remember that different passphrase yield different "
+	       "bitcoin wallets.\n");
+	printf("Leave it empty for using the value by default (echo is "
+	       "disabled now).\n");
+	printf("Enter your passphrase: ");
+	fflush(stdout);
+
+	char *passphrase = NULL;
+	size_t passphrase_size;
+	if (getline(&passphrase, &passphrase_size, stdin) < 0)
+		return "Could not read passphrase from stdin.";
+
+	// Replace the last character which will always be \n
+	passphrase[strlen(passphrase) - 1] = '\0';
+
+	if (strlen(passphrase) > sizeof(ld->config.passphrase))
+		return "passphrase have a limit of 100 characters";
+	strcpy(ld->config.passphrase, passphrase);
+	free(passphrase);
+
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
+		return "Could not restore terminal options.";
+	printf("\n");
+
+	return NULL;
+}
 #if DEVELOPER
 static char *opt_subprocess_debug(const char *optarg, struct lightningd *ld)
 {
@@ -880,6 +959,10 @@ static void register_opts(struct lightningd *ld)
 	                   "Set the password to encrypt hsm_secret with. If no password is passed through command line, "
 	                   "you will be prompted to enter it.");
 
+	opt_register_noarg("--mnemonic-hsm-seed", opt_set_hsm_mnemonic, ld,
+			   "Use custom BIP39 mnemonic to derive the interna HD "
+			   "Wallet, you will be prompted to enter it.");
+
 	opt_register_arg("--rpc-file-mode", &opt_set_mode, &opt_show_mode,
 			 &ld->rpc_filemode,
 			 "Set the file mode (permissions) for the "
@@ -1204,6 +1287,9 @@ static void add_config(struct lightningd *ld,
 					 ? "false" : "true");
 		} else if (opt->cb == (void *)opt_set_hsm_password) {
 			json_add_bool(response, "encrypted-hsm", ld->encrypted_hsm);
+		} else if (opt->cb == (void *)opt_set_hsm_mnemonic) {
+			json_add_bool(response, "mnemonic-hsm-seed",
+				      ld->mnemonic_hsm);
 		} else if (opt->cb == (void *)opt_set_wumbo) {
 			json_add_bool(response, "wumbo",
 				      feature_offered(ld->our_features

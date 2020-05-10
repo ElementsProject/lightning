@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
+#include <wally_bip39.h>
 
 /* Various adjustable things. */
 struct config {
@@ -72,6 +73,14 @@ struct config {
 
 	/* This is the key we use to encrypt `hsm_secret`. */
 	struct secret *keypass;
+
+	/* This is the mnemonic words for BIP39. */
+	char mnemonic[BIP39_WORDLIST_LEN];
+
+	/* This is the passphrase used during the BIP39 wallet generation. We
+	 * set a limitation of 255 characters */
+
+	char passphrase[255];
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;
@@ -259,6 +268,8 @@ struct lightningd {
 	char *wallet_dsn;
 
 	bool encrypted_hsm;
+
+	bool mnemonic_hsm;
 
 	mode_t initial_umask;
 
