@@ -375,12 +375,14 @@ static void tal_error(const char *msg)
 	abort();
 }
 
-static enum format delete_format_hint(const char *resp,
-				      jsmntok_t **toks,
-				      jsmntok_t *result)
+static enum format delete_format_hint(const char *resp, jsmntok_t **toks)
 {
+	const jsmntok_t *result = json_get_member(resp, *toks, "result");
 	const jsmntok_t *hint;
 	enum format format = JSON;
+
+	if (!result)
+		return format;
 
 	hint = json_get_member(resp, result, "format-hint");
 	if (!hint)
@@ -390,7 +392,8 @@ static enum format delete_format_hint(const char *resp,
 		format = HUMAN;
 
 	/* Don't let hint appear in the output! */
-	json_tok_remove(toks, result, hint-1, 1);
+        /* Note the aritmetic on *toks for const-washing */
+	json_tok_remove(toks, *toks + (result - *toks), hint-1, 1);
 	return format;
 }
 
@@ -401,22 +404,19 @@ static enum format choose_format(const char *resp,
 				 enum format format)
 {
 	/* If they specify a format, that's what we use. */
-	if (format != DEFAULT_FORMAT)
+	if (format != DEFAULT_FORMAT) {
+		/* But humans don't want to see the format hint! */
+		if (format == HUMAN)
+			delete_format_hint(resp, toks);
 		return format;
+	}
 
 	/* This works best when we order it. */
 	if (streq(method, "help") && command == NULL)
 		format = HELPLIST;
-	else {
-		const jsmntok_t *result = json_get_member(resp, *toks, "result");
-		if (result)
-			/* Use offset of result to get non-const ptr */
-			format = delete_format_hint(resp, toks,
-						    /* const-washing */
-						    *toks + (result - *toks));
-		else
-			format = JSON;
-	}
+	else
+		format = delete_format_hint(resp, toks);
+
 	return format;
 }
 
