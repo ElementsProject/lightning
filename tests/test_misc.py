@@ -990,6 +990,17 @@ def test_cli(node_factory):
                      '   ]',
                      '}']
 
+    # Make sure we omit top-levels and don't include format hint, when -H forced
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-H',
+                                   'help']).decode('utf-8')
+    lines = out.splitlines()
+    assert [l for l in lines if l.startswith('help=')] == []
+    assert [l for l in lines if l.startswith('format-hint=')] == []
+
 
 def test_daemon_option(node_factory):
     """
