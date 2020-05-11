@@ -78,6 +78,49 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 	abort();
 }
 
+/* Returns number of tokens digested */
+static size_t flat_json(const char *prefix,
+			const char *buffer, const jsmntok_t *t)
+{
+	size_t i, n;
+	char *p;
+
+	switch (t->type) {
+	case JSMN_PRIMITIVE:
+	case JSMN_STRING:
+		printf("%s=%.*s\n",
+		       prefix, t->end - t->start, buffer + t->start);
+		return 1;
+	case JSMN_ARRAY:
+		n = 1;
+		for (i = 0; i < t->size; i++) {
+			p = tal_fmt(NULL, "%s[%zi]", prefix, i);
+			n += flat_json(p, buffer, t + n);
+			tal_free(p);
+		}
+		return n;
+	case JSMN_OBJECT:
+		n = 1;
+		for (i = 0; i < t->size; i++) {
+			if (streq(prefix, ""))
+				p = tal_fmt(NULL, "%.*s",
+					    t[n].end - t[n].start,
+					    buffer + t[n].start);
+			else
+				p = tal_fmt(NULL, "%s.%.*s", prefix,
+					    t[n].end - t[n].start,
+					    buffer + t[n].start);
+			n++;
+			n += flat_json(p, buffer, t + n);
+			tal_free(p);
+		}
+		return n;
+	case JSMN_UNDEFINED:
+		break;
+	}
+	abort();
+}
+
 static int compare_tok(const jsmntok_t *a, const jsmntok_t *b,
 		       const char *buffer)
 {
@@ -184,6 +227,7 @@ enum format {
 	JSON,
 	HUMAN,
 	HELPLIST,
+	FLAT,
 	DEFAULT_FORMAT,
 	RAW
 };
@@ -191,6 +235,12 @@ enum format {
 static char *opt_set_human(enum format *format)
 {
 	*format = HUMAN;
+	return NULL;
+}
+
+static char *opt_set_flat(enum format *format)
+{
+	*format = FLAT;
 	return NULL;
 }
 
@@ -454,6 +504,8 @@ int main(int argc, char *argv[])
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");
 	opt_register_noarg("-H|--human-readable", opt_set_human, &format,
 			   "Human-readable output (default for 'help')");
+	opt_register_noarg("-F|--flat", opt_set_flat, &format,
+			   "Flatten output ('x.y.x=' format)");
 	opt_register_noarg("-J|--json", opt_set_json, &format,
 			   "JSON output (default unless 'help')");
 	opt_register_noarg("-R|--raw", opt_set_raw, &format,
@@ -623,6 +675,9 @@ int main(int argc, char *argv[])
 			break;
 		case HUMAN:
 			human_readable(resp, result, '\n');
+			break;
+		case FLAT:
+			flat_json("", resp, result);
 			break;
 		case JSON:
 			print_json(resp, result, "");
