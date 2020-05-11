@@ -503,7 +503,7 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");
 	opt_register_noarg("-H|--human-readable", opt_set_human, &format,
-			   "Human-readable output (default for 'help')");
+			   "Human-readable output");
 	opt_register_noarg("-F|--flat", opt_set_flat, &format,
 			   "Flatten output ('x.y.x=' format)");
 	opt_register_noarg("-J|--json", opt_set_json, &format,
