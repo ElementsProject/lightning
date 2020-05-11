@@ -67,21 +67,32 @@ static void payment_sendonion(struct payment *p)
 /* Mutual recursion. */
 static void payment_finished(struct payment *p);
 
+/* A payment is finished if a) it is in a final state, of b) it's in a
+ * child-spawning state and all of its children are in a final state. */
+static bool payment_is_finished(const struct payment *p)
+{
+	if (p->step == PAYMENT_STEP_FAILED || p->step == PAYMENT_STEP_SUCCESS)
+		return true;
+	else if (p->step == PAYMENT_STEP_SPLIT || p->step == PAYMENT_STEP_RETRY) {
+		bool running_children = false;
+		for (size_t i = 0; i < tal_count(p->children); i++)
+			running_children |= !payment_is_finished(p->children[i]);
+		return !running_children;
+	} else {
+		return false;
+	}
+}
+
 /* Function to bubble up completions to the root, which actually holds on to
  * the command that initiated the flow. */
-static struct command_result *payment_child_finished(struct payment *parent,
+static void payment_child_finished(struct payment *p,
 						     struct payment *child)
 {
-	/* TODO implement logic to wait for all parts instead of bubbling up
-	 * directly. */
+	if (!payment_is_finished(p))
+		return;
 
 	/* Should we continue bubbling up? */
-	if (parent->parent == NULL) {
-		assert(parent->cmd != NULL);
-		return payment_finished(parent);
-	} else {
-		return payment_child_finished(parent->parent, parent);
-	}
+	payment_finished(p);
 }
 
 /* This function is called whenever a payment ends up in a final state, or all
@@ -90,9 +101,6 @@ static struct command_result *payment_child_finished(struct payment *parent,
  * traversal, i.e., all children are finished before the parent is called. */
 static void payment_finished(struct payment *p)
 {
-	/* TODO If this is a success bubble it back up through the part
-	 * tree. If it is a failure, decide here whether to split, retry or
-	 * split (maybe in a modifier instead?). */
 	if (p->parent == NULL)
 		return command_fail(p->cmd, JSONRPC2_INVALID_REQUEST, "Not functional yet");
 	else
