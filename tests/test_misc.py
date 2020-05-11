@@ -1001,6 +1001,17 @@ def test_cli(node_factory):
     assert [l for l in lines if l.startswith('help=')] == []
     assert [l for l in lines if l.startswith('format-hint=')] == []
 
+    # Flat format is great for grep.  LONG LIVE UNIX!
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-F',
+                                   'help']).decode('utf-8')
+    lines = out.splitlines()
+    # Everything is a help[XX]= line, except format-hint.
+    assert [l for l in lines if not re.search(r'^help\[[0-9]*\].', l)] == ['format-hint=simple']
+
 
 def test_daemon_option(node_factory):
     """
