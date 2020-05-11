@@ -448,8 +448,8 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     l1.rpc.dev_reenable_commit(l2.info['id'])
 
     # These should succeed.
-    fut.result(10)
-    fut2.result(10)
+    fut.result(TIMEOUT)
+    fut2.result(TIMEOUT)
 
 
 @unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
