@@ -66,7 +66,6 @@ mkdir -p /tmp/l1-regtest /tmp/l2-regtest
 # Node one config
 cat << 'EOF' > /tmp/l1-regtest/config
 network=regtest
-daemon
 log-level=debug
 log-file=/tmp/l1-regtest/log
 addr=localhost:6060
@@ -74,7 +73,6 @@ EOF
 
 cat << 'EOF' > /tmp/l2-regtest/config
 network=regtest
-daemon
 log-level=debug
 log-file=/tmp/l2-regtest/log
 addr=localhost:9090
@@ -101,9 +99,9 @@ start_ln() {
 
 	# Start the lightning nodes
 	test -f /tmp/l1-regtest/lightningd-regtest.pid || \
-		"$LIGHTNINGD" --lightning-dir=/tmp/l1-regtest
+		"$LIGHTNINGD" --lightning-dir=/tmp/l1-regtest &
 	test  -f /tmp/l2-regtest/lightningd-regtest.pid || \
-		"$LIGHTNINGD" --lightning-dir=/tmp/l2-regtest
+		"$LIGHTNINGD" --lightning-dir=/tmp/l2-regtest &
 
 	# Give a hint.
 	echo "Commands: l1-cli, l2-cli, l[1|2]-log, bt-cli, stop_ln, cleanup_ln"
