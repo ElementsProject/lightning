@@ -44,10 +44,87 @@ void payment_start(struct payment *p)
 	payment_continue(p);
 }
 
+static bool route_hop_from_json(struct route_hop *dst, const char *buffer,
+				const jsmntok_t *toks)
+{
+	const jsmntok_t *idtok = json_get_member(buffer, toks, "id");
+	const jsmntok_t *channeltok = json_get_member(buffer, toks, "channel");
+	const jsmntok_t *directiontok = json_get_member(buffer, toks, "direction");
+	const jsmntok_t *amounttok = json_get_member(buffer, toks, "amount_msat");
+	const jsmntok_t *delaytok = json_get_member(buffer, toks, "delay");
+	const jsmntok_t *styletok = json_get_member(buffer, toks, "style");
+
+	if (idtok == NULL || channeltok == NULL || directiontok == NULL ||
+	    amounttok == NULL || delaytok == NULL || styletok == NULL)
+		return false;
+
+	json_to_node_id(buffer, idtok, &dst->nodeid);
+	json_to_short_channel_id(buffer, channeltok, &dst->channel_id);
+	json_to_int(buffer, directiontok, &dst->direction);
+	json_to_msat(buffer, amounttok, &dst->amount);
+	json_to_number(buffer, delaytok, &dst->delay);
+	dst->style = json_tok_streq(buffer, styletok, "legacy")
+			 ? ROUTE_HOP_LEGACY
+			 : ROUTE_HOP_TLV;
+	return true;
+}
+
+static struct route_hop *
+tal_route_from_json(const tal_t *ctx, const char *buffer, const jsmntok_t *toks)
+{
+	size_t num = toks->size, i;
+	struct route_hop *hops;
+	const jsmntok_t *rtok;
+	if (toks->type != JSMN_ARRAY)
+		return NULL;
+
+	hops = tal_arr(ctx, struct route_hop, num);
+	json_for_each_arr(i, rtok, toks) {
+		if (!route_hop_from_json(&hops[i], buffer, rtok))
+			return tal_free(hops);
+	}
+	return hops;
+}
+
+static struct command_result *payment_getroute_result(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *toks,
+						      struct payment *p)
+{
+	const jsmntok_t *rtok = json_get_member(buffer, toks, "route");
+	assert(rtok != NULL);
+	p->route = tal_route_from_json(p, buffer, rtok);
+	p->step = PAYMENT_STEP_GOT_ROUTE;
+
+	/* Allow modifiers to modify the route, before
+	 * payment_compute_onion_payloads uses the route to generate the
+	 * onion_payloads */
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static struct command_result *payment_getroute_error(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *toks,
+						     struct payment *p)
+{
+	p->step = PAYMENT_STEP_FAILED;
+	payment_continue(p);
+
+	/* Let payment_finished_ handle this, so we mark it as pending */
+	return command_still_pending(cmd);
+}
+
 static void payment_getroute(struct payment *p)
 {
-	p->step = PAYMENT_STEP_GOT_ROUTE;
-	return payment_continue(p);
+	struct out_req *req;
+	req = jsonrpc_request_start(p->cmd->plugin, NULL, "getroute",
+				    payment_getroute_result,
+				    payment_getroute_error, p);
+	json_add_node_id(req->js, "id", p->getroute_destination);
+	json_add_amount_msat_only(req->js, "msatoshi", p->amount);
+	json_add_num(req->js, "riskfactor", 1);
+	send_outreq(p->cmd->plugin, req);
 }
 
 static void payment_compute_onion_payloads(struct payment *p)
