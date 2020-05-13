@@ -7,7 +7,6 @@
 #include <ccan/tal/tal.h>
 
 struct bitcoin_address;
-struct bitcoin_tx_input;
 struct preimage;
 struct pubkey;
 struct sha256;
