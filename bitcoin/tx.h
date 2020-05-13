@@ -40,17 +40,6 @@ struct bitcoin_tx_output {
 	u8 *script;
 };
 
-struct bitcoin_tx_input {
-	struct bitcoin_txid txid;
-	u32 index; /* output number referred to by above */
-	u8 *script;
-	u32 sequence_number;
-
-	/* Only if BIP141 used. */
-	u8 **witness;
-};
-
-
 /* SHA256^2 the tx: simpler than sha256_tx */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
 
