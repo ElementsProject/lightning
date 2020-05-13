@@ -821,6 +821,7 @@ def test_funding_toolarge(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], amount)
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "check_coin_moves is network-specific")
 def test_funding_push(node_factory, bitcoind):
     """ Try to push peer some sats """
     # We track balances, to verify that accounting is ok.
