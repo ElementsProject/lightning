@@ -37,11 +37,44 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	return p;
 }
 
+/* Generic handler for RPC failures that should end up failing the payment. */
+static struct command_result *payment_rpc_failure(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *toks,
+						  struct payment *p)
+{
+	plugin_log(p->cmd->plugin, LOG_DBG,
+		   "Failing a partial payment due to a failed RPC call: %.*s",
+		   toks->end - toks->start, buffer + toks->start);
+
+	p->step = PAYMENT_STEP_FAILED;
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static struct command_result *payment_getinfo_success(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *toks,
+						      struct payment *p)
+{
+	const jsmntok_t *blockheighttok =
+	    json_get_member(buffer, toks, "blockheight");
+	json_to_number(buffer, blockheighttok, &p->start_block);
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
 void payment_start(struct payment *p)
 {
 	p->step = PAYMENT_STEP_INITIALIZED;
 	p->current_modifier = -1;
-	payment_continue(p);
+
+	/* TODO If this is not the root, we can actually skip the getinfo call
+	 * and just reuse the parent's value. */
+	send_outreq(p->cmd->plugin,
+		    jsonrpc_request_start(p->cmd->plugin, NULL, "getinfo",
+					  payment_getinfo_success,
+					  payment_rpc_failure, p));
 }
 
 static bool route_hop_from_json(struct route_hop *dst, const char *buffer,
