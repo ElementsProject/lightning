@@ -162,7 +162,61 @@ static void payment_getroute(struct payment *p)
 
 static void payment_compute_onion_payloads(struct payment *p)
 {
+	struct createonion_request *cr;
+	size_t hopcount;
+	static struct short_channel_id all_zero_scid;
+	struct createonion_hop *cur;
 	p->step = PAYMENT_STEP_ONION_PAYLOAD;
+	hopcount = tal_count(p->route);
+
+	/* Now compute the payload we're about to pass to `createonion` */
+	cr = p->createonion_request = tal(p, struct createonion_request);
+	cr->assocdata = tal_arr(cr, u8, 0);
+	towire_sha256(&cr->assocdata, p->payment_hash);
+	cr->session_key = NULL;
+	cr->hops = tal_arr(cr, struct createonion_hop, tal_count(p->route));
+
+	/* Non-final hops */
+	for (size_t i = 0; i < hopcount - 1; i++) {
+		/* The message is destined for hop i, but contains fields for
+		 * i+1 */
+		cur = &cr->hops[i];
+		cur->style = p->route[i].style;
+		cur->pubkey = p->route[i].nodeid;
+		switch (cur->style) {
+		case ROUTE_HOP_LEGACY:
+			cur->legacy_payload =
+			    tal(cr->hops, struct legacy_payload);
+			cur->legacy_payload->forward_amt =
+			    p->route[i + 1].amount;
+			cur->legacy_payload->scid = p->route[i + 1].channel_id;
+			cur->legacy_payload->outgoing_cltv =
+			    p->start_block + p->route[i + 1].delay;
+			break;
+		case ROUTE_HOP_TLV:
+			/* TODO(cdecker) Implement */
+			abort();
+		}
+	}
+
+	/* Final hop */
+	cur = &cr->hops[hopcount - 1];
+	cur->style = p->route[hopcount - 1].style;
+	cur->pubkey = p->route[hopcount - 1].nodeid;
+	switch (cur->style) {
+	case ROUTE_HOP_LEGACY:
+		cur->legacy_payload = tal(cr->hops, struct legacy_payload);
+		cur->legacy_payload->forward_amt =
+		    p->route[hopcount - 1].amount;
+		cur->legacy_payload->scid = all_zero_scid;
+		cur->legacy_payload->outgoing_cltv =
+		    p->start_block + p->route[hopcount - 1].delay;
+		break;
+	case ROUTE_HOP_TLV:
+		/* TODO(cdecker) Implement */
+		abort();
+	}
+
 	/* Now allow all the modifiers to mess with the payloads, before we
 	 * serialize via a call to createonion in the next step. */
 	payment_continue(p);
