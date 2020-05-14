@@ -19,6 +19,27 @@ struct route_hop {
 	enum route_hop_style style;
 };
 
+struct legacy_payload {
+	struct short_channel_id scid;
+	struct amount_msat forward_amt;
+	u32 outgoing_cltv;
+};
+
+/* struct holding the information necessary to call createonion */
+struct createonion_hop {
+	struct node_id pubkey;
+
+	enum route_hop_style style;
+	struct tlv_tlv_payload *tlv_payload;
+	struct legacy_payload *legacy_payload;
+};
+
+struct createonion_request {
+	struct createonion_hop *hops;
+	u8 *assocdata;
+	struct secret *session_key;
+};
+
 /* A parsed version of the possible outcomes that a sendpay / payment may
  * result in. */
 struct payment_result {
@@ -81,6 +102,8 @@ struct payment {
 	 * the above destination if we use rendez-vous routing of blinded
 	 * paths to amend the route later in a mixin. */
 	struct node_id  *getroute_destination;
+
+	struct createonion_request *createonion_request;
 
 	/* Target amount to be delivered at the destination */
 	struct amount_msat amount;
