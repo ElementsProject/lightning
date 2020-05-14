@@ -1,6 +1,7 @@
 #include <plugins/libplugin-pay.h>
 #include <stdio.h>
 
+#include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
@@ -15,7 +16,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->modifiers = mods;
 	p->cmd = cmd;
 	p->start_time = time_now();
-	p->partid = partid++;
+	p->result = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -209,16 +210,84 @@ fail:
 	return tal_free(resp);
 }
 
+static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
+						    const char *buffer,
+						    const jsmntok_t *toks)
+{
+	const jsmntok_t *idtok = json_get_member(buffer, toks, "id");
+	const jsmntok_t *hashtok = json_get_member(buffer, toks, "payment_hash");
+	const jsmntok_t *partidtok = json_get_member(buffer, toks, "partid");
+	const jsmntok_t *senttok = json_get_member(buffer, toks, "amount_sent_msat");
+	const jsmntok_t *statustok = json_get_member(buffer, toks, "status");
+	const jsmntok_t *preimagetok = json_get_member(buffer, toks, "payment_preimage");
+	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
+	const jsmntok_t *datatok = json_get_member(buffer, toks, "data");
+	struct payment_result *result;
+
+	/* Check if we have an error and need to descend into data to get
+	 * details. */
+	if (codetok != NULL && datatok != NULL) {
+		idtok = json_get_member(buffer, datatok, "id");
+		hashtok = json_get_member(buffer, datatok, "payment_hash");
+		partidtok = json_get_member(buffer, datatok, "partid");
+		senttok = json_get_member(buffer, datatok, "amount_sent_msat");
+		statustok = json_get_member(buffer, datatok, "status");
+	}
+
+	/* Initial sanity checks, all these fields must exist. */
+	if (idtok == NULL || idtok->type != JSMN_PRIMITIVE ||
+	    hashtok == NULL || hashtok->type != JSMN_STRING ||
+	    senttok == NULL || senttok->type != JSMN_STRING ||
+	    statustok == NULL || statustok->type != JSMN_STRING) {
+		return NULL;
+	}
+
+	result = tal(ctx, struct payment_result);
+
+	json_to_u64(buffer, idtok, &result->id);
+	json_to_u32(buffer, partidtok, &result->partid);
+	/* TODO Fetch the payment_hash here */
+	json_to_msat(buffer, senttok, &result->amount_sent);
+
+	if (json_tok_streq(buffer, statustok, "pending")) {
+		result->state = PAYMENT_PENDING;
+	} else if (json_tok_streq(buffer, statustok, "complete")) {
+		result->state = PAYMENT_COMPLETE;
+	} else if (json_tok_streq(buffer, statustok, "failed")) {
+		result->state = PAYMENT_FAILED;
+	} else {
+		goto fail;
+	}
+
+	if (preimagetok != NULL) {
+		result->payment_preimage = tal(result, struct preimage);
+		json_to_preimage(buffer, preimagetok, result->payment_preimage);
+	}
+
+	return result;
+fail:
+	return tal_free(result);
+}
+
 static struct command_result *
 payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			     const jsmntok_t *toks, struct payment *p)
 {
-	/* TODO examine the failure and eventually stash exclusions that we
-	 * learned in the payment, so sub-payments can avoid them. We also
-	 * need to store the waitsendpay result so we can mock an overall
-	 * waitsendpay for the root later. */
+	p->result = tal_sendpay_result_from_json(p, buffer, toks);
 
-	p->step = PAYMENT_STEP_FAILED;
+	if (p->result == NULL)
+		plugin_err(
+		    p->plugin, "Unable to parse `waitsendpay` result: %.*s",
+		    json_tok_full_len(toks), json_tok_full(buffer, toks));
+
+	if (p->result->state == PAYMENT_COMPLETE)
+		p->step = PAYMENT_STEP_SUCCESS;
+	else
+		p->step = PAYMENT_STEP_FAILED;
+
+	/* TODO examine the failure and eventually stash exclusions that we
+	 * learned in the payment, so sub-payments can avoid them. */
+
 	payment_continue(p);
 	return command_still_pending(cmd);
 }

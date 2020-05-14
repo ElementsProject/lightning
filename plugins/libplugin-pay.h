@@ -46,9 +46,23 @@ struct createonion_response {
 	struct secret *shared_secrets;
 };
 
+/* States returned by listsendpays, waitsendpay, etc. */
+enum payment_result_state {
+	PAYMENT_PENDING,
+	PAYMENT_COMPLETE,
+	PAYMENT_FAILED,
+};
+
 /* A parsed version of the possible outcomes that a sendpay / payment may
- * result in. */
+ * result in. It excludes the redundant fields such as payment_hash and partid
+ * which are already present in the `struct payment` itself. */
 struct payment_result {
+	/* DB internal id */
+	u64 id;
+	u32 partid;
+	enum payment_result_state state;
+	struct amount_msat amount_sent;
+	struct preimage *payment_preimage;
 };
 
 /* Relevant information about a local channel so we can  exclude them early. */
@@ -142,6 +156,8 @@ struct payment {
 	struct payment_modifier **modifiers;
 	void **modifier_data;
 	int current_modifier;
+
+	struct payment_result *result;
 };
 
 struct payment_modifier {
