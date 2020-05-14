@@ -3,6 +3,7 @@
 #include "config.h"
 
 #include <plugins/libplugin.h>
+#include <wire/gen_onion_wire.h>
 
 enum route_hop_style {
 	ROUTE_HOP_LEGACY = 1,
@@ -38,6 +39,11 @@ struct createonion_request {
 	struct createonion_hop *hops;
 	u8 *assocdata;
 	struct secret *session_key;
+};
+
+struct createonion_response {
+	u8 *onion;
+	struct secret *shared_secrets;
 };
 
 /* A parsed version of the possible outcomes that a sendpay / payment may
@@ -104,6 +110,7 @@ struct payment {
 	struct node_id  *getroute_destination;
 
 	struct createonion_request *createonion_request;
+	struct createonion_response *createonion_response;
 
 	/* Target amount to be delivered at the destination */
 	struct amount_msat amount;

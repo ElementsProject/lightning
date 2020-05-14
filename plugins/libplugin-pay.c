@@ -178,13 +178,81 @@ static u8 *tal_towire_legacy_payload(const tal_t *ctx, const struct legacy_paylo
 	return buf;
 }
 
-static struct command_result *payment_createonion_success(struct command *cmd,
+static struct createonion_response *
+tal_createonion_response_from_json(const tal_t *ctx, const char *buffer,
+				   const jsmntok_t *toks)
+{
+	size_t i;
+	struct createonion_response *resp;
+	const jsmntok_t *oniontok = json_get_member(buffer, toks, "onion");
+	const jsmntok_t *secretstok = json_get_member(buffer, toks, "shared_secrets");
+	const jsmntok_t *cursectok;
+
+	if (oniontok == NULL || secretstok == NULL)
+		return NULL;
+	resp = tal(ctx, struct createonion_response);
+
+	if (oniontok->type != JSMN_STRING)
+		goto fail;
+
+	resp->onion = json_tok_bin_from_hex(resp, buffer, oniontok);
+	resp->shared_secrets = tal_arr(resp, struct secret, secretstok->size);
+
+	json_for_each_arr(i, cursectok, secretstok) {
+		if (cursectok->type != JSMN_STRING)
+			goto fail;
+		json_to_secret(buffer, cursectok, &resp->shared_secrets[i]);
+	}
+	return resp;
+
+fail:
+	return tal_free(resp);
+}
+
+static struct command_result *payment_sendonion_success(struct command *cmd,
 							  const char *buffer,
 							  const jsmntok_t *toks,
 							  struct payment *p)
 {
 	p->step = PAYMENT_STEP_FAILED;
 	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static struct command_result *payment_createonion_success(struct command *cmd,
+							  const char *buffer,
+							  const jsmntok_t *toks,
+							  struct payment *p)
+{
+	struct out_req *req;
+	struct route_hop *first = &p->route[0];
+	struct secret *secrets;
+	p->createonion_response = tal_createonion_response_from_json(p, buffer, toks);
+
+	req = jsonrpc_request_start(p->cmd->plugin, NULL, "sendonion",
+				    payment_sendonion_success,
+				    payment_rpc_failure, p);
+	json_add_hex_talarr(req->js, "onion", p->createonion_response->onion);
+
+	json_object_start(req->js, "first_hop");
+	json_add_short_channel_id(req->js, "channel", &first->channel_id);
+	json_add_num(req->js, "direction", first->direction);
+	json_add_amount_msat_only(req->js, "amount_msat", first->amount);
+	json_add_num(req->js, "delay", first->delay);
+	json_add_node_id(req->js, "id", &first->nodeid);
+	json_object_end(req->js);
+
+	json_add_sha256(req->js, "payment_hash", p->payment_hash);
+
+	json_array_start(req->js, "shared_secrets");
+	secrets = p->createonion_response->shared_secrets;
+	for(size_t i=0; i<tal_count(secrets); i++)
+		json_add_secret(req->js, NULL, &secrets[i]);
+	json_array_end(req->js);
+
+	json_add_num(req->js, "partid", p->partid);
+
+	send_outreq(p->cmd->plugin, req);
 	return command_still_pending(cmd);
 }
 
