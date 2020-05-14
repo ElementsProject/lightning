@@ -136,7 +136,7 @@ void marshal_pubkey(struct pubkey const *pp, PubKey *o_pp)
 void marshal_utxo(struct utxo const *up, InputDescriptor *idesc)
 {
 	idesc->mutable_key_loc()->set_key_index(up->keyindex);
-	idesc->mutable_prev_output()->set_value(up->amount.satoshis);
+	idesc->mutable_prev_output()->set_value_sat(up->amount.satoshis);
 	/* FIXME - where does pk_script come from? */
 	idesc->set_spend_type(up->is_p2sh
 			      ? SpendType::P2SH_P2WPKH
@@ -192,7 +192,7 @@ void marshal_single_input_tx(struct bitcoin_tx const *tx,
 
 	assert(tx->wtx->num_inputs == 1);
 	InputDescriptor *idesc = o_tp->add_input_descs();
-	idesc->mutable_prev_output()->set_value(tx->input_amounts[0]->satoshis);
+	idesc->mutable_prev_output()->set_value_sat(tx->input_amounts[0]->satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
@@ -561,7 +561,7 @@ proxy_stat proxy_handle_ready_channel(
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	req.set_is_outbound(is_outbound);
-	req.set_channel_value_satoshi(channel_value->satoshis);
+	req.set_channel_value_sat(channel_value->satoshis);
 	marshal_outpoint(funding_txid, funding_txout, req.mutable_funding_outpoint());
 	req.set_local_to_self_delay(local_to_self_delay);
 	marshal_script(local_shutdown_script, req.mutable_local_shutdown_script());
