@@ -209,13 +209,33 @@ fail:
 	return tal_free(resp);
 }
 
+static struct command_result *
+payment_waitsendpay_finished(struct command *cmd, const char *buffer,
+			     const jsmntok_t *toks, struct payment *p)
+{
+	/* TODO examine the failure and eventually stash exclusions that we
+	 * learned in the payment, so sub-payments can avoid them. We also
+	 * need to store the waitsendpay result so we can mock an overall
+	 * waitsendpay for the root later. */
+
+	p->step = PAYMENT_STEP_FAILED;
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
 static struct command_result *payment_sendonion_success(struct command *cmd,
 							  const char *buffer,
 							  const jsmntok_t *toks,
 							  struct payment *p)
 {
-	p->step = PAYMENT_STEP_FAILED;
-	payment_continue(p);
+	struct out_req *req;
+	req = jsonrpc_request_start(p->cmd->plugin, NULL, "waitsendpay",
+				    payment_waitsendpay_finished,
+				    payment_waitsendpay_finished, p);
+	json_add_sha256(req->js, "payment_hash", p->payment_hash);
+	json_add_num(req->js, "partid", p->partid);
+	send_outreq(p->cmd->plugin, req);
+
 	return command_still_pending(cmd);
 }
 
