@@ -152,6 +152,29 @@ void marshal_utxo(struct utxo const *up, InputDescriptor *idesc)
 	}
 }
 
+void marshal_outpoint(struct bitcoin_txid const *txid, u16 txout, Outpoint *o_op)
+{
+	o_op->set_txid(txid->shad.sha.u.u8, sizeof(txid->shad.sha.u.u8));
+	o_op->set_index(txout);
+}
+
+void marshal_script(u8 const *script, string *o_script)
+{
+	if (script)
+		o_script->assign((char const *)script, tal_count(script));
+}
+
+void marshal_basepoints(struct basepoints const *bps,
+			struct pubkey *funding_pubkey,
+			Basepoints * o_bps)
+{
+	marshal_pubkey(&bps->revocation, o_bps->mutable_revocation());
+	marshal_pubkey(&bps->payment, o_bps->mutable_payment());
+	marshal_pubkey(&bps->htlc, o_bps->mutable_htlc());
+	marshal_pubkey(&bps->delayed_payment, o_bps->mutable_delayed_payment());
+	marshal_pubkey(funding_pubkey, o_bps->mutable_funding_pubkey());
+}
+
 void marshal_single_input_tx(struct bitcoin_tx const *tx,
 			     u8 const *output_witscript,
 			     struct witscript const **output_witscripts,
@@ -300,14 +323,16 @@ void proxy_setup()
 
 proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 			  struct chainparams const *chainparams,
+			  bool warmstart,
 			  struct secret *hsm_secret,
 			  struct node_id *o_node_id,
 			  struct ext_key *o_ext_pubkey)
 {
 	status_debug(
-		"%s:%d %s hsm_secret=%s",
+		"%s:%d %s hsm_secret=%s warmstart=%s",
 		__FILE__, __LINE__, __FUNCTION__,
-		dump_secret(hsm_secret).c_str()
+		dump_secret(hsm_secret).c_str(),
+		warmstart ? "true" : "false"
 		);
 
 	/* First we make the Init call to create the Node. */
@@ -317,6 +342,8 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 
 		auto cp = req.mutable_chainparams();
 		cp->set_network_name(chainparams->network_name);
+
+		req.set_warmstart(warmstart);
 
 		/* FIXME - Sending the secret instead of generating on
 		 * the remote. */
@@ -421,6 +448,9 @@ proxy_stat proxy_handle_pass_client_hsmfd(
 		capabilities
 		);
 
+/* We used to synthesize NewChannel here, but now have an explicit
+ * interface.  This whole method can go away. */
+#if 0
 	last_message = "";
 	NewChannelRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
@@ -429,6 +459,121 @@ proxy_stat proxy_handle_pass_client_hsmfd(
 	ClientContext context;
 	NewChannelReply rsp;
 	Status status = stub->NewChannel(&context, req, &rsp);
+	if (status.ok()) {
+		status_debug("%s:%d %s self_id=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str());
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status);
+	}
+#else
+	last_message = "success";
+	return PROXY_OK;
+#endif
+}
+
+proxy_stat proxy_handle_new_channel(
+	struct node_id *peer_id,
+	u64 dbid)
+{
+	status_debug(
+		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 "",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_node_id(peer_id).c_str(),
+		dbid);
+
+	last_message = "";
+	NewChannelRequest req;
+	marshal_node_id(&self_id, req.mutable_node_id());
+	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
+
+	ClientContext context;
+	NewChannelReply rsp;
+	Status status = stub->NewChannel(&context, req, &rsp);
+	if (status.ok()) {
+		status_debug("%s:%d %s self_id=%s",
+			     __FILE__, __LINE__, __FUNCTION__,
+			     dump_node_id(&self_id).c_str());
+		last_message = "success";
+		return PROXY_OK;
+	} else {
+		status_unusual("%s:%d %s: self_id=%s %s",
+			       __FILE__, __LINE__, __FUNCTION__,
+			       dump_node_id(&self_id).c_str(),
+			       status.error_message().c_str());
+		last_message = status.error_message();
+		return map_status(status);
+	}
+}
+
+proxy_stat proxy_handle_ready_channel(
+	struct node_id *peer_id,
+	u64 dbid,
+	bool is_outbound,
+	struct amount_sat *channel_value,
+	struct bitcoin_txid *funding_txid,
+	u16 funding_txout,
+	u16 local_to_self_delay,
+	u8 *local_shutdown_script,
+	struct basepoints *remote_basepoints,
+	struct pubkey *remote_funding_pubkey,
+	u16 remote_to_self_delay,
+	u8 *remote_shutdown_script,
+	bool option_static_remotekey)
+{
+	status_debug(
+		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
+		"is_outbound=%s channel_value=%" PRIu64 " "
+		"funding_txid=%s funding_txout=%d "
+		"local_to_self_delay=%d local_shutdown_script=%s "
+		"remote_basepoints=%s remote_funding_pubkey=%s "
+		"remote_to_self_delay=%d "
+		"remote_shutdown_script=%s option_static_remotekey=%s",
+		__FILE__, __LINE__, __FUNCTION__,
+		dump_node_id(&self_id).c_str(),
+		dump_node_id(peer_id).c_str(),
+		dbid,
+		(is_outbound ? "true" : "false"),
+		channel_value->satoshis,
+		dump_bitcoin_txid(funding_txid).c_str(),
+		funding_txout,
+		local_to_self_delay,
+		dump_hex(local_shutdown_script,
+			 tal_count(local_shutdown_script)).c_str(),
+		dump_basepoints(remote_basepoints).c_str(),
+		dump_pubkey(remote_funding_pubkey).c_str(),
+		remote_to_self_delay,
+		dump_hex(remote_shutdown_script,
+			 tal_count(remote_shutdown_script)).c_str(),
+		(option_static_remotekey ? "true" : "false")
+		);
+
+	last_message = "";
+	ReadyChannelRequest req;
+	marshal_node_id(&self_id, req.mutable_node_id());
+	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
+	req.set_is_outbound(is_outbound);
+	req.set_channel_value_satoshi(channel_value->satoshis);
+	marshal_outpoint(funding_txid, funding_txout, req.mutable_funding_outpoint());
+	req.set_local_to_self_delay(local_to_self_delay);
+	marshal_script(local_shutdown_script, req.mutable_local_shutdown_script());
+	marshal_basepoints(remote_basepoints, remote_funding_pubkey,
+			   req.mutable_remote_basepoints());
+	req.set_remote_to_self_delay(remote_to_self_delay);
+	marshal_script(remote_shutdown_script, req.mutable_remote_shutdown_script());
+	req.set_option_static_remotekey(option_static_remotekey);
+
+	ClientContext context;
+	ReadyChannelReply rsp;
+	Status status = stub->ReadyChannel(&context, req, &rsp);
 	if (status.ok()) {
 		status_debug("%s:%d %s self_id=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
@@ -456,23 +601,6 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	struct bitcoin_tx *tx,
 	u8 ****o_wits)
 {
-	fprintf(stderr,
-		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
-		"satoshi_out=%" PRIu64 " change_out=%" PRIu64 " "
-		"change_keyindex=%u utxos=%s outputs=%s tx=%s\n",
-		__FILE__, __LINE__, __FUNCTION__,
-		dump_node_id(&self_id).c_str(),
-		dump_node_id(peer_id).c_str(),
-		dbid,
-		satoshi_out->satoshis,
-		change_out->satoshis,
-		change_keyindex,
-		dump_utxos((const struct utxo **)utxos).c_str(),
-		dump_bitcoin_tx_outputs(
-			(const struct bitcoin_tx_output **)outputs).c_str(),
-		dump_tx(tx).c_str()
-		);
-
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
 		"satoshi_out=%" PRIu64 " change_out=%" PRIu64 " "
@@ -527,10 +655,6 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 	Status status = stub->SignFundingTx(&context, req, &rsp);
 	if (status.ok()) {
 		unmarshal_witnesses(rsp.witnesses(), o_wits);
-		fprintf(stderr, "%s:%d %s self_id=%s witnesses=%s\n",
-			     __FILE__, __LINE__, __FUNCTION__,
-			     dump_node_id(&self_id).c_str(),
-			     dump_witnesses((u8 const ***) *o_wits).c_str());
 		status_debug("%s:%d %s self_id=%s witnesses=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
@@ -538,10 +662,6 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 		last_message = "success";
 		return PROXY_OK;
 	} else {
-		fprintf(stderr, "%s:%d %s: self_id=%s %s\n",
-			       __FILE__, __LINE__, __FUNCTION__,
-			       dump_node_id(&self_id).c_str(),
-			       status.error_message().c_str());
 		status_unusual("%s:%d %s: self_id=%s %s",
 			       __FILE__, __LINE__, __FUNCTION__,
 			       dump_node_id(&self_id).c_str(),

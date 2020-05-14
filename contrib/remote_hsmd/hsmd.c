@@ -360,6 +360,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct sha256 *force_channel_secrets_shaseed;
 	struct secret *hsm_encryption_key;
 	struct secret hsm_secret;
+	bool warmstart;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -406,9 +407,12 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 		randombytes_buf(&hsm_secret, sizeof(hsm_secret));
 	}
 
+	/* Is this a warm start (restart) or a cold start (first time)? */
+	warmstart = access("INITED", F_OK) != -1;
+
 	proxy_stat rv = proxy_init_hsm(&bip32_key_version, chainparams,
-				       &hsm_secret, &node_id,
-				       &pubstuff.bip32);
+				       warmstart, &hsm_secret,
+				       &node_id, &pubstuff.bip32);
 	if (PROXY_PERMANENT(rv)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "proxy_%s failed: %s", __FUNCTION__,
@@ -421,6 +425,11 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
 	}
+
+	/* Mark this node as already inited. */
+	int fd = open("INITED", O_WRONLY|O_TRUNC|O_CREAT, 0666);
+	assert(fd != -1);
+	close(fd);
 
 	return req_reply(conn, c,
 			 take(towire_hsm_init_reply(NULL, &node_id, &pubstuff.bip32)));
@@ -1116,6 +1125,84 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 			     send_pending_client_fd, c);
 }
 
+/*~ This is used to declare a new channel. */
+static struct io_plan *handle_new_channel(struct io_conn *conn,
+					  struct client *c,
+					  const u8 *msg_in)
+{
+	struct node_id peer_id;
+	u64 dbid;
+
+	if (!fromwire_hsm_new_channel(msg_in, &peer_id, &dbid))
+		return bad_req(conn, c, msg_in);
+
+	proxy_stat rv = proxy_handle_new_channel(&peer_id, dbid);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+
+	return req_reply(conn, c,
+			 take(towire_hsm_new_channel_reply(NULL)));
+}
+
+/*~ This is used to provide all unchanging public channel parameters. */
+static struct io_plan *handle_ready_channel(struct io_conn *conn,
+					    struct client *c,
+					    const u8 *msg_in)
+{
+	bool is_outbound;
+	struct amount_sat channel_value;
+	struct bitcoin_txid funding_txid;
+	u16 funding_txout;
+	u16 local_to_self_delay;
+	u8 *local_shutdown_script;
+	struct basepoints remote_basepoints;
+	struct pubkey remote_funding_pubkey;
+	u16 remote_to_self_delay;
+	u8 *remote_shutdown_script;
+	bool option_static_remotekey;
+
+	if (!fromwire_hsm_ready_channel(tmpctx, msg_in, &is_outbound,
+					&channel_value, &funding_txid,
+					&funding_txout, &local_to_self_delay,
+					&local_shutdown_script,
+					&remote_basepoints,
+					&remote_funding_pubkey,
+					&remote_to_self_delay,
+					&remote_shutdown_script,
+					&option_static_remotekey))
+		return bad_req(conn, c, msg_in);
+
+	proxy_stat rv = proxy_handle_ready_channel(
+		&c->id, c->dbid,
+		is_outbound,
+		&channel_value,
+		&funding_txid,
+		funding_txout,
+		local_to_self_delay,
+		local_shutdown_script,
+		&remote_basepoints,
+		&remote_funding_pubkey,
+		remote_to_self_delay,
+		remote_shutdown_script,
+		option_static_remotekey);
+	if (PROXY_PERMANENT(rv))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "proxy_%s failed: %s", __FUNCTION__,
+			      proxy_last_message());
+	else if (!PROXY_SUCCESS(rv))
+		return bad_req_fmt(conn, c, msg_in,
+				   "proxy_%s error: %s", __FUNCTION__,
+				   proxy_last_message());
+	return req_reply(conn, c,
+			 take(towire_hsm_ready_channel_reply(NULL)));
+}
+
 /*~ lightningd asks us to sign a withdrawal; same as above but in theory
  * we can do more to check the previous case is valid. */
 static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
@@ -1361,6 +1448,7 @@ static bool check_client_capabilities(struct client *client,
 
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
 	case WIRE_HSM_CHECK_FUTURE_SECRET:
+	case WIRE_HSM_READY_CHANNEL:
 		return (client->capabilities & HSM_CAP_COMMITMENT_POINT) != 0;
 
 	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
@@ -1371,6 +1459,7 @@ static bool check_client_capabilities(struct client *client,
 		return (client->capabilities & HSM_CAP_SIGN_CLOSING_TX) != 0;
 
 	case WIRE_HSM_INIT:
+	case WIRE_HSM_NEW_CHANNEL:
 	case WIRE_HSM_CLIENT_HSMFD:
 	case WIRE_HSM_SIGN_FUNDING:
 	case WIRE_HSM_SIGN_WITHDRAWAL:
@@ -1388,6 +1477,8 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
+	case WIRE_HSM_NEW_CHANNEL_REPLY:
+	case WIRE_HSM_READY_CHANNEL_REPLY:
 	case WIRE_HSM_SIGN_FUNDING_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
@@ -1427,6 +1518,12 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 
 	case WIRE_HSM_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
+
+	case WIRE_HSM_NEW_CHANNEL:
+		return handle_new_channel(conn, c, c->msg_in);
+
+	case WIRE_HSM_READY_CHANNEL:
+		return handle_ready_channel(conn, c, c->msg_in);
 
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
 		return handle_get_channel_basepoints(conn, c, c->msg_in);
@@ -1496,6 +1593,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
+	case WIRE_HSM_NEW_CHANNEL_REPLY:
+	case WIRE_HSM_READY_CHANNEL_REPLY:
 	case WIRE_HSM_SIGN_FUNDING_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:

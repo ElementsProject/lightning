@@ -664,6 +664,25 @@ static bool funder_finalize_channel_setup(struct state *state,
 	char *err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 
+	/*~ Channel is ready; Report the channel parameters to the signer. */
+	msg = towire_hsm_ready_channel(NULL,
+				       true,	/* is_outbound */
+				       state->funding,
+				       &state->funding_txid,
+				       state->funding_txout,
+				       state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       &state->their_points,
+				       &state->their_funding_pubkey,
+				       state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       state->option_static_remotekey);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
+
 	/*~ Now we can initialize the `struct channel`.  This represents
 	 * the current channel state and is how we can generate the current
 	 * commitment transaction.
@@ -1152,6 +1171,25 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &id_in));
+
+	/*~ Channel is ready; Report the channel parameters to the signer. */
+	msg = towire_hsm_ready_channel(NULL,
+				       false,	/* is_outbound */
+				       state->funding,
+				       &state->funding_txid,
+				       state->funding_txout,
+				       state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       &theirs,
+				       &their_funding_pubkey,
+				       state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       state->option_static_remotekey);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
 
 	/* Now we can create the channel structure. */
 	state->channel = new_initial_channel(state,

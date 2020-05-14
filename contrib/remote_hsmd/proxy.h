@@ -30,6 +30,7 @@ void proxy_setup(void);
 proxy_stat proxy_init_hsm(
 	struct bip32_key_version *bip32_key_version,
 	struct chainparams const *chainparams,
+	bool warmstart,
 	struct secret *hsm_secret,
 	struct node_id *o_node_id,
 	struct ext_key *o_ext_pub_key);
@@ -42,6 +43,25 @@ proxy_stat proxy_handle_pass_client_hsmfd(
 	struct node_id *peer_id,
 	u64 dbid,
 	u64 capabilities);
+
+proxy_stat proxy_handle_new_channel(
+	struct node_id *peer_id,
+	u64 dbid);
+
+proxy_stat proxy_handle_ready_channel(
+	struct node_id *peer_id,
+	u64 dbid,
+	bool is_outbound,
+	struct amount_sat *channel_value,
+	struct bitcoin_txid *funding_txid,
+	u16 funding_txout,
+	u16 local_to_self_delay,
+	u8 *local_shutdown_script,
+	struct basepoints *remote_basepoints,
+	struct pubkey *remote_funding_pubkey,
+	u16 remote_to_self_delay,
+	u8 *remote_shutdown_script,
+	bool option_static_remotekey);
 
 proxy_stat proxy_handle_sign_withdrawal_tx(
 	struct node_id *peer_id, u64 dbid,
