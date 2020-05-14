@@ -1,6 +1,10 @@
 #include <plugins/libplugin-pay.h>
 #include <stdio.h>
 
+#include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
+#include <common/json_stream.h>
+
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
 			    struct payment_modifier **mods)
@@ -160,6 +164,30 @@ static void payment_getroute(struct payment *p)
 	send_outreq(p->cmd->plugin, req);
 }
 
+static u8 *tal_towire_legacy_payload(const tal_t *ctx, const struct legacy_payload *payload)
+{
+	const u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			      0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	/* Prepend 0 byte for realm */
+	u8 *buf = tal_arrz(ctx, u8, 1);
+	towire_short_channel_id(&buf, &payload->scid);
+	towire_u64(&buf, payload->forward_amt.millisatoshis); /* Raw: low-level serializer */
+	towire_u32(&buf, payload->outgoing_cltv);
+	towire(&buf, padding, ARRAY_SIZE(padding));
+	assert(tal_bytelen(buf) == 1 + 32);
+	return buf;
+}
+
+static struct command_result *payment_createonion_success(struct command *cmd,
+							  const char *buffer,
+							  const jsmntok_t *toks,
+							  struct payment *p)
+{
+	p->step = PAYMENT_STEP_FAILED;
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
 static void payment_compute_onion_payloads(struct payment *p)
 {
 	struct createonion_request *cr;
@@ -224,8 +252,31 @@ static void payment_compute_onion_payloads(struct payment *p)
 
 static void payment_sendonion(struct payment *p)
 {
-	p->step = PAYMENT_STEP_FAILED;
-	return payment_continue(p);
+	struct out_req *req;
+	req = jsonrpc_request_start(p->cmd->plugin, NULL, "createonion",
+				    payment_createonion_success,
+				    payment_rpc_failure, p);
+
+	json_array_start(req->js, "hops");
+	for (size_t i = 0; i < tal_count(p->createonion_request->hops); i++) {
+		json_object_start(req->js, NULL);
+		struct createonion_hop *hop = &p->createonion_request->hops[i];
+		json_add_node_id(req->js, "pubkey", &hop->pubkey);
+		json_add_hex_talarr(
+		    req->js, "payload",
+		    tal_towire_legacy_payload(tmpctx, hop->legacy_payload));
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+
+	json_add_hex_talarr(req->js, "assocdata",
+			    p->createonion_request->assocdata);
+
+	if (p->createonion_request->session_key)
+		json_add_secret(req->js, "sessionkey",
+				p->createonion_request->session_key);
+
+	send_outreq(p->cmd->plugin, req);
 }
 
 /* Mutual recursion. */
