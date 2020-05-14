@@ -323,16 +323,16 @@ void proxy_setup()
 
 proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 			  struct chainparams const *chainparams,
-			  bool warmstart,
+			  bool coldstart,
 			  struct secret *hsm_secret,
 			  struct node_id *o_node_id,
 			  struct ext_key *o_ext_pubkey)
 {
 	status_debug(
-		"%s:%d %s hsm_secret=%s warmstart=%s",
+		"%s:%d %s hsm_secret=%s coldstart=%s",
 		__FILE__, __LINE__, __FUNCTION__,
 		dump_secret(hsm_secret).c_str(),
-		warmstart ? "true" : "false"
+		coldstart ? "true" : "false"
 		);
 
 	/* First we make the Init call to create the Node. */
@@ -343,7 +343,7 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 		auto cp = req.mutable_chainparams();
 		cp->set_network_name(chainparams->network_name);
 
-		req.set_warmstart(warmstart);
+		req.set_coldstart(coldstart);
 
 		/* FIXME - Sending the secret instead of generating on
 		 * the remote. */

@@ -30,7 +30,7 @@ void proxy_setup(void);
 proxy_stat proxy_init_hsm(
 	struct bip32_key_version *bip32_key_version,
 	struct chainparams const *chainparams,
-	bool warmstart,
+	bool coldstart,
 	struct secret *hsm_secret,
 	struct node_id *o_node_id,
 	struct ext_key *o_ext_pub_key);

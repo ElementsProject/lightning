@@ -360,7 +360,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct sha256 *force_channel_secrets_shaseed;
 	struct secret *hsm_encryption_key;
 	struct secret hsm_secret;
-	bool warmstart;
+	bool coldstart;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -408,10 +408,10 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	}
 
 	/* Is this a warm start (restart) or a cold start (first time)? */
-	warmstart = access("INITED", F_OK) != -1;
+	coldstart = access("WARM", F_OK) == -1;
 
 	proxy_stat rv = proxy_init_hsm(&bip32_key_version, chainparams,
-				       warmstart, &hsm_secret,
+				       coldstart, &hsm_secret,
 				       &node_id, &pubstuff.bip32);
 	if (PROXY_PERMANENT(rv)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -427,7 +427,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	}
 
 	/* Mark this node as already inited. */
-	int fd = open("INITED", O_WRONLY|O_TRUNC|O_CREAT, 0666);
+	int fd = open("WARM", O_WRONLY|O_TRUNC|O_CREAT, 0666);
 	assert(fd != -1);
 	close(fd);
 
