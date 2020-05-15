@@ -6,6 +6,7 @@
 #include <common/features.h>
 #include <common/gossip_constants.h>
 #include <common/json_command.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/per_peer_state.h>

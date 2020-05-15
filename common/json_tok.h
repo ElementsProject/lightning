@@ -10,6 +10,7 @@
 
 struct amount_msat;
 struct amount_sat;
+struct channel_id;
 struct command;
 struct command_result;
 struct json_escape;
