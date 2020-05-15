@@ -15,6 +15,7 @@ static bool print_superverbose;
 #include <common/amount.h>
 #include <common/channel_id.h>
 #include <common/key_derive.h>
+#include <common/setup.h>
 #include <common/status.h>
 
 /* Turn this on to brute-force fee values */
@@ -447,9 +448,9 @@ static const struct htlc **invert_htlcs(const struct htlc **htlcs)
 	return inv;
 }
 
-int main(void)
+int main(int argc, const char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	struct bitcoin_txid funding_txid;
 	struct amount_sat funding_amount, dust_limit;
@@ -482,9 +483,6 @@ int main(void)
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
 	chainparams = chainparams_for_network("bitcoin");
 
 	htlcs = setup_htlcs(tmpctx);
@@ -1008,9 +1006,9 @@ int main(void)
 	}
 
 	/* No memory leaks please */
-	secp256k1_context_destroy(secp256k1_ctx);
 	take_cleanup();
-	tal_free(tmpctx);
+	common_shutdown();
+
 
 	/* FIXME: Do BOLT comparison! */
 	return 0;

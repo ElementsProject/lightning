@@ -10,6 +10,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/amount.h>
 #include <common/channel_id.h>
+#include <common/setup.h>
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
 #include <stdio.h>
@@ -351,9 +352,9 @@ static void update_feerate(struct channel *channel, u32 feerate)
 	assert(channel_feerate(channel, REMOTE) == feerate);
 }
 
-int main(void)
+int main(int argc, const char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	struct bitcoin_txid funding_txid;
 	/* We test from both sides. */
@@ -373,9 +374,6 @@ int main(void)
 	const u8 *funding_wscript, *funding_wscript_alt;
 	size_t i;
 
-	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
-	setup_tmpctx();
 	chainparams = chainparams_for_network("bitcoin");
 
 	feerate_per_kw = tal_arr(tmpctx, u32, NUM_SIDES);
@@ -670,9 +668,8 @@ int main(void)
 	}
 
 	/* No memory leaks please */
-	wally_cleanup(0);
 	take_cleanup();
-	tal_free(tmpctx);
+	common_shutdown();
 
 	/* FIXME: Do BOLT comparison! */
 	return 0;

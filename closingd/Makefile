@@ -71,6 +71,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
+	common/setup.o				\
 	common/socket_close.o			\
 	common/status.o				\
 	common/status_wire.o			\

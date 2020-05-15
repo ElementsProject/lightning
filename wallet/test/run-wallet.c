@@ -22,6 +22,7 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 #include <common/amount.h>
 #include <common/errcode.h>
 #include <common/memleak.h>
+#include <common/setup.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -1467,17 +1468,14 @@ static bool test_wallet_payment_status_enum(void)
 	return true;
 }
 
-int main(void)
+int main(int argc, const char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 	chainparams = chainparams_for_network("bitcoin");
 
 	bool ok = true;
 	struct lightningd *ld;
 
-	setup_tmpctx();
-	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
 	ld = tal(tmpctx, struct lightningd);
 	ld->config = test_config;
 
@@ -1499,9 +1497,8 @@ int main(void)
 	/* Do not clean up in the case of an error, we might want to debug the
 	 * database. */
 	if (ok) {
-		tal_free(tmpctx);
 		take_cleanup();
+		common_shutdown();
 	}
-	wally_cleanup(0);
 	return !ok;
 }

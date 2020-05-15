@@ -45,6 +45,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/node_id.o			\
 	common/param.o				\
 	common/pseudorand.o			\
+	common/setup.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
