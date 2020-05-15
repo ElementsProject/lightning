@@ -81,6 +81,7 @@ static void test_feature_set_or(void)
 {
 	struct feature_set *f1, *f2, *control;
 
+	/* cppcheck-suppress uninitvar - false positive on f1->bits */
 	for (size_t i = 0; i < ARRAY_SIZE(f1->bits); i++) {
 		f1 = talz(tmpctx, struct feature_set);
 		f2 = talz(tmpctx, struct feature_set);
