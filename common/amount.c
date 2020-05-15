@@ -7,6 +7,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <wire/wire.h>
 
 bool amount_sat_to_msat(struct amount_msat *msat,
 			struct amount_sat sat)
@@ -473,6 +474,33 @@ struct amount_sat amount_asset_to_sat(struct amount_asset *amount)
 {
 	struct amount_sat sats;
 	assert(amount_asset_is_main(amount));
-	sats.satoshis = amount->value; /* Raw: low-level conversion */
+	sats.satoshis = amount->value;
 	return sats;
 }
+
+struct amount_msat fromwire_amount_msat(const u8 **cursor, size_t *max)
+{
+	struct amount_msat msat;
+
+	msat.millisatoshis = fromwire_u64(cursor, max);
+	return msat;
+}
+
+struct amount_sat fromwire_amount_sat(const u8 **cursor, size_t *max)
+{
+	struct amount_sat sat;
+
+	sat.satoshis = fromwire_u64(cursor, max);
+	return sat;
+}
+
+void towire_amount_msat(u8 **pptr, const struct amount_msat msat)
+{
+	towire_u64(pptr, msat.millisatoshis);
+}
+
+void towire_amount_sat(u8 **pptr, const struct amount_sat sat)
+{
+	towire_u64(pptr, sat.satoshis);
+}
+

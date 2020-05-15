@@ -198,16 +198,6 @@ void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
 	towire(pptr, seed, sizeof(*seed));
 }
 
-void towire_amount_msat(u8 **pptr, const struct amount_msat msat)
-{
-	towire_u64(pptr, msat.millisatoshis); /* Raw: primitive */
-}
-
-void towire_amount_sat(u8 **pptr, const struct amount_sat sat)
-{
-	towire_u64(pptr, sat.satoshis); /* Raw: primitive */
-}
-
 void towire_bip32_key_version(u8 **pptr, const struct bip32_key_version *version)
 {
 	towire_u32(pptr, version->bip32_pubkey_version);

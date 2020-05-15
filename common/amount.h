@@ -168,4 +168,9 @@ bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen);
  */
 bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen);
 
+/* Marshal/unmarshal functions */
+struct amount_msat fromwire_amount_msat(const u8 **cursor, size_t *max);
+struct amount_sat fromwire_amount_sat(const u8 **cursor, size_t *max);
+void towire_amount_msat(u8 **pptr, const struct amount_msat msat);
+void towire_amount_sat(u8 **pptr, const struct amount_sat sat);
 #endif /* LIGHTNING_COMMON_AMOUNT_H */

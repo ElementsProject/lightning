@@ -27,6 +27,9 @@ bool amount_sat_eq(struct amount_sat a UNNEEDED, struct amount_sat b UNNEEDED)
 /* Generated stub for bigsize_get */
 size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNNEEDED)
 { fprintf(stderr, "bigsize_get called!\n"); abort(); }
+/* Generated stub for fromwire_amount_sat */
+struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
 /* Generated stub for memleak_remove_htable */
 void memleak_remove_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
 { fprintf(stderr, "memleak_remove_htable called!\n"); abort(); }
