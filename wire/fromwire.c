@@ -320,22 +320,6 @@ void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 	fromwire(cursor, max, seed, sizeof(*seed));
 }
 
-struct amount_msat fromwire_amount_msat(const u8 **cursor, size_t *max)
-{
-	struct amount_msat msat;
-
-	msat.millisatoshis = fromwire_u64(cursor, max); /* Raw: primitive */
-	return msat;
-}
-
-struct amount_sat fromwire_amount_sat(const u8 **cursor, size_t *max)
-{
-	struct amount_sat sat;
-
-	sat.satoshis = fromwire_u64(cursor, max); /* Raw: primitive */
-	return sat;
-}
-
 void fromwire_bip32_key_version(const u8** cursor, size_t *max,
 					struct bip32_key_version *version)
 {

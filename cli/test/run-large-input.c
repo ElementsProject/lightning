@@ -57,6 +57,12 @@ size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNN
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
+/* Generated stub for fromwire_amount_msat */
+struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_amount_msat called!\n"); abort(); }
+/* Generated stub for fromwire_amount_sat */
+struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
 void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
@@ -83,6 +89,12 @@ void json_object_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for towire_amount_msat */
+void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
+{ fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
+/* Generated stub for towire_amount_sat */
+void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
+{ fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
 /* Generated stub for towire_channel_id */
 void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_channel_id called!\n"); abort(); }
