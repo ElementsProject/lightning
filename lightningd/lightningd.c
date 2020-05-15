@@ -106,9 +106,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * the entire subtree rooted at that node to be freed.
 	 *
 	 * It's incredibly useful for grouping object lifetimes, as we'll see.
-	 * For example, a `struct bitcoin_tx` has a pointer to an array of
-	 * `struct bitcoin_tx_input`; they are allocated off the `struct
-	 * bitcoind_tx`, so freeing the `struct bitcoind_tx` frees them all.
+	 * For example, a `struct lightningd` has a pointer to a `log_book`
+	 * which is allocated off the `struct lightnintd`, and has its own
+	 * internal members allocated off `log_book`: freeing `struct
+	 * lightningd` frees them all.
 	 *
 	 * In this case, freeing `ctx` will free `ld`:
 	 */
