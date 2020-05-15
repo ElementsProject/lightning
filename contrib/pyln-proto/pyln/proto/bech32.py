@@ -117,5 +117,5 @@ def decode(hrp, addr):
 def encode(hrp, witver, witprog):
     """Encode a segwit address."""
     ret = bech32_encode(hrp, [witver] + convertbits(witprog, 8, 5))
-    assert decode(hrp, ret) is not (None, None)
+    assert decode(hrp, ret) != (None, None)
     return ret
