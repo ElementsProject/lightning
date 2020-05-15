@@ -586,3 +586,100 @@ static char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid)
 
 REGISTER_TYPE_TO_STRING(bitcoin_tx, fmt_bitcoin_tx);
 REGISTER_TYPE_TO_STRING(bitcoin_txid, fmt_bitcoin_txid);
+
+void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
+			   struct bitcoin_txid *txid)
+{
+	fromwire_sha256_double(cursor, max, &txid->shad);
+}
+
+struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
+				       const u8 **cursor, size_t *max)
+{
+	struct bitcoin_tx *tx;
+	u16 input_amts_len;
+	size_t i;
+
+	tx = pull_bitcoin_tx(ctx, cursor, max);
+	input_amts_len = fromwire_u16(cursor, max);
+	/* We don't serialize the amounts if they're not *all* populated */
+	if (input_amts_len != tal_count(tx->input_amounts))
+		return tx;
+
+	for (i = 0; i < input_amts_len; i++) {
+		struct amount_sat sat;
+		sat = fromwire_amount_sat(cursor, max);
+		tx->input_amounts[i] =
+			tal_dup(tx, struct amount_sat, &sat);
+	}
+
+	return tx;
+}
+
+void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
+{
+	towire_sha256_double(pptr, &txid->shad);
+}
+
+void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
+{
+	size_t i;
+	u8 *lin = linearize_tx(tmpctx, tx);
+	towire_u8_array(pptr, lin, tal_count(lin));
+
+	/* We only want to 'save' the amounts if every amount
+	 * has been populated */
+	for (i = 0; i < tal_count(tx->input_amounts); i++) {
+		if (!tx->input_amounts[i]) {
+			towire_u16(pptr, 0);
+			return;
+		}
+	}
+
+	/* Otherwise, we include the input amount set */
+	towire_u16(pptr, tal_count(tx->input_amounts));
+	for (i = 0; i < tal_count(tx->input_amounts); i++) {
+		assert(tx->input_amounts[i]);
+		towire_amount_sat(pptr, *tx->input_amounts[i]);
+	}
+}
+
+struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
+						     const u8 **cursor, size_t *max)
+{
+	struct bitcoin_tx_output *output = tal(ctx, struct bitcoin_tx_output);
+	output->amount = fromwire_amount_sat(cursor, max);
+	u16 script_len = fromwire_u16(cursor, max);
+	output->script = fromwire_tal_arrn(output, cursor, max, script_len);
+	if (!*cursor)
+		return tal_free(output);
+	return output;
+}
+
+void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
+{
+	towire_amount_sat(pptr, output->amount);
+	towire_u16(pptr, tal_count(output->script));
+	towire_u8_array(pptr, output->script, tal_count(output->script));
+}
+
+void towire_witscript(u8 **pptr, const struct witscript *script)
+{
+	if (script == NULL) {
+		towire_u16(pptr, 0);
+	} else {
+		assert(script->ptr != NULL);
+		towire_u16(pptr, tal_count(script->ptr));
+		towire_u8_array(pptr, script->ptr, tal_count(script->ptr));
+	}
+}
+
+struct witscript *fromwire_witscript(const tal_t *ctx, const u8 **cursor, size_t *max)
+{
+	struct witscript *retval = tal(ctx, struct witscript);
+	u16 len = fromwire_u16(cursor, max);
+	retval->ptr = fromwire_tal_arrn(retval, cursor, max, len);
+	if (!*cursor)
+		return tal_free(retval);
+	return retval;
+}

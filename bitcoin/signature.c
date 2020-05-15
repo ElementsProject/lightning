@@ -9,6 +9,7 @@
 #include <ccan/mem/mem.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <wire/wire.h>
 
 #undef DEBUG
 #ifdef DEBUG
@@ -323,3 +324,19 @@ static char *bitcoin_signature_to_hexstr(const tal_t *ctx,
 	return tal_hexstr(ctx, der, len);
 }
 REGISTER_TYPE_TO_STRING(bitcoin_signature, bitcoin_signature_to_hexstr);
+
+void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
+				struct bitcoin_signature *sig)
+{
+	fromwire_secp256k1_ecdsa_signature(cursor, max, &sig->s);
+	sig->sighash_type = fromwire_u8(cursor, max);
+	if (!sighash_type_valid(sig->sighash_type))
+		fromwire_fail(cursor, max);
+}
+
+void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig)
+{
+	assert(sighash_type_valid(sig->sighash_type));
+	towire_secp256k1_ecdsa_signature(pptr, &sig->s);
+	towire_u8(pptr, sig->sighash_type);
+}

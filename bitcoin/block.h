@@ -53,4 +53,13 @@ bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
 /* Get hex string of blockid (reversed, a-la bitcoind). */
 bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blockid,
 			  char *hexstr, size_t hexstr_len);
+
+/* Marshalling/unmarshaling over the wire */
+void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid);
+void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
+			   struct bitcoin_blkid *blkid);
+void fromwire_chainparams(const u8 **cursor, size_t *max,
+			  const struct chainparams **chainparams);
+void towire_chainparams(u8 **cursor, const struct chainparams *chainparams);
+
 #endif /* LIGHTNING_BITCOIN_BLOCK_H */

@@ -126,4 +126,9 @@ size_t signature_to_der(u8 der[73], const struct bitcoin_signature *sig);
 /* Parse DER encoding into signature sig */
 bool signature_from_der(const u8 *der, size_t len, struct bitcoin_signature *sig);
 
+/* Wire marshalling and unmarshalling */
+void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig);
+void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
+				struct bitcoin_signature *sig);
+
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */

@@ -266,27 +266,6 @@ void fromwire_sha256_double(const u8 **cursor, size_t *max,
 	fromwire_sha256(cursor, max, &sha256d->sha);
 }
 
-void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
-			   struct bitcoin_txid *txid)
-{
-	fromwire_sha256_double(cursor, max, &txid->shad);
-}
-
-void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
-				struct bitcoin_signature *sig)
-{
-	fromwire_secp256k1_ecdsa_signature(cursor, max, &sig->s);
-	sig->sighash_type = fromwire_u8(cursor, max);
-	if (!sighash_type_valid(sig->sighash_type))
-		fromwire_fail(cursor, max);
-}
-
-void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
-			    struct bitcoin_blkid *blkid)
-{
-	fromwire_sha256_double(cursor, max, &blkid->shad);
-}
-
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage)
 {
 	fromwire(cursor, max, preimage, sizeof(*preimage));
@@ -341,29 +320,6 @@ char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
 	return NULL;
 }
 
-struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
-				       const u8 **cursor, size_t *max)
-{
-	struct bitcoin_tx *tx;
-	u16 input_amts_len;
-	size_t i;
-
-	tx = pull_bitcoin_tx(ctx, cursor, max);
-	input_amts_len = fromwire_u16(cursor, max);
-	/* We don't serialize the amounts if they're not *all* populated */
-	if (input_amts_len != tal_count(tx->input_amounts))
-		return tx;
-
-	for (i = 0; i < input_amts_len; i++) {
-		struct amount_sat sat;
-		sat = fromwire_amount_sat(cursor, max);
-		tx->input_amounts[i] =
-			tal_dup(tx, struct amount_sat, &sat);
-	}
-
-	return tx;
-}
-
 void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 			   struct siphash_seed *seed)
 {
@@ -391,34 +347,4 @@ void fromwire_bip32_key_version(const u8** cursor, size_t *max,
 {
 	version->bip32_pubkey_version = fromwire_u32(cursor, max);
 	version->bip32_privkey_version = fromwire_u32(cursor, max);
-}
-
-struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
-						     const u8 **cursor, size_t *max)
-{
-	struct bitcoin_tx_output *output = tal(ctx, struct bitcoin_tx_output);
-	output->amount = fromwire_amount_sat(cursor, max);
-	u16 script_len = fromwire_u16(cursor, max);
-	output->script = fromwire_tal_arrn(output, cursor, max, script_len);
-	if (!*cursor)
-		return tal_free(output);
-	return output;
-}
-
-struct witscript *fromwire_witscript(const tal_t *ctx, const u8 **cursor, size_t *max)
-{
-	struct witscript *retval = tal(ctx, struct witscript);
-	u16 len = fromwire_u16(cursor, max);
-	retval->ptr = fromwire_tal_arrn(retval, cursor, max, len);
-	if (!*cursor)
-		return tal_free(retval);
-	return retval;
-}
-
-void fromwire_chainparams(const u8 **cursor, size_t *max,
-			  const struct chainparams **chainparams)
-{
-	struct bitcoin_blkid genesis;
-	fromwire_bitcoin_blkid(cursor, max, &genesis);
-	*chainparams = chainparams_by_chainhash(&genesis);
 }
