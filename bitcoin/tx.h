@@ -180,4 +180,19 @@ struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx);
 struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
 						  struct amount_sat input_val);
 
+/* Wire marshalling and unmarshalling */
+void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
+			   struct bitcoin_txid *txid);
+struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
+				       const u8 **cursor, size_t *max);
+struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
+						     const u8 **cursor, size_t *max);
+struct witscript *fromwire_witscript(const tal_t *ctx,
+				     const u8 **cursor, size_t *max);
+
+void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
+void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
+void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
+void towire_witscript(u8 **pptr, const struct witscript *script);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

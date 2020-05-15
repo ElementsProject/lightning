@@ -28,9 +28,24 @@ bool amount_sat_eq(struct amount_sat a UNNEEDED, struct amount_sat b UNNEEDED)
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }
+/* Generated stub for fromwire_amount_sat */
+struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
 /* Generated stub for fromwire_fail */
 const void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_fail called!\n"); abort(); }
+/* Generated stub for fromwire_secp256k1_ecdsa_signature */
+void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+					secp256k1_ecdsa_signature *signature UNNEEDED)
+{ fprintf(stderr, "fromwire_secp256k1_ecdsa_signature called!\n"); abort(); }
+/* Generated stub for fromwire_sha256_double */
+void fromwire_sha256_double(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			    struct sha256_double *sha256d UNNEEDED)
+{ fprintf(stderr, "fromwire_sha256_double called!\n"); abort(); }
+/* Generated stub for fromwire_tal_arrn */
+u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
+		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
+{ fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
 /* Generated stub for fromwire_u16 */
 u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u16 called!\n"); abort(); }
@@ -43,6 +58,16 @@ void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
+/* Generated stub for towire_amount_sat */
+void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
+{ fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
+/* Generated stub for towire_secp256k1_ecdsa_signature */
+void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
+			      const secp256k1_ecdsa_signature *signature UNNEEDED)
+{ fprintf(stderr, "towire_secp256k1_ecdsa_signature called!\n"); abort(); }
+/* Generated stub for towire_sha256_double */
+void towire_sha256_double(u8 **pptr UNNEEDED, const struct sha256_double *sha256d UNNEEDED)
+{ fprintf(stderr, "towire_sha256_double called!\n"); abort(); }
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }

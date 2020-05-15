@@ -19,9 +19,6 @@
 #include <stdlib.h>
 
 
-struct bitcoin_blkid;
-struct bitcoin_signature;
-struct bitcoin_txid;
 struct preimage;
 struct ripemd160;
 struct siphash_seed;
@@ -55,9 +52,6 @@ void towire_short_channel_id_dir(u8 **pptr,
 				 const struct short_channel_id_dir *scidd);
 void towire_sha256(u8 **pptr, const struct sha256 *sha256);
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d);
-void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
-void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig);
-void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid);
 void towire_preimage(u8 **pptr, const struct preimage *preimage);
 void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd);
 void towire_amount_msat(u8 **pptr, const struct amount_msat msat);
@@ -76,14 +70,10 @@ void towire_bigsize(u8 **pptr, const bigsize_t val);
 
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num);
 
-void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_wirestring(u8 **pptr, const char *str);
 void towire_siphash_seed(u8 **cursor, const struct siphash_seed *seed);
 
 void towire_bip32_key_version(u8 **cursor, const struct bip32_key_version *version);
-void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
-void towire_witscript(u8 **pptr, const struct witscript *script);
-void towire_chainparams(u8 **cursor, const struct chainparams *chainparams);
 
 const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n);
 u8 fromwire_u8(const u8 **cursor, size_t *max);
@@ -112,12 +102,6 @@ void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256);
 void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);
-void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
-				struct bitcoin_signature *sig);
-void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
-			   struct bitcoin_txid *txid);
-void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
-			   struct bitcoin_blkid *blkid);
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage);
 void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd);
 struct amount_msat fromwire_amount_msat(const u8 **cursor, size_t *max);
@@ -128,19 +112,10 @@ void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);
 u8 *fromwire_tal_arrn(const tal_t *ctx,
 		       const u8 **cursor, size_t *max, size_t num);
 char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max);
-struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
-				       const u8 **cursor, size_t *max);
 void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 			   struct siphash_seed *seed);
 void fromwire_bip32_key_version(const u8 **cursor, size_t *max,
 				struct bip32_key_version *version);
-struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
-						     const u8 **cursor, size_t *max);
-struct witscript *fromwire_witscript(const tal_t *ctx,
-				     const u8 **cursor, size_t *max);
-
-void fromwire_chainparams(const u8 **cursor, size_t *max,
-			  const struct chainparams **chainparams);
 
 #if !EXPERIMENTAL_FEATURES
 /* Stubs, as this subtype is only defined when EXPERIMENTAL_FEATURES */

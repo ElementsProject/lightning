@@ -3,7 +3,6 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/shadouble.h>
-#include <bitcoin/tx.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
@@ -173,23 +172,6 @@ void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d)
 	towire_sha256(pptr, &sha256d->sha);
 }
 
-void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
-{
-	towire_sha256_double(pptr, &txid->shad);
-}
-
-void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig)
-{
-	assert(sighash_type_valid(sig->sighash_type));
-	towire_secp256k1_ecdsa_signature(pptr, &sig->s);
-	towire_u8(pptr, sig->sighash_type);
-}
-
-void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid)
-{
-	towire_sha256_double(pptr, &blkid->shad);
-}
-
 void towire_preimage(u8 **pptr, const struct preimage *preimage)
 {
 	towire(pptr, preimage, sizeof(*preimage));
@@ -219,29 +201,6 @@ void towire_wirestring(u8 **pptr, const char *str)
 	towire(pptr, str, strlen(str) + 1);
 }
 
-void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
-{
-	size_t i;
-	u8 *lin = linearize_tx(tmpctx, tx);
-	towire_u8_array(pptr, lin, tal_count(lin));
-
-	/* We only want to 'save' the amounts if every amount
-	 * has been populated */
-	for (i = 0; i < tal_count(tx->input_amounts); i++) {
-		if (!tx->input_amounts[i]) {
-			towire_u16(pptr, 0);
-			return;
-		}
-	}
-
-	/* Otherwise, we include the input amount set */
-	towire_u16(pptr, tal_count(tx->input_amounts));
-	for (i = 0; i < tal_count(tx->input_amounts); i++) {
-		assert(tx->input_amounts[i]);
-		towire_amount_sat(pptr, *tx->input_amounts[i]);
-	}
-}
-
 void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
 {
 	towire(pptr, seed, sizeof(*seed));
@@ -261,27 +220,4 @@ void towire_bip32_key_version(u8 **pptr, const struct bip32_key_version *version
 {
 	towire_u32(pptr, version->bip32_pubkey_version);
 	towire_u32(pptr, version->bip32_privkey_version);
-}
-
-void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
-{
-	towire_amount_sat(pptr, output->amount);
-	towire_u16(pptr, tal_count(output->script));
-	towire_u8_array(pptr, output->script, tal_count(output->script));
-}
-
-void towire_witscript(u8 **pptr, const struct witscript *script)
-{
-	if (script == NULL) {
-		towire_u16(pptr, 0);
-	} else {
-		assert(script->ptr != NULL);
-		towire_u16(pptr, tal_count(script->ptr));
-		towire_u8_array(pptr, script->ptr, tal_count(script->ptr));
-	}
-}
-
-void towire_chainparams(u8 **cursor, const struct chainparams *chainparams)
-{
-	towire_bitcoin_blkid(cursor, &chainparams->genesis_blockhash);
 }
