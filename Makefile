@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="Channel to the Moon"
-VERSION=0.8.1
+VERSION_NAME="Scaling the Ethereum Blockchain"
+VERSION=0.8.2
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
