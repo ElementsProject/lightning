@@ -17,6 +17,7 @@ WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
 		wire/fromwire.c			\
 		wire/peer_wire.c		\
+		wire/tlvstream.c		\
 		wire/towire.c
 WIRE_HEADERS := $(WIRE_HEADERS_NOGEN) $(WIRE_GEN_HEADERS)
 
