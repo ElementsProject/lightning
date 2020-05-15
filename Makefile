@@ -358,7 +358,7 @@ check-setup_locale:
 	@tools/check-setup_locale.sh
 
 check-tmpctx:
-	@if git grep -n 'tal_free[(]tmpctx)' | grep -Ev '^ccan/|/test/|^common/daemon.c:|^common/utils.c:'; then echo "Don't free tmpctx!">&2; exit 1; fi
+	@if git grep -n 'tal_free[(]tmpctx)' | grep -Ev '^ccan/|/test/|^common/setup.c:|^common/utils.c:'; then echo "Don't free tmpctx!">&2; exit 1; fi
 
 check-discouraged-functions:
 	@if git grep -E "[^a-z_/](fgets|fputs|gets|scanf|sprintf)\(" -- "*.c" "*.h" ":(exclude)ccan/"; then exit 1; fi
