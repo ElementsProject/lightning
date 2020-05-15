@@ -703,11 +703,8 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 	SignRemoteCommitmentTxRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
-	marshal_pubkey(remote_funding_pubkey,
-		       req.mutable_remote_funding_pubkey());
 	marshal_pubkey(remote_per_commit,
 		       req.mutable_remote_per_commit_point());
-	req.set_option_static_remotekey(option_static_remotekey);
 	marshal_single_input_tx(tx, NULL, output_witscripts, req.mutable_tx());
 
 	ClientContext context;
@@ -975,8 +972,6 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	SignMutualCloseTxRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
-	marshal_pubkey(remote_funding_pubkey,
-		       req.mutable_remote_funding_pubkey());
 	marshal_single_input_tx(tx, NULL, NULL, req.mutable_tx());
 
 	ClientContext context;
@@ -1022,8 +1017,6 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	SignCommitmentTxRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
-	marshal_pubkey(remote_funding_pubkey,
-		       req.mutable_remote_funding_pubkey());
 	marshal_single_input_tx(tx, NULL, NULL, req.mutable_tx());
 
 	ClientContext context;
