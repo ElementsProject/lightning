@@ -7,6 +7,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <stdio.h>
 
 #ifndef SUPERVERBOSE

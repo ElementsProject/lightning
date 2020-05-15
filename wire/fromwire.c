@@ -241,19 +241,6 @@ void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
 		fromwire_fail(cursor, max);
 }
 
-void fromwire_short_channel_id(const u8 **cursor, size_t *max,
-			       struct short_channel_id *short_channel_id)
-{
-	short_channel_id->u64 = fromwire_u64(cursor, max);
-}
-
-void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
-				   struct short_channel_id_dir *scidd)
-{
-	fromwire_short_channel_id(cursor, max, &scidd->scid);
-	scidd->dir = fromwire_bool(cursor, max);
-}
-
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)
 {
 	fromwire(cursor, max, sha256, sizeof(*sha256));
