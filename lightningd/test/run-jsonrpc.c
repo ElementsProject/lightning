@@ -24,13 +24,14 @@ u32 feerate_from_style(u32 feerate UNNEEDED, enum feerate_style style UNNEEDED)
 /* Generated stub for feerate_name */
 const char *feerate_name(enum feerate feerate UNNEEDED)
 { fprintf(stderr, "feerate_name called!\n"); abort(); }
-/* Generated stub for fmt_wireaddr_without_port */
-char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
-{ fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
 void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
+/* Generated stub for json_add_sha256 */
+void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		     const struct sha256 *hash UNNEEDED)
+{ fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
 /* Generated stub for json_to_pubkey */
 bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    struct pubkey *pubkey UNNEEDED)

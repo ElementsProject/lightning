@@ -1,4 +1,5 @@
 #include <ccan/array_size/array_size.h>
+#include <common/json_helpers.h>
 #include <lightningd/channel.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>

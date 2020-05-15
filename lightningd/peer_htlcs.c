@@ -10,6 +10,7 @@
 #include <common/coin_mvt.h>
 #include <common/ecdh.h>
 #include <common/json_command.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/onion.h>
 #include <common/onionreply.h>

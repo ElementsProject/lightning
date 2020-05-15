@@ -108,9 +108,6 @@ bool feature_is_set(const u8 *features UNNEEDED, size_t bit UNNEEDED)
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
-/* Generated stub for fmt_wireaddr_without_port */
-char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
-{ fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
 /* Generated stub for fromwire_channel_dev_memleak_reply */
 bool fromwire_channel_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channel_dev_memleak_reply called!\n"); abort(); }
@@ -157,6 +154,29 @@ void htlc_set_fail(struct htlc_set *set UNNEEDED, const u8 *failmsg TAKES UNNEED
 /* Generated stub for htlc_set_fulfill */
 void htlc_set_fulfill(struct htlc_set *set UNNEEDED, const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "htlc_set_fulfill called!\n"); abort(); }
+/* Generated stub for json_add_address */
+void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
+		      const struct wireaddr *addr UNNEEDED)
+{ fprintf(stderr, "json_add_address called!\n"); abort(); }
+/* Generated stub for json_add_address_internal */
+void json_add_address_internal(struct json_stream *response UNNEEDED,
+			       const char *fieldname UNNEEDED,
+			       const struct wireaddr_internal *addr UNNEEDED)
+{ fprintf(stderr, "json_add_address_internal called!\n"); abort(); }
+/* Generated stub for json_add_amount_msat_compat */
+void json_add_amount_msat_compat(struct json_stream *result UNNEEDED,
+				 struct amount_msat msat UNNEEDED,
+				 const char *rawfieldname UNNEEDED,
+				 const char *msatfieldname)
+
+{ fprintf(stderr, "json_add_amount_msat_compat called!\n"); abort(); }
+/* Generated stub for json_add_amount_sat_compat */
+void json_add_amount_sat_compat(struct json_stream *result UNNEEDED,
+				struct amount_sat sat UNNEEDED,
+				const char *rawfieldname UNNEEDED,
+				const char *msatfieldname)
+
+{ fprintf(stderr, "json_add_amount_sat_compat called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
 		  const struct log_book *lr UNNEEDED,
@@ -169,6 +189,38 @@ void json_add_member(struct json_stream *js UNNEEDED,
 		     bool quote UNNEEDED,
 		     const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "json_add_member called!\n"); abort(); }
+/* Generated stub for json_add_node_id */
+void json_add_node_id(struct json_stream *response UNNEEDED,
+				const char *fieldname UNNEEDED,
+				const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "json_add_node_id called!\n"); abort(); }
+/* Generated stub for json_add_preimage */
+void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		     const struct preimage *preimage UNNEEDED)
+{ fprintf(stderr, "json_add_preimage called!\n"); abort(); }
+/* Generated stub for json_add_secret */
+void json_add_secret(struct json_stream *response UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     const struct secret *secret UNNEEDED)
+{ fprintf(stderr, "json_add_secret called!\n"); abort(); }
+/* Generated stub for json_add_sha256 */
+void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		     const struct sha256 *hash UNNEEDED)
+{ fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
+/* Generated stub for json_add_short_channel_id */
+void json_add_short_channel_id(struct json_stream *response UNNEEDED,
+			       const char *fieldname UNNEEDED,
+			       const struct short_channel_id *id UNNEEDED)
+{ fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_add_tx */
+void json_add_tx(struct json_stream *result UNNEEDED,
+		 const char *fieldname UNNEEDED,
+		 const struct bitcoin_tx *tx UNNEEDED)
+{ fprintf(stderr, "json_add_tx called!\n"); abort(); }
+/* Generated stub for json_add_txid */
+void json_add_txid(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		   const struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "json_add_txid called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
 void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED)

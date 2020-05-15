@@ -54,19 +54,12 @@ bool amount_sat_eq(struct amount_sat a UNNEEDED, struct amount_sat b UNNEEDED)
 				       struct amount_sat a UNNEEDED,
 				       struct amount_sat b UNNEEDED)
 { fprintf(stderr, "amount_sat_sub called!\n"); abort(); }
-/* Generated stub for amount_sat_to_msat */
- bool amount_sat_to_msat(struct amount_msat *msat UNNEEDED,
-					   struct amount_sat sat UNNEEDED)
-{ fprintf(stderr, "amount_sat_to_msat called!\n"); abort(); }
 /* Generated stub for bigsize_get */
 size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNNEEDED)
 { fprintf(stderr, "bigsize_get called!\n"); abort(); }
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
-/* Generated stub for fmt_wireaddr_without_port */
-char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
-{ fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
 void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)

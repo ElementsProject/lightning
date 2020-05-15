@@ -7,6 +7,7 @@
 #include <ccan/take/take.h>
 #include <common/ecdh.h>
 #include <common/json.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
 #include <common/status.h>
