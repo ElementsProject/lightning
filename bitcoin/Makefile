@@ -5,6 +5,7 @@ BITCOIN_SRC :=					\
 	bitcoin/block.c				\
 	bitcoin/chainparams.c			\
 	bitcoin/locktime.c			\
+	bitcoin/preimage.c			\
 	bitcoin/privkey.c			\
 	bitcoin/pubkey.c			\
 	bitcoin/pullpush.c			\

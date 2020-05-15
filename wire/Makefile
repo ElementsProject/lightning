@@ -74,7 +74,7 @@ wire/gen_peer_wire_csv wire/gen_onion_wire_csv: config.vars
 # for testing and to prevent compile error about them being unused.
 # This will be easier if test vectors are moved to separate files.
 wire/gen_peer_wire.h: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS) wire/Makefile
-	$(BOLT_GEN) --include='common/channel_id.h' --include='bitcoin/tx.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2 --page header $@ wire_type < $< > $@
+	$(BOLT_GEN) --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2 --page header $@ wire_type < $< > $@
 
 wire/gen_peer_wire.c: wire/gen_peer_wire_csv $(WIRE_BOLT_DEPS) wire/Makefile
 	$(BOLT_GEN) -s --expose-tlv-type=n1 --expose-tlv-type=n2 --page impl ${@:.c=.h} wire_type < $< > $@
