@@ -62,6 +62,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/onionreply.o			\
 	common/per_peer_state.o			\
 	common/pseudorand.o			\
+	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\

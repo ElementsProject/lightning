@@ -60,6 +60,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
+	common/setup.o				\
 	common/sphinx.o				\
 	common/status_wire.o			\
 	common/timeout.o			\

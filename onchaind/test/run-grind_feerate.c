@@ -1,5 +1,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/time/time.h>
+#include <common/setup.h>
 #include <common/status.h>
 
 #undef status_debug
@@ -308,7 +309,7 @@ bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
 
 int main(int argc, char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
@@ -319,9 +320,6 @@ int main(int argc, char *argv[])
 	struct timeabs start, end;
 	int iterations = 1000;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
 	chainparams = chainparams_for_network("bitcoin");
 	tx = bitcoin_tx_from_hex(tmpctx, "0200000001e1ebca08cf1c301ac563580a1126d5c8fcb0e5e2043230b852c726553caf1e1d0000000000000000000160ae0a000000000022002082e03c5a9cb79c82cd5a0572dc175290bc044609aabe9cc852d61927436041796d000000",
 				 strlen("0200000001e1ebca08cf1c301ac563580a1126d5c8fcb0e5e2043230b852c726553caf1e1d0000000000000000000160ae0a000000000022002082e03c5a9cb79c82cd5a0572dc175290bc044609aabe9cc852d61927436041796d000000"));
@@ -360,7 +358,6 @@ int main(int argc, char *argv[])
 	       time_to_msec(time_between(end, start)),
 	       time_to_nsec(time_divide(time_between(end, start), iterations)));
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	return 0;
 }

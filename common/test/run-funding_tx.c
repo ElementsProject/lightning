@@ -4,6 +4,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <ccan/str/hex/hex.h>
+#include <common/setup.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
@@ -112,9 +113,9 @@ static struct privkey privkey_from_hex(const char *hex)
 }
 #endif
 
-int main(void)
+int main(int argc, const char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	struct bitcoin_tx *input, *funding;
 	struct amount_sat fee, change;
@@ -132,9 +133,6 @@ int main(void)
 	struct amount_sat tmpamt;
 	struct amount_asset asset;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
 	chainparams = chainparams_for_network("bitcoin");
 
 	/* BOLT #3:
@@ -225,8 +223,6 @@ int main(void)
 	       tal_hex(tmpctx, linearize_tx(tmpctx, funding)));
 
 	/* No memory leaks please */
-	secp256k1_context_destroy(secp256k1_ctx);
-	tal_free(tmpctx);
-
+	common_shutdown();
 	return 0;
 }

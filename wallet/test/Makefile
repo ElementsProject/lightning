@@ -15,6 +15,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/onionreply.o			\
 	common/key_derive.o			\
 	common/pseudorand.o			\
+	common/setup.o				\
 	common/timeout.o			\
 	common/utils.o				\
 	common/wireaddr.o			\

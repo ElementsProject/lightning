@@ -79,6 +79,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/ping.o				\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
+	common/setup.o				\
 	common/sphinx.o				\
 	common/status.o				\
 	common/status_wire.o			\
