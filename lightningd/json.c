@@ -7,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/channel_id.h>
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>

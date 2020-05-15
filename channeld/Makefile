@@ -42,6 +42,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/bip32.o				\
 	common/blinding.o			\
 	common/channel_config.o			\
+	common/channel_id.o			\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\

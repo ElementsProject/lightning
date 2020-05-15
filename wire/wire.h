@@ -18,11 +18,6 @@
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
 
-struct channel_id {
-	u8 id[32];
-};
-/* Define channel_id_eq (no padding) */
-STRUCTEQ_DEF(channel_id, 0, id);
 
 struct bitcoin_blkid;
 struct bitcoin_signature;
@@ -41,9 +36,6 @@ typedef bigsize varint;
 #define fromwire_varint fromwire_bigsize
 #define towire_varint towire_bigsize
 
-void derive_channel_id(struct channel_id *channel_id,
-		       const struct bitcoin_txid *txid, u16 txout);
-
 /* Read the type; returns -1 if not long enough.  cursor is a tal ptr. */
 int fromwire_peektype(const u8 *cursor);
 const void *fromwire_fail(const u8 **cursor, size_t *max);
@@ -57,7 +49,6 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr,
 			      const secp256k1_ecdsa_signature *signature);
 void towire_secp256k1_ecdsa_recoverable_signature(u8 **pptr,
 			      const secp256k1_ecdsa_recoverable_signature *rsig);
-void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
 void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id);
 void towire_short_channel_id_dir(u8 **pptr,
@@ -114,8 +105,6 @@ void fromwire_secp256k1_ecdsa_signature(const u8 **cursor, size_t *max,
 void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
 				    size_t *max,
 				    secp256k1_ecdsa_recoverable_signature *rsig);
-void fromwire_channel_id(const u8 **cursor, size_t *max,
-			 struct channel_id *channel_id);
 void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 			       struct short_channel_id *short_channel_id);
 void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,

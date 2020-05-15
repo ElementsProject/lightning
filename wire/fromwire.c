@@ -242,12 +242,6 @@ void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
 		fromwire_fail(cursor, max);
 }
 
-void fromwire_channel_id(const u8 **cursor, size_t *max,
-			 struct channel_id *channel_id)
-{
-	fromwire(cursor, max, channel_id, sizeof(*channel_id));
-}
-
 void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 			       struct short_channel_id *short_channel_id)
 {
@@ -345,24 +339,6 @@ char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
 	}
 	fromwire_fail(cursor, max);
 	return NULL;
-}
-
-REGISTER_TYPE_TO_HEXSTR(channel_id);
-
-/* BOLT #2:
- *
- * This message introduces the `channel_id` to identify the channel.  It's
- * derived from the funding transaction by combining the `funding_txid` and
- * the `funding_output_index`, using big-endian exclusive-OR
- * (i.e. `funding_output_index` alters the last 2 bytes).
- */
-void derive_channel_id(struct channel_id *channel_id,
-		       const struct bitcoin_txid *txid, u16 txout)
-{
-	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
-	memcpy(channel_id, txid, sizeof(*channel_id));
-	channel_id->id[sizeof(*channel_id)-2] ^= txout >> 8;
-	channel_id->id[sizeof(*channel_id)-1] ^= txout;
 }
 
 struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,

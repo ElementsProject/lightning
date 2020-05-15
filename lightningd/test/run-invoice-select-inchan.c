@@ -81,6 +81,10 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
+/* Generated stub for derive_channel_id */
+void derive_channel_id(struct channel_id *channel_id UNNEEDED,
+		       const struct bitcoin_txid *txid UNNEEDED, u16 txout UNNEEDED)
+{ fprintf(stderr, "derive_channel_id called!\n"); abort(); }
 /* Generated stub for dup_fee_states */
 struct fee_states *dup_fee_states(const tal_t *ctx UNNEEDED,
 				  const struct fee_states *fee_states TAKES UNNEEDED)
@@ -110,6 +114,10 @@ char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr
 /* Generated stub for fromwire_channel_dev_memleak_reply */
 bool fromwire_channel_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channel_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_channel_id */
+void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			 struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
@@ -402,6 +410,9 @@ u8 *towire_channel_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channel_dev_reenable_commit */
 u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_dev_reenable_commit called!\n"); abort(); }
+/* Generated stub for towire_channel_id */
+void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }

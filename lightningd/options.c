@@ -10,6 +10,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/base64.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/json_command.h>

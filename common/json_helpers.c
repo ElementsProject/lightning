@@ -2,6 +2,7 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/ccan/str/hex/hex.h>
 #include <common/amount.h>
+#include <common/channel_id.h>
 #include <common/json_helpers.h>
 #include <common/node_id.h>
 #include <errno.h>

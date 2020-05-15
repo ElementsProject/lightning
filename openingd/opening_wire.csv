@@ -1,5 +1,6 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/per_peer_state.h>

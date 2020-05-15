@@ -81,6 +81,10 @@ void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UN
 /* Generated stub for free_unreleased_txs */
 void free_unreleased_txs(struct wallet *w UNNEEDED)
 { fprintf(stderr, "free_unreleased_txs called!\n"); abort(); }
+/* Generated stub for fromwire_channel_id */
+void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			 struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_status_fail */
 bool fromwire_status_fail(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, enum status_failreason *failreason UNNEEDED, wirestring **desc UNNEEDED)
 { fprintf(stderr, "fromwire_status_fail called!\n"); abort(); }
@@ -213,6 +217,9 @@ void setup_topology(struct chain_topology *topology UNNEEDED, struct timers *tim
 /* Generated stub for timer_expired */
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
+/* Generated stub for towire_channel_id */
+void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
 void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
 			 const u8 derkey[PUBKEY_CMPR_LEN])
