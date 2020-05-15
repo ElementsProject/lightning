@@ -30,6 +30,9 @@ bool dump_memleak(struct htable *memtable UNNEEDED)
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }
+/* Generated stub for fromwire_bool */
+bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_bool called!\n"); abort(); }
 /* Generated stub for fromwire_fail */
 const void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_fail called!\n"); abort(); }
@@ -208,6 +211,9 @@ u8 *to_self_wscript(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
+/* Generated stub for towire_bool */
+void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
+{ fprintf(stderr, "towire_bool called!\n"); abort(); }
 /* Generated stub for towire_hsm_get_per_commitment_point */
 u8 *towire_hsm_get_per_commitment_point(const tal_t *ctx UNNEEDED, u64 n UNNEEDED)
 { fprintf(stderr, "towire_hsm_get_per_commitment_point called!\n"); abort(); }

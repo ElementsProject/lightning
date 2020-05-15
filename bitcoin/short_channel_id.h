@@ -73,4 +73,14 @@ bool WARN_UNUSED_RESULT short_channel_id_dir_from_str(const char *str, size_t st
 char *short_channel_id_dir_to_str(const tal_t *ctx,
 				  const struct short_channel_id_dir *scidd);
 
+/* Marshal/unmarshal */
+void towire_short_channel_id(u8 **pptr,
+			     const struct short_channel_id *short_channel_id);
+void towire_short_channel_id_dir(u8 **pptr,
+				 const struct short_channel_id_dir *scidd);
+void fromwire_short_channel_id(const u8 **cursor, size_t *max,
+			       struct short_channel_id *short_channel_id);
+void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
+				   struct short_channel_id_dir *scidd);
+
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */

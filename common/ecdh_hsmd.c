@@ -1,4 +1,5 @@
 #include <common/ecdh_hsmd.h>
+#include <common/utils.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <wire/wire_sync.h>
 

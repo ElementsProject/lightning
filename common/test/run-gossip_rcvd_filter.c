@@ -39,6 +39,9 @@ void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 /* Generated stub for towire_amount_sat */
 void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
+/* Generated stub for towire_bool */
+void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
+{ fprintf(stderr, "towire_bool called!\n"); abort(); }
 /* Generated stub for towire_secp256k1_ecdsa_signature */
 void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 			      const secp256k1_ecdsa_signature *signature UNNEEDED)
@@ -49,6 +52,9 @@ void towire_sha256_double(u8 **pptr UNNEEDED, const struct sha256_double *sha256
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }
+/* Generated stub for towire_u64 */
+void towire_u64(u8 **pptr UNNEEDED, u64 v UNNEEDED)
+{ fprintf(stderr, "towire_u64 called!\n"); abort(); }
 /* Generated stub for towire_u8 */
 void towire_u8(u8 **pptr UNNEEDED, u8 v UNNEEDED)
 { fprintf(stderr, "towire_u8 called!\n"); abort(); }

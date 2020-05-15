@@ -3,6 +3,7 @@
 #include <common/type_to_string.h>
 #include <stdio.h>
 #include <string.h>
+#include <wire/wire.h>
 
 /* BOLT#07:
  *
@@ -89,3 +90,28 @@ char *short_channel_id_dir_to_str(const tal_t *ctx,
 REGISTER_TYPE_TO_STRING(short_channel_id, short_channel_id_to_str);
 REGISTER_TYPE_TO_STRING(short_channel_id_dir, short_channel_id_dir_to_str);
 
+void towire_short_channel_id(u8 **pptr,
+			     const struct short_channel_id *short_channel_id)
+{
+	towire_u64(pptr, short_channel_id->u64);
+}
+
+void towire_short_channel_id_dir(u8 **pptr,
+				 const struct short_channel_id_dir *scidd)
+{
+	towire_short_channel_id(pptr, &scidd->scid);
+	towire_bool(pptr, scidd->dir);
+}
+
+void fromwire_short_channel_id(const u8 **cursor, size_t *max,
+			       struct short_channel_id *short_channel_id)
+{
+	short_channel_id->u64 = fromwire_u64(cursor, max);
+}
+
+void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
+				   struct short_channel_id_dir *scidd)
+{
+	fromwire_short_channel_id(cursor, max, &scidd->scid);
+	scidd->dir = fromwire_bool(cursor, max);
+}

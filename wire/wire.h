@@ -6,7 +6,6 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
-#include <bitcoin/short_channel_id.h>
 #include <bitcoin/signature.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
@@ -44,10 +43,6 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr,
 			      const secp256k1_ecdsa_signature *signature);
 void towire_secp256k1_ecdsa_recoverable_signature(u8 **pptr,
 			      const secp256k1_ecdsa_recoverable_signature *rsig);
-void towire_short_channel_id(u8 **pptr,
-			     const struct short_channel_id *short_channel_id);
-void towire_short_channel_id_dir(u8 **pptr,
-				 const struct short_channel_id_dir *scidd);
 void towire_sha256(u8 **pptr, const struct sha256 *sha256);
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d);
 void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd);
@@ -90,10 +85,6 @@ void fromwire_secp256k1_ecdsa_signature(const u8 **cursor, size_t *max,
 void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
 				    size_t *max,
 				    secp256k1_ecdsa_recoverable_signature *rsig);
-void fromwire_short_channel_id(const u8 **cursor, size_t *max,
-			       struct short_channel_id *short_channel_id);
-void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
-				   struct short_channel_id_dir *scidd);
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256);
 void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);
