@@ -30,6 +30,9 @@ size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNN
 /* Generated stub for memleak_remove_htable */
 void memleak_remove_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
 { fprintf(stderr, "memleak_remove_htable called!\n"); abort(); }
+/* Generated stub for towire */
+void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "towire called!\n"); abort(); }
 /* Generated stub for towire_amount_sat */
 void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "towire_amount_sat called!\n"); abort(); }

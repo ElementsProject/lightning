@@ -1,7 +1,6 @@
 #include "wire.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
 #include <bitcoin/tx.h>
@@ -264,11 +263,6 @@ void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d)
 {
 	fromwire_sha256(cursor, max, &sha256d->sha);
-}
-
-void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage)
-{
-	fromwire(cursor, max, preimage, sizeof(*preimage));
 }
 
 void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd)

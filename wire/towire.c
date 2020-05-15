@@ -1,8 +1,5 @@
 #include "wire.h"
 #include <assert.h>
-#include <bitcoin/chainparams.h>
-#include <bitcoin/preimage.h>
-#include <bitcoin/shadouble.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
@@ -170,11 +167,6 @@ void towire_sha256(u8 **pptr, const struct sha256 *sha256)
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d)
 {
 	towire_sha256(pptr, &sha256d->sha);
-}
-
-void towire_preimage(u8 **pptr, const struct preimage *preimage)
-{
-	towire(pptr, preimage, sizeof(*preimage));
 }
 
 void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd)

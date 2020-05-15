@@ -28,6 +28,9 @@ bool derive_keyset(const struct pubkey *per_commitment_point UNNEEDED,
 /* Generated stub for dump_memleak */
 bool dump_memleak(struct htable *memtable UNNEEDED)
 { fprintf(stderr, "dump_memleak called!\n"); abort(); }
+/* Generated stub for fromwire */
+const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
+{ fprintf(stderr, "fromwire called!\n"); abort(); }
 /* Generated stub for fromwire_amount_sat */
 struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
@@ -217,6 +220,9 @@ u8 *to_self_wscript(const tal_t *ctx UNNEEDED,
 		    u16 to_self_delay UNNEEDED,
 		    const struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "to_self_wscript called!\n"); abort(); }
+/* Generated stub for towire */
+void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "towire called!\n"); abort(); }
 /* Generated stub for towire_amount_sat */
 void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
