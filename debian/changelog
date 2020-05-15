@@ -1,20 +1,27 @@
-lightningd (0.8.2); urgency=medium
+lightningd (0.8.2.1) stable; urgency=medium
 
- * Added (pay): The `keysend` plugin implements the ability to receive spontaneous payments (keysend) ([3611](https://github.com/ElementsProject/lightning/pull/3611))
- * Added (Plugin): the Bitcoin backend plugin API is now final. ([3620](https://github.com/ElementsProject/lightning/pull/3620))
- * Added (Plugin): `htlc_accepted` hook can now offer a replacement onion `payload`. ([3611](https://github.com/ElementsProject/lightning/pull/3611))
- * Added (Plugin): `feature_set` object added to `init` ([3612](https://github.com/ElementsProject/lightning/pull/3612))
- * Added (Plugin): 'flag'-type option now available. ([3586](https://github.com/ElementsProject/lightning/pull/3586))
- * Added (JSON API): New `getsharedsecret` command, which lets you compute a shared secret with this node knowing only a public point. This implements the BOLT standard of hashing the ECDH point, and is incompatible with ECIES. ([3490](https://github.com/ElementsProject/lightning/pull/3490))
- * Added (JSON API): `large-channels` option to negotiate opening larger channels. ([3612](https://github.com/ElementsProject/lightning/pull/3612))
- * Added (JSON API): New optional parameter to the `close` command to control the closing transaction fee negotiation back off step ([3390](https://github.com/ElementsProject/lightning/pull/3390))
- * Added (JSON API): `connect` returns `features` of the connected peer on success. ([3612](https://github.com/ElementsProject/lightning/pull/3612))
- * Added (JSON API): `listpeers` now has `receivable_msat` ([3572](https://github.com/ElementsProject/lightning/pull/3572))
- * Added (JSON API): The fields "opening", "mutual_close", "unilateral_close", "delayed_to_us", "htlc_resolution" and "penalty" have been added to the `feerates` command. ([3570](https://github.com/ElementsProject/lightning/pull/3570))
- * Added (JSON API): "htlc_timeout_satoshis" and "htlc_success_satoshis" fields have been added to the `feerates` command. ([3570](https://github.com/ElementsProject/lightning/pull/3570))
- * Added (pyln) now sends proper error on bad calls to plugin methods ([3640](https://github.com/ElementsProject/lightning/pull/3640))
- * Added (devtools): The `onion` tool can now generate, compress and decompress onions for rendez-vous routing ([3557](https://github.com/ElementsProject/lightning/pull/3557))
- * Added (doc): An FAQ was added, accessible at https://lightning.readthedocs.io/FAQ.html ([3551](https://github.com/ElementsProject/lightning/pull/3551))
+  * Fixed: `large-channels` now works with Eclair. (Based on [3612](https://github.com/ElementsProject/lightning/pull/3712))
+
+ -- Christian Decker <decker.christian@gmail.com>  Fri, 15 May 2020 10:00:00 +0100
+
+
+lightningd (0.8.2) stable; urgency=medium
+
+  * Added (pay): The `keysend` plugin implements the ability to receive spontaneous payments (keysend) ([3611](https://github.com/ElementsProject/lightning/pull/3611))
+  * Added (Plugin): the Bitcoin backend plugin API is now final. ([3620](https://github.com/ElementsProject/lightning/pull/3620))
+  * Added (Plugin): `htlc_accepted` hook can now offer a replacement onion `payload`. ([3611](https://github.com/ElementsProject/lightning/pull/3611))
+  * Added (Plugin): `feature_set` object added to `init` ([3612](https://github.com/ElementsProject/lightning/pull/3612))
+  * Added (Plugin): 'flag'-type option now available. ([3586](https://github.com/ElementsProject/lightning/pull/3586))
+  * Added (JSON API): New `getsharedsecret` command, which lets you compute a shared secret with this node knowing only a public point. This implements the BOLT standard of hashing the ECDH point, and is incompatible with ECIES. ([3490](https://github.com/ElementsProject/lightning/pull/3490))
+  * Added (JSON API): `large-channels` option to negotiate opening larger channels. ([3612](https://github.com/ElementsProject/lightning/pull/3612))
+  * Added (JSON API): New optional parameter to the `close` command to control the closing transaction fee negotiation back off step ([3390](https://github.com/ElementsProject/lightning/pull/3390))
+  * Added (JSON API): `connect` returns `features` of the connected peer on success. ([3612](https://github.com/ElementsProject/lightning/pull/3612))
+  * Added (JSON API): `listpeers` now has `receivable_msat` ([3572](https://github.com/ElementsProject/lightning/pull/3572))
+  * Added (JSON API): The fields "opening", "mutual_close", "unilateral_close", "delayed_to_us", "htlc_resolution" and "penalty" have been added to the `feerates` command. ([3570](https://github.com/ElementsProject/lightning/pull/3570))
+  * Added (JSON API): "htlc_timeout_satoshis" and "htlc_success_satoshis" fields have been added to the `feerates` command. ([3570](https://github.com/ElementsProject/lightning/pull/3570))
+  * Added (pyln) now sends proper error on bad calls to plugin methods ([3640](https://github.com/ElementsProject/lightning/pull/3640))
+  * Added (devtools): The `onion` tool can now generate, compress and decompress onions for rendez-vous routing ([3557](https://github.com/ElementsProject/lightning/pull/3557))
+  * Added (doc): An FAQ was added, accessible at https://lightning.readthedocs.io/FAQ.html ([3551](https://github.com/ElementsProject/lightning/pull/3551))
   * Changed We now use a higher feerate for resolving onchain HTLCs and for penalty transactions ([3592](https://github.com/ElementsProject/lightning/pull/3592))
   * Changed We now announce multiple addresses of the same type, if given. ([3609](https://github.com/ElementsProject/lightning/pull/3609))
   * Changed (pay): Improved the performance of the `pay`-plugin by limiting the `listchannels` when computing the shadow route. ([3617](https://github.com/ElementsProject/lightning/pull/3617))
