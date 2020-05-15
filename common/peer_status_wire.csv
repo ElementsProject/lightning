@@ -1,3 +1,4 @@
+#include <common/channel_id.h>
 #include <common/per_peer_state.h>
 
 # An error occurred: if error_for_them, that to go to them.

@@ -17,6 +17,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bolt11.o				\
+	common/channel_id.o			\
 	common/crypto_state.o			\
 	common/decode_array.o			\
 	common/features.o			\

@@ -31,6 +31,10 @@ struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id 
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
+/* Generated stub for fromwire_channel_id */
+void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			 struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_dev_set_max_scids_encode_size */
 bool fromwire_gossip_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_dev_set_max_scids_encode_size called!\n"); abort(); }
@@ -118,6 +122,9 @@ void status_fmt(enum log_level level UNNEEDED,
 		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
+/* Generated stub for towire_channel_id */
+void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,

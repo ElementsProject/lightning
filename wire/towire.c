@@ -150,11 +150,6 @@ void towire_secp256k1_ecdsa_recoverable_signature(u8 **pptr,
 	towire_u8(pptr, recid);
 }
 
-void towire_channel_id(u8 **pptr, const struct channel_id *channel_id)
-{
-	towire(pptr, channel_id, sizeof(*channel_id));
-}
-
 void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id)
 {

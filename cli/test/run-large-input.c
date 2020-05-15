@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <common/amount.h>
 #include <common/bigsize.h>
+#include <common/channel_id.h>
 #include <common/json_stream.h>
 #include <common/wireaddr.h>
 #include <fcntl.h>
@@ -63,6 +64,10 @@ size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
+/* Generated stub for fromwire_channel_id */
+void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			 struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_member */
 void json_add_member(struct json_stream *js UNNEEDED,
 		     const char *fieldname UNNEEDED,
@@ -85,6 +90,9 @@ void json_object_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for towire_channel_id */
+void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
 /* Generated stub for version_and_exit */
 char *version_and_exit(const void *unused UNNEEDED)
 { fprintf(stderr, "version_and_exit called!\n"); abort(); }

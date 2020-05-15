@@ -98,6 +98,10 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
+/* Generated stub for derive_channel_id */
+void derive_channel_id(struct channel_id *channel_id UNNEEDED,
+		       const struct bitcoin_txid *txid UNNEEDED, u16 txout UNNEEDED)
+{ fprintf(stderr, "derive_channel_id called!\n"); abort(); }
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }
