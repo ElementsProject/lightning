@@ -1,6 +1,7 @@
 #include "routing.h"
 #include <arpa/inet.h>
 #include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/endian/endian.h>

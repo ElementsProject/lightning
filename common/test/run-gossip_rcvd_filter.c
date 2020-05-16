@@ -24,9 +24,6 @@ bool amount_sat_eq(struct amount_sat a UNNEEDED, struct amount_sat b UNNEEDED)
 				       struct amount_sat a UNNEEDED,
 				       struct amount_sat b UNNEEDED)
 { fprintf(stderr, "amount_sat_sub called!\n"); abort(); }
-/* Generated stub for bigsize_get */
-size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNNEEDED)
-{ fprintf(stderr, "bigsize_get called!\n"); abort(); }
 /* Generated stub for fromwire_amount_sat */
 struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
@@ -46,9 +43,9 @@ void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 			      const secp256k1_ecdsa_signature *signature UNNEEDED)
 { fprintf(stderr, "towire_secp256k1_ecdsa_signature called!\n"); abort(); }
-/* Generated stub for towire_sha256_double */
-void towire_sha256_double(u8 **pptr UNNEEDED, const struct sha256_double *sha256d UNNEEDED)
-{ fprintf(stderr, "towire_sha256_double called!\n"); abort(); }
+/* Generated stub for towire_sha256 */
+void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
+{ fprintf(stderr, "towire_sha256 called!\n"); abort(); }
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }

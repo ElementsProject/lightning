@@ -1,6 +1,7 @@
 # gossip_store messages: messages persisted in the gossip_store
 # We store raw messages here, so these numbers must not overlap with
 # 256/257/258 or gossipd_local_add_channel (3503)
+#include <common/amount.h>
 
 # This always follows the channel_announce.
 msgtype,gossip_store_channel_amount,4101

@@ -1,4 +1,5 @@
 #include <common/per_peer_state.h>
+#include <common/node_id.h>
 #include <common/status_wire.h>
 
 msgtype,status_log,0xFFF0

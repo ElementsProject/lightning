@@ -1,8 +1,10 @@
 #include "../towire.c"
 #include "../fromwire.c"
 #include "../peer_wire.c"
+#include "bitcoin/pubkey.c"
 #include "common/amount.c"
 #include "common/channel_id.c"
+#include "common/node_id.c"
 
 #include <assert.h>
 #include <stdio.h>

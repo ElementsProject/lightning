@@ -18,4 +18,11 @@ bool secret_eq_consttime(const struct secret *a, const struct secret *b);
 struct privkey {
 	struct secret secret;
 };
+
+/* marshal/unmarshal functions */
+void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret);
+void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey);
+void towire_privkey(u8 **pptr, const struct privkey *privkey);
+void towire_secret(u8 **pptr, const struct secret *secret);
+
 #endif /* LIGHTNING_BITCOIN_PRIVKEY_H */

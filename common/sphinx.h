@@ -12,6 +12,8 @@
 #include <sodium/randombytes.h>
 #include <wire/gen_onion_wire.h>
 
+struct node_id;
+
 #define VERSION_SIZE 1
 #define REALM_SIZE 1
 #define HMAC_SIZE 32

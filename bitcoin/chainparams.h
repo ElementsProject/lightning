@@ -6,12 +6,8 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
+#include <common/bip32.h>
 #include <stdbool.h>
-
-struct bip32_key_version {
-	u32 bip32_pubkey_version;
-	u32 bip32_privkey_version;
-};
 
 struct chainparams {
 	const char *network_name;

@@ -1,5 +1,6 @@
 #include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <plugins/libplugin.h>
 #include <wire/gen_onion_wire.h>
 

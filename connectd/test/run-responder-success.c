@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
+#include <common/amount.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <wire/wire.h>
@@ -46,10 +47,9 @@ const void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 					secp256k1_ecdsa_signature *signature UNNEEDED)
 { fprintf(stderr, "fromwire_secp256k1_ecdsa_signature called!\n"); abort(); }
-/* Generated stub for fromwire_sha256_double */
-void fromwire_sha256_double(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			    struct sha256_double *sha256d UNNEEDED)
-{ fprintf(stderr, "fromwire_sha256_double called!\n"); abort(); }
+/* Generated stub for fromwire_sha256 */
+void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sha256 *sha256 UNNEEDED)
+{ fprintf(stderr, "fromwire_sha256 called!\n"); abort(); }
 /* Generated stub for fromwire_tal_arrn */
 u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
 		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
@@ -76,9 +76,9 @@ void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 			      const secp256k1_ecdsa_signature *signature UNNEEDED)
 { fprintf(stderr, "towire_secp256k1_ecdsa_signature called!\n"); abort(); }
-/* Generated stub for towire_sha256_double */
-void towire_sha256_double(u8 **pptr UNNEEDED, const struct sha256_double *sha256d UNNEEDED)
-{ fprintf(stderr, "towire_sha256_double called!\n"); abort(); }
+/* Generated stub for towire_sha256 */
+void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
+{ fprintf(stderr, "towire_sha256 called!\n"); abort(); }
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }

@@ -9,8 +9,10 @@
 struct amount_msat;
 struct amount_sat;
 struct channel_id;
-struct pubkey;
 struct node_id;
+struct preimage;
+struct pubkey;
+struct secret;
 struct short_channel_id;
 struct wireaddr;
 struct wireaddr_internal;

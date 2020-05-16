@@ -1,5 +1,7 @@
 # These must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!
 #include <bitcoin/short_channel_id.h>
+#include <common/amount.h>
+#include <common/node_id.h>
 
 # Channel daemon can ask for updates for a specific channel, for sending
 # errors.  
