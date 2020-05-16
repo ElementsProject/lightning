@@ -64,6 +64,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/node_id.o			\
 	common/onionreply.o			\
 	common/peer_billboard.o			\
 	common/permute_tx.o			\

@@ -1,3 +1,4 @@
+#include <bitcoin/chainparams.h>
 #include <ccan/io/io.h>
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>

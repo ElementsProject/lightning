@@ -18,12 +18,6 @@ char *add_plugin_dir(struct plugins *plugins UNNEEDED, const char *dir UNNEEDED,
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
-/* Generated stub for bigsize_get */
-size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNNEEDED)
-{ fprintf(stderr, "bigsize_get called!\n"); abort(); }
-/* Generated stub for bigsize_put */
-size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
-{ fprintf(stderr, "bigsize_put called!\n"); abort(); }
 /* Generated stub for channel_notify_new_block */
 void channel_notify_new_block(struct lightningd *ld UNNEEDED,
 			      u32 block_height UNNEEDED)
@@ -81,10 +75,16 @@ void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UN
 /* Generated stub for free_unreleased_txs */
 void free_unreleased_txs(struct wallet *w UNNEEDED)
 { fprintf(stderr, "free_unreleased_txs called!\n"); abort(); }
+/* Generated stub for fromwire_bigsize */
+bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
 void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
+/* Generated stub for fromwire_node_id */
+void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
+{ fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
 /* Generated stub for fromwire_status_fail */
 bool fromwire_status_fail(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, enum status_failreason *failreason UNNEEDED, wirestring **desc UNNEEDED)
 { fprintf(stderr, "fromwire_status_fail called!\n"); abort(); }
@@ -217,9 +217,15 @@ void setup_topology(struct chain_topology *topology UNNEEDED, struct timers *tim
 /* Generated stub for timer_expired */
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
+/* Generated stub for towire_bigsize */
+void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
+{ fprintf(stderr, "towire_bigsize called!\n"); abort(); }
 /* Generated stub for towire_channel_id */
 void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_channel_id called!\n"); abort(); }
+/* Generated stub for towire_node_id */
+void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "towire_node_id called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
 void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
 			 const u8 derkey[PUBKEY_CMPR_LEN])

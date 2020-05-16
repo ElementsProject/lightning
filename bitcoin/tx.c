@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/pullpush.h>
 #include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>

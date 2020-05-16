@@ -1,4 +1,5 @@
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <plugins/libplugin.h>
 

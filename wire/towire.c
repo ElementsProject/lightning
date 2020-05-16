@@ -84,44 +84,6 @@ void towire_errcode_t(u8 **pptr, errcode_t v)
 	towire_u32(pptr, (u32)v);
 }
 
-void towire_bigsize(u8 **pptr, const bigsize_t val)
-{
-	u8 buf[BIGSIZE_MAX_LEN];
-	size_t len;
-
-	len = bigsize_put(buf, val);
-	towire(pptr, buf, len);
-}
-
-void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
-{
-	u8 output[PUBKEY_CMPR_LEN];
-	size_t outputlen = sizeof(output);
-
-	secp256k1_ec_pubkey_serialize(secp256k1_ctx, output, &outputlen,
-				      &pubkey->pubkey,
-				      SECP256K1_EC_COMPRESSED);
-
-	towire(pptr, output, outputlen);
-}
-
-void towire_node_id(u8 **pptr, const struct node_id *id)
-{
-	/* Cheap sanity check */
-	assert(id->k[0] == 0x2 || id->k[0] == 0x3);
-	towire(pptr, id->k, sizeof(id->k));
-}
-
-void towire_secret(u8 **pptr, const struct secret *secret)
-{
-	towire(pptr, secret->data, sizeof(secret->data));
-}
-
-void towire_privkey(u8 **pptr, const struct privkey *privkey)
-{
-	towire_secret(pptr, &privkey->secret);
-}
-
 void towire_secp256k1_ecdsa_signature(u8 **pptr,
 				      const secp256k1_ecdsa_signature *sig)
 {
@@ -151,11 +113,6 @@ void towire_sha256(u8 **pptr, const struct sha256 *sha256)
 	towire(pptr, sha256, sizeof(*sha256));
 }
 
-void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d)
-{
-	towire_sha256(pptr, &sha256d->sha);
-}
-
 void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd)
 {
 	towire(pptr, ripemd, sizeof(*ripemd));
@@ -183,10 +140,4 @@ void towire_wirestring(u8 **pptr, const char *str)
 void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
 {
 	towire(pptr, seed, sizeof(*seed));
-}
-
-void towire_bip32_key_version(u8 **pptr, const struct bip32_key_version *version)
-{
-	towire_u32(pptr, version->bip32_pubkey_version);
-	towire_u32(pptr, version->bip32_privkey_version);
 }

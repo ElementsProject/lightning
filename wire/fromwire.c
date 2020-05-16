@@ -1,18 +1,11 @@
 #include "wire.h"
 #include <assert.h>
-#include <bitcoin/chainparams.h>
-#include <bitcoin/pubkey.h>
-#include <bitcoin/shadouble.h>
-#include <bitcoin/tx.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
-#include <common/errcode.h>
-#include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 
@@ -170,48 +163,6 @@ errcode_t fromwire_errcode_t(const u8 **cursor, size_t *max)
 	return ret;
 }
 
-bigsize_t fromwire_bigsize(const u8 **cursor, size_t *max)
-{
-	bigsize_t v;
-	size_t len = bigsize_get(*cursor, *max, &v);
-
-	if (len == 0) {
-		fromwire_fail(cursor, max);
-		return 0;
-	}
-	assert(len <= *max);
-	fromwire(cursor, max, NULL, len);
-	return v;
-}
-
-void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
-{
-	u8 der[PUBKEY_CMPR_LEN];
-
-	if (!fromwire(cursor, max, der, sizeof(der)))
-		return;
-
-	if (!pubkey_from_der(der, sizeof(der), pubkey)) {
-		SUPERVERBOSE("not a valid point");
-		fromwire_fail(cursor, max);
-	}
-}
-
-void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id)
-{
-	fromwire(cursor, max, &id->k, sizeof(id->k));
-}
-
-void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret)
-{
-	fromwire(cursor, max, secret->data, sizeof(secret->data));
-}
-
-void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey)
-{
-	fromwire_secret(cursor, max, &privkey->secret);
-}
-
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,
 				size_t *max, secp256k1_ecdsa_signature *sig)
 {
@@ -244,12 +195,6 @@ void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)
 {
 	fromwire(cursor, max, sha256, sizeof(*sha256));
-}
-
-void fromwire_sha256_double(const u8 **cursor, size_t *max,
-			    struct sha256_double *sha256d)
-{
-	fromwire_sha256(cursor, max, &sha256d->sha);
 }
 
 void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd)
@@ -307,9 +252,3 @@ void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 	fromwire(cursor, max, seed, sizeof(*seed));
 }
 
-void fromwire_bip32_key_version(const u8** cursor, size_t *max,
-					struct bip32_key_version *version)
-{
-	version->bip32_pubkey_version = fromwire_u32(cursor, max);
-	version->bip32_privkey_version = fromwire_u32(cursor, max);
-}

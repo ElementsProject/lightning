@@ -1,3 +1,4 @@
+#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>

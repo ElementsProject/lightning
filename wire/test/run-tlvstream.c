@@ -4,13 +4,14 @@
 #include <stdio.h>
 #include <wally_core.h>
 
-#include <common/amount.c>
-#include <common/bigsize.c>
-#include <common/node_id.c>
-
 static const char *reason;
 #undef SUPERVERBOSE
 #define SUPERVERBOSE(r) do { reason = (r); } while(0)
+
+#include <bitcoin/pubkey.c>
+#include <common/amount.c>
+#include <common/bigsize.c>
+#include <common/node_id.c>
 
 #include <wire/gen_peer_wire.c>
 #include <wire/fromwire.c>

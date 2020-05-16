@@ -1,3 +1,4 @@
+#include <bitcoin/chainparams.h>
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>

@@ -23,3 +23,16 @@ void fromwire_ext_key(const u8 **cursor, size_t *max, struct ext_key *bip32)
 	if (bip32_key_unserialize(in, BIP32_SERIALIZED_LEN, bip32) != WALLY_OK)
 		fromwire_fail(cursor, max);
 }
+
+void fromwire_bip32_key_version(const u8** cursor, size_t *max,
+				struct bip32_key_version *version)
+{
+	version->bip32_pubkey_version = fromwire_u32(cursor, max);
+	version->bip32_privkey_version = fromwire_u32(cursor, max);
+}
+
+void towire_bip32_key_version(u8 **pptr, const struct bip32_key_version *version)
+{
+	towire_u32(pptr, version->bip32_pubkey_version);
+	towire_u32(pptr, version->bip32_privkey_version);
+}

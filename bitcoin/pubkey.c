@@ -5,6 +5,11 @@
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <wire/wire.h>
+
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
 
 bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key)
 {
@@ -94,4 +99,29 @@ void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash)
 	pubkey_to_der(der, pk);
 	sha256(&h, der, sizeof(der));
 	ripemd160(hash, h.u.u8, sizeof(h));
+}
+
+void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
+{
+	u8 der[PUBKEY_CMPR_LEN];
+
+	if (!fromwire(cursor, max, der, sizeof(der)))
+		return;
+
+	if (!pubkey_from_der(der, sizeof(der), pubkey)) {
+		SUPERVERBOSE("not a valid point");
+		fromwire_fail(cursor, max);
+	}
+}
+
+void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
+{
+	u8 output[PUBKEY_CMPR_LEN];
+	size_t outputlen = sizeof(output);
+
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx, output, &outputlen,
+				      &pubkey->pubkey,
+				      SECP256K1_EC_COMPRESSED);
+
+	towire(pptr, output, outputlen);
 }

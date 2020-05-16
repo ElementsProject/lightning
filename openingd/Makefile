@@ -63,6 +63,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/keyset.o				\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/node_id.o			\
 	common/onionreply.o			\
 	common/penalty_base.o			\
 	common/per_peer_state.o			\

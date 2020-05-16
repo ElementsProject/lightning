@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <bitcoin/preimage.h>
+#include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
 #include <ccan/ccan/str/hex/hex.h>

@@ -1,4 +1,6 @@
+#include <assert.h>
 #include <common/bigsize.h>
+#include <wire/wire.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -96,4 +98,27 @@ size_t bigsize_get(const u8 *p, size_t max, bigsize_t *val)
 		*val = *p;
 		return 1;
 	}
+}
+
+bigsize_t fromwire_bigsize(const u8 **cursor, size_t *max)
+{
+	bigsize_t v;
+	size_t len = bigsize_get(*cursor, *max, &v);
+
+	if (len == 0) {
+		fromwire_fail(cursor, max);
+		return 0;
+	}
+	assert(len <= *max);
+	fromwire(cursor, max, NULL, len);
+	return v;
+}
+
+void towire_bigsize(u8 **pptr, const bigsize_t val)
+{
+	u8 buf[BIGSIZE_MAX_LEN];
+	size_t len;
+
+	len = bigsize_put(buf, val);
+	towire(pptr, buf, len);
 }
