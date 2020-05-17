@@ -571,9 +571,6 @@ static const struct config testnet_config = {
 	.commitment_fee_min_percent = 0,
 	.commitment_fee_max_percent = 0,
 
-	/* We offer to pay 5 times 2-block fee */
-	.commitment_fee_percent = 500,
-
 	/* Testnet blockspace is free. */
 	.max_concurrent_htlcs = 483,
 
@@ -618,9 +615,6 @@ static const struct config mainnet_config = {
 	/* Insist between 2 and 20 times the 2-block fee. */
 	.commitment_fee_min_percent = 200,
 	.commitment_fee_max_percent = 2000,
-
-	/* We offer to pay 5 times 2-block fee */
-	.commitment_fee_percent = 500,
 
 	/* While up to 483 htlcs are possible we do 30 by default (as eclair does) to save blockspace */
 	.max_concurrent_htlcs = 30,
@@ -820,9 +814,6 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--commit-fee-max=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_max_percent,
 			 "Maximum percentage of fee to accept for commitment (0 for unlimited)");
-	opt_register_arg("--commit-fee=<percent>", opt_set_u32, opt_show_u32,
-			 &ld->config.commitment_fee_percent,
-			 "Percentage of fee to request for their commitment");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
 			 "Number of blocks for cltv_expiry_delta");

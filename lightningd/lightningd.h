@@ -32,9 +32,6 @@ struct config {
 	/* Minimum percent of fee rate we'll accept. */
 	u32 commitment_fee_min_percent;
 
-	/* Percent of fee rate we'll use. */
-	u32 commitment_fee_percent;
-
 	/* Minimum CLTV to subtract from incoming HTLCs to outgoing */
 	u32 cltv_expiry_delta;
 
