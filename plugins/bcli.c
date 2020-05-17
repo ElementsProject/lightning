@@ -63,6 +63,9 @@ struct bitcoind {
 	/* The factor to time the urgent feerate by to get the maximum
 	 * acceptable feerate. */
 	u32 max_fee_multiplier;
+
+	/* Percent of CONSERVATIVE/2 feerate we'll use for commitment txs. */
+	u64 commit_fee_percent;
 };
 
 static struct bitcoind *bitcoind;
@@ -531,7 +534,8 @@ static struct command_result *estimatefees_final_step(struct bitcoin_cli *bcli)
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_u64(response, "opening", stash->normal);
 	json_add_u64(response, "mutual_close", stash->normal);
-	json_add_u64(response, "unilateral_close", stash->very_urgent);
+	json_add_u64(response, "unilateral_close",
+		     stash->very_urgent * bitcoind->commit_fee_percent / 100);
 	json_add_u64(response, "delayed_to_us", stash->normal);
 	json_add_u64(response, "htlc_resolution", stash->urgent);
 	json_add_u64(response, "penalty", stash->urgent);
@@ -947,6 +951,7 @@ int main(int argc, char *argv[])
 	bitcoind->rpcconnect = NULL;
 	bitcoind->rpcport = NULL;
 	bitcoind->max_fee_multiplier = 10;
+	bitcoind->commit_fee_percent = 100;
 
 	plugin_main(argv, init, PLUGIN_STATIC, NULL, commands, ARRAY_SIZE(commands),
 		    NULL, 0, NULL, 0,
@@ -979,6 +984,10 @@ int main(int argc, char *argv[])
 				  "how long to keep retrying to contact bitcoind"
 				  " before fatally exiting",
 				  u64_option, &bitcoind->retry_timeout),
+		    plugin_option("commit-fee",
+				  "string",
+				  "Percentage of fee to request for their commitment",
+				  u64_option, &bitcoind->commit_fee_percent),
 #if DEVELOPER
 		    plugin_option("dev-max-fee-multiplier",
 				  "string",

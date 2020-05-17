@@ -270,8 +270,8 @@ Confirmations required for the funding transaction when the other side
 opens a channel before the channel is usable.
 
  **commit-fee**=*PERCENT*
-The percentage of *estimatesmartfee 2* to use for the bitcoin
-transaction which funds a channel: can be greater than 100.
+The percentage of *estimatesmartfee 2/CONSERVATIVE* to use for the commitment
+transactions: default is 100.
 
  **commit-fee-min**=*PERCENT*
  **commit-fee-max**=*PERCENT*
