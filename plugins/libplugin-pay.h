@@ -103,6 +103,7 @@ enum payment_step {
 struct payment {
 	/* The command that triggered this payment. */
 	struct command *cmd;
+	struct list_node list;
 
 	const char *json_buffer;
 	const jsmntok_t *json_toks;

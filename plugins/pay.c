@@ -27,6 +27,8 @@ static struct node_id my_id;
 static unsigned int maxdelay_default;
 static LIST_HEAD(pay_status);
 
+static LIST_HEAD(payments);
+
 struct pay_attempt {
 	/* What we changed when starting this attempt. */
 	const char *why;
@@ -1719,7 +1721,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	struct bolt11 *b11;
 	char *fail;
 	struct dummy_data *ddata;
-	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
+	p = payment_new(NULL, cmd, NULL /* No parent */, paymod_mods);
 
 	ddata = (struct dummy_data*)p->modifier_data[0];
 
@@ -1763,6 +1765,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->destination = p->getroute_destination = &b11->receiver_id;
 	p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 	payment_start(p);
+	list_add_tail(&payments, &p->list);
 
 	return command_still_pending(cmd);
 }
