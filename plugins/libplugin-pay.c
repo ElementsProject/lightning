@@ -42,6 +42,10 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->destination = p->getroute_destination = parent->destination;
 		p->amount = parent->amount;
 		p->payment_hash = parent->payment_hash;
+		p->partid = payment_root(p->parent)->next_partid++;
+	} else {
+		p->partid = 0;
+		p->next_partid = 1;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -58,6 +62,14 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	}
 
 	return p;
+}
+
+struct payment *payment_root(struct payment *p)
+{
+	if (p->parent == NULL)
+		return p;
+	else
+		return payment_root(p->parent);
 }
 
 /* Generic handler for RPC failures that should end up failing the payment. */
@@ -307,11 +319,14 @@ static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 
 	result = tal(ctx, struct payment_result);
 
-	json_to_u64(buffer, idtok, &result->id);
-	json_to_u32(buffer, partidtok, &result->partid);
-	/* TODO Fetch the payment_hash here */
-	json_to_msat(buffer, senttok, &result->amount_sent);
+	/* If the partid is 0 it'd be omitted in waitsendpay, fix this here. */
+	if (partidtok != NULL)
+		json_to_u32(buffer, partidtok, &result->partid);
+	else
+		result->partid = 0;
 
+	json_to_u64(buffer, idtok, &result->id);
+	json_to_msat(buffer, senttok, &result->amount_sent);
 	if (json_tok_streq(buffer, statustok, "pending")) {
 		result->state = PAYMENT_PENDING;
 	} else if (json_tok_streq(buffer, statustok, "complete")) {

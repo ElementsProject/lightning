@@ -117,6 +117,7 @@ struct payment {
 	struct sha256 *payment_hash;
 
 	u32 partid;
+	u32 next_partid;
 
 	/* Destination we should ask `getroute` for. This might differ from
 	 * the above destination if we use rendez-vous routing of blinded
@@ -205,5 +206,6 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 
 void payment_start(struct payment *p);
 void payment_continue(struct payment *p);
+struct payment *payment_root(struct payment *p);
 
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H */
