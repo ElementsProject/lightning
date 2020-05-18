@@ -1,7 +1,8 @@
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
+from hashlib import sha256
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
@@ -3055,5 +3056,6 @@ def test_pay_modifiers(node_factory):
     assert(hlp['command'] == 'paymod bolt11 [dummy]')
 
     inv = l2.rpc.invoice(123, 'lbl', 'desc')['bolt11']
-    with pytest.raises(RpcError, match="Not functional yet"):
-        l1.rpc.paymod(inv)
+    r = l1.rpc.paymod(inv)
+    assert(r['status'] == 'complete')
+    assert(sha256(unhexlify(r['payment_preimage'])).hexdigest() == r['payment_hash'])
