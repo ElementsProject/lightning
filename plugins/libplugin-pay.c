@@ -1,3 +1,4 @@
+#include "common/type_to_string.h"
 #include <plugins/libplugin-pay.h>
 #include <stdio.h>
 
@@ -5,6 +6,23 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
+
+/* Just a container to collect a subtree result so we can summarize all
+ * sub-payments and return a reasonable result to the caller of `pay` */
+struct payment_tree_result {
+	/* OR of all the leafs in the subtree. */
+	enum payment_step leafstates;
+
+	/* OR of all the inner nodes and leaf nodes. */
+	enum payment_step treestates;
+
+	struct amount_msat sent;
+
+	/* Preimage if any of the attempts succeeded. */
+	struct preimage *preimage;
+
+	u32 attempts;
+};
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
@@ -55,6 +73,51 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 	p->step = PAYMENT_STEP_FAILED;
 	payment_continue(p);
 	return command_still_pending(cmd);
+}
+
+static struct payment_tree_result payment_collect_result(struct payment *p)
+{
+	struct payment_tree_result res;
+	size_t numchildren = tal_count(p->children);
+	res.sent = AMOUNT_MSAT(0);
+	/* If we didn't have a route, we didn't attempt. */
+	res.attempts = p->route == NULL ? 0 : 1;
+	res.treestates = p->step;
+	res.leafstates = 0;
+	res.preimage = NULL;
+
+	if (numchildren == 0) {
+		res.leafstates |= p->step;
+		if (p->result && p->result->state == PAYMENT_COMPLETE) {
+			res.sent = p->result->amount_sent;
+			res.preimage = p->result->payment_preimage;
+		}
+	}
+
+	for (size_t i = 0; i < numchildren; i++) {
+		struct payment_tree_result cres =
+		    payment_collect_result(p->children[i]);
+
+		/* Some of our subpayments have succeeded, aggregate how much
+		 * we sent in total. */
+		if (!amount_msat_add(&res.sent, res.sent, cres.sent))
+			plugin_err(
+			    p->cmd->plugin,
+			    "Number overflow summing partial payments: %s + %s",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &res.sent),
+			    type_to_string(tmpctx, struct amount_msat,
+					   &cres.sent));
+
+		/* Bubble up the first preimage we see. */
+		if (res.preimage == NULL && cres.preimage != NULL)
+			res.preimage = cres.preimage;
+
+		res.leafstates |= cres.leafstates;
+		res.treestates |= cres.treestates;
+		res.attempts += cres.attempts;
+	}
+	return res;
 }
 
 static struct command_result *payment_getinfo_success(struct command *cmd,
@@ -455,6 +518,23 @@ static bool payment_is_finished(const struct payment *p)
 	}
 }
 
+static enum payment_step payment_aggregate_states(struct payment *p)
+{
+	enum payment_step agg = p->step;
+
+	for (size_t i=0; i<tal_count(p->children); i++)
+		agg |= payment_aggregate_states(p->children[i]);
+
+	return agg;
+}
+
+/* A payment is finished if a) it is in a final state, of b) it's in a
+ * child-spawning state and all of its children are in a final state. */
+static bool payment_is_success(struct payment *p)
+{
+	return (payment_aggregate_states(p) & PAYMENT_STEP_SUCCESS) != 0;
+}
+
 /* Function to bubble up completions to the root, which actually holds on to
  * the command that initiated the flow. */
 static void payment_child_finished(struct payment *p,
@@ -473,10 +553,59 @@ static void payment_child_finished(struct payment *p,
  * traversal, i.e., all children are finished before the parent is called. */
 static void payment_finished(struct payment *p)
 {
-	if (p->parent == NULL)
-		return command_fail(p->cmd, JSONRPC2_INVALID_REQUEST, "Not functional yet");
-	else
-		return payment_child_finished(p->parent, p);
+	struct payment_tree_result result = payment_collect_result(p);
+	struct json_stream *ret;
+	struct command *cmd = p->cmd;
+
+	p->end_time = time_now();
+
+	/* Either none of the leaf attempts succeeded yet, or we have a
+	 * preimage. */
+	assert((result.leafstates & PAYMENT_STEP_SUCCESS) == 0 ||
+	       result.preimage != NULL);
+
+	if (p->parent == NULL) {
+		assert(p->cmd != NULL);
+		if (payment_is_success(p)) {
+			assert(result.treestates & PAYMENT_STEP_SUCCESS);
+			assert(result.leafstates & PAYMENT_STEP_SUCCESS);
+			assert(result.preimage != NULL);
+
+			ret = jsonrpc_stream_success(p->cmd);
+			json_add_sha256(ret, "payment_hash", p->payment_hash);
+			json_add_num(ret, "parts", result.attempts);
+
+			json_add_amount_msat_compat(ret, p->amount, "msatoshi",
+						    "amount_msat");
+			json_add_amount_msat_compat(ret, result.sent,
+						    "msatoshi_sent",
+						    "amount_sent_msat");
+
+			if (result.leafstates != PAYMENT_STEP_SUCCESS)
+				json_add_string(
+				    ret, "warning",
+				    "Some parts of the payment are not yet "
+				    "completed, but we have the confirmation "
+				    "from the recipient.");
+			json_add_preimage(ret, "payment_preimage", result.preimage);
+
+			json_add_string(ret, "status", "complete");
+
+			/* Unset the pointer to the cmd so we don't attempt to
+			 * return a response twice. */
+			p->cmd = NULL;
+			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			return;
+		} else {
+			if (command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
+					 "Not functional yet")) {/* Ignore result. */}
+
+			return;
+		}
+	} else {
+		payment_child_finished(p->parent, p);
+		return;
+	}
 }
 
 void payment_continue(struct payment *p)
