@@ -38,14 +38,18 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
+		assert(cmd == NULL);
 		tal_arr_expand(&parent->children, p);
 		p->destination = p->getroute_destination = parent->destination;
 		p->amount = parent->amount;
 		p->payment_hash = parent->payment_hash;
 		p->partid = payment_root(p->parent)->next_partid++;
+		p->plugin = parent->plugin;
 	} else {
+		assert(cmd != NULL);
 		p->partid = 0;
 		p->next_partid = 1;
+		p->plugin = cmd->plugin;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -78,7 +82,7 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 						  const jsmntok_t *toks,
 						  struct payment *p)
 {
-	plugin_log(p->cmd->plugin, LOG_DBG,
+	plugin_log(p->plugin, LOG_DBG,
 		   "Failing a partial payment due to a failed RPC call: %.*s",
 		   toks->end - toks->start, buffer + toks->start);
 
@@ -114,7 +118,7 @@ static struct payment_tree_result payment_collect_result(struct payment *p)
 		 * we sent in total. */
 		if (!amount_msat_add(&res.sent, res.sent, cres.sent))
 			plugin_err(
-			    p->cmd->plugin,
+			    p->plugin,
 			    "Number overflow summing partial payments: %s + %s",
 			    type_to_string(tmpctx, struct amount_msat,
 					   &res.sent),
@@ -151,8 +155,8 @@ void payment_start(struct payment *p)
 
 	/* TODO If this is not the root, we can actually skip the getinfo call
 	 * and just reuse the parent's value. */
-	send_outreq(p->cmd->plugin,
-		    jsonrpc_request_start(p->cmd->plugin, NULL, "getinfo",
+	send_outreq(p->plugin,
+		    jsonrpc_request_start(p->plugin, NULL, "getinfo",
 					  payment_getinfo_success,
 					  payment_rpc_failure, p));
 }
@@ -231,13 +235,13 @@ static struct command_result *payment_getroute_error(struct command *cmd,
 static void payment_getroute(struct payment *p)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(p->cmd->plugin, NULL, "getroute",
+	req = jsonrpc_request_start(p->plugin, NULL, "getroute",
 				    payment_getroute_result,
 				    payment_getroute_error, p);
 	json_add_node_id(req->js, "id", p->getroute_destination);
 	json_add_amount_msat_only(req->js, "msatoshi", p->amount);
 	json_add_num(req->js, "riskfactor", 1);
-	send_outreq(p->cmd->plugin, req);
+	send_outreq(p->plugin, req);
 }
 
 static u8 *tal_towire_legacy_payload(const tal_t *ctx, const struct legacy_payload *payload)
@@ -376,12 +380,12 @@ static struct command_result *payment_sendonion_success(struct command *cmd,
 							  struct payment *p)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(p->cmd->plugin, NULL, "waitsendpay",
+	req = jsonrpc_request_start(p->plugin, NULL, "waitsendpay",
 				    payment_waitsendpay_finished,
 				    payment_waitsendpay_finished, p);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
 	json_add_num(req->js, "partid", p->partid);
-	send_outreq(p->cmd->plugin, req);
+	send_outreq(p->plugin, req);
 
 	return command_still_pending(cmd);
 }
@@ -396,7 +400,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	struct secret *secrets;
 	p->createonion_response = tal_createonion_response_from_json(p, buffer, toks);
 
-	req = jsonrpc_request_start(p->cmd->plugin, NULL, "sendonion",
+	req = jsonrpc_request_start(p->plugin, NULL, "sendonion",
 				    payment_sendonion_success,
 				    payment_rpc_failure, p);
 	json_add_hex_talarr(req->js, "onion", p->createonion_response->onion);
@@ -419,7 +423,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 	json_add_num(req->js, "partid", p->partid);
 
-	send_outreq(p->cmd->plugin, req);
+	send_outreq(p->plugin, req);
 	return command_still_pending(cmd);
 }
 
@@ -488,7 +492,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 static void payment_sendonion(struct payment *p)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(p->cmd->plugin, NULL, "createonion",
+	req = jsonrpc_request_start(p->plugin, NULL, "createonion",
 				    payment_createonion_success,
 				    payment_rpc_failure, p);
 
@@ -511,7 +515,7 @@ static void payment_sendonion(struct payment *p)
 		json_add_secret(req->js, "sessionkey",
 				p->createonion_request->session_key);
 
-	send_outreq(p->cmd->plugin, req);
+	send_outreq(p->plugin, req);
 }
 
 /* Mutual recursion. */
@@ -731,7 +735,7 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 	struct payment *subpayment;
 	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
 	if (p->step == PAYMENT_STEP_FAILED && rdata->retries > 0) {
-		subpayment = payment_new(p, p->cmd, p, p->modifiers);
+		subpayment = payment_new(p, NULL, p, p->modifiers);
 		payment_start(subpayment);
 		p->step = PAYMENT_STEP_RETRY;
 	}

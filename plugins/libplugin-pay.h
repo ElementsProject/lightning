@@ -101,8 +101,10 @@ enum payment_step {
 };
 
 struct payment {
-	/* The command that triggered this payment. */
+	/* The command that triggered this payment. Only set for the root
+	 * payment. */
 	struct command *cmd;
+	struct plugin *plugin;
 	struct list_node list;
 
 	const char *json_buffer;
