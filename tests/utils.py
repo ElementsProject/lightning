@@ -1,32 +1,54 @@
 from pyln.testing.utils import TEST_NETWORK, SLOW_MACHINE, TIMEOUT, VALGRIND, DEVELOPER, DEPRECATED_APIS  # noqa: F401
 from pyln.testing.utils import env, only_one, wait_for, write_config, TailableProc, sync_blockheight, wait_channel_quiescent, get_tx_p2wsh_outnum  # noqa: F401
-
+import bitstring
 
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
 
 
-def expected_peer_features():
+def hex_bits(features):
+    # We always to full bytes
+    flen = (max(features + [0]) + 7) // 8 * 8
+    res = bitstring.BitArray(length=flen)
+    # Big endian sucketh.
+    for f in features:
+        res[flen - 1 - f] = 1
+    return res.hex
+
+
+def expected_peer_features(wumbo_channels=False, extra=[]):
     """Return the expected peer features hexstring for this configuration"""
-    # features 1, 3, 7, 9, 11, 13, 15 and 17 (0x02aaa2).
-    return "02aaa2"
+    features = [1, 5, 7, 9, 11, 13, 15, 17]
+    if EXPERIMENTAL_FEATURES:
+        # OPT_ONION_MESSAGES
+        features += [103]
+    if wumbo_channels:
+        features += [19]
+    return hex_bits(features + extra)
 
 
 # With the addition of the keysend plugin, we now send a different set of
 # features for the 'node' and the 'peer' feature sets
-def expected_node_features():
+def expected_node_features(wumbo_channels=False, extra=[]):
     """Return the expected node features hexstring for this configuration"""
-    # features 1, 3, 7, 9, 11, 13, 15, 17 and 55 (0x8000000002aaa2).
-    return "8000000002aaa2"
-
-
-def expected_channel_features():
-    """Return the expected channel features hexstring for this configuration"""
-    # experimental OPT_ONION_MESSAGES
+    features = [1, 5, 7, 9, 11, 13, 15, 17, 55]
     if EXPERIMENTAL_FEATURES:
-        return '80000000000000000000000000'
-    else:
-        return ''
+        # OPT_ONION_MESSAGES
+        features += [103]
+    if wumbo_channels:
+        features += [19]
+    return hex_bits(features + extra)
+
+
+def expected_channel_features(wumbo_channels=False, extra=[]):
+    """Return the expected channel features hexstring for this configuration"""
+    features = []
+    if EXPERIMENTAL_FEATURES:
+        # OPT_ONION_MESSAGES
+        features += [103]
+    if wumbo_channels:
+        features += [19]
+    return hex_bits(features + extra)
 
 
 def check_coin_moves(n, account_id, expected_moves):
