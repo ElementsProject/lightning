@@ -10,8 +10,10 @@ endif
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
 ECHO := :
+SUPPRESS_OUTPUT := > /dev/null
 else
 ECHO := echo
+SUPPRESS_OUTPUT :=
 endif
 
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
@@ -471,7 +473,7 @@ clean:
 
 update-mocks: $(ALL_GEN_HEADERS)
 update-mocks/%: %
-	@MAKE=$(MAKE) tools/update-mocks.sh "$*"
+	@MAKE=$(MAKE) tools/update-mocks.sh "$*" $(SUPPRESS_OUTPUT)
 
 unittest/%: %
 	$(VG) $(VG_TEST_ARGS) $* > /dev/null
