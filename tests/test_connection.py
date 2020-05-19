@@ -7,6 +7,7 @@ from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT,
     SLOW_MACHINE, expected_peer_features, expected_node_features,
+    expected_channel_features,
     check_coin_moves, first_channel_id, account_balance
 )
 from bitcoin.core import CMutableTransaction, CMutableTxOut
@@ -2255,18 +2256,13 @@ def test_pay_disconnect_stress(node_factory, executor):
 
 
 def test_wumbo_channels(node_factory, bitcoind):
-    f = bytes.fromhex(expected_peer_features())
-
-    # OPT_LARGE_CHANNELS = 18 (19 for us). 0x080000
-    f = (f[:-3] + bytes([f[-3] | 0x08]) + f[-2:]).hex()
-
     l1, l2, l3 = node_factory.get_nodes(3,
                                         opts=[{'large-channels': None},
                                               {'large-channels': None},
                                               {}])
     conn = l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
-    assert conn['features'] == f
-    assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['features'] == f
+    assert conn['features'] == expected_peer_features(wumbo_channels=True)
+    assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['features'] == expected_peer_features(wumbo_channels=True)
 
     # Now, can we open a giant channel?
     l1.fundwallet(1 << 26)
@@ -2283,6 +2279,10 @@ def test_wumbo_channels(node_factory, bitcoind):
     # Make sure channel capacity is what we expected.
     assert ([c['amount_msat'] for c in l3.rpc.listchannels()['channels']]
             == [Millisatoshi(str(1 << 24) + "sat")] * 2)
+
+    # Make sure channel features are right from channel_announcement
+    assert ([c['features'] for c in l3.rpc.listchannels()['channels']]
+            == [expected_channel_features(wumbo_channels=True)] * 2)
 
     # Make sure we can't open a wumbo channel if we don't agree.
     with pytest.raises(RpcError, match='Amount exceeded'):
