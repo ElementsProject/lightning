@@ -107,7 +107,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 *
 	 * It's incredibly useful for grouping object lifetimes, as we'll see.
 	 * For example, a `struct lightningd` has a pointer to a `log_book`
-	 * which is allocated off the `struct lightnintd`, and has its own
+	 * which is allocated off the `struct lightningd`, and has its own
 	 * internal members allocated off `log_book`: freeing `struct
 	 * lightningd` frees them all.
 	 *
