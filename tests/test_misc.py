@@ -1880,6 +1880,8 @@ def test_list_features_only(node_factory):
                 'option_payment_secret/odd',
                 'option_basic_mpp/odd',
                 ]
+    if EXPERIMENTAL_FEATURES:
+        expected += ['option_unknown_102/odd']
     assert features == expected
 
 

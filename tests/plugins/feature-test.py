@@ -6,9 +6,9 @@ from pyln.client import Plugin
 # later check that they are being passed correctly.
 plugin = Plugin(
     dynamic=False,
-    init_features=1 << 101,
-    node_features=1 << 103,
-    invoice_features=1 << 105,
+    init_features=1 << 201,
+    node_features=1 << 203,
+    invoice_features=1 << 205,
 )
 
 

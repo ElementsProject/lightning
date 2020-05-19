@@ -6,7 +6,8 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
 from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
-    DEPRECATED_APIS, expected_peer_features, expected_node_features, account_balance,
+    DEPRECATED_APIS, expected_peer_features, expected_node_features,
+    expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, check_coin_moves_idx
 )
 
@@ -1001,9 +1002,9 @@ def test_plugin_feature_announce(node_factory):
     registers an individual featurebit for each of the locations we can stash
     feature bits in:
 
-     - 1 << 101 for `init` messages
-     - 1 << 103 for `node_announcement`
-     - 1 << 105 for bolt11 invoices
+     - 1 << 201 for `init` messages
+     - 1 << 203 for `node_announcement`
+     - 1 << 205 for bolt11 invoices
 
     """
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/feature-test.py')
@@ -1013,18 +1014,18 @@ def test_plugin_feature_announce(node_factory):
     )
 
     # Check the featurebits we've set in the `init` message from
-    # feature-test.py. (1 << 101) results in 13 bytes featutebits (000d) and
-    # has a leading 0x20.
-    assert l1.daemon.is_in_log(r'\[OUT\] 001000.*000d20{:0>24}'.format(expected_peer_features()))
+    # feature-test.py.
+    assert l1.daemon.is_in_log(r'\[OUT\] 001000022200....{}'
+                               .format(expected_peer_features(extra=[201])))
 
     # Check the invoice featurebit we set in feature-test.py
     inv = l1.rpc.invoice(123, 'lbl', 'desc')['bolt11']
     details = Invoice.decode(inv)
-    assert(details.featurebits.int & (1 << 105) != 0)
+    assert(details.featurebits.int & (1 << 205) != 0)
 
     # Check the featurebit set in the `node_announcement`
     node = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
-    assert(int(node['features'], 16) & (1 << 103) != 0)
+    assert node['features'] == expected_node_features(extra=[203])
 
 
 def test_hook_chaining(node_factory):
@@ -1247,7 +1248,7 @@ def test_feature_set(node_factory):
     fs = l1.rpc.call('getfeatureset')
     assert fs['init'] == expected_peer_features()
     assert fs['node'] == expected_node_features()
-    assert fs['channel'] == ''
+    assert fs['channel'] == expected_channel_features()
     assert 'invoice' in fs
 
 
