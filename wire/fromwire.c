@@ -16,7 +16,7 @@
 extern const struct chainparams *chainparams;
 
 /* Sets *cursor to NULL and returns NULL when extraction fails. */
-const void *fromwire_fail(const u8 **cursor, size_t *max)
+void *fromwire_fail(const u8 **cursor, size_t *max)
 {
 	*cursor = NULL;
 	*max = 0;
@@ -211,10 +211,9 @@ u8 *fromwire_tal_arrn(const tal_t *ctx,
 		      const u8 **cursor, size_t *max, size_t num)
 {
 	u8 *arr;
-	if (num > *max) {
-		fromwire_fail(cursor, max);
-		return NULL;
-	}
+	if (num > *max)
+		return fromwire_fail(cursor, max);
+
 	arr = tal_arr(ctx, u8, num);
 	fromwire_u8_array(cursor, max, arr, num);
 	return arr;
@@ -242,8 +241,7 @@ char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
 		if ((*cursor)[i] < ' ')
 			break;
 	}
-	fromwire_fail(cursor, max);
-	return NULL;
+	return fromwire_fail(cursor, max);
 }
 
 void fromwire_siphash_seed(const u8 **cursor, size_t *max,

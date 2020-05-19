@@ -28,10 +28,8 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	entry->addresses = tal_arr(entry, struct wireaddr, numaddresses);
 	for (i=0; i<numaddresses; i++) {
 		/* Gossipd doesn't hand us addresses we can't understand. */
-		if (!fromwire_wireaddr(pptr, max, &entry->addresses[i])) {
-			fromwire_fail(pptr, max);
-			return NULL;
-		}
+		if (!fromwire_wireaddr(pptr, max, &entry->addresses[i]))
+			return fromwire_fail(pptr, max);
 	}
 	fromwire(pptr, max, entry->alias, ARRAY_SIZE(entry->alias));
 	fromwire(pptr, max, entry->color, ARRAY_SIZE(entry->color));
@@ -210,8 +208,7 @@ struct exclude_entry *fromwire_exclude_entry(const tal_t *ctx,
 			fromwire_node_id(pptr, max, &entry->u.node_id);
 			return entry;
 		default:
-			fromwire_fail(pptr, max);
-			return NULL;
+			return fromwire_fail(pptr, max);
 	}
 }
 
