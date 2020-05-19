@@ -2375,3 +2375,16 @@ def test_getsharedsecret(node_factory):
     # knowing only the public key of the other.
     assert (l1.rpc.getsharedsecret(l2.info["id"])["shared_secret"]
             == l2.rpc.getsharedsecret(l1.info["id"])["shared_secret"])
+
+
+def test_commitfee_option(node_factory):
+    """Sanity check for the --commit-fee startup option."""
+    l1, l2 = node_factory.get_nodes(2, opts=[{"commit-fee": "200"}, {}])
+
+    mock_wu = 5000
+    for l in [l1, l2]:
+        l.set_feerates((mock_wu, 0, 0, 0), True)
+    l1_commit_fees = l1.rpc.call("estimatefees")["unilateral_close"]
+    l2_commit_fees = l2.rpc.call("estimatefees")["unilateral_close"]
+
+    assert l1_commit_fees == 2 * l2_commit_fees == 2 * 4 * mock_wu  # WU->VB
