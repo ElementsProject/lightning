@@ -1007,7 +1007,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 						    &output_witscripts,
 						    &remote_per_commit,
 						    &option_static_remotekey))
-		bad_req(conn, c, msg_in);
+		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
 
 	/* Basic sanity checks. */
