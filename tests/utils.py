@@ -46,8 +46,6 @@ def expected_channel_features(wumbo_channels=False, extra=[]):
     if EXPERIMENTAL_FEATURES:
         # OPT_ONION_MESSAGES
         features += [103]
-    if wumbo_channels:
-        features += [19]
     return hex_bits(features + extra)
 
 
