@@ -427,12 +427,26 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/* Temporary serialization method for the tlv_payload.data until we rework the
+ * API that is generated from the specs to use the setter/getter interface. */
+static void tlvstream_set_tlv_payload_data(struct tlv_field **stream,
+					   struct secret *payment_secret,
+					   u64 total_msat)
+{
+		u8 *ser = tal_arr(NULL, u8, 0);
+		towire_secret(&ser, payment_secret);
+		towire_tu64(&ser, total_msat);
+		tlvstream_set_raw(stream, TLV_TLV_PAYLOAD_PAYMENT_DATA,
+				  take(ser));
+}
+
 static void payment_compute_onion_payloads(struct payment *p)
 {
 	struct createonion_request *cr;
 	size_t hopcount;
 	static struct short_channel_id all_zero_scid;
 	struct createonion_hop *cur;
+	struct payment *root = payment_root(p);
 	p->step = PAYMENT_STEP_ONION_PAYLOAD;
 	hopcount = tal_count(p->route);
 
@@ -461,8 +475,19 @@ static void payment_compute_onion_payloads(struct payment *p)
 			    p->start_block + p->route[i + 1].delay;
 			break;
 		case ROUTE_HOP_TLV:
-			/* TODO(cdecker) Implement */
-			abort();
+			cur->tlv_payload = tlv_tlv_payload_new(cr->hops);
+			tlvstream_set_tu64(
+			    &cur->tlv_payload->fields,
+			    TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
+			    p->route[i + 1].amount.millisatoshis); /* Raw: TLV payload generation*/
+			tlvstream_set_tu32(&cur->tlv_payload->fields,
+					   TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
+					   p->start_block +
+					       p->route[i + 1].delay);
+			tlvstream_set_short_channel_id(
+			    &cur->tlv_payload->fields,
+			    TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID,
+			    &p->route[i + 1].channel_id);
 		}
 	}
 
@@ -480,8 +505,19 @@ static void payment_compute_onion_payloads(struct payment *p)
 		    p->start_block + p->route[hopcount - 1].delay;
 		break;
 	case ROUTE_HOP_TLV:
-		/* TODO(cdecker) Implement */
-		abort();
+		cur->tlv_payload = tlv_tlv_payload_new(cr->hops);
+		tlvstream_set_tu64(&cur->tlv_payload->fields,
+				   TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
+				   p->route[hopcount - 1].amount.millisatoshis); /* Raw: TLV payload generation*/
+		tlvstream_set_tu32(&cur->tlv_payload->fields,
+				   TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
+				   p->start_block +
+				       p->route[hopcount - 1].delay);
+
+		if (root->payment_secret != NULL)
+			tlvstream_set_tlv_payload_data(
+			    &cur->tlv_payload->fields, root->payment_secret,
+			    root->amount.millisatoshis);  /* Raw: TLV payload generation*/
 	}
 
 	/* Now allow all the modifiers to mess with the payloads, before we
@@ -492,6 +528,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 static void payment_sendonion(struct payment *p)
 {
 	struct out_req *req;
+	u8 *payload, *tlv;
 	req = jsonrpc_request_start(p->plugin, NULL, "createonion",
 				    payment_createonion_success,
 				    payment_rpc_failure, p);
@@ -501,9 +538,19 @@ static void payment_sendonion(struct payment *p)
 		json_object_start(req->js, NULL);
 		struct createonion_hop *hop = &p->createonion_request->hops[i];
 		json_add_node_id(req->js, "pubkey", &hop->pubkey);
-		json_add_hex_talarr(
-		    req->js, "payload",
-		    tal_towire_legacy_payload(tmpctx, hop->legacy_payload));
+		if (hop->style == ROUTE_HOP_LEGACY) {
+			payload = tal_towire_legacy_payload(tmpctx, hop->legacy_payload);
+			json_add_hex_talarr(req->js, "payload", payload);
+		}else {
+			tlv = tal_arr(tmpctx, u8, 0);
+			towire_tlvstream_raw(&tlv, hop->tlv_payload->fields);
+			payload = tal_arr(tmpctx, u8, 0);
+			towire_bigsize(&payload, tal_bytelen(tlv));
+			towire(&payload, tlv, tal_bytelen(tlv));
+			json_add_hex_talarr(req->js, "payload", payload);
+			tal_free(tlv);
+		}
+		tal_free(payload);
 		json_object_end(req->js);
 	}
 	json_array_end(req->js);

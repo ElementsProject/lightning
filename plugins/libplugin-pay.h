@@ -119,6 +119,9 @@ struct payment {
 	/* Payment hash extracted from the invoice if any. */
 	struct sha256 *payment_hash;
 
+	/* Payment secret, from the invoice if any. */
+	struct secret *payment_secret;
+
 	u32 partid;
 	u32 next_partid;
 

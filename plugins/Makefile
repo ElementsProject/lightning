@@ -52,6 +52,8 @@ PLUGIN_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wireaddr.o			\
 	wire/fromwire.o				\
+	wire/gen_onion_wire.o			\
+	wire/tlvstream.o			\
 	wire/towire.o
 
 plugins/pay: bitcoin/chainparams.o $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
