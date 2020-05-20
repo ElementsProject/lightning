@@ -1157,6 +1157,7 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 {
 	bool is_outbound;
 	struct amount_sat channel_value;
+	struct amount_msat push_value;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 	u16 local_to_self_delay;
@@ -1168,7 +1169,7 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 	bool option_static_remotekey;
 
 	if (!fromwire_hsm_ready_channel(tmpctx, msg_in, &is_outbound,
-					&channel_value, &funding_txid,
+					&channel_value, &push_value, &funding_txid,
 					&funding_txout, &local_to_self_delay,
 					&local_shutdown_script,
 					&remote_basepoints,
@@ -1182,6 +1183,7 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 		&c->id, c->dbid,
 		is_outbound,
 		&channel_value,
+		&push_value,
 		&funding_txid,
 		funding_txout,
 		local_to_self_delay,

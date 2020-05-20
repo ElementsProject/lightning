@@ -519,6 +519,7 @@ proxy_stat proxy_handle_ready_channel(
 	u64 dbid,
 	bool is_outbound,
 	struct amount_sat *channel_value,
+	struct amount_msat *push_value,
 	struct bitcoin_txid *funding_txid,
 	u16 funding_txout,
 	u16 local_to_self_delay,
@@ -532,6 +533,7 @@ proxy_stat proxy_handle_ready_channel(
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
 		"is_outbound=%s channel_value=%" PRIu64 " "
+		"push_value=%" PRIu64 " "
 		"funding_txid=%s funding_txout=%d "
 		"local_to_self_delay=%d local_shutdown_script=%s "
 		"remote_basepoints=%s remote_funding_pubkey=%s "
@@ -543,6 +545,7 @@ proxy_stat proxy_handle_ready_channel(
 		dbid,
 		(is_outbound ? "true" : "false"),
 		channel_value->satoshis,
+		push_value->millisatoshis,
 		dump_bitcoin_txid(funding_txid).c_str(),
 		funding_txout,
 		local_to_self_delay,
@@ -562,6 +565,7 @@ proxy_stat proxy_handle_ready_channel(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	req.set_is_outbound(is_outbound);
 	req.set_channel_value_sat(channel_value->satoshis);
+	req.set_push_value_msat(push_value->millisatoshis);
 	marshal_outpoint(funding_txid, funding_txout, req.mutable_funding_outpoint());
 	req.set_local_to_self_delay(local_to_self_delay);
 	marshal_script(local_shutdown_script, req.mutable_local_shutdown_script());

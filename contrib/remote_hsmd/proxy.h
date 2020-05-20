@@ -53,6 +53,7 @@ proxy_stat proxy_handle_ready_channel(
 	u64 dbid,
 	bool is_outbound,
 	struct amount_sat *channel_value,
+	struct amount_msat *push_value,
 	struct bitcoin_txid *funding_txid,
 	u16 funding_txout,
 	u16 local_to_self_delay,

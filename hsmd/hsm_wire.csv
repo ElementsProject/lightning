@@ -56,6 +56,7 @@ msgdata,hsm_get_channel_basepoints_reply,funding_pubkey,pubkey,
 msgtype,hsm_ready_channel,24
 msgdata,hsm_ready_channel,is_outbound,bool,
 msgdata,hsm_ready_channel,channel_value,amount_sat,
+msgdata,hsm_ready_channel,push_value,amount_msat,
 msgdata,hsm_ready_channel,funding_txid,bitcoin_txid,
 msgdata,hsm_ready_channel,funding_txout,u16,
 msgdata,hsm_ready_channel,local_to_self_delay,u16,

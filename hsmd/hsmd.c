@@ -1471,6 +1471,15 @@ static struct io_plan *handle_new_channel(struct io_conn *conn,
 			 take(towire_hsm_new_channel_reply(NULL)));
 }
 
+static bool mem_is_zero(const void *mem, size_t len)
+{
+    size_t i;
+    for (i = 0; i < len; ++i)
+        if (((const unsigned char *)mem)[i])
+            return false;
+    return true;
+}
+
 /*~ This is used to provide all unchanging public channel parameters. */
 static struct io_plan *handle_ready_channel(struct io_conn *conn,
 					    struct client *c,
@@ -1478,6 +1487,7 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 {
 	bool is_outbound;
 	struct amount_sat channel_value;
+	struct amount_msat push_value;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 	u16 local_to_self_delay;
@@ -1489,7 +1499,7 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 	bool option_static_remotekey;
 
 	if (!fromwire_hsm_ready_channel(tmpctx, msg_in, &is_outbound,
-					&channel_value, &funding_txid,
+					&channel_value, &push_value, &funding_txid,
 					&funding_txout, &local_to_self_delay,
 					&local_shutdown_script,
 					&remote_basepoints,
@@ -1498,6 +1508,15 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 					&remote_shutdown_script,
 					&option_static_remotekey))
 		return bad_req(conn, c, msg_in);
+
+	/* Fail fast if any values are obviously uninitialized. */
+	assert(channel_value.satoshis > 0);
+	assert(push_value.millisatoshis / 1000 <= channel_value.satoshis);
+	assert(!mem_is_zero(&funding_txid, sizeof(funding_txid)));
+	assert(local_to_self_delay > 0);
+	assert(!mem_is_zero(&remote_basepoints, sizeof(remote_basepoints)));
+	assert(!mem_is_zero(&remote_funding_pubkey, sizeof(remote_funding_pubkey)));
+	assert(remote_to_self_delay > 0);
 
 	return req_reply(conn, c,
 			 take(towire_hsm_ready_channel_reply(NULL)));
