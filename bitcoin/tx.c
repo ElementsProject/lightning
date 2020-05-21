@@ -233,8 +233,7 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 		return NULL;
 	}
 
-	res = tal_arr(ctx, u8, output->script_len);
-	memcpy(res, output->script, output->script_len);
+	res = tal_dup_arr(ctx, u8, output->script, output->script_len, 0);
 	return res;
 }
 
