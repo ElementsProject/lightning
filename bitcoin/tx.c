@@ -168,6 +168,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 				  NULL /* Empty witness stack */, &input);
 	input->features = chainparams->is_elements ? WALLY_TX_IS_ELEMENTS : 0;
 	wally_tx_add_input(tx->wtx, input);
+	psbt_add_input(tx->psbt, input, i);
 	wally_tx_input_free(input);
 
 	/* Now store the input amount if we know it, so we can sign later */
