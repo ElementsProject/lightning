@@ -478,7 +478,6 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 			      varint_t input_count, varint_t output_count,
 			      u32 nlocktime)
 {
-	int ret;
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	assert(chainparams);
 
@@ -496,11 +495,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 	tx->wtx->locktime = nlocktime;
 	tx->wtx->version = 2;
 	tx->chainparams = chainparams;
-
-	ret = wally_psbt_init_alloc(input_count, output_count,
-				    0, &tx->psbt);
-	assert(ret == WALLY_OK);
-	ret = wally_psbt_set_global_tx(tx->psbt, tx->wtx);
+	tx->psbt = new_psbt(tx, tx->wtx);
 
 	return tx;
 }
@@ -519,7 +514,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 				   size_t *max)
 {
 	size_t wsize;
-	int flags = WALLY_TX_FLAG_USE_WITNESS, ret;
+	int flags = WALLY_TX_FLAG_USE_WITNESS;
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 
 	if (chainparams->is_elements)
@@ -546,11 +541,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	    tal_arrz(tx, struct amount_sat *, tx->wtx->inputs_allocation_len);
 	tx->chainparams = chainparams;
 
-	ret = wally_psbt_init_alloc(tx->wtx->num_inputs, tx->wtx->num_outputs,
-				    0, &tx->psbt);
-	assert(ret == WALLY_OK);
-	ret = wally_psbt_set_global_tx(tx->psbt, tx->wtx);
-
+	tx->psbt = new_psbt(tx, tx->wtx);
 
 	*cursor += wsize;
 	*max -= wsize;
