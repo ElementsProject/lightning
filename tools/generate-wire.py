@@ -231,7 +231,6 @@ class Type(FieldSet):
         'exclude_entry',
         'fee_states',
         'onionreply',
-        'witscript',
         'feature_set',
         'onionmsg_path',
         'route_hop',
