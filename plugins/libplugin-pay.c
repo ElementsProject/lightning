@@ -7,6 +7,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 
+#define DEFAULT_FINAL_CLTV_DELTA 9
+
 /* Just a container to collect a subtree result so we can summarize all
  * sub-payments and return a reasonable result to the caller of `pay` */
 struct payment_tree_result {
@@ -35,12 +37,14 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->cmd = cmd;
 	p->start_time = time_now();
 	p->result = NULL;
+	p->getroute_cltv = DEFAULT_FINAL_CLTV_DELTA;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
 		assert(cmd == NULL);
 		tal_arr_expand(&parent->children, p);
 		p->destination = p->getroute_destination = parent->destination;
+		p->getroute_cltv = parent->getroute_cltv;
 		p->amount = parent->amount;
 		p->payment_hash = parent->payment_hash;
 		p->partid = payment_root(p->parent)->next_partid++;
@@ -241,6 +245,7 @@ static void payment_getroute(struct payment *p)
 	json_add_node_id(req->js, "id", p->getroute_destination);
 	json_add_amount_msat_only(req->js, "msatoshi", p->amount);
 	json_add_num(req->js, "riskfactor", 1);
+	json_add_num(req->js, "cltv", p->getroute_cltv);
 	send_outreq(p->plugin, req);
 }
 
