@@ -141,19 +141,17 @@ void psbt_rm_output(struct wally_psbt *psbt,
 void towire_psbt(u8 **pptr, const struct wally_psbt *psbt)
 {
 	/* Let's include the PSBT bytes */
-	for (size_t room = 1024; room < 1024 * 1000; room *= 2) {
-		u8 *pbt_bytes = tal_arr(NULL, u8, room);
-		size_t bytes_written;
-		if (wally_psbt_to_bytes(psbt, pbt_bytes, room, &bytes_written) == WALLY_OK) {
-			towire_u32(pptr, bytes_written);
-			towire_u8_array(pptr, pbt_bytes, bytes_written);
-			tal_free(pbt_bytes);
-			return;
-		}
-		tal_free(pbt_bytes);
+	size_t room = 1024 * 1000;
+	u8 *pbt_bytes = tal_arr(NULL, u8, room);
+	size_t bytes_written;
+	if (wally_psbt_to_bytes(psbt, pbt_bytes, room, &bytes_written) != WALLY_OK) {
+		/* something went wrong. bad libwally ?? */
+		abort();
 	}
-	/* PSBT is too big */
-	abort();
+
+	towire_u32(pptr, bytes_written);
+	towire_u8_array(pptr, pbt_bytes, bytes_written);
+	tal_free(pbt_bytes);
 }
 
 struct wally_psbt *fromwire_psbt(const tal_t *ctx,
