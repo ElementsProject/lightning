@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <bitcoin/psbt.c>
 #include <bitcoin/pullpush.c>
 #include <bitcoin/shadouble.c>
 #include <bitcoin/tx.c>
@@ -43,16 +44,6 @@ u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
 /* Generated stub for fromwire_u16 */
 u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u16 called!\n"); abort(); }
-/* Generated stub for psbt_add_input */
-struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt UNNEEDED,
-					struct wally_tx_input *input UNNEEDED,
-					size_t insert_at UNNEEDED)
-{ fprintf(stderr, "psbt_add_input called!\n"); abort(); }
-/* Generated stub for psbt_add_output */
-struct wally_psbt_output *psbt_add_output(struct wally_psbt *psbt UNNEEDED,
-					  struct wally_tx_output *output UNNEEDED,
-					  size_t insert_at UNNEEDED)
-{ fprintf(stderr, "psbt_add_output called!\n"); abort(); }
 /* Generated stub for towire_amount_sat */
 void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "towire_amount_sat called!\n"); abort(); }

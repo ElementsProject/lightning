@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <bitcoin/psbt.h>
-#include <ccan/tal/tal.h>
+#include <ccan/cast/cast.h>
+#include <ccan/short_types/short_types.h>
 #include <string.h>
 #include <wally_psbt.h>
 #include <wally_transaction.h>
@@ -12,6 +13,54 @@
 #define REMOVE_ELEM(arr, pos, num)				\
 	memmove((arr) + (pos), (arr) + (pos) + 1,		\
 		sizeof(*(arr)) * ((num) - ((pos) + 1)))
+
+void psbt_destroy(struct wally_psbt *psbt)
+{
+	wally_psbt_free(psbt);
+}
+
+struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
+{
+	struct wally_psbt *psbt;
+	int wally_err;
+	u8 **scripts;
+	size_t *script_lens;
+	struct wally_tx_witness_stack **witnesses;
+
+	wally_err = wally_psbt_init_alloc(wtx->num_inputs, wtx->num_outputs, 0, &psbt);
+	assert(wally_err == WALLY_OK);
+	tal_add_destructor(psbt, psbt_destroy);
+
+	/* we can't have scripts on the psbt's global tx,
+	 * so we erase them/stash them until after it's been populated */
+	scripts = tal_arr(NULL, u8 *, wtx->num_inputs);
+	script_lens = tal_arr(NULL, size_t, wtx->num_inputs);
+	witnesses = tal_arr(NULL, struct wally_tx_witness_stack *, wtx->num_inputs);
+	for (size_t i = 0; i < wtx->num_inputs; i++) {
+		scripts[i] = (u8 *)wtx->inputs[i].script;
+		wtx->inputs[i].script = NULL;
+		script_lens[i] = wtx->inputs[i].script_len;
+		wtx->inputs[i].script_len = 0;
+		witnesses[i] = wtx->inputs[i].witness;
+		wtx->inputs[i].witness = NULL;
+	}
+
+	wally_err = wally_psbt_set_global_tx(psbt, cast_const(struct wally_tx *, wtx));
+	assert(wally_err == WALLY_OK);
+
+	/* set the scripts + witnesses back */
+	for (size_t i = 0; i < wtx->num_inputs; i++) {
+		wtx->inputs[i].script = (unsigned char *)scripts[i];
+		wtx->inputs[i].script_len = script_lens[i];
+		wtx->inputs[i].witness = witnesses[i];
+	}
+
+	tal_free(witnesses);
+	tal_free(scripts);
+	tal_free(script_lens);
+
+	return tal_steal(ctx, psbt);
+}
 
 struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 					struct wally_tx_input *input,
