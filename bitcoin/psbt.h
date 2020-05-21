@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_BITCOIN_PSBT_H
 #define LIGHTNING_BITCOIN_PSBT_H
 #include "config.h"
+#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <stddef.h>
 
@@ -29,4 +30,7 @@ struct wally_psbt_output *psbt_add_output(struct wally_psbt *psbt,
 void psbt_rm_output(struct wally_psbt *psbt,
 		    size_t remove_at);
 
+void towire_psbt(u8 **pptr, const struct wally_psbt *psbt);
+struct wally_psbt *fromwire_psbt(const tal_t *ctx,
+				 const u8 **curosr, size_t *max);
 #endif /* LIGHTNING_BITCOIN_PSBT_H */
