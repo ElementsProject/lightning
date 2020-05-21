@@ -318,12 +318,12 @@ void bitcoin_tx_output_get_amount_sat(struct bitcoin_tx *tx, int outnum,
 	*amount = amount_asset_to_sat(&asset_amt);
 }
 
-
 void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 				  u8 **witness)
 {
 	struct wally_tx_witness_stack *stack = NULL;
 	size_t stack_size = tal_count(witness);
+	struct wally_psbt_input *in;
 
 	/* Free any lingering witness */
 	if (witness) {
@@ -333,15 +333,30 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 						   tal_bytelen(witness[i]));
 	}
 	wally_tx_set_input_witness(tx->wtx, innum, stack);
+
+	/* Also add to the psbt */
+	if (stack) {
+		assert(innum < tx->psbt->num_inputs);
+		in = &tx->psbt->inputs[innum];
+		wally_psbt_input_set_final_witness(in, stack);
+	}
+
 	if (stack)
 		wally_tx_witness_stack_free(stack);
 	if (taken(witness))
 	    tal_free(witness);
+
 }
 
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
 {
+	struct wally_psbt_input *in;
 	wally_tx_set_input_script(tx->wtx, innum, script, tal_bytelen(script));
+
+	/* Also add to the psbt */
+	assert(innum < tx->psbt->num_inputs);
+	in = &tx->psbt->inputs[innum];
+	wally_psbt_input_set_final_script_sig(in, script, tal_bytelen(script));
 }
 
 const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
