@@ -1,6 +1,7 @@
 #include "invoices.h"
 #include "wallet.h"
 
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
@@ -1075,6 +1076,20 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 44),
 			   db_column_arr(tmpctx, stmt, 45, u8),
 			   db_column_int(stmt, 46));
+
+	/* as a final step, we go ahead and populate the utxo
+	 * for the last_tx with the funding amount */
+	/* FIXME: input index for funding will not always be zero! */
+	if (chan->last_tx) {
+		const u8 * funding_wscript =
+			bitcoin_redeem_2of2(tmpctx,
+					    &chan->local_funding_pubkey,
+					    &chan->channel_info.remote_fundingkey);
+		psbt_input_set_prev_utxo_wscript(chan->last_tx->psbt,
+						 0, funding_wscript,
+						 chan->funding);
+	}
+
 	return chan;
 }
 
