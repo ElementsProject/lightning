@@ -217,6 +217,10 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 		assert(ret == WALLY_OK);
 	} else {
 		output->satoshi = satoshis;
+
+		/* update the global tx for the psbt also */
+		output = &tx->psbt->tx->outputs[outnum];
+		output->satoshi = satoshis;
 	}
 }
 
