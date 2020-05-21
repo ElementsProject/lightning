@@ -495,7 +495,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 		if (!grind_htlc_tx_fee(&fee, tx, remotesig, wscript, weight))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "htlc_success_fee can't be found "
-				      " for tx %s, signature %s, wscript %s",
+				      "for tx %s, signature %s, wscript %s",
 				      type_to_string(tmpctx, struct bitcoin_tx,
 						     tx),
 				      type_to_string(tmpctx,
@@ -611,7 +611,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 			     out->sat, NULL);
 
 	bitcoin_tx_add_output(
-	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), out->sat);
+	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), NULL, out->sat);
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);

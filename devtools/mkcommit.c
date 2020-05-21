@@ -465,6 +465,7 @@ int main(int argc, char *argv[])
 	for (size_t i = 0; i < tal_count(htlcmap); i++) {
 		struct bitcoin_signature local_htlc_sig, remote_htlc_sig;
 		struct amount_sat amt;
+		struct witscript *w;
 
 		if (!htlcmap[i])
 			continue;
@@ -476,17 +477,15 @@ int main(int argc, char *argv[])
 		local_txs[1+i]->input_amounts[0]
 			= tal_dup(local_txs[1+i], struct amount_sat, &amt);
 
-		printf("# wscript: %s\n", tal_hex(NULL, local_txs[1+i]->output_witscripts[1+i]->ptr));
+		w = bitcoin_tx_output_get_witscript(NULL, local_txs[1+i], 1+i);
+		printf("# wscript: %s\n", tal_hex(NULL, w->ptr));
 
-		bitcoin_tx_hash_for_sig(local_txs[1+i], 0,
-					local_txs[1+i]->output_witscripts[1+i]->ptr,
+		bitcoin_tx_hash_for_sig(local_txs[1+i], 0, w->ptr,
 					SIGHASH_ALL, &hash);
-		sign_tx_input(local_txs[1+i], 0, NULL,
-			      local_txs[1+i]->output_witscripts[1+i]->ptr,
+		sign_tx_input(local_txs[1+i], 0, NULL, w->ptr,
 			      &local_htlc_privkey, &local_htlc_pubkey,
 			      SIGHASH_ALL, &local_htlc_sig);
-		sign_tx_input(local_txs[1+i], 0, NULL,
-			      local_txs[1+i]->output_witscripts[1+i]->ptr,
+		sign_tx_input(local_txs[1+i], 0, NULL, w->ptr,
 			      &remote_htlc_privkey, &remote_htlc_pubkey,
 			      SIGHASH_ALL, &remote_htlc_sig);
 		printf("localsig_on_local output %zu: %s\n",
@@ -498,13 +497,13 @@ int main(int argc, char *argv[])
 			witness = bitcoin_witness_htlc_timeout_tx(NULL,
 								  &local_htlc_sig,
 								  &remote_htlc_sig,
-								  local_txs[1+i]->output_witscripts[1+i]->ptr);
+								  w->ptr);
 		else
 			witness = bitcoin_witness_htlc_success_tx(NULL,
 								  &local_htlc_sig,
 								  &remote_htlc_sig,
 								  preimage_of(&htlcmap[i]->rhash, cast_const2(const struct existing_htlc **, htlcs)),
-								  local_txs[1+i]->output_witscripts[1+i]->ptr);
+								  w->ptr);
 		bitcoin_tx_input_set_witness(local_txs[1+i], 0, witness);
 		printf("htlc tx for output %zu: %s\n",
 		       i, tal_hex(NULL, linearize_tx(NULL, local_txs[1+i])));
@@ -581,6 +580,7 @@ int main(int argc, char *argv[])
 	for (size_t i = 0; i < tal_count(htlcmap); i++) {
 		struct bitcoin_signature local_htlc_sig, remote_htlc_sig;
 		struct amount_sat amt;
+		struct witscript *w;
 
 		if (!htlcmap[i])
 			continue;
@@ -592,16 +592,14 @@ int main(int argc, char *argv[])
 		remote_txs[1+i]->input_amounts[0]
 			= tal_dup(remote_txs[1+i], struct amount_sat, &amt);
 
-		printf("# wscript: %s\n", tal_hex(NULL, remote_txs[1+i]->output_witscripts[1+i]->ptr));
-		bitcoin_tx_hash_for_sig(remote_txs[1+i], 0,
-					remote_txs[1+i]->output_witscripts[1+i]->ptr,
+		w = bitcoin_tx_output_get_witscript(NULL, remote_txs[1+i], 1+i);
+		printf("# wscript: %s\n", tal_hex(NULL, w->ptr));
+		bitcoin_tx_hash_for_sig(remote_txs[1+i], 0, w->ptr,
 					SIGHASH_ALL, &hash);
-		sign_tx_input(remote_txs[1+i], 0, NULL,
-			      remote_txs[1+i]->output_witscripts[1+i]->ptr,
+		sign_tx_input(remote_txs[1+i], 0, NULL, w->ptr,
 			      &local_htlc_privkey, &local_htlc_pubkey,
 			      SIGHASH_ALL, &local_htlc_sig);
-		sign_tx_input(remote_txs[1+i], 0, NULL,
-			      remote_txs[1+i]->output_witscripts[1+i]->ptr,
+		sign_tx_input(remote_txs[1+i], 0, NULL, w->ptr,
 			      &remote_htlc_privkey, &remote_htlc_pubkey,
 			      SIGHASH_ALL, &remote_htlc_sig);
 		printf("localsig_on_remote output %zu: %s\n",
@@ -613,13 +611,13 @@ int main(int argc, char *argv[])
 			witness = bitcoin_witness_htlc_timeout_tx(NULL,
 								  &remote_htlc_sig,
 								  &local_htlc_sig,
-								  remote_txs[1+i]->output_witscripts[1+i]->ptr);
+								  w->ptr);
 		else
 			witness = bitcoin_witness_htlc_success_tx(NULL,
 								  &remote_htlc_sig,
 								  &local_htlc_sig,
 								  preimage_of(&htlcmap[i]->rhash, cast_const2(const struct existing_htlc **, htlcs)),
-								  remote_txs[1+i]->output_witscripts[1+i]->ptr);
+								  w->ptr);
 		bitcoin_tx_input_set_witness(remote_txs[1+i], 0, witness);
 		printf("htlc tx for output %zu: %s\n",
 		       i, tal_hex(NULL, linearize_tx(NULL, remote_txs[1+i])));

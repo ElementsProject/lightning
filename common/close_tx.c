@@ -44,14 +44,14 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	if (amount_sat_greater_eq(to_us, dust_limit)) {
 		script = tal_dup_talarr(tx, u8, our_script);
 		/* One output is to us. */
-		bitcoin_tx_add_output(tx, script, to_us);
+		bitcoin_tx_add_output(tx, script, NULL, to_us);
 		num_outputs++;
 	}
 
 	if (amount_sat_greater_eq(to_them, dust_limit)) {
 		script = tal_dup_talarr(tx, u8, their_script);
 		/* Other output is to them. */
-		bitcoin_tx_add_output(tx, script, to_them);
+		bitcoin_tx_add_output(tx, script, NULL, to_them);
 		num_outputs++;
 	}
 
