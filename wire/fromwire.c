@@ -249,4 +249,3 @@ void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 {
 	fromwire(cursor, max, seed, sizeof(*seed));
 }
-
