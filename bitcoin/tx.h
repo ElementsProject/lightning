@@ -14,10 +14,6 @@
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF
 struct wally_psbt;
 
-struct witscript {
-    u8 *ptr;
-};
-
 struct bitcoin_txid {
 	struct sha256_double shad;
 };
@@ -110,12 +106,8 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx
 /**
  * Helper to get a witness script for an output.
  */
-struct witscript *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
+u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
 
-/**
- * Helper to get all witness scripts for a transaction.
- */
-const struct witscript **bitcoin_tx_get_witscripts(const tal_t *ctx, const struct bitcoin_tx *tx);
 /** bitcoin_tx_output_get_amount_sat - Helper to get transaction output's amount
  *
  * Internally we use a `wally_tx` to represent the transaction. The
@@ -199,12 +191,8 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 				       const u8 **cursor, size_t *max);
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
 						     const u8 **cursor, size_t *max);
-struct witscript *fromwire_witscript(const tal_t *ctx,
-				     const u8 **cursor, size_t *max);
-
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
-void towire_witscript(u8 **pptr, const struct witscript *script);
 
 #endif /* LIGHTNING_BITCOIN_TX_H */

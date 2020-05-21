@@ -996,7 +996,6 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	struct bitcoin_signature sig;
 	struct secrets secrets;
 	const u8 *funding_wscript;
-	struct witscript **output_witscripts;
 	struct pubkey remote_per_commit;
 	bool option_static_remotekey;
 
@@ -1004,7 +1003,6 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 						    &tx,
 						    &remote_funding_pubkey,
 						    &funding,
-						    &output_witscripts,
 						    &remote_per_commit,
 						    &option_static_remotekey))
 		return bad_req(conn, c, msg_in);
@@ -1015,8 +1013,6 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
 	if (tx->wtx->num_outputs == 0)
 		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
-	if (tal_count(output_witscripts) != tx->wtx->num_outputs)
-		return bad_req_fmt(conn, c, msg_in, "tx must have matching witscripts");
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed,

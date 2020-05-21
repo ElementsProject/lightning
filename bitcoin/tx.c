@@ -242,37 +242,19 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 	return res;
 }
 
-struct witscript *bitcoin_tx_output_get_witscript(const tal_t *ctx,
-						  const struct bitcoin_tx *tx,
-						  int outnum)
+u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *tx,
+				    int outnum)
 {
-	struct witscript *wit;
 	struct wally_psbt_output *out;
+
 	assert(outnum < tx->psbt->num_outputs);
 	out = &tx->psbt->outputs[outnum];
 
 	if (out->witness_script_len == 0)
 		return NULL;
 
-	wit = tal(ctx, struct witscript);
-	wit->ptr = tal_dup_arr(ctx, u8, out->witness_script, out->witness_script_len, 0);
-
-	return wit;
+	return tal_dup_arr(ctx, u8, out->witness_script, out->witness_script_len, 0);
 }
-
-const struct witscript **bitcoin_tx_get_witscripts(const tal_t *ctx,
-						   const struct bitcoin_tx *tx)
-{
-	size_t i;
-	struct witscript **witscripts;
-	witscripts = tal_arr(ctx, struct witscript *, tx->wtx->num_outputs);
-
-	for (i = 0; i < tx->wtx->num_outputs; i++)
-		witscripts[i] = bitcoin_tx_output_get_witscript(witscripts, tx, i);
-
-	return cast_const2(const struct witscript **, witscripts);
-}
-
 
 /* FIXME(cdecker) Make the caller pass in a reference to amount_asset, and
  * return false if unintelligible/encrypted. (WARN UNUSED). */
@@ -721,25 +703,4 @@ void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
 	towire_amount_sat(pptr, output->amount);
 	towire_u16(pptr, tal_count(output->script));
 	towire_u8_array(pptr, output->script, tal_count(output->script));
-}
-
-void towire_witscript(u8 **pptr, const struct witscript *script)
-{
-	if (script == NULL) {
-		towire_u16(pptr, 0);
-	} else {
-		assert(script->ptr != NULL);
-		towire_u16(pptr, tal_count(script->ptr));
-		towire_u8_array(pptr, script->ptr, tal_count(script->ptr));
-	}
-}
-
-struct witscript *fromwire_witscript(const tal_t *ctx, const u8 **cursor, size_t *max)
-{
-	struct witscript *retval = tal(ctx, struct witscript);
-	u16 len = fromwire_u16(cursor, max);
-	retval->ptr = fromwire_tal_arrn(retval, cursor, max, len);
-	if (!*cursor)
-		return tal_free(retval);
-	return retval;
 }
