@@ -1769,7 +1769,10 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->json_toks = params;
 	p->destination = p->getroute_destination = &b11->receiver_id;
 	p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
-	p->payment_secret = tal_dup(p, struct secret, b11->payment_secret);
+	p->payment_secret = b11->payment_secret
+				? tal_dup(p, struct secret, b11->payment_secret)
+				: NULL;
+	p->invoice = tal_steal(p, b11);
 	payment_start(p);
 	list_add_tail(&payments, &p->list);
 

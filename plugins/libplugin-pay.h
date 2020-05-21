@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H
 #include "config.h"
 
+#include <common/bolt11.h>
 #include <plugins/libplugin.h>
 #include <wire/gen_onion_wire.h>
 
@@ -129,6 +130,7 @@ struct payment {
 	 * the above destination if we use rendez-vous routing of blinded
 	 * paths to amend the route later in a mixin. */
 	struct node_id  *getroute_destination;
+	u32 getroute_cltv;
 
 	struct createonion_request *createonion_request;
 	struct createonion_response *createonion_response;
@@ -163,6 +165,8 @@ struct payment {
 	struct payment_modifier **modifiers;
 	void **modifier_data;
 	int current_modifier;
+
+	struct bolt11 *invoice;
 
 	struct payment_result *result;
 };
