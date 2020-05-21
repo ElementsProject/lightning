@@ -8,6 +8,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 				  const struct chainparams *chainparams,
 				  const struct bitcoin_txid *commit_txid,
 				  unsigned int commit_output_number,
+				  const u8 *commit_wscript,
 				  struct amount_msat msat,
 				  u16 to_self_delay,
 				  const struct pubkey *revocation_pubkey,
@@ -45,8 +46,8 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 *    * `txin[0]` sequence: `0`
 	 */
 	amount = amount_msat_to_sat_round_down(msat);
-	bitcoin_tx_add_input(tx, commit_txid, commit_output_number, 0, amount,
-			     NULL);
+	bitcoin_tx_add_input(tx, commit_txid, commit_output_number, 0,
+			     NULL, amount, NULL, commit_wscript);
 
 	/* BOLT #3:
 	 * * txout count: 1
@@ -75,6 +76,7 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
 				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
+				   const u8 *commit_wscript,
 				   struct amount_msat htlc_msatoshi,
 				   u16 to_self_delay,
 				   u32 feerate_per_kw,
@@ -83,7 +85,8 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
-	return htlc_tx(ctx, chainparams, commit_txid, commit_output_number, htlc_msatoshi,
+	return htlc_tx(ctx, chainparams, commit_txid, commit_output_number,
+		       commit_wscript, htlc_msatoshi,
 		       to_self_delay,
 		       &keyset->self_revocation_key,
 		       &keyset->self_delayed_payment_key,
@@ -120,6 +123,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
 				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
+				   const u8 *commit_wscript,
 				   struct amount_msat htlc_msatoshi,
 				   u32 cltv_expiry,
 				   u16 to_self_delay,
@@ -130,7 +134,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	return htlc_tx(ctx, chainparams, commit_txid, commit_output_number,
-		       htlc_msatoshi, to_self_delay,
+		       commit_wscript, htlc_msatoshi, to_self_delay,
 		       &keyset->self_revocation_key,
 		       &keyset->self_delayed_payment_key,
 		       htlc_timeout_fee(feerate_per_kw), cltv_expiry);

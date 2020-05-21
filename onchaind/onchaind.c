@@ -613,7 +613,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
 	bitcoin_tx_add_input(tx, &out->txid, out->outnum, to_self_delay,
-			     out->sat, NULL);
+			     NULL, out->sat, NULL, wscript);
 
 	bitcoin_tx_add_output(
 	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), NULL, out->sat);
@@ -1679,6 +1679,7 @@ static void handle_preimage(struct tracked_output **outs,
 			tx = htlc_success_tx(outs[i], chainparams,
 					     &outs[i]->txid,
 					     outs[i]->outnum,
+					     outs[i]->wscript,
 					     htlc_amount,
 					     to_self_delay[LOCAL],
 					     0,
@@ -1923,7 +1924,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 		 */
 		tx = htlc_timeout_tx(tmpctx, chainparams,
 				     &out->txid, out->outnum,
-				     htlc_amount,
+				     htlc_scripts[matches[i]], htlc_amount,
 				     htlcs[matches[i]].cltv_expiry,
 				     to_self_delay[LOCAL], 0, keyset);
 

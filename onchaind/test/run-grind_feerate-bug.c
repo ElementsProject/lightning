@@ -100,6 +100,7 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 				   const struct chainparams *chainparams UNNEEDED,
 				   const struct bitcoin_txid *commit_txid UNNEEDED,
 				   unsigned int commit_output_number UNNEEDED,
+				   const u8 *commit_wscript UNNEEDED,
 				   struct amount_msat htlc_msatoshi UNNEEDED,
 				   u16 to_self_delay UNNEEDED,
 				   u32 feerate_per_kw UNNEEDED,
@@ -338,6 +339,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
 				   const struct bitcoin_txid *commit_txid UNNEEDED,
 				   unsigned int commit_output_number UNNEEDED,
+				   const u8* commit_wscript,
 				   struct amount_msat htlc_msatoshi,
 				   u32 cltv_expiry,
 				   u16 to_self_delay UNNEEDED,
@@ -352,7 +354,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 	assert(tx);
 
 	in_amount = amount_msat_to_sat_round_down(htlc_msatoshi);
-	psbt_input_set_prev_utxo_wscript(tx->psbt, 0, NULL, in_amount);
+	psbt_input_set_prev_utxo_wscript(tx->psbt, 0, commit_wscript, in_amount);
 	tx->chainparams = chainparams;
 
 	tx->wtx->locktime = cltv_expiry;
