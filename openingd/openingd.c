@@ -667,6 +667,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	struct channel_id id_in;
 	const u8 *wscript;
 	char *err_reason;
+	const struct witscript **ws;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 
 	/*~ Now we can initialize the `struct channel`.  This represents
@@ -732,11 +733,12 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 * witness script.  It also needs the amount of the funding output,
 	 * as segwit signatures commit to that as well, even though it doesn't
 	 * explicitly appear in the transaction itself. */
+	ws = bitcoin_tx_get_witscripts(tmpctx, *tx);
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   *tx,
 						   &state->channel->funding_pubkey[REMOTE],
 						   state->channel->funding,
-						   (const struct witscript **) (*tx)->output_witscripts,
+						   ws,
 						   &state->first_per_commitment_point[REMOTE],
 						   state->channel->option_static_remotekey);
 
@@ -911,6 +913,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct bitcoin_signature theirsig, sig;
 	struct bitcoin_tx *local_commit, *remote_commit;
 	struct bitcoin_blkid chain_hash;
+	const struct witscript **ws;
 	u8 *msg;
 	const u8 *wscript;
 	u8 channel_flags;
@@ -1267,11 +1270,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	/* Make HSM sign it */
+	ws = bitcoin_tx_get_witscripts(tmpctx, remote_commit);
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
 						   state->channel->funding,
-						   (const struct witscript **) remote_commit->output_witscripts,
+						   ws,
 						   &state->first_per_commitment_point[REMOTE],
 						   state->channel->option_static_remotekey);
 

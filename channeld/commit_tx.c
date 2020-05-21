@@ -36,8 +36,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
-				 const struct keyset *keyset,
-				 struct witscript *o_wscript)
+				 const struct keyset *keyset)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
@@ -46,19 +45,16 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
 	wscript = htlc_offered_wscript(tx, &ripemd, keyset);
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
-	bitcoin_tx_add_output(tx, p2wsh, amount);
+	bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
 	SUPERVERBOSE("# HTLC %" PRIu64 " offered %s wscript %s\n", htlc->id,
 		     type_to_string(tmpctx, struct amount_sat, &amount),
 		     tal_hex(wscript, wscript));
-	o_wscript->ptr = tal_dup_arr(o_wscript, u8, wscript,
-				     tal_count(wscript), 0);
 	tal_free(wscript);
 }
 
 static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 				  const struct htlc *htlc,
-				  const struct keyset *keyset,
-				  struct witscript *o_wscript)
+				  const struct keyset *keyset)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
@@ -69,15 +65,13 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
 	amount = amount_msat_to_sat_round_down(htlc->amount);
 
-	bitcoin_tx_add_output(tx, p2wsh, amount);
+	bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
 
 	SUPERVERBOSE("# HTLC %"PRIu64" received %s wscript %s\n",
 		     htlc->id,
 		     type_to_string(tmpctx, struct amount_sat,
 				    &amount),
 		     tal_hex(wscript, wscript));
-	o_wscript->ptr = tal_dup_arr(o_wscript, u8,
-				     wscript, tal_count(wscript), 0);
 	tal_free(wscript);
 }
 
@@ -177,10 +171,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit, side))
 			continue;
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		add_offered_htlc_out(tx, n, htlcs[i],
-				     keyset, tx->output_witscripts[n]);
+		add_offered_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
 		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
@@ -196,10 +187,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit, side))
 			continue;
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		add_received_htlc_out(tx, n, htlcs[i], keyset,
-				      tx->output_witscripts[n]);
+		add_received_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
 		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
@@ -216,7 +204,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		u8 *p2wsh = scriptpubkey_p2wsh(tx, wscript);
 		struct amount_sat amount = amount_msat_to_sat_round_down(self_pay);
 
-		bitcoin_tx_add_output(tx, p2wsh, amount);
+		bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
 		/* Add a dummy entry to the htlcmap so we can recognize it later */
 		(*htlcmap)[n] = direct_outputs ? dummy_to_local : NULL;
 		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
@@ -224,11 +212,6 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		SUPERVERBOSE("# to-local amount %s wscript %s\n",
 			     type_to_string(tmpctx, struct amount_sat, &amount),
 			     tal_hex(tmpctx, wscript));
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		tx->output_witscripts[n]->ptr =
-			tal_dup_arr(tx->output_witscripts[n], u8,
-				    wscript, tal_count(wscript), 0);
 		n++;
 	}
 
@@ -249,7 +232,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * This output sends funds to the other peer and thus is a simple
 		 * P2WPKH to `remotepubkey`.
 		 */
-		int pos = bitcoin_tx_add_output(tx, p2wpkh, amount);
+		int pos = bitcoin_tx_add_output(tx, p2wpkh, NULL, amount);
 		assert(pos == n);
 		(*htlcmap)[n] = direct_outputs ? dummy_to_remote : NULL;
 		/* We don't assign cltvs[n]: if we use it, order doesn't matter.

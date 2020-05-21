@@ -176,13 +176,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay, keyset);
 		amount = amount_msat_to_sat_round_down(self_pay);
 		int pos = bitcoin_tx_add_output(
-		    tx, scriptpubkey_p2wsh(tx, wscript), amount);
+		    tx, scriptpubkey_p2wsh(tx, wscript), wscript, amount);
 		assert(pos == n);
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		tx->output_witscripts[n]->ptr =
-			tal_dup_arr(tx->output_witscripts[n], u8,
-				    wscript, tal_count(wscript), 0);
 		output_order[n] = dummy_local;
 		n++;
 	}
@@ -204,7 +199,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		amount = amount_msat_to_sat_round_down(other_pay);
 		int pos = bitcoin_tx_add_output(
 		    tx, scriptpubkey_p2wpkh(tx, &keyset->other_payment_key),
-		    amount);
+		    NULL, amount);
 		assert(pos == n);
 		output_order[n] = dummy_remote;
 		n++;

@@ -237,7 +237,6 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 	for (i = 0; i < tal_count(htlcmap); i++) {
 		const struct htlc *htlc = htlcmap[i];
 		struct bitcoin_tx *tx;
-		struct witscript *witscript;
 
 		if (!htlc)
 			continue;
@@ -256,13 +255,6 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 					     feerate_per_kw,
 					     keyset);
 		}
-		/* Re-use the previously-generated witness script */
-		witscript = (*txs)[0]->output_witscripts[i];
-		tx->output_witscripts[0] =
-		        tal(tx->output_witscripts, struct witscript);
-		tx->output_witscripts[0]->ptr =
-			tal_dup_arr(tx->output_witscripts[0], u8,
-				    witscript->ptr, tal_count(witscript->ptr), 0);
 
 		/* Append to array. */
 		tal_arr_expand(txs, tx);

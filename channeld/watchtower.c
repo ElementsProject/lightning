@@ -71,7 +71,7 @@ penalty_tx_create(const tal_t *ctx,
 	bitcoin_tx_add_input(tx, commitment_txid, to_them_outnum, 0xFFFFFFFF,
 			     to_them_sats, NULL);
 
-	bitcoin_tx_add_output(tx, final_scriptpubkey, to_them_sats);
+	bitcoin_tx_add_output(tx, final_scriptpubkey, NULL, to_them_sats);
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
