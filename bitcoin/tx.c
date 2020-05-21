@@ -158,14 +158,18 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 struct amount_sat amount, u8 *script)
 {
 	struct wally_tx_input *input;
+	int wally_err;
 	size_t i;
 
 	assert(tx->wtx != NULL);
 	i = tx->wtx->num_inputs;
-	wally_tx_input_init_alloc(txid->shad.sha.u.u8,
-				  sizeof(struct bitcoin_txid), outnum, sequence,
-				  script, tal_bytelen(script),
-				  NULL /* Empty witness stack */, &input);
+	wally_err = wally_tx_input_init_alloc(txid->shad.sha.u.u8,
+					      sizeof(struct bitcoin_txid),
+					      outnum, sequence,
+					      script, tal_bytelen(script),
+					      NULL /* Empty witness stack */,
+					      &input);
+	assert(wally_err == WALLY_OK);
 	input->features = chainparams->is_elements ? WALLY_TX_IS_ELEMENTS : 0;
 	wally_tx_add_input(tx->wtx, input);
 	psbt_add_input(tx->psbt, input, i);
