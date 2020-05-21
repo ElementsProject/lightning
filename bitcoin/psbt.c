@@ -1,10 +1,10 @@
 #include <assert.h>
 #include <bitcoin/psbt.h>
 #include <ccan/cast/cast.h>
-#include <ccan/short_types/short_types.h>
 #include <string.h>
 #include <wally_psbt.h>
 #include <wally_transaction.h>
+#include <wire/wire.h>
 
 #define MAKE_ROOM(arr, pos, num)				\
 	memmove((arr) + (pos) + 1, (arr) + (pos),		\
@@ -137,3 +137,56 @@ void psbt_rm_output(struct wally_psbt *psbt,
 	REMOVE_ELEM(psbt->outputs, remove_at, psbt->num_outputs);
 	psbt->num_outputs -= 1;
 }
+
+void towire_psbt(u8 **pptr, const struct wally_psbt *psbt)
+{
+	/* Let's include the PSBT bytes */
+	for (size_t room = 1024; room < 1024 * 1000; room *= 2) {
+		u8 *pbt_bytes = tal_arr(NULL, u8, room);
+		size_t bytes_written;
+		if (wally_psbt_to_bytes(psbt, pbt_bytes, room, &bytes_written) == WALLY_OK) {
+			towire_u32(pptr, bytes_written);
+			towire_u8_array(pptr, pbt_bytes, bytes_written);
+			tal_free(pbt_bytes);
+			return;
+		}
+		tal_free(pbt_bytes);
+	}
+	/* PSBT is too big */
+	abort();
+}
+
+struct wally_psbt *fromwire_psbt(const tal_t *ctx,
+				 const u8 **cursor, size_t *max)
+{
+	struct wally_psbt *psbt;
+	u32 psbt_byte_len;
+	const u8 *psbt_buf;
+
+	psbt_byte_len = fromwire_u32(cursor, max);
+	psbt_buf = fromwire(cursor, max, NULL, psbt_byte_len);
+	if (!psbt_buf)
+		return NULL;
+
+	if (wally_psbt_from_bytes(psbt_buf, psbt_byte_len, &psbt) != WALLY_OK)
+		return fromwire_fail(cursor, max);
+
+	/* We promised it would be owned by ctx: libwally uses a dummy owner */
+	tal_steal(ctx, psbt);
+	tal_add_destructor(psbt, psbt_destroy);
+
+#if DEVELOPER
+	/* Re-marshall for sanity check! */
+	u8 *tmpbuf = tal_arr(NULL, u8, psbt_byte_len);
+	size_t written;
+	if (wally_psbt_to_bytes(psbt, tmpbuf, psbt_byte_len, &written) != WALLY_OK) {
+		tal_free(tmpbuf);
+		tal_free(psbt);
+		return fromwire_fail(cursor, max);
+	}
+	tal_free(tmpbuf);
+#endif
+
+	return psbt;
+}
+

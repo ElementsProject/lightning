@@ -49,6 +49,9 @@ void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }
+/* Generated stub for towire_u32 */
+void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
+{ fprintf(stderr, "towire_u32 called!\n"); abort(); }
 /* Generated stub for towire_u64 */
 void towire_u64(u8 **pptr UNNEEDED, u64 v UNNEEDED)
 { fprintf(stderr, "towire_u64 called!\n"); abort(); }

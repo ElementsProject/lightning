@@ -652,6 +652,10 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 	if (!tx)
 		return fromwire_fail(cursor, max);
 
+	/* pull_bitcoin_tx sets the psbt */
+	tal_free(tx->psbt);
+	tx->psbt = fromwire_psbt(tx, cursor, max);
+
 	input_amts_len = fromwire_u16(cursor, max);
 
 	/* They must give us none or all */
@@ -682,6 +686,7 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 	u8 *lin = linearize_tx(tmpctx, tx);
 	towire_u8_array(pptr, lin, tal_count(lin));
 
+	towire_psbt(pptr, tx->psbt);
 	/* We only want to 'save' the amounts if every amount
 	 * has been populated */
 	for (i = 0; i < tal_count(tx->input_amounts); i++) {
