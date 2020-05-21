@@ -8,9 +8,11 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <wally_psbt.h>
 #include <wally_transaction.h>
 
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF
+struct wally_psbt;
 
 struct witscript {
     u8 *ptr;
@@ -33,6 +35,9 @@ struct bitcoin_tx {
 
 	/* Keep a reference to the ruleset we have to abide by */
 	const struct chainparams *chainparams;
+
+	/* psbt struct */
+	struct wally_psbt *psbt;
 };
 
 struct bitcoin_tx_output {

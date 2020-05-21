@@ -1,6 +1,7 @@
 #include "permute_tx.h"
 #include <stdbool.h>
 #include <string.h>
+#include <wally_psbt.h>
 
 static bool input_better(const struct wally_tx_input *a,
 			 const struct wally_tx_input *b)
