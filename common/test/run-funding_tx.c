@@ -177,6 +177,7 @@ int main(int argc, const char *argv[])
 	utxo.amount = AMOUNT_SAT(5000000000);
 	utxo.is_p2sh = false;
 	utxo.close_info = NULL;
+	utxo.scriptPubkey = NULL;
 	funding_sat = AMOUNT_SAT(10000000);
 	fee = AMOUNT_SAT(13920);
 
