@@ -240,6 +240,15 @@ void json_add_tx(struct json_stream *result,
 	json_add_hex_talarr(result, fieldname, linearize_tx(tmpctx, tx));
 }
 
+void json_add_psbt(struct json_stream *stream,
+		   const char *fieldname,
+		   struct bitcoin_tx *tx)
+{
+	const char *psbt_b64;
+	psbt_b64 = bitcoin_tx_to_psbt_base64(tx, tx);
+	json_add_string(stream, fieldname, take(psbt_b64));
+}
+
 void json_add_amount_msat_compat(struct json_stream *result,
 				 struct amount_msat msat,
 				 const char *rawfieldname,

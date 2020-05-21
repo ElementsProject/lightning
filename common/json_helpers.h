@@ -137,4 +137,10 @@ void json_add_preimage(struct json_stream *result, const char *fieldname,
 void json_add_tx(struct json_stream *result,
 		 const char *fieldname,
 		 const struct bitcoin_tx *tx);
+
+/* '"fieldname" : "cHNidP8BAJoCAAAAAljo..." or "cHNidP8BAJoCAAAAAljo..." if fieldname is NULL */
+void json_add_psbt(struct json_stream *stream,
+		   const char *fieldname,
+		   struct bitcoin_tx *tx);
+
 #endif /* LIGHTNING_COMMON_JSON_HELPERS_H */
