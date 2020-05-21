@@ -87,7 +87,8 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 		}
 
 		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
-				     nsequence, utxos[i]->amount, script);
+				     nsequence, script, utxos[i]->amount,
+				     utxos[i]->scriptPubkey, NULL);
 	}
 
 	return tx;

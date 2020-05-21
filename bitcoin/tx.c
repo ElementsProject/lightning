@@ -152,8 +152,9 @@ static int elements_tx_add_fee_output(struct bitcoin_tx *tx)
 }
 
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
-			 u32 outnum, u32 sequence,
-			 struct amount_sat amount, u8 *script)
+			 u32 outnum, u32 sequence, const u8 *scriptSig,
+			 struct amount_sat amount, const u8 *scriptPubkey,
+			 const u8 *input_wscript)
 {
 	struct wally_tx_input *input;
 	int wally_err;
@@ -164,7 +165,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	wally_err = wally_tx_input_init_alloc(txid->shad.sha.u.u8,
 					      sizeof(struct bitcoin_txid),
 					      outnum, sequence,
-					      script, tal_bytelen(script),
+					      scriptSig, tal_bytelen(scriptSig),
 					      NULL /* Empty witness stack */,
 					      &input);
 	assert(wally_err == WALLY_OK);
@@ -172,7 +173,22 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	wally_tx_add_input(tx->wtx, input);
 	psbt_add_input(tx->psbt, input, i);
 
-
+	if (input_wscript) {
+		/* Add the prev output's data into the PSBT struct */
+		psbt_input_set_prev_utxo_wscript(tx->psbt, i, input_wscript, amount);
+	} else if (scriptPubkey) {
+		if (is_p2wsh(scriptPubkey, NULL) || is_p2wpkh(scriptPubkey, NULL) ||
+			/* FIXME: assert that p2sh inputs are witness/are accompanied by a redeemscript+witnessscript */
+			is_p2sh(scriptPubkey, NULL)) {
+			/* the only way to get here currently with a p2sh script is via a p2sh-p2wpkh script
+			 * that we've created ...*/
+			/* Relevant section from bip-0174, emphasis mine:
+			 * ** Value: The entire transaction output in network serialization which the current input spends from.
+			 * This should only be present for inputs which spend segwit outputs, _including P2SH embedded ones._
+			 */
+			psbt_input_set_prev_utxo(tx->psbt, i, scriptPubkey, amount);
+		}
+	}
 
 	wally_tx_input_free(input);
 

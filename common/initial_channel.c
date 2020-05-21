@@ -2,6 +2,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
@@ -96,6 +97,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 &channel->funding_txid,
 				 channel->funding_txout,
 				 channel->funding,
+				 cast_const(u8 *, *wscript),
 				 channel->opener,
 				 /* They specify our to_self_delay and v.v. */
 				 channel->config[!side].to_self_delay,

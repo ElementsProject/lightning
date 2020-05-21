@@ -69,7 +69,7 @@ penalty_tx_create(const tal_t *ctx,
 
 	tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
 	bitcoin_tx_add_input(tx, commitment_txid, to_them_outnum, 0xFFFFFFFF,
-			     to_them_sats, NULL);
+			     NULL, to_them_sats, NULL, wscript);
 
 	bitcoin_tx_add_output(tx, final_scriptpubkey, NULL, to_them_sats);
 
