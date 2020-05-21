@@ -193,8 +193,8 @@ struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx);
 /*
  * Calculate the fees for this transaction, given a pre-computed input balance.
  *
- * This is needed for cases where the input_amounts aren't properly initialized,
- * typically due to being passed across the wire.
+ * This is needed for cases where the transaction's psbt metadata isn't properly filled
+ * in typically due to being instantiated from a tx hex (i.e. from a block scan)
  */
 struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
 						  struct amount_sat input_val);
