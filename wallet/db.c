@@ -1,5 +1,6 @@
 #include "db.h"
 
+#include <bitcoin/psbt.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/node_id.h>
@@ -1253,6 +1254,14 @@ void db_bind_tx(struct db_stmt *stmt, int col, const struct bitcoin_tx *tx)
 	db_bind_blob(stmt, col, ser, tal_count(ser));
 }
 
+void db_bind_psbt(struct db_stmt *stmt, int col, const struct wally_psbt *psbt)
+{
+	size_t bytes_written;
+	const u8 *ser = psbt_get_bytes(stmt, psbt, &bytes_written);
+	assert(ser);
+	db_bind_blob(stmt, col, ser, bytes_written);
+}
+
 void db_bind_amount_msat(struct db_stmt *stmt, int pos,
 			 const struct amount_msat *msat)
 {
@@ -1370,6 +1379,17 @@ struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
 	const u8 *src = db_column_blob(stmt, col);
 	size_t len = db_column_bytes(stmt, col);
 	return pull_bitcoin_tx(ctx, &src, &len);
+}
+
+struct bitcoin_tx *db_column_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
+{
+	struct wally_psbt *psbt;
+	const u8 *src = db_column_blob(stmt, col);
+	size_t len = db_column_bytes(stmt, col);
+	psbt = psbt_from_bytes(ctx, src, len);
+	if (!psbt)
+		return NULL;
+	return bitcoin_tx_with_psbt(ctx, psbt);
 }
 
 void *db_column_arr_(const tal_t *ctx, struct db_stmt *stmt, int col,

@@ -1055,7 +1055,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   our_msat,
 			   msat_to_us_min, /* msatoshi_to_us_min */
 			   msat_to_us_max, /* msatoshi_to_us_max */
-			   db_column_tx(tmpctx, stmt, 33),
+			   db_column_psbt_to_tx(tmpctx, stmt, 33),
 			   &last_sig,
 			   wallet_htlc_sigs_load(tmpctx, w,
 						 db_column_u64(stmt, 0)),
@@ -1076,19 +1076,6 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 44),
 			   db_column_arr(tmpctx, stmt, 45, u8),
 			   db_column_int(stmt, 46));
-
-	/* as a final step, we go ahead and populate the utxo
-	 * for the last_tx with the funding amount */
-	/* FIXME: input index for funding will not always be zero! */
-	if (chan->last_tx) {
-		const u8 * funding_wscript =
-			bitcoin_redeem_2of2(tmpctx,
-					    &chan->local_funding_pubkey,
-					    &chan->channel_info.remote_fundingkey);
-		psbt_input_set_prev_utxo_wscript(chan->last_tx->psbt,
-						 0, funding_wscript,
-						 chan->funding);
-	}
 
 	return chan;
 }
@@ -1461,7 +1448,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 
 	db_bind_u64(stmt, 17, chan->final_key_idx);
 	db_bind_u64(stmt, 18, chan->our_config.id);
-	db_bind_tx(stmt, 19, chan->last_tx);
+	db_bind_psbt(stmt, 19, chan->last_tx->psbt);
 	db_bind_signature(stmt, 20, &chan->last_sig.s);
 	db_bind_int(stmt, 21, chan->last_was_revoke);
 	db_bind_int(stmt, 22, chan->min_possible_feerate);
