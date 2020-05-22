@@ -1,12 +1,15 @@
 #include "db.h"
 
 #include <bitcoin/psbt.h>
+#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/derive_basepoints.h>
 #include <common/node_id.h>
 #include <common/onionreply.h>
 #include <common/version.h>
 #include <inttypes.h>
+#include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/plugin_hook.h>
@@ -613,6 +616,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_htlcs ADD we_filled INTEGER;"), NULL},
     /* We track the counter for coin_moves, as a convenience for notification consumers */
     {SQL("INSERT INTO vars (name, intval) VALUES ('coin_moves_count', 0);"), NULL},
+    {NULL, migrate_last_tx_to_psbt},
 };
 
 /* Leak tracking. */
@@ -1107,6 +1111,78 @@ static void migrate_our_funding(struct lightningd *ld, struct db *db)
 	if (stmt->error)
 		db_fatal("Error migrating funding satoshis to our_funding (%s)",
 			 stmt->error);
+
+	tal_free(stmt);
+}
+
+/* We're moving everything over to PSBTs from tx's, particularly our last_tx's
+ * which are commitment transactions for channels.
+ * This migration loads all of the last_tx's and 're-formats' them into psbts,
+ * adds the required input witness utxo information, and then saves it back to disk
+ * */
+void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db)
+{
+	struct db_stmt *stmt, *update_stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT "
+				     "  c.id"
+				     ", p.node_id"
+				     ", c.last_tx"
+				     ", c.funding_satoshi"
+				     ", c.fundingkey_remote"
+				     ", c.last_sig"
+				     " FROM channels c"
+				     "  LEFT OUTER JOIN peers p"
+				     "  ON p.id = c.peer_id;"));
+
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct bitcoin_tx *last_tx;
+		struct amount_sat funding_sat;
+		struct node_id peer_id;
+		struct pubkey local_funding_pubkey, remote_funding_pubkey;
+		struct basepoints local_basepoints UNUSED;
+		struct bitcoin_signature last_sig;
+		u64 cdb_id;
+		u8 *funding_wscript;
+
+		cdb_id = db_column_u64(stmt, 0);
+		last_tx = db_column_tx(stmt, stmt, 2);
+		assert(last_tx != NULL);
+
+		db_column_node_id(stmt, 1, &peer_id);
+		db_column_amount_sat(stmt, 3, &funding_sat);
+		db_column_pubkey(stmt, 4, &remote_funding_pubkey);
+
+		get_channel_basepoints(ld, &peer_id, cdb_id,
+				       &local_basepoints, &local_funding_pubkey);
+
+		funding_wscript = bitcoin_redeem_2of2(stmt, &local_funding_pubkey,
+						      &remote_funding_pubkey);
+
+		psbt_input_set_prev_utxo_wscript(last_tx->psbt,
+						 0, funding_wscript,
+						 funding_sat);
+
+		if (!db_column_signature(stmt, 5, &last_sig.s))
+			abort();
+
+		last_sig.sighash_type = SIGHASH_ALL;
+		psbt_input_set_partial_sig(last_tx->psbt, 0,
+		    &remote_funding_pubkey, &last_sig);
+		psbt_input_add_pubkey(last_tx->psbt, 0,
+		    &local_funding_pubkey);
+		psbt_input_add_pubkey(last_tx->psbt, 0,
+		    &remote_funding_pubkey);
+
+		update_stmt = db_prepare_v2(db, SQL("UPDATE channels"
+						    " SET last_tx = ?"
+						    " WHERE id = ?;"));
+		db_bind_psbt(update_stmt, 0, last_tx->psbt);
+		db_bind_int(update_stmt, 1, cdb_id);
+		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
+	}
 
 	tal_free(stmt);
 }

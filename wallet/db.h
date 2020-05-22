@@ -23,6 +23,7 @@ struct db_stmt;
 struct db;
 struct wally_psbt;
 
+void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db);
 /**
  * Macro to annotate a named SQL query.
  *
