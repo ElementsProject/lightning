@@ -207,17 +207,41 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 	return val;
 }
 
-void towire_psbt(u8 **pptr, const struct wally_psbt *psbt)
+const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
+			 size_t *bytes_written)
 {
-	/* Let's include the PSBT bytes */
+	/* the libwally API doesn't do anything helpful for allocating
+	 * things here -- to compensate we do a single shot large alloc
+	 */
 	size_t room = 1024 * 1000;
-	u8 *pbt_bytes = tal_arr(NULL, u8, room);
-	size_t bytes_written;
-	if (wally_psbt_to_bytes(psbt, pbt_bytes, room, &bytes_written) != WALLY_OK) {
+	u8 *pbt_bytes = tal_arr(ctx, u8, room);
+	if (wally_psbt_to_bytes(psbt, pbt_bytes, room, bytes_written) != WALLY_OK) {
 		/* something went wrong. bad libwally ?? */
 		abort();
 	}
+	tal_resize(&pbt_bytes, *bytes_written);
+	return pbt_bytes;
+}
 
+struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,
+				   size_t byte_len)
+{
+	struct wally_psbt *psbt;
+
+	if (wally_psbt_from_bytes(bytes, byte_len, &psbt) != WALLY_OK)
+		return NULL;
+
+	/* We promised it would be owned by ctx: libwally uses a dummy owner */
+	tal_steal(ctx, psbt);
+	tal_add_destructor(psbt, psbt_destroy);
+	return psbt;
+}
+
+void towire_psbt(u8 **pptr, const struct wally_psbt *psbt)
+{
+	/* Let's include the PSBT bytes */
+	size_t bytes_written;
+	const u8 *pbt_bytes = psbt_get_bytes(NULL, psbt, &bytes_written);
 	towire_u32(pptr, bytes_written);
 	towire_u8_array(pptr, pbt_bytes, bytes_written);
 	tal_free(pbt_bytes);
@@ -235,12 +259,9 @@ struct wally_psbt *fromwire_psbt(const tal_t *ctx,
 	if (!psbt_buf)
 		return NULL;
 
-	if (wally_psbt_from_bytes(psbt_buf, psbt_byte_len, &psbt) != WALLY_OK)
+	psbt = psbt_from_bytes(ctx, psbt_buf, psbt_byte_len);
+	if (!psbt)
 		return fromwire_fail(cursor, max);
-
-	/* We promised it would be owned by ctx: libwally uses a dummy owner */
-	tal_steal(ctx, psbt);
-	tal_add_destructor(psbt, psbt_destroy);
 
 #if DEVELOPER
 	/* Re-marshall for sanity check! */

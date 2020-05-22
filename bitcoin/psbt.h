@@ -38,6 +38,10 @@ void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
 struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 					size_t in);
 
+const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
+			 size_t *bytes_written);
+struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,
+				   size_t byte_len);
 void towire_psbt(u8 **pptr, const struct wally_psbt *psbt);
 struct wally_psbt *fromwire_psbt(const tal_t *ctx,
 				 const u8 **curosr, size_t *max);
