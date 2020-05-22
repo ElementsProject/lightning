@@ -21,6 +21,13 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for get_channel_basepoints */
+void get_channel_basepoints(struct lightningd *ld UNNEEDED,
+			    const struct node_id *peer_id UNNEEDED,
+			    const u64 dbid UNNEEDED,
+			    struct basepoints *local_basepoints UNNEEDED,
+			    struct pubkey *local_funding_pubkey UNNEEDED)
+{ fprintf(stderr, "get_channel_basepoints called!\n"); abort(); }
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 		    const struct node_id *default_node_id UNNEEDED,
