@@ -66,8 +66,20 @@ struct payment_result {
 	struct preimage *payment_preimage;
 };
 
-/* Relevant information about a local channel so we can  exclude them early. */
-struct channel_status {
+/* Information about channels we inferred from a) looking at our channels, and
+ * b) from failures encountered during attempts to perform a payment. These
+ * are attached to the root payment, since that information is
+ * global. Attempts update the estimated channel capacities when starting, and
+ * get remove on failure. Success keeps the capacities, since the capacities
+ * changed due to the successful HTLCs. */
+struct channel_hint {
+	struct short_channel_id_dir scid;
+
+	/* Upper bound on remove channels inferred from payment failures. */
+	struct amount_msat estimated_capacity;
+
+	/* Is the channel enabled? */
+	bool enabled;
 };
 
 /* Each payment goes through a number of steps that are always processed in
@@ -168,6 +180,10 @@ struct payment {
 
 	struct bolt11 *invoice;
 
+	/* tal_arr of channel_hints we incrementally learn while performing
+	 * payment attempts. */
+	struct channel_hint *channel_hints;
+
 	struct payment_result *result;
 };
 
@@ -209,6 +225,12 @@ struct retry_mod_data {
 /* List of globally available payment modifiers. */
 extern struct payment_modifier dummy_pay_mod;
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
+
+/* For the root payment we can seed the channel_hints with the result from
+ * `listpeers`, hence avoid channels that we know have insufficient capacity
+ * or are disabled. We do this only for the root payment, to minimize the
+ * overhead. */
+REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
