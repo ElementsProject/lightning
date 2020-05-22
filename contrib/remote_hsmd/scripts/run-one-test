@@ -2,14 +2,10 @@
 
 THETEST=$1
 
-export PYTHONPATH=\
-`pwd`/hsmd:\
-`pwd`/contrib/pylightning:\
-`pwd`/contrib/pyln-proto:\
-`pwd`/contrib/pyln-testing:\
-`pwd`/contrib/pyln-client:\
-$PYTHONPATH
-
+PYTHONPATH=\
+$PWD/contrib/pyln-client:\
+$PWD/contrib/pyln-testing:\
+$PWD/contrib/pyln-proto/: \
 TEST_DEBUG=1 \
 DEVELOPER=1 \
 VALGRIND=0 \
@@ -17,5 +13,4 @@ SLOW_MACHINE=1 \
 SUBDAEMON='hsmd:remote_hsmd' \
 pytest \
 $THETEST \
--v --timeout=550 --timeout_method=thread -x -s
-
+-v --timeout=550 --timeout_method=thread -x

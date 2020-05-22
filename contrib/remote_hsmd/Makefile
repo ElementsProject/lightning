@@ -37,6 +37,7 @@ RMTHSMD_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/channel_id.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
@@ -48,6 +49,7 @@ RMTHSMD_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/node_id.o			\
 	common/permute_tx.o			\
+	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\
