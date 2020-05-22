@@ -151,6 +151,12 @@ static int elements_tx_add_fee_output(struct bitcoin_tx *tx)
 	}
 }
 
+void bitcoin_tx_set_locktime(struct bitcoin_tx *tx, u32 locktime)
+{
+	tx->wtx->locktime = locktime;
+	tx->psbt->tx->locktime = locktime;
+}
+
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence, const u8 *scriptSig,
 			 struct amount_sat amount, const u8 *scriptPubkey,
