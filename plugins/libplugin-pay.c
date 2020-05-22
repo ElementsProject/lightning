@@ -809,6 +809,12 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 {
 	struct payment *subpayment;
 	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
+
+	/* If we failed to find a route, it's unlikely we can suddenly find a
+	 * new one without any other changes, so it's time to give up. */
+	if (p->step == PAYMENT_STEP_FAILED && p->route == NULL)
+		payment_continue(p);
+
 	if (p->step == PAYMENT_STEP_FAILED && rdata->retries > 0) {
 		subpayment = payment_new(p, NULL, p, p->modifiers);
 		payment_start(subpayment);
