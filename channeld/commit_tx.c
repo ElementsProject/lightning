@@ -276,8 +276,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *
 	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the lower 24 bits of the obscured commitment number
 	 */
-	tx->wtx->locktime
-		= (0x20000000 | (obscured_commitment_number & 0xFFFFFF));
+	bitcoin_tx_set_locktime(tx,
+	    (0x20000000 | (obscured_commitment_number & 0xFFFFFF)));
 
 	/* BOLT #3:
 	 *

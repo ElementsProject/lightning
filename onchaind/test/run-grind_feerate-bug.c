@@ -357,7 +357,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 	psbt_input_set_prev_utxo_wscript(tx->psbt, 0, commit_wscript, in_amount);
 	tx->chainparams = chainparams;
 
-	tx->wtx->locktime = cltv_expiry;
+	bitcoin_tx_set_locktime(tx, cltv_expiry);
 	return tx;
 }
 

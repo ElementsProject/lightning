@@ -77,6 +77,9 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
 				 struct bitcoin_tx_output **outputs);
 
+/* Set the locktime for a transaction */
+void bitcoin_tx_set_locktime(struct bitcoin_tx *tx, u32 locktime);
+
 /* Add a new input to a bitcoin tx.
  *
  * For P2WSH inputs, we'll also store the wscript and/or scriptPubkey
