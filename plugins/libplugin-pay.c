@@ -54,6 +54,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->partid = 0;
 		p->next_partid = 1;
 		p->plugin = cmd->plugin;
+		p->channel_hints = tal_arr(p, struct channel_hint, 0);
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -793,3 +794,61 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 
 	payment_continue(p);
 }
+
+static struct command_result *
+local_channel_hints_listpeers(struct command *cmd, const char *buffer,
+			      const jsmntok_t *toks, struct payment *p)
+{
+	const jsmntok_t *peers, *peer, *channels, *channel, *spendsats, *scid, *dir, *connected;
+	size_t i, j;
+	peers = json_get_member(buffer, toks, "peers");
+
+	if (peers == NULL)
+		goto done;
+        /* cppcheck-suppress uninitvar - cppcheck can't undestand these macros. */
+	json_for_each_arr(i, peer, peers) {
+		channels = json_get_member(buffer, peer, "channels");
+		if (channels == NULL)
+			continue;
+
+		connected = json_get_member(buffer, peer, "connected");
+
+		json_for_each_arr(j, channel, channels) {
+			struct channel_hint h;
+			spendsats = json_get_member(buffer, channel, "spendable_msat");
+			scid = json_get_member(buffer, channel, "short_channel_id");
+			dir = json_get_member(buffer, channel, "direction");
+			assert(spendsats != NULL && scid != NULL && dir != NULL);
+
+			json_to_bool(buffer, connected, &h.enabled);
+			json_to_short_channel_id(buffer, scid, &h.scid.scid);
+			json_to_int(buffer, dir, &h.scid.dir);
+
+			json_to_msat(buffer, spendsats, &h.estimated_capacity);
+			tal_arr_expand(&p->channel_hints, h);
+		}
+	}
+
+done:
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static void local_channel_hints_cb(void *d UNUSED, struct payment *p)
+{
+	struct out_req *req;
+	/* If we are not the root we don't look up the channel balances since
+	 * it is unlikely that the capacities have changed much since the root
+	 * payment looked at them. We also only call `listpeers` when the
+	 * payment is in state PAYMENT_STEP_INITIALIZED, right before calling
+	 * `getroute`. */
+	if (p->parent != NULL || p->step != PAYMENT_STEP_INITIALIZED)
+		return payment_continue(p);
+
+	req = jsonrpc_request_start(p->plugin, NULL, "listpeers",
+				    local_channel_hints_listpeers,
+				    local_channel_hints_listpeers, p);
+	send_outreq(p->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(local_channel_hints, void *, NULL, local_channel_hints_cb);
