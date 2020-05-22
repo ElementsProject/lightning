@@ -1035,9 +1035,12 @@ static void json_transaction_details(struct json_stream *response,
 
 		json_array_start(response, "inputs");
 		for (size_t i = 0; i < wtx->num_inputs; i++) {
+			struct bitcoin_txid prevtxid;
 			struct wally_tx_input *in = &wtx->inputs[i];
+			bitcoin_tx_input_get_txid(tx->tx, i, &prevtxid);
+
 			json_object_start(response, NULL);
-			json_add_hex(response, "txid", in->txhash, sizeof(in->txhash));
+			json_add_txid(response, "txid", &prevtxid);
 			json_add_u32(response, "index", in->index);
 			json_add_u32(response, "sequence", in->sequence);
 #if EXPERIMENTAL_FEATURES

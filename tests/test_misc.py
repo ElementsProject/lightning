@@ -2390,7 +2390,6 @@ def test_commitfee_option(node_factory):
     assert l1_commit_fees == 2 * l2_commit_fees == 2 * 4 * mock_wu  # WU->VB
 
 
-@pytest.mark.xfail(strict=True)
 def test_listtransactions(node_factory):
     """Sanity check for the listtransactions RPC command"""
     l1, l2 = node_factory.get_nodes(2, opts=[{}, {}])
