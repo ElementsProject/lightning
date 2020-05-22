@@ -494,6 +494,38 @@ char *bitcoin_tx_to_psbt_base64(const tal_t *ctx, struct bitcoin_tx *tx)
 	return ret_val;
 }
 
+struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psbt STEALS)
+{
+	struct wally_psbt *tmppsbt;
+	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams,
+					   psbt->tx->num_inputs,
+					   psbt->tx->num_outputs,
+					   psbt->tx->locktime);
+	wally_tx_free(tx->wtx);
+
+	/* We want the 'finalized' tx since that includes any signature
+	 * data, not the global tx. But 'finalizing' a tx destroys some fields
+	 * so we 'clone' it first and then finalize it */
+	if (wally_psbt_clone(psbt, &tmppsbt) != WALLY_OK)
+		abort();
+
+	if (wally_finalize_psbt(tmppsbt) != WALLY_OK)
+		abort();
+
+	if (psbt_is_finalized(tmppsbt)) {
+		if (wally_extract_psbt(tmppsbt, &tx->wtx) != WALLY_OK)
+			abort();
+	} else if (wally_tx_clone(psbt->tx, &tx->wtx) != WALLY_OK)
+		abort();
+
+
+	wally_psbt_free(tmppsbt);
+
+	tal_free(tx->psbt);
+	tx->psbt = tal_steal(tx, psbt);
+	return tx;
+}
+
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 				   size_t *max)
 {
