@@ -237,6 +237,28 @@ static struct command_result *payment_getroute_error(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/* Iterate through the channel_hints and exclude any channel that we are
+ * confident will not be able to handle this payment. */
+static void payment_getroute_add_excludes(struct payment *p,
+					  struct json_stream *js)
+{
+	struct payment *root = payment_root(p);
+	struct channel_hint *hint;
+
+	json_array_start(js, "exclude");
+	for (size_t i = 0; i < tal_count(root->channel_hints); i++) {
+		hint = &root->channel_hints[i];
+
+		if (!hint->enabled)
+			json_add_short_channel_id_dir(js, NULL, &hint->scid);
+
+		else if (amount_msat_greater_eq(p->amount,
+						hint->estimated_capacity))
+			json_add_short_channel_id_dir(js, NULL, &hint->scid);
+	}
+	json_array_end(js);
+}
+
 static void payment_getroute(struct payment *p)
 {
 	struct out_req *req;
@@ -247,6 +269,7 @@ static void payment_getroute(struct payment *p)
 	json_add_amount_msat_only(req->js, "msatoshi", p->amount);
 	json_add_num(req->js, "riskfactor", 1);
 	json_add_num(req->js, "cltv", p->getroute_cltv);
+	payment_getroute_add_excludes(p, req->js);
 	send_outreq(p->plugin, req);
 }
 
