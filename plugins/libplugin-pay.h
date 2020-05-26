@@ -64,6 +64,15 @@ struct payment_result {
 	enum payment_result_state state;
 	struct amount_msat amount_sent;
 	struct preimage *payment_preimage;
+	u32 code;
+	const char* failcodename;
+	enum onion_type failcode;
+	const u8 *raw_message;
+	const char *message;
+	u32 *erring_index;
+	struct node_id *erring_node;
+	struct short_channel_id *erring_channel;
+	int *erring_direction;
 };
 
 /* Information about channels we inferred from a) looking at our channels, and
@@ -183,8 +192,16 @@ struct payment {
 	/* tal_arr of channel_hints we incrementally learn while performing
 	 * payment attempts. */
 	struct channel_hint *channel_hints;
+	struct node_id *excluded_nodes;
 
 	struct payment_result *result;
+
+	/* Did something happen that will cause all future attempts to fail?
+	 * This usually means that the final node reported that it can't be
+	 * reached, or in MPP payments there are no more paths we can
+	 * attempt. Modifiers need to leave failures alone once this is set to
+	 * true. Set only on the root payment. */
+	bool abort;
 };
 
 struct payment_modifier {
