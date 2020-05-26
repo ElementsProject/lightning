@@ -1520,7 +1520,10 @@ static bool attempt_ongoing(const char *b11)
 
 /* We consolidate multi-part payments into a single entry. */
 struct pay_mpp {
-	/* This is the bolt11 string, and lookup key */
+	/* payment_hash from the invoice and lookup key */
+	const struct sha256 *payment_hash;
+
+	/* This is the bolt11 string */
 	const char *b11;
 	/* Status of combined payment */
 	const char *status;
@@ -1534,22 +1537,22 @@ struct pay_mpp {
 	struct amount_msat amount_sent;
 };
 
-static const char *pay_mpp_key(const struct pay_mpp *pm)
+static const struct sha256 *pay_mpp_key(const struct pay_mpp *pm)
 {
-	return pm->b11;
+	return pm->payment_hash;
 }
 
-static size_t b11str_hash(const char *b11)
+static size_t pay_mpp_hash(const struct sha256 *payment_hash)
 {
-	return siphash24(siphash_seed(), b11, strlen(b11));
+	return siphash24(siphash_seed(), payment_hash, sizeof(struct sha256));
 }
 
-static bool pay_mpp_eq(const struct pay_mpp *pm, const char *b11)
+static bool pay_mpp_eq(const struct pay_mpp *pm, const struct sha256 *payment_hash)
 {
-	return streq(pm->b11, b11);
+	return memcmp(pm->payment_hash, payment_hash, sizeof(struct sha256)) == 0;
 }
 
-HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, b11str_hash, pay_mpp_eq,
+HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, pay_mpp_hash, pay_mpp_eq,
 		   pay_map);
 
 static void add_amount_sent(struct plugin *p,
@@ -1610,19 +1613,22 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	ret = jsonrpc_stream_success(cmd);
 	json_array_start(ret, "pays");
 	json_for_each_arr(i, t, arr) {
-		const jsmntok_t *status, *b11tok;
-		const char *b11;
+		const jsmntok_t *status, *b11tok, *hashtok;
+		const char *b11 = b11str;
+		struct sha256 payment_hash;
 
 		b11tok = json_get_member(buf, t, "bolt11");
-		/* Old (or manual) payments didn't have bolt11 field */
-		if (!b11tok)
-			continue;
+		hashtok = json_get_member(buf, t, "payment_hash");
+		assert(hashtok != NULL);
 
-		b11 = json_strdup(cmd, buf, b11tok);
+		json_to_sha256(buf, hashtok, &payment_hash);
+		if (b11tok)
+			b11 = json_strdup(cmd, buf, b11tok);
 
-		pm = pay_map_get(&pay_map, b11);
+		pm = pay_map_get(&pay_map, &payment_hash);
 		if (!pm) {
 			pm = tal(cmd, struct pay_mpp);
+			pm->payment_hash = tal_dup(pm, struct sha256, &payment_hash);
 			pm->b11 = tal_steal(pm, b11);
 			pm->label = json_get_member(buf, t, "label");
 			pm->preimage = NULL;
