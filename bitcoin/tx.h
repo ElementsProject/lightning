@@ -38,11 +38,13 @@ struct bitcoin_tx_output {
 	u8 *script;
 };
 
-/* SHA256^2 the tx: simpler than sha256_tx */
+/* SHA256^2 the tx in legacy format. */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
+void wally_txid(const struct wally_tx *wtx, struct bitcoin_txid *txid);
 
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
+u8 *linearize_wtx(const tal_t *ctx, const struct wally_tx *wtx);
 
 /* Get weight of tx in Sipa. */
 size_t bitcoin_tx_weight(const struct bitcoin_tx *tx);
@@ -82,6 +84,13 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 struct amount_sat amount, u8 *script);
 
+/* This helps is useful because wally uses a raw byte array for txids */
+bool wally_tx_input_spends(const struct wally_tx_input *input,
+			   const struct bitcoin_txid *txid,
+			   int outnum);
+
+struct amount_asset
+wally_tx_output_get_amount(const struct wally_tx_output *output);
 
 /**
  * Set the output amount on the transaction.
@@ -147,6 +156,8 @@ const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
  */
 void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 			       struct bitcoin_txid *out);
+void wally_tx_input_get_txid(const struct wally_tx_input *in,
+			     struct bitcoin_txid *txid);
 
 /**
  * Check a transaction for consistency.
