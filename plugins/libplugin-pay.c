@@ -937,9 +937,6 @@ static struct retry_mod_data *retry_data_init(struct payment *p);
 static inline void retry_step_cb(struct retry_mod_data *rd,
 				 struct payment *p);
 
-REGISTER_PAYMENT_MODIFIER(retry, struct retry_mod_data *, retry_data_init,
-			  retry_step_cb);
-
 static struct retry_mod_data *
 retry_data_init(struct payment *p)
 {
@@ -954,18 +951,85 @@ retry_data_init(struct payment *p)
 	return rdata;
 }
 
+/* Determine whether retrying could possibly succeed. Retrying in this case
+ * means that we repeat the entire flow, including computing a new route, new
+ * payload and a new sendonion call. It does not mean we retry the exact same
+ * attempt that just failed. */
+static bool payment_can_retry(struct payment *p)
+{
+	struct payment_result *res = p->result;
+	u32 idx;
+	bool is_final;
+
+	if (p->result == NULL)
+		return false;
+
+	idx = res->erring_index != NULL ? *res->erring_index : 0;
+	is_final = (idx == tal_count(p->route));
+
+	/* Full matrix of failure code x is_final. Prefer to retry once too
+	 * often over eagerly failing. */
+	switch (res->failcode) {
+	case WIRE_EXPIRY_TOO_FAR:
+	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+	case WIRE_INVALID_ONION_PAYLOAD:
+	case WIRE_INVALID_ONION_VERSION:
+	case WIRE_INVALID_REALM:
+	case WIRE_MPP_TIMEOUT:
+	case WIRE_PERMANENT_NODE_FAILURE:
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+	case WIRE_TEMPORARY_NODE_FAILURE:
+	case WIRE_UNKNOWN_NEXT_PEER:
+		return !is_final;
+
+	case WIRE_AMOUNT_BELOW_MINIMUM:
+	case WIRE_CHANNEL_DISABLED:
+	case WIRE_EXPIRY_TOO_SOON:
+	case WIRE_FEE_INSUFFICIENT:
+	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+	case WIRE_INCORRECT_CLTV_EXPIRY:
+	case WIRE_INVALID_ONION_HMAC:
+	case WIRE_INVALID_ONION_KEY:
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+	case WIRE_TEMPORARY_CHANNEL_FAILURE:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_INVALID_ONION_BLINDING:
+#endif
+		return true;
+	}
+
+	/* We should never get here, otherwise the above `switch` isn't
+	 * exhaustive. Nevertheless the failcode is provided by the erring
+	 * node, so retry anyway. `abort()`ing on externally supplied info is
+	 * not a good idea. */
+	return true;
+}
+
 static inline void retry_step_cb(struct retry_mod_data *rd,
 				 struct payment *p)
 {
 	struct payment *subpayment;
 	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
 
+	if (p->step != PAYMENT_STEP_FAILED)
+		return payment_continue(p);
+
 	/* If we failed to find a route, it's unlikely we can suddenly find a
 	 * new one without any other changes, so it's time to give up. */
-	if (p->step == PAYMENT_STEP_FAILED && p->route == NULL)
-		payment_continue(p);
+	if (p->route == NULL)
+		return payment_continue(p);
 
-	if (p->step == PAYMENT_STEP_FAILED && rdata->retries > 0) {
+	/* If the root is marked as abort, we do not retry anymore */
+	if (payment_root(p)->abort)
+		return payment_continue(p);
+
+	if (!payment_can_retry(p))
+		return payment_continue(p);
+
+	/* If the failure was not final, and we tried a route, try again. */
+	if (rdata->retries > 0) {
 		subpayment = payment_new(p, NULL, p, p->modifiers);
 		payment_start(subpayment);
 		p->step = PAYMENT_STEP_RETRY;
@@ -973,6 +1037,9 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 
 	payment_continue(p);
 }
+
+REGISTER_PAYMENT_MODIFIER(retry, struct retry_mod_data *, retry_data_init,
+			  retry_step_cb);
 
 static struct command_result *
 local_channel_hints_listpeers(struct command *cmd, const char *buffer,
