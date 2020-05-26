@@ -56,7 +56,7 @@ bool fromwire_onchain_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, st
 bool fromwire_onchain_known_preimage(const void *p UNNEEDED, struct preimage *preimage UNNEEDED, bool *is_replay UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_known_preimage called!\n"); abort(); }
 /* Generated stub for fromwire_onchain_spent */
-bool fromwire_onchain_spent(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_tx **tx UNNEEDED, u32 *input_num UNNEEDED, u32 *blockheight UNNEEDED, bool *is_replay UNNEEDED)
+bool fromwire_onchain_spent(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct tx_parts **tx UNNEEDED, u32 *input_num UNNEEDED, u32 *blockheight UNNEEDED, bool *is_replay UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_spent called!\n"); abort(); }
 /* Generated stub for fromwire_peektype */
 int fromwire_peektype(const u8 *cursor UNNEEDED)
