@@ -142,10 +142,14 @@ static void watch_tx_and_outputs(struct channel *channel,
 static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *tx, size_t input_num, u32 blockheight, bool is_replay)
 {
 	u8 *msg;
+	/* Onchaind needs all inputs, since it uses those to compare
+	 * with existing spends (which can vary, with feerate changes). */
+	struct tx_parts *parts = tx_parts_from_wally_tx(tmpctx, tx->wtx,
+							-1, -1);
 
 	watch_tx_and_outputs(channel, tx);
 
-	msg = towire_onchain_spent(channel, tx, input_num, blockheight, is_replay);
+	msg = towire_onchain_spent(channel, parts, input_num, blockheight, is_replay);
 	subd_send_msg(channel->owner, take(msg));
 
 }

@@ -1,3 +1,4 @@
+#include <bitcoin/tx_parts.h>
 #include <common/coin_mvt.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_wire.h>
@@ -63,7 +64,7 @@ msgdata,onchain_broadcast_tx,type,enum wallet_tx_type,
 
 # master->onchaind: Notifier that an output has been spent by input_num of tx.
 msgtype,onchain_spent,5004
-msgdata,onchain_spent,tx,bitcoin_tx,
+msgdata,onchain_spent,tx,tx_parts,
 msgdata,onchain_spent,input_num,u32,
 msgdata,onchain_spent,blockheight,u32,
 msgdata,onchain_spent,is_replay,bool,
