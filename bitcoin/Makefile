@@ -15,6 +15,7 @@ BITCOIN_SRC :=					\
 	bitcoin/short_channel_id.c		\
 	bitcoin/signature.c			\
 	bitcoin/tx.c				\
+	bitcoin/tx_parts.c			\
 	bitcoin/varint.c
 
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
@@ -35,6 +36,7 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/short_channel_id.h		\
 	bitcoin/signature.h			\
 	bitcoin/tx.h				\
+	bitcoin/tx_parts.h			\
 	bitcoin/varint.h
 
 check-source: $(BITCOIN_SRC:%=check-src-include-order/%)		\
