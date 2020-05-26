@@ -405,8 +405,7 @@ int main(int argc, char *argv[])
 	min_possible_feerate = 10992;
 	max_possible_feerate = 15370;
 
-	size_t ret = resolve_our_htlc_ourcommit(chainparams_by_bip173("bc"),
-						out,
+	size_t ret = resolve_our_htlc_ourcommit(out,
 						matches,
 						htlcs,
 						htlc_scripts,
