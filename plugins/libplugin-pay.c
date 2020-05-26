@@ -55,6 +55,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->next_partid = 1;
 		p->plugin = cmd->plugin;
 		p->channel_hints = tal_arr(p, struct channel_hint, 0);
+		p->excluded_nodes = tal_arr(p, struct node_id, 0);
+		p->abort = false;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -231,6 +233,7 @@ static struct command_result *payment_getroute_error(struct command *cmd,
 						     struct payment *p)
 {
 	p->step = PAYMENT_STEP_FAILED;
+	p->route = NULL;
 	payment_continue(p);
 
 	/* Let payment_finished_ handle this, so we mark it as pending */
@@ -330,6 +333,8 @@ static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	const jsmntok_t *preimagetok = json_get_member(buffer, toks, "payment_preimage");
 	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
 	const jsmntok_t *datatok = json_get_member(buffer, toks, "data");
+	const jsmntok_t *erridxtok, *msgtok, *failcodetok, *rawmsgtok,
+		*failcodenametok, *errchantok, *errnodetok, *errdirtok;
 	struct payment_result *result;
 
 	/* Check if we have an error and need to descend into data to get
@@ -351,6 +356,11 @@ static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	}
 
 	result = tal(ctx, struct payment_result);
+
+	if (codetok != NULL)
+		json_to_u32(buffer, codetok, &result->code);
+	else
+		result->code = 0;
 
 	/* If the partid is 0 it'd be omitted in waitsendpay, fix this here. */
 	if (partidtok != NULL)
@@ -375,6 +385,67 @@ static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 		json_to_preimage(buffer, preimagetok, result->payment_preimage);
 	}
 
+	/* Now extract the error details if the error code is not 0 */
+	if (result->code != 0) {
+		erridxtok = json_get_member(buffer, datatok, "erring_index");
+		errnodetok = json_get_member(buffer, datatok, "erring_node");
+		errchantok = json_get_member(buffer, datatok, "erring_channel");
+		errdirtok = json_get_member(buffer, datatok, "erring_direction");
+		failcodetok = json_get_member(buffer, datatok, "failcode");
+		failcodenametok =json_get_member(buffer, datatok, "failcodename");
+		msgtok = json_get_member(buffer, toks, "message");
+		rawmsgtok = json_get_member(buffer, datatok, "raw_message");
+		if (failcodetok == NULL || failcodetok->type != JSMN_PRIMITIVE ||
+		    failcodenametok == NULL || failcodenametok->type != JSMN_STRING ||
+		    (erridxtok != NULL && erridxtok->type != JSMN_PRIMITIVE) ||
+		    (errnodetok != NULL && errnodetok->type != JSMN_STRING) ||
+		    (errchantok != NULL && errchantok->type != JSMN_STRING) ||
+		    (errdirtok != NULL && errdirtok->type != JSMN_PRIMITIVE) ||
+		    msgtok == NULL || msgtok->type != JSMN_STRING ||
+		    (rawmsgtok != NULL && rawmsgtok->type != JSMN_STRING))
+			goto fail;
+
+		if (rawmsgtok != NULL)
+			result->raw_message = json_tok_bin_from_hex(result, buffer, rawmsgtok);
+		else
+			result->raw_message = NULL;
+
+		result->failcodename = json_strdup(result, buffer, failcodenametok);
+		json_to_u32(buffer, failcodetok, &result->failcode);
+		result->message = json_strdup(result, buffer, msgtok);
+
+		if (erridxtok != NULL) {
+			result->erring_index = tal(result, u32);
+			json_to_u32(buffer, erridxtok, result->erring_index);
+		} else {
+			result->erring_index = NULL;
+		}
+
+		if (errdirtok != NULL) {
+			result->erring_direction = tal(result, int);
+			json_to_int(buffer, errdirtok, result->erring_direction);
+		} else {
+			result->erring_direction = NULL;
+		}
+
+		if (errnodetok != NULL) {
+			result->erring_node = tal(result, struct node_id);
+			json_to_node_id(buffer, errnodetok,
+					result->erring_node);
+		} else {
+			result->erring_node = NULL;
+		}
+
+		if (errchantok != NULL) {
+			result->erring_channel =
+			    tal(result, struct short_channel_id);
+			json_to_short_channel_id(buffer, errchantok,
+						 result->erring_channel);
+		} else {
+			result->erring_channel = NULL;
+		}
+	}
+
 	return result;
 fail:
 	return tal_free(result);
@@ -384,6 +455,11 @@ static struct command_result *
 payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			     const jsmntok_t *toks, struct payment *p)
 {
+	struct payment *root;
+	struct channel_hint hint;
+	struct route_hop *hop;
+	assert(p->route != NULL);
+
 	p->result = tal_sendpay_result_from_json(p, buffer, toks);
 
 	if (p->result == NULL)
@@ -391,14 +467,88 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 		    p->plugin, "Unable to parse `waitsendpay` result: %.*s",
 		    json_tok_full_len(toks), json_tok_full(buffer, toks));
 
-	if (p->result->state == PAYMENT_COMPLETE)
+	if (p->result->state == PAYMENT_COMPLETE) {
 		p->step = PAYMENT_STEP_SUCCESS;
-	else
-		p->step = PAYMENT_STEP_FAILED;
+		goto cont;
+	}
 
-	/* TODO examine the failure and eventually stash exclusions that we
-	 * learned in the payment, so sub-payments can avoid them. */
+	p->step = PAYMENT_STEP_FAILED;
+	root = payment_root(p);
 
+	switch (p->result->failcode) {
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+	case WIRE_CHANNEL_DISABLED:
+	case WIRE_UNKNOWN_NEXT_PEER:
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+		/* All of these result in the channel being marked as disabled. */
+		assert(*p->result->erring_index < tal_count(p->route));
+		hop = &p->route[*p->result->erring_index];
+		hint.enabled = false;
+		hint.scid.scid = hop->channel_id;
+		hint.scid.dir = hop->direction;
+		hint.estimated_capacity = AMOUNT_MSAT(0);
+		tal_arr_expand(&root->channel_hints, hint);
+		break;
+	case WIRE_TEMPORARY_CHANNEL_FAILURE:
+		/* These are an indication that the capacity was insufficient,
+		 * remember the amount we tried as an estimate. */
+		assert(*p->result->erring_index < tal_count(p->route));
+		hop = &p->route[*p->result->erring_index];
+		hint.enabled = true;
+		hint.scid.scid = hop->channel_id;
+		hint.scid.dir = hop->direction;
+		hint.estimated_capacity.millisatoshis = hop->amount.millisatoshis * 0.75; /* Raw: Multiplication */
+		tal_arr_expand(&root->channel_hints, hint);
+		break;
+
+	case WIRE_INVALID_ONION_PAYLOAD:
+	case WIRE_INVALID_REALM:
+	case WIRE_PERMANENT_NODE_FAILURE:
+	case WIRE_TEMPORARY_NODE_FAILURE:
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+	case WIRE_INVALID_ONION_VERSION:
+	case WIRE_INVALID_ONION_HMAC:
+	case WIRE_INVALID_ONION_KEY:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_INVALID_ONION_BLINDING:
+#endif
+		/* These are reported by the last hop, i.e., the destination of hop i-1. */
+		assert(*p->result->erring_index - 1 < tal_count(p->route));
+		hop = &p->route[*p->result->erring_index - 1];
+		tal_arr_expand(&root->excluded_nodes, hop->nodeid);
+		break;
+
+ 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+	case WIRE_MPP_TIMEOUT:
+		/* These are permanent failures that should abort all of our
+		 * attempts right away. We'll still track pending partial
+		 * payments correctly, just not start new ones. */
+		root->abort = true;
+		break;
+
+	case WIRE_AMOUNT_BELOW_MINIMUM:
+	case WIRE_EXPIRY_TOO_FAR:
+	case WIRE_EXPIRY_TOO_SOON:
+	case WIRE_FEE_INSUFFICIENT:
+	case WIRE_INCORRECT_CLTV_EXPIRY:
+	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+		/* These are issues that are due to gossipd being out of date,
+		 * we ignore them here, and wait for gossipd to adjust
+		 * instead. */
+		break;
+	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+		/* These are symptoms of intermediate hops tampering with the
+		 * payment. */
+		hop = &p->route[*p->result->erring_index];
+		plugin_log(
+		    p->plugin, LOG_UNUSUAL,
+		    "Node %s reported an incorrect HTLC amount, this could be "
+		    "a prior hop messing with the amounts.",
+		    type_to_string(tmpctx, struct node_id, &hop->nodeid));
+		break;
+	}
+
+cont:
 	payment_continue(p);
 	return command_still_pending(cmd);
 }
