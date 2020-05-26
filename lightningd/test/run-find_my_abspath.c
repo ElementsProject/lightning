@@ -110,7 +110,7 @@ void handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[]
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }
 /* Generated stub for hsm_init */
-void hsm_init(struct lightningd *ld UNNEEDED)
+struct ext_key *hsm_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "hsm_init called!\n"); abort(); }
 /* Generated stub for htlcs_notify_new_block */
 void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)

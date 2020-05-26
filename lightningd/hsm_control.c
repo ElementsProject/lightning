@@ -84,10 +84,11 @@ static unsigned int hsm_msg(struct subd *hsmd,
 	return 0;
 }
 
-void hsm_init(struct lightningd *ld)
+struct ext_key *hsm_init(struct lightningd *ld)
 {
 	u8 *msg;
 	int fds[2];
+	struct ext_key *bip32_base;
 
 	/* We actually send requests synchronously: only status is async. */
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
@@ -121,14 +122,16 @@ void hsm_init(struct lightningd *ld)
 							 IFDEV(ld->dev_force_channel_secrets_shaseed, NULL))))
 		err(1, "Writing init msg to hsm");
 
-	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);
+	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
 	if (!fromwire_hsm_init_reply(msg,
-				     &ld->id, ld->wallet->bip32_base)) {
+				     &ld->id, bip32_base)) {
 		if (ld->config.keypass)
 			errx(1, "Wrong password for encrypted hsm_secret.");
 		errx(1, "HSM did not give init reply");
 	}
+
+	return bip32_base;
 }
 
 static struct command_result *json_getsharedsecret(struct command *cmd,

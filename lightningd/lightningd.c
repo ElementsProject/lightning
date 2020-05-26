@@ -759,6 +759,7 @@ int main(int argc, char *argv[])
 	struct timers *timers;
 	const char *stop_response;
 	struct htlc_in_map *unconnected_htlcs_in;
+	struct ext_key *bip32_base;
 	struct rlimit nofile = {1024, 1024};
 
 	/*~ Make sure that we limit ourselves to something reasonable. Modesty
@@ -822,10 +823,20 @@ int main(int argc, char *argv[])
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);
 
+	/*~ Set up the HSM daemon, which knows our node secret key, so tells
+	 *  us who we are.
+	 *
+	 * HSM stands for Hardware Security Module, which is the industry
+	 * standard of key storage; ours is in software for now, so the name
+	 * doesn't really make sense, but we can't call it the Badly-named
+	 * Daemon Software Module. */
+	bip32_base = hsm_init(ld);
+
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
 	ld->wallet = wallet_new(ld, ld->timers);
+	ld->wallet->bip32_base = tal_steal(ld->wallet, bip32_base);
 
 	/*~ We keep track of how many 'coin moves' we've ever made.
 	 * Initialize the starting value from the database here. */
@@ -836,15 +847,6 @@ int main(int argc, char *argv[])
 
 	/*~ This is the ccan/io central poll override from above. */
 	io_poll_override(io_poll_lightningd);
-
-	/*~ Set up the HSM daemon, which knows our node secret key, so tells
-	 *  us who we are.
-	 *
-	 * HSM stands for Hardware Security Module, which is the industry
-	 * standard of key storage; ours is in software for now, so the name
-	 * doesn't really make sense, but we can't call it the Badly-named
-	 * Daemon Software Module. */
-	hsm_init(ld);
 
 	/*~ If hsm_secret is encrypted, we don't need its encryption key
 	 * anymore. Note that sodium_munlock() also zeroes the memory.*/
