@@ -225,6 +225,15 @@ bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b)
 	return false;
 }
 
+bool json_to_sha256(const char *buffer, const jsmntok_t *tok, struct sha256 *dest)
+{
+	if (tok->type != JSMN_STRING)
+		return false;
+
+	return hex_decode(buffer + tok->start, tok->end - tok->start, dest,
+			  sizeof(struct sha256));
+}
+
 u8 *json_tok_bin_from_hex(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
 	u8 *result;

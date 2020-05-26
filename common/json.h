@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_JSON_H
 #define LIGHTNING_COMMON_JSON_H
 #include "config.h"
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/errcode.h>
@@ -50,6 +51,7 @@ bool json_to_u32(const char *buffer, const jsmntok_t *tok,
 bool json_to_u16(const char *buffer, const jsmntok_t *tok,
                  uint16_t *num);
 
+bool json_to_sha256(const char *buffer, const jsmntok_t *tok, struct sha256 *dest);
 /*
  * Extract a non-negative (either 0 or positive) floating-point number from this
  * (must be a number literal), multiply it by 1 million and return it as an
