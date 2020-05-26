@@ -256,39 +256,12 @@ u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *t
 	return tal_dup_arr(ctx, u8, out->witness_script, out->witness_script_len, 0);
 }
 
-/* FIXME(cdecker) Make the caller pass in a reference to amount_asset, and
- * return false if unintelligible/encrypted. (WARN UNUSED). */
 struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
 						 int outnum)
 {
-	struct amount_asset amount;
-	struct wally_tx_output *output;
-	be64 raw;
-
 	assert(tx->chainparams);
 	assert(outnum < tx->wtx->num_outputs);
-	output = &tx->wtx->outputs[outnum];
-
-	if (chainparams->is_elements) {
-		assert(output->asset_len == sizeof(amount.asset));
-		memcpy(&amount.asset, output->asset, sizeof(amount.asset));
-
-		/* We currently only support explicit value asset tags, others
-		 * are confidential, so don't even try to assign a value to
-		 * it. */
-		if (output->asset[0] == 0x01) {
-			memcpy(&raw, output->value + 1, sizeof(raw));
-			amount.value = be64_to_cpu(raw);
-		} else {
-			amount.value = 0;
-		}
-	} else {
-		/* Do not assign amount.asset, we should never touch it in
-		 * non-elements scenarios. */
-		amount.value = tx->wtx->outputs[outnum].satoshi;
-	}
-
-	return amount;
+	return wally_tx_output_get_amount(&tx->wtx->outputs[outnum]);
 }
 
 void bitcoin_tx_output_get_amount_sat(struct bitcoin_tx *tx, int outnum,
@@ -359,76 +332,50 @@ void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 			       struct bitcoin_txid *out)
 {
 	assert(innum < tx->wtx->num_inputs);
-	assert(sizeof(struct bitcoin_txid) ==
-	       sizeof(tx->wtx->inputs[innum].txhash));
-	memcpy(out, tx->wtx->inputs[innum].txhash, sizeof(struct bitcoin_txid));
+	wally_tx_input_get_txid(&tx->wtx->inputs[innum], out);
+}
+
+void wally_tx_input_get_txid(const struct wally_tx_input *in,
+			     struct bitcoin_txid *txid)
+{
+	BUILD_ASSERT(sizeof(struct bitcoin_txid) == sizeof(in->txhash));
+	memcpy(txid, in->txhash, sizeof(struct bitcoin_txid));
 }
 
 /* BIP144:
  * If the witness is empty, the old serialization format should be used. */
-static bool uses_witness(const struct bitcoin_tx *tx)
+static bool uses_witness(const struct wally_tx *wtx)
 {
 	size_t i;
 
-	for (i = 0; i < tx->wtx->num_inputs; i++) {
-		if (tx->wtx->inputs[i].witness)
+	for (i = 0; i < wtx->num_inputs; i++) {
+		if (wtx->inputs[i].witness)
 			return true;
 	}
 	return false;
 }
 
-/* For signing, we ignore input scripts on other inputs, and pretend
- * the current input has a certain script: this is indicated by a
- * non-NULL override_script.
- *
- * For this (and other signing weirdness like SIGHASH_SINGLE), we
- * also need the current input being signed; that's in input_num.
- * We also need sighash_type.
- */
-static void push_tx(const struct bitcoin_tx *tx,
-		    const u8 *override_script,
-		    size_t input_num,
-		    void (*push)(const void *, size_t, void *), void *pushp,
-		    bool bip144)
-{
-	int res;
-	size_t len, written;
-	u8 *serialized;;
-	u8 flag = 0;
-
-        if (bip144 && uses_witness(tx))
-		flag |= WALLY_TX_FLAG_USE_WITNESS;
-
-	res = wally_tx_get_length(tx->wtx, flag, &len);
-	assert(res == WALLY_OK);
-	serialized = tal_arr(tmpctx, u8, len);
-
-	res = wally_tx_to_bytes(tx->wtx, flag, serialized, len, &written);
-	assert(res == WALLY_OK);
-	assert(len == written);
-	push(serialized, len, pushp);
-	tal_free(serialized);
-}
-
-static void push_sha(const void *data, size_t len, void *shactx_)
-{
-	struct sha256_ctx *ctx = shactx_;
-	sha256_update(ctx, memcheck(data, len), len);
-}
-
-static void push_linearize(const void *data, size_t len, void *pptr_)
-{
-	u8 **pptr = pptr_;
-	size_t oldsize = tal_count(*pptr);
-
-	tal_resize(pptr, oldsize + len);
-	memcpy(*pptr + oldsize, memcheck(data, len), len);
-}
-
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 {
-	u8 *arr = tal_arr(ctx, u8, 0);
-	push_tx(tx, NULL, 0, push_linearize, &arr, true);
+	return linearize_wtx(ctx, tx->wtx);
+}
+
+u8 *linearize_wtx(const tal_t *ctx, const struct wally_tx *wtx)
+{
+	u8 *arr;
+	u32 flag = 0;
+	size_t len, written;
+	int res;
+
+        if (uses_witness(wtx))
+		flag |= WALLY_TX_FLAG_USE_WITNESS;
+
+	res = wally_tx_get_length(wtx, flag, &len);
+	assert(res == WALLY_OK);
+	arr = tal_arr(ctx, u8, len);
+	res = wally_tx_to_bytes(wtx, flag, arr, len, &written);
+	assert(len == written);
+
 	return arr;
 }
 
@@ -440,13 +387,29 @@ size_t bitcoin_tx_weight(const struct bitcoin_tx *tx)
 	return weight;
 }
 
+void wally_txid(const struct wally_tx *wtx, struct bitcoin_txid *txid)
+{
+	u8 *arr;
+	size_t len, written;
+	int res;
+
+	/* Never use BIP141 form for txid */
+	res = wally_tx_get_length(wtx, 0, &len);
+	assert(res == WALLY_OK);
+	arr = tal_arr(NULL, u8, len);
+	res = wally_tx_to_bytes(wtx, 0, arr, len, &written);
+	assert(len == written);
+
+	sha256_double(&txid->shad, arr, len);
+	tal_free(arr);
+}
+
+/* We used to have beautiful, optimal code which fed the tx parts directly
+ * into sha256_update().  But that was before libwally; but now we don't have
+ * to maintain our own transaction code, so there's that. */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid)
 {
-	struct sha256_ctx ctx = SHA256_INIT;
-
-	/* For TXID, we never use extended form. */
-	push_tx(tx, NULL, 0, push_sha, &ctx, false);
-	sha256_double_done(&ctx, &txid->shad);
+	wally_txid(tx->wtx, txid);
 }
 
 /* Use the bitcoin_tx destructor to also free the wally_tx */
@@ -716,4 +679,47 @@ void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
 	towire_amount_sat(pptr, output->amount);
 	towire_u16(pptr, tal_count(output->script));
 	towire_u8_array(pptr, output->script, tal_count(output->script));
+}
+
+bool wally_tx_input_spends(const struct wally_tx_input *input,
+			   const struct bitcoin_txid *txid,
+			   int outnum)
+{
+	/* Useful, as tx_part can have some NULL inputs */
+	if (!input)
+		return false;
+	BUILD_ASSERT(sizeof(*txid) == sizeof(input->txhash));
+	if (memcmp(txid, input->txhash, sizeof(*txid)) != 0)
+		return false;
+	return input->index == outnum;
+}
+
+/* FIXME(cdecker) Make the caller pass in a reference to amount_asset, and
+ * return false if unintelligible/encrypted. (WARN UNUSED). */
+struct amount_asset
+wally_tx_output_get_amount(const struct wally_tx_output *output)
+{
+	struct amount_asset amount;
+	be64 raw;
+
+	if (chainparams->is_elements) {
+		assert(output->asset_len == sizeof(amount.asset));
+		memcpy(&amount.asset, output->asset, sizeof(amount.asset));
+
+		/* We currently only support explicit value asset tags, others
+		 * are confidential, so don't even try to assign a value to
+		 * it. */
+		if (output->asset[0] == 0x01) {
+			memcpy(&raw, output->value + 1, sizeof(raw));
+			amount.value = be64_to_cpu(raw);
+		} else {
+			amount.value = 0;
+		}
+	} else {
+		/* Do not assign amount.asset, we should never touch it in
+		 * non-elements scenarios. */
+		amount.value = output->satoshi;
+	}
+
+	return amount;
 }
