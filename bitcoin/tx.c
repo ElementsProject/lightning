@@ -603,8 +603,6 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 				       const u8 **cursor, size_t *max)
 {
 	struct bitcoin_tx *tx;
-	u16 input_amts_len;
-	size_t i;
 
 	tx = pull_bitcoin_tx(ctx, cursor, max);
 	if (!tx)
@@ -614,16 +612,7 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 	tal_free(tx->psbt);
 	tx->psbt = fromwire_psbt(tx, cursor, max);
 
-	input_amts_len = fromwire_u16(cursor, max);
-
-	/* They must give us none or all */
-	if (input_amts_len != 0
-	    && input_amts_len != tal_count(tx->input_amounts)) {
-		tal_free(tx);
-		return fromwire_fail(cursor, max);
-	}
-
-	for (i = 0; i < input_amts_len; i++) {
+	for (size_t i = 0; i < tal_count(tx->input_amounts); i++) {
 		struct amount_sat sat;
 		sat = fromwire_amount_sat(cursor, max);
 		tx->input_amounts[i] =
@@ -640,26 +629,12 @@ void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
 
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 {
-	size_t i;
 	u8 *lin = linearize_tx(tmpctx, tx);
 	towire_u8_array(pptr, lin, tal_count(lin));
 
 	towire_psbt(pptr, tx->psbt);
-	/* We only want to 'save' the amounts if every amount
-	 * has been populated */
-	for (i = 0; i < tal_count(tx->input_amounts); i++) {
-		if (!tx->input_amounts[i]) {
-			towire_u16(pptr, 0);
-			return;
-		}
-	}
-
-	/* Otherwise, we include the input amount set */
-	towire_u16(pptr, tal_count(tx->input_amounts));
-	for (i = 0; i < tal_count(tx->input_amounts); i++) {
-		assert(tx->input_amounts[i]);
+	for (size_t i = 0; i < tal_count(tx->input_amounts); i++)
 		towire_amount_sat(pptr, *tx->input_amounts[i]);
-	}
 }
 
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
