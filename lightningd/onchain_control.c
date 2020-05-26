@@ -500,7 +500,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 					 bool is_replay)
 {
 	u8 *msg;
-	struct bitcoin_txid our_last_txid, txid;
+	struct bitcoin_txid our_last_txid;
 	struct htlc_stub *stubs;
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
@@ -547,7 +547,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 	/* This could be a mutual close, but it doesn't matter. */
-	bitcoin_txid(tx, &txid);
 	bitcoin_txid(channel->last_tx, &our_last_txid);
 
 	/* We try to get the feerate for each transaction type, 0 if estimation
@@ -612,7 +611,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->opener,
 				  &channel->local_basepoints,
 				  &channel->channel_info.theirbase,
-				  tx,
+				  tx_parts_from_wally_tx(tmpctx, tx->wtx, -1, -1),
+				  tx->wtx->locktime,
 				  blockheight,
 				  /* FIXME: config for 'reasonable depth' */
 				  3,
