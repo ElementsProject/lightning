@@ -1255,7 +1255,11 @@ def test_feature_set(node_factory):
 def test_replacement_payload(node_factory):
     """Test that htlc_accepted plugin hook can replace payload"""
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/replace_payload.py')
-    l1, l2 = node_factory.line_graph(2, opts=[{}, {"plugin": plugin}])
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts=[{}, {"plugin": plugin}],
+        wait_for_announce=True
+    )
 
     # Replace with an invalid payload.
     l2.rpc.call('setpayload', ['0000'])
