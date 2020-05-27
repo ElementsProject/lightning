@@ -59,6 +59,12 @@ bool is_p2wpkh(const u8 *script UNNEEDED, struct bitcoin_address *addr UNNEEDED)
 /* Generated stub for is_p2wsh */
 bool is_p2wsh(const u8 *script UNNEEDED, struct sha256 *addr UNNEEDED)
 { fprintf(stderr, "is_p2wsh called!\n"); abort(); }
+/* Generated stub for pubkey_to_der */
+void pubkey_to_der(u8 der[PUBKEY_CMPR_LEN] UNNEEDED, const struct pubkey *key UNNEEDED)
+{ fprintf(stderr, "pubkey_to_der called!\n"); abort(); }
+/* Generated stub for pubkey_to_hash160 */
+void pubkey_to_hash160(const struct pubkey *pk UNNEEDED, struct ripemd160 *hash UNNEEDED)
+{ fprintf(stderr, "pubkey_to_hash160 called!\n"); abort(); }
 /* Generated stub for scriptpubkey_p2wsh */
 u8 *scriptpubkey_p2wsh(const tal_t *ctx UNNEEDED, const u8 *witnessscript UNNEEDED)
 { fprintf(stderr, "scriptpubkey_p2wsh called!\n"); abort(); }

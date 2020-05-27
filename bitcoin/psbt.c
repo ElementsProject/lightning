@@ -1,7 +1,10 @@
 #include <assert.h>
 #include <bitcoin/psbt.h>
+#include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
+#include <bitcoin/signature.h>
 #include <ccan/cast/cast.h>
+#include <ccan/ccan/array_size/array_size.h>
 #include <common/amount.h>
 #include <common/utils.h>
 #include <string.h>
@@ -153,6 +156,66 @@ void psbt_rm_output(struct wally_psbt *psbt,
 	REMOVE_ELEM(psbt->outputs, remove_at, psbt->num_outputs);
 	psbt->num_outputs -= 1;
 }
+
+void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
+			   const struct pubkey *pubkey)
+{
+	int wally_err;
+	u32 empty_path[1] = {0};
+	unsigned char fingerprint[4];
+	struct ripemd160 hash;
+	u8 pk_der[PUBKEY_CMPR_LEN];
+
+	assert(in < psbt->num_inputs);
+
+	/* Find the key identifier fingerprint:
+	 * the first 32 bits of the identifier, where the identifier
+	 * is the hash160 of the ECDSA serialized public key
+	 * https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#key-identifiers
+	 * */
+	pubkey_to_hash160(pubkey, &hash);
+	memcpy(fingerprint, hash.u.u8, sizeof(fingerprint));
+
+	/* we serialize the compressed version of the key, wally likes this */
+	pubkey_to_der(pk_der, pubkey);
+
+	if (!psbt->inputs[in].keypaths)
+		if (wally_keypath_map_init_alloc(1, &psbt->inputs[in].keypaths) != WALLY_OK)
+			abort();
+
+	wally_err = wally_add_new_keypath(psbt->inputs[in].keypaths,
+					  pk_der, sizeof(pk_der),
+					  fingerprint, sizeof(fingerprint),
+					  empty_path, ARRAY_SIZE(empty_path));
+
+	assert(wally_err == WALLY_OK);
+}
+
+void psbt_input_set_partial_sig(struct wally_psbt *psbt, size_t in,
+				const struct pubkey *pubkey,
+				const struct bitcoin_signature *sig)
+{
+	int wally_err;
+	u8 pk_der[PUBKEY_CMPR_LEN];
+
+	assert(in < psbt->num_inputs);
+	if (!psbt->inputs[in].partial_sigs)
+		if (wally_partial_sigs_map_init_alloc(1, &psbt->inputs[in].partial_sigs) != WALLY_OK)
+			abort();
+
+	/* we serialize the compressed version of the key, wally likes this */
+	pubkey_to_der(pk_der, pubkey);
+	wally_err = wally_add_new_partial_sig(psbt->inputs[in].partial_sigs,
+					      pk_der, sizeof(pk_der),
+					      cast_const(unsigned char *, sig->s.data),
+					      sizeof(sig->s.data));
+	assert(wally_err == WALLY_OK);
+
+	wally_err = wally_psbt_input_set_sighash_type(&psbt->inputs[in],
+						      sig->sighash_type);
+	assert(wally_err == WALLY_OK);
+}
+
 void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
 			      const u8 *scriptPubkey, struct amount_sat amt)
 {
