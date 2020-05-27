@@ -202,6 +202,10 @@ struct payment {
 	 * attempt. Modifiers need to leave failures alone once this is set to
 	 * true. Set only on the root payment. */
 	bool abort;
+
+	/* Serialized bolt11 string, kept attachd to the root so we can filter
+	 * by the invoice. */
+	const char *bolt11;
 };
 
 struct payment_modifier {

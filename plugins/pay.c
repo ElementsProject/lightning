@@ -1780,6 +1780,7 @@ static struct command_result *json_paymod(struct command *cmd,
 				? tal_dup(p, struct secret, b11->payment_secret)
 				: NULL;
 	p->invoice = tal_steal(p, b11);
+	p->bolt11 = tal_steal(p, b11str);
 	payment_start(p);
 	list_add_tail(&payments, &p->list);
 
