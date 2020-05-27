@@ -464,7 +464,6 @@ int main(int argc, char *argv[])
 
 	for (size_t i = 0; i < tal_count(htlcmap); i++) {
 		struct bitcoin_signature local_htlc_sig, remote_htlc_sig;
-		struct amount_sat amt;
 		u8 *wscript;
 
 		if (!htlcmap[i])
@@ -473,9 +472,6 @@ int main(int argc, char *argv[])
 		       i, side_to_str(htlc_owner(htlcmap[i])), htlcmap[i]->id);
 		printf("# unsigned htlc tx for output %zu: %s\n",
 		       i, tal_hex(NULL, linearize_tx(NULL, local_txs[1+i])));
-		amt = amount_msat_to_sat_round_down(htlcmap[i]->amount);
-		local_txs[1+i]->input_amounts[0]
-			= tal_dup(local_txs[1+i], struct amount_sat, &amt);
 
 		wscript = bitcoin_tx_output_get_witscript(NULL, local_txs[1+i], 1+i);
 		printf("# wscript: %s\n", tal_hex(NULL, wscript));
@@ -516,8 +512,6 @@ int main(int argc, char *argv[])
 	remote_txs = channel_txs(NULL, &htlcmap, NULL, &funding_wscript, channel,
 				 &remote_per_commit_point, commitnum,
 				 REMOTE);
-	remote_txs[0]->input_amounts[0]
-		= tal_dup(remote_txs[0], struct amount_sat, &funding_amount);
 
 	printf("## remote_commitment\n"
 	       "# input amount %s, funding_wscript %s, key %s\n",
@@ -579,7 +573,6 @@ int main(int argc, char *argv[])
 
 	for (size_t i = 0; i < tal_count(htlcmap); i++) {
 		struct bitcoin_signature local_htlc_sig, remote_htlc_sig;
-		struct amount_sat amt;
 		u8 *wscript;
 
 		if (!htlcmap[i])
@@ -588,9 +581,6 @@ int main(int argc, char *argv[])
 		       i, side_to_str(htlc_owner(htlcmap[i])), htlcmap[i]->id);
 		printf("# unsigned htlc tx for output %zu: %s\n",
 		       i, tal_hex(NULL, linearize_tx(NULL, remote_txs[1+i])));
-		amt = amount_msat_to_sat_round_down(htlcmap[i]->amount);
-		remote_txs[1+i]->input_amounts[0]
-			= tal_dup(remote_txs[1+i], struct amount_sat, &amt);
 
 		wscript = bitcoin_tx_output_get_witscript(NULL, remote_txs[1+i], 1+i);
 		printf("# wscript: %s\n", tal_hex(NULL, wscript));

@@ -50,6 +50,18 @@ u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_u32 */
 u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
+/* Generated stub for is_p2sh */
+bool is_p2sh(const u8 *script UNNEEDED, struct ripemd160 *addr UNNEEDED)
+{ fprintf(stderr, "is_p2sh called!\n"); abort(); }
+/* Generated stub for is_p2wpkh */
+bool is_p2wpkh(const u8 *script UNNEEDED, struct bitcoin_address *addr UNNEEDED)
+{ fprintf(stderr, "is_p2wpkh called!\n"); abort(); }
+/* Generated stub for is_p2wsh */
+bool is_p2wsh(const u8 *script UNNEEDED, struct sha256 *addr UNNEEDED)
+{ fprintf(stderr, "is_p2wsh called!\n"); abort(); }
+/* Generated stub for scriptpubkey_p2wsh */
+u8 *scriptpubkey_p2wsh(const tal_t *ctx UNNEEDED, const u8 *witnessscript UNNEEDED)
+{ fprintf(stderr, "scriptpubkey_p2wsh called!\n"); abort(); }
 /* Generated stub for towire_amount_sat */
 void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "towire_amount_sat called!\n"); abort(); }

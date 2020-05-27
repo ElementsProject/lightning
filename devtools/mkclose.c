@@ -165,8 +165,6 @@ int main(int argc, char *argv[])
 	printf("# funding witness script = %s\n",
 	       tal_hex(NULL, funding_wscript));
 
-	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding_amount);
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &funding_privkey[LOCAL],
 		      &funding_pubkey[LOCAL],

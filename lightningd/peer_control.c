@@ -184,20 +184,12 @@ static void sign_last_tx(struct channel *channel)
 	u8 *msg, **witness;
 
 	assert(!channel->last_tx->wtx->inputs[0].witness);
-	/* Attach input amount, to complete transaction for marshaling */
-	if (!channel->last_tx->input_amounts[0]) {
-		channel->last_tx->input_amounts[0]
-			= tal_dup(channel->last_tx->input_amounts,
-				  struct amount_sat,
-				  &channel->funding);
-	}
 	msg = towire_hsm_sign_commitment_tx(tmpctx,
 					    &channel->peer->id,
 					    channel->dbid,
 					    channel->last_tx,
 					    &channel->channel_info
-					    .remote_fundingkey,
-					    channel->funding);
+					    .remote_fundingkey);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));

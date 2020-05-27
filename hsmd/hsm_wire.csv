@@ -105,7 +105,6 @@ msgdata,hsm_sign_commitment_tx,peer_id,node_id,
 msgdata,hsm_sign_commitment_tx,channel_dbid,u64,
 msgdata,hsm_sign_commitment_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_commitment_tx,remote_funding_key,pubkey,
-msgdata,hsm_sign_commitment_tx,funding_amount,amount_sat,
 
 msgtype,hsm_sign_commitment_tx_reply,105
 msgdata,hsm_sign_commitment_tx_reply,sig,bitcoin_signature,
@@ -118,21 +117,18 @@ msgdata,hsm_sign_delayed_payment_to_us,commit_num,u64,
 msgdata,hsm_sign_delayed_payment_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_delayed_payment_to_us,wscript_len,u16,
 msgdata,hsm_sign_delayed_payment_to_us,wscript,u8,wscript_len
-msgdata,hsm_sign_delayed_payment_to_us,input_amount,amount_sat,
 
 msgtype,hsm_sign_remote_htlc_to_us,13
 msgdata,hsm_sign_remote_htlc_to_us,remote_per_commitment_point,pubkey,
 msgdata,hsm_sign_remote_htlc_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_htlc_to_us,wscript_len,u16,
 msgdata,hsm_sign_remote_htlc_to_us,wscript,u8,wscript_len
-msgdata,hsm_sign_remote_htlc_to_us,input_amount,amount_sat,
 
 msgtype,hsm_sign_penalty_to_us,14
 msgdata,hsm_sign_penalty_to_us,revocation_secret,secret,
 msgdata,hsm_sign_penalty_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_penalty_to_us,wscript_len,u16,
 msgdata,hsm_sign_penalty_to_us,wscript,u8,wscript_len
-msgdata,hsm_sign_penalty_to_us,input_amount,amount_sat,
 
 # Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
 msgtype,hsm_sign_local_htlc_tx,16
@@ -140,13 +136,11 @@ msgdata,hsm_sign_local_htlc_tx,commit_num,u64,
 msgdata,hsm_sign_local_htlc_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_local_htlc_tx,wscript_len,u16,
 msgdata,hsm_sign_local_htlc_tx,wscript,u8,wscript_len
-msgdata,hsm_sign_local_htlc_tx,input_amount,amount_sat,
 
 # Openingd/channeld asks HSM to sign the other sides' commitment tx.
 msgtype,hsm_sign_remote_commitment_tx,19
 msgdata,hsm_sign_remote_commitment_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_commitment_tx,remote_funding_key,pubkey,
-msgdata,hsm_sign_remote_commitment_tx,funding_amount,amount_sat,
 msgdata,hsm_sign_remote_commitment_tx,remote_per_commit,pubkey,
 msgdata,hsm_sign_remote_commitment_tx,option_static_remotekey,bool,
 
@@ -155,14 +149,12 @@ msgtype,hsm_sign_remote_htlc_tx,20
 msgdata,hsm_sign_remote_htlc_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_htlc_tx,len,u16,
 msgdata,hsm_sign_remote_htlc_tx,wscript,u8,len
-msgdata,hsm_sign_remote_htlc_tx,amounts_satoshi,amount_sat,
 msgdata,hsm_sign_remote_htlc_tx,remote_per_commit_point,pubkey,
 
 # closingd asks HSM to sign mutual close tx.
 msgtype,hsm_sign_mutual_close_tx,21
 msgdata,hsm_sign_mutual_close_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_mutual_close_tx,remote_funding_key,pubkey,
-msgdata,hsm_sign_mutual_close_tx,funding,amount_sat,
 
 # Reply for all the above requests.
 msgtype,hsm_sign_tx_reply,112

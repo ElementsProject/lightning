@@ -10,6 +10,7 @@ struct wally_tx_output;
 struct wally_psbt;
 struct wally_psbt_input;
 struct wally_tx;
+struct amount_sat;
 
 void psbt_destroy(struct wally_psbt *psbt);
 
@@ -29,6 +30,13 @@ struct wally_psbt_output *psbt_add_output(struct wally_psbt *psbt,
 
 void psbt_rm_output(struct wally_psbt *psbt,
 		    size_t remove_at);
+
+void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
+			      const u8 *wscript, struct amount_sat amt);
+void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
+			              const u8 *wscript, struct amount_sat amt);
+struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
+					size_t in);
 
 void towire_psbt(u8 **pptr, const struct wally_psbt *psbt);
 struct wally_psbt *fromwire_psbt(const tal_t *ctx,
