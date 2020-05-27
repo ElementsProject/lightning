@@ -9,23 +9,6 @@
 
 #define DEFAULT_FINAL_CLTV_DELTA 9
 
-/* Just a container to collect a subtree result so we can summarize all
- * sub-payments and return a reasonable result to the caller of `pay` */
-struct payment_tree_result {
-	/* OR of all the leafs in the subtree. */
-	enum payment_step leafstates;
-
-	/* OR of all the inner nodes and leaf nodes. */
-	enum payment_step treestates;
-
-	struct amount_msat sent;
-
-	/* Preimage if any of the attempts succeeded. */
-	struct preimage *preimage;
-
-	u32 attempts;
-};
-
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
 			    struct payment_modifier **mods)
@@ -98,7 +81,7 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static struct payment_tree_result payment_collect_result(struct payment *p)
+struct payment_tree_result payment_collect_result(struct payment *p)
 {
 	struct payment_tree_result res;
 	size_t numchildren = tal_count(p->children);
