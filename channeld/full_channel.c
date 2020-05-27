@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
@@ -310,6 +311,12 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    channel->view[side].owed[!side], committed, htlcmap, direct_outputs,
 	    commitment_number ^ channel->commitment_number_obscurer,
 	    side);
+
+	/* Set the remote/local pubkeys on the commitment tx psbt */
+	psbt_input_add_pubkey(txs[0]->psbt, 0,
+			      &channel->funding_pubkey[side]);
+	psbt_input_add_pubkey(txs[0]->psbt, 0,
+			      &channel->funding_pubkey[!side]);
 
 	add_htlcs(&txs, *htlcmap, channel, &keyset, side);
 
