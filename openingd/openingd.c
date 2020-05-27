@@ -735,7 +735,6 @@ static bool funder_finalize_channel_setup(struct state *state,
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   *tx,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding,
 						   &state->first_per_commitment_point[REMOTE],
 						   state->channel->option_static_remotekey);
 
@@ -1269,7 +1268,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding,
 						   &state->first_per_commitment_point[REMOTE],
 						   state->channel->option_static_remotekey);
 

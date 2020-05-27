@@ -276,8 +276,7 @@ static void send_offer(struct per_peer_state *pps,
 	wire_sync_write(HSM_FD,
 			take(towire_hsm_sign_mutual_close_tx(NULL,
 							     tx,
-							     &funding_pubkey[REMOTE],
-							     funding)));
+							     &funding_pubkey[REMOTE])));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsm_sign_tx_reply(msg, &our_sig))
 		status_failed(STATUS_FAIL_HSM_IO,

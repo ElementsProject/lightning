@@ -21,9 +21,6 @@ struct bitcoin_txid {
 STRUCTEQ_DEF(bitcoin_txid, 0, shad.sha.u);
 
 struct bitcoin_tx {
-	/* Keep track of input amounts, this is needed for signatures (NULL if
-	 * unknown) */
-	struct amount_sat **input_amounts;
 	struct wally_tx *wtx;
 
 	/* Keep a reference to the ruleset we have to abide by */

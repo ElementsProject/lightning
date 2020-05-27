@@ -1,6 +1,9 @@
 #include <assert.h>
 #include <bitcoin/psbt.h>
+#include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
+#include <common/amount.h>
+#include <common/utils.h>
 #include <string.h>
 #include <wally_psbt.h>
 #include <wally_transaction.h>
@@ -72,6 +75,7 @@ struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 	tx = psbt->tx;
 	assert(insert_at <= tx->num_inputs);
 	wally_tx_add_input(tx, input);
+
 	tmp_in = tx->inputs[tx->num_inputs - 1];
 	MAKE_ROOM(tx->inputs, insert_at, tx->num_inputs);
 	tx->inputs[insert_at] = tmp_in;
@@ -136,6 +140,71 @@ void psbt_rm_output(struct wally_psbt *psbt,
 	wally_tx_remove_output(psbt->tx, remove_at);
 	REMOVE_ELEM(psbt->outputs, remove_at, psbt->num_outputs);
 	psbt->num_outputs -= 1;
+}
+void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
+			      const u8 *scriptPubkey, struct amount_sat amt)
+{
+	struct wally_tx_output *prev_out;
+	int wally_err;
+	u8 *scriptpk;
+
+	assert(psbt->num_inputs > in);
+	if (scriptPubkey) {
+		assert(is_p2wsh(scriptPubkey, NULL) || is_p2wpkh(scriptPubkey, NULL)
+		       || is_p2sh(scriptPubkey, NULL));
+		scriptpk = cast_const(u8 *, scriptPubkey);
+	} else {
+		/* Adding a NULL scriptpubkey is an error, *however* there is the
+		 * possiblity we're spending a UTXO that we didn't save the
+		 * scriptpubkey data for. in this case we set it to an 'empty'
+		 * or zero-len script */
+		scriptpk = tal_arr(psbt, u8, 1);
+		scriptpk[0] = 0x00;
+	}
+
+	wally_err = wally_tx_output_init_alloc(amt.satoshis, /* Raw: type conv */
+					       scriptpk,
+					       tal_bytelen(scriptpk),
+					       &prev_out);
+	assert(wally_err == WALLY_OK);
+	wally_err = wally_psbt_input_set_witness_utxo(&psbt->inputs[in],
+						      prev_out);
+	assert(wally_err == WALLY_OK);
+	tal_steal(psbt, psbt->inputs[in].witness_utxo);
+}
+
+void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
+			              const u8 *wscript, struct amount_sat amt)
+{
+	int wally_err;
+	const u8 *scriptPubkey;
+
+	if (wscript) {
+		scriptPubkey = scriptpubkey_p2wsh(psbt, wscript);
+		wally_err = wally_psbt_input_set_witness_script(&psbt->inputs[in],
+								cast_const(u8 *, wscript),
+								tal_bytelen(wscript));
+		assert(wally_err == WALLY_OK);
+	} else
+		scriptPubkey = NULL;
+	psbt_input_set_prev_utxo(psbt, in, scriptPubkey, amt);
+}
+
+struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
+					size_t in)
+{
+	struct amount_sat val;
+	assert(in < psbt->num_inputs);
+	if (psbt->inputs[in].witness_utxo) {
+		val.satoshis = psbt->inputs[in].witness_utxo->satoshi; /* Raw: type conversion */
+	} else if (psbt->inputs[in].non_witness_utxo) {
+		int idx = psbt->tx->inputs[in].index;
+		struct wally_tx *prev_tx = psbt->inputs[in].non_witness_utxo;
+		val.satoshis = prev_tx->outputs[idx].satoshi; /* Raw: type conversion */
+	} else
+		abort();
+
+	return val;
 }
 
 void towire_psbt(u8 **pptr, const struct wally_psbt *psbt)

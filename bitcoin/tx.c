@@ -3,6 +3,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/pullpush.h>
+#include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -102,18 +103,15 @@ struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
 
 /**
  * Compute how much fee we are actually sending with this transaction.
- * Note that using this with a transaction without the input_amounts
- * initialized/populated is an error.
  */
 struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx)
 {
-	struct amount_sat input_total = AMOUNT_SAT(0);
+	struct amount_sat input_total = AMOUNT_SAT(0), input_amt;
 	bool ok;
 
-	for (size_t i = 0; i < tal_count(tx->input_amounts); i++) {
-		assert(tx->input_amounts[i]);
-		ok = amount_sat_add(&input_total, input_total,
-				    *tx->input_amounts[i]);
+	for (size_t i = 0; i < tx->psbt->num_inputs; i++) {
+		input_amt = psbt_input_get_amount(tx->psbt, i);
+		ok = amount_sat_add(&input_total, input_total, input_amt);
 		assert(ok);
 	}
 
@@ -173,15 +171,10 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	input->features = chainparams->is_elements ? WALLY_TX_IS_ELEMENTS : 0;
 	wally_tx_add_input(tx->wtx, input);
 	psbt_add_input(tx->psbt, input, i);
+
+
+
 	wally_tx_input_free(input);
-
-	/* Now store the input amount if we know it, so we can sign later */
-	if (tal_count(tx->input_amounts) < tx->wtx->num_inputs)
-		tal_resize(&tx->input_amounts, tx->wtx->num_inputs);
-
-	tx->input_amounts[i] = tal_free(tx->input_amounts[i]);
-	tx->input_amounts[i] = tal_dup(tx, struct amount_sat, &amount);
-
 
 	return i;
 }
@@ -191,9 +184,6 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 	u8 *newtx;
 	size_t written;
 	int flags = WALLY_TX_FLAG_USE_WITNESS;
-
-	if (tal_count(tx->input_amounts) != tx->wtx->num_inputs)
-		return false;
 
 	if (wally_tx_get_length(tx->wtx, flags, &written) != WALLY_OK)
 		return false;
@@ -440,7 +430,6 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 			    &tx->wtx);
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 
-	tx->input_amounts = tal_arrz(tx, struct amount_sat*, input_count);
 	tx->wtx->locktime = nlocktime;
 	tx->wtx->version = 2;
 	tx->chainparams = chainparams;
@@ -451,11 +440,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 
 void bitcoin_tx_finalize(struct bitcoin_tx *tx)
 {
-	size_t num_inputs;
 	elements_tx_add_fee_output(tx);
-
-	num_inputs = tx->wtx->num_inputs;
-	tal_resize(&tx->input_amounts, num_inputs);
 	assert(bitcoin_tx_check(tx));
 }
 
@@ -498,9 +483,6 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	wally_tx_get_length(tx->wtx, flags & ~WALLY_TX_FLAG_USE_ELEMENTS,
 			    &wsize);
 
-	/* We don't know the input amounts yet, so set them all to NULL */
-	tx->input_amounts =
-	    tal_arrz(tx, struct amount_sat *, tx->wtx->inputs_allocation_len);
 	tx->chainparams = chainparams;
 
 	tx->psbt = new_psbt(tx, tx->wtx);
@@ -536,9 +518,6 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 		goto fail_free_tx;
 
 	tal_free(linear_tx);
-
-	tx->input_amounts =
-	    tal_arrz(tx, struct amount_sat *, tx->wtx->num_inputs);
 
 	return tx;
 
@@ -616,13 +595,6 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 	tal_free(tx->psbt);
 	tx->psbt = fromwire_psbt(tx, cursor, max);
 
-	for (size_t i = 0; i < tal_count(tx->input_amounts); i++) {
-		struct amount_sat sat;
-		sat = fromwire_amount_sat(cursor, max);
-		tx->input_amounts[i] =
-			tal_dup(tx, struct amount_sat, &sat);
-	}
-
 	return tx;
 }
 
@@ -637,8 +609,6 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 	towire_u8_array(pptr, lin, tal_count(lin));
 
 	towire_psbt(pptr, tx->psbt);
-	for (size_t i = 0; i < tal_count(tx->input_amounts); i++)
-		towire_amount_sat(pptr, *tx->input_amounts[i]);
 }
 
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
