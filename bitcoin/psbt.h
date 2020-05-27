@@ -11,6 +11,8 @@ struct wally_psbt;
 struct wally_psbt_input;
 struct wally_tx;
 struct amount_sat;
+struct bitcoin_signature;
+struct pubkey;
 
 int wally_psbt_clone(const struct wally_psbt *psbt, struct wally_psbt **output);
 
@@ -32,6 +34,13 @@ struct wally_psbt_output *psbt_add_output(struct wally_psbt *psbt,
 
 void psbt_rm_output(struct wally_psbt *psbt,
 		    size_t remove_at);
+
+void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
+			   const struct pubkey *pubkey);
+
+void psbt_input_set_partial_sig(struct wally_psbt *psbt, size_t in,
+				const struct pubkey *pubkey,
+				const struct bitcoin_signature *sig);
 
 void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
 			      const u8 *wscript, struct amount_sat amt);
