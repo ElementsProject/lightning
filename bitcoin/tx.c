@@ -17,6 +17,21 @@
 
 #define SEGREGATED_WITNESS_FLAG 0x1
 
+/* FIXME: When wally exposes this, we will clash and can remove this one */
+int wally_tx_clone(struct wally_tx *tx, struct wally_tx **output)
+{
+	u8 *txlin = linearize_wtx(NULL, tx);
+	int flags = WALLY_TX_FLAG_USE_WITNESS;
+	int ret;
+
+	if (chainparams->is_elements)
+		flags |= WALLY_TX_FLAG_USE_ELEMENTS;
+
+	ret = wally_tx_from_bytes(txlin, tal_bytelen(txlin), flags, output);
+	tal_free(txlin);
+	return ret;
+}
+
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 			  u8 *wscript, struct amount_sat amount)
 {
