@@ -1507,13 +1507,25 @@ static struct command_result *json_paystatus(struct command *cmd,
 static bool attempt_ongoing(const char *b11)
 {
 	struct pay_status *ps;
+	struct payment *root;
 	struct pay_attempt *attempt;
+	struct payment_tree_result res;
+	enum payment_step diff,
+	    final_states = PAYMENT_STEP_FAILED | PAYMENT_STEP_SUCCESS;
 
 	list_for_each(&pay_status, ps, list) {
 		if (!streq(b11, ps->bolt11))
 			continue;
 		attempt = &ps->attempts[tal_count(ps->attempts)-1];
 		return attempt->result == NULL && attempt->failure == NULL;
+	}
+
+	list_for_each(&payments, root, list) {
+		if (root->bolt11 == NULL || !streq(b11, root->bolt11))
+			continue;
+		res = payment_collect_result(root);
+		diff = res.leafstates & ~final_states;
+		return diff != 0;
 	}
 	return false;
 }
