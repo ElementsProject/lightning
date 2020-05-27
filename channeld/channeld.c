@@ -12,6 +12,7 @@
  */
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
@@ -1288,6 +1289,10 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	    channel_txs(tmpctx, &htlc_map, NULL,
 			&funding_wscript, peer->channel, &peer->next_local_per_commit,
 			peer->next_index[LOCAL], LOCAL);
+
+	/* Set the commit_sig on the commitment tx psbt */
+	psbt_input_set_partial_sig(txs[0]->psbt, 0,
+	    &peer->channel->funding_pubkey[REMOTE], &commit_sig);
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].htlc,
 			       &peer->next_local_per_commit, &remote_htlckey))

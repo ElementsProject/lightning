@@ -10,6 +10,7 @@
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
@@ -843,6 +844,12 @@ static bool funder_finalize_channel_setup(struct state *state,
 			    type_to_string(tmpctx, struct pubkey,
 					   &state->their_funding_pubkey));
 	}
+
+	/* We save their sig to our first commitment tx */
+	psbt_input_set_partial_sig((*tx)->psbt, 0,
+				   &state->their_funding_pubkey,
+				   sig);
+
 
 	peer_billboard(false, "Funding channel: opening negotiation succeeded");
 
